@@ -1,0 +1,23 @@
+rules_version = '2';
+
+// Receipts live at receipts/{groupId}/{file}. Only members of that group can read or write.
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isMember(groupId) {
+      return request.auth != null
+        && request.auth.uid in firestore.get(/databases/(default)/documents/groups/$(groupId)).data.memberUids;
+    }
+
+    match /receipts/{groupId}/{fileName} {
+      allow read: if isMember(groupId);
+      allow create: if isMember(groupId)
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if isMember(groupId);
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

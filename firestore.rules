@@ -1,0 +1,90 @@
+rules_version = '2';
+
+// Split It — Firestore security rules.
+// Model: a user can see a group only if their uid is in group.memberUids.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+    function groupDoc(groupId) { return get(/databases/$(database)/documents/groups/$(groupId)); }
+    function isGroupMember(groupId) { return signedIn() && uid() in groupDoc(groupId).data.memberUids; }
+
+    // ---- Users ---------------------------------------------------------
+    // Profiles hold display name + payment handles shown during settle-up.
+    // Readable by any signed-in user who knows the uid (no listing).
+    match /users/{userId} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create, update: if signedIn() && uid() == userId
+        && request.resource.data.uid == userId;
+      allow delete: if signedIn() && uid() == userId;
+    }
+
+    // ---- Groups --------------------------------------------------------
+    match /groups/{groupId} {
+      function isMember() { return signedIn() && uid() in resource.data.memberUids; }
+
+      // A non-member may join only by:
+      //  - presenting the group's current invite code (joinCode == inviteCode),
+      //  - adding exactly their own uid to memberUids,
+      //  - writing exactly one members entry (joinMemberId) that carries their uid,
+      //    and that entry must be new or an unclaimed placeholder.
+      function isJoining() {
+        let before = resource.data;
+        let after = request.resource.data;
+        let mid = after.joinMemberId;
+        return signedIn()
+          && !(uid() in before.memberUids)
+          && after.joinCode == before.inviteCode
+          && after.memberUids.toSet() == before.memberUids.toSet().union([uid()].toSet())
+          && after.diff(before).affectedKeys().hasOnly(['memberUids', 'members', 'joinCode', 'joinMemberId', 'updatedAt'])
+          && after.members.diff(before.members).affectedKeys().hasOnly([mid])
+          && after.members[mid].uid == uid()
+          && (!(mid in before.members) || !('uid' in before.members[mid]));
+      }
+
+      allow get: if isMember();
+      allow list: if signedIn() && uid() in resource.data.memberUids;
+      allow create: if signedIn()
+        && request.resource.data.createdBy == uid()
+        && uid() in request.resource.data.memberUids
+        && request.resource.data.inviteCode is string
+        && request.resource.data.inviteCode.size() >= 6;
+      allow update: if (isMember()
+          // members can't silently change who created the group or its invite code
+          && request.resource.data.createdBy == resource.data.createdBy
+          && request.resource.data.inviteCode == resource.data.inviteCode)
+        || isJoining();
+      allow delete: if isMember() && resource.data.createdBy == uid();
+
+      match /expenses/{expenseId} {
+        allow read: if isGroupMember(groupId);
+        allow create, update: if isGroupMember(groupId)
+          && request.resource.data.groupId == groupId
+          && request.resource.data.amount is int
+          && request.resource.data.amount > 0;
+        allow delete: if isGroupMember(groupId);
+      }
+
+      match /settlements/{settlementId} {
+        allow read: if isGroupMember(groupId);
+        allow create, update: if isGroupMember(groupId)
+          && request.resource.data.groupId == groupId
+          && request.resource.data.amount is int
+          && request.resource.data.amount > 0
+          && request.resource.data.from != request.resource.data.to;
+        allow delete: if isGroupMember(groupId);
+      }
+    }
+
+    // ---- Invites -------------------------------------------------------
+    // Public-to-signed-in lookup table: code → group name + unclaimed placeholders.
+    match /invites/{code} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create, update: if signedIn() && isGroupMember(request.resource.data.groupId);
+      allow delete: if signedIn() && isGroupMember(resource.data.groupId);
+    }
+  }
+}
