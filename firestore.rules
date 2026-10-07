@@ -235,6 +235,75 @@ service cloud.firestore {
       }
     }
 
+    // ---- Live table split ---------------------------------------------
+    // tables/{code}: a bill everyone at the table claims items on, from their own phone.
+    // The doc id is the share code (8 random chars), so knowing the code is what grants access;
+    // there is no list. Guests sign in anonymously and their participant id is their uid.
+    // Claims live at claims.{uid}.{itemId} = shares, so a guest's write can be confined to
+    // their own key without iterating the items.
+    match /tables/{code} {
+      function isHost() { return signedIn() && resource.data.hostUid == uid(); }
+      function isLive(t) { return t.status == 'open' && request.time.toMillis() < t.expiresAt; }
+      function validParticipant(p, pid) {
+        return p is map
+          && p.keys().hasOnly(['name', 'uid', 'joinedAt'])
+          && p.name is string && p.name.size() > 0 && p.name.size() <= 40
+          && p.joinedAt is int
+          && (!('uid' in p) || p.uid == pid);
+      }
+      // A guest may add/rename only their own participant entry and replace only their own claims.
+      function isGuestUpdate() {
+        let before = resource.data;
+        let after = request.resource.data;
+        let me = uid();
+        let claimsAfter = after.get('claims', {});
+        return signedIn()
+          && isLive(before)
+          && after.diff(before).affectedKeys().hasOnly(['participants', 'claims'])
+          && after.participants.diff(before.participants).affectedKeys().hasOnly([me])
+          && claimsAfter.diff(before.get('claims', {})).affectedKeys().hasOnly([me])
+          // you must be at the table (after this write) and your entry carries your uid
+          && me in after.participants
+          && validParticipant(after.participants[me], me)
+          && after.participants[me].uid == me
+          && (!(me in claimsAfter)
+            || (claimsAfter[me] is map
+              && claimsAfter[me].size() <= 100
+              && claimsAfter[me].keys().hasOnly(before.items.keys())));
+      }
+
+      // Anyone signed in (anonymous included) with the code can read an open, unexpired table;
+      // the host and the people who joined can still read it after it closes (the summary).
+      // A missing doc is readable so the host's client can check a fresh code is free.
+      allow get: if signedIn() && (resource == null
+        || resource.data.hostUid == uid()
+        || isLive(resource.data)
+        || uid() in resource.data.participants);
+      allow list: if signedIn() && resource.data.hostUid == uid();
+      allow create: if signedIn()
+        && request.resource.data.hostUid == uid()
+        && request.resource.data.code == code
+        && code.size() >= 6 && code.size() <= 12
+        && request.resource.data.status == 'open'
+        && request.resource.data.keys().hasOnly(['code', 'groupId', 'hostUid', 'merchant', 'currency', 'date', 'items', 'extras',
+          'participants', 'claims', 'hostPayment', 'status', 'createdAt', 'expiresAt', 'expenseId', 'closedGroupId'])
+        && request.resource.data.items is map && request.resource.data.items.size() <= 200
+        && request.resource.data.claims is map
+        && request.resource.data.createdAt is int && request.resource.data.expiresAt is int
+        && request.resource.data.createdAt <= request.time.toMillis() + 600000
+        && request.resource.data.expiresAt - request.resource.data.createdAt <= 86400000
+        && request.resource.data.participants[uid()].uid == uid();
+      // The host can change anything except who hosts it, its code and when it expires.
+      allow update: if (isHost()
+          && request.resource.data.hostUid == resource.data.hostUid
+          && request.resource.data.code == resource.data.code
+          && request.resource.data.expiresAt == resource.data.expiresAt
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.status in ['open', 'closed'])
+        || isGuestUpdate();
+      allow delete: if isHost();
+    }
+
     // ---- Invites -------------------------------------------------------
     // Public-to-signed-in lookup table: code → group name + unclaimed placeholders.
     // An invite can only point at a group whose inviteCode is this doc's id, written by

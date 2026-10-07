@@ -73,6 +73,7 @@ export default function Login() {
               </button>
             </>
           )}
+          <a href="/t" className="block py-2 text-center text-sm text-slate-400">Splitting a bill at a table? <span className="font-semibold text-white">Enter the code</span></a>
         </div>
       </div>
     </div>

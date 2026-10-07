@@ -6,8 +6,10 @@ import { useOcr } from '@/hooks/useOcr'
 import { formatMoney, fromHundredths } from '@/lib/money'
 import { matchMember, parsePaymentScreenshot, parseReceipt, type ParsedPayment, type ParsedReceipt } from '@/lib/ocr-parse'
 import { pending } from '@/lib/pending'
+import { todayISO } from '@/lib/id'
 import { GroupIcon } from '@/components/GroupIcon'
 import { Loading, PageHeader, Segmented } from '@/components/Misc'
+import { StartTableButton } from '@/components/StartTableButton'
 import { useToast } from '@/components/Toast'
 
 type Mode = 'receipt' | 'payment'
@@ -129,6 +131,13 @@ export default function Scan() {
             <div className="mt-2 max-h-40 space-y-0.5 overflow-y-auto rounded-xl bg-slate-50 p-2 text-sm dark:bg-ink-800">
               {receipt.items.map((it, i) => <div key={i} className="flex justify-between gap-2"><span className="truncate">{it.name}</span><span className="tabular-nums">{formatMoney(fromHundredths(it.amount, cur), cur)}</span></div>)}
             </div>
+          )}
+          {receipt.items.length > 0 && (
+            <StartTableButton className="mt-3" draft={() => ({
+              merchant: receipt.merchant ?? 'Bill', currency: cur, date: receipt.date ?? todayISO(),
+              items: receipt.items.map((it) => ({ name: it.name, amount: fromHundredths(it.amount, cur) })),
+              total: receipt.total ? fromHundredths(receipt.total, cur) : undefined,
+            })} />
           )}
         </div>
       )}

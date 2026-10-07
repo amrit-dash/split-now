@@ -1,5 +1,6 @@
 import type { Capture, Expense, ExpenseComment, Group, Member, MemberId, PaymentHandles, Settlement, UserProfile } from '@/types'
 import type { CaptureDraft, InboxDoc } from '@/lib/capture'
+import type { ItemId, LiveTable, NewTable, ParticipantId, TableExtras, TableItem, TableParticipant, TableStatus } from '@/lib/table'
 
 export type Unsub = () => void
 
@@ -8,6 +9,8 @@ export interface AuthUser {
   displayName: string
   email?: string
   photoURL?: string
+  /** Firebase anonymous sign-in (a guest at a live table). Such users only see /t/ pages. */
+  isAnonymous?: boolean
 }
 
 export interface InviteInfo {
@@ -124,6 +127,34 @@ export interface Repo {
   submitToInbox(doc: InboxDoc, id?: string): Promise<void>
   /** Move this user's captureInbox docs into users/{uid}/captures. Returns how many were moved. */
   claimInbox(uid: string): Promise<number>
+
+  // ---- Live table split (tables/{code}, see src/lib/table.ts) ----
+  /** Firebase only: guests at a table sign in anonymously (no account needed). */
+  signInAnonymously?(): Promise<void>
+  /** Creates an open table that expires in 24 hours. Returns its share code (the doc id). */
+  createTable(t: NewTable): Promise<string>
+  /** null when the table doesn't exist or can no longer be read (expired / closed for non-participants). */
+  watchTable(code: string, cb: (t: LiveTable | null) => void): Unsub
+  /** Add or rename a participant. Guests may only write their own entry (pid = their uid). */
+  joinTable(code: string, pid: ParticipantId, p: TableParticipant): Promise<void>
+  /** Replace one participant's claims ({itemId: shares}). */
+  setTableClaims(code: string, pid: ParticipantId, claims: Record<ItemId, number>): Promise<void>
+  /** Host only. `null` entries are removed. */
+  updateTable(code: string, patch: TablePatch): Promise<void>
+  /** Host only. */
+  deleteTable(code: string): Promise<void>
+}
+
+export interface TablePatch {
+  merchant?: string
+  extras?: TableExtras
+  groupId?: string | null
+  status?: TableStatus
+  expenseId?: string
+  closedGroupId?: string
+  items?: Record<ItemId, TableItem | null>
+  participants?: Record<ParticipantId, TableParticipant | null>
+  claims?: Record<ParticipantId, Record<ItemId, number> | null>
 }
 
 export interface CaptureToken {
