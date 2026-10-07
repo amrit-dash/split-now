@@ -1,0 +1,13 @@
+{
+  "projects": {
+    "default": "split-it-prod"
+  },
+  "targets": {
+    "split-it-prod": {
+      "hosting": {
+        "main": ["split-it-prod"],
+        "now": ["split-now"]
+      }
+    }
+  }
+}
