@@ -64,7 +64,7 @@ export default function ExpenseForm() {
 function NoGroups() {
   const nav = useNavigate()
   return (
-    <div className="mx-auto max-w-lg px-4 pt-16 safe-top">
+    <div className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center px-4 pb-[calc(env(safe-area-inset-bottom)+2rem)] pt-[calc(env(safe-area-inset-top)+2rem)]">
       <Empty emoji="👀" title="Create a group first">
         Expenses live inside a group, a 1:1 friend, or your personal wallet.
         <div className="mt-4 flex justify-center gap-2">
@@ -251,7 +251,7 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
 
   return (
     <div className="mx-auto min-h-dvh max-w-lg px-4 pb-10">
-      <header className="sticky top-0 z-30 -mx-4 flex items-center justify-between bg-slate-50/85 px-4 py-3 backdrop-blur-xl safe-top dark:bg-ink-950/85">
+      <header className="sticky top-0 z-30 -mx-4 flex items-center justify-between bg-slate-50/85 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] backdrop-blur-xl dark:bg-ink-950/85">
         <button onClick={() => nav(-1)} className="-ml-2 rounded-full p-2" aria-label="Cancel"><X size={24} /></button>
         <div className="font-bold">{existing ? 'Edit expense' : capture ? 'Captured payment' : 'Add expense'}</div>
         <button onClick={save} disabled={busy} className="rounded-full bg-brand-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{busy ? '…' : 'Save'}</button>

@@ -24,10 +24,15 @@ export default function Groups() {
         }
       />
       {shared.length === 0 ? (
-        <Empty emoji="🧳" title="Start your first group">
-          <Link to="/groups/new" className="btn-primary mt-4">Create group</Link>
-          <Link to="/groups/import" className="btn-ghost mt-1">Switching from Splitwise? Import a group</Link>
-        </Empty>
+        // Centre the empty state in the space between the header and the tab bar.
+        <div className="flex min-h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-20rem)] flex-col justify-center">
+          <Empty emoji="🧳" title="Start your first group">
+            <div className="mt-4 flex flex-col items-center gap-1">
+              <Link to="/groups/new" className="btn-primary">Create group</Link>
+              <Link to="/groups/import" className="btn-ghost">Switching from Splitwise? Import a group</Link>
+            </div>
+          </Empty>
+        </div>
       ) : (
         <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
           {shared.map((d) => <GroupRow key={d.group.id} d={d} />)}

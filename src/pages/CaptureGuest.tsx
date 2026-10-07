@@ -47,7 +47,7 @@ export default function CaptureGuest() {
   if (state === 'login' || state === 'failed') {
     return (
       <>
-        <div className="fixed inset-x-0 top-0 z-50 flex justify-center p-3 safe-top">
+        <div className="fixed inset-x-0 top-0 z-50 flex justify-center p-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
           <div className="flex max-w-md items-center gap-2 rounded-2xl bg-white/95 px-4 py-3 text-sm font-medium text-slate-800 shadow-xl">
             <LogIn size={18} className="shrink-0 text-brand-600" />
             {parsed.ok

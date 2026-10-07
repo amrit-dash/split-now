@@ -64,7 +64,7 @@ export default function Home() {
   const greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
 
   return (
-    <div className="pt-4 safe-top">
+    <div className="pt-[calc(env(safe-area-inset-top)+1.5rem)]">
       <div className="mb-5 flex items-center justify-between">
         <div>
           <div className="text-sm text-slate-500 dark:text-slate-400">{greet},</div>
