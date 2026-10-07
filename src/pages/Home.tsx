@@ -1,7 +1,11 @@
 import { Link } from 'react-router-dom'
 import { ArrowRightLeft, ChevronRight, Inbox, Plus, ScanLine, Users } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
-import { useAllGroupData, usePendingCaptures } from '@/hooks/data'
+import { useAllGroupData, usePendingCaptures, useRecentActivity } from '@/hooks/data'
+import { repo } from '@/data'
+import { awaitingMyApproval } from '@/lib/trust'
+import { ActivityFeed } from '@/components/Trust'
+import { useToast } from '@/components/Toast'
 import { formatMoney } from '@/lib/money'
 import { convertMinor } from '@/lib/fx'
 import { useTodayRates } from '@/hooks/useFx'
@@ -11,12 +15,16 @@ import { Empty, Loading } from '@/components/Misc'
 import { Avatar } from '@/components/Avatar'
 
 export default function Home() {
-  const { profile } = useMe()
+  const { profile, user } = useMe()
   const data = useAllGroupData()
   const inbox = usePendingCaptures()?.length ?? 0
   const home = profile.currency
   const rates = useTodayRates(home, data ? data.map((d) => d.group.currency) : [])
+  const toast = useToast()
+  const feed = useRecentActivity(data ? data.filter((d) => d.group.type !== 'personal').map((d) => d.group.id) : null, 6)
   if (!data) return <Loading />
+  const groupsById = Object.fromEntries(data.map((d) => [d.group.id, d.group]))
+  const needsOk = data.flatMap((d) => d.pending.filter((e) => awaitingMyApproval(e, d.group, user.uid)).map((e) => ({ e, d })))
 
   // Exact totals per group currency.
   const totals = new Map<string, { owed: number; owe: number }>()
@@ -81,6 +89,24 @@ export default function Home() {
         </Link>
       )}
 
+      {needsOk.length > 0 && (
+        <div className="card mb-4 p-4">
+          <div className="mb-2 flex items-center gap-2 font-semibold">👀 Needs your OK <span className="rounded-full bg-sky-100 px-2 text-xs text-sky-800 dark:bg-sky-500/15 dark:text-sky-300">{needsOk.length}</span></div>
+          <p className="mb-2 text-xs text-slate-500">Not counted in balances until you approve.</p>
+          <ul className="divide-y divide-slate-100 dark:divide-white/5">
+            {needsOk.slice(0, 5).map(({ e, d }) => (
+              <li key={e.id} className="flex items-center gap-3 py-2">
+                <Link to={`/groups/${d.group.id}/expenses/${e.id}`} className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium">{e.description}</div>
+                  <div className="truncate text-xs text-slate-500">{d.group.emoji} {d.group.name} · your share {formatMoney(d.me ? e.splits[d.me] ?? 0 : 0, d.group.currency)}</div>
+                </Link>
+                <button className="chip shrink-0" onClick={() => repo.approveExpense(d.group, e).then(() => toast('Approved 👍')).catch((err) => toast((err as Error).message, 'err'))}>Approve</button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-brand-600 via-violet-600 to-fuchsia-600 p-6 text-white shadow-xl shadow-brand-600/30">
         <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10" />
         <div className="absolute -bottom-16 right-10 h-32 w-32 rounded-full bg-white/10" />
@@ -123,7 +149,11 @@ export default function Home() {
         )}
       </Section>
 
-      {recent.length > 0 && (
+      {feed && feed.length > 0 ? (
+        <Section title="Recent activity">
+          <ActivityFeed entries={feed} groups={groupsById} />
+        </Section>
+      ) : recent.length > 0 && (
         <Section title="Recent activity">
           <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
             {recent.map(({ e, d }) => {

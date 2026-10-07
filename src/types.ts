@@ -39,6 +39,10 @@ export interface Group {
   startDate?: string
   endDate?: string
   simplify: boolean
+  /** New expenses above approvalThreshold by others stay pending until everyone charged approves. */
+  requireApproval?: boolean
+  /** Minor units of the group currency (default DEFAULT_APPROVAL_THRESHOLD in src/lib/trust.ts). */
+  approvalThreshold?: Cents
   memberUids: string[]
   members: Record<MemberId, Member>
   inviteCode: string
@@ -104,6 +108,24 @@ export interface Expense {
   original?: OriginalAmount
   /** Set when the expense came from a file import (src/lib/import-splitwise.ts). */
   importedFrom?: ImportedFrom
+  /** Soft delete: in "Recently deleted" (ignored by balances) until restored or purged. */
+  deletedAt?: number
+  /** uid of whoever moved it to the trash (they, or the group creator, may purge it) */
+  deletedBy?: string
+  /** Open flags, keyed by the flagger's uid. Disputed expenses still count in balances. */
+  dispute?: Record<string, ExpenseFlag>
+  /** Set at creation when the group requires approval and the amount is above the threshold. */
+  requiresApproval?: boolean
+  /** uid → true for each person charged who approved it. */
+  approvals?: Record<string, true>
+}
+
+export interface ExpenseFlag {
+  byUid: string
+  /** the flagger's member id (rules check it is theirs and is part of the expense) */
+  memberId: string
+  reason: string
+  at: number
 }
 
 export type FxSource = 'ecb' | 'manual'
@@ -137,6 +159,8 @@ export interface Settlement {
   createdAt: number
   /** Set when the payment came from a file import. */
   importedFrom?: ImportedFrom
+  deletedAt?: number
+  deletedBy?: string
 }
 
 export interface Debt {
@@ -193,4 +217,31 @@ export interface Capture {
   expenseId?: string
   createdAt: number
   updatedAt: number
+}
+
+export type ActivityType =
+  | 'expense.created' | 'expense.updated' | 'expense.deleted' | 'expense.restored' | 'expense.purged'
+  | 'expense.disputed' | 'expense.resolved' | 'expense.approved' | 'expense.imported'
+  | 'settlement.created' | 'settlement.deleted' | 'settlement.restored' | 'settlement.purged'
+  | 'member.added' | 'member.removed'
+
+/**
+ * groups/{gid}/activity/{aid}: an append-only log entry, written in the same batch as the
+ * change it describes. See src/lib/activity.ts.
+ */
+export interface ActivityEntry {
+  id: string
+  /** from the document path (not stored) */
+  groupId: string
+  type: ActivityType
+  actorUid: string
+  actorName: string
+  /** expense / settlement / member id the entry is about */
+  targetId: string
+  /** human text, e.g. "Sarah changed amount A$80.00 → A$84.00 on “Dinner”" */
+  summary: string
+  /** compact snapshot of the changed fields */
+  before?: Record<string, unknown>
+  after?: Record<string, unknown>
+  createdAt: number
 }

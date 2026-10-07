@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { BarChart3, Bell, Copy, Download, HandCoins, Link2, Repeat, Search, Settings, Share2, X } from 'lucide-react'
+import { BarChart3, Bell, Copy, Download, HandCoins, Link2, Repeat, Search, Settings, Share2, Trash2, X } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
-import { computeGroupData, useExpenses, useGroup, useSettlements } from '@/hooks/data'
-import type { Category, Expense, Settlement } from '@/types'
+import { computeGroupData, useActivity, useExpenses, useGroup, useSettlements, useTrash } from '@/hooks/data'
+import type { Category, Expense, Group, Settlement } from '@/types'
 import { formatMoney } from '@/lib/money'
 import { CATEGORIES } from '@/lib/categories'
 import { simplifyDebts } from '@/lib/simplify'
@@ -19,8 +19,9 @@ import { Empty, LiveBadge, Loading, PageHeader, Segmented, formatRange } from '@
 import { hasTripWindow, isLiveTrip } from '@/lib/capture'
 import { Sheet } from '@/components/Sheet'
 import { useToast } from '@/components/Toast'
+import { ActivityFeed, RecentlyDeleted, TrustBadges, useUndoableDelete } from '@/components/Trust'
 
-type Tab = 'expenses' | 'balances' | 'graph'
+type Tab = 'expenses' | 'balances' | 'graph' | 'activity'
 
 export default function GroupDetail() {
   const { groupId } = useParams()
@@ -123,14 +124,22 @@ export default function GroupDetail() {
 
       {!personal && (
         <div className="mb-4">
-          <Segmented<Tab> value={tab} onChange={setTab} options={[{ value: 'expenses', label: 'Expenses' }, { value: 'balances', label: 'Balances' }, { value: 'graph', label: 'Debt graph' }]} />
+          <Segmented<Tab> value={tab} onChange={setTab} options={[{ value: 'expenses', label: 'Expenses' }, { value: 'balances', label: 'Balances' }, { value: 'graph', label: 'Graph' }, { value: 'activity', label: 'Activity' }]} />
         </div>
       )}
 
-      {(tab === 'expenses' || personal) && <ActivityList groupId={group.id} expenses={d.expenses} settlements={d.settlements} me={me} currency={cur} name={name} personal={personal} />}
+      {(tab === 'expenses' || personal) && <ActivityList group={group} expenses={d.expenses} settlements={d.settlements} me={me} currency={cur} name={name} personal={personal} />}
+
+      {tab === 'activity' && !personal && <ActivityTab group={group} expenseIds={new Set(d.expenses.map((e) => e.id))} />}
 
       {tab === 'balances' && !personal && (
         <div className="space-y-4">
+          {(d.pending.length > 0 || d.disputed.length > 0) && (
+            <div className="card space-y-1 p-3 text-xs text-slate-600 dark:text-slate-300">
+              {d.pending.length > 0 && <div>⏳ {d.pending.length} expense{d.pending.length > 1 ? 's' : ''} waiting for approval {d.pending.length > 1 ? 'are' : 'is'} <b>not</b> counted yet.</div>}
+              {d.disputed.length > 0 && <div>🚩 Includes {d.disputed.length} disputed expense{d.disputed.length > 1 ? 's' : ''} (still counted until resolved or edited).</div>}
+            </div>
+          )}
           <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
             {Object.entries(group.members).map(([id, m]) => {
               const v = net[id] ?? 0
@@ -219,9 +228,33 @@ function GraphTab({ d }: { d: ReturnType<typeof computeGroupData> }) {
   )
 }
 
-function ActivityList({ groupId, expenses, settlements, me, currency, name, personal }: {
-  groupId: string; expenses: Expense[]; settlements: Settlement[]; me?: string; currency: string; name: (id: string) => string; personal: boolean
+function ActivityTab({ group, expenseIds }: { group: Group; expenseIds: Set<string> }) {
+  const feed = useActivity(group.id)
+  const trash = useTrash(group)
+  const [open, setOpen] = useState(false)
+  const n = trash ? trash.expenses.length + trash.settlements.length : 0
+  return (
+    <div className="space-y-3">
+      <button onClick={() => setOpen(true)} className="card flex w-full items-center gap-3 px-4 py-3 text-left text-sm">
+        <Trash2 size={18} className="text-slate-400" />
+        <span className="flex-1 font-medium">Recently deleted</span>
+        <span className="text-slate-500">{n || 'empty'}</span>
+      </button>
+      {feed === null ? <Loading /> : feed.length === 0 ? (
+        <Empty emoji="📜" title="No activity yet">Adds, edits, deletions and flags show up here.</Empty>
+      ) : (
+        <ActivityFeed entries={feed} linkable={(a) => expenseIds.has(a.targetId) || !!trash?.expenses.some((e) => e.id === a.targetId)} />
+      )}
+      <RecentlyDeleted group={group} open={open} onClose={() => setOpen(false)} />
+    </div>
+  )
+}
+
+function ActivityList({ group, expenses, settlements, me, currency, name, personal }: {
+  group: Group; expenses: Expense[]; settlements: Settlement[]; me?: string; currency: string; name: (id: string) => string; personal: boolean
 }) {
+  const groupId = group.id
+  const undoable = useUndoableDelete()
   const [filter, setFilter] = useState<ActivityFilter>(EMPTY_FILTER)
   const [onlyMe, setOnlyMe] = useState(false)
   const f: ActivityFilter = { ...filter, involving: onlyMe ? me : undefined }
@@ -308,6 +341,7 @@ function ActivityList({ groupId, expenses, settlements, me, currency, name, pers
                     <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-100 text-xl dark:bg-emerald-500/15">💸</div>
                     <div className="min-w-0 flex-1 text-sm"><b>{name(r.s.from)}</b> paid <b>{name(r.s.to)}</b><div className="text-xs text-slate-500">{r.s.method} · {fmtDay(r.s.date)}</div></div>
                     <div className="font-semibold tabular-nums pos">{formatMoney(r.s.amount, currency)}</div>
+                    <button onClick={() => undoable.settlement(groupId, r.s)} className="-mr-2 rounded-full p-2 text-slate-300 hover:text-rose-500 dark:text-slate-600" aria-label="Delete payment"><Trash2 size={16} /></button>
                   </div>
                 )
               }
@@ -326,6 +360,7 @@ function ActivityList({ groupId, expenses, settlements, me, currency, name, pers
                         </span>
                       )}
                       {e.recurringFrom && !e.recurrence && <Repeat size={12} className="shrink-0 text-slate-400" aria-label="Repeating expense" />}
+                      <TrustBadges e={e} group={group} />
                     </div>
                     <div className="truncate text-xs text-slate-500">
                       {personal ? fmtDay(e.date) : <>{payers.length > 1 ? `${payers.length} people` : name(payers[0])} paid {formatMoney(e.amount, currency)} · {fmtDay(e.date)}</>}

@@ -136,6 +136,8 @@ describe('expense comments', () => {
   })
 
   it('members can remove others’ comments together with the expense', async () => {
+    // Hard delete (purge) is for whoever trashed the expense, or the group creator.
+    await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'groups/g1/expenses/e1'), { ...expense, deletedAt: 1, deletedBy: 'bob' }))
     const fs = db('bob')
     const batch = writeBatch(fs)
     batch.delete(doc(fs, `${path}/c_alice`))

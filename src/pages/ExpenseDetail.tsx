@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Pencil, Repeat, Send, Trash2 } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
-import { myMemberId, useComments, useExpenses, useGroup } from '@/hooks/data'
+import { myMemberId, useAllExpenses, useComments, useGroup } from '@/hooks/data'
 import type { Expense, Group } from '@/types'
 import { CATEGORIES } from '@/lib/categories'
 import { formatMoney } from '@/lib/money'
@@ -13,16 +13,19 @@ import { colorFor } from '@/lib/colors'
 import { Avatar } from '@/components/Avatar'
 import { Empty, Loading, PageHeader } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
+import { HistoryCard, TrashedBanner, TrustBadges, TrustPanel, useUndoableDelete } from '@/components/Trust'
 
 const SPLIT_LABEL = { equal: 'Split equally', exact: 'Exact amounts', percent: 'By percentage', shares: 'By shares', adjust: 'Equal with adjustments', itemized: 'Itemized' }
 
 export default function ExpenseDetail() {
   const { groupId, expenseId } = useParams()
   const group = useGroup(groupId)
-  const expenses = useExpenses(groupId)
+  // Including trashed ones, so a deleted expense can still be viewed and restored.
+  const expenses = useAllExpenses(groupId)
   const { user } = useMe()
   const nav = useNavigate()
   const toast = useToast()
+  const undoable = useUndoableDelete()
   if (group === undefined || !expenses) return <Loading />
   const e = expenses.find((x) => x.id === expenseId)
   if (!group || !e) return <><PageHeader title="Expense" back /><Empty emoji="🔍" title="Expense not found" /></>
@@ -43,21 +46,22 @@ export default function ExpenseDetail() {
     }
   }
 
-  const del = async () => {
-    if (!confirm('Delete this expense?')) return
-    await repo.deleteExpense(group.id, e.id)
-    toast('Expense deleted')
+  // Goes to "Recently deleted"; the toast offers Undo instead of a confirm dialog.
+  const del = () => {
+    undoable.expense(group.id, e)
     nav(`/groups/${group.id}`, { replace: true })
   }
+  const trashed = !!e.deletedAt
 
   return (
     <div>
-      <PageHeader title="" back right={
+      <PageHeader title="" back right={trashed ? undefined :
         <div className="flex gap-1">
           <Link to={`/groups/${group.id}/expenses/${e.id}/edit`} className="rounded-full p-2.5 hover:bg-slate-200/60 dark:hover:bg-ink-800" aria-label="Edit"><Pencil size={20} /></Link>
           <button onClick={del} className="rounded-full p-2.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10" aria-label="Delete"><Trash2 size={20} /></button>
         </div>
       } />
+      {trashed && <TrashedBanner group={group} item={e} kind="expense" />}
       <div className="card p-6 text-center">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl text-4xl" style={{ background: cat.color + '22' }}>{cat.emoji}</div>
         <h1 className="mt-3 text-xl font-bold">{e.description}</h1>
@@ -69,7 +73,9 @@ export default function ExpenseDetail() {
         )}
         <div className="mt-2 text-sm text-slate-500">{cat.label} · {new Date(e.date + 'T00:00').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })}</div>
         <div className="mt-1 text-xs text-slate-400">{group.emoji} {group.name}</div>
+        <div className="mt-2 flex justify-center gap-1.5 empty:hidden"><TrustBadges e={e} group={group} /></div>
       </div>
+      {group.type !== 'personal' && <TrustPanel group={group} expense={e} myMemberId={me} />}
 
       {e.recurrence && (
         <div className="card mt-3 flex items-center gap-3 p-4">
@@ -139,6 +145,7 @@ export default function ExpenseDetail() {
         </div>
       )}
       {group.type !== 'personal' && <Comments group={group} expense={e} />}
+      <HistoryCard group={group} expense={e} />
       <p className="mt-4 text-center text-xs text-slate-400">Added {new Date(e.createdAt).toLocaleString()}</p>
     </div>
   )

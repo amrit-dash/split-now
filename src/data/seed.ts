@@ -1,4 +1,5 @@
-import type { Expense, Group, Settlement } from '@/types'
+import type { ActivityEntry, Expense, Group, Settlement } from '@/types'
+import { formatMoney } from '@/lib/money'
 import { computeSplits } from '@/lib/splits'
 import { colorFor } from '@/lib/colors'
 import { firstNextDate } from '@/lib/recurrence'
@@ -58,7 +59,31 @@ export function seedDemo(_state: unknown, user: AuthUser) {
   const settlements: Settlement[] = [
     { id: 's_1', groupId: 'g_flat', from: 'p_alex', to: 'me', amount: 110000, method: 'PayID', date: day(30), createdBy: user.uid, createdAt: now - 30 * 86400000 },
   ]
+  // A little history so the activity feeds aren't empty on first launch.
+  const byId = Object.fromEntries(expenses.map((e) => [e.id, e]))
+  const added = (eid: string, actor: string, actorUid: string): ActivityEntry => {
+    const e = byId[eid]
+    return {
+      id: `a_${eid}`, groupId: e.groupId, type: 'expense.created', actorUid, actorName: actor, targetId: eid,
+      summary: `${actor} added “${e.description}” (${formatMoney(e.amount, 'AUD')})`,
+      after: { description: e.description, amount: e.amount }, createdAt: e.createdAt,
+    }
+  }
+  const beach = byId.e_g_bali_3
+  const activity: ActivityEntry[] = [
+    added('e_g_bali_3', 'Jay', 'seed_jay'),
+    {
+      id: 'a_e_g_bali_3_edit', groupId: 'g_bali', type: 'expense.updated', actorUid: 'seed_jay', actorName: 'Jay', targetId: beach.id,
+      summary: `Jay changed amount ${formatMoney(32000, 'AUD')} → ${formatMoney(beach.amount, 'AUD')} on “${beach.description}”`,
+      before: { amount: 32000 }, after: { amount: beach.amount }, createdAt: beach.createdAt + 3600_000,
+    },
+    added('e_g_bali_6', 'Sarah', 'seed_sarah'),
+    added('e_g_bali_7', 'Jay', 'seed_jay'),
+    added('e_g_flat_3', 'Sam', 'seed_sam'),
+    added('e_g_flat_6', 'Alex', 'seed_alex'),
+  ]
   return {
+    activity: Object.fromEntries(activity.map((a) => [a.id, a])),
     groups: { [bali.id]: bali, [flat.id]: flat },
     expenses: Object.fromEntries(expenses.map((e) => [e.id, e])),
     settlements: Object.fromEntries(settlements.map((s) => [s.id, s])),

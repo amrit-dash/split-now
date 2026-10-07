@@ -148,6 +148,24 @@ service cloud.firestore {
           || (request.method == 'update' && request.resource.data.createdBy == resource.data.createdBy);
       }
 
+      // ---- Trust fields (expenses + settlements) --------------------------
+      // Soft delete: only deletedAt/deletedBy change; trashing records the caller as deletedBy,
+      // restoring removes both. Any member may do either.
+      function isTrashChange() {
+        let before = resource.data;
+        let after = request.resource.data;
+        return after.diff(before).affectedKeys().hasOnly(['deletedAt', 'deletedBy'])
+          && (('deletedAt' in after && after.deletedAt is int && after.deletedBy == uid())
+              || (!('deletedAt' in after) && !('deletedBy' in after)));
+      }
+      // Hard delete: whoever trashed it, or the group creator.
+      function canPurge() {
+        return resource.data.get('deletedBy', '') == uid() || groupDoc(groupId).data.createdBy == uid();
+      }
+      function noTrustFieldsOnCreate() {
+        return !request.resource.data.keys().hasAny(['deletedAt', 'deletedBy', 'dispute', 'approvals']);
+      }
+
       match /expenses/{expenseId} {
         // A recurring occurrence keeps its template's author, whoever's client generates it:
         // its id must be <templateId>_<date> and the template must exist with the same createdBy.
@@ -176,17 +194,68 @@ service cloud.firestore {
             && d.original.source in ['ecb', 'manual']);
         }
 
+        function validExpense() {
+          return (validAuthor() || isOccurrence())
+            && validOriginal(request.resource.data)
+            && request.resource.data.groupId == groupId
+            && request.resource.data.amount is int
+            && request.resource.data.amount > 0
+            // everyone who paid or owes must be a member of this group
+            && request.resource.data.paidBy.keys().hasOnly(groupDoc(groupId).data.members.keys())
+            && request.resource.data.splits.keys().hasOnly(groupDoc(groupId).data.members.keys());
+        }
+        // With group.requireApproval, an expense above approvalThreshold must carry
+        // requiresApproval when created or when its amount changes.
+        function approvalFlagOk() {
+          let g = groupDoc(groupId).data;
+          let d = request.resource.data;
+          return !(g.get('requireApproval', false) == true
+                   && d.amount > g.get('approvalThreshold', 10000)
+                   && (request.method == 'create' || d.amount != resource.data.amount))
+            || d.get('requiresApproval', false) == true;
+        }
+        // A normal edit can't touch anyone's flag or the trash fields, can't drop
+        // requiresApproval, and may only remove approvals (the app clears them when the money
+        // changes); approving is its own write (isFlagOrApproval).
+        function trustFieldsKept() {
+          let before = resource.data;
+          let after = request.resource.data;
+          let approvals = after.get('approvals', {}).diff(before.get('approvals', {}));
+          return !after.diff(before).affectedKeys().hasAny(['dispute', 'deletedAt', 'deletedBy'])
+            && approvals.changedKeys().size() == 0
+            && approvals.addedKeys().size() == 0
+            && (before.get('requiresApproval', false) != true || after.get('requiresApproval', false) == true);
+        }
+        // Flag / resolve / approve: only the caller's own key in `dispute` and `approvals`,
+        // and nothing else in the document.
+        function ownKeyOnly(field) {
+          return request.resource.data.get(field, {}).diff(resource.data.get(field, {})).affectedKeys().hasOnly([uid()]);
+        }
+        function validFlag(f) {
+          return f.keys().hasOnly(['byUid', 'memberId', 'reason', 'at'])
+            && f.byUid == uid()
+            && f.reason is string && f.reason.size() > 0 && f.reason.size() <= 500
+            && f.at is int
+            && f.memberId is string
+            // the flagger flags as themselves and is part of the expense
+            && groupDoc(groupId).data.members[f.memberId].get('uid', '') == uid()
+            && (f.memberId in resource.data.splits || f.memberId in resource.data.paidBy);
+        }
+        function isFlagOrApproval() {
+          let after = request.resource.data;
+          let flags = after.get('dispute', {});
+          let approvals = after.get('approvals', {});
+          return after.diff(resource.data).affectedKeys().hasOnly(['dispute', 'approvals'])
+            && ownKeyOnly('dispute') && ownKeyOnly('approvals')
+            && (!(uid() in flags) || validFlag(flags[uid()]))
+            && (!(uid() in approvals) || approvals[uid()] == true);
+        }
+
         allow read: if isGroupMember(groupId);
-        allow create, update: if isGroupMember(groupId)
-          && (validAuthor() || isOccurrence())
-          && validOriginal(request.resource.data)
-          && request.resource.data.groupId == groupId
-          && request.resource.data.amount is int
-          && request.resource.data.amount > 0
-          // everyone who paid or owes must be a member of this group
-          && request.resource.data.paidBy.keys().hasOnly(groupDoc(groupId).data.members.keys())
-          && request.resource.data.splits.keys().hasOnly(groupDoc(groupId).data.members.keys());
-        allow delete: if isGroupMember(groupId);
+        allow create: if isGroupMember(groupId) && validExpense() && noTrustFieldsOnCreate() && approvalFlagOk();
+        allow update: if isGroupMember(groupId)
+          && ((validExpense() && trustFieldsKept() && approvalFlagOk()) || isTrashChange() || isFlagOrApproval());
+        allow delete: if isGroupMember(groupId) && canPurge();
 
         // Comment thread on an expense. Comments are immutable; only the author can
         // delete one, except that members may clean up comments of an expense that is
@@ -209,16 +278,45 @@ service cloud.firestore {
       }
 
       match /settlements/{settlementId} {
+        function validSettlement() {
+          return validAuthor()
+            && request.resource.data.groupId == groupId
+            && request.resource.data.amount is int
+            && request.resource.data.amount > 0
+            && request.resource.data.from != request.resource.data.to
+            && request.resource.data.from in groupDoc(groupId).data.members
+            && request.resource.data.to in groupDoc(groupId).data.members;
+        }
         allow read: if isGroupMember(groupId);
-        allow create, update: if isGroupMember(groupId)
-          && validAuthor()
-          && request.resource.data.groupId == groupId
-          && request.resource.data.amount is int
-          && request.resource.data.amount > 0
-          && request.resource.data.from != request.resource.data.to
-          && request.resource.data.from in groupDoc(groupId).data.members
-          && request.resource.data.to in groupDoc(groupId).data.members;
-        allow delete: if isGroupMember(groupId);
+        allow create: if isGroupMember(groupId) && validSettlement() && noTrustFieldsOnCreate();
+        allow update: if isGroupMember(groupId)
+          && ((validSettlement() && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['deletedAt', 'deletedBy']))
+              || isTrashChange());
+        allow delete: if isGroupMember(groupId) && canPurge();
+      }
+
+      // Append-only activity log (edit history, feed). Entries are written by members in the
+      // same batch as the change they describe, as themselves, and never edited. The creator
+      // may delete them only together with the group itself (group gone after the batch).
+      match /activity/{activityId} {
+        function validEntry(d) {
+          return d.keys().hasAll(['type', 'actorUid', 'actorName', 'targetId', 'summary', 'createdAt'])
+            && d.keys().hasOnly(['type', 'actorUid', 'actorName', 'targetId', 'summary', 'before', 'after', 'createdAt'])
+            && d.actorUid == uid()
+            && d.type is string && d.type.size() <= 40
+            && d.actorName is string && d.actorName.size() <= 100
+            && d.targetId is string && d.targetId.size() <= 200
+            && d.summary is string && d.summary.size() <= 500
+            && d.createdAt is int
+            && (!('before' in d) || d.before is map)
+            && (!('after' in d) || d.after is map);
+        }
+        allow read: if isGroupMember(groupId);
+        allow create: if isGroupMember(groupId) && validEntry(request.resource.data);
+        allow update: if false;
+        allow delete: if signedIn()
+          && groupDoc(groupId).data.createdBy == uid()
+          && !existsAfter(/databases/$(database)/documents/groups/$(groupId));
       }
 
       // Name + payment handles a member shares with this group only. Written by the owner
