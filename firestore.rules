@@ -31,6 +31,43 @@ service cloud.firestore {
           && request.resource.data.amount > 0
           && request.resource.data.status in ['pending', 'assigned', 'dismissed'];
       }
+
+      // FCM Web Push registrations, one per browser (doc id = hash of the token). Owner only;
+      // Cloud Functions read them (Admin SDK) to send and delete dead ones.
+      match /pushTokens/{tokenId} {
+        allow read, delete: if signedIn() && uid() == userId;
+        allow create, update: if signedIn() && uid() == userId
+          && request.resource.data.keys().hasOnly(['token', 'ua', 'createdAt', 'lastSeen'])
+          && request.resource.data.token is string
+          && request.resource.data.token.size() > 0 && request.resource.data.token.size() <= 4096
+          && (!('ua' in request.resource.data) || (request.resource.data.ua is string && request.resource.data.ua.size() <= 300))
+          && request.resource.data.createdAt is int
+          && request.resource.data.lastSeen is int;
+      }
+
+      // Per-user settings. settings/notifications holds boolean push preferences.
+      match /settings/{settingId} {
+        allow read, delete: if signedIn() && uid() == userId;
+        allow create, update: if signedIn() && uid() == userId
+          && (settingId != 'notifications' || (
+            request.resource.data.keys().hasOnly(['captures', 'unsorted', 'expenses', 'settlements', 'reminders', 'updatedAt'])
+            && request.resource.data.get('captures', true) is bool
+            && request.resource.data.get('unsorted', false) is bool
+            && request.resource.data.get('expenses', true) is bool
+            && request.resource.data.get('settlements', true) is bool
+            && request.resource.data.get('reminders', true) is bool
+            && request.resource.data.get('updatedAt', 0) is int));
+      }
+    }
+
+    // ---- Server-only state (Cloud Functions, Admin SDK) ----------------
+    // rateLimits/{tokenHash}: capture webhook counters. reminderState/{groupId}: when each
+    // member was last nudged to settle up. No client access at all.
+    match /rateLimits/{id} {
+      allow read, write: if false;
+    }
+    match /reminderState/{id} {
+      allow read, write: if false;
     }
 
     // ---- Auto-capture --------------------------------------------------
@@ -42,7 +79,10 @@ service cloud.firestore {
         && token.size() >= 24
         && request.resource.data.uid == uid()
         && request.resource.data.keys().hasOnly(['uid', 'createdAt', 'groupId', 'label'])
-        && (!('groupId' in request.resource.data) || (request.resource.data.groupId is string && request.resource.data.groupId.size() <= 64))
+        && (!('groupId' in request.resource.data) || (request.resource.data.groupId is string && request.resource.data.groupId.size() <= 64
+            // a token can only be scoped to a group its owner is in
+            && exists(/databases/$(database)/documents/groups/$(request.resource.data.groupId))
+            && uid() in groupDoc(request.resource.data.groupId).data.memberUids))
         && (!('label' in request.resource.data) || (request.resource.data.label is string && request.resource.data.label.size() <= 60));
       allow update: if false;
     }

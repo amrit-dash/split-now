@@ -7,6 +7,7 @@ import { Layout } from './components/Layout'
 import { Loading } from './components/Misc'
 import { UpdatePrompt } from './components/UpdatePrompt'
 import { takeStashedCapture } from './lib/pending'
+import { refreshPush } from './lib/push'
 import Login from './pages/Login'
 import Home from './pages/Home'
 import Groups from './pages/Groups'
@@ -48,6 +49,9 @@ export default function App() {
     if (capture) nav(`/capture${capture}`, { replace: true })
     else if (back) nav(back, { replace: true })
   }, [user, nav])
+
+  // Keep this browser's push registration fresh (FCM tokens rotate); no-op without permission.
+  useEffect(() => { if (user && !user.isAnonymous && repo.mode === 'firebase') void refreshPush(user.uid) }, [user])
 
   // Pull anything iOS Shortcuts dropped into captureInbox while the app was closed.
   useEffect(() => {

@@ -57,8 +57,20 @@ Served by a Cloud Function behind a Hosting rewrite. The client in `src/pages/Au
   Also accepted: `application/x-www-form-urlencoded` or `text/plain` bodies (the whole body is `text`), and the token as `Authorization: Bearer <token>` or `?t=<token>`.
 - **Success:** `{ ok: true, captureId, parsed: { amount /* minor units */, currency, merchant?, direction: 'debit', ref?, date }, matchedGroupId?, pushed }`
 - **Rejection:** `{ ok: false, reason }` with `reason` one of `bad_token`, `not_a_debit`, `unparsed`, `outside_trip`, `duplicate`, `rate_limited`, `bad_request`.
+- **HTTP status:** 200 for success and for `not_a_debit` / `outside_trip` / `duplicate` (handled; automations must not retry), 401 `bad_token`, 429 `rate_limited`, 400 `bad_request` (also 405 for a non-POST), 422 `unparsed` (looked like a bank message but no amount could be read, or an unclassifiable message), 500 `{ ok: false, reason: 'server_error' }` on an internal error.
+- **Structured fields** (instead of, or on top of, `text`): `amount` (decimal, e.g. `840.00`), `currency`, `merchant`, `ts`, `ref`, with the same meaning as the `/capture` URL contract (§6). Structured values win over what the SMS parser found.
 
-The wizard's *Send a test* step treats a 404/405 or a non-JSON reply as **"Backend not deployed yet"**. In demo mode it simulates the function locally (`simulateWebhook` + `parseSmsDemo` in the page module, a stub to replace with the shared `src/lib/sms-parse.ts`).
+**Backend behaviour** (`functions/src/capture.ts`, region `asia-south1`):
+
+- **Parser:** `shared/sms-parse.ts` (also used by the client via `src/lib/sms-parse.ts`, including the demo simulation). Credits, refunds, OTPs, balance alerts, promos, EMI/bill-due reminders, "will be debited" notices, collect requests and failed / declined / reversed transactions are `not_a_debit`. Covers HDFC, ICICI, SBI, Axis, Kotak, Yes, IDFC First, IndusInd, PNB, BoB, AU, Federal, Paytm Payments Bank, Airtel Payments Bank and credit-card spend alerts; amounts with ₹/Rs/INR, commas and lakh grouping; merchants from the VPA (`swiggy@icici` → Swiggy, `q123@ybl` → none), `at …`, `to …`, `Info:` and `UPI/P2M/…/NAME` narrations.
+- **Date:** the SMS date if within 60 days before / a year after receipt, else `receivedAt`, else now, in Asia/Kolkata.
+- **Rate limit:** 60 requests/hour and 300/day per token (`rateLimits/{hash}`, server-only).
+- **Idempotency:** capture id = `sms_` + hash of (uid, bank ref), or of (uid, amount, merchant, minute received) when there's no ref.
+- **Stored:** `users/{uid}/captures/{id}` in the normal Capture shape, `source` `sms-ios` / `sms-android` (`sms` for `device: other`), `card` = bank + last 4 digits, `raw` = the SMS with account/card numbers and balances masked (≤ 500 chars). The token gets `lastUsedAt`.
+- **Push:** a trip match sends *"You spent ₹840 at Swiggy — add to Goa Trip?"* (opens `/capture/{id}`). An unscoped debit outside every trip is saved but only pushes (*"Unsorted payment"*) if the user turned on *Payments outside a trip* in Profile → Notifications (off by default).
+- **App Check is not required** on this endpoint (Shortcuts/MacroDroid can't produce a token); the capture token and rate limit protect it.
+
+The wizard's *Send a test* step treats a 404/405 or a non-JSON reply as **"Backend not deployed yet"**. In demo mode it simulates the function locally (`simulateWebhook` + `parseSmsDemo` in the page module, which uses the shared parser in `src/lib/sms-parse.ts`).
 
 ### 3.2 Keys and scope
 
@@ -68,7 +80,7 @@ captureTokens/{token}   uid, createdAt, groupId?, label?
 
 - **Scoped key** (`groupId` set): the function accepts only SMS dated inside that group's `startDate..endDate` (inclusive; a missing end is open-ended). Anything else returns `outside_trip` and is **not stored**. The wizard won't create a scoped key for a group without trip dates and links to *Edit group* instead.
 - **Unscoped key** ("All my trips"): the payment is matched against all of the user's trips whose window contains the SMS date (same ranking as §2). A match is stored with `suggestedGroup` and triggers a push. A debit outside every trip still lands in the Inbox, but **without a push**.
-- Rules (`firestore.rules`): the owner may create a key with only `uid`, `createdAt`, an optional `groupId` (string ≤ 64) and `label` (string ≤ 60). Keys can't be updated; revoke and recreate. Tests in `tests/firestore.rules.test.ts`.
+- Rules (`firestore.rules`): the owner may create a key with only `uid`, `createdAt`, an optional `groupId` (string ≤ 64, and a group the owner is a member of) and `label` (string ≤ 60). Keys can't be updated; revoke and recreate. Tests in `tests/firestore.rules.test.ts`.
 - One key per scope. The Apple Pay path in §4 uses the unscoped key.
 
 ### 3.3 iPhone setup (iOS 17+)
