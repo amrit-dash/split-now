@@ -4,19 +4,21 @@ import {
   signInAnonymously, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, signOut, updateProfile,
 } from 'firebase/auth'
 import {
-  arrayRemove, arrayUnion, clearIndexedDbPersistence, collection, connectFirestoreEmulator, deleteField, doc, getDoc,
-  getDocFromCache, getDocs, getDocsFromCache, initializeFirestore, onSnapshot, persistentLocalCache,
+  FieldPath, arrayRemove, arrayUnion, clearIndexedDbPersistence, collection, connectFirestoreEmulator, deleteField, doc, getDoc,
+  getDocFromCache, getDocs, getDocsFromCache, initializeFirestore, limit, onSnapshot, orderBy, persistentLocalCache,
   persistentMultipleTabManager, query, setDoc, terminate, waitForPendingWrites, where, writeBatch,
   type DocumentReference, type FirestoreError, type WriteBatch,
 } from 'firebase/firestore'
 import { connectStorageEmulator, deleteObject, getDownloadURL, getStorage, ref, uploadBytes } from 'firebase/storage'
-import type { Capture, Expense, ExpenseComment, Group, Settlement, UserProfile } from '@/types'
+import type { ActivityEntry, Capture, Expense, ExpenseComment, Group, Settlement, UserProfile } from '@/types'
 import { inviteCode, todayISO, uid } from '@/lib/id'
 import { inboxToDraft, newCaptureToken, type InboxDoc } from '@/lib/capture'
 import { downscale } from '@/lib/image'
 import { TABLE_TTL_MS, type LiveTable } from '@/lib/table'
+import { disputeActivity, expenseEventActivity, expenseSaveActivity, importActivity, memberActivity, settlementActivity, type NewActivity } from '@/lib/activity'
+import { prepareExpenseSave, prepareImportedSettlement, prepareOccurrence } from '@/lib/trust'
 import {
-  byCreatedDesc, byDateDesc, changedSettings, compact, draftToCapture, errorChannel, placeholdersOf, storagePathFromUrl,
+  activityCtxFor, byCreatedDesc, byDateDesc, changedSettings, compact, draftToCapture, errorChannel, placeholdersOf, storagePathFromUrl,
   type CaptureToken, type GroupSettings, type InviteInfo, type MemberProfile, type Repo, type TablePatch,
 } from './repo'
 
@@ -52,6 +54,9 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
   const commentsCol = (groupId: string, expenseId: string) => collection(db, 'groups', groupId, 'expenses', expenseId, 'comments')
   const captureRef = (userId: string, id: string) => doc(db, 'users', userId, 'captures', id)
   const memberProfileRef = (groupId: string, userId: string) => doc(db, 'groups', groupId, 'profiles', userId)
+  const activityCol = (groupId: string) => collection(db, 'groups', groupId, 'activity')
+  const expenseRef = (groupId: string, id: string) => doc(db, 'groups', groupId, 'expenses', id)
+  const settlementRef = (groupId: string, id: string) => doc(db, 'groups', groupId, 'settlements', id)
   const inviteDoc = (g: Group): InviteInfo => ({ groupId: g.id, groupName: g.name, emoji: g.emoji, placeholders: placeholdersOf(g) })
 
   /**
@@ -84,6 +89,29 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     } catch { /* not cached */ }
     return { displayName: u.displayName || u.email?.split('@')[0] || 'You', payment: {} }
   }
+
+  /** A document as this device last saw it (screens only act on what they've loaded). */
+  async function cached<T>(r: DocumentReference): Promise<T | undefined> {
+    try {
+      const s = await getDocFromCache(r)
+      return s.exists() ? ({ ...(s.data() as T), id: s.id }) : undefined
+    } catch {
+      return undefined
+    }
+  }
+  const cachedGroup = (id: string) => cached<Group>(groupRef(id))
+
+  /** Builds the activity context for the signed-in user in a group (from cache). */
+  async function actCtx(groupId: string, item?: object, g?: Group) {
+    const group = g ?? (await cachedGroup(groupId))
+    const name = (await myMemberProfile())?.displayName ?? 'Someone'
+    return activityCtxFor(group, { uid: me(), name }, item)
+  }
+  /** Adds an activity entry to a batch (create-only; rules check actorUid). */
+  const log = (batch: WriteBatch, groupId: string, a: NewActivity | null) => {
+    if (a) batch.set(doc(activityCol(groupId)), compact(a))
+  }
+  const me = () => auth.currentUser?.uid ?? ''
 
   async function ensureProfile(u: { uid: string; displayName: string | null; email: string | null; photoURL: string | null }) {
     const r = doc(db, 'users', u.uid)
@@ -261,11 +289,15 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       if (!member.uid && group.type !== 'personal') {
         batch.set(inviteRef(group.inviteCode), { groupId: group.id, placeholders: { [memberId]: member.name } }, { merge: true })
       }
+      log(batch, group.id, memberActivity('added', memberId, member.name, await actCtx(group.id, undefined, group)))
       fire(batch, `Adding ${member.name}`)
     },
     async removeMember(group, memberId) {
       const m = group.members[memberId]
+      const ctx = await actCtx(group.id, undefined, group)
       const batch = writeBatch(db)
+      // Rules check membership as it was before the batch, so leaving can still log.
+      if (m) log(batch, group.id, memberActivity('removed', memberId, m.name, ctx, m.uid === me()))
       batch.update(groupRef(group.id), {
         [`members.${memberId}`]: deleteField(),
         ...(m?.uid ? { memberUids: arrayRemove(m.uid) } : {}),
@@ -310,7 +342,11 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         refs.slice(i, i + BATCH_LIMIT).forEach((r) => batch.delete(r))
         fire(batch, 'Deleting group')
       }
+      // The activity log is append-only: rules let the creator delete it only in the batch
+      // that deletes the group itself. (Entries beyond one batch are left orphaned and unreadable.)
+      const activity = (await getDocs(activityCol(id)).catch(() => null))?.docs.map((d) => d.ref) ?? []
       const last = writeBatch(db)
+      activity.slice(0, BATCH_LIMIT - 2).forEach((r) => last.delete(r))
       if (g?.inviteCode && g.type !== 'personal') last.delete(inviteRef(g.inviteCode))
       last.delete(groupRef(id))
       fire(last, 'Deleting group')
@@ -353,18 +389,37 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       )
     },
     async saveExpense(e) {
+      const r = expenseRef(e.groupId, e.id)
+      const [prev, group] = await Promise.all([cached<Expense>(r), cachedGroup(e.groupId)])
+      const next = prepareExpenseSave(prev, { ...e, receiptPath: e.receiptPath ?? storagePathFromUrl(e.receiptUrl) }, group ?? {}, me())
       const batch = writeBatch(db)
-      batch.set(doc(db, 'groups', e.groupId, 'expenses', e.id), { ...e, receiptPath: e.receiptPath ?? storagePathFromUrl(e.receiptUrl) })
+      batch.set(r, next)
       batch.update(groupRef(e.groupId), { updatedAt: Date.now() })
+      log(batch, e.groupId, expenseSaveActivity(prev, next, await actCtx(e.groupId, next, group)))
       fire(batch, `Saving “${e.description}”`)
     },
     async deleteExpense(groupId, id) {
-      const r = doc(db, 'groups', groupId, 'expenses', id)
-      let receipt: string | undefined
-      try {
-        const s = await getDocFromCache(r)
-        if (s.exists()) { const e = s.data() as Expense; receipt = e.receiptPath ?? storagePathFromUrl(e.receiptUrl) }
-      } catch { /* not cached */ }
+      const r = expenseRef(groupId, id)
+      const e = await cached<Expense>(r)
+      const batch = writeBatch(db)
+      batch.update(r, { deletedAt: Date.now(), deletedBy: me() })
+      batch.update(groupRef(groupId), { updatedAt: Date.now() })
+      if (e) log(batch, groupId, expenseEventActivity('deleted', e, await actCtx(groupId, e)))
+      fire(batch, 'Deleting expense')
+    },
+    async restoreExpense(groupId, id) {
+      const r = expenseRef(groupId, id)
+      const e = await cached<Expense>(r)
+      const batch = writeBatch(db)
+      batch.update(r, { deletedAt: deleteField(), deletedBy: deleteField() })
+      batch.update(groupRef(groupId), { updatedAt: Date.now() })
+      if (e) log(batch, groupId, expenseEventActivity('restored', e, await actCtx(groupId, e)))
+      fire(batch, 'Restoring expense')
+    },
+    async purgeExpense(groupId, id) {
+      const r = expenseRef(groupId, id)
+      const e = await cached<Expense>(r)
+      const receipt = e ? e.receiptPath ?? storagePathFromUrl(e.receiptUrl) : undefined
       // Comments go in the same batch (rules allow deleting others' comments once the parent is gone).
       const comments = await Promise.race([
         getDocsFromCache(commentsCol(groupId, id)).then((s) => s.docs.map((d) => d.ref)).catch(() => [] as DocumentReference[]),
@@ -378,17 +433,40 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         comments.push(...fromServer)
       }
       const batch = writeBatch(db)
-      comments.slice(0, BATCH_LIMIT - 2).forEach((c) => batch.delete(c))
+      comments.slice(0, BATCH_LIMIT - 3).forEach((c) => batch.delete(c))
       batch.delete(r)
       batch.update(groupRef(groupId), { updatedAt: Date.now() })
+      if (e) log(batch, groupId, expenseEventActivity('purged', e, await actCtx(groupId, e)))
       fire(batch, 'Deleting expense')
       // Any overflow (or comments we couldn't list) can still be removed afterwards: the expense is gone.
-      for (let i = BATCH_LIMIT - 2; i < comments.length; i += BATCH_LIMIT) {
+      for (let i = BATCH_LIMIT - 3; i < comments.length; i += BATCH_LIMIT) {
         const b = writeBatch(db)
         comments.slice(i, i + BATCH_LIMIT).forEach((c) => b.delete(c))
         fire(b, 'Deleting comments')
       }
       deleteFileLater(receipt)
+    },
+    async flagExpense(group, e, reason) {
+      const memberId = Object.entries(group.members).find(([, m]) => m.uid === me())?.[0]
+      if (!memberId) throw new Error('You are not a member of this group')
+      const text = reason.trim().slice(0, 500) || 'Something looks wrong'
+      const batch = writeBatch(db)
+      // Only our own key in the map changes (rules: diff().affectedKeys() == [uid]).
+      batch.update(expenseRef(group.id, e.id), new FieldPath('dispute', me()), { byUid: me(), memberId, reason: text, at: Date.now() })
+      log(batch, group.id, disputeActivity('disputed', e, await actCtx(group.id, e, group), text))
+      fire(batch, `Flagging “${e.description}”`)
+    },
+    async resolveFlag(group, e) {
+      const batch = writeBatch(db)
+      batch.update(expenseRef(group.id, e.id), new FieldPath('dispute', me()), deleteField())
+      log(batch, group.id, disputeActivity('resolved', e, await actCtx(group.id, e, group)))
+      fire(batch, 'Resolving flag')
+    },
+    async approveExpense(group, e) {
+      const batch = writeBatch(db)
+      batch.update(expenseRef(group.id, e.id), new FieldPath('approvals', me()), true)
+      log(batch, group.id, disputeActivity('approved', e, await actCtx(group.id, e, group)))
+      fire(batch, `Approving “${e.description}”`)
     },
     attachReceipt(groupId, expenseId, file) {
       if (!online()) return false
@@ -426,34 +504,79 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       )
     },
     async saveSettlement(st) {
+      const r = settlementRef(st.groupId, st.id)
+      const prev = await cached<Settlement>(r)
       const batch = writeBatch(db)
-      batch.set(doc(db, 'groups', st.groupId, 'settlements', st.id), st)
+      batch.set(r, st)
       batch.update(groupRef(st.groupId), { updatedAt: Date.now() })
+      if (!prev) log(batch, st.groupId, settlementActivity('created', st, await actCtx(st.groupId)))
       fire(batch, 'Recording payment')
     },
     async deleteSettlement(groupId, id) {
+      const r = settlementRef(groupId, id)
+      const s = await cached<Settlement>(r)
       const batch = writeBatch(db)
-      batch.delete(doc(db, 'groups', groupId, 'settlements', id))
+      batch.update(r, { deletedAt: Date.now(), deletedBy: me() })
       batch.update(groupRef(groupId), { updatedAt: Date.now() })
+      if (s) log(batch, groupId, settlementActivity('deleted', s, await actCtx(groupId)))
+      fire(batch, 'Deleting payment')
+    },
+    async restoreSettlement(groupId, id) {
+      const r = settlementRef(groupId, id)
+      const s = await cached<Settlement>(r)
+      const batch = writeBatch(db)
+      batch.update(r, { deletedAt: deleteField(), deletedBy: deleteField() })
+      batch.update(groupRef(groupId), { updatedAt: Date.now() })
+      if (s) log(batch, groupId, settlementActivity('restored', s, await actCtx(groupId)))
+      fire(batch, 'Restoring payment')
+    },
+    async purgeSettlement(groupId, id) {
+      const r = settlementRef(groupId, id)
+      const s = await cached<Settlement>(r)
+      const batch = writeBatch(db)
+      batch.delete(r)
+      batch.update(groupRef(groupId), { updatedAt: Date.now() })
+      if (s) log(batch, groupId, settlementActivity('purged', s, await actCtx(groupId)))
       fire(batch, 'Deleting payment')
     },
 
-    saveRecurringOccurrences(template, occurrences) {
+    watchActivity(groupId, cb, max = 50) {
+      return onSnapshot(
+        query(activityCol(groupId), orderBy('createdAt', 'desc'), limit(max)),
+        (s) => cb(s.docs.map((d) => ({ ...(d.data() as ActivityEntry), id: d.id, groupId }))),
+        listenError('Loading activity', () => cb([])),
+      )
+    },
+    watchHistory(groupId, targetId, cb) {
+      // Equality-only query: served by the automatic single-field index.
+      return onSnapshot(
+        query(activityCol(groupId), where('targetId', '==', targetId)),
+        (s) => cb(s.docs.map((d) => ({ ...(d.data() as ActivityEntry), id: d.id, groupId })).sort(byCreatedDesc)),
+        listenError('Loading history', () => cb([])),
+      )
+    },
+
+    async saveRecurringOccurrences(template, occurrences) {
+      const group = (await cachedGroup(template.groupId)) ?? {}
       const batch = writeBatch(db)
-      for (const o of occurrences) batch.set(doc(db, 'groups', o.groupId, 'expenses', o.id), o)
+      for (const o of occurrences) batch.set(doc(db, 'groups', o.groupId, 'expenses', o.id), prepareOccurrence(o, group))
       // update (not set) so a concurrent edit to the template isn't clobbered, and so the
       // whole batch fails if the template was deleted meanwhile.
       batch.update(doc(db, 'groups', template.groupId, 'expenses', template.id), { recurrence: template.recurrence ?? deleteField() })
       if (occurrences.length) batch.update(groupRef(template.groupId), { updatedAt: Date.now() })
       fire(batch, `Adding recurring “${template.description}”`)
-      return Promise.resolve()
     },
 
     async bulkImport(groupId, expenses, settlements) {
+      const group = await cachedGroup(groupId)
       const writes: Array<[DocumentReference, object]> = [
-        ...expenses.map((e) => [doc(db, 'groups', groupId, 'expenses', e.id), { ...e, groupId }] as [DocumentReference, object]),
-        ...settlements.map((st) => [doc(db, 'groups', groupId, 'settlements', st.id), { ...st, groupId }] as [DocumentReference, object]),
+        // New rows: no trust fields; requiresApproval when the group asks for it (as for any create).
+        ...expenses.map((e) => [expenseRef(groupId, e.id), prepareOccurrence({ ...e, groupId }, group ?? {})] as [DocumentReference, object]),
+        ...settlements.map((st) => [settlementRef(groupId, st.id), prepareImportedSettlement({ ...st, groupId })] as [DocumentReference, object]),
       ]
+      // One summary activity entry for the whole import, in the first batch.
+      const entry = importActivity(groupId, expenses.length, settlements.length, expenses[0]?.importedFrom ?? settlements[0]?.importedFrom, await actCtx(groupId, undefined, group))
+      writes.unshift([doc(activityCol(groupId)), compact(entry)])
       // One slot per batch for the group's updatedAt bump. Batches go out in order, so they
       // follow any createGroup/addMember batch fired just before (rules need the group first).
       const size = BATCH_LIMIT - 1

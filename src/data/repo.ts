@@ -1,6 +1,7 @@
-import type { Capture, Expense, ExpenseComment, Group, Member, MemberId, PaymentHandles, Settlement, UserProfile } from '@/types'
+import type { ActivityEntry, Capture, Expense, ExpenseComment, Group, Member, MemberId, PaymentHandles, Settlement, UserProfile } from '@/types'
 import type { CaptureDraft, InboxDoc } from '@/lib/capture'
 import type { ItemId, LiveTable, NewTable, ParticipantId, TableExtras, TableItem, TableParticipant, TableStatus } from '@/lib/table'
+import type { ActivityCtx } from '@/lib/activity'
 
 export type Unsub = () => void
 
@@ -80,9 +81,23 @@ export interface Repo {
   getInvite(code: string): Promise<InviteInfo | null>
   joinGroup(code: string, memberId: MemberId, member: Member): Promise<string>
 
+  /** Every expense of the group, including trashed ones (deletedAt set). */
   watchExpenses(groupId: string, cb: (e: Expense[]) => void): Unsub
+  /**
+   * Create or edit. Writes an activity entry in the same batch, and keeps the stored trust
+   * fields (flags, approvals, trash) whatever the form passed (see prepareExpenseSave).
+   */
   saveExpense(e: Expense): Promise<void>
+  /** Soft delete: moves the expense to "Recently deleted" (deletedAt/deletedBy). */
   deleteExpense(groupId: string, id: string): Promise<void>
+  restoreExpense(groupId: string, id: string): Promise<void>
+  /** Hard delete (with its comments and receipt). Only the deleter or the group creator may. */
+  purgeExpense(groupId: string, id: string): Promise<void>
+  /** Add (or replace) the signed-in user's flag on an expense they are part of. */
+  flagExpense(group: Group, expense: Expense, reason: string): Promise<void>
+  /** Remove the signed-in user's own flag. */
+  resolveFlag(group: Group, expense: Expense): Promise<void>
+  approveExpense(group: Group, expense: Expense): Promise<void>
   /**
    * Downscales and uploads a receipt in the background, then patches the expense's
    * receiptUrl/receiptPath. Returns false (and does nothing) when offline.
@@ -91,9 +106,18 @@ export interface Repo {
   /** @deprecated blocks on the network; prefer attachReceipt after saving. */
   uploadReceipt(groupId: string, file: Blob): Promise<string>
 
+  /** Every settlement of the group, including trashed ones. */
   watchSettlements(groupId: string, cb: (s: Settlement[]) => void): Unsub
   saveSettlement(s: Settlement): Promise<void>
+  /** Soft delete (restorable for 30 days). */
   deleteSettlement(groupId: string, id: string): Promise<void>
+  restoreSettlement(groupId: string, id: string): Promise<void>
+  purgeSettlement(groupId: string, id: string): Promise<void>
+
+  /** groups/{gid}/activity, newest first. */
+  watchActivity(groupId: string, cb: (a: ActivityEntry[]) => void, max?: number): Unsub
+  /** Activity entries about one expense/settlement, newest first. */
+  watchHistory(groupId: string, targetId: string, cb: (a: ActivityEntry[]) => void): Unsub
 
   /**
    * Recurring catch-up: write generated occurrences (deterministic ids, so concurrent
@@ -230,3 +254,14 @@ export const compact = <T extends object>(o: T): T =>
   Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T
 
 export const byCreatedDesc = <T extends { createdAt: number }>(a: T, b: T) => b.createdAt - a.createdAt
+
+/** Context for building activity entries (src/lib/activity.ts) for a write by `actor` in `group`. */
+export function activityCtxFor(group: Pick<Group, 'currency' | 'members'> | undefined, actor: { uid: string; name: string }, _item?: object): ActivityCtx {
+  return {
+    actorUid: actor.uid,
+    actorName: actor.name.slice(0, 80) || 'Someone',
+    // amounts are stored in the group currency (a foreign original is formatted from `original`)
+    currency: group?.currency ?? 'AUD',
+    memberName: (id) => group?.members[id]?.name ?? 'Former member',
+  }
+}

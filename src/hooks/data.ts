@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { repo } from '@/data'
-import type { Capture, Expense, ExpenseComment, Group, MemberId, Settlement } from '@/types'
+import type { ActivityEntry, Capture, Expense, ExpenseComment, Group, MemberId, Settlement } from '@/types'
 import { netBalances, pairwiseDebts } from '@/lib/balances'
 import { simplifyDebts } from '@/lib/simplify'
 import { planCatchUp } from '@/lib/recurrence'
 import { todayISO } from '@/lib/id'
+import { mergeFeeds } from '@/lib/activity'
+import { canPurge, countedExpenses, countedSettlements, expiredTrash, isDisputed, isPending, liveItems, trashedItems } from '@/lib/trust'
 import { useMe } from './auth'
 
 export function useGroups() {
@@ -43,7 +45,7 @@ const attempted = new Set<string>()
  */
 export function catchUpRecurring(expenses: Expense[], today = todayISO()) {
   for (const e of expenses) {
-    if (!e.recurrence) continue
+    if (!e.recurrence || e.deletedAt) continue
     const key = `${e.groupId}/${e.id}@${e.recurrence.nextDate}|${e.recurrence.until ?? ''}`
     if (attempted.has(key)) continue
     const plan = planCatchUp(e, today)
@@ -53,10 +55,81 @@ export function catchUpRecurring(expenses: Expense[], today = todayISO()) {
   }
 }
 
+/** The group's expenses, without trashed ones. */
 export function useExpenses(groupId: string | undefined) {
   const [list, setList] = useState<Expense[] | null>(null)
-  useEffect(() => (groupId ? repo.watchExpenses(groupId, (l) => { setList(l); catchUpRecurring(l) }) : undefined), [groupId])
+  useEffect(() => (groupId ? repo.watchExpenses(groupId, (l) => { const live = liveItems(l); setList(live); catchUpRecurring(live) }) : undefined), [groupId])
   return list
+}
+
+/** Every expense of the group, including those in "Recently deleted". */
+export function useAllExpenses(groupId: string | undefined) {
+  const [list, setList] = useState<Expense[] | null>(null)
+  useEffect(() => (groupId ? repo.watchExpenses(groupId, setList) : undefined), [groupId])
+  return list
+}
+
+export function useAllSettlements(groupId: string | undefined) {
+  const [list, setList] = useState<Settlement[] | null>(null)
+  useEffect(() => (groupId ? repo.watchSettlements(groupId, setList) : undefined), [groupId])
+  return list
+}
+
+// Expired trash already purged this session.
+const purged = new Set<string>()
+
+/**
+ * "Recently deleted" for a group (last 30 days, newest first). Items older than that are
+ * purged by whoever is allowed to (the deleter or the group creator) when they open it.
+ */
+export function useTrash(group: Group | null | undefined) {
+  const { user } = useMe()
+  const expenses = useAllExpenses(group?.id)
+  const settlements = useAllSettlements(group?.id)
+  useEffect(() => {
+    if (!group || !expenses || !settlements) return
+    for (const e of expiredTrash(expenses)) {
+      if (purged.has(e.id) || !canPurge(e, group, user.uid)) continue
+      purged.add(e.id)
+      repo.purgeExpense(group.id, e.id).catch((err) => console.warn('Trash purge failed', err))
+    }
+    for (const s of expiredTrash(settlements)) {
+      if (purged.has(s.id) || !canPurge(s, group, user.uid)) continue
+      purged.add(s.id)
+      repo.purgeSettlement(group.id, s.id).catch((err) => console.warn('Trash purge failed', err))
+    }
+  }, [group, expenses, settlements, user.uid])
+  return useMemo(
+    () => (expenses && settlements ? { expenses: trashedItems(expenses), settlements: trashedItems(settlements) } : null),
+    [expenses, settlements],
+  )
+}
+
+/** A group's activity feed, newest first. */
+export function useActivity(groupId: string | undefined, max = 50) {
+  const [list, setList] = useState<ActivityEntry[] | null>(null)
+  useEffect(() => (groupId ? repo.watchActivity(groupId, setList, max) : undefined), [groupId, max])
+  return list
+}
+
+/** Edit history of one expense or settlement, newest first. */
+export function useHistory(groupId: string | undefined, targetId: string | undefined) {
+  const [list, setList] = useState<ActivityEntry[] | null>(null)
+  useEffect(() => (groupId && targetId ? repo.watchHistory(groupId, targetId, setList) : undefined), [groupId, targetId])
+  return list
+}
+
+/** Newest activity across the given groups. */
+export function useRecentActivity(groupIds: string[] | null, max = 8) {
+  const [feeds, setFeeds] = useState<Record<string, ActivityEntry[]>>({})
+  const key = groupIds ? [...groupIds].sort().join(',') : null
+  useEffect(() => {
+    if (!key) return
+    const ids = key.split(',')
+    const unsubs = ids.map((id) => repo.watchActivity(id, (a) => setFeeds((p) => ({ ...p, [id]: a })), max))
+    return () => { unsubs.forEach((u) => u()); setFeeds({}) }
+  }, [key, max])
+  return useMemo(() => (key === null ? null : mergeFeeds(Object.values(feeds), max)), [feeds, key, max])
 }
 
 export function useComments(groupId: string | undefined, expenseId: string | undefined) {
@@ -65,9 +138,10 @@ export function useComments(groupId: string | undefined, expenseId: string | und
   return list
 }
 
+/** The group's settlements, without trashed ones. */
 export function useSettlements(groupId: string | undefined) {
   const [list, setList] = useState<Settlement[] | null>(null)
-  useEffect(() => (groupId ? repo.watchSettlements(groupId, setList) : undefined), [groupId])
+  useEffect(() => (groupId ? repo.watchSettlements(groupId, (l) => setList(liveItems(l))) : undefined), [groupId])
   return list
 }
 
@@ -87,13 +161,27 @@ export interface GroupData {
   net: Record<MemberId, number>
   debts: ReturnType<typeof simplifyDebts>
   rawDebts: ReturnType<typeof simplifyDebts>
+  /** waiting for approval: listed, but not in net/debts */
+  pending: Expense[]
+  /** flagged by someone: still counted in net/debts */
+  disputed: Expense[]
 }
 
+/**
+ * Balances for a group. Trashed items never count; expenses still waiting for approval are
+ * listed (in `expenses` and `pending`) but left out of `net` and the debts.
+ */
 export function computeGroupData(group: Group, expenses: Expense[], settlements: Settlement[], uid: string): GroupData {
-  const net = netBalances(expenses, settlements)
-  const rawDebts = pairwiseDebts(expenses, settlements)
+  const live = liveItems(expenses)
+  const liveSettlements = countedSettlements(settlements)
+  const counted = countedExpenses(live, group)
+  const net = netBalances(counted, liveSettlements)
+  const rawDebts = pairwiseDebts(counted, liveSettlements)
   const debts = group.simplify ? simplifyDebts(net) : rawDebts
-  return { group, expenses, settlements, me: myMemberId(group, uid), net, debts, rawDebts }
+  return {
+    group, expenses: live, settlements: liveSettlements, me: myMemberId(group, uid), net, debts, rawDebts,
+    pending: live.filter((e) => isPending(e, group)), disputed: counted.filter(isDisputed),
+  }
 }
 
 /** Live data for every group the user belongs to (for dashboard / friends / insights). */

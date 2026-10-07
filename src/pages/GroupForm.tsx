@@ -4,12 +4,13 @@ import { FileUp, Trash2, UserPlus, X } from 'lucide-react'
 import { repo } from '@/data'
 import { diffMembers } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
-import { useExpenses, useGroup, useSettlements } from '@/hooks/data'
+import { useAllExpenses, useAllSettlements, useGroup } from '@/hooks/data'
 import type { Group, GroupType, Member } from '@/types'
 import { CURRENCIES, centsToInput, parseMoney } from '@/lib/money'
 import { colorFor } from '@/lib/colors'
 import { todayISO, uid } from '@/lib/id'
 import { isLiveTrip } from '@/lib/capture'
+import { DEFAULT_APPROVAL_THRESHOLD } from '@/lib/trust'
 import { Avatar } from '@/components/Avatar'
 import { LiveBadge, Loading, PageHeader } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
@@ -29,8 +30,9 @@ export default function GroupForm() {
   const { groupId } = useParams()
   const [params] = useSearchParams()
   const existing = useGroup(groupId)
-  const expenses = useExpenses(groupId)
-  const settlements = useSettlements(groupId)
+  // Including trashed items: their members must stay so a restore still balances.
+  const expenses = useAllExpenses(groupId)
+  const settlements = useAllSettlements(groupId)
   const { user, profile } = useMe()
   const nav = useNavigate()
   const toast = useToast()
@@ -41,6 +43,8 @@ export default function GroupForm() {
   const [currency, setCurrency] = useState(profile.currency)
   const [budget, setBudget] = useState('')
   const [simplify, setSimplify] = useState(true)
+  const [requireApproval, setRequireApproval] = useState(false)
+  const [threshold, setThreshold] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [members, setMembers] = useState<Record<string, Member>>({})
@@ -57,6 +61,8 @@ export default function GroupForm() {
       setName(existing.name); setEmoji(existing.emoji); setType(existing.type); setCurrency(existing.currency)
       setBudget(existing.budget ? centsToInput(existing.budget, existing.currency) : ''); setSimplify(existing.simplify); setMembers(existing.members)
       setStartDate(existing.startDate ?? ''); setEndDate(existing.endDate ?? '')
+      setRequireApproval(!!existing.requireApproval)
+      setThreshold(existing.approvalThreshold !== undefined ? centsToInput(existing.approvalThreshold, existing.currency) : '')
     } else if (!groupId) {
       loaded.current = { key: 'new' }
       setMembers({ [user.uid]: { name: profile.displayName, uid: user.uid, email: user.email, color: colorFor(0) } })
@@ -74,6 +80,7 @@ export default function GroupForm() {
   const others = Object.entries(members).filter(([, m]) => m.uid !== user.uid)
   const maxOthers = type === 'personal' ? 0 : type === 'direct' ? 1 : Infinity
   const datable = type !== 'personal' && type !== 'direct'
+  const shareable = type !== 'personal'
   const live = datable && isLiveTrip({ startDate: startDate || undefined, endDate: endDate || undefined }, todayISO())
 
   const addMember = () => {
@@ -90,11 +97,14 @@ export default function GroupForm() {
     const budgetCents = budget ? parseMoney(budget, currency) : undefined
     if (budget && !Number.isFinite(budgetCents)) return toast('Budget is not a valid amount', 'err')
     if (startDate && endDate && endDate < startDate) return toast('The trip ends before it starts', 'err')
+    const thresholdCents = threshold ? parseMoney(threshold, currency) : undefined
+    if (threshold && !Number.isFinite(thresholdCents)) return toast('Approval limit is not a valid amount', 'err')
     setBusy(true)
     try {
       const data = {
         name: finalName, emoji, type, currency, budget: budgetCents, simplify, members,
         startDate: datable ? startDate || undefined : undefined, endDate: datable ? endDate || undefined : undefined,
+        ...(shareable ? { requireApproval: requireApproval || undefined, approvalThreshold: requireApproval ? thresholdCents : undefined } : {}),
         memberUids: [...new Set(Object.values(members).map((m) => m.uid).filter(Boolean) as string[])],
       }
       if (existing) {
@@ -195,6 +205,23 @@ export default function GroupForm() {
               </div>
               <input type="checkbox" className="h-6 w-11 shrink-0 accent-brand-600" checked={simplify} onChange={(e) => setSimplify(e.target.checked)} />
             </label>
+          )}
+          {shareable && (
+            <div className="rounded-2xl bg-slate-50 p-3 dark:bg-ink-800">
+              <label className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="font-semibold">Require approval</div>
+                  <div className="text-xs text-slate-500">Big expenses added by someone else stay pending (not counted) until everyone charged taps Approve.</div>
+                </div>
+                <input type="checkbox" className="h-6 w-11 shrink-0 accent-brand-600" checked={requireApproval} onChange={(e) => setRequireApproval(e.target.checked)} />
+              </label>
+              {requireApproval && (
+                <div className="mt-3">
+                  <label className="label" htmlFor="approval-threshold">For expenses over</label>
+                  <input id="approval-threshold" className="input" inputMode="decimal" placeholder={centsToInput(DEFAULT_APPROVAL_THRESHOLD, currency)} value={threshold} onChange={(e) => setThreshold(e.target.value)} />
+                </div>
+              )}
+            </div>
           )}
         </div>
 

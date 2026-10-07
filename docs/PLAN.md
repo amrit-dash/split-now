@@ -62,10 +62,20 @@ Splitwise solved "who owes whom". Its weak points today are where Split It goes 
   - **Adjustments** (equal split plus a +/- per person)
   - **Itemized**: assign receipt line items to people, with tax/tip spread proportionally
 - ✅ Cent-exact rounding: leftover cents are distributed deterministically, so splits always sum to the total
-- ✅ Edit / delete (creator or any group member)
+- ✅ Edit / delete (creator or any group member). Delete is a **soft delete** (see 3.3b)
 - ✅ Receipt image attached (Firebase Storage)
 - ✅ Recurring expenses (weekly / fortnightly / monthly / yearly, optional end date) via **client catch-up**: when a member opens a group, missed occurrences are created with deterministic ids (`{templateId}_{yyyy-mm-dd}`) so concurrent clients never duplicate. Month-end dates clamp (Jan 31 → Feb 28/29 → Mar 31). No Cloud Functions.
 - ✅ Comment thread on each expense (author-only delete)
+
+### 3.3b Trust: activity feed, edit history, undo/trash, disputes, approval
+- ✅ **Activity log** `groups/{gid}/activity`: every expense/settlement create, edit, delete, restore and purge, member add/remove, flag/resolve and approval writes one entry **in the same batch** as the change. Pure diff + wording in `src/lib/activity.ts` (unit-tested), so both repos produce identical text, e.g. *"Sarah changed amount A$80.00 → A$84.00 on “Dinner”"*.
+- ✅ **History** card on each expense (per-field before → after, rendered from the stored snapshots with current member names); **Activity** tab on a group; cross-group **Recent activity** on Home (falls back to the latest expenses when no group has activity yet, e.g. data from before this feature).
+- ✅ **Soft delete + undo**: deleting an expense or payment sets `deletedAt`/`deletedBy`; balances, lists, insights and export ignore it. A 6 s **Undo** toast replaces the confirm dialog. **Recently deleted** (Activity tab) restores within 30 days; the deleter or the group creator can **Delete forever** (purge: the doc, its comments and its receipt). Items older than 30 days are purged by an allowed member's client when they open the trash. Comments of a trashed expense stay until purge.
+- ✅ **Disputes**: anyone who paid or owes on an expense can **Flag** it with a reason → `dispute: { [uid]: { byUid, memberId, reason, at } }` (several flags allowed). Disputed expenses show a badge and still count in balances (labelled on the Balances tab). The flagger resolves (removes) their own flag; both are logged.
+- ✅ **Approval** (group setting `requireApproval`, `approvalThreshold` in minor units, default A$100): a new expense strictly above the threshold is saved with `requiresApproval: true` and is **pending** (listed with a badge, excluded from balances) until every charged member with an account other than the author sets `approvals[uid] = true`. A "Needs your OK" card on Home lists what's waiting on you. Editing the money clears other people's approvals.
+- Imports (`bulkImport`) write **one** `expense.imported` summary entry ("Sarah imported 12 expenses and 3 payments from Splitwise"); imported rows never carry trust fields and, like any create, rows above the threshold in a `requireApproval` group are marked `requiresApproval` (the rule applies to every create, so imports aren't exempt; a freshly imported group has approval off). Live-table bills are saved through `saveExpense`, so they get an `expense.created` entry and the same trust handling.
+- Amounts in activity text are in the group currency; a foreign-currency expense shows its original too, e.g. "฿1,200.00 (A$50.52)". The trust update branches (trash, flag/approval) can't touch `original`; normal edits and creates still pass `validOriginal`.
+- Gaps: recurring occurrences are not logged (several clients may generate the same occurrence and an append-only log can't dedupe); receipt attachments aren't logged; only the flagger (not the expense author) can clear a flag; approval is client-side bookkeeping (rules enforce the `requiresApproval` marker and own-key approvals, not the balance exclusion).
 - ✅ Search (description/notes), category filter chips and an "involving me" toggle on a group's activity list
 - ✅ **Multi-currency expenses with a locked FX rate** (§4.1a): pick a currency next to the amount (remembered per group, e.g. THB for a whole Bali trip); the ECB rate for the expense date is fetched from Frankfurter and shown as "≈ A$51.23 at 1 THB = 0.04269 AUD (ECB, 2026-10-07)", editable, and typed by hand when offline. Captures in a foreign currency prefill the form in that currency. Expense detail shows the original amount and rate.
 - ⏳ Settling up in a different currency from the group's (see §4.1a)
@@ -190,12 +200,23 @@ groups/{groupId}/expenses/{expenseId}
   recurrence?: { freq: weekly|fortnightly|monthly|yearly, nextDate, until? }   ← on a template
   recurringFrom?: templateId                                                  ← on a generated copy
   importedFrom?: 'splitwise' | 'csv'                                          ← set by the import (also on settlements)
+  deletedAt?, deletedBy? (uid)                                                ← in "Recently deleted"
+  dispute?: { [uid]: { byUid, memberId, reason, at } }                         ← open flags
+  requiresApproval?: true, approvals?: { [uid]: true }                        ← approval workflow
 
 groups/{groupId}/expenses/{expenseId}/comments/{commentId}
   text, authorUid, authorName, createdAt
 
 groups/{groupId}/settlements/{settlementId}
   from: memberId, to: memberId, amount, method, note?, date, createdBy, createdAt
+  deletedAt?, deletedBy?
+
+groups/{groupId}/activity/{activityId}  ← append-only; same batch as the change
+  type: expense.created|updated|deleted|restored|purged|disputed|resolved|approved
+        settlement.created|deleted|restored|purged, member.added|removed
+  actorUid, actorName, targetId, summary (human text), before?, after? (changed fields), createdAt
+
+groups/{groupId}.requireApproval?, approvalThreshold? (minor units)
 
 invites/{inviteCode}
   groupId, groupName, emoji, placeholders   ← readable by any signed-in user (no createdBy)
@@ -227,6 +248,8 @@ A **member id** is stable and separate from a Firebase uid. A placeholder member
 - **Join**: a non-member may update a group only to add *their own uid* to `memberUids` and exactly one member entry carrying it, and only when they supply a `joinCode` that matches `inviteCode`. Already-members can't re-join (no duplicate entries); the Join screen redirects them.
 - **Invites**: an invite doc can only be written by a member of the group it points at, only if that group's `inviteCode` equals the invite's doc id, and `groupId` never changes; keys are restricted. Checked with `getAfter`, so create-group and join can write the invite in the same batch.
 - **Expenses/settlements**: members only; `createdBy` must be the writer on create and is immutable (exception: a recurring occurrence `<templateId>_<date>` keeps its template's `createdBy`, whichever member's client generates it); comments are deleted in the same batch as their expense (or after it, when a whole group is deleted); `paidBy`/`splits` keys (and settlement `from`/`to`) must be member ids of the group. The client also ignores any expense whose `paidBy` or `splits` don't add up to `amount` (`countable()` in `balances.ts`).
+- **Trust fields** (`tests/firestore.trust.test.ts`): an update is exactly one of (a) a normal edit, which may not touch `dispute`/`deletedAt`/`deletedBy`, may only *remove* `approvals` keys and can't drop `requiresApproval`; (b) a trash change: only `deletedAt`/`deletedBy`, with `deletedBy == auth.uid` when trashing, both removed when restoring; (c) a flag/approval: only `dispute`/`approvals` change and `diff().affectedKeys()` of each map is at most `[auth.uid]`; a flag must be `byUid == auth.uid` with a `memberId` that is the caller's and is in the expense's `paidBy`/`splits`; an approval value must be `true`. Creates can't carry trust fields. With `requireApproval`, an expense above `approvalThreshold` must carry `requiresApproval` when created or when its amount changes. **Hard delete** of an expense/settlement: only `deletedBy` or the group creator.
+- **Activity**: create-only by members with `actorUid == auth.uid`, whitelisted typed keys, summary ≤ 500 chars; no update; delete only by the group creator in the batch that deletes the group (`!existsAfter(group)`), so `deleteGroup` removes up to ~450 entries with the group (more are left orphaned and unreadable).
 - Known gap: rules can't iterate maps, so the *creator* could seed fake `uid` entries when first creating a group. That only affects the creator's own group.
 - **Live tables**: any signed-in user (anonymous included) who knows the code can `get` an open, unexpired table (no `list`); the host and participants can still read it after it closes. A guest may only add/rename *their own* participant entry (`participants.{uid}`, carrying their uid) and replace *their own* claims (`claims.{uid}`, keys limited to existing items), and only while it's open. The host may change anything except `hostUid`, `code`, `createdAt` and `expiresAt`, close it, and delete it. Share values are validated on the client (`sanitizeClaims`) because rules can't iterate a map. The host's payment handles are copied onto the table so guests can pay them back.
 - Storage receipts: `receipts/{groupId}/...` — signed-in users only, images under 10 MB.
@@ -267,7 +290,7 @@ A **member id** is stable and separate from a Firebase uid. A placeholder member
 | 0 | Repo, tooling, docs, Firebase config, rules, PWA shell | ✅ |
 | 1 | Auth, groups, members, invites, expenses (all split types), balances, simplify, settle-up | ✅ |
 | 2 | OCR receipts + payment screenshots, insights charts, install banner, debt graph | ✅ |
-| 3 | Recurring expenses ✅, CSV export ✅, comments ✅, Splitwise/CSV import ✅, push notifications, archive/leave group | 🟡 |
+| 3 | Recurring expenses ✅, CSV export ✅, comments ✅, Splitwise/CSV import ✅, activity/history/trash/disputes/approval ✅, push notifications, archive/leave group | 🟡 |
 | 4 | Multi-currency with FX ✅, server-side AI receipt parsing, Apple sign-in | 🟡 |
 
 ---

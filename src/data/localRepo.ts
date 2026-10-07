@@ -1,9 +1,11 @@
-import type { Capture, Expense, ExpenseComment, Group, Settlement, UserProfile } from '@/types'
+import type { ActivityEntry, Capture, Expense, ExpenseComment, Group, Settlement, UserProfile } from '@/types'
 import { inviteCode, todayISO, uid } from '@/lib/id'
 import { inboxToDraft, newCaptureToken } from '@/lib/capture'
 import { downscale } from '@/lib/image'
 import { isExpired, TABLE_TTL_MS, type LiveTable } from '@/lib/table'
-import { byCreatedDesc, byDateDesc, changedSettings, draftToCapture, errorChannel, placeholdersOf, type AuthUser, type CaptureToken, type Repo, type TablePatch } from './repo'
+import { disputeActivity, expenseEventActivity, expenseSaveActivity, importActivity, memberActivity, settlementActivity, type NewActivity } from '@/lib/activity'
+import { prepareExpenseSave, prepareImportedSettlement, prepareOccurrence } from '@/lib/trust'
+import { activityCtxFor, byCreatedDesc, byDateDesc, changedSettings, draftToCapture, errorChannel, placeholdersOf, type AuthUser, type CaptureToken, type Repo, type TablePatch } from './repo'
 import { seedDemo } from './seed'
 
 /**
@@ -17,6 +19,7 @@ interface State {
   expenses: Record<string, Expense>
   settlements: Record<string, Settlement>
   comments?: Record<string, StoredComment>
+  activity?: Record<string, ActivityEntry>
 
   /** captures keyed by id, tagged with the owner's uid */
   captures: Record<string, Capture & { owner: string }>
@@ -41,6 +44,18 @@ export function createLocalRepo(): Repo {
   let state = load()
   state.comments ??= {}
   const comments = () => (state.comments ??= {})
+  const activity = () => (state.activity ??= {})
+  const me = () => {
+    const u = state.user
+    return { uid: u?.uid ?? 'me', name: state.profiles[u?.uid ?? '']?.displayName ?? u?.displayName ?? 'You' }
+  }
+  const ctx = (groupId: string, item?: object) => activityCtxFor(state.groups[groupId], me(), item)
+  const log = (groupId: string, a: NewActivity | null) => {
+    if (!a) return
+    const id = uid('a_')
+    activity()[id] = { ...a, id, groupId }
+  }
+  const actor = () => me().uid
   const listeners = new Set<() => void>()
   const commit = () => {
     try { localStorage.setItem(KEY, JSON.stringify(state)) } catch { /* ignore */ }
@@ -140,12 +155,14 @@ export function createLocalRepo(): Repo {
         memberUids: member.uid ? [...new Set([...g.memberUids, member.uid])] : g.memberUids,
         updatedAt: Date.now(),
       }
+      log(group.id, memberActivity('added', memberId, member.name, ctx(group.id)))
       commit()
     },
     async removeMember(group, memberId) {
       const g = state.groups[group.id]
       if (!g) return
       const { [memberId]: removed, ...members } = g.members
+      if (removed) log(group.id, memberActivity('removed', memberId, removed.name, ctx(group.id), removed.uid === actor()))
       state.groups[group.id] = {
         ...g, members, memberUids: g.memberUids.filter((u) => u !== removed?.uid), updatedAt: Date.now(),
       }
@@ -156,6 +173,7 @@ export function createLocalRepo(): Repo {
       for (const [k, e] of Object.entries(state.expenses)) if (e.groupId === id) delete state.expenses[k]
       for (const [k, s] of Object.entries(state.settlements)) if (s.groupId === id) delete state.settlements[k]
       for (const [k, c] of Object.entries(comments())) if (c.groupId === id) delete comments()[k]
+      for (const [k, a] of Object.entries(activity())) if (a.groupId === id) delete activity()[k]
       commit()
     },
 
@@ -179,10 +197,64 @@ export function createLocalRepo(): Repo {
 
     watchExpenses: (groupId, cb) =>
       watch(() => Object.values(state.expenses).filter((e) => e.groupId === groupId).sort(byDateDesc), cb),
-    async saveExpense(e) { state.expenses[e.id] = e; touch(e.groupId); commit() },
-    async deleteExpense(_g, id) {
+    async saveExpense(e) {
+      const prev = state.expenses[e.id]
+      const g = state.groups[e.groupId]
+      const next = prepareExpenseSave(prev, e, g ?? {}, actor())
+      state.expenses[e.id] = next
+      log(e.groupId, expenseSaveActivity(prev, next, ctx(e.groupId, next)))
+      touch(e.groupId)
+      commit()
+    },
+    async deleteExpense(groupId, id) {
+      const e = state.expenses[id]
+      if (!e || e.deletedAt) return
+      state.expenses[id] = { ...e, deletedAt: Date.now(), deletedBy: actor() }
+      log(groupId, expenseEventActivity('deleted', e, ctx(groupId, e)))
+      touch(groupId)
+      commit()
+    },
+    async restoreExpense(groupId, id) {
+      const e = state.expenses[id]
+      if (!e?.deletedAt) return
+      const { deletedAt: _t, deletedBy: _b, ...rest } = e
+      state.expenses[id] = rest
+      log(groupId, expenseEventActivity('restored', rest, ctx(groupId, e)))
+      touch(groupId)
+      commit()
+    },
+    async purgeExpense(groupId, id) {
+      const e = state.expenses[id]
+      if (!e) return
+      const g = state.groups[groupId]
+      if (g && e.deletedBy !== actor() && g.createdBy !== actor()) throw new Error('Only the person who deleted it, or the group creator, can delete it forever')
       delete state.expenses[id]
       for (const [k, c] of Object.entries(comments())) if (c.expenseId === id) delete comments()[k]
+      log(groupId, expenseEventActivity('purged', e, ctx(groupId, e)))
+      commit()
+    },
+    async flagExpense(group, expense, reason) {
+      const e = state.expenses[expense.id]
+      const memberId = Object.entries(group.members).find(([, m]) => m.uid === actor())?.[0]
+      if (!e || !memberId) return
+      const text = reason.trim().slice(0, 500) || 'Something looks wrong'
+      state.expenses[e.id] = { ...e, dispute: { ...e.dispute, [actor()]: { byUid: actor(), memberId, reason: text, at: Date.now() } } }
+      log(group.id, disputeActivity('disputed', e, ctx(group.id, e), text))
+      commit()
+    },
+    async resolveFlag(group, expense) {
+      const e = state.expenses[expense.id]
+      if (!e?.dispute?.[actor()]) return
+      const { [actor()]: _f, ...rest } = e.dispute
+      state.expenses[e.id] = { ...e, dispute: rest }
+      log(group.id, disputeActivity('resolved', e, ctx(group.id, e)))
+      commit()
+    },
+    async approveExpense(group, expense) {
+      const e = state.expenses[expense.id]
+      if (!e) return
+      state.expenses[e.id] = { ...e, approvals: { ...e.approvals, [actor()]: true } }
+      log(group.id, disputeActivity('approved', e, ctx(group.id, e)))
       commit()
     },
     attachReceipt(_groupId, expenseId, file) {
@@ -204,8 +276,43 @@ export function createLocalRepo(): Repo {
 
     watchSettlements: (groupId, cb) =>
       watch(() => Object.values(state.settlements).filter((s) => s.groupId === groupId).sort(byDateDesc), cb),
-    async saveSettlement(s) { state.settlements[s.id] = s; touch(s.groupId); commit() },
-    async deleteSettlement(_g, id) { delete state.settlements[id]; commit() },
+    async saveSettlement(s) {
+      if (!state.settlements[s.id]) log(s.groupId, settlementActivity('created', s, ctx(s.groupId)))
+      state.settlements[s.id] = s
+      touch(s.groupId)
+      commit()
+    },
+    async deleteSettlement(groupId, id) {
+      const s = state.settlements[id]
+      if (!s || s.deletedAt) return
+      state.settlements[id] = { ...s, deletedAt: Date.now(), deletedBy: actor() }
+      log(groupId, settlementActivity('deleted', s, ctx(groupId)))
+      touch(groupId)
+      commit()
+    },
+    async restoreSettlement(groupId, id) {
+      const s = state.settlements[id]
+      if (!s?.deletedAt) return
+      const { deletedAt: _t, deletedBy: _b, ...rest } = s
+      state.settlements[id] = rest
+      log(groupId, settlementActivity('restored', rest, ctx(groupId)))
+      touch(groupId)
+      commit()
+    },
+    async purgeSettlement(groupId, id) {
+      const s = state.settlements[id]
+      if (!s) return
+      const g = state.groups[groupId]
+      if (g && s.deletedBy !== actor() && g.createdBy !== actor()) throw new Error('Only the person who deleted it, or the group creator, can delete it forever')
+      delete state.settlements[id]
+      log(groupId, settlementActivity('purged', s, ctx(groupId)))
+      commit()
+    },
+
+    watchActivity: (groupId, cb, max = 50) =>
+      watch(() => Object.values(activity()).filter((a) => a.groupId === groupId).sort(byCreatedDesc).slice(0, max), cb),
+    watchHistory: (groupId, targetId, cb) =>
+      watch(() => Object.values(activity()).filter((a) => a.groupId === groupId && a.targetId === targetId).sort(byCreatedDesc), cb),
 
     async uploadReceipt(_groupId, file) {
       const blob = await downscale(file, 900, 0.7)
@@ -220,7 +327,7 @@ export function createLocalRepo(): Repo {
     async saveRecurringOccurrences(template, occurrences) {
       const current = state.expenses[template.id]
       if (!current) return
-      for (const o of occurrences) state.expenses[o.id] = o
+      for (const o of occurrences) state.expenses[o.id] = prepareOccurrence(o, state.groups[o.groupId] ?? {})
       state.expenses[template.id] = { ...current, recurrence: template.recurrence }
       if (occurrences.length) touch(template.groupId)
       commit()
@@ -228,8 +335,10 @@ export function createLocalRepo(): Repo {
 
     async bulkImport(groupId, expenses, settlements) {
       if (!state.groups[groupId]) throw new Error('Group not found')
-      for (const e of expenses) state.expenses[e.id] = { ...e, groupId }
-      for (const s of settlements) state.settlements[s.id] = { ...s, groupId }
+      const g = state.groups[groupId]
+      for (const e of expenses) state.expenses[e.id] = prepareOccurrence({ ...e, groupId }, g)
+      for (const s of settlements) state.settlements[s.id] = prepareImportedSettlement({ ...s, groupId })
+      log(groupId, importActivity(groupId, expenses.length, settlements.length, expenses[0]?.importedFrom ?? settlements[0]?.importedFrom, ctx(groupId)))
       touch(groupId)
       commit()
     },
