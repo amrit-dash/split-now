@@ -25,6 +25,7 @@ const Capture = lazy(() => import('./pages/Capture'))
 const CaptureGuest = lazy(() => import('./pages/CaptureGuest'))
 const Inbox = lazy(() => import('./pages/Inbox'))
 const Share = lazy(() => import('./pages/Share'))
+const ImportGroup = lazy(() => import('./pages/ImportGroup'))
 
 export default function App() {
   const { user, loading } = useAuth()
@@ -79,6 +80,7 @@ function AppRoutes() {
             <Route index element={<Home />} />
             <Route path="groups" element={<Groups />} />
             <Route path="groups/new" element={<GroupForm />} />
+            <Route path="groups/import" element={<ImportGroup />} />
             <Route path="groups/:groupId" element={<GroupDetail />} />
             <Route path="groups/:groupId/edit" element={<GroupForm />} />
             <Route path="groups/:groupId/settle" element={<SettleUp />} />

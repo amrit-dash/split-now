@@ -102,6 +102,8 @@ export interface Expense {
    * `splitInput` amounts (exact / adjust / items) are in the original currency.
    */
   original?: OriginalAmount
+  /** Set when the expense came from a file import (src/lib/import-splitwise.ts). */
+  importedFrom?: ImportedFrom
 }
 
 export type FxSource = 'ecb' | 'manual'
@@ -119,6 +121,9 @@ export interface OriginalAmount {
   source: FxSource
 }
 
+/** 'splitwise' = Splitwise CSV export, 'csv' = our own CSV export re-imported. */
+export type ImportedFrom = 'splitwise' | 'csv'
+
 export interface Settlement {
   id: string
   groupId: string
@@ -130,6 +135,8 @@ export interface Settlement {
   date: string
   createdBy: string
   createdAt: number
+  /** Set when the payment came from a file import. */
+  importedFrom?: ImportedFrom
 }
 
 export interface Debt {

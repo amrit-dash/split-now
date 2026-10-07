@@ -206,6 +206,14 @@ export function createLocalRepo(): Repo {
       commit()
     },
 
+    async bulkImport(groupId, expenses, settlements) {
+      if (!state.groups[groupId]) throw new Error('Group not found')
+      for (const e of expenses) state.expenses[e.id] = { ...e, groupId }
+      for (const s of settlements) state.settlements[s.id] = { ...s, groupId }
+      touch(groupId)
+      commit()
+    },
+
     watchComments: (groupId, expenseId, cb) =>
       watch(() => Object.values(comments())
         .filter((c) => c.groupId === groupId && c.expenseId === expenseId)
