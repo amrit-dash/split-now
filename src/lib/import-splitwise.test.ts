@@ -329,3 +329,32 @@ describe('groupNameFromFilename', () => {
     expect(groupNameFromFilename('Housemates.csv')).toBe('Housemates')
   })
 })
+
+// Shape of a real Splitwise "Export as spreadsheet" file (Oct 2026), anonymised: blank line after
+// the header, ISO dates, "General"/"Dining out"/"Groceries" categories, blank line and a
+// "Total balance" row with space-only cells.
+describe('real-world Splitwise export shape', () => {
+  const csv = [
+    'Date,Description,Category,Cost,Currency,Asha,Bina,Chetan,Dev,Esha',
+    '',
+    '2026-10-07,Stuff - Previous,General,1000.00,INR,1000.00,0.00,-1000.00,0.00,0.00',
+    '2026-10-07,Morning Tea/Coffee - Oct 2,Dining out,215.00,INR,172.00,-43.00,-43.00,-43.00,-43.00',
+    '2026-10-07,Coconut - Oct 2,Groceries,600.00,INR,480.00,-120.00,-120.00,-120.00,-120.00',
+    '2026-10-07,Samosa - Oct 2,Dining out,200.00,INR,160.00,-40.00,-40.00,-40.00,-40.00',
+    '',
+    '2026-10-08,Total balance, , ,INR,1812.00,-203.00,-1203.00,-203.00,-203.00',
+    '',
+    '',
+  ].join('\n')
+  it('parses every row and matches the totals row exactly', () => {
+    const r = parseImportCsv(csv)
+    expect(r.members).toEqual(['Asha', 'Bina', 'Chetan', 'Dev', 'Esha'])
+    expect(r.currency).toBe('INR')
+    expect(r.expenses).toHaveLength(4)
+    expect(r.warnings).toEqual([])
+    expect(r.totalsMatch).toBe(true)
+    expect(r.balances).toEqual({ Asha: 181200, Bina: -20300, Chetan: -120300, Dev: -20300, Esha: -20300 })
+    expect(r.expenses[1]).toMatchObject({ category: 'food', amount: 21500, paidBy: { Asha: 21500 } })
+    expect(r.expenses[2].category).toBe('groceries')
+  })
+})
