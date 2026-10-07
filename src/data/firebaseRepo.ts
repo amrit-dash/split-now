@@ -22,6 +22,8 @@ import {
   activityCtxFor, byCreatedDesc, byDateDesc, changedSettings, compact, draftToCapture, errorChannel, placeholdersOf, storagePathFromUrl,
   type CaptureToken, type GroupSettings, type InviteInfo, type MemberProfile, type Repo, type TablePatch,
 } from './repo'
+import { initAppCheck } from '@/lib/appcheck'
+import { disablePush } from '@/lib/push'
 
 /** Firestore allows 500 writes per batch; leave headroom. */
 const BATCH_LIMIT = 450
@@ -30,6 +32,7 @@ const online = () => typeof navigator === 'undefined' || navigator.onLine !== fa
 
 export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolean): Repo {
   const app = initializeApp(config)
+  initAppCheck(app, useEmulators)
   const auth = getAuth(app)
   const db = initializeFirestore(app, {
     ignoreUndefinedProperties: true,
@@ -189,6 +192,8 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     async signOut() {
       // Give queued writes a moment to reach the server, then wipe this device's cache so the
       // next person on this browser can't read the previous user's data.
+      // Unregister this browser from push first (queued delete, flushed just below).
+      await Promise.race([disablePush(me()), sleep(2000)])
       if (online()) await Promise.race([waitForPendingWrites(db).catch(() => {}), sleep(3000)])
       await signOut(auth)
       try {

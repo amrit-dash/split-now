@@ -26,7 +26,7 @@ export type CaptureParse = { ok: true; draft: CaptureDraft; token?: string; owne
 export const CAPTURE_SOURCES = ['sms-ios', 'sms-android', 'ios-shortcut', 'android-auto', 'share', 'email', 'manual'] as const
 
 export const SOURCE_LABEL: Record<string, string> = {
-  'sms-ios': 'iPhone SMS', 'sms-android': 'Android SMS',
+  'sms-ios': 'iPhone SMS', 'sms-android': 'Android SMS', sms: 'SMS',
   'ios-shortcut': 'Apple Pay', 'android-auto': 'Android', share: 'Shared', email: 'Email', manual: 'Link',
 }
 
@@ -38,7 +38,7 @@ const SOURCE_ALIASES: Record<string, string> = {
 }
 
 /** Sources that came from a bank/UPI SMS forwarded by the webhook. */
-export const isSmsSource = (source: string) => source === 'sms-ios' || source === 'sms-android'
+export const isSmsSource = (source: string) => source === 'sms-ios' || source === 'sms-android' || source === 'sms'
 
 export function normaliseSource(raw: string | null | undefined): string {
   const s = (raw ?? '').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 20)

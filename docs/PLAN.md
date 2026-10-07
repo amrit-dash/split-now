@@ -163,7 +163,22 @@ React 19 + TypeScript + Vite 8
 Pure domain logic (src/lib/) — splits, balances, simplify, OCR parsing, money — unit-tested with Vitest
 ```
 
-**Why compute balances on the client?** A group's expense list is small (hundreds, not millions). Computing balances from the expense list removes a whole class of bugs (denormalized balance drift) and needs no Cloud Functions, which keeps the project on the free Spark plan. If groups ever grow past ~5k expenses, add a Cloud Function that maintains a `balances` doc.
+**Why compute balances on the client?** A group's expense list is small (hundreds, not millions). Computing balances from the expense list removes a whole class of bugs (denormalized balance drift) and needs no server; Cloud Functions (§4.0) are used only for the SMS webhook, push and reminders. If groups ever grow past ~5k expenses, add a Cloud Function that maintains a `balances` doc.
+
+### 4.0 Backend (Cloud Functions, Blaze plan)
+
+The project is on **Blaze**. Balances are still computed on the client; the backend only does what a browser can't: receive bank SMS from automations, send push notifications, and run a daily job. Code in `functions/` (TypeScript, Node 22, firebase-functions 2nd gen, firebase-admin), bundled with esbuild together with `shared/sms-parse.ts` (the SMS parser shared with the client). One region constant, **`asia-south1` (Mumbai)**, in `functions/src/config.ts`, matching the Firestore location.
+
+| Function | Kind | Notes |
+|---|---|---|
+| `capture` | HTTPS (`/api/sms`, `/api/capture` via Hosting rewrites, both sites) | Token-authenticated, 60/h + 300/day per token, parses the SMS, matches trip windows, saves `users/{uid}/captures/{id}` (idempotent id), pushes. No App Check (automations can't). See AUTO_CAPTURE.md §3.1. |
+| `onExpenseCreated` | Firestore create trigger | "Sarah added Dinner · ₹840 · your share ₹210" to other members with an account who paid or owe; skips imports, recurring copies, trashed |
+| `onSettlementCreated` | Firestore create trigger | "Rahul paid you ₹500" to the payee (unless they recorded it) |
+| `dailyReminders` | Scheduler, 10:00 Asia/Kolkata | Nudge if owed > ₹500 (10 major units in other currencies) both now and 7 days ago; at most weekly per group (`reminderState/{gid}`) |
+
+Server-only collections: `rateLimits/{tokenHash}`, `reminderState/{groupId}` (rules deny all client access). Client-owned: `users/{uid}/pushTokens/{hash}`, `users/{uid}/settings/notifications`. Pure logic (trip matching, idempotency, masking, rate limiting, reminder maths, notification text with `Intl` en-IN) is unit-tested in `functions/src/lib/functions.test.ts`; `npm run test:functions` runs the webhook against the emulators.
+
+**Costs on Blaze for a small group** (say 10 people, 5 trips a year, ~30 SMS captures and ~50 expenses a week) [Likely]: everything stays inside the no-cost tiers. Cloud Functions/Cloud Run: 2M invocations and 180k vCPU-seconds free per month vs. a few thousand invocations. Firestore: 50k reads / 20k writes free per day; the daily reminder job reads every group's expenses once a day, so it's the biggest consumer (≈ groups × expenses, e.g. 20 groups × 200 expenses = 4k reads/day). FCM is free. Cloud Scheduler: 3 jobs free per billing account. Artifact Registry stores the function images (~0.5 GB free, then ~$0.10/GB/month; enable a cleanup policy when the CLI offers it). Expect **$0–1/month**; set a budget alert anyway. If groups grow large, replace the reminder scan with a maintained balance doc.
 
 ### 4.1 Money
 - All amounts are **integer minor units** of the group's currency. No floats touch stored data.
@@ -301,7 +316,7 @@ A **member id** is stable and separate from a Firebase uid. A placeholder member
 | 0 | Repo, tooling, docs, Firebase config, rules, PWA shell | ✅ |
 | 1 | Auth, groups, members, invites, expenses (all split types), balances, simplify, settle-up | ✅ |
 | 2 | OCR receipts + payment screenshots, insights charts, install banner, debt graph | ✅ |
-| 3 | Recurring expenses ✅, CSV export ✅, comments ✅, Splitwise/CSV import ✅, activity/history/trash/disputes/approval ✅, push notifications, archive/leave group | 🟡 |
+| 3 | Recurring expenses ✅, CSV export ✅, comments ✅, Splitwise/CSV import ✅, activity/history/trash/disputes/approval ✅, push notifications ✅ (FCM web push, Cloud Functions), archive/leave group | 🟡 |
 | 4 | Multi-currency with FX ✅, server-side AI receipt parsing, Apple sign-in | 🟡 |
 
 ---

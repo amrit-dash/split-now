@@ -22,4 +22,6 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run test:rules
+      - run: npm ci --prefix functions
+      - run: npm run test:functions
       - run: npm run build

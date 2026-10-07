@@ -9,6 +9,7 @@ import type { Capture, Group } from '@/types'
 import { APP_NAME } from '@/lib/brand'
 import { inTripWindow, rankGroupsForCapture, sanitiseRef } from '@/lib/capture'
 import { formatMoney } from '@/lib/money'
+import { maskSms as maskBankSms, parseBankSms } from '@/lib/sms-parse'
 import { copy } from '@/lib/share'
 import { todayISO } from '@/lib/id'
 import {
@@ -399,28 +400,20 @@ function Outcome({ o, groups }: { o: TestOutcome; groups: Group[] }) {
 // ---- Demo mode: a local stand-in for the /api/capture function ------------
 
 /**
- * Tiny Indian bank/UPI SMS parser for demo mode only. The real, shared parser lives with the
- * webhook (src/lib/sms-parse.ts once the backend lands); swap this for it then.
+ * Demo-mode stand-in for the webhook's parsing, using the same shared parser as the
+ * Cloud Function (shared/sms-parse.ts via src/lib/sms-parse.ts).
  */
 export function parseSmsDemo(text: string, today: string): ParsedSms | 'not_a_debit' | 'unparsed' {
-  const t = text.replace(/\s+/g, ' ')
-  if (!/\b(debited|spent|sent|paid|withdrawn|purchase)\b/i.test(t) || /\bOTP\b/i.test(t)) return 'not_a_debit'
-  const m = t.match(/(?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d{1,2})?)/i)
-  if (!m) return 'unparsed'
-  const amount = Math.round(Number(m[1].replace(/,/g, '')) * 100)
-  if (!Number.isFinite(amount) || amount <= 0) return 'unparsed'
-  const d = t.match(/\b(\d{2})[-/](\d{2})[-/](\d{2}|\d{4})\b/)
-  const date = d ? `${d[3].length === 2 ? '20' + d[3] : d[3]}-${d[2]}-${d[1]}` : today
-  const vpa = t.match(/\b(?:to|at)\s+(?:VPA\s+)?([A-Za-z0-9._-]+)@[A-Za-z0-9.]+/i)
-  const at = t.match(/\b(?:to|at)\s+([A-Z][A-Za-z0-9&' .-]{1,40}?)(?=\s+(?:on|via|ref|upi)\b|[.(]|$)/)
-  const name = vpa?.[1] ?? at?.[1]
-  const merchant = name ? name.charAt(0).toUpperCase() + name.slice(1) : undefined
-  const ref = t.match(/\bRef(?:erence)?\.?(?:\s*No\.?)?\s*:?\s*(\d{6,})/i)?.[1]
-  return { amount, currency: 'INR', merchant, direction: 'debit', ref, date: /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : today }
+  const p = parseBankSms(text)
+  if (p.kind === 'unknown') return 'unparsed'
+  if (p.kind !== 'debit') return 'not_a_debit'
+  if (!p.amount) return 'unparsed'
+  const date = p.date ?? today
+  return { amount: p.amount, currency: p.currency, merchant: p.merchant, direction: 'debit', ref: p.ref, date }
 }
 
-/** Mask account/card/phone-like digit runs, keeping the last 4 (what the server stores). */
-export const maskSms = (text: string) => text.replace(/\d{6,}/g, (s) => 'X'.repeat(s.length - 4) + s.slice(-4))
+/** Mask account/card numbers and balances (what the server stores). */
+export const maskSms = (text: string) => maskBankSms(text)
 
 async function simulateWebhook(
   body: WebhookBody,

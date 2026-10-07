@@ -47,6 +47,7 @@ To connect Firebase, follow **[docs/FIREBASE_SETUP.md](docs/FIREBASE_SETUP.md)**
 | `npm run preview` | Serve the production build locally (needed to test install/offline) |
 | `npm test` | Unit tests for splits, balances, simplification, OCR parsing, capture parsing and SMS-setup helpers |
 | `npm run test:rules` | Firestore security-rule tests against the emulator (needs Java 11+) |
+| `npm run test:functions` | Builds `functions/` and POSTs sample SMS to the capture webhook in the emulators |
 | `npm run icons` | Regenerate PWA/Apple icons from `public/favicon.svg` |
 | `npm run emulators` | Start the Firebase emulators |
 | `npm run deploy` | Build and `firebase deploy` |
@@ -60,6 +61,8 @@ src/
   hooks/        auth context, live data hooks, OCR hook
   components/   UI primitives, install banner, debt graph, layout
   pages/        screens (Home, Groups, GroupDetail, ExpenseForm, SettleUp, Scan, Insights, Friends, Profile, Join)
+shared/         sms-parse.ts: Indian bank/UPI SMS parser shared by the client and Cloud Functions
+functions/      Cloud Functions (asia-south1): SMS capture webhook, push notifications, reminders
 tests/          Firestore rules tests
 docs/           PLAN.md (product + architecture), FIREBASE_SETUP.md, AUTO_CAPTURE.md
 firestore.rules, storage.rules, firebase.json
@@ -74,7 +77,7 @@ Install prompts only appear over **HTTPS** (or `localhost`). To try it on a real
 ## Design notes
 - All money is stored as **integer minor units** (paise for INR).
 - Region, default currency and number/date locale come from `src/lib/locale.ts` (navigator language + time zone; Asia/Kolkata → India; unknown → India/INR/en-IN). Splits use largest-remainder rounding, so shares always add up to the total.
-- Balances are **computed on the device** from the expense list, so no Cloud Functions are needed and the app runs on Firebase's free Spark plan.
+- Balances are **computed on the device** from the expense list. Cloud Functions (`functions/`) only handle the SMS capture webhook, push notifications and reminders.
 - Chart colours come from a colour-blind-checked palette (`src/lib/chartPalette.ts`). Category colours elsewhere in the UI are decorative.
 
 ## License

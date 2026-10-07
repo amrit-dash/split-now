@@ -14,6 +14,7 @@ import { PageHeader, Segmented } from '@/components/Misc'
 import { Sheet } from '@/components/Sheet'
 import { useToast } from '@/components/Toast'
 import { AutoCapture } from '@/components/AutoCapture'
+import { NotificationSettings } from '@/components/NotificationSettings'
 
 type Handle = { key: keyof PaymentHandles; label: string; placeholder: string; hint?: (v: string) => string | undefined; inputMode?: 'tel' | 'email' | 'text' | 'numeric' }
 
@@ -125,6 +126,7 @@ export default function Profile() {
       <button className="btn-primary mt-4 w-full" onClick={save}>Save profile</button>
 
       <AutoCapture />
+      <NotificationSettings />
 
       <div className="card mt-4 divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
         <Link to="/friends" className="flex items-center gap-3 px-4 py-3.5 font-medium"><Users size={20} className="text-brand-600" /> Friends & cross-group balances</Link>

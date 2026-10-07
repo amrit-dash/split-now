@@ -9,6 +9,20 @@
       ],
       "rewrites": [
         {
+          "source": "/api/sms",
+          "function": {
+            "functionId": "capture",
+            "region": "asia-south1"
+          }
+        },
+        {
+          "source": "/api/capture",
+          "function": {
+            "functionId": "capture",
+            "region": "asia-south1"
+          }
+        },
+        {
           "source": "**",
           "destination": "/index.html"
         }
@@ -51,6 +65,15 @@
             {
               "key": "Cache-Control",
               "value": "public, max-age=31536000, immutable"
+            }
+          ]
+        },
+        {
+          "source": "/push-sw.js",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "no-cache"
             }
           ]
         }
@@ -66,6 +89,20 @@
       ],
       "rewrites": [
         {
+          "source": "/api/sms",
+          "function": {
+            "functionId": "capture",
+            "region": "asia-south1"
+          }
+        },
+        {
+          "source": "/api/capture",
+          "function": {
+            "functionId": "capture",
+            "region": "asia-south1"
+          }
+        },
+        {
           "source": "**",
           "destination": "/index.html"
         }
@@ -110,9 +147,39 @@
               "value": "public, max-age=31536000, immutable"
             }
           ]
+        },
+        {
+          "source": "/push-sw.js",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "no-cache"
+            }
+          ]
         }
       ],
       "target": "now"
+    }
+  ],
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "runtime": "nodejs22",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local",
+        "src",
+        "test",
+        "build.mjs",
+        "tsconfig.json"
+      ],
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+      ]
     }
   ],
   "firestore": {
@@ -139,6 +206,9 @@
       "enabled": true,
       "port": 4000
     },
-    "singleProjectMode": true
+    "singleProjectMode": true,
+    "functions": {
+      "port": 5001
+    }
   }
 }

@@ -48,12 +48,12 @@ export default defineConfig({
         },
       },
       workbox: {
-        importScripts: ['share-target-sw.js'],
+        importScripts: ['share-target-sw.js', 'push-sw.js'],
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         navigateFallback: '/index.html',
         // Firebase Auth's redirect handler (/__/auth/*) must reach the network, not the SPA shell.
-        navigateFallbackDenylist: [/^\/__\//],
+        navigateFallbackDenylist: [/^\/__\//, /^\/api\//],
         // OCR files are big; cache them on first use instead of precaching.
         globIgnores: ['tesseract/**'],
         runtimeCaching: [
@@ -63,5 +63,5 @@ export default defineConfig({
       },
     }),
   ],
-  test: { environment: 'node', include: ['src/**/*.test.ts'] },
+  test: { environment: 'node', include: ['src/**/*.test.ts', 'shared/**/*.test.ts', 'functions/src/**/*.test.ts'] },
 })
