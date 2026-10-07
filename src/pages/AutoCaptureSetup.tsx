@@ -13,7 +13,7 @@ import { maskSms as maskBankSms, parseBankSms } from '@/lib/sms-parse'
 import { copy } from '@/lib/share'
 import { todayISO } from '@/lib/id'
 import {
-  DEBIT_KEYWORDS, bodyTemplateText, checkScope, interpretResponse, randomRef, sampleDate, sampleSms, tokenLabel, webhookUrl,
+  DEBIT_KEYWORDS, IOS_SHORTCUT_NAME, bodyTemplateText, runShortcutUrl, checkScope, interpretResponse, randomRef, sampleDate, sampleSms, tokenLabel, webhookUrl,
   type ParsedSms, type TestOutcome, type WebhookBody, type WebhookResponse,
 } from '@/lib/sms-setup'
 import { GroupIcon } from '@/components/GroupIcon'
@@ -271,6 +271,17 @@ function IosSteps({ token }: { token?: string }) {
         { text: <>Tap <b>Done</b>. Make sure the automation shows <Toggle /> enabled.</> },
         { text: <>Repeat steps 1–6 for <b>{DEBIT_KEYWORDS.slice(1).map((k, i) => <span key={k}>{i ? ' and ' : ''}“{k}”</span>)}</b> (card and UPI alerts use different words). With the shortcut from the link, each automation just runs it.</> },
       ]} />
+      {IOS_SHORTCUT_URL && (
+        <div className="mt-4 rounded-2xl bg-slate-50 p-3 dark:bg-ink-800">
+          <a
+            className="btn-secondary w-full"
+            href={runShortcutUrl(IOS_SHORTCUT_NAME, sampleSms(todayISO(), randomRef()))}
+          >
+            <Send size={16} /> Test the Shortcut on this iPhone
+          </a>
+          <p className="mt-2 text-xs text-slate-500">Runs “{IOS_SHORTCUT_NAME}” with a sample ₹250 SMS, exactly as the automation would. A capture should land in your Inbox within a few seconds. This tests the Shortcut and your key; a real debit SMS tests the automation.</p>
+        </div>
+      )}
       <details className="mt-4 rounded-2xl bg-slate-50 p-3 text-xs text-slate-600 dark:bg-ink-800 dark:text-slate-300">
         <summary className="cursor-pointer font-semibold">If it doesn’t fire</summary>
         <ul className="mt-2 list-disc space-y-1 pl-4">

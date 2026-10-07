@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bodyTemplate, bodyTemplateText, checkScope, ddmmyy, interpretResponse, randomRef, sampleDate, sampleSms, tokenLabel, webhookUrl } from './sms-setup'
+import { bodyTemplate, bodyTemplateText, checkScope, ddmmyy, interpretResponse, randomRef, sampleDate, sampleSms, tokenLabel, runShortcutUrl, webhookUrl } from './sms-setup'
 
 describe('webhook URL and body templates', () => {
   it('builds the /api/capture URL from the origin', () => {
@@ -70,5 +70,13 @@ describe('interpretResponse', () => {
     expect(interpretResponse(404, null).kind).toBe('not_deployed')
     expect(interpretResponse(200, null).kind).toBe('not_deployed')
     expect(interpretResponse(500, null)).toEqual({ kind: 'error', message: 'The server answered 500.' })
+  })
+})
+
+describe('runShortcutUrl', () => {
+  it('encodes the name and the SMS text', () => {
+    expect(runShortcutUrl('Split Now SMS', 'Rs.250.00 debited & sent')).toBe(
+      'shortcuts://run-shortcut?name=Split%20Now%20SMS&input=text&text=Rs.250.00%20debited%20%26%20sent',
+    )
   })
 })

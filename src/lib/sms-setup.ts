@@ -136,3 +136,14 @@ export function interpretResponse(status: number, json: unknown): TestOutcome {
   }
   return { kind: 'error', message: `The server answered ${status}.` }
 }
+
+/** Name the shared iPhone Shortcut must have for the in-app "Test on this iPhone" button. */
+export const IOS_SHORTCUT_NAME = 'Split Now SMS'
+
+/**
+ * Deep link that runs an installed Shortcut with text input, the same way the Message automation
+ * does with a real SMS (Shortcut Input = the text). Opens the Shortcuts app on iOS.
+ */
+export function runShortcutUrl(name: string, text: string): string {
+  return `shortcuts://run-shortcut?name=${encodeURIComponent(name)}&input=text&text=${encodeURIComponent(text)}`
+}
