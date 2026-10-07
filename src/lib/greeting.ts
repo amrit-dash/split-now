@@ -24,6 +24,15 @@ export const SALUTATIONS: Record<DayPart, { text: string; emoji: string }> = {
   lateNight: { text: 'Up late', emoji: '🌙' },
 }
 
+/** The icon after "Hi, Name!" on Home: a wave by day, the sun at dawn, a moon late at night. */
+export const HELLO: Record<DayPart, { emoji: string; motion: 'wave' | 'float' }> = {
+  earlyMorning: { emoji: '🌅', motion: 'float' },
+  morning: { emoji: '👋', motion: 'wave' },
+  afternoon: { emoji: '👋', motion: 'wave' },
+  evening: { emoji: '✨', motion: 'float' },
+  lateNight: { emoji: '🌙', motion: 'float' },
+}
+
 /** First word of the display name ("Amrit Singh" → "Amrit"; an email → its local part). */
 export function firstName(displayName: string | undefined): string {
   const s = (displayName ?? '').trim()

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ArrowRightLeft, ChevronRight, Inbox, Plus, ScanLine, Users } from 'lucide-react'
+import { ArrowRightLeft, ChevronRight, Plus, ScanLine, Users } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
 import { useAllGroupData, usePendingCaptures, useRecentActivity } from '@/hooks/data'
 import { repo } from '@/data'
@@ -14,7 +14,7 @@ import { GroupRow } from '@/components/GroupRow'
 import { Empty, Loading } from '@/components/Misc'
 import { Avatar } from '@/components/Avatar'
 import { appLocale } from '@/lib/locale'
-import { greeting, topCounterparties } from '@/lib/greeting'
+import { HELLO, dayPart, greeting, topCounterparties } from '@/lib/greeting'
 import { isLiveTrip } from '@/lib/capture'
 import { todayISO } from '@/lib/id'
 
@@ -74,22 +74,22 @@ export default function Home() {
     settled: shared.some((d) => d.expenses.length > 0) && shared.every((d) => !d.me || !d.net[d.me]),
   })
 
+  const part = dayPart(new Date().getHours())
+
   return (
     <div className="pt-[calc(env(safe-area-inset-top)+1.5rem)]">
-      <div className="mb-5 flex items-center justify-between">
-        <div className="min-w-0" data-testid="home-greeting">
-          <div className="text-sm text-slate-500 dark:text-slate-400">{hello.salutation} {hello.emoji}</div>
-          <div className="truncate text-2xl font-extrabold tracking-tight">{hello.name}</div>
-          <div className="mt-0.5 truncate text-xs font-medium text-slate-500 dark:text-slate-400">{hello.subline}</div>
+      <header className="mb-6 flex items-center justify-between gap-4" data-testid="home-greeting">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{hello.salutation}</p>
+          <h1 className="mt-0.5 flex items-center gap-2 text-[1.75rem] font-extrabold leading-tight tracking-tight">
+            <span className="truncate">Hi, {hello.name}!</span>
+            <span aria-hidden className={`inline-block shrink-0 ${HELLO[part].motion === 'wave' ? 'animate-wave origin-[70%_70%]' : 'animate-float'}`}>{HELLO[part].emoji}</span>
+          </h1>
         </div>
-        <div className="flex items-center gap-2">
-          <Link to="/inbox" className="relative rounded-full p-2.5 hover:bg-slate-200/60 dark:hover:bg-ink-800" aria-label={inbox ? `Inbox, ${inbox} to sort` : 'Inbox'}>
-            <Inbox size={22} />
-            {inbox > 0 && <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[11px] font-bold text-white">{inbox > 99 ? '99+' : inbox}</span>}
-          </Link>
-          <Link to="/profile" aria-label="Profile"><Avatar name={profile.displayName} photoURL={profile.photoURL} color="accent" size={44} /></Link>
-        </div>
-      </div>
+        <Link to="/profile" aria-label="Profile" className="shrink-0 rounded-full p-0.5 ring-2 ring-brand-500/40 transition active:scale-95">
+          <Avatar name={profile.displayName} photoURL={profile.photoURL} color="accent" size={46} />
+        </Link>
+      </header>
 
       {inbox > 0 && (
         <Link to="/inbox" className="card mb-4 flex items-center gap-3 p-4">

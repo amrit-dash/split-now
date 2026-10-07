@@ -99,7 +99,7 @@ export function InstallBanner() {
 
   return (
     <>
-      <div className="animate-pop fixed inset-x-3 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-40 mx-auto max-w-md">
+      <div className="install-banner animate-pop fixed inset-x-3 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-40 mx-auto max-w-md">
         <div className="flex items-center gap-3 rounded-3xl bg-slate-900 p-3 pl-4 text-white shadow-2xl shadow-brand-900/40 dark:bg-ink-800 dark:ring-1 dark:ring-white/10">
           <img src="/pwa-192.png" alt="" className="h-11 w-11 rounded-2xl" />
           <div className="min-w-0 flex-1">

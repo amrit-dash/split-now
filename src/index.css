@@ -151,3 +151,12 @@
   -ms-overflow-style: none;
   &::-webkit-scrollbar { display: none; }
 }
+
+/* The update banner (UpdatePrompt) takes the install banner's spot while it is shown. */
+html[data-update-ready] .install-banner { display: none; }
+
+/* Home greeting icon: a short wave a few times, or a gentle bob. Off with reduced motion. */
+@keyframes wave { 0%, 60%, 100% { transform: rotate(0deg); } 10%, 30% { transform: rotate(16deg); } 20% { transform: rotate(-8deg); } 40% { transform: rotate(-4deg); } 50% { transform: rotate(10deg); } }
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@utility animate-wave { animation: wave 2.4s ease-in-out 0.4s 3; }
+@utility animate-float { animation: float 3s ease-in-out infinite; }
