@@ -3,6 +3,8 @@ import { ArrowRightLeft, ChevronRight, Inbox, Plus, ScanLine, Users } from 'luci
 import { useMe } from '@/hooks/auth'
 import { useAllGroupData, usePendingCaptures } from '@/hooks/data'
 import { formatMoney } from '@/lib/money'
+import { convertMinor } from '@/lib/fx'
+import { useTodayRates } from '@/hooks/useFx'
 import { CATEGORIES } from '@/lib/categories'
 import { GroupRow } from '@/components/GroupRow'
 import { Empty, Loading } from '@/components/Misc'
@@ -12,9 +14,11 @@ export default function Home() {
   const { profile } = useMe()
   const data = useAllGroupData()
   const inbox = usePendingCaptures()?.length ?? 0
+  const home = profile.currency
+  const rates = useTodayRates(home, data ? data.map((d) => d.group.currency) : [])
   if (!data) return <Loading />
 
-  // Totals in the user's default currency only; other currencies are listed separately.
+  // Exact totals per group currency.
   const totals = new Map<string, { owed: number; owe: number }>()
   for (const d of data) {
     if (!d.me) continue
@@ -24,10 +28,23 @@ export default function Home() {
     else t.owe += -v
     totals.set(d.group.currency, t)
   }
-  const cur = totals.has(profile.currency) || totals.size === 0 ? profile.currency : [...totals.keys()][0]
-  const main = totals.get(cur) ?? { owed: 0, owe: 0 }
+  // Home-currency view: other currencies are added in at today's ECB rate, so the
+  // headline is only approximate ("≈") when anything was converted.
+  const convertible = [...totals.keys()].filter((c) => c !== home && rates?.[c])
+  const cur = totals.has(home) || totals.size === 0 || convertible.length > 0 ? home : [...totals.keys()][0]
+  const main = { ...(totals.get(cur) ?? { owed: 0, owe: 0 }) }
+  if (cur === home) {
+    for (const c of convertible) {
+      const t = totals.get(c)!
+      const r = rates![c]!.rate
+      main.owed += convertMinor(t.owed, c, home, r)
+      main.owe += convertMinor(t.owe, c, home, r)
+    }
+  }
+  const approx = cur === home && convertible.some((c) => totals.get(c)!.owed || totals.get(c)!.owe)
   const net = main.owed - main.owe
   const others = [...totals.entries()].filter(([c]) => c !== cur)
+  const ax = approx ? '≈ ' : ''
 
   const recent = data
     .flatMap((d) => d.expenses.map((e) => ({ e, d })))
@@ -69,20 +86,21 @@ export default function Home() {
         <div className="absolute -bottom-16 right-10 h-32 w-32 rounded-full bg-white/10" />
         <div className="relative">
           <div className="text-sm font-medium text-white/80">Overall, {net >= 0 ? 'you are owed' : 'you owe'}</div>
-          <div className="mt-1 text-4xl font-extrabold tabular-nums tracking-tight">{formatMoney(Math.abs(net), cur)}</div>
+          <div className="mt-1 text-4xl font-extrabold tabular-nums tracking-tight" data-testid="home-net">{ax}{formatMoney(Math.abs(net), cur)}</div>
           <div className="mt-5 grid grid-cols-2 gap-3">
             <div className="rounded-2xl bg-white/15 p-3 backdrop-blur">
               <div className="text-xs text-white/75">You are owed</div>
-              <div className="text-lg font-bold tabular-nums">{formatMoney(main.owed, cur)}</div>
+              <div className="text-lg font-bold tabular-nums">{ax}{formatMoney(main.owed, cur)}</div>
             </div>
             <div className="rounded-2xl bg-white/15 p-3 backdrop-blur">
               <div className="text-xs text-white/75">You owe</div>
-              <div className="text-lg font-bold tabular-nums">{formatMoney(main.owe, cur)}</div>
+              <div className="text-lg font-bold tabular-nums">{ax}{formatMoney(main.owe, cur)}</div>
             </div>
           </div>
           {others.length > 0 && (
             <div className="mt-3 text-xs text-white/75">
-              Also: {others.map(([c, t]) => `${formatMoney(t.owed - t.owe, c, { sign: true })}`).join(' · ')}
+              {approx ? `Includes other currencies at today’s ECB rate. Exact: ${formatMoney(totals.get(home) ? totals.get(home)!.owed - totals.get(home)!.owe : 0, home, { sign: true })} · ` : 'Also: '}
+              {others.map(([c, t]) => `${formatMoney(t.owed - t.owe, c, { sign: true })}${cur === home && !rates?.[c] && c !== home ? ' (no rate)' : ''}`).join(' · ')}
             </div>
           )}
         </div>

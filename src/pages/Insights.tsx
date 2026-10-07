@@ -6,6 +6,8 @@ import { useAllGroupData, type GroupData } from '@/hooks/data'
 import type { Category, Expense } from '@/types'
 import { CATEGORIES } from '@/lib/categories'
 import { formatMoney, minorDigits } from '@/lib/money'
+import { convertMinor } from '@/lib/fx'
+import { useTodayRates } from '@/hooks/useFx'
 import { categoryChartColor, chartFolds, seriesColor, useIsDark } from '@/lib/chartPalette'
 import { Empty, Loading, PageHeader, Segmented } from '@/components/Misc'
 
@@ -20,18 +22,29 @@ export default function Insights() {
   const [period, setPeriod] = useState<Period>('3m')
   const [basis, setBasis] = useState<Basis>('mine')
   const dark = useIsDark()
+  const home = profile.currency
+  const rates = useTodayRates(home, data ? data.map((d) => d.group.currency) : [])
 
   const scope = useMemo(() => {
     if (!data) return null
     if (groupId !== 'all') return data.filter((d) => d.group.id === groupId)
-    // Mixed currencies can't be summed without FX; show the user's default currency only.
-    return data.filter((d) => d.group.currency === profile.currency)
-  }, [data, groupId, profile.currency])
+    // All groups: home-currency groups, plus others converted at today's ECB rate (approximate).
+    return data.filter((d) => d.group.currency === home || rates?.[d.group.currency])
+  }, [data, groupId, home, rates])
 
-  const stats = useMemo(() => (scope ? compute(scope, period, basis) : null), [scope, period, basis])
+  // Minor units of a group's currency → minor units of the home currency.
+  const toHome = useMemo(() => {
+    if (groupId !== 'all') return undefined
+    return (v: number, d: GroupData) => (d.group.currency === home ? v : convertMinor(v, d.group.currency, home, rates?.[d.group.currency]?.rate ?? 0))
+  }, [groupId, home, rates])
+
+  const stats = useMemo(() => (scope ? compute(scope, period, basis, toHome) : null), [scope, period, basis, toHome])
 
   if (!data || !scope || !stats) return <Loading />
-  const cur = scope[0]?.group.currency ?? profile.currency
+  const cur = groupId === 'all' ? home : scope[0]?.group.currency ?? home
+  const converted = groupId === 'all' ? [...new Set(scope.filter((d) => d.group.currency !== home).map((d) => d.group.currency))] : []
+  const skipped = groupId === 'all' ? [...new Set(data.filter((d) => !scope.includes(d)).map((d) => d.group.currency))] : []
+  const ax = converted.length ? '≈ ' : ''
   const single = groupId !== 'all' ? scope[0] : undefined
   const axis = dark ? '#a8a7a0' : '#6b6a64'
   const grid = dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'
@@ -56,9 +69,9 @@ export default function Insights() {
       ) : (
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            <Kpi label={basis === 'mine' ? 'Your spending' : 'Group spending'} value={formatMoney(stats.total, cur)} />
+            <Kpi label={basis === 'mine' ? 'Your spending' : 'Group spending'} value={ax + formatMoney(stats.total, cur)} />
             <Kpi label="Expenses" value={String(stats.count)} />
-            <Kpi label="Avg / expense" value={formatMoney(Math.round(stats.total / Math.max(1, stats.count)), cur)} />
+            <Kpi label="Avg / expense" value={ax + formatMoney(Math.round(stats.total / Math.max(1, stats.count)), cur)} />
             <Kpi label="Top category" value={stats.cats[0] ? `${CATEGORIES[stats.cats[0].cat as Category]?.emoji ?? '🧾'} ${stats.cats[0].label}` : '—'} />
           </div>
 
@@ -139,8 +152,11 @@ export default function Insights() {
               ))}
             </ul>
           </ChartCard>
-          {groupId === 'all' && data.some((d) => d.group.currency !== profile.currency) && (
-            <p className="px-1 text-center text-xs text-slate-400">Showing {profile.currency} groups only. Pick a group above to see others.</p>
+          {converted.length > 0 && (
+            <p className="px-1 text-center text-xs text-slate-400">≈ {converted.join(', ')} groups converted to {home} at today’s ECB rate. Pick a group above for exact amounts in its own currency.</p>
+          )}
+          {skipped.length > 0 && (
+            <p className="px-1 text-center text-xs text-slate-400">{skipped.join(', ')} groups aren’t included (no exchange rate available). Pick a group above to see them.</p>
           )}
         </div>
       )}
@@ -148,7 +164,7 @@ export default function Insights() {
   )
 }
 
-function compute(scope: GroupData[], period: Period, basis: Basis) {
+function compute(scope: GroupData[], period: Period, basis: Basis, toHome?: (v: number, d: GroupData) => number) {
   const now = new Date()
   const days = period === '1m' ? 30 : period === '3m' ? 91 : period === '12m' ? 365 : Infinity
   const cutoff = days === Infinity ? '' : new Date(now.getTime() - days * 86400000).toISOString().slice(0, 10)
@@ -156,7 +172,8 @@ function compute(scope: GroupData[], period: Period, basis: Basis) {
   for (const d of scope) {
     for (const e of d.expenses) {
       if (e.date < cutoff) continue
-      const v = basis === 'total' || d.group.type === 'personal' ? e.amount : d.me ? e.splits[d.me] ?? 0 : 0
+      const raw = basis === 'total' || d.group.type === 'personal' ? e.amount : d.me ? e.splits[d.me] ?? 0 : 0
+      const v = toHome ? toHome(raw, d) : raw
       if (v > 0) rows.push({ e, d, v })
     }
   }

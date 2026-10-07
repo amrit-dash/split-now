@@ -17,6 +17,7 @@ Built with React 19, TypeScript, Vite 8 and Tailwind v4, and backed by Firebase 
 | 💸 **Settle up** | Shows the payee's PayID, BSB/account, PayPal.me, UPI or Revolut with copy buttons and deep links, then records the payment. Share reminders via the native share sheet. |
 | 📷 **Smart scan** | On-device OCR (Tesseract.js) reads **receipts** (total, merchant, date, line items → itemized split) and **payment screenshots** (amount + payee → pre-filled settlement). Free, private, no server. |
 | 💳 **Trip mode + capture inbox** | Give a trip start/end dates for a *Live trip* badge. Apple Pay taps (iOS Shortcuts), Android automations and the share sheet drop payments into an **Inbox**, which asks "is this a group expense?" and pre-selects the trip. Nothing is added without your OK. See **[docs/AUTO_CAPTURE.md](docs/AUTO_CAPTURE.md)**. |
+| 💱 **Multi-currency** | Enter an expense in any currency; it's converted to the group's at the day's ECB rate (Frankfurter, cached, manual fallback offline) and the rate is locked. Home and Insights show an "≈" total in your home currency. |
 | 📊 **Insights** | Category donut, spending trend, paid-vs-share per member, biggest expenses, and a group budget bar. "My share" or "group total" views. |
 | 📱 **PWA** | Install banner on Android/desktop (native prompt) and iOS (guided *Share → Add to Home Screen*). Offline app shell, update prompt, safe-area aware, light/dark theme. |
 

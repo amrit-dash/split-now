@@ -65,7 +65,8 @@ Splitwise solved "who owes whom". Its weak points today are where Split It goes 
 - ✅ Recurring expenses (weekly / fortnightly / monthly / yearly, optional end date) via **client catch-up**: when a member opens a group, missed occurrences are created with deterministic ids (`{templateId}_{yyyy-mm-dd}`) so concurrent clients never duplicate. Month-end dates clamp (Jan 31 → Feb 28/29 → Mar 31). No Cloud Functions.
 - ✅ Comment thread on each expense (author-only delete)
 - ✅ Search (description/notes), category filter chips and an "involving me" toggle on a group's activity list
-- ⏳ Multi-currency expenses inside one group with FX conversion
+- ✅ **Multi-currency expenses with a locked FX rate** (§4.1a): pick a currency next to the amount (remembered per group, e.g. THB for a whole Bali trip); the ECB rate for the expense date is fetched from Frankfurter and shown as "≈ A$51.23 at 1 THB = 0.04269 AUD (ECB, 2026-10-07)", editable, and typed by hand when offline. Captures in a foreign currency prefill the form in that currency. Expense detail shows the original amount and rate.
+- ⏳ Settling up in a different currency from the group's (see §4.1a)
 
 ### 3.4 Balances, simplification, settling up
 - ✅ Per-group net balances
@@ -131,6 +132,14 @@ Pure domain logic (src/lib/) — splits, balances, simplify, OCR parsing, money 
 - The number of minor-unit digits comes from `Intl.NumberFormat(...).resolvedOptions().maximumFractionDigits`: 2 for AUD/USD, **0 for JPY/KRW/VND**, 3 for BHD (IDR is 2 in Intl/ISO 4217). `formatMoney`, `parseMoney` and `centsToInput` all take the currency (`src/lib/money.ts`).
 - Each group has one currency. Formatting uses `Intl.NumberFormat`.
 
+### 4.1a Multi-currency expenses (locked FX)
+- An expense may be **entered** in another currency. Everything balances read stays in the **group currency**: on save the total is converted once (`convertMinor`, rounding to the group's minor unit), then `paidBy` and `splits` are re-allocated from that converted total with largest-remainder rounding, weighted by the entered amounts — so both still sum to `amount` exactly and `balances.ts` / `simplify.ts` are unchanged (`src/lib/fx.ts`, unit-tested in `fx.test.ts`).
+- The original is kept on the expense as `original: { currency, amount (minor units of that currency), rate (group-currency units per 1 original unit), rateDate, source: 'ecb' | 'manual' }`. `splitInput` amounts (exact / adjust / items) are in the original currency so the form re-opens as typed. The rate is **locked**: it only changes if a user edits the expense and changes the currency, the date (ECB rates only) or the rate itself. Recurring copies inherit the template's original and rate.
+- Rates: [Frankfurter](https://frankfurter.dev) `https://api.frankfurter.dev/v1/{date|latest}?base=XXX` (ECB reference rates, free, no key; `api.frankfurter.app` now redirects). One request per (date, base) returns every symbol and is cached in `localStorage` (`splitit-fx-v1`): past dates forever, today's for 6 h; the inverse of a cached pair is used too. Weekends/holidays resolve to the previous business day, which is what `rateDate` records; future dates use the latest rate. Offline, unsupported currencies (ECB doesn't publish e.g. AED) or API errors fall back to a typed manual rate.
+- **Home-currency view**: Home and Insights ("All groups") add groups in other currencies to the user's profile currency at *today's* ECB rate, labelled "≈". The exact per-currency numbers stay on Home ("Exact: …") and on each group. Groups whose rate isn't available are listed, not converted.
+- Rules: `original` is optional; if present it must have exactly those keys, a 3-letter `currency`, an int `amount` > 0, a numeric `rate` > 0, a 10-char `rateDate` and `source` in `ecb|manual` (`tests/firestore.fx.test.ts`).
+- **Out of scope:** settling up in a currency other than the group's. A settlement is still recorded in the group currency; pay the converted amount in your own bank/wallet. Supporting it would need `original` on settlements and an FX-aware settle sheet.
+
 ### 4.2 Firestore data model
 
 ```
@@ -158,6 +167,7 @@ groups/{groupId}/expenses/{expenseId}
   splitType: equal|exact|percent|shares|adjust|itemized
   splitInput: raw user input for re-editing (percents, shares, items…)
   receiptPath?, createdBy, createdAt, updatedAt
+  original?: { currency, amount, rate, rateDate, source: ecb|manual }   ← foreign-currency entry (§4.1a)
   recurrence?: { freq: weekly|fortnightly|monthly|yearly, nextDate, until? }   ← on a template
   recurringFrom?: templateId                                                  ← on a generated copy
 
@@ -229,7 +239,7 @@ A **member id** is stable and separate from a Firebase uid. A placeholder member
 | 1 | Auth, groups, members, invites, expenses (all split types), balances, simplify, settle-up | ✅ |
 | 2 | OCR receipts + payment screenshots, insights charts, install banner, debt graph | ✅ |
 | 3 | Recurring expenses ✅, CSV export ✅, comments ✅, push notifications, archive/leave group | 🟡 |
-| 4 | Multi-currency with FX, server-side AI receipt parsing, Apple sign-in | ⏳ |
+| 4 | Multi-currency with FX ✅, server-side AI receipt parsing, Apple sign-in | 🟡 |
 
 ---
 

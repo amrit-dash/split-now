@@ -158,7 +158,7 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
             ))}
           </div>
           {chosen && c.currency && chosen.currency !== c.currency && (
-            <p className="mt-2 px-1 text-xs text-amber-600 dark:text-amber-400">{chosen.name} uses {chosen.currency}. The amount will be entered as {formatMoney(c.amount, chosen.currency)}; adjust it if needed.</p>
+            <p className="mt-2 px-1 text-xs text-slate-500">{chosen.name} uses {chosen.currency}. The expense is entered as {formatMoney(c.amount, c.currency)} and converted to {chosen.currency} at the ECB rate for {c.date}; you can change the rate before saving.</p>
           )}
           <button className="btn-primary mt-3 w-full" disabled={!chosen || busy} onClick={() => chosen && toExpense(chosen.id)}>
             {chosen ? `Split equally in ${chosen.name}` : 'Pick a group'}

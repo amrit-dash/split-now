@@ -8,6 +8,7 @@ import type { Expense, Group } from '@/types'
 import { CATEGORIES } from '@/lib/categories'
 import { formatMoney } from '@/lib/money'
 import { FREQ_LABEL } from '@/lib/recurrence'
+import { rateLabel } from '@/lib/fx'
 import { colorFor } from '@/lib/colors'
 import { Avatar } from '@/components/Avatar'
 import { Empty, Loading, PageHeader } from '@/components/Misc'
@@ -61,6 +62,11 @@ export default function ExpenseDetail() {
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl text-4xl" style={{ background: cat.color + '22' }}>{cat.emoji}</div>
         <h1 className="mt-3 text-xl font-bold">{e.description}</h1>
         <div className="mt-1 text-4xl font-extrabold tabular-nums tracking-tight">{formatMoney(e.amount, cur)}</div>
+        {e.original && (
+          <div className="mt-1 text-sm text-slate-500" data-testid="fx-original">
+            <span className="font-semibold text-slate-700 dark:text-slate-200">{formatMoney(e.original.amount, e.original.currency)}</span> at {rateLabel(e.original, cur)}
+          </div>
+        )}
         <div className="mt-2 text-sm text-slate-500">{cat.label} · {new Date(e.date + 'T00:00').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })}</div>
         <div className="mt-1 text-xs text-slate-400">{group.emoji} {group.name}</div>
       </div>
@@ -117,7 +123,7 @@ export default function ExpenseDetail() {
             {e.splitType === 'itemized' && e.splitInput.items && (
               <div className="mt-3 space-y-1 border-t border-slate-100 pt-3 text-sm dark:border-white/5">
                 {e.splitInput.items.map((it, i) => (
-                  <div key={i} className="flex justify-between gap-2"><span className="truncate">{it.name} <span className="text-slate-400">· {it.members.map((m) => name(m).split(' ')[0]).join(', ')}</span></span><span className="tabular-nums">{formatMoney(it.amount, cur)}</span></div>
+                  <div key={i} className="flex justify-between gap-2"><span className="truncate">{it.name} <span className="text-slate-400">· {it.members.map((m) => name(m).split(' ')[0]).join(', ')}</span></span><span className="tabular-nums">{formatMoney(it.amount, e.original?.currency ?? cur)}</span></div>
                 ))}
               </div>
             )}

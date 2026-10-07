@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Camera, Check, Minus, Plus, Repeat, Trash2, X } from 'lucide-react'
+import { Camera, Check, ChevronDown, Minus, Plus, Repeat, Trash2, X } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { memberOrder, myMemberId, useCaptures, useExpenses, useGroup, useGroups } from '@/hooks/data'
 import { useOcr } from '@/hooks/useOcr'
-import type { Capture, Category, Expense, Group, MemberId, ReceiptItem, Recurrence, RecurrenceFreq, SplitInput, SplitType } from '@/types'
+import type { Capture, Category, Expense, Group, MemberId, OriginalAmount, ReceiptItem, Recurrence, RecurrenceFreq, SplitInput, SplitType } from '@/types'
 import { CATEGORIES, guessCategory } from '@/lib/categories'
-import { centsToInput, formatMoney, fromHundredths, parseMoney } from '@/lib/money'
+import { CURRENCIES, centsToInput, formatMoney, fromHundredths, parseMoney } from '@/lib/money'
+import { convertExpense, convertMinor, getRate, lastCurrency, parseRate, rateLabel, rememberCurrency, toOriginal, type FxRate } from '@/lib/fx'
 import { computeSplits, SplitError } from '@/lib/splits'
 import { parseReceipt, type ParsedReceipt } from '@/lib/ocr-parse'
 import { pending } from '@/lib/pending'
@@ -74,7 +75,7 @@ function NoGroups() {
 }
 
 function Form({ group, groups, existing, capture, onGroup }: { group: Group; groups: Group[]; existing?: Expense; capture?: Capture; onGroup: (id: string) => void }) {
-  const { user } = useMe()
+  const { user, profile } = useMe()
   const nav = useNavigate()
   const toast = useToast()
   const ocr = useOcr()
@@ -83,14 +84,19 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
   const me = myMemberId(group, user.uid) ?? order[0]
   const personal = group.type === 'personal'
 
-  const [amountStr, setAmountStr] = useState(existing ? centsToInput(existing.amount, group.currency) : capture ? centsToInput(capture.amount, capture.currency ?? group.currency) : '')
+  // Entry currency. A foreign-currency expense is typed in `cur` and converted to the group's
+  // currency on save at a locked rate (see src/lib/fx.ts). New expenses reuse the group's last one.
+  const [cur, setCur] = useState(() => existing ? existing.original?.currency ?? group.currency : capture ? capture.currency ?? group.currency : lastCurrency(group.id) ?? group.currency)
+  const foreign = cur !== group.currency
+  const fg = useMemo(() => (foreign ? { ...group, currency: cur } : group), [group, cur, foreign])
+  const [amountStr, setAmountStr] = useState(existing ? centsToInput(existing.original?.amount ?? existing.amount, cur) : capture ? centsToInput(capture.amount, cur) : '')
   const [description, setDescription] = useState(existing?.description ?? capture?.merchant ?? '')
   const [category, setCategory] = useState<Category>(existing?.category ?? (capture && guessCategory(capture.merchant)) ?? 'other')
   const [catTouched, setCatTouched] = useState(!!existing)
   const [date, setDate] = useState(existing?.date ?? capture?.date ?? todayISO())
   const [notes, setNotes] = useState(existing?.notes ?? capture?.note ?? '')
   const [payers, setPayers] = useState<Record<MemberId, string>>(
-    existing ? Object.fromEntries(Object.entries(existing.paidBy).map(([k, v]) => [k, centsToInput(v, group.currency)])) : { [me]: '' },
+    existing ? Object.fromEntries(Object.entries(existing.original ? toOriginal(existing.paidBy, existing.original) : existing.paidBy).map(([k, v]) => [k, centsToInput(v, cur)])) : { [me]: '' },
   )
   const [multiPay, setMultiPay] = useState(existing ? Object.keys(existing.paidBy).length > 1 : false)
   const [splitType, setSplitType] = useState<SplitType>(existing?.splitType ?? 'equal')
@@ -100,11 +106,37 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
   const [repeat, setRepeat] = useState<RecurrenceFreq | 'never'>(existing?.recurrence?.freq ?? 'never')
   const [until, setUntil] = useState(existing?.recurrence?.until ?? '')
   const isOccurrence = !!existing?.recurringFrom
-  const [sheet, setSheet] = useState<'group' | 'category' | 'payer' | null>(null)
+  const [sheet, setSheet] = useState<'group' | 'category' | 'payer' | 'currency' | null>(null)
   const [busy, setBusy] = useState(false)
 
-  const amount = parseMoney(amountStr, group.currency)
+  const amount = parseMoney(amountStr, cur)
   const validAmount = Number.isFinite(amount) && amount > 0
+
+  // Exchange rate: an edited expense keeps its locked rate until the currency or date changes.
+  const [fx, setFx] = useState<FxRate | null>(existing?.original ? { rate: existing.original.rate, date: existing.original.rateDate, source: existing.original.source } : null)
+  const [fxLoading, setFxLoading] = useState(false)
+  const [rateEdit, setRateEdit] = useState<string | null>(null)
+  const fxFor = useRef(existing?.original ? `${existing.original.currency}|${existing.date}` : '')
+  useEffect(() => {
+    if (!foreign) return
+    const k = `${cur}|${date}`
+    if (fxFor.current === k) return
+    // A rate the user typed survives a date change; a different currency needs a new rate.
+    const keepManual = fx?.source === 'manual' && fxFor.current.startsWith(cur + '|')
+    fxFor.current = k
+    if (keepManual) return
+    setFx(null)
+    setRateEdit(null)
+    setFxLoading(true)
+    getRate(cur, group.currency, date).then((r) => {
+      if (fxFor.current !== k) return
+      setFx(r)
+      setFxLoading(false)
+      if (!r) setRateEdit('')
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cur, date, foreign, group.currency])
+  const converted = foreign && fx && validAmount ? convertMinor(amount, cur, group.currency, fx.rate) : undefined
 
   // Apply a receipt handed over from the Scan screen.
   useEffect(() => {
@@ -117,16 +149,16 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
 
   function applyReceipt(parsed: ParsedReceipt, file: File) {
     // OCR reads amounts as hundredths; convert to this group's minor units (e.g. whole yen).
-    const p = { ...parsed, total: parsed.total && fromHundredths(parsed.total, group.currency), items: parsed.items.map((it) => ({ ...it, amount: fromHundredths(it.amount, group.currency) })) }
+    const p = { ...parsed, total: parsed.total && fromHundredths(parsed.total, cur), items: parsed.items.map((it) => ({ ...it, amount: fromHundredths(it.amount, cur) })) }
     setReceipt(file)
-    if (p.total) setAmountStr(centsToInput(p.total, group.currency))
+    if (p.total) setAmountStr(centsToInput(p.total, cur))
     if (p.merchant) { setDescription(titleCase(p.merchant)); const g = guessCategory(p.merchant); if (g) setCategory(g) }
     if (p.date) setDate(p.date)
     if (p.items.length >= 2 && !personal) {
       setSplitType('itemized')
       setInput((i) => ({ ...i, items: p.items.map((it) => ({ ...it, members: [...order] })) }))
     }
-    toast(p.total ? `Found ${formatMoney(p.total, group.currency)}${p.items.length ? ` and ${p.items.length} items` : ''}` : 'Couldn’t read a total — please enter it')
+    toast(p.total ? `Found ${formatMoney(p.total, cur)}${p.items.length ? ` and ${p.items.length} items` : ''}` : 'Couldn’t read a total — please enter it')
   }
 
   async function onScanFile(file: File) {
@@ -145,8 +177,8 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
       const id = Object.keys(payers)[0] ?? me
       return validAmount ? { [id]: amount } : {}
     }
-    return Object.fromEntries(Object.entries(payers).map(([k, v]) => [k, parseMoney(v, group.currency)]).filter(([, v]) => Number.isFinite(v as number) && (v as number) > 0))
-  }, [payers, multiPay, amount, validAmount, me, personal])
+    return Object.fromEntries(Object.entries(payers).map(([k, v]) => [k, parseMoney(v, cur)]).filter(([, v]) => Number.isFinite(v as number) && (v as number) > 0))
+  }, [payers, multiPay, amount, validAmount, me, personal, cur])
   const paidSum = Object.values(paidBy).reduce((a, b) => a + b, 0)
 
   const preview = useMemo((): { splits?: Record<MemberId, number>; error?: string } => {
@@ -163,7 +195,17 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
     if (!validAmount) return toast('Enter an amount', 'err')
     if (!description.trim()) return toast('Add a description', 'err')
     if (preview.error || !preview.splits) return toast(preview.error ?? 'Check the split', 'err')
-    if (paidSum !== amount) return toast(`Payers add up to ${formatMoney(paidSum, group.currency)}, not ${formatMoney(amount, group.currency)}`, 'err')
+    if (paidSum !== amount) return toast(`Payers add up to ${formatMoney(paidSum, cur)}, not ${formatMoney(amount, cur)}`, 'err')
+    if (foreign && !fx) return toast(`Enter the ${cur} → ${group.currency} exchange rate`, 'err')
+    // Convert to the group currency once, here; balances only ever see group-currency amounts.
+    let money = { amount, paidBy, splits: preview.splits }
+    let original: OriginalAmount | undefined
+    if (foreign && fx) {
+      const c = convertExpense(money, cur, group.currency, fx.rate)
+      if (!c) return toast(`That’s less than the smallest ${group.currency} amount`, 'err')
+      money = c
+      original = { currency: cur, amount, rate: fx.rate, rateDate: fx.date, source: fx.source }
+    }
     if (repeat !== 'never' && until && until < date) return toast('The repeat end date is before the expense date', 'err')
     setBusy(true)
     try {
@@ -172,17 +214,19 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
         id: existing?.id ?? uid('e_'),
         groupId: group.id,
         description: description.trim(),
-        amount, category, date, notes: notes.trim() || undefined,
-        paidBy, splits: preview.splits, splitType: personal ? 'equal' : splitType,
+        amount: money.amount, category, date, notes: notes.trim() || undefined,
+        paidBy: money.paidBy, splits: money.splits, splitType: personal ? 'equal' : splitType,
         splitInput: personal ? { selected: [me] } : clean(input, splitType),
         receiptUrl,
         recurrence: isOccurrence ? undefined : buildRecurrence(repeat, date, until, existing),
         recurringFrom: existing?.recurringFrom,
+        original,
         createdBy: existing?.createdBy ?? user.uid,
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,
       }
       await repo.saveExpense(e)
+      rememberCurrency(group.id, cur)
       if (capture) await repo.updateCapture(user.uid, capture.id, { status: 'assigned', groupId: group.id, expenseId: e.id }).catch(console.warn)
       // Upload after saving so a slow or offline network never blocks the save.
       if (receipt && !repo.attachReceipt(group.id, e.id, receipt)) toast('Offline — saved without the receipt image')
@@ -195,6 +239,13 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
   }
 
   const singlePayer = Object.keys(payers)[0] ?? me
+  const currencyChoices = [...new Set([group.currency, cur, profile.currency, ...CURRENCIES])]
+  const applyRate = () => {
+    const r = parseRate(rateEdit ?? '')
+    if (!Number.isFinite(r)) return toast('Enter a rate above 0', 'err')
+    setFx({ rate: r, date, source: 'manual' })
+    setRateEdit(null)
+  }
 
   return (
     <div className="mx-auto min-h-dvh max-w-lg px-4 pb-10">
@@ -231,7 +282,9 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
           />
         </div>
         <div className="mt-4 flex items-baseline gap-2 border-t border-slate-100 pt-4 dark:border-white/5">
-          <span className="text-2xl font-bold text-slate-400">{group.currency}</span>
+          <button type="button" onClick={() => setSheet('currency')} className={`flex shrink-0 items-center text-2xl font-bold ${foreign ? 'text-brand-600 dark:text-brand-300' : 'text-slate-400'}`} aria-label={`Currency: ${cur}. Change`}>
+            {cur}<ChevronDown size={18} />
+          </button>
           <input
             className="w-full bg-transparent text-5xl font-extrabold tabular-nums tracking-tight outline-none placeholder:text-slate-300 dark:placeholder:text-ink-700"
             inputMode="decimal"
@@ -241,6 +294,10 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
             autoFocus={!existing}
           />
         </div>
+        {foreign && (
+          <FxLine cur={cur} to={group.currency} fx={fx} loading={fxLoading} converted={converted}
+            rateEdit={rateEdit} setRateEdit={setRateEdit} onApply={applyRate} />
+        )}
         <div className="mt-4 flex gap-2">
           <input type="date" className="input !w-auto !py-2 text-sm" value={date} onChange={(e) => setDate(e.target.value)} />
           <button type="button" className="btn-secondary !min-h-0 flex-1 !py-2 text-sm" onClick={() => fileRef.current?.click()} disabled={ocr.busy}>
@@ -272,9 +329,9 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
             ) : (
               <div className="mt-3 space-y-2">
                 {order.map((id) => (
-                  <AmountRow key={id} group={group} id={id} me={me} value={payers[id] ?? ''} onChange={(v) => setPayers((p) => ({ ...p, [id]: v }))} />
+                  <AmountRow key={id} group={fg} id={id} me={me} value={payers[id] ?? ''} onChange={(v) => setPayers((p) => ({ ...p, [id]: v }))} />
                 ))}
-                <Remaining label="Left to assign" value={validAmount ? amount - paidSum : 0} currency={group.currency} />
+                <Remaining label="Left to assign" value={validAmount ? amount - paidSum : 0} currency={cur} />
               </div>
             )}
           </div>
@@ -291,7 +348,7 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
               ))}
             </div>
             <div className="mt-4">
-              <SplitEditor type={splitType} input={input} setInput={setInput} group={group} order={order} me={me} amount={validAmount ? amount : 0} splits={preview.splits} />
+              <SplitEditor type={splitType} input={input} setInput={setInput} group={fg} order={order} me={me} amount={validAmount ? amount : 0} splits={preview.splits} />
             </div>
             {preview.error && <div className="mt-3 rounded-xl bg-rose-50 p-2.5 text-sm font-medium text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">{preview.error}</div>}
           </div>
@@ -339,6 +396,14 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
           ))}
         </div>
       </Sheet>
+      <Sheet open={sheet === 'currency'} onClose={() => setSheet(null)} title="Currency">
+        <p className="mb-2 text-sm text-slate-500">{group.name} is in {group.currency}. Other currencies are converted at the ECB rate for the expense date, then locked.</p>
+        <div className="grid grid-cols-4 gap-2">
+          {currencyChoices.map((c) => (
+            <button key={c} onClick={() => { setCur(c); setSheet(null) }} className={`rounded-2xl py-3 text-sm font-bold ${c === cur ? 'bg-brand-600 text-white' : 'bg-slate-100 dark:bg-ink-800'}`}>{c}</button>
+          ))}
+        </div>
+      </Sheet>
       <Sheet open={sheet === 'category'} onClose={() => setSheet(null)} title="Category">
         <div className="grid grid-cols-3 gap-2">
           {(Object.keys(CATEGORIES) as Category[]).map((c) => (
@@ -359,6 +424,38 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
           ))}
         </div>
       </Sheet>
+    </div>
+  )
+}
+
+/** "≈ A$51.23 at 1 THB = 0.0427 AUD (ECB, 2026-10-07)" with an edit-rate affordance. */
+function FxLine({ cur, to, fx, loading, converted, rateEdit, setRateEdit, onApply }: {
+  cur: string; to: string; fx: FxRate | null; loading: boolean; converted?: number
+  rateEdit: string | null; setRateEdit: (v: string | null) => void; onApply: () => void
+}) {
+  if (rateEdit !== null) {
+    return (
+      <form className="mt-3 rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800" onSubmit={(e) => { e.preventDefault(); onApply() }}>
+        {!fx && <div className="mb-2 text-amber-600 dark:text-amber-400">No {cur} → {to} rate available (offline, or not published by the ECB). Enter one:</div>}
+        <div className="flex items-center gap-2">
+          <label htmlFor="fx-rate" className="shrink-0 font-semibold">1 {cur} =</label>
+          <input id="fx-rate" className="input !py-2 text-right" inputMode="decimal" placeholder={fx ? String(fx.rate) : '0.00'} value={rateEdit} onChange={(e) => setRateEdit(e.target.value)} autoFocus />
+          <span className="shrink-0 font-semibold">{to}</span>
+          <button type="submit" className="rounded-xl bg-brand-600 px-3 py-2 font-bold text-white">Use</button>
+          {fx && <button type="button" className="px-1 text-slate-500" onClick={() => setRateEdit(null)} aria-label="Cancel"><X size={16} /></button>}
+        </div>
+      </form>
+    )
+  }
+  if (loading) return <div className="mt-3 flex items-center gap-2 text-sm text-slate-500"><Spinner className="!h-4 !w-4" /> Getting the {cur} → {to} rate…</div>
+  if (!fx) return null
+  return (
+    <div className="mt-3 flex items-start justify-between gap-2 text-sm" data-testid="fx-line">
+      <span className="text-slate-500">
+        {converted !== undefined && <><span className="font-semibold text-slate-700 dark:text-slate-200">≈ {formatMoney(converted, to)}</span> at </>}
+        {rateLabel({ currency: cur, rate: fx.rate, rateDate: fx.date, source: fx.source }, to)}
+      </span>
+      <button type="button" className="shrink-0 font-semibold text-brand-600 dark:text-brand-300" onClick={() => setRateEdit(String(fx.rate))}>Edit rate</button>
     </div>
   )
 }
