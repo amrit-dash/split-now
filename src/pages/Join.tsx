@@ -55,7 +55,7 @@ export default function Join() {
   const options = [...Object.entries(invite.placeholders), ['new', `I’m not listed — join as ${profile.displayName}`] as [string, string]]
 
   return (
-    <div className="mx-auto min-h-dvh max-w-md px-4 pt-16 safe-top">
+    <div className="mx-auto min-h-dvh max-w-md px-4 pt-[calc(env(safe-area-inset-top)+4rem)]">
       <div className="text-center">
         <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-100 to-fuchsia-100 text-5xl dark:from-brand-900/50 dark:to-fuchsia-900/30">{invite.emoji}</div>
         <h1 className="mt-4 text-2xl font-extrabold">Join {invite.groupName}</h1>

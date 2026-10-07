@@ -75,7 +75,7 @@ export function TableEntry() {
   const nav = useNavigate()
   const [code, setCode] = useState('')
   return (
-    <div className="mx-auto min-h-dvh max-w-md px-4 pt-16 safe-top">
+    <div className="mx-auto min-h-dvh max-w-md px-4 pt-[calc(env(safe-area-inset-top)+4rem)]">
       <div className="text-center">
         <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-100 to-fuchsia-100 text-5xl dark:from-brand-900/50 dark:to-fuchsia-900/30">🍽️</div>
         <h1 className="mt-4 text-2xl font-extrabold">Join a table</h1>
@@ -108,7 +108,7 @@ export default function TablePage() {
 }
 
 function Shell({ children }: { children: ReactNode }) {
-  return <div className="mx-auto max-w-md px-4 pt-16 safe-top">{children}</div>
+  return <div className="mx-auto max-w-md px-4 pt-[calc(env(safe-area-inset-top)+4rem)]">{children}</div>
 }
 
 function JoinForm({ table, viewer }: { table: LiveTable; viewer: Viewer }) {
@@ -127,7 +127,7 @@ function JoinForm({ table, viewer }: { table: LiveTable; viewer: Viewer }) {
     }
   }
   return (
-    <div className="mx-auto min-h-dvh max-w-md px-4 pt-16 safe-top">
+    <div className="mx-auto min-h-dvh max-w-md px-4 pt-[calc(env(safe-area-inset-top)+4rem)]">
       <div className="text-center">
         <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-100 to-fuchsia-100 text-5xl dark:from-brand-900/50 dark:to-fuchsia-900/30">🧾</div>
         <h1 className="mt-4 text-2xl font-extrabold">{table.merchant}</h1>

@@ -6,7 +6,7 @@ import { appLocale } from '@/lib/locale'
 export function PageHeader({ title, back, right, subtitle }: { title: ReactNode; back?: boolean | string; right?: ReactNode; subtitle?: ReactNode }) {
   const nav = useNavigate()
   return (
-    <header className="sticky top-0 z-30 -mx-4 mb-4 bg-slate-50/80 px-4 pb-3 pt-3 backdrop-blur-xl safe-top dark:bg-ink-950/80">
+    <header className="sticky top-0 z-30 -mx-4 mb-5 bg-slate-50/80 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+1.25rem)] backdrop-blur-xl dark:bg-ink-950/80">
       <div className="flex min-h-11 items-center gap-2">
         {back && (
           <button
