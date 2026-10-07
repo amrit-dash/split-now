@@ -1,13 +1,17 @@
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { BarChart3, Bell, Copy, HandCoins, Link2, Settings, Share2 } from 'lucide-react'
+import { BarChart3, Bell, Copy, Download, HandCoins, Link2, Repeat, Search, Settings, Share2, X } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
 import { computeGroupData, useExpenses, useGroup, useSettlements } from '@/hooks/data'
-import type { Expense, Settlement } from '@/types'
+import type { Category, Expense, Settlement } from '@/types'
 import { formatMoney } from '@/lib/money'
 import { CATEGORIES } from '@/lib/categories'
 import { simplifyDebts } from '@/lib/simplify'
 import { copy, shareOrCopy } from '@/lib/share'
+import { csvFilename, deliverCsv, groupCsv } from '@/lib/export'
+import { EMPTY_FILTER, expenseMatches, isFiltering, settlementMatches, type ActivityFilter } from '@/lib/filter'
+import { FREQ_LABEL } from '@/lib/recurrence'
+import { todayISO } from '@/lib/id'
 import { Avatar } from '@/components/Avatar'
 import { DebtGraph } from '@/components/DebtGraph'
 import { GroupIcon } from '@/components/GroupIcon'
@@ -52,6 +56,15 @@ export default function GroupDetail() {
     if (r === 'copied') toast('Reminder copied to clipboard')
   }
 
+  const exportCsv = async () => {
+    try {
+      const r = await deliverCsv(csvFilename(group.name, todayISO()), groupCsv(group, d.expenses, d.settlements))
+      if (r === 'downloaded') toast('CSV downloaded')
+    } catch (e) {
+      toast('Export failed: ' + (e as Error).message, 'err')
+    }
+  }
+
   return (
     <div>
       <PageHeader
@@ -59,6 +72,7 @@ export default function GroupDetail() {
         title={<span className="flex items-center gap-2">{group.name}</span>}
         right={
           <div className="flex gap-1">
+            <button onClick={exportCsv} className="rounded-full p-2.5 hover:bg-slate-200/60 dark:hover:bg-ink-800" aria-label="Export CSV" title="Export CSV"><Download size={20} /></button>
             <Link to={`/insights?group=${group.id}`} className="rounded-full p-2.5 hover:bg-slate-200/60 dark:hover:bg-ink-800" aria-label="Insights"><BarChart3 size={20} /></Link>
             <Link to={`/groups/${group.id}/edit`} className="rounded-full p-2.5 hover:bg-slate-200/60 dark:hover:bg-ink-800" aria-label="Settings"><Settings size={20} /></Link>
           </div>
@@ -201,14 +215,30 @@ function GraphTab({ d }: { d: ReturnType<typeof computeGroupData> }) {
 function ActivityList({ groupId, expenses, settlements, me, currency, name, personal }: {
   groupId: string; expenses: Expense[]; settlements: Settlement[]; me?: string; currency: string; name: (id: string) => string; personal: boolean
 }) {
+  const [filter, setFilter] = useState<ActivityFilter>(EMPTY_FILTER)
+  const [onlyMe, setOnlyMe] = useState(false)
+  const f: ActivityFilter = { ...filter, involving: onlyMe ? me : undefined }
+  const filtering = isFiltering(f)
+  const usedCategories = useMemo(() => {
+    const seen = new Set(expenses.map((e) => e.category))
+    return (Object.keys(CATEGORIES) as Category[]).filter((c) => seen.has(c))
+  }, [expenses])
+  const toggleCat = (c: Category) =>
+    setFilter((p) => ({ ...p, categories: p.categories.includes(c) ? p.categories.filter((x) => x !== c) : [...p.categories, c] }))
+  const clear = () => { setFilter(EMPTY_FILTER); setOnlyMe(false) }
+
   type Row = { kind: 'e'; e: Expense } | { kind: 's'; s: Settlement }
-  const rows: Row[] = [...expenses.map((e) => ({ kind: 'e' as const, e })), ...settlements.map((s) => ({ kind: 's' as const, s }))]
+  const all = expenses.length + settlements.length
+  const rows: Row[] = [
+    ...expenses.filter((e) => expenseMatches(e, f)).map((e) => ({ kind: 'e' as const, e })),
+    ...settlements.filter((s) => settlementMatches(s, f, name)).map((s) => ({ kind: 's' as const, s })),
+  ]
     .sort((a, b) => {
       const da = a.kind === 'e' ? a.e.date : a.s.date, db = b.kind === 'e' ? b.e.date : b.s.date
       const ca = a.kind === 'e' ? a.e.createdAt : a.s.createdAt, cb = b.kind === 'e' ? b.e.createdAt : b.s.createdAt
       return db.localeCompare(da) || cb - ca
     })
-  if (rows.length === 0) return <Empty emoji="🧾" title="No expenses yet">Tap the + button to add the first one, or scan a receipt.</Empty>
+  if (all === 0) return <Empty emoji="🧾" title="No expenses yet">Tap the + button to add the first one, or scan a receipt.</Empty>
 
   const byMonth = new Map<string, Row[]>()
   for (const r of rows) {
@@ -216,8 +246,50 @@ function ActivityList({ groupId, expenses, settlements, me, currency, name, pers
     const k = new Date(date + 'T00:00').toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
     byMonth.set(k, [...(byMonth.get(k) ?? []), r])
   }
+  const filters = (
+    <div className="space-y-2">
+      <div className="relative">
+        <Search size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+        <input
+          type="search"
+          className="input !py-2.5 pl-10 pr-10"
+          placeholder="Search expenses and notes"
+          aria-label="Search expenses"
+          value={filter.q}
+          onChange={(e) => setFilter((p) => ({ ...p, q: e.target.value }))}
+        />
+        {filter.q && (
+          <button onClick={() => setFilter((p) => ({ ...p, q: '' }))} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-slate-400" aria-label="Clear search"><X size={16} /></button>
+        )}
+      </div>
+      {(usedCategories.length > 1 || (!personal && me)) && (
+        <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1">
+          {!personal && me && (
+            <button onClick={() => setOnlyMe(!onlyMe)} className={`chip shrink-0 whitespace-nowrap ${onlyMe ? 'chip-on' : ''}`} aria-pressed={onlyMe}>Involving me</button>
+          )}
+          {usedCategories.length > 1 && usedCategories.map((c) => {
+            const on = filter.categories.includes(c)
+            return (
+              <button key={c} onClick={() => toggleCat(c)} className={`chip shrink-0 whitespace-nowrap ${on ? 'chip-on' : ''}`} aria-pressed={on}>
+                <span aria-hidden>{CATEGORIES[c].emoji}</span>{CATEGORIES[c].label}
+              </button>
+            )
+          })}
+        </div>
+      )}
+      {filtering && (
+        <div className="flex items-center justify-between px-1 text-xs text-slate-500">
+          <span>{rows.length} of {all} shown</span>
+          <button onClick={clear} className="font-semibold text-brand-600 dark:text-brand-300">Clear filters</button>
+        </div>
+      )}
+    </div>
+  )
+
   return (
     <div className="space-y-5">
+      {filters}
+      {rows.length === 0 && <Empty emoji="🔎" title="No matches">Try a different search or clear the filters.</Empty>}
       {[...byMonth].map(([month, list]) => (
         <div key={month}>
           <div className="mb-2 px-1 text-xs font-bold uppercase tracking-wider text-slate-400">{month}</div>
@@ -239,7 +311,15 @@ function ActivityList({ groupId, expenses, settlements, me, currency, name, pers
                 <Link key={e.id} to={`/groups/${groupId}/expenses/${e.id}`} className="flex items-center gap-3 px-4 py-3 active:bg-slate-50 dark:active:bg-ink-800">
                   <div className="flex h-11 w-11 items-center justify-center rounded-2xl text-xl" style={{ background: CATEGORIES[e.category].color + '22' }}>{CATEGORIES[e.category].emoji}</div>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium">{e.description}</div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="truncate font-medium">{e.description}</span>
+                      {e.recurrence && (
+                        <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700 dark:bg-brand-900/40 dark:text-brand-200" title={`Repeats ${FREQ_LABEL[e.recurrence.freq].toLowerCase()}`}>
+                          <Repeat size={10} strokeWidth={3} />{FREQ_LABEL[e.recurrence.freq]}
+                        </span>
+                      )}
+                      {e.recurringFrom && !e.recurrence && <Repeat size={12} className="shrink-0 text-slate-400" aria-label="Repeating expense" />}
+                    </div>
                     <div className="truncate text-xs text-slate-500">
                       {personal ? fmtDay(e.date) : <>{payers.length > 1 ? `${payers.length} people` : name(payers[0])} paid {formatMoney(e.amount, currency)} · {fmtDay(e.date)}</>}
                     </div>

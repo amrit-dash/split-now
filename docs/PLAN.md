@@ -62,7 +62,9 @@ Splitwise solved "who owes whom". Its weak points today are where Split It goes 
 - ✅ Cent-exact rounding: leftover cents are distributed deterministically, so splits always sum to the total
 - ✅ Edit / delete (creator or any group member)
 - ✅ Receipt image attached (Firebase Storage)
-- ⏳ Recurring expenses (weekly / monthly) — schema field present, scheduler is planned (needs Cloud Functions or client catch-up)
+- ✅ Recurring expenses (weekly / fortnightly / monthly / yearly, optional end date) via **client catch-up**: when a member opens a group, missed occurrences are created with deterministic ids (`{templateId}_{yyyy-mm-dd}`) so concurrent clients never duplicate. Month-end dates clamp (Jan 31 → Feb 28/29 → Mar 31). No Cloud Functions.
+- ✅ Comment thread on each expense (author-only delete)
+- ✅ Search (description/notes), category filter chips and an "involving me" toggle on a group's activity list
 - ⏳ Multi-currency expenses inside one group with FX conversion
 
 ### 3.4 Balances, simplification, settling up
@@ -85,7 +87,8 @@ Splitwise solved "who owes whom". Its weak points today are where Split It goes 
 - ✅ Paid vs share per member (bar)
 - ✅ Group budget burn-down
 - ✅ Totals: your share, total group spend, biggest category
-- ⏳ CSV export, year-in-review
+- ✅ CSV export per group (expenses + payments, one share column per member); shared via the native share sheet on mobile, downloaded elsewhere
+- ⏳ Year-in-review
 
 ### 3.7 PWA & UX
 - ✅ Installable: web manifest, service worker, icons, maskable icon, app shortcuts
@@ -142,6 +145,11 @@ groups/{groupId}/expenses/{expenseId}
   splitType: equal|exact|percent|shares|adjust|itemized
   splitInput: raw user input for re-editing (percents, shares, items…)
   receiptPath?, createdBy, createdAt, updatedAt
+  recurrence?: { freq: weekly|fortnightly|monthly|yearly, nextDate, until? }   ← on a template
+  recurringFrom?: templateId                                                  ← on a generated copy
+
+groups/{groupId}/expenses/{expenseId}/comments/{commentId}
+  text, authorUid, authorName, createdAt
 
 groups/{groupId}/settlements/{settlementId}
   from: memberId, to: memberId, amount, method, note?, date, createdBy, createdAt
@@ -195,7 +203,7 @@ A **member id** is stable and separate from a Firebase uid. A placeholder member
 | 0 | Repo, tooling, docs, Firebase config, rules, PWA shell | ✅ |
 | 1 | Auth, groups, members, invites, expenses (all split types), balances, simplify, settle-up | ✅ |
 | 2 | OCR receipts + payment screenshots, insights charts, install banner, debt graph | ✅ |
-| 3 | Recurring expenses, push notifications, CSV export, archive/leave group | ⏳ |
+| 3 | Recurring expenses ✅, CSV export ✅, comments ✅, push notifications, archive/leave group | 🟡 |
 | 4 | Multi-currency with FX, server-side AI receipt parsing, Apple sign-in | ⏳ |
 
 ---

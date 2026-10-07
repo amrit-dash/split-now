@@ -4,11 +4,11 @@ import {
   signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, signOut, updateProfile,
 } from 'firebase/auth'
 import {
-  arrayUnion, collection, connectFirestoreEmulator, deleteDoc, doc, getDoc, getDocs, initializeFirestore,
+  addDoc, arrayUnion, collection, connectFirestoreEmulator, deleteDoc, deleteField, doc, getDoc, getDocs, initializeFirestore,
   onSnapshot, persistentLocalCache, persistentMultipleTabManager, query, setDoc, updateDoc, where, writeBatch,
 } from 'firebase/firestore'
 import { connectStorageEmulator, getDownloadURL, getStorage, ref, uploadBytes } from 'firebase/storage'
-import type { Expense, Group, Settlement, UserProfile } from '@/types'
+import type { Expense, ExpenseComment, Group, Settlement, UserProfile } from '@/types'
 import { inviteCode, uid } from '@/lib/id'
 import { byDateDesc, placeholdersOf, type InviteInfo, type Repo } from './repo'
 
@@ -27,6 +27,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
   }
 
   const groupRef = (id: string) => doc(db, 'groups', id)
+  const commentsCol = (groupId: string, expenseId: string) => collection(db, 'groups', groupId, 'expenses', expenseId, 'comments')
   const syncInvite = (g: Group) =>
     setDoc(doc(db, 'invites', g.inviteCode), {
       groupId: g.id, groupName: g.name, emoji: g.emoji, placeholders: placeholdersOf(g), createdBy: g.createdBy,
@@ -110,6 +111,9 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       for (const sub of ['expenses', 'settlements']) {
         const docs = await getDocs(collection(db, 'groups', id, sub))
         docs.forEach((d) => batch.delete(d.ref))
+        if (sub === 'expenses') {
+          for (const e of docs.docs) (await getDocs(commentsCol(id, e.id))).forEach((c) => batch.delete(c.ref))
+        }
       }
       batch.delete(groupRef(id))
       await batch.commit()
@@ -145,7 +149,13 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       await setDoc(doc(db, 'groups', e.groupId, 'expenses', e.id), e)
       await updateDoc(groupRef(e.groupId), { updatedAt: Date.now() })
     },
-    deleteExpense: (groupId, id) => deleteDoc(doc(db, 'groups', groupId, 'expenses', id)),
+    async deleteExpense(groupId, id) {
+      // Comments go with the expense (rules allow deleting others' comments once the parent is gone).
+      const batch = writeBatch(db)
+      ;(await getDocs(commentsCol(groupId, id)).catch(() => null))?.forEach((c) => batch.delete(c.ref))
+      batch.delete(doc(db, 'groups', groupId, 'expenses', id))
+      await batch.commit()
+    },
 
     watchSettlements(groupId, cb) {
       return onSnapshot(collection(db, 'groups', groupId, 'settlements'), (s) =>
@@ -163,5 +173,25 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       await uploadBytes(r, file, { contentType: file.type || 'image/jpeg' })
       return getDownloadURL(r)
     },
+
+    async saveRecurringOccurrences(template, occurrences) {
+      const batch = writeBatch(db)
+      for (const o of occurrences) batch.set(doc(db, 'groups', o.groupId, 'expenses', o.id), o)
+      // update (not set) so a concurrent edit to the template isn't clobbered, and so the
+      // whole batch fails if the template was deleted meanwhile.
+      batch.update(doc(db, 'groups', template.groupId, 'expenses', template.id), { recurrence: template.recurrence ?? deleteField() })
+      if (occurrences.length) batch.update(groupRef(template.groupId), { updatedAt: Date.now() })
+      await batch.commit()
+    },
+
+    watchComments(groupId, expenseId, cb) {
+      return onSnapshot(commentsCol(groupId, expenseId), (s) =>
+        cb(s.docs.map((d) => ({ ...(d.data() as ExpenseComment), id: d.id })).sort((a, b) => a.createdAt - b.createdAt)),
+      () => cb([]))
+    },
+    async addComment(groupId, expenseId, c) {
+      await addDoc(commentsCol(groupId, expenseId), c)
+    },
+    deleteComment: (groupId, expenseId, id) => deleteDoc(doc(commentsCol(groupId, expenseId), id)),
   }
 }

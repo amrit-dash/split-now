@@ -1,23 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Camera, Check, Minus, Plus, Trash2, X } from 'lucide-react'
+import { Camera, Check, Minus, Plus, Repeat, Trash2, X } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { memberOrder, myMemberId, useExpenses, useGroup, useGroups } from '@/hooks/data'
 import { useOcr } from '@/hooks/useOcr'
-import type { Category, Expense, Group, MemberId, ReceiptItem, SplitInput, SplitType } from '@/types'
+import type { Category, Expense, Group, MemberId, ReceiptItem, Recurrence, RecurrenceFreq, SplitInput, SplitType } from '@/types'
 import { CATEGORIES, guessCategory } from '@/lib/categories'
 import { centsToInput, formatMoney, parseMoney } from '@/lib/money'
 import { computeSplits, SplitError } from '@/lib/splits'
 import { parseReceipt, type ParsedReceipt } from '@/lib/ocr-parse'
 import { pending } from '@/lib/pending'
 import { todayISO, uid } from '@/lib/id'
+import { firstNextDate, FREQ_LABEL, nextAfter } from '@/lib/recurrence'
 import { Avatar } from '@/components/Avatar'
 import { GroupIcon } from '@/components/GroupIcon'
 import { MemberChips } from '@/components/MemberChips'
 import { Empty, Loading, Spinner } from '@/components/Misc'
 import { Sheet } from '@/components/Sheet'
 import { useToast } from '@/components/Toast'
+
+const REPEAT_OPTIONS: Array<RecurrenceFreq | 'never'> = ['never', 'weekly', 'fortnightly', 'monthly', 'yearly']
 
 const SPLIT_TYPES: Array<{ value: SplitType; label: string; icon: string }> = [
   { value: 'equal', label: 'Equally', icon: '=' },
@@ -89,6 +92,9 @@ function Form({ group, groups, existing, onGroup }: { group: Group; groups: Grou
   const [input, setInput] = useState<SplitInput>(existing?.splitInput ?? { selected: order })
   const [receipt, setReceipt] = useState<File | null>(null)
   const [receiptUrl] = useState(existing?.receiptUrl)
+  const [repeat, setRepeat] = useState<RecurrenceFreq | 'never'>(existing?.recurrence?.freq ?? 'never')
+  const [until, setUntil] = useState(existing?.recurrence?.until ?? '')
+  const isOccurrence = !!existing?.recurringFrom
   const [sheet, setSheet] = useState<'group' | 'category' | 'payer' | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -151,6 +157,7 @@ function Form({ group, groups, existing, onGroup }: { group: Group; groups: Grou
     if (!description.trim()) return toast('Add a description', 'err')
     if (preview.error || !preview.splits) return toast(preview.error ?? 'Check the split', 'err')
     if (paidSum !== amount) return toast(`Payers add up to ${formatMoney(paidSum, group.currency)}, not ${formatMoney(amount, group.currency)}`, 'err')
+    if (repeat !== 'never' && until && until < date) return toast('The repeat end date is before the expense date', 'err')
     setBusy(true)
     try {
       let url = receiptUrl
@@ -166,6 +173,8 @@ function Form({ group, groups, existing, onGroup }: { group: Group; groups: Grou
         paidBy, splits: preview.splits, splitType: personal ? 'equal' : splitType,
         splitInput: personal ? { selected: [me] } : clean(input, splitType),
         receiptUrl: url,
+        recurrence: isOccurrence ? undefined : buildRecurrence(repeat, date, until, existing),
+        recurringFrom: existing?.recurringFrom,
         createdBy: existing?.createdBy ?? user.uid,
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,
@@ -281,6 +290,31 @@ function Form({ group, groups, existing, onGroup }: { group: Group; groups: Grou
             {preview.error && <div className="mt-3 rounded-xl bg-rose-50 p-2.5 text-sm font-medium text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">{preview.error}</div>}
           </div>
         </>
+      )}
+
+      {!isOccurrence && (
+        <div className="card mt-3 p-4">
+          <div className="label flex items-center gap-1.5"><Repeat size={14} /> Repeat</div>
+          <div className="flex flex-wrap gap-1.5">
+            {REPEAT_OPTIONS.map((f) => (
+              <button key={f} type="button" onClick={() => setRepeat(f)} className={`chip ${repeat === f ? 'chip-on' : ''}`}>
+                {f === 'never' ? 'Never' : FREQ_LABEL[f]}
+              </button>
+            ))}
+          </div>
+          {repeat !== 'never' && (
+            <div className="mt-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <label htmlFor="repeat-until" className="text-sm text-slate-500">Ends</label>
+                <input id="repeat-until" type="date" className="input !w-auto !py-2 text-sm" value={until} min={date} onChange={(e) => setUntil(e.target.value)} />
+                {until && <button type="button" className="text-sm font-semibold text-brand-600 dark:text-brand-300" onClick={() => setUntil('')}>Never ends</button>}
+              </div>
+              <p className="text-xs text-slate-500">
+                Next copy on {fmtDate(buildRecurrence(repeat, date, until, existing)?.nextDate)}. Copies are added automatically when anyone in the group opens the app.
+              </p>
+            </div>
+          )}
+        </div>
       )}
 
       <div className="card mt-3 p-4">
@@ -526,6 +560,25 @@ function clean(i: SplitInput, t: SplitType): SplitInput {
     case 'adjust': return { selected: i.selected, adjust: i.adjust }
     case 'itemized': return { items: i.items }
   }
+}
+
+/**
+ * New templates start right after their date (so a back-dated monthly bill catches up).
+ * When an existing template's schedule changes, start after today instead so already
+ * generated copies aren't recreated on different dates.
+ */
+function buildRecurrence(repeat: RecurrenceFreq | 'never', date: string, until: string, existing?: Expense): Recurrence | undefined {
+  if (repeat === 'never') return undefined
+  const prev = existing?.recurrence
+  let nextDate: string
+  if (prev && prev.freq === repeat && existing.date === date) nextDate = prev.nextDate
+  else if (existing) nextDate = nextAfter(date, repeat, todayISO())
+  else nextDate = firstNextDate(date, repeat)
+  return { freq: repeat, nextDate, until: until || undefined }
+}
+
+function fmtDate(d?: string) {
+  return d ? new Date(d + 'T00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
 }
 
 function titleCase(s: string) {
