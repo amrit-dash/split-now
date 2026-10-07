@@ -9,12 +9,15 @@ service cloud.firestore {
     function uid() { return request.auth.uid; }
     function groupDoc(groupId) { return get(/databases/$(database)/documents/groups/$(groupId)); }
     function isGroupMember(groupId) { return signedIn() && uid() in groupDoc(groupId).data.memberUids; }
+    // State of the group once the current write (or batch) is applied.
+    function groupAfter(groupId) { return getAfter(/databases/$(database)/documents/groups/$(groupId)); }
 
     // ---- Users ---------------------------------------------------------
-    // Profiles hold display name + payment handles shown during settle-up.
-    // Readable by any signed-in user who knows the uid (no listing).
+    // Private profile (email, default currency, payment handles). Owner only.
+    // What co-members may see (name + payment handles) is copied by the owner into
+    // groups/{groupId}/profiles/{uid}, readable only by that group's members.
     match /users/{userId} {
-      allow get: if signedIn();
+      allow get: if signedIn() && uid() == userId;
       allow list: if false;
       allow create, update: if signedIn() && uid() == userId
         && request.resource.data.uid == userId;
@@ -89,26 +92,85 @@ service cloud.firestore {
           && (!(mid in before.members) || !('uid' in before.members[mid]));
       }
 
+      // How an existing member may change membership. Every change to `members` must name
+      // the single entry it touches in `memberOpId` (rules can't iterate a map), so:
+      //  - existing entries are never edited in place (their uid is immutable, and a
+      //    placeholder can only be claimed through isJoining),
+      //  - a new entry is a placeholder (no uid),
+      //  - removing an entry that has a uid also removes that uid from memberUids, and
+      //    only the creator may do that to someone else (anyone may remove themselves),
+      //  - memberUids never gains a uid here and only shrinks as above.
+      function validMembershipChange() {
+        let before = resource.data;
+        let after = request.resource.data;
+        let mdiff = after.members.diff(before.members);
+        let uidsAdded = after.memberUids.toSet().difference(before.memberUids.toSet());
+        let uidsRemoved = before.memberUids.toSet().difference(after.memberUids.toSet());
+        let op = after.get('memberOpId', '');
+        return uidsAdded.size() == 0
+          && mdiff.changedKeys().size() == 0
+          && (
+            // no membership change at all
+            (mdiff.addedKeys().size() == 0 && mdiff.removedKeys().size() == 0 && uidsRemoved.size() == 0)
+            // add one placeholder
+            || (mdiff.removedKeys().size() == 0 && mdiff.addedKeys().size() == 1 && mdiff.addedKeys().hasOnly([op])
+                && !('uid' in after.members[op]) && uidsRemoved.size() == 0)
+            // remove one placeholder
+            || (mdiff.addedKeys().size() == 0 && mdiff.removedKeys().size() == 1 && mdiff.removedKeys().hasOnly([op])
+                && !('uid' in before.members[op]) && uidsRemoved.size() == 0)
+            // remove one joined member (yourself, or anyone if you created the group)
+            || (mdiff.addedKeys().size() == 0 && mdiff.removedKeys().size() == 1 && mdiff.removedKeys().hasOnly([op])
+                && 'uid' in before.members[op]
+                && uidsRemoved == [before.members[op].uid].toSet()
+                && (before.members[op].uid == uid() || before.createdBy == uid()))
+          );
+      }
+
       allow get: if isMember();
       allow list: if signedIn() && uid() in resource.data.memberUids;
+      // The creator starts as the only signed-up member (others join themselves via invite).
       allow create: if signedIn()
         && request.resource.data.createdBy == uid()
-        && uid() in request.resource.data.memberUids
+        && request.resource.data.memberUids == [uid()]
         && request.resource.data.inviteCode is string
         && request.resource.data.inviteCode.size() >= 6;
       allow update: if (isMember()
           // members can't silently change who created the group or its invite code
           && request.resource.data.createdBy == resource.data.createdBy
-          && request.resource.data.inviteCode == resource.data.inviteCode)
+          && request.resource.data.inviteCode == resource.data.inviteCode
+          && validMembershipChange())
         || isJoining();
       allow delete: if isMember() && resource.data.createdBy == uid();
 
+      // createdBy is the writer on create and never changes afterwards.
+      function validAuthor() {
+        return (request.method == 'create' && request.resource.data.createdBy == uid())
+          || (request.method == 'update' && request.resource.data.createdBy == resource.data.createdBy);
+      }
+
       match /expenses/{expenseId} {
+        // A recurring occurrence keeps its template's author, whoever's client generates it:
+        // its id must be <templateId>_<date> and the template must exist with the same createdBy.
+        function isOccurrence() {
+          let d = request.resource.data;
+          let tpl = /databases/$(database)/documents/groups/$(groupId)/expenses/$(d.recurringFrom);
+          return request.method == 'create'
+            && d.get('recurringFrom', null) is string
+            && d.date is string
+            && expenseId == d.recurringFrom + '_' + d.date
+            && exists(tpl)
+            && get(tpl).data.createdBy == d.createdBy;
+        }
+
         allow read: if isGroupMember(groupId);
         allow create, update: if isGroupMember(groupId)
+          && (validAuthor() || isOccurrence())
           && request.resource.data.groupId == groupId
           && request.resource.data.amount is int
-          && request.resource.data.amount > 0;
+          && request.resource.data.amount > 0
+          // everyone who paid or owes must be a member of this group
+          && request.resource.data.paidBy.keys().hasOnly(groupDoc(groupId).data.members.keys())
+          && request.resource.data.splits.keys().hasOnly(groupDoc(groupId).data.members.keys());
         allow delete: if isGroupMember(groupId);
 
         // Comment thread on an expense. Comments are immutable; only the author can
@@ -134,21 +196,50 @@ service cloud.firestore {
       match /settlements/{settlementId} {
         allow read: if isGroupMember(groupId);
         allow create, update: if isGroupMember(groupId)
+          && validAuthor()
           && request.resource.data.groupId == groupId
           && request.resource.data.amount is int
           && request.resource.data.amount > 0
-          && request.resource.data.from != request.resource.data.to;
+          && request.resource.data.from != request.resource.data.to
+          && request.resource.data.from in groupDoc(groupId).data.members
+          && request.resource.data.to in groupDoc(groupId).data.members;
         allow delete: if isGroupMember(groupId);
+      }
+
+      // Name + payment handles a member shares with this group only. Written by the owner
+      // (also in the same batch as creating/joining the group, hence getAfter).
+      match /profiles/{userId} {
+        allow read: if isGroupMember(groupId);
+        allow create, update: if signedIn() && uid() == userId
+          && uid() in groupAfter(groupId).data.memberUids
+          && request.resource.data.keys().hasOnly(['displayName', 'payment'])
+          && request.resource.data.displayName is string;
+        // the owner, or the group creator when removing the member / deleting the group
+        allow delete: if signedIn() && (uid() == userId
+          || (isGroupMember(groupId) && groupDoc(groupId).data.createdBy == uid()));
       }
     }
 
     // ---- Invites -------------------------------------------------------
     // Public-to-signed-in lookup table: code → group name + unclaimed placeholders.
+    // An invite can only point at a group whose inviteCode is this doc's id, written by
+    // a member of that group (after the batch, so create-group / join can include it).
     match /invites/{code} {
+      function validInvite() {
+        let g = groupAfter(request.resource.data.groupId);
+        return signedIn()
+          && request.resource.data.keys().hasOnly(['groupId', 'groupName', 'emoji', 'placeholders'])
+          && request.resource.data.groupId is string
+          && g != null
+          && g.data.inviteCode == code
+          && uid() in g.data.memberUids;
+      }
       allow get: if signedIn();
       allow list: if false;
-      allow create, update: if signedIn() && isGroupMember(request.resource.data.groupId);
-      allow delete: if signedIn() && isGroupMember(resource.data.groupId);
+      allow create: if validInvite();
+      allow update: if validInvite() && request.resource.data.groupId == resource.data.groupId;
+      allow delete: if signedIn() && isGroupMember(resource.data.groupId)
+        && groupDoc(resource.data.groupId).data.inviteCode == code;
     }
   }
 }

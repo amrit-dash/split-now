@@ -22,6 +22,9 @@ cp .env.example .env.local
 ## 3. Authorised domains
 **Authentication → Settings → Authorized domains**: `localhost` and `<project>.web.app` are there by default. Add any custom domain you use.
 
+### Google sign-in in the installed iOS app
+Installed iOS PWAs can't use popups, so Split It uses `signInWithRedirect` there. Safari's storage partitioning breaks the redirect if the auth handler lives on a different domain from the app, so **set `VITE_FIREBASE_AUTH_DOMAIN` to the domain the app is served from** (e.g. `<project>.web.app`, or your custom Hosting domain) rather than `<project>.firebaseapp.com`. Firebase Hosting serves the handler at `/__/auth/*` on every Hosting domain; the service worker is configured not to intercept `/__/` URLs (`navigateFallbackDenylist`). If you host elsewhere, proxy `/__/auth/` to `<project>.firebaseapp.com`. Redirect errors are shown as a toast when the app reopens.
+
 ## 4. Deploy rules, indexes and the app
 
 ```bash

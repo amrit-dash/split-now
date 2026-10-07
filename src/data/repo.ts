@@ -1,4 +1,4 @@
-import type { Capture, Expense, ExpenseComment, Group, Member, MemberId, Settlement, UserProfile } from '@/types'
+import type { Capture, Expense, ExpenseComment, Group, Member, MemberId, PaymentHandles, Settlement, UserProfile } from '@/types'
 import type { CaptureDraft, InboxDoc } from '@/lib/capture'
 
 export type Unsub = () => void
@@ -20,8 +20,33 @@ export interface InviteInfo {
 
 export type NewGroup = Omit<Group, 'id' | 'createdAt' | 'updatedAt' | 'inviteCode'>
 
+/** Scalar group fields any member may edit. Membership has its own methods. */
+export type GroupSettings = Partial<Omit<Group, 'id' | 'members' | 'memberUids' | 'inviteCode' | 'createdBy' | 'createdAt' | 'updatedAt'>>
+
+/**
+ * What a member shares with the other members of one group (stored per group, so it
+ * is only readable by co-members and only writable by its owner).
+ */
+export interface MemberProfile {
+  displayName: string
+  payment?: PaymentHandles
+}
+
+export interface RepoError {
+  /** 'write' = a save the UI already treated as done was rejected; 'read' = a live query failed */
+  kind: 'write' | 'read'
+  message: string
+  error: unknown
+}
+
 export interface Repo {
   mode: 'firebase' | 'demo'
+
+  /**
+   * Writes resolve as soon as they are applied to the local cache (so the UI never hangs
+   * offline). Server rejections arrive later through this subscription.
+   */
+  onError(cb: (e: RepoError) => void): Unsub
 
   onAuth(cb: (u: AuthUser | null) => void): Unsub
   signInWithGoogle(): Promise<void>
@@ -31,13 +56,22 @@ export interface Repo {
   signOut(): Promise<void>
 
   watchProfile(uid: string, cb: (p: UserProfile | null) => void): Unsub
+  /** Saves the private profile and copies name + payment handles into every group the user is in. */
   saveProfile(p: UserProfile): Promise<void>
+  /** Own (private) profile only. */
   getProfile(uid: string): Promise<UserProfile | null>
+  /** A co-member's shared name + payment handles for one group. */
+  getMemberProfile(groupId: string, uid: string): Promise<MemberProfile | null>
 
   watchGroups(uid: string, cb: (groups: Group[]) => void): Unsub
   watchGroup(id: string, cb: (g: Group | null) => void): Unsub
   createGroup(g: NewGroup): Promise<string>
+  /** Writes only the fields that differ from `base` (the group as the form loaded it). */
+  updateGroupSettings(base: Group, patch: GroupSettings): Promise<void>
+  /** @deprecated use updateGroupSettings/addMember/removeMember. Membership fields in `patch` are ignored. */
   updateGroup(id: string, patch: Partial<Group>): Promise<void>
+  addMember(group: Group, memberId: MemberId, member: Member): Promise<void>
+  removeMember(group: Group, memberId: MemberId): Promise<void>
   deleteGroup(id: string): Promise<void>
 
   getInvite(code: string): Promise<InviteInfo | null>
@@ -46,12 +80,17 @@ export interface Repo {
   watchExpenses(groupId: string, cb: (e: Expense[]) => void): Unsub
   saveExpense(e: Expense): Promise<void>
   deleteExpense(groupId: string, id: string): Promise<void>
+  /**
+   * Downscales and uploads a receipt in the background, then patches the expense's
+   * receiptUrl/receiptPath. Returns false (and does nothing) when offline.
+   */
+  attachReceipt(groupId: string, expenseId: string, file: Blob): boolean
+  /** @deprecated blocks on the network; prefer attachReceipt after saving. */
+  uploadReceipt(groupId: string, file: Blob): Promise<string>
 
   watchSettlements(groupId: string, cb: (s: Settlement[]) => void): Unsub
   saveSettlement(s: Settlement): Promise<void>
   deleteSettlement(groupId: string, id: string): Promise<void>
-
-  uploadReceipt(groupId: string, file: Blob): Promise<string>
 
   /**
    * Recurring catch-up: write generated occurrences (deterministic ids, so concurrent
@@ -93,6 +132,54 @@ export function placeholdersOf(g: Pick<Group, 'members'>): Record<MemberId, stri
 export const byDateDesc = <T extends { date: string; createdAt: number }>(a: T, b: T) =>
   b.date.localeCompare(a.date) || b.createdAt - a.createdAt
 
+/** Settings fields whose value differs from the base group. `undefined` in the result means "clear the field". */
+export function changedSettings(base: Group, patch: GroupSettings): GroupSettings {
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(patch)) {
+    const before = (base as unknown as Record<string, unknown>)[k]
+    if (JSON.stringify(before) !== JSON.stringify(v)) out[k] = v
+  }
+  return out as GroupSettings
+}
+
+/** Member ids added/removed between two members maps. */
+export function diffMembers(before: Record<MemberId, Member>, after: Record<MemberId, Member>) {
+  return {
+    added: Object.keys(after).filter((id) => !(id in before)),
+    removed: Object.keys(before).filter((id) => !(id in after)),
+  }
+}
+
+/** Storage path from a Firebase Storage download URL (…/o/<encoded path>?alt=media…). */
+export function storagePathFromUrl(url: string | undefined): string | undefined {
+  const m = url?.match(/\/o\/([^?]+)/)
+  return m ? decodeURIComponent(m[1]) : undefined
+}
+
+/** Simple listener set used by both repos for the error channel. */
+export function errorChannel() {
+  const listeners = new Set<(e: RepoError) => void>()
+  // Errors raised before anyone subscribed (e.g. a failed sign-in redirect at startup) are kept.
+  let early: RepoError[] = []
+  return {
+    on(cb: (e: RepoError) => void): Unsub {
+      listeners.add(cb)
+      if (early.length) { const q = early; early = []; q.forEach(cb) }
+      return () => { listeners.delete(cb) }
+    },
+    emit(kind: RepoError['kind'], error: unknown, context: string) {
+      console.error(`[repo] ${context}`, error)
+      const code = (error as { code?: string })?.code
+      const message = code === 'permission-denied'
+        ? `${context}: you don’t have permission (the change was undone)`
+        : `${context}: ${(error as Error)?.message ?? String(error)}`
+      const e: RepoError = { kind, message, error }
+      if (listeners.size) listeners.forEach((l) => l(e))
+      else early.push(e)
+    },
+  }
+}
+
 /** Build a pending capture from a validated draft. Undefined fields are dropped. */
 export function draftToCapture(d: CaptureDraft, id: string, now = Date.now()): Capture {
   return compact({
@@ -104,4 +191,4 @@ export function draftToCapture(d: CaptureDraft, id: string, now = Date.now()): C
 export const compact = <T extends object>(o: T): T =>
   Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T
 
-export const byCreatedDesc =<T extends { createdAt: number }>(a: T, b: T) => b.createdAt - a.createdAt
+export const byCreatedDesc = <T extends { createdAt: number }>(a: T, b: T) => b.createdAt - a.createdAt

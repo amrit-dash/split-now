@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Expense, Settlement } from '@/types'
-import { netBalances, pairwiseDebts } from './balances'
+import { isBalancedExpense, netBalances, pairwiseDebts, totalsByMember } from './balances'
 import { simplifyDebts } from './simplify'
 
 const exp = (paidBy: Record<string, number>, splits: Record<string, number>): Expense => ({
@@ -36,5 +36,25 @@ describe('balances', () => {
   it('multi-payer expense', () => {
     const net = netBalances([exp({ a: 6000, b: 4000 }, { a: 2500, b: 2500, c: 2500, d: 2500 })], [])
     expect(net).toEqual({ a: 3500, b: 1500, c: -2500, d: -2500 })
+  })
+})
+
+describe('malformed expenses', () => {
+  const good = exp({ a: 3000 }, { a: 1500, b: 1500 })
+  const badSplits = { ...exp({ a: 3000 }, { a: 1000, b: 1000 }), id: 'bad-splits' } // splits sum 2000 ≠ 3000
+  const badPaid = { ...exp({ a: 3000 }, { a: 1500, b: 1500 }), id: 'bad-paid', paidBy: { a: 9000 } }
+  const fractional = { ...exp({ a: 3000 }, { a: 1500, b: 1500 }), id: 'frac', splits: { a: 1500.5, b: 1499.5 } }
+
+  it('detects unbalanced expenses', () => {
+    expect(isBalancedExpense(good)).toBe(true)
+    expect(isBalancedExpense(badSplits)).toBe(false)
+    expect(isBalancedExpense(badPaid)).toBe(false)
+    expect(isBalancedExpense(fractional)).toBe(false)
+  })
+  it('ignores them in balances, debts and totals', () => {
+    const all = [good, badSplits, badPaid, fractional]
+    expect(netBalances(all, [])).toEqual({ a: 1500, b: -1500 })
+    expect(pairwiseDebts(all, [])).toEqual([{ from: 'b', to: 'a', amount: 1500 }])
+    expect(totalsByMember(all).paid).toEqual({ a: 3000 })
   })
 })

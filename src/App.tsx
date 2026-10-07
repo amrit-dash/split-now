@@ -1,10 +1,11 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { repo } from './data'
 import { useAuth } from './hooks/auth'
+import { useToast } from './components/Toast'
 import { Layout } from './components/Layout'
 import { Loading } from './components/Misc'
 import { UpdatePrompt } from './components/UpdatePrompt'
-import { repo } from './data'
 import { takeStashedCapture } from './lib/pending'
 import Login from './pages/Login'
 import Home from './pages/Home'
@@ -29,6 +30,10 @@ export default function App() {
   const { user, loading } = useAuth()
   const loc = useLocation()
   const nav = useNavigate()
+  const toast = useToast()
+
+  // Saves resolve locally (so they work offline); a later server rejection lands here.
+  useEffect(() => repo.onError((e) => toast(e.message, 'err')), [toast])
 
   useEffect(() => {
     if (!user) return
@@ -49,29 +54,25 @@ export default function App() {
     return () => document.removeEventListener('visibilitychange', claim)
   }, [user])
 
-  if (loading) return <Splash />
+  const guestCapture = !loading && !user && loc.pathname === '/capture'
+  // Remember where they were going (e.g. an invite link) and come back after sign-in.
+  if (!loading && !user && !guestCapture && loc.pathname !== '/') sessionStorage.setItem('splitit-return', loc.pathname + loc.search)
 
-  if (!user) {
-    if (loc.pathname === '/capture') {
-      return (
-        <Suspense fallback={<Splash />}>
-          <CaptureGuest />
-        </Suspense>
-      )
-    }
-    // Remember where they were going (e.g. an invite link) and come back after sign-in.
-    if (loc.pathname !== '/') sessionStorage.setItem('splitit-return', loc.pathname + loc.search)
-    return (
-      <>
-        <UpdatePrompt />
-        <Login />
-      </>
-    )
-  }
-
+  // UpdatePrompt is mounted exactly once, outside the auth switch, so the service worker is
+  // registered (and its hourly update timer started) a single time.
   return (
     <>
       <UpdatePrompt />
+      {loading ? <Splash />
+        : guestCapture ? <Suspense fallback={<Splash />}><CaptureGuest /></Suspense>
+        : !user ? <Login /> : <AppRoutes />}
+    </>
+  )
+}
+
+function AppRoutes() {
+  return (
+    <>
       <Suspense fallback={<Loading />}>
         <Routes>
           <Route element={<Layout />}>

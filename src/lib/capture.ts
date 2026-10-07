@@ -1,5 +1,5 @@
 import type { Cents, Group } from '@/types'
-import { CURRENCIES } from './money'
+import { CURRENCIES, centsToInput, fromHundredths, minorDigits } from './money'
 import { findAmounts, parseDate, parsePaymentScreenshot } from './ocr-parse'
 
 /** What a /capture URL (or an inbox document) describes, after validation. */
@@ -72,7 +72,7 @@ export function currencyFromAmount(raw: string): string | undefined {
  * Signs are ignored: card apps report purchases as negative or positive depending on locale.
  * Returns NaN when no usable amount is present.
  */
-export function parseCaptureAmount(raw: string): Cents {
+export function parseCaptureAmount(raw: string, currency?: string): Cents {
   let t = raw.replace(/[^\d.,]/g, '')
   if (!t || !/\d/.test(t)) return NaN
   const lastDot = t.lastIndexOf('.')
@@ -88,7 +88,8 @@ export function parseCaptureAmount(raw: string): Cents {
     t = t.replace(/\./g, '')
   }
   if (!/^\d+(\.\d+)?$/.test(t)) return NaN
-  const cents = Math.round(Number(t) * 100)
+  // Minor units of the currency when known (whole yen for JPY), else cents.
+  const cents = Math.round(Number(t) * 10 ** minorDigits(currency))
   return Number.isFinite(cents) && cents > 0 ? cents : NaN
 }
 
@@ -124,15 +125,15 @@ export function parseCaptureParams(params: URLSearchParams, today: string): Capt
   const raw = clip(params.get('raw'), 40)
   const amountStr = params.get('amount')?.trim() || raw
   if (!amountStr) return { ok: false, error: 'The link has no amount.' }
-  const amount = parseCaptureAmount(amountStr)
+  const cur = params.get('currency')?.trim().toUpperCase()
+  const currency = cur && /^[A-Z]{3}$/.test(cur) ? cur : currencyFromAmount(amountStr) ?? (raw ? currencyFromAmount(raw) : undefined)
+  const amount = parseCaptureAmount(amountStr, currency)
   if (!Number.isFinite(amount)) return { ok: false, error: `“${amountStr.slice(0, 30)}” isn’t a valid amount.` }
   if (amount > 100_000_000) return { ok: false, error: 'That amount looks too large.' }
 
   const merchant = clip(params.get('merchant'), 100)
   if (!merchant) return { ok: false, error: 'The link has no merchant.' }
 
-  const cur = params.get('currency')?.trim().toUpperCase()
-  const currency = cur && /^[A-Z]{3}$/.test(cur) ? cur : currencyFromAmount(amountStr) ?? (raw ? currencyFromAmount(raw) : undefined)
   const ts = clip(params.get('ts'), 40)
 
   return {
@@ -158,7 +159,7 @@ export function parseCaptureParams(params: URLSearchParams, today: string): Capt
 /** Build a /capture query string (contract v=1). */
 export function captureQuery(d: Partial<CaptureDraft> & { amount: Cents | string }): string {
   const p = new URLSearchParams({ v: '1' })
-  p.set('amount', typeof d.amount === 'number' ? (d.amount / 100).toFixed(2) : d.amount)
+  p.set('amount', typeof d.amount === 'number' ? centsToInput(d.amount, d.currency) : d.amount)
   const keys: Array<[keyof CaptureDraft, string]> = [
     ['currency', 'currency'], ['merchant', 'merchant'], ['ts', 'ts'], ['source', 'src'], ['card', 'card'],
     ['raw', 'raw'], ['note', 'note'], ['ref', 'ref'], ['group', 'group'],
@@ -185,14 +186,16 @@ export interface InboxDoc {
 
 /** Turn an inbox document into a capture draft, or null if no amount can be recovered. */
 export function inboxToDraft(d: InboxDoc, today: string): CaptureDraft | null {
+  const cur = d.currency?.trim().toUpperCase()
+  const currency = cur && /^[A-Z]{3}$/.test(cur) ? cur : d.raw ? currencyFromAmount(d.raw) : undefined
+  // An integer `amount` is already in minor units (see docs/AUTO_CAPTURE.md).
   const amount = typeof d.amount === 'number' && Number.isInteger(d.amount) && d.amount > 0
     ? d.amount
-    : d.raw ? parseCaptureAmount(d.raw) : NaN
+    : d.raw ? parseCaptureAmount(d.raw, currency) : NaN
   if (!Number.isFinite(amount)) return null
-  const cur = d.currency?.trim().toUpperCase()
   return {
     amount,
-    currency: cur && /^[A-Z]{3}$/.test(cur) ? cur : d.raw ? currencyFromAmount(d.raw) : undefined,
+    currency,
     merchant: clip(d.merchant, 100) ?? 'Unknown merchant',
     date: parseCaptureDate(d.ts, today),
     ts: clip(d.ts, 40),
@@ -271,12 +274,15 @@ export function captureFromSharedText(parts: { title?: string | null; text?: str
   const text = [parts.title, parts.text].filter(Boolean).join('\n').trim()
   if (!text) return null
   const payment = parsePaymentScreenshot(text)
-  const amount = payment.amount && payment.amount > 0 ? payment.amount : findAmounts(text).find((a) => a > 0)
-  if (!amount) return null
+  const found = payment.amount && payment.amount > 0 ? payment.amount : findAmounts(text).find((a) => a > 0)
+  if (!found) return null
+  const currency = currencyFromAmount(text)
+  // The text parsers return hundredths; convert to the currency's minor units.
+  const amount = fromHundredths(found, currency)
   const merchant = payment.payee ?? text.match(/\bat\s+([A-Z][\w'&.-]*(?:\s+[A-Z][\w'&.-]*){0,3})/)?.[1]
   return {
     amount,
-    currency: currencyFromAmount(text),
+    currency,
     merchant: clip(merchant, 100) ?? 'Shared payment',
     date: payment.date ?? today,
     source: 'share',

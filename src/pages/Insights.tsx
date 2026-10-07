@@ -5,7 +5,7 @@ import { useMe } from '@/hooks/auth'
 import { useAllGroupData, type GroupData } from '@/hooks/data'
 import type { Category, Expense } from '@/types'
 import { CATEGORIES } from '@/lib/categories'
-import { formatMoney } from '@/lib/money'
+import { formatMoney, minorDigits } from '@/lib/money'
 import { categoryChartColor, chartFolds, seriesColor, useIsDark } from '@/lib/chartPalette'
 import { Empty, Loading, PageHeader, Segmented } from '@/components/Misc'
 
@@ -212,7 +212,7 @@ function compute(scope: GroupData[], period: Period, basis: Basis) {
 }
 
 function compact(cents: number, currency: string) {
-  return new Intl.NumberFormat(undefined, { style: 'currency', currency, notation: 'compact', maximumFractionDigits: 1 }).format(cents / 100)
+  return new Intl.NumberFormat(undefined, { style: 'currency', currency, notation: 'compact', maximumFractionDigits: 1 }).format(cents / 10 ** minorDigits(currency))
 }
 
 function Kpi({ label, value }: { label: string; value: string }) {

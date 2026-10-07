@@ -76,7 +76,7 @@ export default function Profile() {
             </div>
           ))}
         </div>
-        <p className="mt-3 flex items-start gap-1.5 text-xs text-slate-500"><ShieldCheck size={14} className="mt-0.5 shrink-0" /> Only people signed in to Split It can read these, and only if they know your account. Don’t add details you wouldn’t put on an invoice.</p>
+        <p className="mt-3 flex items-start gap-1.5 text-xs text-slate-500"><ShieldCheck size={14} className="mt-0.5 shrink-0" /> Only members of groups you’re in can see these. Don’t add details you wouldn’t put on an invoice.</p>
       </div>
 
       <button className="btn-primary mt-4 w-full" onClick={save}>Save profile</button>

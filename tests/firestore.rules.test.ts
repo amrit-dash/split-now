@@ -79,7 +79,7 @@ describe('joining', () => {
 })
 
 describe('expenses', () => {
-  const expense = { id: 'e1', groupId: 'g1', description: 'Dinner', amount: 1000, paidBy: { alice: 1000 }, splits: { alice: 500, p_bob: 500 } }
+  const expense = { id: 'e1', groupId: 'g1', description: 'Dinner', amount: 1000, paidBy: { alice: 1000 }, splits: { alice: 500, p_bob: 500 }, createdBy: 'alice' }
   it('members can write, others cannot', async () => {
     await assertSucceeds(setDoc(doc(db('alice'), 'groups/g1/expenses/e1'), expense))
     await assertFails(setDoc(doc(db('mallory'), 'groups/g1/expenses/e2'), { ...expense, id: 'e2' }))
@@ -154,13 +154,19 @@ describe('recurring catch-up', () => {
   it('two members writing the same deterministic occurrence id both succeed', async () => {
     await env.withSecurityRulesDisabled((ctx) =>
       setDoc(doc(ctx.firestore(), 'groups/g1'), { ...group, memberUids: ['alice', 'bob'] }))
-    const occ = { id: 'e1_2026-02-28', groupId: 'g1', description: 'Rent', amount: 1000, recurringFrom: 'e1' }
-    await assertSucceeds(setDoc(doc(db('alice'), 'groups/g1/expenses/e1_2026-02-28'), occ))
+    const tpl = { id: 'e1', groupId: 'g1', description: 'Rent', amount: 1000, date: '2026-01-31', paidBy: { alice: 1000 }, splits: { alice: 500, p_bob: 500 }, createdBy: 'alice' }
+    await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'groups/g1/expenses/e1'), tpl))
+    // occurrences keep the template's author even when another member's client writes them
+    const occ = { ...tpl, id: 'e1_2026-02-28', date: '2026-02-28', recurringFrom: 'e1' }
     await assertSucceeds(setDoc(doc(db('bob'), 'groups/g1/expenses/e1_2026-02-28'), occ))
+    await assertSucceeds(setDoc(doc(db('alice'), 'groups/g1/expenses/e1_2026-02-28'), occ))
+    // …but the id must match the template + date, and the author must match the template
+    await assertFails(setDoc(doc(db('bob'), 'groups/g1/expenses/e1_2026-03-31'), occ))
+    await assertFails(setDoc(doc(db('bob'), 'groups/g1/expenses/e1_2026-04-30'), { ...occ, id: 'e1_2026-04-30', date: '2026-04-30', createdBy: 'mallory' }))
   })
 
   it('occurrences and the advanced template commit in one batch', async () => {
-    const tpl = { id: 'e1', groupId: 'g1', description: 'Rent', amount: 1000, date: '2026-01-31', recurrence: { freq: 'monthly', nextDate: '2026-02-28' } }
+    const tpl = { id: 'e1', groupId: 'g1', description: 'Rent', amount: 1000, date: '2026-01-31', paidBy: { alice: 1000 }, splits: { alice: 500, p_bob: 500 }, createdBy: 'alice', recurrence: { freq: 'monthly', nextDate: '2026-02-28' } }
     await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'groups/g1/expenses/e1'), tpl))
     const fs = db('alice')
     const batch = writeBatch(fs)
@@ -175,7 +181,9 @@ describe('users', () => {
   it('only the owner writes their profile', async () => {
     await assertSucceeds(setDoc(doc(db('alice'), 'users/alice'), { uid: 'alice', displayName: 'A', currency: 'AUD' }))
     await assertFails(setDoc(doc(db('mallory'), 'users/alice'), { uid: 'alice', displayName: 'X', currency: 'AUD' }))
-    await assertSucceeds(getDoc(doc(db('bob'), 'users/alice')))
+    // private: email and handles are only shared per group (groups/{id}/profiles)
+    await assertSucceeds(getDoc(doc(db('alice'), 'users/alice')))
+    await assertFails(getDoc(doc(db('bob'), 'users/alice')))
   })
 })
 

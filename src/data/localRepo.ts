@@ -1,7 +1,8 @@
 import type { Capture, Expense, ExpenseComment, Group, Settlement, UserProfile } from '@/types'
 import { inviteCode, todayISO, uid } from '@/lib/id'
 import { inboxToDraft, newCaptureToken } from '@/lib/capture'
-import { byCreatedDesc, byDateDesc, draftToCapture, placeholdersOf, type AuthUser, type CaptureToken, type Repo } from './repo'
+import { downscale } from '@/lib/image'
+import { byCreatedDesc, byDateDesc, changedSettings, draftToCapture, errorChannel, placeholdersOf, type AuthUser, type CaptureToken, type Repo } from './repo'
 import { seedDemo } from './seed'
 
 /**
@@ -58,8 +59,11 @@ export function createLocalRepo(): Repo {
     if (g) state.groups[groupId] = { ...g, updatedAt: Date.now() }
   }
 
-  return {
+  const errors = errorChannel()
+
+  const repo: Repo = {
     mode: 'demo',
+    onError: errors.on,
 
     onAuth: (cb) => watch(() => state.user, cb),
     async signInDemo(name) {
@@ -79,6 +83,10 @@ export function createLocalRepo(): Repo {
     watchProfile: (id, cb) => watch(() => state.profiles[id] ?? null, cb),
     async saveProfile(p) { state.profiles[p.uid] = p; if (state.user?.uid === p.uid) state.user = { ...state.user, displayName: p.displayName }; commit() },
     async getProfile(id) { return state.profiles[id] ?? null },
+    async getMemberProfile(groupId, id) {
+      const p = state.groups[groupId]?.memberUids.includes(id) ? state.profiles[id] : undefined
+      return p ? { displayName: p.displayName, payment: p.payment ?? {} } : null
+    },
 
     watchGroups: (userId, cb) =>
       watch(() => Object.values(state.groups).filter((g) => g.memberUids.includes(userId)).sort((a, b) => b.updatedAt - a.updatedAt), cb),
@@ -89,8 +97,38 @@ export function createLocalRepo(): Repo {
       commit()
       return id
     },
+    async updateGroupSettings(base, patch) {
+      const g = state.groups[base.id]
+      const changed = changedSettings(base, patch)
+      if (!g || !Object.keys(changed).length) return
+      const next: Record<string, unknown> = { ...g, ...changed, updatedAt: Date.now() }
+      for (const [k, v] of Object.entries(changed)) if (v === undefined) delete next[k]
+      state.groups[base.id] = next as unknown as Group
+      commit()
+    },
     async updateGroup(id, patch) {
-      state.groups[id] = { ...state.groups[id], ...patch, updatedAt: Date.now() }
+      const { members: _m, memberUids: _u, ...rest } = patch
+      const g = state.groups[id]
+      if (g) await repo.updateGroupSettings(g, rest)
+    },
+    async addMember(group, memberId, member) {
+      const g = state.groups[group.id]
+      if (!g) return
+      state.groups[group.id] = {
+        ...g,
+        members: { ...g.members, [memberId]: member },
+        memberUids: member.uid ? [...new Set([...g.memberUids, member.uid])] : g.memberUids,
+        updatedAt: Date.now(),
+      }
+      commit()
+    },
+    async removeMember(group, memberId) {
+      const g = state.groups[group.id]
+      if (!g) return
+      const { [memberId]: removed, ...members } = g.members
+      state.groups[group.id] = {
+        ...g, members, memberUids: g.memberUids.filter((u) => u !== removed?.uid), updatedAt: Date.now(),
+      }
       commit()
     },
     async deleteGroup(id) {
@@ -108,6 +146,7 @@ export function createLocalRepo(): Repo {
     async joinGroup(code, memberId, member) {
       const g = Object.values(state.groups).find((x) => x.inviteCode === code.toUpperCase())
       if (!g) throw new Error('Invite not found')
+      if (member.uid && Object.values(g.members).some((m) => m.uid === member.uid)) return g.id
       state.groups[g.id] = {
         ...g,
         memberUids: [...new Set([...g.memberUids, member.uid!])],
@@ -126,6 +165,22 @@ export function createLocalRepo(): Repo {
       for (const [k, c] of Object.entries(comments())) if (c.expenseId === id) delete comments()[k]
       commit()
     },
+    attachReceipt(_groupId, expenseId, file) {
+      // Store a small data URL so the demo can show the receipt.
+      downscale(file, 900, 0.7)
+        .then((blob) => new Promise<string>((res, rej) => {
+          const r = new FileReader()
+          r.onload = () => res(String(r.result))
+          r.onerror = rej
+          r.readAsDataURL(blob)
+        }))
+        .then((url) => {
+          const e = state.expenses[expenseId]
+          if (e) { state.expenses[expenseId] = { ...e, receiptUrl: url }; commit() }
+        })
+        .catch((e) => errors.emit('write', e, 'Receipt attach failed'))
+      return true
+    },
 
     watchSettlements: (groupId, cb) =>
       watch(() => Object.values(state.settlements).filter((s) => s.groupId === groupId).sort(byDateDesc), cb),
@@ -133,12 +188,12 @@ export function createLocalRepo(): Repo {
     async deleteSettlement(_g, id) { delete state.settlements[id]; commit() },
 
     async uploadReceipt(_groupId, file) {
-      // Store a small data URL so the demo can show the receipt.
+      const blob = await downscale(file, 900, 0.7)
       return new Promise((res, rej) => {
         const r = new FileReader()
         r.onload = () => res(String(r.result))
         r.onerror = rej
-        r.readAsDataURL(file)
+        r.readAsDataURL(blob)
       })
     },
 
@@ -198,4 +253,5 @@ export function createLocalRepo(): Repo {
     },
     async claimInbox() { return 0 },
   }
+  return repo
 }

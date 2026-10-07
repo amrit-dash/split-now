@@ -7,7 +7,7 @@ import { memberOrder, myMemberId, useCaptures, useExpenses, useGroup, useGroups 
 import { useOcr } from '@/hooks/useOcr'
 import type { Capture, Category, Expense, Group, MemberId, ReceiptItem, Recurrence, RecurrenceFreq, SplitInput, SplitType } from '@/types'
 import { CATEGORIES, guessCategory } from '@/lib/categories'
-import { centsToInput, formatMoney, parseMoney } from '@/lib/money'
+import { centsToInput, formatMoney, fromHundredths, parseMoney } from '@/lib/money'
 import { computeSplits, SplitError } from '@/lib/splits'
 import { parseReceipt, type ParsedReceipt } from '@/lib/ocr-parse'
 import { pending } from '@/lib/pending'
@@ -83,14 +83,14 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
   const me = myMemberId(group, user.uid) ?? order[0]
   const personal = group.type === 'personal'
 
-  const [amountStr, setAmountStr] = useState(existing ? centsToInput(existing.amount) : capture ? centsToInput(capture.amount) : '')
+  const [amountStr, setAmountStr] = useState(existing ? centsToInput(existing.amount, group.currency) : capture ? centsToInput(capture.amount, capture.currency ?? group.currency) : '')
   const [description, setDescription] = useState(existing?.description ?? capture?.merchant ?? '')
   const [category, setCategory] = useState<Category>(existing?.category ?? (capture && guessCategory(capture.merchant)) ?? 'other')
   const [catTouched, setCatTouched] = useState(!!existing)
   const [date, setDate] = useState(existing?.date ?? capture?.date ?? todayISO())
   const [notes, setNotes] = useState(existing?.notes ?? capture?.note ?? '')
   const [payers, setPayers] = useState<Record<MemberId, string>>(
-    existing ? Object.fromEntries(Object.entries(existing.paidBy).map(([k, v]) => [k, centsToInput(v)])) : { [me]: '' },
+    existing ? Object.fromEntries(Object.entries(existing.paidBy).map(([k, v]) => [k, centsToInput(v, group.currency)])) : { [me]: '' },
   )
   const [multiPay, setMultiPay] = useState(existing ? Object.keys(existing.paidBy).length > 1 : false)
   const [splitType, setSplitType] = useState<SplitType>(existing?.splitType ?? 'equal')
@@ -103,7 +103,7 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
   const [sheet, setSheet] = useState<'group' | 'category' | 'payer' | null>(null)
   const [busy, setBusy] = useState(false)
 
-  const amount = parseMoney(amountStr)
+  const amount = parseMoney(amountStr, group.currency)
   const validAmount = Number.isFinite(amount) && amount > 0
 
   // Apply a receipt handed over from the Scan screen.
@@ -115,9 +115,11 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  function applyReceipt(p: ParsedReceipt, file: File) {
+  function applyReceipt(parsed: ParsedReceipt, file: File) {
+    // OCR reads amounts as hundredths; convert to this group's minor units (e.g. whole yen).
+    const p = { ...parsed, total: parsed.total && fromHundredths(parsed.total, group.currency), items: parsed.items.map((it) => ({ ...it, amount: fromHundredths(it.amount, group.currency) })) }
     setReceipt(file)
-    if (p.total) setAmountStr(centsToInput(p.total))
+    if (p.total) setAmountStr(centsToInput(p.total, group.currency))
     if (p.merchant) { setDescription(titleCase(p.merchant)); const g = guessCategory(p.merchant); if (g) setCategory(g) }
     if (p.date) setDate(p.date)
     if (p.items.length >= 2 && !personal) {
@@ -143,7 +145,7 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
       const id = Object.keys(payers)[0] ?? me
       return validAmount ? { [id]: amount } : {}
     }
-    return Object.fromEntries(Object.entries(payers).map(([k, v]) => [k, parseMoney(v)]).filter(([, v]) => Number.isFinite(v as number) && (v as number) > 0))
+    return Object.fromEntries(Object.entries(payers).map(([k, v]) => [k, parseMoney(v, group.currency)]).filter(([, v]) => Number.isFinite(v as number) && (v as number) > 0))
   }, [payers, multiPay, amount, validAmount, me, personal])
   const paidSum = Object.values(paidBy).reduce((a, b) => a + b, 0)
 
@@ -165,10 +167,6 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
     if (repeat !== 'never' && until && until < date) return toast('The repeat end date is before the expense date', 'err')
     setBusy(true)
     try {
-      let url = receiptUrl
-      if (receipt) {
-        try { url = await repo.uploadReceipt(group.id, receipt) } catch (e) { console.warn('Receipt upload failed', e) }
-      }
       const now = Date.now()
       const e: Expense = {
         id: existing?.id ?? uid('e_'),
@@ -177,7 +175,7 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
         amount, category, date, notes: notes.trim() || undefined,
         paidBy, splits: preview.splits, splitType: personal ? 'equal' : splitType,
         splitInput: personal ? { selected: [me] } : clean(input, splitType),
-        receiptUrl: url,
+        receiptUrl,
         recurrence: isOccurrence ? undefined : buildRecurrence(repeat, date, until, existing),
         recurringFrom: existing?.recurringFrom,
         createdBy: existing?.createdBy ?? user.uid,
@@ -186,6 +184,8 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
       }
       await repo.saveExpense(e)
       if (capture) await repo.updateCapture(user.uid, capture.id, { status: 'assigned', groupId: group.id, expenseId: e.id }).catch(console.warn)
+      // Upload after saving so a slow or offline network never blocks the save.
+      if (receipt && !repo.attachReceipt(group.id, e.id, receipt)) toast('Offline — saved without the receipt image')
       toast(existing ? 'Expense updated' : 'Expense added ✅')
       nav(`/groups/${group.id}`, { replace: true })
     } catch (err) {
@@ -401,8 +401,8 @@ function SplitEditor({ type, input, setInput, group, order, me, amount, splits }
         <div className="space-y-2">
           {order.map((id) => (
             <AmountRow key={id} group={group} id={id} me={me}
-              value={input.exact?.[id] !== undefined ? centsToInput(input.exact[id]) : ''}
-              onChange={(v) => setInput((i) => ({ ...i, exact: { ...i.exact, [id]: Number.isFinite(parseMoney(v)) ? parseMoney(v) : 0 } }))} />
+              value={input.exact?.[id] !== undefined ? centsToInput(input.exact[id], group.currency) : ''}
+              onChange={(v) => setInput((i) => ({ ...i, exact: { ...i.exact, [id]: Number.isFinite(parseMoney(v, group.currency)) ? parseMoney(v, group.currency) : 0 } }))} />
           ))}
           <Remaining label="Left to assign" value={amount - sum} currency={cur} />
         </div>
@@ -461,8 +461,8 @@ function SplitEditor({ type, input, setInput, group, order, me, amount, splits }
               <Avatar name={group.members[id].name} color={group.members[id].color} size={28} />
               <span className="flex-1 truncate text-sm font-medium">{label(id)}</span>
               <input className="input !w-24 !py-2 text-right" inputMode="decimal" placeholder="+0.00" disabled={!sel.includes(id)}
-                defaultValue={input.adjust?.[id] ? centsToInput(input.adjust[id]) : ''}
-                onChange={(e) => { const c = parseMoney(e.target.value); setInput((i) => ({ ...i, adjust: { ...i.adjust, [id]: Number.isFinite(c) ? c : 0 } })) }} />
+                defaultValue={input.adjust?.[id] ? centsToInput(input.adjust[id], group.currency) : ''}
+                onChange={(e) => { const c = parseMoney(e.target.value, group.currency); setInput((i) => ({ ...i, adjust: { ...i.adjust, [id]: Number.isFinite(c) ? c : 0 } })) }} />
               {share(id)}
             </div>
           ))}
@@ -487,8 +487,8 @@ function ItemsEditor({ items, setItems, group, order, me, amount, splits }: {
         <div key={idx} className="rounded-2xl bg-slate-50 p-3 dark:bg-ink-800">
           <div className="flex gap-2">
             <input className="input !bg-white !py-2 dark:!bg-ink-900" placeholder="Item" value={it.name} onChange={(e) => update(idx, { name: e.target.value })} />
-            <input className="input !w-24 !bg-white !py-2 text-right dark:!bg-ink-900" inputMode="decimal" placeholder="0.00" defaultValue={it.amount ? centsToInput(it.amount) : ''}
-              onChange={(e) => { const c = parseMoney(e.target.value); update(idx, { amount: Number.isFinite(c) ? c : 0 }) }} />
+            <input className="input !w-24 !bg-white !py-2 text-right dark:!bg-ink-900" inputMode="decimal" placeholder="0.00" defaultValue={it.amount ? centsToInput(it.amount, group.currency) : ''}
+              onChange={(e) => { const c = parseMoney(e.target.value, group.currency); update(idx, { amount: Number.isFinite(c) ? c : 0 }) }} />
             <button type="button" className="p-2 text-slate-400 hover:text-rose-500" onClick={() => setItems(items.filter((_, i) => i !== idx))} aria-label="Remove item"><Trash2 size={18} /></button>
           </div>
           <div className="mt-2">

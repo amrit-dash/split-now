@@ -4,6 +4,7 @@ import { Check } from 'lucide-react'
 import { repo } from '@/data'
 import type { InviteInfo } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
+import { useGroups } from '@/hooks/data'
 import { colorFor } from '@/lib/colors'
 import { Empty, Loading } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
@@ -19,6 +20,13 @@ export default function Join() {
 
   useEffect(() => { repo.getInvite(code).then(setInvite).catch(() => setInvite(null)) }, [code])
 
+  // Already in this group (e.g. tapped the invite link twice)? Go straight there.
+  const groups = useGroups()
+  const alreadyMember = !!invite && !!groups?.some((g) => g.id === invite.groupId)
+  useEffect(() => {
+    if (alreadyMember && invite && !busy) nav(`/groups/${invite.groupId}`, { replace: true })
+  }, [alreadyMember, invite, busy, nav])
+
   useEffect(() => {
     // Pre-select a placeholder that matches the user's name.
     if (!invite) return
@@ -27,7 +35,7 @@ export default function Join() {
     if (match) setClaim(match[0])
   }, [invite, profile.displayName])
 
-  if (invite === undefined) return <Loading />
+  if (invite === undefined || alreadyMember) return <Loading />
   if (invite === null) return <div className="mx-auto max-w-md px-4 pt-20"><Empty emoji="🔗" title="Invite not found">The link may be mistyped or the group was deleted.</Empty></div>
 
   const join = async () => {

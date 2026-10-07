@@ -127,23 +127,29 @@ Pure domain logic (src/lib/) — splits, balances, simplify, OCR parsing, money 
 **Why compute balances on the client?** A group's expense list is small (hundreds, not millions). Computing balances from the expense list removes a whole class of bugs (denormalized balance drift) and needs no Cloud Functions, which keeps the project on the free Spark plan. If groups ever grow past ~5k expenses, add a Cloud Function that maintains a `balances` doc.
 
 ### 4.1 Money
-- All amounts are **integer minor units** (cents). No floats touch stored data.
+- All amounts are **integer minor units** of the group's currency. No floats touch stored data.
+- The number of minor-unit digits comes from `Intl.NumberFormat(...).resolvedOptions().maximumFractionDigits`: 2 for AUD/USD, **0 for JPY/KRW/VND**, 3 for BHD (IDR is 2 in Intl/ISO 4217). `formatMoney`, `parseMoney` and `centsToInput` all take the currency (`src/lib/money.ts`).
 - Each group has one currency. Formatting uses `Intl.NumberFormat`.
 
 ### 4.2 Firestore data model
 
 ```
-users/{uid}
+users/{uid}                            ← private: only the owner can read it
   displayName, email, photoURL, currency,
   payment: { payid?, bsb?, account?, paypal?, upi?, revolut? }
   createdAt
+
+groups/{groupId}/profiles/{uid}        ← what a member shares with ONE group
+  displayName, payment                 ← written only by the owner; read by co-members
 
 groups/{groupId}
   name, emoji, type: trip|home|couple|event|other|direct|personal
   currency, budget? (cents), simplify: bool
   memberUids: string[]                 ← used by security rules & queries
   members: { [memberId]: { name, email?, uid?, color } }
-  inviteCode, createdBy, createdAt, updatedAt
+  inviteCode (8 chars), createdBy, createdAt, updatedAt
+  memberOpId                           ← the single members key the last membership write touched (rules)
+  joinCode, joinMemberId               ← set by the last join (rules)
 
 groups/{groupId}/expenses/{expenseId}
   description, amount, category, date (ISO), notes?
@@ -162,7 +168,7 @@ groups/{groupId}/settlements/{settlementId}
   from: memberId, to: memberId, amount, method, note?, date, createdBy, createdAt
 
 invites/{inviteCode}
-  groupId, groupName, createdBy        ← readable by any signed-in user
+  groupId, groupName, emoji, placeholders   ← readable by any signed-in user (no createdBy)
 
 groups/{groupId}.startDate?, endDate?  ← optional trip window (ISO dates, inclusive)
 
@@ -176,10 +182,14 @@ captureInbox/{id}                      ← signed-out drop box (token must exist
 A **member id** is stable and separate from a Firebase uid. A placeholder member has no `uid`. When someone joins via invite and claims a placeholder, `members[id].uid` is set and their uid is added to `memberUids`. No expenses are rewritten.
 
 ### 4.3 Security rules (summary — see `firestore.rules`)
-- A user can read/write only their own `users/{uid}` doc. Other members' profile docs are readable so payment handles show up in settle-up.
+- A user can read/write only their own `users/{uid}` doc (it holds their email).
+- Payment handles shown in settle-up live in `groups/{groupId}/profiles/{uid}`: readable by that group's members, writable only by `uid`. The app copies them there when the user creates or joins a group and every time they save their profile. *Why not `members[id].payment`?* Any co-member can write the group doc, and rules can't stop one member editing another's map entry without iterating the map — so a co-member could swap in their own PayID. A per-user doc makes "only the owner writes it" a one-line rule.
 - A group is readable/writable only if `request.auth.uid in memberUids`.
-- **Join**: a non-member may update a group only to add *their own uid* to `memberUids`, and only when they supply a `joinCode` that matches `inviteCode`.
-- Expenses/settlements are readable/writable by group members only.
+- **Membership integrity** (member updates): existing `members` entries are never edited in place (so a `uid` can't be reassigned); every add/remove names its single key in `memberOpId`; added entries are placeholders (no `uid`); `memberUids` never grows here and only shrinks when you remove yourself or the creator removes someone (the entry and the uid go together). New groups start with `memberUids == [creator]`.
+- **Join**: a non-member may update a group only to add *their own uid* to `memberUids` and exactly one member entry carrying it, and only when they supply a `joinCode` that matches `inviteCode`. Already-members can't re-join (no duplicate entries); the Join screen redirects them.
+- **Invites**: an invite doc can only be written by a member of the group it points at, only if that group's `inviteCode` equals the invite's doc id, and `groupId` never changes; keys are restricted. Checked with `getAfter`, so create-group and join can write the invite in the same batch.
+- **Expenses/settlements**: members only; `createdBy` must be the writer on create and is immutable (exception: a recurring occurrence `<templateId>_<date>` keeps its template's `createdBy`, whichever member's client generates it); comments are deleted in the same batch as their expense (or after it, when a whole group is deleted); `paidBy`/`splits` keys (and settlement `from`/`to`) must be member ids of the group. The client also ignores any expense whose `paidBy` or `splits` don't add up to `amount` (`countable()` in `balances.ts`).
+- Known gap: rules can't iterate maps, so the *creator* could seed fake `uid` entries when first creating a group. That only affects the creator's own group.
 - Storage receipts: `receipts/{groupId}/...` — signed-in users only, images under 10 MB.
 
 ### 4.4 Algorithms
@@ -228,4 +238,7 @@ A **member id** is stable and separate from a Firebase uid. A placeholder member
 - **iOS install** cannot be triggered from JavaScript. The banner shows instructions instead.
 - **iOS PWA storage** can be evicted if the app isn't opened for weeks. Firestore is the source of truth, so only the offline cache is lost.
 - **OCR accuracy** on crumpled or thermal receipts is mediocre. The UI always shows parsed values for confirmation. The server-side AI parser is the upgrade path.
+- **Offline-first writes.** Every save is a `writeBatch` (e.g. the expense plus the group's `updatedAt` bump) that the repo commits *without awaiting the server*: Firestore applies it to the local cache immediately, so screens never hang offline. If the server later rejects it, `repo.onError` fires and `App` shows a toast. Receipts upload after the expense is saved (downscaled to 1600px JPEG, skipped offline, 60 s retry cap) and then patch `receiptUrl`/`receiptPath`.
+- **Sign-out** waits briefly for pending writes, then terminates Firestore and clears its IndexedDB cache before reloading, so the next person on a shared device can't read the previous user's data.
+- **OCR offline.** The Tesseract worker and LSTM cores are self-hosted under `/tesseract/` (`scripts/vite-tesseract.ts`) and cached by the service worker on first use; the English language data comes from jsDelivr once and is cached in IndexedDB + the SW.
 - **Firebase web API keys are not secrets.** Security lives in the rules. Still, enable App Check before going public.

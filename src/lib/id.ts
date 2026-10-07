@@ -3,10 +3,10 @@ export function uid(prefix = ''): string {
   return prefix + Array.from(bytes, (b) => b.toString(36).padStart(2, '0')).join('').slice(0, 16)
 }
 
-/** Human-friendly invite code, no ambiguous characters. */
+/** Human-friendly invite code, no ambiguous characters. 8 chars (~8.5e11 codes) so guessing or colliding is impractical. */
 export function inviteCode(): string {
   const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
-  const bytes = crypto.getRandomValues(new Uint8Array(6))
+  const bytes = crypto.getRandomValues(new Uint8Array(8))
   return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('')
 }
 

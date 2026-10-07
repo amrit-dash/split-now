@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Camera, ImageUp, Receipt, Send } from 'lucide-react'
 import { useAllGroupData } from '@/hooks/data'
 import { useOcr } from '@/hooks/useOcr'
-import { formatMoney } from '@/lib/money'
+import { formatMoney, fromHundredths } from '@/lib/money'
 import { matchMember, parsePaymentScreenshot, parseReceipt, type ParsedPayment, type ParsedReceipt } from '@/lib/ocr-parse'
 import { pending } from '@/lib/pending'
 import { GroupIcon } from '@/components/GroupIcon'
@@ -122,12 +122,12 @@ export default function Scan() {
         <div className="card mt-4 p-4">
           <div className="label">What we found</div>
           <Row k="Merchant" v={receipt.merchant ?? '—'} />
-          <Row k="Total" v={receipt.total ? formatMoney(receipt.total, cur) : 'not found'} />
+          <Row k="Total" v={receipt.total ? formatMoney(fromHundredths(receipt.total, cur), cur) : 'not found'} />
           <Row k="Date" v={receipt.date ?? 'not found'} />
           <Row k="Line items" v={String(receipt.items.length)} />
           {receipt.items.length > 0 && (
             <div className="mt-2 max-h-40 space-y-0.5 overflow-y-auto rounded-xl bg-slate-50 p-2 text-sm dark:bg-ink-800">
-              {receipt.items.map((it, i) => <div key={i} className="flex justify-between gap-2"><span className="truncate">{it.name}</span><span className="tabular-nums">{formatMoney(it.amount, cur)}</span></div>)}
+              {receipt.items.map((it, i) => <div key={i} className="flex justify-between gap-2"><span className="truncate">{it.name}</span><span className="tabular-nums">{formatMoney(fromHundredths(it.amount, cur), cur)}</span></div>)}
             </div>
           )}
         </div>
@@ -135,7 +135,7 @@ export default function Scan() {
       {payment && (
         <div className="card mt-4 p-4">
           <div className="label">What we found</div>
-          <Row k="Amount" v={payment.amount ? formatMoney(payment.amount, cur) : 'not found'} />
+          <Row k="Amount" v={payment.amount ? formatMoney(fromHundredths(payment.amount, cur), cur) : 'not found'} />
           <Row k="Paid to" v={payment.payee ?? 'not found'} />
           <Row k="Method" v={payment.method ?? '—'} />
           <Row k="Date" v={payment.date ?? '—'} />
