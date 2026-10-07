@@ -84,6 +84,13 @@ Splitwise solved "who owes whom". Its weak points today are where Split It goes 
 - ✅ **Payment screenshot scan**: reads a bank/PayID/UPI/PayPal confirmation screenshot, detects amount + payee name, matches the payee to a group member and pre-fills a settlement
 - ⏳ Optional server-side AI parsing (Cloud Function + vision model) for messy receipts — needs the Blaze plan
 
+### 3.5a Live table split
+- ✅ From an itemized draft (expense form) or a scanned receipt, the payer taps **Split at the table**: a live bill `tables/{code}` with a QR code (generated on the device, `src/lib/qr.ts`), an 8-character code and a `/t/<code>` link
+- ✅ Guests open the link, type a name (Firebase **anonymous auth**, no account) and tap what they had; shared items split equally or by portions; everyone sees live totals including proportional tax/tip, unclaimed items highlighted, "Everything claimed ✓"
+- ✅ The host can claim for anyone, add people without a phone, edit items/tax/tip/discount, and split leftovers between everyone
+- ✅ **Finish** → pick a group, participants auto-matched to members (uid → exact name → unique first name; host confirms or adds them as new members) → one itemized expense (or exact amounts when portions are uneven) that sums exactly to the bill. No group → create one from the table, or close and send each person their total with the host's payment handles
+- ✅ Tables expire after 24 h. Logic in `src/lib/table.ts` (unit-tested); demo mode syncs tabs via the `storage` event, and the host's "open as another phone" link simulates a guest
+
 ### 3.5b Trip mode & auto-capture (see [AUTO_CAPTURE.md](AUTO_CAPTURE.md))
 - ✅ Optional group `startDate`/`endDate`; "Live trip" badge; new expenses default to the live trip
 - ✅ `/capture` URL contract v=1 → pending capture in a per-user **Inbox** → "is this a group expense?" prompt (trip-window match pre-selected) → prefilled expense form. Never auto-adds.
@@ -198,6 +205,14 @@ groups/{groupId}.startDate?, endDate?  ← optional trip window (ISO dates, incl
 users/{uid}/captures/{id}              ← owner-only inbox of captured payments
   amount, currency?, merchant, date, source, status: pending|assigned|dismissed, groupId?, expenseId?
 
+tables/{code}                          ← live table split; the doc id is the share code
+  hostUid, groupId?, merchant, currency, date, status: open|closed, createdAt, expiresAt (24 h)
+  items:        { [itemId]: { name, amount, pos } }
+  extras:       { tax, tip, discount }                       ← spread in proportion to item subtotals
+  participants: { [pid]: { name, uid?, joinedAt } }          ← pid = uid for people with a phone
+  claims:       { [pid]: { [itemId]: shares } }              ← per participant so rules can scope writes
+  hostPayment?, expenseId?, closedGroupId?
+
 captureTokens/{token}                  ← { uid, createdAt }; owner-only
 captureInbox/{id}                      ← signed-out drop box (token must exist and match uid)
 ```
@@ -213,6 +228,7 @@ A **member id** is stable and separate from a Firebase uid. A placeholder member
 - **Invites**: an invite doc can only be written by a member of the group it points at, only if that group's `inviteCode` equals the invite's doc id, and `groupId` never changes; keys are restricted. Checked with `getAfter`, so create-group and join can write the invite in the same batch.
 - **Expenses/settlements**: members only; `createdBy` must be the writer on create and is immutable (exception: a recurring occurrence `<templateId>_<date>` keeps its template's `createdBy`, whichever member's client generates it); comments are deleted in the same batch as their expense (or after it, when a whole group is deleted); `paidBy`/`splits` keys (and settlement `from`/`to`) must be member ids of the group. The client also ignores any expense whose `paidBy` or `splits` don't add up to `amount` (`countable()` in `balances.ts`).
 - Known gap: rules can't iterate maps, so the *creator* could seed fake `uid` entries when first creating a group. That only affects the creator's own group.
+- **Live tables**: any signed-in user (anonymous included) who knows the code can `get` an open, unexpired table (no `list`); the host and participants can still read it after it closes. A guest may only add/rename *their own* participant entry (`participants.{uid}`, carrying their uid) and replace *their own* claims (`claims.{uid}`, keys limited to existing items), and only while it's open. The host may change anything except `hostUid`, `code`, `createdAt` and `expiresAt`, close it, and delete it. Share values are validated on the client (`sanitizeClaims`) because rules can't iterate a map. The host's payment handles are copied onto the table so guests can pay them back.
 - Storage receipts: `receipts/{groupId}/...` — signed-in users only, images under 10 MB.
 
 ### 4.4 Algorithms

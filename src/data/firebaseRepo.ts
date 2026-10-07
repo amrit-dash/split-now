@@ -1,7 +1,7 @@
 import { initializeApp, type FirebaseOptions } from 'firebase/app'
 import {
   GoogleAuthProvider, connectAuthEmulator, createUserWithEmailAndPassword, getAuth, getRedirectResult, onAuthStateChanged,
-  signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, signOut, updateProfile,
+  signInAnonymously, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, signOut, updateProfile,
 } from 'firebase/auth'
 import {
   arrayRemove, arrayUnion, clearIndexedDbPersistence, collection, connectFirestoreEmulator, deleteField, doc, getDoc,
@@ -14,9 +14,10 @@ import type { Capture, Expense, ExpenseComment, Group, Settlement, UserProfile }
 import { inviteCode, todayISO, uid } from '@/lib/id'
 import { inboxToDraft, newCaptureToken, type InboxDoc } from '@/lib/capture'
 import { downscale } from '@/lib/image'
+import { TABLE_TTL_MS, type LiveTable } from '@/lib/table'
 import {
   byCreatedDesc, byDateDesc, changedSettings, compact, draftToCapture, errorChannel, placeholdersOf, storagePathFromUrl,
-  type CaptureToken, type GroupSettings, type InviteInfo, type MemberProfile, type Repo,
+  type CaptureToken, type GroupSettings, type InviteInfo, type MemberProfile, type Repo, type TablePatch,
 } from './repo'
 
 /** Firestore allows 500 writes per batch; leave headroom. */
@@ -47,6 +48,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
 
   const groupRef = (id: string) => doc(db, 'groups', id)
   const inviteRef = (code: string) => doc(db, 'invites', code)
+  const tableRef = (code: string) => doc(db, 'tables', code)
   const commentsCol = (groupId: string, expenseId: string) => collection(db, 'groups', groupId, 'expenses', expenseId, 'comments')
   const captureRef = (userId: string, id: string) => doc(db, 'users', userId, 'captures', id)
   const memberProfileRef = (groupId: string, userId: string) => doc(db, 'groups', groupId, 'profiles', userId)
@@ -98,13 +100,17 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
   }
 
   async function uniqueInviteCode(): Promise<string> {
+    return uniqueCode(inviteRef)
+  }
+
+  async function uniqueCode(refFor: (code: string) => DocumentReference): Promise<string> {
     // 8 chars from a 31-symbol alphabet makes collisions vanishingly rare; when online we also
     // check (briefly) that the code is free. Offline we skip the check rather than block.
     for (let i = 0; i < 3; i++) {
       const code = inviteCode()
       if (!online()) return code
       try {
-        const taken = await Promise.race([getDoc(inviteRef(code)).then((s) => s.exists()), sleep(1500).then(() => false)])
+        const taken = await Promise.race([getDoc(refFor(code)).then((s) => s.exists()), sleep(1500).then(() => false)])
         if (!taken) return code
       } catch {
         return code
@@ -120,6 +126,8 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     onAuth(cb) {
       return onAuthStateChanged(auth, (u) => {
         if (!u) return cb(null)
+        // Anonymous guests (live table split) get no profile and no access to groups.
+        if (u.isAnonymous) return cb({ uid: u.uid, displayName: 'Guest', isAnonymous: true })
         ensureProfile(u).catch(console.error)
         cb({ uid: u.uid, displayName: u.displayName ?? u.email ?? 'You', email: u.email ?? undefined, photoURL: u.photoURL ?? undefined })
       })
@@ -145,6 +153,9 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         batch.set(doc(db, 'users', cred.user.uid), { uid: cred.user.uid, displayName: name }, { merge: true })
         fire(batch, 'Saving your name')
       }
+    },
+    async signInAnonymously() {
+      await signInAnonymously(auth)
     },
     async signOut() {
       // Give queued writes a moment to reach the server, then wipe this device's cache so the
@@ -537,6 +548,54 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       }
       return moved
     },
+    async createTable(t) {
+      const code = await uniqueCode(tableRef)
+      const now = Date.now()
+      const full: LiveTable = { ...t, code, claims: {}, status: 'open', createdAt: now, expiresAt: now + TABLE_TTL_MS }
+      const batch = writeBatch(db)
+      batch.set(tableRef(code), compact(full))
+      fire(batch, 'Starting the table')
+      return code
+    },
+    watchTable(code, cb) {
+      return onSnapshot(
+        tableRef(code),
+        (s) => cb(s.exists() ? { ...(s.data() as LiveTable), code: s.id, claims: (s.data() as LiveTable).claims ?? {} } : null),
+        // Closed or expired tables stop being readable for guests: show "not found", no toast.
+        listenError('Loading the table', () => cb(null)),
+      )
+    },
+    async joinTable(code, pid, p) {
+      const batch = writeBatch(db)
+      batch.update(tableRef(code), { [`participants.${pid}`]: compact(p) })
+      fire(batch, 'Joining the table')
+    },
+    async setTableClaims(code, pid, claims) {
+      const batch = writeBatch(db)
+      batch.update(tableRef(code), { [`claims.${pid}`]: claims })
+      fire(batch, 'Saving your items')
+    },
+    async updateTable(code, patch) {
+      const batch = writeBatch(db)
+      batch.update(tableRef(code), tablePatchFields(patch, deleteField))
+      fire(batch, 'Updating the table')
+    },
+    async deleteTable(code) {
+      const batch = writeBatch(db)
+      batch.delete(tableRef(code))
+      fire(batch, 'Deleting the table')
+    },
   }
   return repo
+}
+
+/** Field-path update for a TablePatch (`null` entries and a null groupId are deleted). */
+function tablePatchFields(patch: TablePatch, del: () => unknown): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const k of ['merchant', 'extras', 'status', 'expenseId', 'closedGroupId'] as const) if (patch[k] !== undefined) out[k] = patch[k]
+  if (patch.groupId !== undefined) out.groupId = patch.groupId ?? del()
+  for (const k of ['items', 'participants', 'claims'] as const) {
+    for (const [id, v] of Object.entries(patch[k] ?? {})) out[`${k}.${id}`] = v === null ? del() : k === 'participants' ? compact(v as object) : v
+  }
+  return out
 }

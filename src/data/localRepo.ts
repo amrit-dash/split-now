@@ -2,7 +2,8 @@ import type { Capture, Expense, ExpenseComment, Group, Settlement, UserProfile }
 import { inviteCode, todayISO, uid } from '@/lib/id'
 import { inboxToDraft, newCaptureToken } from '@/lib/capture'
 import { downscale } from '@/lib/image'
-import { byCreatedDesc, byDateDesc, changedSettings, draftToCapture, errorChannel, placeholdersOf, type AuthUser, type CaptureToken, type Repo } from './repo'
+import { isExpired, TABLE_TTL_MS, type LiveTable } from '@/lib/table'
+import { byCreatedDesc, byDateDesc, changedSettings, draftToCapture, errorChannel, placeholdersOf, type AuthUser, type CaptureToken, type Repo, type TablePatch } from './repo'
 import { seedDemo } from './seed'
 
 /**
@@ -20,6 +21,8 @@ interface State {
   /** captures keyed by id, tagged with the owner's uid */
   captures: Record<string, Capture & { owner: string }>
   captureTokens: Record<string, CaptureToken>
+  /** live tables keyed by code */
+  tables?: Record<string, LiveTable>
 }
 
 type StoredComment = ExpenseComment & { groupId: string; expenseId: string }
@@ -42,6 +45,23 @@ export function createLocalRepo(): Repo {
   const commit = () => {
     try { localStorage.setItem(KEY, JSON.stringify(state)) } catch { /* ignore */ }
     listeners.forEach((l) => l())
+  }
+  // Another tab changed the demo data (e.g. a second "phone" at a live table): reload and notify.
+  if (typeof window !== 'undefined') {
+    window.addEventListener('storage', (e) => {
+      if (e.key !== KEY) return
+      state = load()
+      state.comments ??= {}
+      listeners.forEach((l) => l())
+    })
+  }
+  const tables = () => (state.tables ??= {})
+  /** Demo stand-in for the security rules: guests can only write to open, unexpired tables. */
+  const openTable = (code: string) => {
+    const t = tables()[code]
+    if (!t) throw new Error('Table not found')
+    if (t.status !== 'open' || isExpired(t)) throw new Error('This table is closed')
+    return t
   }
   const watch = <T>(select: () => T, cb: (v: T) => void) => {
     let last = ''
@@ -260,6 +280,47 @@ export function createLocalRepo(): Repo {
       commit()
     },
     async claimInbox() { return 0 },
+
+    async createTable(t) {
+      let code = inviteCode()
+      while (tables()[code]) code = inviteCode()
+      const now = Date.now()
+      tables()[code] = { ...t, code, claims: {}, status: 'open', createdAt: now, expiresAt: now + TABLE_TTL_MS }
+      commit()
+      return code
+    },
+    watchTable: (code, cb) => watch(() => state.tables?.[code] ?? null, cb),
+    async joinTable(code, pid, p) {
+      const t = openTable(code)
+      tables()[code] = { ...t, participants: { ...t.participants, [pid]: p } }
+      commit()
+    },
+    async setTableClaims(code, pid, claims) {
+      const t = openTable(code)
+      if (!t.participants[pid]) throw new Error('Join the table first')
+      tables()[code] = { ...t, claims: { ...t.claims, [pid]: claims } }
+      commit()
+    },
+    async updateTable(code, patch) {
+      const t = tables()[code]
+      if (!t) throw new Error('Table not found')
+      tables()[code] = applyTablePatch(t, patch)
+      commit()
+    },
+    async deleteTable(code) { delete tables()[code]; commit() },
   }
   return repo
+}
+
+function applyTablePatch(t: LiveTable, patch: TablePatch): LiveTable {
+  const next: LiveTable = { ...t, items: { ...t.items }, participants: { ...t.participants }, claims: { ...t.claims } }
+  for (const k of ['merchant', 'extras', 'status', 'expenseId', 'closedGroupId'] as const) {
+    if (patch[k] !== undefined) (next as unknown as Record<string, unknown>)[k] = patch[k]
+  }
+  if (patch.groupId !== undefined) { if (patch.groupId === null) delete next.groupId; else next.groupId = patch.groupId }
+  for (const k of ['items', 'participants', 'claims'] as const) {
+    const target = next[k] as Record<string, unknown>
+    for (const [id, v] of Object.entries(patch[k] ?? {})) { if (v === null) delete target[id]; else target[id] = v }
+  }
+  return next
 }

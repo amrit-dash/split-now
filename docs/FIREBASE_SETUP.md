@@ -7,6 +7,7 @@ Split It runs in **demo mode** (browser-only storage) until you add Firebase con
 2. **Build → Authentication → Get started**. Enable:
    - **Google**
    - **Email/Password**
+   - **Anonymous** — used by *Live table split*: people at the table open `/t/<code>` and claim items without an account. If it's off, guests see "Guest access isn't enabled" (signed-in users can still join). Anonymous users can only read a table whose code they have, and write only their own claims (see `match /tables/{code}` in `firestore.rules`); they can't see any group. Consider enabling App Check (below) and Firebase's automatic clean-up of inactive anonymous accounts (**Authentication → Settings → User account cleanup**).
 3. **Build → Firestore Database → Create database** → *production mode* → pick a region close to your users (e.g. `australia-southeast1`). The region can't be changed later.
 4. **Build → Storage → Get started** (same region). Note: new projects need the **Blaze** plan to create a Storage bucket. If you stay on Spark, everything except receipt image upload still works — the app falls back to saving the expense without the image.
 
@@ -54,4 +55,4 @@ The Emulator UI is at <http://localhost:4000>. Needs Java 11+.
 - **Custom domain** under Hosting, if you want one.
 
 ## Data model and rules
-See [`PLAN.md` §4](./PLAN.md#4-architecture), [`firestore.rules`](../firestore.rules) and the rule tests in [`tests/firestore.rules.test.ts`](../tests/firestore.rules.test.ts) (`npm run test:rules`).
+See [`PLAN.md` §4](./PLAN.md#4-architecture), [`firestore.rules`](../firestore.rules) and the rule tests in [`tests/`](../tests/) (`npm run test:rules` runs every `tests/*.test.ts`, including `firestore.tables.test.ts` for live tables).

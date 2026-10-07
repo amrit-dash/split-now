@@ -26,6 +26,8 @@ const CaptureGuest = lazy(() => import('./pages/CaptureGuest'))
 const Inbox = lazy(() => import('./pages/Inbox'))
 const Share = lazy(() => import('./pages/Share'))
 const ImportGroup = lazy(() => import('./pages/ImportGroup'))
+const Table = lazy(() => import('./pages/Table'))
+const TableEntry = lazy(() => import('./pages/Table').then((m) => ({ default: m.TableEntry })))
 
 export default function App() {
   const { user, loading } = useAuth()
@@ -37,7 +39,7 @@ export default function App() {
   useEffect(() => repo.onError((e) => toast(e.message, 'err')), [toast])
 
   useEffect(() => {
-    if (!user) return
+    if (!user || user.isAnonymous) return
     // A capture link opened while signed out wins over the generic return path.
     const capture = takeStashedCapture()
     const back = sessionStorage.getItem('splitit-return')
@@ -48,7 +50,7 @@ export default function App() {
 
   // Pull anything iOS Shortcuts dropped into captureInbox while the app was closed.
   useEffect(() => {
-    if (!user) return
+    if (!user || user.isAnonymous) return
     const claim = () => { if (document.visibilityState === 'visible') repo.claimInbox(user.uid).catch((e) => console.warn('Inbox sync failed', e)) }
     claim()
     document.addEventListener('visibilitychange', claim)
@@ -56,8 +58,11 @@ export default function App() {
   }, [user])
 
   const guestCapture = !loading && !user && loc.pathname === '/capture'
+  // Live table links work without an account (anonymous sign-in); anonymous users see nothing else.
+  const tablePath = loc.pathname === '/t' || loc.pathname.startsWith('/t/')
+  const guestTable = !loading && (!user || !!user.isAnonymous) && tablePath
   // Remember where they were going (e.g. an invite link) and come back after sign-in.
-  if (!loading && !user && !guestCapture && loc.pathname !== '/') sessionStorage.setItem('splitit-return', loc.pathname + loc.search)
+  if (!loading && !user && !guestCapture && !tablePath && loc.pathname !== '/') sessionStorage.setItem('splitit-return', loc.pathname + loc.search)
 
   // UpdatePrompt is mounted exactly once, outside the auth switch, so the service worker is
   // registered (and its hourly update timer started) a single time.
@@ -66,7 +71,8 @@ export default function App() {
       <UpdatePrompt />
       {loading ? <Splash />
         : guestCapture ? <Suspense fallback={<Splash />}><CaptureGuest /></Suspense>
-        : !user ? <Login /> : <AppRoutes />}
+        : guestTable ? <Suspense fallback={<Splash />}><TableRoutes /></Suspense>
+        : !user || user.isAnonymous ? <Login /> : <AppRoutes />}
     </>
   )
 }
@@ -97,10 +103,21 @@ function AppRoutes() {
           <Route path="capture/:captureId" element={<Capture />} />
           <Route path="share" element={<Share />} />
           <Route path="join/:code" element={<Join />} />
+          <Route path="t" element={<TableEntry />} />
+          <Route path="t/:code" element={<Table />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
     </>
+  )
+}
+
+function TableRoutes() {
+  return (
+    <Routes>
+      <Route path="t" element={<TableEntry />} />
+      <Route path="t/:code" element={<Table />} />
+    </Routes>
   )
 }
 

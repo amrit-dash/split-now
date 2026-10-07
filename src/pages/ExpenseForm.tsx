@@ -20,6 +20,7 @@ import { GroupIcon } from '@/components/GroupIcon'
 import { MemberChips } from '@/components/MemberChips'
 import { Empty, Loading, Spinner } from '@/components/Misc'
 import { Sheet } from '@/components/Sheet'
+import { StartTableButton } from '@/components/StartTableButton'
 import { useToast } from '@/components/Toast'
 
 const REPEAT_OPTIONS: Array<RecurrenceFreq | 'never'> = ['never', 'weekly', 'fortnightly', 'monthly', 'yearly']
@@ -352,6 +353,12 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
             </div>
             {preview.error && <div className="mt-3 rounded-xl bg-rose-50 p-2.5 text-sm font-medium text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">{preview.error}</div>}
           </div>
+          {splitType === 'itemized' && !existing && (
+            <StartTableButton className="mt-3" draft={() => ({
+              merchant: description, currency: group.currency, date, groupId: group.id,
+              items: input.items ?? [], total: validAmount ? amount : undefined,
+            })} />
+          )}
         </>
       )}
 
