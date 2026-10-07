@@ -25,9 +25,11 @@ export default function Login() {
       <div className="pointer-events-none absolute -left-32 -top-32 h-96 w-96 rounded-full bg-brand-600/40 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-40 -right-20 h-96 w-96 rounded-full bg-fuchsia-600/30 blur-3xl" />
 
-      <div className="relative mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 py-12 safe-top">
-        <img src="/pwa-192.png" alt="" className="mb-6 h-16 w-16 rounded-3xl shadow-2xl shadow-brand-600/40" />
-        <h1 className="text-4xl font-extrabold tracking-tight">Split bills,<br />not friendships.</h1>
+      <div className="relative mx-auto flex w-full max-w-md flex-1 flex-col justify-center-safe px-6 pb-12 pt-[max(3rem,env(safe-area-inset-top))]">
+        <div className="flex items-center gap-4">
+          <img src="/pwa-192.png" alt="" className="h-16 w-16 shrink-0 rounded-3xl shadow-2xl shadow-brand-600/40 sm:h-20 sm:w-20" />
+          <h1 className="whitespace-nowrap text-[clamp(1.5rem,7.4vw,2.25rem)] font-extrabold leading-tight tracking-tight">Split bills,<br />not friendships.</h1>
+        </div>
         <p className="mt-3 text-slate-300">Groups, smart splits, receipt scanning and one-tap settle-ups — beautifully simple.</p>
 
         {invite && (
