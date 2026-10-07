@@ -638,10 +638,10 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         listenError('Loading capture tokens', () => cb([])),
       )
     },
-    async createCaptureToken(userId) {
+    async createCaptureToken(userId, opts = {}) {
       const token = newCaptureToken()
       const batch = writeBatch(db)
-      batch.set(doc(db, 'captureTokens', token), { uid: userId, createdAt: Date.now() })
+      batch.set(doc(db, 'captureTokens', token), compact({ uid: userId, createdAt: Date.now(), groupId: opts.groupId || undefined, label: opts.label?.slice(0, 60) || undefined }))
       fire(batch, 'Creating capture link')
       return token
     },

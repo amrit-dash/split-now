@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Copy, KeyRound, Smartphone, Trash2, Zap } from 'lucide-react'
+import { ChevronRight, Copy, KeyRound, MessageSquareText, Smartphone, Trash2, Zap } from 'lucide-react'
 import { firebaseProject, repo } from '@/data'
 import type { CaptureToken } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
@@ -15,7 +15,8 @@ export function AutoCapture() {
   const [busy, setBusy] = useState(false)
   useEffect(() => repo.watchCaptureTokens(user.uid, setTokens), [user.uid])
 
-  const token = tokens?.[0]
+  // The Apple Pay path uses an unscoped key (scoped keys belong to the SMS wizard).
+  const token = tokens?.find((t) => !t.groupId)
   const firebase = repo.mode === 'firebase' && firebaseProject.projectId
   const restUrl = firebase
     ? `https://firestore.googleapis.com/v1/projects/${firebaseProject.projectId}/databases/(default)/documents/captureInbox?key=${firebaseProject.apiKey}`
@@ -53,8 +54,20 @@ export function AutoCapture() {
         <div className="label !mb-0">Auto-capture</div>
       </div>
       <p className="mt-2 text-sm text-slate-500">
-        Send card payments to your <Link to="/inbox" className="font-semibold text-brand-600 dark:text-brand-300">inbox</Link> automatically, then pick a group with one tap. Nothing is ever added without your OK.
+        Send payments to your <Link to="/inbox" className="font-semibold text-brand-600 dark:text-brand-300">inbox</Link> automatically, then pick a group with one tap. Nothing is ever added without your OK.
       </p>
+
+      <Link to="/settings/auto-capture" className="mt-3 flex items-center gap-3 rounded-2xl bg-brand-50 p-3 ring-1 ring-brand-200 dark:bg-brand-900/20 dark:ring-brand-800">
+        <MessageSquareText size={22} className="shrink-0 text-brand-600 dark:text-brand-300" />
+        <div className="min-w-0 flex-1">
+          <div className="font-semibold">Set up SMS auto-capture</div>
+          <div className="text-xs text-slate-500">Recommended. Bank &amp; UPI debit SMS on iPhone or Android, with a “add to your trip?” notification.</div>
+        </div>
+        <ChevronRight size={18} className="shrink-0 text-slate-400" />
+      </Link>
+
+      <details className="mt-3 rounded-2xl ring-1 ring-slate-200 p-3 dark:ring-ink-700">
+        <summary className="cursor-pointer text-sm font-semibold text-slate-600 dark:text-slate-300">Advanced: Apple Pay Shortcut and capture links</summary>
 
       {tokens === null ? null : !token ? (
         <button className="btn-secondary mt-3 w-full" onClick={create} disabled={busy}><KeyRound size={18} /> Create a capture key</button>
@@ -99,6 +112,7 @@ export function AutoCapture() {
         </ul>
       </details>
       <Link to={`/capture?v=1&amount=4.50&merchant=Test%20Cafe&src=manual&ref=test-${user.uid.slice(0, 6)}-${new Date().toISOString().slice(0, 10)}`} className="btn-ghost mt-2 w-full">Try a test capture</Link>
+      </details>
     </div>
   )
 }

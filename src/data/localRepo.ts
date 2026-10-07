@@ -5,7 +5,7 @@ import { downscale } from '@/lib/image'
 import { isExpired, TABLE_TTL_MS, type LiveTable } from '@/lib/table'
 import { disputeActivity, expenseEventActivity, expenseSaveActivity, importActivity, memberActivity, settlementActivity, type NewActivity } from '@/lib/activity'
 import { prepareExpenseSave, prepareImportedSettlement, prepareOccurrence } from '@/lib/trust'
-import { activityCtxFor, byCreatedDesc, byDateDesc, changedSettings, draftToCapture, errorChannel, placeholdersOf, type AuthUser, type CaptureToken, type Repo, type TablePatch } from './repo'
+import { activityCtxFor, byCreatedDesc, byDateDesc, changedSettings, compact, draftToCapture, errorChannel, placeholdersOf, type AuthUser, type CaptureToken, type Repo, type TablePatch } from './repo'
 import { seedDemo } from './seed'
 
 /**
@@ -371,9 +371,9 @@ export function createLocalRepo(): Repo {
 
     watchCaptureTokens: (userId, cb) =>
       watch(() => Object.values(state.captureTokens).filter((t) => t.uid === userId).sort(byCreatedDesc), cb),
-    async createCaptureToken(userId) {
+    async createCaptureToken(userId, opts = {}) {
       const token = newCaptureToken()
-      state.captureTokens[token] = { token, uid: userId, createdAt: Date.now() }
+      state.captureTokens[token] = compact({ token, uid: userId, createdAt: Date.now(), groupId: opts.groupId || undefined, label: opts.label?.slice(0, 60) || undefined })
       commit()
       return token
     },

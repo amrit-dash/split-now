@@ -24,6 +24,7 @@ const Join = lazy(() => import('./pages/Join'))
 const Capture = lazy(() => import('./pages/Capture'))
 const CaptureGuest = lazy(() => import('./pages/CaptureGuest'))
 const Inbox = lazy(() => import('./pages/Inbox'))
+const AutoCaptureSetup = lazy(() => import('./pages/AutoCaptureSetup'))
 const Share = lazy(() => import('./pages/Share'))
 const ImportGroup = lazy(() => import('./pages/ImportGroup'))
 const Table = lazy(() => import('./pages/Table'))
@@ -95,6 +96,7 @@ function AppRoutes() {
             <Route path="insights" element={<Insights />} />
             <Route path="profile" element={<Profile />} />
             <Route path="inbox" element={<Inbox />} />
+            <Route path="settings/auto-capture" element={<AutoCaptureSetup />} />
           </Route>
           <Route path="add" element={<ExpenseForm />} />
           <Route path="groups/:groupId/expenses/:expenseId/edit" element={<ExpenseForm />} />
