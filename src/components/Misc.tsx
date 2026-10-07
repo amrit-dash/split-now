@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { appLocale } from '@/lib/locale'
 
 export function PageHeader({ title, back, right, subtitle }: { title: ReactNode; back?: boolean | string; right?: ReactNode; subtitle?: ReactNode }) {
   const nav = useNavigate()
@@ -72,7 +73,7 @@ export function LiveBadge({ className = '' }: { className?: string }) {
 
 /** "1 Oct – 10 Oct" style range for trip dates. */
 export function formatRange(start?: string, end?: string): string {
-  const f = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+  const f = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString(appLocale(), { day: 'numeric', month: 'short' })
   if (start && end) return `${f(start)} – ${f(end)}`
   if (start) return `from ${f(start)}`
   if (end) return `until ${f(end)}`

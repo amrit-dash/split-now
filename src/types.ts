@@ -4,11 +4,19 @@ export type MemberId = string
 export type GroupType = 'trip' | 'home' | 'couple' | 'event' | 'other' | 'direct' | 'personal'
 
 export interface PaymentHandles {
+  /** India: UPI ID / VPA, e.g. rohan@okaxis */
+  upi?: string
+  /** India: mobile number linked to UPI (GPay / PhonePe / Paytm "pay to phone") */
+  phone?: string
+  /** bank account number (India with ifsc, Australia with bsb) */
+  account?: string
+  /** India: bank branch code, e.g. HDFC0001234 */
+  ifsc?: string
+  /** Australia */
   payid?: string
   bsb?: string
-  account?: string
+  /** international */
   paypal?: string
-  upi?: string
   revolut?: string
 }
 
@@ -238,7 +246,7 @@ export interface ActivityEntry {
   actorName: string
   /** expense / settlement / member id the entry is about */
   targetId: string
-  /** human text, e.g. "Sarah changed amount A$80.00 → A$84.00 on “Dinner”" */
+  /** human text, e.g. "Priya changed amount ₹800.00 → ₹840.00 on “Dinner”" */
   summary: string
   /** compact snapshot of the changed fields */
   before?: Record<string, unknown>

@@ -22,6 +22,7 @@ import { Empty, Loading, Spinner } from '@/components/Misc'
 import { Sheet } from '@/components/Sheet'
 import { StartTableButton } from '@/components/StartTableButton'
 import { useToast } from '@/components/Toast'
+import { appLocale } from '@/lib/locale'
 
 const REPEAT_OPTIONS: Array<RecurrenceFreq | 'never'> = ['never', 'weekly', 'fortnightly', 'monthly', 'yearly']
 
@@ -688,7 +689,7 @@ function buildRecurrence(repeat: RecurrenceFreq | 'never', date: string, until: 
 }
 
 function fmtDate(d?: string) {
-  return d ? new Date(d + 'T00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
+  return d ? new Date(d + 'T00:00').toLocaleDateString(appLocale(), { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
 }
 
 function titleCase(s: string) {

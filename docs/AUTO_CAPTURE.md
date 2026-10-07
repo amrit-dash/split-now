@@ -14,7 +14,7 @@ The primary path is **bank/UPI debit SMS → phone automation → webhook → pu
 - **Android** lets *native* apps read notifications through `NotificationListenerService`. A PWA (even an installed WebAPK) runs in the browser sandbox and cannot. Automation apps such as MacroDroid or Tasker *can* read them, and incoming SMS, and forward them to the webhook (§3).
 - **Bank data** (open banking / CDR in Australia) needs a server and an accredited data provider. That's Phase 2/3; see §9.
 
-So Split It gives every automation a single door: a **capture**, sent either as a URL (`/capture?...`) or as a signed-out write to the Firestore `captureInbox` collection.
+So Split Now gives every automation a single door: a **capture**, sent either as a URL (`/capture?...`) or as a signed-out write to the Firestore `captureInbox` collection.
 
 ## 2. Trip mode
 
@@ -145,7 +145,7 @@ What iOS supports:
 
 ### 4a. Silent background capture (no app opens)
 
-1. In Split It, open **Profile → Auto-capture → Create a capture key**. The app shows your personal **URL** and **Body** with copy buttons.
+1. In Split Now, open **Profile → Auto-capture → Create a capture key**. The app shows your personal **URL** and **Body** with copy buttons.
 2. On the iPhone, open **Shortcuts → Automation → + → Transaction**. Choose your cards and the merchant categories you want, then pick **Run Immediately**.
 3. Add a **Format Date** action: *Current Date*, format **ISO 8601**, include time.
 4. Add a **Text** action and paste the **Body** from step 1. Replace each placeholder with the variable of the same name from the Transaction trigger: `[Amount]` → *Amount*, `[Merchant]` → *Merchant*, `[Card or Pass]` → *Card or Pass*, `[Formatted Date]` → *Formatted Date*.
@@ -154,7 +154,7 @@ What iOS supports:
    - Method: **POST**
    - Headers: `Content-Type` = `application/json`
    - Request Body: **File** → the *Text* from step 4
-6. Turn the automation on. The next time you pay with Apple Pay, the payment appears in Split It's **Inbox** (with a badge on Home) the next time you open the app.
+6. Turn the automation on. The next time you pay with Apple Pay, the payment appears in Split Now's **Inbox** (with a badge on Home) the next time you open the app.
 
 The body looks like this (Firestore REST "typed value" format):
 
@@ -188,7 +188,7 @@ Safari opens. If you're signed in there, you get the "is this a group expense?" 
 
 ## 5. Android: share sheet and notification automations
 
-1. **Share sheet (Web Share Target).** Install Split It from Chrome (*Install app*). Then **Share** a payment screenshot, receipt photo, or a bank message's text to **Split It**:
+1. **Share sheet (Web Share Target).** Install Split Now from Chrome (*Install app*). Then **Share** a payment screenshot, receipt photo, or a bank message's text to **Split Now**:
    - **Images** open the **Scan** screen and are OCR'd on the device (receipt or payment screenshot).
    - **Text** containing an amount (e.g. *"You paid $12.50 to Cafe Luna"*) becomes a capture and opens the prompt. Text without an amount offers *Add expense* or *Scan*.
    - Web Share Target is **Android-only** (Chrome/Edge/Samsung Internet on an installed PWA). iOS doesn't support it.

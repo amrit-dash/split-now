@@ -12,6 +12,7 @@ import { groupNameFromFilename, parseImportCsv, ImportError, type ImportResult }
 import { Avatar } from '@/components/Avatar'
 import { PageHeader } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
+import { appLocale } from '@/lib/locale'
 
 const EMOJIS = ['🏝️', '✈️', '🏠', '🍕', '🎉', '💞', '🏔️', '🚗', '🎿', '🏕️', '🍻', '🎓', '💼', '🌏']
 const TYPES: Array<{ value: GroupType; label: string }> = [
@@ -23,7 +24,7 @@ const TYPES: Array<{ value: GroupType; label: string }> = [
 type Target = string
 
 /**
- * "Switch from Splitwise in one tap": pick a Splitwise group export (or a Split It CSV),
+ * "Switch from Splitwise in one tap": pick a Splitwise group export (or a Split Now CSV),
  * check the preview and balances against the file's own totals, map people, import.
  */
 export default function ImportGroup() {
@@ -91,7 +92,7 @@ export default function ImportGroup() {
     setMapping({})
   }
 
-  const cur = target?.currency ?? (currency || result?.currency || 'AUD')
+  const cur = target?.currency ?? (currency || result?.currency || profile.currency)
   const fmt = (v: number) => formatMoney(v, cur)
 
   const used = Object.values(mapping).filter((t) => t !== 'new')
@@ -168,7 +169,7 @@ export default function ImportGroup() {
 
   return (
     <div>
-      <PageHeader title="Import a group" subtitle="From Splitwise, or a Split It CSV" back />
+      <PageHeader title="Import a group" subtitle="From Splitwise, or a Split Now CSV" back />
       <div className="space-y-5">
         <input ref={fileInput} type="file" accept=".csv,text/csv,text/plain,application/vnd.ms-excel" className="hidden" data-testid="import-file" onChange={(e) => { pick(e.target.files?.[0]); e.target.value = '' }} />
 
@@ -193,7 +194,7 @@ export default function ImportGroup() {
             <FileUp className="shrink-0 text-brand-600" size={22} />
             <div className="min-w-0 flex-1">
               <div className="truncate font-semibold">{file.name}</div>
-              {result && <div className="text-xs text-slate-500">{result.source === 'splitwise' ? 'Splitwise export' : 'Split It export'}</div>}
+              {result && <div className="text-xs text-slate-500">{result.source === 'splitwise' ? 'Splitwise export' : 'Split Now export'}</div>}
             </div>
             <button className="rounded-full p-2 text-slate-400" aria-label="Choose another file" onClick={() => { setFile(null); setName(''); setCurrency(''); setMapping({}) }}><X size={18} /></button>
           </div>
@@ -258,7 +259,7 @@ export default function ImportGroup() {
                     <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-100 to-fuchsia-100 text-3xl dark:from-brand-900/50 dark:to-fuchsia-900/30">{emoji}</div>
                     <div className="flex-1">
                       <label className="label">Group name</label>
-                      <input className="input" placeholder="e.g. Bali 2026" value={name} onChange={(e) => setName(e.target.value)} aria-label="Group name" />
+                      <input className="input" placeholder="e.g. Goa 2026" value={name} onChange={(e) => setName(e.target.value)} aria-label="Group name" />
                     </div>
                   </div>
                   <div className="flex gap-1.5 overflow-x-auto pb-1">
@@ -320,7 +321,7 @@ function Stat({ label, value }: { label: string; value: number }) {
   )
 }
 
-const fmtDay = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+const fmtDay = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString(appLocale(), { day: 'numeric', month: 'short', year: 'numeric' })
 
 /** "Me" for the member whose name matches the user's (first name, case-insensitive); others to same-named members of the target. */
 function defaultMapping(members: string[], myName: string, target?: Group, myUid?: string): Record<string, Target> {

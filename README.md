@@ -1,10 +1,14 @@
-# Split It
+# Split Now
 
-A mobile-first, installable web app (PWA) for splitting shared expenses: a Splitwise alternative with free receipt scanning, visual debt simplification and cross-group settle-ups.
+A mobile-first, installable web app (PWA) for splitting shared expenses: a Splitwise alternative with free bill scanning, visual debt simplification and **UPI-first settle-ups**.
+
+**India-first, global later.** Defaults are INR with en-IN formatting (₹1,00,000.00), UPI QR codes and Google Pay / PhonePe / Paytm buttons for settling up, and Indian merchants (Swiggy, Zomato, Zepto, Ola, IRCTC, BESCOM…) in category guessing and bill scanning. Other regions get their own currency, locale and payment handles.
+
+> Formerly *Split It*: the repo, npm package and Firebase project ids keep `split-it`; the app is **Split Now** (`split-now.web.app`). The name has **not** been trademark-checked yet.
 
 Built with React 19, TypeScript, Vite 8 and Tailwind v4, and backed by Firebase (Auth, Firestore, Storage, Hosting).
 
-> **Works before Firebase is connected.** With no `.env.local`, the app runs in *demo mode*: data stays in your browser and sample groups are pre-loaded.
+> **Works before Firebase is connected.** With no `.env.local`, the app runs in *demo mode*: data stays in your browser and sample groups (a Goa trip and a Bengaluru flat, in INR) are pre-loaded.
 
 ## Features
 
@@ -14,8 +18,8 @@ Built with React 19, TypeScript, Vite 8 and Tailwind v4, and backed by Firebase 
 | ➗ **Six split types** | Equally (selected people), exact amounts, percentages, shares/ratio, equal + adjustments, and **itemized** (assign receipt lines; tax/tip spread proportionally). Multiple payers per expense. Cent-exact rounding. |
 | 🧮 **Simplify debts** | Per-group toggle. The **debt graph** shows the original vs simplified payments side by side. |
 | 🔗 **Cross-group netting** | One balance per friend across all groups, plus a "Net out" action that settles every group with one real payment. |
-| 💸 **Settle up** | Shows the payee's PayID, BSB/account, PayPal.me, UPI or Revolut with copy buttons and deep links, then records the payment. Share reminders via the native share sheet. |
-| 📷 **Smart scan** | On-device OCR (Tesseract.js) reads **receipts** (total, merchant, date, line items → itemized split) and **payment screenshots** (amount + payee → pre-filled settlement). Free, private, no server. |
+| 💸 **Settle up (UPI-first)** | A **UPI QR code for the exact amount** that any UPI app can scan, `upi://` plus Google Pay / PhonePe / Paytm buttons, the payee's UPI number and bank A/c + IFSC, all with copy buttons; PayID/BSB, PayPal.me and Revolut for other regions. Then records the payment (UPI / Cash / Bank transfer). Share reminders via the native share sheet. |
+| 📷 **Smart scan** | On-device OCR (Tesseract.js) reads **bills** (₹ amounts with lakh grouping, CGST/SGST as tax, Grand Total / Net Amount; merchant, date, line items → itemized split) and **payment screenshots** (GPay / PhonePe / Paytm / BHIM: amount + payee → pre-filled UPI settlement). Free, private, no server. |
 | 🍽️ **Live table split** | At the restaurant, show a QR code; everyone opens it on their phone (no account), taps what they had and sees their total with tax/tip. Finish straight into an itemized group expense. |
 | 💳 **Trip mode + capture inbox** | Give a trip start/end dates for a *Live trip* badge. **Bank/UPI debit SMS** (iOS Shortcut or MacroDroid → `/api/capture` webhook → push), Apple Pay taps, and the share sheet drop payments into an **Inbox**, which asks "is this a group expense?" and pre-selects the trip. Nothing is added without your OK. See **[docs/AUTO_CAPTURE.md](docs/AUTO_CAPTURE.md)**. |
 | 💱 **Multi-currency** | Enter an expense in any currency; it's converted to the group's at the day's ECB rate (Frankfurter, cached, manual fallback offline) and the rate is locked. Home and Insights show an "≈" total in your home currency. |
@@ -68,7 +72,8 @@ Install prompts only appear over **HTTPS** (or `localhost`). To try it on a real
 - **iOS (Safari, or Chrome/Edge on iOS 16.4+):** the banner opens step-by-step *Share → Add to Home Screen* instructions. iOS doesn't allow websites to trigger installation.
 
 ## Design notes
-- All money is stored as **integer cents**. Splits use largest-remainder rounding, so shares always add up to the total.
+- All money is stored as **integer minor units** (paise for INR).
+- Region, default currency and number/date locale come from `src/lib/locale.ts` (navigator language + time zone; Asia/Kolkata → India; unknown → India/INR/en-IN). Splits use largest-remainder rounding, so shares always add up to the total.
 - Balances are **computed on the device** from the expense list, so no Cloud Functions are needed and the app runs on Firebase's free Spark plan.
 - Chart colours come from a colour-blind-checked palette (`src/lib/chartPalette.ts`). Category colours elsewhere in the UI are decorative.
 

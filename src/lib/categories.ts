@@ -15,18 +15,20 @@ export const CATEGORIES: Record<Category, { label: string; emoji: string; color:
   other: { label: 'Other', emoji: '🧾', color: '#64748b' },
 }
 
+// First match wins, so the more specific lists come first (Swiggy Instamart → groceries before
+// Swiggy → food; Uber Eats → food before Uber → transport; JioMart → groceries before Jio).
 const KEYWORDS: Array<[Category, RegExp]> = [
-  ['groceries', /grocer|woolworths|coles|aldi|iga|supermarket|costco|market/i],
-  ['food', /food|dinner|lunch|breakfast|brunch|cafe|coffee|restaurant|pizza|burger|bar|pub|drinks|beer|uber ?eats|doordash|menulog|kfc|mcdonald|sushi/i],
-  ['transport', /uber|taxi|cab|lyft|didi|ola|fuel|petrol|gas|parking|toll|train|bus|metro|opal|myki|car hire|rental car/i],
-  ['stay', /hotel|airbnb|hostel|motel|resort|booking\.com|accommodation|villa/i],
-  ['travel', /flight|airline|qantas|jetstar|virgin|airport|visa|luggage/i],
-  ['entertainment', /movie|cinema|concert|ticket|netflix|spotify|game|bowling|club|museum|tour/i],
-  ['utilities', /electric|power|water|gas bill|internet|wifi|nbn|phone|mobile|optus|telstra/i],
-  ['rent', /rent|bond|lease/i],
-  ['health', /pharmacy|chemist|doctor|medical|dentist|gym/i],
-  ['shopping', /amazon|kmart|target|ikea|clothes|shopping|bunnings/i],
-  ['gifts', /gift|present|birthday/i],
+  ['groceries', /grocer|instamart|zepto|blinkit|grofers|big ?basket|bbnow|dmart|d-mart|jiomart|reliance (fresh|smart)|more (super|retail)|spencer|nature'?s basket|kirana|sabzi|vegetables|fruits|milk|dairy|woolworths|coles|aldi|\biga\b|supermarket|costco|market/i],
+  ['food', /food|dinner|lunch|breakfast|brunch|snacks?|cafe|café|coffee|chai|tea\b|restaurant|dhaba|thali|biryani|dosa|idli|chaat|pani ?puri|vada pav|samosa|momos|tiffin|canteen|mess\b|bakery|sweets|mithai|haldiram|barbeque|chaayos|starbucks|third wave|domino|pizza|burger|kfc|mcdonald|subway|beach shack|shack|bar\b|pub|brewery|drinks|beer|toddy|swiggy|zomato|eatsure|uber ?eats|doordash|menulog|sushi/i],
+  ['travel', /flight|airline|indigo|air india|vistara|spicejet|akasa|air asia|qantas|jetstar|virgin|irctc|railway|train ticket|tatkal|redbus|bus ticket|makemytrip|\bmmt\b|goibibo|cleartrip|ixigo|easemytrip|yatra|visa|passport|luggage/i],
+  ['transport', /\bola\b|uber|rapido|\bauto\b|rickshaw|namma yatri|blu ?smart|taxi|\bcab\b|lyft|didi|metro|local train|petrol|diesel|fuel|\bcng\b|\biocl\b|indian oil|\bbpcl\b|bharat petroleum|\bhpcl\b|\bhp (petrol|pump|fuel)|fastag|toll|parking|scooty|scooter|bike (rental|hire)|zoomcar|car (hire|rental)|rental car|(?<!(?:hp|bharat|piped|indane) )\bgas\b(?! bill| cylinder| connection)|bus\b|opal|myki/i],
+  ['stay', /hotel|\boyo\b|treebo|fabhotel|zostel|homestay|airbnb|hostel|motel|resort|booking\.com|agoda|accommodation|villa|guest ?house|lodge/i],
+  ['entertainment', /movie|cinema|bookmyshow|\bbms\b|\bpvr\b|inox|cinepolis|district|concert|ticket|netflix|hotstar|jiocinema|prime video|spotify|game|bowling|club|museum|tour|trek|scuba|parasailing|water ?sports|amusement|wonderla/i],
+  ['utilities', /electric|electricity|bescom|msedcl|tneb|tata power|adani electricity|bses|cesc|power bill|\bpower\b|water bill|water|gas bill|gas cylinder|indane|\bhp gas|bharat gas|piped gas|internet|broadband|wifi|wi-fi|fibernet|act fibernet|hathway|\bjio\b|airtel|\bvi\b|vodafone|bsnl|recharge|dth|tata play|maintenance|society|\bnbn\b|phone|mobile|optus|telstra/i],
+  ['rent', /rent\b|rent —|rent -|\bpg\b|paying guest|deposit|bond|lease/i],
+  ['health', /pharmacy|chemist|medical|medicine|apollo|pharmeasy|\b1mg\b|netmeds|medplus|doctor|clinic|hospital|diagnostic|dentist|gym|cult\.?fit|yoga/i],
+  ['shopping', /flipkart|myntra|meesho|ajio|nykaa|croma|reliance digital|decathlon|lifestyle|westside|amazon|kmart|target|ikea|clothes|shopping|bunnings/i],
+  ['gifts', /gift|present|birthday|wedding|shagun/i],
 ]
 
 export function guessCategory(description: string): Category | null {

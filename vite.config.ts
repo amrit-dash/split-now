@@ -18,9 +18,9 @@ export default defineConfig({
       registerType: 'prompt',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Split It — shared expenses, simplified',
-        short_name: 'Split It',
-        description: 'Split bills with friends, simplify debts and settle up.',
+        name: 'Split Now — split bills, settle up over UPI',
+        short_name: 'Split Now',
+        description: 'Split bills with friends, simplify debts and settle up over UPI in a tap.',
         theme_color: '#6d28d9',
         background_color: '#0b0a14',
         display: 'standalone',
@@ -38,7 +38,7 @@ export default defineConfig({
           { name: 'Scan receipt', url: '/scan', icons: [{ src: 'pwa-192.png', sizes: '192x192' }] },
           { name: 'Inbox', url: '/inbox', icons: [{ src: 'pwa-192.png', sizes: '192x192' }] },
         ],
-        // Android only: "Share → Split It" for payment screenshots, receipts and payment texts.
+        // Android only: "Share → Split Now" for payment screenshots, receipts and payment texts.
         // POST so images can be shared; public/share-target-sw.js handles it in the service worker.
         share_target: {
           action: '/share-target',

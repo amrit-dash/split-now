@@ -13,6 +13,7 @@ import { CATEGORIES } from '@/lib/categories'
 import { GroupRow } from '@/components/GroupRow'
 import { Empty, Loading } from '@/components/Misc'
 import { Avatar } from '@/components/Avatar'
+import { appLocale } from '@/lib/locale'
 
 export default function Home() {
   const { profile, user } = useMe()
@@ -165,7 +166,7 @@ export default function Home() {
                   <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-xl dark:bg-ink-800">{CATEGORIES[e.category].emoji}</div>
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-medium">{e.description}</div>
-                    <div className="truncate text-xs text-slate-500">{d.group.emoji} {d.group.name} · {new Date(e.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</div>
+                    <div className="truncate text-xs text-slate-500">{d.group.emoji} {d.group.name} · {new Date(e.date).toLocaleDateString(appLocale(), { day: 'numeric', month: 'short' })}</div>
                   </div>
                   <div className="text-right">
                     <div className="text-sm font-semibold tabular-nums">{formatMoney(e.amount, d.group.currency)}</div>

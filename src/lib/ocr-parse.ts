@@ -14,18 +14,35 @@ export interface ParsedPayment {
   method?: string
 }
 
-const AMOUNT_RE = /(?:[$€£₹¥]|AUD|USD|INR|EUR|GBP|NZD|Rs\.?)?\s*(-?\d{1,3}(?:[,\s]\d{3})*(?:[.,]\d{2})|-?\d+[.,]\d{2})(?!\d)/g
+/*
+ * Amounts. With a currency marker (₹ 500, Rs.1,250, INR 2,00,000.00, $9.99) whole numbers count
+ * and Indian lakh grouping (1,00,000) is understood. Without one, a figure needs two decimals
+ * (so phone numbers, UPI reference numbers, dates and quantities aren't read as money).
+ */
+const CUR = String.raw`(?:[$€£₹¥]|\b(?:AUD|USD|INR|EUR|GBP|NZD|SGD|AED)\b|\bRs\.?|₨)`
+const GROUPED = String.raw`\d{1,3}(?:,\d{2})*,\d{3}|\d{1,3}(?:[,\s]\d{3})+`
+const AMOUNT_RE = new RegExp(
+  String.raw`${CUR}\s*(-?(?:${GROUPED})(?:[.,]\d{1,2})?|-?\d+(?:[.,]\d{1,2})?)(?![\d,])` +
+  String.raw`|(-?(?:\d{1,3}(?:,\d{2})*,\d{3}|\d{1,3}(?:,\d{3})*)[.,]\d{2}|-?\d+[.,]\d{2})(?!\d)`,
+  'g',
+)
 
 function toCents(s: string): Cents {
   let t = s.replace(/\s/g, '')
-  // "1.234,56" (EU) → "1234.56"; "1,234.56" → "1234.56"
-  if (/,\d{2}$/.test(t)) t = t.replace(/\./g, '').replace(',', '.')
+  // "1.234,56" (EU) → "1234.56"; "1,234.56" / "1,00,000.00" (IN) → "1234.56" / "100000.00"
+  if (/,\d{1,2}$/.test(t)) t = t.replace(/\./g, '').replace(/,(?=\d{1,2}$)/, '.').replace(/,/g, '')
   else t = t.replace(/,/g, '')
   return Math.round(parseFloat(t) * 100)
 }
 
+function matches(line: string): Array<{ cents: Cents; marked: boolean }> {
+  return [...line.matchAll(AMOUNT_RE)]
+    .map((m) => ({ cents: toCents(m[1] ?? m[2]), marked: m[1] !== undefined }))
+    .filter((x) => Number.isFinite(x.cents))
+}
+
 function amountsIn(line: string): Cents[] {
-  return [...line.matchAll(AMOUNT_RE)].map((m) => toCents(m[1])).filter((n) => Number.isFinite(n))
+  return matches(line).map((x) => x.cents)
 }
 
 /** All currency-looking amounts in a piece of text, in order of appearance (cents). */
@@ -62,7 +79,10 @@ export function parseDate(text: string): string | undefined {
   return undefined
 }
 
-const SKIP_ITEM = /total|subtotal|sub-total|tax|gst|vat|change|cash|card|eftpos|visa|mastercard|amex|balance|tip|rounding|discount|payment|tender|due|saving/i
+// Not line items: totals, taxes (incl. Indian CGST / SGST / IGST / cess), charges, tenders.
+const SKIP_ITEM = /total|subtotal|sub-total|tax|gst|vat|\bcess\b|service\s*charge|round(ing|\s*off|ed\s*off)|change|cash|card|eftpos|visa|mastercard|amex|rupay|\bupi\b|balance|tip|discount|payment|payable|net\s*amount|bill\s*amount|tender|due|saving|paid/i
+
+const TOTAL_RE = /grand\s*total|net\s*(amount|payable|total)|amount\s*payable|total\s*payable|bill\s*amount|total\s*(due|amount|aud|inr|inc)?|amount\s*(due|paid)|balance\s*due|^total|to\s*pay\b/i
 
 export function parseReceipt(text: string): ParsedReceipt {
   const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
@@ -72,7 +92,7 @@ export function parseReceipt(text: string): ParsedReceipt {
   // Prefer the last "total"-ish line that isn't a subtotal.
   for (let i = lines.length - 1; i >= 0; i--) {
     const l = lines[i]
-    if (/(grand\s*total|total\s*(due|amount|aud|inc)?|amount\s*(due|paid)|balance\s*due|^total)/i.test(l) && !/sub\s*-?total/i.test(l)) {
+    if (TOTAL_RE.test(l) && !/sub\s*-?total|total\s*(qty|quantity|items?|savings?|discount|tax|gst)\b/i.test(l)) {
       const a = amountsIn(l)
       const next = i + 1 < lines.length ? amountsIn(lines[i + 1]) : []
       const v = a.length ? a[a.length - 1] : next[0]
@@ -84,16 +104,17 @@ export function parseReceipt(text: string): ParsedReceipt {
     if (all.length) total = Math.max(...all)
   }
 
-  const merchant = lines.find((l) => /[A-Za-z]{3,}/.test(l) && !/receipt|invoice|tax|abn|tel|phone|www|http|@/i.test(l) && amountsIn(l).length === 0)
+  const merchant = lines.find((l) => /[A-Za-z]{3,}/.test(l) && !/receipt|invoice|tax|abn|gstin|fssai|\bcin\b|bill\s*no|order|table|kot|cashier|tel|phone|mob|www|http|@/i.test(l) && amountsIn(l).length === 0)
 
   const items: ParsedReceipt['items'] = []
   const end = totalLine >= 0 ? totalLine : lines.length
   for (let i = 0; i < end; i++) {
     const l = lines[i]
     if (SKIP_ITEM.test(l)) continue
-    const m = l.match(/^(.*?[A-Za-z].*?)\s+(?:[$€£₹]\s*)?(\d+[.,]\d{2})\s*[A-Z]?$/)
+    // "Paneer Tikka   2   280.00   560.00" → name + the last figure (the line total).
+    const m = l.match(/^(.*?[A-Za-z].*?)\s+(?:(?:[$€£₹]|Rs\.?)\s*)?(\d{1,3}(?:,\d{2})*,\d{3}\.\d{2}|\d+[.,]\d{2})\s*[A-Z]?$/)
     if (m) {
-      const name = m[1].replace(/^\d+\s*[xX@]?\s*/, '').replace(/[.\s]+$/, '').trim()
+      const name = m[1].replace(/^\d+\s*[xX@]?\s*/, '').replace(/(?:\s+(?:[$€£₹]|Rs\.?)?\s*[\d.,]+)+$/, '').replace(/[.\s]+$/, '').trim()
       const amount = toCents(m[2])
       if (name.length >= 2 && amount > 0 && (!total || amount <= total)) items.push({ name, amount })
     }
@@ -106,8 +127,9 @@ export function parsePaymentScreenshot(text: string): ParsedPayment {
   const flat = text.replace(/\s+/g, ' ')
   const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
   let payee: string | undefined
-  const payeeRe = /(?:paid|sent|transfer(?:red)?|payment)\s+(?:to|for)\s+([A-Z][A-Za-z'.-]+(?:[ \t]+[A-Z][A-Za-z'.-]+){0,3})/i
-  const toRe = /\bto\s*:?\s+([A-Z][A-Za-z'.-]+(?:[ \t]+[A-Z][A-Za-z'.-]+){0,3})/
+  // "Paid to Rohan Sharma" (GPay), "Paid to\nROHAN SHARMA" (PhonePe), "Paid Successfully to" (Paytm)
+  const payeeRe = /(?:paid|sent|transfer(?:red)?|payment)\s+(?:successfully\s+)?(?:to|for)\s+([A-Z][A-Za-z'.-]+(?:[ \t]+(?!Banking\b|UPI\b|Completed\b|Successful\b|Rs\b|INR\b)[A-Z][A-Za-z'.-]+){0,3})/i
+  const toRe = /\b[Tt]o\s*:?\s+([A-Z][A-Za-z'.-]+(?:[ \t]+[A-Z][A-Za-z'.-]+){0,3})/
   for (const re of [payeeRe, toRe]) {
     const m = lines.map((l) => l.match(re)).find(Boolean) ?? flat.match(re)
     if (m) { payee = m[1].trim(); break }
@@ -116,11 +138,13 @@ export function parsePaymentScreenshot(text: string): ParsedPayment {
   // Amount: prefer the line with the biggest prominent currency figure near "paid"/"amount", else largest.
   let amount: Cents | undefined
   for (const l of lines) {
-    if (/amount|paid|sent|total|you\s+(sent|paid)/i.test(l)) {
+    if (/amount|paid|sent|total|you\s+(sent|paid)/i.test(l) && !/cashback|reward|balance/i.test(l)) {
       const a = amountsIn(l).filter((v) => v > 0)
       if (a.length) { amount = a[0]; break }
     }
   }
+  // UPI apps show the amount on its own ("₹500"): take the first figure with a currency marker.
+  if (amount === undefined) amount = lines.filter((l) => !/cashback|reward|balance/i.test(l)).flatMap(matches).find((x) => x.marked && x.cents > 0)?.cents
   if (amount === undefined) {
     const all = lines.flatMap(amountsIn).filter((v) => v > 0)
     if (all.length) amount = Math.max(...all)
@@ -128,7 +152,7 @@ export function parsePaymentScreenshot(text: string): ParsedPayment {
 
   const method =
     /payid|osko/i.test(flat) ? 'PayID' :
-    /upi|gpay|phonepe|paytm|google pay/i.test(flat) ? 'UPI' :
+    /\bupi\b|gpay|g pay|phonepe|paytm|google pay|bhim|\butr\b|cred\b|amazon pay|@ok(axis|hdfcbank|icici|sbi)|@ybl|@ibl|@axl|@paytm/i.test(flat) ? 'UPI' :
     /paypal/i.test(flat) ? 'PayPal' :
     /revolut/i.test(flat) ? 'Revolut' :
     /venmo/i.test(flat) ? 'Venmo' :

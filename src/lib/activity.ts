@@ -2,6 +2,7 @@ import type { ActivityEntry, ActivityType, Cents, Expense, ImportedFrom, MemberI
 import { CATEGORIES } from './categories'
 import { formatMoney } from './money'
 import { FREQ_LABEL } from './recurrence'
+import { appLocale } from './locale'
 
 /**
  * Activity log / edit history. Every expense, settlement and membership change writes one
@@ -66,7 +67,7 @@ export function amountLabel(amount: unknown, original: unknown, cur: string): st
   return o ? `${o} (${money(amount, cur)})` : money(amount, cur)
 }
 const expenseAmount = (e: Pick<Expense, 'amount' | 'original'>, cur: string) => amountLabel(e.amount, e.original, cur)
-const day = (v: unknown) => (typeof v === 'string' && v ? new Date(v + 'T00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : '—')
+const day = (v: unknown) => (typeof v === 'string' && v ? new Date(v + 'T00:00').toLocaleDateString(appLocale(), { day: 'numeric', month: 'short' }) : '—')
 const quote = (v: unknown) => (typeof v === 'string' && v ? `“${v}”` : '—')
 const cat = (v: unknown) => CATEGORIES[v as keyof typeof CATEGORIES]?.label ?? String(v ?? '—')
 
@@ -241,5 +242,5 @@ export function fmtAgo(ts: number, now = Date.now()): string {
   if (mins < 60) return `${mins}m ago`
   if (mins < 60 * 24) return `${Math.round(mins / 60)}h ago`
   if (mins < 60 * 24 * 7) return `${Math.round(mins / 1440)}d ago`
-  return new Date(ts).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+  return new Date(ts).toLocaleDateString(appLocale(), { day: 'numeric', month: 'short' })
 }

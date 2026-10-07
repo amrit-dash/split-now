@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Camera, ImageUp, Receipt, Send } from 'lucide-react'
 import { useAllGroupData } from '@/hooks/data'
 import { useOcr } from '@/hooks/useOcr'
+import { defaultCurrency } from '@/lib/locale'
 import { formatMoney, fromHundredths } from '@/lib/money'
 import { matchMember, parsePaymentScreenshot, parseReceipt, type ParsedPayment, type ParsedReceipt } from '@/lib/ocr-parse'
 import { pending } from '@/lib/pending'
@@ -78,7 +79,7 @@ export default function Scan() {
 
   if (!data) return <Loading />
   const done = receipt || payment
-  const cur = data[0]?.group.currency ?? 'AUD'
+  const cur = data[0]?.group.currency ?? defaultCurrency()
 
   const go = (groupId: string) => {
     if (!file) return
@@ -109,7 +110,7 @@ export default function Scan() {
           <div className="flex flex-col items-center px-6 py-10 text-center">
             <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-500 to-fuchsia-500 text-3xl text-white shadow-lg">{mode === 'receipt' ? '🧾' : '📲'}</div>
             <div className="font-bold">{mode === 'receipt' ? 'Snap a receipt' : 'Upload a payment confirmation'}</div>
-            <p className="mt-1 text-sm text-slate-500">{mode === 'receipt' ? 'We’ll pull out the total, merchant, date and line items for an itemized split.' : 'A PayID, bank, UPI or PayPal screenshot — we’ll detect the amount and who you paid.'}</p>
+            <p className="mt-1 text-sm text-slate-500">{mode === 'receipt' ? 'We’ll pull out the total, merchant, date and line items for an itemized split.' : 'A GPay, PhonePe, Paytm, bank or PayPal screenshot — we’ll detect the amount and who you paid.'}</p>
           </div>
         )}
         <div className="grid grid-cols-2 gap-2 p-3">

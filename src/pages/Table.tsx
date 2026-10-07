@@ -102,7 +102,7 @@ export default function TablePage() {
   }
   const isHost = viewer.pid === table.hostUid
   if (table.status === 'closed') return <Closed table={table} viewer={viewer} isHost={isHost} />
-  if (isExpired(table) && !isHost) return <Shell><Empty emoji="⌛" title="This table has expired">Tables stay open for 24 hours. Ask the host to settle it in Split It.</Empty></Shell>
+  if (isExpired(table) && !isHost) return <Shell><Empty emoji="⌛" title="This table has expired">Tables stay open for 24 hours. Ask the host to settle it in Split Now.</Empty></Shell>
   if (!(viewer.pid in table.participants)) return <JoinForm table={table} viewer={viewer} />
   return <Live table={table} viewer={viewer} isHost={isHost} />
 }
@@ -439,7 +439,7 @@ function Closed({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; i
         ))}
       </div>
       {!viewer.signedIn && (
-        <p className="mt-6 text-center text-sm text-slate-500">Split bills like this with your own friends — <a className="font-semibold text-brand-600" href="/">get Split It</a>.</p>
+        <p className="mt-6 text-center text-sm text-slate-500">Split bills like this with your own friends — <a className="font-semibold text-brand-600" href="/">get Split Now</a>.</p>
       )}
       {isHost && !table.expenseId && <p className="mt-4 text-center text-xs text-slate-400">Not added to a group. Tap <Share2 size={12} className="inline" /> to send each person their total.</p>}
     </div>

@@ -84,7 +84,7 @@ export function groupCsv(group: Pick<Group, 'members' | 'currency'>, expenses: E
 
 export function csvFilename(groupName: string, today: string): string {
   const slug = groupName.normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/[\s_]+/g, '-').toLowerCase() || 'group'
-  return `split-it-${slug}-${today}.csv`
+  return `split-now-${slug}-${today}.csv`
 }
 
 /**

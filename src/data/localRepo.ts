@@ -7,6 +7,7 @@ import { disputeActivity, expenseEventActivity, expenseSaveActivity, importActiv
 import { prepareExpenseSave, prepareImportedSettlement, prepareOccurrence } from '@/lib/trust'
 import { activityCtxFor, byCreatedDesc, byDateDesc, changedSettings, compact, draftToCapture, errorChannel, placeholdersOf, type AuthUser, type CaptureToken, type Repo, type TablePatch } from './repo'
 import { seedDemo } from './seed'
+import { defaultCurrency } from '@/lib/locale'
 
 /**
  * Demo-mode repository. Everything lives in this browser's localStorage, so the app
@@ -105,7 +106,7 @@ export function createLocalRepo(): Repo {
       const user: AuthUser = { uid: 'me', displayName: name || 'You' }
       state = { ...state, user }
       if (!state.profiles.me) {
-        state.profiles.me = { uid: 'me', displayName: user.displayName, currency: 'AUD', payment: { payid: 'you@example.com' } }
+        state.profiles.me = { uid: 'me', displayName: user.displayName, currency: defaultCurrency(), payment: { upi: 'you@okaxis', phone: '+91 98765 43210' } }
         Object.assign(state, seedDemo(state, user))
       }
       commit()

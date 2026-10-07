@@ -106,7 +106,7 @@ export function AutoCapture() {
       <details className="mt-2 rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800">
         <summary className="cursor-pointer font-semibold"><Smartphone size={15} className="mr-1 inline" /> Android</summary>
         <ul className="mt-2 list-disc space-y-1.5 pl-5 text-slate-600 dark:text-slate-300">
-          <li>Install Split It, then <b>Share</b> a payment screenshot, receipt or bank message to it.</li>
+          <li>Install Split Now, then <b>Share</b> a payment screenshot, receipt or bank message to it.</li>
           <li>Tasker / MacroDroid: on a Google Wallet or bank notification, open
             <code className="break-all"> {location.origin}/capture?v=1&amp;amount=%amount&amp;merchant=%merchant&amp;src=android-auto</code></li>
         </ul>

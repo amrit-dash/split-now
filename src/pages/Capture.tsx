@@ -13,6 +13,7 @@ import { todayISO, uid } from '@/lib/id'
 import { GroupIcon } from '@/components/GroupIcon'
 import { Empty, LiveBadge, Loading, PageHeader } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
+import { appLocale } from '@/lib/locale'
 
 /** Guards against React StrictMode / reloads creating the same capture twice. */
 const inflight = new Map<string, Promise<string>>()
@@ -136,7 +137,7 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
           You spent <span className="tabular-nums">{formatMoney(c.amount, cur)}</span> at {c.merchant} — is this a group expense?
         </div>
         <div className="mt-1.5 text-sm text-slate-500">
-          {new Date(c.date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}
+          {new Date(c.date + 'T00:00:00').toLocaleDateString(appLocale(), { weekday: 'short', day: 'numeric', month: 'short' })}
           {' · '}{SOURCE_LABEL[c.source] ?? c.source}{c.card ? ` · ${c.card}` : ''}
         </div>
         {c.note && <div className="mt-2 text-sm text-slate-500">“{c.note}”</div>}
