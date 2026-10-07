@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowDown, Camera, Copy, ExternalLink, QrCode as QrIcon } from 'lucide-react'
+import { ArrowDown, Camera, ChevronDown, Copy, ExternalLink, QrCode as QrIcon } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { computeGroupData, memberOrder, useExpenses, useGroup, useSettlements } from '@/hooks/data'
@@ -18,6 +18,7 @@ import { QrCode } from '@/components/QrCode'
 import { encodeQr } from '@/lib/qr'
 import { Empty, Loading, PageHeader, Spinner } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
+import { Select } from '@/components/Select'
 
 export default function SettleUp() {
   const { groupId } = useParams()
@@ -185,15 +186,23 @@ export default function SettleUp() {
 function PersonSelect({ label, value, onChange, order, group, name }: { label: string; value: MemberId; onChange: (v: MemberId) => void; order: MemberId[]; group: NonNullable<ReturnType<typeof useGroup>>; name: (id: MemberId) => string }) {
   const m = group.members[value]
   return (
-    <label className="flex items-center gap-3 rounded-2xl bg-slate-50 p-3 dark:bg-ink-800">
-      {m ? <Avatar name={m.name} color={m.color} size={40} /> : <div className="h-10 w-10 rounded-full bg-slate-200" />}
-      <div className="flex-1">
-        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</div>
-        <select className="w-full appearance-none bg-transparent font-bold outline-none" value={value} onChange={(e) => onChange(e.target.value)}>
-          {order.map((id) => <option key={id} value={id}>{name(id)}</option>)}
-        </select>
-      </div>
-    </label>
+    <Select
+      aria-label={label}
+      value={value}
+      onChange={onChange}
+      options={order.map((id) => ({ value: id, text: name(id), label: name(id), icon: <Avatar name={group.members[id].name} color={group.members[id].color} size={28} /> }))}
+      triggerClassName="rounded-2xl bg-slate-50 p-3 transition active:scale-[0.99] dark:bg-ink-800"
+      renderTrigger={(_, open) => (
+        <span className="flex items-center gap-3">
+          {m ? <Avatar name={m.name} color={m.color} size={40} /> : <span className="h-10 w-10 rounded-full bg-slate-200" />}
+          <span className="min-w-0 flex-1">
+            <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</span>
+            <span className="block truncate font-bold">{name(value)}</span>
+          </span>
+          <ChevronDown size={18} className={`shrink-0 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
+        </span>
+      )}
+    />
   )
 }
 

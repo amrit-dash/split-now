@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { FileUp, Pencil, Trash2, UserPlus, X } from 'lucide-react'
+import { FileUp, Trash2, UserPlus, X } from 'lucide-react'
 import { repo } from '@/data'
 import { diffMembers } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
@@ -12,6 +12,8 @@ import { todayISO, uid } from '@/lib/id'
 import { isLiveTrip } from '@/lib/capture'
 import { DEFAULT_APPROVAL_THRESHOLD } from '@/lib/trust'
 import { Avatar } from '@/components/Avatar'
+import { IconPickerField } from '@/components/IconPicker'
+import { Select, currencyOptions } from '@/components/Select'
 import { LiveBadge, Loading, PageHeader } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
 
@@ -39,7 +41,6 @@ export default function GroupForm() {
 
   const [name, setName] = useState('')
   const [emoji, setEmoji] = useState('🏝️')
-  const [pickerOpen, setPickerOpen] = useState(false)
   const [type, setType] = useState<GroupType>((params.get('type') as GroupType) || 'trip')
   const [currency, setCurrency] = useState(profile.currency)
   const [budget, setBudget] = useState('')
@@ -151,41 +152,10 @@ export default function GroupForm() {
           </Link>
         )}
         <div className="card space-y-4 p-4">
-          <div className="flex items-end gap-3">
-            <button
-              type="button"
-              onClick={() => setPickerOpen((o) => !o)}
-              aria-expanded={pickerOpen}
-              aria-controls="group-icon-picker"
-              aria-label={`Group icon ${emoji}. Change icon`}
-              className={`relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-100 to-fuchsia-100 text-2xl transition active:scale-95 dark:from-brand-900/50 dark:to-fuchsia-900/30 ${pickerOpen ? 'ring-2 ring-brand-500' : ''}`}
-            >
-              {emoji}
-              <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-brand-600 text-white shadow ring-2 ring-white dark:ring-ink-900">
-                <Pencil size={10} strokeWidth={3} />
-              </span>
-            </button>
-            <div className="min-w-0 flex-1">
-              <label className="label" htmlFor="group-name">Name</label>
-              <input id="group-name" className="input" placeholder={type === 'trip' ? 'e.g. Goa 2026' : type === 'home' ? 'e.g. Indiranagar flat' : 'Group name'} value={name} onChange={(e) => setName(e.target.value)} />
-            </div>
-          </div>
-          {pickerOpen && (
-            <div id="group-icon-picker" role="radiogroup" aria-label="Group icon" className="animate-fade scrollbar-none -mx-4 flex gap-1.5 overflow-x-auto px-4 py-1.5">
-              {EMOJIS.map((e) => (
-                <button
-                  key={e}
-                  type="button"
-                  role="radio"
-                  aria-checked={emoji === e}
-                  onClick={() => { setEmoji(e); setPickerOpen(false) }}
-                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-xl transition ${emoji === e ? 'bg-brand-100 ring-2 ring-brand-500 dark:bg-brand-900/40' : 'bg-slate-100 dark:bg-ink-800'}`}
-                >
-                  {e}
-                </button>
-              ))}
-            </div>
-          )}
+          <IconPickerField emoji={emoji} onChange={setEmoji} emojis={EMOJIS} idPrefix="group-icon">
+            <label className="label" htmlFor="group-name">Name</label>
+            <input id="group-name" className="input" placeholder={type === 'trip' ? 'e.g. Goa 2026' : type === 'home' ? 'e.g. Indiranagar flat' : 'Group name'} value={name} onChange={(e) => setName(e.target.value)} />
+          </IconPickerField>
           {!existing && (
             <div>
               <label className="label">Type</label>
@@ -199,9 +169,7 @@ export default function GroupForm() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label">Currency</label>
-              <select className="input" value={currency} onChange={(e) => setCurrency(e.target.value)}>
-                {CURRENCIES.map((c) => <option key={c}>{c}</option>)}
-              </select>
+              <Select aria-label="Currency" value={currency} onChange={setCurrency} options={currencyOptions(CURRENCIES)} />
             </div>
             <div>
               <label className="label">Budget (optional)</label>
