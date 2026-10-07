@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Camera, ChevronRight, Download, ImagePlus, LayoutGrid, LogOut, Moon, ShieldCheck, Sun, SunMoon, Trash2, Users, Wallet } from 'lucide-react'
+import { Camera, ChevronRight, Download, ImagePlus, LogOut, Moon, ShieldCheck, Sun, SunMoon, Trash2, Users, Wallet } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import type { PaymentHandles, UserProfile } from '@/types'
@@ -9,7 +9,7 @@ import { paymentRegion } from '@/lib/locale'
 import { isIfsc, isUpiId } from '@/lib/payments'
 import { applyTheme, getTheme, type Theme } from '@/lib/theme'
 import { squareJpeg } from '@/lib/image'
-import { linksSummary, paymentSummary } from '@/lib/profileSummary'
+import { paymentSummary } from '@/lib/profileSummary'
 import { Avatar } from '@/components/Avatar'
 import { AccentPicker } from '@/components/AccentPicker'
 import { Collapsible } from '@/components/Collapsible'
@@ -18,6 +18,7 @@ import { PageHeader, Segmented } from '@/components/Misc'
 import { Sheet } from '@/components/Sheet'
 import { Select, currencyOptions } from '@/components/Select'
 import { useToast } from '@/components/Toast'
+import { AccountCard, RatesButton } from '@/components/ProfileCards'
 import { AutoCapture } from '@/components/AutoCapture'
 import { NotificationSettings } from '@/components/NotificationSettings'
 
@@ -55,6 +56,7 @@ export default function Profile() {
   const toast = useToast()
   const install = useInstall()
   const [name, setName] = useState(profile.displayName)
+  const [phone, setPhone] = useState(profile.phone ?? '')
   const [currency, setCurrency] = useState(profile.currency)
   const [payment, setPayment] = useState<PaymentHandles>(profile.payment ?? {})
   const [theme, setTheme] = useState<Theme>(getTheme())
@@ -65,7 +67,7 @@ export default function Profile() {
 
   // Re-sync the form when the saved fields change (not on a photo change, which would drop unsaved edits).
   const paymentKey = JSON.stringify(profile.payment ?? {})
-  useEffect(() => { setName(profile.displayName); setCurrency(profile.currency); setPayment(profile.payment ?? {}) }, [profile.displayName, profile.currency, paymentKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setName(profile.displayName); setPhone(profile.phone ?? ''); setCurrency(profile.currency); setPayment(profile.payment ?? {}) }, [profile.displayName, profile.phone, profile.currency, paymentKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const region = paymentRegion(currency)
   const sections = SECTIONS[region]
@@ -77,7 +79,10 @@ export default function Profile() {
   const canInstall = !install.installed && (install.canPrompt || install.ios)
 
   const save = async () => {
-    await repo.saveProfile({ ...profile, displayName: name.trim() || profile.displayName, currency, payment })
+    const cleanPhone = phone.replace(/[^\d+]/g, '')
+    // A new mobile number also fills the UPI phone field if that's empty.
+    const pay = cleanPhone && !payment.phone ? { ...payment, phone: cleanPhone } : payment
+    await repo.saveProfile({ ...profile, displayName: name.trim() || profile.displayName, phone: cleanPhone || undefined, currency, payment: pay })
     toast('Profile saved')
   }
 
@@ -88,23 +93,18 @@ export default function Profile() {
           <LogOut size={18} /> Sign out
         </button>
       } />
-      <div className="card flex items-center gap-4 p-5">
-        <button type="button" className="relative shrink-0 rounded-full" onClick={() => setPhotoOpen(true)} aria-label="Change profile photo" data-testid="profile-photo">
-          <Avatar name={name || '?'} photoURL={profile.photoURL} color="accent" size={64} />
-          <span className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-white text-slate-600 shadow ring-1 ring-slate-200 dark:bg-ink-800 dark:text-slate-300 dark:ring-ink-700">
-            <Camera size={13} />
-          </span>
-        </button>
-        <div className="min-w-0 flex-1">
-          <input className="w-full bg-transparent text-xl font-bold outline-none" value={name} onChange={(e) => setName(e.target.value)} aria-label="Display name" />
-          <div className="truncate text-sm text-slate-500">{profile.email ?? (repo.mode === 'demo' ? 'Demo account (this device only)' : '')}</div>
-        </div>
-      </div>
+      <AccountCard
+        name={name} setName={setName} phone={phone} setPhone={setPhone}
+        photoURL={profile.photoURL} email={profile.email} onPhoto={() => setPhotoOpen(true)}
+      />
 
       <div className="card mt-3 space-y-4 p-4">
-        <div>
-          <label className="label">Default currency</label>
-          <Select aria-label="Default currency" value={currency} onChange={setCurrency} options={currencyOptions(CURRENCIES)} />
+        <div className="grid grid-cols-2 gap-3">
+          <div className="min-w-0">
+            <label className="label">Currency</label>
+            <Select aria-label="Default currency" value={currency} onChange={setCurrency} options={currencyOptions(CURRENCIES)} />
+          </div>
+          <RatesButton base={currency} />
         </div>
         <div>
           <div className="label">Appearance</div>
@@ -113,8 +113,8 @@ export default function Profile() {
             { value: 'light', label: <span className="inline-flex items-center gap-1"><Sun size={15} /> Light</span> },
             { value: 'dark', label: <span className="inline-flex items-center gap-1"><Moon size={15} /> Dark</span> },
           ]} />
-          <div className="mt-4"><div className="label">Accent colour</div><AccentPicker /></div>
         </div>
+        <AccentPicker />
       </div>
 
       {/* Every section below starts collapsed each time Profile opens. */}
@@ -147,19 +147,21 @@ export default function Profile() {
       <NotificationSettings />
       <AutoCapture />
 
-      <Collapsible id="more" testId="section-more" title="More" icon={<LayoutGrid size={20} />} summary={linksSummary(['Friends & balances', canInstall ? 'Install app' : ''])}>
-        <div className="-mx-4 -mb-4 divide-y divide-slate-100 border-t border-slate-100 dark:divide-white/5 dark:border-white/5">
-          <Link to="/friends" className="flex items-center gap-3 px-4 py-3.5 font-medium">
-            <Users size={20} className="text-brand-600 dark:text-brand-300" /> <span className="flex-1">Friends & cross-group balances</span>
-            <ChevronRight size={18} className="text-slate-300 dark:text-slate-600" />
-          </Link>
-          {canInstall && (
-            <button className="flex w-full items-center gap-3 px-4 py-3.5 text-left font-medium" onClick={() => (install.canPrompt ? install.prompt() : setIosOpen(true))}>
-              <Download size={20} className="text-brand-600 dark:text-brand-300" /> Install app on this device
-            </button>
-          )}
-        </div>
-      </Collapsible>
+      <Link to="/friends" className="card mt-3 flex items-center gap-3 p-4 font-medium transition active:scale-[0.99]">
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"><Users size={19} /></span>
+        <span className="min-w-0 flex-1">
+          <span className="block">Friends &amp; balances</span>
+          <span className="block text-xs font-normal text-slate-500">One balance per person, across every group</span>
+        </span>
+        <ChevronRight size={18} className="text-slate-300 dark:text-slate-600" />
+      </Link>
+      {canInstall && (
+        <button className="card mt-3 flex w-full items-center gap-3 p-4 text-left font-medium transition active:scale-[0.99]" onClick={() => (install.canPrompt ? install.prompt() : setIosOpen(true))}>
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"><Download size={19} /></span>
+          <span className="flex-1">Install app on this device</span>
+          <ChevronRight size={18} className="text-slate-300 dark:text-slate-600" />
+        </button>
+      )}
 
       <button className="btn-primary mt-6 w-full" onClick={save} data-testid="save-profile">Save profile</button>
       <p className="mt-6 text-center text-xs text-slate-400">Split Now v{__APP_VERSION__} · {repo.mode === 'demo' ? 'Demo mode' : 'Connected to Firebase'}</p>

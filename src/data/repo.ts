@@ -15,6 +15,8 @@ export interface AuthUser {
   googlePhotoURL?: string
   /** Firebase anonymous sign-in (a guest at a live table). Such users only see /t/ pages. */
   isAnonymous?: boolean
+  /** Sign-in methods on this account: 'google.com', 'password'. */
+  providers?: string[]
 }
 
 export interface InviteInfo {
@@ -69,6 +71,10 @@ export interface Repo {
   signUpWithEmail(name: string, email: string, password: string): Promise<void>
   signInDemo?(name: string): Promise<void>
   signOut(): Promise<void>
+  /** Add Google sign-in to the current account (same email → one account). Firebase only. */
+  linkGoogle?(): Promise<void>
+  /** Add an email + password sign-in to the current (e.g. Google) account. Firebase only. */
+  addPassword?(password: string): Promise<void>
 
   watchProfile(uid: string, cb: (p: UserProfile | null) => void): Unsub
   /**

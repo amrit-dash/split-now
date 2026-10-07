@@ -22,35 +22,38 @@ export function AccentPicker() {
   }
 
   return (
-    <div>
-      <div role="radiogroup" aria-label="Accent colour" onKeyDown={onKey} className="scrollbar-none -mx-1 flex gap-2 overflow-x-auto px-1 py-1">
-        {ACCENTS.map((a) => {
-          const on = a.id === accent
-          return (
-            <button
-              key={a.id}
-              type="button"
-              role="radio"
-              aria-checked={on}
-              aria-label={a.label}
-              title={a.label}
-              data-id={a.id}
-              tabIndex={on ? 0 : -1}
-              onClick={() => pick(a.id)}
-              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white transition active:scale-95 ${on ? 'ring-2 ring-slate-900 ring-offset-2 ring-offset-white dark:ring-white dark:ring-offset-ink-900' : ''}`}
-              style={{ background: duo ? `linear-gradient(135deg, ${a.from}, ${a.to})` : a.from }}
-            >
-              {on && <Check size={15} strokeWidth={3} aria-hidden />}
-            </button>
-          )
-        })}
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="label !mb-0 shrink-0">Accent</div>
+        <div role="radiogroup" aria-label="Accent colour" onKeyDown={onKey} className="flex min-w-0 flex-1 items-center justify-between gap-1 py-1">
+          {ACCENTS.map((a) => {
+            const on = a.id === accent
+            return (
+              <button
+                key={a.id}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                aria-label={a.label}
+                title={a.label}
+                data-id={a.id}
+                tabIndex={on ? 0 : -1}
+                onClick={() => pick(a.id)}
+                className={`flex aspect-square w-full max-w-8 min-w-6 items-center justify-center rounded-full text-white transition active:scale-95 ${on ? 'ring-2 ring-slate-900 ring-offset-2 ring-offset-white dark:ring-white dark:ring-offset-ink-900' : ''}`}
+                style={{ background: duo ? `linear-gradient(135deg, ${a.from}, ${a.to})` : a.from }}
+              >
+                {on && <Check size={14} strokeWidth={3} aria-hidden />}
+              </button>
+            )
+          })}
+        </div>
       </div>
       <button
         type="button"
         role="switch"
         aria-checked={duo}
         onClick={toggleDuo}
-        className="mt-3 flex w-full items-center justify-between gap-3 text-left text-sm font-medium"
+        className="flex w-full items-center justify-between gap-3 text-left text-sm font-medium"
       >
         <span>
           Dual tone

@@ -85,7 +85,8 @@ export default function Login() {
 function friendly(e: unknown) {
   const code = (e as { code?: string }).code ?? ''
   if (code.includes('invalid-credential') || code.includes('wrong-password')) return 'Email or password is incorrect'
-  if (code.includes('email-already-in-use')) return 'That email already has an account'
+  if (code.includes('email-already-in-use')) return 'That email already has an account. Sign in instead, or use Continue with Google if you signed up with Google'
+  if (code.includes('account-exists-with-different-credential')) return 'This email is already registered with another sign-in method. Sign in that way, then link Google from Profile'
   if (code.includes('popup-closed')) return 'Sign-in cancelled'
   if (code.includes('password-does-not-meet-requirements')) {
     // Firebase lists the unmet rules in brackets, e.g. "[Password must contain an upper case character]".

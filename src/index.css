@@ -78,6 +78,12 @@
     --color-duo-50: oklch(98% 0.016 73.684); --color-duo-100: oklch(95.4% 0.038 75.164); --color-duo-200: oklch(90.1% 0.076 70.697); --color-duo-300: oklch(83.7% 0.128 66.29); --color-duo-400: oklch(70.5% 0.213 47.604); --color-duo-500: oklch(64.6% 0.222 41.116); --color-duo-600: oklch(55.3% 0.195 38.402); --color-duo-700: oklch(47% 0.157 37.304); --color-duo-800: oklch(40.8% 0.123 38.172); --color-duo-900: oklch(26.6% 0.079 36.259);
     --color-brand-vivid: oklch(55.5% 0.163 48.998);
   }
+  /* Amber: golden yellow → bright gold. Brand is one step darker from 400 for contrast. */
+  &[data-accent='amber'] {
+    --color-brand-50: oklch(98.7% 0.026 102.212); --color-brand-100: oklch(97.3% 0.071 103.193); --color-brand-200: oklch(94.5% 0.129 101.54); --color-brand-300: oklch(90.5% 0.182 98.111); --color-brand-400: oklch(79.5% 0.184 86.047); --color-brand-500: oklch(68.1% 0.162 75.834); --color-brand-600: oklch(55.4% 0.135 66.442); --color-brand-700: oklch(47.6% 0.114 61.907); --color-brand-800: oklch(42.1% 0.095 57.708); --color-brand-900: oklch(28.6% 0.066 53.813);
+    --color-duo-50: oklch(98.7% 0.026 102.212); --color-duo-100: oklch(97.3% 0.071 103.193); --color-duo-200: oklch(94.5% 0.129 101.54); --color-duo-300: oklch(90.5% 0.182 98.111); --color-duo-400: oklch(85.2% 0.199 91.936); --color-duo-500: oklch(79.5% 0.184 86.047); --color-duo-600: oklch(68.1% 0.162 75.834); --color-duo-700: oklch(55.4% 0.135 66.442); --color-duo-800: oklch(47.6% 0.114 61.907); --color-duo-900: oklch(42.1% 0.095 57.708);
+    --color-brand-vivid: oklch(55.4% 0.135 66.442);
+  }
   &[data-accent='graphite'] {
     --color-brand-50: oklch(98.4% 0.003 247.858); --color-brand-100: oklch(96.8% 0.007 247.896); --color-brand-200: oklch(92.9% 0.013 255.508); --color-brand-300: oklch(86.9% 0.022 252.894); --color-brand-400: oklch(70.4% 0.04 256.788); --color-brand-500: oklch(55.4% 0.046 257.417); --color-brand-600: oklch(44.6% 0.043 257.281); --color-brand-700: oklch(37.2% 0.044 257.287); --color-brand-800: oklch(27.9% 0.041 260.031); --color-brand-900: oklch(20.8% 0.042 265.755);
     --color-duo-50: oklch(98.5% 0 none); --color-duo-100: oklch(96.7% 0.001 286.375); --color-duo-200: oklch(92% 0.004 286.32); --color-duo-300: oklch(87.1% 0.006 286.286); --color-duo-400: oklch(70.5% 0.015 286.067); --color-duo-500: oklch(55.2% 0.016 285.938); --color-duo-600: oklch(44.2% 0.017 285.786); --color-duo-700: oklch(37% 0.013 285.805); --color-duo-800: oklch(27.4% 0.006 286.033); --color-duo-900: oklch(21% 0.006 285.885);
@@ -160,3 +166,13 @@ html[data-update-ready] .install-banner { display: none; }
 @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
 @utility animate-wave { animation: wave 2.4s ease-in-out 0.4s 3; }
 @utility animate-float { animation: float 3s ease-in-out infinite; }
+
+/* Aurora (components/Aurora.tsx): gradient drift + floating blurred blobs. */
+@keyframes aurora-shift { 0%, 100% { background-position: 0% 30%; } 50% { background-position: 100% 70%; } }
+@keyframes blob-a { 0%, 100% { transform: translate(0, 0) scale(1); } 33% { transform: translate(-18%, 22%) scale(1.12); } 66% { transform: translate(10%, 34%) scale(0.92); } }
+@keyframes blob-b { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-30%, -38%) scale(1.18); } }
+@keyframes blob-c { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(40%, -22%) scale(1.1); } }
+@utility animate-aurora-shift { animation: aurora-shift 14s ease-in-out infinite; }
+@utility animate-blob-a { animation: blob-a 16s ease-in-out infinite; will-change: transform; }
+@utility animate-blob-b { animation: blob-b 12s ease-in-out infinite; will-change: transform; }
+@utility animate-blob-c { animation: blob-c 18s ease-in-out infinite; will-change: transform; }

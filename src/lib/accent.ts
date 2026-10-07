@@ -4,7 +4,7 @@
  * this module only picks, persists and applies them. index.html repeats the apply step
  * inline before first paint (keep its id → theme-colour map in sync; a test checks it).
  */
-export type AccentId = 'violet' | 'ocean' | 'emerald' | 'sunset' | 'rose' | 'indigo' | 'saffron' | 'graphite'
+export type AccentId = 'violet' | 'ocean' | 'emerald' | 'sunset' | 'rose' | 'indigo' | 'saffron' | 'amber' | 'graphite'
 
 export interface AccentPreset {
   id: AccentId
@@ -24,6 +24,7 @@ export const ACCENTS: readonly AccentPreset[] = [
   { id: 'rose', label: 'Rose', from: '#ec003f', to: '#f6339a', meta: '#c70036' },
   { id: 'indigo', label: 'Indigo', from: '#4f39f6', to: '#00a6f4', meta: '#432dd7' },
   { id: 'saffron', label: 'Saffron', from: '#bb4d00', to: '#f54900', meta: '#973c00' },
+  { id: 'amber', label: 'Amber', from: '#a65f00', to: '#f0b100', meta: '#894b00' },
   { id: 'graphite', label: 'Graphite', from: '#45556c', to: '#71717b', meta: '#314158' },
 ]
 
