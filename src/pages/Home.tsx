@@ -14,6 +14,9 @@ import { GroupRow } from '@/components/GroupRow'
 import { Empty, Loading } from '@/components/Misc'
 import { Avatar } from '@/components/Avatar'
 import { appLocale } from '@/lib/locale'
+import { greeting, topCounterparties } from '@/lib/greeting'
+import { isLiveTrip } from '@/lib/capture'
+import { todayISO } from '@/lib/id'
 
 export default function Home() {
   const { profile, user } = useMe()
@@ -60,22 +63,31 @@ export default function Home() {
     .sort((a, b) => b.e.date.localeCompare(a.e.date) || b.e.createdAt - a.e.createdAt)
     .slice(0, 6)
   const shared = data.filter((d) => d.group.type !== 'personal')
-  const hour = new Date().getHours()
-  const greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
+  const today = todayISO()
+  const people = topCounterparties(shared.map((d) => ({ ...d.group, me: d.me, debts: d.debts })), cur)
+  const hello = greeting(profile.displayName, {
+    inbox,
+    needsOk: needsOk.length,
+    liveTrips: shared.filter((d) => isLiveTrip(d.group, today)).map((d) => ({ name: d.group.name, emoji: d.group.emoji })),
+    owedBy: people.owedBy && { name: people.owedBy.name, amount: formatMoney(people.owedBy.amount, cur) },
+    owes: people.owes && { name: people.owes.name, amount: formatMoney(people.owes.amount, cur) },
+    settled: shared.some((d) => d.expenses.length > 0) && shared.every((d) => !d.me || !d.net[d.me]),
+  })
 
   return (
     <div className="pt-[calc(env(safe-area-inset-top)+1.5rem)]">
       <div className="mb-5 flex items-center justify-between">
-        <div>
-          <div className="text-sm text-slate-500 dark:text-slate-400">{greet},</div>
-          <div className="text-2xl font-extrabold tracking-tight">{profile.displayName.split(' ')[0]} 👋</div>
+        <div className="min-w-0" data-testid="home-greeting">
+          <div className="text-sm text-slate-500 dark:text-slate-400">{hello.salutation} {hello.emoji}</div>
+          <div className="truncate text-2xl font-extrabold tracking-tight">{hello.name}</div>
+          <div className="mt-0.5 truncate text-xs font-medium text-slate-500 dark:text-slate-400">{hello.subline}</div>
         </div>
         <div className="flex items-center gap-2">
           <Link to="/inbox" className="relative rounded-full p-2.5 hover:bg-slate-200/60 dark:hover:bg-ink-800" aria-label={inbox ? `Inbox, ${inbox} to sort` : 'Inbox'}>
             <Inbox size={22} />
             {inbox > 0 && <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[11px] font-bold text-white">{inbox > 99 ? '99+' : inbox}</span>}
           </Link>
-          <Link to="/profile"><Avatar name={profile.displayName} color="#7c3aed" size={44} /></Link>
+          <Link to="/profile" aria-label="Profile"><Avatar name={profile.displayName} photoURL={profile.photoURL} color="#7c3aed" size={44} /></Link>
         </div>
       </div>
 

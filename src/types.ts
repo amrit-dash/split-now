@@ -24,10 +24,18 @@ export interface UserProfile {
   uid: string
   displayName: string
   email?: string
+  /** Profile photo: a Storage download URL (upload), the Google account photo, or a data: URL in demo mode. */
   photoURL?: string
+  /**
+   * Where photoURL came from. 'none' = the user removed their photo (so a later Google
+   * sign-in doesn't bring it back); missing on old profiles (treated like 'google').
+   */
+  photoSource?: PhotoSource
   currency: string
   payment?: PaymentHandles
 }
+
+export type PhotoSource = 'upload' | 'google' | 'none'
 
 export interface Member {
   name: string

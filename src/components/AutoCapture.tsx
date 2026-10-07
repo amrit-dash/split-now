@@ -5,6 +5,8 @@ import { firebaseProject, repo } from '@/data'
 import type { CaptureToken } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
 import { copy } from '@/lib/share'
+import { autoCaptureSummary } from '@/lib/profileSummary'
+import { Collapsible } from './Collapsible'
 import { useToast } from './Toast'
 
 /** Profile section: capture tokens and ready-to-paste iOS Shortcut / Android automation settings. */
@@ -13,6 +15,12 @@ export function AutoCapture() {
   const toast = useToast()
   const [tokens, setTokens] = useState<CaptureToken[] | null>(null)
   const [busy, setBusy] = useState(false)
+  // Links to /profile#auto-capture (from the SMS wizard) open this section.
+  const [open, setOpen] = useState(() => typeof location !== 'undefined' && location.hash === '#auto-capture')
+  useEffect(() => {
+    if (open && location.hash === '#auto-capture') document.getElementById('auto-capture')?.scrollIntoView({ block: 'start' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   useEffect(() => repo.watchCaptureTokens(user.uid, setTokens), [user.uid])
 
   // The Apple Pay path uses an unscoped key (scoped keys belong to the SMS wizard).
@@ -48,12 +56,9 @@ export function AutoCapture() {
   const copyIt = async (text: string, what: string) => toast((await copy(text)) ? `${what} copied` : 'Couldn’t copy', 'ok')
 
   return (
-    <div id="auto-capture" className="card mt-4 p-4">
-      <div className="flex items-center gap-2">
-        <Zap size={18} className="text-brand-600 dark:text-brand-300" />
-        <div className="label !mb-0">Auto-capture</div>
-      </div>
-      <p className="mt-2 text-sm text-slate-500">
+    <Collapsible id="auto-capture" testId="section-auto-capture" title="Auto-capture" icon={<Zap size={20} />}
+      summary={autoCaptureSummary(tokens)} open={open} onOpenChange={setOpen}>
+      <p className="text-sm text-slate-500">
         Send payments to your <Link to="/inbox" className="font-semibold text-brand-600 dark:text-brand-300">inbox</Link> automatically, then pick a group with one tap. Nothing is ever added without your OK.
       </p>
 
@@ -113,7 +118,7 @@ export function AutoCapture() {
       </details>
       <Link to={`/capture?v=1&amount=4.50&merchant=Test%20Cafe&src=manual&ref=test-${user.uid.slice(0, 6)}-${new Date().toISOString().slice(0, 10)}`} className="btn-ghost mt-2 w-full">Try a test capture</Link>
       </details>
-    </div>
+    </Collapsible>
   )
 }
 

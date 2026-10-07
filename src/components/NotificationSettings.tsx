@@ -6,6 +6,8 @@ import {
   DEFAULT_PREFS, VAPID_KEY, disablePush, enablePush, isIOS, isStandalone, permission, pushSupported, savePrefs, watchPrefs,
   type NotificationPrefs,
 } from '@/lib/push'
+import { notificationSummary } from '@/lib/profileSummary'
+import { Collapsible } from './Collapsible'
 import { useToast } from './Toast'
 
 const TYPES: Array<{ key: keyof NotificationPrefs; label: string; hint: string }> = [
@@ -16,13 +18,17 @@ const TYPES: Array<{ key: keyof NotificationPrefs; label: string; hint: string }
   { key: 'reminders', label: 'Settle-up reminders', hint: 'A gentle weekly nudge if you’ve owed over ₹500 for a week.' },
 ]
 
-/** Profile section: turn on push for this device and choose which notifications to get. Hidden without a VAPID key. */
+/**
+ * Profile section: turn on push for this device and choose which notifications to get. Hidden without a VAPID key.
+ * Starts collapsed (summary "On · 4 types"); expands by itself when the user turns notifications on.
+ */
 export function NotificationSettings() {
   const { user } = useMe()
   const toast = useToast()
   const [perm, setPerm] = useState(permission())
   const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_PREFS)
   const [busy, setBusy] = useState(false)
+  const [open, setOpen] = useState(false)
 
   useEffect(() => (repo.mode === 'firebase' && VAPID_KEY ? watchPrefs(user.uid, setPrefs) : undefined), [user.uid])
 
@@ -36,6 +42,7 @@ export function NotificationSettings() {
     try {
       const p = await enablePush(user.uid)
       setPerm(p)
+      if (p === 'granted') setOpen(true)
       toast(p === 'granted' ? 'Notifications are on for this device' : 'Notifications were not allowed', p === 'granted' ? 'ok' : 'err')
     } catch (e) {
       toast((e as Error).message, 'err')
@@ -57,29 +64,26 @@ export function NotificationSettings() {
   }
 
   return (
-    <div id="notifications" className="card mt-4 p-4">
-      <div className="flex items-center gap-2">
-        <Bell size={18} className="text-brand-600 dark:text-brand-300" />
-        <div className="label !mb-0">Notifications</div>
-      </div>
+    <Collapsible id="notifications" testId="section-notifications" title="Notifications" icon={<Bell size={20} />}
+      summary={notificationSummary({ iosNeedsInstall, supported, perm, prefs })} open={open} onOpenChange={setOpen}>
 
       {iosNeedsInstall ? (
-        <p className="mt-2 flex items-start gap-1.5 text-sm text-slate-500">
+        <p className="flex items-start gap-1.5 text-sm text-slate-500">
           <Share size={15} className="mt-0.5 shrink-0" />
           On iPhone, notifications need iOS 16.4 or later and the app installed: tap Share → Add to Home Screen, then open it from your home screen and come back here.
         </p>
       ) : !supported ? (
-        <p className="mt-2 text-sm text-slate-500">This browser can’t receive push notifications.</p>
+        <p className="text-sm text-slate-500">This browser can’t receive push notifications.</p>
       ) : perm === 'granted' ? (
-        <div className="mt-2 flex items-center justify-between gap-3">
+        <div className="flex items-center justify-between gap-3">
           <p className="text-sm text-slate-500">On for this device.</p>
           <button className="btn-ghost !px-2 text-sm" onClick={turnOff} disabled={busy}><BellOff size={16} /> Turn off here</button>
         </div>
       ) : perm === 'denied' ? (
-        <p className="mt-2 text-sm text-slate-500">Notifications are blocked for this site. Allow them in your browser or system settings, then reload.</p>
+        <p className="text-sm text-slate-500">Notifications are blocked for this site. Allow them in your browser or system settings, then reload.</p>
       ) : (
         <>
-          <p className="mt-2 text-sm text-slate-500">Get a ping when a trip payment is captured, someone adds an expense with you, or pays you back.</p>
+          <p className="text-sm text-slate-500">Get a ping when a trip payment is captured, someone adds an expense with you, or pays you back.</p>
           <button className="btn-primary mt-3 w-full" onClick={turnOn} disabled={busy}><Bell size={18} /> Turn on notifications</button>
         </>
       )}
@@ -96,6 +100,6 @@ export function NotificationSettings() {
         ))}
       </div>
       <p className="mt-2 text-xs text-slate-500">These choices apply to all your devices.</p>
-    </div>
+    </Collapsible>
   )
 }

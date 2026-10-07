@@ -13,7 +13,7 @@
     "icons": "node scripts/generate-icons.mjs",
     "emulators": "firebase emulators:start",
     "deploy": "npm run build && firebase deploy",
-    "test:rules": "firebase emulators:exec --only firestore --project demo-splitit \"vitest run --config vitest.rules.config.ts\"",
+    "test:rules": "firebase emulators:exec --only firestore,storage --project demo-splitit \"vitest run --config vitest.rules.config.ts\"",
     "test:functions": "npm --prefix functions run build && firebase emulators:exec --only firestore --project demo-splitit \"firebase emulators:exec --only functions --project demo-splitit 'vitest run --config vitest.functions.config.ts'\""
   },
   "dependencies": {
