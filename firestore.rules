@@ -361,14 +361,18 @@ service cloud.firestore {
           && !existsAfter(/databases/$(database)/documents/groups/$(groupId));
       }
 
-      // Name + payment handles a member shares with this group only. Written by the owner
+      // Name + payment handles (+ profile photo URL) a member shares with this group only. Written by the owner
       // (also in the same batch as creating/joining the group, hence getAfter).
       match /profiles/{userId} {
         allow read: if isGroupMember(groupId);
         allow create, update: if signedIn() && uid() == userId
           && uid() in groupAfter(groupId).data.memberUids
-          && request.resource.data.keys().hasOnly(['displayName', 'payment'])
-          && request.resource.data.displayName is string;
+          && request.resource.data.keys().hasOnly(['displayName', 'payment', 'photoURL'])
+          && request.resource.data.displayName is string
+          && (!('photoURL' in request.resource.data)
+            || (request.resource.data.photoURL is string
+              && request.resource.data.photoURL.size() <= 2048
+              && request.resource.data.photoURL.matches('https://.+')));
         // the owner, or the group creator when removing the member / deleting the group
         allow delete: if signedIn() && (uid() == userId
           || (isGroupMember(groupId) && groupDoc(groupId).data.createdBy == uid()));

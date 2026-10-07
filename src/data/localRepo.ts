@@ -1,3 +1,4 @@
+import { blobToDataUrl } from '@/lib/image'
 import type { ActivityEntry, Capture, Expense, ExpenseComment, Group, Settlement, UserProfile } from '@/types'
 import { inviteCode, todayISO, uid } from '@/lib/id'
 import { inboxToDraft, newCaptureToken } from '@/lib/capture'
@@ -121,8 +122,9 @@ export function createLocalRepo(): Repo {
     async getProfile(id) { return state.profiles[id] ?? null },
     async getMemberProfile(groupId, id) {
       const p = state.groups[groupId]?.memberUids.includes(id) ? state.profiles[id] : undefined
-      return p ? { displayName: p.displayName, payment: p.payment ?? {} } : null
+      return p ? { displayName: p.displayName, payment: p.payment ?? {}, photoURL: p.photoURL } : null
     },
+    async uploadAvatar(_uid, jpeg) { return blobToDataUrl(jpeg) },
 
     watchGroups: (userId, cb) =>
       watch(() => Object.values(state.groups).filter((g) => g.memberUids.includes(userId)).sort((a, b) => b.updatedAt - a.updatedAt), cb),

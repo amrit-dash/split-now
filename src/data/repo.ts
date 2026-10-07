@@ -11,6 +11,8 @@ export interface AuthUser {
   displayName: string
   email?: string
   photoURL?: string
+  /** The Google account photo, when signed in with Google (offered as "Use Google photo"). */
+  googlePhotoURL?: string
   /** Firebase anonymous sign-in (a guest at a live table). Such users only see /t/ pages. */
   isAnonymous?: boolean
 }
@@ -35,6 +37,14 @@ export type GroupSettings = Partial<Omit<Group, 'id' | 'members' | 'memberUids' 
 export interface MemberProfile {
   displayName: string
   payment?: PaymentHandles
+  /** profile photo (https URL), for co-members' avatars */
+  photoURL?: string
+}
+
+/** The shareable part of a private profile (data: URLs are demo-only and never shared). */
+export function memberProfileOf(p: Pick<UserProfile, 'displayName' | 'payment' | 'photoURL'>): MemberProfile {
+  const photo = p.photoURL && /^https:\/\//.test(p.photoURL) && p.photoURL.length <= 2048 ? p.photoURL : undefined
+  return compact({ displayName: p.displayName, payment: p.payment ?? {}, photoURL: photo })
 }
 
 export interface RepoError {
@@ -61,8 +71,17 @@ export interface Repo {
   signOut(): Promise<void>
 
   watchProfile(uid: string, cb: (p: UserProfile | null) => void): Unsub
-  /** Saves the private profile and copies name + payment handles into every group the user is in. */
+  /**
+   * Saves the private profile and copies name + payment handles + photo into every group the
+   * user is in. A missing photoURL removes the stored photo.
+   */
   saveProfile(p: UserProfile): Promise<void>
+  /**
+   * Stores a profile photo (an already cropped square JPEG) and returns its URL: Storage
+   * avatars/{uid}/{random}.jpg in Firebase (needs a connection), a data: URL in demo mode.
+   * The caller then saves it with saveProfile.
+   */
+  uploadAvatar(uid: string, jpeg: Blob): Promise<string>
   /** Own (private) profile only. */
   getProfile(uid: string): Promise<UserProfile | null>
   /** A co-member's shared name + payment handles for one group. */

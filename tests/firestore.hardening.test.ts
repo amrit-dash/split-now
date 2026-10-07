@@ -164,6 +164,14 @@ describe('per-group profiles', () => {
     await assertFails(setDoc(doc(db('alice'), 'groups/g1/profiles/bob'), { displayName: 'Bob', payment: { payid: 'alice-steals@x' } }))
     await assertFails(setDoc(doc(db('bob'), 'groups/g1/profiles/bob'), { displayName: 'Bob', email: 'bob@x' }))
   })
+  it('may carry an https profile photo URL', async () => {
+    const r = doc(db('bob'), 'groups/g1/profiles/bob')
+    await assertSucceeds(setDoc(r, { displayName: 'Bob', payment: {}, photoURL: 'https://firebasestorage.googleapis.com/v0/b/x/o/avatars%2Fbob%2Fa.jpg?alt=media&token=t' }))
+    await assertFails(setDoc(r, { displayName: 'Bob', payment: {}, photoURL: 'data:image/jpeg;base64,AAAA' }))
+    await assertFails(setDoc(r, { displayName: 'Bob', payment: {}, photoURL: 'https://x/' + 'a'.repeat(2100) }))
+    await assertFails(setDoc(r, { displayName: 'Bob', payment: {}, photoURL: 42 }))
+    await assertFails(setDoc(r, { displayName: 'Bob', payment: {}, photoSource: 'upload' }))
+  })
 })
 
 describe('expense & settlement validation', () => {

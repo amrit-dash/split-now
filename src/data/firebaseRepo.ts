@@ -2,6 +2,7 @@ import { initializeApp, type FirebaseOptions } from 'firebase/app'
 import {
   GoogleAuthProvider, connectAuthEmulator, createUserWithEmailAndPassword, getAuth, getRedirectResult, onAuthStateChanged,
   signInAnonymously, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, signOut, updateProfile,
+  type User,
 } from 'firebase/auth'
 import {
   FieldPath, arrayRemove, arrayUnion, clearIndexedDbPersistence, collection, connectFirestoreEmulator, deleteField, doc, getDoc,
@@ -20,7 +21,7 @@ import { disputeActivity, expenseEventActivity, expenseSaveActivity, importActiv
 import { prepareExpenseSave, prepareImportedSettlement, prepareOccurrence } from '@/lib/trust'
 import {
   activityCtxFor, byCreatedDesc, byDateDesc, changedSettings, compact, draftToCapture, errorChannel, placeholdersOf, storagePathFromUrl,
-  type CaptureToken, type GroupSettings, type InviteInfo, type MemberProfile, type Repo, type TablePatch,
+  memberProfileOf, type CaptureToken, type GroupSettings, type InviteInfo, type MemberProfile, type Repo, type TablePatch,
 } from './repo'
 import { initAppCheck } from '@/lib/appcheck'
 import { disablePush } from '@/lib/push'
@@ -87,8 +88,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     try {
       const s = await getDocFromCache(doc(db, 'users', u.uid))
       if (s.exists()) {
-        const p = s.data() as UserProfile
-        return { displayName: p.displayName, payment: p.payment ?? {} }
+        return memberProfileOf(s.data() as UserProfile)
       }
     } catch { /* not cached */ }
     return { displayName: u.displayName || u.email?.split('@')[0] || 'You', payment: {} }
@@ -117,17 +117,28 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
   }
   const me = () => auth.currentUser?.uid ?? ''
 
-  async function ensureProfile(u: { uid: string; displayName: string | null; email: string | null; photoURL: string | null }) {
+  /** The photo of the user's Google sign-in, if they have one. */
+  const googlePhoto = (u: Pick<User, 'photoURL' | 'providerData'>) =>
+    u.providerData?.find((p) => p.providerId === 'google.com')?.photoURL ?? (u.providerData?.length ? undefined : u.photoURL) ?? undefined
+
+  async function ensureProfile(u: { uid: string; displayName: string | null; email: string | null; photoURL: string | null; providerData?: User['providerData'] }) {
     const r = doc(db, 'users', u.uid)
     const snap = await getDoc(r)
+    const google = googlePhoto({ photoURL: u.photoURL, providerData: u.providerData ?? [] })
     if (!snap.exists()) {
       const batch = writeBatch(db)
       batch.set(r, {
         // currentUser, not u: a sign-up's updateProfile may have set the name while getDoc ran.
         uid: u.uid, displayName: (auth.currentUser?.uid === u.uid ? auth.currentUser.displayName : null) || u.displayName || u.email?.split('@')[0] || 'You', email: u.email ?? undefined,
-        photoURL: u.photoURL ?? undefined, currency: defaultCurrency(), payment: {},
+        photoURL: google, photoSource: google ? 'google' : undefined, currency: defaultCurrency(), payment: {},
       } satisfies UserProfile)
       fire(batch, 'Creating your profile')
+      return
+    }
+    // Later Google sign-ins refresh the Google photo, unless the user uploaded or removed one.
+    const p = snap.data() as UserProfile
+    if (google && p.photoSource !== 'upload' && p.photoSource !== 'none' && p.photoURL !== google) {
+      await repo.saveProfile({ ...p, photoURL: google, photoSource: 'google' })
     }
   }
 
@@ -161,7 +172,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         // Anonymous guests (live table split) get no profile and no access to groups.
         if (u.isAnonymous) return cb({ uid: u.uid, displayName: 'Guest', isAnonymous: true })
         ensureProfile(u).catch(console.error)
-        cb({ uid: u.uid, displayName: u.displayName ?? u.email ?? 'You', email: u.email ?? undefined, photoURL: u.photoURL ?? undefined })
+        cb({ uid: u.uid, displayName: u.displayName ?? u.email ?? 'You', email: u.email ?? undefined, photoURL: u.photoURL ?? undefined, googlePhotoURL: googlePhoto(u) })
       })
     },
     async signInWithGoogle() {
@@ -209,7 +220,16 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       return onSnapshot(doc(db, 'users', id), (s) => cb(s.exists() ? (s.data() as UserProfile) : null), listenError('Loading your profile', () => cb(null)))
     },
     async saveProfile(p) {
-      const shared: MemberProfile = { displayName: p.displayName, payment: p.payment ?? {} }
+      const shared = memberProfileOf(p)
+      // An uploaded photo that is being replaced or removed is deleted from Storage.
+      let oldUpload: string | undefined
+      try {
+        const prev = await getDocFromCache(doc(db, 'users', p.uid))
+        const old = prev.exists() ? (prev.data() as UserProfile) : undefined
+        if (old?.photoSource === 'upload' && old.photoURL && old.photoURL !== p.photoURL) oldUpload = storagePathFromUrl(old.photoURL)
+      } catch { /* not cached */ }
+      // merge: true would keep a removed photo, so clear the fields explicitly.
+      const own = { ...p, photoURL: p.photoURL ?? deleteField(), photoSource: p.photoSource ?? (p.photoURL ? undefined : deleteField()) }
       let groupIds: string[] = []
       const q = query(collection(db, 'groups'), where('memberUids', 'array-contains', p.uid))
       try {
@@ -218,7 +238,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         try { groupIds = (await getDocs(q)).docs.map((d) => d.id) } catch { /* offline and not cached */ }
       }
       const refs: Array<[DocumentReference, object, boolean]> = [
-        [doc(db, 'users', p.uid), p, true],
+        [doc(db, 'users', p.uid), own, true],
         ...groupIds.map((g) => [memberProfileRef(g, p.uid), shared, false] as [DocumentReference, object, boolean]),
       ]
       for (let i = 0; i < refs.length; i += BATCH_LIMIT) {
@@ -226,6 +246,13 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         for (const [r, data, merge] of refs.slice(i, i + BATCH_LIMIT)) batch.set(r, data, merge ? { merge: true } : {})
         fire(batch, 'Saving your profile')
       }
+      if (oldUpload?.startsWith(`avatars/${p.uid}/`)) deleteFileLater(oldUpload)
+    },
+    async uploadAvatar(userId, jpeg) {
+      if (!online()) throw new Error('You’re offline. Connect to change your photo.')
+      const r = ref(storage, `avatars/${userId}/${uid()}.jpg`)
+      await uploadBytes(r, jpeg, { contentType: 'image/jpeg', cacheControl: 'public, max-age=31536000' })
+      return getDownloadURL(r)
     },
     async getProfile(id) {
       const s = await getDoc(doc(db, 'users', id))

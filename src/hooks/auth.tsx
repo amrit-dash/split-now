@@ -31,6 +31,6 @@ export function useMe() {
   if (!user) throw new Error('useMe used outside auth gate')
   return {
     user,
-    profile: profile ?? { uid: user.uid, displayName: user.displayName, email: user.email, currency: defaultCurrency(), payment: {} },
+    profile: profile ?? { uid: user.uid, displayName: user.displayName, email: user.email, photoURL: user.photoURL, currency: defaultCurrency(), payment: {} },
   }
 }

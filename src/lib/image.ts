@@ -10,3 +10,33 @@ export async function downscale(file: Blob, max: number, quality = 0.85): Promis
   bitmap.close?.()
   return new Promise((res) => canvas.toBlob((b) => res(b ?? file), 'image/jpeg', quality))
 }
+
+/** The largest centred square inside a w×h image: source rect for a center crop. */
+export function centerSquare(w: number, h: number): { sx: number; sy: number; size: number } {
+  const size = Math.min(w, h)
+  return { sx: Math.round((w - size) / 2), sy: Math.round((h - size) / 2), size }
+}
+
+/** Center-crop and scale an image to a `size`×`size` JPEG (profile photos). */
+export async function squareJpeg(file: Blob, size = 256, quality = 0.85): Promise<Blob> {
+  const bitmap = await createImageBitmap(file)
+  const { sx, sy, size: s } = centerSquare(bitmap.width, bitmap.height)
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')!
+  ctx.imageSmoothingQuality = 'high'
+  ctx.drawImage(bitmap, sx, sy, s, s, 0, 0, size, size)
+  bitmap.close?.()
+  return new Promise((res, rej) => canvas.toBlob((b) => (b ? res(b) : rej(new Error('Couldn’t read that image'))), 'image/jpeg', quality))
+}
+
+/** Blob → data: URL (demo mode keeps profile photos in localStorage). */
+export function blobToDataUrl(b: Blob): Promise<string> {
+  return new Promise((res, rej) => {
+    const r = new FileReader()
+    r.onload = () => res(String(r.result))
+    r.onerror = () => rej(r.error ?? new Error('Couldn’t read that image'))
+    r.readAsDataURL(b)
+  })
+}
