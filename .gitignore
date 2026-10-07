@@ -37,3 +37,6 @@ Thumbs.db
 
 # Test
 coverage/
+
+# Claude Code agent worktrees
+.claude/worktrees/
