@@ -13,6 +13,8 @@ import { Avatar } from '@/components/Avatar'
 import { PageHeader } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
 import { appLocale } from '@/lib/locale'
+import { Select, currencyOptions } from '@/components/Select'
+import { IconPickerField } from '@/components/IconPicker'
 
 const EMOJIS = ['🏝️', '✈️', '🏠', '🍕', '🎉', '💞', '🏔️', '🚗', '🎿', '🏕️', '🍻', '🎓', '💼', '🌏']
 const TYPES: Array<{ value: GroupType; label: string }> = [
@@ -248,31 +250,23 @@ export default function ImportGroup() {
             <div className="card space-y-4 p-4">
               <div>
                 <label className="label">Import into</label>
-                <select className="input" value={into} onChange={(e) => setInto(e.target.value)} aria-label="Import into">
-                  <option value="new">A new group</option>
-                  {targets.map((g) => <option key={g.id} value={g.id}>{g.emoji} {g.name} ({g.currency})</option>)}
-                </select>
+                <Select aria-label="Import into" value={into} onChange={setInto} options={[
+                  { value: 'new', label: 'A new group', icon: <span className="text-lg">✨</span>, hint: 'Create it from this file' },
+                  ...targets.map((g) => ({ value: g.id, text: g.name, label: g.name, icon: <span className="text-lg">{g.emoji}</span>, hint: `${g.currency} · ${Object.keys(g.members).length} people` })),
+                ]} />
               </div>
               {!target && (
                 <>
-                  <div className="flex gap-3">
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-100 to-fuchsia-100 text-3xl dark:from-brand-900/50 dark:to-fuchsia-900/30">{emoji}</div>
-                    <div className="flex-1">
-                      <label className="label">Group name</label>
-                      <input className="input" placeholder="e.g. Goa 2026" value={name} onChange={(e) => setName(e.target.value)} aria-label="Group name" />
-                    </div>
-                  </div>
-                  <div className="flex gap-1.5 overflow-x-auto pb-1">
-                    {EMOJIS.map((e) => <button key={e} type="button" onClick={() => setEmoji(e)} className={`shrink-0 rounded-xl p-2 text-xl ${emoji === e ? 'bg-brand-100 ring-2 ring-brand-500 dark:bg-brand-900/40' : ''}`}>{e}</button>)}
-                  </div>
+                  <IconPickerField emoji={emoji} onChange={setEmoji} emojis={EMOJIS} idPrefix="import-icon">
+                    <label className="label" htmlFor="import-name">Group name</label>
+                    <input id="import-name" className="input" placeholder="e.g. Goa 2026" value={name} onChange={(e) => setName(e.target.value)} />
+                  </IconPickerField>
                   <div className="flex flex-wrap gap-2">
                     {TYPES.map((t) => <button key={t.value} type="button" onClick={() => setType(t.value)} className={`chip ${type === t.value ? 'chip-on' : ''}`}>{t.label}</button>)}
                   </div>
                   <div>
                     <label className="label">Currency</label>
-                    <select className="input" value={cur} onChange={(e) => setCurrency(e.target.value)} aria-label="Currency">
-                      {[...new Set([fileCurrency ?? cur, ...CURRENCIES, cur])].map((c) => <option key={c}>{c}</option>)}
-                    </select>
+                    <Select aria-label="Currency" value={cur} onChange={setCurrency} options={currencyOptions([fileCurrency ?? cur, ...CURRENCIES, cur])} />
                     {cur !== fileCurrency && <p className="mt-1.5 text-xs text-amber-600">The file is in {fileCurrency}. Amounts are kept as written, only the currency label changes.</p>}
                   </div>
                 </>
@@ -290,11 +284,13 @@ export default function ImportGroup() {
                   <div key={n} className="flex items-center gap-3">
                     <Avatar name={n} color={colorFor(i)} size={36} />
                     <div className="min-w-0 flex-1 truncate font-medium">{n}</div>
-                    <select className="input !w-44 !py-2 text-sm" aria-label={`Map ${n}`} value={mapping[n] ?? 'new'} onChange={(e) => setMapping((m) => ({ ...m, [n]: e.target.value }))}>
-                      <option value="me">Me ({profile.displayName})</option>
-                      <option value="new">{target ? 'New placeholder' : 'Placeholder'}</option>
-                      {target && Object.entries(target.members).filter(([, m]) => m.uid !== user.uid).map(([id, m]) => <option key={id} value={id}>{m.name}{m.uid ? '' : ' (placeholder)'}</option>)}
-                    </select>
+                    <div className="w-48 shrink-0">
+                      <Select size="sm" aria-label={`Map ${n}`} value={mapping[n] ?? 'new'} onChange={(v) => setMapping((m) => ({ ...m, [n]: v }))} options={[
+                        { value: 'me', label: 'Me', hint: profile.displayName },
+                        { value: 'new', label: target ? 'New placeholder' : 'Placeholder', hint: 'Can claim later via invite' },
+                        ...(target ? Object.entries(target.members).filter(([, m]) => m.uid !== user.uid).map(([id, m]) => ({ value: id, label: m.name, hint: m.uid ? 'Member' : 'Placeholder' })) : []),
+                      ]} />
+                    </div>
                   </div>
                 ))}
               </div>

@@ -15,6 +15,7 @@ import { Collapsible } from '@/components/Collapsible'
 import { IOSInstallSteps, useInstall } from '@/components/InstallBanner'
 import { PageHeader, Segmented } from '@/components/Misc'
 import { Sheet } from '@/components/Sheet'
+import { Select, currencyOptions } from '@/components/Select'
 import { useToast } from '@/components/Toast'
 import { AutoCapture } from '@/components/AutoCapture'
 import { NotificationSettings } from '@/components/NotificationSettings'
@@ -102,7 +103,7 @@ export default function Profile() {
       <div className="card mt-3 space-y-4 p-4">
         <div>
           <label className="label">Default currency</label>
-          <select className="input" value={currency} onChange={(e) => setCurrency(e.target.value)}>{CURRENCIES.map((c) => <option key={c}>{c}</option>)}</select>
+          <Select aria-label="Default currency" value={currency} onChange={setCurrency} options={currencyOptions(CURRENCIES)} />
         </div>
         <div>
           <div className="label">Appearance</div>

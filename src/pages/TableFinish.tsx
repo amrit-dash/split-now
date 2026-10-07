@@ -17,6 +17,7 @@ import { GroupIcon } from '@/components/GroupIcon'
 import { Loading } from '@/components/Misc'
 import { Sheet } from '@/components/Sheet'
 import { useToast } from '@/components/Toast'
+import { Select } from '@/components/Select'
 
 const NEW = '__new'
 const NONE = '__none'
@@ -138,11 +139,11 @@ function ToGroup({ table, group, ready }: { table: LiveTable; group: Group; read
         {people.map((p) => (
           <div key={p} className="flex items-center gap-2">
             <span className="min-w-0 flex-1 truncate font-medium">{table.participants[p].name}{p === table.hostUid && ' (paid)'}</span>
-            <select className="input !w-44 !py-2 text-sm" value={mapping[p]} disabled={p === table.hostUid && !!myMemberId(group, user.uid)}
-              onChange={(e) => setMapping({ ...mapping, [p]: e.target.value })} aria-label={`Group member for ${table.participants[p].name}`}>
-              {members.map((m) => <option key={m} value={m}>{group.members[m].name}</option>)}
-              <option value={NEW}>➕ Add as new member</option>
-            </select>
+            <div className="w-48 shrink-0">
+              <Select size="sm" value={mapping[p]} disabled={p === table.hostUid && !!myMemberId(group, user.uid)}
+                onChange={(v) => setMapping({ ...mapping, [p]: v })} aria-label={`Group member for ${table.participants[p].name}`}
+                options={[...members.map((m) => ({ value: m, label: group.members[m].name })), { value: NEW, label: 'Add as new member', icon: <span>➕</span> }]} />
+            </div>
           </div>
         ))}
       </div>
