@@ -1,11 +1,14 @@
 import { useState } from 'react'
-import { ArrowRight, Sparkles } from 'lucide-react'
+import { useLocation } from 'react-router-dom'
+import { ArrowRight, Sparkles, UserPlus } from 'lucide-react'
 import { repo } from '@/data'
 import { useToast } from '@/components/Toast'
 
 export default function Login() {
   const toast = useToast()
-  const [mode, setMode] = useState<'in' | 'up'>('in')
+  // Opened from an invite link? (App keeps the path and returns to it after sign-in.)
+  const invite = useLocation().pathname.match(/^\/join\/([A-Za-z0-9]+)/)?.[1]
+  const [mode, setMode] = useState<'in' | 'up'>(invite ? 'up' : 'in')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -27,6 +30,15 @@ export default function Login() {
         <h1 className="text-4xl font-extrabold tracking-tight">Split bills,<br />not friendships.</h1>
         <p className="mt-3 text-slate-300">Groups, smart splits, receipt scanning and one-tap settle-ups — beautifully simple.</p>
 
+        {invite && (
+          <div className="mt-6 flex gap-3 rounded-2xl bg-white/10 p-4 text-sm text-slate-200 ring-1 ring-white/15" data-testid="invite-banner">
+            <UserPlus className="mt-0.5 shrink-0 text-fuchsia-300" size={20} />
+            <div>
+              <b className="text-white">You’ve been invited to a group.</b> {demo ? 'Enter your name to continue' : 'Continue with Google or email (it takes a few seconds, no app to install)'}, then pick which person you are — you’ll land straight back on the invite.
+            </div>
+          </div>
+        )}
+
         <div className="mt-8 space-y-3">
           {demo ? (
             <>
@@ -35,7 +47,7 @@ export default function Login() {
               </div>
               <input className="input !bg-white/10 !text-white" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} />
               <button className="btn-primary w-full" disabled={busy} onClick={() => run(() => repo.signInDemo!(name.trim() || 'You'))}>
-                Start exploring <ArrowRight size={18} />
+                {invite ? 'Continue to the invite' : 'Start exploring'} <ArrowRight size={18} />
               </button>
             </>
           ) : (

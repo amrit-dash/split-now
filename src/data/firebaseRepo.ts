@@ -89,7 +89,8 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     if (!snap.exists()) {
       const batch = writeBatch(db)
       batch.set(r, {
-        uid: u.uid, displayName: u.displayName || u.email?.split('@')[0] || 'You', email: u.email ?? undefined,
+        // currentUser, not u: a sign-up's updateProfile may have set the name while getDoc ran.
+        uid: u.uid, displayName: (auth.currentUser?.uid === u.uid ? auth.currentUser.displayName : null) || u.displayName || u.email?.split('@')[0] || 'You', email: u.email ?? undefined,
         photoURL: u.photoURL ?? undefined, currency: 'AUD', payment: {},
       } satisfies UserProfile)
       fire(batch, 'Creating your profile')
@@ -137,6 +138,13 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       const cred = await createUserWithEmailAndPassword(auth, email, password)
       await updateProfile(cred.user, { displayName: name })
       await ensureProfile({ ...cred.user, displayName: name })
+      // onAuthStateChanged fires before updateProfile, so its ensureProfile may already have
+      // created the profile under the email prefix. Set the real name (shown on invites/joins).
+      if (name) {
+        const batch = writeBatch(db)
+        batch.set(doc(db, 'users', cred.user.uid), { uid: cred.user.uid, displayName: name }, { merge: true })
+        fire(batch, 'Saving your name')
+      }
     },
     async signOut() {
       // Give queued writes a moment to reach the server, then wipe this device's cache so the
@@ -428,6 +436,22 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       if (occurrences.length) batch.update(groupRef(template.groupId), { updatedAt: Date.now() })
       fire(batch, `Adding recurring “${template.description}”`)
       return Promise.resolve()
+    },
+
+    async bulkImport(groupId, expenses, settlements) {
+      const writes: Array<[DocumentReference, object]> = [
+        ...expenses.map((e) => [doc(db, 'groups', groupId, 'expenses', e.id), { ...e, groupId }] as [DocumentReference, object]),
+        ...settlements.map((st) => [doc(db, 'groups', groupId, 'settlements', st.id), { ...st, groupId }] as [DocumentReference, object]),
+      ]
+      // One slot per batch for the group's updatedAt bump. Batches go out in order, so they
+      // follow any createGroup/addMember batch fired just before (rules need the group first).
+      const size = BATCH_LIMIT - 1
+      for (let i = 0; i < writes.length; i += size) {
+        const batch = writeBatch(db)
+        for (const [r, data] of writes.slice(i, i + size)) batch.set(r, data)
+        batch.update(groupRef(groupId), { updatedAt: Date.now() })
+        fire(batch, `Importing (${Math.min(i + size, writes.length)} of ${writes.length})`)
+      }
     },
 
     watchComments(groupId, expenseId, cb) {

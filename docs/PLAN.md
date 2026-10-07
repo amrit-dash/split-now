@@ -44,6 +44,8 @@ Splitwise solved "who owes whom". Its weak points today are where Split It goes 
 - ✅ Create a group with a name, emoji, type (Trip, Home, Couple, Event, Other), currency and optional budget
 - ✅ Add members by name/email **before they sign up** (placeholder members)
 - ✅ Invite by link or code. The person who joins **claims** a placeholder member, so past expenses stay attached
+- ✅ Guest-friendly invites: opening `/join/CODE` signed out shows an invite banner on the sign-in screen (sign-up form first, Google one tap), and the app returns to the invite after sign-in (path kept in `sessionStorage`; Google redirect returns to the same URL). Email sign-ups now store the typed name, not the email prefix, so "join as …" shows the right name
+- ✅ **Switch from Splitwise in one tap** (`/groups/import`, entry points on Groups and New group): see §3.4b
 - ✅ Per-group "Simplify debts" toggle
 - ✅ Direct (1:1) expenses use a hidden 2-person group of type `direct` (non-group expenses with a friend)
 - ✅ Personal expenses use a hidden 1-person group of type `personal`
@@ -96,7 +98,17 @@ Splitwise solved "who owes whom". Its weak points today are where Split It goes 
 - ✅ Group budget burn-down
 - ✅ Totals: your share, total group spend, biggest category
 - ✅ CSV export per group (expenses + payments, one share column per member); shared via the native share sheet on mobile, downloaded elsewhere
+- ✅ CSV re-import of our own export (round-trip; same import screen, detected from the `Type`/`Paid by` columns)
 - ⏳ Year-in-review
+
+### 3.4b Import from Splitwise
+- ✅ Pure parser `src/lib/import-splitwise.ts` (unit-tested). Splitwise's *Export as spreadsheet* CSV is `Date,Description,Category,Cost,Currency,<one column per person>`, usually a blank line after the header, then a `Total balance` row per currency. Each person column is their **net** for the row (paid − share; + is owed, − owes). Payments have Category `Payment`.
+- ✅ Tolerant: BOM, quoted fields with commas/quotes/newlines, `,` `;` or tab delimiters, decimal commas, ISO / d/m/y / m/d/y (decided per column) / month-name dates, blank lines, duplicate names, translated headers (falls back to Splitwise's column order). Rows in other currencies, rows that move no balance, and unreadable rows are skipped with a note.
+- ✅ **Reconstruction.** Nets alone can't recover the original payer/share split, so each row is rebuilt to keep every net exactly: owers (net < 0) get a share of −net; creditors (net > 0) paid net + x with share x, where the x's add up to `cost − Σ positive nets`, spread in proportion to their nets (largest remainder). With one creditor that is "they paid the bill and had a share", which is how most Splitwise expenses were entered. If the cost is smaller than Σ positive nets, the amount is raised to that sum. Stored as `splitType: 'exact'`.
+- ✅ Balances after import are compared with Splitwise's `Total balance` row in the preview (✓ per person) and tested to match exactly.
+- ✅ Splitwise subcategories map to ours (Dining out → food, Taxi → transport, Hotel → stay, Plane → travel, TV/Phone/Internet → utilities…); "General"/unknown falls back to the description keyword guess, then `other`.
+- ✅ Preview → map each person to *me* / an existing member / a new placeholder → new group (name from the filename, emoji, type, currency) or an existing group → `repo.bulkImport` writes ≤450-write batches in order after `createGroup`/`addMember`. Imported docs carry `importedFrom: 'splitwise' | 'csv'`.
+- ⏳ Splitwise API import (OAuth) to bring comments, receipts and exact payer splits
 
 ### 3.7 PWA & UX
 - ✅ Installable: web manifest, service worker, icons, maskable icon, app shortcuts
@@ -170,6 +182,7 @@ groups/{groupId}/expenses/{expenseId}
   original?: { currency, amount, rate, rateDate, source: ecb|manual }   ← foreign-currency entry (§4.1a)
   recurrence?: { freq: weekly|fortnightly|monthly|yearly, nextDate, until? }   ← on a template
   recurringFrom?: templateId                                                  ← on a generated copy
+  importedFrom?: 'splitwise' | 'csv'                                          ← set by the import (also on settlements)
 
 groups/{groupId}/expenses/{expenseId}/comments/{commentId}
   text, authorUid, authorName, createdAt
@@ -238,7 +251,7 @@ A **member id** is stable and separate from a Firebase uid. A placeholder member
 | 0 | Repo, tooling, docs, Firebase config, rules, PWA shell | ✅ |
 | 1 | Auth, groups, members, invites, expenses (all split types), balances, simplify, settle-up | ✅ |
 | 2 | OCR receipts + payment screenshots, insights charts, install banner, debt graph | ✅ |
-| 3 | Recurring expenses ✅, CSV export ✅, comments ✅, push notifications, archive/leave group | 🟡 |
+| 3 | Recurring expenses ✅, CSV export ✅, comments ✅, Splitwise/CSV import ✅, push notifications, archive/leave group | 🟡 |
 | 4 | Multi-currency with FX ✅, server-side AI receipt parsing, Apple sign-in | 🟡 |
 
 ---

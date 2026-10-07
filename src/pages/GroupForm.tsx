@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Trash2, UserPlus, X } from 'lucide-react'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { FileUp, Trash2, UserPlus, X } from 'lucide-react'
 import { repo } from '@/data'
 import { diffMembers } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
@@ -130,6 +130,15 @@ export default function GroupForm() {
     <div>
       <PageHeader title={existing ? 'Edit group' : 'New group'} back />
       <div className="space-y-5">
+        {!existing && type !== 'personal' && type !== 'direct' && (
+          <Link to="/groups/import" className="card flex items-center gap-3 p-4">
+            <FileUp className="shrink-0 text-brand-600" size={22} />
+            <div className="min-w-0 flex-1">
+              <div className="font-semibold">Import from Splitwise</div>
+              <div className="text-xs text-slate-500">Bring a whole group over from its CSV export, balances and all.</div>
+            </div>
+          </Link>
+        )}
         <div className="card space-y-4 p-4">
           <div className="flex gap-3">
             <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-100 to-fuchsia-100 text-3xl dark:from-brand-900/50 dark:to-fuchsia-900/30">{emoji}</div>

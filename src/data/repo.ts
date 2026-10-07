@@ -99,6 +99,13 @@ export interface Repo {
    */
   saveRecurringOccurrences(template: Expense, occurrences: Expense[]): Promise<void>
 
+  /**
+   * Bulk import (Splitwise / CSV): writes many expenses and settlements into a group the
+   * user is a member of, in ≤450-write batches committed in order. Like other saves it
+   * resolves once applied locally; rejections arrive through onError.
+   */
+  bulkImport(groupId: string, expenses: Expense[], settlements: Settlement[]): Promise<void>
+
   watchComments(groupId: string, expenseId: string, cb: (c: ExpenseComment[]) => void): Unsub
   addComment(groupId: string, expenseId: string, c: Omit<ExpenseComment, 'id'>): Promise<void>
   deleteComment(groupId: string, expenseId: string, id: string): Promise<void>
