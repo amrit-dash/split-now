@@ -1,3 +1,5 @@
+import { syncThemeColor } from './accent'
+
 export type Theme = 'system' | 'light' | 'dark'
 const KEY = 'splitit-theme'
 
@@ -9,7 +11,7 @@ export function applyTheme(t: Theme) {
   try { localStorage.setItem(KEY, t) } catch { /* ignore */ }
   const dark = t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
   document.documentElement.classList.toggle('dark', dark)
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0b0a14' : '#6d28d9')
+  syncThemeColor(dark)
 }
 
 if (typeof window !== 'undefined') {

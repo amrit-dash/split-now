@@ -216,7 +216,7 @@ function BudgetBar({ spent, budget, currency }: { spent: number; budget: number;
         <span className={over ? 'neg' : ''}>{over ? `${formatMoney(spent - budget, currency)} over` : `${formatMoney(budget - spent, currency)} left`}</span>
       </div>
       <div className="h-2.5 overflow-hidden rounded-full bg-slate-100 dark:bg-ink-800">
-        <div className={`h-full rounded-full ${over ? 'bg-rose-500' : pct > 80 ? 'bg-amber-500' : 'bg-gradient-to-r from-brand-500 to-fuchsia-500'}`} style={{ width: `${pct}%` }} />
+        <div className={`h-full rounded-full ${over ? 'bg-rose-500' : pct > 80 ? 'bg-amber-500' : 'bg-gradient-to-r from-brand-500 to-duo-500'}`} style={{ width: `${pct}%` }} />
       </div>
     </div>
   )

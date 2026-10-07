@@ -57,7 +57,7 @@ export default function Join() {
   return (
     <div className="mx-auto min-h-dvh max-w-md px-4 pt-[calc(env(safe-area-inset-top)+4rem)]">
       <div className="text-center">
-        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-100 to-fuchsia-100 text-5xl dark:from-brand-900/50 dark:to-fuchsia-900/30">{invite.emoji}</div>
+        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-100 to-duo-100 text-5xl dark:from-brand-900/50 dark:to-duo-900/30">{invite.emoji}</div>
         <h1 className="mt-4 text-2xl font-extrabold">Join {invite.groupName}</h1>
         <p className="mt-1 text-sm text-slate-500">Which one is you? Expenses already logged for that person become yours.</p>
       </div>

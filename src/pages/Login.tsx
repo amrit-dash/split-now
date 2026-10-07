@@ -23,7 +23,7 @@ export default function Login() {
   return (
     <div className="relative flex min-h-dvh flex-col overflow-hidden bg-ink-950 text-white">
       <div className="pointer-events-none absolute -left-32 -top-32 h-96 w-96 rounded-full bg-brand-600/40 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-40 -right-20 h-96 w-96 rounded-full bg-fuchsia-600/30 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-40 -right-20 h-96 w-96 rounded-full bg-duo-600/30 blur-3xl" />
 
       <div className="relative mx-auto flex w-full max-w-md flex-1 flex-col justify-center-safe px-6 pb-12 pt-[max(3rem,env(safe-area-inset-top))]">
         <div className="flex items-center gap-4">
@@ -34,7 +34,7 @@ export default function Login() {
 
         {invite && (
           <div className="mt-6 flex gap-3 rounded-2xl bg-white/10 p-4 text-sm text-slate-200 ring-1 ring-white/15" data-testid="invite-banner">
-            <UserPlus className="mt-0.5 shrink-0 text-fuchsia-300" size={20} />
+            <UserPlus className="mt-0.5 shrink-0 text-duo-300" size={20} />
             <div>
               <b className="text-white">You’ve been invited to a group.</b> {demo ? 'Enter your name to continue' : 'Continue with Google or email (it takes a few seconds, no app to install)'}, then pick which person you are — you’ll land straight back on the invite.
             </div>

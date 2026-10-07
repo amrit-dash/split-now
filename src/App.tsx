@@ -129,7 +129,7 @@ function TableRoutes() {
 
 function Splash() {
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-gradient-to-br from-brand-700 to-fuchsia-700">
+    <div className="flex min-h-dvh items-center justify-center bg-gradient-to-br from-brand-700 to-duo-700">
       <img src="/pwa-192.png" alt="Split Now" className="animate-pop h-20 w-20 rounded-3xl shadow-2xl" />
     </div>
   )

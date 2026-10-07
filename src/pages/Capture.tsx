@@ -132,7 +132,7 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
   return (
     <Shell>
       <div className="card p-5 text-center">
-        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-500 to-fuchsia-500 text-2xl text-white shadow-lg">💳</div>
+        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-500 to-duo-500 text-2xl text-white shadow-lg">💳</div>
         <div className="text-lg font-bold leading-snug">
           You spent <span className="tabular-nums">{formatMoney(c.amount, cur)}</span> at {c.merchant} — is this a group expense?
         </div>

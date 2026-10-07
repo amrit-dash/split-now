@@ -25,7 +25,7 @@ export function Layout() {
               <button
                 key={i}
                 onClick={() => nav(groupMatch ? `/add?group=${groupMatch[1]}` : '/add')}
-                className="-mt-8 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-fuchsia-600 text-white shadow-xl shadow-brand-600/40 transition active:scale-95"
+                className="-mt-8 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-duo-600 text-white shadow-xl shadow-brand-600/40 transition active:scale-95"
                 aria-label="Add expense"
               >
                 <Plus size={30} strokeWidth={2.5} />

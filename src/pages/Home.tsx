@@ -87,7 +87,7 @@ export default function Home() {
             <Inbox size={22} />
             {inbox > 0 && <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[11px] font-bold text-white">{inbox > 99 ? '99+' : inbox}</span>}
           </Link>
-          <Link to="/profile" aria-label="Profile"><Avatar name={profile.displayName} photoURL={profile.photoURL} color="#7c3aed" size={44} /></Link>
+          <Link to="/profile" aria-label="Profile"><Avatar name={profile.displayName} photoURL={profile.photoURL} color="accent" size={44} /></Link>
         </div>
       </div>
 
@@ -120,7 +120,7 @@ export default function Home() {
         </div>
       )}
 
-      <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-brand-600 via-violet-600 to-fuchsia-600 p-6 text-white shadow-xl shadow-brand-600/30">
+      <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-brand-600 via-brand-vivid to-duo-600 p-6 text-white shadow-xl shadow-brand-600/30">
         <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10" />
         <div className="absolute -bottom-16 right-10 h-32 w-32 rounded-full bg-white/10" />
         <div className="relative">
