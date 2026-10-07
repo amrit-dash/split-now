@@ -85,6 +85,12 @@ function friendly(e: unknown) {
   if (code.includes('invalid-credential') || code.includes('wrong-password')) return 'Email or password is incorrect'
   if (code.includes('email-already-in-use')) return 'That email already has an account'
   if (code.includes('popup-closed')) return 'Sign-in cancelled'
+  if (code.includes('password-does-not-meet-requirements')) {
+    // Firebase lists the unmet rules in brackets, e.g. "[Password must contain an upper case character]".
+    const rules = (e as Error).message?.match(/\[(.*)\]/)?.[1]
+    return rules ? rules.replace(/, /g, ' · ') : 'Password is too weak'
+  }
+  if (code.includes('weak-password')) return 'Use at least 6 characters'
   return (e as Error).message ?? 'Something went wrong'
 }
 
