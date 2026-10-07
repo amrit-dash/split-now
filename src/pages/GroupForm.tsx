@@ -195,6 +195,14 @@ export default function GroupForm() {
                 <input type="date" className="input" aria-label="End date" value={endDate} min={startDate || undefined} onChange={(e) => setEndDate(e.target.value)} />
               </div>
               <p className="mt-1.5 text-xs text-slate-500">While it’s on, new expenses and captured payments default to this group.</p>
+              {(startDate || endDate) && (
+                <p className="mt-1 text-xs text-slate-500">
+                  📩 Tip: forward bank &amp; UPI debit SMS to this trip with{' '}
+                  {existing
+                    ? <Link to={`/settings/auto-capture?group=${existing.id}`} className="font-semibold text-brand-600 dark:text-brand-300">SMS auto-capture</Link>
+                    : <b>SMS auto-capture</b>}{existing ? '' : ' (on the group page after saving)'}.
+                </p>
+              )}
             </div>
           )}
           {type !== 'personal' && (

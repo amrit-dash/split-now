@@ -41,7 +41,9 @@ service cloud.firestore {
       allow create: if signedIn()
         && token.size() >= 24
         && request.resource.data.uid == uid()
-        && request.resource.data.keys().hasOnly(['uid', 'createdAt']);
+        && request.resource.data.keys().hasOnly(['uid', 'createdAt', 'groupId', 'label'])
+        && (!('groupId' in request.resource.data) || (request.resource.data.groupId is string && request.resource.data.groupId.size() <= 64))
+        && (!('label' in request.resource.data) || (request.resource.data.label is string && request.resource.data.label.size() <= 60));
       allow update: if false;
     }
 

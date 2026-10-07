@@ -145,7 +145,11 @@ export interface Repo {
 
   /** Capture tokens let signed-out automations (iOS Shortcuts) drop transactions into captureInbox. */
   watchCaptureTokens(uid: string, cb: (t: CaptureToken[]) => void): Unsub
-  createCaptureToken(uid: string): Promise<string>
+  /**
+   * Optional `groupId` scopes the token to one trip (the webhook then only accepts messages
+   * dated inside that group's trip window); `label` is a display name for the key list.
+   */
+  createCaptureToken(uid: string, opts?: CaptureTokenOpts): Promise<string>
   revokeCaptureToken(token: string): Promise<void>
   /** Signed-out write of one transaction into captureInbox, authorised only by the token. */
   submitToInbox(doc: InboxDoc, id?: string): Promise<void>
@@ -185,6 +189,14 @@ export interface CaptureToken {
   token: string
   uid: string
   createdAt: number
+  /** scoped to one trip (see docs/AUTO_CAPTURE.md) */
+  groupId?: string
+  label?: string
+}
+
+export interface CaptureTokenOpts {
+  groupId?: string
+  label?: string
 }
 
 export function placeholdersOf(g: Pick<Group, 'members'>): Record<MemberId, string> {

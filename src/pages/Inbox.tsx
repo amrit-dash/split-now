@@ -4,7 +4,7 @@ import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { useCaptures, useGroups } from '@/hooks/data'
 import type { Capture } from '@/types'
-import { SOURCE_LABEL, rankGroupsForCapture } from '@/lib/capture'
+import { SOURCE_LABEL, isSmsSource, rankGroupsForCapture } from '@/lib/capture'
 import { formatMoney } from '@/lib/money'
 import { Empty, LiveBadge, Loading, PageHeader } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
@@ -31,7 +31,7 @@ export default function Inbox() {
       <PageHeader title="Inbox" subtitle="Payments captured from your phone" back />
       {pending.length === 0 ? (
         <Empty emoji="📭" title="Nothing to sort">
-          Payments captured by Apple Pay Shortcuts, Android automations or the share sheet show up here.
+          Payments captured from bank &amp; UPI SMS, Apple Pay Shortcuts or the share sheet show up here.
         </Empty>
       ) : (
         <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
@@ -40,11 +40,14 @@ export default function Inbox() {
             return (
               <div key={c.id} className="flex items-center gap-3 px-4 py-3">
                 <Link to={`/capture/${c.id}`} className="flex min-w-0 flex-1 items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-xl dark:bg-ink-800">💳</div>
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-xl dark:bg-ink-800">{isSmsSource(c.source) ? '📩' : '💳'}</div>
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-semibold">{c.merchant}</div>
                     <div className="flex items-center gap-1.5 truncate text-xs text-slate-500">
-                      {new Date(c.date + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} · {SOURCE_LABEL[c.source] ?? c.source}
+                      {new Date(c.date + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} ·{' '}
+                      {isSmsSource(c.source)
+                        ? <span className="rounded-full bg-sky-100 px-1.5 py-px text-[10px] font-bold text-sky-700 dark:bg-sky-500/15 dark:text-sky-300" data-testid="source-badge">{SOURCE_LABEL[c.source]}</span>
+                        : SOURCE_LABEL[c.source] ?? c.source}
                       {best && <LiveBadge className="!px-1.5" />}
                     </div>
                   </div>
@@ -78,11 +81,11 @@ export default function Inbox() {
         </section>
       )}
 
-      <Link to="/profile#auto-capture" className="card mt-6 flex items-center gap-3 p-4">
+      <Link to="/settings/auto-capture" className="card mt-6 flex items-center gap-3 p-4">
         <BookOpen size={20} className="text-brand-600 dark:text-brand-300" />
         <div className="flex-1">
           <div className="font-semibold">Set up auto-capture</div>
-          <div className="text-xs text-slate-500">Apple Pay Shortcut, Android automation or share sheet</div>
+          <div className="text-xs text-slate-500">Forward bank &amp; UPI debit SMS from iPhone or Android</div>
         </div>
         <ChevronRight size={18} className="text-slate-300 dark:text-slate-600" />
       </Link>

@@ -23,9 +23,10 @@ export interface CaptureDraft {
 /** `token`/`owner` come from `t` and `u`, used only by the signed-out fallback (writes to captureInbox). */
 export type CaptureParse = { ok: true; draft: CaptureDraft; token?: string; owner?: string } | { ok: false; error: string }
 
-export const CAPTURE_SOURCES = ['ios-shortcut', 'android-auto', 'share', 'email', 'manual'] as const
+export const CAPTURE_SOURCES = ['sms-ios', 'sms-android', 'ios-shortcut', 'android-auto', 'share', 'email', 'manual'] as const
 
 export const SOURCE_LABEL: Record<string, string> = {
+  'sms-ios': 'iPhone SMS', 'sms-android': 'Android SMS',
   'ios-shortcut': 'Apple Pay', 'android-auto': 'Android', share: 'Shared', email: 'Email', manual: 'Link',
 }
 
@@ -33,7 +34,11 @@ export const SOURCE_LABEL: Record<string, string> = {
 const SOURCE_ALIASES: Record<string, string> = {
   applepay: 'ios-shortcut', 'apple-pay': 'ios-shortcut', ios: 'ios-shortcut', shortcut: 'ios-shortcut', shortcuts: 'ios-shortcut',
   android: 'android-auto', tasker: 'android-auto', macrodroid: 'android-auto', automate: 'android-auto',
+  'ios-sms': 'sms-ios', 'android-sms': 'sms-android',
 }
+
+/** Sources that came from a bank/UPI SMS forwarded by the webhook. */
+export const isSmsSource = (source: string) => source === 'sms-ios' || source === 'sms-android'
 
 export function normaliseSource(raw: string | null | undefined): string {
   const s = (raw ?? '').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 20)

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { BarChart3, Bell, Copy, Download, HandCoins, Link2, Repeat, Search, Settings, Share2, Trash2, X } from 'lucide-react'
+import { BarChart3, Bell, ChevronRight, Copy, Download, HandCoins, Link2, MessageSquareText, Repeat, Search, Settings, Share2, Trash2, X } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
 import { computeGroupData, useActivity, useExpenses, useGroup, useSettlements, useTrash } from '@/hooks/data'
 import type { Category, Expense, Group, Settlement } from '@/types'
@@ -121,6 +121,17 @@ export default function GroupDetail() {
           </div>
         )}
       </div>
+
+      {!personal && hasTripWindow(group) && (
+        <Link to={`/settings/auto-capture?group=${group.id}`} className="card mb-4 flex items-center gap-3 p-4" data-testid="trip-auto-capture">
+          <MessageSquareText size={22} className="shrink-0 text-brand-600 dark:text-brand-300" />
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold">Trip auto-capture</div>
+            <div className="text-xs text-slate-500">Debit SMS from {formatRange(group.startDate, group.endDate)} ask “add to {group.name}?”. Set up for this trip →</div>
+          </div>
+          <ChevronRight size={18} className="shrink-0 text-slate-300 dark:text-slate-600" />
+        </Link>
+      )}
 
       {!personal && (
         <div className="mb-4">

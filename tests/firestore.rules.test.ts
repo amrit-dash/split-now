@@ -224,6 +224,12 @@ describe('capture tokens and inbox', () => {
     await assertFails(setDoc(doc(db('bob'), 'captureTokens/short'), { uid: 'bob', createdAt: 1 }))
     await assertFails(setDoc(doc(db(), 'captureTokens/dddddddddddddddddddddddddddd'), { uid: 'bob', createdAt: 1 }))
   })
+  it('tokens may be scoped to a trip with a label, but nothing else', async () => {
+    await assertSucceeds(setDoc(doc(db('bob'), 'captureTokens/eeeeeeeeeeeeeeeeeeeeeeeeeeee'), { uid: 'bob', createdAt: 1, groupId: 'g1', label: 'Goa trip' }))
+    await assertFails(setDoc(doc(db('bob'), 'captureTokens/ffffffffffffffffffffffffffff'), { uid: 'bob', createdAt: 1, groupId: 5 }))
+    await assertFails(setDoc(doc(db('bob'), 'captureTokens/gggggggggggggggggggggggggggg'), { uid: 'bob', createdAt: 1, label: 'x'.repeat(61) }))
+    await assertFails(setDoc(doc(db('bob'), 'captureTokens/hhhhhhhhhhhhhhhhhhhhhhhhhhhh'), { uid: 'bob', createdAt: 1, admin: true }))
+  })
   it('only the owner can see or revoke a token', async () => {
     await assertSucceeds(getDoc(doc(db('alice'), `captureTokens/${TOKEN}`)))
     await assertSucceeds(getDocs(query(collection(db('alice'), 'captureTokens'), where('uid', '==', 'alice'))))
