@@ -5,15 +5,16 @@ import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { computeGroupData, memberOrder, useExpenses, useGroup, useSettlements } from '@/hooks/data'
 import { useOcr } from '@/hooks/useOcr'
-import type { MemberId, UserProfile } from '@/types'
-import { centsToInput, formatMoney, parseMoney } from '@/lib/money'
+import type { MemberId } from '@/types'
+import type { MemberProfile } from '@/data/repo'
+import { centsToInput, formatMoney, fromHundredths, parseMoney } from '@/lib/money'
 import { payOptions } from '@/lib/payments'
 import { matchMember, parsePaymentScreenshot, type ParsedPayment } from '@/lib/ocr-parse'
 import { pending } from '@/lib/pending'
 import { copy } from '@/lib/share'
 import { todayISO, uid } from '@/lib/id'
 import { Avatar } from '@/components/Avatar'
-import { Loading, PageHeader, Spinner } from '@/components/Misc'
+import { Empty, Loading, PageHeader, Spinner } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
 
 const METHODS = ['PayID', 'Bank transfer', 'Cash', 'PayPal', 'UPI', 'Revolut', 'Other']
@@ -37,13 +38,14 @@ export default function SettleUp() {
   const [method, setMethod] = useState('PayID')
   const [note, setNote] = useState('')
   const [date, setDate] = useState(todayISO())
-  const [payee, setPayee] = useState<UserProfile | null>(null)
+  const [payee, setPayee] = useState<MemberProfile | null>(null)
   const [busy, setBusy] = useState(false)
   const [init, setInit] = useState(false)
 
-  const applyPayment = (p: ParsedPayment) => {
+  const applyPayment = (parsed: ParsedPayment) => {
     if (!d) return
-    if (p.amount) setAmountStr(centsToInput(p.amount))
+    const p = { ...parsed, amount: parsed.amount && fromHundredths(parsed.amount, d.group.currency) }
+    if (p.amount) setAmountStr(centsToInput(p.amount, d.group.currency))
     if (p.method && METHODS.includes(p.method)) setMethod(p.method)
     if (p.date) setDate(p.date)
     const members = Object.entries(d.group.members).map(([id, m]) => ({ id, name: m.name }))
@@ -58,10 +60,10 @@ export default function SettleUp() {
     const qf = params.get('from'), qt = params.get('to'), qa = params.get('amount')
     if (qf && qt) {
       setFrom(qf); setTo(qt)
-      if (qa) setAmountStr(centsToInput(Number(qa)))
+      if (qa) setAmountStr(centsToInput(Number(qa), d.group.currency))
     } else {
       const mine = d.debts.find((x) => x.from === d.me) ?? d.debts.find((x) => x.to === d.me) ?? d.debts[0]
-      if (mine) { setFrom(mine.from); setTo(mine.to); setAmountStr(centsToInput(mine.amount)) }
+      if (mine) { setFrom(mine.from); setTo(mine.to); setAmountStr(centsToInput(mine.amount, d.group.currency)) }
       else { const o = memberOrder(d.group); setFrom(d.me ?? o[0]); setTo(o.find((x) => x !== d.me) ?? o[0]) }
     }
     if (pending.payment) { applyPayment(pending.payment.parsed); pending.payment = undefined }
@@ -71,13 +73,15 @@ export default function SettleUp() {
   const toUid = group?.members[to]?.uid
   useEffect(() => {
     setPayee(null)
-    if (toUid) repo.getProfile(toUid).then(setPayee).catch(() => {})
-  }, [toUid])
+    // Payment handles are shared per group (only co-members can read them).
+    if (toUid && groupId) repo.getMemberProfile(groupId, toUid).then(setPayee).catch(() => {})
+  }, [toUid, groupId])
 
+  if (group === null) return <><PageHeader title="Settle up" back /><Empty emoji="🔍" title="This group doesn’t exist or you’re not a member" /></>
   if (!d || !group) return <Loading />
   const cur = group.currency
   const order = memberOrder(group)
-  const amount = parseMoney(amountStr)
+  const amount = parseMoney(amountStr, cur)
   const name = (id: MemberId) => (id === d.me ? 'You' : group.members[id]?.name ?? '')
   const owed = d.debts.find((x) => x.from === from && x.to === to)?.amount
   const options = payOptions(payee?.payment, Number.isFinite(amount) ? amount : 0, cur, `Split It: ${group.name}`)
@@ -108,7 +112,7 @@ export default function SettleUp() {
           <span className="text-2xl font-bold text-slate-400">{cur}</span>
           <input className="w-48 bg-transparent text-center text-5xl font-extrabold tabular-nums outline-none" inputMode="decimal" placeholder="0.00" value={amountStr} onChange={(e) => setAmountStr(e.target.value)} />
         </div>
-        {owed !== undefined && <div className="mt-1 text-center text-sm text-slate-500">{name(from)} owe{from === d.me ? '' : 's'} {name(to)} {formatMoney(owed, cur)} <button className="font-semibold text-brand-600" onClick={() => setAmountStr(centsToInput(owed))}>Use</button></div>}
+        {owed !== undefined && <div className="mt-1 text-center text-sm text-slate-500">{name(from)} owe{from === d.me ? '' : 's'} {name(to)} {formatMoney(owed, cur)} <button className="font-semibold text-brand-600" onClick={() => setAmountStr(centsToInput(owed, cur))}>Use</button></div>}
 
         <button className="btn-secondary mt-4 w-full !min-h-0 !py-2.5 text-sm" onClick={() => fileRef.current?.click()} disabled={ocr.busy}>
           {ocr.busy ? <><Spinner className="!h-4 !w-4" /> Reading {Math.round(ocr.progress * 100)}%</> : <><Camera size={16} /> Read from payment screenshot</>}

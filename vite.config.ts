@@ -5,6 +5,7 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'node:path'
 import pkg from './package.json' with { type: 'json' }
+import { tesseractAssets } from './scripts/vite-tesseract'
 
 export default defineConfig({
   define: { __APP_VERSION__: JSON.stringify(pkg.version) },
@@ -12,6 +13,7 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    tesseractAssets(),
     VitePWA({
       registerType: 'prompt',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
@@ -50,6 +52,14 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         navigateFallback: '/index.html',
+        // Firebase Auth's redirect handler (/__/auth/*) must reach the network, not the SPA shell.
+        navigateFallbackDenylist: [/^\/__\//],
+        // OCR files are big; cache them on first use instead of precaching.
+        globIgnores: ['tesseract/**'],
+        runtimeCaching: [
+          { urlPattern: /\/tesseract\/[^/]+\.js$/, handler: 'CacheFirst', options: { cacheName: 'tesseract', expiration: { maxEntries: 8 } } },
+          { urlPattern: /^https:\/\/cdn\.jsdelivr\.net\/npm\/@tesseract\.js-data\//, handler: 'CacheFirst', options: { cacheName: 'tesseract-lang', cacheableResponse: { statuses: [0, 200] }, expiration: { maxEntries: 4 } } },
+        ],
       },
     }),
   ],

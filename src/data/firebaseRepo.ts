@@ -1,17 +1,28 @@
 import { initializeApp, type FirebaseOptions } from 'firebase/app'
 import {
-  GoogleAuthProvider, connectAuthEmulator, createUserWithEmailAndPassword, getAuth, onAuthStateChanged,
+  GoogleAuthProvider, connectAuthEmulator, createUserWithEmailAndPassword, getAuth, getRedirectResult, onAuthStateChanged,
   signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, signOut, updateProfile,
 } from 'firebase/auth'
 import {
-  addDoc, arrayUnion, collection, connectFirestoreEmulator, deleteDoc, deleteField, doc, getDoc, getDocs, initializeFirestore,
-  onSnapshot, persistentLocalCache, persistentMultipleTabManager, query, setDoc, updateDoc, where, writeBatch,
+  arrayRemove, arrayUnion, clearIndexedDbPersistence, collection, connectFirestoreEmulator, deleteField, doc, getDoc,
+  getDocFromCache, getDocs, getDocsFromCache, initializeFirestore, onSnapshot, persistentLocalCache,
+  persistentMultipleTabManager, query, setDoc, terminate, waitForPendingWrites, where, writeBatch,
+  type DocumentReference, type FirestoreError, type WriteBatch,
 } from 'firebase/firestore'
-import { connectStorageEmulator, getDownloadURL, getStorage, ref, uploadBytes } from 'firebase/storage'
+import { connectStorageEmulator, deleteObject, getDownloadURL, getStorage, ref, uploadBytes } from 'firebase/storage'
 import type { Capture, Expense, ExpenseComment, Group, Settlement, UserProfile } from '@/types'
 import { inviteCode, todayISO, uid } from '@/lib/id'
 import { inboxToDraft, newCaptureToken, type InboxDoc } from '@/lib/capture'
-import { byCreatedDesc, byDateDesc, compact, draftToCapture, placeholdersOf, type CaptureToken, type InviteInfo, type Repo } from './repo'
+import { downscale } from '@/lib/image'
+import {
+  byCreatedDesc, byDateDesc, changedSettings, compact, draftToCapture, errorChannel, placeholdersOf, storagePathFromUrl,
+  type CaptureToken, type GroupSettings, type InviteInfo, type MemberProfile, type Repo,
+} from './repo'
+
+/** Firestore allows 500 writes per batch; leave headroom. */
+const BATCH_LIMIT = 450
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
+const online = () => typeof navigator === 'undefined' || navigator.onLine !== false
 
 export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolean): Repo {
   const app = initializeApp(config)
@@ -21,32 +32,89 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
   })
   const storage = getStorage(app)
+  // Give up on a receipt upload after a minute instead of retrying for 10 minutes.
+  storage.maxUploadRetryTime = 60_000
   if (useEmulators) {
     connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true })
     connectFirestoreEmulator(db, '127.0.0.1', 8080)
     connectStorageEmulator(storage, '127.0.0.1', 9199)
   }
 
+  const errors = errorChannel()
+
+  // Surface failures from a Google sign-in redirect (installed iOS PWAs use redirect).
+  getRedirectResult(auth).catch((e) => errors.emit('read', e, 'Google sign-in failed'))
+
   const groupRef = (id: string) => doc(db, 'groups', id)
+  const inviteRef = (code: string) => doc(db, 'invites', code)
   const commentsCol = (groupId: string, expenseId: string) => collection(db, 'groups', groupId, 'expenses', expenseId, 'comments')
-  const syncInvite = (g: Group) =>
-    setDoc(doc(db, 'invites', g.inviteCode), {
-      groupId: g.id, groupName: g.name, emoji: g.emoji, placeholders: placeholdersOf(g), createdBy: g.createdBy,
-    } satisfies InviteInfo & { createdBy: string })
+  const captureRef = (userId: string, id: string) => doc(db, 'users', userId, 'captures', id)
+  const memberProfileRef = (groupId: string, userId: string) => doc(db, 'groups', groupId, 'profiles', userId)
+  const inviteDoc = (g: Group): InviteInfo => ({ groupId: g.id, groupName: g.name, emoji: g.emoji, placeholders: placeholdersOf(g) })
+
+  /**
+   * Commit without waiting for the server. Firestore applies the batch to the local cache
+   * synchronously, so listeners update immediately and the UI can move on even offline.
+   * Server rejections are reported through onError.
+   */
+  const fire = (batch: WriteBatch, context: string) => {
+    batch.commit().catch((e) => errors.emit('write', e, context))
+  }
+  const listenError = (context: string, fallback: () => void) => (e: FirestoreError) => {
+    fallback()
+    // Losing access to a single group (removed / deleted) is shown by the screen, not a toast.
+    if (e.code !== 'permission-denied') errors.emit('read', e, context)
+  }
+  const deleteFileLater = (path: string | undefined) => {
+    if (path && online()) deleteObject(ref(storage, path)).catch((e) => console.warn('Receipt cleanup failed', e))
+  }
+
+  /** The signed-in user's shareable profile, from cache (the auth provider keeps it warm). */
+  async function myMemberProfile(): Promise<MemberProfile | null> {
+    const u = auth.currentUser
+    if (!u) return null
+    try {
+      const s = await getDocFromCache(doc(db, 'users', u.uid))
+      if (s.exists()) {
+        const p = s.data() as UserProfile
+        return { displayName: p.displayName, payment: p.payment ?? {} }
+      }
+    } catch { /* not cached */ }
+    return { displayName: u.displayName || u.email?.split('@')[0] || 'You', payment: {} }
+  }
 
   async function ensureProfile(u: { uid: string; displayName: string | null; email: string | null; photoURL: string | null }) {
     const r = doc(db, 'users', u.uid)
     const snap = await getDoc(r)
     if (!snap.exists()) {
-      await setDoc(r, {
+      const batch = writeBatch(db)
+      batch.set(r, {
         uid: u.uid, displayName: u.displayName || u.email?.split('@')[0] || 'You', email: u.email ?? undefined,
         photoURL: u.photoURL ?? undefined, currency: 'AUD', payment: {},
       } satisfies UserProfile)
+      fire(batch, 'Creating your profile')
     }
   }
 
-  return {
+  async function uniqueInviteCode(): Promise<string> {
+    // 8 chars from a 31-symbol alphabet makes collisions vanishingly rare; when online we also
+    // check (briefly) that the code is free. Offline we skip the check rather than block.
+    for (let i = 0; i < 3; i++) {
+      const code = inviteCode()
+      if (!online()) return code
+      try {
+        const taken = await Promise.race([getDoc(inviteRef(code)).then((s) => s.exists()), sleep(1500).then(() => false)])
+        if (!taken) return code
+      } catch {
+        return code
+      }
+    }
+    return inviteCode()
+  }
+
+  const repo: Repo = {
     mode: 'firebase',
+    onError: errors.on,
 
     onAuth(cb) {
       return onAuthStateChanged(auth, (u) => {
@@ -57,7 +125,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     },
     async signInWithGoogle() {
       const provider = new GoogleAuthProvider()
-      // Popups are unreliable in installed iOS PWAs; use redirect there.
+      // Popups are unreliable in installed iOS PWAs; use redirect there (result handled at startup).
       const standalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone
       if (standalone) await signInWithRedirect(auth, provider)
       else await signInWithPopup(auth, provider)
@@ -70,172 +138,381 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       await updateProfile(cred.user, { displayName: name })
       await ensureProfile({ ...cred.user, displayName: name })
     },
-    signOut: () => signOut(auth),
+    async signOut() {
+      // Give queued writes a moment to reach the server, then wipe this device's cache so the
+      // next person on this browser can't read the previous user's data.
+      if (online()) await Promise.race([waitForPendingWrites(db).catch(() => {}), sleep(3000)])
+      await signOut(auth)
+      try {
+        await terminate(db)
+        await clearIndexedDbPersistence(db)
+      } catch (e) {
+        console.warn('Could not clear offline cache (another tab may be open)', e)
+      }
+      location.reload()
+    },
 
     watchProfile(id, cb) {
-      return onSnapshot(doc(db, 'users', id), (s) => cb(s.exists() ? (s.data() as UserProfile) : null))
+      return onSnapshot(doc(db, 'users', id), (s) => cb(s.exists() ? (s.data() as UserProfile) : null), listenError('Loading your profile', () => cb(null)))
     },
-    saveProfile: (p) => setDoc(doc(db, 'users', p.uid), p, { merge: true }),
+    async saveProfile(p) {
+      const shared: MemberProfile = { displayName: p.displayName, payment: p.payment ?? {} }
+      let groupIds: string[] = []
+      const q = query(collection(db, 'groups'), where('memberUids', 'array-contains', p.uid))
+      try {
+        groupIds = (await getDocsFromCache(q)).docs.map((d) => d.id)
+      } catch {
+        try { groupIds = (await getDocs(q)).docs.map((d) => d.id) } catch { /* offline and not cached */ }
+      }
+      const refs: Array<[DocumentReference, object, boolean]> = [
+        [doc(db, 'users', p.uid), p, true],
+        ...groupIds.map((g) => [memberProfileRef(g, p.uid), shared, false] as [DocumentReference, object, boolean]),
+      ]
+      for (let i = 0; i < refs.length; i += BATCH_LIMIT) {
+        const batch = writeBatch(db)
+        for (const [r, data, merge] of refs.slice(i, i + BATCH_LIMIT)) batch.set(r, data, merge ? { merge: true } : {})
+        fire(batch, 'Saving your profile')
+      }
+    },
     async getProfile(id) {
       const s = await getDoc(doc(db, 'users', id))
       return s.exists() ? (s.data() as UserProfile) : null
     },
+    async getMemberProfile(groupId, userId) {
+      const s = await getDoc(memberProfileRef(groupId, userId))
+      return s.exists() ? (s.data() as MemberProfile) : null
+    },
 
     watchGroups(userId, cb) {
       const q = query(collection(db, 'groups'), where('memberUids', 'array-contains', userId))
-      return onSnapshot(q, (s) =>
-        cb(s.docs.map((d) => ({ ...(d.data() as Group), id: d.id })).sort((a, b) => b.updatedAt - a.updatedAt)),
+      return onSnapshot(
+        q,
+        (s) => cb(s.docs.map((d) => ({ ...(d.data() as Group), id: d.id })).sort((a, b) => b.updatedAt - a.updatedAt)),
+        (e) => { cb([]); errors.emit('read', e, 'Loading your groups') },
       )
     },
     watchGroup(id, cb) {
-      return onSnapshot(groupRef(id), (s) => cb(s.exists() ? { ...(s.data() as Group), id: s.id } : null), () => cb(null))
+      return onSnapshot(groupRef(id), (s) => cb(s.exists() ? { ...(s.data() as Group), id: s.id } : null), listenError('Loading group', () => cb(null)))
     },
     async createGroup(g) {
       const id = uid('g_')
       const now = Date.now()
-      const full: Group = { ...g, id, inviteCode: inviteCode(), createdAt: now, updatedAt: now }
-      await setDoc(groupRef(id), full)
-      if (g.type !== 'personal') await syncInvite(full)
+      const code = g.type === 'personal' ? inviteCode() : await uniqueInviteCode()
+      const full: Group = { ...g, id, inviteCode: code, createdAt: now, updatedAt: now }
+      const me = await myMemberProfile()
+      const batch = writeBatch(db)
+      batch.set(groupRef(id), full)
+      if (g.type !== 'personal') batch.set(inviteRef(code), inviteDoc(full))
+      if (me && auth.currentUser) batch.set(memberProfileRef(id, auth.currentUser.uid), me)
+      fire(batch, 'Creating group')
       return id
     },
-    async updateGroup(id, patch) {
-      // `undefined` means "clear this field" (e.g. removing a budget or trip dates).
-      const data = Object.fromEntries(Object.entries(patch).map(([k, v]) => [k, v === undefined ? deleteField() : v]))
-      await updateDoc(groupRef(id), { ...data, updatedAt: Date.now() })
-      const s = await getDoc(groupRef(id))
-      if (s.exists()) {
-        const g = { ...(s.data() as Group), id }
-        if (g.type !== 'personal') await syncInvite(g)
+    async updateGroupSettings(base, patch) {
+      const changed = changedSettings(base, patch)
+      if (!Object.keys(changed).length) return
+      const data: Record<string, unknown> = { updatedAt: Date.now() }
+      for (const [k, v] of Object.entries(changed)) data[k] = v === undefined ? deleteField() : v
+      const batch = writeBatch(db)
+      batch.update(groupRef(base.id), data)
+      if (base.type !== 'personal' && ('name' in changed || 'emoji' in changed)) {
+        batch.set(inviteRef(base.inviteCode), { groupId: base.id, groupName: changed.name ?? base.name, emoji: changed.emoji ?? base.emoji }, { merge: true })
       }
+      fire(batch, 'Saving group')
+    },
+    async updateGroup(id, patch) {
+      const { members: _m, memberUids: _u, id: _i, inviteCode: _c, createdBy: _b, createdAt: _a, updatedAt: _t, ...settings } = patch
+      let base: Group | null = null
+      try {
+        const s = await getDocFromCache(groupRef(id))
+        if (s.exists()) base = { ...(s.data() as Group), id }
+      } catch { /* not cached */ }
+      if (base) return repo.updateGroupSettings(base, settings as GroupSettings)
+      const batch = writeBatch(db)
+      batch.update(groupRef(id), { ...settings, updatedAt: Date.now() })
+      fire(batch, 'Saving group')
+    },
+    async addMember(group, memberId, member) {
+      const batch = writeBatch(db)
+      batch.update(groupRef(group.id), {
+        [`members.${memberId}`]: member,
+        ...(member.uid ? { memberUids: arrayUnion(member.uid) } : {}),
+        memberOpId: memberId,
+        updatedAt: Date.now(),
+      })
+      if (!member.uid && group.type !== 'personal') {
+        batch.set(inviteRef(group.inviteCode), { groupId: group.id, placeholders: { [memberId]: member.name } }, { merge: true })
+      }
+      fire(batch, `Adding ${member.name}`)
+    },
+    async removeMember(group, memberId) {
+      const m = group.members[memberId]
+      const batch = writeBatch(db)
+      batch.update(groupRef(group.id), {
+        [`members.${memberId}`]: deleteField(),
+        ...(m?.uid ? { memberUids: arrayRemove(m.uid) } : {}),
+        memberOpId: memberId,
+        updatedAt: Date.now(),
+      })
+      if (group.type !== 'personal') {
+        batch.set(inviteRef(group.inviteCode), { groupId: group.id, placeholders: { [memberId]: deleteField() } }, { merge: true })
+      }
+      if (m?.uid) batch.delete(memberProfileRef(group.id, m.uid))
+      fire(batch, `Removing ${m?.name ?? 'member'}`)
     },
     async deleteGroup(id) {
       const s = await getDoc(groupRef(id))
-      const batch = writeBatch(db)
-      for (const sub of ['expenses', 'settlements']) {
+      const g = s.exists() ? (s.data() as Group) : null
+      const refs: DocumentReference[] = []
+      const commentRefs: DocumentReference[] = []
+      const receipts: string[] = []
+      for (const sub of ['expenses', 'settlements', 'profiles']) {
         const docs = await getDocs(collection(db, 'groups', id, sub))
-        docs.forEach((d) => batch.delete(d.ref))
-        if (sub === 'expenses') {
-          for (const e of docs.docs) (await getDocs(commentsCol(id, e.id))).forEach((c) => batch.delete(c.ref))
+        for (const d of docs.docs) {
+          refs.push(d.ref)
+          if (sub === 'expenses') {
+            const e = d.data() as Expense
+            const p = e.receiptPath ?? storagePathFromUrl(e.receiptUrl)
+            if (p) receipts.push(p)
+            ;(await getDocs(commentsCol(id, d.id)).catch(() => null))?.forEach((c) => commentRefs.push(c.ref))
+          }
         }
       }
-      batch.delete(groupRef(id))
-      await batch.commit()
-      if (s.exists()) await deleteDoc(doc(db, 'invites', (s.data() as Group).inviteCode)).catch(() => {})
+      // Comments after their expenses: rules let a member delete others' comments only once
+      // the parent expense is gone (batches commit in order). Still before the group goes.
+      refs.push(...commentRefs)
+      // Receipts first (storage rules check membership, which ends with the group). Best effort.
+      if (receipts.length && online()) {
+        await Promise.race([Promise.allSettled(receipts.map((p) => deleteObject(ref(storage, p)))), sleep(5000)])
+      }
+      // Sub-collection docs in ≤450-write batches; the group and its invite go in the last one,
+      // so the earlier batches still pass the membership checks.
+      for (let i = 0; i < refs.length; i += BATCH_LIMIT) {
+        const batch = writeBatch(db)
+        refs.slice(i, i + BATCH_LIMIT).forEach((r) => batch.delete(r))
+        fire(batch, 'Deleting group')
+      }
+      const last = writeBatch(db)
+      if (g?.inviteCode && g.type !== 'personal') last.delete(inviteRef(g.inviteCode))
+      last.delete(groupRef(id))
+      fire(last, 'Deleting group')
     },
 
     async getInvite(code) {
-      const s = await getDoc(doc(db, 'invites', code.toUpperCase()))
-      return s.exists() ? (s.data() as InviteInfo) : null
+      const s = await getDoc(inviteRef(code.toUpperCase()))
+      if (!s.exists()) return null
+      const d = s.data() as InviteInfo
+      return { ...d, placeholders: d.placeholders ?? {} }
     },
     async joinGroup(code, memberId, member) {
-      const invite = await this.getInvite(code)
+      const c = code.toUpperCase()
+      const invite = await repo.getInvite(c)
       if (!invite) throw new Error('Invite not found')
+      const me = await myMemberProfile()
+      const batch = writeBatch(db)
       // Non-members cannot read the group, so this is a blind update validated by security rules.
-      await updateDoc(groupRef(invite.groupId), {
+      batch.update(groupRef(invite.groupId), {
         memberUids: arrayUnion(member.uid),
         [`members.${memberId}`]: member,
-        joinCode: code.toUpperCase(),
+        joinCode: c,
         joinMemberId: memberId,
         updatedAt: Date.now(),
       })
-      const s = await getDoc(groupRef(invite.groupId))
-      if (s.exists()) await syncInvite({ ...(s.data() as Group), id: s.id })
+      batch.set(inviteRef(c), { groupId: invite.groupId, placeholders: { [memberId]: deleteField() } }, { merge: true })
+      if (me && member.uid) batch.set(memberProfileRef(invite.groupId, member.uid), me)
+      // The local cache can't show a group we can't read yet, so wait for the server — but not forever.
+      const commit = batch.commit()
+      const result = await Promise.race([commit.then(() => 'ok' as const), sleep(8000).then(() => 'slow' as const)])
+      if (result === 'slow') commit.catch((e) => errors.emit('write', e, 'Joining group'))
       return invite.groupId
     },
 
     watchExpenses(groupId, cb) {
-      return onSnapshot(collection(db, 'groups', groupId, 'expenses'), (s) =>
-        cb(s.docs.map((d) => ({ ...(d.data() as Expense), id: d.id, groupId })).sort(byDateDesc)),
+      return onSnapshot(
+        collection(db, 'groups', groupId, 'expenses'),
+        (s) => cb(s.docs.map((d) => ({ ...(d.data() as Expense), id: d.id, groupId })).sort(byDateDesc)),
+        listenError('Loading expenses', () => cb([])),
       )
     },
     async saveExpense(e) {
-      await setDoc(doc(db, 'groups', e.groupId, 'expenses', e.id), e)
-      await updateDoc(groupRef(e.groupId), { updatedAt: Date.now() })
+      const batch = writeBatch(db)
+      batch.set(doc(db, 'groups', e.groupId, 'expenses', e.id), { ...e, receiptPath: e.receiptPath ?? storagePathFromUrl(e.receiptUrl) })
+      batch.update(groupRef(e.groupId), { updatedAt: Date.now() })
+      fire(batch, `Saving “${e.description}”`)
     },
     async deleteExpense(groupId, id) {
-      // Comments go with the expense (rules allow deleting others' comments once the parent is gone).
+      const r = doc(db, 'groups', groupId, 'expenses', id)
+      let receipt: string | undefined
+      try {
+        const s = await getDocFromCache(r)
+        if (s.exists()) { const e = s.data() as Expense; receipt = e.receiptPath ?? storagePathFromUrl(e.receiptUrl) }
+      } catch { /* not cached */ }
+      // Comments go in the same batch (rules allow deleting others' comments once the parent is gone).
+      const comments = await Promise.race([
+        getDocsFromCache(commentsCol(groupId, id)).then((s) => s.docs.map((d) => d.ref)).catch(() => [] as DocumentReference[]),
+        sleep(2000).then(() => [] as DocumentReference[]),
+      ])
+      if (online() && !comments.length) {
+        const fromServer = await Promise.race([
+          getDocs(commentsCol(groupId, id)).then((s) => s.docs.map((d) => d.ref)).catch(() => [] as DocumentReference[]),
+          sleep(4000).then(() => [] as DocumentReference[]),
+        ])
+        comments.push(...fromServer)
+      }
       const batch = writeBatch(db)
-      ;(await getDocs(commentsCol(groupId, id)).catch(() => null))?.forEach((c) => batch.delete(c.ref))
-      batch.delete(doc(db, 'groups', groupId, 'expenses', id))
-      await batch.commit()
+      comments.slice(0, BATCH_LIMIT - 2).forEach((c) => batch.delete(c))
+      batch.delete(r)
+      batch.update(groupRef(groupId), { updatedAt: Date.now() })
+      fire(batch, 'Deleting expense')
+      // Any overflow (or comments we couldn't list) can still be removed afterwards: the expense is gone.
+      for (let i = BATCH_LIMIT - 2; i < comments.length; i += BATCH_LIMIT) {
+        const b = writeBatch(db)
+        comments.slice(i, i + BATCH_LIMIT).forEach((c) => b.delete(c))
+        fire(b, 'Deleting comments')
+      }
+      deleteFileLater(receipt)
     },
-
-    watchSettlements(groupId, cb) {
-      return onSnapshot(collection(db, 'groups', groupId, 'settlements'), (s) =>
-        cb(s.docs.map((d) => ({ ...(d.data() as Settlement), id: d.id, groupId })).sort(byDateDesc)),
-      )
+    attachReceipt(groupId, expenseId, file) {
+      if (!online()) return false
+      const r = doc(db, 'groups', groupId, 'expenses', expenseId)
+      ;(async () => {
+        const blob = await downscale(file, 1600, 0.8)
+        const path = `receipts/${groupId}/${expenseId}-${uid()}.jpg`
+        const fileRef = ref(storage, path)
+        await uploadBytes(fileRef, blob, { contentType: 'image/jpeg' })
+        const url = await getDownloadURL(fileRef)
+        let old: string | undefined
+        try {
+          const s = await getDocFromCache(r)
+          if (s.exists()) { const e = s.data() as Expense; old = e.receiptPath ?? storagePathFromUrl(e.receiptUrl) }
+        } catch { /* not cached */ }
+        const batch = writeBatch(db)
+        batch.update(r, { receiptUrl: url, receiptPath: path })
+        fire(batch, 'Attaching receipt')
+        if (old && old !== path) deleteFileLater(old)
+      })().catch((e) => errors.emit('write', e, 'Receipt upload failed (the expense was saved without it)'))
+      return true
     },
-    async saveSettlement(st) {
-      await setDoc(doc(db, 'groups', st.groupId, 'settlements', st.id), st)
-      await updateDoc(groupRef(st.groupId), { updatedAt: Date.now() })
-    },
-    deleteSettlement: (groupId, id) => deleteDoc(doc(db, 'groups', groupId, 'settlements', id)),
-
     async uploadReceipt(groupId, file) {
+      const blob = await downscale(file, 1600, 0.8)
       const r = ref(storage, `receipts/${groupId}/${uid()}.jpg`)
-      await uploadBytes(r, file, { contentType: file.type || 'image/jpeg' })
+      await uploadBytes(r, blob, { contentType: 'image/jpeg' })
       return getDownloadURL(r)
     },
 
-    async saveRecurringOccurrences(template, occurrences) {
+    watchSettlements(groupId, cb) {
+      return onSnapshot(
+        collection(db, 'groups', groupId, 'settlements'),
+        (s) => cb(s.docs.map((d) => ({ ...(d.data() as Settlement), id: d.id, groupId })).sort(byDateDesc)),
+        listenError('Loading payments', () => cb([])),
+      )
+    },
+    async saveSettlement(st) {
+      const batch = writeBatch(db)
+      batch.set(doc(db, 'groups', st.groupId, 'settlements', st.id), st)
+      batch.update(groupRef(st.groupId), { updatedAt: Date.now() })
+      fire(batch, 'Recording payment')
+    },
+    async deleteSettlement(groupId, id) {
+      const batch = writeBatch(db)
+      batch.delete(doc(db, 'groups', groupId, 'settlements', id))
+      batch.update(groupRef(groupId), { updatedAt: Date.now() })
+      fire(batch, 'Deleting payment')
+    },
+
+    saveRecurringOccurrences(template, occurrences) {
       const batch = writeBatch(db)
       for (const o of occurrences) batch.set(doc(db, 'groups', o.groupId, 'expenses', o.id), o)
       // update (not set) so a concurrent edit to the template isn't clobbered, and so the
       // whole batch fails if the template was deleted meanwhile.
       batch.update(doc(db, 'groups', template.groupId, 'expenses', template.id), { recurrence: template.recurrence ?? deleteField() })
       if (occurrences.length) batch.update(groupRef(template.groupId), { updatedAt: Date.now() })
-      await batch.commit()
+      fire(batch, `Adding recurring “${template.description}”`)
+      return Promise.resolve()
     },
 
     watchComments(groupId, expenseId, cb) {
-      return onSnapshot(commentsCol(groupId, expenseId), (s) =>
-        cb(s.docs.map((d) => ({ ...(d.data() as ExpenseComment), id: d.id })).sort((a, b) => a.createdAt - b.createdAt)),
-      () => cb([]))
-    },
-    async addComment(groupId, expenseId, c) {
-      await addDoc(commentsCol(groupId, expenseId), c)
-    },
-    deleteComment: (groupId, expenseId, id) => deleteDoc(doc(commentsCol(groupId, expenseId), id)),
-
-    watchCaptures(userId, cb) {
-      return onSnapshot(collection(db, 'users', userId, 'captures'), (s) =>
-        cb(s.docs.map((d) => ({ ...(d.data() as Capture), id: d.id })).sort(byCreatedDesc)),
+      return onSnapshot(
+        commentsCol(groupId, expenseId),
+        (s) => cb(s.docs.map((d) => ({ ...(d.data() as ExpenseComment), id: d.id })).sort((a, b) => a.createdAt - b.createdAt)),
+        listenError('Loading comments', () => cb([])),
       )
     },
-    saveCapture: (userId, c) => setDoc(doc(db, 'users', userId, 'captures', c.id), c),
+    async addComment(groupId, expenseId, c) {
+      const batch = writeBatch(db)
+      batch.set(doc(commentsCol(groupId, expenseId)), c)
+      fire(batch, 'Posting comment')
+    },
+    async deleteComment(groupId, expenseId, id) {
+      const batch = writeBatch(db)
+      batch.delete(doc(commentsCol(groupId, expenseId), id))
+      fire(batch, 'Deleting comment')
+    },
+
+    watchCaptures(userId, cb) {
+      return onSnapshot(
+        collection(db, 'users', userId, 'captures'),
+        (s) => cb(s.docs.map((d) => ({ ...(d.data() as Capture), id: d.id })).sort(byCreatedDesc)),
+        (e) => { cb([]); errors.emit('read', e, 'Loading captured transactions') },
+      )
+    },
+    async saveCapture(userId, c) {
+      const batch = writeBatch(db)
+      batch.set(captureRef(userId, c.id), c)
+      fire(batch, 'Saving capture')
+    },
     async updateCapture(userId, id, patch) {
       const data = Object.fromEntries(Object.entries(patch).map(([k, v]) => [k, v === undefined ? deleteField() : v]))
-      await updateDoc(doc(db, 'users', userId, 'captures', id), { ...data, updatedAt: Date.now() })
+      const batch = writeBatch(db)
+      batch.update(captureRef(userId, id), { ...data, updatedAt: Date.now() })
+      fire(batch, 'Updating capture')
     },
-    deleteCapture: (userId, id) => deleteDoc(doc(db, 'users', userId, 'captures', id)),
+    async deleteCapture(userId, id) {
+      const batch = writeBatch(db)
+      batch.delete(captureRef(userId, id))
+      fire(batch, 'Deleting capture')
+    },
 
     watchCaptureTokens(userId, cb) {
       const q = query(collection(db, 'captureTokens'), where('uid', '==', userId))
-      return onSnapshot(q, (s) => cb(s.docs.map((d) => ({ ...(d.data() as CaptureToken), token: d.id })).sort(byCreatedDesc)), () => cb([]))
+      return onSnapshot(
+        q,
+        (s) => cb(s.docs.map((d) => ({ ...(d.data() as CaptureToken), token: d.id })).sort(byCreatedDesc)),
+        listenError('Loading capture tokens', () => cb([])),
+      )
     },
     async createCaptureToken(userId) {
       const token = newCaptureToken()
-      await setDoc(doc(db, 'captureTokens', token), { uid: userId, createdAt: Date.now() })
+      const batch = writeBatch(db)
+      batch.set(doc(db, 'captureTokens', token), { uid: userId, createdAt: Date.now() })
+      fire(batch, 'Creating capture link')
       return token
     },
-    revokeCaptureToken: (token) => deleteDoc(doc(db, 'captureTokens', token)),
+    async revokeCaptureToken(token) {
+      const batch = writeBatch(db)
+      batch.delete(doc(db, 'captureTokens', token))
+      fire(batch, 'Revoking capture link')
+    },
     async submitToInbox(entry, id) {
       // Works signed out: the rules only check that the token exists and belongs to entry.uid.
+      // Awaited on purpose — the guest page has no local view of the inbox, so it needs the ack.
       await setDoc(id ? doc(db, 'captureInbox', id) : doc(collection(db, 'captureInbox')), compact(entry))
     },
     async claimInbox(userId) {
+      // Needs the server (the inbox is written by other devices); a no-op offline.
+      if (!online()) return 0
       const s = await getDocs(query(collection(db, 'captureInbox'), where('uid', '==', userId)))
       let moved = 0
       for (const d of s.docs) {
         const draft = inboxToDraft(d.data() as InboxDoc, todayISO())
         const batch = writeBatch(db)
         // Same id as the inbox doc, so a retry after a partial failure can't duplicate.
-        if (draft) { batch.set(doc(db, 'users', userId, 'captures', d.id), draftToCapture(draft, d.id)); moved++ }
+        if (draft) { batch.set(captureRef(userId, d.id), draftToCapture(draft, d.id)); moved++ }
         else console.warn('Dropping unreadable capture', d.id, d.data())
         batch.delete(d.ref)
-        await batch.commit()
+        fire(batch, 'Syncing captured transactions')
       }
       return moved
     },
   }
+  return repo
 }

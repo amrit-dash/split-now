@@ -87,6 +87,8 @@ export interface Expense {
   splitType: SplitType
   splitInput: SplitInput
   receiptUrl?: string
+  /** Storage path of the receipt image, for cleanup on delete */
+  receiptPath?: string
   createdBy: string
   createdAt: number
   updatedAt: number

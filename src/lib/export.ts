@@ -1,5 +1,6 @@
 import type { Expense, Group, MemberId, Settlement } from '@/types'
 import { CATEGORIES } from './categories'
+import { minorDigits } from './money'
 
 /**
  * CSV export of a group's expenses and settlements.
@@ -24,11 +25,14 @@ export function toCsv(rows: Array<Array<string | number | undefined>>): string {
   return rows.map((r) => r.map(csvField).join(',')).join('\r\n') + '\r\n'
 }
 
-/** Cents → "12.34" / "-0.05". Exact, no float formatting. */
-export function centsToDecimal(c: number): string {
+/** Minor units → "12.34" / "-0.05" ("1200" for JPY). Exact, no float formatting. */
+export function centsToDecimal(c: number, currency?: string): string {
+  const d = minorDigits(currency)
   const sign = c < 0 ? '-' : ''
   const a = Math.abs(Math.round(c))
-  return `${sign}${Math.floor(a / 100)}.${String(a % 100).padStart(2, '0')}`
+  if (d === 0) return `${sign}${a}`
+  const f = 10 ** d
+  return `${sign}${Math.floor(a / f)}.${String(a % f).padStart(d, '0')}`
 }
 
 export function groupCsv(group: Pick<Group, 'members' | 'currency'>, expenses: Expense[], settlements: Settlement[]): string {
@@ -51,24 +55,25 @@ export function groupCsv(group: Pick<Group, 'members' | 'currency'>, expenses: E
 
   type Row = { date: string; createdAt: number; cells: Array<string | number | undefined> }
   const rows: Row[] = []
-  const amount = (c: number | undefined) => (c ? centsToDecimal(c) : undefined)
+  const dec = (c: number) => centsToDecimal(c, group.currency)
+  const amount = (c: number | undefined) => (c ? dec(c) : undefined)
   const paidBy = (p: Record<MemberId, number>) => {
     const entries = Object.entries(p).filter(([, v]) => v)
-    return entries.length === 1 ? name(entries[0][0]) : entries.map(([id, v]) => `${name(id)} ${centsToDecimal(v)}`).join('; ')
+    return entries.length === 1 ? name(entries[0][0]) : entries.map(([id, v]) => `${name(id)} ${dec(v)}`).join('; ')
   }
 
   for (const e of expenses) {
     rows.push({
       date: e.date, createdAt: e.createdAt,
-      cells: [e.date, 'Expense', e.description, CATEGORIES[e.category]?.label ?? e.category, centsToDecimal(e.amount), group.currency,
+      cells: [e.date, 'Expense', e.description, CATEGORIES[e.category]?.label ?? e.category, dec(e.amount), group.currency,
         paidBy(e.paidBy), ...ids.map((id) => amount(e.splits[id])), e.notes],
     })
   }
   for (const s of settlements) {
     rows.push({
       date: s.date, createdAt: s.createdAt,
-      cells: [s.date, 'Payment', `${name(s.from)} paid ${name(s.to)}`, s.method || 'Payment', centsToDecimal(s.amount), group.currency,
-        name(s.from), ...ids.map((id) => (id === s.to ? centsToDecimal(s.amount) : undefined)), s.note],
+      cells: [s.date, 'Payment', `${name(s.from)} paid ${name(s.to)}`, s.method || 'Payment', dec(s.amount), group.currency,
+        name(s.from), ...ids.map((id) => (id === s.to ? dec(s.amount) : undefined)), s.note],
     })
   }
   rows.sort((a, b) => a.date.localeCompare(b.date) || a.createdAt - b.createdAt)

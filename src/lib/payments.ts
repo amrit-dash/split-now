@@ -1,4 +1,5 @@
 import type { Cents, PaymentHandles } from '@/types'
+import { centsToInput } from './money'
 
 export interface PayOption {
   key: keyof PaymentHandles | 'bank'
@@ -10,7 +11,7 @@ export interface PayOption {
 
 export function payOptions(h: PaymentHandles | undefined, amount: Cents, currency: string, note: string): PayOption[] {
   if (!h) return []
-  const amt = (amount / 100).toFixed(2)
+  const amt = centsToInput(amount, currency)
   const out: PayOption[] = []
   if (h.payid) out.push({ key: 'payid', label: 'PayID', value: h.payid })
   if (h.bsb && h.account) out.push({ key: 'bank', label: 'Bank (BSB / Acc)', value: `${h.bsb} / ${h.account}` })

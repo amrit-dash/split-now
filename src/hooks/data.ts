@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { repo } from '@/data'
 import type { Capture, Expense, ExpenseComment, Group, MemberId, Settlement } from '@/types'
 import { netBalances, pairwiseDebts } from '@/lib/balances'
@@ -102,19 +102,40 @@ export function useAllGroupData(): GroupData[] | null {
   const groups = useGroups()
   const [exp, setExp] = useState<Record<string, Expense[]>>({})
   const [set, setSet] = useState<Record<string, Settlement[]>>({})
-  const ids = groups?.map((g) => g.id).join(',') ?? ''
+  // Sorted, so re-ordering (every save bumps updatedAt) doesn't look like a change.
+  const ids = groups ? groups.map((g) => g.id).sort().join(',') : null
+  const subs = useRef(new Map<string, () => void>())
+  const [initialLoadDone, setInitialLoadDone] = useState(false)
 
+  // Subscribe to new groups and drop removed ones without restarting the others.
   useEffect(() => {
-    if (!ids) return
-    const unsubs = ids.split(',').flatMap((id) => [
-      repo.watchExpenses(id, (e) => { setExp((p) => ({ ...p, [id]: e })); catchUpRecurring(e) }),
-      repo.watchSettlements(id, (s) => setSet((p) => ({ ...p, [id]: s }))),
-    ])
-    return () => unsubs.forEach((u) => u())
+    if (ids === null) return
+    const want = new Set(ids ? ids.split(',') : [])
+    for (const [id, unsub] of subs.current) {
+      if (want.has(id)) continue
+      unsub()
+      subs.current.delete(id)
+      setExp(({ [id]: _, ...rest }) => rest)
+      setSet(({ [id]: _, ...rest }) => rest)
+    }
+    for (const id of want) {
+      if (subs.current.has(id)) continue
+      const a = repo.watchExpenses(id, (e) => { setExp((p) => ({ ...p, [id]: e })); catchUpRecurring(e) })
+      const b = repo.watchSettlements(id, (s) => setSet((p) => ({ ...p, [id]: s })))
+      subs.current.set(id, () => { a(); b() })
+    }
   }, [ids])
+  useEffect(() => {
+    const map = subs.current
+    return () => { map.forEach((u) => u()); map.clear() }
+  }, [])
+
+  const allLoaded = !!groups && groups.every((g) => exp[g.id] && set[g.id])
+  useEffect(() => { if (allLoaded) setInitialLoadDone(true) }, [allLoaded])
 
   return useMemo(() => {
-    if (!groups) return null
+    // Until every group has reported once, show a loader rather than a misleading "all settled".
+    if (!groups || (!allLoaded && !initialLoadDone)) return null
     return groups.map((g) => computeGroupData(g, exp[g.id] ?? [], set[g.id] ?? [], user.uid))
-  }, [groups, exp, set, user.uid])
+  }, [groups, exp, set, user.uid, allLoaded, initialLoadDone])
 }

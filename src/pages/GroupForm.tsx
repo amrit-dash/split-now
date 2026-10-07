@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Trash2, UserPlus, X } from 'lucide-react'
 import { repo } from '@/data'
+import { diffMembers } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
 import { useExpenses, useGroup, useSettlements } from '@/hooks/data'
 import type { Group, GroupType, Member } from '@/types'
@@ -47,12 +48,17 @@ export default function GroupForm() {
   const [newEmail, setNewEmail] = useState('')
   const [busy, setBusy] = useState(false)
 
+  // Load once: later snapshots (e.g. someone joining) must not wipe unsaved edits.
+  const loaded = useRef<{ key: string; base?: Group } | null>(null)
   useEffect(() => {
+    if (loaded.current?.key === (groupId ?? 'new')) return
     if (existing) {
+      loaded.current = { key: existing.id, base: existing }
       setName(existing.name); setEmoji(existing.emoji); setType(existing.type); setCurrency(existing.currency)
-      setBudget(existing.budget ? centsToInput(existing.budget) : ''); setSimplify(existing.simplify); setMembers(existing.members)
+      setBudget(existing.budget ? centsToInput(existing.budget, existing.currency) : ''); setSimplify(existing.simplify); setMembers(existing.members)
       setStartDate(existing.startDate ?? ''); setEndDate(existing.endDate ?? '')
     } else if (!groupId) {
+      loaded.current = { key: 'new' }
       setMembers({ [user.uid]: { name: profile.displayName, uid: user.uid, email: user.email, color: colorFor(0) } })
     }
   }, [existing, groupId, user.uid, user.email, profile.displayName])
@@ -81,7 +87,7 @@ export default function GroupForm() {
   const save = async () => {
     const finalName = name.trim() || (type === 'personal' ? 'My spending' : type === 'direct' ? others[0]?.[1].name : '')
     if (!finalName) return toast('Give your group a name', 'err')
-    const budgetCents = budget ? parseMoney(budget) : undefined
+    const budgetCents = budget ? parseMoney(budget, currency) : undefined
     if (budget && !Number.isFinite(budgetCents)) return toast('Budget is not a valid amount', 'err')
     if (startDate && endDate && endDate < startDate) return toast('The trip ends before it starts', 'err')
     setBusy(true)
@@ -92,7 +98,13 @@ export default function GroupForm() {
         memberUids: [...new Set(Object.values(members).map((m) => m.uid).filter(Boolean) as string[])],
       }
       if (existing) {
-        await repo.updateGroup(existing.id, data)
+        // Only send what changed; membership changes are per-member so concurrent joins survive.
+        const { members: _m, memberUids: _u, ...settings } = data
+        const base = loaded.current?.base ?? existing
+        const { added, removed } = diffMembers(base.members, members)
+        await repo.updateGroupSettings(base, settings)
+        for (const id of added) await repo.addMember(base, id, members[id])
+        for (const id of removed) await repo.removeMember(base, id)
         toast('Group updated')
         nav(`/groups/${existing.id}`, { replace: true })
       } else {

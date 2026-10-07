@@ -1,6 +1,5 @@
 import type { Repo } from './repo'
 import { createLocalRepo } from './localRepo'
-import { createFirebaseRepo } from './firebaseRepo'
 
 const env = import.meta.env
 const config = {
@@ -17,6 +16,20 @@ export const firebaseProject = { projectId: config.projectId as string | undefin
 
 export const firebaseConfigured = Boolean(config.apiKey && config.projectId && config.appId)
 
-export const repo: Repo = firebaseConfigured
-  ? createFirebaseRepo(config, env.VITE_USE_EMULATORS === 'true')
-  : createLocalRepo()
+/**
+ * The active repository. Assigned by initRepo(), which main.tsx awaits before the first
+ * render, so every screen can use it synchronously. (ES module bindings are live, so
+ * importers see the assigned value.) The Firebase SDK is only downloaded when configured.
+ */
+export let repo: Repo = undefined as unknown as Repo
+
+let ready: Promise<Repo> | undefined
+export function initRepo(): Promise<Repo> {
+  ready ??= (async () => {
+    repo = firebaseConfigured
+      ? (await import('./firebaseRepo')).createFirebaseRepo(config, env.VITE_USE_EMULATORS === 'true')
+      : createLocalRepo()
+    return repo
+  })()
+  return ready
+}
