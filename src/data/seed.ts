@@ -1,6 +1,7 @@
 import type { Expense, Group, Settlement } from '@/types'
 import { computeSplits } from '@/lib/splits'
 import { colorFor } from '@/lib/colors'
+import { firstNextDate } from '@/lib/recurrence'
 import type { AuthUser } from './repo'
 
 /** Sample data so demo mode looks alive on first launch. */
@@ -49,7 +50,7 @@ export function seedDemo(_state: unknown, user: AuthUser) {
     mk(flat, F, 1, 'Rent — September', 330000, 'rent', 'me', 37),
     mk(flat, F, 2, 'Power bill', 21480, 'utilities', 'p_alex', 33),
     mk(flat, F, 3, 'Woolworths shop', 15675, 'groceries', 'p_sam', 9),
-    mk(flat, F, 4, 'Internet — NBN', 8999, 'utilities', 'me', 6),
+    { ...mk(flat, F, 4, 'Internet — NBN', 8999, 'utilities', 'me', 6), recurrence: { freq: 'monthly', nextDate: firstNextDate(day(6), 'monthly') } },
     mk(flat, F, 5, 'Rent — October', 330000, 'rent', 'me', 7),
     mk(flat, F, 6, 'Coles shop', 12340, 'groceries', 'p_alex', 3),
   ]

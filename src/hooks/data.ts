@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { repo } from '@/data'
-import type { Expense, Group, MemberId, Settlement } from '@/types'
+import type { Expense, ExpenseComment, Group, MemberId, Settlement } from '@/types'
 import { netBalances, pairwiseDebts } from '@/lib/balances'
 import { simplifyDebts } from '@/lib/simplify'
+import { planCatchUp } from '@/lib/recurrence'
+import { todayISO } from '@/lib/id'
 import { useMe } from './auth'
 
 export function useGroups() {
@@ -18,9 +20,35 @@ export function useGroup(id: string | undefined) {
   return group
 }
 
+// Catch-up keys already attempted this session (template + nextDate), so repeated
+// snapshots don't re-send the same write and a failing write isn't retried in a loop.
+const attempted = new Set<string>()
+
+/**
+ * Recurring expenses: create any occurrences that came due since the group was last
+ * opened. Runs on every expense snapshot for a member; writes are idempotent.
+ */
+export function catchUpRecurring(expenses: Expense[], today = todayISO()) {
+  for (const e of expenses) {
+    if (!e.recurrence) continue
+    const key = `${e.groupId}/${e.id}@${e.recurrence.nextDate}|${e.recurrence.until ?? ''}`
+    if (attempted.has(key)) continue
+    const plan = planCatchUp(e, today)
+    if (!plan) continue
+    attempted.add(key)
+    repo.saveRecurringOccurrences(plan.template, plan.occurrences).catch((err) => console.warn('Recurring catch-up failed', err))
+  }
+}
+
 export function useExpenses(groupId: string | undefined) {
   const [list, setList] = useState<Expense[] | null>(null)
-  useEffect(() => (groupId ? repo.watchExpenses(groupId, setList) : undefined), [groupId])
+  useEffect(() => (groupId ? repo.watchExpenses(groupId, (l) => { setList(l); catchUpRecurring(l) }) : undefined), [groupId])
+  return list
+}
+
+export function useComments(groupId: string | undefined, expenseId: string | undefined) {
+  const [list, setList] = useState<ExpenseComment[] | null>(null)
+  useEffect(() => (groupId && expenseId ? repo.watchComments(groupId, expenseId, setList) : undefined), [groupId, expenseId])
   return list
 }
 
@@ -66,7 +94,7 @@ export function useAllGroupData(): GroupData[] | null {
   useEffect(() => {
     if (!ids) return
     const unsubs = ids.split(',').flatMap((id) => [
-      repo.watchExpenses(id, (e) => setExp((p) => ({ ...p, [id]: e }))),
+      repo.watchExpenses(id, (e) => { setExp((p) => ({ ...p, [id]: e })); catchUpRecurring(e) }),
       repo.watchSettlements(id, (s) => setSet((p) => ({ ...p, [id]: s }))),
     ])
     return () => unsubs.forEach((u) => u())

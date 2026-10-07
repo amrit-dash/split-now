@@ -1,4 +1,4 @@
-import type { Expense, Group, Member, MemberId, Settlement, UserProfile } from '@/types'
+import type { Expense, ExpenseComment, Group, Member, MemberId, Settlement, UserProfile } from '@/types'
 
 export type Unsub = () => void
 
@@ -51,6 +51,17 @@ export interface Repo {
   deleteSettlement(groupId: string, id: string): Promise<void>
 
   uploadReceipt(groupId: string, file: Blob): Promise<string>
+
+  /**
+   * Recurring catch-up: write generated occurrences (deterministic ids, so concurrent
+   * clients overwrite rather than duplicate) and the template's advanced `recurrence`
+   * (only that field is touched) in one atomic write.
+   */
+  saveRecurringOccurrences(template: Expense, occurrences: Expense[]): Promise<void>
+
+  watchComments(groupId: string, expenseId: string, cb: (c: ExpenseComment[]) => void): Unsub
+  addComment(groupId: string, expenseId: string, c: Omit<ExpenseComment, 'id'>): Promise<void>
+  deleteComment(groupId: string, expenseId: string, id: string): Promise<void>
 }
 
 export function placeholdersOf(g: Pick<Group, 'members'>): Record<MemberId, string> {

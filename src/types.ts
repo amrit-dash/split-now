@@ -87,6 +87,10 @@ export interface Expense {
   createdBy: string
   createdAt: number
   updatedAt: number
+  /** Present on a repeating "template" expense. See src/lib/recurrence.ts. */
+  recurrence?: Recurrence
+  /** Set on an occurrence generated from a template: the template's id. */
+  recurringFrom?: string
 }
 
 export interface Settlement {
@@ -106,4 +110,23 @@ export interface Debt {
   from: MemberId
   to: MemberId
   amount: Cents
+}
+
+export type RecurrenceFreq = 'weekly' | 'fortnightly' | 'monthly' | 'yearly'
+
+export interface Recurrence {
+  freq: RecurrenceFreq
+  /** Next occurrence (yyyy-mm-dd) still to be created. */
+  nextDate: string
+  /** Last date (inclusive) an occurrence may fall on. */
+  until?: string
+}
+
+/** groups/{gid}/expenses/{eid}/comments/{cid} */
+export interface ExpenseComment {
+  id: string
+  text: string
+  authorUid: string
+  authorName: string
+  createdAt: number
 }

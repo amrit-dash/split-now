@@ -1,4 +1,4 @@
-import type { Expense, Group, Settlement, UserProfile } from '@/types'
+import type { Expense, ExpenseComment, Group, Settlement, UserProfile } from '@/types'
 import { inviteCode, uid } from '@/lib/id'
 import { byDateDesc, placeholdersOf, type AuthUser, type Repo } from './repo'
 import { seedDemo } from './seed'
@@ -13,7 +13,10 @@ interface State {
   groups: Record<string, Group>
   expenses: Record<string, Expense>
   settlements: Record<string, Settlement>
+  comments?: Record<string, StoredComment>
 }
+
+type StoredComment = ExpenseComment & { groupId: string; expenseId: string }
 
 const KEY = 'splitit-demo-v1'
 
@@ -27,6 +30,8 @@ function load(): State {
 
 export function createLocalRepo(): Repo {
   let state = load()
+  state.comments ??= {}
+  const comments = () => (state.comments ??= {})
   const listeners = new Set<() => void>()
   const commit = () => {
     try { localStorage.setItem(KEY, JSON.stringify(state)) } catch { /* ignore */ }
@@ -87,6 +92,7 @@ export function createLocalRepo(): Repo {
       delete state.groups[id]
       for (const [k, e] of Object.entries(state.expenses)) if (e.groupId === id) delete state.expenses[k]
       for (const [k, s] of Object.entries(state.settlements)) if (s.groupId === id) delete state.settlements[k]
+      for (const [k, c] of Object.entries(comments())) if (c.groupId === id) delete comments()[k]
       commit()
     },
 
@@ -110,7 +116,11 @@ export function createLocalRepo(): Repo {
     watchExpenses: (groupId, cb) =>
       watch(() => Object.values(state.expenses).filter((e) => e.groupId === groupId).sort(byDateDesc), cb),
     async saveExpense(e) { state.expenses[e.id] = e; touch(e.groupId); commit() },
-    async deleteExpense(_g, id) { delete state.expenses[id]; commit() },
+    async deleteExpense(_g, id) {
+      delete state.expenses[id]
+      for (const [k, c] of Object.entries(comments())) if (c.expenseId === id) delete comments()[k]
+      commit()
+    },
 
     watchSettlements: (groupId, cb) =>
       watch(() => Object.values(state.settlements).filter((s) => s.groupId === groupId).sort(byDateDesc), cb),
@@ -126,5 +136,26 @@ export function createLocalRepo(): Repo {
         r.readAsDataURL(file)
       })
     },
+
+    async saveRecurringOccurrences(template, occurrences) {
+      const current = state.expenses[template.id]
+      if (!current) return
+      for (const o of occurrences) state.expenses[o.id] = o
+      state.expenses[template.id] = { ...current, recurrence: template.recurrence }
+      if (occurrences.length) touch(template.groupId)
+      commit()
+    },
+
+    watchComments: (groupId, expenseId, cb) =>
+      watch(() => Object.values(comments())
+        .filter((c) => c.groupId === groupId && c.expenseId === expenseId)
+        .sort((a, b) => a.createdAt - b.createdAt)
+        .map(({ groupId: _g, expenseId: _e, ...c }) => c), cb),
+    async addComment(groupId, expenseId, c) {
+      const id = uid('c_')
+      comments()[id] = { ...c, id, groupId, expenseId }
+      commit()
+    },
+    async deleteComment(_g, _e, id) { delete comments()[id]; commit() },
   }
 }
