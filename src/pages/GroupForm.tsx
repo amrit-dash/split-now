@@ -7,9 +7,10 @@ import { useExpenses, useGroup, useSettlements } from '@/hooks/data'
 import type { Group, GroupType, Member } from '@/types'
 import { CURRENCIES, centsToInput, parseMoney } from '@/lib/money'
 import { colorFor } from '@/lib/colors'
-import { uid } from '@/lib/id'
+import { todayISO, uid } from '@/lib/id'
+import { isLiveTrip } from '@/lib/capture'
 import { Avatar } from '@/components/Avatar'
-import { Loading, PageHeader } from '@/components/Misc'
+import { LiveBadge, Loading, PageHeader } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
 
 const TYPES: Array<{ value: GroupType; label: string; emoji: string }> = [
@@ -39,6 +40,8 @@ export default function GroupForm() {
   const [currency, setCurrency] = useState(profile.currency)
   const [budget, setBudget] = useState('')
   const [simplify, setSimplify] = useState(true)
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
   const [members, setMembers] = useState<Record<string, Member>>({})
   const [newName, setNewName] = useState('')
   const [newEmail, setNewEmail] = useState('')
@@ -48,6 +51,7 @@ export default function GroupForm() {
     if (existing) {
       setName(existing.name); setEmoji(existing.emoji); setType(existing.type); setCurrency(existing.currency)
       setBudget(existing.budget ? centsToInput(existing.budget) : ''); setSimplify(existing.simplify); setMembers(existing.members)
+      setStartDate(existing.startDate ?? ''); setEndDate(existing.endDate ?? '')
     } else if (!groupId) {
       setMembers({ [user.uid]: { name: profile.displayName, uid: user.uid, email: user.email, color: colorFor(0) } })
     }
@@ -63,6 +67,8 @@ export default function GroupForm() {
   const used = new Set([...(expenses ?? []).flatMap((e) => [...Object.keys(e.paidBy), ...Object.keys(e.splits)]), ...(settlements ?? []).flatMap((s) => [s.from, s.to])])
   const others = Object.entries(members).filter(([, m]) => m.uid !== user.uid)
   const maxOthers = type === 'personal' ? 0 : type === 'direct' ? 1 : Infinity
+  const datable = type !== 'personal' && type !== 'direct'
+  const live = datable && isLiveTrip({ startDate: startDate || undefined, endDate: endDate || undefined }, todayISO())
 
   const addMember = () => {
     if (!newName.trim() || others.length >= maxOthers) return
@@ -77,10 +83,12 @@ export default function GroupForm() {
     if (!finalName) return toast('Give your group a name', 'err')
     const budgetCents = budget ? parseMoney(budget) : undefined
     if (budget && !Number.isFinite(budgetCents)) return toast('Budget is not a valid amount', 'err')
+    if (startDate && endDate && endDate < startDate) return toast('The trip ends before it starts', 'err')
     setBusy(true)
     try {
       const data = {
         name: finalName, emoji, type, currency, budget: budgetCents, simplify, members,
+        startDate: datable ? startDate || undefined : undefined, endDate: datable ? endDate || undefined : undefined,
         memberUids: [...new Set(Object.values(members).map((m) => m.uid).filter(Boolean) as string[])],
       }
       if (existing) {
@@ -145,6 +153,19 @@ export default function GroupForm() {
               <input className="input" inputMode="decimal" placeholder="0.00" value={budget} onChange={(e) => setBudget(e.target.value)} />
             </div>
           </div>
+          {datable && (
+            <div>
+              <div className="mb-1.5 flex items-center justify-between">
+                <span className="label !mb-0">{type === 'trip' ? 'Trip dates' : type === 'event' ? 'Event dates' : 'Dates'} (optional)</span>
+                {live && <LiveBadge />}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <input type="date" className="input" aria-label="Start date" value={startDate} max={endDate || undefined} onChange={(e) => setStartDate(e.target.value)} />
+                <input type="date" className="input" aria-label="End date" value={endDate} min={startDate || undefined} onChange={(e) => setEndDate(e.target.value)} />
+              </div>
+              <p className="mt-1.5 text-xs text-slate-500">While it’s on, new expenses and captured payments default to this group.</p>
+            </div>
+          )}
           {type !== 'personal' && (
             <label className="flex items-center justify-between gap-4 rounded-2xl bg-slate-50 p-3 dark:bg-ink-800">
               <div>

@@ -81,6 +81,13 @@ Splitwise solved "who owes whom". Its weak points today are where Split It goes 
 - ✅ **Payment screenshot scan**: reads a bank/PayID/UPI/PayPal confirmation screenshot, detects amount + payee name, matches the payee to a group member and pre-fills a settlement
 - ⏳ Optional server-side AI parsing (Cloud Function + vision model) for messy receipts — needs the Blaze plan
 
+### 3.5b Trip mode & auto-capture (see [AUTO_CAPTURE.md](AUTO_CAPTURE.md))
+- ✅ Optional group `startDate`/`endDate`; "Live trip" badge; new expenses default to the live trip
+- ✅ `/capture` URL contract v=1 → pending capture in a per-user **Inbox** → "is this a group expense?" prompt (trip-window match pre-selected) → prefilled expense form. Never auto-adds.
+- ✅ iOS Shortcuts Transaction automation writing silently to `captureInbox` via the Firestore REST API, authorised by a per-user capture token
+- ✅ Android Web Share Target (images → Scan, text with an amount → capture); Tasker/MacroDroid via `/capture`
+- ⏳ Open banking (Basiq), email forwarding, FCM push for new captures (need Cloud Functions / Blaze)
+
 ### 3.6 Insights (charts)
 - ✅ Spending by category (donut)
 - ✅ Monthly spending trend (area)
@@ -156,6 +163,14 @@ groups/{groupId}/settlements/{settlementId}
 
 invites/{inviteCode}
   groupId, groupName, createdBy        ← readable by any signed-in user
+
+groups/{groupId}.startDate?, endDate?  ← optional trip window (ISO dates, inclusive)
+
+users/{uid}/captures/{id}              ← owner-only inbox of captured payments
+  amount, currency?, merchant, date, source, status: pending|assigned|dismissed, groupId?, expenseId?
+
+captureTokens/{token}                  ← { uid, createdAt }; owner-only
+captureInbox/{id}                      ← signed-out drop box (token must exist and match uid)
 ```
 
 A **member id** is stable and separate from a Firebase uid. A placeholder member has no `uid`. When someone joins via invite and claims a placeholder, `members[id].uid` is set and their uid is added to `memberUids`. No expenses are rewritten.

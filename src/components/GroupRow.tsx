@@ -4,6 +4,9 @@ import type { GroupData } from '@/hooks/data'
 import { formatMoney } from '@/lib/money'
 import { GroupIcon } from './GroupIcon'
 import { AvatarStack } from './Avatar'
+import { LiveBadge } from './Misc'
+import { isLiveTrip } from '@/lib/capture'
+import { todayISO } from '@/lib/id'
 
 export function GroupRow({ d }: { d: GroupData }) {
   const bal = d.me ? d.net[d.me] ?? 0 : 0
@@ -14,7 +17,10 @@ export function GroupRow({ d }: { d: GroupData }) {
     <Link to={`/groups/${d.group.id}`} className="flex items-center gap-3 px-4 py-3.5 transition active:bg-slate-50 dark:active:bg-ink-800">
       <GroupIcon emoji={d.group.emoji} />
       <div className="min-w-0 flex-1">
-        <div className="truncate font-semibold">{d.group.name}</div>
+        <div className="flex items-center gap-2">
+          <span className="truncate font-semibold">{d.group.name}</span>
+          {isLiveTrip(d.group, todayISO()) && <LiveBadge />}
+        </div>
         <div className="mt-0.5 flex items-center gap-2">
           {personal ? (
             <span className="text-xs text-slate-500">{formatMoney(spent, d.group.currency)} spent</span>

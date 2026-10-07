@@ -8,9 +8,10 @@ import {
   onSnapshot, persistentLocalCache, persistentMultipleTabManager, query, setDoc, updateDoc, where, writeBatch,
 } from 'firebase/firestore'
 import { connectStorageEmulator, getDownloadURL, getStorage, ref, uploadBytes } from 'firebase/storage'
-import type { Expense, ExpenseComment, Group, Settlement, UserProfile } from '@/types'
-import { inviteCode, uid } from '@/lib/id'
-import { byDateDesc, placeholdersOf, type InviteInfo, type Repo } from './repo'
+import type { Capture, Expense, ExpenseComment, Group, Settlement, UserProfile } from '@/types'
+import { inviteCode, todayISO, uid } from '@/lib/id'
+import { inboxToDraft, newCaptureToken, type InboxDoc } from '@/lib/capture'
+import { byCreatedDesc, byDateDesc, compact, draftToCapture, placeholdersOf, type CaptureToken, type InviteInfo, type Repo } from './repo'
 
 export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolean): Repo {
   const app = initializeApp(config)
@@ -98,7 +99,9 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       return id
     },
     async updateGroup(id, patch) {
-      await updateDoc(groupRef(id), { ...patch, updatedAt: Date.now() })
+      // `undefined` means "clear this field" (e.g. removing a budget or trip dates).
+      const data = Object.fromEntries(Object.entries(patch).map(([k, v]) => [k, v === undefined ? deleteField() : v]))
+      await updateDoc(groupRef(id), { ...data, updatedAt: Date.now() })
       const s = await getDoc(groupRef(id))
       if (s.exists()) {
         const g = { ...(s.data() as Group), id }
@@ -193,5 +196,46 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       await addDoc(commentsCol(groupId, expenseId), c)
     },
     deleteComment: (groupId, expenseId, id) => deleteDoc(doc(commentsCol(groupId, expenseId), id)),
+
+    watchCaptures(userId, cb) {
+      return onSnapshot(collection(db, 'users', userId, 'captures'), (s) =>
+        cb(s.docs.map((d) => ({ ...(d.data() as Capture), id: d.id })).sort(byCreatedDesc)),
+      )
+    },
+    saveCapture: (userId, c) => setDoc(doc(db, 'users', userId, 'captures', c.id), c),
+    async updateCapture(userId, id, patch) {
+      const data = Object.fromEntries(Object.entries(patch).map(([k, v]) => [k, v === undefined ? deleteField() : v]))
+      await updateDoc(doc(db, 'users', userId, 'captures', id), { ...data, updatedAt: Date.now() })
+    },
+    deleteCapture: (userId, id) => deleteDoc(doc(db, 'users', userId, 'captures', id)),
+
+    watchCaptureTokens(userId, cb) {
+      const q = query(collection(db, 'captureTokens'), where('uid', '==', userId))
+      return onSnapshot(q, (s) => cb(s.docs.map((d) => ({ ...(d.data() as CaptureToken), token: d.id })).sort(byCreatedDesc)), () => cb([]))
+    },
+    async createCaptureToken(userId) {
+      const token = newCaptureToken()
+      await setDoc(doc(db, 'captureTokens', token), { uid: userId, createdAt: Date.now() })
+      return token
+    },
+    revokeCaptureToken: (token) => deleteDoc(doc(db, 'captureTokens', token)),
+    async submitToInbox(entry, id) {
+      // Works signed out: the rules only check that the token exists and belongs to entry.uid.
+      await setDoc(id ? doc(db, 'captureInbox', id) : doc(collection(db, 'captureInbox')), compact(entry))
+    },
+    async claimInbox(userId) {
+      const s = await getDocs(query(collection(db, 'captureInbox'), where('uid', '==', userId)))
+      let moved = 0
+      for (const d of s.docs) {
+        const draft = inboxToDraft(d.data() as InboxDoc, todayISO())
+        const batch = writeBatch(db)
+        // Same id as the inbox doc, so a retry after a partial failure can't duplicate.
+        if (draft) { batch.set(doc(db, 'users', userId, 'captures', d.id), draftToCapture(draft, d.id)); moved++ }
+        else console.warn('Dropping unreadable capture', d.id, d.data())
+        batch.delete(d.ref)
+        await batch.commit()
+      }
+      return moved
+    },
   }
 }

@@ -35,6 +35,9 @@ export interface Group {
   type: GroupType
   currency: string
   budget?: Cents
+  /** optional trip/event window, ISO yyyy-mm-dd (inclusive) */
+  startDate?: string
+  endDate?: string
   simplify: boolean
   memberUids: string[]
   members: Record<MemberId, Member>
@@ -129,4 +132,35 @@ export interface ExpenseComment {
   authorUid: string
   authorName: string
   createdAt: number
+}
+
+export type CaptureStatus = 'pending' | 'assigned' | 'dismissed'
+
+/**
+ * A transaction captured from outside the app (iOS Shortcuts, Android automation, share sheet)
+ * that the user still has to sort into a group. Stored per user: users/{uid}/captures/{id}.
+ */
+export interface Capture {
+  id: string
+  amount: Cents
+  /** ISO 4217 code if known (from the URL or the amount's symbol) */
+  currency?: string
+  merchant: string
+  date: string // ISO yyyy-mm-dd
+  /** original ISO 8601 timestamp, when the sender gave one */
+  ts?: string
+  /** where it came from: ios-shortcut, android-auto, share, email, manual */
+  source: string
+  /** card label (e.g. "Amex"), never a card number */
+  card?: string
+  /** the amount as the sender wrote it, e.g. "A$12.50" */
+  raw?: string
+  note?: string
+  /** groupId the capture link asked to pre-select */
+  suggestedGroup?: string
+  status: CaptureStatus
+  groupId?: string
+  expenseId?: string
+  createdAt: number
+  updatedAt: number
 }

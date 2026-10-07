@@ -15,7 +15,8 @@ import { todayISO } from '@/lib/id'
 import { Avatar } from '@/components/Avatar'
 import { DebtGraph } from '@/components/DebtGraph'
 import { GroupIcon } from '@/components/GroupIcon'
-import { Empty, Loading, PageHeader, Segmented } from '@/components/Misc'
+import { Empty, LiveBadge, Loading, PageHeader, Segmented, formatRange } from '@/components/Misc'
+import { hasTripWindow, isLiveTrip } from '@/lib/capture'
 import { Sheet } from '@/components/Sheet'
 import { useToast } from '@/components/Toast'
 
@@ -103,6 +104,12 @@ export default function GroupDetail() {
             {debts.filter((x) => x.from === me || x.to === me).slice(0, 3).map((x, i) => (
               <div key={i}>{x.from === me ? <>You owe <b>{name(x.to)}</b> <span className="neg font-semibold">{formatMoney(x.amount, cur)}</span></> : <><b>{name(x.from)}</b> owes you <span className="pos font-semibold">{formatMoney(x.amount, cur)}</span></>}</div>
             ))}
+          </div>
+        )}
+        {hasTripWindow(group) && (
+          <div className="mt-3 flex items-center gap-2 text-sm text-slate-500">
+            <span>🗓️ {formatRange(group.startDate, group.endDate)}</span>
+            {isLiveTrip(group, todayISO()) && <LiveBadge />}
           </div>
         )}
         {group.budget ? <BudgetBar spent={total} budget={group.budget} currency={cur} /> : null}

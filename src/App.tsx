@@ -4,6 +4,8 @@ import { useAuth } from './hooks/auth'
 import { Layout } from './components/Layout'
 import { Loading } from './components/Misc'
 import { UpdatePrompt } from './components/UpdatePrompt'
+import { repo } from './data'
+import { takeStashedCapture } from './lib/pending'
 import Login from './pages/Login'
 import Home from './pages/Home'
 import Groups from './pages/Groups'
@@ -18,6 +20,10 @@ const Friends = lazy(() => import('./pages/Friends'))
 const Insights = lazy(() => import('./pages/Insights'))
 const Profile = lazy(() => import('./pages/Profile'))
 const Join = lazy(() => import('./pages/Join'))
+const Capture = lazy(() => import('./pages/Capture'))
+const CaptureGuest = lazy(() => import('./pages/CaptureGuest'))
+const Inbox = lazy(() => import('./pages/Inbox'))
+const Share = lazy(() => import('./pages/Share'))
 
 export default function App() {
   const { user, loading } = useAuth()
@@ -26,13 +32,33 @@ export default function App() {
 
   useEffect(() => {
     if (!user) return
+    // A capture link opened while signed out wins over the generic return path.
+    const capture = takeStashedCapture()
     const back = sessionStorage.getItem('splitit-return')
-    if (back) { sessionStorage.removeItem('splitit-return'); nav(back, { replace: true }) }
+    sessionStorage.removeItem('splitit-return')
+    if (capture) nav(`/capture${capture}`, { replace: true })
+    else if (back) nav(back, { replace: true })
   }, [user, nav])
+
+  // Pull anything iOS Shortcuts dropped into captureInbox while the app was closed.
+  useEffect(() => {
+    if (!user) return
+    const claim = () => { if (document.visibilityState === 'visible') repo.claimInbox(user.uid).catch((e) => console.warn('Inbox sync failed', e)) }
+    claim()
+    document.addEventListener('visibilitychange', claim)
+    return () => document.removeEventListener('visibilitychange', claim)
+  }, [user])
 
   if (loading) return <Splash />
 
   if (!user) {
+    if (loc.pathname === '/capture') {
+      return (
+        <Suspense fallback={<Splash />}>
+          <CaptureGuest />
+        </Suspense>
+      )
+    }
     // Remember where they were going (e.g. an invite link) and come back after sign-in.
     if (loc.pathname !== '/') sessionStorage.setItem('splitit-return', loc.pathname + loc.search)
     return (
@@ -59,10 +85,14 @@ export default function App() {
             <Route path="friends" element={<Friends />} />
             <Route path="insights" element={<Insights />} />
             <Route path="profile" element={<Profile />} />
+            <Route path="inbox" element={<Inbox />} />
           </Route>
           <Route path="add" element={<ExpenseForm />} />
           <Route path="groups/:groupId/expenses/:expenseId/edit" element={<ExpenseForm />} />
           <Route path="scan" element={<Scan />} />
+          <Route path="capture" element={<Capture />} />
+          <Route path="capture/:captureId" element={<Capture />} />
+          <Route path="share" element={<Share />} />
           <Route path="join/:code" element={<Join />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

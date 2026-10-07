@@ -1,6 +1,7 @@
-import type { Expense, ExpenseComment, Group, Settlement, UserProfile } from '@/types'
-import { inviteCode, uid } from '@/lib/id'
-import { byDateDesc, placeholdersOf, type AuthUser, type Repo } from './repo'
+import type { Capture, Expense, ExpenseComment, Group, Settlement, UserProfile } from '@/types'
+import { inviteCode, todayISO, uid } from '@/lib/id'
+import { inboxToDraft, newCaptureToken } from '@/lib/capture'
+import { byCreatedDesc, byDateDesc, draftToCapture, placeholdersOf, type AuthUser, type CaptureToken, type Repo } from './repo'
 import { seedDemo } from './seed'
 
 /**
@@ -14,6 +15,10 @@ interface State {
   expenses: Record<string, Expense>
   settlements: Record<string, Settlement>
   comments?: Record<string, StoredComment>
+
+  /** captures keyed by id, tagged with the owner's uid */
+  captures: Record<string, Capture & { owner: string }>
+  captureTokens: Record<string, CaptureToken>
 }
 
 type StoredComment = ExpenseComment & { groupId: string; expenseId: string }
@@ -23,9 +28,9 @@ const KEY = 'splitit-demo-v1'
 function load(): State {
   try {
     const raw = localStorage.getItem(KEY)
-    if (raw) return JSON.parse(raw)
+    if (raw) return { captures: {}, captureTokens: {}, ...JSON.parse(raw) }
   } catch { /* storage unavailable */ }
-  return { user: null, profiles: {}, groups: {}, expenses: {}, settlements: {} }
+  return { user: null, profiles: {}, groups: {}, expenses: {}, settlements: {}, captures: {}, captureTokens: {} }
 }
 
 export function createLocalRepo(): Repo {
@@ -157,5 +162,40 @@ export function createLocalRepo(): Repo {
       commit()
     },
     async deleteComment(_g, _e, id) { delete comments()[id]; commit() },
+
+    watchCaptures: (userId, cb) =>
+      watch(() => Object.values(state.captures).filter((c) => c.owner === userId).map(({ owner: _, ...c }) => c).sort(byCreatedDesc), cb),
+    async saveCapture(userId, c) { state.captures[c.id] = { ...c, owner: userId }; commit() },
+    async updateCapture(userId, id, patch) {
+      const c = state.captures[id]
+      if (!c || c.owner !== userId) throw new Error('Capture not found')
+      state.captures[id] = { ...c, ...patch, updatedAt: Date.now() }
+      commit()
+    },
+    async deleteCapture(userId, id) {
+      if (state.captures[id]?.owner === userId) delete state.captures[id]
+      commit()
+    },
+
+    watchCaptureTokens: (userId, cb) =>
+      watch(() => Object.values(state.captureTokens).filter((t) => t.uid === userId).sort(byCreatedDesc), cb),
+    async createCaptureToken(userId) {
+      const token = newCaptureToken()
+      state.captureTokens[token] = { token, uid: userId, createdAt: Date.now() }
+      commit()
+      return token
+    },
+    async revokeCaptureToken(token) { delete state.captureTokens[token]; commit() },
+    async submitToInbox(entry, id) {
+      // Demo mode has no server inbox: validate the token and file the capture straight away.
+      const t = state.captureTokens[entry.token]
+      if (!t || t.uid !== entry.uid) throw new Error('Unknown capture token')
+      const draft = inboxToDraft(entry, todayISO())
+      if (!draft) throw new Error('No amount')
+      const cid = id ?? uid('c_')
+      state.captures[cid] = { ...draftToCapture(draft, cid), owner: t.uid }
+      commit()
+    },
+    async claimInbox() { return 0 },
   }
 }

@@ -60,3 +60,21 @@ export function Segmented<T extends string>({ value, options, onChange }: { valu
     </div>
   )
 }
+
+/** "Live trip" pill for groups whose date window contains today. */
+export function LiveBadge({ className = '' }: { className?: string }) {
+  return (
+    <span className={`inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300 ${className}`}>
+      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" /> Live trip
+    </span>
+  )
+}
+
+/** "1 Oct – 10 Oct" style range for trip dates. */
+export function formatRange(start?: string, end?: string): string {
+  const f = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+  if (start && end) return `${f(start)} – ${f(end)}`
+  if (start) return `from ${f(start)}`
+  if (end) return `until ${f(end)}`
+  return ''
+}

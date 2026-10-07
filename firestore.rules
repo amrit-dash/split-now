@@ -19,6 +19,51 @@ service cloud.firestore {
       allow create, update: if signedIn() && uid() == userId
         && request.resource.data.uid == userId;
       allow delete: if signedIn() && uid() == userId;
+
+      // Captured transactions waiting to be sorted into a group: private to the user.
+      match /captures/{captureId} {
+        allow read, delete: if signedIn() && uid() == userId;
+        allow create, update: if signedIn() && uid() == userId
+          && request.resource.data.amount is int
+          && request.resource.data.amount > 0
+          && request.resource.data.status in ['pending', 'assigned', 'dismissed'];
+      }
+    }
+
+    // ---- Auto-capture --------------------------------------------------
+    // A capture token is a long random secret that lets a signed-out automation (an iOS Shortcut
+    // calling the REST API) drop a transaction into captureInbox for its owner.
+    match /captureTokens/{token} {
+      allow get, list, delete: if signedIn() && resource.data.uid == uid();
+      allow create: if signedIn()
+        && token.size() >= 24
+        && request.resource.data.uid == uid()
+        && request.resource.data.keys().hasOnly(['uid', 'createdAt']);
+      allow update: if false;
+    }
+
+    // Written without Firebase Auth. The token must exist and belong to the uid on the doc;
+    // only whitelisted, typed fields are allowed. Only the owner (signed in) can read or delete,
+    // which the app does on open when it moves entries into users/{uid}/captures.
+    match /captureInbox/{id} {
+      function tokenOwner(t) { return get(/databases/$(database)/documents/captureTokens/$(t)).data.uid; }
+      function optStr(d, k, max) { return !(k in d) || (d[k] is string && d[k].size() <= max); }
+      function validInbox(d) {
+        return d.keys().hasAll(['token', 'uid', 'merchant'])
+          && d.keys().hasOnly(['token', 'uid', 'amount', 'raw', 'currency', 'merchant', 'ts', 'src', 'card'])
+          && d.token is string && d.token.size() >= 24 && d.token.size() <= 64
+          && d.uid is string
+          && d.merchant is string && d.merchant.size() > 0 && d.merchant.size() <= 100
+          && (('amount' in d && d.amount is int && d.amount > 0)
+              || (!('amount' in d) && d.raw is string && d.raw.size() > 0))
+          && optStr(d, 'raw', 40) && optStr(d, 'currency', 3) && optStr(d, 'ts', 40)
+          && optStr(d, 'src', 20) && optStr(d, 'card', 40);
+      }
+      allow create: if validInbox(request.resource.data)
+        && exists(/databases/$(database)/documents/captureTokens/$(request.resource.data.token))
+        && tokenOwner(request.resource.data.token) == request.resource.data.uid;
+      allow get, list, delete: if signedIn() && resource.data.uid == uid();
+      allow update: if false;
     }
 
     // ---- Groups --------------------------------------------------------

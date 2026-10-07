@@ -4,7 +4,7 @@
 import { readFileSync } from 'node:fs'
 import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest'
 import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing'
-import { arrayUnion, collection, deleteDoc, deleteField, doc, getDoc, getDocs, setDoc, updateDoc, writeBatch } from 'firebase/firestore'
+import { arrayUnion, collection, deleteDoc, deleteField, doc, getDoc, getDocs, query, setDoc, updateDoc, where, writeBatch } from 'firebase/firestore'
 
 let env: RulesTestEnvironment
 
@@ -176,5 +176,79 @@ describe('users', () => {
     await assertSucceeds(setDoc(doc(db('alice'), 'users/alice'), { uid: 'alice', displayName: 'A', currency: 'AUD' }))
     await assertFails(setDoc(doc(db('mallory'), 'users/alice'), { uid: 'alice', displayName: 'X', currency: 'AUD' }))
     await assertSucceeds(getDoc(doc(db('bob'), 'users/alice')))
+  })
+})
+
+describe('captures', () => {
+  const capture = { id: 'c1', amount: 1250, merchant: 'Cafe', date: '2026-10-07', source: 'ios-shortcut', status: 'pending', createdAt: 1, updatedAt: 1 }
+  it('only the owner can read and write their captures', async () => {
+    await assertSucceeds(setDoc(doc(db('alice'), 'users/alice/captures/c1'), capture))
+    await assertSucceeds(getDoc(doc(db('alice'), 'users/alice/captures/c1')))
+    await assertSucceeds(getDocs(collection(db('alice'), 'users/alice/captures')))
+    await assertFails(getDoc(doc(db('bob'), 'users/alice/captures/c1')))
+    await assertFails(setDoc(doc(db('bob'), 'users/alice/captures/c2'), capture))
+    await assertFails(getDoc(doc(db(), 'users/alice/captures/c1')))
+    await assertFails(deleteDoc(doc(db('bob'), 'users/alice/captures/c1')))
+    await assertSucceeds(deleteDoc(doc(db('alice'), 'users/alice/captures/c1')))
+  })
+  it('amount must be a positive integer (cents)', async () => {
+    await assertFails(setDoc(doc(db('alice'), 'users/alice/captures/c3'), { ...capture, amount: 12.5 }))
+    await assertFails(setDoc(doc(db('alice'), 'users/alice/captures/c4'), { ...capture, amount: 0 }))
+    await assertFails(setDoc(doc(db('alice'), 'users/alice/captures/c5'), { ...capture, amount: '1250' }))
+  })
+  it('status must be known', async () => {
+    await assertFails(setDoc(doc(db('alice'), 'users/alice/captures/c6'), { ...capture, status: 'paid' }))
+  })
+})
+
+describe('capture tokens and inbox', () => {
+  const TOKEN = 'abcdefghijkmnpqrstuvwxyz234'
+  const entry = { token: TOKEN, uid: 'alice', raw: 'A$12.50', merchant: 'Cafe', ts: '2026-10-07T09:30:00+11:00', src: 'ios-shortcut' }
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), `captureTokens/${TOKEN}`), { uid: 'alice', createdAt: 1 }))
+  })
+
+  it('users create tokens only for themselves, and only long ones', async () => {
+    await assertSucceeds(setDoc(doc(db('bob'), 'captureTokens/bbbbbbbbbbbbbbbbbbbbbbbbbbbb'), { uid: 'bob', createdAt: 1 }))
+    await assertFails(setDoc(doc(db('bob'), 'captureTokens/cccccccccccccccccccccccccccc'), { uid: 'alice', createdAt: 1 }))
+    await assertFails(setDoc(doc(db('bob'), 'captureTokens/short'), { uid: 'bob', createdAt: 1 }))
+    await assertFails(setDoc(doc(db(), 'captureTokens/dddddddddddddddddddddddddddd'), { uid: 'bob', createdAt: 1 }))
+  })
+  it('only the owner can see or revoke a token', async () => {
+    await assertSucceeds(getDoc(doc(db('alice'), `captureTokens/${TOKEN}`)))
+    await assertSucceeds(getDocs(query(collection(db('alice'), 'captureTokens'), where('uid', '==', 'alice'))))
+    await assertFails(getDoc(doc(db('bob'), `captureTokens/${TOKEN}`)))
+    await assertFails(getDoc(doc(db(), `captureTokens/${TOKEN}`)))
+    await assertFails(deleteDoc(doc(db('bob'), `captureTokens/${TOKEN}`)))
+    await assertSucceeds(deleteDoc(doc(db('alice'), `captureTokens/${TOKEN}`)))
+  })
+
+  it('a valid token can create an inbox entry without signing in', async () => {
+    await assertSucceeds(setDoc(doc(db(), 'captureInbox/i1'), entry))
+    const { raw: _, ...noRaw } = entry
+    await assertSucceeds(setDoc(doc(db(), 'captureInbox/i2'), { ...noRaw, amount: 1250, currency: 'AUD', card: 'Amex' }))
+  })
+  it('rejects a bad token, or a token used for someone else', async () => {
+    await assertFails(setDoc(doc(db(), 'captureInbox/i3'), { ...entry, token: 'zzzzzzzzzzzzzzzzzzzzzzzzzzzz' }))
+    await assertFails(setDoc(doc(db(), 'captureInbox/i4'), { ...entry, uid: 'bob' }))
+  })
+  it('rejects extra keys, bad types and missing amounts', async () => {
+    await assertFails(setDoc(doc(db(), 'captureInbox/i5'), { ...entry, status: 'assigned' }))
+    await assertFails(setDoc(doc(db(), 'captureInbox/i6'), { ...entry, amount: 12.5 }))
+    await assertFails(setDoc(doc(db(), 'captureInbox/i7'), { ...entry, amount: -100 }))
+    await assertFails(setDoc(doc(db(), 'captureInbox/i8'), { ...entry, merchant: 'x'.repeat(101) }))
+    await assertFails(setDoc(doc(db(), 'captureInbox/i9'), { token: TOKEN, uid: 'alice', merchant: 'Cafe' }))
+  })
+  it('nobody but the owner can read, update or delete inbox entries', async () => {
+    await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'captureInbox/i10'), entry))
+    await assertFails(getDoc(doc(db(), 'captureInbox/i10')))
+    await assertFails(getDoc(doc(db('bob'), 'captureInbox/i10')))
+    await assertFails(setDoc(doc(db(), 'captureInbox/i10'), { ...entry, merchant: 'Changed' }))
+    await assertFails(deleteDoc(doc(db(), 'captureInbox/i10')))
+    await assertFails(deleteDoc(doc(db('bob'), 'captureInbox/i10')))
+    await assertSucceeds(getDoc(doc(db('alice'), 'captureInbox/i10')))
+    await assertSucceeds(getDocs(query(collection(db('alice'), 'captureInbox'), where('uid', '==', 'alice'))))
+    await assertFails(getDocs(collection(db('bob'), 'captureInbox')))
+    await assertSucceeds(deleteDoc(doc(db('alice'), 'captureInbox/i10')))
   })
 })

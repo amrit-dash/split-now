@@ -13,6 +13,7 @@ export function seedDemo(_state: unknown, user: AuthUser) {
   }
   const bali: Group = {
     id: 'g_bali', name: 'Bali Trip', emoji: '🏝️', type: 'trip', currency: 'AUD', budget: 400000, simplify: true,
+    startDate: day(26), endDate: day(12),
     memberUids: [user.uid],
     members: {
       me: { name: user.displayName, uid: user.uid, color: colorFor(0) },
@@ -61,5 +62,12 @@ export function seedDemo(_state: unknown, user: AuthUser) {
     groups: { [bali.id]: bali, [flat.id]: flat },
     expenses: Object.fromEntries(expenses.map((e) => [e.id, e])),
     settlements: Object.fromEntries(settlements.map((s) => [s.id, s])),
+    // One captured Apple Pay payment from the trip, waiting in the inbox.
+    captures: {
+      c_demo: {
+        id: 'c_demo', owner: user.uid, amount: 4280, currency: 'AUD', merchant: 'Warung Made', date: day(16), source: 'ios-shortcut',
+        card: 'Visa', status: 'pending' as const, createdAt: now - 16 * 86400000, updatedAt: now - 16 * 86400000,
+      },
+    },
   }
 }
