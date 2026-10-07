@@ -16,6 +16,7 @@ Built with React 19, TypeScript, Vite 8 and Tailwind v4, and backed by Firebase 
 | 🔗 **Cross-group netting** | One balance per friend across all groups, plus a "Net out" action that settles every group with one real payment. |
 | 💸 **Settle up** | Shows the payee's PayID, BSB/account, PayPal.me, UPI or Revolut with copy buttons and deep links, then records the payment. Share reminders via the native share sheet. |
 | 📷 **Smart scan** | On-device OCR (Tesseract.js) reads **receipts** (total, merchant, date, line items → itemized split) and **payment screenshots** (amount + payee → pre-filled settlement). Free, private, no server. |
+| 💳 **Trip mode + capture inbox** | Give a trip start/end dates for a *Live trip* badge. Apple Pay taps (iOS Shortcuts), Android automations and the share sheet drop payments into an **Inbox**, which asks "is this a group expense?" and pre-selects the trip. Nothing is added without your OK. See **[docs/AUTO_CAPTURE.md](docs/AUTO_CAPTURE.md)**. |
 | 📊 **Insights** | Category donut, spending trend, paid-vs-share per member, biggest expenses, and a group budget bar. "My share" or "group total" views. |
 | 📱 **PWA** | Install banner on Android/desktop (native prompt) and iOS (guided *Share → Add to Home Screen*). Offline app shell, update prompt, safe-area aware, light/dark theme. |
 
@@ -37,7 +38,7 @@ To connect Firebase, follow **[docs/FIREBASE_SETUP.md](docs/FIREBASE_SETUP.md)**
 | `npm run dev` | Vite dev server |
 | `npm run build` | Typecheck + production build (with service worker) into `dist/` |
 | `npm run preview` | Serve the production build locally (needed to test install/offline) |
-| `npm test` | Unit tests for splits, balances, simplification and OCR parsing |
+| `npm test` | Unit tests for splits, balances, simplification, OCR parsing and capture parsing |
 | `npm run test:rules` | Firestore security-rule tests against the emulator (needs Java 11+) |
 | `npm run icons` | Regenerate PWA/Apple icons from `public/favicon.svg` |
 | `npm run emulators` | Start the Firebase emulators |
@@ -53,7 +54,7 @@ src/
   components/   UI primitives, install banner, debt graph, layout
   pages/        screens (Home, Groups, GroupDetail, ExpenseForm, SettleUp, Scan, Insights, Friends, Profile, Join)
 tests/          Firestore rules tests
-docs/           PLAN.md (product + architecture), FIREBASE_SETUP.md
+docs/           PLAN.md (product + architecture), FIREBASE_SETUP.md, AUTO_CAPTURE.md
 firestore.rules, storage.rules, firebase.json
 ```
 

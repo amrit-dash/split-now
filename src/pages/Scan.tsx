@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Camera, ImageUp, Receipt, Send } from 'lucide-react'
 import { useAllGroupData } from '@/hooks/data'
 import { useOcr } from '@/hooks/useOcr'
@@ -25,6 +25,30 @@ export default function Scan() {
   const [text, setText] = useState('')
   const [receipt, setReceipt] = useState<ParsedReceipt | null>(null)
   const [payment, setPayment] = useState<ParsedPayment | null>(null)
+  const [params, setParams] = useSearchParams()
+
+  // An image shared from another app (Android share target): the service worker parked it in Cache Storage.
+  useEffect(() => {
+    if (!params.get('shared') || !('caches' in window)) return
+    setParams({}, { replace: true })
+    ;(async () => {
+      const cache = await caches.open('splitit-share')
+      const res = await cache.match('/shared-image')
+      if (!res) return
+      await cache.delete('/shared-image')
+      const blob = await res.blob()
+      const name = decodeURIComponent(res.headers.get('x-file-name') ?? 'shared.jpg')
+      onFile(new File([blob], name, { type: blob.type || 'image/jpeg' }))
+    })().catch((e) => toast('Couldn’t open the shared image: ' + (e as Error).message, 'err'))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const switchMode = (m: Mode) => {
+    setMode(m)
+    // Keep the photo and re-read the text we already have instead of making the user pick it again.
+    if (text && !ocr.busy) { setReceipt(m === 'receipt' ? parseReceipt(text) : null); setPayment(m === 'payment' ? parsePaymentScreenshot(text) : null) }
+    else { setReceipt(null); setPayment(null); setFile(null); setPreview(undefined); setText('') }
+  }
 
   const onFile = async (f: File) => {
     setFile(f); setPreview(URL.createObjectURL(f)); setReceipt(null); setPayment(null)
@@ -63,7 +87,7 @@ export default function Scan() {
   return (
     <div className="mx-auto min-h-dvh max-w-lg px-4 pb-10">
       <PageHeader title="Smart scan" back subtitle="Read receipts and payment screenshots on your device" />
-      <Segmented<Mode> value={mode} onChange={(m) => { setMode(m); setReceipt(null); setPayment(null); setFile(null); setPreview(undefined) }} options={[
+      <Segmented<Mode> value={mode} onChange={switchMode} options={[
         { value: 'receipt', label: <span className="inline-flex items-center gap-1.5"><Receipt size={16} /> Receipt</span> },
         { value: 'payment', label: <span className="inline-flex items-center gap-1.5"><Send size={16} /> Payment screenshot</span> },
       ]} />

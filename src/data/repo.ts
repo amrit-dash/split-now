@@ -1,4 +1,5 @@
-import type { Expense, ExpenseComment, Group, Member, MemberId, Settlement, UserProfile } from '@/types'
+import type { Capture, Expense, ExpenseComment, Group, Member, MemberId, Settlement, UserProfile } from '@/types'
+import type { CaptureDraft, InboxDoc } from '@/lib/capture'
 
 export type Unsub = () => void
 
@@ -62,6 +63,27 @@ export interface Repo {
   watchComments(groupId: string, expenseId: string, cb: (c: ExpenseComment[]) => void): Unsub
   addComment(groupId: string, expenseId: string, c: Omit<ExpenseComment, 'id'>): Promise<void>
   deleteComment(groupId: string, expenseId: string, id: string): Promise<void>
+
+  /** Per-user inbox of transactions captured outside the app (users/{uid}/captures). */
+  watchCaptures(uid: string, cb: (c: Capture[]) => void): Unsub
+  saveCapture(uid: string, c: Capture): Promise<void>
+  updateCapture(uid: string, id: string, patch: Partial<Omit<Capture, 'id'>>): Promise<void>
+  deleteCapture(uid: string, id: string): Promise<void>
+
+  /** Capture tokens let signed-out automations (iOS Shortcuts) drop transactions into captureInbox. */
+  watchCaptureTokens(uid: string, cb: (t: CaptureToken[]) => void): Unsub
+  createCaptureToken(uid: string): Promise<string>
+  revokeCaptureToken(token: string): Promise<void>
+  /** Signed-out write of one transaction into captureInbox, authorised only by the token. */
+  submitToInbox(doc: InboxDoc, id?: string): Promise<void>
+  /** Move this user's captureInbox docs into users/{uid}/captures. Returns how many were moved. */
+  claimInbox(uid: string): Promise<number>
+}
+
+export interface CaptureToken {
+  token: string
+  uid: string
+  createdAt: number
 }
 
 export function placeholdersOf(g: Pick<Group, 'members'>): Record<MemberId, string> {
@@ -70,3 +92,16 @@ export function placeholdersOf(g: Pick<Group, 'members'>): Record<MemberId, stri
 
 export const byDateDesc = <T extends { date: string; createdAt: number }>(a: T, b: T) =>
   b.date.localeCompare(a.date) || b.createdAt - a.createdAt
+
+/** Build a pending capture from a validated draft. Undefined fields are dropped. */
+export function draftToCapture(d: CaptureDraft, id: string, now = Date.now()): Capture {
+  return compact({
+    id, amount: d.amount, currency: d.currency, merchant: d.merchant, date: d.date, ts: d.ts, source: d.source,
+    card: d.card, raw: d.raw, note: d.note, suggestedGroup: d.group, status: 'pending' as const, createdAt: now, updatedAt: now,
+  })
+}
+
+export const compact = <T extends object>(o: T): T =>
+  Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T
+
+export const byCreatedDesc =<T extends { createdAt: number }>(a: T, b: T) => b.createdAt - a.createdAt

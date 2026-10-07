@@ -34,9 +34,19 @@ export default defineConfig({
         shortcuts: [
           { name: 'Add expense', url: '/add', icons: [{ src: 'pwa-192.png', sizes: '192x192' }] },
           { name: 'Scan receipt', url: '/scan', icons: [{ src: 'pwa-192.png', sizes: '192x192' }] },
+          { name: 'Inbox', url: '/inbox', icons: [{ src: 'pwa-192.png', sizes: '192x192' }] },
         ],
+        // Android only: "Share → Split It" for payment screenshots, receipts and payment texts.
+        // POST so images can be shared; public/share-target-sw.js handles it in the service worker.
+        share_target: {
+          action: '/share-target',
+          method: 'POST',
+          enctype: 'multipart/form-data',
+          params: { title: 'title', text: 'text', url: 'url', files: [{ name: 'image', accept: ['image/*'] }] },
+        },
       },
       workbox: {
+        importScripts: ['share-target-sw.js'],
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         navigateFallback: '/index.html',

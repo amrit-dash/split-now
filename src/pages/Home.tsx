@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
-import { ArrowRightLeft, Plus, ScanLine, Users } from 'lucide-react'
+import { ArrowRightLeft, ChevronRight, Inbox, Plus, ScanLine, Users } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
-import { useAllGroupData } from '@/hooks/data'
+import { useAllGroupData, usePendingCaptures } from '@/hooks/data'
 import { formatMoney } from '@/lib/money'
 import { CATEGORIES } from '@/lib/categories'
 import { GroupRow } from '@/components/GroupRow'
@@ -11,6 +11,7 @@ import { Avatar } from '@/components/Avatar'
 export default function Home() {
   const { profile } = useMe()
   const data = useAllGroupData()
+  const inbox = usePendingCaptures()?.length ?? 0
   if (!data) return <Loading />
 
   // Totals in the user's default currency only; other currencies are listed separately.
@@ -43,8 +44,25 @@ export default function Home() {
           <div className="text-sm text-slate-500 dark:text-slate-400">{greet},</div>
           <div className="text-2xl font-extrabold tracking-tight">{profile.displayName.split(' ')[0]} 👋</div>
         </div>
-        <Link to="/profile"><Avatar name={profile.displayName} color="#7c3aed" size={44} /></Link>
+        <div className="flex items-center gap-2">
+          <Link to="/inbox" className="relative rounded-full p-2.5 hover:bg-slate-200/60 dark:hover:bg-ink-800" aria-label={inbox ? `Inbox, ${inbox} to sort` : 'Inbox'}>
+            <Inbox size={22} />
+            {inbox > 0 && <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[11px] font-bold text-white">{inbox > 99 ? '99+' : inbox}</span>}
+          </Link>
+          <Link to="/profile"><Avatar name={profile.displayName} color="#7c3aed" size={44} /></Link>
+        </div>
       </div>
+
+      {inbox > 0 && (
+        <Link to="/inbox" className="card mb-4 flex items-center gap-3 p-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-100 text-xl dark:bg-brand-900/40">📥</div>
+          <div className="flex-1">
+            <div className="font-semibold">{inbox} captured payment{inbox === 1 ? '' : 's'} to sort</div>
+            <div className="text-xs text-slate-500">Add to a group, or mark as not shared</div>
+          </div>
+          <ChevronRight size={18} className="text-slate-300 dark:text-slate-600" />
+        </Link>
+      )}
 
       <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-brand-600 via-violet-600 to-fuchsia-600 p-6 text-white shadow-xl shadow-brand-600/30">
         <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10" />

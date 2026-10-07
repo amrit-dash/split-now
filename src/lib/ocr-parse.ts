@@ -28,6 +28,11 @@ function amountsIn(line: string): Cents[] {
   return [...line.matchAll(AMOUNT_RE)].map((m) => toCents(m[1])).filter((n) => Number.isFinite(n))
 }
 
+/** All currency-looking amounts in a piece of text, in order of appearance (cents). */
+export function findAmounts(text: string): Cents[] {
+  return amountsIn(text)
+}
+
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
 
 export function parseDate(text: string): string | undefined {

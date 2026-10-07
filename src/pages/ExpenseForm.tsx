@@ -3,14 +3,15 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Camera, Check, Minus, Plus, Repeat, Trash2, X } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
-import { memberOrder, myMemberId, useExpenses, useGroup, useGroups } from '@/hooks/data'
+import { memberOrder, myMemberId, useCaptures, useExpenses, useGroup, useGroups } from '@/hooks/data'
 import { useOcr } from '@/hooks/useOcr'
-import type { Category, Expense, Group, MemberId, ReceiptItem, Recurrence, RecurrenceFreq, SplitInput, SplitType } from '@/types'
+import type { Capture, Category, Expense, Group, MemberId, ReceiptItem, Recurrence, RecurrenceFreq, SplitInput, SplitType } from '@/types'
 import { CATEGORIES, guessCategory } from '@/lib/categories'
 import { centsToInput, formatMoney, parseMoney } from '@/lib/money'
 import { computeSplits, SplitError } from '@/lib/splits'
 import { parseReceipt, type ParsedReceipt } from '@/lib/ocr-parse'
 import { pending } from '@/lib/pending'
+import { liveTripFor } from '@/lib/capture'
 import { todayISO, uid } from '@/lib/id'
 import { firstNextDate, FREQ_LABEL, nextAfter } from '@/lib/recurrence'
 import { Avatar } from '@/components/Avatar'
@@ -39,18 +40,22 @@ export default function ExpenseForm() {
   const group = useGroup(groupId)
   const expenses = useExpenses(editGroupId)
   const existing = expenseId ? expenses?.find((e) => e.id === expenseId) : undefined
+  // Prefill from a captured payment (/add?group=…&capture=…), handed over from the capture prompt.
+  const captureId = expenseId ? undefined : params.get('capture') ?? undefined
+  const captures = useCaptures()
+  const capture = captureId ? captures?.find((c) => c.id === captureId && c.status === 'pending') : undefined
 
   useEffect(() => {
-    // Default to the most recently used group.
-    if (!groupId && groups?.length) setGroupId(groups[0].id)
+    // Default to a trip that's running today, else the most recently used group.
+    if (!groupId && groups?.length) setGroupId(liveTripFor(groups, todayISO()) ?? groups[0].id)
   }, [groups, groupId])
 
-  if (!groups || (groupId && group === undefined) || (expenseId && !expenses)) return <Loading />
+  if (!groups || (groupId && group === undefined) || (expenseId && !expenses) || (captureId && !captures)) return <Loading />
   if (groups.length === 0) return <NoGroups />
   if (!group) return <Loading />
   if (expenseId && !existing) return <Empty emoji="🔍" title="Expense not found" />
 
-  return <Form key={group.id + (existing?.id ?? '')} group={group} groups={groups} existing={existing} onGroup={setGroupId} />
+  return <Form key={group.id + (existing?.id ?? '')} group={group} groups={groups} existing={existing} capture={capture} onGroup={setGroupId} />
 }
 
 function NoGroups() {
@@ -68,7 +73,7 @@ function NoGroups() {
   )
 }
 
-function Form({ group, groups, existing, onGroup }: { group: Group; groups: Group[]; existing?: Expense; onGroup: (id: string) => void }) {
+function Form({ group, groups, existing, capture, onGroup }: { group: Group; groups: Group[]; existing?: Expense; capture?: Capture; onGroup: (id: string) => void }) {
   const { user } = useMe()
   const nav = useNavigate()
   const toast = useToast()
@@ -78,12 +83,12 @@ function Form({ group, groups, existing, onGroup }: { group: Group; groups: Grou
   const me = myMemberId(group, user.uid) ?? order[0]
   const personal = group.type === 'personal'
 
-  const [amountStr, setAmountStr] = useState(existing ? centsToInput(existing.amount) : '')
-  const [description, setDescription] = useState(existing?.description ?? '')
-  const [category, setCategory] = useState<Category>(existing?.category ?? 'other')
+  const [amountStr, setAmountStr] = useState(existing ? centsToInput(existing.amount) : capture ? centsToInput(capture.amount) : '')
+  const [description, setDescription] = useState(existing?.description ?? capture?.merchant ?? '')
+  const [category, setCategory] = useState<Category>(existing?.category ?? (capture && guessCategory(capture.merchant)) ?? 'other')
   const [catTouched, setCatTouched] = useState(!!existing)
-  const [date, setDate] = useState(existing?.date ?? todayISO())
-  const [notes, setNotes] = useState(existing?.notes ?? '')
+  const [date, setDate] = useState(existing?.date ?? capture?.date ?? todayISO())
+  const [notes, setNotes] = useState(existing?.notes ?? capture?.note ?? '')
   const [payers, setPayers] = useState<Record<MemberId, string>>(
     existing ? Object.fromEntries(Object.entries(existing.paidBy).map(([k, v]) => [k, centsToInput(v)])) : { [me]: '' },
   )
@@ -180,6 +185,7 @@ function Form({ group, groups, existing, onGroup }: { group: Group; groups: Grou
         updatedAt: now,
       }
       await repo.saveExpense(e)
+      if (capture) await repo.updateCapture(user.uid, capture.id, { status: 'assigned', groupId: group.id, expenseId: e.id }).catch(console.warn)
       toast(existing ? 'Expense updated' : 'Expense added ✅')
       nav(`/groups/${group.id}`, { replace: true })
     } catch (err) {
@@ -194,7 +200,7 @@ function Form({ group, groups, existing, onGroup }: { group: Group; groups: Grou
     <div className="mx-auto min-h-dvh max-w-lg px-4 pb-10">
       <header className="sticky top-0 z-30 -mx-4 flex items-center justify-between bg-slate-50/85 px-4 py-3 backdrop-blur-xl safe-top dark:bg-ink-950/85">
         <button onClick={() => nav(-1)} className="-ml-2 rounded-full p-2" aria-label="Cancel"><X size={24} /></button>
-        <div className="font-bold">{existing ? 'Edit expense' : 'Add expense'}</div>
+        <div className="font-bold">{existing ? 'Edit expense' : capture ? 'Captured payment' : 'Add expense'}</div>
         <button onClick={save} disabled={busy} className="rounded-full bg-brand-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{busy ? '…' : 'Save'}</button>
       </header>
 

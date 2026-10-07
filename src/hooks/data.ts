@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { repo } from '@/data'
-import type { Expense, ExpenseComment, Group, MemberId, Settlement } from '@/types'
+import type { Capture, Expense, ExpenseComment, Group, MemberId, Settlement } from '@/types'
 import { netBalances, pairwiseDebts } from '@/lib/balances'
 import { simplifyDebts } from '@/lib/simplify'
 import { planCatchUp } from '@/lib/recurrence'
@@ -12,6 +12,19 @@ export function useGroups() {
   const [groups, setGroups] = useState<Group[] | null>(null)
   useEffect(() => repo.watchGroups(user.uid, setGroups), [user.uid])
   return groups
+}
+
+/** The signed-in user's captured transactions (newest first). */
+export function useCaptures() {
+  const { user } = useMe()
+  const [list, setList] = useState<Capture[] | null>(null)
+  useEffect(() => repo.watchCaptures(user.uid, setList), [user.uid])
+  return list
+}
+
+export function usePendingCaptures() {
+  const list = useCaptures()
+  return useMemo(() => list?.filter((c) => c.status === 'pending') ?? null, [list])
 }
 
 export function useGroup(id: string | undefined) {

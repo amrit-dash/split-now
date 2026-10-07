@@ -12,6 +12,9 @@ const config = {
   appId: env.VITE_FIREBASE_APP_ID,
 }
 
+/** Public project identifiers, used to show the Firestore REST endpoint for iOS Shortcuts. */
+export const firebaseProject = { projectId: config.projectId as string | undefined, apiKey: config.apiKey as string | undefined }
+
 export const firebaseConfigured = Boolean(config.apiKey && config.projectId && config.appId)
 
 export const repo: Repo = firebaseConfigured
