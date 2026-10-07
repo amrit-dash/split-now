@@ -615,7 +615,13 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     watchCaptures(userId, cb) {
       return onSnapshot(
         collection(db, 'users', userId, 'captures'),
-        (s) => cb(s.docs.map((d) => ({ ...(d.data() as Capture), id: d.id })).sort(byCreatedDesc)),
+        { includeMetadataChanges: true },
+        (s) => {
+          // Captures are written by the server (SMS webhook), so an empty local cache says nothing:
+          // keep the screen loading until the server answers, unless the device is offline.
+          if (s.empty && s.metadata.fromCache && navigator.onLine) return
+          cb(s.docs.map((d) => ({ ...(d.data() as Capture), id: d.id })).sort(byCreatedDesc))
+        },
         (e) => { cb([]); errors.emit('read', e, 'Loading captured transactions') },
       )
     },
