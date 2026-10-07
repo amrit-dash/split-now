@@ -13,6 +13,7 @@ import { CATEGORIES } from '@/lib/categories'
 import { GroupRow } from '@/components/GroupRow'
 import { Empty, Loading } from '@/components/Misc'
 import { Avatar } from '@/components/Avatar'
+import { Aurora } from '@/components/Aurora'
 import { appLocale } from '@/lib/locale'
 import { HELLO, dayPart, greeting, topCounterparties } from '@/lib/greeting'
 import { isLiveTrip } from '@/lib/capture'
@@ -120,9 +121,8 @@ export default function Home() {
         </div>
       )}
 
-      <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-brand-600 via-brand-vivid to-duo-600 p-6 text-white shadow-xl shadow-brand-600/30">
-        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10" />
-        <div className="absolute -bottom-16 right-10 h-32 w-32 rounded-full bg-white/10" />
+      <div className="relative isolate overflow-hidden rounded-[2rem] bg-brand-600 p-6 text-white shadow-xl shadow-brand-600/30">
+        <Aurora />
         <div className="relative">
           <div className="text-sm font-medium text-white/80">Overall, {net >= 0 ? 'you are owed' : 'you owe'}</div>
           <div className="mt-1 text-4xl font-extrabold tabular-nums tracking-tight" data-testid="home-net">{ax}{formatMoney(Math.abs(net), cur)}</div>

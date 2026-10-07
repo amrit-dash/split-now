@@ -32,6 +32,8 @@ export interface UserProfile {
    */
   photoSource?: PhotoSource
   currency: string
+  /** Mobile number (E.164 where possible). Not verified; shown to the user only. */
+  phone?: string
   payment?: PaymentHandles
 }
 

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
-  FX_API, cachedRate, convertExpense, convertMinor, formatRate, getRate, lastCurrency, parseRate, rateLabel,
+  FX_API, cachedRate, convertExpense, convertMinor, formatRate, getRate, lastCurrency, parseRate, rateLabel, ratesFetchedAt, refreshRates,
   rememberCurrency, setFxEnv, toOriginal, type FxFetch,
 } from './fx'
 
@@ -147,5 +147,29 @@ describe('getRate + cache', () => {
     rememberCurrency('g2', 'JPY')
     expect(lastCurrency('g1')).toBe('THB')
     expect(lastCurrency('g2')).toBe('JPY')
+  })
+})
+
+describe('refreshRates', () => {
+  it('fetches latest, ignores a fresh cache, and records the fetch time', async () => {
+    const store = new Map<string, string>()
+    let calls = 0
+    setFxEnv({
+      storage: { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => void store.set(k, v) },
+      now: () => Date.parse('2026-10-08T06:00:00Z'),
+      fetch: async () => { calls++; return { ok: true, status: 200, json: async () => ({ date: '2026-10-07', rates: { USD: 0.012, EUR: 0.0103 } }) } },
+    })
+    expect(ratesFetchedAt('INR')).toBeNull()
+    const a = await refreshRates('INR')
+    expect(a).toMatchObject({ date: '2026-10-07', count: 2 })
+    expect(ratesFetchedAt('INR')).toBe(Date.parse('2026-10-08T06:00:00Z'))
+    await refreshRates('INR')
+    expect(calls).toBe(2)
+    setFxEnv()
+  })
+  it('returns null when the API fails', async () => {
+    setFxEnv({ storage: null, fetch: async () => ({ ok: false, status: 503, json: async () => ({}) }) })
+    expect(await refreshRates('INR')).toBeNull()
+    setFxEnv()
   })
 })

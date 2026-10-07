@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { BarChart3, Home, Plus, User, Users } from 'lucide-react'
 import { InstallBanner } from './InstallBanner'
+import { Aurora } from './Aurora'
 
 const tabs = [
   { to: '/', icon: Home, label: 'Home', end: true },
@@ -25,10 +26,11 @@ export function Layout() {
               <button
                 key={i}
                 onClick={() => nav(groupMatch ? `/add?group=${groupMatch[1]}` : '/add')}
-                className="-mt-8 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-duo-600 text-white shadow-xl shadow-brand-600/40 transition active:scale-95"
+                className="relative isolate -mt-8 flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-brand-600 text-white shadow-xl shadow-brand-600/40 transition active:scale-95"
                 aria-label="Add expense"
               >
-                <Plus size={30} strokeWidth={2.5} />
+                <Aurora size="fab" />
+                <Plus size={30} strokeWidth={2.5} className="relative" />
               </button>
             ) : (
               <NavLink

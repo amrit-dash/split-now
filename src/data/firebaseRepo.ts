@@ -1,7 +1,7 @@
 import { initializeApp, type FirebaseOptions } from 'firebase/app'
 import {
-  GoogleAuthProvider, connectAuthEmulator, createUserWithEmailAndPassword, getAuth, getRedirectResult, onAuthStateChanged,
-  signInAnonymously, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, signOut, updateProfile,
+  EmailAuthProvider, GoogleAuthProvider, connectAuthEmulator, createUserWithEmailAndPassword, getAuth, getRedirectResult, onAuthStateChanged,
+  linkWithCredential, linkWithPopup, linkWithRedirect, signInAnonymously, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, signOut, updateProfile,
   type User,
 } from 'firebase/auth'
 import {
@@ -172,7 +172,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         // Anonymous guests (live table split) get no profile and no access to groups.
         if (u.isAnonymous) return cb({ uid: u.uid, displayName: 'Guest', isAnonymous: true })
         ensureProfile(u).catch(console.error)
-        cb({ uid: u.uid, displayName: u.displayName ?? u.email ?? 'You', email: u.email ?? undefined, photoURL: u.photoURL ?? undefined, googlePhotoURL: googlePhoto(u) })
+        cb({ uid: u.uid, displayName: u.displayName ?? u.email ?? 'You', email: u.email ?? undefined, photoURL: u.photoURL ?? undefined, googlePhotoURL: googlePhoto(u), providers: u.providerData.map((p) => p.providerId) })
       })
     },
     async signInWithGoogle() {
@@ -181,6 +181,22 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       const standalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone
       if (standalone) await signInWithRedirect(auth, provider)
       else await signInWithPopup(auth, provider)
+    },
+    async linkGoogle() {
+      const u = auth.currentUser
+      if (!u) throw new Error('Not signed in')
+      const provider = new GoogleAuthProvider()
+      if (u.email) provider.setCustomParameters({ login_hint: u.email })
+      const standalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone
+      if (standalone) await linkWithRedirect(u, provider)
+      else await linkWithPopup(u, provider)
+      await u.reload()
+    },
+    async addPassword(password) {
+      const u = auth.currentUser
+      if (!u?.email) throw new Error('This account has no email address')
+      await linkWithCredential(u, EmailAuthProvider.credential(u.email, password))
+      await u.reload()
     },
     async signInWithEmail(email, password) {
       await signInWithEmailAndPassword(auth, email, password)

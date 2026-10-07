@@ -184,3 +184,33 @@ export function rememberCurrency(groupId: string, currency: string) {
     storage?.setItem(LAST_KEY, JSON.stringify(m))
   } catch { /* storage unavailable */ }
 }
+
+/** When today's rates for `base` were last fetched on this device (ms), or null. */
+export function ratesFetchedAt(base: string): number | null {
+  return readCache()[cacheKey(isoToday(), base)]?.at ?? null
+}
+
+/**
+ * Fetch the latest ECB rates for `base` now, ignoring the cache (Profile → "Refresh rates").
+ * Returns the publication date and fetch time, or null when offline / the API fails.
+ */
+export async function refreshRates(base: string): Promise<{ date: string; at: number; count: number } | null> {
+  const ctl = typeof AbortController === 'undefined' ? undefined : new AbortController()
+  const timer = ctl && setTimeout(() => ctl.abort(), 8000)
+  try {
+    const res = await fetcher(`${FX_API}/latest?base=${encodeURIComponent(base)}`, { signal: ctl?.signal })
+    if (!res.ok) return null
+    const body = (await res.json()) as { date?: unknown; rates?: unknown }
+    if (typeof body.date !== 'string' || !body.rates || typeof body.rates !== 'object') return null
+    const rates = Object.fromEntries(Object.entries(body.rates as Record<string, unknown>).filter(([, v]) => typeof v === 'number' && v > 0)) as Record<string, number>
+    const at = now()
+    const c = readCache()
+    c[cacheKey(isoToday(), base)] = { date: body.date, rates, at }
+    writeCache(c)
+    return { date: body.date, at, count: Object.keys(rates).length }
+  } catch {
+    return null
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
