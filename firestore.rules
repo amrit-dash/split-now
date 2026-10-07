@@ -162,9 +162,24 @@ service cloud.firestore {
             && get(tpl).data.createdBy == d.createdBy;
         }
 
+        // Optional foreign-currency original (amount in its own minor units, locked FX rate).
+        // amount/paidBy/splits stay in the group currency, so nothing else depends on it.
+        function validOriginal(d) {
+          return !('original' in d) || (
+            d.original is map
+            && d.original.keys().hasAll(['currency', 'amount', 'rate', 'rateDate', 'source'])
+            && d.original.keys().hasOnly(['currency', 'amount', 'rate', 'rateDate', 'source'])
+            && d.original.currency is string && d.original.currency.size() == 3
+            && d.original.amount is int && d.original.amount > 0
+            && d.original.rate is number && d.original.rate > 0
+            && d.original.rateDate is string && d.original.rateDate.size() == 10
+            && d.original.source in ['ecb', 'manual']);
+        }
+
         allow read: if isGroupMember(groupId);
         allow create, update: if isGroupMember(groupId)
           && (validAuthor() || isOccurrence())
+          && validOriginal(request.resource.data)
           && request.resource.data.groupId == groupId
           && request.resource.data.amount is int
           && request.resource.data.amount > 0

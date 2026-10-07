@@ -96,6 +96,27 @@ export interface Expense {
   recurrence?: Recurrence
   /** Set on an occurrence generated from a template: the template's id. */
   recurringFrom?: string
+  /**
+   * Set when the expense was entered in a currency other than the group's. `amount`,
+   * `paidBy` and `splits` are still in the group currency (converted once, at `rate`);
+   * `splitInput` amounts (exact / adjust / items) are in the original currency.
+   */
+  original?: OriginalAmount
+}
+
+export type FxSource = 'ecb' | 'manual'
+
+/** The amount as entered in a foreign currency, with the exchange rate locked at entry. */
+export interface OriginalAmount {
+  /** ISO 4217 code */
+  currency: string
+  /** minor units of `currency` */
+  amount: Cents
+  /** group-currency units per 1 unit of `currency` */
+  rate: number
+  /** yyyy-mm-dd the rate is for (ECB publishes on business days) */
+  rateDate: string
+  source: FxSource
 }
 
 export interface Settlement {
