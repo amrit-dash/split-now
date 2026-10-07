@@ -1,4 +1,6 @@
-# Split It — End-to-End Product & Technical Plan
+# Split Now — End-to-End Product & Technical Plan
+
+> Formerly *Split It*. The repo, npm package and Firebase project ids keep the `split-it` name; the user-facing name is **Split Now** (Hosting: `split-now.web.app`). **Trademark check pending:** "Split Now" has not been cleared against existing app-store listings or Indian / international trademark registrations. Do that before any public launch.
 
 This is the source of truth for what we are building, why, and in what order.
 Status markers: ✅ built in v0.1 · 🟡 partially built · ⏳ planned.
@@ -7,13 +9,15 @@ Status markers: ✅ built in v0.1 · 🟡 partially built · ⏳ planned.
 
 ## 1. Product thesis
 
-Splitwise solved "who owes whom". Its weak points today are where Split It goes after:
+**India-first, global later.** The first users are the owner's friend group in India: trips (Goa, Coorg, Manali), shared flats (Bengaluru, Mumbai) and dinners, all paid back over UPI. So the defaults are INR, en-IN formatting (₹1,00,000.00, "7 Oct"), UPI-first settle-up, Indian merchants in category guessing and OCR tuned for Indian bills and UPI screenshots. Everything stays multi-currency and region-aware (AUD/PayID and international handles still work), so going global is a matter of adding regions, not rewriting.
 
-| Splitwise pain | Split It answer |
+Splitwise solved "who owes whom". Its weak points today are where Split Now goes after:
+
+| Splitwise pain | Split Now answer |
 |---|---|
 | Daily expense cap and ads on the free tier | No caps. Free on Firebase's Spark plan. |
 | Receipt scanning and itemization are paid (Pro) | Receipt **and** payment-screenshot OCR, on-device and free |
-| Settling up is "mark as paid" only | Settle-up sheet with the payee's payment handles (PayID, PayPal.me, UPI, Revolut, bank) and one-tap deep links |
+| Settling up is "mark as paid" only | **UPI-first settle-up**: a UPI QR for the exact amount (scan with any UPI app), `upi://` + Google Pay / PhonePe / Paytm buttons, UPI number, bank A/c + IFSC; PayID/BSB, PayPal.me and Revolut for other regions |
 | Simplify debts is a black box | Before/after **debt graph** shows exactly what simplification changed |
 | Simplification stops at the group boundary | **Cross-group netting**: one number per friend, across every group |
 | Weak analytics | Insights tab: category donut, monthly trend, who-paid-what, top spenders, per-group budget burn-down |
@@ -37,7 +41,8 @@ Splitwise solved "who owes whom". Its weak points today are where Split It goes 
 ### 3.1 Accounts & identity
 - ✅ Google sign-in, email/password sign-in and sign-up (Firebase Auth)
 - ✅ Demo mode with no Firebase config: data lives in `localStorage`, so the UI runs immediately
-- ✅ Profile: display name, default currency, **payment handles** (PayID, BSB/account, PayPal.me, UPI VPA, Revolut tag)
+- ✅ Profile: display name, default currency (INR for India and unknown regions, else the locale's currency), **payment handles by region**: India: UPI ID, phone number for UPI apps, bank account + IFSC; Australia: PayID, BSB + account; International: PayPal.me, Revolut. "Show all payment options" reveals the rest.
+- ✅ **Locale** (`src/lib/locale.ts`): region from `navigator.language` + `Intl` time zone (an Indian time zone wins, so an en-US phone in Asia/Kolkata is still India); numbers and dates use en-IN for India and unknown regions, otherwise the user's locale.
 - ⏳ Apple sign-in (needs an Apple developer account), phone OTP
 
 ### 3.2 Groups
@@ -77,7 +82,7 @@ Splitwise solved "who owes whom". Its weak points today are where Split It goes 
 - Amounts in activity text are in the group currency; a foreign-currency expense shows its original too, e.g. "฿1,200.00 (A$50.52)". The trust update branches (trash, flag/approval) can't touch `original`; normal edits and creates still pass `validOriginal`.
 - Gaps: recurring occurrences are not logged (several clients may generate the same occurrence and an append-only log can't dedupe); receipt attachments aren't logged; only the flagger (not the expense author) can clear a flag; approval is client-side bookkeeping (rules enforce the `requiresApproval` marker and own-key approvals, not the balance exclusion).
 - ✅ Search (description/notes), category filter chips and an "involving me" toggle on a group's activity list
-- ✅ **Multi-currency expenses with a locked FX rate** (§4.1a): pick a currency next to the amount (remembered per group, e.g. THB for a whole Bali trip); the ECB rate for the expense date is fetched from Frankfurter and shown as "≈ A$51.23 at 1 THB = 0.04269 AUD (ECB, 2026-10-07)", editable, and typed by hand when offline. Captures in a foreign currency prefill the form in that currency. Expense detail shows the original amount and rate.
+- ✅ **Multi-currency expenses with a locked FX rate** (§4.1a): pick a currency next to the amount (remembered per group, e.g. THB for a whole Bangkok trip); the ECB rate for the expense date is fetched from Frankfurter and shown as "≈ ₹6,056.64 at 1 USD = 84.12 INR (ECB, 2026-10-07)", editable, and typed by hand when offline. Captures in a foreign currency prefill the form in that currency. Expense detail shows the original amount and rate.
 - ⏳ Settling up in a different currency from the group's (see §4.1a)
 
 ### 3.4 Balances, simplification, settling up
@@ -86,12 +91,16 @@ Splitwise solved "who owes whom". Its weak points today are where Split It goes 
 - ✅ **Debt graph** visual: raw vs simplified
 - ✅ Friends view: **cross-group net** per person
 - ✅ Settle-up flow: pick who pays whom and how much, record the settlement, open the payee's handles/deep links
-- ✅ Share a reminder via the Web Share API ("You owe me $42.10 for Bali trip")
+- ✅ Share a reminder via the Web Share API ("You owe me ₹4,210.00 for Goa Trip")
+- ✅ **UPI** (`src/lib/payments.ts`): `upi://pay?pa=&pn=&am=&cu=INR&tn=` per NPCI's UPI linking spec, plus app links `tez://upi/pay?…` (Google Pay), `phonepe://pay?…`, `paytmmp://upi/pay?…` (schemes per Razorpay / Juspay / Cashfree UPI-intent docs, Oct 2026). Android shows a chooser for `upi://`; iOS has none and opens whichever app it registered (or nothing), so the app buttons are the reliable path there. The same `upi://` string is shown as a **QR code** for the exact amount, so a friend can scan it from their own phone with any UPI app. When the recipient is you, the card says "show this to <payer>". If the payee hasn't joined, the payer can paste their UPI ID to get the same QR/buttons. Some UPI apps cap or warn on link-initiated person-to-person payments to unverified VPAs; the QR and manual UPI ID still work.
+- ✅ Method chips by currency: INR → UPI, Cash, Bank transfer, Other; AUD → PayID, Bank transfer, Cash, PayPal, Other
 - ⏳ Push notifications (FCM) for new expenses and reminders
 
 ### 3.5 Smart capture (OCR)
 - ✅ **Receipt scan**: Tesseract.js runs in the browser and pulls out the total, merchant, date and line items, then pre-fills the expense form (itemized split available)
-- ✅ **Payment screenshot scan**: reads a bank/PayID/UPI/PayPal confirmation screenshot, detects amount + payee name, matches the payee to a group member and pre-fills a settlement
+- ✅ **Payment screenshot scan**: reads Google Pay / PhonePe / Paytm / BHIM success screens ("₹500", "Paid to", "UPI transaction ID", "UTR") as well as bank/PayID/PayPal confirmations, detects amount + payee name (method UPI), matches the payee to a group member and pre-fills a settlement
+- ✅ **Indian bills**: ₹ / Rs. / INR amounts with lakh grouping (1,00,000), whole-rupee amounts when a currency marker is present, CGST/SGST/IGST/cess/service charge/round-off lines treated as tax (not items), "Grand Total" / "Net Amount" / "Amount Payable" as the total, qty × rate columns stripped from item names
+- ✅ **Category guessing** for Indian merchants: Swiggy/Zomato (food), Instamart/Zepto/Blinkit/BigBasket/DMart (groceries), Ola/Uber/Rapido/petrol (IOCL/BPCL/HPCL)/FASTag (transport), IRCTC/RedBus/MakeMyTrip/Goibibo/IndiGo (travel), OYO (stay), BookMyShow/PVR (entertainment), Jio/Airtel/BESCOM/broadband/maintenance (utilities), PG rent, Apollo/PharmEasy, Flipkart/Myntra
 - ⏳ Optional server-side AI parsing (Cloud Function + vision model) for messy receipts — needs the Blaze plan
 
 ### 3.5a Live table split
@@ -158,7 +167,8 @@ Pure domain logic (src/lib/) — splits, balances, simplify, OCR parsing, money 
 
 ### 4.1 Money
 - All amounts are **integer minor units** of the group's currency. No floats touch stored data.
-- The number of minor-unit digits comes from `Intl.NumberFormat(...).resolvedOptions().maximumFractionDigits`: 2 for AUD/USD, **0 for JPY/KRW/VND**, 3 for BHD (IDR is 2 in Intl/ISO 4217). `formatMoney`, `parseMoney` and `centsToInput` all take the currency (`src/lib/money.ts`).
+- The number of minor-unit digits comes from `Intl.NumberFormat(...).resolvedOptions().maximumFractionDigits`: 2 for AUD/USD, **0 for JPY/KRW/VND**, 3 for BHD (IDR is 2 in Intl/ISO 4217). `formatMoney`, `parseMoney` and `centsToInput` all take the currency (`src/lib/money.ts`). INR is stored in paise.
+- `formatMoney` formats in the app locale (`appLocale()` from `src/lib/locale.ts`, set once in `main.tsx`; `opts.locale` overrides it, which keeps it pure for tests): en-IN gives `₹1,00,000.00` lakh/crore grouping. Dates use `toLocaleDateString(appLocale(), …)` ("7 Oct").
 - Each group has one currency. Formatting uses `Intl.NumberFormat`.
 
 ### 4.1a Multi-currency expenses (locked FX)
@@ -265,11 +275,12 @@ A **member id** is stable and separate from a Firebase uid. A placeholder member
 2. The image is downscaled on a canvas (max 1600px) to speed up OCR.
 3. Tesseract.js (lazy-loaded so it stays out of the main bundle) returns text.
 4. `src/lib/ocr-parse.ts` heuristics:
-   - Total: lines containing TOTAL / AMOUNT DUE / BALANCE (not SUBTOTAL), else the largest currency amount
+   - Amounts: with a currency marker (₹, Rs., INR, $ …) whole numbers and lakh grouping count; without one a figure needs two decimals, so phone numbers and UPI reference numbers aren't read as money
+   - Total: GRAND TOTAL / NET AMOUNT / AMOUNT PAYABLE / TOTAL / AMOUNT DUE / BALANCE lines (not SUBTOTAL or TOTAL QTY), else the largest currency amount
    - Date: several numeric and month-name formats
    - Merchant: first non-trivial line
    - Line items: `<text> <amount>` lines above the total
-   - Payment screenshots: "Paid / Sent / You paid / Transfer to <Name>" + amount
+   - Payment screenshots: "Paid / Sent / Paid Successfully / Transfer to <Name>" or "To: <Name>" + the first ₹ amount (cashback lines ignored); UPI app names, UTR or a VPA mean method UPI
 5. The result **pre-fills** a form. Nothing is saved without the user confirming.
 
 ---
@@ -296,6 +307,8 @@ A **member id** is stable and separate from a Firebase uid. A placeholder member
 ---
 
 ## 7. Known risks & decisions
+- **Name: "Split Now" — trademark not yet checked.** Search app stores and the Indian trademark registry (and WIPO for later global use) before launch; the code keeps `split-it` ids so a rename is copy-only.
+- **UPI deep links are best-effort.** NPCI and the UPI apps have tightened link-initiated P2P payments over time; the QR (scan from another phone) and copying the UPI ID are the fallbacks and always work. Scheme names should be rechecked periodically.
 - **No real in-app money movement.** That needs a licensed payment provider and KYC. Settle-up records the payment and helps the user pay through their own bank or wallet.
 - **iOS install** cannot be triggered from JavaScript. The banner shows instructions instead.
 - **iOS PWA storage** can be evicted if the app isn't opened for weeks. Firestore is the source of truth, so only the offline cache is lost.

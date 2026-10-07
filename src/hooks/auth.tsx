@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { repo } from '@/data'
 import type { AuthUser } from '@/data/repo'
 import type { UserProfile } from '@/types'
+import { defaultCurrency } from '@/lib/locale'
 
 interface AuthState {
   user: AuthUser | null
@@ -30,6 +31,6 @@ export function useMe() {
   if (!user) throw new Error('useMe used outside auth gate')
   return {
     user,
-    profile: profile ?? { uid: user.uid, displayName: user.displayName, email: user.email, currency: 'AUD', payment: {} },
+    profile: profile ?? { uid: user.uid, displayName: user.displayName, email: user.email, currency: defaultCurrency(), payment: {} },
   }
 }

@@ -3,6 +3,7 @@ import { CheckCircle2, LogIn } from 'lucide-react'
 import { repo } from '@/data'
 import { parseCaptureParams } from '@/lib/capture'
 import { formatMoney } from '@/lib/money'
+import { defaultCurrency } from '@/lib/locale'
 import { todayISO } from '@/lib/id'
 import { stashCapture } from '@/lib/pending'
 import { Spinner } from '@/components/Misc'
@@ -50,7 +51,7 @@ export default function CaptureGuest() {
           <div className="flex max-w-md items-center gap-2 rounded-2xl bg-white/95 px-4 py-3 text-sm font-medium text-slate-800 shadow-xl">
             <LogIn size={18} className="shrink-0 text-brand-600" />
             {parsed.ok
-              ? <>Sign in to save {formatMoney(parsed.draft.amount, parsed.draft.currency ?? 'AUD')} at {parsed.draft.merchant}.</>
+              ? <>Sign in to save {formatMoney(parsed.draft.amount, parsed.draft.currency ?? defaultCurrency())} at {parsed.draft.merchant}.</>
               : <>Sign in to continue.</>}
           </div>
         </div>
@@ -65,8 +66,8 @@ export default function CaptureGuest() {
         <>
           <CheckCircle2 size={56} className="text-emerald-400" />
           <h1 className="mt-4 text-2xl font-extrabold">Saved to your inbox</h1>
-          {parsed.ok && <p className="mt-2 text-slate-300">{formatMoney(parsed.draft.amount, parsed.draft.currency ?? 'AUD')} at {parsed.draft.merchant}</p>}
-          <p className="mt-4 max-w-xs text-sm text-slate-400">Open Split It from your home screen to choose a group. You can close this tab.</p>
+          {parsed.ok && <p className="mt-2 text-slate-300">{formatMoney(parsed.draft.amount, parsed.draft.currency ?? defaultCurrency())} at {parsed.draft.merchant}</p>}
+          <p className="mt-4 max-w-xs text-sm text-slate-400">Open Split Now from your home screen to choose a group. You can close this tab.</p>
         </>
       )}
     </div>

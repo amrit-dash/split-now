@@ -5,6 +5,8 @@ import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import type { PaymentHandles } from '@/types'
 import { CURRENCIES } from '@/lib/money'
+import { paymentRegion } from '@/lib/locale'
+import { isIfsc, isUpiId } from '@/lib/payments'
 import { applyTheme, getTheme, type Theme } from '@/lib/theme'
 import { Avatar } from '@/components/Avatar'
 import { IOSInstallSteps, useInstall } from '@/components/InstallBanner'
@@ -13,14 +15,34 @@ import { Sheet } from '@/components/Sheet'
 import { useToast } from '@/components/Toast'
 import { AutoCapture } from '@/components/AutoCapture'
 
-const HANDLES: Array<{ key: keyof PaymentHandles; label: string; placeholder: string }> = [
-  { key: 'payid', label: 'PayID (email / mobile / ABN)', placeholder: 'you@example.com or 04xx xxx xxx' },
-  { key: 'bsb', label: 'BSB', placeholder: '062-000' },
-  { key: 'account', label: 'Account number', placeholder: '12345678' },
-  { key: 'paypal', label: 'PayPal.me username', placeholder: 'yourname' },
-  { key: 'upi', label: 'UPI ID', placeholder: 'name@okbank' },
-  { key: 'revolut', label: 'Revolut tag', placeholder: '@yourname' },
-]
+type Handle = { key: keyof PaymentHandles; label: string; placeholder: string; hint?: (v: string) => string | undefined; inputMode?: 'tel' | 'email' | 'text' | 'numeric' }
+
+const H: Record<keyof PaymentHandles, Handle> = {
+  upi: { key: 'upi', label: 'UPI ID', placeholder: 'yourname@okaxis', inputMode: 'email', hint: (v) => (isUpiId(v) ? undefined : 'Looks like name@bank (find it in GPay / PhonePe / Paytm → profile)') },
+  phone: { key: 'phone', label: 'Phone number for UPI apps', placeholder: '+91 98765 43210', inputMode: 'tel' },
+  account: { key: 'account', label: 'Account number', placeholder: '123456789012', inputMode: 'numeric' },
+  ifsc: { key: 'ifsc', label: 'IFSC', placeholder: 'HDFC0001234', hint: (v) => (isIfsc(v) ? undefined : '11 characters, like HDFC0001234') },
+  payid: { key: 'payid', label: 'PayID (email / mobile / ABN)', placeholder: 'you@example.com or 04xx xxx xxx' },
+  bsb: { key: 'bsb', label: 'BSB', placeholder: '062-000' },
+  paypal: { key: 'paypal', label: 'PayPal.me username', placeholder: 'yourname' },
+  revolut: { key: 'revolut', label: 'Revolut tag', placeholder: '@yourname' },
+}
+
+/** Payment handle sections by region (src/lib/locale.ts paymentRegion). */
+const SECTIONS: Record<'IN' | 'AU' | 'INTL', Array<{ title: string; keys: Array<keyof PaymentHandles> }>> = {
+  IN: [
+    { title: 'UPI', keys: ['upi', 'phone'] },
+    { title: 'Bank transfer (IMPS / NEFT)', keys: ['account', 'ifsc'] },
+    { title: 'International', keys: ['paypal', 'revolut'] },
+  ],
+  AU: [
+    { title: 'Australia', keys: ['payid', 'bsb', 'account'] },
+    { title: 'International', keys: ['paypal', 'revolut'] },
+  ],
+  INTL: [
+    { title: 'International', keys: ['paypal', 'revolut'] },
+  ],
+}
 
 export default function Profile() {
   const { profile } = useMe()
@@ -31,8 +53,16 @@ export default function Profile() {
   const [payment, setPayment] = useState<PaymentHandles>(profile.payment ?? {})
   const [theme, setTheme] = useState<Theme>(getTheme())
   const [iosOpen, setIosOpen] = useState(false)
+  const [allHandles, setAllHandles] = useState(false)
 
   useEffect(() => { setName(profile.displayName); setCurrency(profile.currency); setPayment(profile.payment ?? {}) }, [profile])
+
+  const region = paymentRegion(currency)
+  const sections = SECTIONS[region]
+  const listed = new Set(sections.flatMap((x) => x.keys))
+  // Handles from other regions: shown when filled in, or when asked for.
+  const extra = (Object.keys(H) as Array<keyof PaymentHandles>).filter((k) => !listed.has(k) && (allHandles || payment[k]))
+  const shownSections = extra.length ? [...sections, { title: 'Other', keys: extra }] : sections
 
   const save = async () => {
     await repo.saveProfile({ ...profile, displayName: name.trim() || profile.displayName, currency, payment })
@@ -67,14 +97,27 @@ export default function Profile() {
 
       <div className="card mt-3 p-4">
         <div className="label">How friends can pay you</div>
-        <p className="mb-3 text-xs text-slate-500">Shown to people in your groups when they settle up, with copy buttons and app links.</p>
-        <div className="space-y-3">
-          {HANDLES.map((h) => (
-            <div key={h.key}>
-              <label className="mb-1 block text-xs font-medium text-slate-500">{h.label}</label>
-              <input className="input" placeholder={h.placeholder} value={payment[h.key] ?? ''} onChange={(e) => setPayment((p) => ({ ...p, [h.key]: e.target.value || undefined }))} />
+        <p className="mb-3 text-xs text-slate-500">Shown to people in your groups when they settle up: a UPI QR for the exact amount, app buttons and copy buttons.</p>
+        <div className="space-y-4">
+          {shownSections.map((sec) => (
+            <div key={sec.title} className="space-y-3">
+              <div className="text-xs font-bold uppercase tracking-wide text-slate-400">{sec.title}</div>
+              {sec.keys.map((k) => {
+                const h = H[k]
+                const v = payment[k] ?? ''
+                const hint = v && h.hint?.(v)
+                return (
+                  <div key={k}>
+                    <label className="mb-1 block text-xs font-medium text-slate-500" htmlFor={`pay-${k}`}>{h.label}</label>
+                    <input id={`pay-${k}`} className="input" placeholder={h.placeholder} inputMode={h.inputMode} autoCapitalize="none" autoCorrect="off" spellCheck={false} value={v}
+                      onChange={(e) => setPayment((p) => ({ ...p, [k]: e.target.value || undefined }))} />
+                    {hint && <p className="mt-1 text-xs text-amber-600">{hint}</p>}
+                  </div>
+                )
+              })}
             </div>
           ))}
+          {!allHandles && <button className="text-sm font-semibold text-brand-600" onClick={() => setAllHandles(true)}>Show all payment options</button>}
         </div>
         <p className="mt-3 flex items-start gap-1.5 text-xs text-slate-500"><ShieldCheck size={14} className="mt-0.5 shrink-0" /> Only members of groups you’re in can see these. Don’t add details you wouldn’t put on an invoice.</p>
       </div>
@@ -92,7 +135,7 @@ export default function Profile() {
         )}
         <button className="flex w-full items-center gap-3 px-4 py-3.5 text-left font-medium text-rose-600" onClick={() => repo.signOut()}><LogOut size={20} /> Sign out</button>
       </div>
-      <p className="mt-6 text-center text-xs text-slate-400">Split It v{__APP_VERSION__} · {repo.mode === 'demo' ? 'Demo mode' : 'Connected to Firebase'}</p>
+      <p className="mt-6 text-center text-xs text-slate-400">Split Now v{__APP_VERSION__} · {repo.mode === 'demo' ? 'Demo mode' : 'Connected to Firebase'}</p>
 
       <Sheet open={iosOpen} onClose={() => setIosOpen(false)} title="Add to Home Screen"><IOSInstallSteps /></Sheet>
     </div>

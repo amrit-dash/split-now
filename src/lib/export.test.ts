@@ -121,8 +121,8 @@ describe('groupCsv', () => {
 
 describe('csvFilename', () => {
   it('slugifies the group name', () => {
-    expect(csvFilename('Bali Trip 🏝️', '2026-10-07')).toBe('split-it-bali-trip-2026-10-07.csv')
-    expect(csvFilename('Café / Flat #2', '2026-10-07')).toBe('split-it-cafe-flat-2-2026-10-07.csv')
-    expect(csvFilename('🎉', '2026-10-07')).toBe('split-it-group-2026-10-07.csv')
+    expect(csvFilename('Bali Trip 🏝️', '2026-10-07')).toBe('split-now-bali-trip-2026-10-07.csv')
+    expect(csvFilename('Café / Flat #2', '2026-10-07')).toBe('split-now-cafe-flat-2-2026-10-07.csv')
+    expect(csvFilename('🎉', '2026-10-07')).toBe('split-now-group-2026-10-07.csv')
   })
 })

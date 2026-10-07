@@ -20,6 +20,7 @@ import { hasTripWindow, isLiveTrip } from '@/lib/capture'
 import { Sheet } from '@/components/Sheet'
 import { useToast } from '@/components/Toast'
 import { ActivityFeed, RecentlyDeleted, TrustBadges, useUndoableDelete } from '@/components/Trust'
+import { appLocale } from '@/lib/locale'
 
 type Tab = 'expenses' | 'balances' | 'graph' | 'activity'
 
@@ -51,8 +52,8 @@ export default function GroupDetail() {
 
   const remind = async (debtor: string, amount: number) => {
     const r = await shareOrCopy({
-      title: 'Split It reminder',
-      text: `Hey ${group.members[debtor]?.name.split(' ')[0]}! Friendly nudge: you owe ${formatMoney(amount, cur)} for “${group.name}”. Settle up in Split It:`,
+      title: 'Split Now reminder',
+      text: `Hey ${group.members[debtor]?.name.split(' ')[0]}! Friendly nudge: you owe ${formatMoney(amount, cur)} for “${group.name}”. Settle up in Split Now:`,
       url: `${location.origin}/groups/${group.id}`,
     })
     if (r === 'copied') toast('Reminder copied to clipboard')
@@ -198,7 +199,7 @@ export default function GroupDetail() {
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2">
           <button className="btn-secondary" onClick={async () => toast((await copy(inviteUrl)) ? 'Link copied' : 'Copy failed', 'ok')}><Copy size={18} /> Copy link</button>
-          <button className="btn-primary" onClick={() => shareOrCopy({ title: `Join ${group.name} on Split It`, text: `Join “${group.name}” on Split It to split expenses:`, url: inviteUrl })}><Share2 size={18} /> Share</button>
+          <button className="btn-primary" onClick={() => shareOrCopy({ title: `Join ${group.name} on Split Now`, text: `Join “${group.name}” on Split Now to split expenses:`, url: inviteUrl })}><Share2 size={18} /> Share</button>
         </div>
       </Sheet>
     </div>
@@ -294,7 +295,7 @@ function ActivityList({ group, expenses, settlements, me, currency, name, person
   const byMonth = new Map<string, Row[]>()
   for (const r of rows) {
     const date = r.kind === 'e' ? r.e.date : r.s.date
-    const k = new Date(date + 'T00:00').toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+    const k = new Date(date + 'T00:00').toLocaleDateString(appLocale(), { month: 'long', year: 'numeric' })
     byMonth.set(k, [...(byMonth.get(k) ?? []), r])
   }
   const filters = (
@@ -400,5 +401,5 @@ function ActivityList({ group, expenses, settlements, me, currency, name, person
 }
 
 function fmtDay(d: string) {
-  return new Date(d + 'T00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+  return new Date(d + 'T00:00').toLocaleDateString(appLocale(), { day: 'numeric', month: 'short' })
 }

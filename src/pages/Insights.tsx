@@ -10,6 +10,7 @@ import { convertMinor } from '@/lib/fx'
 import { useTodayRates } from '@/hooks/useFx'
 import { categoryChartColor, chartFolds, seriesColor, useIsDark } from '@/lib/chartPalette'
 import { Empty, Loading, PageHeader, Segmented } from '@/components/Misc'
+import { appLocale } from '@/lib/locale'
 
 type Period = '1m' | '3m' | '12m' | 'all'
 type Basis = 'mine' | 'total'
@@ -196,13 +197,13 @@ function compute(scope: GroupData[], period: Period, basis: Basis, toHome?: (v: 
     const start = new Date(first.slice(0, 7) + '-01T00:00')
     for (let d = new Date(start); d <= now; d.setMonth(d.getMonth() + 1)) {
       const k = d.toISOString().slice(0, 7)
-      series.set(k, { label: d.toLocaleDateString(undefined, { month: 'short' }), value: 0 })
+      series.set(k, { label: d.toLocaleDateString(appLocale(), { month: 'short' }), value: 0 })
     }
     for (const r of rows) { const s = series.get(r.e.date.slice(0, 7)); if (s) s.value += r.v }
   } else {
     for (let i = 4; i >= 0; i--) {
       const end = new Date(now.getTime() - i * 7 * 86400000)
-      series.set(String(i), { label: end.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }), value: 0 })
+      series.set(String(i), { label: end.toLocaleDateString(appLocale(), { day: 'numeric', month: 'short' }), value: 0 })
     }
     for (const r of rows) {
       const age = Math.floor((now.getTime() - new Date(r.e.date + 'T12:00').getTime()) / (7 * 86400000))
@@ -229,7 +230,7 @@ function compute(scope: GroupData[], period: Period, basis: Basis, toHome?: (v: 
 }
 
 function compact(cents: number, currency: string) {
-  return new Intl.NumberFormat(undefined, { style: 'currency', currency, notation: 'compact', maximumFractionDigits: 1 }).format(cents / 10 ** minorDigits(currency))
+  return new Intl.NumberFormat(appLocale(), { style: 'currency', currency, notation: 'compact', maximumFractionDigits: 1 }).format(cents / 10 ** minorDigits(currency))
 }
 
 function Kpi({ label, value }: { label: string; value: string }) {

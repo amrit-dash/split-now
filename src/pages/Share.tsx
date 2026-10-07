@@ -25,7 +25,7 @@ export default function Share() {
   const shared = [params.get('title'), params.get('text'), params.get('url')].filter(Boolean).join(' ').trim()
   return (
     <div className="mx-auto min-h-dvh max-w-lg px-4 pb-10">
-      <PageHeader title="Shared to Split It" back="/" />
+      <PageHeader title="Shared to Split Now" back="/" />
       <Empty emoji="🔎" title="No amount found">
         {shared ? <>We couldn’t find a price in “{shared.slice(0, 120)}”.</> : 'Nothing was shared.'}
         <div className="mt-4 flex justify-center gap-2">

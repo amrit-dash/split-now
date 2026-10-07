@@ -8,6 +8,7 @@ import { SOURCE_LABEL, isSmsSource, rankGroupsForCapture } from '@/lib/capture'
 import { formatMoney } from '@/lib/money'
 import { Empty, LiveBadge, Loading, PageHeader } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
+import { appLocale } from '@/lib/locale'
 
 /** Captured payments waiting to be assigned to a group, plus recently handled ones. */
 export default function Inbox() {
@@ -44,7 +45,7 @@ export default function Inbox() {
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-semibold">{c.merchant}</div>
                     <div className="flex items-center gap-1.5 truncate text-xs text-slate-500">
-                      {new Date(c.date + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} ·{' '}
+                      {new Date(c.date + 'T00:00:00').toLocaleDateString(appLocale(), { day: 'numeric', month: 'short' })} ·{' '}
                       {isSmsSource(c.source)
                         ? <span className="rounded-full bg-sky-100 px-1.5 py-px text-[10px] font-bold text-sky-700 dark:bg-sky-500/15 dark:text-sky-300" data-testid="source-badge">{SOURCE_LABEL[c.source]}</span>
                         : SOURCE_LABEL[c.source] ?? c.source}

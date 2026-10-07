@@ -289,7 +289,7 @@ describe('parseSplitwiseCsv: tolerance', () => {
   })
 })
 
-describe('parseImportCsv: Split It round-trip', () => {
+describe('parseImportCsv: Split Now (split-it) CSV round-trip', () => {
   const group: Pick<Group, 'members' | 'currency'> = {
     currency: 'AUD',
     members: { a: { name: 'Alice', color: '#000' }, b: { name: 'Bob', color: '#000' }, c: { name: 'Cara, Jr', color: '#000' } },
@@ -325,6 +325,7 @@ describe('groupNameFromFilename', () => {
   it('cleans up export names', () => {
     expect(groupNameFromFilename('bali-trip_2024-03-10_export.csv')).toBe('Bali trip')
     expect(groupNameFromFilename('split-it-fitzroy-flat-2024-05-01.csv')).toBe('Fitzroy flat')
+    expect(groupNameFromFilename('split-now-goa-trip-2026-10-07.csv')).toBe('Goa trip')
     expect(groupNameFromFilename('Housemates.csv')).toBe('Housemates')
   })
 })

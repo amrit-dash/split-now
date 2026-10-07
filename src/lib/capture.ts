@@ -125,7 +125,7 @@ const clip = (s: string | null | undefined, n: number) => {
  */
 export function parseCaptureParams(params: URLSearchParams, today: string): CaptureParse {
   const v = params.get('v')
-  if (v && v !== '1') return { ok: false, error: `This link uses capture format v${v.slice(0, 5)}, which this version of Split It doesn’t understand.` }
+  if (v && v !== '1') return { ok: false, error: `This link uses capture format v${v.slice(0, 5)}, which this version of Split Now doesn’t understand.` }
 
   const raw = clip(params.get('raw'), 40)
   const amountStr = params.get('amount')?.trim() || raw

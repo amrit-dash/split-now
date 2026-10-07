@@ -497,7 +497,7 @@ function parseSplitItRows(rows: string[][], opts: ParseOptions): ImportResult {
 /** "bali-trip_2024-03-10_export.csv" → "Bali trip". */
 export function groupNameFromFilename(filename: string): string {
   const base = filename.replace(/\.[^.]+$/, '')
-    .replace(/^split-it-/, '')
+    .replace(/^split-(it|now)-/, '')
     .replace(/[_\s-]*\d{4}-\d{2}-\d{2}.*$/, '')
     .replace(/[_\s-]*export$/i, '')
     .replace(/[_-]+/g, ' ').trim()

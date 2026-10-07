@@ -76,7 +76,7 @@ export function IOSInstallSteps() {
       </li>
       <li className="flex items-center gap-3">
         <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-100 text-2xl dark:bg-brand-900/40">✅</span>
-        <span>Tap <b>Add</b>. Split It now opens full-screen from your home screen, like a native app.</span>
+        <span>Tap <b>Add</b>. Split Now then opens full-screen from your home screen, like a native app.</span>
       </li>
       <li className="rounded-2xl bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
         Using Chrome or another browser on iPhone? The same <b>Share → Add to Home Screen</b> option is in its menu on iOS 16.4+. If it’s missing, open this page in Safari.
@@ -103,7 +103,7 @@ export function InstallBanner() {
         <div className="flex items-center gap-3 rounded-3xl bg-slate-900 p-3 pl-4 text-white shadow-2xl shadow-brand-900/40 dark:bg-ink-800 dark:ring-1 dark:ring-white/10">
           <img src="/pwa-192.png" alt="" className="h-11 w-11 rounded-2xl" />
           <div className="min-w-0 flex-1">
-            <div className="font-semibold">Install Split It</div>
+            <div className="font-semibold">Install Split Now</div>
             <div className="truncate text-xs text-slate-300">Full-screen, faster, works offline</div>
           </div>
           <button

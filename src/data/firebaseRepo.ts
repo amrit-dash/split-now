@@ -12,6 +12,7 @@ import {
 import { connectStorageEmulator, deleteObject, getDownloadURL, getStorage, ref, uploadBytes } from 'firebase/storage'
 import type { ActivityEntry, Capture, Expense, ExpenseComment, Group, Settlement, UserProfile } from '@/types'
 import { inviteCode, todayISO, uid } from '@/lib/id'
+import { defaultCurrency } from '@/lib/locale'
 import { inboxToDraft, newCaptureToken, type InboxDoc } from '@/lib/capture'
 import { downscale } from '@/lib/image'
 import { TABLE_TTL_MS, type LiveTable } from '@/lib/table'
@@ -121,7 +122,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       batch.set(r, {
         // currentUser, not u: a sign-up's updateProfile may have set the name while getDoc ran.
         uid: u.uid, displayName: (auth.currentUser?.uid === u.uid ? auth.currentUser.displayName : null) || u.displayName || u.email?.split('@')[0] || 'You', email: u.email ?? undefined,
-        photoURL: u.photoURL ?? undefined, currency: 'AUD', payment: {},
+        photoURL: u.photoURL ?? undefined, currency: defaultCurrency(), payment: {},
       } satisfies UserProfile)
       fire(batch, 'Creating your profile')
     }

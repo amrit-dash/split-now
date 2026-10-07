@@ -154,7 +154,7 @@ export default function GroupForm() {
             <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-100 to-fuchsia-100 text-3xl dark:from-brand-900/50 dark:to-fuchsia-900/30">{emoji}</div>
             <div className="flex-1">
               <label className="label">Name</label>
-              <input className="input" placeholder={type === 'trip' ? 'e.g. Bali 2026' : type === 'home' ? 'e.g. Fitzroy flat' : 'Group name'} value={name} onChange={(e) => setName(e.target.value)} />
+              <input className="input" placeholder={type === 'trip' ? 'e.g. Goa 2026' : type === 'home' ? 'e.g. Indiranagar flat' : 'Group name'} value={name} onChange={(e) => setName(e.target.value)} />
             </div>
           </div>
           <div className="flex gap-1.5 overflow-x-auto pb-1">

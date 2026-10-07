@@ -2,6 +2,7 @@ import type { ActivityEntry, Capture, Expense, ExpenseComment, Group, Member, Me
 import type { CaptureDraft, InboxDoc } from '@/lib/capture'
 import type { ItemId, LiveTable, NewTable, ParticipantId, TableExtras, TableItem, TableParticipant, TableStatus } from '@/lib/table'
 import type { ActivityCtx } from '@/lib/activity'
+import { defaultCurrency } from '@/lib/locale'
 
 export type Unsub = () => void
 
@@ -273,7 +274,7 @@ export function activityCtxFor(group: Pick<Group, 'currency' | 'members'> | unde
     actorUid: actor.uid,
     actorName: actor.name.slice(0, 80) || 'Someone',
     // amounts are stored in the group currency (a foreign original is formatted from `original`)
-    currency: group?.currency ?? 'AUD',
+    currency: group?.currency ?? defaultCurrency(),
     memberName: (id) => group?.members[id]?.name ?? 'Former member',
   }
 }

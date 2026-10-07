@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { centsToInput, formatMoney, fromHundredths, minorDigits, parseMoney } from './money'
+import { centsToInput, currencySymbol, formatMoney, fromHundredths, minorDigits, parseMoney } from './money'
 import { captureQuery, parseCaptureAmount, parseCaptureParams } from './capture'
 import { centsToDecimal } from './export'
 
@@ -62,5 +62,19 @@ describe('money', () => {
     expect(formatMoney(1200, 'JPY')).toMatch(/1,?200/)
     expect(formatMoney(1200, 'JPY')).not.toMatch(/12\.00/)
     expect(formatMoney(1250, 'USD')).toMatch(/12\.50/)
+  })
+
+  it('defaults to INR in en-IN with lakh grouping', () => {
+    expect(formatMoney(12345678)).toBe('₹1,23,456.78')
+    expect(formatMoney(12345678, 'INR', { locale: 'en-US' })).toBe('₹123,456.78')
+    expect(parseMoney('1,00,000')).toBe(10000000)
+    expect(parseMoney('₹2,50,000.50')).toBe(25000050)
+  })
+
+  it('currency symbols in a locale', () => {
+    expect(currencySymbol('INR', 'en-IN')).toBe('₹')
+    expect(currencySymbol('AUD', 'en-AU')).toBe('$')
+    expect(currencySymbol('AUD', 'en-IN')).toBe('A$')
+    expect(currencySymbol('XYZ1', 'en-IN')).toBe('XYZ1')
   })
 })

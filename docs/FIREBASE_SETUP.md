@@ -1,6 +1,6 @@
 # Connecting Firebase
 
-Split It runs in **demo mode** (browser-only storage) until you add Firebase config. Follow these steps once.
+Split Now (repo `split-it`) runs in **demo mode** (browser-only storage) until you add Firebase config. Follow these steps once.
 
 ## 1. Create the project
 1. Go to <https://console.firebase.google.com> → **Add project** (e.g. `split-it-prod`). Google Analytics is optional.
