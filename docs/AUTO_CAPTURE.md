@@ -267,3 +267,24 @@ An *image* share target must be `POST multipart/form-data`, and a static site ca
 - **Open banking (CDR).** An aggregator such as **Basiq** (about A$0.50 per connected user per month, plus a platform fee) would deliver card transactions by webhook. A function would write them to `users/{uid}/captures`. This covers physical card swipes and online payments that Apple Pay automations miss.
 - **Email forwarding.** A per-user address (e.g. `u_xxx@in.splitit.app`) that parses e-receipts and bank alerts into captures, with `src=email`.
 - **Push notifications.** FCM "New payment to sort" when a capture arrives.
+
+## Publishing the shared iPhone Shortcut (owner, once)
+
+What can and can't be automated on iPhone [Likely, consistent across Apple docs and community reports]:
+
+| Piece | Shareable? | How |
+|---|---|---|
+| The **Shortcut** that POSTs the SMS to `/api/capture` | Yes | iCloud link. Each user's key is asked for on import via an **Import Question**. |
+| The **Message automation** that runs it on each debit SMS | No | Personal automations can't be shared, exported or created by a link or app. Each user creates them once (about 1 minute each, ×3 keywords). |
+| Testing the Shortcut | Yes, from the app | `shortcuts://run-shortcut?name=Split%20Now%20SMS&input=text&text=…` ("Test the Shortcut on this iPhone" in the wizard). |
+
+Build it as a **standalone shortcut**, not from inside an automation, so it has a proper name and no key baked in:
+
+1. Shortcuts → **Shortcuts** tab → **+** → name it exactly **Split Now SMS** (the in-app test button uses this name).
+2. Add **Get Contents of URL**: URL `https://split-now.web.app/api/capture`, Method **POST**, Request Body **JSON**, fields:
+   `token` = *(type anything, e.g. `KEY`)*, `text` = **Shortcut Input**, `sender` = **Shortcut Input → Sender**, `device` = `ios`.
+3. Tap the shortcut name → **ⓘ Details** → **Setup** tab (on newer iOS: the shortcut's settings → *Import Questions*) → **Add Question** → pick the `token` field of *Get Contents of URL* → question text: "Paste your Split Now key (Profile → Auto-capture)". Default value: empty.
+4. Share → **Copy iCloud Link**. Send it to the lead, who sets `VITE_IOS_SHORTCUT_URL` in `.env.production` and redeploys.
+5. Revoke any key that was baked into an earlier shared link (Profile → Auto-capture → Your keys).
+
+Each user then: opens the link → **Add Shortcut** → pastes their key → creates 3 Message automations ("debited", "spent", "sent Rs") → **Run Immediately** → action **Run Shortcut: Split Now SMS** with **Shortcut Input**.
