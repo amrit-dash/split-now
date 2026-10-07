@@ -77,7 +77,7 @@ export function TableEntry() {
   return (
     <div className="mx-auto min-h-dvh max-w-md px-4 pt-[calc(env(safe-area-inset-top)+4rem)]">
       <div className="text-center">
-        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-100 to-fuchsia-100 text-5xl dark:from-brand-900/50 dark:to-fuchsia-900/30">🍽️</div>
+        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-100 to-duo-100 text-5xl dark:from-brand-900/50 dark:to-duo-900/30">🍽️</div>
         <h1 className="mt-4 text-2xl font-extrabold">Join a table</h1>
         <p className="mt-1 text-sm text-slate-500">Enter the code shown on the host’s phone, or scan their QR code with your camera.</p>
       </div>
@@ -129,7 +129,7 @@ function JoinForm({ table, viewer }: { table: LiveTable; viewer: Viewer }) {
   return (
     <div className="mx-auto min-h-dvh max-w-md px-4 pt-[calc(env(safe-area-inset-top)+4rem)]">
       <div className="text-center">
-        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-100 to-fuchsia-100 text-5xl dark:from-brand-900/50 dark:to-fuchsia-900/30">🧾</div>
+        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-100 to-duo-100 text-5xl dark:from-brand-900/50 dark:to-duo-900/30">🧾</div>
         <h1 className="mt-4 text-2xl font-extrabold">{table.merchant}</h1>
         <p className="mt-1 text-sm text-slate-500">{host} is splitting {formatMoney(tableTotal(table), table.currency)}. Tap what you had — no account needed.</p>
       </div>

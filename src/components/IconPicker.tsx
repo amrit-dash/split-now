@@ -26,7 +26,7 @@ export function IconPickerField({ emoji, onChange, emojis = GROUP_EMOJIS, childr
           aria-expanded={open}
           aria-controls={pickerId}
           aria-label={`Group icon ${emoji}. Change icon`}
-          className={`relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-100 to-fuchsia-100 text-2xl transition active:scale-95 dark:from-brand-900/50 dark:to-fuchsia-900/30 ${open ? 'ring-2 ring-brand-500' : ''}`}
+          className={`relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-100 to-duo-100 text-2xl transition active:scale-95 dark:from-brand-900/50 dark:to-duo-900/30 ${open ? 'ring-2 ring-brand-500' : ''}`}
         >
           {emoji}
           <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-brand-600 text-white shadow ring-2 ring-white dark:ring-ink-900">

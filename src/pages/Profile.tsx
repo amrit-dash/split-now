@@ -11,6 +11,7 @@ import { applyTheme, getTheme, type Theme } from '@/lib/theme'
 import { squareJpeg } from '@/lib/image'
 import { linksSummary, paymentSummary } from '@/lib/profileSummary'
 import { Avatar } from '@/components/Avatar'
+import { AccentPicker } from '@/components/AccentPicker'
 import { Collapsible } from '@/components/Collapsible'
 import { IOSInstallSteps, useInstall } from '@/components/InstallBanner'
 import { PageHeader, Segmented } from '@/components/Misc'
@@ -89,7 +90,7 @@ export default function Profile() {
       } />
       <div className="card flex items-center gap-4 p-5">
         <button type="button" className="relative shrink-0 rounded-full" onClick={() => setPhotoOpen(true)} aria-label="Change profile photo" data-testid="profile-photo">
-          <Avatar name={name || '?'} photoURL={profile.photoURL} color="#7c3aed" size={64} />
+          <Avatar name={name || '?'} photoURL={profile.photoURL} color="accent" size={64} />
           <span className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-white text-slate-600 shadow ring-1 ring-slate-200 dark:bg-ink-800 dark:text-slate-300 dark:ring-ink-700">
             <Camera size={13} />
           </span>
@@ -112,7 +113,7 @@ export default function Profile() {
             { value: 'light', label: <span className="inline-flex items-center gap-1"><Sun size={15} /> Light</span> },
             { value: 'dark', label: <span className="inline-flex items-center gap-1"><Moon size={15} /> Dark</span> },
           ]} />
-          {/* accent picker */}
+          <div className="mt-4"><div className="label">Accent colour</div><AccentPicker /></div>
         </div>
       </div>
 
@@ -212,7 +213,7 @@ function PhotoSheet({ open, onClose, profile, googlePhotoURL }: { open: boolean;
 
   return (
     <Sheet open={open} onClose={onClose} title="Profile photo">
-      <div className="mb-3 flex justify-center"><Avatar name={profile.displayName || '?'} photoURL={profile.photoURL} color="#7c3aed" size={96} /></div>
+      <div className="mb-3 flex justify-center"><Avatar name={profile.displayName || '?'} photoURL={profile.photoURL} color="accent" size={96} /></div>
       <input ref={pick} type="file" accept="image/*" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} data-testid="photo-input" />
       <input ref={camera} type="file" accept="image/*" capture="user" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
       <div className="space-y-1">
@@ -222,7 +223,7 @@ function PhotoSheet({ open, onClose, profile, googlePhotoURL }: { open: boolean;
         <button className={row} disabled={busy} onClick={() => pick.current?.click()}><ImagePlus size={20} className="text-brand-600 dark:text-brand-300" /> {busy ? 'Uploading…' : 'Choose photo'}</button>
         {googlePhotoURL && profile.photoURL !== googlePhotoURL && (
           <button className={row} disabled={busy} onClick={() => apply({ photoURL: googlePhotoURL, photoSource: 'google' }, 'Using your Google photo')}>
-            <Avatar name={profile.displayName} photoURL={googlePhotoURL} color="#7c3aed" size={20} /> Use Google photo
+            <Avatar name={profile.displayName} photoURL={googlePhotoURL} color="accent" size={20} /> Use Google photo
           </button>
         )}
         {profile.photoURL && (

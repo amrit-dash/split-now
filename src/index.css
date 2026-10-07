@@ -4,6 +4,23 @@
 
 @theme {
   --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --color-ink-950: #0b0a14;
+  --color-ink-900: #13111f;
+  --color-ink-800: #1c1a2b;
+  --color-ink-700: #2a2740;
+  --animate-sheet: sheet-up 0.28s cubic-bezier(0.2, 0.9, 0.3, 1);
+  --animate-fade: fade-in 0.2s ease-out;
+  --animate-pop: pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.4);
+}
+
+/*
+ * Accent colours. `brand` is the primary scale and `duo` its gradient partner. They live in
+ * `@theme static` so every step is always emitted as a variable on :root, and utilities read
+ * them via var() — so the overrides below (set from src/lib/accent.ts as
+ * <html data-accent="…" data-duo="off">) re-theme the whole UI at runtime.
+ * Defaults = Violet (violet + Tailwind fuchsia). Charts (src/lib/chartPalette.ts) are not themed.
+ */
+@theme static {
   --color-brand-50: #f5f3ff;
   --color-brand-100: #ede9fe;
   --color-brand-200: #ddd6fe;
@@ -14,13 +31,62 @@
   --color-brand-700: #6d28d9;
   --color-brand-800: #5b21b6;
   --color-brand-900: #4c1d95;
-  --color-ink-950: #0b0a14;
-  --color-ink-900: #13111f;
-  --color-ink-800: #1c1a2b;
-  --color-ink-700: #2a2740;
-  --animate-sheet: sheet-up 0.28s cubic-bezier(0.2, 0.9, 0.3, 1);
-  --animate-fade: fade-in 0.2s ease-out;
-  --animate-pop: pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.4);
+  --color-duo-50: oklch(97.7% 0.017 320.058);
+  --color-duo-100: oklch(95.2% 0.037 318.852);
+  --color-duo-200: oklch(90.3% 0.076 319.62);
+  --color-duo-300: oklch(83.3% 0.145 321.434);
+  --color-duo-400: oklch(74% 0.238 322.16);
+  --color-duo-500: oklch(66.7% 0.295 322.15);
+  --color-duo-600: oklch(59.1% 0.293 322.896);
+  --color-duo-700: oklch(51.8% 0.253 323.949);
+  --color-duo-800: oklch(45.2% 0.211 324.591);
+  --color-duo-900: oklch(40.1% 0.17 325.612);
+  /* Vivid mid-stop for the Home hero (Tailwind violet-600 by default). */
+  --color-brand-vivid: oklch(54.1% 0.281 293.009);
+}
+
+/* Presets: brand + duo scales from Tailwind's palette. Steps 400+ are shifted one shade darker
+   for the lighter hues (emerald/teal, orange, amber) so white text on brand-600 stays readable. */
+:root {
+  &[data-accent='ocean'] {
+    --color-brand-50: oklch(97% 0.014 254.604); --color-brand-100: oklch(93.2% 0.032 255.585); --color-brand-200: oklch(88.2% 0.059 254.128); --color-brand-300: oklch(80.9% 0.105 251.813); --color-brand-400: oklch(70.7% 0.165 254.624); --color-brand-500: oklch(62.3% 0.214 259.815); --color-brand-600: oklch(54.6% 0.245 262.881); --color-brand-700: oklch(48.8% 0.243 264.376); --color-brand-800: oklch(42.4% 0.199 265.638); --color-brand-900: oklch(37.9% 0.146 265.522);
+    --color-duo-50: oklch(98.4% 0.019 200.873); --color-duo-100: oklch(95.6% 0.045 203.388); --color-duo-200: oklch(91.7% 0.08 205.041); --color-duo-300: oklch(86.5% 0.127 207.078); --color-duo-400: oklch(78.9% 0.154 211.53); --color-duo-500: oklch(71.5% 0.143 215.221); --color-duo-600: oklch(60.9% 0.126 221.723); --color-duo-700: oklch(52% 0.105 223.128); --color-duo-800: oklch(45% 0.085 224.283); --color-duo-900: oklch(39.8% 0.07 227.392);
+    --color-brand-vivid: oklch(54.6% 0.245 262.881);
+  }
+  &[data-accent='emerald'] {
+    --color-brand-50: oklch(97.9% 0.021 166.113); --color-brand-100: oklch(95% 0.052 163.051); --color-brand-200: oklch(90.5% 0.093 164.15); --color-brand-300: oklch(84.5% 0.143 164.978); --color-brand-400: oklch(69.6% 0.17 162.48); --color-brand-500: oklch(59.6% 0.145 163.225); --color-brand-600: oklch(50.8% 0.118 165.612); --color-brand-700: oklch(43.2% 0.095 166.913); --color-brand-800: oklch(37.8% 0.077 168.94); --color-brand-900: oklch(26.2% 0.051 172.552);
+    --color-duo-50: oklch(98.4% 0.014 180.72); --color-duo-100: oklch(95.3% 0.051 180.801); --color-duo-200: oklch(91% 0.096 180.426); --color-duo-300: oklch(85.5% 0.138 181.071); --color-duo-400: oklch(70.4% 0.14 182.503); --color-duo-500: oklch(60% 0.118 184.704); --color-duo-600: oklch(51.1% 0.096 186.391); --color-duo-700: oklch(43.7% 0.078 188.216); --color-duo-800: oklch(38.6% 0.063 188.416); --color-duo-900: oklch(27.7% 0.046 192.524);
+    --color-brand-vivid: oklch(50.8% 0.118 165.612);
+  }
+  &[data-accent='sunset'] {
+    --color-brand-50: oklch(98% 0.016 73.684); --color-brand-100: oklch(95.4% 0.038 75.164); --color-brand-200: oklch(90.1% 0.076 70.697); --color-brand-300: oklch(83.7% 0.128 66.29); --color-brand-400: oklch(70.5% 0.213 47.604); --color-brand-500: oklch(64.6% 0.222 41.116); --color-brand-600: oklch(55.3% 0.195 38.402); --color-brand-700: oklch(47% 0.157 37.304); --color-brand-800: oklch(40.8% 0.123 38.172); --color-brand-900: oklch(26.6% 0.079 36.259);
+    --color-duo-50: oklch(96.9% 0.015 12.422); --color-duo-100: oklch(94.1% 0.03 12.58); --color-duo-200: oklch(89.2% 0.058 10.001); --color-duo-300: oklch(81% 0.117 11.638); --color-duo-400: oklch(71.2% 0.194 13.428); --color-duo-500: oklch(64.5% 0.246 16.439); --color-duo-600: oklch(58.6% 0.253 17.585); --color-duo-700: oklch(51.4% 0.222 16.935); --color-duo-800: oklch(45.5% 0.188 13.697); --color-duo-900: oklch(41% 0.159 10.272);
+    --color-brand-vivid: oklch(55.3% 0.195 38.402);
+  }
+  &[data-accent='rose'] {
+    --color-brand-50: oklch(96.9% 0.015 12.422); --color-brand-100: oklch(94.1% 0.03 12.58); --color-brand-200: oklch(89.2% 0.058 10.001); --color-brand-300: oklch(81% 0.117 11.638); --color-brand-400: oklch(71.2% 0.194 13.428); --color-brand-500: oklch(64.5% 0.246 16.439); --color-brand-600: oklch(58.6% 0.253 17.585); --color-brand-700: oklch(51.4% 0.222 16.935); --color-brand-800: oklch(45.5% 0.188 13.697); --color-brand-900: oklch(41% 0.159 10.272);
+    --color-duo-50: oklch(97.1% 0.014 343.198); --color-duo-100: oklch(94.8% 0.028 342.258); --color-duo-200: oklch(89.9% 0.061 343.231); --color-duo-300: oklch(82.3% 0.12 346.018); --color-duo-400: oklch(71.8% 0.202 349.761); --color-duo-500: oklch(65.6% 0.241 354.308); --color-duo-600: oklch(59.2% 0.249 0.584); --color-duo-700: oklch(52.5% 0.223 3.958); --color-duo-800: oklch(45.9% 0.187 3.815); --color-duo-900: oklch(40.8% 0.153 2.432);
+    --color-brand-vivid: oklch(58.6% 0.253 17.585);
+  }
+  &[data-accent='indigo'] {
+    --color-brand-50: oklch(96.2% 0.018 272.314); --color-brand-100: oklch(93% 0.034 272.788); --color-brand-200: oklch(87% 0.065 274.039); --color-brand-300: oklch(78.5% 0.115 274.713); --color-brand-400: oklch(67.3% 0.182 276.935); --color-brand-500: oklch(58.5% 0.233 277.117); --color-brand-600: oklch(51.1% 0.262 276.966); --color-brand-700: oklch(45.7% 0.24 277.023); --color-brand-800: oklch(39.8% 0.195 277.366); --color-brand-900: oklch(35.9% 0.144 278.697);
+    --color-duo-50: oklch(97.7% 0.013 236.62); --color-duo-100: oklch(95.1% 0.026 236.824); --color-duo-200: oklch(90.1% 0.058 230.902); --color-duo-300: oklch(82.8% 0.111 230.318); --color-duo-400: oklch(74.6% 0.16 232.661); --color-duo-500: oklch(68.5% 0.169 237.323); --color-duo-600: oklch(58.8% 0.158 241.966); --color-duo-700: oklch(50% 0.134 242.749); --color-duo-800: oklch(44.3% 0.11 240.79); --color-duo-900: oklch(39.1% 0.09 240.876);
+    --color-brand-vivid: oklch(51.1% 0.262 276.966);
+  }
+  &[data-accent='saffron'] {
+    --color-brand-50: oklch(98.7% 0.022 95.277); --color-brand-100: oklch(96.2% 0.059 95.617); --color-brand-200: oklch(92.4% 0.12 95.746); --color-brand-300: oklch(87.9% 0.169 91.605); --color-brand-400: oklch(76.9% 0.188 70.08); --color-brand-500: oklch(66.6% 0.179 58.318); --color-brand-600: oklch(55.5% 0.163 48.998); --color-brand-700: oklch(47.3% 0.137 46.201); --color-brand-800: oklch(41.4% 0.112 45.904); --color-brand-900: oklch(27.9% 0.077 45.635);
+    --color-duo-50: oklch(98% 0.016 73.684); --color-duo-100: oklch(95.4% 0.038 75.164); --color-duo-200: oklch(90.1% 0.076 70.697); --color-duo-300: oklch(83.7% 0.128 66.29); --color-duo-400: oklch(70.5% 0.213 47.604); --color-duo-500: oklch(64.6% 0.222 41.116); --color-duo-600: oklch(55.3% 0.195 38.402); --color-duo-700: oklch(47% 0.157 37.304); --color-duo-800: oklch(40.8% 0.123 38.172); --color-duo-900: oklch(26.6% 0.079 36.259);
+    --color-brand-vivid: oklch(55.5% 0.163 48.998);
+  }
+  &[data-accent='graphite'] {
+    --color-brand-50: oklch(98.4% 0.003 247.858); --color-brand-100: oklch(96.8% 0.007 247.896); --color-brand-200: oklch(92.9% 0.013 255.508); --color-brand-300: oklch(86.9% 0.022 252.894); --color-brand-400: oklch(70.4% 0.04 256.788); --color-brand-500: oklch(55.4% 0.046 257.417); --color-brand-600: oklch(44.6% 0.043 257.281); --color-brand-700: oklch(37.2% 0.044 257.287); --color-brand-800: oklch(27.9% 0.041 260.031); --color-brand-900: oklch(20.8% 0.042 265.755);
+    --color-duo-50: oklch(98.5% 0 none); --color-duo-100: oklch(96.7% 0.001 286.375); --color-duo-200: oklch(92% 0.004 286.32); --color-duo-300: oklch(87.1% 0.006 286.286); --color-duo-400: oklch(70.5% 0.015 286.067); --color-duo-500: oklch(55.2% 0.016 285.938); --color-duo-600: oklch(44.2% 0.017 285.786); --color-duo-700: oklch(37% 0.013 285.805); --color-duo-800: oklch(27.4% 0.006 286.033); --color-duo-900: oklch(21% 0.006 285.885);
+    --color-brand-vivid: oklch(44.6% 0.043 257.281);
+  }
+  /* Dual tone off: gradients collapse to the brand scale. Must stay after the presets. */
+  &[data-duo='off'] {
+    --color-duo-50: var(--color-brand-50); --color-duo-100: var(--color-brand-100); --color-duo-200: var(--color-brand-200); --color-duo-300: var(--color-brand-300); --color-duo-400: var(--color-brand-400); --color-duo-500: var(--color-brand-500); --color-duo-600: var(--color-brand-600); --color-duo-700: var(--color-brand-700); --color-duo-800: var(--color-brand-800); --color-duo-900: var(--color-brand-900);
+  }
 }
 
 @keyframes sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
@@ -54,7 +120,7 @@
       active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
   }
 
-@utility btn-primary { @apply btn bg-gradient-to-r from-brand-600 to-fuchsia-600 text-white shadow-lg shadow-brand-600/25; }
+@utility btn-primary { @apply btn bg-gradient-to-r from-brand-600 to-duo-600 text-white shadow-lg shadow-brand-600/25; }
 
 @utility btn-secondary { @apply btn bg-slate-100 text-slate-900 dark:bg-ink-800 dark:text-slate-100; }
 

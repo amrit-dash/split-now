@@ -108,7 +108,7 @@ export default function Scan() {
           </div>
         ) : (
           <div className="flex flex-col items-center px-6 py-10 text-center">
-            <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-500 to-fuchsia-500 text-3xl text-white shadow-lg">{mode === 'receipt' ? '🧾' : '📲'}</div>
+            <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-500 to-duo-500 text-3xl text-white shadow-lg">{mode === 'receipt' ? '🧾' : '📲'}</div>
             <div className="font-bold">{mode === 'receipt' ? 'Snap a receipt' : 'Upload a payment confirmation'}</div>
             <p className="mt-1 text-sm text-slate-500">{mode === 'receipt' ? 'We’ll pull out the total, merchant, date and line items for an itemized split.' : 'A GPay, PhonePe, Paytm, bank or PayPal screenshot — we’ll detect the amount and who you paid.'}</p>
           </div>
