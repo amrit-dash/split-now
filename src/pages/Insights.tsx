@@ -13,7 +13,7 @@ import { formatDate } from '@/lib/locale'
 import { todayISO } from '@/lib/id'
 import {
   bucketFor, byCategory, byGroup, collectRows, counted, foldSlices, formatChange, headline, monthPace,
-  overTime, paidVsShare, previousBounds, rangeBounds, type InsightFilters, type Source,
+  overTime, paceWeeks, paidVsShare, previousBounds, rangeBounds, type InsightFilters, type Source,
 } from '@/lib/insights'
 import { Empty, Loading, PageHeader } from '@/components/Misc'
 import { Avatar } from '@/components/Avatar'
@@ -21,6 +21,7 @@ import { GroupIcon } from '@/components/GroupIcon'
 import { ChartCard, StatTile } from '@/components/insights/chrome'
 import { CategoryBreakdown, GroupBars, PaceChart, PaidShare, TimeChart } from '@/components/insights/Charts'
 import { DEFAULT_FILTERS, FiltersPanel } from '@/components/insights/Filters'
+import { CountUp } from '@/components/insights/motion'
 
 export default function Insights() {
   const data = useAllGroupData()
@@ -64,7 +65,7 @@ export default function Insights() {
     const time = overTime(rows, b, today, bucket)
     // The pace chart compares this month with last, whatever the range, as long as the range reaches today.
     const firstOfLast = (() => { const t = new Date(today + 'T00:00'); return `${t.getMonth() === 0 ? t.getFullYear() - 1 : t.getFullYear()}-${String(((t.getMonth() + 11) % 12) + 1).padStart(2, '0')}-01` })()
-    const pace = b.to >= today ? monthPace(collectRows(scope, { from: firstOfLast, to: today }, filters, convert), today) : null
+    const pace = b.to >= today ? (() => { const p = monthPace(collectRows(scope, { from: firstOfLast, to: today }, filters, convert), today); return { ...p, weeks: paceWeeks(p.points, today) } })() : null
     const groups = byGroup(rows)
     const one = scope.length === 1 ? scope[0] : undefined
     const members = one && one.group.type !== 'personal' ? paidVsShare(one, collectRows([one], b, { ...filters, basis: 'total' })) : []
@@ -75,7 +76,7 @@ export default function Insights() {
 
   if (!data || !view) return <Loading />
   const { cur, approx, head } = view
-  const money = (v: number) => approx + formatMoney(v, cur)
+  const money = (v: number) => approx + formatMoney(Math.round(v), cur)
   const pickCategory = (c: Category) =>
     setFilters((f) => ({ ...f, categories: f.categories.length === 1 && f.categories[0] === c ? [] : [c] }))
   const prevLabel = filters.range === 'month' ? 'same days last month' : filters.range === 'year' ? 'same point last year' : 'previous period'
@@ -98,11 +99,11 @@ export default function Insights() {
           <div className="grid grid-cols-2 gap-3">
             <StatTile
               label={filters.basis === 'mine' ? 'You spent' : 'Total spent'}
-              value={money(head.total)}
+              value={<CountUp value={head.total} format={money} />}
               sub={head.change !== null ? <Delta change={head.change} vs={prevLabel} /> : `${formatDate(view.b.from, { day: 'numeric', month: 'short', year: 'numeric' })} – now`}
             />
-            <StatTile label="Daily average" value={money(head.dailyAvg)} sub={`over ${head.days} day${head.days > 1 ? 's' : ''}`} />
-            <StatTile label="Expenses" value={String(head.count)} sub={`avg ${money(Math.round(head.total / Math.max(1, head.count)))} each`} />
+            <StatTile label="Daily average" value={<CountUp value={head.dailyAvg} format={money} />} sub={`over ${head.days} day${head.days > 1 ? 's' : ''}`} />
+            <StatTile label="Expenses" value={<CountUp value={head.count} format={String} duration={600} />} sub={`avg ${money(Math.round(head.total / Math.max(1, head.count)))} each`} />
             <StatTile
               label="Top category"
               value={view.cats[0] ? `${CATEGORIES[view.cats[0].key].emoji} ${CATEGORIES[view.cats[0].key].label}` : '—'}
@@ -113,7 +114,7 @@ export default function Insights() {
           <TimeChart points={view.time} bucket={view.bucket} currency={cur} approx={approx} />
 
           {view.pace && (view.pace.thisTotal > 0 || view.pace.lastTotal > 0) && (
-            <PaceChart {...view.pace} currency={cur} approx={approx} />
+            <PaceChart weeks={view.pace.weeks} thisTotal={view.pace.thisTotal} lastToDate={view.pace.lastToDate} lastTotal={view.pace.lastTotal} currency={cur} approx={approx} />
           )}
 
           <CategoryBreakdown

@@ -243,6 +243,34 @@ export function monthPace(rows: Row[], today: string): { points: PacePoint[]; th
 
 // ---- groups & people -----------------------------------------------------------------------
 
+export interface PaceWeek { key: string; from: number; to: number; thisMonth?: number; lastMonth?: number; current: boolean }
+
+/**
+ * The pace points folded into week-of-month buckets (1–7, 8–14, 15–21, 22–28, 29–end) for grouped bars.
+ * `thisMonth` is undefined for weeks that haven't started; the current week is a partial (to today).
+ * `lastMonth` is undefined for days last month didn't have (e.g. 29–31 after a February).
+ */
+export function paceWeeks(points: PacePoint[], today: string): PaceWeek[] {
+  const d = parseISO(today).getDate()
+  const len = points.length
+  const cum = (day: number, k: 'thisMonth' | 'lastMonth') => {
+    for (let i = Math.min(day, len); i >= 1; i--) { const v = points[i - 1][k]; if (v !== undefined) return v }
+    return 0
+  }
+  const weeks: PaceWeek[] = []
+  for (let from = 1; from <= len; from += 7) {
+    const to = Math.min(from + 6, len)
+    const hasLast = points[from - 1].lastMonth !== undefined
+    weeks.push({
+      key: `${from}`, from, to,
+      thisMonth: from <= d ? cum(Math.min(to, d), 'thisMonth') - cum(from - 1, 'thisMonth') : undefined,
+      lastMonth: hasLast ? cum(to, 'lastMonth') - cum(from - 1, 'lastMonth') : undefined,
+      current: d >= from && d <= to,
+    })
+  }
+  return weeks
+}
+
 export interface GroupTotal { id: string; name: string; emoji: string; value: number; paid: number; share: number }
 
 /** Per group: spend on the basis, and what I paid vs my share (for non-personal groups). */

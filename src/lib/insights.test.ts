@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Category, Expense, Group } from '@/types'
 import {
   bucketFor, byCategory, byGroup, collectRows, compactMoney, daysBetween, foldSlices, formatChange, headline,
-  monthPace, overTime, paidVsShare, previousBounds, rangeBounds, type Source,
+  monthPace, overTime, paceWeeks, paidVsShare, previousBounds, rangeBounds, type Source,
 } from './insights'
 
 let n = 0
@@ -129,6 +129,17 @@ describe('over time', () => {
     expect(p.points[29].lastMonth).toBe(160)
     expect(p.points[30].lastMonth).toBeUndefined() // September has 30 days
     expect(p).toMatchObject({ thisTotal: 120, lastToDate: 100, lastTotal: 160 })
+  })
+  it('pace weeks: week-of-month buckets, current week partial, future weeks empty', () => {
+    const p = monthPace([mk('2026-09-01', 100), mk('2026-09-10', 50), mk('2026-09-30', 10), mk('2026-10-01', 40), mk('2026-10-08', 80)], '2026-10-08')
+    const w = paceWeeks(p.points, '2026-10-08')
+    expect(w.map((x) => [x.from, x.to, x.thisMonth, x.lastMonth, x.current])).toEqual([
+      [1, 7, 40, 100, false],
+      [8, 14, 80, 50, true],
+      [15, 21, undefined, 0, false],
+      [22, 28, undefined, 0, false],
+      [29, 31, undefined, 10, false], // September stops at the 30th
+    ])
   })
   it('month pace across new year', () => {
     const p = monthPace([mk('2025-12-31', 5), mk('2026-01-01', 3)], '2026-01-02')
