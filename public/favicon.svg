@@ -1,12 +1,28 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!--
+    Split Now mark: a gold coin split by a lightning bolt — money, split, now.
+    The background gradient uses the brand (#7c3aed) and duo (#c800de) colours; the runtime
+    favicon tint (src/lib/accent.ts) swaps those two stops for the active accent. Keep the
+    structure "background rect first, then the mark" — scripts/generate-icons.mjs relies on it.
+  -->
   <defs>
     <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#7c3aed"/>
-      <stop offset="1" stop-color="#db2777"/>
+      <stop offset="1" stop-color="#c800de"/>
     </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#fff3c4"/>
+      <stop offset=".55" stop-color="#ffd166"/>
+      <stop offset="1" stop-color="#f4a62a"/>
+    </linearGradient>
+    <mask id="split">
+      <rect width="512" height="512" fill="#fff"/>
+      <polygon points="292,44 206,250 268,250 220,468 308,246 246,246" fill="#000"/>
+    </mask>
   </defs>
   <rect width="512" height="512" rx="112" fill="url(#g)"/>
-  <circle cx="256" cy="256" r="150" fill="none" stroke="#fff" stroke-width="36"/>
-  <path d="M256 106 V406" stroke="#fff" stroke-width="36" stroke-linecap="round"/>
-  <path d="M256 256 L362 362" stroke="#fff" stroke-width="36" stroke-linecap="round" opacity=".85"/>
+  <g mask="url(#split)">
+    <circle cx="256" cy="256" r="176" fill="url(#gold)"/>
+    <circle cx="256" cy="256" r="148" fill="none" stroke="#c77f16" stroke-opacity=".45" stroke-width="12"/>
+  </g>
 </svg>
