@@ -12,6 +12,7 @@ import { GroupRow } from '@/components/GroupRow'
 import { Empty, Loading } from '@/components/Misc'
 import { Avatar } from '@/components/Avatar'
 import { Aurora } from '@/components/Aurora'
+import { CardFirework } from '@/components/CardFirework'
 import { appLocale } from '@/lib/locale'
 import { HELLO, dayPart, greeting, topCounterparties } from '@/lib/greeting'
 import { isLiveTrip } from '@/lib/capture'
@@ -55,6 +56,8 @@ export default function Home() {
   const net = main.owed - main.owe
   const others = [...totals.entries()].filter(([c]) => c !== cur)
   const ax = approx ? '≈ ' : ''
+  // Nothing owed either way, in any group: no "settle up" CTA, a quiet firework instead.
+  const allSettled = data.some((d) => d.me && d.group.type !== 'personal') && [...totals.values()].every((t) => !t.owed && !t.owe)
 
   const recent = data
     .flatMap((d) => d.expenses.map((e) => ({ e, d })))
@@ -103,13 +106,17 @@ export default function Home() {
 
       <div className="relative isolate overflow-hidden rounded-[2rem] bg-brand-600 p-6 text-white shadow-xl shadow-brand-600/30">
         <Aurora />
+        {allSettled && <CardFirework />}
         <div className="relative">
-          <Link to="/settle" aria-label="Settle up" title="Settle up" data-testid="home-settle"
-            className="absolute -right-2 -top-2 flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white ring-1 ring-white/30 backdrop-blur transition duration-150 hover:bg-white/25 active:scale-90 active:bg-white/30">
-            <HandCoins size={22} strokeWidth={2.2} aria-hidden />
-          </Link>
-          <div className="pr-12 text-sm font-medium text-white/80">Overall, {net >= 0 ? 'you are owed' : 'you owe'}</div>
-          <div className="mt-1 pr-10 text-4xl font-extrabold tabular-nums tracking-tight" data-testid="home-net">{ax}{formatMoney(Math.abs(net), cur)}</div>
+          {/* 44px tap target; the 22px glyph sits on the content's right edge, centred on the first text line. */}
+          {!allSettled && (
+            <Link to="/settle" aria-label="Balances and settle up" title="Settle up" data-testid="home-settle"
+              className="absolute -right-[11px] -top-3 flex h-11 w-11 items-center justify-center rounded-full text-white transition duration-150 hover:bg-white/10 active:scale-90 active:bg-white/20">
+              <HandCoins size={22} strokeWidth={2.2} aria-hidden />
+            </Link>
+          )}
+          <div className="pr-12 text-sm font-medium text-white/80">{allSettled ? 'Overall' : `Overall, ${net >= 0 ? 'you are owed' : 'you owe'}`}</div>
+          <div className="mt-1 pr-10 text-4xl font-extrabold tabular-nums tracking-tight" data-testid="home-net">{allSettled ? 'All settled up' : `${ax}${formatMoney(Math.abs(net), cur)}`}</div>
           <div className="mt-5 grid grid-cols-2 gap-3">
             <div className="rounded-2xl bg-white/15 p-3 backdrop-blur">
               <div className="text-xs text-white/75">You are owed</div>

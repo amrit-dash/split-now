@@ -26,7 +26,7 @@ export function CreateSheet({ open, onClose, groupId }: { open: boolean; onClose
         <Tile icon={<QrCode size={22} />} title="Split a bill" text="Everyone taps what they had" onClick={() => go(`/split${q}`)} testId="create-split" />
         <Tile icon={<ScanLine size={22} />} title="Scan" text="Receipt, statement or payment" onClick={() => go('/scan')} testId="create-scan" />
         <Tile icon={<Users size={22} />} title="New group" text="Trip, flat, dinner, anything" onClick={() => go('/groups/new')} testId="create-group" />
-        <Tile icon={<ArrowRightLeft size={22} />} title="Settle up" text="Record a payment" onClick={() => go(groupId ? `/groups/${encodeURIComponent(groupId)}/settle` : '/friends')} testId="create-settle" />
+        <Tile icon={<ArrowRightLeft size={22} />} title="Settle up" text="Record a payment" onClick={() => go(groupId ? `/groups/${encodeURIComponent(groupId)}/settle` : '/settle')} testId="create-settle" />
       </div>
     </Sheet>
   )

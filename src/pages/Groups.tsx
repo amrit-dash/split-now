@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { FileUp, Plus, UserPlus } from 'lucide-react'
+import { FileUp, Plus, Scale } from 'lucide-react'
 import { useAllGroupData } from '@/hooks/data'
 import { GroupRow } from '@/components/GroupRow'
 import { Empty, Loading, PageHeader } from '@/components/Misc'
@@ -18,7 +18,7 @@ export default function Groups() {
         right={
           <div className="flex gap-2">
             <Link to="/groups/import" className="rounded-full bg-slate-200/70 p-2.5 dark:bg-ink-800" aria-label="Import from Splitwise"><FileUp size={20} /></Link>
-            <Link to="/friends"className="rounded-full bg-slate-200/70 p-2.5 dark:bg-ink-800" aria-label="Friends"><UserPlus size={20} /></Link>
+            <Link to="/settle" className="rounded-full bg-slate-200/70 p-2.5 dark:bg-ink-800" aria-label="Balances"><Scale size={20} /></Link>
             <Link to="/groups/new" className="accent-live rounded-full bg-brand-600 p-2.5 text-white" aria-label="New group"><Plus size={20} /></Link>
           </div>
         }

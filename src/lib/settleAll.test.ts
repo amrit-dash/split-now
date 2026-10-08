@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Debt, Group } from '@/types'
-import { pendingSettlements, personSummaries, settleHref, totalsByCurrency } from './settleAll'
+import { groupCount, pendingSettlements, personBalances, settleHref, totalsByCurrency } from './settleAll'
 
 const g = (id: string, currency: string, members: Group['members'], type: Group['type'] = 'trip') =>
   ({ id, name: `G ${id}`, emoji: '🏖️', type, currency, members })
@@ -49,7 +49,21 @@ describe('settleAll', () => {
     expect(totalsByCurrency([], 'INR')).toEqual([])
   })
 
-  it('summarises people across groups, per currency', () => {
-    expect(personSummaries(rows)).toEqual([{ key: 'u:u_rohan|INR', name: 'Rohan', color: '#f00', currency: 'INR', net: -3500, groups: 2 }])
+  it('nets each person across groups, per currency, keeping the per-group parts', () => {
+    const people = personBalances(rows)
+    expect(people.map((p) => [p.key, p.name, p.currency, p.net, groupCount(p), p.parts.map((r) => r.groupId)])).toEqual([
+      ['u:u_rohan|INR', 'Rohan', 'INR', -3500, 2, ['a', 'b']],
+      ['n:priya|INR', 'Priya', 'INR', 2000, 1, ['a']],
+      ['u:u_rohan|AUD', 'Rohan', 'AUD', 700, 1, ['c']],
+    ])
+    expect(people[0].parts.map((r) => [r.me, r.memberId, r.dir])).toEqual([['me', 'r', 'owe'], ['m1', 'm2', 'owed']])
+  })
+
+  it('keeps people whose groups cancel out exactly', () => {
+    const even = pendingSettlements([
+      { group: g('a', 'INR', members), me: 'me', debts: [{ from: 'me', to: 'p', amount: 300 }] },
+      { group: g('b', 'INR', members), me: 'me', debts: [{ from: 'p', to: 'me', amount: 300 }] },
+    ])
+    expect(personBalances(even).map((p) => [p.name, p.net, p.parts.length])).toEqual([['Priya', 0, 2]])
   })
 })
