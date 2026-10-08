@@ -39,7 +39,10 @@ export function parseKek(raw: string | undefined): Buffer | undefined {
 
 /** The secret's value: one or more KEKs, newest first; bad entries are dropped. */
 export function parseKekList(raw: string | undefined): Buffer[] {
-  return (raw ?? '').split(',').map((k) => parseKek(k)).filter((k): k is Buffer => !!k)
+  return (raw ?? '')
+    .split(',')
+    .map((k) => parseKek(k))
+    .filter((k): k is Buffer => !!k)
 }
 
 /** A fresh KEK, printed once by the setup instructions (base64, 32 bytes). */
@@ -60,7 +63,12 @@ export function unseal(s: Sealed, kek: Buffer): string {
 }
 
 export const isSealed = (v: unknown): v is Sealed =>
-  !!v && typeof v === 'object' && (v as Sealed).v === 1 && typeof (v as Sealed).iv === 'string' && typeof (v as Sealed).ct === 'string' && typeof (v as Sealed).tag === 'string'
+  !!v &&
+  typeof v === 'object' &&
+  (v as Sealed).v === 1 &&
+  typeof (v as Sealed).iv === 'string' &&
+  typeof (v as Sealed).ct === 'string' &&
+  typeof (v as Sealed).tag === 'string'
 
 /**
  * Read a stored key: a sealed value (with the newest KEK, or an older one during rotation), or
@@ -71,7 +79,11 @@ export function readStoredKey(doc: { key?: unknown; sealed?: unknown } | undefin
   if (!doc) return { reseal: false }
   if (isSealed(doc.sealed)) {
     for (const [i, k] of keks.entries()) {
-      try { return { key: unseal(doc.sealed, k), reseal: i > 0 } } catch { /* try the next */ }
+      try {
+        return { key: unseal(doc.sealed, k), reseal: i > 0 }
+      } catch {
+        /* try the next */
+      }
     }
     return { reseal: false }
   }

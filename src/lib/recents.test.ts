@@ -1,8 +1,19 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Expense } from '@/types'
 import {
-  addDaysISO, descriptionHistory, lastGroup, lastMethod, lastSplit, pastCategory, rememberGroup, rememberMethod, rememberSplit,
-  sameSplit, sanitizeSplit, setRecentsStorage, suggestDescriptions,
+  addDaysISO,
+  descriptionHistory,
+  lastGroup,
+  lastMethod,
+  lastSplit,
+  pastCategory,
+  rememberGroup,
+  rememberMethod,
+  rememberSplit,
+  sameSplit,
+  sanitizeSplit,
+  setRecentsStorage,
+  suggestDescriptions,
 } from './recents'
 
 const mem = () => {
@@ -11,8 +22,20 @@ const mem = () => {
 }
 
 const ex = (id: string, description: string, date: string, extra: Partial<Expense> = {}): Expense => ({
-  id, groupId: 'g', description, amount: 100, category: 'other', date, paidBy: { a: 100 }, splits: { a: 50, b: 50 },
-  splitType: 'equal', splitInput: { selected: ['a', 'b'] }, createdBy: 'u', createdAt: 0, updatedAt: 0, ...extra,
+  id,
+  groupId: 'g',
+  description,
+  amount: 100,
+  category: 'other',
+  date,
+  paidBy: { a: 100 },
+  splits: { a: 50, b: 50 },
+  splitType: 'equal',
+  splitInput: { selected: ['a', 'b'] },
+  createdBy: 'u',
+  createdAt: 0,
+  updatedAt: 0,
+  ...extra,
 })
 
 describe('recents storage', () => {

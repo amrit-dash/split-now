@@ -47,7 +47,11 @@ describe('interpret', () => {
     const r = (text?: string) => interpret(readCaptureRequest({ body: { token: TOKEN, text } }), NOW)
     expect(r('Rs.500.00 credited to A/c XX1234 on 07-10-26 from VPA a@okicici')).toMatchObject({ ok: false, reason: 'not_a_debit' })
     expect(r('482913 is your OTP for txn of Rs 500 at Amazon')).toMatchObject({ ok: false, reason: 'not_a_debit' })
-    expect(r('Rs.2,000.00 debited from A/c XX1234 for UPI Lite top-up. UPI Ref 628112345678.')).toMatchObject({ ok: false, reason: 'not_a_debit', sms: { kind: 'transfer' } })
+    expect(r('Rs.2,000.00 debited from A/c XX1234 for UPI Lite top-up. UPI Ref 628112345678.')).toMatchObject({
+      ok: false,
+      reason: 'not_a_debit',
+      sms: { kind: 'transfer' },
+    })
     expect(r('hello there')).toMatchObject({ ok: false, reason: 'unparsed' })
     expect(r(undefined)).toEqual({ ok: false, reason: 'bad_request' })
     expect(STATUS.not_a_debit).toBe(200)
@@ -162,16 +166,38 @@ describe('notification text (en-IN)', () => {
     expect(formatMoney(1250, 'USD')).toBe('$12.50')
   })
   it('capture: matched trip and unsorted', () => {
-    expect(captureNote({ captureId: 'c1', amount: 84000, merchant: 'Swiggy', groupName: 'Goa Trip' }))
-      .toEqual({ title: 'New payment', body: 'You spent ₹840 at Swiggy — add to Goa Trip?', url: '/capture/c1', tag: 'capture-c1' })
+    expect(captureNote({ captureId: 'c1', amount: 84000, merchant: 'Swiggy', groupName: 'Goa Trip' })).toEqual({
+      title: 'New payment',
+      body: 'You spent ₹840 at Swiggy — add to Goa Trip?',
+      url: '/capture/c1',
+      tag: 'capture-c1',
+    })
     expect(captureNote({ captureId: 'c1', amount: 84000 }).title).toBe('Unsorted payment')
   })
   it('expense, settlement and reminder', () => {
-    const e = expenseNote({ groupId: 'g', expenseId: 'e', groupName: 'Goa Trip', emoji: '🏖️', actorName: 'Sarah', description: 'Dinner', amount: 84000, currency: 'INR', share: 21000, paid: 0 })
+    const e = expenseNote({
+      groupId: 'g',
+      expenseId: 'e',
+      groupName: 'Goa Trip',
+      emoji: '🏖️',
+      actorName: 'Sarah',
+      description: 'Dinner',
+      amount: 84000,
+      currency: 'INR',
+      share: 21000,
+      paid: 0,
+    })
     expect(e).toMatchObject({ title: '🏖️ Goa Trip', body: 'Sarah added Dinner · ₹840 · your share ₹210', url: '/groups/g/expenses/e' })
-    expect(expenseNote({ groupId: 'g', expenseId: 'e', groupName: 'G', actorName: 'S', description: 'Taxi', amount: 50000, currency: 'INR', share: 0, paid: 50000 }).body).toContain('you paid ₹500')
-    expect(settlementNote({ groupId: 'g', settlementId: 's', groupName: 'Goa', fromName: 'Rahul', amount: 50000, currency: 'INR' }).body).toBe('Rahul paid you ₹500')
-    expect(settlementRecordedNote({ groupId: 'g', settlementId: 's', groupName: 'Goa', toName: 'Priya', amount: 50000, currency: 'INR' }).body).toBe('Priya recorded that you paid ₹500. Not right? Open it to flag.')
+    expect(
+      expenseNote({ groupId: 'g', expenseId: 'e', groupName: 'G', actorName: 'S', description: 'Taxi', amount: 50000, currency: 'INR', share: 0, paid: 50000 })
+        .body,
+    ).toContain('you paid ₹500')
+    expect(settlementNote({ groupId: 'g', settlementId: 's', groupName: 'Goa', fromName: 'Rahul', amount: 50000, currency: 'INR' }).body).toBe(
+      'Rahul paid you ₹500',
+    )
+    expect(settlementRecordedNote({ groupId: 'g', settlementId: 's', groupName: 'Goa', toName: 'Priya', amount: 50000, currency: 'INR' }).body).toBe(
+      'Priya recorded that you paid ₹500. Not right? Open it to flag.',
+    )
     expect(reminderNote({ groupId: 'g', groupName: 'Goa', owed: 124000, currency: 'INR' })).toMatchObject({ url: '/groups/g/settle', urgency: 'normal' })
     expect(reminderNote({ groupId: 'g', groupName: 'Goa', owed: 124000, currency: 'INR' }).body).toContain('₹1,240')
   })
@@ -206,8 +232,9 @@ describe('reminders', () => {
   const members = { a: { uid: 'ua' }, b: { uid: 'ub' }, c: {} }
   const old = { amount: 200000, paidBy: { a: 200000 }, splits: { a: 100000, b: 100000 }, createdAt: now - 10 * DAY }
   it('nudges someone who has owed > ₹500 for over 7 days', () => {
-    expect(reminderTargets({ members, currency: 'INR', expenses: [old], settlements: [], now, lastSent: {} }))
-      .toEqual([{ uid: 'ub', memberId: 'b', owed: 100000 }])
+    expect(reminderTargets({ members, currency: 'INR', expenses: [old], settlements: [], now, lastSent: {} })).toEqual([
+      { uid: 'ub', memberId: 'b', owed: 100000 },
+    ])
   })
   it('not for recent debts, small debts, settled debts, trash or within the cooldown', () => {
     const base = { members, currency: 'INR', settlements: [], now, lastSent: {} }
@@ -227,7 +254,9 @@ describe('reminders', () => {
   it('an expense still awaiting approval does not count, like in the app', () => {
     const pending = { ...old, requiresApproval: true, createdBy: 'ua' }
     expect(reminderTargets({ members, currency: 'INR', expenses: [pending], settlements: [], now, lastSent: {} })).toEqual([])
-    expect(reminderTargets({ members, currency: 'INR', expenses: [{ ...pending, approvals: { ub: true } }], settlements: [], now, lastSent: {} })).toHaveLength(1)
+    expect(reminderTargets({ members, currency: 'INR', expenses: [{ ...pending, approvals: { ub: true } }], settlements: [], now, lastSent: {} })).toHaveLength(
+      1,
+    )
   })
   it('candidate memory: the clock starts when the debt first goes over the threshold', () => {
     const base = { members, currency: 'INR', settlements: [], state: undefined }
@@ -258,7 +287,7 @@ describe('reminders', () => {
 import { clientIp, ipLimited, isKnownUnknown, rememberUnknown } from '../capture'
 describe('pre-auth guards', () => {
   it('limits requests per client address inside a window', () => {
-    const hits = new Map()
+    const hits = new Map<string, { n: number; t: number }>()
     for (let i = 0; i < 3; i++) expect(ipLimited('1.2.3.4', 1000 + i, 3, 60_000, hits)).toBe(false)
     expect(ipLimited('1.2.3.4', 1004, 3, 60_000, hits)).toBe(true)
     expect(ipLimited('5.6.7.8', 1004, 3, 60_000, hits)).toBe(false)

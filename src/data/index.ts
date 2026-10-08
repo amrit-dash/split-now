@@ -12,7 +12,10 @@ function authDomain(): string | undefined {
   const project = env.VITE_FIREBASE_PROJECT_ID as string | undefined
   const host = typeof location !== 'undefined' ? location.host : ''
   const ownSite = /\.(web\.app|firebaseapp\.com)$/.test(host) && env.PROD
-  const extra = String(env.VITE_AUTH_HOSTS ?? '').split(',').map((h: string) => h.trim()).filter(Boolean)
+  const extra = String(env.VITE_AUTH_HOSTS ?? '')
+    .split(',')
+    .map((h: string) => h.trim())
+    .filter(Boolean)
   if (project && (ownSite || extra.includes(host))) return host
   return env.VITE_FIREBASE_AUTH_DOMAIN
 }

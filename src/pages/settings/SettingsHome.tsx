@@ -27,21 +27,56 @@ export default function SettingsHome() {
   useEffect(() => (repo.mode === 'firebase' ? repo.watchAiState(user.uid, setAiState) : undefined), [user.uid])
 
   const notifications = !notificationsAvailable()
-    ? repo.mode === 'demo' ? 'Not available in the demo' : 'Not available in this build'
-    : notificationSummary({ iosNeedsInstall: isIOS() && !isStandalone(), supported: pushSupported(), perm: permission(), prefs: prefs ?? { captures: true, unsorted: false, expenses: true, settlements: true, reminders: true, outsideTrips: false } })
+    ? repo.mode === 'demo'
+      ? 'Not available in the demo'
+      : 'Not available in this build'
+    : notificationSummary({
+        iosNeedsInstall: isIOS() && !isStandalone(),
+        supported: pushSupported(),
+        perm: permission(),
+        prefs: prefs ?? { captures: true, unsorted: false, expenses: true, settlements: true, reminders: true, outsideTrips: false },
+      })
   const automation = prefs?.capturePaused && tokens?.length ? 'Paused' : autoCaptureSummary(tokens)
-  const ai = repo.mode !== 'firebase' ? undefined : aiAvailability({ status: aiStatus, hasOwnKey: !!aiState?.hint, ownKeyBroken: !!aiState?.lastError, enabled: prefs?.aiEnabled ?? true }).text
+  const ai =
+    repo.mode !== 'firebase'
+      ? undefined
+      : aiAvailability({ status: aiStatus, hasOwnKey: !!aiState?.hint, ownKeyBroken: !!aiState?.lastError, enabled: prefs?.aiEnabled ?? true }).text
 
   return (
     <SettingsPage title="Settings" back="/profile">
       <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5" data-testid="settings-list">
-        <SettingsRow to="/settings/preferences" icon={<Palette size={19} />} title="Preferences" testId="settings-preferences"
-          summary={`${profile.currency} · ${THEME_LABEL[getTheme()]} · ${accentPreset(getAccent()).label}`} />
+        <SettingsRow
+          to="/settings/preferences"
+          icon={<Palette size={19} />}
+          title="Preferences"
+          testId="settings-preferences"
+          summary={`${profile.currency} · ${THEME_LABEL[getTheme()]} · ${accentPreset(getAccent()).label}`}
+        />
         <SettingsRow to="/settings/notifications" icon={<Bell size={19} />} title="Notifications" summary={notifications} testId="settings-notifications" />
-        <SettingsRow to="/settings/automation" icon={<Zap size={19} />} title="Automation" summary={automation || 'Auto-capture and capture keys'} testId="settings-automation" />
+        <SettingsRow
+          to="/settings/automation"
+          icon={<Zap size={19} />}
+          title="Automation"
+          summary={automation || 'Auto-capture and capture keys'}
+          testId="settings-automation"
+        />
         {repo.mode === 'firebase' && <SettingsRow to="/settings/ai" icon={<Sparkles size={19} />} title="AI features" summary={ai} testId="settings-ai" />}
-        <SettingsRow to="/settings/data" icon={<Database size={19} />} title="Data" summary="Export, import from Splitwise, install the app" testId="settings-data" />
-        {aiStatus?.admin && <SettingsRow to="/settings/admin" icon={<ShieldCheck size={19} />} title="Admin" summary="Split Now’s AI key, access and limits" testId="settings-admin" />}
+        <SettingsRow
+          to="/settings/data"
+          icon={<Database size={19} />}
+          title="Data"
+          summary="Export, import from Splitwise, install the app"
+          testId="settings-data"
+        />
+        {aiStatus?.admin && (
+          <SettingsRow
+            to="/settings/admin"
+            icon={<ShieldCheck size={19} />}
+            title="Admin"
+            summary="Split Now’s AI key, access and limits"
+            testId="settings-admin"
+          />
+        )}
       </div>
       <p className="text-muted mt-4 px-1 text-xs">Changes here save by themselves.</p>
     </SettingsPage>

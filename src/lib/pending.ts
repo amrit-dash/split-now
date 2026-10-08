@@ -17,7 +17,11 @@ const CAPTURE_KEY = 'splitit-pending-capture'
  * localStorage (not sessionStorage) so it survives a sign-in redirect or a closed tab.
  */
 export function stashCapture(search: string) {
-  try { localStorage.setItem(CAPTURE_KEY, search) } catch { /* storage unavailable */ }
+  try {
+    localStorage.setItem(CAPTURE_KEY, search)
+  } catch {
+    /* storage unavailable */
+  }
 }
 
 export function takeStashedCapture(): string | null {

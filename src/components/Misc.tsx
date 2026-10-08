@@ -32,7 +32,9 @@ export function PageHeader({ title, back, right, subtitle }: { title: ReactNode;
 export function Empty({ emoji, title, children }: { emoji: string; title: string; children?: ReactNode }) {
   return (
     <div className="card flex flex-col items-center px-6 py-10 text-center">
-      <div className="mb-3 text-5xl" aria-hidden>{emoji}</div>
+      <div className="mb-3 text-5xl" aria-hidden>
+        {emoji}
+      </div>
       <h2 className="text-lg font-bold">{title}</h2>
       {children && <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">{children}</div>}
     </div>
@@ -44,14 +46,24 @@ export function Spinner({ className = '', label = 'Loading' }: { className?: str
 }
 
 export function Loading() {
-  return <div className="flex justify-center py-20"><Spinner /></div>
+  return (
+    <div className="flex justify-center py-20">
+      <Spinner />
+    </div>
+  )
 }
 
 /**
  * A segmented control (one choice out of a few). Rendered as a radio group so the selected
  * option is announced, not just coloured. `label` names the group for assistive tech.
  */
-export function Segmented<T extends string>({ value, options, onChange, label, testId }: {
+export function Segmented<T extends string>({
+  value,
+  options,
+  onChange,
+  label,
+  testId,
+}: {
   value: T
   options: Array<{ value: T; label: ReactNode }>
   onChange: (v: T) => void
@@ -79,7 +91,9 @@ export function Segmented<T extends string>({ value, options, onChange, label, t
 /** "Live trip" (trips) or "On now" (other groups) pill for groups whose date window contains today. */
 export function LiveBadge({ type = 'trip', className = '' }: { type?: GroupType; className?: string }) {
   return (
-    <span className={`inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300 ${className}`}>
+    <span
+      className={`inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300 ${className}`}
+    >
       <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" /> {type === 'trip' ? 'Live trip' : 'On now'}
     </span>
   )

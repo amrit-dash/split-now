@@ -42,13 +42,7 @@ const sumOf = (r: Record<string, number>) => Object.values(r).reduce((a, b) => a
  * non-finite amount, an item assigned to nobody still in the group, exact amounts or percentages
  * that don't match. `currency` is only used to word those messages.
  */
-export function computeSplits(
-  total: Cents,
-  type: SplitType,
-  input: SplitInput,
-  memberOrder: MemberId[],
-  currency?: string,
-): Record<MemberId, Cents> {
+export function computeSplits(total: Cents, type: SplitType, input: SplitInput, memberOrder: MemberId[], currency?: string): Record<MemberId, Cents> {
   const out = splitsFor(total, type, input, memberOrder, currency)
   // Every branch is meant to allocate exactly; this catches a regression before it is stored.
   for (const v of Object.values(out)) if (!Number.isFinite(v) || !Number.isInteger(v)) throw new SplitError('The split doesn’t add up to the total')
@@ -57,8 +51,7 @@ export function computeSplits(
 }
 
 function splitsFor(total: Cents, type: SplitType, input: SplitInput, memberOrder: MemberId[], currency?: string): Record<MemberId, Cents> {
-  const ordered = <T>(rec: Record<MemberId, T> | undefined) =>
-    memberOrder.filter((m) => rec && rec[m] !== undefined).map((m) => [m, rec![m]] as [MemberId, T])
+  const ordered = <T>(rec: Record<MemberId, T> | undefined) => memberOrder.filter((m) => rec && rec[m] !== undefined).map((m) => [m, rec![m]] as [MemberId, T])
   const money = (c: Cents) => (currency ? formatMoney(c, currency) : (c / 100).toFixed(2))
   const finite = (entries: Array<[MemberId, number]>, what: string) => {
     for (const [, v] of entries) {
@@ -72,7 +65,10 @@ function splitsFor(total: Cents, type: SplitType, input: SplitInput, memberOrder
     case 'equal': {
       const sel = memberOrder.filter((m) => input.selected?.includes(m))
       if (sel.length === 0) throw new SplitError('Select at least one person')
-      return allocate(total, sel.map((m) => [m, 1]))
+      return allocate(
+        total,
+        sel.map((m) => [m, 1]),
+      )
     }
     case 'exact': {
       const entries = finite(ordered(input.exact), 'amount').filter(([, v]) => v !== 0)
@@ -97,7 +93,10 @@ function splitsFor(total: Cents, type: SplitType, input: SplitInput, memberOrder
       const adj = input.adjust ?? {}
       for (const m of sel) if (!Number.isFinite(adj[m] ?? 0)) throw new SplitError('Enter a number for every adjustment')
       const adjSum = sel.reduce((s, m) => s + (adj[m] ?? 0), 0)
-      const base = allocate(total - adjSum, sel.map((m) => [m, 1]))
+      const base = allocate(
+        total - adjSum,
+        sel.map((m) => [m, 1]),
+      )
       const out: Record<MemberId, Cents> = {}
       for (const m of sel) {
         const v = (base[m] ?? 0) + (adj[m] ?? 0)
@@ -121,14 +120,20 @@ function splitsFor(total: Cents, type: SplitType, input: SplitInput, memberOrder
         const ms = memberOrder.filter((m) => it.members.includes(m))
         // An item whose people have all left the group would silently vanish from the total.
         if (!ms.length && it.amount) throw new SplitError(`“${it.name || 'An item'}” is assigned to someone who left the group`)
-        const part = allocate(it.amount, ms.map((m) => [m, portion(it, m)]))
+        const part = allocate(
+          it.amount,
+          ms.map((m) => [m, portion(it, m)]),
+        )
         for (const [m, v] of Object.entries(part)) sub[m] = (sub[m] ?? 0) + v
       }
       // Tax / tip / discount (difference between total and items) spread proportionally.
       const extra = total - itemTotal
       if (extra === 0) return sub
       if (itemTotal <= 0) throw new SplitError('Items must have a positive total')
-      const extraParts = allocate(extra, memberOrder.filter((m) => sub[m]).map((m) => [m, sub[m]]))
+      const extraParts = allocate(
+        extra,
+        memberOrder.filter((m) => sub[m]).map((m) => [m, sub[m]]),
+      )
       const out: Record<MemberId, Cents> = {}
       for (const m of memberOrder) {
         const v = (sub[m] ?? 0) + (extraParts[m] ?? 0)

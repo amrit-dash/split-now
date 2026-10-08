@@ -6,7 +6,9 @@ import { SettingsPage } from './common'
 export default function Ai() {
   return (
     <SettingsPage title="AI features" subtitle="Reading bills and bank SMS with Google Gemini">
-      {repo.mode === 'firebase' ? <AiSettings /> : (
+      {repo.mode === 'firebase' ? (
+        <AiSettings />
+      ) : (
         <div className="card p-4">
           <p className="text-muted text-sm">AI reading isn’t part of the demo. Bills are read on this phone.</p>
         </div>

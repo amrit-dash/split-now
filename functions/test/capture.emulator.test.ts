@@ -30,10 +30,28 @@ beforeEach(async () => {
   await env.clearFirestore()
   await env.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore()
-    const base = { emoji: '🏖️', currency: 'INR', simplify: true, memberUids: ['alice'], members: { alice: { name: 'Alice', uid: 'alice', color: '#000' } }, inviteCode: 'ABC234', createdBy: 'alice', createdAt: 1, updatedAt: 1 }
+    const base = {
+      emoji: '🏖️',
+      currency: 'INR',
+      simplify: true,
+      memberUids: ['alice'],
+      members: { alice: { name: 'Alice', uid: 'alice', color: '#000' } },
+      inviteCode: 'ABC234',
+      createdBy: 'alice',
+      createdAt: 1,
+      updatedAt: 1,
+    }
     await setDoc(doc(db, 'groups/goa'), { ...base, id: 'goa', name: 'Goa Trip', type: 'trip', startDate: addDays(today, -2), endDate: addDays(today, 3) })
     await setDoc(doc(db, 'groups/old'), { ...base, id: 'old', name: 'Old Trip', type: 'trip', startDate: '2025-01-01', endDate: '2025-01-05' })
-    await setDoc(doc(db, 'groups/gone'), { ...base, id: 'gone', name: 'Left Trip', type: 'trip', memberUids: ['bob'], members: { bob: { name: 'Bob', uid: 'bob', color: '#000' } }, createdBy: 'bob' })
+    await setDoc(doc(db, 'groups/gone'), {
+      ...base,
+      id: 'gone',
+      name: 'Left Trip',
+      type: 'trip',
+      memberUids: ['bob'],
+      members: { bob: { name: 'Bob', uid: 'bob', color: '#000' } },
+      createdBy: 'bob',
+    })
     await setDoc(doc(db, `captureTokens/${TOKEN}`), { uid: 'alice', createdAt: 1 })
     await setDoc(doc(db, `captureTokens/${SCOPED}`), { uid: 'alice', createdAt: 1, groupId: 'old', label: 'Old Trip' })
     await setDoc(doc(db, `captureTokens/${LEFT}`), { uid: 'alice', createdAt: 1, groupId: 'gone', label: 'Left Trip' })
@@ -58,12 +76,19 @@ describe('capture webhook (emulator)', () => {
     const res = await post({ token: TOKEN, text: sms(), sender: 'VM-HDFCBK', device: 'ios', receivedAt: new Date().toISOString() })
     const json = await res.json()
     expect(res.status).toBe(200)
-    expect(json).toMatchObject({ ok: true, matchedGroupId: 'goa', pushed: false, parsed: { amount: 84000, currency: 'INR', merchant: 'Swiggy', direction: 'debit', ref: '628112345678', date: today } })
+    expect(json).toMatchObject({
+      ok: true,
+      matchedGroupId: 'goa',
+      pushed: false,
+      parsed: { amount: 84000, currency: 'INR', merchant: 'Swiggy', direction: 'debit', ref: '628112345678', date: today },
+    })
     const [c] = await captures()
     expect(c).toMatchObject({ id: json.captureId, amount: 84000, merchant: 'Swiggy', status: 'pending', source: 'sms-ios', suggestedGroup: 'goa', date: today })
     expect(String(c.raw)).not.toContain('12,345')
     let lastUsed: unknown
-    await env.withSecurityRulesDisabled(async (ctx) => { lastUsed = (await getDoc(doc(ctx.firestore(), `captureTokens/${TOKEN}`))).get('lastUsedAt') })
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      lastUsed = (await getDoc(doc(ctx.firestore(), `captureTokens/${TOKEN}`))).get('lastUsedAt')
+    })
     expect(typeof lastUsed).toBe('number')
   })
 
@@ -82,7 +107,11 @@ describe('capture webhook (emulator)', () => {
   })
 
   it('accepts form-encoded bodies with ?t=', async () => {
-    const res = await fetch(`${URL}?t=${TOKEN}`, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ text: sms('555566667777'), device: 'android' }).toString() })
+    const res = await fetch(`${URL}?t=${TOKEN}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ text: sms('555566667777'), device: 'android' }).toString(),
+    })
     expect(res.status).toBe(200)
   })
 
@@ -104,13 +133,17 @@ describe('capture webhook (emulator)', () => {
     await post({ token: TOKEN, text: sms('222233334444') })
     await post({ token: TOKEN, text: `Rs.500.00 credited to A/c XX1234 on ${ddmmyy} from VPA rahul@okicici (UPI 628112345678)` })
     let log: Record<string, unknown> | undefined
-    await env.withSecurityRulesDisabled(async (ctx) => { log = (await getDoc(doc(ctx.firestore(), 'users/alice/captureLog/recent'))).data() })
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      log = (await getDoc(doc(ctx.firestore(), 'users/alice/captureLog/recent'))).data()
+    })
     const entries = log?.entries as Array<Record<string, unknown>>
     expect(entries.map((e) => e.result)).toEqual(['not_a_debit', 'captured'])
     expect(entries[1]).toMatchObject({ amount: 84000, merchant: 'Swiggy', groupName: 'Goa Trip', device: 'other' })
     expect(JSON.stringify(log)).not.toContain('XX1234')
     let docs = 0
-    await env.withSecurityRulesDisabled(async (ctx) => { docs = (await getDocs(collection(ctx.firestore(), 'users/alice/captureLog'))).size })
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      docs = (await getDocs(collection(ctx.firestore(), 'users/alice/captureLog'))).size
+    })
     expect(docs).toBe(1)
   })
 

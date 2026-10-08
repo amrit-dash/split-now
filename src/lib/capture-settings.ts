@@ -22,10 +22,16 @@ function readJson<T>(key: string, fallback: T): T {
   try {
     const s = localStorage.getItem(key)
     return s ? (JSON.parse(s) as T) : fallback
-  } catch { return fallback }
+  } catch {
+    return fallback
+  }
 }
 function writeJson(key: string, v: unknown) {
-  try { localStorage.setItem(key, JSON.stringify(v)) } catch { /* private mode / storage full */ }
+  try {
+    localStorage.setItem(key, JSON.stringify(v))
+  } catch {
+    /* private mode / storage full */
+  }
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(DEMO_EVENT))
 }
 function onDemoChange(fn: () => void): () => void {
@@ -84,17 +90,29 @@ export function watchCaptureLog(uid: string, mode: Mode, cb: (rows: LogRow[]) =>
   }
   let unsub: (() => void) | undefined
   let stopped = false
-  Promise.all([import('firebase/app'), import('firebase/firestore')]).then(([{ getApp }, f]) => {
-    if (stopped) return
-    const db = f.getFirestore(getApp())
-    unsub = f.onSnapshot(f.doc(db, 'users', uid, 'captureLog', CAPTURE_LOG_DOC), (s) => cb(logRowsOf(s.data(), limit)), () => cb([]))
-  }).catch(() => cb([]))
-  return () => { stopped = true; unsub?.() }
+  Promise.all([import('firebase/app'), import('firebase/firestore')])
+    .then(([{ getApp }, f]) => {
+      if (stopped) return
+      const db = f.getFirestore(getApp())
+      unsub = f.onSnapshot(
+        f.doc(db, 'users', uid, 'captureLog', CAPTURE_LOG_DOC),
+        (s) => cb(logRowsOf(s.data(), limit)),
+        () => cb([]),
+      )
+    })
+    .catch(() => cb([]))
+  return () => {
+    stopped = true
+    unsub?.()
+  }
 }
 
 /** Clear the log (the owner may delete the document; the webhook starts a new one). */
 export async function clearCaptureLog(uid: string, mode: Mode, _rows?: LogRow[]): Promise<void> {
-  if (mode === 'demo') { writeJson(logKey(uid), []); return }
+  if (mode === 'demo') {
+    writeJson(logKey(uid), [])
+    return
+  }
   const [{ getApp }, f] = await Promise.all([import('firebase/app'), import('firebase/firestore')])
   const db = f.getFirestore(getApp())
   const batch = f.writeBatch(db)
@@ -141,11 +159,17 @@ const rupees = (paise: number) => `₹${(paise / 100).toLocaleString('en-IN', { 
  * Short lines describing the current capture settings, for the wizard's summary and the
  * collapsed section header.
  */
-export function captureSettingsLines(p: Pick<AllPrefs, 'capturePaused' | 'outsideTrips' | 'minAmount' | 'ignoreWords' | 'captures' | 'unsorted'>, pausedTrips: string[] = []): string[] {
+export function captureSettingsLines(
+  p: Pick<AllPrefs, 'capturePaused' | 'outsideTrips' | 'minAmount' | 'ignoreWords' | 'captures' | 'unsorted'>,
+  pausedTrips: string[] = [],
+): string[] {
   if (p.capturePaused) return ['Paused: incoming SMS are ignored and nothing is stored']
   const lines = [p.outsideTrips ? 'All bank & UPI debits (outside trips go to the inbox)' : 'Only payments dated during a trip']
   if (p.minAmount > 0) lines.push(`Ignoring payments under ${rupees(p.minAmount)}`)
-  if (p.ignoreWords.length) lines.push(`Ignoring ${p.ignoreWords.length} keyword${p.ignoreWords.length === 1 ? '' : 's'}: ${p.ignoreWords.slice(0, 4).join(', ')}${p.ignoreWords.length > 4 ? '…' : ''}`)
+  if (p.ignoreWords.length)
+    lines.push(
+      `Ignoring ${p.ignoreWords.length} keyword${p.ignoreWords.length === 1 ? '' : 's'}: ${p.ignoreWords.slice(0, 4).join(', ')}${p.ignoreWords.length > 4 ? '…' : ''}`,
+    )
   if (pausedTrips.length) lines.push(`Paused for ${pausedTrips.join(', ')}`)
   lines.push(!p.captures ? 'No capture notifications' : p.outsideTrips && p.unsorted ? 'Notifies for every captured payment' : 'Notifies for trip payments')
   return lines

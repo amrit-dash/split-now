@@ -10,8 +10,7 @@ const sum = (r: Record<string, number> | undefined) => Object.values(r ?? {}).re
  */
 export function isBalancedExpense(e: Pick<Expense, 'amount' | 'paidBy' | 'splits'>): boolean {
   const whole = (r: Record<string, number> | undefined) => !!r && Object.values(r).every((v) => Number.isInteger(v) && v >= 0)
-  return Number.isInteger(e.amount) && e.amount > 0 && whole(e.paidBy) && whole(e.splits)
-    && sum(e.paidBy) === e.amount && sum(e.splits) === e.amount
+  return Number.isInteger(e.amount) && e.amount > 0 && whole(e.paidBy) && whole(e.splits) && sum(e.paidBy) === e.amount && sum(e.splits) === e.amount
 }
 
 /**

@@ -12,8 +12,20 @@ import { youFirst } from './bits'
 
 const ROW = 'flex min-h-12 w-full items-center gap-3 rounded-2xl p-2.5 text-left hover:bg-slate-50 dark:hover:bg-ink-800'
 
-export function GroupPickerSheet({ open, onClose, groups, current, onPick, onCreate }: {
-  open: boolean; onClose: () => void; groups: Group[]; current: string; onPick: (id: string) => void; onCreate: (type?: 'direct' | 'personal') => void
+export function GroupPickerSheet({
+  open,
+  onClose,
+  groups,
+  current,
+  onPick,
+  onCreate,
+}: {
+  open: boolean
+  onClose: () => void
+  groups: Group[]
+  current: string
+  onPick: (id: string) => void
+  onCreate: (type?: 'direct' | 'personal') => void
 }) {
   return (
     <Sheet open={open} onClose={onClose} title="Choose group">
@@ -23,7 +35,17 @@ export function GroupPickerSheet({ open, onClose, groups, current, onPick, onCre
 }
 
 /** Live trips first, then shared groups, 1:1 friends and the personal wallet; searchable when long. */
-function GroupList({ groups, current, onPick, onCreate }: { groups: Group[]; current: string; onPick: (id: string) => void; onCreate: (type?: 'direct' | 'personal') => void }) {
+function GroupList({
+  groups,
+  current,
+  onPick,
+  onCreate,
+}: {
+  groups: Group[]
+  current: string
+  onPick: (id: string) => void
+  onCreate: (type?: 'direct' | 'personal') => void
+}) {
   const [q, setQ] = useState('')
   const today = todayISO()
   const t = q.trim().toLowerCase()
@@ -40,10 +62,18 @@ function GroupList({ groups, current, onPick, onCreate }: { groups: Group[]; cur
   const creates: Array<{ type?: 'direct' | 'personal'; label: string; hint: string; icon: LucideIcon }> = [
     { label: 'New group', hint: 'Trip, flat, team…', icon: Users },
     { type: 'direct', label: 'New 1:1 friend', hint: 'Just you and one friend', icon: UserPlus },
-    ...(groups.some((g) => g.type === 'personal') ? [] : [{ type: 'personal' as const, label: 'Personal wallet', hint: 'Track your own spending', icon: Wallet }]),
+    ...(groups.some((g) => g.type === 'personal')
+      ? []
+      : [{ type: 'personal' as const, label: 'Personal wallet', hint: 'Track your own spending', icon: Wallet }]),
   ]
   const row = (g: Group, isLive = false) => (
-    <button key={g.id} type="button" onClick={() => onPick(g.id)} aria-pressed={g.id === current} className={`${ROW} ${g.id === current ? 'bg-brand-50 dark:bg-brand-900/30' : ''}`}>
+    <button
+      key={g.id}
+      type="button"
+      onClick={() => onPick(g.id)}
+      aria-pressed={g.id === current}
+      className={`${ROW} ${g.id === current ? 'bg-brand-50 dark:bg-brand-900/30' : ''}`}
+    >
       <GroupIcon emoji={g.emoji} size={40} />
       <span className="min-w-0 flex-1">
         <span className="block truncate font-semibold">{g.name}</span>
@@ -74,7 +104,9 @@ function GroupList({ groups, current, onPick, onCreate }: { groups: Group[]; cur
         <div className="space-y-1">
           {creates.map((c) => (
             <button key={c.label} type="button" onClick={() => onCreate(c.type)} className={ROW}>
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"><c.icon size={20} aria-hidden /></span>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300">
+                <c.icon size={20} aria-hidden />
+              </span>
               <span className="min-w-0 flex-1">
                 <span className="block font-semibold">{c.label}</span>
                 <span className="block truncate text-xs text-muted">{c.hint}</span>
@@ -88,16 +120,43 @@ function GroupList({ groups, current, onPick, onCreate }: { groups: Group[]; cur
   )
 }
 
-export function CurrencySheet({ open, onClose, value, choices, groupName, groupCurrency, onPick }: {
-  open: boolean; onClose: () => void; value: string; choices: string[]; groupName: string; groupCurrency: string; onPick: (c: string) => void
+export function CurrencySheet({
+  open,
+  onClose,
+  value,
+  choices,
+  groupName,
+  groupCurrency,
+  onPick,
+}: {
+  open: boolean
+  onClose: () => void
+  value: string
+  choices: string[]
+  groupName: string
+  groupCurrency: string
+  onPick: (c: string) => void
 }) {
   return (
     <Sheet open={open} onClose={onClose} title="Currency">
-      <p className="mb-3 text-sm text-muted">{groupName} is in {groupCurrency}. Other currencies are converted at the ECB rate for the expense date, then locked.</p>
+      <p className="mb-3 text-sm text-muted">
+        {groupName} is in {groupCurrency}. Other currencies are converted at the ECB rate for the expense date, then locked.
+      </p>
       <div className="grid grid-cols-4 gap-2" role="radiogroup" aria-label="Currency">
         {choices.map((c) => (
-          <button key={c} type="button" role="radio" aria-checked={c === value} onClick={() => { onPick(c); onClose() }}
-            className={`min-h-11 rounded-2xl py-3 text-sm font-bold ${c === value ? 'bg-brand-600 text-white' : 'bg-slate-100 dark:bg-ink-800'}`}>{c}</button>
+          <button
+            key={c}
+            type="button"
+            role="radio"
+            aria-checked={c === value}
+            onClick={() => {
+              onPick(c)
+              onClose()
+            }}
+            className={`min-h-11 rounded-2xl py-3 text-sm font-bold ${c === value ? 'bg-brand-600 text-white' : 'bg-slate-100 dark:bg-ink-800'}`}
+          >
+            {c}
+          </button>
         ))}
       </div>
     </Sheet>
@@ -109,9 +168,22 @@ export function CategorySheet({ open, onClose, value, onPick }: { open: boolean;
     <Sheet open={open} onClose={onClose} title="Category">
       <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Category">
         {(Object.keys(CATEGORIES) as Category[]).map((c) => (
-          <button key={c} type="button" role="radio" aria-checked={c === value} onClick={() => { onPick(c); onClose() }}
-            className={`flex min-h-11 flex-col items-center gap-1 rounded-2xl p-3 text-xs font-semibold ${c === value ? 'ring-2 ring-brand-500' : ''}`} style={{ background: CATEGORIES[c].color + '18' }}>
-            <span className="text-2xl" aria-hidden>{CATEGORIES[c].emoji}</span>{CATEGORIES[c].label}
+          <button
+            key={c}
+            type="button"
+            role="radio"
+            aria-checked={c === value}
+            onClick={() => {
+              onPick(c)
+              onClose()
+            }}
+            className={`flex min-h-11 flex-col items-center gap-1 rounded-2xl p-3 text-xs font-semibold ${c === value ? 'ring-2 ring-brand-500' : ''}`}
+            style={{ background: CATEGORIES[c].color + '18' }}
+          >
+            <span className="text-2xl" aria-hidden>
+              {CATEGORIES[c].emoji}
+            </span>
+            {CATEGORIES[c].label}
           </button>
         ))}
       </div>
@@ -120,9 +192,26 @@ export function CategorySheet({ open, onClose, value, onPick }: { open: boolean;
 }
 
 /** Who paid: one person, or "several people" which opens the amount rows on the card. */
-export function PayerSheet({ open, onClose, group, order, me, value, multiPay, onPick, onMultiPay }: {
-  open: boolean; onClose: () => void; group: Group; order: MemberId[]; me: MemberId; value: MemberId; multiPay: boolean
-  onPick: (id: MemberId) => void; onMultiPay: () => void
+export function PayerSheet({
+  open,
+  onClose,
+  group,
+  order,
+  me,
+  value,
+  multiPay,
+  onPick,
+  onMultiPay,
+}: {
+  open: boolean
+  onClose: () => void
+  group: Group
+  order: MemberId[]
+  me: MemberId
+  value: MemberId
+  multiPay: boolean
+  onPick: (id: MemberId) => void
+  onMultiPay: () => void
 }) {
   return (
     <Sheet open={open} onClose={onClose} title="Who paid?" testId="payer-sheet">
@@ -130,15 +219,37 @@ export function PayerSheet({ open, onClose, group, order, me, value, multiPay, o
         {youFirst(order, me).map((id) => {
           const on = !multiPay && id === value
           return (
-            <button key={id} type="button" role="radio" aria-checked={on} onClick={() => { onPick(id); onClose() }} className={ROW}>
+            <button
+              key={id}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              onClick={() => {
+                onPick(id)
+                onClose()
+              }}
+              className={ROW}
+            >
               <Avatar name={group.members[id]?.name ?? '?'} color={group.members[id]?.color ?? '#999'} size={36} />
               <span className="flex-1 font-semibold">{id === me ? 'You' : group.members[id]?.name}</span>
               {on && <Check size={18} className="text-brand-600" aria-hidden />}
             </button>
           )
         })}
-        <button type="button" role="radio" aria-checked={multiPay} onClick={() => { onMultiPay(); onClose() }} className={`${ROW} mt-2 border-t border-slate-100 pt-3 dark:border-white/5`} data-testid="payer-multiple">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-ink-800"><Users size={18} aria-hidden /></span>
+        <button
+          type="button"
+          role="radio"
+          aria-checked={multiPay}
+          onClick={() => {
+            onMultiPay()
+            onClose()
+          }}
+          className={`${ROW} mt-2 border-t border-slate-100 pt-3 dark:border-white/5`}
+          data-testid="payer-multiple"
+        >
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-ink-800">
+            <Users size={18} aria-hidden />
+          </span>
           <span className="min-w-0 flex-1">
             <span className="block font-semibold">Several people paid</span>
             <span className="block text-xs text-muted">Enter what each person put in</span>
@@ -151,17 +262,50 @@ export function PayerSheet({ open, onClose, group, order, me, value, multiPay, o
 }
 
 /** A card that is really one tappable summary row (the collapsed payer / split cards). */
-export function SummaryCard({ id, label, hint, title, detail, icon, plainIcon, onClick, testId, children }: {
-  id?: string; label: ReactNode; hint?: ReactNode; title: ReactNode; detail?: ReactNode; icon: ReactNode
+export function SummaryCard({
+  id,
+  label,
+  hint,
+  title,
+  detail,
+  icon,
+  plainIcon,
+  onClick,
+  testId,
+  children,
+}: {
+  id?: string
+  label: ReactNode
+  hint?: ReactNode
+  title: ReactNode
+  detail?: ReactNode
+  icon: ReactNode
   /** the icon is already a 40px tile (an avatar): no background behind it */
-  plainIcon?: boolean; onClick: () => void; testId?: string; children?: ReactNode
+  plainIcon?: boolean
+  onClick: () => void
+  testId?: string
+  children?: ReactNode
 }) {
   return (
     <div id={id} className="card mt-3 p-4">
-      <button type="button" onClick={onClick} className="-m-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-2xl p-2 text-left active:bg-slate-50 dark:active:bg-ink-800" aria-haspopup="dialog" data-testid={testId}>
-        <span className={`flex h-10 w-10 shrink-0 items-center justify-center ${plainIcon ? '' : 'rounded-2xl bg-slate-100 text-slate-700 dark:bg-ink-800 dark:text-slate-200'}`} aria-hidden>{icon}</span>
+      <button
+        type="button"
+        onClick={onClick}
+        className="-m-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-2xl p-2 text-left active:bg-slate-50 dark:active:bg-ink-800"
+        aria-haspopup="dialog"
+        data-testid={testId}
+      >
+        <span
+          className={`flex h-10 w-10 shrink-0 items-center justify-center ${plainIcon ? '' : 'rounded-2xl bg-slate-100 text-slate-700 dark:bg-ink-800 dark:text-slate-200'}`}
+          aria-hidden
+        >
+          {icon}
+        </span>
         <span className="min-w-0 flex-1">
-          <span className="label !mb-0 flex items-center gap-1.5">{label}{hint}</span>
+          <span className="label !mb-0 flex items-center gap-1.5">
+            {label}
+            {hint}
+          </span>
           <span className="block truncate font-semibold">{title}</span>
           {detail && <span className="block truncate text-sm text-muted">{detail}</span>}
         </span>

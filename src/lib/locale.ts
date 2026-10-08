@@ -18,10 +18,36 @@ export const DEFAULT_LOCALE = 'en-IN'
 const EURO = ['AT', 'BE', 'CY', 'DE', 'EE', 'ES', 'FI', 'FR', 'GR', 'HR', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 'NL', 'PT', 'SI', 'SK']
 
 const REGION_CURRENCY: Record<string, string> = {
-  IN: 'INR', AU: 'AUD', US: 'USD', GB: 'GBP', NZ: 'NZD', CA: 'CAD', SG: 'SGD', JP: 'JPY', ID: 'IDR',
-  TH: 'THB', AE: 'AED', MY: 'MYR', HK: 'HKD', CH: 'CHF', SE: 'SEK', NO: 'NOK', DK: 'DKK', ZA: 'ZAR',
-  KR: 'KRW', CN: 'CNY', PH: 'PHP', MX: 'MXN', BR: 'BRL', SA: 'SAR', QA: 'QAR', LK: 'LKR', NP: 'NPR',
-  BD: 'BDT', PK: 'PKR', ...Object.fromEntries(EURO.map((c) => [c, 'EUR'])),
+  IN: 'INR',
+  AU: 'AUD',
+  US: 'USD',
+  GB: 'GBP',
+  NZ: 'NZD',
+  CA: 'CAD',
+  SG: 'SGD',
+  JP: 'JPY',
+  ID: 'IDR',
+  TH: 'THB',
+  AE: 'AED',
+  MY: 'MYR',
+  HK: 'HKD',
+  CH: 'CHF',
+  SE: 'SEK',
+  NO: 'NOK',
+  DK: 'DKK',
+  ZA: 'ZAR',
+  KR: 'KRW',
+  CN: 'CNY',
+  PH: 'PHP',
+  MX: 'MXN',
+  BR: 'BRL',
+  SA: 'SAR',
+  QA: 'QAR',
+  LK: 'LKR',
+  NP: 'NPR',
+  BD: 'BDT',
+  PK: 'PKR',
+  ...Object.fromEntries(EURO.map((c) => [c, 'EUR'])),
 }
 
 /** Time-zone → region, for when the language tag has no region ("en", "hi"). */
@@ -93,19 +119,36 @@ export function withLatinDigits(tag: string): string {
   }
 }
 
-export interface LocaleInfo { region: Region; currency: string; locale: string; known: boolean }
+export interface LocaleInfo {
+  region: Region
+  currency: string
+  locale: string
+  known: boolean
+}
 
 export function resolveLocale(language: string | undefined, timeZone: string | undefined): LocaleInfo {
   const r = detectRegion(language, timeZone)
   let locale = withLatinDigits(localeFor(language, r))
-  try { new Intl.NumberFormat(locale) } catch { locale = withLatinDigits(DEFAULT_LOCALE) }
+  try {
+    new Intl.NumberFormat(locale)
+  } catch {
+    locale = withLatinDigits(DEFAULT_LOCALE)
+  }
   return { region: r ?? DEFAULT_REGION, currency: currencyForRegion(r), locale, known: r !== null }
 }
 
 export function detectFromBrowser(): LocaleInfo {
   let lang: string | undefined, tz: string | undefined
-  try { lang = typeof navigator === 'undefined' ? undefined : navigator.language } catch { /* ignore */ }
-  try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone } catch { /* ignore */ }
+  try {
+    lang = typeof navigator === 'undefined' ? undefined : navigator.language
+  } catch {
+    /* ignore */
+  }
+  try {
+    tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+  } catch {
+    /* ignore */
+  }
   return resolveLocale(lang, tz)
 }
 

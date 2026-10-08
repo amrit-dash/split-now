@@ -3,7 +3,10 @@ import { simplifyDebts } from './simplify'
 
 const applied = (net: Record<string, number>) => {
   const after = { ...net }
-  for (const d of simplifyDebts(net)) { after[d.from] += d.amount; after[d.to] -= d.amount }
+  for (const d of simplifyDebts(net)) {
+    after[d.from] += d.amount
+    after[d.to] -= d.amount
+  }
   return after
 }
 
@@ -35,12 +38,19 @@ describe('simplifyDebts', () => {
   })
   it('random nets settle to zero', () => {
     let seed = 11
-    const rnd = () => { seed = (seed * 1103515245 + 12345) % 2 ** 31; return seed / 2 ** 31 }
+    const rnd = () => {
+      seed = (seed * 1103515245 + 12345) % 2 ** 31
+      return seed / 2 ** 31
+    }
     for (let i = 0; i < 300; i++) {
       const n = 2 + Math.floor(rnd() * 15)
       const net: Record<string, number> = {}
       let total = 0
-      for (let k = 0; k < n - 1; k++) { const v = Math.floor(rnd() * 20000) - 10000; net[`m${k}`] = v; total += v }
+      for (let k = 0; k < n - 1; k++) {
+        const v = Math.floor(rnd() * 20000) - 10000
+        net[`m${k}`] = v
+        total += v
+      }
       net[`m${n - 1}`] = -total
       const out = simplifyDebts(net)
       expect(out.length).toBeLessThanOrEqual(n - 1)

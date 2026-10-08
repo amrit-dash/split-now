@@ -13,7 +13,9 @@ export function useFxRate({ cur, to, date, fx, onFx }: { cur: string; to: string
   const [rateEdit, setRateEdit] = useState<string | null>(null)
   const fxFor = useRef(fx ? `${cur}|${to}|${date}` : '')
   const latest = useRef({ fx, onFx })
-  useEffect(() => { latest.current = { fx, onFx } }, [fx, onFx])
+  useEffect(() => {
+    latest.current = { fx, onFx }
+  }, [fx, onFx])
   useEffect(() => {
     if (!foreign) return
     const k = `${cur}|${to}|${date}`

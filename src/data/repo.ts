@@ -264,7 +264,7 @@ export interface Repo {
    * `{ statement: null }`: no transactions found; null: unavailable (the server's reason is not
    * passed through yet: StatementImport reads `statement` directly). Demo mode returns a sample.
    */
-  readStatementAi(images: Array<{ image: string; mimeType: string }>, today: string): Promise<{ statement: AiStatement | null } | null>
+  readStatementAi(images: Array<{ image: string; mimeType: string }>, today: string): Promise<StatementAiResult | null>
   /**
    * Save / re-test / remove the user's own Gemini key (aiKey callable), or with which 'app' the
    * in-app project key (admins; overrides Secret Manager's). Throws with a readable message.
@@ -286,16 +286,47 @@ export interface Repo {
 
 export type { AiUnavailableReason }
 /** The server declined to read with AI; `reason` picks the copy (src/lib/ai.ts unavailableText). */
-export interface AiUnavailable { unavailable: true; reason?: AiUnavailableReason }
+export interface AiUnavailable {
+  unavailable: true
+  reason?: AiUnavailableReason
+}
 export type ReceiptAiResult = { receipt: ParsedReceipt | null; unavailable?: undefined } | AiUnavailable
+export type StatementAiResult = { statement: AiStatement | null; unavailable?: undefined } | AiUnavailable
 
-export interface AiModel { id: string; label: string }
-export interface AiKeyResult { hint: string | null; models: AiModel[]; source?: AppKeySource | null }
+export interface AiModel {
+  id: string
+  label: string /** a cheap model (minimal thinking); the pickers mark the others as costing more */
+  lite?: boolean
+}
+export interface AiKeyResult {
+  hint: string | null
+  models: AiModel[]
+  source?: AppKeySource | null
+}
 /** Where the project key comes from: set in the app by an admin, or Secret Manager. */
 export type AppKeySource = 'admin' | 'secret'
 export type AppAiStatusValue = 'available' | 'off' | 'not_listed' | 'feature_off'
-export interface AiStatusResult { admin: boolean; app: { images: AppAiStatusValue; sms: AppAiStatusValue; model: string; configured?: boolean; source?: AppKeySource | null; hint?: string | null } }
-export interface AiState { hint?: string; lastOkAt?: number; lastError?: { kind: 'bad_key' | 'quota' | 'model' | 'server'; at: number } }
+export interface AiStatusResult {
+  admin: boolean
+  app: {
+    images: AppAiStatusValue
+    sms: AppAiStatusValue
+    model: string
+    /** per-user daily allowance on the shared key */
+    perDay?: number
+    configured?: boolean
+    source?: AppKeySource | null
+    hint?: string | null
+    /** admins: the stored key is sealed (encrypted) */
+    sealed?: boolean
+    globalPerDay?: number
+  }
+}
+export interface AiState {
+  hint?: string
+  lastOkAt?: number
+  lastError?: { kind: 'bad_key' | 'quota' | 'model' | 'server' | 'billing' | 'blocked' | 'truncated'; at: number }
+}
 
 export interface StatementTxn {
   date: string
@@ -306,7 +337,10 @@ export interface StatementTxn {
   kind: 'payment' | 'self_transfer' | 'refund' | 'other'
   note?: string
 }
-export interface AiStatement { currency?: string; transactions: StatementTxn[] }
+export interface AiStatement {
+  currency?: string
+  transactions: StatementTxn[]
+}
 
 export interface TablePatch {
   merchant?: string
@@ -337,11 +371,14 @@ export interface CaptureTokenOpts {
 }
 
 export function placeholdersOf(g: Pick<Group, 'members'>): Record<MemberId, string> {
-  return Object.fromEntries(Object.entries(g.members).filter(([, m]) => !m.uid).map(([id, m]) => [id, m.name]))
+  return Object.fromEntries(
+    Object.entries(g.members)
+      .filter(([, m]) => !m.uid)
+      .map(([id, m]) => [id, m.name]),
+  )
 }
 
-export const byDateDesc = <T extends { date: string; createdAt: number }>(a: T, b: T) =>
-  b.date.localeCompare(a.date) || b.createdAt - a.createdAt
+export const byDateDesc = <T extends { date: string; createdAt: number }>(a: T, b: T) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt
 
 /** Settings fields whose value differs from the base group. `undefined` in the result means "clear the field". */
 export function changedSettings(base: Group, patch: GroupSettings): GroupSettings {
@@ -377,15 +414,24 @@ export function errorChannel() {
       listeners.add(cb)
       // Replayed a tick later, to whoever is still subscribed: StrictMode mounts, unmounts and
       // remounts the App effect synchronously, and the first subscription is gone by then.
-      if (early.length) setTimeout(() => { if (!listeners.has(cb) || !early.length) return; const q = early; early = []; q.forEach(cb) }, 0)
-      return () => { listeners.delete(cb) }
+      if (early.length)
+        setTimeout(() => {
+          if (!listeners.has(cb) || !early.length) return
+          const q = early
+          early = []
+          q.forEach(cb)
+        }, 0)
+      return () => {
+        listeners.delete(cb)
+      }
     },
     emit(kind: RepoError['kind'], error: unknown, context: string) {
       console.error(`[repo] ${context}`, error)
       const code = (error as { code?: string })?.code
-      const message = code === 'permission-denied'
-        ? `${context}: you don’t have permission (the change was undone)`
-        : `${context}: ${(error as Error)?.message ?? String(error)}`
+      const message =
+        code === 'permission-denied'
+          ? `${context}: you don’t have permission (the change was undone)`
+          : `${context}: ${(error as Error)?.message ?? String(error)}`
       const e: RepoError = { kind, message, error }
       if (listeners.size) listeners.forEach((l) => l(e))
       else early.push(e)
@@ -396,13 +442,24 @@ export function errorChannel() {
 /** Build a pending capture from a validated draft. Undefined fields are dropped. */
 export function draftToCapture(d: CaptureDraft, id: string, now = Date.now()): Capture {
   return compact({
-    id, amount: d.amount, currency: d.currency, merchant: d.merchant, date: d.date, ts: d.ts, source: d.source,
-    card: d.card, raw: d.raw, note: d.note, suggestedGroup: d.group, status: 'pending' as const, createdAt: now, updatedAt: now,
+    id,
+    amount: d.amount,
+    currency: d.currency,
+    merchant: d.merchant,
+    date: d.date,
+    ts: d.ts,
+    source: d.source,
+    card: d.card,
+    raw: d.raw,
+    note: d.note,
+    suggestedGroup: d.group,
+    status: 'pending' as const,
+    createdAt: now,
+    updatedAt: now,
   })
 }
 
-export const compact = <T extends object>(o: T): T =>
-  Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T
+export const compact = <T extends object>(o: T): T => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T
 
 export const byCreatedDesc = <T extends { createdAt: number }>(a: T, b: T) => b.createdAt - a.createdAt
 

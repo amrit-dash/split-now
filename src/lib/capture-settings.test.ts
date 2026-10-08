@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
-  LOG_RESULTS, filterReason, logResultText, logResultTone, matchIgnoreWord, normaliseIgnoreWords, parseIgnoreWords, relativeTime, resolveFilters,
+  LOG_RESULTS,
+  filterReason,
+  logResultText,
+  logResultTone,
+  matchIgnoreWord,
+  normaliseIgnoreWords,
+  parseIgnoreWords,
+  relativeTime,
+  resolveFilters,
 } from './capture-filters'
 import { addIgnoreWord, captureSettingsLines, logRowsOf, paiseToRupeesInput, rupeesToPaise } from './capture-settings'
 import { DEFAULT_ALL_PREFS, resolveAllPrefs } from './push'
@@ -38,7 +46,17 @@ describe('filterReason', () => {
 
 describe('activity log rows', () => {
   it('reads the single log document, newest first, dropping junk', () => {
-    const rows = logRowsOf({ entries: [{ at: 3, result: 'captured', device: 'ios', amount: 1 }, { at: 2, result: 'nope', device: 'ios' }, null, { at: 1, result: 'paused', device: 'android' }] }, 10)
+    const rows = logRowsOf(
+      {
+        entries: [
+          { at: 3, result: 'captured', device: 'ios', amount: 1 },
+          { at: 2, result: 'nope', device: 'ios' },
+          null,
+          { at: 1, result: 'paused', device: 'android' },
+        ],
+      },
+      10,
+    )
     expect(rows.map((r) => r.result)).toEqual(['captured', 'paused'])
     expect(rows[0].id).toBe('3-0')
     expect(logRowsOf(undefined, 10)).toEqual([])
@@ -98,8 +116,13 @@ describe('settings form helpers', () => {
     expect(resolveAllPrefs(undefined)).toEqual(DEFAULT_ALL_PREFS)
     expect(DEFAULT_ALL_PREFS.aiSmsMerchant).toBe(false)
     expect(resolveAllPrefs({ aiSmsMerchant: true }).aiSmsMerchant).toBe(true)
-    expect(resolveAllPrefs({ captures: false, minAmount: '5', ignoreWords: ['SIP'], capturePaused: true }))
-      .toMatchObject({ captures: false, minAmount: 0, ignoreWords: ['SIP'], capturePaused: true, outsideTrips: false })
+    expect(resolveAllPrefs({ captures: false, minAmount: '5', ignoreWords: ['SIP'], capturePaused: true })).toMatchObject({
+      captures: false,
+      minAmount: 0,
+      ignoreWords: ['SIP'],
+      capturePaused: true,
+      outsideTrips: false,
+    })
   })
 })
 
@@ -125,7 +148,9 @@ describe('Android setup', () => {
   })
   it('Play Store link: intent on Android, https elsewhere', () => {
     expect(MACRODROID_PLAY_URL).toBe('https://play.google.com/store/apps/details?id=com.arlosoft.macrodroid')
-    expect(MACRODROID_PLAY_INTENT).toBe('intent://details?id=com.arlosoft.macrodroid#Intent;scheme=market;package=com.android.vending;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.arlosoft.macrodroid;end')
+    expect(MACRODROID_PLAY_INTENT).toBe(
+      'intent://details?id=com.arlosoft.macrodroid#Intent;scheme=market;package=com.android.vending;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.arlosoft.macrodroid;end',
+    )
     expect(macrodroidPlayLink('Mozilla/5.0 (Linux; Android 14; Pixel 8)')).toBe(MACRODROID_PLAY_INTENT)
     expect(macrodroidPlayLink('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)')).toBe(MACRODROID_PLAY_URL)
   })

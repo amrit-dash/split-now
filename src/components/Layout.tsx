@@ -9,6 +9,7 @@ import { InstallBanner } from './InstallBanner'
 import { Aurora } from './Aurora'
 import { CaptureAlert } from './CaptureAlert'
 import { CreateSheet } from './CreateSheet'
+import { OfflinePill } from './OfflinePill'
 import { Loading } from './Misc'
 
 const tabs = [
@@ -56,6 +57,7 @@ export function Layout() {
       </a>
       {/* The fallback sits inside the content area, so the tab bar never disappears while a screen loads. */}
       <main id="main" ref={main} tabIndex={-1} className="outline-none">
+        <OfflinePill className="mt-2" />
         <Suspense fallback={<Loading />}>
           <Outlet />
         </Suspense>

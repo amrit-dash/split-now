@@ -18,7 +18,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => repo.onAuth((u) => { setUser(u); setLoading(false); if (!u) setProfile(null) }), [])
+  useEffect(
+    () =>
+      repo.onAuth((u) => {
+        setUser(u)
+        setLoading(false)
+        if (!u) setProfile(null)
+      }),
+    [],
+  )
   useEffect(() => (user ? repo.watchProfile(user.uid, setProfile) : undefined), [user])
   // Shared live queries belong to one account: drop them all when it signs out or changes.
   const uid = user?.uid

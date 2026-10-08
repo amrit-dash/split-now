@@ -26,4 +26,8 @@ export function fillMacroTemplate(template: string, values: { token: string; url
 }
 
 /** File name for the download; MacroDroid imports from any .macro file. */
-export const macroFilename = (appName: string) => `${appName.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-')}-SMS.macro`
+export const macroFilename = (appName: string) =>
+  `${appName
+    .replace(/[^\w\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')}-SMS.macro`

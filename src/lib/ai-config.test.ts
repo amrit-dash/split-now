@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { appKeyStatus, DEFAULT_APP_AI, DEFAULT_MODEL, DEFAULT_USER_AI, FALLBACK_MODELS, planAi, resolveAppAi, resolveUserAi, looksLikeGeminiKey, usefulModels, withFallbacks } from './ai-config'
+import {
+  appKeyStatus,
+  DEFAULT_APP_AI,
+  DEFAULT_MODEL,
+  DEFAULT_USER_AI,
+  FALLBACK_MODELS,
+  planAi,
+  resolveAppAi,
+  resolveUserAi,
+  looksLikeGeminiKey,
+  usefulModels,
+  withFallbacks,
+} from './ai-config'
 
 const app = (p: Partial<typeof DEFAULT_APP_AI> = {}) => ({ ...DEFAULT_APP_AI, ...p })
 const user = (p: Partial<typeof DEFAULT_USER_AI> = {}) => ({ ...DEFAULT_USER_AI, ...p })
@@ -15,7 +27,12 @@ describe('planAi', () => {
   it('pins a current lite model and never repeats one in the fallback list', () => {
     expect(DEFAULT_MODEL).toBe('gemini-3.5-flash-lite')
     expect(withFallbacks(undefined)).toEqual(['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-2.5-flash-lite', 'gemini-flash-lite-latest'])
-    expect(withFallbacks('gemini-3.1-flash-lite')).toEqual(['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-2.5-flash-lite', 'gemini-flash-lite-latest'])
+    expect(withFallbacks('gemini-3.1-flash-lite')).toEqual([
+      'gemini-3.1-flash-lite',
+      'gemini-3.5-flash-lite',
+      'gemini-2.5-flash-lite',
+      'gemini-flash-lite-latest',
+    ])
   })
   it('respects the master switch, per-feature switches and source choice', () => {
     const base = { app: app({ mode: 'everyone' }), hasOwnKey: true }
@@ -42,11 +59,18 @@ describe('planAi', () => {
 
 describe('resolvers', () => {
   it('fill defaults and reject junk', () => {
-    expect(resolveAppAi({ mode: 'everyone', model: 'bad model!', perDay: -1, allowEmails: ['A@B.co', 'nope', 3] }))
-      .toEqual({ ...DEFAULT_APP_AI, mode: 'everyone', allowEmails: ['a@b.co'] })
+    expect(resolveAppAi({ mode: 'everyone', model: 'bad model!', perDay: -1, allowEmails: ['A@B.co', 'nope', 3] })).toEqual({
+      ...DEFAULT_APP_AI,
+      mode: 'everyone',
+      allowEmails: ['a@b.co'],
+    })
     expect(resolveAppAi({ globalPerDay: 500 }).globalPerDay).toBe(500)
     expect(resolveAppAi({ globalPerDay: 0 }).globalPerDay).toBe(DEFAULT_APP_AI.globalPerDay)
-    expect(resolveUserAi({ aiEnabled: false, aiSource: 'weird', aiModel: 'gemini-3-flash' })).toEqual({ ...DEFAULT_USER_AI, aiEnabled: false, aiModel: 'gemini-3-flash' })
+    expect(resolveUserAi({ aiEnabled: false, aiSource: 'weird', aiModel: 'gemini-3-flash' })).toEqual({
+      ...DEFAULT_USER_AI,
+      aiEnabled: false,
+      aiModel: 'gemini-3-flash',
+    })
   })
 })
 

@@ -13,7 +13,11 @@ export { isBalancedExpense as isBalanced, netBalances } from '../../../shared/ba
 export function reminderThreshold(currency: string): number {
   if (REMINDER.threshold[currency] !== undefined) return REMINDER.threshold[currency]
   let d = 2
-  try { d = new Intl.NumberFormat('en', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits ?? 2 } catch { /* default */ }
+  try {
+    d = new Intl.NumberFormat('en', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits ?? 2
+  } catch {
+    /* default */
+  }
   return REMINDER.defaultThresholdMajor * 10 ** d
 }
 
@@ -33,7 +37,11 @@ export interface ReminderState {
   evaluatedAt: number
 }
 
-export interface ReminderTarget { uid: string; memberId: string; owed: number }
+export interface ReminderTarget {
+  uid: string
+  memberId: string
+  owed: number
+}
 
 /**
  * One evaluation of a group: who should get a nudge now (members with an account who have

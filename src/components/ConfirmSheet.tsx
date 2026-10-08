@@ -53,7 +53,17 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
 export const useConfirm = () => useContext(Ctx)
 
 /** The sheet itself, for screens that prefer to control it directly. */
-export function ConfirmSheet({ open, title, message, confirmLabel = 'Confirm', cancelLabel = 'Cancel', tone = 'default', onConfirm, onClose, busy }: ConfirmOptions & {
+export function ConfirmSheet({
+  open,
+  title,
+  message,
+  confirmLabel = 'Confirm',
+  cancelLabel = 'Cancel',
+  tone = 'default',
+  onConfirm,
+  onClose,
+  busy,
+}: ConfirmOptions & {
   open: boolean
   onConfirm: () => void
   onClose: () => void
@@ -62,9 +72,15 @@ export function ConfirmSheet({ open, title, message, confirmLabel = 'Confirm', c
   const descId = useId()
   return (
     <Sheet open={open} onClose={onClose} title={title} describedBy={message ? descId : undefined} testId="confirm-sheet">
-      {message && <p id={descId} className="text-muted -mt-1 mb-5 text-sm">{message}</p>}
+      {message && (
+        <p id={descId} className="text-muted -mt-1 mb-5 text-sm">
+          {message}
+        </p>
+      )}
       <div className="flex gap-2">
-        <button type="button" className="btn-secondary flex-1" onClick={onClose} disabled={busy}>{cancelLabel}</button>
+        <button type="button" className="btn-secondary flex-1" onClick={onClose} disabled={busy}>
+          {cancelLabel}
+        </button>
         <button
           type="button"
           data-testid="confirm-ok"

@@ -22,7 +22,9 @@ window.addEventListener('vite:preloadError', (e) => {
   try {
     if (sessionStorage.getItem(key) === __APP_VERSION__) return
     sessionStorage.setItem(key, __APP_VERSION__)
-  } catch { /* no sessionStorage: still reload this once */ }
+  } catch {
+    /* no sessionStorage: still reload this once */
+  }
   e.preventDefault()
   location.reload()
 })

@@ -12,8 +12,13 @@ import { tesseractAssets } from './scripts/vite-tesseract.ts'
 function appVersion(): string {
   let sha = 'dev'
   try {
-    sha = execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() || 'dev'
-  } catch { /* not a git checkout */ }
+    sha =
+      execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
+        .toString()
+        .trim() || 'dev'
+  } catch {
+    /* not a git checkout */
+  }
   return `${pkg.version}+${sha}`
 }
 
@@ -27,13 +32,19 @@ function fontPreload(): Plugin {
   return {
     name: 'split-it:font-preload',
     apply: 'build',
-    configResolved(c) { base = c.base },
+    configResolved(c) {
+      base = c.base
+    },
     transformIndexHtml: {
       order: 'post',
       handler(_html, ctx) {
         return Object.keys(ctx.bundle ?? {})
           .filter((f) => /inter-latin-wght-normal[^/]*\.woff2$/.test(f))
-          .map((f) => ({ tag: 'link', attrs: { rel: 'preload', as: 'font', type: 'font/woff2', crossorigin: true, href: base + f }, injectTo: 'head' as const }))
+          .map((f) => ({
+            tag: 'link',
+            attrs: { rel: 'preload', as: 'font', type: 'font/woff2', crossorigin: true, href: base + f },
+            injectTo: 'head' as const,
+          }))
       },
     },
   }
@@ -86,11 +97,13 @@ export default defineConfig(({ mode }) => {
             { src: 'pwa-192.png', sizes: '192x192', type: 'image/png' },
             { src: 'pwa-512.png', sizes: '512x512', type: 'image/png' },
             { src: 'pwa-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+            { src: 'pwa-mono-512.png', sizes: '512x512', type: 'image/png', purpose: 'monochrome' },
           ],
           shortcuts: [
-            { name: 'Add expense', url: '/add', icons: [{ src: 'pwa-192.png', sizes: '192x192' }] },
-            { name: 'Scan receipt', url: '/scan', icons: [{ src: 'pwa-192.png', sizes: '192x192' }] },
-            { name: 'Inbox', url: '/inbox', icons: [{ src: 'pwa-192.png', sizes: '192x192' }] },
+            // Android draws shortcut icons from the alpha channel: the white silhouette, not the colour tile.
+            { name: 'Add expense', url: '/add', icons: [{ src: 'badge-96.png', sizes: '96x96', type: 'image/png' }] },
+            { name: 'Scan receipt', url: '/scan', icons: [{ src: 'badge-96.png', sizes: '96x96', type: 'image/png' }] },
+            { name: 'Inbox', url: '/inbox', icons: [{ src: 'badge-96.png', sizes: '96x96', type: 'image/png' }] },
           ],
           // Android only: "Share → Split Now" for payment screenshots, receipts and payment texts.
           // POST so images can be shared; public/share-target-sw.js handles it in the service worker.
@@ -117,7 +130,11 @@ export default defineConfig(({ mode }) => {
           globIgnores: ['tesseract/**'],
           runtimeCaching: [
             { urlPattern: /\/tesseract\/[^/]+\.(?:js|wasm)$/, handler: 'CacheFirst', options: { cacheName: 'tesseract', expiration: { maxEntries: 10 } } },
-            { urlPattern: /^https:\/\/cdn\.jsdelivr\.net\/npm\/@tesseract\.js-data\//, handler: 'CacheFirst', options: { cacheName: 'tesseract-lang', cacheableResponse: { statuses: [0, 200] }, expiration: { maxEntries: 4 } } },
+            {
+              urlPattern: /^https:\/\/cdn\.jsdelivr\.net\/npm\/@tesseract\.js-data\//,
+              handler: 'CacheFirst',
+              options: { cacheName: 'tesseract-lang', cacheableResponse: { statuses: [0, 200] }, expiration: { maxEntries: 4 } },
+            },
           ],
         },
       }),

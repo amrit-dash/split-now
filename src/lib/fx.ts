@@ -48,7 +48,11 @@ export interface FxRatesDoc {
 }
 
 /** What the server's refreshFx returns (rates included so no second read is needed). */
-export interface FxRefreshResult { date: string; fetchedAt: number; rates?: Record<string, number> }
+export interface FxRefreshResult {
+  date: string
+  fetchedAt: number
+  rates?: Record<string, number>
+}
 
 /** Access to the shared rates (implemented by the Firebase repo; demo mode has none). */
 export interface FxShared {
@@ -74,7 +78,11 @@ interface CacheEntry {
 type Cache = Record<string, CacheEntry>
 
 const browserStorage = (): FxStorage | undefined => {
-  try { return typeof localStorage === 'undefined' ? undefined : localStorage } catch { return undefined }
+  try {
+    return typeof localStorage === 'undefined' ? undefined : localStorage
+  } catch {
+    return undefined
+  }
 }
 
 let fetcher: FxFetch = (url, init) => fetch(url, init)
@@ -85,7 +93,7 @@ let shared: FxShared | undefined
 /** Swap the network, storage, clock and shared source (tests). Call with no arguments to restore the defaults. */
 export function setFxEnv(env: { fetch?: FxFetch; storage?: FxStorage | null; now?: () => number; shared?: FxShared | null } = {}) {
   fetcher = env.fetch ?? ((url, init) => fetch(url, init))
-  storage = env.storage === null ? undefined : env.storage ?? browserStorage()
+  storage = env.storage === null ? undefined : (env.storage ?? browserStorage())
   now = env.now ?? (() => Date.now())
   shared = env.shared ?? undefined
 }
@@ -102,11 +110,20 @@ const SHARED_STALE_MS = 24 * 3600_000
 
 function within<T>(p: Promise<T>, ms = SHARED_TIMEOUT_MS): Promise<T | null> {
   let t: ReturnType<typeof setTimeout> | undefined
-  return Promise.race([p, new Promise<null>((r) => { t = setTimeout(() => r(null), ms) })]).finally(() => clearTimeout(t))
+  return Promise.race([
+    p,
+    new Promise<null>((r) => {
+      t = setTimeout(() => r(null), ms)
+    }),
+  ]).finally(() => clearTimeout(t))
 }
 
 function readCache(): Cache {
-  try { return JSON.parse(storage?.getItem(CACHE_KEY) ?? '{}') as Cache } catch { return {} }
+  try {
+    return JSON.parse(storage?.getItem(CACHE_KEY) ?? '{}') as Cache
+  } catch {
+    return {}
+  }
 }
 
 function writeCache(c: Cache) {
@@ -114,7 +131,11 @@ function writeCache(c: Cache) {
   if (keys.length > MAX_ENTRIES) {
     for (const k of keys.sort((a, b) => c[a].at - c[b].at).slice(0, keys.length - MAX_ENTRIES)) delete c[k]
   }
-  try { storage?.setItem(CACHE_KEY, JSON.stringify(c)) } catch { /* quota or blocked storage */ }
+  try {
+    storage?.setItem(CACHE_KEY, JSON.stringify(c))
+  } catch {
+    /* quota or blocked storage */
+  }
 }
 
 const cacheKey = (date: string, base: string) => `${date}|${base}`
@@ -150,7 +171,10 @@ export function cachedRate(from: string, to: string, date: string, opts: { stale
 }
 
 const cleanRates = (r: unknown): Record<string, number> =>
-  Object.fromEntries(Object.entries((r ?? {}) as Record<string, unknown>).filter(([, v]) => typeof v === 'number' && Number.isFinite(v) && v > 0)) as Record<string, number>
+  Object.fromEntries(Object.entries((r ?? {}) as Record<string, unknown>).filter(([, v]) => typeof v === 'number' && Number.isFinite(v) && v > 0)) as Record<
+    string,
+    number
+  >
 
 /** Store a shared publication under the date it was asked for. */
 function storeShared(asked: string, d: { date: string; fetchedAt: number; rates?: Record<string, number> }, latest: boolean): CacheEntry | null {
@@ -181,14 +205,14 @@ async function sharedEntry(asked: string, today: string, opts: { refresh?: boole
       let d: FxRatesDoc | FxRefreshResult | null = await within(s.getFxRates('latest'))
       if (opts.refresh !== false && (!d || now() - d.fetchedAt > SHARED_STALE_MS)) {
         const r = await within(s.refreshFx())
-        if (r) d = r.rates ? r : (await within(s.getFxRates('latest'))) ?? d
+        if (r) d = r.rates ? r : ((await within(s.getFxRates('latest'))) ?? d)
       }
       return d ? storeShared(asked, d, true) : null
     }
     let d: FxRatesDoc | FxRefreshResult | null = await within(s.getFxRates(asked))
     if (!d && opts.refresh !== false) {
       const r = await within(s.refreshFx(asked))
-      d = r && (r.rates ? r : (await within(s.getFxRates(asked))) ?? (await within(s.getFxRates(r.date))))
+      d = r && (r.rates ? r : ((await within(s.getFxRates(asked))) ?? (await within(s.getFxRates(r.date)))))
     }
     return d ? storeShared(asked, d, false) : null
   } catch {
@@ -219,7 +243,10 @@ export async function getRate(from: string, to: string, date: string): Promise<F
     if (!res.ok) throw new Error(`FX ${res.status}`)
     const body = (await res.json()) as { date?: unknown; rates?: unknown }
     if (typeof body.date !== 'string' || !body.rates || typeof body.rates !== 'object') throw new Error('FX: bad response')
-    const rates = Object.fromEntries(Object.entries(body.rates as Record<string, unknown>).filter(([, v]) => typeof v === 'number' && v > 0)) as Record<string, number>
+    const rates = Object.fromEntries(Object.entries(body.rates as Record<string, unknown>).filter(([, v]) => typeof v === 'number' && v > 0)) as Record<
+      string,
+      number
+    >
     const c = readCache()
     c[cacheKey(asked, from)] = { date: body.date, rates, at: now(), ...(path === 'latest' ? { latest: true } : {}) }
     writeCache(c)
@@ -293,7 +320,11 @@ export function parseRate(s: string): number {
 const LAST_KEY = 'splitit-fx-last'
 
 export function lastCurrency(groupId: string): string | undefined {
-  try { return (JSON.parse(storage?.getItem(LAST_KEY) ?? '{}') as Record<string, string>)[groupId] } catch { return undefined }
+  try {
+    return (JSON.parse(storage?.getItem(LAST_KEY) ?? '{}') as Record<string, string>)[groupId]
+  } catch {
+    return undefined
+  }
 }
 
 export function rememberCurrency(groupId: string, currency: string) {
@@ -301,14 +332,16 @@ export function rememberCurrency(groupId: string, currency: string) {
     const m = JSON.parse(storage?.getItem(LAST_KEY) ?? '{}') as Record<string, string>
     m[groupId] = currency
     storage?.setItem(LAST_KEY, JSON.stringify(m))
-  } catch { /* storage unavailable */ }
+  } catch {
+    /* storage unavailable */
+  }
 }
 
 /** When today's rates for `base` were last fetched (ms; the server's fetch time for shared rates), or null. */
 export function ratesFetchedAt(base: string): number | null {
   const c = readCache()
   const e = c[cacheKey(isoToday(), base)] ?? c[cacheKey(isoToday(), 'EUR')]
-  return e ? e.fetchedAt ?? e.at : null
+  return e ? (e.fetchedAt ?? e.at) : null
 }
 
 export interface RatesStatus {
@@ -335,9 +368,18 @@ export function ratesStatus(base: string): RatesStatus | null {
  * (ECB publishes ~16:00 CET), else the previous weekday. TARGET holidays are ignored.
  */
 export function expectedEcbDate(t: number): string {
-  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23',
-  }).formatToParts(new Date(t)).map((p) => [p.type, p.value]))
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/Berlin',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      hourCycle: 'h23',
+    })
+      .formatToParts(new Date(t))
+      .map((p) => [p.type, p.value]),
+  )
   let d = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day))
   const weekend = (ms: number) => [0, 6].includes(new Date(ms).getUTCDay())
   if (Number(parts.hour) < 17 || weekend(d)) {
@@ -371,7 +413,9 @@ export async function refreshRates(base: string): Promise<{ date: string; at: nu
       const d = r && (r.rates ? r : await within(shared.getFxRates('latest')))
       const e = d && storeShared(isoToday(), d, true)
       if (e) return { date: e.date, at: e.fetchedAt ?? e.at, count: Object.keys(e.rates).length - 1, shared: true }
-    } catch { /* fall through to the direct API */ }
+    } catch {
+      /* fall through to the direct API */
+    }
   }
   const ctl = typeof AbortController === 'undefined' ? undefined : new AbortController()
   const timer = ctl && setTimeout(() => ctl.abort(), 8000)
@@ -380,7 +424,10 @@ export async function refreshRates(base: string): Promise<{ date: string; at: nu
     if (!res.ok) return null
     const body = (await res.json()) as { date?: unknown; rates?: unknown }
     if (typeof body.date !== 'string' || !body.rates || typeof body.rates !== 'object') return null
-    const rates = Object.fromEntries(Object.entries(body.rates as Record<string, unknown>).filter(([, v]) => typeof v === 'number' && v > 0)) as Record<string, number>
+    const rates = Object.fromEntries(Object.entries(body.rates as Record<string, unknown>).filter(([, v]) => typeof v === 'number' && v > 0)) as Record<
+      string,
+      number
+    >
     const at = now()
     const c = readCache()
     c[cacheKey(isoToday(), base)] = { date: body.date, rates, at, latest: true }

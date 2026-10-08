@@ -2,7 +2,22 @@ import { describe, expect, it } from 'vitest'
 import type { Expense, Group } from '@/types'
 import { bestGroup, buildExpense, findDuplicate, flagsFor, preselect, tidyName } from './statement'
 
-const g = (id: string, extra: Partial<Group> = {}) => ({ id, name: id, emoji: '✈️', type: 'trip', currency: 'INR', simplify: true, members: { a: { name: 'A', uid: 'ua' }, b: { name: 'B' } }, memberUids: ['ua'], createdBy: 'ua', inviteCode: '', createdAt: 0, updatedAt: 0, ...extra }) as Group
+const g = (id: string, extra: Partial<Group> = {}) =>
+  ({
+    id,
+    name: id,
+    emoji: '✈️',
+    type: 'trip',
+    currency: 'INR',
+    simplify: true,
+    members: { a: { name: 'A', uid: 'ua' }, b: { name: 'B' } },
+    memberUids: ['ua'],
+    createdBy: 'ua',
+    inviteCode: '',
+    createdAt: 0,
+    updatedAt: 0,
+    ...extra,
+  }) as Group
 const txn = (date: string, amount: number, more: object = {}) => ({ date, name: 'X', amount, direction: 'debit' as const, kind: 'payment' as const, ...more })
 
 describe('statement helpers', () => {
@@ -31,7 +46,14 @@ describe('statement helpers', () => {
   it('tidies shouting names and builds an equal split', () => {
     expect(tidyName('SWIGGY  INSTAMART')).toBe('Swiggy Instamart')
     expect(tidyName('aradhi aradhana')).toBe('aradhi aradhana')
-    const e = buildExpense({ description: 'Cafe', amount: 6001, date: '2026-10-05', category: 'food', payer: 'a', members: ['b', 'a'] }, goa, ['a', 'b'], 'ua', 'e1', 5)
+    const e = buildExpense(
+      { description: 'Cafe', amount: 6001, date: '2026-10-05', category: 'food', payer: 'a', members: ['b', 'a'] },
+      goa,
+      ['a', 'b'],
+      'ua',
+      'e1',
+      5,
+    )
     expect(e.paidBy).toEqual({ a: 6001 })
     expect(e.splits.a + e.splits.b).toBe(6001)
     expect(e.splitInput).toEqual({ selected: ['a', 'b'] })

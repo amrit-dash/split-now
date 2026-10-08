@@ -2,7 +2,17 @@ import { describe, expect, it } from 'vitest'
 import type { ActivityEntry } from '@/types'
 import { othersActivity, unreadCount } from './inbox'
 
-const a = (actorUid: string, createdAt: number) => ({ id: `${actorUid}${createdAt}`, groupId: 'g', type: 'expense.created', actorUid, actorName: actorUid, targetId: 't', summary: '', createdAt }) as ActivityEntry
+const a = (actorUid: string, createdAt: number) =>
+  ({
+    id: `${actorUid}${createdAt}`,
+    groupId: 'g',
+    type: 'expense.created',
+    actorUid,
+    actorName: actorUid,
+    targetId: 't',
+    summary: '',
+    createdAt,
+  }) as ActivityEntry
 
 describe('inbox updates', () => {
   it('counts only other people’s entries newer than the last visit', () => {

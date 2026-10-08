@@ -41,19 +41,28 @@ function CreateFromLink() {
   const parsed = useMemo(() => parseCaptureParams(params, todayISO()), [params])
 
   useEffect(() => {
-    if (!parsed.ok) { setError(parsed.error); return }
+    if (!parsed.ok) {
+      setError(parsed.error)
+      return
+    }
     if (!captures) return
     const { draft } = parsed
     const key = params.toString()
     // A link with an idempotency key that we've already filed just reopens it.
-    if (draft.ref && captures.some((c) => c.id === draft.ref)) { nav(`/capture/${draft.ref}`, { replace: true }); return }
+    if (draft.ref && captures.some((c) => c.id === draft.ref)) {
+      nav(`/capture/${draft.ref}`, { replace: true })
+      return
+    }
     let p = inflight.get(key)
     if (!p) {
       const id = draft.ref ?? uid('c_')
       p = repo.saveCapture(user.uid, draftToCapture(draft, id)).then(() => id)
       inflight.set(key, p)
     }
-    p.then((id) => nav(`/capture/${id}`, { replace: true })).catch((e) => { inflight.delete(key); setError(errText(e)) })
+    p.then((id) => nav(`/capture/${id}`, { replace: true })).catch((e) => {
+      inflight.delete(key)
+      setError(errText(e))
+    })
   }, [parsed, captures, params, user.uid, nav])
 
   if (error) {
@@ -62,8 +71,12 @@ function CreateFromLink() {
         <Empty emoji="🤔" title="Couldn’t read that payment">
           {error}
           <div className="mt-4 flex justify-center gap-2">
-            <Link to="/add" className="btn-primary"><Plus size={18} aria-hidden /> Add manually</Link>
-            <Link to="/" className="btn-secondary"><Home size={18} aria-hidden /> Home</Link>
+            <Link to="/add" className="btn-primary">
+              <Plus size={18} aria-hidden /> Add manually
+            </Link>
+            <Link to="/" className="btn-secondary">
+              <Home size={18} aria-hidden /> Home
+            </Link>
           </div>
         </Empty>
       </Shell>
@@ -77,7 +90,17 @@ function Prompt({ id }: { id: string }) {
   const groups = useGroups()
   if (!captures || !groups) return <Loading />
   const c = captures.find((x) => x.id === id)
-  if (!c) return <Shell><Empty emoji="🔍" title="Payment not found">It may have been removed. <Link to="/inbox" className="font-semibold text-brand-600 dark:text-brand-300">Open Inbox</Link></Empty></Shell>
+  if (!c)
+    return (
+      <Shell>
+        <Empty emoji="🔍" title="Payment not found">
+          It may have been removed.{' '}
+          <Link to="/inbox" className="font-semibold text-brand-600 dark:text-brand-300">
+            Open Inbox
+          </Link>
+        </Empty>
+      </Shell>
+    )
   return <PromptView c={c} groups={groups.filter((g) => !g.archived)} />
 }
 
@@ -108,9 +131,23 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
         <Empty emoji={c.status === 'assigned' ? '✅' : '🙈'} title={c.status === 'assigned' ? 'Already added' : 'Not shared'}>
           {captureHeadline(c, cur)} was {c.status === 'assigned' ? 'added to a group' : 'marked as not shared'}.
           <div className="mt-4 flex justify-center gap-2">
-            {c.groupId && <Link to={`/groups/${c.groupId}`} className="btn-primary"><ArrowRight size={18} aria-hidden /> Open group</Link>}
-            {c.status === 'dismissed' && <button type="button" className="btn-secondary" onClick={() => repo.updateCapture(user.uid, c.id, { status: 'pending' }).catch((e) => toast(errText(e), 'err'))}><Undo2 size={18} aria-hidden /> Undo</button>}
-            <Link to="/inbox" className="btn-secondary"><Inbox size={18} aria-hidden /> Inbox</Link>
+            {c.groupId && (
+              <Link to={`/groups/${c.groupId}`} className="btn-primary">
+                <ArrowRight size={18} aria-hidden /> Open group
+              </Link>
+            )}
+            {c.status === 'dismissed' && (
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => repo.updateCapture(user.uid, c.id, { status: 'pending' }).catch((e) => toast(errText(e), 'err'))}
+              >
+                <Undo2 size={18} aria-hidden /> Undo
+              </button>
+            )}
+            <Link to="/inbox" className="btn-secondary">
+              <Inbox size={18} aria-hidden /> Inbox
+            </Link>
           </div>
         </Empty>
       </Shell>
@@ -128,11 +165,24 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
     try {
       const order = memberOrder(g)
       const me = myMemberId(g, user.uid) ?? order[0]
-      const e = buildExpense({ description: c.merchant, amount: c.amount, date: c.date, category: guessCategory(c.merchant) ?? 'other', notes: c.note, payer: me, members: order }, g, order, user.uid, uid('e_'), Date.now())
+      const e = buildExpense(
+        { description: c.merchant, amount: c.amount, date: c.date, category: guessCategory(c.merchant) ?? 'other', notes: c.note, payer: me, members: order },
+        g,
+        order,
+        user.uid,
+        uid('e_'),
+        Date.now(),
+      )
       await repo.saveExpense(e)
       await repo.updateCapture(user.uid, c.id, { status: 'assigned', groupId: g.id, expenseId: e.id })
       toast(`Added to ${g.name} · ${formatMoney(c.amount, g.currency)}`, 'ok', {
-        action: { label: 'Undo', run: () => { void repo.deleteExpense(g.id, e.id); void repo.updateCapture(user.uid, c.id, { status: 'pending' }) } },
+        action: {
+          label: 'Undo',
+          run: () => {
+            void repo.deleteExpense(g.id, e.id)
+            void repo.updateCapture(user.uid, c.id, { status: 'pending' })
+          },
+        },
       })
       nav(`/groups/${g.id}`, { replace: true })
     } catch (e) {
@@ -145,10 +195,18 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
     setBusy('personal')
     try {
       const g = groups.find((x) => x.type === 'personal')
-      const id = g?.id ?? await createGroup({
-        name: 'My spending', emoji: '👛', type: 'personal', currency: cur, simplify: false, createdBy: user.uid,
-        memberUids: [user.uid], members: { [user.uid]: { name: profile.displayName, uid: user.uid, email: user.email, color: colorFor(0) } },
-      })
+      const id =
+        g?.id ??
+        (await createGroup({
+          name: 'My spending',
+          emoji: '👛',
+          type: 'personal',
+          currency: cur,
+          simplify: false,
+          createdBy: user.uid,
+          memberUids: [user.uid],
+          members: { [user.uid]: { name: profile.displayName, uid: user.uid, email: user.email, color: colorFor(0) } },
+        }))
       toExpense(id)
     } catch (e) {
       toast(errText(e), 'err')
@@ -160,7 +218,14 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
     setBusy('dismiss')
     try {
       await repo.updateCapture(user.uid, c.id, { status: 'dismissed' })
-      toast('Marked not shared', 'ok', { action: { label: 'Undo', run: () => { void repo.updateCapture(user.uid, c.id, { status: 'pending' }) } } })
+      toast('Marked not shared', 'ok', {
+        action: {
+          label: 'Undo',
+          run: () => {
+            void repo.updateCapture(user.uid, c.id, { status: 'pending' })
+          },
+        },
+      })
       nav('/inbox', { replace: true })
     } catch (e) {
       toast(errText(e), 'err')
@@ -171,15 +236,28 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
   return (
     <Shell>
       <div className="card p-5 text-center">
-        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-500 to-duo-600 text-2xl text-white shadow-lg" aria-hidden>💳</div>
+        <div
+          className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-500 to-duo-600 text-2xl text-white shadow-lg"
+          aria-hidden
+        >
+          💳
+        </div>
         <h2 className="text-lg font-bold leading-snug">
-          {merchantKnown(c.merchant)
-            ? <>You spent <span className="tabular-nums">{formatMoney(c.amount, cur)}</span> at {c.merchant} — is this a group expense?</>
-            : <>You paid <span className="tabular-nums">{formatMoney(c.amount, cur)}</span> ({source}) — is this a group expense?</>}
+          {merchantKnown(c.merchant) ? (
+            <>
+              You spent <span className="tabular-nums">{formatMoney(c.amount, cur)}</span> at {c.merchant} — is this a group expense?
+            </>
+          ) : (
+            <>
+              You paid <span className="tabular-nums">{formatMoney(c.amount, cur)}</span> ({source}) — is this a group expense?
+            </>
+          )}
         </h2>
         <div className="text-muted mt-1.5 text-sm">
           {formatDate(c.date, { weekday: 'short', day: 'numeric', month: 'short' })}
-          {' · '}{source}{c.card ? ` · ${c.card}` : ''}
+          {' · '}
+          {source}
+          {c.card ? ` · ${c.card}` : ''}
         </div>
         {c.note && <div className="text-muted mt-2 text-sm">“{c.note}”</div>}
       </div>
@@ -189,20 +267,46 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
           <h2 className="text-muted mb-2 px-1 text-sm font-semibold">Split with</h2>
           <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5" role="radiogroup" aria-label="Group">
             {ranked.map((g) => (
-              <button key={g.id} type="button" role="radio" aria-checked={selected === g.id} onClick={() => setSelected(g.id)} className={`flex w-full items-center gap-3 px-4 py-3 text-left ${selected === g.id ? 'bg-brand-50 dark:bg-brand-900/30' : ''}`}>
+              <button
+                key={g.id}
+                type="button"
+                role="radio"
+                aria-checked={selected === g.id}
+                onClick={() => setSelected(g.id)}
+                className={`flex w-full items-center gap-3 px-4 py-3 text-left ${selected === g.id ? 'bg-brand-50 dark:bg-brand-900/30' : ''}`}
+              >
                 <GroupIcon emoji={g.emoji} size={40} />
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2"><span className="truncate font-semibold">{g.name}</span>{g.inWindow && <LiveBadge type={g.type} />}</div>
-                  <div className="text-muted text-xs">{Object.keys(g.members).length} people · {g.currency}</div>
+                  <div className="flex items-center gap-2">
+                    <span className="truncate font-semibold">{g.name}</span>
+                    {g.inWindow && <LiveBadge type={g.type} />}
+                  </div>
+                  <div className="text-muted text-xs">
+                    {Object.keys(g.members).length} people · {g.currency}
+                  </div>
                 </div>
-                <span className={`flex h-6 w-6 items-center justify-center rounded-full border-2 ${selected === g.id ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-400 dark:border-ink-700'}`} aria-hidden>{selected === g.id && <Check size={14} />}</span>
+                <span
+                  className={`flex h-6 w-6 items-center justify-center rounded-full border-2 ${selected === g.id ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-400 dark:border-ink-700'}`}
+                  aria-hidden
+                >
+                  {selected === g.id && <Check size={14} />}
+                </span>
               </button>
             ))}
           </div>
           {chosen && c.currency && chosen.currency !== c.currency && (
-            <p className="text-muted mt-2 px-1 text-xs">{chosen.name} uses {chosen.currency}. The expense is entered as {formatMoney(c.amount, c.currency)} and converted to {chosen.currency} at the ECB rate for {formatDate(c.date)}; you can check the rate before saving.</p>
+            <p className="text-muted mt-2 px-1 text-xs">
+              {chosen.name} uses {chosen.currency}. The expense is entered as {formatMoney(c.amount, c.currency)} and converted to {chosen.currency} at the ECB
+              rate for {formatDate(c.date)}; you can check the rate before saving.
+            </p>
           )}
-          <button type="button" className="btn-primary mt-3 w-full" disabled={!chosen || !!busy} onClick={() => (sameCurrency ? addNow() : chosen && toExpense(chosen.id))} data-testid="capture-add">
+          <button
+            type="button"
+            className="btn-primary mt-3 w-full"
+            disabled={!chosen || !!busy}
+            onClick={() => (sameCurrency ? addNow() : chosen && toExpense(chosen.id))}
+            data-testid="capture-add"
+          >
             {busy === 'add' ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <Check size={18} aria-hidden />}
             {!chosen ? 'Pick a group' : sameCurrency ? `Split equally in ${chosen.name}` : `Add to ${chosen.name}`}
           </button>
@@ -215,16 +319,26 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
       ) : (
         <div className="card mt-4 p-4 text-center">
           <p className="text-muted text-sm">No groups yet. Create one to split this, or keep it as personal spending.</p>
-          <Link to="/groups/new?next=add" className="btn-primary mt-3 w-full"><Plus size={18} aria-hidden /> Create a group</Link>
+          <Link to="/groups/new?next=add" className="btn-primary mt-3 w-full">
+            <Plus size={18} aria-hidden /> Create a group
+          </Link>
         </div>
       )}
 
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <button type="button" className="btn-secondary" disabled={!!busy} onClick={personal}>{busy === 'personal' ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <User size={18} aria-hidden />} Personal</button>
-        <button type="button" className="btn-secondary" disabled={!!busy} onClick={dismiss} data-testid="capture-dismiss">{busy === 'dismiss' ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <X size={18} aria-hidden />} Not shared</button>
+        <button type="button" className="btn-secondary" disabled={!!busy} onClick={personal}>
+          {busy === 'personal' ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <User size={18} aria-hidden />} Personal
+        </button>
+        <button type="button" className="btn-secondary" disabled={!!busy} onClick={dismiss} data-testid="capture-dismiss">
+          {busy === 'dismiss' ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <X size={18} aria-hidden />} Not shared
+        </button>
       </div>
-      <Link to="/inbox" className="btn-ghost mt-2 w-full"><Inbox size={18} aria-hidden /> Decide later</Link>
-      <p className="text-muted mt-4 text-center text-xs">{sameCurrency ? 'Undo from the toast if you change your mind.' : 'Nothing is added until you save the expense.'}</p>
+      <Link to="/inbox" className="btn-ghost mt-2 w-full">
+        <Inbox size={18} aria-hidden /> Decide later
+      </Link>
+      <p className="text-muted mt-4 text-center text-xs">
+        {sameCurrency ? 'Undo from the toast if you change your mind.' : 'Nothing is added until you save the expense.'}
+      </p>
     </Shell>
   )
 }

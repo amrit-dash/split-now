@@ -2,7 +2,8 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, ty
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 
-const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
+const FOCUSABLE =
+  'a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
 
 /** Past this (px), or a quick flick, a downward drag closes the sheet. */
 const CLOSE_AT = 110
@@ -17,7 +18,14 @@ let savedOverflow = ''
  * it's scrolled to the top). Proper modal semantics: rendered in a portal, the app root is
  * `inert` while it is open, focus moves inside and is trapped, and returns to the opener on close.
  */
-export function Sheet({ open, onClose, title, children, testId, describedBy }: {
+export function Sheet({
+  open,
+  onClose,
+  title,
+  children,
+  testId,
+  describedBy,
+}: {
   open: boolean
   onClose: () => void
   title?: string
@@ -35,7 +43,8 @@ export function Sheet({ open, onClose, title, children, testId, describedBy }: {
 
   useLayoutEffect(() => {
     if (!open) return
-    setDy(0); setLeaving(false)
+    setDy(0)
+    setLeaving(false)
     opener.current = document.activeElement
     const root = document.getElementById('root')
     if (openCount++ === 0) {
@@ -59,13 +68,27 @@ export function Sheet({ open, onClose, title, children, testId, describedBy }: {
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { e.stopPropagation(); onClose(); return }
+      if (e.key === 'Escape') {
+        e.stopPropagation()
+        onClose()
+        return
+      }
       if (e.key !== 'Tab' || !panel.current) return
       const items = [...panel.current.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => el.offsetParent !== null || el === document.activeElement)
-      if (!items.length) { e.preventDefault(); panel.current.focus(); return }
-      const first = items[0], last = items[items.length - 1]
-      if (e.shiftKey && (document.activeElement === first || document.activeElement === panel.current)) { e.preventDefault(); last.focus() }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+      if (!items.length) {
+        e.preventDefault()
+        panel.current.focus()
+        return
+      }
+      const first = items[0],
+        last = items[items.length - 1]
+      if (e.shiftKey && (document.activeElement === first || document.activeElement === panel.current)) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault()
+        first.focus()
+      }
     }
     document.addEventListener('keydown', onKey, true)
     return () => document.removeEventListener('keydown', onKey, true)
@@ -86,7 +109,10 @@ export function Sheet({ open, onClose, title, children, testId, describedBy }: {
     const delta = e.touches[0].clientY - d.y
     if (!d.active) {
       // From the body, only once it's scrolled to the top and the finger moves down.
-      if (delta < 8 || (d.fromBody && (panel.current?.scrollTop ?? 0) > 0)) { if (delta < -8) drag.current = null; return }
+      if (delta < 8 || (d.fromBody && (panel.current?.scrollTop ?? 0) > 0)) {
+        if (delta < -8) drag.current = null
+        return
+      }
       d.active = true
       d.y += 8
     }
@@ -118,7 +144,10 @@ export function Sheet({ open, onClose, title, children, testId, describedBy }: {
         aria-labelledby={title ? titleId : undefined}
         aria-describedby={describedBy}
         tabIndex={-1}
-        onTouchStart={onStart} onTouchMove={onMove} onTouchEnd={onEnd} onTouchCancel={onEnd}
+        onTouchStart={onStart}
+        onTouchMove={onMove}
+        onTouchEnd={onEnd}
+        onTouchCancel={onEnd}
         style={{ transform: `translateY(${leaving ? '100%' : `${dy}px`})`, transition: drag.current?.active ? 'none' : 'transform 0.18s ease-out' }}
         className="animate-sheet relative max-h-[90dvh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-t-[2rem] bg-white p-5 pb-8 shadow-2xl outline-none safe-bottom sm:rounded-[2rem] dark:bg-ink-900"
       >
@@ -127,8 +156,15 @@ export function Sheet({ open, onClose, title, children, testId, describedBy }: {
         </div>
         {title && (
           <div data-sheet-grip className="mb-4 flex items-center justify-between gap-3">
-            <h2 id={titleId} className="text-lg font-bold">{title}</h2>
-            <button type="button" onClick={onClose} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-slate-200 hover:text-slate-800 active:scale-90 dark:bg-ink-800 dark:text-slate-300 dark:hover:bg-ink-700" aria-label="Close">
+            <h2 id={titleId} className="text-lg font-bold">
+              {title}
+            </h2>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-slate-200 hover:text-slate-800 active:scale-90 dark:bg-ink-800 dark:text-slate-300 dark:hover:bg-ink-700"
+              aria-label="Close"
+            >
               <X size={17} strokeWidth={2.5} aria-hidden />
             </button>
           </div>

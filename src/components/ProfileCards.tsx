@@ -13,7 +13,17 @@ import { useToast } from './Toast'
  * mobile number and sign-in methods (link Google / add a password so one email = one account).
  * Edits save by themselves (`onBlur` lets the page flush straight away).
  */
-export function AccountCard({ name, setName, phone, setPhone, photoURL, email, onPhoto, onBlur, phoneHint }: {
+export function AccountCard({
+  name,
+  setName,
+  phone,
+  setPhone,
+  photoURL,
+  email,
+  onPhoto,
+  onBlur,
+  phoneHint,
+}: {
   name: string
   setName: (v: string) => void
   phone: string
@@ -31,13 +41,29 @@ export function AccountCard({ name, setName, phone, setPhone, photoURL, email, o
   return (
     <div className="card overflow-hidden">
       <div className="flex items-center gap-4 p-4">
-        <button type="button" className="relative shrink-0 rounded-full transition active:scale-95" onClick={onPhoto} aria-label="Change profile photo" data-testid="profile-photo">
+        <button
+          type="button"
+          className="relative shrink-0 rounded-full transition active:scale-95"
+          onClick={onPhoto}
+          aria-label="Change profile photo"
+          data-testid="profile-photo"
+        >
           <Avatar name={name || '?'} photoURL={photoURL} color="accent" size={60} />
-          <span className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-white text-slate-600 shadow ring-1 ring-slate-200 dark:bg-ink-800 dark:text-slate-300 dark:ring-ink-700" aria-hidden>
+          <span
+            className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-white text-slate-600 shadow ring-1 ring-slate-200 dark:bg-ink-800 dark:text-slate-300 dark:ring-ink-700"
+            aria-hidden
+          >
             <Camera size={13} />
           </span>
         </button>
-        <button type="button" className="flex min-w-0 flex-1 items-center gap-2 text-left" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={bodyId} data-testid="account-toggle">
+        <button
+          type="button"
+          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          aria-controls={bodyId}
+          data-testid="account-toggle"
+        >
           <span className="min-w-0 flex-1">
             <span className="block truncate text-xl font-bold">{name || 'Your name'}</span>
             <span className="text-muted block truncate text-sm">{sub}</span>
@@ -50,12 +76,26 @@ export function AccountCard({ name, setName, phone, setPhone, photoURL, email, o
       {open && (
         <div id={bodyId} className="animate-fade space-y-4 border-t border-slate-100 p-4 dark:border-white/5">
           <div>
-            <label className="label" htmlFor="acct-name">Name</label>
+            <label className="label" htmlFor="acct-name">
+              Name
+            </label>
             <input id="acct-name" className="input" value={name} onChange={(e) => setName(e.target.value)} onBlur={onBlur} autoComplete="name" maxLength={80} />
           </div>
           <div>
-            <label className="label" htmlFor="acct-phone">Mobile number</label>
-            <input id="acct-phone" className="input" type="tel" inputMode="tel" autoComplete="tel" placeholder="+91 98765 43210" value={phone} onChange={(e) => setPhone(e.target.value)} onBlur={onBlur} />
+            <label className="label" htmlFor="acct-phone">
+              Mobile number
+            </label>
+            <input
+              id="acct-phone"
+              className="input"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              placeholder="+91 98765 43210"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              onBlur={onBlur}
+            />
             {phoneHint && <div className="mt-2">{phoneHint}</div>}
           </div>
           {email && (
@@ -103,22 +143,53 @@ function SignInMethods() {
       <div className="divide-y divide-slate-100 rounded-2xl bg-slate-50 dark:divide-white/5 dark:bg-ink-800">
         <div className="flex items-center gap-3 px-4 py-3">
           <span className="flex-1 font-medium">Google</span>
-          {has('google.com')
-            ? <span className="flex items-center gap-1 text-sm font-semibold text-emerald-700 dark:text-emerald-400"><Check size={16} aria-hidden /> Linked</span>
-            : <button type="button" className="btn-ghost btn-sm !px-2" disabled={!!busy} onClick={() => run('google', () => repo.linkGoogle!(), 'Google linked', 'google.com')}>
-                {busy === 'google' ? <Loader2 size={14} className="animate-spin" aria-hidden /> : null} Link Google
-              </button>}
+          {has('google.com') ? (
+            <span className="flex items-center gap-1 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+              <Check size={16} aria-hidden /> Linked
+            </span>
+          ) : (
+            <button
+              type="button"
+              className="btn-ghost btn-sm !px-2"
+              disabled={!!busy}
+              onClick={() => run('google', () => repo.linkGoogle!(), 'Google linked', 'google.com')}
+            >
+              {busy === 'google' ? <Loader2 size={14} className="animate-spin" aria-hidden /> : null} Link Google
+            </button>
+          )}
         </div>
         <div className="px-4 py-3">
           <div className="flex items-center gap-3">
             <span className="flex-1 font-medium">Email &amp; password</span>
-            {has('password')
-              ? <span className="flex items-center gap-1 text-sm font-semibold text-emerald-700 dark:text-emerald-400"><Check size={16} aria-hidden /> Set</span>
-              : <button type="button" className="btn-ghost btn-sm !px-2" disabled={!!busy} onClick={() => setPwOpen((o) => !o)} aria-expanded={pwOpen}>Add password</button>}
+            {has('password') ? (
+              <span className="flex items-center gap-1 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+                <Check size={16} aria-hidden /> Set
+              </span>
+            ) : (
+              <button type="button" className="btn-ghost btn-sm !px-2" disabled={!!busy} onClick={() => setPwOpen((o) => !o)} aria-expanded={pwOpen}>
+                Add password
+              </button>
+            )}
           </div>
           {pwOpen && !has('password') && (
-            <form className="mt-3 flex gap-2" onSubmit={(e) => { e.preventDefault(); run('password', () => repo.addPassword!(pw), 'Password added', 'password') }}>
-              <input className="input !py-2" type="password" autoComplete="new-password" placeholder="New password" aria-label="New password" value={pw} onChange={(e) => setPw(e.target.value)} required minLength={6} />
+            <form
+              className="mt-3 flex gap-2"
+              onSubmit={(e) => {
+                e.preventDefault()
+                run('password', () => repo.addPassword!(pw), 'Password added', 'password')
+              }}
+            >
+              <input
+                className="input !py-2"
+                type="password"
+                autoComplete="new-password"
+                placeholder="New password"
+                aria-label="New password"
+                value={pw}
+                onChange={(e) => setPw(e.target.value)}
+                required
+                minLength={6}
+              />
               <button type="submit" className="btn-primary btn-sm shrink-0 !px-4" disabled={!!busy || !pw}>
                 {busy === 'password' ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <KeyRound size={14} aria-hidden />} Save
               </button>
@@ -133,7 +204,8 @@ function SignInMethods() {
 
 function linkError(e: unknown): string {
   const code = (e as { code?: string }).code ?? ''
-  if (code.includes('credential-already-in-use') || code.includes('email-already-in-use')) return 'That Google account already belongs to another Split Now account'
+  if (code.includes('credential-already-in-use') || code.includes('email-already-in-use'))
+    return 'That Google account already belongs to another Split Now account'
   if (code.includes('provider-already-linked')) return 'Already linked'
   if (code.includes('requires-recent-login')) return 'For security, sign out and back in, then try again'
   if (code.includes('popup-closed') || code.includes('cancelled')) return 'Cancelled'
@@ -156,13 +228,22 @@ export function RatesField({ base, children }: { base: string; children: React.R
   const [status, setStatus] = useState<RatesStatus | null>(() => ratesStatus(base))
   const [busy, setBusy] = useState(false)
   const [shownFor, setShownFor] = useState(base)
-  if (shownFor !== base) { setShownFor(base); setStatus(ratesStatus(base)) }
+  if (shownFor !== base) {
+    setShownFor(base)
+    setStatus(ratesStatus(base))
+  }
 
   // Pick up the shared copy (a Firestore read, no refresh) so the status is right on open.
   useEffect(() => {
     let live = true
-    loadSharedRates(base).then((s) => { if (live && s) setStatus(s) }).catch(() => {})
-    return () => { live = false }
+    loadSharedRates(base)
+      .then((s) => {
+        if (live && s) setStatus(s)
+      })
+      .catch(() => {})
+    return () => {
+      live = false
+    }
   }, [base])
 
   const refresh = async () => {
@@ -183,7 +264,12 @@ export function RatesField({ base, children }: { base: string; children: React.R
       <div className="flex items-center gap-2">
         <div className="min-w-0 flex-1">{children}</div>
         <button
-          type="button" onClick={refresh} disabled={busy} aria-label={label} title={label} data-testid="rates-button"
+          type="button"
+          onClick={refresh}
+          disabled={busy}
+          aria-label={label}
+          title={label}
+          data-testid="rates-button"
           className="relative flex h-12 shrink-0 items-center gap-1.5 rounded-2xl bg-brand-50 px-3.5 text-sm font-semibold text-brand-700 ring-1 ring-brand-500/30 transition active:scale-95 disabled:opacity-70 dark:bg-brand-500/10 dark:text-brand-200 dark:ring-brand-400/30"
         >
           <RefreshCw size={16} className={busy ? 'animate-spin' : ''} aria-hidden />

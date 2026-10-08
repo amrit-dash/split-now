@@ -8,7 +8,10 @@ describe('demo seed', () => {
   const expenses = Object.values(s.expenses)
 
   it('is an Indian friend group in INR', () => {
-    expect(Object.values(s.groups).map((g) => [g.name, g.currency])).toEqual([['Goa Trip', 'INR'], ['Indiranagar Flat', 'INR']])
+    expect(Object.values(s.groups).map((g) => [g.name, g.currency])).toEqual([
+      ['Goa Trip', 'INR'],
+      ['Indiranagar Flat', 'INR'],
+    ])
   })
 
   it('every expense balances to the paisa', () => {

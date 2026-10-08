@@ -76,7 +76,8 @@ export const refreshFx = onCall(
     if (!req.auth) throw new HttpsError('unauthenticated', 'Sign in to refresh exchange rates')
     const requested = (req.data as { date?: unknown } | null)?.date
     if (!validRequest(requested)) throw new HttpsError('invalid-argument', 'date must be yyyy-mm-dd, 1999-01-04 or later')
-    if (requested && req.auth.token.firebase?.sign_in_provider === 'anonymous') throw new HttpsError('permission-denied', 'Guests can only refresh the latest rates')
+    if (requested && req.auth.token.firebase?.sign_in_provider === 'anonymous')
+      throw new HttpsError('permission-denied', 'Guests can only refresh the latest rates')
     const date = requested ?? undefined
     const now = Date.now()
     if (!(await allowed(req.auth.uid, now))) throw new HttpsError('resource-exhausted', 'Too many refreshes; try again later')

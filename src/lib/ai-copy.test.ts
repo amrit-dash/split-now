@@ -7,15 +7,28 @@ describe('aiAvailability', () => {
     expect(aiAvailability({ status: app('available'), hasOwnKey: true, enabled: false })).toMatchObject({ images: false, sms: false, tone: 'muted' })
   })
   it('shared key available', () => {
-    expect(aiAvailability({ status: app('available'), hasOwnKey: false, enabled: true })).toMatchObject({ images: true, sms: true, text: 'Available', tone: 'ok' })
+    expect(aiAvailability({ status: app('available'), hasOwnKey: false, enabled: true })).toMatchObject({
+      images: true,
+      sms: true,
+      text: 'Available',
+      tone: 'ok',
+    })
   })
   it('own key covers a shared key that is off or not listed', () => {
     expect(aiAvailability({ status: app('off'), hasOwnKey: true, enabled: true })).toMatchObject({ images: true, sms: true, text: 'Using your own key' })
-    expect(aiAvailability({ status: app('not_listed'), hasOwnKey: false, enabled: true })).toMatchObject({ images: false, text: 'Not turned on for your account', tone: 'muted' })
+    expect(aiAvailability({ status: app('not_listed'), hasOwnKey: false, enabled: true })).toMatchObject({
+      images: false,
+      text: 'Not turned on for your account',
+      tone: 'muted',
+    })
     expect(aiAvailability({ status: app('off'), hasOwnKey: true, ownKeyBroken: true, enabled: true })).toMatchObject({ images: false, tone: 'warn' })
   })
   it('partial availability names the feature', () => {
-    expect(aiAvailability({ status: app('available', 'feature_off'), hasOwnKey: false, enabled: true })).toMatchObject({ images: true, sms: false, text: 'Available for bills only' })
+    expect(aiAvailability({ status: app('available', 'feature_off'), hasOwnKey: false, enabled: true })).toMatchObject({
+      images: true,
+      sms: false,
+      text: 'Available for bills only',
+    })
   })
   it('unknown status: own key still counts', () => {
     expect(aiAvailability({ status: undefined, hasOwnKey: false, enabled: true }).text).toBe('Checking…')

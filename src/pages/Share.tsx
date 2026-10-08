@@ -26,7 +26,10 @@ export default function Share() {
   useEffect(() => watchCapturePrefs(user.uid, repo.mode, setPrefs), [user.uid])
   const parts = useMemo(() => ({ title: params.get('title'), text: params.get('text'), url: params.get('url') }), [params])
   // Wait for the user's filters so the share path skips what the webhook would skip.
-  const outcome = useMemo(() => (prefs ? classifySharedText(parts, todayISO(), { minAmount: prefs.minAmount, ignoreWords: prefs.ignoreWords }) : null), [parts, prefs])
+  const outcome = useMemo(
+    () => (prefs ? classifySharedText(parts, todayISO(), { minAmount: prefs.minAmount, ignoreWords: prefs.ignoreWords }) : null),
+    [parts, prefs],
+  )
 
   useEffect(() => {
     if (outcome?.outcome === 'capture') nav(`/capture?${captureQuery(outcome.draft)}`, { replace: true })
@@ -41,8 +44,12 @@ export default function Share() {
       <Empty emoji={ignored ? '🙈' : '🔎'} title={ignored ? 'Not a payment to add' : 'No amount found'}>
         {ignored ? sharedTextIgnoredText(outcome) : shared ? <>We couldn’t find an amount in “{shared.slice(0, 120)}”.</> : 'Nothing was shared.'}
         <div className="mt-4 flex justify-center gap-2">
-          <Link to="/add" className="btn-primary"><Plus size={18} aria-hidden /> Add expense</Link>
-          <Link to="/scan" className="btn-secondary"><ScanLine size={18} aria-hidden /> Scan</Link>
+          <Link to="/add" className="btn-primary">
+            <Plus size={18} aria-hidden /> Add expense
+          </Link>
+          <Link to="/scan" className="btn-secondary">
+            <ScanLine size={18} aria-hidden /> Scan
+          </Link>
         </div>
       </Empty>
     </div>

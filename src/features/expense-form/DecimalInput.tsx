@@ -32,7 +32,11 @@ export function DecimalInput({ value, onChange, decimals = 2, className = '', ..
       onChange={(e) => {
         const text = e.target.value
         setDraft(text)
-        if (text.trim() === '') { last.current = undefined; onChange(undefined); return }
+        if (text.trim() === '') {
+          last.current = undefined
+          onChange(undefined)
+          return
+        }
         const n = parseDecimal(text, decimals)
         if (!Number.isFinite(n)) return
         last.current = n

@@ -12,7 +12,12 @@ export const tokenKey = (token: string) => sha(`rl|${token}`).slice(0, 32)
  * while two real ₹100 coffees (different times or balances in the text) don't. With neither
  * (structured fields only): (uid, amount, merchant, the minute it was received).
  */
-export function captureIdFor(uid: string, p: { ref?: string; amount: number; currency?: string; merchant?: string }, receivedAt: Date, maskedText?: string): string {
+export function captureIdFor(
+  uid: string,
+  p: { ref?: string; amount: number; currency?: string; merchant?: string },
+  receivedAt: Date,
+  maskedText?: string,
+): string {
   const text = maskedText?.toLowerCase().replace(/\s+/g, ' ').trim()
   const key = p.ref
     ? `${uid}|ref|${p.ref.toUpperCase()}`

@@ -38,21 +38,43 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
   const configured = status.app.configured !== false
   const source = status.app.source ?? (configured ? 'secret' : null)
 
-  useEffect(() => repo.watchAppAi((raw) => {
-    const r = resolveAppAi(raw)
-    setSaved(r)
-    setCfg((c) => {
-      if (c) return c // keep unsaved edits
-      setEmails(r.allowEmails.join('\n'))
-      return r
-    })
-  }), [])
-  useEffect(() => { if (configured) repo.aiModels('app').then(setModels).catch(() => setModels([])) }, [configured, status.app.hint])
-  useEffect(() => { repo.aiUsage(todayISO()).then(setUsage).catch(() => {}) }, [])
+  useEffect(
+    () =>
+      repo.watchAppAi((raw) => {
+        const r = resolveAppAi(raw)
+        setSaved(r)
+        setCfg((c) => {
+          if (c) return c // keep unsaved edits
+          setEmails(r.allowEmails.join('\n'))
+          return r
+        })
+      }),
+    [],
+  )
+  useEffect(() => {
+    if (configured)
+      repo
+        .aiModels('app')
+        .then(setModels)
+        .catch(() => setModels([]))
+  }, [configured, status.app.hint])
+  useEffect(() => {
+    repo
+      .aiUsage(todayISO())
+      .then(setUsage)
+      .catch(() => {})
+  }, [])
 
   if (!cfg || !saved) return <div className="text-muted text-sm">Loading…</div>
   const set = (p: Partial<AppAiConfig>) => setCfg({ ...cfg, ...p })
-  const list = [...new Set(emails.split(/[\s,;]+/).filter((e) => e.includes('@')).map(normaliseEmail))]
+  const list = [
+    ...new Set(
+      emails
+        .split(/[\s,;]+/)
+        .filter((e) => e.includes('@'))
+        .map(normaliseEmail),
+    ),
+  ]
   const next = { ...cfg, allowEmails: cfg.mode === 'allowlist' ? list : saved.allowEmails }
   const dirty = !same(next, saved)
 
@@ -70,15 +92,27 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
       setSaving(false)
     }
   }
-  const discard = () => { setCfg(saved); setEmails(saved.allowEmails.join('\n')) }
+  const discard = () => {
+    setCfg(saved)
+    setEmails(saved.allowEmails.join('\n'))
+  }
 
   const keyAction = async (action: 'set' | 'test' | 'remove') => {
     setKeyBusy(action)
     try {
       const r = await repo.aiKey(action, action === 'set' ? draft : undefined, 'app')
       if (action !== 'remove') setModels(r.models)
-      setDraft(''); setEditingKey(false)
-      toast(action === 'set' ? 'Project key saved and working' : action === 'test' ? 'Project key works' : r.source ? 'Back to GEMINI_API_KEY' : 'Project key removed')
+      setDraft('')
+      setEditingKey(false)
+      toast(
+        action === 'set'
+          ? 'Project key saved and working'
+          : action === 'test'
+            ? 'Project key works'
+            : r.source
+              ? 'Back to GEMINI_API_KEY'
+              : 'Project key removed',
+      )
       await refreshAiStatus()
     } catch (e) {
       toast(errText(e), 'err')
@@ -94,24 +128,61 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
       <div>
         <div className="label">Project key</div>
         {editingKey || !configured ? (
-          <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); if (draft.trim()) void keyAction('set') }}>
-            <input className="input font-mono" type="password" autoComplete="off" spellCheck={false} placeholder="Paste a Gemini API key" value={draft} onChange={(e) => setDraft(e.target.value)} aria-label="Project Gemini API key" />
+          <form
+            className="space-y-2"
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (draft.trim()) void keyAction('set')
+            }}
+          >
+            <input
+              className="input font-mono"
+              type="password"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="Paste a Gemini API key"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              aria-label="Project Gemini API key"
+            />
             <div className="flex gap-2">
               <button type="submit" className="btn-primary !min-h-0 flex-1 !py-2.5 text-sm" disabled={!draft.trim() || !!keyBusy}>
                 {keyBusy === 'set' ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />} Save &amp; check
               </button>
-              {configured && <button type="button" className="btn-ghost !min-h-0 !py-2.5 text-sm" onClick={() => { setEditingKey(false); setDraft('') }}>Cancel</button>}
+              {configured && (
+                <button
+                  type="button"
+                  className="btn-ghost !min-h-0 !py-2.5 text-sm"
+                  onClick={() => {
+                    setEditingKey(false)
+                    setDraft('')
+                  }}
+                >
+                  Cancel
+                </button>
+              )}
             </div>
-            <p className="text-xs text-slate-500">Used instead of {source === 'admin' ? 'the current key' : 'GEMINI_API_KEY'}; stored on the server, never shown again.</p>
+            <p className="text-xs text-slate-500">
+              Used instead of {source === 'admin' ? 'the current key' : 'GEMINI_API_KEY'}; stored on the server, never shown again.
+            </p>
           </form>
         ) : (
           <div className="flex gap-2">
             <button type="button" className="btn-secondary !min-h-0 flex-1 !py-2 text-sm" disabled={!!keyBusy} onClick={() => keyAction('test')}>
               {keyBusy === 'test' ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />} Test
             </button>
-            <button type="button" className="btn-secondary !min-h-0 flex-1 !py-2 text-sm" disabled={!!keyBusy} onClick={() => setEditingKey(true)}><KeyRound size={16} /> Use another key</button>
+            <button type="button" className="btn-secondary !min-h-0 flex-1 !py-2 text-sm" disabled={!!keyBusy} onClick={() => setEditingKey(true)}>
+              <KeyRound size={16} /> Use another key
+            </button>
             {source === 'admin' && (
-              <button type="button" className="btn-secondary !min-h-0 !px-3 !py-2 text-sm text-rose-700 dark:text-rose-400" disabled={!!keyBusy} onClick={() => keyAction('remove')} aria-label="Remove this key and go back to GEMINI_API_KEY" title="Back to GEMINI_API_KEY">
+              <button
+                type="button"
+                className="btn-secondary !min-h-0 !px-3 !py-2 text-sm text-rose-700 dark:text-rose-400"
+                disabled={!!keyBusy}
+                onClick={() => keyAction('remove')}
+                aria-label="Remove this key and go back to GEMINI_API_KEY"
+                title="Back to GEMINI_API_KEY"
+              >
                 {keyBusy === 'remove' ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
               </button>
             )}
@@ -119,20 +190,29 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
         )}
         <p className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-500" data-testid="admin-ai-key-status">
           <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${configured ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-          {!configured ? 'No project key (GEMINI_API_KEY isn’t set)'
-            : source === 'admin' ? `Project key set up (set in the app${status.app.hint ? ` · ${status.app.hint}` : ''})`
-            : 'Project key set up (GEMINI_API_KEY)'}
+          {!configured
+            ? 'No project key (GEMINI_API_KEY isn’t set)'
+            : source === 'admin'
+              ? `Project key set up (set in the app${status.app.hint ? ` · ${status.app.hint}` : ''})`
+              : 'Project key set up (GEMINI_API_KEY)'}
         </p>
       </div>
 
       <div>
         <div className="label">Model</div>
-        <Select aria-label="Project model" value={cfg.model} onChange={(v) => set({ model: v })} options={[
-          { value: DEFAULT_MODEL, label: 'Recommended (cheapest)', hint: DEFAULT_MODEL },
-          ...(models ?? []).filter((m) => m.id !== DEFAULT_MODEL).map((m) => ({ value: m.id, label: m.label, hint: modelHint(m) })),
-          ...(cfg.model !== DEFAULT_MODEL && !(models ?? []).some((m) => m.id === cfg.model) ? [{ value: cfg.model, label: cfg.model }] : []),
-        ]} />
-        <p className="mt-1 text-xs text-slate-500">{!configured ? 'Add a key to list its models.' : models === null ? 'Loading models…' : 'A retired model falls back to the recommended one.'}</p>
+        <Select
+          aria-label="Project model"
+          value={cfg.model}
+          onChange={(v) => set({ model: v })}
+          options={[
+            { value: DEFAULT_MODEL, label: 'Recommended (cheapest)', hint: DEFAULT_MODEL },
+            ...(models ?? []).filter((m) => m.id !== DEFAULT_MODEL).map((m) => ({ value: m.id, label: m.label, hint: modelHint(m) })),
+            ...(cfg.model !== DEFAULT_MODEL && !(models ?? []).some((m) => m.id === cfg.model) ? [{ value: cfg.model, label: cfg.model }] : []),
+          ]}
+        />
+        <p className="mt-1 text-xs text-slate-500">
+          {!configured ? 'Add a key to list its models.' : models === null ? 'Loading models…' : 'A retired model falls back to the recommended one.'}
+        </p>
       </div>
 
       <div>
@@ -141,9 +221,19 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
       </div>
       {cfg.mode === 'allowlist' && (
         <div>
-          <label className="label" htmlFor="ai-allow">Allowed emails</label>
-          <textarea id="ai-allow" className="input min-h-24 font-mono" placeholder={'one@example.com\ntwo@example.com'} value={emails} onChange={(e) => setEmails(e.target.value)} />
-          <p className="mt-1 text-xs text-slate-500">{list.length} email{list.length === 1 ? '' : 's'} · the account’s sign-in email must match.</p>
+          <label className="label" htmlFor="ai-allow">
+            Allowed emails
+          </label>
+          <textarea
+            id="ai-allow"
+            className="input min-h-24 font-mono"
+            placeholder={'one@example.com\ntwo@example.com'}
+            value={emails}
+            onChange={(e) => setEmails(e.target.value)}
+          />
+          <p className="mt-1 text-xs text-slate-500">
+            {list.length} email{list.length === 1 ? '' : 's'} · the account’s sign-in email must match.
+          </p>
         </div>
       )}
       {cfg.mode !== 'off' && (
@@ -155,18 +245,35 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
           <div className="grid grid-cols-3 gap-2">
             <label className="block">
               <span className="label">Person / day</span>
-              <input className="input !px-3" inputMode="numeric" value={cfg.perDay} onChange={(e) => set({ perDay: Math.max(1, Math.min(5000, parseInt(e.target.value, 10) || 1)) })} />
+              <input
+                className="input !px-3"
+                inputMode="numeric"
+                value={cfg.perDay}
+                onChange={(e) => set({ perDay: Math.max(1, Math.min(5000, parseInt(e.target.value, 10) || 1)) })}
+              />
             </label>
             <label className="block">
               <span className="label">Person / hour</span>
-              <input className="input !px-3" inputMode="numeric" value={cfg.perHour} onChange={(e) => set({ perHour: Math.max(1, Math.min(1000, parseInt(e.target.value, 10) || 1)) })} />
+              <input
+                className="input !px-3"
+                inputMode="numeric"
+                value={cfg.perHour}
+                onChange={(e) => set({ perHour: Math.max(1, Math.min(1000, parseInt(e.target.value, 10) || 1)) })}
+              />
             </label>
             <label className="block">
               <span className="label">Everyone / day</span>
-              <input className="input !px-3" inputMode="numeric" value={cfg.globalPerDay} onChange={(e) => set({ globalPerDay: Math.max(1, Math.min(100_000, parseInt(e.target.value, 10) || 1)) })} />
+              <input
+                className="input !px-3"
+                inputMode="numeric"
+                value={cfg.globalPerDay}
+                onChange={(e) => set({ globalPerDay: Math.max(1, Math.min(100_000, parseInt(e.target.value, 10) || 1)) })}
+              />
             </label>
           </div>
-          <p className="text-muted -mt-1 text-xs">“Everyone / day” is the hard budget for Split Now’s key across all users; past it, AI reading waits until tomorrow.</p>
+          <p className="text-muted -mt-1 text-xs">
+            “Everyone / day” is the hard budget for Split Now’s key across all users; past it, AI reading waits until tomorrow.
+          </p>
         </>
       )}
       <div className="rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800/60">
@@ -178,9 +285,14 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
         </div>
       </div>
       {dirty && (
-        <div className="animate-pop sticky bottom-[calc(var(--nav-h)+0.75rem)] z-10 flex items-center gap-2 rounded-2xl bg-brand-50 p-2 pl-3.5 shadow-lg ring-1 ring-brand-500/20 dark:bg-ink-800 dark:ring-brand-400/30" data-testid="admin-ai-dirty">
+        <div
+          className="animate-pop sticky bottom-[calc(var(--nav-h)+0.75rem)] z-10 flex items-center gap-2 rounded-2xl bg-brand-50 p-2 pl-3.5 shadow-lg ring-1 ring-brand-500/20 dark:bg-ink-800 dark:ring-brand-400/30"
+          data-testid="admin-ai-dirty"
+        >
           <span className="min-w-0 flex-1 text-sm font-medium text-brand-800 dark:text-brand-200">Unsaved changes</span>
-          <button type="button" className="btn-ghost !min-h-0 !px-3 !py-2 text-sm" onClick={discard} disabled={saving}><RotateCcw size={16} /> Discard</button>
+          <button type="button" className="btn-ghost !min-h-0 !px-3 !py-2 text-sm" onClick={discard} disabled={saving}>
+            <RotateCcw size={16} /> Discard
+          </button>
           <button type="button" className="btn-primary !min-h-0 !px-4 !py-2 text-sm" onClick={save} disabled={saving} data-testid="admin-ai-save">
             {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save
           </button>
@@ -191,7 +303,12 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
 }
 
 function Stat({ n, label }: { n: number; label: string }) {
-  return <div><div className="text-lg font-bold tabular-nums">{n}</div><div className="text-[11px] text-slate-500">{label}</div></div>
+  return (
+    <div>
+      <div className="text-lg font-bold tabular-nums">{n}</div>
+      <div className="text-[11px] text-slate-500">{label}</div>
+    </div>
+  )
 }
 
 function Toggle({ title, checked, onChange }: { title: string; checked: boolean; onChange: (v: boolean) => void }) {

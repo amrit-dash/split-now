@@ -4,8 +4,9 @@ import { encodeQr } from './qr'
 
 describe('UPI links', () => {
   it('builds a upi://pay link in spec order with the amount in rupees', () => {
-    expect(upiLink({ pa: 'rohan.sharma@okaxis', pn: 'Rohan Sharma', amount: 125050, note: 'Split Now Goa Trip' }))
-      .toBe('upi://pay?pa=rohan.sharma@okaxis&pn=Rohan%20Sharma&am=1250.50&cu=INR&tn=Split%20Now%20Goa%20Trip')
+    expect(upiLink({ pa: 'rohan.sharma@okaxis', pn: 'Rohan Sharma', amount: 125050, note: 'Split Now Goa Trip' })).toBe(
+      'upi://pay?pa=rohan.sharma@okaxis&pn=Rohan%20Sharma&am=1250.50&cu=INR&tn=Split%20Now%20Goa%20Trip',
+    )
   })
 
   it('drops emoji / odd characters and keeps pn and tn short', () => {
@@ -27,7 +28,12 @@ describe('UPI links', () => {
   })
 
   it('fits in a QR code even with long names', () => {
-    const l = upiLink({ pa: 'a.really.long.upi.handle.for.testing.purposes@okhdfcbank', pn: 'Someone With A Very Long Name Indeed', amount: 99999999, note: 'Split Now Bengaluru Flat Indiranagar 2026' })
+    const l = upiLink({
+      pa: 'a.really.long.upi.handle.for.testing.purposes@okhdfcbank',
+      pn: 'Someone With A Very Long Name Indeed',
+      amount: 99999999,
+      note: 'Split Now Bengaluru Flat Indiranagar 2026',
+    })
     expect(() => encodeQr(l)).not.toThrow()
   })
 
@@ -44,7 +50,16 @@ describe('UPI links', () => {
 })
 
 describe('payOptions', () => {
-  const all = { upi: 'rohan@okaxis', phone: '+91 98765 43210', account: '50100123456789', ifsc: 'hdfc0001234', paypal: 'https://paypal.me/rohan', revolut: '@rohan', payid: 'r@x.com', bsb: '062-000' }
+  const all = {
+    upi: 'rohan@okaxis',
+    phone: '+91 98765 43210',
+    account: '50100123456789',
+    ifsc: 'hdfc0001234',
+    paypal: 'https://paypal.me/rohan',
+    revolut: '@rohan',
+    payid: 'r@x.com',
+    bsb: '062-000',
+  }
 
   it('puts UPI first for INR, with a QR, app links and the exact amount', () => {
     const o = payOptions(all, 50000, 'INR', 'Split Now: Goa Trip', 'Rohan')

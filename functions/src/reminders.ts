@@ -27,7 +27,15 @@ const GROUP_FIELDS = ['type', 'memberUids', 'members', 'currency', 'name', 'emoj
 const EXPENSE_FIELDS = ['amount', 'paidBy', 'splits', 'createdAt', 'deletedAt', 'requiresApproval', 'approvals', 'createdBy'] as const
 const SETTLEMENT_FIELDS = ['from', 'to', 'amount', 'createdAt', 'deletedAt'] as const
 
-interface GroupLite { type?: string; memberUids?: string[]; members?: Record<string, { uid?: string }>; currency?: string; name?: string; emoji?: string; archived?: boolean }
+interface GroupLite {
+  type?: string
+  memberUids?: string[]
+  members?: Record<string, { uid?: string }>
+  currency?: string
+  name?: string
+  emoji?: string
+  archived?: boolean
+}
 
 const eligible = (g: GroupLite | undefined): g is GroupLite =>
   !!g && g.type !== 'personal' && !g.archived && Array.isArray(g.memberUids) && g.memberUids.length >= 2
@@ -40,7 +48,10 @@ export const dailyReminders = onSchedule(
     const groupsCol = db().collection('groups')
     const stateCol = db().collection('reminderState')
     const [active, pending] = await Promise.all([
-      groupsCol.where('updatedAt', '>', now - ACTIVE_WINDOW_MS).select(...GROUP_FIELDS).get(),
+      groupsCol
+        .where('updatedAt', '>', now - ACTIVE_WINDOW_MS)
+        .select(...GROUP_FIELDS)
+        .get(),
       stateCol.where('hasCandidates', '==', true).select().get(),
     ])
     const groups = new Map<string, GroupLite>()
@@ -62,39 +73,56 @@ export const dailyReminders = onSchedule(
         stoppedEarly = true
         break
       }
-      await Promise.all(ids.slice(i, i + CHUNK).map(async (gid) => {
-        const g = groups.get(gid)
-        const ref = groupsCol.doc(gid)
-        const stateRef = stateCol.doc(gid)
-        if (!eligible(g)) {
-          // Nothing to watch any more (personal, archived, deleted, one member): drop the flag.
-          if (pending.docs.some((d) => d.id === gid)) await stateRef.set({ hasCandidates: false, candidates: {}, evaluatedAt: now }, { merge: true })
-          return
-        }
-        const [ex, st, stateSnap] = await Promise.all([
-          ref.collection('expenses').select(...EXPENSE_FIELDS).get(),
-          ref.collection('settlements').select(...SETTLEMENT_FIELDS).get(),
-          stateRef.get(),
-        ])
-        const state = stateSnap.data() as Partial<ReminderState> | undefined
-        const { targets, next } = evaluateReminders({
-          members: g.members ?? {},
-          currency: g.currency ?? 'INR',
-          expenses: ex.docs.map((d) => d.data() as ExpenseLite),
-          settlements: st.docs.map((d) => d.data() as SettlementLite),
-          now,
-          state,
-        })
-        evaluated++
-        for (const t of targets) {
-          const n = await sendToUser(t.uid, ['reminders'], reminderNote({ groupId: gid, groupName: g.name ?? 'your group', emoji: g.emoji, owed: t.owed, currency: g.currency ?? 'INR' }))
-          if (n > 0) { next.lastSent[t.uid] = now; sentTotal += n }
-        }
-        const changed = !state || next.hasCandidates !== !!state.hasCandidates
-          || JSON.stringify(next.candidates) !== JSON.stringify(state.candidates ?? {})
-          || JSON.stringify(next.lastSent) !== JSON.stringify(state.lastSent ?? {})
-        if (changed) await stateRef.set(next, { merge: true })
-      }))
+      await Promise.all(
+        ids.slice(i, i + CHUNK).map(async (gid) => {
+          const g = groups.get(gid)
+          const ref = groupsCol.doc(gid)
+          const stateRef = stateCol.doc(gid)
+          if (!eligible(g)) {
+            // Nothing to watch any more (personal, archived, deleted, one member): drop the flag.
+            if (pending.docs.some((d) => d.id === gid)) await stateRef.set({ hasCandidates: false, candidates: {}, evaluatedAt: now }, { merge: true })
+            return
+          }
+          const [ex, st, stateSnap] = await Promise.all([
+            ref
+              .collection('expenses')
+              .select(...EXPENSE_FIELDS)
+              .get(),
+            ref
+              .collection('settlements')
+              .select(...SETTLEMENT_FIELDS)
+              .get(),
+            stateRef.get(),
+          ])
+          const state = stateSnap.data() as Partial<ReminderState> | undefined
+          const { targets, next } = evaluateReminders({
+            members: g.members ?? {},
+            currency: g.currency ?? 'INR',
+            expenses: ex.docs.map((d) => d.data() as ExpenseLite),
+            settlements: st.docs.map((d) => d.data() as SettlementLite),
+            now,
+            state,
+          })
+          evaluated++
+          for (const t of targets) {
+            const n = await sendToUser(
+              t.uid,
+              ['reminders'],
+              reminderNote({ groupId: gid, groupName: g.name ?? 'your group', emoji: g.emoji, owed: t.owed, currency: g.currency ?? 'INR' }),
+            )
+            if (n > 0) {
+              next.lastSent[t.uid] = now
+              sentTotal += n
+            }
+          }
+          const changed =
+            !state ||
+            next.hasCandidates !== !!state.hasCandidates ||
+            JSON.stringify(next.candidates) !== JSON.stringify(state.candidates ?? {}) ||
+            JSON.stringify(next.lastSent) !== JSON.stringify(state.lastSent ?? {})
+          if (changed) await stateRef.set(next, { merge: true })
+        }),
+      )
     }
     logger.info('reminders done', { candidates: groups.size, evaluated, sent: sentTotal, ms: Date.now() - started, stoppedEarly })
   },

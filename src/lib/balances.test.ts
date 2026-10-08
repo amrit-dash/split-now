@@ -4,15 +4,23 @@ import { countable, isBalancedExpense, netBalances, pairwiseDebts, totalsByMembe
 import { simplifyDebts } from './simplify'
 
 const exp = (paidBy: Record<string, number>, splits: Record<string, number>): Expense => ({
-  id: Math.random().toString(), groupId: 'g', description: 'x', amount: Object.values(paidBy).reduce((a, b) => a + b, 0),
-  category: 'other', date: '2026-01-01', paidBy, splits, splitType: 'exact', splitInput: {}, createdBy: 'a', createdAt: 0, updatedAt: 0,
+  id: Math.random().toString(),
+  groupId: 'g',
+  description: 'x',
+  amount: Object.values(paidBy).reduce((a, b) => a + b, 0),
+  category: 'other',
+  date: '2026-01-01',
+  paidBy,
+  splits,
+  splitType: 'exact',
+  splitInput: {},
+  createdBy: 'a',
+  createdAt: 0,
+  updatedAt: 0,
 })
 
 describe('balances', () => {
-  const expenses = [
-    exp({ a: 3000 }, { a: 1000, b: 1000, c: 1000 }),
-    exp({ b: 1500 }, { a: 500, b: 500, c: 500 }),
-  ]
+  const expenses = [exp({ a: 3000 }, { a: 1000, b: 1000, c: 1000 }), exp({ b: 1500 }, { a: 500, b: 500, c: 500 })]
   it('net sums to zero', () => {
     const net = netBalances(expenses, [])
     expect(net).toEqual({ a: 1500, b: 0, c: -1500 })
@@ -80,7 +88,10 @@ describe('pairwise debts', () => {
     return out
   }
   let seed = 3
-  const rnd = () => { seed = (seed * 1103515245 + 12345) % 2 ** 31; return seed / 2 ** 31 }
+  const rnd = () => {
+    seed = (seed * 1103515245 + 12345) % 2 ** 31
+    return seed / 2 ** 31
+  }
   const random = (multiPayer: boolean) => {
     const expenses: Expense[] = []
     for (let i = 0; i < 200; i++) {
@@ -89,12 +100,20 @@ describe('pairwise debts', () => {
       if (!payers.length) continue
       const paidBy: Record<string, number> = {}
       let left = amount
-      payers.forEach((p, k) => { const v = k === payers.length - 1 ? left : Math.floor(rnd() * left); paidBy[p] = (paidBy[p] ?? 0) + v; left -= v })
+      payers.forEach((p, k) => {
+        const v = k === payers.length - 1 ? left : Math.floor(rnd() * left)
+        paidBy[p] = (paidBy[p] ?? 0) + v
+        left -= v
+      })
       const owers = members.filter(() => rnd() < 0.6)
       if (!owers.length) continue
       const splits: Record<string, number> = {}
       left = amount
-      owers.forEach((p, k) => { const v = k === owers.length - 1 ? left : Math.floor(rnd() * left); splits[p] = (splits[p] ?? 0) + v; left -= v })
+      owers.forEach((p, k) => {
+        const v = k === owers.length - 1 ? left : Math.floor(rnd() * left)
+        splits[p] = (splits[p] ?? 0) + v
+        left -= v
+      })
       expenses.push(exp(paidBy, splits))
     }
     return expenses
@@ -114,6 +133,9 @@ describe('pairwise debts', () => {
   })
   it('a single payer owed by everyone, including themselves, nets like before', () => {
     const e = exp({ a: 9000 }, { a: 3000, b: 3000, c: 3000 })
-    expect(pairwiseDebts([e], [])).toEqual([{ from: 'b', to: 'a', amount: 3000 }, { from: 'c', to: 'a', amount: 3000 }])
+    expect(pairwiseDebts([e], [])).toEqual([
+      { from: 'b', to: 'a', amount: 3000 },
+      { from: 'c', to: 'a', amount: 3000 },
+    ])
   })
 })

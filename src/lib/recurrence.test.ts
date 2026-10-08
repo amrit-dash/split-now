@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Expense, Recurrence } from '@/types'
-import {
-  daysInMonth, dueOccurrences, firstNextDate, makeOccurrence, MAX_CATCH_UP, nextAfter, nthOccurrence, occurrenceId, planCatchUp,
-} from './recurrence'
+import { daysInMonth, dueOccurrences, firstNextDate, makeOccurrence, MAX_CATCH_UP, nextAfter, nthOccurrence, occurrenceId, planCatchUp } from './recurrence'
 
 const tpl = (date: string, recurrence?: Recurrence) => ({ date, recurrence })
 
@@ -28,9 +26,7 @@ describe('nthOccurrence', () => {
 
   it('monthly clamps to the last day of short months without drifting', () => {
     const a = '2026-01-31'
-    expect([1, 2, 3, 4, 5].map((n) => nthOccurrence(a, 'monthly', n))).toEqual([
-      '2026-02-28', '2026-03-31', '2026-04-30', '2026-05-31', '2026-06-30',
-    ])
+    expect([1, 2, 3, 4, 5].map((n) => nthOccurrence(a, 'monthly', n))).toEqual(['2026-02-28', '2026-03-31', '2026-04-30', '2026-05-31', '2026-06-30'])
   })
 
   it('monthly uses Feb 29 in leap years', () => {
@@ -171,9 +167,21 @@ describe('dueOccurrences', () => {
 
 describe('occurrences', () => {
   const template: Expense = {
-    id: 'e_rent', groupId: 'g1', description: 'Rent', amount: 120000, category: 'rent', date: '2026-01-31',
-    paidBy: { a: 120000 }, splits: { a: 60000, b: 60000 }, splitType: 'equal', splitInput: { selected: ['a', 'b'] },
-    receiptUrl: 'https://example.com/r.jpg', receiptPath: 'receipts/g1/e_rent-abc.jpg', createdBy: 'u1', createdAt: 1, updatedAt: 1,
+    id: 'e_rent',
+    groupId: 'g1',
+    description: 'Rent',
+    amount: 120000,
+    category: 'rent',
+    date: '2026-01-31',
+    paidBy: { a: 120000 },
+    splits: { a: 60000, b: 60000 },
+    splitType: 'equal',
+    splitInput: { selected: ['a', 'b'] },
+    receiptUrl: 'https://example.com/r.jpg',
+    receiptPath: 'receipts/g1/e_rent-abc.jpg',
+    createdBy: 'u1',
+    createdAt: 1,
+    updatedAt: 1,
     recurrence: { freq: 'monthly', nextDate: '2026-02-28' },
   }
 

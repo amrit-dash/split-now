@@ -57,9 +57,15 @@ export function CaptureAlert() {
   const trip = groups?.find((g) => g.id === tripId)
   const several = waiting > 1
   return (
-    <div className="animate-[rise_0.45s_cubic-bezier(0.2,0.9,0.3,1)] fixed inset-x-3 bottom-[calc(var(--nav-h)+2rem)] z-30 mx-auto max-w-md" role="status" data-testid="capture-alert">
+    <div
+      className="animate-[rise_0.45s_cubic-bezier(0.2,0.9,0.3,1)] fixed inset-x-3 bottom-[calc(var(--nav-h)+2rem)] z-30 mx-auto max-w-md"
+      role="status"
+      data-testid="capture-alert"
+    >
       <div className="flex items-center gap-3 rounded-3xl bg-white p-3 shadow-2xl shadow-black/20 ring-1 ring-slate-900/10 dark:bg-ink-800 dark:ring-white/10">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-xl dark:bg-brand-900/40" aria-hidden>{several ? '📥' : trip?.emoji ?? '💸'}</span>
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-xl dark:bg-brand-900/40" aria-hidden>
+          {several ? '📥' : (trip?.emoji ?? '💸')}
+        </span>
         <div className="min-w-0 flex-1">
           {several ? (
             <>
@@ -68,15 +74,30 @@ export function CaptureAlert() {
             </>
           ) : (
             <>
-              <div className="truncate text-sm font-semibold">{formatMoney(current.amount, current.currency ?? profile.currency)} at {current.merchant}</div>
+              <div className="truncate text-sm font-semibold">
+                {formatMoney(current.amount, current.currency ?? profile.currency)} at {current.merchant}
+              </div>
               <div className="text-muted truncate text-xs">{trip ? `Add to ${trip.name}?` : 'Sort it into a group?'}</div>
             </>
           )}
         </div>
-        {several
-          ? <Link to="/inbox" onClick={() => setQueue([])} className="btn-primary btn-sm shrink-0"><Inbox size={16} aria-hidden /> Inbox</Link>
-          : <Link to={`/capture/${current.id}`} onClick={advance} className="btn-primary btn-sm shrink-0"><Plus size={16} aria-hidden /> {trip ? 'Add' : 'Sort'}</Link>}
-        <button type="button" onClick={several ? () => setQueue([]) : advance} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-500 dark:text-slate-400" aria-label="Dismiss"><X size={16} /></button>
+        {several ? (
+          <Link to="/inbox" onClick={() => setQueue([])} className="btn-primary btn-sm shrink-0">
+            <Inbox size={16} aria-hidden /> Inbox
+          </Link>
+        ) : (
+          <Link to={`/capture/${current.id}`} onClick={advance} className="btn-primary btn-sm shrink-0">
+            <Plus size={16} aria-hidden /> {trip ? 'Add' : 'Sort'}
+          </Link>
+        )}
+        <button
+          type="button"
+          onClick={several ? () => setQueue([]) : advance}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-500 dark:text-slate-400"
+          aria-label="Dismiss"
+        >
+          <X size={16} />
+        </button>
       </div>
     </div>
   )

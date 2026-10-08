@@ -10,10 +10,18 @@ import { arrayUnion, collection, doc, getDoc, getDocs, query, setDoc, updateDoc,
 let env: RulesTestEnvironment
 
 const group = {
-  id: 'g1', name: 'Trip', emoji: '🏝️', type: 'trip', currency: 'INR', simplify: true,
+  id: 'g1',
+  name: 'Trip',
+  emoji: '🏝️',
+  type: 'trip',
+  currency: 'INR',
+  simplify: true,
   memberUids: ['alice'],
   members: { alice: { name: 'Alice', uid: 'alice', color: '#000' }, p_bob: { name: 'Bob', color: '#111' } },
-  inviteCode: 'ABCD2345', createdBy: 'alice', createdAt: 1, updatedAt: 1,
+  inviteCode: 'ABCD2345',
+  createdBy: 'alice',
+  createdAt: 1,
+  updatedAt: 1,
 }
 
 beforeAll(async () => {
@@ -47,17 +55,50 @@ describe('anonymous guests', () => {
     await assertFails(getDocs(query(collection(guest(), 'groups'), where('memberUids', 'array-contains', 'guest'))))
   })
   it('cannot join or create groups', async () => {
-    await assertFails(updateDoc(doc(guest(), 'groups/g1'), {
-      memberUids: arrayUnion('guest'), 'members.p_bob': { name: 'Bob', uid: 'guest', color: '#111' }, joinCode: 'ABCD2345', joinMemberId: 'p_bob', updatedAt: 2,
-    }))
-    await assertFails(setDoc(doc(guest(), 'groups/g2'), { ...group, id: 'g2', memberUids: ['guest'], members: { guest: { name: 'G', uid: 'guest', color: '#000' } }, createdBy: 'guest' }))
-    await assertSucceeds(setDoc(doc(user(), 'groups/g2'), { ...group, id: 'g2', memberUids: ['guest'], members: { guest: { name: 'G', uid: 'guest', color: '#000' } }, createdBy: 'guest' }))
+    await assertFails(
+      updateDoc(doc(guest(), 'groups/g1'), {
+        memberUids: arrayUnion('guest'),
+        'members.p_bob': { name: 'Bob', uid: 'guest', color: '#111' },
+        joinCode: 'ABCD2345',
+        joinMemberId: 'p_bob',
+        updatedAt: 2,
+      }),
+    )
+    await assertFails(
+      setDoc(doc(guest(), 'groups/g2'), {
+        ...group,
+        id: 'g2',
+        memberUids: ['guest'],
+        members: { guest: { name: 'G', uid: 'guest', color: '#000' } },
+        createdBy: 'guest',
+      }),
+    )
+    await assertSucceeds(
+      setDoc(doc(user(), 'groups/g2'), {
+        ...group,
+        id: 'g2',
+        memberUids: ['guest'],
+        members: { guest: { name: 'G', uid: 'guest', color: '#000' } },
+        createdBy: 'guest',
+      }),
+    )
   })
   it('cannot create capture keys, or touch their own user document', async () => {
     await assertFails(setDoc(doc(guest(), 'captureTokens/gggggggggggggggggggggggggggg'), { uid: 'guest', createdAt: 1 }))
     await assertFails(getDoc(doc(guest(), 'users/guest')))
     await assertFails(setDoc(doc(guest(), 'users/guest'), { uid: 'guest', displayName: 'X', currency: 'INR' }))
-    await assertFails(setDoc(doc(guest(), 'users/guest/captures/c1'), { id: 'c1', amount: 100, merchant: 'x', date: '2026-10-07', source: 'manual', status: 'pending', createdAt: 1, updatedAt: 1 }))
+    await assertFails(
+      setDoc(doc(guest(), 'users/guest/captures/c1'), {
+        id: 'c1',
+        amount: 100,
+        merchant: 'x',
+        date: '2026-10-07',
+        source: 'manual',
+        status: 'pending',
+        createdAt: 1,
+        updatedAt: 1,
+      }),
+    )
     await assertFails(setDoc(doc(guest(), 'users/guest/pushTokens/t'), { token: 'x', createdAt: 1, lastSeen: 1 }))
     await assertFails(getDoc(doc(guest(), 'admins/guest')))
   })

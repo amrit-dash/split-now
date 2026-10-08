@@ -4,9 +4,31 @@ import { inviteCode, todayISO, uid } from '@/lib/id'
 import { inboxToDraft, newCaptureToken } from '@/lib/capture'
 import { downscale } from '@/lib/image'
 import { isExpired, TABLE_TTL_MS, type LiveTable } from '@/lib/table'
-import { disputeActivity, expenseEventActivity, expenseSaveActivity, importActivity, memberActivity, settlementActivity, type NewActivity } from '@/lib/activity'
+import {
+  disputeActivity,
+  expenseEventActivity,
+  expenseSaveActivity,
+  importActivity,
+  memberActivity,
+  settlementActivity,
+  type NewActivity,
+} from '@/lib/activity'
 import { prepareExpenseSave, prepareImportedSettlement, prepareOccurrence } from '@/lib/trust'
-import { activityCtxFor, byCreatedDesc, byDateDesc, changedSettings, compact, draftToCapture, errorChannel, placeholdersOf, type AuthUser, type CaptureToken, type Repo, type SnapMeta, type TablePatch } from './repo'
+import {
+  activityCtxFor,
+  byCreatedDesc,
+  byDateDesc,
+  changedSettings,
+  compact,
+  draftToCapture,
+  errorChannel,
+  placeholdersOf,
+  type AuthUser,
+  type CaptureToken,
+  type Repo,
+  type SnapMeta,
+  type TablePatch,
+} from './repo'
 import { seedDemo } from './seed'
 import { defaultCurrency } from '@/lib/locale'
 
@@ -43,7 +65,9 @@ function load(): State {
   try {
     const raw = localStorage.getItem(KEY)
     if (raw) return { captures: {}, captureTokens: {}, ...JSON.parse(raw) }
-  } catch { /* storage unavailable */ }
+  } catch {
+    /* storage unavailable */
+  }
   return { user: null, profiles: {}, groups: {}, expenses: {}, settlements: {}, captures: {}, captureTokens: {} }
 }
 
@@ -65,7 +89,11 @@ export function createLocalRepo(): Repo {
   const actor = () => me().uid
   const listeners = new Set<() => void>()
   const commit = () => {
-    try { localStorage.setItem(KEY, JSON.stringify(state)) } catch { /* ignore */ }
+    try {
+      localStorage.setItem(KEY, JSON.stringify(state))
+    } catch {
+      /* ignore */
+    }
     listeners.forEach((l) => l())
   }
   // Another tab changed the demo data (e.g. a second "phone" at a live table): reload and notify.
@@ -92,11 +120,16 @@ export function createLocalRepo(): Repo {
     const run = () => {
       const v = select()
       const s = JSON.stringify(v)
-      if (s !== last) { last = s; cb(v, META) }
+      if (s !== last) {
+        last = s
+        cb(v, META)
+      }
     }
     listeners.add(run)
     queueMicrotask(run)
-    return () => { listeners.delete(run) }
+    return () => {
+      listeners.delete(run)
+    }
   }
   const touch = (groupId: string) => {
     const g = state.groups[groupId]
@@ -121,22 +154,45 @@ export function createLocalRepo(): Repo {
       }
       commit()
     },
-    async signInWithGoogle() { throw new Error('Connect Firebase to enable Google sign-in') },
-    async signInWithEmail() { throw new Error('Connect Firebase to enable email sign-in') },
-    async signUpWithEmail() { throw new Error('Connect Firebase to enable email sign-in') },
-    async signOut() { state = { ...state, user: null }; commit() },
+    async signInWithGoogle() {
+      throw new Error('Connect Firebase to enable Google sign-in')
+    },
+    async signInWithEmail() {
+      throw new Error('Connect Firebase to enable email sign-in')
+    },
+    async signUpWithEmail() {
+      throw new Error('Connect Firebase to enable email sign-in')
+    },
+    async signOut() {
+      state = { ...state, user: null }
+      commit()
+    },
 
     watchProfile: (id, cb) => watch(() => state.profiles[id] ?? null, cb),
-    async saveProfile(p) { state.profiles[p.uid] = p; if (state.user?.uid === p.uid) state.user = { ...state.user, displayName: p.displayName }; commit() },
-    async getProfile(id) { return state.profiles[id] ?? null },
+    async saveProfile(p) {
+      state.profiles[p.uid] = p
+      if (state.user?.uid === p.uid) state.user = { ...state.user, displayName: p.displayName }
+      commit()
+    },
+    async getProfile(id) {
+      return state.profiles[id] ?? null
+    },
     async getMemberProfile(groupId, id) {
       const p = state.groups[groupId]?.memberUids.includes(id) ? state.profiles[id] : undefined
       return p ? { displayName: p.displayName, payment: p.payment ?? {}, photoURL: p.photoURL } : null
     },
-    async uploadAvatar(_uid, jpeg) { return blobToDataUrl(jpeg) },
+    async uploadAvatar(_uid, jpeg) {
+      return blobToDataUrl(jpeg)
+    },
 
     watchGroups: (userId, cb) =>
-      watch(() => Object.values(state.groups).filter((g) => g.memberUids.includes(userId)).sort((a, b) => b.updatedAt - a.updatedAt), cb),
+      watch(
+        () =>
+          Object.values(state.groups)
+            .filter((g) => g.memberUids.includes(userId))
+            .sort((a, b) => b.updatedAt - a.updatedAt),
+        cb,
+      ),
     watchGroup: (id, cb) => watch(() => state.groups[id] ?? null, cb),
     async createGroup(g) {
       const id = uid('g_')
@@ -176,7 +232,10 @@ export function createLocalRepo(): Repo {
       const { [memberId]: removed, ...members } = g.members
       if (removed) log(group.id, memberActivity('removed', memberId, removed.name, ctx(group.id), removed.uid === actor()))
       state.groups[group.id] = {
-        ...g, members, memberUids: g.memberUids.filter((u) => u !== removed?.uid), updatedAt: Date.now(),
+        ...g,
+        members,
+        memberUids: g.memberUids.filter((u) => u !== removed?.uid),
+        updatedAt: Date.now(),
       }
       commit()
     },
@@ -209,7 +268,13 @@ export function createLocalRepo(): Repo {
     },
 
     watchExpenses: (groupId, cb) =>
-      watch(() => Object.values(state.expenses).filter((e) => e.groupId === groupId).sort(byDateDesc), cb),
+      watch(
+        () =>
+          Object.values(state.expenses)
+            .filter((e) => e.groupId === groupId)
+            .sort(byDateDesc),
+        cb,
+      ),
     async saveExpense(e) {
       const prev = state.expenses[e.id]
       const g = state.groups[e.groupId]
@@ -240,7 +305,8 @@ export function createLocalRepo(): Repo {
       const e = state.expenses[id]
       if (!e) return
       const g = state.groups[groupId]
-      if (g && e.deletedBy !== actor() && g.createdBy !== actor()) return refuse('Deleting expense', 'only the person who deleted it, or the group creator, can delete it forever')
+      if (g && e.deletedBy !== actor() && g.createdBy !== actor())
+        return refuse('Deleting expense', 'only the person who deleted it, or the group creator, can delete it forever')
       delete state.expenses[id]
       for (const [k, c] of Object.entries(comments())) if (c.expenseId === id) delete comments()[k]
       log(groupId, expenseEventActivity('purged', e, ctx(groupId, e)))
@@ -274,22 +340,34 @@ export function createLocalRepo(): Repo {
     attachReceipt(_groupId, expenseId, file) {
       // Store a small data URL so the demo can show the receipt.
       downscale(file, 900, 0.7)
-        .then((blob) => new Promise<string>((res, rej) => {
-          const r = new FileReader()
-          r.onload = () => res(String(r.result))
-          r.onerror = rej
-          r.readAsDataURL(blob)
-        }))
+        .then(
+          (blob) =>
+            new Promise<string>((res, rej) => {
+              const r = new FileReader()
+              r.onload = () => res(String(r.result))
+              r.onerror = rej
+              r.readAsDataURL(blob)
+            }),
+        )
         .then((url) => {
           const e = state.expenses[expenseId]
-          if (e) { state.expenses[expenseId] = { ...e, receiptUrl: url }; commit() }
+          if (e) {
+            state.expenses[expenseId] = { ...e, receiptUrl: url }
+            commit()
+          }
         })
         .catch((e) => errors.emit('write', e, 'Receipt attach failed'))
       return true
     },
 
     watchSettlements: (groupId, cb) =>
-      watch(() => Object.values(state.settlements).filter((s) => s.groupId === groupId).sort(byDateDesc), cb),
+      watch(
+        () =>
+          Object.values(state.settlements)
+            .filter((s) => s.groupId === groupId)
+            .sort(byDateDesc),
+        cb,
+      ),
     async saveSettlement(s) {
       if (!state.settlements[s.id]) log(s.groupId, settlementActivity('created', s, ctx(s.groupId)))
       state.settlements[s.id] = s
@@ -317,16 +395,30 @@ export function createLocalRepo(): Repo {
       const s = state.settlements[id]
       if (!s) return
       const g = state.groups[groupId]
-      if (g && s.deletedBy !== actor() && g.createdBy !== actor()) return refuse('Deleting payment', 'only the person who deleted it, or the group creator, can delete it forever')
+      if (g && s.deletedBy !== actor() && g.createdBy !== actor())
+        return refuse('Deleting payment', 'only the person who deleted it, or the group creator, can delete it forever')
       delete state.settlements[id]
       log(groupId, settlementActivity('purged', s, ctx(groupId)))
       commit()
     },
 
     watchActivity: (groupId, cb, max = 50) =>
-      watch(() => Object.values(activity()).filter((a) => a.groupId === groupId).sort(byCreatedDesc).slice(0, max), cb),
+      watch(
+        () =>
+          Object.values(activity())
+            .filter((a) => a.groupId === groupId)
+            .sort(byCreatedDesc)
+            .slice(0, max),
+        cb,
+      ),
     watchHistory: (groupId, targetId, cb) =>
-      watch(() => Object.values(activity()).filter((a) => a.groupId === groupId && a.targetId === targetId).sort(byCreatedDesc), cb),
+      watch(
+        () =>
+          Object.values(activity())
+            .filter((a) => a.groupId === groupId && a.targetId === targetId)
+            .sort(byCreatedDesc),
+        cb,
+      ),
 
     async uploadReceipt(_groupId, file) {
       const blob = await downscale(file, 900, 0.7)
@@ -358,20 +450,37 @@ export function createLocalRepo(): Repo {
     },
 
     watchComments: (groupId, expenseId, cb) =>
-      watch(() => Object.values(comments())
-        .filter((c) => c.groupId === groupId && c.expenseId === expenseId)
-        .sort((a, b) => a.createdAt - b.createdAt)
-        .map(({ groupId: _g, expenseId: _e, ...c }) => c), cb),
+      watch(
+        () =>
+          Object.values(comments())
+            .filter((c) => c.groupId === groupId && c.expenseId === expenseId)
+            .sort((a, b) => a.createdAt - b.createdAt)
+            .map(({ groupId: _g, expenseId: _e, ...c }) => c),
+        cb,
+      ),
     async addComment(groupId, expenseId, c) {
       const id = uid('c_')
       comments()[id] = { ...c, id, groupId, expenseId }
       commit()
     },
-    async deleteComment(_g, _e, id) { delete comments()[id]; commit() },
+    async deleteComment(_g, _e, id) {
+      delete comments()[id]
+      commit()
+    },
 
     watchCaptures: (userId, cb) =>
-      watch(() => Object.values(state.captures).filter((c) => c.owner === userId).map(({ owner: _, ...c }) => c).sort(byCreatedDesc), cb),
-    async saveCapture(userId, c) { state.captures[c.id] = { ...c, owner: userId }; commit() },
+      watch(
+        () =>
+          Object.values(state.captures)
+            .filter((c) => c.owner === userId)
+            .map(({ owner: _, ...c }) => c)
+            .sort(byCreatedDesc),
+        cb,
+      ),
+    async saveCapture(userId, c) {
+      state.captures[c.id] = { ...c, owner: userId }
+      commit()
+    },
     async updateCapture(userId, id, patch) {
       const c = state.captures[id]
       if (!c || c.owner !== userId) return refuse('Updating capture', 'capture not found')
@@ -386,14 +495,29 @@ export function createLocalRepo(): Repo {
     },
 
     watchCaptureTokens: (userId, cb) =>
-      watch(() => Object.values(state.captureTokens).filter((t) => t.uid === userId).sort(byCreatedDesc), cb),
+      watch(
+        () =>
+          Object.values(state.captureTokens)
+            .filter((t) => t.uid === userId)
+            .sort(byCreatedDesc),
+        cb,
+      ),
     async createCaptureToken(userId, opts = {}) {
       const token = newCaptureToken()
-      state.captureTokens[token] = compact({ token, uid: userId, createdAt: Date.now(), groupId: opts.groupId || undefined, label: opts.label?.slice(0, 60) || undefined })
+      state.captureTokens[token] = compact({
+        token,
+        uid: userId,
+        createdAt: Date.now(),
+        groupId: opts.groupId || undefined,
+        label: opts.label?.slice(0, 60) || undefined,
+      })
       commit()
       return token
     },
-    async revokeCaptureToken(token) { delete state.captureTokens[token]; commit() },
+    async revokeCaptureToken(token) {
+      delete state.captureTokens[token]
+      commit()
+    },
     async submitToInbox(entry, id) {
       // Demo mode has no server inbox: validate the token and file the capture straight away.
       const t = state.captureTokens[entry.token]
@@ -404,7 +528,9 @@ export function createLocalRepo(): Repo {
       state.captures[cid] = { ...draftToCapture(draft, cid), owner: t.uid }
       commit()
     },
-    async claimInbox() { return 0 },
+    async claimInbox() {
+      return 0
+    },
 
     async createTable(t) {
       let code = inviteCode()
@@ -432,31 +558,65 @@ export function createLocalRepo(): Repo {
       tables()[code] = applyTablePatch(t, patch)
       commit()
     },
-    async deleteTable(code) { delete tables()[code]; commit() },
+    async deleteTable(code) {
+      delete tables()[code]
+      commit()
+    },
 
     // No shared rates in demo mode: src/lib/fx.ts calls Frankfurter directly.
-    async getFxRates() { return null },
-    async refreshFx() { return null },
-    async readReceiptAi() { return null },
-    async aiKey() { throw new Error('AI features aren’t available in the demo') },
-    async aiModels() { return [] },
-    async aiStatus() { return null },
-    watchAiState(_u, cb) { cb(null); return () => {} },
-    watchAppAi(cb) { cb(null); return () => {} },
-    async saveAppAi() { throw new Error('Not in the demo') },
-    async aiUsage() { return null },
+    async getFxRates() {
+      return null
+    },
+    async refreshFx() {
+      return null
+    },
+    async readReceiptAi() {
+      return null
+    },
+    async aiKey() {
+      throw new Error('AI features aren’t available in the demo')
+    },
+    async aiModels() {
+      return []
+    },
+    async aiStatus() {
+      return null
+    },
+    watchAiState(_u, cb) {
+      cb(null)
+      return () => {}
+    },
+    watchAppAi(cb) {
+      cb(null)
+      return () => {}
+    },
+    async saveAppAi() {
+      throw new Error('Not in the demo')
+    },
+    async aiUsage() {
+      return null
+    },
     // Demo: a fixed sample (no AI), dated relative to today, so the review flow can be tried.
     async readStatementAi(_images, today) {
       await new Promise((r) => setTimeout(r, 600))
-      const day = (n: number) => { const d = new Date(today + 'T00:00:00'); d.setDate(d.getDate() - n); return d.toLocaleDateString('en-CA') }
-      return { statement: { currency: 'INR', transactions: [
-        { date: day(1), name: 'SWIGGY INSTAMART', amount: 52100, direction: 'debit', kind: 'payment' },
-        { date: day(2), name: 'Axis Bank ••••2697 to UPI Lite', amount: 50000, direction: 'debit', kind: 'self_transfer' },
-        { date: day(2), name: 'Shree Panjurli Cafe', amount: 6000, direction: 'debit', kind: 'payment' },
-        { date: day(2), name: 'RAJA S', amount: 8200, direction: 'debit', kind: 'payment', note: 'Paid for aradhi' },
-        { date: day(2), name: 'Fresh Lemonade', amount: 7000, direction: 'debit', kind: 'payment' },
-        { date: day(3), name: 'Md Minahaj Khan', amount: 32200, direction: 'credit', kind: 'payment' },
-      ] } }
+      const day = (n: number) => {
+        const d = new Date(today + 'T00:00:00')
+        d.setDate(d.getDate() - n)
+        return d.toLocaleDateString('en-CA')
+      }
+      return {
+        statement: {
+          currency: 'INR',
+          transactions: [
+            { date: day(1), name: 'SWIGGY INSTAMART', amount: 52100, direction: 'debit', kind: 'payment' },
+            { date: day(2), name: 'Axis Bank ••••2697 to UPI Lite', amount: 50000, direction: 'debit', kind: 'self_transfer' },
+            { date: day(2), name: 'Shree Panjurli Cafe', amount: 6000, direction: 'debit', kind: 'payment' },
+            { date: day(2), name: 'RAJA S', amount: 8200, direction: 'debit', kind: 'payment', note: 'Paid for aradhi' },
+            { date: day(2), name: 'Fresh Lemonade', amount: 7000, direction: 'debit', kind: 'payment' },
+            { date: day(3), name: 'Md Minahaj Khan', amount: 32200, direction: 'credit', kind: 'payment' },
+          ],
+        },
+      }
     },
   }
   return repo
@@ -467,10 +627,16 @@ function applyTablePatch(t: LiveTable, patch: TablePatch): LiveTable {
   for (const k of ['merchant', 'extras', 'status', 'expenseId', 'closedGroupId'] as const) {
     if (patch[k] !== undefined) (next as unknown as Record<string, unknown>)[k] = patch[k]
   }
-  if (patch.groupId !== undefined) { if (patch.groupId === null) delete next.groupId; else next.groupId = patch.groupId }
+  if (patch.groupId !== undefined) {
+    if (patch.groupId === null) delete next.groupId
+    else next.groupId = patch.groupId
+  }
   for (const k of ['items', 'participants', 'claims'] as const) {
     const target = next[k] as Record<string, unknown>
-    for (const [id, v] of Object.entries(patch[k] ?? {})) { if (v === null) delete target[id]; else target[id] = v }
+    for (const [id, v] of Object.entries(patch[k] ?? {})) {
+      if (v === null) delete target[id]
+      else target[id] = v
+    }
   }
   return next
 }

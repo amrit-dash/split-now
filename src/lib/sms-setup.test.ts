@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { bodyTemplate, bodyTemplateText, checkScope, ddmmyy, interpretResponse, randomRef, sampleDate, sampleSms, tokenLabel, runShortcutUrl, webhookUrl } from './sms-setup'
+import {
+  bodyTemplate,
+  bodyTemplateText,
+  checkScope,
+  ddmmyy,
+  interpretResponse,
+  randomRef,
+  sampleDate,
+  sampleSms,
+  tokenLabel,
+  runShortcutUrl,
+  webhookUrl,
+} from './sms-setup'
 
 describe('webhook URL and body templates', () => {
   it('builds the /api/capture URL from the origin', () => {

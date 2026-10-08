@@ -11,10 +11,20 @@ import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, setDoc, updateDoc 
 let env: RulesTestEnvironment
 
 const group = {
-  id: 'g1', name: 'Goa', emoji: '🏖️', type: 'trip', currency: 'INR', simplify: true, startDate: '2026-10-05', endDate: '2026-10-10',
+  id: 'g1',
+  name: 'Goa',
+  emoji: '🏖️',
+  type: 'trip',
+  currency: 'INR',
+  simplify: true,
+  startDate: '2026-10-05',
+  endDate: '2026-10-10',
   memberUids: ['alice', 'bob'],
   members: { alice: { name: 'Alice', uid: 'alice', color: '#000' }, bob: { name: 'Bob', uid: 'bob', color: '#111' } },
-  inviteCode: 'ABC234', createdBy: 'alice', createdAt: 1, updatedAt: 1,
+  inviteCode: 'ABC234',
+  createdBy: 'alice',
+  createdAt: 1,
+  updatedAt: 1,
 }
 
 beforeAll(async () => {
@@ -34,8 +44,16 @@ const prefsPath = 'users/alice/settings/notifications'
 
 describe('capture settings in settings/notifications', () => {
   const full = {
-    captures: true, unsorted: false, expenses: true, settlements: true, reminders: true, outsideTrips: false,
-    capturePaused: false, minAmount: 10000, ignoreWords: ['SIP', 'rent'], updatedAt: 1,
+    captures: true,
+    unsorted: false,
+    expenses: true,
+    settlements: true,
+    reminders: true,
+    outsideTrips: false,
+    capturePaused: false,
+    minAmount: 10000,
+    ignoreWords: ['SIP', 'rent'],
+    updatedAt: 1,
   }
   it('owner can write the new keys (set, merge and update)', async () => {
     await assertSucceeds(setDoc(doc(db('alice'), prefsPath), full))

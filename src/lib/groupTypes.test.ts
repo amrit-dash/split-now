@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { ALL_GROUP_ICONS, GROUP_TYPES, SHARED_TYPES, firstEmoji, groupTypeInfo, groupTypeOf, guessGroup, iconsFor, isGroupType, parseGroupType } from './groupTypes'
+import {
+  ALL_GROUP_ICONS,
+  GROUP_TYPES,
+  SHARED_TYPES,
+  firstEmoji,
+  groupTypeInfo,
+  groupTypeOf,
+  guessGroup,
+  iconsFor,
+  isGroupType,
+  parseGroupType,
+} from './groupTypes'
 
 describe('guessGroup', () => {
   it('spots trips, with beach and mountain icons for known places', () => {

@@ -21,13 +21,22 @@ export type ReceiptAiResult = { receipt: ParsedReceipt | null; unavailable?: und
  */
 export function unavailableText(reason: AiUnavailableReason | undefined, opts: { limit?: number } = {}): string {
   switch (reason) {
-    case 'quota': return opts.limit ? `You’ve used today’s AI limit (${opts.limit}). Read on your phone for now.` : 'You’ve used today’s AI limit. Read on your phone for now.'
-    case 'bad_key': return 'Google rejected the Gemini key. Check it in Settings → AI features; reading on your phone instead.'
-    case 'server': return 'Gemini didn’t answer. Reading on your phone instead.'
-    case 'not_listed': return 'AI reading is limited to listed accounts. Reading on your phone instead.'
-    case 'not_configured': return 'AI reading isn’t set up for this app. Reading on your phone instead.'
-    case 'off': return 'AI reading is off. Reading on your phone instead.'
-    default: return 'AI reading isn’t available right now. Reading on your phone instead.'
+    case 'quota':
+      return opts.limit
+        ? `You’ve used today’s AI limit (${opts.limit}). Read on your phone for now.`
+        : 'You’ve used today’s AI limit. Read on your phone for now.'
+    case 'bad_key':
+      return 'Google rejected the Gemini key. Check it in Settings → AI features; reading on your phone instead.'
+    case 'server':
+      return 'Gemini didn’t answer. Reading on your phone instead.'
+    case 'not_listed':
+      return 'AI reading is limited to listed accounts. Reading on your phone instead.'
+    case 'not_configured':
+      return 'AI reading isn’t set up for this app. Reading on your phone instead.'
+    case 'off':
+      return 'AI reading is off. Reading on your phone instead.'
+    default:
+      return 'AI reading isn’t available right now. Reading on your phone instead.'
   }
 }
 
@@ -38,10 +47,18 @@ const PREF = 'splitit-ai-scan'
 
 /** On unless the user chose on-device only. */
 export function aiScanEnabled(): boolean {
-  try { return localStorage.getItem(PREF) !== 'off' } catch { return true }
+  try {
+    return localStorage.getItem(PREF) !== 'off'
+  } catch {
+    return true
+  }
 }
 export function setAiScan(on: boolean) {
-  try { localStorage.setItem(PREF, on ? 'on' : 'off') } catch { /* storage unavailable */ }
+  try {
+    localStorage.setItem(PREF, on ? 'on' : 'off')
+  } catch {
+    /* storage unavailable */
+  }
 }
 export const aiScanPossible = () => repo.mode === 'firebase'
 

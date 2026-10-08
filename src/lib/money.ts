@@ -62,9 +62,7 @@ export function parseMoney(input: string, currency = 'INR'): Cents {
   const d = minorDigits(currency)
   const raw = input.replace(/[^\d.,-]/g, '')
   // Thousands separators, Western (1,234,567) or Indian lakh/crore (12,34,567): drop them all.
-  const cleaned = /^-?\d{1,3}(?:,\d{2,3})*,\d{3}(?:\.\d*)?$/.test(raw)
-    ? raw.replace(/,/g, '')
-    : raw.replace(/,(?=\d{3}(\D|$))/g, '').replace(',', '.')
+  const cleaned = /^-?\d{1,3}(?:,\d{2,3})*,\d{3}(?:\.\d*)?$/.test(raw) ? raw.replace(/,/g, '') : raw.replace(/,(?=\d{3}(\D|$))/g, '').replace(',', '.')
   if (!cleaned || !new RegExp(`^-?\\d*(\\.\\d{0,${d}})?$`).test(cleaned)) return NaN
   const n = Number(cleaned)
   return Number.isFinite(n) ? Math.round(n * 10 ** d) : NaN

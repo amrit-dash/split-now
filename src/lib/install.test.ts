@@ -3,7 +3,12 @@ import { countVisit, dismissInstall, isInstallDismissed, shouldOfferInstall } fr
 
 const mem = () => {
   const m = new Map<string, string>()
-  return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => { m.set(k, v) } }
+  return {
+    getItem: (k: string) => m.get(k) ?? null,
+    setItem: (k: string, v: string) => {
+      m.set(k, v)
+    },
+  }
 }
 
 describe('shouldOfferInstall', () => {
@@ -27,7 +32,12 @@ describe('countVisit', () => {
   })
   it('survives missing or broken storage', () => {
     expect(countVisit(undefined, undefined)).toBe(1)
-    const broken = { getItem: () => { throw new Error('nope') }, setItem: () => {} }
+    const broken = {
+      getItem: () => {
+        throw new Error('nope')
+      },
+      setItem: () => {},
+    }
     expect(countVisit(broken, broken)).toBe(1)
   })
 })

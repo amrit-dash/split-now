@@ -13,7 +13,14 @@ export const OTHER = { light: '#9a9893', dark: '#6b6a64' }
 
 /** Fixed category → slot. Color follows the category, never its rank. Unlisted categories fold into "Other". */
 const CATEGORY_SLOT: Partial<Record<Category, number>> = {
-  food: 0, stay: 1, transport: 2, groceries: 3, entertainment: 4, rent: 5, travel: 6, utilities: 7,
+  food: 0,
+  stay: 1,
+  transport: 2,
+  groceries: 3,
+  entertainment: 4,
+  rent: 5,
+  travel: 6,
+  utilities: 7,
 }
 
 export function categoryChartColor(c: Category | 'other-fold', dark: boolean) {

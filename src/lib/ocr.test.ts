@@ -10,7 +10,11 @@ describe('OCR core selection', () => {
   })
 
   it('falls back to the basic core when validation itself fails', () => {
-    expect(coreVariant(() => { throw new Error('no WebAssembly') })).toBe('basic')
+    expect(
+      coreVariant(() => {
+        throw new Error('no WebAssembly')
+      }),
+    ).toBe('basic')
   })
 
   it('detects a real engine', () => {

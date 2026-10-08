@@ -19,7 +19,6 @@ import { formatMoney } from '@/lib/money'
 import type { AllPrefs } from '@/lib/push'
 import { buildExpense } from '@/lib/statement'
 import { PageHeader, Segmented } from '@/components/Misc'
-import { OfflinePill } from '@/components/OfflinePill'
 import { Sheet } from '@/components/Sheet'
 import { ListSkeleton } from '@/components/Skeleton'
 import { ActivityFeed } from '@/components/Trust'
@@ -45,7 +44,9 @@ export default function Inbox() {
   // The moment the user looks at Updates, everything up to now is read (the dots stay for this visit).
   const [seenBefore] = useState(box.seenAt)
   // biome-ignore lint/correctness/useExhaustiveDependencies: the length is the trigger (new entries while the tab is open are read too)
-  useEffect(() => { if (current === 'updates') markInboxSeen() }, [current, box.updates.length])
+  useEffect(() => {
+    if (current === 'updates') markInboxSeen()
+  }, [current, box.updates.length])
 
   const groups = useMemo(() => data?.map((d) => d.group) ?? null, [data])
   const groupsById = useMemo(() => Object.fromEntries((groups ?? []).map((g) => [g.id, g])), [groups])
@@ -53,19 +54,33 @@ export default function Inbox() {
   return (
     <div>
       <PageHeader title="Inbox" back />
-      <OfflinePill />
-      <Segmented<Tab> label="Inbox sections" testId="inbox-tabs" value={current} onChange={setTab} options={[
-        { value: 'sort', label: <TabLabel text="To sort" n={box.toSort} tone="rose" /> },
-        { value: 'updates', label: <TabLabel text="Updates" n={box.unread} tone="brand" /> },
-      ]} />
+      <Segmented<Tab>
+        label="Inbox sections"
+        testId="inbox-tabs"
+        value={current}
+        onChange={setTab}
+        options={[
+          { value: 'sort', label: <TabLabel text="To sort" n={box.toSort} tone="rose" /> },
+          { value: 'updates', label: <TabLabel text="Updates" n={box.unread} tone="brand" /> },
+        ]}
+      />
       <div className="mt-4">
-        {current === 'sort' && checking && <p className="text-muted mb-3 px-1 text-xs" role="status">Checking for new captured payments…</p>}
-        {current === 'sort'
-          ? <ToSort box={box} data={data} groups={groups} handled={all ? all.filter((c) => c.status !== 'pending') : null} />
-          : !data ? <ListSkeleton rows={4} />
-            : box.updates.length === 0
-              ? <Quiet emoji="🔔" title="No updates yet">When friends add expenses, settle up or add you to a group, it shows here.</Quiet>
-              : <ActivityFeed entries={box.updates} groups={groupsById} isNew={(a) => a.createdAt > seenBefore} />}
+        {current === 'sort' && checking && (
+          <p className="text-muted mb-3 px-1 text-xs" role="status">
+            Checking for new captured payments…
+          </p>
+        )}
+        {current === 'sort' ? (
+          <ToSort box={box} data={data} groups={groups} handled={all ? all.filter((c) => c.status !== 'pending') : null} />
+        ) : !data ? (
+          <ListSkeleton rows={4} />
+        ) : box.updates.length === 0 ? (
+          <Quiet emoji="🔔" title="No updates yet">
+            When friends add expenses, settle up or add you to a group, it shows here.
+          </Quiet>
+        ) : (
+          <ActivityFeed entries={box.updates} groups={groupsById} isNew={(a) => a.createdAt > seenBefore} />
+        )}
       </div>
     </div>
   )
@@ -77,15 +92,28 @@ function TabLabel({ text, n, tone }: { text: string; n: number; tone: 'rose' | '
     <span className="inline-flex items-center gap-1.5">
       {text}
       {n > 0 && (
-        <span className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-bold ${tone === 'rose' ? 'bg-rose-600 text-white' : 'bg-brand-600 text-white'}`}>
-          {n > 99 ? '99+' : n}<span className="sr-only"> {tone === 'rose' ? 'to sort' : 'unread'}</span>
+        <span
+          className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-bold ${tone === 'rose' ? 'bg-rose-600 text-white' : 'bg-brand-600 text-white'}`}
+        >
+          {n > 99 ? '99+' : n}
+          <span className="sr-only"> {tone === 'rose' ? 'to sort' : 'unread'}</span>
         </span>
       )}
     </span>
   )
 }
 
-function ToSort({ box, data, groups, handled }: { box: ReturnType<typeof useInbox>; data: GroupData[] | null; groups: Group[] | null; handled: Capture[] | null }) {
+function ToSort({
+  box,
+  data,
+  groups,
+  handled,
+}: {
+  box: ReturnType<typeof useInbox>
+  data: GroupData[] | null
+  groups: Group[] | null
+  handled: Capture[] | null
+}) {
   const { user } = useMe()
   const toast = useToast()
   const [prefs, setPrefs] = useState<AllPrefs | null>(null)
@@ -98,7 +126,14 @@ function ToSort({ box, data, groups, handled }: { box: ReturnType<typeof useInbo
   const setStatus = (c: Capture, status: Capture['status']) => repo.updateCapture(user.uid, c.id, { status })
   const notShared = (c: Capture) => {
     setStatus(c, 'dismissed').catch((e) => toast(errText(e), 'err'))
-    toast(`“${c.merchant}” marked not shared`, 'ok', { action: { label: 'Undo', run: () => { void setStatus(c, 'pending') } } })
+    toast(`“${c.merchant}” marked not shared`, 'ok', {
+      action: {
+        label: 'Undo',
+        run: () => {
+          void setStatus(c, 'pending')
+        },
+      },
+    })
   }
   // "Ignore Swiggy": adds the merchant to the capture filters (the webhook skips it from now on) and files this one as not shared.
   const ignore = (c: Capture) => {
@@ -109,7 +144,13 @@ function ToSort({ box, data, groups, handled }: { box: ReturnType<typeof useInbo
     saveCapturePrefs(user.uid, repo.mode, { ignoreWords: next }).catch((e) => toast(errText(e), 'err'))
     setStatus(c, 'dismissed').catch((e) => toast(errText(e), 'err'))
     toast(`Payments at ${c.merchant} will be ignored from now on`, 'ok', {
-      action: { label: 'Undo', run: () => { void saveCapturePrefs(user.uid, repo.mode, { ignoreWords: before }); void setStatus(c, 'pending') } },
+      action: {
+        label: 'Undo',
+        run: () => {
+          void saveCapturePrefs(user.uid, repo.mode, { ignoreWords: before })
+          void setStatus(c, 'pending')
+        },
+      },
     })
   }
 
@@ -117,9 +158,16 @@ function ToSort({ box, data, groups, handled }: { box: ReturnType<typeof useInbo
     <>
       {nothing && (
         <>
-          <Quiet emoji="✨" title="All sorted">Captured payments and expenses waiting for your OK show up here.</Quiet>
+          <Quiet emoji="✨" title="All sorted">
+            Captured payments and expenses waiting for your OK show up here.
+          </Quiet>
           <Link to="/settings/auto-capture" className="card mt-3 flex items-center gap-3 p-4" data-testid="inbox-setup">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300" aria-hidden><BookOpen size={20} /></span>
+            <span
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
+              aria-hidden
+            >
+              <BookOpen size={20} />
+            </span>
             <div className="min-w-0 flex-1">
               <div className="font-semibold">Set up auto-capture</div>
               <div className="text-muted text-xs">Bank &amp; UPI payments from your phone land here automatically</div>
@@ -130,26 +178,42 @@ function ToSort({ box, data, groups, handled }: { box: ReturnType<typeof useInbo
       )}
 
       {!data ? (
-        <Section title="Needs your OK"><ListSkeleton rows={1} /></Section>
-      ) : box.approvals.length > 0 && (
-        <Section title="Needs your OK" hint="Not counted in balances until you approve">
-          {box.approvals.map(({ e, d }) => <ApprovalRow key={e.id} e={e} d={d} />)}
+        <Section title="Needs your OK">
+          <ListSkeleton rows={1} />
         </Section>
+      ) : (
+        box.approvals.length > 0 && (
+          <Section title="Needs your OK" hint="Not counted in balances until you approve">
+            {box.approvals.map(({ e, d }) => (
+              <ApprovalRow key={e.id} e={e} d={d} />
+            ))}
+          </Section>
+        )
       )}
 
       {loadingCaptures ? (
-        <Section title="Captured payments"><ListSkeleton rows={2} /></Section>
-      ) : box.captures.length > 0 && (
-        <Section title="Captured payments" hint={`${box.captures.length} to sort`}>
-          {candidates[0] && (
-            <button type="button" className="btn-primary w-full" onClick={() => setBulk(candidates[0])} data-testid="inbox-bulk">
-              <Plus size={18} aria-hidden /> Add all {candidates[0].captures.length} to {candidates[0].group.emoji} {candidates[0].group.name}
-            </button>
-          )}
-          {box.captures.map((c) => (
-            <CaptureCard key={c.id} c={c} groups={groups} onNotShared={() => notShared(c)} onIgnore={isSmsSource(c.source) && prefs ? () => ignore(c) : undefined} />
-          ))}
+        <Section title="Captured payments">
+          <ListSkeleton rows={2} />
         </Section>
+      ) : (
+        box.captures.length > 0 && (
+          <Section title="Captured payments" hint={`${box.captures.length} to sort`}>
+            {candidates[0] && (
+              <button type="button" className="btn-primary w-full" onClick={() => setBulk(candidates[0])} data-testid="inbox-bulk">
+                <Plus size={18} aria-hidden /> Add all {candidates[0].captures.length} to {candidates[0].group.emoji} {candidates[0].group.name}
+              </button>
+            )}
+            {box.captures.map((c) => (
+              <CaptureCard
+                key={c.id}
+                c={c}
+                groups={groups}
+                onNotShared={() => notShared(c)}
+                onIgnore={isSmsSource(c.source) && prefs ? () => ignore(c) : undefined}
+              />
+            ))}
+          </Section>
+        )
       )}
 
       {handled && handled.length > 0 && <Handled list={handled} groups={groups ?? []} />}
@@ -165,13 +229,29 @@ function ApprovalRow({ e, d }: { e: Expense; d: GroupData }) {
   return (
     <div className="card flex items-center gap-3 p-3">
       <Link to={`/groups/${d.group.id}/expenses/${e.id}`} className="flex min-w-0 flex-1 items-center gap-3">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-sky-50 text-xl dark:bg-sky-500/10" aria-hidden>{CATEGORIES[e.category]?.emoji ?? '🧾'}</span>
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-sky-50 text-xl dark:bg-sky-500/10" aria-hidden>
+          {CATEGORIES[e.category]?.emoji ?? '🧾'}
+        </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate font-semibold">{e.description} · {formatMoney(e.amount, d.group.currency)}</span>
-          <span className="text-muted block truncate text-xs"><span aria-hidden>{d.group.emoji} </span>{d.group.name} · added by {by} · your share {formatMoney(d.me ? e.splits[d.me] ?? 0 : 0, d.group.currency)}</span>
+          <span className="block truncate font-semibold">
+            {e.description} · {formatMoney(e.amount, d.group.currency)}
+          </span>
+          <span className="text-muted block truncate text-xs">
+            <span aria-hidden>{d.group.emoji} </span>
+            {d.group.name} · added by {by} · your share {formatMoney(d.me ? (e.splits[d.me] ?? 0) : 0, d.group.currency)}
+          </span>
         </span>
       </Link>
-      <button type="button" className="btn-primary btn-sm shrink-0" onClick={() => repo.approveExpense(d.group, e).then(() => toast('Approved')).catch((err) => toast(errText(err), 'err'))}>
+      <button
+        type="button"
+        className="btn-primary btn-sm shrink-0"
+        onClick={() =>
+          repo
+            .approveExpense(d.group, e)
+            .then(() => toast('Approved'))
+            .catch((err) => toast(errText(err), 'err'))
+        }
+      >
         <Check size={16} aria-hidden /> Approve
       </button>
     </div>
@@ -187,29 +267,58 @@ function CaptureCard({ c, groups, onNotShared, onIgnore }: { c: Capture; groups:
   return (
     <div className="card overflow-hidden" data-testid="inbox-capture">
       <Link to={`/capture/${c.id}`} className="flex items-center gap-3 p-3 pb-2.5">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-xl dark:bg-ink-800" aria-hidden>{cat ? CATEGORIES[cat].emoji : isSmsSource(c.source) ? '📩' : '💳'}</span>
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-xl dark:bg-ink-800" aria-hidden>
+          {cat ? CATEGORIES[cat].emoji : isSmsSource(c.source) ? '📩' : '💳'}
+        </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate font-semibold">{c.merchant}</span>
-          <span className="text-muted block truncate text-xs">{formatDate(c.date)} · {source}{c.card ? ` · ${c.card}` : ''}</span>
+          <span className="text-muted block truncate text-xs">
+            {formatDate(c.date)} · {source}
+            {c.card ? ` · ${c.card}` : ''}
+          </span>
         </span>
         <span className="shrink-0 text-right font-bold tabular-nums">{formatMoney(c.amount, c.currency ?? profile.currency)}</span>
       </Link>
       <div className="flex items-center gap-1.5 border-t border-slate-100 px-3 py-2 dark:border-white/5">
         {bestGroup ? (
-          <Link to={`/add?group=${encodeURIComponent(bestGroup.id)}&capture=${encodeURIComponent(c.id)}`} data-testid="inbox-add"
-            className="flex min-h-10 min-w-0 flex-1 items-center gap-1.5 rounded-xl bg-brand-50 px-3 py-2 text-sm font-semibold text-brand-700 dark:bg-brand-900/30 dark:text-brand-200">
-            <span className="shrink-0" aria-hidden>{bestGroup.emoji}</span><span className="truncate">Add to {bestGroup.name}</span>
+          <Link
+            to={`/add?group=${encodeURIComponent(bestGroup.id)}&capture=${encodeURIComponent(c.id)}`}
+            data-testid="inbox-add"
+            className="flex min-h-10 min-w-0 flex-1 items-center gap-1.5 rounded-xl bg-brand-50 px-3 py-2 text-sm font-semibold text-brand-700 dark:bg-brand-900/30 dark:text-brand-200"
+          >
+            <span className="shrink-0" aria-hidden>
+              {bestGroup.emoji}
+            </span>
+            <span className="truncate">Add to {bestGroup.name}</span>
           </Link>
         ) : (
-          <Link to={`/capture/${c.id}`} className="flex min-h-10 min-w-0 flex-1 items-center gap-1.5 rounded-xl bg-brand-50 px-3 py-2 text-sm font-semibold text-brand-700 dark:bg-brand-900/30 dark:text-brand-200">
-            <FolderInput size={16} className="shrink-0" aria-hidden /><span className="truncate">Choose a group</span>
+          <Link
+            to={`/capture/${c.id}`}
+            className="flex min-h-10 min-w-0 flex-1 items-center gap-1.5 rounded-xl bg-brand-50 px-3 py-2 text-sm font-semibold text-brand-700 dark:bg-brand-900/30 dark:text-brand-200"
+          >
+            <FolderInput size={16} className="shrink-0" aria-hidden />
+            <span className="truncate">Choose a group</span>
           </Link>
         )}
-        <button type="button" onClick={onNotShared} title="Not shared" className="text-muted flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl px-2.5 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-ink-800" aria-label={`Mark ${c.merchant} as not shared`}>
-          <EyeOff size={16} aria-hidden /><span className="hidden min-[360px]:inline">Not shared</span>
+        <button
+          type="button"
+          onClick={onNotShared}
+          title="Not shared"
+          className="text-muted flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl px-2.5 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-ink-800"
+          aria-label={`Mark ${c.merchant} as not shared`}
+        >
+          <EyeOff size={16} aria-hidden />
+          <span className="hidden min-[360px]:inline">Not shared</span>
         </button>
         {onIgnore && (
-          <button type="button" onClick={onIgnore} title={`Ignore ${c.merchant} from now on`} className="text-muted flex h-10 w-10 shrink-0 items-center justify-center rounded-xl hover:bg-slate-100 dark:hover:bg-ink-800" aria-label={`Ignore payments at ${c.merchant} from now on`} data-testid="inbox-ignore">
+          <button
+            type="button"
+            onClick={onIgnore}
+            title={`Ignore ${c.merchant} from now on`}
+            className="text-muted flex h-10 w-10 shrink-0 items-center justify-center rounded-xl hover:bg-slate-100 dark:hover:bg-ink-800"
+            aria-label={`Ignore payments at ${c.merchant} from now on`}
+            data-testid="inbox-ignore"
+          >
             <Ban size={16} aria-hidden />
           </button>
         )}
@@ -226,7 +335,13 @@ function BulkSheet({ candidate, data, onClose }: { candidate: BulkCandidate<Grou
   const [busy, setBusy] = useState(false)
   const g = candidate.group
   const chosen = candidate.captures.filter((c) => ticked.has(c.id))
-  const toggle = (id: string) => setTicked((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
+  const toggle = (id: string) =>
+    setTicked((s) => {
+      const n = new Set(s)
+      if (n.has(id)) n.delete(id)
+      else n.add(id)
+      return n
+    })
 
   const add = async () => {
     if (!data || !chosen.length) return
@@ -237,7 +352,14 @@ function BulkSheet({ candidate, data, onClose }: { candidate: BulkCandidate<Grou
     try {
       const now = Date.now()
       for (const [i, c] of chosen.entries()) {
-        const e = buildExpense({ description: c.merchant, amount: c.amount, date: c.date, category: guessCategory(c.merchant) ?? 'other', notes: c.note, payer: me, members: order }, g, order, user.uid, uid('e_'), now + i)
+        const e = buildExpense(
+          { description: c.merchant, amount: c.amount, date: c.date, category: guessCategory(c.merchant) ?? 'other', notes: c.note, payer: me, members: order },
+          g,
+          order,
+          user.uid,
+          uid('e_'),
+          now + i,
+        )
         await repo.saveExpense(e)
         await repo.updateCapture(user.uid, c.id, { status: 'assigned', groupId: g.id, expenseId: e.id })
         saved.push({ capture: c, expense: e })
@@ -262,14 +384,27 @@ function BulkSheet({ candidate, data, onClose }: { candidate: BulkCandidate<Grou
 
   return (
     <Sheet open onClose={onClose} title={`Add to ${g.name}`} testId="inbox-bulk-sheet">
-      <p className="text-muted -mt-1 mb-3 text-sm">Each one becomes an expense you paid, split equally between everyone in {g.name}. You can edit any of them afterwards.</p>
+      <p className="text-muted -mt-1 mb-3 text-sm">
+        Each one becomes an expense you paid, split equally between everyone in {g.name}. You can edit any of them afterwards.
+      </p>
       <ul className="max-h-72 space-y-1 overflow-y-auto">
         {candidate.captures.map((c) => {
           const on = ticked.has(c.id)
           return (
             <li key={c.id}>
-              <button type="button" role="checkbox" aria-checked={on} onClick={() => toggle(c.id)} className="flex w-full items-center gap-3 rounded-2xl p-2 text-left">
-                <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border-2 ${on ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-400 dark:border-ink-700'}`} aria-hidden>{on && <Check size={14} strokeWidth={3} />}</span>
+              <button
+                type="button"
+                role="checkbox"
+                aria-checked={on}
+                onClick={() => toggle(c.id)}
+                className="flex w-full items-center gap-3 rounded-2xl p-2 text-left"
+              >
+                <span
+                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border-2 ${on ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-400 dark:border-ink-700'}`}
+                  aria-hidden
+                >
+                  {on && <Check size={14} strokeWidth={3} />}
+                </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{c.merchant}</span>
                   <span className="text-muted block text-xs">{formatDate(c.date)}</span>
@@ -281,7 +416,8 @@ function BulkSheet({ candidate, data, onClose }: { candidate: BulkCandidate<Grou
         })}
       </ul>
       <button type="button" className="btn-primary mt-4 w-full" onClick={add} disabled={busy || !chosen.length || !data} data-testid="inbox-bulk-add">
-        {busy ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <Plus size={18} aria-hidden />} Add {chosen.length} · {formatMoney(sumCaptures(chosen), g.currency)}
+        {busy ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <Plus size={18} aria-hidden />} Add {chosen.length} ·{' '}
+        {formatMoney(sumCaptures(chosen), g.currency)}
       </button>
     </Sheet>
   )
@@ -297,11 +433,24 @@ function Handled({ list, groups }: { list: Capture[]; groups: Group[] }) {
   // Deleting a handled capture is a tidy-up, not a decision: keep the object and offer Undo.
   const remove = (c: Capture) => {
     repo.deleteCapture(user.uid, c.id).catch((e) => toast(errText(e), 'err'))
-    toast(`Deleted “${c.merchant}”`, 'ok', { action: { label: 'Undo', run: () => { void repo.saveCapture(user.uid, c) } } })
+    toast(`Deleted “${c.merchant}”`, 'ok', {
+      action: {
+        label: 'Undo',
+        run: () => {
+          void repo.saveCapture(user.uid, c)
+        },
+      },
+    })
   }
   return (
     <section className="mt-6">
-      <button type="button" className="text-muted flex min-h-11 w-full items-center justify-between px-1 py-1 text-sm font-semibold" onClick={() => setOpen((o) => !o)} aria-expanded={open} data-testid="inbox-handled">
+      <button
+        type="button"
+        className="text-muted flex min-h-11 w-full items-center justify-between px-1 py-1 text-sm font-semibold"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        data-testid="inbox-handled"
+      >
         Recently handled · {list.length}
         <ChevronDown size={18} className={`transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
       </button>
@@ -313,26 +462,51 @@ function Handled({ list, groups }: { list: Capture[]; groups: Group[] }) {
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium">{c.merchant}</span>
                 <span className="text-muted block truncate text-xs">
-                  {formatMoney(c.amount, c.currency ?? profile.currency)} · {c.status === 'assigned' ? `Added to ${g ? `${g.emoji} ${g.name}` : 'a group'}` : 'Not shared'}
+                  {formatMoney(c.amount, c.currency ?? profile.currency)} ·{' '}
+                  {c.status === 'assigned' ? `Added to ${g ? `${g.emoji} ${g.name}` : 'a group'}` : 'Not shared'}
                 </span>
               </span>
             )
             return (
               <div key={c.id} className="flex items-center gap-1 px-3 py-2">
-                {c.status === 'assigned' && c.groupId && c.expenseId
-                  ? <Link to={`/groups/${c.groupId}/expenses/${c.expenseId}`} className="flex min-w-0 flex-1 items-center py-1">{body}</Link>
-                  : body}
-                {c.status === 'dismissed' && (
-                  <button type="button" className="flex h-11 w-11 items-center justify-center rounded-full text-brand-600 dark:text-brand-300" aria-label={`Move ${c.merchant} back to sort`} title="Back to sort"
-                    onClick={() => repo.updateCapture(user.uid, c.id, { status: 'pending' }).catch((e) => toast(errText(e), 'err'))}><RotateCcw size={16} /></button>
+                {c.status === 'assigned' && c.groupId && c.expenseId ? (
+                  <Link to={`/groups/${c.groupId}/expenses/${c.expenseId}`} className="flex min-w-0 flex-1 items-center py-1">
+                    {body}
+                  </Link>
+                ) : (
+                  body
                 )}
-                <button type="button" className="flex h-11 w-11 items-center justify-center rounded-full text-slate-500 hover:text-rose-600 dark:text-slate-400" aria-label={`Delete ${c.merchant}`} title="Delete"
-                  onClick={() => remove(c)}><Trash2 size={16} /></button>
+                {c.status === 'dismissed' && (
+                  <button
+                    type="button"
+                    className="flex h-11 w-11 items-center justify-center rounded-full text-brand-600 dark:text-brand-300"
+                    aria-label={`Move ${c.merchant} back to sort`}
+                    title="Back to sort"
+                    onClick={() => repo.updateCapture(user.uid, c.id, { status: 'pending' }).catch((e) => toast(errText(e), 'err'))}
+                  >
+                    <RotateCcw size={16} />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="flex h-11 w-11 items-center justify-center rounded-full text-slate-500 hover:text-rose-600 dark:text-slate-400"
+                  aria-label={`Delete ${c.merchant}`}
+                  title="Delete"
+                  onClick={() => remove(c)}
+                >
+                  <Trash2 size={16} />
+                </button>
               </div>
             )
           })}
           {!showAll && list.length > HANDLED_FIRST && (
-            <button type="button" className="min-h-11 w-full px-3 py-2 text-sm font-semibold text-brand-600 dark:text-brand-300" onClick={() => setShowAll(true)}>Show all {list.length}</button>
+            <button
+              type="button"
+              className="min-h-11 w-full px-3 py-2 text-sm font-semibold text-brand-600 dark:text-brand-300"
+              onClick={() => setShowAll(true)}
+            >
+              Show all {list.length}
+            </button>
           )}
         </div>
       )}
@@ -355,7 +529,9 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
 function Quiet({ emoji, title, children }: { emoji: string; title: string; children: React.ReactNode }) {
   return (
     <div className="card flex flex-col items-center px-6 py-8 text-center">
-      <div className="mb-2 text-4xl" aria-hidden>{emoji}</div>
+      <div className="mb-2 text-4xl" aria-hidden>
+        {emoji}
+      </div>
       <h2 className="font-bold">{title}</h2>
       <p className="text-muted mt-1 text-sm">{children}</p>
     </div>
