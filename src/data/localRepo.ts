@@ -424,6 +424,20 @@ export function createLocalRepo(): Repo {
     // No shared rates in demo mode: src/lib/fx.ts calls Frankfurter directly.
     async getFxRates() { return null },
     async refreshFx() { return null },
+    async readReceiptAi() { return null },
+    // Demo: a fixed sample (no AI), dated relative to today, so the review flow can be tried.
+    async readStatementAi(_images, today) {
+      await new Promise((r) => setTimeout(r, 600))
+      const day = (n: number) => { const d = new Date(today + 'T00:00:00'); d.setDate(d.getDate() - n); return d.toLocaleDateString('en-CA') }
+      return { statement: { currency: 'INR', transactions: [
+        { date: day(1), name: 'SWIGGY INSTAMART', amount: 52100, direction: 'debit', kind: 'payment' },
+        { date: day(2), name: 'Axis Bank ••••2697 to UPI Lite', amount: 50000, direction: 'debit', kind: 'self_transfer' },
+        { date: day(2), name: 'Shree Panjurli Cafe', amount: 6000, direction: 'debit', kind: 'payment' },
+        { date: day(2), name: 'RAJA S', amount: 8200, direction: 'debit', kind: 'payment', note: 'Paid for aradhi' },
+        { date: day(2), name: 'Fresh Lemonade', amount: 7000, direction: 'debit', kind: 'payment' },
+        { date: day(3), name: 'Md Minahaj Khan', amount: 32200, direction: 'credit', kind: 'payment' },
+      ] } }
+    },
   }
   return repo
 }

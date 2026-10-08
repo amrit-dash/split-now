@@ -10,13 +10,13 @@ const TOKEN = 'abcdefghijkmnpqrstuvwxyz2345'
 
 describe('capture prefs', () => {
   it('defaults keep today’s behaviour', () => {
-    expect(resolveCapturePrefs(undefined)).toEqual({ outsideTrips: false, capturePaused: false, minAmount: 0, ignoreWords: [] })
+    expect(resolveCapturePrefs(undefined)).toEqual({ outsideTrips: false, capturePaused: false, minAmount: 0, ignoreWords: [], aiSms: true, aiImages: true })
   })
   it('reads stored values and sanitises bad ones', () => {
     expect(resolveCapturePrefs({ outsideTrips: true, capturePaused: true, minAmount: 10000, ignoreWords: [' SIP ', 'sip', 'Rent', 7, ''] }))
-      .toEqual({ outsideTrips: true, capturePaused: true, minAmount: 10000, ignoreWords: ['SIP', 'Rent'] })
+      .toEqual({ outsideTrips: true, capturePaused: true, minAmount: 10000, ignoreWords: ['SIP', 'Rent'], aiSms: true, aiImages: true })
     expect(resolveCapturePrefs({ capturePaused: 'yes', minAmount: -5, ignoreWords: 'SIP' }))
-      .toEqual({ outsideTrips: false, capturePaused: false, minAmount: 0, ignoreWords: [] })
+      .toEqual({ outsideTrips: false, capturePaused: false, minAmount: 0, ignoreWords: [], aiSms: true, aiImages: true })
     expect(resolveCapturePrefs({ minAmount: 1e12 }).minAmount).toBe(10_000_000)
   })
   it('the push prefs are unaffected by the capture keys', () => {

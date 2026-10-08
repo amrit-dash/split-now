@@ -172,3 +172,17 @@ html[data-update-ready] .install-banner { display: none; }
 @utility animate-bubble-a { animation: bubble-a 11s ease-in-out infinite; will-change: transform; }
 @utility animate-bubble-b { animation: bubble-b 14s ease-in-out infinite; will-change: transform; }
 @utility animate-bubble-c { animation: bubble-c 9s ease-in-out infinite; will-change: transform; }
+
+/* Progress bar with no known percentage (waiting on the AI reader). */
+@keyframes indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+
+/* Update banner: rises from behind the tab bar, or drops in from the top on screens without one. */
+@keyframes rise { from { transform: translateY(110%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes drop { from { transform: translateY(-120%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+/* Horizontally scrolling rows (chips, split types, filters) scroll by touch without a visible bar. */
+.overflow-x-auto { scrollbar-width: none; }
+.overflow-x-auto::-webkit-scrollbar { display: none; }

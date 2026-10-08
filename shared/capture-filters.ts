@@ -20,9 +20,13 @@ export interface CaptureFilterPrefs {
   minAmount: number
   /** case-insensitive words / phrases; a debit SMS (or merchant) containing one is ignored */
   ignoreWords: string[]
+  /** let Gemini read bank SMS the built-in parser can't (server-side fallback) */
+  aiSms: boolean
+  /** read bill photos and statement screenshots with Gemini (the app falls back to on-device OCR) */
+  aiImages: boolean
 }
 
-export const DEFAULT_FILTERS: CaptureFilterPrefs = { capturePaused: false, minAmount: 0, ignoreWords: [] }
+export const DEFAULT_FILTERS: CaptureFilterPrefs = { capturePaused: false, minAmount: 0, ignoreWords: [], aiSms: true, aiImages: true }
 
 /** Trim, collapse spaces, drop empties and duplicates (case-insensitive), cap count and length. */
 export function normaliseIgnoreWords(words: unknown): string[] {
@@ -57,6 +61,8 @@ export function resolveFilters(raw: unknown): CaptureFilterPrefs {
     capturePaused: r.capturePaused === true,
     minAmount: normaliseMinAmount(r.minAmount),
     ignoreWords: normaliseIgnoreWords(r.ignoreWords),
+    aiSms: r.aiSms !== false,
+    aiImages: r.aiImages !== false,
   }
 }
 

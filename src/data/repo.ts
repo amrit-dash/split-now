@@ -3,6 +3,7 @@ import type { CaptureDraft, InboxDoc } from '@/lib/capture'
 import type { ItemId, LiveTable, NewTable, ParticipantId, TableExtras, TableItem, TableParticipant, TableStatus } from '@/lib/table'
 import type { ActivityCtx } from '@/lib/activity'
 import type { FxRatesDoc, FxRefreshResult } from '@/lib/fx'
+import type { ParsedReceipt } from '@/lib/ocr-parse'
 import { defaultCurrency } from '@/lib/locale'
 
 export type Unsub = () => void
@@ -207,7 +208,30 @@ export interface Repo {
    * past `date`. Throttled server-side. null on failure, when signed out, or in demo mode.
    */
   refreshFx(date?: string): Promise<FxRefreshResult | null>
+
+  // ---- AI (parseReceiptAi callable, Gemini) ----
+  /**
+   * Read a bill photo (base64, already downscaled) with Gemini. `{ receipt: null }` means it isn't
+   * a bill; null means AI reading is unavailable (offline, demo mode, quota, server error).
+   */
+  readReceiptAi(image: string, mimeType: string): Promise<{ receipt: ParsedReceipt | null } | null>
+  /**
+   * Read payment-app / bank statement screenshots into transactions (amounts in hundredths).
+   * `{ statement: null }`: no transactions found; null: unavailable. Demo mode returns a sample.
+   */
+  readStatementAi(images: Array<{ image: string; mimeType: string }>, today: string): Promise<{ statement: AiStatement | null } | null>
 }
+
+export interface StatementTxn {
+  date: string
+  name: string
+  /** hundredths of the statement currency */
+  amount: number
+  direction: 'debit' | 'credit'
+  kind: 'payment' | 'self_transfer' | 'refund' | 'other'
+  note?: string
+}
+export interface AiStatement { currency?: string; transactions: StatementTxn[] }
 
 export interface TablePatch {
   merchant?: string

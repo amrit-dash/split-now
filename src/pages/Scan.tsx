@@ -1,26 +1,31 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Camera, ImageUp, QrCode, Receipt, Send } from 'lucide-react'
+import { Camera, ImageUp, ListChecks, QrCode, Receipt, Send } from 'lucide-react'
 import { useAllGroupData } from '@/hooks/data'
 import { useOcr } from '@/hooks/useOcr'
+import { useReceiptReader } from '@/hooks/useReceiptReader'
 import { defaultCurrency } from '@/lib/locale'
 import { formatMoney, fromHundredths } from '@/lib/money'
 import { matchMember, parsePaymentScreenshot, parseReceipt, type ParsedPayment, type ParsedReceipt } from '@/lib/ocr-parse'
 import { pending } from '@/lib/pending'
 import { GroupIcon } from '@/components/GroupIcon'
+import { AiScanToggle } from '@/components/AiScanToggle'
+import { StatementImport } from '@/components/StatementImport'
 import { Loading, PageHeader, Segmented } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
 
-type Mode = 'receipt' | 'payment'
+type Mode = 'receipt' | 'statement' | 'payment'
 
 export default function Scan() {
   const data = useAllGroupData()
   const nav = useNavigate()
   const toast = useToast()
   const ocr = useOcr()
+  const reader = useReceiptReader()
   const camRef = useRef<HTMLInputElement>(null)
   const libRef = useRef<HTMLInputElement>(null)
-  const [mode, setMode] = useState<Mode>('receipt')
+  const [params0] = useSearchParams()
+  const [mode, setMode] = useState<Mode>(() => (['receipt', 'statement', 'payment'] as const).find((m) => m === params0.get('mode')) ?? 'receipt')
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string>()
   const [text, setText] = useState('')
@@ -46,6 +51,7 @@ export default function Scan() {
 
   const switchMode = (m: Mode) => {
     setMode(m)
+    if (m === 'statement') return
     // Keep the photo and re-read the text we already have instead of making the user pick it again.
     if (text && !ocr.busy) { setReceipt(m === 'receipt' ? parseReceipt(text) : null); setPayment(m === 'payment' ? parsePaymentScreenshot(text) : null) }
     else { setReceipt(null); setPayment(null); setFile(null); setPreview(undefined); setText('') }
@@ -54,10 +60,15 @@ export default function Scan() {
   const onFile = async (f: File) => {
     setFile(f); setPreview(URL.createObjectURL(f)); setReceipt(null); setPayment(null)
     try {
+      if (mode === 'receipt') {
+        const r = await reader.read(f)
+        setText('')
+        setReceipt(r.parsed)
+        return
+      }
       const t = await ocr.run(f)
       setText(t)
-      if (mode === 'receipt') setReceipt(parseReceipt(t))
-      else setPayment(parsePaymentScreenshot(t))
+      setPayment(parsePaymentScreenshot(t))
     } catch (e) {
       toast('Could not read image: ' + (e as Error).message, 'err')
     }
@@ -90,17 +101,21 @@ export default function Scan() {
       <PageHeader title="Smart scan" back subtitle="Read receipts and payment screenshots on your device" />
       <Segmented<Mode> value={mode} onChange={switchMode} options={[
         { value: 'receipt', label: <span className="inline-flex items-center gap-1.5"><Receipt size={16} /> Receipt</span> },
-        { value: 'payment', label: <span className="inline-flex items-center gap-1.5"><Send size={16} /> Payment screenshot</span> },
+        { value: 'statement', label: <span className="inline-flex items-center gap-1.5"><ListChecks size={16} /> Statement</span> },
+        { value: 'payment', label: <span className="inline-flex items-center gap-1.5"><Send size={16} /> Payment</span> },
       ]} />
+      {mode === 'statement' ? <StatementImport /> : <>
 
       <div className="card mt-4 overflow-hidden">
         {preview ? (
           <div className="relative">
             <img src={preview} alt="Selected" className="max-h-80 w-full object-contain bg-slate-100 dark:bg-ink-800" />
-            {ocr.busy && (
+            {(ocr.busy || reader.busy) && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white backdrop-blur-sm">
-                <div className="text-sm font-semibold">Reading… {Math.round(ocr.progress * 100)}%</div>
-                <div className="mt-2 h-1.5 w-40 overflow-hidden rounded-full bg-white/20"><div className="h-full bg-white transition-all" style={{ width: `${ocr.progress * 100}%` }} /></div>
+                <div className="text-sm font-semibold">{reader.busy ? reader.label : `Reading… ${Math.round(ocr.progress * 100)}%`}</div>
+                <div className="mt-2 h-1.5 w-40 overflow-hidden rounded-full bg-white/20">
+                  {reader.stage === 'ai' ? <div className="h-full w-1/3 animate-[indeterminate_1.2s_ease-in-out_infinite] rounded-full bg-white" /> : <div className="h-full bg-white transition-all" style={{ width: `${(reader.busy ? reader.progress : ocr.progress) * 100}%` }} />}
+                </div>
               </div>
             )}
           </div>
@@ -112,9 +127,10 @@ export default function Scan() {
           </div>
         )}
         <div className="grid grid-cols-2 gap-2 p-3">
-          <button className="btn-primary" onClick={() => camRef.current?.click()} disabled={ocr.busy}><Camera size={18} /> Camera</button>
-          <button className="btn-secondary" onClick={() => libRef.current?.click()} disabled={ocr.busy}><ImageUp size={18} /> Photos</button>
+          <button className="btn-primary" onClick={() => camRef.current?.click()} disabled={ocr.busy || reader.busy}><Camera size={18} /> Camera</button>
+          <button className="btn-secondary" onClick={() => libRef.current?.click()} disabled={ocr.busy || reader.busy}><ImageUp size={18} /> Photos</button>
         </div>
+        {mode === 'receipt' && <AiScanToggle className="px-4 pb-3" />}
         <input ref={camRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onFile(f) }} />
         <input ref={libRef} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onFile(f) }} />
       </div>
@@ -168,7 +184,8 @@ export default function Scan() {
           </div>
         </div>
       )}
-      <p className="mt-6 text-center text-xs text-slate-400">Images are processed on your device. Nothing is uploaded until you save an expense.</p>
+      <p className="mt-6 text-center text-xs text-slate-400">Nothing is saved until you add an expense.</p>
+      </>}
     </div>
   )
 }
