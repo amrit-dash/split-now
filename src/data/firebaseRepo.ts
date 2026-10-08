@@ -20,7 +20,7 @@ import { TABLE_TTL_MS, type LiveTable } from '@/lib/table'
 import { disputeActivity, expenseEventActivity, expenseSaveActivity, importActivity, memberActivity, settlementActivity, type NewActivity } from '@/lib/activity'
 import { prepareExpenseSave, prepareImportedSettlement, prepareOccurrence } from '@/lib/trust'
 import {
-  activityCtxFor, byCreatedDesc, byDateDesc, changedSettings, compact, draftToCapture, errorChannel, placeholdersOf, storagePathFromUrl,
+  activityCtxFor, byCreatedDesc, byDateDesc, changedSettings, compact, draftToCapture, errorChannel, groupDeleteBlocker, placeholdersOf, storagePathFromUrl,
   memberProfileOf, type CaptureToken, type GroupSettings, type InviteInfo, type MemberProfile, type Repo, type TablePatch,
 } from './repo'
 import type { Functions } from 'firebase/functions'
@@ -366,45 +366,65 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       fire(batch, `Removing ${m?.name ?? 'member'}`)
     },
     async deleteGroup(id) {
+      // Needs the server: it lists every sub-collection first, and a half-applied offline delete
+      // would come back (rolled back) later with no explanation.
+      if (!online()) throw new Error('You’re offline. Connect to the internet to delete a group.')
       const s = await getDoc(groupRef(id))
-      const g = s.exists() ? (s.data() as Group) : null
-      const refs: DocumentReference[] = []
-      const commentRefs: DocumentReference[] = []
-      const receipts: string[] = []
-      for (const sub of ['expenses', 'settlements', 'profiles']) {
-        const docs = await getDocs(collection(db, 'groups', id, sub))
-        for (const d of docs.docs) {
-          refs.push(d.ref)
-          if (sub === 'expenses') {
-            const e = d.data() as Expense
-            const p = e.receiptPath ?? storagePathFromUrl(e.receiptUrl)
-            if (p) receipts.push(p)
-            ;(await getDocs(commentsCol(id, d.id)).catch(() => null))?.forEach((c) => commentRefs.push(c.ref))
-          }
-        }
+      if (!s.exists()) return // already gone
+      const g = { ...(s.data() as Group), id }
+      const blocker = groupDeleteBlocker(g, me())
+      if (blocker) throw new Error(blocker)
+      const failed = (e: unknown): never => {
+        const denied = (e as { code?: string })?.code === 'permission-denied'
+        throw new Error(denied ? `Couldn’t delete “${g.name}”: you don’t have permission.` : `Couldn’t delete “${g.name}”: ${(e as Error)?.message ?? e}`)
       }
-      // Comments after their expenses: rules let a member delete others' comments only once
-      // the parent expense is gone (batches commit in order). Still before the group goes.
-      refs.push(...commentRefs)
+      // Waits for the server's answer, so a refusal reaches the caller. On a connection too slow
+      // to answer in time it carries on (writes are sent in order) and a late refusal is a toast.
+      const ack = (p: Promise<void>) => {
+        let waited = false
+        p.catch((e) => { if (waited) errors.emit('write', e, 'Deleting group') })
+        return Promise.race([p, sleep(20_000).then(() => { waited = true })])
+      }
+      const [expenses, settlements, profiles, activity] = await Promise.all(
+        ['expenses', 'settlements', 'profiles', 'activity'].map((sub) => getDocs(collection(db, 'groups', id, sub))),
+      ).catch(failed)
+      const receipts: string[] = []
+      for (const d of expenses.docs) {
+        const e = d.data() as Expense
+        const p = e.receiptPath ?? storagePathFromUrl(e.receiptUrl)
+        if (p) receipts.push(p)
+      }
+      // Comment threads, a few expenses at a time (one at a time took minutes for a big import).
+      const commentRefs: DocumentReference[] = []
+      const queue = [...expenses.docs]
+      await Promise.all(Array.from({ length: 16 }, async () => {
+        for (let d = queue.shift(); d; d = queue.shift()) {
+          ;(await getDocs(commentsCol(id, d.id)).catch(() => null))?.forEach((c) => commentRefs.push(c.ref))
+        }
+      }))
+      const invite = g.type !== 'personal' && g.inviteCode ? await getDoc(inviteRef(g.inviteCode)).catch(() => null) : null
       // Receipts first (storage rules check membership, which ends with the group). Best effort.
-      if (receipts.length && online()) {
+      if (receipts.length) {
         await Promise.race([Promise.allSettled(receipts.map((p) => deleteObject(ref(storage, p)))), sleep(5000)])
       }
-      // Sub-collection docs in ≤450-write batches; the group and its invite go in the last one,
-      // so the earlier batches still pass the membership checks.
+      // Sub-collection docs (comments after their expenses) in ≤450-write batches, all confirmed by
+      // the server before the last batch removes the group: they need the membership checks.
+      const refs = [...expenses.docs, ...settlements.docs, ...profiles.docs].map((d) => d.ref).concat(commentRefs)
+      const batches: Promise<void>[] = []
       for (let i = 0; i < refs.length; i += BATCH_LIMIT) {
         const batch = writeBatch(db)
         refs.slice(i, i + BATCH_LIMIT).forEach((r) => batch.delete(r))
-        fire(batch, 'Deleting group')
+        batches.push(batch.commit())
       }
+      await ack(Promise.all(batches).then(() => undefined)).catch(failed)
       // The activity log is append-only: rules let the creator delete it only in the batch
       // that deletes the group itself. (Entries beyond one batch are left orphaned and unreadable.)
-      const activity = (await getDocs(activityCol(id)).catch(() => null))?.docs.map((d) => d.ref) ?? []
       const last = writeBatch(db)
-      activity.slice(0, BATCH_LIMIT - 2).forEach((r) => last.delete(r))
-      if (g?.inviteCode && g.type !== 'personal') last.delete(inviteRef(g.inviteCode))
+      activity.docs.slice(0, BATCH_LIMIT - 2).forEach((d) => last.delete(d.ref))
+      // Only an invite that exists: deleting a missing one is refused, and would fail the batch.
+      if (invite?.exists() && invite.data().groupId === id) last.delete(invite.ref)
       last.delete(groupRef(id))
-      fire(last, 'Deleting group')
+      await ack(last.commit()).catch(failed)
     },
 
     async getInvite(code) {

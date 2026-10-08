@@ -5,7 +5,7 @@ import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { useHistory, useTrash } from '@/hooks/data'
 import type { ActivityEntry, Expense, Group, Settlement } from '@/types'
-import { activityIcon, activityText, amountLabel, describeChanges, fmtAgo, type ActivityCtx } from '@/lib/activity'
+import { activityHref, activityIcon, activityText, amountLabel, describeChanges, fmtAgo, isExpenseEntry, type ActivityCtx } from '@/lib/activity'
 import { canPurge, daysLeftInTrash, flagsOf, isPending, pendingApprovers } from '@/lib/trust'
 import { formatMoney } from '@/lib/money'
 import { CATEGORIES } from '@/lib/categories'
@@ -53,11 +53,14 @@ export function useUndoableDelete() {
   }
 }
 
-/** Activity rows. Pass `groups` to show which group each entry is from (cross-group feed). */
+/**
+ * Activity rows. Pass `groups` to show which group each entry is from (cross-group feed); there,
+ * entries that aren't about one expense (an import, a payment, a member) open their group.
+ */
 export function ActivityFeed({ entries, groups, linkable, isNew }: {
   entries: ActivityEntry[]
   groups?: Record<string, Group>
-  /** target ids that can be opened as an expense */
+  /** expense entries whose expense can be opened (default: all) */
   linkable?: (a: ActivityEntry) => boolean
   /** unread entries get a dot */
   isNew?: (a: ActivityEntry) => boolean
@@ -77,11 +80,13 @@ export function ActivityFeed({ entries, groups, linkable, isNew }: {
             {isNew?.(a) && <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-brand-500" aria-label="New" />}
           </>
         )
-        const canLink = a.type.startsWith('expense.') && a.type !== 'expense.purged' && (linkable ? linkable(a) : true)
+        // An import summary's targetId is the group, not an expense: it (like payments and
+        // membership changes) opens the group, and only in a cross-group feed.
+        const canLink = isExpenseEntry(a) ? (linkable ? linkable(a) : true) : !!g
         return (
           <li key={a.id}>
             {canLink
-              ? <Link to={`/groups/${a.groupId}/expenses/${a.targetId}`} className="flex items-center gap-3 px-4 py-3 active:bg-slate-50 dark:active:bg-ink-800">{inner}</Link>
+              ? <Link to={activityHref(a)} className="flex items-center gap-3 px-4 py-3 active:bg-slate-50 dark:active:bg-ink-800">{inner}</Link>
               : <div className="flex items-center gap-3 px-4 py-3">{inner}</div>}
           </li>
         )

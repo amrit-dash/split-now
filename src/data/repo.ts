@@ -355,6 +355,17 @@ export const compact = <T extends object>(o: T): T =>
 
 export const byCreatedDesc = <T extends { createdAt: number }>(a: T, b: T) => b.createdAt - a.createdAt
 
+/**
+ * Why `uid` can't delete group `g`, or null when they can. Only the creator deletes a group
+ * (the rules enforce it); everyone else gets a readable reason.
+ */
+export function groupDeleteBlocker(g: Pick<Group, 'name' | 'createdBy' | 'members' | 'memberUids'>, uid: string): string | null {
+  if (!g.memberUids.includes(uid)) return `You’re no longer in “${g.name}”.`
+  if (g.createdBy === uid) return null
+  const by = Object.values(g.members).find((m) => m.uid === g.createdBy)?.name
+  return `Only ${by ?? 'the person who created it'} can delete “${g.name}”.`
+}
+
 /** Context for building activity entries (src/lib/activity.ts) for a write by `actor` in `group`. */
 export function activityCtxFor(group: Pick<Group, 'currency' | 'members'> | undefined, actor: { uid: string; name: string }, _item?: object): ActivityCtx {
   return {

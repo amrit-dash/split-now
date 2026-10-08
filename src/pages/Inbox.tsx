@@ -8,7 +8,7 @@ import { useInbox } from '@/hooks/useInbox'
 import type { Capture, Group } from '@/types'
 import { SOURCE_LABEL, isSmsSource, rankGroupsForCapture } from '@/lib/capture'
 import { guessCategory, CATEGORIES } from '@/lib/categories'
-import { markInboxSeen } from '@/lib/inbox'
+import { isUnread, markInboxSeen } from '@/lib/inbox'
 import { appLocale } from '@/lib/locale'
 import { formatMoney } from '@/lib/money'
 import { Loading, PageHeader, Segmented } from '@/components/Misc'
@@ -20,10 +20,12 @@ type Tab = 'sort' | 'updates'
 const fmtDay = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString(appLocale(), { day: 'numeric', month: 'short' })
 
 /**
- * Inbox: "To sort" (captured payments and expenses waiting for your OK) and "Updates" (what
- * other people did in your groups). Opening Updates marks them read on this device.
+ * Inbox: "To sort" (captured payments and expenses waiting for your OK) and "Updates" (a log of
+ * everything in your groups, your own actions included). Only other people's entries are ever
+ * new; opening Updates marks them read on this device.
  */
 export default function Inbox() {
+  const { user } = useMe()
   const data = useAllGroupData()
   const box = useInbox(data)
   const all = useCaptures()
@@ -48,8 +50,8 @@ export default function Inbox() {
         {current === 'sort'
           ? <ToSort box={box} groups={groups} handled={all.filter((c) => c.status !== 'pending').slice(0, 15)} />
           : box.updates.length === 0
-            ? <Quiet emoji="🔔" title="No updates yet">When friends add expenses, settle up or add you to a group, it shows here.</Quiet>
-            : <ActivityFeed entries={box.updates} groups={groupsById} isNew={(a) => a.createdAt > seenBefore} />}
+            ? <Quiet emoji="🔔" title="No updates yet">Expenses, payments, imports and new members in your groups show here. New ones from friends get a dot.</Quiet>
+            : <ActivityFeed entries={box.updates} groups={groupsById} isNew={(a) => isUnread(a, user.uid, seenBefore)} />}
       </div>
     </div>
   )
