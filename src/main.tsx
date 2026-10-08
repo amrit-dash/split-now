@@ -6,6 +6,7 @@ import './lib/theme'
 import App from './App'
 import { AuthProvider } from './hooks/auth'
 import { ToastProvider } from './components/Toast'
+import { ConfirmProvider } from './components/ConfirmSheet'
 import { initRepo } from './data'
 import { initLocale } from './lib/locale'
 
@@ -19,9 +20,11 @@ initRepo().then(() => {
     <StrictMode>
       <BrowserRouter>
         <ToastProvider>
-          <AuthProvider>
-            <App />
-          </AuthProvider>
+          <ConfirmProvider>
+            <AuthProvider>
+              <App />
+            </AuthProvider>
+          </ConfirmProvider>
         </ToastProvider>
       </BrowserRouter>
     </StrictMode>,

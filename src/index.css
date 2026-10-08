@@ -101,6 +101,11 @@
     overscroll-behavior-y: none;
   }
   input, select, textarea, button { font: inherit; }
+  /* Keyboard focus is always visible; pointer focus stays quiet. */
+  :focus-visible { outline: 2px solid var(--color-brand-500); outline-offset: 2px; border-radius: 0.5rem; }
+  .input:focus-visible { outline: none; }
+  /* Money and dates line up in lists. */
+  body { font-variant-numeric: tabular-nums; }
   /* iOS zooms inputs under 16px — keep them at 16px. */
   input, select, textarea { font-size: 16px; }
 }
@@ -134,16 +139,23 @@
 
 @utility chip-on { @apply bg-brand-600 text-white ring-brand-600; }
 
-@utility pos { @apply text-emerald-600 dark:text-emerald-400; }
+/* Secondary text that still passes 4.5:1 on white and on ink-900 cards (slate-400 does not). */
+@utility text-muted { @apply text-slate-600 dark:text-slate-400; }
 
-@utility neg { @apply text-rose-600 dark:text-rose-400; }
+/* Small button variant (chips in headers, inline actions). */
+@utility btn-sm { @apply min-h-9 rounded-xl px-3.5 py-2 text-sm; }
+
+@utility pos { @apply text-emerald-700 dark:text-emerald-400; }
+
+@utility neg { @apply text-rose-700 dark:text-rose-400; }
 
 @utility safe-top { padding-top: env(safe-area-inset-top); }
 
 @utility safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  /* Stop motion rather than speed it up: infinite animations would otherwise flicker. */
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
 
 /* Horizontal scrollers that should still scroll but not show a bar (icon pickers, chip rows). */
