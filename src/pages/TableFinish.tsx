@@ -172,7 +172,7 @@ function NoGroup({ table, ready }: { table: LiveTable; ready: boolean }) {
         members[id] = { name: table.participants[p].name, color: colorFor(i) }
         mapping[p] = id
       })
-      const draft = { name: table.merchant, emoji: '🍽️', type: 'event' as const, currency: table.currency, simplify: true, members, memberUids: [user.uid], createdBy: user.uid }
+      const draft = { name: table.merchant, emoji: '🍽️', type: 'outing' as const, currency: table.currency, simplify: true, members, memberUids: [user.uid], createdBy: user.uid }
       const gid = await repo.createGroup(draft)
       const g: Group = { ...draft, id: gid, inviteCode: '', createdAt: Date.now(), updatedAt: Date.now() }
       const e = await save(g, mapping, user.uid, {})

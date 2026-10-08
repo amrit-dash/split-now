@@ -189,7 +189,7 @@ export function StatementImport() {
     )
   }
 
-  const usable = (groups ?? []).filter((g) => g.type !== 'direct' || true)
+  const usable = groups ?? []
   return (
     <div className="mt-4 pb-32">
       <div className="card space-y-3 p-4">
@@ -218,8 +218,12 @@ export function StatementImport() {
 
       <div className="mb-2 mt-4 flex items-center justify-between px-1 text-sm">
         <span className="font-semibold text-slate-500">{rows.length} transactions</span>
-        <button className="font-semibold text-brand-600 dark:text-brand-300" onClick={() => fileRef.current?.click()} disabled={busy}>{busy ? 'Reading…' : 'Add more screenshots'}</button>
-      </div>
+        <button className="font-semibold text-brand-600 dark:text-brand-300" data-testid="statement-all" onClick={() => {
+          const payments = rows.filter((r) => r.txn.direction === 'debit' && r.txn.kind === 'payment')
+          const allOn = payments.every((r) => r.on)
+          setRows(rows.map((r) => (payments.includes(r) ? { ...r, on: !allOn } : r)))
+        }}>{rows.filter((r) => r.txn.direction === 'debit' && r.txn.kind === 'payment').every((r) => r.on) ? 'Untick all' : 'Tick all payments'}</button>
+              </div>
       <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ''; onFiles(f) }} />
 
       <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
@@ -238,7 +242,7 @@ export function StatementImport() {
                 <button type="button" className="flex min-w-0 flex-1 items-center gap-2 text-left" onClick={() => setOpen(isOpen ? null : r.id)} aria-expanded={isOpen}>
                   <span className="text-xl">{CATEGORIES[r.category].emoji}</span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-semibold">{r.description}</span>
+                    <span className="line-clamp-2 block break-words font-semibold leading-snug">{r.description}</span>
                     <span className="mt-0.5 flex flex-wrap items-center gap-1 text-xs text-slate-500">
                       {fmtDay(r.txn.date)}{r.notes && <> · <span className="truncate">{r.notes}</span></>}
                       {f.map((x) => <span key={x} className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${FLAG[x].cls}`}>{FLAG[x].text}</span>)}
@@ -270,6 +274,10 @@ export function StatementImport() {
           )
         })}
       </div>
+
+      <button className="btn-secondary mt-3 w-full !min-h-0 !py-2.5 text-sm" onClick={() => fileRef.current?.click()} disabled={busy}>
+        {busy ? <Loader2 size={16} className="animate-spin" /> : <ImageUp size={16} />} {busy ? 'Reading…' : 'Add more screenshots'}
+      </button>
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/70 bg-white/90 backdrop-blur-xl safe-bottom dark:border-white/5 dark:bg-ink-900/90">
         <div className="mx-auto flex max-w-lg items-center gap-2 px-4 py-3">
