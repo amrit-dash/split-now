@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Inbox, Plus } from 'lucide-react'
+import { HandCoins, Inbox, Plus } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
 import { useAllGroupData } from '@/hooks/data'
 import { useInbox } from '@/hooks/useInbox'
@@ -104,8 +104,12 @@ export default function Home() {
       <div className="relative isolate overflow-hidden rounded-[2rem] bg-brand-600 p-6 text-white shadow-xl shadow-brand-600/30">
         <Aurora />
         <div className="relative">
-          <div className="text-sm font-medium text-white/80">Overall, {net >= 0 ? 'you are owed' : 'you owe'}</div>
-          <div className="mt-1 text-4xl font-extrabold tabular-nums tracking-tight" data-testid="home-net">{ax}{formatMoney(Math.abs(net), cur)}</div>
+          <Link to="/settle" aria-label="Settle up" title="Settle up" data-testid="home-settle"
+            className="absolute -right-2 -top-2 flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white ring-1 ring-white/30 backdrop-blur transition duration-150 hover:bg-white/25 active:scale-90 active:bg-white/30">
+            <HandCoins size={22} strokeWidth={2.2} aria-hidden />
+          </Link>
+          <div className="pr-12 text-sm font-medium text-white/80">Overall, {net >= 0 ? 'you are owed' : 'you owe'}</div>
+          <div className="mt-1 pr-10 text-4xl font-extrabold tabular-nums tracking-tight" data-testid="home-net">{ax}{formatMoney(Math.abs(net), cur)}</div>
           <div className="mt-5 grid grid-cols-2 gap-3">
             <div className="rounded-2xl bg-white/15 p-3 backdrop-blur">
               <div className="text-xs text-white/75">You are owed</div>
