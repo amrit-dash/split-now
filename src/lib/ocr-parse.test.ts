@@ -19,6 +19,26 @@ EFTPOS 27.50`)
   })
 })
 
+describe('parseReceipt extras', () => {
+  it('reads CGST / SGST, service charge and discount on an Indian bill', () => {
+    const r = parseReceipt(`SPICE ROUTE
+Paneer Tikka 2 280.00 560.00
+Butter Naan 4 60.00 240.00
+Sub Total 800.00
+Discount 10% 80.00
+Service Charge 5% 36.00
+CGST 2.50% 18.90
+SGST 2.50% 18.90
+Round Off 0.20
+Grand Total Rs 794.00`)
+    expect(r.items).toEqual([{ name: 'Paneer Tikka', amount: 56000 }, { name: 'Butter Naan', amount: 24000 }])
+    expect(r.total).toBe(79400)
+    expect(r.tax).toBe(3600 + 1890 + 1890)
+    expect(r.discount).toBe(8000)
+    expect(r.tip).toBeUndefined()
+  })
+})
+
 describe('parsePaymentScreenshot', () => {
   it('reads a PayID confirmation', () => {
     const p = parsePaymentScreenshot(`Payment sent

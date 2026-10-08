@@ -5,6 +5,10 @@ export interface ParsedReceipt {
   total?: Cents
   date?: string
   items: Array<{ name: string; amount: Cents }>
+  /** taxes and charges (GST, CGST + SGST, VAT, service charge), summed */
+  tax?: Cents
+  tip?: Cents
+  discount?: Cents
 }
 
 export interface ParsedPayment {
@@ -120,7 +124,23 @@ export function parseReceipt(text: string): ParsedReceipt {
     }
   }
 
-  return { merchant: merchant?.slice(0, 60), total, date: parseDate(text), items }
+  // Extras between the items and the total: the last figure on each tax / charge / tip / discount line.
+  let tax = 0, tip = 0, discount = 0
+  for (let i = 0; i < end; i++) {
+    const l = lines[i]
+    if (/gstin|incl|inclusive|total|round|tax\s*invoice|\bno\b|number/i.test(l)) continue
+    const a = amountsIn(l)
+    const v = a[a.length - 1]
+    if (!v || v <= 0 || (total && v >= total)) continue
+    if (/discount|\boff\b|saving|coupon|promo/i.test(l)) discount += v
+    else if (/\btip\b|gratuity/i.test(l)) tip += v
+    else if (/\b(c|s|i|u)?gst\b|\bvat\b|\bcess\b|\btax\b|service\s*(charge|fee)|packing|delivery\s*(fee|charge)|convenience/i.test(l)) tax += v
+  }
+
+  return {
+    merchant: merchant?.slice(0, 60), total, date: parseDate(text), items,
+    ...(tax ? { tax } : {}), ...(tip ? { tip } : {}), ...(discount ? { discount } : {}),
+  }
 }
 
 export function parsePaymentScreenshot(text: string): ParsedPayment {
