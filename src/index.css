@@ -217,45 +217,11 @@ html[data-update-ready] .install-banner { display: none; }
   -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) exclude, var(--notch) top center / 7rem 3rem no-repeat;
 }
-/* Inside the notch: frosted, fading from the bar's colour at the bottom to clear at the top.
-   Masked to the notch shape. */
-.nav-notch-glass {
-  background: linear-gradient(to top, rgb(255 255 255 / 0.85), rgb(255 255 255 / 0.35));
-  -webkit-mask: var(--notch) top center / 7rem 3rem no-repeat;
-  mask: var(--notch) top center / 7rem 3rem no-repeat;
-}
-html[data-capture-alert] [data-testid='update-banner'] { display: none; }
-html[data-capture-alert] .install-banner { display: none; }
 
-/* iOS zooms into any field under 16px on focus; small-text fields stay 16px on touch screens. */
-@media (pointer: coarse) {
-  :is(input, textarea, select):is(.text-sm, .text-xs) { font-size: 16px !important; }
+/* The + button: a thin light outline and a tight drop shadow; the glow is the halo under the bar. */
+.fab-ring {
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.55), 0 4px 10px -2px color-mix(in oklab, var(--color-brand-900) 55%, transparent);
 }
-
-/* Toasts rise from the bottom: above the tab bar on tab screens, above the home indicator elsewhere. */
-.toast-stack { bottom: calc(env(safe-area-inset-bottom) + 1rem); }
-html[data-nav] .toast-stack { bottom: var(--lane); }
-@keyframes toast-in { from { transform: translateY(1.25rem) scale(0.96); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
-@utility animate-toast { animation: toast-in 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.2); }
-/* …and above the install / update banner while one is showing. */
-html[data-nav]:has(.install-banner, [data-testid='update-banner'], [data-testid='unsaved-bar'], [data-testid='capture-alert']) .toast-stack { bottom: calc(var(--lane) + 5rem); }
-
-.dark .nav-notch-glass {
-  background: linear-gradient(to top, color-mix(in oklab, var(--color-ink-900) 85%, transparent), color-mix(in oklab, var(--color-ink-900) 35%, transparent));
-}
-/* The + button: a crisp outline (white ring, thin dark edge), an inner bevel and a drop shadow so it
-   pops up out of the bar. The coloured glow is the blurred halo behind it (Layout). */
-.fab-3d {
-  box-shadow:
-    0 0 0 2px rgb(255 255 255 / 0.85),
-    0 0 0 3px color-mix(in oklab, var(--color-brand-700) 45%, transparent),
-    inset 0 -3px 6px color-mix(in oklab, var(--color-brand-900) 45%, transparent),
-    0 10px 18px -6px color-mix(in oklab, var(--color-brand-900) 70%, transparent);
-}
-.dark .fab-3d {
-  box-shadow:
-    0 0 0 2px rgb(255 255 255 / 0.18),
-    0 0 0 3px color-mix(in oklab, var(--color-brand-400) 35%, transparent),
-    inset 0 -3px 6px color-mix(in oklab, var(--color-brand-900) 55%, transparent),
-    0 10px 18px -6px rgb(0 0 0 / 0.6);
+.dark .fab-ring {
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.16), 0 4px 10px -2px rgb(0 0 0 / 0.55);
 }

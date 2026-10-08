@@ -61,9 +61,9 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
         ref={panel}
         onTouchStart={onStart} onTouchMove={onMove} onTouchEnd={onEnd} onTouchCancel={onEnd}
         style={{ transform: `translateY(${leaving ? '100%' : `${dy}px`})`, transition: drag.current?.active ? 'none' : 'transform 0.18s ease-out' }}
-        className="animate-sheet relative max-h-[90dvh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-t-[2rem] bg-white p-5 pb-8 shadow-2xl safe-bottom sm:rounded-[2rem] dark:bg-ink-900"
+        className="animate-sheet relative max-h-[90dvh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-t-[2rem] bg-white p-5 pb-8 shadow-2xl safe-bottom sm:mx-4 sm:max-h-[85dvh] sm:animate-pop sm:rounded-[1.75rem] sm:p-6 sm:ring-1 sm:ring-slate-900/5 dark:bg-ink-900 sm:dark:ring-white/10"
       >
-        <div data-sheet-grip className="-mx-5 -mt-5 mb-1 flex justify-center pb-2 pt-3">
+        <div data-sheet-grip className="-mx-5 -mt-5 mb-1 flex justify-center pb-2 pt-3 sm:hidden">
           <div className="h-1.5 w-10 rounded-full bg-slate-200 dark:bg-ink-700" />
         </div>
         {title && (
