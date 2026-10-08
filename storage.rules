@@ -19,7 +19,10 @@ service firebase.storage {
 
     match /receipts/{groupId}/{fileName} {
       allow read: if isMember(groupId);
+      // New objects only: a receipt is never overwritten in place (the client uploads a fresh
+      // path and deletes the old one), so an upload over an existing file is refused.
       allow create: if isMember(groupId)
+        && resource == null
         && request.resource.size < 10 * 1024 * 1024
         && isImage();
       allow delete: if isMember(groupId);

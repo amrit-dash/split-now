@@ -76,7 +76,8 @@ test('the + button opens the Create sheet; Add expense saves an equal split', as
     .first()
     .click()
   await expect(page).toHaveURL(/\/groups\/g_goa$/)
-  await expect(page.getByText('Dinner at Thalassa')).toBeVisible()
+  // The list re-renders from the shared store once the demo repo commits; give a loaded CI box time.
+  await expect(page.getByText('Dinner at Thalassa')).toBeVisible({ timeout: 15_000 })
 })
 
 test('settle up records a payment', async ({ page }) => {
