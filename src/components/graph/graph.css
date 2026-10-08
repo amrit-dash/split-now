@@ -1,0 +1,78 @@
+/*
+ * Motion for DebtGraph. Only transform, opacity and stroke-dashoffset animate, so it stays on the
+ * cheap paths on phones. With reduced motion everything is shown in its final state and the moving
+ * dots are removed (the chevrons on each flow still give the direction).
+ */
+
+/* Avatar nodes slide between layouts (you in the middle ↔ everyone on the ring). */
+.dg-node {
+  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.25s ease;
+  will-change: transform;
+}
+.dg-pop {
+  animation: dg-pop 0.5s cubic-bezier(0.3, 1.45, 0.5, 1) both;
+  animation-delay: var(--d, 0ms);
+}
+@keyframes dg-pop {
+  from { transform: scale(0.3); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* A flow draws on from the payer to the receiver (paths use pathLength=100). */
+.dg-draw {
+  stroke-dasharray: 100 100;
+  animation: dg-draw 0.7s cubic-bezier(0.45, 0, 0.2, 1) both;
+  animation-delay: var(--d, 0ms);
+}
+@keyframes dg-draw {
+  from { stroke-dashoffset: 100; }
+  to { stroke-dashoffset: 0; }
+}
+
+/* A flow that simplification removed: it drains into the receiver and fades. */
+.dg-exit {
+  stroke-dasharray: 100 100;
+  animation: dg-exit 0.5s cubic-bezier(0.55, 0, 0.8, 0.3) both;
+}
+@keyframes dg-exit {
+  from { stroke-dashoffset: 0; opacity: 1; }
+  to { stroke-dashoffset: -100; opacity: 0; }
+}
+
+/* Money moving: round zero-length dashes march along the flow. */
+.dg-dots {
+  stroke-dasharray: 0 16;
+  stroke-linecap: round;
+  animation: dg-march var(--dur, 2s) linear infinite, dg-fade 0.4s ease both;
+  animation-delay: 0s, var(--d, 0ms);
+}
+@keyframes dg-march { to { stroke-dashoffset: -16; } }
+@keyframes dg-fade { from { opacity: 0; } to { opacity: 1; } }
+.dg-paused .dg-dots { animation-play-state: paused; }
+
+.dg-fade-in {
+  animation: dg-fade 0.35s ease both;
+  animation-delay: var(--d, 0ms);
+}
+.dg-rise {
+  animation: dg-rise 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes dg-rise {
+  from { transform: translateY(6px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Settled: a soft ripple behind the check, three times. */
+.dg-ripple {
+  animation: dg-ripple 2.2s ease-out 0.6s 3 both;
+}
+@keyframes dg-ripple {
+  from { transform: scale(0.9); opacity: 0.5; }
+  to { transform: scale(1.9); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dg-node { transition: none; }
+  .dg-pop, .dg-draw, .dg-fade-in, .dg-rise { animation: none; }
+  .dg-dots, .dg-exit, .dg-ripple { display: none; }
+}

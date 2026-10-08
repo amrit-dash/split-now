@@ -1,59 +1,98 @@
 import { describe, expect, it } from 'vitest'
-import { layoutFlow, ribbonPath } from './insightsFlow'
+import { LABEL_GAP, LABEL_H, compactMoney, flowCurve, flowKey, flowSpeed, flowWidth, layoutRing, mergeDebts, netOf, shortNames } from './insightsFlow'
 
-describe('layoutFlow', () => {
-  it('empty', () => {
-    expect(layoutFlow([])).toEqual({ pay: [], get: [], links: [], height: 0 })
-    expect(layoutFlow([{ from: 'a', to: 'b', amount: 0 }]).links).toHaveLength(0)
-  })
+const ids = (n: number) => Array.from({ length: n }, (_, i) => `m${i}`)
 
-  const debts = [
-    { from: 'c', to: 'a', amount: 1000 },
-    { from: 'b', to: 'a', amount: 3000 },
-    { from: 'c', to: 'd', amount: 500 },
-  ]
-  const L = layoutFlow(debts, { pitch: 50, labelSlot: 40, gap: 10, minBar: 4, pad: 0 })
-
-  it('columns sorted by total, ids keyed to their side', () => {
-    expect(L.pay.map((n) => [n.id, n.total])).toEqual([['b', 3000], ['c', 1500]])
-    expect(L.get.map((n) => [n.id, n.total])).toEqual([['a', 4000], ['d', 500]])
-  })
-
-  it('bar heights are proportional, with a floor', () => {
-    const k = (2 * 50 - 10) / 4500
-    expect(L.pay[0].h).toBeCloseTo(3000 * k)
-    expect(L.get[1].h).toBeCloseTo(Math.max(4, 500 * k))
-  })
-
-  it('slots never overlap and leave room for labels', () => {
-    for (const col of [L.pay, L.get]) {
-      for (let i = 1; i < col.length; i++) expect(col[i].cy - col[i - 1].cy).toBeGreaterThanOrEqual(40)
-      for (const n of col) expect(n.y).toBeGreaterThanOrEqual(0)
+describe('layoutRing', () => {
+  for (const width of [280, 296, 326, 358]) {
+    for (const n of [1, 2, 3, 5, 8, 11, 12]) {
+      for (const center of [null, 'me'] as const) {
+        it(`keeps every label box inside the card (w=${width}, n=${n}, centre=${center})`, () => {
+          const L = layoutRing({ width, ids: ids(n), center })
+          expect(L.nodes).toHaveLength(n + (center ? 1 : 0))
+          for (const d of L.nodes) {
+            expect(d.x - d.labelW / 2).toBeGreaterThanOrEqual(-0.01)
+            expect(d.x + d.labelW / 2).toBeLessThanOrEqual(width + 0.01)
+            expect(d.y - d.size / 2 - (d.above ? LABEL_GAP + LABEL_H : 0)).toBeGreaterThanOrEqual(-0.01)
+            expect(d.y + d.size / 2 + (d.above ? 0 : LABEL_GAP + LABEL_H)).toBeLessThanOrEqual(L.height + 0.01)
+          }
+        })
+        it(`node blocks never overlap (w=${width}, n=${n}, centre=${center})`, () => {
+          const L = layoutRing({ width, ids: ids(n), center })
+          const box = (d: (typeof L.nodes)[number]) => ({ l: d.x - d.labelW / 2, r: d.x + d.labelW / 2, t: d.y - d.size / 2 - (d.above ? LABEL_GAP + LABEL_H : 0), b: d.y + d.size / 2 + (d.above ? 0 : LABEL_GAP + LABEL_H) })
+          for (let i = 0; i < L.nodes.length; i++) {
+            for (let j = i + 1; j < L.nodes.length; j++) {
+              const a = box(L.nodes[i]), b = box(L.nodes[j])
+              const overlap = a.l < b.r - 0.5 && b.l < a.r - 0.5 && a.t < b.b - 0.5 && b.t < a.b - 0.5
+              expect(overlap, `${L.nodes[i].id} vs ${L.nodes[j].id}`).toBe(false)
+            }
+          }
+        })
+      }
     }
-    expect(Math.max(...[...L.pay, ...L.get].map((n) => n.y + n.h))).toBeLessThanOrEqual(L.height + 0.001)
+  }
+
+  it('puts the centre person in the middle and the first ring person at the top', () => {
+    const L = layoutRing({ width: 300, ids: ids(5), center: 'me' })
+    const c = L.byId.get('me')!
+    expect(c.center).toBe(true)
+    expect(c.x).toBeCloseTo(150)
+    expect(c.y).toBeCloseTo(L.cy)
+    expect(L.byId.get('m0')!.y).toBeLessThan(c.y)
   })
 
-  it('bands tile each bar exactly and keep the debt index', () => {
-    expect(L.links.map((l) => l.index).sort()).toEqual([0, 1, 2])
-    for (const n of L.pay) {
-      const bands = L.links.filter((l) => l.debt.from === n.id).sort((a, b) => a.sy0 - b.sy0)
-      expect(bands[0].sy0).toBeCloseTo(n.y)
-      expect(bands[bands.length - 1].sy1).toBeCloseTo(n.y + n.h)
-      for (let i = 1; i < bands.length; i++) expect(bands[i].sy0).toBeCloseTo(bands[i - 1].sy1)
-    }
-    for (const n of L.get) {
-      const bands = L.links.filter((l) => l.debt.to === n.id)
-      expect(bands.reduce((s, l) => s + l.ty1 - l.ty0, 0)).toBeCloseTo(n.h)
-    }
+  it('a reserved middle slot is not a node', () => {
+    const L = layoutRing({ width: 300, ids: ids(4), center: '@' })
+    expect(L.nodes.map((d) => d.id)).toEqual(ids(4))
   })
 
-  it('a person can appear on both sides (raw debts)', () => {
-    const r = layoutFlow([{ from: 'a', to: 'b', amount: 10 }, { from: 'b', to: 'c', amount: 10 }])
-    expect(r.pay.map((n) => n.id)).toContain('b')
-    expect(r.get.map((n) => n.id)).toContain('b')
+  it('two people face each other side by side', () => {
+    const [a, b] = layoutRing({ width: 300, ids: ids(2) }).nodes
+    expect(a.y).toBeCloseTo(b.y)
+    expect(a.x).toBeLessThan(b.x)
   })
+})
 
-  it('ribbon path is closed', () => {
-    expect(ribbonPath(L.links[0], 10, 100)).toMatch(/^M10,.* Z$/)
+describe('flowCurve', () => {
+  const a = { x: 0, y: 0, r: 10 }, b = { x: 100, y: 0, r: 10 }
+  it('trims ends to the avatar edge and points from a to b', () => {
+    const g = flowCurve(a, b, { x: 50, y: 50 }, 0, 0)
+    expect(g.d.startsWith('M10,0')).toBe(true)
+    expect(g.d.endsWith('90,0')).toBe(true)
+    expect(g.length).toBeCloseTo(80, 0)
+    expect(Math.abs(g.arrow.angle)).toBeLessThan(1)
+  })
+  it('A→B and B→A bow to opposite sides', () => {
+    const ab = flowCurve(a, b, { x: 50, y: 0 }, 0, 12)
+    const ba = flowCurve(b, a, { x: 50, y: 0 }, 0, 12)
+    expect(Math.sign(ab.mid.y)).toBe(-Math.sign(ba.mid.y))
+  })
+})
+
+describe('helpers', () => {
+  it('width and speed scale with the amount', () => {
+    expect(flowWidth(100, 100)).toBe(10)
+    expect(flowWidth(0, 100)).toBe(2)
+    expect(flowSpeed(100, 100)).toBeLessThan(flowSpeed(10, 100))
+  })
+  it('mergeDebts joins repeated pairs and drops zero/self rows', () => {
+    const m = mergeDebts([{ from: 'a', to: 'b', amount: 5 }, { from: 'a', to: 'b', amount: 7 }, { from: 'b', to: 'a', amount: 3 }, { from: 'c', to: 'c', amount: 9 }, { from: 'c', to: 'a', amount: 0 }])
+    expect(m.map((d) => [flowKey(d), d.amount])).toEqual([['a>b', 12], ['b>a', 3]])
+  })
+  it('netOf', () => {
+    expect(Object.fromEntries(netOf([{ from: 'a', to: 'b', amount: 5 }, { from: 'c', to: 'b', amount: 2 }]))).toEqual({ a: -5, b: 7, c: -2 })
+  })
+  it('shortNames uses first names and disambiguates', () => {
+    expect(shortNames({ a: 'Kodai Gandhi', b: 'Kodai rao', c: 'Priya', d: '  Venkataraghavan Subramaniam ' })).toEqual({ a: 'Kodai G', b: 'Kodai R', c: 'Priya', d: 'Venkataraghavan' })
+  })
+  it('compactMoney', () => {
+    expect(compactMoney(1234567890, 'INR', 'en-IN')).toBe('₹1.2Cr')
+    expect(compactMoney(450000, 'INR', 'en-IN')).toBe('₹4.5K')
+    expect(compactMoney(95050, 'INR', 'en-IN')).toBe('₹951')
+    expect(compactMoney(700000, 'INR', 'en-IN')).toBe('₹7K')
+    expect(compactMoney(137744418, 'INR', 'en-IN')).toBe('₹13.8L')
+    expect(compactMoney(-1234567890, 'AUD', 'en-AU')).toBe('-$12.3M')
+    expect(compactMoney(4550, 'AUD', 'en-AU')).toBe('$46')
+    expect(compactMoney(450, 'AUD', 'en-AU')).toBe('$4.5')
   })
 })
