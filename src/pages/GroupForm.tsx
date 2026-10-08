@@ -16,6 +16,7 @@ import { IconPickerField } from '@/components/IconPicker'
 import { Select, currencyOptions } from '@/components/Select'
 import { LiveBadge, Loading, PageHeader } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
+import { DateField } from '@/components/DateField'
 
 const TYPES: Array<{ value: GroupType; label: string; emoji: string }> = [
   { value: 'trip', label: 'Trip', emoji: '✈️' },
@@ -185,11 +186,11 @@ export default function GroupForm() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label htmlFor="trip-start" className="mb-1 block text-xs font-medium text-slate-500">Start</label>
-                  <input id="trip-start" type="date" className="input" value={startDate} max={endDate || undefined} onChange={(e) => setStartDate(e.target.value)} />
+                  <DateField id="trip-start" aria-label="Start date" placeholder="Add date" clearable value={startDate} max={endDate || undefined} onChange={setStartDate} />
                 </div>
                 <div>
                   <label htmlFor="trip-end" className="mb-1 block text-xs font-medium text-slate-500">End</label>
-                  <input id="trip-end" type="date" className="input" value={endDate} min={startDate || undefined} onChange={(e) => setEndDate(e.target.value)} />
+                  <DateField id="trip-end" aria-label="End date" placeholder="Add date" clearable value={endDate} min={startDate || undefined} onChange={setEndDate} />
                 </div>
               </div>
               <p className="mt-1.5 text-xs text-slate-500">While it’s on, new expenses and captured payments default to this group.</p>
