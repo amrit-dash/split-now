@@ -12,6 +12,7 @@ import { convertExpense, convertMinor, getRate, lastCurrency, parseRate, rateLab
 import { computeSplits, portion, SplitError } from '@/lib/splits'
 import { parseReceipt, type ParsedReceipt } from '@/lib/ocr-parse'
 import { pending } from '@/lib/pending'
+import { recordOutcome, type ScanKind } from '@/lib/scanHistory'
 import { isLiveTrip, liveTripFor } from '@/lib/capture'
 import { addDaysISO, descriptionHistory, lastGroup, lastSplit, pastCategory, rememberGroup, rememberSplit, sameSplit, sanitizeSplit, suggestDescriptions, type Suggestion } from '@/lib/recents'
 import { todayISO, uid } from '@/lib/id'
@@ -200,9 +201,11 @@ function Form({ group, groups, existing, again, capture, history, onGroup }: {
   const converted = foreign && fx && validAmount ? convertMinor(amount, cur, group.currency, fx.rate) : undefined
 
   // Apply a receipt handed over from the Scan screen.
+  const scanFrom = useRef<{ id: string; kind: ScanKind }>(undefined)
   useEffect(() => {
     if (pending.receipt && !existing) {
       applyReceipt(pending.receipt.parsed, pending.receipt.file)
+      scanFrom.current = pending.receipt.history
       pending.receipt = undefined
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -292,6 +295,8 @@ function Form({ group, groups, existing, again, capture, history, onGroup }: {
         if (!personal) rememberSplit(group.id, { payer: multiPay ? undefined : Object.keys(paidBy)[0], splitType, input: clean(input, splitType) })
       }
       if (capture) await repo.updateCapture(user.uid, capture.id, { status: 'assigned', groupId: group.id, expenseId: e.id }).catch(console.warn)
+      // Note the outcome on the Recent scans entry this came from.
+      if (scanFrom.current && !existing) void recordOutcome(user.uid, scanFrom.current.kind, scanFrom.current.id, { label: `Added to ${group.name}`, href: `/groups/${group.id}/expenses/${e.id}` }).catch(() => {})
       // Upload after saving so a slow or offline network never blocks the save.
       if (receipt && !repo.attachReceipt(group.id, e.id, receipt)) toast('Offline — saved without the receipt image')
       toast(existing ? 'Expense updated' : 'Expense added ✅')

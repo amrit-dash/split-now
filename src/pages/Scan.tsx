@@ -11,6 +11,8 @@ import { pending } from '@/lib/pending'
 import { GroupIcon } from '@/components/GroupIcon'
 import { AiScanToggle } from '@/components/AiScanToggle'
 import { StatementImport } from '@/components/StatementImport'
+import { DuplicatePrompt, RecentScans, useScanHistory } from '@/components/ScanHistory'
+import { entryFile, type ScanEntry, type ScanKind, type ScanMatch, type ScanPrint } from '@/lib/scanHistory'
 import { Loading, PageHeader, Segmented } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
 
@@ -32,6 +34,14 @@ export default function Scan() {
   const [receipt, setReceipt] = useState<ParsedReceipt | null>(null)
   const [payment, setPayment] = useState<ParsedPayment | null>(null)
   const [params, setParams] = useSearchParams()
+  // History: receipts also match bills scanned on Split by items (same kind of result).
+  const receiptHist = useScanHistory('receipt', ['bill'])
+  const paymentHist = useScanHistory('payment')
+  const hist = mode === 'payment' ? paymentHist : receiptHist
+  /** a picked image that matches an earlier scan: offer that result before reading it again */
+  const [dup, setDup] = useState<{ match: ScanMatch; file: File; prints: ScanPrint[] } | null>(null)
+  /** the history entry behind the result on screen, to note what it led to */
+  const [scanRef, setScanRef] = useState<{ id: string; kind: ScanKind }>()
 
   // An image shared from another app (Android share target): the service worker parked it in Cache Storage.
   useEffect(() => {
@@ -51,6 +61,8 @@ export default function Scan() {
 
   const switchMode = (m: Mode) => {
     setMode(m)
+    setScanRef(undefined)
+    if (dup) { setDup(null); setFile(null); setPreview(undefined); setText(''); setReceipt(null); setPayment(null); return }
     if (m === 'statement') return
     // Keep the photo and re-read the text we already have instead of making the user pick it again.
     if (text && !ocr.busy) { setReceipt(m === 'receipt' ? parseReceipt(text) : null); setPayment(m === 'payment' ? parsePaymentScreenshot(text) : null) }
@@ -58,21 +70,46 @@ export default function Scan() {
   }
 
   const onFile = async (f: File) => {
-    setFile(f); setPreview(URL.createObjectURL(f)); setReceipt(null); setPayment(null)
+    setFile(f); setPreview(URL.createObjectURL(f)); setReceipt(null); setPayment(null); setDup(null); setScanRef(undefined)
+    const { prints, match } = await hist.check([f])
+    if (match) { setDup({ match, file: f, prints }); return }
+    await read(f, prints)
+  }
+
+  const read = async (f: File, prints: ScanPrint[]) => {
     try {
       if (mode === 'receipt') {
         const r = await reader.read(f)
         setText('')
         setReceipt(r.parsed)
         if (r.fellBack) toast('AI isn’t available, so this was read on the phone. Set it up in Profile → AI features.', 'err')
+        if (r.parsed.merchant || r.parsed.total || r.parsed.items.length) {
+          const id = await receiptHist.save([f], prints, { type: 'receipt', receipt: r.parsed })
+          if (id) setScanRef({ id, kind: 'receipt' })
+        }
         return
       }
       const t = await ocr.run(f)
+      const p = parsePaymentScreenshot(t)
       setText(t)
-      setPayment(parsePaymentScreenshot(t))
+      setPayment(p)
+      if (p.amount || p.payee) {
+        const id = await paymentHist.save([f], prints, { type: 'payment', payment: p, text: t })
+        if (id) setScanRef({ id, kind: 'payment' })
+      }
     } catch (e) {
       toast('Could not read image: ' + (e as Error).message, 'err')
     }
+  }
+
+  /** Show an earlier scan's result straight away: no AI call, no OCR. `f` is a fresh pick of the same image. */
+  const openEntry = (e: ScanEntry, f?: File) => {
+    const img = f ?? entryFile(e)
+    setDup(null)
+    setFile(img); setPreview(URL.createObjectURL(img))
+    setScanRef({ id: e.id, kind: e.kind })
+    if (e.result.type === 'receipt') { setReceipt(e.result.receipt); setPayment(null); setText('') }
+    else if (e.result.type === 'payment') { setPayment(e.result.payment); setReceipt(null); setText(e.result.text ?? '') }
   }
 
   // For payments, rank groups where the payee name matches a member.
@@ -93,7 +130,9 @@ export default function Scan() {
 
   const go = (groupId: string) => {
     if (!file) return
-    if (receipt) { pending.receipt = { parsed: receipt, file }; nav(`/add?group=${groupId}`) }
+    const name = data.find((d) => d.group.id === groupId)?.group.name ?? 'a group'
+    if (scanRef) hist.outcome(scanRef.id, { label: receipt ? `Used in ${name}` : `Payment in ${name}`, href: `/groups/${groupId}` }, scanRef.kind)
+    if (receipt) { pending.receipt = { parsed: receipt, file, history: scanRef }; nav(`/add?group=${groupId}`) }
     else if (payment) { pending.payment = { parsed: payment, file }; nav(`/groups/${groupId}/settle`) }
   }
 
@@ -136,6 +175,13 @@ export default function Scan() {
         <input ref={libRef} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onFile(f) }} />
       </div>
 
+      {dup && <DuplicatePrompt match={dup.match} currency={cur} onOpen={() => openEntry(dup.match.entry, dup.file)} onRescan={() => { const d = dup; setDup(null); read(d.file, d.prints) }} />}
+      {!done && !dup && !ocr.busy && !reader.busy && (
+        <RecentScans entries={hist.entries} currency={cur} onOpen={(e) => openEntry(e)}
+          onDelete={(e) => { hist.remove(e.id); if (scanRef?.id === e.id) setScanRef(undefined) }}
+          onClear={() => { hist.clear(); setScanRef(undefined) }} />
+      )}
+
       {receipt && (
         <div className="card mt-4 p-4">
           <div className="label">What we found</div>
@@ -149,7 +195,7 @@ export default function Scan() {
             </div>
           )}
           {receipt.items.length > 0 && file && (
-            <button className="btn-primary mt-3 w-full" onClick={() => { pending.receipt = { parsed: receipt, file }; nav('/split') }} data-testid="scan-split-items">
+            <button className="btn-primary mt-3 w-full" onClick={() => { if (scanRef) hist.outcome(scanRef.id, { label: 'Split by items' }, scanRef.kind); pending.receipt = { parsed: receipt, file }; nav('/split') }} data-testid="scan-split-items">
               <QrCode size={18} /> Split by items
             </button>
           )}
@@ -185,7 +231,7 @@ export default function Scan() {
           </div>
         </div>
       )}
-      <p className="mt-6 text-center text-xs text-slate-400">Nothing is saved until you add an expense.</p>
+      <p className="mt-6 text-center text-xs text-slate-400">Nothing is added until you pick a group. Recent scans stay on this device.</p>
       </>}
     </div>
   )

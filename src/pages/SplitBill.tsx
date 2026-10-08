@@ -17,6 +17,8 @@ import { GroupIcon } from '@/components/GroupIcon'
 import { Loading, PageHeader, Spinner } from '@/components/Misc'
 import { currencyOptions, Select } from '@/components/Select'
 import { useToast } from '@/components/Toast'
+import { DuplicatePrompt, RecentScans, useScanHistory } from '@/components/ScanHistory'
+import { entryFile, type ScanEntry, type ScanKind, type ScanMatch, type ScanPrint } from '@/lib/scanHistory'
 
 interface Row { id: string; name: string; amount: string }
 type ExtraKey = 'tax' | 'tip' | 'discount'
@@ -47,6 +49,10 @@ export default function SplitBill() {
   const [printed, setPrinted] = useState<number>()
   const [preview, setPreview] = useState<string>()
   const [busy, setBusy] = useState(false)
+  // History: bills also match receipts read in Smart scan (same kind of result).
+  const hist = useScanHistory('bill', ['receipt'])
+  const [dup, setDup] = useState<{ match: ScanMatch; file: File; prints: ScanPrint[] } | null>(null)
+  const [scanRef, setScanRef] = useState<{ id: string; kind: ScanKind }>()
 
   const usable = useMemo(() => (groups ?? []).filter((g) => g.type !== 'personal'), [groups])
   const group = usable.find((g) => g.id === groupId)
@@ -86,10 +92,31 @@ export default function SplitBill() {
 
   const onFile = async (f: File) => {
     setPreview(URL.createObjectURL(f))
+    setDup(null)
+    setScanRef(undefined)
+    const { prints, match } = await hist.check([f])
+    if (match) { setDup({ match, file: f, prints }); return }
+    await read(f, prints)
+  }
+
+  /** An earlier scan's result, straight away (no AI call, no OCR). */
+  const openEntry = (e: ScanEntry, f?: File) => {
+    setDup(null)
+    if (e.result.type !== 'receipt') return
+    setPreview(URL.createObjectURL(f ?? entryFile(e)))
+    setScanRef({ id: e.id, kind: e.kind })
+    apply(e.result.receipt)
+  }
+
+  const read = async (f: File, prints: ScanPrint[]) => {
     try {
       const r = await ocr.read(f)
       apply(r.parsed)
       if (r.fellBack) toast('AI isn’t available, so this was read on the phone. Set it up in Profile → AI features.', 'err')
+      if (r.parsed.merchant || r.parsed.total || r.parsed.items.length) {
+        const id = await hist.save([f], prints, { type: 'receipt', receipt: r.parsed })
+        if (id) setScanRef({ id, kind: 'bill' })
+      }
     } catch (e) {
       toast('Couldn’t read the image: ' + (e as Error).message, 'err')
     }
@@ -115,6 +142,7 @@ export default function SplitBill() {
         { merchant: merchant || 'Bill', currency: cur, date, items: filled, extras: ex, groupId: group?.id },
         { uid: user.uid, name: profile.displayName, payment: profile.payment },
       ))
+      if (scanRef) hist.outcome(scanRef.id, { label: `Table${group ? ` in ${group.name}` : ''}`, href: `/t/${code}` }, scanRef.kind)
       nav(`/t/${code}`, { replace: true })
     } catch (e) {
       toast((e as Error).message, 'err')
@@ -160,6 +188,9 @@ export default function SplitBill() {
         <input ref={camRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onFile(f) }} />
         <input ref={libRef} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onFile(f) }} />
       </div>
+      {dup && <DuplicatePrompt className="!mt-3" match={dup.match} currency={cur} onOpen={() => openEntry(dup.match.entry, dup.file)} onRescan={() => { const d = dup; setDup(null); read(d.file, d.prints) }} />}
+      {!preview && <RecentScans className="!mt-3" entries={hist.entries} currency={cur} onOpen={(e) => openEntry(e)}
+        onDelete={(e) => hist.remove(e.id)} onClear={hist.clear} />}
 
       {/* Details */}
       <div className="card mt-3 space-y-3 p-4">
