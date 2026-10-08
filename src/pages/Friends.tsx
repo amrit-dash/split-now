@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Sparkles } from 'lucide-react'
+import { Plus, Sparkles } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { useAllGroupData, type GroupData } from '@/hooks/data'
@@ -75,7 +75,13 @@ export default function Friends() {
     <div>
       <PageHeader title="Friends" back subtitle="Your balance with each person, across every group" />
       {friends.length === 0 ? (
-        <Empty emoji="🤝" title="You’re all square">No one owes anyone. Nice.</Empty>
+        <Empty emoji="🤝" title="You’re all square">
+          No one owes anyone. Nice.
+          <div className="mt-4 flex justify-center gap-2">
+            <Link to="/add" className="btn-primary !min-h-0 !py-2.5 text-sm" data-testid="friends-add"><Plus size={16} /> Add an expense</Link>
+            <Link to="/groups" className="btn-secondary !min-h-0 !py-2.5 text-sm">Your groups</Link>
+          </div>
+        </Empty>
       ) : (
         <div className="space-y-3">
           {friends.map((f) => {

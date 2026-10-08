@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Pencil, Repeat, Send, Trash2 } from 'lucide-react'
+import { CopyPlus, Pencil, Repeat, Send, Trash2 } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { myMemberId, useAllExpenses, useComments, useGroup } from '@/hooks/data'
@@ -58,6 +58,7 @@ export default function ExpenseDetail() {
     <div>
       <PageHeader title="" back right={trashed ? undefined :
         <div className="flex gap-1">
+          <Link to={`/add?group=${encodeURIComponent(group.id)}&again=${encodeURIComponent(e.id)}`} className="rounded-full p-2.5 hover:bg-slate-200/60 dark:hover:bg-ink-800" aria-label="Add again" title="Add again (dated today)" data-testid="add-again"><CopyPlus size={20} /></Link>
           <Link to={`/groups/${group.id}/expenses/${e.id}/edit`} className="rounded-full p-2.5 hover:bg-slate-200/60 dark:hover:bg-ink-800" aria-label="Edit"><Pencil size={20} /></Link>
           <button onClick={del} className="rounded-full p-2.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10" aria-label="Delete"><Trash2 size={20} /></button>
         </div>

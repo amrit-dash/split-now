@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { BookOpen, ChevronRight, X } from 'lucide-react'
+import { BookOpen, ChevronRight, Plus, X } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { useCaptures, useGroups } from '@/hooks/data'
@@ -38,8 +38,10 @@ export default function Inbox() {
         <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
           {pending.map((c) => {
             const best = rankGroupsForCapture(groups, c).best
+            const bestGroup = best ? groups.find((g) => g.id === best) : undefined
             return (
-              <div key={c.id} className="flex items-center gap-3 px-4 py-3">
+              <div key={c.id} className="px-4 py-3">
+              <div className="flex items-center gap-3">
                 <Link to={`/capture/${c.id}`} className="flex min-w-0 flex-1 items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-xl dark:bg-ink-800">{isSmsSource(c.source) ? '📩' : '💳'}</div>
                   <div className="min-w-0 flex-1">
@@ -56,6 +58,12 @@ export default function Inbox() {
                   <ChevronRight size={18} className="shrink-0 text-slate-300 dark:text-slate-600" />
                 </Link>
                 <button onClick={() => dismiss(c)} className="-mr-2 rounded-full p-2 text-slate-400 hover:text-rose-500" aria-label={`Dismiss ${c.merchant}`}><X size={18} /></button>
+              </div>
+              {bestGroup && (
+                <Link to={`/add?group=${encodeURIComponent(bestGroup.id)}&capture=${encodeURIComponent(c.id)}`} className="ml-[3.25rem] mt-2 inline-flex max-w-[calc(100%-3.25rem)] items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1.5 text-sm font-semibold text-brand-700 dark:bg-brand-900/30 dark:text-brand-200" data-testid="inbox-add">
+                  <Plus size={14} className="shrink-0" /><span className="truncate">Add to {bestGroup.emoji} {bestGroup.name}</span>
+                </Link>
+              )}
               </div>
             )
           })}

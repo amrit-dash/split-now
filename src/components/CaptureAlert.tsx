@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { X } from 'lucide-react'
+import { useMe } from '@/hooks/auth'
 import { useCaptures, useGroups } from '@/hooks/data'
 import type { Capture } from '@/types'
 import { formatMoney } from '@/lib/money'
@@ -14,6 +15,7 @@ import { formatMoney } from '@/lib/money'
 const APP_START = Date.now()
 
 export function CaptureAlert() {
+  const { profile } = useMe()
   const captures = useCaptures()
   const groups = useGroups()
   const loc = useLocation()
@@ -40,7 +42,7 @@ export function CaptureAlert() {
       <div className="flex items-center gap-3 rounded-3xl bg-white p-3 shadow-2xl shadow-black/20 ring-1 ring-slate-900/10 dark:bg-ink-800 dark:ring-white/10">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-xl dark:bg-brand-900/40">{trip?.emoji ?? '💸'}</span>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-semibold">{formatMoney(current.amount, current.currency ?? "INR")} at {current.merchant}</div>
+          <div className="truncate text-sm font-semibold">{formatMoney(current.amount, current.currency ?? profile.currency)} at {current.merchant}</div>
           <div className="truncate text-xs text-slate-500">{trip ? `Add to ${trip.name}?` : 'Sort it into a group?'}</div>
         </div>
         <Link to={`/capture/${current.id}`} onClick={() => setCurrent(null)} className="btn-primary !min-h-0 shrink-0 !px-3.5 !py-2 text-sm">{trip ? 'Add' : 'Sort'}</Link>

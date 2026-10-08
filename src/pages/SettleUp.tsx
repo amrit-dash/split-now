@@ -11,6 +11,7 @@ import { centsToInput, currencySymbol, formatMoney, fromHundredths, parseMoney }
 import { isIOS, isUpiId, methodFor, payOptions, settleMethods, type PayOption } from '@/lib/payments'
 import { matchMember, parsePaymentScreenshot, type ParsedPayment } from '@/lib/ocr-parse'
 import { pending } from '@/lib/pending'
+import { lastMethod, rememberMethod } from '@/lib/recents'
 import { copy } from '@/lib/share'
 import { todayISO, uid } from '@/lib/id'
 import { Avatar } from '@/components/Avatar'
@@ -37,7 +38,12 @@ export default function SettleUp() {
   const [from, setFrom] = useState<MemberId>('')
   const [to, setTo] = useState<MemberId>('')
   const [amountStr, setAmountStr] = useState('')
+  /** typed, read from a screenshot or given in the link: changing the people no longer refills it */
+  const [amountTouched, setAmountTouched] = useState(false)
   const [method, setMethod] = useState('')
+  /** picked by hand (or implied by a pay option / screenshot): stop choosing a default */
+  const [methodTouched, setMethodTouched] = useState(false)
+  const pickMethod = (m: string) => { setMethod(m); setMethodTouched(true) }
   /** a UPI ID typed in for someone who hasn't joined (or hasn't added one) */
   const [manualUpi, setManualUpi] = useState('')
   const [note, setNote] = useState('')
@@ -49,8 +55,8 @@ export default function SettleUp() {
   const applyPayment = (parsed: ParsedPayment) => {
     if (!d) return
     const p = { ...parsed, amount: parsed.amount && fromHundredths(parsed.amount, d.group.currency) }
-    if (p.amount) setAmountStr(centsToInput(p.amount, d.group.currency))
-    if (p.method && settleMethods(d.group.currency).includes(p.method)) setMethod(p.method)
+    if (p.amount) { setAmountStr(centsToInput(p.amount, d.group.currency)); setAmountTouched(true) }
+    if (p.method && settleMethods(d.group.currency).includes(p.method)) pickMethod(p.method)
     if (p.date) setDate(p.date)
     const members = Object.entries(d.group.members).map(([id, m]) => ({ id, name: m.name }))
     const match = matchMember(p.payee, members.filter((m) => m.id !== d.me))
@@ -65,7 +71,7 @@ export default function SettleUp() {
     const qf = params.get('from'), qt = params.get('to'), qa = params.get('amount')
     if (qf && qt) {
       setFrom(qf); setTo(qt)
-      if (qa) setAmountStr(centsToInput(Number(qa), d.group.currency))
+      if (qa) { setAmountStr(centsToInput(Number(qa), d.group.currency)); setAmountTouched(true) }
     } else {
       const mine = d.debts.find((x) => x.from === d.me) ?? d.debts.find((x) => x.to === d.me) ?? d.debts[0]
       if (mine) { setFrom(mine.from); setTo(mine.to); setAmountStr(centsToInput(mine.amount, d.group.currency)) }
@@ -75,6 +81,14 @@ export default function SettleUp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [d, init])
 
+  // A different pair of people: offer what they owe, until the amount is typed by hand.
+  useEffect(() => {
+    if (!d || !init || amountTouched || !from || !to) return
+    const o = d.debts.find((x) => x.from === from && x.to === to)?.amount
+    setAmountStr(o ? centsToInput(o, d.group.currency) : '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [from, to, init])
+
   const toUid = group?.members[to]?.uid
   useEffect(() => {
     setPayee(null)
@@ -82,6 +96,16 @@ export default function SettleUp() {
     // Payment handles are shared per group (only co-members can read them).
     if (toUid && groupId) repo.getMemberProfile(groupId, toUid).then(setPayee).catch(() => {})
   }, [toUid, groupId])
+
+  // Method: what was used to pay this person last time, else UPI when they have a UPI ID.
+  const payeeUpi = !!payee?.payment?.upi?.trim()
+  useEffect(() => {
+    if (!d || !init || methodTouched || !to) return
+    const ms = settleMethods(d.group.currency)
+    const remembered = lastMethod(d.group.id, to)
+    setMethod(remembered && ms.includes(remembered) ? remembered : payeeUpi && ms.includes('UPI') ? 'UPI' : ms[0])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [to, payeeUpi, init])
 
   if (group === null) return <><PageHeader title="Settle up" back /><Empty emoji="🔍" title="This group doesn’t exist or you’re not a member" /></>
   if (!d || !group) return <Loading />
@@ -107,6 +131,7 @@ export default function SettleUp() {
     setBusy(true)
     try {
       await repo.saveSettlement({ id: uid('s_'), groupId: group.id, from, to, amount, method, note: note.trim() || undefined, date, createdBy: user.uid, createdAt: Date.now() })
+      rememberMethod(group.id, to, method)
       toast('Payment recorded 💸')
       nav(`/groups/${group.id}`, { replace: true })
     } catch (e) {
@@ -125,9 +150,9 @@ export default function SettleUp() {
 
         <div className="mt-5 flex items-baseline justify-center gap-2">
           <span className="text-2xl font-bold text-slate-400" aria-label={cur}>{currencySymbol(cur)}</span>
-          <input className={`w-full min-w-0 max-w-[15rem] bg-transparent text-center font-extrabold tabular-nums outline-none ${amountStr.length > 7 ? 'text-4xl' : 'text-5xl'}`} inputMode="decimal" placeholder="0.00" value={amountStr} onChange={(e) => setAmountStr(e.target.value)} />
+          <input className={`w-full min-w-0 max-w-[15rem] bg-transparent text-center font-extrabold tabular-nums outline-none ${amountStr.length > 7 ? 'text-4xl' : 'text-5xl'}`} inputMode="decimal" placeholder="0.00" value={amountStr} onChange={(e) => { setAmountStr(e.target.value); setAmountTouched(true) }} />
         </div>
-        {owed !== undefined && <div className="mt-1 text-center text-sm text-slate-500">{name(from)} owe{from === d.me ? '' : 's'} {name(to)} {formatMoney(owed, cur)} <button className="font-semibold text-brand-600" onClick={() => setAmountStr(centsToInput(owed, cur))}>Use</button></div>}
+        {owed !== undefined && <div className="mt-1 text-center text-sm text-slate-500">{name(from)} owe{from === d.me ? '' : 's'} {name(to)} {formatMoney(owed, cur)} <button className="font-semibold text-brand-600" onClick={() => { setAmountStr(centsToInput(owed, cur)); setAmountTouched(false) }}>Use</button></div>}
 
         <button className="btn-secondary mt-4 w-full !min-h-0 !py-2.5 text-sm" onClick={() => fileRef.current?.click()} disabled={ocr.busy}>
           {ocr.busy ? <><Spinner className="!h-4 !w-4" /> Reading {Math.round(ocr.progress * 100)}%</> : <><Camera size={16} /> Read from payment screenshot</>}
@@ -151,15 +176,15 @@ export default function SettleUp() {
           {shown.length > 0 && (
             <div className="mt-2 space-y-2">
               {shown.map((o) => o.qr ? (
-                <UpiCard key={`${o.key}-${o.value}`} o={o} amount={payAmount} cur={cur} toMe={toMe} payer={name(from)} onPick={() => setMethod('UPI')} onCopy={async () => { await copy(o.value); setMethod('UPI'); toast('UPI ID copied') }} />
+                <UpiCard key={`${o.key}-${o.value}`} o={o} amount={payAmount} cur={cur} toMe={toMe} payer={name(from)} onPick={() => pickMethod('UPI')} onCopy={async () => { await copy(o.value); pickMethod('UPI'); toast('UPI ID copied') }} />
               ) : (
                 <div key={`${o.key}-${o.value}`} className="flex items-center gap-3 rounded-2xl bg-slate-50 p-3 dark:bg-ink-800">
                   <div className="min-w-0 flex-1">
                     <div className="text-xs font-semibold text-slate-500">{o.label}</div>
                     <div className="truncate font-mono text-sm">{o.value}</div>
                   </div>
-                  <button className="rounded-xl p-2 hover:bg-white dark:hover:bg-ink-700" onClick={async () => { await copy(o.value); setMethod(methodFor(o)); toast(`${o.label} copied`) }} aria-label={`Copy ${o.label}`}><Copy size={18} /></button>
-                  {o.href && <a className="rounded-xl bg-brand-600 p-2 text-white" href={o.href} target="_blank" rel="noreferrer" onClick={() => setMethod(methodFor(o))} aria-label={`Open ${o.label}`}><ExternalLink size={18} /></a>}
+                  <button className="rounded-xl p-2 hover:bg-white dark:hover:bg-ink-700" onClick={async () => { await copy(o.value); pickMethod(methodFor(o)); toast(`${o.label} copied`) }} aria-label={`Copy ${o.label}`}><Copy size={18} /></button>
+                  {o.href && <a className="rounded-xl bg-brand-600 p-2 text-white" href={o.href} target="_blank" rel="noreferrer" onClick={() => pickMethod(methodFor(o))} aria-label={`Open ${o.label}`}><ExternalLink size={18} /></a>}
                 </div>
               ))}
               <p className="text-xs text-slate-500">Pay in your UPI or banking app, then record it below. Split Now never moves money itself.</p>
@@ -171,7 +196,7 @@ export default function SettleUp() {
       <div className="card mt-3 space-y-3 p-4">
         <div>
           <div className="label">Method</div>
-          <div className="flex flex-wrap gap-2">{methods.map((m) => <button key={m} onClick={() => setMethod(m)} className={`chip ${m === method ? 'chip-on' : ''}`}>{m}</button>)}</div>
+          <div className="flex flex-wrap gap-2">{methods.map((m) => <button key={m} onClick={() => pickMethod(m)} className={`chip ${m === method ? 'chip-on' : ''}`}>{m}</button>)}</div>
         </div>
         <div className="grid grid-cols-2 gap-2">
           <DateField aria-label="Date" value={date} onChange={(v) => setDate(v || todayISO())} />
