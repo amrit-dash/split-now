@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ALL_GROUP_ICONS, GROUP_TYPES, SHARED_TYPES, firstEmoji, guessGroup, iconsFor, parseGroupType } from './groupTypes'
+import { ALL_GROUP_ICONS, GROUP_TYPES, SHARED_TYPES, firstEmoji, groupTypeInfo, groupTypeOf, guessGroup, iconsFor, isGroupType, parseGroupType } from './groupTypes'
 
 describe('guessGroup', () => {
   it('spots trips, with beach and mountain icons for known places', () => {
@@ -53,6 +53,19 @@ describe('parseGroupType and firstEmoji', () => {
     expect(parseGroupType('nope')).toBe('trip')
     expect(parseGroupType(null)).toBe('trip')
     expect(SHARED_TYPES).not.toContain('direct')
+  })
+  it('reads a stored type safely: unknown values become Other, never a crash', () => {
+    expect(groupTypeOf({ type: 'home' })).toBe('home')
+    expect(groupTypeOf({ type: 'banana' })).toBe('other')
+    expect(groupTypeOf({ type: 42 })).toBe('other')
+    expect(groupTypeOf({})).toBe('other')
+    expect(groupTypeOf(null)).toBe('other')
+    expect(groupTypeOf('personal')).toBe('personal')
+    expect(groupTypeInfo({ type: 'banana' }).label).toBe('Other')
+    expect(groupTypeInfo('couple').emoji).toBe('💞')
+    expect(iconsFor('banana')[0]).toBe('📦')
+    expect(isGroupType('toString')).toBe(false)
+    expect(isGroupType('trip')).toBe(true)
   })
   it('takes the first emoji, keeping multi-codepoint ones whole', () => {
     expect(firstEmoji('🎸 band')).toBe('🎸')

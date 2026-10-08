@@ -4,7 +4,7 @@
  *  - settlement recorded → the person who was paid
  * Imports, recurring copies and trashed docs are skipped. Each recipient's prefs decide.
  */
-import { logger } from 'firebase-functions'
+import { logger } from 'firebase-functions/logger'
 import { onDocumentCreated } from 'firebase-functions/v2/firestore'
 import { db } from './admin'
 import { REGION } from './config'

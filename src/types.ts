@@ -63,6 +63,8 @@ export interface Group {
   approvalThreshold?: Cents
   /** a member paused SMS auto-capture for this trip (the webhook skips it; docs/AUTO_CAPTURE.md) */
   captureOff?: boolean
+  /** Archived: hidden from totals, pickers and capture matching; listed under "Archived" on Groups. Any member may toggle it. */
+  archived?: boolean
   memberUids: string[]
   members: Record<MemberId, Member>
   inviteCode: string

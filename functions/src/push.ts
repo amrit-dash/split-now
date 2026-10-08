@@ -1,4 +1,4 @@
-import { logger } from 'firebase-functions'
+import { logger } from 'firebase-functions/logger'
 import { db, messaging } from './admin'
 import type { Note } from './lib/notify-text'
 import { resolvePrefs, type PrefKey } from './lib/prefs'
@@ -29,7 +29,7 @@ export async function sendToUser(uid: string, prefs: PrefKey[], note: Note): Pro
 
     const data: Record<string, string> = { title: note.title, body: note.body, url: note.url }
     if (note.tag) data.tag = note.tag
-    const res = await messaging().sendEach(docs.map((d) => ({
+    const res = await (await messaging()).sendEach(docs.map((d) => ({
       token: d.get('token') as string,
       data,
       webpush: { headers: { Urgency: 'high', TTL: String(24 * 3600) } },

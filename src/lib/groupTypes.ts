@@ -32,10 +32,24 @@ export const SHARED_TYPES: GroupType[] = ['trip', 'outing', 'event', 'home', 'co
 
 export const isSharedType = (t: GroupType) => SHARED_TYPES.includes(t)
 
-/** Parses a ?type= value; anything unknown is a trip. */
+/** Parses a ?type= value for a new group; anything unknown is a trip. */
 export function parseGroupType(v: string | null | undefined): GroupType {
-  return v && v in GROUP_TYPES ? (v as GroupType) : 'trip'
+  return isGroupType(v) ? v : 'trip'
 }
+
+export const isGroupType = (v: unknown): v is GroupType => typeof v === 'string' && Object.hasOwn(GROUP_TYPES, v)
+
+/**
+ * The type of a stored group, made safe: the rules do not validate `type`, so an unknown value
+ * (an old client, a hostile co-member) reads as 'other' instead of crashing the screen.
+ */
+export function groupTypeOf(g: { type?: unknown } | string | null | undefined): GroupType {
+  const v = typeof g === 'string' ? g : g?.type
+  return isGroupType(v) ? v : 'other'
+}
+
+/** GROUP_TYPES entry for a group or type string, never undefined (unknown → Other). */
+export const groupTypeInfo = (g: { type?: unknown } | string | null | undefined): GroupTypeInfo => GROUP_TYPES[groupTypeOf(g)]
 
 const EXTRA_ICONS = ['🚗', '🎿', '🏕️', '⚽', '🎓', '🌏', '🛕', '🚆', '🎮', '🐶']
 
@@ -43,8 +57,8 @@ const EXTRA_ICONS = ['🚗', '🎿', '🏕️', '⚽', '🎓', '🌏', '🛕', '
 export const ALL_GROUP_ICONS: string[] = [...new Set([...Object.values(GROUP_TYPES).flatMap((t) => t.icons), ...EXTRA_ICONS])]
 
 /** The picker list for a type: that type's icons first, then everything else. */
-export function iconsFor(type: GroupType): string[] {
-  const first = GROUP_TYPES[type].icons
+export function iconsFor(type: GroupType | string): string[] {
+  const first = groupTypeInfo(type).icons
   return [...first, ...ALL_GROUP_ICONS.filter((e) => !first.includes(e))]
 }
 

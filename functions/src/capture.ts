@@ -21,9 +21,9 @@
  * text) to users/{uid}/captureLog, trimmed to the newest 30: "Recent activity" in the app.
  */
 import type { DocumentReference } from 'firebase-admin/firestore'
-import { aiReadSms, GEMINI_API_KEY } from './ai'
+import { aiReadSms, AI_SECRETS } from './ai'
 import type { AiSms } from './lib/gemini'
-import { logger } from 'firebase-functions'
+import { logger } from 'firebase-functions/logger'
 import { onRequest } from 'firebase-functions/v2/https'
 import { filterReason, type CaptureLogEntry } from '../../shared/capture-filters'
 import { db } from './admin'
@@ -165,7 +165,7 @@ export async function handleCapture(raw: RawRequest, now = new Date(), readSms: 
 }
 
 export const capture = onRequest(
-  { region: REGION, secrets: [GEMINI_API_KEY], cors: APP_ORIGINS, invoker: 'public', maxInstances: 10, concurrency: 40, memory: '256MiB', timeoutSeconds: 30 },
+  { region: REGION, secrets: AI_SECRETS, cors: APP_ORIGINS, invoker: 'public', maxInstances: 10, concurrency: 40, memory: '256MiB', timeoutSeconds: 30 },
   async (req, res) => {
     if (req.method !== 'POST') {
       res.status(405).set('Allow', 'POST').json({ ok: false, reason: 'bad_request' })
