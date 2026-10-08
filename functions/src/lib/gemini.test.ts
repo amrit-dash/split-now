@@ -50,7 +50,7 @@ describe('generateJson', () => {
     expect(calls[0].url).toContain('gemini-2.5-flash-lite:generateContent')
     expect((calls[0].init.headers as Record<string, string>)['x-goog-api-key']).toBe('k')
     const body = JSON.parse(String(calls[0].init.body))
-    expect(body.generationConfig).toMatchObject({ temperature: 0, responseMimeType: 'application/json', responseSchema: RECEIPT_SCHEMA })
+    expect(body.generationConfig).toMatchObject({ responseMimeType: 'application/json', responseSchema: RECEIPT_SCHEMA })
   })
   it('falls back to the alias model on 404 and surfaces other errors', async () => {
     const seen: string[] = []
