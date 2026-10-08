@@ -25,7 +25,7 @@ import {
 } from './repo'
 import type { Functions } from 'firebase/functions'
 import type { ParsedReceipt } from '@/lib/ocr-parse'
-import type { AiStatement } from './repo'
+import type { AiKeyResult, AiModel, AiState, AiStatement, AiStatusResult } from './repo'
 import type { FxRatesDoc, FxRefreshResult } from '@/lib/fx'
 import { initAppCheck } from '@/lib/appcheck'
 import { disablePush } from '@/lib/push'
@@ -794,8 +794,9 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     async readReceiptAi(image, mimeType) {
       if (!auth.currentUser || auth.currentUser.isAnonymous || !online()) return null
       try {
-        const call = await callable<{ kind: 'receipt'; image: string; mimeType: string }, { receipt: ParsedReceipt | null }>('parseReceiptAi', 45_000)
-        return (await call({ kind: 'receipt', image, mimeType })).data ?? null
+        const call = await callable<{ kind: 'receipt'; image: string; mimeType: string }, { receipt?: ParsedReceipt | null; unavailable?: true }>('parseReceiptAi', 60_000)
+        const d = (await call({ kind: 'receipt', image, mimeType })).data
+        return d && !d.unavailable ? { receipt: d.receipt ?? null } : null
       } catch (e) {
         console.warn('AI receipt reading failed', e)
         return null
@@ -804,12 +805,43 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     async readStatementAi(images, today) {
       if (!auth.currentUser || auth.currentUser.isAnonymous || !online()) return null
       try {
-        const call = await callable<{ kind: 'statement'; images: typeof images; today: string }, { statement: AiStatement | null }>('parseReceiptAi', 90_000)
-        return (await call({ kind: 'statement', images, today })).data ?? null
+        const call = await callable<{ kind: 'statement'; images: typeof images; today: string }, { statement?: AiStatement | null; unavailable?: true }>('parseReceiptAi', 120_000)
+        const d = (await call({ kind: 'statement', images, today })).data
+        return d && !d.unavailable ? { statement: d.statement ?? null } : null
       } catch (e) {
         console.warn('AI statement reading failed', e)
         return null
       }
+    },
+    async aiKey(action, key) {
+      const call = await callable<{ action: string; key?: string }, AiKeyResult>('aiKey', 30_000)
+      return (await call(key ? { action, key } : { action })).data
+    },
+    async aiModels(which) {
+      const call = await callable<{ which: string }, { models: AiModel[] }>('aiModels', 30_000)
+      return (await call({ which })).data.models
+    },
+    async aiStatus() {
+      try {
+        const call = await callable<Record<string, never>, AiStatusResult>('aiStatus', 15_000)
+        return (await call({})).data
+      } catch (e) {
+        console.warn('aiStatus failed', e)
+        return null
+      }
+    },
+    watchAiState(userId, cb) {
+      return onSnapshot(doc(db, 'users', userId, 'aiState', 'status'), (s) => cb((s.data() as AiState | undefined) ?? null), () => cb(null))
+    },
+    watchAppAi(cb) {
+      return onSnapshot(doc(db, 'config', 'ai'), (s) => cb(s.data() ?? null), () => cb(null))
+    },
+    async saveAppAi(cfg) {
+      await setDoc(doc(db, 'config', 'ai'), { ...cfg, updatedAt: Date.now(), updatedBy: auth.currentUser?.uid ?? '' })
+    },
+    async aiUsage(day) {
+      const s = await getDoc(doc(db, 'stats', `ai_${day}`))
+      return (s.data() as Record<string, number> | undefined) ?? null
     },
   }
 

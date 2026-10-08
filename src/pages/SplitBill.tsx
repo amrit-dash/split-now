@@ -87,7 +87,9 @@ export default function SplitBill() {
   const onFile = async (f: File) => {
     setPreview(URL.createObjectURL(f))
     try {
-      apply((await ocr.read(f)).parsed)
+      const r = await ocr.read(f)
+      apply(r.parsed)
+      if (r.fellBack) toast('AI reading isn’t available, so this was read on the phone. Set it up in Profile → AI reading.', 'err')
     } catch (e) {
       toast('Couldn’t read the image: ' + (e as Error).message, 'err')
     }

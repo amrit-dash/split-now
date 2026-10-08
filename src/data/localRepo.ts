@@ -425,6 +425,13 @@ export function createLocalRepo(): Repo {
     async getFxRates() { return null },
     async refreshFx() { return null },
     async readReceiptAi() { return null },
+    async aiKey() { throw new Error('AI reading isn’t available in the demo') },
+    async aiModels() { return [] },
+    async aiStatus() { return null },
+    watchAiState(_u, cb) { cb(null); return () => {} },
+    watchAppAi(cb) { cb(null); return () => {} },
+    async saveAppAi() { throw new Error('Not in the demo') },
+    async aiUsage() { return null },
     // Demo: a fixed sample (no AI), dated relative to today, so the review flow can be tried.
     async readStatementAi(_images, today) {
       await new Promise((r) => setTimeout(r, 600))

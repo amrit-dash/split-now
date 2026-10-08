@@ -83,7 +83,7 @@ async function writeLog(userRef: DocumentReference, entry: CaptureLogEntry | und
   }
 }
 
-export async function handleCapture(raw: RawRequest, now = new Date(), readSms: (text: string) => Promise<AiSms | null> = aiReadSms): Promise<{ status: number; body: CaptureResponse }> {
+export async function handleCapture(raw: RawRequest, now = new Date(), readSms: (uid: string, text: string) => Promise<AiSms | null> = aiReadSms): Promise<{ status: number; body: CaptureResponse }> {
   const req = readCaptureRequest(raw)
   if (!isTokenShaped(req.token)) return fail('bad_token')
 
@@ -106,7 +106,7 @@ export async function handleCapture(raw: RawRequest, now = new Date(), readSms: 
   let it = interpret(req, now)
   // The regex parser came up short: ask Gemini, then run its answer through the same checks.
   if (prefs.aiSms && req.text && ((!it.ok && it.reason === 'unparsed') || (it.ok && !it.parsed.merchant))) {
-    const ai = await readSms(req.text)
+    const ai = await readSms(uid, req.text)
     if (ai?.kind === 'debit') {
       if (!it.ok && ai.amount) {
         const d = minorDigits(ai.currency)

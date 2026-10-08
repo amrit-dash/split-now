@@ -56,7 +56,7 @@ export default function App() {
   useEffect(() => { if (user && !user.isAnonymous && repo.mode === 'firebase') void refreshPush(user.uid) }, [user])
 
   // Mirror the account's "read bills with AI" choice onto this device (read synchronously when scanning).
-  useEffect(() => (user && !user.isAnonymous && repo.mode === 'firebase' ? watchPrefs(user.uid, (p) => setAiScan(p.aiImages)) : undefined), [user])
+  useEffect(() => (user && !user.isAnonymous && repo.mode === 'firebase' ? watchPrefs(user.uid, (p) => setAiScan(p.aiEnabled && p.aiImages)) : undefined), [user])
 
   // Pull anything iOS Shortcuts dropped into captureInbox while the app was closed.
   useEffect(() => {
