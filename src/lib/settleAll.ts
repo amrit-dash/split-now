@@ -109,3 +109,9 @@ export function personBalances(rows: SettleRow[]): PersonBalance[] {
 
 /** Distinct groups a person's balance spans (a person can appear once per group). */
 export const groupCount = (p: PersonBalance) => new Set(p.parts.map((r) => r.groupId)).size
+
+/** The settle-up screen for everything with one person (one currency) across their groups. */
+export const settlePersonHref = (p: Pick<PersonBalance, 'key'>) => `/settle/with/${encodeURIComponent(p.key)}`
+
+/** A per-group row as a signed amount: > 0 they owe you there. */
+export const signedAmount = (r: Pick<SettleRow, 'dir' | 'amount'>) => (r.dir === 'owed' ? r.amount : -r.amount)

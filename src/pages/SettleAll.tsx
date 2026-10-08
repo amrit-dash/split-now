@@ -1,22 +1,19 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { CheckCheck, ChevronRight, NotebookPen, Plus, Sparkles, Users } from 'lucide-react'
-import { repo } from '@/data'
+import { CheckCheck, ChevronRight, NotebookPen, Plus, Users } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
 import { useAllGroupData } from '@/hooks/data'
 import { formatMoney } from '@/lib/money'
-import { todayISO, uid } from '@/lib/id'
-import { groupCount, pendingSettlements, personBalances, totalsByCurrency, type PersonBalance, type SettleRow } from '@/lib/settleAll'
+import { groupCount, pendingSettlements, personBalances, settlePersonHref, totalsByCurrency, type PersonBalance, type SettleRow } from '@/lib/settleAll'
 import { Avatar } from '@/components/Avatar'
 import { Loading, PageHeader, Segmented } from '@/components/Misc'
-import { Sheet } from '@/components/Sheet'
-import { useToast } from '@/components/Toast'
 import { Celebrate } from '@/components/Celebrate'
 
 /*
  * Balances: everything you owe / are owed, across all groups and 1:1s, in two views.
  *  - By person (default): one net balance per person (and currency) across every group, with
- *    the groups it's made of and a "settle all" that clears every group with one real payment.
+ *    the groups it's made of. Someone in 2+ groups opens the cross-group settle screen
+ *    (/settle/with/:key, SettleWithPerson), which clears every group with one real payment.
  *  - By group: each in-group payment on its own, straight into that group's settle screen.
  * (Replaces the old separate /friends screen, which now redirects here.)
  */
@@ -162,40 +159,14 @@ function RowAction({ r }: { r: SettleRow }) {
 /* ───────────────────────── By person ───────────────────────── */
 
 function ByPerson({ rows }: { rows: SettleRow[] }) {
-  const { user } = useMe()
-  const toast = useToast()
-  const [netting, setNetting] = useState<PersonBalance | null>(null)
-  const [busy, setBusy] = useState(false)
   const people = useMemo(() => personBalances(rows), [rows])
   const owe = people.filter((p) => p.net < 0)
   const owed = people.filter((p) => p.net > 0)
   const even = people.filter((p) => p.net === 0)
 
-  const settleAll = async (p: PersonBalance) => {
-    // Record one settlement per group so every group's balance clears; the real-world
-    // payment is a single transfer of the net amount.
-    setBusy(true)
-    try {
-      const n = groupCount(p)
-      for (const r of p.parts) {
-        await repo.saveSettlement({
-          id: uid('s_'), groupId: r.groupId,
-          from: r.dir === 'owed' ? r.memberId : r.me, to: r.dir === 'owed' ? r.me : r.memberId,
-          amount: r.amount, method: 'Cross-group netting',
-          note: `Net ${formatMoney(Math.abs(p.net), p.currency)} ${p.net > 0 ? `from ${p.name}` : `to ${p.name}`} across ${n} groups`,
-          date: todayISO(), createdBy: user.uid, createdAt: Date.now(),
-        })
-      }
-      setNetting(null)
-      toast(`Settled with ${p.name} across ${n} groups`)
-    } finally {
-      setBusy(false)
-    }
-  }
-
   const list = (ps: PersonBalance[]) => (
     <div className="space-y-3">
-      {ps.map((p) => <PersonCard key={p.key} p={p} onSettleAll={() => setNetting(p)} />)}
+      {ps.map((p) => <PersonCard key={p.key} p={p} />)}
     </div>
   )
 
@@ -206,29 +177,39 @@ function ByPerson({ rows }: { rows: SettleRow[] }) {
       {even.length > 0 && (
         <Section title="Evens out" testId="person-even">
           {list(even)}
-          <p className="mt-2 px-1 text-xs text-slate-500 dark:text-slate-400">You owe each other the same overall. Settle all to clear every group with no money changing hands.</p>
+          <p className="mt-2 px-1 text-xs text-slate-500 dark:text-slate-400">You owe each other the same overall. Clear them to settle every group with no money changing hands.</p>
         </Section>
       )}
-
-      <Sheet open={!!netting} onClose={() => setNetting(null)} title={`Settle all with ${netting?.name}`}>
-        {netting && (
-          <>
-            <p className="text-sm text-slate-500 dark:text-slate-400">This records a settlement in each of the {groupCount(netting)} groups so they all clear. In real life, only one payment happens:</p>
-            <div className="my-4 rounded-2xl bg-slate-100 p-4 text-center dark:bg-ink-800">
-              <div className="text-sm">{netting.net > 0 ? `${netting.name} pays you` : netting.net < 0 ? `You pay ${netting.name}` : 'No money changes hands'}</div>
-              <div className="text-3xl font-extrabold tabular-nums">{formatMoney(Math.abs(netting.net), netting.currency)}</div>
-            </div>
-            <button className="btn-primary w-full" disabled={busy} onClick={() => settleAll(netting)} data-testid="settle-all-confirm">
-              <CheckCheck size={18} aria-hidden /> Record as settled
-            </button>
-          </>
-        )}
-      </Sheet>
     </>
   )
 }
 
-function PersonCard({ p, onSettleAll }: { p: PersonBalance; onSettleAll: () => void }) {
+/**
+ * Settle everything with someone across their groups: the same controls as a single-group row
+ * ("Pay" when you owe overall, the record icon when they owe you), opening the cross-group
+ * settle screen instead of one group's.
+ */
+function PersonAction({ p, n }: { p: PersonBalance; n: number }) {
+  const to = settlePersonHref(p)
+  const amount = formatMoney(Math.abs(p.net), p.currency)
+  if (p.net < 0) {
+    return (
+      <Link to={to} data-testid="person-settle-all" aria-label={`Pay ${p.name} ${amount} across ${n} groups`}
+        className="btn-primary !min-h-10 shrink-0 !rounded-full !px-4 !py-0 text-sm">
+        Pay
+      </Link>
+    )
+  }
+  return (
+    <Link to={to} data-testid="person-settle-all" title={p.net > 0 ? 'Record payment' : 'Clear balances'}
+      aria-label={p.net > 0 ? `Record payment from ${p.name} across ${n} groups` : `Clear balances with ${p.name} across ${n} groups`}
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600 transition active:scale-95 active:bg-brand-100 dark:bg-brand-900/40 dark:text-brand-200 dark:active:bg-brand-900/70">
+      {p.net > 0 ? <NotebookPen size={20} aria-hidden /> : <CheckCheck size={20} aria-hidden />}
+    </Link>
+  )
+}
+
+function PersonCard({ p }: { p: PersonBalance }) {
   const n = groupCount(p)
   const multi = n > 1
   const mixed = multi && p.parts.some((r) => r.dir === 'owe') && p.parts.some((r) => r.dir === 'owed')
@@ -245,7 +226,6 @@ function PersonCard({ p, onSettleAll }: { p: PersonBalance; onSettleAll: () => v
     )
   }
 
-  const verb = p.net < 0 ? 'Pay' : p.net > 0 ? 'Collect' : 'Clear'
   return (
     <div className="card overflow-hidden" data-testid="person-card">
       <ItemRow
@@ -254,13 +234,7 @@ function PersonCard({ p, onSettleAll }: { p: PersonBalance; onSettleAll: () => v
         sub={`across ${n} groups`}
         amount={p.net === 0 ? 'evens out' : amount}
         dir={dir}
-        action={
-          <button type="button" onClick={onSettleAll} data-testid="person-settle-all"
-            aria-label={`Settle all with ${p.name} across ${n} groups`}
-            className={`${p.net < 0 ? 'btn-primary' : 'btn-secondary'} !min-h-10 shrink-0 !gap-1 !rounded-full !px-3.5 !py-0 text-sm`}>
-            <Sparkles size={14} aria-hidden /> {verb}
-          </button>
-        }
+        action={<PersonAction p={p} n={n} />}
       />
       <div className="mx-4 space-y-0.5 border-t border-slate-100 py-2 text-sm dark:border-white/5">
         {p.parts.map((r) => (
@@ -272,9 +246,9 @@ function PersonCard({ p, onSettleAll }: { p: PersonBalance; onSettleAll: () => v
           </Link>
         ))}
       </div>
-      {mixed && (
+      {mixed && p.net !== 0 && (
         <div className="mx-4 mb-3 rounded-xl bg-brand-50 p-2.5 text-xs text-brand-900 dark:bg-brand-900/30 dark:text-brand-100">
-          💡 You owe each other in different groups. Settle all with <b>one</b> payment of {amount}.
+          💡 You owe each other in different groups. Settle all of it with <b>one</b> payment of {amount}.
         </div>
       )}
     </div>

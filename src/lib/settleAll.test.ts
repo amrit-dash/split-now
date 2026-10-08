@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Debt, Group } from '@/types'
-import { groupCount, pendingSettlements, personBalances, settleHref, totalsByCurrency } from './settleAll'
+import { groupCount, pendingSettlements, personBalances, settleHref, settlePersonHref, signedAmount, totalsByCurrency } from './settleAll'
 
 const g = (id: string, currency: string, members: Group['members'], type: Group['type'] = 'trip') =>
   ({ id, name: `G ${id}`, emoji: '🏖️', type, currency, members })
@@ -65,5 +65,12 @@ describe('settleAll', () => {
       { group: g('b', 'INR', members), me: 'me', debts: [{ from: 'p', to: 'me', amount: 300 }] },
     ])
     expect(personBalances(even).map((p) => [p.name, p.net, p.parts.length])).toEqual([['Priya', 0, 2]])
+  })
+
+  it('links a person to their cross-group settle screen and signs each group', () => {
+    const people = personBalances(rows)
+    expect(settlePersonHref(people[0])).toBe('/settle/with/u%3Au_rohan%7CINR')
+    expect(people[0].parts.map(signedAmount)).toEqual([-5000, 1500])
+    expect(people[0].parts.map(signedAmount).reduce((a, b) => a + b, 0)).toBe(people[0].net)
   })
 })
