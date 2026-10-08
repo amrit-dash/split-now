@@ -11,6 +11,7 @@ const PROJECT = 'demo-splitit'
 const URL = `http://127.0.0.1:5001/${PROJECT}/asia-south1/capture`
 const TOKEN = 'abcdefghijkmnpqrstuvwxyz2345'
 const SCOPED = 'scopedtokenscopedtokenscope'
+const LEFT = 'lefttokenlefttokenlefttoken2'
 const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date())
 const [y, m, d] = today.split('-')
 const ddmmyy = `${d}-${m}-${y.slice(2)}`
@@ -32,8 +33,10 @@ beforeEach(async () => {
     const base = { emoji: '🏖️', currency: 'INR', simplify: true, memberUids: ['alice'], members: { alice: { name: 'Alice', uid: 'alice', color: '#000' } }, inviteCode: 'ABC234', createdBy: 'alice', createdAt: 1, updatedAt: 1 }
     await setDoc(doc(db, 'groups/goa'), { ...base, id: 'goa', name: 'Goa Trip', type: 'trip', startDate: addDays(today, -2), endDate: addDays(today, 3) })
     await setDoc(doc(db, 'groups/old'), { ...base, id: 'old', name: 'Old Trip', type: 'trip', startDate: '2025-01-01', endDate: '2025-01-05' })
+    await setDoc(doc(db, 'groups/gone'), { ...base, id: 'gone', name: 'Left Trip', type: 'trip', memberUids: ['bob'], members: { bob: { name: 'Bob', uid: 'bob', color: '#000' } }, createdBy: 'bob' })
     await setDoc(doc(db, `captureTokens/${TOKEN}`), { uid: 'alice', createdAt: 1 })
     await setDoc(doc(db, `captureTokens/${SCOPED}`), { uid: 'alice', createdAt: 1, groupId: 'old', label: 'Old Trip' })
+    await setDoc(doc(db, `captureTokens/${LEFT}`), { uid: 'alice', createdAt: 1, groupId: 'gone', label: 'Left Trip' })
   })
 })
 
@@ -95,6 +98,53 @@ describe('capture webhook (emulator)', () => {
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ ok: false, reason: 'outside_trip' })
     expect(await captures()).toHaveLength(0)
+  })
+
+  it('writes the activity log as one document, newest first, never with SMS text', async () => {
+    await post({ token: TOKEN, text: sms('222233334444') })
+    await post({ token: TOKEN, text: `Rs.500.00 credited to A/c XX1234 on ${ddmmyy} from VPA rahul@okicici (UPI 628112345678)` })
+    let log: Record<string, unknown> | undefined
+    await env.withSecurityRulesDisabled(async (ctx) => { log = (await getDoc(doc(ctx.firestore(), 'users/alice/captureLog/recent'))).data() })
+    const entries = log?.entries as Array<Record<string, unknown>>
+    expect(entries.map((e) => e.result)).toEqual(['not_a_debit', 'captured'])
+    expect(entries[1]).toMatchObject({ amount: 84000, merchant: 'Swiggy', groupName: 'Goa Trip', device: 'other' })
+    expect(JSON.stringify(log)).not.toContain('XX1234')
+    const more = await env.withSecurityRulesDisabled(async (ctx) => (await getDocs(collection(ctx.firestore(), 'users/alice/captureLog'))).size)
+    expect(more).toBe(1)
+  })
+
+  it('a transfer between the user’s own accounts is not a payment', async () => {
+    const res = await post({ token: TOKEN, text: `Rs.2,000.00 debited from A/c XX1234 on ${ddmmyy} for UPI Lite top-up. UPI Ref 628112345670. -HDFC Bank` })
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ ok: false, reason: 'not_a_debit' })
+    expect(await captures()).toHaveLength(0)
+  })
+
+  it('infers the currency of a structured amount (A$12.50 is AUD, not ₹12.50)', async () => {
+    const res = await post({ token: TOKEN, amount: 'A$12.50', merchant: 'Cafe Luna', ref: 'card-1' })
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ ok: true, parsed: { amount: 1250, currency: 'AUD', merchant: 'Cafe Luna' } })
+  })
+
+  it('a key scoped to a trip the user left is dead, not "all my trips"', async () => {
+    const res = await post({ token: LEFT, text: sms('333344445555') })
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ ok: false, reason: 'bad_scope' })
+    expect(await captures()).toHaveLength(0)
+  })
+
+  it('the same card alert without a reference is captured once', async () => {
+    const card = `Spent Rs 1,234.00 on HDFC Bank Card x1234 at AMAZON on ${ddmmyy}. Not You? Call 18002586161`
+    const first = await post({ token: TOKEN, text: card })
+    expect(await first.json()).toMatchObject({ ok: true, parsed: { amount: 123400, merchant: 'Amazon' } })
+    const again = await post({ token: TOKEN, text: `${card} ` })
+    expect(await again.json()).toEqual({ ok: false, reason: 'duplicate' })
+    expect(await captures()).toHaveLength(1)
+  })
+
+  it('refuses oversized bodies before reading anything', async () => {
+    const res = await post({ token: TOKEN, text: 'x'.repeat(20_000) })
+    expect(res.status).toBe(413)
   })
 
   it('rejects bad tokens and bad requests', async () => {

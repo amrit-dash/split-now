@@ -9,6 +9,7 @@ import { guessCategory } from '@/lib/categories'
 import { colorFor } from '@/lib/colors'
 import { uid } from '@/lib/id'
 import { formatMoney } from '@/lib/money'
+import { errText } from '@/lib/errors'
 import {
   claimLeftoversForAll, matchParticipants, participantOrder, tableToSplit, tableTotal, TableError,
   type LiveTable, type ParticipantId, type TableTotals,
@@ -38,7 +39,7 @@ export default function TableFinish({ table, totals, onClose }: { table: LiveTab
             <div className="rounded-2xl bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
               <div className="font-semibold">{totals.unclaimed.length} item{totals.unclaimed.length === 1 ? ' is' : 's are'} still unclaimed ({formatMoney(totals.unclaimedAmount, table.currency)}).</div>
               <button className="btn-secondary mt-2 w-full !min-h-0 !py-2 text-sm" onClick={() => {
-                repo.updateTable(table.code, { claims: claimLeftoversForAll(table) }).catch((e) => toast((e as Error).message, 'err'))
+                repo.updateTable(table.code, { claims: claimLeftoversForAll(table) }).catch((e) => toast(errText(e), 'err'))
               }}><Users size={16} aria-hidden /> Split leftovers between everyone</button>
             </div>
           )}
@@ -50,13 +51,16 @@ export default function TableFinish({ table, totals, onClose }: { table: LiveTab
                 <span className="min-w-0 flex-1"><span className="block font-semibold">New group</span><span className="block text-xs text-slate-500">With everyone at this table</span></span>
                 {target === NONE && <Check size={18} className="text-brand-600" />}
               </button>
-              {usable.map((g) => {
+              {usable.filter((g) => !g.archived).map((g) => {
                 const off = g.currency !== table.currency
                 return (
-                  <button key={g.id} disabled={off} onClick={() => setTarget(g.id)} className={`flex w-full items-center gap-3 rounded-2xl p-2 text-left disabled:opacity-40 ${target === g.id ? 'bg-brand-50 dark:bg-brand-900/30' : ''}`}>
+                  <button key={g.id} type="button" disabled={off} aria-disabled={off || undefined} title={off ? `Different currency (${g.currency})` : undefined} onClick={() => setTarget(g.id)} className={`flex w-full items-center gap-3 rounded-2xl p-2 text-left disabled:opacity-50 ${target === g.id ? 'bg-brand-50 dark:bg-brand-900/30' : ''}`}>
                     <GroupIcon emoji={g.emoji} size={36} />
-                    <span className="flex-1 font-semibold">{g.name}{off && <span className="ml-1 text-xs font-normal text-slate-500">({g.currency})</span>}</span>
-                    {target === g.id && <Check size={18} className="text-brand-600" />}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-semibold">{g.name}</span>
+                      {off && <span className="text-muted block text-xs">Different currency ({g.currency})</span>}
+                    </span>
+                    {target === g.id && <Check size={18} className="text-brand-600" aria-hidden />}
                   </button>
                 )
               })}
@@ -127,7 +131,7 @@ function ToGroup({ table, group, ready }: { table: LiveTable; group: Group; read
       toast(`Added to ${group.name} ✅`)
       nav(`/groups/${group.id}/expenses/${e.id}`, { replace: true })
     } catch (err) {
-      toast(err instanceof TableError ? err.message : (err as Error).message, 'err')
+      toast(err instanceof TableError ? err.message : errText(err), 'err')
       setBusy(false)
     }
   }
@@ -149,7 +153,8 @@ function ToGroup({ table, group, ready }: { table: LiveTable; group: Group; read
       </div>
       {dupes.size > 0 && <p className="mt-2 text-xs text-amber-600">Two people point at the same member — their items will be combined.</p>}
       <p className="mt-2 text-xs text-slate-500">{group.members[payer]?.name ?? 'You'} paid {formatMoney(tableTotal(table), table.currency)}. Everyone else owes their share.</p>
-      <button className="btn-primary mt-4 w-full" disabled={!ready || busy} onClick={finish}><Check size={18} aria-hidden /> Add expense to {group.name}</button>
+      <button type="button" className="btn-primary mt-4 w-full" disabled={!ready || busy} onClick={finish}><Check size={18} aria-hidden /> Add expense to {group.name}</button>
+      {!ready && <p className="text-muted mt-2 text-center text-xs">Claim or split the leftover items first.</p>}
     </div>
   )
 }
@@ -179,7 +184,7 @@ function NoGroup({ table, ready }: { table: LiveTable; ready: boolean }) {
       toast(`Created ${table.merchant} ✅`)
       nav(`/groups/${gid}/expenses/${e.id}`, { replace: true })
     } catch (err) {
-      toast((err as Error).message, 'err')
+      toast(errText(err), 'err')
       setBusy(false)
     }
   }
@@ -187,8 +192,9 @@ function NoGroup({ table, ready }: { table: LiveTable; ready: boolean }) {
   return (
     <div className="space-y-2">
       <p className="text-sm text-slate-500">Creates “{table.merchant}” with everyone here and adds this bill item by item, so you can fix who had what later. Friends join it with the invite link.</p>
-      <button className="btn-primary w-full" disabled={!ready || busy} onClick={createGroup} data-testid="create-table-group"><Users size={18} aria-hidden /> Create group and add the bill</button>
-      <button className="btn-ghost w-full" disabled={busy} onClick={() => repo.updateTable(table.code, { status: 'closed' }).catch((e) => toast((e as Error).message, 'err'))}>Don’t make a group, just show who owes what</button>
+      <button type="button" className="btn-primary w-full" disabled={!ready || busy} onClick={createGroup} data-testid="create-table-group"><Users size={18} aria-hidden /> Create group and add the bill</button>
+      {!ready && <p className="text-muted text-center text-xs">Claim or split the leftover items first.</p>}
+      <button type="button" className="btn-ghost w-full" disabled={busy} onClick={() => repo.updateTable(table.code, { status: 'closed' }).catch((e) => toast(errText(e), 'err'))}>Don’t make a group, just show who owes what</button>
     </div>
   )
 }
