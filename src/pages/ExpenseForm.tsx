@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Camera, Check, ChevronDown, History, Minus, Plus, QrCode, Repeat, Search, Trash2, X } from 'lucide-react'
+import { Camera, Check, ChevronDown, History, Minus, Plus, QrCode, Repeat, Search, Trash2, Users, Wallet, X } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { memberOrder, myMemberId, useCaptures, useExpenses, useGroup, useGroups } from '@/hooks/data'
@@ -81,8 +81,8 @@ function NoGroups() {
       <Empty emoji="👀" title="Create a group first">
         Expenses live inside a group, a 1:1 friend, or your personal wallet.
         <div className="mt-4 flex justify-center gap-2">
-          <button className="btn-primary" onClick={() => nav('/groups/new')}>New group</button>
-          <button className="btn-secondary" onClick={() => nav('/groups/new?type=personal')}>Personal</button>
+          <button className="btn-primary" onClick={() => nav('/groups/new')}><Users size={18} aria-hidden /> New group</button>
+          <button className="btn-secondary" onClick={() => nav('/groups/new?type=personal')}><Wallet size={18} aria-hidden /> Personal</button>
         </div>
         <button className="btn-secondary mx-auto mt-2 flex" onClick={() => nav('/split', { replace: true })} data-testid="nogroups-split"><QrCode size={18} /> Split a bill by items</button>
         <p className="mt-2 text-xs text-slate-400">Out to eat? Scan the bill and everyone taps what they had, no group needed.</p>
@@ -333,7 +333,7 @@ function Form({ group, groups, existing, again, capture, history, onGroup }: {
       <header className="sticky top-0 z-30 -mx-4 flex items-center justify-between bg-slate-50/85 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] backdrop-blur-xl dark:bg-ink-950/85">
         <button onClick={() => nav(-1)} className="-ml-2 rounded-full p-2" aria-label="Cancel"><X size={24} /></button>
         <div className="font-bold">{existing ? 'Edit expense' : capture ? 'Captured payment' : 'Add expense'}</div>
-        <button onClick={save} disabled={busy} className="rounded-full bg-brand-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{busy ? '…' : 'Save'}</button>
+        <button onClick={save} disabled={busy} className="rounded-full bg-brand-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"><Check size={16} aria-hidden /> {busy ? '…' : 'Save'}</button>
       </header>
 
       {/* Group picker */}

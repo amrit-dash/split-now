@@ -1,3 +1,4 @@
+import { Plus, ScanLine } from 'lucide-react'
 import { useEffect, useMemo } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { captureFromSharedText, captureQuery } from '@/lib/capture'
@@ -29,8 +30,8 @@ export default function Share() {
       <Empty emoji="🔎" title="No amount found">
         {shared ? <>We couldn’t find a price in “{shared.slice(0, 120)}”.</> : 'Nothing was shared.'}
         <div className="mt-4 flex justify-center gap-2">
-          <Link to="/add" className="btn-primary">Add expense</Link>
-          <Link to="/scan" className="btn-secondary">Scan a screenshot</Link>
+          <Link to="/add" className="btn-primary"><Plus size={18} aria-hidden /> Add expense</Link>
+          <Link to="/scan" className="btn-secondary"><ScanLine size={18} aria-hidden /> Scan a screenshot</Link>
         </div>
       </Empty>
     </div>

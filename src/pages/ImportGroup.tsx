@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { AlertTriangle, Check, FileUp, X } from 'lucide-react'
+import { AlertTriangle, Check, Download, FileUp, X } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { myMemberId, useGroups } from '@/hooks/data'
@@ -318,7 +318,7 @@ export default function ImportGroup() {
             </div>
 
             {problems.map((p) => <p key={p} className="text-center text-sm text-rose-600">{p}</p>)}
-            <button className="btn-primary w-full" onClick={run} disabled={busy || problems.length > 0}>
+            <button className="btn-primary w-full" onClick={run} disabled={busy || problems.length > 0}><Download size={18} aria-hidden /> 
               {busy ? 'Importing…' : `Import ${result.expenses.length + result.payments.length} item${result.expenses.length + result.payments.length === 1 ? '' : 's'}`}
             </button>
           </>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Check } from 'lucide-react'
+import { Check, LogIn } from 'lucide-react'
 import { repo } from '@/data'
 import type { InviteInfo } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
@@ -72,7 +72,7 @@ export default function Join() {
           </button>
         ))}
       </div>
-      <button className="btn-primary mt-5 w-full" onClick={join} disabled={busy || !choice}>{choice ? 'Join group' : 'Pick one to join'}</button>
+      <button className="btn-primary mt-5 w-full" onClick={join} disabled={busy || !choice}><LogIn size={18} aria-hidden /> {choice ? 'Join group' : 'Pick one to join'}</button>
     </div>
   )
 }

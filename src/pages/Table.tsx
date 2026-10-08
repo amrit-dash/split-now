@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Check, CircleCheck, Copy, ExternalLink, Minus, Pencil, Plus, QrCode as QrIcon, Share2, Trash2, UserPlus } from 'lucide-react'
+import { ArrowRight, Check, CircleCheck, Copy, ExternalLink, LogIn, Minus, Pencil, Plus, QrCode as QrIcon, Receipt, Share2, Trash2, UserPlus } from 'lucide-react'
 import { repo } from '@/data'
 import type { TablePatch } from '@/data/repo'
 import { useAuth } from '@/hooks/auth'
@@ -83,7 +83,7 @@ export function TableEntry() {
       </div>
       <form className="mt-6 space-y-3" onSubmit={(e) => { e.preventDefault(); const c = parseCode(code); if (c) nav(`/t/${c}`) }}>
         <input className="input text-center text-2xl font-bold uppercase tracking-[0.3em]" placeholder="ABCD-2345" value={code} onChange={(e) => setCode(e.target.value)} autoFocus aria-label="Table code" autoCapitalize="characters" />
-        <button className="btn-primary w-full" disabled={!parseCode(code)}>Open the bill</button>
+        <button className="btn-primary w-full" disabled={!parseCode(code)}><Receipt size={18} aria-hidden /> Open the bill</button>
       </form>
     </div>
   )
@@ -135,7 +135,7 @@ function JoinForm({ table, viewer }: { table: LiveTable; viewer: Viewer }) {
       </div>
       <form className="mt-6 space-y-3" onSubmit={join}>
         <input className="input" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} autoFocus maxLength={40} aria-label="Your name" autoComplete="given-name" />
-        <button className="btn-primary w-full">Join the table</button>
+        <button className="btn-primary w-full"><LogIn size={18} aria-hidden /> Join the table</button>
       </form>
     </div>
   )
@@ -244,7 +244,7 @@ function Live({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; isH
             <div className="text-xs text-slate-500">Your total{mine?.extras ? ` (incl. ${formatMoney(mine.extras, cur, { sign: true })} tax/tip)` : ''}</div>
             <div className="text-2xl font-extrabold tabular-nums" data-testid="my-total">{formatMoney(mine?.total ?? 0, cur)}</div>
           </div>
-          {isHost && viewer.signedIn && <button className="btn-primary" onClick={() => setSheet('finish')}>Finish</button>}
+          {isHost && viewer.signedIn && <button className="btn-primary" onClick={() => setSheet('finish')}><Check size={18} aria-hidden /> Finish</button>}
         </div>
       </div>
 
@@ -333,7 +333,7 @@ function AddPersonSheet({ open, onClose, table, onAdded }: { open: boolean; onCl
       <form onSubmit={add} className="space-y-3">
         <p className="text-sm text-slate-500">You’ll tap their items for them.</p>
         <input className="input" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} maxLength={40} autoFocus aria-label="Name" />
-        <button className="btn-primary w-full">Add</button>
+        <button className="btn-primary w-full"><UserPlus size={18} aria-hidden /> Add</button>
       </form>
     </Sheet>
   )
@@ -382,7 +382,7 @@ function EditBillSheet({ table, onClose }: { table: LiveTable; onClose: () => vo
           ))}
         </div>
         <p className="text-xs text-slate-500">Tax, tip and discounts are shared in proportion to what each person had.</p>
-        <button className="btn-primary w-full" onClick={save}>Save</button>
+        <button className="btn-primary w-full" onClick={save}><Check size={18} aria-hidden /> Save</button>
       </div>
     </Sheet>
   )
@@ -426,7 +426,7 @@ function Closed({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; i
         </div>
       )}
       {isHost && table.expenseId && table.closedGroupId && viewer.signedIn && (
-        <button className="btn-primary w-full" onClick={() => nav(`/groups/${table.closedGroupId}/expenses/${table.expenseId}`)}>Open the expense</button>
+        <button className="btn-primary w-full" onClick={() => nav(`/groups/${table.closedGroupId}/expenses/${table.expenseId}`)}><ArrowRight size={18} aria-hidden /> Open the expense</button>
       )}
       <div className="card mt-4 divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
         {order.map((p, i) => (

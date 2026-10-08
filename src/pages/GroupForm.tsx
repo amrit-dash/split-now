@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { FileUp, Plus, Trash2, UserPlus, X } from 'lucide-react'
+import { Check, FileUp, Plus, Trash2, UserPlus, X } from 'lucide-react'
 import { repo } from '@/data'
 import { diffMembers } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
@@ -366,7 +366,7 @@ export default function GroupForm() {
           </div>
         )}
 
-        <button className="btn-primary w-full" onClick={save} disabled={busy}>{existing ? 'Save changes' : type === 'direct' ? 'Create 1:1' : type === 'personal' ? 'Create wallet' : 'Create group'}</button>
+        <button className="btn-primary w-full" onClick={save} disabled={busy}><Check size={18} aria-hidden /> {existing ? 'Save changes' : type === 'direct' ? 'Create 1:1' : type === 'personal' ? 'Create wallet' : 'Create group'}</button>
         {!existing && shared && (
           <Link to="/groups/import" className="flex items-center justify-center gap-1.5 text-sm font-semibold text-slate-500 dark:text-slate-400">
             <FileUp size={16} /> Switching from Splitwise? Import a group

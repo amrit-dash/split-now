@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Camera, ChevronRight, Download, ImagePlus, LogOut, Moon, Palette, ShieldCheck, Sparkles, Sun, SunMoon, Trash2, Users, Wallet } from 'lucide-react'
+import { Camera, ChevronRight, Download, ImagePlus, LogOut, Moon, Palette, Save, ShieldCheck, Sparkles, Sun, SunMoon, Trash2, Users, Wallet, X } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import type { PaymentHandles, UserProfile } from '@/types'
@@ -192,14 +192,14 @@ export default function Profile() {
         </button>
       )}
 
-      <button className="btn-primary mt-6 w-full" onClick={save} disabled={saving} data-testid="save-profile">Save profile</button>
+      <button className="btn-primary mt-6 w-full" onClick={save} disabled={saving} data-testid="save-profile"><Save size={18} aria-hidden /> Save profile</button>
       {dirty && <div className="h-14" aria-hidden />}
       {dirty && (
         <div className="animate-pop fixed inset-x-0 bottom-[calc(var(--nav-h)+2rem)] z-30 mx-auto max-w-2xl px-4" data-testid="unsaved-bar">
           <div className="flex items-center gap-2 rounded-2xl bg-white p-2 pl-4 shadow-xl shadow-black/15 ring-1 ring-slate-900/10 dark:bg-ink-800 dark:ring-white/10">
             <span className="min-w-0 flex-1 truncate text-sm font-semibold">Unsaved changes</span>
             <button className="btn-ghost !min-h-0 shrink-0 !px-3 !py-2 text-sm" onClick={discard}>Discard</button>
-            <button className="btn-primary !min-h-0 shrink-0 !px-4 !py-2 text-sm" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+            <button className="btn-primary !min-h-0 shrink-0 !px-4 !py-2 text-sm" onClick={save} disabled={saving}><Save size={16} aria-hidden /> {saving ? 'Saving…' : 'Save'}</button>
           </div>
         </div>
       )}
@@ -212,7 +212,7 @@ export default function Profile() {
           {repo.mode === 'demo' ? 'Your demo data stays on this device.' : 'Your groups stay in your account. This device’s offline copy is cleared.'}
         </p>
         <div className="mt-5 grid grid-cols-2 gap-2">
-          <button className="btn-secondary" onClick={() => setSignOutOpen(false)}>Cancel</button>
+          <button className="btn-secondary" onClick={() => setSignOutOpen(false)}><X size={18} aria-hidden /> Cancel</button>
           <button className="btn bg-rose-600 text-white" onClick={() => { setSignOutOpen(false); repo.signOut() }} data-testid="confirm-sign-out"><LogOut size={18} /> Sign out</button>
         </div>
       </Sheet>

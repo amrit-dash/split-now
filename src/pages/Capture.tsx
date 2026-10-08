@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Check, Inbox, User, X } from 'lucide-react'
+import { ArrowRight, Check, Home, Inbox, Plus, Undo2, User, X } from 'lucide-react'
 import { repo } from '@/data'
 import { draftToCapture } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
@@ -57,8 +57,8 @@ function CreateFromLink() {
         <Empty emoji="🤔" title="Couldn’t read that payment">
           {error}
           <div className="mt-4 flex justify-center gap-2">
-            <Link to="/add" className="btn-primary">Add manually</Link>
-            <Link to="/" className="btn-secondary">Home</Link>
+            <Link to="/add" className="btn-primary"><Plus size={18} aria-hidden /> Add manually</Link>
+            <Link to="/" className="btn-secondary"><Home size={18} aria-hidden /> Home</Link>
           </div>
         </Empty>
       </Shell>
@@ -97,9 +97,9 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
         <Empty emoji={c.status === 'assigned' ? '✅' : '🙈'} title={c.status === 'assigned' ? 'Already added' : 'Dismissed'}>
           {captureHeadline(c, cur)} was {c.status === 'assigned' ? 'added to a group' : 'marked as not shared'}.
           <div className="mt-4 flex justify-center gap-2">
-            {c.groupId && <Link to={`/groups/${c.groupId}`} className="btn-primary">Open group</Link>}
-            {c.status === 'dismissed' && <button className="btn-secondary" onClick={() => repo.updateCapture(user.uid, c.id, { status: 'pending' })}>Undo</button>}
-            <Link to="/inbox" className="btn-secondary">Inbox</Link>
+            {c.groupId && <Link to={`/groups/${c.groupId}`} className="btn-primary"><ArrowRight size={18} aria-hidden /> Open group</Link>}
+            {c.status === 'dismissed' && <button className="btn-secondary" onClick={() => repo.updateCapture(user.uid, c.id, { status: 'pending' })}><Undo2 size={18} aria-hidden /> Undo</button>}
+            <Link to="/inbox" className="btn-secondary"><Inbox size={18} aria-hidden /> Inbox</Link>
           </div>
         </Empty>
       </Shell>
@@ -161,7 +161,7 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
           {chosen && c.currency && chosen.currency !== c.currency && (
             <p className="mt-2 px-1 text-xs text-slate-500">{chosen.name} uses {chosen.currency}. The expense is entered as {formatMoney(c.amount, c.currency)} and converted to {chosen.currency} at the ECB rate for {c.date}; you can change the rate before saving.</p>
           )}
-          <button className="btn-primary mt-3 w-full" disabled={!chosen || busy} onClick={() => chosen && toExpense(chosen.id)}>
+          <button className="btn-primary mt-3 w-full" disabled={!chosen || busy} onClick={() => chosen && toExpense(chosen.id)}><Check size={18} aria-hidden /> 
             {chosen ? `Split equally in ${chosen.name}` : 'Pick a group'}
           </button>
         </div>

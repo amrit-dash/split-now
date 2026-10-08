@@ -28,7 +28,7 @@ export default function Groups() {
         <div className="flex min-h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-20rem)] flex-col justify-center">
           <Empty emoji="🧳" title="Start your first group">
             <div className="mt-4 flex flex-col items-center gap-1">
-              <Link to="/groups/new" className="btn-primary">Create group</Link>
+              <Link to="/groups/new" className="btn-primary"><Plus size={18} aria-hidden /> Create group</Link>
               <Link to="/groups/import" className="btn-ghost">Switching from Splitwise? Import a group</Link>
             </div>
           </Empty>

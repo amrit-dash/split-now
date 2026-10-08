@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Sparkles } from 'lucide-react'
+import { CheckCheck, Plus, Sparkles, Users } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { useAllGroupData, type GroupData } from '@/hooks/data'
@@ -79,7 +79,7 @@ export default function Friends() {
           No one owes anyone. Nice.
           <div className="mt-4 flex justify-center gap-2">
             <Link to="/add" className="btn-primary !min-h-0 !py-2.5 text-sm" data-testid="friends-add"><Plus size={16} /> Add an expense</Link>
-            <Link to="/groups" className="btn-secondary !min-h-0 !py-2.5 text-sm">Your groups</Link>
+            <Link to="/groups" className="btn-secondary !min-h-0 !py-2.5 text-sm"><Users size={16} aria-hidden /> Your groups</Link>
           </div>
         </Empty>
       ) : (
@@ -122,7 +122,7 @@ export default function Friends() {
               <div className="text-sm">{netting.net > 0 ? `${netting.name} pays you` : netting.net < 0 ? `You pay ${netting.name}` : 'No money changes hands'}</div>
               <div className="text-3xl font-extrabold tabular-nums">{formatMoney(Math.abs(netting.net), netting.currency)}</div>
             </div>
-            <button className="btn-primary w-full" onClick={() => settleAll(netting)}>Record as settled</button>
+            <button className="btn-primary w-full" onClick={() => settleAll(netting)}><CheckCheck size={18} aria-hidden /> Record as settled</button>
           </>
         )}
       </Sheet>

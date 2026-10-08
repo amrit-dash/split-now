@@ -200,3 +200,5 @@ html[data-update-ready] .install-banner { display: none; }
   -webkit-mask: radial-gradient(circle 2.35rem at 50% 0.55rem, transparent 98%, #000 100%);
   mask: radial-gradient(circle 2.35rem at 50% 0.55rem, transparent 98%, #000 100%);
 }
+html[data-capture-alert] [data-testid='update-banner'] { display: none; }
+html[data-capture-alert] .install-banner { display: none; }

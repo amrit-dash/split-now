@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowDown, Camera, ChevronDown, Copy, ExternalLink, QrCode as QrIcon } from 'lucide-react'
+import { ArrowDown, Camera, Check, ChevronDown, Copy, ExternalLink, QrCode as QrIcon } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { computeGroupData, memberOrder, useExpenses, useGroup, useSettlements } from '@/hooks/data'
@@ -204,7 +204,7 @@ export default function SettleUp() {
         </div>
       </div>
 
-      <button className="btn-primary mt-5 w-full" onClick={save} disabled={busy}>Record {Number.isFinite(amount) && amount > 0 ? formatMoney(amount, cur) : 'payment'}</button>
+      <button className="btn-primary mt-5 w-full" onClick={save} disabled={busy}><Check size={18} aria-hidden /> Record {Number.isFinite(amount) && amount > 0 ? formatMoney(amount, cur) : 'payment'}</button>
     </div>
   )
 }
