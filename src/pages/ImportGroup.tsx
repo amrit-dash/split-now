@@ -77,6 +77,7 @@ export default function ImportGroup() {
 
   // Defaults when a file is loaded: name from the filename, currency from the file, "me" by name,
   // type from the name ("Goa trip") or else from how long the expenses span.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs once per picked file
   useEffect(() => {
     if (!file || !parsed.result) return
     const r = parsed.result
@@ -91,6 +92,7 @@ export default function ImportGroup() {
   }, [file])
 
   // When the target group changes, re-map to its members by name.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-maps only when the target (or the group list's arrival) changes
   useEffect(() => {
     if (!result) return
     setMapping(defaultMapping(result.members, profile.displayName, target, user.uid))
@@ -276,7 +278,10 @@ export default function ImportGroup() {
             {result.warnings.length > 0 && (
               <details className="card p-4 text-sm">
                 <summary className="flex cursor-pointer items-center gap-2 font-semibold text-amber-800 dark:text-amber-300"><AlertTriangle size={16} aria-hidden /> {result.warnings.length} note{result.warnings.length === 1 ? '' : 's'}{result.skipped ? ` · ${result.skipped} row${result.skipped === 1 ? '' : 's'} skipped` : ''}</summary>
-                <ul className="mt-2 list-disc space-y-1 pl-5 text-slate-700 dark:text-slate-300">{result.warnings.slice(0, 50).map((w, i) => <li key={i}>{w}</li>)}</ul>
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-slate-700 dark:text-slate-300">{result.warnings.slice(0, 50).map((w, i) => (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: parser notes have no id and never reorder
+                  <li key={i}>{w}</li>
+                ))}</ul>
               </details>
             )}
 

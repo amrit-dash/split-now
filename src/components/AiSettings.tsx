@@ -42,6 +42,9 @@ const ago = (t: number) => {
 
 const TONE = { ok: 'bg-emerald-500', muted: 'bg-slate-400', warn: 'bg-amber-500' } as const
 
+/** Lite models think minimally and cost a fraction of a cent per bill; the others are a different bill. */
+export const modelHint = (m: AiModel & { lite?: boolean }) => (m.lite === false ? `${m.id} · costs ~10× more per bill` : m.lite ? `${m.id} · cheapest` : m.id)
+
 /**
  * Settings → AI features. One switch and one consent sentence for everyone; which features, which
  * key, the user's own Gemini key and its model live under Advanced (opened by itself only when
@@ -94,8 +97,8 @@ export function AiSettings() {
   const advancedOpen = advanced ?? (prefs.aiEnabled && byokOnly && !hasKey)
   const appLine = (f: 'images' | 'sms') => (status ? APP_STATUS[status.app[f]] : null)
   const modelOptions = [
-    { value: '', label: 'Recommended', hint: DEFAULT_MODEL },
-    ...(models ?? []).map((m) => ({ value: m.id, label: m.label, hint: m.id })),
+    { value: '', label: 'Recommended (cheapest)', hint: DEFAULT_MODEL },
+    ...(models ?? []).map((m) => ({ value: m.id, label: m.label, hint: modelHint(m) })),
     ...(prefs.aiModel && !(models ?? []).some((m) => m.id === prefs.aiModel) ? [{ value: prefs.aiModel, label: prefs.aiModel }] : []),
   ]
 
@@ -124,6 +127,10 @@ export function AiSettings() {
                 text={prefs.aiImages ? 'Photos go to Gemini to read items, taxes and transactions.' : 'Read on this phone (less accurate). Statement import needs AI.'} />
               <Row title="Bank SMS the app can’t read" testId="ai-sms" checked={prefs.aiSms} onChange={(v) => set({ aiSms: v })}
                 text={prefs.aiSms ? 'Only messages the built-in reader misses go to Gemini, with account numbers masked.' : 'Unreadable messages are skipped.'} />
+              {prefs.aiSms && (
+                <Row title="Also ask Gemini who was paid" testId="ai-sms-merchant" checked={prefs.aiSmsMerchant} onChange={(v) => set({ aiSmsMerchant: v })}
+                  text="When the app reads the amount but not the payee, the masked message is sent to Gemini for the name. Off: such payments are saved as “Payment”." />
+              )}
             </div>
 
             <div>

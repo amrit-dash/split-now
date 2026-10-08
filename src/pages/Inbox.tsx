@@ -44,6 +44,7 @@ export default function Inbox() {
   const current: Tab = tab ?? (box.toSort === 0 && box.unread > 0 ? 'updates' : 'sort')
   // The moment the user looks at Updates, everything up to now is read (the dots stay for this visit).
   const [seenBefore] = useState(box.seenAt)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the length is the trigger (new entries while the tab is open are read too)
   useEffect(() => { if (current === 'updates') markInboxSeen() }, [current, box.updates.length])
 
   const groups = useMemo(() => data?.map((d) => d.group) ?? null, [data])

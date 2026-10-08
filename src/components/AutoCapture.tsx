@@ -224,7 +224,7 @@ function OutsideTripsChoice({ on, onChange }: { on: boolean; onChange: (v: boole
       <div role="radiogroup" aria-label="What gets captured" className="space-y-1.5">
         {[
           { v: false, title: 'Only payments during a trip', hint: 'Debit SMS dated inside a group’s trip dates. Everything else is ignored and never stored.' },
-          { v: true, title: 'All bank & UPI payments', hint: 'Payments outside a trip also land in your Inbox to sort later.' },
+          { v: true, title: 'All bank & UPI payments', hint: 'Payments outside every trip wait in the Inbox as “outside any trip”, without a notification.' },
         ].map((o) => (
           <button key={String(o.v)} type="button" role="radio" aria-checked={on === o.v} onClick={() => onChange(o.v)}
             className={`flex w-full items-start gap-3 rounded-xl p-2.5 text-left transition ${on === o.v ? 'bg-brand-50 ring-2 ring-brand-500 dark:bg-brand-900/20' : ''}`}>
@@ -350,7 +350,7 @@ function Keys({ tokens, groups, lastUsed, onCopy, onRevoke }: {
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium">{label}</div>
                 <div className="text-muted truncate text-xs">
-                  {t.groupId ? (g ? formatRange(g.startDate, g.endDate) || 'No trip dates' : 'Group no longer available') : 'Any trip'} · {at ? `last received ${ago(at, now)}` : 'nothing received yet'} · <code>{t.token.slice(0, 6)}…</code>
+                  {t.groupId ? (g ? formatRange(g.startDate, g.endDate) || 'No trip dates' : 'Its trip no longer exists: messages are ignored. Create a new key.') : 'Any trip'} · {at ? `last received ${ago(at, now)}` : 'nothing received yet'} · <code>{t.token.slice(0, 6)}…</code>
                 </div>
               </div>
               <button type="button" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-600 dark:text-slate-300" onClick={() => onCopy(t)} aria-label={`Copy capture key for ${label}`}><Copy size={16} /></button>

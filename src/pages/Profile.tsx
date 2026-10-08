@@ -83,7 +83,8 @@ export default function Profile() {
 
   // Re-sync the form when the saved fields change (not on a photo change, which would drop unsaved edits).
   const paymentKey = handlesKey(profile.payment)
-  useEffect(() => { setName(profile.displayName); setPhone(profile.phone ?? ''); setPayment(profile.payment ?? {}) }, [profile.displayName, profile.phone, paymentKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-sync only when the saved fields change, not on every profile object
+  useEffect(() => { setName(profile.displayName); setPhone(profile.phone ?? ''); setPayment(profile.payment ?? {}) }, [profile.displayName, profile.phone, paymentKey])
 
   // The mobile number doubles as the UPI number while the switch is on.
   const upiPhoneOn = !!payment.phone
@@ -109,6 +110,7 @@ export default function Profile() {
     }
   }, [flash, toast])
   const dirty = (name.trim() || profile.displayName) !== profile.displayName || cleanPhone(phone) !== (profile.phone ?? '') || handlesKey(payment) !== paymentKey
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the fields are the debounce trigger; commit reads them from the ref
   useEffect(() => {
     if (!dirty) return
     const t = setTimeout(() => { void commit() }, 800)
