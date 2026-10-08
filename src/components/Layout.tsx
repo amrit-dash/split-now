@@ -32,11 +32,12 @@ export function Layout() {
       <nav className="fixed inset-x-0 bottom-0 z-40">
         {/* The + button's glow sits under the bar: muted where the bar covers it, bright in the
             notch, which gives the cut-out depth. A blurred copy of the button's moving gradient,
-            set a little low and faded at the top so it's strongest below, filling the notch gap. */}
-        <div aria-hidden className="fab-halo pointer-events-none absolute left-1/2 top-[0.75rem] h-[4.9rem] w-[4.9rem] -translate-x-1/2 -translate-y-1/2">
-          <div className="absolute inset-0 rounded-full blur-[10px] saturate-150"><Aurora size="fab" /></div>
-          {/* a solid, soft-edged core that fills the gap between button and notch (no see-through) */}
-          <div className="fab-core absolute inset-[0.3rem] rounded-full blur-[3px]"><Aurora size="fab" /></div>
+            centred on the button, faded towards the top and strongest below, filling the notch gap. */}
+        <div aria-hidden className="pointer-events-none absolute left-1/2 top-[0.5625rem] h-0 w-0">
+          {/* soft all round, weaker at the top */}
+          <div className="fab-halo-a absolute left-1/2 top-1/2 h-[4.5rem] w-[4.5rem] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[10px] saturate-150"><Aurora size="fab" /></div>
+          {/* a crisper, stronger lower half that fills the notch gap instead of showing through */}
+          <div className="fab-halo-b absolute left-1/2 top-1/2 h-[4.55rem] w-[4.55rem] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[3px] saturate-150"><Aurora size="fab" /></div>
         </div>
         {/* The bar, with a round notch cut out for the + button (mask in index.css). */}
         <div aria-hidden className="nav-notch absolute inset-0 border-t border-slate-200/70 bg-white/95 backdrop-blur-xl dark:border-white/5 dark:bg-ink-900/95" />
@@ -54,6 +55,8 @@ export function Layout() {
                   aria-label="Create" aria-haspopup="dialog"
                 >
                   <Aurora size="fab" />
+                  {/* white outline round the lower half, fading out towards the top */}
+                  <span aria-hidden className="fab-rim pointer-events-none absolute inset-0 rounded-full border-2 border-white/85" />
                   <Plus size={28} strokeWidth={2.6} className="relative" />
                 </button>
               </div>

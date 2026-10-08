@@ -7,8 +7,8 @@ import { useEffect, useRef, useState } from 'react'
  * velocity, leaning inwards, and climbs on a ballistic arc (constant gravity, so it slows
  * smoothly) to burst just short of its apex somewhere in the top half of the card. A thin
  * fading spark trail follows it. Bursts are soft, washed-out particles (additive blend at low
- * alpha, a faint halo instead of shadowBlur) under gravity + drag; some of them twinkle with a
- * tiny four-point glint. Colours are picked per shell from the live theme (brand-200/300,
+ * alpha, a faint halo instead of shadowBlur) under gravity + drag; kept plain, without
+ * twinkles or glints, so it stays quiet. Colours are picked per shell from the live theme (brand-200/300,
  * duo-300, white, soft gold), read with getComputedStyle at launch so accents just work.
  *
  * Choreography: rounds of 2–3 near-simultaneous shells (the opening round has 3) for 10–12
@@ -25,7 +25,7 @@ import { useEffect, useRef, useState } from 'react'
 
 const MAX_PARTICLES = 520
 const FIRST = 700 // ms of show clock before the first launch
-const STEADY_BRIGHT = 0.55
+const STEADY_BRIGHT = 0.45
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a)
 const randInt = (a: number, b: number) => Math.floor(rand(a, b + 1))
@@ -150,7 +150,7 @@ export function CardFirework() {
 
     const burst = (s: Shell) => {
       const scale = clamp(Math.min(w, h * 1.9) / 330, 0.75, 1.25) * s.size
-      let n = Math.round(rand(34, 48) * (0.6 + 0.4 * s.bright))
+      let n = Math.round(rand(22, 30) * (0.6 + 0.4 * s.bright))
       n = Math.min(n, MAX_PARTICLES - parts.length)
       const drag = rand(2.1, 2.6)
       for (let i = 0; i < n; i++) {
@@ -162,8 +162,8 @@ export function CardFirework() {
           vx: Math.cos(a) * v + s.vx * 0.3, vy: Math.sin(a) * v + s.vy * 0.3,
           born: clock + rand(0, 60), life: rand(1300, 2200),
           color: s.colors[i % s.colors.length], r: rand(0.8, 1.35),
-          drag, grav: 34, alpha: s.bright,
-          twinkle: Math.random() < 0.28 ? rand(1, 100) : 0, ember: false,
+          drag, grav: 34, alpha: s.bright * 0.75,
+          twinkle: 0, ember: false, // no twinkle: kept plain and quiet
         })
       }
       flashes.push({ x: s.x, y: s.y, t: clock, a: s.bright })

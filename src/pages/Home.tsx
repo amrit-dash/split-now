@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { HandCoins, Inbox, Plus } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
@@ -27,6 +27,7 @@ export default function Home() {
   const box = useInbox(data)
   const inbox = box.count
   const feed = box.feed?.slice(0, 6)
+  const compact = useNarrow(380)
   if (!data) return <Loading />
   const groupsById = Object.fromEntries(data.map((d) => [d.group.id, d.group]))
 
@@ -80,15 +81,9 @@ export default function Home() {
 
   return (
     <div className="pt-[calc(env(safe-area-inset-top)+1.5rem)]">
-      <header className="mb-6 flex items-center justify-between gap-4" data-testid="home-greeting">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{hello.salutation}</p>
-          <h1 className="mt-0.5 text-[1.75rem] font-extrabold leading-[1.15] tracking-tight">
-            <span className="flex items-center gap-2">Hi <HelloIcon part={part} /></span>
-            <span className="block truncate">{hello.name}</span>
-          </h1>
-        </div>
-        <div className="flex shrink-0 items-center gap-3">
+      <header className="mb-6 flex items-center justify-between gap-3" data-testid="home-greeting">
+        <Greeting salutation={hello.salutation} name={hello.name} part={part} />
+        <div className="flex shrink-0 items-center gap-2 min-[380px]:gap-3">
           <Link to="/inbox" aria-label={inbox ? `Inbox, ${inbox} new` : 'Inbox'} data-testid="home-inbox"
             className="relative flex h-12 items-center gap-1 rounded-full px-1.5 text-slate-600 transition active:scale-95 dark:text-slate-300">
             {inbox > 0 && (
@@ -96,10 +91,10 @@ export default function Home() {
                 {inbox > 99 ? '99+' : inbox}
               </span>
             )}
-            <Inbox size={27} strokeWidth={2} />
+            <Inbox className="h-6 w-6 min-[380px]:h-[27px] min-[380px]:w-[27px]" strokeWidth={2} />
           </Link>
           <Link to="/profile" aria-label="Profile" className="rounded-full p-0.5 ring-2 ring-brand-500/40 transition active:scale-95">
-            <Avatar name={profile.displayName} photoURL={profile.photoURL} color="accent" size={58} />
+            <Avatar name={profile.displayName} photoURL={profile.photoURL} color="accent" size={compact ? 48 : 58} />
           </Link>
         </div>
       </header>
@@ -217,5 +212,57 @@ function HelloIcon({ part }: { part: DayPart }) {
         <span className={`inline-block ${motion}`}>{cur.emoji}</span>
       </span>
     </span>
+  )
+}
+
+/** True while the viewport is narrower than `px` (small phones get a tighter header). */
+function useNarrow(px: number) {
+  const q = `(max-width: ${px - 0.02}px)`
+  const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.(q).matches)
+  useEffect(() => {
+    const m = window.matchMedia?.(q)
+    if (!m) return
+    const on = () => setNarrow(m.matches)
+    m.addEventListener('change', on)
+    return () => m.removeEventListener('change', on)
+  }, [q])
+  return narrow
+}
+
+/**
+ * "Good morning" over "Hi, Amrit 👋" on one line when it fits; when it doesn't (small phones,
+ * long names) it switches to "Hi 👋" over the name, rather than letting the line break wherever
+ * it falls. The size scales a little with the viewport; very long names truncate.
+ */
+function Greeting({ salutation, name, part }: { salutation: string; name: string; part: DayPart }) {
+  const box = useRef<HTMLDivElement>(null)
+  const probe = useRef<HTMLSpanElement>(null)
+  const [stacked, setStacked] = useState(false)
+  useLayoutEffect(() => {
+    const el = box.current, p = probe.current
+    if (!el || !p) return
+    const check = () => setStacked(p.offsetWidth > el.clientWidth)
+    check()
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(check) : null
+    ro?.observe(el)
+    return () => ro?.disconnect()
+  }, [name])
+  const size = 'text-[clamp(1.5rem,7.2vw,1.85rem)] font-extrabold leading-[1.15] tracking-tight'
+  return (
+    <div ref={box} className="relative min-w-0 flex-1">
+      <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{salutation}</p>
+      {/* invisible one-line copy, measured to decide the layout */}
+      <span ref={probe} aria-hidden className={`pointer-events-none invisible absolute left-0 top-0 whitespace-nowrap ${size}`}>Hi, {name} 👋</span>
+      <h1 className={`mt-0.5 ${size}`}>
+        {stacked ? (
+          <>
+            <span className="flex items-center gap-2">Hi <HelloIcon part={part} /></span>
+            <span className="block truncate">{name}</span>
+          </>
+        ) : (
+          <span className="flex min-w-0 items-center gap-2"><span className="truncate">Hi, {name}</span><HelloIcon part={part} /></span>
+        )}
+      </h1>
+    </div>
   )
 }
