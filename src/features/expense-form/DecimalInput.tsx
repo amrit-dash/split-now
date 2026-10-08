@@ -9,9 +9,10 @@ type Props = Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 
   decimals?: number
 }
 
+const fmt = (v: number | undefined) => (v === undefined ? '' : String(v))
+
 /** MoneyInput's sibling for plain numbers (percent, shares): keeps the typed text, reports a number. */
 export function DecimalInput({ value, onChange, decimals = 2, className = '', ...rest }: Props) {
-  const fmt = (v: number | undefined) => (v === undefined ? '' : String(v))
   const [draft, setDraft] = useState(() => fmt(value))
   const last = useRef(value)
   useEffect(() => {
