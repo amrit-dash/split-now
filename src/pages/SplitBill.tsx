@@ -156,8 +156,8 @@ export default function SplitBill() {
           </div>
         )}
         <div className="grid grid-cols-2 gap-2 p-3 pt-0">
-          <button className="btn-primary" onClick={() => camRef.current?.click()} disabled={ocr.busy}><Camera size={18} /> {preview ? 'Rescan' : 'Camera'}</button>
-          <button className="btn-secondary" onClick={() => libRef.current?.click()} disabled={ocr.busy}><ImageUp size={18} /> Photos</button>
+          <button type="button" className="btn-primary" onClick={() => camRef.current?.click()} disabled={ocr.busy}><Camera size={18} aria-hidden /> {preview ? 'Rescan' : 'Camera'}</button>
+          <button type="button" className="btn-secondary" onClick={() => libRef.current?.click()} disabled={ocr.busy}><ImageUp size={18} aria-hidden /> Photos</button>
         </div>
         <AiScanToggle className="px-4 pb-3" />
         <input ref={camRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onFile(f) }} />
@@ -236,7 +236,7 @@ export default function SplitBill() {
             <div className="text-xs text-muted">{filled.length} item{filled.length === 1 ? '' : 's'}</div>
             <div className="text-2xl font-extrabold tabular-nums">{formatMoney(total, cur)}</div>
           </div>
-          <button className="btn-primary" onClick={start} disabled={busy || ocr.busy} data-testid="start-table">
+          <button type="button" className="btn-primary" onClick={start} disabled={busy || ocr.busy} data-testid="start-table">
             {busy ? <Spinner className="!h-4 !w-4" /> : <QrCode size={18} />} Start table
           </button>
         </div>
