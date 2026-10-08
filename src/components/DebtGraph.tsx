@@ -1,60 +1,111 @@
-import type { Debt, Group } from '@/types'
+import { useMemo, useState } from 'react'
+import { ArrowRight } from 'lucide-react'
+import type { Debt, Group, MemberId } from '@/types'
 import { formatMoney } from '@/lib/money'
-import { initials } from '@/lib/colors'
+import { layoutFlow, ribbonPath } from '@/lib/insightsFlow'
+import { useMe } from '@/hooks/auth'
+import { myMemberId } from '@/hooks/data'
+import { Avatar } from '@/components/Avatar'
 
-/** Circular node-link diagram of who owes whom. Arrow points from debtor to creditor. */
-export function DebtGraph({ group, debts, size = 300 }: { group: Group; debts: Debt[]; size?: number }) {
-  const ids = [...new Set(debts.flatMap((d) => [d.from, d.to]))]
-  if (ids.length === 0) {
+type Focus = { link: number } | { person: MemberId } | null
+
+const W = 326
+const LABEL = 98
+const BAR = 8
+const X_PAY = LABEL
+const X_GET = W - LABEL - BAR
+
+/**
+ * Settle-up flow: who pays (left) whom (right), one ribbon per payment, thickness ∝ amount,
+ * with the same payments listed underneath (the readable, tappable table view).
+ * Tapping a ribbon, a person or a row highlights it.
+ */
+export function DebtGraph({ group, debts }: { group: Group; debts: Debt[]; size?: number }) {
+  const { user } = useMe()
+  const me = myMemberId(group, user.uid)
+  const [focus, setFocus] = useState<Focus>(null)
+  const layout = useMemo(() => layoutFlow(debts), [debts])
+
+  if (layout.links.length === 0) {
     return <div className="flex h-40 items-center justify-center text-sm text-slate-400">All settled — nothing to draw 🎉</div>
   }
-  const c = size / 2
-  const r = size / 2 - 34
-  const pos = Object.fromEntries(
-    ids.map((id, i) => {
-      const a = (i / ids.length) * Math.PI * 2 - Math.PI / 2
-      return [id, { x: c + r * Math.cos(a), y: c + r * Math.sin(a) }]
-    }),
-  )
-  const max = Math.max(...debts.map((d) => d.amount))
-  const nodeR = 20
+
+  const name = (id: MemberId) => (id === me ? 'You' : group.members[id]?.name ?? 'Someone')
+  const color = (id: MemberId) => group.members[id]?.color ?? '#64748b'
+  const short = (s: string) => (s.length > 11 ? s.slice(0, 10) + '…' : s)
+  const money = (v: number) => formatMoney(v, group.currency)
+  const on = (d: Debt, i: number) =>
+    !focus || ('link' in focus ? focus.link === i : d.from === focus.person || d.to === focus.person)
+  const personOn = (id: MemberId) =>
+    !focus || ('person' in focus ? focus.person === id : debts[focus.link]?.from === id || debts[focus.link]?.to === id)
+  const toggle = (f: NonNullable<Focus>) =>
+    setFocus((cur) => (cur && JSON.stringify(cur) === JSON.stringify(f) ? null : f))
+  const total = layout.links.reduce((s, l) => s + l.debt.amount, 0)
+  const summary = layout.links.map((l) => `${name(l.debt.from)} pays ${name(l.debt.to)} ${money(l.debt.amount)}`).join('; ')
 
   return (
-    <svg viewBox={`0 0 ${size} ${size}`} className="mx-auto w-full max-w-xs" role="img" aria-label="Debt graph">
-      <defs>
-        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
-          <path d="M0,0 L10,5 L0,10 z" className="fill-rose-500" />
-        </marker>
-      </defs>
-      {debts.map((d, i) => {
-        const a = pos[d.from], b = pos[d.to]
-        const dx = b.x - a.x, dy = b.y - a.y
-        const len = Math.hypot(dx, dy) || 1
-        const ux = dx / len, uy = dy / len
-        // Slight curve so opposite edges don't overlap.
-        const mx = (a.x + b.x) / 2 - uy * 18, my = (a.y + b.y) / 2 + ux * 18
-        const sx = a.x + ux * nodeR, sy = a.y + uy * nodeR
-        const ex = b.x - ux * (nodeR + 4), ey = b.y - uy * (nodeR + 4)
-        const w = 1.5 + (d.amount / max) * 3.5
-        return (
-          <g key={i}>
-            <path d={`M${sx},${sy} Q${mx},${my} ${ex},${ey}`} fill="none" className="stroke-rose-400/80" strokeWidth={w} markerEnd="url(#arrow)" />
-            <text x={mx} y={my} textAnchor="middle" dominantBaseline="middle" className="fill-slate-700 text-[10px] font-semibold dark:fill-slate-200" paintOrder="stroke" stroke="var(--graph-bg, white)" strokeWidth={4}>
-              {formatMoney(d.amount, group.currency)}
-            </text>
-          </g>
-        )
-      })}
-      {ids.map((id) => {
-        const m = group.members[id]
-        const p = pos[id]
-        return (
-          <g key={id}>
-            <circle cx={p.x} cy={p.y} r={nodeR} fill={m?.color ?? '#64748b'} />
-            <text x={p.x} y={p.y} textAnchor="middle" dominantBaseline="central" className="fill-white text-[12px] font-bold">{initials(m?.name ?? '?')}</text>
-          </g>
-        )
-      })}
-    </svg>
+    <div>
+      <div className="mb-1 flex justify-between px-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+        <span>Pays</span>
+        <span>{layout.links.length} payment{layout.links.length > 1 ? 's' : ''} · {money(total)}</span>
+        <span>Gets</span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${layout.height}`} className="block w-full select-none" role="img" aria-label={`Who pays whom: ${summary}`} onClick={(e) => { if (e.target === e.currentTarget) setFocus(null) }}>
+        {layout.links.map((l) => {
+          const active = on(l.debt, l.index)
+          return (
+            <path
+              key={l.index}
+              d={ribbonPath(l, X_PAY + BAR, X_GET)}
+              fill={color(l.debt.from)}
+              fillOpacity={active ? (focus ? 0.6 : 0.38) : 0.08}
+              className="cursor-pointer transition-[fill-opacity] duration-200"
+              onClick={() => toggle({ link: l.index })}
+            >
+              <title>{`${name(l.debt.from)} → ${name(l.debt.to)}: ${money(l.debt.amount)}`}</title>
+            </path>
+          )
+        })}
+        {[...layout.pay, ...layout.get].map((n) => {
+          const left = n.side === 'pay'
+          const x = left ? X_PAY : X_GET
+          const tx = left ? x - 8 : x + BAR + 8
+          const dim = !personOn(n.id)
+          return (
+            <g key={n.side + n.id} className="cursor-pointer transition-opacity duration-200" opacity={dim ? 0.35 : 1} onClick={() => toggle({ person: n.id })}>
+              {/* Generous transparent hit area over the label and bar. */}
+              <rect x={left ? 0 : x} y={n.cy - 20} width={LABEL + BAR} height={40} fill="transparent" />
+              <rect x={x} y={n.y} width={BAR} height={n.h} rx={Math.min(3, n.h / 2)} fill={color(n.id)} />
+              <text x={tx} y={n.cy - 3} textAnchor={left ? 'end' : 'start'} className="fill-slate-900 text-[13px] font-bold dark:fill-slate-100">{short(name(n.id))}</text>
+              <text x={tx} y={n.cy + 12} textAnchor={left ? 'end' : 'start'} className="fill-slate-500 text-[11px] font-medium tabular-nums dark:fill-slate-400">{money(n.total)}</text>
+            </g>
+          )
+        })}
+      </svg>
+
+      <ul className="mt-3 divide-y divide-slate-100 dark:divide-white/5" aria-label="Payments">
+        {layout.links.map((l) => {
+          const d = l.debt
+          const active = on(d, l.index)
+          return (
+            <li key={l.index}>
+              <button
+                type="button"
+                onClick={() => toggle({ link: l.index })}
+                aria-pressed={!!focus && 'link' in focus && focus.link === l.index}
+                className={`-mx-2 flex w-[calc(100%+1rem)] items-center gap-2 rounded-xl px-2 py-2 text-left text-sm transition-opacity ${active ? '' : 'opacity-40'}`}
+              >
+                <Avatar name={group.members[d.from]?.name ?? '?'} color={color(d.from)} size={26} />
+                <span className={`min-w-0 truncate font-semibold ${d.from === me ? 'neg' : ''}`}>{name(d.from)}</span>
+                <ArrowRight size={14} className="shrink-0 text-slate-400" aria-label="pays" />
+                <Avatar name={group.members[d.to]?.name ?? '?'} color={color(d.to)} size={26} />
+                <span className={`min-w-0 flex-1 truncate font-semibold ${d.to === me ? 'pos' : ''}`}>{name(d.to)}</span>
+                <span className="shrink-0 font-bold tabular-nums">{money(d.amount)}</span>
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
   )
 }
