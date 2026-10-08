@@ -130,7 +130,7 @@ export default function ExpenseDetail() {
             {e.splitType === 'itemized' && e.splitInput.items && (
               <div className="mt-3 space-y-1 border-t border-slate-100 pt-3 text-sm dark:border-white/5">
                 {e.splitInput.items.map((it, i) => (
-                  <div key={i} className="flex justify-between gap-2"><span className="truncate">{it.name} <span className="text-slate-400">· {it.members.map((m) => name(m).split(' ')[0]).join(', ')}</span></span><span className="tabular-nums">{formatMoney(it.amount, e.original?.currency ?? cur)}</span></div>
+                  <div key={i} className="flex justify-between gap-2"><span className="min-w-0">{it.name} <span className="text-slate-400">· {it.members.map((m) => name(m).split(' ')[0] + (it.shares?.[m] && it.shares[m] > 1 ? ` ×${it.shares[m]}` : '')).join(', ')}</span></span><span className="tabular-nums">{formatMoney(it.amount, e.original?.currency ?? cur)}</span></div>
                 ))}
               </div>
             )}

@@ -35,6 +35,10 @@ describe('computeSplits', () => {
     const r = computeSplits(3000, 'adjust', { selected: M, adjust: { a: 300 } }, M)
     expect(r).toEqual({ a: 1200, b: 900, c: 900 })
   })
+  it('itemized honours portions on a shared item', () => {
+    const r = computeSplits(900, 'itemized', { items: [{ name: 'Beer', amount: 900, members: ['a', 'b'], shares: { a: 2, b: 1 } }] }, ['a', 'b'])
+    expect(r).toEqual({ a: 600, b: 300 })
+  })
   it('itemized spreads tax/tip proportionally', () => {
     const r = computeSplits(1100, 'itemized', {
       items: [

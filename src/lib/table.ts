@@ -268,27 +268,13 @@ export function tableToSplit(t: LiveTable, mapping: Record<ParticipantId, Member
     return { it, shares }
   })
 
-  const even = memberItems.every(({ shares }) => new Set(Object.values(shares)).size === 1)
-  if (even) {
-    const receipt: ReceiptItem[] = memberItems.map(({ it, shares }) => ({
-      name: it.name, amount: it.amount, members: memberOrder.filter((m) => shares[m]),
-    }))
-    return { amount, splits: computeSplits(amount, 'itemized', { items: receipt }, memberOrder), splitType: 'itemized', splitInput: { items: receipt } }
-  }
-
-  const sub: Record<MemberId, Cents> = {}
-  for (const { it, shares } of memberItems) {
-    const part = allocate(it.amount, memberOrder.filter((m) => shares[m]).map((m) => [m, shares[m]]))
-    for (const [m, v] of Object.entries(part)) sub[m] = (sub[m] ?? 0) + v
-  }
-  const extra = amount - Object.values(sub).reduce((a, b) => a + b, 0)
-  const extraParts = allocate(extra, memberOrder.filter((m) => sub[m]).map((m) => [m, sub[m]]))
-  const splits: Record<MemberId, Cents> = {}
-  for (const m of memberOrder) {
-    const v = (sub[m] ?? 0) + (extraParts[m] ?? 0)
-    if (v) splits[m] = v
-  }
-  return { amount, splits, splitType: 'exact', splitInput: { exact: splits } }
+  // Always itemized, so the expense can be corrected item by item later.
+  const receipt: ReceiptItem[] = memberItems.map(({ it, shares }) => {
+    const members = memberOrder.filter((m) => shares[m])
+    const even = new Set(members.map((m) => shares[m])).size <= 1
+    return { name: it.name, amount: it.amount, members, ...(even ? {} : { shares: Object.fromEntries(members.map((m) => [m, shares[m]])) }) }
+  })
+  return { amount, splits: computeSplits(amount, 'itemized', { items: receipt }, memberOrder), splitType: 'itemized', splitInput: { items: receipt } }
 }
 
 // ---- Starting a table ------------------------------------------------------

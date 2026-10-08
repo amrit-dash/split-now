@@ -75,6 +75,8 @@ export interface ReceiptItem {
   name: string
   amount: Cents
   members: MemberId[]
+  /** portions per member (e.g. one person had 2 of 3 beers); absent means equal */
+  shares?: Record<MemberId, number>
 }
 
 export interface SplitInput {

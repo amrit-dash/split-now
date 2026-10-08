@@ -25,7 +25,7 @@ const NONE = '__none'
 /** Host's "Finish": pick a group, confirm who's who, and add the itemized expense. */
 export default function TableFinish({ table, totals, onClose }: { table: LiveTable; totals: TableTotals; onClose: () => void }) {
   const groups = useGroups()
-  const [target, setTarget] = useState<string>(table.groupId ?? '')
+  const [target, setTarget] = useState<string>(table.groupId ?? NONE)
   const usable = useMemo(() => (groups ?? []).filter((g) => g.type !== 'personal'), [groups])
   const group = usable.find((g) => g.id === target)
   const toast = useToast()
@@ -45,6 +45,11 @@ export default function TableFinish({ table, totals, onClose }: { table: LiveTab
           <div>
             <div className="label">Add to</div>
             <div className="max-h-56 space-y-1 overflow-y-auto">
+              <button onClick={() => setTarget(NONE)} className={`flex w-full items-center gap-3 rounded-2xl p-2 text-left ${target === NONE ? 'bg-brand-50 dark:bg-brand-900/30' : ''}`} data-testid="finish-new-group">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-lg dark:bg-ink-800">➕</span>
+                <span className="min-w-0 flex-1"><span className="block font-semibold">New group</span><span className="block text-xs text-slate-500">With everyone at this table</span></span>
+                {target === NONE && <Check size={18} className="text-brand-600" />}
+              </button>
               {usable.map((g) => {
                 const off = g.currency !== table.currency
                 return (
@@ -55,11 +60,6 @@ export default function TableFinish({ table, totals, onClose }: { table: LiveTab
                   </button>
                 )
               })}
-              <button onClick={() => setTarget(NONE)} className={`flex w-full items-center gap-3 rounded-2xl p-2 text-left ${target === NONE ? 'bg-brand-50 dark:bg-brand-900/30' : ''}`}>
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-lg dark:bg-ink-800">🍽️</span>
-                <span className="flex-1 font-semibold">No group</span>
-                {target === NONE && <Check size={18} className="text-brand-600" />}
-              </button>
             </div>
           </div>
           {group ? <ToGroup key={group.id} table={table} group={group} ready={totals.allClaimed} />
@@ -186,9 +186,9 @@ function NoGroup({ table, ready }: { table: LiveTable; ready: boolean }) {
 
   return (
     <div className="space-y-2">
-      <p className="text-sm text-slate-500">Make a group with everyone at the table (they can join it later with the invite link), or just close the bill and send each person their total.</p>
-      <button className="btn-primary w-full" disabled={!ready || busy} onClick={createGroup}>Create a group from this table</button>
-      <button className="btn-secondary w-full" disabled={busy} onClick={() => repo.updateTable(table.code, { status: 'closed' }).catch((e) => toast((e as Error).message, 'err'))}>Just close and show the summary</button>
+      <p className="text-sm text-slate-500">Creates “{table.merchant}” with everyone here and adds this bill item by item, so you can fix who had what later. Friends join it with the invite link.</p>
+      <button className="btn-primary w-full" disabled={!ready || busy} onClick={createGroup} data-testid="create-table-group">Create group and add the bill</button>
+      <button className="btn-ghost w-full" disabled={busy} onClick={() => repo.updateTable(table.code, { status: 'closed' }).catch((e) => toast((e as Error).message, 'err'))}>Don’t make a group, just show who owes what</button>
     </div>
   )
 }

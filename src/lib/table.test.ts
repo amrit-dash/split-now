@@ -191,11 +191,12 @@ describe('tableToSplit', () => {
     expect(sum(r.splits)).toBe(4370)
     expect(r.splitInput.items?.map((i) => i.members)).toEqual([['host'], ['m_ben'], ['host', 'm_ben', 'm_cleo']])
   })
-  it('uneven shares fall back to exact amounts', () => {
+  it('uneven shares stay itemized, with portions on the item', () => {
     const t = table({ claims: { host: { a: 2 }, g1: { a: 1, b: 1 }, g2: { c: 1 } } })
     const r = tableToSplit(t, map, order)
-    expect(r.splitType).toBe('exact')
-    expect(r.splitInput.exact).toEqual(r.splits)
+    expect(r.splitType).toBe('itemized')
+    expect(r.splitInput.items?.[0].shares).toEqual({ host: 2, [map.g1]: 1 })
+    expect(r.splitInput.items?.[1].shares).toBeUndefined()
     expect(sum(r.splits)).toBe(4370)
     // host pays 2/3 of 1800 + proportional extras
     expect(r.splits.host).toBe(1200 + Math.round((1200 / 3700) * 670))
@@ -203,7 +204,8 @@ describe('tableToSplit', () => {
   it('two participants mapped to one member merge their shares', () => {
     const t = table({ claims: { host: { a: 1 }, g1: { a: 1 }, g2: { a: 1, b: 1, c: 1 } } })
     const r = tableToSplit(t, { host: 'host', g1: 'host', g2: 'm_cleo' }, order)
-    expect(r.splitType).toBe('exact')
+    expect(r.splitType).toBe('itemized')
+    expect(r.splitInput.items?.[0].shares).toEqual({ host: 2, m_cleo: 1 })
     expect(sum(r.splits)).toBe(4370)
   })
   it('refuses unclaimed items, unmapped claimers and empty tables', () => {

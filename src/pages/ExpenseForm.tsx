@@ -9,7 +9,7 @@ import type { Capture, Category, Expense, Group, MemberId, OriginalAmount, Recei
 import { CATEGORIES, guessCategory } from '@/lib/categories'
 import { CURRENCIES, centsToInput, formatMoney, fromHundredths, parseMoney } from '@/lib/money'
 import { convertExpense, convertMinor, getRate, lastCurrency, parseRate, rateLabel, rememberCurrency, toOriginal, type FxRate } from '@/lib/fx'
-import { computeSplits, SplitError } from '@/lib/splits'
+import { computeSplits, portion, SplitError } from '@/lib/splits'
 import { parseReceipt, type ParsedReceipt } from '@/lib/ocr-parse'
 import { pending } from '@/lib/pending'
 import { liveTripFor } from '@/lib/capture'
@@ -616,8 +616,15 @@ function ItemsEditor({ items, setItems, group, order, me, amount, splits }: {
           </div>
           <div className="mt-2">
             <MemberChips group={group} order={order} me={me} selected={it.members}
-              onToggle={(id) => update(idx, { members: it.members.includes(id) ? it.members.filter((m) => m !== id) : [...it.members, id] })} />
+              onToggle={(id) => {
+                const members = it.members.includes(id) ? it.members.filter((m) => m !== id) : [...it.members, id]
+                const shares = it.shares && Object.fromEntries(Object.entries(it.shares).filter(([m]) => members.includes(m)))
+                update(idx, { members, shares: shares && Object.keys(shares).length ? shares : undefined })
+              }} />
           </div>
+          {it.members.length > 1 && (
+            <Portions it={it} order={order} group={group} me={me} onChange={(shares) => update(idx, { shares })} />
+          )}
         </div>
       ))}
       <button type="button" className="btn-secondary w-full !min-h-0 !py-2.5 text-sm" onClick={() => setItems([...items, { name: '', amount: 0, members: [...order] }])}><Plus size={16} /> Add item</button>
@@ -632,6 +639,37 @@ function ItemsEditor({ items, setItems, group, order, me, amount, splits }: {
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+/** Per-person portions of a shared item (e.g. 2 of 3 beers). Collapsed while everyone has one. */
+function Portions({ it, order, group, me, onChange }: {
+  it: ReceiptItem; order: MemberId[]; group: Group; me: MemberId; onChange: (s: Record<MemberId, number> | undefined) => void
+}) {
+  const [open, setOpen] = useState(!!it.shares)
+  const members = order.filter((m) => it.members.includes(m))
+  const set = (m: MemberId, n: number) => {
+    const next = Object.fromEntries(members.map((x) => [x, x === m ? n : portion(it, x)]))
+    onChange(Object.values(next).every((v) => v === 1) ? undefined : next)
+  }
+  if (!open) return <button type="button" className="mt-2 text-xs font-semibold text-brand-600 dark:text-brand-300" onClick={() => setOpen(true)}>Shared unevenly? Set portions</button>
+  return (
+    <div className="mt-2 space-y-1.5 rounded-xl bg-white p-2 dark:bg-ink-900" data-testid="portions">
+      {members.map((m) => {
+        const n = portion(it, m)
+        return (
+          <div key={m} className="flex items-center gap-2 text-sm">
+            <span className="min-w-0 flex-1 truncate">{m === me ? 'You' : group.members[m]?.name}</span>
+            <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-0.5 dark:bg-ink-800">
+              <button type="button" className="rounded-lg p-1 disabled:opacity-30" disabled={n <= 1} onClick={() => set(m, n - 1)} aria-label="Fewer portions"><Minus size={14} /></button>
+              <span className="w-5 text-center font-bold tabular-nums">{n}</span>
+              <button type="button" className="rounded-lg p-1 disabled:opacity-30" disabled={n >= 20} onClick={() => set(m, n + 1)} aria-label="More portions"><Plus size={14} /></button>
+            </div>
+          </div>
+        )
+      })}
+      {it.shares && <button type="button" className="text-xs font-semibold text-slate-500" onClick={() => onChange(undefined)}>Reset to equal</button>}
     </div>
   )
 }

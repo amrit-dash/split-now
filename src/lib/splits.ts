@@ -80,10 +80,10 @@ export function computeSplits(
       if (items.length === 0) throw new SplitError('Add at least one item')
       const itemTotal = items.reduce((s, it) => s + it.amount, 0)
       if (items.some((it) => it.members.length === 0)) throw new SplitError('Assign every item to someone')
-      // Each item split equally among its members.
+      // Each item split among its members, equally or by portions.
       const sub: Record<MemberId, Cents> = {}
       for (const it of items) {
-        const part = allocate(it.amount, memberOrder.filter((m) => it.members.includes(m)).map((m) => [m, 1]))
+        const part = allocate(it.amount, memberOrder.filter((m) => it.members.includes(m)).map((m) => [m, portion(it, m)]))
         for (const [m, v] of Object.entries(part)) sub[m] = (sub[m] ?? 0) + v
       }
       // Tax / tip / discount (difference between total and items) spread proportionally.
@@ -103,4 +103,10 @@ export function computeSplits(
 
 function round2(n: number) {
   return Math.round(n * 100) / 100
+}
+
+/** A member's portions of an item: whole numbers 1..20, default 1. */
+export function portion(it: { shares?: Record<string, number> }, m: string): number {
+  const s = it.shares?.[m]
+  return typeof s === 'number' && Number.isInteger(s) && s >= 1 && s <= 20 ? s : 1
 }
