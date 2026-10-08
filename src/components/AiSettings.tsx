@@ -169,20 +169,8 @@ export function AiSettings({ onStatus }: { onStatus?: (s: AiStatusResult | null)
         </>
       )}
 
-      <AdminSetupHint uid={user.uid} admin={!!status?.admin} />
+      {status?.admin && <p className="flex items-center gap-1.5 text-xs text-slate-500"><ShieldCheck size={14} className="text-brand-500" /> You’re an admin: Split Now’s key is managed in Admin · AI below.</p>}
     </div>
-  )
-}
-
-function AdminSetupHint({ uid, admin }: { uid: string; admin: boolean }) {
-  const toast = useToast()
-  if (admin) return <p className="flex items-center gap-1.5 text-xs text-slate-500"><ShieldCheck size={14} className="text-brand-500" /> You’re an admin: the AI admin settings are below.</p>
-  return (
-    <details className="text-xs text-slate-500">
-      <summary className="cursor-pointer font-semibold">Admin setup</summary>
-      <p className="mt-2">To manage Split Now’s key, add a document <b>admins/&lt;your user ID&gt;</b> in the Firebase console (Firestore → Start collection “admins”), then reopen this page.</p>
-      <button type="button" className="mt-2 rounded-lg bg-slate-100 px-2 py-1 font-mono dark:bg-ink-800" onClick={() => navigator.clipboard?.writeText(uid).then(() => toast('User ID copied'))}>{uid} · copy</button>
-    </details>
   )
 }
 
