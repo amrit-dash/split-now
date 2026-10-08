@@ -95,7 +95,9 @@
 @keyframes pop { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
 @layer base {
-  html { -webkit-tap-highlight-color: transparent; @apply bg-slate-50 dark:bg-ink-950 dark:[color-scheme:dark]; }
+  /* No rubber-band overscroll on the page: on iOS it dragged the frosted tab bar's backdrop along
+     and the bar briefly went see-through. */
+  html { -webkit-tap-highlight-color: transparent; overscroll-behavior: none; @apply bg-slate-50 dark:bg-ink-950 dark:[color-scheme:dark]; }
   body {
     @apply bg-slate-50 text-slate-900 antialiased dark:bg-ink-950 dark:text-slate-100;
     overscroll-behavior-y: none;
@@ -122,14 +124,22 @@
   }
 
 /*
- * Accent fills come alive: a lighter and a darker soft patch drift slowly across the fill
- * (behind the content), so gradient buttons and selected chips shimmer between shades.
+ * Accent fills come alive: soft patches of a lighter shade, a darker shade and the duo colour
+ * float slowly across the fill behind the content, aurora-style. The patches have a fixed size
+ * (not a share of the button) and are blurred, so a wide button gets the same gentle, edgeless
+ * drift as a small one; their positions move via animated custom properties.
  */
-@keyframes accent-drift {
-  0% { transform: translate(-14%, -10%) rotate(0deg) scale(1); }
-  35% { transform: translate(12%, 4%) rotate(35deg) scale(1.15); }
-  70% { transform: translate(-2%, 14%) rotate(-15deg) scale(0.92); }
-  100% { transform: translate(8%, -6%) rotate(20deg) scale(1.08); }
+@property --al-x { syntax: '<percentage>'; inherits: false; initial-value: 20%; }
+@property --al-y { syntax: '<percentage>'; inherits: false; initial-value: 30%; }
+@property --ad-x { syntax: '<percentage>'; inherits: false; initial-value: 80%; }
+@property --ad-y { syntax: '<percentage>'; inherits: false; initial-value: 70%; }
+@property --au-x { syntax: '<percentage>'; inherits: false; initial-value: 50%; }
+@keyframes accent-float {
+  0% { --al-x: 12%; --al-y: 25%; --ad-x: 88%; --ad-y: 75%; --au-x: 45%; }
+  25% { --al-x: 35%; --al-y: 70%; --ad-x: 65%; --ad-y: 20%; --au-x: 75%; }
+  50% { --al-x: 62%; --al-y: 35%; --ad-x: 30%; --ad-y: 80%; --au-x: 30%; }
+  75% { --al-x: 85%; --al-y: 65%; --ad-x: 15%; --ad-y: 30%; --au-x: 60%; }
+  100% { --al-x: 55%; --al-y: 20%; --ad-x: 45%; --ad-y: 65%; --au-x: 85%; }
 }
 @utility accent-live {
   position: relative;
@@ -138,13 +148,15 @@
   &::before {
     content: '';
     position: absolute;
-    inset: -60%;
+    inset: -12px;
     z-index: -1;
     pointer-events: none;
+    filter: blur(10px);
     background:
-      radial-gradient(closest-side at 32% 38%, color-mix(in oklab, var(--color-brand-300) 55%, transparent), transparent),
-      radial-gradient(closest-side at 70% 62%, color-mix(in oklab, var(--color-brand-900) 45%, transparent), transparent);
-    animation: accent-drift 10s ease-in-out infinite alternate;
+      radial-gradient(7rem 4.5rem at var(--al-x) var(--al-y), color-mix(in oklab, var(--color-brand-300) 50%, transparent), transparent),
+      radial-gradient(7.5rem 5rem at var(--ad-x) var(--ad-y), color-mix(in oklab, var(--color-brand-900) 45%, transparent), transparent),
+      radial-gradient(6rem 4rem at var(--au-x) 50%, color-mix(in oklab, var(--color-duo-400) 35%, transparent), transparent);
+    animation: accent-float 16s ease-in-out infinite alternate;
   }
 }
 
@@ -186,8 +198,14 @@ html[data-update-ready] .install-banner { display: none; }
 /* Home greeting icon: a short wave a few times, or a gentle bob. Off with reduced motion. */
 @keyframes wave { 0%, 60%, 100% { transform: rotate(0deg); } 10%, 30% { transform: rotate(16deg); } 20% { transform: rotate(-8deg); } 40% { transform: rotate(-4deg); } 50% { transform: rotate(10deg); } }
 @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
-@utility animate-wave { animation: wave 2.4s ease-in-out 0.4s 3; }
-@utility animate-float { animation: float 3s ease-in-out infinite; }
+/* The wave repeats with a rest between waves (the greeting icon keeps waving). */
+@keyframes wave-loop { 0%, 55%, 100% { transform: rotate(0deg); } 6%, 18% { transform: rotate(16deg); } 12% { transform: rotate(-8deg); } 24% { transform: rotate(-4deg); } 30% { transform: rotate(10deg); } 36% { transform: rotate(0deg); } }
+@keyframes tilt { 0%, 100% { transform: rotate(-8deg) scale(1); } 50% { transform: rotate(8deg) scale(1.06); } }
+@keyframes hello-in { from { transform: scale(0.4) rotate(-20deg); opacity: 0; } to { transform: scale(1) rotate(0); opacity: 1; } }
+@utility animate-wave { animation: wave-loop 2.6s ease-in-out 0.3s infinite; }
+@utility animate-tilt { animation: tilt 2.2s ease-in-out infinite; }
+@utility animate-hello-in { animation: hello-in 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.4); }
+@utility animate-float { animation: float 2.4s ease-in-out infinite; }
 
 /* Progress bar with no known percentage (waiting on the AI reader). */
 @keyframes indeterminate {
@@ -224,4 +242,30 @@ html[data-update-ready] .install-banner { display: none; }
 }
 .dark .fab-ring {
   box-shadow: 0 0 0 1px rgb(255 255 255 / 0.16), 0 4px 10px -2px rgb(0 0 0 / 0.55);
+}
+
+html[data-capture-alert] [data-testid='update-banner'] { display: none; }
+html[data-capture-alert] .install-banner { display: none; }
+
+/* iOS zooms into any field under 16px on focus; small-text fields stay 16px on touch screens. */
+@media (pointer: coarse) {
+  :is(input, textarea, select):is(.text-sm, .text-xs) { font-size: 16px !important; }
+}
+
+/* Toasts: a stack in the floating lane (above the tab bar where there is one, above the home
+   indicator elsewhere, above any banner showing). Newest at the bottom; see Toast.tsx. */
+.toast-stack { bottom: calc(env(safe-area-inset-bottom) + 1rem); }
+html[data-nav] .toast-stack { bottom: var(--lane); }
+html[data-nav]:has(.install-banner, [data-testid='update-banner'], [data-testid='unsaved-bar'], [data-testid='capture-alert']) .toast-stack { bottom: calc(var(--lane) + 5rem); }
+@keyframes toast-in { from { transform: translateY(1rem) scale(0.96); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+@utility animate-toast { animation: toast-in 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.15); }
+
+/* + button halo: full strength from its middle down, fading out over the top. */
+.fab-halo {
+  -webkit-mask: linear-gradient(to bottom, transparent 0%, rgb(0 0 0 / 0.55) 30%, #000 55%);
+  mask: linear-gradient(to bottom, transparent 0%, rgb(0 0 0 / 0.55) 30%, #000 55%);
+}
+.fab-core {
+  -webkit-mask: radial-gradient(closest-side, #000 80%, transparent);
+  mask: radial-gradient(closest-side, #000 80%, transparent);
 }

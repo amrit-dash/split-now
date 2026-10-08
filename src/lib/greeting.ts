@@ -25,12 +25,14 @@ export const SALUTATIONS: Record<DayPart, { text: string; emoji: string }> = {
 }
 
 /** The icon after "Hi, Name!" on Home: a wave by day, the sun at dawn, a moon late at night. */
-export const HELLO: Record<DayPart, { emoji: string; motion: 'wave' | 'float' }> = {
-  earlyMorning: { emoji: '🌅', motion: 'float' },
-  morning: { emoji: '👋', motion: 'wave' },
-  afternoon: { emoji: '👋', motion: 'wave' },
-  evening: { emoji: '✨', motion: 'float' },
-  lateNight: { emoji: '🌙', motion: 'float' },
+export type HelloMotion = 'wave' | 'float' | 'tilt'
+/** Icons after "Hi", by time of day; the greeting cycles through them, each with its own motion. */
+export const HELLO: Record<DayPart, Array<{ emoji: string; motion: HelloMotion }>> = {
+  earlyMorning: [{ emoji: '🌅', motion: 'float' }, { emoji: '👋', motion: 'wave' }, { emoji: '☕', motion: 'tilt' }],
+  morning: [{ emoji: '👋', motion: 'wave' }, { emoji: '☀️', motion: 'tilt' }, { emoji: '☕', motion: 'float' }],
+  afternoon: [{ emoji: '👋', motion: 'wave' }, { emoji: '🌤️', motion: 'float' }, { emoji: '😎', motion: 'tilt' }],
+  evening: [{ emoji: '👋', motion: 'wave' }, { emoji: '🌆', motion: 'float' }, { emoji: '✨', motion: 'tilt' }],
+  lateNight: [{ emoji: '🌙', motion: 'float' }, { emoji: '✨', motion: 'tilt' }, { emoji: '👋', motion: 'wave' }],
 }
 
 /** First word of the display name ("Amrit Singh" → "Amrit"; an email → its local part). */

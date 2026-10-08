@@ -31,12 +31,15 @@ export function Layout() {
       <CaptureAlert />
       <nav className="fixed inset-x-0 bottom-0 z-40">
         {/* The + button's glow sits under the bar: muted where the bar covers it, bright in the
-            notch, which gives the cut-out depth. It's a blurred copy of the button's moving gradient. */}
-        <div aria-hidden className="pointer-events-none absolute left-1/2 top-[0.55rem] h-[4.1rem] w-[4.1rem] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[9px]">
-          <Aurora size="fab" />
+            notch, which gives the cut-out depth. A blurred copy of the button's moving gradient,
+            set a little low and faded at the top so it's strongest below, filling the notch gap. */}
+        <div aria-hidden className="fab-halo pointer-events-none absolute left-1/2 top-[0.75rem] h-[4.9rem] w-[4.9rem] -translate-x-1/2 -translate-y-1/2">
+          <div className="absolute inset-0 rounded-full blur-[10px] saturate-150"><Aurora size="fab" /></div>
+          {/* a solid, soft-edged core that fills the gap between button and notch (no see-through) */}
+          <div className="fab-core absolute inset-[0.3rem] rounded-full blur-[3px]"><Aurora size="fab" /></div>
         </div>
         {/* The bar, with a round notch cut out for the + button (mask in index.css). */}
-        <div aria-hidden className="nav-notch absolute inset-0 border-t border-slate-200/70 bg-white/85 backdrop-blur-xl dark:border-white/5 dark:bg-ink-900/85" />
+        <div aria-hidden className="nav-notch absolute inset-0 border-t border-slate-200/70 bg-white/95 backdrop-blur-xl dark:border-white/5 dark:bg-ink-900/95" />
         <svg aria-hidden viewBox="0 0 112 48" className="absolute left-1/2 top-0 h-12 w-28 -translate-x-1/2 overflow-visible text-slate-200/70 dark:text-white/5">
           <path d="M0 0.5H10.41A8 8 0 0 1 18.41 8.14A37.6 37.6 0 1 0 93.59 8.14A8 8 0 0 1 101.59 0.5H112" fill="none" stroke="currentColor" strokeWidth="1" vectorEffect="non-scaling-stroke" />
         </svg>
