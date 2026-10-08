@@ -7,6 +7,8 @@ export interface Note {
   url: string
   /** same tag replaces an earlier notification instead of stacking */
   tag?: string
+  /** reminders can wait for the next radio wake-up; everything else is 'high' */
+  urgency?: 'high' | 'normal'
 }
 
 const fmtCache = new Map<string, Intl.NumberFormat>()
@@ -57,10 +59,21 @@ export function expenseNote(e: {
   return { title: groupTitle(e.groupName, e.emoji), body, url: `/groups/${e.groupId}/expenses/${e.expenseId}`, tag: `expense-${e.expenseId}` }
 }
 
+/** To the person who was paid. */
 export function settlementNote(s: { groupId: string; settlementId: string; groupName: string; emoji?: string; fromName: string; amount: number; currency: string }): Note {
   return {
     title: groupTitle(s.groupName, s.emoji),
     body: `${clip(s.fromName, 30)} paid you ${formatMoney(s.amount, s.currency)}`,
+    url: `/groups/${s.groupId}`,
+    tag: `settlement-${s.settlementId}`,
+  }
+}
+
+/** To the person recorded as the payer, when someone else recorded it ("Rahul paid me ₹500"). */
+export function settlementRecordedNote(s: { groupId: string; settlementId: string; groupName: string; emoji?: string; toName: string; amount: number; currency: string }): Note {
+  return {
+    title: groupTitle(s.groupName, s.emoji),
+    body: `${clip(s.toName, 30)} recorded that you paid ${formatMoney(s.amount, s.currency)}. Not right? Open it to flag.`,
     url: `/groups/${s.groupId}`,
     tag: `settlement-${s.settlementId}`,
   }
@@ -72,5 +85,6 @@ export function reminderNote(r: { groupId: string; groupName: string; emoji?: st
     body: `Friendly nudge: you owe ${formatMoney(r.owed, r.currency)} in ${clip(r.groupName, 40)}. Settle up when you can.`,
     url: `/groups/${r.groupId}/settle`,
     tag: `reminder-${r.groupId}`,
+    urgency: 'normal',
   }
 }

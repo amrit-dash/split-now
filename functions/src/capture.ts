@@ -6,26 +6,35 @@
  * against the user's trip windows, save it to users/{uid}/captures as pending, and push
  * "You spent ₹840 at Swiggy — add to Goa Trip?".
  *
- * Authentication is the capture token (a 140-bit secret) plus a per-token rate limit.
- * App Check is deliberately not enforced: Shortcuts and MacroDroid can't produce a token.
+ * Authentication is the capture token (a 140-bit secret) plus a per-token rate limit. Before
+ * any Firestore read there is a per-instance limit per client IP, a 16 KB body cap and a short
+ * negative cache of unknown tokens, so garbage requests cost nothing but CPU. App Check is
+ * deliberately not enforced: Shortcuts and MacroDroid can't produce a token.
  *
  * Unscoped captures that match no trip are dropped ('outside_trip') unless the user turned on
  * "All bank & UPI payments" (prefs.outsideTrips); then they land in the inbox unsorted and only
  * notify with prefs.unsorted. A scoped capture (token.groupId or request groupId) outside that
- * group's dates is dropped.
+ * group's dates is dropped; a key whose trip the user left or deleted is dead ('bad_scope').
  *
- * User filters (users/{uid}/settings/notifications, Profile → Auto-capture): capturePaused stops
+ * User filters (users/{uid}/settings/notifications, Settings → Auto-capture): capturePaused stops
  * everything ('paused'), minAmount drops small INR debits ('below_min'), ignoreWords drops debits
  * mentioning a keyword ('ignored'); a trip with captureOff is skipped ('paused'). All of these
- * answer 200 and store nothing. Every processed request also appends a compact entry (no SMS
- * text) to users/{uid}/captureLog, trimmed to the newest 30: "Recent activity" in the app.
+ * answer 200 and store nothing. Every processed request also prepends a compact entry (no SMS
+ * text) to users/{uid}/captureLog/recent, one document trimmed to the newest 30: "Recent
+ * activity" in the app.
+ *
+ * Gemini only ever sees a masked message (account, card and phone digits, balances removed),
+ * only when the message looks like it came from a bank, and only when the built-in parser
+ * failed, or (if the user opted in with aiSmsMerchant) found the amount but not the payee.
  */
 import type { DocumentReference } from 'firebase-admin/firestore'
 import { aiReadSms, AI_SECRETS } from './ai'
 import type { AiSms } from './lib/gemini'
 import { logger } from 'firebase-functions/logger'
 import { onRequest } from 'firebase-functions/v2/https'
-import { filterReason, type CaptureLogEntry } from '../../shared/capture-filters'
+import { CAPTURE_LOG_DOC, filterReason, type CaptureLogEntry } from '../../shared/capture-filters'
+import { isBankLikeSms, maskSms } from '../../shared/sms-parse'
+import { minorDigitsOf } from '../../shared/money-core'
 import { db } from './admin'
 import { APP_ORIGINS, RATE_LIMIT, REGION } from './config'
 import { CAPTURE_LOG_KEEP, STATUS, captureDoc, interpret, logEntry, type Parsed, type Reason } from './lib/capture-core'
@@ -43,8 +52,39 @@ export type CaptureResponse =
 
 const fail = (reason: Reason) => ({ status: STATUS[reason], body: { ok: false, reason } as CaptureResponse })
 
+/** Largest body an automation legitimately sends (an SMS is under 1 KB; JSON with headers, a few KB). */
+export const MAX_BODY_BYTES = 16_384
+
 interface GroupDoc extends TripGroup {
   memberUids?: string[]
+}
+
+// ---- Pre-auth guards (per instance, in memory) -------------------------------------------
+
+const ipHits = new Map<string, { n: number; t: number }>()
+/** True when `ip` sent more than `max` requests inside the window. A tiny map that is cleared when it grows large. */
+export function ipLimited(ip: string, now: number, max = 60, windowMs = 60_000, hits = ipHits): boolean {
+  const h = hits.get(ip)
+  if (!h || now - h.t > windowMs) {
+    if (hits.size > 5000) hits.clear()
+    hits.set(ip, { n: 1, t: now })
+    return false
+  }
+  return ++h.n > max
+}
+
+const unknownTokens = new Map<string, number>()
+const NEGATIVE_TTL = 5 * 60_000
+/** Remember a token that didn't exist, so retries of the same junk never reach Firestore for a while. */
+export function rememberUnknown(token: string, now: number, cache = unknownTokens) {
+  if (cache.size > 5000) cache.clear()
+  cache.set(token, now + NEGATIVE_TTL)
+}
+export function isKnownUnknown(token: string, now: number, cache = unknownTokens): boolean {
+  const until = cache.get(token)
+  if (until === undefined) return false
+  if (until < now) { cache.delete(token); return false }
+  return true
 }
 
 async function loadGroup(id: string, uid: string): Promise<GroupDoc | undefined> {
@@ -64,36 +104,43 @@ async function rateLimited(token: string, now: number): Promise<boolean> {
 }
 
 /**
- * Append to users/{uid}/captureLog and trim it to the newest CAPTURE_LOG_KEEP entries.
- * Best-effort: a logging failure never fails the capture.
+ * Prepend to users/{uid}/captureLog/recent and keep the newest CAPTURE_LOG_KEEP entries: one
+ * read and one write, whatever the log's age. Best-effort: a logging failure never fails the capture.
  */
 async function writeLog(userRef: DocumentReference, entry: CaptureLogEntry | undefined): Promise<void> {
   if (!entry) return
+  const ref = userRef.collection('captureLog').doc(CAPTURE_LOG_DOC)
   try {
-    const col = userRef.collection('captureLog')
-    await col.add(entry)
-    const old = await col.orderBy('at', 'desc').offset(CAPTURE_LOG_KEEP).limit(20).select().get()
-    if (!old.empty) {
-      const batch = db().batch()
-      old.docs.forEach((d) => batch.delete(d.ref))
-      await batch.commit()
-    }
+    await db().runTransaction(async (t) => {
+      const prev = (await t.get(ref)).get('entries') as CaptureLogEntry[] | undefined
+      t.set(ref, { entries: [entry, ...(Array.isArray(prev) ? prev : [])].slice(0, CAPTURE_LOG_KEEP), updatedAt: entry.at })
+    })
   } catch (e) {
     logger.warn('capture log', e)
   }
 }
 
-export async function handleCapture(raw: RawRequest, now = new Date(), readSms: (uid: string, text: string) => Promise<AiSms | null> = aiReadSms): Promise<{ status: number; body: CaptureResponse }> {
+/** The token's "last received" stamp, at most once a minute per token (the wizard watches it). */
+const LAST_USED_EVERY = 60_000
+
+export async function handleCapture(raw: RawRequest, now = new Date(), readSms: (uid: string, maskedText: string) => Promise<AiSms | null> = aiReadSms): Promise<{ status: number; body: CaptureResponse }> {
   const req = readCaptureRequest(raw)
   if (!isTokenShaped(req.token)) return fail('bad_token')
+  if (isKnownUnknown(req.token, now.getTime())) return fail('bad_token')
 
   const tokenSnap = await db().collection('captureTokens').doc(req.token).get()
   const uid = tokenSnap.get('uid')
-  if (!tokenSnap.exists || typeof uid !== 'string') return fail('bad_token')
+  if (!tokenSnap.exists || typeof uid !== 'string') {
+    rememberUnknown(req.token, now.getTime())
+    return fail('bad_token')
+  }
   if (await rateLimited(req.token, now.getTime())) return fail('rate_limited')
 
   // Any request that reached a user counts as "received" (the "last received" line per key).
-  tokenSnap.ref.update({ lastUsedAt: now.getTime() }).catch((e) => logger.warn('token lastUsedAt', e))
+  const lastUsed = tokenSnap.get('lastUsedAt')
+  if (typeof lastUsed !== 'number' || now.getTime() - lastUsed > LAST_USED_EVERY) {
+    tokenSnap.ref.update({ lastUsedAt: now.getTime() }).catch((e) => logger.warn('token lastUsedAt', e))
+  }
   const userRef = db().collection('users').doc(uid)
   const reject = async (reason: Reason, parsed?: Parsed, groupName?: string) => {
     await writeLog(userRef, logEntry(reason, req.device, now.getTime(), parsed, groupName))
@@ -104,12 +151,17 @@ export async function handleCapture(raw: RawRequest, now = new Date(), readSms: 
   if (prefs.capturePaused) return reject('paused')
 
   let it = interpret(req, now)
-  // The regex parser came up short: ask Gemini, then run its answer through the same checks.
-  if (prefs.aiSms && req.text && ((!it.ok && it.reason === 'unparsed') || (it.ok && !it.parsed.merchant))) {
-    const ai = await readSms(uid, req.text)
+  // The regex parser came up short: ask Gemini (masked text, bank-looking messages only), then
+  // run its answer through the same checks. A readable debit only goes for its payee's name when
+  // the user asked for that (aiSmsMerchant) and the message has no UPI id to name it from.
+  const bankLike = !!req.text && isBankLikeSms(req.text, req.sender)
+  const unreadable = !it.ok && it.reason === 'unparsed'
+  const nameless = it.ok && !it.parsed.merchant && !it.sms?.vpa && prefs.aiSmsMerchant
+  if (prefs.aiSms && bankLike && (unreadable || nameless)) {
+    const ai = await readSms(uid, maskSms(req.text!, 1000))
     if (ai?.kind === 'debit') {
       if (!it.ok && ai.amount) {
-        const d = minorDigits(ai.currency)
+        const d = minorDigitsOf(ai.currency)
         it = interpret({ ...req, amount: (ai.amount / 10 ** d).toFixed(d), currency: req.currency ?? ai.currency, merchant: req.merchant ?? ai.merchant, ref: req.ref ?? ai.ref }, now)
       } else if (it.ok && ai.merchant) it.parsed.merchant = ai.merchant
     }
@@ -121,12 +173,14 @@ export async function handleCapture(raw: RawRequest, now = new Date(), readSms: 
   const filtered = filterReason(prefs, parsed, req.text)
   if (filtered) return reject(filtered, parsed)
 
-  // Scope: the token's group wins over the request's; a group you're no longer in is ignored.
+  // Scope: the token's group wins over the request's. A scoped key whose group the user left or
+  // deleted is dead: it never falls back to "all my trips".
   const tokenGroup = tokenSnap.get('groupId')
   const scopeId = typeof tokenGroup === 'string' && tokenGroup ? tokenGroup : isIdShaped(req.groupId) ? req.groupId : undefined
   const scoped = scopeId ? await loadGroup(scopeId, uid) : undefined
   let matched: TripGroup | undefined
-  if (scoped) {
+  if (scopeId) {
+    if (!scoped) return reject('bad_scope', parsed)
     const r = matchScoped(scoped, parsed.date)
     if (r.kind === 'off') return reject('paused', parsed, scoped.name)
     if (r.kind === 'outside') return reject('outside_trip', parsed, scoped.name)
@@ -134,7 +188,7 @@ export async function handleCapture(raw: RawRequest, now = new Date(), readSms: 
   } else {
     const groups = (await db().collection('groups').where('memberUids', 'array-contains', uid).get())
       .docs.map((d) => ({ ...(d.data() as GroupDoc), id: d.id }))
-    matched = pickTrip(groups, parsed.date)
+    matched = pickTrip(groups, parsed.date, parsed.currency)
     if (!matched) {
       // Dated inside a trip whose capture is paused: skip it (the pause wins over "all payments").
       const off = pausedTrip(groups, parsed.date)
@@ -144,7 +198,7 @@ export async function handleCapture(raw: RawRequest, now = new Date(), readSms: 
     }
   }
 
-  const captureId = captureIdFor(uid, parsed, extra.receivedAt ?? now)
+  const captureId = captureIdFor(uid, parsed, extra.receivedAt ?? now, req.text ? extra.raw : undefined)
   const ref = userRef.collection('captures').doc(captureId)
   try {
     await ref.create(captureDoc(captureId, parsed, extra, matched?.id, now.getTime()))
@@ -164,11 +218,24 @@ export async function handleCapture(raw: RawRequest, now = new Date(), readSms: 
   return { status: 200, body }
 }
 
+/** The client's address behind Hosting (first hop of X-Forwarded-For), for the per-IP limit. */
+export const clientIp = (forwardedFor: string | undefined, fallback: string | undefined) =>
+  (forwardedFor ?? '').split(',')[0].trim() || fallback || 'unknown'
+
 export const capture = onRequest(
-  { region: REGION, secrets: AI_SECRETS, cors: APP_ORIGINS, invoker: 'public', maxInstances: 10, concurrency: 40, memory: '256MiB', timeoutSeconds: 30 },
+  { region: REGION, secrets: AI_SECRETS, cors: APP_ORIGINS, invoker: 'public', maxInstances: 3, concurrency: 20, memory: '256MiB', timeoutSeconds: 30 },
   async (req, res) => {
     if (req.method !== 'POST') {
       res.status(405).set('Allow', 'POST').json({ ok: false, reason: 'bad_request' })
+      return
+    }
+    const declared = Number(req.get('content-length') ?? 0)
+    if (declared > MAX_BODY_BYTES || (req.rawBody?.length ?? 0) > MAX_BODY_BYTES) {
+      res.status(413).json({ ok: false, reason: 'bad_request' })
+      return
+    }
+    if (ipLimited(clientIp(req.get('x-forwarded-for'), req.ip), Date.now())) {
+      res.status(429).json({ ok: false, reason: 'rate_limited' })
       return
     }
     // Unknown content types arrive unparsed; fall back to the raw bytes.
@@ -188,7 +255,3 @@ export const capture = onRequest(
     }
   },
 )
-
-const minorDigits = (c: string) => {
-  try { return new Intl.NumberFormat('en', { style: 'currency', currency: c }).resolvedOptions().maximumFractionDigits ?? 2 } catch { return 2 }
-}

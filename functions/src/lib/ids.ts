@@ -7,12 +7,17 @@ export const tokenKey = (token: string) => sha(`rl|${token}`).slice(0, 32)
 
 /**
  * Idempotency: the same bank message (or a retry of the same automation) always maps to the
- * same capture id. With a bank reference: (uid, ref). Without one: (uid, amount, merchant,
- * the minute it was received), so an automation retrying within the minute doesn't duplicate.
+ * same capture id. With a bank reference: (uid, ref). Without one but with the SMS text: the
+ * masked text itself, so two automations delivering the same alert a minute apart still collide
+ * while two real ₹100 coffees (different times or balances in the text) don't. With neither
+ * (structured fields only): (uid, amount, merchant, the minute it was received).
  */
-export function captureIdFor(uid: string, p: { ref?: string; amount: number; currency?: string; merchant?: string }, receivedAt: Date): string {
+export function captureIdFor(uid: string, p: { ref?: string; amount: number; currency?: string; merchant?: string }, receivedAt: Date, maskedText?: string): string {
+  const text = maskedText?.toLowerCase().replace(/\s+/g, ' ').trim()
   const key = p.ref
     ? `${uid}|ref|${p.ref.toUpperCase()}`
-    : `${uid}|${p.amount}|${p.currency ?? ''}|${(p.merchant ?? '').toLowerCase().replace(/[^a-z0-9]/g, '')}|${receivedAt.toISOString().slice(0, 16)}`
+    : text
+      ? `${uid}|txt|${text}`
+      : `${uid}|${p.amount}|${p.currency ?? ''}|${(p.merchant ?? '').toLowerCase().replace(/[^a-z0-9]/g, '')}|${receivedAt.toISOString().slice(0, 16)}`
   return `sms_${sha(key).slice(0, 24)}`
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cleanMerchant, findSmsDate, maskSms, merchantFromVpa, parseAmountMinor, parseBankSms, titleCase } from './sms-parse'
+import { cleanMerchant, findSmsDate, isBankLikeSms, maskSms, merchantFromVpa, parseAmountMinor, parseBankSms, titleCase } from './sms-parse'
 
 /** Debit samples: [label, sms, sender, expected subset]. Wording follows real Indian bank SMS formats. */
 const DEBITS: Array<[string, string, string | undefined, Record<string, unknown>]> = [
@@ -86,7 +86,32 @@ const DEBITS: Array<[string, string, string | undefined, Record<string, unknown>
     undefined, { amount: 12000, merchant: 'Sharma General Store', ref: '628112345678' }],
   ['SBI credit card',
     'Rs 1,250.00 spent on your SBI Credit Card ending 5678 at UBER INDIA SYSTEMS on 07/10/26. Trxn. Ref No. 123456789012.',
-    'VM-SBICRD', { amount: 125000, merchant: 'Uber', account: '5678', ref: '123456789012', method: 'card' }],
+    'VM-SBICRD', { amount: 125000, merchant: 'Uber', account: '5678', ref: '123456789012', method: 'card', bank: 'SBI Card' }],
+  // Wordings from the 2026-10 probe (scratchpad/parser-probe): amounts, verbs and banks the first version missed.
+  ['"Rs500" with no separator (SBI / Canara / Union)',
+    'Dear Customer, Rs500.00 debited from A/c XX1234 on 07-10-26 to VPA zomato@ybl (UPI Ref no 628112345678). -SBI', 'JD-SBIUPI', { amount: 50000, merchant: 'Zomato' }],
+  ['"Rs. 1,250/-" trailer', 'Rs. 1,250/- debited from your A/c XX1234 on 07-10-2026 towards UPI/P2M/628112345678/BIGBASKET. -Union Bank', undefined, { amount: 125000, merchant: 'BigBasket', bank: 'Union Bank' }],
+  ['amount before the currency code', 'Transaction of 250.00 INR debited from A/c XX1234 on 07-10-26 to swiggy@icici. Ref 628112345678', undefined, { amount: 25000, currency: 'INR' }],
+  ['"INR250.00" glued', 'INR250.00 debited from A/c XX1234 on 07-10-26 to VPA blinkit@hdfcbank UPI Ref 628112345678 -IDFC FIRST Bank', undefined, { amount: 25000, merchant: 'Blinkit' }],
+  ['foreign spend written amount-first', 'You have spent 25.00 USD on your HDFC Bank Card x1234 at AWS EMEA on 07-10-26. Avl Limit Rs 1,00,000', 'VM-HDFCBK', { amount: 2500, currency: 'USD' }],
+  ['ATM "withdrawal" (noun)', 'ATM withdrawal of Rs 2,000.00 from your A/c XX1234 at HDFC BANK ATM on 07-10-26. Avl Bal Rs 8,000.00', 'VM-HDFCBK', { amount: 200000, method: 'atm' }],
+  ['older HDFC POS wording', 'Thank you for using your HDFC Bank Debit Card XX1234 for Rs.1,500.00 at BIG BAZAAR on 07-10-2026 14:32:11. Avl Bal Rs.5,000.00', 'VM-HDFCBK', { amount: 150000, merchant: 'Big Bazaar' }],
+  ['"Payment of Rs.X made to" (BillDesk)', 'Payment of Rs.1,200.00 made to BESCOM via BillDesk from A/c XX1234 on 07-10-26. Ref 628112345678. -Axis Bank', 'AX-AXISBK', { amount: 120000, merchant: 'Bescom' }],
+  ['debit card alert without a verb', 'Transaction alert: Debit Card XX1234 Rs.500.00 at BIG BAZAAR on 07-10-26 14:32. Avl Bal Rs.5,000.00 -SBI', 'BZ-SBIINB', { amount: 50000, merchant: 'Big Bazaar' }],
+  ['"Dr" followed by the amount (BOI)', 'A/c XX1234 Dr Rs.500.00 on 07-10-26 UPI/P2M/628112345678/SWIGGY. Avl Bal Rs.3,000.00 -BOI', 'VM-BOIIND', { amount: 50000, merchant: 'Swiggy', bank: 'Bank of India' }],
+  ['AutoPay mandate names the merchant after "for"', 'Rs.199.00 debited from HDFC Bank A/c XX1234 on 07-10-26 towards UPI AutoPay mandate for SPOTIFY. UPI Ref 628112345678', 'VM-HDFCBK', { merchant: 'Spotify' }],
+  ['"CREDIT CARD BILL PAYMENT" is not the brand CRED', 'Rs.5,000.00 debited from A/c XX1234 on 07-10-26 towards CREDIT CARD BILL PAYMENT. Ref 628112345678 -HDFC Bank', 'VM-HDFCBK', { merchant: 'Credit Card Bill Payment' }],
+  ['the safety trailer never names the payee', 'Rs.300.00 debited from A/c XX1234 on 07-10-26 to A/c XX5678. Ref 628112345678. Call 18002662 to raise a dispute', 'JM-ICICIT', { merchant: undefined }],
+  ['new-style Paytm QR ids are not names', 'Rs.60.00 debited from a/c XX1234 on 07-10-26 to VPA paytmqr5c5kj9@ptys (UPI Ref No 628112345678).', 'VM-HDFCBK', { merchant: undefined, vpa: 'paytmqr5c5kj9@ptys' }],
+  ['HDFC "Info: UPI-ref-NAME" narration', 'UPDATE: INR 1,250.00 debited from HDFC Bank XX1234 on 07-OCT-26. Info: UPI-628112345678-ZOMATO LTD. Avl bal:INR 5,000.00', 'VM-HDFCBK', { merchant: 'Zomato' }],
+  ['Amex card alert', 'Alert: You\'ve spent INR 3,450.00 on your AMEX card ** 61005 at BLUE TOKAI on 7 October 2026 at 20:15 IST. Not you? Call 18004190000', 'AD-AMEXIN', { amount: 345000, merchant: 'Blue Tokai', bank: 'American Express', account: '1005', date: '2026-10-07' }],
+  ['Canara "DEBITED to your account"', 'An amount of INR 1,500.00 has been DEBITED to your account XXX1234 on 07/10/2026 towards UPI/P2M/628112345678/DMART. Total Avail.bal INR 10,000.00. - Canara Bank', 'VM-CANBNK', { amount: 150000, merchant: 'DMart', bank: 'Canara Bank' }],
+  ['Jupiter "for payment to"', '₹450 debited from Jupiter a/c XX1234 for payment to Zomato. Ref: 628112345678', 'VM-JUPITR', { amount: 45000, merchant: 'Zomato', bank: 'Jupiter' }],
+  ['Kotak card, merchant after the time with no Avl keyword', 'Your Kotak Credit Card XX1234 has been used for Rs.1,250.00 at AMAZON PAY INDIA on 07-Oct-26 14:32. Available limit Rs.98,750.00', 'VM-KOTAKB', { amount: 125000, merchant: 'Amazon' }],
+  ['RBL card', 'INR 999.00 spent on RBL Bank Credit Card XX1234 at NETFLIX on 07-10-26. Avl limit INR 50,000', 'VM-RBLBNK', { bank: 'RBL Bank', merchant: 'Netflix' }],
+  ['Indian Bank', 'Your a/c no. XXXXX1234 is debited for Rs.500.00 on 07-10-2026 and credited to a/c XXXXX5678 (UPI Ref no 628112345678) -Indian Bank', 'VM-INDBNK', { bank: 'Indian Bank' }],
+  ['time glued to the date', 'INR 250.00 debited A/c no. XX1234 07-10-2026 14:32:11 UPI/P2M/628112345678/SWIGGY', 'AX-AXISBK', { date: '2026-10-07' }],
+  ['"Oct 7, 2026"', 'INR 2,499.00 spent on ICICI Bank Card XX4321 on Oct 7, 2026 at 14:32. Info: AMAZON PAY INDIA.', 'VK-ICICIT', { date: '2026-10-07', merchant: 'Amazon' }],
 ]
 
 describe('parseBankSms: debits', () => {
@@ -120,6 +145,13 @@ const NOT_DEBITS: Array<[string, string, string]> = [
   ['EMI reminder', 'Your EMI of Rs 12,500.00 for loan XX5678 is due on 10-10-2026. Please maintain sufficient balance in A/c XX1234.', 'reminder'],
   ['auto-debit reminder', 'Rs 649.00 will be debited from your A/c XX1234 on 10-10-26 towards NETFLIX mandate. -HDFC Bank', 'reminder'],
   ['credit card due', 'Your ICICI Bank Credit Card XX4321 statement: total amount due Rs 23,456.00, minimum due Rs 1,200.00, due date 15-Oct-26.', 'reminder'],
+  ['"sent to you" is a credit', 'Rs.500.00 sent to you by RAHUL SHARMA via UPI. UPI Ref 628112345678. -Paytm Payments Bank', 'credit'],
+  ['UPI Lite top-up is a transfer between your own places', 'Rs.2,000.00 debited from A/c XX1234 for UPI Lite top-up. UPI Ref 628112345678. -HDFC Bank', 'transfer'],
+  ['"added to UPI Lite"', 'Rs.200.00 added to UPI Lite from A/c XX1234 on 07-10-26. UPI Ref 628112345678 -HDFC Bank', 'transfer'],
+  ['EMI conversion notice re-uses "txn of"', 'Your txn of Rs.25,000.00 at CROMA on HDFC Bank Card x1234 has been converted to EMI of Rs.2,200/month. Not you? Call 18002586161', 'reminder'],
+  ['collect request "is requesting"', 'RAHUL SHARMA is requesting Rs.500.00 from you on Google Pay. Open the app to approve or decline.', 'request'],
+  ['collect request "requested by"', 'Rs.1,200.00 requested by zomato@hdfcbank via UPI. Approve in your bank app before 15:00. -HDFC Bank', 'request'],
+  ['personal message with an amount', 'Hey! Dinner at 8 tonight? Bring Rs 500 for the cake.', 'unknown'],
   ['empty', '', 'unknown'],
 ]
 
@@ -187,5 +219,28 @@ describe('helpers', () => {
     expect(m).toContain('Avl Bal Rs ***')
     expect(m).not.toContain('12,345.67')
     expect(maskSms('x'.repeat(600)).length).toBe(500)
+  })
+  it('also masks short account numbers and the user’s phone number, but not helplines', () => {
+    expect(maskSms('Rs.250 debited from A/c 1234567 Ref 628112345678')).toBe('Rs.250 debited from A/c XX4567 Ref 628112345678')
+    const m = maskSms('Not You? Call 18002586161 to your mobile 9876543210. Acct No: 1234567890 Dr Rs 500')
+    expect(m).toContain('mobile XX3210')
+    expect(m).toContain('Acct No: XX7890')
+    expect(m).toContain('18002586161')
+    expect(maskSms('Card ending 1234 used')).toBe('Card ending 1234 used')
+  })
+  it('tells bank messages from personal texts (what the Gemini fallback may ever see)', () => {
+    expect(isBankLikeSms('Hey! Dinner at 8 tonight? Bring Rs 500 for the cake.')).toBe(false)
+    expect(isBankLikeSms('Mera number save kar lo, Rs 200 bhejna hai')).toBe(false)
+    expect(isBankLikeSms('Rs.250.00 debited from a/c XX1234 to VPA swiggy@icici')).toBe(true)
+    expect(isBankLikeSms('Paid Rs.150 to Chaayos Cafe via UPI. Ref 628112345678')).toBe(true)
+    expect(isBankLikeSms('You spent 25.00 USD at AWS', 'VM-HDFCBK')).toBe(true)
+    expect(isBankLikeSms('')).toBe(false)
+  })
+  it('does not over-match brand prefixes or descriptive payees', () => {
+    expect(cleanMerchant('CREDIT SAISON')).toBe('Credit Saison')
+    expect(cleanMerchant('UPI AutoPay mandate')).toBeUndefined()
+    expect(cleanMerchant('Raise a dispute')).toBeUndefined()
+    expect(merchantFromVpa('paytm.s1ab2c3d@pty')).toBeUndefined()
+    expect(merchantFromVpa('swiggy.stores@axisbank')).toBe('Swiggy')
   })
 })

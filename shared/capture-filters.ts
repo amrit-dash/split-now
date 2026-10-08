@@ -20,13 +20,18 @@ export interface CaptureFilterPrefs {
   minAmount: number
   /** case-insensitive words / phrases; a debit SMS (or merchant) containing one is ignored */
   ignoreWords: string[]
-  /** let Gemini read bank SMS the built-in parser can't (server-side fallback) */
+  /** let Gemini read bank SMS the built-in parser can't (server-side fallback; the text is masked first) */
   aiSms: boolean
+  /**
+   * Also ask Gemini to name the payee when the built-in reader found the amount but not who was
+   * paid. Off by default: a readable debit then never goes to a third party just for a nicer label.
+   */
+  aiSmsMerchant: boolean
   /** read bill photos and statement screenshots with Gemini (the app falls back to on-device OCR) */
   aiImages: boolean
 }
 
-export const DEFAULT_FILTERS: CaptureFilterPrefs = { capturePaused: false, minAmount: 0, ignoreWords: [], aiSms: true, aiImages: true }
+export const DEFAULT_FILTERS: CaptureFilterPrefs = { capturePaused: false, minAmount: 0, ignoreWords: [], aiSms: true, aiSmsMerchant: false, aiImages: true }
 
 /** Trim, collapse spaces, drop empties and duplicates (case-insensitive), cap count and length. */
 export function normaliseIgnoreWords(words: unknown): string[] {
@@ -62,6 +67,7 @@ export function resolveFilters(raw: unknown): CaptureFilterPrefs {
     minAmount: normaliseMinAmount(r.minAmount),
     ignoreWords: normaliseIgnoreWords(r.ignoreWords),
     aiSms: r.aiSms !== false,
+    aiSmsMerchant: r.aiSmsMerchant === true,
     aiImages: r.aiImages !== false,
   }
 }
@@ -103,6 +109,8 @@ export function filterReason(
 
 export type CaptureLogResult =
   | 'captured' | 'duplicate' | 'outside_trip' | 'not_a_debit' | 'unparsed' | 'paused' | 'below_min' | 'ignored'
+  /** the key is scoped to a trip the user left or deleted */
+  | 'bad_scope'
 
 export interface CaptureLogEntry {
   /** epoch ms */
@@ -116,10 +124,15 @@ export interface CaptureLogEntry {
   device: 'ios' | 'android' | 'other'
 }
 
-/** How many entries the webhook keeps per user (older ones are deleted, best-effort). */
+/**
+ * How many entries the webhook keeps per user. They live in one document,
+ * users/{uid}/captureLog/recent = { entries: CaptureLogEntry[] } (newest first), trimmed in the
+ * same write, so each request costs one read and one write however old the log is.
+ */
 export const CAPTURE_LOG_KEEP = 30
+export const CAPTURE_LOG_DOC = 'recent'
 
-export const LOG_RESULTS: readonly CaptureLogResult[] = ['captured', 'duplicate', 'outside_trip', 'not_a_debit', 'unparsed', 'paused', 'below_min', 'ignored']
+export const LOG_RESULTS: readonly CaptureLogResult[] = ['captured', 'duplicate', 'outside_trip', 'not_a_debit', 'unparsed', 'paused', 'below_min', 'ignored', 'bad_scope']
 export const isLogResult = (r: string): r is CaptureLogResult => (LOG_RESULTS as readonly string[]).includes(r)
 
 /** One-line friendly text for an activity entry. */
@@ -128,17 +141,18 @@ export function logResultText(e: Pick<CaptureLogEntry, 'result' | 'groupName'>):
     case 'captured': return e.groupName ? `Captured for ${e.groupName}` : 'Captured to your inbox'
     case 'duplicate': return 'Already captured (same message)'
     case 'outside_trip': return e.groupName ? `Ignored: outside ${e.groupName}’s dates` : 'Ignored: outside trip dates'
-    case 'not_a_debit': return 'Ignored: not a debit (OTP, credit or alert)'
+    case 'not_a_debit': return 'Ignored: not a payment (OTP, credit, alert or transfer between your own accounts)'
     case 'unparsed': return 'Couldn’t read the amount'
     case 'paused': return e.groupName ? `Ignored: capture paused for ${e.groupName}` : 'Ignored: capture paused'
     case 'below_min': return 'Ignored: below your minimum amount'
     case 'ignored': return 'Ignored: matched an ignore keyword'
+    case 'bad_scope': return 'Ignored: this key’s trip no longer exists. Create a new key.'
   }
 }
 
 /** Tone for the log row's dot. */
 export const logResultTone = (r: CaptureLogResult): 'ok' | 'muted' | 'warn' =>
-  r === 'captured' ? 'ok' : r === 'unparsed' ? 'warn' : 'muted'
+  r === 'captured' ? 'ok' : r === 'unparsed' || r === 'bad_scope' ? 'warn' : 'muted'
 
 /** "just now", "5 min ago", "3 h ago", "yesterday", "4 days ago", else a date. */
 export function relativeTime(at: number, now: number): string {

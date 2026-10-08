@@ -1,15 +1,13 @@
 import { useState, type ReactNode } from 'react'
-import { Pencil, Sparkles, X } from 'lucide-react'
-import { ALL_GROUP_ICONS, GROUP_TYPES, firstEmoji, type GroupGuess } from '@/lib/groupTypes'
-
-export const GROUP_EMOJIS = ALL_GROUP_ICONS
+import { Pencil, X } from 'lucide-react'
+import { ALL_GROUP_ICONS, firstEmoji, groupTypeInfo, type GroupGuess } from '@/lib/groupTypes'
 
 /**
  * Group icon button that sits beside a labelled input (same height as `.input`), plus a hidden
  * horizontal picker that opens on tap, with a field for any other emoji. `children` is the field
  * next to the button.
  */
-export function IconPickerField({ emoji, onChange, emojis = GROUP_EMOJIS, children, idPrefix = 'icon' }: {
+export function IconPickerField({ emoji, onChange, emojis = ALL_GROUP_ICONS, children, idPrefix = 'icon' }: {
   emoji: string
   onChange: (e: string) => void
   emojis?: string[]
@@ -33,7 +31,7 @@ export function IconPickerField({ emoji, onChange, emojis = GROUP_EMOJIS, childr
           className={`relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-100 to-duo-100 text-2xl transition active:scale-95 dark:from-brand-900/50 dark:to-duo-900/30 ${open ? 'ring-2 ring-brand-500' : ''}`}
         >
           {emoji}
-          <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-brand-600 text-white shadow ring-2 ring-white dark:ring-ink-900">
+          <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-brand-600 text-white shadow ring-2 ring-white dark:ring-ink-900" aria-hidden>
             <Pencil size={10} strokeWidth={3} />
           </span>
         </button>
@@ -48,6 +46,7 @@ export function IconPickerField({ emoji, onChange, emojis = GROUP_EMOJIS, childr
                 type="button"
                 role="radio"
                 aria-checked={emoji === e}
+                aria-label={`Icon ${e}`}
                 onClick={() => choose(e)}
                 className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-xl transition ${emoji === e ? 'bg-brand-100 ring-2 ring-brand-500 dark:bg-brand-900/40' : 'bg-slate-100 dark:bg-ink-800'}`}
               >
@@ -55,12 +54,13 @@ export function IconPickerField({ emoji, onChange, emojis = GROUP_EMOJIS, childr
               </button>
             ))}
           </div>
-          {/* Any emoji from the keyboard: picked as soon as one is typed. */}
+          {/* Any emoji from the keyboard: picked as soon as one is typed. Stays 16px so iOS doesn't zoom. */}
           <input
-            className="input !py-2 text-sm"
+            className="input !py-2"
             aria-label="Type any emoji"
-            placeholder="Or type any emoji 🙂"
+            placeholder="Or type any emoji"
             enterKeyHint="done"
+            autoComplete="off"
             value={custom}
             onChange={(ev) => {
               const e = firstEmoji(ev.target.value)
@@ -76,14 +76,13 @@ export function IconPickerField({ emoji, onChange, emojis = GROUP_EMOJIS, childr
 
 /** One-tap "Looks like a trip ✈️ — use it" chip for a name-based guess the user can take or dismiss. */
 export function TypeSuggestion({ guess, onApply, onDismiss }: { guess: GroupGuess; onApply: () => void; onDismiss: () => void }) {
-  const label = GROUP_TYPES[guess.type].label.toLowerCase()
+  const label = groupTypeInfo(guess.type).label.toLowerCase()
   return (
     <div className="animate-fade flex items-center gap-1" data-testid="type-suggestion">
-      <button type="button" onClick={onApply} className="flex min-w-0 items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1.5 text-left text-xs font-semibold text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
-        <Sparkles size={13} className="shrink-0" />
+      <button type="button" onClick={onApply} className="flex min-h-9 min-w-0 items-center rounded-full bg-brand-50 px-3 py-1.5 text-left text-xs font-semibold text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
         <span className="truncate">Looks like {/^[aeiou]/.test(label) ? 'an' : 'a'} {label} {guess.emoji} · use it</span>
       </button>
-      <button type="button" onClick={onDismiss} className="shrink-0 rounded-full p-1.5 text-slate-400" aria-label="Dismiss suggestion"><X size={14} /></button>
+      <button type="button" onClick={onDismiss} className="text-muted flex h-9 w-9 shrink-0 items-center justify-center rounded-full" aria-label="Dismiss suggestion"><X size={16} aria-hidden /></button>
     </div>
   )
 }

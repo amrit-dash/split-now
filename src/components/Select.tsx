@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Check, ChevronDown } from 'lucide-react'
+import { appLocale } from '@/lib/locale'
 
 export interface SelectOption<T extends string = string> {
   value: T
@@ -208,10 +209,10 @@ export function Select<T extends string>({
   )
 }
 
-/** Currency options with the ISO code, local symbol and name, e.g. "INR · ₹ · Indian Rupee". */
-export function currencyOptions(codes: string[], locale?: string): SelectOption[] {
+/** Currency options with the ISO code, local symbol and name, e.g. "INR · ₹ · Indian Rupee", in the app locale unless told otherwise. */
+export function currencyOptions(codes: string[], locale: string = appLocale()): SelectOption[] {
   let names: Intl.DisplayNames | undefined
-  try { names = new Intl.DisplayNames(locale ? [locale] : undefined, { type: 'currency' }) } catch { /* old browsers */ }
+  try { names = new Intl.DisplayNames([locale], { type: 'currency' }) } catch { /* old browsers */ }
   return [...new Set(codes)].map((c) => {
     let symbol = ''
     try {

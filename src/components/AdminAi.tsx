@@ -151,16 +151,21 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
             <Toggle title="Bills & statements" checked={cfg.images} onChange={(v) => set({ images: v })} />
             <Toggle title="SMS fallback" checked={cfg.sms} onChange={(v) => set({ sms: v })} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-2">
             <label className="block">
-              <span className="label">Per person / day</span>
-              <input className="input" inputMode="numeric" value={cfg.perDay} onChange={(e) => set({ perDay: Math.max(1, Math.min(5000, parseInt(e.target.value) || 1)) })} />
+              <span className="label">Person / day</span>
+              <input className="input !px-3" inputMode="numeric" value={cfg.perDay} onChange={(e) => set({ perDay: Math.max(1, Math.min(5000, parseInt(e.target.value) || 1)) })} />
             </label>
             <label className="block">
-              <span className="label">Per person / hour</span>
-              <input className="input" inputMode="numeric" value={cfg.perHour} onChange={(e) => set({ perHour: Math.max(1, Math.min(1000, parseInt(e.target.value) || 1)) })} />
+              <span className="label">Person / hour</span>
+              <input className="input !px-3" inputMode="numeric" value={cfg.perHour} onChange={(e) => set({ perHour: Math.max(1, Math.min(1000, parseInt(e.target.value) || 1)) })} />
+            </label>
+            <label className="block">
+              <span className="label">Everyone / day</span>
+              <input className="input !px-3" inputMode="numeric" value={cfg.globalPerDay} onChange={(e) => set({ globalPerDay: Math.max(1, Math.min(100_000, parseInt(e.target.value) || 1)) })} />
             </label>
           </div>
+          <p className="text-muted -mt-1 text-xs">“Everyone / day” is the hard budget for Split Now’s key across all users; past it, AI reading waits until tomorrow.</p>
         </>
       )}
       <div className="rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800/60">

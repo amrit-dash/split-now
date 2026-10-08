@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { appKeyStatus, DEFAULT_APP_AI, DEFAULT_MODEL, DEFAULT_USER_AI, MODEL_ALIAS, planAi, resolveAppAi, resolveUserAi, looksLikeGeminiKey, usefulModels } from './ai-config'
+import { appKeyStatus, DEFAULT_APP_AI, DEFAULT_MODEL, DEFAULT_USER_AI, FALLBACK_MODELS, planAi, resolveAppAi, resolveUserAi, looksLikeGeminiKey, usefulModels, withFallbacks } from './ai-config'
 
 const app = (p: Partial<typeof DEFAULT_APP_AI> = {}) => ({ ...DEFAULT_APP_AI, ...p })
 const user = (p: Partial<typeof DEFAULT_USER_AI> = {}) => ({ ...DEFAULT_USER_AI, ...p })
@@ -8,9 +8,14 @@ describe('planAi', () => {
   it('own key first, then the shared key, each with model fallbacks', () => {
     const plan = planAi({ feature: 'images', user: user({ aiModel: 'gemini-3-flash' }), app: app({ mode: 'everyone' }), hasOwnKey: true })
     expect(plan).toEqual([
-      { key: 'own', models: ['gemini-3-flash', DEFAULT_MODEL, MODEL_ALIAS] },
-      { key: 'app', models: [DEFAULT_MODEL, MODEL_ALIAS] },
+      { key: 'own', models: ['gemini-3-flash', DEFAULT_MODEL, ...FALLBACK_MODELS] },
+      { key: 'app', models: [DEFAULT_MODEL, ...FALLBACK_MODELS] },
     ])
+  })
+  it('pins a current lite model and never repeats one in the fallback list', () => {
+    expect(DEFAULT_MODEL).toBe('gemini-3.5-flash-lite')
+    expect(withFallbacks(undefined)).toEqual(['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-2.5-flash-lite', 'gemini-flash-lite-latest'])
+    expect(withFallbacks('gemini-3.1-flash-lite')).toEqual(['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-2.5-flash-lite', 'gemini-flash-lite-latest'])
   })
   it('respects the master switch, per-feature switches and source choice', () => {
     const base = { app: app({ mode: 'everyone' }), hasOwnKey: true }
@@ -39,20 +44,25 @@ describe('resolvers', () => {
   it('fill defaults and reject junk', () => {
     expect(resolveAppAi({ mode: 'everyone', model: 'bad model!', perDay: -1, allowEmails: ['A@B.co', 'nope', 3] }))
       .toEqual({ ...DEFAULT_APP_AI, mode: 'everyone', allowEmails: ['a@b.co'] })
+    expect(resolveAppAi({ globalPerDay: 500 }).globalPerDay).toBe(500)
+    expect(resolveAppAi({ globalPerDay: 0 }).globalPerDay).toBe(DEFAULT_APP_AI.globalPerDay)
     expect(resolveUserAi({ aiEnabled: false, aiSource: 'weird', aiModel: 'gemini-3-flash' })).toEqual({ ...DEFAULT_USER_AI, aiEnabled: false, aiModel: 'gemini-3-flash' })
   })
 })
 
 describe('usefulModels', () => {
-  it('keeps Flash text models, newest first', () => {
+  it('keeps Flash text models, cheapest (lite) first, then newest', () => {
     const list = [
       { name: 'models/gemini-2.5-flash-lite', displayName: 'Gemini 2.5 Flash-Lite', supportedGenerationMethods: ['generateContent'] },
       { name: 'models/gemini-3-flash', displayName: 'Gemini 3 Flash', supportedGenerationMethods: ['generateContent'] },
+      { name: 'models/gemini-3.5-flash-lite', displayName: 'Gemini 3.5 Flash-Lite', supportedGenerationMethods: ['generateContent'] },
       { name: 'models/gemini-2.5-flash-image', supportedGenerationMethods: ['generateContent'] },
+      { name: 'models/gemini-omni-1.1-flash', supportedGenerationMethods: ['generateContent'] },
       { name: 'models/gemini-2.5-pro', supportedGenerationMethods: ['generateContent'] },
       { name: 'models/text-embedding-004', supportedGenerationMethods: ['embedContent'] },
     ]
-    expect(usefulModels(list).map((m) => m.id)).toEqual(['gemini-3-flash', 'gemini-2.5-flash-lite'])
+    expect(usefulModels(list).map((m) => m.id)).toEqual(['gemini-3.5-flash-lite', 'gemini-2.5-flash-lite', 'gemini-3-flash'])
+    expect(usefulModels(list).map((m) => m.lite)).toEqual([true, true, false])
   })
 })
 

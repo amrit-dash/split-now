@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   LOG_RESULTS, filterReason, logResultText, logResultTone, matchIgnoreWord, normaliseIgnoreWords, parseIgnoreWords, relativeTime, resolveFilters,
 } from './capture-filters'
-import { addIgnoreWord, captureSettingsLines, paiseToRupeesInput, rupeesToPaise } from './capture-settings'
+import { addIgnoreWord, captureSettingsLines, logRowsOf, paiseToRupeesInput, rupeesToPaise } from './capture-settings'
 import { DEFAULT_ALL_PREFS, resolveAllPrefs } from './push'
 import { ANDROID_FILTER_REGEX, MACRODROID_PLAY_INTENT, MACRODROID_PLAY_URL, REASON_TEXT, interpretResponse, macrodroidPlayLink, sampleSms } from './sms-setup'
 
@@ -33,6 +33,16 @@ describe('filterReason', () => {
   })
   it('defaults filter nothing', () => {
     expect(filterReason(resolveFilters(undefined), { amount: 1, currency: 'INR', merchant: 'SIP' }, 'SIP rent')).toBeUndefined()
+  })
+})
+
+describe('activity log rows', () => {
+  it('reads the single log document, newest first, dropping junk', () => {
+    const rows = logRowsOf({ entries: [{ at: 3, result: 'captured', device: 'ios', amount: 1 }, { at: 2, result: 'nope', device: 'ios' }, null, { at: 1, result: 'paused', device: 'android' }] }, 10)
+    expect(rows.map((r) => r.result)).toEqual(['captured', 'paused'])
+    expect(rows[0].id).toBe('3-0')
+    expect(logRowsOf(undefined, 10)).toEqual([])
+    expect(logRowsOf({ entries: Array.from({ length: 40 }, (_, i) => ({ at: i, result: 'captured', device: 'ios' })) }, 10)).toHaveLength(10)
   })
 })
 
@@ -86,6 +96,8 @@ describe('settings form helpers', () => {
   })
   it('resolveAllPrefs fills defaults and drops bad types', () => {
     expect(resolveAllPrefs(undefined)).toEqual(DEFAULT_ALL_PREFS)
+    expect(DEFAULT_ALL_PREFS.aiSmsMerchant).toBe(false)
+    expect(resolveAllPrefs({ aiSmsMerchant: true }).aiSmsMerchant).toBe(true)
     expect(resolveAllPrefs({ captures: false, minAmount: '5', ignoreWords: ['SIP'], capturePaused: true }))
       .toMatchObject({ captures: false, minAmount: 0, ignoreWords: ['SIP'], capturePaused: true, outsideTrips: false })
   })
@@ -102,6 +114,15 @@ describe('Android setup', () => {
     expect(re.test('Your one-time password is 4321 for Rs.250 debit')).toBe(false)
     expect(re.test('see you at 7?')).toBe(false)
   })
+  it('keeps personal messages that mention money on the phone', () => {
+    expect(re.test('Hey! Dinner at 8 tonight? Bring Rs 500 for the cake.')).toBe(false)
+    expect(re.test('Mera number save kar lo, Rs 200 bhejna hai')).toBe(false)
+    expect(re.test('Your Zomato order #1234 is out for delivery. Pay Rs 450 on delivery.')).toBe(false)
+    expect(re.test('Txn Rs.840.00 On HDFC Bank Card 1234 At SWIGGY')).toBe(true)
+    expect(re.test('Rs.450.00 Dr. from A/C XXXXXX1234 and Cr. to blinkit@hdfcbank. Ref:628112345678')).toBe(true)
+    expect(re.test('Your IndusInd Bank Credit Card XX4567 has been used for INR 2,340.00 at DOMINOS')).toBe(true)
+    expect(re.test('Debit INR 1,050.00 A/c XX1234 on 07-10-26 at ZEPTO')).toBe(true)
+  })
   it('Play Store link: intent on Android, https elsewhere', () => {
     expect(MACRODROID_PLAY_URL).toBe('https://play.google.com/store/apps/details?id=com.arlosoft.macrodroid')
     expect(MACRODROID_PLAY_INTENT).toBe('intent://details?id=com.arlosoft.macrodroid#Intent;scheme=market;package=com.android.vending;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.arlosoft.macrodroid;end')
@@ -112,7 +133,7 @@ describe('Android setup', () => {
 
 describe('webhook reasons', () => {
   it('explains the new filter reasons', () => {
-    for (const r of ['paused', 'below_min', 'ignored'] as const) {
+    for (const r of ['paused', 'below_min', 'ignored', 'bad_scope'] as const) {
       expect(REASON_TEXT[r]).toBeTruthy()
       expect(interpretResponse(200, { ok: false, reason: r })).toMatchObject({ kind: 'rejected', reason: r, message: REASON_TEXT[r] })
     }

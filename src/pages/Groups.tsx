@@ -1,55 +1,49 @@
 import { Link } from 'react-router-dom'
-import { FileUp, Plus, UserPlus } from 'lucide-react'
+import { Plus, Users } from 'lucide-react'
 import { useAllGroupData } from '@/hooks/data'
 import { GroupRow } from '@/components/GroupRow'
-import { Empty, Loading, PageHeader } from '@/components/Misc'
-import { Section } from './Home'
+import { PageHeader } from '@/components/Misc'
+import { Collapsible } from '@/components/Collapsible'
+import { ListSkeleton } from '@/components/Skeleton'
+import { usePageTitle } from '@/lib/brand'
+import { EmptyGroups, FirstRun, Section } from './Home'
 
 export default function Groups() {
+  usePageTitle('Groups')
   const data = useAllGroupData()
-  if (!data) return <Loading />
-  const shared = data.filter((d) => d.group.type !== 'personal' && d.group.type !== 'direct')
-  const direct = data.filter((d) => d.group.type === 'direct')
-  const personal = data.filter((d) => d.group.type === 'personal')
+  const header = (
+    <PageHeader
+      title="Groups"
+      right={
+        <div className="flex gap-2">
+          <Link to="/friends" className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-200/70 dark:bg-ink-800" aria-label="Friends"><Users size={20} aria-hidden /></Link>
+          <Link to="/groups/new" className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-600 text-white" aria-label="New group" data-testid="groups-new"><Plus size={20} aria-hidden /></Link>
+        </div>
+      }
+    />
+  )
+  if (!data) return <div>{header}<ListSkeleton rows={4} /></div>
+  const live = data.filter((d) => !d.group.archived)
+  const shared = live.filter((d) => d.group.type !== 'personal' && d.group.type !== 'direct')
+  const direct = live.filter((d) => d.group.type === 'direct')
+  const personal = live.filter((d) => d.group.type === 'personal')
+  const archived = data.filter((d) => d.group.archived)
+  const list = (rows: typeof data) => <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">{rows.map((d) => <GroupRow key={d.group.id} d={d} />)}</div>
   return (
     <div>
-      <PageHeader
-        title="Groups"
-        right={
-          <div className="flex gap-2">
-            <Link to="/groups/import" className="rounded-full bg-slate-200/70 p-2.5 dark:bg-ink-800" aria-label="Import from Splitwise"><FileUp size={20} /></Link>
-            <Link to="/friends"className="rounded-full bg-slate-200/70 p-2.5 dark:bg-ink-800" aria-label="Friends"><UserPlus size={20} /></Link>
-            <Link to="/groups/new" className="rounded-full bg-brand-600 p-2.5 text-white" aria-label="New group"><Plus size={20} /></Link>
-          </div>
-        }
-      />
-      {shared.length === 0 ? (
-        // Centre the empty state in the space between the header and the tab bar.
-        <div className="flex min-h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-20rem)] flex-col justify-center">
-          <Empty emoji="🧳" title="Start your first group">
-            <div className="mt-4 flex flex-col items-center gap-1">
-              <Link to="/groups/new" className="btn-primary"><Plus size={18} aria-hidden /> Create group</Link>
-              <Link to="/groups/import" className="btn-ghost">Switching from Splitwise? Import a group</Link>
-            </div>
-          </Empty>
-        </div>
-      ) : (
-        <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
-          {shared.map((d) => <GroupRow key={d.group.id} d={d} />)}
-        </div>
-      )}
-      {direct.length > 0 && (
-        <Section title="Friends (non-group)">
-          <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">{direct.map((d) => <GroupRow key={d.group.id} d={d} />)}</div>
-        </Section>
-      )}
+      {header}
+      {data.length === 0 ? <FirstRun /> : shared.length === 0 ? <EmptyGroups /> : list(shared)}
+      {direct.length > 0 && <Section title="1:1 friends">{list(direct)}</Section>}
       <Section title="Personal">
-        {personal.length ? (
-          <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">{personal.map((d) => <GroupRow key={d.group.id} d={d} />)}</div>
-        ) : (
-          <Link to="/groups/new?type=personal" className="card block px-4 py-4 text-sm text-slate-500">＋ Track your own spending in a personal wallet</Link>
+        {personal.length ? list(personal) : (
+          <Link to="/groups/new?type=personal" className="card text-muted flex min-h-14 items-center gap-2 px-4 py-3 text-sm"><Plus size={18} aria-hidden /> Track your own spending in a personal wallet</Link>
         )}
       </Section>
+      {archived.length > 0 && (
+        <Collapsible title="Archived" summary={`${archived.length} ${archived.length === 1 ? 'group' : 'groups'} · not counted in your balances`} className="!mt-7" testId="archived-groups">
+          <div className="-mx-4 -mb-4 divide-y divide-slate-100 dark:divide-white/5">{archived.map((d) => <GroupRow key={d.group.id} d={d} />)}</div>
+        </Collapsible>
+      )}
     </div>
   )
 }

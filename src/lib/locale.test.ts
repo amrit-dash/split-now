@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { appLocale, currencyForRegion, defaultCurrency, detectRegion, formatDate, initLocale, localeFor, paymentRegion, regionOfLocale, resolveLocale } from './locale'
+import {
+  appLocale, currencyForRegion, dateFormatter, defaultCurrency, detectRegion, formatDate, formatDateTime, formatTime, initLocale, localeFor,
+  paymentRegion, regionOfLocale, resolveLocale, withLatinDigits,
+} from './locale'
 import { formatMoney } from './money'
 
 afterEach(() => { initLocale(resolveLocale(undefined, undefined)) })
@@ -44,10 +47,21 @@ describe('region detection', () => {
     expect(localeFor('en', 'AU')).toBe('en-AU')
   })
 
-  it('resolves everything at once', () => {
-    expect(resolveLocale('en-US', 'Asia/Kolkata')).toEqual({ region: 'IN', currency: 'INR', locale: 'en-IN', known: true })
-    expect(resolveLocale('en-AU', 'Australia/Melbourne')).toEqual({ region: 'AU', currency: 'AUD', locale: 'en-AU', known: true })
-    expect(resolveLocale(undefined, 'UTC')).toEqual({ region: 'IN', currency: 'INR', locale: 'en-IN', known: false })
+  it('resolves everything at once, with Western digits pinned', () => {
+    expect(resolveLocale('en-US', 'Asia/Kolkata')).toEqual({ region: 'IN', currency: 'INR', locale: 'en-IN-u-nu-latn', known: true })
+    expect(resolveLocale('en-AU', 'Australia/Melbourne')).toEqual({ region: 'AU', currency: 'AUD', locale: 'en-AU-u-nu-latn', known: true })
+    expect(resolveLocale(undefined, 'UTC')).toEqual({ region: 'IN', currency: 'INR', locale: 'en-IN-u-nu-latn', known: false })
+  })
+
+  it('pins Latin digits and leaves unparseable tags alone', () => {
+    expect(withLatinDigits('en-IN')).toBe('en-IN-u-nu-latn')
+    expect(withLatinDigits('ar-EG-u-nu-arab')).toBe('ar-EG-u-nu-latn')
+    expect(withLatinDigits('not a tag!')).toBe('not a tag!')
+    // An Egyptian phone would otherwise show Arabic-Indic digits.
+    const egypt = resolveLocale('ar-EG', 'Africa/Cairo').locale
+    expect(egypt).toBe('ar-EG-u-nu-latn')
+    expect(formatMoney(123456, 'EGP', { locale: egypt })).toMatch(/1,234\.56/)
+    expect(formatMoney(123456, 'EGP', { locale: egypt })).not.toMatch(/[٠-٩]/)
   })
 
   it('picks payment handle sets by currency, then region', () => {
@@ -60,7 +74,7 @@ describe('region detection', () => {
 
 describe('app locale', () => {
   it('defaults to India', () => {
-    expect(appLocale()).toBe('en-IN')
+    expect(appLocale()).toBe('en-IN-u-nu-latn')
     expect(defaultCurrency()).toBe('INR')
   })
 
@@ -81,5 +95,27 @@ describe('app locale', () => {
     expect(formatDate('2026-10-07')).toBe('7 Oct')
     expect(formatDate('2026-10-07', { day: 'numeric', month: 'short', year: 'numeric' })).toBe('7 Oct 2026')
     expect(formatDate('nope')).toBe('—')
+  })
+
+  it('knows the named styles and takes timestamps and Dates too', () => {
+    const d = new Date(2026, 9, 7, 18, 45)
+    expect(formatDate('2026-10-07', 'dayYear')).toBe('7 Oct 2026')
+    expect(formatDate(d.getTime(), 'day')).toBe('7 Oct')
+    expect(formatDate(d, 'month')).toBe('October 2026')
+    expect(formatDate(d, 'monthShort')).toBe('Oct')
+    expect(formatDate(d, 'weekday')).toMatch(/^Wed,? 7 Oct$/)
+    expect(formatDate(d, 'long')).toMatch(/^Wed,? 7 October 2026$/)
+    expect(formatDateTime(d)).toMatch(/^7 Oct 2026, 6:45\s?pm$/i)
+    expect(formatTime(d)).toMatch(/^6:45\s?pm$/i)
+    expect(formatDateTime('nope')).toBe('—')
+  })
+
+  it('reuses one formatter per locale and style', () => {
+    expect(dateFormatter('day')).toBe(dateFormatter('day'))
+    expect(dateFormatter({ day: 'numeric', month: 'short' })).toBe(dateFormatter({ day: 'numeric', month: 'short' }))
+    expect(dateFormatter('day')).not.toBe(dateFormatter('dayYear'))
+    expect(dateFormatter('day', 'en-AU')).not.toBe(dateFormatter('day'))
+    initLocale(resolveLocale('en-AU', 'Australia/Melbourne'))
+    expect(dateFormatter('day')).toBe(dateFormatter('day', 'en-AU-u-nu-latn'))
   })
 })
