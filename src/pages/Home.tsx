@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ArrowRightLeft, ChevronRight, Inbox, Plus, ScanLine, Users } from 'lucide-react'
+import { ArrowRightLeft, ChevronRight, Inbox, Plus, QrCode, ScanLine } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
 import { useAllGroupData, usePendingCaptures, useRecentActivity } from '@/hooks/data'
 import { repo } from '@/data'
@@ -158,14 +158,17 @@ export default function Home() {
 
       <div className="mt-5 grid grid-cols-4 gap-2">
         <QuickAction to="/add" icon={<Plus />} label="Expense" />
+        <QuickAction to="/split" icon={<QrCode />} label="Split bill" />
         <QuickAction to="/scan" icon={<ScanLine />} label="Scan" />
         <QuickAction to="/friends" icon={<ArrowRightLeft />} label="Settle up" />
-        <QuickAction to="/groups/new" icon={<Users />} label="New group" />
       </div>
 
       <Section title="Groups" link={{ to: '/groups', label: 'See all' }}>
         {shared.length === 0 ? (
-          <Empty emoji="👯" title="No groups yet">Create a group for a trip, your home, or anything you share.</Empty>
+          <Empty emoji="👯" title="No groups yet">
+            Create a group for a trip, your home, or anything you share.
+            <div className="mt-3"><Link to="/groups/new" className="btn-primary">Create group</Link></div>
+          </Empty>
         ) : (
           <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
             {shared.slice(0, 5).map((d) => <GroupRow key={d.group.id} d={d} />)}

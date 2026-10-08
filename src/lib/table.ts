@@ -301,6 +301,8 @@ export interface TableDraft {
   items: Array<{ name: string; amount: Cents }>
   /** bill total, if known; the difference from the items becomes tax/tip (or a discount) */
   total?: Cents
+  /** explicit tax/tip/discount; when given, `total` is not used to infer them */
+  extras?: TableExtras
   groupId?: string
 }
 
@@ -323,7 +325,7 @@ export function draftToTable(
     currency: d.currency,
     date: d.date,
     items,
-    extras: { tax: diff > 0 ? diff : 0, tip: 0, discount: diff < 0 ? -diff : 0 },
+    extras: d.extras ?? { tax: diff > 0 ? diff : 0, tip: 0, discount: diff < 0 ? -diff : 0 },
     participants: { [host.uid]: { name: host.name, uid: host.uid, joinedAt: now } },
     hostPayment: hasPayment ? host.payment : undefined,
   }
@@ -337,4 +339,20 @@ export const formatCode = (c: string) => (c.length === 8 ? `${c.slice(0, 4)}-${c
 export function parseCode(input: string): string {
   const m = input.match(/\/t\/([A-Za-z0-9-]+)/)
   return (m ? m[1] : input).replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+}
+
+/**
+ * Tax / tip / discount for a scanned bill. Receipts print taxes either on top (Indian CGST + SGST)
+ * or as an "includes GST" note, so the parsed extras are only trusted when they make the items add
+ * up to the printed total; otherwise the gap between items and total becomes tax (or a discount).
+ */
+export function receiptExtras(items: Cents[], parsed: { total?: Cents; tax?: Cents; tip?: Cents; discount?: Cents }): TableExtras {
+  const sum = items.reduce((s, a) => s + a, 0)
+  const e = { tax: parsed.tax ?? 0, tip: parsed.tip ?? 0, discount: parsed.discount ?? 0 }
+  if (!parsed.total) return e
+  const close = (v: number) => Math.abs(v - parsed.total!) <= Math.max(1, Math.round(parsed.total! * 0.002))
+  if (close(sum + extrasNet(e))) return e
+  if (close(sum)) return { tax: 0, tip: 0, discount: 0 }
+  const diff = parsed.total - sum
+  return { tax: diff > 0 ? diff : 0, tip: 0, discount: diff < 0 ? -diff : 0 }
 }

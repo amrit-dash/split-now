@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Group } from '@/types'
 import {
-  claimLeftoversForAll, computeTableTotals, draftToTable, extrasNet, formatCode, isExpired, matchParticipants, orderedItems,
+  claimLeftoversForAll, computeTableTotals, draftToTable, receiptExtras, extrasNet, formatCode, isExpired, matchParticipants, orderedItems,
   parseCode, participantOrder, sanitizeClaims, setShares, tableToSplit, tableTotal, toggleClaim, validateName, TableError,
   type LiveTable,
 } from './table'
@@ -246,5 +246,21 @@ describe('qr', () => {
     }
     expect(qrPath(q).startsWith('M')).toBe(true)
     expect(() => encodeQr('x'.repeat(300))).toThrow()
+  })
+})
+
+describe('receiptExtras', () => {
+  it('keeps parsed extras when they reconcile with the total', () => {
+    expect(receiptExtras([56000, 24000], { total: 79400, tax: 7380, discount: 8000 })).toEqual({ tax: 7380, tip: 0, discount: 8000 })
+  })
+  it('drops "includes GST" lines when the items already make the total', () => {
+    expect(receiptExtras([900, 1850], { total: 2750, tax: 250 })).toEqual({ tax: 0, tip: 0, discount: 0 })
+  })
+  it('falls back to the gap between items and total', () => {
+    expect(receiptExtras([1000, 1500], { total: 2800, tax: 50 })).toEqual({ tax: 300, tip: 0, discount: 0 })
+    expect(receiptExtras([1000, 1500], { total: 2300 })).toEqual({ tax: 0, tip: 0, discount: 200 })
+  })
+  it('uses parsed extras as-is with no total', () => {
+    expect(receiptExtras([1000], { tip: 100 })).toEqual({ tax: 0, tip: 100, discount: 0 })
   })
 })

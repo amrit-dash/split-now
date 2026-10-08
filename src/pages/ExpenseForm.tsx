@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Camera, Check, ChevronDown, Minus, Plus, Repeat, Trash2, X } from 'lucide-react'
+import { Camera, Check, ChevronDown, Minus, Plus, QrCode, Repeat, Trash2, X } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { memberOrder, myMemberId, useCaptures, useExpenses, useGroup, useGroups } from '@/hooks/data'
@@ -20,7 +20,6 @@ import { GroupIcon } from '@/components/GroupIcon'
 import { MemberChips } from '@/components/MemberChips'
 import { Empty, Loading, Spinner } from '@/components/Misc'
 import { Sheet } from '@/components/Sheet'
-import { StartTableButton } from '@/components/StartTableButton'
 import { useToast } from '@/components/Toast'
 import { appLocale } from '@/lib/locale'
 import { DateField } from '@/components/DateField'
@@ -34,8 +33,9 @@ const SPLIT_TYPES: Array<{ value: SplitType; label: string; icon: string }> = [
   { value: 'percent', label: 'Percent', icon: '%' },
   { value: 'shares', label: 'Shares', icon: '⅔' },
   { value: 'adjust', label: 'Adjust', icon: '+/−' },
-  { value: 'itemized', label: 'Items', icon: '🧾' },
 ]
+// Item-by-item splits happen on a live table (/split); Items stays only to edit older itemized expenses.
+const ITEMIZED = { value: 'itemized' as const, label: 'Items', icon: '🧾' }
 
 export default function ExpenseForm() {
   const { groupId: editGroupId, expenseId } = useParams()
@@ -73,6 +73,8 @@ function NoGroups() {
           <button className="btn-primary" onClick={() => nav('/groups/new')}>New group</button>
           <button className="btn-secondary" onClick={() => nav('/groups/new?type=personal')}>Personal</button>
         </div>
+        <button className="btn-secondary mx-auto mt-2 flex" onClick={() => nav('/split', { replace: true })} data-testid="nogroups-split"><QrCode size={18} /> Split a bill by items</button>
+        <p className="mt-2 text-xs text-slate-400">Out to eat? Scan the bill and everyone taps what they had, no group needed.</p>
       </Empty>
     </div>
   )
@@ -112,6 +114,12 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
   const isOccurrence = !!existing?.recurringFrom
   const [sheet, setSheet] = useState<'group' | 'category' | 'payer' | 'currency' | null>(null)
   const [busy, setBusy] = useState(false)
+  /** a scanned bill with line items: offer the item-by-item table instead */
+  const [scanned, setScanned] = useState<{ parsed: ParsedReceipt; file: File } | null>(null)
+  const splitByItems = (r?: { parsed: ParsedReceipt; file: File }) => {
+    if (r) pending.receipt = r
+    nav(`/split${personal ? '' : `?group=${group.id}`}`, { replace: true })
+  }
 
   const amount = parseMoney(amountStr, cur)
   const validAmount = Number.isFinite(amount) && amount > 0
@@ -158,10 +166,7 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
     if (p.total) setAmountStr(centsToInput(p.total, cur))
     if (p.merchant) { setDescription(titleCase(p.merchant)); const g = guessCategory(p.merchant); if (g) setCategory(g) }
     if (p.date) setDate(p.date)
-    if (p.items.length >= 2 && !personal) {
-      setSplitType('itemized')
-      setInput((i) => ({ ...i, items: p.items.map((it) => ({ ...it, members: [...order] })) }))
-    }
+    if (parsed.items.length >= 2 && !personal) setScanned({ parsed, file })
     toast(p.total ? `Found ${formatMoney(p.total, cur)}${p.items.length ? ` and ${p.items.length} items` : ''}` : 'Couldn’t read a total — please enter it')
   }
 
@@ -310,6 +315,16 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
           <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onScanFile(f); e.target.value = '' }} />
         </div>
         {(receipt || receiptUrl) && <div className="mt-2 text-xs text-emerald-600">📎 Receipt attached</div>}
+        {scanned && !existing && (
+          <div className="mt-3 flex items-center gap-3 rounded-2xl bg-brand-50 p-3 dark:bg-brand-900/30" data-testid="split-items-offer">
+            <span className="text-2xl">🧾</span>
+            <div className="min-w-0 flex-1 text-sm">
+              <div className="font-semibold">{scanned.parsed.items.length} items on this bill</div>
+              <div className="text-slate-500">Let everyone tap what they had instead</div>
+            </div>
+            <button type="button" className="btn-primary !min-h-0 shrink-0 !px-3 !py-2 text-sm" onClick={() => splitByItems(scanned)}><QrCode size={16} /> Split by items</button>
+          </div>
+        )}
       </div>
 
       {!personal && (
@@ -344,7 +359,7 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
           <div className="card mt-3 p-4">
             <div className="label">Split</div>
             <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
-              {SPLIT_TYPES.map((t) => (
+              {(splitType === 'itemized' ? [...SPLIT_TYPES, ITEMIZED] : SPLIT_TYPES).map((t) => (
                 <button key={t.value} type="button" onClick={() => { setSplitType(t.value); setInput((i) => seedInput(i, t.value, order, amount)) }}
                   className={`flex min-w-[4.5rem] flex-col items-center gap-1 rounded-2xl px-3 py-2.5 text-xs font-semibold transition ${splitType === t.value ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/30' : 'bg-slate-100 text-slate-600 dark:bg-ink-800 dark:text-slate-300'}`}>
                   <span className="text-base font-bold">{t.icon}</span>{t.label}
@@ -356,12 +371,6 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
             </div>
             {preview.error && <div className="mt-3 rounded-xl bg-rose-50 p-2.5 text-sm font-medium text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">{preview.error}</div>}
           </div>
-          {splitType === 'itemized' && !existing && (
-            <StartTableButton className="mt-3" draft={() => ({
-              merchant: description, currency: group.currency, date, groupId: group.id,
-              items: input.items ?? [], total: validAmount ? amount : undefined,
-            })} />
-          )}
         </>
       )}
 
@@ -398,6 +407,13 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
       <button className="btn-primary mt-5 w-full" onClick={save} disabled={busy}><Check size={18} /> {existing ? 'Save changes' : 'Add expense'}</button>
 
       <Sheet open={sheet === 'group'} onClose={() => setSheet(null)} title="Choose group">
+        <button onClick={() => splitByItems(scanned ?? undefined)} className="mb-2 flex w-full items-center gap-3 rounded-2xl bg-gradient-to-r from-brand-600 to-duo-600 p-3 text-left text-white shadow-lg shadow-brand-600/20" data-testid="choose-split-items">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15"><QrCode size={20} /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold">Split by items</span>
+            <span className="block text-xs text-white/80">Scan the bill, friends tap what they had</span>
+          </span>
+        </button>
         <div className="space-y-1">
           {groups.map((g) => (
             <button key={g.id} onClick={() => { onGroup(g.id); setSheet(null) }} className={`flex w-full items-center gap-3 rounded-2xl p-2.5 text-left ${g.id === group.id ? 'bg-brand-50 dark:bg-brand-900/30' : ''}`}>

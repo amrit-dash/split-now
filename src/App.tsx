@@ -15,6 +15,7 @@ import Groups from './pages/Groups'
 const GroupForm = lazy(() => import('./pages/GroupForm'))
 const GroupDetail = lazy(() => import('./pages/GroupDetail'))
 const ExpenseForm = lazy(() => import('./pages/ExpenseForm'))
+const SplitBill = lazy(() => import('./pages/SplitBill'))
 const ExpenseDetail = lazy(() => import('./pages/ExpenseDetail'))
 const SettleUp = lazy(() => import('./pages/SettleUp'))
 const Scan = lazy(() => import('./pages/Scan'))
@@ -104,6 +105,7 @@ function AppRoutes() {
           </Route>
           <Route path="add" element={<ExpenseForm />} />
           <Route path="groups/:groupId/expenses/:expenseId/edit" element={<ExpenseForm />} />
+          <Route path="split" element={<SplitBill />} />
           <Route path="scan" element={<Scan />} />
           <Route path="capture" element={<Capture />} />
           <Route path="capture/:captureId" element={<Capture />} />

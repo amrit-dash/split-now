@@ -1,16 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Camera, ImageUp, Receipt, Send } from 'lucide-react'
+import { Camera, ImageUp, QrCode, Receipt, Send } from 'lucide-react'
 import { useAllGroupData } from '@/hooks/data'
 import { useOcr } from '@/hooks/useOcr'
 import { defaultCurrency } from '@/lib/locale'
 import { formatMoney, fromHundredths } from '@/lib/money'
 import { matchMember, parsePaymentScreenshot, parseReceipt, type ParsedPayment, type ParsedReceipt } from '@/lib/ocr-parse'
 import { pending } from '@/lib/pending'
-import { todayISO } from '@/lib/id'
 import { GroupIcon } from '@/components/GroupIcon'
 import { Loading, PageHeader, Segmented } from '@/components/Misc'
-import { StartTableButton } from '@/components/StartTableButton'
 import { useToast } from '@/components/Toast'
 
 type Mode = 'receipt' | 'payment'
@@ -133,12 +131,10 @@ export default function Scan() {
               {receipt.items.map((it, i) => <div key={i} className="flex justify-between gap-2"><span className="truncate">{it.name}</span><span className="tabular-nums">{formatMoney(fromHundredths(it.amount, cur), cur)}</span></div>)}
             </div>
           )}
-          {receipt.items.length > 0 && (
-            <StartTableButton className="mt-3" draft={() => ({
-              merchant: receipt.merchant ?? 'Bill', currency: cur, date: receipt.date ?? todayISO(),
-              items: receipt.items.map((it) => ({ name: it.name, amount: fromHundredths(it.amount, cur) })),
-              total: receipt.total ? fromHundredths(receipt.total, cur) : undefined,
-            })} />
+          {receipt.items.length > 0 && file && (
+            <button className="btn-primary mt-3 w-full" onClick={() => { pending.receipt = { parsed: receipt, file }; nav('/split') }} data-testid="scan-split-items">
+              <QrCode size={18} /> Split by items
+            </button>
           )}
         </div>
       )}
@@ -160,7 +156,7 @@ export default function Scan() {
 
       {done && (
         <div className="mt-4">
-          <div className="mb-2 px-1 text-sm font-semibold text-slate-500">{receipt ? 'Add to which group?' : 'Record payment in which group?'}</div>
+          <div className="mb-2 px-1 text-sm font-semibold text-slate-500">{receipt ? (receipt.items.length ? 'Or add it as one expense to' : 'Add to which group?') : 'Record payment in which group?'}</div>
           <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
             {groups.map((d) => (
               <button key={d.group.id} onClick={() => go(d.group.id)} className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-slate-50 dark:active:bg-ink-800">
