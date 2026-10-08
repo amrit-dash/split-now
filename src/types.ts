@@ -61,6 +61,8 @@ export interface Group {
   requireApproval?: boolean
   /** Minor units of the group currency (default DEFAULT_APPROVAL_THRESHOLD in src/lib/trust.ts). */
   approvalThreshold?: Cents
+  /** a member paused SMS auto-capture for this trip (the webhook skips it; docs/AUTO_CAPTURE.md) */
+  captureOff?: boolean
   memberUids: string[]
   members: Record<MemberId, Member>
   inviteCode: string

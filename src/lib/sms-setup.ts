@@ -9,7 +9,9 @@ import { hasTripWindow } from './capture'
 export type SmsDevice = 'ios' | 'android' | 'other'
 
 /** Reasons POST /api/capture can reject a message with. */
-export type WebhookReason = 'bad_token' | 'not_a_debit' | 'unparsed' | 'outside_trip' | 'duplicate' | 'rate_limited' | 'bad_request'
+export type WebhookReason =
+  | 'bad_token' | 'not_a_debit' | 'unparsed' | 'outside_trip' | 'duplicate' | 'rate_limited' | 'bad_request'
+  | 'paused' | 'below_min' | 'ignored'
 
 export interface ParsedSms {
   /** minor units (paise for INR) */
@@ -114,6 +116,9 @@ export const REASON_TEXT: Record<WebhookReason, string> = {
   duplicate: 'Already captured (same reference number).',
   rate_limited: 'Too many messages in a short time. Try again in a minute.',
   bad_request: 'The request was malformed. Check the body fields.',
+  paused: 'Capture is paused (for everything, or for this trip). Turn it back on in Profile → Auto-capture.',
+  below_min: 'The amount is below your minimum in Profile → Auto-capture, so it was skipped.',
+  ignored: 'The message matched one of your ignore keywords, so it was skipped.',
 }
 
 export type TestOutcome =
@@ -147,3 +152,35 @@ export const IOS_SHORTCUT_NAME = 'Split Now SMS'
 export function runShortcutUrl(name: string, text: string): string {
   return `shortcuts://run-shortcut?name=${encodeURIComponent(name)}&input=text&text=${encodeURIComponent(text)}`
 }
+
+// ---- Android (MacroDroid) --------------------------------------------------
+
+export const MACRODROID_PACKAGE = 'com.arlosoft.macrodroid'
+export const MACRODROID_PLAY_URL = `https://play.google.com/store/apps/details?id=${MACRODROID_PACKAGE}`
+/**
+ * Opens the Play Store app straight on MacroDroid on Android (Chrome intent URL), falling back to
+ * the web listing when the Play Store isn't installed.
+ */
+export const MACRODROID_PLAY_INTENT =
+  `intent://details?id=${MACRODROID_PACKAGE}#Intent;scheme=market;package=com.android.vending;S.browser_fallback_url=${encodeURIComponent(MACRODROID_PLAY_URL)};end`
+
+/** The Play link for this device: the intent URL on Android, the https listing elsewhere. */
+export const macrodroidPlayLink = (userAgent: string) => (/android/i.test(userAgent) ? MACRODROID_PLAY_INTENT : MACRODROID_PLAY_URL)
+
+/**
+ * MacroDroid "SMS Received" content filter (regex enabled): the same on-phone filter as the shared
+ * iPhone Shortcut (docs/AUTO_CAPTURE.md). Skips anything mentioning an OTP / password, then needs a
+ * debit word or an amount. Java regex: inline flags i (case) and s (dot matches newlines). Anchored
+ * with .* on both ends so it works whether MacroDroid does a full match or a find.
+ */
+export const ANDROID_FILTER_REGEX =
+  String.raw`(?is)^(?!.*\b(otp|one[- ]time|verification code|password)\b).*(debited|spent|paid|sent\s*rs|withdrawn|inr|rs\.?\s*\d|₹\s*\d).*$`
+
+/** Brands whose battery savers stop MacroDroid in the background, and where to exempt it. */
+export const BATTERY_TIPS: Array<{ brand: string; steps: string }> = [
+  { brand: 'Xiaomi / Redmi / POCO', steps: 'Settings → Apps → Manage apps → MacroDroid → Autostart on, and Battery saver → No restrictions.' },
+  { brand: 'Samsung', steps: 'Settings → Apps → MacroDroid → Battery → Unrestricted. Also remove it from Sleeping apps (Battery → Background usage limits).' },
+  { brand: 'Oppo / Realme / OnePlus', steps: 'Settings → Apps → MacroDroid → Battery usage → Allow background activity (and Auto launch on).' },
+  { brand: 'Vivo / iQOO', steps: 'Settings → Battery → Background power consumption → MacroDroid → Allow; and i Manager → Autostart on.' },
+  { brand: 'Any phone', steps: 'Settings → Apps → MacroDroid → Battery → Unrestricted / Don’t optimise. Lock MacroDroid in Recents if your phone offers it.' },
+]

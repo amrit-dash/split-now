@@ -36,7 +36,7 @@ debit SMS ──► iOS Shortcut "Message" automation / MacroDroid "SMS Received
           ──► tap → /capture/{id} prompt → expense form (nothing is saved without you)
 ```
 
-The in-app wizard is **Profile → Auto-capture → Set up SMS auto-capture** (`/settings/auto-capture`, or `/settings/auto-capture?group=<id>` from a trip's page). It walks through four steps: scope, key, phone setup, test.
+The in-app wizard is **Profile → Auto-capture → Set up SMS auto-capture** (`/settings/auto-capture`, or `/settings/auto-capture?group=<id>` from a trip's page). It walks through five steps: scope, key, phone setup, test, and a summary of your current capture settings with a link back to **Profile → Auto-capture** (`/profile#auto-capture`), where the settings in §3.6 live.
 
 ### 3.1 Webhook contract (v1)
 
@@ -56,8 +56,8 @@ Served by a Cloud Function behind a Hosting rewrite. The client in `src/pages/Au
 
   Also accepted: `application/x-www-form-urlencoded` or `text/plain` bodies (the whole body is `text`), and the token as `Authorization: Bearer <token>` or `?t=<token>`.
 - **Success:** `{ ok: true, captureId, parsed: { amount /* minor units */, currency, merchant?, direction: 'debit', ref?, date }, matchedGroupId?, pushed }`
-- **Rejection:** `{ ok: false, reason }` with `reason` one of `bad_token`, `not_a_debit`, `unparsed`, `outside_trip`, `duplicate`, `rate_limited`, `bad_request`.
-- **HTTP status:** 200 for success and for `not_a_debit` / `outside_trip` / `duplicate` (handled; automations must not retry), 401 `bad_token`, 429 `rate_limited`, 400 `bad_request` (also 405 for a non-POST), 422 `unparsed` (looked like a bank message but no amount could be read, or an unclassifiable message), 500 `{ ok: false, reason: 'server_error' }` on an internal error.
+- **Rejection:** `{ ok: false, reason }` with `reason` one of `bad_token`, `not_a_debit`, `unparsed`, `outside_trip`, `duplicate`, `rate_limited`, `bad_request`, and the user-filter reasons `paused` (capture paused, or the matching trip paused), `below_min` (INR debit under the user's minimum) and `ignored` (matched an ignore keyword); see §3.6.
+- **HTTP status:** 200 for success and for `not_a_debit` / `outside_trip` / `duplicate` / `paused` / `below_min` / `ignored` (handled; automations must not retry), 401 `bad_token`, 429 `rate_limited`, 400 `bad_request` (also 405 for a non-POST), 422 `unparsed` (looked like a bank message but no amount could be read, or an unclassifiable message), 500 `{ ok: false, reason: 'server_error' }` on an internal error.
 - **Structured fields** (instead of, or on top of, `text`): `amount` (decimal, e.g. `840.00`), `currency`, `merchant`, `ts`, `ref`, with the same meaning as the `/capture` URL contract (§6). Structured values win over what the SMS parser found.
 
 **Backend behaviour** (`functions/src/capture.ts`, region `asia-south1`):
@@ -67,6 +67,7 @@ Served by a Cloud Function behind a Hosting rewrite. The client in `src/pages/Au
 - **Rate limit:** 60 requests/hour and 300/day per token (`rateLimits/{hash}`, server-only).
 - **Idempotency:** capture id = `sms_` + hash of (uid, bank ref), or of (uid, amount, merchant, minute received) when there's no ref.
 - **Stored:** `users/{uid}/captures/{id}` in the normal Capture shape, `source` `sms-ios` / `sms-android` (`sms` for `device: other`), `card` = bank + last 4 digits, `raw` = the SMS with account/card numbers and balances masked (≤ 500 chars). The token gets `lastUsedAt`.
+- **Order of checks:** token → rate limit → *paused* → parse (`not_a_debit` / `unparsed`) → *minimum amount* → *ignore keywords* → scope / trip match (trips with `captureOff` are skipped) → *outside trips* setting → dedupe → store + push. Every outcome after the rate limit except `bad_request` is written to the activity log (§3.6), and the token's `lastUsedAt` is set for every request that reaches a user.
 - **Push:** a trip match sends *"You spent ₹840 at Swiggy — add to Goa Trip?"* (opens `/capture/{id}`). An unscoped debit outside every trip is saved but only pushes (*"Unsorted payment"*) if the user turned on *Payments outside a trip* in Profile → Notifications (off by default).
 - **App Check is not required** on this endpoint (Shortcuts/MacroDroid can't produce a token); the capture token and rate limit protect it.
 
@@ -85,6 +86,8 @@ captureTokens/{token}   uid, createdAt, groupId?, label?
 
 ### 3.3 iPhone setup (iOS 17+)
 
+**About `sender`.** The shared Shortcut sends `sender` = the whole **Shortcut Input**, because iOS doesn't expose the Message trigger's *Sender* property to a shortcut run from an automation. The server ignores any `sender` that isn't a short sender ID (`senderId()` in `functions/src/lib/request.ts`: at most 24 characters, two spaces, no amounts, `₹`, `@`, `Rs` or `INR`), so users can leave it as it is. Trade-off: the bank is then read from the SMS text, which almost every bank alert includes; for the rare alert that doesn't name the bank the capture has no bank label. Users who'd rather send less can delete the `sender` row from *Get Contents of URL*; nothing else changes. The wizard explains this under *About the "sender" field*.
+
 Option A, if the owner has published the shared Shortcut (`VITE_IOS_SHORTCUT_URL`): tap **Add Shortcut** in the wizard and paste the key when Shortcuts asks (import question). Then create the automations in steps 1–2 and 6 below, each running that shortcut.
 
 Option B, manual:
@@ -98,28 +101,60 @@ Option B, manual:
 
 ### 3.4 Android setup (MacroDroid)
 
-1. Install **MacroDroid** from Google Play → **Add Macro**.
-2. Trigger **SMS Received**: from *Any Number*, content *Contains* `debited`. Add the same trigger for `spent` and `sent Rs`. Grant the SMS permission.
-3. Action **HTTP Request**: POST `https://<host>/api/capture`, body type `application/json`, body = the wizard's *Copy JSON body*:
+The wizard shows a **Get MacroDroid on Google Play** button: on Android it opens the Play Store app directly with an intent URL
+(`intent://details?id=com.arlosoft.macrodroid#Intent;scheme=market;package=com.android.vending;S.browser_fallback_url=…;end`, falling back to the web listing), elsewhere `https://play.google.com/store/apps/details?id=com.arlosoft.macrodroid`. Package id verified against the Play listing ("MacroDroid - Device Automation", ArloSoft).
+
+1. **Macros → +** (Add Macro), name it "Split Now SMS".
+2. **Trigger → Call/SMS → SMS Received**: *Any Number*; message content **Contains**, tick **Enable regex**, and paste the on-phone filter (copy button in the wizard, `ANDROID_FILTER_REGEX` in `src/lib/sms-setup.ts`):
+   ```
+   (?is)^(?!.*\b(otp|one[- ]time|verification code|password)\b).*(debited|spent|paid|sent\s*rs|withdrawn|inr|rs\.?\s*\d|₹\s*\d).*$
+   ```
+   This is the same filter as the iPhone Shortcut's two *Match Text* steps in one pattern: a negative lookahead drops anything mentioning an OTP / password, then a debit word or an amount is required. `(?is)` = case-insensitive, dot matches newlines (Java regex). Anchored with `.*` at both ends so it behaves the same whether MacroDroid does a full match or a find. Grant the SMS permission.
+   *Fallback* when a MacroDroid version has no regex option: *Contains* `debited`, plus two more SMS Received triggers for `spent` and `sent Rs` (any trigger runs the macro). The server still rejects OTPs and credits (`not_a_debit`).
+   Why the trigger filter rather than an *If* clause with *Text manipulation*: it is one field instead of three actions, and the macro then never runs (or touches the network) for other SMS.
+3. **Action → Connectivity → HTTP Request**: POST `https://<host>/api/capture`, body content type `application/json`, body = the wizard's *Copy JSON body*:
    ```json
    { "token": "<key>", "text": "[sms_message]", "sender": "[sms_number]", "device": "android" }
    ```
-   If quotes in an SMS ever break the JSON, use `https://<host>/api/capture?t=<key>` with a `text/plain` body of just `[sms_message]`.
-4. Save, and exclude MacroDroid from battery optimisation.
+   `[sms_message]` / `[sms_number]` are MacroDroid magic text; re-insert them with the magic text (…) button if they don't highlight. If quotes in an SMS ever break the JSON, use `https://<host>/api/capture?t=<key>` with a `text/plain` body of just `[sms_message]`.
+4. **Constraints:** none. Save and make sure the macro is enabled.
+5. **Battery optimisation:** exempt MacroDroid, or the phone's battery saver will stop it after a day or two. Xiaomi/Redmi/POCO: Autostart on + Battery saver *No restrictions*. Samsung: Battery *Unrestricted* and remove from *Sleeping apps*. Oppo/Realme/OnePlus: *Allow background activity* + Auto launch. Vivo/iQOO: *Background power consumption → Allow* + Autostart. (Menu names vary; dontkillmyapp.com has per-phone guides.) Then check *Recent activity* in Profile → Auto-capture after the next payment.
 
 Tasker equivalent: *Event → Phone → Received Text* (content filter) → *Net → HTTP Request* POST with `%SMSRB` (body) and `%SMSRF` (sender).
 
 If the owner exports a working macro (`.macro` file, MacroDroid → Export) and hosts it, set `VITE_ANDROID_MACRO_URL` and the wizard shows a **Download MacroDroid template** button. MacroDroid has no "import question", so users still paste their key into the HTTP Request body after importing.
 
+[Likely] The *SMS Received* trigger's regex option is evidenced by MacroDroid's macro schema (`sms_content`, `exact_match`, `enable_regex` in ruby-macrodroid's IncomingSMSTrigger) rather than official docs; UI labels can differ between versions, hence the fallback.
+
 ### 3.5 Privacy
 
 - The phone automation sends only SMS that match a debit keyword. OTPs, credits and balance alerts are rejected (`not_a_debit`) and not stored.
 - The function stores only the parsed fields (amount, currency, merchant, date, reference, sender ID) plus the SMS text with long digit runs (account, card and phone numbers) **masked to their last 4 digits**. The unmasked text isn't kept.
-- `outside_trip` rejections from scoped keys store nothing.
+- `outside_trip` rejections store nothing, nor do `paused`, `below_min` and `ignored`.
+- The activity log (§3.6) keeps only the outcome, amount, currency, merchant, trip name and device of each request, never the SMS text, and only the newest 30 entries.
 - The capture id is derived from the UPI/bank reference, so the same SMS arriving twice (two automations, retries) returns `duplicate`.
 - The key is a bearer secret that can only add pending items to its owner's inbox. Revoke it in the wizard's *Your keys* list.
 
-### 3.6 Research findings (Oct 2026)
+### 3.6 Capture settings and the activity log
+
+**Profile → Auto-capture** (`src/components/AutoCapture.tsx`) holds the settings; they are stored with the push preferences in `users/{uid}/settings/notifications` (client `src/lib/push.ts` + `src/lib/capture-settings.ts`, server `functions/src/lib/prefs.ts`, shared pure logic in `shared/capture-filters.ts`). Writes merge, so the Notifications and Auto-capture sections never overwrite each other. Defaults keep the original behaviour.
+
+| Key | Default | Effect in the webhook |
+|---|---|---|
+| `capturePaused` | `false` | Master switch. While on, every request answers `{ ok: false, reason: 'paused' }` (HTTP 200) and nothing is stored. |
+| `outsideTrips` | `false` | "What gets captured": only debits dated inside a trip, or all debits (the rest land in the inbox unsorted). |
+| `minAmount` | `0` | Paise. INR debits below it → `below_min`. Foreign-currency spends are always kept (the field is set in rupees). Max ₹1,00,000. |
+| `ignoreWords` | `[]` | Up to 20 strings (≤ 40 chars). Case-insensitive, whole-word match against the SMS text and the merchant ("SIP" matches `NACH/SIP/…`, not "gossip"; spaces match any whitespace) → `ignored`. Suggestions: SIP, mutual fund, rent, credit card bill, EMI, insurance. |
+
+**Per-trip pause:** `groups/{id}.captureOff: true` (the switch on the group's *Trip auto-capture* card, or the *Trips* list in Profile → Auto-capture). Any member may flip it (rules require a boolean) and it applies to everyone in the trip. `pickTrip` skips paused trips; a scoped key for a paused trip, or an unscoped debit dated only inside paused trips, gets `paused` and is not stored, even with *All bank & UPI payments* on.
+
+**Notifications consistency:** *Payments outside a trip* in Notifications is disabled (with an explanation) unless *All bank & UPI payments* is chosen, and both capture toggles are disabled while capture is paused.
+
+**Activity log:** for every request it processes after the token and rate-limit checks, the webhook appends `users/{uid}/captureLog/{autoId}` = `{ at, result, amount?, currency?, merchant?, groupName?, device }` with `result` one of `captured`, `duplicate`, `outside_trip`, `not_a_debit`, `unparsed`, `paused`, `below_min`, `ignored`, then deletes entries beyond the newest 30 (best-effort, in the same invocation). No SMS text is stored. Rules: owner read/delete, no client writes. Profile shows the last 10 as **Recent activity** ("Ignored: outside trip dates", "Captured for Goa", relative time) with *Clear activity*, plus a "Last received …" line per key from `captureTokens/{token}.lastUsedAt`. In demo mode the wizard's simulated webhook writes the same entries to localStorage.
+
+Tests: `functions/src/lib/capture-settings.test.ts`, `src/lib/capture-settings.test.ts`, rules in `tests/firestore.capture-settings.test.ts`.
+
+### 3.7 Research findings (Oct 2026)
 
 Confidence tags: [Certain] primary source / hard evidence, [Likely] multiple consistent secondary sources, [Guessing] inference that hasn't been verified on a device.
 
@@ -290,7 +325,7 @@ Research (Oct 2026, see sources in the research notes) — what is possible on i
 5. **Match Text**: pattern `(?i)\b(otp|one[- ]time|verification code|password)\b` in the step-4 Text → **If** *Matches* **has any value** → **Stop This Shortcut** → **End If**.
 6. **Match Text**: pattern `(?i)(debited|spent|paid|sent\s*rs|withdrawn|inr|rs\.?\s*\d|₹\s*\d)` in the step-4 Text → **If** *Matches* **does not have any value** → **Stop This Shortcut** → **End If**.
 7. **Get Contents of URL**: `https://split-now.web.app/api/capture`, Method **POST**, Request Body **JSON**:
-   `token` = step-3 Text, `text` = step-4 Text, `device` = `ios` (optional `sender` = Shortcut Input → Sender).
+   `token` = step-3 Text, `text` = step-4 Text, `device` = `ios`, `sender` = **Shortcut Input** (the whole input: iOS doesn't expose the message's *Sender* to a shortcut run from an automation, and the server drops a `sender` that isn't a short sender ID, see §3.3; the row can also be deleted).
 8. ⓘ → **Setup** → **Add Question** → choose the step-3 **Text** field → "Paste your Split Now key (Profile → Auto-capture)". Turn off *Show in Share Sheet*.
 9. Run it once with sample text (iOS asks to allow split-now.web.app). Then **Share → Copy iCloud Link** → send to the lead, who sets `VITE_IOS_SHORTCUT_URL` and redeploys.
 10. Revoke any key that was baked into an earlier shared link.

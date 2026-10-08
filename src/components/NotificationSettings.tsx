@@ -3,16 +3,16 @@ import { Bell, BellOff, Share } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import {
-  DEFAULT_PREFS, VAPID_KEY, disablePush, enablePush, isIOS, isStandalone, permission, pushSupported, savePrefs, watchPrefs,
-  type NotificationPrefs,
+  DEFAULT_ALL_PREFS, VAPID_KEY, disablePush, enablePush, isIOS, isStandalone, permission, pushSupported, savePrefs, watchPrefs,
+  type AllPrefs, type NotificationPrefs,
 } from '@/lib/push'
 import { notificationSummary } from '@/lib/profileSummary'
 import { Collapsible } from './Collapsible'
 import { useToast } from './Toast'
 
-const TYPES: Array<{ key: keyof NotificationPrefs; label: string; hint: string }> = [
+const TYPES: Array<{ key: Exclude<keyof NotificationPrefs, 'outsideTrips'>; label: string; hint: string }> = [
   { key: 'captures', label: 'Payments on a trip', hint: '“You spent ₹840 at Swiggy — add to Goa Trip?” from forwarded bank SMS.' },
-  { key: 'unsorted', label: 'Payments outside a trip', hint: 'Also notify about payments outside a trip (needs “All bank & UPI payments” in Auto-capture).' },
+  { key: 'unsorted', label: 'Payments outside a trip', hint: 'Also notify about captured payments that match no trip.' },
   { key: 'expenses', label: 'New expenses', hint: 'When someone adds an expense that includes you.' },
   { key: 'settlements', label: 'Payments to me', hint: 'When someone records paying you back.' },
   { key: 'reminders', label: 'Settle-up reminders', hint: 'A gentle weekly nudge if you’ve owed over ₹500 for a week.' },
@@ -26,7 +26,7 @@ export function NotificationSettings() {
   const { user } = useMe()
   const toast = useToast()
   const [perm, setPerm] = useState(permission())
-  const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_PREFS)
+  const [prefs, setPrefs] = useState<AllPrefs>(DEFAULT_ALL_PREFS)
   const [busy, setBusy] = useState(false)
   const [open, setOpen] = useState(false)
 
@@ -58,10 +58,15 @@ export function NotificationSettings() {
     setPerm('default')
   }
   const toggle = (k: keyof NotificationPrefs, v: boolean) => {
-    const next = { ...prefs, [k]: v }
-    setPrefs(next)
-    savePrefs(user.uid, next).catch((e) => toast((e as Error).message, 'err'))
+    setPrefs({ ...prefs, [k]: v })
+    savePrefs(user.uid, { [k]: v }).catch((e) => toast((e as Error).message, 'err'))
   }
+  // Capture notifications depend on Profile → Auto-capture: nothing outside trips is stored
+  // unless "All bank & UPI payments" is chosen, and nothing at all while capture is paused.
+  const blocked = (k: keyof NotificationPrefs): string | undefined =>
+    (k === 'captures' || k === 'unsorted') && prefs.capturePaused ? 'Auto-capture is paused.'
+      : k === 'unsorted' && !prefs.outsideTrips ? 'Only trip payments are captured. Choose “All bank & UPI payments” in Auto-capture to use this.'
+        : undefined
 
   return (
     <Collapsible id="notifications" testId="section-notifications" title="Notifications" icon={<Bell size={20} />}
@@ -89,15 +94,18 @@ export function NotificationSettings() {
       )}
 
       <div className="mt-3 space-y-2">
-        {TYPES.map((t) => (
-          <label key={t.key} className="flex items-center justify-between gap-4 rounded-2xl bg-slate-50 p-3 dark:bg-ink-800">
-            <div>
-              <div className="text-sm font-semibold">{t.label}</div>
-              <div className="text-xs text-slate-500">{t.hint}</div>
-            </div>
-            <input type="checkbox" className="h-6 w-11 shrink-0 accent-brand-600" checked={prefs[t.key]} onChange={(e) => toggle(t.key, e.target.checked)} />
-          </label>
-        ))}
+        {TYPES.map((t) => {
+          const why = blocked(t.key)
+          return (
+            <label key={t.key} className={`flex items-center justify-between gap-4 rounded-2xl bg-slate-50 p-3 dark:bg-ink-800 ${why ? 'opacity-60' : ''}`} data-testid={`notif-${t.key}`}>
+              <div>
+                <div className="text-sm font-semibold">{t.label}</div>
+                <div className="text-xs text-slate-500">{why ?? t.hint}</div>
+              </div>
+              <input type="checkbox" className="h-6 w-11 shrink-0 accent-brand-600" checked={prefs[t.key] && !why} disabled={!!why} onChange={(e) => toggle(t.key, e.target.checked)} />
+            </label>
+          )
+        })}
       </div>
       <p className="mt-2 text-xs text-slate-500">These choices apply to all your devices.</p>
     </Collapsible>

@@ -1,4 +1,4 @@
-// Bundles src/index.ts (plus ../shared/sms-parse.ts, which lives outside this package) into
+// Bundles src/index.ts (plus ../shared/sms-parse.ts and ../shared/capture-filters.ts, which live outside this package) into
 // lib/index.js. Packages from node_modules (firebase-functions, firebase-admin) stay external
 // and are installed by Cloud Build from package.json. `gcp-build` is empty in package.json so
 // Cloud Build doesn't try to rebuild (it doesn't receive ../shared); the CLI uploads lib/.

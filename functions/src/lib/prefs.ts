@@ -1,3 +1,4 @@
+import { resolveFilters, type CaptureFilterPrefs } from '../../../shared/capture-filters'
 /**
  * users/{uid}/settings/notifications. Owner-only (firestore.rules). Missing fields use the
  * defaults below; the client (src/components/NotificationSettings.tsx) writes the same keys.
@@ -29,4 +30,13 @@ export function resolvePrefs(raw: unknown): NotificationPrefs {
   const out = { ...DEFAULT_PREFS }
   for (const k of Object.keys(DEFAULT_PREFS) as PrefKey[]) if (typeof r[k] === 'boolean') out[k] = r[k] as boolean
   return out
+}
+
+/** Capture settings stored in the same doc (Profile → Auto-capture). */
+export interface CapturePrefs extends CaptureFilterPrefs {
+  outsideTrips: boolean
+}
+
+export function resolveCapturePrefs(raw: unknown): CapturePrefs {
+  return { outsideTrips: resolvePrefs(raw).outsideTrips, ...resolveFilters(raw) }
 }

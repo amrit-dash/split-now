@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { AlertTriangle, Apple, Bell, Check, CheckCircle2, ChevronRight, Copy, Download, KeyRound, Loader2, MessageSquareText, Send, Smartphone, Trash2, XCircle } from 'lucide-react'
+import { AlertTriangle, Apple, BatteryCharging, Bell, Check, CheckCircle2, ChevronRight, Copy, Download, Info, KeyRound, Loader2, MessageSquareText, Send, Settings2, Smartphone, Trash2, XCircle } from 'lucide-react'
 import { repo } from '@/data'
 import { draftToCapture, type CaptureToken } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
@@ -12,8 +12,11 @@ import { formatMoney } from '@/lib/money'
 import { maskSms as maskBankSms, parseBankSms } from '@/lib/sms-parse'
 import { copy } from '@/lib/share'
 import { todayISO } from '@/lib/id'
+import { filterReason, relativeTime, type CaptureLogEntry } from '@/lib/capture-filters'
+import { appendDemoLog, captureSettingsLines, demoCapturePrefs, demoTokenUse, watchCapturePrefs } from '@/lib/capture-settings'
+import type { AllPrefs } from '@/lib/push'
 import {
-  DEBIT_KEYWORDS, IOS_SHORTCUT_NAME, bodyTemplateText, runShortcutUrl, checkScope, interpretResponse, randomRef, sampleDate, sampleSms, tokenLabel, webhookUrl,
+  ANDROID_FILTER_REGEX, BATTERY_TIPS, DEBIT_KEYWORDS, IOS_SHORTCUT_NAME, MACRODROID_PLAY_URL, macrodroidPlayLink, bodyTemplateText, runShortcutUrl, checkScope, interpretResponse, randomRef, sampleDate, sampleSms, tokenLabel, webhookUrl,
   type ParsedSms, type TestOutcome, type WebhookBody, type WebhookResponse,
 } from '@/lib/sms-setup'
 import { GroupIcon } from '@/components/GroupIcon'
@@ -39,7 +42,9 @@ export default function AutoCaptureSetup() {
   const [tokens, setTokens] = useState<CaptureToken[] | null>(null)
   const [platform, setPlatform] = useState<Platform>(guessPlatform)
   const [busy, setBusy] = useState(false)
+  const [prefs, setPrefs] = useState<AllPrefs | null>(null)
   useEffect(() => repo.watchCaptureTokens(user.uid, setTokens), [user.uid])
+  useEffect(() => watchCapturePrefs(user.uid, repo.mode, setPrefs), [user.uid])
 
   const scope = params.get('group') ?? ''
   const setScope = (id: string) => setParams(id ? { group: id } : {}, { replace: true })
@@ -54,6 +59,9 @@ export default function AutoCaptureSetup() {
   const scopeUsable = !scope || (group && check?.ok)
   const token = tokens.find((t) => (t.groupId ?? '') === scope)
   const copyIt = async (text: string, what: string) => toast((await copy(text)) ? `${what} copied` : 'Couldn’t copy', 'ok')
+  const demoUse = repo.mode === 'demo' ? demoTokenUse(user.uid) : {}
+  const lastUsed = (t: CaptureToken) => t.lastUsedAt ?? demoUse[t.token]
+  const pausedTrips = groups.filter((g) => g.captureOff).map((g) => g.name)
 
   const create = async () => {
     setBusy(true)
@@ -130,6 +138,20 @@ export default function AutoCaptureSetup() {
         <TestSender token={token} group={group} groups={groups} captures={captures ?? []} platform={platform} />
       </Step>
 
+      {/* ---- Step 5: summary ---- */}
+      <Step n={5} title="You’re set">
+        {prefs ? (
+          <ul className="space-y-1.5 text-sm text-slate-700 dark:text-slate-200" data-testid="capture-summary">
+            {captureSettingsLines(prefs, pausedTrips).map((l) => (
+              <li key={l} className="flex items-start gap-2"><Check size={15} className="mt-0.5 shrink-0 text-brand-600 dark:text-brand-300" /><span>{l}</span></li>
+            ))}
+            {tokens.length > 0 && <li className="flex items-start gap-2"><KeyRound size={15} className="mt-0.5 shrink-0 text-slate-400" /><span>{tokens.length} key{tokens.length === 1 ? '' : 's'}{tokens.some(lastUsed) ? '' : ', nothing received yet'}</span></li>}
+          </ul>
+        ) : <p className="text-sm text-slate-500">Loading your settings…</p>}
+        <Link to="/profile#auto-capture" className="btn-secondary mt-3 w-full" data-testid="capture-settings-link"><Settings2 size={17} /> Filters, pause &amp; recent activity</Link>
+        <p className="mt-2 text-xs text-slate-500">In Profile → Auto-capture: pause capture, skip small payments or keywords (SIP, rent…), pause one trip, and see what happened to each forwarded message.</p>
+      </Step>
+
       {/* ---- Keys ---- */}
       <section className="mt-6">
         <h2 className="mb-2.5 px-1 text-lg font-bold">Your keys</h2>
@@ -145,6 +167,7 @@ export default function AutoCaptureSetup() {
                     <div className="truncate text-xs text-slate-500">
                       {t.groupId ? (g ? formatRange(g.startDate, g.endDate) || 'No trip dates' : 'Group no longer available') : 'Any trip'} · <code>{t.token.slice(0, 6)}…</code> · {new Date(t.createdAt).toLocaleDateString()}
                     </div>
+                    <div className="truncate text-xs text-slate-500">{lastUsed(t) ? `Last received ${relativeTime(lastUsed(t)!, Date.now())}` : 'Nothing received yet'}</div>
                   </div>
                   <button className="rounded-full p-2 text-slate-500" onClick={() => copyIt(t.token, 'Key')} aria-label={`Copy key ${t.label ?? ''}`}><Copy size={16} /></button>
                   <button className="rounded-full p-2 text-rose-500" onClick={() => revoke(t)} aria-label={`Revoke key ${t.label ?? ''}`}><Trash2 size={16} /></button>
@@ -159,7 +182,7 @@ export default function AutoCaptureSetup() {
         <summary className="cursor-pointer font-semibold">Privacy</summary>
         <p className="mt-2">The server keeps only what it parsed (amount, currency, merchant, date, reference) and the message with account and card numbers masked. OTPs, credits and balance alerts are ignored. Revoking a key stops forwarding at once.</p>
       </details>
-      <Link to="/profile#auto-capture" className="mt-3 block px-1 text-sm font-semibold text-brand-600 dark:text-brand-300">Advanced: Apple Pay Shortcut and capture links →</Link>
+      <Link to="/profile#auto-capture" className="mt-3 block px-1 text-sm font-semibold text-brand-600 dark:text-brand-300">Profile → Auto-capture (settings, Apple Pay Shortcut and capture links) →</Link>
     </div>
   )
 }
@@ -258,6 +281,7 @@ function IosSteps({ token }: { token?: string }) {
           ? { text: <>That’s the only automation you need. It runs on every message, but the Shortcut checks the text <b>on your phone</b> and only sends bank debit SMS. OTPs and personal messages never leave the device.</> }
           : { text: <>Optional: repeat for <b>{DEBIT_KEYWORDS.slice(1).map((k, i) => <span key={k}>{i ? ' and ' : ''}“{k}”</span>)}</b> to catch card and other UPI alerts.</> },
       ]} />
+      <SenderNote shared={!!IOS_SHORTCUT_URL} />
       {IOS_SHORTCUT_URL && (
         <div className="mt-4 rounded-2xl bg-slate-50 p-3 dark:bg-ink-800">
           <a
@@ -276,29 +300,66 @@ function IosSteps({ token }: { token?: string }) {
           <li>In India, iOS sorts bank SMS into <b>Transactions</b> under <i>Unknown Senders</i>. The automation should still run; if it doesn’t, open Settings → Apps → Messages → Unknown &amp; Spam and check the filter.</li>
           <li>Some iOS 18 builds run automations late or only after unlocking. The capture still arrives with the SMS date.</li>
           <li>Prefer one rigid keyword per automation: “debited” covers most HDFC, ICICI, SBI and Axis UPI alerts.</li>
+          <li>Check <Link to="/profile#auto-capture" className="font-semibold underline">Recent activity</Link> in Profile → Auto-capture: if a message shows up there, the phone side works and the entry says why it was or wasn’t captured.</li>
         </ul>
       </details>
     </div>
   )
 }
 
+/**
+ * Why the shared Shortcut's `sender` is the whole message, and why that's fine. Lets the user
+ * decide whether to keep or clear the field.
+ */
+function SenderNote({ shared }: { shared: boolean }) {
+  return (
+    <details className="mt-4 rounded-2xl bg-sky-50 p-3 text-xs text-sky-900 dark:bg-sky-500/10 dark:text-sky-100" data-testid="ios-sender-note">
+      <summary className="cursor-pointer font-semibold"><Info size={14} className="mr-1 inline" /> About the “sender” field</summary>
+      <div className="mt-2 space-y-1.5">
+        <p>{shared ? <>In the “{IOS_SHORTCUT_NAME}” Shortcut, <code>sender</code> is set to the whole <Var>Shortcut Input</Var>.</> : <>If you add a <code>sender</code> field, set it to <Var>Shortcut Input</Var>.</>} iOS doesn’t give a shortcut the message’s <i>Sender</i> when an automation runs it, so the Shortcut can’t send just <i>AX-HDFCBK</i>.</p>
+        <p>That’s fine: the server ignores any <code>sender</code> that doesn’t look like a short sender ID, and reads the bank name from the message text instead (almost every bank SMS names the bank). You can leave it as it is.</p>
+        <p>The trade-off: for the rare bank SMS that doesn’t name the bank, the capture shows no bank. Prefer to send less? Delete the <code>sender</code> row in <b>Get Contents of URL</b>; captures work the same.</p>
+      </div>
+    </details>
+  )
+}
+
 function AndroidSteps({ token }: { token?: string }) {
   const url = webhookUrl(location.origin)
+  const toast = useToast()
+  const copyRegex = async () => toast((await copy(ANDROID_FILTER_REGEX)) ? 'Filter copied' : 'Couldn’t copy', 'ok')
   return (
     <div className="mt-4">
-      <p className="text-xs text-slate-500">Uses <b>MacroDroid</b> (free from Google Play, up to 5 macros). Tasker works the same way: <i>Event → Phone → Received Text</i> and <i>HTTP Request</i> with <code>%SMSRB</code> / <code>%SMSRF</code>.</p>
+      <div className="rounded-2xl bg-brand-50 p-3 dark:bg-brand-900/20">
+        <a href={macrodroidPlayLink(navigator.userAgent)} className="btn-primary w-full" target="_blank" rel="noreferrer" data-testid="macrodroid-play">
+          <Download size={18} /> Get MacroDroid on Google Play
+        </a>
+        <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">Free (ad-supported, up to 5 macros; this needs one). On another device? <a href={MACRODROID_PLAY_URL} className="font-semibold underline" target="_blank" rel="noreferrer">Open the Play listing</a>.</p>
+      </div>
       {ANDROID_MACRO_URL && (
         <a href={ANDROID_MACRO_URL} download className="btn-secondary mt-3 w-full"><Download size={18} /> Download MacroDroid template</a>
       )}
       <Checklist items={[
-        { text: <>Install <b>MacroDroid</b>, open it and tap <b>Add Macro</b>.</> },
+        { text: <>Open <b>MacroDroid</b> → <b>Macros</b> tab → <b>+</b> (Add Macro). Name it “{APP_NAME} SMS”.</> },
         {
-          text: <>Trigger: <b>Phone/SMS → SMS Received</b>. From <b>Any Number</b>; Text: <b>Contains</b> <code>debited</code>. Allow the SMS permission when asked.</>,
-          mock: <Mock title="SMS Received"><MockRow k="Incoming from" v="Any Number" /><MockRow k="Message content" v="Contains" /><MockRow k="Text" v="debited" /></Mock>,
+          text: <>Tap <b>+</b> under <b>Triggers</b> → <b>Call/SMS</b> → <b>SMS Received</b>. Choose <b>Any Number</b>. For the message content choose <b>Contains</b>, tick <b>Enable regex</b>, and paste the filter below. Allow the SMS permission when asked.</>,
+          mock: (
+            <>
+              <Mock title="SMS Received"><MockRow k="Incoming from" v="Any Number" /><MockRow k="Message content" v="Contains" /><MockRow k="Enable regex" v={<Check size={14} className="inline text-brand-600" />} /><MockRow k="Text" v={<code>(?is)^(?!.*\b(otp|…</code>} accent /></Mock>
+              <div className="rounded-xl bg-white p-2 ring-1 ring-slate-200 dark:bg-ink-900 dark:ring-ink-700">
+                <div className="mb-1 flex items-center justify-between text-[11px] font-semibold text-slate-500">
+                  On-phone filter (same as the iPhone Shortcut)
+                  <button type="button" className="inline-flex items-center gap-1 text-brand-600 dark:text-brand-300" onClick={copyRegex}><Copy size={12} /> Copy</button>
+                </div>
+                <code className="block break-all font-mono text-[11px]" data-testid="android-regex">{ANDROID_FILTER_REGEX}</code>
+                <p className="mt-1 text-[11px] text-slate-500">Skips anything mentioning an OTP or password, then needs a debit word (debited, spent, paid, sent Rs, withdrawn) or an amount. OTPs and personal messages never leave the phone.</p>
+              </div>
+            </>
+          ),
         },
-        { text: <>Add two more triggers the same way for <b>spent</b> and <b>sent Rs</b> (a macro runs when any trigger fires).</> },
+        { text: <>No <b>Enable regex</b> option in your version? Use <b>Contains</b> <code>debited</code> instead, and add two more SMS Received triggers for <b>spent</b> and <b>sent Rs</b> (a macro runs when any of its triggers fires). The server still ignores OTPs and credits.</> },
         {
-          text: <>Action: <b>Connectivity → HTTP Request</b>. Method <b>POST</b>, URL <code className="break-all">{url}</code>. Body: content type <b>application/json</b>, and paste the <b>JSON body</b> (copy button above).</>,
+          text: <>Tap <b>+</b> under <b>Actions</b> → <b>Connectivity</b> → <b>HTTP Request</b>. Method <b>POST</b>, URL <code className="break-all">{url}</code>. In the body section choose content type <b>application/json</b> and paste the <b>JSON body</b> (copy button above).</>,
           mock: (
             <Mock title="HTTP Request">
               <MockRow k="Method" v="POST" />
@@ -308,13 +369,22 @@ function AndroidSteps({ token }: { token?: string }) {
             </Mock>
           ),
         },
-        { text: <>Check that <code>[sms_message]</code> and <code>[sms_number]</code> are MacroDroid’s magic text (tap <b>…</b> → <i>Magic text</i> to insert them if they don’t highlight).</> },
-        { text: <>Name the macro “{APP_NAME} SMS” and save. Turn off battery optimisation for MacroDroid so it runs in the background.</> },
+        { text: <>Check that <code>[sms_message]</code> and <code>[sms_number]</code> show as MacroDroid <b>magic text</b>. If they don’t, delete them and insert them again with the magic text button (<b>…</b>): <i>SMS message</i> and <i>SMS number</i>.</> },
+        { text: <>Leave <b>Constraints</b> empty and save (the tick). Make sure the macro’s switch is on.</> },
       ]} />
-      <details className="mt-4 rounded-2xl bg-slate-50 p-3 text-xs text-slate-600 dark:bg-ink-800 dark:text-slate-300">
+      <details className="mt-4 rounded-2xl bg-amber-50 p-3 text-xs text-amber-900 dark:bg-amber-500/10 dark:text-amber-100" open data-testid="android-battery">
+        <summary className="cursor-pointer font-semibold"><BatteryCharging size={14} className="mr-1 inline" /> Stop your phone killing MacroDroid</summary>
+        <p className="mt-2">Battery savers on many Android phones stop background apps, so forwarding quietly stops after a day or two. Exempt MacroDroid (menu names vary by version):</p>
+        <ul className="mt-1.5 space-y-1">
+          {BATTERY_TIPS.map((t) => <li key={t.brand}><b>{t.brand}:</b> {t.steps}</li>)}
+        </ul>
+        <p className="mt-1.5">Guides for each phone: <a href="https://dontkillmyapp.com" className="font-semibold underline" target="_blank" rel="noreferrer">dontkillmyapp.com</a>. After your next payment, check <b>Recent activity</b> in Profile → Auto-capture.</p>
+      </details>
+      <details className="mt-2 rounded-2xl bg-slate-50 p-3 text-xs text-slate-600 dark:bg-ink-800 dark:text-slate-300">
         <summary className="cursor-pointer font-semibold">Body without JSON</summary>
         <p className="mt-2">If a message with quotes breaks the JSON, use URL <code className="break-all">{url}?t={token ?? '<key>'}</code>, content type <b>text/plain</b>, and body <code>[sms_message]</code> only.</p>
       </details>
+      <p className="mt-3 text-xs text-slate-500">Tasker works the same way: <i>Event → Phone → Received Text</i> and <i>Net → HTTP Request</i> with <code>%SMSRB</code> (body) and <code>%SMSRF</code> (sender).</p>
     </div>
   )
 }
@@ -418,18 +488,42 @@ async function simulateWebhook(
   ctx: { uid: string; token: CaptureToken; groups: Group[]; captures: Capture[] },
 ): Promise<WebhookResponse> {
   if (body.token !== ctx.token.token) return { ok: false, reason: 'bad_token' }
+  const device = body.device ?? 'other'
+  const now = Date.now()
+  // Same outcomes and activity-log entries as functions/src/capture.ts, kept in localStorage.
+  const done = (r: WebhookResponse, parsed?: ParsedSms, groupName?: string): WebhookResponse => {
+    const result = r.ok ? 'captured' : r.reason
+    if (result !== 'bad_token' && result !== 'rate_limited' && result !== 'bad_request') {
+      appendDemoLog(ctx.uid, {
+        at: now, result: result as CaptureLogEntry['result'], device,
+        ...(parsed ? { amount: parsed.amount, currency: parsed.currency, ...(parsed.merchant ? { merchant: parsed.merchant } : {}) } : {}),
+        ...(groupName ? { groupName } : {}),
+      }, ctx.token.token)
+    }
+    return r
+  }
+  const prefs = demoCapturePrefs(ctx.uid)
+  if (prefs.capturePaused) return done({ ok: false, reason: 'paused' })
   const parsed = parseSmsDemo(body.text, todayISO())
-  if (typeof parsed === 'string') return { ok: false, reason: parsed }
+  if (typeof parsed === 'string') return done({ ok: false, reason: parsed })
+  const filtered = filterReason(prefs, parsed, body.text)
+  if (filtered) return done({ ok: false, reason: filtered }, parsed)
   const scoped = ctx.token.groupId ? ctx.groups.find((g) => g.id === ctx.token.groupId) : undefined
-  if (ctx.token.groupId && (!scoped || !inTripWindow(scoped, parsed.date))) return { ok: false, reason: 'outside_trip' }
+  if (scoped?.captureOff) return done({ ok: false, reason: 'paused' }, parsed, scoped.name)
+  if (ctx.token.groupId && (!scoped || !inTripWindow(scoped, parsed.date))) return done({ ok: false, reason: 'outside_trip' }, parsed, scoped?.name)
   const id = sanitiseRef(parsed.ref ? `sms_${parsed.ref}` : undefined)
-  if (id && ctx.captures.some((c) => c.id === id)) return { ok: false, reason: 'duplicate' }
-  const matchedGroupId = scoped?.id ?? rankGroupsForCapture(ctx.groups, { date: parsed.date, currency: parsed.currency }).best
+  if (id && ctx.captures.some((c) => c.id === id)) return done({ ok: false, reason: 'duplicate' }, parsed)
+  const matchedGroupId = scoped?.id ?? rankGroupsForCapture(ctx.groups.filter((g) => !g.captureOff), { date: parsed.date, currency: parsed.currency }).best
+  if (!matchedGroupId) {
+    const off = ctx.groups.find((g) => g.captureOff && g.type !== 'personal' && inTripWindow(g, parsed.date))
+    if (off) return done({ ok: false, reason: 'paused' }, parsed, off.name)
+    if (!prefs.outsideTrips) return done({ ok: false, reason: 'outside_trip' }, parsed)
+  }
   const captureId = id ?? `sms_${randomRef()}`
   await repo.saveCapture(ctx.uid, draftToCapture({
     amount: parsed.amount, currency: parsed.currency, merchant: parsed.merchant ?? 'UPI payment', date: parsed.date,
     ts: body.receivedAt, source: body.device === 'android' ? 'sms-android' : 'sms-ios', note: maskSms(body.text).slice(0, 200),
     ref: parsed.ref, group: matchedGroupId,
   }, captureId))
-  return { ok: true, captureId, parsed, matchedGroupId, pushed: false }
+  return done({ ok: true, captureId, parsed, matchedGroupId, pushed: false }, parsed, ctx.groups.find((g) => g.id === matchedGroupId)?.name)
 }

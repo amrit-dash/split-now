@@ -9,21 +9,30 @@
  * Authentication is the capture token (a 140-bit secret) plus a per-token rate limit.
  * App Check is deliberately not enforced: Shortcuts and MacroDroid can't produce a token.
  *
- * Unscoped captures that match no trip are still saved to the inbox (so nothing is lost), but
- * only notify when the user turned on "Unsorted payments" (prefs.unsorted, off by default).
- * A scoped capture (token.groupId or request groupId) outside that group's dates is dropped.
+ * Unscoped captures that match no trip are dropped ('outside_trip') unless the user turned on
+ * "All bank & UPI payments" (prefs.outsideTrips); then they land in the inbox unsorted and only
+ * notify with prefs.unsorted. A scoped capture (token.groupId or request groupId) outside that
+ * group's dates is dropped.
+ *
+ * User filters (users/{uid}/settings/notifications, Profile → Auto-capture): capturePaused stops
+ * everything ('paused'), minAmount drops small INR debits ('below_min'), ignoreWords drops debits
+ * mentioning a keyword ('ignored'); a trip with captureOff is skipped ('paused'). All of these
+ * answer 200 and store nothing. Every processed request also appends a compact entry (no SMS
+ * text) to users/{uid}/captureLog, trimmed to the newest 30: "Recent activity" in the app.
  */
-import { resolvePrefs } from './lib/prefs'
+import type { DocumentReference } from 'firebase-admin/firestore'
 import { logger } from 'firebase-functions'
 import { onRequest } from 'firebase-functions/v2/https'
+import { filterReason, type CaptureLogEntry } from '../../shared/capture-filters'
 import { db } from './admin'
 import { APP_ORIGINS, RATE_LIMIT, REGION } from './config'
-import { STATUS, captureDoc, interpret, type Parsed, type Reason } from './lib/capture-core'
+import { CAPTURE_LOG_KEEP, STATUS, captureDoc, interpret, logEntry, type Parsed, type Reason } from './lib/capture-core'
 import { captureIdFor, tokenKey } from './lib/ids'
 import { captureNote } from './lib/notify-text'
+import { resolveCapturePrefs } from './lib/prefs'
 import { applyRateLimit, type RateState } from './lib/ratelimit'
 import { isIdShaped, isTokenShaped, readCaptureRequest, type RawRequest } from './lib/request'
-import { matchScoped, pickTrip, type TripGroup } from './lib/trips'
+import { matchScoped, pausedTrip, pickTrip, type TripGroup } from './lib/trips'
 import { sendToUser } from './push'
 
 export type CaptureResponse =
@@ -52,6 +61,26 @@ async function rateLimited(token: string, now: number): Promise<boolean> {
   })
 }
 
+/**
+ * Append to users/{uid}/captureLog and trim it to the newest CAPTURE_LOG_KEEP entries.
+ * Best-effort: a logging failure never fails the capture.
+ */
+async function writeLog(userRef: DocumentReference, entry: CaptureLogEntry | undefined): Promise<void> {
+  if (!entry) return
+  try {
+    const col = userRef.collection('captureLog')
+    await col.add(entry)
+    const old = await col.orderBy('at', 'desc').offset(CAPTURE_LOG_KEEP).limit(20).select().get()
+    if (!old.empty) {
+      const batch = db().batch()
+      old.docs.forEach((d) => batch.delete(d.ref))
+      await batch.commit()
+    }
+  } catch (e) {
+    logger.warn('capture log', e)
+  }
+}
+
 export async function handleCapture(raw: RawRequest, now = new Date()): Promise<{ status: number; body: CaptureResponse }> {
   const req = readCaptureRequest(raw)
   if (!isTokenShaped(req.token)) return fail('bad_token')
@@ -61,9 +90,24 @@ export async function handleCapture(raw: RawRequest, now = new Date()): Promise<
   if (!tokenSnap.exists || typeof uid !== 'string') return fail('bad_token')
   if (await rateLimited(req.token, now.getTime())) return fail('rate_limited')
 
+  // Any request that reached a user counts as "received" (the "last received" line per key).
+  tokenSnap.ref.update({ lastUsedAt: now.getTime() }).catch((e) => logger.warn('token lastUsedAt', e))
+  const userRef = db().collection('users').doc(uid)
+  const reject = async (reason: Reason, parsed?: Parsed, groupName?: string) => {
+    await writeLog(userRef, logEntry(reason, req.device, now.getTime(), parsed, groupName))
+    return fail(reason)
+  }
+
+  const prefs = resolveCapturePrefs((await userRef.collection('settings').doc('notifications').get()).data())
+  if (prefs.capturePaused) return reject('paused')
+
   const it = interpret(req, now)
-  if (!it.ok) return fail(it.reason)
+  if (!it.ok) return reject(it.reason)
   const { parsed, extra } = it
+
+  // The user's own filters. The raw text is only read in memory, never stored in the log.
+  const filtered = filterReason(prefs, parsed, req.text)
+  if (filtered) return reject(filtered, parsed)
 
   // Scope: the token's group wins over the request's; a group you're no longer in is ignored.
   const tokenGroup = tokenSnap.get('groupId')
@@ -72,30 +116,36 @@ export async function handleCapture(raw: RawRequest, now = new Date()): Promise<
   let matched: TripGroup | undefined
   if (scoped) {
     const r = matchScoped(scoped, parsed.date)
-    if (r.kind === 'outside') return fail('outside_trip')
+    if (r.kind === 'off') return reject('paused', parsed, scoped.name)
+    if (r.kind === 'outside') return reject('outside_trip', parsed, scoped.name)
     matched = r.group
   } else {
-    const groups = await db().collection('groups').where('memberUids', 'array-contains', uid).get()
-    matched = pickTrip(groups.docs.map((d) => ({ ...(d.data() as GroupDoc), id: d.id })), parsed.date)
-    // Outside every trip window: only kept when the user turned on "Capture payments outside trips".
+    const groups = (await db().collection('groups').where('memberUids', 'array-contains', uid).get())
+      .docs.map((d) => ({ ...(d.data() as GroupDoc), id: d.id }))
+    matched = pickTrip(groups, parsed.date)
     if (!matched) {
-      const prefs = resolvePrefs((await db().collection('users').doc(uid).collection('settings').doc('notifications').get()).data())
-      if (!prefs.outsideTrips) return fail('outside_trip')
+      // Dated inside a trip whose capture is paused: skip it (the pause wins over "all payments").
+      const off = pausedTrip(groups, parsed.date)
+      if (off) return reject('paused', parsed, off.name)
+      // Outside every trip window: only kept when the user turned on "All bank & UPI payments".
+      if (!prefs.outsideTrips) return reject('outside_trip', parsed)
     }
   }
 
   const captureId = captureIdFor(uid, parsed, extra.receivedAt ?? now)
-  const ref = db().collection('users').doc(uid).collection('captures').doc(captureId)
+  const ref = userRef.collection('captures').doc(captureId)
   try {
     await ref.create(captureDoc(captureId, parsed, extra, matched?.id, now.getTime()))
   } catch (e) {
-    if ((e as { code?: number }).code === 6) return fail('duplicate') // ALREADY_EXISTS
+    if ((e as { code?: number }).code === 6) return reject('duplicate', parsed, matched?.name) // ALREADY_EXISTS
     throw e
   }
-  tokenSnap.ref.update({ lastUsedAt: now.getTime() }).catch((e) => logger.warn('token lastUsedAt', e))
 
   const note = captureNote({ captureId, amount: parsed.amount, currency: parsed.currency, merchant: parsed.merchant, groupName: matched?.name })
-  const sent = await sendToUser(uid, matched ? ['captures'] : ['captures', 'unsorted'], note)
+  const [sent] = await Promise.all([
+    sendToUser(uid, matched ? ['captures'] : ['captures', 'unsorted'], note),
+    writeLog(userRef, logEntry('captured', req.device, now.getTime(), parsed, matched?.name)),
+  ])
 
   const body: CaptureResponse = { ok: true, captureId, parsed, pushed: sent > 0 }
   if (matched) body.matchedGroupId = matched.id

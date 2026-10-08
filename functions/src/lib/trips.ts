@@ -6,6 +6,8 @@ export interface TripGroup {
   startDate?: string
   endDate?: string
   updatedAt?: number
+  /** a member paused auto-capture for this trip (group settings) */
+  captureOff?: boolean
 }
 
 export const hasTripWindow = (g: Pick<TripGroup, 'startDate' | 'endDate'>) => Boolean(g.startDate || g.endDate)
@@ -27,16 +29,23 @@ const windowDays = (g: TripGroup) =>
  */
 export function pickTrip<G extends TripGroup>(groups: G[], date: string): G | undefined {
   return groups
-    .filter((g) => g.type !== 'personal' && inTripWindow(g, date))
+    .filter((g) => g.type !== 'personal' && !g.captureOff && inTripWindow(g, date))
     .sort((a, b) => windowDays(a) - windowDays(b) || (b.updatedAt ?? 0) - (a.updatedAt ?? 0))[0]
 }
 
-export type ScopeResult = { kind: 'matched'; group: TripGroup } | { kind: 'outside' }
+/** A trip with capture paused whose window contains `date` (so the payment is skipped, not unsorted). */
+export function pausedTrip<G extends TripGroup>(groups: G[], date: string): G | undefined {
+  return groups.find((g) => g.type !== 'personal' && g.captureOff && inTripWindow(g, date))
+}
+
+export type ScopeResult = { kind: 'matched'; group: TripGroup } | { kind: 'outside' } | { kind: 'off'; group: TripGroup }
 
 /**
  * A capture scoped to one group (by its token or the request): it matches if the group has no
- * trip window (always on) or the date is inside it; otherwise it's outside the trip.
+ * trip window (always on) or the date is inside it; otherwise it's outside the trip. A trip with
+ * capture paused matches nothing.
  */
 export function matchScoped(g: TripGroup, date: string): ScopeResult {
+  if (g.captureOff) return { kind: 'off', group: g }
   return !hasTripWindow(g) || inTripWindow(g, date) ? { kind: 'matched', group: g } : { kind: 'outside' }
 }

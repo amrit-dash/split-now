@@ -13,6 +13,6 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["src", "../shared/sms-parse.ts"],
+  "include": ["src", "../shared/sms-parse.ts", "../shared/capture-filters.ts"],
   "exclude": ["**/*.test.ts"]
 }
