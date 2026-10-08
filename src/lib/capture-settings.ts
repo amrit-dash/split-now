@@ -1,5 +1,5 @@
 /*
- * Auto-capture settings and the capture activity log, for Profile → Auto-capture and the SMS
+ * Auto-capture settings and the capture activity log, for Settings → Automation and the SMS
  * wizard.
  *
  * Firebase mode: settings live in users/{uid}/settings/notifications (via src/lib/push.ts) and
