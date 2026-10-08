@@ -14,8 +14,8 @@ export const APP_ORIGINS = [
   'http://localhost:4173',
 ]
 
-/** Per capture token. */
-export const RATE_LIMIT = { perHour: 60, perDay: 300 }
+// Rate limits (capture keys, own-key AI calls, nudges, FX refreshes) are admin-tunable in
+// config/limits; shared/limits.ts holds the defaults and functions/src/lib/limits.ts reads them.
 
 /** Gentle settle-up reminders. Thresholds are minor units of the group currency. */
 export const REMINDER = {

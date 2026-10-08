@@ -70,10 +70,10 @@ export default function SettingsHome() {
         />
         {aiStatus?.admin && (
           <SettingsRow
-            to="/settings/admin"
+            to="/admin"
             icon={<ShieldCheck size={19} />}
             title="Admin"
-            summary="Split Now’s AI key, access and limits"
+            summary="Switches, limits, usage, AI key and accounts"
             testId="settings-admin"
           />
         )}

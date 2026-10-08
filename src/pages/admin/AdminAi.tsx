@@ -5,11 +5,11 @@ import type { AiModel, AiStatusResult } from '@/data/repo'
 import { refreshAiStatus } from '@/hooks/useAiStatus'
 import { DEFAULT_MODEL, MAX_ALLOW_EMAILS, normaliseEmail, resolveAppAi, type AppAiConfig, type AppAiMode } from '@/lib/ai-config'
 import { errText } from '@/lib/errors'
-import { modelHint } from './AiSettings'
+import { modelHint } from '@/components/AiSettings'
 import { todayISO } from '@/lib/id'
-import { Select } from './Select'
-import { Switch } from './Switch'
-import { useToast } from './Toast'
+import { Select } from '@/components/Select'
+import { Switch } from '@/components/Switch'
+import { useToast } from '@/components/Toast'
 
 const MODES: Array<{ value: AppAiMode; label: string; hint: string }> = [
   { value: 'off', label: 'Off', hint: 'Only people’s own keys work' },
