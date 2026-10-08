@@ -108,8 +108,5 @@ export function readCaptureRequest(r: RawRequest): CaptureRequest {
 export const isTokenShaped = (t: string | undefined): t is string => !!t && /^[A-Za-z0-9_-]{24,64}$/.test(t)
 export const isIdShaped = (t: string | undefined): t is string => !!t && /^[A-Za-z0-9_-]{1,64}$/.test(t)
 
-/** Idempotency key from the contract's `ref` ([A-Za-z0-9_-], 4–64), like sanitiseRef in src/lib/capture.ts. */
-export function sanitiseRef(raw: string | undefined): string | undefined {
-  const s = raw?.trim().replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64)
-  return s && s.length >= 4 ? s : undefined
-}
+/** Idempotency key from the contract's `ref` ([A-Za-z0-9_-], 4–64); the same helper the app uses. */
+export { sanitiseRef } from '../../../shared/money-core'

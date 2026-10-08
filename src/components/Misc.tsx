@@ -12,14 +12,15 @@ export function PageHeader({ title, back, right, subtitle }: { title: ReactNode;
         {back && (
           <button
             onClick={() => (typeof back === 'string' ? nav(back) : history.length > 1 ? nav(-1) : nav('/'))}
-            className="-ml-2 rounded-full p-2 hover:bg-slate-200/60 dark:hover:bg-ink-800"
+            className="-ml-2 flex h-11 w-11 items-center justify-center rounded-full hover:bg-slate-200/60 dark:hover:bg-ink-800"
             aria-label="Back"
           >
             <ChevronLeft size={24} />
           </button>
         )}
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-2xl font-extrabold tracking-tight">{title}</h1>
+          {/* No empty h1: a page whose heading is in the body (expense detail) passes title="". */}
+          {title ? <h1 className="truncate text-2xl font-extrabold tracking-tight">{title}</h1> : null}
           {subtitle && <div className="text-sm text-slate-500 dark:text-slate-400">{subtitle}</div>}
         </div>
         {right}
@@ -32,7 +33,7 @@ export function Empty({ emoji, title, children }: { emoji: string; title: string
   return (
     <div className="card flex flex-col items-center px-6 py-10 text-center">
       <div className="mb-3 text-5xl" aria-hidden>{emoji}</div>
-      <div className="text-lg font-bold">{title}</div>
+      <h2 className="text-lg font-bold">{title}</h2>
       {children && <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">{children}</div>}
     </div>
   )

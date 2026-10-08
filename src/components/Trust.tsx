@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Check, Clock, Flag, RotateCcw, Trash2 } from 'lucide-react'
+import { Clock, Flag, Trash2 } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { useHistory, useTrash } from '@/hooks/data'
@@ -9,12 +9,14 @@ import { activityIcon, activityText, amountLabel, describeChanges, fmtAgo, type 
 import { canPurge, daysLeftInTrash, flagsOf, isPending, pendingApprovers } from '@/lib/trust'
 import { formatMoney } from '@/lib/money'
 import { CATEGORIES } from '@/lib/categories'
+import { errText } from '@/lib/errors'
 import { Sheet } from './Sheet'
+import { useConfirm } from './ConfirmSheet'
 import { useToast } from './Toast'
 
 const memberNameFor = (g: Group, uid: string) => (id: string) => (g.members[id]?.uid === uid ? 'you' : g.members[id]?.name ?? 'Former member')
 
-/** Small "Disputed" / "Pending" pills for expense rows. */
+/** Small "Flagged" / "Needs OK" pills for expense rows. The icon carries the state, so it stays. */
 export function TrustBadges({ e, group }: { e: Expense; group: Group }) {
   const flags = flagsOf(e).length
   const pending = isPending(e, group)
@@ -22,13 +24,13 @@ export function TrustBadges({ e, group }: { e: Expense; group: Group }) {
   return (
     <>
       {flags > 0 && (
-        <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-500/15 dark:text-amber-300" title="Someone flagged this expense">
-          <Flag size={10} strokeWidth={3} />Disputed
+        <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[0.6875rem] font-semibold text-amber-800 dark:bg-amber-500/15 dark:text-amber-300" title="Someone flagged this expense">
+          <Flag size={10} strokeWidth={3} aria-hidden />Flagged
         </span>
       )}
       {pending && (
-        <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-800 dark:bg-sky-500/15 dark:text-sky-300" title="Not counted until approved">
-          <Clock size={10} strokeWidth={3} />Pending
+        <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-sky-100 px-1.5 py-0.5 text-[0.6875rem] font-semibold text-sky-800 dark:bg-sky-500/15 dark:text-sky-300" title="Not counted until approved">
+          <Clock size={10} strokeWidth={3} aria-hidden />Needs OK
         </span>
       )}
     </>
@@ -38,7 +40,7 @@ export function TrustBadges({ e, group }: { e: Expense; group: Group }) {
 /** Delete with a ~6 s "Undo" toast instead of a confirm dialog (the item goes to the trash). */
 export function useUndoableDelete() {
   const toast = useToast()
-  const fail = (err: unknown) => toast((err as Error).message, 'err')
+  const fail = (err: unknown) => toast(errText(err), 'err')
   return {
     expense(groupId: string, e: Pick<Expense, 'id' | 'description'>) {
       repo.deleteExpense(groupId, e.id).then(() => toast(`Deleted “${e.description}”`, 'ok', {
@@ -72,9 +74,9 @@ export function ActivityFeed({ entries, groups, linkable, isNew }: {
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-lg dark:bg-ink-800" aria-hidden>{activityIcon(a.type)}</div>
             <div className="min-w-0 flex-1">
               <div className="line-clamp-2 text-sm">{activityText(a, user.uid)}</div>
-              <div className="truncate text-xs text-slate-500">{g ? `${g.emoji} ${g.name} · ` : ''}{fmtAgo(a.createdAt)}</div>
+              <div className="text-muted truncate text-xs">{g ? <><span aria-hidden>{g.emoji} </span>{g.name} · </> : ''}{fmtAgo(a.createdAt)}</div>
             </div>
-            {isNew?.(a) && <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-brand-500" aria-label="New" />}
+            {isNew?.(a) && <><span className="h-2.5 w-2.5 shrink-0 rounded-full bg-brand-500" aria-hidden /><span className="sr-only">New</span></>}
           </>
         )
         const canLink = a.type.startsWith('expense.') && a.type !== 'expense.purged' && (linkable ? linkable(a) : true)
@@ -115,7 +117,7 @@ export function HistoryCard({ group, expense }: { group: Group; expense: Expense
                 ) : (
                   <div>{activityText(a, user.uid)}</div>
                 )}
-                <div className="text-xs text-slate-400">{fmtAgo(a.createdAt)}</div>
+                <div className="text-muted text-xs">{fmtAgo(a.createdAt)}</div>
               </div>
             </li>
           )
@@ -138,7 +140,7 @@ export function TrustPanel({ group, expense: e, myMemberId }: { group: Group; ex
   const iMustApprove = waiting.some((id) => group.members[id]?.uid === user.uid)
   const name = (id: string) => (group.members[id]?.uid === user.uid ? 'you' : group.members[id]?.name ?? 'Former member')
   const cur = group.currency
-  const fail = (err: unknown) => toast((err as Error).message, 'err')
+  const fail = (err: unknown) => toast(errText(err), 'err')
 
   const submitFlag = async () => {
     try {
@@ -153,41 +155,41 @@ export function TrustPanel({ group, expense: e, myMemberId }: { group: Group; ex
       {waiting.length > 0 && (
         <div className="card mt-3 border border-sky-200 bg-sky-50/60 p-4 dark:border-sky-500/20 dark:bg-sky-500/5">
           <div className="flex items-start gap-3">
-            <Clock size={20} className="mt-0.5 shrink-0 text-sky-600 dark:text-sky-300" />
+            <Clock size={20} className="mt-0.5 shrink-0 text-sky-600 dark:text-sky-300" aria-hidden />
             <div className="min-w-0 flex-1 text-sm">
-              <div className="font-semibold">Waiting for approval · not counted in balances yet</div>
+              <div className="font-semibold">Needs your OK · not counted in balances yet</div>
               <div className="text-slate-600 dark:text-slate-300">Over {formatMoney(group.approvalThreshold ?? 10000, cur)}: needs an OK from {waiting.map(name).join(', ')}.</div>
             </div>
           </div>
           {iMustApprove && (
-            <button className="btn-primary mt-3 w-full" onClick={() => repo.approveExpense(group, e).then(() => toast('Approved 👍')).catch(fail)}><Check size={18} aria-hidden /> Approve {formatMoney(e.splits[myMemberId!] ?? 0, cur)} share</button>
+            <button type="button" className="btn-primary mt-3 w-full" onClick={() => repo.approveExpense(group, e).then(() => toast('Approved')).catch(fail)}>Approve {formatMoney(e.splits[myMemberId!] ?? 0, cur)} share</button>
           )}
         </div>
       )}
 
       {flags.length > 0 && (
         <div className="card mt-3 border border-amber-200 bg-amber-50/60 p-4 dark:border-amber-500/20 dark:bg-amber-500/5">
-          <div className="mb-2 flex items-center gap-2 text-sm font-semibold"><Flag size={16} className="text-amber-600" /> Disputed · still counted in balances</div>
+          <div className="mb-2 flex items-center gap-2 text-sm font-semibold"><Flag size={16} className="text-amber-700 dark:text-amber-300" aria-hidden /> Flagged · still counted in balances</div>
           <ul className="space-y-2">
             {flags.map((f) => (
               <li key={f.byUid} className="text-sm">
                 <b>{f.byUid === user.uid ? 'You' : group.members[f.memberId]?.name ?? 'Someone'}</b>: {f.reason}
-                <span className="ml-1 text-xs text-slate-400">{fmtAgo(f.at)}</span>
+                <span className="text-muted ml-1 text-xs">{fmtAgo(f.at)}</span>
               </li>
             ))}
           </ul>
-          {mine && <button className="chip mt-3" onClick={() => repo.resolveFlag(group, e).then(() => toast('Flag resolved')).catch(fail)}>Resolve my flag</button>}
+          {mine && <button type="button" className="chip mt-3 min-h-10" onClick={() => repo.resolveFlag(group, e).then(() => toast('Flag resolved')).catch(fail)}>Resolve my flag</button>}
         </div>
       )}
 
       {involved && !mine && !e.deletedAt && (
-        <button className="btn mt-3 w-full text-amber-700 dark:text-amber-300" onClick={() => setFlagging(true)}><Flag size={18} /> Flag a problem</button>
+        <button type="button" className="btn mt-3 w-full text-amber-700 dark:text-amber-300" onClick={() => setFlagging(true)}>Flag a problem</button>
       )}
 
       <Sheet open={flagging} onClose={() => setFlagging(false)} title="Flag this expense">
-        <p className="text-sm text-slate-500">Tell the group what looks wrong. It stays in the balances (marked as disputed) until you resolve it.</p>
+        <p className="text-muted text-sm">Tell the group what looks wrong. It stays in the balances (marked as flagged) until you resolve it.</p>
         <textarea className="input mt-3 min-h-24" maxLength={500} autoFocus placeholder="e.g. I wasn’t at this dinner" aria-label="Reason" value={reason} onChange={(ev) => setReason(ev.target.value)} />
-        <button className="btn-primary mt-3 w-full" disabled={!reason.trim()} onClick={submitFlag}><Flag size={18} /> Flag expense</button>
+        <button type="button" className="btn-primary mt-3 w-full" disabled={!reason.trim()} onClick={submitFlag}>Flag expense</button>
       </Sheet>
     </>
   )
@@ -197,8 +199,13 @@ export function TrustPanel({ group, expense: e, myMemberId }: { group: Group; ex
 export function TrashedBanner({ group, item, kind }: { group: Group; item: Expense; kind: 'expense' }) {
   const { user } = useMe()
   const toast = useToast()
-  const fail = (err: unknown) => toast((err as Error).message, 'err')
+  const confirm = useConfirm()
+  const fail = (err: unknown) => toast(errText(err), 'err')
   const by = Object.values(group.members).find((m) => m.uid === item.deletedBy)
+  const purge = async () => {
+    if (!(await confirm({ title: 'Delete forever?', message: 'Its comments go too. This cannot be undone.', confirmLabel: 'Delete forever', tone: 'danger' }))) return
+    repo.purgeExpense(group.id, item.id).catch(fail)
+  }
   return (
     <div className="card mb-3 border border-rose-200 bg-rose-50/60 p-4 text-sm dark:border-rose-500/20 dark:bg-rose-500/5">
       <div className="font-semibold">In Recently deleted</div>
@@ -206,9 +213,9 @@ export function TrashedBanner({ group, item, kind }: { group: Group; item: Expen
         Deleted by {item.deletedBy === user.uid ? 'you' : by?.name ?? 'someone'} · {daysLeftInTrash(item)} days left to restore. Not counted in balances.
       </div>
       <div className="mt-3 flex gap-2">
-        <button className="btn-primary flex-1" onClick={() => repo.restoreExpense(group.id, item.id).then(() => toast(`Restored ${kind}`)).catch(fail)}><RotateCcw size={18} /> Restore</button>
+        <button type="button" className="btn-primary flex-1" onClick={() => repo.restoreExpense(group.id, item.id).then(() => toast(`Restored ${kind}`)).catch(fail)}>Restore</button>
         {canPurge(item, group, user.uid) && (
-          <button className="btn flex-1 text-rose-600" onClick={() => confirm('Delete forever? Its comments go too. This cannot be undone.') && repo.purgeExpense(group.id, item.id).catch(fail)}><Trash2 size={18} /> Delete forever</button>
+          <button type="button" className="btn flex-1 text-rose-700 dark:text-rose-400" onClick={purge}>Delete forever</button>
         )}
       </div>
     </div>
@@ -219,8 +226,9 @@ export function TrashedBanner({ group, item, kind }: { group: Group; item: Expen
 export function RecentlyDeleted({ group, open, onClose }: { group: Group; open: boolean; onClose: () => void }) {
   const { user } = useMe()
   const toast = useToast()
+  const confirm = useConfirm()
   const trash = useTrash(open ? group : null)
-  const fail = (err: unknown) => toast((err as Error).message, 'err')
+  const fail = (err: unknown) => toast(errText(err), 'err')
   const name = (id: string) => (group.members[id]?.uid === user.uid ? 'You' : group.members[id]?.name ?? 'Someone')
   const by = (uid?: string) => (uid === user.uid ? 'you' : Object.values(group.members).find((m) => m.uid === uid)?.name ?? 'someone')
   const rows = [
@@ -230,27 +238,29 @@ export function RecentlyDeleted({ group, open, onClose }: { group: Group; open: 
 
   return (
     <Sheet open={open} onClose={onClose} title="Recently deleted">
-      <p className="mb-3 text-sm text-slate-500">Deleted expenses and payments stay here for 30 days. They don’t count in balances.</p>
+      <p className="text-muted mb-3 text-sm">Deleted expenses and payments stay here for 30 days. They don’t count in balances.</p>
       {trash === null ? null : rows.length === 0 ? (
-        <p className="py-6 text-center text-sm text-slate-500">Nothing deleted recently.</p>
+        <p className="text-muted py-6 text-center text-sm">Nothing deleted recently.</p>
       ) : (
         <ul className="divide-y divide-slate-100 dark:divide-white/5">
           {rows.map((r) => {
             const purge = canPurge(r.item, group, user.uid)
             const restore = () => (r.kind === 'e' ? repo.restoreExpense(group.id, r.id) : repo.restoreSettlement(group.id, r.id)).then(() => toast('Restored')).catch(fail)
-            const forever = () => confirm('Delete forever? This cannot be undone.') &&
-              (r.kind === 'e' ? repo.purgeExpense(group.id, r.id) : repo.purgeSettlement(group.id, r.id)).catch(fail)
+            const forever = async () => {
+              if (!(await confirm({ title: 'Delete forever?', message: 'This cannot be undone.', confirmLabel: 'Delete forever', tone: 'danger' }))) return
+              ;(r.kind === 'e' ? repo.purgeExpense(group.id, r.id) : repo.purgeSettlement(group.id, r.id)).catch(fail)
+            }
             return (
               <li key={r.id} className="flex items-center gap-3 py-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-lg dark:bg-ink-800">{r.kind === 'e' ? CATEGORIES[r.item.category]?.emoji ?? '🧾' : '💸'}</div>
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-lg dark:bg-ink-800" aria-hidden>{r.kind === 'e' ? CATEGORIES[r.item.category]?.emoji ?? '🧾' : '💸'}</div>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium">
                     {r.kind === 'e' ? r.item.description : <>{name(r.item.from)} paid {name(r.item.to)}</>} · {r.kind === 'e' ? amountLabel(r.item.amount, r.item.original, group.currency) : formatMoney(r.item.amount, group.currency)}
                   </div>
-                  <div className="truncate text-xs text-slate-500">Deleted by {by(r.item.deletedBy)} {fmtAgo(r.at)} · {daysLeftInTrash(r.item)}d left</div>
+                  <div className="text-muted truncate text-xs">Deleted by {by(r.item.deletedBy)} {fmtAgo(r.at)} · {daysLeftInTrash(r.item)}d left</div>
                 </div>
-                <button className="chip shrink-0" onClick={restore} aria-label={`Restore ${r.kind === 'e' ? r.item.description : 'payment'}`}><RotateCcw size={14} /> Restore</button>
-                {purge && <button className="shrink-0 rounded-full p-2 text-slate-400 hover:text-rose-500" onClick={forever} aria-label="Delete forever"><Trash2 size={16} /></button>}
+                <button type="button" className="chip min-h-10 shrink-0" onClick={restore} aria-label={`Restore ${r.kind === 'e' ? r.item.description : 'payment'}`}>Restore</button>
+                {purge && <button type="button" className="text-muted -mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full hover:text-rose-600" onClick={forever} aria-label="Delete forever"><Trash2 size={18} aria-hidden /></button>}
               </li>
             )
           })}

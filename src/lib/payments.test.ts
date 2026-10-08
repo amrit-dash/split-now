@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isIfsc, isIOS, isUpiId, methodFor, payOptions, settleMethods, upiAppLinks, upiLink } from './payments'
+import { isIfsc, isIOS, isUpiId, methodFor, methodLabel, payOptions, roundSuggestions, settleMethods, upiAppLinks, upiLink } from './payments'
 import { encodeQr } from './qr'
 
 describe('UPI links', () => {
@@ -91,5 +91,26 @@ describe('settle methods', () => {
     expect(isIOS('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)', 5)).toBe(true)
     expect(isIOS('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', 5)).toBe(true)
     expect(isIOS('Mozilla/5.0 (Linux; Android 15; Pixel 9)', 5)).toBe(false)
+  })
+})
+
+describe('settle-up helpers', () => {
+  it('labels the waived method and leaves the rest as stored', () => {
+    expect(methodLabel('waived')).toBe('Waived')
+    expect(methodLabel('UPI')).toBe('UPI')
+    expect(methodLabel('Bank transfer')).toBe('Bank transfer')
+  })
+
+  it('suggests the round figures just below and above a debt', () => {
+    expect(roundSuggestions(124700, 'INR')).toEqual([120000, 125000])
+    expect(roundSuggestions(8300, 'INR')).toEqual([8000, 9000])
+    expect(roundSuggestions(2700, 'INR')).toEqual([2500, 3000])
+    expect(roundSuggestions(1248000, 'INR')).toEqual([1200000, 1250000])
+    expect(roundSuggestions(1247, 'JPY')).toEqual([1200, 1250])
+    // Already round, or nothing sensible below: only what makes sense.
+    expect(roundSuggestions(120000, 'INR')).toEqual([])
+    expect(roundSuggestions(300, 'INR')).toEqual([500])
+    expect(roundSuggestions(0, 'INR')).toEqual([])
+    expect(roundSuggestions(Number.NaN, 'INR')).toEqual([])
   })
 })

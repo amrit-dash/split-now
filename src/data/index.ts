@@ -1,5 +1,5 @@
 import type { Repo } from './repo'
-import { createLocalRepo } from './localRepo'
+import { createRepo } from '#repo-impl'
 import { setFxShared } from '@/lib/fx'
 
 const env = import.meta.env
@@ -32,22 +32,23 @@ export const firebaseProject = { projectId: config.projectId as string | undefin
 export const firebaseConfigured = Boolean(config.apiKey && config.projectId && config.appId)
 
 /**
- * The active repository. Assigned by initRepo(), which main.tsx awaits before the first
- * render, so every screen can use it synchronously. (ES module bindings are live, so
- * importers see the assigned value.) The Firebase SDK is only downloaded when configured.
+ * The active repository. Which implementation `#repo-impl` is gets decided at build time
+ * (vite.config.ts): impl.firebase.ts when VITE_FIREBASE_* is set for the build, impl.local.ts
+ * (demo mode) otherwise. Both are static imports, so the browser downloads the data layer in
+ * parallel with the entry instead of discovering it after React has started, a Firebase build
+ * ships no demo code and a demo build ships no Firebase SDK.
+ *
+ * Assigned by initRepo(), which main.tsx calls before the first render, so every screen can
+ * use `repo` synchronously. (ES module bindings are live, so importers see the assigned value.)
  */
 export let repo: Repo = undefined as unknown as Repo
 
-let ready: Promise<Repo> | undefined
-export function initRepo(): Promise<Repo> {
-  ready ??= (async () => {
-    repo = firebaseConfigured
-      ? (await import('./firebaseRepo')).createFirebaseRepo(config, env.VITE_USE_EMULATORS === 'true')
-      : createLocalRepo()
+export function initRepo(): Repo {
+  if (!repo) {
+    repo = createRepo(config, env.VITE_USE_EMULATORS === 'true')
     // Exchange rates: the shared Firestore copy first (demo mode's repo has none, so fx.ts
     // falls back to calling Frankfurter directly).
     if (repo.mode === 'firebase') setFxShared(repo)
-    return repo
-  })()
-  return ready
+  }
+  return repo
 }

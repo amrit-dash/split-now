@@ -10,13 +10,13 @@ const TOKEN = 'abcdefghijkmnpqrstuvwxyz2345'
 
 describe('capture prefs', () => {
   it('defaults keep today’s behaviour', () => {
-    expect(resolveCapturePrefs(undefined)).toEqual({ outsideTrips: false, capturePaused: false, minAmount: 0, ignoreWords: [], aiSms: true, aiImages: true })
+    expect(resolveCapturePrefs(undefined)).toEqual({ outsideTrips: false, capturePaused: false, minAmount: 0, ignoreWords: [], aiSms: true, aiSmsMerchant: false, aiImages: true })
   })
   it('reads stored values and sanitises bad ones', () => {
     expect(resolveCapturePrefs({ outsideTrips: true, capturePaused: true, minAmount: 10000, ignoreWords: [' SIP ', 'sip', 'Rent', 7, ''] }))
-      .toEqual({ outsideTrips: true, capturePaused: true, minAmount: 10000, ignoreWords: ['SIP', 'Rent'], aiSms: true, aiImages: true })
+      .toEqual({ outsideTrips: true, capturePaused: true, minAmount: 10000, ignoreWords: ['SIP', 'Rent'], aiSms: true, aiSmsMerchant: false, aiImages: true })
     expect(resolveCapturePrefs({ capturePaused: 'yes', minAmount: -5, ignoreWords: 'SIP' }))
-      .toEqual({ outsideTrips: false, capturePaused: false, minAmount: 0, ignoreWords: [], aiSms: true, aiImages: true })
+      .toEqual({ outsideTrips: false, capturePaused: false, minAmount: 0, ignoreWords: [], aiSms: true, aiSmsMerchant: false, aiImages: true })
     expect(resolveCapturePrefs({ minAmount: 1e12 }).minAmount).toBe(10_000_000)
   })
   it('the push prefs are unaffected by the capture keys', () => {
@@ -46,7 +46,7 @@ describe('filters on a parsed SMS', () => {
     expect(filterReason({ capturePaused: false, minAmount: 0, ignoreWords: ['rent'] }, parse(chai), chai)).toBeUndefined()
   })
   it('new reasons answer 200 so automations don’t retry', () => {
-    expect([STATUS.paused, STATUS.below_min, STATUS.ignored]).toEqual([200, 200, 200])
+    expect([STATUS.paused, STATUS.below_min, STATUS.ignored, STATUS.bad_scope]).toEqual([200, 200, 200, 200])
   })
 })
 

@@ -3,7 +3,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'Inter', 'Inter Fallback', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --color-ink-950: #0b0a14;
   --color-ink-900: #13111f;
   --color-ink-800: #1c1a2b;
@@ -41,48 +41,29 @@
   --color-duo-700: oklch(51.8% 0.253 323.949);
   --color-duo-800: oklch(45.2% 0.211 324.591);
   --color-duo-900: oklch(40.1% 0.17 325.612);
-  /* Vivid mid-stop for the Home hero (Tailwind violet-600 by default). */
-  --color-brand-vivid: oklch(54.1% 0.281 293.009);
 }
 
 /* Presets: brand + duo scales from Tailwind's palette. Steps 400+ are shifted one shade darker
-   for the lighter hues (emerald/teal, orange, amber) so white text on brand-600 stays readable. */
+   for the lighter hues (orange, and the cyan / sky duo partners of Ocean and Indigo) so white
+   text on brand-600 AND on duo-600 (the right end of btn-primary) stays at 4.5:1 or better.
+   accent.test.ts measures this for every preset. Emerald / Rose (the owed / owe colours) and
+   Amber (never readable under white text) were retired. */
 :root {
   &[data-accent='ocean'] {
     --color-brand-50: oklch(97% 0.014 254.604); --color-brand-100: oklch(93.2% 0.032 255.585); --color-brand-200: oklch(88.2% 0.059 254.128); --color-brand-300: oklch(80.9% 0.105 251.813); --color-brand-400: oklch(70.7% 0.165 254.624); --color-brand-500: oklch(62.3% 0.214 259.815); --color-brand-600: oklch(54.6% 0.245 262.881); --color-brand-700: oklch(48.8% 0.243 264.376); --color-brand-800: oklch(42.4% 0.199 265.638); --color-brand-900: oklch(37.9% 0.146 265.522);
-    --color-duo-50: oklch(98.4% 0.019 200.873); --color-duo-100: oklch(95.6% 0.045 203.388); --color-duo-200: oklch(91.7% 0.08 205.041); --color-duo-300: oklch(86.5% 0.127 207.078); --color-duo-400: oklch(78.9% 0.154 211.53); --color-duo-500: oklch(71.5% 0.143 215.221); --color-duo-600: oklch(60.9% 0.126 221.723); --color-duo-700: oklch(52% 0.105 223.128); --color-duo-800: oklch(45% 0.085 224.283); --color-duo-900: oklch(39.8% 0.07 227.392);
-    --color-brand-vivid: oklch(54.6% 0.245 262.881);
-  }
-  &[data-accent='emerald'] {
-    --color-brand-50: oklch(97.9% 0.021 166.113); --color-brand-100: oklch(95% 0.052 163.051); --color-brand-200: oklch(90.5% 0.093 164.15); --color-brand-300: oklch(84.5% 0.143 164.978); --color-brand-400: oklch(69.6% 0.17 162.48); --color-brand-500: oklch(59.6% 0.145 163.225); --color-brand-600: oklch(50.8% 0.118 165.612); --color-brand-700: oklch(43.2% 0.095 166.913); --color-brand-800: oklch(37.8% 0.077 168.94); --color-brand-900: oklch(26.2% 0.051 172.552);
-    --color-duo-50: oklch(98.4% 0.014 180.72); --color-duo-100: oklch(95.3% 0.051 180.801); --color-duo-200: oklch(91% 0.096 180.426); --color-duo-300: oklch(85.5% 0.138 181.071); --color-duo-400: oklch(70.4% 0.14 182.503); --color-duo-500: oklch(60% 0.118 184.704); --color-duo-600: oklch(51.1% 0.096 186.391); --color-duo-700: oklch(43.7% 0.078 188.216); --color-duo-800: oklch(38.6% 0.063 188.416); --color-duo-900: oklch(27.7% 0.046 192.524);
-    --color-brand-vivid: oklch(50.8% 0.118 165.612);
-  }
-  &[data-accent='rose'] {
-    --color-brand-50: oklch(96.9% 0.015 12.422); --color-brand-100: oklch(94.1% 0.03 12.58); --color-brand-200: oklch(89.2% 0.058 10.001); --color-brand-300: oklch(81% 0.117 11.638); --color-brand-400: oklch(71.2% 0.194 13.428); --color-brand-500: oklch(64.5% 0.246 16.439); --color-brand-600: oklch(58.6% 0.253 17.585); --color-brand-700: oklch(51.4% 0.222 16.935); --color-brand-800: oklch(45.5% 0.188 13.697); --color-brand-900: oklch(41% 0.159 10.272);
-    --color-duo-50: oklch(97.1% 0.014 343.198); --color-duo-100: oklch(94.8% 0.028 342.258); --color-duo-200: oklch(89.9% 0.061 343.231); --color-duo-300: oklch(82.3% 0.12 346.018); --color-duo-400: oklch(71.8% 0.202 349.761); --color-duo-500: oklch(65.6% 0.241 354.308); --color-duo-600: oklch(59.2% 0.249 0.584); --color-duo-700: oklch(52.5% 0.223 3.958); --color-duo-800: oklch(45.9% 0.187 3.815); --color-duo-900: oklch(40.8% 0.153 2.432);
-    --color-brand-vivid: oklch(58.6% 0.253 17.585);
+    --color-duo-50: oklch(98.4% 0.019 200.873); --color-duo-100: oklch(95.6% 0.045 203.388); --color-duo-200: oklch(91.7% 0.08 205.041); --color-duo-300: oklch(86.5% 0.127 207.078); --color-duo-400: oklch(71.5% 0.143 215.221); --color-duo-500: oklch(60.9% 0.126 221.723); --color-duo-600: oklch(52% 0.105 223.128); --color-duo-700: oklch(45% 0.085 224.283); --color-duo-800: oklch(39.8% 0.07 227.392); --color-duo-900: oklch(34% 0.062 228.5);
   }
   &[data-accent='indigo'] {
     --color-brand-50: oklch(96.2% 0.018 272.314); --color-brand-100: oklch(93% 0.034 272.788); --color-brand-200: oklch(87% 0.065 274.039); --color-brand-300: oklch(78.5% 0.115 274.713); --color-brand-400: oklch(67.3% 0.182 276.935); --color-brand-500: oklch(58.5% 0.233 277.117); --color-brand-600: oklch(51.1% 0.262 276.966); --color-brand-700: oklch(45.7% 0.24 277.023); --color-brand-800: oklch(39.8% 0.195 277.366); --color-brand-900: oklch(35.9% 0.144 278.697);
-    --color-duo-50: oklch(97.7% 0.013 236.62); --color-duo-100: oklch(95.1% 0.026 236.824); --color-duo-200: oklch(90.1% 0.058 230.902); --color-duo-300: oklch(82.8% 0.111 230.318); --color-duo-400: oklch(74.6% 0.16 232.661); --color-duo-500: oklch(68.5% 0.169 237.323); --color-duo-600: oklch(58.8% 0.158 241.966); --color-duo-700: oklch(50% 0.134 242.749); --color-duo-800: oklch(44.3% 0.11 240.79); --color-duo-900: oklch(39.1% 0.09 240.876);
-    --color-brand-vivid: oklch(51.1% 0.262 276.966);
+    --color-duo-50: oklch(97.7% 0.013 236.62); --color-duo-100: oklch(95.1% 0.026 236.824); --color-duo-200: oklch(90.1% 0.058 230.902); --color-duo-300: oklch(82.8% 0.111 230.318); --color-duo-400: oklch(68.5% 0.169 237.323); --color-duo-500: oklch(58.8% 0.158 241.966); --color-duo-600: oklch(50% 0.134 242.749); --color-duo-700: oklch(44.3% 0.11 240.79); --color-duo-800: oklch(39.1% 0.09 240.876); --color-duo-900: oklch(33.5% 0.08 241);
   }
   &[data-accent='saffron'] {
     --color-brand-50: oklch(98.7% 0.022 95.277); --color-brand-100: oklch(96.2% 0.059 95.617); --color-brand-200: oklch(92.4% 0.12 95.746); --color-brand-300: oklch(87.9% 0.169 91.605); --color-brand-400: oklch(76.9% 0.188 70.08); --color-brand-500: oklch(66.6% 0.179 58.318); --color-brand-600: oklch(55.5% 0.163 48.998); --color-brand-700: oklch(47.3% 0.137 46.201); --color-brand-800: oklch(41.4% 0.112 45.904); --color-brand-900: oklch(27.9% 0.077 45.635);
     --color-duo-50: oklch(98% 0.016 73.684); --color-duo-100: oklch(95.4% 0.038 75.164); --color-duo-200: oklch(90.1% 0.076 70.697); --color-duo-300: oklch(83.7% 0.128 66.29); --color-duo-400: oklch(70.5% 0.213 47.604); --color-duo-500: oklch(64.6% 0.222 41.116); --color-duo-600: oklch(55.3% 0.195 38.402); --color-duo-700: oklch(47% 0.157 37.304); --color-duo-800: oklch(40.8% 0.123 38.172); --color-duo-900: oklch(26.6% 0.079 36.259);
-    --color-brand-vivid: oklch(55.5% 0.163 48.998);
-  }
-  /* Amber: golden yellow → bright gold. Brand is one step darker from 400 for contrast. */
-  &[data-accent='amber'] {
-    --color-brand-50: oklch(98.7% 0.026 102.212); --color-brand-100: oklch(97.3% 0.071 103.193); --color-brand-200: oklch(94.5% 0.129 101.54); --color-brand-300: oklch(90.5% 0.182 98.111); --color-brand-400: oklch(79.5% 0.184 86.047); --color-brand-500: oklch(68.1% 0.162 75.834); --color-brand-600: oklch(55.4% 0.135 66.442); --color-brand-700: oklch(47.6% 0.114 61.907); --color-brand-800: oklch(42.1% 0.095 57.708); --color-brand-900: oklch(28.6% 0.066 53.813);
-    --color-duo-50: oklch(98.7% 0.026 102.212); --color-duo-100: oklch(97.3% 0.071 103.193); --color-duo-200: oklch(94.5% 0.129 101.54); --color-duo-300: oklch(90.5% 0.182 98.111); --color-duo-400: oklch(85.2% 0.199 91.936); --color-duo-500: oklch(79.5% 0.184 86.047); --color-duo-600: oklch(68.1% 0.162 75.834); --color-duo-700: oklch(55.4% 0.135 66.442); --color-duo-800: oklch(47.6% 0.114 61.907); --color-duo-900: oklch(42.1% 0.095 57.708);
-    --color-brand-vivid: oklch(55.4% 0.135 66.442);
   }
   &[data-accent='graphite'] {
     --color-brand-50: oklch(98.4% 0.003 247.858); --color-brand-100: oklch(96.8% 0.007 247.896); --color-brand-200: oklch(92.9% 0.013 255.508); --color-brand-300: oklch(86.9% 0.022 252.894); --color-brand-400: oklch(70.4% 0.04 256.788); --color-brand-500: oklch(55.4% 0.046 257.417); --color-brand-600: oklch(44.6% 0.043 257.281); --color-brand-700: oklch(37.2% 0.044 257.287); --color-brand-800: oklch(27.9% 0.041 260.031); --color-brand-900: oklch(20.8% 0.042 265.755);
     --color-duo-50: oklch(98.5% 0 none); --color-duo-100: oklch(96.7% 0.001 286.375); --color-duo-200: oklch(92% 0.004 286.32); --color-duo-300: oklch(87.1% 0.006 286.286); --color-duo-400: oklch(70.5% 0.015 286.067); --color-duo-500: oklch(55.2% 0.016 285.938); --color-duo-600: oklch(44.2% 0.017 285.786); --color-duo-700: oklch(37% 0.013 285.805); --color-duo-800: oklch(27.4% 0.006 286.033); --color-duo-900: oklch(21% 0.006 285.885);
-    --color-brand-vivid: oklch(44.6% 0.043 257.281);
   }
   /* Dual tone off: gradients collapse to the brand scale. Must stay after the presets. */
   &[data-duo='off'] {
@@ -185,15 +166,17 @@ html[data-update-ready] .install-banner { display: none; }
 @keyframes bubble-a { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-22px, 26px) scale(1.12); } }
 @keyframes bubble-b { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-36px, -24px) scale(0.9); } }
 @keyframes bubble-c { 0%, 100% { transform: translate(0, 0); opacity: 0.6; } 50% { transform: translate(28px, -34px); opacity: 1; } }
-@utility animate-blob-a { animation: blob-a 6.5s ease-in-out infinite; will-change: transform; }
-@utility animate-blob-b { animation: blob-b 8s ease-in-out infinite; will-change: transform; }
-@utility animate-blob-c { animation: blob-c 5.5s ease-in-out infinite; will-change: transform; }
-@utility animate-smoke-a { animation: smoke-a 5s ease-in-out infinite; will-change: transform, opacity; }
-@utility animate-smoke-b { animation: smoke-b 6s ease-in-out infinite; will-change: transform, opacity; }
-@utility animate-smoke-c { animation: smoke-c 4.2s ease-in-out infinite; will-change: transform, opacity; }
-@utility animate-bubble-a { animation: bubble-a 11s ease-in-out infinite; will-change: transform; }
-@utility animate-bubble-b { animation: bubble-b 14s ease-in-out infinite; will-change: transform; }
-@utility animate-bubble-c { animation: bubble-c 9s ease-in-out infinite; will-change: transform; }
+@utility animate-blob-a { animation: blob-a 6.5s ease-in-out infinite; }
+@utility animate-blob-b { animation: blob-b 8s ease-in-out infinite; }
+@utility animate-blob-c { animation: blob-c 5.5s ease-in-out infinite; }
+@utility animate-smoke-a { animation: smoke-a 5s ease-in-out infinite; }
+@utility animate-smoke-b { animation: smoke-b 6s ease-in-out infinite; }
+@utility animate-smoke-c { animation: smoke-c 4.2s ease-in-out infinite; }
+@utility animate-bubble-a { animation: bubble-a 11s ease-in-out infinite; }
+@utility animate-bubble-b { animation: bubble-b 14s ease-in-out infinite; }
+@utility animate-bubble-c { animation: bubble-c 9s ease-in-out infinite; }
+/* Aurora.tsx adds this while the surface is off-screen or the tab is hidden, so nothing animates unseen. */
+.aurora-paused > * { animation-play-state: paused; }
 
 /* Progress bar with no known percentage (waiting on the AI reader). */
 @keyframes indeterminate {

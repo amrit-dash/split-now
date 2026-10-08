@@ -9,6 +9,8 @@ type Props = Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 
   onChange: (minor: number | undefined) => void
   /** allow a leading minus (adjustments) */
   allowNegative?: boolean
+  /** no `.input` box styling: the caller styles it (the big amount on the expense form) */
+  bare?: boolean
 }
 
 /**
@@ -17,7 +19,7 @@ type Props = Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 
  * text mid-keystroke. The draft re-syncs when the parent changes the value to something else
  * (a reset, a scan, switching currency).
  */
-export function MoneyInput({ value, currency, onChange, allowNegative, className = '', ...rest }: Props) {
+export function MoneyInput({ value, currency, onChange, allowNegative, bare, className = '', ...rest }: Props) {
   const [draft, setDraft] = useState(() => (value === undefined ? '' : centsToInput(value, currency)))
   const last = useRef(value)
   useEffect(() => {
@@ -33,7 +35,7 @@ export function MoneyInput({ value, currency, onChange, allowNegative, className
       type="text"
       inputMode={allowNegative ? 'text' : 'decimal'}
       autoComplete="off"
-      className={`input text-right tabular-nums ${className}`}
+      className={bare ? className : `input text-right tabular-nums ${className}`}
       value={draft}
       onChange={(e) => {
         const text = e.target.value

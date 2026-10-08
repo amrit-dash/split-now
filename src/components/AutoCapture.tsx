@@ -7,40 +7,44 @@ import { useMe } from '@/hooks/auth'
 import { useGroups } from '@/hooks/data'
 import type { Group } from '@/types'
 import { copy } from '@/lib/share'
-import { autoCaptureSummary } from '@/lib/profileSummary'
+import { errText } from '@/lib/errors'
 import { hasTripWindow } from '@/lib/capture'
 import { todayISO } from '@/lib/id'
-import { formatMoney } from '@/lib/money'
+import { formatDate } from '@/lib/locale'
+import { currencySymbol, formatMoney } from '@/lib/money'
 import type { AllPrefs } from '@/lib/push'
 import { IGNORE_SUGGESTIONS, MAX_IGNORE_WORDS, logResultText, logResultTone, relativeTime } from '@/lib/capture-filters'
 import {
   addIgnoreWord, clearCaptureLog, demoTokenUse, paiseToRupeesInput, rupeesToPaise, saveCapturePrefs, watchCaptureLog, watchCapturePrefs,
   type LogRow,
 } from '@/lib/capture-settings'
-import { Collapsible } from './Collapsible'
+import { useConfirm } from './ConfirmSheet'
 import { formatRange } from './Misc'
+import { CardSkeleton } from './Skeleton'
 import { Switch } from './Switch'
 import { useToast } from './Toast'
 
+/** relativeTime falls back to a raw ISO day after a week; show that in the app's date format instead. */
+export const ago = (at: number, now: number) => {
+  const s = relativeTime(at, now)
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? formatDate(at) : s
+}
+
 /**
- * Profile section: capture on/off, what gets captured, filters (minimum amount, ignore keywords),
- * per-trip pause, keys with "last received", recent webhook activity, and the advanced Apple Pay
- * Shortcut / capture-link settings. Settings are enforced by the capture webhook.
+ * Settings → Automation: capture on/off, what gets captured, filters (minimum amount, ignore
+ * keywords), per-trip pause, capture keys with "last received", recent webhook activity, and
+ * the advanced Apple Pay Shortcut / capture-link paths. Settings are enforced by the capture
+ * webhook. Everything saves as it changes.
  */
 export function AutoCapture() {
   const { user } = useMe()
   const toast = useToast()
+  const confirm = useConfirm()
   const groups = useGroups()
   const [tokens, setTokens] = useState<CaptureToken[] | null>(null)
   const [prefs, setPrefs] = useState<AllPrefs | null>(null)
   const [log, setLog] = useState<LogRow[] | null>(null)
   const [busy, setBusy] = useState(false)
-  // Links to /profile#auto-capture (from the SMS wizard or a trip) open this section.
-  const [open, setOpen] = useState(() => typeof location !== 'undefined' && location.hash === '#auto-capture')
-  useEffect(() => {
-    if (open && location.hash === '#auto-capture') document.getElementById('auto-capture')?.scrollIntoView({ block: 'start' })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
   useEffect(() => repo.watchCaptureTokens(user.uid, setTokens), [user.uid])
   useEffect(() => watchCapturePrefs(user.uid, repo.mode, setPrefs), [user.uid])
   useEffect(() => watchCaptureLog(user.uid, repo.mode, setLog), [user.uid])
@@ -48,7 +52,7 @@ export function AutoCapture() {
   const update = (patch: Partial<AllPrefs>) => {
     if (!prefs) return
     setPrefs({ ...prefs, ...patch })
-    saveCapturePrefs(user.uid, repo.mode, patch).catch((e) => toast((e as Error).message, 'err'))
+    saveCapturePrefs(user.uid, repo.mode, patch).catch((e) => toast(errText(e), 'err'))
   }
 
   // The Apple Pay path uses an unscoped key (scoped keys belong to the SMS wizard).
@@ -74,12 +78,12 @@ export function AutoCapture() {
 
   const create = async () => {
     setBusy(true)
-    try { await repo.createCaptureToken(user.uid); toast('Capture key created') } catch (e) { toast((e as Error).message, 'err') } finally { setBusy(false) }
+    try { await repo.createCaptureToken(user.uid); toast('Capture key created') } catch (e) { toast(errText(e), 'err') } finally { setBusy(false) }
   }
-  const revoke = async (t: string) => {
-    if (!confirm('Revoke this key? Shortcuts using it will stop working.')) return
-    await repo.revokeCaptureToken(t)
-    toast('Key revoked')
+  const revoke = async (t: CaptureToken) => {
+    const ok = await confirm({ title: 'Revoke this capture key?', message: 'Shortcuts and macros using it stop working at once. You can create a new key any time.', confirmLabel: 'Revoke', tone: 'danger' })
+    if (!ok) return
+    try { await repo.revokeCaptureToken(t.token); toast('Capture key revoked') } catch (e) { toast(errText(e), 'err') }
   }
   const copyIt = async (text: string, what: string) => toast((await copy(text)) ? `${what} copied` : 'Couldn’t copy', 'ok')
 
@@ -87,39 +91,37 @@ export function AutoCapture() {
   const lastUsed = (t: CaptureToken) => t.lastUsedAt ?? demoUse[t.token]
   const lastAny = Math.max(0, ...(tokens ?? []).map((t) => lastUsed(t) ?? 0)) || undefined
   const paused = prefs?.capturePaused ?? false
-  const summary = tokens?.length && paused ? 'Paused' : autoCaptureSummary(tokens)
 
   return (
-    <Collapsible id="auto-capture" testId="section-auto-capture" title="Auto-capture" icon={<Zap size={20} />}
-      summary={summary} open={open} onOpenChange={setOpen}>
-      <p className="text-sm text-slate-500">
-        Send payments to your <Link to="/inbox" className="font-semibold text-brand-600 dark:text-brand-300">inbox</Link> automatically, then pick a group with one tap. Nothing is ever added without your OK.
+    <div data-testid="section-auto-capture">
+      <p className="text-muted px-1 text-sm">
+        Your phone forwards bank and UPI SMS to Split Now, and they wait in your <Link to="/inbox" className="font-semibold text-brand-600 dark:text-brand-300">Inbox</Link> until you add them to a group. Nothing is ever added without your OK.
       </p>
 
-      {prefs && (
-        <div className="mt-3 flex items-center gap-3 rounded-2xl bg-slate-50 p-3 dark:bg-ink-800" data-testid="capture-master">
-          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${paused ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'}`}>
+      {prefs ? (
+        <div className="card mt-3 flex items-center gap-3 p-3" data-testid="capture-master">
+          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${paused ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'}`} aria-hidden>
             {paused ? <Pause size={18} /> : <Zap size={18} />}
           </span>
           <div className="min-w-0 flex-1">
             <div id="capture-master-label" className="text-sm font-semibold">{paused ? 'Capture paused' : 'Capture payments'}</div>
-            <div className="text-xs text-slate-500">
+            <div className="text-muted text-xs">
               {paused ? 'Forwarded SMS are ignored and nothing is stored.'
-                : !tokens?.length ? 'Not set up yet. Start with SMS auto-capture below.'
-                  : lastAny ? `Last message received ${relativeTime(lastAny, Date.now())}.` : 'Waiting for the first message from your phone.'}
+                : !tokens?.length ? 'Not set up yet.'
+                  : lastAny ? `Last message received ${ago(lastAny, Date.now())}.` : 'Waiting for the first message from your phone.'}
             </div>
           </div>
           <Switch checked={!paused} onChange={(v) => update({ capturePaused: !v })} label="Capture payments" testId="capture-paused-switch" />
         </div>
-      )}
+      ) : <CardSkeleton className="mt-3 h-16" />}
 
-      <Link to="/settings/auto-capture" className="mt-3 flex items-center gap-3 rounded-2xl bg-brand-50 p-3 ring-1 ring-brand-200 dark:bg-brand-900/20 dark:ring-brand-800">
-        <MessageSquareText size={22} className="shrink-0 text-brand-600 dark:text-brand-300" />
+      <Link to="/settings/auto-capture" className="card mt-3 flex items-center gap-3 p-3 ring-1 ring-brand-200 dark:ring-brand-800" data-testid="capture-setup-link">
+        <MessageSquareText size={22} className="shrink-0 text-brand-600 dark:text-brand-300" aria-hidden />
         <div className="min-w-0 flex-1">
-          <div className="font-semibold">{tokens?.length ? 'SMS setup, keys and test' : 'Set up SMS auto-capture'}</div>
-          <div className="text-xs text-slate-500">Recommended. Bank &amp; UPI debit SMS on iPhone or Android, with a “add to your trip?” notification.</div>
+          <div className="font-semibold">{tokens?.length ? 'Set up on a new phone' : 'Set up auto-capture'}</div>
+          <div className="text-muted text-xs">About 3 minutes on an iPhone or Android. Works with any bank that sends SMS.</div>
         </div>
-        <ChevronRight size={18} className="shrink-0 text-slate-400" />
+        <ChevronRight size={18} className="shrink-0 text-slate-400" aria-hidden />
       </Link>
 
       {prefs && (
@@ -127,8 +129,8 @@ export function AutoCapture() {
           <OutsideTripsChoice on={prefs.outsideTrips} onChange={(v) => update({ outsideTrips: v })} />
           <Filters prefs={prefs} onChange={update} />
           {groups && <TripPauses groups={groups} />}
-          <p className="mt-3 px-1 text-xs text-slate-500">
-            {!prefs.captures ? 'Capture notifications are off (Profile → Notifications).'
+          <p className="text-muted mt-3 px-1 text-xs">
+            {!prefs.captures ? 'Capture notifications are off (Settings → Notifications).'
               : prefs.outsideTrips && prefs.unsorted ? 'You’re notified about every captured payment.'
                 : prefs.outsideTrips ? 'You’re notified about trip payments. Turn on “Payments outside a trip” in Notifications to hear about the rest.'
                   : 'You’re notified when a trip payment is captured.'}
@@ -136,28 +138,27 @@ export function AutoCapture() {
         </div>
       )}
 
-      {tokens && tokens.length > 0 && <Keys tokens={tokens} groups={groups ?? []} lastUsed={lastUsed} />}
+      {tokens && tokens.length > 0 && <Keys tokens={tokens} groups={groups ?? []} lastUsed={lastUsed} onCopy={(t) => copyIt(t.token, 'Capture key')} onRevoke={revoke} />}
       {log && <RecentActivity rows={log} onClear={() => clearCaptureLog(user.uid, repo.mode, log).then(() => toast('Activity cleared'))} />}
 
-      <details className="mt-3 rounded-2xl ring-1 ring-slate-200 p-3 dark:ring-ink-700">
-        <summary className="cursor-pointer text-sm font-semibold text-slate-600 dark:text-slate-300">Advanced: Apple Pay Shortcut and capture links</summary>
+      <details className="card mt-3 p-3">
+        <summary className="text-muted cursor-pointer py-1 text-sm font-semibold">Advanced: Apple Pay Shortcut and capture links</summary>
 
       {tokens === null ? null : !token ? (
-        <button className="btn-secondary mt-3 w-full" onClick={create} disabled={busy}><KeyRound size={18} /> Create a capture key</button>
+        <button type="button" className="btn-secondary mt-3 w-full" onClick={create} disabled={busy}><KeyRound size={18} aria-hidden /> Create a capture key</button>
       ) : (
         <div className="mt-3 space-y-3">
-          <div className="flex items-center gap-2 rounded-2xl bg-slate-50 p-3 dark:bg-ink-800">
-            <KeyRound size={16} className="shrink-0 text-slate-400" />
+          <div className="flex items-center gap-2 rounded-2xl bg-slate-50 p-2 pl-3 dark:bg-ink-800">
+            <KeyRound size={16} className="shrink-0 text-slate-500" aria-hidden />
             <code className="min-w-0 flex-1 truncate text-xs">{token.token}</code>
-            <button className="rounded-full p-1.5 text-slate-500" onClick={() => copyIt(token.token, 'Key')} aria-label="Copy key"><Copy size={16} /></button>
-            <button className="rounded-full p-1.5 text-rose-500" onClick={() => revoke(token.token)} aria-label="Revoke key"><Trash2 size={16} /></button>
+            <button type="button" className="flex h-11 w-11 items-center justify-center rounded-full text-slate-600 dark:text-slate-300" onClick={() => copyIt(token.token, 'Capture key')} aria-label="Copy capture key"><Copy size={16} /></button>
           </div>
-          <p className="text-xs text-slate-500">Anyone with this key can add items to your inbox (never read your data). Revoke it if it leaks.</p>
+          <p className="text-muted text-xs">Anyone with this key can add items to your Inbox (never read your data). Revoke it under “Your capture keys” if it leaks.</p>
         </div>
       )}
 
       <details className="mt-4 rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800" open={!!token}>
-        <summary className="cursor-pointer font-semibold"><Smartphone size={15} className="mr-1 inline" /> iPhone: Apple Pay Shortcut (iOS 17+)</summary>
+        <summary className="cursor-pointer font-semibold"><Smartphone size={15} className="mr-1 inline" aria-hidden /> iPhone: Apple Pay Shortcut (iOS 17+)</summary>
         <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-slate-600 dark:text-slate-300">
           <li>Shortcuts → <b>Automation</b> → <b>+</b> → <b>Transaction</b>. Pick your cards, choose <b>Run Immediately</b>.</li>
           <li>Add <b>Format Date</b>: Current Date, ISO 8601, include time.</li>
@@ -170,51 +171,51 @@ export function AutoCapture() {
             <CopyBlock label="Body" value={body} onCopy={() => copyIt(body, 'Body')} />
           </div>
         ) : (
-          <p className="mt-3 text-xs text-slate-500">{firebase ? 'Create a capture key to get your URL and body.' : 'Background capture needs Firebase. In demo mode, use the Open URL link below instead.'}</p>
+          <p className="text-muted mt-3 text-xs">{firebase ? 'Create a capture key to get your URL and body.' : 'Background capture needs Firebase. In demo mode, use the Open URL link below instead.'}</p>
         )}
-        <p className="mt-3 text-xs text-slate-500">Prefer to confirm straight away? Use <b>Open URL</b> with the link below instead (it opens Safari).</p>
+        <p className="text-muted mt-3 text-xs">Prefer to confirm straight away? Use <b>Open URL</b> with the link below instead (it opens Safari).</p>
         <CopyBlock label="Open URL" value={openUrl} onCopy={() => copyIt(openUrl, 'Link')} />
-        <p className="mt-2 text-xs text-slate-500">Apple Pay captures and capture links don’t go through the SMS filters above.</p>
+        <p className="text-muted mt-2 text-xs">Apple Pay captures and capture links don’t go through the SMS filters above.</p>
       </details>
 
       <details className="mt-2 rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800">
-        <summary className="cursor-pointer font-semibold"><Smartphone size={15} className="mr-1 inline" /> Android</summary>
+        <summary className="cursor-pointer font-semibold"><Smartphone size={15} className="mr-1 inline" aria-hidden /> Android</summary>
         <ul className="mt-2 list-disc space-y-1.5 pl-5 text-slate-600 dark:text-slate-300">
           <li>Install Split Now, then <b>Share</b> a payment screenshot, receipt or bank message to it.</li>
           <li>Tasker / MacroDroid: on a Google Wallet or bank notification, open
             <code className="break-all"> {location.origin}/capture?v=1&amp;amount=%amount&amp;merchant=%merchant&amp;src=android-auto</code></li>
         </ul>
       </details>
-      <Link to={`/capture?v=1&amount=4.50&merchant=Test%20Cafe&src=manual&ref=test-${user.uid.slice(0, 6)}-${new Date().toISOString().slice(0, 10)}`} className="btn-ghost mt-2 w-full">Try a test capture</Link>
+      <Link to={`/capture?v=1&amount=4.50&merchant=Test%20Cafe&src=manual&ref=test-${user.uid.slice(0, 6)}-${todayISO()}`} className="btn-ghost mt-2 w-full">Try a test capture</Link>
       </details>
-    </Collapsible>
+    </div>
   )
 }
 
 function CopyBlock({ label, value, onCopy }: { label: string; value: string; onCopy: () => void }) {
   return (
     <div className="mt-2">
-      <div className="mb-1 flex items-center justify-between text-xs font-semibold text-slate-500">
+      <div className="text-muted mb-1 flex items-center justify-between text-xs font-semibold">
         {label}
-        <button className="inline-flex items-center gap-1 text-brand-600 dark:text-brand-300" onClick={onCopy}><Copy size={13} /> Copy</button>
+        <button type="button" className="inline-flex min-h-9 items-center gap-1 px-2 text-brand-600 dark:text-brand-300" onClick={onCopy}><Copy size={13} aria-hidden /> Copy</button>
       </div>
-      <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-xl bg-white p-2 font-mono text-[11px] dark:bg-ink-900">{value}</pre>
+      <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-xl bg-white p-2 font-mono text-xs dark:bg-ink-900">{value}</pre>
     </div>
   )
 }
 
 function Panel({ title, children, testId }: { title: string; children: ReactNode; testId?: string }) {
   return (
-    <div className="mt-3 rounded-2xl bg-slate-50 p-3 dark:bg-ink-800" data-testid={testId}>
-      <div className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">{title}</div>
+    <section className="card mt-3 p-3" data-testid={testId}>
+      <h2 className="text-muted mb-2 text-xs font-bold uppercase tracking-wide">{title}</h2>
       {children}
-    </div>
+    </section>
   )
 }
 
 /**
  * Which debit SMS get captured: inside a trip's dates only (default), or every debit (the rest
- * land in the inbox unsorted). Stored with the notification prefs; enforced by the webhook.
+ * land in the Inbox unsorted). Stored with the notification prefs; enforced by the webhook.
  */
 function OutsideTripsChoice({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -222,16 +223,16 @@ function OutsideTripsChoice({ on, onChange }: { on: boolean; onChange: (v: boole
       <div role="radiogroup" aria-label="What gets captured" className="space-y-1.5">
         {[
           { v: false, title: 'Only payments during a trip', hint: 'Debit SMS dated inside a group’s trip dates. Everything else is ignored and never stored.' },
-          { v: true, title: 'All bank & UPI payments', hint: 'Payments outside a trip also land in your inbox to sort later.' },
+          { v: true, title: 'All bank & UPI payments', hint: 'Payments outside a trip also land in your Inbox to sort later.' },
         ].map((o) => (
           <button key={String(o.v)} type="button" role="radio" aria-checked={on === o.v} onClick={() => onChange(o.v)}
-            className={`flex w-full items-start gap-3 rounded-xl p-2.5 text-left transition ${on === o.v ? 'bg-white ring-2 ring-brand-500 dark:bg-ink-900' : ''}`}>
-            <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${on === o.v ? 'border-brand-600 bg-brand-600' : 'border-slate-300 dark:border-ink-700'}`}>
+            className={`flex w-full items-start gap-3 rounded-xl p-2.5 text-left transition ${on === o.v ? 'bg-brand-50 ring-2 ring-brand-500 dark:bg-brand-900/20' : ''}`}>
+            <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${on === o.v ? 'border-brand-600 bg-brand-600' : 'border-slate-400 dark:border-ink-700'}`} aria-hidden>
               {on === o.v && <span className="h-2 w-2 rounded-full bg-white" />}
             </span>
             <span className="min-w-0">
               <span className="block text-sm font-semibold">{o.title}</span>
-              <span className="block text-xs text-slate-500">{o.hint}</span>
+              <span className="text-muted block text-xs">{o.hint}</span>
             </span>
           </button>
         ))}
@@ -264,22 +265,22 @@ function Filters({ prefs, onChange }: { prefs: AllPrefs; onChange: (p: Partial<A
       <label htmlFor="capture-min" className="text-sm font-semibold">Ignore small payments</label>
       <div className="mt-1 flex items-center gap-2">
         <div className="relative w-36">
-          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">₹</span>
+          <span className="text-muted pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" aria-hidden>{currencySymbol('INR')}</span>
           <input id="capture-min" className="input !pl-7" inputMode="decimal" placeholder="0" value={min} data-testid="capture-min"
             onChange={(e) => setMin(e.target.value)} onBlur={commitMin} onKeyDown={(e) => { if (e.key === 'Enter') commitMin() }} />
         </div>
-        <span className="text-xs text-slate-500">{prefs.minAmount ? 'Debits below this are skipped.' : 'Off: every amount is captured.'}</span>
+        <span className="text-muted text-xs">{prefs.minAmount ? 'Debits below this are skipped.' : 'Off: every amount is captured.'}</span>
       </div>
-      <p className="mt-1 text-xs text-slate-500">Rupee payments only; foreign-currency card spends are always captured.</p>
+      <p className="text-muted mt-1 text-xs">Rupee payments only; foreign-currency card spends are always captured.</p>
 
       <div className="mt-4 text-sm font-semibold" id="capture-ignore-label">Ignore keywords</div>
-      <p className="text-xs text-slate-500">Skip debits whose SMS or merchant mentions one of these (any case), like SIPs, rent or card bills.</p>
+      <p className="text-muted text-xs">Skip debits whose SMS or merchant mentions one of these (any case), like SIPs, rent or card bills.</p>
       {prefs.ignoreWords.length > 0 && (
         <ul className="mt-2 flex flex-wrap gap-1.5" aria-labelledby="capture-ignore-label">
           {prefs.ignoreWords.map((w) => (
-            <li key={w} className="chip !py-1 bg-white dark:bg-ink-900">
+            <li key={w} className="chip !py-1 !pr-1 bg-white dark:bg-ink-900">
               {w}
-              <button type="button" className="-mr-1 rounded-full p-0.5 text-slate-400 hover:text-rose-500" onClick={() => remove(w)} aria-label={`Remove ${w}`}><X size={14} /></button>
+              <button type="button" className="flex h-7 w-7 items-center justify-center rounded-full text-slate-500 hover:text-rose-600 dark:text-slate-400" onClick={() => remove(w)} aria-label={`Remove ${w}`}><X size={14} /></button>
             </li>
           ))}
         </ul>
@@ -292,7 +293,7 @@ function Filters({ prefs, onChange }: { prefs: AllPrefs; onChange: (p: Partial<A
       {!full && suggestions.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {suggestions.map((s) => (
-            <button key={s} type="button" className="chip !py-1 text-xs text-slate-600 dark:text-slate-300" onClick={() => add(s)}><Plus size={12} /> {s}</button>
+            <button key={s} type="button" className="chip !py-1.5 text-xs text-slate-700 dark:text-slate-300" onClick={() => add(s)}><Plus size={12} aria-hidden /> {s}</button>
           ))}
         </div>
       )}
@@ -305,11 +306,11 @@ function TripPauses({ groups }: { groups: Group[] }) {
   const toast = useToast()
   const today = todayISO()
   const trips = groups
-    .filter((g) => g.type !== 'personal' && g.type !== 'direct' && hasTripWindow(g) && (!g.endDate || g.endDate >= today))
+    .filter((g) => g.type !== 'personal' && g.type !== 'direct' && !g.archived && hasTripWindow(g) && (!g.endDate || g.endDate >= today))
     .sort((a, b) => (a.startDate ?? '').localeCompare(b.startDate ?? ''))
   if (!trips.length) return null
   const set = (g: Group, off: boolean) => {
-    repo.updateGroupSettings(g, { captureOff: off || undefined }).catch((e) => toast((e as Error).message, 'err'))
+    repo.updateGroupSettings(g, { captureOff: off || undefined }).catch((e) => toast(errText(e), 'err'))
     toast(off ? `Capture paused for ${g.name}` : `Capture on for ${g.name}`)
   }
   return (
@@ -320,44 +321,51 @@ function TripPauses({ groups }: { groups: Group[] }) {
             <span className="text-lg" aria-hidden>{g.emoji}</span>
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-semibold" id={`trip-cap-${g.id}`}>{g.name}</div>
-              <div className="truncate text-xs text-slate-500">{formatRange(g.startDate, g.endDate)}{g.captureOff ? ' · paused' : ''}</div>
+              <div className="text-muted truncate text-xs">{formatRange(g.startDate, g.endDate)}{g.captureOff ? ' · paused' : ''}</div>
             </div>
             <Switch checked={!g.captureOff} onChange={(v) => set(g, !v)} label={`Capture for ${g.name}`} />
           </li>
         ))}
       </ul>
-      <p className="mt-1 text-xs text-slate-500">Pausing a trip applies to everyone in it: their payments during it are skipped too.</p>
+      <p className="text-muted mt-1 text-xs">Pausing a trip applies to everyone in it: their payments during it are skipped too.</p>
     </Panel>
   )
 }
 
-function Keys({ tokens, groups, lastUsed }: { tokens: CaptureToken[]; groups: Group[]; lastUsed: (t: CaptureToken) => number | undefined }) {
+function Keys({ tokens, groups, lastUsed, onCopy, onRevoke }: {
+  tokens: CaptureToken[]; groups: Group[]; lastUsed: (t: CaptureToken) => number | undefined; onCopy: (t: CaptureToken) => void; onRevoke: (t: CaptureToken) => void
+}) {
   const now = Date.now()
   return (
-    <Panel title="Your keys" testId="capture-keys">
-      <ul className="space-y-2">
+    <Panel title="Your capture keys" testId="capture-keys">
+      <ul className="space-y-1">
         {tokens.map((t) => {
           const g = t.groupId ? groups.find((x) => x.id === t.groupId) : undefined
           const at = lastUsed(t)
+          const label = t.label ?? (t.groupId ? g?.name ?? 'Trip' : 'All my trips')
           return (
-            <li key={t.token} className="flex items-center gap-2.5">
-              <KeyRound size={16} className="shrink-0 text-slate-400" />
+            <li key={t.token} className="flex items-center gap-2">
+              <KeyRound size={16} className="shrink-0 text-slate-500" aria-hidden />
               <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium">{t.label ?? (t.groupId ? g?.name ?? 'Trip' : 'All my trips')}</div>
-                <div className="truncate text-xs text-slate-500">{at ? `Last received ${relativeTime(at, now)}` : 'Nothing received yet'} · <code>{t.token.slice(0, 6)}…</code></div>
+                <div className="truncate text-sm font-medium">{label}</div>
+                <div className="text-muted truncate text-xs">
+                  {t.groupId ? (g ? formatRange(g.startDate, g.endDate) || 'No trip dates' : 'Group no longer available') : 'Any trip'} · {at ? `last received ${ago(at, now)}` : 'nothing received yet'} · <code>{t.token.slice(0, 6)}…</code>
+                </div>
               </div>
+              <button type="button" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-600 dark:text-slate-300" onClick={() => onCopy(t)} aria-label={`Copy capture key for ${label}`}><Copy size={16} /></button>
+              <button type="button" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-rose-600 dark:text-rose-400" onClick={() => onRevoke(t)} aria-label={`Revoke capture key for ${label}`}><Trash2 size={16} /></button>
             </li>
           )
         })}
       </ul>
-      <Link to="/settings/auto-capture" className="mt-2 inline-block text-xs font-semibold text-brand-600 dark:text-brand-300">Manage keys →</Link>
+      <p className="text-muted mt-1 text-xs">A key lets your phone add payments to your Inbox and nothing else. Revoke one if it leaks or a phone is gone.</p>
     </Panel>
   )
 }
 
 const TONE: Record<'ok' | 'muted' | 'warn', string> = {
   ok: 'bg-emerald-500',
-  muted: 'bg-slate-300 dark:bg-ink-600',
+  muted: 'bg-slate-400 dark:bg-ink-600',
   warn: 'bg-amber-500',
 }
 
@@ -367,7 +375,7 @@ function RecentActivity({ rows, onClear }: { rows: LogRow[]; onClear: () => void
   return (
     <Panel title="Recent activity" testId="capture-activity">
       {rows.length === 0 ? (
-        <p className="flex items-start gap-2 text-xs text-slate-500"><Activity size={14} className="mt-0.5 shrink-0" /> Nothing yet. Every message your phone forwards shows up here, captured or not, so you can tell the automation is working.</p>
+        <p className="text-muted flex items-start gap-2 text-xs"><Activity size={14} className="mt-0.5 shrink-0" aria-hidden /> Nothing yet. Every message your phone forwards shows up here, captured or not, so you can tell the automation is working.</p>
       ) : (
         <>
           <ul className="divide-y divide-slate-200/70 dark:divide-white/5">
@@ -378,15 +386,15 @@ function RecentActivity({ rows, onClear }: { rows: LogRow[]; onClear: () => void
                   <div className="truncate text-sm">
                     {r.amount ? <b>{formatMoney(r.amount, r.currency ?? 'INR')}</b> : null}
                     {r.amount && r.merchant ? ` at ${r.merchant}` : !r.amount && r.merchant ? r.merchant : null}
-                    {!r.amount && !r.merchant ? <span className="text-slate-500">Message</span> : null}
+                    {!r.amount && !r.merchant ? <span className="text-muted">Message</span> : null}
                   </div>
-                  <div className="truncate text-xs text-slate-500">{logResultText(r)}</div>
+                  <div className="text-muted truncate text-xs">{logResultText(r)}</div>
                 </div>
-                <time className="shrink-0 text-[11px] text-slate-400" dateTime={new Date(r.at).toISOString()}>{relativeTime(r.at, now)}</time>
+                <time className="text-muted shrink-0 text-xs" dateTime={new Date(r.at).toISOString()}>{ago(r.at, now)}</time>
               </li>
             ))}
           </ul>
-          <button type="button" className="mt-1 text-xs font-semibold text-slate-500" onClick={onClear}>Clear activity</button>
+          <button type="button" className="text-muted mt-1 min-h-9 text-xs font-semibold" onClick={onClear}>Clear activity</button>
         </>
       )}
     </Panel>

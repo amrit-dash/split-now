@@ -24,7 +24,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {/* Bottom of the screen, just above the tab bar where there is one (see .toast-stack). */}
       <div className="toast-stack pointer-events-none fixed inset-x-0 z-[100] mx-auto flex max-w-lg flex-col items-center gap-2 px-4" role="status" aria-live="polite">
         {toasts.map((t) => (
-          <div key={t.id} className={`animate-toast pointer-events-auto flex max-w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-white shadow-xl ${t.tone === 'ok' ? 'bg-slate-900 dark:bg-ink-700' : 'bg-rose-600'}`}>
+          <div key={t.id} role={t.tone === 'err' ? 'alert' : undefined} className={`animate-toast pointer-events-auto flex max-w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-white shadow-xl ${t.tone === 'ok' ? 'bg-slate-900 dark:bg-ink-700' : 'bg-rose-600'}`}>
             <span className="min-w-0">{t.text}</span>
             {t.action && (
               <button

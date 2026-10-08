@@ -1,5 +1,5 @@
 import type { Cents, PaymentHandles } from '@/types'
-import { centsToInput } from './money'
+import { centsToInput, minorDigits } from './money'
 
 /*
  * How to pay someone: their handles turned into copyable values and deep links.
@@ -137,6 +137,29 @@ export function settleMethods(currency: string): string[] {
   if (currency === 'INR') return ['UPI', 'Cash', 'Bank transfer', 'Other']
   if (currency === 'AUD') return ['PayID', 'Bank transfer', 'Cash', 'PayPal', 'Other']
   return ['Bank transfer', 'Cash', 'PayPal', 'Revolut', 'UPI', 'Other']
+}
+
+/**
+ * How a settlement's method reads in lists. 'waived' is written by Settle up's "Waive the rest"
+ * (the person owed let the remainder go); any other method is shown as stored.
+ */
+export function methodLabel(method: string): string {
+  return method === 'waived' ? 'Waived' : method
+}
+
+/**
+ * Round figures near a debt for a part payment, nearest below and above (₹1,247 → ₹1,200 and
+ * ₹1,250; ₹83 → ₹80 and ₹90). The step grows with the amount; a debt already on a round figure
+ * gets nothing.
+ */
+export function roundSuggestions(owed: Cents, currency: string): Cents[] {
+  if (!Number.isFinite(owed) || owed <= 0) return []
+  const unit = 10 ** minorDigits(currency)
+  const major = owed / unit
+  const step = (major < 50 ? 5 : major < 200 ? 10 : major < 2000 ? 50 : major < 20000 ? 500 : 1000) * unit
+  const down = Math.floor(owed / step) * step
+  const up = Math.ceil(owed / step) * step
+  return [...new Set([down, up])].filter((v) => v > 0 && v !== owed)
 }
 
 /** The settlement method a pay option implies. */

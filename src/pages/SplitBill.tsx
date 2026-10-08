@@ -15,6 +15,8 @@ import { AiScanToggle } from '@/components/AiScanToggle'
 import { DateField } from '@/components/DateField'
 import { GroupIcon } from '@/components/GroupIcon'
 import { Loading, PageHeader, Spinner } from '@/components/Misc'
+import { errText } from '@/lib/errors'
+import { titleCase } from '@/lib/expense-draft'
 import { currencyOptions, Select } from '@/components/Select'
 import { useToast } from '@/components/Toast'
 
@@ -89,9 +91,10 @@ export default function SplitBill() {
     try {
       const r = await ocr.read(f)
       apply(r.parsed)
-      if (r.fellBack) toast('AI isn’t available, so this was read on the phone. Set it up in Profile → AI features.', 'err')
+      // The fallback worked; whether AI is on is an admin / quota matter, not an error.
+      if (r.fellBack) toast('Read on this phone (AI isn’t available right now)')
     } catch (e) {
-      toast('Couldn’t read the image: ' + (e as Error).message, 'err')
+      toast(`Couldn’t read the image: ${errText(e)}`, 'err')
     }
   }
 
@@ -117,7 +120,7 @@ export default function SplitBill() {
       ))
       nav(`/t/${code}`, { replace: true })
     } catch (e) {
-      toast((e as Error).message, 'err')
+      toast(errText(e), 'err')
       setBusy(false)
     }
   }
@@ -148,7 +151,7 @@ export default function SplitBill() {
             <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-duo-500 text-2xl text-white shadow-lg">🧾</div>
             <div className="min-w-0">
               <div className="font-bold">Scan the bill</div>
-              <p className="text-sm text-slate-500">We’ll pull out the items, taxes and total. Or type them in below.</p>
+              <p className="text-sm text-muted">We’ll pull out the items, taxes and total. Or type them in below.</p>
             </div>
           </div>
         )}
@@ -194,7 +197,7 @@ export default function SplitBill() {
             <div key={r.id} className="flex gap-2">
               <input className="input !py-2" placeholder={`Item ${i + 1}`} aria-label={`Item ${i + 1} name`} value={r.name} onChange={(e) => setRow(r.id, { name: e.target.value })} />
               <input className="input !w-28 shrink-0 !py-2 text-right tabular-nums" inputMode="decimal" placeholder="0.00" aria-label={`Item ${i + 1} amount`} value={r.amount} onChange={(e) => setRow(r.id, { amount: e.target.value })} />
-              <button type="button" className="shrink-0 p-2 text-slate-400 hover:text-rose-500 disabled:opacity-30" disabled={rows.length === 1} onClick={() => setRows(rows.filter((x) => x.id !== r.id))} aria-label={`Remove item ${i + 1}`}><Trash2 size={18} /></button>
+              <button type="button" className="flex h-11 w-11 shrink-0 items-center justify-center text-muted hover:text-rose-600 disabled:opacity-30" disabled={rows.length === 1} onClick={() => setRows(rows.filter((x) => x.id !== r.id))} aria-label={`Remove item ${i + 1}`}><Trash2 size={18} /></button>
             </div>
           ))}
         </div>
@@ -208,10 +211,10 @@ export default function SplitBill() {
             </label>
           ))}
         </div>
-        <p className="mt-2 text-xs text-slate-500">Tax, tip and discounts are shared in proportion to what each person had.</p>
+        <p className="mt-2 text-xs text-muted">Tax, tip and discounts are shared in proportion to what each person had.</p>
 
         <div className="mt-3 space-y-1 rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800">
-          <div className="flex justify-between text-slate-500"><span>Items</span><span className="tabular-nums">{formatMoney(itemsSum, cur)}</span></div>
+          <div className="flex justify-between text-muted"><span>Items</span><span className="tabular-nums">{formatMoney(itemsSum, cur)}</span></div>
           <div className="flex justify-between font-bold"><span>Total</span><span className="tabular-nums" data-testid="bill-total">{formatMoney(total, cur)}</span></div>
           {printed !== undefined && gap !== 0 && (
             <div className="flex items-center justify-between gap-2 pt-1 text-amber-700 dark:text-amber-300">
@@ -225,12 +228,12 @@ export default function SplitBill() {
         </div>
       </div>
 
-      <p className="mt-4 px-1 text-center text-xs text-slate-500">Next, friends scan your QR code and tap what they had. No app or account needed, and you can still edit the bill while it’s live.</p>
+      <p className="mt-4 px-1 text-center text-xs text-muted">Next, friends scan your QR code and tap what they had. No app or account needed, and you can still edit the bill while it’s live.</p>
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/70 bg-white/90 backdrop-blur-xl safe-bottom dark:border-white/5 dark:bg-ink-900/90">
         <div className="mx-auto flex max-w-lg items-center gap-3 px-4 py-3">
           <div className="min-w-0 flex-1">
-            <div className="text-xs text-slate-500">{filled.length} item{filled.length === 1 ? '' : 's'}</div>
+            <div className="text-xs text-muted">{filled.length} item{filled.length === 1 ? '' : 's'}</div>
             <div className="text-2xl font-extrabold tabular-nums">{formatMoney(total, cur)}</div>
           </div>
           <button className="btn-primary" onClick={start} disabled={busy || ocr.busy} data-testid="start-table">
@@ -240,8 +243,4 @@ export default function SplitBill() {
       </div>
     </div>
   )
-}
-
-function titleCase(s: string) {
-  return s.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())
 }

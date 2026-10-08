@@ -6,35 +6,38 @@ import { useToast } from './components/Toast'
 import { Layout } from './components/Layout'
 import { Loading } from './components/Misc'
 import { UpdatePrompt } from './components/UpdatePrompt'
+import { errText } from './lib/errors'
 import { takeStashedCapture } from './lib/pending'
 import { refreshPush, watchPrefs } from './lib/push'
 import { setAiScan } from './lib/ai'
 import { GroupDataProvider } from './hooks/groupData'
 import { primeAiStatus } from './hooks/useAiStatus'
+import { IDLE_PREFETCH, load, prefetch, routeKey } from './routes'
 import Login from './pages/Login'
 import Home from './pages/Home'
 import Groups from './pages/Groups'
 
-const GroupForm = lazy(() => import('./pages/GroupForm'))
-const GroupDetail = lazy(() => import('./pages/GroupDetail'))
-const ExpenseForm = lazy(() => import('./pages/ExpenseForm'))
-const SplitBill = lazy(() => import('./pages/SplitBill'))
-const ExpenseDetail = lazy(() => import('./pages/ExpenseDetail'))
-const SettleUp = lazy(() => import('./pages/SettleUp'))
-const Scan = lazy(() => import('./pages/Scan'))
-const Friends = lazy(() => import('./pages/Friends'))
-const Insights = lazy(() => import('./pages/Insights'))
-const Profile = lazy(() => import('./pages/Profile'))
-const Join = lazy(() => import('./pages/Join'))
-const Capture = lazy(() => import('./pages/Capture'))
-const CaptureGuest = lazy(() => import('./pages/CaptureGuest'))
-const Inbox = lazy(() => import('./pages/Inbox'))
-const AutoCaptureSetup = lazy(() => import('./pages/AutoCaptureSetup'))
-const Share = lazy(() => import('./pages/Share'))
-const Settings = lazy(() => import('./pages/Settings'))
-const ImportGroup = lazy(() => import('./pages/ImportGroup'))
-const Table = lazy(() => import('./pages/Table'))
-const TableEntry = lazy(() => import('./pages/Table').then((m) => ({ default: m.TableEntry })))
+// Lazy screens share their import() thunks with the prefetchers (src/routes.ts).
+const GroupForm = lazy(load.GroupForm)
+const GroupDetail = lazy(load.GroupDetail)
+const ExpenseForm = lazy(load.ExpenseForm)
+const SplitBill = lazy(load.SplitBill)
+const ExpenseDetail = lazy(load.ExpenseDetail)
+const SettleUp = lazy(load.SettleUp)
+const Scan = lazy(load.Scan)
+const Friends = lazy(load.Friends)
+const Insights = lazy(load.Insights)
+const Profile = lazy(load.Profile)
+const Join = lazy(load.Join)
+const Capture = lazy(load.Capture)
+const CaptureGuest = lazy(load.CaptureGuest)
+const Inbox = lazy(load.Inbox)
+const AutoCaptureSetup = lazy(load.AutoCaptureSetup)
+const Share = lazy(load.Share)
+const Settings = lazy(load.Settings)
+const ImportGroup = lazy(load.ImportGroup)
+const Table = lazy(load.Table)
+const TableEntry = lazy(() => load.Table().then((m) => ({ default: m.TableEntry })))
 
 export default function App() {
   const { user, loading } = useAuth()
@@ -43,7 +46,7 @@ export default function App() {
   const toast = useToast()
 
   // Saves resolve locally (so they work offline); a later server rejection lands here.
-  useEffect(() => repo.onError((e) => toast(e.message, 'err')), [toast])
+  useEffect(() => repo.onError((e) => toast(errText(e), 'err')), [toast])
 
   useEffect(() => {
     if (!user || user.isAnonymous) return
@@ -54,6 +57,20 @@ export default function App() {
     if (capture) nav(`/capture${capture}`, { replace: true })
     else if (back) nav(back, { replace: true })
   }, [user, nav])
+
+  // A notification tap (public/push-sw.js) asks the open window to show that screen in-app, no reload.
+  useEffect(() => {
+    const sw = typeof navigator === 'undefined' ? undefined : navigator.serviceWorker
+    if (!sw) return
+    const onMessage = (e: MessageEvent) => {
+      const d = e.data as { type?: unknown; url?: unknown } | null
+      if (!d || d.type !== 'navigate' || typeof d.url !== 'string') return
+      const u = new URL(d.url, location.origin)
+      if (u.origin === location.origin) nav(u.pathname + u.search + u.hash)
+    }
+    sw.addEventListener('message', onMessage)
+    return () => sw.removeEventListener('message', onMessage)
+  }, [nav])
 
   // Keep this browser's push registration fresh (FCM tokens rotate); no-op without permission.
   useEffect(() => { if (user && !user.isAnonymous && repo.mode === 'firebase') void refreshPush(user.uid) }, [user])
@@ -94,6 +111,9 @@ export default function App() {
 }
 
 function AppRoutes() {
+  usePrefetch()
+  // Layout has its own Suspense around the Outlet (the tab bar stays while a screen loads);
+  // this one covers the full-screen routes below.
   return (
     <GroupDataProvider>
       <Suspense fallback={<Loading />}>
@@ -131,6 +151,40 @@ function AppRoutes() {
   )
 }
 
+/**
+ * Lazy chunks before they are asked for: the usual next screens on idle after the first
+ * signed-in paint, and any in-app link's screen on pointerdown (which lands ~100 ms before the
+ * click React Router acts on). React Router runs navigations as transitions, so a chunk that is
+ * still downloading shows as a frozen tap; this is what keeps that rare.
+ */
+function usePrefetch() {
+  useEffect(() => {
+    // Data Saver: a tap still prefetches (the user asked for that screen); idle time does not.
+    const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true
+    let cancelIdle = () => {}
+    if (!saveData) {
+      const idle = () => { for (const k of IDLE_PREFETCH) prefetch(k) }
+      if (typeof window.requestIdleCallback === 'function') {
+        const id = window.requestIdleCallback(idle, { timeout: 4000 })
+        cancelIdle = () => window.cancelIdleCallback(id)
+      } else {
+        const id = window.setTimeout(idle, 2000)
+        cancelIdle = () => window.clearTimeout(id)
+      }
+    }
+    const onPointerDown = (e: Event) => {
+      const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null
+      if (!a || a.target === '_blank' || a.origin !== location.origin) return
+      prefetch(routeKey(a.pathname))
+    }
+    document.addEventListener('pointerdown', onPointerDown, { capture: true, passive: true })
+    return () => {
+      cancelIdle()
+      document.removeEventListener('pointerdown', onPointerDown, true)
+    }
+  }, [])
+}
+
 function TableRoutes() {
   return (
     <Routes>
@@ -140,10 +194,11 @@ function TableRoutes() {
   )
 }
 
+/** The sign-in wait: the same gradient and mark as the HTML splash (index.html, #root:empty), so the hand-over is invisible. */
 function Splash() {
   return (
     <div className="flex min-h-dvh items-center justify-center bg-gradient-to-br from-brand-700 to-duo-700">
-      <img src="/pwa-192.png" alt="Split Now" className="animate-pop h-20 w-20 rounded-3xl shadow-2xl" />
+      <img src="/favicon.svg" alt="Split Now" className="h-20 w-20 drop-shadow-[0_20px_30px_rgb(0_0_0/0.35)]" />
     </div>
   )
 }

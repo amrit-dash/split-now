@@ -1,10 +1,15 @@
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { BarChart3, Home, Plus, User, Users } from 'lucide-react'
+import { useAllGroupData } from '@/hooks/data'
+import { useInbox } from '@/hooks/useInbox'
+import { applyIconTint } from '@/lib/accent'
+import { setBadge } from '@/lib/push'
 import { InstallBanner } from './InstallBanner'
 import { Aurora } from './Aurora'
 import { CaptureAlert } from './CaptureAlert'
 import { CreateSheet } from './CreateSheet'
+import { Loading } from './Misc'
 
 const tabs = [
   { to: '/', icon: Home, label: 'Home', end: true },
@@ -19,17 +24,35 @@ export function Layout() {
   const groupMatch = loc.pathname.match(/^\/groups\/([^/]+)/)
   const groupId = groupMatch && groupMatch[1] !== 'new' && groupMatch[1] !== 'import' ? groupMatch[1] : undefined
   const [creating, setCreating] = useState(false)
-  // Lets fixed banners (UpdatePrompt) sit above the tab bar only on screens that have one.
+  const main = useRef<HTMLElement>(null)
+  // Lets fixed banners (UpdatePrompt) and the toast stack sit above the tab bar only on screens that have one.
   useEffect(() => {
     document.documentElement.setAttribute('data-nav', '')
     return () => document.documentElement.removeAttribute('data-nav')
   }, [])
+  // The browser-tab icon follows the accent (desktop); a no-op on phones.
+  useEffect(() => { void applyIconTint() }, [])
+  // Route change: move focus to the new screen's content unless the screen already placed it
+  // (an autofocused field), so screen readers start at the top instead of on a gone element.
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      const el = main.current, active = document.activeElement
+      if (!el || (active && active !== document.body && el.contains(active))) return
+      el.focus({ preventScroll: true })
+    })
+    return () => cancelAnimationFrame(id)
+  }, [loc.pathname])
   return (
     <div className="mx-auto min-h-dvh max-w-2xl px-4 pb-[calc(var(--nav-h)+1.5rem)]">
-      <Outlet />
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-xl focus:bg-brand-600 focus:px-4 focus:py-2 focus:font-semibold focus:text-white">Skip to content</a>
+      {/* The fallback sits inside the content area, so the tab bar never disappears while a screen loads. */}
+      <main id="main" ref={main} tabIndex={-1} className="outline-none">
+        <Suspense fallback={<Loading />}><Outlet /></Suspense>
+      </main>
+      <AppBadge />
       <InstallBanner />
       <CaptureAlert />
-      <nav className="fixed inset-x-0 bottom-0 z-40">
+      <nav className="fixed inset-x-0 bottom-0 z-40" aria-label="Main">
         {/* The bar, with a round notch cut out for the + button (mask in index.css). */}
         <div aria-hidden className="nav-notch absolute inset-0 border-t border-slate-200/70 bg-white/85 backdrop-blur-xl dark:border-white/5 dark:bg-ink-900/85" />
         <div aria-hidden className="nav-notch-glass absolute left-1/2 top-0 h-12 w-28 -translate-x-1/2 bg-white/30 backdrop-blur-md dark:bg-ink-900/30" />
@@ -44,7 +67,7 @@ export function Layout() {
                   aria-label="Create" aria-haspopup="dialog"
                 >
                   <Aurora size="fab" />
-                  <Plus size={28} strokeWidth={2.6} className="relative" />
+                  <Plus size={28} strokeWidth={2.6} className="relative" aria-hidden />
                 </button>
               </div>
             ) : (
@@ -52,10 +75,10 @@ export function Layout() {
                 key={t.to}
                 to={t.to}
                 end={'end' in t}
-                className={({ isActive }) => `group flex w-16 flex-col items-center gap-0.5 py-0.5 text-[11px] font-semibold transition ${isActive ? 'text-brand-800 dark:text-brand-200' : 'text-slate-400'}`}
+                className={({ isActive }) => `group flex w-16 flex-col items-center gap-0.5 py-0.5 text-xs font-semibold transition ${isActive ? 'text-brand-800 dark:text-brand-200' : 'text-muted'}`}
               >
                 {/* Active tab: icon on a pill in a deeper theme shade. */}
-                <span className="flex h-7 w-12 items-center justify-center rounded-full transition-colors group-aria-[current=page]:bg-brand-100 group-aria-[current=page]:text-brand-700 dark:group-aria-[current=page]:bg-brand-500/25 dark:group-aria-[current=page]:text-brand-200">
+                <span className="flex h-7 w-12 items-center justify-center rounded-full transition-colors group-aria-[current=page]:bg-brand-100 group-aria-[current=page]:text-brand-700 dark:group-aria-[current=page]:bg-brand-500/25 dark:group-aria-[current=page]:text-brand-200" aria-hidden>
                   <t.icon size={22} strokeWidth={2.2} />
                 </span>
                 {t.label}
@@ -67,4 +90,16 @@ export function Layout() {
       <CreateSheet open={creating} onClose={() => setCreating(false)} groupId={groupId} />
     </div>
   )
+}
+
+/**
+ * The installed app's icon badge = things that need you (captured payments to sort + expenses
+ * waiting for your OK), never unread activity, so the number stays honest. One subscription for
+ * the whole app; the group store is shared with Home, so this costs no extra listeners.
+ */
+function AppBadge() {
+  const data = useAllGroupData()
+  const box = useInbox(data)
+  useEffect(() => { if (!box.loading) setBadge(box.toSort) }, [box.loading, box.toSort])
+  return null
 }
