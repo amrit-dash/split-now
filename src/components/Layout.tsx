@@ -42,14 +42,21 @@ export function Layout() {
           {tabs.map((t, i) =>
             t === null ? (
               <div key={i} className="relative w-16 self-stretch">
+                {/* Halo: a blurred copy of the button's moving gradient, all round it, so the glow
+                    shifts colour with the button and never ends at the bar's edge. */}
+                <div aria-hidden className="pointer-events-none absolute left-1/2 top-[0.19rem] h-[4.75rem] w-[4.75rem] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-75 blur-[14px] dark:opacity-90">
+                  <Aurora size="fab" />
+                </div>
                 <button
                   onClick={() => setCreating(true)}
                   data-testid="nav-create"
-                  className="fab-glow absolute left-1/2 top-0 flex h-[3.75rem] w-[3.75rem] -translate-x-1/2 -translate-y-[45%] items-center justify-center overflow-hidden rounded-full text-white ring-2 ring-white/70 transition active:scale-95 dark:ring-white/15"
+                  className="fab-3d absolute left-1/2 top-0 flex h-[3.75rem] w-[3.75rem] -translate-x-1/2 -translate-y-[45%] items-center justify-center overflow-hidden rounded-full text-white transition active:translate-y-[-42%] active:scale-95"
                   aria-label="Create" aria-haspopup="dialog"
                 >
                   <Aurora size="fab" />
-                  <Plus size={28} strokeWidth={2.6} className="relative" />
+                  {/* light from above: a soft top highlight and a darker rim below, for depth */}
+                  <span aria-hidden className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(120%_80%_at_50%_0%,rgb(255_255_255/0.38),transparent_55%),radial-gradient(120%_70%_at_50%_110%,rgb(0_0_0/0.22),transparent_60%)]" />
+                  <Plus size={28} strokeWidth={2.6} className="relative drop-shadow-[0_1px_1px_rgb(0_0_0/0.25)]" />
                 </button>
               </div>
             ) : (

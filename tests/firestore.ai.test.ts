@@ -43,6 +43,19 @@ describe('config/ai', () => {
   })
 })
 
+describe('config/app', () => {
+  it('admins set a version string; nobody else writes it', async () => {
+    const v = { version: '2.1.1', updatedAt: 1, updatedBy: 'boss' }
+    await assertSucceeds(getDoc(doc(as('alice'), 'config/app')))
+    await assertFails(setDoc(doc(as('alice'), 'config/app'), v))
+    await assertSucceeds(setDoc(doc(as('boss'), 'config/app'), v))
+    await assertSucceeds(setDoc(doc(as('boss'), 'config/app'), { ...v, version: '2.2.0-beta.1' }))
+    await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...v, version: '<script>' }))
+    await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...v, extra: 1 }))
+    await assertFails(setDoc(doc(as('boss'), 'config/other'), v))
+  })
+})
+
 describe('admins, stats', () => {
   it('you can only see your own admin record; nobody writes it', async () => {
     await assertSucceeds(getDoc(doc(as('boss'), 'admins/boss')))

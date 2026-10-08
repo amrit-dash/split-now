@@ -4,79 +4,98 @@ import { useEffect, useRef } from 'react'
  * Animated brand surface. Soft radial "smoke" patches in a lighter and a darker shade of the theme
  * drift over the brand → duo gradient, swelling and fading so the shades bloom into each other
  * (radial gradients that fade to transparent, so no hard edges). On the card, soft white bubbles
- * float too. Every patch and bubble wanders on a random walk around its own centre, inside a
- * fixed radius: each hop picks a new random point and eases there, so the motion never repeats
- * and differs per person and per visit. Transform and opacity only (Web Animations); nothing
- * moves under prefers-reduced-motion. Put it inside a `relative isolate overflow-hidden` parent
- * and give the content `relative`.
+ * float too.
+ *
+ * Motion is a little 2D physics, not a loop: every shape travels in a straight-ish line in a
+ * random direction (gently curving), and when it reaches the edge of its own box around its home
+ * spot it bounces off and carries on in a new direction. Nothing repeats, and every person and
+ * visit gets different paths. Size and opacity breathe on their own slow, irregular cycles.
+ * One requestAnimationFrame loop, transform/opacity only; nothing moves under
+ * prefers-reduced-motion. Put it inside a `relative isolate overflow-hidden` parent and give the
+ * content `relative`.
  */
 
 type Range = [number, number]
-interface Walk {
-  /** how far from its centre it may roam, in `unit` */
-  r: number
-  unit: '%' | 'px'
+interface Body {
+  /** half-size of the box it may roam, as a fraction of the surface's width / height */
+  bx: number
+  by: number
+  /** px per second */
+  speed: Range
   scale: Range
   opacity?: Range
-  /** seconds per hop */
-  hop: Range
+  /** seconds per breath (size/opacity) */
+  breathe: Range
 }
 
 const rand = ([a, b]: Range) => a + Math.random() * (b - a)
-const point = (w: Walk) => {
-  const a = Math.random() * Math.PI * 2
-  const d = w.r * Math.sqrt(Math.random()) // uniform over the disc, not bunched at the centre
-  return { x: Math.cos(a) * d, y: Math.sin(a) * d, s: rand(w.scale), o: w.opacity ? rand(w.opacity) : undefined }
-}
-const frame = (w: Walk, p: ReturnType<typeof point>): Keyframe => ({
-  transform: `translate(${p.x.toFixed(1)}${w.unit}, ${p.y.toFixed(1)}${w.unit}) scale(${p.s.toFixed(3)})`,
-  ...(p.o !== undefined ? { opacity: p.o } : {}),
-})
+const TURN = 0.9 // rad/s of random steering, so paths curve rather than run on rails
 
-/** Start a random walk on `el`; returns a stop function. */
-function wander(el: HTMLElement, w: Walk): () => void {
-  let cur = point(w)
-  let anim: Animation | undefined
-  let stopped = false
-  const f0 = frame(w, cur)
-  el.style.transform = String(f0.transform)
-  if (f0.opacity !== undefined) el.style.opacity = String(f0.opacity)
-  const step = () => {
-    if (stopped) return
-    const next = point(w)
-    const to = frame(w, next)
-    anim = el.animate([frame(w, cur), to], { duration: rand(w.hop) * 1000, easing: 'cubic-bezier(0.45, 0, 0.55, 1)' })
-    anim.onfinish = () => {
-      el.style.transform = String(to.transform)
-      if (to.opacity !== undefined) el.style.opacity = String(to.opacity)
-      cur = next
-      step()
-    }
+interface State { x: number; y: number; a: number; v: number; w1: number; w2: number; p1: number; p2: number }
+
+function start(b: Body): State {
+  return {
+    x: (Math.random() * 2 - 1) * 0.6, y: (Math.random() * 2 - 1) * 0.6, // in box units (-1..1)
+    a: Math.random() * Math.PI * 2, v: rand(b.speed),
+    w1: (Math.PI * 2) / rand(b.breathe), w2: (Math.PI * 2) / rand([b.breathe[0] * 1.6, b.breathe[1] * 2.2]),
+    p1: Math.random() * Math.PI * 2, p2: Math.random() * Math.PI * 2,
   }
-  // Start each one part-way into a hop so they don't all set off together.
-  const t = setTimeout(step, Math.random() * 1500)
-  return () => { stopped = true; clearTimeout(t); anim?.cancel() }
 }
 
-function useWander(walks: Walk[]) {
+function useBodies(bodies: Body[]) {
+  const box = useRef<HTMLDivElement>(null)
   const refs = useRef<Array<HTMLDivElement | null>>([])
   useEffect(() => {
-    if (typeof Element === 'undefined' || !Element.prototype.animate) return
+    if (typeof window === 'undefined' || !box.current) return
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
-    const stops = refs.current.map((el, i) => (el && walks[i] ? wander(el, walks[i]) : () => {}))
-    return () => stops.forEach((s) => s())
+    const host = box.current
+    const els = refs.current
+    const st = els.map((el, i) => (el && bodies[i] ? start(bodies[i]) : null))
+    let W = host.clientWidth, H = host.clientHeight
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => { W = host.clientWidth; H = host.clientHeight }) : null
+    ro?.observe(host)
+    let raf = 0
+    let last = performance.now()
+    const t0 = last
+    const tick = (now: number) => {
+      const dt = Math.min(0.05, (now - last) / 1000)
+      last = now
+      const t = (now - t0) / 1000
+      for (let i = 0; i < els.length; i++) {
+        const el = els[i], s = st[i], b = bodies[i]
+        if (!el || !s) continue
+        const hx = Math.max(1, b.bx * W), hy = Math.max(1, b.by * H) // box half-size in px
+        s.a += (Math.random() - 0.5) * 2 * TURN * dt
+        let x = s.x * hx + Math.cos(s.a) * s.v * dt
+        let y = s.y * hy + Math.sin(s.a) * s.v * dt
+        // Bounce off the box: mirror the heading, with a little random spin so it doesn't ping-pong.
+        if (Math.abs(x) > hx) { x = Math.sign(x) * hx; s.a = Math.PI - s.a + (Math.random() - 0.5) * 0.8 }
+        if (Math.abs(y) > hy) { y = Math.sign(y) * hy; s.a = -s.a + (Math.random() - 0.5) * 0.8 }
+        s.x = x / hx; s.y = y / hy
+        const k = 0.5 + 0.5 * (0.6 * Math.sin(s.w1 * t + s.p1) + 0.4 * Math.sin(s.w2 * t + s.p2)) // 0..1, irregular
+        const sc = b.scale[0] + (b.scale[1] - b.scale[0]) * k
+        el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) scale(${sc.toFixed(3)})`
+        if (b.opacity) {
+          const ko = 0.5 + 0.25 * Math.sin(s.w2 * t + s.p1) + 0.25 * Math.sin(s.w1 * 1.3 * t + s.p2) // fades on its own rhythm
+          el.style.opacity = (b.opacity[0] + (b.opacity[1] - b.opacity[0]) * ko).toFixed(3)
+        }
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => { cancelAnimationFrame(raf); ro?.disconnect() }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  return (i: number) => (el: HTMLDivElement | null) => { refs.current[i] = el }
+  return { box, ref: (i: number) => (el: HTMLDivElement | null) => { refs.current[i] = el } }
 }
 
-// Card: smoke (light, dark, duo) then bubbles. Hops are slow so the blend reads as smoke.
-const SMOKE = (r: number, opacity: Range): Walk => ({ r, unit: '%', scale: [0.85, 1.3], opacity, hop: [5, 9] })
-const BUBBLE = (r: number): Walk => ({ r, unit: 'px', scale: [0.9, 1.12], hop: [4, 7] })
-const CARD: Walk[] = [SMOKE(22, [0.55, 1]), SMOKE(20, [0.5, 0.95]), SMOKE(25, [0.4, 0.9]), SMOKE(18, [0.35, 0.8]), BUBBLE(26), BUBBLE(22), BUBBLE(18), BUBBLE(14)]
-const FAB: Walk[] = [
-  { r: 22, unit: '%', scale: [0.9, 1.25], opacity: [0.5, 1], hop: [2.6, 4.2] },
-  { r: 22, unit: '%', scale: [0.9, 1.25], opacity: [0.45, 1], hop: [2.8, 4.6] },
-  { r: 18, unit: '%', scale: [0.85, 1.2], opacity: [0.35, 0.9], hop: [2.4, 4] },
+// Card: smoke (light, dark, duo, dark) then bubbles. Smoke drifts slowly so the blend reads as smoke.
+const SMOKE = (opacity: Range): Body => ({ bx: 0.2, by: 0.3, speed: [9, 15], scale: [0.85, 1.3], opacity, breathe: [7, 12] })
+const BUBBLE = (bx: number, by: number): Body => ({ bx, by, speed: [10, 18], scale: [0.92, 1.1], breathe: [6, 10] })
+const CARD: Body[] = [SMOKE([0.55, 1]), SMOKE([0.5, 0.95]), SMOKE([0.4, 0.9]), SMOKE([0.35, 0.8]), BUBBLE(0.1, 0.18), BUBBLE(0.09, 0.15), BUBBLE(0.08, 0.14), BUBBLE(0.07, 0.12)]
+const FAB: Body[] = [
+  { bx: 0.3, by: 0.3, speed: [7, 11], scale: [0.9, 1.25], opacity: [0.5, 1], breathe: [3, 5] },
+  { bx: 0.3, by: 0.3, speed: [7, 11], scale: [0.9, 1.25], opacity: [0.45, 1], breathe: [3.2, 5.5] },
+  { bx: 0.25, by: 0.25, speed: [6, 10], scale: [0.85, 1.2], opacity: [0.35, 0.9], breathe: [2.8, 4.6] },
 ]
 
 /** A patch that fades to transparent at its edge. */
@@ -84,10 +103,10 @@ const bloom = (color: string) => ({ background: `radial-gradient(closest-side, $
 const mix = (v: string, pct: number) => `color-mix(in oklab, var(${v}) ${pct}%, transparent)`
 
 export function Aurora({ size = 'card' }: { size?: 'card' | 'fab' }) {
-  const ref = useWander(size === 'fab' ? FAB : CARD)
+  const { box, ref } = useBodies(size === 'fab' ? FAB : CARD)
   if (size === 'fab') {
     return (
-      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit] bg-gradient-to-br from-brand-500 via-brand-600 to-duo-600">
+      <div ref={box} aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit] bg-gradient-to-br from-brand-500 via-brand-600 to-duo-600">
         <div ref={ref(0)} className="absolute -left-1/2 -top-1/2 h-[140%] w-[140%]" style={bloom(mix('--color-brand-400', 85))} />
         <div ref={ref(1)} className="absolute -bottom-1/2 -right-1/2 h-[140%] w-[140%]" style={bloom(mix('--color-brand-800', 85))} />
         <div ref={ref(2)} className="absolute -left-[10%] top-[10%] h-full w-full" style={bloom(mix('--color-duo-500', 80))} />
@@ -95,17 +114,17 @@ export function Aurora({ size = 'card' }: { size?: 'card' | 'fab' }) {
     )
   }
   return (
-    <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden bg-gradient-to-br from-brand-700 via-brand-600 to-duo-600">
+    <div ref={box} aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden bg-gradient-to-br from-brand-700 via-brand-600 to-duo-600">
       {/* smoke: lighter and darker shades blooming into each other */}
       <div ref={ref(0)} className="absolute -left-[20%] -top-[35%] h-[110%] w-[75%] blur-xl" style={bloom(mix('--color-brand-300', 65))} />
       <div ref={ref(1)} className="absolute -right-[20%] -top-[30%] h-[120%] w-[80%] blur-xl" style={bloom(mix('--color-brand-900', 95))} />
       <div ref={ref(2)} className="absolute -bottom-[40%] left-[10%] h-[110%] w-[80%] blur-xl" style={bloom(mix('--color-duo-500', 70))} />
       <div ref={ref(3)} className="absolute -bottom-[30%] -right-[10%] h-[90%] w-[55%] blur-xl" style={bloom(mix('--color-brand-900', 70))} />
-      {/* bubbles, each roaming around its own spot */}
+      {/* bubbles, each roaming (and bouncing) inside a box around its own spot */}
       <div ref={ref(4)} className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10" />
       <div ref={ref(5)} className="absolute -bottom-16 right-10 h-32 w-32 rounded-full bg-white/[0.08]" />
       <div ref={ref(6)} className="absolute -left-8 top-1/2 h-20 w-20 rounded-full bg-white/[0.06]" />
-      <div ref={ref(7)} className="absolute left-[46%] top-[14%] h-8 w-8 rounded-full bg-white/[0.08]" />
+      <div ref={ref(7)} className="absolute left-[54%] top-[14%] h-8 w-8 rounded-full bg-white/[0.08]" />
     </div>
   )
 }
