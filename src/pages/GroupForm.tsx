@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Plus, Search, UserPlus, X } from 'lucide-react'
 import { repo } from '@/data'
@@ -90,10 +90,19 @@ export default function GroupForm() {
     if (existing) {
       loaded.current = { key: existing.id, base: existing }
       // The rules do not validate `type`: an unknown value reads as Other instead of crashing the screen.
-      setName(existing.name); setEmoji(existing.emoji); setType(groupTypeOf(existing)); setCurrency(existing.currency)
-      setNameTouched(true); setTypeTouched(true); setIconTouched(true); setDatesTouched(true)
-      setBudget(existing.budget || undefined); setSimplify(existing.simplify); setMembers(existing.members)
-      setStartDate(existing.startDate ?? ''); setEndDate(existing.endDate ?? '')
+      setName(existing.name)
+      setEmoji(existing.emoji)
+      setType(groupTypeOf(existing))
+      setCurrency(existing.currency)
+      setNameTouched(true)
+      setTypeTouched(true)
+      setIconTouched(true)
+      setDatesTouched(true)
+      setBudget(existing.budget || undefined)
+      setSimplify(existing.simplify)
+      setMembers(existing.members)
+      setStartDate(existing.startDate ?? '')
+      setEndDate(existing.endDate ?? '')
       setRequireApproval(!!existing.requireApproval)
       setThreshold(existing.approvalThreshold)
     } else if (!groupId) {
@@ -109,15 +118,28 @@ export default function GroupForm() {
   }, [groupId, nameTouched, type, firstOther])
 
   // Quick-add pills: people from your ~4 most recent groups/1:1s (the full list only grows).
-  const isAdded = (k: KnownPerson) => Object.values(members).some((m) => (k.uid && m.uid === k.uid) || m.name.trim().toLowerCase() === k.name.toLowerCase())
+  const isAdded = useCallback(
+    (k: KnownPerson) => Object.values(members).some((m) => (k.uid && m.uid === k.uid) || m.name.trim().toLowerCase() === k.name.toLowerCase()),
+    [members],
+  )
   const recent = useMemo(() => recentPeople(groups ?? [], user.uid, groupId), [groups, user.uid, groupId])
   // Search covers everyone from all your groups, built only once you start typing.
   const q = query.trim()
   const searching = q !== ''
   const everyone = useMemo(() => (searching ? knownPeople(groups ?? [], user.uid, groupId) : null), [searching, groups, user.uid, groupId])
-  const results = useMemo(() => (everyone ? searchPeople(everyone.filter((k) => !isAdded(k)), q) : []), [everyone, q, members])
+  const results = useMemo(
+    () =>
+      everyone
+        ? searchPeople(
+            everyone.filter((k) => !isAdded(k)),
+            q,
+          )
+        : [],
+    [everyone, q, isAdded],
+  )
   const ql = q.toLowerCase()
-  const inviteEmail = isEmail(q) && !everyone?.some((k) => k.email?.toLowerCase() === ql) && !Object.values(members).some((m) => m.email?.toLowerCase() === ql) ? q : ''
+  const inviteEmail =
+    isEmail(q) && !everyone?.some((k) => k.email?.toLowerCase() === ql) && !Object.values(members).some((m) => m.email?.toLowerCase() === ql) ? q : ''
 
   if (groupId && existing === undefined) return <Loading />
   if (groupId && existing === null) return <PageHeader title="Group not found" back />
@@ -141,14 +163,21 @@ export default function GroupForm() {
   const kinds = KINDS.filter((k) => k.kind !== 'personal' || !hasPersonal || type === 'personal')
   const guess = shared && typedName ? guessGroup(name) : null
   const guessKey = guess ? `${guess.type}${guess.emoji}` : ''
-  const showGuess = !!guess && (guess.type !== type || guess.emoji !== emoji) && guessKey !== dismissed && isSharedType(guess.type) && (!existing || isSharedType(groupTypeOf(existing)))
+  const showGuess =
+    !!guess &&
+    (guess.type !== type || guess.emoji !== emoji) &&
+    guessKey !== dismissed &&
+    isSharedType(guess.type) &&
+    (!existing || isSharedType(groupTypeOf(existing)))
   const moreSummary = [
     currency,
     budget ? `budget ${formatMoney(budget, currency)}` : 'no budget',
     showDates && (startDate || endDate) ? formatRange(startDate || undefined, endDate || undefined) : null,
     type !== 'personal' ? `simplify ${simplify ? 'on' : 'off'}` : null,
     shareable && requireApproval ? 'approval on' : null,
-  ].filter(Boolean).join(' · ')
+  ]
+    .filter(Boolean)
+    .join(' · ')
   const clearError = (f: Field) => setErrors((e) => (e[f] ? { ...e, [f]: undefined } : e))
 
   /** Switch type; the icon, dates (new groups) and member list follow unless the user set them. */
@@ -160,7 +189,8 @@ export default function GroupForm() {
     if (existing) return
     if (!datesTouched) {
       const d = GROUP_TYPES[t].datesToday ? todayISO() : ''
-      setStartDate(d); setEndDate(d)
+      setStartDate(d)
+      setEndDate(d)
     }
     // 1:1 keeps you and one friend, Personal only you; the rest wait in `parked`.
     const max = maxOthersFor(t)
@@ -172,16 +202,31 @@ export default function GroupForm() {
       else park[id] = m
     }
     const newlyParked = Object.keys(park).filter((id) => !(id in parked)).length
-    setMembers(keep); setParked(park)
-    if (newlyParked) toast(`${newlyParked} ${newlyParked === 1 ? 'person' : 'people'} set aside: ${t === 'personal' ? 'a personal wallet is just you' : 'a 1:1 is you and one friend'}`)
+    setMembers(keep)
+    setParked(park)
+    if (newlyParked)
+      toast(
+        `${newlyParked} ${newlyParked === 1 ? 'person' : 'people'} set aside: ${t === 'personal' ? 'a personal wallet is just you' : 'a 1:1 is you and one friend'}`,
+      )
   }
 
-  const chooseType = (t: GroupType) => { setTypeTouched(true); applyType(t) }
-  const chooseKind = (k: Kind) => { if (k !== kind) chooseType(k === 'group' ? lastShared.current : k) }
-  const chooseIcon = (e: string) => { setIconTouched(true); setEmoji(e) }
+  const chooseType = (t: GroupType) => {
+    setTypeTouched(true)
+    applyType(t)
+  }
+  const chooseKind = (k: Kind) => {
+    if (k !== kind) chooseType(k === 'group' ? lastShared.current : k)
+  }
+  const chooseIcon = (e: string) => {
+    setIconTouched(true)
+    setEmoji(e)
+  }
 
   const onName = (v: string) => {
-    setName(v); setNameTouched(true); setTypedName(true); clearError('name')
+    setName(v)
+    setNameTouched(true)
+    setTypedName(true)
+    clearError('name')
     // Until the user picks a type or icon, follow the name ("Goa trip" → trip, 🏖️).
     if (!existing && shared && !typeTouched && !iconTouched) {
       const g = guessGroup(v)
@@ -194,8 +239,14 @@ export default function GroupForm() {
     const id = uid('p_')
     setMembers((m) => ({ ...m, [id]: { name: personName.trim(), email: email?.trim() || undefined, color: colorFor(Object.keys(m).length) } }))
   }
-  const addKnown = (k: KnownPerson) => { addPerson(k.name, k.email); setQuery('') }
-  const addByEmail = (email: string) => { addPerson(nameFromEmail(email), email); setQuery('') }
+  const addKnown = (k: KnownPerson) => {
+    addPerson(k.name, k.email)
+    setQuery('')
+  }
+  const addByEmail = (email: string) => {
+    addPerson(nameFromEmail(email), email)
+    setQuery('')
+  }
   const onSearchKey = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== 'Enter') return
     e.preventDefault()
@@ -205,7 +256,8 @@ export default function GroupForm() {
   const addMember = () => {
     if (!newName.trim()) return
     addPerson(newName, newEmail)
-    setNewName(''); setNewEmail('')
+    setNewName('')
+    setNewEmail('')
   }
 
   /** Problems with what was typed, next to the field they belong to (not a passing toast). */
@@ -219,7 +271,7 @@ export default function GroupForm() {
   }
 
   const save = async () => {
-    const finalName = name.trim() || (type === 'personal' ? 'My spending' : type === 'direct' ? others[0]?.[1].name ?? '' : '')
+    const finalName = name.trim() || (type === 'personal' ? 'My spending' : type === 'direct' ? (others[0]?.[1].name ?? '') : '')
     const errs = validate(finalName)
     if (!existing && others.length > maxOthers) return toast(type === 'direct' ? 'A 1:1 is you and one friend' : 'A personal wallet is just you', 'err')
     if (Object.keys(errs).length) {
@@ -236,10 +288,23 @@ export default function GroupForm() {
     setBusy(true)
     try {
       const data = {
-        name: finalName, emoji, type, currency, budget, simplify, members: saved,
-        startDate: showDates ? startDate || undefined : undefined, endDate: showDates ? endDate || undefined : undefined,
+        name: finalName,
+        emoji,
+        type,
+        currency,
+        budget,
+        simplify,
+        members: saved,
+        startDate: showDates ? startDate || undefined : undefined,
+        endDate: showDates ? endDate || undefined : undefined,
         ...(shareable ? { requireApproval: requireApproval || undefined, approvalThreshold: requireApproval ? threshold : undefined } : {}),
-        memberUids: [...new Set(Object.values(saved).map((m) => m.uid).filter(Boolean) as string[])],
+        memberUids: [
+          ...new Set(
+            Object.values(saved)
+              .map((m) => m.uid)
+              .filter(Boolean) as string[],
+          ),
+        ],
       }
       if (existing) {
         // Only send what changed; membership changes are per-member so concurrent joins survive.
@@ -266,7 +331,12 @@ export default function GroupForm() {
 
   const remove = async () => {
     if (!existing) return
-    const ok = await confirm({ title: `Delete “${existing.name}”?`, message: 'Every expense and payment in it goes too, for everyone. This cannot be undone.', confirmLabel: 'Delete group', tone: 'danger' })
+    const ok = await confirm({
+      title: `Delete “${existing.name}”?`,
+      message: 'Every expense and payment in it goes too, for everyone. This cannot be undone.',
+      confirmLabel: 'Delete group',
+      tone: 'danger',
+    })
     if (!ok) return
     setBusy(true)
     try {
@@ -279,18 +349,42 @@ export default function GroupForm() {
     }
   }
 
-  const FieldError = ({ id, text }: { id: string; text?: string }) => (text ? <p id={id} role="alert" className="mt-1 text-sm text-rose-700 dark:text-rose-400">{text}</p> : null)
+  const FieldError = ({ id, text }: { id: string; text?: string }) =>
+    text ? (
+      <p id={id} role="alert" className="mt-1 text-sm text-rose-700 dark:text-rose-400">
+        {text}
+      </p>
+    ) : null
 
   return (
     <div>
       <PageHeader title={existing ? 'Edit group' : type === 'direct' ? 'New 1:1' : type === 'personal' ? 'Personal wallet' : 'New group'} back />
-      <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); save() }} noValidate>
+      <form
+        className="space-y-5"
+        onSubmit={(e) => {
+          e.preventDefault()
+          save()
+        }}
+        noValidate
+      >
         {!existing && (
-          <div className={`grid gap-1 rounded-2xl bg-slate-100 p-1 dark:bg-ink-800 ${kinds.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`} role="radiogroup" aria-label="What are you creating?">
+          <div
+            className={`grid gap-1 rounded-2xl bg-slate-100 p-1 dark:bg-ink-800 ${kinds.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}
+            role="radiogroup"
+            aria-label="What are you creating?"
+          >
             {kinds.map((k) => (
-              <button key={k.kind} type="button" role="radio" aria-checked={kind === k.kind} onClick={() => chooseKind(k.kind)}
-                className={`min-w-0 rounded-xl px-2.5 py-2.5 text-left transition active:scale-[.98] ${kind === k.kind ? 'bg-gradient-to-br from-brand-600 to-duo-600 text-white shadow-md shadow-brand-600/25' : 'text-slate-700 hover:bg-white/60 dark:text-slate-200 dark:hover:bg-ink-700'}`}>
-                <div className="text-xl leading-none" aria-hidden>{k.emoji}</div>
+              <button
+                key={k.kind}
+                type="button"
+                role="radio"
+                aria-checked={kind === k.kind}
+                onClick={() => chooseKind(k.kind)}
+                className={`min-w-0 rounded-xl px-2.5 py-2.5 text-left transition active:scale-[.98] ${kind === k.kind ? 'bg-gradient-to-br from-brand-600 to-duo-600 text-white shadow-md shadow-brand-600/25' : 'text-slate-700 hover:bg-white/60 dark:text-slate-200 dark:hover:bg-ink-700'}`}
+              >
+                <div className="text-xl leading-none" aria-hidden>
+                  {k.emoji}
+                </div>
                 <div className="mt-1.5 truncate text-sm font-bold">{k.label}</div>
                 <div className={`truncate text-xs ${kind === k.kind ? 'text-white/90' : 'text-muted'}`}>{k.hint}</div>
               </button>
@@ -299,20 +393,52 @@ export default function GroupForm() {
         )}
         <div className="card space-y-4 p-4">
           <IconPickerField emoji={emoji} onChange={chooseIcon} emojis={iconsFor(type)} idPrefix="group-icon">
-            <label className="label" htmlFor="group-name">Name</label>
-            <input ref={nameRef} id="group-name" className={`input ${errors.name ? 'ring-2 ring-rose-500' : ''}`} placeholder={info.placeholder} value={name} onChange={(e) => onName(e.target.value)}
-              autoComplete="off" autoCapitalize="words" enterKeyHint="done" aria-invalid={!!errors.name} aria-describedby={errors.name ? 'group-name-error' : undefined} />
+            <label className="label" htmlFor="group-name">
+              Name
+            </label>
+            <input
+              ref={nameRef}
+              id="group-name"
+              className={`input ${errors.name ? 'ring-2 ring-rose-500' : ''}`}
+              placeholder={info.placeholder}
+              value={name}
+              onChange={(e) => onName(e.target.value)}
+              autoComplete="off"
+              autoCapitalize="words"
+              enterKeyHint="done"
+              aria-invalid={!!errors.name}
+              aria-describedby={errors.name ? 'group-name-error' : undefined}
+            />
           </IconPickerField>
           <FieldError id="group-name-error" text={errors.name} />
           {showGuess && guess && (
-            <TypeSuggestion guess={guess} onDismiss={() => setDismissed(guessKey)} onApply={() => { setTypeTouched(true); setIconTouched(true); applyType(guess.type, guess.emoji) }} />
+            <TypeSuggestion
+              guess={guess}
+              onDismiss={() => setDismissed(guessKey)}
+              onApply={() => {
+                setTypeTouched(true)
+                setIconTouched(true)
+                applyType(guess.type, guess.emoji)
+              }}
+            />
           )}
           {typeChips && (
             <div role="radiogroup" aria-labelledby="group-type-label">
-              <div className="label" id="group-type-label">Type</div>
+              <div className="label" id="group-type-label">
+                Type
+              </div>
               <div className="flex flex-wrap gap-2">
                 {SHARED_TYPES.map((t) => (
-                  <button key={t} type="button" role="radio" aria-checked={type === t} onClick={() => chooseType(t)} className={`chip min-h-10 ${type === t ? 'chip-on' : ''}`}><span aria-hidden>{GROUP_TYPES[t].emoji}</span> {GROUP_TYPES[t].label}</button>
+                  <button
+                    key={t}
+                    type="button"
+                    role="radio"
+                    aria-checked={type === t}
+                    onClick={() => chooseType(t)}
+                    className={`chip min-h-10 ${type === t ? 'chip-on' : ''}`}
+                  >
+                    <span aria-hidden>{GROUP_TYPES[t].emoji}</span> {GROUP_TYPES[t].label}
+                  </button>
                 ))}
               </div>
             </div>
@@ -329,14 +455,28 @@ export default function GroupForm() {
                   <li key={id} className="flex items-center gap-3">
                     <Avatar name={m.name} color={m.color} size={36} />
                     <div className="min-w-0 flex-1">
-                      <div className="truncate font-medium">{m.name} {m.uid === user.uid && <span className="text-muted text-xs">(you)</span>}</div>
-                      <div className="text-muted truncate text-xs">{m.uid ? 'Joined' : m.email ? `${m.email} · not joined yet` : 'Not joined yet. Share the invite link'}</div>
+                      <div className="truncate font-medium">
+                        {m.name} {m.uid === user.uid && <span className="text-muted text-xs">(you)</span>}
+                      </div>
+                      <div className="text-muted truncate text-xs">
+                        {m.uid ? 'Joined' : m.email ? `${m.email} · not joined yet` : 'Not joined yet. Share the invite link'}
+                      </div>
                     </div>
-                    {m.uid !== user.uid && (
-                      used
-                        ? <span className="text-muted shrink-0 text-xs" title={`In ${used} expense${used === 1 ? '' : 's'} or payment${used === 1 ? '' : 's'}`}>in {used} expense{used === 1 ? '' : 's'}</span>
-                        : <button type="button" onClick={() => setMembers(({ [id]: _, ...rest }) => rest)} className="text-muted -mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full hover:text-rose-600" aria-label={`Remove ${m.name}`}><X size={18} aria-hidden /></button>
-                    )}
+                    {m.uid !== user.uid &&
+                      (used ? (
+                        <span className="text-muted shrink-0 text-xs" title={`In ${used} expense${used === 1 ? '' : 's'} or payment${used === 1 ? '' : 's'}`}>
+                          in {used} expense{used === 1 ? '' : 's'}
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setMembers(({ [id]: _, ...rest }) => rest)}
+                          className="text-muted -mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full hover:text-rose-600"
+                          aria-label={`Remove ${m.name}`}
+                        >
+                          <X size={18} aria-hidden />
+                        </button>
+                      ))}
                   </li>
                 )
               })}
@@ -347,12 +487,30 @@ export default function GroupForm() {
                   <div>
                     <div className="relative">
                       <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden />
-                      <input className="input !pl-10" type="search" autoComplete="off" placeholder="Search people or type an email" aria-label="Search people" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={onSearchKey} />
+                      <input
+                        className="input !pl-10"
+                        type="search"
+                        autoComplete="off"
+                        placeholder="Search people or type an email"
+                        aria-label="Search people"
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        onKeyDown={onSearchKey}
+                      />
                     </div>
                     {searching ? (
-                      <div className="mt-1.5 divide-y divide-slate-100 overflow-hidden rounded-2xl ring-1 ring-slate-200 dark:divide-white/5 dark:ring-ink-700" data-testid="people-results">
+                      <div
+                        className="mt-1.5 divide-y divide-slate-100 overflow-hidden rounded-2xl ring-1 ring-slate-200 dark:divide-white/5 dark:ring-ink-700"
+                        data-testid="people-results"
+                      >
                         {results.map((k, i) => (
-                          <button key={k.uid ?? k.name} type="button" onClick={() => addKnown(k)} className="flex min-h-12 w-full items-center gap-3 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-ink-800" aria-label={`Add ${k.name}`}>
+                          <button
+                            key={k.uid ?? k.name}
+                            type="button"
+                            onClick={() => addKnown(k)}
+                            className="flex min-h-12 w-full items-center gap-3 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-ink-800"
+                            aria-label={`Add ${k.name}`}
+                          >
                             <Avatar name={k.name} color={colorFor(i + 1)} size={28} />
                             <div className="min-w-0 flex-1">
                               <div className="truncate text-sm font-medium">{k.name}</div>
@@ -362,34 +520,76 @@ export default function GroupForm() {
                           </button>
                         ))}
                         {inviteEmail && (
-                          <button type="button" onClick={() => addByEmail(inviteEmail)} className="flex min-h-12 w-full items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-slate-50 dark:hover:bg-ink-800">
+                          <button
+                            type="button"
+                            onClick={() => addByEmail(inviteEmail)}
+                            className="flex min-h-12 w-full items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-slate-50 dark:hover:bg-ink-800"
+                          >
                             <UserPlus size={18} className="shrink-0 text-brand-600 dark:text-brand-300" aria-hidden />
-                            <span className="min-w-0 truncate">Add <b>{inviteEmail}</b></span>
+                            <span className="min-w-0 truncate">
+                              Add <b>{inviteEmail}</b>
+                            </span>
                           </button>
                         )}
-                        {!results.length && !inviteEmail && <div className="text-muted px-3 py-2.5 text-sm">No one by that name. Add them below, or type their email.</div>}
+                        {!results.length && !inviteEmail && (
+                          <div className="text-muted px-3 py-2.5 text-sm">No one by that name. Add them below, or type their email.</div>
+                        )}
                       </div>
-                    ) : suggestions.length > 0 && (
-                      <>
-                        <div className="text-muted mb-0.5 mt-2.5 text-xs font-medium">From your recent groups</div>
-                        {/* py-1: overflow-x-auto clips the chips' rings otherwise */}
-                        <div className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 py-1" data-testid="known-people">
-                          {suggestions.map((k) => (
-                            <button key={k.uid ?? k.name} type="button" onClick={() => addKnown(k)} className="chip min-h-10 shrink-0" aria-label={`Add ${k.name}`}>
-                              <Plus size={14} aria-hidden /> {k.name}
-                            </button>
-                          ))}
-                        </div>
-                      </>
+                    ) : (
+                      suggestions.length > 0 && (
+                        <>
+                          <div className="text-muted mb-0.5 mt-2.5 text-xs font-medium">From your recent groups</div>
+                          {/* py-1: overflow-x-auto clips the chips' rings otherwise */}
+                          <div className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 py-1" data-testid="known-people">
+                            {suggestions.map((k) => (
+                              <button
+                                key={k.uid ?? k.name}
+                                type="button"
+                                onClick={() => addKnown(k)}
+                                className="chip min-h-10 shrink-0"
+                                aria-label={`Add ${k.name}`}
+                              >
+                                <Plus size={14} aria-hidden /> {k.name}
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )
                     )}
                   </div>
                 )}
-                <label htmlFor="member-name" className="sr-only">Name of a person to add</label>
-                <input id="member-name" className="input" placeholder="Name" autoComplete="off" autoCapitalize="words" enterKeyHint="done" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addMember())} />
+                <label htmlFor="member-name" className="sr-only">
+                  Name of a person to add
+                </label>
+                <input
+                  id="member-name"
+                  className="input"
+                  placeholder="Name"
+                  autoComplete="off"
+                  autoCapitalize="words"
+                  enterKeyHint="done"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addMember())}
+                />
                 <div className="flex gap-2">
-                  <label htmlFor="member-email" className="sr-only">Their email (optional)</label>
-                  <input id="member-email" className="input" type="email" inputMode="email" autoComplete="off" autoCapitalize="none" placeholder="Email (optional)" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
-                  <button type="button" className="btn-secondary shrink-0" onClick={addMember} disabled={!newName.trim()}>Add</button>
+                  <label htmlFor="member-email" className="sr-only">
+                    Their email (optional)
+                  </label>
+                  <input
+                    id="member-email"
+                    className="input"
+                    type="email"
+                    inputMode="email"
+                    autoComplete="off"
+                    autoCapitalize="none"
+                    placeholder="Email (optional)"
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                  />
+                  <button type="button" className="btn-secondary shrink-0" onClick={addMember} disabled={!newName.trim()}>
+                    Add
+                  </button>
                 </div>
                 <p className="text-muted text-xs">Add people now and log expenses straight away. They can claim their spot later with the invite link.</p>
               </div>
@@ -401,12 +601,27 @@ export default function GroupForm() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="label" id="group-currency-label">Currency</label>
+                <div className="label" id="group-currency-label">
+                  Currency
+                </div>
                 <Select aria-label="Currency" value={currency} onChange={setCurrency} options={currencyOptions(CURRENCIES)} />
               </div>
               <div>
-                <label className="label" htmlFor="group-budget">Budget (optional)</label>
-                <MoneyInput id="group-budget" value={budget} currency={currency} onChange={(v) => { setBudget(v); clearError('budget') }} aria-label="Budget" aria-invalid={!!errors.budget} aria-describedby={errors.budget ? 'group-budget-error' : undefined} />
+                <label className="label" htmlFor="group-budget">
+                  Budget (optional)
+                </label>
+                <MoneyInput
+                  id="group-budget"
+                  value={budget}
+                  currency={currency}
+                  onChange={(v) => {
+                    setBudget(v)
+                    clearError('budget')
+                  }}
+                  aria-label="Budget"
+                  aria-invalid={!!errors.budget}
+                  aria-describedby={errors.budget ? 'group-budget-error' : undefined}
+                />
                 <FieldError id="group-budget-error" text={errors.budget} />
               </div>
             </div>
@@ -418,12 +633,40 @@ export default function GroupForm() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label htmlFor="trip-start" className="text-muted mb-1 block text-xs font-medium">Start</label>
-                    <DateField id="trip-start" aria-label="Start date" placeholder="Add date" clearable value={startDate} max={endDate || undefined} onChange={(v) => { setDatesTouched(true); setStartDate(v); clearError('dates') }} />
+                    <label htmlFor="trip-start" className="text-muted mb-1 block text-xs font-medium">
+                      Start
+                    </label>
+                    <DateField
+                      id="trip-start"
+                      aria-label="Start date"
+                      placeholder="Add date"
+                      clearable
+                      value={startDate}
+                      max={endDate || undefined}
+                      onChange={(v) => {
+                        setDatesTouched(true)
+                        setStartDate(v)
+                        clearError('dates')
+                      }}
+                    />
                   </div>
                   <div>
-                    <label htmlFor="trip-end" className="text-muted mb-1 block text-xs font-medium">End</label>
-                    <DateField id="trip-end" aria-label="End date" placeholder="Add date" clearable value={endDate} min={startDate || undefined} onChange={(v) => { setDatesTouched(true); setEndDate(v); clearError('dates') }} />
+                    <label htmlFor="trip-end" className="text-muted mb-1 block text-xs font-medium">
+                      End
+                    </label>
+                    <DateField
+                      id="trip-end"
+                      aria-label="End date"
+                      placeholder="Add date"
+                      clearable
+                      value={endDate}
+                      min={startDate || undefined}
+                      onChange={(v) => {
+                        setDatesTouched(true)
+                        setEndDate(v)
+                        clearError('dates')
+                      }}
+                    />
                   </div>
                 </div>
                 <FieldError id="trip-dates-error" text={errors.dates} />
@@ -431,9 +674,14 @@ export default function GroupForm() {
                 {(startDate || endDate) && (
                   <p className="text-muted mt-1 text-xs">
                     Tip: forward bank and UPI debit SMS to this trip with{' '}
-                    {existing
-                      ? <Link to={`/settings/auto-capture?group=${existing.id}`} className="font-semibold text-brand-600 dark:text-brand-300">SMS auto-capture</Link>
-                      : <b>SMS auto-capture</b>}{existing ? '' : ' (on the group page after saving)'}.
+                    {existing ? (
+                      <Link to={`/settings/auto-capture?group=${existing.id}`} className="font-semibold text-brand-600 dark:text-brand-300">
+                        SMS auto-capture
+                      </Link>
+                    ) : (
+                      <b>SMS auto-capture</b>
+                    )}
+                    {existing ? '' : ' (on the group page after saving)'}.
                   </p>
                 )}
               </div>
@@ -458,8 +706,22 @@ export default function GroupForm() {
                 </div>
                 {requireApproval && (
                   <div className="mt-3">
-                    <label className="label" htmlFor="approval-threshold">For expenses over</label>
-                    <MoneyInput id="approval-threshold" value={threshold} currency={currency} placeholder={centsToInput(DEFAULT_APPROVAL_THRESHOLD, currency)} onChange={(v) => { setThreshold(v); clearError('threshold') }} aria-label="Approval limit" aria-invalid={!!errors.threshold} aria-describedby={errors.threshold ? 'approval-threshold-error' : undefined} />
+                    <label className="label" htmlFor="approval-threshold">
+                      For expenses over
+                    </label>
+                    <MoneyInput
+                      id="approval-threshold"
+                      value={threshold}
+                      currency={currency}
+                      placeholder={centsToInput(DEFAULT_APPROVAL_THRESHOLD, currency)}
+                      onChange={(v) => {
+                        setThreshold(v)
+                        clearError('threshold')
+                      }}
+                      aria-label="Approval limit"
+                      aria-invalid={!!errors.threshold}
+                      aria-describedby={errors.threshold ? 'approval-threshold-error' : undefined}
+                    />
                     <FieldError id="approval-threshold-error" text={errors.threshold} />
                   </div>
                 )}
@@ -468,12 +730,18 @@ export default function GroupForm() {
           </div>
         </Collapsible>
 
-        <button type="submit" className="btn-primary w-full" disabled={busy} data-testid="group-save">{existing ? 'Save changes' : type === 'direct' ? 'Create 1:1' : type === 'personal' ? 'Create wallet' : 'Create group'}</button>
+        <button type="submit" className="btn-primary w-full" disabled={busy} data-testid="group-save">
+          {existing ? 'Save changes' : type === 'direct' ? 'Create 1:1' : type === 'personal' ? 'Create wallet' : 'Create group'}
+        </button>
         {!existing && shared && (
-          <Link to="/groups/import" className="text-muted flex min-h-11 items-center justify-center text-sm font-semibold">Switching from Splitwise? Import a group</Link>
+          <Link to="/groups/import" className="text-muted flex min-h-11 items-center justify-center text-sm font-semibold">
+            Switching from Splitwise? Import a group
+          </Link>
         )}
         {existing && existing.createdBy === user.uid && (
-          <button type="button" className="btn w-full text-rose-700 dark:text-rose-400" onClick={remove} disabled={busy} data-testid="group-delete-form">Delete group</button>
+          <button type="button" className="btn w-full text-rose-700 dark:text-rose-400" onClick={remove} disabled={busy} data-testid="group-delete-form">
+            Delete group
+          </button>
         )}
       </form>
     </div>

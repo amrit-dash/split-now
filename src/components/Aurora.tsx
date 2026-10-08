@@ -13,7 +13,11 @@ export function Aurora({ size = 'card' }: { size?: 'card' | 'fab' }) {
   const ref = usePauseWhenUnseen()
   if (size === 'fab') {
     return (
-      <div ref={ref} aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit] bg-gradient-to-br from-brand-500 via-brand-600 to-duo-600">
+      <div
+        ref={ref}
+        aria-hidden
+        className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit] bg-gradient-to-br from-brand-500 via-brand-600 to-duo-600"
+      >
         <div className="animate-smoke-a absolute -left-1/3 -top-1/3 h-full w-full rounded-full bg-brand-300/60 blur-md" />
         <div className="animate-smoke-b absolute -bottom-1/3 -right-1/3 h-full w-full rounded-full bg-brand-900/70 blur-md" />
         <div className="animate-smoke-c absolute left-0 top-1/4 h-3/4 w-3/4 rounded-full bg-duo-500/60 blur-md" />
@@ -45,13 +49,23 @@ function usePauseWhenUnseen() {
     if (!el) return
     let visible = true
     const apply = () => el.classList.toggle('aurora-paused', !visible || document.hidden)
-    const io = typeof IntersectionObserver === 'function'
-      ? new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; apply() }, { threshold: 0 })
-      : null
+    const io =
+      typeof IntersectionObserver === 'function'
+        ? new IntersectionObserver(
+            ([entry]) => {
+              visible = entry.isIntersecting
+              apply()
+            },
+            { threshold: 0 },
+          )
+        : null
     io?.observe(el)
     document.addEventListener('visibilitychange', apply)
     apply()
-    return () => { io?.disconnect(); document.removeEventListener('visibilitychange', apply) }
+    return () => {
+      io?.disconnect()
+      document.removeEventListener('visibilitychange', apply)
+    }
   }, [])
   return ref
 }

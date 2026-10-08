@@ -18,11 +18,19 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const demo = repo.mode === 'demo'
-  useEffect(() => { void applyIconTint() }, [])
+  useEffect(() => {
+    void applyIconTint()
+  }, [])
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true)
-    try { await fn() } catch (e) { toast(friendly(e), 'err') } finally { setBusy(false) }
+    try {
+      await fn()
+    } catch (e) {
+      toast(friendly(e), 'err')
+    } finally {
+      setBusy(false)
+    }
   }
   // The sign-in form is on a dark surface by design (it matches the install splash), so the
   // fields keep their own light-on-dark look rather than the app's input style.
@@ -44,19 +52,39 @@ export default function Login() {
           <div className="mt-6 flex gap-3 rounded-2xl bg-white/10 p-4 text-sm text-slate-200 ring-1 ring-white/15" data-testid="invite-banner">
             <UserPlus className="mt-0.5 shrink-0 text-duo-300" size={20} aria-hidden />
             <div>
-              <b className="text-white">You’ve been invited to a group.</b> {demo ? 'Enter your name to continue' : 'Continue with Google or email (it takes a few seconds, no app to install)'}, then pick which person you are. You’ll land straight back on the invite.
+              <b className="text-white">You’ve been invited to a group.</b>{' '}
+              {demo ? 'Enter your name to continue' : 'Continue with Google or email (it takes a few seconds, no app to install)'}, then pick which person you
+              are. You’ll land straight back on the invite.
             </div>
           </div>
         )}
 
         <div className="mt-8 space-y-3">
           {demo ? (
-            <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); run(() => repo.signInDemo!(name.trim() || 'You')) }}>
+            <form
+              className="space-y-3"
+              onSubmit={(e) => {
+                e.preventDefault()
+                run(() => repo.signInDemo!(name.trim() || 'You'))
+              }}
+            >
               <div className="rounded-2xl bg-white/5 p-4 text-sm text-slate-300 ring-1 ring-white/10">
                 <b className="text-white">Demo mode.</b> Firebase isn’t connected yet, so data stays on this device. Sample groups are pre-loaded.
               </div>
-              <label htmlFor="demo-name" className="sr-only">Your name</label>
-              <input id="demo-name" className={field} placeholder="Your name" autoComplete="name" autoCapitalize="words" enterKeyHint="go" value={name} onChange={(e) => setName(e.target.value)} data-testid="demo-name" />
+              <label htmlFor="demo-name" className="sr-only">
+                Your name
+              </label>
+              <input
+                id="demo-name"
+                className={field}
+                placeholder="Your name"
+                autoComplete="name"
+                autoCapitalize="words"
+                enterKeyHint="go"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                data-testid="demo-name"
+              />
               <button type="submit" className="btn-primary w-full" disabled={busy} data-testid="demo-start">
                 {invite ? 'Continue to the invite' : 'Start exploring'}
               </button>
@@ -66,7 +94,11 @@ export default function Login() {
               <button type="button" className="btn w-full bg-white text-slate-900" disabled={busy} onClick={() => run(() => repo.signInWithGoogle())}>
                 <GoogleLogo /> Continue with Google
               </button>
-              <div className="flex items-center gap-3 py-1 text-xs uppercase tracking-wider text-slate-400" aria-hidden><span className="h-px flex-1 bg-white/10" />or<span className="h-px flex-1 bg-white/10" /></div>
+              <div className="flex items-center gap-3 py-1 text-xs uppercase tracking-wider text-slate-400" aria-hidden>
+                <span className="h-px flex-1 bg-white/10" />
+                or
+                <span className="h-px flex-1 bg-white/10" />
+              </div>
               <form
                 className="space-y-3"
                 aria-label={mode === 'in' ? 'Sign in with email' : 'Create an account'}
@@ -77,26 +109,71 @@ export default function Login() {
               >
                 {mode === 'up' && (
                   <div>
-                    <label htmlFor="login-name" className="sr-only">Your name</label>
-                    <input id="login-name" className={field} placeholder="Your name" required value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" autoCapitalize="words" enterKeyHint="next" />
+                    <label htmlFor="login-name" className="sr-only">
+                      Your name
+                    </label>
+                    <input
+                      id="login-name"
+                      className={field}
+                      placeholder="Your name"
+                      required
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      autoComplete="name"
+                      autoCapitalize="words"
+                      enterKeyHint="next"
+                    />
                   </div>
                 )}
                 <div>
-                  <label htmlFor="login-email" className="sr-only">Email</label>
-                  <input id="login-email" className={field} type="email" inputMode="email" placeholder="Email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint="next" />
+                  <label htmlFor="login-email" className="sr-only">
+                    Email
+                  </label>
+                  <input
+                    id="login-email"
+                    className={field}
+                    type="email"
+                    inputMode="email"
+                    placeholder="Email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    autoComplete="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    enterKeyHint="next"
+                  />
                 </div>
                 <div>
-                  <label htmlFor="login-password" className="sr-only">Password</label>
-                  <input id="login-password" className={field} type="password" placeholder="Password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === 'in' ? 'current-password' : 'new-password'} enterKeyHint="go" />
+                  <label htmlFor="login-password" className="sr-only">
+                    Password
+                  </label>
+                  <input
+                    id="login-password"
+                    className={field}
+                    type="password"
+                    placeholder="Password"
+                    required
+                    minLength={6}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete={mode === 'in' ? 'current-password' : 'new-password'}
+                    enterKeyHint="go"
+                  />
                 </div>
-                <button type="submit" className="btn-primary w-full" disabled={busy}>{mode === 'in' ? 'Sign in' : 'Create account'}</button>
+                <button type="submit" className="btn-primary w-full" disabled={busy}>
+                  {mode === 'in' ? 'Sign in' : 'Create account'}
+                </button>
               </form>
               <button type="button" className="min-h-11 w-full py-2 text-sm text-slate-300" onClick={() => setMode(mode === 'in' ? 'up' : 'in')}>
                 {mode === 'in' ? 'New here? Create an account' : 'Already have an account? Sign in'}
               </button>
             </>
           )}
-          <a href="/t" className="block min-h-11 py-2 text-center text-sm text-slate-300">Splitting a bill at a table? <span className="font-semibold text-white">Enter the code</span></a>
+          <a href="/t" className="block min-h-11 py-2 text-center text-sm text-slate-300">
+            Splitting a bill at a table? <span className="font-semibold text-white">Enter the code</span>
+          </a>
         </div>
       </main>
     </div>
@@ -107,8 +184,10 @@ export default function Login() {
 function friendly(e: unknown) {
   const code = (e as { code?: string }).code ?? ''
   if (code.includes('invalid-credential') || code.includes('wrong-password')) return 'Email or password is incorrect'
-  if (code.includes('email-already-in-use')) return 'That email already has an account. Sign in instead, or use Continue with Google if you signed up with Google'
-  if (code.includes('account-exists-with-different-credential')) return 'This email is already registered with another sign-in method. Sign in that way, then link Google from Profile'
+  if (code.includes('email-already-in-use'))
+    return 'That email already has an account. Sign in instead, or use Continue with Google if you signed up with Google'
+  if (code.includes('account-exists-with-different-credential'))
+    return 'This email is already registered with another sign-in method. Sign in that way, then link Google from Profile'
   if (code.includes('popup-closed')) return 'Sign-in cancelled'
   if (code.includes('password-does-not-meet-requirements')) {
     // Firebase lists the unmet rules in brackets, e.g. "[Password must contain an upper case character]".
@@ -122,7 +201,10 @@ function friendly(e: unknown) {
 function GoogleLogo() {
   return (
     <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden>
-      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
+      <path
+        fill="#FFC107"
+        d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"
+      />
       <path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
       <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z" />
       <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z" />

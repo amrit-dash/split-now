@@ -10,12 +10,21 @@ import { Sheet } from './Sheet'
 export function CreateSheet({ open, onClose, groupId }: { open: boolean; onClose: () => void; groupId?: string }) {
   const nav = useNavigate()
   const q = groupId ? `?group=${encodeURIComponent(groupId)}` : ''
-  const go = (to: string) => { onClose(); nav(to) }
+  const go = (to: string) => {
+    onClose()
+    nav(to)
+  }
   return (
     <Sheet open={open} onClose={onClose} title="Create">
-      <button onClick={() => go(`/add${q}`)} data-testid="create-expense"
-        className="flex w-full items-center gap-3 rounded-3xl bg-gradient-to-r from-brand-600 to-duo-600 p-4 text-left text-white shadow-lg shadow-brand-600/25 transition active:scale-[0.98]">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15" aria-hidden><Plus size={26} strokeWidth={2.6} /></span>
+      <button
+        type="button"
+        onClick={() => go(`/add${q}`)}
+        data-testid="create-expense"
+        className="flex w-full items-center gap-3 rounded-3xl bg-gradient-to-r from-brand-600 to-duo-600 p-4 text-left text-white shadow-lg shadow-brand-600/25 transition active:scale-[0.98]"
+      >
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15" aria-hidden>
+          <Plus size={26} strokeWidth={2.6} />
+        </span>
         <span className="min-w-0 flex-1">
           <span className="block text-lg font-bold">Add expense</span>
           <span className="block text-sm text-white/90">What you paid, and how to split it</span>
@@ -23,10 +32,22 @@ export function CreateSheet({ open, onClose, groupId }: { open: boolean; onClose
         <ChevronRight size={20} className="shrink-0 text-white/80" aria-hidden />
       </button>
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <Tile icon={<ReceiptText size={22} />} title="Split by items" text="Everyone taps what they had" onClick={() => go(`/split${q}`)} testId="create-split" />
+        <Tile
+          icon={<ReceiptText size={22} />}
+          title="Split by items"
+          text="Everyone taps what they had"
+          onClick={() => go(`/split${q}`)}
+          testId="create-split"
+        />
         <Tile icon={<ScanLine size={22} />} title="Scan" text="Read a bill or payment screenshot" onClick={() => go('/scan')} testId="create-scan" />
         <Tile icon={<Users size={22} />} title="New group" text="Trip, flat, dinner, anything" onClick={() => go('/groups/new')} testId="create-group" />
-        <Tile icon={<ArrowRightLeft size={22} />} title="Settle up" text="Record a payment" onClick={() => go(groupId ? `/groups/${encodeURIComponent(groupId)}/settle` : '/friends')} testId="create-settle" />
+        <Tile
+          icon={<ArrowRightLeft size={22} />}
+          title="Settle up"
+          text="Record a payment"
+          onClick={() => go(groupId ? `/groups/${encodeURIComponent(groupId)}/settle` : '/friends')}
+          testId="create-settle"
+        />
       </div>
     </Sheet>
   )
@@ -34,9 +55,15 @@ export function CreateSheet({ open, onClose, groupId }: { open: boolean; onClose
 
 function Tile({ icon, title, text, onClick, testId }: { icon: ReactNode; title: string; text: string; onClick: () => void; testId: string }) {
   return (
-    <button onClick={onClick} data-testid={testId}
-      className="flex flex-col items-start gap-2 rounded-3xl bg-slate-50 p-3.5 text-left ring-1 ring-slate-900/5 transition active:scale-[0.98] dark:bg-ink-800 dark:ring-white/5">
-      <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300" aria-hidden>{icon}</span>
+    <button
+      type="button"
+      onClick={onClick}
+      data-testid={testId}
+      className="flex flex-col items-start gap-2 rounded-3xl bg-slate-50 p-3.5 text-left ring-1 ring-slate-900/5 transition active:scale-[0.98] dark:bg-ink-800 dark:ring-white/5"
+    >
+      <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300" aria-hidden>
+        {icon}
+      </span>
       <span>
         <span className="block font-semibold">{title}</span>
         <span className="text-muted block text-xs leading-snug">{text}</span>

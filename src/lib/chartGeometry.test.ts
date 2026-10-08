@@ -20,7 +20,11 @@ describe('donutSegments', () => {
     expect(only).toEqual({ start: 0, end: TAU })
   })
   it('gives empty slices for zero, negative and non-finite values', () => {
-    expect(donutSegments([0, -1, Number.NaN])).toEqual([{ start: 0, end: 0 }, { start: 0, end: 0 }, { start: 0, end: 0 }])
+    expect(donutSegments([0, -1, Number.NaN])).toEqual([
+      { start: 0, end: 0 },
+      { start: 0, end: 0 },
+      { start: 0, end: 0 },
+    ])
     const [z, v] = donutSegments([0, 2])
     expect(z).toEqual({ start: 0, end: 0 })
     expect(v.end).toBeCloseTo(TAU)
@@ -46,13 +50,22 @@ describe('arcPath', () => {
 
 describe('monotonePath', () => {
   it('passes through every point in order', () => {
-    const d = monotonePath([{ x: 0, y: 10 }, { x: 10, y: 0 }, { x: 20, y: 5 }])
+    const d = monotonePath([
+      { x: 0, y: 10 },
+      { x: 10, y: 0 },
+      { x: 20, y: 5 },
+    ])
     expect(d.startsWith('M0 10 C')).toBe(true)
     expect(d).toContain(' 10 0 C')
     expect(d.endsWith(' 20 5')).toBe(true)
   })
   it('does not overshoot a flat run (tangents are zero on both sides of equal points)', () => {
-    const d = monotonePath([{ x: 0, y: 0 }, { x: 10, y: 10 }, { x: 20, y: 10 }, { x: 30, y: 0 }])
+    const d = monotonePath([
+      { x: 0, y: 0 },
+      { x: 10, y: 10 },
+      { x: 20, y: 10 },
+      { x: 30, y: 0 },
+    ])
     // second segment is flat: both control points sit on y=10
     const seg = d.split(' C')[2]
     expect(seg).toBe('13.33 10 16.67 10 20 10')

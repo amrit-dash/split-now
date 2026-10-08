@@ -10,7 +10,7 @@ import { todayISO } from '@/lib/id'
 
 /** One group in a list: icon, name, members (or spend for a personal wallet) and your balance in words and numbers. */
 export function GroupRow({ d }: { d: GroupData }) {
-  const bal = d.me ? d.net[d.me] ?? 0 : 0
+  const bal = d.me ? (d.net[d.me] ?? 0) : 0
   const members = Object.values(d.group.members)
   const personal = d.group.type === 'personal'
   const spent = d.expenses.reduce((s, e) => s + e.amount, 0)
@@ -21,7 +21,9 @@ export function GroupRow({ d }: { d: GroupData }) {
         <div className="flex items-center gap-2">
           <span className="truncate font-semibold">{d.group.name}</span>
           {isLiveTrip(d.group, todayISO()) && <LiveBadge type={d.group.type} />}
-          {d.group.archived && <span className="text-muted shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[0.6875rem] font-semibold dark:bg-ink-800">Archived</span>}
+          {d.group.archived && (
+            <span className="text-muted shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[0.6875rem] font-semibold dark:bg-ink-800">Archived</span>
+          )}
         </div>
         <div className="mt-0.5 flex items-center gap-2">
           {personal ? (

@@ -5,7 +5,12 @@ import { ACCENTS, ACCENT_KEY, DUO_KEY, applyAccent, getAccent, getDuo, setAccent
 function fakeDom(dark = false) {
   const attrs = new Map<string, string>()
   const classes = new Set<string>(dark ? ['dark'] : [])
-  const meta = { content: '#6d28d9', setAttribute(_: string, v: string) { this.content = v } }
+  const meta = {
+    content: '#6d28d9',
+    setAttribute(_: string, v: string) {
+      this.content = v
+    },
+  }
   const store = new Map<string, string>()
   const g = globalThis as Record<string, unknown>
   g.document = {
@@ -32,7 +37,9 @@ afterEach(() => {
 
 describe('accent', () => {
   let dom: ReturnType<typeof fakeDom>
-  beforeEach(() => { dom = fakeDom() })
+  beforeEach(() => {
+    dom = fakeDom()
+  })
 
   it('defaults to violet with dual tone on', () => {
     expect(getAccent()).toBe('violet')
@@ -79,7 +86,14 @@ describe('accent', () => {
   })
 
   it('survives localStorage throwing', () => {
-    ;(globalThis as Record<string, unknown>).localStorage = { getItem: () => { throw new Error('blocked') }, setItem: () => { throw new Error('blocked') } }
+    ;(globalThis as Record<string, unknown>).localStorage = {
+      getItem: () => {
+        throw new Error('blocked')
+      },
+      setItem: () => {
+        throw new Error('blocked')
+      },
+    }
     expect(getAccent()).toBe('violet')
     expect(getDuo()).toBe(true)
     expect(() => setAccent('indigo')).not.toThrow()
@@ -95,7 +109,8 @@ describe('accent', () => {
 })
 
 describe('tintIconSvg', () => {
-  const svg = '<svg><defs><linearGradient id="g"><stop offset="0" stop-color="#7c3aed"/><stop offset="1" stop-color=\'#db2777\' /></linearGradient></defs><rect fill="url(#g)"/><stop stop-color="#000"/></svg>'
+  const svg =
+    '<svg><defs><linearGradient id="g"><stop offset="0" stop-color="#7c3aed"/><stop offset="1" stop-color=\'#db2777\' /></linearGradient></defs><rect fill="url(#g)"/><stop stop-color="#000"/></svg>'
 
   it('swaps the first two gradient stops and leaves the rest alone', () => {
     const out = tintIconSvg(svg, 'oklch(54.6% 0.245 262.881)', '#007595')!
@@ -127,15 +142,23 @@ const favicon = readFileSync(new URL('../../public/favicon.svg', import.meta.url
 
 type Rgb = [number, number, number]
 function oklchToRgb(L: number, C: number, h: number): Rgb {
-  const a = C * Math.cos((h * Math.PI) / 180), b = C * Math.sin((h * Math.PI) / 180)
-  const l_ = L + 0.3963377774 * a + 0.2158037573 * b, m_ = L - 0.1055613458 * a - 0.0638541728 * b, s_ = L - 0.0894841775 * a - 1.291485548 * b
-  const l = l_ ** 3, m = m_ ** 3, s = s_ ** 3
+  const a = C * Math.cos((h * Math.PI) / 180),
+    b = C * Math.sin((h * Math.PI) / 180)
+  const l_ = L + 0.3963377774 * a + 0.2158037573 * b,
+    m_ = L - 0.1055613458 * a - 0.0638541728 * b,
+    s_ = L - 0.0894841775 * a - 1.291485548 * b
+  const l = l_ ** 3,
+    m = m_ ** 3,
+    s = s_ ** 3
   const lin = [
     4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
     -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
     -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s,
   ]
-  const gam = (x: number) => { x = Math.min(1, Math.max(0, x)); return x <= 0.0031308 ? 12.92 * x : 1.055 * x ** (1 / 2.4) - 0.055 }
+  const gam = (x: number) => {
+    x = Math.min(1, Math.max(0, x))
+    return x <= 0.0031308 ? 12.92 * x : 1.055 * x ** (1 / 2.4) - 0.055
+  }
   return lin.map((v) => Math.round(gam(v) * 255)) as Rgb
 }
 function parseColor(v: string): Rgb {
@@ -147,11 +170,15 @@ function parseColor(v: string): Rgb {
 }
 const hex = (c: Rgb) => `#${c.map((v) => v.toString(16).padStart(2, '0')).join('')}`
 function luminance([r, g, b]: Rgb) {
-  const f = (v: number) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }
+  const f = (v: number) => {
+    v /= 255
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4
+  }
   return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b)
 }
 function contrast(a: Rgb, b: Rgb) {
-  const l1 = luminance(a), l2 = luminance(b)
+  const l1 = luminance(a),
+    l2 = luminance(b)
   return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05)
 }
 /** The CSS block that defines a preset's scales (the @theme block for the default). */

@@ -3,7 +3,10 @@
  * curve through points, "nice" axis ticks and linear scales. No DOM, no React.
  */
 
-export interface Point { x: number; y: number }
+export interface Point {
+  x: number
+  y: number
+}
 
 const TAU = Math.PI * 2
 
@@ -32,8 +35,10 @@ export function arcPath(cx: number, cy: number, rOuter: number, rInner: number, 
   if (end <= start) return ''
   const span = Math.min(end - start, TAU - 1e-6)
   const large = span > Math.PI ? 1 : 0
-  const o1 = polar(cx, cy, rOuter, start), o2 = polar(cx, cy, rOuter, start + span)
-  const i1 = polar(cx, cy, rInner, start + span), i2 = polar(cx, cy, rInner, start)
+  const o1 = polar(cx, cy, rOuter, start),
+    o2 = polar(cx, cy, rOuter, start + span)
+  const i1 = polar(cx, cy, rInner, start + span),
+    i2 = polar(cx, cy, rInner, start)
   const f = (n: number) => +n.toFixed(2)
   return `M${f(o1.x)} ${f(o1.y)} A${f(rOuter)} ${f(rOuter)} 0 ${large} 1 ${f(o2.x)} ${f(o2.y)} L${f(i1.x)} ${f(i1.y)} A${f(rInner)} ${f(rInner)} 0 ${large} 0 ${f(i2.x)} ${f(i2.y)} Z`
 }
@@ -47,7 +52,9 @@ export function monotonePath(pts: Point[]): string {
   if (pts.length === 0) return ''
   if (pts.length === 1) return `M${f(pts[0].x)} ${f(pts[0].y)}`
   const n = pts.length
-  const dx: number[] = [], dy: number[] = [], m: number[] = []
+  const dx: number[] = [],
+    dy: number[] = [],
+    m: number[] = []
   for (let i = 0; i < n - 1; i++) {
     dx[i] = pts[i + 1].x - pts[i].x
     dy[i] = pts[i + 1].y - pts[i].y
@@ -57,9 +64,19 @@ export function monotonePath(pts: Point[]): string {
   for (let i = 1; i < n - 1; i++) t[i] = m[i - 1] * m[i] <= 0 ? 0 : (m[i - 1] + m[i]) / 2
   t[n - 1] = m[n - 2]
   for (let i = 0; i < n - 1; i++) {
-    if (m[i] === 0) { t[i] = 0; t[i + 1] = 0; continue }
-    const a = t[i] / m[i], b = t[i + 1] / m[i], s = a * a + b * b
-    if (s > 9) { const k = 3 / Math.sqrt(s); t[i] = k * a * m[i]; t[i + 1] = k * b * m[i] }
+    if (m[i] === 0) {
+      t[i] = 0
+      t[i + 1] = 0
+      continue
+    }
+    const a = t[i] / m[i],
+      b = t[i + 1] / m[i],
+      s = a * a + b * b
+    if (s > 9) {
+      const k = 3 / Math.sqrt(s)
+      t[i] = k * a * m[i]
+      t[i + 1] = k * b * m[i]
+    }
   }
   let d = `M${f(pts[0].x)} ${f(pts[0].y)}`
   for (let i = 0; i < n - 1; i++) {

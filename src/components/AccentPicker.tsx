@@ -8,10 +8,21 @@ export function AccentPicker({ onChange }: { onChange?: () => void } = {}) {
   const [accent, setAccentState] = useState<AccentId>(getAccent)
   const [duo, setDuoState] = useState<boolean>(getDuo)
   // Settings may re-mount this while the stored value changed elsewhere (another tab).
-  useEffect(() => { setAccentState(getAccent()); setDuoState(getDuo()) }, [])
+  useEffect(() => {
+    setAccentState(getAccent())
+    setDuoState(getDuo())
+  }, [])
 
-  const pick = (id: AccentId) => { setAccentState(id); setAccent(id); onChange?.() }
-  const toggleDuo = (on: boolean) => { setDuoState(on); setDuo(on); onChange?.() }
+  const pick = (id: AccentId) => {
+    setAccentState(id)
+    setAccent(id)
+    onChange?.()
+  }
+  const toggleDuo = (on: boolean) => {
+    setDuoState(on)
+    setDuo(on)
+    onChange?.()
+  }
 
   // Arrow keys move the selection, as in a native radio group.
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -27,7 +38,9 @@ export function AccentPicker({ onChange }: { onChange?: () => void } = {}) {
   return (
     <div className="space-y-4">
       <div>
-        <div className="label" id="accent-label">Accent</div>
+        <div className="label" id="accent-label">
+          Accent
+        </div>
         <div role="radiogroup" aria-labelledby="accent-label" onKeyDown={onKey} className="flex flex-wrap items-center gap-3">
           {ACCENTS.map((a) => {
             const on = a.id === accent

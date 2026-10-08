@@ -261,7 +261,7 @@ export default function SettleUp() {
         </div>
       </div>
 
-      <button type="submit" className="btn-primary mt-5 w-full" disabled={busy} data-testid="settle-save"><Check size={18} aria-hidden /> Record {validAmount ? formatMoney(amount, cur) : 'payment'}</button>
+      <button type="submit" className="btn-primary mt-5 w-full" disabled={busy} data-testid="settle-record"><Check size={18} aria-hidden /> Record {validAmount ? formatMoney(amount, cur) : 'payment'}</button>
     </form>
   )
 }

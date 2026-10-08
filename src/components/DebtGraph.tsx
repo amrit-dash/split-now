@@ -31,20 +31,35 @@ export function DebtGraph({ group, debts, size = 300 }: { group: Group; debts: D
           <path d="M0,0 L10,5 L0,10 z" className="fill-rose-500" />
         </marker>
       </defs>
-      {debts.map((d, i) => {
-        const a = pos[d.from], b = pos[d.to]
-        const dx = b.x - a.x, dy = b.y - a.y
+      {debts.map((d) => {
+        const a = pos[d.from],
+          b = pos[d.to]
+        const dx = b.x - a.x,
+          dy = b.y - a.y
         const len = Math.hypot(dx, dy) || 1
-        const ux = dx / len, uy = dy / len
+        const ux = dx / len,
+          uy = dy / len
         // Slight curve so opposite edges don't overlap.
-        const mx = (a.x + b.x) / 2 - uy * 18, my = (a.y + b.y) / 2 + ux * 18
-        const sx = a.x + ux * nodeR, sy = a.y + uy * nodeR
-        const ex = b.x - ux * (nodeR + 4), ey = b.y - uy * (nodeR + 4)
+        const mx = (a.x + b.x) / 2 - uy * 18,
+          my = (a.y + b.y) / 2 + ux * 18
+        const sx = a.x + ux * nodeR,
+          sy = a.y + uy * nodeR
+        const ex = b.x - ux * (nodeR + 4),
+          ey = b.y - uy * (nodeR + 4)
         const w = 1.5 + (d.amount / max) * 3.5
         return (
-          <g key={i}>
+          <g key={`${d.from}-${d.to}`}>
             <path d={`M${sx},${sy} Q${mx},${my} ${ex},${ey}`} fill="none" className="stroke-rose-400/80" strokeWidth={w} markerEnd="url(#arrow)" />
-            <text x={mx} y={my} textAnchor="middle" dominantBaseline="middle" className="fill-slate-700 text-xs font-semibold dark:fill-slate-200" paintOrder="stroke" stroke="var(--graph-bg, white)" strokeWidth={4}>
+            <text
+              x={mx}
+              y={my}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              className="fill-slate-700 text-xs font-semibold dark:fill-slate-200"
+              paintOrder="stroke"
+              stroke="var(--graph-bg, white)"
+              strokeWidth={4}
+            >
               {formatMoney(d.amount, group.currency)}
             </text>
           </g>
@@ -56,7 +71,9 @@ export function DebtGraph({ group, debts, size = 300 }: { group: Group; debts: D
         return (
           <g key={id}>
             <circle cx={p.x} cy={p.y} r={nodeR} fill={m?.color ?? '#64748b'} />
-            <text x={p.x} y={p.y} textAnchor="middle" dominantBaseline="central" className="fill-white text-[12px] font-bold">{initials(m?.name ?? '?')}</text>
+            <text x={p.x} y={p.y} textAnchor="middle" dominantBaseline="central" className="fill-white text-[12px] font-bold">
+              {initials(m?.name ?? '?')}
+            </text>
           </g>
         )
       })}

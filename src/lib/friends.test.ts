@@ -15,11 +15,20 @@ const group = (id: string, debts: FriendGroup['debts'], extra: Partial<FriendGro
 describe('friendBalances', () => {
   it('sums each person across groups and sorts by size', () => {
     const list = friendBalances([
-      group('g1', [{ from: 'rohan', to: 'me', amount: 500 }, { from: 'me', to: 'priya', amount: 300 }]),
+      group('g1', [
+        { from: 'rohan', to: 'me', amount: 500 },
+        { from: 'me', to: 'priya', amount: 300 },
+      ]),
       group('g2', [{ from: 'me', to: 'rohan', amount: 200 }]),
     ])
-    expect(list.map((f) => [f.name, f.net])).toEqual([['Rohan', 300], ['Priya', -300]])
-    expect(list[0].parts.map((p) => [p.d.group.id, p.amount])).toEqual([['g1', 500], ['g2', -200]])
+    expect(list.map((f) => [f.name, f.net])).toEqual([
+      ['Rohan', 300],
+      ['Priya', -300],
+    ])
+    expect(list[0].parts.map((p) => [p.d.group.id, p.amount])).toEqual([
+      ['g1', 500],
+      ['g2', -200],
+    ])
   })
 
   it('keeps currencies apart and skips personal, archived and third-party debts', () => {
@@ -30,7 +39,10 @@ describe('friendBalances', () => {
       group('old', [{ from: 'rohan', to: 'me', amount: 100 }], { archived: true }),
       group('others', [{ from: 'rohan', to: 'priya', amount: 100 }]),
     ])
-    expect(list.map((f) => [f.currency, f.net])).toEqual([['INR', 100], ['AUD', 100]])
+    expect(list.map((f) => [f.currency, f.net])).toEqual([
+      ['INR', 100],
+      ['AUD', 100],
+    ])
   })
 
   it('matches by uid, else by name (case-insensitive)', () => {
@@ -38,7 +50,10 @@ describe('friendBalances', () => {
     expect(friendKey({ name: ' Priya ' })).toBe('n:priya')
     const list = friendBalances([
       group('g1', [{ from: 'priya', to: 'me', amount: 100 }]),
-      { ...group('g2', [{ from: 'p2', to: 'me', amount: 50 }]), group: { id: 'g2', type: 'trip', currency: 'INR', members: { me: members.me, p2: { name: 'priya', color: '#444' } } } },
+      {
+        ...group('g2', [{ from: 'p2', to: 'me', amount: 50 }]),
+        group: { id: 'g2', type: 'trip', currency: 'INR', members: { me: members.me, p2: { name: 'priya', color: '#444' } } },
+      },
     ])
     expect(list).toHaveLength(1)
     expect(list[0].net).toBe(150)

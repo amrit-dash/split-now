@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { CalendarDays, X } from 'lucide-react'
-import { appLocale } from '@/lib/locale'
+import { formatDate } from '@/lib/locale'
 
 /**
  * Date input that behaves on iPhone: the native <input type="date"> on iOS shows no placeholder,
@@ -23,10 +23,7 @@ export function DateField({ value, onChange, placeholder = 'Select date', min, m
   // iOS can change the value without a `change` event (Reset); read it back on every signal.
   const sync = () => { const v = ref.current?.value ?? ''; if (v !== value) onChange(v) }
   // "10 Oct" (year only when it isn't this year) so it fits half-width columns on small phones.
-  const d = value ? new Date(value + 'T00:00') : undefined
-  const label = d
-    ? d.toLocaleDateString(appLocale(), { day: 'numeric', month: 'short', ...(d.getFullYear() !== new Date().getFullYear() ? { year: 'numeric' } : {}) })
-    : placeholder
+  const label = value ? formatDate(value, value.slice(0, 4) !== String(new Date().getFullYear()) ? 'dayYear' : 'day') : placeholder
   return (
     <div className={`input relative flex min-w-0 items-center gap-1.5 !pl-3.5 !pr-2 focus-within:ring-2 focus-within:ring-brand-500 ${className}`}>
       {/* The icon makes room for the date once one is picked (half-width columns on small phones). */}

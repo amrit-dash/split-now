@@ -22,7 +22,12 @@ export default function Join() {
   const [busy, setBusy] = useState(false)
   usePageTitle(invite ? `Join ${invite.groupName}` : invite === null ? 'Invite not found' : undefined)
 
-  useEffect(() => { repo.getInvite(code).then(setInvite).catch(() => setInvite(null)) }, [code])
+  useEffect(() => {
+    repo
+      .getInvite(code)
+      .then(setInvite)
+      .catch(() => setInvite(null))
+  }, [code])
 
   // Already in this group (e.g. tapped the invite link twice)? Go straight there.
   const groups = useGroups()
@@ -44,7 +49,11 @@ export default function Join() {
       <div className="mx-auto max-w-md px-4 pt-20">
         <Empty emoji="🔗" title="Invite not found">
           The link may be mistyped, or the group was deleted. Ask for a new link, or go home.
-          <div className="mt-4"><Link to="/" className="btn-secondary btn-sm">Go home</Link></div>
+          <div className="mt-4">
+            <Link to="/" className="btn-secondary btn-sm">
+              Go home
+            </Link>
+          </div>
         </Empty>
       </div>
     )
@@ -59,7 +68,12 @@ export default function Join() {
     try {
       const memberId = choice === 'new' ? user.uid : choice
       const name = choice === 'new' ? profile.displayName : invite.placeholders[choice]
-      const groupId = await repo.joinGroup(code, memberId, { name, uid: user.uid, email: user.email, color: colorFor(Object.keys(invite.placeholders).length + 1) })
+      const groupId = await repo.joinGroup(code, memberId, {
+        name,
+        uid: user.uid,
+        email: user.email,
+        color: colorFor(Object.keys(invite.placeholders).length + 1),
+      })
       toast(`Welcome to ${invite.groupName}`)
       nav(`/groups/${groupId}`, { replace: true })
     } catch (e) {
@@ -73,19 +87,45 @@ export default function Join() {
   return (
     <main className="mx-auto min-h-dvh max-w-md px-4 pt-[calc(env(safe-area-inset-top)+4rem)]">
       <div className="text-center">
-        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-100 to-duo-100 text-5xl dark:from-brand-900/50 dark:to-duo-900/30" aria-hidden>{invite.emoji}</div>
+        <div
+          className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-100 to-duo-100 text-5xl dark:from-brand-900/50 dark:to-duo-900/30"
+          aria-hidden
+        >
+          {invite.emoji}
+        </div>
         <h1 className="mt-4 text-2xl font-extrabold">Join {invite.groupName}</h1>
-        <p className="text-muted mt-1 text-sm" id="join-help">Which one is you? Expenses already logged for that person become yours.</p>
+        <p className="text-muted mt-1 text-sm" id="join-help">
+          Which one is you? Expenses already logged for that person become yours.
+        </p>
       </div>
-      <div className="card mt-6 divide-y divide-slate-100 overflow-hidden dark:divide-white/5" role="radiogroup" aria-label="Which one is you?" aria-describedby="join-help">
+      <div
+        className="card mt-6 divide-y divide-slate-100 overflow-hidden dark:divide-white/5"
+        role="radiogroup"
+        aria-label="Which one is you?"
+        aria-describedby="join-help"
+      >
         {options.map(([id, n]) => (
-          <button key={id} type="button" role="radio" onClick={() => setClaim(id)} aria-checked={choice === id} className="flex min-h-14 w-full items-center gap-3 px-4 py-3.5 text-left">
-            <span className={`flex h-6 w-6 items-center justify-center rounded-full border-2 ${choice === id ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-500 dark:border-slate-400'}`} aria-hidden>{choice === id && <Check size={14} strokeWidth={3} />}</span>
+          <button
+            key={id}
+            type="button"
+            role="radio"
+            onClick={() => setClaim(id)}
+            aria-checked={choice === id}
+            className="flex min-h-14 w-full items-center gap-3 px-4 py-3.5 text-left"
+          >
+            <span
+              className={`flex h-6 w-6 items-center justify-center rounded-full border-2 ${choice === id ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-500 dark:border-slate-400'}`}
+              aria-hidden
+            >
+              {choice === id && <Check size={14} strokeWidth={3} />}
+            </span>
             <span className="font-medium">{n}</span>
           </button>
         ))}
       </div>
-      <button type="button" className="btn-primary mt-5 w-full" onClick={join} disabled={busy || !choice} data-testid="join-submit">{choice ? 'Join group' : 'Pick one to join'}</button>
+      <button type="button" className="btn-primary mt-5 w-full" onClick={join} disabled={busy || !choice} data-testid="join-submit">
+        {choice ? 'Join group' : 'Pick one to join'}
+      </button>
     </main>
   )
 }
@@ -101,7 +141,8 @@ const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCa
 function matchPlaceholder(placeholders: Record<string, string>, displayName: string, email?: string | null): string | undefined {
   const entries = Object.entries(placeholders)
   if (email) {
-    const e = fold(email), local = e.split('@')[0]
+    const e = fold(email),
+      local = e.split('@')[0]
     const byEmail = entries.find(([, n]) => fold(n) === e) ?? entries.find(([, n]) => fold(n) === local)
     if (byEmail) return byEmail[0]
   }

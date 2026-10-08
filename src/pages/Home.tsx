@@ -67,8 +67,13 @@ export default function Home() {
   const shared = active.filter((d) => d.group.type !== 'personal')
   const firstRun = data.length === 0
   const today = todayISO()
-  const people = topCounterparties(shared.map((d) => ({ ...d.group, me: d.me, debts: d.debts })), cur)
-  const friends = friendBalances(active).filter((f) => f.net !== 0).slice(0, 5)
+  const people = topCounterparties(
+    shared.map((d) => ({ ...d.group, me: d.me, debts: d.debts })),
+    cur,
+  )
+  const friends = friendBalances(active)
+    .filter((f) => f.net !== 0)
+    .slice(0, 5)
   const hello = greeting(profile.displayName, {
     inbox: box.captures.length,
     needsOk: box.approvals.length,
@@ -82,16 +87,27 @@ export default function Home() {
     <div className="pt-[calc(env(safe-area-inset-top)+1.5rem)]">
       <header className="mb-6 flex items-center justify-between gap-4" data-testid="home-greeting">
         <div className="min-w-0">
-          <p className="text-muted text-sm font-medium">{hello.salutation}, {hello.name}</p>
+          <p className="text-muted text-sm font-medium">
+            {hello.salutation}, {hello.name}
+          </p>
           {/* The subline is the headline: it says what matters today (who owes you, a live trip, things to sort). */}
-          <h1 className="mt-0.5 text-xl font-extrabold leading-tight tracking-tight [overflow-wrap:anywhere]">{firstRun ? 'Welcome to Split Now' : plainLine(hello.subline)}</h1>
+          <h1 className="mt-0.5 text-xl font-extrabold leading-tight tracking-tight [overflow-wrap:anywhere]">
+            {firstRun ? 'Welcome to Split Now' : plainLine(hello.subline)}
+          </h1>
         </div>
         <div className="flex shrink-0 items-center gap-2.5">
-          <Link to="/inbox" aria-label={box.toSort ? `Inbox, ${box.toSort} to sort` : box.unread ? `Inbox, ${box.unread} new updates` : 'Inbox'} data-testid="home-inbox"
-            className="relative flex h-11 items-center gap-1 rounded-full px-1.5 text-slate-600 transition active:scale-95 dark:text-slate-300">
+          <Link
+            to="/inbox"
+            aria-label={box.toSort ? `Inbox, ${box.toSort} to sort` : box.unread ? `Inbox, ${box.unread} new updates` : 'Inbox'}
+            data-testid="home-inbox"
+            className="relative flex h-11 items-center gap-1 rounded-full px-1.5 text-slate-600 transition active:scale-95 dark:text-slate-300"
+          >
             <Inbox size={24} strokeWidth={2} aria-hidden />
             {box.toSort > 0 ? (
-              <span className="animate-pop flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-600 px-1.5 text-[0.6875rem] font-bold text-white" aria-hidden>
+              <span
+                className="animate-pop flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-600 px-1.5 text-[0.6875rem] font-bold text-white"
+                aria-hidden
+              >
                 {box.toSort > 99 ? '99+' : box.toSort}
               </span>
             ) : box.unread > 0 ? (
@@ -104,26 +120,49 @@ export default function Home() {
         </div>
       </header>
 
-      {firstRun ? <FirstRun /> : (
+      {firstRun ? (
+        <FirstRun />
+      ) : (
         <div className="relative isolate overflow-hidden rounded-[2rem] bg-brand-600 p-6 text-white shadow-xl shadow-brand-600/30">
           <Aurora />
           <div className="relative">
             <div className="text-sm font-medium text-white/90">Overall, {net >= 0 ? 'you are owed' : 'you owe'}</div>
-            <div className="mt-1 text-4xl font-extrabold tracking-tight" data-testid="home-net">{ax}{formatMoney(Math.abs(net), cur)}</div>
+            <div className="mt-1 text-4xl font-extrabold tracking-tight" data-testid="home-net">
+              {ax}
+              {formatMoney(Math.abs(net), cur)}
+            </div>
             <div className="mt-5 grid grid-cols-2 gap-3">
-              <Link to="/friends?filter=owed" className="rounded-2xl bg-white/15 p-3 text-left backdrop-blur transition active:bg-white/25" aria-label={`You are owed ${ax}${formatMoney(main.owed, cur)}. See who owes you`}>
+              <Link
+                to="/friends?filter=owed"
+                className="rounded-2xl bg-white/15 p-3 text-left backdrop-blur transition active:bg-white/25"
+                aria-label={`You are owed ${ax}${formatMoney(main.owed, cur)}. See who owes you`}
+              >
                 <div className="text-xs text-white/90">You are owed</div>
-                <div className="text-lg font-bold">{ax}{formatMoney(main.owed, cur)}</div>
+                <div className="text-lg font-bold">
+                  {ax}
+                  {formatMoney(main.owed, cur)}
+                </div>
               </Link>
-              <Link to="/friends?filter=owe" className="rounded-2xl bg-white/15 p-3 text-left backdrop-blur transition active:bg-white/25" aria-label={`You owe ${ax}${formatMoney(main.owe, cur)}. See who you owe`}>
+              <Link
+                to="/friends?filter=owe"
+                className="rounded-2xl bg-white/15 p-3 text-left backdrop-blur transition active:bg-white/25"
+                aria-label={`You owe ${ax}${formatMoney(main.owe, cur)}. See who you owe`}
+              >
                 <div className="text-xs text-white/90">You owe</div>
-                <div className="text-lg font-bold">{ax}{formatMoney(main.owe, cur)}</div>
+                <div className="text-lg font-bold">
+                  {ax}
+                  {formatMoney(main.owe, cur)}
+                </div>
               </Link>
             </div>
             {others.length > 0 && (
               <div className="mt-3 text-xs text-white/90">
-                {approx ? `Includes other currencies at today’s ECB rate. Exact: ${formatMoney(totals.get(home) ? totals.get(home)!.owed - totals.get(home)!.owe : 0, home, { sign: true })} · ` : 'Also: '}
-                {others.map(([c, t]) => `${formatMoney(t.owed - t.owe, c, { sign: true })}${cur === home && !rates?.[c] && c !== home ? ' (no rate)' : ''}`).join(' · ')}
+                {approx
+                  ? `Includes other currencies at today’s ECB rate. Exact: ${formatMoney(totals.get(home) ? totals.get(home)!.owed - totals.get(home)!.owe : 0, home, { sign: true })} · `
+                  : 'Also: '}
+                {others
+                  .map(([c, t]) => `${formatMoney(t.owed - t.owe, c, { sign: true })}${cur === home && !rates?.[c] && c !== home ? ' (no rate)' : ''}`)
+                  .join(' · ')}
               </div>
             )}
           </div>
@@ -136,7 +175,9 @@ export default function Home() {
             <EmptyGroups />
           ) : (
             <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
-              {shared.slice(0, 5).map((d) => <GroupRow key={d.group.id} d={d} />)}
+              {shared.slice(0, 5).map((d) => (
+                <GroupRow key={d.group.id} d={d} />
+              ))}
             </div>
           )}
         </Section>
@@ -164,31 +205,44 @@ export default function Home() {
         <Section title="Recent activity">
           <ActivityFeed entries={feed} groups={groupsById} />
         </Section>
-      ) : recent.length > 0 && (
-        <Section title="Recent expenses">
-          <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
-            {recent.map(({ e, d }) => <RecentExpense key={e.id} e={e} d={d} />)}
-          </div>
-        </Section>
+      ) : (
+        recent.length > 0 && (
+          <Section title="Recent expenses">
+            <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
+              {recent.map(({ e, d }) => (
+                <RecentExpense key={e.id} e={e} d={d} />
+              ))}
+            </div>
+          </Section>
+        )
       )}
     </div>
   )
 }
 
 function RecentExpense({ e, d }: { e: GroupData['expenses'][number]; d: GroupData }) {
-  const mine = d.me ? e.splits[d.me] ?? 0 : 0
-  const paid = d.me ? e.paidBy[d.me] ?? 0 : 0
+  const mine = d.me ? (e.splits[d.me] ?? 0) : 0
+  const paid = d.me ? (e.paidBy[d.me] ?? 0) : 0
   const delta = paid - mine
   return (
     <Link to={`/groups/${d.group.id}/expenses/${e.id}`} className="flex items-center gap-3 px-4 py-3 active:bg-slate-50 dark:active:bg-ink-800">
-      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-xl dark:bg-ink-800" aria-hidden>{CATEGORIES[e.category].emoji}</div>
+      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-xl dark:bg-ink-800" aria-hidden>
+        {CATEGORIES[e.category].emoji}
+      </div>
       <div className="min-w-0 flex-1">
         <div className="truncate font-medium">{e.description}</div>
-        <div className="text-muted truncate text-xs"><span aria-hidden>{d.group.emoji} </span>{d.group.name} · {formatDate(e.date)}</div>
+        <div className="text-muted truncate text-xs">
+          <span aria-hidden>{d.group.emoji} </span>
+          {d.group.name} · {formatDate(e.date)}
+        </div>
       </div>
       <div className="text-right">
         <div className="text-sm font-semibold">{formatMoney(e.amount, d.group.currency)}</div>
-        {delta !== 0 && d.group.type !== 'personal' && <div className={`text-xs ${delta > 0 ? 'pos' : 'neg'}`}>{delta > 0 ? 'you lent' : 'you borrowed'} {formatMoney(Math.abs(delta), d.group.currency)}</div>}
+        {delta !== 0 && d.group.type !== 'personal' && (
+          <div className={`text-xs ${delta > 0 ? 'pos' : 'neg'}`}>
+            {delta > 0 ? 'you lent' : 'you borrowed'} {formatMoney(Math.abs(delta), d.group.currency)}
+          </div>
+        )}
       </div>
     </Link>
   )
@@ -210,7 +264,13 @@ export function FirstRun() {
       <p className="text-muted mt-1 text-sm">A trip, your flat, a dinner: add what people pay and Split Now keeps the balances.</p>
       <div className="mt-4 divide-y divide-slate-100 dark:divide-white/5">
         <StartRow to="/groups/new" icon={<Plus size={20} />} title="Create a group" text="Trips, flats, dinners, anything" testId="first-run-create" />
-        <StartRow to="/groups/import" icon={<FileUp size={20} />} title="Import from Splitwise" text="Bring a group over with its balances" testId="first-run-import" />
+        <StartRow
+          to="/groups/import"
+          icon={<FileUp size={20} />}
+          title="Import from Splitwise"
+          text="Bring a group over with its balances"
+          testId="first-run-import"
+        />
         <JoinRow />
       </div>
     </div>
@@ -224,8 +284,12 @@ export function EmptyGroups() {
       <h3 className="font-bold">No shared groups yet</h3>
       <p className="text-muted mt-1 text-sm">Create one for a trip, your home, or anything you share.</p>
       <div className="mt-3 flex flex-wrap gap-2">
-        <Link to="/groups/new" className="btn-primary" data-testid="empty-create-group">Create a group</Link>
-        <Link to="/groups/import" className="btn-secondary">Import from Splitwise</Link>
+        <Link to="/groups/new" className="btn-primary" data-testid="empty-create-group">
+          Create a group
+        </Link>
+        <Link to="/groups/import" className="btn-secondary">
+          Import from Splitwise
+        </Link>
       </div>
     </div>
   )
@@ -234,7 +298,12 @@ export function EmptyGroups() {
 function StartRow({ to, icon, title, text, testId }: { to: string; icon: React.ReactNode; title: string; text: string; testId?: string }) {
   return (
     <Link to={to} className="flex min-h-16 items-center gap-3 py-3 transition active:bg-slate-50 dark:active:bg-ink-800" data-testid={testId}>
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300" aria-hidden>{icon}</span>
+      <span
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300"
+        aria-hidden
+      >
+        {icon}
+      </span>
       <span className="min-w-0 flex-1">
         <span className="block font-semibold">{title}</span>
         <span className="text-muted block text-xs">{text}</span>
@@ -256,8 +325,19 @@ function JoinRow() {
   }
   return (
     <div>
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls="join-code-form" className="flex min-h-16 w-full items-center gap-3 py-3 text-left transition active:bg-slate-50 dark:active:bg-ink-800">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300" aria-hidden><Ticket size={20} /></span>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls="join-code-form"
+        className="flex min-h-16 w-full items-center gap-3 py-3 text-left transition active:bg-slate-50 dark:active:bg-ink-800"
+      >
+        <span
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300"
+          aria-hidden
+        >
+          <Ticket size={20} />
+        </span>
         <span className="min-w-0 flex-1">
           <span className="block font-semibold">Join with an invite code</span>
           <span className="text-muted block text-xs">Someone already made the group? Enter their code</span>
@@ -266,9 +346,24 @@ function JoinRow() {
       </button>
       {open && (
         <form id="join-code-form" onSubmit={submit} className="flex gap-2 pb-3">
-          <label htmlFor="join-code" className="sr-only">Invite code</label>
-          <input id="join-code" className="input font-mono uppercase tracking-widest" placeholder="Code" autoComplete="off" autoCapitalize="characters" autoCorrect="off" spellCheck={false} autoFocus value={code} onChange={(e) => setCode(e.target.value)} />
-          <button type="submit" className="btn-primary shrink-0" disabled={!code.trim()}>Join</button>
+          <label htmlFor="join-code" className="sr-only">
+            Invite code
+          </label>
+          <input
+            id="join-code"
+            className="input font-mono uppercase tracking-widest"
+            placeholder="Code"
+            autoComplete="off"
+            autoCapitalize="characters"
+            autoCorrect="off"
+            spellCheck={false}
+            autoFocus
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+          />
+          <button type="submit" className="btn-primary shrink-0" disabled={!code.trim()}>
+            Join
+          </button>
         </form>
       )}
     </div>
@@ -279,11 +374,17 @@ function HomeSkeleton() {
   return (
     <div className="pt-[calc(env(safe-area-inset-top)+1.5rem)]" role="status" aria-label="Loading">
       <div className="mb-6 flex items-center justify-between gap-4">
-        <div className="space-y-2"><Skeleton className="h-3.5 w-28" /><Skeleton className="h-6 w-48" /></div>
+        <div className="space-y-2">
+          <Skeleton className="h-3.5 w-28" />
+          <Skeleton className="h-6 w-48" />
+        </div>
         <Skeleton className="h-12 w-12 rounded-full" />
       </div>
       <CardSkeleton className="h-44 rounded-[2rem]" />
-      <div className="mt-7"><Skeleton className="mb-3 h-5 w-24" /><ListSkeleton rows={3} /></div>
+      <div className="mt-7">
+        <Skeleton className="mb-3 h-5 w-24" />
+        <ListSkeleton rows={3} />
+      </div>
     </div>
   )
 }
@@ -293,7 +394,11 @@ export function Section({ title, link, children }: { title: string; link?: { to:
     <section className="mt-7">
       <div className="mb-2.5 flex items-center justify-between px-1">
         <h2 className="text-lg font-bold">{title}</h2>
-        {link && <Link to={link.to} className="text-sm font-semibold text-brand-600 dark:text-brand-300">{link.label}</Link>}
+        {link && (
+          <Link to={link.to} className="text-sm font-semibold text-brand-600 dark:text-brand-300">
+            {link.label}
+          </Link>
+        )}
       </div>
       {children}
     </section>
