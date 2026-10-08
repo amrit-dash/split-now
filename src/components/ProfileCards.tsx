@@ -144,18 +144,19 @@ function linkError(e: unknown): string {
 }
 
 /**
- * Beside the currency picker: a square refresh button with a status dot (emerald = synced with
- * the latest ECB publication, slate = not synced). Tapping refreshes the shared rates for
- * everyone (or this device's copy in demo mode). Details are in the aria-label / title / toast.
+ * Default currency picker with the shared-rates refresh beside it: a labelled Refresh button
+ * with a status dot on its corner (emerald = synced with the latest ECB publication, slate = not
+ * synced), and the details in one quiet line under the field. Refreshing updates the shared rates
+ * for everyone (or this device's copy in demo mode).
  */
-export function RatesButton({ base }: { base: string }) {
+export function RatesField({ base, children }: { base: string; children: React.ReactNode }) {
   const toast = useToast()
   const [status, setStatus] = useState<RatesStatus | null>(() => ratesStatus(base))
   const [busy, setBusy] = useState(false)
   const [shownFor, setShownFor] = useState(base)
   if (shownFor !== base) { setShownFor(base); setStatus(ratesStatus(base)) }
 
-  // Pick up the shared copy (a Firestore read, no refresh) so the dot is right on open.
+  // Pick up the shared copy (a Firestore read, no refresh) so the status is right on open.
   useEffect(() => {
     let live = true
     loadSharedRates(base).then((s) => { if (live && s) setStatus(s) }).catch(() => {})
@@ -169,22 +170,30 @@ export function RatesButton({ base }: { base: string }) {
     if (!r) return toast(navigator.onLine ? 'Couldn’t reach the rates service' : 'You’re offline', 'err')
     const s = { date: r.date, fetchedAt: r.at, shared: r.shared }
     setStatus(s)
-    toast(`Rates updated · ${ratesDetails(s)}`)
+    toast('Exchange rates updated')
   }
 
   const synced = isSynced(status)
-  const label = `Exchange rates: ${synced ? 'synced' : 'not synced'}${status ? ` (${ratesDetails(status)})` : ''}. Tap to refresh.`
+  const label = `Exchange rates ${synced ? 'synced' : 'not synced'}. Refresh.`
   return (
-    <button
-      type="button" onClick={refresh} disabled={busy} aria-label={label} title={label} data-testid="rates-button"
-      className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-brand-600 outline-none ring-1 ring-transparent transition focus-visible:ring-2 focus-visible:ring-brand-500 active:scale-95 disabled:opacity-70 dark:bg-ink-800 dark:text-brand-300"
-    >
-      <RefreshCw size={18} className={busy ? 'animate-spin' : ''} aria-hidden />
-      <span
-        aria-hidden
-        className={`absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full ring-2 ring-white dark:ring-ink-900 ${synced ? 'bg-emerald-500' : 'bg-slate-400 dark:bg-slate-500'}`}
-      />
-    </button>
+    <div>
+      <div className="label">Default currency</div>
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">{children}</div>
+        <button
+          type="button" onClick={refresh} disabled={busy} aria-label={label} title={label} data-testid="rates-button"
+          className="relative flex h-12 shrink-0 items-center gap-1.5 rounded-2xl bg-brand-50 px-3.5 text-sm font-semibold text-brand-700 ring-1 ring-brand-500/30 transition active:scale-95 disabled:opacity-70 dark:bg-brand-500/10 dark:text-brand-200 dark:ring-brand-400/30"
+        >
+          <RefreshCw size={16} className={busy ? 'animate-spin' : ''} aria-hidden />
+          Refresh
+          <span aria-hidden className={`absolute -right-1 -top-1 h-3.5 w-3.5 rounded-full ring-[3px] ring-white dark:ring-ink-900 ${synced ? 'bg-emerald-500' : 'bg-slate-400 dark:bg-slate-500'}`} />
+        </button>
+      </div>
+      <p className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-500" data-testid="rates-status">
+        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${synced ? 'bg-emerald-500' : 'bg-slate-400'}`} aria-hidden />
+        {status ? `${synced ? 'Rates synced' : 'Rates not synced'} · ${ratesDetails(status)}` : 'Rates not loaded yet'}
+      </p>
+    </div>
   )
 }
 
