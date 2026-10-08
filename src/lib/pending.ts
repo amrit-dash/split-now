@@ -1,8 +1,10 @@
 import type { ParsedPayment, ParsedReceipt } from './ocr-parse'
+import type { ScanKind } from './scanHistory'
 
 /** In-memory hand-off between the Scan screen and the expense/settle forms (survives SPA navigation). */
 export const pending: {
-  receipt?: { parsed: ParsedReceipt; file: File }
+  /** `history`: the Recent scans entry it came from, so the saved expense can be noted on it */
+  receipt?: { parsed: ParsedReceipt; file: File; history?: { id: string; kind: ScanKind } }
   payment?: { parsed: ParsedPayment; file: File }
 } = {}
 

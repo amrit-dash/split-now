@@ -17,6 +17,8 @@ import { GroupIcon } from './GroupIcon'
 import { MemberChips } from './MemberChips'
 import { Select } from './Select'
 import { useToast } from './Toast'
+import { DuplicatePrompt, RecentScans, useScanHistory } from './ScanHistory'
+import type { ScanEntry, ScanMatch, ScanPrint } from '@/lib/scanHistory'
 
 interface Row {
   id: string
@@ -62,6 +64,11 @@ export function StatementImport() {
   const [payer, setPayer] = useState<MemberId>()
   const [members, setMembers] = useState<MemberId[]>()
   const [open, setOpen] = useState<string | null>(null)
+  const hist = useScanHistory('statement')
+  /** picked screenshots that were all read before: offer that result instead */
+  const [dup, setDup] = useState<{ match: ScanMatch; files: File[]; prints: ScanPrint[] } | null>(null)
+  /** the history entry behind the rows on screen */
+  const [scanIds, setScanIds] = useState<string[]>([])
 
   const group = groups?.find((g) => g.id === groupId)
   const expenses = useExpenses(group?.id)
@@ -92,12 +99,39 @@ export function StatementImport() {
     setRows(rows.map((r) => (r.on && flagsFor({ ...r.txn, amount: r.amount }, group, expenses).includes('maybe_added') ? { ...r, on: false } : r)))
   }
 
-  const onFiles = async (files: File[]) => {
-    if (!files.length) return
-    if (files.length > 6) toast('Using the first 6 screenshots')
+  /** Rows from a statement read now or earlier (from history). */
+  const load = (txns: StatementTxn[], cur: string) => {
+    setCurrency(cur)
+    const list: Row[] = txns.map((t) => {
+      const description = tidyName(t.name)
+      return { id: uid('s_'), txn: t, amount: fromHundredths(t.amount, cur), description, category: guessCategory(description) ?? 'other', notes: t.note, on: false }
+    })
+    const usable = (groups ?? []).filter((g) => g.currency === cur)
+    setDupChecked(undefined)
+    pickGroup(bestGroup(usable.length ? usable : groups ?? [], txns, todayISO()), list)
+  }
+
+  const openEntry = (e: ScanEntry) => {
+    setDup(null)
+    if (e.result.type !== 'statement') return
+    load(e.result.transactions, e.result.currency)
+    setScanIds([e.id])
+  }
+
+  const onFiles = async (picked: File[]) => {
+    if (!picked.length) return
+    if (picked.length > 6) toast('Using the first 6 screenshots')
+    const files = picked.slice(0, 6)
+    setDup(null)
+    const { prints, match } = await hist.check(files)
+    if (match) { setDup({ match, files, prints }); return }
+    await read(files, prints)
+  }
+
+  const read = async (files: File[], prints: ScanPrint[]) => {
     setBusy(true)
     try {
-      const images = await Promise.all(files.slice(0, 6).map(async (f) => {
+      const images = await Promise.all(files.map(async (f) => {
         const url = await blobToDataUrl(await downscale(f, 2000, 0.8))
         const [head, image] = url.split(',', 2)
         return { image, mimeType: head.match(/data:([^;]+)/)?.[1] ?? 'image/jpeg' }
@@ -107,15 +141,10 @@ export function StatementImport() {
       const txns = r.statement?.transactions ?? []
       if (!txns.length) return toast('No transactions found in those screenshots', 'err')
       const cur = r.statement?.currency ?? 'INR'
-      setCurrency(cur)
-      const list: Row[] = txns.map((t) => {
-        const description = tidyName(t.name)
-        return { id: uid('s_'), txn: t, amount: fromHundredths(t.amount, cur), description, category: guessCategory(description) ?? 'other', notes: t.note, on: false }
-      })
-      const usable = (groups ?? []).filter((g) => g.currency === cur)
-      setDupChecked(undefined)
-      pickGroup(bestGroup(usable.length ? usable : groups ?? [], txns, todayISO()), list)
+      load(txns, cur)
       toast(`Found ${txns.length} transaction${txns.length === 1 ? '' : 's'}`)
+      const id = await hist.save(files, prints, { type: 'statement', currency: cur, transactions: txns })
+      setScanIds(id ? [id] : [])
     } catch (e) {
       toast((e as Error).message, 'err')
     } finally {
@@ -140,6 +169,7 @@ export function StatementImport() {
         if (!m.length) throw new Error(`Choose who shares “${r.description}”`)
         await repo.saveExpense(buildExpense({ description: r.description, amount: r.amount, date: r.txn.date, category: r.category, notes: r.notes, payer: who, members: m }, group, order, user.uid, uid('e_'), now))
       }
+      for (const id of scanIds) hist.outcome(id, { label: `Added ${chosen.length} to ${group.name}`, href: `/groups/${group.id}` })
       toast(`Added ${chosen.length} expense${chosen.length === 1 ? '' : 's'} to ${group.name} ✅`)
       nav(`/groups/${group.id}`, { replace: true })
     } catch (e) {
@@ -159,6 +189,7 @@ export function StatementImport() {
           ...(r.notes ? { note: r.notes } : {}), ...(group ? { suggestedGroup: group.id } : {}), status: 'pending', createdAt: now, updatedAt: now,
         })
       }
+      for (const id of scanIds) hist.outcome(id, { label: `${chosen.length} sent to Inbox`, href: '/inbox' })
       toast(`${chosen.length} sent to your Inbox`)
       nav('/inbox', { replace: true })
     } catch (e) {
@@ -169,6 +200,7 @@ export function StatementImport() {
 
   if (!rows) {
     return (
+      <>
       <div className="card mt-4 overflow-hidden">
         <div className="flex flex-col items-center px-6 py-8 text-center">
           <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-500 to-duo-500 text-3xl text-white shadow-lg">📜</div>
@@ -186,6 +218,9 @@ export function StatementImport() {
         </div>
         <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ''; onFiles(f) }} />
       </div>
+      {dup && <DuplicatePrompt match={dup.match} currency={currency} onOpen={() => openEntry(dup.match.entry)} onRescan={() => { const d = dup; setDup(null); read(d.files, d.prints) }} />}
+      {!busy && !dup && <RecentScans entries={hist.entries} currency="INR" onOpen={openEntry} onDelete={(e) => hist.remove(e.id)} onClear={hist.clear} />}
+      </>
     )
   }
 
@@ -278,6 +313,7 @@ export function StatementImport() {
       <button className="btn-secondary mt-3 w-full !min-h-0 !py-2.5 text-sm" onClick={() => fileRef.current?.click()} disabled={busy}>
         {busy ? <Loader2 size={16} className="animate-spin" /> : <ImageUp size={16} />} {busy ? 'Reading…' : 'Add more screenshots'}
       </button>
+      {dup && <DuplicatePrompt match={dup.match} currency={currency} onOpen={() => openEntry(dup.match.entry)} onRescan={() => { const d = dup; setDup(null); read(d.files, d.prints) }} />}
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/70 bg-white/90 backdrop-blur-xl safe-bottom dark:border-white/5 dark:bg-ink-900/90">
         <div className="mx-auto flex max-w-lg items-center gap-2 px-4 py-3">
