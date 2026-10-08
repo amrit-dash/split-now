@@ -11,7 +11,7 @@ import {
   type DocumentReference, type FirestoreError, type WriteBatch,
 } from 'firebase/firestore'
 import { connectStorageEmulator, deleteObject, getDownloadURL, getStorage, ref, uploadBytes } from 'firebase/storage'
-import type { ActivityEntry, Capture, Expense, ExpenseComment, Group, Settlement, UserProfile } from '@/types'
+import type { ActivityEntry, Capture, Expense, ExpenseComment, Group, Member, MemberId, Settlement, UserProfile } from '@/types'
 import { inviteCode, todayISO, uid } from '@/lib/id'
 import { defaultCurrency } from '@/lib/locale'
 import { inboxToDraft, newCaptureToken, type InboxDoc } from '@/lib/capture'
@@ -98,6 +98,13 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       }
     } catch { /* not cached */ }
     return { displayName: u.displayName || u.email?.split('@')[0] || 'You', payment: {} }
+  }
+
+  /** The signed-in user's own entries carry their (shareable) profile photo. */
+  const withOwnPhoto = (members: Record<MemberId, Member>, mine: MemberProfile | null): Record<MemberId, Member> => {
+    const u = auth.currentUser?.uid
+    if (!u || !mine?.photoURL) return members
+    return Object.fromEntries(Object.entries(members).map(([id, m]) => [id, m.uid === u && !m.photoURL ? { ...m, photoURL: mine.photoURL } : m]))
   }
 
   /** A document as this device last saw it (screens only act on what they've loaded). */
@@ -300,8 +307,8 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       const id = uid('g_')
       const now = Date.now()
       const code = g.type === 'personal' ? inviteCode() : await uniqueInviteCode()
-      const full: Group = { ...g, id, inviteCode: code, createdAt: now, updatedAt: now }
       const me = await myMemberProfile()
+      const full: Group = { ...g, members: withOwnPhoto(g.members, me), id, inviteCode: code, createdAt: now, updatedAt: now }
       const batch = writeBatch(db)
       batch.set(groupRef(id), full)
       if (g.type !== 'personal') batch.set(inviteRef(code), inviteDoc(full))
@@ -346,6 +353,19 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       }
       log(batch, group.id, memberActivity('added', memberId, member.name, await actCtx(group.id, undefined, group)))
       fire(batch, `Adding ${member.name}`)
+    },
+    async updateOwnMember(group, memberId, patch) {
+      const m = group.members[memberId]
+      if (!m || m.uid !== me()) return
+      const batch = writeBatch(db)
+      // Not touching updatedAt: a profile change shouldn't reorder everyone's group list.
+      batch.update(groupRef(group.id), {
+        [`members.${memberId}.name`]: patch.name,
+        [`members.${memberId}.photoURL`]: patch.photoURL ?? deleteField(),
+        memberOpId: memberId,
+      })
+      // Background sync: a refusal (e.g. rules not deployed yet) is not the user's problem.
+      batch.commit().catch((e) => console.warn('Could not update your member entry in', group.id, e))
     },
     async removeMember(group, memberId) {
       const m = group.members[memberId]
@@ -442,7 +462,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       // Non-members cannot read the group, so this is a blind update validated by security rules.
       batch.update(groupRef(invite.groupId), {
         memberUids: arrayUnion(member.uid),
-        [`members.${memberId}`]: member,
+        [`members.${memberId}`]: withOwnPhoto({ [memberId]: member }, me)[memberId],
         joinCode: c,
         joinMemberId: memberId,
         updatedAt: Date.now(),

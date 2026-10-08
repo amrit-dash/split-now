@@ -17,6 +17,7 @@ export interface SettleRow {
   memberId: MemberId
   name: string
   color: string
+  photoURL?: string
   uid?: string
   /** always > 0 */
   amount: Cents
@@ -32,6 +33,7 @@ export interface PersonSummary {
   key: string
   name: string
   color: string
+  photoURL?: string
   currency: string
   /** > 0: they owe you overall */
   net: Cents
@@ -59,7 +61,7 @@ export function pendingSettlements(data: GroupLike[], first?: string): SettleRow
       rows.push({
         key: `${d.group.id}|${x.from}|${x.to}`,
         groupId: d.group.id, groupName: d.group.name, groupEmoji: d.group.emoji, currency: d.group.currency,
-        memberId: other, name: m?.name ?? 'Someone', color: m?.color ?? '#94a3b8', uid: m?.uid,
+        memberId: other, name: m?.name ?? 'Someone', color: m?.color ?? '#94a3b8', photoURL: m?.photoURL, uid: m?.uid,
         amount: x.amount, dir, href: settleHref(d.group.id, x.from, x.to, x.amount),
       })
     }
@@ -91,7 +93,7 @@ export function personSummaries(rows: SettleRow[]): PersonSummary[] {
   const map = new Map<string, PersonSummary & { ids: Set<string> }>()
   for (const r of rows) {
     const key = `${personKey(r)}|${r.currency}`
-    const p = map.get(key) ?? { key, name: r.name, color: r.color, currency: r.currency, net: 0, groups: 0, ids: new Set<string>() }
+    const p = map.get(key) ?? { key, name: r.name, color: r.color, photoURL: r.photoURL, currency: r.currency, net: 0, groups: 0, ids: new Set<string>() }
     p.net += r.dir === 'owed' ? r.amount : -r.amount
     p.ids.add(r.groupId)
     p.groups = p.ids.size

@@ -15,6 +15,7 @@ interface Friend {
   key: string
   name: string
   color: string
+  photoURL?: string
   currency: string
   net: number // >0: they owe you
   parts: Array<{ d: GroupData; memberId: string; amount: number }>
@@ -43,6 +44,7 @@ export default function Friends() {
         if (!m) continue
         const key = `${friendKey(m)}|${d.group.currency}`
         const f = map.get(key) ?? { key, name: m.name, color: m.color, currency: d.group.currency, net: 0, parts: [] }
+        f.photoURL ??= m.photoURL
         const signed = debt.to === d.me ? debt.amount : -debt.amount
         f.net += signed
         f.parts.push({ d, memberId: other, amount: signed })
@@ -90,7 +92,7 @@ export default function Friends() {
             return (
               <div key={f.key} className="card p-4">
                 <div className="flex items-center gap-3">
-                  <Avatar name={f.name} color={f.color} size={44} />
+                  <Avatar name={f.name} color={f.color} photoURL={f.photoURL} size={44} />
                   <div className="min-w-0 flex-1">
                     <div className="font-semibold">{f.name}</div>
                     <div className={`text-sm font-semibold tabular-nums ${f.net > 0 ? 'pos' : f.net < 0 ? 'neg' : 'text-slate-400'}`}>

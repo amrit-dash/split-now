@@ -45,7 +45,9 @@ export default function Join() {
     setBusy(true)
     try {
       const memberId = choice === 'new' ? user.uid : choice
-      const name = choice === 'new' ? profile.displayName : invite.placeholders[choice]
+      // Once linked, a member goes by their own profile name (the organiser's placeholder name
+      // was a stand-in); their app keeps it and their photo in step from then on.
+      const name = profile.displayName.trim() || invite.placeholders[choice] || 'Member'
       const groupId = await repo.joinGroup(code, memberId, { name, uid: user.uid, email: user.email, color: colorFor(Object.keys(invite.placeholders).length + 1) })
       toast(`Welcome to ${invite.groupName} 🎉`)
       nav(`/groups/${groupId}`, { replace: true })
@@ -72,6 +74,9 @@ export default function Join() {
           </button>
         ))}
       </div>
+      {choice && choice !== 'new' && profile.displayName.trim() && invite.placeholders[choice] !== profile.displayName.trim() && (
+        <p className="mt-3 px-1 text-center text-xs text-slate-500">You’ll show as {profile.displayName.trim()} (not “{invite.placeholders[choice]}”), with your profile photo.</p>
+      )}
       <button className="btn-primary mt-5 w-full" onClick={join} disabled={busy || !choice}><LogIn size={18} aria-hidden /> {choice ? 'Join group' : 'Pick one to join'}</button>
     </div>
   )

@@ -258,11 +258,11 @@ export function byGroup(rows: Row[]): GroupTotal[] {
   return [...m.values()].sort((a, b) => b.value - a.value || a.name.localeCompare(b.name))
 }
 
-export interface MemberTotal { id: MemberId; name: string; color: string; paid: number; share: number; me: boolean }
+export interface MemberTotal { id: MemberId; name: string; color: string; photoURL?: string; paid: number; share: number; me: boolean }
 
 /** One group: what each member fronted vs consumed over the rows (group currency). */
 export function paidVsShare(src: Source, rows: Row[]): MemberTotal[] {
-  const out: MemberTotal[] = Object.entries(src.group.members).map(([id, m]) => ({ id, name: m.name, color: m.color, paid: 0, share: 0, me: id === src.me }))
+  const out: MemberTotal[] = Object.entries(src.group.members).map(([id, m]) => ({ id, name: m.name, color: m.color, ...(m.photoURL ? { photoURL: m.photoURL } : {}), paid: 0, share: 0, me: id === src.me }))
   const idx = new Map(out.map((m, i) => [m.id, i]))
   for (const r of rows) {
     if (r.src !== src) continue

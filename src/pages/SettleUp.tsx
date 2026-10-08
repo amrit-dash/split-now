@@ -216,11 +216,11 @@ function PersonSelect({ label, value, onChange, order, group, name }: { label: s
       aria-label={label}
       value={value}
       onChange={onChange}
-      options={order.map((id) => ({ value: id, text: name(id), label: name(id), icon: <Avatar name={group.members[id].name} color={group.members[id].color} size={28} /> }))}
+      options={order.map((id) => ({ value: id, text: name(id), label: name(id), icon: <Avatar name={group.members[id].name} photoURL={group.members[id].photoURL} color={group.members[id].color} size={28} /> }))}
       triggerClassName="rounded-2xl bg-slate-50 p-3 transition active:scale-[0.99] dark:bg-ink-800"
       renderTrigger={(_, open) => (
         <span className="flex items-center gap-3">
-          {m ? <Avatar name={m.name} color={m.color} size={40} /> : <span className="h-10 w-10 rounded-full bg-slate-200" />}
+          {m ? <Avatar name={m.name} photoURL={m.photoURL} color={m.color} size={40} /> : <span className="h-10 w-10 rounded-full bg-slate-200" />}
           <span className="min-w-0 flex-1">
             <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</span>
             <span className="block truncate font-bold">{name(value)}</span>

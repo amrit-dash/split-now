@@ -130,7 +130,7 @@ export default function Insights() {
             <PaidShare
               title="Paid vs. share" subtitle="Who fronted the money vs. what they consumed"
               currency={cur} approx=""
-              rows={view.members.map((m) => ({ key: m.id, name: m.me ? 'You' : m.name, icon: <Avatar name={m.name} color={m.color} size={24} />, paid: m.paid, share: m.share }))}
+              rows={view.members.map((m) => ({ key: m.id, name: m.me ? 'You' : m.name, icon: <Avatar name={m.name} color={m.color} photoURL={m.photoURL} size={24} />, paid: m.paid, share: m.share }))}
             />
           )}
           {multiGroupShare && (
