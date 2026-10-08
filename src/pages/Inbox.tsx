@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Ban, BookOpen, Check, ChevronDown, ChevronRight, EyeOff, FolderInput, Loader2, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
-import { memberOrder, myMemberId, useAllGroupData, useCaptures, type GroupData } from '@/hooks/data'
+import { memberOrder, myMemberId, useAllGroupData, useCaptures, useCapturesMeta, type GroupData } from '@/hooks/data'
 import { useInbox } from '@/hooks/useInbox'
 import type { Capture, Expense, Group } from '@/types'
 import { usePageTitle } from '@/lib/brand'
@@ -38,6 +38,8 @@ export default function Inbox() {
   const data = useAllGroupData()
   const box = useInbox(data)
   const all = useCaptures()
+  // The server hasn't confirmed the captures list yet: what's shown may be a stale device copy.
+  const checking = useCapturesMeta()?.fromCache === true
   const [tab, setTab] = useState<Tab | null>(null)
   const current: Tab = tab ?? (box.toSort === 0 && box.unread > 0 ? 'updates' : 'sort')
   // The moment the user looks at Updates, everything up to now is read (the dots stay for this visit).
@@ -56,6 +58,7 @@ export default function Inbox() {
         { value: 'updates', label: <TabLabel text="Updates" n={box.unread} tone="brand" /> },
       ]} />
       <div className="mt-4">
+        {current === 'sort' && checking && <p className="text-muted mb-3 px-1 text-xs" role="status">Checking for new captured payments…</p>}
         {current === 'sort'
           ? <ToSort box={box} data={data} groups={groups} handled={all ? all.filter((c) => c.status !== 'pending') : null} />
           : !data ? <ListSkeleton rows={4} />
@@ -73,8 +76,8 @@ function TabLabel({ text, n, tone }: { text: string; n: number; tone: 'rose' | '
     <span className="inline-flex items-center gap-1.5">
       {text}
       {n > 0 && (
-        <span className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-bold ${tone === 'rose' ? 'bg-rose-600 text-white' : 'bg-brand-600 text-white'}`} aria-label={`${n} ${tone === 'rose' ? 'to sort' : 'unread'}`}>
-          {n > 99 ? '99+' : n}
+        <span className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-bold ${tone === 'rose' ? 'bg-rose-600 text-white' : 'bg-brand-600 text-white'}`}>
+          {n > 99 ? '99+' : n}<span className="sr-only"> {tone === 'rose' ? 'to sort' : 'unread'}</span>
         </span>
       )}
     </span>

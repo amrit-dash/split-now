@@ -20,11 +20,13 @@ const submitted = new Map<string, Promise<void>>()
  */
 export default function CaptureGuest() {
   const search = location.search
+  // biome-ignore lint/correctness/useExhaustiveDependencies: today's date is read once per link
   const parsed = useMemo(() => parseCaptureParams(new URLSearchParams(search), todayISO()), [search])
   const canInbox = parsed.ok && !!parsed.token && !!parsed.owner && repo.mode === 'firebase'
   const [state, setState] = useState<'saving' | 'saved' | 'failed' | 'login'>(canInbox ? 'saving' : 'login')
   const [attempt, setAttempt] = useState(0)
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `attempt` re-runs the drop after a Retry
   useEffect(() => {
     if (!canInbox || !parsed.ok) { stashCapture(search); return }
     const d = parsed.draft

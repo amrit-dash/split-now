@@ -10,7 +10,7 @@ import { useOnline } from '@/hooks/useOnline'
 import type { Category, Group, MemberId } from '@/types'
 import { aiAvailability } from '@/lib/ai-copy'
 import { CATEGORIES, guessCategory } from '@/lib/categories'
-import { aiScanPossible } from '@/lib/ai'
+import { aiScanPossible, unavailableText, type AiUnavailableReason } from '@/lib/ai'
 import { errText } from '@/lib/errors'
 import { blobToDataUrl, downscale } from '@/lib/image'
 import { todayISO, uid } from '@/lib/id'
@@ -125,8 +125,10 @@ export function StatementImport() {
       }))
       if (run.current !== id) return
       setStage('ai')
-      const r = await repo.readStatementAi(images, todayISO())
+      // The repo may answer { unavailable, reason } once it passes the server's reason through (src/data/repo.ts).
+      const r = (await repo.readStatementAi(images, todayISO())) as Awaited<ReturnType<typeof repo.readStatementAi>> | { unavailable: true; reason?: AiUnavailableReason }
       if (run.current !== id) return
+      if (r && 'unavailable' in r) return toast(unavailableText(r.reason).replace(/ Read(ing)? on your phone.*$/, ''), 'err')
       if (!r) return toast(!navigator.onLine ? 'You’re offline' : 'AI couldn’t read the screenshots right now. Try again in a little while.', 'err')
       const txns = r.statement?.transactions ?? []
       if (!txns.length) return toast('No transactions found in those screenshots', 'err')
@@ -150,7 +152,7 @@ export function StatementImport() {
 
   const chosen = (rows ?? []).filter((r) => r.on)
   const total = chosen.reduce((s, r) => s + r.amount, 0)
-  const wrongCurrency = !!group && group.currency !== currency
+  const wrongCurrency = group ? group.currency !== currency : false
   const set = (id: string, patch: Partial<Row>) => setRows((rs) => rs && rs.map((r) => (r.id === id ? { ...r, ...patch } : r)))
 
   const addAll = async () => {

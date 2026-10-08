@@ -38,7 +38,7 @@ export default function TableFinish({ table, totals, onClose }: { table: LiveTab
           {!totals.allClaimed && (
             <div className="rounded-2xl bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
               <div className="font-semibold">{totals.unclaimed.length} item{totals.unclaimed.length === 1 ? ' is' : 's are'} still unclaimed ({formatMoney(totals.unclaimedAmount, table.currency)}).</div>
-              <button className="btn-secondary mt-2 w-full !min-h-0 !py-2 text-sm" onClick={() => {
+              <button type="button" className="btn-secondary mt-2 w-full !min-h-0 !py-2 text-sm" onClick={() => {
                 repo.updateTable(table.code, { claims: claimLeftoversForAll(table) }).catch((e) => toast(errText(e), 'err'))
               }}><Users size={16} aria-hidden /> Split leftovers between everyone</button>
             </div>
@@ -46,9 +46,9 @@ export default function TableFinish({ table, totals, onClose }: { table: LiveTab
           <div>
             <div className="label">Add to</div>
             <div className="max-h-56 space-y-1 overflow-y-auto">
-              <button onClick={() => setTarget(NONE)} className={`flex w-full items-center gap-3 rounded-2xl p-2 text-left ${target === NONE ? 'bg-brand-50 dark:bg-brand-900/30' : ''}`} data-testid="finish-new-group">
+              <button type="button" onClick={() => setTarget(NONE)} className={`flex w-full items-center gap-3 rounded-2xl p-2 text-left ${target === NONE ? 'bg-brand-50 dark:bg-brand-900/30' : ''}`} data-testid="finish-new-group">
                 <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-lg dark:bg-ink-800">➕</span>
-                <span className="min-w-0 flex-1"><span className="block font-semibold">New group</span><span className="block text-xs text-slate-500">With everyone at this table</span></span>
+                <span className="min-w-0 flex-1"><span className="block font-semibold">New group</span><span className="block text-muted text-xs">With everyone at this table</span></span>
                 {target === NONE && <Check size={18} className="text-brand-600" />}
               </button>
               {usable.filter((g) => !g.archived).map((g) => {
@@ -152,7 +152,7 @@ function ToGroup({ table, group, ready }: { table: LiveTable; group: Group; read
         ))}
       </div>
       {dupes.size > 0 && <p className="mt-2 text-xs text-amber-600">Two people point at the same member — their items will be combined.</p>}
-      <p className="mt-2 text-xs text-slate-500">{group.members[payer]?.name ?? 'You'} paid {formatMoney(tableTotal(table), table.currency)}. Everyone else owes their share.</p>
+      <p className="mt-2 text-muted text-xs">{group.members[payer]?.name ?? 'You'} paid {formatMoney(tableTotal(table), table.currency)}. Everyone else owes their share.</p>
       <button type="button" className="btn-primary mt-4 w-full" disabled={!ready || busy} onClick={finish}><Check size={18} aria-hidden /> Add expense to {group.name}</button>
       {!ready && <p className="text-muted mt-2 text-center text-xs">Claim or split the leftover items first.</p>}
     </div>
@@ -191,7 +191,7 @@ function NoGroup({ table, ready }: { table: LiveTable; ready: boolean }) {
 
   return (
     <div className="space-y-2">
-      <p className="text-sm text-slate-500">Creates “{table.merchant}” with everyone here and adds this bill item by item, so you can fix who had what later. Friends join it with the invite link.</p>
+      <p className="text-muted text-sm">Creates “{table.merchant}” with everyone here and adds this bill item by item, so you can fix who had what later. Friends join it with the invite link.</p>
       <button type="button" className="btn-primary w-full" disabled={!ready || busy} onClick={createGroup} data-testid="create-table-group"><Users size={18} aria-hidden /> Create group and add the bill</button>
       {!ready && <p className="text-muted text-center text-xs">Claim or split the leftover items first.</p>}
       <button type="button" className="btn-ghost w-full" disabled={busy} onClick={() => repo.updateTable(table.code, { status: 'closed' }).catch((e) => toast(errText(e), 'err'))}>Don’t make a group, just show who owes what</button>

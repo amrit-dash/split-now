@@ -6,8 +6,9 @@ import { useAllGroupData } from '@/hooks/data'
 import { OcrCancelled, useOcr } from '@/hooks/useOcr'
 import { useReceiptReader } from '@/hooks/useReceiptReader'
 import { usePageTitle } from '@/lib/brand'
-import { aiUnavailableText } from '@/lib/ai-copy'
+import { aiScanEnabled, aiScanPossible, isQuietReason, unavailableText } from '@/lib/ai'
 import { errText } from '@/lib/errors'
+import { warmOcr } from '@/lib/ocr'
 import { appLocale, formatDate } from '@/lib/locale'
 import { CURRENCIES, formatMoney, fromHundredths } from '@/lib/money'
 import { matchMember, parsePaymentScreenshot, parseReceipt, type ParsedPayment, type ParsedReceipt } from '@/lib/ocr-parse'
@@ -24,6 +25,16 @@ type Mode = 'receipt' | 'statement' | 'payment'
 
 /** The AI reader declined the photo: nothing usable came back (the fallback reader may still manage). */
 const looksEmpty = (r: ParsedReceipt) => !r.total && !r.merchant && r.items.length === 0
+
+/** A quiet reason ("AI isn't set up / not for this account") is worth one mention per session, not one per scan. */
+const QUIET_KEY = 'splitit-ai-quiet-told'
+function tellOnce(text: string, toast: (t: string) => void) {
+  try {
+    if (sessionStorage.getItem(QUIET_KEY)) return
+    sessionStorage.setItem(QUIET_KEY, '1')
+  } catch { /* private mode: tell every time */ }
+  toast(text)
+}
 
 export default function Scan() {
   usePageTitle('Scan')
@@ -49,10 +60,18 @@ export default function Scan() {
   const run = useRef(0)
   const [cancelled, setCancelled] = useState(false)
 
+  // Get the on-device reader's ~3 MB core compiling while the user picks a photo, when that is the likely path.
+  useEffect(() => { if (!aiScanEnabled() || !aiScanPossible()) warmOcr() }, [])
+
   // An image shared from another app (Android share target): the service worker parked it in Cache Storage.
+  const [tooLarge, setTooLarge] = useState(false)
   useEffect(() => {
-    if (!params.get('shared') || !('caches' in window)) return
+    const shared = params.get('shared')
+    if (!shared) return
     setParams({}, { replace: true })
+    // The service worker won't park images over 15 MB (Cache Storage quota on low-end phones).
+    if (shared === 'toolarge') { setTooLarge(true); return }
+    if (!('caches' in window)) return
     ;(async () => {
       const cache = await caches.open('splitit-share')
       const res = await cache.match('/shared-image')
@@ -83,11 +102,12 @@ export default function Scan() {
         const r = await reader.read(f)
         if (run.current !== id) return
         setText('')
-        if (r.via === 'ai' && ((r as { notABill?: boolean }).notABill || looksEmpty(r.parsed))) { setNotABill(true); return }
+        if (r.via === 'ai' && (r.notABill || looksEmpty(r.parsed))) { setNotABill(true); return }
         setReceipt(r.parsed)
         if (r.parsed.currency && CURRENCIES.includes(r.parsed.currency)) setCurrency(r.parsed.currency)
-        // A successful on-phone read is not an error, whatever stopped the AI.
-        if (r.fellBack) toast(aiUnavailableText((r as { reason?: string }).reason))
+        // A successful on-phone read is not an error, whatever stopped the AI: a calm line, and
+        // for "not set up for you" reasons only once per session.
+        if (r.fellBack) { const line = unavailableText(r.reason); if (isQuietReason(r.reason)) tellOnce(line, toast); else toast(line) }
         return
       }
       const t = await ocr.run(f)
@@ -161,10 +181,15 @@ export default function Scan() {
       ]} />
       {mode === 'statement' ? <StatementImport /> : <>
 
+      {tooLarge && (
+        <p className="mt-4 rounded-2xl bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200" role="status" data-testid="scan-too-large">
+          That image is too big to share (15 MB max). Pick it from your photos instead.
+        </p>
+      )}
       <div className="card mt-4 overflow-hidden">
         {preview ? (
           <div className="relative">
-            <img src={preview} alt="The photo being read" className="max-h-80 w-full bg-slate-100 object-contain dark:bg-ink-800" />
+            <img src={preview} alt="The bill you picked" className="max-h-80 w-full bg-slate-100 object-contain dark:bg-ink-800" />
             {busy && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white backdrop-blur-sm">
                 <div className="text-sm font-semibold" aria-live="polite">{progressLabel}</div>

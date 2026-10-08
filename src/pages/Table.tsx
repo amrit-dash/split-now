@@ -87,7 +87,7 @@ export function TableEntry() {
       </div>
       <form className="mt-6 space-y-3" onSubmit={(e) => { e.preventDefault(); const c = parseCode(code); if (c) nav(`/t/${c}`) }}>
         <input className="input text-center text-2xl font-bold uppercase tracking-[0.3em]" placeholder="ABCD-2345" value={code} onChange={(e) => setCode(e.target.value)} autoFocus aria-label="Table code" autoCapitalize="characters" autoComplete="off" autoCorrect="off" spellCheck={false} />
-        <button className="btn-primary w-full" disabled={!parseCode(code)}><Receipt size={18} aria-hidden /> Open the bill</button>
+        <button type="submit" className="btn-primary w-full" disabled={!parseCode(code)}><Receipt size={18} aria-hidden /> Open the bill</button>
       </form>
     </div>
   )
@@ -98,6 +98,7 @@ export default function TablePage() {
   const code = parseCode(raw)
   const viewer = useViewer()
   const table = useTable(viewer.pid ? code : undefined)
+  usePageTitle(table === undefined ? undefined : table?.merchant ?? 'Live table')
 
   if (viewer.error) return <Shell><Empty emoji="🔌" title="Couldn’t open the table">{viewer.error}</Empty></Shell>
   if (!viewer.pid || table === undefined) return <Loading />
@@ -135,11 +136,11 @@ function JoinForm({ table, viewer }: { table: LiveTable; viewer: Viewer }) {
       <div className="text-center">
         <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-100 to-duo-100 text-5xl dark:from-brand-900/50 dark:to-duo-900/30">🧾</div>
         <h1 className="mt-4 text-2xl font-extrabold">{table.merchant}</h1>
-        <p className="mt-1 text-sm text-slate-500">{host} is splitting {formatMoney(tableTotal(table), table.currency)}. Tap what you had — no account needed.</p>
+        <p className="mt-1 text-muted text-sm">{host} is splitting {formatMoney(tableTotal(table), table.currency)}. Tap what you had — no account needed.</p>
       </div>
       <form className="mt-6 space-y-3" onSubmit={join}>
         <input className="input" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} autoFocus maxLength={40} aria-label="Your name" autoComplete="given-name" />
-        <button className="btn-primary w-full"><LogIn size={18} aria-hidden /> Join the table</button>
+        <button type="submit" className="btn-primary w-full"><LogIn size={18} aria-hidden /> Join the table</button>
       </form>
     </div>
   )
@@ -168,7 +169,7 @@ function Live({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; isH
         title={table.merchant}
         back={viewer.signedIn ? '/' : undefined}
         subtitle={<>Live table · code <b className="tracking-wider">{formatCode(table.code)}</b></>}
-        right={isHost && <button className="rounded-full bg-brand-600 p-2.5 text-white" onClick={() => setSheet('qr')} aria-label="Show QR code"><QrIcon size={20} /></button>}
+        right={isHost && <button type="button" className="rounded-full bg-brand-600 p-2.5 text-white" onClick={() => setSheet('qr')} aria-label="Show QR code"><QrIcon size={20} /></button>}
       />
 
       {isHost && isExpired(table) && <div className="mb-3 rounded-2xl bg-amber-50 p-3 text-sm font-medium text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">This table has expired, so guests can’t claim any more. Finish it to add the expense.</div>}
@@ -199,7 +200,7 @@ function Live({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; isH
                 <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-2 ${s ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300 dark:border-ink-700'}`}>{s > 0 && <Check size={16} strokeWidth={3} />}</span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-semibold">{it.name}</span>
-                  <span className="mt-0.5 flex flex-wrap items-center gap-1 text-xs text-slate-500">
+                  <span className="mt-0.5 flex flex-wrap items-center gap-1 text-muted text-xs">
                     {unclaimed ? <span className="font-semibold text-amber-600 dark:text-amber-400">Unclaimed</span> : claimers.map((p) => (
                       <span key={p} className="inline-flex items-center gap-1 rounded-full bg-slate-100 py-0.5 pl-0.5 pr-2 dark:bg-ink-800">
                         <Avatar name={table.participants[p].name} color={color(p)} size={16} />{name(p)}{it.claims[p] > 1 && ` ×${it.claims[p]}`}
@@ -214,7 +215,7 @@ function Live({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; isH
               </button>
               {s > 0 && claimers.length > 1 && (
                 <div className="flex items-center justify-between border-t border-slate-100 px-3 py-2 text-sm dark:border-white/5">
-                  <span className="text-slate-500">Shared — {who === me ? 'your' : `${name(who)}’s`} portions</span>
+                  <span className="text-muted">Shared — {who === me ? 'your' : `${name(who)}’s`} portions</span>
                   <div className="flex items-center gap-1 rounded-2xl bg-slate-100 p-1 dark:bg-ink-800">
                     <button type="button" className="rounded-xl p-1" onClick={() => write(setShares(claims, it.id, s - 1))} aria-label="Fewer portions"><Minus size={16} /></button>
                     <span className="w-6 text-center font-bold tabular-nums">{s}</span>
@@ -231,9 +232,9 @@ function Live({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; isH
 
       {isHost && (
         <div className="mt-3 grid grid-cols-3 gap-2">
-          <button className="btn-secondary !px-2 text-sm" onClick={() => shareOrCopy({ title: table.merchant, text: `Tap what you had at ${table.merchant}:`, url: link }).then((r) => r === 'copied' && toast('Link copied'))}><Share2 size={16} /> Share</button>
-          <button className="btn-secondary !px-2 text-sm" onClick={() => setSheet('person')}><UserPlus size={16} /> Person</button>
-          <button className="btn-secondary !px-2 text-sm" onClick={() => setSheet('edit')}><Pencil size={16} /> Edit bill</button>
+          <button type="button" className="btn-secondary !px-2 text-sm" onClick={() => shareOrCopy({ title: table.merchant, text: `Tap what you had at ${table.merchant}:`, url: link }).then((r) => r === 'copied' && toast('Link copied'))}><Share2 size={16} /> Share</button>
+          <button type="button" className="btn-secondary !px-2 text-sm" onClick={() => setSheet('person')}><UserPlus size={16} /> Person</button>
+          <button type="button" className="btn-secondary !px-2 text-sm" onClick={() => setSheet('edit')}><Pencil size={16} /> Edit bill</button>
         </div>
       )}
       {isHost && repo.mode === 'demo' && (
@@ -245,24 +246,24 @@ function Live({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; isH
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/70 bg-white/90 backdrop-blur-xl safe-bottom dark:border-white/5 dark:bg-ink-900/90">
         <div className="mx-auto flex max-w-lg items-center gap-3 px-4 py-3">
           <div className="min-w-0 flex-1">
-            <div className="text-xs text-slate-500">Your total{mine?.extras ? ` (incl. ${formatMoney(mine.extras, cur, { sign: true })} tax/tip)` : ''}</div>
+            <div className="text-muted text-xs">Your total{mine?.extras ? ` (incl. ${formatMoney(mine.extras, cur, { sign: true })} tax/tip)` : ''}</div>
             <div className="text-2xl font-extrabold tabular-nums" data-testid="my-total">{formatMoney(mine?.total ?? 0, cur)}</div>
           </div>
-          {isHost && viewer.signedIn && <button className="btn-primary" onClick={() => setSheet('finish')}><Check size={18} aria-hidden /> Finish</button>}
+          {isHost && viewer.signedIn && <button type="button" className="btn-primary" onClick={() => setSheet('finish')}><Check size={18} aria-hidden /> Finish</button>}
         </div>
       </div>
 
       <Sheet open={sheet === 'qr'} onClose={() => setSheet(null)} title="Scan to join">
         <div className="flex flex-col items-center text-center">
           <QrCode value={link} size={248} label="QR code to join this table" />
-          <div className="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">or enter code</div>
+          <div className="mt-4 text-xs font-semibold uppercase tracking-wide text-muted">or enter code</div>
           <div className="text-3xl font-extrabold tracking-[0.2em]" data-testid="table-code">{formatCode(table.code)}</div>
-          <div className="mt-1 break-all text-sm text-slate-500">{link.replace(/^https?:\/\//, '')}</div>
+          <div className="mt-1 break-all text-muted text-sm">{link.replace(/^https?:\/\//, '')}</div>
           <div className="mt-4 grid w-full grid-cols-2 gap-2">
-            <button className="btn-secondary" onClick={() => copy(link).then((ok) => toast(ok ? 'Link copied' : 'Couldn’t copy', ok ? 'ok' : 'err'))}><Copy size={16} /> Copy link</button>
-            <button className="btn-primary" onClick={() => shareOrCopy({ title: table.merchant, text: `Tap what you had at ${table.merchant}:`, url: link })}><Share2 size={16} /> Share</button>
+            <button type="button" className="btn-secondary" onClick={() => copy(link).then((ok) => toast(ok ? 'Link copied' : 'Couldn’t copy', ok ? 'ok' : 'err'))}><Copy size={16} /> Copy link</button>
+            <button type="button" className="btn-primary" onClick={() => shareOrCopy({ title: table.merchant, text: `Tap what you had at ${table.merchant}:`, url: link })}><Share2 size={16} /> Share</button>
           </div>
-          <p className="mt-3 text-xs text-slate-400">Guests just enter their name. The table closes after 24 hours.</p>
+          <p className="mt-3 text-muted text-xs">Guests just enter their name. The table closes after 24 hours.</p>
         </div>
       </Sheet>
       <AddPersonSheet open={sheet === 'person'} onClose={() => setSheet(null)} table={table} onAdded={setActingFor} />
@@ -300,14 +301,14 @@ function People({ table, totals, order, me, color, name }: {
               <Avatar name={table.participants[p].name} color={color(p)} size={32} />
               <div className="min-w-0 flex-1">
                 <div className="truncate font-medium">{name(p)}{p === table.hostUid && <span className="ml-1.5 rounded-full bg-brand-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-brand-700 dark:bg-brand-900/40 dark:text-brand-300">paid</span>}</div>
-                {t.extras !== 0 && <div className="text-xs text-slate-500 tabular-nums">{formatMoney(t.items, cur)} + {formatMoney(t.extras, cur)} tax/tip</div>}
+                {t.extras !== 0 && <div className="text-muted text-xs tabular-nums">{formatMoney(t.items, cur)} + {formatMoney(t.extras, cur)} tax/tip</div>}
               </div>
               <div className="font-bold tabular-nums" data-testid={p === me ? undefined : 'person-total'}>{formatMoney(t.total, cur)}</div>
             </div>
           )
         })}
       </div>
-      <div className="mt-3 space-y-0.5 border-t border-slate-100 pt-3 text-sm text-slate-500 dark:border-white/5">
+      <div className="mt-3 space-y-0.5 border-t border-slate-100 pt-3 text-muted text-sm dark:border-white/5">
         {e.tax > 0 && <Line k="Tax / fees" v={formatMoney(e.tax, cur)} />}
         {e.tip > 0 && <Line k="Tip" v={formatMoney(e.tip, cur)} />}
         {e.discount > 0 && <Line k="Discount" v={formatMoney(-e.discount, cur)} />}
@@ -335,9 +336,9 @@ function AddPersonSheet({ open, onClose, table, onAdded }: { open: boolean; onCl
   return (
     <Sheet open={open} onClose={onClose} title="Add someone without a phone">
       <form onSubmit={add} className="space-y-3">
-        <p className="text-sm text-slate-500">You’ll tap their items for them.</p>
+        <p className="text-muted text-sm">You’ll tap their items for them.</p>
         <input className="input" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} maxLength={40} autoFocus aria-label="Name" />
-        <button className="btn-primary w-full"><UserPlus size={18} aria-hidden /> Add</button>
+        <button type="submit" className="btn-primary w-full"><UserPlus size={18} aria-hidden /> Add</button>
       </form>
     </Sheet>
   )
@@ -373,7 +374,7 @@ function EditBillSheet({ table, onClose }: { table: LiveTable; onClose: () => vo
           <div key={r.id} className="flex gap-2">
             <input className="input !py-2" value={r.name} placeholder="Item" aria-label={`Item ${i + 1} name`} onChange={(e) => setRows(rows.map((x) => (x.id === r.id ? { ...x, name: e.target.value } : x)))} />
             <input className="input !w-28 !py-2 text-right" inputMode="decimal" value={r.amount} placeholder="0.00" aria-label={`Item ${i + 1} amount`} onChange={(e) => setRows(rows.map((x) => (x.id === r.id ? { ...x, amount: e.target.value } : x)))} />
-            <button type="button" className="p-2 text-slate-400 hover:text-rose-500" onClick={() => setRows(rows.filter((x) => x.id !== r.id))} aria-label="Remove item"><Trash2 size={18} /></button>
+            <button type="button" className="flex h-11 w-11 items-center justify-center text-slate-500 hover:text-rose-600 dark:text-slate-400" onClick={() => setRows(rows.filter((x) => x.id !== r.id))} aria-label="Remove item"><Trash2 size={18} /></button>
           </div>
         ))}
         <button type="button" className="btn-secondary w-full !min-h-0 !py-2.5 text-sm" onClick={() => setRows([...rows, { id: uid('i_'), name: '', amount: '' }])}><Plus size={16} /> Add item</button>
@@ -385,8 +386,8 @@ function EditBillSheet({ table, onClose }: { table: LiveTable; onClose: () => vo
             </label>
           ))}
         </div>
-        <p className="text-xs text-slate-500">Tax, tip and discounts are shared in proportion to what each person had.</p>
-        <button className="btn-primary w-full" onClick={save}><Check size={18} aria-hidden /> Save</button>
+        <p className="text-muted text-xs">Tax, tip and discounts are shared in proportion to what each person had.</p>
+        <button type="button" className="btn-primary w-full" onClick={save}><Check size={18} aria-hidden /> Save</button>
       </div>
     </Sheet>
   )
@@ -420,7 +421,7 @@ function Closed({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; i
         </div>
       )}
       {isHost && table.expenseId && table.closedGroupId && viewer.signedIn && (
-        <button className="btn-primary w-full" onClick={() => nav(`/groups/${table.closedGroupId}/expenses/${table.expenseId}`)}><ArrowRight size={18} aria-hidden /> Open the expense</button>
+        <button type="button" className="btn-primary w-full" onClick={() => nav(`/groups/${table.closedGroupId}/expenses/${table.expenseId}`)}><ArrowRight size={18} aria-hidden /> Open the expense</button>
       )}
       <div className="card mt-4 divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
         {order.map((p, i) => (
@@ -428,7 +429,7 @@ function Closed({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; i
             <Avatar name={table.participants[p].name} color={colorFor(i)} size={32} />
             <span className="flex-1 font-medium">{p === me ? 'You' : table.participants[p].name}</span>
             <span className="font-bold tabular-nums" data-testid="final-total">{formatMoney(totals.people[p].total, cur)}</span>
-            {isHost && p !== me && totals.people[p].total > 0 && <button className="rounded-xl p-2 text-brand-600" onClick={() => remind(p)} aria-label={`Send ${table.participants[p].name} their total`}><Share2 size={18} /></button>}
+            {isHost && p !== me && totals.people[p].total > 0 && <button type="button" className="rounded-xl p-2 text-brand-600" onClick={() => remind(p)} aria-label={`Send ${table.participants[p].name} their total`}><Share2 size={18} /></button>}
           </div>
         ))}
       </div>

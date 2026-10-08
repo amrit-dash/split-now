@@ -109,8 +109,9 @@ describe('capture webhook (emulator)', () => {
     expect(entries.map((e) => e.result)).toEqual(['not_a_debit', 'captured'])
     expect(entries[1]).toMatchObject({ amount: 84000, merchant: 'Swiggy', groupName: 'Goa Trip', device: 'other' })
     expect(JSON.stringify(log)).not.toContain('XX1234')
-    const more = await env.withSecurityRulesDisabled(async (ctx) => (await getDocs(collection(ctx.firestore(), 'users/alice/captureLog'))).size)
-    expect(more).toBe(1)
+    let docs = 0
+    await env.withSecurityRulesDisabled(async (ctx) => { docs = (await getDocs(collection(ctx.firestore(), 'users/alice/captureLog'))).size })
+    expect(docs).toBe(1)
   })
 
   it('a transfer between the user’s own accounts is not a payment', async () => {

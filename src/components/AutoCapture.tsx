@@ -87,6 +87,7 @@ export function AutoCapture() {
   }
   const copyIt = async (text: string, what: string) => toast((await copy(text)) ? `${what} copied` : 'Couldn’t copy', 'ok')
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `log` is the refresh trigger (the demo log and token use share one localStorage write)
   const demoUse = useMemo(() => (repo.mode === 'demo' ? demoTokenUse(user.uid) : {}), [user.uid, log])
   const lastUsed = (t: CaptureToken) => t.lastUsedAt ?? demoUse[t.token]
   const lastAny = Math.max(0, ...(tokens ?? []).map((t) => lastUsed(t) ?? 0)) || undefined

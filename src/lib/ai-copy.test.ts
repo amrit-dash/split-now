@@ -1,25 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aiAvailability, aiUnavailableText, ownKeyWouldHelp } from './ai-copy'
-
-describe('aiUnavailableText', () => {
-  it('has calm, non-blaming copy for every reason and a fallback', () => {
-    for (const r of ['off', 'quota', 'not_listed', 'bad_key', 'server', 'not_configured', 'offline', 'demo', 'disabled']) {
-      const t = aiUnavailableText(r)
-      expect(t).not.toMatch(/error|fail|!/i)
-      expect(t.length).toBeGreaterThan(10)
-    }
-    expect(aiUnavailableText(undefined)).toMatch(/phone/)
-    expect(aiUnavailableText('something-new')).toMatch(/phone/)
-  })
-  it('only suggests a key where one would help', () => {
-    expect(ownKeyWouldHelp('quota')).toBe(false)
-    expect(ownKeyWouldHelp('server')).toBe(false)
-    expect(ownKeyWouldHelp('offline')).toBe(false)
-    expect(ownKeyWouldHelp('off')).toBe(true)
-    expect(ownKeyWouldHelp('not_listed')).toBe(true)
-    expect(ownKeyWouldHelp('bad_key')).toBe(true)
-  })
-})
+import { aiAvailability } from './ai-copy'
 
 describe('aiAvailability', () => {
   const app = (images: 'available' | 'off' | 'not_listed' | 'feature_off', sms = images) => ({ admin: false, app: { images, sms, model: 'm' } })
@@ -40,5 +20,10 @@ describe('aiAvailability', () => {
   it('unknown status: own key still counts', () => {
     expect(aiAvailability({ status: undefined, hasOwnKey: false, enabled: true }).text).toBe('Checking…')
     expect(aiAvailability({ status: null, hasOwnKey: true, enabled: true })).toMatchObject({ images: true, text: 'Using your own key' })
+  })
+  it('copy never blames the user', () => {
+    for (const s of [app('off'), app('not_listed'), app('feature_off'), null, undefined]) {
+      expect(aiAvailability({ status: s, hasOwnKey: false, enabled: true }).text).not.toMatch(/error|fail|!/i)
+    }
   })
 })
