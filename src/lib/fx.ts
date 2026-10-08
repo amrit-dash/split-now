@@ -1,6 +1,7 @@
 import type { Cents, FxSource, MemberId, OriginalAmount } from '@/types'
 import { minorDigits } from './money'
 import { allocate } from './splits'
+import { localISODate } from './id'
 
 /*
  * Foreign-exchange rates for multi-currency expenses.
@@ -117,7 +118,12 @@ function writeCache(c: Cache) {
 }
 
 const cacheKey = (date: string, base: string) => `${date}|${base}`
-const isoToday = () => new Date(now()).toISOString().slice(0, 10)
+/**
+ * "Today" is the device's calendar day, like every other date in the app (expense dates come
+ * from todayISO()). Using the UTC day here would treat a local evening west of UTC as a past
+ * date: a rate fetched before ECB's afternoon publication would then be cached as final.
+ */
+const isoToday = () => localISODate(now())
 
 /** A cached entry is usable when it's for a past date, or was fetched recently. */
 function fresh(e: CacheEntry | undefined, asked: string): e is CacheEntry {

@@ -173,7 +173,7 @@ describe('occurrences', () => {
   const template: Expense = {
     id: 'e_rent', groupId: 'g1', description: 'Rent', amount: 120000, category: 'rent', date: '2026-01-31',
     paidBy: { a: 120000 }, splits: { a: 60000, b: 60000 }, splitType: 'equal', splitInput: { selected: ['a', 'b'] },
-    receiptUrl: 'https://example.com/r.jpg', createdBy: 'u1', createdAt: 1, updatedAt: 1,
+    receiptUrl: 'https://example.com/r.jpg', receiptPath: 'receipts/g1/e_rent-abc.jpg', createdBy: 'u1', createdAt: 1, updatedAt: 1,
     recurrence: { freq: 'monthly', nextDate: '2026-02-28' },
   }
 
@@ -188,6 +188,7 @@ describe('occurrences', () => {
     expect(o.recurringFrom).toBe('e_rent')
     expect(o.recurrence).toBeUndefined()
     expect(o.receiptUrl).toBeUndefined()
+    expect(o).not.toHaveProperty('receiptPath')
     expect(o.splits).toEqual(template.splits)
     expect(o.createdAt).toBe(99)
   })

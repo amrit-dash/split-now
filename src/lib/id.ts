@@ -22,6 +22,7 @@ export function localISODate(d: Date | number): string {
   return `${String(t.getFullYear()).padStart(4, '0')}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`
 }
 
+/** Today as a local calendar day. The one "today" for the whole app (expense dates, recurrence, FX, trip windows). */
 export function todayISO(now: Date | number = new Date()) {
   return localISODate(now)
 }

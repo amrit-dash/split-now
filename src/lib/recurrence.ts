@@ -122,9 +122,13 @@ export function occurrenceId(templateId: string, date: string): string {
   return `${templateId}_${date}`
 }
 
-/** Build the concrete expense for one occurrence of a template. */
+/**
+ * Build the concrete expense for one occurrence of a template. The receipt (URL and Storage
+ * path) belongs to the template: a copy carrying the path would delete the template's image
+ * when purged or when a photo is attached to it.
+ */
 export function makeOccurrence(template: Expense, date: string, now = Date.now()): Expense {
-  const { recurrence: _r, receiptUrl: _receipt, ...rest } = template
+  const { recurrence: _r, receiptUrl: _receipt, receiptPath: _path, ...rest } = template
   return {
     ...rest,
     id: occurrenceId(template.id, date),

@@ -319,6 +319,35 @@ describe('parseImportCsv: Split Now (split-it) CSV round-trip', () => {
   it('still routes Splitwise files to the Splitwise parser', () => {
     expect(parseImportCsv(SPLITWISE).source).toBe('splitwise')
   })
+  it('survives names with ";", leading = + - @, trailing digits and duplicates', () => {
+    const g: Pick<Group, 'members' | 'currency'> = {
+      currency: 'AUD',
+      members: {
+        a: { name: "O'Neil; Jr", color: '' }, b: { name: '=1+1', color: '' }, c: { name: '+91 Sam', color: '' }, d: { name: '@handle', color: '' },
+        e: { name: 'Sam 2', color: '' }, f: { name: 'Sam', color: '' }, g: { name: 'Sam', color: '' },
+      },
+    }
+    const b2 = { groupId: 'g', category: 'food' as const, splitType: 'exact' as const, splitInput: {}, createdBy: 'u', updatedAt: 0 }
+    const es: Expense[] = [
+      { ...b2, id: 'e1', description: 'Dinner', amount: 9000, date: '2024-05-01', paidBy: { a: 4000, b: 5000 }, splits: { a: 3000, b: 3000, c: 3000 }, createdAt: 1 },
+      { ...b2, id: 'e2', description: 'Cab', amount: 6000, date: '2024-05-02', paidBy: { c: 1000, d: 2000, e: 3000 }, splits: { d: 2000, e: 2000, f: 2000 }, createdAt: 2 },
+      { ...b2, id: 'e3', description: 'Coffee', amount: 700, date: '2024-05-03', paidBy: { f: 200, g: 500 }, splits: { e: 350, g: 350 }, createdAt: 3 },
+      { ...b2, id: 'e4', description: '-dash', amount: 1000, date: '2024-05-04', paidBy: { e: 1000 }, splits: { a: 1000 }, createdAt: 4 },
+    ]
+    const sts: Settlement[] = [{ id: 's1', groupId: 'g', from: 'a', to: 'b', amount: 1500, method: 'cash', date: '2024-05-05', createdBy: 'u', createdAt: 5 }]
+    const r = parseImportCsv(groupCsv(g, es, sts))
+    expect(new Set(r.members)).toEqual(new Set(["O'Neil; Jr", '=1+1', '+91 Sam', '@handle', 'Sam 2', 'Sam', 'Sam (2)']))
+    expect(r.skipped).toBe(0)
+    expect(r.warnings).toEqual([])
+    expect(r.expenses.map((e) => e.description)).toEqual(['Dinner', 'Cab', 'Coffee', '-dash'])
+    expect(r.expenses[0].paidBy).toEqual({ "O'Neil; Jr": 4000, '=1+1': 5000 })
+    expect(r.expenses[1].paidBy).toEqual({ '+91 Sam': 1000, '@handle': 2000, 'Sam 2': 3000 })
+    expect(r.expenses[2].paidBy).toEqual({ Sam: 200, 'Sam (2)': 500 })
+    const orig = netBalances(es, sts)
+    const ids = { a: "O'Neil; Jr", b: '=1+1', c: '+91 Sam', d: '@handle', e: 'Sam 2', f: 'Sam', g: 'Sam (2)' }
+    const got = appBalances(r)
+    for (const [k, n] of Object.entries(ids)) expect(got[n]).toBe(orig[k] ?? 0)
+  })
 })
 
 describe('groupNameFromFilename', () => {

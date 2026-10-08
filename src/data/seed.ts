@@ -5,6 +5,7 @@ import { firstNextDate } from '@/lib/recurrence'
 import { convertMinor } from '@/lib/fx'
 import { amountLabel } from '@/lib/activity'
 import { formatMoney } from '@/lib/money'
+import { localISODate } from '@/lib/id'
 import type { AuthUser } from './repo'
 
 /**
@@ -15,10 +16,8 @@ import type { AuthUser } from './repo'
  */
 export function seedDemo(_state: unknown, user: AuthUser) {
   const now = Date.now()
-  const day = (offset: number) => {
-    const d = new Date(now - offset * 86400000)
-    return d.toISOString().slice(0, 10)
-  }
+  // Local calendar days, like todayISO(): the trip window must contain "today" on this device.
+  const day = (offset: number) => localISODate(now - offset * 86400000)
   const goa: Group = {
     id: 'g_goa', name: 'Goa Trip', emoji: '🏖️', type: 'trip', currency: 'INR', budget: 12000000, simplify: true,
     startDate: day(26), endDate: day(12),

@@ -125,7 +125,10 @@ describe('computeTableTotals', () => {
       const claims: LiveTable['claims'] = {}
       for (const id of Object.keys(items)) {
         const who = people.filter(() => rnd(2)).concat(people[rnd(people.length)])
-        for (const p of who) (claims[p] ??= {})[id] = 1 + rnd(3)
+        for (const p of who) {
+          claims[p] ??= {}
+          claims[p][id] = 1 + rnd(3)
+        }
       }
       const t = table({
         items, claims, extras: { tax: rnd(900), tip: rnd(900), discount: rnd(300) },

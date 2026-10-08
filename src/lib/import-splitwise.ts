@@ -438,10 +438,12 @@ function parseSplitItRows(rows: string[][], opts: ParseOptions): ImportResult {
   const col = { date: at('date'), type: at('type'), desc: at('description'), cat: at('category'), amount: at('amount'), cur: at('currency'), paid: at('paid by'), notes: at('notes') }
   const end = col.notes >= 0 ? col.notes : rows[0].length
   const memberCols = rows[0].map((_, i) => i).filter((i) => i > col.paid && i < end)
-  const members = uniqueNames(memberCols.map((i) => rows[0][i]))
-  const body = rows.slice(1).filter((r) => !isBlank(r))
   const cell = (r: string[], i: number) => (i < 0 ? '' : (r[i] ?? '').trim())
+  // The export prefixes text starting with = + - @ with an apostrophe (formula injection guard),
+  // member names in the header included.
   const unformula = (s: string) => (/^'[=+\-@]/.test(s) ? s.slice(1) : s)
+  const members = uniqueNames(memberCols.map((i) => unformula(cell(rows[0], i))))
+  const body = rows.slice(1).filter((r) => !isBlank(r))
   const fileCurrency = cell(body[0] ?? [], col.cur).toUpperCase() || 'AUD'
   const currency = opts.currency ?? fileCurrency
   const expenses: ImportedExpense[] = []
@@ -450,17 +452,27 @@ function parseSplitItRows(rows: string[][], opts: ParseOptions): ImportResult {
   const order = detectDateOrder(body.map((r) => cell(r, col.date)))
   const byName = new Map(members.map((m) => [m.toLowerCase(), m]))
 
+  // Multi-payer cells are "Name 12.00; Name 3.00". Names may themselves contain ";" or end in
+  // digits, so the cell is read name by name (longest known name first) rather than split on ";".
+  const names = [...byName.keys()].sort((a, b) => b.length - a.length)
   const parsePaidBy = (raw: string, amount: Cents): Record<string, Cents> | null => {
     const exact = byName.get(raw.toLowerCase())
     if (exact) return { [exact]: amount }
     const out: Record<string, Cents> = {}
-    for (const part of raw.split(';')) {
-      const m = part.trim().match(/^(.*\S)\s+(-?[\d.,]+)$/)
-      const who = m && byName.get(m[1].toLowerCase())
-      if (!m || !who) return null
-      out[who] = (out[who] ?? 0) + parseAmount(m[2], currency)
+    const lower = raw.toLowerCase()
+    let pos = 0
+    while (pos < raw.length) {
+      let step: { who: string; len: number; amount: Cents } | undefined
+      for (const n of names) {
+        if (!lower.startsWith(n, pos)) continue
+        const m = raw.slice(pos + n.length).match(/^\s+(-?[\d.,]+)(?:;\s*|$)/)
+        if (m) { step = { who: byName.get(n)!, len: n.length + m[0].length, amount: parseAmount(m[1], currency) }; break }
+      }
+      if (!step) return null
+      out[step.who] = (out[step.who] ?? 0) + step.amount
+      pos += step.len
     }
-    return out
+    return Object.keys(out).length ? out : null
   }
 
   for (const [n, r] of body.entries()) {
