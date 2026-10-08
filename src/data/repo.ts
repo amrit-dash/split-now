@@ -2,6 +2,7 @@ import type { ActivityEntry, Capture, Expense, ExpenseComment, Group, Member, Me
 import type { CaptureDraft, InboxDoc } from '@/lib/capture'
 import type { ItemId, LiveTable, NewTable, ParticipantId, TableExtras, TableItem, TableParticipant, TableStatus } from '@/lib/table'
 import type { ActivityCtx } from '@/lib/activity'
+import type { FxRatesDoc, FxRefreshResult } from '@/lib/fx'
 import { defaultCurrency } from '@/lib/locale'
 
 export type Unsub = () => void
@@ -197,6 +198,15 @@ export interface Repo {
   updateTable(code: string, patch: TablePatch): Promise<void>
   /** Host only. */
   deleteTable(code: string): Promise<void>
+
+  // ---- Shared exchange rates (fxRates/*, written by Cloud Functions; see src/lib/fx.ts) ----
+  /** fxRates/{yyyy-mm-dd} or fxRates/latest; null when missing, signed out, or in demo mode. */
+  getFxRates(date: string | 'latest'): Promise<FxRatesDoc | null>
+  /**
+   * Ask the server (refreshFx callable) to fetch and store the latest rates, or those for a
+   * past `date`. Throttled server-side. null on failure, when signed out, or in demo mode.
+   */
+  refreshFx(date?: string): Promise<FxRefreshResult | null>
 }
 
 export interface TablePatch {

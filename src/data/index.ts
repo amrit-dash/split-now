@@ -1,5 +1,6 @@
 import type { Repo } from './repo'
 import { createLocalRepo } from './localRepo'
+import { setFxShared } from '@/lib/fx'
 
 const env = import.meta.env
 
@@ -43,6 +44,9 @@ export function initRepo(): Promise<Repo> {
     repo = firebaseConfigured
       ? (await import('./firebaseRepo')).createFirebaseRepo(config, env.VITE_USE_EMULATORS === 'true')
       : createLocalRepo()
+    // Exchange rates: the shared Firestore copy first (demo mode's repo has none, so fx.ts
+    // falls back to calling Frankfurter directly).
+    if (repo.mode === 'firebase') setFxShared(repo)
     return repo
   })()
   return ready

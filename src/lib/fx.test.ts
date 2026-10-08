@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   FX_API, cachedRate, convertExpense, convertMinor, formatRate, getRate, lastCurrency, parseRate, rateLabel, ratesFetchedAt, refreshRates,
   rememberCurrency, setFxEnv, toOriginal, type FxFetch,
+  expectedEcbDate, isSynced, loadSharedRates, ratesStatus, type FxRatesDoc, type FxShared,
 } from './fx'
 
 const sum = (r: Record<string, number>) => Object.values(r).reduce((a, b) => a + b, 0)
@@ -171,5 +172,92 @@ describe('refreshRates', () => {
     setFxEnv({ storage: null, fetch: async () => ({ ok: false, status: 503, json: async () => ({}) }) })
     expect(await refreshRates('INR')).toBeNull()
     setFxEnv()
+  })
+})
+
+describe('shared rates (Firestore fxRates)', () => {
+  const clock = Date.parse('2026-10-08T06:00:00Z') // 08:00 in Frankfurt, before ECB publishes
+  const pub = (date: string, fetchedAt = clock - 3600_000): FxRatesDoc => ({ date, base: 'EUR', rates: { EUR: 1, INR: 108, USD: 1.2, THB: 37.5 }, fetchedAt, source: 'ecb' })
+  let docs: Record<string, FxRatesDoc>
+  let log: string[]
+  let fetches: number
+  const sharedMock: FxShared = {
+    async getFxRates(d) { log.push(`get ${d}`); return docs[d] ?? null },
+    async refreshFx(d) {
+      log.push(`refresh ${d ?? 'latest'}`)
+      if (d === '2026-10-04') { docs[d] = pub('2026-10-02', clock); return { date: '2026-10-02', fetchedAt: clock, rates: docs[d].rates } }
+      if (!d) { docs.latest = pub('2026-10-07', clock); return { date: '2026-10-07', fetchedAt: clock } }
+      return null
+    },
+  }
+  beforeEach(() => {
+    docs = { latest: pub('2026-10-07'), '2026-10-07': pub('2026-10-07') }
+    log = []
+    fetches = 0
+    const m = new Map<string, string>()
+    setFxEnv({
+      storage: { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => void m.set(k, v) },
+      now: () => clock,
+      shared: sharedMock,
+      fetch: async () => { fetches++; return { ok: true, status: 200, json: async () => ({ date: '2026-10-07', rates: { AUD: 1 } }) } },
+    })
+  })
+  afterEach(() => setFxEnv({ storage: null }))
+
+  it('reads today from fxRates/latest and derives any pair, then serves it from the cache', async () => {
+    expect(await getRate('USD', 'INR', '2026-10-08')).toEqual({ rate: 90, date: '2026-10-07', source: 'ecb' })
+    expect(await getRate('INR', 'EUR', '2026-10-08')).toEqual({ rate: Number((1 / 108).toPrecision(10)), date: '2026-10-07', source: 'ecb' })
+    expect((await getRate('EUR', 'THB', '2026-10-08'))?.rate).toBe(37.5)
+    expect(log).toEqual(['get latest'])
+    expect(fetches).toBe(0)
+  })
+  it('asks the server to refresh a shared latest older than a day', async () => {
+    docs.latest = pub('2026-10-06', clock - 30 * 3600_000)
+    expect((await getRate('USD', 'INR', '2026-10-08'))?.date).toBe('2026-10-07')
+    expect(log).toEqual(['get latest', 'refresh latest', 'get latest'])
+  })
+  it('reads a stored past date, or has the server fetch and store it', async () => {
+    expect((await getRate('USD', 'INR', '2026-10-07'))?.rate).toBe(90)
+    expect(await getRate('THB', 'INR', '2026-10-04')).toEqual({ rate: 2.88, date: '2026-10-02', source: 'ecb' })
+    expect(log).toEqual(['get 2026-10-07', 'get 2026-10-04', 'refresh 2026-10-04'])
+    expect(fetches).toBe(0)
+  })
+  it('returns null for a currency ECB does not publish, without a direct call', async () => {
+    expect(await getRate('AED', 'INR', '2026-10-07')).toBeNull()
+    expect(fetches).toBe(0)
+  })
+  it('falls back to the direct API when the shared source fails', async () => {
+    docs = {}
+    expect((await getRate('THB', 'AUD', '2026-09-01'))?.rate).toBe(1)
+    expect(fetches).toBe(1)
+    setFxEnv({
+      storage: null, now: () => clock,
+      shared: { getFxRates: async () => { throw new Error('permission-denied') }, refreshFx: async () => null },
+      fetch: async () => { fetches++; return { ok: true, status: 200, json: async () => ({ date: '2026-10-07', rates: { AUD: 2 } }) } },
+    })
+    expect((await getRate('THB', 'AUD', '2026-10-08'))?.rate).toBe(2)
+  })
+  it('refreshRates refreshes the shared copy and reports synced status', async () => {
+    expect(ratesStatus('INR')).toBeNull()
+    expect(isSynced(null)).toBe(false)
+    expect(await refreshRates('INR')).toEqual({ date: '2026-10-07', at: clock, count: 3, shared: true })
+    expect(log).toEqual(['refresh latest', 'get latest'])
+    expect(fetches).toBe(0)
+    expect(ratesFetchedAt('INR')).toBe(clock)
+    expect(ratesStatus('INR')).toEqual({ date: '2026-10-07', fetchedAt: clock, shared: true })
+    expect(isSynced(ratesStatus('INR'), clock)).toBe(true)
+    // two days later, with no newer publication
+    expect(isSynced(ratesStatus('INR'), clock + 2 * 86400_000)).toBe(false)
+  })
+  it('loadSharedRates reads latest without asking for a refresh', async () => {
+    docs.latest = pub('2026-10-05', clock - 3 * 86400_000)
+    expect(await loadSharedRates('INR')).toMatchObject({ date: '2026-10-05', shared: true })
+    expect(log).toEqual(['get latest'])
+  })
+  it('knows which ECB publication to expect', () => {
+    expect(expectedEcbDate(Date.parse('2026-10-08T06:00:00Z'))).toBe('2026-10-07') // Thu morning
+    expect(expectedEcbDate(Date.parse('2026-10-08T15:30:00Z'))).toBe('2026-10-08') // Thu 17:30 CEST
+    expect(expectedEcbDate(Date.parse('2026-10-10T12:00:00Z'))).toBe('2026-10-09') // Saturday
+    expect(expectedEcbDate(Date.parse('2026-10-12T06:00:00Z'))).toBe('2026-10-09') // Monday morning
   })
 })

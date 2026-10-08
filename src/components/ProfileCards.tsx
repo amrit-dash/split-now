@@ -1,8 +1,8 @@
-import { useId, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { Camera, Check, ChevronDown, KeyRound, Loader2, RefreshCw } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
-import { refreshRates, ratesFetchedAt } from '@/lib/fx'
+import { isSynced, loadSharedRates, ratesStatus, refreshRates, type RatesStatus } from '@/lib/fx'
 import { appLocale } from '@/lib/locale'
 import { Avatar } from './Avatar'
 import { useToast } from './Toast'
@@ -143,40 +143,58 @@ function linkError(e: unknown): string {
   return (e as Error).message ?? 'Couldn’t link'
 }
 
-/** Beside the currency picker: when exchange rates were last fetched, tap to refresh them. */
+/**
+ * Beside the currency picker: a square refresh button with a status dot (emerald = synced with
+ * the latest ECB publication, slate = not synced). Tapping refreshes the shared rates for
+ * everyone (or this device's copy in demo mode). Details are in the aria-label / title / toast.
+ */
 export function RatesButton({ base }: { base: string }) {
   const toast = useToast()
-  const [at, setAt] = useState<number | null>(() => ratesFetchedAt(base))
+  const [status, setStatus] = useState<RatesStatus | null>(() => ratesStatus(base))
   const [busy, setBusy] = useState(false)
   const [shownFor, setShownFor] = useState(base)
-  if (shownFor !== base) { setShownFor(base); setAt(ratesFetchedAt(base)) }
+  if (shownFor !== base) { setShownFor(base); setStatus(ratesStatus(base)) }
+
+  // Pick up the shared copy (a Firestore read, no refresh) so the dot is right on open.
+  useEffect(() => {
+    let live = true
+    loadSharedRates(base).then((s) => { if (live && s) setStatus(s) }).catch(() => {})
+    return () => { live = false }
+  }, [base])
 
   const refresh = async () => {
     setBusy(true)
     const r = await refreshRates(base)
     setBusy(false)
     if (!r) return toast(navigator.onLine ? 'Couldn’t reach the rates service' : 'You’re offline', 'err')
-    setAt(r.at)
-    toast(`Rates updated · ECB ${new Date(r.date + 'T00:00').toLocaleDateString(appLocale(), { day: 'numeric', month: 'short' })}`)
+    const s = { date: r.date, fetchedAt: r.at, shared: r.shared }
+    setStatus(s)
+    toast(`Rates updated · ${ratesDetails(s)}`)
   }
 
-  const when = at ? relative(at) : 'Not fetched yet'
+  const synced = isSynced(status)
+  const label = `Exchange rates: ${synced ? 'synced' : 'not synced'}${status ? ` (${ratesDetails(status)})` : ''}. Tap to refresh.`
   return (
-    <div className="min-w-0">
-      <div className="label">Exchange rates</div>
-      <button type="button" onClick={refresh} disabled={busy} className="input flex items-center gap-2 !pr-3.5 text-left disabled:opacity-70" aria-label={`Refresh exchange rates. ${when}`}>
-        <span className="min-w-0 flex-1 truncate text-sm">{busy ? 'Updating…' : when}</span>
-        <RefreshCw size={16} className={`shrink-0 text-brand-600 dark:text-brand-300 ${busy ? 'animate-spin' : ''}`} aria-hidden />
-      </button>
-    </div>
+    <button
+      type="button" onClick={refresh} disabled={busy} aria-label={label} title={label} data-testid="rates-button"
+      className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-brand-600 outline-none ring-1 ring-transparent transition focus-visible:ring-2 focus-visible:ring-brand-500 active:scale-95 disabled:opacity-70 dark:bg-ink-800 dark:text-brand-300"
+    >
+      <RefreshCw size={18} className={busy ? 'animate-spin' : ''} aria-hidden />
+      <span
+        aria-hidden
+        className={`absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full ring-2 ring-white dark:ring-ink-900 ${synced ? 'bg-emerald-500' : 'bg-slate-400 dark:bg-slate-500'}`}
+      />
+    </button>
   )
 }
 
-function relative(at: number): string {
-  const mins = Math.round((Date.now() - at) / 60000)
-  if (mins < 1) return 'Updated just now'
-  if (mins < 60) return `Updated ${mins} min ago`
-  const h = Math.round(mins / 60)
-  if (h < 24) return `Updated ${h} h ago`
-  return `Updated ${new Date(at).toLocaleDateString(appLocale(), { day: 'numeric', month: 'short' })}`
+/** "ECB 7 Oct, fetched 10:42" (or "fetched 6 Oct, 18:05" when not today). */
+function ratesDetails(s: RatesStatus): string {
+  const loc = appLocale()
+  const ecb = new Date(s.date + 'T00:00').toLocaleDateString(loc, { day: 'numeric', month: 'short' })
+  const at = new Date(s.fetchedAt)
+  const time = at.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit' })
+  const sameDay = at.toDateString() === new Date().toDateString()
+  return `ECB ${ecb}, fetched ${sameDay ? time : `${at.toLocaleDateString(loc, { day: 'numeric', month: 'short' })}, ${time}`}`
 }
+
