@@ -194,3 +194,18 @@ describe('reminders', () => {
     expect(reminderThreshold('JPY')).toBe(10)
   })
 })
+
+import { senderId } from './request'
+describe('senderId', () => {
+  it('keeps sender ids, phone numbers and short names', () => {
+    expect(senderId('VM-HDFCBK')).toBe('VM-HDFCBK')
+    expect(senderId('AX-ICICIT-S')).toBe('AX-ICICIT-S')
+    expect(senderId('+919876543210')).toBe('+919876543210')
+    expect(senderId('HDFC Bank')).toBe('HDFC Bank')
+  })
+  it('drops a whole message passed as sender (iPhone Shortcut quirk)', () => {
+    expect(senderId('Rs.250.00 debited from a/c XX1234 on 07-')).toBeUndefined()
+    expect(senderId('Sent Rs.500 to swiggy@icici')).toBeUndefined()
+    expect(senderId(undefined)).toBeUndefined()
+  })
+})

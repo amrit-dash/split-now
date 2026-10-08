@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ArrowRightLeft, ChevronRight, Plus, ScanLine, Users } from 'lucide-react'
+import { ArrowRightLeft, ChevronRight, Inbox, Plus, ScanLine, Users } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
 import { useAllGroupData, usePendingCaptures, useRecentActivity } from '@/hooks/data'
 import { repo } from '@/data'
@@ -87,9 +87,20 @@ export default function Home() {
             <span aria-hidden className={`inline-block shrink-0 ${HELLO[part].motion === 'wave' ? 'animate-wave origin-[70%_70%]' : 'animate-float'}`}>{HELLO[part].emoji}</span>
           </h1>
         </div>
-        <Link to="/profile" aria-label="Profile" className="shrink-0 rounded-full p-0.5 ring-2 ring-brand-500/40 transition active:scale-95">
-          <Avatar name={profile.displayName} photoURL={profile.photoURL} color="accent" size={46} />
-        </Link>
+        <div className="flex shrink-0 items-center gap-2.5">
+          <Link to="/inbox" aria-label={inbox ? `Inbox, ${inbox} to sort` : 'Inbox'} data-testid="home-inbox"
+            className="relative flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-600 shadow-sm ring-1 ring-slate-900/5 transition active:scale-95 dark:bg-ink-900 dark:text-slate-300 dark:ring-white/10">
+            <Inbox size={20} />
+            {inbox > 0 && (
+              <span className="animate-pop absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[11px] font-bold text-white ring-2 ring-slate-50 dark:ring-ink-950">
+                {inbox > 99 ? '99+' : inbox}
+              </span>
+            )}
+          </Link>
+          <Link to="/profile" aria-label="Profile" className="rounded-full p-0.5 ring-2 ring-brand-500/40 transition active:scale-95">
+            <Avatar name={profile.displayName} photoURL={profile.photoURL} color="accent" size={46} />
+          </Link>
+        </div>
       </header>
 
       {inbox > 0 && (

@@ -58,11 +58,6 @@
     --color-duo-50: oklch(98.4% 0.014 180.72); --color-duo-100: oklch(95.3% 0.051 180.801); --color-duo-200: oklch(91% 0.096 180.426); --color-duo-300: oklch(85.5% 0.138 181.071); --color-duo-400: oklch(70.4% 0.14 182.503); --color-duo-500: oklch(60% 0.118 184.704); --color-duo-600: oklch(51.1% 0.096 186.391); --color-duo-700: oklch(43.7% 0.078 188.216); --color-duo-800: oklch(38.6% 0.063 188.416); --color-duo-900: oklch(27.7% 0.046 192.524);
     --color-brand-vivid: oklch(50.8% 0.118 165.612);
   }
-  &[data-accent='sunset'] {
-    --color-brand-50: oklch(98% 0.016 73.684); --color-brand-100: oklch(95.4% 0.038 75.164); --color-brand-200: oklch(90.1% 0.076 70.697); --color-brand-300: oklch(83.7% 0.128 66.29); --color-brand-400: oklch(70.5% 0.213 47.604); --color-brand-500: oklch(64.6% 0.222 41.116); --color-brand-600: oklch(55.3% 0.195 38.402); --color-brand-700: oklch(47% 0.157 37.304); --color-brand-800: oklch(40.8% 0.123 38.172); --color-brand-900: oklch(26.6% 0.079 36.259);
-    --color-duo-50: oklch(96.9% 0.015 12.422); --color-duo-100: oklch(94.1% 0.03 12.58); --color-duo-200: oklch(89.2% 0.058 10.001); --color-duo-300: oklch(81% 0.117 11.638); --color-duo-400: oklch(71.2% 0.194 13.428); --color-duo-500: oklch(64.5% 0.246 16.439); --color-duo-600: oklch(58.6% 0.253 17.585); --color-duo-700: oklch(51.4% 0.222 16.935); --color-duo-800: oklch(45.5% 0.188 13.697); --color-duo-900: oklch(41% 0.159 10.272);
-    --color-brand-vivid: oklch(55.3% 0.195 38.402);
-  }
   &[data-accent='rose'] {
     --color-brand-50: oklch(96.9% 0.015 12.422); --color-brand-100: oklch(94.1% 0.03 12.58); --color-brand-200: oklch(89.2% 0.058 10.001); --color-brand-300: oklch(81% 0.117 11.638); --color-brand-400: oklch(71.2% 0.194 13.428); --color-brand-500: oklch(64.5% 0.246 16.439); --color-brand-600: oklch(58.6% 0.253 17.585); --color-brand-700: oklch(51.4% 0.222 16.935); --color-brand-800: oklch(45.5% 0.188 13.697); --color-brand-900: oklch(41% 0.159 10.272);
     --color-duo-50: oklch(97.1% 0.014 343.198); --color-duo-100: oklch(94.8% 0.028 342.258); --color-duo-200: oklch(89.9% 0.061 343.231); --color-duo-300: oklch(82.3% 0.12 346.018); --color-duo-400: oklch(71.8% 0.202 349.761); --color-duo-500: oklch(65.6% 0.241 354.308); --color-duo-600: oklch(59.2% 0.249 0.584); --color-duo-700: oklch(52.5% 0.223 3.958); --color-duo-800: oklch(45.9% 0.187 3.815); --color-duo-900: oklch(40.8% 0.153 2.432);
@@ -167,12 +162,13 @@ html[data-update-ready] .install-banner { display: none; }
 @utility animate-wave { animation: wave 2.4s ease-in-out 0.4s 3; }
 @utility animate-float { animation: float 3s ease-in-out infinite; }
 
-/* Aurora (components/Aurora.tsx): gradient drift + floating blurred blobs. */
-@keyframes aurora-shift { 0%, 100% { background-position: 0% 30%; } 50% { background-position: 100% 70%; } }
-@keyframes blob-a { 0%, 100% { transform: translate(0, 0) scale(1); } 33% { transform: translate(-18%, 22%) scale(1.12); } 66% { transform: translate(10%, 34%) scale(0.92); } }
-@keyframes blob-b { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-30%, -38%) scale(1.18); } }
-@keyframes blob-c { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(40%, -22%) scale(1.1); } }
-@utility animate-aurora-shift { animation: aurora-shift 14s ease-in-out infinite; }
-@utility animate-blob-a { animation: blob-a 16s ease-in-out infinite; will-change: transform; }
-@utility animate-blob-b { animation: blob-b 12s ease-in-out infinite; will-change: transform; }
-@utility animate-blob-c { animation: blob-c 18s ease-in-out infinite; will-change: transform; }
+/* Aurora (components/Aurora.tsx): gradient sweep + drifting bubbles. */
+@keyframes aurora-shift { 0%, 100% { background-position: 0% 0%; } 50% { background-position: 100% 100%; } }
+@keyframes bubble-a { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-22px, 26px) scale(1.12); } }
+@keyframes bubble-b { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-36px, -24px) scale(0.9); } }
+@keyframes bubble-c { 0%, 100% { transform: translate(0, 0); opacity: 0.6; } 50% { transform: translate(28px, -34px); opacity: 1; } }
+@utility animate-aurora-shift { animation: aurora-shift 9s ease-in-out infinite; }
+@utility animate-aurora-fab { animation: aurora-shift 6s ease-in-out infinite; }
+@utility animate-bubble-a { animation: bubble-a 11s ease-in-out infinite; will-change: transform; }
+@utility animate-bubble-b { animation: bubble-b 14s ease-in-out infinite; will-change: transform; }
+@utility animate-bubble-c { animation: bubble-c 9s ease-in-out infinite; will-change: transform; }
