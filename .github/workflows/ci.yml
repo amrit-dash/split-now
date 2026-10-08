@@ -34,7 +34,7 @@ jobs:
             functions/package-lock.json
       - run: npm ci
       - run: npm ci --prefix functions
-      - run: npm run lint
+      - run: npm run check
       # App + shared (tsc -b), then tests/configs/scripts/e2e (tsconfig.tooling.json), then functions.
       - run: npm run typecheck:all
 

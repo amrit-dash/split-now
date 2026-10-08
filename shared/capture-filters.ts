@@ -108,7 +108,14 @@ export function filterReason(
 // ---- Capture activity log (users/{uid}/captureLog) ------------------------
 
 export type CaptureLogResult =
-  | 'captured' | 'duplicate' | 'outside_trip' | 'not_a_debit' | 'unparsed' | 'paused' | 'below_min' | 'ignored'
+  | 'captured'
+  | 'duplicate'
+  | 'outside_trip'
+  | 'not_a_debit'
+  | 'unparsed'
+  | 'paused'
+  | 'below_min'
+  | 'ignored'
   /** the key is scoped to a trip the user left or deleted */
   | 'bad_scope'
 
@@ -132,21 +139,40 @@ export interface CaptureLogEntry {
 export const CAPTURE_LOG_KEEP = 30
 export const CAPTURE_LOG_DOC = 'recent'
 
-export const LOG_RESULTS: readonly CaptureLogResult[] = ['captured', 'duplicate', 'outside_trip', 'not_a_debit', 'unparsed', 'paused', 'below_min', 'ignored', 'bad_scope']
+export const LOG_RESULTS: readonly CaptureLogResult[] = [
+  'captured',
+  'duplicate',
+  'outside_trip',
+  'not_a_debit',
+  'unparsed',
+  'paused',
+  'below_min',
+  'ignored',
+  'bad_scope',
+]
 export const isLogResult = (r: string): r is CaptureLogResult => (LOG_RESULTS as readonly string[]).includes(r)
 
 /** One-line friendly text for an activity entry. */
 export function logResultText(e: Pick<CaptureLogEntry, 'result' | 'groupName'>): string {
   switch (e.result) {
-    case 'captured': return e.groupName ? `Captured for ${e.groupName}` : 'Captured to your inbox'
-    case 'duplicate': return 'Already captured (same message)'
-    case 'outside_trip': return e.groupName ? `Ignored: outside ${e.groupName}’s dates` : 'Ignored: outside trip dates'
-    case 'not_a_debit': return 'Ignored: not a payment (OTP, credit, alert or transfer between your own accounts)'
-    case 'unparsed': return 'Couldn’t read the amount'
-    case 'paused': return e.groupName ? `Ignored: capture paused for ${e.groupName}` : 'Ignored: capture paused'
-    case 'below_min': return 'Ignored: below your minimum amount'
-    case 'ignored': return 'Ignored: matched an ignore keyword'
-    case 'bad_scope': return 'Ignored: this key’s trip no longer exists. Create a new key.'
+    case 'captured':
+      return e.groupName ? `Captured for ${e.groupName}` : 'Captured to your inbox'
+    case 'duplicate':
+      return 'Already captured (same message)'
+    case 'outside_trip':
+      return e.groupName ? `Ignored: outside ${e.groupName}’s dates` : 'Ignored: outside trip dates'
+    case 'not_a_debit':
+      return 'Ignored: not a payment (OTP, credit, alert or transfer between your own accounts)'
+    case 'unparsed':
+      return 'Couldn’t read the amount'
+    case 'paused':
+      return e.groupName ? `Ignored: capture paused for ${e.groupName}` : 'Ignored: capture paused'
+    case 'below_min':
+      return 'Ignored: below your minimum amount'
+    case 'ignored':
+      return 'Ignored: matched an ignore keyword'
+    case 'bad_scope':
+      return 'Ignored: this key’s trip no longer exists. Create a new key.'
   }
 }
 

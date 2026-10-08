@@ -49,8 +49,17 @@ export function captureNote(c: { captureId: string; amount: number; currency?: s
 }
 
 export function expenseNote(e: {
-  groupId: string; expenseId: string; groupName: string; emoji?: string; actorName: string; description: string
-  amount: number; currency: string; share: number; paid: number; needsApproval?: boolean
+  groupId: string
+  expenseId: string
+  groupName: string
+  emoji?: string
+  actorName: string
+  description: string
+  amount: number
+  currency: string
+  share: number
+  paid: number
+  needsApproval?: boolean
 }): Note {
   const parts = [`${clip(e.actorName, 30)} added ${clip(e.description || 'an expense', 40)}`, formatMoney(e.amount, e.currency)]
   if (e.share > 0) parts.push(`your share ${formatMoney(e.share, e.currency)}`)
@@ -60,7 +69,15 @@ export function expenseNote(e: {
 }
 
 /** To the person who was paid. */
-export function settlementNote(s: { groupId: string; settlementId: string; groupName: string; emoji?: string; fromName: string; amount: number; currency: string }): Note {
+export function settlementNote(s: {
+  groupId: string
+  settlementId: string
+  groupName: string
+  emoji?: string
+  fromName: string
+  amount: number
+  currency: string
+}): Note {
   return {
     title: groupTitle(s.groupName, s.emoji),
     body: `${clip(s.fromName, 30)} paid you ${formatMoney(s.amount, s.currency)}`,
@@ -70,7 +87,15 @@ export function settlementNote(s: { groupId: string; settlementId: string; group
 }
 
 /** To the person recorded as the payer, when someone else recorded it ("Rahul paid me ₹500"). */
-export function settlementRecordedNote(s: { groupId: string; settlementId: string; groupName: string; emoji?: string; toName: string; amount: number; currency: string }): Note {
+export function settlementRecordedNote(s: {
+  groupId: string
+  settlementId: string
+  groupName: string
+  emoji?: string
+  toName: string
+  amount: number
+  currency: string
+}): Note {
   return {
     title: groupTitle(s.groupName, s.emoji),
     body: `${clip(s.toName, 30)} recorded that you paid ${formatMoney(s.amount, s.currency)}. Not right? Open it to flag.`,

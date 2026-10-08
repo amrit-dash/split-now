@@ -25,12 +25,18 @@ const APP_TEXT: Record<AppAiStatusValue, string> = {
  * Combine the shared-key status with the user's own key and switch into one answer. `status`
  * is undefined while it is being checked and null when it can't be (offline, demo).
  */
-export function aiAvailability(opts: { status: AiStatusResult | null | undefined; hasOwnKey: boolean; ownKeyBroken?: boolean; enabled: boolean }): AiAvailability {
+export function aiAvailability(opts: {
+  status: AiStatusResult | null | undefined
+  hasOwnKey: boolean
+  ownKeyBroken?: boolean
+  enabled: boolean
+}): AiAvailability {
   const { status, hasOwnKey, ownKeyBroken, enabled } = opts
   if (!enabled) return { images: false, sms: false, text: 'Off: nothing is sent to any AI', tone: 'muted' }
   const own = hasOwnKey && !ownKeyBroken
   if (status === undefined) return { images: own, sms: own, text: own ? 'Using your own key' : 'Checking…', tone: own ? 'ok' : 'muted' }
-  if (status === null) return { images: own, sms: own, text: own ? 'Using your own key' : 'Can’t check right now (offline, or not set up yet)', tone: own ? 'ok' : 'muted' }
+  if (status === null)
+    return { images: own, sms: own, text: own ? 'Using your own key' : 'Can’t check right now (offline, or not set up yet)', tone: own ? 'ok' : 'muted' }
   const images = status.app.images === 'available' || own
   const sms = status.app.sms === 'available' || own
   if (images && sms) return { images, sms, text: status.app.images === 'available' ? 'Available' : 'Using your own key', tone: 'ok' }

@@ -24,7 +24,13 @@ if (typeof window !== 'undefined') {
   })
 }
 
-const storage = (kind: 'localStorage' | 'sessionStorage') => { try { return window[kind] } catch { return undefined } }
+const storage = (kind: 'localStorage' | 'sessionStorage') => {
+  try {
+    return window[kind]
+  } catch {
+    return undefined
+  }
+}
 
 export function isStandalone() {
   return window.matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true
@@ -40,7 +46,9 @@ export function useInstall() {
   useEffect(() => {
     const s = () => force((n) => n + 1)
     subs.add(s)
-    return () => { subs.delete(s) }
+    return () => {
+      subs.delete(s)
+    }
   }, [])
   const installed = isStandalone()
   const ios = isIOS()
@@ -64,19 +72,32 @@ export function IOSInstallSteps() {
   return (
     <ol className="space-y-4">
       <li className="flex items-center gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300"><Share size={20} aria-hidden /></span>
-        <span>Tap the <b>Share</b> button in Safari’s toolbar (bottom of the screen on iPhone, top on iPad).</span>
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300">
+          <Share size={20} aria-hidden />
+        </span>
+        <span>
+          Tap the <b>Share</b> button in Safari’s toolbar (bottom of the screen on iPhone, top on iPad).
+        </span>
       </li>
       <li className="flex items-center gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300"><PlusSquare size={20} aria-hidden /></span>
-        <span>Scroll down and choose <b>Add to Home Screen</b>.</span>
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300">
+          <PlusSquare size={20} aria-hidden />
+        </span>
+        <span>
+          Scroll down and choose <b>Add to Home Screen</b>.
+        </span>
       </li>
       <li className="flex items-center gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-2xl dark:bg-brand-900/40" aria-hidden>✅</span>
-        <span>Tap <b>Add</b>. Split Now then opens full-screen from your home screen, and can send you notifications.</span>
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-2xl dark:bg-brand-900/40" aria-hidden>
+          ✅
+        </span>
+        <span>
+          Tap <b>Add</b>. Split Now then opens full-screen from your home screen, and can send you notifications.
+        </span>
       </li>
       <li className="rounded-2xl bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
-        Using Chrome or another browser on iPhone? The same <b>Share → Add to Home Screen</b> option is in its menu on iOS 16.4+. If it’s missing, open this page in Safari.
+        Using Chrome or another browser on iPhone? The same <b>Share → Add to Home Screen</b> option is in its menu on iOS 16.4+. If it’s missing, open this
+        page in Safari.
       </li>
     </ol>
   )
@@ -109,19 +130,31 @@ export function InstallBanner() {
           <img src="/pwa-192.png" alt="" className="h-10 w-10 shrink-0 rounded-2xl" />
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-semibold">Install Split Now</div>
-            <div className="truncate text-xs text-slate-300">{install.ios ? 'Add to Home Screen for notifications and offline use' : 'Full-screen, faster, works offline'}</div>
+            <div className="truncate text-xs text-slate-300">
+              {install.ios ? 'Add to Home Screen for notifications and offline use' : 'Full-screen, faster, works offline'}
+            </div>
           </div>
           <button
             type="button"
             className="min-h-11 shrink-0 rounded-2xl bg-white px-3.5 py-2 text-sm font-bold text-slate-900"
             onClick={async () => {
-              if (install.canPrompt) { if (await install.prompt()) setHidden(true) }
-              else setIosOpen(true)
+              if (install.canPrompt) {
+                if (await install.prompt()) setHidden(true)
+              } else setIosOpen(true)
             }}
           >
-            <span className="inline-flex items-center gap-1.5"><Download size={16} aria-hidden /> Install</span>
+            <span className="inline-flex items-center gap-1.5">
+              <Download size={16} aria-hidden /> Install
+            </span>
           </button>
-          <button type="button" onClick={dismiss} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-300 hover:text-white" aria-label="Don’t ask again"><X size={18} /></button>
+          <button
+            type="button"
+            onClick={dismiss}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-300 hover:text-white"
+            aria-label="Don’t ask again"
+          >
+            <X size={18} />
+          </button>
         </div>
       </div>
       <Sheet open={iosOpen} onClose={() => setIosOpen(false)} title="Add to Home Screen">

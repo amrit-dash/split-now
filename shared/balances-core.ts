@@ -40,8 +40,7 @@ const ints = (r: Record<string, number> | undefined) => !!r && Object.values(r).
  * balance maths ignores it.
  */
 export function isBalancedExpense(e: Pick<BalanceExpense, 'amount' | 'paidBy' | 'splits'>): boolean {
-  return Number.isInteger(e.amount) && e.amount > 0 && ints(e.paidBy) && ints(e.splits)
-    && sum(e.paidBy) === e.amount && sum(e.splits) === e.amount
+  return Number.isInteger(e.amount) && e.amount > 0 && ints(e.paidBy) && ints(e.splits) && sum(e.paidBy) === e.amount && sum(e.splits) === e.amount
 }
 
 /** Charged members (with an account, other than the author) who still have to approve. */

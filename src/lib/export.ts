@@ -64,16 +64,36 @@ export function groupCsv(group: Pick<Group, 'members' | 'currency'>, expenses: E
 
   for (const e of expenses) {
     rows.push({
-      date: e.date, createdAt: e.createdAt,
-      cells: [e.date, 'Expense', e.description, CATEGORIES[e.category]?.label ?? e.category, dec(e.amount), group.currency,
-        paidBy(e.paidBy), ...ids.map((id) => amount(e.splits[id])), e.notes],
+      date: e.date,
+      createdAt: e.createdAt,
+      cells: [
+        e.date,
+        'Expense',
+        e.description,
+        CATEGORIES[e.category]?.label ?? e.category,
+        dec(e.amount),
+        group.currency,
+        paidBy(e.paidBy),
+        ...ids.map((id) => amount(e.splits[id])),
+        e.notes,
+      ],
     })
   }
   for (const s of settlements) {
     rows.push({
-      date: s.date, createdAt: s.createdAt,
-      cells: [s.date, 'Payment', `${name(s.from)} paid ${name(s.to)}`, s.method || 'Payment', dec(s.amount), group.currency,
-        name(s.from), ...ids.map((id) => (id === s.to ? dec(s.amount) : undefined)), s.note],
+      date: s.date,
+      createdAt: s.createdAt,
+      cells: [
+        s.date,
+        'Payment',
+        `${name(s.from)} paid ${name(s.to)}`,
+        s.method || 'Payment',
+        dec(s.amount),
+        group.currency,
+        name(s.from),
+        ...ids.map((id) => (id === s.to ? dec(s.amount) : undefined)),
+        s.note,
+      ],
     })
   }
   rows.sort((a, b) => a.date.localeCompare(b.date) || a.createdAt - b.createdAt)
@@ -83,7 +103,13 @@ export function groupCsv(group: Pick<Group, 'members' | 'currency'>, expenses: E
 }
 
 export function csvFilename(groupName: string, today: string): string {
-  const slug = groupName.normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/[\s_]+/g, '-').toLowerCase() || 'group'
+  const slug =
+    groupName
+      .normalize('NFKD')
+      .replace(/[^\w\s-]/g, '')
+      .trim()
+      .replace(/[\s_]+/g, '-')
+      .toLowerCase() || 'group'
   return `split-now-${slug}-${today}.csv`
 }
 

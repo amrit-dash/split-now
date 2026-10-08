@@ -15,7 +15,10 @@ EFTPOS 27.50`)
     expect(r.merchant).toBe('THE GOOD CAFE')
     expect(r.total).toBe(2750)
     expect(r.date).toBe('2026-09-14')
-    expect(r.items).toEqual([{ name: 'Flat White', amount: 900 }, { name: 'Avocado Toast', amount: 1850 }])
+    expect(r.items).toEqual([
+      { name: 'Flat White', amount: 900 },
+      { name: 'Avocado Toast', amount: 1850 },
+    ])
   })
 })
 
@@ -31,7 +34,10 @@ CGST 2.50% 18.90
 SGST 2.50% 18.90
 Round Off 0.20
 Grand Total Rs 794.00`)
-    expect(r.items).toEqual([{ name: 'Paneer Tikka', amount: 56000 }, { name: 'Butter Naan', amount: 24000 }])
+    expect(r.items).toEqual([
+      { name: 'Paneer Tikka', amount: 56000 },
+      { name: 'Butter Naan', amount: 24000 },
+    ])
     expect(r.total).toBe(79400)
     expect(r.tax).toBe(3600 + 1890 + 1890)
     expect(r.discount).toBe(8000)
@@ -59,8 +65,18 @@ describe('helpers', () => {
     expect(parseDate('Mar 5, 2026')).toBe('2026-03-05')
   })
   it('matchMember', () => {
-    expect(matchMember('Sarah Connor', [{ id: '1', name: 'Sarah' }, { id: '2', name: 'John' }])).toBe('1')
-    expect(matchMember('PRIYA NAIR', [{ id: 'a', name: 'Priya' }, { id: 'b', name: 'Rohan' }])).toBe('a')
+    expect(
+      matchMember('Sarah Connor', [
+        { id: '1', name: 'Sarah' },
+        { id: '2', name: 'John' },
+      ]),
+    ).toBe('1')
+    expect(
+      matchMember('PRIYA NAIR', [
+        { id: 'a', name: 'Priya' },
+        { id: 'b', name: 'Rohan' },
+      ]),
+    ).toBe('a')
   })
 })
 

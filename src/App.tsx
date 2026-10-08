@@ -8,7 +8,7 @@ import { Loading } from './components/Misc'
 import { UpdatePrompt } from './components/UpdatePrompt'
 import { errText } from './lib/errors'
 import { takeStashedCapture } from './lib/pending'
-import { refreshPush, watchPrefs } from './lib/push'
+import { refreshPush, setBadge, watchPrefs } from './lib/push'
 import { setAiScan } from './lib/ai'
 import { GroupDataProvider } from './hooks/groupData'
 import { primeAiStatus } from './hooks/useAiStatus'
@@ -39,6 +39,9 @@ const ImportGroup = lazy(load.ImportGroup)
 const Table = lazy(load.Table)
 const TableEntry = lazy(() => load.Table().then((m) => ({ default: m.TableEntry })))
 
+/** A same-origin path only: no protocol-relative (//host) or backslash tricks in the stored return URL. */
+const safePath = (p: string | null) => (p && /^\/(?![/\\])\S*$/.test(p) ? p : null)
+
 export default function App() {
   const { user, loading } = useAuth()
   const loc = useLocation()
@@ -52,31 +55,51 @@ export default function App() {
     if (!user || user.isAnonymous) return
     // A capture link opened while signed out wins over the generic return path.
     const capture = takeStashedCapture()
-    const back = sessionStorage.getItem('splitit-return')
+    const back = safePath(sessionStorage.getItem('splitit-return'))
     sessionStorage.removeItem('splitit-return')
-    if (capture) nav(`/capture${capture}`, { replace: true })
+    if (capture?.startsWith('?')) nav(`/capture${capture}`, { replace: true })
     else if (back) nav(back, { replace: true })
   }, [user, nav])
 
-  // A notification tap (public/push-sw.js) asks the open window to show that screen in-app, no reload.
+  // public/push-sw.js talks to the open window: a notification tap asks for a screen (shown
+  // in-app, no reload), and a push that arrives while the app is focused becomes a toast
+  // instead of an OS notification (plus the badge count the server computed).
   useEffect(() => {
     const sw = typeof navigator === 'undefined' ? undefined : navigator.serviceWorker
     if (!sw) return
+    const inApp = (url: unknown) => {
+      if (typeof url !== 'string') return null
+      const u = new URL(url, location.origin)
+      return u.origin === location.origin ? u.pathname + u.search + u.hash : null
+    }
     const onMessage = (e: MessageEvent) => {
-      const d = e.data as { type?: unknown; url?: unknown } | null
-      if (!d || d.type !== 'navigate' || typeof d.url !== 'string') return
-      const u = new URL(d.url, location.origin)
-      if (u.origin === location.origin) nav(u.pathname + u.search + u.hash)
+      const d = e.data as { type?: unknown; url?: unknown; data?: { title?: unknown; body?: unknown; url?: unknown; badge?: unknown } } | null
+      if (!d) return
+      if (d.type === 'navigate') {
+        const to = inApp(d.url)
+        if (to) nav(to)
+      } else if (d.type === 'push' && d.data) {
+        const { title, body, badge } = d.data
+        const to = inApp(d.data.url)
+        const text = [title, body].filter((x): x is string => typeof x === 'string' && x.trim() !== '').join(' · ')
+        if (text) toast(text, 'ok', to ? { action: { label: 'Open', run: () => nav(to) } } : undefined)
+        if (typeof badge === 'number' || typeof badge === 'string') setBadge(Number(badge))
+      }
     }
     sw.addEventListener('message', onMessage)
     return () => sw.removeEventListener('message', onMessage)
-  }, [nav])
+  }, [nav, toast])
 
   // Keep this browser's push registration fresh (FCM tokens rotate); no-op without permission.
-  useEffect(() => { if (user && !user.isAnonymous && repo.mode === 'firebase') void refreshPush(user.uid) }, [user])
+  useEffect(() => {
+    if (user && !user.isAnonymous && repo.mode === 'firebase') void refreshPush(user.uid)
+  }, [user])
 
   // Mirror the account's "read bills with AI" choice onto this device (read synchronously when scanning).
-  useEffect(() => (user && !user.isAnonymous && repo.mode === 'firebase' ? watchPrefs(user.uid, (p) => setAiScan(p.aiEnabled && p.aiImages)) : undefined), [user])
+  useEffect(
+    () => (user && !user.isAnonymous && repo.mode === 'firebase' ? watchPrefs(user.uid, (p) => setAiScan(p.aiEnabled && p.aiImages)) : undefined),
+    [user],
+  )
 
   // AI status (admin flag, shared key) once per sign-in, so Profile doesn't wait for it.
   useEffect(() => primeAiStatus(user && !user.isAnonymous && repo.mode === 'firebase' ? user.uid : null), [user])
@@ -84,7 +107,9 @@ export default function App() {
   // Pull anything iOS Shortcuts dropped into captureInbox while the app was closed.
   useEffect(() => {
     if (!user || user.isAnonymous) return
-    const claim = () => { if (document.visibilityState === 'visible') repo.claimInbox(user.uid).catch((e) => console.warn('Inbox sync failed', e)) }
+    const claim = () => {
+      if (document.visibilityState === 'visible') repo.claimInbox(user.uid).catch((e) => console.warn('Inbox sync failed', e))
+    }
     claim()
     document.addEventListener('visibilitychange', claim)
     return () => document.removeEventListener('visibilitychange', claim)
@@ -95,17 +120,31 @@ export default function App() {
   const tablePath = loc.pathname === '/t' || loc.pathname.startsWith('/t/')
   const guestTable = !loading && (!user || !!user.isAnonymous) && tablePath
   // Remember where they were going (e.g. an invite link) and come back after sign-in.
-  if (!loading && !user && !guestCapture && !tablePath && loc.pathname !== '/') sessionStorage.setItem('splitit-return', loc.pathname + loc.search)
+  if (!loading && !user && !guestCapture && !tablePath && loc.pathname !== '/') {
+    const here = safePath(loc.pathname + loc.search)
+    if (here) sessionStorage.setItem('splitit-return', here)
+  }
 
   // UpdatePrompt is mounted exactly once, outside the auth switch, so the service worker is
   // registered (and its hourly update timer started) a single time.
   return (
     <>
       <UpdatePrompt />
-      {loading ? <Splash />
-        : guestCapture ? <Suspense fallback={<Splash />}><CaptureGuest /></Suspense>
-        : guestTable ? <Suspense fallback={<Splash />}><TableRoutes /></Suspense>
-        : !user || user.isAnonymous ? <Login /> : <AppRoutes />}
+      {loading ? (
+        <Splash />
+      ) : guestCapture ? (
+        <Suspense fallback={<Splash />}>
+          <CaptureGuest />
+        </Suspense>
+      ) : guestTable ? (
+        <Suspense fallback={<Splash />}>
+          <TableRoutes />
+        </Suspense>
+      ) : !user || user.isAnonymous ? (
+        <Login />
+      ) : (
+        <AppRoutes />
+      )}
     </>
   )
 }
@@ -163,7 +202,9 @@ function usePrefetch() {
     const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true
     let cancelIdle = () => {}
     if (!saveData) {
-      const idle = () => { for (const k of IDLE_PREFETCH) prefetch(k) }
+      const idle = () => {
+        for (const k of IDLE_PREFETCH) prefetch(k)
+      }
       if (typeof window.requestIdleCallback === 'function') {
         const id = window.requestIdleCallback(idle, { timeout: 4000 })
         cancelIdle = () => window.cancelIdleCallback(id)

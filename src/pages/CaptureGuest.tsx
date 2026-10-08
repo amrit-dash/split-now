@@ -28,38 +28,67 @@ export default function CaptureGuest() {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: `attempt` re-runs the drop after a Retry
   useEffect(() => {
-    if (!canInbox || !parsed.ok) { stashCapture(search); return }
+    if (!canInbox || !parsed.ok) {
+      stashCapture(search)
+      return
+    }
     const d = parsed.draft
     let p = submitted.get(search)
     if (!p) {
-      p = repo.submitToInbox({
-        token: parsed.token!, uid: parsed.owner!, amount: d.amount, currency: d.currency, merchant: d.merchant,
-        ts: d.ts ?? d.date, src: d.source, card: d.card, raw: d.raw,
-      }, d.ref)
+      p = repo.submitToInbox(
+        {
+          token: parsed.token!,
+          uid: parsed.owner!,
+          amount: d.amount,
+          currency: d.currency,
+          merchant: d.merchant,
+          ts: d.ts ?? d.date,
+          src: d.source,
+          card: d.card,
+          raw: d.raw,
+        },
+        d.ref,
+      )
       submitted.set(search, p)
     }
-    p
-      .then(() => setState('saved'))
-      .catch((e) => {
-        // An existing ref means this exact payment was already saved.
-        if ((e as { code?: string }).code === 'permission-denied' && d.ref) setState('saved')
-        else { console.warn(e); stashCapture(search); submitted.delete(search); setState('failed') }
-      })
+    p.then(() => setState('saved')).catch((e) => {
+      // An existing ref means this exact payment was already saved.
+      if ((e as { code?: string }).code === 'permission-denied' && d.ref) setState('saved')
+      else {
+        console.warn(e)
+        stashCapture(search)
+        submitted.delete(search)
+        setState('failed')
+      }
+    })
   }, [canInbox, parsed, search, attempt])
 
-  const retry = () => { setState('saving'); setAttempt((n) => n + 1) }
-  const amount = parsed.ok ? <>{formatMoney(parsed.draft.amount, parsed.draft.currency ?? defaultCurrency())} at {parsed.draft.merchant}</> : null
+  const retry = () => {
+    setState('saving')
+    setAttempt((n) => n + 1)
+  }
+  const amount = parsed.ok ? (
+    <>
+      {formatMoney(parsed.draft.amount, parsed.draft.currency ?? defaultCurrency())} at {parsed.draft.merchant}
+    </>
+  ) : null
 
   if (state === 'login' || state === 'failed') {
     return (
       <>
         <div className="fixed inset-x-0 top-0 z-50 flex justify-center p-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
-          <div className="flex max-w-md items-center gap-2 rounded-2xl bg-white/95 px-4 py-3 text-sm font-medium text-slate-800 shadow-xl" role="status" data-testid="guest-capture-banner">
+          <div
+            className="flex max-w-md items-center gap-2 rounded-2xl bg-white/95 px-4 py-3 text-sm font-medium text-slate-800 shadow-xl"
+            role="status"
+            data-testid="guest-capture-banner"
+          >
             {state === 'failed' ? (
               <>
                 <AlertTriangle size={18} className="shrink-0 text-amber-600" aria-hidden />
                 <span className="min-w-0">Couldn’t save this automatically. Sign in and it will be kept{amount ? <>: {amount}</> : ''}.</span>
-                <button type="button" className="btn-secondary btn-sm shrink-0" onClick={retry}><RefreshCw size={14} aria-hidden /> Retry</button>
+                <button type="button" className="btn-secondary btn-sm shrink-0" onClick={retry}>
+                  <RefreshCw size={14} aria-hidden /> Retry
+                </button>
               </>
             ) : (
               <>
@@ -76,7 +105,9 @@ export default function CaptureGuest() {
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-ink-950 px-6 text-center text-white">
-      {state === 'saving' ? <Spinner label="Saving to your Inbox" /> : (
+      {state === 'saving' ? (
+        <Spinner label="Saving to your Inbox" />
+      ) : (
         <>
           <CheckCircle2 size={56} className="text-emerald-400" aria-hidden />
           <h1 className="mt-4 text-2xl font-extrabold">Saved to your Inbox</h1>

@@ -11,7 +11,11 @@ let env: RulesTestEnvironment
 const CODE = 'TBL23456'
 const now = Date.now()
 const table = {
-  code: CODE, hostUid: 'host', merchant: 'Pho', currency: 'AUD', date: '2026-10-07',
+  code: CODE,
+  hostUid: 'host',
+  merchant: 'Pho',
+  currency: 'AUD',
+  date: '2026-10-07',
   items: { a: { name: 'Pho', amount: 1800, pos: 0 }, b: { name: 'Beer', amount: 900, pos: 1 } },
   extras: { tax: 270, tip: 0, discount: 0 },
   participants: {
@@ -20,7 +24,9 @@ const table = {
     p_nophone: { name: 'Gran', joinedAt: now + 2 },
   },
   claims: { host: { b: 1 }, ben: { a: 1 } },
-  status: 'open', createdAt: now, expiresAt: now + 86_400_000,
+  status: 'open',
+  createdAt: now,
+  expiresAt: now + 86_400_000,
 }
 
 beforeAll(async () => {
@@ -38,9 +44,8 @@ beforeEach(async () => {
 })
 
 // Guests use Firebase anonymous auth; rules only need a signed-in uid.
-const db = (uid?: string) => (uid
-  ? env.authenticatedContext(uid, { firebase: { sign_in_provider: 'anonymous' } }).firestore()
-  : env.unauthenticatedContext().firestore())
+const db = (uid?: string) =>
+  uid ? env.authenticatedContext(uid, { firebase: { sign_in_provider: 'anonymous' } }).firestore() : env.unauthenticatedContext().firestore()
 const t = (uid?: string) => doc(db(uid), `tables/${CODE}`)
 const seed = (data: object) => env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), `tables/${CODE}`), { ...table, ...data }))
 
@@ -66,7 +71,15 @@ describe('reading', () => {
 })
 
 describe('creating', () => {
-  const fresh = (over: object = {}) => ({ ...table, code: 'NEW23456', participants: { host: table.participants.host }, claims: {}, createdAt: Date.now(), expiresAt: Date.now() + 86_400_000, ...over })
+  const fresh = (over: object = {}) => ({
+    ...table,
+    code: 'NEW23456',
+    participants: { host: table.participants.host },
+    claims: {},
+    createdAt: Date.now(),
+    expiresAt: Date.now() + 86_400_000,
+    ...over,
+  })
   it('the host can create an open table with themselves at it', async () => {
     await assertSucceeds(setDoc(doc(db('host'), 'tables/NEW23456'), fresh()))
   })
@@ -95,9 +108,12 @@ describe('guests', () => {
     await assertFails(updateDoc(t('cleo'), { 'participants.cleo': { name: 'Cleo', uid: 'cleo', joinedAt: 1, admin: true } }))
   })
   it('can join and claim in one write, then change their own claims', async () => {
-    await assertSucceeds(updateDoc(t('cleo'), {
-      'participants.cleo': { name: 'Cleo', uid: 'cleo', joinedAt: 1 }, 'claims.cleo': { a: 1, b: 2 },
-    }))
+    await assertSucceeds(
+      updateDoc(t('cleo'), {
+        'participants.cleo': { name: 'Cleo', uid: 'cleo', joinedAt: 1 },
+        'claims.cleo': { a: 1, b: 2 },
+      }),
+    )
     await assertSucceeds(updateDoc(t('ben'), { 'claims.ben': { b: 1 } }))
     await assertSucceeds(updateDoc(t('ben'), { 'claims.ben': {} }))
     await assertSucceeds(updateDoc(t('ben'), { 'claims.ben': deleteField() }))

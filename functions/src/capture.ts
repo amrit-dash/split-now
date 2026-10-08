@@ -16,7 +16,7 @@
  * notify with prefs.unsorted. A scoped capture (token.groupId or request groupId) outside that
  * group's dates is dropped; a key whose trip the user left or deleted is dead ('bad_scope').
  *
- * User filters (users/{uid}/settings/notifications, Settings → Auto-capture): capturePaused stops
+ * User filters (users/{uid}/settings/notifications, Settings → Automation): capturePaused stops
  * everything ('paused'), minAmount drops small INR debits ('below_min'), ignoreWords drops debits
  * mentioning a keyword ('ignored'); a trip with captureOff is skipped ('paused'). All of these
  * answer 200 and store nothing. Every processed request also prepends a compact entry (no SMS
@@ -83,7 +83,10 @@ export function rememberUnknown(token: string, now: number, cache = unknownToken
 export function isKnownUnknown(token: string, now: number, cache = unknownTokens): boolean {
   const until = cache.get(token)
   if (until === undefined) return false
-  if (until < now) { cache.delete(token); return false }
+  if (until < now) {
+    cache.delete(token)
+    return false
+  }
   return true
 }
 
@@ -123,7 +126,11 @@ async function writeLog(userRef: DocumentReference, entry: CaptureLogEntry | und
 /** The token's "last received" stamp, at most once a minute per token (the wizard watches it). */
 const LAST_USED_EVERY = 60_000
 
-export async function handleCapture(raw: RawRequest, now = new Date(), readSms: (uid: string, maskedText: string) => Promise<AiSms | null> = aiReadSms): Promise<{ status: number; body: CaptureResponse }> {
+export async function handleCapture(
+  raw: RawRequest,
+  now = new Date(),
+  readSms: (uid: string, maskedText: string) => Promise<AiSms | null> = aiReadSms,
+): Promise<{ status: number; body: CaptureResponse }> {
   const req = readCaptureRequest(raw)
   if (!isTokenShaped(req.token)) return fail('bad_token')
   if (isKnownUnknown(req.token, now.getTime())) return fail('bad_token')
@@ -162,7 +169,16 @@ export async function handleCapture(raw: RawRequest, now = new Date(), readSms: 
     if (ai?.kind === 'debit') {
       if (!it.ok && ai.amount) {
         const d = minorDigitsOf(ai.currency)
-        it = interpret({ ...req, amount: (ai.amount / 10 ** d).toFixed(d), currency: req.currency ?? ai.currency, merchant: req.merchant ?? ai.merchant, ref: req.ref ?? ai.ref }, now)
+        it = interpret(
+          {
+            ...req,
+            amount: (ai.amount / 10 ** d).toFixed(d),
+            currency: req.currency ?? ai.currency,
+            merchant: req.merchant ?? ai.merchant,
+            ref: req.ref ?? ai.ref,
+          },
+          now,
+        )
       } else if (it.ok && ai.merchant) it.parsed.merchant = ai.merchant
     }
   }
@@ -186,8 +202,7 @@ export async function handleCapture(raw: RawRequest, now = new Date(), readSms: 
     if (r.kind === 'outside') return reject('outside_trip', parsed, scoped.name)
     matched = r.group
   } else {
-    const groups = (await db().collection('groups').where('memberUids', 'array-contains', uid).get())
-      .docs.map((d) => ({ ...(d.data() as GroupDoc), id: d.id }))
+    const groups = (await db().collection('groups').where('memberUids', 'array-contains', uid).get()).docs.map((d) => ({ ...(d.data() as GroupDoc), id: d.id }))
     matched = pickTrip(groups, parsed.date, parsed.currency)
     if (!matched) {
       // Dated inside a trip whose capture is paused: skip it (the pause wins over "all payments").
@@ -219,8 +234,7 @@ export async function handleCapture(raw: RawRequest, now = new Date(), readSms: 
 }
 
 /** The client's address behind Hosting (first hop of X-Forwarded-For), for the per-IP limit. */
-export const clientIp = (forwardedFor: string | undefined, fallback: string | undefined) =>
-  (forwardedFor ?? '').split(',')[0].trim() || fallback || 'unknown'
+export const clientIp = (forwardedFor: string | undefined, fallback: string | undefined) => (forwardedFor ?? '').split(',')[0].trim() || fallback || 'unknown'
 
 export const capture = onRequest(
   { region: REGION, secrets: AI_SECRETS, cors: APP_ORIGINS, invoker: 'public', maxInstances: 3, concurrency: 20, memory: '256MiB', timeoutSeconds: 30 },

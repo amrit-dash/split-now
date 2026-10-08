@@ -6,7 +6,9 @@ import { SettingsPage } from './common'
 export default function Notifications() {
   return (
     <SettingsPage title="Notifications">
-      {notificationsAvailable() ? <NotificationSettings /> : (
+      {notificationsAvailable() ? (
+        <NotificationSettings />
+      ) : (
         <div className="card p-4">
           <p className="text-muted text-sm">
             {repo.mode === 'demo'

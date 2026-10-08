@@ -6,24 +6,39 @@ import type { Category, Expense, MemberId, SplitInput, SplitType } from '@/types
  * from a group's history. Everything here is a convenience: storage may be missing or full.
  */
 
-export interface RecentsStorage { getItem(k: string): string | null; setItem(k: string, v: string): void }
+export interface RecentsStorage {
+  getItem(k: string): string | null
+  setItem(k: string, v: string): void
+}
 
 let storage: RecentsStorage | undefined = (() => {
-  try { return typeof localStorage === 'undefined' ? undefined : localStorage } catch { return undefined }
+  try {
+    return typeof localStorage === 'undefined' ? undefined : localStorage
+  } catch {
+    return undefined
+  }
 })()
 
 /** Tests: swap in an in-memory store (or undefined for "no storage"). */
-export function setRecentsStorage(s: RecentsStorage | undefined) { storage = s }
+export function setRecentsStorage(s: RecentsStorage | undefined) {
+  storage = s
+}
 
 function readMap<T>(key: string): Record<string, T> {
-  try { return (JSON.parse(storage?.getItem(key) ?? '{}') as Record<string, T>) ?? {} } catch { return {} }
+  try {
+    return (JSON.parse(storage?.getItem(key) ?? '{}') as Record<string, T>) ?? {}
+  } catch {
+    return {}
+  }
 }
 function writeEntry<T>(key: string, id: string, value: T) {
   try {
     const m = readMap<T>(key)
     m[id] = value
     storage?.setItem(key, JSON.stringify(m))
-  } catch { /* storage unavailable */ }
+  } catch {
+    /* storage unavailable */
+  }
 }
 
 // ---- Last-used group ---------------------------------------------------------------
@@ -31,11 +46,19 @@ function writeEntry<T>(key: string, id: string, value: T) {
 const GROUP_KEY = 'splitit-last-group'
 
 export function lastGroup(): string | undefined {
-  try { return storage?.getItem(GROUP_KEY) ?? undefined } catch { return undefined }
+  try {
+    return storage?.getItem(GROUP_KEY) ?? undefined
+  } catch {
+    return undefined
+  }
 }
 
 export function rememberGroup(groupId: string) {
-  try { storage?.setItem(GROUP_KEY, groupId) } catch { /* storage unavailable */ }
+  try {
+    storage?.setItem(GROUP_KEY, groupId)
+  } catch {
+    /* storage unavailable */
+  }
 }
 
 // ---- Last payer / split per group ----------------------------------------------------
@@ -71,13 +94,22 @@ export function sanitizeSplit(s: LastSplit, members: MemberId[]): LastSplit {
   const i = s.input
   if (s.splitType === 'equal') {
     const selected = (i.selected ?? []).filter(has)
-    if (selected.length) { out.splitType = 'equal'; out.input = { selected } }
+    if (selected.length) {
+      out.splitType = 'equal'
+      out.input = { selected }
+    }
   } else if (s.splitType === 'shares') {
     const shares = pick(i.shares, has)
-    if (shares && Object.values(shares).some((v) => v > 0)) { out.splitType = 'shares'; out.input = { shares } }
+    if (shares && Object.values(shares).some((v) => v > 0)) {
+      out.splitType = 'shares'
+      out.input = { shares }
+    }
   } else if (s.splitType === 'percent') {
     const percent = pick(i.percent, has)
-    if (percent && Math.abs(Object.values(percent).reduce((a, b) => a + b, 0) - 100) < 0.001) { out.splitType = 'percent'; out.input = { percent } }
+    if (percent && Math.abs(Object.values(percent).reduce((a, b) => a + b, 0) - 100) < 0.001) {
+      out.splitType = 'percent'
+      out.input = { percent }
+    }
   }
   return out
 }
@@ -89,14 +121,21 @@ function pick(r: Record<MemberId, number> | undefined, has: (id: MemberId) => bo
 /** The same split, ignoring key order (for the "Same as last time" hint). */
 export function sameSplit(a: SplitType, ai: SplitInput, b?: SplitType, bi?: SplitInput): boolean {
   if (a !== b || !bi) return false
-  const norm = (i: SplitInput) => JSON.stringify({
-    selected: a === 'equal' ? [...(i.selected ?? [])].sort() : undefined,
-    shares: a === 'shares' ? sortObj(i.shares) : undefined,
-    percent: a === 'percent' ? sortObj(i.percent) : undefined,
-  })
+  const norm = (i: SplitInput) =>
+    JSON.stringify({
+      selected: a === 'equal' ? [...(i.selected ?? [])].sort() : undefined,
+      shares: a === 'shares' ? sortObj(i.shares) : undefined,
+      percent: a === 'percent' ? sortObj(i.percent) : undefined,
+    })
   return norm(ai) === norm(bi)
 }
-const sortObj = (r?: Record<string, number>) => r && Object.fromEntries(Object.entries(r).filter(([, v]) => v).sort(([x], [y]) => x.localeCompare(y)))
+const sortObj = (r?: Record<string, number>) =>
+  r &&
+  Object.fromEntries(
+    Object.entries(r)
+      .filter(([, v]) => v)
+      .sort(([x], [y]) => x.localeCompare(y)),
+  )
 
 // ---- Settle-up method per recipient --------------------------------------------------
 
@@ -137,7 +176,11 @@ export function descriptionHistory(expenses: Expense[]): Suggestion[] {
     if (!s) by.set(k, { description: e.description.trim(), category: e.category, count: 1, last: e })
     else {
       s.count++
-      if (newest(e) > newest(s.last)) { s.last = e; s.description = e.description.trim(); s.category = e.category }
+      if (newest(e) > newest(s.last)) {
+        s.last = e
+        s.description = e.description.trim()
+        s.category = e.category
+      }
     }
   }
   const list = [...by.values()]
@@ -145,7 +188,7 @@ export function descriptionHistory(expenses: Expense[]): Suggestion[] {
   // Rank: uses (log-ish) plus recency, so a one-off from last night beats a monthly bill from a year ago only a little.
   const dates = list.map((s) => Date.parse(s.last.date) || 0)
   const max = Math.max(...dates)
-  const score = (s: Suggestion, i: number) => Math.log2(1 + s.count) * 2 - (max - dates[i]) / (7 * 86400000) * 0.25
+  const score = (s: Suggestion, i: number) => Math.log2(1 + s.count) * 2 - ((max - dates[i]) / (7 * 86400000)) * 0.25
   return list
     .map((s, i) => ({ s, v: score(s, i) }))
     .sort((a, b) => b.v - a.v || a.s.description.localeCompare(b.s.description))
@@ -157,7 +200,14 @@ export function suggestDescriptions(history: Suggestion[], typed: string, limit 
   const t = key(typed)
   if (!t) return history.slice(0, limit)
   const starts = history.filter((s) => key(s.description).startsWith(t) && key(s.description) !== t)
-  const words = history.filter((s) => !starts.includes(s) && key(s.description) !== t && key(s.description).split(' ').some((w) => w.startsWith(t)))
+  const words = history.filter(
+    (s) =>
+      !starts.includes(s) &&
+      key(s.description) !== t &&
+      key(s.description)
+        .split(' ')
+        .some((w) => w.startsWith(t)),
+  )
   return [...starts, ...words].slice(0, limit)
 }
 

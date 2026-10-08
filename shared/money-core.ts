@@ -49,7 +49,10 @@ export function currencyFromAmount(raw: string, known: readonly string[] = KNOWN
 
 /** An idempotency key fit for a document id ([A-Za-z0-9_-], 4–64 chars), or undefined. */
 export function sanitiseRef(raw: string | null | undefined): string | undefined {
-  const s = raw?.trim().replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64)
+  const s = raw
+    ?.trim()
+    .replace(/[^A-Za-z0-9_-]/g, '')
+    .slice(0, 64)
   return s && s.length >= 4 ? s : undefined
 }
 

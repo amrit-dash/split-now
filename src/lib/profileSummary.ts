@@ -17,13 +17,20 @@ const ORDER: Record<'IN' | 'AU' | 'INTL', Array<keyof PaymentHandles>> = {
 function describe(k: keyof PaymentHandles, p: PaymentHandles): string {
   const v = (p[k] ?? '').trim()
   switch (k) {
-    case 'upi': return `UPI · ${v}`
-    case 'phone': return `UPI phone · ${v}`
-    case 'account': return p.bsb?.trim() ? `Bank · ${p.bsb.trim()} ${mask(v)}` : `Bank · ${mask(v)}`
-    case 'payid': return `PayID · ${v}`
-    case 'paypal': return `PayPal · ${v}`
-    case 'revolut': return `Revolut · ${v}`
-    default: return v
+    case 'upi':
+      return `UPI · ${v}`
+    case 'phone':
+      return `UPI phone · ${v}`
+    case 'account':
+      return p.bsb?.trim() ? `Bank · ${p.bsb.trim()} ${mask(v)}` : `Bank · ${mask(v)}`
+    case 'payid':
+      return `PayID · ${v}`
+    case 'paypal':
+      return `PayPal · ${v}`
+    case 'revolut':
+      return `Revolut · ${v}`
+    default:
+      return v
   }
 }
 

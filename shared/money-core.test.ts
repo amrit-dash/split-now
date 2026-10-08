@@ -9,8 +9,21 @@ describe('money-core', () => {
     expect(minorDigitsOf('nope')).toBe(2)
   })
   it.each([
-    ['A$12.50', 'AUD'], ['AU$3', 'AUD'], ['NZ$5', 'NZD'], ['US$5', 'USD'], ['CA$5', 'CAD'], ['S$9', 'SGD'], ['€4', 'EUR'],
-    ['£4', 'GBP'], ['₹400', 'INR'], ['Rs.840', 'INR'], ['12.50 USD', 'USD'], ['You paid 5 AUD', 'AUD'], ['¥1200', 'JPY'], ['฿90', 'THB'], ['Rp 5000', 'IDR'],
+    ['A$12.50', 'AUD'],
+    ['AU$3', 'AUD'],
+    ['NZ$5', 'NZD'],
+    ['US$5', 'USD'],
+    ['CA$5', 'CAD'],
+    ['S$9', 'SGD'],
+    ['€4', 'EUR'],
+    ['£4', 'GBP'],
+    ['₹400', 'INR'],
+    ['Rs.840', 'INR'],
+    ['12.50 USD', 'USD'],
+    ['You paid 5 AUD', 'AUD'],
+    ['¥1200', 'JPY'],
+    ['฿90', 'THB'],
+    ['Rp 5000', 'IDR'],
   ])('%s → %s', (raw, cur) => expect(currencyFromAmount(raw)).toBe(cur))
   it('is undefined for a bare dollar sign or an unknown code', () => {
     expect(currencyFromAmount('$12')).toBeUndefined()

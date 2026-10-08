@@ -12,7 +12,10 @@ function fakeWatch() {
   const start = (cb: Cb) => {
     starts++
     open.push(cb)
-    return () => { stops++; open.splice(open.indexOf(cb), 1) }
+    return () => {
+      stops++
+      open.splice(open.indexOf(cb), 1)
+    }
   }
   const push = (v: number[], m?: SnapMeta) => open.forEach((cb) => cb(v, m))
   return { start, push, starts: () => starts, stops: () => stops, open: () => open.length }
@@ -20,11 +23,15 @@ function fakeWatch() {
 
 describe('subscribeShared', () => {
   beforeEach(() => vi.useFakeTimers())
-  afterEach(() => { clearSharedStore(); vi.useRealTimers() })
+  afterEach(() => {
+    clearSharedStore()
+    vi.useRealTimers()
+  })
 
   it('opens one listener for many subscribers and fans values out', () => {
     const w = fakeWatch()
-    const a = vi.fn(), b = vi.fn()
+    const a = vi.fn(),
+      b = vi.fn()
     subscribeShared('k', w.start, a)
     subscribeShared('k', w.start, b)
     expect(w.starts()).toBe(1)
@@ -66,7 +73,8 @@ describe('subscribeShared', () => {
     const w = fakeWatch()
     const u1 = subscribeShared('k', w.start, () => {})
     const u2 = subscribeShared('k', w.start, () => {})
-    u1(); u1()
+    u1()
+    u1()
     vi.advanceTimersByTime(LINGER_MS)
     expect(w.stops()).toBe(0) // u2 still holds it
     u2()
@@ -96,7 +104,8 @@ describe('subscribeShared', () => {
     // (nothing better exists) and gets the fallback.
     const u2 = subscribeShared('k', w.start, () => {})
     expect(w.starts()).toBe(1)
-    u1(); u2()
+    u1()
+    u2()
     expect(sharedStoreSize()).toBe(0)
   })
 
@@ -113,7 +122,14 @@ describe('subscribeShared', () => {
 
   it('a value that arrives synchronously during start is delivered to the first subscriber', () => {
     const cb = vi.fn()
-    subscribeShared('sync', (l) => { l([7]); return () => {} }, cb)
+    subscribeShared(
+      'sync',
+      (l) => {
+        l([7])
+        return () => {}
+      },
+      cb,
+    )
     expect(cb).toHaveBeenCalledTimes(1)
     expect(cb).toHaveBeenCalledWith([7], undefined)
   })

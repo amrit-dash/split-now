@@ -37,20 +37,22 @@ export function resolveAllPrefs(raw: unknown): AllPrefs {
 
 /** Whether this browser can receive web push at all (and the app is configured for it). */
 export function pushSupported(): boolean {
-  return Boolean(VAPID_KEY)
-    && typeof window !== 'undefined'
-    && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
+  return Boolean(VAPID_KEY) && typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
 }
 
-export const isIOS = () => typeof navigator !== 'undefined' && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))
-export const isStandalone = () => typeof window !== 'undefined'
-  && (window.matchMedia?.('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true)
+export const isIOS = () =>
+  typeof navigator !== 'undefined' && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))
+export const isStandalone = () =>
+  typeof window !== 'undefined' &&
+  (window.matchMedia?.('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true)
 
 export const permission = (): NotificationPermission | 'unsupported' => (pushSupported() ? Notification.permission : 'unsupported')
 
 async function sha256(s: string): Promise<string> {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s))
-  return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, '0')).join('').slice(0, 40)
+  return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, '0'))
+    .join('')
+    .slice(0, 40)
 }
 
 async function sdk() {
@@ -69,7 +71,9 @@ async function currentToken(): Promise<string | null> {
   try {
     const registration = await Promise.race([
       navigator.serviceWorker.ready,
-      new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('Notifications aren’t ready yet. Reload the app and try again.')), 10_000) }),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('Notifications aren’t ready yet. Reload the app and try again.')), 10_000)
+      }),
     ])
     return await messaging.getToken(messaging.getMessaging(app), { vapidKey: VAPID_KEY, serviceWorkerRegistration: registration })
   } finally {
@@ -95,7 +99,9 @@ async function saveToken(uid: string, token: string) {
         return
       }
     }
-  } catch { /* not cached */ }
+  } catch {
+    /* not cached */
+  }
   const batch = f.writeBatch(db)
   batch.set(r, { token, ua: navigator.userAgent.slice(0, 300), createdAt, lastSeen: now })
   // Not awaited: applied locally at once, synced when online (same pattern as the repo).
@@ -104,7 +110,11 @@ async function saveToken(uid: string, token: string) {
 }
 
 function remember(id: string) {
-  try { localStorage.setItem('splitit-push-token', id) } catch { /* private mode */ }
+  try {
+    localStorage.setItem('splitit-push-token', id)
+  } catch {
+    /* private mode */
+  }
 }
 
 type BadgeNavigator = Navigator & { setAppBadge?: (n?: number) => Promise<void>; clearAppBadge?: () => Promise<void> }
@@ -118,8 +128,12 @@ export function setBadge(count: number): void {
   const n = navigator as BadgeNavigator
   try {
     const p = count > 0 ? n.setAppBadge?.(Math.min(Math.floor(count), 99)) : n.clearAppBadge?.()
-    p?.catch(() => { /* permission or platform said no */ })
-  } catch { /* unsupported */ }
+    p?.catch(() => {
+      /* permission or platform said no */
+    })
+  } catch {
+    /* unsupported */
+  }
 }
 
 /**
@@ -150,7 +164,12 @@ export async function refreshPush(uid: string): Promise<void> {
 /** Unregister this browser (sign-out or "turn off on this device"). Queues the delete; never throws. */
 export async function disablePush(uid: string): Promise<void> {
   let id: string | null = null
-  try { id = localStorage.getItem('splitit-push-token'); localStorage.removeItem('splitit-push-token') } catch { /* private mode */ }
+  try {
+    id = localStorage.getItem('splitit-push-token')
+    localStorage.removeItem('splitit-push-token')
+  } catch {
+    /* private mode */
+  }
   // Whoever signs in next starts with a clean icon.
   setBadge(0)
   if (!pushSupported() || !uid) return
@@ -175,13 +194,20 @@ export async function disablePush(uid: string): Promise<void> {
 export function watchPrefs(uid: string, cb: (p: AllPrefs) => void): () => void {
   let unsub: (() => void) | undefined
   let stopped = false
-  sdk().then(({ db, firestore: f }) => {
-    if (stopped) return
-    unsub = f.onSnapshot(f.doc(db, 'users', uid, 'settings', 'notifications'),
-      (s) => cb(resolveAllPrefs(s.data())),
-      () => cb(DEFAULT_ALL_PREFS))
-  }).catch(() => cb(DEFAULT_ALL_PREFS))
-  return () => { stopped = true; unsub?.() }
+  sdk()
+    .then(({ db, firestore: f }) => {
+      if (stopped) return
+      unsub = f.onSnapshot(
+        f.doc(db, 'users', uid, 'settings', 'notifications'),
+        (s) => cb(resolveAllPrefs(s.data())),
+        () => cb(DEFAULT_ALL_PREFS),
+      )
+    })
+    .catch(() => cb(DEFAULT_ALL_PREFS))
+  return () => {
+    stopped = true
+    unsub?.()
+  }
 }
 
 /**

@@ -44,7 +44,16 @@ export interface AppAiConfig {
   globalPerDay: number
 }
 
-export const DEFAULT_APP_AI: AppAiConfig = { mode: 'off', allowEmails: [], images: true, sms: true, model: DEFAULT_MODEL, perDay: 100, perHour: 30, globalPerDay: DEFAULT_GLOBAL_PER_DAY }
+export const DEFAULT_APP_AI: AppAiConfig = {
+  mode: 'off',
+  allowEmails: [],
+  images: true,
+  sms: true,
+  model: DEFAULT_MODEL,
+  perDay: 100,
+  perHour: 30,
+  globalPerDay: DEFAULT_GLOBAL_PER_DAY,
+}
 
 export interface UserAiPrefs {
   /** master switch: nothing is sent to any AI while off */
@@ -107,7 +116,10 @@ export function appKeyStatus(app: AppAiConfig, feature: AiFeature, email: string
   return appKeyAllowed(app, feature, email) ? 'available' : 'not_listed'
 }
 
-export interface KeyPlan { key: 'own' | 'app'; models: string[] }
+export interface KeyPlan {
+  key: 'own' | 'app'
+  models: string[]
+}
 
 /**
  * Why an AI call returned nothing, for the app to show the right line (src/lib/ai.ts):
@@ -127,13 +139,7 @@ export const withFallbacks = (m: string | undefined) => [...new Set([m || DEFAUL
  * Which keys to try, in order, for one request. Empty = don't call AI at all (the app reads bills
  * on the phone; SMS keep the built-in parser's result).
  */
-export function planAi(opts: {
-  feature: AiFeature
-  user: UserAiPrefs
-  app: AppAiConfig
-  hasOwnKey: boolean
-  email?: string
-}): KeyPlan[] {
+export function planAi(opts: { feature: AiFeature; user: UserAiPrefs; app: AppAiConfig; hasOwnKey: boolean; email?: string }): KeyPlan[] {
   const { feature, user, app, hasOwnKey, email } = opts
   if (!user.aiEnabled || !(feature === 'images' ? user.aiImages : user.aiSms)) return []
   const own: KeyPlan | null = hasOwnKey && user.aiSource !== 'app' ? { key: 'own', models: withFallbacks(user.aiModel) } : null
@@ -146,7 +152,9 @@ export function planAi(opts: {
  * embedding/omni/preview-only oddities. `lite` marks the cheap ones (minimal thinking); the
  * full Flash models think by default and cost roughly ten times more per bill.
  */
-export function usefulModels(list: Array<{ name: string; displayName?: string; supportedGenerationMethods?: string[] }>): Array<{ id: string; label: string; lite: boolean }> {
+export function usefulModels(
+  list: Array<{ name: string; displayName?: string; supportedGenerationMethods?: string[] }>,
+): Array<{ id: string; label: string; lite: boolean }> {
   const out: Array<{ id: string; label: string; lite: boolean }> = []
   for (const m of list) {
     const id = m.name.replace(/^models\//, '')

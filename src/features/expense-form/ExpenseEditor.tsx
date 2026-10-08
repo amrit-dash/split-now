@@ -13,11 +13,24 @@ import { pending } from '@/lib/pending'
 import { errText } from '@/lib/errors'
 import { lastSplit, rememberGroup, rememberSplit, sameSplit, suggestDescriptions, type Suggestion } from '@/lib/recents'
 import {
-  clearDraft, initialDraft, isDirty, reduce, restoreDraft, saveDraft, selectSplits, toExpense, toSplitInput, validAmount, validate,
-  type Draft, type ErrorKey, type SeedArgs,
+  clearDraft,
+  initialDraft,
+  isDirty,
+  reduce,
+  restoreDraft,
+  saveDraft,
+  selectSplits,
+  toExpense,
+  toSplitInput,
+  validAmount,
+  validate,
+  type Draft,
+  type ErrorKey,
+  type SeedArgs,
 } from '@/lib/expense-draft'
 import { GroupIcon } from '@/components/GroupIcon'
 import { useToast } from '@/components/Toast'
+import { usePageTitle } from '@/lib/brand'
 import { useConfirm } from '@/components/ConfirmSheet'
 import { AmountCard } from './AmountCard'
 import { PayerCard } from './PayerCard'
@@ -30,15 +43,38 @@ type SheetKind = 'group' | 'category' | 'payer' | 'currency' | 'split' | null
 
 /** Where to send the eye when a save is refused; the first problem in this order gets focus. */
 const ERROR_ORDER: ErrorKey[] = ['amount', 'description', 'payers', 'split', 'fx', 'until']
-const ERROR_TARGET: Record<ErrorKey, string> = { amount: 'expense-amount', description: 'expense-description', payers: 'payer-card', split: 'split-card', fx: 'fx-line', until: 'repeat-until' }
+const ERROR_TARGET: Record<ErrorKey, string> = {
+  amount: 'expense-amount',
+  description: 'expense-description',
+  payers: 'payer-card',
+  split: 'split-card',
+  fx: 'fx-line',
+  until: 'repeat-until',
+}
 
 /**
  * The expense form proper. State lives in the pure reducer (src/lib/expense-draft.ts); this
  * component wires it to the repo, the exchange-rate fetch, the bill reader and the sheets, and
  * keeps an unsaved draft in sessionStorage so a reload or an accidental back doesn't lose it.
  */
-export function ExpenseEditor({ group, groups, existing, again, capture, history, onGroup, storeKey, restore }: {
-  group: Group; groups: Group[]; existing?: Expense; again?: Expense; capture?: Capture; history: Suggestion[]; onGroup: (id: string) => void
+export function ExpenseEditor({
+  group,
+  groups,
+  existing,
+  again,
+  capture,
+  history,
+  onGroup,
+  storeKey,
+  restore,
+}: {
+  group: Group
+  groups: Group[]
+  existing?: Expense
+  again?: Expense
+  capture?: Capture
+  history: Suggestion[]
+  onGroup: (id: string) => void
   /** sessionStorage key for this route's draft */
   storeKey: string
   /** a draft stored for this route, to pick up where the user left off */
@@ -49,12 +85,21 @@ export function ExpenseEditor({ group, groups, existing, again, capture, history
   const toast = useToast()
   const confirm = useConfirm()
   const reader = useReceiptReader()
+  usePageTitle(existing ? 'Edit expense' : capture ? 'Captured payment' : 'Add expense')
   const fileRef = useRef<HTMLInputElement>(null)
   const order = useMemo(() => memberOrder(group), [group])
   const me = myMemberId(group, user.uid) ?? order[0]
   const personal = group.type === 'personal'
   const seedArgs = (g: Group, o: MemberId[], m: MemberId): SeedArgs => ({
-    group: g, order: o, me: m, existing, again, capture, history, last: existing ? {} : lastSplit(g.id, o), lastCurrency: lastCurrency(g.id),
+    group: g,
+    order: o,
+    me: m,
+    existing,
+    again,
+    capture,
+    history,
+    last: existing ? {} : lastSplit(g.id, o),
+    lastCurrency: lastCurrency(g.id),
   })
   const [seed0] = useState(() => initialDraft(seedArgs(group, order, me)))
   /** what the form started from, to know whether anything was changed */
@@ -86,7 +131,9 @@ export function ExpenseEditor({ group, groups, existing, again, capture, history
     if (dirty) saveDraft(storeKey, { groupId: group.id, again: again?.id, capture: capture?.id, draft })
     else clearDraft(storeKey)
   }, [draft, dirty, storeKey, group.id, again?.id, capture?.id])
-  useEffect(() => { if (restore) toast('Picked up where you left off') }, [restore, toast])
+  useEffect(() => {
+    if (restore) toast('Picked up where you left off')
+  }, [restore, toast])
 
   const fx = useFxRate({ cur: draft.cur, to: group.currency, date: draft.date, fx: draft.fx, onFx: (f) => dispatch({ type: 'fx', fx: f }) })
   const converted = fx.foreign && draft.fx && validAmount(draft) ? convertMinor(draft.amount, draft.cur, group.currency, draft.fx.rate) : undefined
@@ -97,10 +144,14 @@ export function ExpenseEditor({ group, groups, existing, again, capture, history
     setScanned(parsed.items.length >= 2 && !personal ? { parsed, file } : null)
     const cur = parsed.currency && CURRENCIES.includes(parsed.currency) ? parsed.currency : draft.cur
     const total = parsed.total ? fromHundredths(parsed.total, cur) : undefined
-    toast(total ? `Found ${formatMoney(total, cur)}${parsed.items.length ? ` and ${parsed.items.length} items` : ''}` : 'Couldn’t read a total, please enter it')
+    toast(
+      total ? `Found ${formatMoney(total, cur)}${parsed.items.length ? ` and ${parsed.items.length} items` : ''}` : 'Couldn’t read a total, please enter it',
+    )
   }
   const applyRef = useRef(applyReceipt)
-  useEffect(() => { applyRef.current = applyReceipt })
+  useEffect(() => {
+    applyRef.current = applyReceipt
+  })
   // A bill handed over from the Scan screen (its currency comes from the reader, not the group).
   useEffect(() => {
     if (pending.receipt && !existing) {
@@ -147,7 +198,10 @@ export function ExpenseEditor({ group, groups, existing, again, capture, history
     setSubmitted(true)
     const errs = validate(draft, ctx)
     const first = ERROR_ORDER.find((k) => errs[k])
-    if (first) { focusError(first); return }
+    if (first) {
+      focusError(first)
+      return
+    }
     setBusy(true)
     try {
       const { expense: e, remember } = toExpense(draft, { ...ctx, existing, userUid: user.uid, now: Date.now() })
@@ -172,7 +226,12 @@ export function ExpenseEditor({ group, groups, existing, again, capture, history
 
   const cancel = async () => {
     if (dirty) {
-      const ok = await confirm({ title: existing ? 'Discard your changes?' : 'Discard this expense?', message: 'What you’ve entered here will be lost.', confirmLabel: 'Discard', tone: 'danger' })
+      const ok = await confirm({
+        title: existing ? 'Discard your changes?' : 'Discard this expense?',
+        message: 'What you’ve entered here will be lost.',
+        confirmLabel: 'Discard',
+        tone: 'danger',
+      })
       if (!ok) return
     }
     done.current = true
@@ -190,20 +249,44 @@ export function ExpenseEditor({ group, groups, existing, again, capture, history
 
   const suggestions = existing || draft.picked ? [] : suggestDescriptions(history, draft.description)
   const currencyChoices = [...new Set([group.currency, draft.cur, profile.currency, ...CURRENCIES])]
-  const applyRate = () => { if (!fx.applyRate()) toast('Enter a rate above 0', 'err') }
+  const applyRate = () => {
+    if (!fx.applyRate()) toast('Enter a rate above 0', 'err')
+  }
 
   return (
-    <form className="mx-auto min-h-dvh max-w-lg px-4 pb-10" onSubmit={(e) => { e.preventDefault(); save() }} noValidate>
+    <form
+      className="mx-auto min-h-dvh max-w-lg px-4 pb-10"
+      onSubmit={(e) => {
+        e.preventDefault()
+        save()
+      }}
+      noValidate
+    >
       <header className="sticky top-0 z-30 -mx-4 flex items-center justify-between bg-slate-50/85 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] backdrop-blur-xl dark:bg-ink-950/85">
-        <button type="button" onClick={cancel} className="-ml-3 flex h-11 w-11 items-center justify-center rounded-full" aria-label="Cancel"><X size={24} /></button>
+        <button type="button" onClick={cancel} className="-ml-3 flex h-11 w-11 items-center justify-center rounded-full" aria-label="Cancel">
+          <X size={24} />
+        </button>
         <h1 className="text-base font-bold">{existing ? 'Edit expense' : capture ? 'Captured payment' : 'Add expense'}</h1>
-        <button type="submit" disabled={busy} className="inline-flex min-h-10 shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-brand-600 px-4 py-2 text-sm font-bold leading-5 text-white disabled:opacity-50" data-testid="expense-save">
-          <Check size={16} strokeWidth={2.5} aria-hidden />{busy ? 'Saving…' : 'Save'}
+        <button
+          type="submit"
+          disabled={busy}
+          className="inline-flex min-h-10 shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-brand-600 px-4 py-2 text-sm font-bold leading-5 text-white disabled:opacity-50"
+          data-testid="expense-save"
+        >
+          <Check size={16} strokeWidth={2.5} aria-hidden />
+          {busy ? 'Saving…' : 'Save'}
         </button>
       </header>
 
       {/* Group picker */}
-      <button type="button" onClick={() => setSheet('group')} disabled={!!existing} className="card mt-2 flex w-full items-center gap-3 p-3 text-left disabled:opacity-100" aria-haspopup="dialog" data-testid="group-picker">
+      <button
+        type="button"
+        onClick={() => setSheet('group')}
+        disabled={!!existing}
+        className="card mt-2 flex w-full items-center gap-3 p-3 text-left disabled:opacity-100"
+        aria-haspopup="dialog"
+        data-testid="group-picker"
+      >
         <GroupIcon emoji={group.emoji} size={40} />
         <span className="min-w-0 flex-1">
           <span className="block text-xs text-muted">{personal ? 'Personal wallet' : 'With'}</span>
@@ -213,33 +296,97 @@ export function ExpenseEditor({ group, groups, existing, again, capture, history
       </button>
 
       <AmountCard
-        draft={draft} dispatch={dispatch} group={group} existing={!!existing} history={history} suggestions={suggestions}
+        draft={draft}
+        dispatch={dispatch}
+        group={group}
+        existing={!!existing}
+        history={history}
+        suggestions={suggestions}
         onPickSuggestion={(s) => dispatch({ type: 'pickSuggestion', s, order, personal })}
-        errors={errors} fx={fx} converted={converted} onApplyRate={applyRate}
-        onOpenCategory={() => setSheet('category')} onOpenCurrency={() => setSheet('currency')}
-        scan={{ busy: reader.busy, label: reader.label, onPick: () => fileRef.current?.click() }} hasReceipt={!!receipt || !!existing?.receiptUrl}
-        scannedItems={scanned?.parsed.items.length ?? 0} onAssignItems={assignItems} onSplitAtTable={splitAtTable}
+        errors={errors}
+        fx={fx}
+        converted={converted}
+        onApplyRate={applyRate}
+        onOpenCategory={() => setSheet('category')}
+        onOpenCurrency={() => setSheet('currency')}
+        scan={{ busy: reader.busy, label: reader.label, onPick: () => fileRef.current?.click() }}
+        hasReceipt={!!receipt || !!existing?.receiptUrl}
+        scannedItems={scanned?.parsed.items.length ?? 0}
+        onAssignItems={assignItems}
+        onSplitAtTable={splitAtTable}
       />
-      <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onScanFile(f); e.target.value = '' }} />
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        hidden
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          if (f) onScanFile(f)
+          e.target.value = ''
+        }}
+      />
 
       {!personal && (
         <>
           <PayerCard draft={draft} dispatch={dispatch} group={group} order={order} me={me} hint={payerHint} onOpen={() => setSheet('payer')} />
-          <SplitCard draft={draft} dispatch={dispatch} group={group} order={order} me={me} hint={splitHint} splits={preview.splits} error={preview.error ?? errors.split}
-            open={sheet === 'split'} onOpen={() => setSheet('split')} onClose={() => setSheet(null)} />
+          <SplitCard
+            draft={draft}
+            dispatch={dispatch}
+            group={group}
+            order={order}
+            me={me}
+            hint={splitHint}
+            splits={preview.splits}
+            error={preview.error ?? errors.split}
+            open={sheet === 'split'}
+            onOpen={() => setSheet('split')}
+            onClose={() => setSheet(null)}
+          />
         </>
       )}
 
       <MoreCard draft={draft} dispatch={dispatch} existing={existing} errors={errors} />
 
-      <GroupPickerSheet open={sheet === 'group'} onClose={() => setSheet(null)} groups={groups} current={group.id}
-        onPick={(id) => { onGroup(id); setSheet(null) }} onCreate={(q) => nav(`/groups/new?${q ? `type=${q}&` : ''}next=add`)} />
-      <CurrencySheet open={sheet === 'currency'} onClose={() => setSheet(null)} value={draft.cur} choices={currencyChoices} groupName={group.name} groupCurrency={group.currency}
-        onPick={(c) => dispatch({ type: 'currency', cur: c })} />
-      <CategorySheet open={sheet === 'category'} onClose={() => setSheet(null)} value={draft.category} onPick={(c) => dispatch({ type: 'category', category: c })} />
+      <GroupPickerSheet
+        open={sheet === 'group'}
+        onClose={() => setSheet(null)}
+        groups={groups}
+        current={group.id}
+        onPick={(id) => {
+          onGroup(id)
+          setSheet(null)
+        }}
+        onCreate={(q) => nav(`/groups/new?${q ? `type=${q}&` : ''}next=add`)}
+      />
+      <CurrencySheet
+        open={sheet === 'currency'}
+        onClose={() => setSheet(null)}
+        value={draft.cur}
+        choices={currencyChoices}
+        groupName={group.name}
+        groupCurrency={group.currency}
+        onPick={(c) => dispatch({ type: 'currency', cur: c })}
+      />
+      <CategorySheet
+        open={sheet === 'category'}
+        onClose={() => setSheet(null)}
+        value={draft.category}
+        onPick={(c) => dispatch({ type: 'category', category: c })}
+      />
       {!personal && (
-        <PayerSheet open={sheet === 'payer'} onClose={() => setSheet(null)} group={group} order={order} me={me} value={draft.payer} multiPay={draft.multiPay}
-          onPick={(id) => dispatch({ type: 'payer', id })} onMultiPay={() => dispatch({ type: 'multiPay', on: true })} />
+        <PayerSheet
+          open={sheet === 'payer'}
+          onClose={() => setSheet(null)}
+          group={group}
+          order={order}
+          me={me}
+          value={draft.payer}
+          multiPay={draft.multiPay}
+          onPick={(id) => dispatch({ type: 'payer', id })}
+          onMultiPay={() => dispatch({ type: 'multiPay', on: true })}
+        />
       )}
     </form>
   )

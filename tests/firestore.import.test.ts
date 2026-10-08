@@ -27,15 +27,36 @@ const members = {
   p_cara: { name: 'Cara Lee', color: '#222' },
 }
 const newGroup = {
-  id: 'gi', name: 'Imported', emoji: '🏝️', type: 'trip', currency: 'AUD', simplify: true,
-  memberUids: ['alice'], members, inviteCode: 'IMPT2345', createdBy: 'alice', createdAt: 1, updatedAt: 1,
+  id: 'gi',
+  name: 'Imported',
+  emoji: '🏝️',
+  type: 'trip',
+  currency: 'AUD',
+  simplify: true,
+  memberUids: ['alice'],
+  members,
+  inviteCode: 'IMPT2345',
+  createdBy: 'alice',
+  createdAt: 1,
+  updatedAt: 1,
 }
 
 const expense = (i: number, extra: object = {}) => ({
-  id: `e${i}`, groupId: 'gi', description: `Row ${i}`, amount: 9000, category: 'food', date: '2024-03-01',
-  paidBy: { alice: 9000 }, splits: { alice: 3000, p_bob: 3000, p_cara: 3000 }, splitType: 'exact',
-  splitInput: { exact: { alice: 3000, p_bob: 3000, p_cara: 3000 } }, createdBy: 'alice', createdAt: i, updatedAt: i,
-  importedFrom: 'splitwise', ...extra,
+  id: `e${i}`,
+  groupId: 'gi',
+  description: `Row ${i}`,
+  amount: 9000,
+  category: 'food',
+  date: '2024-03-01',
+  paidBy: { alice: 9000 },
+  splits: { alice: 3000, p_bob: 3000, p_cara: 3000 },
+  splitType: 'exact',
+  splitInput: { exact: { alice: 3000, p_bob: 3000, p_cara: 3000 } },
+  createdBy: 'alice',
+  createdAt: i,
+  updatedAt: i,
+  importedFrom: 'splitwise',
+  ...extra,
 })
 
 async function createGroup(db: Db) {
@@ -52,7 +73,18 @@ describe('bulk import', () => {
     const b = writeBatch(db)
     for (let i = 0; i < 440; i++) b.set(doc(db, `groups/gi/expenses/e${i}`), expense(i))
     for (let i = 0; i < 9; i++) {
-      b.set(doc(db, `groups/gi/settlements/s${i}`), { id: `s${i}`, groupId: 'gi', from: 'p_bob', to: 'alice', amount: 3000, method: 'Splitwise', date: '2024-03-05', createdBy: 'alice', createdAt: 1000 + i, importedFrom: 'splitwise' })
+      b.set(doc(db, `groups/gi/settlements/s${i}`), {
+        id: `s${i}`,
+        groupId: 'gi',
+        from: 'p_bob',
+        to: 'alice',
+        amount: 3000,
+        method: 'Splitwise',
+        date: '2024-03-05',
+        createdBy: 'alice',
+        createdAt: 1000 + i,
+        importedFrom: 'splitwise',
+      })
     }
     b.update(doc(db, 'groups/gi'), { updatedAt: 2 })
     await assertSucceeds(b.commit())

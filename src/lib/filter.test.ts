@@ -3,10 +3,33 @@ import type { Expense, Settlement } from '@/types'
 import { EMPTY_FILTER, expenseMatches, isFiltering, settlementMatches } from './filter'
 
 const e = (over: Partial<Expense>): Expense => ({
-  id: 'e', groupId: 'g', description: 'Dinner at Café Mondo', amount: 3000, category: 'food', date: '2026-01-01',
-  paidBy: { a: 3000 }, splits: { a: 1500, b: 1500 }, splitType: 'equal', splitInput: {}, createdBy: 'u', createdAt: 0, updatedAt: 0, ...over,
+  id: 'e',
+  groupId: 'g',
+  description: 'Dinner at Café Mondo',
+  amount: 3000,
+  category: 'food',
+  date: '2026-01-01',
+  paidBy: { a: 3000 },
+  splits: { a: 1500, b: 1500 },
+  splitType: 'equal',
+  splitInput: {},
+  createdBy: 'u',
+  createdAt: 0,
+  updatedAt: 0,
+  ...over,
 })
-const s: Settlement = { id: 's', groupId: 'g', from: 'b', to: 'a', amount: 1500, method: 'PayID', note: 'for dinner', date: '2026-01-02', createdBy: 'u', createdAt: 0 }
+const s: Settlement = {
+  id: 's',
+  groupId: 'g',
+  from: 'b',
+  to: 'a',
+  amount: 1500,
+  method: 'PayID',
+  note: 'for dinner',
+  date: '2026-01-02',
+  createdBy: 'u',
+  createdAt: 0,
+}
 const names: Record<string, string> = { a: 'Alice', b: 'Bob', c: 'Carol' }
 const name = (id: string) => names[id] ?? id
 

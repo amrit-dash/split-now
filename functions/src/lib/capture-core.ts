@@ -6,8 +6,14 @@ import type { CaptureRequest } from './request'
 import { parseInstant, transactionDate } from './time'
 
 export type Reason =
-  | 'bad_token' | 'not_a_debit' | 'unparsed' | 'outside_trip' | 'duplicate' | 'rate_limited' | 'bad_request'
-  /** the user paused capture (Settings → Auto-capture), or paused it for the matching trip */
+  | 'bad_token'
+  | 'not_a_debit'
+  | 'unparsed'
+  | 'outside_trip'
+  | 'duplicate'
+  | 'rate_limited'
+  | 'bad_request'
+  /** the user paused capture (Settings → Automation), or paused it for the matching trip */
   | 'paused'
   /** an INR debit below the user's minimum amount */
   | 'below_min'
@@ -21,8 +27,17 @@ export type Reason =
  * retry; `unparsed` is 422 (the same message will never parse, but it's worth surfacing).
  */
 export const STATUS: Record<Reason, number> = {
-  bad_token: 401, not_a_debit: 200, unparsed: 422, outside_trip: 200, duplicate: 200, rate_limited: 429, bad_request: 400,
-  paused: 200, below_min: 200, ignored: 200, bad_scope: 200,
+  bad_token: 401,
+  not_a_debit: 200,
+  unparsed: 422,
+  outside_trip: 200,
+  duplicate: 200,
+  rate_limited: 429,
+  bad_request: 400,
+  paused: 200,
+  below_min: 200,
+  ignored: 200,
+  bad_scope: 200,
 }
 
 export interface Parsed {
@@ -64,9 +79,7 @@ export function interpret(req: CaptureRequest, now: Date): Interpretation {
   }
 
   // Same inference as a /capture link: "A$12.50" is AUD, "S$9" is SGD, a bare number is INR.
-  const currency = req.currency
-    ?? (req.amount ? currencyFromAmount(req.amount) : undefined)
-    ?? sms?.currency ?? 'INR'
+  const currency = req.currency ?? (req.amount ? currencyFromAmount(req.amount) : undefined) ?? sms?.currency ?? 'INR'
   const amount = req.amount ? parseAmountMinor(req.amount, currency) : sms?.amount
   if (!amount || !Number.isFinite(amount) || amount > 10_000_000_000) return { ok: false, reason: 'unparsed', sms }
 
@@ -99,8 +112,19 @@ export function interpret(req: CaptureRequest, now: Date): Interpretation {
 /** users/{uid}/captures/{id} in the Capture shape of src/types.ts (undefined fields dropped). */
 export function captureDoc(id: string, p: Parsed, x: CaptureExtra, suggestedGroup: string | undefined, now: number): Record<string, unknown> {
   const d: Record<string, unknown> = {
-    id, amount: p.amount, currency: p.currency, merchant: p.merchant ?? 'Payment', date: p.date, ts: x.ts, source: x.source,
-    card: x.card, raw: x.raw, suggestedGroup, status: 'pending', createdAt: now, updatedAt: now,
+    id,
+    amount: p.amount,
+    currency: p.currency,
+    merchant: p.merchant ?? 'Payment',
+    date: p.date,
+    ts: x.ts,
+    source: x.source,
+    card: x.card,
+    raw: x.raw,
+    suggestedGroup,
+    status: 'pending',
+    createdAt: now,
+    updatedAt: now,
   }
   return Object.fromEntries(Object.entries(d).filter(([, v]) => v !== undefined))
 }

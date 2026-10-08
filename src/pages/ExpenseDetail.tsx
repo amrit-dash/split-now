@@ -16,6 +16,7 @@ import { colorFor } from '@/lib/colors'
 import { Avatar } from '@/components/Avatar'
 import { Empty, Loading, PageHeader } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
+import { usePageTitle } from '@/lib/brand'
 import { HistoryCard, TrashedBanner, TrustBadges, TrustPanel, useUndoableDelete } from '@/components/Trust'
 
 export default function ExpenseDetail() {
@@ -27,13 +28,20 @@ export default function ExpenseDetail() {
   const nav = useNavigate()
   const toast = useToast()
   const undoable = useUndoableDelete()
+  const e = expenses?.find((x) => x.id === expenseId)
+  usePageTitle(e ? e.description : group === null || (expenses && !e) ? 'Expense' : undefined)
   if (group === undefined || !expenses) return <Loading />
-  const e = expenses.find((x) => x.id === expenseId)
-  if (!group || !e) return <><PageHeader title="Expense" back /><Empty emoji="🔍" title="Expense not found" /></>
+  if (!group || !e)
+    return (
+      <>
+        <PageHeader title="Expense" back />
+        <Empty emoji="🔍" title="Expense not found" />
+      </>
+    )
   const me = myMemberId(group, user.uid)
   const cur = group.currency
   const cat = CATEGORIES[e.category]
-  const name = (id: string) => (id === me ? 'You' : group.members[id]?.name ?? 'Former member')
+  const name = (id: string) => (id === me ? 'You' : (group.members[id]?.name ?? 'Former member'))
 
   const template = e.recurringFrom ? expenses.find((x) => x.id === e.recurringFrom) : undefined
 
@@ -43,7 +51,15 @@ export default function ExpenseDetail() {
     try {
       await repo.saveExpense({ ...e, recurrence: undefined, updatedAt: Date.now() })
       toast('This expense no longer repeats', 'ok', {
-        action: { label: 'Undo', run: () => { repo.saveExpense({ ...before, updatedAt: Date.now() }).then(() => toast('Repeating again')).catch((err) => toast(errText(err), 'err')) } },
+        action: {
+          label: 'Undo',
+          run: () => {
+            repo
+              .saveExpense({ ...before, updatedAt: Date.now() })
+              .then(() => toast('Repeating again'))
+              .catch((err) => toast(errText(err), 'err'))
+          },
+        },
       })
     } catch (err) {
       toast(errText(err), 'err')
@@ -60,44 +76,90 @@ export default function ExpenseDetail() {
   return (
     <div>
       {/* The heading is the description in the card below, so the header carries no title (no empty h1). */}
-      <PageHeader title="" back right={trashed ? undefined :
-        <div className="flex gap-1">
-          <Link to={`/add?group=${encodeURIComponent(group.id)}&again=${encodeURIComponent(e.id)}`} className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-slate-200/60 dark:hover:bg-ink-800" aria-label="Add again, dated today" data-testid="add-again"><CopyPlus size={20} /></Link>
-          <Link to={`/groups/${group.id}/expenses/${e.id}/edit`} className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-slate-200/60 dark:hover:bg-ink-800" aria-label="Edit"><Pencil size={20} /></Link>
-          <button type="button" onClick={del} className="flex h-11 w-11 items-center justify-center rounded-full text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10" aria-label="Delete"><Trash2 size={20} /></button>
-        </div>
-      } />
+      <PageHeader
+        title=""
+        back
+        right={
+          trashed ? undefined : (
+            <div className="flex gap-1">
+              <Link
+                to={`/add?group=${encodeURIComponent(group.id)}&again=${encodeURIComponent(e.id)}`}
+                className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-slate-200/60 dark:hover:bg-ink-800"
+                aria-label="Add again, dated today"
+                data-testid="add-again"
+              >
+                <CopyPlus size={20} />
+              </Link>
+              <Link
+                to={`/groups/${group.id}/expenses/${e.id}/edit`}
+                className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-slate-200/60 dark:hover:bg-ink-800"
+                aria-label="Edit"
+              >
+                <Pencil size={20} />
+              </Link>
+              <button
+                type="button"
+                onClick={del}
+                className="flex h-11 w-11 items-center justify-center rounded-full text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10"
+                aria-label="Delete"
+              >
+                <Trash2 size={20} />
+              </button>
+            </div>
+          )
+        }
+      />
       {trashed && <TrashedBanner group={group} item={e} kind="expense" />}
       <div className="card p-6 text-center">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl text-4xl" style={{ background: cat.color + '22' }} aria-hidden>{cat.emoji}</div>
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl text-4xl" style={{ background: cat.color + '22' }} aria-hidden>
+          {cat.emoji}
+        </div>
         <h1 className="mt-3 text-xl font-bold">{e.description}</h1>
         <div className="mt-1 text-4xl font-extrabold tabular-nums tracking-tight">{formatMoney(e.amount, cur)}</div>
         {e.original && (
           <div className="mt-1 text-sm text-muted" data-testid="fx-original">
-            <span className="font-semibold text-slate-700 dark:text-slate-200">{formatMoney(e.original.amount, e.original.currency)}</span> at {rateLabel(e.original, cur)}
+            <span className="font-semibold text-slate-700 dark:text-slate-200">{formatMoney(e.original.amount, e.original.currency)}</span> at{' '}
+            {rateLabel(e.original, cur)}
           </div>
         )}
-        <div className="mt-2 text-sm text-muted">{cat.label} · {formatDate(e.date, 'long')}</div>
-        <div className="mt-1 text-xs text-muted"><span aria-hidden>{group.emoji}</span> {group.name}</div>
-        <div className="mt-2 flex justify-center gap-1.5 empty:hidden"><TrustBadges e={e} group={group} /></div>
+        <div className="mt-2 text-sm text-muted">
+          {cat.label} · {formatDate(e.date, 'long')}
+        </div>
+        <div className="mt-1 text-xs text-muted">
+          <span aria-hidden>{group.emoji}</span> {group.name}
+        </div>
+        <div className="mt-2 flex justify-center gap-1.5 empty:hidden">
+          <TrustBadges e={e} group={group} />
+        </div>
       </div>
       {group.type !== 'personal' && <TrustPanel group={group} expense={e} myMemberId={me} />}
 
       {e.recurrence && (
         <div className="card mt-3 flex items-center gap-3 p-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/40 dark:text-brand-200"><Repeat size={20} /></div>
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/40 dark:text-brand-200">
+            <Repeat size={20} />
+          </div>
           <div className="min-w-0 flex-1 text-sm">
             <div className="font-semibold">Repeats {FREQ_LABEL[e.recurrence.freq].toLowerCase()}</div>
-            <div className="text-muted">Next on {fmtDate(e.recurrence.nextDate)}{e.recurrence.until ? ` · ends ${fmtDate(e.recurrence.until)}` : ''}</div>
+            <div className="text-muted">
+              Next on {fmtDate(e.recurrence.nextDate)}
+              {e.recurrence.until ? ` · ends ${fmtDate(e.recurrence.until)}` : ''}
+            </div>
           </div>
-          <button type="button" onClick={stopRepeating} className="chip min-h-10 shrink-0">Stop repeating</button>
+          <button type="button" onClick={stopRepeating} className="chip min-h-10 shrink-0">
+            Stop repeating
+          </button>
         </div>
       )}
       {e.recurringFrom && !e.recurrence && (
         <div className="card mt-3 flex items-center gap-3 p-4 text-sm">
           <Repeat size={18} className="shrink-0 text-slate-400" aria-hidden />
           <div className="flex-1 text-muted">Added automatically from a repeating expense.</div>
-          {template && <Link to={`/groups/${group.id}/expenses/${template.id}`} className="chip shrink-0">{template.recurrence ? 'Manage' : 'View original'}</Link>}
+          {template && (
+            <Link to={`/groups/${group.id}/expenses/${template.id}`} className="chip shrink-0">
+              {template.recurrence ? 'Manage' : 'View original'}
+            </Link>
+          )}
         </div>
       )}
 
@@ -123,11 +185,19 @@ export default function ExpenseDetail() {
                   <div className="flex-1">
                     <div className="font-medium">{name(id)}</div>
                     {e.splitType === 'percent' && <div className="text-xs text-muted">{e.splitInput.percent?.[id]}%</div>}
-                    {e.splitType === 'shares' && <div className="text-xs text-muted">{e.splitInput.shares?.[id]} {e.splitInput.shares?.[id] === 1 ? 'share' : 'shares'}</div>}
+                    {e.splitType === 'shares' && (
+                      <div className="text-xs text-muted">
+                        {e.splitInput.shares?.[id]} {e.splitInput.shares?.[id] === 1 ? 'share' : 'shares'}
+                      </div>
+                    )}
                   </div>
                   <div className="text-right">
                     <div className="font-semibold tabular-nums">{formatMoney(v, cur)}</div>
-                    {net !== 0 && <div className={`text-xs tabular-nums ${net > 0 ? 'pos' : 'neg'}`}>{net > 0 ? 'gets back' : 'owes'} {formatMoney(Math.abs(net), cur)}</div>}
+                    {net !== 0 && (
+                      <div className={`text-xs tabular-nums ${net > 0 ? 'pos' : 'neg'}`}>
+                        {net > 0 ? 'gets back' : 'owes'} {formatMoney(Math.abs(net), cur)}
+                      </div>
+                    )}
                   </div>
                 </div>
               )
@@ -135,7 +205,15 @@ export default function ExpenseDetail() {
             {e.splitType === 'itemized' && e.splitInput.items && (
               <div className="mt-3 space-y-1 border-t border-slate-100 pt-3 text-sm dark:border-white/5">
                 {e.splitInput.items.map((it, i) => (
-                  <div key={i} className="flex justify-between gap-2"><span className="min-w-0">{it.name} <span className="text-muted">· {it.members.map((m) => name(m).split(' ')[0] + (it.shares?.[m] && it.shares[m] > 1 ? ` ×${it.shares[m]}` : '')).join(', ')}</span></span><span className="tabular-nums">{formatMoney(it.amount, e.original?.currency ?? cur)}</span></div>
+                  <div key={i} className="flex justify-between gap-2">
+                    <span className="min-w-0">
+                      {it.name}{' '}
+                      <span className="text-muted">
+                        · {it.members.map((m) => name(m).split(' ')[0] + (it.shares?.[m] && it.shares[m] > 1 ? ` ×${it.shares[m]}` : '')).join(', ')}
+                      </span>
+                    </span>
+                    <span className="tabular-nums">{formatMoney(it.amount, e.original?.currency ?? cur)}</span>
+                  </div>
                 ))}
               </div>
             )}
@@ -143,11 +221,18 @@ export default function ExpenseDetail() {
         </>
       )}
 
-      {e.notes && <div className="card mt-3 p-4"><div className="label">Notes</div><p className="whitespace-pre-wrap text-sm">{e.notes}</p></div>}
+      {e.notes && (
+        <div className="card mt-3 p-4">
+          <div className="label">Notes</div>
+          <p className="whitespace-pre-wrap text-sm">{e.notes}</p>
+        </div>
+      )}
       {e.receiptUrl && (
         <div className="card mt-3 overflow-hidden">
           <div className="label px-4 pt-4">Receipt</div>
-          <a href={e.receiptUrl} target="_blank" rel="noreferrer"><img src={e.receiptUrl} alt="Receipt" className="max-h-96 w-full object-contain" /></a>
+          <a href={e.receiptUrl} target="_blank" rel="noreferrer">
+            <img src={e.receiptUrl} alt="Receipt" className="max-h-96 w-full object-contain" />
+          </a>
         </div>
       )}
       {group.type !== 'personal' && <Comments group={group} expense={e} />}
@@ -171,7 +256,10 @@ function Comments({ group, expense }: { group: Group; expense: Expense }) {
     setBusy(true)
     try {
       await repo.addComment(group.id, expense.id, {
-        text: t.slice(0, 2000), authorUid: user.uid, authorName: profile.displayName || user.displayName, createdAt: Date.now(),
+        text: t.slice(0, 2000),
+        authorUid: user.uid,
+        authorName: profile.displayName || user.displayName,
+        createdAt: Date.now(),
       })
       setText('')
     } catch (err) {
@@ -185,7 +273,14 @@ function Comments({ group, expense }: { group: Group; expense: Expense }) {
     try {
       await repo.deleteComment(group.id, expense.id, c.id)
       toast('Comment deleted', 'ok', {
-        action: { label: 'Undo', run: () => { repo.addComment(group.id, expense.id, { text: c.text, authorUid: c.authorUid, authorName: c.authorName, createdAt: c.createdAt }).catch((err) => toast(errText(err), 'err')) } },
+        action: {
+          label: 'Undo',
+          run: () => {
+            repo
+              .addComment(group.id, expense.id, { text: c.text, authorUid: c.authorUid, authorName: c.authorName, createdAt: c.createdAt })
+              .catch((err) => toast(errText(err), 'err'))
+          },
+        },
       })
     } catch (err) {
       toast(errText(err), 'err')
@@ -207,7 +302,14 @@ function Comments({ group, expense }: { group: Group; expense: Expense }) {
                   <span className="font-semibold text-slate-900 dark:text-slate-100">{c.authorUid === user.uid ? 'You' : c.authorName}</span>
                   <span className="text-muted">{fmtWhen(c.createdAt)}</span>
                   {c.authorUid === user.uid && (
-                    <button type="button" onClick={() => remove(c)} className="-my-2 ml-auto flex h-8 w-8 items-center justify-center rounded-full text-muted hover:text-rose-600" aria-label="Delete comment"><Trash2 size={15} /></button>
+                    <button
+                      type="button"
+                      onClick={() => remove(c)}
+                      className="-my-2 ml-auto flex h-8 w-8 items-center justify-center rounded-full text-muted hover:text-rose-600"
+                      aria-label="Delete comment"
+                    >
+                      <Trash2 size={15} />
+                    </button>
                   )}
                 </div>
                 <p className="mt-0.5 whitespace-pre-wrap break-words text-sm">{c.text}</p>
@@ -216,7 +318,13 @@ function Comments({ group, expense }: { group: Group; expense: Expense }) {
           ))}
         </ul>
       )}
-      <form className="mt-3 flex items-end gap-2" onSubmit={(ev) => { ev.preventDefault(); send() }}>
+      <form
+        className="mt-3 flex items-end gap-2"
+        onSubmit={(ev) => {
+          ev.preventDefault()
+          send()
+        }}
+      >
         <textarea
           className="input min-h-11 !py-2.5"
           rows={1}
@@ -226,9 +334,21 @@ function Comments({ group, expense }: { group: Group; expense: Expense }) {
           enterKeyHint="send"
           value={text}
           onChange={(ev) => setText(ev.target.value)}
-          onKeyDown={(ev) => { if (ev.key === 'Enter' && !ev.shiftKey && !ev.nativeEvent.isComposing) { ev.preventDefault(); send() } }}
+          onKeyDown={(ev) => {
+            if (ev.key === 'Enter' && !ev.shiftKey && !ev.nativeEvent.isComposing) {
+              ev.preventDefault()
+              send()
+            }
+          }}
         />
-        <button type="submit" disabled={!text.trim() || busy} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-600 text-white disabled:opacity-40" aria-label="Send comment"><Send size={18} /></button>
+        <button
+          type="submit"
+          disabled={!text.trim() || busy}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-600 text-white disabled:opacity-40"
+          aria-label="Send comment"
+        >
+          <Send size={18} />
+        </button>
       </form>
     </div>
   )

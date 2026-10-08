@@ -9,7 +9,9 @@ function fakeWatch() {
   const watch = (_id: string, cb: Cb) => {
     const l = { cb, open: true }
     listeners.push(l)
-    return () => { l.open = false }
+    return () => {
+      l.open = false
+    }
   }
   const last = () => listeners[listeners.length - 1]
   return { watch, listeners, last }
@@ -68,11 +70,16 @@ describe('rewatchWhileFresh', () => {
   beforeEach(() => vi.useFakeTimers())
   afterEach(() => vi.useRealTimers())
 
-  it('restarts a fresh group\'s list watcher a few times, then leaves it', () => {
+  it("restarts a fresh group's list watcher a few times, then leaves it", () => {
     markCreated('g4')
     const stops: number[] = []
     let n = 0
-    const start = () => { const i = n++; return () => { stops.push(i) } }
+    const start = () => {
+      const i = n++
+      return () => {
+        stops.push(i)
+      }
+    }
     const unsub = rewatchWhileFresh('g4', start)
     vi.advanceTimersByTime(FRESH_MS)
     expect(n).toBe(4)
@@ -82,7 +89,10 @@ describe('rewatchWhileFresh', () => {
 
   it('subscribes once for other groups', () => {
     let n = 0
-    rewatchWhileFresh('other', () => { n++; return () => {} })
+    rewatchWhileFresh('other', () => {
+      n++
+      return () => {}
+    })
     vi.advanceTimersByTime(FRESH_MS)
     expect(n).toBe(1)
   })

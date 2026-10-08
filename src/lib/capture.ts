@@ -35,22 +35,40 @@ export type CaptureParse = { ok: true; draft: CaptureDraft; token?: string; owne
 export const CAPTURE_SOURCES = ['sms-ios', 'sms-android', 'ios-shortcut', 'android-auto', 'share', 'email', 'manual'] as const
 
 export const SOURCE_LABEL: Record<string, string> = {
-  'sms-ios': 'iPhone SMS', 'sms-android': 'Android SMS', sms: 'SMS',
-  'ios-shortcut': 'Apple Pay', 'android-auto': 'Android', share: 'Shared', email: 'Email', manual: 'Link', statement: 'Statement',
+  'sms-ios': 'iPhone SMS',
+  'sms-android': 'Android SMS',
+  sms: 'SMS',
+  'ios-shortcut': 'Apple Pay',
+  'android-auto': 'Android',
+  share: 'Shared',
+  email: 'Email',
+  manual: 'Link',
+  statement: 'Statement',
 }
 
 /** Older/alternative `src` names we accept and normalise. */
 const SOURCE_ALIASES: Record<string, string> = {
-  applepay: 'ios-shortcut', 'apple-pay': 'ios-shortcut', ios: 'ios-shortcut', shortcut: 'ios-shortcut', shortcuts: 'ios-shortcut',
-  android: 'android-auto', tasker: 'android-auto', macrodroid: 'android-auto', automate: 'android-auto',
-  'ios-sms': 'sms-ios', 'android-sms': 'sms-android',
+  applepay: 'ios-shortcut',
+  'apple-pay': 'ios-shortcut',
+  ios: 'ios-shortcut',
+  shortcut: 'ios-shortcut',
+  shortcuts: 'ios-shortcut',
+  android: 'android-auto',
+  tasker: 'android-auto',
+  macrodroid: 'android-auto',
+  automate: 'android-auto',
+  'ios-sms': 'sms-ios',
+  'android-sms': 'sms-android',
 }
 
 /** Sources that came from a bank/UPI SMS forwarded by the webhook. */
 export const isSmsSource = (source: string) => source === 'sms-ios' || source === 'sms-android' || source === 'sms'
 
 export function normaliseSource(raw: string | null | undefined): string {
-  const s = (raw ?? '').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 20)
+  const s = (raw ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, '')
+    .slice(0, 20)
   return SOURCE_ALIASES[s] ?? (s || 'manual')
 }
 
@@ -113,7 +131,7 @@ export function parseCaptureParams(params: URLSearchParams, today: string): Capt
   const amountStr = params.get('amount')?.trim() || raw
   if (!amountStr) return { ok: false, error: 'The link has no amount.' }
   const cur = params.get('currency')?.trim().toUpperCase()
-  const currency = cur && /^[A-Z]{3}$/.test(cur) ? cur : currencyFromAmount(amountStr) ?? (raw ? currencyFromAmount(raw) : undefined)
+  const currency = cur && /^[A-Z]{3}$/.test(cur) ? cur : (currencyFromAmount(amountStr) ?? (raw ? currencyFromAmount(raw) : undefined))
   const amount = parseCaptureAmount(amountStr, currency)
   if (!Number.isFinite(amount)) return { ok: false, error: `“${amountStr.slice(0, 30)}” isn’t a valid amount.` }
   if (amount > 100_000_000) return { ok: false, error: 'That amount looks too large.' }
@@ -148,8 +166,15 @@ export function captureQuery(d: Partial<CaptureDraft> & { amount: Cents | string
   const p = new URLSearchParams({ v: '1' })
   p.set('amount', typeof d.amount === 'number' ? centsToInput(d.amount, d.currency) : d.amount)
   const keys: Array<[keyof CaptureDraft, string]> = [
-    ['currency', 'currency'], ['merchant', 'merchant'], ['ts', 'ts'], ['source', 'src'], ['card', 'card'],
-    ['raw', 'raw'], ['note', 'note'], ['ref', 'ref'], ['group', 'group'],
+    ['currency', 'currency'],
+    ['merchant', 'merchant'],
+    ['ts', 'ts'],
+    ['source', 'src'],
+    ['card', 'card'],
+    ['raw', 'raw'],
+    ['note', 'note'],
+    ['ref', 'ref'],
+    ['group', 'group'],
   ]
   for (const [k, name] of keys) if (d[k]) p.set(name, String(d[k]))
   if (d.date && !d.ts) p.set('date', d.date)
@@ -176,9 +201,7 @@ export function inboxToDraft(d: InboxDoc, today: string): CaptureDraft | null {
   const cur = d.currency?.trim().toUpperCase()
   const currency = cur && /^[A-Z]{3}$/.test(cur) ? cur : d.raw ? currencyFromAmount(d.raw) : undefined
   // An integer `amount` is already in minor units (see docs/AUTO_CAPTURE.md).
-  const amount = typeof d.amount === 'number' && Number.isInteger(d.amount) && d.amount > 0
-    ? d.amount
-    : d.raw ? parseCaptureAmount(d.raw, currency) : NaN
+  const amount = typeof d.amount === 'number' && Number.isInteger(d.amount) && d.amount > 0 ? d.amount : d.raw ? parseCaptureAmount(d.raw, currency) : NaN
   if (!Number.isFinite(amount)) return null
   return {
     amount,
@@ -228,7 +251,9 @@ const IGNORED_TEXT: Record<Exclude<SmsKind, 'debit' | 'unknown'>, string> = {
 /** Plain-English line for an ignored share, for the Share screen. */
 export function sharedTextIgnoredText(o: Extract<SharedTextOutcome, { outcome: 'ignored' }>): string {
   if (o.kind !== 'debit') return IGNORED_TEXT[o.kind]
-  return o.filtered === 'below_min' ? 'That payment is below your minimum amount (Settings → Auto-capture).' : 'That message matches one of your ignore keywords (Settings → Auto-capture).'
+  return o.filtered === 'below_min'
+    ? 'That payment is below your minimum amount (Settings → Automation).'
+    : 'That message matches one of your ignore keywords (Settings → Automation).'
 }
 
 /**
@@ -290,14 +315,17 @@ export function classifySharedText(
   }
 }
 
-const compactDraft = (d: CaptureDraft): CaptureDraft =>
-  Object.fromEntries(Object.entries(d).filter(([, v]) => v !== undefined)) as CaptureDraft
+const compactDraft = (d: CaptureDraft): CaptureDraft => Object.fromEntries(Object.entries(d).filter(([, v]) => v !== undefined)) as CaptureDraft
 
 /**
  * Turn text shared into the app into a capture, or null when there is nothing to capture
  * (no amount, or a bank message that isn't a payment). classifySharedText says which.
  */
-export function captureFromSharedText(parts: { title?: string | null; text?: string | null; url?: string | null }, today: string, filters?: Pick<CaptureFilterPrefs, 'minAmount' | 'ignoreWords'>): CaptureDraft | null {
+export function captureFromSharedText(
+  parts: { title?: string | null; text?: string | null; url?: string | null },
+  today: string,
+  filters?: Pick<CaptureFilterPrefs, 'minAmount' | 'ignoreWords'>,
+): CaptureDraft | null {
   const r = classifySharedText(parts, today, filters)
   return r.outcome === 'capture' ? r.draft : null
 }

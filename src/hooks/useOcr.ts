@@ -4,7 +4,9 @@ import { recognizeImage } from '@/lib/ocr'
 /** Thrown by `run()` when `cancel()` was tapped before the text came back. */
 export class OcrCancelled extends Error {
   name = 'OcrCancelled'
-  constructor() { super('Reading cancelled') }
+  constructor() {
+    super('Reading cancelled')
+  }
 }
 
 /**
@@ -21,7 +23,9 @@ export function useOcr() {
       const id = ++run.current
       setProgress(0)
       try {
-        const text = await recognizeImage(file, (p) => { if (run.current === id) setProgress(p) })
+        const text = await recognizeImage(file, (p) => {
+          if (run.current === id) setProgress(p)
+        })
         if (run.current !== id) throw new OcrCancelled()
         return text
       } finally {

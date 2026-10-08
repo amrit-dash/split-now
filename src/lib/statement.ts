@@ -28,7 +28,8 @@ export function flagsFor(t: StatementTxn & { amount: Cents }, group: Group | und
 }
 
 /** Ticked by default: payments out, not transfers or refunds, not already added, inside the trip if it has dates. */
-export const preselect = (flags: Flag[]) => !flags.some((f) => f === 'received' || f === 'own_transfer' || f === 'refund' || f === 'maybe_added' || f === 'outside_trip')
+export const preselect = (flags: Flag[]) =>
+  !flags.some((f) => f === 'received' || f === 'own_transfer' || f === 'refund' || f === 'maybe_added' || f === 'outside_trip')
 
 /** The group whose dates hold most of the payments, else the live trip, else the first shared group. */
 export function bestGroup(groups: Group[], txns: Array<{ date: string; direction: string }>, today: string): Group | undefined {
@@ -38,7 +39,10 @@ export function bestGroup(groups: Group[], txns: Array<{ date: string; direction
   for (const g of groups) {
     if (!hasTripWindow(g)) continue
     const n = out.filter((t) => inTripWindow(g, t.date)).length
-    if (n > hits) { best = g; hits = n }
+    if (n > hits) {
+      best = g
+      hits = n
+    }
   }
   return best ?? groups.find((g) => inTripWindow(g, today)) ?? groups.find((g) => g.type !== 'personal' && g.type !== 'direct') ?? groups[0]
 }
@@ -62,11 +66,19 @@ export interface DraftExpense {
 export function buildExpense(d: DraftExpense, group: Group, order: MemberId[], createdBy: string, id: string, now: number): Expense {
   const members = order.filter((m) => d.members.includes(m))
   return {
-    id, groupId: group.id, description: d.description.trim(), amount: d.amount, category: d.category, date: d.date,
+    id,
+    groupId: group.id,
+    description: d.description.trim(),
+    amount: d.amount,
+    category: d.category,
+    date: d.date,
     ...(d.notes?.trim() ? { notes: d.notes.trim() } : {}),
     paidBy: { [d.payer]: d.amount },
     splits: computeSplits(d.amount, 'equal', { selected: members }, order),
-    splitType: 'equal', splitInput: { selected: members },
-    createdBy, createdAt: now, updatedAt: now,
+    splitType: 'equal',
+    splitInput: { selected: members },
+    createdBy,
+    createdAt: now,
+    updatedAt: now,
   }
 }

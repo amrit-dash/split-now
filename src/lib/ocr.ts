@@ -20,7 +20,9 @@ export function coreVariant(validate: (bytes: Uint8Array<ArrayBuffer>) => boolea
   try {
     if (validate(new Uint8Array(RELAXED_SIMD))) return 'relaxedsimd'
     if (validate(new Uint8Array(SIMD))) return 'simd'
-  } catch { /* no WebAssembly at all: the basic core fails too, with a clearer error from the worker */ }
+  } catch {
+    /* no WebAssembly at all: the basic core fails too, with a clearer error from the worker */
+  }
   return 'basic'
 }
 
@@ -51,14 +53,19 @@ async function spawn(): Promise<Worker> {
 
 function worker(): Promise<Worker> {
   clearTimeout(idle)
-  workerP ??= spawn().catch((e) => { workerP = undefined; throw e })
+  workerP ??= spawn().catch((e) => {
+    workerP = undefined
+    throw e
+  })
   return workerP
 }
 
 function dropWorker() {
   const p = workerP
   workerP = undefined
-  p?.then((w) => w.terminate()).catch(() => { /* never started or already gone */ })
+  p?.then((w) => w.terminate()).catch(() => {
+    /* never started or already gone */
+  })
 }
 
 function scheduleIdle() {
@@ -68,7 +75,9 @@ function scheduleIdle() {
 
 /** Start loading the worker and model now (e.g. when the Scan screen opens), so the first scan isn't a cold one. */
 export function warmOcr(): void {
-  worker().then(scheduleIdle, () => { /* reported by the scan that needs it */ })
+  worker().then(scheduleIdle, () => {
+    /* reported by the scan that needs it */
+  })
 }
 
 export async function recognizeImage(file: File, progress?: (p: number) => void): Promise<string> {

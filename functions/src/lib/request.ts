@@ -30,7 +30,17 @@ export interface RawRequest {
 }
 
 const LIMITS: Record<string, number> = {
-  token: 64, text: 2000, sender: 40, receivedAt: 40, groupId: 64, device: 20, amount: 40, currency: 3, merchant: 100, ts: 40, ref: 64,
+  token: 64,
+  text: 2000,
+  sender: 40,
+  receivedAt: 40,
+  groupId: 64,
+  device: 20,
+  amount: 40,
+  currency: 3,
+  merchant: 100,
+  ts: 40,
+  ref: 64,
 }
 
 /**
@@ -61,7 +71,9 @@ function bodyObject(body: unknown): Record<string, unknown> {
       try {
         const j = JSON.parse(s)
         if (j && typeof j === 'object') return j as Record<string, unknown>
-      } catch { /* not JSON: treat as the SMS */ }
+      } catch {
+        /* not JSON: treat as the SMS */
+      }
     }
     return s ? { text: s } : {}
   }

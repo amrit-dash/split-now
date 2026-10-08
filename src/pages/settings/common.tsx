@@ -5,7 +5,19 @@ import { usePageTitle } from '@/lib/brand'
 import { PageHeader } from '@/components/Misc'
 
 /** One settings screen: sticky header with a back arrow to /settings, and the document title. */
-export function SettingsPage({ title, subtitle, back = '/settings', right, children }: { title: string; subtitle?: ReactNode; back?: string; right?: ReactNode; children: ReactNode }) {
+export function SettingsPage({
+  title,
+  subtitle,
+  back = '/settings',
+  right,
+  children,
+}: {
+  title: string
+  subtitle?: ReactNode
+  back?: string
+  right?: ReactNode
+  children: ReactNode
+}) {
   usePageTitle(title)
   return (
     <div>
@@ -19,7 +31,12 @@ export function SettingsPage({ title, subtitle, back = '/settings', right, child
 export function SettingsRow({ to, icon, title, summary, testId }: { to: string; icon: ReactNode; title: string; summary?: ReactNode; testId?: string }) {
   return (
     <Link to={to} className="flex items-center gap-3 px-4 py-3.5 transition active:bg-slate-50 dark:active:bg-ink-800" data-testid={testId}>
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300" aria-hidden>{icon}</span>
+      <span
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
+        aria-hidden
+      >
+        {icon}
+      </span>
       <span className="min-w-0 flex-1">
         <span className="block font-semibold">{title}</span>
         {summary && <span className="text-muted block truncate text-xs">{summary}</span>}
@@ -47,8 +64,17 @@ export function useSavedFlash(ms = 1600): [boolean, () => void] {
 
 export function SavedPill({ on }: { on: boolean }) {
   return (
-    <span role="status" aria-live="polite" className={`inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 transition-opacity dark:text-emerald-400 ${on ? 'opacity-100' : 'opacity-0'}`} data-testid="saved-pill">
-      {on && <><Check size={13} aria-hidden /> Saved</>}
+    <span
+      role="status"
+      aria-live="polite"
+      className={`inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 transition-opacity dark:text-emerald-400 ${on ? 'opacity-100' : 'opacity-0'}`}
+      data-testid="saved-pill"
+    >
+      {on && (
+        <>
+          <Check size={13} aria-hidden /> Saved
+        </>
+      )}
     </span>
   )
 }

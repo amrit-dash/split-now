@@ -32,7 +32,17 @@ function useShared<T>(key: string | null, start: (cb: (v: T, meta?: SnapMeta) =>
   // `start` only matters when the entry is first opened, so the latest one is fine.
   const startRef = useRef(start)
   startRef.current = start
-  const subscribe = useCallback((onChange: () => void) => (key ? subscribeShared<T>(key, (cb) => startRef.current(cb), () => onChange()) : () => {}), [key])
+  const subscribe = useCallback(
+    (onChange: () => void) =>
+      key
+        ? subscribeShared<T>(
+            key,
+            (cb) => startRef.current(cb),
+            () => onChange(),
+          )
+        : () => {},
+    [key],
+  )
   const read = useCallback(() => (key ? peekShared<T>(key) : undefined), [key])
   return useSyncExternalStore(subscribe, read, read)
 }
@@ -41,7 +51,17 @@ function useShared<T>(key: string | null, start: (cb: (v: T, meta?: SnapMeta) =>
 function useSharedMeta(key: string | null, start: (cb: (v: unknown, meta?: SnapMeta) => void) => Unsub): SnapMeta | undefined {
   const startRef = useRef(start)
   startRef.current = start
-  const subscribe = useCallback((onChange: () => void) => (key ? subscribeShared<unknown>(key, (cb) => startRef.current(cb), () => onChange()) : () => {}), [key])
+  const subscribe = useCallback(
+    (onChange: () => void) =>
+      key
+        ? subscribeShared<unknown>(
+            key,
+            (cb) => startRef.current(cb),
+            () => onChange(),
+          )
+        : () => {},
+    [key],
+  )
   const read = useCallback(() => (key ? peekSharedMeta(key) : undefined), [key])
   return useSyncExternalStore(subscribe, read, read)
 }
@@ -65,9 +85,15 @@ const startCaptures = (uid: string) => (cb: (c: Capture[], m?: SnapMeta) => void
 const startGroup = (id: string) => (cb: (g: Group | null, m?: SnapMeta) => void) => watchGroupSettled(repo.watchGroup, id, cb)
 /** The group's expenses; the one place recurring catch-up runs (once per snapshot, whoever is watching). */
 const startExpenses = (id: string) => (cb: (e: Expense[], m?: SnapMeta) => void) =>
-  rewatchWhileFresh(id, () => repo.watchExpenses(id, (l, m) => { cb(l, m); catchUpRecurring(l) }))
+  rewatchWhileFresh(id, () =>
+    repo.watchExpenses(id, (l, m) => {
+      cb(l, m)
+      catchUpRecurring(l)
+    }),
+  )
 const startSettlements = (id: string) => (cb: (s: Settlement[], m?: SnapMeta) => void) => rewatchWhileFresh(id, () => repo.watchSettlements(id, cb))
-const startActivity = (id: string, max: number) => (cb: (a: ActivityEntry[], m?: SnapMeta) => void) => rewatchWhileFresh(id, () => repo.watchActivity(id, cb, max))
+const startActivity = (id: string, max: number) => (cb: (a: ActivityEntry[], m?: SnapMeta) => void) =>
+  rewatchWhileFresh(id, () => repo.watchActivity(id, cb, max))
 
 // ---- Hooks ---------------------------------------------------------------------------------
 
@@ -173,10 +199,7 @@ export function useTrash(group: Group | null | undefined) {
       repo.purgeSettlement(group.id, s.id).catch((err) => console.warn('Trash purge failed', err))
     }
   }, [group, expenses, settlements, user.uid])
-  return useMemo(
-    () => (expenses && settlements ? { expenses: trashedItems(expenses), settlements: trashedItems(settlements) } : null),
-    [expenses, settlements],
-  )
+  return useMemo(() => (expenses && settlements ? { expenses: trashedItems(expenses), settlements: trashedItems(settlements) } : null), [expenses, settlements])
 }
 
 /** A group's activity feed, newest first. */
@@ -209,12 +232,18 @@ export function useRecentActivity(groupIds: string[] | null, max = ACTIVITY_LIMI
     }
     for (const id of want) {
       if (subs.current.has(id)) continue
-      subs.current.set(id, subscribeShared<ActivityEntry[]>(keys.activity(id, max), startActivity(id, max), (a) => setFeeds((p) => (p[id] === a ? p : { ...p, [id]: a }))))
+      subs.current.set(
+        id,
+        subscribeShared<ActivityEntry[]>(keys.activity(id, max), startActivity(id, max), (a) => setFeeds((p) => (p[id] === a ? p : { ...p, [id]: a }))),
+      )
     }
   }, [key, max])
   useEffect(() => {
     const map = subs.current
-    return () => { for (const u of map.values()) u(); map.clear() }
+    return () => {
+      for (const u of map.values()) u()
+      map.clear()
+    }
   }, [])
   return useMemo(() => (key === null ? null : mergeFeeds(Object.values(feeds), max)), [feeds, key, max])
 }
@@ -267,8 +296,15 @@ export function computeGroupData(group: Group, expenses: Expense[], settlements:
   const rawDebts = pairwiseDebts(ok, liveSettlements)
   const debts = group.simplify ? simplifyDebts(net) : rawDebts
   return {
-    group, expenses: live, settlements: liveSettlements, me: myMemberId(group, uid), net, debts, rawDebts,
-    pending: live.filter((e) => isPending(e, group)), disputed: ok.filter(isDisputed),
+    group,
+    expenses: live,
+    settlements: liveSettlements,
+    me: myMemberId(group, uid),
+    net,
+    debts,
+    rawDebts,
+    pending: live.filter((e) => isPending(e, group)),
+    disputed: ok.filter(isDisputed),
   }
 }
 
@@ -282,7 +318,12 @@ const SETTLE_WAIT_MS = 4000
 const settled = (list: unknown[], meta: SnapMeta | undefined) =>
   !meta?.fromCache || meta.error || list.length > 0 || (typeof navigator !== 'undefined' && navigator.onLine === false)
 
-interface Slot { exp?: Expense[]; set?: Settlement[]; expOk?: boolean; setOk?: boolean }
+interface Slot {
+  exp?: Expense[]
+  set?: Settlement[]
+  expOk?: boolean
+  setOk?: boolean
+}
 
 /**
  * Live data for every group the user belongs to. Normally called once, by GroupDataProvider;
@@ -295,7 +336,12 @@ export function useAllGroupDataImpl(enabled: boolean): GroupData[] | null {
   const groups = useShared(enabled ? keys.groups(user.uid) : null, startGroups(user.uid)) ?? null
   const [slots, setSlots] = useState<Record<string, Slot>>({})
   // Sorted, so re-ordering (every save bumps updatedAt) doesn't look like a change.
-  const ids = groups ? groups.map((g) => g.id).sort().join(',') : null
+  const ids = groups
+    ? groups
+        .map((g) => g.id)
+        .sort()
+        .join(',')
+    : null
   const subs = useRef(new Map<string, Unsub>())
   const [initialLoadDone, setInitialLoadDone] = useState(false)
   const [waited, setWaited] = useState(false)
@@ -313,15 +359,23 @@ export function useAllGroupDataImpl(enabled: boolean): GroupData[] | null {
     for (const id of want) {
       if (subs.current.has(id)) continue
       const a = subscribeShared<Expense[]>(keys.expenses(id), startExpenses(id), (e, m) =>
-        setSlots((p) => (p[id]?.exp === e && p[id]?.expOk ? p : { ...p, [id]: { ...p[id], exp: e, expOk: settled(e, m) } })))
+        setSlots((p) => (p[id]?.exp === e && p[id]?.expOk ? p : { ...p, [id]: { ...p[id], exp: e, expOk: settled(e, m) } })),
+      )
       const b = subscribeShared<Settlement[]>(keys.settlements(id), startSettlements(id), (s, m) =>
-        setSlots((p) => (p[id]?.set === s && p[id]?.setOk ? p : { ...p, [id]: { ...p[id], set: s, setOk: settled(s, m) } })))
-      subs.current.set(id, () => { a(); b() })
+        setSlots((p) => (p[id]?.set === s && p[id]?.setOk ? p : { ...p, [id]: { ...p[id], set: s, setOk: settled(s, m) } })),
+      )
+      subs.current.set(id, () => {
+        a()
+        b()
+      })
     }
   }, [ids])
   useEffect(() => {
     const map = subs.current
-    return () => { for (const u of map.values()) u(); map.clear() }
+    return () => {
+      for (const u of map.values()) u()
+      map.clear()
+    }
   }, [])
 
   // Every group has reported, and nothing is an unconfirmed empty cache (which would read as
@@ -335,7 +389,9 @@ export function useAllGroupDataImpl(enabled: boolean): GroupData[] | null {
     return () => clearTimeout(t)
   }, [enabled, groups, allSettled])
   const loaded = allSettled || (allReported && waited)
-  useEffect(() => { if (loaded) setInitialLoadDone(true) }, [loaded])
+  useEffect(() => {
+    if (loaded) setInitialLoadDone(true)
+  }, [loaded])
 
   const cache = useRef(new Map<string, { group: Group; exp: Expense[]; set: Settlement[]; uid: string; data: GroupData }>())
   return useMemo(() => {

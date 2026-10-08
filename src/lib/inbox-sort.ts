@@ -14,7 +14,10 @@ type Rankable = Pick<Group, 'id' | 'type' | 'currency' | 'updatedAt' | 'startDat
  */
 export function targetGroupFor<G extends Rankable>(c: Pick<Capture, 'suggestedGroup' | 'date' | 'currency'>, groups: G[]): string | undefined {
   if (c.suggestedGroup && groups.some((g) => g.id === c.suggestedGroup && !g.archived)) return c.suggestedGroup
-  return rankGroupsForCapture(groups.filter((g) => !g.archived), c).best
+  return rankGroupsForCapture(
+    groups.filter((g) => !g.archived),
+    c,
+  ).best
 }
 
 export interface BulkCandidate<G> {

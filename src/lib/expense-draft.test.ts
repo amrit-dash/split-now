@@ -2,29 +2,84 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { Capture, Expense, Group } from '@/types'
 import { descriptionHistory } from './recents'
 import {
-  buildRecurrence, clearDraft, describePayer, describeSplit, draftKey, fromSplitInput, hydrateDraft, initialDraft, isDirty, loadDraft, parseDecimal,
-  reduce, rescaleMinor, restoreDraft, saveDraft, seedSplit, selectPaidBy, selectSplits, setDraftStorage, titleCase, toExpense, toSplitInput, validate, type Draft,
+  buildRecurrence,
+  clearDraft,
+  describePayer,
+  describeSplit,
+  draftKey,
+  fromSplitInput,
+  hydrateDraft,
+  initialDraft,
+  isDirty,
+  loadDraft,
+  parseDecimal,
+  reduce,
+  rescaleMinor,
+  restoreDraft,
+  saveDraft,
+  seedSplit,
+  selectPaidBy,
+  selectSplits,
+  setDraftStorage,
+  titleCase,
+  toExpense,
+  toSplitInput,
+  validate,
+  type Draft,
 } from './expense-draft'
 
 const group: Group = {
-  id: 'g1', name: 'Goa trip', emoji: '🏖️', type: 'trip', currency: 'INR', simplify: true, memberUids: ['u_me', 'u_p'],
+  id: 'g1',
+  name: 'Goa trip',
+  emoji: '🏖️',
+  type: 'trip',
+  currency: 'INR',
+  simplify: true,
+  memberUids: ['u_me', 'u_p'],
   members: { me: { name: 'Amrit', uid: 'u_me', color: '#111' }, p: { name: 'Priya', uid: 'u_p', color: '#222' }, r: { name: 'Rahul', color: '#333' } },
-  inviteCode: 'ABCD2345', createdBy: 'u_me', createdAt: 0, updatedAt: 0,
+  inviteCode: 'ABCD2345',
+  createdBy: 'u_me',
+  createdAt: 0,
+  updatedAt: 0,
 }
 const order = ['me', 'p', 'r']
 const ctx = { group, order, me: 'me', personal: false }
 const save = { ...ctx, userUid: 'u_me', now: 1_700_000_000_000, today: '2026-10-08' }
-const seed = (extra: Partial<Parameters<typeof initialDraft>[0]> = {}) => initialDraft({ group, order, me: 'me', history: [], last: {}, today: '2026-10-08', ...extra })
+const seed = (extra: Partial<Parameters<typeof initialDraft>[0]> = {}) =>
+  initialDraft({ group, order, me: 'me', history: [], last: {}, today: '2026-10-08', ...extra })
 
 const expense = (extra: Partial<Expense> = {}): Expense => ({
-  id: 'e1', groupId: 'g1', description: 'Dinner', amount: 120000, category: 'food', date: '2026-10-01', paidBy: { p: 120000 },
-  splits: { me: 40000, p: 40000, r: 40000 }, splitType: 'equal', splitInput: { selected: ['me', 'p', 'r'] }, createdBy: 'u_p', createdAt: 100, updatedAt: 200, ...extra,
+  id: 'e1',
+  groupId: 'g1',
+  description: 'Dinner',
+  amount: 120000,
+  category: 'food',
+  date: '2026-10-01',
+  paidBy: { p: 120000 },
+  splits: { me: 40000, p: 40000, r: 40000 },
+  splitType: 'equal',
+  splitInput: { selected: ['me', 'p', 'r'] },
+  createdBy: 'u_p',
+  createdAt: 100,
+  updatedAt: 200,
+  ...extra,
 })
 
 describe('initialDraft', () => {
   it('starts a blank expense from you, split equally with everyone, dated today', () => {
     const d = seed()
-    expect(d).toMatchObject({ cur: 'INR', amount: undefined, description: '', category: 'other', date: '2026-10-08', payer: 'me', multiPay: false, splitType: 'equal', repeat: 'never', fx: null })
+    expect(d).toMatchObject({
+      cur: 'INR',
+      amount: undefined,
+      description: '',
+      category: 'other',
+      date: '2026-10-08',
+      payer: 'me',
+      multiPay: false,
+      splitType: 'equal',
+      repeat: 'never',
+      fx: null,
+    })
     expect(d.split.selected).toEqual(order)
     expect(d.seededFor).toEqual({ id: 'g1', currency: 'INR' })
   })
@@ -39,8 +94,14 @@ describe('initialDraft', () => {
 
   it('seeds an edit from the expense, in its original currency with the locked rate', () => {
     const existing = expense({
-      amount: 100000, paidBy: { me: 60000, p: 40000 }, splits: { me: 50000, p: 50000 }, splitType: 'exact', splitInput: { exact: { me: 3000, p: 3000 } },
-      original: { currency: 'THB', amount: 6000, rate: 16.6667, rateDate: '2026-10-01', source: 'ecb' }, notes: 'late', recurrence: { freq: 'monthly', nextDate: '2026-11-01', until: '2027-01-01' },
+      amount: 100000,
+      paidBy: { me: 60000, p: 40000 },
+      splits: { me: 50000, p: 50000 },
+      splitType: 'exact',
+      splitInput: { exact: { me: 3000, p: 3000 } },
+      original: { currency: 'THB', amount: 6000, rate: 16.6667, rateDate: '2026-10-01', source: 'ecb' },
+      notes: 'late',
+      recurrence: { freq: 'monthly', nextDate: '2026-11-01', until: '2027-01-01' },
     })
     const d = seed({ existing })
     expect(d.cur).toBe('THB')
@@ -50,7 +111,16 @@ describe('initialDraft', () => {
     expect(d.payer).toBe('me')
     expect(d.split.exact).toEqual({ me: 3000, p: 3000 })
     expect(d.fx).toEqual({ rate: 16.6667, date: '2026-10-01', source: 'ecb' })
-    expect(d).toMatchObject({ description: 'Dinner', category: 'food', catTouched: true, picked: true, notes: 'late', date: '2026-10-01', repeat: 'monthly', until: '2027-01-01' })
+    expect(d).toMatchObject({
+      description: 'Dinner',
+      category: 'food',
+      catTouched: true,
+      picked: true,
+      notes: 'late',
+      date: '2026-10-01',
+      repeat: 'monthly',
+      until: '2027-01-01',
+    })
   })
 
   it('"add again" copies the expense but dates it today and does not repeat', () => {
@@ -62,7 +132,18 @@ describe('initialDraft', () => {
   })
 
   it('a captured payment is yours to have paid, with its merchant and a guessed category', () => {
-    const capture: Capture = { id: 'c1', amount: 84000, currency: 'INR', merchant: 'Swiggy', date: '2026-10-07', source: 'ios-shortcut', status: 'pending', createdAt: 0, updatedAt: 0, note: 'lunch' }
+    const capture: Capture = {
+      id: 'c1',
+      amount: 84000,
+      currency: 'INR',
+      merchant: 'Swiggy',
+      date: '2026-10-07',
+      source: 'ios-shortcut',
+      status: 'pending',
+      createdAt: 0,
+      updatedAt: 0,
+      note: 'lunch',
+    }
     const d = seed({ capture, last: { payer: 'p' } })
     expect(d).toMatchObject({ payer: 'me', amount: 84000, description: 'Swiggy', category: 'food', date: '2026-10-07', notes: 'lunch' })
   })
@@ -174,10 +255,18 @@ describe('reduce', () => {
   })
 
   it('"assign items myself" turns the scanned lines into an itemised split for everyone', () => {
-    const d = reduce(seed(), { type: 'assignItems', items: [{ name: 'Beer', amount: 30000 }, { name: 'Pizza', amount: 45000 }], order })
+    const d = reduce(seed(), {
+      type: 'assignItems',
+      items: [
+        { name: 'Beer', amount: 30000 },
+        { name: 'Pizza', amount: 45000 },
+      ],
+      order,
+    })
     expect(d.splitType).toBe('itemized')
     expect(d.split.items.map((i) => ({ name: i.name, amount: i.amount, members: i.members }))).toEqual([
-      { name: 'Beer', amount: 30000, members: order }, { name: 'Pizza', amount: 45000, members: order },
+      { name: 'Beer', amount: 30000, members: order },
+      { name: 'Pizza', amount: 45000, members: order },
     ])
     expect(new Set(d.split.items.map((i) => i.id)).size).toBe(2)
   })
@@ -198,7 +287,11 @@ describe('selectors and validation', () => {
     const d = reduce(seed(), { type: 'amount', amount: 1000 })
     expect(selectPaidBy(d, 'me', false)).toEqual({ me: 1000 })
     expect(selectPaidBy(d, 'me', true)).toEqual({ me: 1000 })
-    const m = reduce(reduce(reduce(d, { type: 'multiPay', on: true }), { type: 'payerAmount', id: 'p', amount: 300 }), { type: 'payerAmount', id: 'me', amount: 700 })
+    const m = reduce(reduce(reduce(d, { type: 'multiPay', on: true }), { type: 'payerAmount', id: 'p', amount: 300 }), {
+      type: 'payerAmount',
+      id: 'me',
+      amount: 700,
+    })
     expect(selectPaidBy(m, 'me', false)).toEqual({ me: 700, p: 300 })
     expect(selectPaidBy(seed(), 'me', false)).toEqual({})
   })
@@ -239,7 +332,20 @@ describe('toExpense', () => {
     let d = reduce(seed(), { type: 'amount', amount: 1200 })
     d = reduce(d, { type: 'description', value: 'Cab', history: [] })
     const { expense: e, remember } = toExpense(d, save)
-    expect(e).toMatchObject({ groupId: 'g1', description: 'Cab', amount: 1200, category: 'transport', date: '2026-10-08', paidBy: { me: 1200 }, splits: { me: 400, p: 400, r: 400 }, splitType: 'equal', splitInput: { selected: order }, createdBy: 'u_me', createdAt: save.now, updatedAt: save.now })
+    expect(e).toMatchObject({
+      groupId: 'g1',
+      description: 'Cab',
+      amount: 1200,
+      category: 'transport',
+      date: '2026-10-08',
+      paidBy: { me: 1200 },
+      splits: { me: 400, p: 400, r: 400 },
+      splitType: 'equal',
+      splitInput: { selected: order },
+      createdBy: 'u_me',
+      createdAt: save.now,
+      updatedAt: save.now,
+    })
     expect(e.id).toMatch(/^e_/)
     expect(e.notes).toBeUndefined()
     expect(e.recurrence).toBeUndefined()
@@ -250,7 +356,14 @@ describe('toExpense', () => {
     const base = reduce(reduce(seed(), { type: 'amount', amount: 100000 }), { type: 'description', value: 'Dinner', history: [] })
     const cases: Array<[Draft, Record<string, number>]> = [
       [reduce(reduce(base, { type: 'splitType', splitType: 'exact', order }), { type: 'exact', id: 'me', amount: 50000 }), { me: 50000, p: 33333, r: 33333 }],
-      [reduce(reduce(reduce(base, { type: 'splitType', splitType: 'percent', order }), { type: 'percent', id: 'me', value: 50 }), { type: 'percent', id: 'p', value: 50 }), { me: 50000, p: 50000 }],
+      [
+        reduce(reduce(reduce(base, { type: 'splitType', splitType: 'percent', order }), { type: 'percent', id: 'me', value: 50 }), {
+          type: 'percent',
+          id: 'p',
+          value: 50,
+        }),
+        { me: 50000, p: 50000 },
+      ],
       [reduce(reduce(base, { type: 'splitType', splitType: 'shares', order }), { type: 'shares', id: 'me', value: 2 }), { me: 50000, p: 25000, r: 25000 }],
       [reduce(reduce(base, { type: 'splitType', splitType: 'adjust', order }), { type: 'adjust', id: 'me', amount: 10000 }), { me: 40000, p: 30000, r: 30000 }],
     ]
@@ -265,8 +378,25 @@ describe('toExpense', () => {
       expect(Object.values(e.splits).reduce((a, b) => a + b, 0)).toBe(100000)
       expect(e.splitType).toBe(d.splitType)
     }
-    const items = reduce(reduce(base, { type: 'assignItems', items: [{ name: 'Beer', amount: 60000 }, { name: 'Pizza', amount: 30000 }], order }), { type: 'items', items: [] })
-    const withItems = reduce(items, { type: 'assignItems', items: [{ name: 'Beer', amount: 60000 }, { name: 'Pizza', amount: 30000 }], order })
+    const items = reduce(
+      reduce(base, {
+        type: 'assignItems',
+        items: [
+          { name: 'Beer', amount: 60000 },
+          { name: 'Pizza', amount: 30000 },
+        ],
+        order,
+      }),
+      { type: 'items', items: [] },
+    )
+    const withItems = reduce(items, {
+      type: 'assignItems',
+      items: [
+        { name: 'Beer', amount: 60000 },
+        { name: 'Pizza', amount: 30000 },
+      ],
+      order,
+    })
     const only = { ...withItems, split: { ...withItems.split, items: withItems.split.items.map((it, i) => (i === 0 ? { ...it, members: ['me'] } : it)) } }
     const { expense: e } = toExpense(only, save)
     // Beer 600 to me, pizza 300 split three ways, ₹100 tax shared in proportion.
@@ -289,10 +419,24 @@ describe('toExpense', () => {
   })
 
   it('edit mode keeps identity, receipt, import origin and the schedule', () => {
-    const existing = expense({ receiptUrl: 'https://x/r.jpg', receiptPath: 'receipts/g1/e1.jpg', importedFrom: 'splitwise', recurrence: { freq: 'monthly', nextDate: '2026-11-01' } })
+    const existing = expense({
+      receiptUrl: 'https://x/r.jpg',
+      receiptPath: 'receipts/g1/e1.jpg',
+      importedFrom: 'splitwise',
+      recurrence: { freq: 'monthly', nextDate: '2026-11-01' },
+    })
     const d = reduce(seed({ existing }), { type: 'notes', notes: ' fixed ' })
     const { expense: e } = toExpense(d, { ...save, existing })
-    expect(e).toMatchObject({ id: 'e1', createdBy: 'u_p', createdAt: 100, updatedAt: save.now, notes: 'fixed', receiptUrl: 'https://x/r.jpg', receiptPath: 'receipts/g1/e1.jpg', importedFrom: 'splitwise' })
+    expect(e).toMatchObject({
+      id: 'e1',
+      createdBy: 'u_p',
+      createdAt: 100,
+      updatedAt: save.now,
+      notes: 'fixed',
+      receiptUrl: 'https://x/r.jpg',
+      receiptPath: 'receipts/g1/e1.jpg',
+      importedFrom: 'splitwise',
+    })
     expect(e.recurrence).toEqual({ freq: 'monthly', nextDate: '2026-11-01', until: undefined })
   })
 
@@ -319,7 +463,11 @@ describe('buildRecurrence', () => {
   })
   it('an unchanged schedule keeps its nextDate; a changed one resumes after today', () => {
     const existing = expense({ date: '2026-01-31', recurrence: { freq: 'monthly', nextDate: '2026-11-30' } })
-    expect(buildRecurrence('monthly', '2026-01-31', '2027-01-01', existing, '2026-10-08')).toEqual({ freq: 'monthly', nextDate: '2026-11-30', until: '2027-01-01' })
+    expect(buildRecurrence('monthly', '2026-01-31', '2027-01-01', existing, '2026-10-08')).toEqual({
+      freq: 'monthly',
+      nextDate: '2026-11-30',
+      until: '2027-01-01',
+    })
     expect(buildRecurrence('weekly', '2026-01-31', '', existing, '2026-10-08')).toEqual({ freq: 'weekly', nextDate: '2026-10-10', until: undefined })
   })
 })
@@ -390,7 +538,12 @@ describe('drafts on this device', () => {
     d = reduce(d, { type: 'exact', id: 'p', amount: 400 })
     d = reduce(d, { type: 'selected', ids: ['gone', 'p'] })
     d = reduce(d, { type: 'items', items: [{ id: 'it_1', name: 'x', amount: 1, members: ['gone', 'me'], shares: { gone: 2, me: 1 } }] })
-    const h = hydrateDraft({ ...d, splitType: 'bogus' as never, repeat: 'daily' as never, category: 'nope' as never, fx: { rate: -1, date: '', source: 'manual' } }, base, order, 'me')
+    const h = hydrateDraft(
+      { ...d, splitType: 'bogus' as never, repeat: 'daily' as never, category: 'nope' as never, fx: { rate: -1, date: '', source: 'manual' } },
+      base,
+      order,
+      'me',
+    )
     expect(h.payer).toBe('me')
     expect(h.split.selected).toEqual(['p'])
     expect(h.split.exact).toEqual({ p: 400 })

@@ -33,6 +33,9 @@ const ERR: Record<NonNullable<AiState['lastError']>['kind'], string> = {
   quota: 'Over its quota (try later, or check billing)',
   model: 'The chosen model isn’t available',
   server: 'Gemini didn’t answer last time',
+  billing: 'This key needs billing set up on its Google project',
+  blocked: 'Google blocked the last request (safety filter)',
+  truncated: 'The last answer was cut off; try fewer screenshots',
 }
 
 const ago = (t: number) => {
@@ -68,7 +71,10 @@ export function AiSettings() {
   // Model list for the user's key, once there is one.
   useEffect(() => {
     if (!hasKey || models) return
-    repo.aiModels('own').then(setModels).catch(() => setModels([]))
+    repo
+      .aiModels('own')
+      .then(setModels)
+      .catch(() => setModels([]))
   }, [hasKey, models])
 
   const set = (patch: Partial<AllPrefs>) => {
@@ -82,8 +88,15 @@ export function AiSettings() {
     setBusy(kind)
     try {
       const r = await repo.aiKey(kind === 'save' ? 'set' : kind, kind === 'save' ? draft.trim() : undefined)
-      if (kind === 'remove') { setModels(null); toast('Key removed') }
-      else { setModels(r.models); setDraft(''); setEditing(false); toast(kind === 'save' ? 'Key saved and working' : 'Key works') }
+      if (kind === 'remove') {
+        setModels(null)
+        toast('Key removed')
+      } else {
+        setModels(r.models)
+        setDraft('')
+        setEditing(false)
+        toast(kind === 'save' ? 'Key saved and working' : 'Key works')
+      }
     } catch (e) {
       toast(errText(e), 'err')
     } finally {
@@ -105,10 +118,20 @@ export function AiSettings() {
   return (
     <div data-testid="ai-settings">
       <div className="card p-4">
-        <Row title="Read bills and SMS with AI" testId="ai-enabled" checked={prefs.aiEnabled} onChange={(v) => set({ aiEnabled: v })}
-          text={prefs.aiEnabled ? 'Reads amounts, items and dates that the phone can’t.' : 'Off: nothing is sent to any AI. Bills are read on this phone, less accurately.'} />
+        <Row
+          title="Read bills and SMS with AI"
+          testId="ai-enabled"
+          checked={prefs.aiEnabled}
+          onChange={(v) => set({ aiEnabled: v })}
+          text={
+            prefs.aiEnabled
+              ? 'Reads amounts, items and dates that the phone can’t.'
+              : 'Off: nothing is sent to any AI. Bills are read on this phone, less accurately.'
+          }
+        />
         <p className="text-muted mt-3 text-xs">
-          Photos of bills and statement screenshots, and bank SMS the built-in reader can’t make sense of, are sent to Google Gemini to read them. Nothing else leaves your phone, and nothing is sent while this is off.
+          Photos of bills and statement screenshots, and bank SMS the built-in reader can’t make sense of, are sent to Google Gemini to read them. Nothing else
+          leaves your phone, and nothing is sent while this is off.
         </p>
         {prefs.aiEnabled && (
           <p className="mt-3 flex items-center gap-2 text-sm font-medium" data-testid="ai-status-line">
@@ -120,16 +143,41 @@ export function AiSettings() {
       </div>
 
       {prefs.aiEnabled && (
-        <Collapsible title="Advanced" summary="Which features, which key, your own Gemini key" open={advancedOpen} onOpenChange={setAdvanced} testId="ai-advanced">
+        <Collapsible
+          title="Advanced"
+          summary="Which features, which key, your own Gemini key"
+          open={advancedOpen}
+          onOpenChange={setAdvanced}
+          testId="ai-advanced"
+        >
           <div className="space-y-5">
             <div className="space-y-4 rounded-2xl bg-slate-50 p-3.5 dark:bg-ink-800/60">
-              <Row title="Bills & statements" testId="ai-images" checked={prefs.aiImages} onChange={(v) => set({ aiImages: v })}
-                text={prefs.aiImages ? 'Photos go to Gemini to read items, taxes and transactions.' : 'Read on this phone (less accurate). Statement import needs AI.'} />
-              <Row title="Bank SMS the app can’t read" testId="ai-sms" checked={prefs.aiSms} onChange={(v) => set({ aiSms: v })}
-                text={prefs.aiSms ? 'Only messages the built-in reader misses go to Gemini, with account numbers masked.' : 'Unreadable messages are skipped.'} />
+              <Row
+                title="Bills & statements"
+                testId="ai-images"
+                checked={prefs.aiImages}
+                onChange={(v) => set({ aiImages: v })}
+                text={
+                  prefs.aiImages
+                    ? 'Photos go to Gemini to read items, taxes and transactions.'
+                    : 'Read on this phone (less accurate). Statement import needs AI.'
+                }
+              />
+              <Row
+                title="Bank SMS the app can’t read"
+                testId="ai-sms"
+                checked={prefs.aiSms}
+                onChange={(v) => set({ aiSms: v })}
+                text={prefs.aiSms ? 'Only messages the built-in reader misses go to Gemini, with account numbers masked.' : 'Unreadable messages are skipped.'}
+              />
               {prefs.aiSms && (
-                <Row title="Also ask Gemini who was paid" testId="ai-sms-merchant" checked={prefs.aiSmsMerchant} onChange={(v) => set({ aiSmsMerchant: v })}
-                  text="When the app reads the amount but not the payee, the masked message is sent to Gemini for the name. Off: such payments are saved as “Payment”." />
+                <Row
+                  title="Also ask Gemini who was paid"
+                  testId="ai-sms-merchant"
+                  checked={prefs.aiSmsMerchant}
+                  onChange={(v) => set({ aiSmsMerchant: v })}
+                  text="When the app reads the amount but not the payee, the masked message is sent to Gemini for the name. Off: such payments are saved as “Payment”."
+                />
               )}
             </div>
 
@@ -140,66 +188,130 @@ export function AiSettings() {
 
             {/* Split Now's (project) key */}
             <div className="rounded-2xl ring-1 ring-slate-200 dark:ring-white/10" data-testid="ai-app-status">
-              <div className="flex items-center gap-2 px-3.5 pt-3 font-semibold"><Sparkles size={16} className="text-brand-500" aria-hidden /> Split Now’s key</div>
+              <div className="flex items-center gap-2 px-3.5 pt-3 font-semibold">
+                <Sparkles size={16} className="text-brand-500" aria-hidden /> Split Now’s key
+              </div>
               <div className="space-y-1 px-3.5 pb-3 pt-1.5 text-sm">
-                {status === undefined ? <div className="text-muted">Checking…</div> : status === null ? <div className="text-muted">Can’t check right now (offline, or not set up yet)</div> : (['images', 'sms'] as const).map((f) => {
-                  const l = appLine(f)!
-                  return (
-                    <div key={f} className="flex items-center justify-between gap-2">
-                      <span className="text-muted">{f === 'images' ? 'Bills & statements' : 'SMS'}</span>
-                      <span className={`flex items-center gap-1.5 font-medium ${l.ok ? 'text-emerald-700 dark:text-emerald-400' : 'text-muted'}`}>
-                        <span className={`h-2 w-2 rounded-full ${l.ok ? 'bg-emerald-500' : 'bg-slate-400'}`} aria-hidden />{l.text}
-                      </span>
-                    </div>
-                  )
-                })}
+                {status === undefined ? (
+                  <div className="text-muted">Checking…</div>
+                ) : status === null ? (
+                  <div className="text-muted">Can’t check right now (offline, or not set up yet)</div>
+                ) : (
+                  (['images', 'sms'] as const).map((f) => {
+                    const l = appLine(f)!
+                    return (
+                      <div key={f} className="flex items-center justify-between gap-2">
+                        <span className="text-muted">{f === 'images' ? 'Bills & statements' : 'SMS'}</span>
+                        <span className={`flex items-center gap-1.5 font-medium ${l.ok ? 'text-emerald-700 dark:text-emerald-400' : 'text-muted'}`}>
+                          <span className={`h-2 w-2 rounded-full ${l.ok ? 'bg-emerald-500' : 'bg-slate-400'}`} aria-hidden />
+                          {l.text}
+                        </span>
+                      </div>
+                    )
+                  })
+                )}
                 {status && prefs.aiSource === 'own' && <p className="text-muted pt-1 text-xs">Not used: you chose “Only my key”.</p>}
               </div>
             </div>
 
             {/* The user's own key */}
             <div className="rounded-2xl ring-1 ring-slate-200 dark:ring-white/10" data-testid="ai-own-key">
-              <div className="flex items-center gap-2 px-3.5 pt-3 font-semibold"><KeyRound size={16} className="text-brand-500" aria-hidden /> Your own Gemini key</div>
+              <div className="flex items-center gap-2 px-3.5 pt-3 font-semibold">
+                <KeyRound size={16} className="text-brand-500" aria-hidden /> Your own Gemini key
+              </div>
               <div className="space-y-3 px-3.5 pb-3.5 pt-1.5">
                 {hasKey && !editing ? (
                   <>
                     <div className="flex items-center justify-between gap-2 text-sm">
                       <span className="font-mono text-slate-700 dark:text-slate-300">Saved · {state!.hint}</span>
-                      {state?.lastError
-                        ? <span className="text-right text-xs font-medium text-rose-700 dark:text-rose-400">{ERR[state.lastError.kind]} · {ago(state.lastError.at)}</span>
-                        : <span className="flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-400"><Check size={14} aria-hidden /> Working{state?.lastOkAt ? ` · ${ago(state.lastOkAt)}` : ''}</span>}
+                      {state?.lastError ? (
+                        <span className="text-right text-xs font-medium text-rose-700 dark:text-rose-400">
+                          {ERR[state.lastError.kind]} · {ago(state.lastError.at)}
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                          <Check size={14} aria-hidden /> Working{state?.lastOkAt ? ` · ${ago(state.lastOkAt)}` : ''}
+                        </span>
+                      )}
                     </div>
                     <div className="flex gap-2">
                       <button type="button" className="btn-secondary btn-sm flex-1" disabled={!!busy} onClick={() => run('test')}>
                         {busy === 'test' ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <RefreshCw size={16} aria-hidden />} Test
                       </button>
-                      <button type="button" className="btn-secondary btn-sm flex-1" disabled={!!busy} onClick={() => setEditing(true)}><KeyRound size={16} aria-hidden /> Replace</button>
-                      <button type="button" className="btn-secondary btn-sm !px-3 text-rose-700 dark:text-rose-400" disabled={!!busy} onClick={() => run('remove')} aria-label="Remove key">
+                      <button type="button" className="btn-secondary btn-sm flex-1" disabled={!!busy} onClick={() => setEditing(true)}>
+                        <KeyRound size={16} aria-hidden /> Replace
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary btn-sm !px-3 text-rose-700 dark:text-rose-400"
+                        disabled={!!busy}
+                        onClick={() => run('remove')}
+                        aria-label="Remove key"
+                      >
                         {busy === 'remove' ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
                       </button>
                     </div>
                   </>
                 ) : (
-                  <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); if (draft.trim()) void run('save') }}>
-                    <input className="input font-mono" type="password" autoComplete="off" spellCheck={false} placeholder="Paste your Gemini API key" value={draft} onChange={(e) => setDraft(e.target.value)} aria-label="Gemini API key" />
+                  <form
+                    className="space-y-2"
+                    onSubmit={(e) => {
+                      e.preventDefault()
+                      if (draft.trim()) void run('save')
+                    }}
+                  >
+                    <input
+                      className="input font-mono"
+                      type="password"
+                      autoComplete="off"
+                      spellCheck={false}
+                      placeholder="Paste your Gemini API key"
+                      value={draft}
+                      onChange={(e) => setDraft(e.target.value)}
+                      aria-label="Gemini API key"
+                    />
                     <div className="flex gap-2">
                       <button type="submit" className="btn-primary btn-sm flex-1" disabled={!draft.trim() || !!busy}>
                         {busy === 'save' ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <ShieldCheck size={16} aria-hidden />} Save &amp; check
                       </button>
-                      {editing && <button type="button" className="btn-ghost btn-sm" onClick={() => { setEditing(false); setDraft('') }}>Cancel</button>}
+                      {editing && (
+                        <button
+                          type="button"
+                          className="btn-ghost btn-sm"
+                          onClick={() => {
+                            setEditing(false)
+                            setDraft('')
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      )}
                     </div>
                   </form>
                 )}
                 <p className="text-muted text-xs">
-                  Keys come from <a className="inline-flex items-center gap-0.5 font-semibold text-brand-600 dark:text-brand-300" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">aistudio.google.com/apikey <ExternalLink size={11} aria-hidden /></a>.
-                  Google’s free tier may use what you send to improve its models and isn’t meant for personal data, so for bills and bank messages use a key from a project with billing turned on (the paid tier).
-                  The key is checked with Google, then kept on Split Now’s server; the app only ever shows its last 4 characters.
+                  Keys come from{' '}
+                  <a
+                    className="inline-flex items-center gap-0.5 font-semibold text-brand-600 dark:text-brand-300"
+                    href="https://aistudio.google.com/apikey"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    aistudio.google.com/apikey <ExternalLink size={11} aria-hidden />
+                  </a>
+                  . Google’s free tier may use what you send to improve its models and isn’t meant for personal data, so for bills and bank messages use a key
+                  from a project with billing turned on (the paid tier). The key is checked with Google, then kept on Split Now’s server; the app only ever
+                  shows its last 4 characters.
                 </p>
                 <div>
                   <div className="label">Model for your key</div>
                   <Select aria-label="Model" value={prefs.aiModel} onChange={(v) => set({ aiModel: v })} options={modelOptions} />
                   <p className="text-muted mt-1 text-xs">
-                    {!hasKey ? 'Add a key to see every model it can use.' : models === null ? 'Loading the models your key can use…' : 'If a model is retired, the recommended one is used instead.'}
+                    {!hasKey
+                      ? 'Add a key to see every model it can use.'
+                      : models === null
+                        ? 'Loading the models your key can use…'
+                        : 'If a model is retired, the recommended one is used instead.'}
                   </p>
                 </div>
               </div>
@@ -208,7 +320,15 @@ export function AiSettings() {
         </Collapsible>
       )}
 
-      {status?.admin && <p className="text-muted mt-3 flex items-center gap-1.5 px-1 text-xs"><ShieldCheck size={14} className="text-brand-500" aria-hidden /> You’re an admin: Split Now’s key is managed under <Link to="/settings/admin" className="font-semibold text-brand-600 dark:text-brand-300">Admin</Link>.</p>}
+      {status?.admin && (
+        <p className="text-muted mt-3 flex items-center gap-1.5 px-1 text-xs">
+          <ShieldCheck size={14} className="text-brand-500" aria-hidden /> You’re an admin: Split Now’s key is managed under{' '}
+          <Link to="/settings/admin" className="font-semibold text-brand-600 dark:text-brand-300">
+            Admin
+          </Link>
+          .
+        </p>
+      )}
     </div>
   )
 }

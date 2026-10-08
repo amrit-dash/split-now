@@ -42,9 +42,17 @@ export function countVisit(local: Store | undefined, session: Store | undefined)
 }
 
 export function isInstallDismissed(local: Store | undefined): boolean {
-  try { return !!local?.getItem(DISMISS_KEY) } catch { return false }
+  try {
+    return !!local?.getItem(DISMISS_KEY)
+  } catch {
+    return false
+  }
 }
 
 export function dismissInstall(local: Store | undefined) {
-  try { local?.setItem(DISMISS_KEY, String(Date.now())) } catch { /* private mode */ }
+  try {
+    local?.setItem(DISMISS_KEY, String(Date.now()))
+  } catch {
+    /* private mode */
+  }
 }

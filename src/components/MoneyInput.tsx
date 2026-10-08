@@ -40,7 +40,11 @@ export function MoneyInput({ value, currency, onChange, allowNegative, bare, cla
       onChange={(e) => {
         const text = e.target.value
         setDraft(text)
-        if (text.trim() === '') { last.current = undefined; onChange(undefined); return }
+        if (text.trim() === '') {
+          last.current = undefined
+          onChange(undefined)
+          return
+        }
         const n = parseMoney(text, currency)
         if (!Number.isFinite(n)) return
         if (!allowNegative && n < 0) return

@@ -5,13 +5,39 @@ import { HttpsError, onCall, type CallableRequest } from 'firebase-functions/v2/
 import { auth, db } from './admin'
 import { REGION } from './config'
 import {
-  appKeyStatus, keyHint, looksLikeGeminiKey, planAi, resolveAppAi, resolveUserAi, usefulModels,
-  type AiFeature, type AiUnavailableReason, type AppAiConfig, type KeyPlan, type UserAiPrefs,
+  appKeyStatus,
+  keyHint,
+  looksLikeGeminiKey,
+  planAi,
+  resolveAppAi,
+  resolveUserAi,
+  usefulModels,
+  type AiFeature,
+  type AiUnavailableReason,
+  type AppAiConfig,
+  type KeyPlan,
+  type UserAiPrefs,
 } from '../../shared/ai-config'
 import { minorDigitsOf } from '../../shared/money-core'
 import {
-  GeminiError, generateJson, listModels, normaliseReceipt, normaliseSms, normaliseStatement, RECEIPT_PROMPT, RECEIPT_SCHEMA,
-  SMS_PROMPT, SMS_SCHEMA, STATEMENT_SCHEMA, statementPrompt, type AiReceipt, type AiSms, type AiTxn, type GeminiErrorKind, type GeminiPart, type GeminiUsage,
+  GeminiError,
+  generateJson,
+  listModels,
+  normaliseReceipt,
+  normaliseSms,
+  normaliseStatement,
+  RECEIPT_PROMPT,
+  RECEIPT_SCHEMA,
+  SMS_PROMPT,
+  SMS_SCHEMA,
+  STATEMENT_SCHEMA,
+  statementPrompt,
+  type AiReceipt,
+  type AiSms,
+  type AiTxn,
+  type GeminiErrorKind,
+  type GeminiPart,
+  type GeminiUsage,
 } from './lib/gemini'
 import { applyRateLimit, type RateState } from './lib/ratelimit'
 import { parseKekList, readStoredKey, storedKeyFields } from './lib/seal'
@@ -54,7 +80,11 @@ let kekWarned = false
 /** The configured KEK(s), newest first; [] when the secret isn't set (keys are then stored as before, with a warning). */
 function keks(): Buffer[] {
   let raw: string | undefined
-  try { raw = AI_KEY_KEK.value() || undefined } catch { raw = undefined }
+  try {
+    raw = AI_KEY_KEK.value() || undefined
+  } catch {
+    raw = undefined
+  }
   const list = parseKekList(raw)
   if (!list.length && !kekWarned) {
     kekWarned = true
@@ -63,14 +93,21 @@ function keks(): Buffer[] {
   return list
 }
 
-interface Ctx { uid: string; email?: string; user: UserAiPrefs; app: AppAiConfig; ownKey?: string }
+interface Ctx {
+  uid: string
+  email?: string
+  user: UserAiPrefs
+  app: AppAiConfig
+  ownKey?: string
+}
 
 /** The user's own key, re-sealed in place when it was stored in plaintext or under an older KEK. */
 async function ownKeyOf(uid: string): Promise<string | undefined> {
   const snap = await secretRef(uid).get()
   const { key, reseal } = readStoredKey(snap.data(), keks())
   if (key && reseal) {
-    await secretRef(uid).set({ ...storedKeyFields(key, keks()), key: FieldValue.delete(), resealedAt: Date.now() }, { merge: true })
+    await secretRef(uid)
+      .set({ ...storedKeyFields(key, keks()), key: FieldValue.delete(), resealedAt: Date.now() }, { merge: true })
       .catch((e) => logger.warn('re-seal own key', e))
   }
   return key
@@ -93,18 +130,23 @@ async function adminKey(): Promise<{ key?: string; hint?: string }> {
   const d = (await appKeyRef().get()).data()
   const { key, reseal } = readStoredKey(d, keks())
   if (key && reseal) {
-    await appKeyRef().set({ ...storedKeyFields(key, keks()), key: FieldValue.delete(), resealedAt: Date.now() }, { merge: true })
+    await appKeyRef()
+      .set({ ...storedKeyFields(key, keks()), key: FieldValue.delete(), resealedAt: Date.now() }, { merge: true })
       .catch((e) => logger.warn('re-seal project key', e))
   }
   override = { at: Date.now(), key, hint: typeof d?.hint === 'string' ? d.hint : key ? keyHint(key) : undefined }
   return override
 }
 const secretKey = (): string | undefined => {
-  try { return GEMINI_API_KEY.value() || undefined } catch { return undefined }
+  try {
+    return GEMINI_API_KEY.value() || undefined
+  } catch {
+    return undefined
+  }
 }
 /** The project key in use: the admin's in-app key if set, else Secret Manager's GEMINI_API_KEY. */
 async function appKey(): Promise<{ key?: string; source?: 'admin' | 'secret'; hint?: string }> {
-  const a = await adminKey().catch(() => ({} as { key?: string; hint?: string }))
+  const a = await adminKey().catch(() => ({}) as { key?: string; hint?: string })
   if (a.key) return { key: a.key, source: 'admin', hint: a.hint }
   const s = secretKey()
   return s ? { key: s, source: 'secret', hint: keyHint(s) } : {}
@@ -117,7 +159,13 @@ type Limited = { allowed: true } | { allowed: false; why: 'user' | 'global' }
  * project-wide daily budget (config/ai.globalPerDay, counted in stats/ai_{day}.app). Denials
  * cost no write unless the window rolled over.
  */
-async function allow(uid: string, kind: KeyPlan['key'] | 'keycheck', limits: { perHour: number; perDay: number }, now: number, global?: { max: number }): Promise<Limited> {
+async function allow(
+  uid: string,
+  kind: KeyPlan['key'] | 'keycheck',
+  limits: { perHour: number; perDay: number },
+  now: number,
+  global?: { max: number },
+): Promise<Limited> {
   const ref = db().collection('rateLimits').doc(`ai_${kind}_${uid}`)
   return db().runTransaction(async (tx) => {
     const prev = (await tx.get(ref)).data() as Partial<RateState> | undefined
@@ -132,7 +180,13 @@ async function allow(uid: string, kind: KeyPlan['key'] | 'keycheck', limits: { p
 }
 
 /** Daily usage for the admin view: calls by key kind and feature, tokens, failures and denials. Awaited, so gen-2 never drops it. */
-async function record(ctx: Ctx, plan: KeyPlan | 'denied', feature: AiFeature, now: number, extra: { err?: GeminiError; usage?: GeminiUsage; model?: string; denied?: 'user' | 'global'; key?: KeyPlan['key'] } = {}) {
+async function record(
+  ctx: Ctx,
+  plan: KeyPlan | 'denied',
+  feature: AiFeature,
+  now: number,
+  extra: { err?: GeminiError; usage?: GeminiUsage; model?: string; denied?: 'user' | 'global'; key?: KeyPlan['key'] } = {},
+) {
   const day = istDay(now)
   const key = plan === 'denied' ? extra.key! : plan.key
   const doc: Record<string, unknown> = { day }
@@ -147,11 +201,19 @@ async function record(ctx: Ctx, plan: KeyPlan | 'denied', feature: AiFeature, no
     }
     if (extra.model) doc.lastModel = extra.model
   }
-  const writes: Array<Promise<unknown>> = [statsRef(day).set(doc, { merge: true }).catch((e) => logger.warn('ai stats', e))]
+  const writes: Array<Promise<unknown>> = [
+    statsRef(day)
+      .set(doc, { merge: true })
+      .catch((e) => logger.warn('ai stats', e)),
+  ]
   if (plan !== 'denied' && plan.key === 'own') {
-    writes.push(stateRef(ctx.uid).set(extra.err
-      ? { lastError: { kind: extra.err.kind, at: now }, updatedAt: now }
-      : { lastOkAt: now, lastError: FieldValue.delete(), updatedAt: now }, { merge: true }).catch((e) => logger.warn('ai state', e)))
+    writes.push(
+      stateRef(ctx.uid)
+        .set(extra.err ? { lastError: { kind: extra.err.kind, at: now }, updatedAt: now } : { lastOkAt: now, lastError: FieldValue.delete(), updatedAt: now }, {
+          merge: true,
+        })
+        .catch((e) => logger.warn('ai state', e)),
+    )
   }
   await Promise.allSettled(writes)
 }
@@ -167,7 +229,11 @@ const reasonOf = (kind: GeminiErrorKind): AiUnavailableReason => (kind === 'bad_
  * A key over its quota is skipped and counted as denied, not as an error. A refusal by Gemini
  * ('blocked') stops the chain: the next key would refuse the same content.
  */
-async function withAi<T>(ctx: Ctx, feature: AiFeature, call: (key: string, models: string[]) => Promise<{ value: T; usage?: GeminiUsage; model?: string }>): Promise<AiOutcome<T>> {
+async function withAi<T>(
+  ctx: Ctx,
+  feature: AiFeature,
+  call: (key: string, models: string[]) => Promise<{ value: T; usage?: GeminiUsage; model?: string }>,
+): Promise<AiOutcome<T>> {
   const plans = planAi({ feature, user: ctx.user, app: ctx.app, hasOwnKey: !!ctx.ownKey, email: ctx.email })
   const reasons: AiUnavailableReason[] = []
   let lastKind: GeminiErrorKind | undefined
@@ -178,7 +244,10 @@ async function withAi<T>(ctx: Ctx, feature: AiFeature, call: (key: string, model
   }
   for (const plan of plans) {
     const key = plan.key === 'own' ? ctx.ownKey : (await appKey()).key
-    if (!key) { reasons.push('not_configured'); continue }
+    if (!key) {
+      reasons.push('not_configured')
+      continue
+    }
     const now = Date.now()
     const limits = plan.key === 'own' ? OWN_LIMIT : { perHour: ctx.app.perHour, perDay: ctx.app.perDay }
     const gate = await allow(ctx.uid, plan.key, limits, now, plan.key === 'app' ? { max: ctx.app.globalPerDay } : undefined)
@@ -230,40 +299,50 @@ export interface ParseResult {
  *    `reason` is an AiUnavailableReason from shared/ai-config.ts).
  * `receipt: null` / `statement: null` means the image isn't a bill / has no transactions (or Gemini refused it).
  */
-export const parseReceiptAi = onCall(
-  { ...base, timeoutSeconds: 120, memory: '512MiB', maxInstances: 10 },
-  async (req): Promise<ParseResult> => {
-    const me = signedIn(req)
-    const d = (req.data ?? {}) as { kind?: unknown; image?: unknown; mimeType?: unknown; images?: unknown; today?: unknown }
-    const kind = d.kind === 'statement' ? 'statement' : 'receipt'
-    const max = kind === 'statement' ? MAX_IMAGES : MAX_RECEIPT_IMAGES
-    const list = Array.isArray(d.images) ? d.images : d.image ? [{ image: d.image, mimeType: d.mimeType }] : []
-    if (!list.length || list.length > max) throw new HttpsError('invalid-argument', `Send 1 to ${max} images`)
-    const parts = list.map((x) => toPart(x as { image?: unknown; mimeType?: unknown }))
-    // The phone's date: the server's clock is UTC and the user may be a day ahead (but not a month).
-    const serverToday = istDay(Date.now())
-    const today = typeof d.today === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d.today) && d.today >= addDays(serverToday, -2) && d.today <= addDays(serverToday, 2) ? d.today : serverToday
-    const ctx = await loadCtx(me.uid, me.email)
-    if (kind === 'statement') {
-      const r = await withAi(ctx, 'images', async (key, models) => {
-        const g = await generateJson(key, [...parts, { text: `Today is ${today}.` }], STATEMENT_SCHEMA, { models, timeoutMs: 100_000, systemInstruction: statementPrompt(today) })
-        return { value: normaliseStatement(g.json, today), usage: g.usage, model: g.modelVersion ?? g.model }
-      })
-      if (r.ok) return { statement: r.value, via: r.via, model: r.model }
-      return r.kind === 'blocked' ? { statement: null } : { unavailable: true, reason: r.reason }
-    }
+export const parseReceiptAi = onCall({ ...base, timeoutSeconds: 120, memory: '512MiB', maxInstances: 10 }, async (req): Promise<ParseResult> => {
+  const me = signedIn(req)
+  const d = (req.data ?? {}) as { kind?: unknown; image?: unknown; mimeType?: unknown; images?: unknown; today?: unknown }
+  const kind = d.kind === 'statement' ? 'statement' : 'receipt'
+  const max = kind === 'statement' ? MAX_IMAGES : MAX_RECEIPT_IMAGES
+  const list = Array.isArray(d.images) ? d.images : d.image ? [{ image: d.image, mimeType: d.mimeType }] : []
+  if (!list.length || list.length > max) throw new HttpsError('invalid-argument', `Send 1 to ${max} images`)
+  const parts = list.map((x) => toPart(x as { image?: unknown; mimeType?: unknown }))
+  // The phone's date: the server's clock is UTC and the user may be a day ahead (but not a month).
+  const serverToday = istDay(Date.now())
+  const today =
+    typeof d.today === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d.today) && d.today >= addDays(serverToday, -2) && d.today <= addDays(serverToday, 2)
+      ? d.today
+      : serverToday
+  const ctx = await loadCtx(me.uid, me.email)
+  if (kind === 'statement') {
     const r = await withAi(ctx, 'images', async (key, models) => {
-      const g = await generateJson(key, [...parts, { text: `Today is ${today}. Bill language may be Hindi or regional; keep item names as printed, transliterated to Latin letters.` }], RECEIPT_SCHEMA, { models, systemInstruction: RECEIPT_PROMPT })
-      return { value: normaliseReceipt(g.json), usage: g.usage, model: g.modelVersion ?? g.model }
+      const g = await generateJson(key, [...parts, { text: `Today is ${today}.` }], STATEMENT_SCHEMA, {
+        models,
+        timeoutMs: 100_000,
+        systemInstruction: statementPrompt(today),
+      })
+      return { value: normaliseStatement(g.json, today), usage: g.usage, model: g.modelVersion ?? g.model }
     })
-    if (r.ok) return { receipt: r.value, via: r.via, model: r.model }
-    return r.kind === 'blocked' ? { receipt: null } : { unavailable: true, reason: r.reason }
-  },
-)
+    if (r.ok) return { statement: r.value, via: r.via, model: r.model }
+    return r.kind === 'blocked' ? { statement: null } : { unavailable: true, reason: r.reason }
+  }
+  const r = await withAi(ctx, 'images', async (key, models) => {
+    const g = await generateJson(
+      key,
+      [...parts, { text: `Today is ${today}. Bill language may be Hindi or regional; keep item names as printed, transliterated to Latin letters.` }],
+      RECEIPT_SCHEMA,
+      { models, systemInstruction: RECEIPT_PROMPT },
+    )
+    return { value: normaliseReceipt(g.json), usage: g.usage, model: g.modelVersion ?? g.model }
+  })
+  if (r.ok) return { receipt: r.value, via: r.via, model: r.model }
+  return r.kind === 'blocked' ? { receipt: null } : { unavailable: true, reason: r.reason }
+})
 
 function toPart(x: { image?: unknown; mimeType?: unknown }): GeminiPart {
   const { image, mimeType } = x ?? {}
-  if (typeof image !== 'string' || !image || image.length > MAX_IMAGE_B64 || !/^[A-Za-z0-9+/=]+$/.test(image.slice(0, 2000))) throw new HttpsError('invalid-argument', 'Send base64 images of 3 MB or less each')
+  if (typeof image !== 'string' || !image || image.length > MAX_IMAGE_B64 || !/^[A-Za-z0-9+/=]+$/.test(image.slice(0, 2000)))
+    throw new HttpsError('invalid-argument', 'Send base64 images of 3 MB or less each')
   const mime = typeof mimeType === 'string' && /^image\/(jpeg|png|webp|heic|heif)$/.test(mimeType) ? mimeType : 'image/jpeg'
   return { inlineData: { mimeType: mime, data: image } }
 }
@@ -295,7 +374,7 @@ export const aiKey = onCall({ ...base, timeoutSeconds: 30, maxInstances: 5 }, as
     if (!k) throw new HttpsError('failed-precondition', 'No key saved')
     key = k
   } else throw new HttpsError('invalid-argument', 'Unknown action')
-  let models
+  let models: ReturnType<typeof usefulModels>
   try {
     models = usefulModels(await listModels(key))
   } catch (e) {
@@ -309,11 +388,24 @@ export const aiKey = onCall({ ...base, timeoutSeconds: 30, maxInstances: 5 }, as
   return { hint, models }
 })
 
-const keyError = (err: GeminiError) => new HttpsError(err.kind === 'bad_key' ? 'invalid-argument' : 'unavailable',
-  err.kind === 'bad_key' ? 'Google rejected that key' : err.kind === 'quota' ? 'That key is over its quota right now' : err.kind === 'billing' ? 'That key’s Google project needs billing set up' : 'Couldn’t reach Gemini, try again')
+const keyError = (err: GeminiError) =>
+  new HttpsError(
+    err.kind === 'bad_key' ? 'invalid-argument' : 'unavailable',
+    err.kind === 'bad_key'
+      ? 'Google rejected that key'
+      : err.kind === 'quota'
+        ? 'That key is over its quota right now'
+        : err.kind === 'billing'
+          ? 'That key’s Google project needs billing set up'
+          : 'Couldn’t reach Gemini, try again',
+  )
 
 /** Pasted keys often carry spaces, line breaks, quotes or a `GEMINI_API_KEY=` prefix. */
-export const cleanKey = (raw: string) => raw.replace(/\s+/g, '').replace(/^[A-Z_]+=/, '').replace(/^["'`]+|["'`]+$/g, '')
+export const cleanKey = (raw: string) =>
+  raw
+    .replace(/\s+/g, '')
+    .replace(/^[A-Z_]+=/, '')
+    .replace(/^["'`]+|["'`]+$/g, '')
 
 /** Admins: set / test / remove the in-app project key (overrides Secret Manager's GEMINI_API_KEY). */
 async function projectKey(uid: string, d: { action?: unknown; key?: unknown }, now: number) {
@@ -331,8 +423,12 @@ async function projectKey(uid: string, d: { action?: unknown; key?: unknown }, n
   } else if (d.action === 'test') key = (await appKey()).key
   else throw new HttpsError('invalid-argument', 'Unknown action')
   if (!key) throw new HttpsError('failed-precondition', 'The project key isn’t set up')
-  let models
-  try { models = usefulModels(await listModels(key)) } catch (e) { throw keyError(e instanceof GeminiError ? e : new GeminiError((e as Error).message)) }
+  let models: ReturnType<typeof usefulModels>
+  try {
+    models = usefulModels(await listModels(key))
+  } catch (e) {
+    throw keyError(e instanceof GeminiError ? e : new GeminiError((e as Error).message))
+  }
   if (d.action === 'set') {
     await appKeyRef().set({ ...storedKeyFields(key, keks()), hint: keyHint(key), savedAt: now, by: uid })
     override = null
@@ -394,7 +490,11 @@ export async function aiReadSms(uid: string, text: string): Promise<AiSms | null
     const u = await (await auth()).getUser(uid).catch(() => null)
     const ctx = await loadCtx(uid, u?.emailVerified ? u.email : undefined)
     const r = await withAi(ctx, 'sms', async (key, models) => {
-      const g = await generateJson(key, [{ text: `<sms>${text.slice(0, 1000)}</sms>` }], SMS_SCHEMA, { models, timeoutMs: 12_000, systemInstruction: SMS_PROMPT })
+      const g = await generateJson(key, [{ text: `<sms>${text.slice(0, 1000)}</sms>` }], SMS_SCHEMA, {
+        models,
+        timeoutMs: 12_000,
+        systemInstruction: SMS_PROMPT,
+      })
       return { value: normaliseSms(g.json, minorDigitsOf), usage: g.usage, model: g.modelVersion ?? g.model }
     })
     return r.ok ? r.value : null
@@ -403,4 +503,3 @@ export async function aiReadSms(uid: string, text: string): Promise<AiSms | null
     return null
   }
 }
-

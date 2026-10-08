@@ -12,8 +12,14 @@ import type { Cents, Debt, MemberId } from '@/types'
 export function simplifyDebts(net: Record<MemberId, Cents>): Debt[] {
   type Side = { m: string; v: number }
   const byAmount = (a: Side, b: Side) => b.v - a.v || a.m.localeCompare(b.m)
-  const creditors = Object.entries(net).filter(([, v]) => v > 0).map(([m, v]) => ({ m, v })).sort(byAmount)
-  const debtors = Object.entries(net).filter(([, v]) => v < 0).map(([m, v]) => ({ m, v: -v })).sort(byAmount)
+  const creditors = Object.entries(net)
+    .filter(([, v]) => v > 0)
+    .map(([m, v]) => ({ m, v }))
+    .sort(byAmount)
+  const debtors = Object.entries(net)
+    .filter(([, v]) => v < 0)
+    .map(([m, v]) => ({ m, v: -v }))
+    .sort(byAmount)
   const reinsert = (list: Side[], x: Side) => {
     let i = 0
     while (i < list.length && byAmount(list[i], x) < 0) i++

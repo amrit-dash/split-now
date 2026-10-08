@@ -28,7 +28,18 @@ beforeEach(async () => {
 })
 
 const as = (u: string) => env.authenticatedContext(u).firestore()
-const good = { mode: 'allowlist', allowEmails: ['a@b.co'], images: true, sms: false, model: 'gemini-3.5-flash-lite', perDay: 50, perHour: 10, globalPerDay: 2000, updatedAt: 1, updatedBy: 'boss' }
+const good = {
+  mode: 'allowlist',
+  allowEmails: ['a@b.co'],
+  images: true,
+  sms: false,
+  model: 'gemini-3.5-flash-lite',
+  perDay: 50,
+  perHour: 10,
+  globalPerDay: 2000,
+  updatedAt: 1,
+  updatedBy: 'boss',
+}
 
 describe('config/ai', () => {
   it('only admins can read it (it holds the allow-list of emails) or write valid settings', async () => {

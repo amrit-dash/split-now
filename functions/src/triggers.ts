@@ -51,10 +51,27 @@ export const onExpenseCreated = onDocumentCreated({ document: 'groups/{groupId}/
   const currency = g.currency ?? 'INR'
   // "needs your approval" only for people who actually have to approve, not for a payer with nothing to approve.
   const waiting = new Set(pendingApprovers(e, g.members ?? {}).map((id) => g.members?.[id]?.uid))
-  const sent = await Promise.all(recipients.map((r) => sendToUser(r.uid, ['expenses'], expenseNote({
-    groupId, expenseId, groupName: g.name ?? 'Group', emoji: g.emoji, actorName: actor, description: String(e.description ?? ''),
-    amount: e.amount, currency, share: r.share, paid: r.paid, needsApproval: waiting.has(r.uid),
-  }))))
+  const sent = await Promise.all(
+    recipients.map((r) =>
+      sendToUser(
+        r.uid,
+        ['expenses'],
+        expenseNote({
+          groupId,
+          expenseId,
+          groupName: g.name ?? 'Group',
+          emoji: g.emoji,
+          actorName: actor,
+          description: String(e.description ?? ''),
+          amount: e.amount,
+          currency,
+          share: r.share,
+          paid: r.paid,
+          needsApproval: waiting.has(r.uid),
+        }),
+      ),
+    ),
+  )
   logger.info('expense push', { groupId, expenseId, recipients: recipients.length, sent: sent.reduce((a, b) => a + b, 0) })
 })
 
@@ -71,7 +88,8 @@ export const onSettlementCreated = onDocumentCreated({ document: 'groups/{groupI
   const jobs: Array<Promise<number>> = []
   if (to && to !== s.createdBy) jobs.push(sendToUser(to, ['settlements'], settlementNote({ ...common, fromName: g.members?.[s.from]?.name ?? 'Someone' })))
   // "Rahul paid me ₹500", recorded by the creditor: Rahul should hear about it and be able to flag it.
-  if (from && from !== s.createdBy) jobs.push(sendToUser(from, ['settlements'], settlementRecordedNote({ ...common, toName: g.members?.[s.to]?.name ?? 'Someone' })))
+  if (from && from !== s.createdBy)
+    jobs.push(sendToUser(from, ['settlements'], settlementRecordedNote({ ...common, toName: g.members?.[s.to]?.name ?? 'Someone' })))
   await Promise.all(jobs)
 })
 
@@ -82,7 +100,10 @@ export const onPushTokenCreated = onDocumentCreated({ document: 'users/{uid}/pus
   const batch = db().batch()
   let n = 0
   for (const d of dupes.docs) {
-    if (d.ref.parent.parent?.id !== event.params.uid) { batch.delete(d.ref); n++ }
+    if (d.ref.parent.parent?.id !== event.params.uid) {
+      batch.delete(d.ref)
+      n++
+    }
   }
   if (n) {
     await batch.commit()

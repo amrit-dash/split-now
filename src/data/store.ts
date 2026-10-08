@@ -54,10 +54,16 @@ function open<T>(key: string, start: Start<T>): Entry<T> {
  */
 export function subscribeShared<T>(key: string, start: Start<T>, cb: Listener<T>): Unsub {
   let e = entries.get(key) as Entry<T> | undefined
-  if (e?.meta?.error && e.refs === 0) { drop(key, e as Entry<unknown>); e = undefined }
+  if (e?.meta?.error && e.refs === 0) {
+    drop(key, e as Entry<unknown>)
+    e = undefined
+  }
   if (!e) e = open(key, start)
   const entry = e
-  if (entry.release) { clearTimeout(entry.release); entry.release = undefined }
+  if (entry.release) {
+    clearTimeout(entry.release)
+    entry.release = undefined
+  }
   entry.refs++
   entry.listeners.add(cb)
   if ('value' in entry) cb(entry.value as T, entry.meta)

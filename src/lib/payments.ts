@@ -20,7 +20,11 @@ import { centsToInput, minorDigits } from './money'
  * the QR or paying to the UPI ID by hand still works.
  */
 
-export interface UpiApp { id: 'gpay' | 'phonepe' | 'paytm'; label: string; base: string }
+export interface UpiApp {
+  id: 'gpay' | 'phonepe' | 'paytm'
+  label: string
+  base: string
+}
 
 export const UPI_APPS: UpiApp[] = [
   { id: 'gpay', label: 'Google Pay', base: 'tez://upi/pay' },
@@ -51,7 +55,14 @@ export function isIfsc(s: string | undefined): boolean {
 }
 
 /** UPI apps choke on emoji and odd punctuation in pn/tn; keep it plain and short. */
-const plain = (s: string, max: number) => s.normalize('NFKD').replace(/[^A-Za-z0-9 .,'-]/g, '').replace(/\s+/g, ' ').trim().slice(0, max).trim()
+const plain = (s: string, max: number) =>
+  s
+    .normalize('NFKD')
+    .replace(/[^A-Za-z0-9 .,'-]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, max)
+    .trim()
 /** Percent-encode, but keep "@" readable: several UPI apps fail to decode %40 in pa. */
 const enc = (s: string) => encodeURIComponent(s).replace(/%40/g, '@')
 
@@ -126,9 +137,11 @@ export function payOptions(h: PaymentHandles | undefined, amount: Cents, currenc
   }
 
   const order: Array<PayOption['key']> =
-    currency === 'INR' ? ['upi', 'phone', 'bank', 'paypal', 'revolut', 'payid'] :
-    currency === 'AUD' ? ['payid', 'bank', 'paypal', 'revolut', 'upi', 'phone'] :
-    ['paypal', 'revolut', 'bank', 'payid', 'upi', 'phone']
+    currency === 'INR'
+      ? ['upi', 'phone', 'bank', 'paypal', 'revolut', 'payid']
+      : currency === 'AUD'
+        ? ['payid', 'bank', 'paypal', 'revolut', 'upi', 'phone']
+        : ['paypal', 'revolut', 'bank', 'payid', 'upi', 'phone']
   return order.map((k) => by[k]).filter((o): o is PayOption => !!o)
 }
 
@@ -170,6 +183,9 @@ export function methodFor(o: PayOption): string {
 }
 
 /** Rough platform check for the UPI hint text (iOS has no app chooser for upi://). */
-export function isIOS(ua = typeof navigator === 'undefined' ? '' : navigator.userAgent, touchPoints = typeof navigator === 'undefined' ? 0 : navigator.maxTouchPoints): boolean {
+export function isIOS(
+  ua = typeof navigator === 'undefined' ? '' : navigator.userAgent,
+  touchPoints = typeof navigator === 'undefined' ? 0 : navigator.maxTouchPoints,
+): boolean {
   return /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && touchPoints > 1)
 }

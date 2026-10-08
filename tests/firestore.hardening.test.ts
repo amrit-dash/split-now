@@ -11,14 +11,22 @@ let env: RulesTestEnvironment
 
 // alice created the group; bob has joined; p_cat is a placeholder.
 const group = {
-  id: 'g1', name: 'Trip', emoji: '🏝️', type: 'trip', currency: 'AUD', simplify: true,
+  id: 'g1',
+  name: 'Trip',
+  emoji: '🏝️',
+  type: 'trip',
+  currency: 'AUD',
+  simplify: true,
   memberUids: ['alice', 'bob'],
   members: {
     alice: { name: 'Alice', uid: 'alice', color: '#000' },
     bob: { name: 'Bob', uid: 'bob', color: '#111' },
     p_cat: { name: 'Cat', color: '#222' },
   },
-  inviteCode: 'ABCD2345', createdBy: 'alice', createdAt: 1, updatedAt: 1,
+  inviteCode: 'ABCD2345',
+  createdBy: 'alice',
+  createdAt: 1,
+  updatedAt: 1,
 }
 const invite = { groupId: 'g1', groupName: 'Trip', emoji: '🏝️', placeholders: { p_cat: 'Cat' } }
 
@@ -53,9 +61,13 @@ describe('membership changes by members', () => {
     await assertFails(updateDoc(g1('bob'), { 'members.p_dan': { name: 'Dan', color: '#333' }, updatedAt: 2 }))
   })
   it('cannot add two members in one write', async () => {
-    await assertFails(updateDoc(g1('bob'), {
-      'members.p_dan': { name: 'Dan', color: '#333' }, 'members.p_eve': { name: 'Eve', color: '#444' }, memberOpId: 'p_dan',
-    }))
+    await assertFails(
+      updateDoc(g1('bob'), {
+        'members.p_dan': { name: 'Dan', color: '#333' },
+        'members.p_eve': { name: 'Eve', color: '#444' },
+        memberOpId: 'p_dan',
+      }),
+    )
   })
   it('cannot add a member entry carrying a uid (no impersonation / duplicates)', async () => {
     await assertFails(updateDoc(g1('bob'), { 'members.a_fake': { name: 'Alice', uid: 'alice', color: '#000' }, memberOpId: 'a_fake' }))
@@ -97,7 +109,9 @@ describe('group shape and settings', () => {
     await assertFails(updateDoc(g1('bob'), { currency: 'rupees' }))
     await assertFails(updateDoc(g1('bob'), { budget: 'lots' }))
     await assertFails(updateDoc(g1('bob'), { startDate: '7 Oct' }))
-    await assertSucceeds(updateDoc(g1('bob'), { type: 'outing', currency: 'INR', budget: 500000, startDate: '2026-10-05', endDate: '2026-10-10', updatedAt: 2 }))
+    await assertSucceeds(
+      updateDoc(g1('bob'), { type: 'outing', currency: 'INR', budget: 500000, startDate: '2026-10-05', endDate: '2026-10-10', updatedAt: 2 }),
+    )
   })
   it('any member may archive and unarchive; it must be a boolean', async () => {
     await assertSucceeds(updateDoc(g1('bob'), { archived: true, updatedAt: 2 }))
@@ -114,9 +128,25 @@ describe('group shape and settings', () => {
   })
   it('caps the members map and memberUids at 60 on create', async () => {
     const many = Object.fromEntries(Array.from({ length: 61 }, (_, i) => [`p${i}`, { name: `P${i}`, color: '#000' }]))
-    await assertFails(setDoc(doc(db('carol'), 'groups/big'), { ...group, id: 'big', memberUids: ['carol'], members: { carol: { name: 'C', uid: 'carol', color: '#000' }, ...many }, createdBy: 'carol' }))
+    await assertFails(
+      setDoc(doc(db('carol'), 'groups/big'), {
+        ...group,
+        id: 'big',
+        memberUids: ['carol'],
+        members: { carol: { name: 'C', uid: 'carol', color: '#000' }, ...many },
+        createdBy: 'carol',
+      }),
+    )
     const fewer = Object.fromEntries(Array.from({ length: 58 }, (_, i) => [`p${i}`, { name: `P${i}`, color: '#000' }]))
-    await assertSucceeds(setDoc(doc(db('carol'), 'groups/ok'), { ...group, id: 'ok', memberUids: ['carol'], members: { carol: { name: 'C', uid: 'carol', color: '#000' }, ...fewer }, createdBy: 'carol' }))
+    await assertSucceeds(
+      setDoc(doc(db('carol'), 'groups/ok'), {
+        ...group,
+        id: 'ok',
+        memberUids: ['carol'],
+        members: { carol: { name: 'C', uid: 'carol', color: '#000' }, ...fewer },
+        createdBy: 'carol',
+      }),
+    )
   })
 })
 
@@ -124,7 +154,14 @@ describe('leaving a group', () => {
   it('the whole leave batch commits: group update, invite tidy-up, profile delete and the activity entry', async () => {
     const d = db('bob')
     const b = writeBatch(d)
-    b.set(doc(d, 'groups/g1/activity/leave1'), { type: 'member.removed', actorUid: 'bob', actorName: 'Bob', targetId: 'bob', summary: 'Bob left the group', createdAt: 2 })
+    b.set(doc(d, 'groups/g1/activity/leave1'), {
+      type: 'member.removed',
+      actorUid: 'bob',
+      actorName: 'Bob',
+      targetId: 'bob',
+      summary: 'Bob left the group',
+      createdAt: 2,
+    })
     b.update(doc(d, 'groups/g1'), { 'members.bob': deleteField(), memberUids: arrayRemove('bob'), memberOpId: 'bob', updatedAt: 2 })
     b.set(doc(d, 'invites/ABCD2345'), { groupId: 'g1', placeholders: { bob: deleteField() } }, { merge: true })
     b.delete(doc(d, 'groups/g1/profiles/bob'))
@@ -149,8 +186,11 @@ describe('leaving a group', () => {
 describe('joining', () => {
   const join = (uid: string, memberId: string) =>
     updateDoc(doc(db(uid), 'groups/g1'), {
-      memberUids: arrayUnion(uid), [`members.${memberId}`]: { name: 'X', uid, color: '#111' },
-      joinCode: 'ABCD2345', joinMemberId: memberId, updatedAt: 2,
+      memberUids: arrayUnion(uid),
+      [`members.${memberId}`]: { name: 'X', uid, color: '#111' },
+      joinCode: 'ABCD2345',
+      joinMemberId: memberId,
+      updatedAt: 2,
     })
   it('an existing member cannot join again (no duplicate entry)', async () => {
     await assertFails(join('bob', 'bob2'))
@@ -159,8 +199,11 @@ describe('joining', () => {
     const d = db('dan')
     const b = writeBatch(d)
     b.update(doc(d, 'groups/g1'), {
-      memberUids: arrayUnion('dan'), 'members.p_cat': { name: 'Cat', uid: 'dan', color: '#222' },
-      joinCode: 'ABCD2345', joinMemberId: 'p_cat', updatedAt: 2,
+      memberUids: arrayUnion('dan'),
+      'members.p_cat': { name: 'Cat', uid: 'dan', color: '#222' },
+      joinCode: 'ABCD2345',
+      joinMemberId: 'p_cat',
+      updatedAt: 2,
     })
     b.set(doc(d, 'invites/ABCD2345'), { groupId: 'g1', placeholders: { p_cat: deleteField() } }, { merge: true })
     b.set(doc(d, 'groups/g1/profiles/dan'), { displayName: 'Dan', payment: {} })
@@ -175,7 +218,9 @@ describe('joining', () => {
 describe('invites', () => {
   it('cannot point an invite at a group whose code differs (hijack)', async () => {
     // mallory owns her own group g2 with a different code and tries to claim ABCD2345 / a new code
-    await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'groups/g2'), { ...group, id: 'g2', memberUids: ['mallory'], createdBy: 'mallory', inviteCode: 'MALL0RY2' }))
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'groups/g2'), { ...group, id: 'g2', memberUids: ['mallory'], createdBy: 'mallory', inviteCode: 'MALL0RY2' }),
+    )
     await assertFails(setDoc(doc(db('mallory'), 'invites/ABCD2345'), { ...invite, groupId: 'g2' }))
     await assertFails(setDoc(doc(db('mallory'), 'invites/NEWCODE9'), { ...invite, groupId: 'g2' }))
     await assertSucceeds(setDoc(doc(db('mallory'), 'invites/MALL0RY2'), { ...invite, groupId: 'g2' }))
@@ -191,7 +236,14 @@ describe('invites', () => {
   it('group + invite + profile created in one batch', async () => {
     const d = db('carol')
     const b = writeBatch(d)
-    b.set(doc(d, 'groups/g3'), { ...group, id: 'g3', memberUids: ['carol'], members: { carol: { name: 'Carol', uid: 'carol', color: '#000' } }, createdBy: 'carol', inviteCode: 'CAROL234' })
+    b.set(doc(d, 'groups/g3'), {
+      ...group,
+      id: 'g3',
+      memberUids: ['carol'],
+      members: { carol: { name: 'Carol', uid: 'carol', color: '#000' } },
+      createdBy: 'carol',
+      inviteCode: 'CAROL234',
+    })
     b.set(doc(d, 'invites/CAROL234'), { groupId: 'g3', groupName: 'Trip', emoji: '🏝️', placeholders: {} })
     b.set(doc(d, 'groups/g3/profiles/carol'), { displayName: 'Carol', payment: { payid: 'c@x' } })
     await assertSucceeds(b.commit())
@@ -224,7 +276,9 @@ describe('per-group profiles', () => {
   })
   it('may carry an https profile photo URL', async () => {
     const r = doc(db('bob'), 'groups/g1/profiles/bob')
-    await assertSucceeds(setDoc(r, { displayName: 'Bob', payment: {}, photoURL: 'https://firebasestorage.googleapis.com/v0/b/x/o/avatars%2Fbob%2Fa.jpg?alt=media&token=t' }))
+    await assertSucceeds(
+      setDoc(r, { displayName: 'Bob', payment: {}, photoURL: 'https://firebasestorage.googleapis.com/v0/b/x/o/avatars%2Fbob%2Fa.jpg?alt=media&token=t' }),
+    )
     await assertFails(setDoc(r, { displayName: 'Bob', payment: {}, photoURL: 'data:image/jpeg;base64,AAAA' }))
     await assertFails(setDoc(r, { displayName: 'Bob', payment: {}, photoURL: 'https://x/' + 'a'.repeat(2100) }))
     await assertFails(setDoc(r, { displayName: 'Bob', payment: {}, photoURL: 42 }))
@@ -234,8 +288,13 @@ describe('per-group profiles', () => {
 
 describe('expense & settlement validation', () => {
   const expense = {
-    id: 'e1', groupId: 'g1', description: 'Dinner', amount: 900,
-    paidBy: { alice: 900 }, splits: { alice: 300, bob: 300, p_cat: 300 }, createdBy: 'bob',
+    id: 'e1',
+    groupId: 'g1',
+    description: 'Dinner',
+    amount: 900,
+    paidBy: { alice: 900 },
+    splits: { alice: 300, bob: 300, p_cat: 300 },
+    createdBy: 'bob',
   }
   const e = (uid: string, id = 'e1') => doc(db(uid), `groups/g1/expenses/${id}`)
   it('createdBy must be the writer and cannot change', async () => {
@@ -249,7 +308,14 @@ describe('expense & settlement validation', () => {
     await assertFails(setDoc(e('bob', 'e4'), { ...expense, id: 'e4', splits: { alice: 450, ghost: 450 } }))
   })
   it('a receipt must be an https URL and a path inside this group’s folder', async () => {
-    await assertSucceeds(setDoc(e('bob', 'r1'), { ...expense, id: 'r1', receiptUrl: 'https://firebasestorage.googleapis.com/v0/b/x/o/receipts%2Fg1%2Fr1-bob.jpg?alt=media&token=t', receiptPath: 'receipts/g1/r1-bob.jpg' }))
+    await assertSucceeds(
+      setDoc(e('bob', 'r1'), {
+        ...expense,
+        id: 'r1',
+        receiptUrl: 'https://firebasestorage.googleapis.com/v0/b/x/o/receipts%2Fg1%2Fr1-bob.jpg?alt=media&token=t',
+        receiptPath: 'receipts/g1/r1-bob.jpg',
+      }),
+    )
     await assertFails(setDoc(e('bob', 'r2'), { ...expense, id: 'r2', receiptUrl: 'javascript:alert(1)' }))
     await assertFails(setDoc(e('bob', 'r3'), { ...expense, id: 'r3', receiptPath: 'avatars/alice/photo.jpg' }))
     await assertFails(setDoc(e('bob', 'r4'), { ...expense, id: 'r4', receiptPath: 'receipts/g2/r4.jpg' }))

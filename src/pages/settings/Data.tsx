@@ -42,27 +42,46 @@ export default function Data() {
   return (
     <SettingsPage title="Data">
       <SectionTitle>Export</SectionTitle>
-      {data === null ? <ListSkeleton rows={2} avatar={false} /> : groups.length === 0 ? (
-        <div className="card p-4"><p className="text-muted text-sm">Nothing to export yet. Groups you’re in appear here.</p></div>
+      {data === null ? (
+        <ListSkeleton rows={2} avatar={false} />
+      ) : groups.length === 0 ? (
+        <div className="card p-4">
+          <p className="text-muted text-sm">Nothing to export yet. Groups you’re in appear here.</p>
+        </div>
       ) : (
         <div className="card space-y-3 p-4">
           <div>
             <div className="label">Group</div>
-            <Select aria-label="Group to export" value={chosen?.group.id ?? ''} onChange={setGroupId} options={groups.map((d) => ({
-              value: d.group.id, text: d.group.name, label: d.group.name, icon: <GroupIcon emoji={d.group.emoji} size={28} />,
-              hint: `${d.expenses.length} expense${d.expenses.length === 1 ? '' : 's'} · ${d.group.currency}`,
-            }))} />
+            <Select
+              aria-label="Group to export"
+              value={chosen?.group.id ?? ''}
+              onChange={setGroupId}
+              options={groups.map((d) => ({
+                value: d.group.id,
+                text: d.group.name,
+                label: d.group.name,
+                icon: <GroupIcon emoji={d.group.emoji} size={28} />,
+                hint: `${d.expenses.length} expense${d.expenses.length === 1 ? '' : 's'} · ${d.group.currency}`,
+              }))}
+            />
           </div>
           <button type="button" className="btn-secondary w-full" onClick={exportCsv} disabled={busy || !chosen} data-testid="export-csv">
             {busy ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <Download size={18} aria-hidden />} Export as CSV
           </button>
-          <p className="text-muted text-xs">Every expense and payment in the group, with who paid and each person’s share. Opens in Excel or Google Sheets, and imports back into Split Now.</p>
+          <p className="text-muted text-xs">
+            Every expense and payment in the group, with who paid and each person’s share. Opens in Excel or Google Sheets, and imports back into Split Now.
+          </p>
         </div>
       )}
 
       <SectionTitle>Import</SectionTitle>
       <Link to="/groups/import" className="card flex items-center gap-3 p-4 font-medium transition active:scale-[0.99]" data-testid="settings-import">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300" aria-hidden><FileUp size={19} /></span>
+        <span
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
+          aria-hidden
+        >
+          <FileUp size={19} />
+        </span>
         <span className="min-w-0 flex-1">
           <span className="block">Import from Splitwise</span>
           <span className="text-muted block text-xs font-normal">A group export (CSV), balances checked against Splitwise’s own totals</span>
@@ -73,19 +92,35 @@ export default function Data() {
       {canInstall && (
         <>
           <SectionTitle>App</SectionTitle>
-          <button type="button" className="card flex w-full items-center gap-3 p-4 text-left font-medium transition active:scale-[0.99]" onClick={() => (install.canPrompt ? install.prompt() : setIosOpen(true))} data-testid="settings-install">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300" aria-hidden><Smartphone size={19} /></span>
+          <button
+            type="button"
+            className="card flex w-full items-center gap-3 p-4 text-left font-medium transition active:scale-[0.99]"
+            onClick={() => (install.canPrompt ? install.prompt() : setIosOpen(true))}
+            data-testid="settings-install"
+          >
+            <span
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
+              aria-hidden
+            >
+              <Smartphone size={19} />
+            </span>
             <span className="min-w-0 flex-1">
               <span className="block">Install Split Now on this device</span>
-              <span className="text-muted block text-xs font-normal">{install.ios ? 'Add to Home Screen for notifications and offline use' : 'Full-screen, faster, works offline'}</span>
+              <span className="text-muted block text-xs font-normal">
+                {install.ios ? 'Add to Home Screen for notifications and offline use' : 'Full-screen, faster, works offline'}
+              </span>
             </span>
             <ChevronRight size={18} className="text-slate-400" aria-hidden />
           </button>
         </>
       )}
 
-      <p className="text-muted mt-6 text-center text-xs" data-testid="app-version">Split Now v{__APP_VERSION__} · {repo.mode === 'demo' ? 'Demo mode: data stays on this device' : 'Connected to Firebase'}</p>
-      <Sheet open={iosOpen} onClose={() => setIosOpen(false)} title="Add to Home Screen"><IOSInstallSteps /></Sheet>
+      <p className="text-muted mt-6 text-center text-xs" data-testid="app-version">
+        Split Now v{__APP_VERSION__} · {repo.mode === 'demo' ? 'Demo mode: data stays on this device' : 'Connected to Firebase'}
+      </p>
+      <Sheet open={iosOpen} onClose={() => setIosOpen(false)} title="Add to Home Screen">
+        <IOSInstallSteps />
+      </Sheet>
     </SettingsPage>
   )
 }

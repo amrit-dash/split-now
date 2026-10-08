@@ -1,7 +1,12 @@
 import type { Group } from '@/types'
 
 /** Someone you share a group with (only your own groups: there's no global directory). */
-export interface KnownPerson { name: string; email?: string; uid?: string; n: number }
+export interface KnownPerson {
+  name: string
+  email?: string
+  uid?: string
+  n: number
+}
 
 /** Members of the given groups except you, merged by uid, else by name; in first-seen order, `n` = groups shared. */
 function collect(groups: Group[], me: string): KnownPerson[] {
@@ -14,7 +19,10 @@ function collect(groups: Group[], me: string): KnownPerson[] {
       if (hit) {
         hit.n++
         hit.email ??= m.email
-        if (m.uid && !hit.uid) { hit.uid = m.uid; byKey.set(`u:${m.uid}`, hit) }
+        if (m.uid && !hit.uid) {
+          hit.uid = m.uid
+          byKey.set(`u:${m.uid}`, hit)
+        }
       } else {
         const e: KnownPerson = { name: m.name.trim(), email: m.email, uid: m.uid, n: 1 }
         byKey.set(nameKey, e)
@@ -48,7 +56,12 @@ export function searchPeople(people: KnownPerson[], query: string, max = 8): Kno
     if (n.includes(q)) return 2
     return p.email?.toLowerCase().includes(q) ? 3 : -1
   }
-  return people.map((p) => [rank(p), p] as const).filter(([r]) => r >= 0).sort((a, b) => a[0] - b[0] || a[1].name.localeCompare(b[1].name)).slice(0, max).map(([, p]) => p)
+  return people
+    .map((p) => [rank(p), p] as const)
+    .filter(([r]) => r >= 0)
+    .sort((a, b) => a[0] - b[0] || a[1].name.localeCompare(b[1].name))
+    .slice(0, max)
+    .map(([, p]) => p)
 }
 
 export const isEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s.trim())

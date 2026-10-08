@@ -1,20 +1,55 @@
 import { describe, expect, it } from 'vitest'
 import type { Expense, Group } from '@/types'
 import {
-  awaitingMyApproval, canPurge, countedExpenses, daysLeftInTrash, expiredTrash, flaggableAs, isDisputed, isPending, liveItems,
-  expenseEditPatch, needsApproval, pendingApprovers, prepareExpenseSave, prepareOccurrence, trashedItems,
+  awaitingMyApproval,
+  canPurge,
+  countedExpenses,
+  daysLeftInTrash,
+  expiredTrash,
+  flaggableAs,
+  isDisputed,
+  isPending,
+  liveItems,
+  expenseEditPatch,
+  needsApproval,
+  pendingApprovers,
+  prepareExpenseSave,
+  prepareOccurrence,
+  trashedItems,
 } from './trust'
 
 const DAY = 86_400_000
 const group: Group = {
-  id: 'g', name: 'Trip', emoji: '🏝️', type: 'trip', currency: 'AUD', simplify: false, requireApproval: true, approvalThreshold: 10000,
-  memberUids: ['ua', 'ub'], members: { a: { name: 'A', uid: 'ua', color: '' }, b: { name: 'B', uid: 'ub', color: '' }, c: { name: 'C', color: '' } },
-  inviteCode: 'X', createdBy: 'ua', createdAt: 0, updatedAt: 0,
+  id: 'g',
+  name: 'Trip',
+  emoji: '🏝️',
+  type: 'trip',
+  currency: 'AUD',
+  simplify: false,
+  requireApproval: true,
+  approvalThreshold: 10000,
+  memberUids: ['ua', 'ub'],
+  members: { a: { name: 'A', uid: 'ua', color: '' }, b: { name: 'B', uid: 'ub', color: '' }, c: { name: 'C', color: '' } },
+  inviteCode: 'X',
+  createdBy: 'ua',
+  createdAt: 0,
+  updatedAt: 0,
 }
 const exp = (over: Partial<Expense> = {}): Expense => ({
-  id: 'e', groupId: 'g', description: 'Hotel', amount: 30000, category: 'stay', date: '2026-10-01',
-  paidBy: { a: 30000 }, splits: { a: 10000, b: 10000, c: 10000 }, splitType: 'equal', splitInput: {},
-  createdBy: 'ua', createdAt: 0, updatedAt: 0, ...over,
+  id: 'e',
+  groupId: 'g',
+  description: 'Hotel',
+  amount: 30000,
+  category: 'stay',
+  date: '2026-10-01',
+  paidBy: { a: 30000 },
+  splits: { a: 10000, b: 10000, c: 10000 },
+  splitType: 'equal',
+  splitInput: {},
+  createdBy: 'ua',
+  createdAt: 0,
+  updatedAt: 0,
+  ...over,
 })
 
 describe('trash', () => {
@@ -89,7 +124,10 @@ describe('prepareExpenseSave', () => {
     expect(prepareExpenseSave(prev, next, group, 'uz').approvals).toBeUndefined()
   })
   it('occurrences never inherit trust fields or the receipt', () => {
-    const o = prepareOccurrence(exp({ dispute: flag, approvals: { ub: true }, deletedAt: 1, deletedBy: 'ua', receiptUrl: 'https://x/r.jpg', receiptPath: 'receipts/g/e-1.jpg' }), group)
+    const o = prepareOccurrence(
+      exp({ dispute: flag, approvals: { ub: true }, deletedAt: 1, deletedBy: 'ua', receiptUrl: 'https://x/r.jpg', receiptPath: 'receipts/g/e-1.jpg' }),
+      group,
+    )
     expect(o).not.toHaveProperty('dispute')
     expect(o).not.toHaveProperty('approvals')
     expect(o).not.toHaveProperty('deletedAt')
@@ -115,7 +153,10 @@ describe('expenseEditPatch', () => {
     const p = expenseEditPatch(prev, next)
     expect(p.set).toMatchObject({ amount: 33000, paidBy: { a: 33000 } })
     expect(p.approvals).toEqual({ ua: true })
-    expect(expenseEditPatch(prev, prepareExpenseSave(prev, exp({ amount: 33000, paidBy: { a: 33000 }, splits: { a: 11000, b: 11000, c: 11000 } }), group, 'uz')).approvals).toBeNull()
+    expect(
+      expenseEditPatch(prev, prepareExpenseSave(prev, exp({ amount: 33000, paidBy: { a: 33000 }, splits: { a: 11000, b: 11000, c: 11000 } }), group, 'uz'))
+        .approvals,
+    ).toBeNull()
   })
   it('adds requiresApproval but never drops it', () => {
     const plain = exp()

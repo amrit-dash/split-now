@@ -98,21 +98,30 @@ export function fromSplitInput(input: SplitInput | undefined, order: MemberId[])
   if (input.percent) s.percent = { ...input.percent }
   if (input.shares) s.shares = { ...input.shares }
   if (input.adjust) s.adjust = { ...input.adjust }
-  if (input.items) s.items = input.items.map((it) => newItem({ name: it.name, amount: it.amount, members: [...it.members], shares: it.shares && { ...it.shares } }))
+  if (input.items)
+    s.items = input.items.map((it) => newItem({ name: it.name, amount: it.amount, members: [...it.members], shares: it.shares && { ...it.shares } }))
   return s
 }
 
 /** Only what the chosen split type uses gets stored (the rest was scratch while switching types). */
 export function toSplitInput(s: SplitDraft, t: SplitType): SplitInput {
-  const defined = <T,>(r: Partial<Record<MemberId, T>>): Record<MemberId, T> =>
+  const defined = <T>(r: Partial<Record<MemberId, T>>): Record<MemberId, T> =>
     Object.fromEntries(Object.entries(r).filter(([, v]) => v !== undefined)) as Record<MemberId, T>
   switch (t) {
-    case 'equal': return { selected: [...s.selected] }
-    case 'exact': return { exact: defined(s.exact) }
-    case 'percent': return { percent: defined(s.percent) }
-    case 'shares': return { shares: defined(s.shares) }
-    case 'adjust': return { selected: [...s.selected], adjust: defined(s.adjust) }
-    case 'itemized': return { items: s.items.map((it) => ({ name: it.name, amount: it.amount ?? 0, members: [...it.members], ...(it.shares ? { shares: { ...it.shares } } : {}) })) }
+    case 'equal':
+      return { selected: [...s.selected] }
+    case 'exact':
+      return { exact: defined(s.exact) }
+    case 'percent':
+      return { percent: defined(s.percent) }
+    case 'shares':
+      return { shares: defined(s.shares) }
+    case 'adjust':
+      return { selected: [...s.selected], adjust: defined(s.adjust) }
+    case 'itemized':
+      return {
+        items: s.items.map((it) => ({ name: it.name, amount: it.amount ?? 0, members: [...it.members], ...(it.shares ? { shares: { ...it.shares } } : {}) })),
+      }
   }
 }
 
@@ -170,13 +179,13 @@ export function initialDraft(a: SeedArgs): Draft {
   const { group, order, me, existing, capture, history, last } = a
   const src = existing ?? a.again
   const today = a.today ?? todayISO()
-  const cur = src ? src.original?.currency ?? group.currency : capture ? capture.currency ?? group.currency : a.lastCurrency ?? group.currency
+  const cur = src ? (src.original?.currency ?? group.currency) : capture ? (capture.currency ?? group.currency) : (a.lastCurrency ?? group.currency)
   const paidBy = src ? (src.original ? toOriginal(src.paidBy, src.original) : src.paidBy) : {}
   const payerIds = Object.keys(paidBy)
   const multiPay = payerIds.length > 1
   return {
     cur,
-    amount: src ? src.original?.amount ?? src.amount : capture?.amount,
+    amount: src ? (src.original?.amount ?? src.amount) : capture?.amount,
     description: src?.description ?? capture?.merchant ?? '',
     category: src?.category ?? (capture && (pastCategory(history, capture.merchant) ?? guessCategory(capture.merchant))) ?? 'other',
     catTouched: !!src,
@@ -236,7 +245,7 @@ export function rescaleMinor(v: Cents, from: string, to: string): Cents {
 const mapAmounts = (r: Amounts, f: (v: Cents) => Cents): Amounts =>
   Object.fromEntries(Object.entries(r).map(([k, v]) => [k, v === undefined ? undefined : f(v)]))
 
-const setEntry = <T,>(r: Partial<Record<MemberId, T>>, id: MemberId, v: T | undefined): Partial<Record<MemberId, T>> => {
+const setEntry = <T>(r: Partial<Record<MemberId, T>>, id: MemberId, v: T | undefined): Partial<Record<MemberId, T>> => {
   const next = { ...r }
   if (v === undefined) delete next[id]
   else next[id] = v
@@ -245,48 +254,70 @@ const setEntry = <T,>(r: Partial<Record<MemberId, T>>, id: MemberId, v: T | unde
 
 export function reduce(d: Draft, a: Action): Draft {
   switch (a.type) {
-    case 'amount': return { ...d, amount: a.amount }
+    case 'amount':
+      return { ...d, amount: a.amount }
     case 'description': {
       // This group's own habit for the description beats the keyword guess.
-      const category = d.catTouched ? d.category : pastCategory(a.history, a.value) ?? guessCategory(a.value) ?? 'other'
+      const category = d.catTouched ? d.category : (pastCategory(a.history, a.value) ?? guessCategory(a.value) ?? 'other')
       return { ...d, description: a.value, category, picked: false }
     }
-    case 'category': return { ...d, category: a.category, catTouched: true }
+    case 'category':
+      return { ...d, category: a.category, catTouched: true }
     case 'currency': {
       if (a.cur === d.cur) return d
       const f = (v: Cents) => rescaleMinor(v, d.cur, a.cur)
       return {
-        ...d, cur: a.cur,
+        ...d,
+        cur: a.cur,
         amount: d.amount === undefined ? undefined : f(d.amount),
         payers: mapAmounts(d.payers, f),
-        split: { ...d.split, exact: mapAmounts(d.split.exact, f), adjust: mapAmounts(d.split.adjust, f), items: d.split.items.map((it) => ({ ...it, amount: it.amount === undefined ? undefined : f(it.amount) })) },
+        split: {
+          ...d.split,
+          exact: mapAmounts(d.split.exact, f),
+          adjust: mapAmounts(d.split.adjust, f),
+          items: d.split.items.map((it) => ({ ...it, amount: it.amount === undefined ? undefined : f(it.amount) })),
+        },
       }
     }
-    case 'date': return { ...d, date: a.date }
-    case 'notes': return { ...d, notes: a.notes }
-    case 'repeat': return { ...d, repeat: a.repeat }
-    case 'until': return { ...d, until: a.until }
-    case 'fx': return { ...d, fx: a.fx }
-    case 'payer': return { ...d, payer: a.id, multiPay: false }
+    case 'date':
+      return { ...d, date: a.date }
+    case 'notes':
+      return { ...d, notes: a.notes }
+    case 'repeat':
+      return { ...d, repeat: a.repeat }
+    case 'until':
+      return { ...d, until: a.until }
+    case 'fx':
+      return { ...d, fx: a.fx }
+    case 'payer':
+      return { ...d, payer: a.id, multiPay: false }
     case 'multiPay':
       // Turning it on starts from the single payer covering the whole amount.
       return a.on === d.multiPay ? d : { ...d, multiPay: a.on, payers: a.on ? (d.amount ? { [d.payer]: d.amount } : {}) : {} }
-    case 'payerAmount': return { ...d, payers: setEntry(d.payers, a.id, a.amount) }
-    case 'splitType': return { ...d, splitType: a.splitType, split: seedSplit(d.split, a.splitType, a.order, d.amount, d.cur) }
-    case 'selected': return { ...d, split: { ...d.split, selected: [...a.ids] } }
+    case 'payerAmount':
+      return { ...d, payers: setEntry(d.payers, a.id, a.amount) }
+    case 'splitType':
+      return { ...d, splitType: a.splitType, split: seedSplit(d.split, a.splitType, a.order, d.amount, d.cur) }
+    case 'selected':
+      return { ...d, split: { ...d.split, selected: [...a.ids] } }
     case 'toggleMember': {
       const sel = d.split.selected
       return { ...d, split: { ...d.split, selected: sel.includes(a.id) ? sel.filter((x) => x !== a.id) : [...sel, a.id] } }
     }
-    case 'exact': return { ...d, split: { ...d.split, exact: setEntry(d.split.exact, a.id, a.amount) } }
-    case 'percent': return { ...d, split: { ...d.split, percent: setEntry(d.split.percent, a.id, a.value) } }
-    case 'shares': return { ...d, split: { ...d.split, shares: setEntry(d.split.shares, a.id, a.value) } }
-    case 'adjust': return { ...d, split: { ...d.split, adjust: setEntry(d.split.adjust, a.id, a.amount) } }
-    case 'items': return { ...d, split: { ...d.split, items: a.items } }
+    case 'exact':
+      return { ...d, split: { ...d.split, exact: setEntry(d.split.exact, a.id, a.amount) } }
+    case 'percent':
+      return { ...d, split: { ...d.split, percent: setEntry(d.split.percent, a.id, a.value) } }
+    case 'shares':
+      return { ...d, split: { ...d.split, shares: setEntry(d.split.shares, a.id, a.value) } }
+    case 'adjust':
+      return { ...d, split: { ...d.split, adjust: setEntry(d.split.adjust, a.id, a.amount) } }
+    case 'items':
+      return { ...d, split: { ...d.split, items: a.items } }
     case 'switchGroup': {
       if (d.seededFor.id === a.group.id) return d
       // Typing in the old group's own currency: follow the new group's. A foreign currency stays.
-      const cur = d.cur === d.seededFor.currency ? a.lastCurrency ?? a.group.currency : d.cur
+      const cur = d.cur === d.seededFor.currency ? (a.lastCurrency ?? a.group.currency) : d.cur
       const base = reduce(d, { type: 'currency', cur })
       return {
         ...base,
@@ -322,9 +353,16 @@ export function reduce(d: Draft, a: Action): Draft {
       if (a.personal) return next
       // Repeat who paid and how it was split last time (when that still fits the group).
       const payer = Object.keys(a.s.last.paidBy)
-      if (payer.length === 1 && a.order.includes(payer[0])) { next.payer = payer[0]; next.multiPay = false; next.payers = {} }
+      if (payer.length === 1 && a.order.includes(payer[0])) {
+        next.payer = payer[0]
+        next.multiPay = false
+        next.payers = {}
+      }
       const sp = sanitizeSplit({ splitType: a.s.last.splitType, input: a.s.last.splitInput }, a.order)
-      if (sp.splitType && sp.input) { next.splitType = sp.splitType; next.split = fromSplitInput(sp.input, a.order) }
+      if (sp.splitType && sp.input) {
+        next.splitType = sp.splitType
+        next.split = fromSplitInput(sp.input, a.order)
+      }
       return next
     }
   }
@@ -335,7 +373,8 @@ export function reduce(d: Draft, a: Action): Draft {
 export const validAmount = (d: Pick<Draft, 'amount'>): d is Draft & { amount: Cents } => d.amount !== undefined && Number.isFinite(d.amount) && d.amount > 0
 
 /** No description: a category says enough ("Groceries"); "Other" doesn't. */
-export const descriptionOf = (d: Pick<Draft, 'description' | 'category'>) => d.description.trim() || (d.category !== 'other' ? CATEGORIES[d.category].label : '')
+export const descriptionOf = (d: Pick<Draft, 'description' | 'category'>) =>
+  d.description.trim() || (d.category !== 'other' ? CATEGORIES[d.category].label : '')
 
 export function selectPaidBy(d: Draft, me: MemberId, personal: boolean): Record<MemberId, Cents> {
   if (!validAmount(d)) return {}
@@ -463,13 +502,15 @@ export function buildRecurrence(repeat: RecurrenceFreq | 'never', date: string, 
 
 // ---- Summaries (the collapsed "You paid" / "Split equally · 4 people" rows) -------------------
 
-const nameOf = (group: Pick<Group, 'members'>, me: MemberId, id: MemberId) => (id === me ? 'You' : group.members[id]?.name ?? 'Former member')
+const nameOf = (group: Pick<Group, 'members'>, me: MemberId, id: MemberId) => (id === me ? 'You' : (group.members[id]?.name ?? 'Former member'))
 
 const list = (names: string[]) => (names.length <= 2 ? names.join(' and ') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`)
 
 export function describePayer(d: Draft, group: Pick<Group, 'members'>, me: MemberId, personal: boolean): string {
   if (personal || !d.multiPay) return `${nameOf(group, me, personal ? me : d.payer)} paid`
-  const who = Object.entries(d.payers).filter(([, v]) => typeof v === 'number' && v > 0).map(([id]) => nameOf(group, me, id))
+  const who = Object.entries(d.payers)
+    .filter(([, v]) => typeof v === 'number' && v > 0)
+    .map(([id]) => nameOf(group, me, id))
   if (who.length === 0) return 'Nobody yet'
   if (who.length <= 3) return `${list(who)} paid`
   return `${who.length} people paid`
@@ -510,14 +551,24 @@ export interface StoredDraft {
   at: number
 }
 
-export interface DraftStorage { getItem(k: string): string | null; setItem(k: string, v: string): void; removeItem(k: string): void }
+export interface DraftStorage {
+  getItem(k: string): string | null
+  setItem(k: string, v: string): void
+  removeItem(k: string): void
+}
 
 let storage: DraftStorage | undefined = (() => {
-  try { return typeof sessionStorage === 'undefined' ? undefined : sessionStorage } catch { return undefined }
+  try {
+    return typeof sessionStorage === 'undefined' ? undefined : sessionStorage
+  } catch {
+    return undefined
+  }
 })()
 
 /** Tests: swap in an in-memory store (or undefined for "no storage"). */
-export function setDraftStorage(s: DraftStorage | undefined) { storage = s }
+export function setDraftStorage(s: DraftStorage | undefined) {
+  storage = s
+}
 
 const PREFIX = 'splitit-expense-draft:'
 
@@ -537,26 +588,43 @@ export function loadDraft(key: string): StoredDraft | null {
 }
 
 export function saveDraft(key: string, rec: Omit<StoredDraft, 'v' | 'at'>, now = Date.now()) {
-  try { storage?.setItem(key, JSON.stringify({ v: 1, at: now, ...rec } satisfies StoredDraft)) } catch { /* storage unavailable or full */ }
+  try {
+    storage?.setItem(key, JSON.stringify({ v: 1, at: now, ...rec } satisfies StoredDraft))
+  } catch {
+    /* storage unavailable or full */
+  }
 }
 
 export function clearDraft(key: string) {
-  try { storage?.removeItem(key) } catch { /* storage unavailable */ }
+  try {
+    storage?.removeItem(key)
+  } catch {
+    /* storage unavailable */
+  }
 }
 
 /** A stored draft fitted to the group as it is now: members who left are dropped, missing fields filled in. */
 export function hydrateDraft(stored: Partial<Draft>, base: Draft, order: MemberId[], me: MemberId): Draft {
   const has = (id: MemberId) => order.includes(id)
-  const pick = <T,>(r: Partial<Record<MemberId, T>> | undefined): Partial<Record<MemberId, T>> =>
+  const pick = <T>(r: Partial<Record<MemberId, T>> | undefined): Partial<Record<MemberId, T>> =>
     Object.fromEntries(Object.entries(r ?? {}).filter(([k, v]) => has(k) && v !== undefined && v !== null))
   const s = stored.split
   const split: SplitDraft = {
     selected: (s?.selected ?? base.split.selected).filter(has),
-    exact: pick(s?.exact), percent: pick(s?.percent), shares: pick(s?.shares), adjust: pick(s?.adjust),
-    items: (s?.items ?? []).filter((it) => it && typeof it.name === 'string' && Array.isArray(it.members)).map((it) => newItem({
-      name: it.name, amount: typeof it.amount === 'number' ? it.amount : undefined, members: it.members.filter(has),
-      shares: it.shares && Object.fromEntries(Object.entries(it.shares).filter(([k]) => has(k))),
-    })),
+    exact: pick(s?.exact),
+    percent: pick(s?.percent),
+    shares: pick(s?.shares),
+    adjust: pick(s?.adjust),
+    items: (s?.items ?? [])
+      .filter((it) => it && typeof it.name === 'string' && Array.isArray(it.members))
+      .map((it) =>
+        newItem({
+          name: it.name,
+          amount: typeof it.amount === 'number' ? it.amount : undefined,
+          members: it.members.filter(has),
+          shares: it.shares && Object.fromEntries(Object.entries(it.shares).filter(([k]) => has(k))),
+        }),
+      ),
   }
   const d: Draft = { ...base, ...stored, split, payers: pick(stored.payers), seededFor: base.seededFor }
   if (!has(d.payer)) d.payer = has(base.payer) ? base.payer : me
@@ -578,7 +646,10 @@ export function restoreDraft(stored: Partial<Draft>, base: Draft, a: SeedArgs): 
   const from = stored.seededFor
   if (from && typeof from.id === 'string' && from.id !== a.group.id) {
     const seededFor = { id: from.id, currency: typeof from.currency === 'string' ? from.currency : h.cur }
-    return reduce({ ...h, seededFor }, { type: 'switchGroup', group: a.group, order: a.order, me: a.me, capture: a.capture, last: a.last, lastCurrency: a.lastCurrency })
+    return reduce(
+      { ...h, seededFor },
+      { type: 'switchGroup', group: a.group, order: a.order, me: a.me, capture: a.capture, last: a.last, lastCurrency: a.lastCurrency },
+    )
   }
   return h
 }

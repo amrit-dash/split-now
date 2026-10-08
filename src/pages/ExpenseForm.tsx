@@ -19,9 +19,9 @@ export default function ExpenseForm() {
   const [params] = useSearchParams()
   const groups = useGroups()
   // "Add again" from an expense: /add?group=…&again=<expenseId> starts a copy dated today.
-  const againId = expenseId ? undefined : params.get('again') ?? undefined
+  const againId = expenseId ? undefined : (params.get('again') ?? undefined)
   // Prefill from a captured payment (/add?group=…&capture=…), handed over from the capture prompt.
-  const captureId = expenseId ? undefined : params.get('capture') ?? undefined
+  const captureId = expenseId ? undefined : (params.get('capture') ?? undefined)
   const storeKey = draftKey(expenseId)
   // A draft left on this device for this route (a reload, an accidental back), when it started from the same place.
   const [stored] = useState(() => {
@@ -51,14 +51,34 @@ export default function ExpenseForm() {
 
   if (!groups || (groupId && group === undefined) || ((expenseId || againId) && !expenses) || (captureId && !captures)) return <FormSkeleton />
   if (groups.length === 0) return <NoGroups />
-  if (group === null && editGroupId) return <div className="mx-auto max-w-lg px-4 pt-[calc(env(safe-area-inset-top)+2rem)]"><Empty emoji="🔍" title="This group doesn’t exist or you’re not a member" /></div>
+  if (group === null && editGroupId)
+    return (
+      <div className="mx-auto max-w-lg px-4 pt-[calc(env(safe-area-inset-top)+2rem)]">
+        <Empty emoji="🔍" title="This group doesn’t exist or you’re not a member" />
+      </div>
+    )
   if (!group) return <FormSkeleton />
-  if (expenseId && !existing) return <div className="mx-auto max-w-lg px-4 pt-[calc(env(safe-area-inset-top)+2rem)]"><Empty emoji="🔍" title="Expense not found" /></div>
+  if (expenseId && !existing)
+    return (
+      <div className="mx-auto max-w-lg px-4 pt-[calc(env(safe-area-inset-top)+2rem)]">
+        <Empty emoji="🔍" title="Expense not found" />
+      </div>
+    )
 
   // Keyed by the expense only: switching group keeps what was typed (the editor re-seeds payer and split).
   return (
-    <ExpenseEditor key={existing?.id ?? again?.id ?? 'new'} group={group} groups={groups} existing={existing} again={again} capture={capture} history={history}
-      onGroup={setGroupId} storeKey={storeKey} restore={stored?.draft} />
+    <ExpenseEditor
+      key={existing?.id ?? again?.id ?? 'new'}
+      group={group}
+      groups={groups}
+      existing={existing}
+      again={again}
+      capture={capture}
+      history={history}
+      onGroup={setGroupId}
+      storeKey={storeKey}
+      restore={stored?.draft}
+    />
   )
 }
 
@@ -81,10 +101,16 @@ function NoGroups() {
       <Empty emoji="👀" title="Create a group first">
         Expenses live inside a group, a 1:1 friend, or your personal wallet.
         <div className="mt-4 flex justify-center gap-2">
-          <button type="button" className="btn-primary" onClick={() => nav('/groups/new?next=add')}><Users size={18} aria-hidden /> New group</button>
-          <button type="button" className="btn-secondary" onClick={() => nav('/groups/new?type=personal&next=add')}><Wallet size={18} aria-hidden /> Personal</button>
+          <button type="button" className="btn-primary" onClick={() => nav('/groups/new?next=add')}>
+            <Users size={18} aria-hidden /> New group
+          </button>
+          <button type="button" className="btn-secondary" onClick={() => nav('/groups/new?type=personal&next=add')}>
+            <Wallet size={18} aria-hidden /> Personal
+          </button>
         </div>
-        <button type="button" className="btn-secondary mx-auto mt-2 flex" onClick={() => nav('/split', { replace: true })} data-testid="nogroups-split"><ReceiptText size={18} aria-hidden /> Split a bill by items</button>
+        <button type="button" className="btn-secondary mx-auto mt-2 flex" onClick={() => nav('/split', { replace: true })} data-testid="nogroups-split">
+          <ReceiptText size={18} aria-hidden /> Split a bill by items
+        </button>
         <p className="mt-2 text-xs text-muted">Out to eat? Scan the bill and everyone taps what they had, no group needed.</p>
       </Empty>
     </div>

@@ -34,8 +34,7 @@ export function inTripWindow(g: Dated, date: string): boolean {
 
 export const isLiveTrip = (g: Dated, today: string) => inTripWindow(g, today)
 
-const windowDays = (g: Dated) =>
-  g.startDate && g.endDate ? (Date.parse(g.endDate) - Date.parse(g.startDate)) / 86_400_000 : Infinity
+const windowDays = (g: Dated) => (g.startDate && g.endDate ? (Date.parse(g.endDate) - Date.parse(g.startDate)) / 86_400_000 : Infinity)
 
 /** Groups a payment can be filed in: not the personal wallet, not archived. */
 const candidate = (g: Pick<TripGroup, 'type' | 'archived'>) => g.type !== 'personal' && !g.archived
@@ -54,11 +53,12 @@ export function rankGroupsForCapture<G extends TripGroup>(
   const ranked = groups
     .filter(candidate)
     .map((g) => ({ ...g, inWindow: inTripWindow(g, c.date) }))
-    .sort((a, b) =>
-      Number(b.inWindow) - Number(a.inWindow)
-      || (a.inWindow ? windowDays(a) - windowDays(b) : 0)
-      || sameCur(b) - sameCur(a)
-      || (b.updatedAt ?? 0) - (a.updatedAt ?? 0),
+    .sort(
+      (a, b) =>
+        Number(b.inWindow) - Number(a.inWindow) ||
+        (a.inWindow ? windowDays(a) - windowDays(b) : 0) ||
+        sameCur(b) - sameCur(a) ||
+        (b.updatedAt ?? 0) - (a.updatedAt ?? 0),
     )
   return { ranked, best: ranked[0]?.inWindow ? ranked[0].id : undefined }
 }
@@ -73,7 +73,10 @@ export function liveTripFor<G extends TripGroup>(groups: G[], today: string): st
  * trips with capture paused are skipped. Undefined when no trip matches.
  */
 export function pickTrip<G extends TripGroup>(groups: G[], date: string, currency?: string): G | undefined {
-  const { ranked, best } = rankGroupsForCapture(groups.filter((g) => !g.captureOff), { date, currency })
+  const { ranked, best } = rankGroupsForCapture(
+    groups.filter((g) => !g.captureOff),
+    { date, currency },
+  )
   return best ? ranked.find((g) => g.id === best) : undefined
 }
 

@@ -45,11 +45,7 @@ describe('subline', () => {
 
   it('uses real state when there is some', () => {
     const s = { inbox: 3, liveTrips: [{ name: 'Goa Trip', emoji: '🏖️' }], owedBy: { name: 'Priya', amount: '₹1,200' }, settled: false }
-    expect(stateLines(s)).toEqual([
-      '3 payments to sort in your inbox 📥',
-      'Goa Trip is live today 🏖️',
-      'Priya owes you ₹1,200 💸',
-    ])
+    expect(stateLines(s)).toEqual(['3 payments to sort in your inbox 📥', 'Goa Trip is live today 🏖️', 'Priya owes you ₹1,200 💸'])
     const days = [1, 2, 3, 4, 5, 6].map((d) => pickSubline(s, at(2026, 10, d)))
     for (const l of days) expect(stateLines(s)).toContain(l)
     expect(new Set(days).size).toBe(3)
@@ -76,19 +72,26 @@ describe('topCounterparties', () => {
   const members = { me: { name: 'Me', uid: 'u-me' }, p: { name: 'Priya Shah', uid: 'u-p' }, r: { name: 'Rohan' } }
   const g = (debts: DebtGroup['debts'], extra: Partial<DebtGroup> = {}): DebtGroup => ({ currency: 'INR', me: 'me', members, debts, ...extra })
   it('sums per person across groups and picks the largest each way', () => {
-    const res = topCounterparties([
-      g([{ from: 'p', to: 'me', amount: 70000 }, { from: 'me', to: 'r', amount: 20000 }]),
-      g([{ from: 'p', to: 'me', amount: 50000 }]),
-      g([{ from: 'p', to: 'me', amount: 99999 }], { currency: 'USD' }),
-      g([{ from: 'p', to: 'r', amount: 99999 }]),
-    ], 'INR')
+    const res = topCounterparties(
+      [
+        g([
+          { from: 'p', to: 'me', amount: 70000 },
+          { from: 'me', to: 'r', amount: 20000 },
+        ]),
+        g([{ from: 'p', to: 'me', amount: 50000 }]),
+        g([{ from: 'p', to: 'me', amount: 99999 }], { currency: 'USD' }),
+        g([{ from: 'p', to: 'r', amount: 99999 }]),
+      ],
+      'INR',
+    )
     expect(res).toEqual({ owedBy: { name: 'Priya', amount: 120000 }, owes: { name: 'Rohan', amount: 20000 } })
   })
   it('nets out opposite debts and ignores personal groups', () => {
-    expect(topCounterparties([
-      g([{ from: 'p', to: 'me', amount: 500 }]),
-      g([{ from: 'me', to: 'p', amount: 500 }]),
-      g([{ from: 'r', to: 'me', amount: 500 }], { type: 'personal' }),
-    ], 'INR')).toEqual({ owedBy: undefined, owes: undefined })
+    expect(
+      topCounterparties(
+        [g([{ from: 'p', to: 'me', amount: 500 }]), g([{ from: 'me', to: 'p', amount: 500 }]), g([{ from: 'r', to: 'me', amount: 500 }], { type: 'personal' })],
+        'INR',
+      ),
+    ).toEqual({ owedBy: undefined, owes: undefined })
   })
 })

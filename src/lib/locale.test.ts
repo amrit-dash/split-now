@@ -1,11 +1,25 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import {
-  appLocale, currencyForRegion, dateFormatter, defaultCurrency, detectRegion, formatDate, formatDateTime, formatTime, initLocale, localeFor,
-  paymentRegion, regionOfLocale, resolveLocale, withLatinDigits,
+  appLocale,
+  currencyForRegion,
+  dateFormatter,
+  defaultCurrency,
+  detectRegion,
+  formatDate,
+  formatDateTime,
+  formatTime,
+  initLocale,
+  localeFor,
+  paymentRegion,
+  regionOfLocale,
+  resolveLocale,
+  withLatinDigits,
 } from './locale'
 import { formatMoney } from './money'
 
-afterEach(() => { initLocale(resolveLocale(undefined, undefined)) })
+afterEach(() => {
+  initLocale(resolveLocale(undefined, undefined))
+})
 
 describe('region detection', () => {
   it('reads the region from the language tag', () => {

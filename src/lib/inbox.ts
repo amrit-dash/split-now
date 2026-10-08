@@ -9,17 +9,27 @@ const SEEN = 'splitit-inbox-seen'
 const listeners = new Set<() => void>()
 
 export function inboxSeenAt(): number {
-  try { return Number(localStorage.getItem(SEEN)) || 0 } catch { return 0 }
+  try {
+    return Number(localStorage.getItem(SEEN)) || 0
+  } catch {
+    return 0
+  }
 }
 
 export function markInboxSeen(at = Date.now()) {
-  try { localStorage.setItem(SEEN, String(at)) } catch { /* storage unavailable */ }
+  try {
+    localStorage.setItem(SEEN, String(at))
+  } catch {
+    /* storage unavailable */
+  }
   listeners.forEach((l) => l())
 }
 
 export function onInboxSeen(cb: () => void): () => void {
   listeners.add(cb)
-  return () => { listeners.delete(cb) }
+  return () => {
+    listeners.delete(cb)
+  }
 }
 
 /** Other people's entries, newest first. */

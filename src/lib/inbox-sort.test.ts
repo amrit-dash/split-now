@@ -3,10 +3,24 @@ import type { Capture } from '@/types'
 import { bulkCandidates, sumCaptures, targetGroupFor } from './inbox-sort'
 
 const g = (id: string, o: Partial<{ startDate: string; endDate: string; currency: string; archived: boolean; type: 'trip' | 'personal' }> = {}) => ({
-  id, type: o.type ?? ('trip' as const), currency: o.currency ?? 'INR', updatedAt: 1, startDate: o.startDate, endDate: o.endDate, archived: o.archived,
+  id,
+  type: o.type ?? ('trip' as const),
+  currency: o.currency ?? 'INR',
+  updatedAt: 1,
+  startDate: o.startDate,
+  endDate: o.endDate,
+  archived: o.archived,
 })
 const cap = (id: string, date: string, o: Partial<Capture> = {}): Capture => ({
-  id, amount: 100, merchant: 'Swiggy', date, source: 'sms-ios', status: 'pending', createdAt: 1, updatedAt: 1, ...o,
+  id,
+  amount: 100,
+  merchant: 'Swiggy',
+  date,
+  source: 'sms-ios',
+  status: 'pending',
+  createdAt: 1,
+  updatedAt: 1,
+  ...o,
 })
 
 const goa = g('goa', { startDate: '2026-10-01', endDate: '2026-10-10' })
@@ -28,14 +42,26 @@ describe('targetGroupFor', () => {
 
 describe('bulkCandidates', () => {
   it('needs two or more captures in one live trip, in its currency', () => {
-    const list = [cap('a', '2026-10-02'), cap('b', '2026-10-03'), cap('c', '2026-10-05', { suggestedGroup: 'wed' }), cap('d', '2026-10-09', { currency: 'AUD' }), cap('e', '2026-12-01')]
+    const list = [
+      cap('a', '2026-10-02'),
+      cap('b', '2026-10-03'),
+      cap('c', '2026-10-05', { suggestedGroup: 'wed' }),
+      cap('d', '2026-10-09', { currency: 'AUD' }),
+      cap('e', '2026-12-01'),
+    ]
     const out = bulkCandidates(list, [goa, wedding, flat])
     expect(out).toHaveLength(1)
     expect(out[0].group.id).toBe('goa')
     expect(out[0].captures.map((c) => c.id)).toEqual(['a', 'b'])
   })
   it('skips handled captures and sorts the biggest set first', () => {
-    const list = [cap('a', '2026-10-02'), cap('b', '2026-10-03', { status: 'assigned' }), cap('c', '2026-10-05', { suggestedGroup: 'wed' }), cap('d', '2026-10-05', { suggestedGroup: 'wed' }), cap('e', '2026-10-06', { suggestedGroup: 'wed' })]
+    const list = [
+      cap('a', '2026-10-02'),
+      cap('b', '2026-10-03', { status: 'assigned' }),
+      cap('c', '2026-10-05', { suggestedGroup: 'wed' }),
+      cap('d', '2026-10-05', { suggestedGroup: 'wed' }),
+      cap('e', '2026-10-06', { suggestedGroup: 'wed' }),
+    ]
     const out = bulkCandidates(list, [goa, wedding])
     expect(out.map((c) => [c.group.id, c.captures.length])).toEqual([['wed', 3]])
   })

@@ -56,10 +56,14 @@ function addMonths(iso: string, months: number): string {
 /** The n-th occurrence (n = 0 is the anchor itself). */
 export function nthOccurrence(anchor: string, freq: RecurrenceFreq, n: number): string {
   switch (freq) {
-    case 'weekly': return addDays(anchor, 7 * n)
-    case 'fortnightly': return addDays(anchor, 14 * n)
-    case 'monthly': return addMonths(anchor, n)
-    case 'yearly': return addMonths(anchor, 12 * n)
+    case 'weekly':
+      return addDays(anchor, 7 * n)
+    case 'fortnightly':
+      return addDays(anchor, 14 * n)
+    case 'monthly':
+      return addMonths(anchor, n)
+    case 'yearly':
+      return addMonths(anchor, 12 * n)
   }
 }
 
