@@ -851,17 +851,23 @@ function TripAutoCapture({ group }: { group: Group }) {
     toast(on ? `Auto-capture on for ${group.name}` : `Auto-capture paused for ${group.name}`)
   }
   return (
-    <div className="card mb-4 flex items-center gap-3 px-4 py-3" data-testid="trip-auto-capture">
-      <MessageSquareText size={22} className={`shrink-0 ${off ? 'text-muted' : 'text-brand-600 dark:text-brand-300'}`} aria-hidden />
-      <div className="min-w-0 flex-1">
-        <div className="text-sm font-semibold">Trip auto-capture{off ? ' · paused' : ''}</div>
-        <Link to={`/settings/auto-capture?group=${group.id}`} className="text-muted flex min-h-6 items-center gap-0.5 text-xs">
-          {off ? 'Debit SMS during this trip are skipped for everyone' : 'Debit SMS during the trip ask to be added here'} ·{' '}
-          <span className="font-semibold text-brand-600 dark:text-brand-300">Set up</span>
-          <ChevronRight size={14} aria-hidden />
-        </Link>
+    <div className="card mb-4 px-4 py-3" data-testid="trip-auto-capture">
+      <div className="flex items-center gap-3">
+        <MessageSquareText size={22} className={`shrink-0 ${off ? 'text-muted' : 'text-brand-600 dark:text-brand-300'}`} aria-hidden />
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold">Trip auto-capture{off ? ' · paused' : ''}</div>
+          <div className="text-muted text-xs">
+            {off ? 'Debit SMS during this trip are skipped for everyone' : 'Debit SMS during the trip ask to be added here'}
+          </div>
+        </div>
+        <Switch checked={!off} onChange={set} label={`Auto-capture for ${group.name}`} testId="trip-capture-switch" />
       </div>
-      <Switch checked={!off} onChange={set} label={`Auto-capture for ${group.name}`} testId="trip-capture-switch" />
+      <Link
+        to={`/settings/auto-capture?group=${group.id}`}
+        className="mt-1 flex min-h-9 items-center gap-0.5 pl-[34px] text-sm font-semibold text-brand-600 dark:text-brand-300"
+      >
+        Set up for this trip <ChevronRight size={16} aria-hidden />
+      </Link>
     </div>
   )
 }
