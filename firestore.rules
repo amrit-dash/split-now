@@ -50,12 +50,13 @@ service cloud.firestore {
         allow read, delete: if signedIn() && uid() == userId;
         allow create, update: if signedIn() && uid() == userId
           && (settingId != 'notifications' || (
-            request.resource.data.keys().hasOnly(['captures', 'unsorted', 'expenses', 'settlements', 'reminders', 'updatedAt'])
+            request.resource.data.keys().hasOnly(['captures', 'unsorted', 'expenses', 'settlements', 'reminders', 'outsideTrips', 'updatedAt'])
             && request.resource.data.get('captures', true) is bool
             && request.resource.data.get('unsorted', false) is bool
             && request.resource.data.get('expenses', true) is bool
             && request.resource.data.get('settlements', true) is bool
             && request.resource.data.get('reminders', true) is bool
+            && request.resource.data.get('outsideTrips', false) is bool
             && request.resource.data.get('updatedAt', 0) is int));
       }
     }

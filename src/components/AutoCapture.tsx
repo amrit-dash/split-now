@@ -6,6 +6,7 @@ import type { CaptureToken } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
 import { copy } from '@/lib/share'
 import { autoCaptureSummary } from '@/lib/profileSummary'
+import { savePrefs, watchPrefs, type NotificationPrefs } from '@/lib/push'
 import { Collapsible } from './Collapsible'
 import { useToast } from './Toast'
 
@@ -61,6 +62,8 @@ export function AutoCapture() {
       <p className="text-sm text-slate-500">
         Send payments to your <Link to="/inbox" className="font-semibold text-brand-600 dark:text-brand-300">inbox</Link> automatically, then pick a group with one tap. Nothing is ever added without your OK.
       </p>
+
+      {repo.mode === 'firebase' && <OutsideTripsToggle uid={user.uid} />}
 
       <Link to="/settings/auto-capture" className="mt-3 flex items-center gap-3 rounded-2xl bg-brand-50 p-3 ring-1 ring-brand-200 dark:bg-brand-900/20 dark:ring-brand-800">
         <MessageSquareText size={22} className="shrink-0 text-brand-600 dark:text-brand-300" />
@@ -130,6 +133,40 @@ function CopyBlock({ label, value, onCopy }: { label: string; value: string; onC
         <button className="inline-flex items-center gap-1 text-brand-600 dark:text-brand-300" onClick={onCopy}><Copy size={13} /> Copy</button>
       </div>
       <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-xl bg-white p-2 font-mono text-[11px] dark:bg-ink-900">{value}</pre>
+    </div>
+  )
+}
+
+/**
+ * Which debit SMS get captured: inside a trip's dates only (default), or every debit (the rest
+ * land in the inbox unsorted). Stored with the notification prefs; enforced by the webhook.
+ */
+function OutsideTripsToggle({ uid }: { uid: string }) {
+  const [prefs, setPrefs] = useState<NotificationPrefs | null>(null)
+  useEffect(() => watchPrefs(uid, setPrefs), [uid])
+  if (!prefs) return null
+  const on = prefs.outsideTrips
+  const set = (v: boolean) => { const next = { ...prefs, outsideTrips: v }; setPrefs(next); void savePrefs(uid, next) }
+  return (
+    <div className="mt-3 rounded-2xl bg-slate-50 p-3 dark:bg-ink-800">
+      <div className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">What gets captured</div>
+      <div role="radiogroup" aria-label="What gets captured" className="space-y-1.5">
+        {[
+          { v: false, title: 'Only payments during a trip', hint: 'Debit SMS dated inside a group’s trip dates. Everything else is ignored and never stored.' },
+          { v: true, title: 'All bank & UPI payments', hint: 'Payments outside a trip also land in your inbox to sort later.' },
+        ].map((o) => (
+          <button key={String(o.v)} type="button" role="radio" aria-checked={on === o.v} onClick={() => set(o.v)}
+            className={`flex w-full items-start gap-3 rounded-xl p-2.5 text-left transition ${on === o.v ? 'bg-white ring-2 ring-brand-500 dark:bg-ink-900' : ''}`}>
+            <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${on === o.v ? 'border-brand-600 bg-brand-600' : 'border-slate-300 dark:border-ink-700'}`}>
+              {on === o.v && <span className="h-2 w-2 rounded-full bg-white" />}
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold">{o.title}</span>
+              <span className="block text-xs text-slate-500">{o.hint}</span>
+            </span>
+          </button>
+        ))}
+      </div>
     </div>
   )
 }

@@ -164,8 +164,9 @@ describe('recipients and prefs', () => {
     expect(r[0].share).toBe(21000)
   })
   it('defaults prefs (unsorted off) and respects stored values', () => {
-    expect(resolvePrefs(undefined)).toEqual({ captures: true, unsorted: false, expenses: true, settlements: true, reminders: true })
+    expect(resolvePrefs(undefined)).toEqual({ captures: true, unsorted: false, expenses: true, settlements: true, reminders: true, outsideTrips: false })
     expect(resolvePrefs({ expenses: false, unsorted: true, junk: 1 })).toMatchObject({ expenses: false, unsorted: true })
+    expect(resolvePrefs({ outsideTrips: true }).outsideTrips).toBe(true)
   })
 })
 

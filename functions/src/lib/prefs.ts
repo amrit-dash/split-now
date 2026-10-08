@@ -13,11 +13,16 @@ export interface NotificationPrefs {
   settlements: boolean
   /** weekly nudge when you owe money */
   reminders: boolean
+  /**
+   * Capture setting (not a push type): save debit SMS that match no trip dates to the inbox.
+   * Off by default: only payments inside a trip window are captured.
+   */
+  outsideTrips: boolean
 }
 
 export type PrefKey = keyof NotificationPrefs
 
-export const DEFAULT_PREFS: NotificationPrefs = { captures: true, unsorted: false, expenses: true, settlements: true, reminders: true }
+export const DEFAULT_PREFS: NotificationPrefs = { captures: true, unsorted: false, expenses: true, settlements: true, reminders: true, outsideTrips: false }
 
 export function resolvePrefs(raw: unknown): NotificationPrefs {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
