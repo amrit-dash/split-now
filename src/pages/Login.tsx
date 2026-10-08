@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import { ArrowRight, Sparkles, UserPlus } from 'lucide-react'
+import { ArrowRight, LogIn, Sparkles, UserPlus } from 'lucide-react'
 import { repo } from '@/data'
 import { useToast } from '@/components/Toast'
 
@@ -68,7 +68,7 @@ export default function Login() {
                 {mode === 'up' && <input className="input !bg-white/10 !text-white" placeholder="Your name" required value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />}
                 <input className="input !bg-white/10 !text-white" type="email" placeholder="Email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
                 <input className="input !bg-white/10 !text-white" type="password" placeholder="Password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === 'in' ? 'current-password' : 'new-password'} />
-                <button className="btn-primary w-full" disabled={busy}>{mode === 'in' ? 'Sign in' : 'Create account'}</button>
+                <button className="btn-primary w-full" disabled={busy}><LogIn size={18} aria-hidden /> {mode === 'in' ? 'Sign in' : 'Create account'}</button>
               </form>
               <button className="w-full py-2 text-sm text-slate-400" onClick={() => setMode(mode === 'in' ? 'up' : 'in')}>
                 {mode === 'in' ? 'New here? Create an account' : 'Already have an account? Sign in'}

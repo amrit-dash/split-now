@@ -1,11 +1,9 @@
 import { Link } from 'react-router-dom'
-import { ArrowRightLeft, ChevronRight, Inbox, Plus, QrCode, ScanLine } from 'lucide-react'
+import { ArrowRightLeft, Inbox, Plus, QrCode, ScanLine } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
-import { useAllGroupData, usePendingCaptures, useRecentActivity } from '@/hooks/data'
-import { repo } from '@/data'
-import { awaitingMyApproval } from '@/lib/trust'
+import { useAllGroupData } from '@/hooks/data'
+import { useInbox } from '@/hooks/useInbox'
 import { ActivityFeed } from '@/components/Trust'
-import { useToast } from '@/components/Toast'
 import { formatMoney } from '@/lib/money'
 import { convertMinor } from '@/lib/fx'
 import { useTodayRates } from '@/hooks/useFx'
@@ -20,16 +18,15 @@ import { isLiveTrip } from '@/lib/capture'
 import { todayISO } from '@/lib/id'
 
 export default function Home() {
-  const { profile, user } = useMe()
+  const { profile } = useMe()
   const data = useAllGroupData()
-  const inbox = usePendingCaptures()?.length ?? 0
   const home = profile.currency
   const rates = useTodayRates(home, data ? data.map((d) => d.group.currency) : [])
-  const toast = useToast()
-  const feed = useRecentActivity(data ? data.filter((d) => d.group.type !== 'personal').map((d) => d.group.id) : null, 6)
+  const box = useInbox(data)
+  const inbox = box.count
+  const feed = box.feed?.slice(0, 6)
   if (!data) return <Loading />
   const groupsById = Object.fromEntries(data.map((d) => [d.group.id, d.group]))
-  const needsOk = data.flatMap((d) => d.pending.filter((e) => awaitingMyApproval(e, d.group, user.uid)).map((e) => ({ e, d })))
 
   // Exact totals per group currency.
   const totals = new Map<string, { owed: number; owe: number }>()
@@ -67,8 +64,8 @@ export default function Home() {
   const today = todayISO()
   const people = topCounterparties(shared.map((d) => ({ ...d.group, me: d.me, debts: d.debts })), cur)
   const hello = greeting(profile.displayName, {
-    inbox,
-    needsOk: needsOk.length,
+    inbox: box.captures.length,
+    needsOk: box.approvals.length,
     liveTrips: shared.filter((d) => isLiveTrip(d.group, today)).map((d) => ({ name: d.group.name, emoji: d.group.emoji })),
     owedBy: people.owedBy && { name: people.owedBy.name, amount: formatMoney(people.owedBy.amount, cur) },
     owes: people.owes && { name: people.owes.name, amount: formatMoney(people.owes.amount, cur) },
@@ -82,17 +79,16 @@ export default function Home() {
       <header className="mb-6 flex items-center justify-between gap-4" data-testid="home-greeting">
         <div className="min-w-0">
           <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{hello.salutation}</p>
-          <h1 className="mt-0.5 flex items-center gap-2 text-[1.75rem] font-extrabold leading-tight tracking-tight">
-            <span className="truncate">Hi, {hello.name}!</span>
-            <span aria-hidden className={`inline-block shrink-0 ${HELLO[part].motion === 'wave' ? 'animate-wave origin-[70%_70%]' : 'animate-float'}`}>{HELLO[part].emoji}</span>
+          <h1 className="mt-0.5 text-[1.75rem] font-extrabold leading-tight tracking-tight [overflow-wrap:anywhere]">
+            Hi, {hello.name}!{'\u00a0'}<span aria-hidden className={`inline-block ${HELLO[part].motion === 'wave' ? 'animate-wave origin-[70%_70%]' : 'animate-float'}`}>{HELLO[part].emoji}</span>
           </h1>
         </div>
         <div className="flex shrink-0 items-center gap-2.5">
-          <Link to="/inbox" aria-label={inbox ? `Inbox, ${inbox} to sort` : 'Inbox'} data-testid="home-inbox"
-            className="relative flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-600 shadow-sm ring-1 ring-slate-900/5 transition active:scale-95 dark:bg-ink-900 dark:text-slate-300 dark:ring-white/10">
-            <Inbox size={20} />
+          <Link to="/inbox" aria-label={inbox ? `Inbox, ${inbox} new` : 'Inbox'} data-testid="home-inbox"
+            className="relative flex h-11 items-center gap-1 rounded-full px-1.5 text-slate-600 transition active:scale-95 dark:text-slate-300">
+            <Inbox size={24} strokeWidth={2} />
             {inbox > 0 && (
-              <span className="animate-pop absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[11px] font-bold text-white ring-2 ring-slate-50 dark:ring-ink-950">
+              <span className="animate-pop flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[11px] font-bold text-white">
                 {inbox > 99 ? '99+' : inbox}
               </span>
             )}
@@ -103,34 +99,7 @@ export default function Home() {
         </div>
       </header>
 
-      {inbox > 0 && (
-        <Link to="/inbox" className="card mb-4 flex items-center gap-3 p-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-100 text-xl dark:bg-brand-900/40">📥</div>
-          <div className="flex-1">
-            <div className="font-semibold">{inbox} captured payment{inbox === 1 ? '' : 's'} to sort</div>
-            <div className="text-xs text-slate-500">Add to a group, or mark as not shared</div>
-          </div>
-          <ChevronRight size={18} className="text-slate-300 dark:text-slate-600" />
-        </Link>
-      )}
 
-      {needsOk.length > 0 && (
-        <div className="card mb-4 p-4">
-          <div className="mb-2 flex items-center gap-2 font-semibold">👀 Needs your OK <span className="rounded-full bg-sky-100 px-2 text-xs text-sky-800 dark:bg-sky-500/15 dark:text-sky-300">{needsOk.length}</span></div>
-          <p className="mb-2 text-xs text-slate-500">Not counted in balances until you approve.</p>
-          <ul className="divide-y divide-slate-100 dark:divide-white/5">
-            {needsOk.slice(0, 5).map(({ e, d }) => (
-              <li key={e.id} className="flex items-center gap-3 py-2">
-                <Link to={`/groups/${d.group.id}/expenses/${e.id}`} className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">{e.description}</div>
-                  <div className="truncate text-xs text-slate-500">{d.group.emoji} {d.group.name} · your share {formatMoney(d.me ? e.splits[d.me] ?? 0 : 0, d.group.currency)}</div>
-                </Link>
-                <button className="chip shrink-0" onClick={() => repo.approveExpense(d.group, e).then(() => toast('Approved 👍')).catch((err) => toast((err as Error).message, 'err'))}>Approve</button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
 
       <div className="relative isolate overflow-hidden rounded-[2rem] bg-brand-600 p-6 text-white shadow-xl shadow-brand-600/30">
         <Aurora />
@@ -167,7 +136,7 @@ export default function Home() {
         {shared.length === 0 ? (
           <Empty emoji="👯" title="No groups yet">
             Create a group for a trip, your home, or anything you share.
-            <div className="mt-3"><Link to="/groups/new" className="btn-primary">Create group</Link></div>
+            <div className="mt-3"><Link to="/groups/new" className="btn-primary"><Plus size={18} aria-hidden /> Create group</Link></div>
           </Empty>
         ) : (
           <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">

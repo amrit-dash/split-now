@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Check } from 'lucide-react'
+import { Check, Users } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { memberOrder, myMemberId, useGroups } from '@/hooks/data'
@@ -39,7 +39,7 @@ export default function TableFinish({ table, totals, onClose }: { table: LiveTab
               <div className="font-semibold">{totals.unclaimed.length} item{totals.unclaimed.length === 1 ? ' is' : 's are'} still unclaimed ({formatMoney(totals.unclaimedAmount, table.currency)}).</div>
               <button className="btn-secondary mt-2 w-full !min-h-0 !py-2 text-sm" onClick={() => {
                 repo.updateTable(table.code, { claims: claimLeftoversForAll(table) }).catch((e) => toast((e as Error).message, 'err'))
-              }}>Split leftovers between everyone</button>
+              }}><Users size={16} aria-hidden /> Split leftovers between everyone</button>
             </div>
           )}
           <div>
@@ -149,7 +149,7 @@ function ToGroup({ table, group, ready }: { table: LiveTable; group: Group; read
       </div>
       {dupes.size > 0 && <p className="mt-2 text-xs text-amber-600">Two people point at the same member — their items will be combined.</p>}
       <p className="mt-2 text-xs text-slate-500">{group.members[payer]?.name ?? 'You'} paid {formatMoney(tableTotal(table), table.currency)}. Everyone else owes their share.</p>
-      <button className="btn-primary mt-4 w-full" disabled={!ready || busy} onClick={finish}>Add expense to {group.name}</button>
+      <button className="btn-primary mt-4 w-full" disabled={!ready || busy} onClick={finish}><Check size={18} aria-hidden /> Add expense to {group.name}</button>
     </div>
   )
 }
@@ -187,7 +187,7 @@ function NoGroup({ table, ready }: { table: LiveTable; ready: boolean }) {
   return (
     <div className="space-y-2">
       <p className="text-sm text-slate-500">Creates “{table.merchant}” with everyone here and adds this bill item by item, so you can fix who had what later. Friends join it with the invite link.</p>
-      <button className="btn-primary w-full" disabled={!ready || busy} onClick={createGroup} data-testid="create-table-group">Create group and add the bill</button>
+      <button className="btn-primary w-full" disabled={!ready || busy} onClick={createGroup} data-testid="create-table-group"><Users size={18} aria-hidden /> Create group and add the bill</button>
       <button className="btn-ghost w-full" disabled={busy} onClick={() => repo.updateTable(table.code, { status: 'closed' }).catch((e) => toast((e as Error).message, 'err'))}>Don’t make a group, just show who owes what</button>
     </div>
   )

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Clock, Flag, RotateCcw, Trash2 } from 'lucide-react'
+import { Check, Clock, Flag, RotateCcw, Trash2 } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { useHistory, useTrash } from '@/hooks/data'
@@ -54,11 +54,13 @@ export function useUndoableDelete() {
 }
 
 /** Activity rows. Pass `groups` to show which group each entry is from (cross-group feed). */
-export function ActivityFeed({ entries, groups, linkable }: {
+export function ActivityFeed({ entries, groups, linkable, isNew }: {
   entries: ActivityEntry[]
   groups?: Record<string, Group>
   /** target ids that can be opened as an expense */
   linkable?: (a: ActivityEntry) => boolean
+  /** unread entries get a dot */
+  isNew?: (a: ActivityEntry) => boolean
 }) {
   const { user } = useMe()
   return (
@@ -72,6 +74,7 @@ export function ActivityFeed({ entries, groups, linkable }: {
               <div className="line-clamp-2 text-sm">{activityText(a, user.uid)}</div>
               <div className="truncate text-xs text-slate-500">{g ? `${g.emoji} ${g.name} · ` : ''}{fmtAgo(a.createdAt)}</div>
             </div>
+            {isNew?.(a) && <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-brand-500" aria-label="New" />}
           </>
         )
         const canLink = a.type.startsWith('expense.') && a.type !== 'expense.purged' && (linkable ? linkable(a) : true)
@@ -157,7 +160,7 @@ export function TrustPanel({ group, expense: e, myMemberId }: { group: Group; ex
             </div>
           </div>
           {iMustApprove && (
-            <button className="btn-primary mt-3 w-full" onClick={() => repo.approveExpense(group, e).then(() => toast('Approved 👍')).catch(fail)}>Approve {formatMoney(e.splits[myMemberId!] ?? 0, cur)} share</button>
+            <button className="btn-primary mt-3 w-full" onClick={() => repo.approveExpense(group, e).then(() => toast('Approved 👍')).catch(fail)}><Check size={18} aria-hidden /> Approve {formatMoney(e.splits[myMemberId!] ?? 0, cur)} share</button>
           )}
         </div>
       )}

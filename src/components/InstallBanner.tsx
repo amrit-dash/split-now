@@ -100,14 +100,14 @@ export function InstallBanner() {
   return (
     <>
       <div className="install-banner animate-pop fixed inset-x-3 bottom-[calc(var(--nav-h)+2rem)] z-40 mx-auto max-w-md">
-        <div className="flex items-center gap-3 rounded-3xl bg-slate-900 p-3 pl-4 text-white shadow-2xl shadow-brand-900/40 dark:bg-ink-800 dark:ring-1 dark:ring-white/10">
-          <img src="/pwa-192.png" alt="" className="h-11 w-11 rounded-2xl" />
+        <div className="flex items-center gap-2.5 rounded-3xl bg-slate-900 p-2.5 pl-3 text-white shadow-2xl shadow-brand-900/40 dark:bg-ink-800 dark:ring-1 dark:ring-white/10">
+          <img src="/pwa-192.png" alt="" className="h-10 w-10 shrink-0 rounded-2xl" />
           <div className="min-w-0 flex-1">
-            <div className="font-semibold">Install Split Now</div>
+            <div className="truncate text-sm font-semibold">Install Split Now</div>
             <div className="truncate text-xs text-slate-300">Full-screen, faster, works offline</div>
           </div>
           <button
-            className="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900"
+            className="shrink-0 rounded-2xl bg-white px-3.5 py-2 text-sm font-bold text-slate-900"
             onClick={async () => {
               if (install.canPrompt) { if (await install.prompt()) setHidden(true) }
               else setIosOpen(true)
@@ -115,7 +115,7 @@ export function InstallBanner() {
           >
             <span className="inline-flex items-center gap-1.5"><Download size={16} /> Install</span>
           </button>
-          <button onClick={dismiss} className="rounded-full p-1.5 text-slate-400 hover:text-white" aria-label="Dismiss"><X size={18} /></button>
+          <button onClick={dismiss} className="shrink-0 rounded-full p-1 text-slate-400 hover:text-white" aria-label="Dismiss"><X size={18} /></button>
         </div>
       </div>
       <Sheet open={iosOpen} onClose={() => setIosOpen(false)} title="Add to Home Screen">
