@@ -14,7 +14,7 @@ export function CreateSheet({ open, onClose, groupId }: { open: boolean; onClose
   return (
     <Sheet open={open} onClose={onClose} title="Create">
       <button onClick={() => go(`/add${q}`)} data-testid="create-expense"
-        className="flex w-full items-center gap-3 rounded-3xl bg-gradient-to-r from-brand-600 to-duo-600 p-4 text-left text-white shadow-lg shadow-brand-600/25 transition active:scale-[0.98]">
+        className="flex w-full items-center gap-3 accent-live rounded-3xl bg-gradient-to-r from-brand-600 to-duo-600 p-4 text-left text-white shadow-lg shadow-brand-600/25 transition active:scale-[0.98]">
         <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15"><Plus size={26} strokeWidth={2.6} /></span>
         <span className="min-w-0 flex-1">
           <span className="block text-lg font-bold">Add expense</span>

@@ -125,16 +125,23 @@ export function AiSettings() {
 
           {/* The user's own key */}
           <div className="rounded-2xl ring-1 ring-slate-200 dark:ring-white/10" data-testid="ai-own-key">
-            <div className="flex items-center gap-2 px-3.5 pt-3 font-semibold"><KeyRound size={16} className="text-brand-500" /> Your Gemini key</div>
+            <div className="flex items-center gap-2 px-3.5 pt-3 font-semibold">
+              <KeyRound size={16} className="text-brand-500" /> Your Gemini key
+              {hasKey && (
+                <span className={`ml-auto flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${state?.lastError ? 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'}`} data-testid="ai-own-badge">
+                  {state?.lastError ? 'Needs attention' : <><Check size={13} strokeWidth={3} /> Set up</>}
+                </span>
+              )}
+            </div>
             <div className="space-y-3 px-3.5 pb-3.5 pt-1.5">
               {hasKey && !editing ? (
                 <>
-                  <div className="flex items-center justify-between gap-2 text-sm">
-                    <span className="font-mono text-slate-600 dark:text-slate-300">Saved · {state!.hint}</span>
+                  <p className="flex items-center gap-1.5 text-xs text-slate-500" data-testid="ai-own-status">
+                    <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${state?.lastError ? 'bg-rose-500' : 'bg-emerald-500'}`} />
                     {state?.lastError
-                      ? <span className="text-right text-xs font-medium text-rose-600 dark:text-rose-400">{ERR[state.lastError.kind]} · {ago(state.lastError.at)}</span>
-                      : <span className="flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400"><Check size={14} /> Working{state?.lastOkAt ? ` · ${ago(state.lastOkAt)}` : ''}</span>}
-                  </div>
+                      ? <span>Key <span className="font-mono">{state.hint}</span> · {ERR[state.lastError.kind]} · {ago(state.lastError.at)}</span>
+                      : <span>Key set up (<span className="font-mono">{state!.hint}</span>) · working{state?.lastOkAt ? `, checked ${ago(state.lastOkAt)}` : ''}</span>}
+                  </p>
                   <div className="flex gap-2">
                     <button className="btn-secondary !min-h-0 flex-1 !py-2 text-sm" disabled={!!busy} onClick={() => run('test')}>
                       {busy === 'test' ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />} Test

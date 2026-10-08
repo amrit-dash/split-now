@@ -19,7 +19,7 @@ export default function Groups() {
           <div className="flex gap-2">
             <Link to="/groups/import" className="rounded-full bg-slate-200/70 p-2.5 dark:bg-ink-800" aria-label="Import from Splitwise"><FileUp size={20} /></Link>
             <Link to="/friends"className="rounded-full bg-slate-200/70 p-2.5 dark:bg-ink-800" aria-label="Friends"><UserPlus size={20} /></Link>
-            <Link to="/groups/new" className="rounded-full bg-brand-600 p-2.5 text-white" aria-label="New group"><Plus size={20} /></Link>
+            <Link to="/groups/new" className="accent-live rounded-full bg-brand-600 p-2.5 text-white" aria-label="New group"><Plus size={20} /></Link>
           </div>
         }
       />

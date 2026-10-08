@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { AlertCircle, Camera, Check, CheckCircle2, ChevronDown, History, Minus, Plus, QrCode, Repeat, Search, Trash2, UserPlus, Users, Wallet, X, type LucideIcon } from 'lucide-react'
+import { AlertCircle, Camera, Check, CheckCircle2, History, Minus, Plus, QrCode, Repeat, Search, Trash2, UserPlus, Users, Wallet, X, type LucideIcon } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { memberOrder, myMemberId, useCaptures, useExpenses, useGroup, useGroups } from '@/hooks/data'
@@ -333,7 +333,7 @@ function Form({ group, groups, existing, again, capture, history, onGroup }: {
       <header className="sticky top-0 z-30 -mx-4 flex items-center justify-between bg-slate-50/85 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] backdrop-blur-xl dark:bg-ink-950/85">
         <button onClick={() => nav(-1)} className="-ml-2 rounded-full p-2" aria-label="Cancel"><X size={24} /></button>
         <div className="font-bold">{existing ? 'Edit expense' : capture ? 'Captured payment' : 'Add expense'}</div>
-        <button onClick={save} disabled={busy} className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-brand-600 px-3.5 py-1.5 text-sm font-bold leading-5 text-white disabled:opacity-50"><Check size={16} strokeWidth={2.5} aria-hidden />{busy ? '…' : 'Save'}</button>
+        <button onClick={save} disabled={busy} className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap accent-live rounded-full bg-brand-600 px-3.5 py-1.5 text-sm font-bold leading-5 text-white disabled:opacity-50"><Check size={16} strokeWidth={2.5} aria-hidden />{busy ? '…' : 'Save'}</button>
       </header>
 
       {/* Group picker */}
@@ -366,7 +366,7 @@ function Form({ group, groups, existing, again, capture, history, onGroup }: {
           />
         </div>
         {suggestions.length > 0 && (
-          <div className="-mx-1 mt-3 flex gap-1.5 overflow-x-auto px-1 pb-0.5" data-testid="desc-suggestions" aria-label="Past descriptions">
+          <div className="-mx-1 mt-3 flex gap-1.5 overflow-x-auto px-1 py-1" data-testid="desc-suggestions" aria-label="Past descriptions">
             {suggestions.map((sg) => (
               <button key={sg.description} type="button" onClick={() => pickSuggestion(sg)} className="chip shrink-0 !py-1.5 text-sm">
                 <span aria-hidden>{CATEGORIES[sg.category].emoji}</span><span className="max-w-[10rem] truncate">{sg.description}</span>
@@ -374,9 +374,11 @@ function Form({ group, groups, existing, again, capture, history, onGroup }: {
             ))}
           </div>
         )}
-        <div className="mt-4 flex items-baseline gap-2 border-t border-slate-100 pt-4 dark:border-white/5">
-          <button type="button" onClick={() => setSheet('currency')} className={`flex shrink-0 items-center text-2xl font-bold ${foreign ? 'text-brand-600 dark:text-brand-300' : 'text-slate-400'}`} aria-label={`Currency: ${cur}. Change`}>
-            {currencySymbol(cur)}<ChevronDown size={18} />
+        <div className="mt-4 flex items-baseline gap-3 border-t border-slate-100 pt-4 dark:border-white/5">
+          {/* The symbol itself is the currency button (opens the list); sized to sit with the amount. */}
+          <button type="button" onClick={() => setSheet('currency')} aria-label={`Currency: ${cur}. Change`} data-testid="amount-currency"
+            className={`shrink-0 rounded-xl pl-1 pr-0.5 font-extrabold leading-none tracking-tight transition active:scale-95 ${currencySymbol(cur).length > 2 ? 'text-3xl' : 'text-5xl'} ${foreign ? 'text-brand-600 dark:text-brand-300' : 'text-slate-400 dark:text-slate-500'}`}>
+            {currencySymbol(cur)}
           </button>
           <input
             className="w-full bg-transparent text-5xl font-extrabold tabular-nums tracking-tight outline-none placeholder:text-slate-300 dark:placeholder:text-ink-700"
@@ -396,7 +398,7 @@ function Form({ group, groups, existing, again, capture, history, onGroup }: {
           <DateField aria-label="Date" className="!w-auto shrink-0 !py-2 text-sm" value={date} onChange={(v) => setDate(v || todayISO())} />
           {[{ d: today, label: 'Today' }, { d: yesterday, label: 'Yesterday' }].map((o) => (
             <button key={o.label} type="button" onClick={() => setDate(o.d)} aria-pressed={date === o.d}
-              className={`shrink-0 rounded-2xl px-2 text-xs font-semibold ${date === o.d ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600 dark:bg-ink-800 dark:text-slate-300'}`}>{o.label}</button>
+              className={`shrink-0 rounded-2xl px-2 text-xs font-semibold ${date === o.d ? 'accent-live bg-brand-600 text-white' : 'bg-slate-100 text-slate-600 dark:bg-ink-800 dark:text-slate-300'}`}>{o.label}</button>
           ))}
           <button type="button" className="@container btn-secondary !min-h-0 min-w-0 flex-1 !gap-1.5 !px-2 !py-2 text-sm" onClick={() => fileRef.current?.click()} disabled={ocr.busy}
             aria-label={ocr.busy ? undefined : receipt || receiptUrl ? 'Rescan receipt' : 'Scan receipt'}>
@@ -448,10 +450,10 @@ function Form({ group, groups, existing, again, capture, history, onGroup }: {
           {/* Split */}
           <div className="card mt-3 p-4">
             <div className="label flex items-center gap-1.5">Split{splitHint && <SameHint />}</div>
-            <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+            <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 py-1">
               {(splitType === 'itemized' ? [...SPLIT_TYPES, ITEMIZED] : SPLIT_TYPES).map((t) => (
                 <button key={t.value} type="button" onClick={() => { setSplitType(t.value); setInput((i) => seedInput(i, t.value, order, amount)) }}
-                  className={`flex min-w-[4.5rem] flex-col items-center gap-1 rounded-2xl px-3 py-2.5 text-xs font-semibold transition ${splitType === t.value ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/30' : 'bg-slate-100 text-slate-600 dark:bg-ink-800 dark:text-slate-300'}`}>
+                  className={`flex min-w-[4.5rem] flex-col items-center gap-1 rounded-2xl px-3 py-2.5 text-xs font-semibold transition ${splitType === t.value ? 'accent-live bg-brand-600 text-white shadow-lg shadow-brand-600/30' : 'bg-slate-100 text-slate-600 dark:bg-ink-800 dark:text-slate-300'}`}>
                   <span className="text-base font-bold">{t.icon}</span>{t.label}
                 </button>
               ))}
@@ -503,7 +505,7 @@ function Form({ group, groups, existing, again, capture, history, onGroup }: {
         <p className="mb-2 text-sm text-slate-500">{group.name} is in {group.currency}. Other currencies are converted at the ECB rate for the expense date, then locked.</p>
         <div className="grid grid-cols-4 gap-2">
           {currencyChoices.map((c) => (
-            <button key={c} onClick={() => { setCur(c); setSheet(null) }} className={`rounded-2xl py-3 text-sm font-bold ${c === cur ? 'bg-brand-600 text-white' : 'bg-slate-100 dark:bg-ink-800'}`}>{c}</button>
+            <button key={c} onClick={() => { setCur(c); setSheet(null) }} className={`rounded-2xl py-3 text-sm font-bold ${c === cur ? 'accent-live bg-brand-600 text-white' : 'bg-slate-100 dark:bg-ink-800'}`}>{c}</button>
           ))}
         </div>
       </Sheet>

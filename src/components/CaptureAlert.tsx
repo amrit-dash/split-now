@@ -45,7 +45,7 @@ export function CaptureAlert() {
   if (!visible || !current) return null
   const trip = groups?.find((g) => g.id === current.suggestedGroup)
   return (
-    <div className="animate-[rise_0.45s_cubic-bezier(0.2,0.9,0.3,1)] fixed inset-x-3 bottom-[calc(var(--nav-h)+2rem)] z-30 mx-auto max-w-md" role="status" data-testid="capture-alert">
+    <div className="animate-[rise_0.45s_cubic-bezier(0.2,0.9,0.3,1)] fixed inset-x-3 bottom-[var(--lane)] z-30 mx-auto max-w-md" role="status" data-testid="capture-alert">
       <div className="flex items-center gap-3 rounded-3xl bg-white p-3 shadow-2xl shadow-black/20 ring-1 ring-slate-900/10 dark:bg-ink-800 dark:ring-white/10">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-xl dark:bg-brand-900/40">{trip?.emoji ?? '💸'}</span>
         <div className="min-w-0 flex-1">
