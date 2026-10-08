@@ -6,6 +6,7 @@ import type { FxRatesDoc, FxRefreshResult } from '@/lib/fx'
 import type { ParsedReceipt } from '@/lib/ocr-parse'
 import type { AppAiConfig } from '@/lib/ai-config'
 import { defaultCurrency } from '@/lib/locale'
+import { sharedPhotoURL, type OwnMemberPatch } from '@/lib/memberSync'
 
 export type Unsub = () => void
 
@@ -48,7 +49,7 @@ export interface MemberProfile {
 
 /** The shareable part of a private profile (data: URLs are demo-only and never shared). */
 export function memberProfileOf(p: Pick<UserProfile, 'displayName' | 'payment' | 'photoURL'>): MemberProfile {
-  const photo = p.photoURL && /^https:\/\//.test(p.photoURL) && p.photoURL.length <= 2048 ? p.photoURL : undefined
+  const photo = sharedPhotoURL(p.photoURL)
   return compact({ displayName: p.displayName, payment: p.payment ?? {}, photoURL: photo })
 }
 
@@ -105,6 +106,11 @@ export interface Repo {
   updateGroup(id: string, patch: Partial<Group>): Promise<void>
   addMember(group: Group, memberId: MemberId, member: Member): Promise<void>
   removeMember(group: Group, memberId: MemberId): Promise<void>
+  /**
+   * The signed-in user's own member entry: set its name and photo from their profile (no photo
+   * removes it). Background sync (src/hooks/auth.tsx); a refusal is logged, not shown.
+   */
+  updateOwnMember(group: Group, memberId: MemberId, patch: OwnMemberPatch): Promise<void>
   deleteGroup(id: string): Promise<void>
 
   getInvite(code: string): Promise<InviteInfo | null>

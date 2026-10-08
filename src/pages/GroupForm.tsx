@@ -330,7 +330,7 @@ export default function GroupForm() {
             <div className="space-y-2">
               {Object.entries(members).map(([id, m]) => (
                 <div key={id} className="flex items-center gap-3">
-                  <Avatar name={m.name} color={m.color} size={36} />
+                  <Avatar name={m.name} color={m.color} photoURL={m.photoURL} size={36} />
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-medium">{m.name} {m.uid === user.uid && <span className="text-xs text-slate-400">(you)</span>}</div>
                     <div className="truncate text-xs text-slate-500">{m.uid ? 'Joined' : m.email ? `${m.email} · not joined yet` : 'Not joined yet — share the invite link'}</div>
@@ -353,7 +353,7 @@ export default function GroupForm() {
                       <div className="mt-1.5 divide-y divide-slate-100 overflow-hidden rounded-2xl ring-1 ring-slate-200 dark:divide-white/5 dark:ring-ink-700" data-testid="people-results">
                         {results.map((k, i) => (
                           <button key={k.uid ?? k.name} type="button" onClick={() => addKnown(k)} className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-ink-800" aria-label={`Add ${k.name}`}>
-                            <Avatar name={k.name} color={colorFor(i + 1)} size={28} />
+                            <Avatar name={k.name} color={colorFor(i + 1)} photoURL={k.photoURL} size={28} />
                             <div className="min-w-0 flex-1">
                               <div className="truncate text-sm font-medium">{k.name}</div>
                               {k.email && <div className="truncate text-xs text-slate-500">{k.email}</div>}

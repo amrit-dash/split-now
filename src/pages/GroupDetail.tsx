@@ -151,7 +151,7 @@ export default function GroupDetail() {
               const v = net[id] ?? 0
               return (
                 <div key={id} className="flex items-center gap-3 px-4 py-3">
-                  <Avatar name={m.name} color={m.color} size={36} />
+                  <Avatar name={m.name} color={m.color} photoURL={m.photoURL} size={36} />
                   <div className="flex-1 font-medium">{id === me ? 'You' : m.name}</div>
                   <div className={`text-right text-sm font-semibold tabular-nums ${v > 0 ? 'pos' : v < 0 ? 'neg' : 'text-slate-400'}`}>
                     {v === 0 ? 'settled' : `${v > 0 ? 'gets back' : 'owes'} ${formatMoney(Math.abs(v), cur)}`}
@@ -168,7 +168,7 @@ export default function GroupDetail() {
               <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
                 {debts.map((x, i) => (
                   <div key={i} className="flex items-center gap-3 px-4 py-3">
-                    <Avatar name={group.members[x.from]?.name ?? '?'} color={group.members[x.from]?.color ?? '#999'} size={32} />
+                    <Avatar name={group.members[x.from]?.name ?? '?'} color={group.members[x.from]?.color ?? '#999'} photoURL={group.members[x.from]?.photoURL} size={32} />
                     <div className="min-w-0 flex-1 text-sm">
                       <b>{name(x.from)}</b> → <b>{name(x.to)}</b>
                       <div className="font-semibold tabular-nums neg">{formatMoney(x.amount, cur)}</div>

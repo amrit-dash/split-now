@@ -43,7 +43,7 @@ function Pending({ rows, home }: { rows: SettleRow[]; home: string }) {
           <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
             {people.map((p) => (
               <Link key={p.key} to="/friends" className="flex items-center gap-3 px-4 py-3 transition active:bg-slate-50 dark:active:bg-ink-800">
-                <Avatar name={p.name} color={p.color} size={36} />
+                <Avatar name={p.name} photoURL={p.photoURL} color={p.color} size={36} />
                 <div className="min-w-0 flex-1 text-sm">
                   <div className="truncate">Net with <b>{p.name}</b></div>
                   <div className="text-xs text-slate-500 dark:text-slate-400">
@@ -97,7 +97,7 @@ function SettleItem({ r }: { r: SettleRow }) {
   const amount = formatMoney(r.amount, r.currency)
   return (
     <div className="flex items-center gap-3 px-4 py-3" data-testid="settle-row">
-      <Avatar name={r.name} color={r.color} size={40} />
+      <Avatar name={r.name} photoURL={r.photoURL} color={r.color} size={40} />
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-2">
           <span className="truncate font-semibold">{r.name}</span>

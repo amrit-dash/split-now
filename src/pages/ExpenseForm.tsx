@@ -19,6 +19,7 @@ import { firstNextDate, FREQ_LABEL, nextAfter } from '@/lib/recurrence'
 import { Avatar } from '@/components/Avatar'
 import { GroupIcon } from '@/components/GroupIcon'
 import { MemberChips } from '@/components/MemberChips'
+import { shortNames } from '@/lib/shortNames'
 import { Empty, LiveBadge, Loading, Spinner } from '@/components/Misc'
 import { Sheet } from '@/components/Sheet'
 import { useToast } from '@/components/Toast'
@@ -115,6 +116,8 @@ function Form({ group, groups, existing, again, capture, history, onGroup }: {
   const order = useMemo(() => memberOrder(group), [group])
   const me = myMemberId(group, user.uid) ?? order[0]
   const personal = group.type === 'personal'
+  /** Paid by / Split rows: first names in a shared group ("Rahul S." when two share one), full names in a 1:1. */
+  const labels = useMemo(() => memberLabels(group, me), [group, me])
   /** what the form starts from: the expense being edited, or the one being added again */
   const src = existing ?? again
   const [seed] = useState(() => (src ? undefined : seedFor(group, order, me, capture)))
@@ -433,14 +436,14 @@ function Form({ group, groups, existing, again, capture, history, onGroup }: {
             </div>
             {!multiPay ? (
               <button onClick={() => setSheet('payer')} className="mt-3 flex w-full items-center gap-3 rounded-2xl bg-slate-50 p-3 text-left dark:bg-ink-800">
-                <Avatar name={group.members[singlePayer]?.name ?? '?'} color={group.members[singlePayer]?.color ?? '#999'} size={32} />
-                <span className="flex-1 font-semibold">{singlePayer === me ? 'You' : group.members[singlePayer]?.name}</span>
+                <Avatar name={group.members[singlePayer]?.name ?? '?'} color={group.members[singlePayer]?.color ?? '#999'} photoURL={group.members[singlePayer]?.photoURL} size={32} />
+                <span className="flex-1 font-semibold">{labels[singlePayer] ?? group.members[singlePayer]?.name}</span>
                 <span className="text-sm text-slate-500">Change</span>
               </button>
             ) : (
               <div className="mt-3 space-y-2">
                 {order.map((id) => (
-                  <AmountRow key={id} group={fg} id={id} me={me} value={payers[id] ?? ''} onChange={(v) => setPayers((p) => ({ ...p, [id]: v }))} />
+                  <AmountRow key={id} group={fg} id={id} label={labels[id]} value={payers[id] ?? ''} onChange={(v) => setPayers((p) => ({ ...p, [id]: v }))} />
                 ))}
               </div>
             )}
@@ -459,7 +462,7 @@ function Form({ group, groups, existing, again, capture, history, onGroup }: {
               ))}
             </div>
             <div className="mt-4">
-              <SplitEditor type={splitType} input={input} setInput={setInput} group={fg} order={order} me={me} amount={validAmount ? amount : 0} splits={preview.splits} />
+              <SplitEditor type={splitType} input={input} setInput={setInput} group={fg} order={order} me={me} labels={labels} amount={validAmount ? amount : 0} splits={preview.splits} />
             </div>
             <SplitFooter type={splitType} input={input} order={order} amount={validAmount ? amount : 0} currency={cur} error={preview.error} />
           </div>
@@ -522,8 +525,8 @@ function Form({ group, groups, existing, again, capture, history, onGroup }: {
         <div className="space-y-1">
           {order.map((id) => (
             <button key={id} onClick={() => { setPayers({ [id]: '' }); setSheet(null) }} className="flex w-full items-center gap-3 rounded-2xl p-2.5 text-left hover:bg-slate-50 dark:hover:bg-ink-800">
-              <Avatar name={group.members[id].name} color={group.members[id].color} size={36} />
-              <span className="flex-1 font-semibold">{id === me ? 'You' : group.members[id].name}</span>
+              <Avatar name={group.members[id].name} color={group.members[id].color} photoURL={group.members[id].photoURL} size={36} />
+              <span className="flex-1 font-semibold">{labels[id]}</span>
               {id === singlePayer && <Check size={18} className="text-brand-600" />}
             </button>
           ))}
@@ -531,6 +534,12 @@ function Form({ group, groups, existing, again, capture, history, onGroup }: {
       </Sheet>
     </div>
   )
+}
+
+/** Short first names for a shared group, full names for a 1:1 (and the personal wallet); "You" for me. */
+function memberLabels(group: Group, me: MemberId): Record<MemberId, string> {
+  if (group.type !== 'direct' && group.type !== 'personal') return shortNames(group.members, me)
+  return Object.fromEntries(Object.entries(group.members).map(([id, m]) => [id, id === me ? 'You' : m.name]))
 }
 
 function SameHint() {
@@ -635,12 +644,12 @@ function FxLine({ cur, to, fx, loading, converted, rateEdit, setRateEdit, onAppl
   )
 }
 
-function SplitEditor({ type, input, setInput, group, order, me, amount, splits }: {
+function SplitEditor({ type, input, setInput, group, order, me, labels, amount, splits }: {
   type: SplitType; input: SplitInput; setInput: (f: (i: SplitInput) => SplitInput) => void
-  group: Group; order: MemberId[]; me: MemberId; amount: number; splits?: Record<MemberId, number>
+  group: Group; order: MemberId[]; me: MemberId; labels: Record<MemberId, string>; amount: number; splits?: Record<MemberId, number>
 }) {
   const cur = group.currency
-  const label = (id: MemberId) => (id === me ? 'You' : group.members[id].name)
+  const label = (id: MemberId) => labels[id] ?? group.members[id].name
   const share = (id: MemberId) => <span className="w-20 text-right text-sm tabular-nums text-slate-500">{formatMoney(splits?.[id] ?? 0, cur)}</span>
   const toggle = (id: MemberId) => setInput((i) => {
     const sel = i.selected ?? []
@@ -659,7 +668,7 @@ function SplitEditor({ type, input, setInput, group, order, me, amount, splits }
           {order.map((id) => (
             <button key={id} type="button" onClick={() => toggle(id)} className="flex w-full items-center gap-3 rounded-2xl p-2 text-left hover:bg-slate-50 dark:hover:bg-ink-800">
               <span className={`flex h-6 w-6 items-center justify-center rounded-lg border-2 ${sel.includes(id) ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300 dark:border-ink-700'}`}>{sel.includes(id) && <Check size={14} strokeWidth={3} />}</span>
-              <Avatar name={group.members[id].name} color={group.members[id].color} size={32} />
+              <Avatar name={group.members[id].name} color={group.members[id].color} photoURL={group.members[id].photoURL} size={32} />
               <span className="flex-1 font-medium">{label(id)}</span>
               {share(id)}
             </button>
@@ -671,7 +680,7 @@ function SplitEditor({ type, input, setInput, group, order, me, amount, splits }
       return (
         <div className="space-y-2">
           {order.map((id) => (
-            <AmountRow key={id} group={group} id={id} me={me}
+            <AmountRow key={id} group={group} id={id} label={label(id)}
               value={input.exact?.[id] !== undefined ? centsToInput(input.exact[id], group.currency) : ''}
               onChange={(v) => setInput((i) => ({ ...i, exact: { ...i.exact, [id]: Number.isFinite(parseMoney(v, group.currency)) ? parseMoney(v, group.currency) : 0 } }))} />
           ))}
@@ -683,7 +692,7 @@ function SplitEditor({ type, input, setInput, group, order, me, amount, splits }
         <div className="space-y-2">
           {order.map((id) => (
             <div key={id} className="flex items-center gap-3">
-              <Avatar name={group.members[id].name} color={group.members[id].color} size={32} />
+              <Avatar name={group.members[id].name} color={group.members[id].color} photoURL={group.members[id].photoURL} size={32} />
               <span className="flex-1 truncate font-medium">{label(id)}</span>
               <div className="relative w-24">
                 <input className="input !py-2 pr-7 text-right" inputMode="decimal" placeholder="0" value={input.percent?.[id] ?? ''}
@@ -704,7 +713,7 @@ function SplitEditor({ type, input, setInput, group, order, me, amount, splits }
             const set = (n: number) => setInput((i) => ({ ...i, shares: { ...i.shares, [id]: Math.max(0, n) } }))
             return (
               <div key={id} className="flex items-center gap-3">
-                <Avatar name={group.members[id].name} color={group.members[id].color} size={32} />
+                <Avatar name={group.members[id].name} color={group.members[id].color} photoURL={group.members[id].photoURL} size={32} />
                 <span className="flex-1 truncate font-medium">{label(id)}</span>
                 <div className="flex items-center gap-1 rounded-2xl bg-slate-100 p-1 dark:bg-ink-800">
                   <button type="button" className="rounded-xl p-1.5" onClick={() => set(v - 1)} aria-label="Fewer shares"><Minus size={16} /></button>
@@ -726,7 +735,7 @@ function SplitEditor({ type, input, setInput, group, order, me, amount, splits }
           {order.map((id) => (
             <div key={id} className="flex items-center gap-2">
               <button type="button" onClick={() => toggle(id)} className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border-2 ${sel.includes(id) ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300 dark:border-ink-700'}`}>{sel.includes(id) && <Check size={14} strokeWidth={3} />}</button>
-              <Avatar name={group.members[id].name} color={group.members[id].color} size={28} />
+              <Avatar name={group.members[id].name} color={group.members[id].color} photoURL={group.members[id].photoURL} size={28} />
               <span className="flex-1 truncate text-sm font-medium">{label(id)}</span>
               <input className="input !w-24 !py-2 text-right" inputMode="decimal" placeholder="+0.00" disabled={!sel.includes(id)}
                 defaultValue={input.adjust?.[id] ? centsToInput(input.adjust[id], group.currency) : ''}
@@ -738,12 +747,12 @@ function SplitEditor({ type, input, setInput, group, order, me, amount, splits }
       )
     }
     case 'itemized':
-      return <ItemsEditor items={input.items ?? []} setItems={(items) => setInput((i) => ({ ...i, items }))} group={group} order={order} me={me} amount={amount} splits={splits} />
+      return <ItemsEditor items={input.items ?? []} setItems={(items) => setInput((i) => ({ ...i, items }))} group={group} order={order} me={me} labels={labels} amount={amount} splits={splits} />
   }
 }
 
-function ItemsEditor({ items, setItems, group, order, me, amount, splits }: {
-  items: ReceiptItem[]; setItems: (i: ReceiptItem[]) => void; group: Group; order: MemberId[]; me: MemberId; amount: number; splits?: Record<MemberId, number>
+function ItemsEditor({ items, setItems, group, order, me, labels, amount, splits }: {
+  items: ReceiptItem[]; setItems: (i: ReceiptItem[]) => void; group: Group; order: MemberId[]; me: MemberId; labels: Record<MemberId, string>; amount: number; splits?: Record<MemberId, number>
 }) {
   const cur = group.currency
   const itemsTotal = items.reduce((s, i) => s + i.amount, 0)
@@ -760,7 +769,7 @@ function ItemsEditor({ items, setItems, group, order, me, amount, splits }: {
             <button type="button" className="p-2 text-slate-400 hover:text-rose-500" onClick={() => setItems(items.filter((_, i) => i !== idx))} aria-label="Remove item"><Trash2 size={18} /></button>
           </div>
           <div className="mt-2">
-            <MemberChips group={group} order={order} me={me} selected={it.members}
+            <MemberChips group={group} order={order} me={me} labels={labels} selected={it.members}
               onToggle={(id) => {
                 const members = it.members.includes(id) ? it.members.filter((m) => m !== id) : [...it.members, id]
                 const shares = it.shares && Object.fromEntries(Object.entries(it.shares).filter(([m]) => members.includes(m)))
@@ -768,7 +777,7 @@ function ItemsEditor({ items, setItems, group, order, me, amount, splits }: {
               }} />
           </div>
           {it.members.length > 1 && (
-            <Portions it={it} order={order} group={group} me={me} onChange={(shares) => update(idx, { shares })} />
+            <Portions it={it} order={order} labels={labels} onChange={(shares) => update(idx, { shares })} />
           )}
         </div>
       ))}
@@ -780,7 +789,7 @@ function ItemsEditor({ items, setItems, group, order, me, amount, splits }: {
       {splits && (
         <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3 dark:border-white/5">
           {order.filter((id) => splits[id]).map((id) => (
-            <span key={id} className="chip !py-1 !pl-1"><Avatar name={group.members[id].name} color={group.members[id].color} size={20} />{formatMoney(splits[id], cur)}</span>
+            <span key={id} className="chip !py-1 !pl-1"><Avatar name={group.members[id].name} color={group.members[id].color} photoURL={group.members[id].photoURL} size={20} />{formatMoney(splits[id], cur)}</span>
           ))}
         </div>
       )}
@@ -789,8 +798,8 @@ function ItemsEditor({ items, setItems, group, order, me, amount, splits }: {
 }
 
 /** Per-person portions of a shared item (e.g. 2 of 3 beers). Collapsed while everyone has one. */
-function Portions({ it, order, group, me, onChange }: {
-  it: ReceiptItem; order: MemberId[]; group: Group; me: MemberId; onChange: (s: Record<MemberId, number> | undefined) => void
+function Portions({ it, order, labels, onChange }: {
+  it: ReceiptItem; order: MemberId[]; labels: Record<MemberId, string>; onChange: (s: Record<MemberId, number> | undefined) => void
 }) {
   const [open, setOpen] = useState(!!it.shares)
   const members = order.filter((m) => it.members.includes(m))
@@ -805,7 +814,7 @@ function Portions({ it, order, group, me, onChange }: {
         const n = portion(it, m)
         return (
           <div key={m} className="flex items-center gap-2 text-sm">
-            <span className="min-w-0 flex-1 truncate">{m === me ? 'You' : group.members[m]?.name}</span>
+            <span className="min-w-0 flex-1 truncate">{labels[m] ?? '?'}</span>
             <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-0.5 dark:bg-ink-800">
               <button type="button" className="rounded-lg p-1 disabled:opacity-30" disabled={n <= 1} onClick={() => set(m, n - 1)} aria-label="Fewer portions"><Minus size={14} /></button>
               <span className="w-5 text-center font-bold tabular-nums">{n}</span>
@@ -819,11 +828,11 @@ function Portions({ it, order, group, me, onChange }: {
   )
 }
 
-function AmountRow({ group, id, me, value, onChange }: { group: Group; id: MemberId; me: MemberId; value: string; onChange: (v: string) => void }) {
+function AmountRow({ group, id, label, value, onChange }: { group: Group; id: MemberId; label?: string; value: string; onChange: (v: string) => void }) {
   return (
     <div className="flex items-center gap-3">
-      <Avatar name={group.members[id].name} color={group.members[id].color} size={32} />
-      <span className="flex-1 truncate font-medium">{id === me ? 'You' : group.members[id].name}</span>
+      <Avatar name={group.members[id].name} color={group.members[id].color} photoURL={group.members[id].photoURL} size={32} />
+      <span className="flex-1 truncate font-medium">{label ?? group.members[id].name}</span>
       <input className="input !w-28 !py-2 text-right" inputMode="decimal" placeholder="0.00" value={value} onChange={(e) => onChange(e.target.value)} />
     </div>
   )

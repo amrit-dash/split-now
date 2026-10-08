@@ -239,6 +239,24 @@ service cloud.firestore {
           );
       }
 
+      // A member with an account may edit their own entry's name and photo (copied from their
+      // profile by their app), named in memberOpId. Nothing else about membership changes.
+      function isOwnMemberEdit() {
+        let before = resource.data;
+        let after = request.resource.data;
+        let op = after.get('memberOpId', '');
+        let mdiff = after.members.diff(before.members);
+        let m = after.members[op];
+        return mdiff.addedKeys().size() == 0 && mdiff.removedKeys().size() == 0
+          && mdiff.changedKeys().size() == 1 && mdiff.changedKeys().hasOnly([op])
+          && after.memberUids.toSet() == before.memberUids.toSet()
+          && 'uid' in before.members[op] && before.members[op].uid == uid()
+          && m.diff(before.members[op]).affectedKeys().hasOnly(['name', 'photoURL'])
+          && m.name is string && m.name.size() > 0 && m.name.size() <= 100
+          && (!('photoURL' in m)
+            || (m.photoURL is string && m.photoURL.size() <= 2048 && m.photoURL.matches('https://.+')));
+      }
+
       allow get: if isMember();
       allow list: if signedIn() && uid() in resource.data.memberUids;
       // The creator starts as the only signed-up member (others join themselves via invite).
@@ -253,7 +271,7 @@ service cloud.firestore {
           && request.resource.data.inviteCode == resource.data.inviteCode
           // "Pause auto-capture for this trip": any member may flip it
           && request.resource.data.get('captureOff', false) is bool
-          && validMembershipChange())
+          && (validMembershipChange() || isOwnMemberEdit()))
         || isJoining();
       allow delete: if isMember() && resource.data.createdBy == uid();
 

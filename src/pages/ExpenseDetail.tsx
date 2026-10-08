@@ -119,7 +119,7 @@ export default function ExpenseDetail() {
             <div className="label">Paid by</div>
             {Object.entries(e.paidBy).map(([id, v]) => (
               <div key={id} className="flex items-center gap-3 py-1.5">
-                <Avatar name={group.members[id]?.name ?? '?'} color={group.members[id]?.color ?? '#999'} size={32} />
+                <Avatar name={group.members[id]?.name ?? '?'} color={group.members[id]?.color ?? '#999'} photoURL={group.members[id]?.photoURL} size={32} />
                 <span className="flex-1 font-medium">{name(id)}</span>
                 <span className="font-semibold tabular-nums">{formatMoney(v, cur)}</span>
               </div>
@@ -131,7 +131,7 @@ export default function ExpenseDetail() {
               const net = (e.paidBy[id] ?? 0) - v
               return (
                 <div key={id} className="flex items-center gap-3 py-1.5">
-                  <Avatar name={group.members[id]?.name ?? '?'} color={group.members[id]?.color ?? '#999'} size={32} />
+                  <Avatar name={group.members[id]?.name ?? '?'} color={group.members[id]?.color ?? '#999'} photoURL={group.members[id]?.photoURL} size={32} />
                   <div className="flex-1">
                     <div className="font-medium">{name(id)}</div>
                     {e.splitType === 'percent' && <div className="text-xs text-slate-500">{e.splitInput.percent?.[id]}%</div>}
@@ -175,7 +175,8 @@ function Comments({ group, expense }: { group: Group; expense: Expense }) {
   const toast = useToast()
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
-  const colorOf = (authorUid: string, i: number) => Object.values(group.members).find((m) => m.uid === authorUid)?.color ?? colorFor(i)
+  const memberOf = (authorUid: string) => Object.values(group.members).find((m) => m.uid === authorUid)
+  const colorOf = (authorUid: string, i: number) => memberOf(authorUid)?.color ?? colorFor(i)
 
   const send = async () => {
     const t = text.trim()
@@ -206,7 +207,7 @@ function Comments({ group, expense }: { group: Group; expense: Expense }) {
         <ul className="space-y-3">
           {comments.map((c, i) => (
             <li key={c.id} className="flex gap-2.5">
-              <Avatar name={c.authorName} color={colorOf(c.authorUid, i)} size={30} />
+              <Avatar name={c.authorName} color={colorOf(c.authorUid, i)} photoURL={memberOf(c.authorUid)?.photoURL} size={30} />
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline gap-2 text-xs">
                   <span className="font-semibold text-slate-900 dark:text-slate-100">{c.authorUid === user.uid ? 'You' : c.authorName}</span>

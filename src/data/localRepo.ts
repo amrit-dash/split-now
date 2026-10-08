@@ -161,6 +161,14 @@ export function createLocalRepo(): Repo {
       log(group.id, memberActivity('added', memberId, member.name, ctx(group.id)))
       commit()
     },
+    async updateOwnMember(group, memberId, patch) {
+      const g = state.groups[group.id]
+      const m = g?.members[memberId]
+      if (!g || !m || m.uid !== actor()) return
+      const { photoURL: _old, ...rest } = m
+      state.groups[group.id] = { ...g, members: { ...g.members, [memberId]: { ...rest, name: patch.name, ...(patch.photoURL ? { photoURL: patch.photoURL } : {}) } } }
+      commit()
+    },
     async removeMember(group, memberId) {
       const g = state.groups[group.id]
       if (!g) return
