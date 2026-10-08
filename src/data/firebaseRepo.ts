@@ -813,9 +813,9 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         return null
       }
     },
-    async aiKey(action, key) {
-      const call = await callable<{ action: string; key?: string }, AiKeyResult>('aiKey', 30_000)
-      return (await call(key ? { action, key } : { action })).data
+    async aiKey(action, key, which = 'own') {
+      const call = await callable<{ action: string; key?: string; which: string }, AiKeyResult>('aiKey', 30_000)
+      return (await call(key ? { action, key, which } : { action, which })).data
     },
     async aiModels(which) {
       const call = await callable<{ which: string }, { models: AiModel[] }>('aiModels', 30_000)

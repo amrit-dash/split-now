@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { appKeyStatus, DEFAULT_APP_AI, DEFAULT_MODEL, DEFAULT_USER_AI, MODEL_ALIAS, planAi, resolveAppAi, resolveUserAi, usefulModels } from './ai-config'
+import { appKeyStatus, DEFAULT_APP_AI, DEFAULT_MODEL, DEFAULT_USER_AI, MODEL_ALIAS, planAi, resolveAppAi, resolveUserAi, looksLikeGeminiKey, usefulModels } from './ai-config'
 
 const app = (p: Partial<typeof DEFAULT_APP_AI> = {}) => ({ ...DEFAULT_APP_AI, ...p })
 const user = (p: Partial<typeof DEFAULT_USER_AI> = {}) => ({ ...DEFAULT_USER_AI, ...p })
@@ -53,5 +53,14 @@ describe('usefulModels', () => {
       { name: 'models/text-embedding-004', supportedGenerationMethods: ['embedContent'] },
     ]
     expect(usefulModels(list).map((m) => m.id)).toEqual(['gemini-3-flash', 'gemini-2.5-flash-lite'])
+  })
+})
+
+describe('looksLikeGeminiKey', () => {
+  it('accepts classic and newer key shapes, rejects obvious mistakes', () => {
+    expect(looksLikeGeminiKey('AIzaSyD' + 'x'.repeat(32))).toBe(true)
+    expect(looksLikeGeminiKey('AQ.Ab8RN6' + 'y'.repeat(40))).toBe(true)
+    expect(looksLikeGeminiKey('hello')).toBe(false)
+    expect(looksLikeGeminiKey('https://aistudio.google.com/apikey')).toBe(false)
   })
 })

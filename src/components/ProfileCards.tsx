@@ -144,9 +144,9 @@ function linkError(e: unknown): string {
 }
 
 /**
- * Default currency picker with the shared-rates refresh beside it: a labelled Refresh button
- * with a status dot on its corner (emerald = synced with the latest ECB publication, slate = not
- * synced), and the details in one quiet line under the field. Refreshing updates the shared rates
+ * Default currency picker with the shared-rates refresh beside it: a labelled Refresh button, and
+ * the status in one quiet line under the field (emerald dot = synced with the latest ECB
+ * publication, slate = not synced). Refreshing updates the shared rates
  * for everyone (or this device's copy in demo mode).
  */
 export function RatesField({ base, children }: { base: string; children: React.ReactNode }) {
@@ -186,7 +186,6 @@ export function RatesField({ base, children }: { base: string; children: React.R
         >
           <RefreshCw size={16} className={busy ? 'animate-spin' : ''} aria-hidden />
           Refresh
-          <span aria-hidden className={`absolute -right-1 -top-1 h-3.5 w-3.5 rounded-full ring-[3px] ring-white dark:ring-ink-900 ${synced ? 'bg-emerald-500' : 'bg-slate-400 dark:bg-slate-500'}`} />
         </button>
       </div>
       <p className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-500" data-testid="rates-status">

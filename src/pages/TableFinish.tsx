@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Check, Users } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
-import { memberOrder, myMemberId, useGroups } from '@/hooks/data'
+import { createGroup as createNewGroup, memberOrder, myMemberId, useGroups } from '@/hooks/data'
 import type { Expense, Group, Member, MemberId } from '@/types'
 import { guessCategory } from '@/lib/categories'
 import { colorFor } from '@/lib/colors'
@@ -173,7 +173,7 @@ function NoGroup({ table, ready }: { table: LiveTable; ready: boolean }) {
         mapping[p] = id
       })
       const draft = { name: table.merchant, emoji: '🍽️', type: 'outing' as const, currency: table.currency, simplify: true, members, memberUids: [user.uid], createdBy: user.uid }
-      const gid = await repo.createGroup(draft)
+      const gid = await createNewGroup(draft)
       const g: Group = { ...draft, id: gid, inviteCode: '', createdAt: Date.now(), updatedAt: Date.now() }
       const e = await save(g, mapping, user.uid, {})
       toast(`Created ${table.merchant} ✅`)

@@ -4,7 +4,7 @@ import { ArrowRight, Check, Home, Inbox, Plus, Undo2, User, X } from 'lucide-rea
 import { repo } from '@/data'
 import { draftToCapture } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
-import { useCaptures, useGroups } from '@/hooks/data'
+import { createGroup, useCaptures, useGroups } from '@/hooks/data'
 import type { Capture, Group } from '@/types'
 import { SOURCE_LABEL, parseCaptureParams, rankGroupsForCapture } from '@/lib/capture'
 import { colorFor } from '@/lib/colors'
@@ -112,7 +112,7 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
     setBusy(true)
     try {
       const g = groups.find((x) => x.type === 'personal')
-      const id = g?.id ?? await repo.createGroup({
+      const id = g?.id ?? await createGroup({
         name: 'My spending', emoji: '👛', type: 'personal', currency: cur, simplify: false, createdBy: user.uid,
         memberUids: [user.uid], members: { [user.uid]: { name: profile.displayName, uid: user.uid, email: user.email, color: colorFor(0) } },
       })
