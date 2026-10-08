@@ -31,30 +31,42 @@ export function PageHeader({ title, back, right, subtitle }: { title: ReactNode;
 export function Empty({ emoji, title, children }: { emoji: string; title: string; children?: ReactNode }) {
   return (
     <div className="card flex flex-col items-center px-6 py-10 text-center">
-      <div className="mb-3 text-5xl">{emoji}</div>
+      <div className="mb-3 text-5xl" aria-hidden>{emoji}</div>
       <div className="text-lg font-bold">{title}</div>
       {children && <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">{children}</div>}
     </div>
   )
 }
 
-export function Spinner({ className = '' }: { className?: string }) {
-  return <div className={`h-6 w-6 animate-spin rounded-full border-2 border-brand-500 border-t-transparent ${className}`} />
+export function Spinner({ className = '', label = 'Loading' }: { className?: string; label?: string }) {
+  return <div role="status" aria-label={label} className={`h-6 w-6 animate-spin rounded-full border-2 border-brand-500 border-t-transparent ${className}`} />
 }
 
 export function Loading() {
   return <div className="flex justify-center py-20"><Spinner /></div>
 }
 
-export function Segmented<T extends string>({ value, options, onChange }: { value: T; options: Array<{ value: T; label: ReactNode }>; onChange: (v: T) => void }) {
+/**
+ * A segmented control (one choice out of a few). Rendered as a radio group so the selected
+ * option is announced, not just coloured. `label` names the group for assistive tech.
+ */
+export function Segmented<T extends string>({ value, options, onChange, label, testId }: {
+  value: T
+  options: Array<{ value: T; label: ReactNode }>
+  onChange: (v: T) => void
+  label?: string
+  testId?: string
+}) {
   return (
-    <div className="flex gap-1 overflow-x-auto rounded-2xl bg-slate-100 p-1 dark:bg-ink-800">
+    <div role="radiogroup" aria-label={label} data-testid={testId} className="flex gap-1 overflow-x-auto rounded-2xl bg-slate-100 p-1 dark:bg-ink-800">
       {options.map((o) => (
         <button
           key={o.value}
           type="button"
+          role="radio"
+          aria-checked={value === o.value}
           onClick={() => onChange(o.value)}
-          className={`flex-1 whitespace-nowrap rounded-xl px-3 py-2 text-sm font-semibold transition ${value === o.value ? 'bg-white text-slate-900 shadow-sm dark:bg-ink-700 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}
+          className={`min-w-0 flex-1 whitespace-nowrap rounded-xl px-3 py-2 text-sm font-semibold transition ${value === o.value ? 'bg-white text-slate-900 shadow-sm dark:bg-ink-700 dark:text-white' : 'text-slate-600 dark:text-slate-400'}`}
         >
           {o.label}
         </button>
