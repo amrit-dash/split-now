@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ArrowRightLeft, Inbox, Plus, QrCode, ScanLine } from 'lucide-react'
+import { Inbox, Plus } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
 import { useAllGroupData } from '@/hooks/data'
 import { useInbox } from '@/hooks/useInbox'
@@ -125,12 +125,6 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-4 gap-2">
-        <QuickAction to="/add" icon={<Plus />} label="Expense" />
-        <QuickAction to="/split" icon={<QrCode />} label="Split bill" />
-        <QuickAction to="/scan" icon={<ScanLine />} label="Scan" />
-        <QuickAction to="/friends" icon={<ArrowRightLeft />} label="Settle up" />
-      </div>
 
       <Section title="Groups" link={{ to: '/groups', label: 'See all' }}>
         {shared.length === 0 ? (
@@ -174,15 +168,6 @@ export default function Home() {
         </Section>
       )}
     </div>
-  )
-}
-
-function QuickAction({ to, icon, label }: { to: string; icon: React.ReactNode; label: string }) {
-  return (
-    <Link to={to} className="card flex flex-col items-center gap-1.5 py-3.5 text-xs font-semibold transition active:scale-95">
-      <span className="text-brand-600 dark:text-brand-300">{icon}</span>
-      {label}
-    </Link>
   )
 }
 
