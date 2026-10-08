@@ -3,7 +3,9 @@ import { useLocation } from 'react-router-dom'
 import { UserPlus } from 'lucide-react'
 import { repo } from '@/data'
 import { useToast } from '@/components/Toast'
+import { useAppConfig } from '@/hooks/useAppConfig'
 import { errText } from '@/lib/errors'
+import { signupsOpen } from '@/lib/flags'
 import { applyIconTint } from '@/lib/accent'
 import { usePageTitle } from '@/lib/brand'
 
@@ -11,8 +13,15 @@ export default function Login() {
   usePageTitle('Sign in')
   const toast = useToast()
   // Opened from an invite link? (App keeps the path and returns to it after sign-in.)
-  const invite = useLocation().pathname.match(/^\/join\/([A-Za-z0-9]+)/)?.[1]
-  const [mode, setMode] = useState<'in' | 'up'>(invite ? 'up' : 'in')
+  const { pathname } = useLocation()
+  const invite = pathname.match(/^\/join\/([A-Za-z0-9]+)/)?.[1]
+  // Soft invite-only gate (config/app.signups, readable signed out): without an invite link the form
+  // only signs in, whatever was chosen before the config arrived. Hard enforcement needs an Identity
+  // Platform blocking function (docs/FIREBASE_SETUP.md).
+  const cfg = useAppConfig()
+  const canSignUp = signupsOpen(cfg, pathname)
+  const [chosen, setChosen] = useState<'in' | 'up'>(invite ? 'up' : 'in')
+  const mode: 'in' | 'up' = canSignUp ? chosen : 'in'
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -166,9 +175,15 @@ export default function Login() {
                   {mode === 'in' ? 'Sign in' : 'Create account'}
                 </button>
               </form>
-              <button type="button" className="min-h-11 w-full py-2 text-sm text-slate-300" onClick={() => setMode(mode === 'in' ? 'up' : 'in')}>
-                {mode === 'in' ? 'New here? Create an account' : 'Already have an account? Sign in'}
-              </button>
+              {canSignUp ? (
+                <button type="button" className="min-h-11 w-full py-2 text-sm text-slate-300" onClick={() => setChosen(mode === 'in' ? 'up' : 'in')}>
+                  {mode === 'in' ? 'New here? Create an account' : 'Already have an account? Sign in'}
+                </button>
+              ) : (
+                <p className="min-h-11 py-2 text-center text-sm text-slate-300" data-testid="signups-closed">
+                  Split Now is invite only right now. Ask a friend for their group link to join.
+                </p>
+              )}
             </>
           )}
           <a href="/t" className="block min-h-11 py-2 text-center text-sm text-slate-300">

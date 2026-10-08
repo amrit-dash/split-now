@@ -7,11 +7,10 @@
  * writes a `settlement.nudged` activity entry so every device can show "nudged today".
  * Returns { sent: true, amount } or { sent: false, reason } (see src/lib/nudge.ts NudgeResult).
  */
-import { FieldValue } from 'firebase-admin/firestore'
 import { logger } from 'firebase-functions/logger'
 import { HttpsError, onCall, type CallableRequest } from 'firebase-functions/v2/https'
 import { netBalances, type BalanceExpense, type BalanceSettlement } from '../../shared/balances-core'
-import { db } from './admin'
+import { countStats, db } from './admin'
 import { REGION } from './config'
 import { flagOn, getLimits } from './lib/limits'
 import { DAY_MS, nextNudgeAt, nudgeAmount, nudgeSummary } from './lib/nudge-core'
@@ -19,7 +18,6 @@ import { nudgeNote } from './lib/notify-text'
 import { applyRateLimit, type RateState } from './lib/ratelimit'
 import { memberNameForUid, memberUid, type MemberLite } from './lib/recipients'
 import { isIdShaped } from './lib/request'
-import { istDate } from './lib/time'
 import { sendToUser } from './push'
 
 interface GroupLite {
@@ -80,7 +78,11 @@ export const nudge = onCall({ region: REGION, enforceAppCheck: false, timeoutSec
   // config/limits.nudgePerDay (1 by default): the same figure for the hour, so the day is the only window that bites.
   const perDay = (await getLimits(now)).nudgePerDay
   const gate = applyRateLimit(prev, now, { perHour: perDay, perDay })
-  if (!gate.allowed) return { sent: false, reason: 'rate_limited', nextAllowedAt: nextNudgeAt(prev?.dayStart, now) }
+  if (!gate.allowed) {
+    // stats/nudge_{day}.denied: the admin console shows "N over the limit" next to sent.
+    await countStats('nudge', { denied: 1 }, now)
+    return { sent: false, reason: 'rate_limited', nextAllowedAt: nextNudgeAt(prev?.dayStart, now) }
+  }
 
   const ref = gSnap.ref
   const [ex, st] = await Promise.all([
@@ -110,7 +112,6 @@ export const nudge = onCall({ region: REGION, enforceAppCheck: false, timeoutSec
   )
   if (!sent) return { sent: false, reason: 'no_push' }
 
-  const day = istDate(new Date(now))
   await Promise.allSettled([
     limitRef.set(gate.next),
     ref.collection('activity').add({
@@ -122,9 +123,7 @@ export const nudge = onCall({ region: REGION, enforceAppCheck: false, timeoutSec
       after: { amount, memberId },
       createdAt: now,
     }),
-    db()
-      .doc(`stats/nudge_${day}`)
-      .set({ day, sent: FieldValue.increment(1) }, { merge: true }),
+    countStats('nudge', { sent: 1 }, now),
   ])
   logger.info('nudge sent', { groupId, devices: sent, cooldownMs: DAY_MS })
   return { sent: true, amount }
