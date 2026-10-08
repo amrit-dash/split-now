@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { HandCoins, Inbox, Plus } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
@@ -14,7 +15,7 @@ import { Avatar } from '@/components/Avatar'
 import { Aurora } from '@/components/Aurora'
 import { CardFirework } from '@/components/CardFirework'
 import { appLocale } from '@/lib/locale'
-import { HELLO, dayPart, greeting, topCounterparties } from '@/lib/greeting'
+import { HELLO, dayPart, greeting, topCounterparties, type DayPart } from '@/lib/greeting'
 import { isLiveTrip } from '@/lib/capture'
 import { todayISO } from '@/lib/id'
 
@@ -82,22 +83,23 @@ export default function Home() {
       <header className="mb-6 flex items-center justify-between gap-4" data-testid="home-greeting">
         <div className="min-w-0">
           <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{hello.salutation}</p>
-          <h1 className="mt-0.5 text-[1.75rem] font-extrabold leading-tight tracking-tight [overflow-wrap:anywhere]">
-            Hi, {hello.name}!{'\u00a0'}<span aria-hidden className={`inline-block ${HELLO[part].motion === 'wave' ? 'animate-wave origin-[70%_70%]' : 'animate-float'}`}>{HELLO[part].emoji}</span>
+          <h1 className="mt-0.5 text-[1.75rem] font-extrabold leading-[1.15] tracking-tight">
+            <span className="flex items-center gap-2">Hi <HelloIcon part={part} /></span>
+            <span className="block truncate">{hello.name}</span>
           </h1>
         </div>
-        <div className="flex shrink-0 items-center gap-2.5">
+        <div className="flex shrink-0 items-center gap-3">
           <Link to="/inbox" aria-label={inbox ? `Inbox, ${inbox} new` : 'Inbox'} data-testid="home-inbox"
-            className="relative flex h-11 items-center gap-1 rounded-full px-1.5 text-slate-600 transition active:scale-95 dark:text-slate-300">
+            className="relative flex h-12 items-center gap-1 rounded-full px-1.5 text-slate-600 transition active:scale-95 dark:text-slate-300">
             {inbox > 0 && (
               <span className="animate-pop flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[11px] font-bold text-white">
                 {inbox > 99 ? '99+' : inbox}
               </span>
             )}
-            <Inbox size={24} strokeWidth={2} />
+            <Inbox size={27} strokeWidth={2} />
           </Link>
           <Link to="/profile" aria-label="Profile" className="rounded-full p-0.5 ring-2 ring-brand-500/40 transition active:scale-95">
-            <Avatar name={profile.displayName} photoURL={profile.photoURL} color="accent" size={46} />
+            <Avatar name={profile.displayName} photoURL={profile.photoURL} color="accent" size={58} />
           </Link>
         </div>
       </header>
@@ -111,8 +113,8 @@ export default function Home() {
           {/* 44px tap target; the 22px glyph sits on the content's right edge, centred on the first text line. */}
           {!allSettled && (
             <Link to="/settle" aria-label="Balances and settle up" title="Settle up" data-testid="home-settle"
-              className="absolute -right-[11px] -top-3 flex h-11 w-11 items-center justify-center rounded-full text-white transition duration-150 hover:bg-white/10 active:scale-90 active:bg-white/20">
-              <HandCoins size={22} strokeWidth={2.2} aria-hidden />
+              className="absolute -right-3 -top-3.5 flex h-12 w-12 items-center justify-center rounded-full text-white transition duration-150 hover:bg-white/10 active:scale-90 active:bg-white/20">
+              <HandCoins size={28} strokeWidth={2.2} aria-hidden />
             </Link>
           )}
           <div className="pr-12 text-sm font-medium text-white/80">{allSettled ? 'Overall' : `Overall, ${net >= 0 ? 'you are owed' : 'you owe'}`}</div>
@@ -139,7 +141,7 @@ export default function Home() {
 
       <Section title="Groups" link={{ to: '/groups', label: 'See all' }}>
         {shared.length === 0 ? (
-          <Empty emoji="👯" title="No groups yet">
+          <Empty emoji="👥" title="No groups yet">
             Create a group for a trip, your home, or anything you share.
             <div className="mt-3"><Link to="/groups/new" className="btn-primary"><Plus size={18} aria-hidden /> Create group</Link></div>
           </Empty>
@@ -191,5 +193,29 @@ export function Section({ title, link, children }: { title: string; link?: { to:
       </div>
       {children}
     </section>
+  )
+}
+
+/**
+ * The icon after "Hi": cycles through the time of day's icons (HELLO), each playing its own
+ * motion (a wave, a bob, a tilt) and cross-fading to the next every few seconds. Static first
+ * icon under reduced motion.
+ */
+function HelloIcon({ part }: { part: DayPart }) {
+  const icons = HELLO[part]
+  const [i, setI] = useState(0)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || icons.length < 2) return
+    const t = setInterval(() => setI((n) => (n + 1) % icons.length), 4200)
+    return () => clearInterval(t)
+  }, [icons.length])
+  const cur = icons[i % icons.length]
+  const motion = cur.motion === 'wave' ? 'animate-wave origin-[70%_70%]' : cur.motion === 'tilt' ? 'animate-tilt' : 'animate-float'
+  return (
+    <span aria-hidden className="relative inline-flex h-[1.2em] w-[1.2em] items-center justify-center">
+      <span key={i} className="animate-hello-in inline-block">
+        <span className={`inline-block ${motion}`}>{cur.emoji}</span>
+      </span>
+    </span>
   )
 }
