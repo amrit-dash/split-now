@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { appLocale } from '@/lib/locale'
+import type { GroupType } from '@/types'
 
 export function PageHeader({ title, back, right, subtitle }: { title: ReactNode; back?: boolean | string; right?: ReactNode; subtitle?: ReactNode }) {
   const nav = useNavigate()
@@ -62,11 +63,11 @@ export function Segmented<T extends string>({ value, options, onChange }: { valu
   )
 }
 
-/** "Live trip" pill for groups whose date window contains today. */
-export function LiveBadge({ className = '' }: { className?: string }) {
+/** "Live trip" (trips) or "On now" (other groups) pill for groups whose date window contains today. */
+export function LiveBadge({ type = 'trip', className = '' }: { type?: GroupType; className?: string }) {
   return (
     <span className={`inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300 ${className}`}>
-      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" /> Live trip
+      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" /> {type === 'trip' ? 'Live trip' : 'On now'}
     </span>
   )
 }

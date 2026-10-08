@@ -15,6 +15,7 @@ import { todayISO } from '@/lib/id'
 import { Avatar } from '@/components/Avatar'
 import { DebtGraph } from '@/components/DebtGraph'
 import { GroupIcon } from '@/components/GroupIcon'
+import { QrCode } from '@/components/QrCode'
 import { Empty, LiveBadge, Loading, PageHeader, Segmented, formatRange } from '@/components/Misc'
 import { hasTripWindow, isLiveTrip } from '@/lib/capture'
 import { Sheet } from '@/components/Sheet'
@@ -113,7 +114,7 @@ export default function GroupDetail() {
         {hasTripWindow(group) && (
           <div className="mt-3 flex items-center gap-2 text-sm text-slate-500">
             <span>🗓️ {formatRange(group.startDate, group.endDate)}</span>
-            {isLiveTrip(group, todayISO()) && <LiveBadge />}
+            {isLiveTrip(group, todayISO()) && <LiveBadge type={group.type} />}
           </div>
         )}
         {group.budget ? <BudgetBar spent={total} budget={group.budget} currency={cur} /> : null}
@@ -186,8 +187,10 @@ export default function GroupDetail() {
 
       <Sheet open={invite} onClose={() => setInvite(false)} title="Invite to group">
         <p className="text-sm text-slate-500">Anyone with this link can join <b>{group.name}</b> and claim their name in the member list.</p>
-        <div className="mt-4 rounded-2xl bg-slate-100 p-4 text-center dark:bg-ink-800">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">Invite code</div>
+        <div className="mt-4 flex flex-col items-center rounded-2xl bg-slate-100 p-4 text-center dark:bg-ink-800">
+          <QrCode value={inviteUrl} size={180} label={`QR code to join ${group.name}`} />
+          <div className="mt-1.5 text-xs text-slate-500">Friends next to you can scan this with their phone camera</div>
+          <div className="mt-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Invite code</div>
           <div className="mt-1 font-mono text-3xl font-extrabold tracking-[0.3em]">{group.inviteCode}</div>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2">

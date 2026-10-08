@@ -49,7 +49,7 @@ export default function Inbox() {
                       {isSmsSource(c.source)
                         ? <span className="rounded-full bg-sky-100 px-1.5 py-px text-[10px] font-bold text-sky-700 dark:bg-sky-500/15 dark:text-sky-300" data-testid="source-badge">{SOURCE_LABEL[c.source]}</span>
                         : SOURCE_LABEL[c.source] ?? c.source}
-                      {best && <LiveBadge className="!px-1.5" />}
+                      {best && <LiveBadge type={groups.find((g) => g.id === best)?.type} className="!px-1.5" />}
                     </div>
                   </div>
                   <div className="text-right font-bold tabular-nums">{formatMoney(c.amount, c.currency ?? profile.currency)}</div>

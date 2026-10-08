@@ -1,7 +1,7 @@
 export type Cents = number
 export type MemberId = string
 
-export type GroupType = 'trip' | 'home' | 'couple' | 'event' | 'other' | 'direct' | 'personal'
+export type GroupType = 'trip' | 'outing' | 'home' | 'couple' | 'event' | 'office' | 'other' | 'direct' | 'personal'
 
 export interface PaymentHandles {
   /** India: UPI ID / VPA, e.g. rohan@okaxis */
