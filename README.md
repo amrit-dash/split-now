@@ -42,15 +42,32 @@ To connect Firebase, follow **[docs/FIREBASE_SETUP.md](docs/FIREBASE_SETUP.md)**
 
 | Command | What it does |
 |---|---|
-| `npm run dev` | Vite dev server |
+| `npm run dev` | Vite dev server (demo mode unless `.env.local` points at a Firebase project) |
 | `npm run build` | Typecheck + production build (with service worker) into `dist/` |
 | `npm run preview` | Serve the production build locally (needed to test install/offline) |
-| `npm test` | Unit tests for splits, balances, simplification, OCR parsing, capture parsing and SMS-setup helpers |
-| `npm run test:rules` | Firestore security-rule tests against the emulator (needs Java 11+) |
+| `npm run lint` / `npm run lint:fix` | Biome lint; `npm run format` formats, `npm run check` does both |
+| `npm run typecheck` / `npm run typecheck:all` | `tsc -b` for the app; `:all` adds tests, configs, scripts, e2e and `functions/` |
+| `npm test` | Vitest unit tests beside the code: money, splits, balances, simplification, FX, recurrence, trust, import/export, OCR and SMS parsing, capture filters, tables, statements |
+| `npm run test:coverage` | The same suite with v8 coverage thresholds (install `@vitest/coverage-v8@5.0.3` once) |
+| `npm run test:rules` | Firestore + Storage security-rule tests against the emulators (needs Java 21) |
 | `npm run test:functions` | Builds `functions/` and POSTs sample SMS to the capture webhook in the emulators |
+| `npm run test:e2e` | Playwright smoke suite against the dev server in demo mode |
+| `npm run test:all` | Lint, typecheck, unit, rules and functions in one go |
 | `npm run icons` | Regenerate PWA/Apple icons from `public/favicon.svg` |
 | `npm run emulators` | Start the Firebase emulators |
-| `npm run deploy` | Build and `firebase deploy` |
+| `npm run deploy` | Build and `firebase deploy` everything; `deploy:hosting`, `deploy:functions`, `deploy:rules` deploy one part |
+
+## Testing
+
+- **Unit** (`npm test`): pure logic in `src/lib`, `shared/` and `functions/src/lib`, each module with a `*.test.ts` next to it. Runs in about 5 s with no emulators.
+- **Rules** (`npm run test:rules`): `tests/*.test.ts` drive `@firebase/rules-unit-testing` against `firestore.rules` and `storage.rules` under the emulators. Needs **Java 21** (firebase-tools 15 refuses older JDKs); the jars download to `~/.cache/firebase/emulators` on first run.
+- **Functions** (`npm run test:functions`): `functions/test/` posts to the real `capture` function in the Functions + Firestore emulators.
+- **End to end** (`npm run test:e2e`): `e2e/smoke.spec.ts` signs in to demo mode, checks the seeded groups, creates a group, adds an expense, records a payment and opens the scan and settings screens, as a Pixel 7 in Chromium. `playwright.config.ts` starts `vite --mode e2e` with the Firebase variables blanked, so it can never touch a real project. First time: `npx playwright install chromium` (or point `PLAYWRIGHT_BROWSERS_PATH` at an existing install).
+- **Types** (`npm run typecheck:all`): `tsconfig.tooling.json` covers everything the app tsconfig does not (tests, configs, scripts, e2e).
+
+## CI
+
+`.github/workflows/ci.yml` runs on pull requests, pushes to `main` and by hand (`workflow_dispatch`): lint + typecheck, unit tests, rules + functions under the emulators (jars cached), and a production build whose `dist/` is uploaded as an artefact before the e2e smoke suite runs against it in demo mode. Dependabot opens weekly grouped PRs for npm (root and `functions/`) and GitHub Actions. Node 22 throughout; the root `engines` field requires >= 22.12 because of Vitest 5.
 
 ## Project layout
 

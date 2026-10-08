@@ -19,14 +19,16 @@ beforeEach(() => env.clearStorage())
 
 const jpeg = (n = 1024) => new Uint8Array(n)
 const st = (uid?: string) => (uid ? env.authenticatedContext(uid) : env.unauthenticatedContext()).storage()
+/** UploadTask is thenable but not a Promise; adopt it so assertSucceeds/assertFails type-check. */
+const put = (uid: string | undefined, path: string, bytes = jpeg(), contentType = 'image/jpeg') => Promise.resolve(st(uid).ref(path).put(bytes, { contentType }))
 
 describe('avatars', () => {
   it('only the owner can upload, as an image under 2 MB', async () => {
-    await assertSucceeds(st('alice').ref('avatars/alice/a.jpg').put(jpeg(), { contentType: 'image/jpeg' }))
-    await assertFails(st('bob').ref('avatars/alice/b.jpg').put(jpeg(), { contentType: 'image/jpeg' }))
-    await assertFails(st().ref('avatars/alice/c.jpg').put(jpeg(), { contentType: 'image/jpeg' }))
-    await assertFails(st('alice').ref('avatars/alice/d.txt').put(jpeg(), { contentType: 'text/plain' }))
-    await assertFails(st('alice').ref('avatars/alice/e.jpg').put(jpeg(2 * 1024 * 1024 + 1), { contentType: 'image/jpeg' }))
+    await assertSucceeds(put('alice', 'avatars/alice/a.jpg'))
+    await assertFails(put('bob', 'avatars/alice/b.jpg'))
+    await assertFails(put(undefined, 'avatars/alice/c.jpg'))
+    await assertFails(put('alice', 'avatars/alice/d.txt', jpeg(), 'text/plain'))
+    await assertFails(put('alice', 'avatars/alice/e.jpg', jpeg(2 * 1024 * 1024 + 1)))
   })
   it('any signed-in user can read; signed-out cannot; only the owner deletes', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => { await ctx.storage().ref('avatars/alice/a.jpg').put(jpeg(), { contentType: 'image/jpeg' }) })

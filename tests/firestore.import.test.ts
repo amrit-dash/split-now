@@ -4,8 +4,11 @@
  */
 import { readFileSync } from 'node:fs'
 import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest'
-import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing'
-import { doc, writeBatch, type Firestore } from 'firebase/firestore'
+import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestContext, type RulesTestEnvironment } from '@firebase/rules-unit-testing'
+import { doc, writeBatch } from 'firebase/firestore'
+
+/** The compat Firestore handed out by the rules harness (not the modular `Firestore`, which the helper used to claim). */
+type Db = ReturnType<RulesTestContext['firestore']>
 
 let env: RulesTestEnvironment
 
@@ -35,7 +38,7 @@ const expense = (i: number, extra: object = {}) => ({
   importedFrom: 'splitwise', ...extra,
 })
 
-async function createGroup(db: Firestore) {
+async function createGroup(db: Db) {
   const b = writeBatch(db)
   b.set(doc(db, 'groups/gi'), newGroup)
   b.set(doc(db, 'invites/IMPT2345'), { groupId: 'gi', groupName: 'Imported', emoji: '🏝️', placeholders: { p_bob: 'Bob Smith', p_cara: 'Cara Lee' } })
