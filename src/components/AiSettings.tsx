@@ -35,7 +35,7 @@ const ago = (t: number) => {
   return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`
 }
 
-/** Profile → AI reading: master switch, features, which key, the user's own Gemini key and model. */
+/** Profile → AI features: master switch, features, which key, the user's own Gemini key and model. */
 export function AiSettings({ onStatus }: { onStatus?: (s: AiStatusResult | null) => void }) {
   const { user } = useMe()
   const toast = useToast()
@@ -86,7 +86,7 @@ export function AiSettings({ onStatus }: { onStatus?: (s: AiStatusResult | null)
 
   return (
     <div className="space-y-5" data-testid="ai-settings">
-      <Row title="Use AI reading" testId="ai-enabled" checked={prefs.aiEnabled} onChange={(v) => set({ aiEnabled: v })}
+      <Row title="Use AI" testId="ai-enabled" checked={prefs.aiEnabled} onChange={(v) => set({ aiEnabled: v })}
         text={prefs.aiEnabled ? 'Gemini reads bills, statements and SMS the app can’t.' : 'Off: nothing is sent to any AI. Bills are read on this phone.'} />
 
       {prefs.aiEnabled && (
@@ -169,7 +169,7 @@ export function AiSettings({ onStatus }: { onStatus?: (s: AiStatusResult | null)
         </>
       )}
 
-      {status?.admin && <p className="flex items-center gap-1.5 text-xs text-slate-500"><ShieldCheck size={14} className="text-brand-500" /> You’re an admin: Split Now’s key is managed in Admin · AI below.</p>}
+      {status?.admin && <p className="flex items-center gap-1.5 text-xs text-slate-500"><ShieldCheck size={14} className="text-brand-500" /> You’re an admin: Split Now’s key is managed in Admin · AI features below.</p>}
     </div>
   )
 }

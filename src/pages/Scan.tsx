@@ -64,7 +64,7 @@ export default function Scan() {
         const r = await reader.read(f)
         setText('')
         setReceipt(r.parsed)
-        if (r.fellBack) toast('AI reading isn’t available, so this was read on the phone. Set it up in Profile → AI reading.', 'err')
+        if (r.fellBack) toast('AI isn’t available, so this was read on the phone. Set it up in Profile → AI features.', 'err')
         return
       }
       const t = await ocr.run(f)
