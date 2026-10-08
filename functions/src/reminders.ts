@@ -3,7 +3,7 @@
  * group for over 7 days, at most once per 7 days per group (reminderState/{groupId}, server-only).
  * Scans every shared group; fine at small scale (see docs/PLAN.md "Backend" for costs).
  */
-import { logger } from 'firebase-functions'
+import { logger } from 'firebase-functions/logger'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
 import { db } from './admin'
 import { REGION, TIME_ZONE } from './config'

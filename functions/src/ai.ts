@@ -1,5 +1,5 @@
 import { FieldValue } from 'firebase-admin/firestore'
-import { logger } from 'firebase-functions'
+import { logger } from 'firebase-functions/logger'
 import { defineSecret } from 'firebase-functions/params'
 import { HttpsError, onCall, type CallableRequest } from 'firebase-functions/v2/https'
 import { auth, db } from './admin'
@@ -23,6 +23,8 @@ import { applyRateLimit, type RateState } from './lib/ratelimit'
 
 /** Project ("shared") key in Secret Manager. Unused while config/ai.mode is 'off'. */
 export const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY')
+/** Every secret an AI-calling function needs bound (the capture webhook calls aiReadSms too). */
+export const AI_SECRETS = [GEMINI_API_KEY]
 
 /** Calls on a user's own key: their bill, but still capped so a loop can't run up function costs. */
 const OWN_LIMIT = { perHour: 120, perDay: 600 }
@@ -106,7 +108,7 @@ function signedIn(req: CallableRequest): { uid: string; email?: string } {
 
 const isAdmin = async (uid: string) => (await db().collection('admins').doc(uid).get()).exists
 
-const base = { region: REGION, secrets: [GEMINI_API_KEY], enforceAppCheck: false }
+const base = { region: REGION, secrets: AI_SECRETS, enforceAppCheck: false }
 
 /**
  * Callable, signed-in users only (not table guests):
@@ -232,7 +234,7 @@ const minorDigits = (c: string) => {
 /** Fallback for an SMS the regex parser couldn't read, for this user. Never throws; null when unavailable. */
 export async function aiReadSms(uid: string, text: string): Promise<AiSms | null> {
   try {
-    const email = (await auth().getUser(uid).catch(() => null))?.email
+    const email = (await (await auth()).getUser(uid).catch(() => null))?.email
     const ctx = await loadCtx(uid, email)
     const r = await withAi(ctx, 'sms', async (key, models) =>
       normaliseSms((await generateJson(key, [{ text: `${SMS_PROMPT}\n\nSMS:\n${text.slice(0, 1000)}` }], SMS_SCHEMA, { models, timeoutMs: 12_000 })).json, minorDigits))

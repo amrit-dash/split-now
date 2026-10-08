@@ -10,7 +10,7 @@
  *   refreshFx   callable { date? } → { date, fetchedAt, rates }; any signed-in user (anonymous too).
  *               The latest is re-fetched at most every 10 min; a stored past date is final.
  */
-import { logger } from 'firebase-functions'
+import { logger } from 'firebase-functions/logger'
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
 import { db } from './admin'

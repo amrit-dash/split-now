@@ -10,7 +10,18 @@ export function inviteCode(): string {
   return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('')
 }
 
-export function todayISO() {
-  const d = new Date()
-  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
+/**
+ * The calendar day of `d` on this device (yyyy-mm-dd). Dates in the app are *local* calendar
+ * days (an expense dated "today" is today where the user is), so every "today" goes through
+ * here rather than toISOString(), which gives the UTC day and is off by one in the evening
+ * west of UTC / the small hours east of it.
+ */
+export function localISODate(d: Date | number): string {
+  const t = typeof d === 'number' ? new Date(d) : d
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${String(t.getFullYear()).padStart(4, '0')}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`
+}
+
+export function todayISO(now: Date | number = new Date()) {
+  return localISODate(now)
 }
