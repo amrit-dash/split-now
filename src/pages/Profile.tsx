@@ -22,7 +22,7 @@ import { accentPreset, getAccent, getDuo } from '@/lib/accent'
 import { AccountCard, RatesField } from '@/components/ProfileCards'
 import { AiSettings } from '@/components/AiSettings'
 import { AdminAi } from '@/components/AdminAi'
-import type { AiStatusResult } from '@/data/repo'
+import { useAiStatus } from '@/hooks/useAiStatus'
 import { AutoCapture } from '@/components/AutoCapture'
 import { NotificationSettings } from '@/components/NotificationSettings'
 
@@ -61,7 +61,7 @@ export default function Profile() {
   const { profile, user } = useMe()
   const toast = useToast()
   const install = useInstall()
-  const [aiStatus, setAiStatus] = useState<AiStatusResult | null>(null)
+  const aiStatus = useAiStatus()
   const [name, setName] = useState(profile.displayName)
   const [phone, setPhone] = useState(profile.phone ?? '')
   // The mobile number also fills "Phone number for UPI apps" while that field is empty or still
@@ -175,7 +175,7 @@ export default function Profile() {
       <AutoCapture />
       {repo.mode === 'firebase' && (
         <Collapsible id="ai" testId="section-ai" title="AI features" icon={<Sparkles size={20} />} summary="Gemini reads bills, statements and hard-to-read SMS">
-          <AiSettings onStatus={setAiStatus} />
+          <AiSettings />
         </Collapsible>
       )}
       {aiStatus?.admin && (

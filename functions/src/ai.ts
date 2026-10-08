@@ -49,8 +49,24 @@ async function loadCtx(uid: string, email: string | undefined): Promise<Ctx> {
   return { uid, email, user: resolveUserAi(prefs.data()), app: resolveAppAi(cfg.data()), ownKey: typeof key === 'string' && key ? key : undefined }
 }
 
-const appKey = (): string | undefined => {
+/** A project key an admin set in the app (private/geminiAppKey, no client access); wins over the secret. */
+const appKeyRef = () => db().collection('private').doc('geminiAppKey')
+let override: { at: number; key?: string; hint?: string } | null = null
+async function adminKey(): Promise<{ key?: string; hint?: string }> {
+  if (override && Date.now() - override.at < 60_000) return override
+  const d = (await appKeyRef().get()).data()
+  override = { at: Date.now(), key: typeof d?.key === 'string' && d.key ? d.key : undefined, hint: d?.hint }
+  return override
+}
+const secretKey = (): string | undefined => {
   try { return GEMINI_API_KEY.value() || undefined } catch { return undefined }
+}
+/** The project key in use: the admin's in-app key if set, else Secret Manager's GEMINI_API_KEY. */
+async function appKey(): Promise<{ key?: string; source?: 'admin' | 'secret'; hint?: string }> {
+  const a = await adminKey().catch(() => ({} as { key?: string; hint?: string }))
+  if (a.key) return { key: a.key, source: 'admin', hint: a.hint }
+  const s = secretKey()
+  return s ? { key: s, source: 'secret', hint: keyHint(s) } : {}
 }
 
 /** Per user and key kind, in rateLimits/ai_{kind}_{uid} (server-only). */
@@ -83,7 +99,7 @@ function record(ctx: Ctx, plan: KeyPlan, feature: AiFeature, now: number, err?: 
 async function withAi<T>(ctx: Ctx, feature: AiFeature, call: (key: string, models: string[]) => Promise<T>): Promise<{ value: T; via: KeyPlan['key']; model?: string } | null> {
   const plans = planAi({ feature, user: ctx.user, app: ctx.app, hasOwnKey: !!ctx.ownKey, email: ctx.email })
   for (const plan of plans) {
-    const key = plan.key === 'own' ? ctx.ownKey : appKey()
+    const key = plan.key === 'own' ? ctx.ownKey : (await appKey()).key
     if (!key) continue
     const now = Date.now()
     const limits = plan.key === 'own' ? OWN_LIMIT : { perHour: ctx.app.perHour, perDay: ctx.app.perDay }
@@ -156,8 +172,9 @@ function toPart(x: { image?: unknown; mimeType?: unknown }): GeminiPart {
  */
 export const aiKey = onCall({ ...base, timeoutSeconds: 30, maxInstances: 5 }, async (req) => {
   const me = signedIn(req)
-  const d = (req.data ?? {}) as { action?: unknown; key?: unknown }
+  const d = (req.data ?? {}) as { action?: unknown; key?: unknown; which?: unknown }
   const now = Date.now()
+  if (d.which === 'app') return projectKey(me.uid, d, now)
   if (d.action === 'remove') {
     await Promise.all([secretRef(me.uid).delete(), stateRef(me.uid).delete()])
     return { hint: null, models: [] }
@@ -165,8 +182,8 @@ export const aiKey = onCall({ ...base, timeoutSeconds: 30, maxInstances: 5 }, as
   if (!(await allow(me.uid, 'own', { perHour: 20, perDay: 60 }, now))) throw new HttpsError('resource-exhausted', 'Too many tries, wait a bit')
   let key: string
   if (d.action === 'set') {
-    if (typeof d.key !== 'string' || !looksLikeGeminiKey(d.key)) throw new HttpsError('invalid-argument', 'That doesn’t look like a Gemini API key')
-    key = d.key.trim()
+    key = typeof d.key === 'string' ? cleanKey(d.key) : ''
+    if (!looksLikeGeminiKey(key)) throw new HttpsError('invalid-argument', 'That doesn’t look like a Gemini API key')
   } else if (d.action === 'test') {
     const k = (await secretRef(me.uid).get()).get('key')
     if (typeof k !== 'string') throw new HttpsError('failed-precondition', 'No key saved')
@@ -178,13 +195,45 @@ export const aiKey = onCall({ ...base, timeoutSeconds: 30, maxInstances: 5 }, as
   } catch (e) {
     const err = e instanceof GeminiError ? e : new GeminiError((e as Error).message)
     if (d.action === 'test') await stateRef(me.uid).set({ lastError: { kind: err.kind, at: now }, updatedAt: now }, { merge: true })
-    throw new HttpsError(err.kind === 'bad_key' ? 'invalid-argument' : 'unavailable', err.kind === 'bad_key' ? 'Google rejected that key' : err.kind === 'quota' ? 'That key is over its quota right now' : 'Couldn’t reach Gemini, try again')
+    throw keyError(err)
   }
   const hint = keyHint(key)
   if (d.action === 'set') await secretRef(me.uid).set({ key, hint, savedAt: now })
   await stateRef(me.uid).set({ hint, lastOkAt: now, lastError: FieldValue.delete(), updatedAt: now }, { merge: true })
   return { hint, models }
 })
+
+const keyError = (err: GeminiError) => new HttpsError(err.kind === 'bad_key' ? 'invalid-argument' : 'unavailable',
+  err.kind === 'bad_key' ? 'Google rejected that key' : err.kind === 'quota' ? 'That key is over its quota right now' : 'Couldn’t reach Gemini, try again')
+
+/** Pasted keys often carry spaces, line breaks, quotes or a `GEMINI_API_KEY=` prefix. */
+export const cleanKey = (raw: string) => raw.replace(/\s+/g, '').replace(/^[A-Z_]+=/, '').replace(/^["'`]+|["'`]+$/g, '')
+
+/** Admins: set / test / remove the in-app project key (overrides Secret Manager's GEMINI_API_KEY). */
+async function projectKey(uid: string, d: { action?: unknown; key?: unknown }, now: number) {
+  if (!(await isAdmin(uid))) throw new HttpsError('permission-denied', 'Admins only')
+  if (d.action === 'remove') {
+    await appKeyRef().delete()
+    override = null
+    const k = await appKey()
+    return { hint: k.hint ?? null, source: k.source ?? null, models: [] }
+  }
+  let key: string | undefined
+  if (d.action === 'set') {
+    key = typeof d.key === 'string' ? cleanKey(d.key) : ''
+    if (!looksLikeGeminiKey(key)) throw new HttpsError('invalid-argument', 'That doesn’t look like a Gemini API key')
+  } else if (d.action === 'test') key = (await appKey()).key
+  else throw new HttpsError('invalid-argument', 'Unknown action')
+  if (!key) throw new HttpsError('failed-precondition', 'The project key isn’t set up')
+  let models
+  try { models = usefulModels(await listModels(key)) } catch (e) { throw keyError(e instanceof GeminiError ? e : new GeminiError((e as Error).message)) }
+  if (d.action === 'set') {
+    await appKeyRef().set({ key, hint: keyHint(key), savedAt: now, by: uid })
+    override = null
+  }
+  const k = await appKey()
+  return { hint: k.hint ?? null, source: k.source ?? null, models }
+}
 
 /** Callable { which: 'own' | 'app' } → models for the user's key, or the project key (admins). */
 export const aiModels = onCall({ ...base, timeoutSeconds: 30, maxInstances: 5 }, async (req) => {
@@ -193,7 +242,7 @@ export const aiModels = onCall({ ...base, timeoutSeconds: 30, maxInstances: 5 },
   let key: string | undefined
   if (which === 'app') {
     if (!(await isAdmin(me.uid))) throw new HttpsError('permission-denied', 'Admins only')
-    key = appKey()
+    key = (await appKey()).key
     if (!key) throw new HttpsError('failed-precondition', 'The project key isn’t set up')
   } else {
     const k = (await secretRef(me.uid).get()).get('key')
@@ -215,14 +264,16 @@ export const aiStatus = onCall({ ...base, timeoutSeconds: 15, maxInstances: 5 },
   const me = signedIn(req)
   const [cfg, admin] = await Promise.all([db().collection('config').doc('ai').get(), isAdmin(me.uid)])
   const app = resolveAppAi(cfg.data())
-  const configured = !!appKey()
+  const k = await appKey()
+  const configured = !!k.key
   return {
     admin,
     app: {
       images: configured ? appKeyStatus(app, 'images', me.email) : 'off',
       sms: configured ? appKeyStatus(app, 'sms', me.email) : 'off',
       model: app.model,
-      ...(admin ? { configured } : {}),
+      // Admins see where the key comes from; the hint is the last 4 characters only.
+      ...(admin ? { configured, source: k.source ?? null, hint: k.hint ?? null } : {}),
     },
   }
 })

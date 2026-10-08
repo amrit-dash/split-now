@@ -7,6 +7,8 @@ import { planCatchUp } from '@/lib/recurrence'
 import { todayISO } from '@/lib/id'
 import { mergeFeeds } from '@/lib/activity'
 import { canPurge, countedExpenses, countedSettlements, expiredTrash, isDisputed, isPending, liveItems, trashedItems } from '@/lib/trust'
+import { markCreated, rewatchWhileFresh, watchGroupSettled } from '@/lib/fresh'
+import type { NewGroup } from '@/data/repo'
 import { useMe } from './auth'
 
 export function useGroups() {
@@ -31,8 +33,16 @@ export function usePendingCaptures() {
 
 export function useGroup(id: string | undefined) {
   const [group, setGroup] = useState<Group | null | undefined>(undefined)
-  useEffect(() => (id ? repo.watchGroup(id, setGroup) : undefined), [id])
+  // A group created a moment ago may not be on the server yet: wait for it rather than say "not found".
+  useEffect(() => (id ? watchGroupSettled(repo.watchGroup, id, setGroup) : undefined), [id])
   return group
+}
+
+/** Creates a group; screens opened right after treat it as loading until the server has it (see lib/fresh). */
+export async function createGroup(g: NewGroup) {
+  const id = await repo.createGroup(g)
+  markCreated(id)
+  return id
 }
 
 // Catch-up keys already attempted this session (template + nextDate), so repeated
@@ -58,20 +68,20 @@ export function catchUpRecurring(expenses: Expense[], today = todayISO()) {
 /** The group's expenses, without trashed ones. */
 export function useExpenses(groupId: string | undefined) {
   const [list, setList] = useState<Expense[] | null>(null)
-  useEffect(() => (groupId ? repo.watchExpenses(groupId, (l) => { const live = liveItems(l); setList(live); catchUpRecurring(live) }) : undefined), [groupId])
+  useEffect(() => (groupId ? rewatchWhileFresh(groupId, () => repo.watchExpenses(groupId, (l) => { const live = liveItems(l); setList(live); catchUpRecurring(live) })) : undefined), [groupId])
   return list
 }
 
 /** Every expense of the group, including those in "Recently deleted". */
 export function useAllExpenses(groupId: string | undefined) {
   const [list, setList] = useState<Expense[] | null>(null)
-  useEffect(() => (groupId ? repo.watchExpenses(groupId, setList) : undefined), [groupId])
+  useEffect(() => (groupId ? rewatchWhileFresh(groupId, () => repo.watchExpenses(groupId, setList)) : undefined), [groupId])
   return list
 }
 
 export function useAllSettlements(groupId: string | undefined) {
   const [list, setList] = useState<Settlement[] | null>(null)
-  useEffect(() => (groupId ? repo.watchSettlements(groupId, setList) : undefined), [groupId])
+  useEffect(() => (groupId ? rewatchWhileFresh(groupId, () => repo.watchSettlements(groupId, setList)) : undefined), [groupId])
   return list
 }
 
@@ -108,7 +118,7 @@ export function useTrash(group: Group | null | undefined) {
 /** A group's activity feed, newest first. */
 export function useActivity(groupId: string | undefined, max = 50) {
   const [list, setList] = useState<ActivityEntry[] | null>(null)
-  useEffect(() => (groupId ? repo.watchActivity(groupId, setList, max) : undefined), [groupId, max])
+  useEffect(() => (groupId ? rewatchWhileFresh(groupId, () => repo.watchActivity(groupId, setList, max)) : undefined), [groupId, max])
   return list
 }
 
@@ -141,7 +151,7 @@ export function useComments(groupId: string | undefined, expenseId: string | und
 /** The group's settlements, without trashed ones. */
 export function useSettlements(groupId: string | undefined) {
   const [list, setList] = useState<Settlement[] | null>(null)
-  useEffect(() => (groupId ? repo.watchSettlements(groupId, (l) => setList(liveItems(l))) : undefined), [groupId])
+  useEffect(() => (groupId ? rewatchWhileFresh(groupId, () => repo.watchSettlements(groupId, (l) => setList(liveItems(l)))) : undefined), [groupId])
   return list
 }
 
@@ -208,9 +218,11 @@ export function useAllGroupData(): GroupData[] | null {
     }
     for (const id of want) {
       if (subs.current.has(id)) continue
-      const a = repo.watchExpenses(id, (e) => { setExp((p) => ({ ...p, [id]: e })); catchUpRecurring(e) })
-      const b = repo.watchSettlements(id, (s) => setSet((p) => ({ ...p, [id]: s })))
-      subs.current.set(id, () => { a(); b() })
+      subs.current.set(id, rewatchWhileFresh(id, () => {
+        const a = repo.watchExpenses(id, (e) => { setExp((p) => ({ ...p, [id]: e })); catchUpRecurring(e) })
+        const b = repo.watchSettlements(id, (s) => setSet((p) => ({ ...p, [id]: s })))
+        return () => { a(); b() }
+      }))
     }
   }, [ids])
   useEffect(() => {

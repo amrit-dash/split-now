@@ -134,4 +134,8 @@ export function usefulModels(list: Array<{ name: string; displayName?: string; s
 /** Shown in settings; never more than the last 4 characters of a key. */
 export const keyHint = (key: string) => (key.length >= 8 ? `…${key.slice(-4)}` : '…')
 
-export const looksLikeGeminiKey = (k: string) => /^[A-Za-z0-9_\-]{30,60}$/.test(k.trim())
+/**
+ * A loose shape check (Google decides for real): classic `AIza…` keys and newer formats with dots
+ * or other URL-safe characters. Rejects only obvious mistakes like a short word or a URL.
+ */
+export const looksLikeGeminiKey = (k: string) => /^[A-Za-z0-9_\-.~+/=]{20,256}$/.test(k.trim()) && !/^https?/i.test(k.trim())

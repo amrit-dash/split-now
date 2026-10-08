@@ -10,6 +10,7 @@ import { takeStashedCapture } from './lib/pending'
 import { refreshPush, watchPrefs } from './lib/push'
 import { setAiScan } from './lib/ai'
 import { GroupDataProvider } from './hooks/groupData'
+import { primeAiStatus } from './hooks/useAiStatus'
 import Login from './pages/Login'
 import Home from './pages/Home'
 import Groups from './pages/Groups'
@@ -59,6 +60,9 @@ export default function App() {
 
   // Mirror the account's "read bills with AI" choice onto this device (read synchronously when scanning).
   useEffect(() => (user && !user.isAnonymous && repo.mode === 'firebase' ? watchPrefs(user.uid, (p) => setAiScan(p.aiEnabled && p.aiImages)) : undefined), [user])
+
+  // AI status (admin flag, shared key) once per sign-in, so Profile doesn't wait for it.
+  useEffect(() => primeAiStatus(user && !user.isAnonymous && repo.mode === 'firebase' ? user.uid : null), [user])
 
   // Pull anything iOS Shortcuts dropped into captureInbox while the app was closed.
   useEffect(() => {
