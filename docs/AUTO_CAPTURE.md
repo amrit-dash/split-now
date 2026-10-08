@@ -270,21 +270,36 @@ An *image* share target must be `POST multipart/form-data`, and a static site ca
 
 ## Publishing the shared iPhone Shortcut (owner, once)
 
-What can and can't be automated on iPhone [Likely, consistent across Apple docs and community reports]:
+Research (Oct 2026, see sources in the research notes) — what is possible on iPhone:
 
-| Piece | Shareable? | How |
+| Piece | Possible? | Notes |
 |---|---|---|
-| The **Shortcut** that POSTs the SMS to `/api/capture` | Yes | iCloud link. Each user's key is asked for on import via an **Import Question**. |
-| The **Message automation** that runs it on each debit SMS | No | Personal automations can't be shared, exported or created by a link or app. Each user creates them once (about 1 minute each, ×3 keywords). |
-| Testing the Shortcut | Yes, from the app | `shortcuts://run-shortcut?name=Split%20Now%20SMS&input=text&text=…` ("Test the Shortcut on this iPhone" in the wizard). |
+| Share the **Shortcut** via iCloud link | Yes [Certain] | The user's key is asked for by an **Import Question on a Text action** (questions can't target values inside a JSON body) [Likely]. |
+| Create/share the **automation** | No [Certain] | Each user creates it once. |
+| **One** automation for all SMS | Yes, with a workaround [Likely] | Sender = Any Sender + Message Contains = a single **space** (iOS requires one field; "Contains" takes one plain phrase, no OR/regex). |
+| Filter on the phone | Yes [Certain] | **Match Text** (ICU regex, case-insensitive) + **If … has any value** + **Stop This Shortcut**. Non-debit SMS and OTPs never leave the device. |
+| Generate/sign a Shortcut from our server | Not worth it now | Needs `shortcuts sign` on a logged-in Mac (not hosted CI) or RoutineHub's HubSign (sends every user's key to a third party). No public API to create iCloud links. |
+| Bank SMS filtered into "Transactions" | [Likely] fires | Indian apps rely on it; **test on a real phone**. |
 
-Build it as a **standalone shortcut**, not from inside an automation, so it has a proper name and no key baked in:
+### Owner: build "Split Now SMS" (standalone, in the Shortcuts tab)
 
-1. Shortcuts → **Shortcuts** tab → **+** → name it exactly **Split Now SMS** (the in-app test button uses this name).
-2. Add **Get Contents of URL**: URL `https://split-now.web.app/api/capture`, Method **POST**, Request Body **JSON**, fields:
-   `token` = *(type anything, e.g. `KEY`)*, `text` = **Shortcut Input**, `sender` = **Shortcut Input → Sender**, `device` = `ios`.
-3. Tap the shortcut name → **ⓘ Details** → **Setup** tab (on newer iOS: the shortcut's settings → *Import Questions*) → **Add Question** → pick the `token` field of *Get Contents of URL* → question text: "Paste your Split Now key (Profile → Auto-capture)". Default value: empty.
-4. Share → **Copy iCloud Link**. Send it to the lead, who sets `VITE_IOS_SHORTCUT_URL` in `.env.production` and redeploys.
-5. Revoke any key that was baked into an earlier shared link (Profile → Auto-capture → Your keys).
+1. **+** → name it exactly **Split Now SMS** (the in-app test button uses this name).
+2. Shortcut details (ⓘ): **Receive** *Text* and *Messages* (any input). If there's no input: **Stop and Respond**.
+3. **Text** action containing `PASTE_KEY` (this becomes the key).
+4. **Text** action containing the **Shortcut Input** variable (gives the message body). If the picker offers it, choose *Shortcut Input → Content*.
+5. **Match Text**: pattern `(?i)\b(otp|one[- ]time|verification code|password)\b` in the step-4 Text → **If** *Matches* **has any value** → **Stop This Shortcut** → **End If**.
+6. **Match Text**: pattern `(?i)(debited|spent|paid|sent\s*rs|withdrawn|inr|rs\.?\s*\d|₹\s*\d)` in the step-4 Text → **If** *Matches* **does not have any value** → **Stop This Shortcut** → **End If**.
+7. **Get Contents of URL**: `https://split-now.web.app/api/capture`, Method **POST**, Request Body **JSON**:
+   `token` = step-3 Text, `text` = step-4 Text, `device` = `ios` (optional `sender` = Shortcut Input → Sender).
+8. ⓘ → **Setup** → **Add Question** → choose the step-3 **Text** field → "Paste your Split Now key (Profile → Auto-capture)". Turn off *Show in Share Sheet*.
+9. Run it once with sample text (iOS asks to allow split-now.web.app). Then **Share → Copy iCloud Link** → send to the lead, who sets `VITE_IOS_SHORTCUT_URL` and redeploys.
+10. Revoke any key that was baked into an earlier shared link.
 
-Each user then: opens the link → **Add Shortcut** → pastes their key → creates 3 Message automations ("debited", "spent", "sent Rs") → **Run Immediately** → action **Run Shortcut: Split Now SMS** with **Shortcut Input**.
+### Each user (≈ 90 seconds)
+
+1. In Split Now: Profile → Auto-capture → copy your key → **Add Shortcut** (iCloud link) → paste the key.
+2. Shortcuts → **Automation → + → Message** → Sender *Any Sender*, Message Contains a single **space** → **Run Immediately**, *Notify When Run* off → **Next**.
+3. **Run Shortcut → Split Now SMS**, expand it, set **Input = Shortcut Input** → **Done**.
+4. Tap **Test the Shortcut on this iPhone** in the app; then check a real bank SMS (including one in *Transactions*).
+
+iOS 16 and older: the toggle is *Ask Before Running* (turn it off) instead of *Run Immediately*.

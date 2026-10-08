@@ -212,7 +212,6 @@ function MockRow({ k, v, accent }: { k: string; v?: ReactNode; accent?: boolean 
     </div>
   )
 }
-const Toggle = () => <span className="inline-block h-4 w-7 rounded-full bg-emerald-500 align-middle"><span className="ml-3.5 mt-0.5 block h-3 w-3 rounded-full bg-white" /></span>
 const Var = ({ children }: { children: ReactNode }) => <span className="rounded-md bg-sky-100 px-1.5 py-0.5 font-semibold text-sky-700 dark:bg-sky-500/20 dark:text-sky-300">{children}</span>
 
 function Checklist({ items }: { items: Array<{ text: ReactNode; mock?: ReactNode }> }) {
@@ -243,33 +242,21 @@ function IosSteps({ token }: { token?: string }) {
       )}
       <p className="text-xs text-slate-500">iOS 17 or later. Works with SMS from bank sender IDs such as AX-HDFCBK, because the trigger matches the message text, not the sender.</p>
       <Checklist items={[
-        { text: <>Open <b>Shortcuts</b> → <b>Automation</b> → <b>+</b> (or <b>New Automation</b>) → <b>Message</b>.</> },
+        { text: <>Open <b>Shortcuts</b> → <b>Automation</b> → <b>+</b> → <b>Message</b>.</> },
         {
-          text: <>Leave <b>Sender</b> as <i>Any</i>. Tap <b>Message Contains</b> and type <b>debited</b>. Choose <b>Run Immediately</b> (turn <b>Notify When Run</b> off if your iOS shows it), then <b>Next</b>.</>,
-          mock: <Mock title="When"><MockRow k="Sender" v="Any" /><MockRow k="Message Contains" v="debited" /><MockRow k="Run Immediately" v={<Check size={14} className="inline text-brand-600" />} /><MockRow k="Notify When Run" v={<span className="inline-block h-4 w-7 rounded-full bg-slate-300" />} /></Mock>,
+          text: IOS_SHORTCUT_URL
+            ? <>Leave <b>Sender</b> as <i>Any Sender</i>. In <b>Message Contains</b> type a single <b>space</b> (iOS needs one field filled; every SMS contains a space). Choose <b>Run Immediately</b> and turn <b>Notify When Run</b> off, then <b>Next</b>.</>
+            : <>Leave <b>Sender</b> as <i>Any Sender</i>. In <b>Message Contains</b> type <b>debited</b> (without the shared Shortcut there’s no on-phone filter, so don’t trigger on every message). Choose <b>Run Immediately</b>, turn <b>Notify When Run</b> off, then <b>Next</b>.</>,
+          mock: <Mock title="When"><MockRow k="Sender" v="Any Sender" /><MockRow k="Message Contains" v={<code>{IOS_SHORTCUT_URL ? '␣' : 'debited'}</code>} /><MockRow k="Run Immediately" v={<Check size={14} className="inline text-brand-600" />} /><MockRow k="Notify When Run" v={<span className="inline-block h-4 w-7 rounded-full bg-slate-300" />} /></Mock>,
         },
         {
           text: IOS_SHORTCUT_URL
-            ? <>Pick <b>{APP_NAME} SMS</b> (the shortcut you added). If iOS asks for input, pass <Var>Shortcut Input</Var>.</>
-            : <>Tap <b>New Blank Automation</b> and add <b>Get Contents of URL</b>.</>,
+            ? <>Choose <b>Run Shortcut</b> → <b>{IOS_SHORTCUT_NAME}</b>. Tap the arrow on the action and set <b>Input</b> to <Var>Shortcut Input</Var>. Tap <b>Done</b>.</>
+            : <>Choose <b>New Blank Automation</b> and add <b>Get Contents of URL</b> with URL <code className="break-all">{url}</code>, Method <b>POST</b>, Request Body <b>JSON</b>: <code>token</code> = your key{token ? ` (${token.slice(0, 8)}…)` : ''}, <code>text</code> = <Var>Shortcut Input</Var>, <code>device</code> = <code>ios</code>. Tap <b>Done</b>.</>,
         },
-        {
-          text: <>Set the URL to <code className="break-all">{url}</code>, tap <b>Show More</b>: Method <b>POST</b>, Request Body <b>JSON</b>, and add four <b>Text</b> fields:</>,
-          mock: (
-            <Mock title="Get Contents of URL">
-              <MockRow k="URL" v={url.replace(/^https?:\/\//, '')} />
-              <MockRow k="Method" v="POST" />
-              <MockRow k="Request Body" v="JSON" />
-              <MockRow k="token" v={<code>{token ? `${token.slice(0, 8)}…` : 'your key'}</code>} accent />
-              <MockRow k="text" v={<Var>Shortcut Input</Var>} accent />
-              <MockRow k="sender" v={<Var>Shortcut Input › Sender</Var>} accent />
-              <MockRow k="device" v="ios" accent />
-            </Mock>
-          ),
-        },
-        { text: <>For <b>text</b>, tap the field, then <b>Select Variable</b> → <Var>Shortcut Input</Var> (the message). For <b>sender</b>, tap the variable and choose <b>Sender</b> (optional).</> },
-        { text: <>Tap <b>Done</b>. Make sure the automation shows <Toggle /> enabled.</> },
-        { text: <>Repeat steps 1–6 for <b>{DEBIT_KEYWORDS.slice(1).map((k, i) => <span key={k}>{i ? ' and ' : ''}“{k}”</span>)}</b> (card and UPI alerts use different words). With the shortcut from the link, each automation just runs it.</> },
+        IOS_SHORTCUT_URL
+          ? { text: <>That’s the only automation you need. It runs on every message, but the Shortcut checks the text <b>on your phone</b> and only sends bank debit SMS. OTPs and personal messages never leave the device.</> }
+          : { text: <>Optional: repeat for <b>{DEBIT_KEYWORDS.slice(1).map((k, i) => <span key={k}>{i ? ' and ' : ''}“{k}”</span>)}</b> to catch card and other UPI alerts.</> },
       ]} />
       {IOS_SHORTCUT_URL && (
         <div className="mt-4 rounded-2xl bg-slate-50 p-3 dark:bg-ink-800">
