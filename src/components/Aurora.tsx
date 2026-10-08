@@ -6,9 +6,10 @@ import { useEffect, useRef } from 'react'
  * (radial gradients that fade to transparent, so no hard edges). On the card, soft white bubbles
  * float too.
  *
- * Motion is a little 2D physics, not a loop: every shape travels in a straight-ish line in a
- * random direction (gently curving), and when it reaches the edge of its own box around its home
- * spot it bounces off and carries on in a new direction. Nothing repeats, and every person and
+ * Motion is a little 2D steering, not a loop: every shape glides in a random direction along a
+ * smoothly curving path. Its turning comes from slow, irregular waves (never jitter), and as it
+ * nears the edge of its own small area around its home spot it is turned back gradually, so it
+ * curves round instead of bouncing or snapping direction. Nothing repeats, and every person and
  * visit gets different paths. Size and opacity breathe on their own slow, irregular cycles.
  * One requestAnimationFrame loop, transform/opacity only; nothing moves under
  * prefers-reduced-motion. Put it inside a `relative isolate overflow-hidden` parent and give the
@@ -29,9 +30,13 @@ interface Body {
 }
 
 const rand = ([a, b]: Range) => a + Math.random() * (b - a)
-const TURN = 0.9 // rad/s of random steering, so paths curve rather than run on rails
+/** Wandering turn rate (rad/s), from two slow sine waves per shape so paths curve without jitter. */
+const WANDER = 0.55
+/** How hard a shape is turned back toward home once past this share of its area. */
+const SOFT_EDGE = 0.55
+const HOME_PULL = 2.4
 
-interface State { x: number; y: number; a: number; v: number; w1: number; w2: number; p1: number; p2: number }
+interface State { x: number; y: number; a: number; v: number; w1: number; w2: number; p1: number; p2: number; t1: number; t2: number; q1: number; q2: number }
 
 function start(b: Body): State {
   return {
@@ -39,6 +44,7 @@ function start(b: Body): State {
     a: Math.random() * Math.PI * 2, v: rand(b.speed),
     w1: (Math.PI * 2) / rand(b.breathe), w2: (Math.PI * 2) / rand([b.breathe[0] * 1.6, b.breathe[1] * 2.2]),
     p1: Math.random() * Math.PI * 2, p2: Math.random() * Math.PI * 2,
+    t1: (Math.PI * 2) / rand([9, 15]), t2: (Math.PI * 2) / rand([5, 8]), q1: Math.random() * Math.PI * 2, q2: Math.random() * Math.PI * 2,
   }
 }
 
@@ -65,12 +71,21 @@ function useBodies(bodies: Body[]) {
         const el = els[i], s = st[i], b = bodies[i]
         if (!el || !s) continue
         const hx = Math.max(1, b.bx * W), hy = Math.max(1, b.by * H) // box half-size in px
-        s.a += (Math.random() - 0.5) * 2 * TURN * dt
+        // Wander: a smooth, irregular turn rate.
+        let turn = WANDER * (0.65 * Math.sin(s.t1 * t + s.q1) + 0.35 * Math.sin(s.t2 * t + s.q2))
+        // Near the edge of its area (an ellipse), ease the heading back toward home.
+        const r = Math.hypot(s.x, s.y)
+        if (r > SOFT_EDGE) {
+          const home = Math.atan2(-s.y * hy, -s.x * hx)
+          const diff = Math.atan2(Math.sin(home - s.a), Math.cos(home - s.a))
+          turn += diff * HOME_PULL * Math.min(1, (r - SOFT_EDGE) / (1 - SOFT_EDGE))
+        }
+        s.a += turn * dt
         let x = s.x * hx + Math.cos(s.a) * s.v * dt
         let y = s.y * hy + Math.sin(s.a) * s.v * dt
-        // Bounce off the box: mirror the heading, with a little random spin so it doesn't ping-pong.
-        if (Math.abs(x) > hx) { x = Math.sign(x) * hx; s.a = Math.PI - s.a + (Math.random() - 0.5) * 0.8 }
-        if (Math.abs(y) > hy) { y = Math.sign(y) * hy; s.a = -s.a + (Math.random() - 0.5) * 0.8 }
+        // Hard limit only as a safety net (the steering keeps it well inside).
+        const rr = Math.hypot(x / hx, y / hy)
+        if (rr > 1) { x /= rr; y /= rr }
         s.x = x / hx; s.y = y / hy
         const k = 0.5 + 0.5 * (0.6 * Math.sin(s.w1 * t + s.p1) + 0.4 * Math.sin(s.w2 * t + s.p2)) // 0..1, irregular
         const sc = b.scale[0] + (b.scale[1] - b.scale[0]) * k
@@ -89,9 +104,10 @@ function useBodies(bodies: Body[]) {
 }
 
 // Card: smoke (light, dark, duo, dark) then bubbles. Smoke drifts slowly so the blend reads as smoke.
-const SMOKE = (opacity: Range): Body => ({ bx: 0.2, by: 0.3, speed: [9, 15], scale: [0.85, 1.3], opacity, breathe: [7, 12] })
-const BUBBLE = (bx: number, by: number): Body => ({ bx, by, speed: [10, 18], scale: [0.92, 1.1], breathe: [6, 10] })
-const CARD: Body[] = [SMOKE([0.55, 1]), SMOKE([0.5, 0.95]), SMOKE([0.4, 0.9]), SMOKE([0.35, 0.8]), BUBBLE(0.1, 0.18), BUBBLE(0.09, 0.15), BUBBLE(0.08, 0.14), BUBBLE(0.07, 0.12)]
+const SMOKE = (opacity: Range): Body => ({ bx: 0.14, by: 0.2, speed: [5, 8], scale: [0.88, 1.22], opacity, breathe: [9, 15] })
+const BUBBLE = (bx: number, by: number): Body => ({ bx, by, speed: [4, 7], scale: [0.95, 1.06], breathe: [8, 13] })
+// Bubble areas are small so they drift around their spot and only ever brush each other.
+const CARD: Body[] = [SMOKE([0.55, 1]), SMOKE([0.5, 0.95]), SMOKE([0.4, 0.9]), SMOKE([0.35, 0.8]), BUBBLE(0.05, 0.09), BUBBLE(0.05, 0.08), BUBBLE(0.05, 0.09), BUBBLE(0.035, 0.07)]
 const FAB: Body[] = [
   { bx: 0.3, by: 0.3, speed: [7, 11], scale: [0.9, 1.25], opacity: [0.5, 1], breathe: [3, 5] },
   { bx: 0.3, by: 0.3, speed: [7, 11], scale: [0.9, 1.25], opacity: [0.45, 1], breathe: [3.2, 5.5] },
@@ -124,7 +140,7 @@ export function Aurora({ size = 'card' }: { size?: 'card' | 'fab' }) {
       <div ref={ref(4)} className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10" />
       <div ref={ref(5)} className="absolute -bottom-16 right-10 h-32 w-32 rounded-full bg-white/[0.08]" />
       <div ref={ref(6)} className="absolute -left-8 top-1/2 h-20 w-20 rounded-full bg-white/[0.06]" />
-      <div ref={ref(7)} className="absolute left-[54%] top-[14%] h-8 w-8 rounded-full bg-white/[0.08]" />
+      <div ref={ref(7)} className="absolute left-[50%] top-[10%] h-8 w-8 rounded-full bg-white/[0.08]" />
     </div>
   )
 }

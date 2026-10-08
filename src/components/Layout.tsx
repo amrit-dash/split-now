@@ -30,11 +30,13 @@ export function Layout() {
       <InstallBanner />
       <CaptureAlert />
       <nav className="fixed inset-x-0 bottom-0 z-40">
+        {/* The + button's glow sits under the bar: muted where the bar covers it, bright in the
+            notch, which gives the cut-out depth. It's a blurred copy of the button's moving gradient. */}
+        <div aria-hidden className="pointer-events-none absolute left-1/2 top-[0.55rem] h-[4.1rem] w-[4.1rem] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[9px]">
+          <Aurora size="fab" />
+        </div>
         {/* The bar, with a round notch cut out for the + button (mask in index.css). */}
         <div aria-hidden className="nav-notch absolute inset-0 border-t border-slate-200/70 bg-white/85 backdrop-blur-xl dark:border-white/5 dark:bg-ink-900/85" />
-        {/* Inside the notch: the bar's own frosted fill, fading out, with the button's glow in it
-            (so it reads as a soft cradle, not a hole), and the notch's outline incl. its rounded shoulders. */}
-        <div aria-hidden className="nav-notch-glass absolute left-1/2 top-0 h-12 w-28 -translate-x-1/2 backdrop-blur-md" />
         <svg aria-hidden viewBox="0 0 112 48" className="absolute left-1/2 top-0 h-12 w-28 -translate-x-1/2 overflow-visible text-slate-200/70 dark:text-white/5">
           <path d="M0 0.5H10.41A8 8 0 0 1 18.41 8.14A37.6 37.6 0 1 0 93.59 8.14A8 8 0 0 1 101.59 0.5H112" fill="none" stroke="currentColor" strokeWidth="1" vectorEffect="non-scaling-stroke" />
         </svg>
@@ -42,21 +44,14 @@ export function Layout() {
           {tabs.map((t, i) =>
             t === null ? (
               <div key={i} className="relative w-16 self-stretch">
-                {/* Halo: a blurred copy of the button's moving gradient, all round it, so the glow
-                    shifts colour with the button and never ends at the bar's edge. */}
-                <div aria-hidden className="pointer-events-none absolute left-1/2 top-[0.19rem] h-[4.75rem] w-[4.75rem] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-75 blur-[14px] dark:opacity-90">
-                  <Aurora size="fab" />
-                </div>
                 <button
                   onClick={() => setCreating(true)}
                   data-testid="nav-create"
-                  className="fab-3d absolute left-1/2 top-0 flex h-[3.75rem] w-[3.75rem] -translate-x-1/2 -translate-y-[45%] items-center justify-center overflow-hidden rounded-full text-white transition active:translate-y-[-42%] active:scale-95"
+                  className="fab-ring absolute left-1/2 top-0 flex h-[3.75rem] w-[3.75rem] -translate-x-1/2 -translate-y-[45%] items-center justify-center overflow-hidden rounded-full text-white transition active:scale-95"
                   aria-label="Create" aria-haspopup="dialog"
                 >
                   <Aurora size="fab" />
-                  {/* light from above: a soft top highlight and a darker rim below, for depth */}
-                  <span aria-hidden className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(120%_80%_at_50%_0%,rgb(255_255_255/0.38),transparent_55%),radial-gradient(120%_70%_at_50%_110%,rgb(0_0_0/0.22),transparent_60%)]" />
-                  <Plus size={28} strokeWidth={2.6} className="relative drop-shadow-[0_1px_1px_rgb(0_0_0/0.25)]" />
+                  <Plus size={28} strokeWidth={2.6} className="relative" />
                 </button>
               </div>
             ) : (

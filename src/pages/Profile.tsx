@@ -24,6 +24,7 @@ import { AiSettings } from '@/components/AiSettings'
 import { AdminAi } from '@/components/AdminAi'
 import { useAiStatus } from '@/hooks/useAiStatus'
 import { useAppVersion } from '@/hooks/useAppVersion'
+import { watchPrefs, type AllPrefs } from '@/lib/push'
 import { AdminApp } from '@/components/AdminApp'
 import type { AiState } from '@/data/repo'
 import { AutoCapture } from '@/components/AutoCapture'
@@ -68,9 +69,18 @@ export default function Profile() {
   const version = useAppVersion()
   const [aiState, setAiState] = useState<AiState | null>(null)
   useEffect(() => (repo.mode === 'firebase' ? repo.watchAiState(user.uid, setAiState) : undefined), [user.uid])
-  const aiSummary = aiState?.hint
-    ? (aiState.lastError ? `Your key (${aiState.hint}) needs attention` : `Your key is set up (${aiState.hint})`)
-    : aiStatus?.app.images === 'available' ? 'Using Split Now’s key' : 'Gemini reads bills, statements and hard-to-read SMS'
+  const [aiPrefs, setAiPrefs] = useState<AllPrefs | null>(null)
+  useEffect(() => (repo.mode === 'firebase' ? watchPrefs(user.uid, setAiPrefs) : undefined), [user.uid])
+  // Collapsed AI summary: on/off and what it's used for, and a warning only if no key can serve it.
+  const aiSummary = (() => {
+    if (!aiPrefs) return 'Gemini reads bills, statements and hard-to-read SMS'
+    if (!aiPrefs.aiEnabled) return 'Off · bills are read on this phone'
+    const uses = [aiPrefs.aiImages && 'Bills & statements', aiPrefs.aiSms && 'SMS'].filter(Boolean).join(', ')
+    if (!uses) return 'On · nothing selected'
+    const own = !!aiState?.hint && aiPrefs.aiSource !== 'app'
+    const shared = aiPrefs.aiSource !== 'own' && (aiStatus?.app.images === 'available' || aiStatus?.app.sms === 'available')
+    return `On · ${uses}${own || shared || aiStatus === undefined ? '' : ' · no key available'}`
+  })()
   const [name, setName] = useState(profile.displayName)
   const [phone, setPhone] = useState(profile.phone ?? '')
   // The mobile number also fills "Phone number for UPI apps" while that field is empty or still
@@ -198,11 +208,11 @@ export default function Profile() {
         </Collapsible>
       )}
 
-      <Link to="/friends" className="card mt-3 flex items-center gap-3 p-4 font-medium transition active:scale-[0.99]">
+      <Link to="/settle" className="card mt-3 flex items-center gap-3 p-4 font-medium transition active:scale-[0.99]">
         <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"><Users size={19} /></span>
         <span className="min-w-0 flex-1">
-          <span className="block">Friends &amp; balances</span>
-          <span className="block text-xs font-normal text-slate-500">One balance per person, across every group</span>
+          <span className="block">Balances</span>
+          <span className="block text-xs font-normal text-slate-500">Who owes whom, by person or by group</span>
         </span>
         <ChevronRight size={18} className="text-slate-300 dark:text-slate-600" />
       </Link>
@@ -225,7 +235,7 @@ export default function Profile() {
           </div>
         </div>
       )}
-      <p className="mt-6 text-center text-xs text-slate-400">Split Now v{version} · {repo.mode === 'demo' ? 'Demo mode' : 'Connected to Firebase'}</p>
+      <p className="mb-10 mt-6 text-center text-xs text-slate-400">Split Now v{version} · {repo.mode === 'demo' ? 'Demo mode' : 'Connected to Firebase'}</p>
 
       <Sheet open={iosOpen} onClose={() => setIosOpen(false)} title="Add to Home Screen"><IOSInstallSteps /></Sheet>
       <PhotoSheet open={photoOpen} onClose={() => setPhotoOpen(false)} profile={profile} googlePhotoURL={user.googlePhotoURL} />
