@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Check, ExternalLink, KeyRound, Loader2, RefreshCw, ShieldCheck, Sparkles, Trash2 } from 'lucide-react'
 import { repo } from '@/data'
-import type { AiModel, AiState, AiStatusResult, AppAiStatusValue } from '@/data/repo'
+import type { AiModel, AiState, AppAiStatusValue } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
+import { useAiStatus } from '@/hooks/useAiStatus'
+import { errText } from '@/lib/errors'
 import { setAiScan } from '@/lib/ai'
 import { DEFAULT_MODEL, type AiSource } from '@/lib/ai-config'
 import { DEFAULT_ALL_PREFS, savePrefs, watchPrefs, type AllPrefs } from '@/lib/push'
@@ -36,12 +38,12 @@ const ago = (t: number) => {
 }
 
 /** Profile → AI features: master switch, features, which key, the user's own Gemini key and model. */
-export function AiSettings({ onStatus }: { onStatus?: (s: AiStatusResult | null) => void }) {
+export function AiSettings() {
   const { user } = useMe()
   const toast = useToast()
   const [prefs, setPrefs] = useState<AllPrefs>(DEFAULT_ALL_PREFS)
   const [state, setState] = useState<AiState | null>(null)
-  const [status, setStatus] = useState<AiStatusResult | null | undefined>(undefined)
+  const status = useAiStatus()
   const [models, setModels] = useState<AiModel[] | null>(null)
   const [draft, setDraft] = useState('')
   const [editing, setEditing] = useState(false)
@@ -49,7 +51,6 @@ export function AiSettings({ onStatus }: { onStatus?: (s: AiStatusResult | null)
 
   useEffect(() => watchPrefs(user.uid, setPrefs), [user.uid])
   useEffect(() => repo.watchAiState(user.uid, setState), [user.uid])
-  useEffect(() => { repo.aiStatus().then((s) => { setStatus(s); onStatus?.(s) }) }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const hasKey = !!state?.hint
   // Model list for the user's key, once there is one.
   useEffect(() => {
@@ -71,7 +72,7 @@ export function AiSettings({ onStatus }: { onStatus?: (s: AiStatusResult | null)
       if (kind === 'remove') { setModels(null); toast('Key removed') }
       else { setModels(r.models); setDraft(''); setEditing(false); toast(kind === 'save' ? 'Key saved and working' : 'Key works') }
     } catch (e) {
-      toast((e as Error).message.replace(/^.*?: /, '') || 'Something went wrong', 'err')
+      toast(errText(e), 'err')
     } finally {
       setBusy(null)
     }
@@ -143,15 +144,10 @@ export function AiSettings({ onStatus }: { onStatus?: (s: AiStatusResult | null)
                       {busy === 'remove' ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
                     </button>
                   </div>
-                  <div>
-                    <div className="label">Model</div>
-                    <Select aria-label="Model" value={prefs.aiModel} onChange={(v) => set({ aiModel: v })} options={modelOptions} />
-                    <p className="mt-1 text-xs text-slate-500">{models === null ? 'Loading the models your key can use…' : 'If a model is retired, the recommended one is used instead.'}</p>
-                  </div>
                 </>
               ) : (
                 <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); if (draft.trim()) void run('save') }}>
-                  <input className="input font-mono text-sm" type="password" autoComplete="off" spellCheck={false} placeholder="Paste your Gemini API key" value={draft} onChange={(e) => setDraft(e.target.value)} aria-label="Gemini API key" />
+                  <input className="input font-mono" type="password" autoComplete="off" spellCheck={false} placeholder="Paste your Gemini API key" value={draft} onChange={(e) => setDraft(e.target.value)} aria-label="Gemini API key" />
                   <div className="flex gap-2">
                     <button className="btn-primary !min-h-0 flex-1 !py-2.5 text-sm" disabled={!draft.trim() || !!busy}>
                       {busy === 'save' ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />} Save &amp; check
@@ -164,6 +160,13 @@ export function AiSettings({ onStatus }: { onStatus?: (s: AiStatusResult | null)
                   </p>
                 </form>
               )}
+              <div>
+                <div className="label">Model for your key</div>
+                <Select aria-label="Model" value={prefs.aiModel} onChange={(v) => set({ aiModel: v })} options={modelOptions} />
+                <p className="mt-1 text-xs text-slate-500">
+                  {!hasKey ? 'Add a key to see every model it can use.' : models === null ? 'Loading the models your key can use…' : 'If a model is retired, the recommended one is used instead.'}
+                </p>
+              </div>
             </div>
           </div>
         </>

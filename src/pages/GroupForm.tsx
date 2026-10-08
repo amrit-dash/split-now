@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Check, FileUp, Plus, Trash2, UserPlus, X } from 'lucide-react'
+import { Check, FileUp, Plus, Search, Trash2, UserPlus, X } from 'lucide-react'
 import { repo } from '@/data'
 import { diffMembers } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
-import { useAllExpenses, useAllSettlements, useGroup, useGroups } from '@/hooks/data'
+import { createGroup, useAllExpenses, useAllSettlements, useGroup, useGroups } from '@/hooks/data'
 import type { Group, GroupType, Member } from '@/types'
 import { CURRENCIES, centsToInput, parseMoney } from '@/lib/money'
 import { colorFor } from '@/lib/colors'
@@ -18,8 +18,16 @@ import { Select, currencyOptions } from '@/components/Select'
 import { LiveBadge, Loading, PageHeader } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
 import { DateField } from '@/components/DateField'
+import { isEmail, knownPeople, nameFromEmail, recentPeople, searchPeople, type KnownPerson } from '@/lib/people'
 
 const maxOthersFor = (t: GroupType) => (t === 'personal' ? 0 : t === 'direct' ? 1 : Infinity)
+
+type Kind = 'group' | 'direct' | 'personal'
+const KINDS: Array<{ kind: Kind; emoji: string; label: string; hint: string }> = [
+  { kind: 'group', emoji: '👥', label: 'Group', hint: 'Trips & more' },
+  { kind: 'direct', emoji: '🤝', label: '1:1 friend', hint: 'You + 1 friend' },
+  { kind: 'personal', emoji: '👛', label: 'Personal', hint: 'Your own wallet' },
+]
 
 export default function GroupForm() {
   const { groupId } = useParams()
@@ -56,6 +64,7 @@ export default function GroupForm() {
   const [parked, setParked] = useState<Record<string, Member>>({})
   const [newName, setNewName] = useState('')
   const [newEmail, setNewEmail] = useState('')
+  const [query, setQuery] = useState('')
   const [busy, setBusy] = useState(false)
   const lastShared = useRef<GroupType>(isSharedType(initialType) ? initialType : 'trip')
 
@@ -83,28 +92,16 @@ export default function GroupForm() {
     if (!groupId && !nameTouched) setName(type === 'direct' ? firstOther : '')
   }, [groupId, nameTouched, type, firstOther])
 
-  // "People from your groups": everyone you share a group with, most frequent first.
-  const known = useMemo(() => {
-    const byKey = new Map<string, { name: string; email?: string; uid?: string; n: number }>()
-    for (const g of groups ?? []) {
-      if (g.id === groupId || g.type === 'personal') continue
-      for (const m of Object.values(g.members)) {
-        if (m.uid === user.uid || !m.name.trim()) continue
-        const nameKey = `n:${m.name.trim().toLowerCase()}`
-        const hit = (m.uid && byKey.get(`u:${m.uid}`)) || byKey.get(nameKey)
-        if (hit) {
-          hit.n++
-          hit.email ??= m.email
-          if (m.uid && !hit.uid) { hit.uid = m.uid; byKey.set(`u:${m.uid}`, hit) }
-        } else {
-          const e = { name: m.name.trim(), email: m.email, uid: m.uid, n: 1 }
-          byKey.set(nameKey, e)
-          if (m.uid) byKey.set(`u:${m.uid}`, e)
-        }
-      }
-    }
-    return [...new Set(byKey.values())].sort((a, b) => b.n - a.n || a.name.localeCompare(b.name))
-  }, [groups, groupId, user.uid])
+  // Quick-add pills: people from your ~4 most recent groups/1:1s (the full list only grows).
+  const isAdded = (k: KnownPerson) => Object.values(members).some((m) => (k.uid && m.uid === k.uid) || m.name.trim().toLowerCase() === k.name.toLowerCase())
+  const recent = useMemo(() => recentPeople(groups ?? [], user.uid, groupId), [groups, user.uid, groupId])
+  // Search covers everyone from all your groups, built only once you start typing.
+  const q = query.trim()
+  const searching = q !== ''
+  const everyone = useMemo(() => (searching ? knownPeople(groups ?? [], user.uid, groupId) : null), [searching, groups, user.uid, groupId])
+  const results = useMemo(() => (everyone ? searchPeople(everyone.filter((k) => !isAdded(k)), q) : []), [everyone, q, members])
+  const ql = q.toLowerCase()
+  const inviteEmail = isEmail(q) && !everyone?.some((k) => k.email?.toLowerCase() === ql) && !Object.values(members).some((m) => m.email?.toLowerCase() === ql) ? q : ''
 
   if (groupId && existing === undefined) return <Loading />
   if (groupId && existing === null) return <PageHeader title="Group not found" back />
@@ -120,9 +117,9 @@ export default function GroupForm() {
   const hasPersonal = (groups ?? []).some((g) => g.type === 'personal')
   // Types you can switch between here: any shared type, but never to or from 1:1 / Personal once saved.
   const typeChips = shared && (!existing || isSharedType(existing.type))
-  const addedNames = new Set(Object.values(members).map((m) => m.name.trim().toLowerCase()))
-  const addedUids = new Set(Object.values(members).map((m) => m.uid).filter(Boolean))
-  const suggestions = known.filter((k) => !addedNames.has(k.name.toLowerCase()) && !(k.uid && addedUids.has(k.uid))).slice(0, 10)
+  const suggestions = recent.filter((k) => !isAdded(k)).slice(0, 12)
+  const kind: Kind = shared ? 'group' : type === 'direct' ? 'direct' : 'personal'
+  const kinds = KINDS.filter((k) => k.kind !== 'personal' || !hasPersonal || type === 'personal')
   const guess = shared && typedName ? guessGroup(name) : null
   const guessKey = guess ? `${guess.type}${guess.emoji}` : ''
   const showGuess = !!guess && (guess.type !== type || guess.emoji !== emoji) && guessKey !== dismissed && isSharedType(guess.type) && (!existing || isSharedType(existing.type))
@@ -153,6 +150,7 @@ export default function GroupForm() {
   }
 
   const chooseType = (t: GroupType) => { setTypeTouched(true); applyType(t) }
+  const chooseKind = (k: Kind) => { if (k !== kind) chooseType(k === 'group' ? lastShared.current : k) }
   const chooseIcon = (e: string) => { setIconTouched(true); setEmoji(e) }
 
   const onName = (v: string) => {
@@ -168,6 +166,14 @@ export default function GroupForm() {
     if (!personName.trim() || others.length >= maxOthers) return
     const id = uid('p_')
     setMembers((m) => ({ ...m, [id]: { name: personName.trim(), email: email?.trim() || undefined, color: colorFor(Object.keys(m).length) } }))
+  }
+  const addKnown = (k: KnownPerson) => { addPerson(k.name, k.email); setQuery('') }
+  const addByEmail = (email: string) => { addPerson(nameFromEmail(email), email); setQuery('') }
+  const onSearchKey = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter') return
+    e.preventDefault()
+    if (results.length === 1) addKnown(results[0])
+    else if (inviteEmail) addByEmail(inviteEmail)
   }
   const addMember = () => {
     if (!newName.trim()) return
@@ -205,9 +211,10 @@ export default function GroupForm() {
         toast('Group updated')
         nav(`/groups/${existing.id}`, { replace: true })
       } else {
-        const id = await repo.createGroup({ ...data, createdBy: user.uid } as Omit<Group, 'id' | 'createdAt' | 'updatedAt' | 'inviteCode'>)
+        const id = await createGroup({ ...data, createdBy: user.uid } as Omit<Group, 'id' | 'createdAt' | 'updatedAt' | 'inviteCode'>)
         toast('Group created 🎉')
-        nav(`/groups/${id}`, { replace: true })
+        // ?next=add: opened from Add expense, so go straight back there with the new group picked.
+        nav(params.get('next') === 'add' ? `/add?group=${id}` : `/groups/${id}`, { replace: true })
       }
     } catch (e) {
       toast((e as Error).message, 'err')
@@ -227,6 +234,18 @@ export default function GroupForm() {
     <div>
       <PageHeader title={existing ? 'Edit group' : type === 'direct' ? 'New 1:1' : type === 'personal' ? 'Personal wallet' : 'New group'} back />
       <div className="space-y-5">
+        {!existing && (
+          <div className={`grid gap-1 rounded-2xl bg-slate-100 p-1 dark:bg-ink-800 ${kinds.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`} role="radiogroup" aria-label="What are you creating?">
+            {kinds.map((k) => (
+              <button key={k.kind} type="button" role="radio" aria-checked={kind === k.kind} onClick={() => chooseKind(k.kind)}
+                className={`min-w-0 rounded-xl px-2.5 py-2.5 text-left transition active:scale-[.98] ${kind === k.kind ? 'bg-gradient-to-br from-brand-600 to-duo-600 text-white shadow-md shadow-brand-600/25' : 'text-slate-700 hover:bg-white/60 dark:text-slate-200 dark:hover:bg-ink-700'}`}>
+                <div className="text-xl leading-none" aria-hidden>{k.emoji}</div>
+                <div className="mt-1.5 truncate text-sm font-bold">{k.label}</div>
+                <div className={`truncate text-[11px] ${kind === k.kind ? 'text-white/80' : 'text-slate-500 dark:text-slate-400'}`}>{k.hint}</div>
+              </button>
+            ))}
+          </div>
+        )}
         <div className="card space-y-4 p-4">
           <IconPickerField emoji={emoji} onChange={chooseIcon} emojis={iconsFor(type)} idPrefix="group-icon">
             <label className="label" htmlFor="group-name">Name</label>
@@ -243,20 +262,6 @@ export default function GroupForm() {
                   <button key={t} type="button" onClick={() => chooseType(t)} className={`chip ${type === t ? 'chip-on' : ''}`}>{GROUP_TYPES[t].emoji} {GROUP_TYPES[t].label}</button>
                 ))}
               </div>
-              {!existing && (
-                <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-                  <button type="button" className="font-semibold text-brand-600 dark:text-brand-300" onClick={() => chooseType('direct')}>🤝 Just one friend?</button>
-                  {!hasPersonal && <button type="button" className="font-semibold text-brand-600 dark:text-brand-300" onClick={() => chooseType('personal')}>👛 Personal wallet</button>}
-                </div>
-              )}
-            </div>
-          )}
-          {!shared && !existing && (
-            <div className="flex items-center gap-3 rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800">
-              <div className="min-w-0 flex-1 text-slate-600 dark:text-slate-300">
-                {type === 'direct' ? 'Just you and one friend, outside any group.' : 'Only you: track your own spending.'}
-              </div>
-              <button type="button" className="shrink-0 font-semibold text-brand-600 dark:text-brand-300" onClick={() => chooseType(lastShared.current)}>Make it a group</button>
             </div>
           )}
           <div className="grid grid-cols-2 gap-3">
@@ -343,16 +348,45 @@ export default function GroupForm() {
             </div>
             {others.length < maxOthers && (
               <div className="mt-4 space-y-2 border-t border-slate-100 pt-4 dark:border-white/5">
-                {suggestions.length > 0 && (
+                {recent.length > 0 && (
                   <div>
-                    <div className="mb-1.5 text-xs font-medium text-slate-500">People from your groups</div>
-                    <div className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-1" data-testid="known-people">
-                      {suggestions.map((k) => (
-                        <button key={k.uid ?? k.name} type="button" onClick={() => addPerson(k.name, k.email)} className="chip shrink-0" aria-label={`Add ${k.name}`}>
-                          <Plus size={14} /> {k.name}
-                        </button>
-                      ))}
+                    <div className="relative">
+                      <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden />
+                      <input className="input !pl-10" type="search" autoComplete="off" placeholder="Search people or type an email" aria-label="Search people" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={onSearchKey} />
                     </div>
+                    {searching ? (
+                      <div className="mt-1.5 divide-y divide-slate-100 overflow-hidden rounded-2xl ring-1 ring-slate-200 dark:divide-white/5 dark:ring-ink-700" data-testid="people-results">
+                        {results.map((k, i) => (
+                          <button key={k.uid ?? k.name} type="button" onClick={() => addKnown(k)} className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-ink-800" aria-label={`Add ${k.name}`}>
+                            <Avatar name={k.name} color={colorFor(i + 1)} size={28} />
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate text-sm font-medium">{k.name}</div>
+                              {k.email && <div className="truncate text-xs text-slate-500">{k.email}</div>}
+                            </div>
+                            <Plus size={16} className="shrink-0 text-brand-600 dark:text-brand-300" aria-hidden />
+                          </button>
+                        ))}
+                        {inviteEmail && (
+                          <button type="button" onClick={() => addByEmail(inviteEmail)} className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-slate-50 dark:hover:bg-ink-800">
+                            <UserPlus size={18} className="shrink-0 text-brand-600 dark:text-brand-300" aria-hidden />
+                            <span className="min-w-0 truncate">Add <b>{inviteEmail}</b></span>
+                          </button>
+                        )}
+                        {!results.length && !inviteEmail && <div className="px-3 py-2.5 text-sm text-slate-500">No one by that name. Add them below, or type their email.</div>}
+                      </div>
+                    ) : suggestions.length > 0 && (
+                      <>
+                        <div className="mb-0.5 mt-2.5 text-xs font-medium text-slate-500">From your recent groups</div>
+                        {/* py-1: overflow-x-auto clips the chips' rings otherwise */}
+                        <div className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 py-1" data-testid="known-people">
+                          {suggestions.map((k) => (
+                            <button key={k.uid ?? k.name} type="button" onClick={() => addKnown(k)} className="chip shrink-0" aria-label={`Add ${k.name}`}>
+                              <Plus size={14} /> {k.name}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
                 <input className="input" placeholder="Name" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addMember())} />

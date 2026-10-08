@@ -30,7 +30,7 @@ export function Collapsible({
     onOpenChange?.(next)
   }
   return (
-    <section id={id} className={`card mt-3 overflow-hidden ${className}`} data-testid={testId} data-open={open || undefined}>
+    <section id={id} className={`card mt-3 overflow-clip ${className}`} data-testid={testId} data-open={open || undefined}>
       <button
         type="button"
         className="flex w-full items-center gap-3 px-4 py-3.5 text-left"
@@ -38,12 +38,13 @@ export function Collapsible({
         aria-controls={bodyId}
         onClick={toggle}
       >
-        {icon && <span className="shrink-0 text-brand-600 dark:text-brand-300">{icon}</span>}
+        {icon && <span className="flex shrink-0 text-brand-600 dark:text-brand-300">{icon}</span>}
         <span className="min-w-0 flex-1">
           <span className="block font-semibold">{title}</span>
+          {/* The summary folds away when open, so the title sits centred on the icon. */}
           {summary && (
-            <span className={`block truncate text-xs text-slate-500 transition-opacity duration-200 motion-reduce:transition-none dark:text-slate-400 ${open ? 'opacity-0' : 'opacity-100'}`} aria-hidden={open}>
-              {summary}
+            <span className={`grid transition-[grid-template-rows,opacity] duration-200 motion-reduce:transition-none ${open ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100'}`} aria-hidden={open}>
+              <span className="block min-h-0 truncate text-xs text-slate-500 dark:text-slate-400">{summary}</span>
             </span>
           )}
         </span>
@@ -56,7 +57,7 @@ export function Collapsible({
         inert={!open}
         className={`grid transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
       >
-        <div className="min-h-0 overflow-hidden">
+        <div className="min-h-0 overflow-clip">
           <div className="px-4 pb-4">{children}</div>
         </div>
       </div>

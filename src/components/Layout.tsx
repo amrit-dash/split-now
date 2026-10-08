@@ -32,6 +32,7 @@ export function Layout() {
       <nav className="fixed inset-x-0 bottom-0 z-40">
         {/* The bar, with a round notch cut out for the + button (mask in index.css). */}
         <div aria-hidden className="nav-notch absolute inset-0 border-t border-slate-200/70 bg-white/85 backdrop-blur-xl dark:border-white/5 dark:bg-ink-900/85" />
+        <div aria-hidden className="nav-notch-glass absolute left-1/2 top-0 h-12 w-28 -translate-x-1/2 bg-white/30 backdrop-blur-md dark:bg-ink-900/30" />
         <div className="relative mx-auto flex max-w-2xl items-center justify-around px-2 pb-[var(--nav-pad)] pt-1.5">
           {tabs.map((t, i) =>
             t === null ? (
@@ -51,9 +52,12 @@ export function Layout() {
                 key={t.to}
                 to={t.to}
                 end={'end' in t}
-                className={({ isActive }) => `flex w-16 flex-col items-center gap-0.5 rounded-2xl py-1 text-[11px] font-semibold transition ${isActive ? 'text-brand-600 dark:text-brand-300' : 'text-slate-400'}`}
+                className={({ isActive }) => `group flex w-16 flex-col items-center gap-0.5 py-0.5 text-[11px] font-semibold transition ${isActive ? 'text-brand-800 dark:text-brand-200' : 'text-slate-400'}`}
               >
-                <t.icon size={23} strokeWidth={2.2} />
+                {/* Active tab: icon on a pill in a deeper theme shade. */}
+                <span className="flex h-7 w-12 items-center justify-center rounded-full transition-colors group-aria-[current=page]:bg-brand-100 group-aria-[current=page]:text-brand-700 dark:group-aria-[current=page]:bg-brand-500/25 dark:group-aria-[current=page]:text-brand-200">
+                  <t.icon size={22} strokeWidth={2.2} />
+                </span>
                 {t.label}
               </NavLink>
             ),
