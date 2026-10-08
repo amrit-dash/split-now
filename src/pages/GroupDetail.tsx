@@ -311,7 +311,7 @@ function ActivityList({ group, expenses, settlements, me, currency, name, person
         )}
       </div>
       {(usedCategories.length > 1 || (!personal && me)) && (
-        <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1">
+        <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 py-1">
           {!personal && me && (
             <button onClick={() => setOnlyMe(!onlyMe)} className={`chip shrink-0 whitespace-nowrap ${onlyMe ? 'chip-on' : ''}`} aria-pressed={onlyMe}>Involving me</button>
           )}

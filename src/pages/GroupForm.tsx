@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Check, FileUp, Plus, Search, Trash2, UserPlus, X } from 'lucide-react'
+import { Check, FileUp, Plus, Search, UserPlus, X } from 'lucide-react'
 import { repo } from '@/data'
 import { diffMembers } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
@@ -18,6 +18,7 @@ import { Select, currencyOptions } from '@/components/Select'
 import { LiveBadge, Loading, PageHeader } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
 import { DateField } from '@/components/DateField'
+import { DeleteGroupButton } from '@/components/DeleteGroup'
 import { isEmail, knownPeople, nameFromEmail, recentPeople, searchPeople, type KnownPerson } from '@/lib/people'
 
 const maxOthersFor = (t: GroupType) => (t === 'personal' ? 0 : t === 'direct' ? 1 : Infinity)
@@ -223,12 +224,6 @@ export default function GroupForm() {
     }
   }
 
-  const remove = async () => {
-    if (!existing || !confirm(`Delete “${existing.name}” and all its expenses? This cannot be undone.`)) return
-    await repo.deleteGroup(existing.id)
-    toast('Group deleted')
-    nav('/groups', { replace: true })
-  }
 
   return (
     <div>
@@ -238,7 +233,7 @@ export default function GroupForm() {
           <div className={`grid gap-1 rounded-2xl bg-slate-100 p-1 dark:bg-ink-800 ${kinds.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`} role="radiogroup" aria-label="What are you creating?">
             {kinds.map((k) => (
               <button key={k.kind} type="button" role="radio" aria-checked={kind === k.kind} onClick={() => chooseKind(k.kind)}
-                className={`min-w-0 rounded-xl px-2.5 py-2.5 text-left transition active:scale-[.98] ${kind === k.kind ? 'bg-gradient-to-br from-brand-600 to-duo-600 text-white shadow-md shadow-brand-600/25' : 'text-slate-700 hover:bg-white/60 dark:text-slate-200 dark:hover:bg-ink-700'}`}>
+                className={`min-w-0 rounded-xl px-2.5 py-2.5 text-left transition active:scale-[.98] ${kind === k.kind ? 'accent-live bg-gradient-to-br from-brand-600 to-duo-600 text-white shadow-md shadow-brand-600/25' : 'text-slate-700 hover:bg-white/60 dark:text-slate-200 dark:hover:bg-ink-700'}`}>
                 <div className="text-xl leading-none" aria-hidden>{k.emoji}</div>
                 <div className="mt-1.5 truncate text-sm font-bold">{k.label}</div>
                 <div className={`truncate text-[11px] ${kind === k.kind ? 'text-white/80' : 'text-slate-500 dark:text-slate-400'}`}>{k.hint}</div>
@@ -406,9 +401,7 @@ export default function GroupForm() {
             <FileUp size={16} /> Switching from Splitwise? Import a group
           </Link>
         )}
-        {existing && existing.createdBy === user.uid && (
-          <button className="btn w-full text-rose-600" onClick={remove}><Trash2 size={18} /> Delete group</button>
-        )}
+        {existing && <DeleteGroupButton group={existing} />}
       </div>
     </div>
   )

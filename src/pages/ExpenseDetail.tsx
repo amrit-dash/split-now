@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { CopyPlus, Pencil, Repeat, Send, Trash2 } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
@@ -27,9 +27,25 @@ export default function ExpenseDetail() {
   const nav = useNavigate()
   const toast = useToast()
   const undoable = useUndoableDelete()
+  const patient = usePatience(`${groupId}/${expenseId}`)
+  // An old link to an import summary pointed here with the group's id: open the group.
+  if (groupId && expenseId === groupId) return <Navigate to={`/groups/${groupId}`} replace />
   if (group === undefined || !expenses) return <Loading />
   const e = expenses.find((x) => x.id === expenseId)
-  if (!group || !e) return <><PageHeader title="Expense" back /><Empty emoji="🔍" title="Expense not found" /></>
+  // The first snapshot can come from the local cache before the server has sent this expense
+  // (opened from a notification or another member's activity): wait a moment before "not found".
+  if (group && !e && patient) return <Loading />
+  if (!group || !e) {
+    return (
+      <>
+        <PageHeader title="Expense" back />
+        <Empty emoji="🔍" title="Expense not found">
+          {group ? 'It may have been deleted for good.' : 'You may no longer be in this group.'}
+          {group && <Link to={`/groups/${group.id}`} replace className="btn-secondary mx-auto mt-4 w-fit">Open {group.emoji} {group.name}</Link>}
+        </Empty>
+      </>
+    )
+  }
   const me = myMemberId(group, user.uid)
   const cur = group.currency
   const cat = CATEGORIES[e.category]
@@ -232,4 +248,15 @@ function fmtWhen(ts: number) {
   if (mins < 60) return `${mins}m ago`
   if (mins < 60 * 24) return `${Math.round(mins / 60)}h ago`
   return new Date(ts).toLocaleDateString(appLocale(), { day: 'numeric', month: 'short' })
+}
+
+/** True for the first few seconds after `key` changes. */
+function usePatience(key: string, ms = 4000) {
+  const [waiting, setWaiting] = useState(true)
+  useEffect(() => {
+    setWaiting(true)
+    const t = setTimeout(() => setWaiting(false), ms)
+    return () => clearTimeout(t)
+  }, [key, ms])
+  return waiting
 }

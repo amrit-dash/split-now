@@ -6,7 +6,7 @@ import { downscale } from '@/lib/image'
 import { isExpired, TABLE_TTL_MS, type LiveTable } from '@/lib/table'
 import { disputeActivity, expenseEventActivity, expenseSaveActivity, importActivity, memberActivity, settlementActivity, type NewActivity } from '@/lib/activity'
 import { prepareExpenseSave, prepareImportedSettlement, prepareOccurrence } from '@/lib/trust'
-import { activityCtxFor, byCreatedDesc, byDateDesc, changedSettings, compact, draftToCapture, errorChannel, placeholdersOf, type AuthUser, type CaptureToken, type Repo, type TablePatch } from './repo'
+import { activityCtxFor, byCreatedDesc, byDateDesc, changedSettings, compact, draftToCapture, errorChannel, groupDeleteBlocker, placeholdersOf, type AuthUser, type CaptureToken, type Repo, type TablePatch } from './repo'
 import { seedDemo } from './seed'
 import { defaultCurrency } from '@/lib/locale'
 
@@ -172,6 +172,10 @@ export function createLocalRepo(): Repo {
       commit()
     },
     async deleteGroup(id) {
+      const g = state.groups[id]
+      if (!g) return
+      const blocker = groupDeleteBlocker(g, me().uid)
+      if (blocker) throw new Error(blocker)
       delete state.groups[id]
       for (const [k, e] of Object.entries(state.expenses)) if (e.groupId === id) delete state.expenses[k]
       for (const [k, s] of Object.entries(state.settlements)) if (s.groupId === id) delete state.settlements[k]

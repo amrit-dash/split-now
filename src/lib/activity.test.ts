@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ActivityEntry, Expense, Settlement } from '@/types'
 import {
-  activityText, describeChanges, diffExpense, disputeActivity, expenseEventActivity, expenseSaveActivity, expenseSnapshot,
+  activityHref, activityText, describeChanges, diffExpense, disputeActivity, expenseEventActivity, expenseSaveActivity, expenseSnapshot,
   importActivity, memberActivity, mergeFeeds, settlementActivity, type ActivityCtx,
 } from './activity'
 import { formatMoney } from './money'
@@ -87,6 +87,15 @@ describe('describeChanges', () => {
     const a = importActivity('g', 12, 3, 'splitwise', ctx)
     expect(a.type).toBe('expense.imported')
     expect(a.summary).toBe('Sarah imported 12 expenses and 3 payments from Splitwise')
+  })
+  it('links an entry to its expense, or to the group when it is not about one expense', () => {
+    // the import summary's targetId is the group: it must not open /expenses/<groupId>
+    expect(activityHref({ ...importActivity('g1', 12, 3, 'splitwise', ctx), groupId: 'g1' })).toBe('/groups/g1')
+    expect(activityHref({ type: 'expense.created', groupId: 'g1', targetId: 'e_1' })).toBe('/groups/g1/expenses/e_1')
+    expect(activityHref({ type: 'expense.updated', groupId: 'g1', targetId: 'e_1' })).toBe('/groups/g1/expenses/e_1')
+    expect(activityHref({ type: 'expense.purged', groupId: 'g1', targetId: 'e_1' })).toBe('/groups/g1')
+    expect(activityHref({ type: 'settlement.created', groupId: 'g1', targetId: 's_1' })).toBe('/groups/g1')
+    expect(activityHref({ type: 'member.added', groupId: 'g1', targetId: 'p_1' })).toBe('/groups/g1')
   })
   it('notes and recurrence', () => {
     expect(describeChanges({}, { notes: 'hi' }, ctx)).toEqual(['added a note'])

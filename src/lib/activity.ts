@@ -226,6 +226,19 @@ export function mergeFeeds(lists: ActivityEntry[][], limit = 20): ActivityEntry[
   return lists.flat().sort((a, b) => b.createdAt - a.createdAt || b.id.localeCompare(a.id)).slice(0, limit)
 }
 
+/**
+ * Where tapping an entry goes. Expense entries open the expense; everything else (an import
+ * summary, whose targetId is the group, payments, membership, a purged expense) opens the group.
+ */
+export function activityHref(a: Pick<ActivityEntry, 'type' | 'groupId' | 'targetId'>): string {
+  const group = `/groups/${encodeURIComponent(a.groupId)}`
+  return isExpenseEntry(a) ? `${group}/expenses/${encodeURIComponent(a.targetId)}` : group
+}
+
+/** Entries about one (still existing) expense, as opposed to the import summary or a purge. */
+export const isExpenseEntry = (a: Pick<ActivityEntry, 'type'>) =>
+  a.type.startsWith('expense.') && a.type !== 'expense.imported' && a.type !== 'expense.purged'
+
 const ICONS: Record<ActivityType, string> = {
   'expense.created': '🧾', 'expense.updated': '✏️', 'expense.deleted': '🗑️', 'expense.restored': '↩️', 'expense.purged': '🔥',
   'expense.disputed': '🚩', 'expense.resolved': '✅', 'expense.approved': '👍', 'expense.imported': '📥',
