@@ -162,13 +162,18 @@ html[data-update-ready] .install-banner { display: none; }
 @utility animate-wave { animation: wave 2.4s ease-in-out 0.4s 3; }
 @utility animate-float { animation: float 3s ease-in-out infinite; }
 
-/* Aurora (components/Aurora.tsx): gradient sweep + drifting bubbles. */
-@keyframes aurora-shift { 0%, 100% { background-position: 0% 0%; } 50% { background-position: 100% 100%; } }
+/* Aurora (components/Aurora.tsx): floating colour blobs + drifting bubbles; spinning conic on the + button. */
+@keyframes blob-a { 0%, 100% { transform: translate(0, 0) scale(1); } 33% { transform: translate(18%, 12%) scale(1.15); } 66% { transform: translate(6%, 28%) scale(0.95); } }
+@keyframes blob-b { 0%, 100% { transform: translate(0, 0) scale(1); } 40% { transform: translate(-20%, -14%) scale(1.1); } 75% { transform: translate(-8%, 6%) scale(0.92); } }
+@keyframes blob-c { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-30%, 20%) scale(1.25); } }
+@keyframes aurora-spin { to { transform: rotate(360deg); } }
 @keyframes bubble-a { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-22px, 26px) scale(1.12); } }
 @keyframes bubble-b { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-36px, -24px) scale(0.9); } }
 @keyframes bubble-c { 0%, 100% { transform: translate(0, 0); opacity: 0.6; } 50% { transform: translate(28px, -34px); opacity: 1; } }
-@utility animate-aurora-shift { animation: aurora-shift 9s ease-in-out infinite; }
-@utility animate-aurora-fab { animation: aurora-shift 6s ease-in-out infinite; }
+@utility animate-blob-a { animation: blob-a 9s ease-in-out infinite; will-change: transform; }
+@utility animate-blob-b { animation: blob-b 11s ease-in-out infinite; will-change: transform; }
+@utility animate-blob-c { animation: blob-c 7s ease-in-out infinite; will-change: transform; }
+@utility animate-aurora-spin { animation: aurora-spin 8s linear infinite; will-change: transform; }
 @utility animate-bubble-a { animation: bubble-a 11s ease-in-out infinite; will-change: transform; }
 @utility animate-bubble-b { animation: bubble-b 14s ease-in-out infinite; will-change: transform; }
 @utility animate-bubble-c { animation: bubble-c 9s ease-in-out infinite; will-change: transform; }
@@ -185,3 +190,13 @@ html[data-update-ready] .install-banner { display: none; }
 /* Horizontally scrolling rows (chips, split types, filters) scroll by touch without a visible bar. */
 .overflow-x-auto { scrollbar-width: none; }
 .overflow-x-auto::-webkit-scrollbar { display: none; }
+
+/* Tab bar (Layout): bottom padding trimmed into the home-indicator area, and a round notch for the + button. */
+:root {
+  --nav-pad: max(calc(env(safe-area-inset-bottom) - 14px), 6px);
+  --nav-h: calc(3.4rem + var(--nav-pad));
+}
+.nav-notch {
+  -webkit-mask: radial-gradient(circle 2.35rem at 50% 0.55rem, transparent 98%, #000 100%);
+  mask: radial-gradient(circle 2.35rem at 50% 0.55rem, transparent 98%, #000 100%);
+}

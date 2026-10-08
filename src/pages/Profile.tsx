@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Camera, ChevronRight, Download, ImagePlus, LogOut, Moon, Palette, ShieldCheck, Sun, SunMoon, Trash2, Users, Wallet } from 'lucide-react'
+import { Camera, ChevronRight, Download, ImagePlus, LogOut, Moon, Palette, ShieldCheck, Sparkles, Sun, SunMoon, Trash2, Users, Wallet } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import type { PaymentHandles, UserProfile } from '@/types'
@@ -19,7 +19,8 @@ import { Sheet } from '@/components/Sheet'
 import { Select, currencyOptions } from '@/components/Select'
 import { useToast } from '@/components/Toast'
 import { accentPreset, getAccent, getDuo } from '@/lib/accent'
-import { AccountCard, RatesButton } from '@/components/ProfileCards'
+import { AccountCard, RatesField } from '@/components/ProfileCards'
+import { AiSettings } from '@/components/AiSettings'
 import { AutoCapture } from '@/components/AutoCapture'
 import { NotificationSettings } from '@/components/NotificationSettings'
 
@@ -123,13 +124,9 @@ export default function Profile() {
         name={name} setName={setName} phone={phone} setPhone={onPhone}
         photoURL={profile.photoURL} email={profile.email} onPhoto={() => setPhotoOpen(true)}
         currencyField={(
-          <div>
-            <label className="label">Default currency</label>
-            <div className="grid grid-cols-[1fr_auto] gap-2">
-              <Select aria-label="Default currency" value={currency} onChange={setCurrency} options={currencyOptions(CURRENCIES)} />
-              <RatesButton base={currency} />
-            </div>
-          </div>
+          <RatesField base={currency}>
+            <Select aria-label="Default currency" value={currency} onChange={setCurrency} options={currencyOptions(CURRENCIES)} />
+          </RatesField>
         )}
       />
 
@@ -173,6 +170,11 @@ export default function Profile() {
 
       <NotificationSettings />
       <AutoCapture />
+      {repo.mode === 'firebase' && (
+        <Collapsible id="ai" testId="section-ai" title="AI reading" icon={<Sparkles size={20} />} summary="Google Gemini for bills, statements and hard-to-read SMS">
+          <AiSettings />
+        </Collapsible>
+      )}
 
       <Link to="/friends" className="card mt-3 flex items-center gap-3 p-4 font-medium transition active:scale-[0.99]">
         <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"><Users size={19} /></span>
@@ -193,7 +195,7 @@ export default function Profile() {
       <button className="btn-primary mt-6 w-full" onClick={save} disabled={saving} data-testid="save-profile">Save profile</button>
       {dirty && <div className="h-14" aria-hidden />}
       {dirty && (
-        <div className="animate-pop fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] z-30 mx-auto max-w-2xl px-4" data-testid="unsaved-bar">
+        <div className="animate-pop fixed inset-x-0 bottom-[calc(var(--nav-h)+2rem)] z-30 mx-auto max-w-2xl px-4" data-testid="unsaved-bar">
           <div className="flex items-center gap-2 rounded-2xl bg-white p-2 pl-4 shadow-xl shadow-black/15 ring-1 ring-slate-900/10 dark:bg-ink-800 dark:ring-white/10">
             <span className="min-w-0 flex-1 truncate text-sm font-semibold">Unsaved changes</span>
             <button className="btn-ghost !min-h-0 shrink-0 !px-3 !py-2 text-sm" onClick={discard}>Discard</button>

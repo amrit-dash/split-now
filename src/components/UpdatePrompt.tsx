@@ -50,7 +50,7 @@ export function UpdatePrompt() {
   // waits (an update is never urgent, and it must not cover Save buttons or bottom bars).
   if (!needRefresh || !withNav) return null
   return (
-    <div className="animate-[rise_0.45s_cubic-bezier(0.2,0.9,0.3,1)] fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+5.25rem)] z-30 mx-auto max-w-md" role="status" data-testid="update-banner">
+    <div className="animate-[rise_0.45s_cubic-bezier(0.2,0.9,0.3,1)] fixed inset-x-3 bottom-[calc(var(--nav-h)+2rem)] z-30 mx-auto max-w-md" role="status" data-testid="update-banner">
       <div className="flex items-center gap-2.5 rounded-3xl bg-gradient-to-r from-brand-600 to-duo-600 p-2 pl-3 text-white shadow-xl shadow-brand-900/30 ring-1 ring-white/20">
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl bg-white/15"><Sparkles size={16} aria-hidden /></span>
         <div className="min-w-0 flex-1 truncate text-sm font-bold" title={`A new version of ${APP_NAME} is ready`}>New version ready</div>
