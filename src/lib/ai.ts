@@ -21,7 +21,12 @@ export const aiScanPossible = () => repo.mode === 'firebase'
 
 export type ReadVia = 'ai' | 'device'
 
-export interface ReadResult { parsed: ParsedReceipt; via: ReadVia }
+export interface ReadResult {
+  parsed: ParsedReceipt
+  via: ReadVia
+  /** AI was on but no key could be used (or it failed), so the phone read it instead */
+  fellBack?: boolean
+}
 
 /** `stage` reports 'ai' while waiting on Gemini, then OCR progress 0..1 if it falls back. */
 export async function readReceipt(file: File, onStage: (s: { stage: ReadVia; progress?: number }) => void): Promise<ReadResult> {
@@ -39,7 +44,8 @@ export async function readReceipt(file: File, onStage: (s: { stage: ReadVia; pro
       console.warn('AI reading failed, using on-device OCR', e)
     }
   }
+  const fellBack = aiScanEnabled() && aiScanPossible()
   onStage({ stage: 'device', progress: 0 })
   const text = await recognizeImage(file, (p) => onStage({ stage: 'device', progress: p }))
-  return { parsed: parseReceipt(text), via: 'device' }
+  return { parsed: parseReceipt(text), via: 'device', fellBack }
 }

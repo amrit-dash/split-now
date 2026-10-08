@@ -4,9 +4,6 @@
  * again here, so nothing the model returns reaches Firestore or the app unchecked.
  */
 
-/** Cheapest model with image input and structured output; the alias is the fallback if it's retired. */
-export const GEMINI_MODELS = ['gemini-2.5-flash-lite', 'gemini-flash-lite-latest']
-
 const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models'
 
 type Schema = Record<string, unknown>
@@ -117,15 +114,28 @@ export const SMS_PROMPT = `This is a bank or UPI SMS from India. Extract the tra
 
 export interface GeminiPart { text?: string; inlineData?: { mimeType: string; data: string } }
 
+export type GeminiErrorKind = 'bad_key' | 'quota' | 'model' | 'server'
+
 export class GeminiError extends Error {
-  constructor(message: string, readonly status?: number) { super(message) }
+  readonly kind: GeminiErrorKind
+  constructor(message: string, readonly status?: number, body = '') {
+    super(message)
+    this.kind = status === 404 ? 'model'
+      : status === 429 ? 'quota'
+      : status === 401 || status === 403 || (status === 400 && /API_KEY_INVALID|API key not valid/i.test(body)) ? 'bad_key'
+      : 'server'
+  }
 }
 
-/** One structured-output call. Tries the next model only if the first is unknown (404). */
-export async function generateJson(key: string, parts: GeminiPart[], schema: Schema, fetchImpl: typeof fetch = fetch, timeoutMs = 25_000): Promise<unknown> {
+/**
+ * One structured-output call. `models` are tried in order, moving on only when a model is
+ * unknown (404, e.g. retired); any other failure is thrown for the caller to fall back on.
+ */
+export async function generateJson(key: string, parts: GeminiPart[], schema: Schema, opts: { models: string[]; fetchImpl?: typeof fetch; timeoutMs?: number }): Promise<{ json: unknown; model: string }> {
+  const { models, fetchImpl = fetch, timeoutMs = 25_000 } = opts
   let last: GeminiError | undefined
-  for (const model of GEMINI_MODELS) {
-    const res = await fetchImpl(`${ENDPOINT}/${model}:generateContent`, {
+  for (const model of models) {
+    const res = await fetchImpl(`${ENDPOINT}/${encodeURIComponent(model)}:generateContent`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
       body: JSON.stringify({
@@ -137,16 +147,39 @@ export async function generateJson(key: string, parts: GeminiPart[], schema: Sch
       signal: AbortSignal.timeout(timeoutMs),
     })
     if (res.status === 404) { last = new GeminiError(`model ${model} not found`, 404); continue }
-    if (!res.ok) throw new GeminiError(`Gemini ${res.status}: ${(await res.text()).slice(0, 200)}`, res.status)
-    const body = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }
-    const text = body.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? ''
+    if (!res.ok) {
+      const body = (await res.text()).slice(0, 300)
+      throw new GeminiError(`Gemini ${res.status}: ${body}`, res.status, body)
+    }
+    const out = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }
+    const text = out.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? ''
     try {
-      return JSON.parse(text)
+      return { json: JSON.parse(text), model }
     } catch {
       throw new GeminiError('Gemini returned invalid JSON')
     }
   }
   throw last ?? new GeminiError('no Gemini model available')
+}
+
+export interface GeminiModelInfo { name: string; displayName?: string; supportedGenerationMethods?: string[] }
+
+/** All models a key can use (also how a new key is checked). */
+export async function listModels(key: string, fetchImpl: typeof fetch = fetch): Promise<GeminiModelInfo[]> {
+  const out: GeminiModelInfo[] = []
+  let page = ''
+  for (let i = 0; i < 5; i++) {
+    const res = await fetchImpl(`${ENDPOINT}?pageSize=200${page ? `&pageToken=${encodeURIComponent(page)}` : ''}`, { headers: { 'x-goog-api-key': key }, signal: AbortSignal.timeout(10_000) })
+    if (!res.ok) {
+      const body = (await res.text()).slice(0, 300)
+      throw new GeminiError(`Gemini ${res.status}: ${body}`, res.status, body)
+    }
+    const j = await res.json() as { models?: GeminiModelInfo[]; nextPageToken?: string }
+    out.push(...(j.models ?? []))
+    if (!j.nextPageToken) break
+    page = j.nextPageToken
+  }
+  return out
 }
 
 // ---- Validation --------------------------------------------------------------------

@@ -4,6 +4,7 @@ import type { ItemId, LiveTable, NewTable, ParticipantId, TableExtras, TableItem
 import type { ActivityCtx } from '@/lib/activity'
 import type { FxRatesDoc, FxRefreshResult } from '@/lib/fx'
 import type { ParsedReceipt } from '@/lib/ocr-parse'
+import type { AppAiConfig } from '@/lib/ai-config'
 import { defaultCurrency } from '@/lib/locale'
 
 export type Unsub = () => void
@@ -220,7 +221,27 @@ export interface Repo {
    * `{ statement: null }`: no transactions found; null: unavailable. Demo mode returns a sample.
    */
   readStatementAi(images: Array<{ image: string; mimeType: string }>, today: string): Promise<{ statement: AiStatement | null } | null>
+  /** Save / re-test / remove the user's own Gemini key (aiKey callable). Throws with a readable message. */
+  aiKey(action: 'set' | 'test' | 'remove', key?: string): Promise<AiKeyResult>
+  /** Models for the user's own key, or the project key (admins). Throws on failure. */
+  aiModels(which: 'own' | 'app'): Promise<AiModel[]>
+  /** Whether the shared key can be used; null if unknown (offline, demo). */
+  aiStatus(): Promise<AiStatusResult | null>
+  /** users/{uid}/aiState/status (server-written). */
+  watchAiState(userId: string, cb: (s: AiState | null) => void): Unsub
+  /** config/ai (raw; resolve with resolveAppAi). */
+  watchAppAi(cb: (raw: unknown) => void): Unsub
+  /** Admins only (rules). */
+  saveAppAi(cfg: AppAiConfig): Promise<void>
+  /** stats/ai_{day} (admins only). */
+  aiUsage(day: string): Promise<Record<string, number> | null>
 }
+
+export interface AiModel { id: string; label: string }
+export interface AiKeyResult { hint: string | null; models: AiModel[] }
+export type AppAiStatusValue = 'available' | 'off' | 'not_listed' | 'feature_off'
+export interface AiStatusResult { admin: boolean; app: { images: AppAiStatusValue; sms: AppAiStatusValue; model: string; configured?: boolean } }
+export interface AiState { hint?: string; lastOkAt?: number; lastError?: { kind: 'bad_key' | 'quota' | 'model' | 'server'; at: number } }
 
 export interface StatementTxn {
   date: string

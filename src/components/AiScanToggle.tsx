@@ -17,7 +17,7 @@ export function AiScanToggle({ className = '' }: { className?: string }) {
         <span className="font-semibold text-slate-700 dark:text-slate-200">Read with AI</span>
         {on ? ' · the photo is sent to Google Gemini to read items and taxes' : ' · off, read on this phone only (less accurate)'}
       </div>
-      <Switch checked={on} label="Read bills with AI" testId="ai-scan" onChange={(v) => { setAiScan(v); setOn(v); void savePrefs(user.uid, { aiImages: v }) }} />
+      <Switch checked={on} label="Read bills with AI" testId="ai-scan" onChange={(v) => { setAiScan(v); setOn(v); void savePrefs(user.uid, v ? { aiImages: true, aiEnabled: true } : { aiImages: false }) }} />
     </div>
   )
 }

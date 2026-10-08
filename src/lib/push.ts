@@ -8,6 +8,7 @@
  */
 
 import { DEFAULT_FILTERS, resolveFilters, type CaptureFilterPrefs } from './capture-filters'
+import { DEFAULT_USER_AI, resolveUserAi, type UserAiPrefs } from './ai-config'
 
 export const VAPID_KEY = (import.meta.env.VITE_FCM_VAPID_KEY as string | undefined)?.trim() || ''
 
@@ -23,13 +24,13 @@ export interface NotificationPrefs {
 export const DEFAULT_PREFS: NotificationPrefs = { captures: true, unsorted: false, expenses: true, settlements: true, reminders: true, outsideTrips: false }
 
 /** Everything in settings/notifications: push types plus the auto-capture filters. */
-export type AllPrefs = NotificationPrefs & CaptureFilterPrefs
-export const DEFAULT_ALL_PREFS: AllPrefs = { ...DEFAULT_PREFS, ...DEFAULT_FILTERS }
+export type AllPrefs = NotificationPrefs & CaptureFilterPrefs & UserAiPrefs
+export const DEFAULT_ALL_PREFS: AllPrefs = { ...DEFAULT_PREFS, ...DEFAULT_FILTERS, ...DEFAULT_USER_AI }
 
 /** Stored doc → prefs with defaults; wrongly typed fields fall back to their defaults. */
 export function resolveAllPrefs(raw: unknown): AllPrefs {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
-  const out: AllPrefs = { ...DEFAULT_ALL_PREFS, ...resolveFilters(r) }
+  const out: AllPrefs = { ...DEFAULT_ALL_PREFS, ...resolveFilters(r), ...resolveUserAi(r) }
   for (const k of Object.keys(DEFAULT_PREFS) as Array<keyof NotificationPrefs>) if (typeof r[k] === 'boolean') out[k] = r[k] as boolean
   return out
 }

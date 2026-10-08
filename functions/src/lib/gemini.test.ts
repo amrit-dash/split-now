@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { generateJson, normaliseReceipt, normaliseSms, normaliseStatement, RECEIPT_SCHEMA } from './gemini'
+import { generateJson, listModels, normaliseReceipt, normaliseSms, normaliseStatement, RECEIPT_SCHEMA } from './gemini'
 
 describe('normaliseReceipt', () => {
   it('converts to hundredths and folds taxes, charges and round-off', () => {
@@ -46,7 +46,7 @@ describe('generateJson', () => {
   it('sends the schema and key, parses the JSON answer', async () => {
     const calls: Array<{ url: string; init: RequestInit }> = []
     const f = (async (url: string, init: RequestInit) => { calls.push({ url, init }); return ok({ isReceipt: true }) }) as unknown as typeof fetch
-    expect(await generateJson('k', [{ text: 'hi' }], RECEIPT_SCHEMA, f)).toEqual({ isReceipt: true })
+    expect(await generateJson('k', [{ text: 'hi' }], RECEIPT_SCHEMA, { models: ['gemini-2.5-flash-lite'], fetchImpl: f })).toEqual({ json: { isReceipt: true }, model: 'gemini-2.5-flash-lite' })
     expect(calls[0].url).toContain('gemini-2.5-flash-lite:generateContent')
     expect((calls[0].init.headers as Record<string, string>)['x-goog-api-key']).toBe('k')
     const body = JSON.parse(String(calls[0].init.body))
@@ -55,10 +55,12 @@ describe('generateJson', () => {
   it('falls back to the alias model on 404 and surfaces other errors', async () => {
     const seen: string[] = []
     const f = (async (url: string) => { seen.push(url); return seen.length === 1 ? new Response('gone', { status: 404 }) : ok({ a: 1 }) }) as unknown as typeof fetch
-    expect(await generateJson('k', [], {}, f)).toEqual({ a: 1 })
+    expect(await generateJson('k', [], {}, { models: ['gemini-x', 'gemini-flash-lite-latest'], fetchImpl: f })).toEqual({ json: { a: 1 }, model: 'gemini-flash-lite-latest' })
     expect(seen[1]).toContain('gemini-flash-lite-latest')
     const bad = (async () => new Response('quota', { status: 429 })) as unknown as typeof fetch
-    await expect(generateJson('k', [], {}, bad)).rejects.toThrow(/429/)
+    await expect(generateJson('k', [], {}, { models: ['m'], fetchImpl: bad })).rejects.toMatchObject({ kind: 'quota' })
+    const key = (async () => new Response('{"error":{"status":"INVALID_ARGUMENT","details":[{"reason":"API_KEY_INVALID"}]}}', { status: 400 })) as unknown as typeof fetch
+    await expect(generateJson('k', [], {}, { models: ['m'], fetchImpl: key })).rejects.toMatchObject({ kind: 'bad_key' })
   })
 })
 
@@ -87,5 +89,13 @@ describe('normaliseStatement', () => {
   })
   it('null when it is not a statement', () => {
     expect(normaliseStatement({ isStatement: false, transactions: [] }, '2026-10-08')).toBeNull()
+  })
+})
+
+describe('listModels', () => {
+  it('follows pages', async () => {
+    let n = 0
+    const f = (async () => new Response(JSON.stringify(n++ === 0 ? { models: [{ name: 'models/a' }], nextPageToken: 't' } : { models: [{ name: 'models/b' }] }), { status: 200 })) as unknown as typeof fetch
+    expect((await listModels('k', f)).map((m) => m.name)).toEqual(['models/a', 'models/b'])
   })
 })

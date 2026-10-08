@@ -21,6 +21,8 @@ import { useToast } from '@/components/Toast'
 import { accentPreset, getAccent, getDuo } from '@/lib/accent'
 import { AccountCard, RatesField } from '@/components/ProfileCards'
 import { AiSettings } from '@/components/AiSettings'
+import { AdminAi } from '@/components/AdminAi'
+import type { AiStatusResult } from '@/data/repo'
 import { AutoCapture } from '@/components/AutoCapture'
 import { NotificationSettings } from '@/components/NotificationSettings'
 
@@ -59,6 +61,7 @@ export default function Profile() {
   const { profile, user } = useMe()
   const toast = useToast()
   const install = useInstall()
+  const [aiStatus, setAiStatus] = useState<AiStatusResult | null>(null)
   const [name, setName] = useState(profile.displayName)
   const [phone, setPhone] = useState(profile.phone ?? '')
   // The mobile number also fills "Phone number for UPI apps" while that field is empty or still
@@ -171,8 +174,13 @@ export default function Profile() {
       <NotificationSettings />
       <AutoCapture />
       {repo.mode === 'firebase' && (
-        <Collapsible id="ai" testId="section-ai" title="AI reading" icon={<Sparkles size={20} />} summary="Google Gemini for bills, statements and hard-to-read SMS">
-          <AiSettings />
+        <Collapsible id="ai" testId="section-ai" title="AI reading" icon={<Sparkles size={20} />} summary="Gemini for bills, statements and hard-to-read SMS">
+          <AiSettings onStatus={setAiStatus} />
+        </Collapsible>
+      )}
+      {aiStatus?.admin && (
+        <Collapsible id="ai-admin" testId="section-ai-admin" title="Admin · AI" icon={<ShieldCheck size={20} />} summary="Split Now’s Gemini key: access, model, limits">
+          <AdminAi status={aiStatus} />
         </Collapsible>
       )}
 

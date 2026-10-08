@@ -103,7 +103,7 @@ export function StatementImport() {
         return { image, mimeType: head.match(/data:([^;]+)/)?.[1] ?? 'image/jpeg' }
       }))
       const r = await repo.readStatementAi(images, todayISO())
-      if (!r) return toast(navigator.onLine ? 'Couldn’t read the screenshots right now, try again' : 'You’re offline', 'err')
+      if (!r) return toast(!navigator.onLine ? 'You’re offline' : 'AI reading isn’t available. Turn it on or add your own Gemini key in Profile → AI reading.', 'err')
       const txns = r.statement?.transactions ?? []
       if (!txns.length) return toast('No transactions found in those screenshots', 'err')
       const cur = r.statement?.currency ?? 'INR'
