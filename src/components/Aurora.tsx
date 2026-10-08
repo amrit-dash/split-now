@@ -1,17 +1,20 @@
 /**
- * Soft animated background for brand surfaces (Home balance card, the + button): a slowly
- * drifting gradient plus blurred blobs of light, so there are no hard edges. Pure CSS
- * transforms (GPU-friendly); stops under prefers-reduced-motion. Place inside a
- * `relative overflow-hidden` parent; content goes on top with `relative`.
+ * Animated brand surface. 'card' (Home balance card): a gradient that sweeps between the
+ * brand and duo colours, plus the two translucent bubbles drifting slowly. 'fab' (the + button):
+ * the gradient sweep only. Pure CSS; stops under prefers-reduced-motion. Put it inside a
+ * `relative isolate overflow-hidden` parent and give the content `relative`.
  */
 export function Aurora({ size = 'card' }: { size?: 'card' | 'fab' }) {
-  const fab = size === 'fab'
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-      <div className="animate-aurora-shift absolute inset-0 bg-[length:220%_220%] bg-gradient-to-br from-brand-600 via-brand-vivid to-duo-600" />
-      <div className={`animate-blob-a absolute rounded-full bg-duo-500/35 blur-2xl ${fab ? '-left-3 -top-3 h-10 w-10 blur-md' : '-right-12 -top-16 h-56 w-56'}`} />
-      <div className={`animate-blob-b absolute rounded-full bg-white/12 blur-2xl ${fab ? '-bottom-4 -right-2 h-10 w-10 blur-md' : '-bottom-20 right-6 h-48 w-48'}`} />
-      {!fab && <div className="animate-blob-c absolute -left-16 top-1/3 h-40 w-40 rounded-full bg-brand-300/20 blur-3xl" />}
+      <div className={`absolute inset-0 bg-[length:300%_300%] bg-gradient-to-br from-brand-700 via-duo-500 to-brand-500 ${size === 'fab' ? 'animate-aurora-fab' : 'animate-aurora-shift'}`} />
+      {size === 'card' && (
+        <>
+          <div className="animate-bubble-a absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10" />
+          <div className="animate-bubble-b absolute -bottom-16 right-10 h-32 w-32 rounded-full bg-white/10" />
+          <div className="animate-bubble-c absolute -left-8 top-1/2 h-20 w-20 rounded-full bg-white/[0.06]" />
+        </>
+      )}
     </div>
   )
 }

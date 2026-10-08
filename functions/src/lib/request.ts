@@ -33,6 +33,18 @@ const LIMITS: Record<string, number> = {
   token: 64, text: 2000, sender: 40, receivedAt: 40, groupId: 64, device: 20, amount: 40, currency: 3, merchant: 100, ts: 40, ref: 64,
 }
 
+/**
+ * Keep `sender` only when it looks like an SMS sender id ("VM-HDFCBK"), a phone number or a short
+ * contact name. Some iPhone Shortcuts can only pass the whole message as "sender"; parsing that
+ * as a sender would misread payee handles (e.g. "@hdfcbank") as the issuing bank.
+ */
+export function senderId(v: string | undefined): string | undefined {
+  if (!v) return undefined
+  const s = v.trim()
+  if (s.length > 24 || (s.match(/\s/g)?.length ?? 0) > 2 || /\d[.,]\d{2}\b|[₹@]|\b(rs|inr)\b/i.test(s)) return undefined
+  return s
+}
+
 const str = (v: unknown, max: number): string | undefined => {
   if (typeof v === 'number' && Number.isFinite(v)) v = String(v)
   if (typeof v !== 'string') return undefined
@@ -81,7 +93,7 @@ export function readCaptureRequest(r: RawRequest): CaptureRequest {
   return {
     token: pick('token', 't') ?? str(bearer, 64) ?? str(q.t, 64) ?? str(q.token, 64),
     text: pick('text', 'sms', 'message', 'body'),
-    sender: pick('sender', 'from'),
+    sender: senderId(pick('sender', 'from')),
     receivedAt: pick('receivedAt', 'received_at'),
     groupId: pick('groupId', 'group') ?? str(q.groupId, 64) ?? str(q.group, 64),
     device,

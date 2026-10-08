@@ -20,17 +20,17 @@ export function Layout() {
       <Outlet />
       <InstallBanner />
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/70 bg-white/85 backdrop-blur-xl safe-bottom dark:border-white/5 dark:bg-ink-900/85">
-        <div className="mx-auto flex max-w-2xl items-end justify-around px-2 pt-2 pb-2">
+        <div className="mx-auto flex max-w-2xl items-center justify-around px-2 py-2">
           {tabs.map((t, i) =>
             t === null ? (
               <button
                 key={i}
                 onClick={() => nav(groupMatch ? `/add?group=${groupMatch[1]}` : '/add')}
-                className="relative isolate -mt-8 flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-brand-600 text-white shadow-xl shadow-brand-600/40 transition active:scale-95"
+                className="relative isolate flex h-12 w-14 items-center justify-center overflow-hidden rounded-2xl bg-brand-600 text-white shadow-lg shadow-brand-600/30 ring-1 ring-white/20 transition active:scale-95"
                 aria-label="Add expense"
               >
                 <Aurora size="fab" />
-                <Plus size={30} strokeWidth={2.5} className="relative" />
+                <Plus size={26} strokeWidth={2.6} className="relative" />
               </button>
             ) : (
               <NavLink
