@@ -120,6 +120,10 @@ service cloud.firestore {
         && request.resource.data.get('model', '') is string && request.resource.data.get('model', '').size() <= 80
         && request.resource.data.get('perDay', 100) is int && request.resource.data.get('perDay', 100) >= 1 && request.resource.data.get('perDay', 100) <= 5000
         && request.resource.data.get('perHour', 30) is int && request.resource.data.get('perHour', 30) >= 1 && request.resource.data.get('perHour', 30) <= 1000;
+      // config/app: the version shown in Profile (admins set it).
+      allow write: if isAdmin() && id == 'app'
+        && request.resource.data.keys().hasOnly(['version', 'updatedAt', 'updatedBy'])
+        && request.resource.data.version is string && request.resource.data.version.matches('^[0-9]+([.][0-9]+){0,3}([-+][0-9A-Za-z.]{1,20})?$');
     }
     // admins/{uid}: lets a user see that they're an admin. Managed in the Firebase console only.
     match /admins/{id} {

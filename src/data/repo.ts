@@ -236,6 +236,9 @@ export interface Repo {
   watchAppAi(cb: (raw: unknown) => void): Unsub
   /** Admins only (rules). */
   saveAppAi(cfg: AppAiConfig): Promise<void>
+  /** config/app: { version } shown in Profile; admins set it. */
+  watchAppInfo(cb: (info: { version?: string } | null) => void): Unsub
+  saveAppVersion(version: string): Promise<void>
   /** stats/ai_{day} (admins only). */
   aiUsage(day: string): Promise<Record<string, number> | null>
 }

@@ -435,6 +435,8 @@ export function createLocalRepo(): Repo {
     watchAiState(_u, cb) { cb(null); return () => {} },
     watchAppAi(cb) { cb(null); return () => {} },
     async saveAppAi() { throw new Error('Not in the demo') },
+    watchAppInfo(cb) { cb(null); return () => {} },
+    async saveAppVersion() { throw new Error('Not in the demo') },
     async aiUsage() { return null },
     // Demo: a fixed sample (no AI), dated relative to today, so the review flow can be tried.
     async readStatementAi(_images, today) {

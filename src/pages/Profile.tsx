@@ -23,6 +23,8 @@ import { AccountCard, RatesField } from '@/components/ProfileCards'
 import { AiSettings } from '@/components/AiSettings'
 import { AdminAi } from '@/components/AdminAi'
 import { useAiStatus } from '@/hooks/useAiStatus'
+import { useAppVersion } from '@/hooks/useAppVersion'
+import { AdminApp } from '@/components/AdminApp'
 import type { AiState } from '@/data/repo'
 import { AutoCapture } from '@/components/AutoCapture'
 import { NotificationSettings } from '@/components/NotificationSettings'
@@ -63,6 +65,7 @@ export default function Profile() {
   const toast = useToast()
   const install = useInstall()
   const aiStatus = useAiStatus()
+  const version = useAppVersion()
   const [aiState, setAiState] = useState<AiState | null>(null)
   useEffect(() => (repo.mode === 'firebase' ? repo.watchAiState(user.uid, setAiState) : undefined), [user.uid])
   const aiSummary = aiState?.hint
@@ -189,6 +192,11 @@ export default function Profile() {
           <AdminAi status={aiStatus} />
         </Collapsible>
       )}
+      {aiStatus?.admin && (
+        <Collapsible id="app-admin" testId="section-app-admin" title="Admin · App" icon={<ShieldCheck size={20} />} summary={`Version ${version}`}>
+          <AdminApp />
+        </Collapsible>
+      )}
 
       <Link to="/friends" className="card mt-3 flex items-center gap-3 p-4 font-medium transition active:scale-[0.99]">
         <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"><Users size={19} /></span>
@@ -217,7 +225,7 @@ export default function Profile() {
           </div>
         </div>
       )}
-      <p className="mt-6 text-center text-xs text-slate-400">Split Now v{__APP_VERSION__} · {repo.mode === 'demo' ? 'Demo mode' : 'Connected to Firebase'}</p>
+      <p className="mt-6 text-center text-xs text-slate-400">Split Now v{version} · {repo.mode === 'demo' ? 'Demo mode' : 'Connected to Firebase'}</p>
 
       <Sheet open={iosOpen} onClose={() => setIosOpen(false)} title="Add to Home Screen"><IOSInstallSteps /></Sheet>
       <PhotoSheet open={photoOpen} onClose={() => setPhotoOpen(false)} profile={profile} googlePhotoURL={user.googlePhotoURL} />
