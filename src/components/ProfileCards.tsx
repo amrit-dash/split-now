@@ -119,7 +119,7 @@ function SignInMethods() {
           {pwOpen && !has('password') && (
             <form className="mt-3 flex gap-2" onSubmit={(e) => { e.preventDefault(); run('password', () => repo.addPassword!(pw), 'Password added', 'password') }}>
               <input className="input !py-2" type="password" autoComplete="new-password" placeholder="New password" aria-label="New password" value={pw} onChange={(e) => setPw(e.target.value)} required minLength={6} />
-              <button className="btn-primary btn-sm shrink-0 !px-4" disabled={!!busy || !pw}>
+              <button type="submit" className="btn-primary btn-sm shrink-0 !px-4" disabled={!!busy || !pw}>
                 {busy === 'password' ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <KeyRound size={14} aria-hidden />} Save
               </button>
             </form>

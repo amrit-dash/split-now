@@ -30,7 +30,7 @@ export function CaptureAlert() {
   useEffect(() => {
     if (!captures) return
     const fresh = captures.filter((c) => c.status === 'pending' && c.createdAt >= APP_START && !queued.current.has(c.id))
-    fresh.forEach((c) => queued.current.add(c.id))
+    for (const c of fresh) queued.current.add(c.id)
     setQueue((q) => [...q.filter((id) => captures.some((c) => c.id === id && c.status === 'pending')), ...fresh.map((c) => c.id)])
   }, [captures])
 
@@ -40,7 +40,7 @@ export function CaptureAlert() {
 
   useEffect(() => {
     if (!currentId) return
-    const t = setTimeout(advance, SHOW_MS)
+    const t = setTimeout(() => setQueue((q) => q.slice(1)), SHOW_MS)
     return () => clearTimeout(t)
   }, [currentId])
 

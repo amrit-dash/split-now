@@ -77,6 +77,7 @@ export default function AutoCaptureSetup() {
 
   // Step 3 watches for the first message after it opened: a key's lastUsedAt moving, or a new activity row.
   // Server timestamps are only compared with each other, so clock skew doesn't matter.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `log` is the refresh trigger (the demo log and token use share one localStorage write)
   const demoUse = useMemo(() => (repo.mode === 'demo' ? demoTokenUse(user.uid) : {}), [user.uid, log])
   const lastUsed = (t: CaptureToken) => t.lastUsedAt ?? demoUse[t.token]
   const baseline = useRef<{ last: number; ids: Set<string> } | null>(null)

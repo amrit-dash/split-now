@@ -16,11 +16,11 @@ if (typeof window !== 'undefined') {
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault()
     deferred = e as BeforeInstallPromptEvent
-    subs.forEach((s) => s())
+    for (const s of subs) s()
   })
   window.addEventListener('appinstalled', () => {
     deferred = null
-    subs.forEach((s) => s())
+    for (const s of subs) s()
   })
 }
 
@@ -54,7 +54,7 @@ export function useInstall() {
       await deferred.prompt()
       const { outcome } = await deferred.userChoice
       deferred = null
-      subs.forEach((x) => x())
+      for (const s of subs) s()
       return outcome === 'accepted'
     },
   }

@@ -1,36 +1,9 @@
 import type { AiStatusResult, AppAiStatusValue } from '@/data/repo'
-import type { AiUnavailableReason as ServerReason } from '@/lib/ai-config'
 
 /*
- * User-facing copy for the AI reader's state. The server answers `{ unavailable: true, reason }`
- * (AiUnavailableReason in shared/ai-config.ts, via src/lib/ai.ts); the UI never shows a
- * successful on-phone fallback as an error, and only points at the key settings when a key
- * would actually help.
+ * The AI reader's availability as one answer for the settings screens, the scan toggle and the
+ * statement import gate. (The per-call "why not" line lives in src/lib/ai.ts `unavailableText`.)
  */
-
-/** Why AI reading didn't happen: the server's `unavailable.reason`, plus the client's own cases. */
-export type AiUnavailableReason = ServerReason | 'offline' | 'demo' | 'disabled' | 'unknown'
-
-/** One calm sentence for a toast or status line. Never blames the user. */
-export function aiUnavailableText(reason: AiUnavailableReason | string | undefined): string {
-  switch (reason) {
-    case 'quota': return 'Today’s AI limit is used up, so this was read on your phone.'
-    case 'off': return 'AI reading is turned off for this app, so this was read on your phone.'
-    case 'not_listed': return 'AI reading isn’t turned on for your account, so this was read on your phone.'
-    case 'not_configured': return 'AI reading isn’t set up yet, so this was read on your phone.'
-    case 'bad_key': return 'Your Gemini key was rejected, so this was read on your phone.'
-    case 'server': return 'Gemini didn’t answer, so this was read on your phone.'
-    case 'offline': return 'You’re offline, so this was read on your phone.'
-    case 'demo': return 'Demo mode reads bills on your phone.'
-    case 'disabled': return 'AI reading is off in Settings, so this was read on your phone.'
-    default: return 'Read on your phone instead (AI not available right now).'
-  }
-}
-
-/** Whether adding or fixing the user's own key could change the outcome. */
-export function ownKeyWouldHelp(reason: AiUnavailableReason | string | undefined): boolean {
-  return reason === 'off' || reason === 'not_listed' || reason === 'not_configured' || reason === 'bad_key'
-}
 
 export interface AiAvailability {
   /** Something can read bills right now: the shared key, or the user's own key. */

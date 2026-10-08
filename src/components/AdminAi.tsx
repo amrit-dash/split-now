@@ -96,7 +96,7 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
           <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); if (draft.trim()) void keyAction('set') }}>
             <input className="input font-mono" type="password" autoComplete="off" spellCheck={false} placeholder="Paste a Gemini API key" value={draft} onChange={(e) => setDraft(e.target.value)} aria-label="Project Gemini API key" />
             <div className="flex gap-2">
-              <button className="btn-primary !min-h-0 flex-1 !py-2.5 text-sm" disabled={!draft.trim() || !!keyBusy}>
+              <button type="submit" className="btn-primary !min-h-0 flex-1 !py-2.5 text-sm" disabled={!draft.trim() || !!keyBusy}>
                 {keyBusy === 'set' ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />} Save &amp; check
               </button>
               {configured && <button type="button" className="btn-ghost !min-h-0 !py-2.5 text-sm" onClick={() => { setEditingKey(false); setDraft('') }}>Cancel</button>}
@@ -105,12 +105,12 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
           </form>
         ) : (
           <div className="flex gap-2">
-            <button className="btn-secondary !min-h-0 flex-1 !py-2 text-sm" disabled={!!keyBusy} onClick={() => keyAction('test')}>
+            <button type="button" className="btn-secondary !min-h-0 flex-1 !py-2 text-sm" disabled={!!keyBusy} onClick={() => keyAction('test')}>
               {keyBusy === 'test' ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />} Test
             </button>
-            <button className="btn-secondary !min-h-0 flex-1 !py-2 text-sm" disabled={!!keyBusy} onClick={() => setEditingKey(true)}><KeyRound size={16} /> Use another key</button>
+            <button type="button" className="btn-secondary !min-h-0 flex-1 !py-2 text-sm" disabled={!!keyBusy} onClick={() => setEditingKey(true)}><KeyRound size={16} /> Use another key</button>
             {source === 'admin' && (
-              <button className="btn-secondary !min-h-0 !px-3 !py-2 text-sm text-rose-600" disabled={!!keyBusy} onClick={() => keyAction('remove')} aria-label="Remove this key and go back to GEMINI_API_KEY" title="Back to GEMINI_API_KEY">
+              <button type="button" className="btn-secondary !min-h-0 !px-3 !py-2 text-sm text-rose-700 dark:text-rose-400" disabled={!!keyBusy} onClick={() => keyAction('remove')} aria-label="Remove this key and go back to GEMINI_API_KEY" title="Back to GEMINI_API_KEY">
                 {keyBusy === 'remove' ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
               </button>
             )}
@@ -154,15 +154,15 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
           <div className="grid grid-cols-3 gap-2">
             <label className="block">
               <span className="label">Person / day</span>
-              <input className="input !px-3" inputMode="numeric" value={cfg.perDay} onChange={(e) => set({ perDay: Math.max(1, Math.min(5000, parseInt(e.target.value) || 1)) })} />
+              <input className="input !px-3" inputMode="numeric" value={cfg.perDay} onChange={(e) => set({ perDay: Math.max(1, Math.min(5000, parseInt(e.target.value, 10) || 1)) })} />
             </label>
             <label className="block">
               <span className="label">Person / hour</span>
-              <input className="input !px-3" inputMode="numeric" value={cfg.perHour} onChange={(e) => set({ perHour: Math.max(1, Math.min(1000, parseInt(e.target.value) || 1)) })} />
+              <input className="input !px-3" inputMode="numeric" value={cfg.perHour} onChange={(e) => set({ perHour: Math.max(1, Math.min(1000, parseInt(e.target.value, 10) || 1)) })} />
             </label>
             <label className="block">
               <span className="label">Everyone / day</span>
-              <input className="input !px-3" inputMode="numeric" value={cfg.globalPerDay} onChange={(e) => set({ globalPerDay: Math.max(1, Math.min(100_000, parseInt(e.target.value) || 1)) })} />
+              <input className="input !px-3" inputMode="numeric" value={cfg.globalPerDay} onChange={(e) => set({ globalPerDay: Math.max(1, Math.min(100_000, parseInt(e.target.value, 10) || 1)) })} />
             </label>
           </div>
           <p className="text-muted -mt-1 text-xs">“Everyone / day” is the hard budget for Split Now’s key across all users; past it, AI reading waits until tomorrow.</p>
@@ -179,8 +179,8 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
       {dirty && (
         <div className="animate-pop sticky bottom-[calc(var(--nav-h)+0.75rem)] z-10 flex items-center gap-2 rounded-2xl bg-brand-50 p-2 pl-3.5 shadow-lg ring-1 ring-brand-500/20 dark:bg-ink-800 dark:ring-brand-400/30" data-testid="admin-ai-dirty">
           <span className="min-w-0 flex-1 text-sm font-medium text-brand-800 dark:text-brand-200">Unsaved changes</span>
-          <button className="btn-ghost !min-h-0 !px-3 !py-2 text-sm" onClick={discard} disabled={saving}><RotateCcw size={16} /> Discard</button>
-          <button className="btn-primary !min-h-0 !px-4 !py-2 text-sm" onClick={save} disabled={saving} data-testid="admin-ai-save">
+          <button type="button" className="btn-ghost !min-h-0 !px-3 !py-2 text-sm" onClick={discard} disabled={saving}><RotateCcw size={16} /> Discard</button>
+          <button type="button" className="btn-primary !min-h-0 !px-4 !py-2 text-sm" onClick={save} disabled={saving} data-testid="admin-ai-save">
             {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save
           </button>
         </div>

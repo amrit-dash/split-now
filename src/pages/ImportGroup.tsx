@@ -260,7 +260,7 @@ export default function ImportGroup() {
                       <tr key={m} className="border-t border-slate-100 dark:border-white/5">
                         <td className="max-w-0 truncate px-4 py-2 font-medium">{m}</td>
                         <td className={`px-2 py-2 text-right tabular-nums ${v > 0 ? 'pos' : v < 0 ? 'neg' : 'text-muted'}`}>{fmt(v)}</td>
-                        {result.totals && <td className="px-4 py-2 text-right tabular-nums">{t === v ? <span className="pos" aria-label="Matches">✓</span> : <span className="neg">{fmt(t ?? 0)}</span>}</td>}
+                        {result.totals && <td className="px-4 py-2 text-right tabular-nums">{t === v ? <span className="pos" role="img" aria-label="Matches">✓</span> : <span className="neg">{fmt(t ?? 0)}</span>}</td>}
                       </tr>
                     )
                   })}

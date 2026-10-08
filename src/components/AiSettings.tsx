@@ -176,7 +176,7 @@ export function AiSettings() {
                   <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); if (draft.trim()) void run('save') }}>
                     <input className="input font-mono" type="password" autoComplete="off" spellCheck={false} placeholder="Paste your Gemini API key" value={draft} onChange={(e) => setDraft(e.target.value)} aria-label="Gemini API key" />
                     <div className="flex gap-2">
-                      <button className="btn-primary btn-sm flex-1" disabled={!draft.trim() || !!busy}>
+                      <button type="submit" className="btn-primary btn-sm flex-1" disabled={!draft.trim() || !!busy}>
                         {busy === 'save' ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <ShieldCheck size={16} aria-hidden />} Save &amp; check
                       </button>
                       {editing && <button type="button" className="btn-ghost btn-sm" onClick={() => { setEditing(false); setDraft('') }}>Cancel</button>}
