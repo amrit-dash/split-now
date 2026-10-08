@@ -1,9 +1,10 @@
-import { useEffect } from 'react'
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { BarChart3, Home, Plus, User, Users } from 'lucide-react'
 import { InstallBanner } from './InstallBanner'
 import { Aurora } from './Aurora'
 import { CaptureAlert } from './CaptureAlert'
+import { CreateSheet } from './CreateSheet'
 
 const tabs = [
   { to: '/', icon: Home, label: 'Home', end: true },
@@ -14,9 +15,10 @@ const tabs = [
 ] as const
 
 export function Layout() {
-  const nav = useNavigate()
   const loc = useLocation()
   const groupMatch = loc.pathname.match(/^\/groups\/([^/]+)/)
+  const groupId = groupMatch && groupMatch[1] !== 'new' && groupMatch[1] !== 'import' ? groupMatch[1] : undefined
+  const [creating, setCreating] = useState(false)
   // Lets fixed banners (UpdatePrompt) sit above the tab bar only on screens that have one.
   useEffect(() => {
     document.documentElement.setAttribute('data-nav', '')
@@ -35,9 +37,10 @@ export function Layout() {
             t === null ? (
               <div key={i} className="relative w-16 self-stretch">
                 <button
-                  onClick={() => nav(groupMatch ? `/add?group=${groupMatch[1]}` : '/add')}
+                  onClick={() => setCreating(true)}
+                  data-testid="nav-create"
                   className="absolute left-1/2 top-0 flex h-[3.75rem] w-[3.75rem] -translate-x-1/2 -translate-y-[45%] items-center justify-center overflow-hidden rounded-full text-white shadow-xl shadow-brand-600/40 ring-1 ring-white/25 transition active:scale-95"
-                  aria-label="Add expense"
+                  aria-label="Create" aria-haspopup="dialog"
                 >
                   <Aurora size="fab" />
                   <Plus size={28} strokeWidth={2.6} className="relative" />
@@ -57,6 +60,7 @@ export function Layout() {
           )}
         </div>
       </nav>
+      <CreateSheet open={creating} onClose={() => setCreating(false)} groupId={groupId} />
     </div>
   )
 }

@@ -497,13 +497,6 @@ function Form({ group, groups, existing, again, capture, history, onGroup }: {
       <button className="btn-primary mt-5 w-full" onClick={save} disabled={busy}><Check size={18} /> {existing ? 'Save changes' : 'Add expense'}</button>
 
       <Sheet open={sheet === 'group'} onClose={() => setSheet(null)} title="Choose group">
-        <button onClick={() => splitByItems(scanned ?? undefined)} className="mb-2 flex w-full items-center gap-3 rounded-2xl bg-gradient-to-r from-brand-600 to-duo-600 p-3 text-left text-white shadow-lg shadow-brand-600/20" data-testid="choose-split-items">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15"><QrCode size={20} /></span>
-          <span className="min-w-0 flex-1">
-            <span className="block font-semibold">Split by items</span>
-            <span className="block text-xs text-white/80">Scan the bill, friends tap what they had</span>
-          </span>
-        </button>
         <GroupList groups={groups} current={group.id} onPick={(id) => { onGroup(id); setSheet(null) }} />
       </Sheet>
       <Sheet open={sheet === 'currency'} onClose={() => setSheet(null)} title="Currency">

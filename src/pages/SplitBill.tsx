@@ -178,7 +178,7 @@ export default function SplitBill() {
         <div>
           <div className="label">Group</div>
           <Select aria-label="Group" value={groupId} onChange={setGroupId} options={[
-            { value: NO_GROUP, text: 'No group', label: 'No group', hint: 'Decide when you finish', icon: <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-base dark:bg-ink-700"><Users size={15} /></span> },
+            { value: NO_GROUP, text: 'Decide at the end', label: 'Decide at the end', hint: 'Make a group with everyone at the table, or pick one', icon: <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-base dark:bg-ink-700"><Users size={15} /></span> },
             ...usable.map((g) => ({ value: g.id, text: g.name, label: g.name, hint: g.currency, icon: <GroupIcon emoji={g.emoji} size={28} /> })),
           ]} />
         </div>
