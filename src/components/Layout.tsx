@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { BarChart3, Home, Plus, User, Users } from 'lucide-react'
 import { InstallBanner } from './InstallBanner'
@@ -16,6 +17,11 @@ export function Layout() {
   const nav = useNavigate()
   const loc = useLocation()
   const groupMatch = loc.pathname.match(/^\/groups\/([^/]+)/)
+  // Lets fixed banners (UpdatePrompt) sit above the tab bar only on screens that have one.
+  useEffect(() => {
+    document.documentElement.setAttribute('data-nav', '')
+    return () => document.documentElement.removeAttribute('data-nav')
+  }, [])
   return (
     <div className="mx-auto min-h-dvh max-w-2xl px-4 pb-32">
       <Outlet />

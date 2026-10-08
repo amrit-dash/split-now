@@ -6,8 +6,10 @@
  *  dailyReminders      Schedule every day 10:00 Asia/Kolkata → settle-up nudges
  *  fxDaily, fxMorning  Schedule weekdays 17:15 Europe/Berlin + daily 09:00 IST → shared ECB rates (fxRates/*)
  *  refreshFx           Callable { date? } → fetch + store ECB rates (throttled), any signed-in user
+ *  parseReceiptAi      Callable { image } → bill items, taxes, total read by Gemini (per-user quota)
  */
 export { capture } from './capture'
 export { onExpenseCreated, onSettlementCreated } from './triggers'
 export { dailyReminders } from './reminders'
 export { fxDaily, fxMorning, refreshFx } from './fx'
+export { parseReceiptAi } from './ai'

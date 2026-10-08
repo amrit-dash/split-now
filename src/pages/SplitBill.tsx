@@ -4,13 +4,14 @@ import { Camera, ImageUp, Plus, QrCode, Trash2, Users } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { useGroups } from '@/hooks/data'
-import { useOcr } from '@/hooks/useOcr'
+import { useReceiptReader } from '@/hooks/useReceiptReader'
 import { CURRENCIES, centsToInput, formatMoney, fromHundredths, parseMoney } from '@/lib/money'
-import { parseReceipt, type ParsedReceipt } from '@/lib/ocr-parse'
+import type { ParsedReceipt } from '@/lib/ocr-parse'
 import { pending } from '@/lib/pending'
 import { todayISO, uid } from '@/lib/id'
 import { appLocale, defaultCurrency } from '@/lib/locale'
 import { draftToTable, receiptExtras } from '@/lib/table'
+import { AiScanToggle } from '@/components/AiScanToggle'
 import { DateField } from '@/components/DateField'
 import { GroupIcon } from '@/components/GroupIcon'
 import { Loading, PageHeader, Spinner } from '@/components/Misc'
@@ -32,7 +33,7 @@ export default function SplitBill() {
   const { user, profile } = useMe()
   const nav = useNavigate()
   const toast = useToast()
-  const ocr = useOcr()
+  const ocr = useReceiptReader()
   const [params] = useSearchParams()
   const camRef = useRef<HTMLInputElement>(null)
   const libRef = useRef<HTMLInputElement>(null)
@@ -52,7 +53,10 @@ export default function SplitBill() {
   // A table finishes into a group in the group's currency.
   useEffect(() => { if (group) setCur(group.currency) }, [group])
 
-  const apply = (parsed: ParsedReceipt, c = cur) => {
+  const apply = (parsed: ParsedReceipt) => {
+    // The AI reader names the bill's currency; follow it unless a group fixes the currency.
+    const c = !group && parsed.currency && CURRENCIES.includes(parsed.currency) ? parsed.currency : cur
+    if (c !== cur) setCur(c)
     const items = parsed.items.map((it) => ({ name: it.name, amount: fromHundredths(it.amount, c) }))
     const h = (v?: number) => (v ? fromHundredths(v, c) : undefined)
     const total = h(parsed.total)
@@ -83,7 +87,7 @@ export default function SplitBill() {
   const onFile = async (f: File) => {
     setPreview(URL.createObjectURL(f))
     try {
-      apply(parseReceipt(await ocr.run(f)))
+      apply((await ocr.read(f)).parsed)
     } catch (e) {
       toast('Couldn’t read the image: ' + (e as Error).message, 'err')
     }
@@ -130,8 +134,10 @@ export default function SplitBill() {
             <img src={preview} alt="Receipt" className="max-h-56 w-full bg-slate-100 object-contain dark:bg-ink-800" />
             {ocr.busy && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white backdrop-blur-sm">
-                <div className="text-sm font-semibold">Reading the bill… {Math.round(ocr.progress * 100)}%</div>
-                <div className="mt-2 h-1.5 w-40 overflow-hidden rounded-full bg-white/20"><div className="h-full bg-white transition-all" style={{ width: `${ocr.progress * 100}%` }} /></div>
+                <div className="text-sm font-semibold">{ocr.label}</div>
+                <div className="mt-2 h-1.5 w-40 overflow-hidden rounded-full bg-white/20">
+                  {ocr.stage === 'ai' ? <div className="h-full w-1/3 animate-[indeterminate_1.2s_ease-in-out_infinite] rounded-full bg-white" /> : <div className="h-full bg-white transition-all" style={{ width: `${ocr.progress * 100}%` }} />}
+                </div>
               </div>
             )}
           </div>
@@ -148,6 +154,7 @@ export default function SplitBill() {
           <button className="btn-primary" onClick={() => camRef.current?.click()} disabled={ocr.busy}><Camera size={18} /> {preview ? 'Rescan' : 'Camera'}</button>
           <button className="btn-secondary" onClick={() => libRef.current?.click()} disabled={ocr.busy}><ImageUp size={18} /> Photos</button>
         </div>
+        <AiScanToggle className="px-4 pb-3" />
         <input ref={camRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onFile(f) }} />
         <input ref={libRef} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onFile(f) }} />
       </div>

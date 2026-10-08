@@ -7,7 +7,8 @@ import { Layout } from './components/Layout'
 import { Loading } from './components/Misc'
 import { UpdatePrompt } from './components/UpdatePrompt'
 import { takeStashedCapture } from './lib/pending'
-import { refreshPush } from './lib/push'
+import { refreshPush, watchPrefs } from './lib/push'
+import { setAiScan } from './lib/ai'
 import Login from './pages/Login'
 import Home from './pages/Home'
 import Groups from './pages/Groups'
@@ -53,6 +54,9 @@ export default function App() {
 
   // Keep this browser's push registration fresh (FCM tokens rotate); no-op without permission.
   useEffect(() => { if (user && !user.isAnonymous && repo.mode === 'firebase') void refreshPush(user.uid) }, [user])
+
+  // Mirror the account's "read bills with AI" choice onto this device (read synchronously when scanning).
+  useEffect(() => (user && !user.isAnonymous && repo.mode === 'firebase' ? watchPrefs(user.uid, (p) => setAiScan(p.aiImages)) : undefined), [user])
 
   // Pull anything iOS Shortcuts dropped into captureInbox while the app was closed.
   useEffect(() => {

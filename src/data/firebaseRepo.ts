@@ -24,6 +24,8 @@ import {
   memberProfileOf, type CaptureToken, type GroupSettings, type InviteInfo, type MemberProfile, type Repo, type TablePatch,
 } from './repo'
 import type { Functions } from 'firebase/functions'
+import type { ParsedReceipt } from '@/lib/ocr-parse'
+import type { AiStatement } from './repo'
 import type { FxRatesDoc, FxRefreshResult } from '@/lib/fx'
 import { initAppCheck } from '@/lib/appcheck'
 import { disablePush } from '@/lib/push'
@@ -782,17 +784,41 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     async refreshFx(date) {
       if (!auth.currentUser || !online()) return null
       try {
-        // Loaded on first use; most sessions never call a function.
-        const { connectFunctionsEmulator, getFunctions, httpsCallable } = await import('firebase/functions')
-        functions ??= getFunctions(app, 'asia-south1')
-        if (useEmulators && !functionsEmulated) { connectFunctionsEmulator(functions, '127.0.0.1', 5001); functionsEmulated = true }
-        const call = httpsCallable<{ date?: string }, FxRefreshResult>(functions, 'refreshFx', { timeout: 15_000 })
+        const call = await callable<{ date?: string }, FxRefreshResult>('refreshFx', 15_000)
         return (await call(date ? { date } : {})).data ?? null
       } catch (e) {
         console.warn('refreshFx failed', e)
         return null
       }
     },
+    async readReceiptAi(image, mimeType) {
+      if (!auth.currentUser || auth.currentUser.isAnonymous || !online()) return null
+      try {
+        const call = await callable<{ kind: 'receipt'; image: string; mimeType: string }, { receipt: ParsedReceipt | null }>('parseReceiptAi', 45_000)
+        return (await call({ kind: 'receipt', image, mimeType })).data ?? null
+      } catch (e) {
+        console.warn('AI receipt reading failed', e)
+        return null
+      }
+    },
+    async readStatementAi(images, today) {
+      if (!auth.currentUser || auth.currentUser.isAnonymous || !online()) return null
+      try {
+        const call = await callable<{ kind: 'statement'; images: typeof images; today: string }, { statement: AiStatement | null }>('parseReceiptAi', 90_000)
+        return (await call({ kind: 'statement', images, today })).data ?? null
+      } catch (e) {
+        console.warn('AI statement reading failed', e)
+        return null
+      }
+    },
+  }
+
+  /** Loaded on first use; most sessions never call a function. */
+  async function callable<I, O>(name: string, timeout: number) {
+    const { connectFunctionsEmulator, getFunctions, httpsCallable } = await import('firebase/functions')
+    functions ??= getFunctions(app, 'asia-south1')
+    if (useEmulators && !functionsEmulated) { connectFunctionsEmulator(functions, '127.0.0.1', 5001); functionsEmulated = true }
+    return httpsCallable<I, O>(functions, name, { timeout })
   }
   return repo
 }

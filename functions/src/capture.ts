@@ -21,6 +21,8 @@
  * text) to users/{uid}/captureLog, trimmed to the newest 30: "Recent activity" in the app.
  */
 import type { DocumentReference } from 'firebase-admin/firestore'
+import { aiReadSms, GEMINI_API_KEY } from './ai'
+import type { AiSms } from './lib/gemini'
 import { logger } from 'firebase-functions'
 import { onRequest } from 'firebase-functions/v2/https'
 import { filterReason, type CaptureLogEntry } from '../../shared/capture-filters'
@@ -81,7 +83,7 @@ async function writeLog(userRef: DocumentReference, entry: CaptureLogEntry | und
   }
 }
 
-export async function handleCapture(raw: RawRequest, now = new Date()): Promise<{ status: number; body: CaptureResponse }> {
+export async function handleCapture(raw: RawRequest, now = new Date(), readSms: (text: string) => Promise<AiSms | null> = aiReadSms): Promise<{ status: number; body: CaptureResponse }> {
   const req = readCaptureRequest(raw)
   if (!isTokenShaped(req.token)) return fail('bad_token')
 
@@ -101,7 +103,17 @@ export async function handleCapture(raw: RawRequest, now = new Date()): Promise<
   const prefs = resolveCapturePrefs((await userRef.collection('settings').doc('notifications').get()).data())
   if (prefs.capturePaused) return reject('paused')
 
-  const it = interpret(req, now)
+  let it = interpret(req, now)
+  // The regex parser came up short: ask Gemini, then run its answer through the same checks.
+  if (prefs.aiSms && req.text && ((!it.ok && it.reason === 'unparsed') || (it.ok && !it.parsed.merchant))) {
+    const ai = await readSms(req.text)
+    if (ai?.kind === 'debit') {
+      if (!it.ok && ai.amount) {
+        const d = minorDigits(ai.currency)
+        it = interpret({ ...req, amount: (ai.amount / 10 ** d).toFixed(d), currency: req.currency ?? ai.currency, merchant: req.merchant ?? ai.merchant, ref: req.ref ?? ai.ref }, now)
+      } else if (it.ok && ai.merchant) it.parsed.merchant = ai.merchant
+    }
+  }
   if (!it.ok) return reject(it.reason)
   const { parsed, extra } = it
 
@@ -153,7 +165,7 @@ export async function handleCapture(raw: RawRequest, now = new Date()): Promise<
 }
 
 export const capture = onRequest(
-  { region: REGION, cors: APP_ORIGINS, invoker: 'public', maxInstances: 10, concurrency: 40, memory: '256MiB', timeoutSeconds: 30 },
+  { region: REGION, secrets: [GEMINI_API_KEY], cors: APP_ORIGINS, invoker: 'public', maxInstances: 10, concurrency: 40, memory: '256MiB', timeoutSeconds: 30 },
   async (req, res) => {
     if (req.method !== 'POST') {
       res.status(405).set('Allow', 'POST').json({ ok: false, reason: 'bad_request' })
@@ -176,3 +188,7 @@ export const capture = onRequest(
     }
   },
 )
+
+const minorDigits = (c: string) => {
+  try { return new Intl.NumberFormat('en', { style: 'currency', currency: c }).resolvedOptions().maximumFractionDigits ?? 2 } catch { return 2 }
+}

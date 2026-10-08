@@ -53,13 +53,13 @@ service cloud.firestore {
       }
 
       // Per-user settings. settings/notifications holds push preferences and auto-capture
-      // settings (outsideTrips, capturePaused, minAmount, ignoreWords).
+      // settings (outsideTrips, capturePaused, minAmount, ignoreWords) and AI reading (aiSms, aiImages).
       match /settings/{settingId} {
         allow read, delete: if signedIn() && uid() == userId;
         allow create, update: if signedIn() && uid() == userId
           && (settingId != 'notifications' || (
             request.resource.data.keys().hasOnly(['captures', 'unsorted', 'expenses', 'settlements', 'reminders', 'outsideTrips',
-              'capturePaused', 'minAmount', 'ignoreWords', 'updatedAt'])
+              'capturePaused', 'minAmount', 'ignoreWords', 'aiSms', 'aiImages', 'updatedAt'])
             && request.resource.data.get('captures', true) is bool
             && request.resource.data.get('unsorted', false) is bool
             && request.resource.data.get('expenses', true) is bool
@@ -72,6 +72,9 @@ service cloud.firestore {
             && request.resource.data.get('minAmount', 0) >= 0 && request.resource.data.get('minAmount', 0) <= 10000000
             && request.resource.data.get('ignoreWords', []) is list
             && request.resource.data.get('ignoreWords', []).size() <= 20
+            // AI reading (Gemini) of SMS and images; on unless turned off
+            && request.resource.data.get('aiSms', true) is bool
+            && request.resource.data.get('aiImages', true) is bool
             && request.resource.data.get('updatedAt', 0) is int));
       }
     }

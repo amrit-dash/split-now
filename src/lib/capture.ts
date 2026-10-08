@@ -27,7 +27,7 @@ export const CAPTURE_SOURCES = ['sms-ios', 'sms-android', 'ios-shortcut', 'andro
 
 export const SOURCE_LABEL: Record<string, string> = {
   'sms-ios': 'iPhone SMS', 'sms-android': 'Android SMS', sms: 'SMS',
-  'ios-shortcut': 'Apple Pay', 'android-auto': 'Android', share: 'Shared', email: 'Email', manual: 'Link',
+  'ios-shortcut': 'Apple Pay', 'android-auto': 'Android', share: 'Shared', email: 'Email', manual: 'Link', statement: 'Statement',
 }
 
 /** Older/alternative `src` names we accept and normalise. */

@@ -4,7 +4,9 @@ export interface ParsedReceipt {
   merchant?: string
   total?: Cents
   date?: string
-  items: Array<{ name: string; amount: Cents }>
+  items: Array<{ name: string; amount: Cents; quantity?: number }>
+  /** ISO code, when the AI reader saw one */
+  currency?: string
   /** taxes and charges (GST, CGST + SGST, VAT, service charge), summed */
   tax?: Cents
   tip?: Cents
