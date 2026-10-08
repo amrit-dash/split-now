@@ -17,6 +17,8 @@ Summaries of the parallel research runs. Confidence tags: [Certain] hard evidenc
 
 **Phased plan:** (1) now: trip dates, `/capture` endpoint, per-user capture tokens, unassigned-transactions inbox, iOS Shortcut template, Android share target + MacroDroid guide; (2) Blaze: Cloud Function capture API, FCM push, inbound email; (3) native Android listener, open-banking pilot.
 
+*Status (Oct 2026):* phase 1 and the Cloud Function + FCM parts of phase 2 are built (the `/api/capture` webhook is the primary path, see AUTO_CAPTURE.md §3); inbound email, the native Android listener and open banking are not.
+
 **`/capture` contract v1:** `v, amount (required), currency, merchant (required), ts (ISO 8601 w/ offset), src (ios-shortcut|android-auto|share|email|manual), card (label only), raw, ref (idempotency key), group (override), t (capture token)`. Never auto-add — always confirm.
 
 ## 2. Competitors and user complaints
@@ -32,5 +34,7 @@ Summaries of the parallel research runs. Confidence tags: [Certain] hard evidenc
 5. **Splitwise CSV import** + **guest join without account**.
 
 Also: PayID request card with reference code, whose-turn-to-pay, natural-language quick add, shared shopping list, default/income-ratio split presets, shared kitty, bank-statement CSV import, statement export, weekly digest, settlement instalments.
+
+*Status (Oct 2026):* proposals 1–5 are built (live tables, recurring bills and reminders, locked-rate FX with home-currency totals, the trust layer, Splitwise import and guest join). From the longer list: the request card exists as the "Pay me" link and PNG card (UPI, not PayID-specific), whose-turn and natural-language / voice quick add are built, and statement import reads payment-app screenshots with Gemini rather than a bank CSV. Shopping list, split presets, kitty, weekly digest and instalments are not built. PLAN.md §3 has the current inventory.
 
 Sources: splitwise.com/pro, trustpilot.com/review/splitwise.com, getfinny.app/blog/best-splitwise-alternatives-2026, tricount.com/en/what-happened-with-premium, github.com/spliit-app/spliit, basiq.io/pricing, webkit.org/blog/13878, caniuse.com/wf-app-share-targets, support.google.com/googleplay/android-developer/answer/10208820, developer.apple.com/forums/thread/765516.

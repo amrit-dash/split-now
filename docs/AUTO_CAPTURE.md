@@ -33,10 +33,11 @@ debit SMS ──► iOS Shortcut "Message" automation / MacroDroid "SMS Received
           ──► POST https://<host>/api/capture  {token, text, sender, device}
           ──► Cloud Function: verify token → parse SMS → trip window check → dedupe
           ──► users/{uid}/captures/{id} (pending) + FCM push "₹450 at Zomato: add to Goa trip?"
-          ──► tap → /capture/{id} prompt → expense form (nothing is saved without you)
+          ──► tap → /capture/{id} prompt: "Split equally in Goa trip" (one tap, Undo) or "Edit details first" → expense form
+              (nothing is saved without you; the Inbox can also add every pending capture of a live trip in one go)
 ```
 
-The in-app wizard is **Profile → Auto-capture → Set up SMS auto-capture** (`/settings/auto-capture`, or `/settings/auto-capture?group=<id>` from a trip's page). It walks through five steps: scope, key, phone setup, test, and a summary of your current capture settings with a link back to **Profile → Auto-capture** (`/profile#auto-capture`), where the settings in §3.6 live.
+The in-app wizard is **Settings → Automation → Set up auto-capture** (`/settings/auto-capture`, or `/settings/auto-capture?group=<id>` from a trip's page; `src/pages/AutoCaptureSetup.tsx`). Three screens: (1) what it does and "Set up on this iPhone / Android" (the capture key for the chosen scope is created if missing and copied), (2) the phone: for iPhone the shared Shortcut link and the one Message automation with a mock, for Android the MacroDroid link and a prefilled `.macro` download when the owner hosts a template (else the manual checklist) plus the battery-saver exemption, (3) a live "Waiting for your phone…" screen that flips to "Got it: ₹250 at Swiggy, 14:32" from the key's `lastUsedAt` or a new activity row, with the "Keep every payment" switch (`outsideTrips`) and Done; "I'll check later" is always there. Collapsibles at the bottom: *Set up by hand* (the regex, the JSON body, copy buttons), *Try it from this browser* (a test request, or a simulated one in demo mode), *Only one trip* (scope), *Your capture keys* (copy, revoke) and *Privacy*. The settings in §3.6 live in **Settings → Automation** (`/settings/automation`; the old `/profile#auto-capture` link redirects there).
 
 ### 3.1 Webhook contract (v1)
 
@@ -65,15 +66,15 @@ Served by a Cloud Function behind a Hosting rewrite. The client in `src/pages/Au
 - **Parser:** `shared/sms-parse.ts` (also used by the client via `src/lib/sms-parse.ts`, including the demo simulation and the share-sheet text path). Credits (including "sent to you"), refunds, OTPs, balance alerts, promos, EMI/bill-due reminders, "will be debited" notices, EMI-conversion notices, collect requests ("has requested", "is requesting", "requested by"), failed / declined / reversed transactions and transfers between the user's own places (UPI Lite top-ups, wallet loads) are `not_a_debit`. Covers HDFC, ICICI, SBI and SBI Card, Axis, Kotak, Yes, IDFC First, IndusInd, PNB, BoB, BOI, Canara, Union, Indian Bank, IOB, Central, UCO, IDBI, RBL, DBS, HSBC, Standard Chartered, Citi, Amex, Bandhan, AU, Federal, Jupiter, Fi, Niyo, slice, OneCard, Paytm / Airtel / Jio / Fino Payments Banks and generic card spend alerts; amounts as ₹/Rs/INR before or after the number (`Rs500`, `250.00 INR`, `25.00 USD`), with commas and lakh grouping; merchants from the VPA (`swiggy@icici` → Swiggy, `paytmqr5c5kj9@ptys` → none), `at …`, `to …`, `for …` (AutoPay mandates), `Info:` and `UPI/P2M/…/NAME` narrations, never from the bank's safety trailer. The 39 real-world probe messages from the October 2026 audit are part of `shared/sms-parse.test.ts`.
 - **Date:** the SMS date if within 60 days before / a year after receipt, else `receivedAt`, else now, in Asia/Kolkata.
 - **Pre-auth guards:** bodies over 16 KB are refused (413), a client address gets 60 requests a minute per instance, and a token that didn't exist is remembered for five minutes, all before any Firestore read.
-- **Rate limit:** 60 requests/hour and 300/day per token (`rateLimits/{hash}`, server-only).
+- **Rate limit:** 60 requests/hour and 300/day per token by default (`rateLimits/{hash}`, server-only; admins tune the figures in `config/limits`, read with a 60 s cache).
 - **Idempotency:** capture id = `sms_` + hash of (uid, bank ref); without a ref, of (uid, the masked SMS text), so the same alert delivered by two automations is one capture while two real payments (different times or balances in the text) are two; structured requests without a ref use (uid, amount, merchant, minute received).
 - **Stored:** `users/{uid}/captures/{id}` in the normal Capture shape, `source` `sms-ios` / `sms-android` (`sms` for `device: other`), `card` = bank + last 4 digits, `raw` = the SMS with account/card/phone numbers and balances masked (≤ 500 chars). The token gets `lastUsedAt` (at most once a minute).
 - **Gemini fallback:** only when the user has *Bank SMS the app can't read* on, the message looks like a bank message (an account / card reference, a known bank, or UPI / IMPS / NEFT / ATM wording) and the parser found no amount; the **masked** text is what Gemini sees, and its answer goes through the same checks. A debit the parser read but couldn't name goes to Gemini only when the user also turned on *Also ask Gemini who was paid* (`aiSmsMerchant`, off by default) and the message has no UPI id to name it from.
-- **Order of checks:** token → rate limit → *paused* → parse (`not_a_debit` / `unparsed`) → *minimum amount* → *ignore keywords* → scope / trip match (trips with `captureOff` or `archived` are skipped; a key whose trip the user left or deleted answers `bad_scope`, never "all my trips") → *outside trips* setting → dedupe → store + push. Every outcome after the rate limit except `bad_request` is written to the activity log (§3.6), and the token's `lastUsedAt` is set for every request that reaches a user.
+- **Order of checks:** token → rate limit → *paused* (the user's switch, or the admin flag `config/app.flags.autoCapture` off, which pauses the webhook for everyone) → parse (`not_a_debit` / `unparsed`) → *minimum amount* → *ignore keywords* → scope / trip match (trips with `captureOff` or `archived` are skipped; a key whose trip the user left or deleted answers `bad_scope`, never "all my trips") → *outside trips* setting → dedupe → store + push. Every outcome after the rate limit except `bad_request` is written to the activity log (§3.6), and the token's `lastUsedAt` is set for every request that reaches a user.
 - **Push:** a trip match sends *"You spent ₹840 at Swiggy — add to Goa Trip?"* (opens `/capture/{id}`). With *All bank & UPI payments* on, a debit outside every trip is saved to the Inbox as "outside any trip" and pushes (*"Unsorted payment"*) only if *Payments outside a trip* is on in Settings → Notifications (off by default). With it off (the default) such debits are ignored (`outside_trip`, nothing stored). Push payloads carry `badge` (captures to sort plus approvals waiting) for the app icon.
 - **App Check is not required** on this endpoint (Shortcuts/MacroDroid can't produce a token); the capture token and rate limit protect it.
 
-The wizard's *Send a test* step treats a 404/405 or a non-JSON reply as **"Backend not deployed yet"**. In demo mode it simulates the function locally (`simulateWebhook` + `parseSmsDemo` in the page module, which uses the shared parser in `src/lib/sms-parse.ts`).
+The wizard's *Try it from this browser* section treats a 404/405 or a non-JSON reply as **"Backend not deployed yet"**. In demo mode it simulates the function locally (`simulateWebhook` + `parseSmsDemo` in the page module, which uses the shared parser in `src/lib/sms-parse.ts`).
 
 ### 3.2 Keys and scope
 
@@ -121,7 +122,7 @@ The wizard shows a **Get MacroDroid on Google Play** button: on Android it opens
    ```
    `[sms_message]` / `[sms_number]` are MacroDroid magic text; re-insert them with the magic text (…) button if they don't highlight. If quotes in an SMS ever break the JSON, use `https://<host>/api/capture?t=<key>` with a `text/plain` body of just `[sms_message]`.
 4. **Constraints:** none. Save and make sure the macro is enabled.
-5. **Battery optimisation:** exempt MacroDroid, or the phone's battery saver will stop it after a day or two. Xiaomi/Redmi/POCO: Autostart on + Battery saver *No restrictions*. Samsung: Battery *Unrestricted* and remove from *Sleeping apps*. Oppo/Realme/OnePlus: *Allow background activity* + Auto launch. Vivo/iQOO: *Background power consumption → Allow* + Autostart. (Menu names vary; dontkillmyapp.com has per-phone guides.) Then check *Recent activity* in Profile → Auto-capture after the next payment.
+5. **Battery optimisation:** exempt MacroDroid, or the phone's battery saver will stop it after a day or two. Xiaomi/Redmi/POCO: Autostart on + Battery saver *No restrictions*. Samsung: Battery *Unrestricted* and remove from *Sleeping apps*. Oppo/Realme/OnePlus: *Allow background activity* + Auto launch. Vivo/iQOO: *Background power consumption → Allow* + Autostart. (Menu names vary; dontkillmyapp.com has per-phone guides.) Then check *Recent activity* in Settings → Automation after the next payment.
 
 Tasker equivalent: *Event → Phone → Received Text* (content filter) → *Net → HTTP Request* POST with `%SMSRB` (body) and `%SMSRF` (sender).
 
@@ -138,22 +139,22 @@ If the owner exports a working macro (`.macro` file, MacroDroid → Export) and 
 - `outside_trip` rejections store nothing, nor do `paused`, `below_min` and `ignored`.
 - The activity log (§3.6) keeps only the outcome, amount, currency, merchant, trip name and device of each request, never the SMS text, and only the newest 30 entries.
 - The capture id is derived from the UPI/bank reference, so the same SMS arriving twice (two automations, retries) returns `duplicate`.
-- The key is a bearer secret that can only add pending items to its owner's inbox. Revoke it in the wizard's *Your keys* list.
+- The key is a bearer secret that can only add pending items to its owner's inbox. Revoke it in Settings → Automation or the wizard's *Your capture keys* list.
 
 ### 3.6 Capture settings and the activity log
 
-**Profile → Auto-capture** (`src/components/AutoCapture.tsx`) holds the settings; they are stored with the push preferences in `users/{uid}/settings/notifications` (client `src/lib/push.ts` + `src/lib/capture-settings.ts`, server `functions/src/lib/prefs.ts`, shared pure logic in `shared/capture-filters.ts`). Writes merge, so the Notifications and Auto-capture sections never overwrite each other. Defaults keep the original behaviour.
+**Settings → Automation** (`src/components/AutoCapture.tsx`) holds the settings; they are stored with the push preferences and the AI switches (`aiEnabled`, `aiImages`, `aiSource`, `aiModel`) in `users/{uid}/settings/notifications` (client `src/lib/push.ts` + `src/lib/capture-settings.ts`, server `functions/src/lib/prefs.ts`, shared pure logic in `shared/capture-filters.ts`). Writes merge, so the Notifications and Auto-capture sections never overwrite each other. Defaults keep the original behaviour.
 
 | Key | Default | Effect in the webhook |
 |---|---|---|
 | `capturePaused` | `false` | Master switch. While on, every request answers `{ ok: false, reason: 'paused' }` (HTTP 200) and nothing is stored. |
 | `outsideTrips` | `false` | "What gets captured": only debits dated inside a trip, or all debits (the rest land in the inbox unsorted). |
 | `minAmount` | `0` | Paise. INR debits below it → `below_min`. Foreign-currency spends are always kept (the field is set in rupees). Max ₹1,00,000. |
-| `ignoreWords` | `[]` | Up to 20 strings (≤ 40 chars). Case-insensitive, whole-word match against the SMS text and the merchant ("SIP" matches `NACH/SIP/…`, not "gossip"; spaces match any whitespace) → `ignored`. Suggestions: SIP, mutual fund, rent, credit card bill, EMI, insurance. |
+| `ignoreWords` | `[]` | Up to 20 strings (≤ 40 chars). Case-insensitive, whole-word match against the SMS text and the merchant ("SIP" matches `NACH/SIP/…`, not "gossip"; spaces match any whitespace) → `ignored`. Suggestions: SIP, mutual fund, rent, credit card bill, EMI, insurance. "Ignore <merchant>" on an Inbox card adds the merchant here (with Undo). |
 | `aiSms` | `true` | Send a bank-looking message the parser can't read to Gemini (masked), when AI is available to this user. |
 | `aiSmsMerchant` | `false` | Also ask Gemini who was paid when the parser found the amount but no payee and the message has no UPI id. |
 
-**Per-trip pause:** `groups/{id}.captureOff: true` (the switch on the group's *Trip auto-capture* card, or the *Trips* list in Profile → Auto-capture). Any member may flip it (rules require a boolean) and it applies to everyone in the trip. `pickTrip` skips paused trips; a scoped key for a paused trip, or an unscoped debit dated only inside paused trips, gets `paused` and is not stored, even with *All bank & UPI payments* on.
+**Per-trip pause:** `groups/{id}.captureOff: true` (the switch on the group's auto-capture row, or the *Trips* list in Settings → Automation). Any member may flip it (rules require a boolean) and it applies to everyone in the trip. `pickTrip` skips paused trips; a scoped key for a paused trip, or an unscoped debit dated only inside paused trips, gets `paused` and is not stored, even with *All bank & UPI payments* on.
 
 **Notifications consistency:** *Payments outside a trip* in Notifications is disabled (with an explanation) unless *All bank & UPI payments* is chosen, and both capture toggles are disabled while capture is paused.
 
@@ -199,7 +200,7 @@ What iOS supports:
 
 ### 4a. Silent background capture (no app opens)
 
-1. In Split Now, open **Profile → Auto-capture → Create a capture key**. The app shows your personal **URL** and **Body** with copy buttons.
+1. In Split Now, open **Settings → Automation → Advanced: Apple Pay Shortcut and capture links** and create a capture key (the unscoped "All my trips" one). The app shows your personal **URL** and **Body** with copy buttons.
 2. On the iPhone, open **Shortcuts → Automation → + → Transaction**. Choose your cards and the merchant categories you want, then pick **Run Immediately**.
 3. Add a **Format Date** action: *Current Date*, format **ISO 8601**, include time.
 4. Add a **Text** action and paste the **Body** from step 1. Replace each placeholder with the variable of the same name from the Transaction trigger: `[Amount]` → *Amount*, `[Merchant]` → *Merchant*, `[Card or Pass]` → *Card or Pass*, `[Formatted Date]` → *Formatted Date*.
@@ -232,7 +233,7 @@ Tips: if a merchant name contains a double quote it will break the JSON, which i
 
 ### 4b. Fallback: Open URL (asks you straight away)
 
-Use **Open URL** instead of steps 3–5, with the link from *Profile → Auto-capture → Open URL*:
+Use **Open URL** instead of steps 3–5, with the link from *Settings → Automation → Advanced → Open URL*:
 
 ```
 https://<host>/capture?v=1&raw=[Amount]&merchant=[Merchant]&card=[Card or Pass]&src=ios-shortcut&t=<key>&u=<uid>
@@ -280,10 +281,11 @@ users/{uid}/captures/{id}     ← the inbox the app shows (owner-only)
   suggestedGroup?, status: pending|assigned|dismissed, groupId?, expenseId?, createdAt, updatedAt
 
 captureTokens/{token}         ← token = 28 random chars (≥ 24 enforced)
-  uid, createdAt, groupId?, label?   ← created/listed/revoked by the owner only
+  uid, createdAt, groupId?, label?   ← created/listed/revoked by the owner only (never updated by a client)
+  lastUsedAt                         ← written by the webhook, at most once a minute ("last received …" in Settings)
 
 captureInbox/{id}             ← signed-out drop box for Shortcuts
-  token, uid, merchant, amount? (int > 0) | raw (string), currency?, ts?, src?, card?
+  token, uid, merchant, amount? (int > 0) | raw (string), currency?, ts?, src?, card?, createdAt? (for a TTL policy)
 ```
 
 Rules (see `firestore.rules`, tested in `tests/firestore.rules.test.ts`):
@@ -295,7 +297,7 @@ Rules (see `firestore.rules`, tested in `tests/firestore.rules.test.ts`):
 **Inbox design.** We put `uid` on each inbox doc (in addition to the brief's `token, amount, merchant…`) so that the owner's query `where uid == me` can be proved safe by the rules engine. A rule that looked up the token for each document can't be evaluated for list queries. Each time the app comes to the foreground it **moves** the user's inbox docs into `users/{uid}/captures` (same id, so a retry can't duplicate) and deletes them.
 
 **Tradeoffs.**
-- The key is a bearer secret, stored in the Shortcut. Anyone who has it can add pending items to your inbox. They can't read anything, and nothing is saved as an expense without you. Revoke and recreate the key in Profile if it leaks.
+- The key is a bearer secret, stored in the Shortcut. Anyone who has it can add pending items to your inbox. They can't read anything, and nothing is saved as an expense without you. Revoke and recreate the key in Settings → Automation if it leaks.
 - A uid isn't secret, but the token check means it's useless without the key.
 - Inbox entries from this REST path wait until you next open the app. Push notifications come with the SMS webhook (§3).
 - The Firestore web API key in the URL is public by design. Security lives in the rules. Enable App Check before launch, but note that App Check would block REST writes from Shortcuts, so `captureInbox` would need an exemption or a Cloud Function endpoint.
@@ -332,13 +334,13 @@ Research (Oct 2026, see sources in the research notes) — what is possible on i
 6. **Match Text**: pattern `(?i)(debited|spent|paid|sent\s*rs|withdrawn|inr|rs\.?\s*\d|₹\s*\d)` in the step-4 Text → **If** *Matches* **does not have any value** → **Stop This Shortcut** → **End If**.
 7. **Get Contents of URL**: `https://split-now.web.app/api/capture`, Method **POST**, Request Body **JSON**:
    `token` = step-3 Text, `text` = step-4 Text, `device` = `ios`, `sender` = **Shortcut Input** (the whole input: iOS doesn't expose the message's *Sender* to a shortcut run from an automation, and the server drops a `sender` that isn't a short sender ID, see §3.3; the row can also be deleted).
-8. ⓘ → **Setup** → **Add Question** → choose the step-3 **Text** field → "Paste your Split Now key (Profile → Auto-capture)". Turn off *Show in Share Sheet*.
+8. ⓘ → **Setup** → **Add Question** → choose the step-3 **Text** field → "Paste your Split Now key (Settings → Automation)". Turn off *Show in Share Sheet*.
 9. Run it once with sample text (iOS asks to allow split-now.web.app). Then **Share → Copy iCloud Link** → send to the lead, who sets `VITE_IOS_SHORTCUT_URL` and redeploys.
 10. Revoke any key that was baked into an earlier shared link.
 
 ### Each user (≈ 90 seconds)
 
-1. In Split Now: Profile → Auto-capture → copy your key → **Add Shortcut** (iCloud link) → paste the key.
+1. In Split Now: Settings → Automation → Set up auto-capture → iPhone (the wizard copies your key) → **Add Shortcut** (iCloud link) → paste the key.
 2. Shortcuts → **Automation → + → Message** → Sender *Any Sender*, Message Contains a single **space** → **Run Immediately**, *Notify When Run* off → **Next**.
 3. **Run Shortcut → Split Now SMS**, expand it, set **Input = Shortcut Input** → **Done**.
 4. Tap **Test the Shortcut on this iPhone** in the app; then check a real bank SMS (including one in *Transactions*).

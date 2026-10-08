@@ -1,5 +1,5 @@
 /*
- * Auto-capture filters set in Profile → Auto-capture (users/{uid}/settings/notifications),
+ * Auto-capture filters set in Settings → Automation (users/{uid}/settings/notifications),
  * shared by the capture webhook (functions/src/capture.ts) and the client (settings UI, demo
  * simulation, activity log). Pure: no Firebase imports.
  */
