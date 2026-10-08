@@ -101,6 +101,47 @@ export function prepareExpenseSave(prev: Expense | undefined, next: Expense, g: 
   return out
 }
 
+/** Fields with their own writes (flag, approve, trash): an edit never carries them. */
+export const TRUST_FIELDS = ['dispute', 'approvals', 'deletedAt', 'deletedBy'] as const
+
+export interface ExpenseEditPatch {
+  /** fields whose value changed, with the new value */
+  set: Record<string, unknown>
+  /** fields present before that the edit removes */
+  unset: string[]
+  /**
+   * What to write to `approvals`: untouched (undefined) when the money is the same, so an
+   * approval that landed on the server after `prev` was cached survives; the editor's own
+   * approval (or nothing) when the money changed, which also clears approvals this device
+   * hasn't seen yet, as they were given for the old numbers.
+   */
+  approvals?: Record<string, true> | null
+}
+
+const sameValue = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
+
+/**
+ * The minimal update that turns the stored `prev` into `next` (the output of prepareExpenseSave),
+ * so a save only touches what the form changed and never overwrites concurrent trust writes
+ * with stale copies. `requiresApproval` is only ever added (the rules never let an edit drop it).
+ */
+export function expenseEditPatch(prev: Expense, next: Expense): ExpenseEditPatch {
+  const skip = new Set<string>([...TRUST_FIELDS, 'id'])
+  const set: Record<string, unknown> = {}
+  const unset: string[] = []
+  const a = prev as unknown as Record<string, unknown>
+  const b = next as unknown as Record<string, unknown>
+  for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) {
+    if (skip.has(k) || sameValue(a[k], b[k])) continue
+    if (b[k] === undefined) unset.push(k)
+    else set[k] = b[k]
+  }
+  if (prev.requiresApproval && !next.requiresApproval) delete set.requiresApproval
+  const out: ExpenseEditPatch = { set, unset: unset.filter((k) => k !== 'requiresApproval') }
+  if (moneyChanged(prev, next)) out.approvals = next.approvals && Object.keys(next.approvals).length ? next.approvals : null
+  return out
+}
+
 /** An imported settlement starts live (never in the trash). */
 export function prepareImportedSettlement(s: Settlement): Settlement {
   const { deletedAt: _t, deletedBy: _b, ...rest } = s
@@ -108,11 +149,12 @@ export function prepareImportedSettlement(s: Settlement): Settlement {
 }
 
 /**
- * A generated recurring copy never inherits flags, approvals or trash from its template.
- * Also used for imported rows: like any new expense, one above the group's approval
+ * A generated recurring copy never inherits flags, approvals, trash or the receipt from its
+ * template. Also used for imported rows: like any new expense, one above the group's approval
  * threshold is marked requiresApproval (the rules require it on every create).
  */
 export function prepareOccurrence(o: Expense, g: Pick<Group, 'requireApproval' | 'approvalThreshold'>): Expense {
-  const { dispute: _d, approvals: _a, requiresApproval: _r, deletedAt: _t, deletedBy: _b, ...rest } = o
+  // Nor the template's receipt: the copy has no image of its own (purging it must not delete the template's).
+  const { dispute: _d, approvals: _a, requiresApproval: _r, deletedAt: _t, deletedBy: _b, receiptUrl: _u, receiptPath: _p, ...rest } = o
   return needsApproval(g, o.amount) ? { ...rest, requiresApproval: true } : rest
 }

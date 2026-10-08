@@ -5,6 +5,8 @@
  * "not found" (lists as empty) for good. For a fresh group we don't trust that and listen again.
  */
 type Unsub = () => void
+/** Shaped like Watch<T> in src/data/repo.ts: the optional second argument is the snapshot's SnapMeta, passed through untouched. */
+type Cb<G, M> = (g: G | null, meta?: M) => void
 
 export const FRESH_MS = 30_000
 // Re-listens for list watchers (expenses, payments, activity), in ms after the create.
@@ -18,21 +20,22 @@ const ageOf = (id: string) => { const t = created.get(id); return t === undefine
 export const isFresh = (id: string) => ageOf(id) < FRESH_MS
 
 /** Watches one group; while it's fresh, a `null` (missing or refused) retries with backoff instead of being passed on. */
-export function watchGroupSettled<G>(watch: (id: string, cb: (g: G | null) => void) => Unsub, id: string, cb: (g: G | null) => void): Unsub {
+export function watchGroupSettled<G, M = unknown>(watch: (id: string, cb: Cb<G, M>) => Unsub, id: string, cb: Cb<G, M>): Unsub {
   let unsub: Unsub | undefined
   let timer: ReturnType<typeof setTimeout> | undefined
   let gen = 0
   let tries = 0
   const start = () => {
     const mine = ++gen
-    unsub = watch(id, (g) => {
+    unsub = watch(id, (g, meta) => {
       if (mine !== gen) return
       if (g === null && isFresh(id)) {
         gen++ // ignore this listener; the timer replaces it
         timer = setTimeout(() => { unsub?.(); start() }, Math.min(250 * 2 ** tries++, 4_000))
         return
       }
-      cb(g)
+      if (meta === undefined) cb(g)
+      else cb(g, meta)
     })
   }
   start()

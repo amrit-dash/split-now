@@ -12,7 +12,8 @@ export function useInbox(data: GroupData[] | null) {
   const { user } = useMe()
   const captures = usePendingCaptures()
   const ids = useMemo(() => (data ? data.filter((d) => d.group.type !== 'personal').map((d) => d.group.id) : null), [data])
-  const feed = useRecentActivity(ids, 30)
+  // The same per-group feeds a group's Activity tab reads (one listener each, shared).
+  const feed = useRecentActivity(ids)
   const seenAt = useSyncExternalStore(onInboxSeen, inboxSeenAt)
   return useMemo(() => {
     const approvals = (data ?? []).flatMap((d) => d.pending.filter((e) => awaitingMyApproval(e, d.group, user.uid)).map((e) => ({ e, d })))

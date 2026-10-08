@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { repo } from '@/data'
+import { clearSharedStore } from '@/data/store'
 import type { AuthUser } from '@/data/repo'
 import type { UserProfile } from '@/types'
 import { defaultCurrency } from '@/lib/locale'
@@ -19,6 +20,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => repo.onAuth((u) => { setUser(u); setLoading(false); if (!u) setProfile(null) }), [])
   useEffect(() => (user ? repo.watchProfile(user.uid, setProfile) : undefined), [user])
+  // Shared live queries belong to one account: drop them all when it signs out or changes.
+  const uid = user?.uid
+  useEffect(() => () => clearSharedStore(), [uid])
 
   return <Ctx.Provider value={{ user, profile, loading }}>{children}</Ctx.Provider>
 }
