@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useMe } from '@/hooks/auth'
 import { useAllGroupData, type GroupData } from '@/hooks/data'
@@ -10,7 +10,9 @@ import { convertMinor } from '@/lib/fx'
 import { useTodayRates } from '@/hooks/useFx'
 import { categoryChartColor, chartFolds, seriesColor, useIsDark } from '@/lib/chartPalette'
 import { Empty, Loading, PageHeader, Segmented } from '@/components/Misc'
-import { appLocale } from '@/lib/locale'
+import { appLocale, formatDate } from '@/lib/locale'
+import { Select } from '@/components/Select'
+import { GroupIcon } from '@/components/GroupIcon'
 
 type Period = '1m' | '3m' | '12m' | 'all'
 type Basis = 'mine' | 'total'
@@ -54,11 +56,12 @@ export default function Insights() {
   return (
     <div>
       <PageHeader title="Insights" />
-      <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
-        <button className={`chip shrink-0 ${groupId === 'all' ? 'chip-on' : ''}`} onClick={() => setParams({})}>All groups</button>
-        {data.map((d) => (
-          <button key={d.group.id} className={`chip shrink-0 ${groupId === d.group.id ? 'chip-on' : ''}`} onClick={() => setParams({ group: d.group.id })}>{d.group.emoji} {d.group.name}</button>
-        ))}
+      <div className="mb-3">
+        <Select aria-label="Group" value={data.some((d) => d.group.id === groupId) ? groupId : 'all'} onChange={(v) => setParams(v === 'all' ? {} : { group: v })}
+          options={[
+            { value: 'all', label: 'All groups', text: 'All groups', icon: <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-slate-100 text-base dark:bg-ink-800">📊</span> },
+            ...data.map((d) => ({ value: d.group.id, label: d.group.name, text: d.group.name, icon: <GroupIcon emoji={d.group.emoji} size={28} />, hint: d.group.currency !== home ? d.group.currency : undefined })),
+          ]} />
       </div>
       <div className="mb-4 space-y-2">
         <Segmented<Period> value={period} onChange={setPeriod} options={[{ value: '1m', label: '30 days' }, { value: '3m', label: '3 months' }, { value: '12m', label: '12 months' }, { value: 'all', label: 'All time' }]} />
@@ -142,13 +145,15 @@ export default function Insights() {
           <ChartCard title="Biggest expenses">
             <ul className="divide-y divide-slate-100 dark:divide-white/5">
               {stats.top.map(({ e, d, v }) => (
-                <li key={e.id} className="flex items-center gap-3 py-2.5">
-                  <span className="text-xl">{CATEGORIES[e.category].emoji}</span>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium">{e.description}</div>
-                    <div className="truncate text-xs text-slate-500">{d.group.name} · {e.date}</div>
-                  </div>
-                  <span className="text-sm font-semibold tabular-nums">{formatMoney(v, cur)}</span>
+                <li key={e.id}>
+                  <Link to={`/groups/${d.group.id}/expenses/${e.id}`} className="-mx-2 flex items-center gap-3 rounded-xl px-2 py-2.5 hover:bg-slate-50 dark:hover:bg-ink-800">
+                    <span className="text-xl">{CATEGORIES[e.category].emoji}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium">{e.description}</div>
+                      <div className="truncate text-xs text-slate-500">{d.group.name} · {formatDate(e.date, { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+                    </div>
+                    <span className="text-sm font-semibold tabular-nums">{formatMoney(v, cur)}</span>
+                  </Link>
                 </li>
               ))}
             </ul>

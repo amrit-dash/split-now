@@ -15,7 +15,8 @@ export default function Join() {
   const nav = useNavigate()
   const toast = useToast()
   const [invite, setInvite] = useState<InviteInfo | null | undefined>(undefined)
-  const [claim, setClaim] = useState<string>('new')
+  /** '' = not chosen yet (there are unclaimed people to pick from) */
+  const [claim, setClaim] = useState<string>('')
   const [busy, setBusy] = useState(false)
 
   useEffect(() => { repo.getInvite(code).then(setInvite).catch(() => setInvite(null)) }, [code])
@@ -28,21 +29,23 @@ export default function Join() {
   }, [alreadyMember, invite, busy, nav])
 
   useEffect(() => {
-    // Pre-select a placeholder that matches the user's name.
+    // Pre-select the placeholder that is this user: by email, else by first name.
     if (!invite) return
-    const first = profile.displayName.split(' ')[0].toLowerCase()
-    const match = Object.entries(invite.placeholders).find(([, n]) => n.toLowerCase().split(' ')[0] === first)
-    if (match) setClaim(match[0])
-  }, [invite, profile.displayName])
+    const match = matchPlaceholder(invite.placeholders, profile.displayName, user.email ?? profile.email)
+    if (match) setClaim(match)
+  }, [invite, profile.displayName, profile.email, user.email])
 
   if (invite === undefined || alreadyMember) return <Loading />
   if (invite === null) return <div className="mx-auto max-w-md px-4 pt-20"><Empty emoji="🔗" title="Invite not found">The link may be mistyped or the group was deleted.</Empty></div>
 
+  const unclaimed = Object.keys(invite.placeholders).length > 0
+  const choice = claim || (unclaimed ? '' : 'new')
   const join = async () => {
+    if (!choice) return toast('Pick which one is you, or “I’m not listed”', 'err')
     setBusy(true)
     try {
-      const memberId = claim === 'new' ? user.uid : claim
-      const name = claim === 'new' ? profile.displayName : invite.placeholders[claim]
+      const memberId = choice === 'new' ? user.uid : choice
+      const name = choice === 'new' ? profile.displayName : invite.placeholders[choice]
       const groupId = await repo.joinGroup(code, memberId, { name, uid: user.uid, email: user.email, color: colorFor(Object.keys(invite.placeholders).length + 1) })
       toast(`Welcome to ${invite.groupName} 🎉`)
       nav(`/groups/${groupId}`, { replace: true })
@@ -63,13 +66,36 @@ export default function Join() {
       </div>
       <div className="card mt-6 divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
         {options.map(([id, n]) => (
-          <button key={id} onClick={() => setClaim(id)} className="flex w-full items-center gap-3 px-4 py-3.5 text-left">
-            <span className={`flex h-6 w-6 items-center justify-center rounded-full border-2 ${claim === id ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300 dark:border-ink-700'}`}>{claim === id && <Check size={14} strokeWidth={3} />}</span>
+          <button key={id} onClick={() => setClaim(id)} aria-pressed={choice === id} className="flex w-full items-center gap-3 px-4 py-3.5 text-left">
+            <span className={`flex h-6 w-6 items-center justify-center rounded-full border-2 ${choice === id ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300 dark:border-ink-700'}`}>{choice === id && <Check size={14} strokeWidth={3} />}</span>
             <span className="font-medium">{n}</span>
           </button>
         ))}
       </div>
-      <button className="btn-primary mt-5 w-full" onClick={join} disabled={busy}>Join group</button>
+      <button className="btn-primary mt-5 w-full" onClick={join} disabled={busy || !choice}>{choice ? 'Join group' : 'Pick one to join'}</button>
     </div>
   )
+}
+
+/** Fold case and accents: "Zoë" → "zoe", "JOSÉ" → "jose". */
+const fold = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+
+/**
+ * The placeholder that is probably this user. Placeholders only carry a name, so an email
+ * matches when the organiser typed it as the name (or its local part, "priya.s@…" → "priya.s").
+ * Otherwise a unique first-name match (case- and accent-insensitive).
+ */
+function matchPlaceholder(placeholders: Record<string, string>, displayName: string, email?: string | null): string | undefined {
+  const entries = Object.entries(placeholders)
+  if (email) {
+    const e = fold(email), local = e.split('@')[0]
+    const byEmail = entries.find(([, n]) => fold(n) === e) ?? entries.find(([, n]) => fold(n) === local)
+    if (byEmail) return byEmail[0]
+  }
+  const first = fold(displayName).split(/\s+/)[0]
+  if (!first) return undefined
+  const full = entries.filter(([, n]) => fold(n) === fold(displayName))
+  if (full.length === 1) return full[0][0]
+  const byFirst = entries.filter(([, n]) => fold(n).split(/\s+/)[0] === first)
+  return byFirst.length === 1 ? byFirst[0][0] : undefined
 }

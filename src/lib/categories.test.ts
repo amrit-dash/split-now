@@ -24,3 +24,32 @@ describe('guessCategory (India)', () => {
     expect(guessCategory('Internet — NBN')).toBe('utilities')
   })
 })
+
+describe('guessCategory: everyday words', () => {
+  it.each([
+    // alcohol counts as food & drink
+    ['Liquor store', 'food'], ['Wine at dinner party', 'food'], ['Whisky', 'food'], ['Daaru for the trip', 'food'], ['Theka run', 'food'], ['Beer', 'food'],
+    // home staff and household services
+    ['Maid salary', 'utilities'], ['Cook — October', 'utilities'], ['Laundry', 'utilities'], ['Dhobi', 'utilities'], ['Newspaper bill', 'utilities'], ['Ironing clothes', 'utilities'],
+    // personal care
+    ['Salon', 'health'], ['Haircut', 'health'], ['Spa day', 'health'], ['Foot massage', 'health'],
+    // on the water, and getting to the airport
+    ['Ferry to Havelock', 'transport'], ['Boat ride', 'transport'], ['Houseboat in Alleppey', 'stay'], ['Sunset cruise', 'travel'],
+    ['Airport transfer', 'transport'], ['Ola to airport', 'transport'], ['Airport hotel', 'stay'],
+    ['Tip', 'food'], ['Tips for the staff', 'food'], ['Taxi tip', 'transport'],
+  ] as const)('%s → %s', (text, cat) => {
+    expect(guessCategory(text)).toBe(cat)
+  })
+
+  it.each([
+    ['Milkshake', 'food'], ['Milk', 'groceries'], ['Fruits', 'groceries'],
+    ['Flea market', 'shopping'], ['Anjuna night market', 'shopping'],
+    ['VISA POS 1234 STARBUCKS', 'food'], ['Visa on arrival', 'travel'], ['Thailand visa fee', 'travel'],
+    ['Phone case', 'shopping'], ['Phone bill', 'utilities'], ['Mobile recharge', 'utilities'],
+    ['Candy bar', null], ['Rooftop bar', 'food'], ['Public transport', null],
+    ['Dinner in the Central Business District', 'food'], ['District movie tickets', 'entertainment'],
+    ['Cookies', null], ['Presentation printouts', null],
+  ] as const)('no false match: %s → %s', (text, cat) => {
+    expect(guessCategory(text)).toBe(cat)
+  })
+})

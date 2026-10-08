@@ -88,12 +88,28 @@ export default function Profile() {
 
   const canInstall = !install.installed && (install.canPrompt || install.ios)
 
+  // Edits not saved yet: keep a Save bar in view so they aren't lost by navigating away.
+  const handles = (h: PaymentHandles | undefined) => JSON.stringify(Object.entries(h ?? {}).filter(([, v]) => v?.trim()).sort(([a], [b]) => a.localeCompare(b)))
+  const dirty = (name.trim() || profile.displayName) !== profile.displayName
+    || phone.replace(/[^\d+]/g, '') !== (profile.phone ?? '').replace(/[^\d+]/g, '')
+    || currency !== profile.currency
+    || handles(payment) !== handles(profile.payment)
+  const [saving, setSaving] = useState(false)
+  const discard = () => { setName(profile.displayName); setPhone(profile.phone ?? ''); setCurrency(profile.currency); setPayment(profile.payment ?? {}) }
+
   const save = async () => {
     const cleanPhone = phone.replace(/[^\d+]/g, '')
     // A new mobile number also fills the UPI phone field if that's empty.
     const pay = cleanPhone && !payment.phone ? { ...payment, phone: cleanPhone } : payment
-    await repo.saveProfile({ ...profile, displayName: name.trim() || profile.displayName, phone: cleanPhone || undefined, currency, payment: pay })
-    toast('Profile saved')
+    setSaving(true)
+    try {
+      await repo.saveProfile({ ...profile, displayName: name.trim() || profile.displayName, phone: cleanPhone || undefined, currency, payment: pay })
+      toast('Profile saved')
+    } catch (e) {
+      toast((e as Error).message, 'err')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -174,7 +190,17 @@ export default function Profile() {
         </button>
       )}
 
-      <button className="btn-primary mt-6 w-full" onClick={save} data-testid="save-profile">Save profile</button>
+      <button className="btn-primary mt-6 w-full" onClick={save} disabled={saving} data-testid="save-profile">Save profile</button>
+      {dirty && <div className="h-14" aria-hidden />}
+      {dirty && (
+        <div className="animate-pop fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] z-30 mx-auto max-w-2xl px-4" data-testid="unsaved-bar">
+          <div className="flex items-center gap-2 rounded-2xl bg-white p-2 pl-4 shadow-xl shadow-black/15 ring-1 ring-slate-900/10 dark:bg-ink-800 dark:ring-white/10">
+            <span className="min-w-0 flex-1 truncate text-sm font-semibold">Unsaved changes</span>
+            <button className="btn-ghost !min-h-0 shrink-0 !px-3 !py-2 text-sm" onClick={discard}>Discard</button>
+            <button className="btn-primary !min-h-0 shrink-0 !px-4 !py-2 text-sm" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+          </div>
+        </div>
+      )}
       <p className="mt-6 text-center text-xs text-slate-400">Split Now v{__APP_VERSION__} · {repo.mode === 'demo' ? 'Demo mode' : 'Connected to Firebase'}</p>
 
       <Sheet open={iosOpen} onClose={() => setIosOpen(false)} title="Add to Home Screen"><IOSInstallSteps /></Sheet>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Camera, Check, ChevronDown, Minus, Plus, QrCode, Repeat, Trash2, X } from 'lucide-react'
+import { Camera, Check, ChevronDown, History, Minus, Plus, QrCode, Repeat, Search, Trash2, X } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { memberOrder, myMemberId, useCaptures, useExpenses, useGroup, useGroups } from '@/hooks/data'
@@ -12,13 +12,14 @@ import { convertExpense, convertMinor, getRate, lastCurrency, parseRate, rateLab
 import { computeSplits, portion, SplitError } from '@/lib/splits'
 import { parseReceipt, type ParsedReceipt } from '@/lib/ocr-parse'
 import { pending } from '@/lib/pending'
-import { liveTripFor } from '@/lib/capture'
+import { isLiveTrip, liveTripFor } from '@/lib/capture'
+import { addDaysISO, descriptionHistory, lastGroup, lastSplit, pastCategory, rememberGroup, rememberSplit, sameSplit, sanitizeSplit, suggestDescriptions, type Suggestion } from '@/lib/recents'
 import { todayISO, uid } from '@/lib/id'
 import { firstNextDate, FREQ_LABEL, nextAfter } from '@/lib/recurrence'
 import { Avatar } from '@/components/Avatar'
 import { GroupIcon } from '@/components/GroupIcon'
 import { MemberChips } from '@/components/MemberChips'
-import { Empty, Loading, Spinner } from '@/components/Misc'
+import { Empty, LiveBadge, Loading, Spinner } from '@/components/Misc'
 import { Sheet } from '@/components/Sheet'
 import { useToast } from '@/components/Toast'
 import { appLocale } from '@/lib/locale'
@@ -43,24 +44,34 @@ export default function ExpenseForm() {
   const groups = useGroups()
   const [groupId, setGroupId] = useState<string | undefined>(editGroupId ?? params.get('group') ?? undefined)
   const group = useGroup(groupId)
-  const expenses = useExpenses(editGroupId)
+  // The group's expenses: the one being edited, and past descriptions for suggestions.
+  const expenses = useExpenses(groupId)
   const existing = expenseId ? expenses?.find((e) => e.id === expenseId) : undefined
+  // "Add again" from an expense: /add?group=…&again=<expenseId> starts a copy dated today.
+  const againId = expenseId ? undefined : params.get('again') ?? undefined
+  const again = againId ? expenses?.find((e) => e.id === againId) : undefined
   // Prefill from a captured payment (/add?group=…&capture=…), handed over from the capture prompt.
   const captureId = expenseId ? undefined : params.get('capture') ?? undefined
   const captures = useCaptures()
   const capture = captureId ? captures?.find((c) => c.id === captureId && c.status === 'pending') : undefined
+  // A switched group's list arrives a moment later; never suggest from the previous group.
+  const history = useMemo(() => descriptionHistory((expenses ?? []).filter((e) => e.groupId === groupId)), [expenses, groupId])
 
   useEffect(() => {
-    // Default to a trip that's running today, else the most recently used group.
-    if (!groupId && groups?.length) setGroupId(liveTripFor(groups, todayISO()) ?? groups[0].id)
+    // Default to a trip that's running today, else the group used last on this device, else the most recent.
+    if (!groupId && groups?.length) {
+      const last = lastGroup()
+      setGroupId(liveTripFor(groups, todayISO()) ?? (last && groups.some((g) => g.id === last) ? last : undefined) ?? groups[0].id)
+    }
   }, [groups, groupId])
 
-  if (!groups || (groupId && group === undefined) || (expenseId && !expenses) || (captureId && !captures)) return <Loading />
+  if (!groups || (groupId && group === undefined) || ((expenseId || againId) && !expenses) || (captureId && !captures)) return <Loading />
   if (groups.length === 0) return <NoGroups />
   if (!group) return <Loading />
   if (expenseId && !existing) return <Empty emoji="🔍" title="Expense not found" />
 
-  return <Form key={group.id + (existing?.id ?? '')} group={group} groups={groups} existing={existing} capture={capture} onGroup={setGroupId} />
+  // Keyed by the expense only: switching group keeps what was typed (see Form's re-seed).
+  return <Form key={existing?.id ?? again?.id ?? 'new'} group={group} groups={groups} existing={existing} again={again} capture={capture} history={history} onGroup={setGroupId} />
 }
 
 function NoGroups() {
@@ -80,7 +91,22 @@ function NoGroups() {
   )
 }
 
-function Form({ group, groups, existing, capture, onGroup }: { group: Group; groups: Group[]; existing?: Expense; capture?: Capture; onGroup: (id: string) => void }) {
+/**
+ * Payer and split for a new expense in `group`: what was used last time in this group on this
+ * device, else "you paid, split equally". A captured payment is always yours to have paid.
+ */
+function seedFor(group: Group, order: MemberId[], me: MemberId, capture?: Capture) {
+  const last = lastSplit(group.id, order)
+  return {
+    payer: !capture && last.payer ? last.payer : me,
+    splitType: last.splitType ?? 'equal' as SplitType,
+    input: last.input ?? { selected: order },
+  }
+}
+
+function Form({ group, groups, existing, again, capture, history, onGroup }: {
+  group: Group; groups: Group[]; existing?: Expense; again?: Expense; capture?: Capture; history: Suggestion[]; onGroup: (id: string) => void
+}) {
   const { user, profile } = useMe()
   const nav = useNavigate()
   const toast = useToast()
@@ -89,24 +115,44 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
   const order = useMemo(() => memberOrder(group), [group])
   const me = myMemberId(group, user.uid) ?? order[0]
   const personal = group.type === 'personal'
+  /** what the form starts from: the expense being edited, or the one being added again */
+  const src = existing ?? again
+  const [seed] = useState(() => (src ? undefined : seedFor(group, order, me, capture)))
 
   // Entry currency. A foreign-currency expense is typed in `cur` and converted to the group's
   // currency on save at a locked rate (see src/lib/fx.ts). New expenses reuse the group's last one.
-  const [cur, setCur] = useState(() => existing ? existing.original?.currency ?? group.currency : capture ? capture.currency ?? group.currency : lastCurrency(group.id) ?? group.currency)
+  const [cur, setCur] = useState(() => src ? src.original?.currency ?? group.currency : capture ? capture.currency ?? group.currency : lastCurrency(group.id) ?? group.currency)
   const foreign = cur !== group.currency
   const fg = useMemo(() => (foreign ? { ...group, currency: cur } : group), [group, cur, foreign])
-  const [amountStr, setAmountStr] = useState(existing ? centsToInput(existing.original?.amount ?? existing.amount, cur) : capture ? centsToInput(capture.amount, cur) : '')
-  const [description, setDescription] = useState(existing?.description ?? capture?.merchant ?? '')
-  const [category, setCategory] = useState<Category>(existing?.category ?? (capture && guessCategory(capture.merchant)) ?? 'other')
-  const [catTouched, setCatTouched] = useState(!!existing)
+  const [amountStr, setAmountStr] = useState(src ? centsToInput(src.original?.amount ?? src.amount, cur) : capture ? centsToInput(capture.amount, cur) : '')
+  const [description, setDescription] = useState(src?.description ?? capture?.merchant ?? '')
+  const [category, setCategory] = useState<Category>(src?.category ?? (capture && (pastCategory(history, capture.merchant) ?? guessCategory(capture.merchant))) ?? 'other')
+  const [catTouched, setCatTouched] = useState(!!src)
   const [date, setDate] = useState(existing?.date ?? capture?.date ?? todayISO())
-  const [notes, setNotes] = useState(existing?.notes ?? capture?.note ?? '')
+  const [notes, setNotes] = useState(src?.notes ?? capture?.note ?? '')
   const [payers, setPayers] = useState<Record<MemberId, string>>(
-    existing ? Object.fromEntries(Object.entries(existing.original ? toOriginal(existing.paidBy, existing.original) : existing.paidBy).map(([k, v]) => [k, centsToInput(v, cur)])) : { [me]: '' },
+    src ? Object.fromEntries(Object.entries(src.original ? toOriginal(src.paidBy, src.original) : src.paidBy).map(([k, v]) => [k, centsToInput(v, cur)])) : { [seed?.payer ?? me]: '' },
   )
-  const [multiPay, setMultiPay] = useState(existing ? Object.keys(existing.paidBy).length > 1 : false)
-  const [splitType, setSplitType] = useState<SplitType>(existing?.splitType ?? 'equal')
-  const [input, setInput] = useState<SplitInput>(existing?.splitInput ?? { selected: order })
+  const [multiPay, setMultiPay] = useState(src ? Object.keys(src.paidBy).length > 1 : false)
+  const [splitType, setSplitType] = useState<SplitType>(src?.splitType ?? seed?.splitType ?? 'equal')
+  const [input, setInput] = useState<SplitInput>(src?.splitInput ?? seed?.input ?? { selected: order })
+  /** a suggestion was just picked: hide the chips until the description is typed again */
+  const [picked, setPicked] = useState(!!src)
+
+  // Switching group (new expenses only) keeps the amount, description, category, date, notes and
+  // receipt; payer and split start over from the new group's members (adjusting state while
+  // rendering, so the old group's member ids never reach the new group's split).
+  const [seededFor, setSeededFor] = useState({ id: group.id, currency: group.currency })
+  if (seededFor.id !== group.id) {
+    const next = seedFor(group, order, me, capture)
+    setSeededFor({ id: group.id, currency: group.currency })
+    setPayers({ [next.payer]: '' })
+    setMultiPay(false)
+    setSplitType(next.splitType)
+    setInput(next.input)
+    // Typing in the old group's own currency: follow the new group's. A foreign currency stays.
+    if (cur === seededFor.currency) setCur(lastCurrency(group.id) ?? group.currency)
+  }
   const [receipt, setReceipt] = useState<File | null>(null)
   const [receiptUrl] = useState(existing?.receiptUrl)
   const [repeat, setRepeat] = useState<RecurrenceFreq | 'never'>(existing?.recurrence?.freq ?? 'never')
@@ -128,13 +174,13 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
   const [fx, setFx] = useState<FxRate | null>(existing?.original ? { rate: existing.original.rate, date: existing.original.rateDate, source: existing.original.source } : null)
   const [fxLoading, setFxLoading] = useState(false)
   const [rateEdit, setRateEdit] = useState<string | null>(null)
-  const fxFor = useRef(existing?.original ? `${existing.original.currency}|${existing.date}` : '')
+  const fxFor = useRef(existing?.original ? `${existing.original.currency}|${group.currency}|${existing.date}` : '')
   useEffect(() => {
     if (!foreign) return
-    const k = `${cur}|${date}`
+    const k = `${cur}|${group.currency}|${date}`
     if (fxFor.current === k) return
-    // A rate the user typed survives a date change; a different currency needs a new rate.
-    const keepManual = fx?.source === 'manual' && fxFor.current.startsWith(cur + '|')
+    // A rate the user typed survives a date change; a different currency (or group currency) needs a new rate.
+    const keepManual = fx?.source === 'manual' && fxFor.current.startsWith(`${cur}|${group.currency}|`)
     fxFor.current = k
     if (keepManual) return
     setFx(null)
@@ -202,7 +248,9 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
 
   const save = async () => {
     if (!validAmount) return toast('Enter an amount', 'err')
-    if (!description.trim()) return toast('Add a description', 'err')
+    // No description: a category says enough ("Groceries"); "Other" doesn't.
+    const desc = description.trim() || (category !== 'other' ? CATEGORIES[category].label : '')
+    if (!desc) return toast('Add a description', 'err')
     if (preview.error || !preview.splits) return toast(preview.error ?? 'Check the split', 'err')
     if (paidSum !== amount) return toast(`Payers add up to ${formatMoney(paidSum, cur)}, not ${formatMoney(amount, cur)}`, 'err')
     if (foreign && !fx) return toast(`Enter the ${cur} → ${group.currency} exchange rate`, 'err')
@@ -222,7 +270,7 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
       const e: Expense = {
         id: existing?.id ?? uid('e_'),
         groupId: group.id,
-        description: description.trim(),
+        description: desc,
         amount: money.amount, category, date, notes: notes.trim() || undefined,
         paidBy: money.paidBy, splits: money.splits, splitType: personal ? 'equal' : splitType,
         splitInput: personal ? { selected: [me] } : clean(input, splitType),
@@ -236,6 +284,10 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
       }
       await repo.saveExpense(e)
       rememberCurrency(group.id, cur)
+      if (!existing) {
+        rememberGroup(group.id)
+        if (!personal) rememberSplit(group.id, { payer: multiPay ? undefined : Object.keys(paidBy)[0], splitType, input: clean(input, splitType) })
+      }
       if (capture) await repo.updateCapture(user.uid, capture.id, { status: 'assigned', groupId: group.id, expenseId: e.id }).catch(console.warn)
       // Upload after saving so a slow or offline network never blocks the save.
       if (receipt && !repo.attachReceipt(group.id, e.id, receipt)) toast('Offline — saved without the receipt image')
@@ -248,6 +300,26 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
   }
 
   const singlePayer = Object.keys(payers)[0] ?? me
+  // "Same as last time": only when the remembered choice is in use and isn't the plain default.
+  const last = useMemo(() => (existing ? {} : lastSplit(group.id, order)), [existing, group.id, order])
+  const payerHint = !existing && !multiPay && !!last.payer && last.payer === singlePayer && singlePayer !== me
+  const everyone = splitType === 'equal' && order.every((id) => input.selected?.includes(id))
+  const splitHint = !existing && !everyone && sameSplit(splitType, input, last.splitType, last.input)
+
+  const suggestions = existing || picked ? [] : suggestDescriptions(history, description)
+  const pickSuggestion = (sg: Suggestion) => {
+    setDescription(sg.description)
+    setCategory(sg.category)
+    setPicked(true)
+    if (personal) return
+    // Repeat who paid and how it was split last time (when that still fits the group).
+    const payer = Object.keys(sg.last.paidBy)
+    if (payer.length === 1 && order.includes(payer[0])) { setMultiPay(false); setPayers({ [payer[0]]: '' }) }
+    const sp = sanitizeSplit({ splitType: sg.last.splitType, input: sg.last.splitInput }, order)
+    if (sp.splitType && sp.input) { setSplitType(sp.splitType); setInput(sp.input) }
+  }
+  const today = todayISO()
+  const yesterday = addDaysISO(today, -1)
   const currencyChoices = [...new Set([group.currency, cur, profile.currency, ...CURRENCIES])]
   const applyRate = () => {
     const r = parseRate(rateEdit ?? '')
@@ -282,14 +354,26 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
           </button>
           <input
             className="w-full bg-transparent text-lg font-semibold outline-none placeholder:text-slate-400"
-            placeholder="What was it for?"
+            placeholder={category !== 'other' && !description ? CATEGORIES[category].label : 'What was it for?'}
+            aria-label="Description"
             value={description}
             onChange={(e) => {
               setDescription(e.target.value)
-              if (!catTouched) setCategory(guessCategory(e.target.value) ?? 'other')
+              setPicked(false)
+              // This group's own habit for the description beats the keyword guess.
+              if (!catTouched) setCategory(pastCategory(history, e.target.value) ?? guessCategory(e.target.value) ?? 'other')
             }}
           />
         </div>
+        {suggestions.length > 0 && (
+          <div className="-mx-1 mt-3 flex gap-1.5 overflow-x-auto px-1 pb-0.5" data-testid="desc-suggestions" aria-label="Past descriptions">
+            {suggestions.map((sg) => (
+              <button key={sg.description} type="button" onClick={() => pickSuggestion(sg)} className="chip shrink-0 !py-1.5 text-sm">
+                <span aria-hidden>{CATEGORIES[sg.category].emoji}</span><span className="max-w-[10rem] truncate">{sg.description}</span>
+              </button>
+            ))}
+          </div>
+        )}
         <div className="mt-4 flex items-baseline gap-2 border-t border-slate-100 pt-4 dark:border-white/5">
           <button type="button" onClick={() => setSheet('currency')} className={`flex shrink-0 items-center text-2xl font-bold ${foreign ? 'text-brand-600 dark:text-brand-300' : 'text-slate-400'}`} aria-label={`Currency: ${cur}. Change`}>
             {cur}<ChevronDown size={18} />
@@ -307,9 +391,15 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
           <FxLine cur={cur} to={group.currency} fx={fx} loading={fxLoading} converted={converted}
             rateEdit={rateEdit} setRateEdit={setRateEdit} onApply={applyRate} />
         )}
-        <div className="mt-4 flex gap-2">
-          <DateField aria-label="Date" className="!w-auto !py-2 text-sm" value={date} onChange={(v) => setDate(v || todayISO())} />
-          <button type="button" className="btn-secondary !min-h-0 flex-1 !py-2 text-sm" onClick={() => fileRef.current?.click()} disabled={ocr.busy}>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <div className="flex min-w-0 gap-1.5">
+            <DateField aria-label="Date" className="!w-auto !py-2 text-sm" value={date} onChange={(v) => setDate(v || todayISO())} />
+            {[{ d: today, label: 'Today' }, { d: yesterday, label: 'Yesterday' }].map((o) => (
+              <button key={o.label} type="button" onClick={() => setDate(o.d)} aria-pressed={date === o.d}
+                className={`shrink-0 rounded-2xl px-2.5 text-xs font-semibold ${date === o.d ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600 dark:bg-ink-800 dark:text-slate-300'}`}>{o.label}</button>
+            ))}
+          </div>
+          <button type="button" className="btn-secondary !min-h-0 min-w-[9.5rem] flex-1 !py-2 text-sm" onClick={() => fileRef.current?.click()} disabled={ocr.busy}>
             {ocr.busy ? <><Spinner className="!h-4 !w-4" /> Reading {Math.round(ocr.progress * 100)}%</> : <><Camera size={16} /> {receipt || receiptUrl ? 'Rescan receipt' : 'Scan receipt'}</>}
           </button>
           <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onScanFile(f); e.target.value = '' }} />
@@ -332,7 +422,7 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
           {/* Paid by */}
           <div className="card mt-3 p-4">
             <div className="flex items-center justify-between">
-              <div className="label !mb-0">Paid by</div>
+              <div className="label !mb-0 flex items-center gap-1.5">Paid by{payerHint && <SameHint />}</div>
               <button className="text-sm font-semibold text-brand-600 dark:text-brand-300" onClick={() => {
                 if (!multiPay) setPayers({ [singlePayer]: amountStr })
                 else setPayers({ [singlePayer]: '' })
@@ -357,7 +447,7 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
 
           {/* Split */}
           <div className="card mt-3 p-4">
-            <div className="label">Split</div>
+            <div className="label flex items-center gap-1.5">Split{splitHint && <SameHint />}</div>
             <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
               {(splitType === 'itemized' ? [...SPLIT_TYPES, ITEMIZED] : SPLIT_TYPES).map((t) => (
                 <button key={t.value} type="button" onClick={() => { setSplitType(t.value); setInput((i) => seedInput(i, t.value, order, amount)) }}
@@ -414,13 +504,7 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
             <span className="block text-xs text-white/80">Scan the bill, friends tap what they had</span>
           </span>
         </button>
-        <div className="space-y-1">
-          {groups.map((g) => (
-            <button key={g.id} onClick={() => { onGroup(g.id); setSheet(null) }} className={`flex w-full items-center gap-3 rounded-2xl p-2.5 text-left ${g.id === group.id ? 'bg-brand-50 dark:bg-brand-900/30' : ''}`}>
-              <GroupIcon emoji={g.emoji} size={40} /><span className="flex-1 font-semibold">{g.name}</span>{g.id === group.id && <Check size={18} className="text-brand-600" />}
-            </button>
-          ))}
-        </div>
+        <GroupList groups={groups} current={group.id} onPick={(id) => { onGroup(id); setSheet(null) }} />
       </Sheet>
       <Sheet open={sheet === 'currency'} onClose={() => setSheet(null)} title="Currency">
         <p className="mb-2 text-sm text-slate-500">{group.name} is in {group.currency}. Other currencies are converted at the ECB rate for the expense date, then locked.</p>
@@ -450,6 +534,55 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
           ))}
         </div>
       </Sheet>
+    </div>
+  )
+}
+
+function SameHint() {
+  return <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold normal-case tracking-normal text-slate-500 dark:bg-ink-800 dark:text-slate-400" data-testid="same-as-last"><History size={11} /> Same as last time</span>
+}
+
+/** Live trips first, then shared groups, 1:1 friends and the personal wallet; searchable when long. */
+function GroupList({ groups, current, onPick }: { groups: Group[]; current: string; onPick: (id: string) => void }) {
+  const [q, setQ] = useState('')
+  const today = todayISO()
+  const t = q.trim().toLowerCase()
+  const shown = t ? groups.filter((g) => g.name.toLowerCase().includes(t)) : groups
+  const live = shown.filter((g) => g.type !== 'personal' && isLiveTrip(g, today))
+  const rest = shown.filter((g) => !live.includes(g))
+  const sections: Array<[string, Group[]]> = [
+    ['Shared', rest.filter((g) => g.type !== 'direct' && g.type !== 'personal')],
+    ['Friends', rest.filter((g) => g.type === 'direct')],
+    ['Personal', rest.filter((g) => g.type === 'personal')],
+  ].filter(([, list]) => list.length) as Array<[string, Group[]]>
+  // Headings only help when there is more than one kind of thing in the list.
+  const headed = sections.length + (live.length ? 1 : 0) > 1
+  const row = (g: Group, isLive = false) => (
+    <button key={g.id} onClick={() => onPick(g.id)} className={`flex w-full items-center gap-3 rounded-2xl p-2.5 text-left ${g.id === current ? 'bg-brand-50 dark:bg-brand-900/30' : ''}`}>
+      <GroupIcon emoji={g.emoji} size={40} />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-semibold">{g.name}</span>
+        {isLive && <LiveBadge className="mt-0.5" />}
+      </span>
+      {g.id === current && <Check size={18} className="shrink-0 text-brand-600" />}
+    </button>
+  )
+  return (
+    <div data-testid="group-list">
+      {groups.length > 6 && (
+        <div className="relative mb-2">
+          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input className="input !py-2 !pl-9" placeholder="Search groups" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search groups" />
+        </div>
+      )}
+      {shown.length === 0 && <p className="py-4 text-center text-sm text-slate-500">No group matches “{q.trim()}”</p>}
+      {live.length > 0 && <div className="space-y-1">{live.map((g) => row(g, true))}</div>}
+      {sections.map(([title, list]) => (
+        <div key={title} className="mt-1">
+          {headed && <div className="px-2.5 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</div>}
+          <div className="space-y-1">{list.map((g) => row(g))}</div>
+        </div>
+      ))}
     </div>
   )
 }
