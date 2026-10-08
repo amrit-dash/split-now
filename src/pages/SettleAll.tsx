@@ -1,66 +1,61 @@
-import { useMemo } from 'react'
-import { Link } from 'react-router-dom'
-import { ChevronRight, Plus, Users } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { CheckCheck, ChevronRight, NotebookPen, Plus, Sparkles, Users } from 'lucide-react'
+import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { useAllGroupData } from '@/hooks/data'
 import { formatMoney } from '@/lib/money'
-import { pendingSettlements, personSummaries, totalsByCurrency, type SettleRow } from '@/lib/settleAll'
+import { todayISO, uid } from '@/lib/id'
+import { groupCount, pendingSettlements, personBalances, totalsByCurrency, type PersonBalance, type SettleRow } from '@/lib/settleAll'
 import { Avatar } from '@/components/Avatar'
-import { Loading, PageHeader } from '@/components/Misc'
+import { Loading, PageHeader, Segmented } from '@/components/Misc'
+import { Sheet } from '@/components/Sheet'
+import { useToast } from '@/components/Toast'
 import { Celebrate } from '@/components/Celebrate'
 
-/** Every payment still to make or receive, across all groups and 1:1s. Settling happens per group. */
+/*
+ * Balances: everything you owe / are owed, across all groups and 1:1s, in two views.
+ *  - By person (default): one net balance per person (and currency) across every group, with
+ *    the groups it's made of and a "settle all" that clears every group with one real payment.
+ *  - By group: each in-group payment on its own, straight into that group's settle screen.
+ * (Replaces the old separate /friends screen, which now redirects here.)
+ */
+
+type View = 'person' | 'group'
+
 export default function SettleAll() {
   const { profile } = useMe()
   const data = useAllGroupData()
   const home = profile.currency
   const rows = useMemo(() => (data ? pendingSettlements(data, home) : null), [data, home])
+  const [params, setParams] = useSearchParams()
+  const view: View = params.get('view') === 'group' ? 'group' : 'person'
+  const setView = (v: View) => setParams(v === 'person' ? {} : { view: v }, { replace: true })
 
-  // Content sits above the (empty-state) fireworks canvas, which is fixed at z-index 0.
   return (
-    <div className="relative z-10">
-      <PageHeader title="Settle up" subtitle="All groups and 1:1s" back />
-      {!rows ? <Loading /> : rows.length === 0 ? <AllSettled /> : <Pending rows={rows} home={home} />}
+    <div>
+      <PageHeader title="Balances" subtitle="Across all your groups and 1:1s" back />
+      {!rows ? <Loading /> : rows.length === 0 ? <AllSettled /> : (
+        <div className="space-y-6" data-testid="settle-all">
+          <Totals rows={rows} home={home} />
+          <Segmented<View>
+            value={view}
+            onChange={setView}
+            options={[{ value: 'person', label: 'By person' }, { value: 'group', label: 'By group' }]}
+          />
+          {view === 'person' ? <ByPerson rows={rows} /> : <ByGroup rows={rows} />}
+        </div>
+      )}
     </div>
   )
 }
 
-function Pending({ rows, home }: { rows: SettleRow[]; home: string }) {
+function Totals({ rows, home }: { rows: SettleRow[]; home: string }) {
   const totals = totalsByCurrency(rows, home)
-  const owe = rows.filter((r) => r.dir === 'owe')
-  const owed = rows.filter((r) => r.dir === 'owed')
-  const people = personSummaries(rows)
   return (
-    <div className="space-y-6" data-testid="settle-all">
-      <div className="card grid grid-cols-2 divide-x divide-slate-100 overflow-hidden dark:divide-white/5" data-testid="settle-totals">
-        <TotalCol label="You owe" cls="neg" values={totals.filter((t) => t.owe).map((t) => formatMoney(t.owe, t.currency))} />
-        <TotalCol label="You are owed" cls="pos" values={totals.filter((t) => t.owed).map((t) => formatMoney(t.owed, t.currency))} />
-      </div>
-
-      {people.length > 0 && (
-        <section>
-          <h2 className="mb-2.5 px-1 text-lg font-bold">Across groups</h2>
-          <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
-            {people.map((p) => (
-              <Link key={p.key} to="/friends" className="flex items-center gap-3 px-4 py-3 transition active:bg-slate-50 dark:active:bg-ink-800">
-                <Avatar name={p.name} photoURL={p.photoURL} color={p.color} size={36} />
-                <div className="min-w-0 flex-1 text-sm">
-                  <div className="truncate">Net with <b>{p.name}</b></div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400">
-                    {p.net === 0 ? 'evens out' : p.net > 0 ? 'owes you' : 'you owe'} across {p.groups} groups
-                  </div>
-                </div>
-                {p.net !== 0 && <div className={`font-bold tabular-nums ${p.net > 0 ? 'pos' : 'neg'}`}>{formatMoney(Math.abs(p.net), p.currency)}</div>}
-                <ChevronRight size={18} className="shrink-0 text-slate-300 dark:text-slate-600" aria-hidden />
-              </Link>
-            ))}
-          </div>
-          <p className="mt-2 px-1 text-xs text-slate-500 dark:text-slate-400">Payments are still recorded per group. Friends can net them into one.</p>
-        </section>
-      )}
-
-      <RowSection title="You owe" rows={owe} empty="You don’t owe anyone." />
-      <RowSection title="You are owed" rows={owed} empty="Nobody owes you right now." />
+    <div className="card grid grid-cols-2 divide-x divide-slate-100 overflow-hidden dark:divide-white/5" data-testid="settle-totals">
+      <TotalCol label="You owe" cls="neg" values={totals.filter((t) => t.owe).map((t) => formatMoney(t.owe, t.currency))} />
+      <TotalCol label="You are owed" cls="pos" values={totals.filter((t) => t.owed).map((t) => formatMoney(t.owed, t.currency))} />
     </div>
   )
 }
@@ -78,43 +73,215 @@ function TotalCol({ label, cls, values }: { label: string; cls: string; values: 
   )
 }
 
-function RowSection({ title, rows, empty }: { title: string; rows: SettleRow[]; empty: string }) {
+function Section({ title, children, testId }: { title: string; children: React.ReactNode; testId?: string }) {
   return (
-    <section>
+    <section data-testid={testId}>
       <h2 className="mb-2.5 px-1 text-lg font-bold">{title}</h2>
-      {rows.length === 0 ? (
-        <div className="card px-4 py-4 text-sm text-slate-500 dark:text-slate-400">{empty}</div>
-      ) : (
-        <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
-          {rows.map((r) => <SettleItem key={r.key} r={r} />)}
-        </div>
-      )}
+      {children}
     </section>
   )
 }
 
-function SettleItem({ r }: { r: SettleRow }) {
-  const amount = formatMoney(r.amount, r.currency)
+const EmptyLine = ({ text }: { text: string }) => <div className="card px-4 py-4 text-sm text-slate-500 dark:text-slate-400">{text}</div>
+
+/* ───────────────────────── By group ───────────────────────── */
+
+function ByGroup({ rows }: { rows: SettleRow[] }) {
+  const owe = rows.filter((r) => r.dir === 'owe')
+  const owed = rows.filter((r) => r.dir === 'owed')
   return (
-    <div className="flex items-center gap-3 px-4 py-3" data-testid="settle-row">
-      <Avatar name={r.name} photoURL={r.photoURL} color={r.color} size={40} />
+    <>
+      <Section title="You owe">
+        {owe.length === 0 ? <EmptyLine text="You don’t owe anyone." /> : (
+          <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
+            {owe.map((r) => <GroupItem key={r.key} r={r} />)}
+          </div>
+        )}
+      </Section>
+      <Section title="You are owed">
+        {owed.length === 0 ? <EmptyLine text="Nobody owes you right now." /> : (
+          <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
+            {owed.map((r) => <GroupItem key={r.key} r={r} />)}
+          </div>
+        )}
+      </Section>
+    </>
+  )
+}
+
+function GroupItem({ r }: { r: SettleRow }) {
+  return (
+    <ItemRow
+      testId="settle-row"
+      avatar={<Avatar name={r.name} photoURL={r.photoURL} color={r.color} size={40} />}
+      name={r.name}
+      sub={`${r.groupEmoji} ${r.groupName}`}
+      amount={formatMoney(r.amount, r.currency)}
+      dir={r.dir}
+      action={<RowAction r={r} />}
+    />
+  )
+}
+
+/** Avatar · name/subtitle · amount · action, all on one vertically centred line. */
+function ItemRow({ avatar, name, sub, amount, dir, action, testId }: {
+  avatar: React.ReactNode; name: string; sub: React.ReactNode; amount: string; dir: 'owe' | 'owed' | 'even'; action: React.ReactNode; testId?: string
+}) {
+  return (
+    <div className="flex items-center gap-3 px-4 py-3" data-testid={testId}>
+      {avatar}
       <div className="min-w-0 flex-1">
-        <div className="flex items-baseline justify-between gap-2">
-          <span className="truncate font-semibold">{r.name}</span>
-          <span className={`shrink-0 font-bold tabular-nums ${r.dir === 'owe' ? 'neg' : 'pos'}`}>{amount}</span>
-        </div>
-        <div className="truncate text-xs text-slate-500 dark:text-slate-400">{r.groupEmoji} {r.groupName}</div>
+        <div className="truncate font-semibold">{name}</div>
+        <div className="truncate text-xs text-slate-500 dark:text-slate-400">{sub}</div>
       </div>
-      <Link
-        to={r.href}
-        className={`chip shrink-0 !min-h-11 !px-3.5 font-semibold ${r.dir === 'owe' ? 'chip-on' : ''}`}
-        aria-label={r.dir === 'owe' ? `Pay ${r.name} ${amount} in ${r.groupName}` : `Record ${amount} from ${r.name} in ${r.groupName}`}
-      >
-        {r.dir === 'owe' ? 'Pay' : 'Record'}
-      </Link>
+      <span className={`shrink-0 font-bold tabular-nums ${dir === 'owe' ? 'neg' : dir === 'owed' ? 'pos' : 'text-slate-400'}`} data-testid="row-amount">{amount}</span>
+      {action}
     </div>
   )
 }
+
+/** "Pay" (primary) when you owe; a "record a payment" icon button when they owe you. Both open the group's settle screen. */
+function RowAction({ r }: { r: SettleRow }) {
+  const amount = formatMoney(r.amount, r.currency)
+  if (r.dir === 'owe') {
+    return (
+      <Link to={r.href} data-testid="row-pay" aria-label={`Pay ${r.name} ${amount} in ${r.groupName}`}
+        className="btn-primary !min-h-10 shrink-0 !rounded-full !px-4 !py-0 text-sm">
+        Pay
+      </Link>
+    )
+  }
+  return (
+    <Link to={r.href} data-testid="row-record" aria-label={`Record payment from ${r.name} in ${r.groupName}`} title="Record payment"
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600 transition active:scale-95 active:bg-brand-100 dark:bg-brand-900/40 dark:text-brand-200 dark:active:bg-brand-900/70">
+      <NotebookPen size={20} aria-hidden />
+    </Link>
+  )
+}
+
+/* ───────────────────────── By person ───────────────────────── */
+
+function ByPerson({ rows }: { rows: SettleRow[] }) {
+  const { user } = useMe()
+  const toast = useToast()
+  const [netting, setNetting] = useState<PersonBalance | null>(null)
+  const [busy, setBusy] = useState(false)
+  const people = useMemo(() => personBalances(rows), [rows])
+  const owe = people.filter((p) => p.net < 0)
+  const owed = people.filter((p) => p.net > 0)
+  const even = people.filter((p) => p.net === 0)
+
+  const settleAll = async (p: PersonBalance) => {
+    // Record one settlement per group so every group's balance clears; the real-world
+    // payment is a single transfer of the net amount.
+    setBusy(true)
+    try {
+      const n = groupCount(p)
+      for (const r of p.parts) {
+        await repo.saveSettlement({
+          id: uid('s_'), groupId: r.groupId,
+          from: r.dir === 'owed' ? r.memberId : r.me, to: r.dir === 'owed' ? r.me : r.memberId,
+          amount: r.amount, method: 'Cross-group netting',
+          note: `Net ${formatMoney(Math.abs(p.net), p.currency)} ${p.net > 0 ? `from ${p.name}` : `to ${p.name}`} across ${n} groups`,
+          date: todayISO(), createdBy: user.uid, createdAt: Date.now(),
+        })
+      }
+      setNetting(null)
+      toast(`Settled with ${p.name} across ${n} groups`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const list = (ps: PersonBalance[]) => (
+    <div className="space-y-3">
+      {ps.map((p) => <PersonCard key={p.key} p={p} onSettleAll={() => setNetting(p)} />)}
+    </div>
+  )
+
+  return (
+    <>
+      <Section title="You owe" testId="person-owe">{owe.length === 0 ? <EmptyLine text="You don’t owe anyone." /> : list(owe)}</Section>
+      <Section title="You are owed" testId="person-owed">{owed.length === 0 ? <EmptyLine text="Nobody owes you right now." /> : list(owed)}</Section>
+      {even.length > 0 && (
+        <Section title="Evens out" testId="person-even">
+          {list(even)}
+          <p className="mt-2 px-1 text-xs text-slate-500 dark:text-slate-400">You owe each other the same overall. Settle all to clear every group with no money changing hands.</p>
+        </Section>
+      )}
+
+      <Sheet open={!!netting} onClose={() => setNetting(null)} title={`Settle all with ${netting?.name}`}>
+        {netting && (
+          <>
+            <p className="text-sm text-slate-500 dark:text-slate-400">This records a settlement in each of the {groupCount(netting)} groups so they all clear. In real life, only one payment happens:</p>
+            <div className="my-4 rounded-2xl bg-slate-100 p-4 text-center dark:bg-ink-800">
+              <div className="text-sm">{netting.net > 0 ? `${netting.name} pays you` : netting.net < 0 ? `You pay ${netting.name}` : 'No money changes hands'}</div>
+              <div className="text-3xl font-extrabold tabular-nums">{formatMoney(Math.abs(netting.net), netting.currency)}</div>
+            </div>
+            <button className="btn-primary w-full" disabled={busy} onClick={() => settleAll(netting)} data-testid="settle-all-confirm">
+              <CheckCheck size={18} aria-hidden /> Record as settled
+            </button>
+          </>
+        )}
+      </Sheet>
+    </>
+  )
+}
+
+function PersonCard({ p, onSettleAll }: { p: PersonBalance; onSettleAll: () => void }) {
+  const n = groupCount(p)
+  const multi = n > 1
+  const mixed = multi && p.parts.some((r) => r.dir === 'owe') && p.parts.some((r) => r.dir === 'owed')
+  const dir = p.net < 0 ? 'owe' : p.net > 0 ? 'owed' : 'even'
+  const avatar = <Avatar name={p.name} photoURL={p.photoURL} color={p.color} size={44} />
+  const amount = formatMoney(Math.abs(p.net), p.currency)
+
+  if (!multi) {
+    const r = p.parts[0]
+    return (
+      <div className="card overflow-hidden" data-testid="person-card">
+        <ItemRow avatar={avatar} name={p.name} sub={`${r.groupEmoji} ${r.groupName}`} amount={amount} dir={dir} action={<RowAction r={r} />} />
+      </div>
+    )
+  }
+
+  const verb = p.net < 0 ? 'Pay' : p.net > 0 ? 'Collect' : 'Clear'
+  return (
+    <div className="card overflow-hidden" data-testid="person-card">
+      <ItemRow
+        avatar={avatar}
+        name={p.name}
+        sub={`across ${n} groups`}
+        amount={p.net === 0 ? 'evens out' : amount}
+        dir={dir}
+        action={
+          <button type="button" onClick={onSettleAll} data-testid="person-settle-all"
+            aria-label={`Settle all with ${p.name} across ${n} groups`}
+            className={`${p.net < 0 ? 'btn-primary' : 'btn-secondary'} !min-h-10 shrink-0 !gap-1 !rounded-full !px-3.5 !py-0 text-sm`}>
+            <Sparkles size={14} aria-hidden /> {verb}
+          </button>
+        }
+      />
+      <div className="mx-4 space-y-0.5 border-t border-slate-100 py-2 text-sm dark:border-white/5">
+        {p.parts.map((r) => (
+          <Link key={r.key} to={r.href} className="-mx-2 flex min-h-10 items-center gap-2 rounded-xl px-2 transition hover:bg-slate-50 active:bg-slate-50 dark:hover:bg-ink-800 dark:active:bg-ink-800"
+            aria-label={`${r.dir === 'owe' ? `You owe ${r.name}` : `${r.name} owes you`} ${formatMoney(r.amount, r.currency)} in ${r.groupName}`}>
+            <span className="min-w-0 flex-1 truncate">{r.groupEmoji} {r.groupName}</span>
+            <span className={`tabular-nums ${r.dir === 'owed' ? 'pos' : 'neg'}`}>{formatMoney(r.dir === 'owed' ? r.amount : -r.amount, r.currency, { sign: true })}</span>
+            <ChevronRight size={16} className="shrink-0 text-slate-300 dark:text-slate-600" aria-hidden />
+          </Link>
+        ))}
+      </div>
+      {mixed && (
+        <div className="mx-4 mb-3 rounded-xl bg-brand-50 p-2.5 text-xs text-brand-900 dark:bg-brand-900/30 dark:text-brand-100">
+          💡 You owe each other in different groups. Settle all with <b>one</b> payment of {amount}.
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ───────────────────────── Empty ───────────────────────── */
 
 function AllSettled() {
   return (

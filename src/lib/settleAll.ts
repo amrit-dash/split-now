@@ -13,6 +13,8 @@ export interface SettleRow {
   groupName: string
   groupEmoji: string
   currency: string
+  /** you, as a member id of this group */
+  me: MemberId
   /** the other person, as a member id of this group */
   memberId: MemberId
   name: string
@@ -29,7 +31,8 @@ export interface SettleRow {
 
 export interface CurrencyTotal { currency: string; owe: Cents; owed: Cents }
 
-export interface PersonSummary {
+/** Your overall position with one person (in one currency), across every group you share. */
+export interface PersonBalance {
   key: string
   name: string
   color: string
@@ -37,7 +40,8 @@ export interface PersonSummary {
   currency: string
   /** > 0: they owe you overall */
   net: Cents
-  groups: number
+  /** the per-group payments that make up `net`, in row order */
+  parts: SettleRow[]
 }
 
 type GroupLike = { group: Pick<Group, 'id' | 'name' | 'emoji' | 'type' | 'currency' | 'members'>; me?: MemberId; debts: Debt[] }
@@ -61,7 +65,7 @@ export function pendingSettlements(data: GroupLike[], first?: string): SettleRow
       rows.push({
         key: `${d.group.id}|${x.from}|${x.to}`,
         groupId: d.group.id, groupName: d.group.name, groupEmoji: d.group.emoji, currency: d.group.currency,
-        memberId: other, name: m?.name ?? 'Someone', color: m?.color ?? '#94a3b8', photoURL: m?.photoURL, uid: m?.uid,
+        me: d.me, memberId: other, name: m?.name ?? 'Someone', color: m?.color ?? '#94a3b8', photoURL: m?.photoURL, uid: m?.uid,
         amount: x.amount, dir, href: settleHref(d.group.id, x.from, x.to, x.amount),
       })
     }
@@ -82,25 +86,26 @@ export function totalsByCurrency(rows: SettleRow[], first?: string): CurrencyTot
   return [...map.values()].sort((a, b) => currencyOrder(a.currency, b.currency, first))
 }
 
-/** People are the same across groups by account uid, else by (trimmed, case-insensitive) name — as on Friends. */
+/** People are the same across groups by account uid, else by (trimmed, case-insensitive) name. */
 export const personKey = (m: { uid?: string; name: string }) => (m.uid ? `u:${m.uid}` : `n:${m.name.trim().toLowerCase()}`)
 
 /**
- * One line per person and currency that spans more than one group: the overall position
- * with them ("Net with Rohan: you owe ₹x across 2 groups").
+ * One entry per person and currency: the net position with them across all groups
+ * ("Rohan owes you ₹x"), with the per-group rows it is made of. Largest |net| first; people
+ * whose groups cancel out exactly (net 0) are kept, since they still need netting out.
  */
-export function personSummaries(rows: SettleRow[]): PersonSummary[] {
-  const map = new Map<string, PersonSummary & { ids: Set<string> }>()
+export function personBalances(rows: SettleRow[]): PersonBalance[] {
+  const map = new Map<string, PersonBalance>()
   for (const r of rows) {
     const key = `${personKey(r)}|${r.currency}`
-    const p = map.get(key) ?? { key, name: r.name, color: r.color, photoURL: r.photoURL, currency: r.currency, net: 0, groups: 0, ids: new Set<string>() }
+    const p = map.get(key) ?? { key, name: r.name, color: r.color, photoURL: r.photoURL, currency: r.currency, net: 0, parts: [] }
+    p.photoURL ??= r.photoURL
     p.net += r.dir === 'owed' ? r.amount : -r.amount
-    p.ids.add(r.groupId)
-    p.groups = p.ids.size
+    p.parts.push(r)
     map.set(key, p)
   }
-  return [...map.values()]
-    .filter((p) => p.groups > 1)
-    .map(({ ids: _ids, ...p }) => p)
-    .sort((a, b) => Math.abs(b.net) - Math.abs(a.net) || a.name.localeCompare(b.name))
+  return [...map.values()].sort((a, b) => Math.abs(b.net) - Math.abs(a.net) || a.name.localeCompare(b.name))
 }
+
+/** Distinct groups a person's balance spans (a person can appear once per group). */
+export const groupCount = (p: PersonBalance) => new Set(p.parts.map((r) => r.groupId)).size
