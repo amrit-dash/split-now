@@ -38,6 +38,12 @@ const guessPlatform = (): Platform => (/android/i.test(navigator.userAgent) ? 'a
 const STEP_TITLES: Record<Step, string> = { 1: 'Turn on auto-capture', 2: 'Your phone', 3: 'Waiting for your phone' }
 const time = (at: number) => new Date(at).toLocaleTimeString(appLocale(), { hour: '2-digit', minute: '2-digit' })
 
+/** What happens to a payment outside every trip, as the server does it (B's contract): off = dropped, on = Inbox without a push. */
+const outsideTripsText = (on: boolean) => on
+  ? 'Payments outside every trip wait in the Inbox as “outside any trip”, without a notification.'
+  : 'Payments outside every trip are ignored. Want them in the Inbox instead? Turn on All bank & UPI payments in Settings → Automation.'
+
+
 /**
  * /settings/auto-capture[?group=<id>][&step=1|2|3][&platform=ios|android]
  *
@@ -81,10 +87,10 @@ export default function AutoCaptureSetup() {
   const demoUse = useMemo(() => (repo.mode === 'demo' ? demoTokenUse(user.uid) : {}), [user.uid, log])
   const lastUsed = (t: CaptureToken) => t.lastUsedAt ?? demoUse[t.token]
   const baseline = useRef<{ last: number; ids: Set<string> } | null>(null)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the baseline is taken once per visit to step 3, from the first complete tokens + log
   useEffect(() => {
     if (step !== 3) { baseline.current = null; return }
     if (!baseline.current && tokens && log) baseline.current = { last: Math.max(0, ...tokens.map((t) => lastUsed(t) ?? 0)), ids: new Set(log.map((r) => r.id)) }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, tokens, log])
   const hitRow = step === 3 && baseline.current && log ? log.find((r) => !baseline.current!.ids.has(r.id)) : undefined
   const hitKey = step === 3 && baseline.current && tokens ? tokens.some((t) => (lastUsed(t) ?? 0) > baseline.current!.last) : false
@@ -195,7 +201,7 @@ export default function AutoCaptureSetup() {
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-sm font-semibold">Keep every payment</div>
-                  <div className="text-muted text-xs">{prefs.outsideTrips ? 'Payments outside a trip wait in your Inbox too, without a notification.' : 'Off: only payments dated during a trip are kept. The rest are ignored and never stored.'}</div>
+                  <div className="text-muted text-xs">{prefs.outsideTrips ? outsideTripsText(true) : 'Off: only payments dated during a trip are kept. Payments outside every trip are ignored and never stored.'}</div>
                 </div>
                 <Switch checked={prefs.outsideTrips} onChange={setOutside} label="Keep every payment" testId="capture-outside-switch" />
               </div>
@@ -216,12 +222,12 @@ export default function AutoCaptureSetup() {
           </Collapsible>
         )}
         <Collapsible title={repo.mode === 'demo' ? 'Send a simulated test' : 'Try it from this browser'} summary="Tests the server and your key, not your phone" defaultOpen={repo.mode === 'demo' && step === 3} testId="capture-test">
-          <TestSender token={token} group={group} groups={groups} captures={captures ?? []} platform={platform} />
+          <TestSender token={token} group={group} groups={groups} captures={captures ?? []} platform={platform} outsideTrips={!!prefs?.outsideTrips} />
         </Collapsible>
         <Collapsible title="Only one trip" summary={group ? `${group.name} only` : 'All my trips'} testId="capture-scope">
           <p className="text-muted mb-3 text-xs">A key for one trip only accepts messages dated inside that trip. “All my trips” matches whichever trip the payment date falls in.</p>
           <div className="space-y-2" role="radiogroup" aria-label="Capture scope">
-            <ScopeOption selected={!scope} onSelect={() => update({ group: undefined }, true)} icon={<span className="text-xl" aria-hidden>🧳</span>} title="All my trips" detail="Any trip whose dates include the payment." />
+            <ScopeOption selected={!scope} onSelect={() => update({ group: undefined }, true)} icon={<span className="text-xl" aria-hidden>🧳</span>} title="All my trips" detail={`Matches any trip whose dates include the payment. ${outsideTripsText(!!prefs?.outsideTrips)}`} />
             {shared.map((g) => (
               <ScopeOption key={g.id} selected={scope === g.id} onSelect={() => update({ group: g.id }, true)} icon={<GroupIcon emoji={g.emoji} size={32} />} title={g.name}
                 detail={g.startDate || g.endDate ? formatRange(g.startDate, g.endDate) : 'No trip dates'}
@@ -244,7 +250,7 @@ export default function AutoCaptureSetup() {
                     <KeyRound size={16} className="shrink-0 text-slate-500" aria-hidden />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium">{label}</div>
-                      <div className="text-muted truncate text-xs">{t.groupId ? (g ? formatRange(g.startDate, g.endDate) || 'No trip dates' : 'Group no longer available') : 'Any trip'} · <code>{t.token.slice(0, 6)}…</code> · {formatDate(t.createdAt)} · {at ? `last received ${relativeTime(at, Date.now())}` : 'nothing received yet'}</div>
+                      <div className="text-muted truncate text-xs">{t.groupId ? (g ? formatRange(g.startDate, g.endDate) || 'No trip dates' : 'Its trip no longer exists: messages are ignored. Create a new key.') : 'Any trip'} · <code>{t.token.slice(0, 6)}…</code> · {formatDate(t.createdAt)} · {at ? `last received ${relativeTime(at, Date.now())}` : 'nothing received yet'}</div>
                     </div>
                     <button type="button" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-600 dark:text-slate-300" onClick={() => copyIt(t.token, 'Capture key')} aria-label={`Copy capture key for ${label}`}><Copy size={16} /></button>
                     <button type="button" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-rose-600 dark:text-rose-400" onClick={() => revoke(t)} aria-label={`Revoke capture key for ${label}`}><Trash2 size={16} /></button>
@@ -344,6 +350,7 @@ function Checklist({ items }: { items: Array<{ text: ReactNode; mock?: ReactNode
   return (
     <ol className="mt-3 space-y-4">
       {items.map((it, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: a fixed, ordered list of steps
         <li key={i} className="flex gap-3">
           <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-bold dark:bg-ink-700" aria-hidden>{i + 1}</span>
           <div className="min-w-0 flex-1 space-y-2 text-sm text-slate-700 dark:text-slate-200">
@@ -551,7 +558,7 @@ function AndroidManual({ token, onCopy, compact }: { token?: string; onCopy: (te
 
 // ---- Browser-side test ----------------------------------------------------
 
-function TestSender({ token, group, groups, captures, platform }: { token?: CaptureToken; group?: Group; groups: Group[]; captures: Capture[]; platform: Platform }) {
+function TestSender({ token, group, groups, captures, platform, outsideTrips }: { token?: CaptureToken; group?: Group; groups: Group[]; captures: Capture[]; platform: Platform; outsideTrips: boolean }) {
   const { user } = useMe()
   const toast = useToast()
   const [sending, setSending] = useState(false)
@@ -593,12 +600,12 @@ function TestSender({ token, group, groups, captures, platform }: { token?: Capt
         {sending ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <Send size={18} aria-hidden />} Send test SMS{repo.mode === 'demo' ? ' (simulated)' : ''}
       </button>
       {!token && <p className="text-muted mt-2 text-xs">Start the setup first so you have a capture key.</p>}
-      {outcome && <Outcome o={outcome} groups={groups} />}
+      {outcome && <Outcome o={outcome} groups={groups} outsideTrips={outsideTrips} />}
     </div>
   )
 }
 
-function Outcome({ o, groups }: { o: TestOutcome; groups: Group[] }) {
+function Outcome({ o, groups, outsideTrips }: { o: TestOutcome; groups: Group[]; outsideTrips: boolean }) {
   if (o.kind === 'ok') {
     const r = o.response
     const g = r.matchedGroupId ? groups.find((x) => x.id === r.matchedGroupId) : undefined
@@ -607,7 +614,7 @@ function Outcome({ o, groups }: { o: TestOutcome; groups: Group[] }) {
         <div className="flex items-center gap-2 font-bold"><CheckCircle2 size={18} aria-hidden /> Captured {formatMoney(r.parsed.amount, r.parsed.currency)}{r.parsed.merchant ? ` at ${r.parsed.merchant}` : ''}</div>
         <ul className="mt-1.5 space-y-0.5 text-xs">
           <li>Date {formatDate(r.parsed.date)}{r.parsed.ref ? ` · Ref ${r.parsed.ref}` : ''}</li>
-          <li>{g ? <>Matched trip <b>{g.name}</b></> : 'No trip matched: it waits in your Inbox'}</li>
+          <li>{g ? <>Matched trip <b>{g.name}</b></> : outsideTrips ? 'No trip matched: it waits in your Inbox' : 'No trip matched: it was ignored (All bank & UPI payments is off)'}</li>
           <li className="flex items-center gap-1"><Bell size={12} aria-hidden /> {r.pushed ? 'Notification sent' : 'No notification sent (none registered on this device, or no trip matched)'}</li>
         </ul>
         <Link to="/inbox" className="mt-2 inline-flex min-h-9 items-center gap-1 font-semibold text-emerald-800 dark:text-emerald-300">Open Inbox <ChevronRight size={15} aria-hidden /></Link>

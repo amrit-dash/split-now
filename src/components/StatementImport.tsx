@@ -153,7 +153,7 @@ export function StatementImport() {
   const chosen = (rows ?? []).filter((r) => r.on)
   const total = chosen.reduce((s, r) => s + r.amount, 0)
   const wrongCurrency = group ? group.currency !== currency : false
-  const set = (id: string, patch: Partial<Row>) => setRows((rs) => rs && rs.map((r) => (r.id === id ? { ...r, ...patch } : r)))
+  const set = (id: string, patch: Partial<Row>) => setRows((rs) => rs?.map((r) => (r.id === id ? { ...r, ...patch } : r)) ?? rs)
 
   const addAll = async () => {
     if (!group || !who || !chosen.length) return

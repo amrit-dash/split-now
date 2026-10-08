@@ -5,6 +5,7 @@ import type { AiModel, AiStatusResult } from '@/data/repo'
 import { refreshAiStatus } from '@/hooks/useAiStatus'
 import { DEFAULT_MODEL, MAX_ALLOW_EMAILS, normaliseEmail, resolveAppAi, type AppAiConfig, type AppAiMode } from '@/lib/ai-config'
 import { errText } from '@/lib/errors'
+import { modelHint } from './AiSettings'
 import { todayISO } from '@/lib/id'
 import { Select } from './Select'
 import { Switch } from './Switch'
@@ -49,7 +50,7 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
   useEffect(() => { if (configured) repo.aiModels('app').then(setModels).catch(() => setModels([])) }, [configured, status.app.hint])
   useEffect(() => { repo.aiUsage(todayISO()).then(setUsage).catch(() => {}) }, [])
 
-  if (!cfg || !saved) return <div className="text-sm text-slate-500">Loading…</div>
+  if (!cfg || !saved) return <div className="text-muted text-sm">Loading…</div>
   const set = (p: Partial<AppAiConfig>) => setCfg({ ...cfg, ...p })
   const list = [...new Set(emails.split(/[\s,;]+/).filter((e) => e.includes('@')).map(normaliseEmail))]
   const next = { ...cfg, allowEmails: cfg.mode === 'allowlist' ? list : saved.allowEmails }
@@ -127,8 +128,8 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
       <div>
         <div className="label">Model</div>
         <Select aria-label="Project model" value={cfg.model} onChange={(v) => set({ model: v })} options={[
-          { value: DEFAULT_MODEL, label: 'Recommended', hint: DEFAULT_MODEL },
-          ...(models ?? []).filter((m) => m.id !== DEFAULT_MODEL).map((m) => ({ value: m.id, label: m.label, hint: m.id })),
+          { value: DEFAULT_MODEL, label: 'Recommended (cheapest)', hint: DEFAULT_MODEL },
+          ...(models ?? []).filter((m) => m.id !== DEFAULT_MODEL).map((m) => ({ value: m.id, label: m.label, hint: modelHint(m) })),
           ...(cfg.model !== DEFAULT_MODEL && !(models ?? []).some((m) => m.id === cfg.model) ? [{ value: cfg.model, label: cfg.model }] : []),
         ]} />
         <p className="mt-1 text-xs text-slate-500">{!configured ? 'Add a key to list its models.' : models === null ? 'Loading models…' : 'A retired model falls back to the recommended one.'}</p>

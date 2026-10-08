@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Camera, ImageUp, ListChecks, Plus, Smartphone, X } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
+import { useAiStatus } from '@/hooks/useAiStatus'
 import { useAllGroupData } from '@/hooks/data'
 import { OcrCancelled, useOcr } from '@/hooks/useOcr'
 import { useReceiptReader } from '@/hooks/useReceiptReader'
@@ -39,6 +40,7 @@ function tellOnce(text: string, toast: (t: string) => void) {
 export default function Scan() {
   usePageTitle('Scan')
   const { profile } = useMe()
+  const aiStatus = useAiStatus()
   const data = useAllGroupData()
   const nav = useNavigate()
   const toast = useToast()
@@ -65,6 +67,7 @@ export default function Scan() {
 
   // An image shared from another app (Android share target): the service worker parked it in Cache Storage.
   const [tooLarge, setTooLarge] = useState(false)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the parked image is claimed once, on mount
   useEffect(() => {
     const shared = params.get('shared')
     if (!shared) return
@@ -81,7 +84,6 @@ export default function Scan() {
       const name = decodeURIComponent(res.headers.get('x-file-name') ?? 'shared.jpg')
       onFile(new File([blob], name, { type: blob.type || 'image/jpeg' }))
     })().catch((e) => toast(errText(e, 'Couldn’t open the shared image'), 'err'))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const reset = () => { setReceipt(null); setPayment(null); setNotABill(false); setFile(null); setPreview(undefined); setText('') }
@@ -107,7 +109,7 @@ export default function Scan() {
         if (r.parsed.currency && CURRENCIES.includes(r.parsed.currency)) setCurrency(r.parsed.currency)
         // A successful on-phone read is not an error, whatever stopped the AI: a calm line, and
         // for "not set up for you" reasons only once per session.
-        if (r.fellBack) { const line = unavailableText(r.reason); if (isQuietReason(r.reason)) tellOnce(line, toast); else toast(line) }
+        if (r.fellBack) { const line = unavailableText(r.reason, { limit: (aiStatus?.app as { perDay?: number } | undefined)?.perDay }); if (isQuietReason(r.reason)) tellOnce(line, toast); else toast(line) }
         return
       }
       const t = await ocr.run(f)
@@ -241,7 +243,10 @@ export default function Scan() {
           {!receipt.total && receipt.items.length === 0 && <p className="text-muted mt-1 text-xs">Couldn’t read the total — you can type it on the next screen.</p>}
           {receipt.items.length > 0 && (
             <div className="mt-2 max-h-40 space-y-0.5 overflow-y-auto rounded-xl bg-slate-50 p-2 text-sm dark:bg-ink-800">
-              {receipt.items.map((it, i) => <div key={i} className="flex justify-between gap-2"><span className="truncate">{it.name}</span><span className="tabular-nums">{fmt(it.amount)}</span></div>)}
+              {receipt.items.map((it, i) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: read-only list straight from the reader
+                <div key={i} className="flex justify-between gap-2"><span className="truncate">{it.name}</span><span className="tabular-nums">{fmt(it.amount)}</span></div>
+              ))}
             </div>
           )}
           {receipt.items.length > 0 && file && (
