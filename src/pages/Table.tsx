@@ -9,6 +9,9 @@ import { uid } from '@/lib/id'
 import { centsToInput, formatMoney, parseMoney } from '@/lib/money'
 import { payOptions } from '@/lib/payments'
 import { copy, shareOrCopy } from '@/lib/share'
+import { errText } from '@/lib/errors'
+import { usePageTitle } from '@/lib/brand'
+import { encodeQr } from '@/lib/qr'
 import {
   computeTableTotals, formatCode, isExpired, MAX_SHARES, orderedItems, parseCode, participantOrder, sanitizeClaims, setShares,
   tableTotal, toggleClaim, validateName, type LiveTable, type ParticipantId, type TableTotals,
@@ -56,7 +59,7 @@ function useViewer(): Viewer {
       const code = (e as { code?: string }).code ?? ''
       setError(code.includes('admin-restricted') || code.includes('operation-not-allowed')
         ? 'Guest access isn’t enabled for this app yet (Firebase anonymous sign-in is off).'
-        : (e as Error).message)
+        : errText(e))
     })
   }, [loading, user])
   if (repo.mode === 'demo' && (params.get('guest') === 'demo' || !user)) return { pid: demoGuestId(), signedIn: false }
@@ -72,17 +75,18 @@ function useTable(code: string | undefined) {
 
 /** /t — type a code. */
 export function TableEntry() {
+  usePageTitle('Join a table')
   const nav = useNavigate()
   const [code, setCode] = useState('')
   return (
     <div className="mx-auto min-h-dvh max-w-md px-4 pt-[calc(env(safe-area-inset-top)+4rem)]">
       <div className="text-center">
-        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-100 to-duo-100 text-5xl dark:from-brand-900/50 dark:to-duo-900/30">🍽️</div>
+        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-100 to-duo-100 text-5xl dark:from-brand-900/50 dark:to-duo-900/30" aria-hidden>🍽️</div>
         <h1 className="mt-4 text-2xl font-extrabold">Join a table</h1>
-        <p className="mt-1 text-sm text-slate-500">Enter the code shown on the host’s phone, or scan their QR code with your camera.</p>
+        <p className="text-muted mt-1 text-sm">Enter the code shown on the host’s phone, or scan their QR code with your camera.</p>
       </div>
       <form className="mt-6 space-y-3" onSubmit={(e) => { e.preventDefault(); const c = parseCode(code); if (c) nav(`/t/${c}`) }}>
-        <input className="input text-center text-2xl font-bold uppercase tracking-[0.3em]" placeholder="ABCD-2345" value={code} onChange={(e) => setCode(e.target.value)} autoFocus aria-label="Table code" autoCapitalize="characters" />
+        <input className="input text-center text-2xl font-bold uppercase tracking-[0.3em]" placeholder="ABCD-2345" value={code} onChange={(e) => setCode(e.target.value)} autoFocus aria-label="Table code" autoCapitalize="characters" autoComplete="off" autoCorrect="off" spellCheck={false} />
         <button className="btn-primary w-full" disabled={!parseCode(code)}><Receipt size={18} aria-hidden /> Open the bill</button>
       </form>
     </div>
@@ -102,7 +106,7 @@ export default function TablePage() {
   }
   const isHost = viewer.pid === table.hostUid
   if (table.status === 'closed') return <Closed table={table} viewer={viewer} isHost={isHost} />
-  if (isExpired(table) && !isHost) return <Shell><Empty emoji="⌛" title="This table has expired">Tables stay open for 24 hours. Ask the host to settle it in Split Now.</Empty></Shell>
+  if (isExpired(table) && !isHost) return <Shell><Empty emoji="⌛" title="This table has expired">Tables stay open for 24 hours. Ask the host to finish the bill in Split Now.</Empty></Shell>
   if (!(viewer.pid in table.participants)) return <JoinForm table={table} viewer={viewer} />
   return <Live table={table} viewer={viewer} isHost={isHost} />
 }
@@ -123,7 +127,7 @@ function JoinForm({ table, viewer }: { table: LiveTable; viewer: Viewer }) {
     try {
       await repo.joinTable(table.code, viewer.pid!, { name: name.trim(), uid: viewer.pid, joinedAt: Date.now() })
     } catch (er) {
-      toast((er as Error).message, 'err')
+      toast(errText(er), 'err')
     }
   }
   return (
@@ -155,7 +159,7 @@ function Live({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; isH
   const name = (p: ParticipantId) => (p === me ? 'You' : table.participants[p]?.name ?? '?')
   const link = `${location.origin}/t/${table.code}`
   const claims = sanitizeClaims(table.claims[who], table.items)
-  const write = (next: Record<string, number>) => repo.setTableClaims(table.code, who, next).catch((e) => toast((e as Error).message, 'err'))
+  const write = (next: Record<string, number>) => repo.setTableClaims(table.code, who, next).catch((e) => toast(errText(e), 'err'))
   const mine = totals.people[me]
 
   return (
@@ -323,7 +327,7 @@ function AddPersonSheet({ open, onClose, table, onAdded }: { open: boolean; onCl
     const err = validateName(name)
     if (err) return toast(err, 'err')
     const pid = uid('p_')
-    repo.joinTable(table.code, pid, { name: name.trim(), joinedAt: Date.now() }).catch((er) => toast((er as Error).message, 'err'))
+    repo.joinTable(table.code, pid, { name: name.trim(), joinedAt: Date.now() }).catch((er) => toast(errText(er), 'err'))
     onAdded(pid)
     setName('')
     onClose()
@@ -358,7 +362,7 @@ function EditBillSheet({ table, onClose }: { table: LiveTable; onClose: () => vo
     const items: NonNullable<TablePatch['items']> = {}
     parsed.forEach((r, i) => { items[r.id] = { name: r.name.trim() || `Item ${i + 1}`, amount: r.cents, pos: i } })
     for (const id of Object.keys(table.items)) if (!(id in items)) items[id] = null
-    repo.updateTable(table.code, { merchant: merchant.trim() || table.merchant, items, extras: ex }).catch((e) => toast((e as Error).message, 'err'))
+    repo.updateTable(table.code, { merchant: merchant.trim() || table.merchant, items, extras: ex }).catch((e) => toast(errText(e), 'err'))
     onClose()
   }
   return (
@@ -409,20 +413,10 @@ function Closed({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; i
       <PageHeader title={table.merchant} back={viewer.signedIn ? '/' : undefined} subtitle={`Bill closed · ${formatMoney(totals.total, cur)}`} />
       {!isHost && me in table.participants && (
         <div className="card p-5 text-center">
-          <div className="text-sm text-slate-500">Your share</div>
+          <div className="text-muted text-sm">Your share</div>
           <div className="text-4xl font-extrabold tabular-nums">{formatMoney(mine, cur)}</div>
-          <div className="mt-1 text-sm text-slate-500">{mine > 0 ? `Pay ${host} back` : 'Nothing to pay'}</div>
-          {mine > 0 && options.length > 0 && (
-            <div className="mt-4 space-y-2 text-left">
-              {options.map((o) => (
-                <div key={o.key} className="flex items-center gap-2 rounded-2xl bg-slate-50 p-3 dark:bg-ink-800">
-                  <div className="min-w-0 flex-1"><div className="text-xs text-slate-500">{o.label}</div><div className="truncate font-semibold">{o.value}</div></div>
-                  <button className="rounded-xl p-2" onClick={() => copy(o.value).then(() => toast(`${o.label} copied`))} aria-label={`Copy ${o.label}`}><Copy size={18} /></button>
-                  {o.href && <a className="rounded-xl p-2 text-brand-600" href={o.href} target="_blank" rel="noreferrer" aria-label={`Open ${o.label}`}><ExternalLink size={18} /></a>}
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="text-muted mt-1 text-sm">{mine > 0 ? `Pay ${host} back` : 'Nothing to pay'}</div>
+          {mine > 0 && options.length > 0 && <GuestPay options={options} amount={mine} currency={cur} />}
         </div>
       )}
       {isHost && table.expenseId && table.closedGroupId && viewer.signedIn && (
@@ -439,9 +433,47 @@ function Closed({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; i
         ))}
       </div>
       {!viewer.signedIn && (
-        <p className="mt-6 text-center text-sm text-slate-500">Split bills like this with your own friends — <a className="font-semibold text-brand-600" href="/">get Split Now</a>.</p>
+        <p className="text-muted mt-6 text-center text-sm">Split bills like this with your own friends — <a className="font-semibold text-brand-600 dark:text-brand-300" href="/">get Split Now</a>.</p>
       )}
-      {isHost && !table.expenseId && <p className="mt-4 text-center text-xs text-slate-400">Not added to a group. Tap <Share2 size={12} className="inline" /> to send each person their total.</p>}
+      {isHost && !table.expenseId && <p className="text-muted mt-4 text-center text-xs">Not added to a group. Tap <Share2 size={12} className="inline" aria-hidden /> to send each person their total.</p>}
+    </div>
+  )
+}
+
+/** Deep links (upi://, tez://) must open in place: a new tab breaks them, above all in the installed app. */
+const opensInNewTab = (href: string) => /^https?:/i.test(href)
+
+/**
+ * How a guest pays the host their exact share: the UPI app buttons first (on another phone the
+ * deep links matter most), then the exact-amount UPI QR, then every handle to copy.
+ */
+function GuestPay({ options, amount, currency }: { options: ReturnType<typeof payOptions>; amount: number; currency: string }) {
+  const toast = useToast()
+  const upi = options.find((o) => o.qr)
+  let qrOk = true
+  try { if (upi?.qr) encodeQr(upi.qr) } catch { qrOk = false }
+  return (
+    <div className="mt-4 space-y-3 text-left" data-testid="guest-pay">
+      {upi?.apps && (
+        <div className="grid grid-cols-3 gap-2">
+          {upi.apps.map((a) => <a key={a.id} className="btn btn-sm bg-brand-600 text-white" href={a.href} data-testid={`upi-${a.id}`}>{a.label}</a>)}
+        </div>
+      )}
+      {upi?.qr && qrOk && (
+        <div className="flex flex-col items-center rounded-2xl bg-slate-50 p-3 dark:bg-ink-800">
+          <QrCode value={upi.qr} size={180} label={`UPI QR code to pay ${upi.value} ${formatMoney(amount, currency)}`} />
+          <p className="text-muted mt-2 text-xs">Scan with any UPI app to pay {formatMoney(amount, currency)}.</p>
+        </div>
+      )}
+      {options.map((o) => (
+        <div key={o.key} className="flex items-center gap-1 rounded-2xl bg-slate-50 p-2 pl-3 dark:bg-ink-800">
+          <div className="min-w-0 flex-1"><div className="text-muted text-xs">{o.label}</div><div className="truncate font-semibold">{o.value}</div></div>
+          <button type="button" className="flex h-11 w-11 items-center justify-center rounded-xl" onClick={() => copy(o.value).then((ok) => toast(ok ? `${o.label} copied` : 'Couldn’t copy', ok ? 'ok' : 'err'))} aria-label={`Copy ${o.label}`}><Copy size={18} /></button>
+          {o.href && (opensInNewTab(o.href)
+            ? <a className="flex h-11 w-11 items-center justify-center rounded-xl text-brand-600 dark:text-brand-300" href={o.href} target="_blank" rel="noreferrer" aria-label={`Open ${o.label}`}><ExternalLink size={18} /></a>
+            : <a className="flex h-11 w-11 items-center justify-center rounded-xl text-brand-600 dark:text-brand-300" href={o.href} aria-label={`Open ${o.label}`}><ExternalLink size={18} /></a>)}
+        </div>
+      ))}
     </div>
   )
 }

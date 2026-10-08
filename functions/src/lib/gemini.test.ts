@@ -62,6 +62,44 @@ describe('generateJson', () => {
     const key = (async () => new Response('{"error":{"status":"INVALID_ARGUMENT","details":[{"reason":"API_KEY_INVALID"}]}}', { status: 400 })) as unknown as typeof fetch
     await expect(generateJson('k', [], {}, { models: ['m'], fetchImpl: key })).rejects.toMatchObject({ kind: 'bad_key' })
   })
+  it('treats a 403 about the model as "try the next model", a leaked key as bad_key, 402 as billing', async () => {
+    const seen: string[] = []
+    const f = (async (url: string) => { seen.push(url); return seen.length === 1 ? new Response('{"error":{"message":"Model gemini-2.5-flash-lite is not available for this project"}}', { status: 403 }) : ok({ a: 1 }) }) as unknown as typeof fetch
+    expect(await generateJson('k', [], {}, { models: ['gemini-2.5-flash-lite', 'gemini-3.5-flash-lite'], fetchImpl: f })).toMatchObject({ model: 'gemini-3.5-flash-lite' })
+    const leaked = (async () => new Response('{"error":{"message":"Your API key was reported as leaked"}}', { status: 403 })) as unknown as typeof fetch
+    await expect(generateJson('k', [], {}, { models: ['m'], fetchImpl: leaked })).rejects.toMatchObject({ kind: 'bad_key' })
+    const billing = (async () => new Response('{"error":{"status":"FAILED_PRECONDITION"}}', { status: 400 })) as unknown as typeof fetch
+    await expect(generateJson('k', [], {}, { models: ['m'], fetchImpl: billing })).rejects.toMatchObject({ kind: 'billing' })
+  })
+  it('retries once on 429 / 5xx, then gives up', async () => {
+    let n = 0
+    const flaky = (async () => (++n === 1 ? new Response('busy', { status: 503 }) : ok({ a: 1 }))) as unknown as typeof fetch
+    expect(await generateJson('k', [], {}, { models: ['m'], fetchImpl: flaky, retryDelayMs: 0 })).toMatchObject({ json: { a: 1 } })
+    expect(n).toBe(2)
+    n = 0
+    const down = (async () => { n++; return new Response('down', { status: 500 }) }) as unknown as typeof fetch
+    await expect(generateJson('k', [], {}, { models: ['m'], fetchImpl: down, retryDelayMs: 0 })).rejects.toMatchObject({ kind: 'server' })
+    expect(n).toBe(2)
+  })
+  it('reports safety blocks and truncated answers as their own kinds, and token usage', async () => {
+    const blocked = (async () => new Response(JSON.stringify({ promptFeedback: { blockReason: 'SAFETY' }, candidates: [] }), { status: 200 })) as unknown as typeof fetch
+    await expect(generateJson('k', [], {}, { models: ['m', 'n'], fetchImpl: blocked })).rejects.toMatchObject({ kind: 'blocked' })
+    const budgets: number[] = []
+    const cut = (async (_u: string, init: RequestInit) => {
+      budgets.push(JSON.parse(String(init.body)).generationConfig.maxOutputTokens)
+      return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"a":' }] }, finishReason: 'MAX_TOKENS' }] }), { status: 200 })
+    }) as unknown as typeof fetch
+    await expect(generateJson('k', [], {}, { models: ['m'], fetchImpl: cut })).rejects.toMatchObject({ kind: 'truncated' })
+    expect(budgets).toEqual([8192, 16384])
+    const usage = (async () => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"a":1}' }] }, finishReason: 'STOP' }], usageMetadata: { promptTokenCount: 1200, candidatesTokenCount: 300, thoughtsTokenCount: 50 }, modelVersion: 'gemini-3.5-flash-lite-001' }), { status: 200 })) as unknown as typeof fetch
+    expect(await generateJson('k', [], {}, { models: ['m'], fetchImpl: usage })).toMatchObject({ usage: { promptTokens: 1200, outputTokens: 300, thoughtTokens: 50 }, modelVersion: 'gemini-3.5-flash-lite-001' })
+  })
+  it('puts the rules in systemInstruction when given', async () => {
+    const calls: string[] = []
+    const f = (async (_u: string, init: RequestInit) => { calls.push(String(init.body)); return ok({ a: 1 }) }) as unknown as typeof fetch
+    await generateJson('k', [{ text: '<sms>x</sms>' }], {}, { models: ['m'], fetchImpl: f, systemInstruction: 'Rules' })
+    expect(JSON.parse(calls[0]).systemInstruction).toEqual({ parts: [{ text: 'Rules' }] })
+  })
 })
 
 describe('normaliseStatement', () => {
