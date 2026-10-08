@@ -174,12 +174,12 @@ export default function Profile() {
       <NotificationSettings />
       <AutoCapture />
       {repo.mode === 'firebase' && (
-        <Collapsible id="ai" testId="section-ai" title="AI reading" icon={<Sparkles size={20} />} summary="Gemini for bills, statements and hard-to-read SMS">
+        <Collapsible id="ai" testId="section-ai" title="AI features" icon={<Sparkles size={20} />} summary="Gemini reads bills, statements and hard-to-read SMS">
           <AiSettings onStatus={setAiStatus} />
         </Collapsible>
       )}
       {aiStatus?.admin && (
-        <Collapsible id="ai-admin" testId="section-ai-admin" title="Admin · AI" icon={<ShieldCheck size={20} />} summary="Split Now’s Gemini key: access, model, limits">
+        <Collapsible id="ai-admin" testId="section-ai-admin" title="Admin · AI features" icon={<ShieldCheck size={20} />} summary="Split Now’s Gemini key: access, model, limits">
           <AdminAi status={aiStatus} />
         </Collapsible>
       )}

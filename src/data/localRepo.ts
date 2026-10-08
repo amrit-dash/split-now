@@ -425,7 +425,7 @@ export function createLocalRepo(): Repo {
     async getFxRates() { return null },
     async refreshFx() { return null },
     async readReceiptAi() { return null },
-    async aiKey() { throw new Error('AI reading isn’t available in the demo') },
+    async aiKey() { throw new Error('AI features aren’t available in the demo') },
     async aiModels() { return [] },
     async aiStatus() { return null },
     watchAiState(_u, cb) { cb(null); return () => {} },
