@@ -24,6 +24,7 @@ import { StartTableButton } from '@/components/StartTableButton'
 import { useToast } from '@/components/Toast'
 import { appLocale } from '@/lib/locale'
 import { DateField } from '@/components/DateField'
+import { Select } from '@/components/Select'
 
 const REPEAT_OPTIONS: Array<RecurrenceFreq | 'never'> = ['never', 'weekly', 'fortnightly', 'monthly', 'yearly']
 
@@ -366,21 +367,21 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
 
       {!isOccurrence && (
         <div className="card mt-3 p-4">
-          <div className="label flex items-center gap-1.5"><Repeat size={14} /> Repeat</div>
-          <div className="flex flex-wrap gap-1.5">
-            {REPEAT_OPTIONS.map((f) => (
-              <button key={f} type="button" onClick={() => setRepeat(f)} className={`chip ${repeat === f ? 'chip-on' : ''}`}>
-                {f === 'never' ? 'Never' : FREQ_LABEL[f]}
-              </button>
-            ))}
+          <div className={`grid gap-3 ${repeat !== 'never' ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            <div className="min-w-0">
+              <div className="label flex items-center gap-1.5"><Repeat size={14} /> Repeat</div>
+              <Select aria-label="Repeat" value={repeat} onChange={(v) => setRepeat(v as RecurrenceFreq | 'never')}
+                options={REPEAT_OPTIONS.map((f) => ({ value: f, label: f === 'never' ? 'Never' : FREQ_LABEL[f] }))} />
+            </div>
+            {repeat !== 'never' && (
+              <div className="min-w-0">
+                <label htmlFor="repeat-until" className="label">Ends</label>
+                <DateField id="repeat-until" aria-label="Repeat until" placeholder="Never" clearable value={until} min={date} onChange={setUntil} />
+              </div>
+            )}
           </div>
           {repeat !== 'never' && (
-            <div className="mt-3 space-y-2">
-              <div className="flex items-center gap-2">
-                <label htmlFor="repeat-until" className="text-sm text-slate-500">Ends</label>
-                <DateField id="repeat-until" aria-label="Repeat until" placeholder="No end date" clearable className="!w-auto !py-2 text-sm" value={until} min={date} onChange={setUntil} />
-                {until && <button type="button" className="text-sm font-semibold text-brand-600 dark:text-brand-300" onClick={() => setUntil('')}>Never ends</button>}
-              </div>
+            <div className="mt-3">
               <p className="text-xs text-slate-500">
                 Next copy on {fmtDate(buildRecurrence(repeat, date, until, existing)?.nextDate)}. Copies are added automatically when anyone in the group opens the app.
               </p>
