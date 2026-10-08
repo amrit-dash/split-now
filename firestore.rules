@@ -71,6 +71,14 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // fxRates/{yyyy-mm-dd | latest}: shared ECB exchange rates (EUR-based), written only by the
+    // fxDaily/fxMorning schedules and the refreshFx callable. Any signed-in user, guests at a
+    // live table included (anonymous auth), may read them; nobody may write from a client.
+    match /fxRates/{id} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
     // ---- Auto-capture --------------------------------------------------
     // A capture token is a long random secret that lets a signed-out automation (an iOS Shortcut
     // calling the REST API) drop a transaction into captureInbox for its owner.

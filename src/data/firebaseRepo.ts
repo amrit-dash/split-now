@@ -23,6 +23,8 @@ import {
   activityCtxFor, byCreatedDesc, byDateDesc, changedSettings, compact, draftToCapture, errorChannel, placeholdersOf, storagePathFromUrl,
   memberProfileOf, type CaptureToken, type GroupSettings, type InviteInfo, type MemberProfile, type Repo, type TablePatch,
 } from './repo'
+import type { Functions } from 'firebase/functions'
+import type { FxRatesDoc, FxRefreshResult } from '@/lib/fx'
 import { initAppCheck } from '@/lib/appcheck'
 import { disablePush } from '@/lib/push'
 
@@ -49,6 +51,8 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
   }
 
   const errors = errorChannel()
+  let functions: Functions | undefined
+  let functionsEmulated = false
 
   // Surface failures from a Google sign-in redirect (installed iOS PWAs use redirect).
   getRedirectResult(auth).catch((e) => errors.emit('read', e, 'Google sign-in failed'))
@@ -762,6 +766,32 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       const batch = writeBatch(db)
       batch.delete(tableRef(code))
       fire(batch, 'Deleting the table')
+    },
+
+    async getFxRates(date) {
+      if (!auth.currentUser) return null
+      try {
+        const s = await getDoc(doc(db, 'fxRates', date))
+        const d = s.data() as FxRatesDoc | undefined
+        return d && typeof d.date === 'string' && d.rates && typeof d.fetchedAt === 'number' ? d : null
+      } catch (e) {
+        console.warn('Shared rates unavailable', e)
+        return null
+      }
+    },
+    async refreshFx(date) {
+      if (!auth.currentUser || !online()) return null
+      try {
+        // Loaded on first use; most sessions never call a function.
+        const { connectFunctionsEmulator, getFunctions, httpsCallable } = await import('firebase/functions')
+        functions ??= getFunctions(app, 'asia-south1')
+        if (useEmulators && !functionsEmulated) { connectFunctionsEmulator(functions, '127.0.0.1', 5001); functionsEmulated = true }
+        const call = httpsCallable<{ date?: string }, FxRefreshResult>(functions, 'refreshFx', { timeout: 15_000 })
+        return (await call(date ? { date } : {})).data ?? null
+      } catch (e) {
+        console.warn('refreshFx failed', e)
+        return null
+      }
     },
   }
   return repo

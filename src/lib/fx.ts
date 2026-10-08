@@ -5,13 +5,19 @@ import { allocate } from './splits'
 /*
  * Foreign-exchange rates for multi-currency expenses.
  *
- * Rates come from Frankfurter (https://frankfurter.dev): free, no key, European Central Bank
- * reference rates published once per business day. A rate is fetched for the expense date,
- * shown to the user, and locked onto the expense when it's saved, so balances never move.
+ * Rates are European Central Bank reference rates, published once per business day. A rate is
+ * looked up for the expense date, shown to the user, and locked onto the expense when it's
+ * saved, so balances never move.
  *
- * Responses are cached in localStorage per (date, base). Past dates never change, so they're
- * kept for good; today's (or a future) date is refreshed after a few hours because ECB
- * publishes around 16:00 CET and the API serves yesterday's rates until then.
+ * Lookup order (getRate):
+ *  1. this device's cache (localStorage, per (date, base));
+ *  2. the shared copy in Firestore, fxRates/{date} or fxRates/latest (EUR-based, written by Cloud
+ *     Functions so every user sees the same numbers), via the repo (setFxShared). A missing past
+ *     date is fetched and stored by the refreshFx callable;
+ *  3. Frankfurter (https://frankfurter.dev) directly: demo mode, signed out, or Firebase down.
+ *
+ * Past dates never change, so they're kept for good; today's (or a future) date is refreshed
+ * after a few hours because ECB publishes around 16:00 CET.
  */
 
 export const FX_API = 'https://api.frankfurter.dev/v1'
@@ -28,10 +34,42 @@ export interface FxRate {
   source: FxSource
 }
 
+/** A shared ECB publication, fxRates/{date|latest} in Firestore (see functions/src/fx.ts). Any pair is rates[to] / rates[from]. */
+export interface FxRatesDoc {
+  /** ECB publication date */
+  date: string
+  base: 'EUR'
+  /** units per 1 EUR, EUR: 1 included */
+  rates: Record<string, number>
+  /** when the server fetched them (ms) */
+  fetchedAt: number
+  source: 'ecb'
+}
+
+/** What the server's refreshFx returns (rates included so no second read is needed). */
+export interface FxRefreshResult { date: string; fetchedAt: number; rates?: Record<string, number> }
+
+/** Access to the shared rates (implemented by the Firebase repo; demo mode has none). */
+export interface FxShared {
+  getFxRates(date: string | 'latest'): Promise<FxRatesDoc | null>
+  refreshFx(date?: string): Promise<FxRefreshResult | null>
+}
+
 export type FxFetch = (url: string, init?: { signal?: AbortSignal }) => Promise<{ ok: boolean; status: number; json(): Promise<unknown> }>
 export type FxStorage = Pick<Storage, 'getItem' | 'setItem'>
 
-interface CacheEntry { date: string; rates: Record<string, number>; at: number }
+interface CacheEntry {
+  date: string
+  rates: Record<string, number>
+  /** when this device stored it */
+  at: number
+  /** when the shared copy was fetched by the server (shared entries only) */
+  fetchedAt?: number
+  /** from Firestore fxRates (base EUR) rather than a direct API call */
+  shared?: boolean
+  /** the result of a "latest" request (used for the synced / not synced status) */
+  latest?: boolean
+}
 type Cache = Record<string, CacheEntry>
 
 const browserStorage = (): FxStorage | undefined => {
@@ -41,12 +79,29 @@ const browserStorage = (): FxStorage | undefined => {
 let fetcher: FxFetch = (url, init) => fetch(url, init)
 let storage: FxStorage | undefined = browserStorage()
 let now = () => Date.now()
+let shared: FxShared | undefined
 
-/** Swap the network, storage and clock (tests). Call with no arguments to restore the defaults. */
-export function setFxEnv(env: { fetch?: FxFetch; storage?: FxStorage | null; now?: () => number } = {}) {
+/** Swap the network, storage, clock and shared source (tests). Call with no arguments to restore the defaults. */
+export function setFxEnv(env: { fetch?: FxFetch; storage?: FxStorage | null; now?: () => number; shared?: FxShared | null } = {}) {
   fetcher = env.fetch ?? ((url, init) => fetch(url, init))
   storage = env.storage === null ? undefined : env.storage ?? browserStorage()
   now = env.now ?? (() => Date.now())
+  shared = env.shared ?? undefined
+}
+
+/** Use the shared Firestore rates (data/index.ts passes the Firebase repo; null = direct API only). */
+export function setFxShared(s: FxShared | null) {
+  shared = s ?? undefined
+}
+
+/** Shared lookups shouldn't hang the expense form on a bad connection. */
+const SHARED_TIMEOUT_MS = 8000
+/** A shared latest copy older than this asks the server to refresh it. */
+const SHARED_STALE_MS = 24 * 3600_000
+
+function within<T>(p: Promise<T>, ms = SHARED_TIMEOUT_MS): Promise<T | null> {
+  let t: ReturnType<typeof setTimeout> | undefined
+  return Promise.race([p, new Promise<null>((r) => { t = setTimeout(() => r(null), ms) })]).finally(() => clearTimeout(t))
 }
 
 function readCache(): Cache {
@@ -78,7 +133,61 @@ export function cachedRate(from: string, to: string, date: string, opts: { stale
   if (ok(direct) && direct.rates[to] > 0) return { rate: direct.rates[to], date: direct.date, source: 'ecb' }
   const inverse = c[cacheKey(date, to)]
   if (ok(inverse) && inverse.rates[from] > 0) return { rate: tidy(1 / inverse.rates[from]), date: inverse.date, source: 'ecb' }
+  // A EUR-based (shared) publication gives every pair.
+  const eur = c[cacheKey(date, 'EUR')]
+  if (ok(eur)) {
+    const f = from === 'EUR' ? 1 : eur.rates[from]
+    const t = to === 'EUR' ? 1 : eur.rates[to]
+    if (f > 0 && t > 0) return { rate: tidy(t / f), date: eur.date, source: 'ecb' }
+  }
   return null
+}
+
+const cleanRates = (r: unknown): Record<string, number> =>
+  Object.fromEntries(Object.entries((r ?? {}) as Record<string, unknown>).filter(([, v]) => typeof v === 'number' && Number.isFinite(v) && v > 0)) as Record<string, number>
+
+/** Store a shared publication under the date it was asked for. */
+function storeShared(asked: string, d: { date: string; fetchedAt: number; rates?: Record<string, number> }, latest: boolean): CacheEntry | null {
+  const rates = cleanRates(d.rates)
+  if (typeof d.date !== 'string' || Object.keys(rates).length < 2) return null
+  const e: CacheEntry = { date: d.date, rates: { ...rates, EUR: 1 }, at: now(), fetchedAt: d.fetchedAt, shared: true, ...(latest ? { latest: true } : {}) }
+  const c = readCache()
+  if (latest) {
+    // A fresh shared copy replaces this day's per-base copies, so every pair uses it.
+    for (const k of Object.keys(c)) if (k.startsWith(`${asked}|`)) delete c[k]
+  }
+  c[cacheKey(asked, 'EUR')] = e
+  writeCache(c)
+  return e
+}
+
+/**
+ * The shared rates for `asked` (yyyy-mm-dd), read from Firestore and cached: fxRates/latest for
+ * today or later (asking the server to refresh a copy older than a day), else fxRates/{asked},
+ * which the server fetches and stores when it doesn't exist yet (resolving weekends/holidays to
+ * the previous business day). null when there's no shared source (demo mode) or it can't be reached.
+ */
+async function sharedEntry(asked: string, today: string, opts: { refresh?: boolean } = {}): Promise<CacheEntry | null> {
+  const s = shared
+  if (!s) return null
+  try {
+    if (asked >= today) {
+      let d: FxRatesDoc | FxRefreshResult | null = await within(s.getFxRates('latest'))
+      if (opts.refresh !== false && (!d || now() - d.fetchedAt > SHARED_STALE_MS)) {
+        const r = await within(s.refreshFx())
+        if (r) d = r.rates ? r : (await within(s.getFxRates('latest'))) ?? d
+      }
+      return d ? storeShared(asked, d, true) : null
+    }
+    let d: FxRatesDoc | FxRefreshResult | null = await within(s.getFxRates(asked))
+    if (!d && opts.refresh !== false) {
+      const r = await within(s.refreshFx(asked))
+      d = r && (r.rates ? r : (await within(s.getFxRates(asked))) ?? (await within(s.getFxRates(r.date))))
+    }
+    return d ? storeShared(asked, d, false) : null
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -92,6 +201,10 @@ export async function getRate(from: string, to: string, date: string): Promise<F
   const hit = cachedRate(from, to, asked)
   if (hit) return hit
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return cachedRate(from, to, asked, { stale: true })
+  if (await sharedEntry(asked, today)) {
+    // The shared copy has every currency ECB publishes; one it lacks (e.g. AED) has no ECB rate.
+    return cachedRate(from, to, asked, { stale: true })
+  }
   const ctl = typeof AbortController === 'undefined' ? undefined : new AbortController()
   const timer = ctl && setTimeout(() => ctl.abort(), 8000)
   try {
@@ -102,7 +215,7 @@ export async function getRate(from: string, to: string, date: string): Promise<F
     if (typeof body.date !== 'string' || !body.rates || typeof body.rates !== 'object') throw new Error('FX: bad response')
     const rates = Object.fromEntries(Object.entries(body.rates as Record<string, unknown>).filter(([, v]) => typeof v === 'number' && v > 0)) as Record<string, number>
     const c = readCache()
-    c[cacheKey(asked, from)] = { date: body.date, rates, at: now() }
+    c[cacheKey(asked, from)] = { date: body.date, rates, at: now(), ...(path === 'latest' ? { latest: true } : {}) }
     writeCache(c)
     return rates[to] > 0 ? { rate: rates[to], date: body.date, source: 'ecb' } : null
   } catch {
@@ -185,16 +298,75 @@ export function rememberCurrency(groupId: string, currency: string) {
   } catch { /* storage unavailable */ }
 }
 
-/** When today's rates for `base` were last fetched on this device (ms), or null. */
+/** When today's rates for `base` were last fetched (ms; the server's fetch time for shared rates), or null. */
 export function ratesFetchedAt(base: string): number | null {
-  return readCache()[cacheKey(isoToday(), base)]?.at ?? null
+  const c = readCache()
+  const e = c[cacheKey(isoToday(), base)] ?? c[cacheKey(isoToday(), 'EUR')]
+  return e ? e.fetchedAt ?? e.at : null
+}
+
+export interface RatesStatus {
+  /** ECB publication date of the newest "latest" rates this device has */
+  date: string
+  /** when they were fetched (by the server, for shared rates) */
+  fetchedAt: number
+  shared: boolean
+}
+
+/** The newest "latest" rates usable for `base` on this device, or null. */
+export function ratesStatus(base: string): RatesStatus | null {
+  let best: RatesStatus | null = null
+  for (const [k, e] of Object.entries(readCache())) {
+    if (!e.latest || !(k.endsWith(`|${base}`) || k.endsWith('|EUR'))) continue
+    const s = { date: e.date, fetchedAt: e.fetchedAt ?? e.at, shared: !!e.shared }
+    if (!best || s.date > best.date || (s.date === best.date && s.fetchedAt > best.fetchedAt)) best = s
+  }
+  return best
 }
 
 /**
- * Fetch the latest ECB rates for `base` now, ignoring the cache (Profile → "Refresh rates").
- * Returns the publication date and fetch time, or null when offline / the API fails.
+ * The ECB publication date one should have by `t`: today in Frankfurt from 17:00 on weekdays
+ * (ECB publishes ~16:00 CET), else the previous weekday. TARGET holidays are ignored.
  */
-export async function refreshRates(base: string): Promise<{ date: string; at: number; count: number } | null> {
+export function expectedEcbDate(t: number): string {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23',
+  }).formatToParts(new Date(t)).map((p) => [p.type, p.value]))
+  let d = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day))
+  const weekend = (ms: number) => [0, 6].includes(new Date(ms).getUTCDay())
+  if (Number(parts.hour) < 17 || weekend(d)) {
+    d -= 86400_000
+    while (weekend(d)) d -= 86400_000
+  }
+  return new Date(d).toISOString().slice(0, 10)
+}
+
+/** Synced: rates from the latest ECB publication, or fetched within the last day. */
+export function isSynced(s: RatesStatus | null, t = now()): boolean {
+  return !!s && (s.date >= expectedEcbDate(t) || t - s.fetchedAt < SHARED_STALE_MS)
+}
+
+/** Read the shared latest rates into the cache, without asking the server to refresh (Profile on open). */
+export async function loadSharedRates(base: string): Promise<RatesStatus | null> {
+  if (shared) await sharedEntry(isoToday(), isoToday(), { refresh: false })
+  return ratesStatus(base)
+}
+
+/**
+ * Fetch the latest ECB rates now, ignoring the cache (Profile → exchange rates). With a shared
+ * source the server refreshes the copy everyone reads (at most every 10 min); otherwise
+ * Frankfurter is asked directly for `base`. Returns the publication date, fetch time and number
+ * of currencies, or null when offline / everything fails.
+ */
+export async function refreshRates(base: string): Promise<{ date: string; at: number; count: number; shared: boolean } | null> {
+  if (shared) {
+    try {
+      const r = await within(shared.refreshFx())
+      const d = r && (r.rates ? r : await within(shared.getFxRates('latest')))
+      const e = d && storeShared(isoToday(), d, true)
+      if (e) return { date: e.date, at: e.fetchedAt ?? e.at, count: Object.keys(e.rates).length - 1, shared: true }
+    } catch { /* fall through to the direct API */ }
+  }
   const ctl = typeof AbortController === 'undefined' ? undefined : new AbortController()
   const timer = ctl && setTimeout(() => ctl.abort(), 8000)
   try {
@@ -205,9 +377,9 @@ export async function refreshRates(base: string): Promise<{ date: string; at: nu
     const rates = Object.fromEntries(Object.entries(body.rates as Record<string, unknown>).filter(([, v]) => typeof v === 'number' && v > 0)) as Record<string, number>
     const at = now()
     const c = readCache()
-    c[cacheKey(isoToday(), base)] = { date: body.date, rates, at }
+    c[cacheKey(isoToday(), base)] = { date: body.date, rates, at, latest: true }
     writeCache(c)
-    return { date: body.date, at, count: Object.keys(rates).length }
+    return { date: body.date, at, count: Object.keys(rates).length, shared: false }
   } catch {
     return null
   } finally {

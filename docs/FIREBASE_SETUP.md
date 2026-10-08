@@ -67,6 +67,11 @@ npx firebase deploy --only hosting        # picks up the /api/sms and /api/captu
 | `onExpenseCreated` | Firestore `groups/{gid}/expenses/{eid}` created | Push to the other members in the expense |
 | `onSettlementCreated` | Firestore `groups/{gid}/settlements/{sid}` created | Push to the person who was paid |
 | `dailyReminders` | Cloud Scheduler, every day 10:00 Asia/Kolkata | Settle-up nudge (> ₹500 owed for > 7 days, max weekly per group) |
+| `fxDaily` | Cloud Scheduler, weekdays 17:15 Europe/Berlin | Fetch the latest ECB exchange rates (Frankfurter) into `fxRates/{date}` and `fxRates/latest` |
+| `fxMorning` | Cloud Scheduler, every day 09:00 Asia/Kolkata | Same, as a backstop |
+| `refreshFx` | Callable (any signed-in user, anonymous included) | Refresh the shared rates (latest: at most one external fetch per 10 min) or fetch and store a past date. `enforceAppCheck: false` for now — flip it to `true` (TODO in `functions/src/fx.ts`) when App Check enforcement is turned on (§5c) |
+
+The rates are shared: every user reads `fxRates/*` (rules: signed-in read, no client writes), and the app falls back to calling Frankfurter directly if Firestore or the function is unreachable. Cost is negligible: ~35 scheduled runs a week, a handful of callable invocations and Firestore writes, one small read per device per day. The three scheduler jobs (`dailyReminders`, `fxDaily`, `fxMorning`) fit Cloud Scheduler's 3 free jobs per billing account. After deploying, you can seed the collection right away by tapping the refresh button in Profile (or running `fxMorning` from Cloud Scheduler → *Force run*).
 
 The first deploy enables Cloud Functions, Cloud Build, Artifact Registry, Eventarc, Cloud Run, Cloud Scheduler and Pub/Sub APIs (the CLI prompts). If Cloud Build complains about permissions on a new project, grant the default compute service account the *Cloud Build Service Account* role, then redeploy. `package.json` has an empty `gcp-build` script on purpose: Cloud Build must not rebuild (it doesn't get `../shared`); the CLI uploads the bundled `lib/`.
 

@@ -420,6 +420,10 @@ export function createLocalRepo(): Repo {
       commit()
     },
     async deleteTable(code) { delete tables()[code]; commit() },
+
+    // No shared rates in demo mode: src/lib/fx.ts calls Frankfurter directly.
+    async getFxRates() { return null },
+    async refreshFx() { return null },
   }
   return repo
 }
