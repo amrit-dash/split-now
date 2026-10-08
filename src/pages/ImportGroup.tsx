@@ -14,13 +14,8 @@ import { PageHeader } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
 import { appLocale } from '@/lib/locale'
 import { Select, currencyOptions } from '@/components/Select'
-import { IconPickerField } from '@/components/IconPicker'
-
-const EMOJIS = ['🏝️', '✈️', '🏠', '🍕', '🎉', '💞', '🏔️', '🚗', '🎿', '🏕️', '🍻', '🎓', '💼', '🌏']
-const TYPES: Array<{ value: GroupType; label: string }> = [
-  { value: 'trip', label: '✈️ Trip' }, { value: 'home', label: '🏠 Home' }, { value: 'couple', label: '💞 Couple' },
-  { value: 'event', label: '🎉 Event' }, { value: 'other', label: '📦 Other' },
-]
+import { IconPickerField, TypeSuggestion } from '@/components/IconPicker'
+import { GROUP_TYPES, SHARED_TYPES, guessGroup, iconsFor, type GroupGuess } from '@/lib/groupTypes'
 
 /** 'me' | an existing member id of the target group | 'new' (a new placeholder) */
 type Target = string
@@ -41,8 +36,13 @@ export default function ImportGroup() {
   const [currency, setCurrency] = useState('')
   const [into, setInto] = useState<string>(params.get('into') ?? 'new')
   const [name, setName] = useState('')
-  const [emoji, setEmoji] = useState('🏝️')
+  const [emoji, setEmoji] = useState(GROUP_TYPES.trip.emoji)
   const [type, setType] = useState<GroupType>('trip')
+  // Picked by the user: loading a file or typing a name never overrides these.
+  const [typeTouched, setTypeTouched] = useState(false)
+  const [iconTouched, setIconTouched] = useState(false)
+  const [typedName, setTypedName] = useState(false)
+  const [dismissed, setDismissed] = useState('')
   const [mapping, setMapping] = useState<Record<string, Target>>({})
   const [busy, setBusy] = useState(false)
 
@@ -63,17 +63,23 @@ export default function ImportGroup() {
   }, [file, currency, target?.currency])
   const { result, fileCurrency } = parsed
 
-  // Defaults when a file is loaded: name from the filename, currency from the file, "me" by name.
+  /** Type and icon follow a guess only where the user hasn't picked them. */
+  const follow = (g: GroupGuess) => {
+    if (!typeTouched) setType(g.type)
+    if (!iconTouched) setEmoji(typeTouched ? GROUP_TYPES[type].emoji : g.emoji)
+  }
+
+  // Defaults when a file is loaded: name from the filename, currency from the file, "me" by name,
+  // type from the name ("Goa trip") or else from how long the expenses span.
   useEffect(() => {
     if (!file || !parsed.result) return
     const r = parsed.result
-    setName((n) => n || groupNameFromFilename(file.name))
+    const n = name || groupNameFromFilename(file.name)
+    setName(n)
     setCurrency((c) => c || r.currency)
-    if (r.dateRange) {
-      const days = (Date.parse(r.dateRange.to) - Date.parse(r.dateRange.from)) / 86_400_000
-      setType(days > 62 ? 'home' : 'trip')
-      setEmoji(days > 62 ? '🏠' : '🏝️')
-    }
+    const days = r.dateRange ? (Date.parse(r.dateRange.to) - Date.parse(r.dateRange.from)) / 86_400_000 : 0
+    const g = guessGroup(n) ?? (r.dateRange ? { type: days > 62 ? 'home' as const : 'trip' as const, emoji: days > 62 ? '🏠' : '✈️' } : null)
+    if (g) follow(g)
     setMapping((m) => (Object.keys(m).length ? m : defaultMapping(r.members, profile.displayName)))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file])
@@ -93,6 +99,15 @@ export default function ImportGroup() {
     setCurrency('')
     setMapping({})
   }
+
+  const onName = (v: string) => {
+    setName(v); setTypedName(true)
+    const g = guessGroup(v)
+    if (g && !typeTouched && !iconTouched) follow(g)
+  }
+  const guess = typedName ? guessGroup(name) : null
+  const guessKey = guess ? `${guess.type}${guess.emoji}` : ''
+  const showGuess = !!guess && (typeTouched || iconTouched) && (guess.type !== type || guess.emoji !== emoji) && guessKey !== dismissed
 
   const cur = target?.currency ?? (currency || result?.currency || profile.currency)
   const fmt = (v: number) => formatMoney(v, cur)
@@ -257,12 +272,17 @@ export default function ImportGroup() {
               </div>
               {!target && (
                 <>
-                  <IconPickerField emoji={emoji} onChange={setEmoji} emojis={EMOJIS} idPrefix="import-icon">
+                  <IconPickerField emoji={emoji} onChange={(e) => { setIconTouched(true); setEmoji(e) }} emojis={iconsFor(type)} idPrefix="import-icon">
                     <label className="label" htmlFor="import-name">Group name</label>
-                    <input id="import-name" className="input" placeholder="e.g. Goa 2026" value={name} onChange={(e) => setName(e.target.value)} />
+                    <input id="import-name" className="input" placeholder={GROUP_TYPES[type].placeholder} value={name} onChange={(e) => onName(e.target.value)} />
                   </IconPickerField>
+                  {showGuess && guess && (
+                    <TypeSuggestion guess={guess} onDismiss={() => setDismissed(guessKey)} onApply={() => { setTypeTouched(true); setIconTouched(true); setType(guess.type); setEmoji(guess.emoji) }} />
+                  )}
                   <div className="flex flex-wrap gap-2">
-                    {TYPES.map((t) => <button key={t.value} type="button" onClick={() => setType(t.value)} className={`chip ${type === t.value ? 'chip-on' : ''}`}>{t.label}</button>)}
+                    {SHARED_TYPES.map((t) => (
+                      <button key={t} type="button" onClick={() => { setTypeTouched(true); setType(t); if (!iconTouched) setEmoji(GROUP_TYPES[t].emoji) }} className={`chip ${type === t ? 'chip-on' : ''}`}>{GROUP_TYPES[t].emoji} {GROUP_TYPES[t].label}</button>
+                    ))}
                   </div>
                   <div>
                     <label className="label">Currency</label>

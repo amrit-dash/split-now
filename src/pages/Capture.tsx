@@ -151,7 +151,7 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
               <button key={g.id} onClick={() => setSelected(g.id)} className={`flex w-full items-center gap-3 px-4 py-3 text-left ${selected === g.id ? 'bg-brand-50 dark:bg-brand-900/30' : ''}`}>
                 <GroupIcon emoji={g.emoji} size={40} />
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2"><span className="truncate font-semibold">{g.name}</span>{g.inWindow && <LiveBadge />}</div>
+                  <div className="flex items-center gap-2"><span className="truncate font-semibold">{g.name}</span>{g.inWindow && <LiveBadge type={g.type} />}</div>
                   <div className="text-xs text-slate-500">{Object.keys(g.members).length} people · {g.currency}</div>
                 </div>
                 <span className={`flex h-6 w-6 items-center justify-center rounded-full border-2 ${selected === g.id ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300 dark:border-ink-700'}`}>{selected === g.id && <Check size={14} />}</span>
