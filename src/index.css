@@ -179,9 +179,8 @@ html[data-update-ready] .install-banner { display: none; }
   100% { transform: translateX(300%); }
 }
 
-/* Update banner: rises from behind the tab bar, or drops in from the top on screens without one. */
+/* Update banner: rises from behind the tab bar. */
 @keyframes rise { from { transform: translateY(110%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-@keyframes drop { from { transform: translateY(-120%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
 /* Horizontally scrolling rows (chips, split types, filters) scroll by touch without a visible bar. */
 .overflow-x-auto { scrollbar-width: none; }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Camera, ImageUp, ListChecks, QrCode, Receipt, Send } from 'lucide-react'
+import { Camera, ImageUp, QrCode } from 'lucide-react'
 import { useAllGroupData } from '@/hooks/data'
 import { useOcr } from '@/hooks/useOcr'
 import { useReceiptReader } from '@/hooks/useReceiptReader'
@@ -98,11 +98,11 @@ export default function Scan() {
 
   return (
     <div className="mx-auto min-h-dvh max-w-lg px-4 pb-10">
-      <PageHeader title="Smart scan" back subtitle="Read receipts and payment screenshots on your device" />
+      <PageHeader title="Smart scan" back subtitle="Bills, statements and payment screenshots" />
       <Segmented<Mode> value={mode} onChange={switchMode} options={[
-        { value: 'receipt', label: <span className="inline-flex items-center gap-1.5"><Receipt size={16} /> Receipt</span> },
-        { value: 'statement', label: <span className="inline-flex items-center gap-1.5"><ListChecks size={16} /> Statement</span> },
-        { value: 'payment', label: <span className="inline-flex items-center gap-1.5"><Send size={16} /> Payment</span> },
+        { value: 'receipt', label: 'Receipt' },
+        { value: 'statement', label: 'Statement' },
+        { value: 'payment', label: 'Payment' },
       ]} />
       {mode === 'statement' ? <StatementImport /> : <>
 

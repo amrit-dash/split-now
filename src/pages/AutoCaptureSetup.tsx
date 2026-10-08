@@ -93,7 +93,7 @@ export default function AutoCaptureSetup() {
           {shared.map((g) => (
             <ScopeOption key={g.id} selected={scope === g.id} onSelect={() => setScope(g.id)} icon={<GroupIcon emoji={g.emoji} size={32} />} title={g.name}
               detail={g.startDate || g.endDate ? formatRange(g.startDate, g.endDate) : 'No trip dates'}
-              badge={inTripWindow(g, today) ? <LiveBadge /> : null} />
+              badge={inTripWindow(g, today) ? <LiveBadge type={g.type} /> : null} />
           ))}
         </div>
         {scope && !group && <Warn>That group isn’t in your list any more. Pick another scope.</Warn>}
