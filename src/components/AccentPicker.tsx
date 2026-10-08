@@ -3,12 +3,12 @@ import { Check } from 'lucide-react'
 import { ACCENTS, getAccent, getDuo, setAccent, setDuo, type AccentId } from '@/lib/accent'
 
 /** Accent colour swatches plus a "Dual tone" switch. Applies and persists immediately. */
-export function AccentPicker() {
+export function AccentPicker({ onChange }: { onChange?: () => void } = {}) {
   const [accent, setAccentState] = useState<AccentId>(getAccent)
   const [duo, setDuoState] = useState<boolean>(getDuo)
 
-  const pick = (id: AccentId) => { setAccentState(id); setAccent(id) }
-  const toggleDuo = () => { setDuoState(!duo); setDuo(!duo) }
+  const pick = (id: AccentId) => { setAccentState(id); setAccent(id); onChange?.() }
+  const toggleDuo = () => { setDuoState(!duo); setDuo(!duo); onChange?.() }
 
   // Arrow keys move the selection, as in a native radio group.
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {

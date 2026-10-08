@@ -183,8 +183,14 @@ export default function GroupForm() {
                 {live && <LiveBadge />}
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <input type="date" className="input" aria-label="Start date" value={startDate} max={endDate || undefined} onChange={(e) => setStartDate(e.target.value)} />
-                <input type="date" className="input" aria-label="End date" value={endDate} min={startDate || undefined} onChange={(e) => setEndDate(e.target.value)} />
+                <div>
+                  <label htmlFor="trip-start" className="mb-1 block text-xs font-medium text-slate-500">Start</label>
+                  <input id="trip-start" type="date" className="input" value={startDate} max={endDate || undefined} onChange={(e) => setStartDate(e.target.value)} />
+                </div>
+                <div>
+                  <label htmlFor="trip-end" className="mb-1 block text-xs font-medium text-slate-500">End</label>
+                  <input id="trip-end" type="date" className="input" value={endDate} min={startDate || undefined} onChange={(e) => setEndDate(e.target.value)} />
+                </div>
               </div>
               <p className="mt-1.5 text-xs text-slate-500">While it’s on, new expenses and captured payments default to this group.</p>
               {(startDate || endDate) && (

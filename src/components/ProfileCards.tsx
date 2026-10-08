@@ -11,7 +11,7 @@ import { useToast } from './Toast'
  * The user card at the top of Profile: photo, name and email; tap to expand and edit the name,
  * mobile number and sign-in methods (link Google / add a password so one email = one account).
  */
-export function AccountCard({ name, setName, phone, setPhone, photoURL, email, onPhoto }: {
+export function AccountCard({ name, setName, phone, setPhone, photoURL, email, onPhoto, currencyField }: {
   name: string
   setName: (v: string) => void
   phone: string
@@ -19,6 +19,8 @@ export function AccountCard({ name, setName, phone, setPhone, photoURL, email, o
   photoURL?: string
   email?: string
   onPhoto: () => void
+  /** Default-currency picker + rates refresh, shown in the expanded card. */
+  currencyField?: React.ReactNode
 }) {
   const [open, setOpen] = useState(false)
   const bodyId = useId()
@@ -51,8 +53,9 @@ export function AccountCard({ name, setName, phone, setPhone, photoURL, email, o
           <div>
             <label className="label" htmlFor="acct-phone">Mobile number</label>
             <input id="acct-phone" className="input" type="tel" inputMode="tel" autoComplete="tel" placeholder="+91 98765 43210" value={phone} onChange={(e) => setPhone(e.target.value)} />
-            <p className="mt-1 text-xs text-slate-500">Also used for UPI apps if you haven’t set a UPI phone number.</p>
+            <p className="mt-1 text-xs text-slate-500">Also fills the phone number for UPI apps in “How friends can pay you”.</p>
           </div>
+          {currencyField}
           {email && (
             <div>
               <div className="label">Email</div>
