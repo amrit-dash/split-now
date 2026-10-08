@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Camera, ChevronRight, Download, ImagePlus, LogOut, Moon, ShieldCheck, Sun, SunMoon, Trash2, Users, Wallet } from 'lucide-react'
+import { Camera, ChevronRight, Download, ImagePlus, LogOut, Moon, Palette, ShieldCheck, Sun, SunMoon, Trash2, Users, Wallet } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import type { PaymentHandles, UserProfile } from '@/types'
@@ -18,6 +18,7 @@ import { PageHeader, Segmented } from '@/components/Misc'
 import { Sheet } from '@/components/Sheet'
 import { Select, currencyOptions } from '@/components/Select'
 import { useToast } from '@/components/Toast'
+import { accentPreset, getAccent, getDuo } from '@/lib/accent'
 import { AccountCard, RatesButton } from '@/components/ProfileCards'
 import { AutoCapture } from '@/components/AutoCapture'
 import { NotificationSettings } from '@/components/NotificationSettings'
@@ -51,15 +52,24 @@ const SECTIONS: Record<'IN' | 'AU' | 'INTL', Array<{ title: string; keys: Array<
   ],
 }
 
+const THEME_LABEL: Record<Theme, string> = { system: 'Auto', light: 'Light', dark: 'Dark' }
+
 export default function Profile() {
   const { profile, user } = useMe()
   const toast = useToast()
   const install = useInstall()
   const [name, setName] = useState(profile.displayName)
   const [phone, setPhone] = useState(profile.phone ?? '')
+  // The mobile number also fills "Phone number for UPI apps" while that field is empty or still
+  // mirrors the previous mobile number (a UPI number typed separately is left alone).
+  const onPhone = (v: string) => {
+    setPayment((p) => (!p.phone || p.phone === phone ? { ...p, phone: v || undefined } : p))
+    setPhone(v)
+  }
   const [currency, setCurrency] = useState(profile.currency)
   const [payment, setPayment] = useState<PaymentHandles>(profile.payment ?? {})
   const [theme, setTheme] = useState<Theme>(getTheme())
+  const [, setLook] = useState(0) // re-render the Appearance summary after accent changes
   const [iosOpen, setIosOpen] = useState(false)
   const [allHandles, setAllHandles] = useState(false)
   const [photoOpen, setPhotoOpen] = useState(false)
@@ -94,28 +104,29 @@ export default function Profile() {
         </button>
       } />
       <AccountCard
-        name={name} setName={setName} phone={phone} setPhone={setPhone}
+        name={name} setName={setName} phone={phone} setPhone={onPhone}
         photoURL={profile.photoURL} email={profile.email} onPhoto={() => setPhotoOpen(true)}
+        currencyField={(
+          <div>
+            <label className="label">Default currency</label>
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <Select aria-label="Default currency" value={currency} onChange={setCurrency} options={currencyOptions(CURRENCIES)} />
+              <RatesButton base={currency} />
+            </div>
+          </div>
+        )}
       />
 
-      <div className="card mt-3 space-y-4 p-4">
-        <div className="grid grid-cols-2 gap-3">
-          <div className="min-w-0">
-            <label className="label">Currency</label>
-            <Select aria-label="Default currency" value={currency} onChange={setCurrency} options={currencyOptions(CURRENCIES)} />
-          </div>
-          <RatesButton base={currency} />
-        </div>
-        <div>
-          <div className="label">Appearance</div>
+      <Collapsible id="appearance" testId="section-appearance" title="Appearance" icon={<Palette size={20} />} summary={`${THEME_LABEL[theme]} · ${accentPreset(getAccent()).label}${getDuo() ? ' · Dual tone' : ''}`}>
+        <div className="space-y-4">
           <Segmented<Theme> value={theme} onChange={(t) => { setTheme(t); applyTheme(t) }} options={[
             { value: 'system', label: <span className="inline-flex items-center gap-1"><SunMoon size={15} /> Auto</span> },
             { value: 'light', label: <span className="inline-flex items-center gap-1"><Sun size={15} /> Light</span> },
             { value: 'dark', label: <span className="inline-flex items-center gap-1"><Moon size={15} /> Dark</span> },
           ]} />
+          <AccentPicker onChange={() => setLook((n) => n + 1)} />
         </div>
-        <AccentPicker />
-      </div>
+      </Collapsible>
 
       {/* Every section below starts collapsed each time Profile opens. */}
       <Collapsible id="payment" testId="section-payment" title="How friends can pay you" icon={<Wallet size={20} />} summary={paymentSummary(payment, region)}>
