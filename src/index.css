@@ -260,12 +260,16 @@ html[data-nav]:has(.install-banner, [data-testid='update-banner'], [data-testid=
 @keyframes toast-in { from { transform: translateY(1rem) scale(0.96); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
 @utility animate-toast { animation: toast-in 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.15); }
 
-/* + button halo: full strength from its middle down, fading out over the top. */
-.fab-halo {
-  -webkit-mask: linear-gradient(to bottom, transparent 0%, rgb(0 0 0 / 0.55) 30%, #000 55%);
-  mask: linear-gradient(to bottom, transparent 0%, rgb(0 0 0 / 0.55) 30%, #000 55%);
+/* + button halo (Layout): both layers are blurred, so every edge fades; masks only shape the strength. */
+.fab-halo-a {
+  -webkit-mask: linear-gradient(to bottom, rgb(0 0 0 / 0.12) 15%, #000 62%);
+  mask: linear-gradient(to bottom, rgb(0 0 0 / 0.12) 15%, #000 62%);
 }
-.fab-core {
-  -webkit-mask: radial-gradient(closest-side, #000 80%, transparent);
-  mask: radial-gradient(closest-side, #000 80%, transparent);
+.fab-halo-b {
+  -webkit-mask: linear-gradient(to bottom, transparent 48%, #000 68%);
+  mask: linear-gradient(to bottom, transparent 48%, #000 68%);
+}
+.fab-rim {
+  -webkit-mask: linear-gradient(to bottom, transparent 30%, #000 75%);
+  mask: linear-gradient(to bottom, transparent 30%, #000 75%);
 }
