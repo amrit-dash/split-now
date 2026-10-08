@@ -21,6 +21,7 @@ const SplitBill = lazy(() => import('./pages/SplitBill'))
 const ExpenseDetail = lazy(() => import('./pages/ExpenseDetail'))
 const SettleUp = lazy(() => import('./pages/SettleUp'))
 const SettleAll = lazy(() => import('./pages/SettleAll'))
+const SettleWithPerson = lazy(() => import('./pages/SettleUp').then((m) => ({ default: m.SettleWithPerson })))
 const Scan = lazy(() => import('./pages/Scan'))
 const Insights = lazy(() => import('./pages/Insights'))
 const Profile = lazy(() => import('./pages/Profile'))
@@ -106,6 +107,7 @@ function AppRoutes() {
             <Route path="groups/:groupId/settle" element={<SettleUp />} />
             <Route path="groups/:groupId/expenses/:expenseId" element={<ExpenseDetail />} />
             <Route path="settle" element={<SettleAll />} />
+            <Route path="settle/with/:key" element={<SettleWithPerson />} />
             <Route path="friends" element={<Navigate to="/settle" replace />} />
             <Route path="insights" element={<Insights />} />
             <Route path="profile" element={<Profile />} />
