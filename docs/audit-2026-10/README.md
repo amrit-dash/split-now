@@ -43,9 +43,9 @@ above in four jobs; it registers once the workflow reaches the default branch.
 - **Features**: Remind with pay-me deep link and share card, Nudge push, duplicate warning, merchant memory, natural-language/voice Quick add, whose-turn, budget alerts, leave/archive/remove member, admin console (`/admin`: flags, maintenance, min version, announcement, limits, stats, user blocking, AI).
 - **Tooling**: Biome, tooling tsconfig, Playwright smoke suite, CI rewrite, dependabot, `CLAUDE.md`, coverage config.
 
-## Decisions waiting on the owner
+## Decisions (1 settled, 2 to 6 waiting on the owner)
 
-1. **App icon.** The original mark is in the repo. Candidates in `icon-candidates/` (`strip-64px.png` shows them side by side): `torn-receipt` (recommended if changing), `split-s`, `refined-ring`; `split-coin` and `boltcoin4` were rejected. To adopt one: copy its SVG to `public/favicon.svg`, run `npm run icons`, commit. Nothing else depends on the design.
+1. **App icon: decided.** The owner keeps the current mark (`public/favicon.svg`). Do not redesign it. The candidates in `icon-candidates/` are kept only as a record of what was considered and rejected.
 2. **The + button.** Audit finding: the Create sheet costs taps versus going straight to Add expense (`reports/05-ux-core.md` #3). Kept as the owner designed it (Add expense is now the first, primary tile). Change only if the owner wants it.
 3. **Approval threshold default** is 10,000 minor units (₹100 in INR, "A$100" in the old docs); pick a per-currency default or keep.
 4. **Pay-me pages for signed-out friends** (`/r/{code}`) would expose UPI IDs publicly; not built pending a decision.
