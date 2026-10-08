@@ -126,8 +126,8 @@
 /*
  * Accent fills come alive: soft patches of a lighter shade, a darker shade and the duo colour
  * float slowly across the fill behind the content, aurora-style. The patches have a fixed size
- * (not a share of the button) and are blurred, so a wide button gets the same gentle, edgeless
- * drift as a small one; their positions move via animated custom properties.
+ * (not a share of the button) and fade to nothing at their edges (no blur filter, which Safari
+ * wouldn't clip to the rounded corners), so a wide button gets the same gentle drift as a small one; their positions move via animated custom properties.
  */
 @property --al-x { syntax: '<percentage>'; inherits: false; initial-value: 20%; }
 @property --al-y { syntax: '<percentage>'; inherits: false; initial-value: 30%; }
@@ -148,14 +148,16 @@
   &::before {
     content: '';
     position: absolute;
-    inset: -12px;
+    /* Same box and corners as the button: Safari doesn't always clip an animated layer to the
+       parent's rounded corners, which showed square corners round every accent button. */
+    inset: 0;
+    border-radius: inherit;
     z-index: -1;
     pointer-events: none;
-    filter: blur(10px);
     background:
-      radial-gradient(7rem 4.5rem at var(--al-x) var(--al-y), color-mix(in oklab, var(--color-brand-300) 50%, transparent), transparent),
-      radial-gradient(7.5rem 5rem at var(--ad-x) var(--ad-y), color-mix(in oklab, var(--color-brand-900) 45%, transparent), transparent),
-      radial-gradient(6rem 4rem at var(--au-x) 50%, color-mix(in oklab, var(--color-duo-400) 35%, transparent), transparent);
+      radial-gradient(8rem 5rem at var(--al-x) var(--al-y), color-mix(in oklab, var(--color-brand-300) 45%, transparent), transparent),
+      radial-gradient(8.5rem 5.5rem at var(--ad-x) var(--ad-y), color-mix(in oklab, var(--color-brand-900) 40%, transparent), transparent),
+      radial-gradient(7rem 4.5rem at var(--au-x) 50%, color-mix(in oklab, var(--color-duo-400) 30%, transparent), transparent);
     animation: accent-float 16s ease-in-out infinite alternate;
   }
 }
@@ -198,14 +200,12 @@ html[data-update-ready] .install-banner { display: none; }
 /* Home greeting icon: a short wave a few times, or a gentle bob. Off with reduced motion. */
 @keyframes wave { 0%, 60%, 100% { transform: rotate(0deg); } 10%, 30% { transform: rotate(16deg); } 20% { transform: rotate(-8deg); } 40% { transform: rotate(-4deg); } 50% { transform: rotate(10deg); } }
 @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
-/* The wave repeats with a rest between waves (the greeting icon keeps waving). */
+/* Greeting icon motions: a few rounds, each ending at rest, then it stays still. */
 @keyframes wave-loop { 0%, 55%, 100% { transform: rotate(0deg); } 6%, 18% { transform: rotate(16deg); } 12% { transform: rotate(-8deg); } 24% { transform: rotate(-4deg); } 30% { transform: rotate(10deg); } 36% { transform: rotate(0deg); } }
-@keyframes tilt { 0%, 100% { transform: rotate(-8deg) scale(1); } 50% { transform: rotate(8deg) scale(1.06); } }
-@keyframes hello-in { from { transform: scale(0.4) rotate(-20deg); opacity: 0; } to { transform: scale(1) rotate(0); opacity: 1; } }
-@utility animate-wave { animation: wave-loop 2.6s ease-in-out 0.3s infinite; }
-@utility animate-tilt { animation: tilt 2.2s ease-in-out infinite; }
-@utility animate-hello-in { animation: hello-in 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.4); }
-@utility animate-float { animation: float 2.4s ease-in-out infinite; }
+@keyframes tilt { 0%, 100% { transform: rotate(0) scale(1); } 25% { transform: rotate(-9deg) scale(1.04); } 75% { transform: rotate(9deg) scale(1.04); } }
+@utility animate-wave { animation: wave-loop 2.6s ease-in-out 0.4s 3; }
+@utility animate-tilt { animation: tilt 2.2s ease-in-out 0.4s 3; }
+@utility animate-float { animation: float 2.4s ease-in-out 0.4s 4; }
 
 /* Progress bar with no known percentage (waiting on the AI reader). */
 @keyframes indeterminate {
@@ -236,12 +236,19 @@ html[data-update-ready] .install-banner { display: none; }
   mask: linear-gradient(#000 0 0) exclude, var(--notch) top center / 7rem 3rem no-repeat;
 }
 
-/* The + button: a thin light outline and a tight drop shadow; the glow is the halo under the bar. */
+/* The + button: no hard outline; a soft top highlight (glass edge) and a tight shadow. The thin rim
+   round its lower half and the glow underneath are separate layers (Layout). */
 .fab-ring {
-  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.55), 0 4px 10px -2px color-mix(in oklab, var(--color-brand-900) 55%, transparent);
+  box-shadow:
+    inset 0 1px 1px rgb(255 255 255 / 0.35),
+    inset 0 -6px 12px -6px color-mix(in oklab, var(--color-brand-900) 45%, transparent),
+    0 4px 12px -3px color-mix(in oklab, var(--color-brand-900) 55%, transparent);
 }
 .dark .fab-ring {
-  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.16), 0 4px 10px -2px rgb(0 0 0 / 0.55);
+  box-shadow:
+    inset 0 1px 1px rgb(255 255 255 / 0.25),
+    inset 0 -6px 12px -6px rgb(0 0 0 / 0.35),
+    0 4px 12px -3px rgb(0 0 0 / 0.55);
 }
 
 html[data-capture-alert] [data-testid='update-banner'] { display: none; }
@@ -262,8 +269,9 @@ html[data-nav]:has(.install-banner, [data-testid='update-banner'], [data-testid=
 
 /* + button halo (Layout): both layers are blurred, so every edge fades; masks only shape the strength. */
 .fab-halo-a {
-  -webkit-mask: linear-gradient(to bottom, rgb(0 0 0 / 0.12) 15%, #000 62%);
-  mask: linear-gradient(to bottom, rgb(0 0 0 / 0.12) 15%, #000 62%);
+  -webkit-mask: radial-gradient(closest-side, #000 35%, transparent), linear-gradient(to bottom, rgb(0 0 0 / 0.25) 20%, #000 60%);
+  -webkit-mask-composite: source-in;
+  mask: radial-gradient(closest-side, #000 35%, transparent) intersect, linear-gradient(to bottom, rgb(0 0 0 / 0.25) 20%, #000 60%);
 }
 .fab-halo-b {
   -webkit-mask: linear-gradient(to bottom, transparent 48%, #000 68%);
@@ -273,3 +281,15 @@ html[data-nav]:has(.install-banner, [data-testid='update-banner'], [data-testid=
   -webkit-mask: linear-gradient(to bottom, transparent 30%, #000 75%);
   mask: linear-gradient(to bottom, transparent 30%, #000 75%);
 }
+
+/* Home settle icon (CoinToss): the hand flicks, the coin spins up and drops back into the palm. */
+@keyframes hand-flick { 0%, 40%, 100% { transform: translateY(0) rotate(0); } 8% { transform: translateY(2px) rotate(-7deg); } 18% { transform: translateY(-1.5px) rotate(4deg); } 72% { transform: translateY(1.5px) rotate(-2deg); } 82% { transform: translateY(0) rotate(0); } }
+@keyframes coin-toss {
+  0% { transform: translateY(0) rotateX(0) scale(0.7); opacity: 0; }
+  10% { opacity: 1; }
+  45% { transform: translateY(-20px) rotateX(540deg) scale(1); opacity: 1; animation-timing-function: ease-in; }
+  80% { transform: translateY(2px) rotateX(1080deg) scale(0.9); opacity: 1; }
+  100% { transform: translateY(2px) rotateX(1080deg) scale(0.7); opacity: 0; }
+}
+@utility animate-hand-flick { animation: hand-flick 1.3s ease-out both; transform-origin: 30% 80%; }
+@utility animate-coin-toss { animation: coin-toss 1.3s cubic-bezier(0.2, 0.7, 0.3, 1) both; }

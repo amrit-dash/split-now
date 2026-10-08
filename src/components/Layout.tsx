@@ -34,8 +34,8 @@ export function Layout() {
             notch, which gives the cut-out depth. A blurred copy of the button's moving gradient,
             centred on the button, faded towards the top and strongest below, filling the notch gap. */}
         <div aria-hidden className="pointer-events-none absolute left-1/2 top-[0.5625rem] h-0 w-0">
-          {/* soft all round, weaker at the top */}
-          <div className="fab-halo-a absolute left-1/2 top-1/2 h-[4.5rem] w-[4.5rem] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[10px] saturate-150"><Aurora size="fab" /></div>
+          {/* a wide, soft glow radiating all round, lighter towards the top */}
+          <div className="fab-halo-a absolute left-1/2 top-1/2 h-[6.75rem] w-[6.75rem] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-80 blur-[22px] saturate-150"><Aurora size="fab" /></div>
           {/* a crisper, stronger lower half that fills the notch gap instead of showing through */}
           <div className="fab-halo-b absolute left-1/2 top-1/2 h-[4.55rem] w-[4.55rem] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[3px] saturate-150"><Aurora size="fab" /></div>
         </div>
@@ -56,7 +56,7 @@ export function Layout() {
                 >
                   <Aurora size="fab" />
                   {/* white outline round the lower half, fading out towards the top */}
-                  <span aria-hidden className="fab-rim pointer-events-none absolute inset-0 rounded-full border-2 border-white/85" />
+                  <span aria-hidden className="fab-rim pointer-events-none absolute inset-0 rounded-full border border-white/55" />
                   <Plus size={28} strokeWidth={2.6} className="relative" />
                 </button>
               </div>

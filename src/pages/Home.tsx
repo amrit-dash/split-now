@@ -105,15 +105,15 @@ export default function Home() {
         <Aurora />
         {allSettled && <CardFirework />}
         <div className="relative">
-          {/* 44px tap target; the 22px glyph sits on the content's right edge, centred on the first text line. */}
+          {/* Settle up: inset from the card's corner, level with the first lines, with a coin toss. */}
           {!allSettled && (
             <Link to="/settle" aria-label="Balances and settle up" title="Settle up" data-testid="home-settle"
-              className="absolute -right-3 -top-3.5 flex h-12 w-12 items-center justify-center rounded-full text-white transition duration-150 hover:bg-white/10 active:scale-90 active:bg-white/20">
-              <HandCoins size={28} strokeWidth={2.2} aria-hidden />
+              className="absolute -top-1 right-0 flex h-14 w-14 items-center justify-center rounded-full text-white transition duration-150 hover:bg-white/10 active:scale-90 active:bg-white/20">
+              <CoinToss />
             </Link>
           )}
-          <div className="pr-12 text-sm font-medium text-white/80">{allSettled ? 'Overall' : `Overall, ${net >= 0 ? 'you are owed' : 'you owe'}`}</div>
-          <div className="mt-1 pr-10 text-4xl font-extrabold tabular-nums tracking-tight" data-testid="home-net">{allSettled ? 'All settled up' : `${ax}${formatMoney(Math.abs(net), cur)}`}</div>
+          <div className="pr-16 text-sm font-medium text-white/80">{allSettled ? 'Overall' : `Overall, ${net >= 0 ? 'you are owed' : 'you owe'}`}</div>
+          <div className="mt-1 pr-14 text-4xl font-extrabold tabular-nums tracking-tight" data-testid="home-net">{allSettled ? 'All settled up' : `${ax}${formatMoney(Math.abs(net), cur)}`}</div>
           <div className="mt-5 grid grid-cols-2 gap-3">
             <div className="rounded-2xl bg-white/15 p-3 backdrop-blur">
               <div className="text-xs text-white/75">You are owed</div>
@@ -192,25 +192,16 @@ export function Section({ title, link, children }: { title: string; link?: { to:
 }
 
 /**
- * The icon after "Hi": cycles through the time of day's icons (HELLO), each playing its own
- * motion (a wave, a bob, a tilt) and cross-fading to the next every few seconds. Static first
- * icon under reduced motion.
+ * The icon after "Hi": one icon for the time of day (HELLO), playing its motion (a wave, a bob, a
+ * tilt) a few times and then resting; tapping it plays it again. Static under reduced motion.
  */
 function HelloIcon({ part }: { part: DayPart }) {
-  const icons = HELLO[part]
-  const [i, setI] = useState(0)
-  useEffect(() => {
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || icons.length < 2) return
-    const t = setInterval(() => setI((n) => (n + 1) % icons.length), 4200)
-    return () => clearInterval(t)
-  }, [icons.length])
-  const cur = icons[i % icons.length]
+  const cur = HELLO[part][0]
+  const [run, setRun] = useState(0)
   const motion = cur.motion === 'wave' ? 'animate-wave origin-[70%_70%]' : cur.motion === 'tilt' ? 'animate-tilt' : 'animate-float'
   return (
-    <span aria-hidden className="relative inline-flex h-[1.2em] w-[1.2em] items-center justify-center">
-      <span key={i} className="animate-hello-in inline-block">
-        <span className={`inline-block ${motion}`}>{cur.emoji}</span>
-      </span>
+    <span aria-hidden className="inline-flex h-[1.2em] w-[1.2em] items-center justify-center" onClick={() => setRun((n) => n + 1)}>
+      <span key={run} className={`inline-block ${motion}`}>{cur.emoji}</span>
     </span>
   )
 }
@@ -264,5 +255,30 @@ function Greeting({ salutation, name, part }: { salutation: string; name: string
         )}
       </h1>
     </div>
+  )
+}
+
+/**
+ * The settle icon: a hand that flicks a coin up; it spins and drops back into the palm. Tosses
+ * a few times (first shortly after the page opens, then every few seconds) and then rests.
+ * Still under reduced motion.
+ */
+function CoinToss() {
+  const [toss, setToss] = useState(0)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    const times = [1200, 7000, 14000]
+    const ts = times.map((t, i) => setTimeout(() => setToss(i + 1), t))
+    return () => ts.forEach(clearTimeout)
+  }, [])
+  return (
+    <span aria-hidden className="relative block h-8 w-8">
+      <span key={`h${toss}`} className={`absolute inset-0 ${toss ? 'animate-hand-flick' : ''}`}>
+        <HandCoins size={32} strokeWidth={2} />
+      </span>
+      {toss > 0 && (
+        <span key={`c${toss}`} className="animate-coin-toss absolute right-[3px] top-[1px] block h-[9px] w-[9px] rounded-full border-[1.8px] border-amber-200 bg-amber-300/90 shadow-[0_0_6px_rgb(253_230_138/0.8)]" />
+      )}
+    </span>
   )
 }
