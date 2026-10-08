@@ -16,7 +16,9 @@ import { CardSkeleton, ListSkeleton, Skeleton } from '@/components/Skeleton'
 import { formatDate } from '@/lib/locale'
 import { greeting, topCounterparties } from '@/lib/greeting'
 import { friendBalances } from '@/lib/friends'
-import { isLiveTrip } from '@/lib/capture'
+import { isLiveTrip, liveTripFor } from '@/lib/capture'
+import { lastGroup } from '@/lib/recents'
+import { QuickAdd } from '@/components/QuickAdd'
 import { todayISO } from '@/lib/id'
 import { usePageTitle } from '@/lib/brand'
 
@@ -167,6 +169,20 @@ export default function Home() {
             )}
           </div>
         </div>
+      )}
+
+      {/* One line, typed or spoken, into the trip that's on today (else the group used last): opens the form prefilled. */}
+      {!firstRun && shared.length > 0 && (
+        <QuickAdd
+          groups={shared.map((d) => d.group)}
+          defaultGroupId={
+            liveTripFor(
+              shared.map((d) => d.group),
+              today,
+            ) ?? lastGroup()
+          }
+          testId="home-quick-add"
+        />
       )}
 
       {!firstRun && (

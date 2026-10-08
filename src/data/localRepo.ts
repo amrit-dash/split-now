@@ -31,6 +31,9 @@ import {
 } from './repo'
 import { seedDemo } from './seed'
 import { defaultCurrency } from '@/lib/locale'
+import type { MerchantMemory } from '@/lib/merchants'
+import { netBalances } from '@/lib/balances'
+import { countedExpenses, countedSettlements } from '@/lib/trust'
 
 /**
  * Demo-mode repository. Everything lives in this browser's localStorage, so the app
@@ -55,6 +58,8 @@ interface State {
   captureTokens: Record<string, CaptureToken>
   /** live tables keyed by code */
   tables?: Record<string, LiveTable>
+  /** merchant → category memory per user (users/{uid}/settings/merchants in Firebase) */
+  merchants?: Record<string, MerchantMemory>
 }
 
 type StoredComment = ExpenseComment & { groupId: string; expenseId: string }
@@ -494,6 +499,30 @@ export function createLocalRepo(): Repo {
       commit()
     },
 
+    watchMerchants: (userId, cb) => watch(() => state.merchants?.[userId] ?? null, cb),
+    async saveMerchants(userId, memory) {
+      state.merchants ??= {}
+      state.merchants[userId] = memory
+      commit()
+    },
+    async nudge(groupId, memberId, amount) {
+      // No push in the demo: say it went out when it would have (they owe you), so the flow can be tried.
+      const g = state.groups[groupId]
+      if (!g) throw new Error('Group not found')
+      const myId = Object.entries(g.members).find(([, m]) => m.uid === actor())?.[0]
+      if (!myId) throw new Error('Not a member of this group')
+      if (!g.members[memberId]?.uid) return { sent: false, reason: 'not_member' }
+      const expenses = countedExpenses(
+        Object.values(state.expenses).filter((e) => e.groupId === groupId),
+        g,
+      )
+      const settlements = countedSettlements(Object.values(state.settlements).filter((x) => x.groupId === groupId))
+      const net = netBalances(expenses, settlements)
+      const cap = Math.min(-(net[memberId] ?? 0), net[myId] ?? 0)
+      if (!(cap > 0)) return { sent: false, reason: 'not_owed' }
+      return { sent: true, amount: Math.min(amount && amount > 0 ? amount : cap, cap) }
+    },
+
     watchCaptureTokens: (userId, cb) =>
       watch(
         () =>
@@ -571,6 +600,9 @@ export function createLocalRepo(): Repo {
       return null
     },
     async readReceiptAi() {
+      return null
+    },
+    async parseTextAi() {
       return null
     },
     async aiKey() {

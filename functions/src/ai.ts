@@ -32,13 +32,19 @@ import {
   SMS_SCHEMA,
   STATEMENT_SCHEMA,
   statementPrompt,
+  TEXT_SCHEMA,
+  textPrompt,
+  normaliseText,
   type AiReceipt,
   type AiSms,
+  type AiTextExpense,
   type AiTxn,
   type GeminiErrorKind,
   type GeminiPart,
   type GeminiUsage,
 } from './lib/gemini'
+import { limitPair } from '../../shared/limits'
+import { flagOn, getLimits } from './lib/limits'
 import { applyRateLimit, type RateState } from './lib/ratelimit'
 import { parseKekList, readStoredKey, storedKeyFields } from './lib/seal'
 import { addDays, istDate } from './lib/time'
@@ -61,8 +67,8 @@ export const AI_KEY_KEK = defineSecret('AI_KEY_KEK')
 /** Every secret an AI-calling function needs bound (the capture webhook calls aiReadSms too). */
 export const AI_SECRETS = [GEMINI_API_KEY, AI_KEY_KEK]
 
-/** Calls on a user's own key: their bill, but still capped so a loop can't run up function costs. */
-const OWN_LIMIT = { perHour: 120, perDay: 600 }
+// Calls on a user's own key are their bill, but still capped (config/limits aiOwnPerHour /
+// aiOwnPerDay, 120 and 600 by default) so a loop can't run up function costs.
 /** Saving / testing a key: separate from the scan counters, so 20 scans never block "Save key". */
 const KEYCHECK_LIMIT = { perHour: 20, perDay: 60 }
 /** base64 of a downscaled JPEG; the app sends ~200-600 KB each */
@@ -183,7 +189,7 @@ async function allow(
 async function record(
   ctx: Ctx,
   plan: KeyPlan | 'denied',
-  feature: AiFeature,
+  feature: AiFeature | 'text',
   now: number,
   extra: { err?: GeminiError; usage?: GeminiUsage; model?: string; denied?: 'user' | 'global'; key?: KeyPlan['key'] } = {},
 ) {
@@ -233,7 +239,11 @@ async function withAi<T>(
   ctx: Ctx,
   feature: AiFeature,
   call: (key: string, models: string[]) => Promise<{ value: T; usage?: GeminiUsage; model?: string }>,
+  /** how the call is counted in stats/ai_{day} when it isn't the feature it is gated by (Quick add text uses the images allowance) */
+  statAs: AiFeature | 'text' = feature,
 ): Promise<AiOutcome<T>> {
+  // The admin's kill switch (config/app flags.aiImages / aiSms) stops the feature for everyone, own keys included.
+  if (!(await flagOn(feature === 'images' ? 'aiImages' : 'aiSms'))) return { ok: false, reason: 'off' }
   const plans = planAi({ feature, user: ctx.user, app: ctx.app, hasOwnKey: !!ctx.ownKey, email: ctx.email })
   const reasons: AiUnavailableReason[] = []
   let lastKind: GeminiErrorKind | undefined
@@ -249,21 +259,21 @@ async function withAi<T>(
       continue
     }
     const now = Date.now()
-    const limits = plan.key === 'own' ? OWN_LIMIT : { perHour: ctx.app.perHour, perDay: ctx.app.perDay }
+    const limits = plan.key === 'own' ? limitPair(await getLimits(now), 'aiOwnPerHour', 'aiOwnPerDay') : { perHour: ctx.app.perHour, perDay: ctx.app.perDay }
     const gate = await allow(ctx.uid, plan.key, limits, now, plan.key === 'app' ? { max: ctx.app.globalPerDay } : undefined)
     if (!gate.allowed) {
       reasons.push('quota')
-      await record(ctx, 'denied', feature, now, { denied: gate.why, key: plan.key })
+      await record(ctx, 'denied', statAs, now, { denied: gate.why, key: plan.key })
       continue
     }
     try {
       const r = await call(key, plan.models)
-      await record(ctx, plan, feature, now, { usage: r.usage, model: r.model })
+      await record(ctx, plan, statAs, now, { usage: r.usage, model: r.model })
       return { ok: true, value: r.value, via: plan.key, model: r.model }
     } catch (e) {
       const err = e instanceof GeminiError ? e : new GeminiError((e as Error).message)
       logger.warn('ai call failed', { feature, key: plan.key, kind: err.kind, message: err.message.slice(0, 200) })
-      await record(ctx, plan, feature, now, { err })
+      await record(ctx, plan, statAs, now, { err })
       lastKind = err.kind
       reasons.push(reasonOf(err.kind))
       if (err.kind === 'blocked') break
@@ -285,6 +295,7 @@ const base = { region: REGION, secrets: AI_SECRETS, enforceAppCheck: false }
 export interface ParseResult {
   receipt?: AiReceipt | null
   statement?: { currency?: string; transactions: AiTxn[] } | null
+  expense?: AiTextExpense | null
   via?: 'own' | 'app'
   model?: string
   unavailable?: true
@@ -295,6 +306,7 @@ export interface ParseResult {
  * Callable, signed-in users only (not table guests):
  *  { kind: 'receipt', image, mimeType } or { kind: 'receipt', images: [...] (≤3) } → { receipt: AiReceipt | null, via }
  *  { kind: 'statement', images: [{ image, mimeType }] (≤6), today }           → { statement: {...} | null, via }
+ *  { kind: 'text', text, members: string[], currency, today }                 → { expense: AiTextExpense | null, via } (Quick add)
  *  → { unavailable: true, reason } when no key may be used or all failed (the app reads on the phone;
  *    `reason` is an AiUnavailableReason from shared/ai-config.ts).
  * `receipt: null` / `statement: null` means the image isn't a bill / has no transactions (or Gemini refused it).
@@ -302,6 +314,8 @@ export interface ParseResult {
 export const parseReceiptAi = onCall({ ...base, timeoutSeconds: 120, memory: '512MiB', maxInstances: 10 }, async (req): Promise<ParseResult> => {
   const me = signedIn(req)
   const d = (req.data ?? {}) as { kind?: unknown; image?: unknown; mimeType?: unknown; images?: unknown; today?: unknown }
+  // Quick add: a typed or spoken line, no image. Same switch and allowance as bill reading.
+  if (d.kind === 'text') return parseText(me, d as { text?: unknown; members?: unknown; currency?: unknown; today?: unknown })
   const kind = d.kind === 'statement' ? 'statement' : 'receipt'
   const max = kind === 'statement' ? MAX_IMAGES : MAX_RECEIPT_IMAGES
   const list = Array.isArray(d.images) ? d.images : d.image ? [{ image: d.image, mimeType: d.mimeType }] : []
@@ -338,6 +352,60 @@ export const parseReceiptAi = onCall({ ...base, timeoutSeconds: 120, memory: '51
   if (r.ok) return { receipt: r.value, via: r.via, model: r.model }
   return r.kind === 'blocked' ? { receipt: null } : { unavailable: true, reason: r.reason }
 })
+
+const MAX_TEXT = 300
+const MAX_MEMBERS = 60
+
+/**
+ * { kind: 'text', text, members: string[], currency, today } → { expense: AiTextExpense | null }.
+ * People come and go as the names the app sent (never uids); the app resolves them to members.
+ */
+async function parseText(
+  me: { uid: string; email?: string },
+  d: { text?: unknown; members?: unknown; currency?: unknown; today?: unknown },
+): Promise<ParseResult> {
+  const text =
+    typeof d.text === 'string'
+      ? d.text
+          .replace(/\p{Cc}+/gu, ' ')
+          .trim()
+          .slice(0, MAX_TEXT)
+      : ''
+  if (!text) throw new HttpsError('invalid-argument', 'Nothing to read')
+  const members = (Array.isArray(d.members) ? d.members : [])
+    .filter((m): m is string => typeof m === 'string')
+    .map((m) =>
+      m
+        .replace(/[^\p{L}\p{N}\s'.-]/gu, '')
+        .trim()
+        .slice(0, 40),
+    )
+    .filter(Boolean)
+    .slice(0, MAX_MEMBERS)
+  const currency = typeof d.currency === 'string' && /^[A-Z]{3}$/.test(d.currency) ? d.currency : 'INR'
+  const serverToday = istDay(Date.now())
+  const today =
+    typeof d.today === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d.today) && d.today >= addDays(serverToday, -2) && d.today <= addDays(serverToday, 2)
+      ? d.today
+      : serverToday
+  const ctx = await loadCtx(me.uid, me.email)
+  const r = await withAi(
+    ctx,
+    'images',
+    async (key, models) => {
+      const g = await generateJson(key, [{ text: `<note>${text}</note>` }], TEXT_SCHEMA, {
+        models,
+        timeoutMs: 15_000,
+        maxOutputTokens: 512,
+        systemInstruction: textPrompt(members, currency, today),
+      })
+      return { value: normaliseText(g.json, members), usage: g.usage, model: g.modelVersion ?? g.model }
+    },
+    'text',
+  )
+  if (r.ok) return { expense: r.value, via: r.via, model: r.model }
+  return r.kind === 'blocked' ? { expense: null } : { unavailable: true, reason: r.reason }
+}
 
 function toPart(x: { image?: unknown; mimeType?: unknown }): GeminiPart {
   const { image, mimeType } = x ?? {}

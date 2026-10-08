@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Check, X } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Check, Copy, X } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { memberOrder, myMemberId } from '@/hooks/data'
+import { useFlag } from '@/hooks/useAppConfig'
+import { useMerchantMemory } from '@/hooks/useMerchants'
 import { useReceiptReader } from '@/hooks/useReceiptReader'
 import type { Capture, Expense, Group, MemberId } from '@/types'
 import { CURRENCIES, formatMoney, fromHundredths } from '@/lib/money'
@@ -11,6 +13,10 @@ import { convertMinor, lastCurrency, rememberCurrency } from '@/lib/fx'
 import type { ParsedReceipt } from '@/lib/ocr-parse'
 import { pending } from '@/lib/pending'
 import { errText } from '@/lib/errors'
+import { duplicateLine, findDuplicate } from '@/lib/duplicates'
+import { learnFromSave, suggestCategory } from '@/lib/merchants'
+import type { QuickPrefill } from '@/lib/nl-expense'
+import { todayISO } from '@/lib/id'
 import { lastSplit, rememberGroup, rememberSplit, sameSplit, suggestDescriptions, type Suggestion } from '@/lib/recents'
 import {
   clearDraft,
@@ -24,6 +30,7 @@ import {
   toSplitInput,
   validAmount,
   validate,
+  type Action,
   type Draft,
   type ErrorKey,
   type SeedArgs,
@@ -63,6 +70,8 @@ export function ExpenseEditor({
   existing,
   again,
   capture,
+  quick,
+  expenses,
   history,
   onGroup,
   storeKey,
@@ -73,6 +82,10 @@ export function ExpenseEditor({
   existing?: Expense
   again?: Expense
   capture?: Capture
+  /** Quick add: the parsed line to start from */
+  quick?: QuickPrefill
+  /** the group's live expenses (for the duplicate warning) */
+  expenses: Expense[]
   history: Suggestion[]
   onGroup: (id: string) => void
   /** sessionStorage key for this route's draft */
@@ -90,6 +103,13 @@ export function ExpenseEditor({
   const order = useMemo(() => memberOrder(group), [group])
   const me = myMemberId(group, user.uid) ?? order[0]
   const personal = group.type === 'personal'
+  // The categories this user picked by hand before (src/lib/merchants.ts), unless an admin turned the memory off.
+  const memoryOn = useFlag('merchantMemory')
+  const memoryLive = useMerchantMemory()
+  const memory = memoryOn ? memoryLive : null
+  const memoryRef = useRef(memory)
+  memoryRef.current = memory
+  const dupOn = useFlag('duplicates')
   const seedArgs = (g: Group, o: MemberId[], m: MemberId): SeedArgs => ({
     group: g,
     order: o,
@@ -97,14 +117,18 @@ export function ExpenseEditor({
     existing,
     again,
     capture,
+    quick,
     history,
     last: existing ? {} : lastSplit(g.id, o),
     lastCurrency: lastCurrency(g.id),
+    memory,
   })
   const [seed0] = useState(() => initialDraft(seedArgs(group, order, me)))
   /** what the form started from, to know whether anything was changed */
   const seedRef = useRef(seed0)
-  const [draft, dispatch] = useReducer(reduce, seed0, (base) => (restore ? restoreDraft(restore, base, seedArgs(group, order, me)) : base))
+  const [draft, rawDispatch] = useReducer(reduce, seed0, (base) => (restore ? restoreDraft(restore, base, seedArgs(group, order, me)) : base))
+  // The reducer stays pure: the actions that guess a category get the memory handed in here.
+  const dispatch = useCallback((a: Action) => rawDispatch(a.type === 'description' || a.type === 'applyReceipt' ? { ...a, memory: memoryRef.current } : a), [])
 
   // Switching group (new expenses only) keeps the amount, description, category, date, notes and
   // receipt; payer and split start over from the new group's members (adjusting state while
@@ -134,6 +158,20 @@ export function ExpenseEditor({
   useEffect(() => {
     if (restore) toast('Picked up where you left off')
   }, [restore, toast])
+  useEffect(() => {
+    if (quick) toast(quick.amount ? 'Filled in from your line. Check it over, then save.' : 'Couldn’t find an amount in your line. Add it, then save.')
+  }, [quick, toast])
+
+  // Duplicate warning: the same amount within a day, with a similar description, already in this group.
+  const [dupIgnored, setDupIgnored] = useState<string | null>(null)
+  const dup = useMemo(
+    () =>
+      dupOn && !existing && validAmount(draft)
+        ? findDuplicate(expenses, { amount: draft.amount, cur: draft.cur, date: draft.date, description: draft.description }, group.currency)
+        : undefined,
+    [dupOn, existing, expenses, draft, group.currency],
+  )
+  const showDup = dup && dupIgnored !== dup.id
 
   const fx = useFxRate({ cur: draft.cur, to: group.currency, date: draft.date, fx: draft.fx, onFx: (f) => dispatch({ type: 'fx', fx: f }) })
   const converted = fx.foreign && draft.fx && validAmount(draft) ? convertMinor(draft.amount, draft.cur, group.currency, draft.fx.rate) : undefined
@@ -206,6 +244,11 @@ export function ExpenseEditor({
     try {
       const { expense: e, remember } = toExpense(draft, { ...ctx, existing, userUid: user.uid, now: Date.now() })
       await repo.saveExpense(e)
+      // A category chosen by hand that differs from what would have been suggested teaches the merchant memory.
+      if (memory && draft.catTouched) {
+        const learned = learnFromSave(memory, e.description, e.category, suggestCategory(e.description, { memory, history }))
+        if (learned) repo.saveMerchants(user.uid, learned).catch((err) => console.warn('Merchant memory not saved', err))
+      }
       rememberCurrency(group.id, draft.cur)
       if (!existing) {
         rememberGroup(group.id)
@@ -327,6 +370,28 @@ export function ExpenseEditor({
           e.target.value = ''
         }}
       />
+      {showDup && (
+        <div
+          className="mt-3 rounded-2xl border border-amber-200 bg-amber-50/70 p-3 text-sm dark:border-amber-500/20 dark:bg-amber-500/10"
+          role="status"
+          data-testid="dup-warning"
+        >
+          <div className="flex items-start gap-2">
+            <Copy size={18} className="mt-0.5 shrink-0 text-amber-700 dark:text-amber-300" aria-hidden />
+            <div className="min-w-0 flex-1">
+              <div className="font-semibold text-amber-900 dark:text-amber-100">{duplicateLine(dup, group.currency, todayISO())}</div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Link to={`/groups/${group.id}/expenses/${dup.id}`} className="btn-secondary btn-sm">
+                  Open it
+                </Link>
+                <button type="button" className="btn-ghost btn-sm" onClick={() => setDupIgnored(dup.id)} data-testid="dup-save-anyway">
+                  It’s a different expense, save anyway
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {!personal && (
         <>

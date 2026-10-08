@@ -14,9 +14,11 @@
 import { logger } from 'firebase-functions/logger'
 import { onDocumentCreated, onDocumentDeleted } from 'firebase-functions/v2/firestore'
 import { pendingApprovers } from '../../shared/balances-core'
+import { crossedThresholds } from '../../shared/budget'
 import { db, storage } from './admin'
 import { REGION } from './config'
-import { expenseNote, settlementNote, settlementRecordedNote } from './lib/notify-text'
+import { flagOn } from './lib/limits'
+import { budgetNote, expenseNote, settlementNote, settlementRecordedNote } from './lib/notify-text'
 import { expenseRecipients, memberNameForUid, memberUid, type MemberLite } from './lib/recipients'
 import { sendToUser } from './push'
 
@@ -26,6 +28,13 @@ interface GroupLite {
   currency?: string
   members?: Record<string, MemberLite>
   memberUids?: string[]
+  budget?: unknown
+}
+
+/** reminderState/{gid}.budget (server-only): which thresholds were announced, for which budget figure. */
+interface BudgetState {
+  at: number
+  alerted: number[]
 }
 
 const uidsOf = (g: GroupLite) => (Array.isArray(g.memberUids) ? g.memberUids.filter((u): u is string => typeof u === 'string') : [])
@@ -45,8 +54,10 @@ export const onExpenseCreated = onDocumentCreated({ document: 'groups/{groupId}/
   const { groupId, expenseId } = event.params
   const g = (await db().doc(`groups/${groupId}`).get()).data() as GroupLite | undefined
   if (!g) return
+  // The budget check runs whoever added the expense; the push to the people in it only when there are any.
+  const budget = budgetAlert(groupId, g).catch((err) => logger.warn('budget alert', { groupId, error: (err as Error).message }))
   const recipients = expenseRecipients(g.members, e, uidsOf(g))
-  if (!recipients.length) return
+  if (!recipients.length) return budget
   const actor = await actorName(groupId, g, e.createdBy)
   const currency = g.currency ?? 'INR'
   // "needs your approval" only for people who actually have to approve, not for a payer with nothing to approve.
@@ -73,7 +84,31 @@ export const onExpenseCreated = onDocumentCreated({ document: 'groups/{groupId}/
     ),
   )
   logger.info('expense push', { groupId, expenseId, recipients: recipients.length, sent: sent.reduce((a, b) => a + b, 0) })
+  await budget
 })
+
+/**
+ * Budget alerts: when the group's live spend (every expense not in the trash, as the budget bar
+ * counts it) crosses 80% or 100% of the budget, every member with expense pushes on hears once
+ * per threshold. The state lives next to the reminder state; a changed budget starts over.
+ */
+async function budgetAlert(groupId: string, g: GroupLite) {
+  const budget = typeof g.budget === 'number' && g.budget > 0 ? g.budget : 0
+  if (!budget || !(await flagOn('budgetAlerts'))) return
+  const stateRef = db().doc(`reminderState/${groupId}`)
+  const [ex, stateSnap] = await Promise.all([db().collection(`groups/${groupId}/expenses`).select('amount', 'deletedAt').get(), stateRef.get()])
+  const spent = ex.docs.reduce((s, d) => (typeof d.get('deletedAt') === 'number' ? s : s + (Number(d.get('amount')) || 0)), 0)
+  const prev = stateSnap.get('budget') as Partial<BudgetState> | undefined
+  const alerted = prev?.at === budget && Array.isArray(prev.alerted) ? prev.alerted.filter((t): t is number => typeof t === 'number') : []
+  const crossed = crossedThresholds(spent, budget, alerted)
+  if (!crossed.length) return
+  // Crossing 80% and 100% with one expense is one push, about the higher mark.
+  const threshold = crossed[crossed.length - 1]
+  const note = budgetNote({ groupId, groupName: g.name ?? 'Group', emoji: g.emoji, threshold, spent, budget, currency: g.currency ?? 'INR' })
+  const sent = await Promise.all(uidsOf(g).map((u) => sendToUser(u, ['expenses'], note)))
+  await stateRef.set({ budget: { at: budget, alerted: [...alerted, ...crossed] } satisfies BudgetState }, { merge: true })
+  logger.info('budget alert', { groupId, threshold, spent, budget, sent: sent.reduce((a, b) => a + b, 0) })
+}
 
 export const onSettlementCreated = onDocumentCreated({ document: 'groups/{groupId}/settlements/{settlementId}', region: REGION }, async (event) => {
   const s = event.data?.data()

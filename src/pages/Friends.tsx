@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { useAllGroupData, type GroupData } from '@/hooks/data'
+import type { Group } from '@/types'
 import { formatMoney } from '@/lib/money'
 import { todayISO, uid } from '@/lib/id'
 import { errText } from '@/lib/errors'
@@ -13,6 +14,7 @@ import { Empty, PageHeader, Segmented } from '@/components/Misc'
 import { ListSkeleton } from '@/components/Skeleton'
 import { Sheet } from '@/components/Sheet'
 import { useToast } from '@/components/Toast'
+import { RemindActions } from '@/components/RemindActions'
 
 type Friend = FriendBalance<GroupData>
 
@@ -142,10 +144,10 @@ export default function Friends() {
                 </div>
                 <ul className="mt-3 space-y-1 border-t border-slate-100 pt-3 text-sm dark:border-white/5">
                   {f.parts.map((p) => (
-                    <li key={p.d.group.id}>
+                    <li key={p.d.group.id} className="flex items-center gap-1">
                       <Link
                         to={`/groups/${p.d.group.id}/settle?from=${p.amount > 0 ? p.memberId : p.d.me}&to=${p.amount > 0 ? p.d.me : p.memberId}&amount=${Math.abs(p.amount)}`}
-                        className="flex min-h-10 items-center justify-between rounded-xl px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-ink-800"
+                        className="flex min-h-10 min-w-0 flex-1 items-center justify-between rounded-xl px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-ink-800"
                       >
                         <span className="truncate">
                           <span aria-hidden>{p.d.group.emoji} </span>
@@ -153,6 +155,10 @@ export default function Friends() {
                         </span>
                         <span className={p.amount > 0 ? 'pos' : 'neg'}>{formatMoney(p.amount, f.currency, { sign: true })}</span>
                       </Link>
+                      {/* They owe you here: a pay link to share, or a nudge (the group's feed isn't loaded on this screen; the server still keeps it to one a day). */}
+                      {p.amount > 0 && p.d.me && (
+                        <RemindActions group={p.d.group as Group} debtor={p.memberId} amount={p.amount} me={p.d.me} className="-mr-2" />
+                      )}
                     </li>
                   ))}
                 </ul>

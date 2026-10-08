@@ -275,6 +275,7 @@ const ICONS: Record<ActivityType, string> = {
   'settlement.deleted': '🗑️',
   'settlement.restored': '↩️',
   'settlement.purged': '🔥',
+  'settlement.nudged': '🔔',
   'member.added': '👋',
   'member.removed': '🚪',
 }

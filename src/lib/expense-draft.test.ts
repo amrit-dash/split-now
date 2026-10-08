@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Capture, Expense, Group } from '@/types'
 import { descriptionHistory } from './recents'
+import { rememberMerchant, EMPTY_MEMORY } from './merchants'
 import {
   buildRecurrence,
   clearDraft,
@@ -585,5 +586,61 @@ describe('helpers', () => {
     expect(titleCase("o'neil's (east)")).toBe("O'neil's (East)")
     expect(titleCase('école élémentaire')).toBe('École Élémentaire')
     expect(titleCase('चाय दुकान')).toBe('चाय दुकान')
+  })
+})
+
+describe('merchant memory and Quick add', () => {
+  const memory = rememberMerchant(EMPTY_MEMORY, 'Blue Tokai', 'food', 5)
+  it('a remembered merchant beats the keyword guess while typing, and for a captured payment', () => {
+    const typed = reduce(seed(), { type: 'description', value: 'Blue Tokai', history: [], memory })
+    expect(typed.category).toBe('food')
+    expect(reduce(seed(), { type: 'description', value: 'Blue Tokai', history: [] }).category).toBe('other')
+    const capture: Capture = {
+      id: 'c1',
+      amount: 45000,
+      merchant: 'BLUE TOKAI 4521',
+      date: '2026-10-07',
+      source: 'sms-ios',
+      status: 'pending',
+      createdAt: 1,
+      updatedAt: 1,
+    }
+    expect(seed({ capture, memory }).category).toBe('food')
+    expect(seed({ capture }).category).toBe('other')
+  })
+  it('a scanned bill asks the memory about the merchant too', () => {
+    const d = reduce(seed(), { type: 'applyReceipt', parsed: { merchant: 'blue tokai', total: 45000, items: [] }, memory })
+    expect(d).toMatchObject({ description: 'Blue Tokai', category: 'food', amount: 45000 })
+  })
+  it('a Quick add line seeds amount, words, payer, people and date; the category comes from the line or the memory', () => {
+    const quick = {
+      text: 'dinner 1200 with Priya, I paid',
+      description: 'Dinner',
+      amount: 120000,
+      currency: 'INR',
+      payer: 'me',
+      participants: ['me', 'p'],
+      date: '2026-10-07',
+    }
+    const d = seed({ quick, last: { payer: 'p', splitType: 'shares', input: { shares: { me: 1, p: 2 } } } })
+    expect(d).toMatchObject({
+      amount: 120000,
+      description: 'Dinner',
+      category: 'food',
+      catTouched: false,
+      date: '2026-10-07',
+      payer: 'me',
+      splitType: 'equal',
+      cur: 'INR',
+    })
+    expect(d.split.selected).toEqual(['me', 'p'])
+    const withCat = seed({ quick: { ...quick, category: 'gifts' } })
+    expect(withCat).toMatchObject({ category: 'gifts', catTouched: true })
+    // a payer or person the group doesn't have is ignored; no people means everyone
+    const odd = seed({ quick: { ...quick, payer: 'ghost', participants: ['ghost'] } })
+    expect(odd.payer).toBe('me')
+    expect(odd.split.selected).toEqual(order)
+    // a foreign currency on the line is kept as the entry currency
+    expect(seed({ quick: { ...quick, currency: 'USD', amount: 450 } })).toMatchObject({ cur: 'USD', amount: 450 })
   })
 })

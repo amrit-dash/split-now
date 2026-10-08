@@ -3,7 +3,6 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   Archive,
   BarChart3,
-  Bell,
   ChevronRight,
   Download,
   Link2,
@@ -19,6 +18,7 @@ import {
 } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
 import { computeGroupData, useActivity, useExpenses, useGroup, useSettlements, useTrash } from '@/hooks/data'
+import { useFlag } from '@/hooks/useAppConfig'
 import type { Category, Expense, Group, Settlement } from '@/types'
 import { formatMoney } from '@/lib/money'
 import { CATEGORIES } from '@/lib/categories'
@@ -32,6 +32,8 @@ import { errText } from '@/lib/errors'
 import { usePageTitle } from '@/lib/brand'
 import { formatDate } from '@/lib/locale'
 import * as payments from '@/lib/payments'
+import { turnLine, whoseTurn } from '@/lib/fairness'
+import { budgetStatus } from '../../shared/budget'
 import { Avatar } from '@/components/Avatar'
 import { DebtGraph } from '@/components/DebtGraph'
 import { GroupIcon } from '@/components/GroupIcon'
@@ -46,6 +48,8 @@ import { useConfirm } from '@/components/ConfirmSheet'
 import { repo } from '@/data'
 import { useToast } from '@/components/Toast'
 import { ActivityFeed, RecentlyDeleted, TrustBadges, useUndoableDelete } from '@/components/Trust'
+import { QuickAdd } from '@/components/QuickAdd'
+import { RemindActions } from '@/components/RemindActions'
 
 type Tab = 'expenses' | 'balances' | 'activity'
 
@@ -68,6 +72,9 @@ export default function GroupDetail() {
   const [deleted, setDeleted] = useState(false)
   const toast = useToast()
   const confirm = useConfirm()
+  // The feed is the same shared listener the Activity tab and Home use; here it says who was nudged today.
+  const feed = useActivity(groupId)
+  const whoseTurnOn = useFlag('whoseTurn')
   usePageTitle(liveGroup ? liveGroup.name : liveGroup === null ? 'Group not found' : undefined)
 
   const d = useMemo(
@@ -102,15 +109,8 @@ export default function GroupDetail() {
   const inviteUrl = `${location.origin}/join/${group.inviteCode}`
   const creator = group.createdBy === user.uid
   const fail = (e: unknown) => toast(errText(e), 'err')
-
-  const remind = async (debtor: string, amount: number) => {
-    const r = await shareOrCopy({
-      title: 'Split Now reminder',
-      text: `Hey ${group.members[debtor]?.name.split(' ')[0]}! Friendly nudge: you owe ${formatMoney(amount, cur)} for “${group.name}”. Settle up in Split Now:`,
-      url: `${location.origin}/groups/${group.id}`,
-    })
-    if (r === 'copied') toast('Reminder copied to clipboard')
-  }
+  // A private hint for the next bill (src/lib/fairness.ts): never pushed, never a score.
+  const turn = whoseTurnOn && !personal && !group.archived ? whoseTurn({ group, expenses: d.expenses }) : null
 
   const exportCsv = async () => {
     setMenu(false)
@@ -265,11 +265,20 @@ export default function GroupDetail() {
               ))}
           </div>
         )}
-        {(hasTripWindow(group) || group.archived) && (
+        {(hasTripWindow(group) || group.archived || turn) && (
           <div className="text-muted mt-3 flex flex-wrap items-center gap-2 text-sm">
             {hasTripWindow(group) && <span>{formatRange(group.startDate, group.endDate)}</span>}
             {isLiveTrip(group, todayISO()) && <LiveBadge type={group.type} />}
             {group.archived && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold dark:bg-ink-800">Archived</span>}
+            {turn && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900 dark:bg-amber-500/15 dark:text-amber-200"
+                title="Who has fronted the least lately, only you can see this"
+                data-testid="whose-turn"
+              >
+                <span aria-hidden>🍽️</span> {turnLine(turn, me)}
+              </span>
+            )}
           </div>
         )}
         {group.budget ? <BudgetBar spent={total} budget={group.budget} currency={cur} /> : null}
@@ -285,6 +294,8 @@ export default function GroupDetail() {
           </div>
         )}
       </div>
+
+      {!personal && !group.archived && <QuickAdd groups={[group]} defaultGroupId={group.id} lockGroup testId="group-quick-add" />}
 
       {!personal && hasTripWindow(group) && <TripAutoCapture group={group} />}
 
@@ -364,16 +375,7 @@ export default function GroupDetail() {
                       <b>{name(x.from)}</b> → <b>{name(x.to)}</b>
                       <div className="neg font-semibold">{formatMoney(x.amount, cur)}</div>
                     </div>
-                    {x.to === me && (
-                      <button
-                        type="button"
-                        onClick={() => remind(x.from, x.amount)}
-                        className="text-muted flex h-11 w-11 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-ink-800"
-                        aria-label={`Remind ${name(x.from)}`}
-                      >
-                        <Bell size={18} aria-hidden />
-                      </button>
-                    )}
+                    {x.to === me && <RemindActions group={group} debtor={x.from} amount={x.amount} me={me} feed={feed} className="-mr-1" />}
                     <Link to={`/groups/${group.id}/settle?from=${x.from}&to=${x.to}&amount=${x.amount}`} className="chip min-h-10">
                       Settle
                     </Link>
@@ -517,15 +519,24 @@ function MenuRow({
   )
 }
 
+/** The budget bar; its 80% / 100% marks are the same thresholds the server's push alerts use (shared/budget.ts). */
 function BudgetBar({ spent, budget, currency }: { spent: number; budget: number; currency: string }) {
-  const pct = Math.min(100, (spent / budget) * 100)
-  const over = spent > budget
-  const status = over ? `${formatMoney(spent - budget, currency)} over` : `${formatMoney(budget - spent, currency)} left`
+  const s = budgetStatus(spent, budget, (v) => formatMoney(v, currency))
+  const width = Math.min(100, s.pct)
   return (
-    <div className="mt-4">
-      <div className="text-muted mb-1 flex justify-between text-xs font-medium">
+    <div className="mt-4" data-testid="budget-bar">
+      <div className="text-muted mb-1 flex items-center justify-between gap-2 text-xs font-medium">
         <span>Budget {formatMoney(budget, currency)}</span>
-        <span className={over ? 'neg' : ''}>{status}</span>
+        <span className="flex items-center gap-1.5">
+          {s.threshold && (
+            <span
+              className={`rounded-full px-1.5 py-0.5 text-[0.6875rem] font-semibold ${s.tone === 'over' ? 'bg-rose-100 text-rose-800 dark:bg-rose-500/15 dark:text-rose-300' : 'bg-amber-100 text-amber-900 dark:bg-amber-500/15 dark:text-amber-200'}`}
+            >
+              {s.short}
+            </span>
+          )}
+          <span className={s.tone === 'over' ? 'neg' : ''}>{s.label}</span>
+        </span>
       </div>
       <div
         className="h-2.5 overflow-hidden rounded-full bg-slate-100 dark:bg-ink-800"
@@ -534,11 +545,11 @@ function BudgetBar({ spent, budget, currency }: { spent: number; budget: number;
         aria-valuemin={0}
         aria-valuemax={budget}
         aria-valuenow={Math.min(spent, budget)}
-        aria-valuetext={`${formatMoney(spent, currency)} of ${formatMoney(budget, currency)}, ${status}`}
+        aria-valuetext={`${formatMoney(spent, currency)} of ${formatMoney(budget, currency)}, ${s.label}${s.threshold ? `, ${s.short}` : ''}`}
       >
         <div
-          className={`h-full rounded-full ${over ? 'bg-rose-600' : pct > 80 ? 'bg-amber-600' : 'bg-gradient-to-r from-brand-500 to-duo-500'}`}
-          style={{ width: `${pct}%` }}
+          className={`h-full rounded-full ${s.tone === 'over' ? 'bg-rose-600' : s.tone === 'near' ? 'bg-amber-600' : 'bg-gradient-to-r from-brand-500 to-duo-500'}`}
+          style={{ width: `${width}%` }}
         />
       </div>
     </div>

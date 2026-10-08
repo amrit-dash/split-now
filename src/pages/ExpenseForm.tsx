@@ -6,6 +6,7 @@ import { descriptionHistory, lastGroup } from '@/lib/recents'
 import { liveTripFor } from '@/lib/capture'
 import { todayISO } from '@/lib/id'
 import { draftKey, loadDraft } from '@/lib/expense-draft'
+import { pending } from '@/lib/pending'
 import { Empty } from '@/components/Misc'
 import { CardSkeleton } from '@/components/Skeleton'
 import { ExpenseEditor } from '@/features/expense-form/ExpenseEditor'
@@ -22,6 +23,13 @@ export default function ExpenseForm() {
   const againId = expenseId ? undefined : (params.get('again') ?? undefined)
   // Prefill from a captured payment (/add?group=…&capture=…), handed over from the capture prompt.
   const captureId = expenseId ? undefined : (params.get('capture') ?? undefined)
+  // Quick add (/add?group=…&quick=1): the parsed line waits in memory; it beats any stored draft (a fresh intent).
+  const [quick] = useState(() => {
+    if (expenseId || !params.get('quick')) return undefined
+    const q = pending.quick
+    pending.quick = undefined
+    return q?.prefill
+  })
   const storeKey = draftKey(expenseId)
   // A draft left on this device for this route (a reload, an accidental back), when it started from the same place.
   const [stored] = useState(() => {
@@ -37,7 +45,8 @@ export default function ExpenseForm() {
   const captures = useCaptures()
   const capture = captureId ? captures?.find((c) => c.id === captureId && c.status === 'pending') : undefined
   // A switched group's list arrives a moment later; never suggest from the previous group.
-  const history = useMemo(() => descriptionHistory((expenses ?? []).filter((e) => e.groupId === groupId)), [expenses, groupId])
+  const groupExpenses = useMemo(() => (expenses ?? []).filter((e) => e.groupId === groupId), [expenses, groupId])
+  const history = useMemo(() => descriptionHistory(groupExpenses), [groupExpenses])
 
   useEffect(() => {
     if (!groups?.length || editGroupId) return
@@ -74,10 +83,12 @@ export default function ExpenseForm() {
       existing={existing}
       again={again}
       capture={capture}
+      quick={quick}
+      expenses={groupExpenses}
       history={history}
       onGroup={setGroupId}
       storeKey={storeKey}
-      restore={stored?.draft}
+      restore={quick ? undefined : stored?.draft}
     />
   )
 }

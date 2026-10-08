@@ -27,6 +27,8 @@ describe('routeKey', () => {
     expect(routeKey('/settings/auto-capture')).toBe('AutoCaptureSetup')
     expect(routeKey('/settings')).toBe('Settings')
     expect(routeKey('/settings/ai')).toBe('Settings')
+    expect(routeKey('/admin')).toBe('Admin')
+    expect(routeKey('/admin/users')).toBe('Admin')
   })
 
   it('returns nothing for eager screens and unknown paths', () => {

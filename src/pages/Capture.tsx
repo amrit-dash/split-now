@@ -4,12 +4,14 @@ import { ArrowRight, Check, Home, Inbox, Loader2, Pencil, Plus, Undo2, User, X }
 import { repo } from '@/data'
 import { draftToCapture } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
-import { createGroup, memberOrder, myMemberId, useCaptures, useGroups } from '@/hooks/data'
+import { createGroup, memberOrder, myMemberId, useCaptures, useExpenses, useGroups } from '@/hooks/data'
+import { useMerchantMemory } from '@/hooks/useMerchants'
 import type { Capture, Group } from '@/types'
 import { usePageTitle } from '@/lib/brand'
 import { SOURCE_LABEL, parseCaptureParams, rankGroupsForCapture } from '@/lib/capture'
-import { guessCategory } from '@/lib/categories'
 import { colorFor } from '@/lib/colors'
+import { findDuplicate } from '@/lib/duplicates'
+import { suggestCategory } from '@/lib/merchants'
 import { errText } from '@/lib/errors'
 import { formatDate } from '@/lib/locale'
 import { formatMoney } from '@/lib/money'
@@ -120,6 +122,9 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
   const [selected, setSelected] = useState<string | undefined>(suggested)
   const [busy, setBusy] = useState<'add' | 'personal' | 'dismiss' | null>(null)
   const chosen = ranked.find((g) => g.id === selected)
+  const memory = useMerchantMemory()
+  // The chosen group's expenses, to catch a payment that is already in it before the one-tap add.
+  const chosenExpenses = useExpenses(chosen?.id)
   const cur = c.currency ?? profile.currency
   // One tap only when no conversion is needed; otherwise the form shows the rate first.
   const sameCurrency = !!chosen && (!c.currency || c.currency === chosen.currency)
@@ -161,12 +166,28 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
     if (!chosen) return
     const g = groups.find((x) => x.id === chosen.id)
     if (!g) return
+    // Already in the group (same amount, a day apart, same merchant)? Open the form so it can be checked, nothing saved.
+    const dup =
+      chosenExpenses && findDuplicate(chosenExpenses, { amount: c.amount, cur: c.currency ?? g.currency, date: c.date, description: c.merchant }, g.currency)
+    if (dup) {
+      toast(`Looks like “${dup.description}” is already in ${g.name}. Check it before saving.`)
+      toExpense(g.id)
+      return
+    }
     setBusy('add')
     try {
       const order = memberOrder(g)
       const me = myMemberId(g, user.uid) ?? order[0]
       const e = buildExpense(
-        { description: c.merchant, amount: c.amount, date: c.date, category: guessCategory(c.merchant) ?? 'other', notes: c.note, payer: me, members: order },
+        {
+          description: c.merchant,
+          amount: c.amount,
+          date: c.date,
+          category: suggestCategory(c.merchant, { memory }) ?? 'other',
+          notes: c.note,
+          payer: me,
+          members: order,
+        },
         g,
         order,
         user.uid,

@@ -89,6 +89,10 @@ import {
 import type { Functions } from 'firebase/functions'
 import type { ParsedReceipt } from '@/lib/ocr-parse'
 import type { AiKeyResult, AiModel, AiState, AiStatement, AiStatusResult, AiUnavailableReason } from './repo'
+import { parseMemory } from '@/lib/merchants'
+import type { AiTextExpense } from '@/lib/nl-expense'
+import type { NudgeResult } from '@/lib/nudge'
+import { errText } from '@/lib/errors'
 import type { FxRatesDoc, FxRefreshResult } from '@/lib/fx'
 import { initAppCheck } from '@/lib/appcheck'
 import { disablePush } from '@/lib/push'
@@ -897,6 +901,33 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       fire(batch, 'Deleting capture')
     },
 
+    watchMerchants(userId, cb) {
+      return onSnapshot(
+        doc(db, 'users', userId, 'settings', 'merchants'),
+        (s) => cb(s.exists() ? parseMemory(s.data()) : null, metaOf(s)),
+        listenError('Loading your categories', () => cb(null, FAILED)),
+      )
+    },
+    async saveMerchants(userId, memory) {
+      // A full replace: entries evicted from the memory must leave the document too.
+      const batch = writeBatch(db)
+      batch.set(doc(db, 'users', userId, 'settings', 'merchants'), { categories: memory.categories, touched: memory.touched, updatedAt: Date.now() })
+      fire(batch, 'Remembering the category')
+    },
+    async nudge(groupId, memberId, amount) {
+      if (!online()) return { sent: false, reason: 'unavailable' }
+      try {
+        const call = await callable<{ groupId: string; memberId: string; amount?: number }, NudgeResult>('nudge', 20_000)
+        return (await call(amount ? { groupId, memberId, amount } : { groupId, memberId })).data
+      } catch (e) {
+        const code = (e as { code?: string }).code ?? ''
+        // The callable's own refusals read fine as they are; anything else is a plain failure.
+        if (/invalid-argument|permission-denied|not-found|unauthenticated/.test(code)) throw new Error(errText(e))
+        console.warn('nudge failed', e)
+        return { sent: false, reason: 'unavailable' }
+      }
+    },
+
     watchCaptureTokens(userId, cb) {
       const q = query(collection(db, 'captureTokens'), where('uid', '==', userId))
       return watchList(q, (s) => s.docs.map((d) => ({ ...(d.data() as CaptureToken), token: d.id })).sort(byCreatedDesc), cb, 'Loading capture tokens')
@@ -1025,6 +1056,21 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         return d.unavailable ? { unavailable: true, reason: d.reason } : { statement: d.statement ?? null }
       } catch (e) {
         console.warn('AI statement reading failed', e)
+        return null
+      }
+    },
+    async parseTextAi(text, ctx) {
+      if (!auth.currentUser || auth.currentUser.isAnonymous || !online()) return null
+      try {
+        const call = await callable<
+          { kind: 'text'; text: string; members: string[]; currency: string; today: string },
+          { expense?: AiTextExpense | null; unavailable?: true; reason?: AiUnavailableReason }
+        >('parseReceiptAi', 30_000)
+        const d = (await call({ kind: 'text', text, ...ctx })).data
+        if (!d) return null
+        return d.unavailable ? { unavailable: true, reason: d.reason } : { expense: d.expense ?? null }
+      } catch (e) {
+        console.warn('AI text reading failed', e)
         return null
       }
     },

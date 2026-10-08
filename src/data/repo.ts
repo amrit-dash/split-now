@@ -1,10 +1,13 @@
-import type { ActivityEntry, Capture, Expense, ExpenseComment, Group, Member, MemberId, PaymentHandles, Settlement, UserProfile } from '@/types'
+import type { ActivityEntry, Capture, Cents, Expense, ExpenseComment, Group, Member, MemberId, PaymentHandles, Settlement, UserProfile } from '@/types'
 import type { CaptureDraft, InboxDoc } from '@/lib/capture'
 import type { ItemId, LiveTable, NewTable, ParticipantId, TableExtras, TableItem, TableParticipant, TableStatus } from '@/lib/table'
 import type { ActivityCtx } from '@/lib/activity'
 import type { FxRatesDoc, FxRefreshResult } from '@/lib/fx'
 import type { ParsedReceipt } from '@/lib/ocr-parse'
 import type { AppAiConfig } from '@/lib/ai-config'
+import type { MerchantMemory } from '@/lib/merchants'
+import type { AiTextExpense } from '@/lib/nl-expense'
+import type { NudgeResult } from '@/lib/nudge'
 import type { AiUnavailableReason } from '../../shared/ai-config'
 import { defaultCurrency } from '@/lib/locale'
 
@@ -213,6 +216,22 @@ export interface Repo {
   updateCapture(uid: string, id: string, patch: Partial<Omit<Capture, 'id'>>): Promise<void>
   deleteCapture(uid: string, id: string): Promise<void>
 
+  /**
+   * users/{uid}/settings/merchants: the categories this user picked by hand per merchant
+   * (src/lib/merchants.ts). Owner only; the whole document is replaced on save (entries are
+   * evicted, so a merge can't do it). null until it exists.
+   */
+  watchMerchants(uid: string, cb: Watch<MerchantMemory | null>): Unsub
+  saveMerchants(uid: string, memory: MerchantMemory): Promise<void>
+
+  /**
+   * Push a settle-up nudge to a member who owes the signed-in user (the `nudge` callable; one
+   * per person per group per day, server-enforced; the server writes a `settlement.nudged`
+   * activity entry). `amount` is what the app shows and is only a hint. Demo mode: pretends it
+   * was sent (no push exists) so the flow can be tried. Rejects with a readable message.
+   */
+  nudge(groupId: string, memberId: MemberId, amount?: Cents): Promise<NudgeResult>
+
   /** Capture tokens let signed-out automations (iOS Shortcuts) drop transactions into captureInbox. */
   watchCaptureTokens(uid: string, cb: Watch<CaptureToken[]>): Unsub
   /**
@@ -266,6 +285,14 @@ export interface Repo {
    */
   readStatementAi(images: Array<{ image: string; mimeType: string }>, today: string): Promise<StatementAiResult | null>
   /**
+   * Read a Quick add line ("dinner 1200 with Rahul, I paid") with Gemini (parseReceiptAi,
+   * kind 'text'; it shares the bill reader's switch and allowance). People come back as the
+   * names given in `members`; src/lib/nl-expense.ts resolves them. `{ expense: null }`: not an
+   * expense; `{ unavailable, reason }`: the server declined; null: couldn't be called (offline,
+   * demo mode, signed out).
+   */
+  parseTextAi(text: string, ctx: { members: string[]; currency: string; today: string }): Promise<TextAiResult | null>
+  /**
    * Save / re-test / remove the user's own Gemini key (aiKey callable), or with which 'app' the
    * in-app project key (admins; overrides Secret Manager's). Throws with a readable message.
    */
@@ -292,6 +319,7 @@ export interface AiUnavailable {
 }
 export type ReceiptAiResult = { receipt: ParsedReceipt | null; unavailable?: undefined } | AiUnavailable
 export type StatementAiResult = { statement: AiStatement | null; unavailable?: undefined } | AiUnavailable
+export type TextAiResult = { expense: AiTextExpense | null; unavailable?: undefined } | AiUnavailable
 
 export interface AiModel {
   id: string
