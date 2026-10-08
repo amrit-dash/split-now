@@ -15,8 +15,10 @@ export interface NotificationPrefs {
   expenses: boolean
   settlements: boolean
   reminders: boolean
+  /** Capture setting: keep debit SMS that match no trip (in the inbox). Off by default. */
+  outsideTrips: boolean
 }
-export const DEFAULT_PREFS: NotificationPrefs = { captures: true, unsorted: false, expenses: true, settlements: true, reminders: true }
+export const DEFAULT_PREFS: NotificationPrefs = { captures: true, unsorted: false, expenses: true, settlements: true, reminders: true, outsideTrips: false }
 
 /** Whether this browser can receive web push at all (and the app is configured for it). */
 export function pushSupported(): boolean {

@@ -12,7 +12,7 @@ import { useToast } from './Toast'
 
 const TYPES: Array<{ key: keyof NotificationPrefs; label: string; hint: string }> = [
   { key: 'captures', label: 'Payments on a trip', hint: '“You spent ₹840 at Swiggy — add to Goa Trip?” from forwarded bank SMS.' },
-  { key: 'unsorted', label: 'Payments outside a trip', hint: 'Also ask about captured payments that match no trip dates.' },
+  { key: 'unsorted', label: 'Payments outside a trip', hint: 'Also notify about payments outside a trip (needs “All bank & UPI payments” in Auto-capture).' },
   { key: 'expenses', label: 'New expenses', hint: 'When someone adds an expense that includes you.' },
   { key: 'settlements', label: 'Payments to me', hint: 'When someone records paying you back.' },
   { key: 'reminders', label: 'Settle-up reminders', hint: 'A gentle weekly nudge if you’ve owed over ₹500 for a week.' },

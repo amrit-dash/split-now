@@ -13,6 +13,7 @@
  * only notify when the user turned on "Unsorted payments" (prefs.unsorted, off by default).
  * A scoped capture (token.groupId or request groupId) outside that group's dates is dropped.
  */
+import { resolvePrefs } from './lib/prefs'
 import { logger } from 'firebase-functions'
 import { onRequest } from 'firebase-functions/v2/https'
 import { db } from './admin'
@@ -76,6 +77,11 @@ export async function handleCapture(raw: RawRequest, now = new Date()): Promise<
   } else {
     const groups = await db().collection('groups').where('memberUids', 'array-contains', uid).get()
     matched = pickTrip(groups.docs.map((d) => ({ ...(d.data() as GroupDoc), id: d.id })), parsed.date)
+    // Outside every trip window: only kept when the user turned on "Capture payments outside trips".
+    if (!matched) {
+      const prefs = resolvePrefs((await db().collection('users').doc(uid).collection('settings').doc('notifications').get()).data())
+      if (!prefs.outsideTrips) return fail('outside_trip')
+    }
   }
 
   const captureId = captureIdFor(uid, parsed, extra.receivedAt ?? now)

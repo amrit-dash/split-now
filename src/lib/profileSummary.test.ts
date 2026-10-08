@@ -26,8 +26,8 @@ describe('notificationSummary', () => {
   it('covers each state', () => {
     expect(notificationSummary(base)).toBe('Off')
     expect(notificationSummary({ ...base, perm: 'granted' })).toBe('On · 4 types')
-    expect(notificationSummary({ ...base, perm: 'granted', prefs: { captures: true, unsorted: false, expenses: false, settlements: false, reminders: false } })).toBe('On · 1 type')
-    expect(notificationSummary({ ...base, perm: 'granted', prefs: { captures: false, unsorted: false, expenses: false, settlements: false, reminders: false } })).toBe('On · all types muted')
+    expect(notificationSummary({ ...base, perm: 'granted', prefs: { captures: true, unsorted: false, expenses: false, settlements: false, reminders: false, outsideTrips: true } })).toBe('On · 1 type')
+    expect(notificationSummary({ ...base, perm: 'granted', prefs: { captures: false, unsorted: false, expenses: false, settlements: false, reminders: false, outsideTrips: true } })).toBe('On · all types muted')
     expect(notificationSummary({ ...base, perm: 'denied' })).toBe('Blocked in browser settings')
     expect(notificationSummary({ ...base, supported: false })).toBe('Not available in this browser')
     expect(notificationSummary({ ...base, iosNeedsInstall: true })).toBe('Install the app to turn on')

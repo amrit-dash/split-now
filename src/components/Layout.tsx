@@ -2,6 +2,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { BarChart3, Home, Plus, User, Users } from 'lucide-react'
 import { InstallBanner } from './InstallBanner'
 import { Aurora } from './Aurora'
+import { CaptureAlert } from './CaptureAlert'
 
 const tabs = [
   { to: '/', icon: Home, label: 'Home', end: true },
@@ -19,6 +20,7 @@ export function Layout() {
     <div className="mx-auto min-h-dvh max-w-2xl px-4 pb-32">
       <Outlet />
       <InstallBanner />
+      <CaptureAlert />
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/70 bg-white/85 backdrop-blur-xl safe-bottom dark:border-white/5 dark:bg-ink-900/85">
         <div className="mx-auto flex max-w-2xl items-center justify-around px-2 py-2">
           {tabs.map((t, i) =>

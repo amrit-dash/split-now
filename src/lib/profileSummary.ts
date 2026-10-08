@@ -49,7 +49,8 @@ export function notificationSummary(s: NotificationState): string {
   if (!s.supported) return 'Not available in this browser'
   if (s.perm === 'denied') return 'Blocked in browser settings'
   if (s.perm !== 'granted') return 'Off'
-  const n = Object.values(s.prefs).filter(Boolean).length
+  const { outsideTrips: _capture, ...types } = s.prefs // a capture setting, not a notification type
+  const n = Object.values(types).filter(Boolean).length
   return n === 0 ? 'On · all types muted' : `On · ${n} type${n === 1 ? '' : 's'}`
 }
 
