@@ -19,6 +19,7 @@ import { encodeQr } from '@/lib/qr'
 import { Empty, Loading, PageHeader, Spinner } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
 import { Select } from '@/components/Select'
+import { DateField } from '@/components/DateField'
 
 export default function SettleUp() {
   const { groupId } = useParams()
@@ -173,7 +174,7 @@ export default function SettleUp() {
           <div className="flex flex-wrap gap-2">{methods.map((m) => <button key={m} onClick={() => setMethod(m)} className={`chip ${m === method ? 'chip-on' : ''}`}>{m}</button>)}</div>
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
+          <DateField aria-label="Date" value={date} onChange={(v) => setDate(v || todayISO())} />
           <input className="input" placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
         </div>
       </div>

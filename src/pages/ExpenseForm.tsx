@@ -23,6 +23,7 @@ import { Sheet } from '@/components/Sheet'
 import { StartTableButton } from '@/components/StartTableButton'
 import { useToast } from '@/components/Toast'
 import { appLocale } from '@/lib/locale'
+import { DateField } from '@/components/DateField'
 
 const REPEAT_OPTIONS: Array<RecurrenceFreq | 'never'> = ['never', 'weekly', 'fortnightly', 'monthly', 'yearly']
 
@@ -301,7 +302,7 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
             rateEdit={rateEdit} setRateEdit={setRateEdit} onApply={applyRate} />
         )}
         <div className="mt-4 flex gap-2">
-          <input type="date" className="input !w-auto !py-2 text-sm" value={date} onChange={(e) => setDate(e.target.value)} />
+          <DateField aria-label="Date" className="!w-auto !py-2 text-sm" value={date} onChange={(v) => setDate(v || todayISO())} />
           <button type="button" className="btn-secondary !min-h-0 flex-1 !py-2 text-sm" onClick={() => fileRef.current?.click()} disabled={ocr.busy}>
             {ocr.busy ? <><Spinner className="!h-4 !w-4" /> Reading {Math.round(ocr.progress * 100)}%</> : <><Camera size={16} /> {receipt || receiptUrl ? 'Rescan receipt' : 'Scan receipt'}</>}
           </button>
@@ -377,7 +378,7 @@ function Form({ group, groups, existing, capture, onGroup }: { group: Group; gro
             <div className="mt-3 space-y-2">
               <div className="flex items-center gap-2">
                 <label htmlFor="repeat-until" className="text-sm text-slate-500">Ends</label>
-                <input id="repeat-until" type="date" className="input !w-auto !py-2 text-sm" value={until} min={date} onChange={(e) => setUntil(e.target.value)} />
+                <DateField id="repeat-until" aria-label="Repeat until" placeholder="No end date" clearable className="!w-auto !py-2 text-sm" value={until} min={date} onChange={setUntil} />
                 {until && <button type="button" className="text-sm font-semibold text-brand-600 dark:text-brand-300" onClick={() => setUntil('')}>Never ends</button>}
               </div>
               <p className="text-xs text-slate-500">
