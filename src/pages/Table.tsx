@@ -164,7 +164,7 @@ function Live({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; isH
         title={table.merchant}
         back={viewer.signedIn ? '/' : undefined}
         subtitle={<>Live table · code <b className="tracking-wider">{formatCode(table.code)}</b></>}
-        right={isHost && <button className="rounded-full bg-brand-600 p-2.5 text-white" onClick={() => setSheet('qr')} aria-label="Show QR code"><QrIcon size={20} /></button>}
+        right={isHost && <button className="accent-live rounded-full bg-brand-600 p-2.5 text-white" onClick={() => setSheet('qr')} aria-label="Show QR code"><QrIcon size={20} /></button>}
       />
 
       {isHost && isExpired(table) && <div className="mb-3 rounded-2xl bg-amber-50 p-3 text-sm font-medium text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">This table has expired, so guests can’t claim any more. Finish it to add the expense.</div>}
@@ -174,7 +174,7 @@ function Live({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; isH
       {isHost && order.length > 1 && (
         <div className="mt-3">
           <div className="label">Claiming for</div>
-          <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+          <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 py-1">
             {order.map((p) => (
               <button key={p} type="button" onClick={() => setActingFor(p)} className={`chip shrink-0 !py-1 !pl-1 ${who === p ? 'chip-on' : ''}`}>
                 <Avatar name={table.participants[p].name} color={color(p)} size={22} />{name(p)}

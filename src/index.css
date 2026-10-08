@@ -121,7 +121,34 @@
       active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
   }
 
-@utility btn-primary { @apply btn bg-gradient-to-r from-brand-600 to-duo-600 text-white shadow-lg shadow-brand-600/25; }
+/*
+ * Accent fills come alive: a lighter and a darker soft patch drift slowly across the fill
+ * (behind the content), so gradient buttons and selected chips shimmer between shades.
+ */
+@keyframes accent-drift {
+  0% { transform: translate(-14%, -10%) rotate(0deg) scale(1); }
+  35% { transform: translate(12%, 4%) rotate(35deg) scale(1.15); }
+  70% { transform: translate(-2%, 14%) rotate(-15deg) scale(0.92); }
+  100% { transform: translate(8%, -6%) rotate(20deg) scale(1.08); }
+}
+@utility accent-live {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -60%;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(closest-side at 32% 38%, color-mix(in oklab, var(--color-brand-300) 55%, transparent), transparent),
+      radial-gradient(closest-side at 70% 62%, color-mix(in oklab, var(--color-brand-900) 45%, transparent), transparent);
+    animation: accent-drift 10s ease-in-out infinite alternate;
+  }
+}
+
+@utility btn-primary { @apply btn accent-live bg-gradient-to-r from-brand-600 to-duo-600 text-white shadow-lg shadow-brand-600/25; }
 
 @utility btn-secondary { @apply btn bg-slate-100 text-slate-900 dark:bg-ink-800 dark:text-slate-100; }
 
@@ -132,7 +159,7 @@
       dark:ring-ink-700;
   }
 
-@utility chip-on { @apply bg-brand-600 text-white ring-brand-600; }
+@utility chip-on { @apply accent-live bg-brand-600 text-white ring-brand-600; }
 
 @utility pos { @apply text-emerald-600 dark:text-emerald-400; }
 
@@ -162,27 +189,6 @@ html[data-update-ready] .install-banner { display: none; }
 @utility animate-wave { animation: wave 2.4s ease-in-out 0.4s 3; }
 @utility animate-float { animation: float 3s ease-in-out infinite; }
 
-/* Aurora (components/Aurora.tsx): floating colour blobs, light/dark smoke patches, drifting bubbles. */
-@keyframes blob-a { 0%, 100% { transform: translate(0, 0) scale(1); } 33% { transform: translate(18%, 12%) scale(1.15); } 66% { transform: translate(6%, 28%) scale(0.95); } }
-@keyframes blob-b { 0%, 100% { transform: translate(0, 0) scale(1); } 40% { transform: translate(-20%, -14%) scale(1.1); } 75% { transform: translate(-8%, 6%) scale(0.92); } }
-@keyframes blob-c { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-30%, 20%) scale(1.25); } }
-/* Smoke: drift, swell and fade in and out, out of step with each other. */
-@keyframes smoke-a { 0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.25; } 30% { transform: translate(30%, 18%) scale(1.3); opacity: 1; } 65% { transform: translate(12%, 40%) scale(0.9); opacity: 0.55; } }
-@keyframes smoke-b { 0%, 100% { transform: translate(0, 0) scale(1.1); opacity: 0.9; } 35% { transform: translate(-28%, 22%) scale(0.85); opacity: 0.3; } 70% { transform: translate(-10%, -12%) scale(1.3); opacity: 1; } }
-@keyframes smoke-c { 0%, 100% { transform: translate(0, 0) scale(0.9); opacity: 0.4; } 50% { transform: translate(25%, -30%) scale(1.35); opacity: 1; } }
-@keyframes bubble-a { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-22px, 26px) scale(1.12); } }
-@keyframes bubble-b { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-36px, -24px) scale(0.9); } }
-@keyframes bubble-c { 0%, 100% { transform: translate(0, 0); opacity: 0.6; } 50% { transform: translate(28px, -34px); opacity: 1; } }
-@utility animate-blob-a { animation: blob-a 6.5s ease-in-out infinite; will-change: transform; }
-@utility animate-blob-b { animation: blob-b 8s ease-in-out infinite; will-change: transform; }
-@utility animate-blob-c { animation: blob-c 5.5s ease-in-out infinite; will-change: transform; }
-@utility animate-smoke-a { animation: smoke-a 5s ease-in-out infinite; will-change: transform, opacity; }
-@utility animate-smoke-b { animation: smoke-b 6s ease-in-out infinite; will-change: transform, opacity; }
-@utility animate-smoke-c { animation: smoke-c 4.2s ease-in-out infinite; will-change: transform, opacity; }
-@utility animate-bubble-a { animation: bubble-a 11s ease-in-out infinite; will-change: transform; }
-@utility animate-bubble-b { animation: bubble-b 14s ease-in-out infinite; will-change: transform; }
-@utility animate-bubble-c { animation: bubble-c 9s ease-in-out infinite; will-change: transform; }
-
 /* Progress bar with no known percentage (waiting on the AI reader). */
 @keyframes indeterminate {
   0% { transform: translateX(-100%); }
@@ -200,6 +206,8 @@ html[data-update-ready] .install-banner { display: none; }
 :root {
   --nav-pad: max(calc(env(safe-area-inset-bottom) - 14px), 6px);
   --nav-h: calc(3.4rem + var(--nav-pad));
+  /* The floating lane above the tab bar (banners, toasts, save bars): clears the raised + button. */
+  --lane: calc(var(--nav-h) + 2.75rem);
 }
 /* The notch: a 2.35rem circle around the + button with 0.5rem rounded shoulders where it meets
    the bar's top edge (the SVG path is the cut-out, subtracted from the bar). */
@@ -209,8 +217,12 @@ html[data-update-ready] .install-banner { display: none; }
   -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) exclude, var(--notch) top center / 7rem 3rem no-repeat;
 }
-/* Frosted glass inside the notch, so what scrolls under it is blurred rather than sharp. */
+/* Inside the notch: frosted, fading from the bar's colour at the bottom to clear at the top, with
+   the + button's glow. Masked to the notch shape. */
 .nav-notch-glass {
+  background:
+    radial-gradient(circle at 50% 0.55rem, color-mix(in oklab, var(--color-brand-500) 30%, transparent) 1.9rem, transparent 2.9rem),
+    linear-gradient(to top, rgb(255 255 255 / 0.85), rgb(255 255 255 / 0.35));
   -webkit-mask: var(--notch) top center / 7rem 3rem no-repeat;
   mask: var(--notch) top center / 7rem 3rem no-repeat;
 }
@@ -224,8 +236,21 @@ html[data-capture-alert] .install-banner { display: none; }
 
 /* Toasts rise from the bottom: above the tab bar on tab screens, above the home indicator elsewhere. */
 .toast-stack { bottom: calc(env(safe-area-inset-bottom) + 1rem); }
-html[data-nav] .toast-stack { bottom: calc(var(--nav-h) + 1.25rem); }
+html[data-nav] .toast-stack { bottom: var(--lane); }
 @keyframes toast-in { from { transform: translateY(1.25rem) scale(0.96); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
 @utility animate-toast { animation: toast-in 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.2); }
 /* …and above the install / update banner while one is showing. */
-html[data-nav]:has(.install-banner, [data-testid='update-banner']) .toast-stack { bottom: calc(var(--nav-h) + 7rem); }
+html[data-nav]:has(.install-banner, [data-testid='update-banner'], [data-testid='unsaved-bar'], [data-testid='capture-alert']) .toast-stack { bottom: calc(var(--lane) + 5rem); }
+
+.dark .nav-notch-glass {
+  background:
+    radial-gradient(circle at 50% 0.55rem, color-mix(in oklab, var(--color-brand-500) 35%, transparent) 1.9rem, transparent 2.9rem),
+    linear-gradient(to top, color-mix(in oklab, var(--color-ink-900) 85%, transparent), color-mix(in oklab, var(--color-ink-900) 35%, transparent));
+}
+/* The + button: a soft accent glow all round, strongest below where it sits in the notch. */
+.fab-glow {
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--color-brand-700) 35%, transparent),
+    0 8px 22px -4px color-mix(in oklab, var(--color-brand-600) 65%, transparent),
+    0 0 26px 2px color-mix(in oklab, var(--color-brand-500) 40%, transparent);
+}

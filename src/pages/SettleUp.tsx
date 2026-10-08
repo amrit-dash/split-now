@@ -184,7 +184,7 @@ export default function SettleUp() {
                     <div className="truncate font-mono text-sm">{o.value}</div>
                   </div>
                   <button className="rounded-xl p-2 hover:bg-white dark:hover:bg-ink-700" onClick={async () => { await copy(o.value); pickMethod(methodFor(o)); toast(`${o.label} copied`) }} aria-label={`Copy ${o.label}`}><Copy size={18} /></button>
-                  {o.href && <a className="rounded-xl bg-brand-600 p-2 text-white" href={o.href} target="_blank" rel="noreferrer" onClick={() => pickMethod(methodFor(o))} aria-label={`Open ${o.label}`}><ExternalLink size={18} /></a>}
+                  {o.href && <a className="accent-live rounded-xl bg-brand-600 p-2 text-white" href={o.href} target="_blank" rel="noreferrer" onClick={() => pickMethod(methodFor(o))} aria-label={`Open ${o.label}`}><ExternalLink size={18} /></a>}
                 </div>
               ))}
               <p className="text-xs text-slate-500">Pay in your UPI or banking app, then record it below. Split Now never moves money itself.</p>

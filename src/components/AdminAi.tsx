@@ -172,7 +172,7 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
         </div>
       </div>
       {dirty && (
-        <div className="animate-pop sticky bottom-[calc(var(--nav-h)+0.75rem)] z-10 flex items-center gap-2 rounded-2xl bg-brand-50 p-2 pl-3.5 shadow-lg ring-1 ring-brand-500/20 dark:bg-ink-800 dark:ring-brand-400/30" data-testid="admin-ai-dirty">
+        <div className="animate-pop sticky bottom-[var(--lane)] z-10 flex items-center gap-2 rounded-2xl bg-brand-50 p-2 pl-3.5 shadow-lg ring-1 ring-brand-500/20 dark:bg-ink-800 dark:ring-brand-400/30" data-testid="admin-ai-dirty">
           <span className="min-w-0 flex-1 text-sm font-medium text-brand-800 dark:text-brand-200">Unsaved changes</span>
           <button className="btn-ghost !min-h-0 !px-3 !py-2 text-sm" onClick={discard} disabled={saving}><RotateCcw size={16} /> Discard</button>
           <button className="btn-primary !min-h-0 !px-4 !py-2 text-sm" onClick={save} disabled={saving} data-testid="admin-ai-save">

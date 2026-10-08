@@ -86,12 +86,12 @@ export default function Home() {
         <div className="flex shrink-0 items-center gap-2.5">
           <Link to="/inbox" aria-label={inbox ? `Inbox, ${inbox} new` : 'Inbox'} data-testid="home-inbox"
             className="relative flex h-11 items-center gap-1 rounded-full px-1.5 text-slate-600 transition active:scale-95 dark:text-slate-300">
-            <Inbox size={24} strokeWidth={2} />
             {inbox > 0 && (
               <span className="animate-pop flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[11px] font-bold text-white">
                 {inbox > 99 ? '99+' : inbox}
               </span>
             )}
+            <Inbox size={24} strokeWidth={2} />
           </Link>
           <Link to="/profile" aria-label="Profile" className="rounded-full p-0.5 ring-2 ring-brand-500/40 transition active:scale-95">
             <Avatar name={profile.displayName} photoURL={profile.photoURL} color="accent" size={46} />

@@ -32,7 +32,12 @@ export function Layout() {
       <nav className="fixed inset-x-0 bottom-0 z-40">
         {/* The bar, with a round notch cut out for the + button (mask in index.css). */}
         <div aria-hidden className="nav-notch absolute inset-0 border-t border-slate-200/70 bg-white/85 backdrop-blur-xl dark:border-white/5 dark:bg-ink-900/85" />
-        <div aria-hidden className="nav-notch-glass absolute left-1/2 top-0 h-12 w-28 -translate-x-1/2 bg-white/30 backdrop-blur-md dark:bg-ink-900/30" />
+        {/* Inside the notch: the bar's own frosted fill, fading out, with the button's glow in it
+            (so it reads as a soft cradle, not a hole), and the notch's outline incl. its rounded shoulders. */}
+        <div aria-hidden className="nav-notch-glass absolute left-1/2 top-0 h-12 w-28 -translate-x-1/2 backdrop-blur-md" />
+        <svg aria-hidden viewBox="0 0 112 48" className="absolute left-1/2 top-0 h-12 w-28 -translate-x-1/2 overflow-visible text-slate-200/70 dark:text-white/5">
+          <path d="M0 0.5H10.41A8 8 0 0 1 18.41 8.14A37.6 37.6 0 1 0 93.59 8.14A8 8 0 0 1 101.59 0.5H112" fill="none" stroke="currentColor" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+        </svg>
         <div className="relative mx-auto flex max-w-2xl items-center justify-around px-2 pb-[var(--nav-pad)] pt-1.5">
           {tabs.map((t, i) =>
             t === null ? (
@@ -40,7 +45,7 @@ export function Layout() {
                 <button
                   onClick={() => setCreating(true)}
                   data-testid="nav-create"
-                  className="absolute left-1/2 top-0 flex h-[3.75rem] w-[3.75rem] -translate-x-1/2 -translate-y-[45%] items-center justify-center overflow-hidden rounded-full text-white shadow-xl shadow-brand-600/40 ring-1 ring-white/25 transition active:scale-95"
+                  className="fab-glow absolute left-1/2 top-0 flex h-[3.75rem] w-[3.75rem] -translate-x-1/2 -translate-y-[45%] items-center justify-center overflow-hidden rounded-full text-white ring-2 ring-white/70 transition active:scale-95 dark:ring-white/15"
                   aria-label="Create" aria-haspopup="dialog"
                 >
                   <Aurora size="fab" />
@@ -52,13 +57,15 @@ export function Layout() {
                 key={t.to}
                 to={t.to}
                 end={'end' in t}
-                className={({ isActive }) => `group flex w-16 flex-col items-center gap-0.5 py-0.5 text-[11px] font-semibold transition ${isActive ? 'text-brand-800 dark:text-brand-200' : 'text-slate-400'}`}
+                className={({ isActive }) => `flex w-16 flex-col items-center gap-0.5 py-1 text-[11px] transition-colors ${isActive ? 'font-bold text-brand-600 dark:text-brand-300' : 'font-semibold text-slate-400 dark:text-slate-500'}`}
               >
-                {/* Active tab: icon on a pill in a deeper theme shade. */}
-                <span className="flex h-7 w-12 items-center justify-center rounded-full transition-colors group-aria-[current=page]:bg-brand-100 group-aria-[current=page]:text-brand-700 dark:group-aria-[current=page]:bg-brand-500/25 dark:group-aria-[current=page]:text-brand-200">
-                  <t.icon size={22} strokeWidth={2.2} />
-                </span>
-                {t.label}
+                {({ isActive }) => (
+                  <>
+                    {/* Active: icon and label in the accent, a heavier stroke and a slight lift. */}
+                    <t.icon size={23} strokeWidth={isActive ? 2.6 : 2.1} className={`transition-transform ${isActive ? '-translate-y-px' : ''}`} />
+                    {t.label}
+                  </>
+                )}
               </NavLink>
             ),
           )}

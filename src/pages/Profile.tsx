@@ -23,6 +23,7 @@ import { AccountCard, RatesField } from '@/components/ProfileCards'
 import { AiSettings } from '@/components/AiSettings'
 import { AdminAi } from '@/components/AdminAi'
 import { useAiStatus } from '@/hooks/useAiStatus'
+import type { AiState } from '@/data/repo'
 import { AutoCapture } from '@/components/AutoCapture'
 import { NotificationSettings } from '@/components/NotificationSettings'
 
@@ -62,6 +63,11 @@ export default function Profile() {
   const toast = useToast()
   const install = useInstall()
   const aiStatus = useAiStatus()
+  const [aiState, setAiState] = useState<AiState | null>(null)
+  useEffect(() => (repo.mode === 'firebase' ? repo.watchAiState(user.uid, setAiState) : undefined), [user.uid])
+  const aiSummary = aiState?.hint
+    ? (aiState.lastError ? `Your key (${aiState.hint}) needs attention` : `Your key is set up (${aiState.hint})`)
+    : aiStatus?.app.images === 'available' ? 'Using Split Now’s key' : 'Gemini reads bills, statements and hard-to-read SMS'
   const [name, setName] = useState(profile.displayName)
   const [phone, setPhone] = useState(profile.phone ?? '')
   // The mobile number also fills "Phone number for UPI apps" while that field is empty or still
@@ -174,7 +180,7 @@ export default function Profile() {
       <NotificationSettings />
       <AutoCapture />
       {repo.mode === 'firebase' && (
-        <Collapsible id="ai" testId="section-ai" title="AI features" icon={<Sparkles size={20} />} summary="Gemini reads bills, statements and hard-to-read SMS">
+        <Collapsible id="ai" testId="section-ai" title="AI features" icon={<Sparkles size={20} />} summary={aiSummary}>
           <AiSettings />
         </Collapsible>
       )}
@@ -203,7 +209,7 @@ export default function Profile() {
       <button className="btn-primary mt-6 w-full" onClick={save} disabled={saving} data-testid="save-profile"><Save size={18} aria-hidden /> Save profile</button>
       {dirty && <div className="h-14" aria-hidden />}
       {dirty && (
-        <div className="animate-pop fixed inset-x-0 bottom-[calc(var(--nav-h)+2rem)] z-30 mx-auto max-w-2xl px-4" data-testid="unsaved-bar">
+        <div className="animate-pop fixed inset-x-0 bottom-[var(--lane)] z-30 mx-auto max-w-2xl px-4" data-testid="unsaved-bar">
           <div className="flex items-center gap-2 rounded-2xl bg-white p-2 pl-4 shadow-xl shadow-black/15 ring-1 ring-slate-900/10 dark:bg-ink-800 dark:ring-white/10">
             <span className="min-w-0 flex-1 truncate text-sm font-semibold">Unsaved changes</span>
             <button className="btn-ghost !min-h-0 shrink-0 !px-3 !py-2 text-sm" onClick={discard}>Discard</button>
