@@ -6,6 +6,7 @@ import type { AiState, StatementTxn } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
 import { memberOrder, myMemberId, useExpenses, useGroups } from '@/hooks/data'
 import { useAiStatus } from '@/hooks/useAiStatus'
+import { useFlag } from '@/hooks/useAppConfig'
 import { useOnline } from '@/hooks/useOnline'
 import type { Category, Group, MemberId } from '@/types'
 import { aiAvailability } from '@/lib/ai-copy'
@@ -61,6 +62,7 @@ export function StatementImport() {
   const nav = useNavigate()
   const online = useOnline()
   const status = useAiStatus()
+  const statementImport = useFlag('statementImport')
   const fileRef = useRef<HTMLInputElement>(null)
   const [prefs, setPrefs] = useState<AllPrefs>(DEFAULT_ALL_PREFS)
   const [aiState, setAiState] = useState<AiState | null>(null)
@@ -223,6 +225,9 @@ export function StatementImport() {
       setSaving(false)
     }
   }
+
+  // The admin's switch (config/app flags.statementImport) hides the whole path; the server refuses the call too.
+  if (!statementImport) return null
 
   if (!rows) {
     return (

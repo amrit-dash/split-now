@@ -5,6 +5,7 @@ import { repo } from '@/data'
 import type { AiModel, AiState, AppAiStatusValue } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
 import { useAiStatus } from '@/hooks/useAiStatus'
+import { useFlag } from '@/hooks/useAppConfig'
 import { aiAvailability } from '@/lib/ai-copy'
 import { errText } from '@/lib/errors'
 import { setAiScan } from '@/lib/ai'
@@ -59,6 +60,8 @@ export function AiSettings() {
   const [prefs, setPrefs] = useState<AllPrefs>(DEFAULT_ALL_PREFS)
   const [state, setState] = useState<AiState | null>(null)
   const status = useAiStatus()
+  // The admin's switch (config/app flags.aiImages). The server answers "off" anyway, so this only swaps the switch for the reason.
+  const aiImages = useFlag('aiImages')
   const [models, setModels] = useState<AiModel[] | null>(null)
   const [draft, setDraft] = useState('')
   const [editing, setEditing] = useState(false)
@@ -152,17 +155,24 @@ export function AiSettings() {
         >
           <div className="space-y-5">
             <div className="space-y-4 rounded-2xl bg-slate-50 p-3.5 dark:bg-ink-800/60">
-              <Row
-                title="Bills & statements"
-                testId="ai-images"
-                checked={prefs.aiImages}
-                onChange={(v) => set({ aiImages: v })}
-                text={
-                  prefs.aiImages
-                    ? 'Photos go to Gemini to read items, taxes and transactions.'
-                    : 'Read on this phone (less accurate). Statement import needs AI.'
-                }
-              />
+              {aiImages ? (
+                <Row
+                  title="Bills & statements"
+                  testId="ai-images"
+                  checked={prefs.aiImages}
+                  onChange={(v) => set({ aiImages: v })}
+                  text={
+                    prefs.aiImages
+                      ? 'Photos go to Gemini to read items, taxes and transactions.'
+                      : 'Read on this phone (less accurate). Statement import needs AI.'
+                  }
+                />
+              ) : (
+                <div data-testid="ai-images-off">
+                  <div className="font-semibold">Bills & statements</div>
+                  <div className="text-muted text-sm">Reading bills with AI is switched off for everyone right now</div>
+                </div>
+              )}
               <Row
                 title="Bank SMS the app can’t read"
                 testId="ai-sms"

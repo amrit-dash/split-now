@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowRightLeft, ChevronRight, Plus, ReceiptText, ScanLine, Users } from 'lucide-react'
+import { useFlag } from '@/hooks/useAppConfig'
 import { Sheet } from './Sheet'
 
 /**
@@ -9,6 +10,8 @@ import { Sheet } from './Sheet'
  */
 export function CreateSheet({ open, onClose, groupId }: { open: boolean; onClose: () => void; groupId?: string }) {
   const nav = useNavigate()
+  // Live tables off (config/app flags.liveTables): the tile goes too; /split and /t/* already redirect home.
+  const liveTables = useFlag('liveTables')
   const q = groupId ? `?group=${encodeURIComponent(groupId)}` : ''
   const go = (to: string) => {
     onClose()
@@ -32,13 +35,15 @@ export function CreateSheet({ open, onClose, groupId }: { open: boolean; onClose
         <ChevronRight size={20} className="shrink-0 text-white/80" aria-hidden />
       </button>
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <Tile
-          icon={<ReceiptText size={22} />}
-          title="Split by items"
-          text="Everyone taps what they had"
-          onClick={() => go(`/split${q}`)}
-          testId="create-split"
-        />
+        {liveTables && (
+          <Tile
+            icon={<ReceiptText size={22} />}
+            title="Split by items"
+            text="Everyone taps what they had"
+            onClick={() => go(`/split${q}`)}
+            testId="create-split"
+          />
+        )}
         <Tile icon={<ScanLine size={22} />} title="Scan" text="Read a bill or payment screenshot" onClick={() => go('/scan')} testId="create-scan" />
         <Tile icon={<Users size={22} />} title="New group" text="Trip, flat, dinner, anything" onClick={() => go('/groups/new')} testId="create-group" />
         <Tile

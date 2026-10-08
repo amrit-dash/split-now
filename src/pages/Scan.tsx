@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Camera, ImageUp, ListChecks, Plus, Smartphone, X } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
 import { useAiStatus } from '@/hooks/useAiStatus'
+import { useFlag } from '@/hooks/useAppConfig'
 import { useAllGroupData } from '@/hooks/data'
 import { OcrCancelled, useOcr } from '@/hooks/useOcr'
 import { useReceiptReader } from '@/hooks/useReceiptReader'
@@ -52,6 +53,8 @@ export default function Scan() {
   const libRef = useRef<HTMLInputElement>(null)
   const [params0] = useSearchParams()
   const [mode, setMode] = useState<Mode>(() => (['receipt', 'statement', 'payment'] as const).find((m) => m === params0.get('mode')) ?? 'receipt')
+  // Statement import can be switched off for everyone from the admin console; the tab goes with it.
+  const statements = useFlag('statementImport')
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string>()
   const [text, setText] = useState('')
@@ -227,11 +230,11 @@ export default function Scan() {
         onChange={switchMode}
         options={[
           { value: 'receipt', label: 'Bill' },
-          { value: 'statement', label: 'Statement' },
+          ...(statements ? [{ value: 'statement' as const, label: 'Statement' }] : []),
           { value: 'payment', label: 'Payment' },
         ]}
       />
-      {mode === 'statement' ? (
+      {mode === 'statement' && statements ? (
         <StatementImport />
       ) : (
         <>

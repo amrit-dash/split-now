@@ -5,6 +5,7 @@ import { firebaseProject, repo } from '@/data'
 import type { CaptureToken } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
 import { useGroups } from '@/hooks/data'
+import { useFlag } from '@/hooks/useAppConfig'
 import type { Group } from '@/types'
 import { copy } from '@/lib/share'
 import { errText } from '@/lib/errors'
@@ -37,6 +38,15 @@ export const ago = (at: number, now: number) => {
   return /^\d{4}-\d{2}-\d{2}$/.test(s) ? formatDate(at) : s
 }
 
+/** What Settings → Automation shows when the admin turned auto-capture off for everyone (config/app flags.autoCapture). */
+export function AutoCaptureOff() {
+  return (
+    <p className="text-muted px-1 text-sm" data-testid="section-auto-capture">
+      Auto-capture is switched off for everyone right now
+    </p>
+  )
+}
+
 /**
  * Settings → Automation: capture on/off, what gets captured, filters (minimum amount, ignore
  * keywords), per-trip pause, capture keys with "last received", recent webhook activity, and
@@ -48,6 +58,7 @@ export function AutoCapture() {
   const toast = useToast()
   const confirm = useConfirm()
   const groups = useGroups()
+  const autoCapture = useFlag('autoCapture')
   const [tokens, setTokens] = useState<CaptureToken[] | null>(null)
   const [prefs, setPrefs] = useState<AllPrefs | null>(null)
   const [log, setLog] = useState<LogRow[] | null>(null)
@@ -120,6 +131,9 @@ export function AutoCapture() {
   const lastUsed = (t: CaptureToken) => t.lastUsedAt ?? demoUse[t.token]
   const lastAny = Math.max(0, ...(tokens ?? []).map((t) => lastUsed(t) ?? 0)) || undefined
   const paused = prefs?.capturePaused ?? false
+
+  // Off for everyone: the webhook answers "paused" and the wizard redirects, so these would be dead controls.
+  if (!autoCapture) return <AutoCaptureOff />
 
   return (
     <div data-testid="section-auto-capture">
