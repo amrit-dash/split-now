@@ -18,6 +18,8 @@ import { GroupIcon } from '@/components/GroupIcon'
 import { Empty, LiveBadge, Loading, PageHeader, Segmented, formatRange } from '@/components/Misc'
 import { hasTripWindow, isLiveTrip } from '@/lib/capture'
 import { Sheet } from '@/components/Sheet'
+import { Switch } from '@/components/Switch'
+import { repo } from '@/data'
 import { useToast } from '@/components/Toast'
 import { ActivityFeed, RecentlyDeleted, TrustBadges, useUndoableDelete } from '@/components/Trust'
 import { appLocale } from '@/lib/locale'
@@ -123,16 +125,7 @@ export default function GroupDetail() {
         )}
       </div>
 
-      {!personal && hasTripWindow(group) && (
-        <Link to={`/settings/auto-capture?group=${group.id}`} className="card mb-4 flex items-center gap-3 p-4" data-testid="trip-auto-capture">
-          <MessageSquareText size={22} className="shrink-0 text-brand-600 dark:text-brand-300" />
-          <div className="min-w-0 flex-1">
-            <div className="font-semibold">Trip auto-capture</div>
-            <div className="text-xs text-slate-500">Debit SMS from {formatRange(group.startDate, group.endDate)} ask “add to {group.name}?”. Set up for this trip →</div>
-          </div>
-          <ChevronRight size={18} className="shrink-0 text-slate-300 dark:text-slate-600" />
-        </Link>
-      )}
+      {!personal && hasTripWindow(group) && <TripAutoCapture group={group} />}
 
       {!personal && (
         <div className="mb-4">
@@ -402,4 +395,35 @@ function ActivityList({ group, expenses, settlements, me, currency, name, person
 
 function fmtDay(d: string) {
   return new Date(d + 'T00:00').toLocaleDateString(appLocale(), { day: 'numeric', month: 'short' })
+}
+
+/**
+ * "Trip auto-capture" card: link to the SMS wizard scoped to this trip, and a switch that pauses
+ * capture for the trip (group.captureOff, for every member; the webhook skips the trip).
+ */
+function TripAutoCapture({ group }: { group: Group }) {
+  const toast = useToast()
+  const off = !!group.captureOff
+  const set = (on: boolean) => {
+    repo.updateGroupSettings(group, { captureOff: on ? undefined : true }).catch((e) => toast((e as Error).message, 'err'))
+    toast(on ? `Auto-capture on for ${group.name}` : `Auto-capture paused for ${group.name}`)
+  }
+  return (
+    <div className="card mb-4 p-4" data-testid="trip-auto-capture">
+      <div className="flex items-center gap-3">
+        <MessageSquareText size={22} className={`shrink-0 ${off ? 'text-slate-400' : 'text-brand-600 dark:text-brand-300'}`} />
+        <div className="min-w-0 flex-1">
+          <div className="font-semibold">Trip auto-capture{off ? ' · paused' : ''}</div>
+          <div className="text-xs text-slate-500">
+            {off ? `Debit SMS during this trip are skipped for everyone in ${group.name}.`
+              : <>Debit SMS from {formatRange(group.startDate, group.endDate)} ask “add to {group.name}?”.</>}
+          </div>
+        </div>
+        <Switch checked={!off} onChange={set} label={`Auto-capture for ${group.name}`} testId="trip-capture-switch" />
+      </div>
+      <Link to={`/settings/auto-capture?group=${group.id}`} className="mt-2 flex items-center gap-1 pl-[34px] text-sm font-semibold text-brand-600 dark:text-brand-300">
+        Set up for this trip <ChevronRight size={16} />
+      </Link>
+    </div>
+  )
 }

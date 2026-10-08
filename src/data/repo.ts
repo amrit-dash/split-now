@@ -228,6 +228,8 @@ export interface CaptureToken {
   /** scoped to one trip (see docs/AUTO_CAPTURE.md) */
   groupId?: string
   label?: string
+  /** set by the capture webhook on every request it receives with this key */
+  lastUsedAt?: number
 }
 
 export interface CaptureTokenOpts {

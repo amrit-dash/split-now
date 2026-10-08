@@ -45,18 +45,33 @@ service cloud.firestore {
           && request.resource.data.lastSeen is int;
       }
 
-      // Per-user settings. settings/notifications holds boolean push preferences.
+      // What the capture webhook did with each request (result, amount, merchant; never SMS
+      // text). Written only by the Cloud Function (Admin SDK); the owner may read and clear it.
+      match /captureLog/{entryId} {
+        allow read, delete: if signedIn() && uid() == userId;
+        allow create, update: if false;
+      }
+
+      // Per-user settings. settings/notifications holds push preferences and auto-capture
+      // settings (outsideTrips, capturePaused, minAmount, ignoreWords).
       match /settings/{settingId} {
         allow read, delete: if signedIn() && uid() == userId;
         allow create, update: if signedIn() && uid() == userId
           && (settingId != 'notifications' || (
-            request.resource.data.keys().hasOnly(['captures', 'unsorted', 'expenses', 'settlements', 'reminders', 'outsideTrips', 'updatedAt'])
+            request.resource.data.keys().hasOnly(['captures', 'unsorted', 'expenses', 'settlements', 'reminders', 'outsideTrips',
+              'capturePaused', 'minAmount', 'ignoreWords', 'updatedAt'])
             && request.resource.data.get('captures', true) is bool
             && request.resource.data.get('unsorted', false) is bool
             && request.resource.data.get('expenses', true) is bool
             && request.resource.data.get('settlements', true) is bool
             && request.resource.data.get('reminders', true) is bool
             && request.resource.data.get('outsideTrips', false) is bool
+            // Auto-capture filters (shared/capture-filters.ts; the webhook re-normalises them)
+            && request.resource.data.get('capturePaused', false) is bool
+            && request.resource.data.get('minAmount', 0) is int
+            && request.resource.data.get('minAmount', 0) >= 0 && request.resource.data.get('minAmount', 0) <= 10000000
+            && request.resource.data.get('ignoreWords', []) is list
+            && request.resource.data.get('ignoreWords', []).size() <= 20
             && request.resource.data.get('updatedAt', 0) is int));
       }
     }
@@ -189,6 +204,8 @@ service cloud.firestore {
           // members can't silently change who created the group or its invite code
           && request.resource.data.createdBy == resource.data.createdBy
           && request.resource.data.inviteCode == resource.data.inviteCode
+          // "Pause auto-capture for this trip": any member may flip it
+          && request.resource.data.get('captureOff', false) is bool
           && validMembershipChange())
         || isJoining();
       allow delete: if isMember() && resource.data.createdBy == uid();

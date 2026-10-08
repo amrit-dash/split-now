@@ -1,10 +1,18 @@
 import { maskSms, parseAmountMinor, parseBankSms } from '../../../shared/sms-parse'
+import { CAPTURE_LOG_KEEP, isLogResult, type CaptureLogEntry } from '../../../shared/capture-filters'
 import { RAW_MAX } from '../config'
 import type { CaptureRequest } from './request'
 import { sanitiseRef } from './request'
 import { parseInstant, transactionDate } from './time'
 
-export type Reason = 'bad_token' | 'not_a_debit' | 'unparsed' | 'outside_trip' | 'duplicate' | 'rate_limited' | 'bad_request'
+export type Reason =
+  | 'bad_token' | 'not_a_debit' | 'unparsed' | 'outside_trip' | 'duplicate' | 'rate_limited' | 'bad_request'
+  /** the user paused capture (Profile → Auto-capture), or paused it for the matching trip */
+  | 'paused'
+  /** an INR debit below the user's minimum amount */
+  | 'below_min'
+  /** the SMS or merchant contains one of the user's ignore keywords */
+  | 'ignored'
 
 /**
  * HTTP status per failure. "Handled, nothing to do" outcomes are 200 so automations don't
@@ -12,6 +20,7 @@ export type Reason = 'bad_token' | 'not_a_debit' | 'unparsed' | 'outside_trip' |
  */
 export const STATUS: Record<Reason, number> = {
   bad_token: 401, not_a_debit: 200, unparsed: 422, outside_trip: 200, duplicate: 200, rate_limited: 429, bad_request: 400,
+  paused: 200, below_min: 200, ignored: 200,
 }
 
 export interface Parsed {
@@ -91,3 +100,28 @@ export function captureDoc(id: string, p: Parsed, x: CaptureExtra, suggestedGrou
   }
   return Object.fromEntries(Object.entries(d).filter(([, v]) => v !== undefined))
 }
+
+/**
+ * users/{uid}/captureLog entry for one processed request: what happened and, when parsed, the
+ * amount and merchant. Never the SMS text. Undefined for outcomes that aren't logged
+ * (bad_token has no user; rate_limited and bad_request would only add noise).
+ */
+export function logEntry(
+  result: Reason | 'captured',
+  device: CaptureLogEntry['device'],
+  now: number,
+  parsed?: Pick<Parsed, 'amount' | 'currency' | 'merchant'>,
+  groupName?: string,
+): CaptureLogEntry | undefined {
+  if (!isLogResult(result)) return undefined
+  const e: CaptureLogEntry = { at: now, result, device }
+  if (parsed) {
+    e.amount = parsed.amount
+    e.currency = parsed.currency
+    if (parsed.merchant) e.merchant = parsed.merchant.slice(0, 60)
+  }
+  if (groupName) e.groupName = groupName.slice(0, 60)
+  return e
+}
+
+export { CAPTURE_LOG_KEEP }

@@ -7,6 +7,8 @@
  * The Firebase SDK is only loaded when this runs in firebase mode, and never imports '@/data'.
  */
 
+import { DEFAULT_FILTERS, resolveFilters, type CaptureFilterPrefs } from './capture-filters'
+
 export const VAPID_KEY = (import.meta.env.VITE_FCM_VAPID_KEY as string | undefined)?.trim() || ''
 
 export interface NotificationPrefs {
@@ -19,6 +21,18 @@ export interface NotificationPrefs {
   outsideTrips: boolean
 }
 export const DEFAULT_PREFS: NotificationPrefs = { captures: true, unsorted: false, expenses: true, settlements: true, reminders: true, outsideTrips: false }
+
+/** Everything in settings/notifications: push types plus the auto-capture filters. */
+export type AllPrefs = NotificationPrefs & CaptureFilterPrefs
+export const DEFAULT_ALL_PREFS: AllPrefs = { ...DEFAULT_PREFS, ...DEFAULT_FILTERS }
+
+/** Stored doc → prefs with defaults; wrongly typed fields fall back to their defaults. */
+export function resolveAllPrefs(raw: unknown): AllPrefs {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+  const out: AllPrefs = { ...DEFAULT_ALL_PREFS, ...resolveFilters(r) }
+  for (const k of Object.keys(DEFAULT_PREFS) as Array<keyof NotificationPrefs>) if (typeof r[k] === 'boolean') out[k] = r[k] as boolean
+  return out
+}
 
 /** Whether this browser can receive web push at all (and the app is configured for it). */
 export function pushSupported(): boolean {
@@ -116,22 +130,26 @@ export async function disablePush(uid: string): Promise<void> {
   }
 }
 
-/** Live notification preferences (defaults filled in). */
-export function watchPrefs(uid: string, cb: (p: NotificationPrefs) => void): () => void {
+/** Live notification + auto-capture preferences (defaults filled in). */
+export function watchPrefs(uid: string, cb: (p: AllPrefs) => void): () => void {
   let unsub: (() => void) | undefined
   let stopped = false
   sdk().then(({ db, firestore: f }) => {
     if (stopped) return
     unsub = f.onSnapshot(f.doc(db, 'users', uid, 'settings', 'notifications'),
-      (s) => cb({ ...DEFAULT_PREFS, ...(s.data() as Partial<NotificationPrefs> | undefined) }),
-      () => cb(DEFAULT_PREFS))
-  }).catch(() => cb(DEFAULT_PREFS))
+      (s) => cb(resolveAllPrefs(s.data())),
+      () => cb(DEFAULT_ALL_PREFS))
+  }).catch(() => cb(DEFAULT_ALL_PREFS))
   return () => { stopped = true; unsub?.() }
 }
 
-export async function savePrefs(uid: string, p: NotificationPrefs): Promise<void> {
+/**
+ * Merge `patch` into settings/notifications (other keys are kept, so the Notifications and
+ * Auto-capture sections can't overwrite each other's choices).
+ */
+export async function savePrefs(uid: string, patch: Partial<AllPrefs>): Promise<void> {
   const { db, firestore: f } = await sdk()
   const batch = f.writeBatch(db)
-  batch.set(f.doc(db, 'users', uid, 'settings', 'notifications'), { ...p, updatedAt: Date.now() })
+  batch.set(f.doc(db, 'users', uid, 'settings', 'notifications'), { ...patch, updatedAt: Date.now() }, { merge: true })
   batch.commit().catch((e) => console.warn('Saving notification settings failed', e))
 }
