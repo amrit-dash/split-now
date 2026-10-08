@@ -130,7 +130,9 @@ export async function generateJson(key: string, parts: GeminiPart[], schema: Sch
       headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
       body: JSON.stringify({
         contents: [{ role: 'user', parts }],
-        generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: schema, maxOutputTokens: 8192 },
+        // Only settings every Gemini generation accepts: no temperature or thinking config (2.5 uses
+        // thinkingBudget, 3.x thinkingLevel; sending the wrong one is rejected). The schema does the constraining.
+        generationConfig: { responseMimeType: 'application/json', responseSchema: schema, maxOutputTokens: 8192 },
       }),
       signal: AbortSignal.timeout(timeoutMs),
     })
