@@ -1,10 +1,12 @@
 import type { Capture, Category, Cents, Expense, Group, MemberId, OriginalAmount, Recurrence, RecurrenceFreq, SplitInput, SplitType } from '@/types'
-import { CATEGORIES, guessCategory } from './categories'
+import { CATEGORIES } from './categories'
 import { CURRENCIES, formatMoney, fromHundredths, minorDigits } from './money'
 import { convertExpense, toOriginal, type FxRate } from './fx'
 import { computeSplits, SplitError } from './splits'
 import type { ParsedReceipt } from './ocr-parse'
-import { pastCategory, sanitizeSplit, type LastSplit, type Suggestion } from './recents'
+import { suggestCategory, type MerchantMemory } from './merchants'
+import type { QuickPrefill } from './nl-expense'
+import { sanitizeSplit, type LastSplit, type Suggestion } from './recents'
 import { firstNextDate, nextAfter } from './recurrence'
 import { todayISO, uid } from './id'
 
@@ -162,40 +164,47 @@ export interface SeedArgs {
   again?: Expense
   /** a captured payment being filed */
   capture?: Capture
+  /** Quick add: what the typed or spoken line said (src/lib/nl-expense.ts) */
+  quick?: QuickPrefill
   history: Suggestion[]
   /** what this device used last time in this group (src/lib/recents.ts) */
   last: LastSplit
   lastCurrency?: string
+  /** the user's merchant → category memory (src/lib/merchants.ts) */
+  memory?: MerchantMemory | null
   today?: string
 }
 
 /**
  * Where the form starts: the expense being edited (in its original currency, with its locked
  * rate), a copy for "add again" (dated today, not repeating), a captured payment (always paid by
- * you), or a blank one seeded from what was used last time in this group, else "you paid,
- * split equally".
+ * you), a Quick add line (its amount, people and words), or a blank one seeded from what was
+ * used last time in this group, else "you paid, split equally".
  */
 export function initialDraft(a: SeedArgs): Draft {
-  const { group, order, me, existing, capture, history, last } = a
+  const { group, order, me, existing, capture, history, last, quick: q } = a
   const src = existing ?? a.again
   const today = a.today ?? todayISO()
-  const cur = src ? (src.original?.currency ?? group.currency) : capture ? (capture.currency ?? group.currency) : (a.lastCurrency ?? group.currency)
+  const cur = src ? (src.original?.currency ?? group.currency) : (q?.currency ?? capture?.currency ?? a.lastCurrency ?? group.currency)
   const paidBy = src ? (src.original ? toOriginal(src.paidBy, src.original) : src.paidBy) : {}
   const payerIds = Object.keys(paidBy)
   const multiPay = payerIds.length > 1
+  const description = src?.description ?? q?.description ?? capture?.merchant ?? ''
+  const suggested = !src && description ? suggestCategory(description, { memory: a.memory, history }) : null
+  const quickPeople = q?.participants?.filter((id) => order.includes(id))
   return {
     cur,
-    amount: src ? (src.original?.amount ?? src.amount) : capture?.amount,
-    description: src?.description ?? capture?.merchant ?? '',
-    category: src?.category ?? (capture && (pastCategory(history, capture.merchant) ?? guessCategory(capture.merchant))) ?? 'other',
-    catTouched: !!src,
-    date: existing?.date ?? capture?.date ?? today,
+    amount: src ? (src.original?.amount ?? src.amount) : (q?.amount ?? capture?.amount),
+    description,
+    category: src?.category ?? q?.category ?? suggested ?? 'other',
+    catTouched: !!src || !!q?.category,
+    date: existing?.date ?? q?.date ?? capture?.date ?? today,
     notes: src?.notes ?? capture?.note ?? '',
-    payer: payerIds[0] ?? (!capture && last.payer ? last.payer : me),
+    payer: payerIds[0] ?? (q?.payer && order.includes(q.payer) ? q.payer : !capture && !q && last.payer ? last.payer : me),
     multiPay,
     payers: multiPay ? { ...paidBy } : {},
-    splitType: src?.splitType ?? last.splitType ?? 'equal',
-    split: fromSplitInput(src?.splitInput ?? last.input ?? { selected: order }, order),
+    splitType: src?.splitType ?? (quickPeople?.length ? 'equal' : (last.splitType ?? 'equal')),
+    split: fromSplitInput(src?.splitInput ?? (quickPeople?.length ? { selected: quickPeople } : (last.input ?? { selected: order })), order),
     picked: !!src,
     repeat: existing?.recurrence?.freq ?? 'never',
     until: existing?.recurrence?.until ?? '',
@@ -208,7 +217,7 @@ export function initialDraft(a: SeedArgs): Draft {
 
 export type Action =
   | { type: 'amount'; amount?: Cents }
-  | { type: 'description'; value: string; history: Suggestion[] }
+  | { type: 'description'; value: string; history: Suggestion[]; memory?: MerchantMemory | null }
   | { type: 'category'; category: Category }
   | { type: 'currency'; cur: string }
   | { type: 'date'; date: string }
@@ -230,7 +239,7 @@ export type Action =
   /** the expense moved to another group: keep what was typed, re-seed payer and split from the new members */
   | { type: 'switchGroup'; group: Group; order: MemberId[]; me: MemberId; capture?: Capture; last: LastSplit; lastCurrency?: string }
   /** a scanned bill: total, merchant, date and (when the reader saw one) currency */
-  | { type: 'applyReceipt'; parsed: ParsedReceipt }
+  | { type: 'applyReceipt'; parsed: ParsedReceipt; memory?: MerchantMemory | null }
   /** "Assign items myself": the scanned line items become an itemised split */
   | { type: 'assignItems'; items: ParsedReceipt['items']; order: MemberId[] }
   /** a past description: repeat its category, payer and split when they still fit the group */
@@ -257,8 +266,8 @@ export function reduce(d: Draft, a: Action): Draft {
     case 'amount':
       return { ...d, amount: a.amount }
     case 'description': {
-      // This group's own habit for the description beats the keyword guess.
-      const category = d.catTouched ? d.category : (pastCategory(a.history, a.value) ?? guessCategory(a.value) ?? 'other')
+      // What the user taught the app, then this group's own habit for the description, then the keyword guess.
+      const category = d.catTouched ? d.category : (suggestCategory(a.value, { memory: a.memory, history: a.history }) ?? 'other')
       return { ...d, description: a.value, category, picked: false }
     }
     case 'category':
@@ -335,7 +344,7 @@ export function reduce(d: Draft, a: Action): Draft {
       const base = reduce(d, { type: 'currency', cur })
       // The reader gives hundredths; the group may count in whole yen.
       const total = p.total ? fromHundredths(p.total, cur) : undefined
-      const guess = p.merchant ? guessCategory(p.merchant) : null
+      const guess = p.merchant ? suggestCategory(p.merchant, { memory: a.memory }) : null
       return {
         ...base,
         amount: total ?? base.amount,

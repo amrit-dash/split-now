@@ -9,6 +9,9 @@ import { convertMinor } from '@/lib/fx'
 import { useTodayRates } from '@/hooks/useFx'
 import { categoryChartColor, seriesColor, useIsDark } from '@/lib/chartPalette'
 import { PERIODS, compute, deltaPercent, parseBasis, parsePeriod, type Basis, type Period } from '@/lib/insights'
+import { turnLine, whoseTurn } from '@/lib/fairness'
+import { useFlag } from '@/hooks/useAppConfig'
+import { budgetStatus } from '../../shared/budget'
 import { usePageTitle } from '@/lib/brand'
 import { Empty, PageHeader, Segmented } from '@/components/Misc'
 import { CardSkeleton } from '@/components/Skeleton'
@@ -37,6 +40,7 @@ export default function Insights() {
       { replace: true },
     )
   const dark = useIsDark()
+  const whoseTurnOn = useFlag('whoseTurn')
   const home = profile.currency
   const rates = useTodayRates(home, data ? data.map((d) => d.group.currency) : [])
 
@@ -77,6 +81,8 @@ export default function Insights() {
   const short = (v: number) => compact(v, cur)
   const delta = deltaPercent(stats.total, stats.prevTotal)
   const periodLabel = PERIODS.find((p) => p.value === period)!.label.toLowerCase()
+  const turn = whoseTurnOn && single && !personal ? whoseTurn({ group: single.group, expenses: single.expenses }) : null
+  const budgetState = stats.budget ? budgetStatus(stats.budget.spent, stats.budget.budget, money) : null
 
   return (
     <div>
@@ -188,7 +194,7 @@ export default function Insights() {
           {stats.budget && single && (
             <ChartCard
               title="Budget"
-              subtitle={`${money(stats.budget.spent)} of ${money(stats.budget.budget)} spent · ${stats.budget.spent > stats.budget.budget ? `${money(stats.budget.spent - stats.budget.budget)} over` : `${money(stats.budget.budget - stats.budget.spent)} left`}`}
+              subtitle={`${money(stats.budget.spent)} of ${money(stats.budget.budget)} spent · ${budgetState!.label}${budgetState!.threshold ? ` · ${budgetState!.short}` : ''}`}
             >
               {stats.budget.points.length > 1 ? (
                 <AreaChart
@@ -216,6 +222,12 @@ export default function Insights() {
                 ]}
                 rows={stats.members.map((m) => ({ key: m.id, label: m.name, values: [m.paid, m.share] }))}
               />
+              {turn && (
+                <p className="text-muted mt-3 text-xs" data-testid="insights-whose-turn">
+                  <span aria-hidden>🍽️ </span>
+                  {turnLine(turn, single!.me)} Based on who has fronted the least over the last three months; only you see this.
+                </p>
+              )}
             </ChartCard>
           )}
 

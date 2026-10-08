@@ -1,3 +1,4 @@
+import type { QuickPrefill } from './nl-expense'
 import type { ParsedPayment, ParsedReceipt } from './ocr-parse'
 
 /**
@@ -8,6 +9,8 @@ import type { ParsedPayment, ParsedReceipt } from './ocr-parse'
 export const pending: {
   receipt?: { parsed: ParsedReceipt; file: File }
   payment?: { parsed: ParsedPayment; file: File }
+  /** Quick add → /add?group=…&quick=1: the parsed line the form opens prefilled with (never saved by itself) */
+  quick?: { groupId: string; prefill: QuickPrefill }
 } = {}
 
 const CAPTURE_KEY = 'splitit-pending-capture'

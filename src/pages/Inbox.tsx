@@ -9,7 +9,9 @@ import type { Capture, Expense, Group } from '@/types'
 import { usePageTitle } from '@/lib/brand'
 import { SOURCE_LABEL, isSmsSource } from '@/lib/capture'
 import { addIgnoreWord, saveCapturePrefs, watchCapturePrefs } from '@/lib/capture-settings'
-import { guessCategory, CATEGORIES } from '@/lib/categories'
+import { CATEGORIES } from '@/lib/categories'
+import { suggestCategory } from '@/lib/merchants'
+import { useMerchantMemory } from '@/hooks/useMerchants'
 import { errText } from '@/lib/errors'
 import { markInboxSeen } from '@/lib/inbox'
 import { bulkCandidates, sumCaptures, targetGroupFor, type BulkCandidate } from '@/lib/inbox-sort'
@@ -260,9 +262,10 @@ function ApprovalRow({ e, d }: { e: Expense; d: GroupData }) {
 
 function CaptureCard({ c, groups, onNotShared, onIgnore }: { c: Capture; groups: Group[] | null; onNotShared: () => void; onIgnore?: () => void }) {
   const { profile } = useMe()
+  const memory = useMerchantMemory()
   const best = groups ? targetGroupFor(c, groups) : undefined
   const bestGroup = best ? groups?.find((g) => g.id === best) : undefined
-  const cat = guessCategory(c.merchant)
+  const cat = suggestCategory(c.merchant, { memory })
   const source = SOURCE_LABEL[c.source] ?? c.source
   return (
     <div className="card overflow-hidden" data-testid="inbox-capture">
@@ -330,6 +333,7 @@ function CaptureCard({ c, groups, onNotShared, onIgnore }: { c: Capture; groups:
 /** "Add all N to Goa trip": equal splits, you paid, everyone in. Undo removes them again. */
 function BulkSheet({ candidate, data, onClose }: { candidate: BulkCandidate<Group>; data: GroupData | undefined; onClose: () => void }) {
   const { user } = useMe()
+  const memory = useMerchantMemory()
   const toast = useToast()
   const [ticked, setTicked] = useState<Set<string>>(() => new Set(candidate.captures.map((c) => c.id)))
   const [busy, setBusy] = useState(false)
@@ -353,7 +357,15 @@ function BulkSheet({ candidate, data, onClose }: { candidate: BulkCandidate<Grou
       const now = Date.now()
       for (const [i, c] of chosen.entries()) {
         const e = buildExpense(
-          { description: c.merchant, amount: c.amount, date: c.date, category: guessCategory(c.merchant) ?? 'other', notes: c.note, payer: me, members: order },
+          {
+            description: c.merchant,
+            amount: c.amount,
+            date: c.date,
+            category: suggestCategory(c.merchant, { memory }) ?? 'other',
+            notes: c.note,
+            payer: me,
+            members: order,
+          },
           g,
           order,
           user.uid,

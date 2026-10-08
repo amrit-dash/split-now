@@ -267,6 +267,8 @@ export type ActivityType =
   | 'settlement.deleted'
   | 'settlement.restored'
   | 'settlement.purged'
+  /** written by the nudge callable (functions/src/nudge.ts): actor nudged targetId (a member id) to settle up */
+  | 'settlement.nudged'
   | 'member.added'
   | 'member.removed'
 

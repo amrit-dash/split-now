@@ -104,6 +104,44 @@ export function settlementRecordedNote(s: {
   }
 }
 
+/** A manual nudge from the person owed: opens the debtor's Settle up screen with them and the amount filled in. */
+export function nudgeNote(n: {
+  groupId: string
+  groupName: string
+  emoji?: string
+  fromName: string
+  owed: number
+  currency: string
+  debtorMemberId: string
+  senderMemberId: string
+}): Note {
+  const q = new URLSearchParams({ from: n.debtorMemberId, to: n.senderMemberId, amount: String(n.owed) })
+  return {
+    title: groupTitle(n.groupName, n.emoji),
+    body: `${clip(n.fromName, 30)} reminded you: you owe ${formatMoney(n.owed, n.currency)} in ${clip(n.groupName, 40)}. Pay in one tap.`,
+    url: `/groups/${n.groupId}/settle?${q}`,
+    tag: `nudge-${n.groupId}-${n.senderMemberId}`,
+  }
+}
+
+/** The group crossed 80% or 100% of its budget (shared/budget.ts thresholds). To every member with expense pushes on. */
+export function budgetNote(b: {
+  groupId: string
+  groupName: string
+  emoji?: string
+  threshold: number
+  spent: number
+  budget: number
+  currency: string
+}): Note {
+  const name = clip(b.groupName, 40)
+  const body =
+    b.threshold >= 100
+      ? `${name} is over its ${formatMoney(b.budget, b.currency)} budget: ${formatMoney(b.spent, b.currency)} spent so far.`
+      : `${name} has used ${Math.round((b.spent / b.budget) * 100)}% of its ${formatMoney(b.budget, b.currency)} budget (${formatMoney(b.spent, b.currency)}).`
+  return { title: groupTitle(b.groupName, b.emoji), body, url: `/insights?group=${b.groupId}`, tag: `budget-${b.groupId}-${b.threshold}`, urgency: 'normal' }
+}
+
 export function reminderNote(r: { groupId: string; groupName: string; emoji?: string; owed: number; currency: string }): Note {
   return {
     title: groupTitle(r.groupName, r.emoji),
