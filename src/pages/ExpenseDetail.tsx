@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { errText } from '@/lib/errors'
 import { SPLIT_TYPE_LABEL } from '@/lib/expense-draft'
-import { formatDate } from '@/lib/locale'
+import { formatDate, formatDateTime } from '@/lib/locale'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { CopyPlus, Pencil, Repeat, Send, Trash2 } from 'lucide-react'
 import { repo } from '@/data'
@@ -17,7 +17,6 @@ import { Avatar } from '@/components/Avatar'
 import { Empty, Loading, PageHeader } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
 import { HistoryCard, TrashedBanner, TrustBadges, TrustPanel, useUndoableDelete } from '@/components/Trust'
-import { appLocale } from '@/lib/locale'
 
 export default function ExpenseDetail() {
   const { groupId, expenseId } = useParams()
@@ -78,7 +77,7 @@ export default function ExpenseDetail() {
             <span className="font-semibold text-slate-700 dark:text-slate-200">{formatMoney(e.original.amount, e.original.currency)}</span> at {rateLabel(e.original, cur)}
           </div>
         )}
-        <div className="mt-2 text-sm text-muted">{cat.label} · {formatDate(e.date, { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })}</div>
+        <div className="mt-2 text-sm text-muted">{cat.label} · {formatDate(e.date, 'long')}</div>
         <div className="mt-1 text-xs text-muted"><span aria-hidden>{group.emoji}</span> {group.name}</div>
         <div className="mt-2 flex justify-center gap-1.5 empty:hidden"><TrustBadges e={e} group={group} /></div>
       </div>
@@ -153,7 +152,7 @@ export default function ExpenseDetail() {
       )}
       {group.type !== 'personal' && <Comments group={group} expense={e} />}
       <HistoryCard group={group} expense={e} />
-      <p className="mt-4 text-center text-xs text-muted">Added {new Date(e.createdAt).toLocaleString(appLocale())}</p>
+      <p className="mt-4 text-center text-xs text-muted">Added {formatDateTime(e.createdAt)}</p>
     </div>
   )
 }
@@ -236,7 +235,7 @@ function Comments({ group, expense }: { group: Group; expense: Expense }) {
 }
 
 function fmtDate(d: string) {
-  return formatDate(d, { day: 'numeric', month: 'short', year: 'numeric' })
+  return formatDate(d, 'dayYear')
 }
 
 function fmtWhen(ts: number) {
@@ -244,5 +243,5 @@ function fmtWhen(ts: number) {
   if (mins < 1) return 'just now'
   if (mins < 60) return `${mins}m ago`
   if (mins < 60 * 24) return `${Math.round(mins / 60)}h ago`
-  return new Date(ts).toLocaleDateString(appLocale(), { day: 'numeric', month: 'short' })
+  return formatDate(ts, 'day')
 }

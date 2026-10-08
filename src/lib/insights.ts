@@ -16,7 +16,10 @@ export type Period = '1m' | '3m' | '12m' | 'all'
 export type Basis = 'mine' | 'total'
 
 export const PERIODS: Array<{ value: Period; label: string }> = [
-  { value: '1m', label: '4 weeks' }, { value: '3m', label: '3 months' }, { value: '12m', label: '12 months' }, { value: 'all', label: 'All time' },
+  { value: '1m', label: '4 weeks' },
+  { value: '3m', label: '3 months' },
+  { value: '12m', label: '12 months' },
+  { value: 'all', label: 'All time' },
 ]
 
 /** `?p=` → period, `?b=` → basis; anything else is the default. */
@@ -33,8 +36,16 @@ export interface InsightGroup {
   me?: MemberId
 }
 
-export interface InsightRow<G extends InsightGroup = InsightGroup> { e: Expense; d: G; v: number }
-export interface SeriesPoint { key: string; label: string; value: number }
+export interface InsightRow<G extends InsightGroup = InsightGroup> {
+  e: Expense
+  d: G
+  v: number
+}
+export interface SeriesPoint {
+  key: string
+  label: string
+  value: number
+}
 
 export interface InsightStats<G extends InsightGroup = InsightGroup> {
   total: number
@@ -66,10 +77,16 @@ export const dayNumber = (iso: string) => {
 
 /** The value an expense contributes: the whole amount, or your share (always the whole for a personal wallet). */
 function contribution(e: Expense, d: InsightGroup, basis: Basis): number {
-  return basis === 'total' || d.group.type === 'personal' ? e.amount : d.me ? e.splits[d.me] ?? 0 : 0
+  return basis === 'total' || d.group.type === 'personal' ? e.amount : d.me ? (e.splits[d.me] ?? 0) : 0
 }
 
-export function compute<G extends InsightGroup>(scope: G[], period: Period, basis: Basis, toHome?: (v: number, d: G) => number, today = todayISO()): InsightStats<G> {
+export function compute<G extends InsightGroup>(
+  scope: G[],
+  period: Period,
+  basis: Basis,
+  toHome?: (v: number, d: G) => number,
+  today = todayISO(),
+): InsightStats<G> {
   const days = periodDays(period)
   const cutoff = days === Infinity ? '' : addDaysISO(today, -(days - 1))
   const prevCutoff = days === Infinity ? '' : addDaysISO(cutoff, -days)
@@ -81,8 +98,9 @@ export function compute<G extends InsightGroup>(scope: G[], period: Period, basi
     for (const e of d.expenses) {
       if (e.date > today) continue
       const v = conv(contribution(e, d, basis), d)
-      if (e.date >= cutoff) { if (v > 0) rows.push({ e, d, v }) }
-      else if (days !== Infinity && e.date >= prevCutoff && v > 0) prevTotal += v
+      if (e.date >= cutoff) {
+        if (v > 0) rows.push({ e, d, v })
+      } else if (days !== Infinity && e.date >= prevCutoff && v > 0) prevTotal += v
     }
   }
   const total = rows.reduce((s, r) => s + r.v, 0)
@@ -93,7 +111,8 @@ export function compute<G extends InsightGroup>(scope: G[], period: Period, basi
     const k = chartFolds(r.e.category) ? 'other-fold' : r.e.category
     byCat.set(k, (byCat.get(k) ?? 0) + r.v)
   }
-  const cats = [...byCat].map(([cat, value]) => ({ cat, value, label: cat === 'other-fold' ? 'Other' : CATEGORIES[cat].label }))
+  const cats = [...byCat]
+    .map(([cat, value]) => ({ cat, value, label: cat === 'other-fold' ? 'Other' : CATEGORIES[cat].label }))
     .sort((a, b) => (a.cat === 'other-fold' ? 1 : b.cat === 'other-fold' ? -1 : b.value - a.value))
 
   // Time series: four weeks for the short period, else calendar months from the first expense.
@@ -107,9 +126,13 @@ export function compute<G extends InsightGroup>(scope: G[], period: Period, basi
     const at = new Map<string, SeriesPoint>()
     for (let k = start; k <= end; k = nextMonth(k)) {
       const p = { key: k, label: formatDate(`${k}-01`, spansYears ? { month: 'short', year: '2-digit' } : { month: 'short' }), value: 0 }
-      at.set(k, p); series.push(p)
+      at.set(k, p)
+      series.push(p)
     }
-    for (const r of rows) { const s = at.get(ym(r.e.date)); if (s) s.value += r.v }
+    for (const r of rows) {
+      const s = at.get(ym(r.e.date))
+      if (s) s.value += r.v
+    }
   } else {
     const todayN = dayNumber(today)
     const weeks = 4
@@ -130,8 +153,12 @@ export function compute<G extends InsightGroup>(scope: G[], period: Period, basi
     const d = scope[0]
     const inPeriod = d.expenses.filter((e) => e.date >= cutoff && e.date <= today)
     for (const [id, m] of Object.entries(d.group.members)) {
-      let paid = 0, share = 0
-      for (const e of inPeriod) { paid += e.paidBy[id] ?? 0; share += e.splits[id] ?? 0 }
+      let paid = 0,
+        share = 0
+      for (const e of inPeriod) {
+        paid += e.paidBy[id] ?? 0
+        share += e.splits[id] ?? 0
+      }
       if (paid || share) members.push({ id, name: id === d.me ? 'You' : m.name.split(' ')[0], paid, share })
     }
     members.sort((a, b) => b.paid + b.share - (a.paid + a.share))
@@ -153,7 +180,12 @@ export function compute<G extends InsightGroup>(scope: G[], period: Period, basi
         by.set(key, p)
       }
     }
-    people.push(...[...by].map(([key, p]) => ({ key, ...p })).sort((a, b) => b.value - a.value).slice(0, 5))
+    people.push(
+      ...[...by]
+        .map(([key, p]) => ({ key, ...p }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 5),
+    )
   }
 
   // Budget run-up: cumulative group spend by date over the group's whole life (budgets are per group, not per period).
@@ -168,12 +200,22 @@ export function compute<G extends InsightGroup>(scope: G[], period: Period, basi
     const startIso = d.group.startDate && (!dates[0] || d.group.startDate < dates[0]) ? d.group.startDate : undefined
     if (startIso) points.push({ key: startIso, label: formatDate(startIso), value: 0 })
     let run = 0
-    for (const date of dates) { run += byDate.get(date)!; points.push({ key: date, label: formatDate(date), value: run }) }
+    for (const date of dates) {
+      run += byDate.get(date)!
+      points.push({ key: date, label: formatDate(date), value: run })
+    }
     budget = { budget: budgetOf, spent: run, points }
   }
 
   return {
-    total, count: rows.length, prevTotal: days === Infinity ? null : prevTotal, cats, bucket, series, members, people,
+    total,
+    count: rows.length,
+    prevTotal: days === Infinity ? null : prevTotal,
+    cats,
+    bucket,
+    series,
+    members,
+    people,
     top: [...rows].sort((a, b) => b.v - a.v).slice(0, 5),
     budget,
   }

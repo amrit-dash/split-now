@@ -37,7 +37,7 @@ export function MoreCard({ draft, dispatch, existing, errors }: { draft: Draft; 
           </div>
           {repeats && (
             <p className="mt-3 text-xs text-muted">
-              Next copy on {next ? formatDate(next, { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}. Copies are added automatically when anyone in the group opens the app.
+              Next copy on {next ? formatDate(next, 'dayYear') : '—'}. Copies are added automatically when anyone in the group opens the app.
             </p>
           )}
         </>

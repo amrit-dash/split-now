@@ -88,6 +88,64 @@ describe('membership changes by members', () => {
   })
 })
 
+describe('group shape and settings', () => {
+  it('rejects unknown keys, oversized strings, unknown types and bad currencies', async () => {
+    await assertFails(updateDoc(g1('bob'), { junk: 'x'.repeat(10) }))
+    await assertFails(updateDoc(g1('bob'), { name: 'x'.repeat(81) }))
+    await assertFails(updateDoc(g1('bob'), { name: '' }))
+    await assertFails(updateDoc(g1('bob'), { type: 'banana' }))
+    await assertFails(updateDoc(g1('bob'), { currency: 'rupees' }))
+    await assertFails(updateDoc(g1('bob'), { budget: 'lots' }))
+    await assertFails(updateDoc(g1('bob'), { startDate: '7 Oct' }))
+    await assertSucceeds(updateDoc(g1('bob'), { type: 'outing', currency: 'INR', budget: 500000, startDate: '2026-10-05', endDate: '2026-10-10', updatedAt: 2 }))
+  })
+  it('any member may archive and unarchive; it must be a boolean', async () => {
+    await assertSucceeds(updateDoc(g1('bob'), { archived: true, updatedAt: 2 }))
+    await assertSucceeds(updateDoc(g1('alice'), { archived: false, updatedAt: 3 }))
+    await assertFails(updateDoc(g1('bob'), { archived: 'yes' }))
+  })
+  it('only the creator changes the approval policy', async () => {
+    await assertFails(updateDoc(g1('bob'), { requireApproval: true, approvalThreshold: 5000 }))
+    await assertSucceeds(updateDoc(g1('alice'), { requireApproval: true, approvalThreshold: 5000, updatedAt: 2 }))
+    await assertFails(updateDoc(g1('bob'), { requireApproval: false }))
+    await assertFails(updateDoc(g1('bob'), { approvalThreshold: 1_000_000_000 }))
+    await assertSucceeds(updateDoc(g1('bob'), { name: 'Still editable', updatedAt: 3 }))
+    await assertSucceeds(updateDoc(g1('alice'), { requireApproval: deleteField(), approvalThreshold: deleteField(), updatedAt: 4 }))
+  })
+  it('caps the members map and memberUids at 60 on create', async () => {
+    const many = Object.fromEntries(Array.from({ length: 61 }, (_, i) => [`p${i}`, { name: `P${i}`, color: '#000' }]))
+    await assertFails(setDoc(doc(db('carol'), 'groups/big'), { ...group, id: 'big', memberUids: ['carol'], members: { carol: { name: 'C', uid: 'carol', color: '#000' }, ...many }, createdBy: 'carol' }))
+    const fewer = Object.fromEntries(Array.from({ length: 58 }, (_, i) => [`p${i}`, { name: `P${i}`, color: '#000' }]))
+    await assertSucceeds(setDoc(doc(db('carol'), 'groups/ok'), { ...group, id: 'ok', memberUids: ['carol'], members: { carol: { name: 'C', uid: 'carol', color: '#000' }, ...fewer }, createdBy: 'carol' }))
+  })
+})
+
+describe('leaving a group', () => {
+  it('the whole leave batch commits: group update, invite tidy-up, profile delete and the activity entry', async () => {
+    const d = db('bob')
+    const b = writeBatch(d)
+    b.set(doc(d, 'groups/g1/activity/leave1'), { type: 'member.removed', actorUid: 'bob', actorName: 'Bob', targetId: 'bob', summary: 'Bob left the group', createdAt: 2 })
+    b.update(doc(d, 'groups/g1'), { 'members.bob': deleteField(), memberUids: arrayRemove('bob'), memberOpId: 'bob', updatedAt: 2 })
+    b.set(doc(d, 'invites/ABCD2345'), { groupId: 'g1', placeholders: { bob: deleteField() } }, { merge: true })
+    b.delete(doc(d, 'groups/g1/profiles/bob'))
+    await assertSucceeds(b.commit())
+  })
+  it('the leaver may only remove placeholders from the invite, never add or rename', async () => {
+    const d = db('bob')
+    const b = writeBatch(d)
+    b.update(doc(d, 'groups/g1'), { 'members.bob': deleteField(), memberUids: arrayRemove('bob'), memberOpId: 'bob', updatedAt: 2 })
+    b.set(doc(d, 'invites/ABCD2345'), { groupId: 'g1', placeholders: { p_cat: 'Hijacked' } }, { merge: true })
+    await assertFails(b.commit())
+    const b2 = writeBatch(d)
+    b2.update(doc(d, 'groups/g1'), { 'members.bob': deleteField(), memberUids: arrayRemove('bob'), memberOpId: 'bob', updatedAt: 2 })
+    b2.set(doc(d, 'invites/ABCD2345'), { groupId: 'g1', groupName: 'Renamed' }, { merge: true })
+    await assertFails(b2.commit())
+  })
+  it('a non-member cannot use the leaver path', async () => {
+    await assertFails(setDoc(doc(db('mallory'), 'invites/ABCD2345'), { groupId: 'g1', placeholders: { p_cat: deleteField() } }, { merge: true }))
+  })
+})
+
 describe('joining', () => {
   const join = (uid: string, memberId: string) =>
     updateDoc(doc(db(uid), 'groups/g1'), {
@@ -190,6 +248,20 @@ describe('expense & settlement validation', () => {
     await assertFails(setDoc(e('bob', 'e3'), { ...expense, id: 'e3', paidBy: { ghost: 900 } }))
     await assertFails(setDoc(e('bob', 'e4'), { ...expense, id: 'e4', splits: { alice: 450, ghost: 450 } }))
   })
+  it('a receipt must be an https URL and a path inside this group’s folder', async () => {
+    await assertSucceeds(setDoc(e('bob', 'r1'), { ...expense, id: 'r1', receiptUrl: 'https://firebasestorage.googleapis.com/v0/b/x/o/receipts%2Fg1%2Fr1-bob.jpg?alt=media&token=t', receiptPath: 'receipts/g1/r1-bob.jpg' }))
+    await assertFails(setDoc(e('bob', 'r2'), { ...expense, id: 'r2', receiptUrl: 'javascript:alert(1)' }))
+    await assertFails(setDoc(e('bob', 'r3'), { ...expense, id: 'r3', receiptPath: 'avatars/alice/photo.jpg' }))
+    await assertFails(setDoc(e('bob', 'r4'), { ...expense, id: 'r4', receiptPath: 'receipts/g2/r4.jpg' }))
+    await assertFails(setDoc(e('bob', 'r5'), { ...expense, id: 'r5', receiptPath: 'receipts/g1/../avatars/x.jpg' }))
+  })
+  it('caps text fields and money maps', async () => {
+    await assertFails(setDoc(e('bob', 't1'), { ...expense, id: 't1', description: 'x'.repeat(201) }))
+    await assertFails(setDoc(e('bob', 't2'), { ...expense, id: 't2', notes: 'x'.repeat(2001) }))
+    await assertFails(setDoc(e('bob', 't3'), { ...expense, id: 't3', description: 42 }))
+    await assertSucceeds(setDoc(e('bob', 't4'), { ...expense, id: 't4', notes: 'Tip included' }))
+    await assertFails(setDoc(e('bob', 't5'), { ...expense, id: 't5', paidBy: 'alice' }))
+  })
   const st = { id: 's1', groupId: 'g1', from: 'bob', to: 'alice', amount: 500, method: 'Cash', date: '2026-01-01', createdBy: 'bob', createdAt: 1 }
   const s = (uid: string, id = 's1') => doc(db(uid), `groups/g1/settlements/${id}`)
   it('settlement parties must be members; author is the writer', async () => {
@@ -198,5 +270,10 @@ describe('expense & settlement validation', () => {
     await assertFails(setDoc(s('bob', 's3'), { ...st, id: 's3', from: 'ghost' }))
     await assertFails(setDoc(s('bob', 's4'), { ...st, id: 's4', createdBy: 'alice' }))
     await assertFails(updateDoc(s('alice'), { createdBy: 'alice' }))
+  })
+  it('settlement method and note are short strings', async () => {
+    await assertSucceeds(setDoc(s('bob', 's5'), { ...st, id: 's5', method: 'waived', note: 'Rounded off the rest' }))
+    await assertFails(setDoc(s('bob', 's6'), { ...st, id: 's6', method: 'x'.repeat(41) }))
+    await assertFails(setDoc(s('bob', 's7'), { ...st, id: 's7', note: 'x'.repeat(501) }))
   })
 })

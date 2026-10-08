@@ -39,11 +39,19 @@ export function accentPreset(id: string | null | undefined): AccentPreset {
 }
 
 function read(key: string): string | null {
-  try { return localStorage.getItem(key) } catch { return null }
+  try {
+    return localStorage.getItem(key)
+  } catch {
+    return null
+  }
 }
 
 function write(key: string, value: string) {
-  try { localStorage.setItem(key, value) } catch { /* ignore */ }
+  try {
+    localStorage.setItem(key, value)
+  } catch {
+    /* ignore */
+  }
 }
 
 /** The stored accent, or the default when nothing (or a retired preset) is stored. */
@@ -97,7 +105,9 @@ export function setDuo(on: boolean) {
 
 let iconSvg: Promise<string | null> | undefined
 function loadIconSvg(): Promise<string | null> {
-  iconSvg ??= fetch('/favicon.svg').then((r) => (r.ok ? r.text() : null)).catch(() => null)
+  iconSvg ??= fetch('/favicon.svg')
+    .then((r) => (r.ok ? r.text() : null))
+    .catch(() => null)
   return iconSvg
 }
 
@@ -118,7 +128,8 @@ export async function applyIconTint(): Promise<void> {
   const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
   if (!link) return
   const cs = getComputedStyle(document.documentElement)
-  const from = cs.getPropertyValue('--color-brand-600').trim(), to = cs.getPropertyValue('--color-duo-600').trim()
+  const from = cs.getPropertyValue('--color-brand-600').trim(),
+    to = cs.getPropertyValue('--color-duo-600').trim()
   if (!from || !to) return // stylesheet not loaded yet; the next applyAccent() will get it
   const tinted = tintIconSvg((await loadIconSvg()) ?? '', from, to)
   if (tinted) link.href = `data:image/svg+xml;utf8,${encodeURIComponent(tinted)}`

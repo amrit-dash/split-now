@@ -42,11 +42,14 @@ const markOnly = head + body.replace(RECT, '')
  */
 function whiten(s) {
   const KEEP = /<(mask|clipPath)\b[\s\S]*?<\/\1>/g
-  const paint = (part) => part
-    .replace(/\b(fill|stroke)\s*=\s*(["'])(?!none\2)[^"']*\2/g, '$1=$2#fff$2')
-    .replace(/\b(fill|stroke)\s*:\s*(?!none\b)[^;"']+/g, '$1:#fff')
-  let outp = '', last = 0
-  for (const m of s.matchAll(KEEP)) { outp += paint(s.slice(last, m.index)) + m[0]; last = m.index + m[0].length }
+  const paint = (part) =>
+    part.replace(/\b(fill|stroke)\s*=\s*(["'])(?!none\2)[^"']*\2/g, '$1=$2#fff$2').replace(/\b(fill|stroke)\s*:\s*(?!none\b)[^;"']+/g, '$1:#fff')
+  let outp = '',
+    last = 0
+  for (const m of s.matchAll(KEEP)) {
+    outp += paint(s.slice(last, m.index)) + m[0]
+    last = m.index + m[0].length
+  }
   outp += paint(s.slice(last))
   // Shapes with no fill of their own inherit from the root: make that white too.
   return outp.replace(/<svg\b(?![^>]*\bfill=)/, '<svg fill="#fff"')
@@ -63,7 +66,9 @@ async function brand700() {
     const css = await read('../src/index.css')
     const m = css.match(/@theme static\s*\{[^}]*?--color-brand-700:\s*([^;]+);/s)
     if (m) return m[1].trim()
-  } catch { /* fall through */ }
+  } catch {
+    /* fall through */
+  }
   return '#6d28d9'
 }
 
@@ -78,12 +83,18 @@ const render = (s, size) => sharp(Buffer.from(s), { density: 72 * Math.max(1, si
  */
 async function fitMark(s, size, fit, background = { r: 0, g: 0, b: 0, alpha: 0 }) {
   const big = await render(s, 2048).png().toBuffer()
-  const { data, info } = await sharp(big).trim({ background: { r: 0, g: 0, b: 0, alpha: 0 }, threshold: 1 }).png().toBuffer({ resolveWithObject: true })
+  const { data, info } = await sharp(big)
+    .trim({ background: { r: 0, g: 0, b: 0, alpha: 0 }, threshold: 1 })
+    .png()
+    .toBuffer({ resolveWithObject: true })
   const diag = Math.hypot(info.width, info.height)
   const scale = fit / diag
-  const w = Math.max(1, Math.round(info.width * scale)), h = Math.max(1, Math.round(info.height * scale))
+  const w = Math.max(1, Math.round(info.width * scale)),
+    h = Math.max(1, Math.round(info.height * scale))
   const mark = await sharp(data).resize(w, h, { fit: 'fill' }).png().toBuffer()
-  return sharp({ create: { width: size, height: size, channels: 4, background } }).composite([{ input: mark, gravity: 'centre' }]).png()
+  return sharp({ create: { width: size, height: size, channels: 4, background } })
+    .composite([{ input: mark, gravity: 'centre' }])
+    .png()
 }
 
 // --- Outputs ------------------------------------------------------------------------------

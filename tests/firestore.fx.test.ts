@@ -13,7 +13,7 @@ const group = {
   id: 'g1', name: 'Bali', emoji: '🏝️', type: 'trip', currency: 'AUD', simplify: true,
   memberUids: ['alice'],
   members: { alice: { name: 'Alice', uid: 'alice', color: '#000' }, p_bob: { name: 'Bob', color: '#111' } },
-  inviteCode: 'ABC234', createdBy: 'alice', createdAt: 1, updatedAt: 1,
+  inviteCode: 'ABCD2345', createdBy: 'alice', createdAt: 1, updatedAt: 1,
 }
 // ฿1,200.00 at 0.04269 → A$51.23, split in AUD.
 const original = { currency: 'THB', amount: 120000, rate: 0.04269, rateDate: '2026-10-07', source: 'ecb' }

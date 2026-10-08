@@ -12,7 +12,7 @@ const group = {
   id: 'g1', name: 'Trip', emoji: '🏝️', type: 'trip', currency: 'AUD', simplify: true,
   memberUids: ['alice'],
   members: { alice: { name: 'Alice', uid: 'alice', color: '#000' }, p_bob: { name: 'Bob', color: '#111' } },
-  inviteCode: 'ABC234', createdBy: 'alice', createdAt: 1, updatedAt: 1,
+  inviteCode: 'ABCD2345', createdBy: 'alice', createdAt: 1, updatedAt: 1,
 }
 
 beforeAll(async () => {
@@ -41,6 +41,10 @@ describe('groups', () => {
     await assertFails(setDoc(doc(db('carol'), 'groups/g3'), { ...group, id: 'g3', memberUids: ['alice'], createdBy: 'carol' }))
   })
 
+  it('invite codes must be at least 8 characters', async () => {
+    await assertFails(setDoc(doc(db('carol'), 'groups/g2'), { ...group, id: 'g2', memberUids: ['carol'], createdBy: 'carol', inviteCode: 'ABC234' }))
+  })
+
   it('members cannot change the invite code', async () => {
     await assertFails(updateDoc(doc(db('alice'), 'groups/g1'), { inviteCode: 'ZZZZZZ' }))
     await assertSucceeds(updateDoc(doc(db('alice'), 'groups/g1'), { name: 'Renamed' }))
@@ -56,24 +60,24 @@ describe('joining', () => {
     })
 
   it('can claim a placeholder with the right code', async () => {
-    await assertSucceeds(join('bob', 'ABC234', 'p_bob'))
+    await assertSucceeds(join('bob', 'ABCD2345', 'p_bob'))
   })
   it('can join as a new member', async () => {
-    await assertSucceeds(join('bob', 'ABC234', 'bob'))
+    await assertSucceeds(join('bob', 'ABCD2345', 'bob'))
   })
   it('rejects a wrong code', async () => {
-    await assertFails(join('bob', 'WRONG1', 'p_bob'))
+    await assertFails(join('bob', 'WRONG123', 'p_bob'))
   })
   it('cannot take over a claimed member', async () => {
-    await assertFails(join('mallory', 'ABC234', 'alice'))
+    await assertFails(join('mallory', 'ABCD2345', 'alice'))
   })
   it('cannot change other fields while joining', async () => {
-    await assertFails(join('bob', 'ABC234', 'p_bob', { name: 'Hijacked' }))
+    await assertFails(join('bob', 'ABCD2345', 'p_bob', { name: 'Hijacked' }))
   })
   it('cannot add someone else’s uid', async () => {
     await assertFails(updateDoc(doc(db('bob'), 'groups/g1'), {
       memberUids: arrayUnion('bob', 'mallory'), 'members.p_bob': { name: 'Bob', uid: 'bob', color: '#111' },
-      joinCode: 'ABC234', joinMemberId: 'p_bob',
+      joinCode: 'ABCD2345', joinMemberId: 'p_bob',
     }))
   })
 })

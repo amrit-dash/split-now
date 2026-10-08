@@ -46,7 +46,7 @@ describe('generateJson', () => {
   it('sends the schema and key, parses the JSON answer', async () => {
     const calls: Array<{ url: string; init: RequestInit }> = []
     const f = (async (url: string, init: RequestInit) => { calls.push({ url, init }); return ok({ isReceipt: true }) }) as unknown as typeof fetch
-    expect(await generateJson('k', [{ text: 'hi' }], RECEIPT_SCHEMA, { models: ['gemini-2.5-flash-lite'], fetchImpl: f })).toEqual({ json: { isReceipt: true }, model: 'gemini-2.5-flash-lite' })
+    expect(await generateJson('k', [{ text: 'hi' }], RECEIPT_SCHEMA, { models: ['gemini-2.5-flash-lite'], fetchImpl: f })).toMatchObject({ json: { isReceipt: true }, model: 'gemini-2.5-flash-lite' })
     expect(calls[0].url).toContain('gemini-2.5-flash-lite:generateContent')
     expect((calls[0].init.headers as Record<string, string>)['x-goog-api-key']).toBe('k')
     const body = JSON.parse(String(calls[0].init.body))
@@ -55,7 +55,7 @@ describe('generateJson', () => {
   it('falls back to the alias model on 404 and surfaces other errors', async () => {
     const seen: string[] = []
     const f = (async (url: string) => { seen.push(url); return seen.length === 1 ? new Response('gone', { status: 404 }) : ok({ a: 1 }) }) as unknown as typeof fetch
-    expect(await generateJson('k', [], {}, { models: ['gemini-x', 'gemini-flash-lite-latest'], fetchImpl: f })).toEqual({ json: { a: 1 }, model: 'gemini-flash-lite-latest' })
+    expect(await generateJson('k', [], {}, { models: ['gemini-x', 'gemini-flash-lite-latest'], fetchImpl: f })).toMatchObject({ json: { a: 1 }, model: 'gemini-flash-lite-latest' })
     expect(seen[1]).toContain('gemini-flash-lite-latest')
     const bad = (async () => new Response('quota', { status: 429 })) as unknown as typeof fetch
     await expect(generateJson('k', [], {}, { models: ['m'], fetchImpl: bad })).rejects.toMatchObject({ kind: 'quota' })

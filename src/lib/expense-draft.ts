@@ -119,7 +119,7 @@ export function toSplitInput(s: SplitDraft, t: SplitType): SplitInput {
 const hasEntries = (r: object) => Object.values(r).some((v) => v !== undefined)
 
 /** When switching split type, pre-fill sensible defaults from what's already chosen. */
-export function seedSplit(s: SplitDraft, t: SplitType, order: MemberId[], amount: Cents | undefined): SplitDraft {
+export function seedSplit(s: SplitDraft, t: SplitType, order: MemberId[], amount: Cents | undefined, cur?: string): SplitDraft {
   const sel = s.selected.length ? s.selected : [...order]
   switch (t) {
     case 'equal':
@@ -136,7 +136,7 @@ export function seedSplit(s: SplitDraft, t: SplitType, order: MemberId[], amount
     }
     case 'exact': {
       if (hasEntries(s.exact) || !amount || amount <= 0) return { ...s, selected: sel }
-      return { ...s, selected: sel, exact: computeSplits(amount, 'equal', { selected: sel }, order) }
+      return { ...s, selected: sel, exact: computeSplits(amount, 'equal', { selected: sel }, order, cur) }
     }
     case 'itemized':
       return s.items.length ? s : { ...s, selected: sel, items: [newItem({ amount: amount && amount > 0 ? amount : undefined, members: [...sel] })] }
@@ -272,7 +272,7 @@ export function reduce(d: Draft, a: Action): Draft {
       // Turning it on starts from the single payer covering the whole amount.
       return a.on === d.multiPay ? d : { ...d, multiPay: a.on, payers: a.on ? (d.amount ? { [d.payer]: d.amount } : {}) : {} }
     case 'payerAmount': return { ...d, payers: setEntry(d.payers, a.id, a.amount) }
-    case 'splitType': return { ...d, splitType: a.splitType, split: seedSplit(d.split, a.splitType, a.order, d.amount) }
+    case 'splitType': return { ...d, splitType: a.splitType, split: seedSplit(d.split, a.splitType, a.order, d.amount, d.cur) }
     case 'selected': return { ...d, split: { ...d.split, selected: [...a.ids] } }
     case 'toggleMember': {
       const sel = d.split.selected
@@ -350,7 +350,8 @@ export function selectSplits(d: Draft, order: MemberId[], me: MemberId, personal
   if (!validAmount(d)) return {}
   if (personal) return { splits: { [me]: d.amount } }
   try {
-    return { splits: computeSplits(d.amount, d.splitType, toSplitInput(d.split, d.splitType), order) }
+    // The message for a short exact split is formatted in the currency being typed.
+    return { splits: computeSplits(d.amount, d.splitType, toSplitInput(d.split, d.splitType), order, d.cur) }
   } catch (e) {
     return { error: e instanceof SplitError ? e.message : String(e) }
   }

@@ -7,7 +7,10 @@ export function useWidth<T extends HTMLElement>(fallback = 320) {
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
-    const read = () => { const w = el.getBoundingClientRect().width; if (w > 0) setWidth(w) }
+    const read = () => {
+      const w = el.getBoundingClientRect().width
+      if (w > 0) setWidth(w)
+    }
     read()
     if (typeof ResizeObserver !== 'function') return
     const ro = new ResizeObserver(read)
