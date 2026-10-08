@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Camera, Check, ChevronDown, History, Minus, Plus, QrCode, Repeat, Search, Trash2, Users, Wallet, X } from 'lucide-react'
+import { AlertCircle, Camera, Check, CheckCircle2, ChevronDown, History, Minus, Plus, QrCode, Repeat, Search, Trash2, UserPlus, Users, Wallet, X, type LucideIcon } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { memberOrder, myMemberId, useCaptures, useExpenses, useGroup, useGroups } from '@/hooks/data'
 import { useOcr } from '@/hooks/useOcr'
 import type { Capture, Category, Expense, Group, MemberId, OriginalAmount, ReceiptItem, Recurrence, RecurrenceFreq, SplitInput, SplitType } from '@/types'
 import { CATEGORIES, guessCategory } from '@/lib/categories'
-import { CURRENCIES, centsToInput, formatMoney, fromHundredths, parseMoney } from '@/lib/money'
+import { CURRENCIES, centsToInput, currencySymbol, formatMoney, fromHundredths, parseMoney } from '@/lib/money'
 import { convertExpense, convertMinor, getRate, lastCurrency, parseRate, rateLabel, rememberCurrency, toOriginal, type FxRate } from '@/lib/fx'
 import { computeSplits, portion, SplitError } from '@/lib/splits'
 import { parseReceipt, type ParsedReceipt } from '@/lib/ocr-parse'
@@ -81,8 +81,8 @@ function NoGroups() {
       <Empty emoji="👀" title="Create a group first">
         Expenses live inside a group, a 1:1 friend, or your personal wallet.
         <div className="mt-4 flex justify-center gap-2">
-          <button className="btn-primary" onClick={() => nav('/groups/new')}><Users size={18} aria-hidden /> New group</button>
-          <button className="btn-secondary" onClick={() => nav('/groups/new?type=personal')}><Wallet size={18} aria-hidden /> Personal</button>
+          <button className="btn-primary" onClick={() => nav('/groups/new?next=add')}><Users size={18} aria-hidden /> New group</button>
+          <button className="btn-secondary" onClick={() => nav('/groups/new?type=personal&next=add')}><Wallet size={18} aria-hidden /> Personal</button>
         </div>
         <button className="btn-secondary mx-auto mt-2 flex" onClick={() => nav('/split', { replace: true })} data-testid="nogroups-split"><QrCode size={18} /> Split a bill by items</button>
         <p className="mt-2 text-xs text-slate-400">Out to eat? Scan the bill and everyone taps what they had, no group needed.</p>
@@ -333,7 +333,7 @@ function Form({ group, groups, existing, again, capture, history, onGroup }: {
       <header className="sticky top-0 z-30 -mx-4 flex items-center justify-between bg-slate-50/85 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] backdrop-blur-xl dark:bg-ink-950/85">
         <button onClick={() => nav(-1)} className="-ml-2 rounded-full p-2" aria-label="Cancel"><X size={24} /></button>
         <div className="font-bold">{existing ? 'Edit expense' : capture ? 'Captured payment' : 'Add expense'}</div>
-        <button onClick={save} disabled={busy} className="rounded-full bg-brand-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"><Check size={16} aria-hidden /> {busy ? '…' : 'Save'}</button>
+        <button onClick={save} disabled={busy} className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-brand-600 px-3.5 py-1.5 text-sm font-bold leading-5 text-white disabled:opacity-50"><Check size={16} strokeWidth={2.5} aria-hidden />{busy ? '…' : 'Save'}</button>
       </header>
 
       {/* Group picker */}
@@ -376,7 +376,7 @@ function Form({ group, groups, existing, again, capture, history, onGroup }: {
         )}
         <div className="mt-4 flex items-baseline gap-2 border-t border-slate-100 pt-4 dark:border-white/5">
           <button type="button" onClick={() => setSheet('currency')} className={`flex shrink-0 items-center text-2xl font-bold ${foreign ? 'text-brand-600 dark:text-brand-300' : 'text-slate-400'}`} aria-label={`Currency: ${cur}. Change`}>
-            {cur}<ChevronDown size={18} />
+            {currencySymbol(cur)}<ChevronDown size={18} />
           </button>
           <input
             className="w-full bg-transparent text-5xl font-extrabold tabular-nums tracking-tight outline-none placeholder:text-slate-300 dark:placeholder:text-ink-700"
@@ -391,16 +391,16 @@ function Form({ group, groups, existing, again, capture, history, onGroup }: {
           <FxLine cur={cur} to={group.currency} fx={fx} loading={fxLoading} converted={converted}
             rateEdit={rateEdit} setRateEdit={setRateEdit} onApply={applyRate} />
         )}
-        <div className="mt-4 flex flex-wrap gap-2">
-          <div className="flex min-w-0 gap-1.5">
-            <DateField aria-label="Date" className="!w-auto !py-2 text-sm" value={date} onChange={(v) => setDate(v || todayISO())} />
-            {[{ d: today, label: 'Today' }, { d: yesterday, label: 'Yesterday' }].map((o) => (
-              <button key={o.label} type="button" onClick={() => setDate(o.d)} aria-pressed={date === o.d}
-                className={`shrink-0 rounded-2xl px-2.5 text-xs font-semibold ${date === o.d ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600 dark:bg-ink-800 dark:text-slate-300'}`}>{o.label}</button>
-            ))}
-          </div>
-          <button type="button" className="btn-secondary !min-h-0 min-w-[9.5rem] flex-1 !py-2 text-sm" onClick={() => fileRef.current?.click()} disabled={ocr.busy}>
-            {ocr.busy ? <><Spinner className="!h-4 !w-4" /> Reading {Math.round(ocr.progress * 100)}%</> : <><Camera size={16} /> {receipt || receiptUrl ? 'Rescan receipt' : 'Scan receipt'}</>}
+        {/* Date chips keep their size; Scan takes what's left (icon only on the narrowest phones). */}
+        <div className="mt-4 flex gap-1.5">
+          <DateField aria-label="Date" className="!w-auto shrink-0 !py-2 text-sm" value={date} onChange={(v) => setDate(v || todayISO())} />
+          {[{ d: today, label: 'Today' }, { d: yesterday, label: 'Yesterday' }].map((o) => (
+            <button key={o.label} type="button" onClick={() => setDate(o.d)} aria-pressed={date === o.d}
+              className={`shrink-0 rounded-2xl px-2 text-xs font-semibold ${date === o.d ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600 dark:bg-ink-800 dark:text-slate-300'}`}>{o.label}</button>
+          ))}
+          <button type="button" className="@container btn-secondary !min-h-0 min-w-0 flex-1 !gap-1.5 !px-2 !py-2 text-sm" onClick={() => fileRef.current?.click()} disabled={ocr.busy}
+            aria-label={ocr.busy ? undefined : receipt || receiptUrl ? 'Rescan receipt' : 'Scan receipt'}>
+            {ocr.busy ? <><Spinner className="!h-4 !w-4 shrink-0" /><span className="truncate">{Math.round(ocr.progress * 100)}%</span></> : <><Camera size={16} className="shrink-0" /><span className="hidden @[3.75rem]:inline">Scan</span></>}
           </button>
           <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onScanFile(f); e.target.value = '' }} />
         </div>
@@ -440,9 +440,9 @@ function Form({ group, groups, existing, again, capture, history, onGroup }: {
                 {order.map((id) => (
                   <AmountRow key={id} group={fg} id={id} me={me} value={payers[id] ?? ''} onChange={(v) => setPayers((p) => ({ ...p, [id]: v }))} />
                 ))}
-                <Remaining label="Left to assign" value={validAmount ? amount - paidSum : 0} currency={cur} />
               </div>
             )}
+            {multiPay && validAmount && <Left value={amount - paidSum} currency={cur} />}
           </div>
 
           {/* Split */}
@@ -459,7 +459,7 @@ function Form({ group, groups, existing, again, capture, history, onGroup }: {
             <div className="mt-4">
               <SplitEditor type={splitType} input={input} setInput={setInput} group={fg} order={order} me={me} amount={validAmount ? amount : 0} splits={preview.splits} />
             </div>
-            {preview.error && <div className="mt-3 rounded-xl bg-rose-50 p-2.5 text-sm font-medium text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">{preview.error}</div>}
+            <SplitFooter type={splitType} input={input} order={order} amount={validAmount ? amount : 0} currency={cur} error={preview.error} />
           </div>
         </>
       )}
@@ -497,7 +497,7 @@ function Form({ group, groups, existing, again, capture, history, onGroup }: {
       <button className="btn-primary mt-5 w-full" onClick={save} disabled={busy}><Check size={18} /> {existing ? 'Save changes' : 'Add expense'}</button>
 
       <Sheet open={sheet === 'group'} onClose={() => setSheet(null)} title="Choose group">
-        <GroupList groups={groups} current={group.id} onPick={(id) => { onGroup(id); setSheet(null) }} />
+        <GroupList groups={groups} current={group.id} onPick={(id) => { onGroup(id); setSheet(null) }} onCreate={(q) => nav(`/groups/new?${q ? `type=${q}&` : ''}next=add`)} />
       </Sheet>
       <Sheet open={sheet === 'currency'} onClose={() => setSheet(null)} title="Currency">
         <p className="mb-2 text-sm text-slate-500">{group.name} is in {group.currency}. Other currencies are converted at the ECB rate for the expense date, then locked.</p>
@@ -536,7 +536,7 @@ function SameHint() {
 }
 
 /** Live trips first, then shared groups, 1:1 friends and the personal wallet; searchable when long. */
-function GroupList({ groups, current, onPick }: { groups: Group[]; current: string; onPick: (id: string) => void }) {
+function GroupList({ groups, current, onPick, onCreate }: { groups: Group[]; current: string; onPick: (id: string) => void; onCreate: (type?: 'direct' | 'personal') => void }) {
   const [q, setQ] = useState('')
   const today = todayISO()
   const t = q.trim().toLowerCase()
@@ -550,6 +550,11 @@ function GroupList({ groups, current, onPick }: { groups: Group[]; current: stri
   ].filter(([, list]) => list.length) as Array<[string, Group[]]>
   // Headings only help when there is more than one kind of thing in the list.
   const headed = sections.length + (live.length ? 1 : 0) > 1
+  const creates: Array<{ type?: 'direct' | 'personal'; label: string; hint: string; icon: LucideIcon }> = [
+    { label: 'New group', hint: 'Trip, flat, team…', icon: Users },
+    { type: 'direct', label: 'New 1:1 friend', hint: 'Just you and one friend', icon: UserPlus },
+    ...(groups.some((g) => g.type === 'personal') ? [] : [{ type: 'personal' as const, label: 'Personal wallet', hint: 'Track your own spending', icon: Wallet }]),
+  ]
   const row = (g: Group, isLive = false) => (
     <button key={g.id} onClick={() => onPick(g.id)} className={`flex w-full items-center gap-3 rounded-2xl p-2.5 text-left ${g.id === current ? 'bg-brand-50 dark:bg-brand-900/30' : ''}`}>
       <GroupIcon emoji={g.emoji} size={40} />
@@ -576,6 +581,22 @@ function GroupList({ groups, current, onPick }: { groups: Group[]; current: stri
           <div className="space-y-1">{list.map((g) => row(g))}</div>
         </div>
       ))}
+      {/* Create where the expense goes; GroupForm comes back here (next=add) with it picked. */}
+      <div className="mt-3 border-t border-slate-100 pt-3 dark:border-white/5" data-testid="group-create">
+        <div className="px-2.5 pb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Create new</div>
+        <div className="space-y-1">
+          {creates.map((c) => (
+            <button key={c.label} type="button" onClick={() => onCreate(c.type)} className="flex w-full items-center gap-3 rounded-2xl p-2.5 text-left hover:bg-slate-50 dark:hover:bg-ink-800">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"><c.icon size={20} aria-hidden /></span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold">{c.label}</span>
+                <span className="block truncate text-xs text-slate-500">{c.hint}</span>
+              </span>
+              <Plus size={18} className="shrink-0 text-slate-400" aria-hidden />
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
@@ -645,7 +666,6 @@ function SplitEditor({ type, input, setInput, group, order, me, amount, splits }
       )
     }
     case 'exact': {
-      const sum = order.reduce((s, id) => s + (input.exact?.[id] ?? 0), 0)
       return (
         <div className="space-y-2">
           {order.map((id) => (
@@ -653,12 +673,10 @@ function SplitEditor({ type, input, setInput, group, order, me, amount, splits }
               value={input.exact?.[id] !== undefined ? centsToInput(input.exact[id], group.currency) : ''}
               onChange={(v) => setInput((i) => ({ ...i, exact: { ...i.exact, [id]: Number.isFinite(parseMoney(v, group.currency)) ? parseMoney(v, group.currency) : 0 } }))} />
           ))}
-          <Remaining label="Left to assign" value={amount - sum} currency={cur} />
         </div>
       )
     }
     case 'percent': {
-      const sum = order.reduce((s, id) => s + (input.percent?.[id] ?? 0), 0)
       return (
         <div className="space-y-2">
           {order.map((id) => (
@@ -673,7 +691,6 @@ function SplitEditor({ type, input, setInput, group, order, me, amount, splits }
               {share(id)}
             </div>
           ))}
-          <div className={`text-right text-sm font-semibold ${Math.abs(sum - 100) < 0.001 ? 'pos' : 'neg'}`}>{Math.round(sum * 100) / 100}% of 100%</div>
         </div>
       )
     }
@@ -810,12 +827,48 @@ function AmountRow({ group, id, me, value, onChange }: { group: Group; id: Membe
   )
 }
 
-function Remaining({ label, value, currency }: { label: string; value: number; currency: string }) {
+/** Status strip along a card's bottom edge (the card is p-4): green when it adds up, amber/rose when not. */
+function Footer({ tone, children }: { tone: 'ok' | 'warn' | 'err'; children: React.ReactNode }) {
+  const Icon = tone === 'ok' ? CheckCircle2 : AlertCircle
+  const color = tone === 'ok' ? 'text-emerald-600 dark:text-emerald-400' : tone === 'warn' ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'
   return (
-    <div className={`text-right text-sm font-semibold ${value === 0 ? 'pos' : 'neg'}`}>
-      {value === 0 ? 'All assigned ✓' : `${label}: ${formatMoney(value, currency)}`}
+    <div className={`-mx-4 -mb-4 mt-4 flex items-center gap-1.5 rounded-b-3xl border-t border-slate-100 bg-slate-50/70 px-4 py-2.5 text-sm font-semibold dark:border-white/5 dark:bg-white/[0.03] ${color}`} data-testid="card-footer">
+      <Icon size={16} className="shrink-0" aria-hidden /><span className="min-w-0">{children}</span>
     </div>
   )
+}
+
+/** Money still to assign: "All assigned", "₹120.00 left", "₹5.00 over". */
+function Left({ value, currency }: { value: number; currency: string }) {
+  if (value === 0) return <Footer tone="ok">All assigned</Footer>
+  return value > 0 ? <Footer tone="warn">{formatMoney(value, currency)} left to assign</Footer> : <Footer tone="err">{formatMoney(-value, currency)} over the total</Footer>
+}
+
+/** The split's check under the editor: what's left for exact/percent, the totals for shares/adjust, else any error. */
+function SplitFooter({ type, input, order, amount, currency, error }: {
+  type: SplitType; input: SplitInput; order: MemberId[]; amount: number; currency: string; error?: string
+}) {
+  if (type === 'exact') {
+    if (!amount) return null
+    return <Left value={amount - order.reduce((s, id) => s + (input.exact?.[id] ?? 0), 0)} currency={currency} />
+  }
+  if (type === 'percent') {
+    const left = Math.round((100 - order.reduce((s, id) => s + (input.percent?.[id] ?? 0), 0)) * 100) / 100
+    if (Math.abs(left) < 0.001) return <Footer tone="ok">100% assigned</Footer>
+    return left > 0 ? <Footer tone="warn">{left}% left to assign</Footer> : <Footer tone="err">{-left}% over 100%</Footer>
+  }
+  if (error) return <Footer tone="err">{error}</Footer>
+  if (type === 'shares') {
+    const total = order.reduce((s, id) => s + (input.shares?.[id] ?? 0), 0)
+    if (!total) return <Footer tone="warn">Give at least one person a share</Footer>
+    return <Footer tone="ok">{Math.round(total * 100) / 100} {total === 1 ? 'share' : 'shares'}{amount ? ` · ${formatMoney(Math.round(amount / total), currency)} per share` : ''}</Footer>
+  }
+  if (type === 'adjust') {
+    const adj = (input.selected ?? []).reduce((s, id) => s + (input.adjust?.[id] ?? 0), 0)
+    if (!adj) return null
+    return <Footer tone="ok">Adjustments {formatMoney(adj, currency, { sign: true })}, the rest split equally</Footer>
+  }
+  return null
 }
 
 /** When switching split type, pre-fill sensible defaults from what's already chosen. */

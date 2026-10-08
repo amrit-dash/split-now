@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { AlertTriangle, Check, Download, FileUp, X } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
-import { myMemberId, useGroups } from '@/hooks/data'
+import { createGroup, myMemberId, useGroups } from '@/hooks/data'
 import type { Expense, Group, GroupType, Member, MemberId, Settlement } from '@/types'
 import { CURRENCIES, formatMoney } from '@/lib/money'
 import { colorFor } from '@/lib/colors'
@@ -135,7 +135,7 @@ export default function ImportGroup() {
           members[id] = { name: n, color: colorFor(Object.keys(members).length) }
           ids[n] = id
         }
-        groupId = await repo.createGroup({
+        groupId = await createGroup({
           name: name.trim(), emoji, type, currency: cur, simplify: true, members,
           memberUids: [user.uid], createdBy: user.uid,
         })

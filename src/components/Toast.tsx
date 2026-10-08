@@ -21,15 +21,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={push}>
       {children}
-      <div className="pointer-events-none fixed inset-x-0 top-0 z-[100] flex flex-col items-center gap-2 p-4 pt-[calc(env(safe-area-inset-top)+1rem)]" role="status" aria-live="polite">
+      {/* Bottom of the screen, just above the tab bar where there is one (see .toast-stack). */}
+      <div className="toast-stack pointer-events-none fixed inset-x-0 z-[100] mx-auto flex max-w-lg flex-col items-center gap-2 px-4" role="status" aria-live="polite">
         {toasts.map((t) => (
-          <div key={t.id} className={`animate-pop pointer-events-auto flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-white shadow-xl ${t.tone === 'ok' ? 'bg-slate-900 dark:bg-ink-700' : 'bg-rose-600'}`}>
-            <span>{t.text}</span>
+          <div key={t.id} className={`animate-toast pointer-events-auto flex max-w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-white shadow-xl ${t.tone === 'ok' ? 'bg-slate-900 dark:bg-ink-700' : 'bg-rose-600'}`}>
+            <span className="min-w-0">{t.text}</span>
             {t.action && (
               <button
                 type="button"
                 onClick={() => { dismiss(t.id); t.action!.run() }}
-                className="-my-1 rounded-xl px-2 py-1 font-bold text-brand-300 hover:bg-white/10"
+                className="-my-1 shrink-0 rounded-xl px-2 py-1 font-bold text-brand-300 hover:bg-white/10"
               >
                 {t.action.label}
               </button>

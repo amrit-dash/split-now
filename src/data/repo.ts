@@ -221,8 +221,11 @@ export interface Repo {
    * `{ statement: null }`: no transactions found; null: unavailable. Demo mode returns a sample.
    */
   readStatementAi(images: Array<{ image: string; mimeType: string }>, today: string): Promise<{ statement: AiStatement | null } | null>
-  /** Save / re-test / remove the user's own Gemini key (aiKey callable). Throws with a readable message. */
-  aiKey(action: 'set' | 'test' | 'remove', key?: string): Promise<AiKeyResult>
+  /**
+   * Save / re-test / remove the user's own Gemini key (aiKey callable), or with which 'app' the
+   * in-app project key (admins; overrides Secret Manager's). Throws with a readable message.
+   */
+  aiKey(action: 'set' | 'test' | 'remove', key?: string, which?: 'own' | 'app'): Promise<AiKeyResult>
   /** Models for the user's own key, or the project key (admins). Throws on failure. */
   aiModels(which: 'own' | 'app'): Promise<AiModel[]>
   /** Whether the shared key can be used; null if unknown (offline, demo). */
@@ -238,9 +241,11 @@ export interface Repo {
 }
 
 export interface AiModel { id: string; label: string }
-export interface AiKeyResult { hint: string | null; models: AiModel[] }
+export interface AiKeyResult { hint: string | null; models: AiModel[]; source?: AppKeySource | null }
+/** Where the project key comes from: set in the app by an admin, or Secret Manager. */
+export type AppKeySource = 'admin' | 'secret'
 export type AppAiStatusValue = 'available' | 'off' | 'not_listed' | 'feature_off'
-export interface AiStatusResult { admin: boolean; app: { images: AppAiStatusValue; sms: AppAiStatusValue; model: string; configured?: boolean } }
+export interface AiStatusResult { admin: boolean; app: { images: AppAiStatusValue; sms: AppAiStatusValue; model: string; configured?: boolean; source?: AppKeySource | null; hint?: string | null } }
 export interface AiState { hint?: string; lastOkAt?: number; lastError?: { kind: 'bad_key' | 'quota' | 'model' | 'server'; at: number } }
 
 export interface StatementTxn {
