@@ -1,5 +1,6 @@
-import { lazy, Suspense, useEffect } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { Megaphone, X } from 'lucide-react'
 import { repo } from './data'
 import { useAuth } from './hooks/auth'
 import { useToast } from './components/Toast'
@@ -7,11 +8,23 @@ import { Layout } from './components/Layout'
 import { Loading } from './components/Misc'
 import { UpdatePrompt } from './components/UpdatePrompt'
 import { errText } from './lib/errors'
+import {
+  announcementActive,
+  dismissAnnouncement,
+  isAnnouncementDismissed,
+  semverOf,
+  updateRequired,
+  writesOpen,
+  type Announcement,
+  type AppConfig,
+  type BlockInfo,
+} from './lib/flags'
 import { takeStashedCapture } from './lib/pending'
 import { refreshPush, setBadge, watchPrefs } from './lib/push'
 import { setAiScan } from './lib/ai'
 import { GroupDataProvider } from './hooks/groupData'
-import { primeAiStatus } from './hooks/useAiStatus'
+import { primeAiStatus, useAiStatus } from './hooks/useAiStatus'
+import { useAppConfig, useBlocked } from './hooks/useAppConfig'
 import { IDLE_PREFETCH, load, prefetch, routeKey } from './routes'
 import Login from './pages/Login'
 import Home from './pages/Home'
@@ -35,6 +48,7 @@ const Inbox = lazy(load.Inbox)
 const AutoCaptureSetup = lazy(load.AutoCaptureSetup)
 const Share = lazy(load.Share)
 const Settings = lazy(load.Settings)
+const Admin = lazy(load.Admin)
 const ImportGroup = lazy(load.ImportGroup)
 const Table = lazy(load.Table)
 const TableEntry = lazy(() => load.Table().then((m) => ({ default: m.TableEntry })))
@@ -47,6 +61,15 @@ export default function App() {
   const loc = useLocation()
   const nav = useNavigate()
   const toast = useToast()
+  // The admin's switches (config/app): maintenance, minimum version, announcement, feature flags.
+  // Admins (aiStatus().admin, cached per sign-in) are exempt from the maintenance and update
+  // screens so a typo in the console can't lock them out of fixing it.
+  const cfg = useAppConfig()
+  const aiStatus = useAiStatus()
+  const admin = !!aiStatus?.admin
+  const signedIn = !!user && !user.isAnonymous
+  const blocked = useBlocked(signedIn ? user.uid : null)
+  const open = writesOpen(cfg, !!blocked, admin)
 
   // Saves resolve locally (so they work offline); a later server rejection lands here.
   useEffect(() => repo.onError((e) => toast(errText(e), 'err')), [toast])
@@ -91,9 +114,10 @@ export default function App() {
   }, [nav, toast])
 
   // Keep this browser's push registration fresh (FCM tokens rotate); no-op without permission.
+  // Not while writes are frozen (maintenance, blocked): the rules would refuse the write.
   useEffect(() => {
-    if (user && !user.isAnonymous && repo.mode === 'firebase') void refreshPush(user.uid)
-  }, [user])
+    if (user && !user.isAnonymous && repo.mode === 'firebase' && open) void refreshPush(user.uid)
+  }, [user, open])
 
   // Mirror the account's "read bills with AI" choice onto this device (read synchronously when scanning).
   useEffect(
@@ -106,16 +130,18 @@ export default function App() {
 
   // Pull anything iOS Shortcuts dropped into captureInbox while the app was closed.
   useEffect(() => {
-    if (!user || user.isAnonymous) return
+    if (!user || user.isAnonymous || !open) return
     const claim = () => {
       if (document.visibilityState === 'visible') repo.claimInbox(user.uid).catch((e) => console.warn('Inbox sync failed', e))
     }
     claim()
     document.addEventListener('visibilitychange', claim)
     return () => document.removeEventListener('visibilitychange', claim)
-  }, [user])
+  }, [user, open])
 
-  const guestCapture = !loading && !user && loc.pathname === '/capture'
+  // Feature flags with a signed-out surface: a switched-off feature isn't reachable by URL either.
+  const liveTables = cfg.flags.liveTables !== false
+  const guestCapture = !loading && !user && loc.pathname === '/capture' && cfg.flags.autoCapture !== false
   // Live table links work without an account (anonymous sign-in); anonymous users see nothing else.
   const tablePath = loc.pathname === '/t' || loc.pathname.startsWith('/t/')
   const guestTable = !loading && (!user || !!user.isAnonymous) && tablePath
@@ -137,24 +163,45 @@ export default function App() {
           <CaptureGuest />
         </Suspense>
       ) : guestTable ? (
-        <Suspense fallback={<Splash />}>
-          <TableRoutes />
-        </Suspense>
+        liveTables ? (
+          <Suspense fallback={<Splash />}>
+            <TableRoutes />
+          </Suspense>
+        ) : (
+          <GateScreen title="Live tables are off for now" message="The host can still add the bill in the app and settle up from there.">
+            <a href="/" className="btn-primary">
+              Open Split Now
+            </a>
+          </GateScreen>
+        )
       ) : !user || user.isAnonymous ? (
         <Login />
+      ) : blocked === undefined || (cfg.maintenance && !admin && aiStatus === undefined) ? (
+        // The block check and (in maintenance) the admin check decide which screen this is; a
+        // moment of splash beats flashing the wrong one.
+        <Splash />
+      ) : blocked ? (
+        <BlockedScreen info={blocked} />
+      ) : cfg.maintenance && !admin ? (
+        <MaintenanceScreen message={cfg.maintenanceMessage} />
+      ) : updateRequired(cfg, __APP_VERSION__) && !admin ? (
+        <UpdateRequiredScreen minVersion={cfg.minVersion} />
       ) : (
-        <AppRoutes />
+        <AppRoutes cfg={cfg} admin={admin} />
       )}
     </>
   )
 }
 
-function AppRoutes() {
+function AppRoutes({ cfg, admin }: { cfg: AppConfig; admin: boolean }) {
   usePrefetch()
+  const liveTables = cfg.flags.liveTables !== false
+  const autoCapture = cfg.flags.autoCapture !== false
   // Layout has its own Suspense around the Outlet (the tab bar stays while a screen loads);
   // this one covers the full-screen routes below.
   return (
     <GroupDataProvider>
+      <AnnouncementBanner cfg={cfg} admin={admin} />
       <Suspense fallback={<Loading />}>
         <Routes>
           <Route element={<Layout />}>
@@ -170,23 +217,163 @@ function AppRoutes() {
             <Route path="insights" element={<Insights />} />
             <Route path="profile" element={<Profile />} />
             <Route path="inbox" element={<Inbox />} />
-            <Route path="settings/auto-capture" element={<AutoCaptureSetup />} />
+            <Route path="settings/auto-capture" element={autoCapture ? <AutoCaptureSetup /> : <Navigate to="/settings" replace />} />
             <Route path="settings/*" element={<Settings />} />
+            <Route path="admin/*" element={<Admin />} />
           </Route>
           <Route path="add" element={<ExpenseForm />} />
           <Route path="groups/:groupId/expenses/:expenseId/edit" element={<ExpenseForm />} />
-          <Route path="split" element={<SplitBill />} />
+          <Route path="split" element={liveTables ? <SplitBill /> : <Navigate to="/" replace />} />
           <Route path="scan" element={<Scan />} />
-          <Route path="capture" element={<Capture />} />
-          <Route path="capture/:captureId" element={<Capture />} />
+          <Route path="capture" element={autoCapture ? <Capture /> : <Navigate to="/inbox" replace />} />
+          <Route path="capture/:captureId" element={autoCapture ? <Capture /> : <Navigate to="/inbox" replace />} />
           <Route path="share" element={<Share />} />
           <Route path="join/:code" element={<Join />} />
-          <Route path="t" element={<TableEntry />} />
-          <Route path="t/:code" element={<Table />} />
+          <Route path="t" element={liveTables ? <TableEntry /> : <Navigate to="/" replace />} />
+          <Route path="t/:code" element={liveTables ? <Table /> : <Navigate to="/" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
     </GroupDataProvider>
+  )
+}
+
+/**
+ * The admin's announcement (config/app.announcement), at the top of every screen until dismissed
+ * on this device (a changed text comes back). Admins also see here when maintenance mode or an
+ * update requirement is on, since they are the only ones who don't get those screens.
+ */
+function AnnouncementBanner({ cfg, admin }: { cfg: AppConfig; admin: boolean }) {
+  const [dismissed, setDismissed] = useState<string | null>(null)
+  const a: Announcement | null = announcementActive(cfg.announcement) ? cfg.announcement : null
+  const show = a && !isAnnouncementDismissed(a) && dismissed !== a.text
+  const adminNote = admin
+    ? cfg.maintenance
+      ? 'Maintenance mode is on: only admins can use the app right now.'
+      : updateRequired(cfg, __APP_VERSION__)
+        ? `Update required is on for builds below ${cfg.minVersion}; you are on ${semverOf(__APP_VERSION__)}.`
+        : null
+    : null
+  if (!show && !adminNote) return null
+  return (
+    <div className="mx-auto max-w-2xl space-y-2 px-4 pt-[calc(env(safe-area-inset-top)+0.5rem)]" data-testid="announcement">
+      {adminNote && (
+        <div
+          className="flex items-center gap-2 rounded-2xl bg-amber-100 px-3.5 py-2.5 text-sm font-medium text-amber-900 dark:bg-amber-900/30 dark:text-amber-100"
+          role="status"
+        >
+          <span className="min-w-0 flex-1">{adminNote}</span>
+          <a href="/admin/flags" className="shrink-0 font-bold underline">
+            Admin
+          </a>
+        </div>
+      )}
+      {show && (
+        <div
+          className={`flex items-start gap-2 rounded-2xl px-3.5 py-2.5 text-sm ${
+            a.level === 'warn'
+              ? 'bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100'
+              : 'bg-brand-50 text-brand-900 dark:bg-brand-900/30 dark:text-brand-100'
+          }`}
+          role="status"
+        >
+          <Megaphone size={18} className="mt-0.5 shrink-0" aria-hidden />
+          <span className="min-w-0 flex-1 py-0.5">{a.text}</span>
+          <button
+            type="button"
+            className="-m-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
+            aria-label="Dismiss announcement"
+            onClick={() => {
+              dismissAnnouncement(a)
+              setDismissed(a.text)
+            }}
+          >
+            <X size={18} aria-hidden />
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** A full-screen notice on the splash gradient: title, a sentence, and whatever action fits. */
+function GateScreen({ title, message, children, testId }: { title: string; message?: string; children?: React.ReactNode; testId?: string }) {
+  return (
+    <main
+      className="flex min-h-dvh flex-col items-center justify-center bg-gradient-to-br from-brand-700 to-duo-700 px-6 text-center text-white"
+      data-testid={testId}
+    >
+      <img src="/favicon.svg" alt="" className="mb-6 h-16 w-16 drop-shadow-[0_20px_30px_rgb(0_0_0/0.35)]" />
+      <h1 className="text-2xl font-extrabold tracking-tight">{title}</h1>
+      {message && <p className="mt-2 max-w-sm text-white/85">{message}</p>}
+      {children && <div className="mt-6 flex flex-col items-center gap-3">{children}</div>}
+    </main>
+  )
+}
+
+function MaintenanceScreen({ message }: { message: string }) {
+  return (
+    <GateScreen
+      title="Back in a few minutes"
+      message={message || 'Split Now is being looked after. Your groups and expenses are safe; nothing can be changed until it is done.'}
+      testId="maintenance-screen"
+    >
+      <button type="button" className="btn bg-white text-slate-900" onClick={() => location.reload()}>
+        Try again
+      </button>
+      <button type="button" className="min-h-11 text-sm text-white/80 underline" onClick={() => void repo.signOut()}>
+        Sign out
+      </button>
+    </GateScreen>
+  )
+}
+
+function UpdateRequiredScreen({ minVersion }: { minVersion: string }) {
+  const [busy, setBusy] = useState(false)
+  const update = async () => {
+    setBusy(true)
+    let reloaded = false
+    const reload = () => {
+      if (!reloaded) {
+        reloaded = true
+        location.reload()
+      }
+    }
+    try {
+      const reg = await navigator.serviceWorker?.getRegistration()
+      await reg?.update().catch(() => {})
+      navigator.serviceWorker?.addEventListener('controllerchange', reload, { once: true })
+      if (reg?.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' })
+      else reload()
+    } catch {
+      reload()
+    }
+    setTimeout(reload, 3000)
+  }
+  return (
+    <GateScreen
+      title="Update Split Now"
+      message={`This copy (${semverOf(__APP_VERSION__)}) is older than the app now needs (${minVersion}). Reload once to get the latest.`}
+      testId="update-required-screen"
+    >
+      <button type="button" className="btn bg-white text-slate-900" onClick={update} disabled={busy}>
+        {busy ? 'Updating…' : 'Reload and update'}
+      </button>
+    </GateScreen>
+  )
+}
+
+function BlockedScreen({ info }: { info: BlockInfo }) {
+  return (
+    <GateScreen
+      title="This account is paused"
+      message={info.reason ? `An admin paused it: ${info.reason}` : 'An admin paused it. Nothing can be added or changed from it.'}
+      testId="blocked-screen"
+    >
+      <button type="button" className="btn bg-white text-slate-900" onClick={() => void repo.signOut()}>
+        Sign out
+      </button>
+    </GateScreen>
   )
 }
 

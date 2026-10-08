@@ -9,8 +9,8 @@
  *   fxMorning   every day 09:00 Asia/Kolkata (backstop if the evening run failed)
  *   refreshFx   callable { date? } → { date, fetchedAt, rates }; any signed-in user. Table guests
  *               (anonymous) may only ask for the latest. The latest is re-fetched at most every
- *               10 min; a stored past date is final. Per user: 30 calls an hour, 200 a day, so
- *               nobody can turn the app into a fetch loop against the ECB mirror.
+ *               10 min; a stored past date is final. Per user: 30 calls an hour, 200 a day
+ *               (config/limits), so nobody can turn the app into a fetch loop against the ECB mirror.
  */
 import { logger } from 'firebase-functions/logger'
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
@@ -18,14 +18,16 @@ import { onSchedule } from 'firebase-functions/v2/scheduler'
 import { db } from './admin'
 import { REGION, TIME_ZONE } from './config'
 import { asRatesDoc, fetchEcb, planRefresh, refreshWrites, validRequest, type FxRatesDoc } from './lib/fx-core'
+import { limitPair } from '../../shared/limits'
+import { getLimits } from './lib/limits'
 import { applyRateLimit, type RateState } from './lib/ratelimit'
 
-const FX_LIMIT = { perHour: 30, perDay: 200 }
-
+/** Per user (config/limits fxPerUserPerHour / fxPerUserPerDay; 30 an hour, 200 a day by default). */
 async function allowed(uid: string, now: number): Promise<boolean> {
+  const limits = limitPair(await getLimits(now), 'fxPerUserPerHour', 'fxPerUserPerDay')
   const ref = db().collection('rateLimits').doc(`fx_${uid}`)
   return db().runTransaction(async (tx) => {
-    const r = applyRateLimit((await tx.get(ref)).data() as Partial<RateState> | undefined, now, FX_LIMIT)
+    const r = applyRateLimit((await tx.get(ref)).data() as Partial<RateState> | undefined, now, limits)
     if (r.allowed) tx.set(ref, { ...r.next, kind: 'fx', updatedAt: now })
     return r.allowed
   })

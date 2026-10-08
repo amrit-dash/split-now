@@ -1,5 +1,5 @@
 import { logger } from 'firebase-functions/logger'
-import { db, messaging } from './admin'
+import { countStats, db, messaging } from './admin'
 import { pendingApprovers } from '../../shared/balances-core'
 import type { Note } from './lib/notify-text'
 import { resolvePrefs, type PrefKey } from './lib/prefs'
@@ -105,15 +105,21 @@ export async function sendToUser(uid: string, prefs: PrefKey[], note: Note): Pro
       })),
     )
 
+    let failed = 0
     res.responses.forEach((r, i) => {
       if (r.success) return
       const code = r.error?.code ?? ''
       if (isDead(code, r.error?.message)) {
         batch.delete(docs[i].ref)
         dead++
-      } else logger.warn('push send failed', { uid, code, message: r.error?.message })
+      } else {
+        failed++
+        logger.warn('push send failed', { uid, code, message: r.error?.message })
+      }
     })
     if (dead) await batch.commit()
+    // Admin counters (stats/push_{day}): devices that took the message, ones that didn't, dead registrations dropped.
+    await countStats('push', { sent: res.successCount, failed, dead }, now)
     return res.successCount
   } catch (e) {
     logger.error('push failed', { uid, error: (e as Error).message })

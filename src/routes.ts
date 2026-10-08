@@ -21,6 +21,7 @@ export const load = {
   AutoCaptureSetup: () => import('./pages/AutoCaptureSetup'),
   Share: () => import('./pages/Share'),
   Settings: () => import('./pages/Settings'),
+  Admin: () => import('./pages/Admin'),
   ImportGroup: () => import('./pages/ImportGroup'),
   Table: () => import('./pages/Table'),
 }
@@ -47,6 +48,7 @@ export function routeKey(pathname: string): RouteKey | undefined {
   if (p === '/t' || p.startsWith('/t/')) return 'Table'
   if (p === '/settings/auto-capture') return 'AutoCaptureSetup'
   if (p === '/settings' || p.startsWith('/settings/')) return 'Settings'
+  if (p === '/admin' || p.startsWith('/admin/')) return 'Admin'
   return undefined
 }
 

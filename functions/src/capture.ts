@@ -6,10 +6,12 @@
  * against the user's trip windows, save it to users/{uid}/captures as pending, and push
  * "You spent ₹840 at Swiggy — add to Goa Trip?".
  *
- * Authentication is the capture token (a 140-bit secret) plus a per-token rate limit. Before
- * any Firestore read there is a per-instance limit per client IP, a 16 KB body cap and a short
- * negative cache of unknown tokens, so garbage requests cost nothing but CPU. App Check is
- * deliberately not enforced: Shortcuts and MacroDroid can't produce a token.
+ * Authentication is the capture token (a 140-bit secret) plus a per-token rate limit (config/limits,
+ * admin-tunable). Before any Firestore read there is a per-instance limit per client IP, a 16 KB
+ * body cap and a short negative cache of unknown tokens, so garbage requests cost nothing but CPU.
+ * App Check is deliberately not enforced: Shortcuts and MacroDroid can't produce a token. An admin
+ * can switch the whole webhook off (config/app flags.autoCapture); outcomes are counted per day in
+ * stats/capture_{day} for the admin console.
  *
  * Unscoped captures that match no trip are dropped ('outside_trip') unless the user turned on
  * "All bank & UPI payments" (prefs.outsideTrips); then they land in the inbox unsorted and only
@@ -35,8 +37,10 @@ import { onRequest } from 'firebase-functions/v2/https'
 import { CAPTURE_LOG_DOC, filterReason, type CaptureLogEntry } from '../../shared/capture-filters'
 import { isBankLikeSms, maskSms } from '../../shared/sms-parse'
 import { minorDigitsOf } from '../../shared/money-core'
-import { db } from './admin'
-import { APP_ORIGINS, RATE_LIMIT, REGION } from './config'
+import { limitPair } from '../../shared/limits'
+import { countStats, db } from './admin'
+import { APP_ORIGINS, REGION } from './config'
+import { flagOn, getLimits } from './lib/limits'
 import { CAPTURE_LOG_KEEP, STATUS, captureDoc, interpret, logEntry, type Parsed, type Reason } from './lib/capture-core'
 import { captureIdFor, tokenKey } from './lib/ids'
 import { captureNote } from './lib/notify-text'
@@ -96,11 +100,13 @@ async function loadGroup(id: string, uid: string): Promise<GroupDoc | undefined>
   return g && Array.isArray(g.memberUids) && g.memberUids.includes(uid) ? { ...g, id: s.id } : undefined
 }
 
+/** Per capture key: config/limits capturePerHour / capturePerDay (60 and 300 by default). */
 async function rateLimited(token: string, now: number): Promise<boolean> {
+  const limits = limitPair(await getLimits(now), 'capturePerHour', 'capturePerDay')
   const ref = db().collection('rateLimits').doc(tokenKey(token))
   return db().runTransaction(async (t) => {
     const snap = await t.get(ref)
-    const { allowed, next } = applyRateLimit(snap.data() as Partial<RateState> | undefined, now, RATE_LIMIT)
+    const { allowed, next } = applyRateLimit(snap.data() as Partial<RateState> | undefined, now, limits)
     if (allowed) t.set(ref, { ...next, kind: 'capture', updatedAt: now })
     return !allowed
   })
@@ -139,9 +145,13 @@ export async function handleCapture(
   const uid = tokenSnap.get('uid')
   if (!tokenSnap.exists || typeof uid !== 'string') {
     rememberUnknown(req.token, now.getTime())
+    await countStats('capture', { received: 1, bad_token: 1 }, now.getTime())
     return fail('bad_token')
   }
-  if (await rateLimited(req.token, now.getTime())) return fail('rate_limited')
+  if (await rateLimited(req.token, now.getTime())) {
+    await countStats('capture', { received: 1, rate_limited: 1 }, now.getTime())
+    return fail('rate_limited')
+  }
 
   // Any request that reached a user counts as "received" (the "last received" line per key).
   const lastUsed = tokenSnap.get('lastUsedAt')
@@ -149,13 +159,17 @@ export async function handleCapture(
     tokenSnap.ref.update({ lastUsedAt: now.getTime() }).catch((e) => logger.warn('token lastUsedAt', e))
   }
   const userRef = db().collection('users').doc(uid)
+  // Admin counters (stats/capture_{day}): every request that reached a user, by outcome.
+  let aiUsed = 0
+  const count = (outcome: Reason | 'captured') => countStats('capture', { received: 1, [outcome]: 1, ai: aiUsed }, now.getTime())
   const reject = async (reason: Reason, parsed?: Parsed, groupName?: string) => {
-    await writeLog(userRef, logEntry(reason, req.device, now.getTime(), parsed, groupName))
+    await Promise.all([writeLog(userRef, logEntry(reason, req.device, now.getTime(), parsed, groupName)), count(reason)])
     return fail(reason)
   }
 
   const prefs = resolveCapturePrefs((await userRef.collection('settings').doc('notifications').get()).data())
-  if (prefs.capturePaused) return reject('paused')
+  // The admin's kill switch (config/app flags.autoCapture) reads like a pause to the user.
+  if (prefs.capturePaused || !(await flagOn('autoCapture', now.getTime()))) return reject('paused')
 
   let it = interpret(req, now)
   // The regex parser came up short: ask Gemini (masked text, bank-looking messages only), then
@@ -165,6 +179,7 @@ export async function handleCapture(
   const unreadable = !it.ok && it.reason === 'unparsed'
   const nameless = it.ok && !it.parsed.merchant && !it.sms?.vpa && prefs.aiSmsMerchant
   if (prefs.aiSms && bankLike && (unreadable || nameless)) {
+    aiUsed = 1
     const ai = await readSms(uid, maskSms(req.text!, 1000))
     if (ai?.kind === 'debit') {
       if (!it.ok && ai.amount) {
@@ -226,6 +241,7 @@ export async function handleCapture(
   const [sent] = await Promise.all([
     sendToUser(uid, matched ? ['captures'] : ['captures', 'unsorted'], note),
     writeLog(userRef, logEntry('captured', req.device, now.getTime(), parsed, matched?.name)),
+    count('captured'),
   ])
 
   const body: CaptureResponse = { ok: true, captureId, parsed, pushed: sent > 0 }

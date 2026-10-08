@@ -18,6 +18,17 @@ service cloud.firestore {
     // State of the group once the current write (or batch) is applied.
     function groupAfter(groupId) { return getAfter(/databases/$(database)/documents/groups/$(groupId)); }
 
+    // Maintenance mode (config/app.maintenance, set in the admin console) and blocked accounts
+    // (blocked/{uid}, written by the adminBlockUser callable) stop every write except an
+    // admin's. Two small reads per write, both cached per request; the admin check only runs
+    // when one of them says no.
+    function maintenanceOn() {
+      let p = /databases/$(database)/documents/config/app;
+      return exists(p) && get(p).data.get('maintenance', false) == true;
+    }
+    function isBlocked() { return exists(/databases/$(database)/documents/blocked/$(request.auth.uid)); }
+    function writesOpen() { return (!maintenanceOn() && !isBlocked()) || isAdmin(); }
+
     // ---- Users ---------------------------------------------------------
     // Private profile (email, default currency, payment handles). Owner only.
     // What co-members may see (name + payment handles) is copied by the owner into
@@ -26,7 +37,8 @@ service cloud.firestore {
       allow get: if isUser() && uid() == userId;
       allow list: if false;
       allow create, update: if isUser() && uid() == userId
-        && request.resource.data.uid == userId;
+        && request.resource.data.uid == userId
+        && writesOpen();
       allow delete: if isUser() && uid() == userId;
 
       // Captured transactions waiting to be sorted into a group: private to the user.
@@ -43,6 +55,7 @@ service cloud.firestore {
       match /captures/{captureId} {
         allow read, delete: if isUser() && uid() == userId;
         allow create, update: if isUser() && uid() == userId
+          && writesOpen()
           && request.resource.data.amount is int
           && request.resource.data.amount > 0
           && request.resource.data.status in ['pending', 'assigned', 'dismissed'];
@@ -53,6 +66,7 @@ service cloud.firestore {
       match /pushTokens/{tokenId} {
         allow read, delete: if isUser() && uid() == userId;
         allow create, update: if isUser() && uid() == userId
+          && writesOpen()
           && request.resource.data.keys().hasOnly(['token', 'ua', 'createdAt', 'lastSeen'])
           && request.resource.data.token is string
           && request.resource.data.token.size() > 0 && request.resource.data.token.size() <= 4096
@@ -73,6 +87,7 @@ service cloud.firestore {
       match /settings/{settingId} {
         allow read, delete: if isUser() && uid() == userId;
         allow create, update: if isUser() && uid() == userId
+          && writesOpen()
           && (settingId != 'notifications' || (
             request.resource.data.keys().hasOnly(['captures', 'unsorted', 'expenses', 'settlements', 'reminders', 'outsideTrips',
               'capturePaused', 'minAmount', 'ignoreWords', 'aiSms', 'aiSmsMerchant', 'aiImages', 'aiEnabled', 'aiSource', 'aiModel', 'updatedAt'])
@@ -95,6 +110,13 @@ service cloud.firestore {
             && request.resource.data.get('aiEnabled', true) is bool
             && request.resource.data.get('aiSource', 'auto') in ['auto', 'own', 'app']
             && request.resource.data.get('aiModel', '') is string && request.resource.data.get('aiModel', '').size() <= 80
+            && request.resource.data.get('updatedAt', 0) is int))
+          // settings/merchants: merchant → category memory (src/lib/merchants.ts). Two maps keyed by
+          // the normalised merchant, at most 200 entries each; the app evicts the least recently used.
+          && (settingId != 'merchants' || (
+            request.resource.data.keys().hasOnly(['categories', 'touched', 'updatedAt'])
+            && request.resource.data.categories is map && request.resource.data.categories.size() <= 200
+            && request.resource.data.get('touched', {}) is map && request.resource.data.get('touched', {}).size() <= 200
             && request.resource.data.get('updatedAt', 0) is int));
       }
     }
@@ -109,36 +131,97 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // fxRates/{yyyy-mm-dd | latest}: shared ECB exchange rates (EUR-based), written only by the
-    // fxDaily/fxMorning schedules and the refreshFx callable. Any signed-in user, guests at a
-    // live table included (anonymous auth), may read them; nobody may write from a client.
+    // ---- Admin-managed configuration (config/*, admins/*, blocked/*, stats/*) ----------
+    // config/app: the app's public switches (maintenance, minimum version, announcement, feature
+    //   flags, sign-up mode). It holds no secrets, so anyone may read it, signed out included
+    //   (the sign-in screen and a maintenance screen need it before there is a user).
+    // config/limits: rate limits the Cloud Functions read (shared/limits.ts has the ranges).
     // config/ai: project AI settings (shared Gemini key on/off, allow-list of emails, model,
-    // limits). Only the admin screen reads it; everyone else asks the aiStatus callable, so the
-    // allow-list never reaches other accounts.
+    //   limits). Only the admin screen reads it; everyone else asks the aiStatus callable, so the
+    //   allow-list never reaches other accounts.
+    // Every write is by an admin, validated per document; nothing else under config/ exists.
     match /config/{id} {
-      allow get: if isAdmin();
+      function validAnnouncement(a) {
+        return a is map
+          && a.keys().hasOnly(['text', 'level', 'until'])
+          && a.text is string && a.text.size() > 0 && a.text.size() <= 300
+          && a.level in ['info', 'warn']
+          && (!('until' in a) || a.until is int);
+      }
+      // Feature flags: a known name → bool. Adding a flag means adding it here and in src/lib/flags.ts.
+      function validFlags(f) {
+        return f is map
+          && f.keys().hasOnly(['aiImages', 'aiSms', 'liveTables', 'autoCapture', 'quickAdd', 'nudges', 'statementImport',
+              'payLinks', 'duplicates', 'merchantMemory', 'whoseTurn', 'budgetAlerts'])
+          && f.get('aiImages', true) is bool && f.get('aiSms', true) is bool && f.get('liveTables', true) is bool
+          && f.get('autoCapture', true) is bool && f.get('quickAdd', true) is bool && f.get('nudges', true) is bool
+          && f.get('statementImport', true) is bool && f.get('payLinks', true) is bool && f.get('duplicates', true) is bool
+          && f.get('merchantMemory', true) is bool && f.get('whoseTurn', true) is bool && f.get('budgetAlerts', true) is bool;
+      }
+      function validAppConfig(d) {
+        return d.keys().hasOnly(['maintenance', 'maintenanceMessage', 'minVersion', 'announcement', 'flags', 'signups', 'updatedAt', 'updatedBy'])
+          && d.get('maintenance', false) is bool
+          && (!('maintenanceMessage' in d) || (d.maintenanceMessage is string && d.maintenanceMessage.size() <= 300))
+          && d.get('minVersion', '0.0.0') is string && d.get('minVersion', '0.0.0').matches('[0-9]{1,5}\\.[0-9]{1,5}\\.[0-9]{1,5}')
+          && (!('announcement' in d) || d.announcement == null || validAnnouncement(d.announcement))
+          && validFlags(d.get('flags', {}))
+          && d.get('signups', 'open') in ['open', 'invite']
+          && d.get('updatedAt', 0) is int
+          && d.get('updatedBy', '') is string;
+      }
+      // Ranges mirror LIMIT_META in shared/limits.ts.
+      function validLimits(d) {
+        return d.keys().hasOnly(['capturePerHour', 'capturePerDay', 'aiOwnPerHour', 'aiOwnPerDay', 'nudgePerDay',
+            'fxPerUserPerHour', 'fxPerUserPerDay', 'updatedAt', 'updatedBy'])
+          && d.get('capturePerHour', 60) is int && d.get('capturePerHour', 60) >= 1 && d.get('capturePerHour', 60) <= 1000
+          && d.get('capturePerDay', 300) is int && d.get('capturePerDay', 300) >= 1 && d.get('capturePerDay', 300) <= 10000
+          && d.get('aiOwnPerHour', 120) is int && d.get('aiOwnPerHour', 120) >= 1 && d.get('aiOwnPerHour', 120) <= 1000
+          && d.get('aiOwnPerDay', 600) is int && d.get('aiOwnPerDay', 600) >= 1 && d.get('aiOwnPerDay', 600) <= 10000
+          && d.get('nudgePerDay', 1) is int && d.get('nudgePerDay', 1) >= 1 && d.get('nudgePerDay', 1) <= 20
+          && d.get('fxPerUserPerHour', 30) is int && d.get('fxPerUserPerHour', 30) >= 1 && d.get('fxPerUserPerHour', 30) <= 500
+          && d.get('fxPerUserPerDay', 200) is int && d.get('fxPerUserPerDay', 200) >= 1 && d.get('fxPerUserPerDay', 200) <= 5000
+          && d.get('updatedAt', 0) is int
+          && d.get('updatedBy', '') is string;
+      }
+      function validAiConfig(d) {
+        return d.keys().hasOnly(['mode', 'allowEmails', 'images', 'sms', 'model', 'perDay', 'perHour', 'globalPerDay', 'updatedAt', 'updatedBy'])
+          && d.mode in ['off', 'everyone', 'allowlist']
+          && d.get('allowEmails', []) is list && d.get('allowEmails', []).size() <= 200
+          && d.get('images', true) is bool
+          && d.get('sms', true) is bool
+          && d.get('model', '') is string && d.get('model', '').size() <= 80
+          && d.get('perDay', 100) is int && d.get('perDay', 100) >= 1 && d.get('perDay', 100) <= 5000
+          && d.get('perHour', 30) is int && d.get('perHour', 30) >= 1 && d.get('perHour', 30) <= 1000
+          && d.get('globalPerDay', 2000) is int && d.get('globalPerDay', 2000) >= 1 && d.get('globalPerDay', 2000) <= 100000;
+      }
+      allow get: if id == 'app' || isAdmin();
       allow list: if false;
-      allow write: if isAdmin() && id == 'ai'
-        && request.resource.data.keys().hasOnly(['mode', 'allowEmails', 'images', 'sms', 'model', 'perDay', 'perHour', 'globalPerDay', 'updatedAt', 'updatedBy'])
-        && request.resource.data.mode in ['off', 'everyone', 'allowlist']
-        && request.resource.data.get('allowEmails', []) is list && request.resource.data.get('allowEmails', []).size() <= 200
-        && request.resource.data.get('images', true) is bool
-        && request.resource.data.get('sms', true) is bool
-        && request.resource.data.get('model', '') is string && request.resource.data.get('model', '').size() <= 80
-        && request.resource.data.get('perDay', 100) is int && request.resource.data.get('perDay', 100) >= 1 && request.resource.data.get('perDay', 100) <= 5000
-        && request.resource.data.get('perHour', 30) is int && request.resource.data.get('perHour', 30) >= 1 && request.resource.data.get('perHour', 30) <= 1000
-        && request.resource.data.get('globalPerDay', 2000) is int && request.resource.data.get('globalPerDay', 2000) >= 1 && request.resource.data.get('globalPerDay', 2000) <= 100000;
+      allow write: if isAdmin() && (
+           (id == 'ai' && validAiConfig(request.resource.data))
+        || (id == 'app' && validAppConfig(request.resource.data))
+        || (id == 'limits' && validLimits(request.resource.data)));
     }
     // admins/{uid}: lets a user see that they're an admin. Managed in the Firebase console only.
     match /admins/{id} {
       allow get: if isUser() && uid() == id;
       allow list, write: if false;
     }
-    // stats/ai_{day}: AI usage counters written by Cloud Functions; admins read them.
+    // blocked/{uid} = { reason, at, by }: written only by the adminBlockUser callable. Every
+    // write by that account is refused (writesOpen); the account may read its own entry so the
+    // app can say so, and admins may read any.
+    match /blocked/{id} {
+      allow get: if isUser() && (uid() == id || isAdmin());
+      allow list, write: if false;
+    }
+    // stats/{kind}_{day}: daily usage counters (ai, capture, push, nudge) written by Cloud
+    // Functions; admins read them (the console asks the adminStats callable for a range).
     match /stats/{id} {
       allow read: if isAdmin();
       allow write: if false;
     }
+    // fxRates/{yyyy-mm-dd | latest}: shared ECB exchange rates (EUR-based), written only by the
+    // fxDaily/fxMorning schedules and the refreshFx callable. Any signed-in user, guests at a
+    // live table included (anonymous auth), may read them; nobody may write from a client.
 
     match /fxRates/{id} {
       allow read: if signedIn();
@@ -151,6 +234,7 @@ service cloud.firestore {
     match /captureTokens/{token} {
       allow get, list, delete: if isUser() && resource.data.uid == uid();
       allow create: if isUser()
+        && writesOpen()
         && token.size() >= 24
         && request.resource.data.uid == uid()
         && request.resource.data.keys().hasOnly(['uid', 'createdAt', 'groupId', 'label'])
@@ -286,20 +370,21 @@ service cloud.firestore {
       // The creator starts as the only signed-up member (others join themselves via invite).
       // Invite codes are 8 characters (src/lib/id.ts), so a weak code can't expose a group.
       allow create: if isUser()
+        && writesOpen()
         && request.resource.data.createdBy == uid()
         && request.resource.data.memberUids == [uid()]
         && request.resource.data.inviteCode is string
         && request.resource.data.inviteCode.size() >= 8
         && validGroupShape(request.resource.data);
-      allow update: if (isMember()
+      allow update: if writesOpen() && ((isMember()
           // members can't silently change who created the group or its invite code
           && request.resource.data.createdBy == resource.data.createdBy
           && request.resource.data.inviteCode == resource.data.inviteCode
           && validGroupShape(request.resource.data)
           && creatorPolicy()
           && validMembershipChange())
-        || isJoining();
-      allow delete: if isMember() && resource.data.createdBy == uid();
+        || isJoining());
+      allow delete: if isMember() && resource.data.createdBy == uid() && writesOpen();
 
       // createdBy is the writer on create and never changes afterwards.
       function validAuthor() {
@@ -424,17 +509,17 @@ service cloud.firestore {
         }
 
         allow read: if isGroupMember(groupId);
-        allow create: if isGroupMember(groupId) && validExpense() && noTrustFieldsOnCreate() && approvalFlagOk();
-        allow update: if isGroupMember(groupId)
+        allow create: if isGroupMember(groupId) && writesOpen() && validExpense() && noTrustFieldsOnCreate() && approvalFlagOk();
+        allow update: if isGroupMember(groupId) && writesOpen()
           && ((validExpense() && trustFieldsKept() && approvalFlagOk()) || isTrashChange() || isFlagOrApproval());
-        allow delete: if isGroupMember(groupId) && canPurge();
+        allow delete: if isGroupMember(groupId) && writesOpen() && canPurge();
 
         // Comment thread on an expense. Comments are immutable; only the author can
         // delete one, except that members may clean up comments of an expense that is
         // being deleted in the same batch (or is already gone).
         match /comments/{commentId} {
           allow read: if isGroupMember(groupId);
-          allow create: if isGroupMember(groupId)
+          allow create: if isGroupMember(groupId) && writesOpen()
             && request.resource.data.keys().hasOnly(['text', 'authorUid', 'authorName', 'createdAt'])
             && request.resource.data.authorUid == uid()
             && request.resource.data.text is string
@@ -443,7 +528,7 @@ service cloud.firestore {
             && request.resource.data.authorName is string
             && request.resource.data.createdAt is int;
           allow update: if false;
-          allow delete: if isUser() && (resource.data.authorUid == uid()
+          allow delete: if isUser() && writesOpen() && (resource.data.authorUid == uid()
             || (isGroupMember(groupId)
               && !existsAfter(/databases/$(database)/documents/groups/$(groupId)/expenses/$(expenseId))));
         }
@@ -462,11 +547,11 @@ service cloud.firestore {
             && request.resource.data.to in groupDoc(groupId).data.members;
         }
         allow read: if isGroupMember(groupId);
-        allow create: if isGroupMember(groupId) && validSettlement() && noTrustFieldsOnCreate();
-        allow update: if isGroupMember(groupId)
+        allow create: if isGroupMember(groupId) && writesOpen() && validSettlement() && noTrustFieldsOnCreate();
+        allow update: if isGroupMember(groupId) && writesOpen()
           && ((validSettlement() && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['deletedAt', 'deletedBy']))
               || isTrashChange());
-        allow delete: if isGroupMember(groupId) && canPurge();
+        allow delete: if isGroupMember(groupId) && writesOpen() && canPurge();
       }
 
       // Append-only activity log (edit history, feed). Entries are written by members in the
@@ -477,7 +562,12 @@ service cloud.firestore {
           return d.keys().hasAll(['type', 'actorUid', 'actorName', 'targetId', 'summary', 'createdAt'])
             && d.keys().hasOnly(['type', 'actorUid', 'actorName', 'targetId', 'summary', 'before', 'after', 'createdAt'])
             && d.actorUid == uid()
-            && d.type is string && d.type.size() <= 40
+            // The kinds the app writes (src/types.ts ActivityType). `settlement.nudged` is the nudge
+            // callable's alone (Admin SDK), so a client can't fake a push it never sent.
+            && d.type in ['expense.created', 'expense.updated', 'expense.deleted', 'expense.restored', 'expense.purged',
+                'expense.disputed', 'expense.resolved', 'expense.approved', 'expense.imported',
+                'settlement.created', 'settlement.deleted', 'settlement.restored', 'settlement.purged',
+                'member.added', 'member.removed']
             && d.actorName is string && d.actorName.size() <= 100
             && d.targetId is string && d.targetId.size() <= 200
             && d.summary is string && d.summary.size() <= 500
@@ -486,9 +576,9 @@ service cloud.firestore {
             && (!('after' in d) || d.after is map);
         }
         allow read: if isGroupMember(groupId);
-        allow create: if isGroupMember(groupId) && validEntry(request.resource.data);
+        allow create: if isGroupMember(groupId) && writesOpen() && validEntry(request.resource.data);
         allow update: if false;
-        allow delete: if isUser()
+        allow delete: if isUser() && writesOpen()
           && groupDoc(groupId).data.createdBy == uid()
           && !existsAfter(/databases/$(database)/documents/groups/$(groupId));
       }
@@ -497,7 +587,7 @@ service cloud.firestore {
       // (also in the same batch as creating/joining the group, hence getAfter).
       match /profiles/{userId} {
         allow read: if isGroupMember(groupId);
-        allow create, update: if isUser() && uid() == userId
+        allow create, update: if isUser() && uid() == userId && writesOpen()
           && uid() in groupAfter(groupId).data.memberUids
           && request.resource.data.keys().hasOnly(['displayName', 'payment', 'photoURL'])
           && request.resource.data.displayName is string
@@ -506,7 +596,7 @@ service cloud.firestore {
               && request.resource.data.photoURL.size() <= 2048
               && request.resource.data.photoURL.matches('https://.+')));
         // the owner, or the group creator when removing the member / deleting the group
-        allow delete: if isUser() && (uid() == userId
+        allow delete: if isUser() && writesOpen() && (uid() == userId
           || (isGroupMember(groupId) && groupDoc(groupId).data.createdBy == uid()));
       }
     }
@@ -557,6 +647,7 @@ service cloud.firestore {
         || uid() in resource.data.participants);
       allow list: if signedIn() && resource.data.hostUid == uid();
       allow create: if signedIn()
+        && writesOpen()
         && request.resource.data.hostUid == uid()
         && request.resource.data.code == code
         && code.size() >= 6 && code.size() <= 12
@@ -570,14 +661,14 @@ service cloud.firestore {
         && request.resource.data.expiresAt - request.resource.data.createdAt <= 86400000
         && request.resource.data.participants[uid()].uid == uid();
       // The host can change anything except who hosts it, its code and when it expires.
-      allow update: if (isHost()
+      allow update: if writesOpen() && ((isHost()
           && request.resource.data.hostUid == resource.data.hostUid
           && request.resource.data.code == resource.data.code
           && request.resource.data.expiresAt == resource.data.expiresAt
           && request.resource.data.createdAt == resource.data.createdAt
           && request.resource.data.status in ['open', 'closed'])
-        || isGuestUpdate();
-      allow delete: if isHost();
+        || isGuestUpdate());
+      allow delete: if isHost() && writesOpen();
     }
 
     // ---- Invites -------------------------------------------------------
@@ -613,9 +704,9 @@ service cloud.firestore {
       }
       allow get: if isUser();
       allow list: if false;
-      allow create: if validInvite();
-      allow update: if (validInvite() && request.resource.data.groupId == resource.data.groupId) || isLeaverCleanup();
-      allow delete: if isUser() && isGroupMember(resource.data.groupId)
+      allow create: if validInvite() && writesOpen();
+      allow update: if writesOpen() && ((validInvite() && request.resource.data.groupId == resource.data.groupId) || isLeaverCleanup());
+      allow delete: if isUser() && writesOpen() && isGroupMember(resource.data.groupId)
         && groupDoc(resource.data.groupId).data.inviteCode == code;
     }
   }
