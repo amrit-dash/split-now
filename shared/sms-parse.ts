@@ -1,3 +1,4 @@
+import { minorDigitsOf } from './money-core'
 /*
  * Indian bank / UPI / card transaction SMS parser.
  *
@@ -45,20 +46,8 @@ const BARE_AMOUNT_RE = new RegExp(`\\b(?:debited|deducted|spent|withdrawn|sent|p
 /** Amounts that are a balance / limit / due figure rather than the transaction. */
 const NOT_TXN_BEFORE = /(?:bal(?:ance)?|lmt|limit|avl|available|outstanding|due|min(?:imum)?|cashback|reward|o\/s|credit limit)\b[^0-9]{0,12}$/i
 
-const digitsCache = new Map<string, number>()
-/** Decimal places of a currency's minor unit (from Intl, like src/lib/money.ts). */
-export function minorDigitsOf(currency: string): number {
-  let d = digitsCache.get(currency)
-  if (d === undefined) {
-    try {
-      d = new Intl.NumberFormat('en', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits ?? 2
-    } catch {
-      d = 2
-    }
-    digitsCache.set(currency, d)
-  }
-  return d
-}
+/** Decimal places of a currency's minor unit, per ISO 4217 (the one table in money-core). */
+export { minorDigitsOf }
 
 /** "1,00,000.00" / "1,999" / "250.0" → minor units of `currency`, or NaN. Indian (lakh) grouping is fine. */
 export function parseAmountMinor(raw: string, currency = 'INR'): number {

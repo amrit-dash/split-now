@@ -1,3 +1,4 @@
+import { minorDigitsOf } from '../../../shared/money-core'
 import { REMINDER } from '../config'
 import { netBalances, type BalanceExpense, type BalanceSettlement, type MembersLite } from '../../../shared/balances-core'
 
@@ -12,13 +13,7 @@ export { isBalancedExpense as isBalanced, netBalances } from '../../../shared/ba
 
 export function reminderThreshold(currency: string): number {
   if (REMINDER.threshold[currency] !== undefined) return REMINDER.threshold[currency]
-  let d = 2
-  try {
-    d = new Intl.NumberFormat('en', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits ?? 2
-  } catch {
-    /* default */
-  }
-  return REMINDER.defaultThresholdMajor * 10 ** d
+  return REMINDER.defaultThresholdMajor * 10 ** minorDigitsOf(currency)
 }
 
 const DAY = 86_400_000

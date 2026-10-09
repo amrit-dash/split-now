@@ -1,3 +1,4 @@
+import { minorDigitsOf } from '../../../shared/money-core'
 /** Notification copy. Amounts use Indian grouping (₹1,00,000) via Intl en-IN; whole amounts drop the paise. */
 
 export interface Note {
@@ -13,13 +14,8 @@ export interface Note {
 
 const fmtCache = new Map<string, Intl.NumberFormat>()
 
-function digits(currency: string): number {
-  try {
-    return new Intl.NumberFormat('en-IN', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits ?? 2
-  } catch {
-    return 2
-  }
-}
+// ISO 4217 digits, the same table the app stores amounts with (shared/money-core.ts).
+const digits = (currency: string): number => minorDigitsOf(currency)
 
 export function formatMoney(minor: number, currency = 'INR'): string {
   const d = digits(currency)

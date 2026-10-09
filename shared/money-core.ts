@@ -9,20 +9,44 @@
 /** Currencies the app offers. Kept in step with CURRENCIES in src/lib/money.ts. */
 export const KNOWN_CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'SGD', 'THB', 'AUD', 'NZD', 'CAD', 'JPY', 'IDR', 'MYR', 'LKR', 'NPR']
 
-const digitsCache = new Map<string, number>()
+/*
+ * Decimal places of each currency's minor unit, from ISO 4217 (the standard, not the device's
+ * display data). Intl's answer depends on the ICU version: Node, Chrome and an older phone can
+ * disagree (IDR came back 0 on one machine and 2 on another), and two devices storing the same
+ * amount with different digits would be 100× apart. Everything not listed has 2.
+ */
+const ISO_DIGITS: Record<string, number> = {
+  BIF: 0,
+  CLP: 0,
+  DJF: 0,
+  GNF: 0,
+  ISK: 0,
+  JPY: 0,
+  KMF: 0,
+  KRW: 0,
+  PYG: 0,
+  RWF: 0,
+  UGX: 0,
+  UYI: 0,
+  VND: 0,
+  VUV: 0,
+  XAF: 0,
+  XOF: 0,
+  XPF: 0,
+  BHD: 3,
+  IQD: 3,
+  JOD: 3,
+  KWD: 3,
+  LYD: 3,
+  OMR: 3,
+  TND: 3,
+  CLF: 4,
+  UYW: 4,
+}
 
-/** Decimal places of a currency's minor unit (2 for INR/AUD, 0 for JPY/KRW, 3 for BHD), from Intl. */
+/** Decimal places of a currency's minor unit (2 for INR/AUD/IDR, 0 for JPY/KRW, 3 for BHD), per ISO 4217. */
 export function minorDigitsOf(currency = 'INR'): number {
-  let d = digitsCache.get(currency)
-  if (d === undefined) {
-    try {
-      d = new Intl.NumberFormat('en', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits ?? 2
-    } catch {
-      d = 2
-    }
-    digitsCache.set(currency, d)
-  }
-  return d
+  return ISO_DIGITS[currency.toUpperCase()] ?? 2
 }
 
 /** Symbols that name a currency on their own. Order matters: the two-letter prefixes come before the bare ones. */

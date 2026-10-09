@@ -43,3 +43,15 @@ describe('money-core', () => {
     expect(fingerprint('Rs.60.00 debited from a/c XX1234')).toMatch(/^[a-z0-9]{8,14}$/)
   })
 })
+
+describe('minorDigitsOf (ISO 4217, never the device)', () => {
+  it('fixed digits regardless of the ICU version', () => {
+    expect(minorDigitsOf('INR')).toBe(2)
+    expect(minorDigitsOf('IDR')).toBe(2)
+    expect(minorDigitsOf('JPY')).toBe(0)
+    expect(minorDigitsOf('krw')).toBe(0)
+    expect(minorDigitsOf('VND')).toBe(0)
+    expect(minorDigitsOf('BHD')).toBe(3)
+    expect(minorDigitsOf('XYZ')).toBe(2)
+  })
+})
