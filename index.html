@@ -19,18 +19,30 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <style>
       /*
-       * Splash from the HTML alone, while #root is still empty: the same brand gradient and mark
-       * as <Splash/> in src/App.tsx, which takes over for the sign-in check without a visible
-       * change. The accent variables come from the stylesheet (index.css); the hex values are the
-       * violet defaults for the moment before it lands. Inter is self-hosted (src/fonts.css), so
-       * nothing on this path waits on another origin.
+       * Launch splash, painted from the HTML alone before any script loads, and kept by <Splash/>
+       * in src/App.tsx (same classes) while sign-in is read; src/lib/splash.ts has the timing.
+       * The logo pops in, the stack slides up, then the tagline arrives line by line. The page
+       * is dark (the manifest's background_color, which Android's own launch screen uses) with a
+       * faint glow of the accent, so the hand-over from the system splash is seamless. Every
+       * delay is offset by --t, the ms already elapsed, so React's copy continues the animation
+       * instead of restarting it. The accent variables come from index.css once it lands.
        */
-      #root:empty { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; background: linear-gradient(to bottom right, var(--color-brand-700, #6d28d9), var(--color-duo-700, #a21caf)); background: linear-gradient(to bottom right in oklab, var(--color-brand-700, #6d28d9), var(--color-duo-700, #a21caf)); }
-      #root:empty::before { content: ''; width: 5rem; height: 5rem; background: url(/favicon.svg) center / contain no-repeat; filter: drop-shadow(0 20px 30px rgb(0 0 0 / 0.35)); animation: splash-pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.4); }
-      @keyframes splash-pop { from { transform: scale(0.9); opacity: 0; } }
-      @media (prefers-reduced-motion: reduce) { #root:empty::before { animation: none; } }
+      .boot { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 0 1.25rem; background: #0b0a14; background: radial-gradient(70% 50% at 50% 45%, rgb(124 58 237 / 0.2), transparent 70%), #0b0a14; background: radial-gradient(70% 50% at 50% 45%, color-mix(in oklab, var(--color-brand-600, #7c3aed) 22%, transparent), transparent 70%), #0b0a14; color: #fff; font-family: 'Inter Variable', Inter, ui-sans-serif, system-ui, sans-serif; text-align: center; }
+      .boot-stack { display: flex; flex-direction: column; align-items: center; animation: boot-up 0.5s cubic-bezier(0.3, 0, 0.2, 1) calc(650ms - var(--t, 0ms)) both; }
+      .boot-logo { width: 5.5rem; height: 5.5rem; filter: drop-shadow(0 18px 32px rgb(0 0 0 / 0.5)); animation: boot-pop 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.35) calc(0ms - var(--t, 0ms)) both; }
+      .boot-tag { margin: 1rem 0 0; }
+      .boot-l1, .boot-l2 { display: block; animation: boot-line 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+      .boot-l1 { font-size: 0.95rem; line-height: 1.5rem; font-weight: 500; color: rgb(226 232 240 / 0.85); text-wrap: balance; animation-delay: calc(1000ms - var(--t, 0ms)); }
+      .boot-l2 { font-size: 1.5rem; line-height: 2.25rem; font-weight: 800; letter-spacing: -0.02em; color: #e9d5ff; background: linear-gradient(90deg, var(--color-brand-300, #c4b5fd), var(--color-duo-300, #f9a8d4)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation-delay: calc(1300ms - var(--t, 0ms)); }
+      /* the stack starts lowered by half the tagline's height, so the logo alone sits in the middle */
+      @keyframes boot-up { from { transform: translateY(2.375rem); } }
+      @keyframes boot-pop { from { transform: scale(0.6); opacity: 0; } }
+      @keyframes boot-line { from { transform: translateY(0.6rem); opacity: 0; } }
+      @media (prefers-reduced-motion: reduce) { .boot-stack, .boot-logo, .boot-l1, .boot-l2 { animation: none; } }
     </style>
     <script>
+      // The splash's clock (src/lib/splash.ts): React's copy of the splash picks up from here.
+      window.__bootT0 = performance.now()
       // Apply theme before first paint to avoid a flash.
       try {
         var t = localStorage.getItem('splitit-theme') || 'system'
@@ -50,7 +62,7 @@
     </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div class="boot" role="img" aria-label="Split Now"><div class="boot-stack"><img class="boot-logo" src="/favicon.svg" alt="" /><p class="boot-tag" aria-hidden="true"><span class="boot-l1">Spending is wise, Splitting is Free.</span><span class="boot-l2">Split Now!</span></p></div></div></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -20,7 +20,8 @@ import {
   type BlockInfo,
 } from './lib/flags'
 import { takeStashedCapture } from './lib/pending'
-import { refreshPush, setBadge, watchPrefs } from './lib/push'
+import { isStandalone, refreshPush, setBadge, watchPrefs } from './lib/push'
+import { splashHoldMs } from './lib/splash'
 import { setAiScan } from './lib/ai'
 import { GroupDataProvider } from './hooks/groupData'
 import { primeAiStatus, useAiStatus } from './hooks/useAiStatus'
@@ -59,6 +60,9 @@ const safePath = (p: string | null) => (p && /^\/(?![/\\])\S*$/.test(p) ? p : nu
 
 export default function App() {
   const { user, loading } = useAuth()
+  // On an installed-app launch the splash stays over the app (which loads underneath) until its
+  // animation has played, then fades away.
+  const hold = useSplashHold()
   const loc = useLocation()
   const nav = useNavigate()
   const toast = useToast()
@@ -157,6 +161,7 @@ export default function App() {
   return (
     <>
       <UpdatePrompt />
+      {hold !== 'off' && <Splash leaving={hold === 'leaving'} />}
       {loading ? (
         <Splash />
       ) : guestCapture ? (
@@ -425,11 +430,55 @@ function TableRoutes() {
   )
 }
 
-/** The sign-in wait: the same gradient and mark as the HTML splash (index.html, #root:empty), so the hand-over is invisible. */
-function Splash() {
+/** ms since the page started, on the splash's clock (index.html sets window.__bootT0). */
+const bootElapsed = () => performance.now() - ((window as Window & { __bootT0?: number }).__bootT0 ?? 0)
+
+/**
+ * The sign-in wait: the same markup as the HTML splash (index.html, styled there), with --t set
+ * to the time already elapsed so the animation continues instead of starting again.
+ */
+function Splash({ leaving = false }: { leaving?: boolean }) {
+  const [t] = useState(bootElapsed)
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-gradient-to-br from-brand-700 to-duo-700">
-      <img src="/favicon.svg" alt="Split Now" className="h-20 w-20 drop-shadow-[0_20px_30px_rgb(0_0_0/0.35)]" />
+    <div
+      className={`boot transition-opacity duration-300 ${leaving ? 'pointer-events-none opacity-0' : ''}`}
+      role="img"
+      aria-label="Split Now"
+      style={{ '--t': `${Math.round(t)}ms` } as React.CSSProperties}
+    >
+      <div className="boot-stack">
+        <img className="boot-logo" src="/favicon.svg" alt="" />
+        <p className="boot-tag" aria-hidden>
+          <span className="boot-l1">Spending is wise, Splitting is Free.</span>
+          <span className="boot-l2">Split Now!</span>
+        </p>
+      </div>
     </div>
   )
+}
+
+/** 'on' while an installed-app launch keeps the splash up for its animation (src/lib/splash.ts), then 'leaving' while it fades. */
+function useSplashHold(): 'on' | 'leaving' | 'off' {
+  const [ms] = useState(() => {
+    let seen = false
+    try {
+      seen = sessionStorage.getItem('splitit-splash') === '1'
+      sessionStorage.setItem('splitit-splash', '1')
+    } catch {
+      /* no sessionStorage: hold this once */
+    }
+    const reducedMotion = !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    return splashHoldMs({ elapsed: bootElapsed(), standalone: isStandalone(), seen, reducedMotion })
+  })
+  const [state, setState] = useState<'on' | 'leaving' | 'off'>(ms > 0 ? 'on' : 'off')
+  useEffect(() => {
+    if (!ms) return
+    const a = setTimeout(() => setState('leaving'), ms)
+    const b = setTimeout(() => setState('off'), ms + 300)
+    return () => {
+      clearTimeout(a)
+      clearTimeout(b)
+    }
+  }, [ms])
+  return state
 }

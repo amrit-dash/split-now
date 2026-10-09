@@ -4,8 +4,9 @@
 // `<rect … rx="…" …/>` (full-bleed, rounded corners), and everything after it is the mark.
 // Outputs (all in public/):
 //   pwa-192.png, pwa-512.png      the whole tile (background + mark) — manifest `any` icons
-//   pwa-maskable-512.png          the mark alone, centred on a flat brand-700 field, sized so
-//                                 that nothing can be clipped by Android's circle / squircle mask
+//   pwa-maskable-512.png          the tile's own background, full-bleed with square corners (Android
+//                                 cuts its own shape), and the mark centred at MASKABLE_MARK of the
+//                                 width, so it looks like the iOS icon under any launcher mask
 //   apple-touch-icon.png (180)    the tile with square corners and no alpha (iOS rounds it itself)
 //   badge-96.png                  a white silhouette of the mark on transparent (notification
 //                                 `badge` and the manifest shortcut icons: Android keeps only the alpha)
@@ -31,6 +32,10 @@ if (!RECT.test(body)) throw new Error('favicon.svg must have a <rect … rx="…
 
 /** Square corners: rx (and ry) of the background rect → 0. */
 const squareTile = head + body.replace(RECT, (rect) => rect.replace(/\b(rx|ry)\s*=\s*(["'])[^"']*\2/g, '$1=$2' + '0$2'))
+
+/** The background alone, square: what fills an Android adaptive icon edge to edge. */
+const fieldOnly =
+  head + body.replace(RECT, (rect) => rect.replace(/\b(rx|ry)\s*=\s*(["'])[^"']*\2/g, '$1=$2' + '0$2')).replace(/(<rect\b[^>]*\/>)[\s\S]*(<\/svg>)/, '$1$2')
 
 /** The mark alone on a transparent canvas. */
 const markOnly = head + body.replace(RECT, '')
@@ -58,8 +63,8 @@ const whiteMark = whiten(markOnly)
 
 // --- Colours -----------------------------------------------------------------------------
 
-// The maskable field is the brand's 700 step, read from the default accent in src/index.css so
-// the icon follows the brand if the palette ever moves; ICON_BG=#rrggbb overrides it.
+// The Apple icon is flattened on the brand's 700 step (it has no alpha), read from the default accent
+// in src/index.css so it follows the brand if the palette ever moves; ICON_BG=#rrggbb overrides it.
 async function brand700() {
   if (process.env.ICON_BG) return process.env.ICON_BG
   try {
@@ -81,14 +86,14 @@ const render = (s, size) => sharp(Buffer.from(s), { density: 72 * Math.max(1, si
  * that the mark's bounding box fits a circle of `fit` px across: that circle is what every mask
  * shape keeps, so nothing is clipped whatever the mark's outline. Returns a centred `size` canvas.
  */
-async function fitMark(s, size, fit, background = { r: 0, g: 0, b: 0, alpha: 0 }) {
+async function fitMark(s, size, fit, background = { r: 0, g: 0, b: 0, alpha: 0 }, by = 'diagonal') {
   const big = await render(s, 2048).png().toBuffer()
   const { data, info } = await sharp(big)
     .trim({ background: { r: 0, g: 0, b: 0, alpha: 0 }, threshold: 1 })
     .png()
     .toBuffer({ resolveWithObject: true })
-  const diag = Math.hypot(info.width, info.height)
-  const scale = fit / diag
+  // 'diagonal' keeps any outline inside a circle of `fit`; 'width' sizes the larger side to `fit`.
+  const scale = fit / (by === 'width' ? Math.max(info.width, info.height) : Math.hypot(info.width, info.height))
   const w = Math.max(1, Math.round(info.width * scale)),
     h = Math.max(1, Math.round(info.height * scale))
   const mark = await sharp(data).resize(w, h, { fit: 'fill' }).png().toBuffer()
@@ -102,9 +107,19 @@ async function fitMark(s, size, fit, background = { r: 0, g: 0, b: 0, alpha: 0 }
 await render(svg, 192).png().toFile(out('pwa-192.png'))
 await render(svg, 512).png().toFile(out('pwa-512.png'))
 
-// Maskable: the Android safe zone is a circle 80% of the width; keep the mark inside it.
+// Maskable: Android fills its shape (circle, squircle, rounded square) with this image and shows
+// roughly the middle 66-80% of it, so the gradient runs to every edge (no flat square behind a
+// rounded tile, which is what looked like a box) and the mark sits well inside the 80% safe circle.
+// MASKABLE_MARK is the mark's width as a share of the icon: 0.46 reads like the iOS icon (0.66 of a
+// tile that iOS shows whole) once the launcher has cut its shape, and clears the tightest crop.
+const MASKABLE_MARK = 0.46
 const field = await brand700()
-await (await fitMark(markOnly, 512, 512 * 0.8, field)).toFile(out('pwa-maskable-512.png'))
+const fieldPng = await render(fieldOnly, 512).png().toBuffer()
+const maskMark = await (await fitMark(markOnly, 512, 512 * MASKABLE_MARK, undefined, 'width')).toBuffer()
+await sharp(fieldPng)
+  .composite([{ input: maskMark }])
+  .png()
+  .toFile(out('pwa-maskable-512.png'))
 
 // Apple: iOS masks the corners itself and dislikes alpha, so flatten on the tile's own colour.
 await render(squareTile, 180).flatten({ background: field }).png().toFile(out('apple-touch-icon.png'))
@@ -114,4 +129,4 @@ await render(squareTile, 180).flatten({ background: field }).png().toFile(out('a
 await (await fitMark(whiteMark, 96, 96 * 0.92)).toFile(out('badge-96.png'))
 await (await fitMark(whiteMark, 512, 512 * 0.8)).toFile(out('pwa-mono-512.png'))
 
-console.log(`Icons generated from public/favicon.svg (maskable field ${field})`)
+console.log(`Icons generated from public/favicon.svg (apple field ${field})`)
