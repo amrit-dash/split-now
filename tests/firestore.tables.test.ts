@@ -90,6 +90,12 @@ describe('creating', () => {
     await assertFails(setDoc(doc(db('host'), 'tables/NEW23456'), fresh({ expiresAt: Date.now() + 3 * 86_400_000 })))
     await assertFails(setDoc(doc(db('host'), 'tables/NEW23456'), fresh({ evil: true })))
   })
+  it('may say how tax and fees are shared: by items or equally, nothing else', async () => {
+    await assertSucceeds(setDoc(doc(db('host'), 'tables/NEW23456'), fresh({ taxSplit: 'equal' })))
+    await assertSucceeds(setDoc(doc(db('host'), 'tables/NEW23457'), { ...fresh({ taxSplit: 'items' }), code: 'NEW23457' }))
+    await assertFails(setDoc(doc(db('host'), 'tables/NEW23458'), { ...fresh({ taxSplit: 'tip' }), code: 'NEW23458' }))
+    await assertFails(setDoc(doc(db('host'), 'tables/NEW23459'), { ...fresh({ taxSplit: 1 }), code: 'NEW23459' }))
+  })
   it('signed-out users cannot create', async () => {
     await assertFails(setDoc(doc(db(), 'tables/NEW23456'), fresh()))
   })
@@ -136,6 +142,9 @@ describe('guests', () => {
   it('cannot leave by deleting their entry (their claims would dangle)', async () => {
     await assertFails(updateDoc(t('ben'), { 'participants.ben': deleteField() }))
   })
+  it('cannot change how tax and fees are shared', async () => {
+    await assertFails(updateDoc(t('ben'), { taxSplit: 'equal' }))
+  })
   it('cannot edit the bill, close it or change the host', async () => {
     await assertFails(updateDoc(t('ben'), { 'items.a.amount': 1 }))
     await assertFails(updateDoc(t('ben'), { extras: { tax: 0, tip: 0, discount: 5000 } }))
@@ -167,6 +176,13 @@ describe('host', () => {
     await assertSucceeds(updateDoc(t('host'), { 'participants.p_kid': { name: 'Kid', joinedAt: 1 } }))
     await assertSucceeds(updateDoc(t('host'), { 'participants.ben': deleteField(), 'claims.ben': deleteField() }))
     await assertSucceeds(updateDoc(t('host'), { status: 'closed', expenseId: 'e1', closedGroupId: 'g1' }))
+  })
+  it('can switch tax and fees between by items and equally, but not to anything else', async () => {
+    await assertSucceeds(updateDoc(t('host'), { taxSplit: 'equal', extras: { tax: 270, tip: 300, discount: 0 } }))
+    await assertSucceeds(updateDoc(t('host'), { taxSplit: 'items' }))
+    await assertSucceeds(updateDoc(t('host'), { taxSplit: deleteField() }))
+    await assertFails(updateDoc(t('host'), { taxSplit: 'random' }))
+    await assertFails(updateDoc(t('host'), { taxSplit: null }))
   })
   it('can still edit after expiry (finishing late)', async () => {
     await seed({ expiresAt: now - 1 })

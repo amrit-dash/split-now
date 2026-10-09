@@ -12,6 +12,7 @@ import { formatMoney } from '@/lib/money'
 import { errText } from '@/lib/errors'
 import { groupTableLinks, openTableLinks } from '@/lib/paylinks'
 import {
+  taxSplitOf,
   claimLeftoversForAll,
   computeTableTotals,
   matchParticipants,
@@ -284,7 +285,11 @@ function NoGroup({ table, ready }: { table: LiveTable; ready: boolean }) {
   return (
     <div className="space-y-2">
       <p className="text-muted text-sm">
-        Creates “{table.merchant}” with everyone here and adds this bill item by item, so you can fix who had what later. Friends join it with the invite link.
+        Creates “{table.merchant}” with everyone here and{' '}
+        {!table.extras.tip && taxSplitOf(table) === 'items'
+          ? 'adds this bill item by item, so you can fix who had what later.'
+          : 'adds each person’s share exactly as shown here (tip and tax included).'}{' '}
+        Friends join it with the invite link.
       </p>
       <button type="button" className="btn-primary w-full" disabled={!ready || busy} onClick={createGroup} data-testid="create-table-group">
         <Users size={18} aria-hidden /> Create group and add the bill

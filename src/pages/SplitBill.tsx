@@ -11,11 +11,11 @@ import type { ParsedReceipt } from '@/lib/ocr-parse'
 import { pending } from '@/lib/pending'
 import { todayISO, uid } from '@/lib/id'
 import { appLocale, defaultCurrency } from '@/lib/locale'
-import { draftToTable, receiptExtras } from '@/lib/table'
+import { billCheck, draftToTable, receiptExtras, taxSplitHint, type TaxSplit } from '@/lib/table'
 import { AiScanToggle } from '@/components/AiScanToggle'
 import { DateField } from '@/components/DateField'
 import { GroupIcon } from '@/components/GroupIcon'
-import { Loading, PageHeader, Spinner } from '@/components/Misc'
+import { Loading, PageHeader, Segmented, Spinner } from '@/components/Misc'
 import { errText } from '@/lib/errors'
 import { titleCase } from '@/lib/expense-draft'
 import { currencyOptions, Select } from '@/components/Select'
@@ -55,6 +55,7 @@ export default function SplitBill() {
   const [date, setDate] = useState(todayISO())
   const [rows, setRows] = useState<Row[]>([blank()])
   const [extras, setExtras] = useState<Record<ExtraKey, string>>({ tax: '', tip: '', discount: '' })
+  const [taxSplit, setTaxSplit] = useState<TaxSplit>('items')
   const [printed, setPrinted] = useState<number>()
   const [preview, setPreview] = useState<string>()
   const [busy, setBusy] = useState(false)
@@ -154,7 +155,8 @@ export default function SplitBill() {
   const exOk = Object.values(ex).every((v) => Number.isFinite(v) && v >= 0)
   const total = itemsSum + (exOk ? ex.tax + ex.tip - ex.discount : 0)
   const filled = items.filter((i) => Number.isFinite(i.amount) && i.amount > 0)
-  const gap = printed && filled.length ? printed - total : 0
+  // Only a hint: a bill that doesn't match never stops the table from starting.
+  const check = billCheck({ itemsSum, extras: exOk ? ex : { tax: 0, tip: 0, discount: 0 }, printed: filled.length ? printed : undefined })
 
   const start = async () => {
     if (items.some((i) => !Number.isFinite(i.amount) || i.amount < 0)) return toast('Check the item amounts', 'err')
@@ -165,7 +167,7 @@ export default function SplitBill() {
     try {
       const code = await repo.createTable(
         draftToTable(
-          { merchant: merchant || 'Bill', currency: cur, date, items: filled, extras: ex, groupId: group?.id },
+          { merchant: merchant || 'Bill', currency: cur, date, items: filled, extras: ex, taxSplit, groupId: group?.id },
           { uid: user.uid, name: profile.displayName, payment: profile.payment },
         ),
       )
@@ -369,7 +371,20 @@ export default function SplitBill() {
             </label>
           ))}
         </div>
-        <p className="mt-2 text-xs text-muted">Tax, tip and discounts are shared in proportion to what each person had.</p>
+        <div className="mt-3">
+          <div className="label">Tax &amp; fees</div>
+          <Segmented<TaxSplit>
+            value={taxSplit}
+            onChange={setTaxSplit}
+            label="Tax & fees"
+            testId="table-tax-split"
+            options={[
+              { value: 'items', label: 'By items' },
+              { value: 'equal', label: 'Equally' },
+            ]}
+          />
+        </div>
+        <p className="mt-2 text-xs text-muted">{taxSplitHint(taxSplit)}</p>
 
         <div className="mt-3 space-y-1 rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800">
           <div className="flex justify-between text-muted">
@@ -382,16 +397,18 @@ export default function SplitBill() {
               {formatMoney(total, cur)}
             </span>
           </div>
-          {printed !== undefined && gap !== 0 && (
+          {check.kind === 'tipOnTop' && <div className="pt-1 text-muted">Tip added on top of the bill</div>}
+          {printed !== undefined && check.kind === 'mismatch' && (
             <div className="flex items-center justify-between gap-2 pt-1 text-amber-700 dark:text-amber-300">
               <span>
-                Bill says {formatMoney(printed, cur)} ({formatMoney(gap, cur, { sign: true })})
+                Bill says {formatMoney(printed, cur)} ({formatMoney(check.gap, cur, { sign: true })}
+                {ex.tip > 0 ? ' before the tip' : ''})
               </span>
               <button
                 type="button"
                 className="shrink-0 font-semibold underline"
                 onClick={() => {
-                  const tax = Math.max(0, (ex.tax || 0) + gap)
+                  const tax = Math.max(0, (ex.tax || 0) + check.gap)
                   setExtras({ ...extras, tax: tax ? centsToInput(tax, cur) : '' })
                 }}
               >

@@ -1262,7 +1262,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
 /** Field-path update for a TablePatch (`null` entries and a null groupId are deleted). */
 function tablePatchFields(patch: TablePatch, del: () => unknown): Record<string, unknown> {
   const out: Record<string, unknown> = {}
-  for (const k of ['merchant', 'extras', 'status', 'expenseId', 'closedGroupId'] as const) if (patch[k] !== undefined) out[k] = patch[k]
+  for (const k of ['merchant', 'extras', 'taxSplit', 'status', 'expenseId', 'closedGroupId'] as const) if (patch[k] !== undefined) out[k] = patch[k]
   if (patch.groupId !== undefined) out.groupId = patch.groupId ?? del()
   for (const k of ['items', 'participants', 'claims', 'payLinks'] as const) {
     for (const [id, v] of Object.entries(patch[k] ?? {})) out[`${k}.${id}`] = v === null ? del() : k === 'participants' ? compact(v as object) : v

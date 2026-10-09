@@ -196,7 +196,7 @@ export default function Home() {
       )}
 
       {!firstRun && (
-        <Section title="Groups" link={{ to: '/groups', label: 'See all' }}>
+        <Section title="Groups & friends" link={{ to: '/groups', label: 'See all' }}>
           {shared.length === 0 ? (
             <EmptyGroups />
           ) : (

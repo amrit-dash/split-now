@@ -135,6 +135,14 @@ describe('edit auto-approve (group.editAutoApprove)', () => {
     await assertFails(updateDoc(g('bob'), { editAutoApprove: deleteField(), updatedAt: 3 }))
     await assertSucceeds(updateDoc(g('alice'), { editAutoApprove: deleteField(), updatedAt: 3 }))
   })
+  it('only the creator changes the currency while approval amounts are set (they are in that currency)', async () => {
+    const g = (uid: string) => doc(db(uid), 'groups/g1')
+    await assertFails(updateDoc(g('bob'), { currency: 'INR', updatedAt: 2 }))
+    await assertSucceeds(updateDoc(g('alice'), { currency: 'INR', approvalThreshold: 200000, updatedAt: 3 }))
+    // without saved amounts, any member may change it as before
+    await assertSucceeds(updateDoc(g('alice'), { approvalThreshold: deleteField(), updatedAt: 4 }))
+    await assertSucceeds(updateDoc(g('bob'), { currency: 'AUD', updatedAt: 5 }))
+  })
 })
 
 describe('default threshold by currency (no approvalThreshold on the group)', () => {

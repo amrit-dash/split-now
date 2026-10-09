@@ -740,7 +740,7 @@ export function createLocalRepo(): Repo {
 
 function applyTablePatch(t: LiveTable, patch: TablePatch): LiveTable {
   const next: LiveTable = { ...t, items: { ...t.items }, participants: { ...t.participants }, claims: { ...t.claims } }
-  for (const k of ['merchant', 'extras', 'status', 'expenseId', 'closedGroupId'] as const) {
+  for (const k of ['merchant', 'extras', 'taxSplit', 'status', 'expenseId', 'closedGroupId'] as const) {
     if (patch[k] !== undefined) (next as unknown as Record<string, unknown>)[k] = patch[k]
   }
   if (patch.groupId !== undefined) {

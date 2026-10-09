@@ -2,17 +2,12 @@ import { describe, expect, it } from 'vitest'
 import {
   APPROVAL_DEFAULTS,
   FALLBACK_APPROVAL_THRESHOLD,
-  approvalDefaultInCurrency,
-  approvalDefaultOf,
-  approvalSummary,
   defaultEditAutoApprove,
   editApprovalOutcome,
   editAutoApproved,
-  newGroupEditAutoApprove,
+  groupApprovalInCurrency,
   convertThreshold,
   defaultThreshold,
-  isApprovalDefault,
-  newGroupApproval,
   niceMinor,
   niceNumber,
   tableThreshold,
@@ -101,46 +96,6 @@ describe('convertThreshold', () => {
   })
 })
 
-describe('the user setting', () => {
-  it('defaults to off at the profile currency’s default', () => {
-    expect(approvalDefaultOf(undefined, 'INR')).toEqual({ on: false, amount: 200_000, currency: 'INR' })
-    const s = { on: true, amount: 500_000, currency: 'INR' }
-    expect(approvalDefaultOf(s, 'USD')).toBe(s)
-  })
-  it('follows a change of default currency', () => {
-    const s = { on: true, amount: 20_000, currency: 'INR' }
-    expect(approvalDefaultInCurrency(s, 'USD', 0.012)).toEqual({ on: true, amount: 200, currency: 'USD' })
-    expect(approvalDefaultInCurrency(s, 'JPY', null)).toEqual({ on: true, amount: 10_000, currency: 'JPY' })
-    expect(approvalDefaultInCurrency(s, 'INR', 1)).toBe(s)
-  })
-  it('prefills a new group in its own currency', () => {
-    const s = { on: true, amount: 500_000, currency: 'INR' }
-    expect(newGroupApproval(s, 'INR')).toEqual({ requireApproval: true, threshold: 500_000 })
-    // ₹5,000 at 0.012 → $60 → $50
-    expect(newGroupApproval(s, 'USD', { fromSetting: 0.012 })).toEqual({ requireApproval: true, threshold: 5_000 })
-    expect(newGroupApproval(s, 'USD')).toEqual({ requireApproval: true, threshold: 10_000 })
-    expect(newGroupApproval(undefined, 'EUR')).toEqual({ requireApproval: false, threshold: 10_000 })
-    expect(newGroupApproval(undefined, 'KES', { inr: 0.83 })).toEqual({ requireApproval: false, threshold: 200_000 })
-    expect(newGroupApproval({ ...s, on: false }, 'INR')).toEqual({ requireApproval: false, threshold: 500_000 })
-  })
-  it('recognises a stored setting', () => {
-    expect(isApprovalDefault({ on: true, amount: 100, currency: 'INR' })).toBe(true)
-    expect(isApprovalDefault({ on: 'yes', amount: 100, currency: 'INR' })).toBe(false)
-    expect(isApprovalDefault({ on: true, amount: 0, currency: 'INR' })).toBe(false)
-    expect(isApprovalDefault({ on: true, amount: 1.5, currency: 'INR' })).toBe(false)
-    expect(isApprovalDefault(null)).toBe(false)
-  })
-})
-
-describe('approvalSummary', () => {
-  it('says the amount when on, nothing when off', () => {
-    expect(approvalSummary({ on: true, amount: 200_000, currency: 'INR' })).toMatch(/^Approval over ₹2,000$/)
-    expect(approvalSummary({ on: true, amount: 2_050, currency: 'USD' })).toMatch(/^Approval over .*20\.50$/)
-    expect(approvalSummary({ on: false, amount: 200_000, currency: 'INR' })).toBeNull()
-    expect(approvalSummary(undefined)).toBeNull()
-  })
-})
-
 describe('edit auto-approve amounts', () => {
   it('defaults to a twentieth of the approval default, rounded', () => {
     expect(defaultEditAutoApprove('INR')).toBe(10_000) // ₹100
@@ -148,25 +103,21 @@ describe('edit auto-approve amounts', () => {
     expect(defaultEditAutoApprove('JPY')).toBe(500) // ¥500
     expect(defaultEditAutoApprove('KES')).toBe(500)
   })
-  it('converts like the approval amount, with its own default when there is no rate', () => {
-    const s = { on: true, amount: 10_000, currency: 'INR' }
-    expect(approvalDefaultInCurrency(s, 'USD', 0.012, defaultEditAutoApprove)).toEqual({ on: true, amount: 100, currency: 'USD' }) // ₹100 → $1.20 → $1
-    expect(approvalDefaultInCurrency(s, 'JPY', null, defaultEditAutoApprove)).toEqual({ on: true, amount: 500, currency: 'JPY' })
-    expect(approvalDefaultOf(undefined, 'INR', defaultEditAutoApprove)).toEqual({ on: false, amount: 10_000, currency: 'INR' })
+})
+
+describe('groupApprovalInCurrency (the group form’s currency changes)', () => {
+  it('converts both amounts at the rate and rounds them', () => {
+    // ₹5,000 at 0.012 → $60 → $50; ₹200 → $2.40 → $2
+    expect(groupApprovalInCurrency({ threshold: 500_000, editAutoApprove: 20_000 }, 'INR', 'USD', 0.012)).toEqual({ threshold: 5_000, editAutoApprove: 200 })
+    // A$100 at 98 → ¥9,800 → ¥10,000; A$5 → ¥490 → ¥500
+    expect(groupApprovalInCurrency({ threshold: 10_000, editAutoApprove: 500 }, 'AUD', 'JPY', 98)).toEqual({ threshold: 10_000, editAutoApprove: 500 })
   })
-  it('prefills a new group', () => {
-    expect(newGroupEditAutoApprove(undefined, 'INR')).toEqual({ on: false, amount: 10_000 })
-    expect(newGroupEditAutoApprove({ on: true, amount: 20_000, currency: 'INR' }, 'INR')).toEqual({ on: true, amount: 20_000 })
-    // ₹200 at 0.012 → $2.40 → $2
-    expect(newGroupEditAutoApprove({ on: true, amount: 20_000, currency: 'INR' }, 'USD', { fromSetting: 0.012 })).toEqual({ on: true, amount: 200 })
-    expect(newGroupEditAutoApprove({ on: true, amount: 20_000, currency: 'INR' }, 'USD')).toEqual({ on: true, amount: 500 })
+  it('without a rate, each takes the new currency’s default', () => {
+    expect(groupApprovalInCurrency({ threshold: 500_000, editAutoApprove: 20_000 }, 'INR', 'USD', null)).toEqual({ threshold: 10_000, editAutoApprove: 500 })
   })
-  it('the hub summary mentions edits only when approval is on', () => {
-    const a = { on: true, amount: 200_000, currency: 'INR' }
-    const e = { on: true, amount: 10_000, currency: 'INR' }
-    expect(approvalSummary(a, e)).toBe('Approval over ₹2,000, edits within ₹100 pass')
-    expect(approvalSummary(a, { ...e, on: false })).toBe('Approval over ₹2,000')
-    expect(approvalSummary({ ...a, on: false }, e)).toBeNull()
+  it('leaves an unset amount unset', () => {
+    expect(groupApprovalInCurrency({ threshold: 500_000 }, 'INR', 'USD', 0.012)).toEqual({ threshold: 5_000, editAutoApprove: undefined })
+    expect(groupApprovalInCurrency({}, 'INR', 'INR', 1)).toEqual({ threshold: undefined, editAutoApprove: undefined })
   })
 })
 

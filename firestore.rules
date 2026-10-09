@@ -47,9 +47,9 @@ service cloud.firestore {
     // What co-members may see (name + payment handles) is copied by the owner into
     // groups/{groupId}/profiles/{uid}, readable only by that group's members.
     match /users/{userId} {
-      // "Ask for approval on big expenses" (approvalDefault) and "Approve small edits
-      // automatically" (editAutoApproveDefault), Settings → Preferences: the defaults for groups
-      // this user creates, each { on, amount (minor units of currency), currency }.
+      // Legacy, unused: approvalDefault and editAutoApproveDefault were personal defaults for
+      // new groups' approval settings (approval is now purely a group setting). Still validated,
+      // each { on, amount (minor units of currency), currency }, so old documents stay valid.
       function validAmountSetting(p, field) {
         return !(field in p) || (
           p[field] is map
@@ -342,7 +342,9 @@ service cloud.firestore {
         return b.createdBy == uid()
           || (a.get('requireApproval', false) == b.get('requireApproval', false)
               && a.get('approvalThreshold', 0) == b.get('approvalThreshold', 0)
-              && a.get('editAutoApprove', 0) == b.get('editAutoApprove', 0));
+              && a.get('editAutoApprove', 0) == b.get('editAutoApprove', 0)
+              // The approval amounts are in the group's currency; only the creator converts them.
+              && (a.currency == b.currency || (!('approvalThreshold' in b) && !('editAutoApprove' in b))));
       }
 
       // A non-member may join only by:
@@ -691,6 +693,8 @@ service cloud.firestore {
     match /tables/{code} {
       function isHost() { return signedIn() && resource.data.hostUid == uid(); }
       function isLive(t) { return t.status == 'open' && request.time.toMillis() < t.expiresAt; }
+      // How tax/fees and discounts are shared (absent means by items); the tip is always equal.
+      function validTaxSplit(t) { return !('taxSplit' in t) || t.taxSplit in ['items', 'equal']; }
       function validParticipant(p, pid) {
         return p is map
           && p.keys().hasOnly(['name', 'uid', 'joinedAt'])
@@ -734,7 +738,8 @@ service cloud.firestore {
         && code.size() >= 6 && code.size() <= 12
         && request.resource.data.status == 'open'
         && request.resource.data.keys().hasOnly(['code', 'groupId', 'hostUid', 'merchant', 'currency', 'date', 'items', 'extras',
-          'participants', 'claims', 'hostPayment', 'status', 'createdAt', 'expiresAt', 'expenseId', 'closedGroupId'])
+          'participants', 'claims', 'hostPayment', 'status', 'createdAt', 'expiresAt', 'expenseId', 'closedGroupId', 'taxSplit'])
+        && validTaxSplit(request.resource.data)
         && request.resource.data.items is map && request.resource.data.items.size() <= 200
         && request.resource.data.claims is map
         && request.resource.data.createdAt is int && request.resource.data.expiresAt is int
@@ -747,7 +752,8 @@ service cloud.firestore {
           && request.resource.data.code == resource.data.code
           && request.resource.data.expiresAt == resource.data.expiresAt
           && request.resource.data.createdAt == resource.data.createdAt
-          && request.resource.data.status in ['open', 'closed'])
+          && request.resource.data.status in ['open', 'closed']
+          && validTaxSplit(request.resource.data))
         || isGuestUpdate());
       allow delete: if isHost() && writesOpen();
     }

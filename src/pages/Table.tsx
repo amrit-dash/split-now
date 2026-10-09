@@ -31,6 +31,7 @@ import { canMarkPaid, payLinkUrl } from '@/lib/paylinks'
 import { usePayLink } from '@/hooks/data'
 import {
   computeTableTotals,
+  extrasParts,
   formatCode,
   isExpired,
   MAX_SHARES,
@@ -40,14 +41,17 @@ import {
   sanitizeClaims,
   setShares,
   tableTotal,
+  taxSplitHint,
+  taxSplitOf,
   toggleClaim,
   validateName,
   type LiveTable,
   type ParticipantId,
+  type TaxSplit,
   type TableTotals,
 } from '@/lib/table'
 import { Avatar } from '@/components/Avatar'
-import { Empty, Loading, PageHeader } from '@/components/Misc'
+import { Empty, Loading, PageHeader, Segmented } from '@/components/Misc'
 import { GuestPay } from '@/components/GuestPay'
 import { MarkPaid } from '@/components/MarkPaid'
 import { QrCode } from '@/components/QrCode'
@@ -401,7 +405,14 @@ function Live({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; isH
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/70 bg-white/90 backdrop-blur-xl safe-bottom dark:border-white/5 dark:bg-ink-900/90">
         <div className="mx-auto flex max-w-lg items-center gap-3 px-4 py-3">
           <div className="min-w-0 flex-1">
-            <div className="text-muted text-xs">Your total{mine?.extras ? ` (incl. ${formatMoney(mine.extras, cur, { sign: true })} tax/tip)` : ''}</div>
+            <div className="text-muted text-xs">
+              Your total
+              {mine && extrasParts(mine).length > 0
+                ? ` (incl. ${extrasParts(mine)
+                    .map((x) => `${formatMoney(x.amount, cur, { sign: true })} ${x.label}`)
+                    .join(', ')})`
+                : ''}
+            </div>
             <div className="text-2xl font-extrabold tabular-nums" data-testid="my-total">
               {formatMoney(mine?.total ?? 0, cur)}
             </div>
@@ -512,9 +523,10 @@ function People({
                     </span>
                   )}
                 </div>
-                {t.extras !== 0 && (
+                {extrasParts(t).length > 0 && (
                   <div className="text-muted text-xs tabular-nums">
-                    {formatMoney(t.items, cur)} + {formatMoney(t.extras, cur)} tax/tip
+                    {formatMoney(t.items, cur)}
+                    {extrasParts(t).map((x) => ` ${x.amount < 0 ? '−' : '+'} ${formatMoney(Math.abs(x.amount), cur)} ${x.label}`)}
                   </div>
                 )}
               </div>
@@ -581,6 +593,7 @@ function EditBillSheet({ table, onClose }: { table: LiveTable; onClose: () => vo
     tip: table.extras.tip ? centsToInput(table.extras.tip, cur) : '',
     discount: table.extras.discount ? centsToInput(table.extras.discount, cur) : '',
   }))
+  const [taxSplit, setTaxSplit] = useState<TaxSplit>(() => taxSplitOf(table))
   const money = (s: string) => (s.trim() ? parseMoney(s, cur) : 0)
   const save = () => {
     const parsed = rows.map((r) => ({ ...r, cents: money(r.amount) }))
@@ -592,7 +605,7 @@ function EditBillSheet({ table, onClose }: { table: LiveTable; onClose: () => vo
       items[r.id] = { name: r.name.trim() || `Item ${i + 1}`, amount: r.cents, pos: i }
     })
     for (const id of Object.keys(table.items)) if (!(id in items)) items[id] = null
-    repo.updateTable(table.code, { merchant: merchant.trim() || table.merchant, items, extras: ex }).catch((e) => toast(errText(e), 'err'))
+    repo.updateTable(table.code, { merchant: merchant.trim() || table.merchant, items, extras: ex, taxSplit }).catch((e) => toast(errText(e), 'err'))
     onClose()
   }
   return (
@@ -647,7 +660,20 @@ function EditBillSheet({ table, onClose }: { table: LiveTable; onClose: () => vo
             </label>
           ))}
         </div>
-        <p className="text-muted text-xs">Tax, tip and discounts are shared in proportion to what each person had.</p>
+        <div>
+          <div className="label">Tax &amp; fees</div>
+          <Segmented<TaxSplit>
+            value={taxSplit}
+            onChange={setTaxSplit}
+            label="Tax & fees"
+            testId="table-tax-split"
+            options={[
+              { value: 'items', label: 'By items' },
+              { value: 'equal', label: 'Equally' },
+            ]}
+          />
+        </div>
+        <p className="text-muted text-xs">{taxSplitHint(taxSplit)}</p>
         <button type="button" className="btn-primary w-full" onClick={save}>
           <Check size={18} aria-hidden /> Save
         </button>

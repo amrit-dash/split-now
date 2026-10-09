@@ -32,6 +32,13 @@ export interface TableExtras {
 
 export type TableStatus = 'open' | 'closed'
 
+/**
+ * How tax/fees and discounts are shared: 'items' in proportion to what each person had (the
+ * default), or 'equal' between the people who had something. The tip is always split equally.
+ */
+export type TaxSplit = 'items' | 'equal'
+export const TAX_SPLITS: TaxSplit[] = ['items', 'equal']
+
 /** tables/{code}. The doc id is the share code. */
 export interface LiveTable {
   code: string
@@ -42,6 +49,8 @@ export interface LiveTable {
   date: string
   items: Record<ItemId, TableItem>
   extras: TableExtras
+  /** absent means 'items' (tables started before the option existed) */
+  taxSplit?: TaxSplit
   participants: Record<ParticipantId, TableParticipant>
   claims: Record<ParticipantId, Record<ItemId, number>>
   /** the host's payment handles, shown to guests so they can pay them back */
@@ -122,7 +131,10 @@ export function setShares(claims: Record<ItemId, number>, itemId: ItemId, shares
 
 export interface PersonTotal {
   items: Cents
+  /** tax/fees minus discount (may be negative) */
   extras: Cents
+  /** always an equal share */
+  tip: Cents
   total: Cents
 }
 
@@ -137,16 +149,22 @@ export interface TableTotals {
   allClaimed: boolean
 }
 
+export const taxSplitOf = (t: Pick<LiveTable, 'taxSplit'>): TaxSplit => (t.taxSplit === 'equal' ? 'equal' : 'items')
+
 /**
  * Running totals. Each item is split among its claimers by shares (largest remainder, ties by
- * participant order). Tax/tip/discount is spread in proportion to item subtotals, with unclaimed
- * items holding their share in reserve, so a person's extras don't jump as others claim. Once
- * everything is claimed, the people's totals add up exactly to the bill.
+ * participant order). The tip is divided equally between the people who have claimed something
+ * (everyone at the table while nobody has), so it moves as people claim. Tax/fees minus discount
+ * follows the table's `taxSplit`: by items, in proportion to item subtotals with unclaimed items
+ * holding their share in reserve (so a person's tax doesn't jump as others claim), or equally
+ * between the same people as the tip. Once everything is claimed, the people's totals add up
+ * exactly to the bill.
  */
 export function computeTableTotals(t: LiveTable): TableTotals {
   const order = participantOrder(t)
   const items = orderedItems(t)
   const sub: Record<ParticipantId, Cents> = {}
+  const claimed = new Set<ParticipantId>()
   const itemSplits: Record<ItemId, Record<ParticipantId, Cents>> = {}
   const unclaimed: ItemId[] = []
   let unclaimedAmount = 0
@@ -157,28 +175,51 @@ export function computeTableTotals(t: LiveTable): TableTotals {
       unclaimedAmount += it.amount
       continue
     }
+    for (const [p] of weights) claimed.add(p)
     const part = allocate(it.amount, weights)
     itemSplits[it.id] = part
     for (const [p, v] of Object.entries(part)) sub[p] = (sub[p] ?? 0) + v
   }
-  const extra = extrasNet(t.extras)
+  const sharers = claimed.size ? order.filter((p) => claimed.has(p)) : order
+  const equally = sharers.map((p) => [p, 1] as [string, number])
+  const tipParts = allocate(t.extras.tip || 0, equally)
+  const taxNet = (t.extras.tax || 0) - (t.extras.discount || 0)
   const RESERVE = '\u0000unclaimed'
-  const extraParts = allocate(extra, [...order.filter((p) => sub[p]).map((p) => [p, sub[p]] as [string, number]), [RESERVE, unclaimedAmount]])
+  const taxParts =
+    taxSplitOf(t) === 'equal'
+      ? allocate(taxNet, equally)
+      : allocate(taxNet, [...order.filter((p) => sub[p]).map((p) => [p, sub[p]] as [string, number]), [RESERVE, unclaimedAmount]])
   const people: Record<ParticipantId, PersonTotal> = {}
   for (const p of order) {
     const items = sub[p] ?? 0
-    const extras = extraParts[p] ?? 0
-    people[p] = { items, extras, total: items + extras }
+    const extras = taxParts[p] ?? 0
+    const tip = tipParts[p] ?? 0
+    people[p] = { items, extras, tip, total: items + extras + tip }
   }
   return {
     people,
     itemSplits,
     unclaimed,
     unclaimedAmount,
-    total: itemsTotal(t) + extra,
+    total: itemsTotal(t) + extrasNet(t.extras),
     allClaimed: items.length > 0 && unclaimed.length === 0,
   }
 }
+
+/**
+ * What a person's total adds on top of their items, for "incl. …" lines: tax/fees (or a
+ * discount, when that outweighs them) and the tip, separately, leaving out zeros. Amounts are signed.
+ */
+export function extrasParts(p: Pick<PersonTotal, 'extras' | 'tip'>): Array<{ label: 'tax/fees' | 'discount' | 'tip'; amount: Cents }> {
+  const out: Array<{ label: 'tax/fees' | 'discount' | 'tip'; amount: Cents }> = []
+  if (p.extras) out.push({ label: p.extras < 0 ? 'discount' : 'tax/fees', amount: p.extras })
+  if (p.tip) out.push({ label: 'tip', amount: p.tip })
+  return out
+}
+
+/** The line under the tax/tip/discount fields, for the chosen mode. */
+export const taxSplitHint = (mode: TaxSplit) =>
+  `${mode === 'equal' ? 'Tax, fees and discounts are split equally between everyone who had something.' : 'Tax, fees and discounts are shared in proportion to what each person had.'} Tip is always split equally.`
 
 /** Claims that give every unclaimed item to everyone at the table (1 share each). */
 export function claimLeftoversForAll(t: LiveTable): Record<ParticipantId, Record<ItemId, number>> {
@@ -258,9 +299,9 @@ export class TableError extends Error {}
 /**
  * The expense split for a finished table, in group member space. `mapping` sends each
  * participant who claimed something to a member (several participants may share one member).
- * When every item is split evenly among its members this is an ordinary itemized split
- * (re-editable in the expense form). Uneven shares fall back to exact amounts.
- * Either way the splits sum exactly to the total.
+ * With no tip and tax shared by items, this is an ordinary itemized split (re-editable in the
+ * expense form; uneven portions ride on the item). Otherwise it is an exact split of what each
+ * person saw at the table. Either way the splits sum exactly to the total.
  */
 export function tableToSplit(t: LiveTable, mapping: Record<ParticipantId, MemberId | undefined>, memberOrder: MemberId[]): TableSplit {
   const items = orderedItems(t)
@@ -286,7 +327,23 @@ export function tableToSplit(t: LiveTable, mapping: Record<ParticipantId, Member
     const even = new Set(members.map((m) => shares[m])).size <= 1
     return { name: it.name, amount: it.amount, members, ...(even ? {} : { shares: Object.fromEntries(members.map((m) => [m, shares[m]])) }) }
   })
-  return { amount, splits: computeSplits(amount, 'itemized', { items: receipt }, memberOrder), splitType: 'itemized', splitInput: { items: receipt } }
+  if (!(t.extras.tip || 0) && taxSplitOf(t) === 'items') {
+    return { amount, splits: computeSplits(amount, 'itemized', { items: receipt }, memberOrder), splitType: 'itemized', splitInput: { items: receipt } }
+  }
+  // An itemized expense would spread the tip and the tax in proportion to the items, which isn't
+  // what the table showed (tip equal, maybe tax equal too). So the group gets exactly what each
+  // person saw, as exact amounts; the items ride along so switching to "Split by items" later in
+  // the expense form starts from them.
+  const exact: Record<MemberId, Cents> = {}
+  for (const [p, pt] of Object.entries(computeTableTotals(t).people)) {
+    if (!pt.total) continue
+    const m = mapping[p]
+    if (!m) throw new TableError(`Choose who ${t.participants[p]?.name ?? 'everyone'} is in the group`)
+    exact[m] = (exact[m] ?? 0) + pt.total
+  }
+  if (Object.values(exact).some((v) => v < 0)) throw new TableError('The discount is bigger than someone’s share')
+  const ordered = Object.fromEntries(memberOrder.filter((m) => exact[m]).map((m) => [m, exact[m]]))
+  return { amount, splits: computeSplits(amount, 'exact', { exact: ordered }, memberOrder), splitType: 'exact', splitInput: { exact: ordered, items: receipt } }
 }
 
 // ---- Starting a table ------------------------------------------------------
@@ -301,6 +358,8 @@ export interface TableDraft {
   total?: Cents
   /** explicit tax/tip/discount; when given, `total` is not used to infer them */
   extras?: TableExtras
+  /** how tax/fees and discounts are shared; 'items' is stored as absent */
+  taxSplit?: TaxSplit
   groupId?: string
 }
 
@@ -328,6 +387,7 @@ export function draftToTable(
     date: d.date,
     items,
     extras: d.extras ?? { tax: diff > 0 ? diff : 0, tip: 0, discount: diff < 0 ? -diff : 0 },
+    ...(d.taxSplit === 'equal' ? { taxSplit: 'equal' as const } : {}),
     participants: { [host.uid]: { name: host.name, uid: host.uid, joinedAt: now } },
     hostPayment: hasPayment ? host.payment : undefined,
   }
@@ -357,4 +417,26 @@ export function receiptExtras(items: Cents[], parsed: { total?: Cents; tax?: Cen
   if (close(sum)) return { tax: 0, tip: 0, discount: 0 }
   const diff = parsed.total - sum
   return { tax: diff > 0 ? diff : 0, tip: 0, discount: diff < 0 ? -diff : 0 }
+}
+
+export interface BillCheck {
+  /** 'ok': matches the printed total (or there is none); 'tipOnTop': matches once the tip is left out; 'mismatch': doesn't */
+  kind: 'ok' | 'tipOnTop' | 'mismatch'
+  /** printed total minus items + tax − discount (the tip left out, since a tip is usually paid on top of the bill); 0 unless 'mismatch' */
+  gap: Cents
+}
+
+/**
+ * Do the items and extras match the total printed on a scanned bill? A tip is often paid on top
+ * of the printed figure, so a bill that matches without the tip is fine. When it doesn't match,
+ * `gap` is what "Fix with tax" adds to the tax: measured without the tip, so the tip never ends
+ * up folded into the tax.
+ */
+export function billCheck({ itemsSum, extras, printed }: { itemsSum: Cents; extras: TableExtras; printed?: Cents }): BillCheck {
+  if (!printed) return { kind: 'ok', gap: 0 }
+  const tip = extras.tip || 0
+  const beforeTip = itemsSum + (extras.tax || 0) - (extras.discount || 0)
+  if (printed === beforeTip + tip) return { kind: 'ok', gap: 0 }
+  if (tip && printed === beforeTip) return { kind: 'tipOnTop', gap: 0 }
+  return { kind: 'mismatch', gap: printed - beforeTip }
 }
