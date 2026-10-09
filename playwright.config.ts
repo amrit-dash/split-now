@@ -6,8 +6,9 @@ import { defineConfig, devices } from '@playwright/test'
  * over any .env.local (process env beats .env files in Vite), so the suite can never reach a
  * real project. The app is mobile-first, so it runs as a Pixel 7.
  *
- * Locally: PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers npx playwright test (the preinstalled
- * Chromium matches @playwright/test 1.56). CI installs it with `npx playwright install --with-deps chromium`.
+ * Locally: `npx playwright install chromium` once, then `npx playwright test`. CI installs it with
+ * `npx playwright install --with-deps chromium`. Where a Chromium is preinstalled for a different
+ * Playwright version (a cloud container), point E2E_CHROMIUM at its binary instead of downloading.
  * E2E_PORT picks another port when 5174 is taken.
  */
 const PORT = Number(process.env.E2E_PORT ?? 5174)
@@ -25,7 +26,12 @@ export default defineConfig({
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
   outputDir: 'test-results',
   use: { baseURL: BASE, trace: 'retain-on-failure', screenshot: 'only-on-failure' },
-  projects: [{ name: 'android-chromium', use: { ...devices['Pixel 7'] } }],
+  projects: [
+    {
+      name: 'android-chromium',
+      use: { ...devices['Pixel 7'], launchOptions: process.env.E2E_CHROMIUM ? { executablePath: process.env.E2E_CHROMIUM } : {} },
+    },
+  ],
   webServer: {
     command: `npx vite --mode e2e --host 127.0.0.1 --port ${PORT} --strictPort`,
     url: BASE,
