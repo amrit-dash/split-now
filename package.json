@@ -63,7 +63,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",
     "@firebase/rules-unit-testing": "^5.0.2",
-    "@playwright/test": "^1.56.1",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.6.4",
     "@types/react": "^19.3.0",
