@@ -578,6 +578,8 @@ export interface StoredDraft {
   /** the "add again" / capture the draft started from, so a different one doesn't restore it */
   again?: string
   capture?: string
+  /** the receipt photo kept in IndexedDB for this draft (src/lib/draft-blob.ts), when there is one */
+  receipt?: string
   draft: Draft
   at: number
 }
@@ -612,6 +614,7 @@ export function loadDraft(key: string): StoredDraft | null {
     if (!raw) return null
     const rec = JSON.parse(raw) as Partial<StoredDraft>
     if (rec?.v !== 1 || typeof rec.groupId !== 'string' || !rec.draft || typeof rec.draft !== 'object') return null
+    if (rec.receipt !== undefined && typeof rec.receipt !== 'string') delete rec.receipt
     return rec as StoredDraft
   } catch {
     return null

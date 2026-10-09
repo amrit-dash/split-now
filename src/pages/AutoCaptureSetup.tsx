@@ -22,7 +22,7 @@ import {
 import { repo } from '@/data'
 import { draftToCapture, type CaptureToken } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
-import { useCaptures, useGroups } from '@/hooks/data'
+import { useCaptures, useCaptureTokens, useGroups } from '@/hooks/data'
 import type { Capture, Group } from '@/types'
 import { APP_NAME, usePageTitle } from '@/lib/brand'
 import { inTripWindow, rankGroupsForCapture, sanitiseRef } from '@/lib/capture'
@@ -96,11 +96,10 @@ export default function AutoCaptureSetup() {
   const [params, setParams] = useSearchParams()
   const groups = useGroups()
   const captures = useCaptures()
-  const [tokens, setTokens] = useState<CaptureToken[] | null>(null)
+  const tokens = useCaptureTokens()
   const [prefs, setPrefs] = useState<AllPrefs | null>(null)
   const [log, setLog] = useState<LogRow[] | null>(null)
   const [busy, setBusy] = useState(false)
-  useEffect(() => repo.watchCaptureTokens(user.uid, setTokens), [user.uid])
   useEffect(() => watchCapturePrefs(user.uid, repo.mode, setPrefs), [user.uid])
   useEffect(() => watchCaptureLog(user.uid, repo.mode, setLog, 5), [user.uid])
 

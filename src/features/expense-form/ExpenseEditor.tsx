@@ -18,6 +18,8 @@ import { duplicateLine, findDuplicate } from '@/lib/duplicates'
 import { learnFromSave, suggestCategory } from '@/lib/merchants'
 import type { QuickPrefill } from '@/lib/nl-expense'
 import { todayISO } from '@/lib/id'
+import { deleteDraftBlob, draftBlobKey, getDraftBlob, isDraftBlobKey, putDraftBlob } from '@/lib/draft-blob'
+import { downscale } from '@/lib/image'
 import { lastSplit, rememberGroup, rememberSplit, sameSplit, suggestDescriptions, type Suggestion } from '@/lib/recents'
 import {
   clearDraft,
@@ -77,6 +79,7 @@ export function ExpenseEditor({
   onGroup,
   storeKey,
   restore,
+  restoreReceipt,
 }: {
   group: Group
   groups: Group[]
@@ -93,6 +96,8 @@ export function ExpenseEditor({
   storeKey: string
   /** a draft stored for this route, to pick up where the user left off */
   restore?: Draft
+  /** where the restored draft's receipt photo is kept on this device (src/lib/draft-blob.ts) */
+  restoreReceipt?: string
 }) {
   const { user, profile } = useMe()
   const nav = useNavigate()
@@ -145,6 +150,11 @@ export function ExpenseEditor({
   /** a save was attempted: show what is still wrong next to each field */
   const [submitted, setSubmitted] = useState(false)
   const [receipt, setReceipt] = useState<File | null>(null)
+  // The receipt photo is kept in IndexedDB beside the sessionStorage draft, so a reload brings it
+  // back instead of asking for a re-scan. The ref is the key in use (or being written) right now;
+  // the state is what the stored draft points at. Any storage failure just leaves the draft without it.
+  const [receiptKey, setReceiptKey] = useState(() => (restore && isDraftBlobKey(restoreReceipt, storeKey) ? restoreReceipt : undefined))
+  const receiptKeyRef = useRef(receiptKey)
   /** a scanned bill with line items: offer item-by-item assignment or a live table */
   const [scanned, setScanned] = useState<{ parsed: ParsedReceipt; file: File } | null>(null)
   const done = useRef(false)
@@ -153,9 +163,47 @@ export function ExpenseEditor({
   const dirty = isDirty(draft, seedRef.current)
   useEffect(() => {
     if (done.current) return
-    if (dirty) saveDraft(storeKey, { groupId: group.id, again: again?.id, capture: capture?.id, draft })
+    if (dirty) saveDraft(storeKey, { groupId: group.id, again: again?.id, capture: capture?.id, receipt: receiptKey, draft })
     else clearDraft(storeKey)
-  }, [draft, dirty, storeKey, group.id, again?.id, capture?.id])
+  }, [draft, dirty, storeKey, group.id, again?.id, capture?.id, receiptKey])
+  // Bring back the restored draft's photo; a scan made meanwhile wins.
+  useEffect(() => {
+    const key = receiptKeyRef.current
+    if (!key || key !== restoreReceipt) return
+    let live = true
+    getDraftBlob(key).then((f) => {
+      if (!live || receiptKeyRef.current !== key) return
+      if (f) setReceipt(f)
+      else {
+        receiptKeyRef.current = undefined
+        setReceiptKey(undefined)
+      }
+    })
+    return () => {
+      live = false
+    }
+  }, [restoreReceipt])
+  /** Keep a new receipt photo for the draft (downscaled as the upload would be), replacing the previous one. */
+  const keepReceipt = (file: File) => {
+    void deleteDraftBlob(receiptKeyRef.current)
+    setReceiptKey(undefined)
+    const key = draftBlobKey(storeKey)
+    receiptKeyRef.current = key
+    void (async () => {
+      const small = await downscale(file, 1600, 0.8).catch(() => file)
+      const ok = await putDraftBlob(key, small, file.name)
+      // Saved, discarded or replaced while writing: don't leave it behind.
+      if (receiptKeyRef.current !== key || done.current) {
+        if (ok) void deleteDraftBlob(key)
+      } else if (ok) setReceiptKey(key)
+      else receiptKeyRef.current = undefined
+    })()
+  }
+  /** The draft is finished with (saved, discarded, handed to the live table): drop its photo too. */
+  const forgetReceipt = () => {
+    void deleteDraftBlob(receiptKeyRef.current)
+    receiptKeyRef.current = undefined
+  }
   useEffect(() => {
     if (restore) toast('Picked up where you left off')
   }, [restore, toast])
@@ -180,6 +228,7 @@ export function ExpenseEditor({
   const applyReceipt = (parsed: ParsedReceipt, file: File) => {
     dispatch({ type: 'applyReceipt', parsed })
     setReceipt(file)
+    keepReceipt(file)
     setScanned(parsed.items.length >= 2 && !personal ? { parsed, file } : null)
     const cur = parsed.currency && CURRENCIES.includes(parsed.currency) ? parsed.currency : draft.cur
     const total = parsed.total ? fromHundredths(parsed.total, cur) : undefined
@@ -216,6 +265,7 @@ export function ExpenseEditor({
     if (scanned) pending.receipt = scanned
     done.current = true
     clearDraft(storeKey)
+    forgetReceipt()
     nav(`/split${personal ? '' : `?group=${group.id}`}`, { replace: true })
   }
   const assignItems = () => {
@@ -269,6 +319,7 @@ export function ExpenseEditor({
       if (receipt && !repo.attachReceipt(group.id, e.id, receipt)) toast('Offline, saved without the receipt image')
       done.current = true
       clearDraft(storeKey)
+      forgetReceipt()
       toast(existing ? 'Expense updated' : 'Expense added')
       nav(`/groups/${group.id}`, { replace: true })
     } catch (err) {
@@ -289,6 +340,7 @@ export function ExpenseEditor({
     }
     done.current = true
     clearDraft(storeKey)
+    forgetReceipt()
     // Opened from the home-screen shortcut there is nothing to go back to.
     if (window.history.length > 1) nav(-1)
     else nav('/')

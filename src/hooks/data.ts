@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { repo } from '@/data'
 import { groupsKey, peekShared, peekSharedMeta, subscribeShared } from '@/data/store'
-import type { NewGroup, SnapMeta, Unsub } from '@/data/repo'
+import type { AiState, CaptureToken, NewGroup, SnapMeta, Unsub } from '@/data/repo'
 import type { ActivityEntry, Capture, Expense, ExpenseComment, Group, MemberId, Settlement } from '@/types'
 import { countable, netBalances, pairwiseDebts } from '@/lib/balances'
 import { simplifyDebts } from '@/lib/simplify'
@@ -77,6 +77,8 @@ const keys = {
   activity: (id: string, max: number) => `activity/${id}/${max}`,
   history: (gid: string, tid: string) => `history/${gid}/${tid}`,
   comments: (gid: string, eid: string) => `comments/${gid}/${eid}`,
+  captureTokens: (uid: string) => `captureTokens/${uid}`,
+  aiState: (uid: string) => `aiState/${uid}`,
 }
 
 const startGroups = (uid: string) => (cb: (g: Group[], m?: SnapMeta) => void) => repo.watchGroups(uid, cb)
@@ -100,6 +102,18 @@ const startActivity = (id: string, max: number) => (cb: (a: ActivityEntry[], m?:
 export function useGroups(): Group[] | null {
   const { user } = useMe()
   return useShared(keys.groups(user.uid), startGroups(user.uid)) ?? null
+}
+
+/** The signed-in user's capture keys (Settings hub, Automation, the setup wizard share one listener). */
+export function useCaptureTokens(): CaptureToken[] | null {
+  const { user } = useMe()
+  return useShared(keys.captureTokens(user.uid), (cb: (t: CaptureToken[], m?: SnapMeta) => void) => repo.watchCaptureTokens(user.uid, cb)) ?? null
+}
+
+/** Whether the user has their own AI key (users/{uid}/secrets summary); null while loading, when absent, or when `enabled` is false. */
+export function useAiState(enabled = true): AiState | null {
+  const { user } = useMe()
+  return useShared(enabled ? keys.aiState(user.uid) : null, (cb: (s: AiState | null) => void) => repo.watchAiState(user.uid, cb)) ?? null
 }
 
 /** The signed-in user's captured transactions (newest first). */

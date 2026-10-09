@@ -89,6 +89,7 @@ export default function ExpenseForm() {
       onGroup={setGroupId}
       storeKey={storeKey}
       restore={quick ? undefined : stored?.draft}
+      restoreReceipt={quick ? undefined : stored?.receipt}
     />
   )
 }
