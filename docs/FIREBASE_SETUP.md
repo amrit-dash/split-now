@@ -1,6 +1,6 @@
 # Connecting Firebase
 
-Split Now (repo `split-it`) runs in **demo mode** (browser-only storage) until you add Firebase config. Follow these steps once.
+Split Now runs in **demo mode** (browser-only storage) until you add Firebase config. Follow these steps once.
 
 ## 1. Create the project
 1. Go to <https://console.firebase.google.com> → **Add project** (e.g. `split-it-prod`). Google Analytics is optional.
@@ -89,7 +89,7 @@ How it works: the app calls `getToken()` with vite-plugin-pwa's service worker r
 
 ## 5c. App Check (reCAPTCHA Enterprise)
 
-1. Google Cloud console → **Security → reCAPTCHA Enterprise** → enable the API → **Create key**: type *Website*, add every domain the app is served from (`split-it-prod.web.app`, `split-it-prod.firebaseapp.com`, `split-now.web.app`, `split-now.firebaseapp.com`, any custom domain, and `localhost` only if you want it), *no checkbox challenge*.
+1. Google Cloud console → **Security → reCAPTCHA Enterprise** → enable the API → **Create key**: type *Website*, add every domain the app is served from (`split-it-prod.web.app`, `split-it-prod.firebaseapp.com`, `split-now.web.app`, `split-now.firebaseapp.com`, `freesplit.web.app`, `freesplit.firebaseapp.com`, any custom domain, and `localhost` only if you want it), *no checkbox challenge*.
 2. Firebase console → **App Check → Apps** → the web app → **reCAPTCHA Enterprise** → paste the site key → Save.
 3. Put the site key in `VITE_APPCHECK_SITE_KEY` and redeploy hosting. The app then attaches App Check tokens (`src/lib/appcheck.ts`, called from `firebaseRepo`).
 4. Dev / emulators: the SDK uses a **debug token**. Run the app once, copy the token it logs (or generate one), add it under **App Check → Apps → ⋮ → Manage debug tokens**, and set it as `VITE_APPCHECK_DEBUG_TOKEN` in `.env.local`. Never ship a debug token in `.env.production`.
@@ -104,7 +104,10 @@ Notes:
 Set the `GEMINI_API_KEY` secret, make yourself an admin and turn the project key on from the app. See [AI.md](./AI.md).
 
 ## 6. Before going public
-- **Restrict the browser API key** (Google Cloud → APIs & Services → Credentials → the "Browser key"): limit it to your hosting domains (HTTP referrers) and to the Firebase APIs the app uses. Especially if the Generative Language (Gemini) API is enabled on the same project, so the public key can't be used to call it.
+- [x] **Restrict the browser API key** (Google Cloud → APIs & Services → Credentials → "Browser key (auto created by Firebase)"):
+  - *Websites*: every hosting domain, `*.web.app` **and** `*.firebaseapp.com` for each site (Google sign-in finishes on the `firebaseapp.com` domain). Leave `localhost` out unless you run `npm run dev` against the live project; demo mode and the emulators don't use the key.
+  - *APIs*: only Identity Toolkit, Token Service, Cloud Firestore, Cloud Storage for Firebase, Firebase Installations, FCM Registration and Firebase App Check. Never Firebase AI Logic or the Gemini / Generative Language API: Split Now calls Gemini only from Cloud Functions with a server-side key.
+- **Adding another hosting site** (e.g. `freesplit`): add it to `.firebaserc` targets and `firebase.json`, then add both of its domains to Auth → *Authorised domains*, the reCAPTCHA Enterprise key's domains, the browser key's websites, and `APP_ORIGINS` in `functions/src/config.ts` (then redeploy functions).
 - **App Check** (reCAPTCHA Enterprise) on Firestore and Storage, to block scripted abuse of your API key. See §5c; enforce only after checking metrics.
 - **Budget alerts** in Google Cloud Billing if you upgrade to Blaze.
 - **Custom domain** under Hosting, if you want one.

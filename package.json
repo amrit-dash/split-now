@@ -1,17 +1,17 @@
 {
-  "name": "split-it",
+  "name": "split-now",
   "private": true,
   "version": "2.1.1",
-  "description": "Split bills, not friendships: a free, open-source expense-splitting PWA with bill scanning, live table splits, UPI settle-ups and optional AI.",
+  "description": "Spending is wise, Splitting is Free. Split Now! Free, open-source expense splitting with bill scanning, live table splits, UPI settle-ups and optional AI.",
   "license": "MIT",
   "author": "Amrit Dash",
   "homepage": "https://split-now.web.app",
   "repository": {
     "type": "git",
-    "url": "https://github.com/amrit-dash/split-it.git"
+    "url": "https://github.com/amrit-dash/split-now.git"
   },
   "bugs": {
-    "url": "https://github.com/amrit-dash/split-it/issues"
+    "url": "https://github.com/amrit-dash/split-now/issues"
   },
   "keywords": [
     "splitwise-alternative",
