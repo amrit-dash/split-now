@@ -10,6 +10,8 @@ export const APP_ORIGINS = [
   'https://split-it-prod.firebaseapp.com',
   'https://split-now.web.app',
   'https://split-now.firebaseapp.com',
+  'https://freesplit.web.app',
+  'https://freesplit.firebaseapp.com',
   'http://localhost:5173',
   'http://localhost:4173',
 ]

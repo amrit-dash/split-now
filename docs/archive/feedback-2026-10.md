@@ -98,3 +98,5 @@ Status: [ ] todo · [x] done
 - [x] 69. More greeting icons and motions (picked per visit).
 - [x] 70. + notch fill layer wider, fading out upwards (no visible edge).
 - [x] 71. Settle icon: cheque in the user's currency with a pen signing (coin toss removed).
+- [x] 72. Cheque icon: closed cheque-book shape, signature bottom-right, solid pen; used on every settle-up button (signs once), Home card bigger and signing forever with growing gaps.
+- [x] 73. Notch: removed the outline that drew a line along the bar's edge; gap fill fades smoothly.

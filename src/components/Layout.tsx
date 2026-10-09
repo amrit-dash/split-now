@@ -75,7 +75,7 @@ export function Layout() {
             <Aurora size="fab" />
           </div>
           {/* a stronger lower half, a bit wider than the notch, that fills the gap and fades out upwards */}
-          <div className="fab-halo-b absolute left-1/2 top-1/2 h-[5.2rem] w-[5.2rem] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[5px] saturate-150">
+          <div className="fab-halo-b absolute left-1/2 top-1/2 h-[5.3rem] w-[5.3rem] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[8px] saturate-150">
             <Aurora size="fab" />
           </div>
         </div>
@@ -84,19 +84,6 @@ export function Layout() {
           aria-hidden
           className="nav-notch absolute inset-0 border-t border-slate-200/70 bg-white/95 backdrop-blur-xl dark:border-white/5 dark:bg-ink-900/95"
         />
-        <svg
-          aria-hidden
-          viewBox="0 0 112 48"
-          className="absolute left-1/2 top-0 h-12 w-28 -translate-x-1/2 overflow-visible text-slate-200/70 dark:text-white/5"
-        >
-          <path
-            d="M0 0.5H10.41A8 8 0 0 1 18.41 8.14A37.6 37.6 0 1 0 93.59 8.14A8 8 0 0 1 101.59 0.5H112"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1"
-            vectorEffect="non-scaling-stroke"
-          />
-        </svg>
         <div className="relative mx-auto flex max-w-2xl items-center justify-around px-2 pb-[var(--nav-pad)] pt-1.5">
           {tabs.map((t) =>
             t === null ? (

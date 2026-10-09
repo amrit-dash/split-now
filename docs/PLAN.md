@@ -1,6 +1,6 @@
 # Split Now — End-to-End Product & Technical Plan
 
-> Formerly *Split It*. The repo, npm package and Firebase project ids keep the `split-it` name; the user-facing name is **Split Now** (Hosting: `split-now.web.app`). **Trademark check pending:** "Split Now" has not been cleared against existing app-store listings or Indian / international trademark registrations. Do that before any public launch.
+> Formerly *Split It*. The repository is `split-now`; the Firebase project id keeps `split-it-prod`. The app is **Split Now** (Hosting: `split-now.web.app`, also `freesplit.web.app`). Tagline: *Spending is wise, Splitting is Free. Split Now!* **Trademark check pending:** "Split Now" has not been cleared against existing app-store listings or Indian / international trademark registrations. Do that before any public launch.
 
 This is the source of truth for what we are building, why, and in what order. It was last brought into line with the code in the October 2026 audit (§9).
 Status markers: ✅ built · 🟡 partially built · ⏳ planned.
