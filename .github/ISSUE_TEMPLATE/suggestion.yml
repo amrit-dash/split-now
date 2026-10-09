@@ -1,0 +1,25 @@
+name: Suggestion
+description: A bigger idea or direction to agree on before anyone builds it
+labels: [suggestion]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it matters
+      description: Who it helps and what problem it solves.
+    validations:
+      required: true
+  - type: textarea
+    id: approach
+    attributes:
+      label: Rough approach
+  - type: textarea
+    id: risks
+    attributes:
+      label: Open questions and risks

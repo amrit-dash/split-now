@@ -1,0 +1,19 @@
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+    validations:
+      required: true
+  - type: textarea
+    id: tried
+    attributes:
+      label: What you tried
+  - type: dropdown
+    id: where
+    attributes:
+      label: Using
+      options:
+        - The live app (split-now.web.app)
+        - My own Firebase project
+        - Demo mode / local development

@@ -1,0 +1,25 @@
+name: Feature request
+description: A small, concrete improvement
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: For a bigger idea or an open question, start a [Discussion](https://github.com/amrit-dash/split-now/discussions/categories/ideas) first.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and what gets in the way?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you'd like to happen
+    validations:
+      required: true
+  - type: textarea
+    id: else
+    attributes:
+      label: Anything else
+      description: Alternatives you considered, examples from other apps.
