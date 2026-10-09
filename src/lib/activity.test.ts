@@ -83,6 +83,11 @@ describe('expenseSaveActivity', () => {
     const kept = expenseSaveActivity({ ...base, requiresApproval: true }, { ...base, amount: 8400, requiresApproval: true, splits: { s: 4200, j: 4200 } }, ctx)!
     expect(kept.summary).not.toContain('Approved automatically')
   })
+  it('notes an amount change edit auto-approve let through', () => {
+    const before = { ...base, requiresApproval: true }
+    const a = expenseSaveActivity(before, { ...before, amount: 8400, splits: { s: 4200, j: 4200 } }, ctx, { autoApprovedWithin: 500 })!
+    expect(a.summary).toBe(`Sarah changed amount ${A(8000)} → ${A(8400)} on “Dinner”. Edit approved automatically (within ${A(500).replace(/[.,]00$/, '')})`)
+  })
   it('nothing tracked changed → no entry', () => {
     expect(expenseSaveActivity(base, { ...base, updatedAt: 5, receiptUrl: 'https://x' }, ctx)).toBeNull()
   })

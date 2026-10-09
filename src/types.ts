@@ -41,6 +41,8 @@ export interface UserProfile {
    * default currency (src/lib/approval.ts).
    */
   approvalDefault?: { on: boolean; amount: Cents; currency: string }
+  /** "Approve small edits automatically": the edit auto-approve default for new groups, same shape and currency handling. */
+  editAutoApproveDefault?: { on: boolean; amount: Cents; currency: string }
 }
 
 export type PhotoSource = 'upload' | 'google' | 'none'
@@ -73,6 +75,12 @@ export interface Group {
   requireApproval?: boolean
   /** Minor units of the group currency (default: the currency's figure in src/lib/approval.ts, via thresholdOf). */
   approvalThreshold?: Cents
+  /**
+   * Edit auto-approve: when set, an edit to an expense waiting for (or already given) approval
+   * that moves the amount by at most this much (minor units) keeps its approval state instead
+   * of asking everyone again. Absent = off. Creator only, like the threshold.
+   */
+  editAutoApprove?: Cents
   /** a member paused SMS auto-capture for this trip (the webhook skips it; docs/AUTO_CAPTURE.md) */
   captureOff?: boolean
   /** Archived: hidden from totals, pickers and capture matching; listed under "Archived" on Groups. Any member may toggle it. */
