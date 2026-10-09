@@ -1,6 +1,6 @@
 import { lazy, Suspense, useId, useMemo, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, Plus, ReceiptText, ScanLine, Users } from 'lucide-react'
+import { ChevronRight, Plus, ReceiptText, ScanLine, Sparkles, Users } from 'lucide-react'
 import { useGroups } from '@/hooks/data'
 import { useFlag } from '@/hooks/useAppConfig'
 import { liveTripFor } from '@/lib/capture'
@@ -77,17 +77,31 @@ export function CreateSheet({ open, onClose, groupId }: { open: boolean; onClose
             or
             <span className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
           </div>
-          <h3 id={quickId} className="mb-2 mt-3 px-1 text-sm font-semibold">
-            Quick add
-          </h3>
-          <Suspense fallback={<div className="h-28" />}>
-            <QuickAdd
-              groups={groups}
-              defaultGroupId={(groupId && groups.some((g) => g.id === groupId) ? groupId : undefined) ?? liveTripFor(groups, todayISO()) ?? lastGroup()}
-              onLeave={onClose}
-              testId="create-quick-add"
-            />
-          </Suspense>
+          {/* Its own card, styled like the tiles above, so it reads as one of the sheet's options. */}
+          <div className="mt-3 rounded-3xl bg-slate-50 p-3.5 ring-1 ring-slate-900/5 dark:bg-ink-800 dark:ring-white/5">
+            <div className="mb-3 flex items-center gap-3">
+              <span
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300"
+                aria-hidden
+              >
+                <Sparkles size={20} />
+              </span>
+              <span className="min-w-0">
+                <h3 id={quickId} className="font-semibold">
+                  Quick add
+                </h3>
+                <span className="text-muted block text-xs leading-snug">Type or say it in one line</span>
+              </span>
+            </div>
+            <Suspense fallback={<div className="h-28" />}>
+              <QuickAdd
+                groups={groups}
+                defaultGroupId={(groupId && groups.some((g) => g.id === groupId) ? groupId : undefined) ?? liveTripFor(groups, todayISO()) ?? lastGroup()}
+                onLeave={onClose}
+                testId="create-quick-add"
+              />
+            </Suspense>
+          </div>
         </section>
       )}
     </Sheet>
