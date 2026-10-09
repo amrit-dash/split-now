@@ -179,7 +179,8 @@ function RowChase({ r, chase }: { r: SettleRow; chase: Chase }) {
 /**
  * Avatar · name/subtitle · amount · action, all on one vertically centred line. With `chase`
  * (Remind and Nudge, on rows where they owe you) the amount moves under the name to make room
- * for the round buttons, as on a group's Balances tab.
+ * for the round buttons, as on a group's Balances tab, and the group name gets a line of its
+ * own below it: sharing the amount's line squeezed it to just the emoji on a 360px phone.
  */
 function ItemRow({
   avatar,
@@ -207,16 +208,12 @@ function ItemRow({
       {avatar}
       <div className="min-w-0 flex-1">
         <div className="truncate font-semibold">{name}</div>
-        {stacked ? (
-          <div className="flex min-w-0 items-baseline gap-1.5">
-            <span className={`shrink-0 text-sm font-bold tabular-nums ${tone}`} data-testid="row-amount">
-              {amount}
-            </span>
-            <span className="text-muted truncate text-xs">{sub}</span>
+        {stacked && (
+          <div className={`text-sm font-bold tabular-nums ${tone}`} data-testid="row-amount">
+            {amount}
           </div>
-        ) : (
-          <div className="text-muted truncate text-xs">{sub}</div>
         )}
+        <div className="text-muted truncate text-xs">{sub}</div>
       </div>
       {!stacked && (
         <span className={`shrink-0 font-bold tabular-nums ${tone}`} data-testid="row-amount">
