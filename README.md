@@ -34,12 +34,12 @@ bill scanning, live table splits, UPI-first settle-ups and optional AI.
 
 <table>
 <tr>
-<td width="320" align="center"><img src="docs/assets/demo.gif" alt="Animated home card with the cheque-signing settle icon, then a group's settle-up graph switching from simplified to original payments" width="300" /></td>
+<td width="320" align="center"><img src="docs/assets/demo.svg" alt="Animated phone: the Home balance card with drifting shapes and the settle icon signing a cheque, then a group's settle-up graph switching between simplified and original payments" width="300" /></td>
 <td>
 
 **The balance card breathes.** Soft light and dark patches drift across it, and the settle icon signs a cheque in your currency.
 
-**Settle-up graph.** You sit in the middle. Money flows in green and out in red, with thicker lines for bigger amounts. Switch between simplified and original and watch the payments that simplifying removes drain away.
+**Settle-up graph.** You sit in the middle. Money flows in green and out in red, with thicker lines for bigger amounts. Switch between Simplified and Original to see the extra payments that simplifying removes.
 
 **Everything respects reduced motion.** With it turned on, you get the same screens, still.
 
@@ -53,18 +53,23 @@ bill scanning, live table splits, UPI-first settle-ups and optional AI.
 
 <table>
 <tr>
-<td align="center"><img src="docs/assets/screens/dark-home.png" width="220" alt="Home" /><br /><sub><b>Home</b>: balance card, quick add, groups</sub></td>
+<td align="center"><img src="docs/assets/screens/dark-home.png" width="220" alt="Home" /><br /><sub><b>Home</b>: balance card, groups and friends, recent activity</sub></td>
+<td align="center"><img src="docs/assets/screens/dark-create.png" width="220" alt="Create sheet with Quick add" /><br /><sub><b>Create</b>: Quick add, Split by items, Scan, new group</sub></td>
 <td align="center"><img src="docs/assets/screens/dark-add.png" width="220" alt="Add expense" /><br /><sub><b>Add expense</b>: every split type, scan a receipt</sub></td>
-<td align="center"><img src="docs/assets/screens/dark-graph.png" width="220" alt="Settle-up graph" /><br /><sub><b>Group</b>: who pays whom, simplified</sub></td>
 </tr>
 <tr>
-<td align="center"><img src="docs/assets/screens/dark-balances.png" width="220" alt="Balances" /><br /><sub><b>Balances</b>: by person or by group</sub></td>
+<td align="center"><img src="docs/assets/screens/dark-graph.png" width="220" alt="Settle-up graph" /><br /><sub><b>Group</b>: who pays whom, simplified</sub></td>
+<td align="center"><img src="docs/assets/screens/dark-balances.png" width="220" alt="Balances" /><br /><sub><b>Balances</b>: by person or by group, with Remind and Nudge</sub></td>
+<td align="center"><img src="docs/assets/screens/dark-settle.png" width="220" alt="Settle up with a UPI QR code" /><br /><sub><b>Settle up</b>: a UPI QR code for the exact amount</sub></td>
+</tr>
+<tr>
 <td align="center"><img src="docs/assets/screens/dark-insights.png" width="220" alt="Insights" /><br /><sub><b>Insights</b>: animated charts and filters</sub></td>
 <td align="center"><img src="docs/assets/screens/dark-split.png" width="220" alt="Split by items" /><br /><sub><b>Split by items</b>: a live table, no sign-up</sub></td>
+<td align="center"><img src="docs/assets/screens/dark-members.png" width="220" alt="Group members" /><br /><sub><b>Members</b>: add people, settle up or remove</sub></td>
 </tr>
 <tr>
 <td align="center"><img src="docs/assets/screens/light-home.png" width="220" alt="Home in light mode" /><br /><sub>Light mode</sub></td>
-<td align="center"><img src="docs/assets/screens/dark-scan.png" width="220" alt="Smart scan" /><br /><sub><b>Smart scan</b>: bills, statements, payments</sub></td>
+<td align="center"><img src="docs/assets/screens/dark-scan.png" width="220" alt="Scan" /><br /><sub><b>Scan</b>: bills, statements, payments</sub></td>
 <td align="center"><img src="docs/assets/screens/dark-login.png" width="220" alt="Sign in" /><br /><sub><b>Sign in</b>, or try the demo</sub></td>
 </tr>
 </table>
@@ -121,6 +126,7 @@ Demo mode keeps data in your browser and pre-loads sample groups (a Goa trip, a 
 | `npm run test:functions` | Cloud Functions tests in the emulators |
 | `npm run test:e2e` | Playwright smoke tests (demo mode) |
 | `npm run test:all` | Everything CI runs |
+| `npm run readme:media` | Regenerate the README screenshots, banner, animated demo and link previews from the demo app |
 | `npm run deploy` | Build and `firebase deploy` (also `deploy:hosting`, `deploy:functions`, `deploy:rules`) |
 
 ### Project layout

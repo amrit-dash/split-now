@@ -17,6 +17,7 @@ product and architecture source of truth (data model §4.2, security §4.3, perf
 - `npm run test:e2e` — Playwright smoke suite in demo mode (`e2e/`, `playwright.config.ts`). Locally: `npx playwright install chromium` once; where a Chromium for another Playwright version is preinstalled, `E2E_CHROMIUM=/opt/pw-browsers/chromium npx playwright test` instead. `E2E_PORT=5175` if 5174 is busy.
 - `npm run test:all` — lint, typecheck:all, unit, rules, functions (what CI runs, minus e2e).
 - `npm run icons` — regenerate every PNG icon from `public/favicon.svg` (`scripts/generate-icons.mjs`; `ICON_BG='#rrggbb'` overrides the Apple icon's background). Run it after any change to the SVG; the design itself is the owner's call.
+- `npm run readme:media` — regenerate `docs/assets/screens/*.png`, `hero.png`, `social-preview.png`, `demo.svg` and `public/og-image.jpg` from demo mode with Playwright (`scripts/readme-media.mjs`; starts its own `vite --mode e2e`, or `-- --url <demo server>`; `-- --only hero,demo` for some). Run it after UI changes the README shows.
 - `npm run build` — typecheck + production build into `dist/`; `npx vite build --mode e2e` builds the demo variant. `npm run deploy` is production (`deploy:hosting`, `deploy:functions`, `deploy:rules` for one piece at a time).
 - Node >= 22.12 (Vitest 5 needs it); Cloud Functions run on Node 22.
 
