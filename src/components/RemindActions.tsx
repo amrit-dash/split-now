@@ -8,7 +8,7 @@ import type { ActivityEntry, Cents, Group, MemberId } from '@/types'
 import { errText } from '@/lib/errors'
 import { formatMoney } from '@/lib/money'
 import { lastNudgeAt, localNudgeAt, nudgeCooldownText, nudgeResultText, nudgedRecently, rememberNudge, type NudgeResult } from '@/lib/nudge'
-import { buildPayLink, newPayLinkCode } from '@/lib/paylinks'
+import { buildPayLink, newPayLinkCode, payLinkFeatures } from '@/lib/paylinks'
 import { cardSpec, renderShareCard, shareReminder, type ReminderArgs } from '@/lib/share-card'
 import { useToast } from '@/components/Toast'
 
@@ -38,7 +38,8 @@ export function RemindActions({
   const { user, profile } = useMe()
   const toast = useToast()
   const nav = useNavigate()
-  const payLinks = useFlag('payLinks')
+  // Off: Remind still shares, but the members-only Settle up link instead of a new Pay me link.
+  const { createLinks } = payLinkFeatures(useFlag('payLinks'))
   const nudges = useFlag('nudges')
   const [busy, setBusy] = useState<'remind' | 'nudge' | null>(null)
   const m = group.members[debtor]
@@ -54,27 +55,28 @@ export function RemindActions({
     try {
       // A Pay me link the debtor can open without an account; written in the background (the
       // share sheet must open while the tap still counts), refusals arrive through onError.
-      const code = newPayLinkCode()
+      const code = createLinks ? newPayLinkCode() : undefined
       const payeeName = group.members[me]?.name ?? profile.displayName
-      repo
-        .createPayLink(
-          code,
-          buildPayLink(
-            {
-              groupId: group.id,
-              groupName: group.name,
-              emoji: group.emoji,
-              from: { id: debtor, name },
-              to: { id: me, name: payeeName },
-              amount,
-              currency: group.currency,
-              payment: profile.payment,
-              createdBy: user.uid,
-            },
-            Date.now(),
-          ),
-        )
-        .catch((e) => toast(errText(e), 'err'))
+      if (code)
+        repo
+          .createPayLink(
+            code,
+            buildPayLink(
+              {
+                groupId: group.id,
+                groupName: group.name,
+                emoji: group.emoji,
+                from: { id: debtor, name },
+                to: { id: me, name: payeeName },
+                amount,
+                currency: group.currency,
+                payment: profile.payment,
+                createdBy: user.uid,
+              },
+              Date.now(),
+            ),
+          )
+          .catch((e) => toast(errText(e), 'err'))
       const args: ReminderArgs = {
         origin: location.origin,
         groupId: group.id,
@@ -90,8 +92,8 @@ export function RemindActions({
       const file = await renderShareCard(cardSpec(args)).catch(() => null)
       const r = await shareReminder(args, file)
       // Demo mode has one browser: offer to open the link as the friend would see it.
-      const demo = repo.mode === 'demo' ? { action: { label: `Open as ${first}`, run: () => nav(`/r/${code}?guest=demo`) } } : undefined
-      if (r === 'copied') toast('Reminder and Pay me link copied', 'ok', demo)
+      const demo = repo.mode === 'demo' && code ? { action: { label: `Open as ${first}`, run: () => nav(`/r/${code}?guest=demo`) } } : undefined
+      if (r === 'copied') toast(code ? 'Reminder and Pay me link copied' : 'Reminder and pay link copied', 'ok', demo)
       else if (demo) toast('Pay me link ready', 'ok', demo)
     } catch (e) {
       toast(errText(e), 'err')
@@ -124,18 +126,9 @@ export function RemindActions({
   const btn = 'text-muted flex h-11 w-11 shrink-0 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-ink-800'
   return (
     <span className={`flex items-center ${className}`}>
-      {payLinks && (
-        <button
-          type="button"
-          onClick={remind}
-          className={btn}
-          aria-label={`Remind ${first}: share a pay link`}
-          disabled={busy === 'remind'}
-          data-testid="remind"
-        >
-          {busy === 'remind' ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <Share2 size={18} aria-hidden />}
-        </button>
-      )}
+      <button type="button" onClick={remind} className={btn} aria-label={`Remind ${first}: share a pay link`} disabled={busy === 'remind'} data-testid="remind">
+        {busy === 'remind' ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <Share2 size={18} aria-hidden />}
+      </button>
       {canNudge && (
         <button
           type="button"

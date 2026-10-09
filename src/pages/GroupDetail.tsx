@@ -17,9 +17,11 @@ import {
   X,
 } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
-import { computeGroupData, useActivity, useExpenses, useGroup, useSettlements, useTrash } from '@/hooks/data'
+import { computeGroupData, useActivity, useExpenses, useGroup, usePayLink, useSettlements, useTrash } from '@/hooks/data'
 import { useFlag } from '@/hooks/useAppConfig'
-import type { Category, Expense, Group, Settlement } from '@/types'
+import type { ActivityEntry, Category, Expense, Group, Settlement } from '@/types'
+import { claimedLinkCodes } from '@/lib/paylinks'
+import { ClaimReview } from '@/components/ClaimReview'
 import { formatMoney } from '@/lib/money'
 import { CATEGORIES } from '@/lib/categories'
 import { simplifyDebts } from '@/lib/simplify'
@@ -299,6 +301,8 @@ export default function GroupDetail() {
       {!personal && !group.archived && <QuickAdd groups={[group]} defaultGroupId={group.id} lockGroup testId="group-quick-add" />}
 
       {!personal && hasTripWindow(group) && <TripAutoCapture group={group} />}
+
+      {!personal && <PendingClaims feed={feed} uid={user.uid} />}
 
       {!personal && (
         <div className="mb-4">
@@ -896,6 +900,36 @@ function TripAutoCapture({ group }: { group: Group }) {
       >
         Set up for this trip <ChevronRight size={16} aria-hidden />
       </Link>
+    </div>
+  )
+}
+
+/**
+ * Live table guests who said they paid on a link the user confirms (status 'claimed'): one card
+ * each, "Gran says they've paid ₹250 · Confirm", with the screenshot. Found through the group's
+ * activity (the server logs each claim); a link that was confirmed or dismissed drops out.
+ */
+function PendingClaims({ feed, uid }: { feed: ActivityEntry[] | null; uid: string }) {
+  const codes = useMemo(() => claimedLinkCodes(feed), [feed])
+  if (!codes.length) return null
+  return (
+    <div className="mb-4 space-y-2">
+      {codes.map((c) => (
+        <PendingClaim key={c} code={c} uid={uid} />
+      ))}
+    </div>
+  )
+}
+
+function PendingClaim({ code, uid }: { code: string; uid: string }) {
+  const l = usePayLink(code, uid)
+  if (l?.status !== 'claimed' || l.createdBy !== uid) return null
+  return (
+    <div className="card p-4" data-testid="group-claim">
+      <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+        Says they’ve paid · Confirm
+      </div>
+      <ClaimReview link={l} compact />
     </div>
   )
 }

@@ -5,7 +5,7 @@
 import { readFileSync } from 'node:fs'
 import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest'
 import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing'
-import { collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, updateDoc, where } from 'firebase/firestore'
+import { collection, deleteDoc, deleteField, doc, getDoc, getDocs, query, setDoc, updateDoc, where } from 'firebase/firestore'
 
 let env: RulesTestEnvironment
 
@@ -214,5 +214,63 @@ describe('cancelling and deleting', () => {
     await assertFails(deleteDoc(ref(user('rahul'))))
     await assertFails(deleteDoc(ref(anon('anon1'))))
     await assertSucceeds(deleteDoc(ref(user('priya'))))
+  })
+})
+
+describe('live table links the host confirms (no forUid)', () => {
+  const ref = (db: ReturnType<typeof user>) => doc(db, `payLinks/${CODE}`)
+  const unlocked = () => seed(link({ tableCode: TABLE }))
+  const claimed = () =>
+    seed(link({ tableCode: TABLE, status: 'claimed', paidAt: Date.now(), paidBy: 'anon1', method: 'UPI', proofPath: `payproofs/${CODE}/p1.jpg` }))
+  const claim = (uid: string, over: Record<string, unknown> = {}) => paid(uid, { status: 'claimed', ...over })
+
+  it('anyone with the code may only claim it (open → claimed), not mark it paid', async () => {
+    await unlocked()
+    await assertFails(updateDoc(ref(anon('anon1')), paid('anon1')))
+    await assertSucceeds(updateDoc(ref(anon('anon1')), claim('anon1', { method: 'Cash', proofPath: `payproofs/${CODE}/p1.jpg` })))
+  })
+  it('claiming carries the same checks: once, truthfully, nothing else changed', async () => {
+    await unlocked()
+    await assertFails(updateDoc(ref(anon('anon1')), claim('someone-else')))
+    await assertFails(updateDoc(ref(anon('anon1')), claim('anon1', { amount: 1 })))
+    await assertFails(updateDoc(ref(anon('anon1')), claim('anon1', { settlementId: 's_1' })))
+    await assertSucceeds(updateDoc(ref(anon('anon1')), claim('anon1')))
+    await assertFails(updateDoc(ref(anon('anon2')), claim('anon2')))
+    await assertFails(updateDoc(ref(anon('anon2')), paid('anon2')))
+  })
+  it('locked links and Remind links cannot be claimed: they go straight to paid', async () => {
+    await assertFails(updateDoc(ref(anon('anon1')), claim('anon1')))
+    await seed(link({ tableCode: TABLE, forUid: 'anon1' }))
+    await assertFails(updateDoc(ref(anon('anon1')), claim('anon1')))
+    await assertSucceeds(updateDoc(ref(anon('anon1')), paid('anon1')))
+  })
+  it('a member who recorded it in Settle up marks an unlocked link paid directly', async () => {
+    await unlocked()
+    await assertSucceeds(updateDoc(ref(user('rahul')), paid('rahul', { settlementId: 's_1' })))
+  })
+  it('only the host confirms: claimed → paid, keeping the claim', async () => {
+    await claimed()
+    await assertFails(updateDoc(ref(anon('anon1')), { status: 'paid' }))
+    await assertFails(updateDoc(ref(user('rahul')), { status: 'paid' }))
+    await assertFails(updateDoc(ref(user('priya')), { status: 'paid', amount: 1 }))
+    await assertFails(updateDoc(ref(user('priya')), { status: 'paid', settlementId: 'pl_x' }))
+    await assertSucceeds(updateDoc(ref(user('priya')), { status: 'paid' }))
+  })
+  it('only the host dismisses: claimed → open, with every claim field removed', async () => {
+    await claimed()
+    const clear = { status: 'open', paidAt: deleteField(), paidBy: deleteField(), method: deleteField(), proofPath: deleteField() }
+    await assertFails(updateDoc(ref(anon('anon1')), clear))
+    await assertFails(updateDoc(ref(user('rahul')), clear))
+    await assertFails(updateDoc(ref(user('priya')), { status: 'open' }))
+    await assertFails(updateDoc(ref(user('priya')), { ...clear, amount: 1 }))
+    await assertSucceeds(updateDoc(ref(user('priya')), clear))
+    // and it can be claimed again
+    await assertSucceeds(updateDoc(ref(anon('anon2')), claim('anon2')))
+  })
+  it('a claimed link cannot be cancelled, re-claimed or edited by the guest', async () => {
+    await claimed()
+    await assertFails(updateDoc(ref(user('priya')), { status: 'cancelled', cancelledAt: Date.now() }))
+    await assertFails(updateDoc(ref(anon('anon1')), claim('anon1')))
+    await assertFails(updateDoc(ref(anon('anon1')), { method: 'Cash' }))
   })
 })

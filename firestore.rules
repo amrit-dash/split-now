@@ -765,7 +765,9 @@ service cloud.firestore {
     // creates (for a debt in a group they are in, or a live table they host) or cancels one.
     // Anyone with the code may make exactly one change, while it is open and unexpired: open →
     // paid with paidAt, paidBy (themselves) and optionally method and a proof under
-    // payproofs/{code}/. The onPayLinkPaid function records the settlement (Admin SDK).
+    // payproofs/{code}/ (open → claimed instead for a table link not locked to one guest, which
+    // only the host may then confirm → paid or dismiss → open). The onPayLinkPaid function
+    // records the settlement (Admin SDK) on → paid.
     // It shows the payee's chosen handles (UPI ID, UPI number, PayID, PayPal, Revolut; never bank
     // account numbers) to anyone with the code: the owner accepted that (docs/PLAN.md §4.3).
     match /payLinks/{code} {
@@ -809,7 +811,10 @@ service cloud.firestore {
           && (('groupId' in d && linkStr(d, 'groupId', 64) && payeeInGroup(d))
             || (!('groupId' in d) && 'tableCode' in d && hostOfTable(d)));
       }
-      // "I've paid": the only change someone other than the payee may make, once.
+      // A live table link not locked to one guest: "I've paid" waits for the host (open → claimed).
+      function needsHostConfirm(l) { return 'tableCode' in l && !('forUid' in l); }
+      // "I've paid": the only change someone other than the payee may make, once. Straight to paid
+      // on a Remind link, a guest's own link, or with the member's own settlement; else claimed.
       function isPaidClaim() {
         let before = resource.data;
         let after = request.resource.data;
@@ -817,7 +822,8 @@ service cloud.firestore {
         return signedIn()
           && before.status == 'open'
           && now < before.expiresAt
-          && after.status == 'paid'
+          && ((after.status == 'paid' && (!needsHostConfirm(before) || 'settlementId' in after))
+            || (after.status == 'claimed' && needsHostConfirm(before) && !('settlementId' in after)))
           && after.diff(before).affectedKeys().hasOnly(['status', 'paidAt', 'paidBy', 'method', 'proofPath', 'settlementId'])
           && after.paidAt is int && after.paidAt > now - 600000 && after.paidAt < now + 600000
           && after.paidBy == uid()
@@ -829,6 +835,19 @@ service cloud.firestore {
           && (!('settlementId' in after) || (isUser() && 'groupId' in before
             && uid() in groupDoc(before.groupId).data.memberUids
             && linkStr(after, 'settlementId', 64)));
+      }
+      // The host on a claimed link: Confirm (→ paid, the claim kept; the trigger records it) or
+      // Dismiss (→ open, the claim fields removed, so it can be paid and claimed again).
+      function isHostDecision() {
+        let before = resource.data;
+        let after = request.resource.data;
+        return isUser()
+          && before.createdBy == uid()
+          && before.status == 'claimed'
+          && ((after.status == 'paid' && after.diff(before).affectedKeys().hasOnly(['status']))
+            || (after.status == 'open'
+              && after.diff(before).affectedKeys().hasOnly(['status', 'paidAt', 'paidBy', 'method', 'proofPath'])
+              && !after.keys().hasAny(['paidAt', 'paidBy', 'method', 'proofPath'])));
       }
       function isCancel() {
         return isUser()
@@ -843,7 +862,7 @@ service cloud.firestore {
       allow create: if isUser() && writesOpen()
         && code.size() >= 20 && code.size() <= 40 && code.matches('[a-z0-9]+')
         && validNewLink(request.resource.data);
-      allow update: if writesOpen() && (isPaidClaim() || isCancel());
+      allow update: if writesOpen() && (isPaidClaim() || isHostDecision() || isCancel());
       allow delete: if isUser() && writesOpen() && resource.data.createdBy == uid();
     }
 

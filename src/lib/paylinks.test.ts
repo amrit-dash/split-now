@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildPayLink,
+  claimedLinkCodes,
+  payLinkFeatures,
   groupTableLinks,
   isPayLinkCode,
   linkToClose,
@@ -180,5 +182,42 @@ describe('live table links', () => {
     ])
     expect(r.links[0].link).toMatchObject({ groupName: 'Pho', tableCode: 'TBL23456', payeeName: 'Hana', payerName: 'Ben' })
     expect(Object.keys(r.byParticipant)).toEqual(['ben', 'gran'])
+  })
+})
+
+describe('the payLinks flag', () => {
+  it('only stops new links and hides the guest screens; claims are always recorded and the payee can always act', () => {
+    expect(payLinkFeatures(false)).toEqual({ createLinks: false, guestPages: false, recordClaims: true, payeeTools: true })
+    expect(payLinkFeatures(true)).toEqual({ createLinks: true, guestPages: true, recordClaims: true, payeeTools: true })
+  })
+})
+
+describe('claims waiting in a group', () => {
+  it('codes from settlement.claimed entries, newest first, once each', () => {
+    const a = 'a'.repeat(24)
+    const b = 'b'.repeat(24)
+    expect(
+      claimedLinkCodes([
+        { type: 'settlement.claimed', targetId: a, createdAt: 1 },
+        { type: 'settlement.created', targetId: `pl_${b}`, createdAt: 5 },
+        { type: 'settlement.claimed', targetId: b, createdAt: 3 },
+        { type: 'settlement.claimed', targetId: a, createdAt: 4 },
+        { type: 'settlement.claimed', targetId: 'not-a-code', createdAt: 6 },
+      ]),
+    ).toEqual([a, b])
+    expect(claimedLinkCodes(null)).toEqual([])
+  })
+  it('the guest and other visitors see "claimed"; the payee still gets their view', () => {
+    const l = {
+      ...buildPayLink(
+        { tableCode: 'T', groupName: 'Pho', from: { id: 'a', name: 'A' }, to: { id: 'h', name: 'H' }, amount: 100, currency: 'INR', createdBy: 'host' },
+        NOW,
+      ),
+      code: CODE,
+      status: 'claimed' as const,
+    }
+    expect(payLinkView(l, { uid: 'anon', anonymous: true, member: false }, NOW)).toBe('claimed')
+    expect(payLinkView(l, { uid: 'host', anonymous: false, member: false }, NOW)).toBe('payee')
+    expect(statusLine({ ...l, paidAt: 20 }, NOW, (ms) => `day${ms}`)).toBe('Says they’ve paid day20 · confirm it')
   })
 })

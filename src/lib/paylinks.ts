@@ -90,9 +90,10 @@ export function settleUpPath(l: Pick<PayLink, 'code' | 'groupId' | 'from' | 'to'
  *  settle   a signed-in member of the link's group: their prefilled Settle up (the in-app path)
  *  payee    the person who made the link: its status, the screenshot, Cancel
  *  pay      anyone else, while it is open (and, for a table guest's link, only that guest)
+ *  claimed  someone said they paid; the host still has to confirm
  *  paid / expired / cancelled / missing / notYours
  */
-export type PayLinkView = 'loading' | 'missing' | 'settle' | 'payee' | 'pay' | 'notYours' | 'paid' | 'expired' | 'cancelled'
+export type PayLinkView = 'loading' | 'missing' | 'settle' | 'payee' | 'pay' | 'notYours' | 'claimed' | 'paid' | 'expired' | 'cancelled'
 
 export function payLinkView(
   l: PayLink | null | undefined,
@@ -111,6 +112,28 @@ export function payLinkView(
   return canMarkPaid(l, now, v.uid) ? 'pay' : 'notYours'
 }
 
+/**
+ * What the `payLinks` flag switches (owner's decision): off stops new links (Remind shares the
+ * members-only Settle up link, a finished table makes no guest links) and hides the guest
+ * screens. A claim on a link that already exists is always recorded, and the payee can always
+ * confirm or dismiss one, so nothing waits for the flag.
+ */
+export function payLinkFeatures(flagOn: boolean): { createLinks: boolean; guestPages: boolean; recordClaims: true; payeeTools: true } {
+  return { createLinks: flagOn, guestPages: flagOn, recordClaims: true, payeeTools: true }
+}
+
+/**
+ * Table guest claims waiting for the host in a group, from its activity feed (the server writes a
+ * `settlement.claimed` entry whose targetId is the link code): newest first, each code once.
+ */
+export function claimedLinkCodes(feed: ReadonlyArray<{ type: string; targetId: string; createdAt: number }> | null | undefined): string[] {
+  const out: string[] = []
+  for (const a of [...(feed ?? [])].sort((x, y) => y.createdAt - x.createdAt)) {
+    if (a.type === 'settlement.claimed' && isPayLinkCode(a.targetId) && !out.includes(a.targetId)) out.push(a.targetId)
+  }
+  return out
+}
+
 /** The SettleUp link param: the code, only when the payment recorded is the one the link asked for. */
 export function linkToClose(param: string | null, link: { from: string; to: string }, recorded: { from: string; to: string }): string | undefined {
   return param && isPayLinkCode(param) && link.from === recorded.from && link.to === recorded.to ? param : undefined
@@ -123,6 +146,7 @@ export function statusLine(
   fmt: (ms: number) => string,
 ): string {
   const s = payLinkState(l, now)
+  if (s === 'claimed') return `Says they’ve paid${l.paidAt ? ` ${fmt(l.paidAt)}` : ''} · confirm it`
   if (s === 'paid')
     return `Marked paid${l.paidAt ? ` ${fmt(l.paidAt)}` : ''}${l.groupId ? (l.settlementId ? ' · recorded in the group' : ' · recording…') : ''}`
   if (s === 'cancelled') return `Cancelled${l.cancelledAt ? ` ${fmt(l.cancelledAt)}` : ''}`

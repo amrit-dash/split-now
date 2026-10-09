@@ -283,6 +283,8 @@ export type ActivityType =
   | 'settlement.purged'
   /** written by the nudge callable (functions/src/nudge.ts): actor nudged targetId (a member id) to settle up */
   | 'settlement.nudged'
+  /** written by onPayLinkPaid (functions/src/paylinks.ts): a table guest says they paid; targetId is the Pay me link code, the host confirms */
+  | 'settlement.claimed'
   | 'member.added'
   | 'member.removed'
 

@@ -45,7 +45,7 @@ export const FLAG_INFO: Record<FlagName, { label: string; hint: string }> = {
   nudges: { label: 'Nudges', hint: 'The "Nudge" push next to Remind.' },
   payLinks: {
     label: 'Pay me links and cards',
-    hint: 'Remind’s share sheet, the /r/ page anyone can pay from, and recording “I’ve paid” in the group. Off hides them; the server stops recording.',
+    hint: 'Off stops new links: Remind shares the members-only Settle up link, finished tables make no guest links, and the /r/ pay page and “I’ve paid” are hidden. A claim on a link that already exists is still recorded, and payees can still confirm one.',
   },
   duplicates: { label: 'Duplicate warning', hint: 'The "looks like a duplicate" card in the expense form.' },
   merchantMemory: { label: 'Merchant memory', hint: 'Remembering the category you pick for a merchant.' },

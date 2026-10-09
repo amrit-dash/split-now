@@ -57,7 +57,7 @@ import { defaultCurrency } from '@/lib/locale'
 import { inboxToDraft, newCaptureToken, type InboxDoc } from '@/lib/capture'
 import { downscale } from '@/lib/image'
 import { TABLE_TTL_MS, type LiveTable } from '@/lib/table'
-import { markPaidPatch, type PayLink } from '@/lib/paylinks'
+import { CLAIM_FIELDS, claimStatus, markPaidPatch, type PayLink } from '@/lib/paylinks'
 import {
   disputeActivity,
   expenseEventActivity,
@@ -1118,8 +1118,22 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         proofPath = `payproofs/${code}/${uid('p')}.jpg`
         await sdk.uploadBytes(sdk.ref(storage, proofPath), blob, { contentType: 'image/jpeg' })
       }
+      // Paid straight away, or "claimed" for a table link the host confirms (shared/paylinks.ts).
+      const snap = await getDoc(payLinkRef(code))
+      if (!snap.exists()) throw new Error('This Pay me link doesn’t exist')
+      const status = claimStatus(snap.data() as PayLink, claim)
       // Waits for the server: the payer should only see "Marked paid" once it really is.
-      await updateDoc(payLinkRef(code), markPaidPatch(code, { ...claim, proofPath }, me, Date.now()))
+      await updateDoc(payLinkRef(code), markPaidPatch(code, { ...claim, proofPath }, me, Date.now(), status))
+    },
+    async confirmPayLinkClaim(code) {
+      const batch = writeBatch(db)
+      batch.update(payLinkRef(code), { status: 'paid' })
+      fire(batch, 'Confirming the payment')
+    },
+    async dismissPayLinkClaim(code) {
+      const batch = writeBatch(db)
+      batch.update(payLinkRef(code), { status: 'open', ...Object.fromEntries(CLAIM_FIELDS.map((k) => [k, deleteField()])) })
+      fire(batch, 'Dismissing the payment')
     },
     async cancelPayLink(code) {
       const batch = writeBatch(db)

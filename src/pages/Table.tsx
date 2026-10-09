@@ -27,7 +27,9 @@ import { payOptions } from '@/lib/payments'
 import { copy, shareOrCopy } from '@/lib/share'
 import { errText } from '@/lib/errors'
 import { usePageTitle } from '@/lib/brand'
-import { canMarkPaid, payLinkUrl } from '@/lib/paylinks'
+import { canMarkPaid, needsHostConfirm, payLinkFeatures, payLinkUrl } from '@/lib/paylinks'
+import { useFlag } from '@/hooks/useAppConfig'
+import { ClaimReview } from '@/components/ClaimReview'
 import { usePayLink } from '@/hooks/data'
 import {
   computeTableTotals,
@@ -697,6 +699,9 @@ function Closed({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; i
   const mine = link?.amount ?? totals.people[me]?.total ?? 0
   const options = isHost ? [] : payOptions(table.hostPayment, mine, cur, table.merchant)
   const paid = link?.status === 'paid'
+  const claimed = link?.status === 'claimed'
+  // The payLinks flag stops new links and hides "I've paid" for guests; links already made still record.
+  const guestPages = payLinkFeatures(useFlag('payLinks')).guestPages
   const remind = (p: ParticipantId) => {
     const amt = formatMoney(totals.people[p].total, cur)
     const code = table.payLinks?.[p]
@@ -715,17 +720,33 @@ function Closed({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; i
         <div className="card p-5 text-center">
           <div className="text-muted text-sm">Your share</div>
           <div className="text-4xl font-extrabold tabular-nums">{formatMoney(mine, cur)}</div>
-          <div className="text-muted mt-1 text-sm">{paid ? `Marked paid · ${host} can see it` : mine > 0 ? `Pay ${host} back` : 'Nothing to pay'}</div>
-          {paid ? (
+          <div className="text-muted mt-1 text-sm">
+            {paid ? `Marked paid · ${host} can see it` : claimed ? `Waiting for ${host} to confirm` : mine > 0 ? `Pay ${host} back` : 'Nothing to pay'}
+          </div>
+          {claimed ? (
+            <div
+              className="mt-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 dark:bg-amber-500/10 dark:text-amber-300"
+              data-testid="table-claimed"
+            >
+              You said you’ve paid. Waiting for {host.split(' ')[0]} to confirm.
+            </div>
+          ) : paid ? (
             <div className="mt-4 flex items-center justify-center gap-2 rounded-2xl bg-emerald-50 p-3 text-sm font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
               <CircleCheck size={18} aria-hidden /> You marked this paid
             </div>
           ) : (
             <>
               {mine > 0 && options.length > 0 && <GuestPay options={options} amount={mine} currency={cur} />}
-              {mine > 0 && link && canMarkPaid(link, Date.now(), me) && (
+              {mine > 0 && link && guestPages && canMarkPaid(link, Date.now(), me) && (
                 <div className="mt-4">
-                  <MarkPaid code={link.code} payee={host.split(' ')[0]} amount={mine} currency={cur} groupName={link.groupId ? link.groupName : undefined} />
+                  <MarkPaid
+                    code={link.code}
+                    payee={host.split(' ')[0]}
+                    amount={mine}
+                    currency={cur}
+                    groupName={link.groupId ? link.groupName : undefined}
+                    confirmFirst={needsHostConfirm(link)}
+                  />
                 </div>
               )}
             </>
@@ -777,9 +798,30 @@ function Closed({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; i
   )
 }
 
-/** The host's view of one guest's Pay me link: "Paid" once they tapped "I've paid" (opens the link, with any screenshot). */
+/**
+ * The host's view of one guest's Pay me link: "Paid" once it counts (opens the link), or "Says
+ * they've paid · Confirm" while a claim on a link not locked to that guest waits for the host.
+ */
 function PaidPill({ code, viewer, name }: { code: string; viewer: string; name: string }) {
   const l = usePayLink(code, viewer)
+  const [open, setOpen] = useState(false)
+  if (l?.status === 'claimed')
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="inline-flex min-h-6 items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800 dark:bg-amber-500/15 dark:text-amber-300"
+          aria-label={`${name} says they’ve paid: confirm or dismiss`}
+          data-testid="table-claimed-pill"
+        >
+          Says they’ve paid · Confirm
+        </button>
+        <Sheet open={open} onClose={() => setOpen(false)} title={`Did ${name.split(' ')[0]} pay you?`}>
+          <ClaimReview link={l} onDone={() => setOpen(false)} />
+        </Sheet>
+      </>
+    )
   if (l?.status !== 'paid') return null
   return (
     <Link

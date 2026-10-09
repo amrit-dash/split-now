@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { payLinkPaidNote } from './notify-text'
+import { payLinkClaimedNote, payLinkPaidNote } from './notify-text'
 
 describe('Pay me link push to the payee', () => {
   const base = { code: 'abcdefghijkmnpqrstuvwxyz', groupName: 'Goa trip', emoji: '🏖️', payerName: 'Rahul', amount: 124000, currency: 'INR' }
@@ -15,5 +15,18 @@ describe('Pay me link push to the payee', () => {
     expect(payLinkPaidNote({ ...base, groupName: 'Pho', emoji: undefined, amount: 25050, recorded: false, withProof: true }).body).toBe(
       'Rahul marked ₹250.50 paid · Pho. Screenshot attached.',
     )
+  })
+})
+
+describe('claim push to a live table host', () => {
+  it('asks the host to confirm, says it counts only then', () => {
+    expect(
+      payLinkClaimedNote({ code: 'abcdefghijkmnpqrstuvwxyz', groupName: 'Pho', payerName: 'Gran', amount: 25000, currency: 'INR', withProof: true }),
+    ).toEqual({
+      title: 'Pho',
+      body: 'Gran says they’ve paid ₹250 · confirm. Screenshot attached. It counts once you confirm it.',
+      url: '/r/abcdefghijkmnpqrstuvwxyz',
+      tag: 'paylink-abcdefghijkmnpqrstuvwxyz',
+    })
   })
 })
