@@ -1,5 +1,7 @@
 # Split Now
 
+> **Spending is wise, Splitting is Free. Split Now!**
+
 **Split bills, not friendships.** A free, open-source, mobile-first app for sharing expenses with friends, flatmates and travel groups: a Splitwise alternative with bill scanning, live table splits, UPI-first settle-ups and optional AI reading of bills and bank SMS.
 
 [**Try it: split-now.web.app**](https://split-now.web.app) · installable on Android, iOS and desktop (PWA) · runs in demo mode with no account
@@ -31,15 +33,15 @@ Built with React 19, TypeScript, Vite and Tailwind CSS v4, on Firebase (Auth, Fi
 ## Quick start
 
 ```bash
-git clone https://github.com/amrit-dash/split-it.git
-cd split-it
+git clone https://github.com/amrit-dash/split-now.git
+cd split-now
 npm install
 npm run dev            # http://localhost:5173, demo mode (no Firebase needed)
 ```
 
 To run it on your own Firebase project, follow **[docs/FIREBASE_SETUP.md](docs/FIREBASE_SETUP.md)**, then (optional) **[docs/AI.md](docs/AI.md)** and **[docs/AUTO_CAPTURE.md](docs/AUTO_CAPTURE.md)**.
 
-> `.env.production` and `.firebaserc` point at the maintainer's project (`split-it-prod`). These are public web identifiers, not secrets, but a fork should replace both with its own project before deploying.
+> `.env.production` and `.firebaserc` point at the maintainer's Firebase project (`split-it-prod`, served at split-now.web.app, freesplit.web.app and split-it-prod.web.app). These are public web identifiers, not secrets, but a fork should replace both with its own project before deploying.
 
 ## Scripts
 
