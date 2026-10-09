@@ -82,7 +82,7 @@ export function Layout() {
         {/* The bar, with a round notch cut out for the + button (mask in index.css). */}
         <div
           aria-hidden
-          className="nav-notch absolute inset-0 border-t border-slate-200/70 bg-white/95 backdrop-blur-xl dark:border-white/5 dark:bg-ink-900/95"
+          className="nav-notch absolute inset-0 border-t border-slate-200/70 bg-white/95 backdrop-blur-2xl backdrop-saturate-150 dark:border-white/5 dark:bg-ink-900/95"
         />
         <div className="relative mx-auto flex max-w-2xl items-center justify-around px-2 pb-[var(--nav-pad)] pt-1.5">
           {tabs.map((t) =>
