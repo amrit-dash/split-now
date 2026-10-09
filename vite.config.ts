@@ -7,6 +7,7 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import pkg from './package.json' with { type: 'json' }
 import { tesseractAssets } from './scripts/vite-tesseract.ts'
+import { missingDeployEnv } from './src/lib/deploy-env.ts'
 
 /** "0.1.0+ab12cd3": package version plus the git commit, so a bug report can name the build. */
 function appVersion(): string {
@@ -57,6 +58,13 @@ export default defineConfig(({ mode }) => {
   // a checkout without .env.local). A static import either way, so the browser preloads it with
   // the entry instead of discovering it after React has started, and neither build ships the other's code.
   const firebase = Boolean(env.VITE_FIREBASE_API_KEY && env.VITE_FIREBASE_PROJECT_ID && env.VITE_FIREBASE_APP_ID)
+  // A deploy must never ship the demo build to the live site (src/lib/deploy-env.ts).
+  const missing = process.env.SPLIT_NOW_DEPLOY === '1' ? missingDeployEnv(env) : []
+  if (missing.length) {
+    throw new Error(
+      `Deploy build without the Firebase web config (missing ${missing.join(', ')}). Copy .env.production.example to .env.production and fill it in.`,
+    )
+  }
   return {
     define: { __APP_VERSION__: JSON.stringify(appVersion()) },
     resolve: {

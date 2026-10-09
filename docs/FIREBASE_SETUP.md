@@ -27,7 +27,7 @@ cp .env.production.example .env.production
 # fill VITE_FIREBASE_*, VITE_FCM_VAPID_KEY, VITE_APPCHECK_SITE_KEY, VITE_IOS_SHORTCUT_URL
 ```
 
-   Both files are gitignored: never commit them. The web API key still reaches every visitor in the built JavaScript, so restrict it in Google Cloud → Credentials (§6); keeping it out of the repository stops it being scraped from GitHub.
+   Both files are gitignored: never commit them. `npm run deploy` and `npm run deploy:hosting` refuse to build without these values (instead of deploying the demo app); a CI deploy can pass them as `VITE_FIREBASE_*` environment variables instead of the file. The web API key still reaches every visitor in the built JavaScript, so restrict it in Google Cloud → Credentials (§6); keeping it out of the repository stops it being scraped from GitHub.
 
 ## 3. Authorised domains
 **Authentication → Settings → Authorized domains**: `localhost` and `<project>.web.app` are there by default. Add any custom domain you use.
