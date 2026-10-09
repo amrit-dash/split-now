@@ -75,7 +75,7 @@ jobs:
           java-version: 21
       # The Firestore + Storage emulator jars are ~190 MB; firebase-tools pins their versions,
       # so the lockfile is the right cache key.
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.cache/firebase/emulators
           key: firebase-emulators-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
