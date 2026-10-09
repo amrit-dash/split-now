@@ -7,11 +7,19 @@ updates:
     groups:
       minor-and-patch: { update-types: [minor, patch] }
       firebase: { patterns: ['firebase', 'firebase-tools', '@firebase/*'] }
+    ignore:
+      # Node's type definitions follow the Node major we run (22; see engines and CI), not the latest.
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
   - package-ecosystem: npm
     directory: /functions
     schedule: { interval: weekly }
     groups:
       minor-and-patch: { update-types: [minor, patch] }
+    ignore:
+      # Cloud Functions run on Node 22; a newer @types/node would allow APIs the runtime lacks.
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }

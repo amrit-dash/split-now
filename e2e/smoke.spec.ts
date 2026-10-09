@@ -34,8 +34,12 @@ test('demo sign-in shows Home with a net balance and the seeded groups', async (
   await expect(page.getByTestId('home-net')).toBeVisible()
   await page.getByRole('navigation').getByRole('link', { name: 'Groups' }).click()
   await expect(page).toHaveURL(/\/groups$/)
-  await expect(page.getByText('Goa Trip')).toBeVisible()
-  await expect(page.getByText('Indiranagar Flat')).toBeVisible()
+  // The lazy Groups screen can arrive after the URL changes; until then Home (which also names the
+  // groups in its quick add and activity) is still on screen, so wait for the Groups heading and
+  // then look for each group's own row link.
+  await expect(page.getByRole('heading', { level: 1, name: 'Groups' })).toBeVisible()
+  await expect(page.getByRole('link', { name: /^Goa Trip/ })).toBeVisible()
+  await expect(page.getByRole('link', { name: /^Indiranagar Flat/ })).toBeVisible()
 })
 
 test('every tab renders a page heading', async ({ page }) => {
