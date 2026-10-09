@@ -4,7 +4,7 @@
 
 # Split Now
 
-### Spending is wise, Splitting is Free. Split Now!
+### Spending is wise, splitting is free. Split Now!
 
 **Split bills, not friendships.** A free, open-source expense-splitting app for friends, flatmates and trips:<br />
 bill scanning, live table splits, UPI-first settle-ups and optional AI.
@@ -12,6 +12,8 @@ bill scanning, live table splits, UPI-first settle-ups and optional AI.
 [![Live app](https://img.shields.io/badge/try%20it-split--now.web.app-7c3aed?style=for-the-badge&logo=firebase&logoColor=white)](https://split-now.web.app)
 [![License: MIT](https://img.shields.io/badge/license-MIT-c026d3?style=for-the-badge)](LICENSE)
 [![PWA](https://img.shields.io/badge/PWA-installable-a855f7?style=for-the-badge&logo=pwa&logoColor=white)](#install-it)
+[![Buy me a coffee](https://img.shields.io/badge/buy%20me%20a%20coffee-ffdd00?style=for-the-badge&logo=buymeacoffee&logoColor=000)](https://buymeacoffee.com/amritdash)
+[![GitHub Sponsors](https://img.shields.io/badge/sponsor-db2777?style=for-the-badge&logo=githubsponsors&logoColor=white)](https://github.com/sponsors/amrit-dash)
 
 ![React](https://img.shields.io/badge/React_19-20232a?logo=react&logoColor=61dafb)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178c6?logo=typescript&logoColor=white)
@@ -152,6 +154,15 @@ Next up is **on-device AI with Gemma**: no API calls, private, offline. See [#3]
 ## Contributing
 
 Issues and pull requests are welcome; start with [CONTRIBUTING.md](CONTRIBUTING.md). Questions and ideas go to [Discussions](https://github.com/amrit-dash/split-now/discussions). For security problems, see [SECURITY.md](SECURITY.md).
+
+## Support the project
+
+Split Now is free, has no ads and is built by one person. If it has saved your group a few awkward conversations, you can help pay for hosting and new features:
+
+<a href="https://buymeacoffee.com/amritdash"><img src="https://img.shields.io/badge/Buy_me_a_coffee-ffdd00?style=for-the-badge&logo=buymeacoffee&logoColor=000" alt="Buy me a coffee" /></a>
+<a href="https://github.com/sponsors/amrit-dash"><img src="https://img.shields.io/badge/Sponsor_on_GitHub-db2777?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Sponsor on GitHub" /></a>
+
+The same two links are in the app under **Profile → Support the developer**. A star on the repository helps too.
 
 ## License
 
