@@ -1,30 +1,23 @@
 import type { Cents } from '@/types'
 import { appLocale } from './locale'
+import { minorDigitsOf } from '../../shared/money-core'
 
 /*
  * Amounts are stored as integer *minor units* of the group's currency: paise for INR, cents for AUD/USD,
  * whole yen for JPY (0 decimals), fils for BHD (3 decimals). The number of decimals comes
- * from Intl, so it matches how the currency is displayed.
+ * from ISO 4217 (not the device's Intl data, which varies by version), and formatMoney shows
+ * exactly that many, so storage and display always agree on every device.
  */
 
 const fmtCache = new Map<string, Intl.NumberFormat>()
-const digitsCache = new Map<string, number>()
-
-/** Decimal places of a currency's minor unit (2 for INR/AUD, 0 for JPY/KRW, 3 for BHD). */
-export function minorDigits(currency = 'INR'): number {
-  let d = digitsCache.get(currency)
-  if (d === undefined) {
-    try {
-      d = new Intl.NumberFormat('en', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits ?? 2
-    } catch {
-      d = 2
-    }
-    digitsCache.set(currency, d)
-  }
-  return d
-}
+/** Decimal places of a currency's minor unit (2 for INR/AUD, 0 for JPY/KRW, 3 for BHD), per ISO 4217 (shared/money-core.ts). */
+export const minorDigits = (currency = 'INR'): number => minorDigitsOf(currency)
 
 const factor = (currency?: string) => 10 ** minorDigits(currency)
+const digitOpts = (currency: string) => {
+  const d = minorDigits(currency)
+  return { minimumFractionDigits: d, maximumFractionDigits: d }
+}
 
 /**
  * Format minor units for display, in the app locale (src/lib/locale.ts) unless `opts.locale`
@@ -36,9 +29,9 @@ export function formatMoney(minor: Cents, currency = 'INR', opts: { sign?: boole
   let fmt = fmtCache.get(key)
   if (!fmt) {
     try {
-      fmt = new Intl.NumberFormat(locale, { style: 'currency', currency, signDisplay: opts.sign ? 'exceptZero' : 'auto' })
+      fmt = new Intl.NumberFormat(locale, { style: 'currency', currency, signDisplay: opts.sign ? 'exceptZero' : 'auto', ...digitOpts(currency) })
     } catch {
-      fmt = new Intl.NumberFormat('en-IN', { style: 'currency', currency, signDisplay: opts.sign ? 'exceptZero' : 'auto' })
+      fmt = new Intl.NumberFormat('en-IN', { style: 'currency', currency, signDisplay: opts.sign ? 'exceptZero' : 'auto', ...digitOpts(currency) })
     }
     fmtCache.set(key, fmt)
   }
