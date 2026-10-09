@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Expense } from '@/types'
-import { duplicateLine, findDuplicate, normaliseTokens, relativeDay, similarDescription } from './duplicates'
+import { bulkDuplicates, duplicateLine, findDuplicate, normaliseTokens, relativeDay, similarDescription } from './duplicates'
 import { formatMoney } from './money'
 
 const e = (over: Partial<Expense>): Expense => ({
@@ -83,5 +83,22 @@ describe('copy', () => {
     expect(duplicateLine(e({}), 'INR', '2026-10-08')).toBe('Looks like a duplicate of “Dinner at Toit” (₹1,200.00, yesterday)')
     const thb = e({ amount: 300000, original: { currency: 'THB', amount: 120000, rate: 2.5, rateDate: '2026-10-07', source: 'ecb' } })
     expect(duplicateLine(thb, 'INR', '2026-10-07')).toContain(`${formatMoney(120000, 'THB')}, today`)
+  })
+})
+
+describe('bulkDuplicates', () => {
+  it('maps each capture that is already an expense to it, and leaves the rest out', () => {
+    const list = [
+      e({ id: 'x', description: 'TOIT BREWPUB', amount: 120000, date: '2026-10-07' }),
+      e({ id: 'y', description: 'Uber', amount: 45000, date: '2026-10-01' }),
+    ]
+    const caps = [
+      { id: 'c1', amount: 120000, date: '2026-10-08', merchant: 'Toit Brewpub' },
+      { id: 'c2', amount: 45000, date: '2026-10-08', merchant: 'Uber' }, // a week later: a new ride
+      { id: 'c3', amount: 9900, date: '2026-10-08', merchant: 'Swiggy' },
+    ]
+    const dups = bulkDuplicates(caps, list, 'INR')
+    expect([...dups.keys()]).toEqual(['c1'])
+    expect(dups.get('c1')?.id).toBe('x')
   })
 })

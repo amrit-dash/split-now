@@ -5,6 +5,7 @@ import type { AiState, CaptureToken } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
 import { useAiStatus } from '@/hooks/useAiStatus'
 import { accentPreset, getAccent } from '@/lib/accent'
+import { aiSummaryText } from '@/lib/ai-copy'
 import { watchCapturePrefs } from '@/lib/capture-settings'
 import { getTheme } from '@/lib/theme'
 import { autoCaptureSummary, notificationSummary } from '@/lib/profileSummary'
@@ -37,16 +38,7 @@ export default function SettingsHome() {
       })
   const automation = prefs?.capturePaused && tokens?.length ? 'Paused' : autoCaptureSummary(tokens)
   // The AI row's summary: on/off and what it's used for, and a warning only when no key can serve it.
-  const ai = (() => {
-    if (repo.mode !== 'firebase') return undefined
-    if (!prefs) return 'Gemini reads bills, statements and hard-to-read SMS'
-    if (!prefs.aiEnabled) return 'Off · bills are read on this phone'
-    const uses = [prefs.aiImages && 'Bills & statements', prefs.aiSms && 'SMS'].filter(Boolean).join(', ')
-    if (!uses) return 'On · nothing selected'
-    const shared = prefs.aiSource !== 'own' && (aiStatus?.app.images === 'available' || aiStatus?.app.sms === 'available')
-    const own = !!aiState?.hint && prefs.aiSource !== 'app'
-    return `On · ${uses}${own || shared || aiStatus === undefined ? '' : ' · no key available'}`
-  })()
+  const ai = aiSummaryText({ mode: repo.mode, prefs, hasOwnKey: !!aiState?.hint, status: aiStatus })
 
   return (
     <SettingsPage title="Settings" back="/profile">
