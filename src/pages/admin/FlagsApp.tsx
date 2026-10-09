@@ -17,6 +17,7 @@ import {
   type Signups,
 } from '@/lib/flags'
 import { localISODate } from '@/lib/id'
+import { Collapsible } from '@/components/Collapsible'
 import { Loading, Segmented } from '@/components/Misc'
 import { Switch } from '@/components/Switch'
 import { useToast } from '@/components/Toast'
@@ -99,15 +100,22 @@ export default function FlagsApp() {
           />
           <p className="text-muted mt-1 text-xs">Left empty, it says “{MAINTENANCE_FALLBACK}”</p>
         </div>
-        {/* The real screen, drawn small and inert, with the message as typed (before saving). */}
-        <div className="pt-3">
-          <p className="label" id="maint-preview">
-            {cfg.maintenance ? 'What everyone except admins sees' : 'What people will see when it is on'}
-          </p>
-          <div className="mx-auto max-w-[17rem]" role="img" aria-labelledby="maint-preview">
+        {/* The real screen, drawn small and inert, with the message as typed (before saving).
+            Folded by default: it is tall, and only needed while writing the message. */}
+        <Collapsible
+          title="Preview"
+          summary={cfg.maintenance ? 'What everyone except admins sees' : 'What people will see when it is on'}
+          className="!bg-slate-50 !shadow-none !ring-0 dark:!bg-ink-800"
+          testId="maint-preview"
+        >
+          <div
+            className="mx-auto max-w-[17rem]"
+            role="img"
+            aria-label={cfg.maintenance ? 'What everyone except admins sees' : 'What people will see when it is on'}
+          >
             <MaintenanceScreen message={cfg.maintenanceMessage} preview />
           </div>
-        </div>
+        </Collapsible>
       </div>
 
       <h3 className="mb-2 mt-5 px-1 font-bold">Update required</h3>

@@ -113,3 +113,29 @@ export function nearestIndex(xs: number[], x: number): number {
   for (let i = 1; i < xs.length; i++) if (Math.abs(xs[i] - x) < Math.abs(xs[best] - x)) best = i
   return best
 }
+
+/**
+ * Which x-axis labels to draw under `count` evenly spaced points across `plotW` px, each label
+ * about `labelW` px wide. The first is start-anchored and the last end-anchored (so they stay
+ * inside the chart), the rest centred. Labels between are evenly spaced, and one that would
+ * crowd an end label is dropped: next to an end, a centred label needs half its width plus the
+ * end label's whole width, which a plain "every n points" rule doesn't leave (the last two
+ * dates used to overlap).
+ */
+export function xLabelIndices(count: number, plotW: number, labelW: number, gap = 8): number[] {
+  if (count <= 0) return []
+  const last = count - 1
+  if (last === 0) return [0]
+  const step = plotW / last
+  const every = Math.max(1, Math.ceil((labelW + gap) / step))
+  const clear = 1.5 * labelW + gap
+  const out: number[] = []
+  for (let i = 0; i < last; i += every) {
+    if (i > 0 && (i * step < clear || (last - i) * step < clear)) continue
+    out.push(i)
+  }
+  // Two end labels that would touch: keep the latest.
+  if (out[0] === 0 && out.length === 1 && last * step < 2 * labelW + gap) out.pop()
+  out.push(last)
+  return out
+}
