@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cardSpec, firstName, reminderText, reminderUpi, reminderUrl, settleLink, type ReminderArgs } from './share-card'
+import { andList, cardSpec, firstName, reminderText, reminderUpi, reminderUrl, settleLink, type ReminderArgs } from './share-card'
 
 const base: ReminderArgs = {
   origin: 'https://split-now.web.app',
@@ -70,5 +70,27 @@ describe('Pay me link', () => {
     expect(reminderText(linked)).toBe(
       'Hey Rahul, friendly nudge: you owe Priya ₹1,240.00 for “Goa trip”. UPI: priya@okaxis. Pay and mark it paid here, no account needed:',
     )
+  })
+})
+
+describe('a reminder across several groups', () => {
+  const across: ReminderArgs = {
+    ...base,
+    groupName: 'Goa trip and Flat',
+    emoji: undefined,
+    amount: 324000,
+    across: ['Goa trip', 'Flat'],
+    link: '/settle/with/u%3Auid_p%7CINR',
+    payLink: 'abcdefghijkmnpqrstuvwxyz',
+  }
+  it('names the groups and the total, and links to the cross-group Settle up', () => {
+    expect(reminderText(across)).toBe('Hey Rahul, friendly nudge: you owe Priya ₹3,240.00 across “Goa trip” and “Flat”. UPI: priya@okaxis. Pay in one tap:')
+    expect(reminderUrl(across)).toBe('https://split-now.web.app/settle/with/u%3Auid_p%7CINR')
+    expect(cardSpec(across).group).toBe('Goa trip + Flat')
+  })
+  it('lists names plainly', () => {
+    expect(andList([])).toBe('')
+    expect(andList(['A'])).toBe('A')
+    expect(andList(['A', 'B', 'C'])).toBe('A, B and C')
   })
 })

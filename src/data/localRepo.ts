@@ -101,6 +101,49 @@ export function createLocalRepo(): Repo {
     activity()[id] = { ...a, id, groupId }
   }
   const actor = () => me().uid
+  type DemoNudge = { groupId: string; memberId: string; debtorUid: string; currency: string; owed: number; owes: number }
+  /** One group of a demo nudge: who, and what is owed each way (the server's nudgeAmount), or why not. */
+  const demoNudge = (groupId: string, memberId: string, amount?: number): DemoNudge | { reason: 'not_member' | 'rate_limited' } => {
+    const g = state.groups[groupId]
+    if (!g) throw new Error('Group not found')
+    const myId = Object.entries(g.members).find(([, m]) => m.uid === actor())?.[0]
+    if (!myId) throw new Error('Not a member of this group')
+    const debtorUid = g.members[memberId]?.uid
+    if (!debtorUid || !g.memberUids.includes(debtorUid) || debtorUid === actor()) return { reason: 'not_member' }
+    // Once a day per person and group, read from the feed like the app's "nudged today".
+    const day = Date.now() - 86_400_000
+    if (
+      Object.values(activity()).some(
+        (a) => a.groupId === groupId && a.type === 'settlement.nudged' && a.actorUid === actor() && a.targetId === memberId && a.createdAt > day,
+      )
+    )
+      return { reason: 'rate_limited' }
+    const expenses = countedExpenses(
+      Object.values(state.expenses).filter((e) => e.groupId === groupId),
+      g,
+    )
+    const settlements = countedSettlements(Object.values(state.settlements).filter((x) => x.groupId === groupId))
+    const net = netBalances(expenses, settlements)
+    const cap = Math.max(0, Math.min(-(net[memberId] ?? 0), net[myId] ?? 0))
+    const owes = Math.max(0, Math.min(-(net[myId] ?? 0), net[memberId] ?? 0))
+    return { groupId, memberId, debtorUid, currency: g.currency, owed: Math.min(amount && amount > 0 ? amount : cap, cap), owes }
+  }
+  const logNudge = (n: DemoNudge, amount: number, total?: number) => {
+    const g = state.groups[n.groupId]
+    const name = me().name
+    const id = uid('a_')
+    activity()[id] = {
+      id,
+      groupId: n.groupId,
+      type: 'settlement.nudged',
+      actorUid: actor(),
+      actorName: name,
+      targetId: n.memberId,
+      summary: `${name} nudged ${g.members[n.memberId]?.name ?? 'someone'} to settle up (${formatMoney(amount, g.currency)})`,
+      after: total === undefined ? { amount, memberId: n.memberId } : { amount, memberId: n.memberId, total },
+      createdAt: Date.now(),
+    }
+  }
   const listeners = new Set<() => void>()
   const commit = () => {
     try {
@@ -570,20 +613,35 @@ export function createLocalRepo(): Repo {
     },
     async nudge(groupId, memberId, amount) {
       // No push in the demo: say it went out when it would have (they owe you), so the flow can be tried.
-      const g = state.groups[groupId]
-      if (!g) throw new Error('Group not found')
-      const myId = Object.entries(g.members).find(([, m]) => m.uid === actor())?.[0]
-      if (!myId) throw new Error('Not a member of this group')
-      if (!g.members[memberId]?.uid) return { sent: false, reason: 'not_member' }
-      const expenses = countedExpenses(
-        Object.values(state.expenses).filter((e) => e.groupId === groupId),
-        g,
-      )
-      const settlements = countedSettlements(Object.values(state.settlements).filter((x) => x.groupId === groupId))
-      const net = netBalances(expenses, settlements)
-      const cap = Math.min(-(net[memberId] ?? 0), net[myId] ?? 0)
-      if (!(cap > 0)) return { sent: false, reason: 'not_owed' }
-      return { sent: true, amount: Math.min(amount && amount > 0 ? amount : cap, cap) }
+      const n = demoNudge(groupId, memberId, amount)
+      if ('reason' in n) return { sent: false, reason: n.reason }
+      if (n.owed <= 0) return { sent: false, reason: 'not_owed' }
+      logNudge(n, n.owed)
+      commit()
+      return { sent: true, amount: n.owed }
+    },
+    async nudgeAcross(items) {
+      // The callable's rules in miniature: one person, the groups' net in one currency, a feed entry per group they owe in.
+      const all = items.map((it) => {
+        try {
+          return demoNudge(it.groupId, it.memberId, it.amount)
+        } catch {
+          return null
+        }
+      })
+      const ok = all.filter((n): n is DemoNudge => !!n && !('reason' in n))
+      if (all.some((n) => n && 'reason' in n && n.reason === 'rate_limited')) return { sent: false, reason: 'rate_limited' }
+      const debtor = ok[0]?.debtorUid
+      if (!debtor) return { sent: false, reason: 'not_member' }
+      const first = ok.find((n) => n.debtorUid === debtor && n.owed > 0)
+      if (!first) return { sent: false, reason: 'not_owed' }
+      const same = ok.filter((n) => n.debtorUid === debtor && n.currency === first.currency)
+      const total = same.reduce((t, n) => t + n.owed - n.owes, 0)
+      if (!(total > 0)) return { sent: false, reason: 'not_owed' }
+      const owed = same.filter((n) => n.owed > 0)
+      for (const n of owed) logNudge(n, n.owed, owed.length > 1 ? total : undefined)
+      commit()
+      return { sent: true, amount: total, groups: owed.length }
     },
 
     watchCaptureTokens: (userId, cb) =>

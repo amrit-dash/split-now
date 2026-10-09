@@ -48,6 +48,29 @@ export const isStandalone = () =>
 
 export const permission = (): NotificationPermission | 'unsupported' => (pushSupported() ? Notification.permission : 'unsupported')
 
+/** Settings → Notifications and the reminder card say the same thing about iPhones. */
+export const IOS_INSTALL_FOR_PUSH =
+  'On iPhone, notifications need iOS 16.4 or later and the app installed: tap Share → Add to Home Screen, then open it from your home screen'
+
+/**
+ * Whether to offer "Turn on notifications" on this device (the reminder card on Home and the
+ * Inbox): 'enable' when push can be turned on here with one tap, 'install' on an iPhone browser
+ * tab (it needs the installed app first), null when it is on already, blocked, unsupported, or
+ * this build has no push at all.
+ */
+export function pushOffer(s: {
+  available: boolean
+  ios: boolean
+  standalone: boolean
+  supported: boolean
+  perm: NotificationPermission | 'unsupported'
+}): 'enable' | 'install' | null {
+  if (!s.available) return null
+  if (s.ios && !s.standalone) return 'install'
+  if (!s.supported) return null
+  return s.perm === 'default' ? 'enable' : null
+}
+
 async function sha256(s: string): Promise<string> {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s))
   return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, '0'))

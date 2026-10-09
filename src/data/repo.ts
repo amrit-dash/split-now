@@ -8,7 +8,7 @@ import type { ParsedReceipt } from '@/lib/ocr-parse'
 import type { AppAiConfig } from '@/lib/ai-config'
 import type { MerchantMemory } from '@/lib/merchants'
 import type { AiTextExpense } from '@/lib/nl-expense'
-import type { NudgeResult } from '@/lib/nudge'
+import type { NudgeItem, NudgeResult } from '@/lib/nudge'
 import type { AiUnavailableReason } from '../../shared/ai-config'
 import { defaultCurrency } from '@/lib/locale'
 import { sharedPhotoURL, type OwnMemberPatch } from '@/lib/memberSync'
@@ -234,10 +234,18 @@ export interface Repo {
   /**
    * Push a settle-up nudge to a member who owes the signed-in user (the `nudge` callable; one
    * per person per group per day, server-enforced; the server writes a `settlement.nudged`
-   * activity entry). `amount` is what the app shows and is only a hint. Demo mode: pretends it
-   * was sent (no push exists) so the flow can be tried. Rejects with a readable message.
+   * activity entry, also when the debtor gets no push: `no_push`, and they see it in the app).
+   * `amount` is what the app shows and is only a hint. Demo mode: pretends it was sent (no push
+   * exists) and writes the activity entry, so the flow can be tried. Rejects with a readable message.
    */
   nudge(groupId: string, memberId: MemberId, amount?: Cents): Promise<NudgeResult>
+  /**
+   * One nudge about everything one person owes the signed-in user across several groups (the
+   * same callable with `items`, at most 20): one push with the total, a `settlement.nudged`
+   * entry in each group where they owe, once per person per day. Same results as `nudge`, with
+   * the total as `amount` and `groups` covered.
+   */
+  nudgeAcross(items: NudgeItem[]): Promise<NudgeResult>
 
   /** Capture tokens let signed-out automations (iOS Shortcuts) drop transactions into captureInbox. */
   watchCaptureTokens(uid: string, cb: Watch<CaptureToken[]>): Unsub

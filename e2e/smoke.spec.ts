@@ -194,3 +194,34 @@ test('a table guest’s claim waits for the host: it shows in the Inbox and the 
   await expect(claim).toBeHidden()
   await expect(page.getByRole('link', { name: 'Pay me link' }).first()).toBeVisible()
 })
+
+test('someone you owe nudged you: a reminder card on Home leads to the prefilled Settle up, and can be dismissed', async ({ page }) => {
+  // The demo seeds a nudge from Meera (Coldplay Night), where the demo user owes her.
+  const card = page.getByTestId('nudge-card')
+  await expect(card).toBeVisible()
+  await expect(card).toContainText('Meera reminded you')
+  await card.getByTestId('nudge-settle').click()
+  await expect(page).toHaveURL(/\/groups\/g_gig\/settle\?from=me&to=p_meera&amount=\d+/)
+  await page.goto('/inbox')
+  await expect(page.getByTestId('nudge-card')).toBeVisible()
+  await page.getByTestId('nudge-dismiss').click()
+  await expect(page.getByTestId('nudge-card')).toBeHidden()
+  await page.goto('/')
+  await expect(page.getByTestId('home-net')).toBeVisible()
+  await expect(page.getByTestId('nudge-card')).toBeHidden()
+})
+
+test('Balances: Remind and Nudge on the rows where someone owes you; a nudge counts once a day', async ({ page }) => {
+  await page.goto('/settle?view=group')
+  // Ananya has joined the Goa trip in the demo, so her row has Nudge; placeholders only Remind.
+  const ananya = page.getByTestId('settle-row').filter({ hasText: 'Ananya' })
+  await expect(ananya.getByTestId('remind')).toBeVisible()
+  await ananya.getByTestId('nudge').click()
+  await expect(page.getByText(/^Nudged Ananya/)).toBeVisible()
+  await expect(ananya.getByTestId('nudge')).toHaveAttribute('aria-disabled', 'true')
+  await expect(page.getByTestId('settle-row').filter({ hasText: 'Rohan' }).getByTestId('nudge')).toHaveCount(0)
+  // By person: the same rows, and the cooldown holds there too.
+  await page.getByTestId('settle-view').getByRole('radio', { name: 'By person' }).click()
+  const card = page.getByTestId('person-card').filter({ hasText: 'Ananya' })
+  await expect(card.getByTestId('nudge')).toHaveAttribute('aria-disabled', 'true')
+})

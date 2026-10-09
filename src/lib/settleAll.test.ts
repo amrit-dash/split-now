@@ -1,6 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import type { Debt, Group } from '@/types'
-import { groupCount, pendingSettlements, personBalances, settleHref, settlePersonHref, signedAmount, totalsByCurrency } from './settleAll'
+import type { SettleRow } from './settleAll'
+import {
+  canNudgePerson,
+  groupCount,
+  groupNames,
+  pendingSettlements,
+  personBalances,
+  personNudgeItems,
+  settleHref,
+  settlePersonHref,
+  signedAmount,
+  totalsByCurrency,
+} from './settleAll'
 
 const g = (id: string, currency: string, members: Group['members'], type: Group['type'] = 'trip') => ({
   id,
@@ -98,5 +110,48 @@ describe('settleAll', () => {
     expect(settlePersonHref(people[0])).toBe('/settle/with/u%3Au_rohan%7CINR')
     expect(people[0].parts.map(signedAmount)).toEqual([-5000, 1500])
     expect(people[0].parts.map(signedAmount).reduce((a, b) => a + b, 0)).toBe(people[0].net)
+  })
+})
+
+describe('nudging a person across groups', () => {
+  const row = (over: Partial<SettleRow>): SettleRow => ({
+    key: 'k',
+    groupId: 'g1',
+    groupName: 'Goa trip',
+    groupEmoji: '🏖️',
+    currency: 'INR',
+    me: 'me',
+    memberId: 'r',
+    name: 'Rohan',
+    color: '#f00',
+    uid: 'u_rohan',
+    amount: 1000,
+    dir: 'owed',
+    href: '/x',
+    ...over,
+  })
+  const p = {
+    net: 1500,
+    parts: [
+      row({}),
+      row({ groupId: 'g2', groupName: 'Flat', memberId: 'm2', amount: 800 }),
+      row({ groupId: 'g3', groupName: 'Office', dir: 'owe', amount: 300 }),
+    ],
+  }
+  it('sends every group with an account, the hint only where they owe you', () => {
+    expect(personNudgeItems(p)).toEqual([
+      { groupId: 'g1', memberId: 'r', amount: 1000 },
+      { groupId: 'g2', memberId: 'm2', amount: 800 },
+      { groupId: 'g3', memberId: 'r' },
+    ])
+    expect(personNudgeItems({ parts: [row({ uid: undefined })] })).toEqual([])
+    expect(groupNames({ parts: [...p.parts, row({})] })).toEqual(['Goa trip', 'Flat', 'Office'])
+  })
+  it('offers Nudge only when they owe you overall and have an account', () => {
+    expect(canNudgePerson(p, 'u_me')).toBe(true)
+    expect(canNudgePerson({ ...p, net: 0 }, 'u_me')).toBe(false)
+    expect(canNudgePerson({ ...p, net: -10 }, 'u_me')).toBe(false)
+    expect(canNudgePerson({ net: 100, parts: [row({ uid: undefined })] }, 'u_me')).toBe(false)
+    expect(canNudgePerson({ net: 100, parts: [row({})] }, 'u_rohan')).toBe(false)
   })
 })

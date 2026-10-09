@@ -30,7 +30,21 @@ export interface ReminderArgs {
   upi?: string
   /** the Pay me link's code (payLinks/{code}); without it the share falls back to the Settle up deep link */
   payLink?: string
+  /**
+   * A reminder about several groups at once (a "by person" row on the Balances screen): their
+   * names, `amount` is the total, and `link` (an app path, the cross-group Settle up) replaces
+   * the per-group links, since a Pay me link records a payment in one group only.
+   */
+  across?: string[]
+  link?: string
 }
+
+/** "Goa trip", "Goa trip and Flat", "Goa trip, Flat and Office". */
+export function andList(names: string[]): string {
+  return names.length <= 1 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+}
+
+const isAcross = (a: Pick<ReminderArgs, 'across'>) => (a.across?.length ?? 0) > 1
 
 export const firstName = (name: string) => name.trim().split(/\s+/)[0] || name
 
@@ -41,7 +55,8 @@ export function settleLink(a: Pick<ReminderArgs, 'origin' | 'groupId' | 'debtor'
 }
 
 /** What the share carries: the Pay me link when there is one, else the members-only Settle up link. */
-export function reminderUrl(a: Pick<ReminderArgs, 'origin' | 'groupId' | 'debtor' | 'payee' | 'amount' | 'payLink'>): string {
+export function reminderUrl(a: Pick<ReminderArgs, 'origin' | 'groupId' | 'debtor' | 'payee' | 'amount' | 'payLink' | 'link'>): string {
+  if (a.link) return `${a.origin}${a.link}`
   return a.payLink ? `${a.origin}/r/${a.payLink}` : settleLink(a)
 }
 
@@ -56,8 +71,9 @@ export function reminderUpi(a: Pick<ReminderArgs, 'upi' | 'currency' | 'amount' 
 export function reminderText(a: ReminderArgs): string {
   const money = formatMoney(a.amount, a.currency)
   const upi = a.upi?.trim() && a.currency === 'INR' && isUpiId(a.upi) ? ` UPI: ${a.upi.trim()}.` : ''
-  const tail = a.payLink ? 'Pay and mark it paid here, no account needed:' : 'Pay in one tap:'
-  return `Hey ${firstName(a.debtor.name)}, friendly nudge: you owe ${firstName(a.payee.name)} ${money} for “${a.groupName}”.${upi} ${tail}`
+  const tail = a.payLink && !a.link ? 'Pay and mark it paid here, no account needed:' : 'Pay in one tap:'
+  const what = isAcross(a) ? `across ${andList(a.across!.map((n) => `“${n}”`))}` : `for “${a.groupName}”`
+  return `Hey ${firstName(a.debtor.name)}, friendly nudge: you owe ${firstName(a.payee.name)} ${money} ${what}.${upi} ${tail}`
 }
 
 export interface CardSpec {
@@ -81,7 +97,7 @@ export function cardSpec(a: ReminderArgs): CardSpec {
   const payee = firstName(a.payee.name)
   const qr = reminderUpi(a)
   return {
-    group: `${a.emoji ? `${a.emoji} ` : ''}${a.groupName}`,
+    group: isAcross(a) ? a.across!.join(' + ') : `${a.emoji ? `${a.emoji} ` : ''}${a.groupName}`,
     heading: `${debtor} → ${payee}`,
     amount: formatMoney(a.amount, a.currency),
     line: `${debtor} owes ${payee}`,

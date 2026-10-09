@@ -5,6 +5,7 @@ import { useMe } from '@/hooks/auth'
 import { useAllGroupData, type GroupData } from '@/hooks/data'
 import { useInbox } from '@/hooks/useInbox'
 import { ActivityFeed } from '@/components/Trust'
+import { NudgeCards } from '@/components/NudgeCards'
 import { formatMoney } from '@/lib/money'
 import { convertMinor } from '@/lib/fx'
 import { useTodayRates } from '@/hooks/useFx'
@@ -117,6 +118,9 @@ export default function Home() {
           </Link>
         </div>
       </header>
+
+      {/* Someone you owe nudged you: works without a push (src/lib/nudge-inbox.ts). */}
+      <NudgeCards cards={box.nudges} className="mb-5" />
 
       {firstRun ? (
         <FirstRun />

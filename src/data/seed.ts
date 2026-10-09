@@ -9,8 +9,8 @@ import { localISODate } from '@/lib/id'
 import type { AuthUser } from './repo'
 
 /**
- * Sample data so demo mode looks alive on first launch: a Goa trip and a Bengaluru flat, in
- * INR. Covers every split type, a recurring bill, trip dates with a pending capture, a foreign
+ * Sample data so demo mode looks alive on first launch: a Goa trip, a Bengaluru flat and a
+ * concert night (where the demo user owes, and has been nudged), in INR. Covers every split type, a recurring bill, trip dates with a pending capture, a foreign
  * currency expense (USD at a locked rate), a settlement and some activity history.
  * Amounts are paise (₹1 = 100).
  */
@@ -28,12 +28,13 @@ export function seedDemo(_state: unknown, user: AuthUser) {
     simplify: true,
     startDate: day(26),
     endDate: day(12),
-    memberUids: [user.uid],
+    // Ananya has joined (an account), so Nudge can be tried on her; the others are placeholders.
+    memberUids: [user.uid, 'seed_ananya'],
     members: {
       me: { name: user.displayName, uid: user.uid, color: colorFor(0) },
       p_priya: { name: 'Priya', color: colorFor(1) },
       p_rohan: { name: 'Rohan', color: colorFor(2) },
-      p_ananya: { name: 'Ananya', color: colorFor(3) },
+      p_ananya: { name: 'Ananya', uid: 'seed_ananya', color: colorFor(3) },
     },
     inviteCode: 'GOA2026',
     createdBy: user.uid,
@@ -58,8 +59,28 @@ export function seedDemo(_state: unknown, user: AuthUser) {
     createdAt: now - 90 * 86400000,
     updatedAt: now - 86400000,
   }
+  // The one place the demo user owes someone: Meera bought the concert tickets and has nudged them
+  // (the reminder card on Home and in the Inbox).
+  const gig: Group = {
+    id: 'g_gig',
+    name: 'Coldplay Night',
+    emoji: '🎸',
+    type: 'event',
+    currency: 'INR',
+    simplify: true,
+    memberUids: [user.uid, 'seed_meera'],
+    members: {
+      me: { name: user.displayName, uid: user.uid, color: colorFor(0) },
+      p_meera: { name: 'Meera', uid: 'seed_meera', color: colorFor(6) },
+    },
+    inviteCode: 'GIG2026A',
+    createdBy: 'seed_meera',
+    createdAt: now - 4 * 86400000,
+    updatedAt: now - 3 * 86400000,
+  }
   const G = Object.keys(goa.members)
   const F = Object.keys(flat.members)
+  const C = Object.keys(gig.members)
   const mk = (
     g: Group,
     order: string[],
@@ -109,6 +130,7 @@ export function seedDemo(_state: unknown, user: AuthUser) {
     mk(flat, F, 5, 'Rent — October', 5400000, 'rent', 'me', 7),
     mk(flat, F, 6, 'Maid & cook — October', 750000, 'other', 'p_kavya', 5),
     mk(flat, F, 7, 'Zepto order', 123400, 'groceries', 'p_arjun', 3),
+    { ...mk(gig, C, 1, 'Coldplay tickets (2)', 900000, 'entertainment', 'p_meera', 3), createdBy: 'seed_meera' },
   ]
   const settlements: Settlement[] = [
     {
@@ -159,10 +181,22 @@ export function seedDemo(_state: unknown, user: AuthUser) {
     added('e_g_goa_8', 'Ananya', 'seed_ananya'),
     added('e_g_flat_3', 'Kavya', 'seed_kavya'),
     added('e_g_flat_7', 'Arjun', 'seed_arjun'),
+    added('e_g_gig_1', 'Meera', 'seed_meera'),
+    {
+      id: 'a_gig_nudge',
+      groupId: 'g_gig',
+      type: 'settlement.nudged',
+      actorUid: 'seed_meera',
+      actorName: 'Meera',
+      targetId: 'me',
+      summary: `Meera nudged ${user.displayName} to settle up (${formatMoney(450000, 'INR')})`,
+      after: { amount: 450000, memberId: 'me' },
+      createdAt: now - 3 * 3600_000,
+    },
   ]
   return {
     activity: Object.fromEntries(activity.map((a) => [a.id, a])),
-    groups: { [goa.id]: goa, [flat.id]: flat },
+    groups: { [goa.id]: goa, [flat.id]: flat, [gig.id]: gig },
     expenses: Object.fromEntries(expenses.map((e) => [e.id, e])),
     settlements: Object.fromEntries(settlements.map((s) => [s.id, s])),
     // One card payment from the trip (picked up from a bank SMS), waiting in the inbox.

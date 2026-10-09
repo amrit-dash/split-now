@@ -1,4 +1,5 @@
 import type { Cents, Debt, Group, MemberId } from '@/types'
+import type { NudgeItem } from './nudge'
 
 /*
  * "Settle all": every payment you still have to make or receive, across all your groups and
@@ -131,3 +132,21 @@ export const settlePersonHref = (p: Pick<PersonBalance, 'key'>) => `/settle/with
 
 /** A per-group row as a signed amount: > 0 they owe you there. */
 export const signedAmount = (r: Pick<SettleRow, 'dir' | 'amount'>) => (r.dir === 'owed' ? r.amount : -r.amount)
+
+/** The groups a person's balance is made of, in the order given, without repeats. */
+export const groupNames = (p: Pick<PersonBalance, 'parts'>) => [...new Set(p.parts.map((r) => r.groupName))]
+
+/**
+ * A "by person" row that spans several groups, nudged as one (the callable's `items`): every
+ * group where the other person has an account, both directions, since the server nets out the
+ * groups where you owe them. The figure shown goes along as a hint for the groups they owe in.
+ */
+export function personNudgeItems(p: Pick<PersonBalance, 'parts'>): NudgeItem[] {
+  return p.parts
+    .filter((r) => r.uid)
+    .map((r) => (r.dir === 'owed' ? { groupId: r.groupId, memberId: r.memberId, amount: r.amount } : { groupId: r.groupId, memberId: r.memberId }))
+}
+
+/** Whether a person's row offers Nudge: they owe you overall and have an account (and it isn't you). */
+export const canNudgePerson = (p: Pick<PersonBalance, 'net' | 'parts'>, myUid: string) =>
+  p.net > 0 && p.parts.some((r) => r.dir === 'owed' && !!r.uid && r.uid !== myUid)
