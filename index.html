@@ -9,7 +9,16 @@
     <meta property="og:description" content="Spending is wise, Splitting is Free. Split Now!" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://split-now.web.app" />
-    <meta property="og:image" content="https://split-now.web.app/pwa-512.png" />
+    <!-- Link previews (WhatsApp, Slack, X, iMessage): the 1200x630 banner from docs/assets/hero.png. A JPEG on purpose,
+         so the service worker (which precaches *.png) doesn't download it into every install. -->
+    <meta property="og:image" content="https://split-now.web.app/og-image.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Split Now: Spending is wise, Splitting is Free. Split Now! Three phones showing Home, a group and Insights." />
+    <meta property="og:site_name" content="Split Now" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://split-now.web.app/og-image.jpg" />
     <meta name="theme-color" content="#6d28d9" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
