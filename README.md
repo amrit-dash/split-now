@@ -83,6 +83,10 @@ docs/           setup guides and the product plan
 
 More detail: [docs/PLAN.md](docs/PLAN.md) (product and architecture) and [CHANGELOG.md](CHANGELOG.md).
 
+## Roadmap
+
+Next up is on-device AI with Gemma (no API calls, private, offline): see [#3](https://github.com/amrit-dash/split-now/issues/3) and [docs/ROADMAP.md](docs/ROADMAP.md).
+
 ## Contributing
 
 Issues and pull requests are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) first; for security problems see [SECURITY.md](SECURITY.md).
