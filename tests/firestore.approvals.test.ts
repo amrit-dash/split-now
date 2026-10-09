@@ -126,22 +126,17 @@ describe('edit auto-approve (group.editAutoApprove)', () => {
   it('a non-money edit leaves the approvals alone', async () => {
     await assertSucceeds(updateDoc(exp('bob'), { description: 'Hotel (2 nights)' }))
   })
-  it('only the creator sets editAutoApprove, and it must be a positive whole number', async () => {
+  it('any member sets editAutoApprove; it must be a positive whole number', async () => {
     const g = (uid: string) => doc(db(uid), 'groups/g1')
-    await assertFails(updateDoc(g('bob'), { editAutoApprove: 1000, updatedAt: 2 }))
-    await assertFails(updateDoc(g('alice'), { editAutoApprove: 0, updatedAt: 2 }))
-    await assertFails(updateDoc(g('alice'), { editAutoApprove: 10.5, updatedAt: 2 }))
-    await assertSucceeds(updateDoc(g('alice'), { editAutoApprove: 1000, updatedAt: 2 }))
-    await assertFails(updateDoc(g('bob'), { editAutoApprove: deleteField(), updatedAt: 3 }))
-    await assertSucceeds(updateDoc(g('alice'), { editAutoApprove: deleteField(), updatedAt: 3 }))
+    await assertSucceeds(updateDoc(g('bob'), { editAutoApprove: 1000, updatedAt: 2 }))
+    await assertFails(updateDoc(g('alice'), { editAutoApprove: 0, updatedAt: 3 }))
+    await assertFails(updateDoc(g('alice'), { editAutoApprove: 10.5, updatedAt: 3 }))
+    await assertSucceeds(updateDoc(g('bob'), { editAutoApprove: deleteField(), updatedAt: 3 }))
   })
-  it('only the creator changes the currency while approval amounts are set (they are in that currency)', async () => {
+  it('any member changes the currency, with or without approval amounts saved', async () => {
     const g = (uid: string) => doc(db(uid), 'groups/g1')
-    await assertFails(updateDoc(g('bob'), { currency: 'INR', updatedAt: 2 }))
-    await assertSucceeds(updateDoc(g('alice'), { currency: 'INR', approvalThreshold: 200000, updatedAt: 3 }))
-    // without saved amounts, any member may change it as before
-    await assertSucceeds(updateDoc(g('alice'), { approvalThreshold: deleteField(), updatedAt: 4 }))
-    await assertSucceeds(updateDoc(g('bob'), { currency: 'AUD', updatedAt: 5 }))
+    await assertSucceeds(updateDoc(g('bob'), { currency: 'INR', approvalThreshold: 200000, updatedAt: 2 }))
+    await assertSucceeds(updateDoc(g('alice'), { currency: 'AUD', approvalThreshold: 10000, updatedAt: 3 }))
   })
 })
 

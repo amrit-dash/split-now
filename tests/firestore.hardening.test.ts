@@ -118,13 +118,12 @@ describe('group shape and settings', () => {
     await assertSucceeds(updateDoc(g1('alice'), { archived: false, updatedAt: 3 }))
     await assertFails(updateDoc(g1('bob'), { archived: 'yes' }))
   })
-  it('only the creator changes the approval policy', async () => {
-    await assertFails(updateDoc(g1('bob'), { requireApproval: true, approvalThreshold: 5000 }))
-    await assertSucceeds(updateDoc(g1('alice'), { requireApproval: true, approvalThreshold: 5000, updatedAt: 2 }))
-    await assertFails(updateDoc(g1('bob'), { requireApproval: false }))
-    await assertFails(updateDoc(g1('bob'), { approvalThreshold: 1_000_000_000 }))
-    await assertSucceeds(updateDoc(g1('bob'), { name: 'Still editable', updatedAt: 3 }))
-    await assertSucceeds(updateDoc(g1('alice'), { requireApproval: deleteField(), approvalThreshold: deleteField(), updatedAt: 4 }))
+  it('any member changes the approval policy; values are still checked', async () => {
+    await assertSucceeds(updateDoc(g1('bob'), { requireApproval: true, approvalThreshold: 5000, updatedAt: 2 }))
+    await assertSucceeds(updateDoc(g1('alice'), { requireApproval: false, updatedAt: 3 }))
+    await assertFails(updateDoc(g1('bob'), { approvalThreshold: 0 }))
+    await assertFails(updateDoc(g1('bob'), { requireApproval: 'yes' }))
+    await assertSucceeds(updateDoc(g1('bob'), { requireApproval: deleteField(), approvalThreshold: deleteField(), updatedAt: 4 }))
   })
   it('caps the members map and memberUids at 60 on create', async () => {
     const many = Object.fromEntries(Array.from({ length: 61 }, (_, i) => [`p${i}`, { name: `P${i}`, color: '#000' }]))
