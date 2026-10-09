@@ -20,7 +20,7 @@ export default defineConfig({
       manifest: {
         name: 'Split Now — split bills, settle up over UPI',
         short_name: 'Split Now',
-        description: 'Split bills with friends, simplify debts and settle up over UPI in a tap.',
+        description: 'Spending is wise, Splitting is Free. Split Now! Split bills with friends, simplify debts and settle up over UPI in a tap.',
         theme_color: '#6d28d9',
         background_color: '#0b0a14',
         display: 'standalone',

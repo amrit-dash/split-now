@@ -235,7 +235,8 @@ export default function Profile() {
           </div>
         </div>
       )}
-      <p className="mb-10 mt-6 text-center text-xs text-slate-400">Split Now v{version} · {repo.mode === 'demo' ? 'Demo mode' : 'Connected to Firebase'}</p>
+      <p className="mt-6 text-center text-xs font-semibold text-brand-600/80 dark:text-brand-300/80">Spending is wise, Splitting is Free. Split Now!</p>
+      <p className="mb-10 mt-1 text-center text-xs text-slate-400">Split Now v{version} · {repo.mode === 'demo' ? 'Demo mode' : 'Connected to Firebase'}</p>
 
       <Sheet open={iosOpen} onClose={() => setIosOpen(false)} title="Add to Home Screen"><IOSInstallSteps /></Sheet>
       <PhotoSheet open={photoOpen} onClose={() => setPhotoOpen(false)} profile={profile} googlePhotoURL={user.googlePhotoURL} />

@@ -5,8 +5,15 @@
   "targets": {
     "split-it-prod": {
       "hosting": {
-        "main": ["split-it-prod"],
-        "now": ["split-now"]
+        "main": [
+          "split-it-prod"
+        ],
+        "now": [
+          "split-now"
+        ],
+        "free": [
+          "freesplit"
+        ]
       }
     }
   }
