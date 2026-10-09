@@ -87,7 +87,7 @@ export default function Join() {
   const options = [...Object.entries(invite.placeholders), ['new', `I’m not listed — join as ${myName}`] as [string, string]]
 
   return (
-    <main className="mx-auto min-h-dvh max-w-md px-4 pt-[calc(env(safe-area-inset-top)+4rem)]">
+    <main className="mx-auto min-h-dvh max-w-md px-4 pt-[calc(var(--safe-top)+4rem)]">
       <div className="text-center">
         <div
           className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-100 to-duo-100 text-5xl dark:from-brand-900/50 dark:to-duo-900/30"

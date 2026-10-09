@@ -20,7 +20,8 @@
  *
  * User filters (users/{uid}/settings/notifications, Settings → Automation): capturePaused stops
  * everything ('paused'), minAmount drops small INR debits ('below_min'), ignoreWords drops debits
- * mentioning a keyword ('ignored'); a trip with captureOff is skipped ('paused'). All of these
+ * mentioning a keyword ('ignored'); a trip in the user's own pausedTrips is skipped ('paused';
+ * the legacy group-wide captureOff is ignored). All of these
  * answer 200 and store nothing. Every processed request also prepends a compact entry (no SMS
  * text) to users/{uid}/captureLog/recent, one document trimmed to the newest 30: "Recent
  * activity" in the app.
@@ -212,16 +213,16 @@ export async function handleCapture(
   let matched: TripGroup | undefined
   if (scopeId) {
     if (!scoped) return reject('bad_scope', parsed)
-    const r = matchScoped(scoped, parsed.date)
+    const r = matchScoped(scoped, parsed.date, prefs.pausedTrips)
     if (r.kind === 'off') return reject('paused', parsed, scoped.name)
     if (r.kind === 'outside') return reject('outside_trip', parsed, scoped.name)
     matched = r.group
   } else {
     const groups = (await db().collection('groups').where('memberUids', 'array-contains', uid).get()).docs.map((d) => ({ ...(d.data() as GroupDoc), id: d.id }))
-    matched = pickTrip(groups, parsed.date, parsed.currency)
+    matched = pickTrip(groups, parsed.date, parsed.currency, prefs.pausedTrips)
     if (!matched) {
-      // Dated inside a trip whose capture is paused: skip it (the pause wins over "all payments").
-      const off = pausedTrip(groups, parsed.date)
+      // Dated inside a trip this person paused: skip it (the pause wins over "all payments").
+      const off = pausedTrip(groups, parsed.date, prefs.pausedTrips)
       if (off) return reject('paused', parsed, off.name)
       // Outside every trip window: only kept when the user turned on "All bank & UPI payments".
       if (!prefs.outsideTrips) return reject('outside_trip', parsed)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fitLabel, overflows } from './fit'
+import { fitLabel, marqueeFor, overflows } from './fit'
 
 describe('fitLabel', () => {
   it('keeps the first label at full size when it fits', () => {
@@ -31,5 +31,18 @@ describe('overflows', () => {
     expect(overflows(200.4, 200)).toBe(false)
     expect(overflows(201, 200)).toBe(true)
     expect(overflows(150, 200)).toBe(false)
+  })
+})
+
+describe('marqueeFor', () => {
+  it('stays still when the hint fits (or there is no box yet)', () => {
+    expect(marqueeFor(200, 240)).toBeNull()
+    expect(marqueeFor(240.4, 240)).toBeNull()
+    expect(marqueeFor(300, 0)).toBeNull()
+  })
+  it('travels the overflow plus a gap, at about the given speed, never faster than a 6 s cycle', () => {
+    expect(marqueeFor(300, 240)).toEqual({ shift: 72, seconds: 6 })
+    expect(marqueeFor(600, 240)).toEqual({ shift: 372, seconds: 27 })
+    expect(marqueeFor(600, 240, 80, 0)).toEqual({ shift: 360, seconds: 13 })
   })
 })

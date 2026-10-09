@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildPayLink,
-  claimedLinkCodes,
+  claimsInGroup,
+  sortClaims,
   payLinkFeatures,
   groupTableLinks,
   isPayLinkCode,
@@ -193,19 +194,19 @@ describe('the payLinks flag', () => {
 })
 
 describe('claims waiting in a group', () => {
-  it('codes from settlement.claimed entries, newest first, once each', () => {
-    const a = 'a'.repeat(24)
-    const b = 'b'.repeat(24)
-    expect(
-      claimedLinkCodes([
-        { type: 'settlement.claimed', targetId: a, createdAt: 1 },
-        { type: 'settlement.created', targetId: `pl_${b}`, createdAt: 5 },
-        { type: 'settlement.claimed', targetId: b, createdAt: 3 },
-        { type: 'settlement.claimed', targetId: a, createdAt: 4 },
-        { type: 'settlement.claimed', targetId: 'not-a-code', createdAt: 6 },
-      ]),
-    ).toEqual([a, b])
-    expect(claimedLinkCodes(null)).toEqual([])
+  it('newest claim first, ties by code', () => {
+    const l = (code: string, paidAt?: number) => ({ code, paidAt })
+    expect(sortClaims([l('b', 1), l('c', 5), l('a', 1), l('d')]).map((x) => x.code)).toEqual(['c', 'a', 'b', 'd'])
+  })
+  it('a group card shows only that group’s claimed links (no-group table links stay in the Inbox)', () => {
+    const list = [
+      { code: 'a', groupId: 'g1', status: 'claimed' },
+      { code: 'b', groupId: 'g2', status: 'claimed' },
+      { code: 'c', status: 'claimed' },
+      { code: 'd', groupId: 'g1', status: 'paid' },
+    ]
+    expect(claimsInGroup(list, 'g1').map((x) => x.code)).toEqual(['a'])
+    expect(claimsInGroup(null, 'g1')).toEqual([])
   })
   it('the guest and other visitors see "claimed"; the payee still gets their view', () => {
     const l = {

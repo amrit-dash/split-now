@@ -16,9 +16,7 @@ import { ChequeIcon } from '@/components/ChequeIcon'
 import { CardSkeleton, ListSkeleton, Skeleton } from '@/components/Skeleton'
 import { formatDate } from '@/lib/locale'
 import { dayPart, greeting, helloFor, topCounterparties, type DayPart } from '@/lib/greeting'
-import { isLiveTrip, liveTripFor } from '@/lib/capture'
-import { lastGroup } from '@/lib/recents'
-import { QuickAdd } from '@/components/QuickAdd'
+import { isLiveTrip } from '@/lib/capture'
 import { todayISO } from '@/lib/id'
 import { usePageTitle } from '@/lib/brand'
 import { fitLabel, overflows } from '@/lib/fit'
@@ -92,7 +90,7 @@ export default function Home() {
   const part = dayPart(new Date().getHours())
 
   return (
-    <div className="pt-[calc(env(safe-area-inset-top)+1.5rem)]">
+    <div className="pt-[calc(var(--safe-top)+1.5rem)]">
       <header className="mb-6 flex items-center justify-between gap-3" data-testid="home-greeting">
         <Greeting salutation={hello.salutation} name={hello.name} part={part} />
         <div className="flex shrink-0 items-center gap-2 min-[380px]:gap-3">
@@ -179,20 +177,6 @@ export default function Home() {
             )}
           </div>
         </div>
-      )}
-
-      {/* One line, typed or spoken, into the trip that's on today (else the group used last): opens the form prefilled. */}
-      {!firstRun && shared.length > 0 && (
-        <QuickAdd
-          groups={shared.map((d) => d.group)}
-          defaultGroupId={
-            liveTripFor(
-              shared.map((d) => d.group),
-              today,
-            ) ?? lastGroup()
-          }
-          testId="home-quick-add"
-        />
       )}
 
       {!firstRun && (
@@ -375,7 +359,7 @@ function JoinRow() {
 
 function HomeSkeleton() {
   return (
-    <div className="pt-[calc(env(safe-area-inset-top)+1.5rem)]" role="status" aria-label="Loading">
+    <div className="pt-[calc(var(--safe-top)+1.5rem)]" role="status" aria-label="Loading">
       <div className="mb-6 flex items-center justify-between gap-4">
         <div className="space-y-2">
           <Skeleton className="h-3.5 w-28" />

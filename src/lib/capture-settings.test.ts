@@ -4,13 +4,16 @@ import {
   filterReason,
   logResultText,
   logResultTone,
+  MAX_PAUSED_TRIPS,
   matchIgnoreWord,
   normaliseIgnoreWords,
+  normalisePausedTrips,
   parseIgnoreWords,
   relativeTime,
   resolveFilters,
+  setTripPaused,
 } from './capture-filters'
-import { addIgnoreWord, captureSettingsLines, logRowsOf, paiseToRupeesInput, rupeesToPaise } from './capture-settings'
+import { addIgnoreWord, captureSettingsLines, logRowsOf, paiseToRupeesInput, rupeesToPaise, tripCaptureNotice } from './capture-settings'
 import { DEFAULT_ALL_PREFS, resolveAllPrefs } from './push'
 import { ANDROID_FILTER_REGEX, MACRODROID_PLAY_INTENT, MACRODROID_PLAY_URL, REASON_TEXT, interpretResponse, macrodroidPlayLink, sampleSms } from './sms-setup'
 
@@ -28,6 +31,50 @@ describe('ignore keywords', () => {
     expect(matchIgnoreWord(['rent'], undefined, 'NoBroker Rent')).toBe('rent')
     expect(matchIgnoreWord(['a.b'], 'axb')).toBeUndefined() // regex characters are literal
     expect(matchIgnoreWord([], 'anything')).toBeUndefined()
+  })
+})
+
+describe('paused trips (per person)', () => {
+  it('normalises: strings only, no empties or duplicates, capped at the newest 100', () => {
+    expect(normalisePausedTrips(['g1', 'g1', '', 3, null, 'g2'])).toEqual(['g1', 'g2'])
+    expect(normalisePausedTrips('g1')).toEqual([])
+    expect(normalisePausedTrips(['x'.repeat(200)])).toEqual([])
+    const many = Array.from({ length: 120 }, (_, i) => `g${i}`)
+    expect(normalisePausedTrips(many)).toHaveLength(MAX_PAUSED_TRIPS)
+    expect(normalisePausedTrips(many).at(-1)).toBe('g119')
+    expect(resolveFilters({ pausedTrips: ['g1', 'g1'] }).pausedTrips).toEqual(['g1'])
+    expect(resolveFilters(undefined).pausedTrips).toEqual([])
+  })
+  it('setTripPaused adds or removes one trip, keeping identity when nothing changes', () => {
+    const list = ['g1']
+    expect(setTripPaused(list, 'g1', true)).toBe(list)
+    expect(setTripPaused(list, 'g2', false)).toBe(list)
+    expect(setTripPaused(list, 'g2', true)).toEqual(['g1', 'g2'])
+    expect(setTripPaused(list, 'g1', false)).toEqual([])
+  })
+})
+
+describe('tripCaptureNotice (group page)', () => {
+  const goa = { id: 'goa', type: 'trip', startDate: '2026-10-05', endDate: '2026-10-10' }
+  const base = { tokens: [{}], pausedTrips: [] as string[], capturePaused: false, enabled: true }
+  it('on, paused for this person, or off altogether', () => {
+    expect(tripCaptureNotice(goa, '2026-10-07', base)).toBe('on')
+    expect(tripCaptureNotice(goa, '2026-10-01', base)).toBe('on')
+    expect(tripCaptureNotice(goa, '2026-10-07', { ...base, pausedTrips: ['goa'] })).toBe('paused')
+    expect(tripCaptureNotice(goa, '2026-10-07', { ...base, pausedTrips: ['other'] })).toBe('on')
+    expect(tripCaptureNotice(goa, '2026-10-07', { ...base, capturePaused: true })).toBe('off')
+  })
+  it('set up when no key covers this trip (none, or only keys for other trips)', () => {
+    expect(tripCaptureNotice(goa, '2026-10-07', { ...base, tokens: [] })).toBe('setup')
+    expect(tripCaptureNotice(goa, '2026-10-07', { ...base, tokens: [{ groupId: 'india' }] })).toBe('setup')
+    expect(tripCaptureNotice(goa, '2026-10-07', { ...base, tokens: [{ groupId: 'goa' }] })).toBe('on')
+  })
+  it('nothing for ended, undated, personal or archived groups, or when auto-capture is off for everyone', () => {
+    expect(tripCaptureNotice(goa, '2026-10-11', base)).toBeNull()
+    expect(tripCaptureNotice({ id: 'flat', type: 'home' }, '2026-10-07', base)).toBeNull()
+    expect(tripCaptureNotice({ ...goa, type: 'personal' }, '2026-10-07', base)).toBeNull()
+    expect(tripCaptureNotice({ ...goa, archived: true }, '2026-10-07', base)).toBeNull()
+    expect(tripCaptureNotice(goa, '2026-10-07', { ...base, enabled: false })).toBeNull()
   })
 })
 

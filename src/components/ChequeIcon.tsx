@@ -124,17 +124,17 @@ export function ChequeIcon({
       <path d="M10.8 20.2 H13.6" strokeWidth="1.45" />
       <path ref={ink} d={SIGNATURE} strokeWidth="1.3" style={{ strokeDashoffset: signed ? 0 : undefined }} />
       {/*
-       * pen: tip at (0,0), leaning right, moved along the signature. Drawn in outline like the rest
-       * of the icon, with a see-through barrel, a brighter grip and a solid nib point, so it reads
-       * as a pen over the cheque instead of a block covering the ink.
+       * pen: tip at (0,0), leaning right, moved along the signature. A mostly solid barrel (80%,
+       * owner's call: the see-through one looked like glass) with a lighter grip band and clip line
+       * cut into it, and a solid nib, so it reads as a real pen over the cheque.
        */}
       <g ref={pen} style={{ opacity: 0 }}>
         <g transform="rotate(34)">
-          <path d="M0 0 L-1.45 -3.1 H1.45 Z" fill="currentColor" fillOpacity="0.35" strokeWidth="0.85" />
+          <path d="M0 0 L-1.45 -3.1 H1.45 Z" fill="currentColor" fillOpacity="0.8" strokeWidth="0.85" />
           <path d="M0 0 L-0.55 -1.2 H0.55 Z" fill="currentColor" stroke="none" />
-          <rect x="-1.75" y="-14" width="3.5" height="10.9" rx="1.2" fill="currentColor" fillOpacity="0.14" strokeWidth="0.95" />
-          <rect x="-1.75" y="-5.6" width="3.5" height="2.5" rx="0.4" fill="currentColor" fillOpacity="0.55" stroke="none" />
-          <path d="M-1.75 -11.2 H1.75" strokeWidth="0.75" opacity="0.7" />
+          <rect x="-1.75" y="-14" width="3.5" height="10.9" rx="1.2" fill="currentColor" fillOpacity="0.8" strokeWidth="0.95" />
+          <rect x="-1.75" y="-5.6" width="3.5" height="2.5" rx="0.4" fill="#fff" fillOpacity="0.45" stroke="none" />
+          <path d="M-1.75 -11.2 H1.75" stroke="#fff" strokeWidth="0.75" opacity="0.6" />
           <path d="M1.75 -13.2 h1.05 v4.2" strokeWidth="0.95" />
         </g>
       </g>

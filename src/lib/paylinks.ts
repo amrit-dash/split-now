@@ -122,16 +122,14 @@ export function payLinkFeatures(flagOn: boolean): { createLinks: boolean; guestP
   return { createLinks: flagOn, guestPages: flagOn, recordClaims: true, payeeTools: true }
 }
 
-/**
- * Table guest claims waiting for the host in a group, from its activity feed (the server writes a
- * `settlement.claimed` entry whose targetId is the link code): newest first, each code once.
- */
-export function claimedLinkCodes(feed: ReadonlyArray<{ type: string; targetId: string; createdAt: number }> | null | undefined): string[] {
-  const out: string[] = []
-  for (const a of [...(feed ?? [])].sort((x, y) => y.createdAt - x.createdAt)) {
-    if (a.type === 'settlement.claimed' && isPayLinkCode(a.targetId) && !out.includes(a.targetId)) out.push(a.targetId)
-  }
-  return out
+/** Claims waiting for the payee, newest claim first (ties by code, so the order is stable). */
+export function sortClaims<T extends { paidAt?: number; code: string }>(list: T[]): T[] {
+  return [...list].sort((a, b) => (b.paidAt ?? 0) - (a.paidAt ?? 0) || a.code.localeCompare(b.code))
+}
+
+/** The claims that belong to one group (its card on the group screen); table links without a group live only in the Inbox. */
+export function claimsInGroup<T extends { groupId?: string; status: string }>(list: readonly T[] | null | undefined, groupId: string): T[] {
+  return (list ?? []).filter((l) => l.groupId === groupId && l.status === 'claimed')
 }
 
 /** The SettleUp link param: the code, only when the payment recorded is the one the link asked for. */

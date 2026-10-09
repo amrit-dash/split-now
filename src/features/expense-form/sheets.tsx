@@ -34,7 +34,7 @@ export function GroupPickerSheet({
   )
 }
 
-/** Live trips first, then shared groups, 1:1 friends and the personal wallet; searchable when long. */
+/** Live trips first, then shared groups, 1:1 friends and the personal wallets; searchable when long. */
 function GroupList({
   groups,
   current,
@@ -62,9 +62,10 @@ function GroupList({
   const creates: Array<{ type?: 'direct' | 'personal'; label: string; hint: string; icon: LucideIcon }> = [
     { label: 'New group', hint: 'Trip, flat, team…', icon: Users },
     { type: 'direct', label: 'New 1:1 friend', hint: 'Just you and one friend', icon: UserPlus },
-    ...(groups.some((g) => g.type === 'personal')
-      ? []
-      : [{ type: 'personal' as const, label: 'Personal wallet', hint: 'Track your own spending', icon: Wallet }]),
+    // Several wallets are fine (Fuel, Groceries…), so this stays on offer once one exists.
+    groups.some((g) => g.type === 'personal')
+      ? { type: 'personal', label: 'New wallet', hint: 'Fuel, groceries, shopping…', icon: Wallet }
+      : { type: 'personal', label: 'Personal wallet', hint: 'Track your own spending', icon: Wallet },
   ]
   const row = (g: Group, isLive = false) => (
     <button

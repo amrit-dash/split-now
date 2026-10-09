@@ -18,6 +18,7 @@ describe('capture prefs', () => {
       aiSms: false,
       aiSmsMerchant: false,
       aiImages: true,
+      pausedTrips: [],
     })
   })
   it('reads stored values and sanitises bad ones', () => {
@@ -29,6 +30,7 @@ describe('capture prefs', () => {
       aiSms: false,
       aiSmsMerchant: false,
       aiImages: true,
+      pausedTrips: [],
     })
     expect(resolveCapturePrefs({ capturePaused: 'yes', minAmount: -5, ignoreWords: 'SIP' })).toEqual({
       outsideTrips: false,
@@ -38,6 +40,7 @@ describe('capture prefs', () => {
       aiSms: false,
       aiSmsMerchant: false,
       aiImages: true,
+      pausedTrips: [],
     })
     expect(resolveCapturePrefs({ minAmount: 1e12 }).minAmount).toBe(10_000_000)
   })
@@ -100,22 +103,32 @@ describe('activity log entries', () => {
   it('keeps about 30', () => expect(CAPTURE_LOG_KEEP).toBe(30))
 })
 
-describe('per-trip pause (captureOff)', () => {
+describe('per-person trip pause (pausedTrips)', () => {
   const goa: TripGroup = { id: 'goa', name: 'Goa', type: 'trip', startDate: '2026-10-05', endDate: '2026-10-10' }
   const india: TripGroup = { id: 'india', name: 'India', type: 'trip', startDate: '2026-10-01', endDate: '2026-10-31' }
-  it('pickTrip skips paused trips', () => {
+  it('pickTrip skips the trips this person paused', () => {
     expect(pickTrip([goa, india], '2026-10-07')?.id).toBe('goa')
-    expect(pickTrip([{ ...goa, captureOff: true }, india], '2026-10-07')?.id).toBe('india')
-    expect(pickTrip([{ ...goa, captureOff: true }], '2026-10-07')).toBeUndefined()
+    expect(pickTrip([goa, india], '2026-10-07', undefined, ['goa'])?.id).toBe('india')
+    expect(pickTrip([goa], '2026-10-07', undefined, ['goa'])).toBeUndefined()
   })
   it('pausedTrip finds the paused trip containing the date', () => {
-    expect(pausedTrip([{ ...goa, captureOff: true }], '2026-10-07')?.id).toBe('goa')
-    expect(pausedTrip([{ ...goa, captureOff: true }], '2026-10-20')).toBeUndefined()
-    expect(pausedTrip([goa], '2026-10-07')).toBeUndefined()
+    expect(pausedTrip([goa], '2026-10-07', ['goa'])?.id).toBe('goa')
+    expect(pausedTrip([goa], '2026-10-20', ['goa'])).toBeUndefined()
+    expect(pausedTrip([goa], '2026-10-07', [])).toBeUndefined()
   })
-  it('a scoped key for a paused trip matches nothing', () => {
-    expect(matchScoped({ ...goa, captureOff: true }, '2026-10-07').kind).toBe('off')
+  it('a scoped key for a trip this person paused matches nothing', () => {
+    expect(matchScoped(goa, '2026-10-07', ['goa']).kind).toBe('off')
     expect(matchScoped(goa, '2026-10-07').kind).toBe('matched')
+  })
+  it('the legacy group-wide captureOff is ignored', () => {
+    const legacy = { ...goa, captureOff: true }
+    expect(pickTrip([legacy], '2026-10-07')?.id).toBe('goa')
+    expect(matchScoped(legacy, '2026-10-07').kind).toBe('matched')
+  })
+  it('the prefs carry pausedTrips, cleaned', () => {
+    expect(resolveCapturePrefs({}).pausedTrips).toEqual([])
+    expect(resolveCapturePrefs({ pausedTrips: ['goa', 'goa', '', 3, 'india'] }).pausedTrips).toEqual(['goa', 'india'])
+    expect(resolveCapturePrefs({ pausedTrips: 'goa' }).pausedTrips).toEqual([])
   })
 })
 

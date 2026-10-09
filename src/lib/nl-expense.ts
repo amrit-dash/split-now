@@ -293,6 +293,24 @@ export function toQuickPrefill(p: NlParse, text: string, category?: Category | n
   }
 }
 
+/**
+ * A line read before its group existed ("dinner 1200 in a new group Bali trip"): once the group
+ * is made, `line` (the words without the group part) is read again against its members, so the
+ * people it names and who paid are picked (and a name read as a word before, like "Priya paid",
+ * leaves the description). The amount follows the new group's currency when the line gave none;
+ * the date and category stay as first read.
+ */
+export function bindQuickPrefill(prefill: QuickPrefill, line: string, ctx: NlContext): QuickPrefill {
+  const p = parseNlExpense(line, ctx)
+  return {
+    ...prefill,
+    description: p.description || prefill.description,
+    payer: p.payer,
+    participants: p.participants,
+    ...(p.amount !== undefined ? { amount: p.amount, currency: p.currency } : {}),
+  }
+}
+
 /** What the server's text reader returns (amount in hundredths, people as names). */
 export interface AiTextExpense {
   description?: string

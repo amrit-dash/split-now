@@ -9,6 +9,9 @@ export const MAX_IGNORE_WORDS = 20
 export const MAX_IGNORE_WORD_LEN = 40
 /** Upper bound for the minimum amount (₹1,00,000 in paise). Mirrored in firestore.rules. */
 export const MAX_MIN_AMOUNT = 10_000_000
+/** Most trips a person can pause for themselves, and the longest group id kept. Mirrored in firestore.rules. */
+export const MAX_PAUSED_TRIPS = 100
+const MAX_GROUP_ID_LEN = 128
 
 /** Suggestions shown as chips under the ignore-keywords field. */
 export const IGNORE_SUGGESTIONS = ['SIP', 'mutual fund', 'rent', 'credit card bill', 'EMI', 'insurance'] as const
@@ -29,9 +32,36 @@ export interface CaptureFilterPrefs {
   aiSmsMerchant: boolean
   /** read bill photos and statement screenshots with Gemini (the app falls back to on-device OCR) */
   aiImages: boolean
+  /**
+   * Group ids of trips this person paused capture for. Capture is set up per phone, so the pause
+   * is theirs alone: other members' captures for the same trip carry on.
+   */
+  pausedTrips: string[]
 }
 
-export const DEFAULT_FILTERS: CaptureFilterPrefs = { capturePaused: false, minAmount: 0, ignoreWords: [], aiSms: false, aiSmsMerchant: false, aiImages: true }
+export const DEFAULT_FILTERS: CaptureFilterPrefs = {
+  capturePaused: false,
+  minAmount: 0,
+  ignoreWords: [],
+  aiSms: false,
+  aiSmsMerchant: false,
+  aiImages: true,
+  pausedTrips: [],
+}
+
+/** Non-empty string ids, no duplicates, at most MAX_PAUSED_TRIPS (the newest kept). */
+export function normalisePausedTrips(ids: unknown): string[] {
+  if (!Array.isArray(ids)) return []
+  const out = [...new Set(ids.filter((x): x is string => typeof x === 'string' && x.length > 0 && x.length <= MAX_GROUP_ID_LEN))]
+  return out.slice(-MAX_PAUSED_TRIPS)
+}
+
+/** Pause or resume one trip in the list; returns the same array when nothing changed. */
+export function setTripPaused(list: string[], groupId: string, paused: boolean): string[] {
+  const has = list.includes(groupId)
+  if (has === paused) return list
+  return paused ? normalisePausedTrips([...list, groupId]) : list.filter((id) => id !== groupId)
+}
 
 /** Trim, collapse spaces, drop empties and duplicates (case-insensitive), cap count and length. */
 export function normaliseIgnoreWords(words: unknown): string[] {
@@ -70,6 +100,7 @@ export function resolveFilters(raw: unknown): CaptureFilterPrefs {
     aiSms: r.aiSms === true,
     aiSmsMerchant: r.aiSmsMerchant === true,
     aiImages: r.aiImages !== false,
+    pausedTrips: normalisePausedTrips(r.pausedTrips),
   }
 }
 
@@ -97,7 +128,7 @@ export function matchIgnoreWord(words: string[], ...texts: Array<string | undefi
  * always kept.
  */
 export function filterReason(
-  f: CaptureFilterPrefs,
+  f: Pick<CaptureFilterPrefs, 'minAmount' | 'ignoreWords'>,
   p: { amount: number; currency: string; merchant?: string },
   text?: string,
 ): 'below_min' | 'ignored' | undefined {

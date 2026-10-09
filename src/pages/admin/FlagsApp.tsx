@@ -7,6 +7,7 @@ import {
   FLAG_INFO,
   FLAG_NAMES,
   isSemver,
+  MAINTENANCE_FALLBACK,
   MAX_MESSAGE,
   resolveAppConfig,
   semverOf,
@@ -20,6 +21,7 @@ import { Loading, Segmented } from '@/components/Misc'
 import { Switch } from '@/components/Switch'
 import { useToast } from '@/components/Toast'
 import { AdminApp } from '@/components/AdminApp'
+import { MaintenanceScreen } from '@/components/GateScreen'
 import { saveConfig } from './api'
 import { ChangedBy, DirtyBar, SettingRow, useConfigDoc } from './common'
 
@@ -69,7 +71,7 @@ export default function FlagsApp() {
   }
 
   return (
-    <div data-testid="admin-flags">
+    <div className="pb-[calc(var(--lane)-var(--nav-h))]" data-testid="admin-flags">
       {error && (
         <div className="card mb-4 p-4 text-sm" role="alert">
           Couldn’t read config/app. You can still save; the rules decide.
@@ -95,6 +97,16 @@ export default function FlagsApp() {
             value={cfg.maintenanceMessage}
             onChange={(e) => set({ maintenanceMessage: e.target.value })}
           />
+          <p className="text-muted mt-1 text-xs">Left empty, it says “{MAINTENANCE_FALLBACK}”</p>
+        </div>
+        {/* The real screen, drawn small and inert, with the message as typed (before saving). */}
+        <div className="pt-3">
+          <p className="label" id="maint-preview">
+            {cfg.maintenance ? 'What everyone except admins sees' : 'What people will see when it is on'}
+          </p>
+          <div className="mx-auto max-w-[17rem]" role="img" aria-labelledby="maint-preview">
+            <MaintenanceScreen message={cfg.maintenanceMessage} preview />
+          </div>
         </div>
       </div>
 

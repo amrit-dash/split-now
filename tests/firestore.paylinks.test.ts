@@ -97,9 +97,22 @@ describe('reading', () => {
   it('signed-out users cannot', async () => {
     await assertFails(getDoc(doc(out(), `payLinks/${CODE}`)))
   })
-  it('nobody can list links, not even the payee', async () => {
+  it('the payee lists their own links (filtered by createdBy), e.g. the claims to confirm', async () => {
+    await seed(link({ tableCode: TABLE, status: 'claimed', paidAt: Date.now(), paidBy: 'anon1' }))
+    await seed(link({ createdBy: 'rahul', to: 'mr', from: 'mp' }), OTHER)
+    const mine = query(collection(user('priya'), 'payLinks'), where('createdBy', '==', 'priya'), where('status', '==', 'claimed'))
+    await assertSucceeds(getDocs(mine))
+    await assertSucceeds(getDocs(query(collection(user('priya'), 'payLinks'), where('createdBy', '==', 'priya'))))
+  })
+  it('nobody lists someone else’s links, or links without the createdBy filter', async () => {
+    await assertFails(getDocs(query(collection(user('rahul'), 'payLinks'), where('createdBy', '==', 'priya'))))
+    await assertFails(getDocs(query(collection(user('priya'), 'payLinks'), where('status', '==', 'claimed'))))
+    await assertFails(getDocs(collection(user('priya'), 'payLinks')))
+  })
+  it('anonymous guests and signed-out users cannot list, even their own uid', async () => {
     await assertFails(getDocs(collection(anon('anon1'), 'payLinks')))
-    await assertFails(getDocs(query(collection(user('priya'), 'payLinks'), where('createdBy', '==', 'priya'))))
+    await assertFails(getDocs(query(collection(anon('priya'), 'payLinks'), where('createdBy', '==', 'priya'))))
+    await assertFails(getDocs(query(collection(out(), 'payLinks'), where('createdBy', '==', 'priya'))))
   })
 })
 

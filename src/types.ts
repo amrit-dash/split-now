@@ -70,10 +70,13 @@ export interface Group {
   /**
    * Edit auto-approve: when set, an edit to an expense waiting for (or already given) approval
    * that moves the amount by at most this much (minor units) keeps its approval state instead
-   * of asking everyone again. Absent = off. Creator only, like the threshold.
+   * of asking everyone again. Absent = off. Any member may change it, like the threshold.
    */
   editAutoApprove?: Cents
-  /** a member paused SMS auto-capture for this trip (the webhook skips it; docs/AUTO_CAPTURE.md) */
+  /**
+   * @deprecated Legacy group-wide capture pause; ignored. Capture is paused per person
+   * (`pausedTrips` in users/{uid}/settings/notifications). Old docs may still carry it.
+   */
   captureOff?: boolean
   /** Archived: hidden from totals, pickers and capture matching; listed under "Archived" on Groups. Any member may toggle it. */
   archived?: boolean
@@ -287,6 +290,8 @@ export type ActivityType =
   | 'settlement.claimed'
   | 'member.added'
   | 'member.removed'
+  /** a member changed the group's name, currency, approval settings or budget; targetId is the group id */
+  | 'group.updated'
 
 /**
  * groups/{gid}/activity/{aid}: an append-only log entry, written in the same batch as the

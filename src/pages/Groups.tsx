@@ -64,7 +64,12 @@ export default function Groups() {
       {direct.length > 0 && <Section title="1:1 friends">{list(direct)}</Section>}
       <Section title="Personal">
         {personal.length ? (
-          list(personal)
+          <>
+            {list(personal)}
+            <Link to="/groups/new?type=personal" className="text-muted mt-2 flex min-h-11 items-center gap-2 px-1 text-sm" data-testid="wallet-new">
+              <Plus size={18} aria-hidden /> New wallet, e.g. Fuel or Groceries
+            </Link>
+          </>
         ) : (
           <Link to="/groups/new?type=personal" className="card text-muted flex min-h-14 items-center gap-2 px-4 py-3 text-sm">
             <Plus size={18} aria-hidden /> Track your own spending in a personal wallet

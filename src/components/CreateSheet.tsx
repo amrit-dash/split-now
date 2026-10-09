@@ -1,18 +1,33 @@
-import type { ReactNode } from 'react'
+import { lazy, Suspense, useId, useMemo, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronRight, Plus, ReceiptText, ScanLine, Users } from 'lucide-react'
+import { useGroups } from '@/hooks/data'
 import { useFlag } from '@/hooks/useAppConfig'
+import { liveTripFor } from '@/lib/capture'
+import { todayISO } from '@/lib/id'
+import { lastGroup } from '@/lib/recents'
 import { ChequeIcon } from './ChequeIcon'
 import { Sheet } from './Sheet'
+
+// Only needed once the sheet is open: kept out of the first-paint bundle (the service worker precaches it).
+const QuickAdd = lazy(() => import('./QuickAdd').then((m) => ({ default: m.QuickAdd })))
 
 /**
  * What the + button in the tab bar opens: the one place to start anything. Add expense is the
  * big first choice (it's what people do most); inside a group, every option opens for that group.
+ * Below the tiles, Quick add: one typed or spoken line into the group you're in, else the trip
+ * that's on today, else the group used last. Its field is not focused on open (the keyboard
+ * would cover the tiles).
  */
 export function CreateSheet({ open, onClose, groupId }: { open: boolean; onClose: () => void; groupId?: string }) {
   const nav = useNavigate()
   // Live tables off (config/app flags.liveTables): the tile goes too; /split and /t/* already redirect home.
   const liveTables = useFlag('liveTables')
+  const quickAdd = useFlag('quickAdd')
+  const allGroups = useGroups()
+  // Shared, open groups only: the personal wallet has nobody to split with.
+  const groups = useMemo(() => (allGroups ?? []).filter((g) => !g.archived && g.type !== 'personal'), [allGroups])
+  const quickId = useId()
   const q = groupId ? `?group=${encodeURIComponent(groupId)}` : ''
   const go = (to: string) => {
     onClose()
@@ -55,6 +70,26 @@ export function CreateSheet({ open, onClose, groupId }: { open: boolean; onClose
           testId="create-settle"
         />
       </div>
+      {quickAdd && groups.length > 0 && (
+        <section aria-labelledby={quickId} className="mt-5">
+          <div className="text-muted flex items-center gap-3 text-xs uppercase tracking-wider" aria-hidden>
+            <span className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
+            or
+            <span className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
+          </div>
+          <h3 id={quickId} className="mb-2 mt-3 px-1 text-sm font-semibold">
+            Quick add
+          </h3>
+          <Suspense fallback={<div className="h-28" />}>
+            <QuickAdd
+              groups={groups}
+              defaultGroupId={(groupId && groups.some((g) => g.id === groupId) ? groupId : undefined) ?? liveTripFor(groups, todayISO()) ?? lastGroup()}
+              onLeave={onClose}
+              testId="create-quick-add"
+            />
+          </Suspense>
+        </section>
+      )}
     </Sheet>
   )
 }

@@ -38,6 +38,11 @@ describe('targetGroupFor', () => {
   it('nothing in a window → undefined', () => {
     expect(targetGroupFor(cap('a', '2026-12-01'), [goa, flat])).toBeUndefined()
   })
+  it('skips trips this person paused capture for', () => {
+    expect(targetGroupFor(cap('a', '2026-10-05'), [goa, wedding], ['wed'])).toBe('goa')
+    expect(targetGroupFor(cap('a', '2026-10-05'), [goa, wedding], ['wed', 'goa'])).toBeUndefined()
+    expect(bulkCandidates([cap('a', '2026-10-05'), cap('b', '2026-10-06')], [goa, wedding], ['wed'])[0]?.group.id).toBe('goa')
+  })
 })
 
 describe('bulkCandidates', () => {

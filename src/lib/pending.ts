@@ -11,8 +11,12 @@ export const pending: {
   /** `history`: the Recent scans entry it came from, so the saved expense can be noted on it */
   receipt?: { parsed: ParsedReceipt; file: File; history?: { id: string; kind: ScanKind } }
   payment?: { parsed: ParsedPayment; file: File }
-  /** Quick add → /add?group=…&quick=1: the parsed line the form opens prefilled with (never saved by itself) */
-  quick?: { groupId: string; prefill: QuickPrefill }
+  /**
+   * Quick add → /add?group=…&quick=1: the parsed line the form opens prefilled with (never saved
+   * by itself). No `groupId`: the line asked for a new group, so it goes through GroupForm
+   * (?next=add&quick=1) first and the form reads `line` again against the new group's members.
+   */
+  quick?: { groupId?: string; prefill: QuickPrefill; line?: string }
 } = {}
 
 const CAPTURE_KEY = 'splitit-pending-capture'

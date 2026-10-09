@@ -283,6 +283,11 @@ export interface Repo {
    * Firebase: the onPayLinkPaid trigger then records the settlement. Demo: recorded here at once.
    */
   markPayLinkPaid(code: string, claim: PayLinkClaim, proof?: Blob): Promise<void>
+  /**
+   * The signed-in user's own links that a table guest says are paid and that wait for them
+   * (createdBy == uid, status 'claimed'): the Inbox's "Says they've paid" cards and the group card.
+   */
+  watchClaimedPayLinks(uid: string, cb: Watch<PayLink[]>): Unsub
   /** The payee (a live table's host) confirms a guest's "I've paid" on a link not locked to one guest: claimed → paid, then recorded as usual. */
   confirmPayLinkClaim(code: string): Promise<void>
   /** The payee dismisses that claim: claimed → open, the claim fields cleared, so it can be paid and claimed again. */

@@ -29,4 +29,5 @@ export const SUPPORT_LINKS = {
   coffee: 'https://buymeacoffee.com/amritdash',
   sponsors: 'https://github.com/sponsors/amrit-dash',
   repo: 'https://github.com/amrit-dash/split-now',
+  website: 'https://amritdash.web.app',
 } as const

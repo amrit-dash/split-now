@@ -5,7 +5,7 @@ import { repo } from '@/data'
 import { useToast } from '@/components/Toast'
 import { useAppConfig } from '@/hooks/useAppConfig'
 import { errText } from '@/lib/errors'
-import { signupsOpen } from '@/lib/flags'
+import { signupsClosedText, signupsOpen } from '@/lib/flags'
 import { applyIconTint } from '@/lib/accent'
 import { usePageTitle } from '@/lib/brand'
 
@@ -184,7 +184,7 @@ export default function Login() {
                 </button>
               ) : (
                 <p className="min-h-11 py-2 text-center text-sm text-slate-300" data-testid="signups-closed">
-                  Split Now is invite only right now. Ask a friend for their group link to join.
+                  {signupsClosedText(cfg)}
                 </p>
               )}
             </>

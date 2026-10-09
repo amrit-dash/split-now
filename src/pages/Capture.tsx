@@ -6,6 +6,7 @@ import { draftToCapture } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
 import { createGroup, memberOrder, myMemberId, useCaptures, useExpenses, useGroups } from '@/hooks/data'
 import { useMerchantMemory } from '@/hooks/useMerchants'
+import { usePausedTrips } from '@/hooks/useCapturePrefs'
 import type { Capture, Group } from '@/types'
 import { usePageTitle } from '@/lib/brand'
 import { SOURCE_LABEL, parseCaptureParams, rankGroupsForCapture } from '@/lib/capture'
@@ -17,8 +18,10 @@ import { formatDate } from '@/lib/locale'
 import { formatMoney } from '@/lib/money'
 import { todayISO, uid } from '@/lib/id'
 import { buildExpense } from '@/lib/statement'
+import { FIRST_WALLET_NAME, justMeTarget, walletsOf } from '@/lib/wallets'
 import { GroupIcon } from '@/components/GroupIcon'
 import { Empty, LiveBadge, Loading, PageHeader } from '@/components/Misc'
+import { Sheet } from '@/components/Sheet'
 import { useToast } from '@/components/Toast'
 
 /** Guards against React StrictMode / reloads creating the same capture twice. */
@@ -110,6 +113,8 @@ export function captureHeadline(c: Capture, fallbackCurrency: string) {
   return `${formatMoney(c.amount, c.currency ?? fallbackCurrency)} at ${c.merchant}`
 }
 
+const SHEET_ROW = 'flex min-h-12 w-full items-center gap-3 rounded-2xl p-2.5 text-left hover:bg-slate-50 dark:hover:bg-ink-800'
+
 /** Merchants the parser couldn't name read badly in "You spent ₹X at Payment". */
 const merchantKnown = (m: string) => !!m && !/^(payment|upi payment|unknown merchant|shared payment)$/i.test(m.trim())
 
@@ -117,10 +122,15 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
   const { user, profile } = useMe()
   const nav = useNavigate()
   const toast = useToast()
-  const { ranked, best } = useMemo(() => rankGroupsForCapture(groups, c), [groups, c])
+  const paused = usePausedTrips()
+  // Trips this person paused capture for stay in the list but are never pre-selected.
+  const { ranked, best } = useMemo(() => rankGroupsForCapture(groups, { date: c.date, currency: c.currency, paused }), [groups, c, paused])
   const suggested = c.suggestedGroup && ranked.some((g) => g.id === c.suggestedGroup) ? c.suggestedGroup : best
-  const [selected, setSelected] = useState<string | undefined>(suggested)
+  // Follows the suggestion until the person picks a group (the paused trips load after the first render).
+  const [picked, setSelected] = useState<string | undefined>()
+  const selected = picked ?? suggested
   const [busy, setBusy] = useState<'add' | 'personal' | 'dismiss' | null>(null)
+  const [walletSheet, setWalletSheet] = useState(false)
   const chosen = ranked.find((g) => g.id === selected)
   const memory = useMerchantMemory()
   // The chosen group's expenses, to catch a payment that is already in it before the one-tap add.
@@ -212,22 +222,23 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
     }
   }
 
+  // "Personal": straight to the only wallet, a new "My spending" when there is none, else a choice.
   const personal = async () => {
+    const target = justMeTarget(groups)
+    if (target.kind === 'pick') return setWalletSheet(true)
+    if (target.kind === 'open') return toExpense(target.id)
     setBusy('personal')
     try {
-      const g = groups.find((x) => x.type === 'personal')
-      const id =
-        g?.id ??
-        (await createGroup({
-          name: 'My spending',
-          emoji: '👛',
-          type: 'personal',
-          currency: cur,
-          simplify: false,
-          createdBy: user.uid,
-          memberUids: [user.uid],
-          members: { [user.uid]: { name: profile.displayName, uid: user.uid, email: user.email, color: colorFor(0) } },
-        }))
+      const id = await createGroup({
+        name: FIRST_WALLET_NAME,
+        emoji: '👛',
+        type: 'personal',
+        currency: cur,
+        simplify: false,
+        createdBy: user.uid,
+        memberUids: [user.uid],
+        members: { [user.uid]: { name: profile.displayName, uid: user.uid, email: user.email, color: colorFor(0) } },
+      })
       toExpense(id)
     } catch (e) {
       toast(errText(e), 'err')
@@ -357,6 +368,28 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
       <Link to="/inbox" className="btn-ghost mt-2 w-full">
         <Inbox size={18} aria-hidden /> Decide later
       </Link>
+      <Sheet open={walletSheet} onClose={() => setWalletSheet(false)} title="Which wallet?">
+        <div className="space-y-1" data-testid="capture-wallets">
+          {walletsOf(groups).map((g) => (
+            <button key={g.id} type="button" className={SHEET_ROW} onClick={() => toExpense(g.id)}>
+              <GroupIcon emoji={g.emoji} size={40} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-semibold">{g.name}</span>
+                <span className="text-muted block truncate text-xs">
+                  {g.budget ? `Budget ${formatMoney(g.budget, g.currency)} · ` : ''}
+                  {g.currency}
+                </span>
+              </span>
+            </button>
+          ))}
+          <Link to={`/groups/new?type=personal&next=add&capture=${encodeURIComponent(c.id)}`} className={SHEET_ROW}>
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300">
+              <Plus size={20} aria-hidden />
+            </span>
+            <span className="min-w-0 flex-1 font-semibold">New wallet…</span>
+          </Link>
+        </div>
+      </Sheet>
       <p className="text-muted mt-4 text-center text-xs">
         {sameCurrency ? 'Undo from the toast if you change your mind.' : 'Nothing is added until you save the expense.'}
       </p>

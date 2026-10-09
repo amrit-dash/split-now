@@ -32,7 +32,8 @@ export const GROUP_TYPES: Record<GroupType, GroupTypeInfo> = {
   office: { value: 'office', label: 'Office', emoji: '💼', icons: ['💼', '☕', '🏢'], placeholder: 'e.g. Design team', dates: null },
   other: { value: 'other', label: 'Other', emoji: '📦', icons: ['📦'], placeholder: 'Group name', dates: 'Dates' },
   direct: { value: 'direct', label: 'Friend (1:1)', emoji: '🤝', icons: ['🤝'], placeholder: 'Friend’s name (optional)', dates: null },
-  personal: { value: 'personal', label: 'Personal', emoji: '👛', icons: ['👛'], placeholder: 'My spending', dates: null },
+  // Wallet icons cover the usual separate pots (fuel, groceries, shopping, food, health) when there are several.
+  personal: { value: 'personal', label: 'Personal', emoji: '👛', icons: ['👛', '⛽', '🛒', '🛍️', '🍔', '💊'], placeholder: 'My spending', dates: null },
 }
 
 /** Types that are real groups (several people, invite link, dates); the chip row in the forms. */

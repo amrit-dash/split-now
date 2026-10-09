@@ -14,15 +14,17 @@ const STALE_TOKEN_MS = 90 * 86_400_000
 const MAX_TOKENS = 20
 
 /**
- * What the app badge should show: captures waiting to be sorted plus expenses awaiting this
- * person's approval. Bounded and best-effort (a count query for captures; approvals only in
+ * What the app badge should show: captures waiting to be sorted, expenses awaiting this
+ * person's approval and live table guests' "I've paid" waiting for them to confirm (the Inbox's
+ * "to sort"). Bounded and best-effort (a count query for captures; approvals only in
  * groups that require them). Never throws.
  */
 export async function badgeCount(uid: string): Promise<number> {
   try {
     const user = db().collection('users').doc(uid)
-    const [captures, groups] = await Promise.all([
+    const [captures, claims, groups] = await Promise.all([
       user.collection('captures').where('status', '==', 'pending').count().get(),
+      db().collection('payLinks').where('createdBy', '==', uid).where('status', '==', 'claimed').count().get(),
       db().collection('groups').where('memberUids', 'array-contains', uid).select('requireApproval', 'members').limit(50).get(),
     ])
     let approvals = 0
@@ -47,7 +49,7 @@ export async function badgeCount(uid: string): Promise<number> {
         }
       }),
     )
-    return captures.data().count + approvals
+    return captures.data().count + claims.data().count + approvals
   } catch (e) {
     logger.warn('badge count', { uid, error: (e as Error).message })
     return 0

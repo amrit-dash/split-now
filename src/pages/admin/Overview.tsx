@@ -67,9 +67,14 @@ export default function Overview() {
       </div>
 
       <div className="card p-4">
-        <div className="mb-2 flex items-baseline justify-between">
-          <h3 className="text-sm font-bold">Today</h3>
-          <span className="text-muted text-xs">{dayLabel(stats.today)} · IST</span>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h3 className="text-sm font-bold">
+            Today <span className="text-muted text-xs font-normal">· {dayLabel(stats.today)} · IST</span>
+          </h3>
+          {/* Refresh sits here, not in a row of its own under the last chart (that read as empty padding). */}
+          <button type="button" className="btn-ghost btn-sm -my-1" onClick={load}>
+            <RefreshCw size={16} aria-hidden /> Refresh
+          </button>
         </div>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-4">
           <Row
@@ -86,12 +91,6 @@ export default function Overview() {
       {series('AI calls per day', (d) => sum(d.ai, ['app', 'own']), seriesColor(0, dark))}
       {series('Captured payments per day', (d) => d.capture.captured ?? 0, seriesColor(2, dark))}
       {series('Pushes sent per day', (d) => d.push.sent ?? 0, seriesColor(6, dark))}
-
-      <div className="flex justify-end">
-        <button type="button" className="btn-ghost btn-sm" onClick={load}>
-          <RefreshCw size={16} /> Refresh
-        </button>
-      </div>
     </div>
   )
 }

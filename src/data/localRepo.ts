@@ -8,6 +8,7 @@ import {
   disputeActivity,
   expenseEventActivity,
   expenseSaveActivity,
+  groupSettingsActivity,
   importActivity,
   memberActivity,
   settlementActivity,
@@ -37,7 +38,7 @@ import type { MerchantMemory } from '@/lib/merchants'
 import { netBalances } from '@/lib/balances'
 import { countedExpenses, countedSettlements } from '@/lib/trust'
 import { formatMoney } from '@/lib/money'
-import { claimStatus, claimSummary, markPaidPatch, payLinkState, planRecord, triggerAction, type PayLinkDoc } from '@/lib/paylinks'
+import { claimStatus, claimSummary, markPaidPatch, payLinkState, planRecord, sortClaims, triggerAction, type PayLinkDoc } from '@/lib/paylinks'
 
 /**
  * Demo-mode repository. Everything lives in this browser's localStorage, so the app
@@ -257,6 +258,7 @@ export function createLocalRepo(): Repo {
       const next: Record<string, unknown> = { ...g, ...changed, updatedAt: Date.now() }
       for (const [k, v] of Object.entries(changed)) if (v === undefined) delete next[k]
       state.groups[base.id] = next as unknown as Group
+      if (base.type !== 'personal') log(base.id, groupSettingsActivity(base, { ...base, ...changed }, ctx(base.id)))
       commit()
     },
     async updateGroup(id, patch) {
@@ -685,6 +687,16 @@ export function createLocalRepo(): Repo {
       payLinkChanged(code, l, after, now)
       commit()
     },
+    watchClaimedPayLinks: (userId, cb) =>
+      watch(
+        () =>
+          sortClaims(
+            Object.entries(state.payLinks ?? {})
+              .filter(([, l]) => l.createdBy === userId && l.status === 'claimed')
+              .map(([code, l]) => ({ ...l, code })),
+          ),
+        cb,
+      ),
     async confirmPayLinkClaim(code) {
       const l = state.payLinks?.[code]
       if (l?.status !== 'claimed') return

@@ -114,14 +114,14 @@ service cloud.firestore {
       }
 
       // Per-user settings. settings/notifications holds push preferences and auto-capture
-      // settings (outsideTrips, capturePaused, minAmount, ignoreWords) and AI reading (aiSms, aiImages).
+      // settings (outsideTrips, capturePaused, minAmount, ignoreWords, pausedTrips) and AI reading (aiSms, aiImages).
       match /settings/{settingId} {
         allow read, delete: if isUser() && uid() == userId;
         allow create, update: if isUser() && uid() == userId
           && writesOpen()
           && (settingId != 'notifications' || (
             request.resource.data.keys().hasOnly(['captures', 'unsorted', 'expenses', 'settlements', 'reminders', 'outsideTrips',
-              'capturePaused', 'minAmount', 'ignoreWords', 'aiSms', 'aiSmsMerchant', 'aiImages', 'aiEnabled', 'aiSource', 'aiModel', 'updatedAt'])
+              'capturePaused', 'minAmount', 'ignoreWords', 'pausedTrips', 'aiSms', 'aiSmsMerchant', 'aiImages', 'aiEnabled', 'aiSource', 'aiModel', 'updatedAt'])
             && request.resource.data.get('captures', true) is bool
             && request.resource.data.get('unsorted', false) is bool
             && request.resource.data.get('expenses', true) is bool
@@ -134,6 +134,9 @@ service cloud.firestore {
             && request.resource.data.get('minAmount', 0) >= 0 && request.resource.data.get('minAmount', 0) <= 10000000
             && request.resource.data.get('ignoreWords', []) is list
             && request.resource.data.get('ignoreWords', []).size() <= 20
+            // Trips this person paused capture for (group ids; their own choice, not the group's)
+            && request.resource.data.get('pausedTrips', []) is list
+            && request.resource.data.get('pausedTrips', []).size() <= 100
             // AI reading (Gemini) of SMS and images; on unless turned off
             && request.resource.data.get('aiSms', true) is bool
             && request.resource.data.get('aiSmsMerchant', false) is bool
@@ -329,7 +332,8 @@ service cloud.firestore {
           && (!('requireApproval' in g) || g.requireApproval is bool)
           && (!('approvalThreshold' in g) || (g.approvalThreshold is int && g.approvalThreshold > 0))
           && (!('editAutoApprove' in g) || (g.editAutoApprove is int && g.editAutoApprove > 0))
-          // "Pause auto-capture for this trip" and "Archive": any member may flip them
+          // "Archive": any member may flip it. captureOff is legacy (capture is paused per person
+          // now, users/{uid}/settings/notifications.pausedTrips) and ignored; still allowed so old docs stay valid.
           && g.get('captureOff', false) is bool
           && g.get('archived', false) is bool
           && (!('joinCode' in g) || g.joinCode is string)
@@ -638,7 +642,7 @@ service cloud.firestore {
             && d.type in ['expense.created', 'expense.updated', 'expense.deleted', 'expense.restored', 'expense.purged',
                 'expense.disputed', 'expense.resolved', 'expense.approved', 'expense.imported',
                 'settlement.created', 'settlement.deleted', 'settlement.restored', 'settlement.purged',
-                'member.added', 'member.removed']
+                'member.added', 'member.removed', 'group.updated']
             && d.actorName is string && d.actorName.size() <= 100
             && d.targetId is string && d.targetId.size() <= 200
             && d.summary is string && d.summary.size() <= 500
@@ -749,7 +753,7 @@ service cloud.firestore {
     // ---- Pay me links --------------------------------------------------
     // payLinks/{code}: a payee asks to be paid with a link that works without an account. The
     // code (20–40 random lowercase letters and digits) is the secret: anyone signed in, anonymous
-    // included, may get a link they have the code for; nobody can list them. Only the payee
+    // included, may get a link they have the code for; only the payee lists their own. Only the payee
     // creates (for a debt in a group they are in, or a live table they host) or cancels one.
     // Anyone with the code may make exactly one change, while it is open and unexpired: open →
     // paid with paidAt, paidBy (themselves) and optionally method and a proof under
@@ -846,7 +850,8 @@ service cloud.firestore {
           && request.resource.data.cancelledAt is int;
       }
       allow get: if signedIn();
-      allow list: if false;
+      // The payee lists their own links (the Inbox's claims to confirm); the query must filter createdBy == their uid.
+      allow list: if isUser() && resource.data.createdBy == uid();
       allow create: if isUser() && writesOpen()
         && code.size() >= 20 && code.size() <= 40 && code.matches('[a-z0-9]+')
         && validNewLink(request.resource.data);

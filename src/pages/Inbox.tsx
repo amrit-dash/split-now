@@ -23,6 +23,7 @@ import { formatMoney } from '@/lib/money'
 import type { AllPrefs } from '@/lib/push'
 import { buildExpense } from '@/lib/statement'
 import { PageHeader, Segmented } from '@/components/Misc'
+import { ClaimReview } from '@/components/ClaimReview'
 import { Sheet } from '@/components/Sheet'
 import { ListSkeleton } from '@/components/Skeleton'
 import { ActivityFeed } from '@/components/Trust'
@@ -126,8 +127,9 @@ function ToSort({
   const [bulk, setBulk] = useState<BulkCandidate<Group> | null>(null)
   useEffect(() => watchCapturePrefs(user.uid, repo.mode, setPrefs), [user.uid])
   const loadingCaptures = box.loading && box.captures.length === 0 && !handled
-  const nothing = !loadingCaptures && !!data && box.captures.length === 0 && box.approvals.length === 0
-  const candidates = useMemo(() => (groups ? bulkCandidates(box.captures, groups) : []), [box.captures, groups])
+  const nothing = !loadingCaptures && !!data && box.captures.length === 0 && box.approvals.length === 0 && box.claims.length === 0
+  const paused = prefs?.pausedTrips
+  const candidates = useMemo(() => (groups ? bulkCandidates(box.captures, groups, paused) : []), [box.captures, groups, paused])
 
   const setStatus = (c: Capture, status: Capture['status']) => repo.updateCapture(user.uid, c.id, { status })
   const notShared = (c: Capture) => {
@@ -165,7 +167,7 @@ function ToSort({
       {nothing && (
         <>
           <Quiet emoji="✨" title="All sorted">
-            Captured payments and expenses waiting for your OK show up here.
+            Captured payments, expenses waiting for your OK and payments to confirm show up here.
           </Quiet>
           <Link to="/settings/auto-capture" className="card mt-3 flex items-center gap-3 p-4" data-testid="inbox-setup">
             <span
@@ -197,6 +199,21 @@ function ToSort({
         )
       )}
 
+      {box.claims.length > 0 && (
+        <Section title="Says they’ve paid" hint="Counts once you confirm it">
+          {box.claims.map((l) => (
+            <div key={l.code} className="card p-4" data-testid="inbox-claim">
+              <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                <span aria-hidden>{l.emoji ?? '🍽️'}</span>
+                <span className="min-w-0 truncate">{l.groupName}</span>
+                <span className="shrink-0">· Confirm</span>
+              </div>
+              <ClaimReview link={l} compact />
+            </div>
+          ))}
+        </Section>
+      )}
+
       {loadingCaptures ? (
         <Section title="Captured payments">
           <ListSkeleton rows={2} />
@@ -214,6 +231,7 @@ function ToSort({
                 key={c.id}
                 c={c}
                 groups={groups}
+                paused={paused}
                 onNotShared={() => notShared(c)}
                 onIgnore={isSmsSource(c.source) && prefs ? () => ignore(c) : undefined}
               />
@@ -264,10 +282,23 @@ function ApprovalRow({ e, d }: { e: Expense; d: GroupData }) {
   )
 }
 
-function CaptureCard({ c, groups, onNotShared, onIgnore }: { c: Capture; groups: Group[] | null; onNotShared: () => void; onIgnore?: () => void }) {
+function CaptureCard({
+  c,
+  groups,
+  paused,
+  onNotShared,
+  onIgnore,
+}: {
+  c: Capture
+  groups: Group[] | null
+  /** trips this person paused capture for: never the suggestion */
+  paused?: string[]
+  onNotShared: () => void
+  onIgnore?: () => void
+}) {
   const { profile } = useMe()
   const memory = useMerchantMemory()
-  const best = groups ? targetGroupFor(c, groups) : undefined
+  const best = groups ? targetGroupFor(c, groups, paused) : undefined
   const bestGroup = best ? groups?.find((g) => g.id === best) : undefined
   const cat = suggestCategory(c.merchant, { memory })
   const source = SOURCE_LABEL[c.source] ?? c.source

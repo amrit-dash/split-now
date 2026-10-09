@@ -1,23 +1,27 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
-import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
-import { Megaphone, X } from 'lucide-react'
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { Megaphone, RefreshCw, Wrench, X } from 'lucide-react'
 import { repo } from './data'
 import { useAuth } from './hooks/auth'
 import { useToast } from './components/Toast'
+import { useConfirm } from './components/ConfirmSheet'
+import { BlockedScreen, GateScreen, MaintenanceScreen, UpdateRequiredScreen } from './components/GateScreen'
+import { Marquee } from './components/Marquee'
 import { Layout } from './components/Layout'
 import { Loading } from './components/Misc'
 import { UpdatePrompt } from './components/UpdatePrompt'
 import { errText } from './lib/errors'
 import {
+  adminGateNote,
   announcementActive,
   dismissAnnouncement,
   isAnnouncementDismissed,
   semverOf,
+  toAppConfigDoc,
   updateRequired,
   writesOpen,
   type Announcement,
   type AppConfig,
-  type BlockInfo,
 } from './lib/flags'
 import { takeStashedCapture } from './lib/pending'
 import { isStandalone, refreshPush, setBadge, watchPrefs } from './lib/push'
@@ -181,7 +185,7 @@ export default function App() {
           </Suspense>
         ) : (
           <GateScreen title="Live tables are off for now" message="The host can still add the bill in the app and settle up from there.">
-            <a href="/" className="btn-primary">
+            <a href="/" className="btn bg-white text-slate-900 shadow-lg shadow-black/15">
               Open Split Now
             </a>
           </GateScreen>
@@ -195,23 +199,23 @@ export default function App() {
           </Suspense>
         ) : (
           <GateScreen title="Pay me links are off for now" message="Ask the person you owe for their UPI ID, or settle up in the app.">
-            <a href="/" className="btn-primary">
+            <a href="/" className="btn bg-white text-slate-900 shadow-lg shadow-black/15">
               Open Split Now
             </a>
           </GateScreen>
         )
       ) : !user || user.isAnonymous ? (
         <Login />
-      ) : blocked === undefined || (cfg.maintenance && !admin && aiStatus === undefined) ? (
+      ) : blocked === undefined || (cfg.maintenance && !admin && aiStatus === undefined && repo.mode === 'firebase') ? (
         // The block check and (in maintenance) the admin check decide which screen this is; a
-        // moment of splash beats flashing the wrong one.
+        // moment of splash beats flashing the wrong one. Demo mode has no admins to wait for.
         <Splash />
       ) : blocked ? (
-        <BlockedScreen info={blocked} />
+        <BlockedScreen reason={blocked.reason} />
       ) : cfg.maintenance && !admin ? (
         <MaintenanceScreen message={cfg.maintenanceMessage} />
       ) : updateRequired(cfg, __APP_VERSION__) && !admin ? (
-        <UpdateRequiredScreen minVersion={cfg.minVersion} />
+        <UpdateRequired minVersion={cfg.minVersion} />
       ) : (
         <AppRoutes cfg={cfg} admin={admin} />
       )}
@@ -269,96 +273,136 @@ function AppRoutes({ cfg, admin }: { cfg: AppConfig; admin: boolean }) {
 }
 
 /**
- * The admin's announcement (config/app.announcement), at the top of every screen until dismissed
- * on this device (a changed text comes back). Admins also see here when maintenance mode or an
- * update requirement is on, since they are the only ones who don't get those screens.
+ * The top band of every in-app screen: the admin strip (admins only, while maintenance or an update
+ * requirement is on, since they are the only ones who don't get those screens) and the admin's
+ * announcement (config/app.announcement) until it is dismissed on this device (a changed text
+ * comes back). It is sticky and owns the notch inset while it shows; its measured height goes to
+ * <html> as --banner-h with data-banner set, so pages drop their own inset (--safe-top) and their
+ * sticky headers stick just under it (src/index.css). Each line stays one line and loops sideways
+ * when it is too long (Marquee).
  */
 function AnnouncementBanner({ cfg, admin }: { cfg: AppConfig; admin: boolean }) {
   const [dismissed, setDismissed] = useState<string | null>(null)
   const a: Announcement | null = announcementActive(cfg.announcement) ? cfg.announcement : null
   const show = a && !isAnnouncementDismissed(a) && dismissed !== a.text
-  const adminNote = admin
-    ? cfg.maintenance
-      ? 'Maintenance mode is on: only admins can use the app right now.'
-      : updateRequired(cfg, __APP_VERSION__)
-        ? `Update required is on for builds below ${cfg.minVersion}; you are on ${semverOf(__APP_VERSION__)}.`
-        : null
-    : null
-  if (!show && !adminNote) return null
+  const note = adminGateNote(cfg, __APP_VERSION__, admin)
+  const visible = !!(show || note)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useLayoutEffect(() => {
+    const el = ref.current
+    const html = document.documentElement
+    if (!visible || !el) return
+    const set = () => html.style.setProperty('--banner-h', `${Math.ceil(el.getBoundingClientRect().height)}px`)
+    html.setAttribute('data-banner', '')
+    set()
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(set)
+    ro?.observe(el)
+    return () => {
+      ro?.disconnect()
+      html.removeAttribute('data-banner')
+      html.style.removeProperty('--banner-h')
+    }
+  }, [visible])
+
+  if (!visible) return null
   return (
-    <div className="mx-auto max-w-2xl space-y-2 px-4 pt-[calc(env(safe-area-inset-top)+0.5rem)]" data-testid="announcement">
-      {adminNote && (
-        <div
-          className="flex items-center gap-2 rounded-2xl bg-amber-100 px-3.5 py-2.5 text-sm font-medium text-amber-900 dark:bg-amber-900/30 dark:text-amber-100"
-          role="status"
-        >
-          <span className="min-w-0 flex-1">{adminNote}</span>
-          <a href="/admin/flags" className="shrink-0 font-bold underline">
-            Admin
-          </a>
-        </div>
-      )}
-      {show && (
-        <div
-          className={`flex items-start gap-2 rounded-2xl px-3.5 py-2.5 text-sm ${
-            a.level === 'warn'
-              ? 'bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100'
-              : 'bg-brand-50 text-brand-900 dark:bg-brand-900/30 dark:text-brand-100'
-          }`}
-          role="status"
-        >
-          <Megaphone size={18} className="mt-0.5 shrink-0" aria-hidden />
-          <span className="min-w-0 flex-1 py-0.5">{a.text}</span>
-          <button
-            type="button"
-            className="-m-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
-            aria-label="Dismiss announcement"
-            onClick={() => {
-              dismissAnnouncement(a)
-              setDismissed(a.text)
-            }}
+    <div
+      ref={ref}
+      className="sticky top-0 z-40 bg-slate-50/95 pb-1 pt-[calc(env(safe-area-inset-top)+0.25rem)] backdrop-blur-xl dark:bg-ink-950/95"
+      data-testid="announcement"
+    >
+      <div className="mx-auto max-w-2xl space-y-2 px-4">
+        {note && <AdminStrip cfg={cfg} kind={note.kind} text={note.text} />}
+        {show && (
+          <div
+            className={`marquee-host flex items-center gap-2 rounded-2xl py-0.5 pl-3.5 pr-1 text-sm font-medium ${
+              a.level === 'warn'
+                ? 'bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100'
+                : 'bg-brand-50 text-brand-900 dark:bg-brand-900/30 dark:text-brand-100'
+            }`}
+            role="status"
+            data-testid="announcement-text"
           >
-            <X size={18} aria-hidden />
-          </button>
-        </div>
-      )}
+            <Megaphone size={18} className="shrink-0" aria-hidden />
+            <Marquee text={a.text} className="flex-1 py-1.5" />
+            <button
+              type="button"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10"
+              aria-label="Dismiss announcement"
+              onClick={() => {
+                dismissAnnouncement(a)
+                setDismissed(a.text)
+              }}
+            >
+              <X size={18} aria-hidden />
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
 
-/** A full-screen notice on the splash gradient: title, a sentence, and whatever action fits. */
-function GateScreen({ title, message, children, testId }: { title: string; message?: string; children?: React.ReactNode; testId?: string }) {
+/**
+ * Admins only: maintenance or an update requirement is on. One line with the state, a link to the
+ * console, and (for maintenance) a confirmed "Turn off" that saves config/app the way the console
+ * does (toAppConfigDoc + saveConfig, the console's api loaded on first use).
+ */
+function AdminStrip({ cfg, kind, text }: { cfg: AppConfig; kind: 'maintenance' | 'update'; text: string }) {
+  const { user } = useAuth()
+  const confirm = useConfirm()
+  const toast = useToast()
+  const [busy, setBusy] = useState(false)
+  const turnOff = async () => {
+    const ok = await confirm({
+      title: 'Turn off maintenance mode?',
+      message: 'Everyone can use the app and save changes again straight away.',
+      confirmLabel: 'Turn off',
+    })
+    if (!ok || !user) return
+    setBusy(true)
+    try {
+      const { saveConfig } = await import('./pages/admin/api')
+      await saveConfig('app', toAppConfigDoc({ ...cfg, maintenance: false }, user.uid))
+      toast('Maintenance mode is off')
+    } catch (e) {
+      toast(errText(e), 'err')
+    } finally {
+      setBusy(false)
+    }
+  }
   return (
-    <main
-      className="flex min-h-dvh flex-col items-center justify-center bg-gradient-to-br from-brand-700 to-duo-700 px-6 text-center text-white"
-      data-testid={testId}
+    <div
+      className="marquee-host flex items-center gap-2 rounded-2xl bg-amber-100 py-0.5 pl-3.5 pr-1 text-sm font-semibold text-amber-950 ring-1 ring-amber-500/25 dark:bg-amber-900/35 dark:text-amber-100 dark:ring-amber-400/20"
+      role="status"
+      data-testid="admin-strip"
     >
-      <img src="/favicon.svg" alt="" className="mb-6 h-16 w-16 drop-shadow-[0_20px_30px_rgb(0_0_0/0.35)]" />
-      <h1 className="text-2xl font-extrabold tracking-tight">{title}</h1>
-      {message && <p className="mt-2 max-w-sm text-white/85">{message}</p>}
-      {children && <div className="mt-6 flex flex-col items-center gap-3">{children}</div>}
-    </main>
+      {kind === 'maintenance' ? <Wrench size={17} className="shrink-0" aria-hidden /> : <RefreshCw size={17} className="shrink-0" aria-hidden />}
+      <Marquee text={text} className="flex-1 py-1.5" />
+      {kind === 'maintenance' && (
+        <button
+          type="button"
+          className="min-h-9 shrink-0 rounded-xl bg-amber-900 px-3 text-xs font-bold text-amber-50 disabled:opacity-60 dark:bg-amber-200 dark:text-amber-950"
+          onClick={turnOff}
+          disabled={busy}
+          data-testid="admin-strip-off"
+        >
+          {busy ? 'Turning off…' : 'Turn off'}
+        </button>
+      )}
+      <Link
+        to="/admin/flags"
+        className="flex min-h-9 shrink-0 items-center rounded-xl px-2.5 text-xs font-bold underline underline-offset-2"
+        aria-label="Open Flags & app in the admin console"
+      >
+        Admin
+      </Link>
+    </div>
   )
 }
 
-function MaintenanceScreen({ message }: { message: string }) {
-  return (
-    <GateScreen
-      title="Back in a few minutes"
-      message={message || 'Split Now is being looked after. Your groups and expenses are safe; nothing can be changed until it is done.'}
-      testId="maintenance-screen"
-    >
-      <button type="button" className="btn bg-white text-slate-900" onClick={() => location.reload()}>
-        Try again
-      </button>
-      <button type="button" className="min-h-11 text-sm text-white/80 underline" onClick={() => void repo.signOut()}>
-        Sign out
-      </button>
-    </GateScreen>
-  )
-}
-
-function UpdateRequiredScreen({ minVersion }: { minVersion: string }) {
+function UpdateRequired({ minVersion }: { minVersion: string }) {
   const [busy, setBusy] = useState(false)
   const update = async () => {
     setBusy(true)
@@ -380,31 +424,7 @@ function UpdateRequiredScreen({ minVersion }: { minVersion: string }) {
     }
     setTimeout(reload, 3000)
   }
-  return (
-    <GateScreen
-      title="Update Split Now"
-      message={`This copy (${semverOf(__APP_VERSION__)}) is older than the app now needs (${minVersion}). Reload once to get the latest.`}
-      testId="update-required-screen"
-    >
-      <button type="button" className="btn bg-white text-slate-900" onClick={update} disabled={busy}>
-        {busy ? 'Updating…' : 'Reload and update'}
-      </button>
-    </GateScreen>
-  )
-}
-
-function BlockedScreen({ info }: { info: BlockInfo }) {
-  return (
-    <GateScreen
-      title="This account is paused"
-      message={info.reason ? `An admin paused it: ${info.reason}` : 'An admin paused it. Nothing can be added or changed from it.'}
-      testId="blocked-screen"
-    >
-      <button type="button" className="btn bg-white text-slate-900" onClick={() => void repo.signOut()}>
-        Sign out
-      </button>
-    </GateScreen>
-  )
+  return <UpdateRequiredScreen version={semverOf(__APP_VERSION__)} minVersion={minVersion} busy={busy} onUpdate={update} />
 }
 
 /**

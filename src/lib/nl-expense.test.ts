@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { matchName, mergeAiParse, parseNlExpense, toQuickPrefill, type NlContext } from './nl-expense'
+import { bindQuickPrefill, matchName, mergeAiParse, parseNlExpense, toQuickPrefill, type NlContext } from './nl-expense'
 
 const ctx: NlContext = {
   members: [
@@ -139,5 +139,31 @@ describe('mergeAiParse', () => {
     const m = mergeAiParse(parse('dinner with Rahul'), { amount: 120000, currency: 'JPY', participants: ['Rahul'] }, ctx)
     expect(m).toMatchObject({ amount: 1200, currency: 'JPY', participants: ['me', 'rahul'] })
     expect(mergeAiParse(parse('x 1'), null, ctx)).toEqual(parse('x 1'))
+  })
+})
+
+describe('bindQuickPrefill', () => {
+  const before: NlContext = { members: [{ id: 'u', name: 'Asha' }], me: 'u', currency: 'INR', today: '2026-10-08' }
+  const line = 'dinner 1200 with Rahul and Priya, Priya paid yesterday'
+  const first = toQuickPrefill(parseNlExpense(line, before), `${line} in a new group Bali trip`, 'food')
+  it('reads the people again once the group has members, keeping the rest', () => {
+    const p = bindQuickPrefill(first, line, { ...ctx, currency: 'INR' })
+    expect(p).toMatchObject({
+      description: 'Dinner',
+      amount: 120000,
+      currency: 'INR',
+      payer: 'priya',
+      participants: ['me', 'rahul', 'priya'],
+      date: '2026-10-07',
+      category: 'food',
+    })
+    expect(p.text).toBe(`${line} in a new group Bali trip`)
+  })
+  it('an amount without a currency word follows the new group', () => {
+    expect(bindQuickPrefill(first, line, { ...ctx, currency: 'JPY' })).toMatchObject({ amount: 1200, currency: 'JPY' })
+  })
+  it('a line with no amount keeps what was there', () => {
+    const p = bindQuickPrefill({ ...first, amount: 5000 }, 'dinner with Rahul', ctx)
+    expect(p).toMatchObject({ amount: 5000, currency: 'INR', payer: 'me', participants: ['me', 'rahul'] })
   })
 })

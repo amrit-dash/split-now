@@ -9,13 +9,17 @@ import {
   expenseEventActivity,
   expenseSaveActivity,
   expenseSnapshot,
+  groupSettingsActivity,
   importActivity,
+  joinPhrases,
+  activityIcon,
   memberActivity,
   mergeFeeds,
   settlementActivity,
   type ActivityCtx,
 } from './activity'
 import { formatMoney } from './money'
+import { shortMoney } from './approval'
 
 const names: Record<string, string> = { s: 'Sarah', j: 'Jay', m: 'Mia' }
 const ctx: ActivityCtx = { actorUid: 'u_sarah', actorName: 'Sarah', currency: 'AUD', memberName: (id) => names[id] ?? 'Former member', now: 1000 }
@@ -174,5 +178,77 @@ describe('reading', () => {
   })
   it('merges feeds newest first', () => {
     expect(mergeFeeds([[entry('a', 1), entry('c', 3)], [entry('b', 2)]], 2).map((a) => a.id)).toEqual(['c', 'b'])
+  })
+})
+
+describe('groupSettingsActivity', () => {
+  const g = { id: 'g1', name: 'Goa', currency: 'INR' }
+  const rahul: ActivityCtx = { ...ctx, actorUid: 'u_rahul', actorName: 'Rahul', currency: 'INR' }
+  const R = (v: number) => shortMoney(v, 'INR')
+  const say = (before: Parameters<typeof groupSettingsActivity>[0], after: Parameters<typeof groupSettingsActivity>[1]) =>
+    groupSettingsActivity(before, after, rahul)?.summary
+
+  it('approval on and off', () => {
+    expect(say({ ...g, requireApproval: true, approvalThreshold: 500000 }, { ...g })).toBe('Rahul turned off approval')
+    expect(say({ ...g, requireApproval: true }, { ...g, requireApproval: false })).toBe('Rahul turned off approval')
+    expect(say(g, { ...g, requireApproval: true, approvalThreshold: 200000 })).toBe(`Rahul turned on approval for expenses over ${R(200000)}`)
+    // no stored threshold: the currency's default
+    expect(say(g, { ...g, requireApproval: true })).toBe(`Rahul turned on approval for expenses over ${R(200000)}`)
+  })
+  it('the threshold', () => {
+    const on = { ...g, requireApproval: true }
+    expect(say({ ...on, approvalThreshold: 200000 }, { ...on, approvalThreshold: 500000 })).toBe(`Rahul changed the approval threshold to ${R(500000)}`)
+    expect(say(on, { ...on, approvalThreshold: 500000 })).toBe(`Rahul changed the approval threshold to ${R(500000)}`)
+    // cleared back to the default it already equalled: nothing to say
+    expect(say({ ...on, approvalThreshold: 200000 }, on)).toBeUndefined()
+  })
+  it('small-edit auto-approve', () => {
+    const on = { ...g, requireApproval: true }
+    expect(say(on, { ...on, editAutoApprove: 10000 })).toBe(`Rahul turned on small-edit auto-approve up to ${R(10000)}`)
+    expect(say({ ...on, editAutoApprove: 10000 }, on)).toBe('Rahul turned off small-edit auto-approve')
+    expect(say({ ...on, editAutoApprove: 10000 }, { ...on, editAutoApprove: 20000 })).toBe(`Rahul changed small-edit auto-approve to up to ${R(20000)}`)
+    // turning approval off clears it too; that is one change, not two
+    expect(say({ ...on, editAutoApprove: 10000 }, g)).toBe('Rahul turned off approval')
+    expect(say(g, { ...on, approvalThreshold: 200000, editAutoApprove: 10000 })).toBe(
+      `Rahul turned on approval for expenses over ${R(200000)} and turned on small-edit auto-approve up to ${R(10000)}`,
+    )
+  })
+  it('currency, name and budget', () => {
+    expect(say(g, { ...g, currency: 'USD' })).toBe('Rahul changed the currency to USD')
+    expect(say(g, { ...g, name: 'Goa 2026' })).toBe('Rahul renamed the group to Goa 2026')
+    expect(say(g, { ...g, budget: 5000000 })).toBe(`Rahul set a budget of ${R(5000000)}`)
+    expect(say({ ...g, budget: 5000000 }, { ...g, budget: 6000000 })).toBe(`Rahul changed the budget to ${R(6000000)}`)
+    expect(say({ ...g, budget: 5000000 }, g)).toBe('Rahul removed the budget')
+  })
+  it('a currency change shows amounts in the new currency, including a converted threshold', () => {
+    const on = { ...g, requireApproval: true, approvalThreshold: 200000 }
+    expect(say(on, { ...on, currency: 'USD', approvalThreshold: 2500 })).toBe(
+      `Rahul changed the currency to USD and changed the approval threshold to ${shortMoney(2500, 'USD')}`,
+    )
+    // a default threshold stays the default: only the currency is named
+    expect(say({ ...g, requireApproval: true }, { ...g, requireApproval: true, currency: 'USD' })).toBe('Rahul changed the currency to USD')
+  })
+  it('several changes make one entry', () => {
+    const a = groupSettingsActivity(g, { ...g, name: 'Goa 2026', currency: 'USD', budget: 100000 }, rahul)
+    expect(a?.summary).toBe(`Rahul renamed the group to Goa 2026, changed the currency to USD, and set a budget of ${shortMoney(100000, 'USD')}`)
+    expect(a).toMatchObject({ type: 'group.updated', targetId: 'g1', actorUid: 'u_rahul', actorName: 'Rahul', createdAt: 1000 })
+    expect(a?.before).toEqual({ name: 'Goa', currency: 'INR' })
+    expect(a?.after).toEqual({ name: 'Goa 2026', currency: 'USD', budget: 100000 })
+  })
+  it('nothing logged for unlisted or unchanged settings', () => {
+    expect(groupSettingsActivity(g, { ...g }, rahul)).toBeNull()
+    expect(groupSettingsActivity({ ...g, requireApproval: false }, g, rahul)).toBeNull()
+    expect(groupSettingsActivity({ ...g, budget: 0 }, g, rahul)).toBeNull()
+  })
+  it('reads as "You", opens the group and has an icon', () => {
+    const a = { ...groupSettingsActivity(g, { ...g, requireApproval: true }, rahul)!, id: 'a1', groupId: 'g1' }
+    expect(activityText(a, 'u_rahul')).toBe(`You turned on approval for expenses over ${R(200000)}`)
+    expect(activityHref(a)).toBe('/groups/g1')
+    expect(activityIcon('group.updated')).toBe('⚙️')
+  })
+  it('joinPhrases', () => {
+    expect(joinPhrases(['a'])).toBe('a')
+    expect(joinPhrases(['a', 'b'])).toBe('a and b')
+    expect(joinPhrases(['a', 'b', 'c'])).toBe('a, b, and c')
   })
 })

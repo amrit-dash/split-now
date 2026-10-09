@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ReceiptText, Users, Wallet } from 'lucide-react'
-import { useCaptures, useExpenses, useGroup, useGroups } from '@/hooks/data'
+import { useMe } from '@/hooks/auth'
+import { memberOrder, myMemberId, useCaptures, useExpenses, useGroup, useGroups } from '@/hooks/data'
 import { descriptionHistory, lastGroup } from '@/lib/recents'
 import { liveTripFor } from '@/lib/capture'
 import { todayISO } from '@/lib/id'
@@ -19,17 +20,22 @@ export default function ExpenseForm() {
   const { groupId: editGroupId, expenseId } = useParams()
   const [params] = useSearchParams()
   const groups = useGroups()
+  const { user } = useMe()
   // "Add again" from an expense: /add?group=…&again=<expenseId> starts a copy dated today.
   const againId = expenseId ? undefined : (params.get('again') ?? undefined)
   // Prefill from a captured payment (/add?group=…&capture=…), handed over from the capture prompt.
   const captureId = expenseId ? undefined : (params.get('capture') ?? undefined)
   // Quick add (/add?group=…&quick=1): the parsed line waits in memory; it beats any stored draft (a fresh intent).
-  const [quick] = useState(() => {
+  const [handed] = useState(() => {
     if (expenseId || !params.get('quick')) return undefined
     const q = pending.quick
     pending.quick = undefined
-    return q?.prefill
+    return q
   })
+  const [quick, setQuick] = useState(handed?.groupId ? handed.prefill : undefined)
+  // A line that asked for a new group arrives here once GroupForm made it: its people are read
+  // again against the new members before the form opens (the parser is the lazy Quick add chunk).
+  const unbound = handed && !handed.groupId ? handed : undefined
   const storeKey = draftKey(expenseId)
   // A draft left on this device for this route (a reload, an accidental back), when it started from the same place.
   const [stored] = useState(() => {
@@ -58,18 +64,35 @@ export default function ExpenseForm() {
     }
   }, [groups, groupId, group, editGroupId])
 
-  if (!groups || (groupId && group === undefined) || ((expenseId || againId) && !expenses) || (captureId && !captures)) return <FormSkeleton />
+  useEffect(() => {
+    if (!unbound || quick || !group) return
+    let live = true
+    const order = memberOrder(group)
+    const ctx = { members: order.map((id) => ({ id, name: group.members[id].name })), me: myMemberId(group, user.uid) ?? order[0], currency: group.currency }
+    import('@/lib/nl-expense')
+      .then(({ bindQuickPrefill }) => bindQuickPrefill(unbound.prefill, unbound.line ?? unbound.prefill.text, ctx))
+      .catch(() => unbound.prefill)
+      .then((p) => {
+        if (live) setQuick(p)
+      })
+    return () => {
+      live = false
+    }
+  }, [unbound, quick, group, user.uid])
+
+  if (!groups || (groupId && group === undefined) || (unbound && !quick) || ((expenseId || againId) && !expenses) || (captureId && !captures))
+    return <FormSkeleton />
   if (groups.length === 0) return <NoGroups />
   if (group === null && editGroupId)
     return (
-      <div className="mx-auto max-w-lg px-4 pt-[calc(env(safe-area-inset-top)+2rem)]">
+      <div className="mx-auto max-w-lg px-4 pt-[calc(var(--safe-top)+2rem)]">
         <Empty emoji="🔍" title="This group doesn’t exist or you’re not a member" />
       </div>
     )
   if (!group) return <FormSkeleton />
   if (expenseId && !existing)
     return (
-      <div className="mx-auto max-w-lg px-4 pt-[calc(env(safe-area-inset-top)+2rem)]">
+      <div className="mx-auto max-w-lg px-4 pt-[calc(var(--safe-top)+2rem)]">
         <Empty emoji="🔍" title="Expense not found" />
       </div>
     )
@@ -88,15 +111,15 @@ export default function ExpenseForm() {
       history={history}
       onGroup={setGroupId}
       storeKey={storeKey}
-      restore={quick ? undefined : stored?.draft}
-      restoreReceipt={quick ? undefined : stored?.receipt}
+      restore={handed ? undefined : stored?.draft}
+      restoreReceipt={handed ? undefined : stored?.receipt}
     />
   )
 }
 
 function FormSkeleton() {
   return (
-    <div className="mx-auto min-h-dvh max-w-lg px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)]" role="status" aria-label="Loading">
+    <div className="mx-auto min-h-dvh max-w-lg px-4 pt-[calc(var(--safe-top)+0.75rem)]" role="status" aria-label="Loading">
       <CardSkeleton className="h-11 w-1/2 mx-auto" />
       <CardSkeleton className="mt-4 h-16" />
       <CardSkeleton className="mt-3 h-56" />
@@ -109,7 +132,7 @@ function FormSkeleton() {
 function NoGroups() {
   const nav = useNavigate()
   return (
-    <div className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center px-4 pb-[calc(env(safe-area-inset-bottom)+2rem)] pt-[calc(env(safe-area-inset-top)+2rem)]">
+    <div className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center px-4 pb-[calc(env(safe-area-inset-bottom)+2rem)] pt-[calc(var(--safe-top)+2rem)]">
       <Empty emoji="👀" title="Create a group first">
         Expenses live inside a group, a 1:1 friend, or your personal wallet.
         <div className="mt-4 flex justify-center gap-2">

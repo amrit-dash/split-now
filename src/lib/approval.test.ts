@@ -7,6 +7,7 @@ import {
   editAutoApproved,
   groupApprovalInCurrency,
   convertThreshold,
+  currencyLocked,
   defaultThreshold,
   niceMinor,
   niceNumber,
@@ -144,5 +145,18 @@ describe('editApprovalOutcome', () => {
     expect(editApprovalOutcome({ group, before: marked, after: { amount: 510_001 } })).toBe('rerequest')
     expect(editApprovalOutcome({ group: { ...group, editAutoApprove: undefined }, before: marked, after: { amount: 500_100 } })).toBe('rerequest')
     expect(editApprovalOutcome({ group, before: { amount: 195_000 }, after: { amount: 205_000 } })).toBe('rerequest')
+  })
+})
+
+describe('currencyLocked', () => {
+  it('locks an existing group with any expense, live or trashed, and while they load', () => {
+    expect(currencyLocked(true, [{ id: 'e1' }])).toBe(true)
+    expect(currencyLocked(true, [{ id: 'e1', deletedAt: 1 }])).toBe(true)
+    expect(currencyLocked(true, null)).toBe(true)
+  })
+  it('leaves a new group, or one without expenses, free to change', () => {
+    expect(currencyLocked(true, [])).toBe(false)
+    expect(currencyLocked(false, null)).toBe(false)
+    expect(currencyLocked(false, [{ id: 'e1' }])).toBe(false)
   })
 })

@@ -6,7 +6,7 @@
 import { readFileSync } from 'node:fs'
 import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest'
 import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing'
-import { doc, getDoc, setDoc } from 'firebase/firestore'
+import { doc, getDoc, setDoc, writeBatch } from 'firebase/firestore'
 
 let env: RulesTestEnvironment
 
@@ -71,6 +71,22 @@ describe('activity types', () => {
   it('members write the kinds the app produces', async () => {
     for (const t of ['expense.created', 'expense.updated', 'expense.imported', 'settlement.created', 'member.removed'])
       await assertSucceeds(setDoc(doc(db('bob'), `groups/g1/activity/${t}`), entry(t)))
+  })
+  it('a member logs a change to the group settings with the save itself', async () => {
+    const d = db('bob')
+    const b = writeBatch(d)
+    b.update(doc(d, 'groups/g1'), { requireApproval: true, approvalThreshold: 200000, updatedAt: 2 })
+    b.set(doc(d, 'groups/g1/activity/s1'), {
+      ...entry('group.updated'),
+      targetId: 'g1',
+      summary: 'Bob turned on approval for expenses over ₹2,000',
+      before: {},
+      after: { requireApproval: true, approvalThreshold: 200000 },
+    })
+    await assertSucceeds(b.commit())
+    // as someone else, or by a non-member, it is refused
+    await assertFails(setDoc(doc(db('bob'), 'groups/g1/activity/s2'), { ...entry('group.updated'), actorUid: 'alice' }))
+    await assertFails(setDoc(doc(db('mallory'), 'groups/g1/activity/s3'), { ...entry('group.updated'), actorUid: 'mallory' }))
   })
   it('a client can neither invent a kind nor fake a nudge', async () => {
     await assertFails(setDoc(doc(db('bob'), 'groups/g1/activity/a1'), entry('settlement.nudged')))
