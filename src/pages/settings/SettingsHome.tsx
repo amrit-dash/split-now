@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Bell, Database, Palette, ShieldCheck, Sparkles, Zap } from 'lucide-react'
 import { repo } from '@/data'
-import type { AiState, CaptureToken } from '@/data/repo'
+import { useAiState, useCaptureTokens } from '@/hooks/data'
 import { useMe } from '@/hooks/auth'
 import { useAiStatus } from '@/hooks/useAiStatus'
 import { accentPreset, getAccent } from '@/lib/accent'
@@ -20,11 +20,9 @@ export default function SettingsHome() {
   const { user, profile } = useMe()
   const aiStatus = useAiStatus()
   const [prefs, setPrefs] = useState<AllPrefs | null>(null)
-  const [tokens, setTokens] = useState<CaptureToken[] | null>(null)
-  const [aiState, setAiState] = useState<AiState | null>(null)
+  const tokens = useCaptureTokens()
+  const aiState = useAiState(repo.mode === 'firebase')
   useEffect(() => watchCapturePrefs(user.uid, repo.mode, setPrefs), [user.uid])
-  useEffect(() => repo.watchCaptureTokens(user.uid, setTokens), [user.uid])
-  useEffect(() => (repo.mode === 'firebase' ? repo.watchAiState(user.uid, setAiState) : undefined), [user.uid])
 
   const notifications = !notificationsAvailable()
     ? repo.mode === 'demo'

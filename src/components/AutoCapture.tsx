@@ -4,7 +4,7 @@ import { Activity, ChevronRight, Copy, KeyRound, MessageSquareText, Pause, Plus,
 import { firebaseProject, repo } from '@/data'
 import type { CaptureToken } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
-import { useGroups } from '@/hooks/data'
+import { useCaptureTokens, useGroups } from '@/hooks/data'
 import { useFlag } from '@/hooks/useAppConfig'
 import type { Group } from '@/types'
 import { copy } from '@/lib/share'
@@ -59,11 +59,10 @@ export function AutoCapture() {
   const confirm = useConfirm()
   const groups = useGroups()
   const autoCapture = useFlag('autoCapture')
-  const [tokens, setTokens] = useState<CaptureToken[] | null>(null)
+  const tokens = useCaptureTokens()
   const [prefs, setPrefs] = useState<AllPrefs | null>(null)
   const [log, setLog] = useState<LogRow[] | null>(null)
   const [busy, setBusy] = useState(false)
-  useEffect(() => repo.watchCaptureTokens(user.uid, setTokens), [user.uid])
   useEffect(() => watchCapturePrefs(user.uid, repo.mode, setPrefs), [user.uid])
   useEffect(() => watchCaptureLog(user.uid, repo.mode, setLog), [user.uid])
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Check, ExternalLink, KeyRound, Loader2, RefreshCw, ShieldCheck, Sparkles, Trash2 } from 'lucide-react'
 import { repo } from '@/data'
+import { useAiState } from '@/hooks/data'
 import type { AiModel, AiState, AppAiStatusValue } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
 import { useAiStatus } from '@/hooks/useAiStatus'
@@ -58,7 +59,7 @@ export function AiSettings() {
   const { user } = useMe()
   const toast = useToast()
   const [prefs, setPrefs] = useState<AllPrefs>(DEFAULT_ALL_PREFS)
-  const [state, setState] = useState<AiState | null>(null)
+  const state = useAiState()
   const status = useAiStatus()
   // The admin's switch (config/app flags.aiImages). The server answers "off" anyway, so this only swaps the switch for the reason.
   const aiImages = useFlag('aiImages')
@@ -69,7 +70,6 @@ export function AiSettings() {
   const [advanced, setAdvanced] = useState<boolean | null>(null)
 
   useEffect(() => watchPrefs(user.uid, setPrefs), [user.uid])
-  useEffect(() => repo.watchAiState(user.uid, setState), [user.uid])
   const hasKey = !!state?.hint
   // Model list for the user's key, once there is one.
   useEffect(() => {
