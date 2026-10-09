@@ -143,17 +143,13 @@ export default function GroupForm() {
     setEditAuto(on)
     if (on && editAmount === undefined) setEditAmount(suggestedEdit)
   }
-  // Approval settings are the creator's (firestore.rules creatorPolicy); others see them read-only.
-  const canSetApproval = !existing || existing.createdBy === user.uid
-  // The approval amounts are in the group's currency and only the creator converts them, so
-  // nobody else may change the currency while they are set (firestore.rules creatorPolicy).
-  const currencyLocked = !canSetApproval && !!(existing?.approvalThreshold || existing?.editAutoApprove)
+  // Any member may change the approval settings and the currency; a currency change converts the amounts.
 
   /** The group's currency changed: amounts someone set are converted at today's rate and rounded (no rate: the new currency's defaults). */
   const changeCurrency = async (next: string) => {
     const from = currency
     setCurrency(next)
-    if (next === from || !canSetApproval) return
+    if (next === from) return
     // A filled-in default nobody typed becomes the new currency's default (new groups: the effect above).
     if (groupId && !thresholdTouched && threshold !== undefined) setThreshold(defaultThreshold(next))
     if (groupId && !editAmountTouched && editAmount !== undefined) setEditAmount(defaultEditAutoApprove(next))
@@ -654,14 +650,7 @@ export default function GroupForm() {
                 <div className="label" id="group-currency-label">
                   Currency
                 </div>
-                <Select
-                  aria-label="Currency"
-                  value={currency}
-                  onChange={(c) => void changeCurrency(c)}
-                  options={currencyOptions(CURRENCIES)}
-                  disabled={currencyLocked}
-                />
-                {currencyLocked && <p className="text-muted mt-1 text-xs">Only the creator can change it while approval amounts are set.</p>}
+                <Select aria-label="Currency" value={currency} onChange={(c) => void changeCurrency(c)} options={currencyOptions(CURRENCIES)} />
               </div>
               <div>
                 <label className="label" htmlFor="group-budget">
@@ -761,13 +750,7 @@ export default function GroupForm() {
                       In this group, a big expense added by someone else stays pending (not counted) until everyone charged taps Approve.
                     </div>
                   </div>
-                  <Switch
-                    checked={requireApproval}
-                    onChange={turnApproval}
-                    label="Require approval for big expenses"
-                    testId="group-approval"
-                    disabled={!canSetApproval}
-                  />
+                  <Switch checked={requireApproval} onChange={turnApproval} label="Require approval for big expenses" testId="group-approval" />
                 </div>
                 {requireApproval && (
                   <div className="mt-3">
@@ -779,7 +762,6 @@ export default function GroupForm() {
                       value={threshold}
                       currency={currency}
                       placeholder={centsToInput(suggested, currency)}
-                      disabled={!canSetApproval}
                       onChange={(v) => {
                         setThreshold(v)
                         setThresholdTouched(true)
@@ -806,13 +788,7 @@ export default function GroupForm() {
                           everyone again.
                         </div>
                       </div>
-                      <Switch
-                        checked={editAuto}
-                        onChange={turnEditAuto}
-                        label="Approve small edits automatically"
-                        testId="group-edit-auto"
-                        disabled={!canSetApproval}
-                      />
+                      <Switch checked={editAuto} onChange={turnEditAuto} label="Approve small edits automatically" testId="group-edit-auto" />
                     </div>
                     {editAuto && (
                       <div className="mt-3">
@@ -824,7 +800,6 @@ export default function GroupForm() {
                           value={editAmount}
                           currency={currency}
                           placeholder={centsToInput(suggestedEdit, currency)}
-                          disabled={!canSetApproval}
                           onChange={(v) => {
                             setEditAmount(v)
                             setEditAmountTouched(true)
@@ -839,8 +814,7 @@ export default function GroupForm() {
                     )}
                   </div>
                 )}
-                {requireApproval && canSetApproval && <p className="text-muted mt-3 text-xs">Changing the currency converts these amounts.</p>}
-                {!canSetApproval && <p className="text-muted mt-3 text-xs">Only the person who created the group can change these.</p>}
+                {requireApproval && <p className="text-muted mt-3 text-xs">Changing the currency converts these amounts.</p>}
               </div>
             )}
           </div>

@@ -310,7 +310,8 @@ service cloud.firestore {
       function isMember() { return isUser() && uid() in resource.data.memberUids; }
 
       // Every field a group document may hold, with types and sizes. Membership fields are
-      // further checked by isJoining / validMembershipChange; policy fields by creatorPolicy.
+      // further checked by isJoining / validMembershipChange. Any member may change the approval
+      // settings and the currency (owner decision, Oct 2026); validGroupShape checks their values.
       function validGroupShape(g) {
         return g.keys().hasOnly(['id', 'name', 'emoji', 'type', 'currency', 'budget', 'startDate', 'endDate', 'simplify',
             'requireApproval', 'approvalThreshold', 'editAutoApprove', 'captureOff', 'archived', 'memberUids', 'members', 'inviteCode',
@@ -335,18 +336,6 @@ service cloud.firestore {
           && (!('joinMemberId' in g) || g.joinMemberId is string)
           && (!('memberOpId' in g) || g.memberOpId is string);
       }
-      // Approval settings are a trust control: only the group's creator changes them.
-      function creatorPolicy() {
-        let b = resource.data;
-        let a = request.resource.data;
-        return b.createdBy == uid()
-          || (a.get('requireApproval', false) == b.get('requireApproval', false)
-              && a.get('approvalThreshold', 0) == b.get('approvalThreshold', 0)
-              && a.get('editAutoApprove', 0) == b.get('editAutoApprove', 0)
-              // The approval amounts are in the group's currency; only the creator converts them.
-              && (a.currency == b.currency || (!('approvalThreshold' in b) && !('editAutoApprove' in b))));
-      }
-
       // A non-member may join only by:
       //  - presenting the group's current invite code (joinCode == inviteCode),
       //  - adding exactly their own uid to memberUids,
@@ -436,7 +425,6 @@ service cloud.firestore {
           && request.resource.data.createdBy == resource.data.createdBy
           && request.resource.data.inviteCode == resource.data.inviteCode
           && validGroupShape(request.resource.data)
-          && creatorPolicy()
           && (validMembershipChange() || isOwnMemberEdit()))
         || isJoining());
       allow delete: if isMember() && resource.data.createdBy == uid() && writesOpen();
