@@ -297,8 +297,9 @@ export default function GroupDetail() {
             </button>
           </div>
         )}
-        {tripCaptureRelevant(group, todayISO()) && <TripCaptureLine group={group} />}
       </div>
+
+      {tripCaptureRelevant(group, todayISO()) && <TripCaptureLine group={group} />}
 
       {!personal && <PendingClaims groupId={group.id} />}
 
@@ -870,7 +871,7 @@ function ActivityList({
 }
 
 /**
- * One line under Settle up / Invite about this person's own trip auto-capture (capture is set up
+ * A thin card of its own under the group's header card about this person's own trip auto-capture (capture is set up
  * per phone, so pausing is their choice and leaves no group activity): "on for you · Pause",
  * "Paused for you · Resume" (Undo toast), or, with no key covering the trip, a link to the SMS
  * wizard scoped to it. tripCaptureNotice decides which, and when there is nothing to say.
@@ -894,11 +895,11 @@ function TripCaptureLine({ group }: { group: Group }) {
       action: { label: 'Undo', run: () => void save(before) },
     })
   }
-  // The actions keep a 44px touch target, but -my-3 stops it from adding height: the row is one
-  // line of text, so the card's bottom padding matches its sides instead of growing by 24px.
+  // The actions keep a 44px touch target, but -my-3 stops it from adding height: the card stays
+  // one line of text tall.
   const link = '-my-3 flex min-h-11 shrink-0 items-center font-semibold text-brand-600 dark:text-brand-300'
   return (
-    <div className="text-muted mt-3.5 flex items-center gap-2 text-sm leading-5" data-testid="trip-auto-capture" data-state={notice}>
+    <div className="card text-muted mb-4 flex items-center gap-2 px-5 py-3 text-sm leading-5" data-testid="trip-auto-capture" data-state={notice}>
       <MessageSquareText size={16} className={`shrink-0 ${notice === 'on' ? 'text-brand-600 dark:text-brand-300' : ''}`} aria-hidden />
       {notice === 'setup' ? (
         <>

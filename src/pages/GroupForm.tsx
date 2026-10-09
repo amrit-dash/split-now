@@ -4,7 +4,11 @@ import { Plus, Search, UserPlus, X } from 'lucide-react'
 import { repo } from '@/data'
 import { diffMembers } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
-import { createGroup, useAllExpenses, useAllSettlements, useGroup, useGroups } from '@/hooks/data'
+import { createGroup, useAllExpenses, useAllSettlements, useCaptureTokens, useGroup, useGroups } from '@/hooks/data'
+import { useCapturePrefs } from '@/hooks/useCapturePrefs'
+import { useFlag } from '@/hooks/useAppConfig'
+import { saveCapturePrefs, tripCaptureNotice } from '@/lib/capture-settings'
+import { setTripPaused } from '@/lib/capture-filters'
 import type { Group, GroupType, Member } from '@/types'
 import { CURRENCIES, centsToInput } from '@/lib/money'
 import { colorFor } from '@/lib/colors'
@@ -208,6 +212,11 @@ export default function GroupForm() {
   const inviteEmail =
     isEmail(q) && !everyone?.some((k) => k.email?.toLowerCase() === ql) && !Object.values(members).some((m) => m.email?.toLowerCase() === ql) ? q : ''
 
+  // Trip auto-capture state (used further down; hooks stay above the early returns).
+  const capturePrefs = useCapturePrefs()
+  const captureTokens = useCaptureTokens()
+  const captureEnabled = useFlag('autoCapture')
+  const [captureOn, setCaptureOn] = useState<boolean | null>(null)
   if (groupId && existing === undefined) return <Loading />
   if (groupId && existing === null) return <PageHeader title="Group not found" back />
 
@@ -222,6 +231,23 @@ export default function GroupForm() {
   const showDates = shared && (info.dates !== null || !!startDate || !!endDate)
   const shareable = type !== 'personal'
   const live = showDates && isLiveTrip({ startDate: startDate || undefined, endDate: endDate || undefined }, todayISO())
+  // Trip auto-capture is this person's own setting (pausedTrips in their capture settings), not
+  // the group's: the switch here only changes what their phone adds. A new group has no id yet,
+  // so its choice is applied right after it's created.
+  const captureNotice =
+    showDates && capturePrefs && captureTokens
+      ? tripCaptureNotice(
+          { id: existing?.id ?? '', type, archived: existing?.archived, startDate: startDate || undefined, endDate: endDate || undefined },
+          todayISO(),
+          { tokens: captureTokens, pausedTrips: capturePrefs.pausedTrips, capturePaused: capturePrefs.capturePaused, enabled: captureEnabled },
+        )
+      : null
+  const captureSwitch = captureNotice === 'on' || captureNotice === 'paused'
+  const captureChecked = captureOn ?? captureNotice !== 'paused'
+  const saveCapture = (id: string) => {
+    if (!captureSwitch || captureOn === null || !capturePrefs || captureOn === (captureNotice === 'on')) return
+    saveCapturePrefs(user.uid, repo.mode, { pausedTrips: setTripPaused(capturePrefs.pausedTrips, id, !captureOn) }).catch((e) => toast(errText(e), 'err'))
+  }
   // Several wallets are fine (Fuel, Groceries…); only the first defaults to "My spending".
   const wallet = walletNaming((groups ?? []).filter((g) => g.type === 'personal' && g.id !== groupId).length)
   // Types you can switch between here: any shared type, but never to or from 1:1 / Personal once saved.
@@ -394,10 +420,12 @@ export default function GroupForm() {
         await repo.updateGroupSettings(base, settings)
         for (const id of added) await repo.addMember(base, id, saved[id])
         for (const id of removed) await repo.removeMember(base, id)
+        saveCapture(existing.id)
         toast('Group updated')
         nav(`/groups/${existing.id}`, { replace: true })
       } else {
         const id = await createGroup({ ...data, createdBy: user.uid } as Omit<Group, 'id' | 'createdAt' | 'updatedAt' | 'inviteCode'>)
+        saveCapture(id)
         toast(type === 'personal' ? 'Wallet created' : 'Group created')
         // ?next=add: opened from Add expense, so go straight back there with the new group picked
         // (&quick=1: from Quick add, whose line waits in memory to fill the form).
@@ -444,13 +472,13 @@ export default function GroupForm() {
                 role="radio"
                 aria-checked={kind === k.kind}
                 onClick={() => chooseKind(k.kind)}
-                className={`min-w-0 rounded-xl px-2.5 py-2.5 text-left transition active:scale-[.98] ${kind === k.kind ? 'accent-live bg-gradient-to-br from-brand-600 to-duo-600 text-white shadow-md shadow-brand-600/25' : 'text-slate-700 hover:bg-white/60 dark:text-slate-200 dark:hover:bg-ink-700'}`}
+                className={`min-w-0 rounded-xl px-2.5 py-2.5 text-left transition active:scale-[.98] ${kind === k.kind ? 'accent-live bg-gradient-to-br from-fill to-fill-to text-on-fill shadow-md shadow-fill/25' : 'text-slate-700 hover:bg-white/60 dark:text-slate-200 dark:hover:bg-ink-700'}`}
               >
                 <div className="text-xl leading-none" aria-hidden>
                   {k.emoji}
                 </div>
                 <div className="mt-1.5 truncate text-sm font-bold">{k.label}</div>
-                <div className={`truncate text-xs ${kind === k.kind ? 'text-white/90' : 'text-muted'}`}>{k.hint}</div>
+                <div className={`truncate text-xs ${kind === k.kind ? 'text-on-fill/90' : 'text-muted'}`}>{k.hint}</div>
               </button>
             ))}
           </div>
@@ -751,18 +779,35 @@ export default function GroupForm() {
                 </div>
                 <FieldError id="trip-dates-error" text={errors.dates} />
                 <p className="text-muted mt-1.5 text-xs">While it’s on, new expenses and captured payments default to this group.</p>
-                {(startDate || endDate) && (
+                {captureSwitch ? (
+                  <div className="mt-3 flex items-center justify-between gap-4 rounded-2xl bg-slate-50 p-3 dark:bg-ink-800" data-testid="group-trip-capture">
+                    <div id="trip-capture-label">
+                      <div className="font-semibold">SMS auto-capture</div>
+                      <div className="text-muted text-xs">Adds your bank and UPI payments to this trip. Just for you: others keep their own.</div>
+                    </div>
+                    <Switch checked={captureChecked} onChange={setCaptureOn} label="SMS auto-capture for this trip" testId="group-trip-capture-switch" />
+                  </div>
+                ) : captureNotice === 'off' ? (
                   <p className="text-muted mt-1 text-xs">
-                    Tip: each person can add their own bank and UPI payments to this trip with{' '}
-                    {existing ? (
-                      <Link to={`/settings/auto-capture?group=${existing.id}`} className="font-semibold text-brand-600 dark:text-brand-300">
-                        SMS auto-capture
-                      </Link>
-                    ) : (
-                      <b>SMS auto-capture</b>
-                    )}
-                    {existing ? '' : ' (on the group page after saving)'}.
+                    Your SMS auto-capture is paused.{' '}
+                    <Link to="/settings/automation" className="font-semibold text-brand-600 dark:text-brand-300">
+                      Settings
+                    </Link>
                   </p>
+                ) : (
+                  captureNotice === 'setup' && (
+                    <p className="text-muted mt-1 text-xs">
+                      Tip: each person can add their own bank and UPI payments to this trip with{' '}
+                      {existing ? (
+                        <Link to={`/settings/auto-capture?group=${existing.id}`} className="font-semibold text-brand-600 dark:text-brand-300">
+                          SMS auto-capture
+                        </Link>
+                      ) : (
+                        <b>SMS auto-capture</b>
+                      )}
+                      {existing ? '' : ' (on the group page after saving)'}.
+                    </p>
+                  )
                 )}
               </div>
             )}
