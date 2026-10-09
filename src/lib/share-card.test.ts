@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cardSpec, firstName, reminderText, reminderUpi, settleLink, type ReminderArgs } from './share-card'
+import { cardSpec, firstName, reminderText, reminderUpi, reminderUrl, settleLink, type ReminderArgs } from './share-card'
 
 const base: ReminderArgs = {
   origin: 'https://split-now.web.app',
@@ -57,5 +57,18 @@ describe('card spec', () => {
     expect(cardSpec({ ...base, upi: undefined }).qr).toBeUndefined()
     expect(cardSpec({ ...base, currency: 'AUD' }).pay).toBeUndefined()
     expect(cardSpec({ ...base, emoji: undefined }).group).toBe('Goa trip')
+  })
+})
+
+describe('Pay me link', () => {
+  const linked = { ...base, payLink: 'abcdefghijkmnpqrstuvwxyz' }
+  it('the share carries /r/{code} when there is a link, the Settle up deep link otherwise', () => {
+    expect(reminderUrl(linked)).toBe('https://split-now.web.app/r/abcdefghijkmnpqrstuvwxyz')
+    expect(reminderUrl(base)).toBe(settleLink(base))
+  })
+  it('says no account is needed', () => {
+    expect(reminderText(linked)).toBe(
+      'Hey Rahul, friendly nudge: you owe Priya ₹1,240.00 for “Goa trip”. UPI: priya@okaxis. Pay and mark it paid here, no account needed:',
+    )
   })
 })

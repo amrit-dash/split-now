@@ -52,6 +52,8 @@ export interface LiveTable {
   /** set when the host finishes into a group */
   expenseId?: string
   closedGroupId?: string
+  /** set when the host finishes: each guest's Pay me link (payLinks/{code}), so "I've paid" reaches the host */
+  payLinks?: Record<ParticipantId, string>
 }
 
 export type NewTable = Omit<LiveTable, 'code' | 'createdAt' | 'expiresAt' | 'status' | 'claims'>

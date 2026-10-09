@@ -191,8 +191,10 @@ export function expenseSaveActivity(prev: Expense | undefined, next: Expense, ct
   const d = diffExpense(prev, next)
   if (!d.fields.length) return null
   const phrases = describeChanges(d.before, d.after, { ...ctx, original: next.original } as ActivityCtx)
-  const summary =
+  const edited =
     phrases.length === 1 ? `${ctx.actorName} changed ${phrases[0]} on ${label(next)}` : `${ctx.actorName} edited ${label(next)}: ${phrases.join('; ')}`
+  // The edit brought it under the group's approval threshold, so it no longer waits for an OK.
+  const summary = prev.requiresApproval && !next.requiresApproval ? `${edited}. Approved automatically (below the threshold)` : edited
   return { ...base('expense.updated', next.id, ctx), summary: clip(summary), before: d.before, after: d.after }
 }
 

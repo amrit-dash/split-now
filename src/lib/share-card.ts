@@ -5,11 +5,13 @@ import { encodeQr } from './qr'
 import { copy } from './share'
 
 /*
- * "Pay me": the Remind action. Instead of a text that links to the group page, the friend gets
- * a deep link straight into their Settle up screen with the people and the amount filled in
- * (SettleUp reads ?from&to&amount), and, where the share sheet accepts files, a PNG card that
- * reads well in WhatsApp: who owes whom, how much, which group, and a UPI QR when the payee
- * has a UPI ID. Everything but the canvas drawing is pure and tested.
+ * "Pay me": the Remind action. The friend gets a Pay me link (/r/{code}, a payLinks document the
+ * payee creates): it opens without an account, shows the amount and the payee's UPI QR and
+ * buttons, and "I've paid" records the payment in the group (src/pages/PayLink.tsx). A member
+ * of the group who opens it lands in their prefilled Settle up as before. Without a link code
+ * the text falls back to that Settle up deep link. Where the share sheet accepts files, a PNG card
+ * goes with it that reads well in WhatsApp: who owes whom, how much, which group, and a UPI QR
+ * when the payee has a UPI ID. Everything but the canvas drawing is pure and tested.
  */
 
 export interface ReminderArgs {
@@ -26,6 +28,8 @@ export interface ReminderArgs {
   currency: string
   /** the payee's UPI ID, when they have one (INR only) */
   upi?: string
+  /** the Pay me link's code (payLinks/{code}); without it the share falls back to the Settle up deep link */
+  payLink?: string
 }
 
 export const firstName = (name: string) => name.trim().split(/\s+/)[0] || name
@@ -34,6 +38,11 @@ export const firstName = (name: string) => name.trim().split(/\s+/)[0] || name
 export function settleLink(a: Pick<ReminderArgs, 'origin' | 'groupId' | 'debtor' | 'payee' | 'amount'>): string {
   const q = new URLSearchParams({ from: a.debtor.id, to: a.payee.id, amount: String(Math.round(a.amount)) })
   return `${a.origin}/groups/${encodeURIComponent(a.groupId)}/settle?${q}`
+}
+
+/** What the share carries: the Pay me link when there is one, else the members-only Settle up link. */
+export function reminderUrl(a: Pick<ReminderArgs, 'origin' | 'groupId' | 'debtor' | 'payee' | 'amount' | 'payLink'>): string {
+  return a.payLink ? `${a.origin}/r/${a.payLink}` : settleLink(a)
 }
 
 /** The payee's UPI link for exactly this amount, when it can be built (INR and a valid VPA). */
@@ -47,7 +56,8 @@ export function reminderUpi(a: Pick<ReminderArgs, 'upi' | 'currency' | 'amount' 
 export function reminderText(a: ReminderArgs): string {
   const money = formatMoney(a.amount, a.currency)
   const upi = a.upi?.trim() && a.currency === 'INR' && isUpiId(a.upi) ? ` UPI: ${a.upi.trim()}.` : ''
-  return `Hey ${firstName(a.debtor.name)}, friendly nudge: you owe ${firstName(a.payee.name)} ${money} for “${a.groupName}”.${upi} Pay in one tap:`
+  const tail = a.payLink ? 'Pay and mark it paid here, no account needed:' : 'Pay in one tap:'
+  return `Hey ${firstName(a.debtor.name)}, friendly nudge: you owe ${firstName(a.payee.name)} ${money} for “${a.groupName}”.${upi} ${tail}`
 }
 
 export interface CardSpec {
@@ -238,7 +248,7 @@ export function canShareFile(file: File | null): file is File {
  */
 export async function shareReminder(a: ReminderArgs, file: File | null): Promise<'shared' | 'copied' | 'failed'> {
   const text = reminderText(a)
-  const url = settleLink(a)
+  const url = reminderUrl(a)
   const title = `Split Now · ${a.groupName}`
   if (typeof navigator !== 'undefined' && navigator.share) {
     try {

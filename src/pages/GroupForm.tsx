@@ -12,7 +12,9 @@ import { todayISO, uid } from '@/lib/id'
 import { isLiveTrip } from '@/lib/capture'
 import { errText } from '@/lib/errors'
 import { usePageTitle } from '@/lib/brand'
-import { DEFAULT_APPROVAL_THRESHOLD } from '@/lib/trust'
+import { thresholdOf } from '@/lib/trust'
+import { APPROVAL_BASE_CURRENCY, isApprovalDefault, newGroupApproval, tableThreshold } from '@/lib/approval'
+import { useTodayRates } from '@/hooks/useFx'
 import { GROUP_TYPES, SHARED_TYPES, groupTypeInfo, groupTypeOf, guessGroup, iconsFor, isSharedType, parseGroupType } from '@/lib/groupTypes'
 import { Avatar } from '@/components/Avatar'
 import { IconPickerField, TypeSuggestion } from '@/components/IconPicker'
@@ -67,6 +69,7 @@ export default function GroupForm() {
   const [simplify, setSimplify] = useState(true)
   const [requireApproval, setRequireApproval] = useState(false)
   const [threshold, setThreshold] = useState<number | undefined>(undefined)
+  const [thresholdTouched, setThresholdTouched] = useState(false)
   const [startDate, setStartDate] = useState(() => (GROUP_TYPES[initialType].datesToday ? todayISO() : ''))
   const [endDate, setEndDate] = useState(() => (GROUP_TYPES[initialType].datesToday ? todayISO() : ''))
   const [members, setMembers] = useState<Record<string, Member>>({})
@@ -106,9 +109,28 @@ export default function GroupForm() {
       setThreshold(existing.approvalThreshold)
     } else if (!groupId) {
       loaded.current = { key: 'new' }
+      // A new group starts from the user's "Ask for approval on big expenses" setting.
+      if (isApprovalDefault(profile.approvalDefault)) setRequireApproval(profile.approvalDefault.on)
       setMembers({ [user.uid]: { name: profile.displayName, uid: user.uid, email: user.email, color: colorFor(0) } })
     }
-  }, [existing, groupId, user.uid, user.email, profile.displayName])
+  }, [existing, groupId, user.uid, user.email, profile.displayName, profile.approvalDefault])
+
+  // The approval amount a new group suggests: the user's setting carried into the group's
+  // currency at today's rate (or that currency's default), until the user types their own.
+  const approvalSetting = isApprovalDefault(profile.approvalDefault) ? profile.approvalDefault : undefined
+  const approvalRates = useTodayRates(
+    currency,
+    groupId ? [] : [approvalSetting?.currency ?? currency, ...(tableThreshold(currency) === undefined ? [APPROVAL_BASE_CURRENCY] : [])],
+  )
+  const suggested = groupId
+    ? thresholdOf({ currency })
+    : newGroupApproval(approvalSetting, currency, {
+        fromSetting: approvalRates?.[approvalSetting?.currency ?? '']?.rate,
+        inr: approvalRates?.[APPROVAL_BASE_CURRENCY]?.rate,
+      }).threshold
+  useEffect(() => {
+    if (!groupId && !thresholdTouched) setThreshold(suggested)
+  }, [groupId, thresholdTouched, suggested])
 
   // A new 1:1 is named after the friend until the user types a name of their own.
   const firstOther = Object.values(members).find((m) => m.uid !== user.uid)?.name ?? ''
@@ -296,7 +318,13 @@ export default function GroupForm() {
         members: saved,
         startDate: showDates ? startDate || undefined : undefined,
         endDate: showDates ? endDate || undefined : undefined,
-        ...(shareable ? { requireApproval: requireApproval || undefined, approvalThreshold: requireApproval ? threshold : undefined } : {}),
+        // A new group stores its threshold, so one in a currency off the default table keeps the converted figure.
+        ...(shareable
+          ? {
+              requireApproval: requireApproval || undefined,
+              approvalThreshold: requireApproval ? (threshold ?? (existing ? undefined : suggested)) : undefined,
+            }
+          : {}),
         memberUids: [
           ...new Set(
             Object.values(saved)
@@ -692,9 +720,10 @@ export default function GroupForm() {
                       id="approval-threshold"
                       value={threshold}
                       currency={currency}
-                      placeholder={centsToInput(DEFAULT_APPROVAL_THRESHOLD, currency)}
+                      placeholder={centsToInput(suggested, currency)}
                       onChange={(v) => {
                         setThreshold(v)
+                        setThresholdTouched(true)
                         clearError('threshold')
                       }}
                       aria-label="Approval limit"

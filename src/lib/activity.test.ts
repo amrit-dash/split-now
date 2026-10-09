@@ -77,6 +77,12 @@ describe('expenseSaveActivity', () => {
     const a = expenseSaveActivity(base, { ...base, description: 'Sushi', category: 'groceries' }, ctx)!
     expect(a.summary).toBe('Sarah edited “Sushi”: description “Dinner” → “Sushi”; category Food & drink → Groceries')
   })
+  it('notes an edit that brought a waiting expense under the approval threshold', () => {
+    const a = expenseSaveActivity({ ...base, requiresApproval: true }, { ...base, amount: 4000, splits: { s: 2000, j: 2000 } }, ctx)!
+    expect(a.summary).toBe(`Sarah changed amount ${A(8000)} → ${A(4000)} on “Dinner”. Approved automatically (below the threshold)`)
+    const kept = expenseSaveActivity({ ...base, requiresApproval: true }, { ...base, amount: 8400, requiresApproval: true, splits: { s: 4200, j: 4200 } }, ctx)!
+    expect(kept.summary).not.toContain('Approved automatically')
+  })
   it('nothing tracked changed → no entry', () => {
     expect(expenseSaveActivity(base, { ...base, updatedAt: 5, receiptUrl: 'https://x' }, ctx)).toBeNull()
   })

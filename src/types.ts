@@ -35,6 +35,12 @@ export interface UserProfile {
   /** Mobile number (E.164 where possible). Not verified; shown to the user only. */
   phone?: string
   payment?: PaymentHandles
+  /**
+   * "Ask for approval on big expenses": what groups this user creates start with (each group
+   * keeps its own setting afterwards). Amount in minor units of `currency`, which follows the
+   * default currency (src/lib/approval.ts).
+   */
+  approvalDefault?: { on: boolean; amount: Cents; currency: string }
 }
 
 export type PhotoSource = 'upload' | 'google' | 'none'
@@ -65,7 +71,7 @@ export interface Group {
   simplify: boolean
   /** New expenses above approvalThreshold by others stay pending until everyone charged approves. */
   requireApproval?: boolean
-  /** Minor units of the group currency (default DEFAULT_APPROVAL_THRESHOLD in src/lib/trust.ts). */
+  /** Minor units of the group currency (default: the currency's figure in src/lib/approval.ts, via thresholdOf). */
   approvalThreshold?: Cents
   /** a member paused SMS auto-capture for this trip (the webhook skips it; docs/AUTO_CAPTURE.md) */
   captureOff?: boolean
@@ -199,6 +205,8 @@ export interface Settlement {
   createdAt: number
   /** Set when the payment came from a file import. */
   importedFrom?: ImportedFrom
+  /** The Pay me link (payLinks/{code}) this payment cleared: recorded by the server when the payer tapped "I've paid", or by a member from Settle up. */
+  payLink?: string
   deletedAt?: number
   deletedBy?: string
 }

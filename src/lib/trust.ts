@@ -1,4 +1,5 @@
 import type { Expense, ExpenseFlag, Group, MemberId, Settlement } from '@/types'
+import { defaultThreshold } from './approval'
 
 /**
  * Trust features that aren't the activity log: soft delete (trash), disputes (flags) and
@@ -7,8 +8,6 @@ import type { Expense, ExpenseFlag, Group, MemberId, Settlement } from '@/types'
 
 export const TRASH_DAYS = 30
 const DAY = 86_400_000
-/** A$100.00 in minor units (the group's currency). */
-export const DEFAULT_APPROVAL_THRESHOLD = 10_000
 
 type Trashable = Pick<Expense, 'deletedAt' | 'deletedBy'>
 
@@ -27,10 +26,17 @@ export function canPurge(x: Trashable, group: Pick<Group, 'createdBy'>, uid: str
   return x.deletedBy === uid || group.createdBy === uid
 }
 
-export const thresholdOf = (g: Pick<Group, 'approvalThreshold'>) => g.approvalThreshold ?? DEFAULT_APPROVAL_THRESHOLD
+/**
+ * The group's own threshold, else its currency's default (src/lib/approval.ts; firestore.rules
+ * approvalThresholdOf carries the same table). No rate here: an off-table currency gets the flat
+ * fallback, as in the rules.
+ */
+export const thresholdOf = (g: Pick<Group, 'approvalThreshold'> & Partial<Pick<Group, 'currency'>>) => g.approvalThreshold ?? defaultThreshold(g.currency ?? '')
+
+type ApprovalPolicy = Pick<Group, 'requireApproval' | 'approvalThreshold'> & Partial<Pick<Group, 'currency'>>
 
 /** Whether an expense of this amount must be approved in this group (amount strictly above the threshold). */
-export function needsApproval(g: Pick<Group, 'requireApproval' | 'approvalThreshold'>, amount: number): boolean {
+export function needsApproval(g: ApprovalPolicy, amount: number): boolean {
   return !!g.requireApproval && amount > thresholdOf(g)
 }
 
@@ -79,15 +85,14 @@ const sortKeys = (r: Record<string, number>) => Object.fromEntries(Object.entrie
  * stored copy (`prev`), never from the form, so an edit can't wipe someone's flag:
  *  - dispute and trash fields are kept as they are,
  *  - approvals survive unless the money changed (then only the editor's own stays),
- *  - requiresApproval is set on create (or when the amount changes) above the threshold,
- *    and never cleared.
+ *  - requiresApproval is set on create (or when the amount changes) above the threshold, and
+ *    kept on other edits while the amount is still above it. An edit that brings the amount
+ *    down to the threshold or below, or one made after the group turned approval off, clears
+ *    it, so the expense counts at once (the rules allow exactly that).
+ *  - `g` undefined means the group isn't known on this device yet: nothing is cleared then,
+ *    since the rules would refuse dropping the mark if the group still asks for it.
  */
-export function prepareExpenseSave(
-  prev: Expense | undefined,
-  next: Expense,
-  g: Pick<Group, 'requireApproval' | 'approvalThreshold'>,
-  editorUid: string,
-): Expense {
+export function prepareExpenseSave(prev: Expense | undefined, next: Expense, g: ApprovalPolicy | undefined, editorUid: string): Expense {
   const { dispute: _d, approvals: _a, requiresApproval: _r, deletedAt: _t, deletedBy: _b, ...rest } = next
   const out: Expense = { ...rest }
   if (prev?.dispute && Object.keys(prev.dispute).length) out.dispute = prev.dispute
@@ -96,7 +101,9 @@ export function prepareExpenseSave(
     out.deletedBy = prev.deletedBy
   }
   const amountChanged = !prev || prev.amount !== next.amount
-  if (prev?.requiresApproval || (amountChanged && needsApproval(g, next.amount))) out.requiresApproval = true
+  if (!g) {
+    if (prev?.requiresApproval) out.requiresApproval = true
+  } else if (needsApproval(g, next.amount) && (amountChanged || prev?.requiresApproval)) out.requiresApproval = true
   if (prev?.approvals) {
     const kept = prev && moneyChanged(prev, next) ? (prev.approvals[editorUid] ? { [editorUid]: true as const } : undefined) : prev.approvals
     if (kept && Object.keys(kept).length) out.approvals = kept
@@ -126,7 +133,8 @@ const sameValue = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON
 /**
  * The minimal update that turns the stored `prev` into `next` (the output of prepareExpenseSave),
  * so a save only touches what the form changed and never overwrites concurrent trust writes
- * with stale copies. `requiresApproval` is only ever added (the rules never let an edit drop it).
+ * with stale copies. `requiresApproval` is added or removed like any other field: prepareExpenseSave
+ * only drops it when the amount is no longer above the group's threshold, which the rules check.
  */
 export function expenseEditPatch(prev: Expense, next: Expense): ExpenseEditPatch {
   const skip = new Set<string>([...TRUST_FIELDS, 'id'])
@@ -139,8 +147,7 @@ export function expenseEditPatch(prev: Expense, next: Expense): ExpenseEditPatch
     if (b[k] === undefined) unset.push(k)
     else set[k] = b[k]
   }
-  if (prev.requiresApproval && !next.requiresApproval) delete set.requiresApproval
-  const out: ExpenseEditPatch = { set, unset: unset.filter((k) => k !== 'requiresApproval') }
+  const out: ExpenseEditPatch = { set, unset }
   if (moneyChanged(prev, next)) out.approvals = next.approvals && Object.keys(next.approvals).length ? next.approvals : null
   return out
 }
@@ -156,7 +163,7 @@ export function prepareImportedSettlement(s: Settlement): Settlement {
  * template. Also used for imported rows: like any new expense, one above the group's approval
  * threshold is marked requiresApproval (the rules require it on every create).
  */
-export function prepareOccurrence(o: Expense, g: Pick<Group, 'requireApproval' | 'approvalThreshold'>): Expense {
+export function prepareOccurrence(o: Expense, g: ApprovalPolicy): Expense {
   // Nor the template's receipt: the copy has no image of its own (purging it must not delete the template's).
   const { dispute: _d, approvals: _a, requiresApproval: _r, deletedAt: _t, deletedBy: _b, receiptUrl: _u, receiptPath: _p, ...rest } = o
   return needsApproval(g, o.amount) ? { ...rest, requiresApproval: true } : rest

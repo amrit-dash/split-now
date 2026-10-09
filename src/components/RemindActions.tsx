@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { BellRing, Loader2, Share2 } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
@@ -7,12 +8,13 @@ import type { ActivityEntry, Cents, Group, MemberId } from '@/types'
 import { errText } from '@/lib/errors'
 import { formatMoney } from '@/lib/money'
 import { lastNudgeAt, localNudgeAt, nudgeCooldownText, nudgeResultText, nudgedRecently, rememberNudge, type NudgeResult } from '@/lib/nudge'
+import { buildPayLink, newPayLinkCode } from '@/lib/paylinks'
 import { cardSpec, renderShareCard, shareReminder, type ReminderArgs } from '@/lib/share-card'
 import { useToast } from '@/components/Toast'
 
 /**
- * The two ways to chase a debt, side by side: Remind (the share sheet with a "Pay me" link
- * straight into their prefilled Settle up screen, plus a PNG card where files can be shared)
+ * The two ways to chase a debt, side by side: Remind (the share sheet with a Pay me link that
+ * works without an account, plus a PNG card where files can be shared; src/lib/paylinks.ts)
  * and Nudge (a push from the server, once a day per person and group). Nudge is hidden for
  * people who haven't joined (nothing to push to) and reads as unavailable once used today.
  */
@@ -35,6 +37,7 @@ export function RemindActions({
 }) {
   const { user, profile } = useMe()
   const toast = useToast()
+  const nav = useNavigate()
   const payLinks = useFlag('payLinks')
   const nudges = useFlag('nudges')
   const [busy, setBusy] = useState<'remind' | 'nudge' | null>(null)
@@ -49,20 +52,47 @@ export function RemindActions({
     if (busy) return
     setBusy('remind')
     try {
+      // A Pay me link the debtor can open without an account; written in the background (the
+      // share sheet must open while the tap still counts), refusals arrive through onError.
+      const code = newPayLinkCode()
+      const payeeName = group.members[me]?.name ?? profile.displayName
+      repo
+        .createPayLink(
+          code,
+          buildPayLink(
+            {
+              groupId: group.id,
+              groupName: group.name,
+              emoji: group.emoji,
+              from: { id: debtor, name },
+              to: { id: me, name: payeeName },
+              amount,
+              currency: group.currency,
+              payment: profile.payment,
+              createdBy: user.uid,
+            },
+            Date.now(),
+          ),
+        )
+        .catch((e) => toast(errText(e), 'err'))
       const args: ReminderArgs = {
         origin: location.origin,
         groupId: group.id,
         groupName: group.name,
         emoji: group.emoji,
         debtor: { id: debtor, name },
-        payee: { id: me, name: group.members[me]?.name ?? profile.displayName },
+        payee: { id: me, name: payeeName },
         amount,
         currency: group.currency,
         upi: profile.payment?.upi,
+        payLink: code,
       }
       const file = await renderShareCard(cardSpec(args)).catch(() => null)
       const r = await shareReminder(args, file)
-      if (r === 'copied') toast('Reminder and pay link copied')
+      // Demo mode has one browser: offer to open the link as the friend would see it.
+      const demo = repo.mode === 'demo' ? { action: { label: `Open as ${first}`, run: () => nav(`/r/${code}?guest=demo`) } } : undefined
+      if (r === 'copied') toast('Reminder and Pay me link copied', 'ok', demo)
+      else if (demo) toast('Pay me link ready', 'ok', demo)
     } catch (e) {
       toast(errText(e), 'err')
     } finally {

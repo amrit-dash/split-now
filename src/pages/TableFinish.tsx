@@ -10,8 +10,10 @@ import { colorFor } from '@/lib/colors'
 import { uid } from '@/lib/id'
 import { formatMoney } from '@/lib/money'
 import { errText } from '@/lib/errors'
+import { groupTableLinks, openTableLinks } from '@/lib/paylinks'
 import {
   claimLeftoversForAll,
+  computeTableTotals,
   matchParticipants,
   participantOrder,
   tableToSplit,
@@ -138,7 +140,18 @@ function useSaveExpense(table: LiveTable) {
       updatedAt: now,
     }
     await repo.saveExpense(e)
-    await repo.updateTable(table.code, { status: 'closed', groupId: group.id, closedGroupId: group.id, expenseId: e.id })
+    // Each guest gets their own Pay me link for exactly their share, so their "I've paid" is
+    // recorded in this group. Only when the payer is the host's own member (the rules check it).
+    const links =
+      merged.members[payer]?.uid === user.uid ? groupTableLinks(table, merged, mapping, payer, split.splits, user.uid, now) : { links: [], byParticipant: {} }
+    for (const l of links.links) await repo.createPayLink(l.code, l.link)
+    await repo.updateTable(table.code, {
+      status: 'closed',
+      groupId: group.id,
+      closedGroupId: group.id,
+      expenseId: e.id,
+      ...(links.links.length ? { payLinks: links.byParticipant } : {}),
+    })
     return e
   }
 }
@@ -229,6 +242,13 @@ function NoGroup({ table, ready }: { table: LiveTable; ready: boolean }) {
   const save = useSaveExpense(table)
   const [busy, setBusy] = useState(false)
 
+  // Everyone still gets a Pay me link for their total, so "I've paid" reaches the host.
+  const closeWithoutGroup = async () => {
+    const links = openTableLinks(table, computeTableTotals(table).people, user.uid, Date.now())
+    for (const l of links.links) await repo.createPayLink(l.code, l.link)
+    await repo.updateTable(table.code, { status: 'closed', ...(links.links.length ? { payLinks: links.byParticipant } : {}) })
+  }
+
   const createGroup = async () => {
     setBusy(true)
     try {
@@ -270,12 +290,7 @@ function NoGroup({ table, ready }: { table: LiveTable; ready: boolean }) {
         <Users size={18} aria-hidden /> Create group and add the bill
       </button>
       {!ready && <p className="text-muted text-center text-xs">Claim or split the leftover items first.</p>}
-      <button
-        type="button"
-        className="btn-ghost w-full"
-        disabled={busy}
-        onClick={() => repo.updateTable(table.code, { status: 'closed' }).catch((e) => toast(errText(e), 'err'))}
-      >
+      <button type="button" className="btn-ghost w-full" disabled={busy} onClick={() => closeWithoutGroup().catch((e) => toast(errText(e), 'err'))}>
         Don’t make a group, just show who owes what
       </button>
     </div>

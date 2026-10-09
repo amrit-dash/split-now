@@ -779,6 +779,17 @@ function ActivityList({
                       <b>{name(r.s.from)}</b> paid <b>{name(r.s.to)}</b>
                       <div className="text-muted text-xs">
                         {methodLabel(r.s.method)} · {formatDate(r.s.date)}
+                        {r.s.payLink && (
+                          <>
+                            {' · '}
+                            <Link
+                              to={`/r/${r.s.payLink}`}
+                              className="inline-flex min-h-6 items-center font-semibold text-brand-600 underline dark:text-brand-300"
+                            >
+                              Pay me link
+                            </Link>
+                          </>
+                        )}
                       </div>
                     </div>
                     <div className="pos font-semibold">{formatMoney(r.s.amount, currency)}</div>

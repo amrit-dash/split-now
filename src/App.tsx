@@ -54,6 +54,7 @@ const Admin = lazy(load.Admin)
 const ImportGroup = lazy(load.ImportGroup)
 const Table = lazy(load.Table)
 const TableEntry = lazy(() => load.Table().then((m) => ({ default: m.TableEntry })))
+const PayLink = lazy(load.PayLink)
 
 /** A same-origin path only: no protocol-relative (//host) or backslash tricks in the stored return URL. */
 const safePath = (p: string | null) => (p && /^\/(?![/\\])\S*$/.test(p) ? p : null)
@@ -150,8 +151,12 @@ export default function App() {
   // Live table links work without an account (anonymous sign-in); anonymous users see nothing else.
   const tablePath = loc.pathname === '/t' || loc.pathname.startsWith('/t/')
   const guestTable = !loading && (!user || !!user.isAnonymous) && tablePath
+  // Pay me links too: the person paying needs no account (src/pages/PayLink.tsx).
+  const payLinks = cfg.flags.payLinks !== false
+  const payPath = loc.pathname.startsWith('/r/')
+  const guestPay = !loading && (!user || !!user.isAnonymous) && payPath
   // Remember where they were going (e.g. an invite link) and come back after sign-in.
-  if (!loading && !user && !guestCapture && !tablePath && loc.pathname !== '/') {
+  if (!loading && !user && !guestCapture && !tablePath && !payPath && loc.pathname !== '/') {
     const here = safePath(loc.pathname + loc.search)
     if (here) sessionStorage.setItem('splitit-return', here)
   }
@@ -175,6 +180,20 @@ export default function App() {
           </Suspense>
         ) : (
           <GateScreen title="Live tables are off for now" message="The host can still add the bill in the app and settle up from there.">
+            <a href="/" className="btn-primary">
+              Open Split Now
+            </a>
+          </GateScreen>
+        )
+      ) : guestPay ? (
+        payLinks ? (
+          <Suspense fallback={<Splash />}>
+            <Routes>
+              <Route path="r/:code" element={<PayLink />} />
+            </Routes>
+          </Suspense>
+        ) : (
+          <GateScreen title="Pay me links are off for now" message="Ask the person you owe for their UPI ID, or settle up in the app.">
             <a href="/" className="btn-primary">
               Open Split Now
             </a>
@@ -239,6 +258,7 @@ function AppRoutes({ cfg, admin }: { cfg: AppConfig; admin: boolean }) {
           <Route path="join/:code" element={<Join />} />
           <Route path="t" element={liveTables ? <TableEntry /> : <Navigate to="/" replace />} />
           <Route path="t/:code" element={liveTables ? <Table /> : <Navigate to="/" replace />} />
+          <Route path="r/:code" element={cfg.flags.payLinks !== false ? <PayLink /> : <Navigate to="/" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>

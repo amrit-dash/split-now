@@ -151,3 +151,24 @@ export function reminderNote(r: { groupId: string; groupName: string; emoji?: st
     urgency: 'normal',
   }
 }
+
+/**
+ * To the payee, when someone tapped "I've paid" on their Pay me link. `recorded`: the payment is
+ * in the group now (the payee deletes it there if it isn't right); otherwise (a live table closed
+ * without a group) this is the only record.
+ */
+export function payLinkPaidNote(p: {
+  code: string
+  groupName: string
+  emoji?: string
+  payerName: string
+  amount: number
+  currency: string
+  recorded: boolean
+  withProof?: boolean
+}): Note {
+  const head = `${clip(p.payerName, 30)} marked ${formatMoney(p.amount, p.currency)} paid · ${clip(p.groupName, 40)}`
+  const proof = p.withProof ? ' Screenshot attached.' : ''
+  const tail = p.recorded ? ' It’s recorded as a payment; not right? Delete it in the group.' : ''
+  return { title: groupTitle(p.groupName, p.emoji), body: `${head}.${proof}${tail}`, url: `/r/${p.code}`, tag: `paylink-${p.code}` }
+}

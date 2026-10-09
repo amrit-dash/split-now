@@ -14,6 +14,19 @@ service cloud.firestore {
     // admins/{uid}: created by hand in the Firebase console; no client can write it.
     function isAdmin() { return isUser() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
     function groupDoc(groupId) { return get(/databases/$(database)/documents/groups/$(groupId)); }
+    // A group's "Needs your OK" threshold in minor units: its own, else its currency's default.
+    // The same table as src/lib/approval.ts APPROVAL_DEFAULTS (a unit test keeps them equal);
+    // other currencies get the flat fallback.
+    function approvalThresholdOf(g) {
+      return g.get('approvalThreshold', {'INR': 200000, 'USD': 10000, 'EUR': 10000, 'GBP': 10000, 'AUD': 10000, 'NZD': 10000, 'CAD': 10000,
+        'SGD': 10000, 'CHF': 10000, 'AED': 30000, 'THB': 200000, 'MYR': 30000, 'LKR': 1000000, 'NPR': 300000, 'JPY': 10000, 'KRW': 100000,
+        'IDR': 100000000, 'HKD': 50000, 'CNY': 50000, 'PHP': 500000, 'VND': 2000000, 'ZAR': 100000, 'SEK': 100000, 'NOK': 100000,
+        'DKK': 50000}.get(g.currency, 10000));
+    }
+    // Whether an expense of `amount` in this group must be approved (strictly above the threshold).
+    function approvalNeeded(g, amount) {
+      return g.get('requireApproval', false) == true && amount > approvalThresholdOf(g);
+    }
     function isGroupMember(groupId) { return isUser() && uid() in groupDoc(groupId).data.memberUids; }
     // State of the group once the current write (or batch) is applied.
     function groupAfter(groupId) { return getAfter(/databases/$(database)/documents/groups/$(groupId)); }
@@ -34,11 +47,25 @@ service cloud.firestore {
     // What co-members may see (name + payment handles) is copied by the owner into
     // groups/{groupId}/profiles/{uid}, readable only by that group's members.
     match /users/{userId} {
+      // "Ask for approval on big expenses" (Settings → Preferences): the default for groups
+      // this user creates, { on, amount (minor units of currency), currency }.
+      function validApprovalDefault(p) {
+        return !('approvalDefault' in p) || (
+          p.approvalDefault is map
+          && p.approvalDefault.keys().hasAll(['on', 'amount', 'currency'])
+          && p.approvalDefault.keys().hasOnly(['on', 'amount', 'currency'])
+          && p.approvalDefault.on is bool
+          && p.approvalDefault.amount is int
+          && p.approvalDefault.amount > 0 && p.approvalDefault.amount <= 100000000000
+          && p.approvalDefault.currency is string && p.approvalDefault.currency.size() == 3);
+      }
+
       allow get: if isUser() && uid() == userId;
       allow list: if false;
       allow create, update: if isUser() && uid() == userId
         && request.resource.data.uid == userId
-        && writesOpen();
+        && writesOpen()
+        && validApprovalDefault(request.resource.data);
       allow delete: if isUser() && uid() == userId;
 
       // Captured transactions waiting to be sorted into a group: private to the user.
@@ -481,19 +508,19 @@ service cloud.firestore {
             && d.paidBy.keys().hasOnly(groupDoc(groupId).data.members.keys())
             && d.splits.keys().hasOnly(groupDoc(groupId).data.members.keys());
         }
-        // With group.requireApproval, an expense above approvalThreshold must carry
-        // requiresApproval when created or when its amount changes.
+        // With group.requireApproval, an expense above its threshold (approvalThresholdOf) must
+        // carry requiresApproval when created or when its amount changes.
         function approvalFlagOk() {
-          let g = groupDoc(groupId).data;
           let d = request.resource.data;
-          return !(g.get('requireApproval', false) == true
-                   && d.amount > g.get('approvalThreshold', 10000)
+          return !(approvalNeeded(groupDoc(groupId).data, d.amount)
                    && (request.method == 'create' || d.amount != resource.data.amount))
             || d.get('requiresApproval', false) == true;
         }
-        // A normal edit can't touch anyone's flag or the trash fields, can't drop
-        // requiresApproval, and may only remove approvals (the app clears them when the money
-        // changes); approving is its own write (isFlagOrApproval).
+        // A normal edit can't touch anyone's flag or the trash fields, and may only remove
+        // approvals (the app clears them when the money changes); approving is its own write
+        // (isFlagOrApproval). It may drop requiresApproval only when the new amount no longer
+        // needs approval (at or below the threshold, or the group turned approval off): the
+        // expense then counts at once.
         function trustFieldsKept() {
           let before = resource.data;
           let after = request.resource.data;
@@ -501,7 +528,8 @@ service cloud.firestore {
           return !after.diff(before).affectedKeys().hasAny(['dispute', 'deletedAt', 'deletedBy'])
             && approvals.changedKeys().size() == 0
             && approvals.addedKeys().size() == 0
-            && (before.get('requiresApproval', false) != true || after.get('requiresApproval', false) == true);
+            && (before.get('requiresApproval', false) != true || after.get('requiresApproval', false) == true
+                || !approvalNeeded(groupDoc(groupId).data, after.amount));
         }
         // Flag / resolve / approve: only the caller's own key in `dispute` and `approvals`,
         // and nothing else in the document.
@@ -561,6 +589,10 @@ service cloud.firestore {
       match /settlements/{settlementId} {
         function validSettlement() {
           return validAuthor()
+            // Every field a payment may hold (src/types.ts Settlement); nothing else rides along.
+            && request.resource.data.keys().hasOnly(['id', 'groupId', 'from', 'to', 'amount', 'method', 'note', 'date', 'createdBy',
+                'createdAt', 'importedFrom', 'payLink', 'deletedAt', 'deletedBy'])
+            && (!('payLink' in request.resource.data) || (request.resource.data.payLink is string && request.resource.data.payLink.size() <= 40))
             && request.resource.data.groupId == groupId
             && request.resource.data.amount is int
             && request.resource.data.amount > 0
@@ -693,6 +725,95 @@ service cloud.firestore {
           && request.resource.data.status in ['open', 'closed'])
         || isGuestUpdate());
       allow delete: if isHost() && writesOpen();
+    }
+
+    // ---- Pay me links --------------------------------------------------
+    // payLinks/{code}: a payee asks to be paid with a link that works without an account. The
+    // code (20–40 random lowercase letters and digits) is the secret: anyone signed in, anonymous
+    // included, may get a link they have the code for; nobody can list them. Only the payee
+    // creates (for a debt in a group they are in, or a live table they host) or cancels one.
+    // Anyone with the code may make exactly one change, while it is open and unexpired: open →
+    // paid with paidAt, paidBy (themselves) and optionally method and a proof under
+    // payproofs/{code}/. The onPayLinkPaid function records the settlement (Admin SDK).
+    // It shows the payee's chosen handles (UPI ID, UPI number, PayID, PayPal, Revolut; never bank
+    // account numbers) to anyone with the code: the owner accepted that (docs/PLAN.md §4.3).
+    match /payLinks/{code} {
+      function linkStr(d, k, max) { return d[k] is string && d[k].size() > 0 && d[k].size() <= max; }
+      function linkOptStr(d, k, max) { return !(k in d) || linkStr(d, k, max); }
+      function validHandles(h) {
+        return h is map
+          && h.keys().hasOnly(['upi', 'phone', 'payid', 'paypal', 'revolut'])
+          && linkOptStr(h, 'upi', 100) && linkOptStr(h, 'phone', 100) && linkOptStr(h, 'payid', 100)
+          && linkOptStr(h, 'paypal', 100) && linkOptStr(h, 'revolut', 100);
+      }
+      // The payee is the creator's own member entry in a group they belong to, owed by another member.
+      function payeeInGroup(d) {
+        let g = groupDoc(d.groupId).data;
+        return uid() in g.memberUids
+          && d.to in g.members && g.members[d.to].get('uid', '') == uid()
+          && d.from in g.members
+          && d.currency == g.currency;
+      }
+      // A live table closed without a group: the host is the payee, the debtor one of its people.
+      function hostOfTable(d) {
+        let t = get(/databases/$(database)/documents/tables/$(d.tableCode)).data;
+        return t.hostUid == uid() && d.to == uid() && d.from in t.participants;
+      }
+      function validNewLink(d) {
+        let now = request.time.toMillis();
+        return d.keys().hasAll(['groupName', 'from', 'to', 'amount', 'currency', 'payeeName', 'payerName', 'payment',
+            'createdBy', 'createdAt', 'expiresAt', 'status'])
+          && d.keys().hasOnly(['groupId', 'groupName', 'emoji', 'tableCode', 'from', 'to', 'amount', 'currency', 'payeeName', 'payerName',
+            'payment', 'forUid', 'createdBy', 'createdAt', 'expiresAt', 'status'])
+          && d.createdBy == uid()
+          && d.status == 'open'
+          && d.amount is int && d.amount > 0 && d.amount <= 100000000000
+          && d.currency is string && d.currency.size() == 3
+          && linkStr(d, 'from', 64) && linkStr(d, 'to', 128) && d.from != d.to
+          && linkStr(d, 'groupName', 80) && linkStr(d, 'payeeName', 80) && linkStr(d, 'payerName', 80)
+          && linkOptStr(d, 'emoji', 16) && linkOptStr(d, 'forUid', 128) && linkOptStr(d, 'tableCode', 12)
+          && validHandles(d.payment)
+          && d.createdAt is int && d.createdAt > now - 600000 && d.createdAt < now + 600000
+          && d.expiresAt is int && d.expiresAt > d.createdAt && d.expiresAt - d.createdAt <= 2678400000
+          && (('groupId' in d && linkStr(d, 'groupId', 64) && payeeInGroup(d))
+            || (!('groupId' in d) && 'tableCode' in d && hostOfTable(d)));
+      }
+      // "I've paid": the only change someone other than the payee may make, once.
+      function isPaidClaim() {
+        let before = resource.data;
+        let after = request.resource.data;
+        let now = request.time.toMillis();
+        return signedIn()
+          && before.status == 'open'
+          && now < before.expiresAt
+          && after.status == 'paid'
+          && after.diff(before).affectedKeys().hasOnly(['status', 'paidAt', 'paidBy', 'method', 'proofPath', 'settlementId'])
+          && after.paidAt is int && after.paidAt > now - 600000 && after.paidAt < now + 600000
+          && after.paidBy == uid()
+          && (!('forUid' in before) || before.forUid == uid())
+          && linkOptStr(after, 'method', 40)
+          && (!('proofPath' in after) || (after.proofPath is string
+            && after.proofPath.matches('payproofs/' + code + '/[A-Za-z0-9_-]{1,64}[.]jpg')))
+          // A member who recorded the payment in Settle up says which settlement cleared it.
+          && (!('settlementId' in after) || (isUser() && 'groupId' in before
+            && uid() in groupDoc(before.groupId).data.memberUids
+            && linkStr(after, 'settlementId', 64)));
+      }
+      function isCancel() {
+        return isUser()
+          && resource.data.createdBy == uid()
+          && resource.data.status == 'open'
+          && request.resource.data.status == 'cancelled'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'cancelledAt'])
+          && request.resource.data.cancelledAt is int;
+      }
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if isUser() && writesOpen()
+        && code.size() >= 20 && code.size() <= 40 && code.matches('[a-z0-9]+')
+        && validNewLink(request.resource.data);
+      allow update: if writesOpen() && (isPaidClaim() || isCancel());
+      allow delete: if isUser() && writesOpen() && resource.data.createdBy == uid();
     }
 
     // ---- Invites -------------------------------------------------------

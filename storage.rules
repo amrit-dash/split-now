@@ -3,6 +3,7 @@ rules_version = '2';
 // Receipts live at receipts/{groupId}/{file}. Only members of that group can read or write.
 // Profile photos live at avatars/{uid}/{file}: written only by that user, readable by anyone
 // signed in (co-members see them on group screens; the URL carries a download token anyway).
+// Pay me link screenshots live at payproofs/{code}/{file} (see that block).
 // Only raster image types: SVG is active content and the app never uploads it.
 service firebase.storage {
   match /b/{bucket}/o {
@@ -34,6 +35,27 @@ service firebase.storage {
         && request.resource.size < 2 * 1024 * 1024
         && isImage();
       allow delete: if isUser() && request.auth.uid == userId;
+    }
+
+    // Payment screenshots for Pay me links (payLinks/{code}): whoever has the link, anonymous
+    // included, may add one while the link is open and unexpired (and, for a table guest's own
+    // link, only that guest), never over an existing file; a JPEG under 5 MB (the app downscales
+    // first). Only the payee who made the link and the members of its group can read them.
+    match /payproofs/{code}/{fileName} {
+      function link() {
+        return firestore.get(/databases/(default)/documents/payLinks/$(code)).data;
+      }
+      allow read: if request.auth != null
+        && (link().createdBy == request.auth.uid || ('groupId' in link() && isMember(link().groupId)));
+      allow create: if request.auth != null
+        && resource == null
+        && fileName.matches('[A-Za-z0-9_-]{1,64}[.]jpg')
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType == 'image/jpeg'
+        && link().status == 'open'
+        && request.time.toMillis() < link().expiresAt
+        && (!('forUid' in link()) || link().forUid == request.auth.uid);
+      allow delete: if request.auth != null && link().createdBy == request.auth.uid;
     }
 
     match /{allPaths=**} {
