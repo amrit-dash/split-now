@@ -20,8 +20,7 @@ function useReducedMotion() {
   return reduced
 }
 
-const cssVar = (name: string, fallback: string) =>
-  getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback
+const cssVar = (name: string, fallback: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback
 const isDark = () => document.documentElement.classList.contains('dark')
 
 function palette() {
@@ -46,16 +45,21 @@ export function Celebrate({ size = 88 }: { size?: number }) {
   const anims = useRef<Animation[]>([])
 
   const popIcon = useCallback(() => {
-    anims.current.forEach((a) => a.cancel())
+    for (const a of anims.current) a.cancel()
     anims.current = []
     const icon = iconRef.current
     if (icon?.animate) {
-      anims.current.push(icon.animate([
-        { transform: 'rotate(-24deg) scale(0.6)', offset: 0 },
-        { transform: 'rotate(14deg) scale(1.14)', offset: 0.45 },
-        { transform: 'rotate(-6deg) scale(0.97)', offset: 0.7 },
-        { transform: 'rotate(0deg) scale(1)', offset: 1 },
-      ], { duration: 760, easing: 'cubic-bezier(0.2, 0.9, 0.3, 1.2)' }))
+      anims.current.push(
+        icon.animate(
+          [
+            { transform: 'rotate(-24deg) scale(0.6)', offset: 0 },
+            { transform: 'rotate(14deg) scale(1.14)', offset: 0.45 },
+            { transform: 'rotate(-6deg) scale(0.97)', offset: 0.7 },
+            { transform: 'rotate(0deg) scale(1)', offset: 1 },
+          ],
+          { duration: 760, easing: 'cubic-bezier(0.2, 0.9, 0.3, 1.2)' },
+        ),
+      )
     }
     const { colors, gold } = palette()
     const bits = bitsRef.current?.children
@@ -66,13 +70,19 @@ export function Celebrate({ size = 88 }: { size?: number }) {
       // The popper's mouth points up-right: throw the bits into that quarter.
       const a = (-90 + rand(-25, 95)) * (Math.PI / 180)
       const d = size * rand(0.45, 0.85)
-      const x = Math.cos(a) * d, y = Math.sin(a) * d
+      const x = Math.cos(a) * d,
+        y = Math.sin(a) * d
       const spin = rand(-360, 360)
-      anims.current.push(el.animate([
-        { transform: 'translate(0, 0) rotate(0deg) scale(0.4)', opacity: 0 },
-        { transform: `translate(${x * 0.7}px, ${y * 0.7}px) rotate(${spin * 0.6}deg) scale(1)`, opacity: 1, offset: 0.35 },
-        { transform: `translate(${x}px, ${y + size * 0.35}px) rotate(${spin}deg) scale(0.9)`, opacity: 0 },
-      ], { duration: rand(900, 1200), delay: 120 + rand(0, 90), easing: 'cubic-bezier(0.15, 0.7, 0.3, 1)', fill: 'backwards' }))
+      anims.current.push(
+        el.animate(
+          [
+            { transform: 'translate(0, 0) rotate(0deg) scale(0.4)', opacity: 0 },
+            { transform: `translate(${x * 0.7}px, ${y * 0.7}px) rotate(${spin * 0.6}deg) scale(1)`, opacity: 1, offset: 0.35 },
+            { transform: `translate(${x}px, ${y + size * 0.35}px) rotate(${spin}deg) scale(0.9)`, opacity: 0 },
+          ],
+          { duration: rand(900, 1200), delay: 120 + rand(0, 90), easing: 'cubic-bezier(0.15, 0.7, 0.3, 1)', fill: 'backwards' },
+        ),
+      )
     }
   }, [size])
 
@@ -86,7 +96,7 @@ export function Celebrate({ size = 88 }: { size?: number }) {
     const t = setTimeout(popIcon, 150) // after the page has painted
     return () => {
       clearTimeout(t)
-      anims.current.forEach((a) => a.cancel())
+      for (const a of anims.current) a.cancel()
       anims.current = []
     }
   }, [reduced, popIcon])
@@ -109,7 +119,12 @@ export function Celebrate({ size = 88 }: { size?: number }) {
     </span>
   )
 
-  if (reduced) return <div data-testid="celebrate" aria-hidden>{badge}</div>
+  if (reduced)
+    return (
+      <div data-testid="celebrate" aria-hidden>
+        {badge}
+      </div>
+    )
   return (
     <button type="button" onClick={play} aria-label="Celebrate again" data-testid="celebrate" className="rounded-full transition active:scale-95">
       {badge}

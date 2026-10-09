@@ -4,7 +4,16 @@ import { activityHref, activityText } from './activity'
 import { collapseRuns, isUnread, othersActivity, RUN_GAP_MS, unreadCount } from './inbox'
 
 const a = (actorUid: string, createdAt: number, type: ActivityType = 'expense.created', groupId = 'g') =>
-  ({ id: `${actorUid}${createdAt}`, groupId, type, actorUid, actorName: actorUid, targetId: `e${createdAt}`, summary: `${actorUid} added “x${createdAt}”`, createdAt }) as ActivityEntry
+  ({
+    id: `${actorUid}${createdAt}`,
+    groupId,
+    type,
+    actorUid,
+    actorName: actorUid,
+    targetId: `e${createdAt}`,
+    summary: `${actorUid} added “x${createdAt}”`,
+    createdAt,
+  }) as ActivityEntry
 
 describe('inbox updates', () => {
   it('counts only other people’s entries newer than the last visit', () => {

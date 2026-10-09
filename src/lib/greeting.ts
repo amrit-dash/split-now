@@ -29,11 +29,44 @@ export type HelloMotion = 'wave' | 'float' | 'tilt' | 'bounce' | 'pulse' | 'swin
 type Hello = { emoji: string; motion: HelloMotion }
 /** Icons after "Hi", by time of day, each with its own little motion. One is picked per visit. */
 export const HELLO: Record<DayPart, Hello[]> = {
-  earlyMorning: [{ emoji: '🌅', motion: 'float' }, { emoji: '☕', motion: 'tilt' }, { emoji: '🐦', motion: 'bounce' }, { emoji: '🌄', motion: 'pulse' }, { emoji: '👋', motion: 'wave' }],
-  morning: [{ emoji: '👋', motion: 'wave' }, { emoji: '☀️', motion: 'pulse' }, { emoji: '☕', motion: 'tilt' }, { emoji: '🌻', motion: 'swing' }, { emoji: '🥐', motion: 'bounce' }, { emoji: '🚀', motion: 'float' }],
-  afternoon: [{ emoji: '👋', motion: 'wave' }, { emoji: '😎', motion: 'tilt' }, { emoji: '🌤️', motion: 'float' }, { emoji: '🍹', motion: 'swing' }, { emoji: '⚡', motion: 'pulse' }, { emoji: '🙌', motion: 'bounce' }],
-  evening: [{ emoji: '👋', motion: 'wave' }, { emoji: '🌆', motion: 'float' }, { emoji: '✨', motion: 'pulse' }, { emoji: '🍕', motion: 'tilt' }, { emoji: '🎶', motion: 'swing' }, { emoji: '🌇', motion: 'bounce' }],
-  lateNight: [{ emoji: '🌙', motion: 'float' }, { emoji: '✨', motion: 'pulse' }, { emoji: '🦉', motion: 'tilt' }, { emoji: '⭐', motion: 'swing' }, { emoji: '😴', motion: 'bounce' }],
+  earlyMorning: [
+    { emoji: '🌅', motion: 'float' },
+    { emoji: '☕', motion: 'tilt' },
+    { emoji: '🐦', motion: 'bounce' },
+    { emoji: '🌄', motion: 'pulse' },
+    { emoji: '👋', motion: 'wave' },
+  ],
+  morning: [
+    { emoji: '👋', motion: 'wave' },
+    { emoji: '☀️', motion: 'pulse' },
+    { emoji: '☕', motion: 'tilt' },
+    { emoji: '🌻', motion: 'swing' },
+    { emoji: '🥐', motion: 'bounce' },
+    { emoji: '🚀', motion: 'float' },
+  ],
+  afternoon: [
+    { emoji: '👋', motion: 'wave' },
+    { emoji: '😎', motion: 'tilt' },
+    { emoji: '🌤️', motion: 'float' },
+    { emoji: '🍹', motion: 'swing' },
+    { emoji: '⚡', motion: 'pulse' },
+    { emoji: '🙌', motion: 'bounce' },
+  ],
+  evening: [
+    { emoji: '👋', motion: 'wave' },
+    { emoji: '🌆', motion: 'float' },
+    { emoji: '✨', motion: 'pulse' },
+    { emoji: '🍕', motion: 'tilt' },
+    { emoji: '🎶', motion: 'swing' },
+    { emoji: '🌇', motion: 'bounce' },
+  ],
+  lateNight: [
+    { emoji: '🌙', motion: 'float' },
+    { emoji: '✨', motion: 'pulse' },
+    { emoji: '🦉', motion: 'tilt' },
+    { emoji: '⭐', motion: 'swing' },
+    { emoji: '😴', motion: 'bounce' },
+  ],
 }
 
 /** The icon for this visit: random per app open, then kept (same icon while you move around). */
@@ -41,10 +74,18 @@ export function helloFor(part: DayPart): Hello {
   const list = HELLO[part]
   const key = `splitit-hello-${part}`
   let i = -1
-  try { i = Number(sessionStorage.getItem(key) ?? -1) } catch { /* private mode */ }
+  try {
+    i = Number(sessionStorage.getItem(key) ?? -1)
+  } catch {
+    /* private mode */
+  }
   if (!(i >= 0 && i < list.length)) {
     i = Math.floor(Math.random() * list.length)
-    try { sessionStorage.setItem(key, String(i)) } catch { /* private mode */ }
+    try {
+      sessionStorage.setItem(key, String(i))
+    } catch {
+      /* private mode */
+    }
   }
   return list[i]
 }

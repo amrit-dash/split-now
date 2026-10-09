@@ -1,6 +1,15 @@
-import type { Cents, Group } from '@/types'
-import { CURRENCIES, centsToInput, fromHundredths, minorDigits } from './money'
+import type { Cents } from '@/types'
+import type { CaptureFilterPrefs } from '../../shared/capture-filters'
+import { filterReason } from '../../shared/capture-filters'
+import { currencyFromAmount, fingerprint, sanitiseRef } from '../../shared/money-core'
+import { isBankLikeSms, maskSms, parseBankSms, type SmsKind } from '../../shared/sms-parse'
+import { centsToInput, fromHundredths, minorDigits } from './money'
 import { findAmounts, parseDate, parsePaymentScreenshot } from './ocr-parse'
+
+// Shared with the capture webhook (shared/trips.ts, shared/money-core.ts): one ranking, one
+// currency inference, on both sides.
+export { hasTripWindow, inTripWindow, isLiveTrip, liveTripFor, rankGroupsForCapture } from '../../shared/trips'
+export { currencyFromAmount, sanitiseRef }
 
 /** What a /capture URL (or an inbox document) describes, after validation. */
 export interface CaptureDraft {
@@ -26,50 +35,41 @@ export type CaptureParse = { ok: true; draft: CaptureDraft; token?: string; owne
 export const CAPTURE_SOURCES = ['sms-ios', 'sms-android', 'ios-shortcut', 'android-auto', 'share', 'email', 'manual'] as const
 
 export const SOURCE_LABEL: Record<string, string> = {
-  'sms-ios': 'iPhone SMS', 'sms-android': 'Android SMS', sms: 'SMS',
-  'ios-shortcut': 'Apple Pay', 'android-auto': 'Android', share: 'Shared', email: 'Email', manual: 'Link', statement: 'Statement',
+  'sms-ios': 'iPhone SMS',
+  'sms-android': 'Android SMS',
+  sms: 'SMS',
+  'ios-shortcut': 'Apple Pay',
+  'android-auto': 'Android',
+  share: 'Shared',
+  email: 'Email',
+  manual: 'Link',
+  statement: 'Statement',
 }
 
 /** Older/alternative `src` names we accept and normalise. */
 const SOURCE_ALIASES: Record<string, string> = {
-  applepay: 'ios-shortcut', 'apple-pay': 'ios-shortcut', ios: 'ios-shortcut', shortcut: 'ios-shortcut', shortcuts: 'ios-shortcut',
-  android: 'android-auto', tasker: 'android-auto', macrodroid: 'android-auto', automate: 'android-auto',
-  'ios-sms': 'sms-ios', 'android-sms': 'sms-android',
+  applepay: 'ios-shortcut',
+  'apple-pay': 'ios-shortcut',
+  ios: 'ios-shortcut',
+  shortcut: 'ios-shortcut',
+  shortcuts: 'ios-shortcut',
+  android: 'android-auto',
+  tasker: 'android-auto',
+  macrodroid: 'android-auto',
+  automate: 'android-auto',
+  'ios-sms': 'sms-ios',
+  'android-sms': 'sms-android',
 }
 
 /** Sources that came from a bank/UPI SMS forwarded by the webhook. */
 export const isSmsSource = (source: string) => source === 'sms-ios' || source === 'sms-android' || source === 'sms'
 
 export function normaliseSource(raw: string | null | undefined): string {
-  const s = (raw ?? '').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 20)
+  const s = (raw ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, '')
+    .slice(0, 20)
   return SOURCE_ALIASES[s] ?? (s || 'manual')
-}
-
-/** Safe document id from an idempotency key, or undefined. */
-export function sanitiseRef(raw: string | null | undefined): string | undefined {
-  const s = raw?.trim().replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64)
-  return s && s.length >= 4 ? s : undefined
-}
-
-const SYMBOLS: Array<[RegExp, string]> = [
-  [/(?<![A-Z])A\$|AU\$/i, 'AUD'],
-  [/NZ\$/i, 'NZD'],
-  [/US\$/i, 'USD'],
-  [/(?<![A-Z])C\$|CA\$/i, 'CAD'],
-  [/(?<![A-Z])S\$|SG\$/i, 'SGD'],
-  [/€/, 'EUR'],
-  [/£/, 'GBP'],
-  [/₹|\bRs\.?/i, 'INR'],
-  [/¥/, 'JPY'],
-  [/\bRp\b/i, 'IDR'],
-  [/฿/, 'THB'],
-]
-
-/** Currency implied by an amount string such as "A$12.50" or "12,50 EUR". */
-export function currencyFromAmount(raw: string): string | undefined {
-  const code = [...raw.matchAll(/\b([A-Z]{3})\b/g)].map((m) => m[1]).find((c) => CURRENCIES.includes(c))
-  if (code) return code
-  return SYMBOLS.find(([re]) => re.test(raw))?.[1]
 }
 
 /**
@@ -131,7 +131,7 @@ export function parseCaptureParams(params: URLSearchParams, today: string): Capt
   const amountStr = params.get('amount')?.trim() || raw
   if (!amountStr) return { ok: false, error: 'The link has no amount.' }
   const cur = params.get('currency')?.trim().toUpperCase()
-  const currency = cur && /^[A-Z]{3}$/.test(cur) ? cur : currencyFromAmount(amountStr) ?? (raw ? currencyFromAmount(raw) : undefined)
+  const currency = cur && /^[A-Z]{3}$/.test(cur) ? cur : (currencyFromAmount(amountStr) ?? (raw ? currencyFromAmount(raw) : undefined))
   const amount = parseCaptureAmount(amountStr, currency)
   if (!Number.isFinite(amount)) return { ok: false, error: `“${amountStr.slice(0, 30)}” isn’t a valid amount.` }
   if (amount > 100_000_000) return { ok: false, error: 'That amount looks too large.' }
@@ -166,8 +166,15 @@ export function captureQuery(d: Partial<CaptureDraft> & { amount: Cents | string
   const p = new URLSearchParams({ v: '1' })
   p.set('amount', typeof d.amount === 'number' ? centsToInput(d.amount, d.currency) : d.amount)
   const keys: Array<[keyof CaptureDraft, string]> = [
-    ['currency', 'currency'], ['merchant', 'merchant'], ['ts', 'ts'], ['source', 'src'], ['card', 'card'],
-    ['raw', 'raw'], ['note', 'note'], ['ref', 'ref'], ['group', 'group'],
+    ['currency', 'currency'],
+    ['merchant', 'merchant'],
+    ['ts', 'ts'],
+    ['source', 'src'],
+    ['card', 'card'],
+    ['raw', 'raw'],
+    ['note', 'note'],
+    ['ref', 'ref'],
+    ['group', 'group'],
   ]
   for (const [k, name] of keys) if (d[k]) p.set(name, String(d[k]))
   if (d.date && !d.ts) p.set('date', d.date)
@@ -194,9 +201,7 @@ export function inboxToDraft(d: InboxDoc, today: string): CaptureDraft | null {
   const cur = d.currency?.trim().toUpperCase()
   const currency = cur && /^[A-Z]{3}$/.test(cur) ? cur : d.raw ? currencyFromAmount(d.raw) : undefined
   // An integer `amount` is already in minor units (see docs/AUTO_CAPTURE.md).
-  const amount = typeof d.amount === 'number' && Number.isInteger(d.amount) && d.amount > 0
-    ? d.amount
-    : d.raw ? parseCaptureAmount(d.raw, currency) : NaN
+  const amount = typeof d.amount === 'number' && Number.isInteger(d.amount) && d.amount > 0 ? d.amount : d.raw ? parseCaptureAmount(d.raw, currency) : NaN
   if (!Number.isFinite(amount)) return null
   return {
     amount,
@@ -217,80 +222,110 @@ export function newCaptureToken(): string {
   return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('')
 }
 
-// ---- Trip windows ------------------------------------------------------
-
-type Dated = Pick<Group, 'startDate' | 'endDate'>
-type Rankable = Pick<Group, 'id' | 'type' | 'currency' | 'updatedAt' | 'startDate' | 'endDate'>
-
-export function hasTripWindow(g: Dated): boolean {
-  return Boolean(g.startDate || g.endDate)
-}
-
-/** Inclusive window check. A missing start or end means open-ended on that side. */
-export function inTripWindow(g: Dated, date: string): boolean {
-  if (!hasTripWindow(g)) return false
-  if (g.startDate && date < g.startDate) return false
-  if (g.endDate && date > g.endDate) return false
-  return true
-}
-
-export const isLiveTrip = (g: Dated, today: string) => inTripWindow(g, today)
-
-function windowDays(g: Dated): number {
-  if (!g.startDate || !g.endDate) return Infinity
-  return (Date.parse(g.endDate) - Date.parse(g.startDate)) / 86400000
-}
-
-/**
- * Order shared groups (everything except the personal wallet) for a captured transaction and
- * pick the best match. Groups whose trip window contains the date come first (tightest window
- * first, then a matching currency, then most recently active). The best match is only chosen
- * from in-window groups, so an unrelated group is never pre-selected.
- */
-export function rankGroupsForCapture<G extends Rankable>(
-  groups: G[],
-  c: { date: string; currency?: string },
-): { ranked: Array<G & { inWindow: boolean }>; best?: string } {
-  const sameCur = (g: G) => Number(!!c.currency && g.currency === c.currency)
-  const ranked = groups
-    .filter((g) => g.type !== 'personal')
-    .map((g) => ({ ...g, inWindow: inTripWindow(g, c.date) }))
-    .sort((a, b) =>
-      Number(b.inWindow) - Number(a.inWindow)
-      || (a.inWindow ? windowDays(a) - windowDays(b) : 0)
-      || sameCur(b) - sameCur(a)
-      || b.updatedAt - a.updatedAt,
-    )
-  return { ranked, best: ranked[0]?.inWindow ? ranked[0].id : undefined }
-}
-
-/** The live trip to default a new expense to, if one is running today. */
-export function liveTripFor<G extends Rankable>(groups: G[], today: string): string | undefined {
-  return rankGroupsForCapture(groups, { date: today }).best
-}
-
 // ---- Share target -----------------------------------------------------
 
 /**
- * Turn text shared into the app (e.g. "You paid $12.50 to Cafe Luna") into a capture,
- * or null if there is no amount in it.
+ * What a text shared into the app turned out to be:
+ *  capture   a payment; `draft` is ready for the /capture prompt
+ *  ignored   a bank message that isn't a payment (`kind`: credit, otp, balance, promo, failed,
+ *            request, reminder, transfer), or a debit the user's filters drop (`filtered`)
+ *  none      no amount in the text
  */
-export function captureFromSharedText(parts: { title?: string | null; text?: string | null; url?: string | null }, today: string): CaptureDraft | null {
+export type SharedTextOutcome =
+  | { outcome: 'capture'; draft: CaptureDraft }
+  | { outcome: 'ignored'; kind: Exclude<SmsKind, 'debit' | 'unknown'> }
+  | { outcome: 'ignored'; kind: 'debit'; filtered: 'below_min' | 'ignored' }
+  | { outcome: 'none' }
+
+const IGNORED_TEXT: Record<Exclude<SmsKind, 'debit' | 'unknown'>, string> = {
+  credit: 'That’s money you received, not a payment.',
+  otp: 'That’s a one-time code, not a payment.',
+  balance: 'That’s a balance alert, not a payment.',
+  promo: 'That’s an offer, not a payment.',
+  failed: 'That payment failed or was reversed, so there’s nothing to add.',
+  request: 'That’s a request to pay, not a payment.',
+  reminder: 'That’s a reminder, not a payment.',
+  transfer: 'That’s a transfer between your own accounts, not a payment.',
+}
+
+/** Plain-English line for an ignored share, for the Share screen. */
+export function sharedTextIgnoredText(o: Extract<SharedTextOutcome, { outcome: 'ignored' }>): string {
+  if (o.kind !== 'debit') return IGNORED_TEXT[o.kind]
+  return o.filtered === 'below_min'
+    ? 'That payment is below your minimum amount (Settings → Automation).'
+    : 'That message matches one of your ignore keywords (Settings → Automation).'
+}
+
+/**
+ * Classify text shared into the app (Android share sheet): a bank / UPI SMS goes through the
+ * same parser, masking and user filters as the capture webhook, so a credit, an OTP or a UPI
+ * Lite top-up is never saved as a payment and the stored note never holds an account number.
+ * Other text ("You paid $12.50 to Cafe Luna", a card app's notification) falls back to the
+ * payment-screenshot parser. `filters` are the user's auto-capture filters, when known.
+ */
+export function classifySharedText(
+  parts: { title?: string | null; text?: string | null; url?: string | null },
+  today: string,
+  filters?: Pick<CaptureFilterPrefs, 'minAmount' | 'ignoreWords'>,
+): SharedTextOutcome {
   const text = [parts.title, parts.text].filter(Boolean).join('\n').trim()
-  if (!text) return null
+  if (!text) return { outcome: 'none' }
+  const sms = parseBankSms(text)
+  if (sms.kind !== 'debit' && sms.kind !== 'unknown') return { outcome: 'ignored', kind: sms.kind }
+  if (sms.kind === 'debit' && sms.amount) {
+    const parsed = { amount: sms.amount, currency: sms.currency, merchant: sms.merchant }
+    const filtered = filters ? filterReason({ capturePaused: false, aiSms: false, aiSmsMerchant: false, aiImages: false, ...filters }, parsed, text) : undefined
+    if (filtered) return { outcome: 'ignored', kind: 'debit', filtered }
+    const masked = maskSms(text, 200)
+    // The bank reference dedupes the same SMS however it arrives; without one, the message itself does.
+    const ref = sanitiseRef(sms.ref ? `sms_${sms.ref}` : `shr_${fingerprint(masked.toLowerCase().replace(/\s+/g, ' '))}`)
+    return {
+      outcome: 'capture',
+      draft: compactDraft({
+        amount: sms.amount,
+        currency: sms.currency,
+        merchant: sms.merchant ?? (sms.method === 'atm' ? 'ATM withdrawal' : 'Payment'),
+        date: sms.date ?? today,
+        source: 'share',
+        card: sms.bank ? `${sms.bank}${sms.account ? ` ••${sms.account}` : ''}` : undefined,
+        note: masked,
+        ref,
+      }),
+    }
+  }
   const payment = parsePaymentScreenshot(text)
   const found = payment.amount && payment.amount > 0 ? payment.amount : findAmounts(text).find((a) => a > 0)
-  if (!found) return null
+  if (!found) return { outcome: 'none' }
   const currency = currencyFromAmount(text)
   // The text parsers return hundredths; convert to the currency's minor units.
   const amount = fromHundredths(found, currency)
   const merchant = payment.payee ?? text.match(/\bat\s+([A-Z][\w'&.-]*(?:\s+[A-Z][\w'&.-]*){0,3})/)?.[1]
+  // Even a message the parser can't classify gets its numbers masked before it is stored.
+  const note = isBankLikeSms(text) ? maskSms(text, 200) : clip(text, 200)
   return {
-    amount,
-    currency,
-    merchant: clip(merchant, 100) ?? 'Shared payment',
-    date: payment.date ?? today,
-    source: 'share',
-    note: clip(text, 200),
+    outcome: 'capture',
+    draft: compactDraft({
+      amount,
+      currency,
+      merchant: clip(merchant, 100) ?? 'Shared payment',
+      date: payment.date ?? today,
+      source: 'share',
+      note,
+    }),
   }
+}
+
+const compactDraft = (d: CaptureDraft): CaptureDraft => Object.fromEntries(Object.entries(d).filter(([, v]) => v !== undefined)) as CaptureDraft
+
+/**
+ * Turn text shared into the app into a capture, or null when there is nothing to capture
+ * (no amount, or a bank message that isn't a payment). classifySharedText says which.
+ */
+export function captureFromSharedText(
+  parts: { title?: string | null; text?: string | null; url?: string | null },
+  today: string,
+  filters?: Pick<CaptureFilterPrefs, 'minAmount' | 'ignoreWords'>,
+): CaptureDraft | null {
+  const r = classifySharedText(parts, today, filters)
+  return r.outcome === 'capture' ? r.draft : null
 }

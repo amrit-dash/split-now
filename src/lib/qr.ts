@@ -65,7 +65,9 @@ function rsRemainder(data: number[], div: number[]): number[] {
   for (const b of data) {
     const f = b ^ (r.shift() as number)
     r.push(0)
-    div.forEach((c, i) => { r[i] ^= gfMul(c, f) })
+    div.forEach((c, i) => {
+      r[i] ^= gfMul(c, f)
+    })
   }
   return r
 }
@@ -87,7 +89,9 @@ function interleave(data: number[], ver: number): number[] {
   }
   const result: number[] = []
   for (let i = 0; i < out[0].length; i++) {
-    out.forEach((b, j) => { if (i !== shortLen - eccLen || j >= shortBlocks) result.push(b[i]) })
+    out.forEach((b, j) => {
+      if (i !== shortLen - eccLen || j >= shortBlocks) result.push(b[i])
+    })
   }
   return result
 }
@@ -111,7 +115,10 @@ function penalty(m: boolean[][]): number {
     let run = 1
     for (let i = 1; i <= n; i++) {
       if (i < n && get(i) === get(i - 1)) run++
-      else { if (run >= 5) p += run - 2; run = 1 }
+      else {
+        if (run >= 5) p += run - 2
+        run = 1
+      }
     }
     for (let i = 0; i + 7 <= n; i++) {
       // 1:1:3:1:1 dark pattern with 4 light modules on one side
@@ -147,10 +154,12 @@ export function encodeQr(text: string): QrMatrix {
 
   // Data bits: byte mode, length, payload, terminator, padding.
   const bits: number[] = []
-  const put = (val: number, len: number) => { for (let i = len - 1; i >= 0; i--) bits.push((val >>> i) & 1) }
+  const put = (val: number, len: number) => {
+    for (let i = len - 1; i >= 0; i--) bits.push((val >>> i) & 1)
+  }
   put(0b0100, 4)
   put(bytes.length, ver <= 9 ? 8 : 16)
-  bytes.forEach((b) => put(b, 8))
+  for (const b of bytes) put(b, 8)
   const cap = dataCodewords(ver) * 8
   put(0, Math.min(4, cap - bits.length))
   put(0, (8 - (bits.length % 8)) % 8)
@@ -162,14 +171,25 @@ export function encodeQr(text: string): QrMatrix {
   const size = ver * 4 + 17
   const mod: boolean[][] = Array.from({ length: size }, () => new Array<boolean>(size).fill(false))
   const fn: boolean[][] = Array.from({ length: size }, () => new Array<boolean>(size).fill(false))
-  const set = (x: number, y: number, dark: boolean) => { mod[y][x] = dark; fn[y][x] = true }
+  const set = (x: number, y: number, dark: boolean) => {
+    mod[y][x] = dark
+    fn[y][x] = true
+  }
 
   // Function patterns.
-  for (let i = 0; i < size; i++) { set(6, i, i % 2 === 0); set(i, 6, i % 2 === 0) }
-  for (const [cx, cy] of [[3, 3], [size - 4, 3], [3, size - 4]]) {
+  for (let i = 0; i < size; i++) {
+    set(6, i, i % 2 === 0)
+    set(i, 6, i % 2 === 0)
+  }
+  for (const [cx, cy] of [
+    [3, 3],
+    [size - 4, 3],
+    [3, size - 4],
+  ]) {
     for (let dy = -4; dy <= 4; dy++) {
       for (let dx = -4; dx <= 4; dx++) {
-        const x = cx + dx, y = cy + dy
+        const x = cx + dx,
+          y = cy + dy
         if (x < 0 || y < 0 || x >= size || y >= size) continue
         const d = Math.max(Math.abs(dx), Math.abs(dy))
         set(x, y, d !== 2 && d !== 4)
@@ -178,10 +198,12 @@ export function encodeQr(text: string): QrMatrix {
   }
   const align = alignmentPositions(ver, size)
   const last = align.length - 1
-  align.forEach((ax, i) => align.forEach((ay, j) => {
-    if ((i === 0 && j === 0) || (i === 0 && j === last) || (i === last && j === 0)) return
-    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) set(ax + dx, ay + dy, Math.max(Math.abs(dx), Math.abs(dy)) !== 1)
-  }))
+  align.forEach((ax, i) => {
+    align.forEach((ay, j) => {
+      if ((i === 0 && j === 0) || (i === 0 && j === last) || (i === last && j === 0)) return
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) set(ax + dx, ay + dy, Math.max(Math.abs(dx), Math.abs(dy)) !== 1)
+    })
+  })
   const drawFormat = (mask: number) => {
     const d = (FORMAT_M << 3) | mask
     let rem = d
@@ -189,7 +211,9 @@ export function encodeQr(text: string): QrMatrix {
     const b = ((d << 10) | rem) ^ 0x5412
     const bit = (i: number) => ((b >>> i) & 1) !== 0
     for (let i = 0; i <= 5; i++) set(8, i, bit(i))
-    set(8, 7, bit(6)); set(8, 8, bit(7)); set(7, 8, bit(8))
+    set(8, 7, bit(6))
+    set(8, 8, bit(7))
+    set(7, 8, bit(8))
     for (let i = 9; i < 15; i++) set(14 - i, 8, bit(i))
     for (let i = 0; i < 8; i++) set(size - 1 - i, 8, bit(i))
     for (let i = 8; i < 15; i++) set(8, size - 15 + i, bit(i))
@@ -202,8 +226,10 @@ export function encodeQr(text: string): QrMatrix {
     const b = (ver << 12) | rem
     for (let i = 0; i < 18; i++) {
       const dark = ((b >>> i) & 1) !== 0
-      const a = size - 11 + (i % 3), c = Math.floor(i / 3)
-      set(a, c, dark); set(c, a, dark)
+      const a = size - 11 + (i % 3),
+        c = Math.floor(i / 3)
+      set(a, c, dark)
+      set(c, a, dark)
     }
   }
 
@@ -231,12 +257,17 @@ export function encodeQr(text: string): QrMatrix {
   let best = 0
   let bestScore = Infinity
   for (let k = 0; k < 8; k++) {
-    applyMask(k); drawFormat(k)
+    applyMask(k)
+    drawFormat(k)
     const s = penalty(mod)
-    if (s < bestScore) { bestScore = s; best = k }
+    if (s < bestScore) {
+      bestScore = s
+      best = k
+    }
     applyMask(k) // XOR again to undo
   }
-  applyMask(best); drawFormat(best)
+  applyMask(best)
+  drawFormat(best)
   return { size, modules: mod }
 }
 

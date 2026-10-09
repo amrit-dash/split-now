@@ -7,7 +7,16 @@ import { ChevronDown } from 'lucide-react'
  * The height animates with the grid-rows trick; prefers-reduced-motion turns it off.
  */
 export function Collapsible({
-  title, icon, summary, open: openProp, defaultOpen = false, onOpenChange, children, id, className = '', testId,
+  title,
+  icon,
+  summary,
+  open: openProp,
+  defaultOpen = false,
+  onOpenChange,
+  children,
+  id,
+  className = '',
+  testId,
 }: {
   title: ReactNode
   icon?: ReactNode
@@ -31,24 +40,25 @@ export function Collapsible({
   }
   return (
     <section id={id} className={`card mt-3 overflow-clip ${className}`} data-testid={testId} data-open={open || undefined}>
-      <button
-        type="button"
-        className="flex w-full items-center gap-3 px-4 py-3.5 text-left"
-        aria-expanded={open}
-        aria-controls={bodyId}
-        onClick={toggle}
-      >
+      <button type="button" className="flex w-full items-center gap-3 px-4 py-3.5 text-left" aria-expanded={open} aria-controls={bodyId} onClick={toggle}>
         {icon && <span className="flex shrink-0 text-brand-600 dark:text-brand-300">{icon}</span>}
         <span className="min-w-0 flex-1">
           <span className="block font-semibold">{title}</span>
           {/* The summary folds away when open, so the title sits centred on the icon. */}
           {summary && (
-            <span className={`grid transition-[grid-template-rows,opacity] duration-200 motion-reduce:transition-none ${open ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100'}`} aria-hidden={open}>
+            <span
+              className={`grid transition-[grid-template-rows,opacity] duration-200 motion-reduce:transition-none ${open ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100'}`}
+              aria-hidden={open}
+            >
               <span className="block min-h-0 truncate text-xs text-slate-500 dark:text-slate-400">{summary}</span>
             </span>
           )}
         </span>
-        <ChevronDown size={20} aria-hidden className={`shrink-0 text-slate-400 transition-transform duration-300 motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown
+          size={20}
+          aria-hidden
+          className={`shrink-0 text-slate-400 transition-transform duration-300 motion-reduce:transition-none ${open ? 'rotate-180' : ''}`}
+        />
       </button>
       <div
         id={bodyId}

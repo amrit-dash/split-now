@@ -2,7 +2,7 @@ import type { ActivityEntry, ActivityType, Cents, Expense, ImportedFrom, MemberI
 import { CATEGORIES } from './categories'
 import { formatMoney } from './money'
 import { FREQ_LABEL } from './recurrence'
-import { appLocale } from './locale'
+import { formatDate } from './locale'
 
 /**
  * Activity log / edit history. Every expense, settlement and membership change writes one
@@ -27,7 +27,14 @@ type Snapshot = Record<string, unknown>
 /** Expense fields whose changes are recorded, in display order. Others (receipt, ids, timestamps) are not. */
 export const TRACKED_FIELDS = ['description', 'amount', 'original', 'date', 'category', 'paidBy', 'splits', 'splitType', 'notes', 'recurrence'] as const
 
-const SPLIT_TYPE_LABEL: Record<string, string> = { equal: 'equally', exact: 'exact amounts', percent: 'percentages', shares: 'shares', adjust: 'adjustments', itemized: 'itemized' }
+const SPLIT_TYPE_LABEL: Record<string, string> = {
+  equal: 'equally',
+  exact: 'exact amounts',
+  percent: 'percentages',
+  shares: 'shares',
+  adjust: 'adjustments',
+  itemized: 'itemized',
+}
 const MAX_SUMMARY = 480
 
 /** Stable JSON (sorted keys) so maps with the same entries compare equal. */
@@ -35,7 +42,10 @@ function stable(v: unknown): string {
   if (v === undefined) return 'null'
   if (v === null || typeof v !== 'object') return JSON.stringify(v)
   if (Array.isArray(v)) return `[${v.map(stable).join(',')}]`
-  return `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${stable((v as Snapshot)[k])}`).join(',')}}`
+  return `{${Object.keys(v)
+    .sort()
+    .map((k) => `${JSON.stringify(k)}:${stable((v as Snapshot)[k])}`)
+    .join(',')}}`
 }
 
 /** The tracked fields of an expense, dropping empty ones. */
@@ -50,7 +60,8 @@ export function expenseSnapshot(e: Partial<Expense>): Snapshot {
 
 /** Changed tracked fields between two expenses, as compact before/after snapshots. */
 export function diffExpense(prev: Partial<Expense>, next: Partial<Expense>): { fields: string[]; before: Snapshot; after: Snapshot } {
-  const a = expenseSnapshot(prev), b = expenseSnapshot(next)
+  const a = expenseSnapshot(prev),
+    b = expenseSnapshot(next)
   const fields = TRACKED_FIELDS.filter((k) => stable(a[k]) !== stable(b[k]))
   const pick = (s: Snapshot) => Object.fromEntries(fields.filter((k) => k in s).map((k) => [k, s[k]]))
   return { fields: [...fields], before: pick(a), after: pick(b) }
@@ -67,7 +78,7 @@ export function amountLabel(amount: unknown, original: unknown, cur: string): st
   return o ? `${o} (${money(amount, cur)})` : money(amount, cur)
 }
 const expenseAmount = (e: Pick<Expense, 'amount' | 'original'>, cur: string) => amountLabel(e.amount, e.original, cur)
-const day = (v: unknown) => (typeof v === 'string' && v ? new Date(v + 'T00:00').toLocaleDateString(appLocale(), { day: 'numeric', month: 'short' }) : '—')
+const day = (v: unknown) => (typeof v === 'string' && v ? formatDate(v, 'day') : '—')
 const quote = (v: unknown) => (typeof v === 'string' && v ? `“${v}”` : '—')
 const cat = (v: unknown) => CATEGORIES[v as keyof typeof CATEGORIES]?.label ?? String(v ?? '—')
 
@@ -81,7 +92,8 @@ function shares(v: unknown, cur: string, name: (id: string) => string): string {
 
 /** Per-person differences between two {member: cents} maps, e.g. "Jay A$20.00 → A$21.00". */
 function shareChanges(a: unknown, b: unknown, cur: string, name: (id: string) => string): string {
-  const x = (a ?? {}) as Record<string, Cents>, y = (b ?? {}) as Record<string, Cents>
+  const x = (a ?? {}) as Record<string, Cents>,
+    y = (b ?? {}) as Record<string, Cents>
   const ids = [...new Set([...Object.keys(x), ...Object.keys(y)])]
   const parts: string[] = []
   for (const id of ids) {
@@ -95,15 +107,17 @@ function shareChanges(a: unknown, b: unknown, cur: string, name: (id: string) =>
 
 function recurrenceLabel(v: unknown): string {
   const r = v as Expense['recurrence']
-  return r ? FREQ_LABEL[r.freq]?.toLowerCase() ?? r.freq : 'never'
+  return r ? (FREQ_LABEL[r.freq]?.toLowerCase() ?? r.freq) : 'never'
 }
 
 /** One human phrase for a changed field, e.g. "amount A$80.00 → A$84.00". */
 export function describeChange(field: string, before: Snapshot, after: Snapshot, ctx: Pick<ActivityCtx, 'currency' | 'memberName'>): string {
-  const b = before[field], a = after[field]
+  const b = before[field],
+    a = after[field]
   const curA = ctx.currency
   switch (field) {
-    case 'description': return `description ${quote(b)} → ${quote(a)}`
+    case 'description':
+      return `description ${quote(b)} → ${quote(a)}`
     // with a foreign original, show both ("฿1,200.00 (A$50.52)"); unchanged originals aren't in the
     // snapshot, so they are looked up in `ctx.original` (the expense as it is now)
     case 'amount': {
@@ -111,21 +125,29 @@ export function describeChange(field: string, before: Snapshot, after: Snapshot,
       const oa = 'original' in before || 'original' in after ? after.original : (ctx as OrigCtx).original
       return `amount ${amountLabel(b, ob, curA)} → ${amountLabel(a, oa, curA)}`
     }
-    case 'original': return `currency ${orig(b) ?? curA} → ${orig(a) ?? curA}`
-    case 'date': return `date ${day(b)} → ${day(a)}`
-    case 'category': return `category ${cat(b)} → ${cat(a)}`
-    case 'notes': return b === undefined ? 'added a note' : a === undefined ? 'removed the note' : 'edited the note'
-    case 'splitType': return `split ${SPLIT_TYPE_LABEL[b as string] ?? b} → ${SPLIT_TYPE_LABEL[a as string] ?? a}`
-    case 'recurrence': return `repeat ${recurrenceLabel(b)} → ${recurrenceLabel(a)}`
+    case 'original':
+      return `currency ${orig(b) ?? curA} → ${orig(a) ?? curA}`
+    case 'date':
+      return `date ${day(b)} → ${day(a)}`
+    case 'category':
+      return `category ${cat(b)} → ${cat(a)}`
+    case 'notes':
+      return b === undefined ? 'added a note' : a === undefined ? 'removed the note' : 'edited the note'
+    case 'splitType':
+      return `split ${SPLIT_TYPE_LABEL[b as string] ?? b} → ${SPLIT_TYPE_LABEL[a as string] ?? a}`
+    case 'recurrence':
+      return `repeat ${recurrenceLabel(b)} → ${recurrenceLabel(a)}`
     case 'paidBy': {
-      const sb = shares(b, curA, ctx.memberName), sa = shares(a, curA, ctx.memberName)
+      const sb = shares(b, curA, ctx.memberName),
+        sa = shares(a, curA, ctx.memberName)
       return sb === sa ? `who paid (${shareChanges(b, a, curA, ctx.memberName)})` : `paid by ${sb} → ${sa}`
     }
     case 'splits': {
       const c = shareChanges(b, a, curA, ctx.memberName)
       return c ? `split (${c})` : 'the split'
     }
-    default: return `${field}`
+    default:
+      return `${field}`
   }
 }
 
@@ -134,19 +156,24 @@ export function describeChanges(before: Snapshot = {}, after: Snapshot = {}, ctx
   const fields = TRACKED_FIELDS.filter((k) => k in before || k in after)
   // A changed amount re-computes who paid and the split; the amount line says enough unless
   // the split type or the people involved changed too.
-  const implied = (k: string) => ((k === 'splits' || k === 'paidBy') && 'amount' in after && !('splitType' in after) && sameKeys(before[k], after[k]))
+  const implied = (k: string) =>
+    ((k === 'splits' || k === 'paidBy') && 'amount' in after && !('splitType' in after) && sameKeys(before[k], after[k])) ||
     // a new foreign amount is shown on the amount line
-    || (k === 'original' && ('amount' in before || 'amount' in after))
-  return fields
-    .filter((k) => !implied(k))
-    .map((k) => describeChange(k, before, after, ctx))
+    (k === 'original' && ('amount' in before || 'amount' in after))
+  return fields.filter((k) => !implied(k)).map((k) => describeChange(k, before, after, ctx))
 }
 const sameKeys = (a: unknown, b: unknown) => stable(Object.keys((a ?? {}) as object).sort()) === stable(Object.keys((b ?? {}) as object).sort())
 
 type OrigCtx = { original?: OriginalAmount }
 
 const clip = (s: string) => (s.length > MAX_SUMMARY ? s.slice(0, MAX_SUMMARY - 1) + '…' : s)
-const base = (type: ActivityType, targetId: string, ctx: ActivityCtx) => ({ type, actorUid: ctx.actorUid, actorName: ctx.actorName, targetId, createdAt: ctx.now ?? Date.now() })
+const base = (type: ActivityType, targetId: string, ctx: ActivityCtx) => ({
+  type,
+  actorUid: ctx.actorUid,
+  actorName: ctx.actorName,
+  targetId,
+  createdAt: ctx.now ?? Date.now(),
+})
 const label = (e: Pick<Expense, 'description'>) => `“${e.description}”`
 
 /**
@@ -164,9 +191,8 @@ export function expenseSaveActivity(prev: Expense | undefined, next: Expense, ct
   const d = diffExpense(prev, next)
   if (!d.fields.length) return null
   const phrases = describeChanges(d.before, d.after, { ...ctx, original: next.original } as ActivityCtx)
-  const summary = phrases.length === 1
-    ? `${ctx.actorName} changed ${phrases[0]} on ${label(next)}`
-    : `${ctx.actorName} edited ${label(next)}: ${phrases.join('; ')}`
+  const summary =
+    phrases.length === 1 ? `${ctx.actorName} changed ${phrases[0]} on ${label(next)}` : `${ctx.actorName} edited ${label(next)}: ${phrases.join('; ')}`
   return { ...base('expense.updated', next.id, ctx), summary: clip(summary), before: d.before, after: d.after }
 }
 
@@ -201,15 +227,21 @@ export function settlementActivity(kind: 'created' | 'deleted' | 'restored' | 'p
 
 /** One summary entry per file import (individual rows aren't logged). */
 export function importActivity(groupId: string, expenses: number, settlements: number, source: ImportedFrom | undefined, ctx: ActivityCtx): NewActivity {
-  const what = [expenses && `${expenses} expense${expenses === 1 ? '' : 's'}`, settlements && `${settlements} payment${settlements === 1 ? '' : 's'}`].filter(Boolean).join(' and ') || 'nothing'
+  const what =
+    [expenses && `${expenses} expense${expenses === 1 ? '' : 's'}`, settlements && `${settlements} payment${settlements === 1 ? '' : 's'}`]
+      .filter(Boolean)
+      .join(' and ') || 'nothing'
   const from = source === 'splitwise' ? ' from Splitwise' : source === 'csv' ? ' from a CSV file' : ''
   return { ...base('expense.imported', groupId, ctx), summary: clip(`${ctx.actorName} imported ${what}${from}`), after: { expenses, settlements } }
 }
 
 export function memberActivity(kind: 'added' | 'removed', memberId: MemberId, name: string, ctx: ActivityCtx, self = false): NewActivity {
-  const text = kind === 'added'
-    ? `${ctx.actorName} added ${name} to the group`
-    : self ? `${ctx.actorName} left the group` : `${ctx.actorName} removed ${name} from the group`
+  const text =
+    kind === 'added'
+      ? `${ctx.actorName} added ${name} to the group`
+      : self
+        ? `${ctx.actorName} left the group`
+        : `${ctx.actorName} removed ${name} from the group`
   return { ...base(`member.${kind}`, memberId, ctx), summary: clip(text) }
 }
 
@@ -223,7 +255,10 @@ export function activityText(a: Pick<ActivityEntry, 'summary' | 'actorUid' | 'ac
 
 /** Newest-first merge of several groups' feeds. */
 export function mergeFeeds(lists: ActivityEntry[][], limit = 20): ActivityEntry[] {
-  return lists.flat().sort((a, b) => b.createdAt - a.createdAt || b.id.localeCompare(a.id)).slice(0, limit)
+  return lists
+    .flat()
+    .sort((a, b) => b.createdAt - a.createdAt || b.id.localeCompare(a.id))
+    .slice(0, limit)
 }
 
 /**
@@ -236,14 +271,25 @@ export function activityHref(a: Pick<ActivityEntry, 'type' | 'groupId' | 'target
 }
 
 /** Entries about one (still existing) expense, as opposed to the import summary or a purge. */
-export const isExpenseEntry = (a: Pick<ActivityEntry, 'type'>) =>
-  a.type.startsWith('expense.') && a.type !== 'expense.imported' && a.type !== 'expense.purged'
+export const isExpenseEntry = (a: Pick<ActivityEntry, 'type'>) => a.type.startsWith('expense.') && a.type !== 'expense.imported' && a.type !== 'expense.purged'
 
 const ICONS: Record<ActivityType, string> = {
-  'expense.created': '🧾', 'expense.updated': '✏️', 'expense.deleted': '🗑️', 'expense.restored': '↩️', 'expense.purged': '🔥',
-  'expense.disputed': '🚩', 'expense.resolved': '✅', 'expense.approved': '👍', 'expense.imported': '📥',
-  'settlement.created': '💸', 'settlement.deleted': '🗑️', 'settlement.restored': '↩️', 'settlement.purged': '🔥',
-  'member.added': '👋', 'member.removed': '🚪',
+  'expense.created': '🧾',
+  'expense.updated': '✏️',
+  'expense.deleted': '🗑️',
+  'expense.restored': '↩️',
+  'expense.purged': '🔥',
+  'expense.disputed': '🚩',
+  'expense.resolved': '✅',
+  'expense.approved': '👍',
+  'expense.imported': '📥',
+  'settlement.created': '💸',
+  'settlement.deleted': '🗑️',
+  'settlement.restored': '↩️',
+  'settlement.purged': '🔥',
+  'settlement.nudged': '🔔',
+  'member.added': '👋',
+  'member.removed': '🚪',
 }
 /** An emoji for each kind of entry. */
 export const activityIcon = (t: ActivityType): string => ICONS[t] ?? '•'
@@ -255,5 +301,5 @@ export function fmtAgo(ts: number, now = Date.now()): string {
   if (mins < 60) return `${mins}m ago`
   if (mins < 60 * 24) return `${Math.round(mins / 60)}h ago`
   if (mins < 60 * 24 * 7) return `${Math.round(mins / 1440)}d ago`
-  return new Date(ts).toLocaleDateString(appLocale(), { day: 'numeric', month: 'short' })
+  return formatDate(ts, 'day')
 }

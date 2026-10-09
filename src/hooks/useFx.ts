@@ -16,7 +16,9 @@ export function useTodayRates(home: string, currencies: string[]): Record<string
     Promise.all(list.map(async (c) => [c, await getRate(c, home, date)] as const)).then((pairs) => {
       if (live) setState({ key: `${home}|${key}`, rates: Object.fromEntries(pairs) })
     })
-    return () => { live = false }
+    return () => {
+      live = false
+    }
   }, [home, key])
   if (!key) return {}
   return state?.key === `${home}|${key}` ? state.rates : undefined

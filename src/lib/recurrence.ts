@@ -56,10 +56,14 @@ function addMonths(iso: string, months: number): string {
 /** The n-th occurrence (n = 0 is the anchor itself). */
 export function nthOccurrence(anchor: string, freq: RecurrenceFreq, n: number): string {
   switch (freq) {
-    case 'weekly': return addDays(anchor, 7 * n)
-    case 'fortnightly': return addDays(anchor, 14 * n)
-    case 'monthly': return addMonths(anchor, n)
-    case 'yearly': return addMonths(anchor, 12 * n)
+    case 'weekly':
+      return addDays(anchor, 7 * n)
+    case 'fortnightly':
+      return addDays(anchor, 14 * n)
+    case 'monthly':
+      return addMonths(anchor, n)
+    case 'yearly':
+      return addMonths(anchor, 12 * n)
   }
 }
 
@@ -122,9 +126,13 @@ export function occurrenceId(templateId: string, date: string): string {
   return `${templateId}_${date}`
 }
 
-/** Build the concrete expense for one occurrence of a template. */
+/**
+ * Build the concrete expense for one occurrence of a template. The receipt (URL and Storage
+ * path) belongs to the template: a copy carrying the path would delete the template's image
+ * when purged or when a photo is attached to it.
+ */
 export function makeOccurrence(template: Expense, date: string, now = Date.now()): Expense {
-  const { recurrence: _r, receiptUrl: _receipt, ...rest } = template
+  const { recurrence: _r, receiptUrl: _receipt, receiptPath: _path, ...rest } = template
   return {
     ...rest,
     id: occurrenceId(template.id, date),

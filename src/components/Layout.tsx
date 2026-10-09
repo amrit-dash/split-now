@@ -1,10 +1,16 @@
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { BarChart3, Home, Plus, User, Users } from 'lucide-react'
+import { useAllGroupData } from '@/hooks/data'
+import { useInbox } from '@/hooks/useInbox'
+import { applyIconTint } from '@/lib/accent'
+import { setBadge } from '@/lib/push'
 import { InstallBanner } from './InstallBanner'
 import { Aurora } from './Aurora'
 import { CaptureAlert } from './CaptureAlert'
 import { CreateSheet } from './CreateSheet'
+import { OfflinePill } from './OfflinePill'
+import { Loading } from './Misc'
 
 const tabs = [
   { to: '/', icon: Home, label: 'Home', end: true },
@@ -19,42 +25,81 @@ export function Layout() {
   const groupMatch = loc.pathname.match(/^\/groups\/([^/]+)/)
   const groupId = groupMatch && groupMatch[1] !== 'new' && groupMatch[1] !== 'import' ? groupMatch[1] : undefined
   const [creating, setCreating] = useState(false)
-  // Lets fixed banners (UpdatePrompt) sit above the tab bar only on screens that have one.
+  const main = useRef<HTMLElement>(null)
+  // Lets fixed banners (UpdatePrompt) and the toast stack sit above the tab bar only on screens that have one.
   useEffect(() => {
     document.documentElement.setAttribute('data-nav', '')
     return () => document.documentElement.removeAttribute('data-nav')
   }, [])
+  // The browser-tab icon follows the accent (desktop); a no-op on phones.
+  useEffect(() => {
+    void applyIconTint()
+  }, [])
+  // Route change: move focus to the new screen's content unless the screen already placed it
+  // (an autofocused field), so screen readers start at the top instead of on a gone element.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs on every route change by design
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      const el = main.current,
+        active = document.activeElement
+      if (!el || (active && active !== document.body && el.contains(active))) return
+      el.focus({ preventScroll: true })
+    })
+    return () => cancelAnimationFrame(id)
+  }, [loc.pathname])
   return (
     <div className="mx-auto min-h-dvh max-w-2xl px-4 pb-[calc(var(--nav-h)+1.5rem)]">
-      <Outlet />
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-xl focus:bg-brand-600 focus:px-4 focus:py-2 focus:font-semibold focus:text-white"
+      >
+        Skip to content
+      </a>
+      {/* The fallback sits inside the content area, so the tab bar never disappears while a screen loads. */}
+      <main id="main" ref={main} tabIndex={-1} className="outline-none">
+        <OfflinePill className="mt-2" />
+        <Suspense fallback={<Loading />}>
+          <Outlet />
+        </Suspense>
+      </main>
+      <AppBadge />
       <InstallBanner />
       <CaptureAlert />
-      <nav className="fixed inset-x-0 bottom-0 z-40">
+      <nav className="fixed inset-x-0 bottom-0 z-40" aria-label="Main">
         {/* The + button's glow sits under the bar: muted where the bar covers it, bright in the
             notch, which gives the cut-out depth. A blurred copy of the button's moving gradient,
             centred on the button, faded towards the top and strongest below, filling the notch gap. */}
         <div aria-hidden className="pointer-events-none absolute left-1/2 top-[0.5625rem] h-0 w-0">
           {/* a wide, soft glow radiating all round, lighter towards the top */}
-          <div className="fab-halo-a absolute left-1/2 top-1/2 h-[6.75rem] w-[6.75rem] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-80 blur-[22px] saturate-150"><Aurora size="fab" /></div>
+          <div className="fab-halo-a absolute left-1/2 top-1/2 h-[6.75rem] w-[6.75rem] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-80 blur-[22px] saturate-150">
+            <Aurora size="fab" />
+          </div>
           {/* a stronger lower half, a bit wider than the notch, that fills the gap and fades out upwards */}
-          <div className="fab-halo-b absolute left-1/2 top-1/2 h-[5.3rem] w-[5.3rem] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[8px] saturate-150"><Aurora size="fab" /></div>
+          <div className="fab-halo-b absolute left-1/2 top-1/2 h-[5.3rem] w-[5.3rem] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[8px] saturate-150">
+            <Aurora size="fab" />
+          </div>
         </div>
         {/* The bar, with a round notch cut out for the + button (mask in index.css). */}
-        <div aria-hidden className="nav-notch absolute inset-0 border-t border-slate-200/70 bg-white/95 backdrop-blur-xl dark:border-white/5 dark:bg-ink-900/95" />
+        <div
+          aria-hidden
+          className="nav-notch absolute inset-0 border-t border-slate-200/70 bg-white/95 backdrop-blur-xl dark:border-white/5 dark:bg-ink-900/95"
+        />
         <div className="relative mx-auto flex max-w-2xl items-center justify-around px-2 pb-[var(--nav-pad)] pt-1.5">
-          {tabs.map((t, i) =>
+          {tabs.map((t) =>
             t === null ? (
-              <div key={i} className="relative w-16 self-stretch">
+              <div key="create" className="relative w-16 self-stretch">
                 <button
+                  type="button"
                   onClick={() => setCreating(true)}
                   data-testid="nav-create"
                   className="fab-ring absolute left-1/2 top-0 flex h-[3.75rem] w-[3.75rem] -translate-x-1/2 -translate-y-[45%] items-center justify-center overflow-hidden rounded-full text-white transition active:scale-95"
-                  aria-label="Create" aria-haspopup="dialog"
+                  aria-label="Create"
+                  aria-haspopup="dialog"
                 >
                   <Aurora size="fab" />
                   {/* white outline round the lower half, fading out towards the top */}
                   <span aria-hidden className="fab-rim pointer-events-none absolute inset-0 rounded-full border border-white/55" />
-                  <Plus size={28} strokeWidth={2.6} className="relative" />
+                  <Plus size={28} strokeWidth={2.6} className="relative" aria-hidden />
                 </button>
               </div>
             ) : (
@@ -62,12 +107,14 @@ export function Layout() {
                 key={t.to}
                 to={t.to}
                 end={'end' in t}
-                className={({ isActive }) => `flex w-16 flex-col items-center gap-0.5 py-1 text-[11px] transition-colors ${isActive ? 'font-bold text-brand-600 dark:text-brand-300' : 'font-semibold text-slate-400 dark:text-slate-500'}`}
+                className={({ isActive }) =>
+                  `flex w-16 flex-col items-center gap-0.5 py-1 text-[11px] transition-colors ${isActive ? 'font-bold text-brand-600 dark:text-brand-300' : 'font-semibold text-slate-400 dark:text-slate-500'}`
+                }
               >
                 {({ isActive }) => (
                   <>
                     {/* Active: icon and label in the accent, a heavier stroke and a slight lift. */}
-                    <t.icon size={23} strokeWidth={isActive ? 2.6 : 2.1} className={`transition-transform ${isActive ? '-translate-y-px' : ''}`} />
+                    <t.icon size={23} strokeWidth={isActive ? 2.6 : 2.1} className={`transition-transform ${isActive ? '-translate-y-px' : ''}`} aria-hidden />
                     {t.label}
                   </>
                 )}
@@ -79,4 +126,18 @@ export function Layout() {
       <CreateSheet open={creating} onClose={() => setCreating(false)} groupId={groupId} />
     </div>
   )
+}
+
+/**
+ * The installed app's icon badge = things that need you (captured payments to sort + expenses
+ * waiting for your OK), never unread activity, so the number stays honest. One subscription for
+ * the whole app; the group store is shared with Home, so this costs no extra listeners.
+ */
+function AppBadge() {
+  const data = useAllGroupData()
+  const box = useInbox(data)
+  useEffect(() => {
+    if (!box.loading) setBadge(box.toSort)
+  }, [box.loading, box.toSort])
+  return null
 }

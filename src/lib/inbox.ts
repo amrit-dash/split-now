@@ -11,28 +11,36 @@ const SEEN = 'splitit-inbox-seen'
 const listeners = new Set<() => void>()
 
 export function inboxSeenAt(): number {
-  try { return Number(localStorage.getItem(SEEN)) || 0 } catch { return 0 }
+  try {
+    return Number(localStorage.getItem(SEEN)) || 0
+  } catch {
+    return 0
+  }
 }
 
 export function markInboxSeen(at = Date.now()) {
-  try { localStorage.setItem(SEEN, String(at)) } catch { /* storage unavailable */ }
-  listeners.forEach((l) => l())
+  try {
+    localStorage.setItem(SEEN, String(at))
+  } catch {
+    /* storage unavailable */
+  }
+  for (const l of listeners) l()
 }
 
 export function onInboxSeen(cb: () => void): () => void {
   listeners.add(cb)
-  return () => { listeners.delete(cb) }
+  return () => {
+    listeners.delete(cb)
+  }
 }
 
 /** Other people's entries, newest first. */
 export const othersActivity = (entries: ActivityEntry[] | null, myUid: string) => (entries ?? []).filter((a) => a.actorUid !== myUid)
 
 /** New = someone else did it after `seenAt`. Your own entries are never new. */
-export const isUnread = (a: Pick<ActivityEntry, 'actorUid' | 'createdAt'>, myUid: string, seenAt: number) =>
-  a.actorUid !== myUid && a.createdAt > seenAt
+export const isUnread = (a: Pick<ActivityEntry, 'actorUid' | 'createdAt'>, myUid: string, seenAt: number) => a.actorUid !== myUid && a.createdAt > seenAt
 
-export const unreadCount = (entries: ActivityEntry[] | null, myUid: string, seenAt: number) =>
-  (entries ?? []).filter((a) => isUnread(a, myUid, seenAt)).length
+export const unreadCount = (entries: ActivityEntry[] | null, myUid: string, seenAt: number) => (entries ?? []).filter((a) => isUnread(a, myUid, seenAt)).length
 
 /** Runs of at least this many adds by one person in one group become one row. */
 export const RUN_MIN = 3
@@ -48,18 +56,31 @@ export const RUN_GAP_MS = 10 * 60_000
 export function collapseRuns(entries: ActivityEntry[] | null): ActivityEntry[] {
   const list = entries ?? []
   const out: ActivityEntry[] = []
-  for (let i = 0; i < list.length;) {
+  for (let i = 0; i < list.length; ) {
     const a = list[i]
     let j = i + 1
     if (a.type === 'expense.created') {
-      while (j < list.length && list[j].type === 'expense.created' && list[j].actorUid === a.actorUid
-        && list[j].groupId === a.groupId && list[j - 1].createdAt - list[j].createdAt <= RUN_GAP_MS) j++
+      while (
+        j < list.length &&
+        list[j].type === 'expense.created' &&
+        list[j].actorUid === a.actorUid &&
+        list[j].groupId === a.groupId &&
+        list[j - 1].createdAt - list[j].createdAt <= RUN_GAP_MS
+      )
+        j++
     }
     const n = j - i
     if (n >= RUN_MIN) {
       out.push({
-        id: `${a.id}+${n - 1}`, groupId: a.groupId, type: 'expense.imported', actorUid: a.actorUid, actorName: a.actorName,
-        targetId: a.groupId, summary: `${a.actorName} added ${n} expenses`, after: { expenses: n }, createdAt: a.createdAt,
+        id: `${a.id}+${n - 1}`,
+        groupId: a.groupId,
+        type: 'expense.imported',
+        actorUid: a.actorUid,
+        actorName: a.actorName,
+        targetId: a.groupId,
+        summary: `${a.actorName} added ${n} expenses`,
+        after: { expenses: n },
+        createdAt: a.createdAt,
       })
     } else {
       out.push(...list.slice(i, j))

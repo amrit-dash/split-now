@@ -29,6 +29,44 @@
       ],
       "headers": [
         {
+          "source": "**",
+          "headers": [
+            {
+              "key": "X-Content-Type-Options",
+              "value": "nosniff"
+            },
+            {
+              "key": "Referrer-Policy",
+              "value": "strict-origin-when-cross-origin"
+            },
+            {
+              "key": "X-Frame-Options",
+              "value": "DENY"
+            },
+            {
+              "key": "Permissions-Policy",
+              "value": "camera=(self), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+            },
+            {
+              "key": "Cross-Origin-Opener-Policy",
+              "value": "same-origin-allow-popups"
+            },
+            {
+              "key": "Content-Security-Policy-Report-Only",
+              "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; manifest-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://apis.google.com https://www.gstatic.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://firebasestorage.googleapis.com https://*.googleusercontent.com https://lh3.googleusercontent.com; media-src 'self' blob:; connect-src 'self' https://*.googleapis.com wss://*.googleapis.com https://*.firebaseio.com https://asia-south1-split-it-prod.cloudfunctions.net https://fcmregistrations.googleapis.com https://firebaseappcheck.googleapis.com https://www.google.com/recaptcha/ https://www.gstatic.com https://api.frankfurter.dev https://cdn.jsdelivr.net; frame-src 'self' https://accounts.google.com https://www.google.com https://recaptcha.google.com https://split-it-prod.firebaseapp.com https://split-now.firebaseapp.com https://split-it-prod.web.app https://split-now.web.app; upgrade-insecure-requests"
+            }
+          ]
+        },
+        {
+          "source": "/*-sw.js",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "no-cache"
+            }
+          ]
+        },
+        {
           "source": "/sw.js",
           "headers": [
             {
@@ -65,15 +103,6 @@
             {
               "key": "Cache-Control",
               "value": "public, max-age=31536000, immutable"
-            }
-          ]
-        },
-        {
-          "source": "/push-sw.js",
-          "headers": [
-            {
-              "key": "Cache-Control",
-              "value": "no-cache"
             }
           ]
         }
@@ -109,6 +138,44 @@
       ],
       "headers": [
         {
+          "source": "**",
+          "headers": [
+            {
+              "key": "X-Content-Type-Options",
+              "value": "nosniff"
+            },
+            {
+              "key": "Referrer-Policy",
+              "value": "strict-origin-when-cross-origin"
+            },
+            {
+              "key": "X-Frame-Options",
+              "value": "DENY"
+            },
+            {
+              "key": "Permissions-Policy",
+              "value": "camera=(self), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+            },
+            {
+              "key": "Cross-Origin-Opener-Policy",
+              "value": "same-origin-allow-popups"
+            },
+            {
+              "key": "Content-Security-Policy-Report-Only",
+              "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; manifest-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://apis.google.com https://www.gstatic.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://firebasestorage.googleapis.com https://*.googleusercontent.com https://lh3.googleusercontent.com; media-src 'self' blob:; connect-src 'self' https://*.googleapis.com wss://*.googleapis.com https://*.firebaseio.com https://asia-south1-split-it-prod.cloudfunctions.net https://fcmregistrations.googleapis.com https://firebaseappcheck.googleapis.com https://www.google.com/recaptcha/ https://www.gstatic.com https://api.frankfurter.dev https://cdn.jsdelivr.net; frame-src 'self' https://accounts.google.com https://www.google.com https://recaptcha.google.com https://split-it-prod.firebaseapp.com https://split-now.firebaseapp.com https://split-it-prod.web.app https://split-now.web.app; upgrade-insecure-requests"
+            }
+          ]
+        },
+        {
+          "source": "/*-sw.js",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "no-cache"
+            }
+          ]
+        },
+        {
           "source": "/sw.js",
           "headers": [
             {
@@ -145,15 +212,6 @@
             {
               "key": "Cache-Control",
               "value": "public, max-age=31536000, immutable"
-            }
-          ]
-        },
-        {
-          "source": "/push-sw.js",
-          "headers": [
-            {
-              "key": "Cache-Control",
-              "value": "no-cache"
             }
           ]
         }
@@ -271,24 +329,30 @@
   },
   "emulators": {
     "auth": {
-      "port": 9099
+      "port": 9099,
+      "host": "127.0.0.1"
     },
     "firestore": {
-      "port": 8080
+      "port": 8080,
+      "host": "127.0.0.1"
     },
     "storage": {
-      "port": 9199
+      "port": 9199,
+      "host": "127.0.0.1"
     },
     "hosting": {
-      "port": 5000
+      "port": 5000,
+      "host": "127.0.0.1"
     },
     "ui": {
       "enabled": true,
-      "port": 4000
+      "port": 4000,
+      "host": "127.0.0.1"
     },
     "singleProjectMode": true,
     "functions": {
-      "port": 5001
+      "port": 5001,
+      "host": "127.0.0.1"
     }
   }
 }

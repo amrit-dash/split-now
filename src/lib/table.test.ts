@@ -1,8 +1,24 @@
 import { describe, expect, it } from 'vitest'
 import type { Group } from '@/types'
 import {
-  claimLeftoversForAll, computeTableTotals, draftToTable, receiptExtras, extrasNet, formatCode, isExpired, matchParticipants, orderedItems,
-  parseCode, participantOrder, sanitizeClaims, setShares, tableToSplit, tableTotal, toggleClaim, validateName, TableError,
+  claimLeftoversForAll,
+  computeTableTotals,
+  draftToTable,
+  receiptExtras,
+  extrasNet,
+  formatCode,
+  isExpired,
+  matchParticipants,
+  orderedItems,
+  parseCode,
+  participantOrder,
+  sanitizeClaims,
+  setShares,
+  tableToSplit,
+  tableTotal,
+  toggleClaim,
+  validateName,
+  TableError,
   type LiveTable,
 } from './table'
 import { encodeQr, qrPath } from './qr'
@@ -11,7 +27,11 @@ const sum = (r: Record<string, number>) => Object.values(r).reduce((a, b) => a +
 
 function table(over: Partial<LiveTable> = {}): LiveTable {
   return {
-    code: 'ABCD2345', hostUid: 'host', merchant: 'Pho', currency: 'AUD', date: '2026-10-07',
+    code: 'ABCD2345',
+    hostUid: 'host',
+    merchant: 'Pho',
+    currency: 'AUD',
+    date: '2026-10-07',
     items: {
       a: { name: 'Pho', amount: 1800, pos: 0 },
       b: { name: 'Spring rolls', amount: 1000, pos: 1 },
@@ -24,7 +44,9 @@ function table(over: Partial<LiveTable> = {}): LiveTable {
       g2: { name: 'Cleo', uid: 'g2', joinedAt: 2 },
     },
     claims: {},
-    status: 'open', createdAt: 1, expiresAt: 1 + 86_400_000,
+    status: 'open',
+    createdAt: 1,
+    expiresAt: 1 + 86_400_000,
     ...over,
   }
 }
@@ -99,7 +121,8 @@ describe('computeTableTotals', () => {
   })
   it('shared items split equally or by shares, exactly', () => {
     const t = table({
-      items: { a: { name: 'Platter', amount: 1000, pos: 0 } }, extras: { tax: 0, tip: 0, discount: 0 },
+      items: { a: { name: 'Platter', amount: 1000, pos: 0 } },
+      extras: { tax: 0, tip: 0, discount: 0 },
       claims: { host: { a: 1 }, g1: { a: 1 }, g2: { a: 1 } },
     })
     const r = computeTableTotals(t)
@@ -116,7 +139,10 @@ describe('computeTableTotals', () => {
   })
   it('random tables always sum exactly once fully claimed', () => {
     let seed = 7
-    const rnd = (n: number) => { seed = (seed * 1103515245 + 12345) % 2 ** 31; return seed % n }
+    const rnd = (n: number) => {
+      seed = (seed * 1103515245 + 12345) % 2 ** 31
+      return seed % n
+    }
     for (let k = 0; k < 200; k++) {
       const items: LiveTable['items'] = {}
       const nItems = 1 + rnd(8)
@@ -125,10 +151,15 @@ describe('computeTableTotals', () => {
       const claims: LiveTable['claims'] = {}
       for (const id of Object.keys(items)) {
         const who = people.filter(() => rnd(2)).concat(people[rnd(people.length)])
-        for (const p of who) (claims[p] ??= {})[id] = 1 + rnd(3)
+        for (const p of who) {
+          claims[p] ??= {}
+          claims[p][id] = 1 + rnd(3)
+        }
       }
       const t = table({
-        items, claims, extras: { tax: rnd(900), tip: rnd(900), discount: rnd(300) },
+        items,
+        claims,
+        extras: { tax: rnd(900), tip: rnd(900), discount: rnd(300) },
         participants: Object.fromEntries(people.map((p, i) => [p, { name: p, uid: p, joinedAt: i }])),
       })
       const r = computeTableTotals(t)
@@ -155,20 +186,26 @@ const members: Group['members'] = {
 
 describe('matchParticipants', () => {
   it('matches by uid, then exact name (accent/case-insensitive), then unique first name', () => {
-    const r = matchParticipants({
-      host: { name: 'Whatever', uid: 'host', joinedAt: 0 },
-      g1: { name: 'ben', uid: 'anon1', joinedAt: 1 },
-      g2: { name: 'cleo', uid: 'anon2', joinedAt: 2 },
-    }, members)
+    const r = matchParticipants(
+      {
+        host: { name: 'Whatever', uid: 'host', joinedAt: 0 },
+        g1: { name: 'ben', uid: 'anon1', joinedAt: 1 },
+        g2: { name: 'cleo', uid: 'anon2', joinedAt: 2 },
+      },
+      members,
+    )
     expect(r).toEqual({ host: 'host', g1: 'm_ben', g2: 'm_cleo' })
   })
   it('leaves ambiguous or unknown names unmatched and never reuses a member', () => {
-    const r = matchParticipants({
-      g1: { name: 'Dan', joinedAt: 1 },
-      g2: { name: 'Zed', joinedAt: 2 },
-      g3: { name: 'Ben Smith', joinedAt: 3 },
-      g4: { name: 'Ben Smith', joinedAt: 4 },
-    }, members)
+    const r = matchParticipants(
+      {
+        g1: { name: 'Dan', joinedAt: 1 },
+        g2: { name: 'Zed', joinedAt: 2 },
+        g3: { name: 'Ben Smith', joinedAt: 3 },
+        g4: { name: 'Ben Smith', joinedAt: 4 },
+      },
+      members,
+    )
     expect(r.g1).toBeUndefined()
     expect(r.g2).toBeUndefined()
     expect(r.g3).toBe('m_ben')
@@ -222,7 +259,22 @@ describe('tableToSplit', () => {
 describe('draftToTable', () => {
   it('turns the difference between total and items into tax, or a discount', () => {
     const host = { uid: 'u1', name: 'Hana', payment: { payid: 'h@x' } }
-    const t = draftToTable({ merchant: ' Pho ', currency: 'AUD', date: '2026-10-07', total: 3000, items: [{ name: 'A', amount: 1000 }, { name: '', amount: 1500 }, { name: 'zero', amount: 0 }] }, host, 5, (i) => 'i' + i)
+    const t = draftToTable(
+      {
+        merchant: ' Pho ',
+        currency: 'AUD',
+        date: '2026-10-07',
+        total: 3000,
+        items: [
+          { name: 'A', amount: 1000 },
+          { name: '', amount: 1500 },
+          { name: 'zero', amount: 0 },
+        ],
+      },
+      host,
+      5,
+      (i) => 'i' + i,
+    )
     expect(t.merchant).toBe('Pho')
     expect(t.items).toEqual({ i0: { name: 'A', amount: 1000, pos: 0 }, i1: { name: 'Item 2', amount: 1500, pos: 1 } })
     expect(t.extras).toEqual({ tax: 500, tip: 0, discount: 0 })
@@ -241,7 +293,11 @@ describe('qr', () => {
     const q = encodeQr('https://split-it.web.app/t/ABCD2345')
     expect(q.size).toBe(29)
     // finder pattern corners: dark ring, light ring, dark 3×3 centre
-    for (const [x, y] of [[0, 0], [q.size - 7, 0], [0, q.size - 7]]) {
+    for (const [x, y] of [
+      [0, 0],
+      [q.size - 7, 0],
+      [0, q.size - 7],
+    ]) {
       expect(q.modules[y][x]).toBe(true)
       expect(q.modules[y + 1][x + 1]).toBe(false)
       expect(q.modules[y + 3][x + 3]).toBe(true)

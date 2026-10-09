@@ -9,10 +9,18 @@ import { arrayUnion, collection, deleteDoc, deleteField, doc, getDoc, getDocs, q
 let env: RulesTestEnvironment
 
 const group = {
-  id: 'g1', name: 'Trip', emoji: '🏝️', type: 'trip', currency: 'AUD', simplify: true,
+  id: 'g1',
+  name: 'Trip',
+  emoji: '🏝️',
+  type: 'trip',
+  currency: 'AUD',
+  simplify: true,
   memberUids: ['alice'],
   members: { alice: { name: 'Alice', uid: 'alice', color: '#000' }, p_bob: { name: 'Bob', color: '#111' } },
-  inviteCode: 'ABC234', createdBy: 'alice', createdAt: 1, updatedAt: 1,
+  inviteCode: 'ABCD2345',
+  createdBy: 'alice',
+  createdAt: 1,
+  updatedAt: 1,
 }
 
 beforeAll(async () => {
@@ -41,6 +49,10 @@ describe('groups', () => {
     await assertFails(setDoc(doc(db('carol'), 'groups/g3'), { ...group, id: 'g3', memberUids: ['alice'], createdBy: 'carol' }))
   })
 
+  it('invite codes must be at least 8 characters', async () => {
+    await assertFails(setDoc(doc(db('carol'), 'groups/g2'), { ...group, id: 'g2', memberUids: ['carol'], createdBy: 'carol', inviteCode: 'ABC234' }))
+  })
+
   it('members cannot change the invite code', async () => {
     await assertFails(updateDoc(doc(db('alice'), 'groups/g1'), { inviteCode: 'ZZZZZZ' }))
     await assertSucceeds(updateDoc(doc(db('alice'), 'groups/g1'), { name: 'Renamed' }))
@@ -52,34 +64,49 @@ describe('joining', () => {
     updateDoc(doc(db(uid), 'groups/g1'), {
       memberUids: arrayUnion(uid),
       [`members.${memberId}`]: { name: 'Bob', uid, color: '#111' },
-      joinCode: code, joinMemberId: memberId, updatedAt: 2, ...extra,
+      joinCode: code,
+      joinMemberId: memberId,
+      updatedAt: 2,
+      ...extra,
     })
 
   it('can claim a placeholder with the right code', async () => {
-    await assertSucceeds(join('bob', 'ABC234', 'p_bob'))
+    await assertSucceeds(join('bob', 'ABCD2345', 'p_bob'))
   })
   it('can join as a new member', async () => {
-    await assertSucceeds(join('bob', 'ABC234', 'bob'))
+    await assertSucceeds(join('bob', 'ABCD2345', 'bob'))
   })
   it('rejects a wrong code', async () => {
-    await assertFails(join('bob', 'WRONG1', 'p_bob'))
+    await assertFails(join('bob', 'WRONG123', 'p_bob'))
   })
   it('cannot take over a claimed member', async () => {
-    await assertFails(join('mallory', 'ABC234', 'alice'))
+    await assertFails(join('mallory', 'ABCD2345', 'alice'))
   })
   it('cannot change other fields while joining', async () => {
-    await assertFails(join('bob', 'ABC234', 'p_bob', { name: 'Hijacked' }))
+    await assertFails(join('bob', 'ABCD2345', 'p_bob', { name: 'Hijacked' }))
   })
   it('cannot add someone else’s uid', async () => {
-    await assertFails(updateDoc(doc(db('bob'), 'groups/g1'), {
-      memberUids: arrayUnion('bob', 'mallory'), 'members.p_bob': { name: 'Bob', uid: 'bob', color: '#111' },
-      joinCode: 'ABC234', joinMemberId: 'p_bob',
-    }))
+    await assertFails(
+      updateDoc(doc(db('bob'), 'groups/g1'), {
+        memberUids: arrayUnion('bob', 'mallory'),
+        'members.p_bob': { name: 'Bob', uid: 'bob', color: '#111' },
+        joinCode: 'ABCD2345',
+        joinMemberId: 'p_bob',
+      }),
+    )
   })
 })
 
 describe('expenses', () => {
-  const expense = { id: 'e1', groupId: 'g1', description: 'Dinner', amount: 1000, paidBy: { alice: 1000 }, splits: { alice: 500, p_bob: 500 }, createdBy: 'alice' }
+  const expense = {
+    id: 'e1',
+    groupId: 'g1',
+    description: 'Dinner',
+    amount: 1000,
+    paidBy: { alice: 1000 },
+    splits: { alice: 500, p_bob: 500 },
+    createdBy: 'alice',
+  }
   it('members can write, others cannot', async () => {
     await assertSucceeds(setDoc(doc(db('alice'), 'groups/g1/expenses/e1'), expense))
     await assertFails(setDoc(doc(db('mallory'), 'groups/g1/expenses/e2'), { ...expense, id: 'e2' }))
@@ -94,12 +121,22 @@ describe('expenses', () => {
 describe('expense comments', () => {
   const expense = { id: 'e1', groupId: 'g1', description: 'Dinner', amount: 1000, paidBy: { alice: 1000 }, splits: { alice: 500, bob: 500 } }
   const path = 'groups/g1/expenses/e1/comments'
-  const comment = (uid: string, extra: Record<string, unknown> = {}) => ({ text: 'Was tip included?', authorUid: uid, authorName: 'Someone', createdAt: 1, ...extra })
+  const comment = (uid: string, extra: Record<string, unknown> = {}) => ({
+    text: 'Was tip included?',
+    authorUid: uid,
+    authorName: 'Someone',
+    createdAt: 1,
+    ...extra,
+  })
 
   beforeEach(async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       const fs = ctx.firestore()
-      await setDoc(doc(fs, 'groups/g1'), { ...group, memberUids: ['alice', 'bob'], members: { ...group.members, bob: { name: 'Bob', uid: 'bob', color: '#111' } } })
+      await setDoc(doc(fs, 'groups/g1'), {
+        ...group,
+        memberUids: ['alice', 'bob'],
+        members: { ...group.members, bob: { name: 'Bob', uid: 'bob', color: '#111' } },
+      })
       await setDoc(doc(fs, 'groups/g1/expenses/e1'), expense)
       await setDoc(doc(fs, `${path}/c_alice`), comment('alice'))
     })
@@ -154,9 +191,17 @@ describe('expense comments', () => {
 
 describe('recurring catch-up', () => {
   it('two members writing the same deterministic occurrence id both succeed', async () => {
-    await env.withSecurityRulesDisabled((ctx) =>
-      setDoc(doc(ctx.firestore(), 'groups/g1'), { ...group, memberUids: ['alice', 'bob'] }))
-    const tpl = { id: 'e1', groupId: 'g1', description: 'Rent', amount: 1000, date: '2026-01-31', paidBy: { alice: 1000 }, splits: { alice: 500, p_bob: 500 }, createdBy: 'alice' }
+    await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'groups/g1'), { ...group, memberUids: ['alice', 'bob'] }))
+    const tpl = {
+      id: 'e1',
+      groupId: 'g1',
+      description: 'Rent',
+      amount: 1000,
+      date: '2026-01-31',
+      paidBy: { alice: 1000 },
+      splits: { alice: 500, p_bob: 500 },
+      createdBy: 'alice',
+    }
     await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'groups/g1/expenses/e1'), tpl))
     // occurrences keep the template's author even when another member's client writes them
     const occ = { ...tpl, id: 'e1_2026-02-28', date: '2026-02-28', recurringFrom: 'e1' }
@@ -168,7 +213,17 @@ describe('recurring catch-up', () => {
   })
 
   it('occurrences and the advanced template commit in one batch', async () => {
-    const tpl = { id: 'e1', groupId: 'g1', description: 'Rent', amount: 1000, date: '2026-01-31', paidBy: { alice: 1000 }, splits: { alice: 500, p_bob: 500 }, createdBy: 'alice', recurrence: { freq: 'monthly', nextDate: '2026-02-28' } }
+    const tpl = {
+      id: 'e1',
+      groupId: 'g1',
+      description: 'Rent',
+      amount: 1000,
+      date: '2026-01-31',
+      paidBy: { alice: 1000 },
+      splits: { alice: 500, p_bob: 500 },
+      createdBy: 'alice',
+      recurrence: { freq: 'monthly', nextDate: '2026-02-28' },
+    }
     await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'groups/g1/expenses/e1'), tpl))
     const fs = db('alice')
     const batch = writeBatch(fs)
@@ -226,7 +281,9 @@ describe('capture tokens and inbox', () => {
   })
   it('tokens may be scoped to a trip with a label, but nothing else', async () => {
     // g1's only signed-up member is alice (a scope must be a group the owner is in; see firestore.push.test.ts)
-    await assertSucceeds(setDoc(doc(db('alice'), 'captureTokens/eeeeeeeeeeeeeeeeeeeeeeeeeeee'), { uid: 'alice', createdAt: 1, groupId: 'g1', label: 'Goa trip' }))
+    await assertSucceeds(
+      setDoc(doc(db('alice'), 'captureTokens/eeeeeeeeeeeeeeeeeeeeeeeeeeee'), { uid: 'alice', createdAt: 1, groupId: 'g1', label: 'Goa trip' }),
+    )
     await assertFails(setDoc(doc(db('bob'), 'captureTokens/ffffffffffffffffffffffffffff'), { uid: 'bob', createdAt: 1, groupId: 5 }))
     await assertFails(setDoc(doc(db('bob'), 'captureTokens/gggggggggggggggggggggggggggg'), { uid: 'bob', createdAt: 1, label: 'x'.repeat(61) }))
     await assertFails(setDoc(doc(db('bob'), 'captureTokens/hhhhhhhhhhhhhhhhhhhhhhhhhhhh'), { uid: 'bob', createdAt: 1, admin: true }))

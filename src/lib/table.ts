@@ -84,7 +84,7 @@ export function participantOrder(t: Pick<LiveTable, 'participants' | 'hostUid'>)
   return Object.keys(t.participants).sort((a, b) => {
     if (a === t.hostUid) return -1
     if (b === t.hostUid) return 1
-    return (t.participants[a].joinedAt - t.participants[b].joinedAt) || a.localeCompare(b)
+    return t.participants[a].joinedAt - t.participants[b].joinedAt || a.localeCompare(b)
   })
 }
 
@@ -150,7 +150,11 @@ export function computeTableTotals(t: LiveTable): TableTotals {
   let unclaimedAmount = 0
   for (const it of items) {
     const weights = order.filter((p) => it.claims[p]).map((p) => [p, it.claims[p]] as [string, number])
-    if (!weights.length) { unclaimed.push(it.id); unclaimedAmount += it.amount; continue }
+    if (!weights.length) {
+      unclaimed.push(it.id)
+      unclaimedAmount += it.amount
+      continue
+    }
     const part = allocate(it.amount, weights)
     itemSplits[it.id] = part
     for (const [p, v] of Object.entries(part)) sub[p] = (sub[p] ?? 0) + v
@@ -165,7 +169,10 @@ export function computeTableTotals(t: LiveTable): TableTotals {
     people[p] = { items, extras, total: items + extras }
   }
   return {
-    people, itemSplits, unclaimed, unclaimedAmount,
+    people,
+    itemSplits,
+    unclaimed,
+    unclaimedAmount,
     total: itemsTotal(t) + extra,
     allClaimed: items.length > 0 && unclaimed.length === 0,
   }
@@ -207,7 +214,10 @@ export function matchParticipants(
 ): Record<ParticipantId, MemberId | undefined> {
   const out: Record<ParticipantId, MemberId | undefined> = Object.fromEntries(order.map((p) => [p, undefined]))
   const used = new Set<MemberId>()
-  const take = (p: ParticipantId, m: MemberId) => { out[p] = m; used.add(m) }
+  const take = (p: ParticipantId, m: MemberId) => {
+    out[p] = m
+    used.add(m)
+  }
   const free = () => Object.keys(members).filter((m) => !used.has(m))
 
   for (const p of order) {
@@ -300,7 +310,11 @@ export function draftToTable(
   ids: (i: number) => string = (i) => `i${i}_${Math.random().toString(36).slice(2, 8)}`,
 ): NewTable {
   const items: Record<ItemId, TableItem> = {}
-  d.items.filter((it) => it.amount > 0).forEach((it, i) => { items[ids(i)] = { name: it.name.trim() || `Item ${i + 1}`, amount: it.amount, pos: i } })
+  d.items
+    .filter((it) => it.amount > 0)
+    .forEach((it, i) => {
+      items[ids(i)] = { name: it.name.trim() || `Item ${i + 1}`, amount: it.amount, pos: i }
+    })
   const sum = Object.values(items).reduce((s, it) => s + it.amount, 0)
   const diff = d.total && d.total > 0 ? d.total - sum : 0
   const hasPayment = host.payment && Object.values(host.payment).some(Boolean)

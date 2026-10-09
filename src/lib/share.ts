@@ -18,3 +18,15 @@ export async function copy(text: string) {
     return false
   }
 }
+
+/** Hand the browser a text file to save (a filled-in MacroDroid macro, for instance). */
+export function downloadText(filename: string, text: string, type = 'application/json') {
+  const url = URL.createObjectURL(new Blob([text], { type }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 10_000)
+}

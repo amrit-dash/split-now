@@ -40,23 +40,47 @@ const cssVar = (name: string, fallback: string) => {
 }
 
 interface Shell {
-  x: number; y: number; vx: number; vy: number; g: number
+  x: number
+  y: number
+  vx: number
+  vy: number
+  g: number
   burstAt: number // show-clock ms
   hist: { x: number; y: number; t: number }[]
-  colors: string[]; bright: number; size: number; alive: boolean
+  colors: string[]
+  bright: number
+  size: number
+  alive: boolean
 }
 interface Particle {
-  x: number; y: number; px: number; py: number; vx: number; vy: number
-  born: number; life: number; color: string; r: number
-  drag: number; grav: number; alpha: number
+  x: number
+  y: number
+  px: number
+  py: number
+  vx: number
+  vy: number
+  born: number
+  life: number
+  color: string
+  r: number
+  drag: number
+  grav: number
+  alpha: number
   twinkle: number // 0 = none, else phase seed
   ember: boolean
 }
-interface Flash { x: number; y: number; t: number; a: number }
-interface Launch { at: number; bright: number }
+interface Flash {
+  x: number
+  y: number
+  t: number
+  a: number
+}
+interface Launch {
+  at: number
+  bright: number
+}
 
-const prefersReduced = () =>
-  typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+const prefersReduced = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
 export function CardFirework() {
   const [reduced] = useState(prefersReduced)
@@ -68,7 +92,8 @@ export function CardFirework() {
     const ctx = canvas?.getContext('2d')
     if (!canvas || !ctx) return
 
-    let w = 0, h = 0
+    let w = 0,
+      h = 0
     const size = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, 2)
       w = canvas.clientWidth
@@ -142,9 +167,17 @@ export function CardFirework() {
       const vy = -g * T
       const vx = (xb - x0) / T
       shells.push({
-        x: x0, y: y0, vx, vy, g,
+        x: x0,
+        y: y0,
+        vx,
+        vy,
+        g,
         burstAt: clock + T * 1000 * rand(0.9, 0.96),
-        hist: [], colors: palette(), bright, size: rand(0.8, 1.15), alive: true,
+        hist: [],
+        colors: palette(),
+        bright,
+        size: rand(0.8, 1.15),
+        alive: true,
       })
     }
 
@@ -158,12 +191,21 @@ export function CardFirework() {
         // Mostly a shell, a few slower ones filling the middle.
         const v = (Math.random() < 0.8 ? rand(85, 112) : rand(30, 80)) * scale
         parts.push({
-          x: s.x, y: s.y, px: s.x, py: s.y,
-          vx: Math.cos(a) * v + s.vx * 0.3, vy: Math.sin(a) * v + s.vy * 0.3,
-          born: clock + rand(0, 60), life: rand(1300, 2200),
-          color: s.colors[i % s.colors.length], r: rand(0.8, 1.35),
-          drag, grav: 34, alpha: s.bright * 0.75,
-          twinkle: 0, ember: false, // no twinkle: kept plain and quiet
+          x: s.x,
+          y: s.y,
+          px: s.x,
+          py: s.y,
+          vx: Math.cos(a) * v + s.vx * 0.3,
+          vy: Math.sin(a) * v + s.vy * 0.3,
+          born: clock + rand(0, 60),
+          life: rand(1300, 2200),
+          color: s.colors[i % s.colors.length],
+          r: rand(0.8, 1.35),
+          drag,
+          grav: 34,
+          alpha: s.bright * 0.75,
+          twinkle: 0,
+          ember: false, // no twinkle: kept plain and quiet
         })
       }
       flashes.push({ x: s.x, y: s.y, t: clock, a: s.bright })
@@ -183,13 +225,27 @@ export function CardFirework() {
           s.hist.push({ x: s.x, y: s.y, t: clock })
           if (Math.random() < 0.45 && parts.length < MAX_PARTICLES) {
             parts.push({
-              x: s.x, y: s.y, px: s.x, py: s.y,
-              vx: rand(-8, 8) - s.vx * 0.05, vy: rand(-4, 10) - s.vy * 0.05,
-              born: clock, life: rand(260, 520), color: '#fff3d6', r: rand(0.45, 0.8),
-              drag: 3, grav: 40, alpha: s.bright * 0.7, twinkle: 0, ember: true,
+              x: s.x,
+              y: s.y,
+              px: s.x,
+              py: s.y,
+              vx: rand(-8, 8) - s.vx * 0.05,
+              vy: rand(-4, 10) - s.vy * 0.05,
+              born: clock,
+              life: rand(260, 520),
+              color: '#fff3d6',
+              r: rand(0.45, 0.8),
+              drag: 3,
+              grav: 40,
+              alpha: s.bright * 0.7,
+              twinkle: 0,
+              ember: true,
             })
           }
-          if (clock >= s.burstAt) { s.alive = false; burst(s) }
+          if (clock >= s.burstAt) {
+            s.alive = false
+            burst(s)
+          }
         }
         s.hist = s.hist.filter((p) => clock - p.t < 260)
         const pts = s.hist
@@ -198,14 +254,21 @@ export function CardFirework() {
           ctx.globalAlpha = Math.max(0, k * k * 0.55 * s.bright)
           ctx.strokeStyle = '#fff1d0'
           ctx.lineWidth = 0.6 + k * 0.7
-          ctx.beginPath(); ctx.moveTo(pts[i - 1].x, pts[i - 1].y); ctx.lineTo(pts[i].x, pts[i].y); ctx.stroke()
+          ctx.beginPath()
+          ctx.moveTo(pts[i - 1].x, pts[i - 1].y)
+          ctx.lineTo(pts[i].x, pts[i].y)
+          ctx.stroke()
         }
         if (s.alive) {
           ctx.fillStyle = '#fff8e8'
           ctx.globalAlpha = 0.18 * s.bright
-          ctx.beginPath(); ctx.arc(s.x, s.y, 3.2, 0, Math.PI * 2); ctx.fill()
+          ctx.beginPath()
+          ctx.arc(s.x, s.y, 3.2, 0, Math.PI * 2)
+          ctx.fill()
           ctx.globalAlpha = 0.85 * s.bright
-          ctx.beginPath(); ctx.arc(s.x, s.y, 1.2, 0, Math.PI * 2); ctx.fill()
+          ctx.beginPath()
+          ctx.arc(s.x, s.y, 1.2, 0, Math.PI * 2)
+          ctx.fill()
         }
       }
       shells = shells.filter((s) => s.alive || s.hist.length)
@@ -220,7 +283,9 @@ export function CardFirework() {
         grd.addColorStop(1, 'rgba(255,246,222,0)')
         ctx.globalAlpha = (1 - k) ** 2 * 0.4 * f.a
         ctx.fillStyle = grd
-        ctx.beginPath(); ctx.arc(f.x, f.y, rad, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath()
+        ctx.arc(f.x, f.y, rad, 0, Math.PI * 2)
+        ctx.fill()
       }
       flashes = flashes.filter((f) => clock - f.t < 600)
 
@@ -229,7 +294,8 @@ export function CardFirework() {
         const age = (clock - p.born) / p.life
         if (age < 0) continue
         const d = Math.exp(-p.drag * dt)
-        p.px = p.x; p.py = p.y
+        p.px = p.x
+        p.py = p.y
         p.vx *= d
         p.vy = p.vy * d + p.grav * dt
         p.x += p.vx * dt
@@ -246,17 +312,24 @@ export function CardFirework() {
         if (!p.ember) {
           // soft halo
           ctx.globalAlpha = a * 0.13
-          ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 3.2, 0, Math.PI * 2); ctx.fill()
+          ctx.beginPath()
+          ctx.arc(p.x, p.y, p.r * 3.2, 0, Math.PI * 2)
+          ctx.fill()
           // short streak while still moving fast
           const sp = Math.hypot(p.vx, p.vy)
           if (sp > 18) {
             ctx.globalAlpha = a * 0.35
             ctx.lineWidth = p.r * 0.9
-            ctx.beginPath(); ctx.moveTo(p.x - p.vx * 0.05, p.y - p.vy * 0.05); ctx.lineTo(p.x, p.y); ctx.stroke()
+            ctx.beginPath()
+            ctx.moveTo(p.x - p.vx * 0.05, p.y - p.vy * 0.05)
+            ctx.lineTo(p.x, p.y)
+            ctx.stroke()
           }
         }
         ctx.globalAlpha = Math.min(1, a * 0.75)
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
+        ctx.fill()
         // tiny four-point glint on the twinklers when they peak
         if (tw > 0.72) {
           const k = (tw - 0.72) / 0.28
@@ -265,8 +338,10 @@ export function CardFirework() {
           ctx.strokeStyle = '#ffffff'
           ctx.lineWidth = 0.7
           ctx.beginPath()
-          ctx.moveTo(p.x - len, p.y); ctx.lineTo(p.x + len, p.y)
-          ctx.moveTo(p.x, p.y - len); ctx.lineTo(p.x, p.y + len)
+          ctx.moveTo(p.x - len, p.y)
+          ctx.lineTo(p.x + len, p.y)
+          ctx.moveTo(p.x, p.y - len)
+          ctx.lineTo(p.x, p.y + len)
           ctx.stroke()
         }
       }
@@ -287,7 +362,10 @@ export function CardFirework() {
       while (queue.length && queue[0].at <= clock) launch(queue.shift()!.bright)
       if (!queue.length) plan()
       draw(dt)
-      if (busy()) { raf = requestAnimationFrame(tick); return }
+      if (busy()) {
+        raf = requestAnimationFrame(tick)
+        return
+      }
       // Quiet gap: clear and sleep until the next launch instead of spinning frames.
       ctx.clearRect(0, 0, w, h)
       const wait = Math.max(0, queue[0].at - clock)
@@ -309,8 +387,10 @@ export function CardFirework() {
     }
     const pause = () => {
       running = false
-      cancelAnimationFrame(raf); raf = 0
-      clearTimeout(sleep); sleep = undefined
+      cancelAnimationFrame(raf)
+      raf = 0
+      clearTimeout(sleep)
+      sleep = undefined
       last = 0
     }
     const sync = () => {
@@ -318,16 +398,22 @@ export function CardFirework() {
       else pause()
     }
 
-    const io = typeof IntersectionObserver !== 'undefined'
-      ? new IntersectionObserver(([e]) => { onScreen = e.isIntersecting; sync() })
-      : null
+    const io =
+      typeof IntersectionObserver !== 'undefined'
+        ? new IntersectionObserver(([e]) => {
+            onScreen = e.isIntersecting
+            sync()
+          })
+        : null
     io?.observe(canvas)
     document.addEventListener('visibilitychange', sync)
     sync()
 
     return () => {
       pause()
-      shells = []; parts = []; flashes = []
+      shells = []
+      parts = []
+      flashes = []
       ctx.clearRect(0, 0, w, h)
       ro?.disconnect()
       io?.disconnect()

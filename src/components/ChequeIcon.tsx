@@ -18,7 +18,12 @@ const SIGNATURE = 'M17.2 19.9 c0.7-2.3 1.9-2.8 2.2-0.7 c0.25 1.8 1 2 1.75 0.2 c0
 /** ms before each signing in loop mode; after the list, every last value. */
 const LOOP_GAPS = [900, 5000, 9000, 15000, 24000, 38000, 60000]
 
-export function ChequeIcon({ size = 20, play = 'once', currency, className = '' }: {
+export function ChequeIcon({
+  size = 20,
+  play = 'once',
+  currency,
+  className = '',
+}: {
   size?: number
   play?: 'loop' | 'once' | 'none'
   currency?: string
@@ -30,11 +35,16 @@ export function ChequeIcon({ size = 20, play = 'once', currency, className = '' 
   const [signed, setSigned] = useState(play === 'none')
 
   useEffect(() => {
-    const path = ink.current, p = pen.current
+    const path = ink.current,
+      p = pen.current
     if (!path || !p) return
     const len = path.getTotalLength()
     path.style.strokeDasharray = `${len}`
-    if (play === 'none' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) { path.style.strokeDashoffset = '0'; setSigned(true); return }
+    if (play === 'none' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      path.style.strokeDashoffset = '0'
+      setSigned(true)
+      return
+    }
     path.style.strokeDashoffset = `${len}`
     let raf = 0
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -52,24 +62,54 @@ export function ChequeIcon({ size = 20, play = 'once', currency, className = '' 
     }
     const sign = () => {
       n++
-      const t0 = performance.now(), IN = 320, WRITE = 1300, OUT = 420
+      const t0 = performance.now(),
+        IN = 320,
+        WRITE = 1300,
+        OUT = 420
       const frame = (now: number) => {
         const t = now - t0
-        if (t < IN) { const k = t / IN; place(0, 4 * (1 - k), k); path.style.strokeDashoffset = `${len}` }
-        else if (t < IN + WRITE) { const d = ease((t - IN) / WRITE) * len; place(d); path.style.strokeDashoffset = `${len - d}` }
-        else if (t < IN + WRITE + OUT) { const k = (t - IN - WRITE) / OUT; place(len, 4 * k, 1 - k); path.style.strokeDashoffset = '0' }
-        else { p.style.opacity = '0'; setSigned(true); next(); return }
+        if (t < IN) {
+          const k = t / IN
+          place(0, 4 * (1 - k), k)
+          path.style.strokeDashoffset = `${len}`
+        } else if (t < IN + WRITE) {
+          const d = ease((t - IN) / WRITE) * len
+          place(d)
+          path.style.strokeDashoffset = `${len - d}`
+        } else if (t < IN + WRITE + OUT) {
+          const k = (t - IN - WRITE) / OUT
+          place(len, 4 * k, 1 - k)
+          path.style.strokeDashoffset = '0'
+        } else {
+          p.style.opacity = '0'
+          setSigned(true)
+          next()
+          return
+        }
         raf = requestAnimationFrame(frame)
       }
       raf = requestAnimationFrame(frame)
     }
     next()
-    return () => { clearTimeout(timer); cancelAnimationFrame(raf) }
+    return () => {
+      clearTimeout(timer)
+      cancelAnimationFrame(raf)
+    }
   }, [play])
 
   const sym = currencySymbol(currency ?? profile.currency)
   return (
-    <svg aria-hidden width={size} height={size} viewBox="0 0 32 32" className={`shrink-0 overflow-visible ${className}`} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      aria-hidden
+      width={size}
+      height={size}
+      viewBox="0 0 32 32"
+      className={`shrink-0 overflow-visible ${className}`}
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       {/* the next page, peeking out under the cheque */}
       <path d="M8.4 24.7 H25.6 V22.6" strokeWidth="1.6" />
       {/* the cheque */}
@@ -77,7 +117,9 @@ export function ChequeIcon({ size = 20, play = 'once', currency, className = '' 
       {/* the rolled spine on the left */}
       <rect x="4.4" y="8.4" width="4" height="16.3" rx="2" strokeWidth="1.7" />
       <path d="M6.4 11.2 V21.6" strokeWidth="1" opacity="0.55" />
-      <text x="12.5" y="17" textAnchor="middle" fontSize={sym.length > 1 ? 4.6 : 6.6} fontWeight="800" fill="currentColor" stroke="none">{sym}</text>
+      <text x="12.5" y="17" textAnchor="middle" fontSize={sym.length > 1 ? 4.6 : 6.6} fontWeight="800" fill="currentColor" stroke="none">
+        {sym}
+      </text>
       <path d="M16.2 12.3 H25 M16.2 15.1 H22.6" strokeWidth="1.45" />
       <path d="M10.8 20.2 H13.6" strokeWidth="1.45" />
       <path ref={ink} d={SIGNATURE} strokeWidth="1.3" style={{ strokeDashoffset: signed ? 0 : undefined }} />

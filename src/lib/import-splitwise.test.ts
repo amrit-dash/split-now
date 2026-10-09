@@ -3,25 +3,36 @@ import type { Expense, Group, Settlement } from '@/types'
 import { netBalances } from './balances'
 import { groupCsv } from './export'
 import {
-  detectDateOrder, groupNameFromFilename, mapSplitwiseCategory, parseAmount, parseCsvRows, parseDate, parseImportCsv,
-  parseSplitwiseCsv, reconstruct, ImportError, type ImportResult,
+  detectDateOrder,
+  groupNameFromFilename,
+  mapSplitwiseCategory,
+  parseAmount,
+  parseCsvRows,
+  parseDate,
+  parseImportCsv,
+  parseSplitwiseCsv,
+  reconstruct,
+  ImportError,
+  type ImportResult,
 } from './import-splitwise'
 
 /** Shaped like a real Splitwise "Export as spreadsheet" file: BOM, blank line after the header, totals at the end. */
-const SPLITWISE = '﻿' + [
-  'Date,Description,Category,Cost,Currency,Alice Nguyen,Bob Smith,Cara Lee',
-  '',
-  '2024-03-01,Dinner at Chin Chin,Dining out,90.00,AUD,60.00,-30.00,-30.00',
-  '2024-03-02,"Uber, airport to hotel",Taxi,47.50,AUD,-15.83,31.67,-15.84',
-  '2024-03-02,Airbnb,Hotel,600.00,AUD,-200.00,-200.00,400.00',
-  '2024-03-03,"The ""best"" gelato",General,10.00,AUD,-5.00,5.00,0.00',
-  '2024-03-04,Groceries,Groceries,100.00,AUD,50.00,0.00,-50.00',
-  '2024-03-05,Bob S. paid Alice N.,Payment,30.00,AUD,-30.00,30.00,0.00',
-  '2024-03-06,Coffee (just me),Dining out,5.00,AUD,0.00,0.00,0.00',
-  '',
-  '2024-03-10,Total balance, , ,AUD,-140.83,-163.33,304.16',
-  '',
-].join('\r\n')
+const SPLITWISE =
+  '﻿' +
+  [
+    'Date,Description,Category,Cost,Currency,Alice Nguyen,Bob Smith,Cara Lee',
+    '',
+    '2024-03-01,Dinner at Chin Chin,Dining out,90.00,AUD,60.00,-30.00,-30.00',
+    '2024-03-02,"Uber, airport to hotel",Taxi,47.50,AUD,-15.83,31.67,-15.84',
+    '2024-03-02,Airbnb,Hotel,600.00,AUD,-200.00,-200.00,400.00',
+    '2024-03-03,"The ""best"" gelato",General,10.00,AUD,-5.00,5.00,0.00',
+    '2024-03-04,Groceries,Groceries,100.00,AUD,50.00,0.00,-50.00',
+    '2024-03-05,Bob S. paid Alice N.,Payment,30.00,AUD,-30.00,30.00,0.00',
+    '2024-03-06,Coffee (just me),Dining out,5.00,AUD,0.00,0.00,0.00',
+    '',
+    '2024-03-10,Total balance, , ,AUD,-140.83,-163.33,304.16',
+    '',
+  ].join('\r\n')
 
 function expectBalancesMatchTotals(r: ImportResult) {
   expect(r.totals).not.toBeNull()
@@ -41,14 +52,38 @@ function expectBalancesMatchTotals(r: ImportResult) {
 function appBalances(r: ImportResult) {
   const ids = Object.fromEntries(r.members.map((m, i) => [m, `m${i}`]))
   const remap = (o: Record<string, number>) => Object.fromEntries(Object.entries(o).map(([k, v]) => [ids[k], v]))
-  const expenses = r.expenses.map((e, i) => ({
-    id: `e${i}`, groupId: 'g', description: e.description, amount: e.amount, category: e.category, date: e.date,
-    paidBy: remap(e.paidBy), splits: remap(e.splits), splitType: 'exact', splitInput: { exact: remap(e.splits) },
-    createdBy: 'u', createdAt: i, updatedAt: i,
-  }) as Expense)
-  const settlements = r.payments.map((p, i) => ({
-    id: `s${i}`, groupId: 'g', from: ids[p.from], to: ids[p.to], amount: p.amount, method: 'other', date: p.date, createdBy: 'u', createdAt: i,
-  }) as Settlement)
+  const expenses = r.expenses.map(
+    (e, i) =>
+      ({
+        id: `e${i}`,
+        groupId: 'g',
+        description: e.description,
+        amount: e.amount,
+        category: e.category,
+        date: e.date,
+        paidBy: remap(e.paidBy),
+        splits: remap(e.splits),
+        splitType: 'exact',
+        splitInput: { exact: remap(e.splits) },
+        createdBy: 'u',
+        createdAt: i,
+        updatedAt: i,
+      }) as Expense,
+  )
+  const settlements = r.payments.map(
+    (p, i) =>
+      ({
+        id: `s${i}`,
+        groupId: 'g',
+        from: ids[p.from],
+        to: ids[p.to],
+        amount: p.amount,
+        method: 'other',
+        date: p.date,
+        createdBy: 'u',
+        createdAt: i,
+      }) as Settlement,
+  )
   const net = netBalances(expenses, settlements)
   return Object.fromEntries(r.members.map((m) => [m, net[ids[m]] ?? 0]))
 }
@@ -56,15 +91,28 @@ function appBalances(r: ImportResult) {
 describe('parseCsvRows', () => {
   it('handles BOM, quotes, escaped quotes, commas and newlines inside quotes', () => {
     const rows = parseCsvRows('﻿a,b,c\r\n"x, y","say ""hi""","multi\nline"\n1,2,3')
-    expect(rows).toEqual([['a', 'b', 'c'], ['x, y', 'say "hi"', 'multi\nline'], ['1', '2', '3']])
+    expect(rows).toEqual([
+      ['a', 'b', 'c'],
+      ['x, y', 'say "hi"', 'multi\nline'],
+      ['1', '2', '3'],
+    ])
   })
   it('keeps blank lines as empty rows and copes with a missing trailing newline / CR-only endings', () => {
     expect(parseCsvRows('a,b\r\n\r\n1,2')).toEqual([['a', 'b'], [''], ['1', '2']])
-    expect(parseCsvRows('a,b\r1,2\r')).toEqual([['a', 'b'], ['1', '2']])
+    expect(parseCsvRows('a,b\r1,2\r')).toEqual([
+      ['a', 'b'],
+      ['1', '2'],
+    ])
   })
   it('detects semicolon and tab delimiters (Excel in comma-decimal locales)', () => {
-    expect(parseCsvRows('Date;Cost\n2024-01-01;"12,50"')).toEqual([['Date', 'Cost'], ['2024-01-01', '12,50']])
-    expect(parseCsvRows('a\tb\n1\t2')).toEqual([['a', 'b'], ['1', '2']])
+    expect(parseCsvRows('Date;Cost\n2024-01-01;"12,50"')).toEqual([
+      ['Date', 'Cost'],
+      ['2024-01-01', '12,50'],
+    ])
+    expect(parseCsvRows('a\tb\n1\t2')).toEqual([
+      ['a', 'b'],
+      ['1', '2'],
+    ])
   })
 })
 
@@ -145,7 +193,9 @@ describe('reconstruct', () => {
   const order = ['A', 'B', 'C']
   it('single payer who also had a share', () => {
     expect(reconstruct(9000, { A: 6000, B: -3000, C: -3000 }, order)).toEqual({
-      amount: 9000, paidBy: { A: 9000 }, splits: { A: 3000, B: 3000, C: 3000 },
+      amount: 9000,
+      paidBy: { A: 9000 },
+      splits: { A: 3000, B: 3000, C: 3000 },
     })
   })
   it('payer paid only for others (cost = positive nets)', () => {
@@ -223,7 +273,8 @@ describe('parseSplitwiseCsv: tolerance', () => {
     expectBalancesMatchTotals(r)
   })
   it('assumes Splitwise’s column order for translated headers', () => {
-    const csv = 'Fecha,Descripción,Categoría,Coste,Moneda,Ana,Bea\n2024-01-01,Cena,General,30.00,EUR,15.00,-15.00\n\n2024-01-02,Saldo total, , ,EUR,15.00,-15.00\n'
+    const csv =
+      'Fecha,Descripción,Categoría,Coste,Moneda,Ana,Bea\n2024-01-01,Cena,General,30.00,EUR,15.00,-15.00\n\n2024-01-02,Saldo total, , ,EUR,15.00,-15.00\n'
     const r = parseSplitwiseCsv(csv)
     expect(r.members).toEqual(['Ana', 'Bea'])
     expect(r.warnings[0]).toMatch(/column order/)
@@ -247,7 +298,9 @@ describe('parseSplitwiseCsv: tolerance', () => {
     expectBalancesMatchTotals(r)
   })
   it('handles zero-decimal currencies', () => {
-    const r = parseSplitwiseCsv('Date,Description,Category,Cost,Currency,A,B\n2024-01-01,Ramen,Dining out,3000,JPY,1500,-1500\n2024-01-09,Total balance,,,JPY,1500,-1500')
+    const r = parseSplitwiseCsv(
+      'Date,Description,Category,Cost,Currency,A,B\n2024-01-01,Ramen,Dining out,3000,JPY,1500,-1500\n2024-01-09,Total balance,,,JPY,1500,-1500',
+    )
     expect(r.expenses[0].amount).toBe(3000)
     expectBalancesMatchTotals(r)
   })
@@ -275,11 +328,16 @@ describe('parseSplitwiseCsv: tolerance', () => {
     for (let i = 0; i < 300; i++) {
       const cost = 1000 + i * 7 // cents
       const payer = i % 3
-      const base = Math.floor(cost / 3), extra = cost - base * 3
+      const base = Math.floor(cost / 3),
+        extra = cost - base * 3
       const shares = names.map((_, k) => base + (k < extra ? 1 : 0))
       const nets = shares.map((s, k) => (k === payer ? cost : 0) - s)
-      nets.forEach((v, k) => (tot[k] += v))
-      lines.push(`2024-02-${String((i % 28) + 1).padStart(2, '0')},Item ${i},General,${(cost / 100).toFixed(2)},AUD,${nets.map((v) => (v / 100).toFixed(2)).join(',')}`)
+      nets.forEach((v, k) => {
+        tot[k] += v
+      })
+      lines.push(
+        `2024-02-${String((i % 28) + 1).padStart(2, '0')},Item ${i},General,${(cost / 100).toFixed(2)},AUD,${nets.map((v) => (v / 100).toFixed(2)).join(',')}`,
+      )
     }
     lines.push('', `2024-03-01,Total balance, , ,AUD,${tot.map((v) => (v / 100).toFixed(2)).join(',')}`)
     const r = parseSplitwiseCsv(lines.join('\n'))
@@ -296,10 +354,32 @@ describe('parseImportCsv: Split Now (split-it) CSV round-trip', () => {
   }
   const base = { groupId: 'g', category: 'food' as const, splitType: 'exact' as const, splitInput: {}, createdBy: 'u', updatedAt: 0 }
   const expenses: Expense[] = [
-    { ...base, id: 'e1', description: 'Dinner, with "friends"', amount: 9001, date: '2024-05-01', paidBy: { a: 9001 }, splits: { a: 3001, b: 3000, c: 3000 }, createdAt: 1, notes: 'yum' },
-    { ...base, id: 'e2', description: '=SUM(A1)', category: 'stay', amount: 10000, date: '2024-05-02', paidBy: { a: 6000, b: 4000 }, splits: { b: 5000, c: 5000 }, createdAt: 2 },
+    {
+      ...base,
+      id: 'e1',
+      description: 'Dinner, with "friends"',
+      amount: 9001,
+      date: '2024-05-01',
+      paidBy: { a: 9001 },
+      splits: { a: 3001, b: 3000, c: 3000 },
+      createdAt: 1,
+      notes: 'yum',
+    },
+    {
+      ...base,
+      id: 'e2',
+      description: '=SUM(A1)',
+      category: 'stay',
+      amount: 10000,
+      date: '2024-05-02',
+      paidBy: { a: 6000, b: 4000 },
+      splits: { b: 5000, c: 5000 },
+      createdAt: 2,
+    },
   ]
-  const settlements: Settlement[] = [{ id: 's1', groupId: 'g', from: 'c', to: 'a', amount: 2500, method: 'PayID', date: '2024-05-03', createdBy: 'u', createdAt: 3 }]
+  const settlements: Settlement[] = [
+    { id: 's1', groupId: 'g', from: 'c', to: 'a', amount: 2500, method: 'PayID', date: '2024-05-03', createdBy: 'u', createdAt: 3 },
+  ]
   const csv = groupCsv(group, expenses, settlements)
 
   it('reads our export back', () => {
@@ -307,7 +387,14 @@ describe('parseImportCsv: Split Now (split-it) CSV round-trip', () => {
     expect(r.source).toBe('split-it')
     expect(r.members).toEqual(['Alice', 'Bob', 'Cara, Jr'])
     expect(r.expenses).toHaveLength(2)
-    expect(r.expenses[0]).toMatchObject({ description: 'Dinner, with "friends"', amount: 9001, paidBy: { Alice: 9001 }, splits: { Alice: 3001, Bob: 3000, 'Cara, Jr': 3000 }, notes: 'yum', category: 'food' })
+    expect(r.expenses[0]).toMatchObject({
+      description: 'Dinner, with "friends"',
+      amount: 9001,
+      paidBy: { Alice: 9001 },
+      splits: { Alice: 3001, Bob: 3000, 'Cara, Jr': 3000 },
+      notes: 'yum',
+      category: 'food',
+    })
     expect(r.expenses[1]).toMatchObject({ description: '=SUM(A1)', paidBy: { Alice: 6000, Bob: 4000 }, category: 'stay' })
     expect(r.payments).toEqual([{ date: '2024-05-03', description: 'Cara, Jr paid Alice', from: 'Cara, Jr', to: 'Alice', amount: 2500, method: 'PayID' }])
   })
@@ -318,6 +405,58 @@ describe('parseImportCsv: Split Now (split-it) CSV round-trip', () => {
   })
   it('still routes Splitwise files to the Splitwise parser', () => {
     expect(parseImportCsv(SPLITWISE).source).toBe('splitwise')
+  })
+  it('survives names with ";", leading = + - @, trailing digits and duplicates', () => {
+    const g: Pick<Group, 'members' | 'currency'> = {
+      currency: 'AUD',
+      members: {
+        a: { name: "O'Neil; Jr", color: '' },
+        b: { name: '=1+1', color: '' },
+        c: { name: '+91 Sam', color: '' },
+        d: { name: '@handle', color: '' },
+        e: { name: 'Sam 2', color: '' },
+        f: { name: 'Sam', color: '' },
+        g: { name: 'Sam', color: '' },
+      },
+    }
+    const b2 = { groupId: 'g', category: 'food' as const, splitType: 'exact' as const, splitInput: {}, createdBy: 'u', updatedAt: 0 }
+    const es: Expense[] = [
+      {
+        ...b2,
+        id: 'e1',
+        description: 'Dinner',
+        amount: 9000,
+        date: '2024-05-01',
+        paidBy: { a: 4000, b: 5000 },
+        splits: { a: 3000, b: 3000, c: 3000 },
+        createdAt: 1,
+      },
+      {
+        ...b2,
+        id: 'e2',
+        description: 'Cab',
+        amount: 6000,
+        date: '2024-05-02',
+        paidBy: { c: 1000, d: 2000, e: 3000 },
+        splits: { d: 2000, e: 2000, f: 2000 },
+        createdAt: 2,
+      },
+      { ...b2, id: 'e3', description: 'Coffee', amount: 700, date: '2024-05-03', paidBy: { f: 200, g: 500 }, splits: { e: 350, g: 350 }, createdAt: 3 },
+      { ...b2, id: 'e4', description: '-dash', amount: 1000, date: '2024-05-04', paidBy: { e: 1000 }, splits: { a: 1000 }, createdAt: 4 },
+    ]
+    const sts: Settlement[] = [{ id: 's1', groupId: 'g', from: 'a', to: 'b', amount: 1500, method: 'cash', date: '2024-05-05', createdBy: 'u', createdAt: 5 }]
+    const r = parseImportCsv(groupCsv(g, es, sts))
+    expect(new Set(r.members)).toEqual(new Set(["O'Neil; Jr", '=1+1', '+91 Sam', '@handle', 'Sam 2', 'Sam', 'Sam (2)']))
+    expect(r.skipped).toBe(0)
+    expect(r.warnings).toEqual([])
+    expect(r.expenses.map((e) => e.description)).toEqual(['Dinner', 'Cab', 'Coffee', '-dash'])
+    expect(r.expenses[0].paidBy).toEqual({ "O'Neil; Jr": 4000, '=1+1': 5000 })
+    expect(r.expenses[1].paidBy).toEqual({ '+91 Sam': 1000, '@handle': 2000, 'Sam 2': 3000 })
+    expect(r.expenses[2].paidBy).toEqual({ Sam: 200, 'Sam (2)': 500 })
+    const orig = netBalances(es, sts)
+    const ids = { a: "O'Neil; Jr", b: '=1+1', c: '+91 Sam', d: '@handle', e: 'Sam 2', f: 'Sam', g: 'Sam (2)' }
+    const got = appBalances(r)
+    for (const [k, n] of Object.entries(ids)) expect(got[n]).toBe(orig[k] ?? 0)
   })
 })
 

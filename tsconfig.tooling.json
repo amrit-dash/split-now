@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "types": ["node", "vite/client"], "noEmit": true, "incremental": false, "allowImportingTsExtensions": true },
+  "include": [
+    "tests",
+    "functions/test",
+    "functions/src/**/*.test.ts",
+    "e2e",
+    "scripts",
+    "vite.config.ts",
+    "vitest.functions.config.ts",
+    "vitest.rules.config.ts",
+    "vitest.coverage.config.ts",
+    "playwright.config.ts"
+  ]
+}

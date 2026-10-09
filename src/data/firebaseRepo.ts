@@ -1,31 +1,99 @@
 import { initializeApp, type FirebaseOptions } from 'firebase/app'
 import {
-  EmailAuthProvider, GoogleAuthProvider, connectAuthEmulator, createUserWithEmailAndPassword, getAuth, getRedirectResult, onAuthStateChanged,
-  linkWithCredential, linkWithPopup, linkWithRedirect, signInAnonymously, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, signOut, updateProfile,
+  EmailAuthProvider,
+  GoogleAuthProvider,
+  connectAuthEmulator,
+  createUserWithEmailAndPassword,
+  getAuth,
+  getRedirectResult,
+  onAuthStateChanged,
+  linkWithCredential,
+  linkWithPopup,
+  linkWithRedirect,
+  signInAnonymously,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  signInWithRedirect,
+  signOut,
+  updateProfile,
   type User,
 } from 'firebase/auth'
 import {
-  FieldPath, arrayRemove, arrayUnion, clearIndexedDbPersistence, collection, connectFirestoreEmulator, deleteField, doc, getDoc,
-  getDocFromCache, getDocs, getDocsFromCache, initializeFirestore, limit, onSnapshot, orderBy, persistentLocalCache,
-  persistentMultipleTabManager, query, setDoc, terminate, waitForPendingWrites, where, writeBatch,
-  type DocumentReference, type FirestoreError, type WriteBatch,
+  FieldPath,
+  arrayRemove,
+  arrayUnion,
+  clearIndexedDbPersistence,
+  collection,
+  connectFirestoreEmulator,
+  deleteField,
+  doc,
+  getDoc,
+  getDocFromCache,
+  getDocs,
+  getDocsFromCache,
+  initializeFirestore,
+  limit,
+  onSnapshot,
+  orderBy,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  query,
+  setDoc,
+  terminate,
+  waitForPendingWrites,
+  where,
+  writeBatch,
+  type DocumentReference,
+  type FirestoreError,
+  type Query,
+  type QuerySnapshot,
+  type WriteBatch,
 } from 'firebase/firestore'
-import { connectStorageEmulator, deleteObject, getDownloadURL, getStorage, ref, uploadBytes } from 'firebase/storage'
+import type { FirebaseStorage } from 'firebase/storage'
 import type { ActivityEntry, Capture, Expense, ExpenseComment, Group, Member, MemberId, Settlement, UserProfile } from '@/types'
 import { inviteCode, todayISO, uid } from '@/lib/id'
 import { defaultCurrency } from '@/lib/locale'
 import { inboxToDraft, newCaptureToken, type InboxDoc } from '@/lib/capture'
 import { downscale } from '@/lib/image'
 import { TABLE_TTL_MS, type LiveTable } from '@/lib/table'
-import { disputeActivity, expenseEventActivity, expenseSaveActivity, importActivity, memberActivity, settlementActivity, type NewActivity } from '@/lib/activity'
-import { prepareExpenseSave, prepareImportedSettlement, prepareOccurrence } from '@/lib/trust'
 import {
-  activityCtxFor, byCreatedDesc, byDateDesc, changedSettings, compact, draftToCapture, errorChannel, groupDeleteBlocker, placeholdersOf, storagePathFromUrl,
-  memberProfileOf, type CaptureToken, type GroupSettings, type InviteInfo, type MemberProfile, type Repo, type TablePatch,
+  disputeActivity,
+  expenseEventActivity,
+  expenseSaveActivity,
+  importActivity,
+  memberActivity,
+  settlementActivity,
+  type NewActivity,
+} from '@/lib/activity'
+import { expenseEditPatch, prepareExpenseSave, prepareImportedSettlement, prepareOccurrence } from '@/lib/trust'
+import {
+  activityCtxFor,
+  byCreatedDesc,
+  byDateDesc,
+  changedSettings,
+  compact,
+  draftToCapture,
+  errorChannel,
+  groupDeleteBlocker,
+  placeholdersOf,
+  storagePathFromUrl,
+  memberProfileOf,
+  type CaptureToken,
+  type GroupSettings,
+  type InviteInfo,
+  type MemberProfile,
+  type Repo,
+  type SnapMeta,
+  type TablePatch,
+  type Watch,
 } from './repo'
 import type { Functions } from 'firebase/functions'
 import type { ParsedReceipt } from '@/lib/ocr-parse'
-import type { AiKeyResult, AiModel, AiState, AiStatement, AiStatusResult } from './repo'
+import type { AiKeyResult, AiModel, AiState, AiStatement, AiStatusResult, AiUnavailableReason } from './repo'
+import { parseMemory } from '@/lib/merchants'
+import type { AiTextExpense } from '@/lib/nl-expense'
+import type { NudgeResult } from '@/lib/nudge'
+import { errText } from '@/lib/errors'
 import type { FxRatesDoc, FxRefreshResult } from '@/lib/fx'
 import { initAppCheck } from '@/lib/appcheck'
 import { disablePush } from '@/lib/push'
@@ -34,6 +102,22 @@ import { disablePush } from '@/lib/push'
 const BATCH_LIMIT = 450
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 const online = () => typeof navigator === 'undefined' || navigator.onLine !== false
+/** `p`, or `fallback` when it hasn't settled within `ms` (the promise keeps running). */
+const within = <T>(p: Promise<T>, ms: number, fallback: T) => Promise.race([p, sleep(ms).then(() => fallback)])
+
+const metaOf = (s: { metadata: { fromCache: boolean; hasPendingWrites: boolean } }): SnapMeta => ({
+  fromCache: s.metadata.fromCache,
+  hasPendingWrites: s.metadata.hasPendingWrites,
+})
+/** What a watcher reports when its query failed (access lost, deleted): a fallback value. */
+const FAILED: SnapMeta = { fromCache: true, hasPendingWrites: false, error: true }
+/** How long a captures listener waits for the server before showing the cached (maybe empty) list. */
+const CAPTURES_WAIT_MS = 5000
+/** How long an edit waits for the server's copy of the document before using the cached one. */
+const PREV_WAIT_MS = 1500
+
+/** A Google account photo URL without its size suffix (Google rotates =s96-c style suffixes). */
+const photoKey = (url: string | undefined) => url?.replace(/=s\d+(-c)?$/, '')
 
 export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolean): Repo {
   const app = initializeApp(config)
@@ -43,14 +127,20 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     ignoreUndefinedProperties: true,
     localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
   })
-  const storage = getStorage(app)
-  // Give up on a receipt upload after a minute instead of retrying for 10 minutes.
-  storage.maxUploadRetryTime = 60_000
   if (useEmulators) {
     connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true })
     connectFirestoreEmulator(db, '127.0.0.1', 8080)
-    connectStorageEmulator(storage, '127.0.0.1', 9199)
   }
+  // Storage is loaded the first time a photo is uploaded or deleted; most sessions never need it.
+  let storageMod: Promise<{ storage: FirebaseStorage; sdk: typeof import('firebase/storage') }> | undefined
+  const lazyStorage = () =>
+    (storageMod ??= import('firebase/storage').then((sdk) => {
+      const storage = sdk.getStorage(app)
+      // Give up on a receipt upload after a minute instead of retrying for 10 minutes.
+      storage.maxUploadRetryTime = 60_000
+      if (useEmulators) sdk.connectStorageEmulator(storage, '127.0.0.1', 9199)
+      return { storage, sdk }
+    }))
 
   const errors = errorChannel()
   let functions: Functions | undefined
@@ -83,8 +173,32 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     // Losing access to a single group (removed / deleted) is shown by the screen, not a toast.
     if (e.code !== 'permission-denied') errors.emit('read', e, context)
   }
+  /**
+   * A list listener that also reports sync state (includeMetadataChanges), reusing the previous
+   * array when only metadata changed so screens don't re-render or recompute for nothing.
+   */
+  function watchList<T>(q: Query, map: (s: QuerySnapshot) => T[], cb: Watch<T[]>, context: string) {
+    let last: T[] | undefined
+    return onSnapshot(
+      q,
+      { includeMetadataChanges: true },
+      (s) => {
+        if (!last || s.docChanges().length) last = map(s)
+        cb(last, metaOf(s))
+      },
+      listenError(context, () => cb([], FAILED)),
+    )
+  }
   const deleteFileLater = (path: string | undefined) => {
-    if (path && online()) deleteObject(ref(storage, path)).catch((e) => console.warn('Receipt cleanup failed', e))
+    if (path && online())
+      lazyStorage()
+        .then(({ storage, sdk }) => sdk.deleteObject(sdk.ref(storage, path)))
+        .catch((e) => console.warn('Receipt cleanup failed', e))
+  }
+  /** The receipt image an expense owns: only a path under this group's folder may ever be deleted. */
+  const receiptOf = (groupId: string, e: Pick<Expense, 'receiptPath' | 'receiptUrl'> | undefined) => {
+    const p = e ? (e.receiptPath ?? storagePathFromUrl(e.receiptUrl)) : undefined
+    return p?.startsWith(`receipts/${groupId}/`) ? p : undefined
   }
 
   /** The signed-in user's shareable profile, from cache (the auth provider keeps it warm). */
@@ -96,7 +210,9 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       if (s.exists()) {
         return memberProfileOf(s.data() as UserProfile)
       }
-    } catch { /* not cached */ }
+    } catch {
+      /* not cached */
+    }
     return { displayName: u.displayName || u.email?.split('@')[0] || 'You', payment: {} }
   }
 
@@ -111,12 +227,22 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
   async function cached<T>(r: DocumentReference): Promise<T | undefined> {
     try {
       const s = await getDocFromCache(r)
-      return s.exists() ? ({ ...(s.data() as T), id: s.id }) : undefined
+      return s.exists() ? { ...(s.data() as T), id: s.id } : undefined
     } catch {
       return undefined
     }
   }
   const cachedGroup = (id: string) => cached<Group>(groupRef(id))
+  /** The server's copy when it answers quickly, else what this device has (an edit's "before"). */
+  async function latest<T>(r: DocumentReference): Promise<T | undefined> {
+    if (!online()) return cached<T>(r)
+    const fromServer = getDoc(r).then(
+      (s) => ({ v: s.exists() ? { ...(s.data() as T), id: s.id } : undefined }),
+      () => null,
+    )
+    const got = await within(fromServer, PREV_WAIT_MS, null)
+    return got ? got.v : cached<T>(r)
+  }
 
   /** Builds the activity context for the signed-in user in a group (from cache). */
   async function actCtx(groupId: string, item?: object, g?: Group) {
@@ -134,23 +260,37 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
   const googlePhoto = (u: Pick<User, 'photoURL' | 'providerData'>) =>
     u.providerData?.find((p) => p.providerId === 'google.com')?.photoURL ?? (u.providerData?.length ? undefined : u.photoURL) ?? undefined
 
-  async function ensureProfile(u: { uid: string; displayName: string | null; email: string | null; photoURL: string | null; providerData?: User['providerData'] }) {
+  async function ensureProfile(u: {
+    uid: string
+    displayName: string | null
+    email: string | null
+    photoURL: string | null
+    providerData?: User['providerData']
+  }) {
     const r = doc(db, 'users', u.uid)
-    const snap = await getDoc(r)
+    // Cache first: this runs on every app open, and the profile listener keeps the copy fresh.
+    const snap = await getDocFromCache(r)
+      .then((c) => (c.exists() ? c : getDoc(r)))
+      .catch(() => getDoc(r))
     const google = googlePhoto({ photoURL: u.photoURL, providerData: u.providerData ?? [] })
     if (!snap.exists()) {
       const batch = writeBatch(db)
       batch.set(r, {
         // currentUser, not u: a sign-up's updateProfile may have set the name while getDoc ran.
-        uid: u.uid, displayName: (auth.currentUser?.uid === u.uid ? auth.currentUser.displayName : null) || u.displayName || u.email?.split('@')[0] || 'You', email: u.email ?? undefined,
-        photoURL: google, photoSource: google ? 'google' : undefined, currency: defaultCurrency(), payment: {},
+        uid: u.uid,
+        displayName: (auth.currentUser?.uid === u.uid ? auth.currentUser.displayName : null) || u.displayName || u.email?.split('@')[0] || 'You',
+        email: u.email ?? undefined,
+        photoURL: google,
+        photoSource: google ? 'google' : undefined,
+        currency: defaultCurrency(),
+        payment: {},
       } satisfies UserProfile)
       fire(batch, 'Creating your profile')
       return
     }
     // Later Google sign-ins refresh the Google photo, unless the user uploaded or removed one.
     const p = snap.data() as UserProfile
-    if (google && p.photoSource !== 'upload' && p.photoSource !== 'none' && p.photoURL !== google) {
+    if (google && p.photoSource !== 'upload' && p.photoSource !== 'none' && photoKey(p.photoURL) !== photoKey(google)) {
       await repo.saveProfile({ ...p, photoURL: google, photoSource: 'google' })
     }
   }
@@ -185,7 +325,14 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         // Anonymous guests (live table split) get no profile and no access to groups.
         if (u.isAnonymous) return cb({ uid: u.uid, displayName: 'Guest', isAnonymous: true })
         ensureProfile(u).catch(console.error)
-        cb({ uid: u.uid, displayName: u.displayName ?? u.email ?? 'You', email: u.email ?? undefined, photoURL: u.photoURL ?? undefined, googlePhotoURL: googlePhoto(u), providers: u.providerData.map((p) => p.providerId) })
+        cb({
+          uid: u.uid,
+          displayName: u.displayName ?? u.email ?? 'You',
+          email: u.email ?? undefined,
+          photoURL: u.photoURL ?? undefined,
+          googlePhotoURL: googlePhoto(u),
+          providers: u.providerData.map((p) => p.providerId),
+        })
       })
     },
     async signInWithGoogle() {
@@ -234,19 +381,40 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       // next person on this browser can't read the previous user's data.
       // Unregister this browser from push first (queued delete, flushed just below).
       await Promise.race([disablePush(me()), sleep(2000)])
-      if (online()) await Promise.race([waitForPendingWrites(db).catch(() => {}), sleep(3000)])
+      // Queued writes live in that cache: wiping it would lose them for good. So the cache is
+      // only cleared once the server has acknowledged everything; otherwise it stays (the
+      // writes sync when this user signs in here again) and the user is told.
+      const synced =
+        online() &&
+        (await within(
+          waitForPendingWrites(db).then(
+            () => true,
+            () => false,
+          ),
+          5000,
+          false,
+        ))
       await signOut(auth)
-      try {
-        await terminate(db)
-        await clearIndexedDbPersistence(db)
-      } catch (e) {
-        console.warn('Could not clear offline cache (another tab may be open)', e)
+      if (synced) {
+        try {
+          await terminate(db)
+          await clearIndexedDbPersistence(db)
+        } catch (e) {
+          console.warn('Could not clear offline cache (another tab may be open)', e)
+        }
+      } else {
+        errors.emit('write', new Error('pending writes'), 'Some changes haven’t synced yet, so this device keeps its offline copy until you sign in again')
+        await sleep(2500)
       }
       location.reload()
     },
 
     watchProfile(id, cb) {
-      return onSnapshot(doc(db, 'users', id), (s) => cb(s.exists() ? (s.data() as UserProfile) : null), listenError('Loading your profile', () => cb(null)))
+      return onSnapshot(
+        doc(db, 'users', id),
+        (s) => cb(s.exists() ? (s.data() as UserProfile) : null, metaOf(s)),
+        listenError('Loading your profile', () => cb(null, FAILED)),
+      )
     },
     async saveProfile(p) {
       const shared = memberProfileOf(p)
@@ -256,16 +424,21 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         const prev = await getDocFromCache(doc(db, 'users', p.uid))
         const old = prev.exists() ? (prev.data() as UserProfile) : undefined
         if (old?.photoSource === 'upload' && old.photoURL && old.photoURL !== p.photoURL) oldUpload = storagePathFromUrl(old.photoURL)
-      } catch { /* not cached */ }
+      } catch {
+        /* not cached */
+      }
       // merge: true would keep a removed photo, so clear the fields explicitly.
       const own = { ...p, photoURL: p.photoURL ?? deleteField(), photoSource: p.photoSource ?? (p.photoURL ? undefined : deleteField()) }
+      // The server's list when it answers (the cache resolves empty, not failing, for a query
+      // this device has never run, e.g. Profile opened before Groups on a fresh install).
       let groupIds: string[] = []
       const q = query(collection(db, 'groups'), where('memberUids', 'array-contains', p.uid))
-      try {
-        groupIds = (await getDocsFromCache(q)).docs.map((d) => d.id)
-      } catch {
-        try { groupIds = (await getDocs(q)).docs.map((d) => d.id) } catch { /* offline and not cached */ }
-      }
+      const ids = (s: { docs: Array<{ id: string }> }) => s.docs.map((d) => d.id)
+      const fromCache = () =>
+        getDocsFromCache(q)
+          .then(ids)
+          .catch(() => [] as string[])
+      groupIds = online() ? ((await within(getDocs(q).then(ids).catch(fromCache), 3000, null)) ?? (await fromCache())) : await fromCache()
       const refs: Array<[DocumentReference, object, boolean]> = [
         [doc(db, 'users', p.uid), own, true],
         ...groupIds.map((g) => [memberProfileRef(g, p.uid), shared, false] as [DocumentReference, object, boolean]),
@@ -279,9 +452,10 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     },
     async uploadAvatar(userId, jpeg) {
       if (!online()) throw new Error('You’re offline. Connect to change your photo.')
-      const r = ref(storage, `avatars/${userId}/${uid()}.jpg`)
-      await uploadBytes(r, jpeg, { contentType: 'image/jpeg', cacheControl: 'public, max-age=31536000' })
-      return getDownloadURL(r)
+      const { storage, sdk } = await lazyStorage()
+      const r = sdk.ref(storage, `avatars/${userId}/${uid()}.jpg`)
+      await sdk.uploadBytes(r, jpeg, { contentType: 'image/jpeg', cacheControl: 'public, max-age=31536000' })
+      return sdk.getDownloadURL(r)
     },
     async getProfile(id) {
       const s = await getDoc(doc(db, 'users', id))
@@ -294,14 +468,26 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
 
     watchGroups(userId, cb) {
       const q = query(collection(db, 'groups'), where('memberUids', 'array-contains', userId))
+      let last: Group[] | undefined
       return onSnapshot(
         q,
-        (s) => cb(s.docs.map((d) => ({ ...(d.data() as Group), id: d.id })).sort((a, b) => b.updatedAt - a.updatedAt)),
-        (e) => { cb([]); errors.emit('read', e, 'Loading your groups') },
+        { includeMetadataChanges: true },
+        (s) => {
+          if (!last || s.docChanges().length) last = s.docs.map((d) => ({ ...(d.data() as Group), id: d.id })).sort((a, b) => b.updatedAt - a.updatedAt)
+          cb(last, metaOf(s))
+        },
+        (e) => {
+          cb([], FAILED)
+          errors.emit('read', e, 'Loading your groups')
+        },
       )
     },
     watchGroup(id, cb) {
-      return onSnapshot(groupRef(id), (s) => cb(s.exists() ? { ...(s.data() as Group), id: s.id } : null), listenError('Loading group', () => cb(null)))
+      return onSnapshot(
+        groupRef(id),
+        (s) => cb(s.exists() ? { ...(s.data() as Group), id: s.id } : null, metaOf(s)),
+        listenError('Loading group', () => cb(null, FAILED)),
+      )
     },
     async createGroup(g) {
       const id = uid('g_')
@@ -334,7 +520,9 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       try {
         const s = await getDocFromCache(groupRef(id))
         if (s.exists()) base = { ...(s.data() as Group), id }
-      } catch { /* not cached */ }
+      } catch {
+        /* not cached */
+      }
       if (base) return repo.updateGroupSettings(base, settings as GroupSettings)
       const batch = writeBatch(db)
       batch.update(groupRef(id), { ...settings, updatedAt: Date.now() })
@@ -379,7 +567,8 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         memberOpId: memberId,
         updatedAt: Date.now(),
       })
-      if (group.type !== 'personal') {
+      // Only placeholders are listed on the invite; a joined member leaving has nothing to remove.
+      if (!m?.uid && group.type !== 'personal') {
         batch.set(inviteRef(group.inviteCode), { groupId: group.id, placeholders: { [memberId]: deleteField() } }, { merge: true })
       }
       if (m?.uid) batch.delete(memberProfileRef(group.id, m.uid))
@@ -387,7 +576,8 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     },
     async deleteGroup(id) {
       // Needs the server: it lists every sub-collection first, and a half-applied offline delete
-      // would come back (rolled back) later with no explanation.
+      // would come back (rolled back) later with no explanation. onGroupDeleted (Cloud Functions)
+      // sweeps up anything left behind (activity beyond one batch, a receipt that timed out).
       if (!online()) throw new Error('You’re offline. Connect to the internet to delete a group.')
       const s = await getDoc(groupRef(id))
       if (!s.exists()) return // already gone
@@ -396,14 +586,21 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       if (blocker) throw new Error(blocker)
       const failed = (e: unknown): never => {
         const denied = (e as { code?: string })?.code === 'permission-denied'
-        throw new Error(denied ? `Couldn’t delete “${g.name}”: you don’t have permission.` : `Couldn’t delete “${g.name}”: ${(e as Error)?.message ?? e}`)
+        throw new Error(denied ? `Couldn’t delete “${g.name}”: you don’t have permission.` : `Couldn’t delete “${g.name}”: ${errText(e)}`)
       }
       // Waits for the server's answer, so a refusal reaches the caller. On a connection too slow
       // to answer in time it carries on (writes are sent in order) and a late refusal is a toast.
       const ack = (p: Promise<void>) => {
         let waited = false
-        p.catch((e) => { if (waited) errors.emit('write', e, 'Deleting group') })
-        return Promise.race([p, sleep(20_000).then(() => { waited = true })])
+        p.catch((e) => {
+          if (waited) errors.emit('write', e, 'Deleting group')
+        })
+        return Promise.race([
+          p,
+          sleep(20_000).then(() => {
+            waited = true
+          }),
+        ])
       }
       const [expenses, settlements, profiles, activity] = await Promise.all(
         ['expenses', 'settlements', 'profiles', 'activity'].map((sub) => getDocs(collection(db, 'groups', id, sub))),
@@ -417,15 +614,22 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       // Comment threads, a few expenses at a time (one at a time took minutes for a big import).
       const commentRefs: DocumentReference[] = []
       const queue = [...expenses.docs]
-      await Promise.all(Array.from({ length: 16 }, async () => {
-        for (let d = queue.shift(); d; d = queue.shift()) {
-          ;(await getDocs(commentsCol(id, d.id)).catch(() => null))?.forEach((c) => commentRefs.push(c.ref))
-        }
-      }))
+      await Promise.all(
+        Array.from({ length: 16 }, async () => {
+          for (let d = queue.shift(); d; d = queue.shift()) {
+            ;(await getDocs(commentsCol(id, d.id)).catch(() => null))?.forEach((c) => {
+              commentRefs.push(c.ref)
+            })
+          }
+        }),
+      )
       const invite = g.type !== 'personal' && g.inviteCode ? await getDoc(inviteRef(g.inviteCode)).catch(() => null) : null
       // Receipts first (storage rules check membership, which ends with the group). Best effort.
       if (receipts.length) {
-        await Promise.race([Promise.allSettled(receipts.map((p) => deleteObject(ref(storage, p)))), sleep(5000)])
+        await Promise.race([
+          lazyStorage().then(({ storage, sdk }) => Promise.allSettled(receipts.map((p) => sdk.deleteObject(sdk.ref(storage, p))))),
+          sleep(5000),
+        ])
       }
       // Sub-collection docs (comments after their expenses) in ≤450-write batches, all confirmed by
       // the server before the last batch removes the group: they need the membership checks.
@@ -433,14 +637,14 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       const batches: Promise<void>[] = []
       for (let i = 0; i < refs.length; i += BATCH_LIMIT) {
         const batch = writeBatch(db)
-        refs.slice(i, i + BATCH_LIMIT).forEach((r) => batch.delete(r))
+        for (const r of refs.slice(i, i + BATCH_LIMIT)) batch.delete(r)
         batches.push(batch.commit())
       }
       await ack(Promise.all(batches).then(() => undefined)).catch(failed)
       // The activity log is append-only: rules let the creator delete it only in the batch
       // that deletes the group itself. (Entries beyond one batch are left orphaned and unreadable.)
       const last = writeBatch(db)
-      activity.docs.slice(0, BATCH_LIMIT - 2).forEach((d) => last.delete(d.ref))
+      for (const d of activity.docs.slice(0, BATCH_LIMIT - 2)) last.delete(d.ref)
       // Only an invite that exists: deleting a missing one is refused, and would fail the batch.
       if (invite?.exists() && invite.data().groupId === id) last.delete(invite.ref)
       last.delete(groupRef(id))
@@ -457,6 +661,9 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       const c = code.toUpperCase()
       const invite = await repo.getInvite(c)
       if (!invite) throw new Error('Invite not found')
+      // Tapping an invite link twice: the rules refuse a second join, so don't try one.
+      const known = await cachedGroup(invite.groupId)
+      if (member.uid && known?.memberUids.includes(member.uid)) return invite.groupId
       const me = await myMemberProfile()
       const batch = writeBatch(db)
       // Non-members cannot read the group, so this is a blind update validated by security rules.
@@ -477,18 +684,30 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     },
 
     watchExpenses(groupId, cb) {
-      return onSnapshot(
+      return watchList(
         collection(db, 'groups', groupId, 'expenses'),
-        (s) => cb(s.docs.map((d) => ({ ...(d.data() as Expense), id: d.id, groupId })).sort(byDateDesc)),
-        listenError('Loading expenses', () => cb([])),
+        (s) => s.docs.map((d) => ({ ...(d.data() as Expense), id: d.id, groupId })).sort(byDateDesc),
+        cb,
+        'Loading expenses',
       )
     },
     async saveExpense(e) {
       const r = expenseRef(e.groupId, e.id)
-      const [prev, group] = await Promise.all([cached<Expense>(r), cachedGroup(e.groupId)])
+      // An edit starts from the newest copy we can get, so the activity entry's "before" is right
+      // and only what really changed is written (a full set would wipe a flag or approval that
+      // landed on the server after this device's copy).
+      const [prev, group] = await Promise.all([latest<Expense>(r), cachedGroup(e.groupId)])
       const next = prepareExpenseSave(prev, { ...e, receiptPath: e.receiptPath ?? storagePathFromUrl(e.receiptUrl) }, group ?? {}, me())
       const batch = writeBatch(db)
-      batch.set(r, next)
+      if (!prev) batch.set(r, next)
+      else {
+        const patch = expenseEditPatch(prev, next)
+        const data: Record<string, unknown> = { ...patch.set, updatedAt: next.updatedAt }
+        for (const k of patch.unset) data[k] = deleteField()
+        // The rules only let an edit remove approvals (never add or change), which is all this does.
+        if (patch.approvals !== undefined) data.approvals = patch.approvals ?? deleteField()
+        batch.update(r, data)
+      }
       batch.update(groupRef(e.groupId), { updatedAt: Date.now() })
       log(batch, e.groupId, expenseSaveActivity(prev, next, await actCtx(e.groupId, next, group)))
       fire(batch, `Saving “${e.description}”`)
@@ -496,6 +715,8 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     async deleteExpense(groupId, id) {
       const r = expenseRef(groupId, id)
       const e = await cached<Expense>(r)
+      // Already in the trash: a second delete would make the caller its deleter (who may purge it).
+      if (e?.deletedAt) return
       const batch = writeBatch(db)
       batch.update(r, { deletedAt: Date.now(), deletedBy: me() })
       batch.update(groupRef(groupId), { updatedAt: Date.now() })
@@ -514,21 +735,25 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     async purgeExpense(groupId, id) {
       const r = expenseRef(groupId, id)
       const e = await cached<Expense>(r)
-      const receipt = e ? e.receiptPath ?? storagePathFromUrl(e.receiptUrl) : undefined
+      const receipt = receiptOf(groupId, e)
       // Comments go in the same batch (rules allow deleting others' comments once the parent is gone).
       const comments = await Promise.race([
-        getDocsFromCache(commentsCol(groupId, id)).then((s) => s.docs.map((d) => d.ref)).catch(() => [] as DocumentReference[]),
+        getDocsFromCache(commentsCol(groupId, id))
+          .then((s) => s.docs.map((d) => d.ref))
+          .catch(() => [] as DocumentReference[]),
         sleep(2000).then(() => [] as DocumentReference[]),
       ])
       if (online() && !comments.length) {
         const fromServer = await Promise.race([
-          getDocs(commentsCol(groupId, id)).then((s) => s.docs.map((d) => d.ref)).catch(() => [] as DocumentReference[]),
+          getDocs(commentsCol(groupId, id))
+            .then((s) => s.docs.map((d) => d.ref))
+            .catch(() => [] as DocumentReference[]),
           sleep(4000).then(() => [] as DocumentReference[]),
         ])
         comments.push(...fromServer)
       }
       const batch = writeBatch(db)
-      comments.slice(0, BATCH_LIMIT - 3).forEach((c) => batch.delete(c))
+      for (const c of comments.slice(0, BATCH_LIMIT - 3)) batch.delete(c)
       batch.delete(r)
       batch.update(groupRef(groupId), { updatedAt: Date.now() })
       if (e) log(batch, groupId, expenseEventActivity('purged', e, await actCtx(groupId, e)))
@@ -536,7 +761,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       // Any overflow (or comments we couldn't list) can still be removed afterwards: the expense is gone.
       for (let i = BATCH_LIMIT - 3; i < comments.length; i += BATCH_LIMIT) {
         const b = writeBatch(db)
-        comments.slice(i, i + BATCH_LIMIT).forEach((c) => b.delete(c))
+        for (const c of comments.slice(i, i + BATCH_LIMIT)) b.delete(c)
         fire(b, 'Deleting comments')
       }
       deleteFileLater(receipt)
@@ -567,16 +792,13 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       if (!online()) return false
       const r = doc(db, 'groups', groupId, 'expenses', expenseId)
       ;(async () => {
-        const blob = await downscale(file, 1600, 0.8)
+        const [blob, { storage, sdk }] = await Promise.all([downscale(file, 1600, 0.8), lazyStorage()])
         const path = `receipts/${groupId}/${expenseId}-${uid()}.jpg`
-        const fileRef = ref(storage, path)
-        await uploadBytes(fileRef, blob, { contentType: 'image/jpeg' })
-        const url = await getDownloadURL(fileRef)
-        let old: string | undefined
-        try {
-          const s = await getDocFromCache(r)
-          if (s.exists()) { const e = s.data() as Expense; old = e.receiptPath ?? storagePathFromUrl(e.receiptUrl) }
-        } catch { /* not cached */ }
+        const fileRef = sdk.ref(storage, path)
+        await sdk.uploadBytes(fileRef, blob, { contentType: 'image/jpeg' })
+        const url = await sdk.getDownloadURL(fileRef)
+        // The image being replaced, if this expense owns one (never another expense's or the template's).
+        const old = receiptOf(groupId, await cached<Expense>(r))
         const batch = writeBatch(db)
         batch.update(r, { receiptUrl: url, receiptPath: path })
         fire(batch, 'Attaching receipt')
@@ -585,17 +807,18 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       return true
     },
     async uploadReceipt(groupId, file) {
-      const blob = await downscale(file, 1600, 0.8)
-      const r = ref(storage, `receipts/${groupId}/${uid()}.jpg`)
-      await uploadBytes(r, blob, { contentType: 'image/jpeg' })
-      return getDownloadURL(r)
+      const [blob, { storage, sdk }] = await Promise.all([downscale(file, 1600, 0.8), lazyStorage()])
+      const r = sdk.ref(storage, `receipts/${groupId}/${uid()}.jpg`)
+      await sdk.uploadBytes(r, blob, { contentType: 'image/jpeg' })
+      return sdk.getDownloadURL(r)
     },
 
     watchSettlements(groupId, cb) {
-      return onSnapshot(
+      return watchList(
         collection(db, 'groups', groupId, 'settlements'),
-        (s) => cb(s.docs.map((d) => ({ ...(d.data() as Settlement), id: d.id, groupId })).sort(byDateDesc)),
-        listenError('Loading payments', () => cb([])),
+        (s) => s.docs.map((d) => ({ ...(d.data() as Settlement), id: d.id, groupId })).sort(byDateDesc),
+        cb,
+        'Loading payments',
       )
     },
     async saveSettlement(st) {
@@ -610,6 +833,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     async deleteSettlement(groupId, id) {
       const r = settlementRef(groupId, id)
       const s = await cached<Settlement>(r)
+      if (s?.deletedAt) return
       const batch = writeBatch(db)
       batch.update(r, { deletedAt: Date.now(), deletedBy: me() })
       batch.update(groupRef(groupId), { updatedAt: Date.now() })
@@ -636,19 +860,13 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     },
 
     watchActivity(groupId, cb, max = 50) {
-      return onSnapshot(
-        query(activityCol(groupId), orderBy('createdAt', 'desc'), limit(max)),
-        (s) => cb(s.docs.map((d) => ({ ...(d.data() as ActivityEntry), id: d.id, groupId }))),
-        listenError('Loading activity', () => cb([])),
-      )
+      const entries = (s: QuerySnapshot) => s.docs.map((d) => ({ ...(d.data() as ActivityEntry), id: d.id, groupId }))
+      return watchList(query(activityCol(groupId), orderBy('createdAt', 'desc'), limit(max)), entries, cb, 'Loading activity')
     },
     watchHistory(groupId, targetId, cb) {
       // Equality-only query: served by the automatic single-field index.
-      return onSnapshot(
-        query(activityCol(groupId), where('targetId', '==', targetId)),
-        (s) => cb(s.docs.map((d) => ({ ...(d.data() as ActivityEntry), id: d.id, groupId })).sort(byCreatedDesc)),
-        listenError('Loading history', () => cb([])),
-      )
+      const entries = (s: QuerySnapshot) => s.docs.map((d) => ({ ...(d.data() as ActivityEntry), id: d.id, groupId })).sort(byCreatedDesc)
+      return watchList(query(activityCol(groupId), where('targetId', '==', targetId)), entries, cb, 'Loading history')
     },
 
     async saveRecurringOccurrences(template, occurrences) {
@@ -670,7 +888,13 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         ...settlements.map((st) => [settlementRef(groupId, st.id), prepareImportedSettlement({ ...st, groupId })] as [DocumentReference, object]),
       ]
       // One summary activity entry for the whole import, in the first batch.
-      const entry = importActivity(groupId, expenses.length, settlements.length, expenses[0]?.importedFrom ?? settlements[0]?.importedFrom, await actCtx(groupId, undefined, group))
+      const entry = importActivity(
+        groupId,
+        expenses.length,
+        settlements.length,
+        expenses[0]?.importedFrom ?? settlements[0]?.importedFrom,
+        await actCtx(groupId, undefined, group),
+      )
       writes.unshift([doc(activityCol(groupId)), compact(entry)])
       // One slot per batch for the group's updatedAt bump. Batches go out in order, so they
       // follow any createGroup/addMember batch fired just before (rules need the group first).
@@ -684,10 +908,11 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     },
 
     watchComments(groupId, expenseId, cb) {
-      return onSnapshot(
+      return watchList(
         commentsCol(groupId, expenseId),
-        (s) => cb(s.docs.map((d) => ({ ...(d.data() as ExpenseComment), id: d.id })).sort((a, b) => a.createdAt - b.createdAt)),
-        listenError('Loading comments', () => cb([])),
+        (s) => s.docs.map((d) => ({ ...(d.data() as ExpenseComment), id: d.id })).sort((a, b) => a.createdAt - b.createdAt),
+        cb,
+        'Loading comments',
       )
     },
     async addComment(groupId, expenseId, c) {
@@ -702,17 +927,40 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     },
 
     watchCaptures(userId, cb) {
-      return onSnapshot(
+      let last: Capture[] | undefined
+      let held: { list: Capture[]; meta: SnapMeta } | undefined
+      let waited = false
+      // Captures are written by the server (SMS webhook), so an empty local cache says nothing:
+      // keep the screen loading until the server answers, unless the device is offline. But
+      // "online" can mean a captive portal or a blocked backend, so after a few seconds the
+      // cached list (maybe empty, flagged fromCache) is shown and the listener keeps waiting.
+      const timer = setTimeout(() => {
+        waited = true
+        if (held) cb(held.list, held.meta)
+        else if (!last) cb([], { fromCache: true, hasPendingWrites: false })
+      }, CAPTURES_WAIT_MS)
+      const unsub = onSnapshot(
         collection(db, 'users', userId, 'captures'),
         { includeMetadataChanges: true },
         (s) => {
-          // Captures are written by the server (SMS webhook), so an empty local cache says nothing:
-          // keep the screen loading until the server answers, unless the device is offline.
-          if (s.empty && s.metadata.fromCache && navigator.onLine) return
-          cb(s.docs.map((d) => ({ ...(d.data() as Capture), id: d.id })).sort(byCreatedDesc))
+          if (!last || s.docChanges().length) last = s.docs.map((d) => ({ ...(d.data() as Capture), id: d.id })).sort(byCreatedDesc)
+          const meta = metaOf(s)
+          if (s.empty && meta.fromCache && online() && !waited) {
+            held = { list: last, meta }
+            return
+          }
+          held = undefined
+          cb(last, meta)
         },
-        (e) => { cb([]); errors.emit('read', e, 'Loading captured transactions') },
+        (e) => {
+          cb([], FAILED)
+          errors.emit('read', e, 'Loading captured transactions')
+        },
       )
+      return () => {
+        clearTimeout(timer)
+        unsub()
+      }
     },
     async saveCapture(userId, c) {
       const batch = writeBatch(db)
@@ -731,18 +979,44 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       fire(batch, 'Deleting capture')
     },
 
+    watchMerchants(userId, cb) {
+      return onSnapshot(
+        doc(db, 'users', userId, 'settings', 'merchants'),
+        (s) => cb(s.exists() ? parseMemory(s.data()) : null, metaOf(s)),
+        listenError('Loading your categories', () => cb(null, FAILED)),
+      )
+    },
+    async saveMerchants(userId, memory) {
+      // A full replace: entries evicted from the memory must leave the document too.
+      const batch = writeBatch(db)
+      batch.set(doc(db, 'users', userId, 'settings', 'merchants'), { categories: memory.categories, touched: memory.touched, updatedAt: Date.now() })
+      fire(batch, 'Remembering the category')
+    },
+    async nudge(groupId, memberId, amount) {
+      if (!online()) return { sent: false, reason: 'unavailable' }
+      try {
+        const call = await callable<{ groupId: string; memberId: string; amount?: number }, NudgeResult>('nudge', 20_000)
+        return (await call(amount ? { groupId, memberId, amount } : { groupId, memberId })).data
+      } catch (e) {
+        const code = (e as { code?: string }).code ?? ''
+        // The callable's own refusals read fine as they are; anything else is a plain failure.
+        if (/invalid-argument|permission-denied|not-found|unauthenticated/.test(code)) throw new Error(errText(e))
+        console.warn('nudge failed', e)
+        return { sent: false, reason: 'unavailable' }
+      }
+    },
+
     watchCaptureTokens(userId, cb) {
       const q = query(collection(db, 'captureTokens'), where('uid', '==', userId))
-      return onSnapshot(
-        q,
-        (s) => cb(s.docs.map((d) => ({ ...(d.data() as CaptureToken), token: d.id })).sort(byCreatedDesc)),
-        listenError('Loading capture tokens', () => cb([])),
-      )
+      return watchList(q, (s) => s.docs.map((d) => ({ ...(d.data() as CaptureToken), token: d.id })).sort(byCreatedDesc), cb, 'Loading capture tokens')
     },
     async createCaptureToken(userId, opts = {}) {
       const token = newCaptureToken()
       const batch = writeBatch(db)
-      batch.set(doc(db, 'captureTokens', token), compact({ uid: userId, createdAt: Date.now(), groupId: opts.groupId || undefined, label: opts.label?.slice(0, 60) || undefined }))
+      batch.set(
+        doc(db, 'captureTokens', token),
+        compact({ uid: userId, createdAt: Date.now(), groupId: opts.groupId || undefined, label: opts.label?.slice(0, 60) || undefined }),
+      )
       fire(batch, 'Creating capture link')
       return token
     },
@@ -765,8 +1039,10 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         const draft = inboxToDraft(d.data() as InboxDoc, todayISO())
         const batch = writeBatch(db)
         // Same id as the inbox doc, so a retry after a partial failure can't duplicate.
-        if (draft) { batch.set(captureRef(userId, d.id), draftToCapture(draft, d.id)); moved++ }
-        else console.warn('Dropping unreadable capture', d.id, d.data())
+        if (draft) {
+          batch.set(captureRef(userId, d.id), draftToCapture(draft, d.id))
+          moved++
+        } else console.warn('Dropping unreadable capture', d.id, d.data())
         batch.delete(d.ref)
         fire(batch, 'Syncing captured transactions')
       }
@@ -784,9 +1060,9 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     watchTable(code, cb) {
       return onSnapshot(
         tableRef(code),
-        (s) => cb(s.exists() ? { ...(s.data() as LiveTable), code: s.id, claims: (s.data() as LiveTable).claims ?? {} } : null),
+        (s) => cb(s.exists() ? { ...(s.data() as LiveTable), code: s.id, claims: (s.data() as LiveTable).claims ?? {} } : null, metaOf(s)),
         // Closed or expired tables stop being readable for guests: show "not found", no toast.
-        listenError('Loading the table', () => cb(null)),
+        listenError('Loading the table', () => cb(null, FAILED)),
       )
     },
     async joinTable(code, pid, p) {
@@ -834,9 +1110,13 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     async readReceiptAi(image, mimeType) {
       if (!auth.currentUser || auth.currentUser.isAnonymous || !online()) return null
       try {
-        const call = await callable<{ kind: 'receipt'; image: string; mimeType: string }, { receipt?: ParsedReceipt | null; unavailable?: true }>('parseReceiptAi', 60_000)
+        const call = await callable<
+          { kind: 'receipt'; image: string; mimeType: string },
+          { receipt?: ParsedReceipt | null; unavailable?: true; reason?: AiUnavailableReason }
+        >('parseReceiptAi', 60_000)
         const d = (await call({ kind: 'receipt', image, mimeType })).data
-        return d && !d.unavailable ? { receipt: d.receipt ?? null } : null
+        if (!d) return null
+        return d.unavailable ? { unavailable: true, reason: d.reason } : { receipt: d.receipt ?? null }
       } catch (e) {
         console.warn('AI receipt reading failed', e)
         return null
@@ -845,11 +1125,30 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     async readStatementAi(images, today) {
       if (!auth.currentUser || auth.currentUser.isAnonymous || !online()) return null
       try {
-        const call = await callable<{ kind: 'statement'; images: typeof images; today: string }, { statement?: AiStatement | null; unavailable?: true }>('parseReceiptAi', 120_000)
+        const call = await callable<
+          { kind: 'statement'; images: typeof images; today: string },
+          { statement?: AiStatement | null; unavailable?: true; reason?: AiUnavailableReason }
+        >('parseReceiptAi', 120_000)
         const d = (await call({ kind: 'statement', images, today })).data
-        return d && !d.unavailable ? { statement: d.statement ?? null } : null
+        if (!d) return null
+        return d.unavailable ? { unavailable: true, reason: d.reason } : { statement: d.statement ?? null }
       } catch (e) {
         console.warn('AI statement reading failed', e)
+        return null
+      }
+    },
+    async parseTextAi(text, ctx) {
+      if (!auth.currentUser || auth.currentUser.isAnonymous || !online()) return null
+      try {
+        const call = await callable<
+          { kind: 'text'; text: string; members: string[]; currency: string; today: string },
+          { expense?: AiTextExpense | null; unavailable?: true; reason?: AiUnavailableReason }
+        >('parseReceiptAi', 30_000)
+        const d = (await call({ kind: 'text', text, ...ctx })).data
+        if (!d) return null
+        return d.unavailable ? { unavailable: true, reason: d.reason } : { expense: d.expense ?? null }
+      } catch (e) {
+        console.warn('AI text reading failed', e)
         return null
       }
     },
@@ -871,19 +1170,25 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       }
     },
     watchAiState(userId, cb) {
-      return onSnapshot(doc(db, 'users', userId, 'aiState', 'status'), (s) => cb((s.data() as AiState | undefined) ?? null), () => cb(null))
+      return onSnapshot(
+        doc(db, 'users', userId, 'aiState', 'status'),
+        (s) => cb((s.data() as AiState | undefined) ?? null),
+        () => cb(null),
+      )
     },
     watchAppAi(cb) {
-      return onSnapshot(doc(db, 'config', 'ai'), (s) => cb(s.data() ?? null), () => cb(null))
+      return onSnapshot(
+        doc(db, 'config', 'ai'),
+        (s) => cb(s.data() ?? null),
+        () => cb(null),
+      )
     },
     async saveAppAi(cfg) {
       await setDoc(doc(db, 'config', 'ai'), { ...cfg, updatedAt: Date.now(), updatedBy: auth.currentUser?.uid ?? '' })
     },
-    watchAppInfo(cb) {
-      return onSnapshot(doc(db, 'config', 'app'), (s) => cb((s.data() as { version?: string } | undefined) ?? null), () => cb(null))
-    },
     async saveAppVersion(version) {
-      await setDoc(doc(db, 'config', 'app'), { version, updatedAt: Date.now(), updatedBy: auth.currentUser?.uid ?? '' })
+      // merge: config/app also holds the admin console's flags, gates and announcement.
+      await setDoc(doc(db, 'config', 'app'), { version, updatedAt: Date.now(), updatedBy: auth.currentUser?.uid ?? '' }, { merge: true })
     },
     async aiUsage(day) {
       const s = await getDoc(doc(db, 'stats', `ai_${day}`))
@@ -895,7 +1200,10 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
   async function callable<I, O>(name: string, timeout: number) {
     const { connectFunctionsEmulator, getFunctions, httpsCallable } = await import('firebase/functions')
     functions ??= getFunctions(app, 'asia-south1')
-    if (useEmulators && !functionsEmulated) { connectFunctionsEmulator(functions, '127.0.0.1', 5001); functionsEmulated = true }
+    if (useEmulators && !functionsEmulated) {
+      connectFunctionsEmulator(functions, '127.0.0.1', 5001)
+      functionsEmulated = true
+    }
     return httpsCallable<I, O>(functions, name, { timeout })
   }
   return repo

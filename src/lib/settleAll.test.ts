@@ -2,8 +2,14 @@ import { describe, expect, it } from 'vitest'
 import type { Debt, Group } from '@/types'
 import { groupCount, pendingSettlements, personBalances, settleHref, settlePersonHref, signedAmount, totalsByCurrency } from './settleAll'
 
-const g = (id: string, currency: string, members: Group['members'], type: Group['type'] = 'trip') =>
-  ({ id, name: `G ${id}`, emoji: '🏖️', type, currency, members })
+const g = (id: string, currency: string, members: Group['members'], type: Group['type'] = 'trip') => ({
+  id,
+  name: `G ${id}`,
+  emoji: '🏖️',
+  type,
+  currency,
+  members,
+})
 const members = {
   me: { name: 'Me', uid: 'u_me', color: '#111' },
   r: { name: 'Rohan', uid: 'u_rohan', color: '#f00' },
@@ -13,9 +19,21 @@ const members = {
 
 describe('settleAll', () => {
   const data: Array<{ group: ReturnType<typeof g>; me?: string; debts: Debt[] }> = [
-    { group: g('a', 'INR', members), me: 'me', debts: [{ from: 'me', to: 'r', amount: 5000 }, { from: 'p', to: 'me', amount: 2000 }, { from: 'x', to: 'r', amount: 999 }] },
+    {
+      group: g('a', 'INR', members),
+      me: 'me',
+      debts: [
+        { from: 'me', to: 'r', amount: 5000 },
+        { from: 'p', to: 'me', amount: 2000 },
+        { from: 'x', to: 'r', amount: 999 },
+      ],
+    },
     // Rohan has a different member id in this group; matched by uid.
-    { group: g('b', 'INR', { m1: members.me, m2: { name: 'Rohan K', uid: 'u_rohan', color: '#f00' } }), me: 'm1', debts: [{ from: 'm2', to: 'm1', amount: 1500 }] },
+    {
+      group: g('b', 'INR', { m1: members.me, m2: { name: 'Rohan K', uid: 'u_rohan', color: '#f00' } }),
+      me: 'm1',
+      debts: [{ from: 'm2', to: 'm1', amount: 1500 }],
+    },
     { group: g('c', 'AUD', members), me: 'me', debts: [{ from: 'r', to: 'me', amount: 700 }] },
     { group: g('d', 'INR', members, 'personal'), me: 'me', debts: [{ from: 'me', to: 'r', amount: 1 }] },
     { group: g('e', 'INR', members), me: undefined, debts: [{ from: 'me', to: 'r', amount: 1 }] },
@@ -29,6 +47,11 @@ describe('settleAll', () => {
       ['b', 'Rohan K', 'owed', 1500],
       ['c', 'Rohan', 'owed', 700],
     ])
+  })
+
+  it('leaves archived groups out', () => {
+    const archived = { group: { ...g('z', 'INR', members), archived: true }, me: 'me', debts: [{ from: 'me', to: 'r', amount: 300 }] }
+    expect(pendingSettlements([...data, archived], 'INR').some((r) => r.groupId === 'z')).toBe(false)
   })
 
   it('puts the home currency first', () => {
@@ -56,7 +79,10 @@ describe('settleAll', () => {
       ['n:priya|INR', 'Priya', 'INR', 2000, 1, ['a']],
       ['u:u_rohan|AUD', 'Rohan', 'AUD', 700, 1, ['c']],
     ])
-    expect(people[0].parts.map((r) => [r.me, r.memberId, r.dir])).toEqual([['me', 'r', 'owe'], ['m1', 'm2', 'owed']])
+    expect(people[0].parts.map((r) => [r.me, r.memberId, r.dir])).toEqual([
+      ['me', 'r', 'owe'],
+      ['m1', 'm2', 'owed'],
+    ])
   })
 
   it('keeps people whose groups cancel out exactly', () => {

@@ -1,15 +1,25 @@
 /*
- * Push notifications for group activity. App Check doesn't apply to Firestore triggers.
+ * Firestore triggers. App Check doesn't apply to them.
  *  - expense added → the other people in it ("Sarah added Dinner · ₹840 · your share ₹210")
- *  - settlement recorded → the person who was paid
+ *  - settlement recorded → the person who was paid, and the payer when someone else recorded it
+ *  - push token registered → the same browser token is dropped from every other account (a
+ *    phone signed out offline, then signed in as someone else, must not keep the first
+ *    person's notifications)
+ *  - group deleted → every subcollection and its receipts go too (the client only deletes the
+ *    group document and its invite; rules would stop it deleting most of the rest anyway)
  * Imports, recurring copies and trashed docs are skipped. Each recipient's prefs decide.
+ * Only uids in the group's memberUids are ever notified: members[*].uid can be typed in by the
+ * group's creator and is not trusted on its own.
  */
-import { logger } from 'firebase-functions'
-import { onDocumentCreated } from 'firebase-functions/v2/firestore'
-import { db } from './admin'
+import { logger } from 'firebase-functions/logger'
+import { onDocumentCreated, onDocumentDeleted } from 'firebase-functions/v2/firestore'
+import { pendingApprovers } from '../../shared/balances-core'
+import { crossedThresholds } from '../../shared/budget'
+import { db, storage } from './admin'
 import { REGION } from './config'
-import { expenseNote, settlementNote } from './lib/notify-text'
-import { expenseRecipients, memberNameForUid, type MemberLite } from './lib/recipients'
+import { flagOn } from './lib/limits'
+import { budgetNote, expenseNote, settlementNote, settlementRecordedNote } from './lib/notify-text'
+import { expenseRecipients, memberNameForUid, memberUid, type MemberLite } from './lib/recipients'
 import { sendToUser } from './push'
 
 interface GroupLite {
@@ -17,7 +27,17 @@ interface GroupLite {
   emoji?: string
   currency?: string
   members?: Record<string, MemberLite>
+  memberUids?: string[]
+  budget?: unknown
 }
+
+/** reminderState/{gid}.budget (server-only): which thresholds were announced, for which budget figure. */
+interface BudgetState {
+  at: number
+  alerted: number[]
+}
+
+const uidsOf = (g: GroupLite) => (Array.isArray(g.memberUids) ? g.memberUids.filter((u): u is string => typeof u === 'string') : [])
 
 async function actorName(groupId: string, g: GroupLite, uid: string | undefined): Promise<string> {
   const fromMembers = memberNameForUid(g.members, uid)
@@ -34,26 +54,106 @@ export const onExpenseCreated = onDocumentCreated({ document: 'groups/{groupId}/
   const { groupId, expenseId } = event.params
   const g = (await db().doc(`groups/${groupId}`).get()).data() as GroupLite | undefined
   if (!g) return
-  const recipients = expenseRecipients(g.members, e)
-  if (!recipients.length) return
+  // The budget check runs whoever added the expense; the push to the people in it only when there are any.
+  const budget = budgetAlert(groupId, g).catch((err) => logger.warn('budget alert', { groupId, error: (err as Error).message }))
+  const recipients = expenseRecipients(g.members, e, uidsOf(g))
+  if (!recipients.length) return budget
   const actor = await actorName(groupId, g, e.createdBy)
   const currency = g.currency ?? 'INR'
-  const sent = await Promise.all(recipients.map((r) => sendToUser(r.uid, ['expenses'], expenseNote({
-    groupId, expenseId, groupName: g.name ?? 'Group', emoji: g.emoji, actorName: actor, description: String(e.description ?? ''),
-    amount: e.amount, currency, share: r.share, paid: r.paid, needsApproval: e.requiresApproval === true,
-  }))))
+  // "needs your approval" only for people who actually have to approve, not for a payer with nothing to approve.
+  const waiting = new Set(pendingApprovers(e, g.members ?? {}).map((id) => g.members?.[id]?.uid))
+  const sent = await Promise.all(
+    recipients.map((r) =>
+      sendToUser(
+        r.uid,
+        ['expenses'],
+        expenseNote({
+          groupId,
+          expenseId,
+          groupName: g.name ?? 'Group',
+          emoji: g.emoji,
+          actorName: actor,
+          description: String(e.description ?? ''),
+          amount: e.amount,
+          currency,
+          share: r.share,
+          paid: r.paid,
+          needsApproval: waiting.has(r.uid),
+        }),
+      ),
+    ),
+  )
   logger.info('expense push', { groupId, expenseId, recipients: recipients.length, sent: sent.reduce((a, b) => a + b, 0) })
+  await budget
 })
+
+/**
+ * Budget alerts: when the group's live spend (every expense not in the trash, as the budget bar
+ * counts it) crosses 80% or 100% of the budget, every member with expense pushes on hears once
+ * per threshold. The state lives next to the reminder state; a changed budget starts over.
+ */
+async function budgetAlert(groupId: string, g: GroupLite) {
+  const budget = typeof g.budget === 'number' && g.budget > 0 ? g.budget : 0
+  if (!budget || !(await flagOn('budgetAlerts'))) return
+  const stateRef = db().doc(`reminderState/${groupId}`)
+  const [ex, stateSnap] = await Promise.all([db().collection(`groups/${groupId}/expenses`).select('amount', 'deletedAt').get(), stateRef.get()])
+  const spent = ex.docs.reduce((s, d) => (typeof d.get('deletedAt') === 'number' ? s : s + (Number(d.get('amount')) || 0)), 0)
+  const prev = stateSnap.get('budget') as Partial<BudgetState> | undefined
+  const alerted = prev?.at === budget && Array.isArray(prev.alerted) ? prev.alerted.filter((t): t is number => typeof t === 'number') : []
+  const crossed = crossedThresholds(spent, budget, alerted)
+  if (!crossed.length) return
+  // Crossing 80% and 100% with one expense is one push, about the higher mark.
+  const threshold = crossed[crossed.length - 1]
+  const note = budgetNote({ groupId, groupName: g.name ?? 'Group', emoji: g.emoji, threshold, spent, budget, currency: g.currency ?? 'INR' })
+  const sent = await Promise.all(uidsOf(g).map((u) => sendToUser(u, ['expenses'], note)))
+  await stateRef.set({ budget: { at: budget, alerted: [...alerted, ...crossed] } satisfies BudgetState }, { merge: true })
+  logger.info('budget alert', { groupId, threshold, spent, budget, sent: sent.reduce((a, b) => a + b, 0) })
+}
 
 export const onSettlementCreated = onDocumentCreated({ document: 'groups/{groupId}/settlements/{settlementId}', region: REGION }, async (event) => {
   const s = event.data?.data()
   if (!s || s.importedFrom || typeof s.deletedAt === 'number') return
   const { groupId, settlementId } = event.params
   const g = (await db().doc(`groups/${groupId}`).get()).data() as GroupLite | undefined
-  const to = g?.members?.[s.to]?.uid
-  if (!g || !to || to === s.createdBy) return
-  await sendToUser(to, ['settlements'], settlementNote({
-    groupId, settlementId, groupName: g.name ?? 'Group', emoji: g.emoji,
-    fromName: g.members?.[s.from]?.name ?? 'Someone', amount: s.amount, currency: g.currency ?? 'INR',
-  }))
+  if (!g) return
+  const uids = uidsOf(g)
+  const to = memberUid(g.members, s.to, uids)
+  const from = memberUid(g.members, s.from, uids)
+  const common = { groupId, settlementId, groupName: g.name ?? 'Group', emoji: g.emoji, amount: s.amount, currency: g.currency ?? 'INR' }
+  const jobs: Array<Promise<number>> = []
+  if (to && to !== s.createdBy) jobs.push(sendToUser(to, ['settlements'], settlementNote({ ...common, fromName: g.members?.[s.from]?.name ?? 'Someone' })))
+  // "Rahul paid me ₹500", recorded by the creditor: Rahul should hear about it and be able to flag it.
+  if (from && from !== s.createdBy)
+    jobs.push(sendToUser(from, ['settlements'], settlementRecordedNote({ ...common, toName: g.members?.[s.to]?.name ?? 'Someone' })))
+  await Promise.all(jobs)
+})
+
+export const onPushTokenCreated = onDocumentCreated({ document: 'users/{uid}/pushTokens/{tokenId}', region: REGION }, async (event) => {
+  const token = event.data?.get('token')
+  if (typeof token !== 'string' || !token) return
+  const dupes = await db().collectionGroup('pushTokens').where('token', '==', token).get()
+  const batch = db().batch()
+  let n = 0
+  for (const d of dupes.docs) {
+    if (d.ref.parent.parent?.id !== event.params.uid) {
+      batch.delete(d.ref)
+      n++
+    }
+  }
+  if (n) {
+    await batch.commit()
+    logger.info('push token moved to another account', { uid: event.params.uid, removed: n })
+  }
+})
+
+export const onGroupDeleted = onDocumentDeleted({ document: 'groups/{groupId}', region: REGION, timeoutSeconds: 300 }, async (event) => {
+  const { groupId } = event.params
+  const firestore = db()
+  await firestore.recursiveDelete(firestore.doc(`groups/${groupId}`))
+  try {
+    await (await storage()).bucket().deleteFiles({ prefix: `receipts/${groupId}/` })
+  } catch (e) {
+    logger.warn('receipt cleanup failed', { groupId, error: (e as Error).message })
+  }
+  logger.info('group deleted', { groupId })
 })

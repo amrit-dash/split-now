@@ -1,20 +1,64 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import type { Category, Expense, Group } from '@/types'
 import {
-  bucketFor, byCategory, byGroup, collectRows, compactMoney, daysBetween, foldSlices, formatChange, headline,
-  monthPace, overTime, paceWeeks, paidVsShare, previousBounds, rangeBounds, type Source,
+  bucketFor,
+  budgetRunUp,
+  byCategory,
+  byGroup,
+  collectRows,
+  compactMoney,
+  counted,
+  DEFAULT_FILTERS,
+  daysBetween,
+  filtersFromParams,
+  filtersToParams,
+  firstOfLastMonth,
+  foldSlices,
+  formatChange,
+  headline,
+  monthPace,
+  overTime,
+  paceWeeks,
+  paidVsShare,
+  previousBounds,
+  rangeBounds,
+  type Source,
 } from './insights'
+import { initLocale } from './locale'
+
+initLocale({ region: 'IN', currency: 'INR', locale: 'en-IN', known: true })
 
 let n = 0
 const exp = (date: string, amount: number, splits: Record<string, number>, paidBy: Record<string, number>, category: Category = 'food'): Expense => ({
-  id: `e${n++}`, groupId: 'g', description: 'x', amount, category, date, paidBy, splits,
-  splitType: 'exact', splitInput: {}, createdBy: 'me', createdAt: 0, updatedAt: 0,
+  id: `e${n++}`,
+  groupId: 'g',
+  description: 'x',
+  amount,
+  category,
+  date,
+  paidBy,
+  splits,
+  splitType: 'exact',
+  splitInput: {},
+  createdBy: 'me',
+  createdAt: 0,
+  updatedAt: 0,
 })
-const group = (id: string, type: Group['type'] = 'trip', currency = 'INR'): Group => ({
-  id, name: id.toUpperCase(), emoji: '🧪', type, currency, simplify: true, inviteCode: 'X',
-  members: { me: { name: 'Me', color: '#000' }, b: { name: 'Bea', color: '#111' }, c: { name: 'Cal', color: '#222' } },
-  memberUids: [], createdBy: 'me', createdAt: 0, updatedAt: 0,
-} as unknown as Group)
+const group = (id: string, type: Group['type'] = 'trip', currency = 'INR'): Group =>
+  ({
+    id,
+    name: id.toUpperCase(),
+    emoji: '🧪',
+    type,
+    currency,
+    simplify: true,
+    inviteCode: 'X',
+    members: { me: { name: 'Me', color: '#000' }, b: { name: 'Bea', color: '#111' }, c: { name: 'Cal', color: '#222' } },
+    memberUids: [],
+    createdBy: 'me',
+    createdAt: 0,
+    updatedAt: 0,
+  }) as unknown as Group
 
 describe('date ranges', () => {
   const today = '2026-10-08'
@@ -46,12 +90,16 @@ describe('date ranges', () => {
 describe('rows and headline', () => {
   const g = group('g')
   const p = group('p', 'personal')
-  const src: Source = { group: g, me: 'me', expenses: [
-    exp('2026-10-02', 3000, { me: 1000, b: 1000, c: 1000 }, { b: 3000 }),
-    exp('2026-10-05', 2000, { b: 1000, c: 1000 }, { me: 2000 }, 'transport'), // I paid, not my share
-    exp('2026-09-03', 900, { me: 300, b: 300, c: 300 }, { me: 900 }, 'stay'),
-    exp('2026-11-01', 999, { me: 999 }, { me: 999 }), // outside
-  ] }
+  const src: Source = {
+    group: g,
+    me: 'me',
+    expenses: [
+      exp('2026-10-02', 3000, { me: 1000, b: 1000, c: 1000 }, { b: 3000 }),
+      exp('2026-10-05', 2000, { b: 1000, c: 1000 }, { me: 2000 }, 'transport'), // I paid, not my share
+      exp('2026-09-03', 900, { me: 300, b: 300, c: 300 }, { me: 900 }, 'stay'),
+      exp('2026-11-01', 999, { me: 999 }, { me: 999 }), // outside
+    ],
+  }
   const mine: Source = { group: p, me: 'me', expenses: [exp('2026-10-03', 500, { me: 500 }, { me: 500 }, 'groceries')] }
   const b = { from: '2026-10-01', to: '2026-10-08' }
 
@@ -83,21 +131,40 @@ describe('rows and headline', () => {
   })
   it('paidVsShare per member, me first', () => {
     const r = collectRows([src], b, { categories: [], basis: 'total' })
-    expect(paidVsShare(src, r).map((m) => [m.id, m.paid, m.share])).toEqual([['me', 2000, 1000], ['b', 3000, 2000], ['c', 0, 2000]])
+    expect(paidVsShare(src, r).map((m) => [m.id, m.paid, m.share])).toEqual([
+      ['me', 2000, 1000],
+      ['b', 3000, 2000],
+      ['c', 0, 2000],
+    ])
   })
 })
 
 describe('categories', () => {
-  const mk = (category: Category, value: number) => ({ e: exp('2026-10-01', value, {}, {}, category), src: { group: group('g'), expenses: [] }, value, paid: 0, share: 0 })
+  const mk = (category: Category, value: number) => ({
+    e: exp('2026-10-01', value, {}, {}, category),
+    src: { group: group('g'), expenses: [] },
+    value,
+    paid: 0,
+    share: 0,
+  })
   const rows = [mk('food', 500), mk('rent', 3000), mk('food', 500), mk('gifts', 200), mk('stay', 800)]
   it('sorts by value with shares', () => {
     const c = byCategory(rows)
-    expect(c.map((s) => [s.key, s.value])).toEqual([['rent', 3000], ['food', 1000], ['stay', 800], ['gifts', 200]])
+    expect(c.map((s) => [s.key, s.value])).toEqual([
+      ['rent', 3000],
+      ['food', 1000],
+      ['stay', 800],
+      ['gifts', 200],
+    ])
     expect(c[0].share).toBeCloseTo(0.6)
   })
   it('folds the tail and uncoloured categories into one last slice', () => {
     const f = foldSlices(byCategory(rows), 2, (c) => c !== 'gifts')
-    expect(f.map((s) => [s.key, s.value])).toEqual([['rent', 3000], ['food', 1000], ['other-fold', 1000]])
+    expect(f.map((s) => [s.key, s.value])).toEqual([
+      ['rent', 3000],
+      ['food', 1000],
+      ['other-fold', 1000],
+    ])
     expect(foldSlices(byCategory(rows), 9, () => true).some((s) => s.key === 'other-fold')).toBe(false)
   })
 })
@@ -111,15 +178,28 @@ describe('over time', () => {
   })
   it('monthly buckets include empty months and mark the current one', () => {
     const pts = overTime([mk('2026-07-15', 100), mk('2026-09-02', 50), mk('2026-09-30', 50)], { from: '2026-07-10', to: '2026-10-08' }, '2026-10-08', 'month')
-    expect(pts.map((p) => [p.key, p.value, p.current])).toEqual([['2026-07', 100, false], ['2026-08', 0, false], ['2026-09', 100, false], ['2026-10', 0, true]])
+    expect(pts.map((p) => [p.key, p.value, p.current])).toEqual([
+      ['2026-07', 100, false],
+      ['2026-08', 0, false],
+      ['2026-09', 100, false],
+      ['2026-10', 0, true],
+    ])
   })
   it('weeks count back from the end, the first clipped to the range', () => {
     const pts = overTime([mk('2026-10-01', 10), mk('2026-10-02', 5)], { from: '2026-09-20', to: '2026-10-08' }, '2026-10-08', 'week')
-    expect(pts.map((p) => [p.start, p.end, p.value])).toEqual([['2026-09-20', '2026-09-24', 0], ['2026-09-25', '2026-10-01', 10], ['2026-10-02', '2026-10-08', 5]])
+    expect(pts.map((p) => [p.start, p.end, p.value])).toEqual([
+      ['2026-09-20', '2026-09-24', 0],
+      ['2026-09-25', '2026-10-01', 10],
+      ['2026-10-02', '2026-10-08', 5],
+    ])
   })
   it('days', () => {
     const pts = overTime([mk('2026-10-02', 7)], { from: '2026-10-01', to: '2026-10-03' }, '2026-10-03')
-    expect(pts.map((p) => [p.key, p.value, p.current])).toEqual([['2026-10-01', 0, false], ['2026-10-02', 7, false], ['2026-10-03', 0, true]])
+    expect(pts.map((p) => [p.key, p.value, p.current])).toEqual([
+      ['2026-10-01', 0, false],
+      ['2026-10-02', 7, false],
+      ['2026-10-03', 0, true],
+    ])
   })
   it('month pace: cumulative this month to today, last month in full', () => {
     const p = monthPace([mk('2026-09-01', 100), mk('2026-09-10', 50), mk('2026-09-30', 10), mk('2026-10-01', 40), mk('2026-10-08', 80)], '2026-10-08')
@@ -161,5 +241,113 @@ describe('formatting', () => {
     expect(formatChange(0.123)).toBe('+12%')
     expect(formatChange(-0.08)).toBe('−8%')
     expect(formatChange(0.001)).toBe('±0%')
+  })
+})
+
+describe('filters in the URL', () => {
+  it('reads params with defaults and drops junk', () => {
+    expect(filtersFromParams(new URLSearchParams(''))).toEqual(DEFAULT_FILTERS)
+    expect(filtersFromParams(new URLSearchParams('r=year&b=total&cat=food,nope,stay,food'))).toEqual({
+      range: 'year',
+      basis: 'total',
+      categories: ['food', 'stay'],
+    })
+    expect(filtersFromParams(new URLSearchParams('r=9y&b=x'))).toEqual(DEFAULT_FILTERS)
+    expect(filtersFromParams(new URLSearchParams('r=custom&from=2026-09-01&to=bad'))).toEqual({
+      range: 'custom',
+      from: '2026-09-01',
+      categories: [],
+      basis: 'mine',
+    })
+    // from/to only mean something for a custom range
+    expect(filtersFromParams(new URLSearchParams('r=month&from=2026-09-01')).from).toBeUndefined()
+  })
+  it('writes only non-defaults and keeps the group selection', () => {
+    const out = filtersToParams({ range: 'custom', from: '2026-09-01', categories: ['food'], basis: 'total' }, new URLSearchParams('group=a,b&r=year'))
+    expect(Object.fromEntries(out)).toEqual({ group: 'a,b', r: 'custom', b: 'total', cat: 'food', from: '2026-09-01' })
+    expect(filtersToParams(DEFAULT_FILTERS, new URLSearchParams('r=year&b=total&group=a')).toString()).toBe('group=a')
+  })
+  it('round-trips', () => {
+    const f = { range: 'custom' as const, from: '2026-01-01', to: '2026-02-01', categories: ['rent' as Category], basis: 'total' as const }
+    expect(filtersFromParams(filtersToParams(f, new URLSearchParams()))).toEqual(f)
+  })
+})
+
+/*
+ * Date correctness, carried over from the audit's version of this module (its compute() is gone, the
+ * behaviour is checked here against the functions that replaced it): a month is the calendar month
+ * written on the expense, whatever the device's time zone.
+ */
+// Node re-reads TZ on change; reached through globalThis because the app's tsconfig has no Node types.
+const env = (globalThis as unknown as { process: { env: Record<string, string | undefined> } }).process.env
+
+describe('local calendar dates', () => {
+  const tz = env.TZ
+  afterEach(() => {
+    if (tz === undefined) delete env.TZ
+    else env.TZ = tz
+  })
+  const mk = (date: string, value: number) => ({ e: exp(date, value, {}, {}), src: { group: group('g'), expenses: [] }, value, paid: 0, share: 0 })
+
+  for (const zone of ['Asia/Kolkata', 'America/Los_Angeles', 'Pacific/Kiritimati', 'UTC']) {
+    it(`keys months by the date written on the expense and includes the current month (${zone})`, () => {
+      env.TZ = zone
+      const b = { from: '2026-07-10', to: '2026-10-08' }
+      const pts = overTime([mk('2026-10-01', 1000), mk('2026-09-30', 500), mk('2026-08-01', 200), mk('2026-08-31', 1)], b, '2026-10-08', 'month')
+      expect(pts.map((p) => [p.key, p.start, p.end, p.value])).toEqual([
+        ['2026-07', '2026-07-01', '2026-07-31', 0],
+        ['2026-08', '2026-08-01', '2026-08-31', 201],
+        ['2026-09', '2026-09-01', '2026-09-30', 500],
+        ['2026-10', '2026-10-01', '2026-10-31', 1000],
+      ])
+      expect(rangeBounds({ range: 'month' }, '2026-10-01')).toEqual({ from: '2026-10-01', to: '2026-10-01' })
+      expect(firstOfLastMonth('2026-10-31')).toBe('2026-09-01')
+      expect(firstOfLastMonth('2026-01-01')).toBe('2025-12-01')
+      expect(daysBetween('2026-02-28', '2026-03-01')).toBe(2)
+      expect(daysBetween('2024-02-28', '2024-03-01')).toBe(3)
+    })
+  }
+
+  it('months across a year boundary, starting at the first expense for all time', () => {
+    const b = rangeBounds({ range: 'all' }, '2026-03-15', '2025-11-20')
+    const pts = overTime([mk('2025-11-20', 100), mk('2026-01-10', 300)], b, '2026-03-15', 'month')
+    expect(pts.map((p) => p.key)).toEqual(['2025-11', '2025-12', '2026-01', '2026-02', '2026-03'])
+    expect(pts.at(-1)!.current).toBe(true)
+    expect(previousBounds('all', b)).toBeNull()
+  })
+
+  it('ignores future-dated expenses (the presets end today)', () => {
+    const src: Source = {
+      group: group('g'),
+      me: 'me',
+      expenses: [exp('2026-10-01', 1000, { me: 500, b: 500 }, { me: 1000 }), exp('2026-12-25', 5000, { me: 2500, b: 2500 }, { me: 5000 })],
+    }
+    const rows = collectRows([src], rangeBounds({ range: '3m' }, '2026-10-08'), { categories: [], basis: 'mine' })
+    expect(rows.map((r) => r.value)).toEqual([500])
+  })
+
+  it('skips expenses you are not part of under "mine"', () => {
+    const b = { from: '2026-10-01', to: '2026-10-08' }
+    const notMine: Source = { group: group('g'), me: 'me', expenses: [exp('2026-10-01', 100, { b: 100 }, { b: 100 })] }
+    expect(collectRows([notMine], b, { categories: [], basis: 'mine' })).toHaveLength(0)
+    const noMe: Source = { group: group('g'), expenses: [exp('2026-10-01', 100, { me: 50, b: 50 }, { me: 100 })] }
+    expect(counted(collectRows([noMe], b, { categories: [], basis: 'mine' }))).toHaveLength(0)
+  })
+})
+
+describe('budget run-up', () => {
+  it('accumulates over the whole group, from the trip start', () => {
+    const g = { budget: 1000, startDate: '2026-09-28' }
+    const r = budgetRunUp({ group: g, expenses: [exp('2026-10-03', 300, {}, {}), exp('2026-10-01', 100, {}, {}), exp('2026-10-01', 50, {}, {})] })
+    expect(r).toEqual({
+      budget: 1000,
+      spent: 450,
+      points: [
+        { key: '2026-09-28', label: '28 Sept', value: 0 },
+        { key: '2026-10-01', label: '1 Oct', value: 150 },
+        { key: '2026-10-03', label: '3 Oct', value: 450 },
+      ],
+    })
+    expect(budgetRunUp({ group: {}, expenses: [] })).toBeNull()
   })
 })

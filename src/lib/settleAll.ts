@@ -29,7 +29,11 @@ export interface SettleRow {
   href: string
 }
 
-export interface CurrencyTotal { currency: string; owe: Cents; owed: Cents }
+export interface CurrencyTotal {
+  currency: string
+  owe: Cents
+  owed: Cents
+}
 
 /** Your overall position with one person (in one currency), across every group you share. */
 export interface PersonBalance {
@@ -44,19 +48,21 @@ export interface PersonBalance {
   parts: SettleRow[]
 }
 
-type GroupLike = { group: Pick<Group, 'id' | 'name' | 'emoji' | 'type' | 'currency' | 'members'>; me?: MemberId; debts: Debt[] }
+type GroupLike = { group: Pick<Group, 'id' | 'name' | 'emoji' | 'type' | 'currency' | 'members' | 'archived'>; me?: MemberId; debts: Debt[] }
 
 export const settleHref = (groupId: string, from: MemberId, to: MemberId, amount: Cents) =>
   `/groups/${encodeURIComponent(groupId)}/settle?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&amount=${amount}`
 
 /**
  * Your pending payments in every group: `first` currency (your home one) first, then by
- * currency code, largest first within a currency. Personal (solo) groups have none.
+ * currency code, largest first within a currency. Personal (solo) groups have none, and archived
+ * groups are left out, as everywhere else that totals your balances (they stay settleable from
+ * the group itself).
  */
 export function pendingSettlements(data: GroupLike[], first?: string): SettleRow[] {
   const rows: SettleRow[] = []
   for (const d of data) {
-    if (!d.me || d.group.type === 'personal') continue
+    if (!d.me || d.group.type === 'personal' || d.group.archived) continue
     for (const x of d.debts) {
       if (x.amount <= 0 || (x.from !== d.me && x.to !== d.me) || x.from === x.to) continue
       const dir = x.from === d.me ? 'owe' : 'owed'
@@ -64,9 +70,19 @@ export function pendingSettlements(data: GroupLike[], first?: string): SettleRow
       const m = d.group.members[other]
       rows.push({
         key: `${d.group.id}|${x.from}|${x.to}`,
-        groupId: d.group.id, groupName: d.group.name, groupEmoji: d.group.emoji, currency: d.group.currency,
-        me: d.me, memberId: other, name: m?.name ?? 'Someone', color: m?.color ?? '#94a3b8', photoURL: m?.photoURL, uid: m?.uid,
-        amount: x.amount, dir, href: settleHref(d.group.id, x.from, x.to, x.amount),
+        groupId: d.group.id,
+        groupName: d.group.name,
+        groupEmoji: d.group.emoji,
+        currency: d.group.currency,
+        me: d.me,
+        memberId: other,
+        name: m?.name ?? 'Someone',
+        color: m?.color ?? '#94a3b8',
+        photoURL: m?.photoURL,
+        uid: m?.uid,
+        amount: x.amount,
+        dir,
+        href: settleHref(d.group.id, x.from, x.to, x.amount),
       })
     }
   }

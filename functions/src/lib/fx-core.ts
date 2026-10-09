@@ -30,7 +30,10 @@ export interface FxRatesDoc {
   source: 'ecb'
 }
 
-export interface EcbRates { date: string; rates: Record<string, number> }
+export interface EcbRates {
+  date: string
+  rates: Record<string, number>
+}
 
 export type Fetch = (url: string, init?: { signal?: AbortSignal }) => Promise<{ ok: boolean; status: number; json(): Promise<unknown> }>
 
@@ -51,7 +54,7 @@ export function parseV2(body: unknown): EcbRates | null {
   const rates: Record<string, number> = { EUR: 1 }
   let date = ''
   for (const r of body as Array<Record<string, unknown>>) {
-    if (!r || r.base !== 'EUR' || typeof r.quote !== 'string' || !isCode(r.quote) || !positive(r.rate) || !isIsoDate(r.date)) continue
+    if (r?.base !== 'EUR' || typeof r.quote !== 'string' || !isCode(r.quote) || !positive(r.rate) || !isIsoDate(r.date)) continue
     rates[r.quote] = r.rate
     if (r.date > date) date = r.date
   }
@@ -83,12 +86,16 @@ export async function fetchEcb(fetch: Fetch, date?: string, timeoutMs = 10_000):
     const r = parseV2(await getJson(fetch, `${FX_V2}?providers=ECB${date ? `&date=${date}` : ''}`, timeoutMs))
     if (r) return r
     errors.push('v2: unexpected response')
-  } catch (e) { errors.push(`v2: ${(e as Error).message}`) }
+  } catch (e) {
+    errors.push(`v2: ${(e as Error).message}`)
+  }
   try {
     const r = parseV1(await getJson(fetch, `${FX_V1}/${date ?? 'latest'}`, timeoutMs))
     if (r) return r
     errors.push('v1: unexpected response')
-  } catch (e) { errors.push(`v1: ${(e as Error).message}`) }
+  } catch (e) {
+    errors.push(`v1: ${(e as Error).message}`)
+  }
   throw new Error(`ECB rates unavailable (${errors.join('; ')})`)
 }
 
@@ -97,9 +104,7 @@ export async function fetchEcb(fetch: Fetch, date?: string, timeoutMs = 10_000):
  * stored; the latest is re-fetched at most every THROTTLE_MS. A date that is today or later in
  * Frankfurt, or missing, means "latest".
  */
-export type RefreshPlan =
-  | { kind: 'latest'; fetch: boolean }
-  | { kind: 'date'; date: string; fetch: boolean }
+export type RefreshPlan = { kind: 'latest'; fetch: boolean } | { kind: 'date'; date: string; fetch: boolean }
 
 export function planRefresh(o: { requested?: string; now: number; latest?: FxRatesDoc | null; stored?: FxRatesDoc | null; force?: boolean }): RefreshPlan {
   const today = berlinDate(o.now)

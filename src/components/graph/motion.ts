@@ -11,7 +11,11 @@ function subscribe(cb: () => void) {
 
 /** True when the person asked the OS for less motion. */
 export function useReducedMotion(): boolean {
-  return useSyncExternalStore(subscribe, () => (typeof window !== 'undefined' && !!window.matchMedia?.(QUERY).matches), () => false)
+  return useSyncExternalStore(
+    subscribe,
+    () => typeof window !== 'undefined' && !!window.matchMedia?.(QUERY).matches,
+    () => false,
+  )
 }
 
 /**
@@ -22,7 +26,11 @@ export function useCountUp(target: number, { duration = 700, delay = 0, off = fa
   const [v, setV] = useState(off ? target : 0)
   const from = useRef(off ? target : 0)
   useEffect(() => {
-    if (off) { from.current = target; setV(target); return }
+    if (off) {
+      from.current = target
+      setV(target)
+      return
+    }
     let raf = 0
     let t0 = 0
     const start = from.current

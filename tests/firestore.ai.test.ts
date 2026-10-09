@@ -5,7 +5,7 @@
 import { readFileSync } from 'node:fs'
 import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest'
 import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing'
-import { deleteDoc, doc, getDoc, setDoc } from 'firebase/firestore'
+import { collection, deleteDoc, doc, getDoc, getDocs, setDoc } from 'firebase/firestore'
 
 let env: RulesTestEnvironment
 
@@ -28,16 +28,32 @@ beforeEach(async () => {
 })
 
 const as = (u: string) => env.authenticatedContext(u).firestore()
-const good = { mode: 'allowlist', allowEmails: ['a@b.co'], images: true, sms: false, model: 'gemini-2.5-flash-lite', perDay: 50, perHour: 10, updatedAt: 1, updatedBy: 'boss' }
+const good = {
+  mode: 'allowlist',
+  allowEmails: ['a@b.co'],
+  images: true,
+  sms: false,
+  model: 'gemini-3.5-flash-lite',
+  perDay: 50,
+  perHour: 10,
+  globalPerDay: 2000,
+  updatedAt: 1,
+  updatedBy: 'boss',
+}
 
 describe('config/ai', () => {
-  it('everyone signed in can read; only admins can write valid settings', async () => {
-    await assertSucceeds(getDoc(doc(as('alice'), 'config/ai')))
+  it('only admins can read it (it holds the allow-list of emails) or write valid settings', async () => {
+    await assertFails(getDoc(doc(as('alice'), 'config/ai')))
+    await assertSucceeds(getDoc(doc(as('boss'), 'config/ai')))
     await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), 'config/ai')))
+    await assertFails(getDoc(doc(env.authenticatedContext('ghost', { firebase: { sign_in_provider: 'anonymous' } }).firestore(), 'config/ai')))
+    await assertFails(getDocs(collection(as('boss'), 'config')))
     await assertFails(setDoc(doc(as('alice'), 'config/ai'), good))
     await assertSucceeds(setDoc(doc(as('boss'), 'config/ai'), good))
     await assertFails(setDoc(doc(as('boss'), 'config/ai'), { ...good, mode: 'party' }))
     await assertFails(setDoc(doc(as('boss'), 'config/ai'), { ...good, perDay: 0 }))
+    await assertFails(setDoc(doc(as('boss'), 'config/ai'), { ...good, globalPerDay: 0 }))
+    await assertFails(setDoc(doc(as('boss'), 'config/ai'), { ...good, globalPerDay: 'lots' }))
     await assertFails(setDoc(doc(as('boss'), 'config/ai'), { ...good, secret: 'x' }))
     await assertFails(setDoc(doc(as('boss'), 'config/other'), { x: 1 }))
   })
@@ -85,8 +101,9 @@ describe('own key', () => {
   })
   it('AI prefs are validated', async () => {
     const ref = doc(as('alice'), 'users/alice/settings/notifications')
-    await assertSucceeds(setDoc(ref, { aiEnabled: false, aiSource: 'own', aiModel: 'gemini-3-flash' }))
+    await assertSucceeds(setDoc(ref, { aiEnabled: false, aiSource: 'own', aiModel: 'gemini-3-flash', aiSmsMerchant: true }))
     await assertFails(setDoc(ref, { aiSource: 'anyone' }))
     await assertFails(setDoc(ref, { aiModel: 'x'.repeat(81) }))
+    await assertFails(setDoc(ref, { aiSmsMerchant: 'yes' }))
   })
 })

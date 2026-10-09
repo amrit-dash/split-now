@@ -19,10 +19,16 @@ describe('layoutRing', () => {
         })
         it(`node blocks never overlap (w=${width}, n=${n}, centre=${center})`, () => {
           const L = layoutRing({ width, ids: ids(n), center })
-          const box = (d: (typeof L.nodes)[number]) => ({ l: d.x - d.labelW / 2, r: d.x + d.labelW / 2, t: d.y - d.size / 2 - (d.above ? LABEL_GAP + LABEL_H : 0), b: d.y + d.size / 2 + (d.above ? 0 : LABEL_GAP + LABEL_H) })
+          const box = (d: (typeof L.nodes)[number]) => ({
+            l: d.x - d.labelW / 2,
+            r: d.x + d.labelW / 2,
+            t: d.y - d.size / 2 - (d.above ? LABEL_GAP + LABEL_H : 0),
+            b: d.y + d.size / 2 + (d.above ? 0 : LABEL_GAP + LABEL_H),
+          })
           for (let i = 0; i < L.nodes.length; i++) {
             for (let j = i + 1; j < L.nodes.length; j++) {
-              const a = box(L.nodes[i]), b = box(L.nodes[j])
+              const a = box(L.nodes[i]),
+                b = box(L.nodes[j])
               const overlap = a.l < b.r - 0.5 && b.l < a.r - 0.5 && a.t < b.b - 0.5 && b.t < a.b - 0.5
               expect(overlap, `${L.nodes[i].id} vs ${L.nodes[j].id}`).toBe(false)
             }
@@ -54,7 +60,8 @@ describe('layoutRing', () => {
 })
 
 describe('flowCurve', () => {
-  const a = { x: 0, y: 0, r: 10 }, b = { x: 100, y: 0, r: 10 }
+  const a = { x: 0, y: 0, r: 10 },
+    b = { x: 100, y: 0, r: 10 }
   it('trims ends to the avatar edge and points from a to b', () => {
     const g = flowCurve(a, b, { x: 50, y: 50 }, 0, 0)
     expect(g.d.startsWith('M10,0')).toBe(true)
@@ -76,14 +83,35 @@ describe('helpers', () => {
     expect(flowSpeed(100, 100)).toBeLessThan(flowSpeed(10, 100))
   })
   it('mergeDebts joins repeated pairs and drops zero/self rows', () => {
-    const m = mergeDebts([{ from: 'a', to: 'b', amount: 5 }, { from: 'a', to: 'b', amount: 7 }, { from: 'b', to: 'a', amount: 3 }, { from: 'c', to: 'c', amount: 9 }, { from: 'c', to: 'a', amount: 0 }])
-    expect(m.map((d) => [flowKey(d), d.amount])).toEqual([['a>b', 12], ['b>a', 3]])
+    const m = mergeDebts([
+      { from: 'a', to: 'b', amount: 5 },
+      { from: 'a', to: 'b', amount: 7 },
+      { from: 'b', to: 'a', amount: 3 },
+      { from: 'c', to: 'c', amount: 9 },
+      { from: 'c', to: 'a', amount: 0 },
+    ])
+    expect(m.map((d) => [flowKey(d), d.amount])).toEqual([
+      ['a>b', 12],
+      ['b>a', 3],
+    ])
   })
   it('netOf', () => {
-    expect(Object.fromEntries(netOf([{ from: 'a', to: 'b', amount: 5 }, { from: 'c', to: 'b', amount: 2 }]))).toEqual({ a: -5, b: 7, c: -2 })
+    expect(
+      Object.fromEntries(
+        netOf([
+          { from: 'a', to: 'b', amount: 5 },
+          { from: 'c', to: 'b', amount: 2 },
+        ]),
+      ),
+    ).toEqual({ a: -5, b: 7, c: -2 })
   })
   it('shortNames uses first names and disambiguates', () => {
-    expect(shortNames({ a: 'Kodai Gandhi', b: 'Kodai rao', c: 'Priya', d: '  Venkataraghavan Subramaniam ' })).toEqual({ a: 'Kodai G', b: 'Kodai R', c: 'Priya', d: 'Venkataraghavan' })
+    expect(shortNames({ a: 'Kodai Gandhi', b: 'Kodai rao', c: 'Priya', d: '  Venkataraghavan Subramaniam ' })).toEqual({
+      a: 'Kodai G',
+      b: 'Kodai R',
+      c: 'Priya',
+      d: 'Venkataraghavan',
+    })
   })
   it('compactMoney', () => {
     expect(compactMoney(1234567890, 'INR', 'en-IN')).toBe('₹1.2Cr')
