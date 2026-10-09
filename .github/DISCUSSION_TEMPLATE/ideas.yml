@@ -1,0 +1,20 @@
+title: '[Idea] '
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Who it helps
+      description: The situation you or your group were in when you wanted it.
+    validations:
+      required: true
+  - type: textarea
+    id: else
+    attributes:
+      label: Anything else
+      description: Sketches, screenshots, how other apps do it.

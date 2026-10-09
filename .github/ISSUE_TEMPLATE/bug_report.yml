@@ -1,0 +1,55 @@
+name: Bug report
+description: Something in the app isn't working
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for taking the time. Please don't paste capture keys, API keys or anything private; a screenshot with names blurred is fine.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a group
+        2. Tap Add expense
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options:
+        - Installed app on Android
+        - Installed app on iPhone / iPad
+        - Browser on a phone
+        - Browser on a computer
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device and browser
+      placeholder: e.g. Pixel 7, Android 15, Chrome 141; or iPhone 15, iOS 18
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: Profile → the version line at the bottom.
+      placeholder: e.g. 2.1.1
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or a screen recording
