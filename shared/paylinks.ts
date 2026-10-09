@@ -5,12 +5,17 @@
  * change a stranger may make (firestore.rules), and the `onPayLinkPaid` trigger records the
  * settlement in the group on the payee's behalf.
  *
+ * Live table links nobody in particular owns (no `forUid`: a guest the host added by hand, or a
+ * member several guests were matched to) go open → claimed instead: the host confirms (→ paid,
+ * then recorded as above) or dismisses (→ open again). Recording never depends on the `payLinks`
+ * flag: the flag only stops new links being made and hides the screens that show them.
+ *
  * Shared by the app (src/lib/paylinks.ts, the demo repo) and the Cloud Function, so the demo
  * records exactly what the server would. Pure: no Firebase, no DOM, no `@/types` (documents are
  * matched structurally).
  */
 
-export type PayLinkStatus = 'open' | 'paid' | 'cancelled'
+export type PayLinkStatus = 'open' | 'claimed' | 'paid' | 'cancelled'
 
 /** The handles a Pay me link may carry. Bank account numbers (account, IFSC, BSB) stay in the group. */
 export const LINK_HANDLE_KEYS = ['upi', 'phone', 'payid', 'paypal', 'revolut'] as const
@@ -52,6 +57,9 @@ export interface PayLinkDoc {
   /** server: when the trigger handled the claim (recorded, or told the payee) */
   recordedAt?: number
 }
+
+/** The fields "I've paid" writes besides `status`; a dismissed claim clears them again. */
+export const CLAIM_FIELDS = ['paidAt', 'paidBy', 'method', 'proofPath'] as const
 
 /** "I've paid": what the payer adds when flipping the link to paid. */
 export interface PayLinkClaim {
@@ -95,9 +103,22 @@ export function canMarkPaid(l: Pick<PayLinkDoc, 'status' | 'expiresAt' | 'forUid
   return payLinkState(l, now) === 'open' && (!l.forUid || l.forUid === uid)
 }
 
+/**
+ * Whether "I've paid" waits for the payee: a live table link not locked to one guest (anyone at
+ * the table could tap it), so the host confirms it before it counts. Remind links (person to
+ * person) and a guest's own link are recorded straight away.
+ */
+export const needsHostConfirm = (l: Pick<PayLinkDoc, 'tableCode' | 'forUid'>): boolean => !!l.tableCode && !l.forUid
+
+/** What "I've paid" moves the link to. A member who recorded it in Settle up has settled it already. */
+export function claimStatus(l: Pick<PayLinkDoc, 'tableCode' | 'forUid'>, claim: PayLinkClaim): 'paid' | 'claimed' {
+  return !claim.settlementId && needsHostConfirm(l) ? 'claimed' : 'paid'
+}
+
 /** The exact update "I've paid" writes: status, paidAt, paidBy and only the claim fields given. */
-export function markPaidPatch(code: string, claim: PayLinkClaim, uid: string, now: number): Partial<PayLinkDoc> {
-  const patch: Partial<PayLinkDoc> = { status: 'paid', paidAt: now, paidBy: uid }
+export function markPaidPatch(code: string, claim: PayLinkClaim, uid: string, now: number, status: 'paid' | 'claimed' = 'paid'): Partial<PayLinkDoc> {
+  if (status === 'claimed' && claim.settlementId) throw new Error('A recorded payment is paid, not waiting')
+  const patch: Partial<PayLinkDoc> = { status, paidAt: now, paidBy: uid }
   const method = claim.method?.trim().slice(0, 40)
   if (method) patch.method = method
   if (claim.proofPath !== undefined) {
@@ -108,9 +129,26 @@ export function markPaidPatch(code: string, claim: PayLinkClaim, uid: string, no
   return patch
 }
 
-/** The trigger acts once: on the open → paid change, unless a member already recorded it or it was handled. */
-export function shouldHandle(before: Partial<PayLinkDoc> | undefined, after: Partial<PayLinkDoc> | undefined): boolean {
-  return !!before && !!after && before.status === 'open' && after.status === 'paid' && !after.settlementId && !after.recordedAt
+/**
+ * What the trigger does with a change (whatever the `payLinks` flag says: a claim is always honoured):
+ *  record   → paid from open (or from claimed, the host confirming), unless a member already
+ *             recorded it (settlementId) or it was handled (recordedAt)
+ *  claimed  open → claimed: tell the host there is a payment to confirm
+ */
+export function triggerAction(before: Partial<PayLinkDoc> | undefined, after: Partial<PayLinkDoc> | undefined): 'record' | 'claimed' | null {
+  if (!before || !after) return null
+  if ((before.status === 'open' || before.status === 'claimed') && after.status === 'paid' && !after.settlementId && !after.recordedAt) return 'record'
+  if (before.status === 'open' && after.status === 'claimed') return 'claimed'
+  return null
+}
+
+/** The trigger records only on → paid (see triggerAction). */
+export const shouldHandle = (before: Partial<PayLinkDoc> | undefined, after: Partial<PayLinkDoc> | undefined): boolean =>
+  triggerAction(before, after) === 'record'
+
+/** The group's activity line for a claim waiting for the host (targetId: the link code). */
+export function claimSummary(l: Pick<PayLinkDoc, 'payerName' | 'payeeName' | 'amount'>, fmt: (minor: number) => string): string {
+  return clip(`${l.payerName || 'Someone'} says they’ve paid ${fmt(l.amount)} to ${l.payeeName || 'Someone'}. Waiting for them to confirm.`, 500)
 }
 
 interface MembersLite {

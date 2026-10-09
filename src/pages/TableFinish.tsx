@@ -10,7 +10,8 @@ import { colorFor } from '@/lib/colors'
 import { uid } from '@/lib/id'
 import { formatMoney } from '@/lib/money'
 import { errText } from '@/lib/errors'
-import { groupTableLinks, openTableLinks } from '@/lib/paylinks'
+import { groupTableLinks, openTableLinks, payLinkFeatures } from '@/lib/paylinks'
+import { useFlag } from '@/hooks/useAppConfig'
 import {
   taxSplitOf,
   claimLeftoversForAll,
@@ -118,6 +119,8 @@ export default function TableFinish({ table, totals, onClose }: { table: LiveTab
 
 function useSaveExpense(table: LiveTable) {
   const { user } = useMe()
+  // The payLinks flag off: no guest links (the table still closes and the expense is added).
+  const { createLinks } = payLinkFeatures(useFlag('payLinks'))
   return async (group: Group, mapping: Record<ParticipantId, MemberId>, payer: MemberId, newMembers: Record<MemberId, Member>) => {
     // Membership changes go one per write (rules), and in order before the expense.
     for (const [id, m] of Object.entries(newMembers)) await repo.addMember(group, id, m)
@@ -144,7 +147,9 @@ function useSaveExpense(table: LiveTable) {
     // Each guest gets their own Pay me link for exactly their share, so their "I've paid" is
     // recorded in this group. Only when the payer is the host's own member (the rules check it).
     const links =
-      merged.members[payer]?.uid === user.uid ? groupTableLinks(table, merged, mapping, payer, split.splits, user.uid, now) : { links: [], byParticipant: {} }
+      createLinks && merged.members[payer]?.uid === user.uid
+        ? groupTableLinks(table, merged, mapping, payer, split.splits, user.uid, now)
+        : { links: [], byParticipant: {} }
     for (const l of links.links) await repo.createPayLink(l.code, l.link)
     await repo.updateTable(table.code, {
       status: 'closed',
@@ -241,11 +246,12 @@ function NoGroup({ table, ready }: { table: LiveTable; ready: boolean }) {
   const nav = useNavigate()
   const toast = useToast()
   const save = useSaveExpense(table)
+  const { createLinks } = payLinkFeatures(useFlag('payLinks'))
   const [busy, setBusy] = useState(false)
 
   // Everyone still gets a Pay me link for their total, so "I've paid" reaches the host.
   const closeWithoutGroup = async () => {
-    const links = openTableLinks(table, computeTableTotals(table).people, user.uid, Date.now())
+    const links = createLinks ? openTableLinks(table, computeTableTotals(table).people, user.uid, Date.now()) : { links: [], byParticipant: {} }
     for (const l of links.links) await repo.createPayLink(l.code, l.link)
     await repo.updateTable(table.code, { status: 'closed', ...(links.links.length ? { payLinks: links.byParticipant } : {}) })
   }

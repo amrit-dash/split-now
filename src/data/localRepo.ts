@@ -37,7 +37,7 @@ import type { MerchantMemory } from '@/lib/merchants'
 import { netBalances } from '@/lib/balances'
 import { countedExpenses, countedSettlements } from '@/lib/trust'
 import { formatMoney } from '@/lib/money'
-import { markPaidPatch, payLinkState, planRecord, shouldHandle, type PayLinkDoc } from '@/lib/paylinks'
+import { claimStatus, claimSummary, markPaidPatch, payLinkState, planRecord, triggerAction, type PayLinkDoc } from '@/lib/paylinks'
 
 /**
  * Demo-mode repository. Everything lives in this browser's localStorage, so the app
@@ -152,6 +152,43 @@ export function createLocalRepo(): Repo {
   const errors = errorChannel()
   /** Like a rejected Firestore batch: the call resolves, the refusal arrives through onError. */
   const refuse = (context: string, message: string) => queueMicrotask(() => errors.emit('write', new Error(message), context))
+
+  /** Demo stand-in for the onPayLinkPaid trigger: what the server does when a link changes. */
+  const payLinkChanged = (code: string, before: PayLinkDoc, after: PayLinkDoc, now: number) => {
+    state.payLinks ??= {}
+    state.payLinks[code] = after
+    const action = triggerAction(before, after)
+    const fmt = (m: number) => formatMoney(m, after.currency)
+    if (action === 'claimed' && after.groupId && state.groups[after.groupId]) {
+      log(after.groupId, {
+        type: 'settlement.claimed',
+        actorUid: after.paidBy ?? after.createdBy,
+        actorName: after.payerName,
+        targetId: code,
+        summary: claimSummary(after, fmt),
+        after: { amount: after.amount, from: after.from, to: after.to },
+        createdAt: now,
+      })
+      return
+    }
+    if (action !== 'record') return
+    const g = after.groupId ? state.groups[after.groupId] : undefined
+    const plan = planRecord(code, after, g, todayISO(now), now, fmt)
+    if (plan.kind === 'record') {
+      state.settlements[plan.settlementId] = { id: plan.settlementId, ...plan.settlement }
+      log(plan.settlement.groupId, {
+        type: 'settlement.created',
+        actorUid: after.paidBy ?? after.createdBy,
+        actorName: after.payerName,
+        targetId: plan.settlementId,
+        summary: plan.summary,
+        after: { amount: after.amount, from: after.from, to: after.to, payLink: code },
+        createdAt: now,
+      })
+      touch(plan.settlement.groupId)
+      state.payLinks[code] = { ...after, settlementId: plan.settlementId, recordedAt: now }
+    } else if (plan.kind === 'notify') state.payLinks[code] = { ...after, recordedAt: now }
+  }
 
   const repo: Repo = {
     mode: 'demo',
@@ -628,39 +665,39 @@ export function createLocalRepo(): Repo {
       }, cb),
     async markPayLinkPaid(code, claim, proof) {
       // Demo stand-in for the rules (open, unexpired) and the onPayLinkPaid trigger (record the
-      // settlement in the group straight away), so the whole flow can be tried in one browser.
+      // settlement in the group straight away, or log the claim for the host), so the whole flow
+      // can be tried in one browser.
       const l = state.payLinks?.[code]
       if (!l) throw new Error('This Pay me link doesn’t exist')
       const now = Date.now()
       const st = payLinkState(l, now)
-      if (st !== 'open') throw new Error(st === 'paid' ? 'This link is already marked paid' : `This link is ${st}`)
+      if (st !== 'open')
+        throw new Error(
+          st === 'paid' ? 'This link is already marked paid' : st === 'claimed' ? 'Already marked paid, waiting for the host' : `This link is ${st}`,
+        )
       let proofPath = claim.proofPath
       if (proof) {
         proofPath = `payproofs/${code}/${uid('p')}.jpg`
         state.payProofs ??= {}
         state.payProofs[proofPath] = await blobToDataUrl(await downscale(proof, 900, 0.7))
       }
-      const after: PayLinkDoc = { ...l, ...markPaidPatch(code, { ...claim, proofPath }, state.user?.uid ?? 'guest', now) }
-      state.payLinks![code] = after
-      if (shouldHandle(l, after)) {
-        const g = after.groupId ? state.groups[after.groupId] : undefined
-        const plan = planRecord(code, after, g, todayISO(now), now, (m) => formatMoney(m, after.currency))
-        if (plan.kind === 'record') {
-          state.settlements[plan.settlementId] = { id: plan.settlementId, ...plan.settlement }
-          const a: NewActivity = {
-            type: 'settlement.created',
-            actorUid: after.paidBy ?? after.createdBy,
-            actorName: after.payerName,
-            targetId: plan.settlementId,
-            summary: plan.summary,
-            after: { amount: after.amount, from: after.from, to: after.to, payLink: code },
-            createdAt: now,
-          }
-          log(plan.settlement.groupId, a)
-          touch(plan.settlement.groupId)
-          state.payLinks![code] = { ...after, settlementId: plan.settlementId, recordedAt: now }
-        } else if (plan.kind === 'notify') state.payLinks![code] = { ...after, recordedAt: now }
-      }
+      const after: PayLinkDoc = { ...l, ...markPaidPatch(code, { ...claim, proofPath }, state.user?.uid ?? 'guest', now, claimStatus(l, claim)) }
+      payLinkChanged(code, l, after, now)
+      commit()
+    },
+    async confirmPayLinkClaim(code) {
+      const l = state.payLinks?.[code]
+      if (l?.status !== 'claimed') return
+      if (l.createdBy !== actor()) return refuse('Confirming the payment', 'only the person who made the link can confirm it')
+      payLinkChanged(code, l, { ...l, status: 'paid' }, Date.now())
+      commit()
+    },
+    async dismissPayLinkClaim(code) {
+      const l = state.payLinks?.[code]
+      if (l?.status !== 'claimed') return
+      if (l.createdBy !== actor()) return refuse('Dismissing the payment', 'only the person who made the link can dismiss it')
+      const { paidAt: _a, paidBy: _b, method: _m, proofPath: _p, ...rest } = l
+      state.payLinks![code] = { ...rest, status: 'open' }
       commit()
     },
     async cancelPayLink(code) {

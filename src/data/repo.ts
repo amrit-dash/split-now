@@ -277,11 +277,16 @@ export interface Repo {
   /** null when there is no such link. Anyone signed in (anonymous included) may read one by its code. */
   watchPayLink(code: string, cb: Watch<PayLink | null>): Unsub
   /**
-   * "I've paid": open → paid, after uploading the screenshot when one is given (payproofs/{code}/).
+   * "I've paid": open → paid (open → claimed for a live table link not locked to one guest: the
+   * host confirms it), after uploading the screenshot when one is given (payproofs/{code}/).
    * Waits for the server and rejects with a readable message (expired, offline, not theirs).
    * Firebase: the onPayLinkPaid trigger then records the settlement. Demo: recorded here at once.
    */
   markPayLinkPaid(code: string, claim: PayLinkClaim, proof?: Blob): Promise<void>
+  /** The payee (a live table's host) confirms a guest's "I've paid" on a link not locked to one guest: claimed → paid, then recorded as usual. */
+  confirmPayLinkClaim(code: string): Promise<void>
+  /** The payee dismisses that claim: claimed → open, the claim fields cleared, so it can be paid and claimed again. */
+  dismissPayLinkClaim(code: string): Promise<void>
   /** The payee withdraws an open link. */
   cancelPayLink(code: string): Promise<void>
   /** A URL for the payment screenshot (the payee and the group's members may read it); null when unavailable. */

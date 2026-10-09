@@ -1,9 +1,10 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowRight, CircleCheck, Copy, Share2, XCircle } from 'lucide-react'
 import { repo } from '@/data'
 import { useAuth } from '@/hooks/auth'
 import { useGroup, usePayLink } from '@/hooks/data'
+import { useFlag } from '@/hooks/useAppConfig'
 import { demoGuestId, useAnonymousSignIn } from '@/hooks/useGuest'
 import type { PaymentHandles } from '@/types'
 import { usePageTitle } from '@/lib/brand'
@@ -11,11 +12,12 @@ import { errText } from '@/lib/errors'
 import { uid as newId } from '@/lib/id'
 import { formatDate } from '@/lib/locale'
 import { formatMoney } from '@/lib/money'
-import { parsePayLinkCode, payLinkUrl, payLinkView, settleUpPath, statusLine, type PayLink } from '@/lib/paylinks'
+import { needsHostConfirm, parsePayLinkCode, payLinkFeatures, payLinkUrl, payLinkView, settleUpPath, statusLine, type PayLink } from '@/lib/paylinks'
 import { payOptions } from '@/lib/payments'
 import { copy, shareOrCopy } from '@/lib/share'
 import { firstName } from '@/lib/share-card'
 import { useConfirm } from '@/components/ConfirmSheet'
+import { ClaimReview, useProofUrl } from '@/components/ClaimReview'
 import { GuestPay } from '@/components/GuestPay'
 import { MarkPaid } from '@/components/MarkPaid'
 import { Empty, Loading } from '@/components/Misc'
@@ -53,6 +55,7 @@ export default function PayLinkPage() {
   const askGroup = !!link?.groupId && !viewer.anonymous && !viewer.guestMode
   const group = useGroup(askGroup ? link?.groupId : undefined)
   const member = askGroup ? (group === undefined ? undefined : !!group && !!viewer.uid && group.memberUids.includes(viewer.uid)) : false
+  const guestPages = payLinkFeatures(useFlag('payLinks')).guestPages
   const view = !code ? 'missing' : payLinkView(link, { uid: viewer.uid, anonymous: viewer.anonymous, member, guestMode: viewer.guestMode }, Date.now())
   usePageTitle(view === 'loading' ? undefined : 'Pay me link')
 
@@ -100,7 +103,29 @@ export default function PayLinkPage() {
         </Empty>
       </Shell>
     )
+  if (view === 'claimed')
+    return (
+      <Shell>
+        <Hero link={link} title={`Waiting for ${payee} to confirm`} emoji="⏳" />
+        <div className="card mt-6 p-5 text-center" data-testid="paylink-claimed">
+          <div className="text-4xl font-extrabold tabular-nums">{formatMoney(link.amount, link.currency)}</div>
+          <p className="mt-3 text-sm">
+            Marked paid{link.paidAt ? ` ${formatDate(link.paidAt)}` : ''}. {payee} checks it and confirms
+            {link.groupId ? `, then it’s recorded as a payment in ${link.groupName}` : ''}.
+          </p>
+        </div>
+        {viewer.anonymous && <GetApp />}
+      </Shell>
+    )
   if (view === 'paid') return <PaidView link={link} signedIn={!viewer.anonymous} />
+  if (!guestPages)
+    return (
+      <Shell>
+        <Empty emoji="🔕" title="Pay me links are off for now">
+          Ask {payee} for their UPI ID, or settle up in the app.
+        </Empty>
+      </Shell>
+    )
   return <PayView link={link} signedIn={!viewer.anonymous} />
 }
 
@@ -157,7 +182,14 @@ function PayView({ link, signedIn }: { link: PayLink; signedIn: boolean }) {
           <p className="text-muted mt-3 text-sm">Ask {payee} how they’d like to be paid, then tap “I’ve paid”.</p>
         )}
         <div className="mt-4">
-          <MarkPaid code={link.code} payee={payee} amount={link.amount} currency={link.currency} groupName={link.groupId ? link.groupName : undefined} />
+          <MarkPaid
+            code={link.code}
+            payee={payee}
+            amount={link.amount}
+            currency={link.currency}
+            groupName={link.groupId ? link.groupName : undefined}
+            confirmFirst={needsHostConfirm(link)}
+          />
         </div>
       </div>
       <p className="text-muted mt-4 text-center text-xs">
@@ -195,18 +227,7 @@ function PayeeView({ link }: { link: PayLink }) {
   const payer = firstName(link.payerName)
   const money = formatMoney(link.amount, link.currency)
   const url = payLinkUrl(location.origin, link.code)
-  const [proof, setProof] = useState<string | null>()
-  useEffect(() => {
-    let live = true
-    if (link.proofPath)
-      repo
-        .payProofUrl(link.proofPath)
-        .then((u) => live && setProof(u))
-        .catch(() => live && setProof(null))
-    return () => {
-      live = false
-    }
-  }, [link.proofPath])
+  const proof = useProofUrl(link.status === 'claimed' ? undefined : link.proofPath)
   const open = link.status === 'open' && Date.now() < link.expiresAt
   const cancel = async () => {
     const ok = await confirm({
@@ -228,7 +249,9 @@ function PayeeView({ link }: { link: PayLink }) {
           className={`mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold ${
             link.status === 'paid'
               ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
-              : 'bg-slate-100 text-slate-700 dark:bg-ink-800 dark:text-slate-200'
+              : link.status === 'claimed'
+                ? 'bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300'
+                : 'bg-slate-100 text-slate-700 dark:bg-ink-800 dark:text-slate-200'
           }`}
           data-testid="paylink-status"
         >
@@ -236,7 +259,12 @@ function PayeeView({ link }: { link: PayLink }) {
           {statusLine(link, Date.now(), (ms) => formatDate(ms))}
         </div>
         {link.status === 'paid' && link.method && <p className="text-muted mt-2 text-sm">{`${payer} says they paid by ${link.method}.`}</p>}
-        {link.proofPath && (
+        {link.status === 'claimed' && (
+          <div className="mt-4 border-t border-slate-100 pt-4 dark:border-white/5">
+            <ClaimReview link={link} />
+          </div>
+        )}
+        {link.proofPath && link.status !== 'claimed' && (
           <div className="mt-4">
             {proof ? (
               <a href={proof} target="_blank" rel="noreferrer" className="inline-block">

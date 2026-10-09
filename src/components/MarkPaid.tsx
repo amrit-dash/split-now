@@ -19,6 +19,7 @@ export function MarkPaid({
   amount,
   currency,
   groupName,
+  confirmFirst = false,
   onDone,
 }: {
   code: string
@@ -28,6 +29,8 @@ export function MarkPaid({
   currency: string
   /** where the payment gets recorded, when the link belongs to a group */
   groupName?: string
+  /** a live table link the host confirms before it counts (shared/paylinks.ts needsHostConfirm) */
+  confirmFirst?: boolean
   onDone?: () => void
 }) {
   const toast = useToast()
@@ -52,7 +55,7 @@ export function MarkPaid({
     try {
       await repo.markPayLinkPaid(code, { method }, file ?? undefined)
       setOpen(false)
-      toast(`Marked paid. ${payee} can see it now.`)
+      toast(confirmFirst ? `Sent. ${payee} confirms it next.` : `Marked paid. ${payee} can see it now.`)
       onDone?.()
     } catch (e) {
       toast(errText(e), 'err')
@@ -70,7 +73,10 @@ export function MarkPaid({
       <Sheet open={open} onClose={() => !busy && setOpen(false)} title={`Did you pay ${money}?`}>
         <div className="space-y-4">
           <p className="text-muted text-sm">
-            {payee} sees it straight away{groupName ? ` and it’s recorded as a payment in ${groupName}` : ''}. Only tap this once the money has gone.
+            {confirmFirst
+              ? `${payee} sees it straight away and confirms it${groupName ? `, then it’s recorded as a payment in ${groupName}` : ''}.`
+              : `${payee} sees it straight away${groupName ? ` and it’s recorded as a payment in ${groupName}` : ''}.`}{' '}
+            Only tap this once the money has gone.
           </p>
           <div>
             <div className="label" id="mark-paid-method">

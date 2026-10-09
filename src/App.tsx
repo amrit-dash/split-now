@@ -151,7 +151,8 @@ export default function App() {
   // Live table links work without an account (anonymous sign-in); anonymous users see nothing else.
   const tablePath = loc.pathname === '/t' || loc.pathname.startsWith('/t/')
   const guestTable = !loading && (!user || !!user.isAnonymous) && tablePath
-  // Pay me links too: the person paying needs no account (src/pages/PayLink.tsx).
+  // Pay me links too: the person paying needs no account (src/pages/PayLink.tsx). The payLinks
+  // flag off hides this guest page (links already made still record; lib/paylinks payLinkFeatures).
   const payLinks = cfg.flags.payLinks !== false
   const payPath = loc.pathname.startsWith('/r/')
   const guestPay = !loading && (!user || !!user.isAnonymous) && payPath
@@ -258,7 +259,8 @@ function AppRoutes({ cfg, admin }: { cfg: AppConfig; admin: boolean }) {
           <Route path="join/:code" element={<Join />} />
           <Route path="t" element={liveTables ? <TableEntry /> : <Navigate to="/" replace />} />
           <Route path="t/:code" element={liveTables ? <Table /> : <Navigate to="/" replace />} />
-          <Route path="r/:code" element={cfg.flags.payLinks !== false ? <PayLink /> : <Navigate to="/" replace />} />
+          {/* Always routed for accounts: with the payLinks flag off the payee can still confirm or check a link (the page hides paying). */}
+          <Route path="r/:code" element={<PayLink />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>

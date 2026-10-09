@@ -124,3 +124,43 @@ test('a Pay me link opens like it would for a friend, and “I’ve paid” reco
   await page.goto('/groups/g_goa')
   await expect(page.getByRole('link', { name: 'Pay me link' }).first()).toBeVisible({ timeout: 15_000 })
 })
+
+test('a table guest’s claim waits for the host, who confirms it on the group', async ({ page }) => {
+  // A live table link not locked to one guest (someone the host added by hand), put straight
+  // into the demo data: finishing a whole table here would only repeat the table flow.
+  const code = 'tableclaimtableclaim2345'
+  await page.evaluate((c) => {
+    const state = JSON.parse(localStorage.getItem('splitit-demo-v1') ?? '{}')
+    const now = Date.now()
+    state.payLinks = {
+      ...state.payLinks,
+      [c]: {
+        groupId: 'g_goa',
+        groupName: 'Goa Trip',
+        tableCode: 'TBL23456',
+        from: 'p_rohan',
+        to: 'me',
+        amount: 25000,
+        currency: 'INR',
+        payeeName: 'Asha',
+        payerName: 'Rohan',
+        payment: { upi: 'you@okaxis' },
+        createdBy: 'me',
+        createdAt: now,
+        expiresAt: now + 86_400_000,
+        status: 'open',
+      },
+    }
+    localStorage.setItem('splitit-demo-v1', JSON.stringify(state))
+  }, code)
+  await page.goto(`/r/${code}?guest=demo`)
+  await page.getByTestId('mark-paid').click()
+  await page.getByTestId('mark-paid-confirm').click()
+  await expect(page.getByTestId('paylink-claimed')).toBeVisible()
+  await page.goto('/groups/g_goa')
+  const claim = page.getByTestId('group-claim')
+  await expect(claim).toBeVisible()
+  await claim.getByTestId('claim-confirm').click()
+  await expect(claim).toBeHidden()
+  await expect(page.getByRole('link', { name: 'Pay me link' }).first()).toBeVisible()
+})

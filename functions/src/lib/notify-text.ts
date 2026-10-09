@@ -168,3 +168,22 @@ export function payLinkPaidNote(p: {
   const tail = p.recorded ? ' It’s recorded as a payment; not right? Delete it in the group.' : ''
   return { title: groupTitle(p.groupName, p.emoji), body: `${head}.${proof}${tail}`, url: `/r/${p.code}`, tag: `paylink-${p.code}` }
 }
+
+/** To a live table's host, when a guest says they paid on a link the host confirms (open → claimed). */
+export function payLinkClaimedNote(p: {
+  code: string
+  groupName: string
+  emoji?: string
+  payerName: string
+  amount: number
+  currency: string
+  withProof?: boolean
+}): Note {
+  const proof = p.withProof ? ' Screenshot attached.' : ''
+  return {
+    title: groupTitle(p.groupName, p.emoji),
+    body: `${clip(p.payerName, 30)} says they’ve paid ${formatMoney(p.amount, p.currency)} · confirm.${proof} It counts once you confirm it.`,
+    url: `/r/${p.code}`,
+    tag: `paylink-${p.code}`,
+  }
+}

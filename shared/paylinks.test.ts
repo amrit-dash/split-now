@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   canMarkPaid,
+  claimStatus,
+  claimSummary,
+  needsHostConfirm,
+  triggerAction,
   isPayLinkCode,
   isProofPath,
   linkHandles,
@@ -160,5 +164,45 @@ describe('what gets recorded', () => {
     expect(planRecord(CODE, paid, { ...group, memberUids: ['u_rahul'] }, 'd', NOW, fmt)).toEqual({ kind: 'skip', reason: 'not_payee' })
     expect(planRecord(CODE, { ...paid, amount: 12.5 }, group, 'd', NOW, fmt)).toEqual({ kind: 'skip', reason: 'bad_amount' })
     expect(planRecord(CODE, paid, { ...group, currency: 'AUD' }, 'd', NOW, fmt)).toEqual({ kind: 'skip', reason: 'currency' })
+  })
+})
+
+describe('table links the host confirms', () => {
+  it('only a live table link not locked to one guest waits for the host', () => {
+    expect(needsHostConfirm({ tableCode: 'TBL23456' })).toBe(true)
+    expect(needsHostConfirm({ tableCode: 'TBL23456', forUid: 'anon1' })).toBe(false)
+    expect(needsHostConfirm({})).toBe(false)
+  })
+  it('"I’ve paid" claims those, and pays the rest; a member’s own settlement is always paid', () => {
+    expect(claimStatus({ tableCode: 'T' }, {})).toBe('claimed')
+    expect(claimStatus({ tableCode: 'T' }, { settlementId: 's_1' })).toBe('paid')
+    expect(claimStatus({ tableCode: 'T', forUid: 'a' }, {})).toBe('paid')
+    expect(claimStatus({}, { method: 'UPI' })).toBe('paid')
+  })
+  it('the claim patch carries the same fields with status claimed', () => {
+    expect(markPaidPatch(CODE, { method: 'UPI' }, 'anon1', NOW, 'claimed')).toEqual({ status: 'claimed', paidAt: NOW, paidBy: 'anon1', method: 'UPI' })
+    expect(() => markPaidPatch(CODE, { settlementId: 's' }, 'u', NOW, 'claimed')).toThrow()
+  })
+  it('the group line names both people and that it waits', () => {
+    expect(claimSummary(link, fmt)).toBe('Rahul says they’ve paid ₹1240 to Priya. Waiting for them to confirm.')
+  })
+})
+
+describe('trigger decision (no flag involved: a claim is always honoured)', () => {
+  const open = link
+  const claimed: PayLinkDoc = { ...link, tableCode: 'T', status: 'claimed', paidAt: NOW, paidBy: 'anon1' }
+  it('records on → paid from open or from claimed (the host confirming)', () => {
+    expect(triggerAction(open, { ...open, status: 'paid' })).toBe('record')
+    expect(triggerAction(claimed, { ...claimed, status: 'paid' })).toBe('record')
+  })
+  it('tells the host on open → claimed, and does nothing on a dismiss or a cancel', () => {
+    expect(triggerAction({ ...open, tableCode: 'T' }, claimed)).toBe('claimed')
+    expect(triggerAction(claimed, { ...open, tableCode: 'T' })).toBeNull()
+    expect(triggerAction(open, { ...open, status: 'cancelled' })).toBeNull()
+    expect(triggerAction(claimed, { ...claimed, status: 'paid', recordedAt: 1 })).toBeNull()
+  })
+  it('claimed stays claimed after the expiry date (the host can still confirm)', () => {
+    expect(payLinkState(claimed, link.expiresAt + 1)).toBe('claimed')
+    expect(canMarkPaid(claimed, NOW, 'anon2')).toBe(false)
   })
 })
