@@ -342,7 +342,7 @@ export default function Scan() {
             ) : (
               <div className="flex flex-col items-center px-6 py-10 text-center">
                 <div
-                  className="mb-3 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-500 to-duo-600 text-3xl text-white shadow-lg"
+                  className="mb-3 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-fill-500 to-fill-to text-3xl text-on-fill shadow-lg"
                   aria-hidden
                 >
                   {mode === 'receipt' ? '🧾' : '📲'}

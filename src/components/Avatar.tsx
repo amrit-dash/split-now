@@ -26,13 +26,13 @@ export function Avatar({ name, color, size = 40, ring, photoURL }: { name: strin
   }
   return (
     <div
-      className={`flex shrink-0 items-center justify-center rounded-full font-bold text-white ${ringCls}`}
+      className={`flex shrink-0 items-center justify-center rounded-full font-bold ${color === 'accent' ? 'text-on-fill' : 'text-white'} ${ringCls}`}
       style={{
         width: size,
         height: size,
         fontSize: size * 0.38,
         background:
-          color === 'accent' ? 'linear-gradient(135deg, var(--color-brand-500), var(--color-duo-600))' : `linear-gradient(135deg, ${color}, ${color}bb)`,
+          color === 'accent' ? 'linear-gradient(135deg, var(--color-fill-500), var(--color-fill-to))' : `linear-gradient(135deg, ${color}, ${color}bb)`,
       }}
       aria-hidden
     >

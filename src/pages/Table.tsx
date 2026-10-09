@@ -269,7 +269,7 @@ function Live({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; isH
         }
         right={
           isHost && (
-            <button type="button" className="accent-live rounded-full bg-brand-600 p-2.5 text-white" onClick={() => setSheet('qr')} aria-label="Show QR code">
+            <button type="button" className="accent-live rounded-full bg-fill p-2.5 text-on-fill" onClick={() => setSheet('qr')} aria-label="Show QR code">
               <QrIcon size={20} />
             </button>
           )
@@ -316,7 +316,7 @@ function Live({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; isH
                 aria-pressed={!!s}
               >
                 <span
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-2 ${s ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300 dark:border-ink-700'}`}
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-2 ${s ? 'border-brand-600 bg-fill text-on-fill' : 'border-slate-300 dark:border-ink-700'}`}
                 >
                   {s > 0 && <Check size={16} strokeWidth={3} />}
                 </span>

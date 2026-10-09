@@ -170,7 +170,7 @@ export function AmountCard({
             type="button"
             onClick={() => dispatch({ type: 'date', date: o.d })}
             aria-pressed={draft.date === o.d}
-            className={`min-h-10 shrink-0 rounded-2xl px-2 text-xs font-semibold ${draft.date === o.d ? 'accent-live bg-brand-600 text-white' : 'bg-slate-100 text-slate-700 dark:bg-ink-800 dark:text-slate-300'}`}
+            className={`min-h-10 shrink-0 rounded-2xl px-2 text-xs font-semibold ${draft.date === o.d ? 'accent-live bg-fill text-on-fill' : 'bg-slate-100 text-slate-700 dark:bg-ink-800 dark:text-slate-300'}`}
           >
             {o.label}
           </button>

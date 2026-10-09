@@ -291,7 +291,7 @@ export function StatementImport() {
         <div className="card mt-4 overflow-hidden" data-testid="statement-start">
           <div className="flex flex-col items-center px-6 py-8 text-center">
             <div
-              className="mb-3 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-500 to-duo-600 text-3xl text-white shadow-lg"
+              className="mb-3 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-fill-500 to-fill-to text-3xl text-on-fill shadow-lg"
               aria-hidden
             >
               📜
@@ -482,7 +482,7 @@ export function StatementImport() {
                   aria-checked={r.on}
                   aria-label={`Add ${r.description}`}
                   onClick={() => set(r.id, { on: !r.on })}
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-2 text-xs font-bold ${r.on ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-400 dark:border-ink-700'}`}
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-2 text-xs font-bold ${r.on ? 'border-brand-600 bg-fill text-on-fill' : 'border-slate-400 dark:border-ink-700'}`}
                 >
                   {r.on && '✓'}
                 </button>

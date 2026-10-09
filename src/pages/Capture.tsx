@@ -269,7 +269,7 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
     <Shell>
       <div className="card p-5 text-center">
         <div
-          className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-500 to-duo-600 text-2xl text-white shadow-lg"
+          className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-3xl bg-gradient-to-br from-fill-500 to-fill-to text-2xl text-on-fill shadow-lg"
           aria-hidden
         >
           💳
@@ -318,7 +318,7 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
                   </div>
                 </div>
                 <span
-                  className={`flex h-6 w-6 items-center justify-center rounded-full border-2 ${selected === g.id ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-400 dark:border-ink-700'}`}
+                  className={`flex h-6 w-6 items-center justify-center rounded-full border-2 ${selected === g.id ? 'border-brand-600 bg-fill text-on-fill' : 'border-slate-400 dark:border-ink-700'}`}
                   aria-hidden
                 >
                   {selected === g.id && <Check size={14} />}

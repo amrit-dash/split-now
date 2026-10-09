@@ -43,7 +43,7 @@ export function CheckBox({ on, size = 'md' }: { on: boolean; size?: 'sm' | 'md' 
   return (
     <span
       aria-hidden
-      className={`flex shrink-0 items-center justify-center border-2 ${dim} ${on ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-500 dark:border-slate-500'}`}
+      className={`flex shrink-0 items-center justify-center border-2 ${dim} ${on ? 'border-brand-600 bg-fill text-on-fill' : 'border-slate-500 dark:border-slate-500'}`}
     >
       {on && <Check size={size === 'sm' ? 12 : 14} strokeWidth={3} />}
     </span>

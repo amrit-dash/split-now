@@ -39,7 +39,7 @@ export function GateScreen({
         }`}
       >
         <div
-          className={`flex items-center justify-center bg-white/15 shadow-[0_20px_40px_-12px_rgb(0_0_0/0.45)] ring-1 ring-white/25 backdrop-blur-md ${
+          className={`flex items-center justify-center bg-on-fill/15 shadow-[0_20px_40px_-12px_rgb(0_0_0/0.45)] ring-1 ring-on-fill/25 backdrop-blur-md ${
             preview ? 'mb-5 h-16 w-16 rounded-3xl' : 'mb-7 h-20 w-20 rounded-[1.75rem]'
           }`}
         >
@@ -47,13 +47,13 @@ export function GateScreen({
         </div>
         <Heading className={`font-extrabold leading-tight tracking-tight ${preview ? 'text-xl' : 'text-[1.75rem]'}`}>{title}</Heading>
         {message && (
-          <p className={`mt-3 max-w-sm whitespace-pre-line break-words leading-relaxed text-white/85 ${preview ? 'text-sm' : 'text-[0.95rem]'}`}>{message}</p>
+          <p className={`mt-3 max-w-sm whitespace-pre-line break-words leading-relaxed text-on-fill/85 ${preview ? 'text-sm' : 'text-[0.95rem]'}`}>{message}</p>
         )}
         {note}
         {children && <div className={`flex w-full max-w-xs flex-col items-stretch gap-1 ${preview ? 'mt-6' : 'mt-8'}`}>{children}</div>}
       </div>
       <div
-        className={`relative flex items-center justify-center gap-2 text-sm font-semibold text-white/70 ${
+        className={`relative flex items-center justify-center gap-2 text-sm font-semibold text-on-fill/70 ${
           preview ? 'pb-4' : 'pb-[calc(env(safe-area-inset-bottom)+1.25rem)]'
         }`}
         aria-hidden
@@ -66,7 +66,7 @@ export function GateScreen({
   if (preview) {
     return (
       <div
-        className="relative isolate flex min-h-[24rem] flex-col overflow-hidden rounded-2xl bg-brand-700 text-white shadow-lg shadow-brand-600/20"
+        className="relative isolate flex min-h-[24rem] flex-col overflow-hidden rounded-2xl bg-fill-700 text-on-fill shadow-lg shadow-brand-600/20"
         data-testid={testId}
         inert
       >
@@ -75,7 +75,7 @@ export function GateScreen({
     )
   }
   return (
-    <main className="relative isolate flex min-h-dvh flex-col overflow-hidden bg-brand-700 text-white" data-testid={testId}>
+    <main className="relative isolate flex min-h-dvh flex-col overflow-hidden bg-fill-700 text-on-fill" data-testid={testId}>
       {body}
     </main>
   )
@@ -84,7 +84,7 @@ export function GateScreen({
 /** The white pill button every gate uses for its one action. */
 const primary = 'btn bg-white text-slate-900 shadow-lg shadow-black/15'
 /** The quiet text action under it (sign out). */
-const quiet = 'min-h-11 rounded-2xl text-sm font-medium text-white/80 underline-offset-4 hover:underline'
+const quiet = 'min-h-11 rounded-2xl text-sm font-medium text-on-fill/80 underline-offset-4 hover:underline'
 
 /**
  * Maintenance (config/app.maintenance) for everyone but admins. The config listener flips the app
@@ -100,7 +100,7 @@ export function MaintenanceScreen({ message, preview = false }: { message: strin
       icon={<Wrench size={preview ? 30 : 36} strokeWidth={2.25} className="motion-safe:animate-tinker" aria-hidden />}
       testId={preview ? 'maintenance-preview' : 'maintenance-screen'}
       note={
-        <p className="mt-5 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white/85 ring-1 ring-white/15">
+        <p className="mt-5 inline-flex items-center gap-2 rounded-full bg-on-fill/10 px-3 py-1.5 text-xs font-medium text-on-fill/85 ring-1 ring-on-fill/15">
           <span className="relative flex h-2 w-2" aria-hidden>
             <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75 motion-safe:animate-ping" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-300" />

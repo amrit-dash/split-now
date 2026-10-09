@@ -85,7 +85,7 @@ describe('accent', () => {
     }
   })
 
-  it('moves the retired warm presets (Saffron, Amber) to Gold', () => {
+  it('moves the retired presets to their successors (Saffron, Amber to Gold; Indigo to Ocean)', () => {
     for (const old of ['saffron', 'amber']) {
       dom.store.set(ACCENT_KEY, old)
       expect(getAccent()).toBe('gold')
@@ -93,6 +93,9 @@ describe('accent', () => {
       expect(dom.attrs.get('data-accent')).toBe('gold')
       expect(dom.meta.content).toBe('#774f00')
     }
+    // Indigo was one blue too many beside Violet and Ocean; it moves to Ocean.
+    dom.store.set(ACCENT_KEY, 'indigo')
+    expect(getAccent()).toBe('ocean')
     // Prototype keys are not presets.
     dom.store.set(ACCENT_KEY, 'constructor')
     expect(getAccent()).toBe('violet')
@@ -109,8 +112,8 @@ describe('accent', () => {
     }
     expect(getAccent()).toBe('violet')
     expect(getDuo()).toBe(true)
-    expect(() => setAccent('indigo')).not.toThrow()
-    expect(dom.attrs.get('data-accent')).toBe('indigo')
+    expect(() => setAccent('neon')).not.toThrow()
+    expect(dom.attrs.get('data-accent')).toBe('neon')
   })
 
   it('uses ink for the theme colour in dark mode', () => {
@@ -181,6 +184,19 @@ function parseColor(v: string): Rgb {
   if (!m) throw new Error(`unparseable colour ${v}`)
   return oklchToRgb(+m[1] / 100, +m[2], m[3] === 'none' ? 0 : +m[3])
 }
+/** sRGB → oklch chroma and hue (degrees), the inverse of oklchToRgb. */
+function oklchOf(c: Rgb): { C: number; h: number } {
+  const [r, g, b] = c.map((v) => {
+    v /= 255
+    return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4
+  })
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b),
+    m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b),
+    s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b)
+  const A = 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
+    B = 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s
+  return { C: Math.hypot(A, B), h: ((Math.atan2(B, A) * 180) / Math.PI + 360) % 360 }
+}
 const hex = (c: Rgb) => `#${c.map((v) => v.toString(16).padStart(2, '0')).join('')}`
 function luminance([r, g, b]: Rgb) {
   const f = (v: number) => {
@@ -200,12 +216,21 @@ function presetBlock(id: string): string {
   if (!block) throw new Error(`no CSS block for ${id}`)
   return block
 }
-const step = (block: string, name: string): Rgb => {
-  const m = block.match(new RegExp(`--color-${name}:\\s*([^;]+);`))
-  if (!m) throw new Error(`missing --color-${name}`)
-  return parseColor(m[1])
+/** A step's raw CSS value in a preset's block, or in the @theme defaults when the preset leaves it alone. */
+function rawStep(id: string, name: string): string | undefined {
+  const re = new RegExp(`--color-${name}:\\s*([^;]+);`)
+  return presetBlock(id).match(re)?.[1] ?? presetBlock('violet').match(re)?.[1]
+}
+/** A preset's colour for a step, following var(--color-…) the way the browser does on <html>. */
+function color(id: string, name: string): Rgb {
+  const v = rawStep(id, name)
+  if (!v) throw new Error(`missing --color-${name}`)
+  const ref = v.match(/^var\(--color-([\w-]+)\)$/)
+  return ref ? color(id, ref[1]) : parseColor(v)
 }
 const WHITE: Rgb = [255, 255, 255]
+/** Whether a preset sets its own value for a step (rather than the default pointing at brand / duo). */
+const ownStep = (id: string, name: string) => id !== 'violet' && new RegExp(`--color-${name}:`).test(presetBlock(id))
 
 describe('accent presets stay in sync', () => {
   it('every non-default preset has a CSS block overriding all brand and duo steps', () => {
@@ -219,7 +244,7 @@ describe('accent presets stay in sync', () => {
   })
 
   it('retired presets are gone from the CSS and nothing references brand-vivid', () => {
-    for (const id of ['emerald', 'rose', 'amber', 'saffron']) expect(css).not.toContain(`[data-accent='${id}']`)
+    for (const id of ['emerald', 'rose', 'amber', 'saffron', 'indigo']) expect(css).not.toContain(`[data-accent='${id}']`)
     expect(css).not.toContain('brand-vivid')
   })
 
@@ -233,43 +258,69 @@ describe('accent presets stay in sync', () => {
     for (const to of Object.values(RETIRED_ACCENTS)) expect(ACCENTS.some((a) => a.id === to)).toBe(true)
   })
 
-  it('the hex copies in ACCENTS match the CSS (from = brand-600, to = duo-500, meta = brand-700)', () => {
+  it('the hex copies in ACCENTS match the CSS (from = fill, to = duo-500 or own fill-to, meta = brand-700)', () => {
     for (const a of ACCENTS) {
-      const block = presetBlock(a.id)
-      expect(hex(step(block, 'brand-600')), `${a.id} from`).toBe(a.from)
-      expect(hex(step(block, 'duo-500')), `${a.id} to`).toBe(a.to)
-      expect(hex(step(block, 'brand-700')), `${a.id} meta`).toBe(a.meta)
+      expect(hex(color(a.id, 'fill')), `${a.id} from`).toBe(a.from)
+      expect(hex(color(a.id, ownStep(a.id, 'fill-to') ? 'fill-to' : 'duo-500')), `${a.id} to`).toBe(a.to)
+      expect(hex(color(a.id, 'brand-700')), `${a.id} meta`).toBe(a.meta)
     }
   })
 
-  it('white text passes AA (4.5:1) on brand-600 and duo-600 of every preset (btn-primary ends)', () => {
+  it('on-fill text passes AA (4.5:1) on fill and fill-to of every preset (btn-primary ends)', () => {
     for (const a of ACCENTS) {
-      const block = presetBlock(a.id)
-      expect(contrast(WHITE, step(block, 'brand-600')), `${a.id} brand-600`).toBeGreaterThanOrEqual(4.5)
-      expect(contrast(WHITE, step(block, 'duo-600')), `${a.id} duo-600`).toBeGreaterThanOrEqual(4.5)
+      const ink = color(a.id, 'on-fill')
+      expect(contrast(ink, color(a.id, 'fill')), `${a.id} fill`).toBeGreaterThanOrEqual(4.5)
+      expect(contrast(ink, color(a.id, 'fill-to')), `${a.id} fill-to`).toBeGreaterThanOrEqual(4.5)
     }
+  })
+
+  it('a preset with its own fills keeps on-fill readable over every aurora shade', () => {
+    // The patches drift over the whole fill, so text can sit on any of them.
+    for (const a of ACCENTS.filter((p) => ownStep(p.id, 'fill'))) {
+      const ink = color(a.id, 'on-fill')
+      for (const name of ['fill-300', 'fill-400', 'fill-500', 'fill-700', 'fill-800', 'fill-900', 'fill-to-400', 'fill-to-500']) {
+        expect(ownStep(a.id, name), `${a.id} sets ${name}`).toBe(true)
+        expect(contrast(ink, color(a.id, name)), `${a.id} ${name}`).toBeGreaterThanOrEqual(4.5)
+      }
+    }
+  })
+
+  it('brand-600 passes AA (4.5:1) as text on white for every preset', () => {
+    for (const a of ACCENTS) expect(contrast(WHITE, color(a.id, 'brand-600')), `${a.id} brand-600`).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it('the default fills are the brand / duo steps they replaced, and white on them', () => {
+    expect(rawStep('violet', 'fill')).toBe('var(--color-brand-600)')
+    expect(rawStep('violet', 'fill-to')).toBe('var(--color-duo-600)')
+    expect(rawStep('violet', 'on-fill')).toBe('#ffffff')
+    for (const n of [300, 400, 500, 700, 800, 900]) expect(rawStep('violet', `fill-${n}`)).toBe(`var(--color-brand-${n})`)
+    for (const n of [400, 500]) expect(rawStep('violet', `fill-to-${n}`)).toBe(`var(--color-duo-${n})`)
+    // Dual tone off makes accent fills flat: accent-live's drifting patches are not drawn.
+    expect(css).toMatch(/@utility accent-live \{[\s\S]*?&:where\(\[data-duo='off'\] \*\)::before \{\s*display: none;/)
+    // Dual tone off collapses the fill's partner onto the fill too.
+    const off = css.match(/\[data-duo='off'\]\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(off).toContain('--color-fill-to: var(--color-fill);')
+    expect(off).toContain('--color-fill-to-400: var(--color-fill-400);')
+    expect(off).toContain('--color-fill-to-500: var(--color-fill-500);')
   })
 
   it('no preset fill is the hue of an amount colour (emerald owed, rose owe)', () => {
-    // Hues in oklch degrees: emerald-700 ≈ 166, rose-700 ≈ 16. Near-grey steps (Graphite) and hex
-    // steps (Violet's brand scale) are skipped.
+    // Hues in oklch degrees: emerald-700 ≈ 166, rose-700 ≈ 16. Near-grey steps (Graphite) are skipped.
     const hueGap = (a: number, b: number) => Math.min(Math.abs(a - b), 360 - Math.abs(a - b))
     for (const a of ACCENTS) {
-      const block = presetBlock(a.id)
-      for (const name of ['brand-500', 'brand-600', 'duo-500', 'duo-600']) {
-        const m = block.match(new RegExp(`--color-${name}:\\s*oklch\\([\\d.]+%\\s+([\\d.]+)\\s+([\\d.]+)\\)`))
-        if (!m || +m[1] < 0.05) continue
-        expect(hueGap(+m[2], 166), `${a.id} ${name} vs emerald`).toBeGreaterThanOrEqual(25)
-        expect(hueGap(+m[2], 16), `${a.id} ${name} vs rose`).toBeGreaterThanOrEqual(25)
+      for (const name of ['brand-500', 'brand-600', 'duo-500', 'duo-600', 'fill', 'fill-to']) {
+        const { C, h } = oklchOf(color(a.id, name))
+        if (C < 0.05) continue
+        expect(hueGap(h, 166), `${a.id} ${name} vs emerald`).toBeGreaterThanOrEqual(25)
+        expect(hueGap(h, 16), `${a.id} ${name} vs rose`).toBeGreaterThanOrEqual(25)
       }
     }
   })
 
   it('each scale gets darker from 50 to 900', () => {
     for (const a of ACCENTS) {
-      const block = presetBlock(a.id)
       for (const scale of ['brand', 'duo']) {
-        const lums = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900].map((n) => luminance(step(block, `${scale}-${n}`)))
+        const lums = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900].map((n) => luminance(color(a.id, `${scale}-${n}`)))
         for (let i = 1; i < lums.length; i++) expect(lums[i], `${a.id} ${scale} step ${i}`).toBeLessThanOrEqual(lums[i - 1] + 1e-9)
       }
     }

@@ -611,7 +611,7 @@ function PayWith({
                 </button>
                 {o.href && (
                   <a
-                    className="accent-live flex h-11 w-11 items-center justify-center rounded-xl bg-brand-600 text-white"
+                    className="accent-live flex h-11 w-11 items-center justify-center rounded-xl bg-fill text-on-fill"
                     href={o.href}
                     target="_blank"
                     rel="noreferrer"

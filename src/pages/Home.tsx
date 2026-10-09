@@ -125,7 +125,7 @@ export default function Home() {
       {firstRun ? (
         <FirstRun />
       ) : (
-        <div className="relative isolate overflow-hidden rounded-[2rem] bg-brand-600 p-6 text-white shadow-xl shadow-brand-600/30">
+        <div className="relative isolate overflow-hidden rounded-[2rem] bg-fill p-6 text-on-fill shadow-xl shadow-fill/30">
           <Aurora />
           {allSettled && (
             <Suspense fallback={null}>
@@ -140,12 +140,12 @@ export default function Home() {
                 aria-label="Balances and settle up"
                 title="Settle up"
                 data-testid="home-settle"
-                className="absolute -right-2.5 -top-3 flex h-[4.25rem] w-[4.25rem] items-center justify-center rounded-full text-white transition duration-150 hover:bg-white/10 active:scale-90 active:bg-white/20"
+                className="absolute -right-2.5 -top-3 flex h-[4.25rem] w-[4.25rem] items-center justify-center rounded-full text-on-fill transition duration-150 hover:bg-on-fill/10 active:scale-90 active:bg-on-fill/20"
               >
                 <ChequeIcon size={50} play="loop" currency={home} />
               </Link>
             )}
-            <div className="pr-16 text-sm font-medium text-white/90">{allSettled ? 'Overall' : `Overall, ${net >= 0 ? 'you are owed' : 'you owe'}`}</div>
+            <div className="pr-16 text-sm font-medium text-on-fill/90">{allSettled ? 'Overall' : `Overall, ${net >= 0 ? 'you are owed' : 'you owe'}`}</div>
             <FitLine
               className={`mt-1 text-4xl font-extrabold tracking-tight ${allSettled ? '' : 'pr-14'}`}
               testId="home-net"
@@ -154,23 +154,23 @@ export default function Home() {
             <div className="mt-5 grid grid-cols-2 gap-3">
               <Link
                 to="/settle"
-                className="rounded-2xl bg-white/15 p-3 text-left backdrop-blur transition active:bg-white/25"
+                className="rounded-2xl bg-on-fill/15 p-3 text-left backdrop-blur transition active:bg-on-fill/25"
                 aria-label={`You are owed ${ax}${formatMoney(main.owed, cur)}. See who owes you`}
               >
-                <div className="text-xs text-white/90">You are owed</div>
+                <div className="text-xs text-on-fill/90">You are owed</div>
                 <FitLine className="text-lg font-bold" labels={[`${ax}${formatMoney(main.owed, cur)}`]} />
               </Link>
               <Link
                 to="/settle"
-                className="rounded-2xl bg-white/15 p-3 text-left backdrop-blur transition active:bg-white/25"
+                className="rounded-2xl bg-on-fill/15 p-3 text-left backdrop-blur transition active:bg-on-fill/25"
                 aria-label={`You owe ${ax}${formatMoney(main.owe, cur)}. See who you owe`}
               >
-                <div className="text-xs text-white/90">You owe</div>
+                <div className="text-xs text-on-fill/90">You owe</div>
                 <FitLine className="text-lg font-bold" labels={[`${ax}${formatMoney(main.owe, cur)}`]} />
               </Link>
             </div>
             {others.length > 0 && (
-              <div className="mt-3 text-xs text-white/90">
+              <div className="mt-3 text-xs text-on-fill/90">
                 {approx
                   ? `Includes other currencies at today’s ECB rate. Exact: ${formatMoney(totals.get(home) ? totals.get(home)!.owed - totals.get(home)!.owe : 0, home, { sign: true })} · `
                   : 'Also: '}

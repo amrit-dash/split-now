@@ -101,7 +101,7 @@ function TabLabel({ text, n, tone }: { text: string; n: number; tone: 'rose' | '
       {text}
       {n > 0 && (
         <span
-          className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-bold ${tone === 'rose' ? 'bg-rose-600 text-white' : 'bg-brand-600 text-white'}`}
+          className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-bold ${tone === 'rose' ? 'bg-rose-600 text-white' : 'bg-fill text-on-fill'}`}
         >
           {n > 99 ? '99+' : n}
           <span className="sr-only"> {tone === 'rose' ? 'to sort' : 'unread'}</span>
@@ -460,7 +460,7 @@ function BulkSheet({ candidate, data, onClose }: { candidate: BulkCandidate<Grou
                 className="flex w-full items-center gap-3 rounded-2xl p-2 text-left"
               >
                 <span
-                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border-2 ${on ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-400 dark:border-ink-700'}`}
+                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border-2 ${on ? 'border-brand-600 bg-fill text-on-fill' : 'border-slate-400 dark:border-ink-700'}`}
                   aria-hidden
                 >
                   {on && <Check size={14} strokeWidth={3} />}

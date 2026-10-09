@@ -51,7 +51,7 @@ export function Layout() {
     <div className="mx-auto min-h-dvh max-w-2xl px-4 pb-[calc(var(--nav-h)+1.5rem)]">
       <a
         href="#main"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-xl focus:bg-brand-600 focus:px-4 focus:py-2 focus:font-semibold focus:text-white"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-xl focus:bg-fill focus:px-4 focus:py-2 focus:font-semibold focus:text-on-fill"
       >
         Skip to content
       </a>
@@ -92,7 +92,7 @@ export function Layout() {
                   type="button"
                   onClick={() => setCreating(true)}
                   data-testid="nav-create"
-                  className="fab-ring absolute left-1/2 top-0 flex h-[3.75rem] w-[3.75rem] -translate-x-1/2 -translate-y-[45%] items-center justify-center overflow-hidden rounded-full text-white transition active:scale-95"
+                  className="fab-ring absolute left-1/2 top-0 flex h-[3.75rem] w-[3.75rem] -translate-x-1/2 -translate-y-[45%] items-center justify-center overflow-hidden rounded-full text-on-fill transition active:scale-95"
                   aria-label="Create"
                   aria-haspopup="dialog"
                 >

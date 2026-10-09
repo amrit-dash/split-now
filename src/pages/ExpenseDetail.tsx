@@ -361,7 +361,7 @@ function Comments({ group, expense }: { group: Group; expense: Expense }) {
         <button
           type="submit"
           disabled={!text.trim() || busy}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-600 text-white disabled:opacity-40"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-fill text-on-fill disabled:opacity-40"
           aria-label="Send comment"
         >
           <Send size={18} />

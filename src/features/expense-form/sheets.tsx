@@ -154,7 +154,7 @@ export function CurrencySheet({
               onPick(c)
               onClose()
             }}
-            className={`min-h-11 rounded-2xl py-3 text-sm font-bold ${c === value ? 'accent-live bg-brand-600 text-white' : 'bg-slate-100 dark:bg-ink-800'}`}
+            className={`min-h-11 rounded-2xl py-3 text-sm font-bold ${c === value ? 'accent-live bg-fill text-on-fill' : 'bg-slate-100 dark:bg-ink-800'}`}
           >
             {c}
           </button>

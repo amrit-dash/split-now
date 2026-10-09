@@ -41,24 +41,52 @@
   --color-duo-700: oklch(51.8% 0.253 323.949);
   --color-duo-800: oklch(45.2% 0.211 324.591);
   --color-duo-900: oklch(40.1% 0.17 325.612);
+  /* Accent fills: surfaces painted in the accent that carry text or icons (btn-primary, chip-on,
+     the Home card, the + button, selected toggles, badges). They are separate from the brand scale
+     because a highlighter colour (Neon) makes a good fill only with dark text, while the brand
+     scale must also work as text on white. Every preset but Neon points them at the brand / duo
+     steps they used before, so those presets look the same; Neon overrides them below.
+     fill = the fill, fill-to = its gradient partner, on-fill = text and icons on it; the numbered
+     steps are the lighter / darker shades of the fill that the aurora patches (accent-live,
+     Aurora.tsx) and the emoji tiles drift between. */
+  --color-fill: var(--color-brand-600);
+  --color-fill-300: var(--color-brand-300);
+  --color-fill-400: var(--color-brand-400);
+  --color-fill-500: var(--color-brand-500);
+  --color-fill-700: var(--color-brand-700);
+  --color-fill-800: var(--color-brand-800);
+  --color-fill-900: var(--color-brand-900);
+  --color-fill-to: var(--color-duo-600);
+  --color-fill-to-400: var(--color-duo-400);
+  --color-fill-to-500: var(--color-duo-500);
+  --color-on-fill: #ffffff;
 }
 
 /* Presets: brand + duo scales from Tailwind's palette. Steps 400+ are shifted one shade darker
-   for the lighter hues (the cyan / sky / teal duo partners) so white text on brand-600 AND on
-   duo-600 (the right end of btn-primary) stays at 4.5:1 or better. accent.test.ts measures this
-   for every preset. Lime and Gold keep Tailwind's bright 50–400 (the neon / gold glow in the
+   for the lighter hues (the cyan / sky / teal duo partners) so brand-600 reads as text on white
+   and, where a preset fills with brand-600 / duo-600 (all but Neon), white text on both ends of
+   btn-primary stays at 4.5:1 or better. accent.test.ts measures on-fill against fill and fill-to,
+   and brand-600 against white, for every preset. Lime and Gold keep Tailwind's bright 50–400 (the neon / gold glow in the
    Aurora patches and dark-mode text) and use hand-tuned deep steps from 500 down, since their
    Tailwind 600s cannot carry white text. Lime stays a yellow-green (hue ~129) with a petrol-cyan
    partner so it never reads as the emerald (hue ~165) of "you are owed". Emerald / Rose (the
-   owed / owe colours) and the orange Saffron (too close to Gold) were retired. */
+   owed / owe colours), the orange Saffron (too close to Gold) and Indigo (a third blue beside
+   Violet and Ocean; Neon took its place) were retired. */
 :root {
   &[data-accent='ocean'] {
     --color-brand-50: oklch(97% 0.014 254.604); --color-brand-100: oklch(93.2% 0.032 255.585); --color-brand-200: oklch(88.2% 0.059 254.128); --color-brand-300: oklch(80.9% 0.105 251.813); --color-brand-400: oklch(70.7% 0.165 254.624); --color-brand-500: oklch(62.3% 0.214 259.815); --color-brand-600: oklch(54.6% 0.245 262.881); --color-brand-700: oklch(48.8% 0.243 264.376); --color-brand-800: oklch(42.4% 0.199 265.638); --color-brand-900: oklch(37.9% 0.146 265.522);
     --color-duo-50: oklch(98.4% 0.019 200.873); --color-duo-100: oklch(95.6% 0.045 203.388); --color-duo-200: oklch(91.7% 0.08 205.041); --color-duo-300: oklch(86.5% 0.127 207.078); --color-duo-400: oklch(71.5% 0.143 215.221); --color-duo-500: oklch(60.9% 0.126 221.723); --color-duo-600: oklch(52% 0.105 223.128); --color-duo-700: oklch(45% 0.085 224.283); --color-duo-800: oklch(39.8% 0.07 227.392); --color-duo-900: oklch(34% 0.062 228.5);
   }
-  &[data-accent='indigo'] {
-    --color-brand-50: oklch(96.2% 0.018 272.314); --color-brand-100: oklch(93% 0.034 272.788); --color-brand-200: oklch(87% 0.065 274.039); --color-brand-300: oklch(78.5% 0.115 274.713); --color-brand-400: oklch(67.3% 0.182 276.935); --color-brand-500: oklch(58.5% 0.233 277.117); --color-brand-600: oklch(51.1% 0.262 276.966); --color-brand-700: oklch(45.7% 0.24 277.023); --color-brand-800: oklch(39.8% 0.195 277.366); --color-brand-900: oklch(35.9% 0.144 278.697);
-    --color-duo-50: oklch(97.7% 0.013 236.62); --color-duo-100: oklch(95.1% 0.026 236.824); --color-duo-200: oklch(90.1% 0.058 230.902); --color-duo-300: oklch(82.8% 0.111 230.318); --color-duo-400: oklch(68.5% 0.169 237.323); --color-duo-500: oklch(58.8% 0.158 241.966); --color-duo-600: oklch(50% 0.134 242.749); --color-duo-700: oklch(44.3% 0.11 240.79); --color-duo-800: oklch(39.1% 0.09 240.876); --color-duo-900: oklch(33.5% 0.08 241);
+  /* Neon: a highlighter lime fill (#c6ff00) with a bright aqua partner and dark ink on top, since
+     white on a highlighter is about 1.2:1. Its brand scale is bright up to 400 (dark-mode text,
+     tints) and deep from 500 (text and rings on white), like Lime's; only the fills are neon. Its
+     fill shades stay light so the aurora patches never darken the fill under the dark text. */
+  &[data-accent='neon'] {
+    --color-brand-50: oklch(98.6% 0.031 120.757); --color-brand-100: oklch(97.2% 0.075 123); --color-brand-200: oklch(95.5% 0.13 124); --color-brand-300: oklch(94% 0.18 124.5); --color-brand-400: oklch(92.7% 0.231 124.4); --color-brand-500: oklch(72% 0.2 127); --color-brand-600: oklch(52% 0.15 129); --color-brand-700: oklch(46% 0.125 129); --color-brand-800: oklch(40.5% 0.1 130); --color-brand-900: oklch(33% 0.08 131);
+    --color-duo-50: oklch(98.4% 0.02 190); --color-duo-100: oklch(96% 0.05 190); --color-duo-200: oklch(93.5% 0.09 191); --color-duo-300: oklch(90.5% 0.12 191); --color-duo-400: oklch(88% 0.14 192); --color-duo-500: oklch(66% 0.12 194); --color-duo-600: oklch(54% 0.1 196); --color-duo-700: oklch(47% 0.085 198); --color-duo-800: oklch(41% 0.07 200); --color-duo-900: oklch(31% 0.055 204);
+    --color-fill: #c6ff00; --color-fill-300: oklch(96.5% 0.11 118); --color-fill-400: oklch(95% 0.16 121); --color-fill-500: oklch(94% 0.2 123); --color-fill-700: oklch(89% 0.21 127); --color-fill-800: oklch(85% 0.2 130); --color-fill-900: oklch(82% 0.19 132);
+    --color-fill-to: oklch(88% 0.14 192); --color-fill-to-400: oklch(92% 0.1 190); --color-fill-to-500: oklch(90% 0.12 191);
+    --color-on-fill: #0b0a14;
   }
   &[data-accent='berry'] {
     --color-brand-50: oklch(97.7% 0.017 340); --color-brand-100: oklch(94.8% 0.035 340); --color-brand-200: oklch(89.9% 0.07 340); --color-brand-300: oklch(82.3% 0.12 340); --color-brand-400: oklch(71.8% 0.18 342); --color-brand-500: oklch(62% 0.21 343); --color-brand-600: oklch(53% 0.2 343); --color-brand-700: oklch(46% 0.18 345); --color-brand-800: oklch(40% 0.15 347); --color-brand-900: oklch(34% 0.12 348);
@@ -79,6 +107,7 @@
   /* Dual tone off: gradients collapse to the brand scale. Must stay after the presets. */
   &[data-duo='off'] {
     --color-duo-50: var(--color-brand-50); --color-duo-100: var(--color-brand-100); --color-duo-200: var(--color-brand-200); --color-duo-300: var(--color-brand-300); --color-duo-400: var(--color-brand-400); --color-duo-500: var(--color-brand-500); --color-duo-600: var(--color-brand-600); --color-duo-700: var(--color-brand-700); --color-duo-800: var(--color-brand-800); --color-duo-900: var(--color-brand-900);
+    --color-fill-to: var(--color-fill); --color-fill-to-400: var(--color-fill-400); --color-fill-to-500: var(--color-fill-500);
   }
 }
 
@@ -155,14 +184,19 @@
     z-index: -1;
     pointer-events: none;
     background:
-      radial-gradient(8rem 5rem at var(--al-x) var(--al-y), color-mix(in oklab, var(--color-brand-300) 45%, transparent), transparent),
-      radial-gradient(8.5rem 5.5rem at var(--ad-x) var(--ad-y), color-mix(in oklab, var(--color-brand-900) 40%, transparent), transparent),
-      radial-gradient(7rem 4.5rem at var(--au-x) 50%, color-mix(in oklab, var(--color-duo-400) 30%, transparent), transparent);
+      radial-gradient(8rem 5rem at var(--al-x) var(--al-y), color-mix(in oklab, var(--color-fill-300) 45%, transparent), transparent),
+      radial-gradient(8.5rem 5.5rem at var(--ad-x) var(--ad-y), color-mix(in oklab, var(--color-fill-900) 40%, transparent), transparent),
+      radial-gradient(7rem 4.5rem at var(--au-x) 50%, color-mix(in oklab, var(--color-fill-to-400) 30%, transparent), transparent);
     animation: accent-float 16s ease-in-out infinite alternate;
+  }
+  /* Dual tone off asks for flat accent fills: no drifting patches, and nothing animating unseen. */
+  &:where([data-duo='off'] *)::before {
+    display: none;
+    animation: none;
   }
 }
 
-@utility btn-primary { @apply btn accent-live bg-gradient-to-r from-brand-600 to-duo-600 text-white shadow-lg shadow-brand-600/25; }
+@utility btn-primary { @apply btn accent-live bg-gradient-to-r from-fill to-fill-to text-on-fill shadow-lg shadow-fill/25; }
 
 @utility btn-secondary { @apply btn bg-slate-100 text-slate-900 dark:bg-ink-800 dark:text-slate-100; }
 
@@ -173,7 +207,9 @@
       dark:ring-ink-700;
   }
 
-@utility chip-on { @apply accent-live bg-brand-600 text-white ring-brand-600; }
+/* The ring stays on brand-600 (the same colour as the fill except on Neon, where the deep ring
+   outlines the highlighter fill on white). */
+@utility chip-on { @apply accent-live bg-fill text-on-fill ring-brand-600; }
 
 /* Secondary text that still passes 4.5:1 on white and on ink-900 cards (slate-400 does not). */
 @utility text-muted { @apply text-slate-600 dark:text-slate-400; }
@@ -292,7 +328,7 @@ html[data-update-ready] .install-banner { display: none; }
 .fab-ring {
   box-shadow:
     inset 0 1px 1px rgb(255 255 255 / 0.35),
-    inset 0 -6px 12px -6px color-mix(in oklab, var(--color-brand-900) 45%, transparent),
+    inset 0 -6px 12px -6px color-mix(in oklab, var(--color-fill-900) 45%, transparent),
     0 4px 12px -3px color-mix(in oklab, var(--color-brand-900) 55%, transparent);
 }
 .dark .fab-ring {
