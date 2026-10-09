@@ -108,13 +108,13 @@ export function Layout() {
                 to={t.to}
                 end={'end' in t}
                 className={({ isActive }) =>
-                  `flex w-16 flex-col items-center gap-0.5 py-1 text-[11px] transition-colors ${isActive ? 'font-bold text-brand-600 dark:text-brand-300' : 'font-semibold text-slate-500 dark:text-slate-400'}`
+                  `flex w-16 flex-col items-center gap-0.5 py-1 text-[11px] transition-colors ${isActive ? 'font-bold text-brand-600 dark:text-brand-300' : 'font-medium text-slate-400 dark:text-slate-500'}`
                 }
               >
                 {({ isActive }) => (
                   <>
                     {/* Active: icon and label in the accent, a heavier stroke and a slight lift. */}
-                    <t.icon size={23} strokeWidth={isActive ? 2.6 : 2.1} className={`transition-transform ${isActive ? '-translate-y-px' : ''}`} aria-hidden />
+                    <t.icon size={23} strokeWidth={isActive ? 2.6 : 1.9} className={`transition-transform ${isActive ? '-translate-y-px' : ''}`} aria-hidden />
                     {t.label}
                   </>
                 )}
