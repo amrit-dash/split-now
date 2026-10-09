@@ -111,7 +111,7 @@ npm run dev            # http://localhost:5173, demo mode (no Firebase needed)
 
 Demo mode keeps data in your browser and pre-loads sample groups (a Goa trip, a Bengaluru flat). To connect your own Firebase project, follow **[docs/FIREBASE_SETUP.md](docs/FIREBASE_SETUP.md)**, then optionally **[docs/AI.md](docs/AI.md)** and **[docs/AUTO_CAPTURE.md](docs/AUTO_CAPTURE.md)**.
 
-> `.env.production` and `.firebaserc` point at the maintainer's Firebase project (`split-it-prod`). These are public web identifiers, not secrets, but a fork should replace both with its own project before deploying.
+> Production builds read the Firebase web config from `.env.production`, which is gitignored: copy `.env.production.example` and fill in your own project's values. `.firebaserc` points at the maintainer's project (`split-it-prod`); a fork should replace it with its own before deploying.
 
 ### Scripts
 

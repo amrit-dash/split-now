@@ -20,6 +20,15 @@ cp .env.example .env.local
 # then fill VITE_FIREBASE_* from the console
 ```
 
+   For production builds and deploys (`npm run build`, `npm run deploy`), put the same values in `.env.production`:
+
+```bash
+cp .env.production.example .env.production
+# fill VITE_FIREBASE_*, VITE_FCM_VAPID_KEY, VITE_APPCHECK_SITE_KEY, VITE_IOS_SHORTCUT_URL
+```
+
+   Both files are gitignored: never commit them. The web API key still reaches every visitor in the built JavaScript, so restrict it in Google Cloud → Credentials (§6); keeping it out of the repository stops it being scraped from GitHub.
+
 ## 3. Authorised domains
 **Authentication → Settings → Authorized domains**: `localhost` and `<project>.web.app` are there by default. Add any custom domain you use.
 
@@ -160,6 +169,7 @@ Set the `GEMINI_API_KEY` secret, make yourself an admin and turn the project key
 - [x] **Restrict the browser API key** (Google Cloud → APIs & Services → Credentials → "Browser key (auto created by Firebase)"):
   - *Websites*: every hosting domain, `*.web.app` **and** `*.firebaseapp.com` for each site (Google sign-in finishes on the `firebaseapp.com` domain). Leave `localhost` out unless you run `npm run dev` against the live project; demo mode and the emulators don't use the key.
   - *APIs*: only Identity Toolkit, Token Service, Cloud Firestore, Cloud Storage for Firebase, Firebase Installations, FCM Registration and Firebase App Check. Never Firebase AI Logic or the Gemini / Generative Language API: Split Now calls Gemini only from Cloud Functions with a server-side key.
+- **Rotating the browser key** (it was in the repository's history until October 2026): Google Cloud → Credentials → **Create credentials → API key**, give it the same website and API restrictions as the old one, put it in `.env.production` as `VITE_FIREBASE_API_KEY`, `npm run deploy:hosting`, check sign-in and a live table on both sites, then delete the old key. Installed apps pick up the new key with the update.
 - **Adding another hosting site** (e.g. `freesplit`): add it to `.firebaserc` targets and `firebase.json`, then add both of its domains to Auth → *Authorised domains*, the reCAPTCHA Enterprise key's domains, the browser key's websites, and `APP_ORIGINS` in `functions/src/config.ts` (then redeploy functions).
 - **App Check** (reCAPTCHA Enterprise) on Firestore and Storage, to block scripted abuse of your API key. See §5c; enforce only after checking metrics.
 - **Budget alerts** in Google Cloud Billing if you upgrade to Blaze.

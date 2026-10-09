@@ -43,3 +43,6 @@ blob-report/
 
 # Claude Code agent worktrees
 .claude/worktrees/
+
+# Production Firebase web config: copy .env.production.example and fill it in (docs/FIREBASE_SETUP.md).
+.env.production
