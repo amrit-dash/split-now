@@ -86,8 +86,17 @@ jobs:
 
       - name: Hosting (all sites)
         if: inputs.what == 'all' || inputs.what == 'hosting'
+        env:
+          # The Firebase web config is gitignored: the FIREBASE_WEB_CONFIG secret holds the whole
+          # .env.production file. SPLIT_NOW_DEPLOY=1 makes the build fail if any value is missing,
+          # so a missing secret can never ship the demo app to the live sites.
+          FIREBASE_WEB_CONFIG: ${{ secrets.FIREBASE_WEB_CONFIG }}
+          SPLIT_NOW_DEPLOY: '1'
         run: |
+          if [ -z "$FIREBASE_WEB_CONFIG" ]; then echo "::error::Add the FIREBASE_WEB_CONFIG repository secret (the contents of .env.production, docs/FIREBASE_SETUP.md §4)"; exit 1; fi
+          printf '%s\n' "$FIREBASE_WEB_CONFIG" > .env.production
           npm run build
+          rm -f .env.production
           npx firebase deploy --only hosting --project "$PROJECT" --non-interactive
 
       - name: Check the security headers on every site
