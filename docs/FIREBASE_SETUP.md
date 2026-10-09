@@ -100,7 +100,11 @@ Notes:
 - The `capture` webhook deliberately does **not** require App Check (Shortcuts and MacroDroid can't provide a token); it's authenticated by the capture token and rate-limited. Firestore triggers and the scheduled function aren't affected by App Check.
 - reCAPTCHA Enterprise has a free monthly assessment allowance (10,000/month at the time of writing [Likely]); App Check token refreshes count as assessments.
 
+## 5d. AI features (optional)
+Set the `GEMINI_API_KEY` secret, make yourself an admin and turn the project key on from the app. See [AI.md](./AI.md).
+
 ## 6. Before going public
+- **Restrict the browser API key** (Google Cloud → APIs & Services → Credentials → the "Browser key"): limit it to your hosting domains (HTTP referrers) and to the Firebase APIs the app uses. Especially if the Generative Language (Gemini) API is enabled on the same project, so the public key can't be used to call it.
 - **App Check** (reCAPTCHA Enterprise) on Firestore and Storage, to block scripted abuse of your API key. See §5c; enforce only after checking metrics.
 - **Budget alerts** in Google Cloud Billing if you upgrade to Blaze.
 - **Custom domain** under Hosting, if you want one.
