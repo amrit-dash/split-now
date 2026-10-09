@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   ArrowRight,
   Check,
@@ -19,6 +19,7 @@ import {
 import { repo } from '@/data'
 import type { TablePatch } from '@/data/repo'
 import { useAuth } from '@/hooks/auth'
+import { demoGuestId, useAnonymousSignIn } from '@/hooks/useGuest'
 import { colorFor } from '@/lib/colors'
 import { uid } from '@/lib/id'
 import { centsToInput, formatMoney, parseMoney } from '@/lib/money'
@@ -26,7 +27,8 @@ import { payOptions } from '@/lib/payments'
 import { copy, shareOrCopy } from '@/lib/share'
 import { errText } from '@/lib/errors'
 import { usePageTitle } from '@/lib/brand'
-import { encodeQr } from '@/lib/qr'
+import { canMarkPaid, payLinkUrl } from '@/lib/paylinks'
+import { usePayLink } from '@/hooks/data'
 import {
   computeTableTotals,
   formatCode,
@@ -46,6 +48,8 @@ import {
 } from '@/lib/table'
 import { Avatar } from '@/components/Avatar'
 import { Empty, Loading, PageHeader } from '@/components/Misc'
+import { GuestPay } from '@/components/GuestPay'
+import { MarkPaid } from '@/components/MarkPaid'
 import { QrCode } from '@/components/QrCode'
 import { Sheet } from '@/components/Sheet'
 import { useToast } from '@/components/Toast'
@@ -53,7 +57,6 @@ import { useToast } from '@/components/Toast'
 // Uses useGroups (signed-in users only), so it's loaded just for the host.
 const TableFinish = lazy(() => import('./TableFinish'))
 
-const GUEST_KEY = 'splitit-table-guest'
 const NAME_KEY = 'splitit-table-name'
 
 const safeGet = (s: Storage, k: string) => {
@@ -71,18 +74,6 @@ const safeSet = (s: Storage, k: string, v: string) => {
   }
 }
 
-/** Demo mode has one signed-in user per browser, so each "guest" tab gets its own id. */
-function demoGuestId() {
-  let id = safeGet(sessionStorage, GUEST_KEY)
-  if (!id) {
-    id = uid('guest_')
-    safeSet(sessionStorage, GUEST_KEY, id)
-  }
-  return id
-}
-
-let anonSignIn: Promise<void> | undefined
-
 interface Viewer {
   pid?: string
   name?: string
@@ -96,23 +87,10 @@ interface Viewer {
  * so a second tab can play a second phone.
  */
 function useViewer(): Viewer {
-  const { user, profile, loading } = useAuth()
+  const { user, profile } = useAuth()
   const [params] = useSearchParams()
-  const [error, setError] = useState<string>()
-  useEffect(() => {
-    if (repo.mode !== 'firebase' || loading || user || !repo.signInAnonymously) return
-    anonSignIn ??= repo.signInAnonymously()
-    anonSignIn.catch((e) => {
-      anonSignIn = undefined
-      const code = (e as { code?: string }).code ?? ''
-      setError(
-        code.includes('admin-restricted') || code.includes('operation-not-allowed')
-          ? 'Guest access isn’t enabled for this app yet (Firebase anonymous sign-in is off).'
-          : errText(e),
-      )
-    })
-  }, [loading, user])
-  if (repo.mode === 'demo' && (params.get('guest') === 'demo' || !user)) return { pid: demoGuestId(), signedIn: false }
+  const error = useAnonymousSignIn()
+  if (repo.mode === 'demo' && (params.get('guest') === 'demo' || !user)) return { pid: demoGuestId(() => uid('guest_')), signedIn: false }
   if (!user) return { signedIn: false, error }
   return { pid: user.uid, name: user.isAnonymous ? undefined : (profile?.displayName ?? user.displayName), signedIn: !user.isAnonymous }
 }
@@ -686,16 +664,23 @@ function Closed({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; i
   const cur = table.currency
   const me = viewer.pid!
   const host = table.participants[table.hostUid]?.name ?? 'the host'
-  const mine = totals.people[me]?.total ?? 0
+  // The guest's own Pay me link (made when the host finished): "I've paid" goes through it and
+  // its amount is exactly what the group expense charged them.
+  const myCode = isHost ? undefined : table.payLinks?.[me]
+  const link = usePayLink(myCode, me)
+  const mine = link?.amount ?? totals.people[me]?.total ?? 0
   const options = isHost ? [] : payOptions(table.hostPayment, mine, cur, table.merchant)
+  const paid = link?.status === 'paid'
   const remind = (p: ParticipantId) => {
     const amt = formatMoney(totals.people[p].total, cur)
+    const code = table.payLinks?.[p]
     const handles = payOptions(table.hostPayment, totals.people[p].total, cur, table.merchant)
       .map((o) => `${o.label}: ${o.value}`)
       .join(' · ')
-    shareOrCopy({ text: `Hi ${table.participants[p].name}, your share of ${table.merchant} is ${amt}.${handles ? ` ${handles}` : ''}` }).then(
-      (r) => r === 'copied' && toast('Copied'),
-    )
+    const text = code
+      ? `Hi ${table.participants[p].name}, your share of ${table.merchant} is ${amt}. Pay and mark it paid here, no account needed:`
+      : `Hi ${table.participants[p].name}, your share of ${table.merchant} is ${amt}.${handles ? ` ${handles}` : ''}`
+    shareOrCopy({ text, url: code ? payLinkUrl(location.origin, code) : undefined }).then((r) => r === 'copied' && toast('Copied'))
   }
   return (
     <div className="mx-auto min-h-dvh max-w-lg px-4 pb-10">
@@ -704,8 +689,21 @@ function Closed({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; i
         <div className="card p-5 text-center">
           <div className="text-muted text-sm">Your share</div>
           <div className="text-4xl font-extrabold tabular-nums">{formatMoney(mine, cur)}</div>
-          <div className="text-muted mt-1 text-sm">{mine > 0 ? `Pay ${host} back` : 'Nothing to pay'}</div>
-          {mine > 0 && options.length > 0 && <GuestPay options={options} amount={mine} currency={cur} />}
+          <div className="text-muted mt-1 text-sm">{paid ? `Marked paid · ${host} can see it` : mine > 0 ? `Pay ${host} back` : 'Nothing to pay'}</div>
+          {paid ? (
+            <div className="mt-4 flex items-center justify-center gap-2 rounded-2xl bg-emerald-50 p-3 text-sm font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
+              <CircleCheck size={18} aria-hidden /> You marked this paid
+            </div>
+          ) : (
+            <>
+              {mine > 0 && options.length > 0 && <GuestPay options={options} amount={mine} currency={cur} />}
+              {mine > 0 && link && canMarkPaid(link, Date.now(), me) && (
+                <div className="mt-4">
+                  <MarkPaid code={link.code} payee={host.split(' ')[0]} amount={mine} currency={cur} groupName={link.groupId ? link.groupName : undefined} />
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
       {isHost && table.expenseId && table.closedGroupId && viewer.signedIn && (
@@ -718,13 +716,14 @@ function Closed({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; i
           <div key={p} className="flex items-center gap-3 px-4 py-3">
             <Avatar name={table.participants[p].name} color={colorFor(i)} size={32} />
             <span className="flex-1 font-medium">{p === me ? 'You' : table.participants[p].name}</span>
+            {isHost && table.payLinks?.[p] && <PaidPill code={table.payLinks[p]} viewer={me} name={table.participants[p].name} />}
             <span className="font-bold tabular-nums" data-testid="final-total">
               {formatMoney(totals.people[p].total, cur)}
             </span>
             {isHost && p !== me && totals.people[p].total > 0 && (
               <button
                 type="button"
-                className="rounded-xl p-2 text-brand-600"
+                className="flex h-11 w-11 items-center justify-center rounded-xl text-brand-600"
                 onClick={() => remind(p)}
                 aria-label={`Send ${table.participants[p].name} their total`}
               >
@@ -752,75 +751,18 @@ function Closed({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; i
   )
 }
 
-/** Deep links (upi://, tez://) must open in place: a new tab breaks them, above all in the installed app. */
-const opensInNewTab = (href: string) => /^https?:/i.test(href)
-
-/**
- * How a guest pays the host their exact share: the UPI app buttons first (on another phone the
- * deep links matter most), then the exact-amount UPI QR, then every handle to copy.
- */
-function GuestPay({ options, amount, currency }: { options: ReturnType<typeof payOptions>; amount: number; currency: string }) {
-  const toast = useToast()
-  const upi = options.find((o) => o.qr)
-  let qrOk = true
-  try {
-    if (upi?.qr) encodeQr(upi.qr)
-  } catch {
-    qrOk = false
-  }
+/** The host's view of one guest's Pay me link: "Paid" once they tapped "I've paid" (opens the link, with any screenshot). */
+function PaidPill({ code, viewer, name }: { code: string; viewer: string; name: string }) {
+  const l = usePayLink(code, viewer)
+  if (l?.status !== 'paid') return null
   return (
-    <div className="mt-4 space-y-3 text-left" data-testid="guest-pay">
-      {upi?.apps && (
-        <div className="grid grid-cols-3 gap-2">
-          {upi.apps.map((a) => (
-            <a key={a.id} className="btn btn-sm bg-brand-600 text-white" href={a.href} data-testid={`upi-${a.id}`}>
-              {a.label}
-            </a>
-          ))}
-        </div>
-      )}
-      {upi?.qr && qrOk && (
-        <div className="flex flex-col items-center rounded-2xl bg-slate-50 p-3 dark:bg-ink-800">
-          <QrCode value={upi.qr} size={180} label={`UPI QR code to pay ${upi.value} ${formatMoney(amount, currency)}`} />
-          <p className="text-muted mt-2 text-xs">Scan with any UPI app to pay {formatMoney(amount, currency)}.</p>
-        </div>
-      )}
-      {options.map((o) => (
-        <div key={o.key} className="flex items-center gap-1 rounded-2xl bg-slate-50 p-2 pl-3 dark:bg-ink-800">
-          <div className="min-w-0 flex-1">
-            <div className="text-muted text-xs">{o.label}</div>
-            <div className="truncate font-semibold">{o.value}</div>
-          </div>
-          <button
-            type="button"
-            className="flex h-11 w-11 items-center justify-center rounded-xl"
-            onClick={() => copy(o.value).then((ok) => toast(ok ? `${o.label} copied` : 'Couldn’t copy', ok ? 'ok' : 'err'))}
-            aria-label={`Copy ${o.label}`}
-          >
-            <Copy size={18} />
-          </button>
-          {o.href &&
-            (opensInNewTab(o.href) ? (
-              <a
-                className="flex h-11 w-11 items-center justify-center rounded-xl text-brand-600 dark:text-brand-300"
-                href={o.href}
-                target="_blank"
-                rel="noreferrer"
-                aria-label={`Open ${o.label}`}
-              >
-                <ExternalLink size={18} />
-              </a>
-            ) : (
-              <a
-                className="flex h-11 w-11 items-center justify-center rounded-xl text-brand-600 dark:text-brand-300"
-                href={o.href}
-                aria-label={`Open ${o.label}`}
-              >
-                <ExternalLink size={18} />
-              </a>
-            ))}
-        </div>
-      ))}
-    </div>
+    <Link
+      to={`/r/${code}`}
+      className="inline-flex min-h-6 items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+      aria-label={`${name} marked it paid: open the Pay me link`}
+      data-testid="table-paid"
+    >
+      <CircleCheck size={12} aria-hidden /> Paid
+    </Link>
   )
 }

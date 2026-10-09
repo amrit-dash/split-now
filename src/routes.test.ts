@@ -26,6 +26,7 @@ describe('routeKey', () => {
     expect(routeKey('/join/ABCD1234')).toBe('Join')
     expect(routeKey('/t')).toBe('Table')
     expect(routeKey('/t/XYZ')).toBe('Table')
+    expect(routeKey('/r/abcdefghijkmnpqrstuvwxyz')).toBe('PayLink')
     expect(routeKey('/settings/auto-capture')).toBe('AutoCaptureSetup')
     expect(routeKey('/settings')).toBe('Settings')
     expect(routeKey('/settings/ai')).toBe('Settings')

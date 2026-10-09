@@ -12,6 +12,7 @@ import { centsToInput, currencySymbol, formatMoney, fromHundredths } from '@/lib
 import { isIOS, isUpiId, methodFor, methodLabel, payOptions, roundSuggestions, settleMethods, type PayOption } from '@/lib/payments'
 import { matchMember, parsePaymentScreenshot, type ParsedPayment } from '@/lib/ocr-parse'
 import { pending } from '@/lib/pending'
+import { linkToClose } from '@/lib/paylinks'
 import { pendingSettlements, personBalances, signedAmount, type PersonBalance } from '@/lib/settleAll'
 import { allocateAcrossGroups } from '@/lib/settleMulti'
 import { lastMethod, rememberMethod } from '@/lib/recents'
@@ -195,7 +196,12 @@ export default function SettleUp() {
     setBusy(true)
     try {
       const base = { groupId: group.id, from, to, date, createdBy: user.uid, createdAt: Date.now() }
-      await repo.saveSettlement({ id: uid('s_'), ...base, amount, method, note: note.trim() || undefined })
+      // Opened from a Pay me link (/r/{code} → here): this payment clears it, so the link reads
+      // as paid for the payee and can't be recorded a second time by the server.
+      const link = linkToClose(params.get('link'), { from: params.get('from') ?? '', to: params.get('to') ?? '' }, { from, to })
+      const id = uid('s_')
+      await repo.saveSettlement({ id, ...base, amount, method, note: note.trim() || undefined, payLink: link })
+      if (link) repo.markPayLinkPaid(link, { method, settlementId: id }).catch((e) => console.warn('Pay me link not updated', e))
       // The rest is let go as its own record, so the history shows what was paid and what was waived.
       if (waive && rest > 0) await repo.saveSettlement({ id: uid('s_'), ...base, amount: rest, method: 'waived', note: 'Rest waived' })
       rememberMethod(group.id, to, method)

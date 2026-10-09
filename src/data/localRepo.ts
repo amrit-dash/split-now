@@ -35,6 +35,8 @@ import { defaultCurrency } from '@/lib/locale'
 import type { MerchantMemory } from '@/lib/merchants'
 import { netBalances } from '@/lib/balances'
 import { countedExpenses, countedSettlements } from '@/lib/trust'
+import { formatMoney } from '@/lib/money'
+import { markPaidPatch, payLinkState, planRecord, shouldHandle, type PayLinkDoc } from '@/lib/paylinks'
 
 /**
  * Demo-mode repository. Everything lives in this browser's localStorage, so the app
@@ -61,6 +63,10 @@ interface State {
   tables?: Record<string, LiveTable>
   /** merchant → category memory per user (users/{uid}/settings/merchants in Firebase) */
   merchants?: Record<string, MerchantMemory>
+  /** Pay me links keyed by code */
+  payLinks?: Record<string, PayLinkDoc>
+  /** payment screenshots by Storage-style path (small data: URLs) */
+  payProofs?: Record<string, string>
 }
 
 type StoredComment = ExpenseComment & { groupId: string; expenseId: string }
@@ -299,7 +305,7 @@ export function createLocalRepo(): Repo {
     async saveExpense(e) {
       const prev = state.expenses[e.id]
       const g = state.groups[e.groupId]
-      const next = prepareExpenseSave(prev, e, g ?? {}, actor())
+      const next = prepareExpenseSave(prev, e, g, actor())
       state.expenses[e.id] = next
       log(e.groupId, expenseSaveActivity(prev, next, ctx(e.groupId, next)))
       touch(e.groupId)
@@ -608,6 +614,63 @@ export function createLocalRepo(): Repo {
       commit()
     },
 
+    async createPayLink(code, link) {
+      state.payLinks ??= {}
+      state.payLinks[code] = { ...link, status: 'open' }
+      commit()
+    },
+    watchPayLink: (code, cb) =>
+      watch(() => {
+        const l = state.payLinks?.[code]
+        return l ? { ...l, code } : null
+      }, cb),
+    async markPayLinkPaid(code, claim, proof) {
+      // Demo stand-in for the rules (open, unexpired) and the onPayLinkPaid trigger (record the
+      // settlement in the group straight away), so the whole flow can be tried in one browser.
+      const l = state.payLinks?.[code]
+      if (!l) throw new Error('This Pay me link doesn’t exist')
+      const now = Date.now()
+      const st = payLinkState(l, now)
+      if (st !== 'open') throw new Error(st === 'paid' ? 'This link is already marked paid' : `This link is ${st}`)
+      let proofPath = claim.proofPath
+      if (proof) {
+        proofPath = `payproofs/${code}/${uid('p')}.jpg`
+        state.payProofs ??= {}
+        state.payProofs[proofPath] = await blobToDataUrl(await downscale(proof, 900, 0.7))
+      }
+      const after: PayLinkDoc = { ...l, ...markPaidPatch(code, { ...claim, proofPath }, state.user?.uid ?? 'guest', now) }
+      state.payLinks![code] = after
+      if (shouldHandle(l, after)) {
+        const g = after.groupId ? state.groups[after.groupId] : undefined
+        const plan = planRecord(code, after, g, todayISO(now), now, (m) => formatMoney(m, after.currency))
+        if (plan.kind === 'record') {
+          state.settlements[plan.settlementId] = { id: plan.settlementId, ...plan.settlement }
+          const a: NewActivity = {
+            type: 'settlement.created',
+            actorUid: after.paidBy ?? after.createdBy,
+            actorName: after.payerName,
+            targetId: plan.settlementId,
+            summary: plan.summary,
+            after: { amount: after.amount, from: after.from, to: after.to, payLink: code },
+            createdAt: now,
+          }
+          log(plan.settlement.groupId, a)
+          touch(plan.settlement.groupId)
+          state.payLinks![code] = { ...after, settlementId: plan.settlementId, recordedAt: now }
+        } else if (plan.kind === 'notify') state.payLinks![code] = { ...after, recordedAt: now }
+      }
+      commit()
+    },
+    async cancelPayLink(code) {
+      const l = state.payLinks?.[code]
+      if (l?.status !== 'open') return
+      state.payLinks![code] = { ...l, status: 'cancelled', cancelledAt: Date.now() }
+      commit()
+    },
+    async payProofUrl(path) {
+      return state.payProofs?.[path] ?? null
+    },
+
     // No shared rates in demo mode: src/lib/fx.ts calls Frankfurter directly.
     async getFxRates() {
       return null
@@ -682,7 +745,8 @@ function applyTablePatch(t: LiveTable, patch: TablePatch): LiveTable {
     if (patch.groupId === null) delete next.groupId
     else next.groupId = patch.groupId
   }
-  for (const k of ['items', 'participants', 'claims'] as const) {
+  if (patch.payLinks) next.payLinks = { ...t.payLinks }
+  for (const k of ['items', 'participants', 'claims', 'payLinks'] as const) {
     const target = next[k] as Record<string, unknown>
     for (const [id, v] of Object.entries(patch[k] ?? {})) {
       if (v === null) delete target[id]

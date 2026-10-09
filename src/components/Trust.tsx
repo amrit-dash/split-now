@@ -6,7 +6,7 @@ import { useMe } from '@/hooks/auth'
 import { useHistory, useTrash } from '@/hooks/data'
 import type { ActivityEntry, Expense, Group, Settlement } from '@/types'
 import { activityHref, activityIcon, activityText, amountLabel, describeChanges, fmtAgo, isExpenseEntry, type ActivityCtx } from '@/lib/activity'
-import { canPurge, daysLeftInTrash, flagsOf, isPending, pendingApprovers } from '@/lib/trust'
+import { canPurge, daysLeftInTrash, flagsOf, isPending, pendingApprovers, thresholdOf } from '@/lib/trust'
 import { formatMoney } from '@/lib/money'
 import { CATEGORIES } from '@/lib/categories'
 import { errText } from '@/lib/errors'
@@ -240,7 +240,7 @@ export function TrustPanel({ group, expense: e, myMemberId }: { group: Group; ex
             <div className="min-w-0 flex-1 text-sm">
               <div className="font-semibold">Needs your OK · not counted in balances yet</div>
               <div className="text-slate-600 dark:text-slate-300">
-                Over {formatMoney(group.approvalThreshold ?? 10000, cur)}: needs an OK from {waiting.map(name).join(', ')}.
+                Over {formatMoney(thresholdOf(group), cur)}: needs an OK from {waiting.map(name).join(', ')}.
               </div>
             </div>
           </div>

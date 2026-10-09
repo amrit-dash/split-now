@@ -6,6 +6,7 @@ import { useMe } from '@/hooks/auth'
 import { useAiStatus } from '@/hooks/useAiStatus'
 import { accentPreset, getAccent } from '@/lib/accent'
 import { aiSummaryText } from '@/lib/ai-copy'
+import { approvalSummary } from '@/lib/approval'
 import { watchCapturePrefs } from '@/lib/capture-settings'
 import { getTheme } from '@/lib/theme'
 import { autoCaptureSummary, notificationSummary } from '@/lib/profileSummary'
@@ -46,7 +47,9 @@ export default function SettingsHome() {
           icon={<Palette size={19} />}
           title="Preferences"
           testId="settings-preferences"
-          summary={`${profile.currency} · ${THEME_LABEL[getTheme()]} · ${accentPreset(getAccent()).label}`}
+          summary={[profile.currency, approvalSummary(profile.approvalDefault), THEME_LABEL[getTheme()], accentPreset(getAccent()).label]
+            .filter(Boolean)
+            .join(' · ')}
         />
         <SettingsRow to="/settings/notifications" icon={<Bell size={19} />} title="Notifications" summary={notifications} testId="settings-notifications" />
         <SettingsRow

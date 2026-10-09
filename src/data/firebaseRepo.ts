@@ -40,6 +40,7 @@ import {
   query,
   setDoc,
   terminate,
+  updateDoc,
   waitForPendingWrites,
   where,
   writeBatch,
@@ -56,6 +57,7 @@ import { defaultCurrency } from '@/lib/locale'
 import { inboxToDraft, newCaptureToken, type InboxDoc } from '@/lib/capture'
 import { downscale } from '@/lib/image'
 import { TABLE_TTL_MS, type LiveTable } from '@/lib/table'
+import { markPaidPatch, type PayLink } from '@/lib/paylinks'
 import {
   disputeActivity,
   expenseEventActivity,
@@ -152,6 +154,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
   const groupRef = (id: string) => doc(db, 'groups', id)
   const inviteRef = (code: string) => doc(db, 'invites', code)
   const tableRef = (code: string) => doc(db, 'tables', code)
+  const payLinkRef = (code: string) => doc(db, 'payLinks', code)
   const commentsCol = (groupId: string, expenseId: string) => collection(db, 'groups', groupId, 'expenses', expenseId, 'comments')
   const captureRef = (userId: string, id: string) => doc(db, 'users', userId, 'captures', id)
   const memberProfileRef = (groupId: string, userId: string) => doc(db, 'groups', groupId, 'profiles', userId)
@@ -697,7 +700,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       // and only what really changed is written (a full set would wipe a flag or approval that
       // landed on the server after this device's copy).
       const [prev, group] = await Promise.all([latest<Expense>(r), cachedGroup(e.groupId)])
-      const next = prepareExpenseSave(prev, { ...e, receiptPath: e.receiptPath ?? storagePathFromUrl(e.receiptUrl) }, group ?? {}, me())
+      const next = prepareExpenseSave(prev, { ...e, receiptPath: e.receiptPath ?? storagePathFromUrl(e.receiptUrl) }, group, me())
       const batch = writeBatch(db)
       if (!prev) batch.set(r, next)
       else {
@@ -1086,6 +1089,46 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       fire(batch, 'Deleting the table')
     },
 
+    async createPayLink(code, link) {
+      const batch = writeBatch(db)
+      batch.set(payLinkRef(code), { ...compact(link), status: 'open' })
+      fire(batch, 'Creating the Pay me link')
+    },
+    watchPayLink(code, cb) {
+      return onSnapshot(
+        payLinkRef(code),
+        (s) => cb(s.exists() ? { ...(s.data() as Omit<PayLink, 'code'>), code: s.id } : null, metaOf(s)),
+        listenError('Loading the Pay me link', () => cb(null, FAILED)),
+      )
+    },
+    async markPayLinkPaid(code, claim, proof) {
+      if (!online()) throw new Error('You’re offline. Connect, then tap “I’ve paid” again.')
+      const me = auth.currentUser?.uid
+      if (!me) throw new Error('Open the link again to continue')
+      let proofPath = claim.proofPath
+      if (proof) {
+        const [blob, { storage, sdk }] = await Promise.all([downscale(proof, 1600, 0.8), lazyStorage()])
+        proofPath = `payproofs/${code}/${uid('p')}.jpg`
+        await sdk.uploadBytes(sdk.ref(storage, proofPath), blob, { contentType: 'image/jpeg' })
+      }
+      // Waits for the server: the payer should only see "Marked paid" once it really is.
+      await updateDoc(payLinkRef(code), markPaidPatch(code, { ...claim, proofPath }, me, Date.now()))
+    },
+    async cancelPayLink(code) {
+      const batch = writeBatch(db)
+      batch.update(payLinkRef(code), { status: 'cancelled', cancelledAt: Date.now() })
+      fire(batch, 'Cancelling the Pay me link')
+    },
+    async payProofUrl(path) {
+      try {
+        const { storage, sdk } = await lazyStorage()
+        return await sdk.getDownloadURL(sdk.ref(storage, path))
+      } catch (e) {
+        console.warn('Payment screenshot unavailable', e)
+        return null
+      }
+    },
+
     async getFxRates(date) {
       if (!auth.currentUser) return null
       try {
@@ -1214,7 +1257,7 @@ function tablePatchFields(patch: TablePatch, del: () => unknown): Record<string,
   const out: Record<string, unknown> = {}
   for (const k of ['merchant', 'extras', 'status', 'expenseId', 'closedGroupId'] as const) if (patch[k] !== undefined) out[k] = patch[k]
   if (patch.groupId !== undefined) out.groupId = patch.groupId ?? del()
-  for (const k of ['items', 'participants', 'claims'] as const) {
+  for (const k of ['items', 'participants', 'claims', 'payLinks'] as const) {
     for (const [id, v] of Object.entries(patch[k] ?? {})) out[`${k}.${id}`] = v === null ? del() : k === 'participants' ? compact(v as object) : v
   }
   return out

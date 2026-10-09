@@ -2,6 +2,7 @@ import type { ActivityEntry, Capture, Cents, Expense, ExpenseComment, Group, Mem
 import type { CaptureDraft, InboxDoc } from '@/lib/capture'
 import type { ItemId, LiveTable, NewTable, ParticipantId, TableExtras, TableItem, TableParticipant, TableStatus } from '@/lib/table'
 import type { ActivityCtx } from '@/lib/activity'
+import type { NewPayLink, PayLink, PayLinkClaim } from '@/lib/paylinks'
 import type { FxRatesDoc, FxRefreshResult } from '@/lib/fx'
 import type { ParsedReceipt } from '@/lib/ocr-parse'
 import type { AppAiConfig } from '@/lib/ai-config'
@@ -267,6 +268,25 @@ export interface Repo {
   /** Host only. */
   deleteTable(code: string): Promise<void>
 
+  // ---- Pay me links (payLinks/{code}, see src/lib/paylinks.ts) ----
+  /**
+   * The payee creates a link (the code is made on this device, so the share sheet opens at once).
+   * Like other saves it resolves once applied locally; a refusal arrives through onError.
+   */
+  createPayLink(code: string, link: NewPayLink): Promise<void>
+  /** null when there is no such link. Anyone signed in (anonymous included) may read one by its code. */
+  watchPayLink(code: string, cb: Watch<PayLink | null>): Unsub
+  /**
+   * "I've paid": open → paid, after uploading the screenshot when one is given (payproofs/{code}/).
+   * Waits for the server and rejects with a readable message (expired, offline, not theirs).
+   * Firebase: the onPayLinkPaid trigger then records the settlement. Demo: recorded here at once.
+   */
+  markPayLinkPaid(code: string, claim: PayLinkClaim, proof?: Blob): Promise<void>
+  /** The payee withdraws an open link. */
+  cancelPayLink(code: string): Promise<void>
+  /** A URL for the payment screenshot (the payee and the group's members may read it); null when unavailable. */
+  payProofUrl(path: string): Promise<string | null>
+
   // ---- Shared exchange rates (fxRates/*, written by Cloud Functions; see src/lib/fx.ts) ----
   /** fxRates/{yyyy-mm-dd} or fxRates/latest; null when missing, signed out, or in demo mode. */
   getFxRates(date: string | 'latest'): Promise<FxRatesDoc | null>
@@ -390,6 +410,7 @@ export interface TablePatch {
   items?: Record<ItemId, TableItem | null>
   participants?: Record<ParticipantId, TableParticipant | null>
   claims?: Record<ParticipantId, Record<ItemId, number> | null>
+  payLinks?: Record<ParticipantId, string | null>
 }
 
 export interface CaptureToken {

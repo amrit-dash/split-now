@@ -24,7 +24,8 @@
     "../shared/ai-config.ts",
     "../shared/money-core.ts",
     "../shared/trips.ts",
-    "../shared/balances-core.ts"
+    "../shared/balances-core.ts",
+    "../shared/paylinks.ts"
   ],
   "exclude": [
     "**/*.test.ts"

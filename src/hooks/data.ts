@@ -3,6 +3,7 @@ import { repo } from '@/data'
 import { groupsKey, peekShared, peekSharedMeta, subscribeShared } from '@/data/store'
 import type { AiState, CaptureToken, NewGroup, SnapMeta, Unsub } from '@/data/repo'
 import type { ActivityEntry, Capture, Expense, ExpenseComment, Group, MemberId, Settlement } from '@/types'
+import type { PayLink } from '@/lib/paylinks'
 import { countable, netBalances, pairwiseDebts } from '@/lib/balances'
 import { simplifyDebts } from '@/lib/simplify'
 import { planCatchUp } from '@/lib/recurrence'
@@ -79,6 +80,9 @@ const keys = {
   comments: (gid: string, eid: string) => `comments/${gid}/${eid}`,
   captureTokens: (uid: string) => `captureTokens/${uid}`,
   aiState: (uid: string) => `aiState/${uid}`,
+  // The viewer's uid is part of the key: an anonymous sign-in (or signing out) clears the store,
+  // and a new key makes the screen subscribe again instead of keeping a dropped listener.
+  payLink: (code: string, viewer: string) => `payLink/${viewer}/${code}`,
 }
 
 const startGroups = (uid: string) => (cb: (g: Group[], m?: SnapMeta) => void) => repo.watchGroups(uid, cb)
@@ -134,6 +138,15 @@ export function useCapturesMeta(): SnapMeta | undefined {
 export function usePendingCaptures() {
   const list = useCaptures()
   return useMemo(() => list?.filter((c) => c.status === 'pending') ?? null, [list])
+}
+
+/**
+ * A Pay me link by its code: undefined while loading, null when there is none. Works without an
+ * account (the /r/ page signs in anonymously first), so it takes the viewer's uid instead of
+ * useMe(); pass null for either to wait.
+ */
+export function usePayLink(code: string | null | undefined, viewer: string | null | undefined): PayLink | null | undefined {
+  return useShared<PayLink | null>(code && viewer ? keys.payLink(code, viewer) : null, (cb) => repo.watchPayLink(code ?? '', cb))
 }
 
 /** undefined while loading, null when the group doesn't exist or the user can't read it. */

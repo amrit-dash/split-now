@@ -43,7 +43,10 @@ export const FLAG_INFO: Record<FlagName, { label: string; hint: string }> = {
   statementImport: { label: 'Statement import', hint: 'Payment-app screenshots → transactions.' },
   quickAdd: { label: 'Quick add', hint: 'The natural-language / voice field on Home and group screens.' },
   nudges: { label: 'Nudges', hint: 'The "Nudge" push next to Remind.' },
-  payLinks: { label: 'Pay-me links and cards', hint: 'The Remind share sheet with the settle link and the PNG card.' },
+  payLinks: {
+    label: 'Pay me links and cards',
+    hint: 'Remind’s share sheet, the /r/ page anyone can pay from, and recording “I’ve paid” in the group. Off hides them; the server stops recording.',
+  },
   duplicates: { label: 'Duplicate warning', hint: 'The "looks like a duplicate" card in the expense form.' },
   merchantMemory: { label: 'Merchant memory', hint: 'Remembering the category you pick for a merchant.' },
   whoseTurn: { label: 'Whose turn', hint: 'The "Rahul’s turn to pay?" chip.' },

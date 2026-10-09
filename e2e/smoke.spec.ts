@@ -105,3 +105,22 @@ test('settings page loads', async ({ page }) => {
   await page.goto('/settings')
   await expect(page.getByRole('heading', { level: 1, name: /settings/i })).toBeVisible()
 })
+
+test('a Pay me link opens like it would for a friend, and “I’ve paid” records the payment', async ({ page }) => {
+  await page.goto('/groups/g_goa')
+  await page.getByRole('radio', { name: 'Balances' }).click()
+  await page.getByTestId('remind').first().click()
+  // Demo mode has one browser: the toast offers to open the link as the friend would see it.
+  await page
+    .getByRole('button', { name: /^Open as / })
+    .first()
+    .click()
+  await expect(page).toHaveURL(/\/r\/[a-z0-9]{24}\?guest=demo$/)
+  await expect(page.getByTestId('paylink-amount')).toBeVisible()
+  await page.getByTestId('mark-paid').click()
+  await page.getByTestId('mark-paid-confirm').click()
+  await expect(page.getByTestId('paylink-paid')).toBeVisible()
+  // The payment is in the group now, linked to the Pay me link.
+  await page.goto('/groups/g_goa')
+  await expect(page.getByRole('link', { name: 'Pay me link' }).first()).toBeVisible({ timeout: 15_000 })
+})

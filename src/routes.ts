@@ -24,6 +24,7 @@ export const load = {
   Admin: () => import('./pages/Admin'),
   ImportGroup: () => import('./pages/ImportGroup'),
   Table: () => import('./pages/Table'),
+  PayLink: () => import('./pages/PayLink'),
 }
 export type RouteKey = keyof typeof load
 
@@ -47,6 +48,7 @@ export function routeKey(pathname: string): RouteKey | undefined {
   if (p === '/capture' || p.startsWith('/capture/')) return 'Capture'
   if (p.startsWith('/join/')) return 'Join'
   if (p === '/t' || p.startsWith('/t/')) return 'Table'
+  if (p.startsWith('/r/')) return 'PayLink'
   if (p === '/settings/auto-capture') return 'AutoCaptureSetup'
   if (p === '/settings' || p.startsWith('/settings/')) return 'Settings'
   if (p === '/admin' || p.startsWith('/admin/')) return 'Admin'

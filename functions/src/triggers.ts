@@ -2,6 +2,7 @@
  * Firestore triggers. App Check doesn't apply to them.
  *  - expense added → the other people in it ("Sarah added Dinner · ₹840 · your share ₹210")
  *  - settlement recorded → the person who was paid, and the payer when someone else recorded it
+ *    (not for one recorded from a Pay me link: paylinks.ts sends its own push)
  *  - push token registered → the same browser token is dropped from every other account (a
  *    phone signed out offline, then signed in as someone else, must not keep the first
  *    person's notifications)
@@ -119,6 +120,9 @@ export const onSettlementCreated = onDocumentCreated({ document: 'groups/{groupI
   const uids = uidsOf(g)
   const to = memberUid(g.members, s.to, uids)
   const from = memberUid(g.members, s.from, uids)
+  // Recorded by onPayLinkPaid on the payee's behalf ("I've paid" on a Pay me link): that trigger
+  // has told the payee already, and the payer is the one who made the claim.
+  if (typeof s.payLink === 'string' && to && s.createdBy === to) return
   const common = { groupId, settlementId, groupName: g.name ?? 'Group', emoji: g.emoji, amount: s.amount, currency: g.currency ?? 'INR' }
   const jobs: Array<Promise<number>> = []
   if (to && to !== s.createdBy) jobs.push(sendToUser(to, ['settlements'], settlementNote({ ...common, fromName: g.members?.[s.from]?.name ?? 'Someone' })))

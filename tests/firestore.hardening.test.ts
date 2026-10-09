@@ -384,4 +384,9 @@ describe('expense & settlement validation', () => {
     await assertFails(setDoc(s('bob', 's6'), { ...st, id: 's6', method: 'x'.repeat(41) }))
     await assertFails(setDoc(s('bob', 's7'), { ...st, id: 's7', note: 'x'.repeat(501) }))
   })
+  it('a settlement holds only its known fields; payLink is a short string', async () => {
+    await assertFails(setDoc(s('bob', 's8'), { ...st, id: 's8', junk: 'x' }))
+    await assertSucceeds(setDoc(s('bob', 's9'), { ...st, id: 's9', payLink: 'abcdefghijklmnopqrstuvwx' }))
+    await assertFails(setDoc(s('bob', 's10'), { ...st, id: 's10', payLink: 'x'.repeat(41) }))
+  })
 })
