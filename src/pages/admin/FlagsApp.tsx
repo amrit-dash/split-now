@@ -19,6 +19,7 @@ import { localISODate } from '@/lib/id'
 import { Loading, Segmented } from '@/components/Misc'
 import { Switch } from '@/components/Switch'
 import { useToast } from '@/components/Toast'
+import { AdminApp } from '@/components/AdminApp'
 import { saveConfig } from './api'
 import { ChangedBy, DirtyBar, SettingRow, useConfigDoc } from './common'
 
@@ -131,6 +132,12 @@ export default function FlagsApp() {
             )
           )}
         </div>
+      </div>
+
+      {/* The displayed version (Profile, Settings → Data) saves on its own, separate from the switches above. */}
+      <h3 className="mb-2 mt-5 px-1 font-bold">Version shown</h3>
+      <div className="card p-4">
+        <AdminApp />
       </div>
 
       <h3 className="mb-2 mt-5 px-1 font-bold">Announcement</h3>

@@ -40,10 +40,16 @@ export interface UserProfile {
 export type PhotoSource = 'upload' | 'google' | 'none'
 
 export interface Member {
+  /** For a member with a uid, this follows their own profile name (kept in sync by their app). */
   name: string
   email?: string
   uid?: string
   color: string
+  /**
+   * Profile photo of a member who has an account, copied from their profile by their own app
+   * (src/lib/memberSync.ts). https only in Firebase; demo mode may hold a data: URL.
+   */
+  photoURL?: string
 }
 
 export interface Group {

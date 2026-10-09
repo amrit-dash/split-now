@@ -8,6 +8,7 @@ import { suggestCategory, type MerchantMemory } from './merchants'
 import type { QuickPrefill } from './nl-expense'
 import { sanitizeSplit, type LastSplit, type Suggestion } from './recents'
 import { firstNextDate, nextAfter } from './recurrence'
+import { shortNames } from './shortNames'
 import { todayISO, uid } from './id'
 
 /*
@@ -511,11 +512,32 @@ export function buildRecurrence(repeat: RecurrenceFreq | 'never', date: string, 
 
 // ---- Summaries (the collapsed "You paid" / "Split equally · 4 people" rows) -------------------
 
-const nameOf = (group: Pick<Group, 'members'>, me: MemberId, id: MemberId) => (id === me ? 'You' : (group.members[id]?.name ?? 'Former member'))
+type Named = Pick<Group, 'members'> & { type?: Group['type'] }
+
+/** Computed once per members map and viewer (groups come from the shared store, so the object is stable). */
+const labelCache = new WeakMap<object, { me: MemberId; type?: Group['type']; labels: Record<MemberId, string> }>()
+
+/**
+ * Paid by / Split labels: first names in a shared group ("Rahul S." when two share one), full
+ * names in a 1:1 and the personal wallet, where there is no one to confuse; "You" for me.
+ */
+export function memberLabels(group: Named, me: MemberId): Record<MemberId, string> {
+  const hit = labelCache.get(group.members)
+  if (hit && hit.me === me && hit.type === group.type) return hit.labels
+  const labels =
+    group.type !== 'direct' && group.type !== 'personal'
+      ? shortNames(group.members, me)
+      : Object.fromEntries(Object.entries(group.members).map(([id, m]) => [id, id === me ? 'You' : m.name]))
+  labelCache.set(group.members, { me, type: group.type, labels })
+  return labels
+}
+
+/** One member's label; someone no longer in the group keeps a plain placeholder. */
+export const nameOf = (group: Named, me: MemberId, id: MemberId) => (id === me ? 'You' : (memberLabels(group, me)[id] ?? 'Former member'))
 
 const list = (names: string[]) => (names.length <= 2 ? names.join(' and ') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`)
 
-export function describePayer(d: Draft, group: Pick<Group, 'members'>, me: MemberId, personal: boolean): string {
+export function describePayer(d: Draft, group: Named, me: MemberId, personal: boolean): string {
   if (personal || !d.multiPay) return `${nameOf(group, me, personal ? me : d.payer)} paid`
   const who = Object.entries(d.payers)
     .filter(([, v]) => typeof v === 'number' && v > 0)
@@ -525,7 +547,7 @@ export function describePayer(d: Draft, group: Pick<Group, 'members'>, me: Membe
   return `${who.length} people paid`
 }
 
-export function describeSplit(d: Draft, order: MemberId[], group: Pick<Group, 'members'>, me: MemberId): string {
+export function describeSplit(d: Draft, order: MemberId[], group: Named, me: MemberId): string {
   switch (d.splitType) {
     case 'equal': {
       const sel = order.filter((m) => d.split.selected.includes(m))

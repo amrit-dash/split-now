@@ -67,7 +67,7 @@ export function Collapsible({
         inert={!open}
         className={`grid transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
       >
-        <div className="min-h-0 overflow-clip">
+        <div className="min-h-0 min-w-0 overflow-clip">
           <div className="px-4 pb-4">{children}</div>
         </div>
       </div>

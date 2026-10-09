@@ -22,6 +22,7 @@ import {
   compact,
   draftToCapture,
   errorChannel,
+  groupDeleteBlocker,
   placeholdersOf,
   type AuthUser,
   type CaptureToken,
@@ -231,6 +232,17 @@ export function createLocalRepo(): Repo {
       log(group.id, memberActivity('added', memberId, member.name, ctx(group.id)))
       commit()
     },
+    async updateOwnMember(group, memberId, patch) {
+      const g = state.groups[group.id]
+      const m = g?.members[memberId]
+      if (!g || !m || m.uid !== actor()) return
+      const { photoURL: _old, ...rest } = m
+      state.groups[group.id] = {
+        ...g,
+        members: { ...g.members, [memberId]: { ...rest, name: patch.name, ...(patch.photoURL ? { photoURL: patch.photoURL } : {}) } },
+      }
+      commit()
+    },
     async removeMember(group, memberId) {
       const g = state.groups[group.id]
       if (!g) return
@@ -245,6 +257,10 @@ export function createLocalRepo(): Repo {
       commit()
     },
     async deleteGroup(id) {
+      const g = state.groups[id]
+      if (!g) return
+      const blocker = groupDeleteBlocker(g, me().uid)
+      if (blocker) throw new Error(blocker)
       delete state.groups[id]
       for (const [k, e] of Object.entries(state.expenses)) if (e.groupId === id) delete state.expenses[k]
       for (const [k, s] of Object.entries(state.settlements)) if (s.groupId === id) delete state.settlements[k]
@@ -623,6 +639,9 @@ export function createLocalRepo(): Repo {
       return () => {}
     },
     async saveAppAi() {
+      throw new Error('Not in the demo')
+    },
+    async saveAppVersion() {
       throw new Error('Not in the demo')
     },
     async aiUsage() {

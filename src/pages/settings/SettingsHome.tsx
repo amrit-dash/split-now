@@ -5,7 +5,6 @@ import type { AiState, CaptureToken } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
 import { useAiStatus } from '@/hooks/useAiStatus'
 import { accentPreset, getAccent } from '@/lib/accent'
-import { aiAvailability } from '@/lib/ai-copy'
 import { watchCapturePrefs } from '@/lib/capture-settings'
 import { getTheme } from '@/lib/theme'
 import { autoCaptureSummary, notificationSummary } from '@/lib/profileSummary'
@@ -37,10 +36,17 @@ export default function SettingsHome() {
         prefs: prefs ?? { captures: true, unsorted: false, expenses: true, settlements: true, reminders: true, outsideTrips: false },
       })
   const automation = prefs?.capturePaused && tokens?.length ? 'Paused' : autoCaptureSummary(tokens)
-  const ai =
-    repo.mode !== 'firebase'
-      ? undefined
-      : aiAvailability({ status: aiStatus, hasOwnKey: !!aiState?.hint, ownKeyBroken: !!aiState?.lastError, enabled: prefs?.aiEnabled ?? true }).text
+  // The AI row's summary: on/off and what it's used for, and a warning only when no key can serve it.
+  const ai = (() => {
+    if (repo.mode !== 'firebase') return undefined
+    if (!prefs) return 'Gemini reads bills, statements and hard-to-read SMS'
+    if (!prefs.aiEnabled) return 'Off · bills are read on this phone'
+    const uses = [prefs.aiImages && 'Bills & statements', prefs.aiSms && 'SMS'].filter(Boolean).join(', ')
+    if (!uses) return 'On · nothing selected'
+    const shared = prefs.aiSource !== 'own' && (aiStatus?.app.images === 'available' || aiStatus?.app.sms === 'available')
+    const own = !!aiState?.hint && prefs.aiSource !== 'app'
+    return `On · ${uses}${own || shared || aiStatus === undefined ? '' : ' · no key available'}`
+  })()
 
   return (
     <SettingsPage title="Settings" back="/profile">

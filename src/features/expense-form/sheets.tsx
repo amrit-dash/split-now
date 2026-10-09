@@ -8,7 +8,7 @@ import { Avatar } from '@/components/Avatar'
 import { GroupIcon } from '@/components/GroupIcon'
 import { LiveBadge } from '@/components/Misc'
 import { Sheet } from '@/components/Sheet'
-import { youFirst } from './bits'
+import { nameOf, youFirst } from './bits'
 
 const ROW = 'flex min-h-12 w-full items-center gap-3 rounded-2xl p-2.5 text-left hover:bg-slate-50 dark:hover:bg-ink-800'
 
@@ -153,7 +153,7 @@ export function CurrencySheet({
               onPick(c)
               onClose()
             }}
-            className={`min-h-11 rounded-2xl py-3 text-sm font-bold ${c === value ? 'bg-brand-600 text-white' : 'bg-slate-100 dark:bg-ink-800'}`}
+            className={`min-h-11 rounded-2xl py-3 text-sm font-bold ${c === value ? 'accent-live bg-brand-600 text-white' : 'bg-slate-100 dark:bg-ink-800'}`}
           >
             {c}
           </button>
@@ -230,8 +230,8 @@ export function PayerSheet({
               }}
               className={ROW}
             >
-              <Avatar name={group.members[id]?.name ?? '?'} color={group.members[id]?.color ?? '#999'} size={36} />
-              <span className="flex-1 font-semibold">{id === me ? 'You' : group.members[id]?.name}</span>
+              <Avatar name={group.members[id]?.name ?? '?'} color={group.members[id]?.color ?? '#999'} photoURL={group.members[id]?.photoURL} size={36} />
+              <span className="flex-1 font-semibold">{nameOf(group, me, id)}</span>
               {on && <Check size={18} className="text-brand-600" aria-hidden />}
             </button>
           )

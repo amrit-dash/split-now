@@ -5,6 +5,7 @@ export interface KnownPerson {
   name: string
   email?: string
   uid?: string
+  photoURL?: string
   n: number
 }
 
@@ -19,12 +20,13 @@ function collect(groups: Group[], me: string): KnownPerson[] {
       if (hit) {
         hit.n++
         hit.email ??= m.email
+        hit.photoURL ??= m.photoURL
         if (m.uid && !hit.uid) {
           hit.uid = m.uid
           byKey.set(`u:${m.uid}`, hit)
         }
       } else {
-        const e: KnownPerson = { name: m.name.trim(), email: m.email, uid: m.uid, n: 1 }
+        const e: KnownPerson = { name: m.name.trim(), email: m.email, uid: m.uid, ...(m.photoURL ? { photoURL: m.photoURL } : {}), n: 1 }
         byKey.set(nameKey, e)
         if (m.uid) byKey.set(`u:${m.uid}`, e)
       }

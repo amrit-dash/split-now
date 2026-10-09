@@ -12,6 +12,7 @@ import { CURRENCIES, formatMoney, fromHundredths } from '@/lib/money'
 import { convertMinor, lastCurrency, rememberCurrency } from '@/lib/fx'
 import type { ParsedReceipt } from '@/lib/ocr-parse'
 import { pending } from '@/lib/pending'
+import { recordOutcome, type ScanKind } from '@/lib/scanHistory'
 import { errText } from '@/lib/errors'
 import { duplicateLine, findDuplicate } from '@/lib/duplicates'
 import { learnFromSave, suggestCategory } from '@/lib/merchants'
@@ -191,10 +192,13 @@ export function ExpenseEditor({
     applyRef.current = applyReceipt
   })
   // A bill handed over from the Scan screen (its currency comes from the reader, not the group).
+  /** the Recent scans entry it came from, so the saved expense can be noted on it */
+  const scanFrom = useRef<{ id: string; kind: ScanKind }>(undefined)
   useEffect(() => {
     if (pending.receipt && !existing) {
       const r = pending.receipt
       pending.receipt = undefined
+      scanFrom.current = r.history
       applyRef.current(r.parsed, r.file)
     }
   }, [existing])
@@ -255,6 +259,12 @@ export function ExpenseEditor({
         if (!personal) rememberSplit(group.id, remember)
       }
       if (capture) await repo.updateCapture(user.uid, capture.id, { status: 'assigned', groupId: group.id, expenseId: e.id }).catch(console.warn)
+      // Note the outcome on the Recent scans entry this came from.
+      if (scanFrom.current && !existing)
+        void recordOutcome(user.uid, scanFrom.current.kind, scanFrom.current.id, {
+          label: `Added to ${group.name}`,
+          href: `/groups/${group.id}/expenses/${e.id}`,
+        }).catch(() => {})
       // Upload after saving so a slow or offline network never blocks the save.
       if (receipt && !repo.attachReceipt(group.id, e.id, receipt)) toast('Offline, saved without the receipt image')
       done.current = true
@@ -313,7 +323,7 @@ export function ExpenseEditor({
         <button
           type="submit"
           disabled={busy}
-          className="inline-flex min-h-10 shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-brand-600 px-4 py-2 text-sm font-bold leading-5 text-white disabled:opacity-50"
+          className="accent-live inline-flex min-h-10 shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-brand-600 px-4 py-2 text-sm font-bold leading-5 text-white disabled:opacity-50"
           data-testid="expense-save"
         >
           <Check size={16} strokeWidth={2.5} aria-hidden />

@@ -343,7 +343,7 @@ export default function GroupDetail() {
               const canRemove = id !== me && creator && v === 0
               return (
                 <li key={id} className="flex items-center gap-3 px-4 py-3">
-                  <Avatar name={m.name} color={m.color} size={36} />
+                  <Avatar name={m.name} color={m.color} photoURL={m.photoURL} size={36} />
                   <div className="min-w-0 flex-1 truncate font-medium">{id === me ? 'You' : m.name}</div>
                   <div className={`text-right text-sm font-semibold ${v > 0 ? 'pos' : v < 0 ? 'neg' : 'text-muted'}`}>
                     {v === 0 ? 'settled' : `${v > 0 ? 'gets back' : 'owes'} ${formatMoney(Math.abs(v), cur)}`}
@@ -370,7 +370,12 @@ export default function GroupDetail() {
               <ul className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
                 {debts.map((x) => (
                   <li key={`${x.from}-${x.to}`} className="flex items-center gap-3 px-4 py-3">
-                    <Avatar name={group.members[x.from]?.name ?? '?'} color={group.members[x.from]?.color ?? '#64748b'} size={32} />
+                    <Avatar
+                      name={group.members[x.from]?.name ?? '?'}
+                      color={group.members[x.from]?.color ?? '#64748b'}
+                      photoURL={group.members[x.from]?.photoURL}
+                      size={32}
+                    />
                     <div className="min-w-0 flex-1 text-sm">
                       <b>{name(x.from)}</b> → <b>{name(x.to)}</b>
                       <div className="neg font-semibold">{formatMoney(x.amount, cur)}</div>

@@ -39,7 +39,7 @@ export function DirtyBar({
   if (!dirty) return null
   return (
     <div
-      className="animate-pop sticky bottom-[calc(var(--nav-h)+0.75rem)] z-10 mt-4 flex items-center gap-2 rounded-2xl bg-brand-50 p-2 pl-3.5 shadow-lg ring-1 ring-brand-500/20 dark:bg-ink-800 dark:ring-brand-400/30"
+      className="animate-pop sticky bottom-[var(--lane)] z-10 mt-4 flex items-center gap-2 rounded-2xl bg-brand-50 p-2 pl-3.5 shadow-lg ring-1 ring-brand-500/20 dark:bg-ink-800 dark:ring-brand-400/30"
       data-testid={testId}
     >
       <span className="min-w-0 flex-1 text-sm font-medium text-brand-800 dark:text-brand-200">Unsaved changes</span>

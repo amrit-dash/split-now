@@ -17,6 +17,7 @@ import { Sheet } from '@/components/Sheet'
 import { Switch } from '@/components/Switch'
 import { useToast } from '@/components/Toast'
 import { AccountCard } from '@/components/ProfileCards'
+import { useAppVersion } from '@/hooks/useAppVersion'
 import { SavedPill, useSavedFlash } from './settings/common'
 
 type Handle = {
@@ -91,6 +92,7 @@ export default function Profile() {
     const to = HASH_ROUTES[loc.hash]
     if (to) nav(to, { replace: true })
   }, [loc.hash, nav])
+  const version = useAppVersion()
 
   const [name, setName] = useState(profile.displayName)
   const [phone, setPhone] = useState(profile.phone ?? '')
@@ -275,7 +277,7 @@ export default function Profile() {
           </span>
           <ChevronRight size={18} className="text-slate-400" aria-hidden />
         </Link>
-        <Link to="/friends" className="flex items-center gap-3 p-4 font-medium transition active:bg-slate-50 dark:active:bg-ink-800">
+        <Link to="/settle" className="flex items-center gap-3 p-4 font-medium transition active:bg-slate-50 dark:active:bg-ink-800">
           <span
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
             aria-hidden
@@ -283,8 +285,8 @@ export default function Profile() {
             <Users size={19} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block">Friends &amp; balances</span>
-            <span className="text-muted block text-xs font-normal">One balance per person, across every group</span>
+            <span className="block">Balances</span>
+            <span className="text-muted block text-xs font-normal">Who owes whom, by person or by group</span>
           </span>
           <ChevronRight size={18} className="text-slate-400" aria-hidden />
         </Link>
@@ -293,6 +295,9 @@ export default function Profile() {
       <button type="button" className="btn-secondary mt-6 w-full text-rose-700 dark:text-rose-400" onClick={() => setSignOutOpen(true)} data-testid="sign-out">
         <LogOut size={18} aria-hidden /> Sign out
       </button>
+      <p className="text-muted mb-10 mt-6 text-center text-xs" data-testid="profile-version">
+        Split Now v{version} · {repo.mode === 'demo' ? 'Demo mode' : 'Connected to Firebase'}
+      </p>
 
       <PhotoSheet open={photoOpen} onClose={() => setPhotoOpen(false)} profile={profile} googlePhotoURL={user.googlePhotoURL} />
       <Sheet open={signOutOpen} onClose={() => setSignOutOpen(false)} title="Sign out?">

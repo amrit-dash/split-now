@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Plus, Users } from 'lucide-react'
+import { FileUp, Plus, Scale } from 'lucide-react'
 import { useAllGroupData } from '@/hooks/data'
 import { GroupRow } from '@/components/GroupRow'
 import { PageHeader } from '@/components/Misc'
@@ -16,12 +16,19 @@ export default function Groups() {
       title="Groups"
       right={
         <div className="flex gap-2">
-          <Link to="/friends" className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-200/70 dark:bg-ink-800" aria-label="Friends">
-            <Users size={20} aria-hidden />
+          <Link
+            to="/groups/import"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-200/70 dark:bg-ink-800"
+            aria-label="Import from Splitwise"
+          >
+            <FileUp size={20} aria-hidden />
+          </Link>
+          <Link to="/settle" className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-200/70 dark:bg-ink-800" aria-label="Balances">
+            <Scale size={20} aria-hidden />
           </Link>
           <Link
             to="/groups/new"
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-600 text-white"
+            className="accent-live flex h-11 w-11 items-center justify-center rounded-full bg-brand-600 text-white"
             aria-label="New group"
             data-testid="groups-new"
           >

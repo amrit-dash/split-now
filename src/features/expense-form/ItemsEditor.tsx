@@ -4,7 +4,7 @@ import type { Group, MemberId } from '@/types'
 import { centsToInput, formatMoney } from '@/lib/money'
 import { portion } from '@/lib/splits'
 import { uid } from '@/lib/id'
-import type { ItemDraft } from '@/lib/expense-draft'
+import { memberLabels, type ItemDraft } from '@/lib/expense-draft'
 import { Avatar } from '@/components/Avatar'
 import { MemberChips } from '@/components/MemberChips'
 import { MoneyInput } from '@/components/MoneyInput'
@@ -67,6 +67,7 @@ export function ItemsEditor({
               group={group}
               order={order}
               me={me}
+              labels={memberLabels(group, me)}
               selected={it.members}
               onToggle={(id) => {
                 const members = it.members.includes(id) ? it.members.filter((m) => m !== id) : [...it.members, id]
@@ -97,7 +98,7 @@ export function ItemsEditor({
             .filter((id) => splits[id])
             .map((id) => (
               <span key={id} className="chip !py-1 !pl-1">
-                <Avatar name={group.members[id]?.name ?? '?'} color={group.members[id]?.color ?? '#999'} size={20} />
+                <Avatar name={group.members[id]?.name ?? '?'} color={group.members[id]?.color ?? '#999'} photoURL={group.members[id]?.photoURL} size={20} />
                 {formatMoney(splits[id], cur)}
               </span>
             ))}

@@ -37,8 +37,9 @@ const ExpenseForm = lazy(load.ExpenseForm)
 const SplitBill = lazy(load.SplitBill)
 const ExpenseDetail = lazy(load.ExpenseDetail)
 const SettleUp = lazy(load.SettleUp)
+const SettleAll = lazy(load.SettleAll)
+const SettleWithPerson = lazy(() => load.SettleUp().then((m) => ({ default: m.SettleWithPerson })))
 const Scan = lazy(load.Scan)
-const Friends = lazy(load.Friends)
 const Insights = lazy(load.Insights)
 const Profile = lazy(load.Profile)
 const Join = lazy(load.Join)
@@ -213,7 +214,9 @@ function AppRoutes({ cfg, admin }: { cfg: AppConfig; admin: boolean }) {
             <Route path="groups/:groupId/edit" element={<GroupForm />} />
             <Route path="groups/:groupId/settle" element={<SettleUp />} />
             <Route path="groups/:groupId/expenses/:expenseId" element={<ExpenseDetail />} />
-            <Route path="friends" element={<Friends />} />
+            <Route path="settle" element={<SettleAll />} />
+            <Route path="settle/with/:key" element={<SettleWithPerson />} />
+            <Route path="friends" element={<Navigate to="/settle" replace />} />
             <Route path="insights" element={<Insights />} />
             <Route path="profile" element={<Profile />} />
             <Route path="inbox" element={<Inbox />} />

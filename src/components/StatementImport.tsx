@@ -23,6 +23,8 @@ import { GroupIcon } from './GroupIcon'
 import { MemberChips } from './MemberChips'
 import { Select } from './Select'
 import { useToast } from './Toast'
+import { DuplicatePrompt, RecentScans, useScanHistory } from './ScanHistory'
+import type { ScanEntry, ScanMatch, ScanPrint } from '@/lib/scanHistory'
 
 interface Row {
   id: string
@@ -75,6 +77,11 @@ export function StatementImport() {
   const [members, setMembers] = useState<MemberId[]>()
   const [open, setOpen] = useState<string | null>(null)
   const run = useRef(0)
+  const hist = useScanHistory('statement')
+  /** picked screenshots that were all read before: offer that result instead */
+  const [dup, setDup] = useState<{ match: ScanMatch; files: File[]; prints: ScanPrint[] } | null>(null)
+  /** the history entry behind the rows on screen */
+  const [scanIds, setScanIds] = useState<string[]>([])
   useEffect(() => (aiScanPossible() ? watchPrefs(user.uid, setPrefs) : undefined), [user.uid])
   useEffect(() => (aiScanPossible() ? repo.watchAiState(user.uid, setAiState) : undefined), [user.uid])
 
@@ -113,15 +120,53 @@ export function StatementImport() {
     setRows(rows.map((r) => (r.on && flagsFor({ ...r.txn, amount: r.amount }, group, expenses).includes('maybe_added') ? { ...r, on: false } : r)))
   }
 
-  const onFiles = async (files: File[]) => {
-    if (!files.length) return
+  /** Rows from a statement read now or earlier (from history). */
+  const load = (txns: StatementTxn[], cur: string) => {
+    setCurrency(cur)
+    const list: Row[] = txns.map((t) => {
+      const description = tidyName(t.name)
+      return {
+        id: uid('s_'),
+        txn: t,
+        amount: fromHundredths(t.amount, cur),
+        description,
+        category: guessCategory(description) ?? 'other',
+        notes: t.note,
+        on: false,
+      }
+    })
+    const usable = (groups ?? []).filter((g) => !g.archived && g.currency === cur)
+    setDupChecked(undefined)
+    pickGroup(bestGroup(usable.length ? usable : (groups ?? []).filter((g) => !g.archived), txns, todayISO()), list)
+  }
+
+  const openEntry = (e: ScanEntry) => {
+    setDup(null)
+    if (e.result.type !== 'statement') return
+    load(e.result.transactions, e.result.currency)
+    setScanIds([e.id])
+  }
+
+  const onFiles = async (picked: File[]) => {
+    if (!picked.length) return
+    if (picked.length > MAX_FILES) toast(`Using the first ${MAX_FILES} screenshots`)
+    const files = picked.slice(0, MAX_FILES)
+    setDup(null)
+    const { prints, match } = await hist.check(files)
+    if (match) {
+      setDup({ match, files, prints })
+      return
+    }
+    await read(files, prints)
+  }
+
+  const read = async (files: File[], prints: ScanPrint[]) => {
     if (!online && aiScanPossible()) return toast('You’re offline. Statement import needs a connection.', 'err')
-    if (files.length > MAX_FILES) toast(`Using the first ${MAX_FILES} screenshots`)
     const id = ++run.current
     setStage('prep')
     try {
       const images = await Promise.all(
-        files.slice(0, MAX_FILES).map(async (f) => {
+        files.map(async (f) => {
           const url = await blobToDataUrl(await downscale(f, 2000, 0.8))
           const [head, image] = url.split(',', 2)
           return { image, mimeType: head.match(/data:([^;]+)/)?.[1] ?? 'image/jpeg' }
@@ -136,23 +181,10 @@ export function StatementImport() {
       const txns = r.statement?.transactions ?? []
       if (!txns.length) return toast('No transactions found in those screenshots', 'err')
       const cur = r.statement?.currency ?? 'INR'
-      setCurrency(cur)
-      const list: Row[] = txns.map((t) => {
-        const description = tidyName(t.name)
-        return {
-          id: uid('s_'),
-          txn: t,
-          amount: fromHundredths(t.amount, cur),
-          description,
-          category: guessCategory(description) ?? 'other',
-          notes: t.note,
-          on: false,
-        }
-      })
-      const usable = (groups ?? []).filter((g) => !g.archived && g.currency === cur)
-      setDupChecked(undefined)
-      pickGroup(bestGroup(usable.length ? usable : (groups ?? []).filter((g) => !g.archived), txns, todayISO()), list)
+      load(txns, cur)
       toast(`Found ${txns.length} transaction${txns.length === 1 ? '' : 's'}`)
+      const saved = await hist.save(files, prints, { type: 'statement', currency: cur, transactions: txns })
+      setScanIds(saved ? [saved] : [])
     } catch (e) {
       if (run.current === id) toast(errText(e), 'err')
     } finally {
@@ -190,6 +222,7 @@ export function StatementImport() {
           ),
         )
       }
+      for (const id of scanIds) hist.outcome(id, { label: `Added ${chosen.length} to ${group.name}`, href: `/groups/${group.id}` })
       toast(`Added ${chosen.length} expense${chosen.length === 1 ? '' : 's'} to ${group.name}`)
       nav(`/groups/${group.id}`, { replace: true })
     } catch (e) {
@@ -218,6 +251,7 @@ export function StatementImport() {
           updatedAt: now,
         })
       }
+      for (const id of scanIds) hist.outcome(id, { label: `${chosen.length} sent to Inbox`, href: '/inbox' })
       toast(`${chosen.length} sent to your Inbox`)
       nav('/inbox', { replace: true })
     } catch (e) {
@@ -229,93 +263,110 @@ export function StatementImport() {
   // The admin's switch (config/app flags.statementImport) hides the whole path; the server refuses the call too.
   if (!statementImport) return null
 
+  const dupPrompt = dup && (
+    <DuplicatePrompt
+      match={dup.match}
+      currency={currency}
+      onOpen={() => openEntry(dup.match.entry)}
+      onRescan={() => {
+        const d = dup
+        setDup(null)
+        void read(d.files, d.prints)
+      }}
+    />
+  )
+
   if (!rows) {
     return (
-      <div className="card mt-4 overflow-hidden" data-testid="statement-start">
-        <div className="flex flex-col items-center px-6 py-8 text-center">
-          <div
-            className="mb-3 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-500 to-duo-600 text-3xl text-white shadow-lg"
-            aria-hidden
-          >
-            📜
-          </div>
-          <h2 className="font-bold">Add expenses from a statement</h2>
-          <p className="text-muted mt-1 text-sm">
-            Screenshots of your Google Pay, PhonePe, Paytm or bank transactions. We’ll list every payment, flag the ones in your trip dates, and you pick what
-            to add.
-          </p>
-        </div>
-        <div className="p-3 pt-0">
-          {blocked ? (
-            <div className="rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800" role="status" data-testid="statement-blocked">
-              <p>Statement import needs AI, which isn’t turned on for your account.</p>
-              <p className="text-muted mt-1 text-xs">
-                {!prefs.aiEnabled || !prefs.aiImages ? (
-                  <>
-                    Turn on AI reading in{' '}
-                    <Link to="/settings/ai" className="font-semibold text-brand-600 dark:text-brand-300">
-                      Settings → AI features
-                    </Link>
-                    .
-                  </>
-                ) : keyWouldHelp ? (
-                  <>
-                    You can{' '}
-                    <Link to="/settings/ai" className="font-semibold text-brand-600 dark:text-brand-300">
-                      add your own Gemini key
-                    </Link>{' '}
-                    under Advanced.
-                  </>
-                ) : (
-                  avail.text
-                )}
-              </p>
+      <>
+        <div className="card mt-4 overflow-hidden" data-testid="statement-start">
+          <div className="flex flex-col items-center px-6 py-8 text-center">
+            <div
+              className="mb-3 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-500 to-duo-600 text-3xl text-white shadow-lg"
+              aria-hidden
+            >
+              📜
             </div>
-          ) : (
-            <>
-              <button
-                type="button"
-                className="btn-primary w-full"
-                onClick={() => fileRef.current?.click()}
-                disabled={busy || !groups}
-                data-testid="statement-pick"
-              >
-                {busy ? (
-                  <>
-                    <Loader2 size={18} className="animate-spin" aria-hidden /> {stage === 'prep' ? 'Preparing screenshots…' : 'Reading with AI…'}
-                  </>
-                ) : (
-                  <>
-                    <ImageUp size={18} aria-hidden /> Choose screenshots
-                  </>
-                )}
-              </button>
-              {busy ? (
-                <button type="button" className="btn-ghost btn-sm mt-2 w-full" onClick={cancel} data-testid="statement-cancel">
-                  <X size={16} aria-hidden /> Cancel
-                </button>
-              ) : (
-                <p className="text-muted mt-2 flex items-center justify-center gap-1.5 text-xs">
-                  <Sparkles size={12} className="text-brand-500" aria-hidden />
-                  {aiScanPossible() ? `Up to ${MAX_FILES} screenshots. Read by Google Gemini, usually in under a minute.` : 'Demo: shows a sample statement.'}
+            <h2 className="font-bold">Add expenses from a statement</h2>
+            <p className="text-muted mt-1 text-sm">
+              Screenshots of your Google Pay, PhonePe, Paytm or bank transactions. We’ll list every payment, flag the ones in your trip dates, and you pick what
+              to add.
+            </p>
+          </div>
+          <div className="p-3 pt-0">
+            {blocked ? (
+              <div className="rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800" role="status" data-testid="statement-blocked">
+                <p>Statement import needs AI, which isn’t turned on for your account.</p>
+                <p className="text-muted mt-1 text-xs">
+                  {!prefs.aiEnabled || !prefs.aiImages ? (
+                    <>
+                      Turn on AI reading in{' '}
+                      <Link to="/settings/ai" className="font-semibold text-brand-600 dark:text-brand-300">
+                        Settings → AI features
+                      </Link>
+                      .
+                    </>
+                  ) : keyWouldHelp ? (
+                    <>
+                      You can{' '}
+                      <Link to="/settings/ai" className="font-semibold text-brand-600 dark:text-brand-300">
+                        add your own Gemini key
+                      </Link>{' '}
+                      under Advanced.
+                    </>
+                  ) : (
+                    avail.text
+                  )}
                 </p>
-              )}
-            </>
-          )}
+              </div>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="btn-primary w-full"
+                  onClick={() => fileRef.current?.click()}
+                  disabled={busy || !groups}
+                  data-testid="statement-pick"
+                >
+                  {busy ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin" aria-hidden /> {stage === 'prep' ? 'Preparing screenshots…' : 'Reading with AI…'}
+                    </>
+                  ) : (
+                    <>
+                      <ImageUp size={18} aria-hidden /> Choose screenshots
+                    </>
+                  )}
+                </button>
+                {busy ? (
+                  <button type="button" className="btn-ghost btn-sm mt-2 w-full" onClick={cancel} data-testid="statement-cancel">
+                    <X size={16} aria-hidden /> Cancel
+                  </button>
+                ) : (
+                  <p className="text-muted mt-2 flex items-center justify-center gap-1.5 text-xs">
+                    <Sparkles size={12} className="text-brand-500" aria-hidden />
+                    {aiScanPossible() ? `Up to ${MAX_FILES} screenshots. Read by Google Gemini, usually in under a minute.` : 'Demo: shows a sample statement.'}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            onChange={(e) => {
+              const f = [...(e.target.files ?? [])]
+              e.target.value = ''
+              onFiles(f)
+            }}
+          />
         </div>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          multiple
-          hidden
-          onChange={(e) => {
-            const f = [...(e.target.files ?? [])]
-            e.target.value = ''
-            onFiles(f)
-          }}
-        />
-      </div>
+        {dupPrompt}
+        {!busy && !dup && <RecentScans entries={hist.entries} currency="INR" onOpen={openEntry} onDelete={(e) => hist.remove(e.id)} onClear={hist.clear} />}
+      </>
     )
   }
 
@@ -517,6 +568,7 @@ export function StatementImport() {
           </button>
         )}
       </div>
+      {dupPrompt}
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/70 bg-white/90 backdrop-blur-xl safe-bottom dark:border-white/5 dark:bg-ink-900/90">
         <div className="mx-auto flex max-w-lg items-center gap-2 px-4 py-3">

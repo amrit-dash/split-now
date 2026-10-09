@@ -65,7 +65,7 @@ export function SplitEditor({
                 className="flex min-h-12 w-full items-center gap-3 rounded-2xl p-2 text-left hover:bg-slate-50 dark:hover:bg-ink-800"
               >
                 <CheckBox on={on} />
-                <Avatar name={group.members[id]?.name ?? '?'} color={group.members[id]?.color ?? '#999'} size={32} />
+                <Avatar name={group.members[id]?.name ?? '?'} color={group.members[id]?.color ?? '#999'} photoURL={group.members[id]?.photoURL} size={32} />
                 <span className="min-w-0 flex-1 truncate font-medium">{label(id)}</span>
                 {share(id)}
               </button>
@@ -172,7 +172,7 @@ export function SplitEditor({
                 >
                   <CheckBox on={on} />
                 </button>
-                <Avatar name={group.members[id]?.name ?? '?'} color={group.members[id]?.color ?? '#999'} size={28} />
+                <Avatar name={group.members[id]?.name ?? '?'} color={group.members[id]?.color ?? '#999'} photoURL={group.members[id]?.photoURL} size={28} />
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">{label(id)}</span>
                 <MoneyInput
                   className="!w-24 !py-2"

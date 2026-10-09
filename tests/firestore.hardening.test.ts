@@ -183,6 +183,37 @@ describe('leaving a group', () => {
   })
 })
 
+describe('own member entry (name + photo from the profile)', () => {
+  const photo = 'https://firebasestorage.googleapis.com/v0/b/x/o/avatars%2Fbob%2Fa.jpg?alt=media'
+  it('a member can set their own name and photo, and remove the photo', async () => {
+    await assertSucceeds(updateDoc(g1('bob'), { 'members.bob.name': 'Bob Brown', 'members.bob.photoURL': photo, memberOpId: 'bob' }))
+    await assertSucceeds(updateDoc(g1('bob'), { 'members.bob.photoURL': deleteField(), memberOpId: 'bob' }))
+  })
+  it('must name the entry in memberOpId', async () => {
+    await assertFails(updateDoc(g1('bob'), { 'members.bob.photoURL': photo }))
+    await assertFails(updateDoc(g1('bob'), { 'members.bob.photoURL': photo, memberOpId: 'alice' }))
+  })
+  it('cannot edit someone else’s entry or a placeholder', async () => {
+    await assertFails(updateDoc(g1('bob'), { 'members.alice.photoURL': photo, memberOpId: 'alice' }))
+    await assertFails(updateDoc(g1('bob'), { 'members.p_cat.name': 'Bob', memberOpId: 'p_cat' }))
+  })
+  it('cannot change other fields of their entry, or two entries at once', async () => {
+    await assertFails(updateDoc(g1('bob'), { 'members.bob.uid': 'alice', memberOpId: 'bob' }))
+    await assertFails(updateDoc(g1('bob'), { 'members.bob.color': '#fff', memberOpId: 'bob' }))
+    await assertFails(updateDoc(g1('bob'), { 'members.bob.name': 'B', 'members.alice.name': 'A', memberOpId: 'bob' }))
+  })
+  it('photo must be a short https URL; name a non-empty string', async () => {
+    await assertFails(updateDoc(g1('bob'), { 'members.bob.photoURL': 'http://x/a.jpg', memberOpId: 'bob' }))
+    await assertFails(updateDoc(g1('bob'), { 'members.bob.photoURL': 'data:image/jpeg;base64,AAAA', memberOpId: 'bob' }))
+    await assertFails(updateDoc(g1('bob'), { 'members.bob.photoURL': 'https://x/' + 'a'.repeat(2100), memberOpId: 'bob' }))
+    await assertFails(updateDoc(g1('bob'), { 'members.bob.name': '', memberOpId: 'bob' }))
+    await assertFails(updateDoc(g1('bob'), { 'members.bob.name': 42, memberOpId: 'bob' }))
+  })
+  it('a non-member cannot edit an entry', async () => {
+    await assertFails(updateDoc(g1('mallory'), { 'members.bob.photoURL': photo, memberOpId: 'bob' }))
+  })
+})
+
 describe('joining', () => {
   const join = (uid: string, memberId: string) =>
     updateDoc(doc(db(uid), 'groups/g1'), {
@@ -208,6 +239,17 @@ describe('joining', () => {
     b.set(doc(d, 'invites/ABCD2345'), { groupId: 'g1', placeholders: { p_cat: deleteField() } }, { merge: true })
     b.set(doc(d, 'groups/g1/profiles/dan'), { displayName: 'Dan', payment: {} })
     await assertSucceeds(b.commit())
+  })
+  it('a joiner’s entry may carry their photo', async () => {
+    await assertSucceeds(
+      updateDoc(doc(db('dan'), 'groups/g1'), {
+        memberUids: arrayUnion('dan'),
+        'members.p_cat': { name: 'Dan', uid: 'dan', color: '#222', photoURL: 'https://x/d.jpg' },
+        joinCode: 'ABCD2345',
+        joinMemberId: 'p_cat',
+        updatedAt: 2,
+      }),
+    )
   })
   it('a non-member cannot touch the invite or write a profile without joining', async () => {
     await assertFails(setDoc(doc(db('mallory'), 'invites/ABCD2345'), { groupId: 'g1', placeholders: {} }, { merge: true }))

@@ -13,7 +13,7 @@ import { CATEGORIES } from '@/lib/categories'
 import { suggestCategory } from '@/lib/merchants'
 import { useMerchantMemory } from '@/hooks/useMerchants'
 import { errText } from '@/lib/errors'
-import { markInboxSeen } from '@/lib/inbox'
+import { isUnread, markInboxSeen } from '@/lib/inbox'
 import { bulkCandidates, sumCaptures, targetGroupFor, type BulkCandidate } from '@/lib/inbox-sort'
 import { uid } from '@/lib/id'
 import { formatDate } from '@/lib/locale'
@@ -30,12 +30,14 @@ type Tab = 'sort' | 'updates'
 const HANDLED_FIRST = 15
 
 /**
- * Inbox: "To sort" (captured payments and expenses waiting for your OK) and "Updates" (what
- * other people did in your groups). Opening Updates marks them read on this device. The header
- * and tabs render at once; each section shows placeholders until its own data is in.
+ * Inbox: "To sort" (captured payments and expenses waiting for your OK) and "Updates" (a log of
+ * everything in your groups, your own actions included). Only other people's entries are ever
+ * new; opening Updates marks them read on this device. The header and tabs render at once; each
+ * section shows placeholders until its own data is in.
  */
 export default function Inbox() {
   usePageTitle('Inbox')
+  const { user } = useMe()
   const data = useAllGroupData()
   const box = useInbox(data)
   const all = useCaptures()
@@ -78,10 +80,10 @@ export default function Inbox() {
           <ListSkeleton rows={4} />
         ) : box.updates.length === 0 ? (
           <Quiet emoji="🔔" title="No updates yet">
-            When friends add expenses, settle up or add you to a group, it shows here.
+            Expenses, payments, imports and new members in your groups show here. New ones from friends get a dot.
           </Quiet>
         ) : (
-          <ActivityFeed entries={box.updates} groups={groupsById} isNew={(a) => a.createdAt > seenBefore} />
+          <ActivityFeed entries={box.updates} groups={groupsById} isNew={(a) => isUnread(a, user.uid, seenBefore)} />
         )}
       </div>
     </div>

@@ -50,7 +50,7 @@ import {
   type WriteBatch,
 } from 'firebase/firestore'
 import type { FirebaseStorage } from 'firebase/storage'
-import type { ActivityEntry, Capture, Expense, ExpenseComment, Group, Settlement, UserProfile } from '@/types'
+import type { ActivityEntry, Capture, Expense, ExpenseComment, Group, Member, MemberId, Settlement, UserProfile } from '@/types'
 import { inviteCode, todayISO, uid } from '@/lib/id'
 import { defaultCurrency } from '@/lib/locale'
 import { inboxToDraft, newCaptureToken, type InboxDoc } from '@/lib/capture'
@@ -74,6 +74,7 @@ import {
   compact,
   draftToCapture,
   errorChannel,
+  groupDeleteBlocker,
   placeholdersOf,
   storagePathFromUrl,
   memberProfileOf,
@@ -213,6 +214,13 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       /* not cached */
     }
     return { displayName: u.displayName || u.email?.split('@')[0] || 'You', payment: {} }
+  }
+
+  /** The signed-in user's own entries carry their (shareable) profile photo. */
+  const withOwnPhoto = (members: Record<MemberId, Member>, mine: MemberProfile | null): Record<MemberId, Member> => {
+    const u = auth.currentUser?.uid
+    if (!u || !mine?.photoURL) return members
+    return Object.fromEntries(Object.entries(members).map(([id, m]) => [id, m.uid === u && !m.photoURL ? { ...m, photoURL: mine.photoURL } : m]))
   }
 
   /** A document as this device last saw it (screens only act on what they've loaded). */
@@ -485,8 +493,8 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       const id = uid('g_')
       const now = Date.now()
       const code = g.type === 'personal' ? inviteCode() : await uniqueInviteCode()
-      const full: Group = { ...g, id, inviteCode: code, createdAt: now, updatedAt: now }
       const me = await myMemberProfile()
+      const full: Group = { ...g, members: withOwnPhoto(g.members, me), id, inviteCode: code, createdAt: now, updatedAt: now }
       const batch = writeBatch(db)
       batch.set(groupRef(id), full)
       if (g.type !== 'personal') batch.set(inviteRef(code), inviteDoc(full))
@@ -534,6 +542,19 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       log(batch, group.id, memberActivity('added', memberId, member.name, await actCtx(group.id, undefined, group)))
       fire(batch, `Adding ${member.name}`)
     },
+    async updateOwnMember(group, memberId, patch) {
+      const m = group.members[memberId]
+      if (!m || m.uid !== me()) return
+      const batch = writeBatch(db)
+      // Not touching updatedAt: a profile change shouldn't reorder everyone's group list.
+      batch.update(groupRef(group.id), {
+        [`members.${memberId}.name`]: patch.name,
+        [`members.${memberId}.photoURL`]: patch.photoURL ?? deleteField(),
+        memberOpId: memberId,
+      })
+      // Background sync: a refusal (e.g. rules not deployed yet) is not the user's problem.
+      batch.commit().catch((e) => console.warn('Could not update your member entry in', group.id, e))
+    },
     async removeMember(group, memberId) {
       const m = group.members[memberId]
       const ctx = await actCtx(group.id, undefined, group)
@@ -554,23 +575,78 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       fire(batch, `Removing ${m?.name ?? 'member'}`)
     },
     async deleteGroup(id) {
-      // Only the group document and its invite go from here. onGroupDeleted (Cloud Functions)
-      // removes the sub-collections and the receipts in Storage within seconds; until then the
-      // rules refuse everything under a group that no longer exists, so nothing leaks. Works
-      // offline too: the batch is queued like any other write.
-      let g = await cachedGroup(id)
-      if (!g && online()) {
-        try {
-          const s = await getDoc(groupRef(id))
-          g = s.exists() ? { ...(s.data() as Group), id } : undefined
-        } catch {
-          /* keep going: deleting the doc is what matters */
-        }
+      // Needs the server: it lists every sub-collection first, and a half-applied offline delete
+      // would come back (rolled back) later with no explanation. onGroupDeleted (Cloud Functions)
+      // sweeps up anything left behind (activity beyond one batch, a receipt that timed out).
+      if (!online()) throw new Error('You’re offline. Connect to the internet to delete a group.')
+      const s = await getDoc(groupRef(id))
+      if (!s.exists()) return // already gone
+      const g = { ...(s.data() as Group), id }
+      const blocker = groupDeleteBlocker(g, me())
+      if (blocker) throw new Error(blocker)
+      const failed = (e: unknown): never => {
+        const denied = (e as { code?: string })?.code === 'permission-denied'
+        throw new Error(denied ? `Couldn’t delete “${g.name}”: you don’t have permission.` : `Couldn’t delete “${g.name}”: ${errText(e)}`)
       }
-      const batch = writeBatch(db)
-      if (g?.inviteCode && g.type !== 'personal') batch.delete(inviteRef(g.inviteCode))
-      batch.delete(groupRef(id))
-      fire(batch, 'Deleting group')
+      // Waits for the server's answer, so a refusal reaches the caller. On a connection too slow
+      // to answer in time it carries on (writes are sent in order) and a late refusal is a toast.
+      const ack = (p: Promise<void>) => {
+        let waited = false
+        p.catch((e) => {
+          if (waited) errors.emit('write', e, 'Deleting group')
+        })
+        return Promise.race([
+          p,
+          sleep(20_000).then(() => {
+            waited = true
+          }),
+        ])
+      }
+      const [expenses, settlements, profiles, activity] = await Promise.all(
+        ['expenses', 'settlements', 'profiles', 'activity'].map((sub) => getDocs(collection(db, 'groups', id, sub))),
+      ).catch(failed)
+      const receipts: string[] = []
+      for (const d of expenses.docs) {
+        const e = d.data() as Expense
+        const p = e.receiptPath ?? storagePathFromUrl(e.receiptUrl)
+        if (p) receipts.push(p)
+      }
+      // Comment threads, a few expenses at a time (one at a time took minutes for a big import).
+      const commentRefs: DocumentReference[] = []
+      const queue = [...expenses.docs]
+      await Promise.all(
+        Array.from({ length: 16 }, async () => {
+          for (let d = queue.shift(); d; d = queue.shift()) {
+            ;(await getDocs(commentsCol(id, d.id)).catch(() => null))?.forEach((c) => commentRefs.push(c.ref))
+          }
+        }),
+      )
+      const invite = g.type !== 'personal' && g.inviteCode ? await getDoc(inviteRef(g.inviteCode)).catch(() => null) : null
+      // Receipts first (storage rules check membership, which ends with the group). Best effort.
+      if (receipts.length) {
+        await Promise.race([
+          lazyStorage().then(({ storage, sdk }) => Promise.allSettled(receipts.map((p) => sdk.deleteObject(sdk.ref(storage, p))))),
+          sleep(5000),
+        ])
+      }
+      // Sub-collection docs (comments after their expenses) in ≤450-write batches, all confirmed by
+      // the server before the last batch removes the group: they need the membership checks.
+      const refs = [...expenses.docs, ...settlements.docs, ...profiles.docs].map((d) => d.ref).concat(commentRefs)
+      const batches: Promise<void>[] = []
+      for (let i = 0; i < refs.length; i += BATCH_LIMIT) {
+        const batch = writeBatch(db)
+        refs.slice(i, i + BATCH_LIMIT).forEach((r) => batch.delete(r))
+        batches.push(batch.commit())
+      }
+      await ack(Promise.all(batches).then(() => undefined)).catch(failed)
+      // The activity log is append-only: rules let the creator delete it only in the batch
+      // that deletes the group itself. (Entries beyond one batch are left orphaned and unreadable.)
+      const last = writeBatch(db)
+      activity.docs.slice(0, BATCH_LIMIT - 2).forEach((d) => last.delete(d.ref))
+      // Only an invite that exists: deleting a missing one is refused, and would fail the batch.
+      if (invite?.exists() && invite.data().groupId === id) last.delete(invite.ref)
+      last.delete(groupRef(id))
+      await ack(last.commit()).catch(failed)
     },
 
     async getInvite(code) {
@@ -591,7 +667,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       // Non-members cannot read the group, so this is a blind update validated by security rules.
       batch.update(groupRef(invite.groupId), {
         memberUids: arrayUnion(member.uid),
-        [`members.${memberId}`]: member,
+        [`members.${memberId}`]: withOwnPhoto({ [memberId]: member }, me)[memberId],
         joinCode: c,
         joinMemberId: memberId,
         updatedAt: Date.now(),
@@ -1107,6 +1183,10 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     },
     async saveAppAi(cfg) {
       await setDoc(doc(db, 'config', 'ai'), { ...cfg, updatedAt: Date.now(), updatedBy: auth.currentUser?.uid ?? '' })
+    },
+    async saveAppVersion(version) {
+      // merge: config/app also holds the admin console's flags, gates and announcement.
+      await setDoc(doc(db, 'config', 'app'), { version, updatedAt: Date.now(), updatedBy: auth.currentUser?.uid ?? '' }, { merge: true })
     },
     async aiUsage(day) {
       const s = await getDoc(doc(db, 'stats', `ai_${day}`))

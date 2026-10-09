@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { repo } from '@/data'
-import { peekShared, peekSharedMeta, subscribeShared } from '@/data/store'
+import { groupsKey, peekShared, peekSharedMeta, subscribeShared } from '@/data/store'
 import type { NewGroup, SnapMeta, Unsub } from '@/data/repo'
 import type { ActivityEntry, Capture, Expense, ExpenseComment, Group, MemberId, Settlement } from '@/types'
 import { countable, netBalances, pairwiseDebts } from '@/lib/balances'
@@ -69,7 +69,7 @@ function useSharedMeta(key: string | null, start: (cb: (v: unknown, meta?: SnapM
 // ---- Keys and starters (one place, so the provider and the hooks share entries) ----------
 
 const keys = {
-  groups: (uid: string) => `groups/${uid}`,
+  groups: groupsKey,
   captures: (uid: string) => `captures/${uid}`,
   group: (id: string) => `group/${id}`,
   expenses: (id: string) => `expenses/${id}`,

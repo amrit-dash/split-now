@@ -25,12 +25,69 @@ export const SALUTATIONS: Record<DayPart, { text: string; emoji: string }> = {
 }
 
 /** The icon after "Hi, Name!" on Home: a wave by day, the sun at dawn, a moon late at night. */
-export const HELLO: Record<DayPart, { emoji: string; motion: 'wave' | 'float' }> = {
-  earlyMorning: { emoji: '🌅', motion: 'float' },
-  morning: { emoji: '👋', motion: 'wave' },
-  afternoon: { emoji: '👋', motion: 'wave' },
-  evening: { emoji: '✨', motion: 'float' },
-  lateNight: { emoji: '🌙', motion: 'float' },
+export type HelloMotion = 'wave' | 'float' | 'tilt' | 'bounce' | 'pulse' | 'swing'
+type Hello = { emoji: string; motion: HelloMotion }
+/** Icons after "Hi", by time of day, each with its own little motion. One is picked per visit. */
+export const HELLO: Record<DayPart, Hello[]> = {
+  earlyMorning: [
+    { emoji: '🌅', motion: 'float' },
+    { emoji: '☕', motion: 'tilt' },
+    { emoji: '🐦', motion: 'bounce' },
+    { emoji: '🌄', motion: 'pulse' },
+    { emoji: '👋', motion: 'wave' },
+  ],
+  morning: [
+    { emoji: '👋', motion: 'wave' },
+    { emoji: '☀️', motion: 'pulse' },
+    { emoji: '☕', motion: 'tilt' },
+    { emoji: '🌻', motion: 'swing' },
+    { emoji: '🥐', motion: 'bounce' },
+    { emoji: '🚀', motion: 'float' },
+  ],
+  afternoon: [
+    { emoji: '👋', motion: 'wave' },
+    { emoji: '😎', motion: 'tilt' },
+    { emoji: '🌤️', motion: 'float' },
+    { emoji: '🍹', motion: 'swing' },
+    { emoji: '⚡', motion: 'pulse' },
+    { emoji: '🙌', motion: 'bounce' },
+  ],
+  evening: [
+    { emoji: '👋', motion: 'wave' },
+    { emoji: '🌆', motion: 'float' },
+    { emoji: '✨', motion: 'pulse' },
+    { emoji: '🍕', motion: 'tilt' },
+    { emoji: '🎶', motion: 'swing' },
+    { emoji: '🌇', motion: 'bounce' },
+  ],
+  lateNight: [
+    { emoji: '🌙', motion: 'float' },
+    { emoji: '✨', motion: 'pulse' },
+    { emoji: '🦉', motion: 'tilt' },
+    { emoji: '⭐', motion: 'swing' },
+    { emoji: '😴', motion: 'bounce' },
+  ],
+}
+
+/** The icon for this visit: random per app open, then kept (same icon while you move around). */
+export function helloFor(part: DayPart): Hello {
+  const list = HELLO[part]
+  const key = `splitit-hello-${part}`
+  let i = -1
+  try {
+    i = Number(sessionStorage.getItem(key) ?? -1)
+  } catch {
+    /* private mode */
+  }
+  if (!(i >= 0 && i < list.length)) {
+    i = Math.floor(Math.random() * list.length)
+    try {
+      sessionStorage.setItem(key, String(i))
+    } catch {
+      /* private mode */
+    }
+  }
+  return list[i]
 }
 
 /** First word of the display name ("Amrit Singh" → "Amrit"; an email → its local part). */

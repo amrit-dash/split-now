@@ -133,3 +133,17 @@ describe('gates', () => {
     expect(resolveBlockInfo({ reason: 5 })).toEqual({ reason: '', at: 0, by: '' })
   })
 })
+
+describe('displayed version (config/app.version)', () => {
+  it('keeps a valid version and drops junk', () => {
+    expect(resolveAppConfig({ version: '2.1.1' }).version).toBe('2.1.1')
+    expect(resolveAppConfig({ version: '2.1.1-beta.1' }).version).toBe('2.1.1-beta.1')
+    expect(resolveAppConfig({ version: 'v2' }).version).toBeUndefined()
+    expect(resolveAppConfig({ version: 3 }).version).toBeUndefined()
+  })
+  it('survives a flags save so the two admin editors never erase each other', () => {
+    const cfg = resolveAppConfig({ version: '2.1.1', maintenance: true })
+    expect(toAppConfigDoc(cfg, 'u', 1).version).toBe('2.1.1')
+    expect('version' in toAppConfigDoc(DEFAULT_APP_CONFIG, 'u', 1)).toBe(false)
+  })
+})

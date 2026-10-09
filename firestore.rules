@@ -159,13 +159,15 @@ service cloud.firestore {
           && f.get('merchantMemory', true) is bool && f.get('whoseTurn', true) is bool && f.get('budgetAlerts', true) is bool;
       }
       function validAppConfig(d) {
-        return d.keys().hasOnly(['maintenance', 'maintenanceMessage', 'minVersion', 'announcement', 'flags', 'signups', 'updatedAt', 'updatedBy'])
+        return d.keys().hasOnly(['maintenance', 'maintenanceMessage', 'minVersion', 'announcement', 'flags', 'signups', 'version', 'updatedAt', 'updatedBy'])
           && d.get('maintenance', false) is bool
           && (!('maintenanceMessage' in d) || (d.maintenanceMessage is string && d.maintenanceMessage.size() <= 300))
           && d.get('minVersion', '0.0.0') is string && d.get('minVersion', '0.0.0').matches('[0-9]{1,5}\\.[0-9]{1,5}\\.[0-9]{1,5}')
           && (!('announcement' in d) || d.announcement == null || validAnnouncement(d.announcement))
           && validFlags(d.get('flags', {}))
           && d.get('signups', 'open') in ['open', 'invite']
+          // The version shown in Profile (src/lib/flags.ts DISPLAY_VERSION).
+          && (!('version' in d) || (d.version is string && d.version.matches('^[0-9]+([.][0-9]+){0,3}([-+][0-9A-Za-z.]{1,20})?$')))
           && d.get('updatedAt', 0) is int
           && d.get('updatedBy', '') is string;
       }
@@ -365,6 +367,24 @@ service cloud.firestore {
           );
       }
 
+      // A member with an account may edit their own entry's name and photo (copied from their
+      // profile by their app), named in memberOpId. Nothing else about membership changes.
+      function isOwnMemberEdit() {
+        let before = resource.data;
+        let after = request.resource.data;
+        let op = after.get('memberOpId', '');
+        let mdiff = after.members.diff(before.members);
+        let m = after.members[op];
+        return mdiff.addedKeys().size() == 0 && mdiff.removedKeys().size() == 0
+          && mdiff.changedKeys().size() == 1 && mdiff.changedKeys().hasOnly([op])
+          && after.memberUids.toSet() == before.memberUids.toSet()
+          && 'uid' in before.members[op] && before.members[op].uid == uid()
+          && m.diff(before.members[op]).affectedKeys().hasOnly(['name', 'photoURL'])
+          && m.name is string && m.name.size() > 0 && m.name.size() <= 100
+          && (!('photoURL' in m)
+            || (m.photoURL is string && m.photoURL.size() <= 2048 && m.photoURL.matches('https://.+')));
+      }
+
       allow get: if isMember();
       allow list: if isUser() && uid() in resource.data.memberUids;
       // The creator starts as the only signed-up member (others join themselves via invite).
@@ -382,7 +402,7 @@ service cloud.firestore {
           && request.resource.data.inviteCode == resource.data.inviteCode
           && validGroupShape(request.resource.data)
           && creatorPolicy()
-          && validMembershipChange())
+          && (validMembershipChange() || isOwnMemberEdit()))
         || isJoining());
       allow delete: if isMember() && resource.data.createdBy == uid() && writesOpen();
 
@@ -515,8 +535,11 @@ service cloud.firestore {
         allow delete: if isGroupMember(groupId) && writesOpen() && canPurge();
 
         // Comment thread on an expense. Comments are immutable; only the author can
-        // delete one, except that members may clean up comments of an expense that is
-        // being deleted in the same batch (or is already gone).
+        // delete one, except that the group creator (who may purge any expense, comments
+        // included, and delete the whole group) may delete any, and members may clean up
+        // comments of an expense that is being deleted in the same batch (or is already gone).
+        // The creator check reads only the group doc: deleting a big group's comments must
+        // not need one existsAfter() per expense (rules allow 20 document reads per batch).
         match /comments/{commentId} {
           allow read: if isGroupMember(groupId);
           allow create: if isGroupMember(groupId) && writesOpen()
@@ -530,7 +553,8 @@ service cloud.firestore {
           allow update: if false;
           allow delete: if isUser() && writesOpen() && (resource.data.authorUid == uid()
             || (isGroupMember(groupId)
-              && !existsAfter(/databases/$(database)/documents/groups/$(groupId)/expenses/$(expenseId))));
+              && (groupDoc(groupId).data.createdBy == uid()
+                || !existsAfter(/databases/$(database)/documents/groups/$(groupId)/expenses/$(expenseId)))));
         }
       }
 

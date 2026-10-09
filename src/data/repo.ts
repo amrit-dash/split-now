@@ -10,6 +10,7 @@ import type { AiTextExpense } from '@/lib/nl-expense'
 import type { NudgeResult } from '@/lib/nudge'
 import type { AiUnavailableReason } from '../../shared/ai-config'
 import { defaultCurrency } from '@/lib/locale'
+import { sharedPhotoURL, type OwnMemberPatch } from '@/lib/memberSync'
 
 export type Unsub = () => void
 
@@ -67,7 +68,7 @@ export interface MemberProfile {
 
 /** The shareable part of a private profile (data: URLs are demo-only and never shared). */
 export function memberProfileOf(p: Pick<UserProfile, 'displayName' | 'payment' | 'photoURL'>): MemberProfile {
-  const photo = p.photoURL && /^https:\/\//.test(p.photoURL) && p.photoURL.length <= 2048 ? p.photoURL : undefined
+  const photo = sharedPhotoURL(p.photoURL)
   return compact({ displayName: p.displayName, payment: p.payment ?? {}, photoURL: photo })
 }
 
@@ -139,6 +140,11 @@ export interface Repo {
   updateGroup(id: string, patch: Partial<Group>): Promise<void>
   addMember(group: Group, memberId: MemberId, member: Member): Promise<void>
   removeMember(group: Group, memberId: MemberId): Promise<void>
+  /**
+   * The signed-in user's own member entry: set its name and photo from their profile (no photo
+   * removes it). Background sync (src/hooks/auth.tsx); a refusal is logged, not shown.
+   */
+  updateOwnMember(group: Group, memberId: MemberId, patch: OwnMemberPatch): Promise<void>
   /**
    * Deletes the group with everything under it (expenses, payments, activity, profiles,
    * receipts). Needs the server: rejects with a readable message offline or on failure.
@@ -307,6 +313,8 @@ export interface Repo {
   watchAppAi(cb: (raw: unknown) => void): Unsub
   /** Admins only (rules). */
   saveAppAi(cfg: AppAiConfig): Promise<void>
+  /** config/app.version, shown in Profile (read through useAppConfig). Admins only; merges, so the flags and gates stay. */
+  saveAppVersion(version: string): Promise<void>
   /** stats/ai_{day} (admins only). */
   aiUsage(day: string): Promise<Record<string, number> | null>
 }
@@ -490,6 +498,17 @@ export function draftToCapture(d: CaptureDraft, id: string, now = Date.now()): C
 export const compact = <T extends object>(o: T): T => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T
 
 export const byCreatedDesc = <T extends { createdAt: number }>(a: T, b: T) => b.createdAt - a.createdAt
+
+/**
+ * Why `uid` can't delete group `g`, or null when they can. Only the creator deletes a group
+ * (the rules enforce it); everyone else gets a readable reason.
+ */
+export function groupDeleteBlocker(g: Pick<Group, 'name' | 'createdBy' | 'members' | 'memberUids'>, uid: string): string | null {
+  if (!g.memberUids.includes(uid)) return `You’re no longer in “${g.name}”.`
+  if (g.createdBy === uid) return null
+  const by = Object.values(g.members).find((m) => m.uid === g.createdBy)?.name
+  return `Only ${by ?? 'the person who created it'} can delete “${g.name}”.`
+}
 
 /** Context for building activity entries (src/lib/activity.ts) for a write by `actor` in `group`. */
 export function activityCtxFor(group: Pick<Group, 'currency' | 'members'> | undefined, actor: { uid: string; name: string }, _item?: object): ActivityCtx {
