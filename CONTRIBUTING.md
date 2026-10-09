@@ -5,6 +5,8 @@ Thanks for helping! Bug reports, ideas and pull requests are all welcome.
 ## Getting set up
 
 ```bash
+git clone https://github.com/amrit-dash/split-now.git
+cd split-now
 npm install
 npm run dev          # demo mode, no Firebase needed
 ```
@@ -29,6 +31,21 @@ npm run build
 - Match the surrounding style: TypeScript, React function components, Tailwind utility classes, short comments that explain *why*.
 - Money is always integer minor units; never use floats for amounts.
 - UI must work at 360px wide, in light and dark mode, and respect `prefers-reduced-motion`.
+
+## Finding something to work on
+
+- Issues labelled **good first issue** are small and self-contained.
+- **suggestion** issues are bigger ideas still being discussed; comment before starting so the approach can be agreed. See [docs/ROADMAP.md](docs/ROADMAP.md).
+- For anything large, open an issue first describing what you'd like to change.
+
+## Workflow
+
+1. Fork the repository and create a branch from `main` (`feat/…`, `fix/…`).
+2. Make your change with tests, and run the checks above.
+3. Open a pull request using the template; link the issue it closes.
+4. CI must pass, and a maintainer will review it.
+
+Commit messages: a short imperative summary line ("Fix rounding in percent splits"), with detail in the body if needed.
 
 ## Reporting bugs
 
