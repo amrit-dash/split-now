@@ -69,7 +69,15 @@ function start(b: Body): State {
   }
 }
 
-function useBodies(bodies: Body[]) {
+/*
+ * Where each surface's shapes were when it unmounted, so Home's card picks up its drift exactly
+ * where it left off when you come back (no jump to new random spots). Keyed by the bodies array;
+ * only surfaces mounted once at a time use it (the card), never the three + button layers that
+ * share FAB and run side by side.
+ */
+const resume = new Map<Body[], { st: Array<State | null>; elapsed: number }>()
+
+function useBodies(bodies: Body[], persist = false) {
   const box = useRef<HTMLDivElement>(null)
   const refs = useRef<Array<HTMLDivElement | null>>([])
   // biome-ignore lint/correctness/useExhaustiveDependencies: the motion loop starts once per mount; bodies is a module constant (CARD or FAB) and restarting would reset every drift.
@@ -78,7 +86,8 @@ function useBodies(bodies: Body[]) {
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
     const host = box.current
     const els = refs.current
-    const st = els.map((el, i) => (el && bodies[i] ? start(bodies[i]) : null))
+    const kept = persist ? resume.get(bodies) : undefined
+    const st = kept && kept.st.length === els.length ? kept.st : els.map((el, i) => (el && bodies[i] ? start(bodies[i]) : null))
     let W = host.clientWidth,
       H = host.clientHeight
     const ro =
@@ -91,7 +100,8 @@ function useBodies(bodies: Body[]) {
     ro?.observe(host)
     let raf = 0
     let last = performance.now()
-    let t0 = last
+    // Resume the clock too, so size and opacity breathing continue rather than jump.
+    let t0 = last - (kept ? kept.elapsed * 1000 : 0)
     // Run only while on screen and the tab is visible; the clock skips the paused time.
     let seen = true
     let pausedAt = 0
@@ -118,8 +128,8 @@ function useBodies(bodies: Body[]) {
         : null
     io?.observe(host)
     document.addEventListener('visibilitychange', sync)
-    const tick = (now: number) => {
-      const dt = Math.min(0.05, (now - last) / 1000)
+    const tick = (now: number, still = false) => {
+      const dt = still ? 0 : Math.min(0.05, (now - last) / 1000)
       last = now
       const t = (now - t0) / 1000
       for (let i = 0; i < els.length; i++) {
@@ -157,10 +167,13 @@ function useBodies(bodies: Body[]) {
           el.style.opacity = (b.opacity[0] + (b.opacity[1] - b.opacity[0]) * ko).toFixed(3)
         }
       }
-      raf = requestAnimationFrame(tick)
+      if (!still) raf = requestAnimationFrame(tick)
     }
+    // Paint the resumed positions before the first frame, so nothing flashes at the centre.
+    if (kept) tick(performance.now(), true)
     sync()
     return () => {
+      if (persist) resume.set(bodies, { st, elapsed: ((pausedAt || performance.now()) - t0) / 1000 })
       cancelAnimationFrame(raf)
       ro?.disconnect()
       io?.disconnect()
@@ -200,7 +213,7 @@ const bloom = (color: string) => ({ background: `radial-gradient(closest-side, $
 const mix = (v: string, pct: number) => `color-mix(in oklab, var(${v}) ${pct}%, transparent)`
 
 export function Aurora({ size = 'card' }: { size?: 'card' | 'fab' }) {
-  const { box, ref } = useBodies(size === 'fab' ? FAB : CARD)
+  const { box, ref } = useBodies(size === 'fab' ? FAB : CARD, size === 'card')
   if (size === 'fab') {
     return (
       <div
