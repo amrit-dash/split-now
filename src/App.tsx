@@ -449,7 +449,7 @@ function Splash({ leaving = false }: { leaving?: boolean }) {
       <div className="boot-stack">
         <img className="boot-logo" src="/favicon.svg" alt="" />
         <p className="boot-tag" aria-hidden>
-          <span className="boot-l1">Spending is wise, Splitting is Free.</span>
+          <span className="boot-l1">Spending is wise, splitting is free.</span>
           <span className="boot-l2">Split Now!</span>
         </p>
       </div>
