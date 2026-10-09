@@ -34,7 +34,8 @@ if (!RECT.test(body)) throw new Error('favicon.svg must have a <rect … rx="…
 const squareTile = head + body.replace(RECT, (rect) => rect.replace(/\b(rx|ry)\s*=\s*(["'])[^"']*\2/g, '$1=$2' + '0$2'))
 
 /** The background alone, square: what fills an Android adaptive icon edge to edge. */
-const fieldOnly = head + body.replace(RECT, (rect) => rect.replace(/\b(rx|ry)\s*=\s*(["'])[^"']*\2/g, '$1=$2' + '0$2')).replace(/(<rect\b[^>]*\/>)[\s\S]*(<\/svg>)/, '$1$2')
+const fieldOnly =
+  head + body.replace(RECT, (rect) => rect.replace(/\b(rx|ry)\s*=\s*(["'])[^"']*\2/g, '$1=$2' + '0$2')).replace(/(<rect\b[^>]*\/>)[\s\S]*(<\/svg>)/, '$1$2')
 
 /** The mark alone on a transparent canvas. */
 const markOnly = head + body.replace(RECT, '')
