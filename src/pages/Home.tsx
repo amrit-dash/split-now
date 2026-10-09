@@ -1,11 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { HandCoins, Inbox, Plus } from 'lucide-react'
+import { Inbox, Plus } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
 import { useAllGroupData } from '@/hooks/data'
 import { useInbox } from '@/hooks/useInbox'
 import { ActivityFeed } from '@/components/Trust'
-import { formatMoney } from '@/lib/money'
+import { currencySymbol, formatMoney } from '@/lib/money'
 import { convertMinor } from '@/lib/fx'
 import { useTodayRates } from '@/hooks/useFx'
 import { CATEGORIES } from '@/lib/categories'
@@ -15,7 +15,7 @@ import { Avatar } from '@/components/Avatar'
 import { Aurora } from '@/components/Aurora'
 import { CardFirework } from '@/components/CardFirework'
 import { appLocale } from '@/lib/locale'
-import { HELLO, dayPart, greeting, topCounterparties, type DayPart } from '@/lib/greeting'
+import { dayPart, helloFor, greeting, topCounterparties, type DayPart } from '@/lib/greeting'
 import { isLiveTrip } from '@/lib/capture'
 import { todayISO } from '@/lib/id'
 
@@ -109,7 +109,7 @@ export default function Home() {
           {!allSettled && (
             <Link to="/settle" aria-label="Balances and settle up" title="Settle up" data-testid="home-settle"
               className="absolute -top-1 right-0 flex h-14 w-14 items-center justify-center rounded-full text-white transition duration-150 hover:bg-white/10 active:scale-90 active:bg-white/20">
-              <CoinToss />
+              <ChequeSign currency={home} />
             </Link>
           )}
           <div className="pr-16 text-sm font-medium text-white/80">{allSettled ? 'Overall' : `Overall, ${net >= 0 ? 'you are owed' : 'you owe'}`}</div>
@@ -192,13 +192,13 @@ export function Section({ title, link, children }: { title: string; link?: { to:
 }
 
 /**
- * The icon after "Hi": one icon for the time of day (HELLO), playing its motion (a wave, a bob, a
- * tilt) a few times and then resting; tapping it plays it again. Static under reduced motion.
+ * The icon after "Hi": one icon for the time of day, picked per visit from HELLO, playing its own
+ * motion (wave, bob, tilt, bounce, pulse, swing) a few times and then resting; tapping it plays it again. Static under reduced motion.
  */
 function HelloIcon({ part }: { part: DayPart }) {
-  const cur = HELLO[part][0]
+  const [cur] = useState(() => helloFor(part))
   const [run, setRun] = useState(0)
-  const motion = cur.motion === 'wave' ? 'animate-wave origin-[70%_70%]' : cur.motion === 'tilt' ? 'animate-tilt' : 'animate-float'
+  const motion = { wave: 'animate-wave origin-[70%_70%]', tilt: 'animate-tilt', float: 'animate-float', bounce: 'animate-hello-bounce origin-bottom', pulse: 'animate-hello-pulse', swing: 'animate-hello-swing origin-top' }[cur.motion]
   return (
     <span aria-hidden className="inline-flex h-[1.2em] w-[1.2em] items-center justify-center" onClick={() => setRun((n) => n + 1)}>
       <span key={run} className={`inline-block ${motion}`}>{cur.emoji}</span>
@@ -259,26 +259,63 @@ function Greeting({ salutation, name, part }: { salutation: string; name: string
 }
 
 /**
- * The settle icon: a hand that flicks a coin up; it spins and drops back into the palm. Tosses
- * a few times (first shortly after the page opens, then every few seconds) and then rests.
- * Still under reduced motion.
+ * The settle icon: a cheque with the user's currency on it and a pen that signs it. The pen's tip
+ * follows the signature path exactly (getPointAtLength each frame) while the ink line draws on
+ * behind it, then the pen lifts away. Signs a few times (first shortly after the page opens),
+ * then rests with the signature in place. Still, already signed, under reduced motion.
  */
-function CoinToss() {
-  const [toss, setToss] = useState(0)
+const SIGNATURE = 'M13.4 20.6 c0.7-2.3 1.9-2.8 2.2-0.7 c0.25 1.8 1 2 1.75 0.2 c0.7-1.7 1.5-1.9 2 0.2 c0.4 1.3 1.15 1.25 2.05-0.4'
+function ChequeSign({ currency }: { currency: string }) {
+  const ink = useRef<SVGPathElement>(null)
+  const pen = useRef<SVGGElement>(null)
+  const [signed, setSigned] = useState(false)
   useEffect(() => {
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
-    const times = [1200, 7000, 14000]
-    const ts = times.map((t, i) => setTimeout(() => setToss(i + 1), t))
-    return () => ts.forEach(clearTimeout)
+    const path = ink.current, p = pen.current
+    if (!path || !p) return
+    const len = path.getTotalLength()
+    path.style.strokeDasharray = `${len}`
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) { path.style.strokeDashoffset = '0'; setSigned(true); return }
+    path.style.strokeDashoffset = `${len}`
+    let raf = 0
+    const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2)
+    const place = (d: number, lift = 0, alpha = 1) => {
+      const pt = path.getPointAtLength(d)
+      p.setAttribute('transform', `translate(${pt.x + lift * 0.6} ${pt.y - lift})`)
+      p.style.opacity = String(alpha)
+    }
+    const run = () => {
+      const t0 = performance.now(), IN = 260, WRITE = 1150, OUT = 380
+      const frame = (now: number) => {
+        const t = now - t0
+        if (t < IN) { place(0, 3 * (1 - t / IN), t / IN); path.style.strokeDashoffset = `${len}` }
+        else if (t < IN + WRITE) { const d = ease((t - IN) / WRITE) * len; place(d); path.style.strokeDashoffset = `${len - d}` }
+        else if (t < IN + WRITE + OUT) { const k = (t - IN - WRITE) / OUT; place(len, 3 * k, 1 - k); path.style.strokeDashoffset = '0' }
+        else { p.style.opacity = '0'; setSigned(true); return }
+        raf = requestAnimationFrame(frame)
+      }
+      raf = requestAnimationFrame(frame)
+    }
+    const ts = [1000, 8000, 15000].map((t) => setTimeout(run, t))
+    return () => { ts.forEach(clearTimeout); cancelAnimationFrame(raf) }
   }, [])
+  const sym = currencySymbol(currency)
   return (
-    <span aria-hidden className="relative block h-8 w-8">
-      <span key={`h${toss}`} className={`absolute inset-0 ${toss ? 'animate-hand-flick' : ''}`}>
-        <HandCoins size={32} strokeWidth={2} />
-      </span>
-      {toss > 0 && (
-        <span key={`c${toss}`} className="animate-coin-toss absolute right-[3px] top-[1px] block h-[9px] w-[9px] rounded-full border-[1.8px] border-amber-200 bg-amber-300/90 shadow-[0_0_6px_rgb(253_230_138/0.8)]" />
-      )}
-    </span>
+    <svg aria-hidden viewBox="0 0 32 32" className="h-9 w-9 overflow-visible" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+      {/* cheque book: the front cheque, its rolled left edge and the page behind */}
+      <path d="M8.2 9.4 H27.2 V23.4 H8.2" strokeWidth="1.7" />
+      <path d="M8.2 23.4 V11.3 a2.05 2.05 0 1 0 -4.1 0 V24.2 a1.9 1.9 0 0 0 1.9 1.9 H25.4 V23.4" strokeWidth="1.7" />
+      <text x="11.6" y="18.1" textAnchor="middle" fontSize={sym.length > 1 ? 5 : 7.2} fontWeight="800" fill="currentColor" stroke="none">{sym}</text>
+      <path d="M15.4 13.3 H24.6 M15.4 16.1 H22" strokeWidth="1.5" />
+      <path d="M10 21.3 H12" strokeWidth="1.5" />
+      <path ref={ink} d={SIGNATURE} strokeWidth="1.25" style={{ strokeDashoffset: signed ? 0 : undefined }} />
+      {/* pen: drawn with its tip at (0,0), leaning right; moved along the signature */}
+      <g ref={pen} style={{ opacity: 0 }}>
+        <g transform="rotate(32)">
+          <path d="M0 0 L-1.15 -2.6 H1.15 Z" fill="currentColor" stroke="none" />
+          <rect x="-1.4" y="-12.5" width="2.8" height="9.9" rx="0.9" strokeWidth="1.3" className="fill-brand-600" />
+          <path d="M1.4 -11.6 h1 v3.4" strokeWidth="1" />
+        </g>
+      </g>
+    </svg>
   )
 }

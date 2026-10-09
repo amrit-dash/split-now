@@ -36,8 +36,8 @@ export function Layout() {
         <div aria-hidden className="pointer-events-none absolute left-1/2 top-[0.5625rem] h-0 w-0">
           {/* a wide, soft glow radiating all round, lighter towards the top */}
           <div className="fab-halo-a absolute left-1/2 top-1/2 h-[6.75rem] w-[6.75rem] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-80 blur-[22px] saturate-150"><Aurora size="fab" /></div>
-          {/* a crisper, stronger lower half that fills the notch gap instead of showing through */}
-          <div className="fab-halo-b absolute left-1/2 top-1/2 h-[4.55rem] w-[4.55rem] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[3px] saturate-150"><Aurora size="fab" /></div>
+          {/* a stronger lower half, a bit wider than the notch, that fills the gap and fades out upwards */}
+          <div className="fab-halo-b absolute left-1/2 top-1/2 h-[5.2rem] w-[5.2rem] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[5px] saturate-150"><Aurora size="fab" /></div>
         </div>
         {/* The bar, with a round notch cut out for the + button (mask in index.css). */}
         <div aria-hidden className="nav-notch absolute inset-0 border-t border-slate-200/70 bg-white/95 backdrop-blur-xl dark:border-white/5 dark:bg-ink-900/95" />
