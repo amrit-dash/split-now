@@ -203,6 +203,12 @@ html[data-update-ready] .install-banner { display: none; }
 /* Greeting icon motions: a few rounds, each ending at rest, then it stays still. */
 @keyframes wave-loop { 0%, 55%, 100% { transform: rotate(0deg); } 6%, 18% { transform: rotate(16deg); } 12% { transform: rotate(-8deg); } 24% { transform: rotate(-4deg); } 30% { transform: rotate(10deg); } 36% { transform: rotate(0deg); } }
 @keyframes tilt { 0%, 100% { transform: rotate(0) scale(1); } 25% { transform: rotate(-9deg) scale(1.04); } 75% { transform: rotate(9deg) scale(1.04); } }
+@keyframes hello-bounce { 0%, 50%, 100% { transform: translateY(0) scale(1, 1); } 12% { transform: translateY(0) scale(1.08, 0.92); } 26% { transform: translateY(-5px) scale(0.96, 1.05); } 40% { transform: translateY(0) scale(1.05, 0.95); } }
+@keyframes hello-pulse { 0%, 100% { transform: scale(1); filter: brightness(1); } 40% { transform: scale(1.16); filter: brightness(1.15); } }
+@keyframes hello-swing { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(14deg); } 45% { transform: rotate(-10deg); } 70% { transform: rotate(5deg); } }
+@utility animate-hello-bounce { animation: hello-bounce 1.8s ease-in-out 0.4s 3; }
+@utility animate-hello-pulse { animation: hello-pulse 1.9s ease-in-out 0.4s 3; }
+@utility animate-hello-swing { animation: hello-swing 2.2s ease-in-out 0.4s 3; }
 @utility animate-wave { animation: wave-loop 2.6s ease-in-out 0.4s 3; }
 @utility animate-tilt { animation: tilt 2.2s ease-in-out 0.4s 3; }
 @utility animate-float { animation: float 2.4s ease-in-out 0.4s 4; }
@@ -274,22 +280,11 @@ html[data-nav]:has(.install-banner, [data-testid='update-banner'], [data-testid=
   mask: radial-gradient(closest-side, #000 35%, transparent) intersect, linear-gradient(to bottom, rgb(0 0 0 / 0.25) 20%, #000 60%);
 }
 .fab-halo-b {
-  -webkit-mask: linear-gradient(to bottom, transparent 48%, #000 68%);
-  mask: linear-gradient(to bottom, transparent 48%, #000 68%);
+  -webkit-mask: linear-gradient(to bottom, transparent 30%, rgb(0 0 0 / 0.25) 45%, rgb(0 0 0 / 0.7) 58%, #000 72%);
+  mask: linear-gradient(to bottom, transparent 30%, rgb(0 0 0 / 0.25) 45%, rgb(0 0 0 / 0.7) 58%, #000 72%);
 }
 .fab-rim {
   -webkit-mask: linear-gradient(to bottom, transparent 30%, #000 75%);
   mask: linear-gradient(to bottom, transparent 30%, #000 75%);
 }
 
-/* Home settle icon (CoinToss): the hand flicks, the coin spins up and drops back into the palm. */
-@keyframes hand-flick { 0%, 40%, 100% { transform: translateY(0) rotate(0); } 8% { transform: translateY(2px) rotate(-7deg); } 18% { transform: translateY(-1.5px) rotate(4deg); } 72% { transform: translateY(1.5px) rotate(-2deg); } 82% { transform: translateY(0) rotate(0); } }
-@keyframes coin-toss {
-  0% { transform: translateY(0) rotateX(0) scale(0.7); opacity: 0; }
-  10% { opacity: 1; }
-  45% { transform: translateY(-20px) rotateX(540deg) scale(1); opacity: 1; animation-timing-function: ease-in; }
-  80% { transform: translateY(2px) rotateX(1080deg) scale(0.9); opacity: 1; }
-  100% { transform: translateY(2px) rotateX(1080deg) scale(0.7); opacity: 0; }
-}
-@utility animate-hand-flick { animation: hand-flick 1.3s ease-out both; transform-origin: 30% 80%; }
-@utility animate-coin-toss { animation: coin-toss 1.3s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
