@@ -3,12 +3,19 @@
  * Functions; the server is the one that enforces it.
  *
  *  config/ai                     project settings (admins edit; everyone signed in can read)
- *  users/{uid}/settings/notifications   the user's choices (aiEnabled, aiImages, aiSms, aiSource, aiModel)
+ *  users/{uid}/settings/notifications   the user's choices (aiEnabled, aiImages, aiSms, aiQuickAdd, aiSource, aiModel)
  *  users/{uid}/secrets/gemini    the user's own key (server only; the app can never read it back)
  *  users/{uid}/aiState/status    server-written: own key last 4, last error (owner can read)
  */
 
-export type AiFeature = 'images' | 'sms'
+export type AiFeature = 'images' | 'sms' | 'quickAdd'
+
+/**
+ * The config/ai switch (and allowance) a feature's use of the shared key follows. Quick add with
+ * AI is a short text call, so it rides on the bills allowance ("images") rather than adding a
+ * third switch to the admin's shared-key settings.
+ */
+export const appFeatureOf = (f: AiFeature): 'images' | 'sms' => (f === 'sms' ? 'sms' : 'images')
 export type AiSource = 'auto' | 'own' | 'app'
 export type AppAiMode = 'off' | 'everyone' | 'allowlist'
 
@@ -60,13 +67,16 @@ export interface UserAiPrefs {
   aiEnabled: boolean
   aiImages: boolean
   aiSms: boolean
+  /** Quick add lines too complex for the built-in reader go to Gemini (quickAddAi); opt-in */
+  aiQuickAdd: boolean
   aiSource: AiSource
   /** model for the user's own key; '' = recommended */
   aiModel: string
 }
 
 // Bank SMS reading by AI is opt-in (owner decision, Oct 2026): off until the person turns it on.
-export const DEFAULT_USER_AI: UserAiPrefs = { aiEnabled: true, aiImages: true, aiSms: false, aiSource: 'auto', aiModel: '' }
+// Quick add with AI is opt-in the same way.
+export const DEFAULT_USER_AI: UserAiPrefs = { aiEnabled: true, aiImages: true, aiSms: false, aiQuickAdd: false, aiSource: 'auto', aiModel: '' }
 
 const MODEL_RE = /^[a-z0-9][a-z0-9.-]{2,79}$/
 export const validModel = (m: unknown): m is string => typeof m === 'string' && MODEL_RE.test(m)
@@ -96,14 +106,19 @@ export function resolveUserAi(raw: unknown): UserAiPrefs {
     aiEnabled: r.aiEnabled !== false,
     aiImages: r.aiImages !== false,
     aiSms: r.aiSms === true,
+    aiQuickAdd: r.aiQuickAdd === true,
     aiSource: r.aiSource === 'own' || r.aiSource === 'app' ? r.aiSource : 'auto',
     aiModel: validModel(r.aiModel) ? r.aiModel : '',
   }
 }
 
+/** Has this person switched AI on for this feature (the master switch and the feature's own)? */
+export const userFeatureOn = (user: UserAiPrefs, feature: AiFeature): boolean =>
+  user.aiEnabled && (feature === 'images' ? user.aiImages : feature === 'sms' ? user.aiSms : user.aiQuickAdd)
+
 /** May this person use the shared key for this feature? */
 export function appKeyAllowed(app: AppAiConfig, feature: AiFeature, email: string | undefined): boolean {
-  if (app.mode === 'off' || !app[feature]) return false
+  if (app.mode === 'off' || !app[appFeatureOf(feature)]) return false
   if (app.mode === 'everyone') return true
   return !!email && app.allowEmails.includes(normaliseEmail(email))
 }
@@ -113,7 +128,7 @@ export type AppAiStatus = 'available' | 'off' | 'not_listed' | 'feature_off'
 /** For the settings screen: why the shared key is or isn't usable. */
 export function appKeyStatus(app: AppAiConfig, feature: AiFeature, email: string | undefined): AppAiStatus {
   if (app.mode === 'off') return 'off'
-  if (!app[feature]) return 'feature_off'
+  if (!app[appFeatureOf(feature)]) return 'feature_off'
   return appKeyAllowed(app, feature, email) ? 'available' : 'not_listed'
 }
 
@@ -142,7 +157,7 @@ export const withFallbacks = (m: string | undefined) => [...new Set([m || DEFAUL
  */
 export function planAi(opts: { feature: AiFeature; user: UserAiPrefs; app: AppAiConfig; hasOwnKey: boolean; email?: string }): KeyPlan[] {
   const { feature, user, app, hasOwnKey, email } = opts
-  if (!user.aiEnabled || !(feature === 'images' ? user.aiImages : user.aiSms)) return []
+  if (!userFeatureOn(user, feature)) return []
   const own: KeyPlan | null = hasOwnKey && user.aiSource !== 'app' ? { key: 'own', models: withFallbacks(user.aiModel) } : null
   const shared: KeyPlan | null = user.aiSource !== 'own' && appKeyAllowed(app, feature, email) ? { key: 'app', models: withFallbacks(app.model) } : null
   return [own, shared].filter((p): p is KeyPlan => !!p)

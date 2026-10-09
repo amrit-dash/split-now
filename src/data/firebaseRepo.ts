@@ -54,6 +54,7 @@ import type { FirebaseStorage } from 'firebase/storage'
 import type { ActivityEntry, Capture, Expense, ExpenseComment, Group, Member, MemberId, Settlement, UserProfile } from '@/types'
 import { inviteCode, todayISO, uid } from '@/lib/id'
 import { defaultCurrency } from '@/lib/locale'
+import { isRemoved } from '@/lib/members'
 import { inboxToDraft, newCaptureToken, type InboxDoc } from '@/lib/capture'
 import { downscale } from '@/lib/image'
 import { TABLE_TTL_MS, type LiveTable } from '@/lib/table'
@@ -96,6 +97,7 @@ import type { ParsedReceipt } from '@/lib/ocr-parse'
 import type { AiKeyResult, AiModel, AiState, AiStatement, AiStatusResult, AiUnavailableReason } from './repo'
 import { parseMemory } from '@/lib/merchants'
 import type { AiTextExpense } from '@/lib/nl-expense'
+import type { QuickAiRequest, QuickAiResponse } from '../../shared/quick-ai'
 import type { NudgeItem, NudgeResult } from '@/lib/nudge'
 import { errText } from '@/lib/errors'
 import type { FxRatesDoc, FxRefreshResult } from '@/lib/fx'
@@ -541,6 +543,21 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     },
     async addMember(group, memberId, member) {
       const batch = writeBatch(db)
+      const former = group.members[memberId]
+      if (isRemoved(former)) {
+        // Back in: their old entry returns as a placeholder (the rules allow dropping only removedAt
+        // and uid), so their history joins up; with an account they rejoin through the invite.
+        batch.update(groupRef(group.id), {
+          [`members.${memberId}.removedAt`]: deleteField(),
+          [`members.${memberId}.uid`]: deleteField(),
+          memberOpId: memberId,
+          updatedAt: Date.now(),
+        })
+        if (group.type !== 'personal') batch.set(inviteRef(group.inviteCode), { groupId: group.id, placeholders: { [memberId]: former.name } }, { merge: true })
+        log(batch, group.id, memberActivity('added', memberId, former.name, await actCtx(group.id, undefined, group)))
+        fire(batch, `Adding ${former.name}`)
+        return
+      }
       batch.update(groupRef(group.id), {
         [`members.${memberId}`]: member,
         ...(member.uid ? { memberUids: arrayUnion(member.uid) } : {}),
@@ -572,8 +589,10 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       const batch = writeBatch(db)
       // Rules check membership as it was before the batch, so leaving can still log.
       if (m) log(batch, group.id, memberActivity('removed', memberId, m.name, ctx, m.uid === me()))
+      // A soft remove: the entry stays (marked removedAt) so old expenses keep their name and stay
+      // editable; their uid leaves memberUids, which is what takes their access away.
       batch.update(groupRef(group.id), {
-        [`members.${memberId}`]: deleteField(),
+        [`members.${memberId}.removedAt`]: Date.now(),
         ...(m?.uid ? { memberUids: arrayRemove(m.uid) } : {}),
         memberOpId: memberId,
         updatedAt: Date.now(),
@@ -1203,6 +1222,16 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         return d.unavailable ? { unavailable: true, reason: d.reason } : { statement: d.statement ?? null }
       } catch (e) {
         console.warn('AI statement reading failed', e)
+        return null
+      }
+    },
+    async quickAddAi(req) {
+      if (!auth.currentUser || auth.currentUser.isAnonymous || !online()) return null
+      try {
+        const call = await callable<QuickAiRequest, QuickAiResponse>('quickAddAi', 30_000)
+        return (await call(req)).data ?? null
+      } catch (e) {
+        console.warn('Quick add with AI failed', e)
         return null
       }
     },

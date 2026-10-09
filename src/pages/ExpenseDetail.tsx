@@ -16,6 +16,7 @@ import { colorFor } from '@/lib/colors'
 import { Avatar } from '@/components/Avatar'
 import { Empty, Loading, PageHeader } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
+import { SwipeRow } from '@/components/SwipeRow'
 import { usePageTitle } from '@/lib/brand'
 import { HistoryCard, TrashedBanner, TrustBadges, TrustPanel, useUndoableDelete } from '@/components/Trust'
 
@@ -312,26 +313,21 @@ function Comments({ group, expense }: { group: Group; expense: Expense }) {
       ) : (
         <ul className="space-y-3">
           {comments.map((c, i) => (
-            <li key={c.id} className="flex gap-2.5">
+            <SwipeRow
+              key={c.id}
+              className="-mx-4"
+              contentClassName="flex gap-2.5 px-4"
+              actions={c.authorUid === user.uid ? [{ label: 'Delete', ariaLabel: 'Delete comment', onClick: () => remove(c) }] : []}
+            >
               <Avatar name={c.authorName} color={colorOf(c.authorUid, i)} photoURL={memberOf(c.authorUid)?.photoURL} size={30} />
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline gap-2 text-xs">
                   <span className="font-semibold text-slate-900 dark:text-slate-100">{c.authorUid === user.uid ? 'You' : c.authorName}</span>
                   <span className="text-muted">{fmtWhen(c.createdAt)}</span>
-                  {c.authorUid === user.uid && (
-                    <button
-                      type="button"
-                      onClick={() => remove(c)}
-                      className="-my-2 ml-auto flex h-8 w-8 items-center justify-center rounded-full text-muted hover:text-rose-600"
-                      aria-label="Delete comment"
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  )}
                 </div>
                 <p className="mt-0.5 whitespace-pre-wrap break-words text-sm">{c.text}</p>
               </div>
-            </li>
+            </SwipeRow>
           ))}
         </ul>
       )}

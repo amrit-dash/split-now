@@ -9,6 +9,7 @@ import { useOcr } from '@/hooks/useOcr'
 import type { Cents, MemberId, PaymentHandles } from '@/types'
 import type { MemberProfile } from '@/data/repo'
 import { centsToInput, currencySymbol, formatMoney, fromHundredths } from '@/lib/money'
+import { isSettled } from '@/lib/members'
 import { isIOS, isUpiId, methodFor, methodLabel, payOptions, roundSuggestions, settleMethods, type PayOption } from '@/lib/payments'
 import { matchMember, parsePaymentScreenshot, type ParsedPayment } from '@/lib/ocr-parse'
 import { pending } from '@/lib/pending'
@@ -81,7 +82,7 @@ export default function SettleUp() {
     if (p.amount) typeAmount(p.amount)
     if (p.method && settleMethods(d.group.currency).includes(p.method)) pickMethod(p.method)
     if (p.date) setDate(p.date)
-    const members = Object.entries(d.group.members).map(([id, m]) => ({ id, name: m.name }))
+    const members = memberOrder(d.group).map((id) => ({ id, name: d.group.members[id].name }))
     const match = matchMember(
       p.payee,
       members.filter((m) => m.id !== d.me),
@@ -172,7 +173,8 @@ export default function SettleUp() {
     )
   if (!d || !group) return <Loading />
   const cur = group.currency
-  const order = memberOrder(group)
+  // People in the group now, plus anyone who left with money still owed (old data) or is prefilled here.
+  const order = memberOrder(group, [...Object.keys(d.net).filter((id) => !isSettled(d.net[id] ?? 0)), from, to])
   const name = (id: MemberId) => (id === d.me ? 'You' : (group.members[id]?.name ?? ''))
   const owed = d.debts.find((x) => x.from === from && x.to === to)?.amount
   const methods = settleMethods(cur)

@@ -11,6 +11,7 @@ import { todayISO } from '@/lib/id'
 import { mergeFeeds } from '@/lib/activity'
 import { canPurge, countedSettlements, expiredTrash, isDisputed, isPending, liveItems, trashedItems } from '@/lib/trust'
 import { markCreated, rewatchWhileFresh, watchGroupSettled } from '@/lib/fresh'
+import { isRemoved, orderMembers } from '@/lib/members'
 import { useMe } from './auth'
 
 /*
@@ -288,11 +289,17 @@ export function useComments(groupId: string | undefined, expenseId: string | und
 }
 
 export function myMemberId(g: Group, uid: string): MemberId | undefined {
-  return Object.entries(g.members).find(([, m]) => m.uid === uid)?.[0]
+  // Your current entry first; an entry you left behind only if there is no other.
+  const all = Object.entries(g.members).filter(([, m]) => m.uid === uid)
+  return (all.find(([, m]) => !isRemoved(m)) ?? all[0])?.[0]
 }
 
-export function memberOrder(g: Group): MemberId[] {
-  return Object.keys(g.members).sort((a, b) => g.members[a].name.localeCompare(g.members[b].name))
+/**
+ * The people in the group now, by name: what every picker offers. `keep` adds removed members
+ * that must still show (the people in an old expense being edited), so editing never drops them.
+ */
+export function memberOrder(g: Group, keep?: Iterable<MemberId>): MemberId[] {
+  return orderMembers(g.members, keep)
 }
 
 export interface GroupData {

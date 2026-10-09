@@ -104,7 +104,49 @@
     --color-brand-50: oklch(98.4% 0.003 247.858); --color-brand-100: oklch(96.8% 0.007 247.896); --color-brand-200: oklch(92.9% 0.013 255.508); --color-brand-300: oklch(86.9% 0.022 252.894); --color-brand-400: oklch(70.4% 0.04 256.788); --color-brand-500: oklch(55.4% 0.046 257.417); --color-brand-600: oklch(44.6% 0.043 257.281); --color-brand-700: oklch(37.2% 0.044 257.287); --color-brand-800: oklch(27.9% 0.041 260.031); --color-brand-900: oklch(20.8% 0.042 265.755);
     --color-duo-50: oklch(98.5% 0 none); --color-duo-100: oklch(96.7% 0.001 286.375); --color-duo-200: oklch(92% 0.004 286.32); --color-duo-300: oklch(87.1% 0.006 286.286); --color-duo-400: oklch(70.5% 0.015 286.067); --color-duo-500: oklch(55.2% 0.016 285.938); --color-duo-600: oklch(44.2% 0.017 285.786); --color-duo-700: oklch(37% 0.013 285.805); --color-duo-800: oklch(27.4% 0.006 286.033); --color-duo-900: oklch(21% 0.006 285.885);
   }
-  /* Dual tone off: gradients collapse to the brand scale. Must stay after the presets. */
+  /* "Text on accent" (<html data-ink>, src/lib/accent.ts). White ink keeps the deep fills above;
+     dark ink needs bright fills, since near-black on a deep violet is about 3:1. Each preset gets
+     a bright set here: the fill and its aurora shades in the brand hue (lightest 300 to darkest
+     900), the partner in the duo hue, all light enough that the ink reads at 4.5:1 or better
+     (accent.test.ts measures every step). Neon is the other way round: bright by default, and a
+     deep lime / teal set with white text when white ink is picked. The :where() keeps these at
+     the presets' specificity, so source order decides: after the presets, before dual tone off. */
+  &[data-accent='violet']:where([data-ink='dark']) {
+    --color-fill: oklch(72% 0.156 293); --color-fill-300: oklch(86% 0.074 293); --color-fill-400: oklch(81% 0.102 293); --color-fill-500: oklch(77% 0.125 293); --color-fill-700: oklch(69% 0.175 293); --color-fill-800: oklch(66% 0.194 293); --color-fill-900: oklch(63% 0.2 293);
+    --color-fill-to: oklch(76% 0.205 322); --color-fill-to-400: oklch(84% 0.132 322); --color-fill-to-500: oklch(80% 0.168 322);
+    --color-on-fill: #0b0a14;
+  }
+  &[data-accent='ocean']:where([data-ink='dark']) {
+    --color-fill: oklch(74% 0.131 258); --color-fill-300: oklch(88% 0.057 258); --color-fill-400: oklch(83% 0.083 258); --color-fill-500: oklch(79% 0.104 258); --color-fill-700: oklch(71% 0.148 258); --color-fill-800: oklch(68% 0.165 258); --color-fill-900: oklch(65% 0.17 258);
+    --color-fill-to: oklch(80% 0.137 215); --color-fill-to-400: oklch(88% 0.093 215); --color-fill-to-500: oklch(84% 0.126 215);
+    --color-on-fill: #0b0a14;
+  }
+  &[data-accent='neon']:where([data-ink='light']) {
+    --color-fill: var(--color-brand-600); --color-fill-300: var(--color-brand-300); --color-fill-400: var(--color-brand-400); --color-fill-500: var(--color-brand-500); --color-fill-700: var(--color-brand-700); --color-fill-800: var(--color-brand-800); --color-fill-900: var(--color-brand-900);
+    --color-fill-to: var(--color-duo-600); --color-fill-to-400: var(--color-duo-400); --color-fill-to-500: var(--color-duo-500);
+    --color-on-fill: #ffffff;
+  }
+  &[data-accent='berry']:where([data-ink='dark']) {
+    --color-fill: oklch(72% 0.2 343); --color-fill-300: oklch(86% 0.095 343); --color-fill-400: oklch(81% 0.136 343); --color-fill-500: oklch(77% 0.172 343); --color-fill-700: oklch(69% 0.2 343); --color-fill-800: oklch(66% 0.2 343); --color-fill-900: oklch(63% 0.2 343);
+    --color-fill-to: oklch(80% 0.13 195); --color-fill-to-400: oklch(88% 0.13 195); --color-fill-to-500: oklch(84% 0.13 195);
+    --color-on-fill: #0b0a14;
+  }
+  &[data-accent='lime']:where([data-ink='dark']) {
+    --color-fill: oklch(84% 0.216 129); --color-fill-300: oklch(96% 0.09 129); --color-fill-400: oklch(93% 0.178 129); --color-fill-500: oklch(89% 0.22 129); --color-fill-700: oklch(81% 0.209 129); --color-fill-800: oklch(78% 0.201 129); --color-fill-900: oklch(75% 0.193 129);
+    --color-fill-to: oklch(80% 0.13 213); --color-fill-to-400: oklch(88% 0.098 213); --color-fill-to-500: oklch(84% 0.13 213);
+    --color-on-fill: #0b0a14;
+  }
+  &[data-accent='gold']:where([data-ink='dark']) {
+    --color-fill: oklch(82% 0.164 82); --color-fill-300: oklch(94% 0.06 82); --color-fill-400: oklch(91% 0.086 82); --color-fill-500: oklch(87% 0.127 82); --color-fill-700: oklch(79% 0.158 82); --color-fill-800: oklch(76% 0.152 82); --color-fill-900: oklch(73% 0.146 82);
+    --color-fill-to: oklch(80% 0.148 66); --color-fill-to-400: oklch(88% 0.083 66); --color-fill-to-500: oklch(84% 0.115 66);
+    --color-on-fill: #0b0a14;
+  }
+  &[data-accent='graphite']:where([data-ink='dark']) {
+    --color-fill: oklch(76% 0.04 257); --color-fill-300: oklch(90% 0.04 257); --color-fill-400: oklch(85% 0.04 257); --color-fill-500: oklch(81% 0.04 257); --color-fill-700: oklch(73% 0.04 257); --color-fill-800: oklch(70% 0.04 257); --color-fill-900: oklch(67% 0.04 257);
+    --color-fill-to: oklch(80% 0.015 286); --color-fill-to-400: oklch(88% 0.015 286); --color-fill-to-500: oklch(84% 0.015 286);
+    --color-on-fill: #0b0a14;
+  }
+  /* Dual tone off: gradients collapse to the brand scale. Must stay after the presets and the ink sets. */
   &[data-duo='off'] {
     --color-duo-50: var(--color-brand-50); --color-duo-100: var(--color-brand-100); --color-duo-200: var(--color-brand-200); --color-duo-300: var(--color-brand-300); --color-duo-400: var(--color-brand-400); --color-duo-500: var(--color-brand-500); --color-duo-600: var(--color-brand-600); --color-duo-700: var(--color-brand-700); --color-duo-800: var(--color-brand-800); --color-duo-900: var(--color-brand-900);
     --color-fill-to: var(--color-fill); --color-fill-to-400: var(--color-fill-400); --color-fill-to-500: var(--color-fill-500);
@@ -123,6 +165,11 @@
     @apply bg-slate-50 text-slate-900 antialiased dark:bg-ink-950 dark:text-slate-100;
     overscroll-behavior-y: none;
   }
+  /* No scroll bars anywhere: on a phone they only flash over the content, and on desktop the
+     gutter broke the app's edge-to-edge look. Only the bar is hidden; touch, wheel and keyboard
+     scrolling still work (the scrollbar-none utility below stays for explicit use). */
+  html, body, * { scrollbar-width: none; }
+  html::-webkit-scrollbar, body::-webkit-scrollbar, *::-webkit-scrollbar { display: none; }
   input, select, textarea, button { font: inherit; }
   /* Keyboard focus is always visible; pointer focus stays quiet. */
   :focus-visible { outline: 2px solid var(--color-brand-500); outline-offset: 2px; border-radius: 0.5rem; }

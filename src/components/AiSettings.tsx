@@ -63,6 +63,8 @@ export function AiSettings() {
   const status = useAiStatus()
   // The admin's switch (config/app flags.aiImages). The server answers "off" anyway, so this only swaps the switch for the reason.
   const aiImages = useFlag('aiImages')
+  // The admin's switch for Quick add with AI (config/app flags.aiQuickAdd); the server refuses it anyway.
+  const aiQuickAdd = useFlag('aiQuickAdd')
   const [models, setModels] = useState<AiModel[] | null>(null)
   const [draft, setDraft] = useState('')
   const [editing, setEditing] = useState(false)
@@ -133,8 +135,8 @@ export function AiSettings() {
           }
         />
         <p className="text-muted mt-3 text-xs">
-          Photos of bills and statement screenshots, and bank SMS the built-in reader can’t make sense of, are sent to Google Gemini to read them. Nothing else
-          leaves your phone, and nothing is sent while this is off.
+          Photos of bills and statement screenshots, bank SMS the built-in reader can’t make sense of, and Quick add lines it can’t read are sent to Google
+          Gemini to read them. Nothing else leaves your phone, and nothing is sent while this is off.
         </p>
         {prefs.aiEnabled && (
           <p className="mt-3 flex items-center gap-2 text-sm font-medium" data-testid="ai-status-line">
@@ -188,6 +190,20 @@ export function AiSettings() {
                   onChange={(v) => set({ aiSmsMerchant: v })}
                   text="When the app reads the amount but not the payee, the masked message is sent to Gemini for the name. Off: such payments are saved as “Payment”."
                 />
+              )}
+              {aiQuickAdd ? (
+                <Row
+                  title="Quick add with AI"
+                  testId="ai-quick-add"
+                  checked={prefs.aiQuickAdd}
+                  onChange={(v) => set({ aiQuickAdd: v })}
+                  text="When a line is too complex to read, AI works it out. Uses your AI quota."
+                />
+              ) : (
+                <div data-testid="ai-quick-add-off">
+                  <div className="font-semibold">Quick add with AI</div>
+                  <div className="text-muted text-sm">Switched off for everyone right now</div>
+                </div>
               )}
             </div>
 

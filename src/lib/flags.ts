@@ -18,6 +18,7 @@
 export const FLAG_NAMES = [
   'aiImages',
   'aiSms',
+  'aiQuickAdd',
   'liveTables',
   'autoCapture',
   'quickAdd',
@@ -38,6 +39,10 @@ export const FLAG_INFO: Record<FlagName, { label: string; hint: string }> = {
     hint: 'Scan and Statement import stop asking Gemini; the phone reads bills instead. Server-enforced.',
   },
   aiSms: { label: 'Read bank SMS with AI', hint: 'The capture webhook stops sending unreadable messages to Gemini. Server-enforced.' },
+  aiQuickAdd: {
+    label: 'Quick add with AI',
+    hint: 'Quick add lines too complex for the built-in reader stop going to Gemini (for people who turned it on); the line opens the form as read. Server-enforced.',
+  },
   liveTables: { label: 'Live tables', hint: 'The QR shared bill (/split, /t/CODE). Off hides the routes for everyone, guests included.' },
   autoCapture: { label: 'Auto-capture', hint: 'Bank SMS forwarding. Off makes the webhook answer "paused" and hides the setup wizard.' },
   statementImport: { label: 'Statement import', hint: 'Payment-app screenshots → transactions.' },
@@ -325,6 +330,32 @@ export function resetAppConfig(): void {
   subs.clear()
 }
 
+/*
+ * The last blocked/{uid} answer on this device, so a launch doesn't keep the splash up until
+ * Firestore has answered (after sign-in has been confirmed with the server, on every launch).
+ * The live answer replaces it a moment later; the rules refuse a blocked account's writes either way.
+ */
+const blockedKey = (uid: string) => `splitnow-blocked:${uid}`
+
+/** null: not blocked last time; the entry: blocked; undefined: never checked here (wait for the server). */
+export function lastBlocked(uid: string): BlockInfo | null | undefined {
+  try {
+    const s = localStorage.getItem(blockedKey(uid))
+    if (s === null) return undefined
+    return s === 'null' ? null : (resolveBlockInfo(JSON.parse(s)) ?? undefined)
+  } catch {
+    return undefined
+  }
+}
+
+export function rememberBlocked(uid: string, b: BlockInfo | null): void {
+  try {
+    localStorage.setItem(blockedKey(uid), JSON.stringify(b))
+  } catch {
+    /* private mode */
+  }
+}
+
 /** blocked/{uid}: null when not blocked (or unreadable); the entry when the account is blocked. */
 export function watchBlocked(uid: string, cb: (b: BlockInfo | null) => void): Unsub {
   let unsub: Unsub | null = null
@@ -334,7 +365,11 @@ export function watchBlocked(uid: string, cb: (b: BlockInfo | null) => void): Un
       if (cancelled) return
       unsub = f.onSnapshot(
         f.doc(db, 'blocked', uid),
-        (s) => cb(s.exists() ? resolveBlockInfo(s.data()) : null),
+        (s) => {
+          const b = s.exists() ? resolveBlockInfo(s.data()) : null
+          rememberBlocked(uid, b)
+          cb(b)
+        },
         () => cb(null),
       )
     })

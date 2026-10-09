@@ -5,7 +5,7 @@ import { captureIdFor, tokenKey } from './ids'
 import { captureNote, expenseNote, formatMoney, reminderNote, settlementNote, settlementRecordedNote } from './notify-text'
 import { resolvePrefs } from './prefs'
 import { applyRateLimit } from './ratelimit'
-import { expenseRecipients, memberUid } from './recipients'
+import { expenseRecipients, memberIdForUid, memberNameForUid, memberUid } from './recipients'
 import { readCaptureRequest } from './request'
 import { istDate, transactionDate } from './time'
 import { matchScoped, pickTrip } from './trips'
@@ -219,6 +219,14 @@ describe('recipients and prefs', () => {
     expect(memberUid({ ...members, b: { uid: 'victim' } }, 'b', uids)).toBeUndefined()
     expect(memberUid(members, 'c', uids)).toBeUndefined()
   })
+  it('someone who left is never pushed to, and their old entry never stands for them', () => {
+    const left = { ...members, b: { name: 'Bob', uid: 'ub', removedAt: 5 }, b2: { name: 'Bob again', uid: 'ub' } }
+    expect(memberUid(left, 'b', uids)).toBeUndefined()
+    expect(memberUid(left, 'b2', uids)).toBe('ub')
+    expect(memberIdForUid(left, 'ub')).toBe('b2')
+    expect(memberNameForUid(left, 'ub')).toBe('Bob again')
+    expect(memberIdForUid({ b: { uid: 'ub', removedAt: 5 } }, 'ub')).toBe('b')
+  })
   it('defaults prefs (unsorted off) and respects stored values', () => {
     expect(resolvePrefs(undefined)).toEqual({ captures: true, unsorted: false, expenses: true, settlements: true, reminders: true, outsideTrips: false })
     expect(resolvePrefs({ expenses: false, unsorted: true, junk: 1 })).toMatchObject({ expenses: false, unsorted: true })
@@ -244,6 +252,10 @@ describe('reminders', () => {
     expect(reminderTargets({ ...base, expenses: [{ ...old, deletedAt: 1 }] })).toEqual([])
     expect(reminderTargets({ ...base, expenses: [old], lastSent: { ub: now - 3 * DAY } })).toEqual([])
     expect(reminderTargets({ ...base, expenses: [old], lastSent: { ub: now - 8 * DAY } })).toHaveLength(1)
+  })
+  it('never nudges someone who left the group, even with old data still against them', () => {
+    const left = { ...members, b: { uid: 'ub', removedAt: now - DAY } }
+    expect(reminderTargets({ members: left, currency: 'INR', expenses: [old], settlements: [], now, lastSent: {} })).toEqual([])
   })
   it('ignores unbalanced expenses; thresholds per currency', () => {
     expect(netBalances([{ amount: 100, paidBy: { a: 100 }, splits: { b: 50 } }], [])).toEqual({})

@@ -58,7 +58,7 @@
         var dark = t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
         if (dark) document.documentElement.classList.add('dark')
       } catch (e) {}
-      // Accent colour + dual tone (src/lib/accent.ts). Keep this map in sync with ACCENTS there.
+      // Accent colour, dual tone and text on accent (src/lib/accent.ts). Keep this map in sync with ACCENTS there.
       try {
         var accents = { violet: '#6d28d9', ocean: '#1447e6', neon: '#426400', berry: '#97176e', lime: '#426400', gold: '#774f00', graphite: '#314158' }
         var retired = { saffron: 'gold', amber: 'gold', indigo: 'ocean' }
@@ -68,6 +68,16 @@
         var root = document.documentElement
         root.setAttribute('data-accent', a)
         if (localStorage.getItem('splitit-duo') === 'off') root.setAttribute('data-duo', 'off')
+        // Text on accent: this accent's stored choice ({"violet":"dark"}), else the preset's default
+        // (dark ink only for these). Bad JSON or an old plain value falls back to the default.
+        var darkInk = ['neon']
+        var ink
+        try {
+          var inks = JSON.parse(localStorage.getItem('splitit-ink') || '{}')
+          ink = inks && inks.hasOwnProperty(a) ? inks[a] : null
+        } catch (e) {}
+        if (ink !== 'light' && ink !== 'dark') ink = darkInk.indexOf(a) >= 0 ? 'dark' : 'light'
+        root.setAttribute('data-ink', ink)
         document.querySelector('meta[name="theme-color"]').setAttribute('content', root.classList.contains('dark') ? '#0b0a14' : accents[a])
       } catch (e) {}
     </script>

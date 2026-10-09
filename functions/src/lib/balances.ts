@@ -1,6 +1,7 @@
 import { minorDigitsOf } from '../../../shared/money-core'
 import { REMINDER } from '../config'
 import { netBalances, type BalanceExpense, type BalanceSettlement, type MembersLite } from '../../../shared/balances-core'
+import { isRemoved } from '../../../shared/members'
 
 /*
  * Settle-up reminders. The balance maths lives in shared/balances-core.ts (the same rules as
@@ -71,7 +72,8 @@ export function evaluateReminders(args: {
       since = -(thenNet[memberId] ?? 0) > threshold ? now - minAge : now
     }
     candidates[memberId] = since
-    if (!m.uid || now - since < minAge) continue
+    // Someone who left the group has no access to it: never nudge them about it.
+    if (!m.uid || isRemoved(m) || now - since < minAge) continue
     const last = lastSent[m.uid]
     if (last && now - last < REMINDER.cooldownDays * DAY) continue
     targets.push({ uid: m.uid, memberId, owed })

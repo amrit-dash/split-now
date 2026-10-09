@@ -52,16 +52,19 @@ export function Sheet({
       document.body.style.overflow = 'hidden'
       if (root) root.inert = true
     }
-    // Focus the first control, else the panel itself, so screen readers announce the dialog.
-    const first = panel.current?.querySelector<HTMLElement>(FOCUSABLE)
-    ;(first ?? panel.current)?.focus({ preventScroll: true })
+    // Focus the panel itself (screen readers announce the dialog; Tab then reaches the first
+    // control). Not the first control: on a phone that put a focus ring on the close button every
+    // time a sheet opened. A field the sheet autofocuses on purpose (autoFocus) keeps its focus.
+    if (!panel.current?.contains(document.activeElement)) panel.current?.focus({ preventScroll: true })
     return () => {
       if (--openCount === 0) {
         document.body.style.overflow = savedOverflow
         if (root) root.inert = false
       }
       const back = opener.current
-      if (back instanceof HTMLElement && back.isConnected) back.focus({ preventScroll: true })
+      // focusVisible: false keeps the opener (the + button) from lighting up with a ring when
+      // the sheet was closed by touch; browsers without the option just ignore it.
+      if (back instanceof HTMLElement && back.isConnected) back.focus({ preventScroll: true, focusVisible: false } as FocusOptions)
     }
   }, [open])
 

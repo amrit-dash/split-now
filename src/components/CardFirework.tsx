@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { type FireworkLook, fireworkLook } from '@/lib/firework'
 
 /*
  * Quiet fireworks for the Home balance card when you're all settled up.
@@ -8,8 +9,11 @@ import { useEffect, useRef, useState } from 'react'
  * smoothly) to burst just short of its apex somewhere in the top half of the card. A thin
  * fading spark trail follows it. Bursts are soft, washed-out particles (additive blend at low
  * alpha, a faint halo instead of shadowBlur) under gravity + drag; kept plain, without
- * twinkles or glints, so it stays quiet. Colours are picked per shell from the live theme (brand-200/300,
- * duo-300, white, soft gold), read with getComputedStyle at launch so accents just work.
+ * twinkles or glints, so it stays quiet. Colours are picked per shell from the live theme, read
+ * with getComputedStyle at launch so accents just work: on a deep fill light colours glow on top
+ * (brand-200/300, duo-300, white, soft gold); on a bright fill (dark text: Neon, or "Text on
+ * accent" set to Black) they would vanish, so the sparks are painted in the text's ink and the
+ * accent's deep shades instead (fireworkLook in src/lib/firework.ts).
  *
  * Choreography: rounds of 2–3 near-simultaneous shells (the opening round has 3) for 10–12
  * rounds in total, dimming towards a calmer brightness; after that it settles into a single
@@ -48,6 +52,7 @@ interface Shell {
   burstAt: number // show-clock ms
   hist: { x: number; y: number; t: number }[]
   colors: string[]
+  look: FireworkLook
   bright: number
   size: number
   alive: boolean
@@ -68,12 +73,16 @@ interface Particle {
   alpha: number
   twinkle: number // 0 = none, else phase seed
   ember: boolean
+  blend: FireworkLook['blend']
+  halo: number
 }
 interface Flash {
   x: number
   y: number
   t: number
   a: number
+  rgb: string
+  blend: FireworkLook['blend']
 }
 interface Launch {
   at: number
@@ -141,14 +150,24 @@ export function CardFirework() {
     let running = false
     let onScreen = true
 
-    const palette = () => {
-      const brand2 = cssVar('--color-brand-200', '#ddd6fe')
-      const brand3 = cssVar('--color-brand-300', '#c4b5fd')
-      const duo3 = cssVar('--color-duo-300', '#f0abfc')
-      const white = '#fffaf2'
-      const gold = '#f6dc9a'
-      const main = pick([brand2, brand3, duo3, white, gold, brand2, duo3])
-      const accent = pick([white, gold, brand2, duo3].filter((c) => c !== main))
+    // The look follows the fill under the card, read fresh per shell so an accent or ink change
+    // shows on the next launch.
+    const currentLook = () =>
+      fireworkLook({
+        onFill: cssVar('--color-on-fill', '#ffffff'),
+        brand200: cssVar('--color-brand-200', '#ddd6fe'),
+        brand300: cssVar('--color-brand-300', '#c4b5fd'),
+        duo300: cssVar('--color-duo-300', '#f0abfc'),
+        brand700: cssVar('--color-brand-700', '#6d28d9'),
+        brand800: cssVar('--color-brand-800', '#5b21b6'),
+        duo700: cssVar('--color-duo-700', '#a21caf'),
+      })
+    const palette = (look: FireworkLook) => {
+      const main = pick(look.main)
+      const others = look.accents.filter((c) => c !== main)
+      const accent = pick(others) ?? main
+      // On a bright fill a shell mixes three colours for a more festive burst.
+      if (look.mixed) return [main, main, accent, pick(others.filter((c) => c !== accent)) ?? accent]
       return [main, main, main, accent]
     }
 
@@ -166,6 +185,7 @@ export function CardFirework() {
       const g = (2 * H) / (T * T)
       const vy = -g * T
       const vx = (xb - x0) / T
+      const look = currentLook()
       shells.push({
         x: x0,
         y: y0,
@@ -174,7 +194,8 @@ export function CardFirework() {
         g,
         burstAt: clock + T * 1000 * rand(0.9, 0.96),
         hist: [],
-        colors: palette(),
+        colors: palette(look),
+        look,
         bright,
         size: rand(0.8, 1.15),
         alive: true,
@@ -183,7 +204,7 @@ export function CardFirework() {
 
     const burst = (s: Shell) => {
       const scale = clamp(Math.min(w, h * 1.9) / 330, 0.75, 1.25) * s.size
-      let n = Math.round(rand(22, 30) * (0.6 + 0.4 * s.bright))
+      let n = Math.round(rand(22, 30) * (0.6 + 0.4 * s.bright) * s.look.count)
       n = Math.min(n, MAX_PARTICLES - parts.length)
       const drag = rand(2.1, 2.6)
       for (let i = 0; i < n; i++) {
@@ -200,24 +221,26 @@ export function CardFirework() {
           born: clock + rand(0, 60),
           life: rand(1300, 2200),
           color: s.colors[i % s.colors.length],
-          r: rand(0.8, 1.35),
+          r: rand(0.8, 1.35) * s.look.spark,
           drag,
           grav: 34,
-          alpha: s.bright * 0.75,
+          alpha: s.bright * 0.75 * s.look.alpha,
           twinkle: 0,
           ember: false, // no twinkle: kept plain and quiet
+          blend: s.look.blend,
+          halo: s.look.halo,
         })
       }
-      flashes.push({ x: s.x, y: s.y, t: clock, a: s.bright })
+      flashes.push({ x: s.x, y: s.y, t: clock, a: s.bright, rgb: s.look.flash, blend: s.look.blend })
     }
 
     const draw = (dt: number) => {
       ctx.clearRect(0, 0, w, h)
-      ctx.globalCompositeOperation = 'lighter'
       ctx.lineCap = 'round'
 
       // Shells + trails
       for (const s of shells) {
+        ctx.globalCompositeOperation = s.look.blend
         if (s.alive) {
           s.vy += s.g * dt
           s.x += s.vx * dt
@@ -233,13 +256,15 @@ export function CardFirework() {
               vy: rand(-4, 10) - s.vy * 0.05,
               born: clock,
               life: rand(260, 520),
-              color: '#fff3d6',
-              r: rand(0.45, 0.8),
+              color: s.look.ember,
+              r: rand(0.45, 0.8) * s.look.spark,
               drag: 3,
               grav: 40,
               alpha: s.bright * 0.7,
               twinkle: 0,
               ember: true,
+              blend: s.look.blend,
+              halo: s.look.halo,
             })
           }
           if (clock >= s.burstAt) {
@@ -247,27 +272,28 @@ export function CardFirework() {
             burst(s)
           }
         }
-        s.hist = s.hist.filter((p) => clock - p.t < 260)
+        const trailMs = s.look.trailMs
+        s.hist = s.hist.filter((p) => clock - p.t < trailMs)
         const pts = s.hist
         for (let i = 1; i < pts.length; i++) {
-          const k = 1 - (clock - pts[i].t) / 260
+          const k = 1 - (clock - pts[i].t) / trailMs
           ctx.globalAlpha = Math.max(0, k * k * 0.55 * s.bright)
-          ctx.strokeStyle = '#fff1d0'
-          ctx.lineWidth = 0.6 + k * 0.7
+          ctx.strokeStyle = s.look.trail
+          ctx.lineWidth = (0.6 + k * 0.7) * s.look.spark
           ctx.beginPath()
           ctx.moveTo(pts[i - 1].x, pts[i - 1].y)
           ctx.lineTo(pts[i].x, pts[i].y)
           ctx.stroke()
         }
         if (s.alive) {
-          ctx.fillStyle = '#fff8e8'
-          ctx.globalAlpha = 0.18 * s.bright
+          ctx.fillStyle = s.look.head
+          ctx.globalAlpha = 0.18 * s.bright * (s.look.halo / 0.13) // the glow scales with the look's halo (faint on bright fills)
           ctx.beginPath()
-          ctx.arc(s.x, s.y, 3.2, 0, Math.PI * 2)
+          ctx.arc(s.x, s.y, 3.2 * s.look.spark, 0, Math.PI * 2)
           ctx.fill()
           ctx.globalAlpha = 0.85 * s.bright
           ctx.beginPath()
-          ctx.arc(s.x, s.y, 1.2, 0, Math.PI * 2)
+          ctx.arc(s.x, s.y, 1.2 * s.look.spark, 0, Math.PI * 2)
           ctx.fill()
         }
       }
@@ -279,8 +305,9 @@ export function CardFirework() {
         if (k >= 1) continue
         const rad = 12 + 26 * k
         const grd = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, rad)
-        grd.addColorStop(0, 'rgba(255,246,222,0.55)')
-        grd.addColorStop(1, 'rgba(255,246,222,0)')
+        ctx.globalCompositeOperation = f.blend
+        grd.addColorStop(0, `rgba(${f.rgb},0.55)`)
+        grd.addColorStop(1, `rgba(${f.rgb},0)`)
         ctx.globalAlpha = (1 - k) ** 2 * 0.4 * f.a
         ctx.fillStyle = grd
         ctx.beginPath()
@@ -307,11 +334,12 @@ export function CardFirework() {
           tw = 0.5 + 0.5 * Math.sin(clock / 70 + p.twinkle)
           a *= 0.45 + 0.75 * tw
         }
+        ctx.globalCompositeOperation = p.blend
         ctx.fillStyle = p.color
         ctx.strokeStyle = p.color
         if (!p.ember) {
           // soft halo
-          ctx.globalAlpha = a * 0.13
+          ctx.globalAlpha = a * p.halo
           ctx.beginPath()
           ctx.arc(p.x, p.y, p.r * 3.2, 0, Math.PI * 2)
           ctx.fill()

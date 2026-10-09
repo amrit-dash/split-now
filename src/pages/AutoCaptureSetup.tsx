@@ -16,7 +16,6 @@ import {
   MessageSquareText,
   Send,
   Smartphone,
-  Trash2,
   XCircle,
 } from 'lucide-react'
 import { repo } from '@/data'
@@ -63,6 +62,7 @@ import { GroupIcon } from '@/components/GroupIcon'
 import { LiveBadge, Loading, PageHeader, formatRange } from '@/components/Misc'
 import { Switch } from '@/components/Switch'
 import { useToast } from '@/components/Toast'
+import { SwipeRow } from '@/components/SwipeRow'
 
 const IOS_SHORTCUT_URL = (import.meta.env.VITE_IOS_SHORTCUT_URL as string | undefined)?.trim() || undefined
 const ANDROID_MACRO_URL = (import.meta.env.VITE_ANDROID_MACRO_URL as string | undefined)?.trim() || undefined
@@ -436,7 +436,11 @@ export default function AutoCaptureSetup() {
                 const label = t.label ?? (t.groupId ? (g?.name ?? 'Trip') : 'All my trips')
                 const at = lastUsed(t)
                 return (
-                  <li key={t.token} className="flex items-center gap-2">
+                  <SwipeRow
+                    key={t.token}
+                    contentClassName="flex items-center gap-2"
+                    actions={[{ label: 'Revoke', ariaLabel: `Revoke capture key for ${label}`, onClick: () => revoke(t) }]}
+                  >
                     <KeyRound size={16} className="shrink-0 text-slate-500" aria-hidden />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium">{label}</div>
@@ -458,15 +462,7 @@ export default function AutoCaptureSetup() {
                     >
                       <Copy size={16} />
                     </button>
-                    <button
-                      type="button"
-                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-rose-600 dark:text-rose-400"
-                      onClick={() => revoke(t)}
-                      aria-label={`Revoke capture key for ${label}`}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </li>
+                  </SwipeRow>
                 )
               })}
             </ul>

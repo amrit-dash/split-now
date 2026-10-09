@@ -13,7 +13,7 @@ import {
   Repeat,
   Search,
   Trash2,
-  UserMinus,
+  Users,
   X,
 } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
@@ -54,6 +54,9 @@ import { repo } from '@/data'
 import { useToast } from '@/components/Toast'
 import { ActivityFeed, RecentlyDeleted, TrustBadges, useUndoableDelete } from '@/components/Trust'
 import { RemindActions } from '@/components/RemindActions'
+import { SwipeRow } from '@/components/SwipeRow'
+import { useRemoveMember } from '@/hooks/useRemoveMember'
+import { activeMembers, isRemoved, listedMemberIds, memberRemoval, membersIn, repeatingByMember } from '@/lib/members'
 
 type Tab = 'expenses' | 'balances' | 'activity'
 
@@ -85,6 +88,7 @@ export default function GroupDetail() {
     () => (liveGroup && expenses && settlements ? computeGroupData(liveGroup, expenses, settlements, user.uid) : null),
     [liveGroup, expenses, settlements, user.uid],
   )
+  const removeMember = useRemoveMember(d)
 
   if (liveGroup === null)
     return (
@@ -149,46 +153,6 @@ export default function GroupDetail() {
     }
   }
 
-  /** Leaving or removing someone: only with a zero balance, so no money goes missing. */
-  const removeMember = async (memberId: string) => {
-    setMenu(false)
-    const self = memberId === me
-    const bal = net[memberId] ?? 0
-    const who = self ? 'you' : (group.members[memberId]?.name ?? 'this person')
-    if (bal !== 0) {
-      const amount = formatMoney(Math.abs(bal), cur)
-      toast(
-        self ? `Settle up first: you ${bal > 0 ? 'are owed' : 'owe'} ${amount}` : `Settle up first: ${who} ${bal > 0 ? 'is owed' : 'owes'} ${amount}`,
-        'err',
-      )
-      return
-    }
-    if (self && creator) {
-      toast('You created this group. Delete it from Edit group, or ask someone else to re-create it.', 'err')
-      return
-    }
-    const ok = await confirm(
-      self
-        ? {
-            title: `Leave ${group.name}?`,
-            message: 'You lose access to its expenses. Expenses you were part of stay in the group.',
-            confirmLabel: 'Leave group',
-            tone: 'danger',
-          }
-        : { title: `Remove ${who}?`, message: 'Their expenses stay. They can rejoin with the invite link.', confirmLabel: 'Remove', tone: 'danger' },
-    )
-    if (!ok) return
-    try {
-      await repo.removeMember(group, memberId)
-      if (self) {
-        toast(`You left ${group.name}`)
-        nav('/groups', { replace: true })
-      } else toast(`${who} removed`)
-    } catch (e) {
-      fail(e)
-    }
-  }
-
   const deleteGroup = async () => {
     setMenu(false)
     const ok = await confirm({
@@ -210,6 +174,9 @@ export default function GroupDetail() {
   }
 
   const settled = myBal === 0
+  const pendingIds = membersIn(d.pending)
+  const repeating = repeatingByMember(d.expenses)
+  const people = Object.entries(activeMembers(group.members))
 
   return (
     <div>
@@ -285,6 +252,26 @@ export default function GroupDetail() {
             )}
           </div>
         )}
+        {!personal && (
+          <Link
+            to={`/groups/${group.id}/members`}
+            className="-mx-1 mt-3 flex min-h-11 items-center gap-2 rounded-xl px-1 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-ink-800"
+            data-testid="group-people"
+          >
+            <span className="flex -space-x-2" aria-hidden>
+              {people.slice(0, 5).map(([id, m]) => (
+                <span key={id} className="rounded-full ring-2 ring-white dark:ring-ink-900">
+                  <Avatar name={m.name} color={m.color} photoURL={m.photoURL} size={26} />
+                </span>
+              ))}
+            </span>
+            <span className="min-w-0 flex-1 truncate">
+              {people.length} {people.length === 1 ? 'person' : 'people'}
+            </span>
+            <span className="text-muted text-xs">Members</span>
+            <ChevronRight size={16} className="text-slate-300 dark:text-slate-600" aria-hidden />
+          </Link>
+        )}
         {group.budget ? <BudgetBar spent={total} budget={group.budget} currency={cur} /> : null}
         {!personal && (
           // When nothing is owed, Invite is the useful action; Settle up stays one tap away as the secondary.
@@ -342,27 +329,33 @@ export default function GroupDetail() {
             </div>
           )}
           <ul className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5" aria-label="Balances per person">
-            {Object.entries(group.members).map(([id, m]) => {
+            {listedMemberIds(group.members, net).map((id) => {
+              const m = group.members[id]
               const v = net[id] ?? 0
-              const canRemove = id !== me && creator && v === 0
+              // Swipe left to remove a settled member (the same rule as the Members screen); never yourself here.
+              const canRemove =
+                id !== me &&
+                memberRemoval({ memberId: id, member: m, me, myUid: user.uid, createdBy: group.createdBy, balance: v, inPending: pendingIds, repeating })
+                  .kind === 'remove'
               return (
-                <li key={id} className="flex items-center gap-3 px-4 py-3">
+                <SwipeRow
+                  key={id}
+                  contentClassName="flex items-center gap-3 px-4 py-3"
+                  testId="balance-row"
+                  actions={
+                    canRemove
+                      ? [{ label: 'Remove', ariaLabel: `Remove ${m.name} from the group`, onClick: () => void removeMember(id), testId: 'balance-remove' }]
+                      : []
+                  }
+                >
                   <Avatar name={m.name} color={m.color} photoURL={m.photoURL} size={36} />
-                  <div className="min-w-0 flex-1 truncate font-medium">{id === me ? 'You' : m.name}</div>
+                  <div className="min-w-0 flex-1 truncate font-medium">
+                    {id === me ? 'You' : m.name} {isRemoved(m) && <span className="text-muted text-xs">(left)</span>}
+                  </div>
                   <div className={`text-right text-sm font-semibold ${v > 0 ? 'pos' : v < 0 ? 'neg' : 'text-muted'}`}>
                     {v === 0 ? 'settled' : `${v > 0 ? 'gets back' : 'owes'} ${formatMoney(Math.abs(v), cur)}`}
                   </div>
-                  {canRemove && (
-                    <button
-                      type="button"
-                      onClick={() => removeMember(id)}
-                      className="text-muted -mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full hover:text-rose-600"
-                      aria-label={`Remove ${m.name} from the group`}
-                    >
-                      <UserMinus size={18} aria-hidden />
-                    </button>
-                  )}
-                </li>
+                </SwipeRow>
               )
             })}
           </ul>
@@ -435,6 +428,18 @@ export default function GroupDetail() {
           />
           {!personal && (
             <MenuRow
+              icon={<Users size={20} />}
+              label="Members"
+              hint="Add people, or remove someone who is settled up"
+              onClick={() => {
+                setMenu(false)
+                nav(`/groups/${group.id}/members`)
+              }}
+              testId="group-members"
+            />
+          )}
+          {!personal && (
+            <MenuRow
               icon={<Link2 size={20} />}
               label="Invite"
               onClick={() => {
@@ -464,7 +469,10 @@ export default function GroupDetail() {
               icon={<LogOut size={20} />}
               label="Leave group"
               hint={myBal === 0 ? undefined : 'Settle up first'}
-              onClick={() => removeMember(me)}
+              onClick={() => {
+                setMenu(false)
+                void removeMember(me)
+              }}
               tone="danger"
               testId="group-leave"
             />
@@ -774,7 +782,13 @@ function ActivityList({
             {list.map((r) => {
               if (r.kind === 's') {
                 return (
-                  <div key={r.s.id} className="flex items-center gap-3 px-4 py-3">
+                  <SwipeRow
+                    key={r.s.id}
+                    as="div"
+                    contentClassName="flex items-center gap-3 px-4 py-3"
+                    testId="payment-row"
+                    actions={[{ label: 'Delete', ariaLabel: 'Delete payment', onClick: () => undoable.settlement(groupId, r.s), testId: 'payment-delete' }]}
+                  >
                     <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-100 text-xl dark:bg-emerald-500/15" aria-hidden>
                       💸
                     </div>
@@ -796,15 +810,7 @@ function ActivityList({
                       </div>
                     </div>
                     <div className="pos font-semibold">{formatMoney(r.s.amount, currency)}</div>
-                    <button
-                      type="button"
-                      onClick={() => undoable.settlement(groupId, r.s)}
-                      className="text-muted -mr-3 flex h-11 w-11 items-center justify-center rounded-full hover:text-rose-600"
-                      aria-label="Delete payment"
-                    >
-                      <Trash2 size={16} aria-hidden />
-                    </button>
-                  </div>
+                  </SwipeRow>
                 )
               }
               const e = r.e

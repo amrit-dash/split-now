@@ -143,7 +143,7 @@ If the owner exports a working macro (`.macro` file, MacroDroid → Export) and 
 
 ### 3.6 Capture settings and the activity log
 
-**Settings → Automation** (`src/components/AutoCapture.tsx`) holds the settings; they are stored with the push preferences and the AI switches (`aiEnabled`, `aiImages`, `aiSource`, `aiModel`) in `users/{uid}/settings/notifications` (client `src/lib/push.ts` + `src/lib/capture-settings.ts`, server `functions/src/lib/prefs.ts`, shared pure logic in `shared/capture-filters.ts`). Writes merge, so the Notifications and Auto-capture sections never overwrite each other. Defaults keep the original behaviour.
+**Settings → Automation** (`src/components/AutoCapture.tsx`) holds the settings; they are stored with the push preferences and the AI switches (`aiEnabled`, `aiImages`, `aiQuickAdd`, `aiSource`, `aiModel`) in `users/{uid}/settings/notifications` (client `src/lib/push.ts` + `src/lib/capture-settings.ts`, server `functions/src/lib/prefs.ts`, shared pure logic in `shared/capture-filters.ts`). Writes merge, so the Notifications and Auto-capture sections never overwrite each other. Defaults keep the original behaviour.
 
 | Key | Default | Effect in the webhook |
 |---|---|---|

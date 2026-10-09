@@ -242,6 +242,10 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
           <div className="space-y-3 rounded-2xl bg-slate-50 p-3.5 dark:bg-ink-800/60">
             <Toggle title="Bills & statements" checked={cfg.images} onChange={(v) => set({ images: v })} />
             <Toggle title="SMS fallback" checked={cfg.sms} onChange={(v) => set({ sms: v })} />
+            <p className="text-muted text-xs" data-testid="admin-ai-quick-add">
+              Quick add with AI (opt-in per person) uses this key under “Bills & statements” and its limits. Its own switch for everyone is “Quick add with AI”
+              under Flags & app.
+            </p>
           </div>
           <div className="grid grid-cols-3 gap-2">
             <label className="block">
@@ -284,6 +288,11 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
           <Stat n={n('own')} label="Own keys" />
           <Stat n={n('errors')} label="Failed" />
         </div>
+        {n('app_quickAdd') + n('own_quickAdd') > 0 && (
+          <p className="text-muted mt-1.5 text-xs">
+            Quick add with AI: {n('app_quickAdd') + n('own_quickAdd')} of these ({n('app_quickAdd')} on Split Now’s key)
+          </p>
+        )}
       </div>
       {dirty && (
         <div

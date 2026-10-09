@@ -25,6 +25,7 @@ import { ListSkeleton } from '@/components/Skeleton'
 import { PageHeader, Segmented } from '@/components/Misc'
 import { Select, currencyOptions } from '@/components/Select'
 import { useToast } from '@/components/Toast'
+import { activeMembers } from '@/lib/members'
 
 type Mode = 'receipt' | 'statement' | 'payment'
 
@@ -246,13 +247,13 @@ export default function Scan() {
     return [...list].sort((a, b) => {
       const ma = matchMember(
         payment.payee,
-        Object.entries(a.group.members).map(([id, m]) => ({ id, name: m.name })),
+        Object.entries(activeMembers(a.group.members)).map(([id, m]) => ({ id, name: m.name })),
       )
         ? 1
         : 0
       const mb = matchMember(
         payment.payee,
-        Object.entries(b.group.members).map(([id, m]) => ({ id, name: m.name })),
+        Object.entries(activeMembers(b.group.members)).map(([id, m]) => ({ id, name: m.name })),
       )
         ? 1
         : 0

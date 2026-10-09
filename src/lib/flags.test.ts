@@ -7,8 +7,10 @@ import {
   DEFAULT_APP_CONFIG,
   FLAG_INFO,
   FLAG_NAMES,
+  lastBlocked,
   MAINTENANCE_FALLBACK,
   maintenanceText,
+  rememberBlocked,
   resolveAppConfig,
   resolveBlockInfo,
   semverOf,
@@ -182,5 +184,39 @@ describe('maintenance presentation', () => {
     expect(u?.kind).toBe('update')
     expect(u?.text).toContain('below 2.0.0')
     expect(u?.text).toContain('you are on 1.4.0')
+  })
+})
+
+describe('last blocked answer on this device', () => {
+  const g = globalThis as Record<string, unknown>
+  const withStorage = (run: () => void) => {
+    const m = new Map<string, string>()
+    g.localStorage = { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v) }
+    try {
+      run()
+    } finally {
+      delete g.localStorage
+    }
+  }
+
+  it('is unknown until an answer was seen, then remembers it per account', () =>
+    withStorage(() => {
+      expect(lastBlocked('u1')).toBeUndefined()
+      rememberBlocked('u1', null)
+      expect(lastBlocked('u1')).toBeNull()
+      expect(lastBlocked('u2')).toBeUndefined()
+      rememberBlocked('u2', { reason: 'spam', at: 5, by: 'admin' })
+      expect(lastBlocked('u2')).toEqual({ reason: 'spam', at: 5, by: 'admin' })
+      rememberBlocked('u2', null)
+      expect(lastBlocked('u2')).toBeNull()
+    }))
+
+  it('treats a broken entry or no storage as unknown', () => {
+    expect(lastBlocked('u1')).toBeUndefined()
+    expect(() => rememberBlocked('u1', null)).not.toThrow()
+    withStorage(() => {
+      ;(g.localStorage as { setItem: (k: string, v: string) => void }).setItem('splitnow-blocked:u1', '{nope')
+      expect(lastBlocked('u1')).toBeUndefined()
+    })
   })
 })

@@ -1,5 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { ACCENTS, ACCENT_KEY, DUO_KEY, RETIRED_ACCENTS, applyAccent, getAccent, getDuo, setAccent, setDuo, themeColor, tintIconSvg } from './accent'
+import {
+  ACCENTS,
+  ACCENT_KEY,
+  allInks,
+  DUO_KEY,
+  INK_KEY,
+  type Ink,
+  RETIRED_ACCENTS,
+  applyAccent,
+  getAccent,
+  getDuo,
+  getInk,
+  setAccent,
+  setDuo,
+  setInk,
+  storedInks,
+  themeColor,
+  tintIconSvg,
+} from './accent'
 
 // vitest runs in node: a minimal fake <html>, <meta name="theme-color"> and localStorage.
 function fakeDom(dark = false) {
@@ -47,7 +65,82 @@ describe('accent', () => {
     applyAccent()
     expect(dom.attrs.get('data-accent')).toBe('violet')
     expect(dom.attrs.has('data-duo')).toBe(false)
+    expect(dom.attrs.get('data-ink')).toBe('light')
     expect(dom.meta.content).toBe('#6d28d9')
+  })
+
+  it('stores text on accent under its own key, separate from the accent', () => {
+    expect(INK_KEY).toBe('splitit-ink')
+    expect(new Set([ACCENT_KEY, DUO_KEY, INK_KEY]).size).toBe(3)
+  })
+
+  it("follows each preset's default ink until one is picked (Neon dark, the rest white)", () => {
+    for (const a of ACCENTS) expect(a.ink, a.id).toBe(a.id === 'neon' ? 'dark' : 'light')
+    expect(getInk('violet')).toBe('light')
+    expect(getInk('neon')).toBe('dark')
+    setAccent('neon')
+    expect(dom.attrs.get('data-ink')).toBe('dark')
+    setAccent('ocean')
+    expect(dom.attrs.get('data-ink')).toBe('light')
+    expect(dom.store.has(INK_KEY)).toBe(false)
+  })
+
+  it("remembers the ink per accent, and switching accents restores each one's", () => {
+    setAccent('violet')
+    setInk('dark')
+    expect(JSON.parse(dom.store.get(INK_KEY)!)).toEqual({ violet: 'dark' })
+    expect(dom.attrs.get('data-ink')).toBe('dark')
+    // Other accents keep their own defaults.
+    setAccent('berry')
+    expect(getInk()).toBe('light')
+    expect(dom.attrs.get('data-ink')).toBe('light')
+    setAccent('neon')
+    expect(dom.attrs.get('data-ink')).toBe('dark')
+    setInk('light')
+    expect(JSON.parse(dom.store.get(INK_KEY)!)).toEqual({ violet: 'dark', neon: 'light' })
+    expect(dom.attrs.get('data-ink')).toBe('light')
+    // Back to each accent: its own ink again.
+    setAccent('violet')
+    expect(dom.attrs.get('data-ink')).toBe('dark')
+    setAccent('neon')
+    expect(dom.attrs.get('data-ink')).toBe('light')
+    expect(getInk('violet')).toBe('dark')
+    expect(getInk('ocean')).toBe('light')
+    // Dual tone does not touch the ink.
+    setDuo(false)
+    expect(dom.attrs.get('data-ink')).toBe('light')
+  })
+
+  it('lists every accent with its own ink for the swatches', () => {
+    expect(allInks()).toEqual({ violet: 'light', ocean: 'light', neon: 'dark', berry: 'light', lime: 'light', gold: 'light', graphite: 'light' })
+    setInk('dark', 'lime')
+    setInk('light', 'neon')
+    expect(allInks()).toMatchObject({ violet: 'light', neon: 'light', lime: 'dark' })
+  })
+
+  it('sets the ink of a named accent without touching the others', () => {
+    setInk('dark', 'gold')
+    setInk('light', 'violet')
+    expect(storedInks()).toEqual({ gold: 'dark', violet: 'light' })
+    expect(getInk('gold')).toBe('dark')
+    expect(getInk('lime')).toBe('light')
+  })
+
+  it('falls back to the defaults for bad JSON, old plain values and bad entries', () => {
+    for (const bad of ['{not json', 'dark', '"dark"', 'null', '[1,2]', '42']) {
+      dom.store.set(INK_KEY, bad)
+      expect(storedInks(), bad).toEqual({})
+      expect(getInk('violet'), bad).toBe('light')
+      expect(getInk('neon'), bad).toBe('dark')
+    }
+    dom.store.set(INK_KEY, JSON.stringify({ violet: 'purple', neon: 'light', chartreuse: 'dark', constructor: 'dark' }))
+    expect(storedInks()).toEqual({ neon: 'light' })
+    expect(getInk('violet')).toBe('light')
+    expect(getInk('neon')).toBe('light')
+    // Writing over a bad value starts a fresh map.
+    dom.store.set(INK_KEY, '{not json')
+    setInk('dark', 'ocean')
+    expect(JSON.parse(dom.store.get(INK_KEY)!)).toEqual({ ocean: 'dark' })
   })
 
   it('applies attributes and the theme colour', () => {
@@ -112,8 +205,14 @@ describe('accent', () => {
     }
     expect(getAccent()).toBe('violet')
     expect(getDuo()).toBe(true)
+    expect(getInk('neon')).toBe('dark')
     expect(() => setAccent('neon')).not.toThrow()
     expect(dom.attrs.get('data-accent')).toBe('neon')
+    expect(dom.attrs.get('data-ink')).toBe('dark')
+    // Nothing can be stored, but the switch still applies for this visit.
+    expect(() => setInk('light', 'neon')).not.toThrow()
+    expect(dom.attrs.get('data-ink')).toBe('light')
+    expect(storedInks()).toEqual({})
   })
 
   it('uses ink for the theme colour in dark mode', () => {
@@ -216,21 +315,27 @@ function presetBlock(id: string): string {
   if (!block) throw new Error(`no CSS block for ${id}`)
   return block
 }
-/** A step's raw CSS value in a preset's block, or in the @theme defaults when the preset leaves it alone. */
-function rawStep(id: string, name: string): string | undefined {
+/** A preset's fill set for an ink other than its default (`[data-accent='x']:where([data-ink='y'])`), if any. */
+function inkBlock(id: string, ink: Ink): string | undefined {
+  return css.match(new RegExp(`\\[data-accent='${id}'\\]:where\\(\\[data-ink='${ink}'\\]\\)\\s*\\{([^}]*)\\}`))?.[1]
+}
+/**
+ * A step's raw CSS value under an ink, in cascade order: the preset's ink set, then the preset's
+ * block, then the @theme defaults. Without an ink, the preset's default ink.
+ */
+function rawStep(id: string, name: string, ink: Ink = ACCENTS.find((a) => a.id === id)!.ink): string | undefined {
   const re = new RegExp(`--color-${name}:\\s*([^;]+);`)
-  return presetBlock(id).match(re)?.[1] ?? presetBlock('violet').match(re)?.[1]
+  return inkBlock(id, ink)?.match(re)?.[1] ?? presetBlock(id).match(re)?.[1] ?? presetBlock('violet').match(re)?.[1]
 }
 /** A preset's colour for a step, following var(--color-…) the way the browser does on <html>. */
-function color(id: string, name: string): Rgb {
-  const v = rawStep(id, name)
+function color(id: string, name: string, ink?: Ink): Rgb {
+  const v = rawStep(id, name, ink)
   if (!v) throw new Error(`missing --color-${name}`)
   const ref = v.match(/^var\(--color-([\w-]+)\)$/)
-  return ref ? color(id, ref[1]) : parseColor(v)
+  return ref ? color(id, ref[1], ink) : parseColor(v)
 }
+const INKS: Ink[] = ['light', 'dark']
 const WHITE: Rgb = [255, 255, 255]
-/** Whether a preset sets its own value for a step (rather than the default pointing at brand / duo). */
-const ownStep = (id: string, name: string) => id !== 'violet' && new RegExp(`--color-${name}:`).test(presetBlock(id))
 
 describe('accent presets stay in sync', () => {
   it('every non-default preset has a CSS block overriding all brand and duo steps', () => {
@@ -250,6 +355,39 @@ describe('accent presets stay in sync', () => {
 
   it('the pre-paint script in index.html knows every preset and its theme colour', () => {
     for (const a of ACCENTS) expect(html).toContain(`${a.id}: '${a.meta}'`)
+    // The same default ink per preset and the same storage key.
+    const darkInk = html.match(/var darkInk = \[([^\]]*)\]/)?.[1] ?? ''
+    expect([...darkInk.matchAll(/'(\w+)'/g)].map((m) => m[1])).toEqual(ACCENTS.filter((a) => a.ink === 'dark').map((a) => a.id))
+    expect(html).toContain(`localStorage.getItem('${INK_KEY}')`)
+    expect(html).toContain("root.setAttribute('data-ink', ink)")
+  })
+
+  it('the pre-paint script picks the same ink as getInk for every stored value', () => {
+    // Run index.html's inline script against the same fake <html> and storage as accent.ts.
+    const script = html.match(/<script>([\s\S]*?Accent colour[\s\S]*?)<\/script>/)?.[1]
+    expect(script).toBeDefined()
+    const cases: Array<Record<string, string>> = [
+      {},
+      { [INK_KEY]: JSON.stringify({ violet: 'dark' }) },
+      { [INK_KEY]: JSON.stringify({ neon: 'light', ocean: 'dark' }) },
+      { [INK_KEY]: '{not json' },
+      { [INK_KEY]: 'dark' },
+      { [INK_KEY]: JSON.stringify({ neon: 'purple' }) },
+    ]
+    for (const stored of cases) {
+      for (const a of ACCENTS) {
+        const dom = fakeDom()
+        for (const [k, v] of Object.entries({ ...stored, [ACCENT_KEY]: a.id })) dom.store.set(k, v)
+        const g = globalThis as Record<string, unknown>
+        g.matchMedia = () => ({ matches: false })
+        g.window = {}
+        new Function(script!)()
+        delete g.matchMedia
+        delete g.window
+        expect(dom.attrs.get('data-accent')).toBe(a.id)
+        expect(dom.attrs.get('data-ink'), `${a.id} ${JSON.stringify(stored)}`).toBe(getInk(a.id))
+      }
+    }
     const map = html.match(/var accents = \{([^}]*)\}/)?.[1] ?? ''
     expect(map.match(/\w+(?=:)/g)).toEqual(ACCENTS.map((a) => a.id))
     // The same retired → successor moves, so the first paint already shows the successor.
@@ -258,29 +396,57 @@ describe('accent presets stay in sync', () => {
     for (const to of Object.values(RETIRED_ACCENTS)) expect(ACCENTS.some((a) => a.id === to)).toBe(true)
   })
 
-  it('the hex copies in ACCENTS match the CSS (from = fill, to = duo-500 or own fill-to, meta = brand-700)', () => {
+  it('every preset has a fill set for the ink it does not default to', () => {
     for (const a of ACCENTS) {
-      expect(hex(color(a.id, 'fill')), `${a.id} from`).toBe(a.from)
-      expect(hex(color(a.id, ownStep(a.id, 'fill-to') ? 'fill-to' : 'duo-500')), `${a.id} to`).toBe(a.to)
+      const other: Ink = a.ink === 'light' ? 'dark' : 'light'
+      expect(inkBlock(a.id, other), `${a.id} ${other}`).toBeDefined()
+      expect(inkBlock(a.id, a.ink), `${a.id} ${a.ink}`).toBeUndefined()
+    }
+  })
+
+  it('the hex copies in ACCENTS match the CSS (swatch = fill and duo-500 for white ink, fill and fill-to for dark; meta = brand-700)', () => {
+    for (const a of ACCENTS) {
+      expect(
+        a.swatch.light.map((_, i) => hex(color(a.id, i ? 'duo-500' : 'fill', 'light'))),
+        `${a.id} light`,
+      ).toEqual([...a.swatch.light])
+      expect(
+        a.swatch.dark.map((_, i) => hex(color(a.id, i ? 'fill-to' : 'fill', 'dark'))),
+        `${a.id} dark`,
+      ).toEqual([...a.swatch.dark])
       expect(hex(color(a.id, 'brand-700')), `${a.id} meta`).toBe(a.meta)
     }
   })
 
-  it('on-fill text passes AA (4.5:1) on fill and fill-to of every preset (btn-primary ends)', () => {
+  it('on-fill is white for white ink and ink-950 for dark ink, on every preset', () => {
     for (const a of ACCENTS) {
-      const ink = color(a.id, 'on-fill')
-      expect(contrast(ink, color(a.id, 'fill')), `${a.id} fill`).toBeGreaterThanOrEqual(4.5)
-      expect(contrast(ink, color(a.id, 'fill-to')), `${a.id} fill-to`).toBeGreaterThanOrEqual(4.5)
+      expect(hex(color(a.id, 'on-fill', 'light')), `${a.id} light`).toBe('#ffffff')
+      expect(hex(color(a.id, 'on-fill', 'dark')), `${a.id} dark`).toBe('#0b0a14')
     }
   })
 
-  it('a preset with its own fills keeps on-fill readable over every aurora shade', () => {
-    // The patches drift over the whole fill, so text can sit on any of them.
-    for (const a of ACCENTS.filter((p) => ownStep(p.id, 'fill'))) {
-      const ink = color(a.id, 'on-fill')
-      for (const name of ['fill-300', 'fill-400', 'fill-500', 'fill-700', 'fill-800', 'fill-900', 'fill-to-400', 'fill-to-500']) {
-        expect(ownStep(a.id, name), `${a.id} sets ${name}`).toBe(true)
-        expect(contrast(ink, color(a.id, name)), `${a.id} ${name}`).toBeGreaterThanOrEqual(4.5)
+  it('on-fill text passes AA (4.5:1) on fill and fill-to of every preset, with either ink (btn-primary ends)', () => {
+    for (const a of ACCENTS) {
+      for (const ink of INKS) {
+        const on = color(a.id, 'on-fill', ink)
+        expect(contrast(on, color(a.id, 'fill', ink)), `${a.id} ${ink} fill`).toBeGreaterThanOrEqual(4.5)
+        expect(contrast(on, color(a.id, 'fill-to', ink)), `${a.id} ${ink} fill-to`).toBeGreaterThanOrEqual(4.5)
+      }
+    }
+  })
+
+  it('on-fill passes AA on the aurora shades it can sit on', () => {
+    // The patches drift over the whole fill, so text can sit on any of them. With dark ink every
+    // shade is bright enough. With white ink the darker shades are checked; the lighter ones
+    // (300 to 500 and the partner's 400 / 500) are the soft highlights the deep fills always had,
+    // drawn translucent over the fill, and stay as they were.
+    const all = ['fill-300', 'fill-400', 'fill-500', 'fill-700', 'fill-800', 'fill-900', 'fill-to-400', 'fill-to-500']
+    for (const a of ACCENTS) {
+      for (const ink of INKS) {
+        const on = color(a.id, 'on-fill', ink)
+        for (const name of ink === 'dark' ? all : ['fill-700', 'fill-800', 'fill-900']) {
+          expect(contrast(on, color(a.id, name, ink)), `${a.id} ${ink} ${name}`).toBeGreaterThanOrEqual(4.5)
+        }
       }
     }
   })
@@ -308,11 +474,14 @@ describe('accent presets stay in sync', () => {
     // Hues in oklch degrees: emerald-700 ≈ 166, rose-700 ≈ 16. Near-grey steps (Graphite) are skipped.
     const hueGap = (a: number, b: number) => Math.min(Math.abs(a - b), 360 - Math.abs(a - b))
     for (const a of ACCENTS) {
-      for (const name of ['brand-500', 'brand-600', 'duo-500', 'duo-600', 'fill', 'fill-to']) {
-        const { C, h } = oklchOf(color(a.id, name))
+      for (const [name, ink] of [
+        ...['brand-500', 'brand-600', 'duo-500', 'duo-600'].map((n) => [n, a.ink] as const),
+        ...INKS.flatMap((i) => ['fill', 'fill-to'].map((n) => [n, i] as const)),
+      ]) {
+        const { C, h } = oklchOf(color(a.id, name, ink))
         if (C < 0.05) continue
-        expect(hueGap(h, 166), `${a.id} ${name} vs emerald`).toBeGreaterThanOrEqual(25)
-        expect(hueGap(h, 16), `${a.id} ${name} vs rose`).toBeGreaterThanOrEqual(25)
+        expect(hueGap(h, 166), `${a.id} ${ink} ${name} vs emerald`).toBeGreaterThanOrEqual(25)
+        expect(hueGap(h, 16), `${a.id} ${ink} ${name} vs rose`).toBeGreaterThanOrEqual(25)
       }
     }
   })

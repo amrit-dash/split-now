@@ -1,6 +1,7 @@
 import type { Expense, Group, MemberId } from '@/types'
 import { todayISO } from './id'
 import { addDaysISO } from './recents'
+import { activeMembers } from './members'
 
 /*
  * "Whose turn to pay?": a private, good-humoured hint for the moment the bill arrives. Over
@@ -34,7 +35,7 @@ export function whoseTurn(
   if (recent.length < TURN_MIN_EXPENSES) return null
 
   const stats = new Map<MemberId, { fronted: number; lastPaid?: string; active: boolean }>()
-  for (const id of Object.keys(group.members)) stats.set(id, { fronted: 0, active: false })
+  for (const id of Object.keys(activeMembers(group.members))) stats.set(id, { fronted: 0, active: false })
   for (const e of recent) {
     for (const [id, v] of Object.entries(e.paidBy)) {
       const s = stats.get(id)

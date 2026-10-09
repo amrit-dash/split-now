@@ -121,7 +121,7 @@ service cloud.firestore {
           && writesOpen()
           && (settingId != 'notifications' || (
             request.resource.data.keys().hasOnly(['captures', 'unsorted', 'expenses', 'settlements', 'reminders', 'outsideTrips',
-              'capturePaused', 'minAmount', 'ignoreWords', 'pausedTrips', 'aiSms', 'aiSmsMerchant', 'aiImages', 'aiEnabled', 'aiSource', 'aiModel', 'updatedAt'])
+              'capturePaused', 'minAmount', 'ignoreWords', 'pausedTrips', 'aiSms', 'aiSmsMerchant', 'aiImages', 'aiQuickAdd', 'aiEnabled', 'aiSource', 'aiModel', 'updatedAt'])
             && request.resource.data.get('captures', true) is bool
             && request.resource.data.get('unsorted', false) is bool
             && request.resource.data.get('expenses', true) is bool
@@ -141,6 +141,8 @@ service cloud.firestore {
             && request.resource.data.get('aiSms', true) is bool
             && request.resource.data.get('aiSmsMerchant', false) is bool
             && request.resource.data.get('aiImages', true) is bool
+            // Quick add lines too complex to read go to Gemini (quickAddAi); opt-in
+            && request.resource.data.get('aiQuickAdd', false) is bool
             && request.resource.data.get('aiEnabled', true) is bool
             && request.resource.data.get('aiSource', 'auto') in ['auto', 'own', 'app']
             && request.resource.data.get('aiModel', '') is string && request.resource.data.get('aiModel', '').size() <= 80
@@ -186,7 +188,8 @@ service cloud.firestore {
       function validFlags(f) {
         return f is map
           && f.keys().hasOnly(['aiImages', 'aiSms', 'liveTables', 'autoCapture', 'quickAdd', 'nudges', 'statementImport',
-              'payLinks', 'duplicates', 'merchantMemory', 'whoseTurn', 'budgetAlerts'])
+              'payLinks', 'duplicates', 'merchantMemory', 'whoseTurn', 'budgetAlerts', 'aiQuickAdd'])
+          && f.get('aiQuickAdd', true) is bool
           && f.get('aiImages', true) is bool && f.get('aiSms', true) is bool && f.get('liveTables', true) is bool
           && f.get('autoCapture', true) is bool && f.get('quickAdd', true) is bool && f.get('nudges', true) is bool
           && f.get('statementImport', true) is bool && f.get('payLinks', true) is bool && f.get('duplicates', true) is bool
@@ -358,7 +361,10 @@ service cloud.firestore {
           && after.members.diff(before.members).affectedKeys().hasOnly([mid])
           && after.members[mid].uid == uid()
           && after.members[mid].name is string && after.members[mid].name.size() <= 60
-          && (!(mid in before.members) || !('uid' in before.members[mid]));
+          && !('removedAt' in after.members[mid])
+          // a new entry, an unclaimed placeholder, or their own entry from before they left
+          && (!(mid in before.members) || !('uid' in before.members[mid])
+              || (before.members[mid].uid == uid() && 'removedAt' in before.members[mid]));
       }
 
       // How an existing member may change membership. Every change to `members` must name
@@ -368,6 +374,11 @@ service cloud.firestore {
       //  - a new entry is a placeholder (no uid),
       //  - removing an entry that has a uid also removes that uid from memberUids, and
       //    only the creator may do that to someone else (anyone may remove themselves),
+      //  - removing is a soft remove: the entry stays, gaining only `removedAt` (epoch ms), so old
+      //    expenses keep naming them (and the expense rules, which check paidBy/splits against
+      //    members' keys, keep accepting edits). Hard deletes are still accepted from older apps,
+      //  - adding a removed person back restores their entry as a placeholder (removedAt and any
+      //    uid dropped, nothing else changed); someone with an account then rejoins with the invite,
       //  - memberUids never gains a uid here and only shrinks as above.
       function validMembershipChange() {
         let before = resource.data;
@@ -376,19 +387,36 @@ service cloud.firestore {
         let uidsAdded = after.memberUids.toSet().difference(before.memberUids.toSet());
         let uidsRemoved = before.memberUids.toSet().difference(after.memberUids.toSet());
         let op = after.get('memberOpId', '');
+        let changedOnly = mdiff.addedKeys().size() == 0 && mdiff.removedKeys().size() == 0
+          && mdiff.changedKeys().size() == 1 && mdiff.changedKeys().hasOnly([op]);
         return uidsAdded.size() == 0
-          && mdiff.changedKeys().size() == 0
           && (
             // no membership change at all
-            (mdiff.addedKeys().size() == 0 && mdiff.removedKeys().size() == 0 && uidsRemoved.size() == 0)
+            (mdiff.changedKeys().size() == 0 && mdiff.addedKeys().size() == 0 && mdiff.removedKeys().size() == 0 && uidsRemoved.size() == 0)
+            // mark one member as removed: the entry gains only removedAt; a placeholder by anyone,
+            // someone with an account by themselves or the creator (their uid leaves memberUids)
+            || (changedOnly
+                && !('removedAt' in before.members[op])
+                && after.members[op].diff(before.members[op]).affectedKeys().hasOnly(['removedAt'])
+                && after.members[op].removedAt is int
+                && (('uid' in before.members[op]
+                      && uidsRemoved == [before.members[op].uid].toSet()
+                      && (before.members[op].uid == uid() || before.createdBy == uid()))
+                    || (!('uid' in before.members[op]) && uidsRemoved.size() == 0)))
+            // add a removed person back, as a placeholder
+            || (changedOnly
+                && 'removedAt' in before.members[op]
+                && !('removedAt' in after.members[op]) && !('uid' in after.members[op])
+                && after.members[op].diff(before.members[op]).affectedKeys().hasOnly(['removedAt', 'uid'])
+                && uidsRemoved.size() == 0)
             // add one placeholder
-            || (mdiff.removedKeys().size() == 0 && mdiff.addedKeys().size() == 1 && mdiff.addedKeys().hasOnly([op])
+            || (mdiff.changedKeys().size() == 0 && mdiff.removedKeys().size() == 0 && mdiff.addedKeys().size() == 1 && mdiff.addedKeys().hasOnly([op])
                 && !('uid' in after.members[op]) && uidsRemoved.size() == 0)
-            // remove one placeholder
-            || (mdiff.addedKeys().size() == 0 && mdiff.removedKeys().size() == 1 && mdiff.removedKeys().hasOnly([op])
+            // remove one placeholder (older apps; this app soft-removes)
+            || (mdiff.changedKeys().size() == 0 && mdiff.addedKeys().size() == 0 && mdiff.removedKeys().size() == 1 && mdiff.removedKeys().hasOnly([op])
                 && !('uid' in before.members[op]) && uidsRemoved.size() == 0)
-            // remove one joined member (yourself, or anyone if you created the group)
-            || (mdiff.addedKeys().size() == 0 && mdiff.removedKeys().size() == 1 && mdiff.removedKeys().hasOnly([op])
+            // remove one joined member (yourself, or anyone if you created the group; older apps)
+            || (mdiff.changedKeys().size() == 0 && mdiff.addedKeys().size() == 0 && mdiff.removedKeys().size() == 1 && mdiff.removedKeys().hasOnly([op])
                 && 'uid' in before.members[op]
                 && uidsRemoved == [before.members[op].uid].toSet()
                 && (before.members[op].uid == uid() || before.createdBy == uid()))

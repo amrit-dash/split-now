@@ -10,6 +10,7 @@ import type { MerchantMemory } from '@/lib/merchants'
 import type { AiTextExpense } from '@/lib/nl-expense'
 import type { NudgeItem, NudgeResult } from '@/lib/nudge'
 import type { AiUnavailableReason } from '../../shared/ai-config'
+import type { QuickAiRequest, QuickAiResponse } from '../../shared/quick-ai'
 import { defaultCurrency } from '@/lib/locale'
 import { sharedPhotoURL, type OwnMemberPatch } from '@/lib/memberSync'
 
@@ -139,7 +140,17 @@ export interface Repo {
   updateGroupSettings(base: Group, patch: GroupSettings): Promise<void>
   /** @deprecated use updateGroupSettings/addMember/removeMember. Membership fields in `patch` are ignored. */
   updateGroup(id: string, patch: Partial<Group>): Promise<void>
+  /**
+   * Adds a placeholder. When `memberId` is a removed entry (formerMemberMatch), that entry comes
+   * back instead, as a placeholder: removedAt and any uid are dropped and `member` is ignored, so
+   * their old expenses join up; someone with an account rejoins through the invite.
+   */
   addMember(group: Group, memberId: MemberId, member: Member): Promise<void>
+  /**
+   * A soft remove: the entry stays, marked `removedAt`, so old expenses keep their name and stay
+   * editable; their uid leaves memberUids, so they lose access. Callers check the balance is
+   * settled first (src/lib/members.ts memberRemoval); lists skip them via activeMembers().
+   */
   removeMember(group: Group, memberId: MemberId): Promise<void>
   /**
    * The signed-in user's own member entry: set its name and photo from their profile (no photo
@@ -339,6 +350,14 @@ export interface Repo {
    */
   parseTextAi(text: string, ctx: { members: string[]; currency: string; today: string }): Promise<TextAiResult | null>
   /**
+   * Quick add with AI (callable quickAddAi): a line the phone's grammar can't handle, read with the
+   * caller's groups as context. The answer is validated on the server (shared/quick-ai.ts); it never
+   * saves anything. `{ unavailable, reason }`: the flag, the person's switch or every key said no;
+   * null: couldn't be called (offline, signed out, failed). Demo mode reads one sentence shape on
+   * the phone (src/lib/quick-ai-demo.ts) and answers 'unknown' for the rest.
+   */
+  quickAddAi(req: QuickAiRequest): Promise<QuickAiResponse | null>
+  /**
    * Save / re-test / remove the user's own Gemini key (aiKey callable), or with which 'app' the
    * in-app project key (admins; overrides Secret Manager's). Throws with a readable message.
    */
@@ -451,7 +470,8 @@ export interface CaptureTokenOpts {
 export function placeholdersOf(g: Pick<Group, 'members'>): Record<MemberId, string> {
   return Object.fromEntries(
     Object.entries(g.members)
-      .filter(([, m]) => !m.uid)
+      // the invite's claim spots: people not joined yet who are still in the group
+      .filter(([, m]) => !m.uid && typeof m.removedAt !== 'number')
       .map(([id, m]) => [id, m.name]),
   )
 }

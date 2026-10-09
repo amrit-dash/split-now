@@ -276,6 +276,8 @@ export interface QuickPrefill {
   currency: string
   payer: MemberId
   participants?: MemberId[]
+  /** exact minor units per person (Quick add with AI, when the line said who owes what); they sum to `amount` */
+  exact?: Record<MemberId, Cents>
   date?: string
   category?: Category
 }

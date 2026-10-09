@@ -36,6 +36,7 @@ import { seedDemo } from './seed'
 import { defaultCurrency } from '@/lib/locale'
 import type { MerchantMemory } from '@/lib/merchants'
 import { netBalances } from '@/lib/balances'
+import { isRemoved } from '@/lib/members'
 import { countedExpenses, countedSettlements } from '@/lib/trust'
 import { formatMoney } from '@/lib/money'
 import { claimStatus, claimSummary, markPaidPatch, payLinkState, planRecord, sortClaims, triggerAction, type PayLinkDoc } from '@/lib/paylinks'
@@ -312,6 +313,15 @@ export function createLocalRepo(): Repo {
     async addMember(group, memberId, member) {
       const g = state.groups[group.id]
       if (!g) return
+      const former = g.members[memberId]
+      if (isRemoved(former)) {
+        // Back in as a placeholder, like Firebase (an account rejoins through the invite).
+        const { removedAt: _r, uid: _u, ...rest } = former
+        state.groups[group.id] = { ...g, members: { ...g.members, [memberId]: rest }, updatedAt: Date.now() }
+        log(group.id, memberActivity('added', memberId, former.name, ctx(group.id)))
+        commit()
+        return
+      }
       state.groups[group.id] = {
         ...g,
         members: { ...g.members, [memberId]: member },
@@ -335,12 +345,14 @@ export function createLocalRepo(): Repo {
     async removeMember(group, memberId) {
       const g = state.groups[group.id]
       if (!g) return
-      const { [memberId]: removed, ...members } = g.members
-      if (removed) log(group.id, memberActivity('removed', memberId, removed.name, ctx(group.id), removed.uid === actor()))
+      const removed = g.members[memberId]
+      if (!removed || isRemoved(removed)) return
+      log(group.id, memberActivity('removed', memberId, removed.name, ctx(group.id), removed.uid === actor()))
+      // A soft remove, as in Firebase: the entry stays with removedAt so history keeps the name.
       state.groups[group.id] = {
         ...g,
-        members,
-        memberUids: g.memberUids.filter((u) => u !== removed?.uid),
+        members: { ...g.members, [memberId]: { ...removed, removedAt: Date.now() } },
+        memberUids: g.memberUids.filter((u) => u !== removed.uid),
         updatedAt: Date.now(),
       }
       commit()
@@ -366,7 +378,7 @@ export function createLocalRepo(): Repo {
     async joinGroup(code, memberId, member) {
       const g = Object.values(state.groups).find((x) => x.inviteCode === code.toUpperCase())
       if (!g) throw new Error('Invite not found')
-      if (member.uid && Object.values(g.members).some((m) => m.uid === member.uid)) return g.id
+      if (member.uid && g.memberUids.includes(member.uid)) return g.id
       state.groups[g.id] = {
         ...g,
         memberUids: [...new Set([...g.memberUids, member.uid!])],
@@ -792,6 +804,12 @@ export function createLocalRepo(): Repo {
     },
     async parseTextAi() {
       return null
+    },
+    async quickAddAi(req) {
+      // The server's reader isn't here: a small stand-in on the phone reads the "create a group …
+      // and add …" shape (loaded on first use, with the Quick add grammar it builds on).
+      const { demoQuickAi } = await import('@/lib/quick-ai-demo')
+      return { result: demoQuickAi(req) }
     },
     async aiKey() {
       throw new Error('AI features aren’t available in the demo')
