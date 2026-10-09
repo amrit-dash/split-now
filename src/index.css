@@ -268,13 +268,14 @@ html[data-nav]:has(.install-banner, [data-testid='update-banner'], [data-testid=
 
 /* + button halo (Layout): both layers are blurred, so every edge fades; masks only shape the strength. */
 .fab-halo-a {
-  -webkit-mask: radial-gradient(closest-side, #000 35%, transparent), linear-gradient(to bottom, rgb(0 0 0 / 0.25) 20%, #000 60%);
+  -webkit-mask: radial-gradient(closest-side, #000 25%, transparent 90%), linear-gradient(to bottom, rgb(0 0 0 / 0.25) 20%, #000 60%);
   -webkit-mask-composite: source-in;
-  mask: radial-gradient(closest-side, #000 35%, transparent) intersect, linear-gradient(to bottom, rgb(0 0 0 / 0.25) 20%, #000 60%);
+  mask: radial-gradient(closest-side, #000 25%, transparent 90%) intersect, linear-gradient(to bottom, rgb(0 0 0 / 0.25) 20%, #000 60%);
 }
 .fab-halo-b {
-  -webkit-mask: linear-gradient(to bottom, transparent 30%, rgb(0 0 0 / 0.25) 45%, rgb(0 0 0 / 0.7) 58%, #000 72%);
-  mask: linear-gradient(to bottom, transparent 30%, rgb(0 0 0 / 0.25) 45%, rgb(0 0 0 / 0.7) 58%, #000 72%);
+  /* eased fade (many stops) so there is no visible band where it starts */
+  -webkit-mask: linear-gradient(to bottom, transparent 28%, rgb(0 0 0 / 0.06) 36%, rgb(0 0 0 / 0.2) 44%, rgb(0 0 0 / 0.42) 52%, rgb(0 0 0 / 0.66) 60%, rgb(0 0 0 / 0.86) 68%, #000 78%);
+  mask: linear-gradient(to bottom, transparent 28%, rgb(0 0 0 / 0.06) 36%, rgb(0 0 0 / 0.2) 44%, rgb(0 0 0 / 0.42) 52%, rgb(0 0 0 / 0.66) 60%, rgb(0 0 0 / 0.86) 68%, #000 78%);
 }
 .fab-rim {
   -webkit-mask: linear-gradient(to bottom, transparent 30%, #000 75%);

@@ -295,7 +295,8 @@ export default function Profile() {
       <button type="button" className="btn-secondary mt-6 w-full text-rose-700 dark:text-rose-400" onClick={() => setSignOutOpen(true)} data-testid="sign-out">
         <LogOut size={18} aria-hidden /> Sign out
       </button>
-      <p className="text-muted mb-10 mt-6 text-center text-xs" data-testid="profile-version">
+      <p className="mt-6 text-center text-xs font-semibold text-brand-600/80 dark:text-brand-300/80">Spending is wise, Splitting is Free. Split Now!</p>
+      <p className="text-muted mb-10 mt-1 text-center text-xs" data-testid="profile-version">
         Split Now v{version} · {repo.mode === 'demo' ? 'Demo mode' : 'Connected to Firebase'}
       </p>
 

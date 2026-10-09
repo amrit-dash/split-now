@@ -35,6 +35,7 @@ import * as payments from '@/lib/payments'
 import { turnLine, whoseTurn } from '@/lib/fairness'
 import { budgetStatus } from '../../shared/budget'
 import { Avatar } from '@/components/Avatar'
+import { ChequeIcon } from '@/components/ChequeIcon'
 import { DebtGraph } from '@/components/DebtGraph'
 import { GroupIcon } from '@/components/GroupIcon'
 import { QrCode } from '@/components/QrCode'
@@ -286,10 +287,10 @@ export default function GroupDetail() {
           // When nothing is owed, Invite is the useful action; Settle up stays one tap away as the secondary.
           <div className="mt-4 grid grid-cols-2 gap-2">
             <Link to={`/groups/${group.id}/settle`} className={settled ? 'btn-secondary' : 'btn-primary'} data-testid="group-settle">
-              Settle up
+              <ChequeIcon size={22} /> Settle up
             </Link>
             <button type="button" className={settled ? 'btn-primary' : 'btn-secondary'} onClick={() => setInvite(true)} data-testid="group-invite">
-              Invite
+              <Link2 size={18} aria-hidden /> Invite
             </button>
           </div>
         )}

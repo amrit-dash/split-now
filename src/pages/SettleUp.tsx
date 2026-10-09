@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowDown, Camera, Check, CheckCheck, ChevronDown, Copy, ExternalLink, QrCode as QrIcon } from 'lucide-react'
+import { ArrowDown, Camera, CheckCheck, ChevronDown, Copy, ExternalLink, QrCode as QrIcon } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
+import { ChequeIcon } from '@/components/ChequeIcon'
 import { computeGroupData, memberOrder, useAllGroupData, useExpenses, useGroup, useSettlements } from '@/hooks/data'
 import { useOcr } from '@/hooks/useOcr'
 import type { Cents, MemberId, PaymentHandles } from '@/types'
@@ -377,7 +378,7 @@ export default function SettleUp() {
       </div>
 
       <button type="submit" className="btn-primary mt-5 w-full" disabled={busy} data-testid="settle-record">
-        <Check size={18} aria-hidden /> Record {validAmount ? formatMoney(amount, cur) : 'payment'}
+        <ChequeIcon size={22} /> Record {validAmount ? formatMoney(amount, cur) : 'payment'}
       </button>
     </form>
   )
@@ -971,7 +972,7 @@ export function SettleWithPerson() {
           </>
         ) : (
           <>
-            <Check size={18} aria-hidden /> Record {value > 0 ? fmt(value) : 'payment'}
+            <ChequeIcon size={22} /> Record {value > 0 ? fmt(value) : 'payment'}
           </>
         )}
       </button>

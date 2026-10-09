@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRightLeft, ChevronRight, Plus, ReceiptText, ScanLine, Users } from 'lucide-react'
+import { ChevronRight, Plus, ReceiptText, ScanLine, Users } from 'lucide-react'
 import { useFlag } from '@/hooks/useAppConfig'
+import { ChequeIcon } from './ChequeIcon'
 import { Sheet } from './Sheet'
 
 /**
@@ -47,7 +48,7 @@ export function CreateSheet({ open, onClose, groupId }: { open: boolean; onClose
         <Tile icon={<ScanLine size={22} />} title="Scan" text="Read a bill or payment screenshot" onClick={() => go('/scan')} testId="create-scan" />
         <Tile icon={<Users size={22} />} title="New group" text="Trip, flat, dinner, anything" onClick={() => go('/groups/new')} testId="create-group" />
         <Tile
-          icon={<ArrowRightLeft size={22} />}
+          icon={<ChequeIcon size={26} />}
           title="Settle up"
           text="Record a payment"
           onClick={() => go(groupId ? `/groups/${encodeURIComponent(groupId)}/settle` : '/settle')}
