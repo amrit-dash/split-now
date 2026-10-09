@@ -10,14 +10,27 @@ import type { ActivityEntry, Cents, MemberId } from '@/types'
 export const NUDGE_COOLDOWN_MS = 24 * 3_600_000
 
 export type NudgeResult =
-  | { sent: true; amount: Cents }
-  | { sent: false; reason: 'rate_limited' | 'no_push' | 'not_owed' | 'not_member' | 'off' | 'unavailable'; nextAllowedAt?: number }
+  /** `groups`: how many groups a cross-group nudge covered */
+  | { sent: true; amount: Cents; groups?: number }
+  /** no device to push to: the server still wrote the reminder, which the debtor sees in the app */
+  | { sent: false; reason: 'no_push'; amount?: Cents; groups?: number }
+  | { sent: false; reason: 'rate_limited' | 'not_owed' | 'not_member' | 'off' | 'unavailable'; nextAllowedAt?: number }
 
-/** When the signed-in user last nudged this member in this group, from the group's activity feed. */
-export function lastNudgeAt(feed: ActivityEntry[] | null | undefined, byUid: string, memberId: MemberId): number | undefined {
+/** One group of a cross-group nudge (the callable's `items`); `amount` is the figure shown, a hint only. */
+export interface NudgeItem {
+  groupId: string
+  memberId: MemberId
+  amount?: Cents
+}
+
+/**
+ * When the signed-in user last nudged this member in this group, from the activity feed: a
+ * group's own feed, or several groups' merged (then pass `groupId`, member ids are per group).
+ */
+export function lastNudgeAt(feed: ActivityEntry[] | null | undefined, byUid: string, memberId: MemberId, groupId?: string): number | undefined {
   let last: number | undefined
   for (const a of feed ?? []) {
-    if (a.type !== 'settlement.nudged' || a.actorUid !== byUid || a.targetId !== memberId) continue
+    if (a.type !== 'settlement.nudged' || a.actorUid !== byUid || a.targetId !== memberId || (groupId !== undefined && a.groupId !== groupId)) continue
     if (last === undefined || a.createdAt > last) last = a.createdAt
   }
   return last
@@ -30,13 +43,31 @@ export function nudgeCooldownText(name: string): string {
   return `Already nudged today. You can nudge ${name} again tomorrow.`
 }
 
+/** Several groups' nudges at once count as one: the newest of them, if any. */
+export function lastNudgeAcross(
+  parts: Array<{ groupId: string; memberId: MemberId }>,
+  feed: ActivityEntry[] | null | undefined,
+  byUid: string,
+  local: (groupId: string, memberId: MemberId) => number | undefined = localNudgeAt,
+): number | undefined {
+  let last: number | undefined
+  for (const p of parts) {
+    const at = lastNudgeAt(feed, byUid, p.memberId, p.groupId) ?? local(p.groupId, p.memberId)
+    if (at !== undefined && (last === undefined || at > last)) last = at
+  }
+  return last
+}
+
+/** "Rahul has notifications off, so share it instead": the toast that comes with the share sheet. */
+export const noPushText = (name: string) => `${name} has notifications off, so share it instead`
+
 export function nudgeResultText(r: NudgeResult, name: string, money: (c: Cents) => string): string {
-  if (r.sent) return `Nudged ${name}: you owe ${money(r.amount)}`
+  if (r.sent) return r.groups && r.groups > 1 ? `Nudged ${name}: ${money(r.amount)} across ${r.groups} groups` : `Nudged ${name}: you owe ${money(r.amount)}`
   switch (r.reason) {
     case 'rate_limited':
       return nudgeCooldownText(name)
     case 'no_push':
-      return `${name} isn’t getting notifications. Share a reminder instead.`
+      return noPushText(name)
     case 'not_owed':
       return `${name} doesn’t owe you anything here right now.`
     case 'not_member':

@@ -24,6 +24,7 @@ import type { AllPrefs } from '@/lib/push'
 import { buildExpense } from '@/lib/statement'
 import { PageHeader, Segmented } from '@/components/Misc'
 import { ClaimReview } from '@/components/ClaimReview'
+import { NudgeCards } from '@/components/NudgeCards'
 import { Sheet } from '@/components/Sheet'
 import { ListSkeleton } from '@/components/Skeleton'
 import { ActivityFeed } from '@/components/Trust'
@@ -33,10 +34,10 @@ type Tab = 'sort' | 'updates'
 const HANDLED_FIRST = 15
 
 /**
- * Inbox: "To sort" (captured payments and expenses waiting for your OK) and "Updates" (a log of
- * everything in your groups, your own actions included). Only other people's entries are ever
- * new; opening Updates marks them read on this device. The header and tabs render at once; each
- * section shows placeholders until its own data is in.
+ * Inbox: "To sort" (reminders from people you owe, captured payments and expenses waiting for
+ * your OK) and "Updates" (a log of everything in your groups, your own actions included). Only
+ * other people's entries are ever new; opening Updates marks them read on this device. The
+ * header and tabs render at once; each section shows placeholders until its own data is in.
  */
 export default function Inbox() {
   usePageTitle('Inbox')
@@ -127,7 +128,7 @@ function ToSort({
   const [bulk, setBulk] = useState<BulkCandidate<Group> | null>(null)
   useEffect(() => watchCapturePrefs(user.uid, repo.mode, setPrefs), [user.uid])
   const loadingCaptures = box.loading && box.captures.length === 0 && !handled
-  const nothing = !loadingCaptures && !!data && box.captures.length === 0 && box.approvals.length === 0 && box.claims.length === 0
+  const nothing = !loadingCaptures && !!data && box.captures.length === 0 && box.approvals.length === 0 && box.claims.length === 0 && box.nudges.length === 0
   const paused = prefs?.pausedTrips
   const candidates = useMemo(() => (groups ? bulkCandidates(box.captures, groups, paused) : []), [box.captures, groups, paused])
 
@@ -183,6 +184,12 @@ function ToSort({
             <ChevronRight size={18} className="shrink-0 text-slate-400" aria-hidden />
           </Link>
         </>
+      )}
+
+      {box.nudges.length > 0 && (
+        <Section title="Reminders" hint="From people you owe">
+          <NudgeCards cards={box.nudges} />
+        </Section>
       )}
 
       {!data ? (

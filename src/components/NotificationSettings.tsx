@@ -7,6 +7,7 @@ import { errText } from '@/lib/errors'
 import { formatMoney } from '@/lib/money'
 import {
   DEFAULT_ALL_PREFS,
+  IOS_INSTALL_FOR_PUSH,
   VAPID_KEY,
   disablePush,
   enablePush,
@@ -42,20 +43,15 @@ export const notificationsAvailable = () => repo.mode === 'firebase' && !!VAPID_
  * Settings → Notifications: turn on push for this device and choose which notifications to get.
  * Renders nothing without a VAPID key (the page explains instead).
  */
-export function NotificationSettings() {
-  const { user, profile } = useMe()
+/**
+ * "Turn on notifications" for this device: asks for permission (call `turnOn` from a tap) and
+ * registers the browser. Shared by Settings → Notifications and the reminder card (NudgeCards).
+ */
+export function useTurnOnPush() {
+  const { user } = useMe()
   const toast = useToast()
   const [perm, setPerm] = useState(permission())
-  const [prefs, setPrefs] = useState<AllPrefs>(DEFAULT_ALL_PREFS)
   const [busy, setBusy] = useState(false)
-
-  useEffect(() => (notificationsAvailable() ? watchPrefs(user.uid, setPrefs) : undefined), [user.uid])
-
-  if (!notificationsAvailable()) return null
-
-  const iosNeedsInstall = isIOS() && !isStandalone()
-  const supported = pushSupported()
-
   const turnOn = async () => {
     setBusy(true)
     try {
@@ -68,6 +64,22 @@ export function NotificationSettings() {
       setBusy(false)
     }
   }
+  return { perm, setPerm, busy, setBusy, turnOn }
+}
+
+export function NotificationSettings() {
+  const { user, profile } = useMe()
+  const toast = useToast()
+  const { perm, setPerm, busy, setBusy, turnOn } = useTurnOnPush()
+  const [prefs, setPrefs] = useState<AllPrefs>(DEFAULT_ALL_PREFS)
+
+  useEffect(() => (notificationsAvailable() ? watchPrefs(user.uid, setPrefs) : undefined), [user.uid])
+
+  if (!notificationsAvailable()) return null
+
+  const iosNeedsInstall = isIOS() && !isStandalone()
+  const supported = pushSupported()
+
   const turnOff = async () => {
     setBusy(true)
     await disablePush(user.uid)
@@ -94,8 +106,7 @@ export function NotificationSettings() {
         {iosNeedsInstall ? (
           <p className="text-muted flex items-start gap-1.5 text-sm">
             <Share size={15} className="mt-0.5 shrink-0" aria-hidden />
-            On iPhone, notifications need iOS 16.4 or later and the app installed: tap Share → Add to Home Screen, then open it from your home screen and come
-            back here.
+            {IOS_INSTALL_FOR_PUSH} and come back here.
           </p>
         ) : !supported ? (
           <p className="text-muted text-sm">This browser can’t receive push notifications.</p>

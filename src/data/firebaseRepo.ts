@@ -96,7 +96,7 @@ import type { ParsedReceipt } from '@/lib/ocr-parse'
 import type { AiKeyResult, AiModel, AiState, AiStatement, AiStatusResult, AiUnavailableReason } from './repo'
 import { parseMemory } from '@/lib/merchants'
 import type { AiTextExpense } from '@/lib/nl-expense'
-import type { NudgeResult } from '@/lib/nudge'
+import type { NudgeItem, NudgeResult } from '@/lib/nudge'
 import { errText } from '@/lib/errors'
 import type { FxRatesDoc, FxRefreshResult } from '@/lib/fx'
 import { initAppCheck } from '@/lib/appcheck'
@@ -1009,18 +1009,11 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       batch.set(doc(db, 'users', userId, 'settings', 'merchants'), { categories: memory.categories, touched: memory.touched, updatedAt: Date.now() })
       fire(batch, 'Remembering the category')
     },
-    async nudge(groupId, memberId, amount) {
-      if (!online()) return { sent: false, reason: 'unavailable' }
-      try {
-        const call = await callable<{ groupId: string; memberId: string; amount?: number }, NudgeResult>('nudge', 20_000)
-        return (await call(amount ? { groupId, memberId, amount } : { groupId, memberId })).data
-      } catch (e) {
-        const code = (e as { code?: string }).code ?? ''
-        // The callable's own refusals read fine as they are; anything else is a plain failure.
-        if (/invalid-argument|permission-denied|not-found|unauthenticated/.test(code)) throw new Error(errText(e))
-        console.warn('nudge failed', e)
-        return { sent: false, reason: 'unavailable' }
-      }
+    nudge(groupId, memberId, amount) {
+      return callNudge(amount ? { groupId, memberId, amount } : { groupId, memberId })
+    },
+    nudgeAcross(items) {
+      return callNudge({ items })
     },
 
     watchCaptureTokens(userId, cb) {
@@ -1281,6 +1274,21 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       functionsEmulated = true
     }
     return httpsCallable<I, O>(functions, name, { timeout })
+  }
+
+  /** The `nudge` callable, one group (`{ groupId, memberId, amount? }`) or several (`{ items }`). */
+  async function callNudge(data: { groupId: string; memberId: string; amount?: number } | { items: NudgeItem[] }): Promise<NudgeResult> {
+    if (!online()) return { sent: false, reason: 'unavailable' }
+    try {
+      const call = await callable<typeof data, NudgeResult>('nudge', 20_000)
+      return (await call(data)).data
+    } catch (e) {
+      const code = (e as { code?: string }).code ?? ''
+      // The callable's own refusals read fine as they are; anything else is a plain failure.
+      if (/invalid-argument|permission-denied|not-found|unauthenticated/.test(code)) throw new Error(errText(e))
+      console.warn('nudge failed', e)
+      return { sent: false, reason: 'unavailable' }
+    }
   }
   return repo
 }

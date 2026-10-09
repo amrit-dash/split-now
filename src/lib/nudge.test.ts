@@ -1,6 +1,16 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { ActivityEntry } from '@/types'
-import { NUDGE_COOLDOWN_MS, lastNudgeAt, localNudgeAt, nudgeResultText, nudgedRecently, rememberNudge, setNudgeStorage } from './nudge'
+import {
+  NUDGE_COOLDOWN_MS,
+  lastNudgeAcross,
+  lastNudgeAt,
+  localNudgeAt,
+  noPushText,
+  nudgeResultText,
+  nudgedRecently,
+  rememberNudge,
+  setNudgeStorage,
+} from './nudge'
 
 const entry = (over: Partial<ActivityEntry>): ActivityEntry => ({
   id: 'a',
@@ -25,6 +35,28 @@ describe('last nudge from the feed', () => {
     expect(lastNudgeAt(feed, 'me', 'm_rahul')).toBe(900)
     expect(lastNudgeAt(feed, 'me', 'm_none')).toBeUndefined()
     expect(lastNudgeAt(null, 'me', 'm_rahul')).toBeUndefined()
+  })
+  it('in a merged feed, only counts the given group', () => {
+    const feed = [entry({ createdAt: 700, groupId: 'g1' }), entry({ createdAt: 900, groupId: 'g2' })]
+    expect(lastNudgeAt(feed, 'me', 'm_rahul', 'g1')).toBe(700)
+    expect(lastNudgeAt(feed, 'me', 'm_rahul', 'g3')).toBeUndefined()
+  })
+  it('across groups, the newest nudge of any of them, from the feed or this device', () => {
+    const feed = [entry({ createdAt: 700, groupId: 'g1' }), entry({ createdAt: 900, groupId: 'g2', targetId: 'm2' })]
+    const none = () => undefined
+    expect(
+      lastNudgeAcross(
+        [
+          { groupId: 'g1', memberId: 'm_rahul' },
+          { groupId: 'g2', memberId: 'm2' },
+        ],
+        feed,
+        'me',
+        none,
+      ),
+    ).toBe(900)
+    expect(lastNudgeAcross([{ groupId: 'g3', memberId: 'x' }], feed, 'me', none)).toBeUndefined()
+    expect(lastNudgeAcross([{ groupId: 'g3', memberId: 'x' }], feed, 'me', (g) => (g === 'g3' ? 1200 : undefined))).toBe(1200)
   })
   it('ignores other entry types', () => {
     expect(lastNudgeAt([entry({ type: 'settlement.created' })], 'me', 'm_rahul')).toBeUndefined()
@@ -62,7 +94,9 @@ describe('result copy', () => {
   it('reads plainly for every outcome', () => {
     expect(nudgeResultText({ sent: true, amount: 124000 }, 'Rahul', money)).toBe('Nudged Rahul: you owe ₹1240')
     expect(nudgeResultText({ sent: false, reason: 'rate_limited' }, 'Rahul', money)).toContain('again tomorrow')
-    expect(nudgeResultText({ sent: false, reason: 'no_push' }, 'Rahul', money)).toContain('Share a reminder')
+    expect(nudgeResultText({ sent: false, reason: 'no_push', amount: 500 }, 'Rahul', money)).toBe('Rahul has notifications off, so share it instead')
+    expect(noPushText('Rahul')).toBe('Rahul has notifications off, so share it instead')
+    expect(nudgeResultText({ sent: true, amount: 324000, groups: 2 }, 'Rahul', money)).toBe('Nudged Rahul: ₹3240 across 2 groups')
     expect(nudgeResultText({ sent: false, reason: 'not_owed' }, 'Rahul', money)).toContain('doesn’t owe you')
     expect(nudgeResultText({ sent: false, reason: 'not_member' }, 'Rahul', money)).toContain('hasn’t joined')
     expect(nudgeResultText({ sent: false, reason: 'unavailable' }, 'Rahul', money)).toContain('Couldn’t send')

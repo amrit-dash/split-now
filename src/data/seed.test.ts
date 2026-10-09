@@ -11,6 +11,7 @@ describe('demo seed', () => {
     expect(Object.values(s.groups).map((g) => [g.name, g.currency])).toEqual([
       ['Goa Trip', 'INR'],
       ['Indiranagar Flat', 'INR'],
+      ['Coldplay Night', 'INR'],
     ])
   })
 

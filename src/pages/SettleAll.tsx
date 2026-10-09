@@ -3,13 +3,15 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { CheckCheck, ChevronRight, Plus, Users } from 'lucide-react'
 import { ChequeIcon } from '@/components/ChequeIcon'
 import { useMe } from '@/hooks/auth'
-import { useAllGroupData } from '@/hooks/data'
+import { useAllGroupData, useRecentActivity } from '@/hooks/data'
+import type { ActivityEntry, Group } from '@/types'
 import { formatMoney } from '@/lib/money'
 import { groupCount, pendingSettlements, personBalances, settlePersonHref, totalsByCurrency, type PersonBalance, type SettleRow } from '@/lib/settleAll'
 import { Avatar } from '@/components/Avatar'
 import { PageHeader, Segmented } from '@/components/Misc'
 import { CardSkeleton, ListSkeleton } from '@/components/Skeleton'
 import { Celebrate } from '@/components/Celebrate'
+import { PersonRemindActions, RemindActions } from '@/components/RemindActions'
 import { usePageTitle } from '@/lib/brand'
 
 /*
@@ -18,8 +20,16 @@ import { usePageTitle } from '@/lib/brand'
  *    the groups it's made of. Someone in 2+ groups opens the cross-group settle screen
  *    (/settle/with/:key, SettleWithPerson), which clears every group with one real payment.
  *  - By group: each in-group payment on its own, straight into that group's settle screen.
+ * Rows where someone owes you also carry Remind (share a Pay me link) and Nudge (a push; for a
+ * person across several groups, one push with the total), as on a group's Balances tab.
  * (Replaces the old separate /friends screen, which now redirects here.)
  */
+
+/** What the owed rows need to chase a debt: the groups (for Remind) and the merged activity (who was nudged today). */
+interface Chase {
+  groups: Record<string, Group>
+  feed: ActivityEntry[] | null
+}
 
 type View = 'person' | 'group'
 
@@ -29,6 +39,10 @@ export default function SettleAll() {
   const data = useAllGroupData()
   const home = profile.currency
   const rows = useMemo(() => (data ? pendingSettlements(data, home) : null), [data, home])
+  // The groups someone owes you in: their feeds say who you nudged today (the same shared listeners as Home).
+  const owedIds = useMemo(() => (rows ? [...new Set(rows.filter((r) => r.dir === 'owed').map((r) => r.groupId))] : null), [rows])
+  const feed = useRecentActivity(owedIds)
+  const chase: Chase = useMemo(() => ({ groups: Object.fromEntries((data ?? []).map((d) => [d.group.id, d.group])), feed }), [data, feed])
   const [params, setParams] = useSearchParams()
   const view: View = params.get('view') === 'group' ? 'group' : 'person'
   const setView = (v: View) => setParams(v === 'person' ? {} : { view: v }, { replace: true })
@@ -56,7 +70,7 @@ export default function SettleAll() {
             label="Show balances"
             testId="settle-view"
           />
-          {view === 'person' ? <ByPerson rows={rows} /> : <ByGroup rows={rows} />}
+          {view === 'person' ? <ByPerson rows={rows} chase={chase} /> : <ByGroup rows={rows} chase={chase} />}
         </div>
       )}
     </div>
@@ -109,7 +123,7 @@ const EmptyLine = ({ text }: { text: string }) => <div className="card px-4 py-4
 
 /* ───────────────────────── By group ───────────────────────── */
 
-function ByGroup({ rows }: { rows: SettleRow[] }) {
+function ByGroup({ rows, chase }: { rows: SettleRow[]; chase: Chase }) {
   const owe = rows.filter((r) => r.dir === 'owe')
   const owed = rows.filter((r) => r.dir === 'owed')
   return (
@@ -120,7 +134,7 @@ function ByGroup({ rows }: { rows: SettleRow[] }) {
         ) : (
           <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
             {owe.map((r) => (
-              <GroupItem key={r.key} r={r} />
+              <GroupItem key={r.key} r={r} chase={chase} />
             ))}
           </div>
         )}
@@ -131,7 +145,7 @@ function ByGroup({ rows }: { rows: SettleRow[] }) {
         ) : (
           <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
             {owed.map((r) => (
-              <GroupItem key={r.key} r={r} />
+              <GroupItem key={r.key} r={r} chase={chase} />
             ))}
           </div>
         )}
@@ -140,7 +154,7 @@ function ByGroup({ rows }: { rows: SettleRow[] }) {
   )
 }
 
-function GroupItem({ r }: { r: SettleRow }) {
+function GroupItem({ r, chase }: { r: SettleRow; chase: Chase }) {
   return (
     <ItemRow
       testId="settle-row"
@@ -149,12 +163,24 @@ function GroupItem({ r }: { r: SettleRow }) {
       sub={`${r.groupEmoji} ${r.groupName}`}
       amount={formatMoney(r.amount, r.currency)}
       dir={r.dir}
+      chase={<RowChase r={r} chase={chase} />}
       action={<RowAction r={r} />}
     />
   )
 }
 
-/** Avatar · name/subtitle · amount · action, all on one vertically centred line. */
+/** Remind and Nudge on a single-group row where they owe you (nothing when you owe them). */
+function RowChase({ r, chase }: { r: SettleRow; chase: Chase }) {
+  const group = chase.groups[r.groupId]
+  if (r.dir !== 'owed' || !group) return null
+  return <RemindActions group={group} debtor={r.memberId} amount={r.amount} me={r.me} feed={chase.feed} className="-mx-1" />
+}
+
+/**
+ * Avatar · name/subtitle · amount · action, all on one vertically centred line. With `chase`
+ * (Remind and Nudge, on rows where they owe you) the amount moves under the name to make room
+ * for the round buttons, as on a group's Balances tab.
+ */
 function ItemRow({
   avatar,
   name,
@@ -162,6 +188,7 @@ function ItemRow({
   amount,
   dir,
   action,
+  chase,
   testId,
 }: {
   avatar: React.ReactNode
@@ -170,18 +197,33 @@ function ItemRow({
   amount: string
   dir: 'owe' | 'owed' | 'even'
   action: React.ReactNode
+  chase?: React.ReactNode
   testId?: string
 }) {
+  const tone = dir === 'owe' ? 'neg' : dir === 'owed' ? 'pos' : 'text-muted'
+  const stacked = !!chase && dir === 'owed'
   return (
     <div className="flex items-center gap-3 px-4 py-3" data-testid={testId}>
       {avatar}
       <div className="min-w-0 flex-1">
         <div className="truncate font-semibold">{name}</div>
-        <div className="text-muted truncate text-xs">{sub}</div>
+        {stacked ? (
+          <div className="flex min-w-0 items-baseline gap-1.5">
+            <span className={`shrink-0 text-sm font-bold tabular-nums ${tone}`} data-testid="row-amount">
+              {amount}
+            </span>
+            <span className="text-muted truncate text-xs">{sub}</span>
+          </div>
+        ) : (
+          <div className="text-muted truncate text-xs">{sub}</div>
+        )}
       </div>
-      <span className={`shrink-0 font-bold tabular-nums ${dir === 'owe' ? 'neg' : dir === 'owed' ? 'pos' : 'text-muted'}`} data-testid="row-amount">
-        {amount}
-      </span>
+      {!stacked && (
+        <span className={`shrink-0 font-bold tabular-nums ${tone}`} data-testid="row-amount">
+          {amount}
+        </span>
+      )}
+      {stacked && chase}
       {action}
     </div>
   )
@@ -217,7 +259,7 @@ function RowAction({ r }: { r: SettleRow }) {
 
 /* ───────────────────────── By person ───────────────────────── */
 
-function ByPerson({ rows }: { rows: SettleRow[] }) {
+function ByPerson({ rows, chase }: { rows: SettleRow[]; chase: Chase }) {
   const people = useMemo(() => personBalances(rows), [rows])
   const owe = people.filter((p) => p.net < 0)
   const owed = people.filter((p) => p.net > 0)
@@ -226,7 +268,7 @@ function ByPerson({ rows }: { rows: SettleRow[] }) {
   const list = (ps: PersonBalance[]) => (
     <div className="space-y-3">
       {ps.map((p) => (
-        <PersonCard key={p.key} p={p} />
+        <PersonCard key={p.key} p={p} chase={chase} />
       ))}
     </div>
   )
@@ -282,7 +324,7 @@ function PersonAction({ p, n }: { p: PersonBalance; n: number }) {
   )
 }
 
-function PersonCard({ p }: { p: PersonBalance }) {
+function PersonCard({ p, chase }: { p: PersonBalance; chase: Chase }) {
   const n = groupCount(p)
   const multi = n > 1
   const mixed = multi && p.parts.some((r) => r.dir === 'owe') && p.parts.some((r) => r.dir === 'owed')
@@ -294,7 +336,15 @@ function PersonCard({ p }: { p: PersonBalance }) {
     const r = p.parts[0]
     return (
       <div className="card overflow-hidden" data-testid="person-card">
-        <ItemRow avatar={avatar} name={p.name} sub={`${r.groupEmoji} ${r.groupName}`} amount={amount} dir={dir} action={<RowAction r={r} />} />
+        <ItemRow
+          avatar={avatar}
+          name={p.name}
+          sub={`${r.groupEmoji} ${r.groupName}`}
+          amount={amount}
+          dir={dir}
+          chase={<RowChase r={r} chase={chase} />}
+          action={<RowAction r={r} />}
+        />
       </div>
     )
   }
@@ -307,6 +357,7 @@ function PersonCard({ p }: { p: PersonBalance }) {
         sub={`across ${n} groups`}
         amount={p.net === 0 ? 'evens out' : amount}
         dir={dir}
+        chase={p.net > 0 ? <PersonRemindActions p={p} feed={chase.feed} className="-mx-1" /> : undefined}
         action={<PersonAction p={p} n={n} />}
       />
       <div className="mx-4 space-y-0.5 border-t border-slate-100 py-2 text-sm dark:border-white/5">

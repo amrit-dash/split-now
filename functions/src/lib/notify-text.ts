@@ -120,6 +120,27 @@ export function nudgeNote(n: {
   }
 }
 
+/** "Goa trip", "Goa trip and Flat", "Goa trip, Flat and Office"; past `max` names, "… and 2 more groups". */
+export function groupList(names: string[], max = 3): string {
+  const shown = names.slice(0, max).map((n) => clip(n, 40))
+  const rest = names.length - shown.length
+  if (rest > 0) return `${shown.join(', ')} and ${rest} more group${rest === 1 ? '' : 's'}`
+  return shown.length <= 1 ? (shown[0] ?? '') : `${shown.slice(0, -1).join(', ')} and ${shown[shown.length - 1]}`
+}
+
+/**
+ * One nudge about everything the debtor owes the sender across several groups (the Balances
+ * screen's "by person" row): one push with the total, opening the debtor's cross-group Settle up.
+ */
+export function nudgeAcrossNote(n: { fromName: string; total: number; currency: string; groupNames: string[]; url: string; senderUid: string }): Note {
+  return {
+    title: 'Settle up',
+    body: `${clip(n.fromName, 30)} reminded you: you owe ${formatMoney(n.total, n.currency)} across ${groupList(n.groupNames)}. Pay in one tap.`,
+    url: n.url,
+    tag: `nudge-p-${n.senderUid}`,
+  }
+}
+
 /** The group crossed 80% or 100% of its budget (shared/budget.ts thresholds). To every member with expense pushes on. */
 export function budgetNote(b: {
   groupId: string

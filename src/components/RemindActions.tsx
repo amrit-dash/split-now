@@ -7,9 +7,10 @@ import { useFlag } from '@/hooks/useAppConfig'
 import type { ActivityEntry, Cents, Group, MemberId } from '@/types'
 import { errText } from '@/lib/errors'
 import { formatMoney } from '@/lib/money'
-import { lastNudgeAt, localNudgeAt, nudgeCooldownText, nudgeResultText, nudgedRecently, rememberNudge, type NudgeResult } from '@/lib/nudge'
+import { lastNudgeAcross, lastNudgeAt, localNudgeAt, nudgeCooldownText, nudgeResultText, nudgedRecently, rememberNudge, type NudgeResult } from '@/lib/nudge'
 import { buildPayLink, newPayLinkCode, payLinkFeatures } from '@/lib/paylinks'
-import { cardSpec, renderShareCard, shareReminder, type ReminderArgs } from '@/lib/share-card'
+import { canNudgePerson, groupNames, personNudgeItems, settlePersonHref, type PersonBalance } from '@/lib/settleAll'
+import { andList, cardSpec, firstName, renderShareCard, shareReminder, type ReminderArgs } from '@/lib/share-card'
 import { useToast } from '@/components/Toast'
 
 /**
@@ -17,6 +18,8 @@ import { useToast } from '@/components/Toast'
  * works without an account, plus a PNG card where files can be shared; src/lib/paylinks.ts)
  * and Nudge (a push from the server, once a day per person and group). Nudge is hidden for
  * people who haven't joined (nothing to push to) and reads as unavailable once used today.
+ * When the nudge can't be pushed (their notifications are off) the share sheet opens instead;
+ * the server has still left them the reminder in the app.
  */
 export function RemindActions({
   group,
@@ -31,28 +34,26 @@ export function RemindActions({
   /** minor units of the group currency they owe you */
   amount: Cents
   me: MemberId
-  /** the group's activity feed, when the screen has it (nudges from other devices show up there) */
+  /** activity of this group (or several groups merged; entries carry their group), when the screen has it: nudges from other devices show up there */
   feed?: ActivityEntry[] | null
   className?: string
 }) {
   const { user, profile } = useMe()
   const toast = useToast()
   const nav = useNavigate()
+  const chase = useChase()
   // Off: Remind still shares, but the members-only Settle up link instead of a new Pay me link.
   const { createLinks } = payLinkFeatures(useFlag('payLinks'))
   const nudges = useFlag('nudges')
-  const [busy, setBusy] = useState<'remind' | 'nudge' | null>(null)
   const m = group.members[debtor]
   const name = m?.name ?? 'Someone'
-  const first = name.split(' ')[0]
+  const first = firstName(name)
   const canNudge = nudges && !!m?.uid && m.uid !== user.uid
-  const lastAt = lastNudgeAt(feed, user.uid, debtor) ?? localNudgeAt(group.id, debtor)
+  const lastAt = lastNudgeAt(feed, user.uid, debtor, group.id) ?? localNudgeAt(group.id, debtor)
   const cooling = nudgedRecently(lastAt)
 
-  const remind = async () => {
-    if (busy) return
-    setBusy('remind')
-    try {
+  const remind = () =>
+    chase.share(async () => {
       // A Pay me link the debtor can open without an account; written in the background (the
       // share sheet must open while the tap still counts), refusals arrive through onError.
       const code = createLinks ? newPayLinkCode() : undefined
@@ -95,6 +96,87 @@ export function RemindActions({
       const demo = repo.mode === 'demo' && code ? { action: { label: `Open as ${first}`, run: () => nav(`/r/${code}?guest=demo`) } } : undefined
       if (r === 'copied') toast(code ? 'Reminder and Pay me link copied' : 'Reminder and pay link copied', 'ok', demo)
       else if (demo) toast('Pay me link ready', 'ok', demo)
+    })
+
+  const nudge = () =>
+    chase.nudge({
+      first,
+      currency: group.currency,
+      cooling,
+      call: () => repo.nudge(group.id, debtor, amount),
+      remember: () => rememberNudge(group.id, debtor),
+      share: remind,
+    })
+
+  return <ChaseButtons first={first} busy={chase.busy} onRemind={remind} onNudge={canNudge ? nudge : undefined} cooling={cooling} className={className} />
+}
+
+/**
+ * Remind and Nudge for a "by person" row that spans several groups (the Balances screen): one
+ * share with the total they owe you (a Pay me link records a payment in one group only, so the
+ * link is your cross-group Settle up), and one nudge, one push with the total (the callable's
+ * `items`). Only when they owe you overall; Nudge only when they have an account.
+ */
+export function PersonRemindActions({ p, feed, className = '' }: { p: PersonBalance; feed?: ActivityEntry[] | null; className?: string }) {
+  const { user, profile } = useMe()
+  const toast = useToast()
+  const chase = useChase()
+  const nudges = useFlag('nudges')
+  const first = firstName(p.name)
+  const owedParts = p.parts.filter((r) => r.dir === 'owed')
+  const canNudge = nudges && canNudgePerson(p, user.uid)
+  const cooling = nudgedRecently(lastNudgeAcross(owedParts, feed, user.uid))
+  if (p.net <= 0) return null
+
+  const remind = () =>
+    chase.share(async () => {
+      const names = groupNames(p)
+      const lead = owedParts[0] ?? p.parts[0]
+      const args: ReminderArgs = {
+        origin: location.origin,
+        groupId: lead.groupId,
+        groupName: andList(names),
+        debtor: { id: lead.memberId, name: p.name },
+        payee: { id: lead.me, name: profile.displayName },
+        amount: p.net,
+        currency: p.currency,
+        upi: profile.payment?.upi,
+        across: names,
+        // Their cross-group Settle up is keyed by you (the person they owe).
+        link: settlePersonHref({ key: `u:${user.uid}|${p.currency}` }),
+      }
+      const file = await renderShareCard(cardSpec(args)).catch(() => null)
+      const r = await shareReminder(args, file)
+      if (r === 'copied') toast('Reminder copied')
+    })
+
+  const nudge = () =>
+    chase.nudge({
+      first,
+      currency: p.currency,
+      cooling,
+      call: () => repo.nudgeAcross(personNudgeItems(p)),
+      remember: () => {
+        for (const r of owedParts) if (r.uid) rememberNudge(r.groupId, r.memberId)
+      },
+      share: remind,
+    })
+
+  return (
+    <ChaseButtons first={first} busy={chase.busy} onRemind={remind} onNudge={canNudge ? nudge : undefined} cooling={cooling} className={className} across />
+  )
+}
+
+/** Busy state, the share sheet, and a nudge with its fallbacks: shared by both kinds of row. */
+function useChase() {
+  const toast = useToast()
+  const [busy, setBusy] = useState<'remind' | 'nudge' | null>(null)
+
+  const share = async (run: () => Promise<void>) => {
+    if (busy === 'remind') return
+    setBusy('remind')
+    try {
+      await run()
     } catch (e) {
       toast(errText(e), 'err')
     } finally {
@@ -102,39 +184,86 @@ export function RemindActions({
     }
   }
 
-  const nudge = async () => {
+  const nudge = async (o: {
+    first: string
+    currency: string
+    cooling: boolean
+    call: () => Promise<NudgeResult>
+    remember: () => void
+    share: () => Promise<void>
+  }) => {
     if (busy) return
-    if (cooling) {
-      toast(nudgeCooldownText(first))
+    if (o.cooling) {
+      toast(nudgeCooldownText(o.first))
       return
     }
     setBusy('nudge')
+    let r: NudgeResult
     try {
-      const r: NudgeResult = await repo.nudge(group.id, debtor, amount)
-      if (r.sent) rememberNudge(group.id, debtor)
-      toast(
-        nudgeResultText(r, first, (c) => formatMoney(c, group.currency)),
-        r.sent ? 'ok' : 'err',
-      )
+      r = await o.call()
     } catch (e) {
       toast(errText(e), 'err')
+      return
     } finally {
       setBusy(null)
     }
+    const text = nudgeResultText(r, o.first, (c) => formatMoney(c, o.currency))
+    // A reminder went out (as a push, or in the app when their notifications are off): today's is used.
+    if (r.sent || r.reason === 'no_push') o.remember()
+    if (r.sent) {
+      toast(text, 'ok')
+      return
+    }
+    const again = { action: { label: 'Share', run: () => void o.share() } }
+    if (r.reason === 'no_push') {
+      // Straight to the share sheet with the same reminder and link; the toast's Share is there
+      // for browsers that won't open a share sheet this long after the tap.
+      toast(text, 'ok', again)
+      await o.share()
+      return
+    }
+    toast(text, 'err', r.reason === 'rate_limited' || r.reason === 'not_owed' ? undefined : again)
   }
 
+  return { busy, share, nudge }
+}
+
+function ChaseButtons({
+  first,
+  busy,
+  onRemind,
+  onNudge,
+  cooling,
+  className,
+  across = false,
+}: {
+  first: string
+  busy: 'remind' | 'nudge' | null
+  onRemind: () => void
+  onNudge?: () => void
+  cooling: boolean
+  className: string
+  across?: boolean
+}) {
   const btn = 'text-muted flex h-11 w-11 shrink-0 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-ink-800'
   return (
     <span className={`flex items-center ${className}`}>
-      <button type="button" onClick={remind} className={btn} aria-label={`Remind ${first}: share a pay link`} disabled={busy === 'remind'} data-testid="remind">
+      <button
+        type="button"
+        onClick={onRemind}
+        className={btn}
+        aria-label={across ? `Remind ${first}: share what they owe you across groups` : `Remind ${first}: share a pay link`}
+        disabled={busy === 'remind'}
+        data-testid="remind"
+      >
         {busy === 'remind' ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <Share2 size={18} aria-hidden />}
       </button>
-      {canNudge && (
+      {onNudge && (
         <button
           type="button"
-          onClick={nudge}
+          onClick={onNudge}
           className={`${btn} ${cooling ? 'opacity-50' : ''}`}
-          aria-label={cooling ? `Nudge ${first}: already nudged today` : `Nudge ${first} with a notification`}
+          aria-label={cooling ? `Nudge ${first}: already nudged today` : `Nudge ${first} with a notification${across ? ' about the total' : ''}`}
           aria-disabled={cooling || undefined}
           title={cooling ? nudgeCooldownText(first) : undefined}
           disabled={busy === 'nudge'}
