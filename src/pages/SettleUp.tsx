@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowDown, Camera, Check, CheckCheck, ChevronDown, Copy, ExternalLink, QrCode as QrIcon } from 'lucide-react'
+import { ArrowDown, Camera, CheckCheck, ChevronDown, Copy, ExternalLink, QrCode as QrIcon } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
+import { ChequeIcon } from '@/components/ChequeIcon'
 import { computeGroupData, memberOrder, useAllGroupData, useExpenses, useGroup, useSettlements } from '@/hooks/data'
 import { useOcr } from '@/hooks/useOcr'
 import type { Cents, MemberId, PaymentHandles } from '@/types'
@@ -174,7 +175,7 @@ export default function SettleUp() {
         </div>
       </div>
 
-      <button className="btn-primary mt-5 w-full" onClick={save} disabled={busy}><Check size={18} aria-hidden /> Record {Number.isFinite(amount) && amount > 0 ? formatMoney(amount, cur) : 'payment'}</button>
+      <button className="btn-primary mt-5 w-full" onClick={save} disabled={busy}><ChequeIcon size={22} /> Record {Number.isFinite(amount) && amount > 0 ? formatMoney(amount, cur) : 'payment'}</button>
     </div>
   )
 }
@@ -514,7 +515,7 @@ export function SettleWithPerson() {
       </div>
 
       <button className="btn-primary mt-5 w-full" onClick={save} disabled={busy || tooMuch || (!even && amount <= 0)} data-testid="settle-person-confirm">
-        {even ? <><CheckCheck size={18} aria-hidden /> Clear {n} groups</> : <><Check size={18} aria-hidden /> Record {amount > 0 ? fmt(amount) : 'payment'}</>}
+        {even ? <><CheckCheck size={18} aria-hidden /> Clear {n} groups</> : <><ChequeIcon size={22} /> Record {amount > 0 ? fmt(amount) : 'payment'}</>}
       </button>
       <p className="mt-2 text-center text-xs text-slate-500 dark:text-slate-400">
         {recordCount > 0 && <>Records a settlement in {recordCount} group{recordCount === 1 ? '' : 's'}{plan.clearsAll ? ', clearing every one' : ''}.</>}
