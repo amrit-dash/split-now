@@ -1,8 +1,8 @@
 # October 2026 audit — handover
 
 Everything an engineer or agent needs to continue from where this audit stopped. The code on
-`claude/codebase-audit-optimization-k2uyfs` (19 commits on top of the owner's
-`claude/splitwise-replica-planning-v7w2hw`, which is merged in) is verified and pushed; the
+`claude/codebase-audit-optimization-k2uyfs` (the audit on top of the owner's
+`claude/splitwise-replica-planning-v7w2hw`, merged in up to 89746f2 on 9 Oct) is verified and pushed; the
 owner's parallel "feedback round" (`docs/REQUESTS-2026-10-08.md`, 26 items) is included and
 treated as binding product decisions throughout.
 
@@ -18,16 +18,38 @@ treated as binding product decisions throughout.
 | `BUNDLE-SIZES.md` | Measured before/after bundle sizes and first-paint analysis. |
 | `icon-candidates/` | The icon options shown to the owner (see "Decisions waiting on the owner"). |
 
+## Second pass (9 Oct 2026)
+
+The owner's UI rounds 2 to 7 (`docs/REQUESTS-2026-10-08.md` items 27 to 71, 17 commits on
+`claude/splitwise-replica-planning-v7w2hw`) are merged in (commit 421e735) and are **the UI to keep**:
+Balances at `/settle` (Friends is gone; `/friends` redirects), settle with one person across groups,
+scan history, member photos and first names, Insights charts with motion and filters, the group flow
+graph, greeting icons, card fireworks, the toast deck, the + button and tab bar look, the version from
+`config/app`, and the group-delete fix. The audit's engineering sits underneath (shared store, lazy
+routes, errText, useConfirm, MoneyInput, page titles, skeletons, flags, a11y attributes, archived groups
+left out of totals, local-date Insights maths). Then:
+
+- `config/app`: the owner's version editor and the admin console overwrote each other. `version` is now a field of `AppConfig` (kept by `toAppConfigDoc`, merge write, one listener, whitelisted in the rules). The editor lives in `/admin` (Flags & app), the version line stays on Profile.
+- Member photos: `isOwnMemberEdit()` in the rules; the sync shares the group-list listener.
+- Group delete: the owner's client-side batched delete (works before `onGroupDeleted` is deployed; the trigger sweeps leftovers).
+- Aurora: the owner's rAF motion now stops while off-screen or the tab is hidden.
+- Seven per-component listeners (capture keys, AI key state) moved onto the shared store (`useCaptureTokens`, `useAiState`).
+- Inbox "Add all" marks likely duplicates and leaves them unticked.
+- The expense form keeps the scanned photo across a reload (`src/lib/draft-blob.ts`, IndexedDB, 3-day expiry).
+- Cancel in Scan really stops the read (`src/lib/abortable.ts`); Statement import says why AI is unavailable.
+- Biome: 0 warnings; hook-deps, button-type and the interaction a11y rules are errors.
+- First paint 333 → 325 kB gzip (lazy card fireworks, Quick add parser on demand). Tried and rejected: grouping icon chunks (+7 kB on first paint) and aliasing React Router's production build (−0.5 kB, not worth hard-coded dependency paths).
+
 ## State at hand-over (all on the final commit)
 
 | Check | Result |
 |---|---|
 | `npm run typecheck` / `typecheck:all` / functions | clean |
-| `npm run check` (Biome lint + format) | 0 errors, 37 warnings (hook deps / button type, deliberately `warn`) |
-| `npm test` | 65 files, 897 tests |
-| `npm run test:rules` (Firestore + Storage emulator) | 15 files, 192 tests |
+| `npm run check` (Biome lint + format) | 0 errors, 0 warnings |
+| `npm test` | 73 files, 1110 tests |
+| `npm run test:rules` (Firestore + Storage emulator) | 16 files, 206 tests |
 | `npm run test:functions` (emulator) | 18 tests |
-| `npm run build` | ok; 111 precached entries, 1.9 MiB; total JS 538 kB gzip (583 kB before the audit, with phase-2 features added) |
+| `npm run build` | ok; 114 precached entries, 2.0 MiB; total JS 560 kB gzip, first paint 325 kB (the owner's rounds 2-7 added features) |
 | `npm run test:e2e` (Playwright, demo mode, Pixel 7) | 7 passed |
 
 In this container the Storage emulator's Firestore lookup needs the proxy disabled:
@@ -63,15 +85,16 @@ above in four jobs; it registers once the workflow reaches the default branch.
 
 ## Open items for the next pass (in rough priority)
 
-- Flip Biome `useExhaustiveDependencies` and `useButtonType` from `warn` to `error` after clearing the 37 warnings (`handoffs/E-done.md`).
-- `members[*].email` is still written into group documents (visible to co-members); stop writing it at join time (`reports/02-security.md` M7).
-- Component tests (React Testing Library) do not exist; the e2e suite covers 7 flows (`reports/11-testing-ci.md`).
-- Receipt image file is not persisted across a reload of the expense form; drafts are (`handoffs/C1-done.md`).
-- Duplicate check on the Inbox bulk add; merchant display-name prettifying (`handoffs/D1-done.md`).
-- Settling in a currency other than the group's; year-in-review; Splitwise API import; email forwarding (`reports/09-half-baked.md` roadmap table).
-- Push notifications for comments, disputes and approval decisions; quiet hours (`reports/14-pwa.md` M6).
-- Self-hosted Tesseract language data; icon micro-chunk grouping; React Router production alias (`handoffs/A2-done.md`).
-- Swipe gestures on Inbox cards; a true AbortSignal for the AI reader (`handoffs/C3-done.md`).
+Done in the second pass and removed from this list: lint warnings and rule flips, Inbox bulk-add duplicates, receipt photo across reload, real AI cancel, statement-import reason, icon chunk grouping and router alias (measured, rejected).
+
+- **Owner decisions** (see Decisions above, plus): `members[*].email` in group documents feeds the owner's request 26 (find people by email), so dropping it needs a decision; inactive tab labels use slate-400 (owner's look, below 4.5:1 contrast) vs `text-muted`; Home balance-card text kept at the audit's `text-white/90` and the inbox badge at `rose-600` for contrast (owner had `/75` and `rose-500`).
+- Component tests (React Testing Library + jsdom as dev dependencies) do not exist; e2e covers 7 flows. Worth adding for SettleWithPerson, the expense editor and Inbox bulk add.
+- Group Settle up: an auto-filled amount does not follow a live balance change while the screen is open (deliberate, kept).
+- `SettingsHome`/`AdminAi`/`Table` still call `repo.watch*` for single-use documents (`watchAppAi`, `watchTable`); fine, but a store key would match the convention.
+- Settling in another currency; year-in-review; Splitwise API import; email forwarding (`reports/09-half-baked.md`).
+- Push notifications for comments, disputes and approval decisions; quiet hours (`reports/14-pwa.md` M6) — needs the owner's pick of which.
+- Self-hosted Tesseract language data (owner: ~3 MB hosting traffic vs one less CDN dependency).
+- Swipe gestures on Inbox cards (`handoffs/C3-done.md`).
 - Each report's "Open questions" section.
 
 ## How to resume with agents
