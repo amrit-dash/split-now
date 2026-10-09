@@ -11,7 +11,7 @@ import { logger } from 'firebase-functions/logger'
 import { HttpsError, onCall, type CallableRequest } from 'firebase-functions/v2/https'
 import { netBalances, type BalanceExpense, type BalanceSettlement } from '../../shared/balances-core'
 import { countStats, db } from './admin'
-import { REGION } from './config'
+import { ENFORCE_APP_CHECK, REGION } from './config'
 import { flagOn, getLimits } from './lib/limits'
 import { DAY_MS, nextNudgeAt, nudgeAmount, nudgeSummary } from './lib/nudge-core'
 import { nudgeNote } from './lib/notify-text'
@@ -49,7 +49,9 @@ async function senderName(groupId: string, g: GroupLite, uid: string): Promise<s
   return typeof n === 'string' && n ? n : 'Someone'
 }
 
-export const nudge = onCall({ region: REGION, enforceAppCheck: false, timeoutSeconds: 30, maxInstances: 5 }, async (req): Promise<NudgeResponse> => {
+const options = { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK, timeoutSeconds: 30, maxInstances: 5 }
+
+export const nudge = onCall(options, async (req): Promise<NudgeResponse> => {
   const uid = caller(req)
   const d = (req.data ?? {}) as { groupId?: unknown; memberId?: unknown; amount?: unknown }
   const groupId = typeof d.groupId === 'string' ? d.groupId : ''

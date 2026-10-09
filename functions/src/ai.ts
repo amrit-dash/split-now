@@ -3,7 +3,7 @@ import { logger } from 'firebase-functions/logger'
 import { defineSecret } from 'firebase-functions/params'
 import { HttpsError, onCall, type CallableRequest } from 'firebase-functions/v2/https'
 import { auth, db } from './admin'
-import { REGION } from './config'
+import { ENFORCE_APP_CHECK, REGION } from './config'
 import {
   appKeyStatus,
   keyHint,
@@ -290,7 +290,7 @@ function signedIn(req: CallableRequest): { uid: string; email?: string } {
 
 const isAdmin = async (uid: string) => (await db().collection('admins').doc(uid).get()).exists
 
-const base = { region: REGION, secrets: AI_SECRETS, enforceAppCheck: false }
+const base = { region: REGION, secrets: AI_SECRETS, enforceAppCheck: ENFORCE_APP_CHECK }
 
 export interface ParseResult {
   receipt?: AiReceipt | null

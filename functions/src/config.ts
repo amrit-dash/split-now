@@ -1,6 +1,14 @@
 /** Every function runs here (Mumbai). Firestore triggers must be in the database's region. */
 export const REGION = 'asia-south1'
 
+/**
+ * App Check on the callables (ai, admin, nudge, refreshFx). Off until the console shows nearly
+ * every request verified (docs/FIREBASE_SETUP.md §5c); then set true here, deploy functions,
+ * and only after that press Enforce for Firestore and Storage. The capture webhook never
+ * checks it (Shortcuts and MacroDroid can't send a token).
+ */
+export const ENFORCE_APP_CHECK = false
+
 /** Dates in captures, trip windows and the reminder schedule are Indian Standard Time. */
 export const TIME_ZONE = 'Asia/Kolkata'
 

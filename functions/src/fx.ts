@@ -16,7 +16,7 @@ import { logger } from 'firebase-functions/logger'
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
 import { db } from './admin'
-import { REGION, TIME_ZONE } from './config'
+import { ENFORCE_APP_CHECK, REGION, TIME_ZONE } from './config'
 import { asRatesDoc, fetchEcb, planRefresh, refreshWrites, validRequest, type FxRatesDoc } from './lib/fx-core'
 import { limitPair } from '../../shared/limits'
 import { getLimits } from './lib/limits'
@@ -68,8 +68,7 @@ export const fxMorning = onSchedule({ ...scheduled, schedule: '0 9 * * *', timeZ
 export const refreshFx = onCall(
   {
     region: REGION,
-    // TODO: switch to true (and pass consumeAppCheckToken if needed) once App Check enforcement is on (docs/FIREBASE_SETUP.md).
-    enforceAppCheck: false,
+    enforceAppCheck: ENFORCE_APP_CHECK,
     timeoutSeconds: 30,
     memory: '256MiB',
     maxInstances: 5,
