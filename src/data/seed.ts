@@ -5,6 +5,7 @@ import { firstNextDate } from '@/lib/recurrence'
 import { convertMinor } from '@/lib/fx'
 import { amountLabel } from '@/lib/activity'
 import { formatMoney } from '@/lib/money'
+import { localISODate } from '@/lib/id'
 import type { AuthUser } from './repo'
 
 /**
@@ -15,13 +16,18 @@ import type { AuthUser } from './repo'
  */
 export function seedDemo(_state: unknown, user: AuthUser) {
   const now = Date.now()
-  const day = (offset: number) => {
-    const d = new Date(now - offset * 86400000)
-    return d.toISOString().slice(0, 10)
-  }
+  // Local calendar days, like todayISO(): the trip window must contain "today" on this device.
+  const day = (offset: number) => localISODate(now - offset * 86400000)
   const goa: Group = {
-    id: 'g_goa', name: 'Goa Trip', emoji: '🏖️', type: 'trip', currency: 'INR', budget: 12000000, simplify: true,
-    startDate: day(26), endDate: day(12),
+    id: 'g_goa',
+    name: 'Goa Trip',
+    emoji: '🏖️',
+    type: 'trip',
+    currency: 'INR',
+    budget: 12000000,
+    simplify: true,
+    startDate: day(26),
+    endDate: day(12),
     memberUids: [user.uid],
     members: {
       me: { name: user.displayName, uid: user.uid, color: colorFor(0) },
@@ -29,24 +35,56 @@ export function seedDemo(_state: unknown, user: AuthUser) {
       p_rohan: { name: 'Rohan', color: colorFor(2) },
       p_ananya: { name: 'Ananya', color: colorFor(3) },
     },
-    inviteCode: 'GOA2026', createdBy: user.uid, createdAt: now - 30 * 86400000, updatedAt: now,
+    inviteCode: 'GOA2026',
+    createdBy: user.uid,
+    createdAt: now - 30 * 86400000,
+    updatedAt: now,
   }
   const flat: Group = {
-    id: 'g_flat', name: 'Indiranagar Flat', emoji: '🏠', type: 'home', currency: 'INR', simplify: false,
+    id: 'g_flat',
+    name: 'Indiranagar Flat',
+    emoji: '🏠',
+    type: 'home',
+    currency: 'INR',
+    simplify: false,
     memberUids: [user.uid],
     members: {
       me: { name: user.displayName, uid: user.uid, color: colorFor(0) },
       p_arjun: { name: 'Arjun', color: colorFor(4) },
       p_kavya: { name: 'Kavya', color: colorFor(5) },
     },
-    inviteCode: 'FLAT42', createdBy: user.uid, createdAt: now - 90 * 86400000, updatedAt: now - 86400000,
+    inviteCode: 'FLAT42',
+    createdBy: user.uid,
+    createdAt: now - 90 * 86400000,
+    updatedAt: now - 86400000,
   }
   const G = Object.keys(goa.members)
   const F = Object.keys(flat.members)
-  const mk = (g: Group, order: string[], i: number, description: string, amount: number, category: Expense['category'], payer: string, offset: number, splitType: Expense['splitType'] = 'equal', splitInput: Expense['splitInput'] = { selected: order }): Expense => ({
-    id: `e_${g.id}_${i}`, groupId: g.id, description, amount, category, date: day(offset),
-    paidBy: { [payer]: amount }, splits: computeSplits(amount, splitType, splitInput, order), splitType, splitInput,
-    createdBy: user.uid, createdAt: now - offset * 86400000, updatedAt: now - offset * 86400000,
+  const mk = (
+    g: Group,
+    order: string[],
+    i: number,
+    description: string,
+    amount: number,
+    category: Expense['category'],
+    payer: string,
+    offset: number,
+    splitType: Expense['splitType'] = 'equal',
+    splitInput: Expense['splitInput'] = { selected: order },
+  ): Expense => ({
+    id: `e_${g.id}_${i}`,
+    groupId: g.id,
+    description,
+    amount,
+    category,
+    date: day(offset),
+    paidBy: { [payer]: amount },
+    splits: computeSplits(amount, splitType, splitInput, order),
+    splitType,
+    splitInput,
+    createdBy: user.uid,
+    createdAt: now - offset * 86400000,
+    updatedAt: now - offset * 86400000,
   })
   // Booked in dollars on a travel site, converted once at a locked rate.
   const cruiseUsd = 7200
@@ -73,25 +111,48 @@ export function seedDemo(_state: unknown, user: AuthUser) {
     mk(flat, F, 7, 'Zepto order', 123400, 'groceries', 'p_arjun', 3),
   ]
   const settlements: Settlement[] = [
-    { id: 's_1', groupId: 'g_flat', from: 'p_arjun', to: 'me', amount: 1800000, method: 'UPI', date: day(30), createdBy: user.uid, createdAt: now - 30 * 86400000 },
+    {
+      id: 's_1',
+      groupId: 'g_flat',
+      from: 'p_arjun',
+      to: 'me',
+      amount: 1800000,
+      method: 'UPI',
+      date: day(30),
+      createdBy: user.uid,
+      createdAt: now - 30 * 86400000,
+    },
   ]
   // A little history so the activity feeds aren't empty on first launch.
   const byId = Object.fromEntries(expenses.map((e) => [e.id, e]))
   const added = (eid: string, actor: string, actorUid: string): ActivityEntry => {
     const e = byId[eid]
     return {
-      id: `a_${eid}`, groupId: e.groupId, type: 'expense.created', actorUid, actorName: actor, targetId: eid,
+      id: `a_${eid}`,
+      groupId: e.groupId,
+      type: 'expense.created',
+      actorUid,
+      actorName: actor,
+      targetId: eid,
       summary: `${actor} added “${e.description}” (${amountLabel(e.amount, e.original, 'INR')})`,
-      after: { description: e.description, amount: e.amount }, createdAt: e.createdAt,
+      after: { description: e.description, amount: e.amount },
+      createdAt: e.createdAt,
     }
   }
   const shack = byId.e_g_goa_3
   const activity: ActivityEntry[] = [
     added('e_g_goa_3', 'Rohan', 'seed_rohan'),
     {
-      id: 'a_e_g_goa_3_edit', groupId: 'g_goa', type: 'expense.updated', actorUid: 'seed_rohan', actorName: 'Rohan', targetId: shack.id,
+      id: 'a_e_g_goa_3_edit',
+      groupId: 'g_goa',
+      type: 'expense.updated',
+      actorUid: 'seed_rohan',
+      actorName: 'Rohan',
+      targetId: shack.id,
       summary: `Rohan changed amount ${formatMoney(420000, 'INR')} → ${formatMoney(shack.amount, 'INR')} on “${shack.description}”`,
-      before: { amount: 420000 }, after: { amount: shack.amount }, createdAt: shack.createdAt + 3600_000,
+      before: { amount: 420000 },
+      after: { amount: shack.amount },
+      createdAt: shack.createdAt + 3600_000,
     },
     added('e_g_goa_6', 'Priya', 'seed_priya'),
     added('e_g_goa_7', 'Rohan', 'seed_rohan'),
@@ -107,8 +168,17 @@ export function seedDemo(_state: unknown, user: AuthUser) {
     // One card payment from the trip (picked up from a bank SMS), waiting in the inbox.
     captures: {
       c_demo: {
-        id: 'c_demo', owner: user.uid, amount: 324000, currency: 'INR', merchant: 'Britto’s, Baga', date: day(16), source: 'android-auto',
-        card: 'HDFC Visa', status: 'pending' as const, createdAt: now - 16 * 86400000, updatedAt: now - 16 * 86400000,
+        id: 'c_demo',
+        owner: user.uid,
+        amount: 324000,
+        currency: 'INR',
+        merchant: 'Britto’s, Baga',
+        date: day(16),
+        source: 'android-auto',
+        card: 'HDFC Visa',
+        status: 'pending' as const,
+        createdAt: now - 16 * 86400000,
+        updatedAt: now - 16 * 86400000,
       },
     },
   }

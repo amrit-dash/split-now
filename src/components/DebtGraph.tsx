@@ -3,7 +3,21 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, Check, X } from 'lucide-react'
 import type { Debt, Group, MemberId } from '@/types'
 import { formatMoney } from '@/lib/money'
-import { LABEL_GAP, LABEL_H, compactMoney, flowCurve, flowKey, flowSpeed, flowWidth, layoutRing, mergeDebts, netOf, shortNames, type FlowGeom, type RingNode } from '@/lib/insightsFlow'
+import {
+  LABEL_GAP,
+  LABEL_H,
+  compactMoney,
+  flowCurve,
+  flowKey,
+  flowSpeed,
+  flowWidth,
+  layoutRing,
+  mergeDebts,
+  netOf,
+  shortNames,
+  type FlowGeom,
+  type RingNode,
+} from '@/lib/insightsFlow'
 import { useMe } from '@/hooks/auth'
 import { memberOrder, myMemberId } from '@/hooks/data'
 import { Avatar } from '@/components/Avatar'
@@ -44,8 +58,7 @@ export function DebtGraph({ group, debts }: { group: Group; debts: Debt[]; size?
   const reduced = useReducedMotion()
   const flows = useMemo(() => mergeDebts(debts), [debts])
   const touchesMe = (d: Debt) => d.from === me || d.to === me
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const mine = useMemo(() => flows.filter(touchesMe), [flows, me])
+  const mine = useMemo(() => flows.filter((d) => d.from === me || d.to === me), [flows, me])
   const [mode, setMode] = useState<Mode>(() => (me && flows.some(touchesMe) ? 'me' : 'all'))
   const view: Mode = me && flows.length ? mode : 'all'
   const [focus, setFocus] = useState<Focus>(null)
@@ -82,32 +95,39 @@ export function DebtGraph({ group, debts }: { group: Group; debts: Debt[]; size?
   const signed = (v: number) => (v > 0 ? '+' : v < 0 ? '−' : '') + short(Math.abs(v))
 
   const layout = useMemo(
-    () => layoutRing({
-      width,
-      // Your view: only the people you have a payment with, around you.
-      ids: view === 'me' ? ids.filter((id) => id !== me && mine.some((d) => d.from === id || d.to === id)) : ids,
-      center: view === 'me' ? me : flows.length ? null : '@',
-    }),
+    () =>
+      layoutRing({
+        width,
+        // Your view: only the people you have a payment with, around you.
+        ids: view === 'me' ? ids.filter((id) => id !== me && mine.some((d) => d.from === id || d.to === id)) : ids,
+        center: view === 'me' ? me : flows.length ? null : '@',
+      }),
     [width, ids, view, me, mine, flows.length],
   )
   const shown = view === 'me' ? mine : flows
   const net = useMemo(() => netOf(flows), [flows])
-  const myNet = me ? net.get(me) ?? 0 : 0
+  const myNet = me ? (net.get(me) ?? 0) : 0
 
   const drawn: DrawnFlow[] = useMemo(() => {
     const max = Math.max(0, ...shown.map((d) => d.amount))
     const at = (n: RingNode) => ({ x: n.x, y: n.y, r: n.size / 2 + 4 })
     const centre = { x: layout.cx, y: layout.cy }
     return shown.flatMap((d) => {
-      const a = layout.byId.get(d.from), b = layout.byId.get(d.to)
+      const a = layout.byId.get(d.from),
+        b = layout.byId.get(d.to)
       if (!a || !b) return []
       const geom = view === 'me' ? flowCurve(at(a), at(b), centre, 0, 14) : flowCurve(at(a), at(b), centre, a.center || b.center ? 0 : 0.5, 9)
-      return [{
-        key: flowKey(d), debt: d, geom, width: flowWidth(d.amount, max), speed: flowSpeed(d.amount, max),
-        ...(view === 'me' ? { tone: d.from === me ? 'out' as const : 'in' as const } : { color: css(color(d.from)) }),
-      }]
+      return [
+        {
+          key: flowKey(d),
+          debt: d,
+          geom,
+          width: flowWidth(d.amount, max),
+          speed: flowSpeed(d.amount, max),
+          ...(view === 'me' ? { tone: d.from === me ? ('out' as const) : ('in' as const) } : { color: css(group.members[d.from]?.color ?? '#64748b') }),
+        },
+      ]
     })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shown, layout, view, me, group])
 
   // Payments that disappear (Original → Simplified) stay a moment to drain away.
@@ -129,7 +149,16 @@ export function DebtGraph({ group, debts }: { group: Group; debts: Debt[]; size?
   // A busy picture (e.g. 29 original payments) stays calm: thin ghost lines, and only the biggest
   // payments carry moving dots and arrows until something is focused.
   const busy = drawn.length > 10
-  const loud = useMemo(() => new Set([...drawn].sort((a, b) => b.debt.amount - a.debt.amount).slice(0, busy ? 6 : drawn.length).map((f) => f.key)), [drawn, busy])
+  const loud = useMemo(
+    () =>
+      new Set(
+        [...drawn]
+          .sort((a, b) => b.debt.amount - a.debt.amount)
+          .slice(0, busy ? 6 : drawn.length)
+          .map((f) => f.key),
+      ),
+    [drawn, busy],
+  )
   const flowDelay = (i: number) => (fresh ? 380 + i * 45 : 180 + i * 35)
 
   // Focus: a payment or a person; everything else steps back.
@@ -149,13 +178,11 @@ export function DebtGraph({ group, debts }: { group: Group; debts: Debt[]; size?
       const owesMe = flows.filter((d) => d.from === id && d.to === me).reduce((s, d) => s + d.amount, 0)
       const iOwe = flows.filter((d) => d.from === me && d.to === id).reduce((s, d) => s + d.amount, 0)
       const v = owesMe - iOwe
-      if (!owesMe && !iOwe) return { text: 'even', cls: 'text-slate-400', aria: 'nothing between you' }
-      return v >= 0
-        ? { text: signed(v), cls: 'pos', aria: `owes you ${money(v)}` }
-        : { text: signed(v), cls: 'neg', aria: `you owe ${money(-v)}` }
+      if (!owesMe && !iOwe) return { text: 'even', cls: 'text-muted', aria: 'nothing between you' }
+      return v >= 0 ? { text: signed(v), cls: 'pos', aria: `owes you ${money(v)}` } : { text: signed(v), cls: 'neg', aria: `you owe ${money(-v)}` }
     }
     const v = net.get(id) ?? 0
-    if (!v) return { text: 'settled', cls: 'text-slate-400', aria: 'settled' }
+    if (!v) return { text: 'settled', cls: 'text-muted', aria: 'settled' }
     return { text: signed(v), cls: v > 0 ? 'pos' : 'neg', aria: v > 0 ? `gets back ${money(v)}` : `owes ${money(-v)}` }
   }
 
@@ -173,11 +200,21 @@ export function DebtGraph({ group, debts }: { group: Group; debts: Debt[]; size?
       {/* Headline: the answer before the picture. */}
       <div className="mb-3 flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
         <div className="flex-auto">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            {settled ? 'All settled' : view === 'me' ? (myNet > 0 ? 'You get back' : myNet < 0 ? 'You owe' : 'You’re square') : `${flows.length} payment${flows.length > 1 ? 's' : ''} settle everyone`}
+          <div className="text-muted text-[11px] font-semibold uppercase tracking-wide">
+            {settled
+              ? 'All settled'
+              : view === 'me'
+                ? myNet > 0
+                  ? 'You get back'
+                  : myNet < 0
+                    ? 'You owe'
+                    : 'You’re square'
+                : `${flows.length} payment${flows.length > 1 ? 's' : ''} settle everyone`}
           </div>
           {!settled && (
-            <div className={`whitespace-nowrap font-extrabold leading-tight tabular-nums ${headSize} ${view === 'me' ? (myNet > 0 ? 'pos' : myNet < 0 ? 'neg' : 'text-slate-400') : ''}`}>
+            <div
+              className={`whitespace-nowrap font-extrabold leading-tight tabular-nums ${headSize} ${view === 'me' ? (myNet > 0 ? 'pos' : myNet < 0 ? 'neg' : 'text-muted') : ''}`}
+            >
               {money(Math.round(counted))}
             </div>
           )}
@@ -185,8 +222,16 @@ export function DebtGraph({ group, debts }: { group: Group; debts: Debt[]; size?
         {me && !settled && (
           <div className="flex shrink-0 rounded-full bg-slate-100 p-0.5 text-xs font-semibold dark:bg-ink-800" role="group" aria-label="Show">
             {(['me', 'all'] as const).map((m) => (
-              <button key={m} type="button" aria-pressed={view === m} onClick={() => { setMode(m); setFocus(null) }}
-                className={`rounded-full px-3 py-1.5 transition ${view === m ? 'bg-white text-slate-900 shadow-sm dark:bg-ink-700 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>
+              <button
+                key={m}
+                type="button"
+                aria-pressed={view === m}
+                onClick={() => {
+                  setMode(m)
+                  setFocus(null)
+                }}
+                className={`rounded-full px-3 py-1.5 transition ${view === m ? 'bg-white text-slate-900 shadow-sm dark:bg-ink-700 dark:text-white' : 'text-muted'}`}
+              >
                 {m === 'me' ? 'You' : 'Everyone'}
               </button>
             ))}
@@ -195,13 +240,35 @@ export function DebtGraph({ group, debts }: { group: Group; debts: Debt[]; size?
       </div>
 
       {/* The picture: SVG flows under absolutely positioned avatar buttons. */}
-      <div ref={boxRef} className="relative w-full select-none overflow-hidden" style={{ height: layout.height }}
-        onClick={(e) => { if (e.target === e.currentTarget) setFocus(null) }}>
-        <svg width={layout.width} height={layout.height} className="absolute inset-0 overflow-visible" aria-hidden
-          onClick={(e) => { if (e.target === e.currentTarget) setFocus(null) }}>
+      {/* biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/useKeyWithClickEvents: tapping empty space clears the highlight for pointers; keyboard users have the Clear button and the payment list. */}
+      <div
+        ref={boxRef}
+        className="relative w-full select-none overflow-hidden"
+        style={{ height: layout.height }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) setFocus(null)
+        }}
+      >
+        <svg
+          width={layout.width}
+          height={layout.height}
+          className="absolute inset-0 overflow-visible"
+          aria-hidden
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setFocus(null)
+          }}
+        >
           {exiting.map((f) => (
-            <path key={'x' + f.key + f.debt.amount} d={f.geom.d} pathLength={100} fill="none" strokeLinecap="round" strokeWidth={f.width}
-              className={`dg-exit ${f.tone ? TONE[f.tone] : ''}`} style={f.color ? { stroke: f.color } : undefined} />
+            <path
+              key={'x' + f.key + f.debt.amount}
+              d={f.geom.d}
+              pathLength={100}
+              fill="none"
+              strokeLinecap="round"
+              strokeWidth={f.width}
+              className={`dg-exit ${f.tone ? TONE[f.tone] : ''}`}
+              style={f.color ? { stroke: f.color } : undefined}
+            />
           ))}
           {drawn.map((f, i) => {
             const on = flowOn(f.debt)
@@ -211,18 +278,48 @@ export function DebtGraph({ group, debts }: { group: Group; debts: Debt[]; size?
             const chev = 3.5 + f.width * 0.35
             return (
               <g key={`${view}|${f.key}|${f.debt.amount}`} className="transition-opacity duration-300" opacity={on ? 1 : 0.1}>
-                <path d={f.geom.d} pathLength={100} fill="none" strokeLinecap="round" strokeWidth={f.width} strokeOpacity={focus && on ? 0.45 : busy ? 0.2 : 0.3}
-                  className={`dg-draw ${tone}`} style={{ ...stroke, '--d': `${d0}ms` } as CSSProperties} />
+                <path
+                  d={f.geom.d}
+                  pathLength={100}
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeWidth={f.width}
+                  strokeOpacity={focus && on ? 0.45 : busy ? 0.2 : 0.3}
+                  className={`dg-draw ${tone}`}
+                  style={{ ...stroke, '--d': `${d0}ms` } as CSSProperties}
+                />
                 {on && (focus || loud.has(f.key)) && (
-                  <path d={f.geom.d} fill="none" strokeWidth={Math.min(9, Math.max(4, f.width * 0.8 + 1))}
-                    className={`dg-dots ${tone}`} style={{ ...stroke, '--dur': `${f.speed}s`, '--d': `${d0 + 550}ms` } as CSSProperties} />
+                  <path
+                    d={f.geom.d}
+                    fill="none"
+                    strokeWidth={Math.min(9, Math.max(4, f.width * 0.8 + 1))}
+                    className={`dg-dots ${tone}`}
+                    style={{ ...stroke, '--dur': `${f.speed}s`, '--d': `${d0 + 550}ms` } as CSSProperties}
+                  />
                 )}
-                {(focus ? on : loud.has(f.key)) && <g transform={`translate(${f.geom.arrow.x.toFixed(1)},${f.geom.arrow.y.toFixed(1)}) rotate(${f.geom.arrow.angle.toFixed(1)})`}>
-                  <path d={`M${-chev},${-chev} L${chev * 0.4},0 L${-chev},${chev}`} fill="none" strokeWidth={2.25} strokeLinecap="round" strokeLinejoin="round"
-                    className={`dg-fade-in ${tone}`} style={{ ...stroke, '--d': `${d0 + 450}ms` } as CSSProperties} />
-                </g>}
-                <path d={f.geom.d} fill="none" stroke="transparent" strokeWidth={22} pointerEvents="stroke" className="cursor-pointer"
-                  onClick={() => toggle({ flow: f.key })}>
+                {(focus ? on : loud.has(f.key)) && (
+                  <g transform={`translate(${f.geom.arrow.x.toFixed(1)},${f.geom.arrow.y.toFixed(1)}) rotate(${f.geom.arrow.angle.toFixed(1)})`}>
+                    <path
+                      d={`M${-chev},${-chev} L${chev * 0.4},0 L${-chev},${chev}`}
+                      fill="none"
+                      strokeWidth={2.25}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className={`dg-fade-in ${tone}`}
+                      style={{ ...stroke, '--d': `${d0 + 450}ms` } as CSSProperties}
+                    />
+                  </g>
+                )}
+                {/* biome-ignore lint/a11y/noStaticElementInteractions: a wide hit area for tapping a flow; the same toggle is a button in the payment list below. */}
+                <path
+                  d={f.geom.d}
+                  fill="none"
+                  stroke="transparent"
+                  strokeWidth={22}
+                  pointerEvents="stroke"
+                  className="cursor-pointer"
+                  onClick={() => toggle({ flow: f.key })}
+                >
                   <title>{`${name(f.debt.from)} → ${name(f.debt.to)}: ${money(f.debt.amount)}`}</title>
                 </path>
               </g>
@@ -231,14 +328,22 @@ export function DebtGraph({ group, debts }: { group: Group; debts: Debt[]; size?
         </svg>
 
         {settled && (
-          <div className="pointer-events-none absolute flex flex-col items-center" style={{ left: layout.cx, top: layout.cy, transform: 'translate(-50%, -32px)' }}>
+          <div
+            className="pointer-events-none absolute flex flex-col items-center"
+            style={{ left: layout.cx, top: layout.cy, transform: 'translate(-50%, -32px)' }}
+          >
             <div className="relative">
               <span className="dg-ripple absolute inset-0 rounded-full bg-emerald-400/50" />
-              <span className="dg-pop relative flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg shadow-emerald-500/30" style={{ '--d': '200ms' } as CSSProperties}>
-                <Check size={32} strokeWidth={3} />
+              <span
+                className="dg-pop relative flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg shadow-emerald-500/30"
+                style={{ '--d': '200ms' } as CSSProperties}
+              >
+                <Check size={32} strokeWidth={3} aria-hidden />
               </span>
             </div>
-            <div className="dg-fade-in mt-2 whitespace-nowrap text-sm font-bold text-slate-900 dark:text-slate-100" style={{ '--d': '450ms' } as CSSProperties}>Everyone’s square</div>
+            <div className="dg-fade-in mt-2 whitespace-nowrap text-sm font-bold text-slate-900 dark:text-slate-100" style={{ '--d': '450ms' } as CSSProperties}>
+              Everyone’s square
+            </div>
           </div>
         )}
 
@@ -247,51 +352,87 @@ export function DebtGraph({ group, debts }: { group: Group; debts: Debt[]; size?
           const on = personOn(n.id)
           const picked = focusPerson === n.id
           return (
-            <button key={n.id} type="button" onClick={() => toggle({ person: n.id })} aria-pressed={picked}
-              aria-label={`${name(n.id)}: ${sub.aria}`} title={fullName(n.id)}
+            <button
+              key={n.id}
+              type="button"
+              onClick={() => toggle({ person: n.id })}
+              aria-pressed={picked}
+              aria-label={`${name(n.id)}: ${sub.aria}`}
+              title={fullName(n.id)}
               className={`dg-node absolute left-0 top-0 flex items-center ${n.above ? 'flex-col-reverse' : 'flex-col'}`}
-              style={{ width: n.labelW, transform: `translate(${(n.x - n.labelW / 2).toFixed(1)}px, ${(n.y - n.size / 2 - (n.above ? LABEL_GAP + LABEL_H : 0)).toFixed(1)}px)`, opacity: settled ? 1 : on ? 1 : 0.4 }}>
-              <span className={`dg-pop block rounded-full ring-offset-2 ring-offset-white transition-shadow dark:ring-offset-ink-900 ${picked ? 'ring-2 ring-brand-500' : ''}`}
-                style={{ '--d': `${i * 35}ms` } as CSSProperties}>
+              style={{
+                width: n.labelW,
+                transform: `translate(${(n.x - n.labelW / 2).toFixed(1)}px, ${(n.y - n.size / 2 - (n.above ? LABEL_GAP + LABEL_H : 0)).toFixed(1)}px)`,
+                opacity: settled ? 1 : on ? 1 : 0.4,
+              }}
+            >
+              <span
+                className={`dg-pop block rounded-full ring-offset-2 ring-offset-white transition-shadow dark:ring-offset-ink-900 ${picked ? 'ring-2 ring-brand-500' : ''}`}
+                style={{ '--d': `${i * 35}ms` } as CSSProperties}
+              >
                 <Avatar name={fullName(n.id)} color={color(n.id)} photoURL={photo(n.id)} size={n.size} />
               </span>
               {/* A soft card-coloured backing keeps labels readable where a flow passes behind them. */}
-              <span className={`block max-w-full rounded-md bg-white/85 px-1 dark:bg-ink-900/85 ${n.above ? 'mb-[3px]' : 'mt-[3px]'}`} style={{ height: LABEL_H }}>
-                <span className={`block truncate text-center font-bold leading-[15px] text-slate-900 dark:text-slate-100 ${n.center ? 'text-[13px]' : 'text-[12px]'}`}>{label(n.id)}</span>
-                <span className={`block truncate text-center text-[11px] font-semibold leading-[15px] tabular-nums ${sub.cls}`}>{settled ? 'settled' : sub.text}</span>
+              <span
+                className={`block max-w-full rounded-md bg-white/85 px-1 dark:bg-ink-900/85 ${n.above ? 'mb-[3px]' : 'mt-[3px]'}`}
+                style={{ height: LABEL_H }}
+              >
+                <span
+                  className={`block truncate text-center font-bold leading-[15px] text-slate-900 dark:text-slate-100 ${n.center ? 'text-[13px]' : 'text-[12px]'}`}
+                >
+                  {label(n.id)}
+                </span>
+                <span className={`block truncate text-center text-[11px] font-semibold leading-[15px] tabular-nums ${sub.cls}`}>
+                  {settled ? 'settled' : sub.text}
+                </span>
               </span>
             </button>
           )
         })}
 
-        {focusFlow && (() => {
-          const f = drawn.find((x) => x.key === flowKey(focusFlow))
-          if (!f) return null
-          const x = Math.min(layout.width - 44, Math.max(44, f.geom.mid.x))
-          return (
-            <div className="pointer-events-none absolute left-0 top-0" style={{ transform: `translate(calc(${x.toFixed(1)}px - 50%), ${Math.max(0, f.geom.mid.y - 26).toFixed(1)}px)` }}>
-              <div className="dg-rise max-w-[88px] truncate rounded-full bg-slate-900 px-2 py-0.5 text-[11px] font-bold tabular-nums text-white shadow dark:bg-white dark:text-slate-900">
-                {short(f.debt.amount)}
+        {focusFlow &&
+          (() => {
+            const f = drawn.find((x) => x.key === flowKey(focusFlow))
+            if (!f) return null
+            const x = Math.min(layout.width - 44, Math.max(44, f.geom.mid.x))
+            return (
+              <div
+                className="pointer-events-none absolute left-0 top-0"
+                style={{ transform: `translate(calc(${x.toFixed(1)}px - 50%), ${Math.max(0, f.geom.mid.y - 26).toFixed(1)}px)` }}
+              >
+                <div className="dg-rise max-w-[88px] truncate rounded-full bg-slate-900 px-2 py-0.5 text-[11px] font-bold tabular-nums text-white shadow dark:bg-white dark:text-slate-900">
+                  {short(f.debt.amount)}
+                </div>
               </div>
-            </div>
-          )
-        })()}
+            )
+          })()}
       </div>
 
       {!settled && (
-        <div className="mt-1 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+        <div className="mt-1 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-muted text-[11px] font-medium">
           {view === 'me' ? (
             <>
-              <span className="inline-flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-emerald-500" /> owes you</span>
-              <span className="inline-flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-rose-500" /> you owe</span>
+              <span className="inline-flex items-center gap-1">
+                <i className="h-2 w-2 rounded-full bg-emerald-500" aria-hidden /> owes you
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <i className="h-2 w-2 rounded-full bg-rose-500" aria-hidden /> you owe
+              </span>
             </>
-          ) : <span>Coloured by who pays</span>}
+          ) : (
+            <span>Coloured by who pays</span>
+          )}
           <span>Thicker = more · tap to focus</span>
         </div>
       )}
 
       {view === 'me' && !settled && mine.length === 0 && (
-        <p className="mt-2 text-center text-sm text-slate-500">You’re all square here. <button type="button" className="font-semibold text-brand-600 dark:text-brand-300" onClick={() => setMode('all')}>See everyone</button></p>
+        <p className="text-muted mt-2 text-center text-sm">
+          You’re all square here.{' '}
+          <button type="button" className="font-semibold text-brand-600 dark:text-brand-300" onClick={() => setMode('all')}>
+            See everyone
+          </button>
+        </p>
       )}
 
       {focus && (focusFlow || focusPerson) && <div key={JSON.stringify(focus)}>{focusCard()}</div>}
@@ -303,15 +444,21 @@ export function DebtGraph({ group, debts }: { group: Group; debts: Debt[]; size?
             const on = flowOn(d)
             return (
               <li key={k}>
-                <button type="button" onClick={() => toggle({ flow: k })} aria-pressed={!!focusFlow && flowKey(focusFlow) === k}
-                  className={`-mx-2 flex w-[calc(100%+1rem)] items-center gap-2.5 rounded-xl px-2 py-2 text-left transition-opacity ${on ? '' : 'opacity-40'}`}>
+                <button
+                  type="button"
+                  onClick={() => toggle({ flow: k })}
+                  aria-pressed={!!focusFlow && flowKey(focusFlow) === k}
+                  className={`-mx-2 flex w-[calc(100%+1rem)] items-center gap-2.5 rounded-xl px-2 py-2 text-left transition-opacity ${on ? '' : 'opacity-40'}`}
+                >
                   <span className="flex shrink-0 items-center">
                     <Avatar name={fullName(d.from)} color={color(d.from)} photoURL={photo(d.from)} size={28} />
-                    <span className="-ml-1.5"><Avatar name={fullName(d.to)} color={color(d.to)} photoURL={photo(d.to)} size={28} ring /></span>
+                    <span className="-ml-1.5">
+                      <Avatar name={fullName(d.to)} color={color(d.to)} photoURL={photo(d.to)} size={28} ring />
+                    </span>
                   </span>
                   <span className="min-w-0 flex-1 leading-tight">
                     <span className={`block truncate text-sm font-semibold ${d.from === me ? 'neg' : ''}`}>{name(d.from)}</span>
-                    <span className="flex min-w-0 items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+                    <span className="text-muted flex min-w-0 items-center gap-1 text-xs">
                       <ArrowRight size={12} className="shrink-0" aria-label="pays" />
                       <span className={`truncate font-medium ${d.to === me ? 'pos' : ''}`}>{name(d.to)}</span>
                     </span>
@@ -332,13 +479,26 @@ export function DebtGraph({ group, debts }: { group: Group; debts: Debt[]; size?
     let detail: ReactNode
     let mineDebts: Debt[] = []
     if (focusFlow) {
-      title = <><span className="truncate">{name(focusFlow.from)}</span><ArrowRight size={14} className="shrink-0 text-slate-400" aria-label="pays" /><span className="truncate">{name(focusFlow.to)}</span></>
+      title = (
+        <>
+          <span className="truncate">{name(focusFlow.from)}</span>
+          <ArrowRight size={14} className="shrink-0 text-slate-400" aria-label="pays" />
+          <span className="truncate">{name(focusFlow.to)}</span>
+        </>
+      )
       detail = <span className="font-bold tabular-nums">{money(focusFlow.amount)}</span>
       if (touchesMe(focusFlow)) mineDebts = [focusFlow]
     } else if (focusPerson) {
       const v = net.get(focusPerson) ?? 0
       title = <span className="truncate">{name(focusPerson)}</span>
-      detail = v ? <span className={`tabular-nums ${v > 0 ? 'pos' : 'neg'}`}>{v > 0 ? (focusPerson === me ? 'get back ' : 'gets back ') : (focusPerson === me ? 'owe ' : 'owes ')}<b>{money(Math.abs(v))}</b></span> : <span className="text-slate-400">settled</span>
+      detail = v ? (
+        <span className={`tabular-nums ${v > 0 ? 'pos' : 'neg'}`}>
+          {v > 0 ? (focusPerson === me ? 'get back ' : 'gets back ') : focusPerson === me ? 'owe ' : 'owes '}
+          <b>{money(Math.abs(v))}</b>
+        </span>
+      ) : (
+        <span className="text-muted">settled</span>
+      )
       mineDebts = focusPerson === me ? mine : flows.filter((d) => (d.from === me && d.to === focusPerson) || (d.to === me && d.from === focusPerson))
     }
     return (
@@ -348,7 +508,14 @@ export function DebtGraph({ group, debts }: { group: Group; debts: Debt[]; size?
             <div className="flex min-w-0 items-center gap-1.5 text-sm font-semibold">{title}</div>
             <div className="mt-0.5 text-sm">{detail}</div>
           </div>
-          <button type="button" onClick={() => setFocus(null)} className="-m-1 shrink-0 rounded-full p-1.5 text-slate-400" aria-label="Clear focus"><X size={16} /></button>
+          <button
+            type="button"
+            onClick={() => setFocus(null)}
+            className="-m-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-400"
+            aria-label="Clear focus"
+          >
+            <X size={16} aria-hidden />
+          </button>
         </div>
         {mineDebts.slice(0, 3).map((d) => (
           <Link key={flowKey(d)} to={settleLink(d)} className="btn-primary mt-2 !min-h-10 w-full !py-2 text-sm">

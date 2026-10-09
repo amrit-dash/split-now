@@ -1,14 +1,33 @@
-import type { ActivityEntry, Capture, Expense, ExpenseComment, Group, Member, MemberId, PaymentHandles, Settlement, UserProfile } from '@/types'
+import type { ActivityEntry, Capture, Cents, Expense, ExpenseComment, Group, Member, MemberId, PaymentHandles, Settlement, UserProfile } from '@/types'
 import type { CaptureDraft, InboxDoc } from '@/lib/capture'
 import type { ItemId, LiveTable, NewTable, ParticipantId, TableExtras, TableItem, TableParticipant, TableStatus } from '@/lib/table'
 import type { ActivityCtx } from '@/lib/activity'
 import type { FxRatesDoc, FxRefreshResult } from '@/lib/fx'
 import type { ParsedReceipt } from '@/lib/ocr-parse'
 import type { AppAiConfig } from '@/lib/ai-config'
+import type { MerchantMemory } from '@/lib/merchants'
+import type { AiTextExpense } from '@/lib/nl-expense'
+import type { NudgeResult } from '@/lib/nudge'
+import type { AiUnavailableReason } from '../../shared/ai-config'
 import { defaultCurrency } from '@/lib/locale'
 import { sharedPhotoURL, type OwnMemberPatch } from '@/lib/memberSync'
 
 export type Unsub = () => void
+
+/**
+ * Where a live query's data came from. Passed as the optional second argument of every
+ * `watch*` callback so screens can tell "nothing here yet (cached)" from "nothing here (server)".
+ * The demo repo always reports a server-equivalent snapshot.
+ */
+export interface SnapMeta {
+  /** The snapshot came from this device's cache and the server hasn't confirmed it yet. */
+  fromCache: boolean
+  /** Some of the data was written on this device and hasn't reached the server. */
+  hasPendingWrites: boolean
+  /** The query itself failed (access lost, deleted): the value is a fallback (empty / null). */
+  error?: boolean
+}
+export type Watch<T> = (value: T, meta?: SnapMeta) => void
 
 export interface AuthUser {
   uid: string
@@ -65,7 +84,14 @@ export interface Repo {
 
   /**
    * Writes resolve as soon as they are applied to the local cache (so the UI never hangs
-   * offline). Server rejections arrive later through this subscription.
+   * offline). Server rejections arrive later through this subscription. The exceptions are
+   * documented per method (joinGroup, submitToInbox, uploads, deleteGroup wait for the server).
+   *
+   * Every `watch*` method delivers its first value as soon as the cache (or the server) has
+   * one, then again on each change; the optional second callback argument says where the
+   * data came from (SnapMeta). Callbacks may be invoked with the same array reference as
+   * before when only the metadata changed. Screens share listeners through src/data/store.ts,
+   * so a watcher is normally opened once per key for the whole session.
    */
   onError(cb: (e: RepoError) => void): Unsub
 
@@ -74,13 +100,19 @@ export interface Repo {
   signInWithEmail(email: string, password: string): Promise<void>
   signUpWithEmail(name: string, email: string, password: string): Promise<void>
   signInDemo?(name: string): Promise<void>
+  /**
+   * Signs out and wipes this device's offline cache so the next person on the browser can't
+   * read the previous user's data. Writes still queued (offline, or not acknowledged within
+   * a few seconds) are never thrown away: the cache is then kept and a warning is shown; they
+   * sync the next time the same user signs in on this device.
+   */
   signOut(): Promise<void>
   /** Add Google sign-in to the current account (same email → one account). Firebase only. */
   linkGoogle?(): Promise<void>
   /** Add an email + password sign-in to the current (e.g. Google) account. Firebase only. */
   addPassword?(password: string): Promise<void>
 
-  watchProfile(uid: string, cb: (p: UserProfile | null) => void): Unsub
+  watchProfile(uid: string, cb: Watch<UserProfile | null>): Unsub
   /**
    * Saves the private profile and copies name + payment handles + photo into every group the
    * user is in. A missing photoURL removes the stored photo.
@@ -97,8 +129,10 @@ export interface Repo {
   /** A co-member's shared name + payment handles for one group. */
   getMemberProfile(groupId: string, uid: string): Promise<MemberProfile | null>
 
-  watchGroups(uid: string, cb: (groups: Group[]) => void): Unsub
-  watchGroup(id: string, cb: (g: Group | null) => void): Unsub
+  /** Groups the user belongs to, most recently updated first. */
+  watchGroups(uid: string, cb: Watch<Group[]>): Unsub
+  /** null when the group doesn't exist or the user can't read it (removed, deleted). */
+  watchGroup(id: string, cb: Watch<Group | null>): Unsub
   createGroup(g: NewGroup): Promise<string>
   /** Writes only the fields that differ from `base` (the group as the form loaded it). */
   updateGroupSettings(base: Group, patch: GroupSettings): Promise<void>
@@ -111,19 +145,25 @@ export interface Repo {
    * removes it). Background sync (src/hooks/auth.tsx); a refusal is logged, not shown.
    */
   updateOwnMember(group: Group, memberId: MemberId, patch: OwnMemberPatch): Promise<void>
+  /**
+   * Deletes the group with everything under it (expenses, payments, activity, profiles,
+   * receipts). Needs the server: rejects with a readable message offline or on failure.
+   */
   deleteGroup(id: string): Promise<void>
 
   getInvite(code: string): Promise<InviteInfo | null>
   joinGroup(code: string, memberId: MemberId, member: Member): Promise<string>
 
   /** Every expense of the group, including trashed ones (deletedAt set). */
-  watchExpenses(groupId: string, cb: (e: Expense[]) => void): Unsub
+  watchExpenses(groupId: string, cb: Watch<Expense[]>): Unsub
   /**
    * Create or edit. Writes an activity entry in the same batch, and keeps the stored trust
    * fields (flags, approvals, trash) whatever the form passed (see prepareExpenseSave).
+   * An edit only writes the fields that changed, so a flag or approval that landed on the
+   * server after this device last saw the expense survives the save.
    */
   saveExpense(e: Expense): Promise<void>
-  /** Soft delete: moves the expense to "Recently deleted" (deletedAt/deletedBy). */
+  /** Soft delete: moves the expense to "Recently deleted" (deletedAt/deletedBy). A no-op when already there. */
   deleteExpense(groupId: string, id: string): Promise<void>
   restoreExpense(groupId: string, id: string): Promise<void>
   /** Hard delete (with its comments and receipt). Only the deleter or the group creator may. */
@@ -142,17 +182,17 @@ export interface Repo {
   uploadReceipt(groupId: string, file: Blob): Promise<string>
 
   /** Every settlement of the group, including trashed ones. */
-  watchSettlements(groupId: string, cb: (s: Settlement[]) => void): Unsub
+  watchSettlements(groupId: string, cb: Watch<Settlement[]>): Unsub
   saveSettlement(s: Settlement): Promise<void>
-  /** Soft delete (restorable for 30 days). */
+  /** Soft delete (restorable for 30 days). A no-op when already in the trash. */
   deleteSettlement(groupId: string, id: string): Promise<void>
   restoreSettlement(groupId: string, id: string): Promise<void>
   purgeSettlement(groupId: string, id: string): Promise<void>
 
   /** groups/{gid}/activity, newest first. */
-  watchActivity(groupId: string, cb: (a: ActivityEntry[]) => void, max?: number): Unsub
+  watchActivity(groupId: string, cb: Watch<ActivityEntry[]>, max?: number): Unsub
   /** Activity entries about one expense/settlement, newest first. */
-  watchHistory(groupId: string, targetId: string, cb: (a: ActivityEntry[]) => void): Unsub
+  watchHistory(groupId: string, targetId: string, cb: Watch<ActivityEntry[]>): Unsub
 
   /**
    * Recurring catch-up: write generated occurrences (deterministic ids, so concurrent
@@ -168,18 +208,38 @@ export interface Repo {
    */
   bulkImport(groupId: string, expenses: Expense[], settlements: Settlement[]): Promise<void>
 
-  watchComments(groupId: string, expenseId: string, cb: (c: ExpenseComment[]) => void): Unsub
+  watchComments(groupId: string, expenseId: string, cb: Watch<ExpenseComment[]>): Unsub
   addComment(groupId: string, expenseId: string, c: Omit<ExpenseComment, 'id'>): Promise<void>
   deleteComment(groupId: string, expenseId: string, id: string): Promise<void>
 
-  /** Per-user inbox of transactions captured outside the app (users/{uid}/captures). */
-  watchCaptures(uid: string, cb: (c: Capture[]) => void): Unsub
+  /**
+   * Per-user inbox of transactions captured outside the app (users/{uid}/captures). Captures
+   * are written by the server, so an empty cache is reported only once the server has answered
+   * (or after a few seconds when it doesn't, with meta.fromCache = true).
+   */
+  watchCaptures(uid: string, cb: Watch<Capture[]>): Unsub
   saveCapture(uid: string, c: Capture): Promise<void>
   updateCapture(uid: string, id: string, patch: Partial<Omit<Capture, 'id'>>): Promise<void>
   deleteCapture(uid: string, id: string): Promise<void>
 
+  /**
+   * users/{uid}/settings/merchants: the categories this user picked by hand per merchant
+   * (src/lib/merchants.ts). Owner only; the whole document is replaced on save (entries are
+   * evicted, so a merge can't do it). null until it exists.
+   */
+  watchMerchants(uid: string, cb: Watch<MerchantMemory | null>): Unsub
+  saveMerchants(uid: string, memory: MerchantMemory): Promise<void>
+
+  /**
+   * Push a settle-up nudge to a member who owes the signed-in user (the `nudge` callable; one
+   * per person per group per day, server-enforced; the server writes a `settlement.nudged`
+   * activity entry). `amount` is what the app shows and is only a hint. Demo mode: pretends it
+   * was sent (no push exists) so the flow can be tried. Rejects with a readable message.
+   */
+  nudge(groupId: string, memberId: MemberId, amount?: Cents): Promise<NudgeResult>
+
   /** Capture tokens let signed-out automations (iOS Shortcuts) drop transactions into captureInbox. */
-  watchCaptureTokens(uid: string, cb: (t: CaptureToken[]) => void): Unsub
+  watchCaptureTokens(uid: string, cb: Watch<CaptureToken[]>): Unsub
   /**
    * Optional `groupId` scopes the token to one trip (the webhook then only accepts messages
    * dated inside that group's trip window); `label` is a display name for the key list.
@@ -197,7 +257,7 @@ export interface Repo {
   /** Creates an open table that expires in 24 hours. Returns its share code (the doc id). */
   createTable(t: NewTable): Promise<string>
   /** null when the table doesn't exist or can no longer be read (expired / closed for non-participants). */
-  watchTable(code: string, cb: (t: LiveTable | null) => void): Unsub
+  watchTable(code: string, cb: Watch<LiveTable | null>): Unsub
   /** Add or rename a participant. Guests may only write their own entry (pid = their uid). */
   joinTable(code: string, pid: ParticipantId, p: TableParticipant): Promise<void>
   /** Replace one participant's claims ({itemId: shares}). */
@@ -219,14 +279,27 @@ export interface Repo {
   // ---- AI (parseReceiptAi callable, Gemini) ----
   /**
    * Read a bill photo (base64, already downscaled) with Gemini. `{ receipt: null }` means it isn't
-   * a bill; null means AI reading is unavailable (offline, demo mode, quota, server error).
+   * a bill; `{ unavailable: true, reason }` is the server declining (no usable key, quota, Gemini
+   * down: see AiUnavailableReason, src/lib/ai.ts words it); null means the call couldn't be made
+   * (offline, demo mode, signed out, timed out).
    */
-  readReceiptAi(image: string, mimeType: string): Promise<{ receipt: ParsedReceipt | null } | null>
+  readReceiptAi(image: string, mimeType: string): Promise<ReceiptAiResult | null>
   /**
    * Read payment-app / bank statement screenshots into transactions (amounts in hundredths).
-   * `{ statement: null }`: no transactions found; null: unavailable. Demo mode returns a sample.
+   * `{ statement: null }`: no transactions found; `{ unavailable: true, reason }`: the server
+   * declined (StatementImport words it with unavailableText, without the on-phone line: this path
+   * has no fallback); null: the call couldn't be made (offline, signed out, failed or timed out).
+   * Demo mode returns a sample.
    */
-  readStatementAi(images: Array<{ image: string; mimeType: string }>, today: string): Promise<{ statement: AiStatement | null } | null>
+  readStatementAi(images: Array<{ image: string; mimeType: string }>, today: string): Promise<StatementAiResult | null>
+  /**
+   * Read a Quick add line ("dinner 1200 with Rahul, I paid") with Gemini (parseReceiptAi,
+   * kind 'text'; it shares the bill reader's switch and allowance). People come back as the
+   * names given in `members`; src/lib/nl-expense.ts resolves them. `{ expense: null }`: not an
+   * expense; `{ unavailable, reason }`: the server declined; null: couldn't be called (offline,
+   * demo mode, signed out).
+   */
+  parseTextAi(text: string, ctx: { members: string[]; currency: string; today: string }): Promise<TextAiResult | null>
   /**
    * Save / re-test / remove the user's own Gemini key (aiKey callable), or with which 'app' the
    * in-app project key (admins; overrides Secret Manager's). Throws with a readable message.
@@ -242,20 +315,56 @@ export interface Repo {
   watchAppAi(cb: (raw: unknown) => void): Unsub
   /** Admins only (rules). */
   saveAppAi(cfg: AppAiConfig): Promise<void>
-  /** config/app: { version } shown in Profile; admins set it. */
-  watchAppInfo(cb: (info: { version?: string } | null) => void): Unsub
+  /** config/app.version, shown in Profile (read through useAppConfig). Admins only; merges, so the flags and gates stay. */
   saveAppVersion(version: string): Promise<void>
   /** stats/ai_{day} (admins only). */
   aiUsage(day: string): Promise<Record<string, number> | null>
 }
 
-export interface AiModel { id: string; label: string }
-export interface AiKeyResult { hint: string | null; models: AiModel[]; source?: AppKeySource | null }
+export type { AiUnavailableReason }
+/** The server declined to read with AI; `reason` picks the copy (src/lib/ai.ts unavailableText). */
+export interface AiUnavailable {
+  unavailable: true
+  reason?: AiUnavailableReason
+}
+export type ReceiptAiResult = { receipt: ParsedReceipt | null; unavailable?: undefined } | AiUnavailable
+export type StatementAiResult = { statement: AiStatement | null; unavailable?: undefined } | AiUnavailable
+export type TextAiResult = { expense: AiTextExpense | null; unavailable?: undefined } | AiUnavailable
+
+export interface AiModel {
+  id: string
+  label: string /** a cheap model (minimal thinking); the pickers mark the others as costing more */
+  lite?: boolean
+}
+export interface AiKeyResult {
+  hint: string | null
+  models: AiModel[]
+  source?: AppKeySource | null
+}
 /** Where the project key comes from: set in the app by an admin, or Secret Manager. */
 export type AppKeySource = 'admin' | 'secret'
 export type AppAiStatusValue = 'available' | 'off' | 'not_listed' | 'feature_off'
-export interface AiStatusResult { admin: boolean; app: { images: AppAiStatusValue; sms: AppAiStatusValue; model: string; configured?: boolean; source?: AppKeySource | null; hint?: string | null } }
-export interface AiState { hint?: string; lastOkAt?: number; lastError?: { kind: 'bad_key' | 'quota' | 'model' | 'server'; at: number } }
+export interface AiStatusResult {
+  admin: boolean
+  app: {
+    images: AppAiStatusValue
+    sms: AppAiStatusValue
+    model: string
+    /** per-user daily allowance on the shared key */
+    perDay?: number
+    configured?: boolean
+    source?: AppKeySource | null
+    hint?: string | null
+    /** admins: the stored key is sealed (encrypted) */
+    sealed?: boolean
+    globalPerDay?: number
+  }
+}
+export interface AiState {
+  hint?: string
+  lastOkAt?: number
+  lastError?: { kind: 'bad_key' | 'quota' | 'model' | 'server' | 'billing' | 'blocked' | 'truncated'; at: number }
+}
 
 export interface StatementTxn {
   date: string
@@ -266,7 +375,10 @@ export interface StatementTxn {
   kind: 'payment' | 'self_transfer' | 'refund' | 'other'
   note?: string
 }
-export interface AiStatement { currency?: string; transactions: StatementTxn[] }
+export interface AiStatement {
+  currency?: string
+  transactions: StatementTxn[]
+}
 
 export interface TablePatch {
   merchant?: string
@@ -297,11 +409,14 @@ export interface CaptureTokenOpts {
 }
 
 export function placeholdersOf(g: Pick<Group, 'members'>): Record<MemberId, string> {
-  return Object.fromEntries(Object.entries(g.members).filter(([, m]) => !m.uid).map(([id, m]) => [id, m.name]))
+  return Object.fromEntries(
+    Object.entries(g.members)
+      .filter(([, m]) => !m.uid)
+      .map(([id, m]) => [id, m.name]),
+  )
 }
 
-export const byDateDesc = <T extends { date: string; createdAt: number }>(a: T, b: T) =>
-  b.date.localeCompare(a.date) || b.createdAt - a.createdAt
+export const byDateDesc = <T extends { date: string; createdAt: number }>(a: T, b: T) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt
 
 /** Settings fields whose value differs from the base group. `undefined` in the result means "clear the field". */
 export function changedSettings(base: Group, patch: GroupSettings): GroupSettings {
@@ -335,17 +450,28 @@ export function errorChannel() {
   return {
     on(cb: (e: RepoError) => void): Unsub {
       listeners.add(cb)
-      if (early.length) { const q = early; early = []; q.forEach(cb) }
-      return () => { listeners.delete(cb) }
+      // Replayed a tick later, to whoever is still subscribed: StrictMode mounts, unmounts and
+      // remounts the App effect synchronously, and the first subscription is gone by then.
+      if (early.length)
+        setTimeout(() => {
+          if (!listeners.has(cb) || !early.length) return
+          const q = early
+          early = []
+          q.forEach(cb)
+        }, 0)
+      return () => {
+        listeners.delete(cb)
+      }
     },
     emit(kind: RepoError['kind'], error: unknown, context: string) {
       console.error(`[repo] ${context}`, error)
       const code = (error as { code?: string })?.code
-      const message = code === 'permission-denied'
-        ? `${context}: you don’t have permission (the change was undone)`
-        : `${context}: ${(error as Error)?.message ?? String(error)}`
+      const message =
+        code === 'permission-denied'
+          ? `${context}: you don’t have permission (the change was undone)`
+          : `${context}: ${(error as Error)?.message ?? String(error)}`
       const e: RepoError = { kind, message, error }
-      if (listeners.size) listeners.forEach((l) => l(e))
+      if (listeners.size) for (const l of listeners) l(e)
       else early.push(e)
     },
   }
@@ -354,13 +480,24 @@ export function errorChannel() {
 /** Build a pending capture from a validated draft. Undefined fields are dropped. */
 export function draftToCapture(d: CaptureDraft, id: string, now = Date.now()): Capture {
   return compact({
-    id, amount: d.amount, currency: d.currency, merchant: d.merchant, date: d.date, ts: d.ts, source: d.source,
-    card: d.card, raw: d.raw, note: d.note, suggestedGroup: d.group, status: 'pending' as const, createdAt: now, updatedAt: now,
+    id,
+    amount: d.amount,
+    currency: d.currency,
+    merchant: d.merchant,
+    date: d.date,
+    ts: d.ts,
+    source: d.source,
+    card: d.card,
+    raw: d.raw,
+    note: d.note,
+    suggestedGroup: d.group,
+    status: 'pending' as const,
+    createdAt: now,
+    updatedAt: now,
   })
 }
 
-export const compact = <T extends object>(o: T): T =>
-  Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T
+export const compact = <T extends object>(o: T): T => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T
 
 export const byCreatedDesc = <T extends { createdAt: number }>(a: T, b: T) => b.createdAt - a.createdAt
 

@@ -1,13 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { seedDemo } from './seed'
 import { settleMethods } from '@/lib/payments'
+import { todayISO } from '@/lib/id'
 
 describe('demo seed', () => {
   const s = seedDemo(null, { uid: 'me', displayName: 'You' })
   const expenses = Object.values(s.expenses)
 
   it('is an Indian friend group in INR', () => {
-    expect(Object.values(s.groups).map((g) => [g.name, g.currency])).toEqual([['Goa Trip', 'INR'], ['Indiranagar Flat', 'INR']])
+    expect(Object.values(s.groups).map((g) => [g.name, g.currency])).toEqual([
+      ['Goa Trip', 'INR'],
+      ['Indiranagar Flat', 'INR'],
+    ])
   })
 
   it('every expense balances to the paisa', () => {
@@ -29,6 +33,8 @@ describe('demo seed', () => {
     const cap = s.captures.c_demo
     expect(cap.currency).toBe('INR')
     expect(cap.date >= goa.startDate! && cap.date <= goa.endDate!).toBe(true)
+    // Dates are local calendar days (the same "today" the app uses everywhere).
+    expect(expenses.every((e) => e.date <= todayISO())).toBe(true)
     expect(Object.values(s.activity).every((a) => a.summary.includes('₹'))).toBe(true)
     expect(s.activity.a_e_g_goa_8.summary).toMatch(/US\$72\.00|\$72\.00/)
   })

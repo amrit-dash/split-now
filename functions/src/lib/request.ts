@@ -30,7 +30,17 @@ export interface RawRequest {
 }
 
 const LIMITS: Record<string, number> = {
-  token: 64, text: 2000, sender: 40, receivedAt: 40, groupId: 64, device: 20, amount: 40, currency: 3, merchant: 100, ts: 40, ref: 64,
+  token: 64,
+  text: 2000,
+  sender: 40,
+  receivedAt: 40,
+  groupId: 64,
+  device: 20,
+  amount: 40,
+  currency: 3,
+  merchant: 100,
+  ts: 40,
+  ref: 64,
 }
 
 /**
@@ -61,7 +71,9 @@ function bodyObject(body: unknown): Record<string, unknown> {
       try {
         const j = JSON.parse(s)
         if (j && typeof j === 'object') return j as Record<string, unknown>
-      } catch { /* not JSON: treat as the SMS */ }
+      } catch {
+        /* not JSON: treat as the SMS */
+      }
     }
     return s ? { text: s } : {}
   }
@@ -108,8 +120,5 @@ export function readCaptureRequest(r: RawRequest): CaptureRequest {
 export const isTokenShaped = (t: string | undefined): t is string => !!t && /^[A-Za-z0-9_-]{24,64}$/.test(t)
 export const isIdShaped = (t: string | undefined): t is string => !!t && /^[A-Za-z0-9_-]{1,64}$/.test(t)
 
-/** Idempotency key from the contract's `ref` ([A-Za-z0-9_-], 4–64), like sanitiseRef in src/lib/capture.ts. */
-export function sanitiseRef(raw: string | undefined): string | undefined {
-  const s = raw?.trim().replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64)
-  return s && s.length >= 4 ? s : undefined
-}
+/** Idempotency key from the contract's `ref` ([A-Za-z0-9_-], 4–64); the same helper the app uses. */
+export { sanitiseRef } from '../../../shared/money-core'

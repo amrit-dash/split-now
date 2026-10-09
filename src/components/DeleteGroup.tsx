@@ -4,8 +4,9 @@ import { Trash2 } from 'lucide-react'
 import { repo } from '@/data'
 import { groupDeleteBlocker } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
+import { errText } from '@/lib/errors'
 import type { Group } from '@/types'
-import { Sheet } from './Sheet'
+import { ConfirmSheet } from './ConfirmSheet'
 import { useToast } from './Toast'
 
 /**
@@ -29,26 +30,32 @@ export function DeleteGroupButton({ group }: { group: Group }) {
       toast(`Deleted “${group.name}”`)
       nav('/groups', { replace: true })
     } catch (e) {
-      toast((e as Error).message || 'Couldn’t delete the group', 'err')
+      toast(errText(e), 'err')
       setBusy(false)
     }
   }
 
   return (
     <>
-      <button className="btn w-full text-rose-600" onClick={() => (blocker ? toast(blocker, 'err') : setAsking(true))} data-testid="delete-group">
+      <button
+        type="button"
+        className="btn w-full text-rose-700 dark:text-rose-400"
+        onClick={() => (blocker ? toast(blocker, 'err') : setAsking(true))}
+        data-testid="delete-group"
+      >
         <Trash2 size={18} aria-hidden /> Delete group
       </button>
-      {blocker && <p className="-mt-3 text-center text-xs text-slate-500">{blocker}</p>}
-      <Sheet open={asking} onClose={() => !busy && setAsking(false)} title={`Delete “${group.name}”?`}>
-        <p className="text-sm text-slate-500">All its expenses, payments, comments and history go for everyone in the group. This can’t be undone.</p>
-        <div className="mt-4 flex gap-2">
-          <button className="btn flex-1" onClick={() => setAsking(false)} disabled={busy}>Cancel</button>
-          <button className="btn flex-1 bg-rose-600 text-white" onClick={run} disabled={busy} data-testid="confirm-delete-group">
-            <Trash2 size={18} aria-hidden /> {busy ? 'Deleting…' : 'Delete'}
-          </button>
-        </div>
-      </Sheet>
+      {blocker && <p className="text-muted -mt-3 text-center text-xs">{blocker}</p>}
+      <ConfirmSheet
+        open={asking}
+        onClose={() => !busy && setAsking(false)}
+        onConfirm={run}
+        busy={busy}
+        tone="danger"
+        title={`Delete “${group.name}”?`}
+        message="All its expenses, payments, comments and history go for everyone in the group. This can’t be undone."
+        confirmLabel={busy ? 'Deleting…' : 'Delete'}
+      />
     </>
   )
 }

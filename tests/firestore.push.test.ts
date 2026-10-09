@@ -10,10 +10,20 @@ import { deleteDoc, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
 let env: RulesTestEnvironment
 
 const group = {
-  id: 'g1', name: 'Goa', emoji: '🏖️', type: 'trip', currency: 'INR', simplify: true, startDate: '2026-10-05', endDate: '2026-10-10',
+  id: 'g1',
+  name: 'Goa',
+  emoji: '🏖️',
+  type: 'trip',
+  currency: 'INR',
+  simplify: true,
+  startDate: '2026-10-05',
+  endDate: '2026-10-10',
   memberUids: ['alice'],
   members: { alice: { name: 'Alice', uid: 'alice', color: '#000' } },
-  inviteCode: 'ABC234', createdBy: 'alice', createdAt: 1, updatedAt: 1,
+  inviteCode: 'ABC234',
+  createdBy: 'alice',
+  createdAt: 1,
+  updatedAt: 1,
 }
 
 beforeAll(async () => {
@@ -76,7 +86,9 @@ describe('scoped capture tokens', () => {
     await assertFails(setDoc(doc(db('alice'), 'captureTokens/cccccccccccccccccccccccccccc'), { uid: 'alice', createdAt: 1, groupId: 'nope' }))
   })
   it('the owner can still read a token the server stamped lastUsedAt on', async () => {
-    await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'captureTokens/dddddddddddddddddddddddddddd'), { uid: 'alice', createdAt: 1, lastUsedAt: 2 }))
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'captureTokens/dddddddddddddddddddddddddddd'), { uid: 'alice', createdAt: 1, lastUsedAt: 2 }),
+    )
     await assertSucceeds(getDoc(doc(db('alice'), 'captureTokens/dddddddddddddddddddddddddddd')))
     await assertFails(updateDoc(doc(db('alice'), 'captureTokens/dddddddddddddddddddddddddddd'), { lastUsedAt: 3 }))
   })

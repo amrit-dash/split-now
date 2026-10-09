@@ -1,6 +1,16 @@
 export const MEMBER_COLORS = [
-  '#8b5cf6', '#ec4899', '#f97316', '#10b981', '#0ea5e9', '#eab308',
-  '#ef4444', '#14b8a6', '#6366f1', '#d946ef', '#84cc16', '#f43f5e',
+  '#8b5cf6',
+  '#ec4899',
+  '#f97316',
+  '#10b981',
+  '#0ea5e9',
+  '#eab308',
+  '#ef4444',
+  '#14b8a6',
+  '#6366f1',
+  '#d946ef',
+  '#84cc16',
+  '#f43f5e',
 ]
 
 export function colorFor(index: number) {

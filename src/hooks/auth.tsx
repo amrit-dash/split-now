@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { repo } from '@/data'
+import { clearSharedStore, groupsKey, subscribeShared } from '@/data/store'
 import type { AuthUser } from '@/data/repo'
-import type { UserProfile } from '@/types'
+import type { Group, UserProfile } from '@/types'
 import { defaultCurrency } from '@/lib/locale'
 import { ownMemberSyncs } from '@/lib/memberSync'
 
@@ -12,7 +13,7 @@ const synced = new Map<string, string>()
 /**
  * Keeps the signed-in user's member entries (name + photo) in step with their profile, in
  * every group they're in: after a profile change, for groups joined/created elsewhere, and
- * for entries written before photos were copied. Shares the group-list query with the screens.
+ * for entries written before photos were copied.
  */
 function useOwnMemberSync(user: AuthUser | null, profile: UserProfile | null) {
   const uid = user && !user.isAnonymous ? user.uid : undefined
@@ -21,15 +22,20 @@ function useOwnMemberSync(user: AuthUser | null, profile: UserProfile | null) {
   const ready = !!profile && profile.uid === uid
   useEffect(() => {
     if (!uid || !ready) return
-    return repo.watchGroups(uid, (groups) => {
-      for (const s of ownMemberSyncs(groups, uid, { displayName: name ?? '', photoURL: photo }, repo.mode === 'demo')) {
-        const key = `${s.group.id}/${s.memberId}`
-        const value = `${s.patch.name}|${s.patch.photoURL ?? ''}`
-        if (synced.get(key) === value) continue
-        synced.set(key, value)
-        repo.updateOwnMember(s.group, s.memberId, s.patch).catch((e) => console.warn('Member sync failed', e))
-      }
-    })
+    // The same shared group-list listener the screens read (src/data/store.ts), not a second one.
+    return subscribeShared<Group[]>(
+      groupsKey(uid),
+      (cb) => repo.watchGroups(uid, cb),
+      (groups) => {
+        for (const s of ownMemberSyncs(groups, uid, { displayName: name ?? '', photoURL: photo }, repo.mode === 'demo')) {
+          const key = `${s.group.id}/${s.memberId}`
+          const value = `${s.patch.name}|${s.patch.photoURL ?? ''}`
+          if (synced.get(key) === value) continue
+          synced.set(key, value)
+          repo.updateOwnMember(s.group, s.memberId, s.patch).catch((e) => console.warn('Member sync failed', e))
+        }
+      },
+    )
   }, [uid, ready, name, photo])
 }
 
@@ -46,8 +52,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => repo.onAuth((u) => { setUser(u); setLoading(false); if (!u) setProfile(null) }), [])
+  useEffect(
+    () =>
+      repo.onAuth((u) => {
+        setUser(u)
+        setLoading(false)
+        if (!u) setProfile(null)
+      }),
+    [],
+  )
   useEffect(() => (user ? repo.watchProfile(user.uid, setProfile) : undefined), [user])
+  // Shared live queries belong to one account: drop them all when it signs out or changes.
+  const uid = user?.uid
+  // biome-ignore lint/correctness/useExhaustiveDependencies: uid is the trigger; the cleanup clears the store whenever the signed-in account changes or signs out.
+  useEffect(() => () => clearSharedStore(), [uid])
   useOwnMemberSync(user, profile)
 
   return <Ctx.Provider value={{ user, profile, loading }}>{children}</Ctx.Provider>

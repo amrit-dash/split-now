@@ -11,7 +11,12 @@ let env: RulesTestEnvironment
 
 // alice created the group; bob and dan joined; p_cat is a placeholder.
 const group = {
-  id: 'g1', name: 'Trip', emoji: '🏝️', type: 'trip', currency: 'AUD', simplify: true,
+  id: 'g1',
+  name: 'Trip',
+  emoji: '🏝️',
+  type: 'trip',
+  currency: 'AUD',
+  simplify: true,
   memberUids: ['alice', 'bob', 'dan'],
   members: {
     alice: { name: 'Alice', uid: 'alice', color: '#000' },
@@ -19,17 +24,36 @@ const group = {
     dan: { name: 'Dan', uid: 'dan', color: '#333' },
     p_cat: { name: 'Cat', color: '#222' },
   },
-  inviteCode: 'ABCD2345', createdBy: 'alice', createdAt: 1, updatedAt: 1,
+  inviteCode: 'ABCD2345',
+  createdBy: 'alice',
+  createdAt: 1,
+  updatedAt: 1,
 }
 // dan is not part of this expense
 const expense = {
-  id: 'e1', groupId: 'g1', description: 'Dinner', amount: 9000, category: 'food', date: '2026-10-01',
-  paidBy: { alice: 9000 }, splits: { alice: 3000, bob: 3000, p_cat: 3000 }, createdBy: 'alice', createdAt: 1, updatedAt: 1,
+  id: 'e1',
+  groupId: 'g1',
+  description: 'Dinner',
+  amount: 9000,
+  category: 'food',
+  date: '2026-10-01',
+  paidBy: { alice: 9000 },
+  splits: { alice: 3000, bob: 3000, p_cat: 3000 },
+  createdBy: 'alice',
+  createdAt: 1,
+  updatedAt: 1,
 }
 const settlement = { id: 's1', groupId: 'g1', from: 'bob', to: 'alice', amount: 500, method: 'Cash', date: '2026-10-01', createdBy: 'bob', createdAt: 1 }
 const entry = (actorUid: string, extra: Record<string, unknown> = {}) => ({
-  type: 'expense.updated', actorUid, actorName: 'Someone', targetId: 'e1',
-  summary: 'Someone changed amount A$80.00 → A$84.00 on “Dinner”', before: { amount: 8000 }, after: { amount: 8400 }, createdAt: 2, ...extra,
+  type: 'expense.updated',
+  actorUid,
+  actorName: 'Someone',
+  targetId: 'e1',
+  summary: 'Someone changed amount A$80.00 → A$84.00 on “Dinner”',
+  before: { amount: 8000 },
+  after: { amount: 8400 },
+  createdAt: 2,
+  ...extra,
 })
 
 beforeAll(async () => {
@@ -175,12 +199,12 @@ describe('disputes', () => {
     await assertFails(setFlag('bob', 'bob', flag('bob', 'bob', { extra: true })))
   })
   it('flagging cannot change anything else', async () => {
-    await assertFails(updateDoc(e1('bob'), { [`dispute.bob`]: flag('bob', 'bob'), amount: 1 }))
-    await assertFails(updateDoc(e1('bob'), { [`dispute.bob`]: flag('bob', 'bob'), description: 'Bad dinner' }))
+    await assertFails(updateDoc(e1('bob'), { 'dispute.bob': flag('bob', 'bob'), amount: 1 }))
+    await assertFails(updateDoc(e1('bob'), { 'dispute.bob': flag('bob', 'bob'), description: 'Bad dinner' }))
   })
   it('trust writes cannot change the foreign-currency original; edits still validate it', async () => {
     const original = { currency: 'THB', amount: 210000, rate: 0.0428, rateDate: '2026-10-01', source: 'ecb' }
-    await assertFails(updateDoc(e1('bob'), { [`dispute.bob`]: flag('bob', 'bob'), original }))
+    await assertFails(updateDoc(e1('bob'), { 'dispute.bob': flag('bob', 'bob'), original }))
     await assertFails(updateDoc(e1('bob'), { deletedAt: 5, deletedBy: 'bob', original }))
     await assertFails(updateDoc(e1('bob'), { original: { ...original, source: 'guess' } }))
     await assertSucceeds(updateDoc(e1('bob'), { original }))
@@ -226,6 +250,8 @@ describe('approvals', () => {
     await seed('groups/g1/expenses/e2', { ...big, requiresApproval: true, approvals: { alice: true } })
     await assertFails(setDoc(e1('bob', 'e2'), { ...big, approvals: { alice: true } })) // requiresApproval dropped
     await assertFails(setDoc(e1('bob', 'e2'), { ...big, requiresApproval: true, approvals: { alice: true, dan: true } }))
-    await assertSucceeds(setDoc(e1('bob', 'e2'), { ...big, amount: 33000, paidBy: { bob: 33000 }, splits: { alice: 11000, bob: 11000, p_cat: 11000 }, requiresApproval: true }))
+    await assertSucceeds(
+      setDoc(e1('bob', 'e2'), { ...big, amount: 33000, paidBy: { bob: 33000 }, splits: { alice: 11000, bob: 11000, p_cat: 11000 }, requiresApproval: true }),
+    )
   })
 })

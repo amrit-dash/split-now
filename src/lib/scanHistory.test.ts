@@ -1,22 +1,55 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
-  addEntry, clearHistory, deleteScan, describeScan, findMatch, hamming, HISTORY_LIMIT, loadHistory, memoryStore,
-  onHistoryChange, phashFromGray, PHASH_SIZE, recordOutcome, removeEntry, samePrint, saveScan, scannedSentence, scannedWhen, setHistoryStore,
-  type HistoryStore, type ScanEntry, type ScanKind, type ScanPrint,
+  addEntry,
+  clearHistory,
+  deleteScan,
+  describeScan,
+  findMatch,
+  hamming,
+  HISTORY_LIMIT,
+  loadHistory,
+  memoryStore,
+  onHistoryChange,
+  phashFromGray,
+  PHASH_SIZE,
+  recordOutcome,
+  removeEntry,
+  samePrint,
+  saveScan,
+  scannedSentence,
+  scannedWhen,
+  setHistoryStore,
+  type HistoryStore,
+  type ScanEntry,
+  type ScanKind,
+  type ScanPrint,
 } from './scanHistory'
 
-const hex = (bit: number) => '0'.repeat(36).split('').map((c, i) => (i === Math.floor(bit / 4) ? (8 >> (bit % 4)).toString(16) : c)).join('')
+const hex = (bit: number) =>
+  '0'
+    .repeat(36)
+    .split('')
+    .map((c, i) => (i === Math.floor(bit / 4) ? (8 >> (bit % 4)).toString(16) : c))
+    .join('')
 const ZERO = '0'.repeat(36)
 const F = 'f'.repeat(36)
 /** a pseudo-random 144-bit hash per seed, so unrelated test images don't look alike */
 const rnd = (seed: string) => {
   let x = [...seed].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7)
-  return Array.from({ length: 36 }, () => { x = (x * 1103515245 + 12345) >>> 0; return ((x >>> 16) & 15).toString(16) }).join('')
+  return Array.from({ length: 36 }, () => {
+    x = (x * 1103515245 + 12345) >>> 0
+    return ((x >>> 16) & 15).toString(16)
+  }).join('')
 }
 const print = (sha: string, phash = rnd(sha), ratio = 0.5): ScanPrint => ({ sha, phash, ratio })
 let n = 0
 const entry = (kind: ScanKind, prints: ScanPrint[], at = ++n): ScanEntry => ({
-  id: `e${at}`, kind, at, thumb: 'data:image/jpeg;base64,', prints, result: { type: 'receipt', receipt: { merchant: 'TOIT', total: 234000, items: [{ name: 'Beer', amount: 40000 }] } },
+  id: `e${at}`,
+  kind,
+  at,
+  thumb: 'data:image/jpeg;base64,',
+  prints,
+  result: { type: 'receipt', receipt: { merchant: 'TOIT', total: 234000, items: [{ name: 'Beer', amount: 40000 }] } },
 })
 
 describe('hamming / phash', () => {
@@ -31,7 +64,8 @@ describe('hamming / phash', () => {
     const N = PHASH_SIZE
     const img = (f: (x: number, y: number) => number) => Float64Array.from({ length: N * N }, (_, i) => f(i % N, Math.floor(i / N)))
     // A "receipt": a light rectangle with dark text lines on a darker table.
-    const bill = (dx: number, rows: number[]) => img((x, y) => (x > 12 + dx && x < 50 + dx && y > 4 && y < 60 ? (rows.includes(Math.floor(y / 4)) && x % 3 ? 60 : 245) : 90))
+    const bill = (dx: number, rows: number[]) =>
+      img((x, y) => (x > 12 + dx && x < 50 + dx && y > 4 && y < 60 ? (rows.includes(Math.floor(y / 4)) && x % 3 ? 60 : 245) : 90))
     const a = phashFromGray(bill(0, [3, 5, 7, 9, 11]))
     expect(a).toHaveLength(36)
     const noisy = phashFromGray(Float64Array.from(bill(0, [3, 5, 7, 9, 11]), (v, i) => v + ((i * 7919) % 13) - 6))
@@ -48,7 +82,11 @@ describe('samePrint', () => {
     expect(samePrint(print('abc', F), print('abc', ZERO), 'statement')).toBe(true)
   })
   it('matches a re-shot bill photo, but screenshots only on the same pixels', () => {
-    const bits = (k: number) => { const c = ZERO.split(''); for (let i = 0; i < k / 4; i++) c[i] = 'f'; return c.join('') }
+    const bits = (k: number) => {
+      const c = ZERO.split('')
+      for (let i = 0; i < k / 4; i++) c[i] = 'f'
+      return c.join('')
+    }
     const a = print('a', ZERO)
     expect(samePrint(a, print('b', bits(28)), 'receipt')).toBe(true)
     expect(samePrint(a, print('b', bits(28)), 'bill')).toBe(true)
@@ -102,11 +140,25 @@ describe('addEntry / findMatch', () => {
 describe('describeScan', () => {
   it('sums up a receipt, a payment and a statement', () => {
     expect(describeScan(entry('receipt', []), 'INR')).toEqual({ title: 'Toit', detail: expect.stringMatching(/^₹2,340(\.00)? · 1 item$/) })
-    expect(describeScan({ result: { type: 'payment', payment: { amount: 50000, payee: 'Raja S', method: 'GPay' } } }, 'INR')).toEqual({ title: 'Raja S', detail: expect.stringMatching(/^₹500(\.00)? · GPay$/) })
-    expect(describeScan({ result: { type: 'statement', currency: 'INR', transactions: [
-      { date: '2026-10-01', name: 'A', amount: 10000, direction: 'debit', kind: 'payment' },
-      { date: '2026-10-01', name: 'B', amount: 5000, direction: 'credit', kind: 'payment' },
-    ] } }, 'AUD')).toEqual({ title: '2 transactions', detail: expect.stringMatching(/^₹100(\.00)? out$/) })
+    expect(describeScan({ result: { type: 'payment', payment: { amount: 50000, payee: 'Raja S', method: 'GPay' } } }, 'INR')).toEqual({
+      title: 'Raja S',
+      detail: expect.stringMatching(/^₹500(\.00)? · GPay$/),
+    })
+    expect(
+      describeScan(
+        {
+          result: {
+            type: 'statement',
+            currency: 'INR',
+            transactions: [
+              { date: '2026-10-01', name: 'A', amount: 10000, direction: 'debit', kind: 'payment' },
+              { date: '2026-10-01', name: 'B', amount: 5000, direction: 'credit', kind: 'payment' },
+            ],
+          },
+        },
+        'AUD',
+      ),
+    ).toEqual({ title: '2 transactions', detail: expect.stringMatching(/^₹100(\.00)? out$/) })
     expect(describeScan({ result: { type: 'receipt', receipt: { items: [] } } }, 'AUD').detail).toBe('No total')
   })
 })
@@ -138,7 +190,8 @@ describe('storage', () => {
   it('records an outcome, deletes and clears, and tells listeners', async () => {
     const seen: string[] = []
     const off = onHistoryChange((k) => seen.push(k))
-    const a = entry('statement', [print('a')]), b = entry('statement', [print('b')])
+    const a = entry('statement', [print('a')]),
+      b = entry('statement', [print('b')])
     await saveScan('u1', a)
     await saveScan('u1', b)
     await recordOutcome('u1', 'statement', a.id, { label: 'Added 3 to Goa', href: '/groups/g1' })
@@ -153,7 +206,11 @@ describe('storage', () => {
   })
 
   it('turns itself off when storage fails', async () => {
-    const broken: HistoryStore = { get: () => Promise.reject(new Error('no')), set: () => Promise.reject(new Error('no')), del: () => Promise.reject(new Error('no')) }
+    const broken: HistoryStore = {
+      get: () => Promise.reject(new Error('no')),
+      set: () => Promise.reject(new Error('no')),
+      del: () => Promise.reject(new Error('no')),
+    }
     setHistoryStore(broken)
     expect(await saveScan('u1', entry('receipt', [print('a')]))).toBe(false)
     expect(await loadHistory('u1', 'receipt')).toEqual([])

@@ -19,10 +19,8 @@ export const liveItems = <T extends Trashable>(xs: T[]): T[] => xs.filter((x) =>
 export const trashedItems = <T extends Trashable>(xs: T[], now = Date.now()): T[] =>
   xs.filter((x) => isTrashed(x) && now - x.deletedAt! < TRASH_DAYS * DAY).sort((a, b) => b.deletedAt! - a.deletedAt!)
 /** Trashed longer than TRASH_DAYS: due for purging. */
-export const expiredTrash = <T extends Trashable>(xs: T[], now = Date.now()): T[] =>
-  xs.filter((x) => isTrashed(x) && now - x.deletedAt! >= TRASH_DAYS * DAY)
-export const daysLeftInTrash = (x: Trashable, now = Date.now()) =>
-  Math.max(0, Math.ceil((x.deletedAt! + TRASH_DAYS * DAY - now) / DAY))
+export const expiredTrash = <T extends Trashable>(xs: T[], now = Date.now()): T[] => xs.filter((x) => isTrashed(x) && now - x.deletedAt! >= TRASH_DAYS * DAY)
+export const daysLeftInTrash = (x: Trashable, now = Date.now()) => Math.max(0, Math.ceil((x.deletedAt! + TRASH_DAYS * DAY - now) / DAY))
 
 /** Hard delete is for whoever trashed it, or the group creator (matches firestore.rules). */
 export function canPurge(x: Trashable, group: Pick<Group, 'createdBy'>, uid: string): boolean {
@@ -60,8 +58,7 @@ export function countedExpenses(expenses: Expense[], g: Pick<Group, 'members'>):
 }
 export const countedSettlements = (s: Settlement[]) => liveItems(s)
 
-export const flagsOf = (e: Pick<Expense, 'dispute'>): ExpenseFlag[] =>
-  Object.values(e.dispute ?? {}).sort((a, b) => a.at - b.at)
+export const flagsOf = (e: Pick<Expense, 'dispute'>): ExpenseFlag[] => Object.values(e.dispute ?? {}).sort((a, b) => a.at - b.at)
 export const isDisputed = (e: Pick<Expense, 'dispute'>) => flagsOf(e).length > 0
 
 /** The member id the user would flag as, if they are part of the expense (paid or owe). */
@@ -85,19 +82,66 @@ const sortKeys = (r: Record<string, number>) => Object.fromEntries(Object.entrie
  *  - requiresApproval is set on create (or when the amount changes) above the threshold,
  *    and never cleared.
  */
-export function prepareExpenseSave(prev: Expense | undefined, next: Expense, g: Pick<Group, 'requireApproval' | 'approvalThreshold'>, editorUid: string): Expense {
+export function prepareExpenseSave(
+  prev: Expense | undefined,
+  next: Expense,
+  g: Pick<Group, 'requireApproval' | 'approvalThreshold'>,
+  editorUid: string,
+): Expense {
   const { dispute: _d, approvals: _a, requiresApproval: _r, deletedAt: _t, deletedBy: _b, ...rest } = next
   const out: Expense = { ...rest }
   if (prev?.dispute && Object.keys(prev.dispute).length) out.dispute = prev.dispute
-  if (prev && isTrashed(prev)) { out.deletedAt = prev.deletedAt; out.deletedBy = prev.deletedBy }
+  if (prev && isTrashed(prev)) {
+    out.deletedAt = prev.deletedAt
+    out.deletedBy = prev.deletedBy
+  }
   const amountChanged = !prev || prev.amount !== next.amount
   if (prev?.requiresApproval || (amountChanged && needsApproval(g, next.amount))) out.requiresApproval = true
   if (prev?.approvals) {
-    const kept = prev && moneyChanged(prev, next)
-      ? (prev.approvals[editorUid] ? { [editorUid]: true as const } : undefined)
-      : prev.approvals
+    const kept = prev && moneyChanged(prev, next) ? (prev.approvals[editorUid] ? { [editorUid]: true as const } : undefined) : prev.approvals
     if (kept && Object.keys(kept).length) out.approvals = kept
   }
+  return out
+}
+
+/** Fields with their own writes (flag, approve, trash): an edit never carries them. */
+export const TRUST_FIELDS = ['dispute', 'approvals', 'deletedAt', 'deletedBy'] as const
+
+export interface ExpenseEditPatch {
+  /** fields whose value changed, with the new value */
+  set: Record<string, unknown>
+  /** fields present before that the edit removes */
+  unset: string[]
+  /**
+   * What to write to `approvals`: untouched (undefined) when the money is the same, so an
+   * approval that landed on the server after `prev` was cached survives; the editor's own
+   * approval (or nothing) when the money changed, which also clears approvals this device
+   * hasn't seen yet, as they were given for the old numbers.
+   */
+  approvals?: Record<string, true> | null
+}
+
+const sameValue = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
+
+/**
+ * The minimal update that turns the stored `prev` into `next` (the output of prepareExpenseSave),
+ * so a save only touches what the form changed and never overwrites concurrent trust writes
+ * with stale copies. `requiresApproval` is only ever added (the rules never let an edit drop it).
+ */
+export function expenseEditPatch(prev: Expense, next: Expense): ExpenseEditPatch {
+  const skip = new Set<string>([...TRUST_FIELDS, 'id'])
+  const set: Record<string, unknown> = {}
+  const unset: string[] = []
+  const a = prev as unknown as Record<string, unknown>
+  const b = next as unknown as Record<string, unknown>
+  for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) {
+    if (skip.has(k) || sameValue(a[k], b[k])) continue
+    if (b[k] === undefined) unset.push(k)
+    else set[k] = b[k]
+  }
+  if (prev.requiresApproval && !next.requiresApproval) delete set.requiresApproval
+  const out: ExpenseEditPatch = { set, unset: unset.filter((k) => k !== 'requiresApproval') }
+  if (moneyChanged(prev, next)) out.approvals = next.approvals && Object.keys(next.approvals).length ? next.approvals : null
   return out
 }
 
@@ -108,11 +152,12 @@ export function prepareImportedSettlement(s: Settlement): Settlement {
 }
 
 /**
- * A generated recurring copy never inherits flags, approvals or trash from its template.
- * Also used for imported rows: like any new expense, one above the group's approval
+ * A generated recurring copy never inherits flags, approvals, trash or the receipt from its
+ * template. Also used for imported rows: like any new expense, one above the group's approval
  * threshold is marked requiresApproval (the rules require it on every create).
  */
 export function prepareOccurrence(o: Expense, g: Pick<Group, 'requireApproval' | 'approvalThreshold'>): Expense {
-  const { dispute: _d, approvals: _a, requiresApproval: _r, deletedAt: _t, deletedBy: _b, ...rest } = o
+  // Nor the template's receipt: the copy has no image of its own (purging it must not delete the template's).
+  const { dispute: _d, approvals: _a, requiresApproval: _r, deletedAt: _t, deletedBy: _b, receiptUrl: _u, receiptPath: _p, ...rest } = o
   return needsApproval(g, o.amount) ? { ...rest, requiresApproval: true } : rest
 }

@@ -7,8 +7,10 @@ import { useAllGroupData } from '@/hooks/data'
 import { formatMoney } from '@/lib/money'
 import { groupCount, pendingSettlements, personBalances, settlePersonHref, totalsByCurrency, type PersonBalance, type SettleRow } from '@/lib/settleAll'
 import { Avatar } from '@/components/Avatar'
-import { Loading, PageHeader, Segmented } from '@/components/Misc'
+import { PageHeader, Segmented } from '@/components/Misc'
+import { CardSkeleton, ListSkeleton } from '@/components/Skeleton'
 import { Celebrate } from '@/components/Celebrate'
+import { usePageTitle } from '@/lib/brand'
 
 /*
  * Balances: everything you owe / are owed, across all groups and 1:1s, in two views.
@@ -22,6 +24,7 @@ import { Celebrate } from '@/components/Celebrate'
 type View = 'person' | 'group'
 
 export default function SettleAll() {
+  usePageTitle('Balances')
   const { profile } = useMe()
   const data = useAllGroupData()
   const home = profile.currency
@@ -33,13 +36,25 @@ export default function SettleAll() {
   return (
     <div>
       <PageHeader title="Balances" subtitle="Across all your groups and 1:1s" back />
-      {!rows ? <Loading /> : rows.length === 0 ? <AllSettled /> : (
+      {!rows ? (
+        <div className="space-y-6" aria-busy>
+          <CardSkeleton className="h-24" />
+          <ListSkeleton rows={4} />
+        </div>
+      ) : rows.length === 0 ? (
+        <AllSettled />
+      ) : (
         <div className="space-y-6" data-testid="settle-all">
           <Totals rows={rows} home={home} />
           <Segmented<View>
             value={view}
             onChange={setView}
-            options={[{ value: 'person', label: 'By person' }, { value: 'group', label: 'By group' }]}
+            options={[
+              { value: 'person', label: 'By person' },
+              { value: 'group', label: 'By group' },
+            ]}
+            label="Show balances"
+            testId="settle-view"
           />
           {view === 'person' ? <ByPerson rows={rows} /> : <ByGroup rows={rows} />}
         </div>
@@ -63,10 +78,20 @@ function TotalCol({ label, cls, values }: { label: string; cls: string; values: 
     <div className="min-w-0 p-4">
       <div className={`text-xs font-semibold uppercase tracking-wide ${cls}`}>{label}</div>
       {values.length === 0 ? (
-        <div className="mt-1 text-2xl font-extrabold tabular-nums text-slate-300 dark:text-slate-600">—</div>
-      ) : values.map((v, i) => (
-        <div key={i} className={`mt-1 font-extrabold tabular-nums tracking-tight [overflow-wrap:anywhere] ${values.length > 1 ? 'text-lg' : 'text-2xl'} ${cls}`}>{v}</div>
-      ))}
+        <div className="mt-1 text-2xl font-extrabold tabular-nums text-slate-300 dark:text-slate-600">
+          <span aria-hidden>—</span>
+          <span className="sr-only">Nothing</span>
+        </div>
+      ) : (
+        values.map((v) => (
+          <div
+            key={v}
+            className={`mt-1 font-extrabold tabular-nums tracking-tight [overflow-wrap:anywhere] ${values.length > 1 ? 'text-lg' : 'text-2xl'} ${cls}`}
+          >
+            {v}
+          </div>
+        ))
+      )}
     </div>
   )
 }
@@ -80,7 +105,7 @@ function Section({ title, children, testId }: { title: string; children: React.R
   )
 }
 
-const EmptyLine = ({ text }: { text: string }) => <div className="card px-4 py-4 text-sm text-slate-500 dark:text-slate-400">{text}</div>
+const EmptyLine = ({ text }: { text: string }) => <div className="card px-4 py-4 text-muted text-sm">{text}</div>
 
 /* ───────────────────────── By group ───────────────────────── */
 
@@ -90,16 +115,24 @@ function ByGroup({ rows }: { rows: SettleRow[] }) {
   return (
     <>
       <Section title="You owe">
-        {owe.length === 0 ? <EmptyLine text="You don’t owe anyone." /> : (
+        {owe.length === 0 ? (
+          <EmptyLine text="You don’t owe anyone." />
+        ) : (
           <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
-            {owe.map((r) => <GroupItem key={r.key} r={r} />)}
+            {owe.map((r) => (
+              <GroupItem key={r.key} r={r} />
+            ))}
           </div>
         )}
       </Section>
       <Section title="You are owed">
-        {owed.length === 0 ? <EmptyLine text="Nobody owes you right now." /> : (
+        {owed.length === 0 ? (
+          <EmptyLine text="Nobody owes you right now." />
+        ) : (
           <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
-            {owed.map((r) => <GroupItem key={r.key} r={r} />)}
+            {owed.map((r) => (
+              <GroupItem key={r.key} r={r} />
+            ))}
           </div>
         )}
       </Section>
@@ -122,17 +155,33 @@ function GroupItem({ r }: { r: SettleRow }) {
 }
 
 /** Avatar · name/subtitle · amount · action, all on one vertically centred line. */
-function ItemRow({ avatar, name, sub, amount, dir, action, testId }: {
-  avatar: React.ReactNode; name: string; sub: React.ReactNode; amount: string; dir: 'owe' | 'owed' | 'even'; action: React.ReactNode; testId?: string
+function ItemRow({
+  avatar,
+  name,
+  sub,
+  amount,
+  dir,
+  action,
+  testId,
+}: {
+  avatar: React.ReactNode
+  name: string
+  sub: React.ReactNode
+  amount: string
+  dir: 'owe' | 'owed' | 'even'
+  action: React.ReactNode
+  testId?: string
 }) {
   return (
     <div className="flex items-center gap-3 px-4 py-3" data-testid={testId}>
       {avatar}
       <div className="min-w-0 flex-1">
         <div className="truncate font-semibold">{name}</div>
-        <div className="truncate text-xs text-slate-500 dark:text-slate-400">{sub}</div>
+        <div className="text-muted truncate text-xs">{sub}</div>
       </div>
-      <span className={`shrink-0 font-bold tabular-nums ${dir === 'owe' ? 'neg' : dir === 'owed' ? 'pos' : 'text-slate-400'}`} data-testid="row-amount">{amount}</span>
+      <span className={`shrink-0 font-bold tabular-nums ${dir === 'owe' ? 'neg' : dir === 'owed' ? 'pos' : 'text-muted'}`} data-testid="row-amount">
+        {amount}
+      </span>
       {action}
     </div>
   )
@@ -143,15 +192,24 @@ function RowAction({ r }: { r: SettleRow }) {
   const amount = formatMoney(r.amount, r.currency)
   if (r.dir === 'owe') {
     return (
-      <Link to={r.href} data-testid="row-pay" aria-label={`Pay ${r.name} ${amount} in ${r.groupName}`}
-        className="btn-primary !min-h-10 shrink-0 !rounded-full !px-4 !py-0 text-sm">
+      <Link
+        to={r.href}
+        data-testid="row-pay"
+        aria-label={`Pay ${r.name} ${amount} in ${r.groupName}`}
+        className="btn-primary !min-h-10 shrink-0 !rounded-full !px-4 !py-0 text-sm"
+      >
         Pay
       </Link>
     )
   }
   return (
-    <Link to={r.href} data-testid="row-record" aria-label={`Record payment from ${r.name} in ${r.groupName}`} title="Record payment"
-      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600 transition active:scale-95 active:bg-brand-100 dark:bg-brand-900/40 dark:text-brand-200 dark:active:bg-brand-900/70">
+    <Link
+      to={r.href}
+      data-testid="row-record"
+      aria-label={`Record payment from ${r.name} in ${r.groupName}`}
+      title="Record payment"
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600 transition active:scale-95 active:bg-brand-100 dark:bg-brand-900/40 dark:text-brand-200 dark:active:bg-brand-900/70"
+    >
       <ChequeIcon size={24} />
     </Link>
   )
@@ -167,18 +225,24 @@ function ByPerson({ rows }: { rows: SettleRow[] }) {
 
   const list = (ps: PersonBalance[]) => (
     <div className="space-y-3">
-      {ps.map((p) => <PersonCard key={p.key} p={p} />)}
+      {ps.map((p) => (
+        <PersonCard key={p.key} p={p} />
+      ))}
     </div>
   )
 
   return (
     <>
-      <Section title="You owe" testId="person-owe">{owe.length === 0 ? <EmptyLine text="You don’t owe anyone." /> : list(owe)}</Section>
-      <Section title="You are owed" testId="person-owed">{owed.length === 0 ? <EmptyLine text="Nobody owes you right now." /> : list(owed)}</Section>
+      <Section title="You owe" testId="person-owe">
+        {owe.length === 0 ? <EmptyLine text="You don’t owe anyone." /> : list(owe)}
+      </Section>
+      <Section title="You are owed" testId="person-owed">
+        {owed.length === 0 ? <EmptyLine text="Nobody owes you right now." /> : list(owed)}
+      </Section>
       {even.length > 0 && (
         <Section title="Evens out" testId="person-even">
           {list(even)}
-          <p className="mt-2 px-1 text-xs text-slate-500 dark:text-slate-400">You owe each other the same overall. Clear them to settle every group with no money changing hands.</p>
+          <p className="text-muted mt-2 px-1 text-xs">You owe each other the same overall. Clear them to settle every group with no money changing hands.</p>
         </Section>
       )}
     </>
@@ -195,16 +259,24 @@ function PersonAction({ p, n }: { p: PersonBalance; n: number }) {
   const amount = formatMoney(Math.abs(p.net), p.currency)
   if (p.net < 0) {
     return (
-      <Link to={to} data-testid="person-settle-all" aria-label={`Pay ${p.name} ${amount} across ${n} groups`}
-        className="btn-primary !min-h-10 shrink-0 !rounded-full !px-4 !py-0 text-sm">
+      <Link
+        to={to}
+        data-testid="person-settle-all"
+        aria-label={`Pay ${p.name} ${amount} across ${n} groups`}
+        className="btn-primary !min-h-10 shrink-0 !rounded-full !px-4 !py-0 text-sm"
+      >
         Pay
       </Link>
     )
   }
   return (
-    <Link to={to} data-testid="person-settle-all" title={p.net > 0 ? 'Record payment' : 'Clear balances'}
+    <Link
+      to={to}
+      data-testid="person-settle-all"
+      title={p.net > 0 ? 'Record payment' : 'Clear balances'}
       aria-label={p.net > 0 ? `Record payment from ${p.name} across ${n} groups` : `Clear balances with ${p.name} across ${n} groups`}
-      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600 transition active:scale-95 active:bg-brand-100 dark:bg-brand-900/40 dark:text-brand-200 dark:active:bg-brand-900/70">
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600 transition active:scale-95 active:bg-brand-100 dark:bg-brand-900/40 dark:text-brand-200 dark:active:bg-brand-900/70"
+    >
       {p.net > 0 ? <ChequeIcon size={24} /> : <CheckCheck size={20} aria-hidden />}
     </Link>
   )
@@ -239,10 +311,18 @@ function PersonCard({ p }: { p: PersonBalance }) {
       />
       <div className="mx-4 space-y-0.5 border-t border-slate-100 py-2 text-sm dark:border-white/5">
         {p.parts.map((r) => (
-          <Link key={r.key} to={r.href} className="-mx-2 flex min-h-10 items-center gap-2 rounded-xl px-2 transition hover:bg-slate-50 active:bg-slate-50 dark:hover:bg-ink-800 dark:active:bg-ink-800"
-            aria-label={`${r.dir === 'owe' ? `You owe ${r.name}` : `${r.name} owes you`} ${formatMoney(r.amount, r.currency)} in ${r.groupName}`}>
-            <span className="min-w-0 flex-1 truncate">{r.groupEmoji} {r.groupName}</span>
-            <span className={`tabular-nums ${r.dir === 'owed' ? 'pos' : 'neg'}`}>{formatMoney(r.dir === 'owed' ? r.amount : -r.amount, r.currency, { sign: true })}</span>
+          <Link
+            key={r.key}
+            to={r.href}
+            className="-mx-2 flex min-h-10 items-center gap-2 rounded-xl px-2 transition hover:bg-slate-50 active:bg-slate-50 dark:hover:bg-ink-800 dark:active:bg-ink-800"
+            aria-label={`${r.dir === 'owe' ? `You owe ${r.name}` : `${r.name} owes you`} ${formatMoney(r.amount, r.currency)} in ${r.groupName}`}
+          >
+            <span className="min-w-0 flex-1 truncate">
+              {r.groupEmoji} {r.groupName}
+            </span>
+            <span className={`tabular-nums ${r.dir === 'owed' ? 'pos' : 'neg'}`}>
+              {formatMoney(r.dir === 'owed' ? r.amount : -r.amount, r.currency, { sign: true })}
+            </span>
             <ChevronRight size={16} className="shrink-0 text-slate-300 dark:text-slate-600" aria-hidden />
           </Link>
         ))}
@@ -264,16 +344,20 @@ function AllSettled() {
       <div className="flex flex-col items-center px-6 pb-8 pt-10 text-center">
         <Celebrate />
         <h2 className="mt-5 text-2xl font-extrabold tracking-tight">All settled up</h2>
-        <p className="mt-1 max-w-xs text-sm text-slate-500 dark:text-slate-400">You don’t owe anyone, and nobody owes you. Nice and square.</p>
+        <p className="mt-1 max-w-xs text-muted text-sm">You don’t owe anyone, and nobody owes you. Nice and square.</p>
       </div>
       <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
         <Link to="/add" className="flex items-center gap-3 px-4 py-3.5 font-semibold transition active:bg-slate-50 dark:active:bg-ink-800">
-          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/40 dark:text-brand-300"><Plus size={20} aria-hidden /></span>
+          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/40 dark:text-brand-300">
+            <Plus size={20} aria-hidden />
+          </span>
           <span className="flex-1">Add an expense</span>
           <ChevronRight size={18} className="text-slate-300 dark:text-slate-600" aria-hidden />
         </Link>
         <Link to="/groups" className="flex items-center gap-3 px-4 py-3.5 font-semibold transition active:bg-slate-50 dark:active:bg-ink-800">
-          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/40 dark:text-brand-300"><Users size={20} aria-hidden /></span>
+          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/40 dark:text-brand-300">
+            <Users size={20} aria-hidden />
+          </span>
           <span className="flex-1">Your groups</span>
           <ChevronRight size={18} className="text-slate-300 dark:text-slate-600" aria-hidden />
         </Link>

@@ -69,6 +69,8 @@ export interface Group {
   approvalThreshold?: Cents
   /** a member paused SMS auto-capture for this trip (the webhook skips it; docs/AUTO_CAPTURE.md) */
   captureOff?: boolean
+  /** Archived: hidden from totals, pickers and capture matching; listed under "Archived" on Groups. Any member may toggle it. */
+  archived?: boolean
   memberUids: string[]
   members: Record<MemberId, Member>
   inviteCode: string
@@ -103,8 +105,18 @@ export interface SplitInput {
 }
 
 export type Category =
-  | 'food' | 'groceries' | 'transport' | 'stay' | 'entertainment' | 'shopping'
-  | 'utilities' | 'rent' | 'health' | 'travel' | 'gifts' | 'other'
+  | 'food'
+  | 'groceries'
+  | 'transport'
+  | 'stay'
+  | 'entertainment'
+  | 'shopping'
+  | 'utilities'
+  | 'rent'
+  | 'health'
+  | 'travel'
+  | 'gifts'
+  | 'other'
 
 export interface Expense {
   id: string
@@ -248,10 +260,23 @@ export interface Capture {
 }
 
 export type ActivityType =
-  | 'expense.created' | 'expense.updated' | 'expense.deleted' | 'expense.restored' | 'expense.purged'
-  | 'expense.disputed' | 'expense.resolved' | 'expense.approved' | 'expense.imported'
-  | 'settlement.created' | 'settlement.deleted' | 'settlement.restored' | 'settlement.purged'
-  | 'member.added' | 'member.removed'
+  | 'expense.created'
+  | 'expense.updated'
+  | 'expense.deleted'
+  | 'expense.restored'
+  | 'expense.purged'
+  | 'expense.disputed'
+  | 'expense.resolved'
+  | 'expense.approved'
+  | 'expense.imported'
+  | 'settlement.created'
+  | 'settlement.deleted'
+  | 'settlement.restored'
+  | 'settlement.purged'
+  /** written by the nudge callable (functions/src/nudge.ts): actor nudged targetId (a member id) to settle up */
+  | 'settlement.nudged'
+  | 'member.added'
+  | 'member.removed'
 
 /**
  * groups/{gid}/activity/{aid}: an append-only log entry, written in the same batch as the

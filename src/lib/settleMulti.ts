@@ -21,7 +21,10 @@ import type { Cents } from '@/types'
  * up to the payment (in the net direction).
  */
 
-export interface MultiPart { key: string; /** > 0: they owe you in this group */ signed: Cents }
+export interface MultiPart {
+  key: string /** > 0: they owe you in this group */
+  signed: Cents
+}
 
 export interface MultiAllocation {
   key: string
@@ -54,7 +57,9 @@ export function allocateAcrossGroups(parts: MultiPart[], payment: Cents): MultiP
 
   const weights = major.map((p) => Math.abs(p.signed))
   const shares = proportional(counter + pay, weights)
-  major.forEach((p, i) => out.set(p.key, shares[i]))
+  major.forEach((p, i) => {
+    out.set(p.key, shares[i])
+  })
 
   const allocations = parts.map((p) => {
     const amount = out.get(p.key) ?? 0
@@ -72,7 +77,8 @@ export function proportional(total: Cents, weights: Cents[]): Cents[] {
   const sum = weights.reduce((s, w) => s + w, 0)
   if (sum <= 0 || total <= 0) return weights.map(() => 0)
   if (total >= sum) return [...weights]
-  const T = BigInt(total), S = BigInt(sum)
+  const T = BigInt(total),
+    S = BigInt(sum)
   const base = weights.map((w) => (T * BigInt(w)) / S)
   const rem = weights.map((w, i) => ({ i, r: (T * BigInt(w)) % S }))
   let left = total - base.reduce((s, b) => s + Number(b), 0)

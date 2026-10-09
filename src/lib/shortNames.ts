@@ -32,8 +32,14 @@ export function shortNames(members: Record<MemberId, Pick<Member, 'name'>>, me?:
     byFirst.set(k, [...(byFirst.get(k) ?? []), id])
   }
   for (const group of byFirst.values()) {
-    if (group.length === 1) { out[group[0]] = first(group[0]); continue }
-    const label = (id: MemberId) => { const i = lastInitial(ws[id]); return i ? `${first(id)} ${i}` : first(id) }
+    if (group.length === 1) {
+      out[group[0]] = first(group[0])
+      continue
+    }
+    const label = (id: MemberId) => {
+      const i = lastInitial(ws[id])
+      return i ? `${first(id)} ${i}` : first(id)
+    }
     const counts = new Map<string, number>()
     for (const id of group) counts.set(fold(label(id)), (counts.get(fold(label(id))) ?? 0) + 1)
     for (const id of group) out[id] = counts.get(fold(label(id)))! > 1 ? members[id].name.trim() || first(id) : label(id)

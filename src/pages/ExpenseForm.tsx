@@ -1,79 +1,109 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { AlertCircle, Camera, Check, CheckCircle2, History, Minus, Plus, QrCode, Repeat, Search, Trash2, UserPlus, Users, Wallet, X, type LucideIcon } from 'lucide-react'
-import { repo } from '@/data'
-import { useMe } from '@/hooks/auth'
-import { memberOrder, myMemberId, useCaptures, useExpenses, useGroup, useGroups } from '@/hooks/data'
-import { useOcr } from '@/hooks/useOcr'
-import type { Capture, Category, Expense, Group, MemberId, OriginalAmount, ReceiptItem, Recurrence, RecurrenceFreq, SplitInput, SplitType } from '@/types'
-import { CATEGORIES, guessCategory } from '@/lib/categories'
-import { CURRENCIES, centsToInput, currencySymbol, formatMoney, fromHundredths, parseMoney } from '@/lib/money'
-import { convertExpense, convertMinor, getRate, lastCurrency, parseRate, rateLabel, rememberCurrency, toOriginal, type FxRate } from '@/lib/fx'
-import { computeSplits, portion, SplitError } from '@/lib/splits'
-import { parseReceipt, type ParsedReceipt } from '@/lib/ocr-parse'
+import { ReceiptText, Users, Wallet } from 'lucide-react'
+import { useCaptures, useExpenses, useGroup, useGroups } from '@/hooks/data'
+import { descriptionHistory, lastGroup } from '@/lib/recents'
+import { liveTripFor } from '@/lib/capture'
+import { todayISO } from '@/lib/id'
+import { draftKey, loadDraft } from '@/lib/expense-draft'
 import { pending } from '@/lib/pending'
-import { recordOutcome, type ScanKind } from '@/lib/scanHistory'
-import { isLiveTrip, liveTripFor } from '@/lib/capture'
-import { addDaysISO, descriptionHistory, lastGroup, lastSplit, pastCategory, rememberGroup, rememberSplit, sameSplit, sanitizeSplit, suggestDescriptions, type Suggestion } from '@/lib/recents'
-import { todayISO, uid } from '@/lib/id'
-import { firstNextDate, FREQ_LABEL, nextAfter } from '@/lib/recurrence'
-import { Avatar } from '@/components/Avatar'
-import { GroupIcon } from '@/components/GroupIcon'
-import { MemberChips } from '@/components/MemberChips'
-import { shortNames } from '@/lib/shortNames'
-import { Empty, LiveBadge, Loading, Spinner } from '@/components/Misc'
-import { Sheet } from '@/components/Sheet'
-import { useToast } from '@/components/Toast'
-import { appLocale } from '@/lib/locale'
-import { DateField } from '@/components/DateField'
-import { Select } from '@/components/Select'
+import { Empty } from '@/components/Misc'
+import { CardSkeleton } from '@/components/Skeleton'
+import { ExpenseEditor } from '@/features/expense-form/ExpenseEditor'
 
-const REPEAT_OPTIONS: Array<RecurrenceFreq | 'never'> = ['never', 'weekly', 'fortnightly', 'monthly', 'yearly']
-
-const SPLIT_TYPES: Array<{ value: SplitType; label: string; icon: string }> = [
-  { value: 'equal', label: 'Equally', icon: '=' },
-  { value: 'exact', label: 'Exact', icon: '1.23' },
-  { value: 'percent', label: 'Percent', icon: '%' },
-  { value: 'shares', label: 'Shares', icon: '⅔' },
-  { value: 'adjust', label: 'Adjust', icon: '+/−' },
-]
-// Item-by-item splits happen on a live table (/split); Items stays only to edit older itemized expenses.
-const ITEMIZED = { value: 'itemized' as const, label: 'Items', icon: '🧾' }
-
+/**
+ * /add (new, optionally ?group=&again=&capture=) and /groups/:groupId/expenses/:expenseId/edit.
+ * Picks the group and loads what the editor needs; the form itself is src/features/expense-form.
+ */
 export default function ExpenseForm() {
   const { groupId: editGroupId, expenseId } = useParams()
   const [params] = useSearchParams()
   const groups = useGroups()
-  const [groupId, setGroupId] = useState<string | undefined>(editGroupId ?? params.get('group') ?? undefined)
+  // "Add again" from an expense: /add?group=…&again=<expenseId> starts a copy dated today.
+  const againId = expenseId ? undefined : (params.get('again') ?? undefined)
+  // Prefill from a captured payment (/add?group=…&capture=…), handed over from the capture prompt.
+  const captureId = expenseId ? undefined : (params.get('capture') ?? undefined)
+  // Quick add (/add?group=…&quick=1): the parsed line waits in memory; it beats any stored draft (a fresh intent).
+  const [quick] = useState(() => {
+    if (expenseId || !params.get('quick')) return undefined
+    const q = pending.quick
+    pending.quick = undefined
+    return q?.prefill
+  })
+  const storeKey = draftKey(expenseId)
+  // A draft left on this device for this route (a reload, an accidental back), when it started from the same place.
+  const [stored] = useState(() => {
+    const s = loadDraft(storeKey)
+    return s && (s.again ?? undefined) === againId && (s.capture ?? undefined) === captureId ? s : null
+  })
+  const [groupId, setGroupId] = useState<string | undefined>(editGroupId ?? params.get('group') ?? stored?.groupId ?? undefined)
   const group = useGroup(groupId)
   // The group's expenses: the one being edited, and past descriptions for suggestions.
   const expenses = useExpenses(groupId)
   const existing = expenseId ? expenses?.find((e) => e.id === expenseId) : undefined
-  // "Add again" from an expense: /add?group=…&again=<expenseId> starts a copy dated today.
-  const againId = expenseId ? undefined : params.get('again') ?? undefined
   const again = againId ? expenses?.find((e) => e.id === againId) : undefined
-  // Prefill from a captured payment (/add?group=…&capture=…), handed over from the capture prompt.
-  const captureId = expenseId ? undefined : params.get('capture') ?? undefined
   const captures = useCaptures()
   const capture = captureId ? captures?.find((c) => c.id === captureId && c.status === 'pending') : undefined
   // A switched group's list arrives a moment later; never suggest from the previous group.
-  const history = useMemo(() => descriptionHistory((expenses ?? []).filter((e) => e.groupId === groupId)), [expenses, groupId])
+  const groupExpenses = useMemo(() => (expenses ?? []).filter((e) => e.groupId === groupId), [expenses, groupId])
+  const history = useMemo(() => descriptionHistory(groupExpenses), [groupExpenses])
 
   useEffect(() => {
-    // Default to a trip that's running today, else the group used last on this device, else the most recent.
-    if (!groupId && groups?.length) {
+    if (!groups?.length || editGroupId) return
+    // No group yet, or one that no longer exists (a stale link or draft): default to a trip that's
+    // running today, else the group used last on this device, else the most recent.
+    if (!groupId || group === null) {
       const last = lastGroup()
       setGroupId(liveTripFor(groups, todayISO()) ?? (last && groups.some((g) => g.id === last) ? last : undefined) ?? groups[0].id)
     }
-  }, [groups, groupId])
+  }, [groups, groupId, group, editGroupId])
 
-  if (!groups || (groupId && group === undefined) || ((expenseId || againId) && !expenses) || (captureId && !captures)) return <Loading />
+  if (!groups || (groupId && group === undefined) || ((expenseId || againId) && !expenses) || (captureId && !captures)) return <FormSkeleton />
   if (groups.length === 0) return <NoGroups />
-  if (!group) return <Loading />
-  if (expenseId && !existing) return <Empty emoji="🔍" title="Expense not found" />
+  if (group === null && editGroupId)
+    return (
+      <div className="mx-auto max-w-lg px-4 pt-[calc(env(safe-area-inset-top)+2rem)]">
+        <Empty emoji="🔍" title="This group doesn’t exist or you’re not a member" />
+      </div>
+    )
+  if (!group) return <FormSkeleton />
+  if (expenseId && !existing)
+    return (
+      <div className="mx-auto max-w-lg px-4 pt-[calc(env(safe-area-inset-top)+2rem)]">
+        <Empty emoji="🔍" title="Expense not found" />
+      </div>
+    )
 
-  // Keyed by the expense only: switching group keeps what was typed (see Form's re-seed).
-  return <Form key={existing?.id ?? again?.id ?? 'new'} group={group} groups={groups} existing={existing} again={again} capture={capture} history={history} onGroup={setGroupId} />
+  // Keyed by the expense only: switching group keeps what was typed (the editor re-seeds payer and split).
+  return (
+    <ExpenseEditor
+      key={existing?.id ?? again?.id ?? 'new'}
+      group={group}
+      groups={groups}
+      existing={existing}
+      again={again}
+      capture={capture}
+      quick={quick}
+      expenses={groupExpenses}
+      history={history}
+      onGroup={setGroupId}
+      storeKey={storeKey}
+      restore={quick ? undefined : stored?.draft}
+      restoreReceipt={quick ? undefined : stored?.receipt}
+    />
+  )
+}
+
+function FormSkeleton() {
+  return (
+    <div className="mx-auto min-h-dvh max-w-lg px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)]" role="status" aria-label="Loading">
+      <CardSkeleton className="h-11 w-1/2 mx-auto" />
+      <CardSkeleton className="mt-4 h-16" />
+      <CardSkeleton className="mt-3 h-56" />
+      <CardSkeleton className="mt-3 h-20" />
+      <CardSkeleton className="mt-3 h-20" />
+    </div>
+  )
 }
 
 function NoGroups() {
@@ -83,866 +113,18 @@ function NoGroups() {
       <Empty emoji="👀" title="Create a group first">
         Expenses live inside a group, a 1:1 friend, or your personal wallet.
         <div className="mt-4 flex justify-center gap-2">
-          <button className="btn-primary" onClick={() => nav('/groups/new?next=add')}><Users size={18} aria-hidden /> New group</button>
-          <button className="btn-secondary" onClick={() => nav('/groups/new?type=personal&next=add')}><Wallet size={18} aria-hidden /> Personal</button>
+          <button type="button" className="btn-primary" onClick={() => nav('/groups/new?next=add')}>
+            <Users size={18} aria-hidden /> New group
+          </button>
+          <button type="button" className="btn-secondary" onClick={() => nav('/groups/new?type=personal&next=add')}>
+            <Wallet size={18} aria-hidden /> Personal
+          </button>
         </div>
-        <button className="btn-secondary mx-auto mt-2 flex" onClick={() => nav('/split', { replace: true })} data-testid="nogroups-split"><QrCode size={18} /> Split a bill by items</button>
-        <p className="mt-2 text-xs text-slate-400">Out to eat? Scan the bill and everyone taps what they had, no group needed.</p>
+        <button type="button" className="btn-secondary mx-auto mt-2 flex" onClick={() => nav('/split', { replace: true })} data-testid="nogroups-split">
+          <ReceiptText size={18} aria-hidden /> Split a bill by items
+        </button>
+        <p className="mt-2 text-xs text-muted">Out to eat? Scan the bill and everyone taps what they had, no group needed.</p>
       </Empty>
     </div>
   )
-}
-
-/**
- * Payer and split for a new expense in `group`: what was used last time in this group on this
- * device, else "you paid, split equally". A captured payment is always yours to have paid.
- */
-function seedFor(group: Group, order: MemberId[], me: MemberId, capture?: Capture) {
-  const last = lastSplit(group.id, order)
-  return {
-    payer: !capture && last.payer ? last.payer : me,
-    splitType: last.splitType ?? 'equal' as SplitType,
-    input: last.input ?? { selected: order },
-  }
-}
-
-function Form({ group, groups, existing, again, capture, history, onGroup }: {
-  group: Group; groups: Group[]; existing?: Expense; again?: Expense; capture?: Capture; history: Suggestion[]; onGroup: (id: string) => void
-}) {
-  const { user, profile } = useMe()
-  const nav = useNavigate()
-  const toast = useToast()
-  const ocr = useOcr()
-  const fileRef = useRef<HTMLInputElement>(null)
-  const order = useMemo(() => memberOrder(group), [group])
-  const me = myMemberId(group, user.uid) ?? order[0]
-  const personal = group.type === 'personal'
-  /** Paid by / Split rows: first names in a shared group ("Rahul S." when two share one), full names in a 1:1. */
-  const labels = useMemo(() => memberLabels(group, me), [group, me])
-  /** what the form starts from: the expense being edited, or the one being added again */
-  const src = existing ?? again
-  const [seed] = useState(() => (src ? undefined : seedFor(group, order, me, capture)))
-
-  // Entry currency. A foreign-currency expense is typed in `cur` and converted to the group's
-  // currency on save at a locked rate (see src/lib/fx.ts). New expenses reuse the group's last one.
-  const [cur, setCur] = useState(() => src ? src.original?.currency ?? group.currency : capture ? capture.currency ?? group.currency : lastCurrency(group.id) ?? group.currency)
-  const foreign = cur !== group.currency
-  const fg = useMemo(() => (foreign ? { ...group, currency: cur } : group), [group, cur, foreign])
-  const [amountStr, setAmountStr] = useState(src ? centsToInput(src.original?.amount ?? src.amount, cur) : capture ? centsToInput(capture.amount, cur) : '')
-  const [description, setDescription] = useState(src?.description ?? capture?.merchant ?? '')
-  const [category, setCategory] = useState<Category>(src?.category ?? (capture && (pastCategory(history, capture.merchant) ?? guessCategory(capture.merchant))) ?? 'other')
-  const [catTouched, setCatTouched] = useState(!!src)
-  const [date, setDate] = useState(existing?.date ?? capture?.date ?? todayISO())
-  const [notes, setNotes] = useState(src?.notes ?? capture?.note ?? '')
-  const [payers, setPayers] = useState<Record<MemberId, string>>(
-    src ? Object.fromEntries(Object.entries(src.original ? toOriginal(src.paidBy, src.original) : src.paidBy).map(([k, v]) => [k, centsToInput(v, cur)])) : { [seed?.payer ?? me]: '' },
-  )
-  const [multiPay, setMultiPay] = useState(src ? Object.keys(src.paidBy).length > 1 : false)
-  const [splitType, setSplitType] = useState<SplitType>(src?.splitType ?? seed?.splitType ?? 'equal')
-  const [input, setInput] = useState<SplitInput>(src?.splitInput ?? seed?.input ?? { selected: order })
-  /** a suggestion was just picked: hide the chips until the description is typed again */
-  const [picked, setPicked] = useState(!!src)
-
-  // Switching group (new expenses only) keeps the amount, description, category, date, notes and
-  // receipt; payer and split start over from the new group's members (adjusting state while
-  // rendering, so the old group's member ids never reach the new group's split).
-  const [seededFor, setSeededFor] = useState({ id: group.id, currency: group.currency })
-  if (seededFor.id !== group.id) {
-    const next = seedFor(group, order, me, capture)
-    setSeededFor({ id: group.id, currency: group.currency })
-    setPayers({ [next.payer]: '' })
-    setMultiPay(false)
-    setSplitType(next.splitType)
-    setInput(next.input)
-    // Typing in the old group's own currency: follow the new group's. A foreign currency stays.
-    if (cur === seededFor.currency) setCur(lastCurrency(group.id) ?? group.currency)
-  }
-  const [receipt, setReceipt] = useState<File | null>(null)
-  const [receiptUrl] = useState(existing?.receiptUrl)
-  const [repeat, setRepeat] = useState<RecurrenceFreq | 'never'>(existing?.recurrence?.freq ?? 'never')
-  const [until, setUntil] = useState(existing?.recurrence?.until ?? '')
-  const isOccurrence = !!existing?.recurringFrom
-  const [sheet, setSheet] = useState<'group' | 'category' | 'payer' | 'currency' | null>(null)
-  const [busy, setBusy] = useState(false)
-  /** a scanned bill with line items: offer the item-by-item table instead */
-  const [scanned, setScanned] = useState<{ parsed: ParsedReceipt; file: File } | null>(null)
-  const splitByItems = (r?: { parsed: ParsedReceipt; file: File }) => {
-    if (r) pending.receipt = r
-    nav(`/split${personal ? '' : `?group=${group.id}`}`, { replace: true })
-  }
-
-  const amount = parseMoney(amountStr, cur)
-  const validAmount = Number.isFinite(amount) && amount > 0
-
-  // Exchange rate: an edited expense keeps its locked rate until the currency or date changes.
-  const [fx, setFx] = useState<FxRate | null>(existing?.original ? { rate: existing.original.rate, date: existing.original.rateDate, source: existing.original.source } : null)
-  const [fxLoading, setFxLoading] = useState(false)
-  const [rateEdit, setRateEdit] = useState<string | null>(null)
-  const fxFor = useRef(existing?.original ? `${existing.original.currency}|${group.currency}|${existing.date}` : '')
-  useEffect(() => {
-    if (!foreign) return
-    const k = `${cur}|${group.currency}|${date}`
-    if (fxFor.current === k) return
-    // A rate the user typed survives a date change; a different currency (or group currency) needs a new rate.
-    const keepManual = fx?.source === 'manual' && fxFor.current.startsWith(`${cur}|${group.currency}|`)
-    fxFor.current = k
-    if (keepManual) return
-    setFx(null)
-    setRateEdit(null)
-    setFxLoading(true)
-    getRate(cur, group.currency, date).then((r) => {
-      if (fxFor.current !== k) return
-      setFx(r)
-      setFxLoading(false)
-      if (!r) setRateEdit('')
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cur, date, foreign, group.currency])
-  const converted = foreign && fx && validAmount ? convertMinor(amount, cur, group.currency, fx.rate) : undefined
-
-  // Apply a receipt handed over from the Scan screen.
-  const scanFrom = useRef<{ id: string; kind: ScanKind }>(undefined)
-  useEffect(() => {
-    if (pending.receipt && !existing) {
-      applyReceipt(pending.receipt.parsed, pending.receipt.file)
-      scanFrom.current = pending.receipt.history
-      pending.receipt = undefined
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  function applyReceipt(parsed: ParsedReceipt, file: File) {
-    // OCR reads amounts as hundredths; convert to this group's minor units (e.g. whole yen).
-    const p = { ...parsed, total: parsed.total && fromHundredths(parsed.total, cur), items: parsed.items.map((it) => ({ ...it, amount: fromHundredths(it.amount, cur) })) }
-    setReceipt(file)
-    if (p.total) setAmountStr(centsToInput(p.total, cur))
-    if (p.merchant) { setDescription(titleCase(p.merchant)); const g = guessCategory(p.merchant); if (g) setCategory(g) }
-    if (p.date) setDate(p.date)
-    if (parsed.items.length >= 2 && !personal) setScanned({ parsed, file })
-    toast(p.total ? `Found ${formatMoney(p.total, cur)}${p.items.length ? ` and ${p.items.length} items` : ''}` : 'Couldn’t read a total — please enter it')
-  }
-
-  async function onScanFile(file: File) {
-    try {
-      const text = await ocr.run(file)
-      applyReceipt(parseReceipt(text), file)
-    } catch (e) {
-      toast('Scan failed: ' + (e as Error).message, 'err')
-    }
-  }
-
-  // Equal split by default: auto-fill single payer amount.
-  const paidBy: Record<MemberId, number> = useMemo(() => {
-    if (personal) return validAmount ? { [me]: amount } : {}
-    if (!multiPay) {
-      const id = Object.keys(payers)[0] ?? me
-      return validAmount ? { [id]: amount } : {}
-    }
-    return Object.fromEntries(Object.entries(payers).map(([k, v]) => [k, parseMoney(v, cur)]).filter(([, v]) => Number.isFinite(v as number) && (v as number) > 0))
-  }, [payers, multiPay, amount, validAmount, me, personal, cur])
-  const paidSum = Object.values(paidBy).reduce((a, b) => a + b, 0)
-
-  const preview = useMemo((): { splits?: Record<MemberId, number>; error?: string } => {
-    if (!validAmount) return {}
-    if (personal) return { splits: { [me]: amount } }
-    try {
-      return { splits: computeSplits(amount, splitType, input, order) }
-    } catch (e) {
-      return { error: e instanceof SplitError ? e.message : String(e) }
-    }
-  }, [amount, validAmount, splitType, input, order, personal, me])
-
-  const save = async () => {
-    if (!validAmount) return toast('Enter an amount', 'err')
-    // No description: a category says enough ("Groceries"); "Other" doesn't.
-    const desc = description.trim() || (category !== 'other' ? CATEGORIES[category].label : '')
-    if (!desc) return toast('Add a description', 'err')
-    if (preview.error || !preview.splits) return toast(preview.error ?? 'Check the split', 'err')
-    if (paidSum !== amount) return toast(`Payers add up to ${formatMoney(paidSum, cur)}, not ${formatMoney(amount, cur)}`, 'err')
-    if (foreign && !fx) return toast(`Enter the ${cur} → ${group.currency} exchange rate`, 'err')
-    // Convert to the group currency once, here; balances only ever see group-currency amounts.
-    let money = { amount, paidBy, splits: preview.splits }
-    let original: OriginalAmount | undefined
-    if (foreign && fx) {
-      const c = convertExpense(money, cur, group.currency, fx.rate)
-      if (!c) return toast(`That’s less than the smallest ${group.currency} amount`, 'err')
-      money = c
-      original = { currency: cur, amount, rate: fx.rate, rateDate: fx.date, source: fx.source }
-    }
-    if (repeat !== 'never' && until && until < date) return toast('The repeat end date is before the expense date', 'err')
-    setBusy(true)
-    try {
-      const now = Date.now()
-      const e: Expense = {
-        id: existing?.id ?? uid('e_'),
-        groupId: group.id,
-        description: desc,
-        amount: money.amount, category, date, notes: notes.trim() || undefined,
-        paidBy: money.paidBy, splits: money.splits, splitType: personal ? 'equal' : splitType,
-        splitInput: personal ? { selected: [me] } : clean(input, splitType),
-        receiptUrl,
-        recurrence: isOccurrence ? undefined : buildRecurrence(repeat, date, until, existing),
-        recurringFrom: existing?.recurringFrom,
-        original,
-        createdBy: existing?.createdBy ?? user.uid,
-        createdAt: existing?.createdAt ?? now,
-        updatedAt: now,
-      }
-      await repo.saveExpense(e)
-      rememberCurrency(group.id, cur)
-      if (!existing) {
-        rememberGroup(group.id)
-        if (!personal) rememberSplit(group.id, { payer: multiPay ? undefined : Object.keys(paidBy)[0], splitType, input: clean(input, splitType) })
-      }
-      if (capture) await repo.updateCapture(user.uid, capture.id, { status: 'assigned', groupId: group.id, expenseId: e.id }).catch(console.warn)
-      // Note the outcome on the Recent scans entry this came from.
-      if (scanFrom.current && !existing) void recordOutcome(user.uid, scanFrom.current.kind, scanFrom.current.id, { label: `Added to ${group.name}`, href: `/groups/${group.id}/expenses/${e.id}` }).catch(() => {})
-      // Upload after saving so a slow or offline network never blocks the save.
-      if (receipt && !repo.attachReceipt(group.id, e.id, receipt)) toast('Offline — saved without the receipt image')
-      toast(existing ? 'Expense updated' : 'Expense added ✅')
-      nav(`/groups/${group.id}`, { replace: true })
-    } catch (err) {
-      toast((err as Error).message, 'err')
-      setBusy(false)
-    }
-  }
-
-  const singlePayer = Object.keys(payers)[0] ?? me
-  // "Same as last time": only when the remembered choice is in use and isn't the plain default.
-  const last = useMemo(() => (existing ? {} : lastSplit(group.id, order)), [existing, group.id, order])
-  const payerHint = !existing && !multiPay && !!last.payer && last.payer === singlePayer && singlePayer !== me
-  const everyone = splitType === 'equal' && order.every((id) => input.selected?.includes(id))
-  const splitHint = !existing && !everyone && sameSplit(splitType, input, last.splitType, last.input)
-
-  const suggestions = existing || picked ? [] : suggestDescriptions(history, description)
-  const pickSuggestion = (sg: Suggestion) => {
-    setDescription(sg.description)
-    setCategory(sg.category)
-    setPicked(true)
-    if (personal) return
-    // Repeat who paid and how it was split last time (when that still fits the group).
-    const payer = Object.keys(sg.last.paidBy)
-    if (payer.length === 1 && order.includes(payer[0])) { setMultiPay(false); setPayers({ [payer[0]]: '' }) }
-    const sp = sanitizeSplit({ splitType: sg.last.splitType, input: sg.last.splitInput }, order)
-    if (sp.splitType && sp.input) { setSplitType(sp.splitType); setInput(sp.input) }
-  }
-  const today = todayISO()
-  const yesterday = addDaysISO(today, -1)
-  const currencyChoices = [...new Set([group.currency, cur, profile.currency, ...CURRENCIES])]
-  const applyRate = () => {
-    const r = parseRate(rateEdit ?? '')
-    if (!Number.isFinite(r)) return toast('Enter a rate above 0', 'err')
-    setFx({ rate: r, date, source: 'manual' })
-    setRateEdit(null)
-  }
-
-  return (
-    <div className="mx-auto min-h-dvh max-w-lg px-4 pb-10">
-      <header className="sticky top-0 z-30 -mx-4 flex items-center justify-between bg-slate-50/85 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] backdrop-blur-xl dark:bg-ink-950/85">
-        <button onClick={() => nav(-1)} className="-ml-2 rounded-full p-2" aria-label="Cancel"><X size={24} /></button>
-        <div className="font-bold">{existing ? 'Edit expense' : capture ? 'Captured payment' : 'Add expense'}</div>
-        <button onClick={save} disabled={busy} className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap accent-live rounded-full bg-brand-600 px-3.5 py-1.5 text-sm font-bold leading-5 text-white disabled:opacity-50"><Check size={16} strokeWidth={2.5} aria-hidden />{busy ? '…' : 'Save'}</button>
-      </header>
-
-      {/* Group picker */}
-      <button onClick={() => !existing && setSheet('group')} className="card mt-2 flex w-full items-center gap-3 p-3 text-left">
-        <GroupIcon emoji={group.emoji} size={40} />
-        <div className="flex-1">
-          <div className="text-xs text-slate-500">{personal ? 'Personal wallet' : 'With'}</div>
-          <div className="font-semibold">{group.name}</div>
-        </div>
-        {!existing && <span className="text-sm font-semibold text-brand-600 dark:text-brand-300">Change</span>}
-      </button>
-
-      {/* Amount */}
-      <div className="card mt-3 p-5">
-        <div className="flex items-center gap-3">
-          <button onClick={() => setSheet('category')} className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-3xl" style={{ background: CATEGORIES[category].color + '22' }} aria-label="Category">
-            {CATEGORIES[category].emoji}
-          </button>
-          <input
-            className="w-full bg-transparent text-lg font-semibold outline-none placeholder:text-slate-400"
-            placeholder={category !== 'other' && !description ? CATEGORIES[category].label : 'What was it for?'}
-            aria-label="Description"
-            value={description}
-            onChange={(e) => {
-              setDescription(e.target.value)
-              setPicked(false)
-              // This group's own habit for the description beats the keyword guess.
-              if (!catTouched) setCategory(pastCategory(history, e.target.value) ?? guessCategory(e.target.value) ?? 'other')
-            }}
-          />
-        </div>
-        {suggestions.length > 0 && (
-          <div className="-mx-1 mt-3 flex gap-1.5 overflow-x-auto px-1 py-1" data-testid="desc-suggestions" aria-label="Past descriptions">
-            {suggestions.map((sg) => (
-              <button key={sg.description} type="button" onClick={() => pickSuggestion(sg)} className="chip shrink-0 !py-1.5 text-sm">
-                <span aria-hidden>{CATEGORIES[sg.category].emoji}</span><span className="max-w-[10rem] truncate">{sg.description}</span>
-              </button>
-            ))}
-          </div>
-        )}
-        <div className="mt-4 flex items-baseline gap-3 border-t border-slate-100 pt-4 dark:border-white/5">
-          {/* The symbol itself is the currency button (opens the list); sized to sit with the amount. */}
-          <button type="button" onClick={() => setSheet('currency')} aria-label={`Currency: ${cur}. Change`} data-testid="amount-currency"
-            className={`shrink-0 rounded-xl pl-1 pr-0.5 font-extrabold leading-none tracking-tight transition active:scale-95 ${currencySymbol(cur).length > 2 ? 'text-3xl' : 'text-5xl'} ${foreign ? 'text-brand-600 dark:text-brand-300' : 'text-slate-400 dark:text-slate-500'}`}>
-            {currencySymbol(cur)}
-          </button>
-          <input
-            className="w-full bg-transparent text-5xl font-extrabold tabular-nums tracking-tight outline-none placeholder:text-slate-300 dark:placeholder:text-ink-700"
-            inputMode="decimal"
-            placeholder="0.00"
-            value={amountStr}
-            onChange={(e) => setAmountStr(e.target.value)}
-            autoFocus={!existing}
-          />
-        </div>
-        {foreign && (
-          <FxLine cur={cur} to={group.currency} fx={fx} loading={fxLoading} converted={converted}
-            rateEdit={rateEdit} setRateEdit={setRateEdit} onApply={applyRate} />
-        )}
-        {/* Date chips keep their size; Scan takes what's left (icon only on the narrowest phones). */}
-        <div className="mt-4 flex gap-1.5">
-          <DateField aria-label="Date" className="!w-auto shrink-0 !py-2 text-sm" value={date} onChange={(v) => setDate(v || todayISO())} />
-          {[{ d: today, label: 'Today' }, { d: yesterday, label: 'Yesterday' }].map((o) => (
-            <button key={o.label} type="button" onClick={() => setDate(o.d)} aria-pressed={date === o.d}
-              className={`shrink-0 rounded-2xl px-2 text-xs font-semibold ${date === o.d ? 'accent-live bg-brand-600 text-white' : 'bg-slate-100 text-slate-600 dark:bg-ink-800 dark:text-slate-300'}`}>{o.label}</button>
-          ))}
-          <button type="button" className="@container btn-secondary !min-h-0 min-w-0 flex-1 !gap-1.5 !px-2 !py-2 text-sm" onClick={() => fileRef.current?.click()} disabled={ocr.busy}
-            aria-label={ocr.busy ? undefined : receipt || receiptUrl ? 'Rescan receipt' : 'Scan receipt'}>
-            {ocr.busy ? <><Spinner className="!h-4 !w-4 shrink-0" /><span className="truncate">{Math.round(ocr.progress * 100)}%</span></> : <><Camera size={16} className="shrink-0" /><span className="hidden @[3.75rem]:inline">Scan</span></>}
-          </button>
-          <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onScanFile(f); e.target.value = '' }} />
-        </div>
-        {(receipt || receiptUrl) && <div className="mt-2 text-xs text-emerald-600">📎 Receipt attached</div>}
-        {scanned && !existing && (
-          <div className="mt-3 flex items-center gap-3 rounded-2xl bg-brand-50 p-3 dark:bg-brand-900/30" data-testid="split-items-offer">
-            <span className="text-2xl">🧾</span>
-            <div className="min-w-0 flex-1 text-sm">
-              <div className="font-semibold">{scanned.parsed.items.length} items on this bill</div>
-              <div className="text-slate-500">Let everyone tap what they had instead</div>
-            </div>
-            <button type="button" className="btn-primary !min-h-0 shrink-0 !px-3 !py-2 text-sm" onClick={() => splitByItems(scanned)}><QrCode size={16} /> Split by items</button>
-          </div>
-        )}
-      </div>
-
-      {!personal && (
-        <>
-          {/* Paid by */}
-          <div className="card mt-3 p-4">
-            <div className="flex items-center justify-between">
-              <div className="label !mb-0 flex items-center gap-1.5">Paid by{payerHint && <SameHint />}</div>
-              <button className="text-sm font-semibold text-brand-600 dark:text-brand-300" onClick={() => {
-                if (!multiPay) setPayers({ [singlePayer]: amountStr })
-                else setPayers({ [singlePayer]: '' })
-                setMultiPay(!multiPay)
-              }}>{multiPay ? 'Single payer' : 'Multiple people'}</button>
-            </div>
-            {!multiPay ? (
-              <button onClick={() => setSheet('payer')} className="mt-3 flex w-full items-center gap-3 rounded-2xl bg-slate-50 p-3 text-left dark:bg-ink-800">
-                <Avatar name={group.members[singlePayer]?.name ?? '?'} color={group.members[singlePayer]?.color ?? '#999'} photoURL={group.members[singlePayer]?.photoURL} size={32} />
-                <span className="flex-1 font-semibold">{labels[singlePayer] ?? group.members[singlePayer]?.name}</span>
-                <span className="text-sm text-slate-500">Change</span>
-              </button>
-            ) : (
-              <div className="mt-3 space-y-2">
-                {order.map((id) => (
-                  <AmountRow key={id} group={fg} id={id} label={labels[id]} value={payers[id] ?? ''} onChange={(v) => setPayers((p) => ({ ...p, [id]: v }))} />
-                ))}
-              </div>
-            )}
-            {multiPay && validAmount && <Left value={amount - paidSum} currency={cur} />}
-          </div>
-
-          {/* Split */}
-          <div className="card mt-3 p-4">
-            <div className="label flex items-center gap-1.5">Split{splitHint && <SameHint />}</div>
-            <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 py-1">
-              {(splitType === 'itemized' ? [...SPLIT_TYPES, ITEMIZED] : SPLIT_TYPES).map((t) => (
-                <button key={t.value} type="button" onClick={() => { setSplitType(t.value); setInput((i) => seedInput(i, t.value, order, amount)) }}
-                  className={`flex min-w-[4.5rem] flex-col items-center gap-1 rounded-2xl px-3 py-2.5 text-xs font-semibold transition ${splitType === t.value ? 'accent-live bg-brand-600 text-white shadow-lg shadow-brand-600/30' : 'bg-slate-100 text-slate-600 dark:bg-ink-800 dark:text-slate-300'}`}>
-                  <span className="text-base font-bold">{t.icon}</span>{t.label}
-                </button>
-              ))}
-            </div>
-            <div className="mt-4">
-              <SplitEditor type={splitType} input={input} setInput={setInput} group={fg} order={order} me={me} labels={labels} amount={validAmount ? amount : 0} splits={preview.splits} />
-            </div>
-            <SplitFooter type={splitType} input={input} order={order} amount={validAmount ? amount : 0} currency={cur} error={preview.error} />
-          </div>
-        </>
-      )}
-
-      {!isOccurrence && (
-        <div className="card mt-3 p-4">
-          <div className={`grid gap-3 ${repeat !== 'never' ? 'grid-cols-2' : 'grid-cols-1'}`}>
-            <div className="min-w-0">
-              <div className="label flex items-center gap-1.5"><Repeat size={14} /> Repeat</div>
-              <Select aria-label="Repeat" value={repeat} onChange={(v) => setRepeat(v as RecurrenceFreq | 'never')}
-                options={REPEAT_OPTIONS.map((f) => ({ value: f, label: f === 'never' ? 'Never' : FREQ_LABEL[f] }))} />
-            </div>
-            {repeat !== 'never' && (
-              <div className="min-w-0">
-                <label htmlFor="repeat-until" className="label">Ends</label>
-                <DateField id="repeat-until" aria-label="Repeat until" placeholder="Never" clearable value={until} min={date} onChange={setUntil} />
-              </div>
-            )}
-          </div>
-          {repeat !== 'never' && (
-            <div className="mt-3">
-              <p className="text-xs text-slate-500">
-                Next copy on {fmtDate(buildRecurrence(repeat, date, until, existing)?.nextDate)}. Copies are added automatically when anyone in the group opens the app.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
-      <div className="card mt-3 p-4">
-        <label className="label">Notes</label>
-        <textarea className="input min-h-20" placeholder="Optional" value={notes} onChange={(e) => setNotes(e.target.value)} />
-      </div>
-
-      <button className="btn-primary mt-5 w-full" onClick={save} disabled={busy}><Check size={18} /> {existing ? 'Save changes' : 'Add expense'}</button>
-
-      <Sheet open={sheet === 'group'} onClose={() => setSheet(null)} title="Choose group">
-        <GroupList groups={groups} current={group.id} onPick={(id) => { onGroup(id); setSheet(null) }} onCreate={(q) => nav(`/groups/new?${q ? `type=${q}&` : ''}next=add`)} />
-      </Sheet>
-      <Sheet open={sheet === 'currency'} onClose={() => setSheet(null)} title="Currency">
-        <p className="mb-2 text-sm text-slate-500">{group.name} is in {group.currency}. Other currencies are converted at the ECB rate for the expense date, then locked.</p>
-        <div className="grid grid-cols-4 gap-2">
-          {currencyChoices.map((c) => (
-            <button key={c} onClick={() => { setCur(c); setSheet(null) }} className={`rounded-2xl py-3 text-sm font-bold ${c === cur ? 'accent-live bg-brand-600 text-white' : 'bg-slate-100 dark:bg-ink-800'}`}>{c}</button>
-          ))}
-        </div>
-      </Sheet>
-      <Sheet open={sheet === 'category'} onClose={() => setSheet(null)} title="Category">
-        <div className="grid grid-cols-3 gap-2">
-          {(Object.keys(CATEGORIES) as Category[]).map((c) => (
-            <button key={c} onClick={() => { setCategory(c); setCatTouched(true); setSheet(null) }} className={`flex flex-col items-center gap-1 rounded-2xl p-3 text-xs font-semibold ${c === category ? 'ring-2 ring-brand-500' : ''}`} style={{ background: CATEGORIES[c].color + '18' }}>
-              <span className="text-2xl">{CATEGORIES[c].emoji}</span>{CATEGORIES[c].label}
-            </button>
-          ))}
-        </div>
-      </Sheet>
-      <Sheet open={sheet === 'payer'} onClose={() => setSheet(null)} title="Who paid?">
-        <div className="space-y-1">
-          {order.map((id) => (
-            <button key={id} onClick={() => { setPayers({ [id]: '' }); setSheet(null) }} className="flex w-full items-center gap-3 rounded-2xl p-2.5 text-left hover:bg-slate-50 dark:hover:bg-ink-800">
-              <Avatar name={group.members[id].name} color={group.members[id].color} photoURL={group.members[id].photoURL} size={36} />
-              <span className="flex-1 font-semibold">{labels[id]}</span>
-              {id === singlePayer && <Check size={18} className="text-brand-600" />}
-            </button>
-          ))}
-        </div>
-      </Sheet>
-    </div>
-  )
-}
-
-/** Short first names for a shared group, full names for a 1:1 (and the personal wallet); "You" for me. */
-function memberLabels(group: Group, me: MemberId): Record<MemberId, string> {
-  if (group.type !== 'direct' && group.type !== 'personal') return shortNames(group.members, me)
-  return Object.fromEntries(Object.entries(group.members).map(([id, m]) => [id, id === me ? 'You' : m.name]))
-}
-
-function SameHint() {
-  return <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold normal-case tracking-normal text-slate-500 dark:bg-ink-800 dark:text-slate-400" data-testid="same-as-last"><History size={11} /> Same as last time</span>
-}
-
-/** Live trips first, then shared groups, 1:1 friends and the personal wallet; searchable when long. */
-function GroupList({ groups, current, onPick, onCreate }: { groups: Group[]; current: string; onPick: (id: string) => void; onCreate: (type?: 'direct' | 'personal') => void }) {
-  const [q, setQ] = useState('')
-  const today = todayISO()
-  const t = q.trim().toLowerCase()
-  const shown = t ? groups.filter((g) => g.name.toLowerCase().includes(t)) : groups
-  const live = shown.filter((g) => g.type !== 'personal' && isLiveTrip(g, today))
-  const rest = shown.filter((g) => !live.includes(g))
-  const sections: Array<[string, Group[]]> = [
-    ['Shared', rest.filter((g) => g.type !== 'direct' && g.type !== 'personal')],
-    ['Friends', rest.filter((g) => g.type === 'direct')],
-    ['Personal', rest.filter((g) => g.type === 'personal')],
-  ].filter(([, list]) => list.length) as Array<[string, Group[]]>
-  // Headings only help when there is more than one kind of thing in the list.
-  const headed = sections.length + (live.length ? 1 : 0) > 1
-  const creates: Array<{ type?: 'direct' | 'personal'; label: string; hint: string; icon: LucideIcon }> = [
-    { label: 'New group', hint: 'Trip, flat, team…', icon: Users },
-    { type: 'direct', label: 'New 1:1 friend', hint: 'Just you and one friend', icon: UserPlus },
-    ...(groups.some((g) => g.type === 'personal') ? [] : [{ type: 'personal' as const, label: 'Personal wallet', hint: 'Track your own spending', icon: Wallet }]),
-  ]
-  const row = (g: Group, isLive = false) => (
-    <button key={g.id} onClick={() => onPick(g.id)} className={`flex w-full items-center gap-3 rounded-2xl p-2.5 text-left ${g.id === current ? 'bg-brand-50 dark:bg-brand-900/30' : ''}`}>
-      <GroupIcon emoji={g.emoji} size={40} />
-      <span className="min-w-0 flex-1">
-        <span className="block truncate font-semibold">{g.name}</span>
-        {isLive && <LiveBadge className="mt-0.5" />}
-      </span>
-      {g.id === current && <Check size={18} className="shrink-0 text-brand-600" />}
-    </button>
-  )
-  return (
-    <div data-testid="group-list">
-      {groups.length > 6 && (
-        <div className="relative mb-2">
-          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input className="input !py-2 !pl-9" placeholder="Search groups" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search groups" />
-        </div>
-      )}
-      {shown.length === 0 && <p className="py-4 text-center text-sm text-slate-500">No group matches “{q.trim()}”</p>}
-      {live.length > 0 && <div className="space-y-1">{live.map((g) => row(g, true))}</div>}
-      {sections.map(([title, list]) => (
-        <div key={title} className="mt-1">
-          {headed && <div className="px-2.5 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</div>}
-          <div className="space-y-1">{list.map((g) => row(g))}</div>
-        </div>
-      ))}
-      {/* Create where the expense goes; GroupForm comes back here (next=add) with it picked. */}
-      <div className="mt-3 border-t border-slate-100 pt-3 dark:border-white/5" data-testid="group-create">
-        <div className="px-2.5 pb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Create new</div>
-        <div className="space-y-1">
-          {creates.map((c) => (
-            <button key={c.label} type="button" onClick={() => onCreate(c.type)} className="flex w-full items-center gap-3 rounded-2xl p-2.5 text-left hover:bg-slate-50 dark:hover:bg-ink-800">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"><c.icon size={20} aria-hidden /></span>
-              <span className="min-w-0 flex-1">
-                <span className="block font-semibold">{c.label}</span>
-                <span className="block truncate text-xs text-slate-500">{c.hint}</span>
-              </span>
-              <Plus size={18} className="shrink-0 text-slate-400" aria-hidden />
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/** "≈ A$51.23 at 1 THB = 0.0427 AUD (ECB, 2026-10-07)" with an edit-rate affordance. */
-function FxLine({ cur, to, fx, loading, converted, rateEdit, setRateEdit, onApply }: {
-  cur: string; to: string; fx: FxRate | null; loading: boolean; converted?: number
-  rateEdit: string | null; setRateEdit: (v: string | null) => void; onApply: () => void
-}) {
-  if (rateEdit !== null) {
-    return (
-      <form className="mt-3 rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800" onSubmit={(e) => { e.preventDefault(); onApply() }}>
-        {!fx && <div className="mb-2 text-amber-600 dark:text-amber-400">No {cur} → {to} rate available (offline, or not published by the ECB). Enter one:</div>}
-        <div className="flex items-center gap-2">
-          <label htmlFor="fx-rate" className="shrink-0 font-semibold">1 {cur} =</label>
-          <input id="fx-rate" className="input !py-2 text-right" inputMode="decimal" placeholder={fx ? String(fx.rate) : '0.00'} value={rateEdit} onChange={(e) => setRateEdit(e.target.value)} autoFocus />
-          <span className="shrink-0 font-semibold">{to}</span>
-          <button type="submit" className="rounded-xl bg-brand-600 px-3 py-2 font-bold text-white">Use</button>
-          {fx && <button type="button" className="px-1 text-slate-500" onClick={() => setRateEdit(null)} aria-label="Cancel"><X size={16} /></button>}
-        </div>
-      </form>
-    )
-  }
-  if (loading) return <div className="mt-3 flex items-center gap-2 text-sm text-slate-500"><Spinner className="!h-4 !w-4" /> Getting the {cur} → {to} rate…</div>
-  if (!fx) return null
-  return (
-    <div className="mt-3 flex items-start justify-between gap-2 text-sm" data-testid="fx-line">
-      <span className="text-slate-500">
-        {converted !== undefined && <><span className="font-semibold text-slate-700 dark:text-slate-200">≈ {formatMoney(converted, to)}</span> at </>}
-        {rateLabel({ currency: cur, rate: fx.rate, rateDate: fx.date, source: fx.source }, to)}
-      </span>
-      <button type="button" className="shrink-0 font-semibold text-brand-600 dark:text-brand-300" onClick={() => setRateEdit(String(fx.rate))}>Edit rate</button>
-    </div>
-  )
-}
-
-function SplitEditor({ type, input, setInput, group, order, me, labels, amount, splits }: {
-  type: SplitType; input: SplitInput; setInput: (f: (i: SplitInput) => SplitInput) => void
-  group: Group; order: MemberId[]; me: MemberId; labels: Record<MemberId, string>; amount: number; splits?: Record<MemberId, number>
-}) {
-  const cur = group.currency
-  const label = (id: MemberId) => labels[id] ?? group.members[id].name
-  const share = (id: MemberId) => <span className="w-20 text-right text-sm tabular-nums text-slate-500">{formatMoney(splits?.[id] ?? 0, cur)}</span>
-  const toggle = (id: MemberId) => setInput((i) => {
-    const sel = i.selected ?? []
-    return { ...i, selected: sel.includes(id) ? sel.filter((x) => x !== id) : [...sel, id] }
-  })
-
-  switch (type) {
-    case 'equal': {
-      const sel = input.selected ?? []
-      return (
-        <div className="space-y-1">
-          <div className="mb-2 flex justify-between text-sm">
-            <span className="text-slate-500">{sel.length} of {order.length} people</span>
-            <button className="font-semibold text-brand-600 dark:text-brand-300" onClick={() => setInput((i) => ({ ...i, selected: sel.length === order.length ? [me] : [...order] }))}>{sel.length === order.length ? 'Only me' : 'Everyone'}</button>
-          </div>
-          {order.map((id) => (
-            <button key={id} type="button" onClick={() => toggle(id)} className="flex w-full items-center gap-3 rounded-2xl p-2 text-left hover:bg-slate-50 dark:hover:bg-ink-800">
-              <span className={`flex h-6 w-6 items-center justify-center rounded-lg border-2 ${sel.includes(id) ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300 dark:border-ink-700'}`}>{sel.includes(id) && <Check size={14} strokeWidth={3} />}</span>
-              <Avatar name={group.members[id].name} color={group.members[id].color} photoURL={group.members[id].photoURL} size={32} />
-              <span className="flex-1 font-medium">{label(id)}</span>
-              {share(id)}
-            </button>
-          ))}
-        </div>
-      )
-    }
-    case 'exact': {
-      return (
-        <div className="space-y-2">
-          {order.map((id) => (
-            <AmountRow key={id} group={group} id={id} label={label(id)}
-              value={input.exact?.[id] !== undefined ? centsToInput(input.exact[id], group.currency) : ''}
-              onChange={(v) => setInput((i) => ({ ...i, exact: { ...i.exact, [id]: Number.isFinite(parseMoney(v, group.currency)) ? parseMoney(v, group.currency) : 0 } }))} />
-          ))}
-        </div>
-      )
-    }
-    case 'percent': {
-      return (
-        <div className="space-y-2">
-          {order.map((id) => (
-            <div key={id} className="flex items-center gap-3">
-              <Avatar name={group.members[id].name} color={group.members[id].color} photoURL={group.members[id].photoURL} size={32} />
-              <span className="flex-1 truncate font-medium">{label(id)}</span>
-              <div className="relative w-24">
-                <input className="input !py-2 pr-7 text-right" inputMode="decimal" placeholder="0" value={input.percent?.[id] ?? ''}
-                  onChange={(e) => { const n = parseFloat(e.target.value); setInput((i) => ({ ...i, percent: { ...i.percent, [id]: Number.isFinite(n) ? n : 0 } })) }} />
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">%</span>
-              </div>
-              {share(id)}
-            </div>
-          ))}
-        </div>
-      )
-    }
-    case 'shares':
-      return (
-        <div className="space-y-2">
-          {order.map((id) => {
-            const v = input.shares?.[id] ?? 0
-            const set = (n: number) => setInput((i) => ({ ...i, shares: { ...i.shares, [id]: Math.max(0, n) } }))
-            return (
-              <div key={id} className="flex items-center gap-3">
-                <Avatar name={group.members[id].name} color={group.members[id].color} photoURL={group.members[id].photoURL} size={32} />
-                <span className="flex-1 truncate font-medium">{label(id)}</span>
-                <div className="flex items-center gap-1 rounded-2xl bg-slate-100 p-1 dark:bg-ink-800">
-                  <button type="button" className="rounded-xl p-1.5" onClick={() => set(v - 1)} aria-label="Fewer shares"><Minus size={16} /></button>
-                  <input className="w-10 bg-transparent text-center font-bold tabular-nums outline-none" inputMode="decimal" value={v} onChange={(e) => set(parseFloat(e.target.value) || 0)} />
-                  <button type="button" className="rounded-xl p-1.5" onClick={() => set(v + 1)} aria-label="More shares"><Plus size={16} /></button>
-                </div>
-                {share(id)}
-              </div>
-            )
-          })}
-          <p className="text-xs text-slate-500">Use ratios like 2:1:1 — e.g. a couple counts as 2 shares.</p>
-        </div>
-      )
-    case 'adjust': {
-      const sel = input.selected ?? []
-      return (
-        <div className="space-y-2">
-          <p className="text-xs text-slate-500">Split equally, then add or subtract an amount for anyone who had more or less.</p>
-          {order.map((id) => (
-            <div key={id} className="flex items-center gap-2">
-              <button type="button" onClick={() => toggle(id)} className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border-2 ${sel.includes(id) ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300 dark:border-ink-700'}`}>{sel.includes(id) && <Check size={14} strokeWidth={3} />}</button>
-              <Avatar name={group.members[id].name} color={group.members[id].color} photoURL={group.members[id].photoURL} size={28} />
-              <span className="flex-1 truncate text-sm font-medium">{label(id)}</span>
-              <input className="input !w-24 !py-2 text-right" inputMode="decimal" placeholder="+0.00" disabled={!sel.includes(id)}
-                defaultValue={input.adjust?.[id] ? centsToInput(input.adjust[id], group.currency) : ''}
-                onChange={(e) => { const c = parseMoney(e.target.value, group.currency); setInput((i) => ({ ...i, adjust: { ...i.adjust, [id]: Number.isFinite(c) ? c : 0 } })) }} />
-              {share(id)}
-            </div>
-          ))}
-        </div>
-      )
-    }
-    case 'itemized':
-      return <ItemsEditor items={input.items ?? []} setItems={(items) => setInput((i) => ({ ...i, items }))} group={group} order={order} me={me} labels={labels} amount={amount} splits={splits} />
-  }
-}
-
-function ItemsEditor({ items, setItems, group, order, me, labels, amount, splits }: {
-  items: ReceiptItem[]; setItems: (i: ReceiptItem[]) => void; group: Group; order: MemberId[]; me: MemberId; labels: Record<MemberId, string>; amount: number; splits?: Record<MemberId, number>
-}) {
-  const cur = group.currency
-  const itemsTotal = items.reduce((s, i) => s + i.amount, 0)
-  const extra = amount - itemsTotal
-  const update = (idx: number, patch: Partial<ReceiptItem>) => setItems(items.map((it, i) => (i === idx ? { ...it, ...patch } : it)))
-  return (
-    <div className="space-y-3">
-      {items.map((it, idx) => (
-        <div key={idx} className="rounded-2xl bg-slate-50 p-3 dark:bg-ink-800">
-          <div className="flex gap-2">
-            <input className="input !bg-white !py-2 dark:!bg-ink-900" placeholder="Item" value={it.name} onChange={(e) => update(idx, { name: e.target.value })} />
-            <input className="input !w-24 !bg-white !py-2 text-right dark:!bg-ink-900" inputMode="decimal" placeholder="0.00" defaultValue={it.amount ? centsToInput(it.amount, group.currency) : ''}
-              onChange={(e) => { const c = parseMoney(e.target.value, group.currency); update(idx, { amount: Number.isFinite(c) ? c : 0 }) }} />
-            <button type="button" className="p-2 text-slate-400 hover:text-rose-500" onClick={() => setItems(items.filter((_, i) => i !== idx))} aria-label="Remove item"><Trash2 size={18} /></button>
-          </div>
-          <div className="mt-2">
-            <MemberChips group={group} order={order} me={me} labels={labels} selected={it.members}
-              onToggle={(id) => {
-                const members = it.members.includes(id) ? it.members.filter((m) => m !== id) : [...it.members, id]
-                const shares = it.shares && Object.fromEntries(Object.entries(it.shares).filter(([m]) => members.includes(m)))
-                update(idx, { members, shares: shares && Object.keys(shares).length ? shares : undefined })
-              }} />
-          </div>
-          {it.members.length > 1 && (
-            <Portions it={it} order={order} labels={labels} onChange={(shares) => update(idx, { shares })} />
-          )}
-        </div>
-      ))}
-      <button type="button" className="btn-secondary w-full !min-h-0 !py-2.5 text-sm" onClick={() => setItems([...items, { name: '', amount: 0, members: [...order] }])}><Plus size={16} /> Add item</button>
-      <div className="space-y-1 text-sm">
-        <div className="flex justify-between text-slate-500"><span>Items</span><span className="tabular-nums">{formatMoney(itemsTotal, cur)}</span></div>
-        <div className="flex justify-between text-slate-500"><span>Tax / tip / discount (shared proportionally)</span><span className="tabular-nums">{formatMoney(extra, cur, { sign: true })}</span></div>
-      </div>
-      {splits && (
-        <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3 dark:border-white/5">
-          {order.filter((id) => splits[id]).map((id) => (
-            <span key={id} className="chip !py-1 !pl-1"><Avatar name={group.members[id].name} color={group.members[id].color} photoURL={group.members[id].photoURL} size={20} />{formatMoney(splits[id], cur)}</span>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-/** Per-person portions of a shared item (e.g. 2 of 3 beers). Collapsed while everyone has one. */
-function Portions({ it, order, labels, onChange }: {
-  it: ReceiptItem; order: MemberId[]; labels: Record<MemberId, string>; onChange: (s: Record<MemberId, number> | undefined) => void
-}) {
-  const [open, setOpen] = useState(!!it.shares)
-  const members = order.filter((m) => it.members.includes(m))
-  const set = (m: MemberId, n: number) => {
-    const next = Object.fromEntries(members.map((x) => [x, x === m ? n : portion(it, x)]))
-    onChange(Object.values(next).every((v) => v === 1) ? undefined : next)
-  }
-  if (!open) return <button type="button" className="mt-2 text-xs font-semibold text-brand-600 dark:text-brand-300" onClick={() => setOpen(true)}>Shared unevenly? Set portions</button>
-  return (
-    <div className="mt-2 space-y-1.5 rounded-xl bg-white p-2 dark:bg-ink-900" data-testid="portions">
-      {members.map((m) => {
-        const n = portion(it, m)
-        return (
-          <div key={m} className="flex items-center gap-2 text-sm">
-            <span className="min-w-0 flex-1 truncate">{labels[m] ?? '?'}</span>
-            <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-0.5 dark:bg-ink-800">
-              <button type="button" className="rounded-lg p-1 disabled:opacity-30" disabled={n <= 1} onClick={() => set(m, n - 1)} aria-label="Fewer portions"><Minus size={14} /></button>
-              <span className="w-5 text-center font-bold tabular-nums">{n}</span>
-              <button type="button" className="rounded-lg p-1 disabled:opacity-30" disabled={n >= 20} onClick={() => set(m, n + 1)} aria-label="More portions"><Plus size={14} /></button>
-            </div>
-          </div>
-        )
-      })}
-      {it.shares && <button type="button" className="text-xs font-semibold text-slate-500" onClick={() => onChange(undefined)}>Reset to equal</button>}
-    </div>
-  )
-}
-
-function AmountRow({ group, id, label, value, onChange }: { group: Group; id: MemberId; label?: string; value: string; onChange: (v: string) => void }) {
-  return (
-    <div className="flex items-center gap-3">
-      <Avatar name={group.members[id].name} color={group.members[id].color} photoURL={group.members[id].photoURL} size={32} />
-      <span className="flex-1 truncate font-medium">{label ?? group.members[id].name}</span>
-      <input className="input !w-28 !py-2 text-right" inputMode="decimal" placeholder="0.00" value={value} onChange={(e) => onChange(e.target.value)} />
-    </div>
-  )
-}
-
-/** Status strip along a card's bottom edge (the card is p-4): green when it adds up, amber/rose when not. */
-function Footer({ tone, children }: { tone: 'ok' | 'warn' | 'err'; children: React.ReactNode }) {
-  const Icon = tone === 'ok' ? CheckCircle2 : AlertCircle
-  const color = tone === 'ok' ? 'text-emerald-600 dark:text-emerald-400' : tone === 'warn' ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'
-  return (
-    <div className={`-mx-4 -mb-4 mt-4 flex items-center gap-1.5 rounded-b-3xl border-t border-slate-100 bg-slate-50/70 px-4 py-2.5 text-sm font-semibold dark:border-white/5 dark:bg-white/[0.03] ${color}`} data-testid="card-footer">
-      <Icon size={16} className="shrink-0" aria-hidden /><span className="min-w-0">{children}</span>
-    </div>
-  )
-}
-
-/** Money still to assign: "All assigned", "₹120.00 left", "₹5.00 over". */
-function Left({ value, currency }: { value: number; currency: string }) {
-  if (value === 0) return <Footer tone="ok">All assigned</Footer>
-  return value > 0 ? <Footer tone="warn">{formatMoney(value, currency)} left to assign</Footer> : <Footer tone="err">{formatMoney(-value, currency)} over the total</Footer>
-}
-
-/** The split's check under the editor: what's left for exact/percent, the totals for shares/adjust, else any error. */
-function SplitFooter({ type, input, order, amount, currency, error }: {
-  type: SplitType; input: SplitInput; order: MemberId[]; amount: number; currency: string; error?: string
-}) {
-  if (type === 'exact') {
-    if (!amount) return null
-    return <Left value={amount - order.reduce((s, id) => s + (input.exact?.[id] ?? 0), 0)} currency={currency} />
-  }
-  if (type === 'percent') {
-    const left = Math.round((100 - order.reduce((s, id) => s + (input.percent?.[id] ?? 0), 0)) * 100) / 100
-    if (Math.abs(left) < 0.001) return <Footer tone="ok">100% assigned</Footer>
-    return left > 0 ? <Footer tone="warn">{left}% left to assign</Footer> : <Footer tone="err">{-left}% over 100%</Footer>
-  }
-  if (error) return <Footer tone="err">{error}</Footer>
-  if (type === 'shares') {
-    const total = order.reduce((s, id) => s + (input.shares?.[id] ?? 0), 0)
-    if (!total) return <Footer tone="warn">Give at least one person a share</Footer>
-    return <Footer tone="ok">{Math.round(total * 100) / 100} {total === 1 ? 'share' : 'shares'}{amount ? ` · ${formatMoney(Math.round(amount / total), currency)} per share` : ''}</Footer>
-  }
-  if (type === 'adjust') {
-    const adj = (input.selected ?? []).reduce((s, id) => s + (input.adjust?.[id] ?? 0), 0)
-    if (!adj) return null
-    return <Footer tone="ok">Adjustments {formatMoney(adj, currency, { sign: true })}, the rest split equally</Footer>
-  }
-  return null
-}
-
-/** When switching split type, pre-fill sensible defaults from what's already chosen. */
-function seedInput(i: SplitInput, t: SplitType, order: MemberId[], amount: number): SplitInput {
-  const sel = i.selected?.length ? i.selected : order
-  switch (t) {
-    case 'equal':
-    case 'adjust':
-      return { ...i, selected: sel }
-    case 'shares':
-      return { ...i, shares: i.shares ?? Object.fromEntries(order.map((m) => [m, sel.includes(m) ? 1 : 0])) }
-    case 'percent': {
-      if (i.percent) return i
-      const each = Math.floor((10000 / sel.length)) / 100
-      const pct: Record<string, number> = Object.fromEntries(sel.map((m) => [m, each]))
-      pct[sel[0]] = Math.round((100 - each * (sel.length - 1)) * 100) / 100
-      return { ...i, percent: pct }
-    }
-    case 'exact': {
-      if (i.exact || !Number.isFinite(amount) || amount <= 0) return i
-      return { ...i, exact: computeSplits(amount, 'equal', { selected: sel }, order) }
-    }
-    case 'itemized':
-      return { ...i, items: i.items ?? [{ name: '', amount: Number.isFinite(amount) && amount > 0 ? amount : 0, members: [...sel] }] }
-  }
-}
-
-/** Only persist the input relevant to the chosen split type. */
-function clean(i: SplitInput, t: SplitType): SplitInput {
-  switch (t) {
-    case 'equal': return { selected: i.selected }
-    case 'exact': return { exact: i.exact }
-    case 'percent': return { percent: i.percent }
-    case 'shares': return { shares: i.shares }
-    case 'adjust': return { selected: i.selected, adjust: i.adjust }
-    case 'itemized': return { items: i.items }
-  }
-}
-
-/**
- * New templates start right after their date (so a back-dated monthly bill catches up).
- * When an existing template's schedule changes, start after today instead so already
- * generated copies aren't recreated on different dates.
- */
-function buildRecurrence(repeat: RecurrenceFreq | 'never', date: string, until: string, existing?: Expense): Recurrence | undefined {
-  if (repeat === 'never') return undefined
-  const prev = existing?.recurrence
-  let nextDate: string
-  if (prev && prev.freq === repeat && existing.date === date) nextDate = prev.nextDate
-  else if (existing) nextDate = nextAfter(date, repeat, todayISO())
-  else nextDate = firstNextDate(date, repeat)
-  return { freq: repeat, nextDate, until: until || undefined }
-}
-
-function fmtDate(d?: string) {
-  return d ? new Date(d + 'T00:00').toLocaleDateString(appLocale(), { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
-}
-
-function titleCase(s: string) {
-  return s.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())
 }

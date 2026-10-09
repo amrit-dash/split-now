@@ -1,6 +1,6 @@
 import type { StatementTxn } from '@/data/repo'
 import type { ParsedPayment, ParsedReceipt } from './ocr-parse'
-import { appLocale } from './locale'
+import { formatDate, formatTime } from './locale'
 import { formatMoney, fromHundredths } from './money'
 
 /**
@@ -83,7 +83,10 @@ export function hamming(a: string, b: string): number {
   let d = 0
   for (let i = 0; i < a.length; i++) {
     let x = parseInt(a[i], 16) ^ parseInt(b[i], 16)
-    while (x) { d += x & 1; x >>= 1 }
+    while (x) {
+      d += x & 1
+      x >>= 1
+    }
   }
   return d
 }
@@ -152,17 +155,19 @@ export function phashFromGray(gray: ArrayLike<number>, n = PHASH_SIZE, k = PHASH
   }
   // Separable DCT: rows first (n × k), then columns (k × k).
   const rows = new Float64Array(n * k)
-  for (let y = 0; y < n; y++) for (let u = 0; u < k; u++) {
-    let s = 0
-    for (let x = 0; x < n; x++) s += gray[y * n + x] * cos[u * n + x]
-    rows[y * k + u] = s
-  }
+  for (let y = 0; y < n; y++)
+    for (let u = 0; u < k; u++) {
+      let s = 0
+      for (let x = 0; x < n; x++) s += gray[y * n + x] * cos[u * n + x]
+      rows[y * k + u] = s
+    }
   const co: number[] = []
-  for (let v = 0; v < k; v++) for (let u = 0; u < k; u++) {
-    let s = 0
-    for (let y = 0; y < n; y++) s += rows[y * k + u] * cos[v * n + y]
-    co.push(s)
-  }
+  for (let v = 0; v < k; v++)
+    for (let u = 0; u < k; u++) {
+      let s = 0
+      for (let y = 0; y < n; y++) s += rows[y * k + u] * cos[v * n + y]
+      co.push(s)
+    }
   const ac = co.slice(1).sort((a, b) => a - b)
   const median = ac[Math.floor(ac.length / 2)]
   let hex = ''
@@ -176,7 +181,10 @@ export function phashFromGray(gray: ArrayLike<number>, n = PHASH_SIZE, k = PHASH
 
 // ---- Describing a scan (pure) ----------------------------------------------------------
 
-export interface ScanSummary { title: string; detail: string }
+export interface ScanSummary {
+  title: string
+  detail: string
+}
 
 const money = (hundredths: number | undefined, cur: string) => (hundredths ? formatMoney(fromHundredths(hundredths, cur), cur) : undefined)
 
@@ -192,7 +200,10 @@ export function describeScan(e: Pick<ScanEntry, 'result'>, fallbackCurrency: str
     }
   }
   if (r.type === 'payment') {
-    return { title: r.payment.payee ?? 'Payment', detail: [money(r.payment.amount, fallbackCurrency) ?? 'No amount', r.payment.method].filter(Boolean).join(' · ') }
+    return {
+      title: r.payment.payee ?? 'Payment',
+      detail: [money(r.payment.amount, fallbackCurrency) ?? 'No amount', r.payment.method].filter(Boolean).join(' · '),
+    }
   }
   const n = r.transactions.length
   const out = r.transactions.filter((t) => t.direction === 'debit').reduce((s, t) => s + t.amount, 0)
@@ -205,9 +216,9 @@ export function scannedWhen(at: number, now = Date.now()): string {
   const n = new Date(now)
   const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
   const diff = Math.round((day(n) - day(d)) / 86400000)
-  if (diff === 0) return `today, ${d.toLocaleTimeString(appLocale(), { hour: 'numeric', minute: '2-digit' })}`
+  if (diff === 0) return `today, ${formatTime(d)}`
   if (diff === 1) return 'yesterday'
-  return d.toLocaleDateString(appLocale(), { day: 'numeric', month: 'short', ...(d.getFullYear() !== n.getFullYear() ? { year: 'numeric' } : {}) })
+  return formatDate(d, d.getFullYear() !== n.getFullYear() ? 'dayYear' : 'day')
 }
 
 /** "You scanned this today, 2:15 pm" / "You scanned this on 8 Oct" ("Looks like one you scanned…" when only alike). */
@@ -232,9 +243,15 @@ export interface HistoryStore {
 export function memoryStore(): HistoryStore {
   const m = new Map<string, ScanEntry[]>()
   return {
-    async get(k) { return m.get(k) },
-    async set(k, v) { m.set(k, v) },
-    async del(k) { m.delete(k) },
+    async get(k) {
+      return m.get(k)
+    },
+    async set(k, v) {
+      m.set(k, v)
+    },
+    async del(k) {
+      m.delete(k)
+    },
   }
 }
 
@@ -244,14 +261,20 @@ const STORE = 'history'
 /** A tiny IndexedDB key → value store. Rejects when IndexedDB is unavailable. */
 export function idbStore(): HistoryStore {
   let db: Promise<IDBDatabase> | undefined
-  const open = () => (db ??= new Promise<IDBDatabase>((res, rej) => {
-    if (typeof indexedDB === 'undefined') return rej(new Error('No IndexedDB'))
-    const req = indexedDB.open(DB, 1)
-    req.onupgradeneeded = () => { req.result.createObjectStore(STORE) }
-    req.onsuccess = () => res(req.result)
-    req.onerror = () => rej(req.error ?? new Error('IndexedDB blocked'))
-    req.onblocked = () => rej(new Error('IndexedDB blocked'))
-  }).catch((e) => { db = undefined; throw e }))
+  const open = () =>
+    (db ??= new Promise<IDBDatabase>((res, rej) => {
+      if (typeof indexedDB === 'undefined') return rej(new Error('No IndexedDB'))
+      const req = indexedDB.open(DB, 1)
+      req.onupgradeneeded = () => {
+        req.result.createObjectStore(STORE)
+      }
+      req.onsuccess = () => res(req.result)
+      req.onerror = () => rej(req.error ?? new Error('IndexedDB blocked'))
+      req.onblocked = () => rej(new Error('IndexedDB blocked'))
+    }).catch((e) => {
+      db = undefined
+      throw e
+    }))
   const run = async <T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<T>) => {
     const d = await open()
     return new Promise<T>((res, rej) => {
@@ -263,29 +286,43 @@ export function idbStore(): HistoryStore {
   }
   return {
     get: (k) => run<ScanEntry[] | undefined>('readonly', (s) => s.get(k)),
-    set: async (k, v) => { await run('readwrite', (s) => s.put(v, k)) },
-    del: async (k) => { await run('readwrite', (s) => s.delete(k)) },
+    set: async (k, v) => {
+      await run('readwrite', (s) => s.put(v, k))
+    },
+    del: async (k) => {
+      await run('readwrite', (s) => s.delete(k))
+    },
   }
 }
 
 let store: HistoryStore = idbStore()
 /** Tests: swap the backing store. */
-export function setHistoryStore(s: HistoryStore) { store = s }
+export function setHistoryStore(s: HistoryStore) {
+  store = s
+}
 
 const keyFor = (uid: string, kind: ScanKind) => `${uid}:${kind}`
 const listeners = new Set<(key: string) => void>()
-const changed = (k: string) => listeners.forEach((l) => l(k))
+const changed = (k: string) => {
+  for (const l of listeners) l(k)
+}
 
 /** Called with the storage key whenever any user's history of any kind changes. */
 export function onHistoryChange(fn: (key: string) => void): () => void {
   listeners.add(fn)
-  return () => { listeners.delete(fn) }
+  return () => {
+    listeners.delete(fn)
+  }
 }
 export { keyFor as historyKey }
 
 /** The user's scans of this kind, newest first ([] when storage is unavailable). */
 export async function loadHistory(uid: string, kind: ScanKind): Promise<ScanEntry[]> {
-  try { return ((await store.get(keyFor(uid, kind))) ?? []).filter((e) => e && e.result) } catch { return [] }
+  try {
+    return ((await store.get(keyFor(uid, kind))) ?? []).filter((e) => e?.result)
+  } catch {
+    return []
+  }
 }
 
 async function update(uid: string, kind: ScanKind, fn: (list: ScanEntry[]) => ScanEntry[]): Promise<boolean> {
@@ -305,7 +342,12 @@ export const recordOutcome = (uid: string, kind: ScanKind, id: string, outcome: 
   update(uid, kind, (l) => withOutcome(l, id, { at: Date.now(), ...outcome }))
 
 export async function clearHistory(uid: string, kind: ScanKind): Promise<void> {
-  try { await store.del(keyFor(uid, kind)); changed(keyFor(uid, kind)) } catch { /* storage unavailable */ }
+  try {
+    await store.del(keyFor(uid, kind))
+    changed(keyFor(uid, kind))
+  } catch {
+    /* storage unavailable */
+  }
 }
 
 // ---- Images (browser only) ---------------------------------------------------------------
@@ -325,14 +367,17 @@ export async function fingerprint(file: Blob): Promise<ScanPrint> {
   const ratio = bitmap.width / bitmap.height
   const canvas = (w: number, h: number) => {
     const c = document.createElement('canvas')
-    c.width = w; c.height = h
+    c.width = w
+    c.height = h
     const ctx = c.getContext('2d', { willReadFrequently: true })!
     ctx.imageSmoothingEnabled = true
     ctx.imageSmoothingQuality = 'high'
     return { c, ctx }
   }
   // Pixels below the status bar, small enough to hash quickly.
-  const pw = 160, ph = Math.max(1, Math.round(pw / ratio)), top = Math.round(ph * 0.07)
+  const pw = 160,
+    ph = Math.max(1, Math.round(pw / ratio)),
+    top = Math.round(ph * 0.07)
   const p = canvas(pw, ph)
   p.ctx.drawImage(bitmap, 0, 0, pw, ph)
   // Perceptual hash: two steps down so the small copy is a real average, not a sample.

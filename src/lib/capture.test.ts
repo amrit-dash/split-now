@@ -1,7 +1,21 @@
 import { describe, expect, it } from 'vitest'
 import {
-  captureFromSharedText, captureQuery, currencyFromAmount, inboxToDraft, inTripWindow, isLiveTrip, liveTripFor,
-  newCaptureToken, normaliseSource, parseCaptureAmount, parseCaptureDate, parseCaptureParams, rankGroupsForCapture, sanitiseRef,
+  captureFromSharedText,
+  captureQuery,
+  classifySharedText,
+  currencyFromAmount,
+  inboxToDraft,
+  inTripWindow,
+  isLiveTrip,
+  liveTripFor,
+  newCaptureToken,
+  normaliseSource,
+  parseCaptureAmount,
+  parseCaptureDate,
+  parseCaptureParams,
+  rankGroupsForCapture,
+  sanitiseRef,
+  sharedTextIgnoredText,
 } from './capture'
 
 const TODAY = '2026-10-07'
@@ -9,8 +23,16 @@ const P = (q: string) => new URLSearchParams(q)
 
 describe('parseCaptureAmount', () => {
   it.each([
-    ['12.50', 1250], ['A$12.50', 1250], ['$1,234.56', 123456], ['12,50 €', 1250], ['1.234,56', 123456],
-    ['-4.20', 420], ['7', 700], ['1,234', 123400], ['AUD 9.9', 990], ['1.234.567', 123456700],
+    ['12.50', 1250],
+    ['A$12.50', 1250],
+    ['$1,234.56', 123456],
+    ['12,50 €', 1250],
+    ['1.234,56', 123456],
+    ['-4.20', 420],
+    ['7', 700],
+    ['1,234', 123400],
+    ['AUD 9.9', 990],
+    ['1.234.567', 123456700],
   ])('%s → %i', (raw, cents) => expect(parseCaptureAmount(raw)).toBe(cents))
 
   it.each(['', 'abc', '0', '0.00', '$', '1.2.3,4,5'])('rejects %j', (raw) => expect(parseCaptureAmount(raw)).toBeNaN())
@@ -18,8 +40,16 @@ describe('parseCaptureAmount', () => {
 
 describe('currencyFromAmount', () => {
   it.each([
-    ['A$12.50', 'AUD'], ['AU$3', 'AUD'], ['NZ$5', 'NZD'], ['US$5', 'USD'], ['CA$5', 'CAD'], ['€4', 'EUR'],
-    ['£4', 'GBP'], ['₹400', 'INR'], ['12.50 USD', 'USD'], ['You paid 5 AUD', 'AUD'],
+    ['A$12.50', 'AUD'],
+    ['AU$3', 'AUD'],
+    ['NZ$5', 'NZD'],
+    ['US$5', 'USD'],
+    ['CA$5', 'CAD'],
+    ['€4', 'EUR'],
+    ['£4', 'GBP'],
+    ['₹400', 'INR'],
+    ['12.50 USD', 'USD'],
+    ['You paid 5 AUD', 'AUD'],
   ])('%s → %s', (raw, cur) => expect(currencyFromAmount(raw)).toBe(cur))
   it('is undefined for a bare dollar sign', () => expect(currencyFromAmount('$12')).toBeUndefined())
 })
@@ -40,14 +70,28 @@ describe('parseCaptureDate', () => {
 
 describe('parseCaptureParams', () => {
   it('parses the full v=1 contract', () => {
-    const r = parseCaptureParams(P('v=1&amount=12.50&currency=aud&merchant=Cafe%20Luna&ts=2026-10-01T09:30:00%2B11:00&src=ios-shortcut&card=Amex&raw=A%2412.50&ref=abc-123&group=g_bali&t=tok&u=alice'), TODAY)
+    const r = parseCaptureParams(
+      P(
+        'v=1&amount=12.50&currency=aud&merchant=Cafe%20Luna&ts=2026-10-01T09:30:00%2B11:00&src=ios-shortcut&card=Amex&raw=A%2412.50&ref=abc-123&group=g_bali&t=tok&u=alice',
+      ),
+      TODAY,
+    )
     expect(r).toEqual({
       ok: true,
       token: 'tok',
       owner: 'alice',
       draft: {
-        amount: 1250, currency: 'AUD', merchant: 'Cafe Luna', date: '2026-10-01', ts: '2026-10-01T09:30:00+11:00',
-        source: 'ios-shortcut', card: 'Amex', raw: 'A$12.50', note: undefined, ref: 'abc-123', group: 'g_bali',
+        amount: 1250,
+        currency: 'AUD',
+        merchant: 'Cafe Luna',
+        date: '2026-10-01',
+        ts: '2026-10-01T09:30:00+11:00',
+        source: 'ios-shortcut',
+        card: 'Amex',
+        raw: 'A$12.50',
+        note: undefined,
+        ref: 'abc-123',
+        group: 'g_bali',
       },
     })
   })
@@ -104,9 +148,17 @@ describe('small helpers', () => {
 describe('inboxToDraft', () => {
   const base = { token: 't'.repeat(28), uid: 'alice', merchant: 'Cafe' }
   it('prefers an integer amount and otherwise parses raw', () => {
-    expect(inboxToDraft({ ...base, amount: 1250, currency: 'usd' }, TODAY)).toMatchObject({ amount: 1250, currency: 'USD', source: 'ios-shortcut', date: TODAY })
-    expect(inboxToDraft({ ...base, raw: 'A$12.50', ts: '2026-10-05T08:00:00+11:00', src: 'ios-shortcut' }, TODAY))
-      .toMatchObject({ amount: 1250, currency: 'AUD', date: '2026-10-05' })
+    expect(inboxToDraft({ ...base, amount: 1250, currency: 'usd' }, TODAY)).toMatchObject({
+      amount: 1250,
+      currency: 'USD',
+      source: 'ios-shortcut',
+      date: TODAY,
+    })
+    expect(inboxToDraft({ ...base, raw: 'A$12.50', ts: '2026-10-05T08:00:00+11:00', src: 'ios-shortcut' }, TODAY)).toMatchObject({
+      amount: 1250,
+      currency: 'AUD',
+      date: '2026-10-05',
+    })
   })
   it('returns null when no amount can be recovered', () => {
     expect(inboxToDraft({ ...base, raw: 'n/a' }, TODAY)).toBeNull()
@@ -149,7 +201,10 @@ describe('rankGroupsForCapture', () => {
     expect(ranked[0].id).toBe('japan') // currency match beats recency
   })
   it('uses currency, then recency, to break ties between equal windows', () => {
-    const two = [g('a', { startDate: '2026-10-01', endDate: '2026-10-09', updatedAt: 5 }), g('b', { startDate: '2026-10-01', endDate: '2026-10-09', currency: 'EUR', updatedAt: 1 })]
+    const two = [
+      g('a', { startDate: '2026-10-01', endDate: '2026-10-09', updatedAt: 5 }),
+      g('b', { startDate: '2026-10-01', endDate: '2026-10-09', currency: 'EUR', updatedAt: 1 }),
+    ]
     expect(rankGroupsForCapture(two, { date: '2026-10-05', currency: 'EUR' }).best).toBe('b')
     expect(rankGroupsForCapture(two, { date: '2026-10-05' }).best).toBe('a')
   })
@@ -160,13 +215,69 @@ describe('rankGroupsForCapture', () => {
 })
 
 describe('captureFromSharedText', () => {
+  const HDFC = 'Rs.250.00 debited from a/c 50100123456789 on 07-10-26 to VPA swiggy@icici (UPI Ref No 628112345678). Avl Bal Rs 12,345.00'
+  it('runs a bank SMS through the SMS parser, masks the note and dedupes on the bank ref', () => {
+    const d = captureFromSharedText({ text: HDFC }, TODAY)
+    expect(d).toMatchObject({ amount: 25000, currency: 'INR', merchant: 'Swiggy', date: '2026-10-07', source: 'share', ref: 'sms_628112345678' })
+    expect(d?.note).toContain('XX6789')
+    expect(d?.note).not.toContain('50100123456789')
+    expect(d?.note).not.toContain('12,345')
+    expect(d?.card).toBeUndefined()
+    // the bank is read from the text; a suffix is only kept when the bank already masked it (a/c XX1234)
+    expect(captureFromSharedText({ text: HDFC, title: 'HDFC Bank' }, TODAY)?.card).toBe('HDFC Bank')
+    expect(captureFromSharedText({ text: HDFC.replace('50100123456789', 'XX6789'), title: 'HDFC Bank' }, TODAY)?.card).toBe('HDFC Bank ••6789')
+  })
+  it('never captures credits, OTPs, requests or self transfers, and says why', () => {
+    expect(
+      captureFromSharedText({ text: 'Rs.500.00 credited to HDFC Bank A/c XX1234 on 07-10-26 from VPA rahul@okicici (UPI 628112345678)' }, TODAY),
+    ).toBeNull()
+    expect(classifySharedText({ text: '482913 is your OTP to complete the transaction of Rs.840 at Swiggy. Never share it.' }, TODAY)).toEqual({
+      outcome: 'ignored',
+      kind: 'otp',
+    })
+    expect(classifySharedText({ text: 'Rs.2,000.00 debited from A/c XX1234 for UPI Lite top-up. UPI Ref 628112345678.' }, TODAY)).toEqual({
+      outcome: 'ignored',
+      kind: 'transfer',
+    })
+    const r = classifySharedText({ text: 'RAHUL SHARMA is requesting Rs.500.00 from you on Google Pay.' }, TODAY)
+    expect(r.outcome === 'ignored' && sharedTextIgnoredText(r)).toMatch(/request/)
+  })
+  it('applies the user’s capture filters like the webhook does', () => {
+    expect(classifySharedText({ text: HDFC }, TODAY, { minAmount: 50000, ignoreWords: [] })).toEqual({
+      outcome: 'ignored',
+      kind: 'debit',
+      filtered: 'below_min',
+    })
+    expect(classifySharedText({ text: HDFC }, TODAY, { minAmount: 0, ignoreWords: ['swiggy'] })).toEqual({
+      outcome: 'ignored',
+      kind: 'debit',
+      filtered: 'ignored',
+    })
+    expect(classifySharedText({ text: HDFC }, TODAY, { minAmount: 0, ignoreWords: ['rent'] }).outcome).toBe('capture')
+  })
+  it('gives the same id to the same message without a reference', () => {
+    const t = 'Rs.60.00 debited from a/c XX1234 to VPA paytmqr5c5kj9@ptys on 07-10-26'
+    const a = captureFromSharedText({ text: t }, TODAY)
+    expect(a?.merchant).toBe('Payment')
+    expect(a?.ref).toMatch(/^shr_/)
+    expect(captureFromSharedText({ text: `  ${t} ` }, TODAY)?.ref).toBe(a?.ref)
+    expect(captureFromSharedText({ text: t.replace('60.00', '61.00') }, TODAY)?.ref).not.toBe(a?.ref)
+  })
   it('reads a payment sentence', () => {
-    expect(captureFromSharedText({ text: 'You paid A$12.50 to Cafe Luna' }, TODAY))
-      .toMatchObject({ amount: 1250, currency: 'AUD', merchant: 'Cafe Luna', source: 'share', date: TODAY })
+    expect(captureFromSharedText({ text: 'You paid A$12.50 to Cafe Luna' }, TODAY)).toMatchObject({
+      amount: 1250,
+      currency: 'AUD',
+      merchant: 'Cafe Luna',
+      source: 'share',
+      date: TODAY,
+    })
   })
   it('finds a merchant after "at"', () => {
-    expect(captureFromSharedText({ title: 'Card purchase', text: 'Purchase of $8.40 at Seven Eleven on 03/10/2026' }, TODAY))
-      .toMatchObject({ amount: 840, merchant: 'Seven Eleven', date: '2026-10-03' })
+    expect(captureFromSharedText({ title: 'Card purchase', text: 'Purchase of $8.40 at Seven Eleven on 03/10/2026' }, TODAY)).toMatchObject({
+      amount: 840,
+      merchant: 'Seven Eleven',
+      date: '2026-10-03',
+    })
   })
   it('returns null with no amount', () => {
     expect(captureFromSharedText({ text: 'see you at dinner' }, TODAY)).toBeNull()

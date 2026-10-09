@@ -72,11 +72,20 @@ export function layoutRing(o: RingOptions): RingLayout {
       const y = ry * Math.sin(t)
       return { id, x: W / 2 + rx * Math.cos(t), y, size: A, labelW, center: false, above: y < -ry * 0.3 }
     })
-    if (n === 1 && mid) { nodes[0].x = W / 2; nodes[0].y = -ry; nodes[0].above = true }
+    if (n === 1 && mid) {
+      nodes[0].x = W / 2
+      nodes[0].y = -ry
+      nodes[0].above = true
+    }
     if (mid && o.center) nodes.push({ id: o.center, x: W / 2, y: 0, size: mid.size, labelW: mid.w, center: true, above: false })
     return nodes
   }
-  const box = (d: RingNode) => ({ l: d.x - d.labelW / 2, r: d.x + d.labelW / 2, t: d.y - d.size / 2 - (d.above ? LABEL_GAP + LABEL_H : 0), b: d.y + d.size / 2 + (d.above ? 0 : LABEL_GAP + LABEL_H) })
+  const box = (d: RingNode) => ({
+    l: d.x - d.labelW / 2,
+    r: d.x + d.labelW / 2,
+    t: d.y - d.size / 2 - (d.above ? LABEL_GAP + LABEL_H : 0),
+    b: d.y + d.size / 2 + (d.above ? 0 : LABEL_GAP + LABEL_H),
+  })
   const clashes = (nodes: RingNode[]) => {
     for (let i = 0; i < nodes.length; i++) {
       const p = box(nodes[i])
@@ -98,7 +107,10 @@ export function layoutRing(o: RingOptions): RingLayout {
       let ry = n <= 2 && !mid ? 0 : Math.max((W / 2 - lw / 2) * (n >= 3 ? 0.62 : 0), mid ? mid.size / 2 + A / 2 + (n <= 2 ? 56 : 10) : 0)
       let nodes = place(lw, ry, rot)
       let k = 0
-      for (; k < 200 && clashes(nodes); k++) nodes = place(lw, (ry += 3), rot)
+      for (; k < 200 && clashes(nodes); k++) {
+        ry += 3
+        nodes = place(lw, ry, rot)
+      }
       // Someone straight below the middle person would have their flow run through its label.
       const below = mid ? nodes.filter((d) => !d.center && d.y > 0 && Math.abs(d.x - W / 2) < mid.w / 2).length : 0
       const score = extent(nodes) + (maxW - lw) * 2.5 + below * 400 + (k >= 200 ? 1e6 : 0)
@@ -138,16 +150,20 @@ const qAt = (a: P, c: P, b: P, t: number): P => ({
  */
 export function flowCurve(a: P & { r: number }, b: P & { r: number }, toward: P, bend: number, side: number): FlowGeom {
   const m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
-  const dx = b.x - a.x, dy = b.y - a.y
+  const dx = b.x - a.x,
+    dy = b.y - a.y
   const len = Math.hypot(dx, dy) || 1
-  const nx = -dy / len, ny = dx / len
+  const nx = -dy / len,
+    ny = dx / len
   const c = { x: m.x + (toward.x - m.x) * bend + nx * side, y: m.y + (toward.y - m.y) * bend + ny * side }
   const trim = (p: P & { r: number }) => {
-    const ux = c.x - p.x, uy = c.y - p.y
+    const ux = c.x - p.x,
+      uy = c.y - p.y
     const l = Math.hypot(ux, uy) || 1
     return { x: p.x + (ux / l) * p.r, y: p.y + (uy / l) * p.r }
   }
-  const s = trim(a), e = trim(b)
+  const s = trim(a),
+    e = trim(b)
   let length = 0
   let prev = s
   for (let i = 1; i <= 16; i++) {
@@ -228,9 +244,18 @@ export function compactMoney(minor: number, currency = 'INR', locale = appLocale
   const v = Math.abs(minor / 10 ** minorDigits(currency))
   const sign = minor < 0 ? '-' : ''
   const sym = currencySymbol(currency, locale)
-  const steps: Array<[number, string]> = currency === 'INR' || locale.endsWith('-IN')
-    ? [[1e7, 'Cr'], [1e5, 'L'], [1e3, 'K']]
-    : [[1e9, 'B'], [1e6, 'M'], [1e3, 'K']]
+  const steps: Array<[number, string]> =
+    currency === 'INR' || locale.endsWith('-IN')
+      ? [
+          [1e7, 'Cr'],
+          [1e5, 'L'],
+          [1e3, 'K'],
+        ]
+      : [
+          [1e9, 'B'],
+          [1e6, 'M'],
+          [1e3, 'K'],
+        ]
   for (const [n, suffix] of steps) {
     if (v >= n * 0.9995) {
       const x = v / n

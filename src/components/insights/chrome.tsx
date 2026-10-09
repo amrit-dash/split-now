@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { useIsDark } from '@/lib/chartPalette'
 
-/** Axis / grid / surface tokens for Recharts, which needs literal colours. */
+/** Axis / grid / surface colours for the hand-rolled SVG charts, which need literal values. */
 export function useChartTheme() {
   const dark = useIsDark()
   return {
@@ -19,7 +19,7 @@ export function ChartCard({ title, subtitle, right, children }: { title: string;
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <h2 className="font-bold">{title}</h2>
-          {subtitle && <p className="text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>}
+          {subtitle && <p className="text-muted text-xs">{subtitle}</p>}
         </div>
         {right}
       </div>
@@ -48,9 +48,9 @@ export function TipBox({ title, rows }: { title: ReactNode; rows: Array<{ color?
 export function StatTile({ label, value, sub }: { label: string; value: ReactNode; sub?: ReactNode }) {
   return (
     <div className="card min-w-0 p-4">
-      <div className="text-xs font-medium text-slate-500 dark:text-slate-400">{label}</div>
+      <div className="text-muted text-xs font-medium">{label}</div>
       <div className="mt-1 truncate text-xl font-extrabold">{value}</div>
-      {sub && <div className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{sub}</div>}
+      {sub && <div className="text-muted mt-0.5 truncate text-xs">{sub}</div>}
     </div>
   )
 }

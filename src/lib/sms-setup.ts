@@ -10,8 +10,17 @@ export type SmsDevice = 'ios' | 'android' | 'other'
 
 /** Reasons POST /api/capture can reject a message with. */
 export type WebhookReason =
-  | 'bad_token' | 'not_a_debit' | 'unparsed' | 'outside_trip' | 'duplicate' | 'rate_limited' | 'bad_request'
-  | 'paused' | 'below_min' | 'ignored'
+  | 'bad_token'
+  | 'not_a_debit'
+  | 'unparsed'
+  | 'outside_trip'
+  | 'duplicate'
+  | 'rate_limited'
+  | 'bad_request'
+  | 'paused'
+  | 'below_min'
+  | 'ignored'
+  | 'bad_scope'
 
 export interface ParsedSms {
   /** minor units (paise for INR) */
@@ -57,9 +66,9 @@ export function bodyTemplateText(token: string, device: 'ios' | 'android'): stri
 
 /**
  * Words that appear in Indian bank / UPI debit alerts. iOS "Message Contains" takes a single
- * string, so each needs its own automation.
+ * string, so each needs its own automation; the first three cover most banks.
  */
-export const DEBIT_KEYWORDS = ['debited', 'spent', 'sent Rs'] as const
+export const DEBIT_KEYWORDS = ['debited', 'spent', 'sent Rs', 'paid', 'Txn', 'used for'] as const
 
 /** Label stored on a token so the user can tell their keys apart. */
 export function tokenLabel(group?: Pick<Group, 'name'> | null): string {
@@ -76,7 +85,8 @@ export type ScopeCheck =
  */
 export function checkScope(g: Pick<Group, 'type' | 'startDate' | 'endDate'>, today: string): ScopeCheck {
   if (g.type === 'personal') return { ok: false, state: 'personal', message: 'The personal wallet can’t be a trip. Pick a shared group.' }
-  if (!hasTripWindow(g)) return { ok: false, state: 'no_dates', message: 'This group has no trip dates, so a key for it would never match a payment. Add dates first.' }
+  if (!hasTripWindow(g))
+    return { ok: false, state: 'no_dates', message: 'This group has no trip dates, so a key for it would never match a payment. Add dates first.' }
   if (g.startDate && today < g.startDate) return { ok: true, state: 'upcoming', message: 'The trip hasn’t started yet. Payments are captured once it does.' }
   if (g.endDate && today > g.endDate) return { ok: true, state: 'ended', message: 'This trip has ended, so new payments won’t match it.' }
   if (!g.startDate || !g.endDate) return { ok: true, state: 'open', message: 'The trip is open-ended on one side.' }
@@ -116,9 +126,10 @@ export const REASON_TEXT: Record<WebhookReason, string> = {
   duplicate: 'Already captured (same reference number).',
   rate_limited: 'Too many messages in a short time. Try again in a minute.',
   bad_request: 'The request was malformed. Check the body fields.',
-  paused: 'Capture is paused (for everything, or for this trip). Turn it back on in Profile → Auto-capture.',
-  below_min: 'The amount is below your minimum in Profile → Auto-capture, so it was skipped.',
+  paused: 'Capture is paused (for everything, or for this trip). Turn it back on in Settings → Automation.',
+  below_min: 'The amount is below your minimum in Settings → Automation, so it was skipped.',
   ignored: 'The message matched one of your ignore keywords, so it was skipped.',
+  bad_scope: 'This key is for a trip you’re no longer in, so nothing was saved. Create a new key.',
 }
 
 export type TestOutcome =
@@ -161,20 +172,19 @@ export const MACRODROID_PLAY_URL = `https://play.google.com/store/apps/details?i
  * Opens the Play Store app straight on MacroDroid on Android (Chrome intent URL), falling back to
  * the web listing when the Play Store isn't installed.
  */
-export const MACRODROID_PLAY_INTENT =
-  `intent://details?id=${MACRODROID_PACKAGE}#Intent;scheme=market;package=com.android.vending;S.browser_fallback_url=${encodeURIComponent(MACRODROID_PLAY_URL)};end`
+export const MACRODROID_PLAY_INTENT = `intent://details?id=${MACRODROID_PACKAGE}#Intent;scheme=market;package=com.android.vending;S.browser_fallback_url=${encodeURIComponent(MACRODROID_PLAY_URL)};end`
 
 /** The Play link for this device: the intent URL on Android, the https listing elsewhere. */
 export const macrodroidPlayLink = (userAgent: string) => (/android/i.test(userAgent) ? MACRODROID_PLAY_INTENT : MACRODROID_PLAY_URL)
 
 /**
  * MacroDroid "SMS Received" content filter (regex enabled): the same on-phone filter as the shared
- * iPhone Shortcut (docs/AUTO_CAPTURE.md). Skips anything mentioning an OTP / password, then needs a
+ * iPhone Shortcut (docs/AUTO_CAPTURE.md). Skips anything mentioning an OTP / password, needs a bank
+ * marker (account, card, UPI, bank…) so a friend's "bring Rs 500" never leaves the phone, then a
  * debit word or an amount. Java regex: inline flags i (case) and s (dot matches newlines). Anchored
  * with .* on both ends so it works whether MacroDroid does a full match or a find.
  */
-export const ANDROID_FILTER_REGEX =
-  String.raw`(?is)^(?!.*\b(otp|one[- ]time|verification code|password)\b).*(debited|spent|paid|sent\s*rs|withdrawn|inr|rs\.?\s*\d|₹\s*\d).*$`
+export const ANDROID_FILTER_REGEX = String.raw`(?is)^(?!.*\b(otp|one[- ]time|verification code|password)\b)(?=.*\b(a/c|ac|acct|account|card|upi|vpa|imps|neft|bank|atm)\b).*(debited|debit|dr\.?|spent|paid|sent|withdraw|used for|txn|purchase|inr\s*\d|rs\.?\s*\d|₹\s*\d).*$`
 
 /** Brands whose battery savers stop MacroDroid in the background, and where to exempt it. */
 export const BATTERY_TIPS: Array<{ brand: string; steps: string }> = [

@@ -32,7 +32,7 @@ export function resolvePrefs(raw: unknown): NotificationPrefs {
   return out
 }
 
-/** Capture settings stored in the same doc (Profile → Auto-capture). */
+/** Capture settings stored in the same doc (Settings → Automation). */
 export interface CapturePrefs extends CaptureFilterPrefs {
   outsideTrips: boolean
 }

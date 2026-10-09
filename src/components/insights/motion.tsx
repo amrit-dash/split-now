@@ -13,7 +13,11 @@ const mql = () => (typeof window !== 'undefined' && window.matchMedia ? window.m
 
 export function useReducedMotion() {
   return useSyncExternalStore(
-    (cb) => { const m = mql(); m?.addEventListener('change', cb); return () => m?.removeEventListener('change', cb) },
+    (cb) => {
+      const m = mql()
+      m?.addEventListener('change', cb)
+      return () => m?.removeEventListener('change', cb)
+    },
     () => mql()?.matches ?? false,
     () => false,
   )
@@ -26,10 +30,19 @@ export function useInView<T extends Element>(): [(el: T | null) => void, boolean
   const [el, setEl] = useState<T | null>(null)
   useEffect(() => {
     if (seen || !el) return
-    if (typeof IntersectionObserver === 'undefined') { setSeen(true); return }
-    const io = new IntersectionObserver((entries) => {
-      if (entries.some((e) => e.isIntersecting)) { setSeen(true); io.disconnect() }
-    }, { threshold: 0.3, rootMargin: '0px 0px -8% 0px' })
+    if (typeof IntersectionObserver === 'undefined') {
+      setSeen(true)
+      return
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setSeen(true)
+          io.disconnect()
+        }
+      },
+      { threshold: 0.3, rootMargin: '0px 0px -8% 0px' },
+    )
     io.observe(el)
     return () => io.disconnect()
   }, [el, seen])
@@ -77,13 +90,19 @@ export function useTween(target: number[], duration = 650): number[] {
   const [shown, setShown] = useState(target)
   const live = useRef(target)
   const key = target.join(',')
+  // biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the target's values (key), not its identity, so a re-render with an equal new array does not restart the tween.
   useEffect(() => {
     const from = resample(live.current, target.length)
-    if (reduced || from.every((v, i) => v === target[i])) { live.current = target; setShown(target); return }
+    if (reduced || from.every((v, i) => v === target[i])) {
+      live.current = target
+      setShown(target)
+      return
+    }
     let raf = 0
     const t0 = performance.now()
     const step = (now: number) => {
-      const p = Math.min(1, (now - t0) / duration), e = easeInOut(p)
+      const p = Math.min(1, (now - t0) / duration),
+        e = easeInOut(p)
       const v = target.map((x, i) => from[i] + (x - from[i]) * e)
       live.current = v
       setShown(v)
@@ -91,7 +110,6 @@ export function useTween(target: number[], duration = 650): number[] {
     }
     raf = requestAnimationFrame(step)
     return () => cancelAnimationFrame(raf)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, reduced, duration])
   return resample(shown, target.length)
 }
@@ -101,7 +119,13 @@ export function useTween(target: number[], duration = 650): number[] {
  * Writes textContent directly per frame, so a counting number never re-renders React. Screen
  * readers get the final value.
  */
-export function CountUp({ value, format, active = true, duration = 800, className }: {
+export function CountUp({
+  value,
+  format,
+  active = true,
+  duration = 800,
+  className,
+}: {
   value: number
   format: (v: number) => string
   active?: boolean
@@ -116,9 +140,16 @@ export function CountUp({ value, format, active = true, duration = 800, classNam
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
-    if (!active) { if (shown.current === null) el.textContent = fmt.current(0); return }
+    if (!active) {
+      if (shown.current === null) el.textContent = fmt.current(0)
+      return
+    }
     const from = shown.current ?? 0
-    if (reduced || from === value) { shown.current = value; el.textContent = fmt.current(value); return }
+    if (reduced || from === value) {
+      shown.current = value
+      el.textContent = fmt.current(value)
+      return
+    }
     let raf = 0
     const t0 = performance.now()
     const step = (now: number) => {
@@ -150,20 +181,33 @@ export function monotonePath(pts: Array<[number, number]>): string {
   if (!n) return ''
   const f = (v: number) => Math.round(v * 100) / 100
   if (n === 1) return `M${f(pts[0][0])},${f(pts[0][1])}`
-  const dx: number[] = [], m: number[] = []
+  const dx: number[] = [],
+    m: number[] = []
   for (let i = 0; i < n - 1; i++) {
     dx.push(pts[i + 1][0] - pts[i][0])
     m.push(dx[i] ? (pts[i + 1][1] - pts[i][1]) / dx[i] : 0)
   }
   const t = pts.map((_, i) => (i === 0 ? m[0] : i === n - 1 ? m[n - 2] : m[i - 1] * m[i] <= 0 ? 0 : (m[i - 1] + m[i]) / 2))
   for (let i = 0; i < n - 1; i++) {
-    if (m[i] === 0) { t[i] = 0; t[i + 1] = 0; continue }
-    const a = t[i] / m[i], b = t[i + 1] / m[i], s = a * a + b * b
-    if (s > 9) { const k = 3 / Math.sqrt(s); t[i] = k * a * m[i]; t[i + 1] = k * b * m[i] }
+    if (m[i] === 0) {
+      t[i] = 0
+      t[i + 1] = 0
+      continue
+    }
+    const a = t[i] / m[i],
+      b = t[i + 1] / m[i],
+      s = a * a + b * b
+    if (s > 9) {
+      const k = 3 / Math.sqrt(s)
+      t[i] = k * a * m[i]
+      t[i + 1] = k * b * m[i]
+    }
   }
   let d = `M${f(pts[0][0])},${f(pts[0][1])}`
   for (let i = 0; i < n - 1; i++) {
-    const [x0, y0] = pts[i], [x1, y1] = pts[i + 1], h = dx[i] / 3
+    const [x0, y0] = pts[i],
+      [x1, y1] = pts[i + 1],
+      h = dx[i] / 3
     d += `C${f(x0 + h)},${f(y0 + t[i] * h)},${f(x1 - h)},${f(y1 - t[i + 1] * h)},${f(x1)},${f(y1)}`
   }
   return d
@@ -191,7 +235,9 @@ export function useOutsideTap(el: Element | null, open: boolean, close: () => vo
   cb.current = close
   useEffect(() => {
     if (!open || !el) return
-    const h = (e: PointerEvent) => { if (!el.contains(e.target as Node)) cb.current() }
+    const h = (e: PointerEvent) => {
+      if (!el.contains(e.target as Node)) cb.current()
+    }
     document.addEventListener('pointerdown', h, true)
     return () => document.removeEventListener('pointerdown', h, true)
   }, [el, open])

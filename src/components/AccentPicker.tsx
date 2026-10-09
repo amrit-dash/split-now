@@ -1,14 +1,28 @@
-import { useState, type KeyboardEvent } from 'react'
+import { useEffect, useState, type KeyboardEvent } from 'react'
 import { Check } from 'lucide-react'
 import { ACCENTS, getAccent, getDuo, setAccent, setDuo, type AccentId } from '@/lib/accent'
+import { Switch } from './Switch'
 
 /** Accent colour swatches plus a "Dual tone" switch. Applies and persists immediately. */
 export function AccentPicker({ onChange }: { onChange?: () => void } = {}) {
   const [accent, setAccentState] = useState<AccentId>(getAccent)
   const [duo, setDuoState] = useState<boolean>(getDuo)
+  // Settings may re-mount this while the stored value changed elsewhere (another tab).
+  useEffect(() => {
+    setAccentState(getAccent())
+    setDuoState(getDuo())
+  }, [])
 
-  const pick = (id: AccentId) => { setAccentState(id); setAccent(id); onChange?.() }
-  const toggleDuo = () => { setDuoState(!duo); setDuo(!duo); onChange?.() }
+  const pick = (id: AccentId) => {
+    setAccentState(id)
+    setAccent(id)
+    onChange?.()
+  }
+  const toggleDuo = (on: boolean) => {
+    setDuoState(on)
+    setDuo(on)
+    onChange?.()
+  }
 
   // Arrow keys move the selection, as in a native radio group.
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -23,9 +37,11 @@ export function AccentPicker({ onChange }: { onChange?: () => void } = {}) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <div className="label !mb-0 shrink-0">Accent</div>
-        <div role="radiogroup" aria-label="Accent colour" onKeyDown={onKey} className="flex min-w-0 flex-1 items-center justify-between gap-1 py-1">
+      <div>
+        <div className="label" id="accent-label">
+          Accent
+        </div>
+        <div role="radiogroup" aria-labelledby="accent-label" onKeyDown={onKey} className="flex flex-wrap items-center gap-3">
           {ACCENTS.map((a) => {
             const on = a.id === accent
             return (
@@ -39,30 +55,22 @@ export function AccentPicker({ onChange }: { onChange?: () => void } = {}) {
                 data-id={a.id}
                 tabIndex={on ? 0 : -1}
                 onClick={() => pick(a.id)}
-                className={`flex aspect-square w-full max-w-8 min-w-6 items-center justify-center rounded-full text-white transition active:scale-95 ${on ? 'ring-2 ring-slate-900 ring-offset-2 ring-offset-white dark:ring-white dark:ring-offset-ink-900' : ''}`}
+                className={`flex h-11 w-11 items-center justify-center rounded-full text-white transition active:scale-95 ${on ? 'ring-2 ring-slate-900 ring-offset-2 ring-offset-white dark:ring-white dark:ring-offset-ink-900' : ''}`}
                 style={{ background: duo ? `linear-gradient(135deg, ${a.from}, ${a.to})` : a.from }}
               >
-                {on && <Check size={14} strokeWidth={3} aria-hidden />}
+                {on && <Check size={16} strokeWidth={3} aria-hidden />}
               </button>
             )
           })}
         </div>
       </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={duo}
-        onClick={toggleDuo}
-        className="flex w-full items-center justify-between gap-3 text-left text-sm font-medium"
-      >
-        <span>
+      <div className="flex items-center justify-between gap-3">
+        <span id="duo-label" className="text-sm font-medium">
           Dual tone
-          <span className="block text-xs font-normal text-slate-500 dark:text-slate-400">Two-colour gradients on buttons and cards</span>
+          <span className="text-muted block text-xs font-normal">Two-colour gradients on buttons and cards</span>
         </span>
-        <span className={`relative inline-flex h-6 w-10 shrink-0 rounded-full transition ${duo ? 'bg-gradient-to-r from-brand-600 to-duo-600' : 'bg-slate-300 dark:bg-ink-700'}`} aria-hidden>
-          <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${duo ? 'left-[1.125rem]' : 'left-0.5'}`} />
-        </span>
-      </button>
+        <Switch checked={duo} onChange={toggleDuo} label="Dual tone" testId="accent-duo" />
+      </div>
     </div>
   )
 }

@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { isIfsc, isIOS, isUpiId, methodFor, payOptions, settleMethods, upiAppLinks, upiLink } from './payments'
+import { isIfsc, isIOS, isUpiId, methodFor, methodLabel, payOptions, roundSuggestions, settleMethods, upiAppLinks, upiLink } from './payments'
 import { encodeQr } from './qr'
 
 describe('UPI links', () => {
   it('builds a upi://pay link in spec order with the amount in rupees', () => {
-    expect(upiLink({ pa: 'rohan.sharma@okaxis', pn: 'Rohan Sharma', amount: 125050, note: 'Split Now Goa Trip' }))
-      .toBe('upi://pay?pa=rohan.sharma@okaxis&pn=Rohan%20Sharma&am=1250.50&cu=INR&tn=Split%20Now%20Goa%20Trip')
+    expect(upiLink({ pa: 'rohan.sharma@okaxis', pn: 'Rohan Sharma', amount: 125050, note: 'Split Now Goa Trip' })).toBe(
+      'upi://pay?pa=rohan.sharma@okaxis&pn=Rohan%20Sharma&am=1250.50&cu=INR&tn=Split%20Now%20Goa%20Trip',
+    )
   })
 
   it('drops emoji / odd characters and keeps pn and tn short', () => {
@@ -27,7 +28,12 @@ describe('UPI links', () => {
   })
 
   it('fits in a QR code even with long names', () => {
-    const l = upiLink({ pa: 'a.really.long.upi.handle.for.testing.purposes@okhdfcbank', pn: 'Someone With A Very Long Name Indeed', amount: 99999999, note: 'Split Now Bengaluru Flat Indiranagar 2026' })
+    const l = upiLink({
+      pa: 'a.really.long.upi.handle.for.testing.purposes@okhdfcbank',
+      pn: 'Someone With A Very Long Name Indeed',
+      amount: 99999999,
+      note: 'Split Now Bengaluru Flat Indiranagar 2026',
+    })
     expect(() => encodeQr(l)).not.toThrow()
   })
 
@@ -44,7 +50,16 @@ describe('UPI links', () => {
 })
 
 describe('payOptions', () => {
-  const all = { upi: 'rohan@okaxis', phone: '+91 98765 43210', account: '50100123456789', ifsc: 'hdfc0001234', paypal: 'https://paypal.me/rohan', revolut: '@rohan', payid: 'r@x.com', bsb: '062-000' }
+  const all = {
+    upi: 'rohan@okaxis',
+    phone: '+91 98765 43210',
+    account: '50100123456789',
+    ifsc: 'hdfc0001234',
+    paypal: 'https://paypal.me/rohan',
+    revolut: '@rohan',
+    payid: 'r@x.com',
+    bsb: '062-000',
+  }
 
   it('puts UPI first for INR, with a QR, app links and the exact amount', () => {
     const o = payOptions(all, 50000, 'INR', 'Split Now: Goa Trip', 'Rohan')
@@ -91,5 +106,26 @@ describe('settle methods', () => {
     expect(isIOS('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)', 5)).toBe(true)
     expect(isIOS('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', 5)).toBe(true)
     expect(isIOS('Mozilla/5.0 (Linux; Android 15; Pixel 9)', 5)).toBe(false)
+  })
+})
+
+describe('settle-up helpers', () => {
+  it('labels the waived method and leaves the rest as stored', () => {
+    expect(methodLabel('waived')).toBe('Waived')
+    expect(methodLabel('UPI')).toBe('UPI')
+    expect(methodLabel('Bank transfer')).toBe('Bank transfer')
+  })
+
+  it('suggests the round figures just below and above a debt', () => {
+    expect(roundSuggestions(124700, 'INR')).toEqual([120000, 125000])
+    expect(roundSuggestions(8300, 'INR')).toEqual([8000, 9000])
+    expect(roundSuggestions(2700, 'INR')).toEqual([2500, 3000])
+    expect(roundSuggestions(1248000, 'INR')).toEqual([1200000, 1250000])
+    expect(roundSuggestions(1247, 'JPY')).toEqual([1200, 1250])
+    // Already round, or nothing sensible below: only what makes sense.
+    expect(roundSuggestions(120000, 'INR')).toEqual([])
+    expect(roundSuggestions(300, 'INR')).toEqual([500])
+    expect(roundSuggestions(0, 'INR')).toEqual([])
+    expect(roundSuggestions(Number.NaN, 'INR')).toEqual([])
   })
 })

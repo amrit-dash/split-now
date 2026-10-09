@@ -23,7 +23,10 @@ describe('proportional', () => {
 
 describe('allocateAcrossGroups', () => {
   it('full payment clears every group', () => {
-    const parts = [{ key: 'a', signed: 3000 }, { key: 'b', signed: 1000 }]
+    const parts = [
+      { key: 'a', signed: 3000 },
+      { key: 'b', signed: 1000 },
+    ]
     const plan = allocateAcrossGroups(parts, 4000)
     expect(plan.net).toBe(4000)
     expect(amounts(plan)).toEqual([3000, 1000])
@@ -31,7 +34,10 @@ describe('allocateAcrossGroups', () => {
   })
 
   it('partial payment is shared in proportion and adds up to the payment', () => {
-    const parts = [{ key: 'a', signed: 3000 }, { key: 'b', signed: 1000 }]
+    const parts = [
+      { key: 'a', signed: 3000 },
+      { key: 'b', signed: 1000 },
+    ]
     const plan = allocateAcrossGroups(parts, 2000)
     expect(amounts(plan)).toEqual([1500, 500])
     expect(plan.allocations.map((a) => a.left)).toEqual([1500, 500])
@@ -40,7 +46,10 @@ describe('allocateAcrossGroups', () => {
   })
 
   it('works the same when you owe them (negative net)', () => {
-    const parts = [{ key: 'a', signed: -2500 }, { key: 'b', signed: -2500 }]
+    const parts = [
+      { key: 'a', signed: -2500 },
+      { key: 'b', signed: -2500 },
+    ]
     const plan = allocateAcrossGroups(parts, 1001)
     expect(plan.net).toBe(-5000)
     expect(amounts(plan)).toEqual([501, 500])
@@ -49,7 +58,11 @@ describe('allocateAcrossGroups', () => {
 
   it('mixed directions: counter groups always clear; the rest covers payment + what cancelled', () => {
     // They owe you 5000 in a and 1000 in c; you owe them 2000 in b. Net: they pay you 4000.
-    const parts = [{ key: 'a', signed: 5000 }, { key: 'b', signed: -2000 }, { key: 'c', signed: 1000 }]
+    const parts = [
+      { key: 'a', signed: 5000 },
+      { key: 'b', signed: -2000 },
+      { key: 'c', signed: 1000 },
+    ]
     const full = allocateAcrossGroups(parts, 4000)
     expect(full.net).toBe(4000)
     expect(amounts(full)).toEqual([5000, 2000, 1000])
@@ -63,7 +76,10 @@ describe('allocateAcrossGroups', () => {
   })
 
   it('net zero clears everything with no payment', () => {
-    const parts = [{ key: 'a', signed: 1200 }, { key: 'b', signed: -1200 }]
+    const parts = [
+      { key: 'a', signed: 1200 },
+      { key: 'b', signed: -1200 },
+    ]
     const plan = allocateAcrossGroups(parts, 500)
     expect(plan.payment).toBe(0)
     expect(amounts(plan)).toEqual([1200, 1200])
@@ -71,7 +87,10 @@ describe('allocateAcrossGroups', () => {
   })
 
   it('clamps the payment to 0…|net|', () => {
-    const parts = [{ key: 'a', signed: 1000 }, { key: 'b', signed: 500 }]
+    const parts = [
+      { key: 'a', signed: 1000 },
+      { key: 'b', signed: 500 },
+    ]
     expect(allocateAcrossGroups(parts, 99999).payment).toBe(1500)
     expect(amounts(allocateAcrossGroups(parts, 99999))).toEqual([1000, 500])
     expect(amounts(allocateAcrossGroups(parts, -5))).toEqual([0, 0])
@@ -79,7 +98,10 @@ describe('allocateAcrossGroups', () => {
   })
 
   it('a zero payment in a mixed balance still nets the counter groups out', () => {
-    const parts = [{ key: 'a', signed: 3000 }, { key: 'b', signed: -1000 }]
+    const parts = [
+      { key: 'a', signed: 3000 },
+      { key: 'b', signed: -1000 },
+    ]
     const plan = allocateAcrossGroups(parts, 0)
     expect(amounts(plan)).toEqual([1000, 1000])
     expect(signedSum(parts, plan)).toBe(0)

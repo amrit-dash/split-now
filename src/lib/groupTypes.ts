@@ -17,7 +17,15 @@ export interface GroupTypeInfo {
 /** Every group type: shared ones (the chip row) first, then the two special ones. */
 export const GROUP_TYPES: Record<GroupType, GroupTypeInfo> = {
   trip: { value: 'trip', label: 'Trip', emoji: '✈️', icons: ['✈️', '🏖️', '🏔️', '🏝️'], placeholder: 'e.g. Goa 2026', dates: 'Trip dates' },
-  outing: { value: 'outing', label: 'Dinner / outing', emoji: '🍽️', icons: ['🍽️', '🍕', '🍻', '🍛'], placeholder: 'e.g. Friday dinner', dates: 'When', datesToday: true },
+  outing: {
+    value: 'outing',
+    label: 'Dinner / outing',
+    emoji: '🍽️',
+    icons: ['🍽️', '🍕', '🍻', '🍛'],
+    placeholder: 'e.g. Friday dinner',
+    dates: 'When',
+    datesToday: true,
+  },
   event: { value: 'event', label: 'Event', emoji: '🎉', icons: ['🎉', '🎂', '💍', '🎵'], placeholder: 'e.g. Riya’s birthday', dates: 'Event dates' },
   home: { value: 'home', label: 'Home', emoji: '🏠', icons: ['🏠', '🏡', '🛋️', '🧺'], placeholder: 'e.g. Indiranagar flat', dates: null },
   couple: { value: 'couple', label: 'Couple', emoji: '💞', icons: ['💞', '❤️', '🥂'], placeholder: 'e.g. Us two', dates: null },
@@ -32,10 +40,24 @@ export const SHARED_TYPES: GroupType[] = ['trip', 'outing', 'event', 'home', 'co
 
 export const isSharedType = (t: GroupType) => SHARED_TYPES.includes(t)
 
-/** Parses a ?type= value; anything unknown is a trip. */
+/** Parses a ?type= value for a new group; anything unknown is a trip. */
 export function parseGroupType(v: string | null | undefined): GroupType {
-  return v && v in GROUP_TYPES ? (v as GroupType) : 'trip'
+  return isGroupType(v) ? v : 'trip'
 }
+
+export const isGroupType = (v: unknown): v is GroupType => typeof v === 'string' && Object.hasOwn(GROUP_TYPES, v)
+
+/**
+ * The type of a stored group, made safe: the rules do not validate `type`, so an unknown value
+ * (an old client, a hostile co-member) reads as 'other' instead of crashing the screen.
+ */
+export function groupTypeOf(g: { type?: unknown } | string | null | undefined): GroupType {
+  const v = typeof g === 'string' ? g : g?.type
+  return isGroupType(v) ? v : 'other'
+}
+
+/** GROUP_TYPES entry for a group or type string, never undefined (unknown → Other). */
+export const groupTypeInfo = (g: { type?: unknown } | string | null | undefined): GroupTypeInfo => GROUP_TYPES[groupTypeOf(g)]
 
 const EXTRA_ICONS = ['🚗', '🎿', '🏕️', '⚽', '🎓', '🌏', '🛕', '🚆', '🎮', '🐶']
 
@@ -43,12 +65,15 @@ const EXTRA_ICONS = ['🚗', '🎿', '🏕️', '⚽', '🎓', '🌏', '🛕', '
 export const ALL_GROUP_ICONS: string[] = [...new Set([...Object.values(GROUP_TYPES).flatMap((t) => t.icons), ...EXTRA_ICONS])]
 
 /** The picker list for a type: that type's icons first, then everything else. */
-export function iconsFor(type: GroupType): string[] {
-  const first = GROUP_TYPES[type].icons
+export function iconsFor(type: GroupType | string): string[] {
+  const first = groupTypeInfo(type).icons
   return [...first, ...ALL_GROUP_ICONS.filter((e) => !first.includes(e))]
 }
 
-export interface GroupGuess { type: GroupType; emoji: string }
+export interface GroupGuess {
+  type: GroupType
+  emoji: string
+}
 
 // First matching rule wins, so specific words (beach, birthday) come before generic ones (trip, party).
 const RULES: Array<{ words: string[]; type: GroupType; emoji: string }> = [
@@ -56,7 +81,11 @@ const RULES: Array<{ words: string[]; type: GroupType; emoji: string }> = [
   { words: ['wedding', 'sangeet', 'mehendi', 'mehndi', 'haldi', 'bachelor', 'bachelorette', 'engagement'], type: 'event', emoji: '💍' },
   { words: ['concert', 'gig', 'festival', 'fest'], type: 'event', emoji: '🎵' },
   { words: ['goa', 'bali', 'beach', 'phuket', 'maldives', 'andaman', 'gokarna', 'pondicherry', 'varkala', 'island'], type: 'trip', emoji: '🏖️' },
-  { words: ['manali', 'ladakh', 'leh', 'shimla', 'kashmir', 'spiti', 'himalaya', 'himalayas', 'trek', 'mountain', 'hills', 'ski', 'rishikesh', 'kasol'], type: 'trip', emoji: '🏔️' },
+  {
+    words: ['manali', 'ladakh', 'leh', 'shimla', 'kashmir', 'spiti', 'himalaya', 'himalayas', 'trek', 'mountain', 'hills', 'ski', 'rishikesh', 'kasol'],
+    type: 'trip',
+    emoji: '🏔️',
+  },
   { words: ['trip', 'vacation', 'holiday', 'travel', 'roadtrip', 'getaway', 'tour', 'weekend'], type: 'trip', emoji: '✈️' },
   { words: ['party', 'drinks', 'beer', 'beers', 'pub', 'bar', 'night'], type: 'outing', emoji: '🍻' },
   { words: ['dinner', 'lunch', 'brunch', 'breakfast', 'meal', 'food', 'pizza'], type: 'outing', emoji: '🍽️' },
@@ -69,7 +98,10 @@ const RULES: Array<{ words: string[]; type: GroupType; emoji: string }> = [
  * keyword matches. Whole words only, case-insensitive; a plural "s"/"es" is ignored.
  */
 export function guessGroup(name: string): GroupGuess | null {
-  const words = name.toLowerCase().split(/[^a-z]+/).filter(Boolean)
+  const words = name
+    .toLowerCase()
+    .split(/[^a-z]+/)
+    .filter(Boolean)
   if (!words.length) return null
   const has = (w: string) => words.some((x) => x === w || x === `${w}s` || x === `${w}es`)
   const rule = RULES.find((r) => r.words.some(has))
@@ -78,8 +110,9 @@ export function guessGroup(name: string): GroupGuess | null {
 
 /** The first emoji in free text ("🎸 band" → "🎸"), for the picker's "type any emoji" field. */
 export function firstEmoji(text: string): string | null {
-  const parts = typeof Intl !== 'undefined' && 'Segmenter' in Intl
-    ? [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text)].map((s) => s.segment)
-    : [...text]
+  const parts =
+    typeof Intl !== 'undefined' && 'Segmenter' in Intl
+      ? [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text)].map((s) => s.segment)
+      : [...text]
   return parts.find((g) => /\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(g)) ?? null
 }

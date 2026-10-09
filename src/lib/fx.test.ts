@@ -1,16 +1,38 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
-  FX_API, cachedRate, convertExpense, convertMinor, formatRate, getRate, lastCurrency, parseRate, rateLabel, ratesFetchedAt, refreshRates,
-  rememberCurrency, setFxEnv, toOriginal, type FxFetch,
-  expectedEcbDate, isSynced, loadSharedRates, ratesStatus, type FxRatesDoc, type FxShared,
+  FX_API,
+  cachedRate,
+  convertExpense,
+  convertMinor,
+  formatRate,
+  getRate,
+  lastCurrency,
+  parseRate,
+  rateLabel,
+  ratesFetchedAt,
+  refreshRates,
+  rememberCurrency,
+  setFxEnv,
+  toOriginal,
+  type FxFetch,
+  expectedEcbDate,
+  isSynced,
+  loadSharedRates,
+  ratesStatus,
+  type FxRatesDoc,
+  type FxShared,
 } from './fx'
 
 const sum = (r: Record<string, number>) => Object.values(r).reduce((a, b) => a + b, 0)
 
 class MemStorage {
   m = new Map<string, string>()
-  getItem(k: string) { return this.m.get(k) ?? null }
-  setItem(k: string, v: string) { this.m.set(k, v) }
+  getItem(k: string) {
+    return this.m.get(k) ?? null
+  }
+  setItem(k: string, v: string) {
+    this.m.set(k, v)
+  }
 }
 
 describe('convertMinor', () => {
@@ -82,7 +104,11 @@ describe('getRate + cache', () => {
     store = new MemStorage()
     calls = []
     clock = Date.parse('2026-10-07T10:00:00Z')
-    respond = (url) => ({ ok: true, status: 200, body: { amount: 1, base: 'THB', date: url.includes('2026-10-04') ? '2026-10-02' : '2026-10-07', rates: { AUD: 0.04269, USD: 0.0297 } } })
+    respond = (url) => ({
+      ok: true,
+      status: 200,
+      body: { amount: 1, base: 'THB', date: url.includes('2026-10-04') ? '2026-10-02' : '2026-10-07', rates: { AUD: 0.04269, USD: 0.0297 } },
+    })
     setFxEnv({ fetch: fetchMock, storage: store, now: () => clock })
   })
   afterEach(() => setFxEnv({ storage: null }))
@@ -158,7 +184,10 @@ describe('refreshRates', () => {
     setFxEnv({
       storage: { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => void store.set(k, v) },
       now: () => Date.parse('2026-10-08T06:00:00Z'),
-      fetch: async () => { calls++; return { ok: true, status: 200, json: async () => ({ date: '2026-10-07', rates: { USD: 0.012, EUR: 0.0103 } }) } },
+      fetch: async () => {
+        calls++
+        return { ok: true, status: 200, json: async () => ({ date: '2026-10-07', rates: { USD: 0.012, EUR: 0.0103 } }) }
+      },
     })
     expect(ratesFetchedAt('INR')).toBeNull()
     const a = await refreshRates('INR')
@@ -177,16 +206,31 @@ describe('refreshRates', () => {
 
 describe('shared rates (Firestore fxRates)', () => {
   const clock = Date.parse('2026-10-08T06:00:00Z') // 08:00 in Frankfurt, before ECB publishes
-  const pub = (date: string, fetchedAt = clock - 3600_000): FxRatesDoc => ({ date, base: 'EUR', rates: { EUR: 1, INR: 108, USD: 1.2, THB: 37.5 }, fetchedAt, source: 'ecb' })
+  const pub = (date: string, fetchedAt = clock - 3600_000): FxRatesDoc => ({
+    date,
+    base: 'EUR',
+    rates: { EUR: 1, INR: 108, USD: 1.2, THB: 37.5 },
+    fetchedAt,
+    source: 'ecb',
+  })
   let docs: Record<string, FxRatesDoc>
   let log: string[]
   let fetches: number
   const sharedMock: FxShared = {
-    async getFxRates(d) { log.push(`get ${d}`); return docs[d] ?? null },
+    async getFxRates(d) {
+      log.push(`get ${d}`)
+      return docs[d] ?? null
+    },
     async refreshFx(d) {
       log.push(`refresh ${d ?? 'latest'}`)
-      if (d === '2026-10-04') { docs[d] = pub('2026-10-02', clock); return { date: '2026-10-02', fetchedAt: clock, rates: docs[d].rates } }
-      if (!d) { docs.latest = pub('2026-10-07', clock); return { date: '2026-10-07', fetchedAt: clock } }
+      if (d === '2026-10-04') {
+        docs[d] = pub('2026-10-02', clock)
+        return { date: '2026-10-02', fetchedAt: clock, rates: docs[d].rates }
+      }
+      if (!d) {
+        docs.latest = pub('2026-10-07', clock)
+        return { date: '2026-10-07', fetchedAt: clock }
+      }
       return null
     },
   }
@@ -199,7 +243,10 @@ describe('shared rates (Firestore fxRates)', () => {
       storage: { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => void m.set(k, v) },
       now: () => clock,
       shared: sharedMock,
-      fetch: async () => { fetches++; return { ok: true, status: 200, json: async () => ({ date: '2026-10-07', rates: { AUD: 1 } }) } },
+      fetch: async () => {
+        fetches++
+        return { ok: true, status: 200, json: async () => ({ date: '2026-10-07', rates: { AUD: 1 } }) }
+      },
     })
   })
   afterEach(() => setFxEnv({ storage: null }))
@@ -231,9 +278,18 @@ describe('shared rates (Firestore fxRates)', () => {
     expect((await getRate('THB', 'AUD', '2026-09-01'))?.rate).toBe(1)
     expect(fetches).toBe(1)
     setFxEnv({
-      storage: null, now: () => clock,
-      shared: { getFxRates: async () => { throw new Error('permission-denied') }, refreshFx: async () => null },
-      fetch: async () => { fetches++; return { ok: true, status: 200, json: async () => ({ date: '2026-10-07', rates: { AUD: 2 } }) } },
+      storage: null,
+      now: () => clock,
+      shared: {
+        getFxRates: async () => {
+          throw new Error('permission-denied')
+        },
+        refreshFx: async () => null,
+      },
+      fetch: async () => {
+        fetches++
+        return { ok: true, status: 200, json: async () => ({ date: '2026-10-07', rates: { AUD: 2 } }) }
+      },
     })
     expect((await getRate('THB', 'AUD', '2026-10-08'))?.rate).toBe(2)
   })

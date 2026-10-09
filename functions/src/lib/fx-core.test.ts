@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import { FX_V1, FX_V2, THROTTLE_MS, asRatesDoc, berlinDate, fetchEcb, parseV1, parseV2, planRefresh, refreshWrites, validRequest, type Fetch, type FxRatesDoc } from './fx-core'
+import {
+  FX_V1,
+  FX_V2,
+  THROTTLE_MS,
+  asRatesDoc,
+  berlinDate,
+  fetchEcb,
+  parseV1,
+  parseV2,
+  planRefresh,
+  refreshWrites,
+  validRequest,
+  type Fetch,
+  type FxRatesDoc,
+} from './fx-core'
 
 const V2 = [
   { date: '2026-10-07', base: 'EUR', quote: 'EUR', rate: 1 },
@@ -20,7 +34,11 @@ describe('parsing Frankfurter', () => {
     expect(parseV2([])).toBeNull()
     expect(parseV2({ message: 'x' })).toBeNull()
     expect(parseV2([{ date: '2026-10-07', base: 'USD', quote: 'INR', rate: 84 }])).toBeNull()
-    expect(parseV2([...V2, { date: '2026-10-07', base: 'EUR', quote: 'XXX', rate: -1 }, { date: 'x', base: 'EUR', quote: 'JPY', rate: 1 }])?.rates).toEqual({ EUR: 1, INR: 108.1165, USD: 1.1177 })
+    expect(parseV2([...V2, { date: '2026-10-07', base: 'EUR', quote: 'XXX', rate: -1 }, { date: 'x', base: 'EUR', quote: 'JPY', rate: 1 }])?.rates).toEqual({
+      EUR: 1,
+      INR: 108.1165,
+      USD: 1.1177,
+    })
   })
   it('reads /v1', () => {
     expect(parseV1(V1)).toEqual({ date: '2026-10-07', rates: { EUR: 1, INR: 108.1165, USD: 1.1177 } })
@@ -95,7 +113,10 @@ describe('refreshWrites', () => {
   })
   it('never aliases a date that may not be published yet', () => {
     // Asked for "today in Frankfurt" via the date path would be latest; a date equal to the result needs no alias.
-    expect(refreshWrites({ got: { ...got, date: '2026-10-07' }, now: NOW, requested: '2026-10-08', latest: doc('2026-10-07') }).map(([id]) => id)).toEqual(['2026-10-07', 'latest'])
+    expect(refreshWrites({ got: { ...got, date: '2026-10-07' }, now: NOW, requested: '2026-10-08', latest: doc('2026-10-07') }).map(([id]) => id)).toEqual([
+      '2026-10-07',
+      'latest',
+    ])
     expect(refreshWrites({ got, now: NOW, requested: '2026-10-02', latest: doc('2026-10-07') }).map(([id]) => id)).toEqual(['2026-10-02'])
   })
   it('checks stored docs', () => {

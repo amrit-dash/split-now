@@ -3,8 +3,18 @@ import type { Group } from '@/types'
 import { ownMemberSyncs, sharedPhotoURL } from './memberSync'
 
 const g = (id: string, members: Group['members']): Group => ({
-  id, name: id, emoji: '', type: 'trip', currency: 'INR', simplify: false, memberUids: [], members,
-  inviteCode: 'X', createdBy: 'u1', createdAt: 0, updatedAt: 0,
+  id,
+  name: id,
+  emoji: '',
+  type: 'trip',
+  currency: 'INR',
+  simplify: false,
+  memberUids: [],
+  members,
+  inviteCode: 'X',
+  createdBy: 'u1',
+  createdAt: 0,
+  updatedAt: 0,
 })
 const photo = 'https://example.com/a.jpg'
 
@@ -30,7 +40,10 @@ describe('ownMemberSyncs', () => {
   })
   it('removes a photo the profile no longer has', () => {
     const r = ownMemberSyncs(groups, 'u1', { displayName: 'Amrit Singh' })
-    expect(r.map((x) => [x.group.id, x.patch])).toEqual([['g1', { name: 'Amrit Singh' }], ['g2', { name: 'Amrit Singh' }]])
+    expect(r.map((x) => [x.group.id, x.patch])).toEqual([
+      ['g1', { name: 'Amrit Singh' }],
+      ['g2', { name: 'Amrit Singh' }],
+    ])
   })
   it('keeps the entry name when the profile name is blank', () => {
     const r = ownMemberSyncs(groups, 'u1', { displayName: '  ', photoURL: photo })

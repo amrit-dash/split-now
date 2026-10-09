@@ -1,5 +1,5 @@
 import type { Cents, PaymentHandles } from '@/types'
-import { centsToInput } from './money'
+import { centsToInput, minorDigits } from './money'
 
 /*
  * How to pay someone: their handles turned into copyable values and deep links.
@@ -20,7 +20,11 @@ import { centsToInput } from './money'
  * the QR or paying to the UPI ID by hand still works.
  */
 
-export interface UpiApp { id: 'gpay' | 'phonepe' | 'paytm'; label: string; base: string }
+export interface UpiApp {
+  id: 'gpay' | 'phonepe' | 'paytm'
+  label: string
+  base: string
+}
 
 export const UPI_APPS: UpiApp[] = [
   { id: 'gpay', label: 'Google Pay', base: 'tez://upi/pay' },
@@ -51,7 +55,14 @@ export function isIfsc(s: string | undefined): boolean {
 }
 
 /** UPI apps choke on emoji and odd punctuation in pn/tn; keep it plain and short. */
-const plain = (s: string, max: number) => s.normalize('NFKD').replace(/[^A-Za-z0-9 .,'-]/g, '').replace(/\s+/g, ' ').trim().slice(0, max).trim()
+const plain = (s: string, max: number) =>
+  s
+    .normalize('NFKD')
+    .replace(/[^A-Za-z0-9 .,'-]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, max)
+    .trim()
 /** Percent-encode, but keep "@" readable: several UPI apps fail to decode %40 in pa. */
 const enc = (s: string) => encodeURIComponent(s).replace(/%40/g, '@')
 
@@ -126,9 +137,11 @@ export function payOptions(h: PaymentHandles | undefined, amount: Cents, currenc
   }
 
   const order: Array<PayOption['key']> =
-    currency === 'INR' ? ['upi', 'phone', 'bank', 'paypal', 'revolut', 'payid'] :
-    currency === 'AUD' ? ['payid', 'bank', 'paypal', 'revolut', 'upi', 'phone'] :
-    ['paypal', 'revolut', 'bank', 'payid', 'upi', 'phone']
+    currency === 'INR'
+      ? ['upi', 'phone', 'bank', 'paypal', 'revolut', 'payid']
+      : currency === 'AUD'
+        ? ['payid', 'bank', 'paypal', 'revolut', 'upi', 'phone']
+        : ['paypal', 'revolut', 'bank', 'payid', 'upi', 'phone']
   return order.map((k) => by[k]).filter((o): o is PayOption => !!o)
 }
 
@@ -139,6 +152,29 @@ export function settleMethods(currency: string): string[] {
   return ['Bank transfer', 'Cash', 'PayPal', 'Revolut', 'UPI', 'Other']
 }
 
+/**
+ * How a settlement's method reads in lists. 'waived' is written by Settle up's "Waive the rest"
+ * (the person owed let the remainder go); any other method is shown as stored.
+ */
+export function methodLabel(method: string): string {
+  return method === 'waived' ? 'Waived' : method
+}
+
+/**
+ * Round figures near a debt for a part payment, nearest below and above (₹1,247 → ₹1,200 and
+ * ₹1,250; ₹83 → ₹80 and ₹90). The step grows with the amount; a debt already on a round figure
+ * gets nothing.
+ */
+export function roundSuggestions(owed: Cents, currency: string): Cents[] {
+  if (!Number.isFinite(owed) || owed <= 0) return []
+  const unit = 10 ** minorDigits(currency)
+  const major = owed / unit
+  const step = (major < 50 ? 5 : major < 200 ? 10 : major < 2000 ? 50 : major < 20000 ? 500 : 1000) * unit
+  const down = Math.floor(owed / step) * step
+  const up = Math.ceil(owed / step) * step
+  return [...new Set([down, up])].filter((v) => v > 0 && v !== owed)
+}
+
 /** The settlement method a pay option implies. */
 export function methodFor(o: PayOption): string {
   if (o.key === 'bank') return 'Bank transfer'
@@ -147,6 +183,9 @@ export function methodFor(o: PayOption): string {
 }
 
 /** Rough platform check for the UPI hint text (iOS has no app chooser for upi://). */
-export function isIOS(ua = typeof navigator === 'undefined' ? '' : navigator.userAgent, touchPoints = typeof navigator === 'undefined' ? 0 : navigator.maxTouchPoints): boolean {
+export function isIOS(
+  ua = typeof navigator === 'undefined' ? '' : navigator.userAgent,
+  touchPoints = typeof navigator === 'undefined' ? 0 : navigator.maxTouchPoints,
+): boolean {
   return /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && touchPoints > 1)
 }
