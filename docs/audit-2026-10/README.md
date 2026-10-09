@@ -71,7 +71,7 @@ above in four jobs; it registers once the workflow reaches the default branch.
 2. **The + button.** Audit finding: the Create sheet costs taps versus going straight to Add expense (`reports/05-ux-core.md` #3). Kept as the owner designed it (Add expense is now the first, primary tile). Change only if the owner wants it.
 3. **Approval threshold default** is 10,000 minor units (₹100 in INR, "A$100" in the old docs); pick a per-currency default or keep.
 4. **Pay-me pages for signed-out friends** (`/r/{code}`) would expose UPI IDs publicly; not built pending a decision.
-5. **`aiSms` default on** (bank SMS the app cannot read go to Gemini, masked). Consider opt-in.
+5. **`aiSms`: decided, opt-in** (off until the person turns it on; `shared/ai-config.ts`, `shared/capture-filters.ts`).
 6. **Trademark check** for "Split Now" is still pending (pre-existing).
 
 ## Deploy checklist (first deploy after this branch)

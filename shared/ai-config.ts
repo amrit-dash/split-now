@@ -65,7 +65,8 @@ export interface UserAiPrefs {
   aiModel: string
 }
 
-export const DEFAULT_USER_AI: UserAiPrefs = { aiEnabled: true, aiImages: true, aiSms: true, aiSource: 'auto', aiModel: '' }
+// Bank SMS reading by AI is opt-in (owner decision, Oct 2026): off until the person turns it on.
+export const DEFAULT_USER_AI: UserAiPrefs = { aiEnabled: true, aiImages: true, aiSms: false, aiSource: 'auto', aiModel: '' }
 
 const MODEL_RE = /^[a-z0-9][a-z0-9.-]{2,79}$/
 export const validModel = (m: unknown): m is string => typeof m === 'string' && MODEL_RE.test(m)
@@ -94,7 +95,7 @@ export function resolveUserAi(raw: unknown): UserAiPrefs {
   return {
     aiEnabled: r.aiEnabled !== false,
     aiImages: r.aiImages !== false,
-    aiSms: r.aiSms !== false,
+    aiSms: r.aiSms === true,
     aiSource: r.aiSource === 'own' || r.aiSource === 'app' ? r.aiSource : 'auto',
     aiModel: validModel(r.aiModel) ? r.aiModel : '',
   }
