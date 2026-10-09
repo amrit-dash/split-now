@@ -9,13 +9,13 @@ const NOW = new Date('2026-10-07T12:00:00+05:30')
 const TOKEN = 'abcdefghijkmnpqrstuvwxyz2345'
 
 describe('capture prefs', () => {
-  it('defaults keep today’s behaviour', () => {
+  it('defaults: everything on except reading bank SMS with AI (opt-in)', () => {
     expect(resolveCapturePrefs(undefined)).toEqual({
       outsideTrips: false,
       capturePaused: false,
       minAmount: 0,
       ignoreWords: [],
-      aiSms: true,
+      aiSms: false,
       aiSmsMerchant: false,
       aiImages: true,
     })
@@ -26,7 +26,7 @@ describe('capture prefs', () => {
       capturePaused: true,
       minAmount: 10000,
       ignoreWords: ['SIP', 'Rent'],
-      aiSms: true,
+      aiSms: false,
       aiSmsMerchant: false,
       aiImages: true,
     })
@@ -35,7 +35,7 @@ describe('capture prefs', () => {
       capturePaused: false,
       minAmount: 0,
       ignoreWords: [],
-      aiSms: true,
+      aiSms: false,
       aiSmsMerchant: false,
       aiImages: true,
     })
@@ -116,5 +116,13 @@ describe('per-trip pause (captureOff)', () => {
   it('a scoped key for a paused trip matches nothing', () => {
     expect(matchScoped({ ...goa, captureOff: true }, '2026-10-07').kind).toBe('off')
     expect(matchScoped(goa, '2026-10-07').kind).toBe('matched')
+  })
+})
+
+describe('bank SMS AI is opt-in', () => {
+  it('only an explicit true turns it on', () => {
+    expect(resolveCapturePrefs({ aiSms: true }).aiSms).toBe(true)
+    expect(resolveCapturePrefs({ aiSms: 'yes' }).aiSms).toBe(false)
+    expect(resolveCapturePrefs({}).aiSms).toBe(false)
   })
 })

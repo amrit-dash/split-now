@@ -31,7 +31,7 @@ export interface CaptureFilterPrefs {
   aiImages: boolean
 }
 
-export const DEFAULT_FILTERS: CaptureFilterPrefs = { capturePaused: false, minAmount: 0, ignoreWords: [], aiSms: true, aiSmsMerchant: false, aiImages: true }
+export const DEFAULT_FILTERS: CaptureFilterPrefs = { capturePaused: false, minAmount: 0, ignoreWords: [], aiSms: false, aiSmsMerchant: false, aiImages: true }
 
 /** Trim, collapse spaces, drop empties and duplicates (case-insensitive), cap count and length. */
 export function normaliseIgnoreWords(words: unknown): string[] {
@@ -66,7 +66,8 @@ export function resolveFilters(raw: unknown): CaptureFilterPrefs {
     capturePaused: r.capturePaused === true,
     minAmount: normaliseMinAmount(r.minAmount),
     ignoreWords: normaliseIgnoreWords(r.ignoreWords),
-    aiSms: r.aiSms !== false,
+    // Opt-in: only an explicit true sends unreadable bank SMS to Gemini.
+    aiSms: r.aiSms === true,
     aiSmsMerchant: r.aiSmsMerchant === true,
     aiImages: r.aiImages !== false,
   }
