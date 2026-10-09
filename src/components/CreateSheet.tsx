@@ -39,16 +39,16 @@ export function CreateSheet({ open, onClose, groupId }: { open: boolean; onClose
         type="button"
         onClick={() => go(`/add${q}`)}
         data-testid="create-expense"
-        className="flex w-full items-center gap-3 accent-live rounded-3xl bg-gradient-to-r from-brand-600 to-duo-600 p-4 text-left text-white shadow-lg shadow-brand-600/25 transition active:scale-[0.98]"
+        className="flex w-full items-center gap-3 accent-live rounded-3xl bg-gradient-to-r from-fill to-fill-to p-4 text-left text-on-fill shadow-lg shadow-fill/25 transition active:scale-[0.98]"
       >
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15" aria-hidden>
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-on-fill/15" aria-hidden>
           <Plus size={26} strokeWidth={2.6} />
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-lg font-bold">Add expense</span>
-          <span className="block text-sm text-white/90">What you paid, and how to split it</span>
+          <span className="block text-sm text-on-fill/90">What you paid, and how to split it</span>
         </span>
-        <ChevronRight size={20} className="shrink-0 text-white/80" aria-hidden />
+        <ChevronRight size={20} className="shrink-0 text-on-fill/80" aria-hidden />
       </button>
       <div className="mt-3 grid grid-cols-2 gap-2">
         {liveTables && (

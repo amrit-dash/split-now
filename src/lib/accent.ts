@@ -7,15 +7,19 @@
  * Seven presets. Emerald and Rose are not offered because they are the owed / owe colours
  * (money direction would stop reading). Lime is a yellow-green with a petrol-cyan partner, kept
  * well apart from the emerald of "you are owed"; Gold and Lime take their deep 500+ steps so
- * white text still reads. A test in accent.test.ts checks every preset's brand-600 and duo-600
- * against white.
+ * white text still reads. Neon fills with a highlighter lime and aqua and puts dark ink on them
+ * (the --color-fill / --color-on-fill tokens in index.css). A test in accent.test.ts checks every
+ * preset's on-fill colour against its fill and fill-to, and its brand-600 against white.
  */
-export type AccentId = 'violet' | 'ocean' | 'indigo' | 'berry' | 'lime' | 'gold' | 'graphite'
+export type AccentId = 'violet' | 'ocean' | 'neon' | 'berry' | 'lime' | 'gold' | 'graphite'
 
 export interface AccentPreset {
   id: AccentId
   label: string
-  /** Swatch colours: brand-600 and duo-500 of the preset (hex copies of the CSS). */
+  /**
+   * Swatch colours (hex copies of the CSS): the fill, and duo-500 as its partner, or fill-to for a
+   * preset with its own fills (Neon), so the swatch shows the highlighter rather than the text green.
+   */
   from: string
   to: string
   /** brand-700, used for <meta name="theme-color"> in light mode. */
@@ -25,7 +29,7 @@ export interface AccentPreset {
 export const ACCENTS: readonly AccentPreset[] = [
   { id: 'violet', label: 'Violet', from: '#7c3aed', to: '#e12afb', meta: '#6d28d9' },
   { id: 'ocean', label: 'Ocean', from: '#155dfc', to: '#0092b8', meta: '#1447e6' },
-  { id: 'indigo', label: 'Indigo', from: '#4f39f6', to: '#0084d1', meta: '#432dd7' },
+  { id: 'neon', label: 'Neon', from: '#c6ff00', to: '#3df4ef', meta: '#426400' },
   { id: 'berry', label: 'Berry', from: '#b32689', to: '#009698', meta: '#97176e' },
   { id: 'lime', label: 'Lime', from: '#4d7800', to: '#0095ae', meta: '#426400' },
   { id: 'gold', label: 'Gold', from: '#936500', to: '#de8800', meta: '#774f00' },
@@ -40,10 +44,11 @@ export const DARK_THEME_COLOR = '#0b0a14'
 
 /**
  * Retired presets that have a close successor: the orange Saffron and the old Amber both become
- * Gold, the nearest warm look. Other retired ids (emerald, rose) fall back to the default.
+ * Gold, the nearest warm look, and Indigo (one blue too many) becomes Ocean. Other retired ids
+ * (emerald, rose) fall back to the default.
  * index.html repeats this map for the first paint.
  */
-export const RETIRED_ACCENTS: Readonly<Record<string, AccentId>> = { saffron: 'gold', amber: 'gold' }
+export const RETIRED_ACCENTS: Readonly<Record<string, AccentId>> = { saffron: 'gold', amber: 'gold', indigo: 'ocean' }
 
 export function accentPreset(id: string | null | undefined): AccentPreset {
   const wanted = (id && Object.hasOwn(RETIRED_ACCENTS, id) ? RETIRED_ACCENTS[id] : id) ?? DEFAULT_ACCENT

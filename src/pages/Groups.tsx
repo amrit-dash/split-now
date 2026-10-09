@@ -28,7 +28,7 @@ export default function Groups() {
           </Link>
           <Link
             to="/groups/new"
-            className="accent-live flex h-11 w-11 items-center justify-center rounded-full bg-brand-600 text-white"
+            className="accent-live flex h-11 w-11 items-center justify-center rounded-full bg-fill text-on-fill"
             aria-label="New group"
             data-testid="groups-new"
           >

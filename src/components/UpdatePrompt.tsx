@@ -64,8 +64,8 @@ export function UpdatePrompt() {
       role="status"
       data-testid="update-banner"
     >
-      <div className="flex items-center gap-2.5 accent-live rounded-3xl bg-gradient-to-r from-brand-600 to-duo-600 p-2 pl-3 text-white shadow-xl shadow-brand-900/30 ring-1 ring-white/20">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl bg-white/15">
+      <div className="flex items-center gap-2.5 accent-live rounded-3xl bg-gradient-to-r from-fill to-fill-to p-2 pl-3 text-on-fill shadow-xl shadow-brand-900/30 ring-1 ring-on-fill/20">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl bg-on-fill/15">
           <Sparkles size={16} aria-hidden />
         </span>
         <div className="min-w-0 flex-1 truncate text-sm font-bold" title={`A new version of ${APP_NAME} is ready`}>
@@ -73,7 +73,7 @@ export function UpdatePrompt() {
         </div>
         <button
           type="button"
-          className="shrink-0 rounded-2xl px-2 py-2 text-sm font-semibold text-white/85"
+          className="shrink-0 rounded-2xl px-2 py-2 text-sm font-semibold text-on-fill/85"
           onClick={() => setNeedRefresh(false)}
           disabled={updating}
         >

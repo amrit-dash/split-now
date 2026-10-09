@@ -253,7 +253,7 @@ export function QuickAdd({
           type="submit"
           disabled={busy || !text.trim()}
           aria-label={fresh ? 'Create the group, then open the expense form' : 'Open the expense form with this'}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white disabled:opacity-40"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-fill text-on-fill disabled:opacity-40"
           data-testid={`${testId}-go`}
         >
           {busy ? <Loader2 size={20} className="animate-spin" aria-hidden /> : <ArrowRight size={20} aria-hidden />}

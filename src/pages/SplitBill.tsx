@@ -206,7 +206,7 @@ export default function SplitBill() {
           </div>
         ) : (
           <div className="flex items-center gap-4 p-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-duo-500 text-2xl text-white shadow-lg">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-fill-500 to-fill-to-500 text-2xl text-on-fill shadow-lg">
               🧾
             </div>
             <div className="min-w-0">

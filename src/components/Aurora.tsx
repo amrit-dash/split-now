@@ -219,21 +219,21 @@ export function Aurora({ size = 'card' }: { size?: 'card' | 'fab' }) {
       <div
         ref={box}
         aria-hidden
-        className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit] bg-gradient-to-br from-brand-500 via-brand-600 to-duo-600"
+        className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit] bg-gradient-to-br from-fill-500 via-fill to-fill-to"
       >
-        <div ref={ref(0)} className="absolute -left-1/2 -top-1/2 h-[140%] w-[140%]" style={bloom(mix('--color-brand-400', 85))} />
-        <div ref={ref(1)} className="absolute -bottom-1/2 -right-1/2 h-[140%] w-[140%]" style={bloom(mix('--color-brand-800', 85))} />
-        <div ref={ref(2)} className="absolute -left-[10%] top-[10%] h-full w-full" style={bloom(mix('--color-duo-500', 80))} />
+        <div ref={ref(0)} className="absolute -left-1/2 -top-1/2 h-[140%] w-[140%]" style={bloom(mix('--color-fill-400', 85))} />
+        <div ref={ref(1)} className="absolute -bottom-1/2 -right-1/2 h-[140%] w-[140%]" style={bloom(mix('--color-fill-800', 85))} />
+        <div ref={ref(2)} className="absolute -left-[10%] top-[10%] h-full w-full" style={bloom(mix('--color-fill-to-500', 80))} />
       </div>
     )
   }
   return (
-    <div ref={box} aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden bg-gradient-to-br from-brand-700 via-brand-600 to-duo-600">
+    <div ref={box} aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden bg-gradient-to-br from-fill-700 via-fill to-fill-to">
       {/* smoke: lighter and darker shades blooming into each other */}
-      <div ref={ref(0)} className="absolute -left-[20%] -top-[35%] h-[110%] w-[75%] blur-xl" style={bloom(mix('--color-brand-300', 65))} />
-      <div ref={ref(1)} className="absolute -right-[20%] -top-[30%] h-[120%] w-[80%] blur-xl" style={bloom(mix('--color-brand-900', 95))} />
-      <div ref={ref(2)} className="absolute -bottom-[40%] left-[10%] h-[110%] w-[80%] blur-xl" style={bloom(mix('--color-duo-500', 70))} />
-      <div ref={ref(3)} className="absolute -bottom-[30%] -right-[10%] h-[90%] w-[55%] blur-xl" style={bloom(mix('--color-brand-900', 70))} />
+      <div ref={ref(0)} className="absolute -left-[20%] -top-[35%] h-[110%] w-[75%] blur-xl" style={bloom(mix('--color-fill-300', 65))} />
+      <div ref={ref(1)} className="absolute -right-[20%] -top-[30%] h-[120%] w-[80%] blur-xl" style={bloom(mix('--color-fill-900', 95))} />
+      <div ref={ref(2)} className="absolute -bottom-[40%] left-[10%] h-[110%] w-[80%] blur-xl" style={bloom(mix('--color-fill-to-500', 70))} />
+      <div ref={ref(3)} className="absolute -bottom-[30%] -right-[10%] h-[90%] w-[55%] blur-xl" style={bloom(mix('--color-fill-900', 70))} />
       {/* bubbles, each roaming (and bouncing) inside a box around its own spot */}
       <div ref={ref(4)} className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10" />
       <div ref={ref(5)} className="absolute -bottom-16 right-10 h-32 w-32 rounded-full bg-white/[0.08]" />

@@ -116,7 +116,7 @@ export default function Join() {
             className="flex min-h-14 w-full items-center gap-3 px-4 py-3.5 text-left"
           >
             <span
-              className={`flex h-6 w-6 items-center justify-center rounded-full border-2 ${choice === id ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-500 dark:border-slate-400'}`}
+              className={`flex h-6 w-6 items-center justify-center rounded-full border-2 ${choice === id ? 'border-brand-600 bg-fill text-on-fill' : 'border-slate-500 dark:border-slate-400'}`}
               aria-hidden
             >
               {choice === id && <Check size={14} strokeWidth={3} />}

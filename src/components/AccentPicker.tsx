@@ -70,7 +70,7 @@ export function AccentPicker({ onChange }: { onChange?: () => void } = {}) {
               >
                 <span
                   aria-hidden
-                  className={`flex size-[30px] shrink-0 items-center justify-center rounded-full text-white shadow-sm min-[360px]:size-9 sm:size-10 ${on ? 'ring-2 ring-slate-900 ring-offset-2 ring-offset-white dark:ring-white dark:ring-offset-ink-900' : ''}`}
+                  className={`flex size-[30px] shrink-0 items-center justify-center rounded-full text-on-fill shadow-sm min-[360px]:size-9 sm:size-10 ${on ? 'ring-2 ring-slate-900 ring-offset-2 ring-offset-white dark:ring-white dark:ring-offset-ink-900' : ''}`}
                   style={{ background: duo ? `linear-gradient(135deg, ${a.from}, ${a.to})` : a.from }}
                 >
                   {on && <Check size={16} strokeWidth={3} className="drop-shadow-sm" />}

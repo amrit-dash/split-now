@@ -56,7 +56,7 @@ export function FxLine({
             autoFocus
           />
           <span className="shrink-0 font-semibold">{to}</span>
-          <button type="submit" className="min-h-11 rounded-xl bg-brand-600 px-3 py-2 font-bold text-white">
+          <button type="submit" className="min-h-11 rounded-xl bg-fill px-3 py-2 font-bold text-on-fill">
             Use
           </button>
           {fx && (

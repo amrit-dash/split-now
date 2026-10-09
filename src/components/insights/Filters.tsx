@@ -88,7 +88,7 @@ export function FiltersPanel({
       icon={<SlidersHorizontal size={20} />}
       title={
         <span className="flex items-center gap-2">
-          Filters{n > 0 && <span className="rounded-full bg-brand-600 px-1.5 text-[11px] font-bold leading-[18px] text-white">{n}</span>}
+          Filters{n > 0 && <span className="rounded-full bg-fill px-1.5 text-[11px] font-bold leading-[18px] text-on-fill">{n}</span>}
         </span>
       }
       summary={filterSummary(filters, groupIds, groups)}

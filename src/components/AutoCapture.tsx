@@ -339,10 +339,10 @@ function OutsideTripsChoice({ on, onChange }: { on: boolean; onChange: (v: boole
             className={`flex w-full items-start gap-3 rounded-xl p-2.5 text-left transition ${on === o.v ? 'bg-brand-50 ring-2 ring-brand-500 dark:bg-brand-900/20' : ''}`}
           >
             <span
-              className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${on === o.v ? 'border-brand-600 bg-brand-600' : 'border-slate-400 dark:border-ink-700'}`}
+              className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${on === o.v ? 'border-brand-600 bg-fill' : 'border-slate-400 dark:border-ink-700'}`}
               aria-hidden
             >
-              {on === o.v && <span className="h-2 w-2 rounded-full bg-white" />}
+              {on === o.v && <span className="h-2 w-2 rounded-full bg-on-fill" />}
             </span>
             <span className="min-w-0">
               <span className="block text-sm font-semibold">{o.title}</span>

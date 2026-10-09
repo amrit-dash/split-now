@@ -28,7 +28,7 @@ export function GuestPay({ options, amount, currency }: { options: PayOption[]; 
       {upi?.apps && (
         <div className="grid grid-cols-3 gap-2">
           {upi.apps.map((a) => (
-            <a key={a.id} className="btn btn-sm bg-brand-600 text-white" href={a.href} data-testid={`upi-${a.id}`}>
+            <a key={a.id} className="btn btn-sm bg-fill text-on-fill" href={a.href} data-testid={`upi-${a.id}`}>
               {a.label}
             </a>
           ))}

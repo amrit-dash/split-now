@@ -84,7 +84,7 @@ export function ConfirmSheet({
         <button
           type="button"
           data-testid="confirm-ok"
-          className={`btn flex-1 text-white ${tone === 'danger' ? 'bg-rose-600 shadow-lg shadow-rose-600/25' : 'bg-brand-600 shadow-lg shadow-brand-600/25'}`}
+          className={`btn flex-1 ${tone === 'danger' ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/25' : 'bg-fill text-on-fill shadow-lg shadow-fill/25'}`}
           onClick={onConfirm}
           disabled={busy}
         >

@@ -375,7 +375,7 @@ export function ExpenseEditor({
         <button
           type="submit"
           disabled={busy}
-          className="accent-live inline-flex min-h-10 shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-brand-600 px-4 py-2 text-sm font-bold leading-5 text-white disabled:opacity-50"
+          className="accent-live inline-flex min-h-10 shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-fill px-4 py-2 text-sm font-bold leading-5 text-on-fill disabled:opacity-50"
           data-testid="expense-save"
         >
           <Check size={16} strokeWidth={2.5} aria-hidden />

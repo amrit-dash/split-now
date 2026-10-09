@@ -13,7 +13,7 @@ export function SupportSheet({ open, onClose }: { open: boolean; onClose: () => 
     <Sheet open={open} onClose={onClose} title="Support the developer" testId="support-sheet" describedBy="support-why">
       <div className="flex flex-col items-center text-center">
         <span
-          className="flex h-16 w-16 items-center justify-center rounded-[1.4rem] bg-gradient-to-br from-brand-500 to-duo-500 text-white shadow-lg shadow-brand-600/30"
+          className="flex h-16 w-16 items-center justify-center rounded-[1.4rem] bg-gradient-to-br from-fill-500 to-fill-to-500 text-on-fill shadow-lg shadow-fill/30"
           aria-hidden
         >
           <HandHeart size={30} strokeWidth={2} />

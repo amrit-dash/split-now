@@ -565,7 +565,7 @@ function ScopeOption({
         <span className="text-muted block text-xs">{detail}</span>
       </span>
       <span
-        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${selected ? 'bg-brand-600 text-white' : 'ring-1 ring-slate-400 dark:ring-ink-600'}`}
+        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${selected ? 'bg-fill text-on-fill' : 'ring-1 ring-slate-400 dark:ring-ink-600'}`}
         aria-hidden
       >
         {selected && <Check size={13} />}

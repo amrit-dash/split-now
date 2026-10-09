@@ -42,7 +42,7 @@ export function IconPickerField({
         >
           {emoji}
           <span
-            className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-brand-600 text-white shadow ring-2 ring-white dark:ring-ink-900"
+            className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-fill text-on-fill shadow ring-2 ring-white dark:ring-ink-900"
             aria-hidden
           >
             <Pencil size={10} strokeWidth={3} />
