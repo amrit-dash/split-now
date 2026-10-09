@@ -210,6 +210,36 @@ describe('approval on edit', () => {
   })
 })
 
+describe('edit auto-approve', () => {
+  const g = { ...group, editAutoApprove: 1000 } // A$100 threshold, edits within A$10 keep approval
+  const pending = exp({ requiresApproval: true, approvals: { ub: true } })
+  const by = (amount: number) => exp({ amount, paidBy: { a: amount }, splits: { a: amount - 20000, b: 10000, c: 10000 } })
+  it('a change within the limit keeps the mark and every approval', () => {
+    const out = prepareExpenseSave(pending, by(30800), g, 'ua')
+    expect(out.requiresApproval).toBe(true)
+    expect(out.approvals).toEqual({ ub: true })
+    const p = expenseEditPatch(pending, out, { keepApprovals: true })
+    expect(p.approvals).toBeUndefined()
+    expect(p.unset).not.toContain('requiresApproval')
+  })
+  it('a bigger change asks again: approvals reset to the editor’s own', () => {
+    const out = prepareExpenseSave(pending, by(31001), g, 'ua')
+    expect(out.requiresApproval).toBe(true)
+    expect(out.approvals).toBeUndefined()
+    expect(expenseEditPatch(pending, out).approvals).toBeNull()
+  })
+  it('with auto-approve off any amount change asks again', () => {
+    const out = prepareExpenseSave(pending, by(30100), group, 'ub')
+    expect(out.requiresApproval).toBe(true)
+    expect(out.approvals).toEqual({ ub: true })
+  })
+  it('a still-pending expense stays pending after a small edit', () => {
+    const out = prepareExpenseSave(exp({ requiresApproval: true }), by(29500), g, 'ua')
+    expect(out.requiresApproval).toBe(true)
+    expect(isPending(out, g)).toBe(true)
+  })
+})
+
 describe('expenseEditPatch (more)', () => {
   const prev = exp({ notes: 'old', approvals: { ub: true, ua: true }, requiresApproval: true })
   it('is empty when nothing changed', () => {

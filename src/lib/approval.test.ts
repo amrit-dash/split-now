@@ -5,6 +5,10 @@ import {
   approvalDefaultInCurrency,
   approvalDefaultOf,
   approvalSummary,
+  defaultEditAutoApprove,
+  editApprovalOutcome,
+  editAutoApproved,
+  newGroupEditAutoApprove,
   convertThreshold,
   defaultThreshold,
   isApprovalDefault,
@@ -134,5 +138,60 @@ describe('approvalSummary', () => {
     expect(approvalSummary({ on: true, amount: 2_050, currency: 'USD' })).toMatch(/^Approval over .*20\.50$/)
     expect(approvalSummary({ on: false, amount: 200_000, currency: 'INR' })).toBeNull()
     expect(approvalSummary(undefined)).toBeNull()
+  })
+})
+
+describe('edit auto-approve amounts', () => {
+  it('defaults to a twentieth of the approval default, rounded', () => {
+    expect(defaultEditAutoApprove('INR')).toBe(10_000) // ₹100
+    expect(defaultEditAutoApprove('USD')).toBe(500) // $5
+    expect(defaultEditAutoApprove('JPY')).toBe(500) // ¥500
+    expect(defaultEditAutoApprove('KES')).toBe(500)
+  })
+  it('converts like the approval amount, with its own default when there is no rate', () => {
+    const s = { on: true, amount: 10_000, currency: 'INR' }
+    expect(approvalDefaultInCurrency(s, 'USD', 0.012, defaultEditAutoApprove)).toEqual({ on: true, amount: 100, currency: 'USD' }) // ₹100 → $1.20 → $1
+    expect(approvalDefaultInCurrency(s, 'JPY', null, defaultEditAutoApprove)).toEqual({ on: true, amount: 500, currency: 'JPY' })
+    expect(approvalDefaultOf(undefined, 'INR', defaultEditAutoApprove)).toEqual({ on: false, amount: 10_000, currency: 'INR' })
+  })
+  it('prefills a new group', () => {
+    expect(newGroupEditAutoApprove(undefined, 'INR')).toEqual({ on: false, amount: 10_000 })
+    expect(newGroupEditAutoApprove({ on: true, amount: 20_000, currency: 'INR' }, 'INR')).toEqual({ on: true, amount: 20_000 })
+    // ₹200 at 0.012 → $2.40 → $2
+    expect(newGroupEditAutoApprove({ on: true, amount: 20_000, currency: 'INR' }, 'USD', { fromSetting: 0.012 })).toEqual({ on: true, amount: 200 })
+    expect(newGroupEditAutoApprove({ on: true, amount: 20_000, currency: 'INR' }, 'USD')).toEqual({ on: true, amount: 500 })
+  })
+  it('the hub summary mentions edits only when approval is on', () => {
+    const a = { on: true, amount: 200_000, currency: 'INR' }
+    const e = { on: true, amount: 10_000, currency: 'INR' }
+    expect(approvalSummary(a, e)).toBe('Approval over ₹2,000, edits within ₹100 pass')
+    expect(approvalSummary(a, { ...e, on: false })).toBe('Approval over ₹2,000')
+    expect(approvalSummary({ ...a, on: false }, e)).toBeNull()
+  })
+})
+
+describe('editApprovalOutcome', () => {
+  // ₹2,000 threshold (INR default), edits within ₹100 keep approval
+  const group = { requireApproval: true, currency: 'INR', editAutoApprove: 10_000 }
+  const marked = { amount: 500_000, requiresApproval: true }
+  it('clears when the new amount is at or below the threshold, or approval is off', () => {
+    expect(editApprovalOutcome({ group, before: marked, after: { amount: 200_000 } })).toBe('clear')
+    expect(editApprovalOutcome({ group, before: marked, after: { amount: 150_000 } })).toBe('clear')
+    expect(editApprovalOutcome({ group: { ...group, requireApproval: false }, before: marked, after: { amount: 900_000 } })).toBe('clear')
+  })
+  it('keeps the state when the amount did not change', () => {
+    expect(editApprovalOutcome({ group, before: marked, after: { amount: 500_000 } })).toBe('keep')
+    expect(editApprovalOutcome({ group: { ...group, editAutoApprove: undefined }, before: marked, after: { amount: 500_000 } })).toBe('keep')
+  })
+  it('keeps it for a change within edit auto-approve, either way, the limit included', () => {
+    expect(editApprovalOutcome({ group, before: marked, after: { amount: 510_000 } })).toBe('keep')
+    expect(editApprovalOutcome({ group, before: marked, after: { amount: 490_000 } })).toBe('keep')
+    expect(editAutoApproved({ group, before: marked, after: { amount: 510_000 } })).toBe(true)
+    expect(editAutoApproved({ group, before: marked, after: { amount: 500_000 } })).toBe(false)
+  })
+  it('asks again for a bigger change, with auto-approve off, or for an expense never marked', () => {
+    expect(editApprovalOutcome({ group, before: marked, after: { amount: 510_001 } })).toBe('rerequest')
+    expect(editApprovalOutcome({ group: { ...group, editAutoApprove: undefined }, before: marked, after: { amount: 500_100 } })).toBe('rerequest')
+    expect(editApprovalOutcome({ group, before: { amount: 195_000 }, after: { amount: 205_000 } })).toBe('rerequest')
   })
 })

@@ -89,6 +89,54 @@ describe('dropping requiresApproval on edit', () => {
   })
 })
 
+describe('edit auto-approve (group.editAutoApprove)', () => {
+  // A$100 threshold; the stored expense is A$300, marked, approved by alice.
+  beforeEach(() => seed('groups/g1/expenses/e2', { ...big, requiresApproval: true, approvals: { alice: true } }))
+
+  it('within the limit (either way, the limit included) the approvals and the mark may stay', async () => {
+    await seed('groups/g1', { ...group, editAutoApprove: 1000 })
+    await assertSucceeds(updateDoc(exp('bob'), money(31000)))
+    await seed('groups/g1/expenses/e2', { ...big, requiresApproval: true, approvals: { alice: true } })
+    await assertSucceeds(updateDoc(exp('bob'), money(29000)))
+  })
+  it('beyond the limit the approvals must be reset (the editor may keep only their own)', async () => {
+    await seed('groups/g1', { ...group, editAutoApprove: 1000 })
+    await assertFails(updateDoc(exp('bob'), money(31001)))
+    await assertSucceeds(updateDoc(exp('bob'), { ...money(31001), approvals: deleteField() }))
+    await seed('groups/g1/expenses/e2', { ...big, requiresApproval: true, approvals: { alice: true, bob: true } })
+    await assertSucceeds(updateDoc(exp('bob'), { ...money(35000), approvals: { bob: true } }))
+  })
+  it('with edit auto-approve off any amount change must reset the approvals', async () => {
+    await assertFails(updateDoc(exp('bob'), money(30100)))
+    await assertSucceeds(updateDoc(exp('bob'), { ...money(30100), approvals: deleteField() }))
+  })
+  it('within the limit the mark still cannot be dropped above the threshold', async () => {
+    await seed('groups/g1', { ...group, editAutoApprove: 1000 })
+    await assertFails(updateDoc(exp('bob'), { ...money(30500), requiresApproval: deleteField() }))
+  })
+  it('an expense never marked is not covered: crossing the threshold needs the mark', async () => {
+    await seed('groups/g1', { ...group, editAutoApprove: 1000 })
+    await seed('groups/g1/expenses/e3', { ...big, id: 'e3', ...money(9500) })
+    await assertFails(updateDoc(exp('bob', 'e3'), money(10200)))
+    await assertSucceeds(updateDoc(exp('bob', 'e3'), { ...money(10200), requiresApproval: true }))
+  })
+  it('below the threshold the mark may be cleared and the approvals left', async () => {
+    await assertSucceeds(updateDoc(exp('bob'), { ...money(8000), requiresApproval: deleteField() }))
+  })
+  it('a non-money edit leaves the approvals alone', async () => {
+    await assertSucceeds(updateDoc(exp('bob'), { description: 'Hotel (2 nights)' }))
+  })
+  it('only the creator sets editAutoApprove, and it must be a positive whole number', async () => {
+    const g = (uid: string) => doc(db(uid), 'groups/g1')
+    await assertFails(updateDoc(g('bob'), { editAutoApprove: 1000, updatedAt: 2 }))
+    await assertFails(updateDoc(g('alice'), { editAutoApprove: 0, updatedAt: 2 }))
+    await assertFails(updateDoc(g('alice'), { editAutoApprove: 10.5, updatedAt: 2 }))
+    await assertSucceeds(updateDoc(g('alice'), { editAutoApprove: 1000, updatedAt: 2 }))
+    await assertFails(updateDoc(g('bob'), { editAutoApprove: deleteField(), updatedAt: 3 }))
+    await assertSucceeds(updateDoc(g('alice'), { editAutoApprove: deleteField(), updatedAt: 3 }))
+  })
+})
+
 describe('default threshold by currency (no approvalThreshold on the group)', () => {
   const { approvalThreshold: _t, ...noThreshold } = group
   it('INR: ₹2,000', async () => {
@@ -133,6 +181,12 @@ describe('users/{uid}.approvalDefault', () => {
     await assertFails(setDoc(me(), { ...profile, approvalDefault: { on: true, amount: 12.5, currency: 'INR' } }))
     await assertFails(setDoc(me(), { ...profile, approvalDefault: { on: true, amount: 100000000001, currency: 'INR' } }))
     await assertFails(setDoc(me(), { ...profile, approvalDefault: { on: true, amount: 200000, currency: 'RUPEE' } }))
+  })
+  it('editAutoApproveDefault has the same shape and checks', async () => {
+    await assertSucceeds(setDoc(me(), { ...profile, editAutoApproveDefault: { on: true, amount: 10000, currency: 'INR' } }))
+    await assertFails(setDoc(me(), { ...profile, editAutoApproveDefault: { on: true, amount: 0, currency: 'INR' } }))
+    await assertFails(setDoc(me(), { ...profile, editAutoApproveDefault: { on: true, amount: 10000 } }))
+    await assertFails(setDoc(me(), { ...profile, editAutoApproveDefault: { on: 1, amount: 10000, currency: 'INR' } }))
   })
   it('only on the user’s own profile', async () => {
     await assertFails(setDoc(doc(db('alice'), 'users/bob'), { ...profile, approvalDefault: { on: true, amount: 200000, currency: 'INR' } }))

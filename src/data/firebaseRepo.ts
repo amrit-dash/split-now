@@ -67,6 +67,7 @@ import {
   settlementActivity,
   type NewActivity,
 } from '@/lib/activity'
+import { editAutoApproved } from '@/lib/approval'
 import { expenseEditPatch, prepareExpenseSave, prepareImportedSettlement, prepareOccurrence } from '@/lib/trust'
 import {
   activityCtxFor,
@@ -701,10 +702,12 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       // landed on the server after this device's copy).
       const [prev, group] = await Promise.all([latest<Expense>(r), cachedGroup(e.groupId)])
       const next = prepareExpenseSave(prev, { ...e, receiptPath: e.receiptPath ?? storagePathFromUrl(e.receiptUrl) }, group, me())
+      // An amount change within the group's edit auto-approve keeps everyone's approvals (and says so in the activity).
+      const autoApproved = !!prev && !!group && editAutoApproved({ group, before: prev, after: next })
       const batch = writeBatch(db)
       if (!prev) batch.set(r, next)
       else {
-        const patch = expenseEditPatch(prev, next)
+        const patch = expenseEditPatch(prev, next, { keepApprovals: autoApproved })
         const data: Record<string, unknown> = { ...patch.set, updatedAt: next.updatedAt }
         for (const k of patch.unset) data[k] = deleteField()
         // The rules only let an edit remove approvals (never add or change), which is all this does.
@@ -712,7 +715,11 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         batch.update(r, data)
       }
       batch.update(groupRef(e.groupId), { updatedAt: Date.now() })
-      log(batch, e.groupId, expenseSaveActivity(prev, next, await actCtx(e.groupId, next, group)))
+      log(
+        batch,
+        e.groupId,
+        expenseSaveActivity(prev, next, await actCtx(e.groupId, next, group), { autoApprovedWithin: autoApproved ? group?.editAutoApprove : undefined }),
+      )
       fire(batch, `Saving “${e.description}”`)
     },
     async deleteExpense(groupId, id) {

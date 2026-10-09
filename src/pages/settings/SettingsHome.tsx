@@ -47,7 +47,12 @@ export default function SettingsHome() {
           icon={<Palette size={19} />}
           title="Preferences"
           testId="settings-preferences"
-          summary={[profile.currency, approvalSummary(profile.approvalDefault), THEME_LABEL[getTheme()], accentPreset(getAccent()).label]
+          summary={[
+            profile.currency,
+            approvalSummary(profile.approvalDefault, profile.editAutoApproveDefault),
+            THEME_LABEL[getTheme()],
+            accentPreset(getAccent()).label,
+          ]
             .filter(Boolean)
             .join(' · ')}
         />

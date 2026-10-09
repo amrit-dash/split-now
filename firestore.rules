@@ -47,17 +47,21 @@ service cloud.firestore {
     // What co-members may see (name + payment handles) is copied by the owner into
     // groups/{groupId}/profiles/{uid}, readable only by that group's members.
     match /users/{userId} {
-      // "Ask for approval on big expenses" (Settings → Preferences): the default for groups
-      // this user creates, { on, amount (minor units of currency), currency }.
+      // "Ask for approval on big expenses" (approvalDefault) and "Approve small edits
+      // automatically" (editAutoApproveDefault), Settings → Preferences: the defaults for groups
+      // this user creates, each { on, amount (minor units of currency), currency }.
+      function validAmountSetting(p, field) {
+        return !(field in p) || (
+          p[field] is map
+          && p[field].keys().hasAll(['on', 'amount', 'currency'])
+          && p[field].keys().hasOnly(['on', 'amount', 'currency'])
+          && p[field].on is bool
+          && p[field].amount is int
+          && p[field].amount > 0 && p[field].amount <= 100000000000
+          && p[field].currency is string && p[field].currency.size() == 3);
+      }
       function validApprovalDefault(p) {
-        return !('approvalDefault' in p) || (
-          p.approvalDefault is map
-          && p.approvalDefault.keys().hasAll(['on', 'amount', 'currency'])
-          && p.approvalDefault.keys().hasOnly(['on', 'amount', 'currency'])
-          && p.approvalDefault.on is bool
-          && p.approvalDefault.amount is int
-          && p.approvalDefault.amount > 0 && p.approvalDefault.amount <= 100000000000
-          && p.approvalDefault.currency is string && p.approvalDefault.currency.size() == 3);
+        return validAmountSetting(p, 'approvalDefault') && validAmountSetting(p, 'editAutoApproveDefault');
       }
 
       allow get: if isUser() && uid() == userId;
@@ -309,7 +313,7 @@ service cloud.firestore {
       // further checked by isJoining / validMembershipChange; policy fields by creatorPolicy.
       function validGroupShape(g) {
         return g.keys().hasOnly(['id', 'name', 'emoji', 'type', 'currency', 'budget', 'startDate', 'endDate', 'simplify',
-            'requireApproval', 'approvalThreshold', 'captureOff', 'archived', 'memberUids', 'members', 'inviteCode',
+            'requireApproval', 'approvalThreshold', 'editAutoApprove', 'captureOff', 'archived', 'memberUids', 'members', 'inviteCode',
             'createdBy', 'createdAt', 'updatedAt', 'joinCode', 'joinMemberId', 'memberOpId'])
           && g.name is string && g.name.size() > 0 && g.name.size() <= 80
           && g.emoji is string && g.emoji.size() <= 16
@@ -323,6 +327,7 @@ service cloud.firestore {
           && (!('simplify' in g) || g.simplify is bool)
           && (!('requireApproval' in g) || g.requireApproval is bool)
           && (!('approvalThreshold' in g) || (g.approvalThreshold is int && g.approvalThreshold > 0))
+          && (!('editAutoApprove' in g) || (g.editAutoApprove is int && g.editAutoApprove > 0))
           // "Pause auto-capture for this trip" and "Archive": any member may flip them
           && g.get('captureOff', false) is bool
           && g.get('archived', false) is bool
@@ -336,7 +341,8 @@ service cloud.firestore {
         let a = request.resource.data;
         return b.createdBy == uid()
           || (a.get('requireApproval', false) == b.get('requireApproval', false)
-              && a.get('approvalThreshold', 0) == b.get('approvalThreshold', 0));
+              && a.get('approvalThreshold', 0) == b.get('approvalThreshold', 0)
+              && a.get('editAutoApprove', 0) == b.get('editAutoApprove', 0));
       }
 
       // A non-member may join only by:
@@ -531,6 +537,25 @@ service cloud.firestore {
             && (before.get('requiresApproval', false) != true || after.get('requiresApproval', false) == true
                 || !approvalNeeded(groupDoc(groupId).data, after.amount));
         }
+        // An amount change that still needs approval asks everyone again: approvals are reset to
+        // at most the editor's own. Except when the group has edit auto-approve and the expense
+        // was already marked: a change of at most editAutoApprove (either direction) keeps the
+        // approvals and the mark as they are.
+        function withinEditAutoApprove(g, before, after) {
+          return 'editAutoApprove' in g
+            && before.get('requiresApproval', false) == true
+            && after.amount - before.amount <= g.editAutoApprove
+            && before.amount - after.amount <= g.editAutoApprove;
+        }
+        function approvalsResetOk() {
+          let g = groupDoc(groupId).data;
+          let before = resource.data;
+          let after = request.resource.data;
+          return after.amount == before.amount
+            || !approvalNeeded(g, after.amount)
+            || withinEditAutoApprove(g, before, after)
+            || after.get('approvals', {}).keys().hasOnly([uid()]);
+        }
         // Flag / resolve / approve: only the caller's own key in `dispute` and `approvals`,
         // and nothing else in the document.
         function ownKeyOnly(field) {
@@ -559,7 +584,7 @@ service cloud.firestore {
         allow read: if isGroupMember(groupId);
         allow create: if isGroupMember(groupId) && writesOpen() && validExpense() && noTrustFieldsOnCreate() && approvalFlagOk();
         allow update: if isGroupMember(groupId) && writesOpen()
-          && ((validExpense() && trustFieldsKept() && approvalFlagOk()) || isTrashChange() || isFlagOrApproval());
+          && ((validExpense() && trustFieldsKept() && approvalFlagOk() && approvalsResetOk()) || isTrashChange() || isFlagOrApproval());
         allow delete: if isGroupMember(groupId) && writesOpen() && canPurge();
 
         // Comment thread on an expense. Comments are immutable; only the author can

@@ -1,5 +1,5 @@
 import type { Expense, ExpenseFlag, Group, MemberId, Settlement } from '@/types'
-import { defaultThreshold } from './approval'
+import { type ApprovalGroup, approvalNeeded, editApprovalOutcome, groupThreshold } from './approval'
 
 /**
  * Trust features that aren't the activity log: soft delete (trash), disputes (flags) and
@@ -31,14 +31,12 @@ export function canPurge(x: Trashable, group: Pick<Group, 'createdBy'>, uid: str
  * approvalThresholdOf carries the same table). No rate here: an off-table currency gets the flat
  * fallback, as in the rules.
  */
-export const thresholdOf = (g: Pick<Group, 'approvalThreshold'> & Partial<Pick<Group, 'currency'>>) => g.approvalThreshold ?? defaultThreshold(g.currency ?? '')
+export const thresholdOf = groupThreshold
 
-type ApprovalPolicy = Pick<Group, 'requireApproval' | 'approvalThreshold'> & Partial<Pick<Group, 'currency'>>
+type ApprovalPolicy = ApprovalGroup
 
 /** Whether an expense of this amount must be approved in this group (amount strictly above the threshold). */
-export function needsApproval(g: ApprovalPolicy, amount: number): boolean {
-  return !!g.requireApproval && amount > thresholdOf(g)
-}
+export const needsApproval = approvalNeeded
 
 /** Charged members (with an account, other than the author) who still have to approve. */
 export function pendingApprovers(e: Pick<Expense, 'requiresApproval' | 'approvals' | 'splits' | 'createdBy'>, g: Pick<Group, 'members'>): MemberId[] {
@@ -84,11 +82,11 @@ const sortKeys = (r: Record<string, number>) => Object.fromEntries(Object.entrie
  * The document to write when saving an expense from the form. Trust fields come from the
  * stored copy (`prev`), never from the form, so an edit can't wipe someone's flag:
  *  - dispute and trash fields are kept as they are,
- *  - approvals survive unless the money changed (then only the editor's own stays),
- *  - requiresApproval is set on create (or when the amount changes) above the threshold, and
- *    kept on other edits while the amount is still above it. An edit that brings the amount
- *    down to the threshold or below, or one made after the group turned approval off, clears
- *    it, so the expense counts at once (the rules allow exactly that).
+ *  - requiresApproval is set on create above the threshold; on an edit it follows
+ *    editApprovalOutcome (src/lib/approval.ts): 'clear' drops it (at or below the threshold, or
+ *    approval off: the expense counts at once), 'keep' leaves it as it was, 'rerequest' sets it,
+ *  - approvals survive unless the money changed (then only the editor's own stays), except
+ *    after an amount change the group's edit auto-approve let through ('keep'): all stay,
  *  - `g` undefined means the group isn't known on this device yet: nothing is cleared then,
  *    since the rules would refuse dropping the mark if the group still asks for it.
  */
@@ -100,12 +98,15 @@ export function prepareExpenseSave(prev: Expense | undefined, next: Expense, g: 
     out.deletedAt = prev.deletedAt
     out.deletedBy = prev.deletedBy
   }
-  const amountChanged = !prev || prev.amount !== next.amount
+  const outcome = g && prev ? editApprovalOutcome({ group: g, before: prev, after: next }) : undefined
   if (!g) {
     if (prev?.requiresApproval) out.requiresApproval = true
-  } else if (needsApproval(g, next.amount) && (amountChanged || prev?.requiresApproval)) out.requiresApproval = true
+  } else if (!prev) {
+    if (needsApproval(g, next.amount)) out.requiresApproval = true
+  } else if (outcome === 'rerequest' || (outcome === 'keep' && prev.requiresApproval)) out.requiresApproval = true
   if (prev?.approvals) {
-    const kept = prev && moneyChanged(prev, next) ? (prev.approvals[editorUid] ? { [editorUid]: true as const } : undefined) : prev.approvals
+    const autoApproved = outcome === 'keep' && prev.amount !== next.amount
+    const kept = moneyChanged(prev, next) && !autoApproved ? (prev.approvals[editorUid] ? { [editorUid]: true as const } : undefined) : prev.approvals
     if (kept && Object.keys(kept).length) out.approvals = kept
   }
   return out
@@ -123,7 +124,8 @@ export interface ExpenseEditPatch {
    * What to write to `approvals`: untouched (undefined) when the money is the same, so an
    * approval that landed on the server after `prev` was cached survives; the editor's own
    * approval (or nothing) when the money changed, which also clears approvals this device
-   * hasn't seen yet, as they were given for the old numbers.
+   * hasn't seen yet, as they were given for the old numbers. Untouched too after an amount
+   * change edit auto-approve let through (`keepApprovals`).
    */
   approvals?: Record<string, true> | null
 }
@@ -136,7 +138,7 @@ const sameValue = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON
  * with stale copies. `requiresApproval` is added or removed like any other field: prepareExpenseSave
  * only drops it when the amount is no longer above the group's threshold, which the rules check.
  */
-export function expenseEditPatch(prev: Expense, next: Expense): ExpenseEditPatch {
+export function expenseEditPatch(prev: Expense, next: Expense, opts: { keepApprovals?: boolean } = {}): ExpenseEditPatch {
   const skip = new Set<string>([...TRUST_FIELDS, 'id'])
   const set: Record<string, unknown> = {}
   const unset: string[] = []
@@ -148,7 +150,7 @@ export function expenseEditPatch(prev: Expense, next: Expense): ExpenseEditPatch
     else set[k] = b[k]
   }
   const out: ExpenseEditPatch = { set, unset }
-  if (moneyChanged(prev, next)) out.approvals = next.approvals && Object.keys(next.approvals).length ? next.approvals : null
+  if (moneyChanged(prev, next) && !opts.keepApprovals) out.approvals = next.approvals && Object.keys(next.approvals).length ? next.approvals : null
   return out
 }
 

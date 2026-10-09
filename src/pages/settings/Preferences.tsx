@@ -6,7 +6,8 @@ import { CURRENCIES } from '@/lib/money'
 import { errText } from '@/lib/errors'
 import { getRate } from '@/lib/fx'
 import { todayISO } from '@/lib/id'
-import { type ApprovalDefault, approvalDefaultInCurrency, approvalDefaultOf } from '@/lib/approval'
+import { type ApprovalDefault, approvalDefaultInCurrency, approvalDefaultOf, defaultEditAutoApprove } from '@/lib/approval'
+import type { UserProfile } from '@/types'
 import { appLocale } from '@/lib/locale'
 import { applyTheme, getTheme, type Theme } from '@/lib/theme'
 import { AccentPicker } from '@/components/AccentPicker'
@@ -18,7 +19,7 @@ import { Switch } from '@/components/Switch'
 import { useToast } from '@/components/Toast'
 import { SectionTitle, SettingsPage, useSavedFlash } from './common'
 
-/** /settings/preferences: default currency (with the rates refresh), big-expense approval, theme and accent. All autosave. */
+/** /settings/preferences: default currency (with the rates refresh), big-expense approval and edit auto-approve, theme and accent. All autosave. */
 export default function Preferences() {
   const { profile } = useMe()
   const toast = useToast()
@@ -27,39 +28,36 @@ export default function Preferences() {
   const [approvalSaved, flashApproval] = useSavedFlash()
   const [lookSaved, flashLook] = useSavedFlash()
   const approval = approvalDefaultOf(profile.approvalDefault, profile.currency)
-  // The "Above" field's own value while typing; saved when it loses focus.
-  const [amount, setAmount] = useState<number | undefined>(approval.amount)
-  const [amountError, setAmountError] = useState('')
-  useEffect(() => {
-    setAmount(approval.amount)
-    setAmountError('')
-  }, [approval.amount])
+  const edits = approvalDefaultOf(profile.editAutoApproveDefault, profile.currency, defaultEditAutoApprove)
 
   const setCurrency = async (currency: string) => {
     if (currency === profile.currency) return
     try {
-      // A stored approval amount follows the currency (₹2,000 → about $20), rounded to a nice figure.
-      const stored = profile.approvalDefault
-      const rate = stored && stored.currency !== currency ? await getRate(stored.currency, currency, todayISO()) : null
-      const approvalDefault = stored ? approvalDefaultInCurrency(stored, currency, rate?.rate) : undefined
-      await repo.saveProfile({ ...profile, currency, ...(approvalDefault ? { approvalDefault } : {}) })
+      // Stored approval amounts follow the currency (₹2,000 → about $20), rounded to a nice figure.
+      const rateFrom = async (from: string | undefined) => (from && from !== currency ? ((await getRate(from, currency, todayISO()))?.rate ?? null) : null)
+      const a = profile.approvalDefault
+      const e = profile.editAutoApproveDefault
+      const approvalDefault = a ? approvalDefaultInCurrency(a, currency, await rateFrom(a.currency)) : undefined
+      const editAutoApproveDefault = e ? approvalDefaultInCurrency(e, currency, await rateFrom(e.currency), defaultEditAutoApprove) : undefined
+      await repo.saveProfile({
+        ...profile,
+        currency,
+        ...(approvalDefault ? { approvalDefault } : {}),
+        ...(editAutoApproveDefault ? { editAutoApproveDefault } : {}),
+      })
       flashCurrency()
     } catch (e) {
       toast(errText(e), 'err')
     }
   }
 
-  const saveApproval = async (next: ApprovalDefault) => {
+  const save = async (patch: Pick<UserProfile, 'approvalDefault'> | Pick<UserProfile, 'editAutoApproveDefault'>) => {
     try {
-      await repo.saveProfile({ ...profile, approvalDefault: next })
+      await repo.saveProfile({ ...profile, ...patch })
       flashApproval()
     } catch (e) {
       toast(errText(e), 'err')
     }
-  }
-  const saveAmount = () => {
-    if (amount === undefined || !(amount > 0)) return setAmountError('Enter an amount above zero')
-    if (amount !== approval.amount) void saveApproval({ ...approval, amount })
   }
 
   return (
@@ -74,44 +72,27 @@ export default function Preferences() {
 
       <SectionTitle saved={approvalSaved}>Big expenses</SectionTitle>
       <div className="card p-4">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <div className="font-semibold">Ask for approval on big expenses</div>
-            <div className="text-muted text-xs">New groups you create start with Needs your OK turned on. Each group keeps its own setting.</div>
-          </div>
-          <Switch
-            checked={approval.on}
-            onChange={(on) => void saveApproval({ ...approval, on })}
-            label="Ask for approval on big expenses"
-            testId="pref-approval"
-          />
-        </div>
+        <AmountSetting
+          id="pref-approval"
+          title="Ask for approval on big expenses"
+          hint="In groups you create, a new expense above this amount waits until everyone in it taps Approve (Needs your OK). At or below it counts straight away. Each group keeps its own setting."
+          label="Needs an OK above"
+          setting={approval}
+          onSave={(approvalDefault) => void save({ approvalDefault })}
+        />
         {approval.on && (
-          <div className="mt-3">
-            <label className="label" htmlFor="pref-approval-amount">
-              Above
-            </label>
-            <MoneyInput
-              id="pref-approval-amount"
-              value={amount}
-              currency={approval.currency}
-              onChange={(v) => {
-                setAmount(v)
-                setAmountError('')
-              }}
-              onBlur={saveAmount}
-              aria-invalid={!!amountError}
-              aria-describedby={amountError ? 'pref-approval-amount-error' : undefined}
-              data-testid="pref-approval-amount"
+          <div className="mt-4 border-t border-slate-100 pt-4 dark:border-white/5">
+            <AmountSetting
+              id="pref-edit-auto"
+              title="Approve small edits automatically"
+              hint="When someone edits an expense that needs an OK, a change of up to this amount keeps its approvals. A bigger change asks everyone again."
+              label="Changes of up to"
+              setting={edits}
+              onSave={(editAutoApproveDefault) => void save({ editAutoApproveDefault })}
             />
-            {amountError && (
-              <p id="pref-approval-amount-error" role="alert" className="mt-1 text-sm text-rose-700 dark:text-rose-400">
-                {amountError}
-              </p>
-            )}
-            <p className="text-muted mt-2 text-xs">Changing your default currency converts this amount.</p>
           </div>
         )}
+        <p className="text-muted mt-3 text-xs">Changing your default currency converts these amounts.</p>
       </div>
 
       <SectionTitle saved={lookSaved}>Appearance</SectionTitle>
@@ -161,5 +142,69 @@ export default function Preferences() {
         <p className="text-muted text-xs">Theme and accent are kept on this device.</p>
       </div>
     </SettingsPage>
+  )
+}
+
+/** A switch with an amount under it (shown when on). The amount saves when the field loses focus. */
+function AmountSetting({
+  id,
+  title,
+  hint,
+  label,
+  setting,
+  onSave,
+}: {
+  id: string
+  title: string
+  hint: string
+  label: string
+  setting: ApprovalDefault
+  onSave: (next: ApprovalDefault) => void
+}) {
+  const [amount, setAmount] = useState<number | undefined>(setting.amount)
+  const [error, setError] = useState('')
+  useEffect(() => {
+    setAmount(setting.amount)
+    setError('')
+  }, [setting.amount])
+  const saveAmount = () => {
+    if (amount === undefined || !(amount > 0)) return setError('Enter an amount above zero')
+    if (amount !== setting.amount) onSave({ ...setting, amount })
+  }
+  return (
+    <>
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <div className="font-semibold">{title}</div>
+          <div className="text-muted text-xs">{hint}</div>
+        </div>
+        <Switch checked={setting.on} onChange={(on) => onSave({ ...setting, on })} label={title} testId={id} />
+      </div>
+      {setting.on && (
+        <div className="mt-3">
+          <label className="label" htmlFor={`${id}-amount`}>
+            {label}
+          </label>
+          <MoneyInput
+            id={`${id}-amount`}
+            value={amount}
+            currency={setting.currency}
+            onChange={(v) => {
+              setAmount(v)
+              setError('')
+            }}
+            onBlur={saveAmount}
+            aria-invalid={!!error}
+            aria-describedby={error ? `${id}-amount-error` : undefined}
+            data-testid={`${id}-amount`}
+          />
+          {error && (
+            <p id={`${id}-amount-error`} role="alert" className="mt-1 text-sm text-rose-700 dark:text-rose-400">
+              {error}
+            </p>
+          )}
+        </div>
+      )}
+    </>
   )
 }

@@ -13,6 +13,7 @@ import {
   settlementActivity,
   type NewActivity,
 } from '@/lib/activity'
+import { editAutoApproved } from '@/lib/approval'
 import { prepareExpenseSave, prepareImportedSettlement, prepareOccurrence } from '@/lib/trust'
 import {
   activityCtxFor,
@@ -306,8 +307,9 @@ export function createLocalRepo(): Repo {
       const prev = state.expenses[e.id]
       const g = state.groups[e.groupId]
       const next = prepareExpenseSave(prev, e, g, actor())
+      const autoApproved = !!prev && !!g && editAutoApproved({ group: g, before: prev, after: next })
       state.expenses[e.id] = next
-      log(e.groupId, expenseSaveActivity(prev, next, ctx(e.groupId, next)))
+      log(e.groupId, expenseSaveActivity(prev, next, ctx(e.groupId, next), { autoApprovedWithin: autoApproved ? g?.editAutoApprove : undefined }))
       touch(e.groupId)
       commit()
     },

@@ -1,6 +1,7 @@
 import type { ActivityEntry, ActivityType, Cents, Expense, ImportedFrom, MemberId, OriginalAmount, Settlement } from '@/types'
 import { CATEGORIES } from './categories'
 import { formatMoney } from './money'
+import { shortMoney } from './approval'
 import { FREQ_LABEL } from './recurrence'
 import { formatDate } from './locale'
 
@@ -180,7 +181,13 @@ const label = (e: Pick<Expense, 'description'>) => `“${e.description}”`
  * The entry for saving an expense: created when there was no previous version, updated when
  * a tracked field changed, or null when nothing worth recording changed (e.g. a receipt).
  */
-export function expenseSaveActivity(prev: Expense | undefined, next: Expense, ctx: ActivityCtx): NewActivity | null {
+export function expenseSaveActivity(
+  prev: Expense | undefined,
+  next: Expense,
+  ctx: ActivityCtx,
+  /** the group's edit auto-approve amount, when it let this amount change through (editAutoApproved) */
+  opts: { autoApprovedWithin?: Cents } = {},
+): NewActivity | null {
   if (!prev) {
     return {
       ...base('expense.created', next.id, ctx),
@@ -193,8 +200,14 @@ export function expenseSaveActivity(prev: Expense | undefined, next: Expense, ct
   const phrases = describeChanges(d.before, d.after, { ...ctx, original: next.original } as ActivityCtx)
   const edited =
     phrases.length === 1 ? `${ctx.actorName} changed ${phrases[0]} on ${label(next)}` : `${ctx.actorName} edited ${label(next)}: ${phrases.join('; ')}`
-  // The edit brought it under the group's approval threshold, so it no longer waits for an OK.
-  const summary = prev.requiresApproval && !next.requiresApproval ? `${edited}. Approved automatically (below the threshold)` : edited
+  // The edit brought it under the group's approval threshold, so it no longer waits for an OK;
+  // or the change was small enough for the group's edit auto-approve, so nobody is asked again.
+  const summary =
+    prev.requiresApproval && !next.requiresApproval
+      ? `${edited}. Approved automatically (below the threshold)`
+      : opts.autoApprovedWithin
+        ? `${edited}. Edit approved automatically (within ${shortMoney(opts.autoApprovedWithin, ctx.currency)})`
+        : edited
   return { ...base('expense.updated', next.id, ctx), summary: clip(summary), before: d.before, after: d.after }
 }
 
