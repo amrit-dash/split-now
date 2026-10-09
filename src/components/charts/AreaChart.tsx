@@ -1,5 +1,5 @@
 import { useId, useState, type PointerEvent } from 'react'
-import { linearScale, monotonePath, nearestIndex, niceTicks } from '@/lib/chartGeometry'
+import { linearScale, monotonePath, nearestIndex, niceTicks, xLabelIndices } from '@/lib/chartGeometry'
 import { useWidth } from './useWidth'
 
 export interface AreaPoint {
@@ -48,8 +48,8 @@ export function AreaChart({
   const pts = points.map((p, i) => ({ x: xs[i], y: y(p.value) }))
   const line = monotonePath(pts)
   const area = pts.length > 1 ? `${line} L${pts[pts.length - 1].x} ${h - m.bottom} L${pts[0].x} ${h - m.bottom} Z` : ''
-  // Enough x labels to read, never overlapping: about one per 56px.
-  const every = Math.max(1, Math.ceil(points.length / Math.max(1, Math.floor((w - m.left - m.right) / 56))))
+  // Enough x labels to read, never overlapping (width estimated like the y axis: ~6.5px a character).
+  const shown = new Set(xLabelIndices(points.length, w - m.left - m.right, Math.max(...points.map((p) => p.label.length), 1) * 6.5))
   const onMove = (e: PointerEvent<SVGSVGElement>) => {
     const r = e.currentTarget.getBoundingClientRect()
     const px = ((e.clientX - r.left) / r.width) * w
@@ -102,7 +102,7 @@ export function AreaChart({
         <path d={line} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
         {points.map(
           (p, i) =>
-            (i % every === 0 || i === points.length - 1) && (
+            shown.has(i) && (
               <text
                 key={p.key}
                 x={xs[i]}
@@ -130,17 +130,21 @@ export function AreaChart({
           <div className="opacity-75">{cur.label}</div>
         </div>
       )}
-      <table className="sr-only">
-        <caption>{label}</caption>
-        <tbody>
-          {points.map((p) => (
-            <tr key={p.key}>
-              <th scope="row">{p.label}</th>
-              <td>{format(p.value)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* The wrapper is what hides it: a table's rows ignore overflow, so an sr-only table still
+          stretched the page by its full height (the long empty space under the admin charts). */}
+      <div className="sr-only">
+        <table>
+          <caption>{label}</caption>
+          <tbody>
+            {points.map((p) => (
+              <tr key={p.key}>
+                <th scope="row">{p.label}</th>
+                <td>{format(p.value)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

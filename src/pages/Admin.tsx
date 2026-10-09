@@ -44,25 +44,27 @@ export default function Admin() {
   if (!status?.admin) return <Navigate to="/settings" replace />
   return (
     <div data-testid="admin-console">
-      <PageHeader title="Admin" back="/settings" subtitle="Switches, limits, usage and accounts. Changes apply within a minute." />
-      <nav aria-label="Admin sections" className="scrollbar-none -mx-4 mb-4 overflow-x-auto px-4">
-        <div className="flex w-max min-w-full gap-1 rounded-2xl bg-slate-100 p-1 dark:bg-ink-800">
-          {TABS.map((t) => (
-            <NavLink
-              key={t.to}
-              to={t.to}
-              end={'end' in t}
-              className={({ isActive }) =>
-                `flex min-h-10 flex-1 items-center justify-center whitespace-nowrap rounded-xl px-3.5 text-sm font-semibold transition ${
-                  isActive ? 'bg-white text-slate-900 shadow-sm dark:bg-ink-700 dark:text-white' : 'text-muted'
-                }`
-              }
-            >
-              {t.label}
-            </NavLink>
-          ))}
-        </div>
-      </nav>
+      {/* The section tabs ride in the sticky header, so they stay in reach on long tabs. */}
+      <PageHeader title="Admin" back="/settings" subtitle="Switches, limits, usage and accounts. Changes apply within a minute.">
+        <nav aria-label="Admin sections" className="scrollbar-none -mx-4 mt-3 overflow-x-auto px-4">
+          <div className="flex w-max min-w-full gap-1 rounded-2xl bg-slate-100 p-1 dark:bg-ink-800">
+            {TABS.map((t) => (
+              <NavLink
+                key={t.to}
+                to={t.to}
+                end={'end' in t}
+                className={({ isActive }) =>
+                  `flex min-h-10 flex-1 items-center justify-center whitespace-nowrap rounded-xl px-3.5 text-sm font-semibold transition ${
+                    isActive ? 'bg-white text-slate-900 shadow-sm dark:bg-ink-700 dark:text-white' : 'text-muted'
+                  }`
+                }
+              >
+                {t.label}
+              </NavLink>
+            ))}
+          </div>
+        </nav>
+      </PageHeader>
       <Routes>
         <Route index element={<Overview />} />
         <Route path="flags" element={<FlagsApp />} />

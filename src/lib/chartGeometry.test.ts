@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { arcPath, donutSegments, linearScale, monotonePath, nearestIndex, niceTicks } from './chartGeometry'
+import { arcPath, donutSegments, linearScale, monotonePath, nearestIndex, niceTicks, xLabelIndices } from './chartGeometry'
 
 const TAU = Math.PI * 2
 
@@ -100,5 +100,41 @@ describe('scales', () => {
     expect(nearestIndex([0, 10, 20], 12)).toBe(1)
     expect(nearestIndex([0, 10, 20], 16)).toBe(2)
     expect(nearestIndex([0], 99)).toBe(0)
+  })
+})
+
+describe('xLabelIndices', () => {
+  // Labels never overlap: start-anchored first, end-anchored last, centred in between.
+  const spans = (idx: number[], count: number, plotW: number, labelW: number) => {
+    const step = plotW / (count - 1)
+    return idx.map((i) => {
+      const x = i * step
+      return i === 0 ? [x, x + labelW] : i === count - 1 ? [x - labelW, x] : [x - labelW / 2, x + labelW / 2]
+    })
+  }
+  const overlaps = (s: number[][]) => s.some((a, k) => k > 0 && s[k - 1][1] > a[0])
+
+  it('always keeps the first and last of 14 days and never overlaps', () => {
+    for (const plotW of [200, 260, 300, 340, 400, 600]) {
+      const idx = xLabelIndices(14, plotW, 40)
+      expect(idx[idx.length - 1]).toBe(13)
+      expect(overlaps(spans(idx, 14, plotW, 40)), `width ${plotW}: ${idx}`).toBe(false)
+    }
+  })
+
+  it('drops the label that would crowd the last one (the old overlap)', () => {
+    // 14 points over 300px, 40px labels: every 3rd gives 0,3,6,9,12 and 12 sits on top of 13.
+    expect(xLabelIndices(14, 300, 40)).toEqual([0, 3, 6, 9, 13])
+  })
+
+  it('labels every point when there is room', () => {
+    expect(xLabelIndices(4, 600, 40)).toEqual([0, 1, 2, 3])
+  })
+
+  it('handles tiny inputs', () => {
+    expect(xLabelIndices(0, 300, 40)).toEqual([])
+    expect(xLabelIndices(1, 300, 40)).toEqual([0])
+    expect(xLabelIndices(2, 60, 40)).toEqual([1])
+    expect(xLabelIndices(2, 300, 40)).toEqual([0, 1])
   })
 })

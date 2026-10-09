@@ -4,7 +4,20 @@ import { useNavigate } from 'react-router-dom'
 import { formatDate } from '@/lib/locale'
 import type { GroupType } from '@/types'
 
-export function PageHeader({ title, back, right, subtitle }: { title: ReactNode; back?: boolean | string; right?: ReactNode; subtitle?: ReactNode }) {
+/** `children` sit under the title row inside the sticky header, so they stay in view too (the admin tabs). */
+export function PageHeader({
+  title,
+  back,
+  right,
+  subtitle,
+  children,
+}: {
+  title: ReactNode
+  back?: boolean | string
+  right?: ReactNode
+  subtitle?: ReactNode
+  children?: ReactNode
+}) {
   const nav = useNavigate()
   return (
     <header className="sticky top-[var(--banner-h,0px)] z-30 -mx-4 mb-5 bg-slate-50/80 px-4 pb-3 pt-[calc(var(--safe-top)+1.25rem)] backdrop-blur-xl dark:bg-ink-950/80">
@@ -26,6 +39,7 @@ export function PageHeader({ title, back, right, subtitle }: { title: ReactNode;
         </div>
         {right}
       </div>
+      {children}
     </header>
   )
 }
