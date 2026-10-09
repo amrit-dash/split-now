@@ -44,9 +44,21 @@ export function blobToDataUrl(b: Blob): Promise<string> {
 /**
  * Whether a picked or shared file may be shown as a photo. `accept="image/*"` is only a hint
  * to the picker, and the share target takes whatever the other app sends, so the type is
- * checked here. An empty type passes: some Android pickers leave it blank for photos.
+ * checked here. An empty type passes: some Android pickers leave it blank for photos. SVG is
+ * refused: a bill or screenshot is never SVG, and an SVG can carry script.
  */
-export const isImageType = (type: string) => type === '' || /^image\/[\w.+-]+$/i.test(type)
+export const isImageType = (type: string) => type === '' || (/^image\/[\w.+-]+$/i.test(type) && !/svg/i.test(type))
 
-/** A blob: URL to preview `file` in an <img>, or undefined when it isn't an image. */
-export const imagePreviewUrl = (file: Blob): string | undefined => (isImageType(file.type) ? URL.createObjectURL(file) : undefined)
+/** The type a preview blob is given: the file's own image type, or JPEG when the picker left it blank. */
+export const previewType = (type: string) => type || 'image/jpeg'
+
+/**
+ * A blob: URL to preview `file` in an <img>, or undefined when it isn't an image. A blob: URL
+ * belongs to the app's own origin, so the bytes are copied into a fresh blob typed as the
+ * checked image type: even if the URL were opened on its own, it could only render as an image,
+ * never as a page that runs script.
+ */
+export function imagePreviewUrl(file: Blob): string | undefined {
+  if (!isImageType(file.type)) return undefined
+  return URL.createObjectURL(new Blob([file], { type: previewType(file.type) }))
+}
