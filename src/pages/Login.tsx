@@ -30,7 +30,8 @@ export default function Login() {
           <img src="/pwa-192.png" alt="" className="h-16 w-16 shrink-0 rounded-3xl shadow-2xl shadow-brand-600/40 sm:h-20 sm:w-20" />
           <h1 className="whitespace-nowrap text-[clamp(1.5rem,7.4vw,2.25rem)] font-extrabold leading-tight tracking-tight">Split bills,<br />not friendships.</h1>
         </div>
-        <p className="mt-3 text-slate-300">Trips, flats and dinners: smart splits, bill scanning and one-tap UPI settle-ups. Beautifully simple.</p>
+        <p className="mt-4 text-sm font-semibold tracking-wide text-duo-300" data-testid="tagline">Spending is wise, Splitting is Free. Split Now!</p>
+        <p className="mt-2 text-slate-300">Trips, flats and dinners: smart splits, bill scanning and one-tap UPI settle-ups. Beautifully simple.</p>
 
         {invite && (
           <div className="mt-6 flex gap-3 rounded-2xl bg-white/10 p-4 text-sm text-slate-200 ring-1 ring-white/15" data-testid="invite-banner">
