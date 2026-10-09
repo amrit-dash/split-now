@@ -17,7 +17,8 @@ const MAX = 4
 const PEEK = 3
 
 /**
- * Toasts stack in the floating lane above the tab bar (see .toast-stack in index.css). Collapsed,
+ * Toasts stack in the floating lane above the tab bar (see .toast-stack in index.css), inset 32px
+ * from the screen edges (the page uses 16px) so they read as their own floating card. Collapsed,
  * the newest is in front with older ones peeking behind like a deck, so several never cover
  * the screen; tap the deck to fan them out. A repeat of a showing message bumps its count
  * instead of stacking a copy. Each can be closed, and an action (Undo) closes it too.
@@ -78,7 +79,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={push}>
       {children}
-      <div className="toast-stack pointer-events-none fixed inset-x-0 z-[100] mx-auto max-w-lg px-4" role="status" aria-live="polite" data-testid="toasts">
+      <div className="toast-stack pointer-events-none fixed inset-x-0 z-[100] mx-auto max-w-lg px-8" role="status" aria-live="polite" data-testid="toasts">
         {/* biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/useKeyWithClickEvents: tapping to fan out the stack is a pointer convenience; every toast is announced by the live region and its buttons are keyboard operable. */}
         <div
           className={open ? 'flex flex-col items-center gap-2' : 'grid items-end justify-items-center'}
@@ -101,7 +102,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 style={{ ...style, gridArea: open ? undefined : '1 / 1' }}
                 aria-hidden={hidden || undefined}
                 role={t.tone === 'err' ? 'alert' : undefined}
-                className={`pointer-events-auto flex w-full max-w-md items-center gap-2.5 rounded-2xl py-2.5 pl-3.5 pr-1.5 text-sm font-medium text-white shadow-xl shadow-black/20 ring-1 ring-white/10 transition-[transform,opacity] duration-200 ${t.leaving ? 'opacity-0' : 'animate-toast'} ${t.tone === 'ok' ? 'bg-slate-900/95 dark:bg-ink-700/95' : 'bg-rose-600/95'} backdrop-blur ${hidden ? 'pointer-events-none' : ''}`}
+                className={`pointer-events-auto flex w-full max-w-sm items-center gap-2.5 rounded-2xl py-2.5 pl-3.5 pr-1.5 text-sm font-medium text-white shadow-xl shadow-black/20 ring-1 ring-white/10 transition-[transform,opacity] duration-200 ${t.leaving ? 'opacity-0' : 'animate-toast'} ${t.tone === 'ok' ? 'bg-slate-900/95 dark:bg-ink-700/95' : 'bg-rose-600/95'} backdrop-blur ${hidden ? 'pointer-events-none' : ''}`}
               >
                 {t.tone === 'ok' ? (
                   <CheckCircle2 size={18} className="shrink-0 text-emerald-400" aria-hidden />

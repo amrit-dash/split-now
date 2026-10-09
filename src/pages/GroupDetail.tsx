@@ -894,21 +894,23 @@ function TripCaptureLine({ group }: { group: Group }) {
       action: { label: 'Undo', run: () => void save(before) },
     })
   }
-  const link = 'shrink-0 font-semibold text-brand-600 dark:text-brand-300'
+  // The actions keep a 44px touch target, but -my-3 stops it from adding height: the row is one
+  // line of text, so the card's bottom padding matches its sides instead of growing by 24px.
+  const link = '-my-3 flex min-h-11 shrink-0 items-center font-semibold text-brand-600 dark:text-brand-300'
   return (
-    <div className="text-muted mt-3 flex min-h-11 items-center gap-2 text-sm" data-testid="trip-auto-capture" data-state={notice}>
+    <div className="text-muted mt-3.5 flex items-center gap-2 text-sm leading-5" data-testid="trip-auto-capture" data-state={notice}>
       <MessageSquareText size={16} className={`shrink-0 ${notice === 'on' ? 'text-brand-600 dark:text-brand-300' : ''}`} aria-hidden />
       {notice === 'setup' ? (
         <>
           <span className="min-w-0 flex-1">Add payments from your phone automatically during this trip</span>
-          <Link to={`/settings/auto-capture?group=${group.id}`} className={`${link} flex min-h-11 items-center`} data-testid="trip-capture-setup">
+          <Link to={`/settings/auto-capture?group=${group.id}`} className={link} data-testid="trip-capture-setup">
             Set up
           </Link>
         </>
       ) : notice === 'off' ? (
         <>
           <span className="min-w-0 flex-1">Auto-capture is paused for you</span>
-          <Link to="/settings/automation" className={`${link} flex min-h-11 items-center`}>
+          <Link to="/settings/automation" className={link}>
             Settings
           </Link>
         </>
@@ -917,7 +919,7 @@ function TripCaptureLine({ group }: { group: Group }) {
           <span className="min-w-0 flex-1">{notice === 'on' ? 'Trip auto-capture is on for you' : 'Paused for you'}</span>
           <button
             type="button"
-            className={`${link} min-h-11 px-1`}
+            className={`${link} -mr-1 px-1`}
             onClick={toggle}
             aria-label={notice === 'on' ? `Pause auto-capture for you in ${group.name}` : `Resume auto-capture for you in ${group.name}`}
             data-testid="trip-capture-toggle"
