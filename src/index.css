@@ -76,7 +76,9 @@
 @keyframes pop { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
 @layer base {
-  html { -webkit-tap-highlight-color: transparent; @apply bg-slate-50 dark:bg-ink-950 dark:[color-scheme:dark]; }
+  /* No rubber-band overscroll on the page: on iOS it dragged the frosted tab bar's backdrop along
+     and the bar briefly went see-through. */
+  html { -webkit-tap-highlight-color: transparent; overscroll-behavior: none; @apply bg-slate-50 dark:bg-ink-950 dark:[color-scheme:dark]; }
   body {
     @apply bg-slate-50 text-slate-900 antialiased dark:bg-ink-950 dark:text-slate-100;
     overscroll-behavior-y: none;
@@ -107,7 +109,46 @@
       active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
   }
 
-@utility btn-primary { @apply btn bg-gradient-to-r from-brand-600 to-duo-600 text-white shadow-lg shadow-brand-600/25; }
+/*
+ * Accent fills come alive: soft patches of a lighter shade, a darker shade and the duo colour
+ * float slowly across the fill behind the content, aurora-style. The patches have a fixed size
+ * (not a share of the button) and fade to nothing at their edges (no blur filter, which Safari
+ * wouldn't clip to the rounded corners), so a wide button gets the same gentle drift as a small one; their positions move via animated custom properties.
+ */
+@property --al-x { syntax: '<percentage>'; inherits: false; initial-value: 20%; }
+@property --al-y { syntax: '<percentage>'; inherits: false; initial-value: 30%; }
+@property --ad-x { syntax: '<percentage>'; inherits: false; initial-value: 80%; }
+@property --ad-y { syntax: '<percentage>'; inherits: false; initial-value: 70%; }
+@property --au-x { syntax: '<percentage>'; inherits: false; initial-value: 50%; }
+@keyframes accent-float {
+  0% { --al-x: 12%; --al-y: 25%; --ad-x: 88%; --ad-y: 75%; --au-x: 45%; }
+  25% { --al-x: 35%; --al-y: 70%; --ad-x: 65%; --ad-y: 20%; --au-x: 75%; }
+  50% { --al-x: 62%; --al-y: 35%; --ad-x: 30%; --ad-y: 80%; --au-x: 30%; }
+  75% { --al-x: 85%; --al-y: 65%; --ad-x: 15%; --ad-y: 30%; --au-x: 60%; }
+  100% { --al-x: 55%; --al-y: 20%; --ad-x: 45%; --ad-y: 65%; --au-x: 85%; }
+}
+@utility accent-live {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  &::before {
+    content: '';
+    position: absolute;
+    /* Same box and corners as the button: Safari doesn't always clip an animated layer to the
+       parent's rounded corners, which showed square corners round every accent button. */
+    inset: 0;
+    border-radius: inherit;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(8rem 5rem at var(--al-x) var(--al-y), color-mix(in oklab, var(--color-brand-300) 45%, transparent), transparent),
+      radial-gradient(8.5rem 5.5rem at var(--ad-x) var(--ad-y), color-mix(in oklab, var(--color-brand-900) 40%, transparent), transparent),
+      radial-gradient(7rem 4.5rem at var(--au-x) 50%, color-mix(in oklab, var(--color-duo-400) 30%, transparent), transparent);
+    animation: accent-float 16s ease-in-out infinite alternate;
+  }
+}
+
+@utility btn-primary { @apply btn accent-live bg-gradient-to-r from-brand-600 to-duo-600 text-white shadow-lg shadow-brand-600/25; }
 
 @utility btn-secondary { @apply btn bg-slate-100 text-slate-900 dark:bg-ink-800 dark:text-slate-100; }
 
@@ -118,7 +159,7 @@
       dark:ring-ink-700;
   }
 
-@utility chip-on { @apply bg-brand-600 text-white ring-brand-600; }
+@utility chip-on { @apply accent-live bg-brand-600 text-white ring-brand-600; }
 
 /* Secondary text that still passes 4.5:1 on white and on ink-900 cards (slate-400 does not). */
 @utility text-muted { @apply text-slate-600 dark:text-slate-400; }
@@ -152,31 +193,18 @@ html[data-update-ready] .install-banner { display: none; }
 /* Home greeting icon: a short wave a few times, or a gentle bob. Off with reduced motion. */
 @keyframes wave { 0%, 60%, 100% { transform: rotate(0deg); } 10%, 30% { transform: rotate(16deg); } 20% { transform: rotate(-8deg); } 40% { transform: rotate(-4deg); } 50% { transform: rotate(10deg); } }
 @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
-@utility animate-wave { animation: wave 2.4s ease-in-out 0.4s 3; }
-@utility animate-float { animation: float 3s ease-in-out infinite; }
-
-/* Aurora (components/Aurora.tsx): floating colour blobs, light/dark smoke patches, drifting bubbles. */
-@keyframes blob-a { 0%, 100% { transform: translate(0, 0) scale(1); } 33% { transform: translate(18%, 12%) scale(1.15); } 66% { transform: translate(6%, 28%) scale(0.95); } }
-@keyframes blob-b { 0%, 100% { transform: translate(0, 0) scale(1); } 40% { transform: translate(-20%, -14%) scale(1.1); } 75% { transform: translate(-8%, 6%) scale(0.92); } }
-@keyframes blob-c { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-30%, 20%) scale(1.25); } }
-/* Smoke: drift, swell and fade in and out, out of step with each other. */
-@keyframes smoke-a { 0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.25; } 30% { transform: translate(30%, 18%) scale(1.3); opacity: 1; } 65% { transform: translate(12%, 40%) scale(0.9); opacity: 0.55; } }
-@keyframes smoke-b { 0%, 100% { transform: translate(0, 0) scale(1.1); opacity: 0.9; } 35% { transform: translate(-28%, 22%) scale(0.85); opacity: 0.3; } 70% { transform: translate(-10%, -12%) scale(1.3); opacity: 1; } }
-@keyframes smoke-c { 0%, 100% { transform: translate(0, 0) scale(0.9); opacity: 0.4; } 50% { transform: translate(25%, -30%) scale(1.35); opacity: 1; } }
-@keyframes bubble-a { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-22px, 26px) scale(1.12); } }
-@keyframes bubble-b { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-36px, -24px) scale(0.9); } }
-@keyframes bubble-c { 0%, 100% { transform: translate(0, 0); opacity: 0.6; } 50% { transform: translate(28px, -34px); opacity: 1; } }
-@utility animate-blob-a { animation: blob-a 6.5s ease-in-out infinite; }
-@utility animate-blob-b { animation: blob-b 8s ease-in-out infinite; }
-@utility animate-blob-c { animation: blob-c 5.5s ease-in-out infinite; }
-@utility animate-smoke-a { animation: smoke-a 5s ease-in-out infinite; }
-@utility animate-smoke-b { animation: smoke-b 6s ease-in-out infinite; }
-@utility animate-smoke-c { animation: smoke-c 4.2s ease-in-out infinite; }
-@utility animate-bubble-a { animation: bubble-a 11s ease-in-out infinite; }
-@utility animate-bubble-b { animation: bubble-b 14s ease-in-out infinite; }
-@utility animate-bubble-c { animation: bubble-c 9s ease-in-out infinite; }
-/* Aurora.tsx adds this while the surface is off-screen or the tab is hidden, so nothing animates unseen. */
-.aurora-paused > * { animation-play-state: paused; }
+/* Greeting icon motions: a few rounds, each ending at rest, then it stays still. */
+@keyframes wave-loop { 0%, 55%, 100% { transform: rotate(0deg); } 6%, 18% { transform: rotate(16deg); } 12% { transform: rotate(-8deg); } 24% { transform: rotate(-4deg); } 30% { transform: rotate(10deg); } 36% { transform: rotate(0deg); } }
+@keyframes tilt { 0%, 100% { transform: rotate(0) scale(1); } 25% { transform: rotate(-9deg) scale(1.04); } 75% { transform: rotate(9deg) scale(1.04); } }
+@keyframes hello-bounce { 0%, 50%, 100% { transform: translateY(0) scale(1, 1); } 12% { transform: translateY(0) scale(1.08, 0.92); } 26% { transform: translateY(-5px) scale(0.96, 1.05); } 40% { transform: translateY(0) scale(1.05, 0.95); } }
+@keyframes hello-pulse { 0%, 100% { transform: scale(1); filter: brightness(1); } 40% { transform: scale(1.16); filter: brightness(1.15); } }
+@keyframes hello-swing { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(14deg); } 45% { transform: rotate(-10deg); } 70% { transform: rotate(5deg); } }
+@utility animate-hello-bounce { animation: hello-bounce 1.8s ease-in-out 0.4s 3; }
+@utility animate-hello-pulse { animation: hello-pulse 1.9s ease-in-out 0.4s 3; }
+@utility animate-hello-swing { animation: hello-swing 2.2s ease-in-out 0.4s 3; }
+@utility animate-wave { animation: wave-loop 2.6s ease-in-out 0.4s 3; }
+@utility animate-tilt { animation: tilt 2.2s ease-in-out 0.4s 3; }
+@utility animate-float { animation: float 2.4s ease-in-out 0.4s 4; }
 
 /* Progress bar with no known percentage (waiting on the AI reader). */
 @keyframes indeterminate {
@@ -195,6 +223,8 @@ html[data-update-ready] .install-banner { display: none; }
 :root {
   --nav-pad: max(calc(env(safe-area-inset-bottom) - 14px), 6px);
   --nav-h: calc(3.4rem + var(--nav-pad));
+  /* The floating lane above the tab bar (banners, toasts, save bars): clears the raised + button. */
+  --lane: calc(var(--nav-h) + 2.75rem);
 }
 /* The notch: a 2.35rem circle around the + button with 0.5rem rounded shoulders where it meets
    the bar's top edge (the SVG path is the cut-out, subtracted from the bar). */
@@ -204,11 +234,22 @@ html[data-update-ready] .install-banner { display: none; }
   -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) exclude, var(--notch) top center / 7rem 3rem no-repeat;
 }
-/* Frosted glass inside the notch, so what scrolls under it is blurred rather than sharp. */
-.nav-notch-glass {
-  -webkit-mask: var(--notch) top center / 7rem 3rem no-repeat;
-  mask: var(--notch) top center / 7rem 3rem no-repeat;
+
+/* The + button: no hard outline; a soft top highlight (glass edge) and a tight shadow. The thin rim
+   round its lower half and the glow underneath are separate layers (Layout). */
+.fab-ring {
+  box-shadow:
+    inset 0 1px 1px rgb(255 255 255 / 0.35),
+    inset 0 -6px 12px -6px color-mix(in oklab, var(--color-brand-900) 45%, transparent),
+    0 4px 12px -3px color-mix(in oklab, var(--color-brand-900) 55%, transparent);
 }
+.dark .fab-ring {
+  box-shadow:
+    inset 0 1px 1px rgb(255 255 255 / 0.25),
+    inset 0 -6px 12px -6px rgb(0 0 0 / 0.35),
+    0 4px 12px -3px rgb(0 0 0 / 0.55);
+}
+
 html[data-capture-alert] [data-testid='update-banner'] { display: none; }
 html[data-capture-alert] .install-banner { display: none; }
 
@@ -217,10 +258,26 @@ html[data-capture-alert] .install-banner { display: none; }
   :is(input, textarea, select):is(.text-sm, .text-xs) { font-size: 16px !important; }
 }
 
-/* Toasts rise from the bottom: above the tab bar on tab screens, above the home indicator elsewhere. */
+/* Toasts: a stack in the floating lane (above the tab bar where there is one, above the home
+   indicator elsewhere, above any banner showing). Newest at the bottom; see Toast.tsx. */
 .toast-stack { bottom: calc(env(safe-area-inset-bottom) + 1rem); }
-html[data-nav] .toast-stack { bottom: calc(var(--nav-h) + 1.25rem); }
-@keyframes toast-in { from { transform: translateY(1.25rem) scale(0.96); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
-@utility animate-toast { animation: toast-in 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.2); }
-/* …and above the install / update banner while one is showing. */
-html[data-nav]:has(.install-banner, [data-testid='update-banner']) .toast-stack { bottom: calc(var(--nav-h) + 7rem); }
+html[data-nav] .toast-stack { bottom: var(--lane); }
+html[data-nav]:has(.install-banner, [data-testid='update-banner'], [data-testid='unsaved-bar'], [data-testid='capture-alert']) .toast-stack { bottom: calc(var(--lane) + 5rem); }
+@keyframes toast-in { from { transform: translateY(1rem) scale(0.96); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+@utility animate-toast { animation: toast-in 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.15); }
+
+/* + button halo (Layout): both layers are blurred, so every edge fades; masks only shape the strength. */
+.fab-halo-a {
+  -webkit-mask: radial-gradient(closest-side, #000 35%, transparent), linear-gradient(to bottom, rgb(0 0 0 / 0.25) 20%, #000 60%);
+  -webkit-mask-composite: source-in;
+  mask: radial-gradient(closest-side, #000 35%, transparent) intersect, linear-gradient(to bottom, rgb(0 0 0 / 0.25) 20%, #000 60%);
+}
+.fab-halo-b {
+  -webkit-mask: linear-gradient(to bottom, transparent 30%, rgb(0 0 0 / 0.25) 45%, rgb(0 0 0 / 0.7) 58%, #000 72%);
+  mask: linear-gradient(to bottom, transparent 30%, rgb(0 0 0 / 0.25) 45%, rgb(0 0 0 / 0.7) 58%, #000 72%);
+}
+.fab-rim {
+  -webkit-mask: linear-gradient(to bottom, transparent 30%, #000 75%);
+  mask: linear-gradient(to bottom, transparent 30%, #000 75%);
+}
+

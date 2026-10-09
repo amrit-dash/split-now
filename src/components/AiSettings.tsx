@@ -228,22 +228,36 @@ export function AiSettings() {
             <div className="rounded-2xl ring-1 ring-slate-200 dark:ring-white/10" data-testid="ai-own-key">
               <div className="flex items-center gap-2 px-3.5 pt-3 font-semibold">
                 <KeyRound size={16} className="text-brand-500" aria-hidden /> Your own Gemini key
+                {hasKey && (
+                  <span
+                    className={`ml-auto flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${state?.lastError ? 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'}`}
+                    data-testid="ai-own-badge"
+                  >
+                    {state?.lastError ? (
+                      'Needs attention'
+                    ) : (
+                      <>
+                        <Check size={13} strokeWidth={3} aria-hidden /> Set up
+                      </>
+                    )}
+                  </span>
+                )}
               </div>
               <div className="space-y-3 px-3.5 pb-3.5 pt-1.5">
                 {hasKey && !editing ? (
                   <>
-                    <div className="flex items-center justify-between gap-2 text-sm">
-                      <span className="font-mono text-slate-700 dark:text-slate-300">Saved · {state!.hint}</span>
+                    <p className="text-muted flex items-center gap-1.5 text-xs" data-testid="ai-own-status">
+                      <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${state?.lastError ? 'bg-rose-500' : 'bg-emerald-500'}`} />
                       {state?.lastError ? (
-                        <span className="text-right text-xs font-medium text-rose-700 dark:text-rose-400">
-                          {ERR[state.lastError.kind]} · {ago(state.lastError.at)}
+                        <span>
+                          Key <span className="font-mono">{state.hint}</span> · {ERR[state.lastError.kind]} · {ago(state.lastError.at)}
                         </span>
                       ) : (
-                        <span className="flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
-                          <Check size={14} aria-hidden /> Working{state?.lastOkAt ? ` · ${ago(state.lastOkAt)}` : ''}
+                        <span>
+                          Key set up (<span className="font-mono">{state!.hint}</span>) · working{state?.lastOkAt ? `, checked ${ago(state.lastOkAt)}` : ''}
                         </span>
                       )}
-                    </div>
+                    </p>
                     <div className="flex gap-2">
                       <button type="button" className="btn-secondary btn-sm flex-1" disabled={!!busy} onClick={() => run('test')}>
                         {busy === 'test' ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <RefreshCw size={16} aria-hidden />} Test

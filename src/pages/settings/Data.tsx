@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { ChevronRight, Download, FileUp, Loader2, Smartphone } from 'lucide-react'
 import { repo } from '@/data'
 import { useAllGroupData } from '@/hooks/data'
+import { useAppVersion } from '@/hooks/useAppVersion'
 import { csvFilename, deliverCsv, groupCsv } from '@/lib/export'
 import { errText } from '@/lib/errors'
 import { todayISO } from '@/lib/id'
@@ -19,6 +20,7 @@ export default function Data() {
   const data = useAllGroupData()
   const toast = useToast()
   const install = useInstall()
+  const version = useAppVersion()
   const [groupId, setGroupId] = useState('')
   const [busy, setBusy] = useState(false)
   const [iosOpen, setIosOpen] = useState(false)
@@ -116,7 +118,7 @@ export default function Data() {
       )}
 
       <p className="text-muted mt-6 text-center text-xs" data-testid="app-version">
-        Split Now v{__APP_VERSION__} · {repo.mode === 'demo' ? 'Demo mode: data stays on this device' : 'Connected to Firebase'}
+        Split Now v{version} · {repo.mode === 'demo' ? 'Demo mode: data stays on this device' : 'Connected to Firebase'}
       </p>
       <Sheet open={iosOpen} onClose={() => setIosOpen(false)} title="Add to Home Screen">
         <IOSInstallSteps />

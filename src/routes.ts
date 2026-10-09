@@ -11,7 +11,7 @@ export const load = {
   ExpenseDetail: () => import('./pages/ExpenseDetail'),
   SettleUp: () => import('./pages/SettleUp'),
   Scan: () => import('./pages/Scan'),
-  Friends: () => import('./pages/Friends'),
+  SettleAll: () => import('./pages/SettleAll'),
   Insights: () => import('./pages/Insights'),
   Profile: () => import('./pages/Profile'),
   Join: () => import('./pages/Join'),
@@ -36,7 +36,8 @@ export function routeKey(pathname: string): RouteKey | undefined {
   if (/^\/groups\/[^/]+\/settle$/.test(p)) return 'SettleUp'
   if (/^\/groups\/[^/]+\/expenses\/[^/]+$/.test(p)) return 'ExpenseDetail'
   if (/^\/groups\/[^/]+$/.test(p)) return 'GroupDetail'
-  if (p === '/friends') return 'Friends'
+  if (p === '/settle' || p === '/friends') return 'SettleAll'
+  if (p.startsWith('/settle/with/')) return 'SettleUp'
   if (p === '/insights') return 'Insights'
   if (p === '/profile') return 'Profile'
   if (p === '/inbox') return 'Inbox'

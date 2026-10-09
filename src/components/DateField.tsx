@@ -35,6 +35,16 @@ export function DateField({
     const v = ref.current?.value ?? ''
     if (v !== value) onChange(v)
   }
+  // On desktop a click on an invisible date input only focuses a segment (Chrome opens the
+  // calendar only from its own icon); open the picker explicitly. Touch screens open it natively.
+  const openPicker = () => {
+    if (!window.matchMedia?.('(pointer: fine)').matches) return
+    try {
+      ref.current?.showPicker?.()
+    } catch {
+      /* not allowed here (e.g. inside a cross-origin frame) */
+    }
+  }
   // "10 Oct" (year only when it isn't this year) so it fits half-width columns on small phones.
   const label = value ? formatDate(value, value.slice(0, 4) !== String(new Date().getFullYear()) ? 'dayYear' : 'day') : placeholder
   return (
@@ -55,6 +65,7 @@ export function DateField({
         onChange={sync}
         onInput={sync}
         onBlur={sync}
+        onClick={openPicker}
         className="absolute inset-0 h-full w-full min-w-0 cursor-pointer appearance-none opacity-0"
       />
       {clearable && value && (

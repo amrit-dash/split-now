@@ -1,65 +1,156 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { ArrowDownRight, ArrowUpRight } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
-import { useAllGroupData, type GroupData } from '@/hooks/data'
+import { useAllGroupData } from '@/hooks/data'
+import { useTodayRates } from '@/hooks/useFx'
 import type { Category } from '@/types'
 import { CATEGORIES } from '@/lib/categories'
-import { formatMoney, minorDigits } from '@/lib/money'
+import { currencySymbol, formatMoney } from '@/lib/money'
 import { convertMinor } from '@/lib/fx'
-import { useTodayRates } from '@/hooks/useFx'
-import { categoryChartColor, seriesColor, useIsDark } from '@/lib/chartPalette'
-import { PERIODS, compute, deltaPercent, parseBasis, parsePeriod, type Basis, type Period } from '@/lib/insights'
+import { chartFolds, seriesColor, useIsDark } from '@/lib/chartPalette'
+import { formatDate } from '@/lib/locale'
+import { todayISO } from '@/lib/id'
+import {
+  bucketFor,
+  budgetRunUp,
+  byCategory,
+  byGroup,
+  collectRows,
+  compactMoney,
+  counted,
+  filtersFromParams,
+  filtersToParams,
+  firstOfLastMonth,
+  foldSlices,
+  formatChange,
+  headline,
+  monthPace,
+  overTime,
+  paceWeeks,
+  paidVsShare,
+  previousBounds,
+  rangeBounds,
+  type InsightFilters,
+  type Source,
+} from '@/lib/insights'
 import { turnLine, whoseTurn } from '@/lib/fairness'
 import { useFlag } from '@/hooks/useAppConfig'
 import { budgetStatus } from '../../shared/budget'
 import { usePageTitle } from '@/lib/brand'
-import { Empty, PageHeader, Segmented } from '@/components/Misc'
+import { Empty, PageHeader } from '@/components/Misc'
 import { CardSkeleton } from '@/components/Skeleton'
-import { appLocale, formatDate } from '@/lib/locale'
-import { Select } from '@/components/Select'
+import { AreaChart } from '@/components/charts'
+import { Avatar } from '@/components/Avatar'
 import { GroupIcon } from '@/components/GroupIcon'
-import { AreaChart, Bars, Donut } from '@/components/charts'
+import { ChartCard, StatTile } from '@/components/insights/chrome'
+import { CategoryBreakdown, GroupBars, PaceChart, PaidShare, TimeChart } from '@/components/insights/Charts'
+import { FiltersPanel } from '@/components/insights/Filters'
+import { CountUp } from '@/components/insights/motion'
 
 export default function Insights() {
   usePageTitle('Insights')
   const data = useAllGroupData()
   const { profile } = useMe()
+  const home = profile.currency
   const [params, setParams] = useSearchParams()
-  const groupId = params.get('group') ?? 'all'
-  // Period and basis live in the URL (?p=12m&b=total) so a link or a back-swipe keeps them; defaults are left out.
-  const period = parsePeriod(params.get('p'))
-  const basis = parseBasis(params.get('b'))
-  const setParam = (k: 'p' | 'b' | 'group', v: string, dflt: string) =>
+  // Filters live in the URL next to ?group= (defaults left out), so a link, a reload or a back-swipe keeps them.
+  const filters = useMemo(() => filtersFromParams(params), [params])
+  const setFilters = (f: InsightFilters | ((prev: InsightFilters) => InsightFilters)) =>
+    setParams((prev) => filtersToParams(typeof f === 'function' ? f(filtersFromParams(prev)) : f, prev), { replace: true })
+  const dark = useIsDark()
+  const whoseTurnOn = useFlag('whoseTurn')
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const rates = useTodayRates(home, data ? data.map((d) => d.group.currency) : [])
+  const today = todayISO()
+
+  // Selected groups live in the URL (?group=a,b) so a group's chart button can deep-link here.
+  const groupIds = useMemo(() => {
+    const raw = params.get('group')
+    const ids = raw ? raw.split(',').filter(Boolean) : []
+    return data ? ids.filter((id) => data.some((d) => d.group.id === id)) : ids
+  }, [params, data])
+  const setGroups = (ids: string[]) =>
     setParams(
       (prev) => {
         const next = new URLSearchParams(prev)
-        if (v === dflt) next.delete(k)
-        else next.set(k, v)
+        if (ids.length) next.set('group', ids.join(','))
+        else next.delete('group')
         return next
       },
       { replace: true },
     )
-  const dark = useIsDark()
-  const whoseTurnOn = useFlag('whoseTurn')
-  const home = profile.currency
-  const rates = useTodayRates(home, data ? data.map((d) => d.group.currency) : [])
 
-  const scope = useMemo(() => {
+  const view = useMemo(() => {
     if (!data) return null
-    if (groupId !== 'all') return data.filter((d) => d.group.id === groupId)
-    // All groups: home-currency groups, plus others converted at today's ECB rate (approximate). Archived ones sit out.
-    return data.filter((d) => !d.group.archived && (d.group.currency === home || rates?.[d.group.currency]))
-  }, [data, groupId, home, rates])
+    // "All groups" leaves archived groups out; picking one explicitly still shows it.
+    const picked = groupIds.length ? data.filter((d) => groupIds.includes(d.group.id)) : data.filter((d) => !d.group.archived)
+    // One currency in scope: exact, in that currency. Several: convert to home at today's ECB rate
+    // (approximate), leaving out groups with no rate.
+    const currencies = [...new Set(picked.map((d) => d.group.currency))]
+    const single = currencies.length === 1
+    const cur = single ? currencies[0] : home
+    const scope = single ? picked : picked.filter((d) => d.group.currency === home || rates?.[d.group.currency])
+    const convert = single
+      ? undefined
+      : (v: number, s: Source) => (s.group.currency === home ? v : convertMinor(v, s.group.currency, home, rates?.[s.group.currency]?.rate ?? 0))
+    const converted = single ? [] : [...new Set(scope.filter((d) => d.group.currency !== home).map((d) => d.group.currency))]
+    const skipped = single ? [] : [...new Set(picked.filter((d) => !scope.includes(d)).map((d) => d.group.currency))]
 
-  // Minor units of a group's currency → minor units of the home currency.
-  const toHome = useMemo(() => {
-    if (groupId !== 'all') return undefined
-    return (v: number, d: GroupData) => (d.group.currency === home ? v : convertMinor(v, d.group.currency, home, rates?.[d.group.currency]?.rate ?? 0))
-  }, [groupId, home, rates])
+    const earliest = scope.reduce((m, d) => d.expenses.reduce((mm, e) => (e.date < mm ? e.date : mm), m), today)
+    const b = rangeBounds(filters, today, earliest)
+    const rows = collectRows(scope, b, filters, convert)
+    const prevB = previousBounds(filters.range, b)
+    const prevRows = prevB ? collectRows(scope, prevB, filters, convert) : null
+    const head = headline(rows, b, today, prevRows)
+    const cats = byCategory(rows)
+    const bucket = bucketFor(b)
+    const time = overTime(rows, b, today, bucket)
+    // The pace chart compares this month with last, whatever the range, as long as the range reaches today.
+    const firstOfLast = firstOfLastMonth(today)
+    const pace =
+      b.to >= today
+        ? (() => {
+            const p = monthPace(collectRows(scope, { from: firstOfLast, to: today }, filters, convert), today)
+            return { ...p, weeks: paceWeeks(p.points, today) }
+          })()
+        : null
+    const groups = byGroup(rows)
+    const one = scope.length === 1 ? scope[0] : undefined
+    const members = one && one.group.type !== 'personal' ? paidVsShare(one, collectRows([one], b, { ...filters, basis: 'total' })) : []
+    const top = counted(rows)
+      .sort((x, y) => y.value - x.value)
+      .slice(0, 5)
+    const present = [...new Set(picked.flatMap((d) => d.expenses.map((e) => e.category)))].sort((x, y) =>
+      CATEGORIES[x].label.localeCompare(CATEGORIES[y].label),
+    )
+    // One group: its budget run-up (over the group's life, not the filter period) and whose turn it is to pay.
+    const budget = one ? budgetRunUp(one) : null
+    const turn = whoseTurnOn && one && one.group.type !== 'personal' ? whoseTurn({ group: one.group, expenses: one.expenses }) : null
+    return {
+      cur,
+      approx: converted.length ? '≈ ' : '',
+      converted,
+      skipped,
+      scope,
+      b,
+      rows,
+      head,
+      cats,
+      bucket,
+      time,
+      pace,
+      groups,
+      one,
+      members,
+      top,
+      present,
+      budget,
+      turn,
+    }
+  }, [data, groupIds, rates, home, filters, today, whoseTurnOn])
 
-  const stats = useMemo(() => (scope ? compute(scope, period, basis, toHome) : null), [scope, period, basis, toHome])
-
-  if (!data || !scope || !stats) {
+  if (!data || !view) {
     return (
       <div>
         <PageHeader title="Insights" />
@@ -71,186 +162,156 @@ export default function Insights() {
       </div>
     )
   }
-  const cur = groupId === 'all' ? home : (scope[0]?.group.currency ?? home)
-  const converted = groupId === 'all' ? [...new Set(scope.filter((d) => d.group.currency !== home).map((d) => d.group.currency))] : []
-  const skipped = groupId === 'all' ? [...new Set(data.filter((d) => !d.group.archived && !scope.includes(d)).map((d) => d.group.currency))] : []
-  const ax = converted.length ? '≈ ' : ''
-  const single = groupId !== 'all' ? scope[0] : undefined
-  const personal = single?.group.type === 'personal'
-  const money = (v: number) => formatMoney(v, cur)
-  const short = (v: number) => compact(v, cur)
-  const delta = deltaPercent(stats.total, stats.prevTotal)
-  const periodLabel = PERIODS.find((p) => p.value === period)!.label.toLowerCase()
-  const turn = whoseTurnOn && single && !personal ? whoseTurn({ group: single.group, expenses: single.expenses }) : null
-  const budgetState = stats.budget ? budgetStatus(stats.budget.spent, stats.budget.budget, money) : null
+  const { cur, approx, head } = view
+  const money = (v: number) => approx + formatMoney(Math.round(v), cur)
+  const pickCategory = (c: Category) => setFilters((f) => ({ ...f, categories: f.categories.length === 1 && f.categories[0] === c ? [] : [c] }))
+  const prevLabel = filters.range === 'month' ? 'same days last month' : filters.range === 'year' ? 'same point last year' : 'previous period'
+  const short = (v: number) => compactMoney(v, cur, currencySymbol(cur))
+  const budget = view.budget
+  const budgetState = budget ? budgetStatus(budget.spent, budget.budget, money) : null
+  const turnHint =
+    view.turn && view.one ? (
+      <p className="text-muted mt-3 text-xs" data-testid="insights-whose-turn">
+        <span aria-hidden>🍽️ </span>
+        {turnLine(view.turn, view.one.me)} Based on who has fronted the least over the last three months; only you see this.
+      </p>
+    ) : null
+  const multiGroupShare = !view.one && view.groups.filter((g) => g.paid || g.share).length > 1
 
   return (
     <div>
       <PageHeader title="Insights" />
-      <div className="mb-3">
-        <Select
-          aria-label="Group"
-          value={data.some((d) => d.group.id === groupId) ? groupId : 'all'}
-          onChange={(v) => setParam('group', v, 'all')}
-          options={[
-            {
-              value: 'all',
-              label: 'All groups',
-              text: 'All groups',
-              icon: (
-                <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-slate-100 text-base dark:bg-ink-800" aria-hidden>
-                  📊
-                </span>
-              ),
-            },
-            ...data.map((d) => ({
-              value: d.group.id,
-              label: d.group.name,
-              text: d.group.name,
-              icon: <GroupIcon emoji={d.group.emoji} size={28} />,
-              hint: d.group.archived ? 'Archived' : d.group.currency !== home ? d.group.currency : undefined,
-            })),
-          ]}
-        />
-      </div>
-      <div className="mb-4 space-y-2">
-        <Segmented<Period> value={period} onChange={(v) => setParam('p', v, '3m')} options={PERIODS} label="Period" testId="insights-period" />
-        {!personal && (
-          <Segmented<Basis>
-            value={basis}
-            onChange={(v) => setParam('b', v, 'mine')}
-            options={[
-              { value: 'mine', label: 'My share' },
-              { value: 'total', label: 'Group total' },
-            ]}
-            label="Count"
-            testId="insights-basis"
-          />
-        )}
-      </div>
+      <FiltersPanel
+        filters={filters}
+        onChange={setFilters}
+        groupIds={groupIds}
+        onGroups={setGroups}
+        groups={data.map((d) => d.group)}
+        categories={view.present}
+        home={home}
+        open={filtersOpen}
+        onOpenChange={setFiltersOpen}
+      />
 
-      {stats.count === 0 ? (
+      {head.count === 0 ? (
         <Empty emoji="📊" title="Nothing to chart yet">
-          Add a few expenses in this period to see your insights.
+          No expenses match these filters. Try a longer date range or fewer filters.
         </Empty>
       ) : (
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            <Kpi
-              label={basis === 'mine' && !personal ? 'Your spending' : 'Spending'}
-              value={ax + money(stats.total)}
+            <StatTile
+              label={filters.basis === 'mine' ? 'You spent' : 'Total spent'}
+              value={<CountUp value={head.total} format={money} />}
               sub={
-                delta !== null ? (
-                  <span className={delta > 0 ? 'neg' : delta < 0 ? 'pos' : ''}>
-                    <span aria-hidden>{delta > 0 ? '↑' : delta < 0 ? '↓' : '='} </span>
-                    <span className="sr-only">{delta > 0 ? 'up' : delta < 0 ? 'down' : 'same'} </span>
-                    {Math.abs(delta)}% vs previous {periodLabel}
-                  </span>
-                ) : stats.prevTotal === 0 ? (
-                  'Nothing in the previous period'
-                ) : undefined
+                head.change !== null ? (
+                  <Delta change={head.change} vs={prevLabel} />
+                ) : (
+                  `${formatDate(view.b.from, { day: 'numeric', month: 'short', year: 'numeric' })} – now`
+                )
               }
             />
-            <Kpi label="Expenses" value={String(stats.count)} />
-            <Kpi label="Average expense" value={ax + money(Math.round(stats.total / Math.max(1, stats.count)))} />
-            <Kpi
+            <StatTile label="Daily average" value={<CountUp value={head.dailyAvg} format={money} />} sub={`over ${head.days} day${head.days > 1 ? 's' : ''}`} />
+            <StatTile
+              label="Expenses"
+              value={<CountUp value={head.count} format={String} duration={600} />}
+              sub={`avg ${money(Math.round(head.total / Math.max(1, head.count)))} each`}
+            />
+            <StatTile
               label="Top category"
-              value={stats.cats[0] ? stats.cats[0].label : '—'}
-              icon={stats.cats[0] ? (CATEGORIES[stats.cats[0].cat as Category]?.emoji ?? '🧾') : undefined}
+              value={view.cats[0] ? `${CATEGORIES[view.cats[0].key].emoji} ${CATEGORIES[view.cats[0].key].label}` : '—'}
+              sub={view.cats[0] ? `${Math.round(view.cats[0].share * 100)}% · ${money(view.cats[0].value)}` : undefined}
             />
           </div>
 
-          <ChartCard title="By category" subtitle={basis === 'mine' && !personal ? 'Your share of each expense' : 'Full expense amounts'}>
-            <div className="flex flex-col items-center gap-4 sm:flex-row">
-              <Donut
-                size={200}
-                label="Spending by category"
-                format={money}
-                slices={stats.cats.map((c) => ({ key: c.cat, label: c.label, value: c.value, color: categoryChartColor(c.cat, dark) }))}
-              />
-              <ul className="w-full space-y-1.5">
-                {stats.cats.map((c) => (
-                  <li key={c.cat} className="flex items-center gap-2 text-sm">
-                    <span className="h-3 w-3 shrink-0 rounded-sm" style={{ background: categoryChartColor(c.cat, dark) }} aria-hidden />
-                    <span className="flex-1 truncate">{c.label}</span>
-                    <span className="text-muted">{Math.round((c.value / stats.total) * 100)}%</span>
-                    <span className="w-24 text-right font-semibold">{money(c.value)}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </ChartCard>
+          <TimeChart points={view.time} bucket={view.bucket} currency={cur} approx={approx} />
 
-          <ChartCard title="Spending over time" subtitle={stats.bucket === 'week' ? 'Per week' : 'Per month'}>
-            <AreaChart
-              points={stats.series}
-              color={seriesColor(0, dark)}
-              format={money}
-              compact={short}
-              label={stats.bucket === 'week' ? 'Spending per week' : 'Spending per month'}
+          {view.pace && (view.pace.thisTotal > 0 || view.pace.lastTotal > 0) && (
+            <PaceChart
+              weeks={view.pace.weeks}
+              thisTotal={view.pace.thisTotal}
+              lastToDate={view.pace.lastToDate}
+              lastTotal={view.pace.lastTotal}
+              currency={cur}
+              approx={approx}
             />
-          </ChartCard>
+          )}
 
-          {stats.budget && single && (
+          <CategoryBreakdown
+            donut={foldSlices(view.cats, 5, (c) => !chartFolds(c))}
+            all={view.cats}
+            total={head.total}
+            currency={cur}
+            approx={approx}
+            selected={filters.categories}
+            onPick={pickCategory}
+          />
+
+          {view.groups.length > 1 && (
+            <GroupBars
+              groups={view.groups}
+              currency={cur}
+              approx={approx}
+              title="By group"
+              subtitle={filters.basis === 'mine' ? 'Your share in each group' : 'Total spent in each group'}
+            />
+          )}
+
+          {view.members.length > 1 && (
+            <PaidShare
+              title="Paid vs. share"
+              subtitle="Who fronted the money vs. what they consumed"
+              currency={cur}
+              approx=""
+              rows={view.members.map((m) => ({
+                key: m.id,
+                name: m.me ? 'You' : m.name,
+                icon: <Avatar name={m.name} color={m.color} photoURL={m.photoURL} size={24} />,
+                paid: m.paid,
+                share: m.share,
+              }))}
+              footer={turnHint}
+            />
+          )}
+          {view.members.length <= 1 && turnHint && <section className="card p-4">{turnHint}</section>}
+
+          {budget && budgetState && (
             <ChartCard
               title="Budget"
-              subtitle={`${money(stats.budget.spent)} of ${money(stats.budget.budget)} spent · ${budgetState!.label}${budgetState!.threshold ? ` · ${budgetState!.short}` : ''}`}
+              subtitle={`${money(budget.spent)} of ${money(budget.budget)} spent · ${budgetState.label}${budgetState.threshold ? ` · ${budgetState.short}` : ''}`}
             >
-              {stats.budget.points.length > 1 ? (
+              {budget.points.length > 1 ? (
                 <AreaChart
-                  points={stats.budget.points}
-                  color={stats.budget.spent > stats.budget.budget ? (dark ? '#e66767' : '#e34948') : seriesColor(2, dark)}
+                  points={budget.points}
+                  color={budget.spent > budget.budget ? (dark ? '#e66767' : '#e34948') : seriesColor(2, dark)}
                   format={money}
                   compact={short}
-                  label={`Spending run-up against the ${money(stats.budget.budget)} budget`}
-                  reference={{ value: stats.budget.budget, label: `Budget ${short(stats.budget.budget)}` }}
+                  label={`Spending run-up against the ${money(budget.budget)} budget`}
+                  reference={{ value: budget.budget, label: `Budget ${short(budget.budget)}` }}
                 />
               ) : (
                 <p className="text-muted text-sm">The run-up shows once there are expenses on more than one day.</p>
               )}
             </ChartCard>
           )}
-
-          {single && !personal && stats.members.length > 0 && (
-            <ChartCard title="Paid vs. share" subtitle="Who fronted the money, and what each person consumed">
-              <Bars
-                label="Paid vs share per person"
-                format={short}
-                series={[
-                  { key: 'paid', label: 'Paid', color: seriesColor(0, dark) },
-                  { key: 'share', label: 'Share', color: seriesColor(1, dark) },
-                ]}
-                rows={stats.members.map((m) => ({ key: m.id, label: m.name, values: [m.paid, m.share] }))}
-              />
-              {turn && (
-                <p className="text-muted mt-3 text-xs" data-testid="insights-whose-turn">
-                  <span aria-hidden>🍽️ </span>
-                  {turnLine(turn, single!.me)} Based on who has fronted the least over the last three months; only you see this.
-                </p>
-              )}
-            </ChartCard>
-          )}
-
-          {!single && stats.people.length > 0 && (
-            <ChartCard title="With people" subtitle="Your share of what you split with each person">
-              <Bars
-                label="Spending with each person"
-                format={short}
-                series={[{ key: 'v', label: 'Spent together', color: seriesColor(4, dark) }]}
-                rows={stats.people.map((p) => ({ key: p.key, label: p.name.split(' ')[0], values: [p.value] }))}
-              />
-              <Link to="/friends" className="mt-3 inline-block text-sm font-semibold text-brand-600 dark:text-brand-300">
-                Balances with people
-              </Link>
-            </ChartCard>
+          {multiGroupShare && (
+            <PaidShare
+              title="You paid vs. your share"
+              subtitle="Per group: what you fronted vs. what you consumed"
+              currency={cur}
+              approx={approx}
+              rows={view.groups
+                .filter((g) => g.paid || g.share)
+                .map((g) => ({ key: g.id, name: g.name, icon: <GroupIcon emoji={g.emoji} size={24} />, paid: g.paid, share: g.share }))}
+            />
           )}
 
           <ChartCard title="Biggest expenses">
             <ul className="divide-y divide-slate-100 dark:divide-white/5">
-              {stats.top.map(({ e, d, v }) => (
+              {view.top.map(({ e, src, value }) => (
                 <li key={e.id}>
                   <Link
-                    to={`/groups/${d.group.id}/expenses/${e.id}`}
+                    to={`/groups/${src.group.id}/expenses/${e.id}`}
                     className="-mx-2 flex items-center gap-3 rounded-xl px-2 py-2.5 hover:bg-slate-50 dark:hover:bg-ink-800"
                   >
                     <span className="text-xl" aria-hidden>
@@ -259,56 +320,42 @@ export default function Insights() {
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium">{e.description}</div>
                       <div className="text-muted truncate text-xs">
-                        {d.group.name} · {formatDate(e.date, { day: 'numeric', month: 'short', year: 'numeric' })}
+                        {src.group.name} · {formatDate(e.date, { day: 'numeric', month: 'short', year: 'numeric' })}
                       </div>
                     </div>
-                    <span className="text-sm font-semibold">{money(v)}</span>
+                    <span className="text-sm font-semibold tabular-nums">{money(value)}</span>
                   </Link>
                 </li>
               ))}
             </ul>
           </ChartCard>
-          {converted.length > 0 && (
-            <p className="text-muted px-1 text-center text-xs">
-              ≈ {converted.join(', ')} groups converted to {home} at today’s ECB rate. Pick a group above for exact amounts in its own currency.
-            </p>
-          )}
-          {skipped.length > 0 && (
-            <p className="text-muted px-1 text-center text-xs">
-              {skipped.join(', ')} groups aren’t included (no exchange rate available). Pick a group above to see them.
-            </p>
-          )}
         </div>
+      )}
+
+      {view.converted.length > 0 && (
+        <p className="text-muted mt-4 px-1 text-center text-xs">
+          ≈ {view.converted.join(', ')} groups converted to {home} at today’s ECB rate. Filter to one group for exact amounts in its own currency.
+        </p>
+      )}
+      {view.skipped.length > 0 && (
+        <p className="text-muted mt-2 px-1 text-center text-xs">
+          {view.skipped.join(', ')} groups aren’t included (no exchange rate available). Filter to one of them to see it.
+        </p>
       )}
     </div>
   )
 }
 
-function compact(cents: number, currency: string) {
-  return new Intl.NumberFormat(appLocale(), { style: 'currency', currency, notation: 'compact', maximumFractionDigits: 1 }).format(
-    cents / 10 ** minorDigits(currency),
-  )
-}
-
-function Kpi({ label, value, sub, icon }: { label: string; value: string; sub?: React.ReactNode; icon?: string }) {
+/** Spending up reads as the warning direction; icon + sign so it isn't colour alone. */
+function Delta({ change, vs }: { change: number; vs: string }) {
+  const up = change > 0.005,
+    down = change < -0.005
+  const Icon = up ? ArrowUpRight : ArrowDownRight
   return (
-    <div className="card p-4">
-      <div className="text-muted text-xs font-medium">{label}</div>
-      <div className="mt-1 text-lg font-extrabold leading-tight [overflow-wrap:anywhere]">
-        {icon && <span aria-hidden>{icon} </span>}
-        {value}
-      </div>
-      {sub && <div className="text-muted mt-1 text-xs">{sub}</div>}
-    </div>
-  )
-}
-
-function ChartCard({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
-  return (
-    <section className="card p-4">
-      <h2 className="font-bold">{title}</h2>
-      {subtitle && <p className="text-muted text-xs">{subtitle}</p>}
-      <div className="mt-3">{children}</div>
-    </section>
+    <span className="inline-flex items-center gap-0.5" title={`vs ${vs}`}>
+      {(up || down) && <Icon size={13} className={up ? 'neg' : 'pos'} aria-hidden />}
+      <span className={up ? 'neg font-semibold' : down ? 'pos font-semibold' : ''}>{formatChange(change)}</span>
+      <span className="truncate">&nbsp;vs {vs}</span>
+    </span>
   )
 }

@@ -80,7 +80,7 @@ export function SplitCard({
                 role="radio"
                 aria-checked={on}
                 onClick={() => dispatch({ type: 'splitType', splitType: t.value, order })}
-                className={`flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-2 text-xs font-semibold transition ${on ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/30' : 'bg-slate-100 text-slate-700 dark:bg-ink-800 dark:text-slate-300'}`}
+                className={`flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-2 text-xs font-semibold transition ${on ? 'accent-live bg-brand-600 text-white shadow-lg shadow-brand-600/30' : 'bg-slate-100 text-slate-700 dark:bg-ink-800 dark:text-slate-300'}`}
               >
                 <t.icon size={18} aria-hidden />
                 {t.label}

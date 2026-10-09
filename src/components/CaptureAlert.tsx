@@ -58,7 +58,7 @@ export function CaptureAlert() {
   const several = waiting > 1
   return (
     <div
-      className="animate-[rise_0.45s_cubic-bezier(0.2,0.9,0.3,1)] fixed inset-x-3 bottom-[calc(var(--nav-h)+2rem)] z-30 mx-auto max-w-md"
+      className="animate-[rise_0.45s_cubic-bezier(0.2,0.9,0.3,1)] fixed inset-x-3 bottom-[var(--lane)] z-30 mx-auto max-w-md"
       role="status"
       data-testid="capture-alert"
     >

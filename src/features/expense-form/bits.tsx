@@ -2,13 +2,14 @@ import type { ReactNode } from 'react'
 import { AlertCircle, Check, CheckCircle2, History } from 'lucide-react'
 import type { Group, MemberId, SplitType } from '@/types'
 import { formatMoney } from '@/lib/money'
-import { sumOf, type SplitDraft } from '@/lib/expense-draft'
+import { nameOf, sumOf, type SplitDraft } from '@/lib/expense-draft'
 import { Avatar } from '@/components/Avatar'
 
 /** Members with you first, for lists people pick from (the split maths keeps the canonical order). */
 export const youFirst = (order: MemberId[], me: MemberId) => [...order.filter((id) => id === me), ...order.filter((id) => id !== me)]
 
-export const nameOf = (group: Pick<Group, 'members'>, me: MemberId, id: MemberId) => (id === me ? 'You' : (group.members[id]?.name ?? 'Former member'))
+/** First names in a shared group, "You" for me (src/lib/expense-draft.ts `memberLabels`). */
+export { nameOf }
 
 /** Avatar + name with a slot on the right (an amount, a field, a check). */
 export function MemberRow({
@@ -29,7 +30,7 @@ export function MemberRow({
   const m = group.members[id]
   return (
     <div className={`flex items-center gap-3 ${className}`}>
-      <Avatar name={m?.name ?? '?'} color={m?.color ?? '#999'} size={size} />
+      <Avatar name={m?.name ?? '?'} color={m?.color ?? '#999'} photoURL={m?.photoURL} size={size} />
       <span className="min-w-0 flex-1 truncate font-medium">{nameOf(group, me, id)}</span>
       {children}
     </div>

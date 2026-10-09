@@ -18,6 +18,8 @@ import { pending } from '@/lib/pending'
 import { GroupIcon } from '@/components/GroupIcon'
 import { AiScanToggle } from '@/components/AiScanToggle'
 import { StatementImport } from '@/components/StatementImport'
+import { DuplicatePrompt, RecentScans, useScanHistory } from '@/components/ScanHistory'
+import { entryFile, type ScanEntry, type ScanKind, type ScanMatch, type ScanPrint } from '@/lib/scanHistory'
 import { ListSkeleton } from '@/components/Skeleton'
 import { PageHeader, Segmented } from '@/components/Misc'
 import { Select, currencyOptions } from '@/components/Select'
@@ -66,6 +68,14 @@ export default function Scan() {
   // Cancel: the read in flight finishes on its own, but its result is dropped and the overlay goes.
   const run = useRef(0)
   const [cancelled, setCancelled] = useState(false)
+  // History: receipts also match bills scanned on Split by items (same kind of result).
+  const receiptHist = useScanHistory('receipt', ['bill'])
+  const paymentHist = useScanHistory('payment')
+  const hist = mode === 'payment' ? paymentHist : receiptHist
+  /** a picked image that matches an earlier scan: offer that result before reading it again */
+  const [dup, setDup] = useState<{ match: ScanMatch; file: File; prints: ScanPrint[] } | null>(null)
+  /** the history entry behind the result on screen, to note what it led to */
+  const [scanRef, setScanRef] = useState<{ id: string; kind: ScanKind }>()
 
   // Get the on-device reader's ~3 MB core compiling while the user picks a photo, when that is the likely path.
   useEffect(() => {
@@ -103,9 +113,12 @@ export default function Scan() {
     setFile(null)
     setPreview(undefined)
     setText('')
+    setDup(null)
   }
   const switchMode = (m: Mode) => {
     setMode(m)
+    setScanRef(undefined)
+    if (dup) return reset()
     if (m === 'statement') return
     // Keep the photo and re-read the text we already have instead of making the user pick it again.
     if (text && !ocr.busy) {
@@ -124,6 +137,19 @@ export default function Scan() {
     setPayment(null)
     setNotABill(false)
     setCurrency(undefined)
+    setDup(null)
+    setScanRef(undefined)
+    const { prints, match } = await hist.check([f])
+    if (run.current !== id) return
+    if (match) {
+      setDup({ match, file: f, prints })
+      return
+    }
+    await read(f, prints, id)
+  }
+
+  const read = async (f: File, prints: ScanPrint[], id = ++run.current) => {
+    setCancelled(false)
     try {
       if (mode === 'receipt') {
         const r = await reader.read(f)
@@ -135,6 +161,10 @@ export default function Scan() {
         }
         setReceipt(r.parsed)
         if (r.parsed.currency && CURRENCIES.includes(r.parsed.currency)) setCurrency(r.parsed.currency)
+        if (!looksEmpty(r.parsed)) {
+          const saved = await receiptHist.save([f], prints, { type: 'receipt', receipt: r.parsed })
+          if (saved && run.current === id) setScanRef({ id: saved, kind: 'receipt' })
+        }
         // A successful on-phone read is not an error, whatever stopped the AI: a calm line, and
         // for "not set up for you" reasons only once per session.
         if (r.fellBack) {
@@ -146,11 +176,38 @@ export default function Scan() {
       }
       const t = await ocr.run(f)
       if (run.current !== id) return
+      const p = parsePaymentScreenshot(t)
       setText(t)
-      setPayment(parsePaymentScreenshot(t))
+      setPayment(p)
+      if (p.amount || p.payee) {
+        const saved = await paymentHist.save([f], prints, { type: 'payment', payment: p, text: t })
+        if (saved && run.current === id) setScanRef({ id: saved, kind: 'payment' })
+      }
     } catch (e) {
       if (e instanceof OcrCancelled || run.current !== id) return
       toast(errText(e, 'Couldn’t read that image'), 'err')
+    }
+  }
+
+  /** Show an earlier scan's result straight away: no AI call, no OCR. `f` is a fresh pick of the same image. */
+  const openEntry = (e: ScanEntry, f?: File) => {
+    const img = f ?? entryFile(e)
+    run.current++
+    setDup(null)
+    setNotABill(false)
+    setFile(img)
+    setPreview(URL.createObjectURL(img))
+    setScanRef({ id: e.id, kind: e.kind })
+    if (e.result.type === 'receipt') {
+      const r = e.result.receipt
+      setReceipt(r)
+      setPayment(null)
+      setText('')
+      setCurrency(r.currency && CURRENCIES.includes(r.currency) ? r.currency : undefined)
+    } else if (e.result.type === 'payment') {
+      setPayment(e.result.payment)
+      setReceipt(null)
+      setText(e.result.text ?? '')
     }
   }
 
@@ -209,8 +266,10 @@ export default function Scan() {
 
   const go = (groupId: string) => {
     if (!file) return
+    const name = data?.find((d) => d.group.id === groupId)?.group.name ?? 'a group'
+    if (scanRef) hist.outcome(scanRef.id, { label: receipt ? `Used in ${name}` : `Payment in ${name}`, href: `/groups/${groupId}` }, scanRef.kind)
     if (receipt) {
-      pending.receipt = { parsed: { ...receipt, currency: cur }, file }
+      pending.receipt = { parsed: { ...receipt, currency: cur }, file, history: scanRef }
       nav(`/add?group=${groupId}`)
     } else if (payment) {
       pending.payment = { parsed: payment, file }
@@ -327,6 +386,34 @@ export default function Scan() {
             />
           </div>
 
+          {dup && (
+            <DuplicatePrompt
+              match={dup.match}
+              currency={cur}
+              onOpen={() => openEntry(dup.match.entry, dup.file)}
+              onRescan={() => {
+                const d = dup
+                setDup(null)
+                void read(d.file, d.prints)
+              }}
+            />
+          )}
+          {!done && !dup && !busy && (
+            <RecentScans
+              entries={hist.entries}
+              currency={cur}
+              onOpen={(e) => openEntry(e)}
+              onDelete={(e) => {
+                hist.remove(e.id)
+                if (scanRef?.id === e.id) setScanRef(undefined)
+              }}
+              onClear={() => {
+                hist.clear()
+                setScanRef(undefined)
+              }}
+            />
+          )}
+
           {notABill && (
             <div className="card mt-4 p-4" role="status" data-testid="scan-not-a-bill">
               <div className="font-bold">That doesn’t look like a bill</div>
@@ -371,6 +458,7 @@ export default function Scan() {
                   type="button"
                   className="btn-primary mt-3 w-full"
                   onClick={() => {
+                    if (scanRef) hist.outcome(scanRef.id, { label: 'Split by items' }, scanRef.kind)
                     pending.receipt = { parsed: { ...receipt, currency: cur }, file }
                     nav('/split')
                   }}
@@ -429,7 +517,7 @@ export default function Scan() {
               )}
             </div>
           )}
-          <p className="text-muted mt-6 text-center text-xs">Nothing is saved until you add an expense.</p>
+          <p className="text-muted mt-6 text-center text-xs">Nothing is added until you pick a group. Recent scans stay on this device.</p>
         </>
       )}
     </div>

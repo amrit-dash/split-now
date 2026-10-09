@@ -27,6 +27,9 @@ interface Entry<T> {
 
 export const LINGER_MS = 5 * 60_000
 
+/** The signed-in user's group list (hooks/data.ts useGroups, and the member-photo sync in hooks/auth.tsx). */
+export const groupsKey = (uid: string) => `groups/${uid}`
+
 const entries = new Map<string, Entry<unknown>>()
 
 function drop(key: string, e: Entry<unknown>) {

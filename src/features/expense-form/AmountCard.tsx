@@ -1,4 +1,4 @@
-import { Camera, ChevronDown, Paperclip, ReceiptText, Users } from 'lucide-react'
+import { Camera, Paperclip, ReceiptText, Users } from 'lucide-react'
 import type { Group } from '@/types'
 import { CATEGORIES } from '@/lib/categories'
 import { centsToInput, currencySymbol } from '@/lib/money'
@@ -99,7 +99,7 @@ export function AmountCard({
         </div>
       </div>
       {suggestions.length > 0 && (
-        <div className="-mx-1 mt-3 flex gap-1.5 overflow-x-auto px-1 pb-0.5" data-testid="desc-suggestions" role="group" aria-label="Past descriptions">
+        <div className="-mx-1 mt-3 flex gap-1.5 overflow-x-auto px-1 py-1" data-testid="desc-suggestions" role="group" aria-label="Past descriptions">
           {suggestions.map((sg) => (
             <button key={sg.description} type="button" onClick={() => onPickSuggestion(sg)} className="chip min-h-9 shrink-0 !py-1.5 text-sm">
               <span aria-hidden>{CATEGORIES[sg.category].emoji}</span>
@@ -108,16 +108,17 @@ export function AmountCard({
           ))}
         </div>
       )}
-      <div className="mt-4 flex items-baseline gap-2 border-t border-slate-100 pt-4 dark:border-white/5">
+      <div className="mt-4 flex items-baseline gap-3 border-t border-slate-100 pt-4 dark:border-white/5">
+        {/* The symbol itself is the currency button (opens the list); sized to sit with the amount. */}
         <button
           type="button"
           onClick={onOpenCurrency}
-          className={`flex min-h-11 shrink-0 items-center text-2xl font-bold ${fx.foreign ? 'text-brand-600 dark:text-brand-300' : 'text-muted'}`}
+          className={`min-h-11 min-w-11 shrink-0 rounded-xl pl-1 pr-0.5 font-extrabold leading-none tracking-tight transition active:scale-95 ${currencySymbol(draft.cur).length > 2 ? 'text-3xl' : 'text-5xl'} ${fx.foreign ? 'text-brand-600 dark:text-brand-300' : 'text-muted'}`}
           aria-label={`Currency: ${draft.cur}. Change`}
           aria-haspopup="dialog"
+          data-testid="amount-currency"
         >
           {currencySymbol(draft.cur)}
-          <ChevronDown size={18} aria-hidden />
         </button>
         <MoneyInput
           bare
@@ -169,7 +170,7 @@ export function AmountCard({
             type="button"
             onClick={() => dispatch({ type: 'date', date: o.d })}
             aria-pressed={draft.date === o.d}
-            className={`min-h-10 shrink-0 rounded-2xl px-2 text-xs font-semibold ${draft.date === o.d ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-700 dark:bg-ink-800 dark:text-slate-300'}`}
+            className={`min-h-10 shrink-0 rounded-2xl px-2 text-xs font-semibold ${draft.date === o.d ? 'accent-live bg-brand-600 text-white' : 'bg-slate-100 text-slate-700 dark:bg-ink-800 dark:text-slate-300'}`}
           >
             {o.label}
           </button>

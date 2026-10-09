@@ -4,7 +4,7 @@ import { centsToInput } from '@/lib/money'
 import { describePayer, sumOf, validAmount, type Action, type Draft } from '@/lib/expense-draft'
 import { Avatar } from '@/components/Avatar'
 import { MoneyInput } from '@/components/MoneyInput'
-import { Left, MemberRow, SameHint, youFirst } from './bits'
+import { Left, MemberRow, SameHint, nameOf, youFirst } from './bits'
 import { SummaryCard } from './sheets'
 
 /** "You paid" as one row; several payers open the amount rows right here with the "left to assign" strip. */
@@ -32,7 +32,7 @@ export function PayerCard({
       id="payer-card"
       label={<>Paid by{hint && <SameHint />}</>}
       title={describePayer(draft, group, me, false)}
-      icon={draft.multiPay ? <Users size={20} /> : <Avatar name={payer?.name ?? '?'} color={payer?.color ?? '#999'} size={40} />}
+      icon={draft.multiPay ? <Users size={20} /> : <Avatar name={payer?.name ?? '?'} color={payer?.color ?? '#999'} photoURL={payer?.photoURL} size={40} />}
       plainIcon={!draft.multiPay}
       onClick={onOpen}
       testId="payer-summary"
@@ -46,7 +46,7 @@ export function PayerCard({
                 value={draft.payers[id]}
                 currency={draft.cur}
                 placeholder={centsToInput(0, draft.cur)}
-                aria-label={`${id === me ? 'You' : group.members[id]?.name} paid`}
+                aria-label={`${nameOf(group, me, id)} paid`}
                 onChange={(v) => dispatch({ type: 'payerAmount', id, amount: v })}
               />
             </MemberRow>

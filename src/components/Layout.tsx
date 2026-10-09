@@ -66,12 +66,37 @@ export function Layout() {
       <InstallBanner />
       <CaptureAlert />
       <nav className="fixed inset-x-0 bottom-0 z-40" aria-label="Main">
+        {/* The + button's glow sits under the bar: muted where the bar covers it, bright in the
+            notch, which gives the cut-out depth. A blurred copy of the button's moving gradient,
+            centred on the button, faded towards the top and strongest below, filling the notch gap. */}
+        <div aria-hidden className="pointer-events-none absolute left-1/2 top-[0.5625rem] h-0 w-0">
+          {/* a wide, soft glow radiating all round, lighter towards the top */}
+          <div className="fab-halo-a absolute left-1/2 top-1/2 h-[6.75rem] w-[6.75rem] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-80 blur-[22px] saturate-150">
+            <Aurora size="fab" />
+          </div>
+          {/* a stronger lower half, a bit wider than the notch, that fills the gap and fades out upwards */}
+          <div className="fab-halo-b absolute left-1/2 top-1/2 h-[5.2rem] w-[5.2rem] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[5px] saturate-150">
+            <Aurora size="fab" />
+          </div>
+        </div>
         {/* The bar, with a round notch cut out for the + button (mask in index.css). */}
         <div
           aria-hidden
-          className="nav-notch absolute inset-0 border-t border-slate-200/70 bg-white/85 backdrop-blur-xl dark:border-white/5 dark:bg-ink-900/85"
+          className="nav-notch absolute inset-0 border-t border-slate-200/70 bg-white/95 backdrop-blur-xl dark:border-white/5 dark:bg-ink-900/95"
         />
-        <div aria-hidden className="nav-notch-glass absolute left-1/2 top-0 h-12 w-28 -translate-x-1/2 bg-white/30 backdrop-blur-md dark:bg-ink-900/30" />
+        <svg
+          aria-hidden
+          viewBox="0 0 112 48"
+          className="absolute left-1/2 top-0 h-12 w-28 -translate-x-1/2 overflow-visible text-slate-200/70 dark:text-white/5"
+        >
+          <path
+            d="M0 0.5H10.41A8 8 0 0 1 18.41 8.14A37.6 37.6 0 1 0 93.59 8.14A8 8 0 0 1 101.59 0.5H112"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
         <div className="relative mx-auto flex max-w-2xl items-center justify-around px-2 pb-[var(--nav-pad)] pt-1.5">
           {tabs.map((t) =>
             t === null ? (
@@ -80,11 +105,13 @@ export function Layout() {
                   type="button"
                   onClick={() => setCreating(true)}
                   data-testid="nav-create"
-                  className="absolute left-1/2 top-0 flex h-[3.75rem] w-[3.75rem] -translate-x-1/2 -translate-y-[45%] items-center justify-center overflow-hidden rounded-full text-white shadow-xl shadow-brand-600/40 ring-1 ring-white/25 transition active:scale-95"
+                  className="fab-ring absolute left-1/2 top-0 flex h-[3.75rem] w-[3.75rem] -translate-x-1/2 -translate-y-[45%] items-center justify-center overflow-hidden rounded-full text-white transition active:scale-95"
                   aria-label="Create"
                   aria-haspopup="dialog"
                 >
                   <Aurora size="fab" />
+                  {/* white outline round the lower half, fading out towards the top */}
+                  <span aria-hidden className="fab-rim pointer-events-none absolute inset-0 rounded-full border border-white/55" />
                   <Plus size={28} strokeWidth={2.6} className="relative" aria-hidden />
                 </button>
               </div>
@@ -94,17 +121,16 @@ export function Layout() {
                 to={t.to}
                 end={'end' in t}
                 className={({ isActive }) =>
-                  `group flex w-16 flex-col items-center gap-0.5 py-0.5 text-xs font-semibold transition ${isActive ? 'text-brand-800 dark:text-brand-200' : 'text-muted'}`
+                  `flex w-16 flex-col items-center gap-0.5 py-1 text-[11px] transition-colors ${isActive ? 'font-bold text-brand-600 dark:text-brand-300' : 'font-semibold text-slate-400 dark:text-slate-500'}`
                 }
               >
-                {/* Active tab: icon on a pill in a deeper theme shade. */}
-                <span
-                  className="flex h-7 w-12 items-center justify-center rounded-full transition-colors group-aria-[current=page]:bg-brand-100 group-aria-[current=page]:text-brand-700 dark:group-aria-[current=page]:bg-brand-500/25 dark:group-aria-[current=page]:text-brand-200"
-                  aria-hidden
-                >
-                  <t.icon size={22} strokeWidth={2.2} />
-                </span>
-                {t.label}
+                {({ isActive }) => (
+                  <>
+                    {/* Active: icon and label in the accent, a heavier stroke and a slight lift. */}
+                    <t.icon size={23} strokeWidth={isActive ? 2.6 : 2.1} className={`transition-transform ${isActive ? '-translate-y-px' : ''}`} aria-hidden />
+                    {t.label}
+                  </>
+                )}
               </NavLink>
             ),
           )}

@@ -13,6 +13,8 @@ import {
   initialDraft,
   isDirty,
   loadDraft,
+  memberLabels,
+  nameOf,
   parseDecimal,
   reduce,
   rescaleMinor,
@@ -494,6 +496,28 @@ describe('summaries', () => {
     expect(describeSplit(reduce(d, { type: 'selected', ids: ['p', 'me'] }), order, group, 'me')).toBe('Split equally · 2 of 3')
     expect(describeSplit(reduce(d, { type: 'splitType', splitType: 'percent', order }), order, group, 'me')).toBe('By percentage')
     expect(describeSplit(reduce(d, { type: 'assignItems', items: [{ name: 'a', amount: 1 }], order }), order, group, 'me')).toBe('Split by items · 1 item')
+  })
+})
+
+describe('member labels', () => {
+  const members = {
+    me: { name: 'Amrit Singh', color: '#111' },
+    a: { name: 'Rahul Sharma', color: '#222' },
+    b: { name: 'Rahul Kumar', color: '#333' },
+    c: { name: 'Priya Nair', color: '#444' },
+  }
+  it('uses first names in a shared group, with an initial when two share one', () => {
+    expect(memberLabels({ type: 'trip', members }, 'me')).toEqual({ me: 'You', a: 'Rahul S.', b: 'Rahul K.', c: 'Priya' })
+    expect(nameOf({ type: 'home', members }, 'me', 'c')).toBe('Priya')
+    expect(nameOf({ type: 'home', members }, 'me', 'gone')).toBe('Former member')
+  })
+  it('keeps full names in a 1:1 and the personal wallet', () => {
+    expect(memberLabels({ type: 'direct', members: { me: members.me, c: members.c } }, 'me')).toEqual({ me: 'You', c: 'Priya Nair' })
+    expect(nameOf({ type: 'personal', members: { me: members.me } }, 'me', 'me')).toBe('You')
+  })
+  it('follows a change of viewer on the same members map', () => {
+    expect(memberLabels({ type: 'trip', members }, 'me').me).toBe('You')
+    expect(memberLabels({ type: 'trip', members }, 'c')).toMatchObject({ me: 'Amrit', c: 'You' })
   })
 })
 

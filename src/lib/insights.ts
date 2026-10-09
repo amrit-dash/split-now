@@ -1,228 +1,521 @@
 import type { Category, Expense, Group, MemberId } from '@/types'
 import { CATEGORIES } from './categories'
-import { chartFolds } from './chartPalette'
-import { todayISO } from './id'
-import { addDaysISO } from './recents'
 import { formatDate } from './locale'
+import { minorDigits } from './money'
 
 /*
- * The numbers behind the Insights screen. Everything works on ISO date strings (yyyy-mm-dd) and
- * never converts them to Date objects, so a month is the calendar month the user wrote the
- * expense in, whatever the time zone (toISOString() would shift IST evenings into the next UTC
- * day and local midnight on the 1st into the previous month).
+ * Pure computation behind the Insights page. Dates are ISO yyyy-mm-dd strings in local time;
+ * amounts are integer minor units. Rows carry an amount already in the display currency
+ * (the page decides whether that needs an FX conversion), so nothing here mixes currencies.
+ *
+ * Calendar maths goes through local Date objects (parseISO below appends a local midnight) and back
+ * through iso(), never through toISOString(): that would turn an IST evening into the next UTC day
+ * and local midnight on the 1st into the previous month, so an expense would land in the wrong bucket.
  */
 
-export type Period = '1m' | '3m' | '12m' | 'all'
+export type RangePreset = 'month' | '3m' | 'year' | 'all' | 'custom'
 export type Basis = 'mine' | 'total'
 
-export const PERIODS: Array<{ value: Period; label: string }> = [
-  { value: '1m', label: '4 weeks' },
-  { value: '3m', label: '3 months' },
-  { value: '12m', label: '12 months' },
-  { value: 'all', label: 'All time' },
-]
+export interface InsightFilters {
+  range: RangePreset
+  /** Only for `custom`: inclusive bounds, either may be empty. */
+  from?: string
+  to?: string
+  /** Empty = all categories. */
+  categories: Category[]
+  basis: Basis
+}
 
-/** `?p=` → period, `?b=` → basis; anything else is the default. */
-export const parsePeriod = (v: string | null | undefined): Period => (v === '1m' || v === '3m' || v === '12m' || v === 'all' ? v : '3m')
-export const parseBasis = (v: string | null | undefined): Basis => (v === 'total' ? 'total' : 'mine')
+export const DEFAULT_FILTERS: InsightFilters = { range: '3m', categories: [], basis: 'mine' }
 
-/** Length of a period in days (4 full weeks for the short one, so no bucket is a stub). */
-export const periodDays = (p: Period): number => (p === '1m' ? 28 : p === '3m' ? 91 : p === '12m' ? 365 : Infinity)
+// ---- URL -----------------------------------------------------------------------------------
 
-/** The slice of GroupData the computation needs (tests pass plain objects). */
-export interface InsightGroup {
-  group: Pick<Group, 'id' | 'name' | 'emoji' | 'type' | 'currency' | 'members' | 'budget' | 'startDate' | 'endDate'>
+const RANGE_VALUES: RangePreset[] = ['month', '3m', 'year', 'all', 'custom']
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * Filters read from the URL (?r=year&b=total&cat=food,stay&from=…&to=…), so a link, a reload or a
+ * back-swipe keeps them. Anything unknown falls back to the default.
+ */
+export function filtersFromParams(p: URLSearchParams): InsightFilters {
+  const r = p.get('r') as RangePreset | null
+  const range = r && RANGE_VALUES.includes(r) ? r : DEFAULT_FILTERS.range
+  const date = (k: string) => {
+    const v = p.get(k)
+    return v && ISO_DATE.test(v) ? v : undefined
+  }
+  const categories = [...new Set((p.get('cat') ?? '').split(',').filter((c): c is Category => c in CATEGORIES))]
+  const f: InsightFilters = { range, categories, basis: p.get('b') === 'total' ? 'total' : 'mine' }
+  if (range === 'custom') {
+    const from = date('from')
+    const to = date('to')
+    if (from) f.from = from
+    if (to) f.to = to
+  }
+  return f
+}
+
+/** The URL for `f`, keeping unrelated params (the group selection); defaults are left out. */
+export function filtersToParams(f: InsightFilters, prev: URLSearchParams): URLSearchParams {
+  const next = new URLSearchParams(prev)
+  for (const k of ['r', 'b', 'cat', 'from', 'to']) next.delete(k)
+  if (f.range !== DEFAULT_FILTERS.range) next.set('r', f.range)
+  if (f.basis !== DEFAULT_FILTERS.basis) next.set('b', f.basis)
+  if (f.categories.length) next.set('cat', f.categories.join(','))
+  if (f.range === 'custom') {
+    if (f.from) next.set('from', f.from)
+    if (f.to) next.set('to', f.to)
+  }
+  return next
+}
+
+export interface Bounds {
+  from: string
+  to: string
+}
+
+/** The minimum a source needs: a group, its expenses and which member is me. */
+export interface Source {
+  group: Group
   expenses: Expense[]
   me?: MemberId
 }
 
-export interface InsightRow<G extends InsightGroup = InsightGroup> {
+export interface Row {
   e: Expense
-  d: G
-  v: number
+  src: Source
+  /** The expense's amount on the chosen basis, in the display currency. */
+  value: number
+  /** What I paid / my share of it, in the display currency (for "paid vs share"). */
+  paid: number
+  share: number
 }
-export interface SeriesPoint {
+
+// ---- dates ---------------------------------------------------------------------------------
+
+const pad = (n: number) => String(n).padStart(2, '0')
+export const iso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+export const parseISO = (s: string) => new Date(s + 'T00:00:00')
+export function addDays(s: string, n: number) {
+  const d = parseISO(s)
+  d.setDate(d.getDate() + n)
+  return iso(d)
+}
+/** Whole days from a to b, inclusive of both ends (a <= b). */
+export function daysBetween(a: string, b: string) {
+  return Math.round((parseISO(b).getTime() - parseISO(a).getTime()) / 86400000) + 1
+}
+const daysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate()
+/** The first day of the month before `today`'s (local calendar). */
+export function firstOfLastMonth(today: string) {
+  const t = parseISO(today)
+  return iso(new Date(t.getFullYear(), t.getMonth() - 1, 1))
+}
+
+/**
+ * Inclusive bounds for a preset. `month` and `year` run to today (month / year to date);
+ * `all` starts at `earliest` (first expense). Custom bounds fall back to earliest / today.
+ */
+export function rangeBounds(f: Pick<InsightFilters, 'range' | 'from' | 'to'>, today: string, earliest = today): Bounds {
+  const t = parseISO(today)
+  switch (f.range) {
+    case 'month':
+      return { from: iso(new Date(t.getFullYear(), t.getMonth(), 1)), to: today }
+    case '3m':
+      return { from: addDays(today, -90), to: today }
+    case 'year':
+      return { from: `${t.getFullYear()}-01-01`, to: today }
+    case 'all':
+      return { from: earliest < today ? earliest : today, to: today }
+    case 'custom': {
+      const from = f.from || earliest
+      const to = f.to || today
+      return from <= to ? { from, to } : { from: to, to: from }
+    }
+  }
+}
+
+/**
+ * The period to compare against: the same days of last month / last year for the to-date presets,
+ * otherwise the window of equal length just before. None for all-time.
+ */
+export function previousBounds(range: RangePreset, b: Bounds): Bounds | null {
+  if (range === 'all') return null
+  const f = parseISO(b.from),
+    t = parseISO(b.to)
+  if (range === 'month') {
+    const y = f.getMonth() === 0 ? f.getFullYear() - 1 : f.getFullYear()
+    const m = (f.getMonth() + 11) % 12
+    return { from: iso(new Date(y, m, 1)), to: iso(new Date(y, m, Math.min(t.getDate(), daysInMonth(y, m)))) }
+  }
+  if (range === 'year') {
+    const y = f.getFullYear() - 1
+    return { from: `${y}-01-01`, to: iso(new Date(y, t.getMonth(), Math.min(t.getDate(), daysInMonth(y, t.getMonth())))) }
+  }
+  const n = daysBetween(b.from, b.to)
+  return { from: addDays(b.from, -n), to: addDays(b.from, -1) }
+}
+
+// ---- rows ----------------------------------------------------------------------------------
+
+/**
+ * Every expense of `sources` inside `b` (and the category filter), valued on the basis.
+ * Personal groups count the full amount either way (it is all mine). `convert` maps a group-currency
+ * amount to the display currency. Rows worth nothing on the basis and nothing paid are dropped.
+ */
+export function collectRows(
+  sources: Source[],
+  b: Bounds,
+  f: Pick<InsightFilters, 'categories' | 'basis'>,
+  convert: (v: number, s: Source) => number = (v) => v,
+): Row[] {
+  const cats = f.categories.length ? new Set(f.categories) : null
+  const rows: Row[] = []
+  for (const src of sources) {
+    const personal = src.group.type === 'personal'
+    for (const e of src.expenses) {
+      if (e.date < b.from || e.date > b.to) continue
+      if (cats && !cats.has(e.category)) continue
+      const mine = personal ? e.amount : src.me ? (e.splits[src.me] ?? 0) : 0
+      const raw = f.basis === 'total' ? e.amount : mine
+      const paidRaw = personal ? e.amount : src.me ? (e.paidBy[src.me] ?? 0) : 0
+      const value = convert(raw, src)
+      const paid = convert(paidRaw, src)
+      if (value <= 0 && paid <= 0) continue
+      rows.push({ e, src, value: Math.max(0, value), paid, share: convert(mine, src) })
+    }
+  }
+  return rows
+}
+
+export const sumValue = (rows: Row[]) => rows.reduce((s, r) => s + r.value, 0)
+export const counted = (rows: Row[]) => rows.filter((r) => r.value > 0)
+
+// ---- headline numbers ----------------------------------------------------------------------
+
+export interface Headline {
+  total: number
+  count: number
+  /** Per day over the period up to today (a future custom end doesn't dilute it). */
+  dailyAvg: number
+  days: number
+  /** Total of the comparison period, or null when there is none. */
+  prevTotal: number | null
+  /** Fractional change vs the previous period (0.25 = +25%), null when not meaningful. */
+  change: number | null
+}
+
+export function headline(rows: Row[], b: Bounds, today: string, prevRows: Row[] | null): Headline {
+  const total = sumValue(rows)
+  const end = b.to < today ? b.to : today
+  const days = end < b.from ? 1 : daysBetween(b.from, end)
+  const prevTotal = prevRows ? sumValue(prevRows) : null
+  return {
+    total,
+    count: counted(rows).length,
+    dailyAvg: Math.round(total / Math.max(1, days)),
+    days,
+    prevTotal,
+    change: prevTotal ? (total - prevTotal) / prevTotal : null,
+  }
+}
+
+// ---- categories ----------------------------------------------------------------------------
+
+export interface Slice<K = string> {
+  key: K
+  value: number
+  share: number
+}
+
+/** Totals per category, largest first. */
+export function byCategory(rows: Row[]): Slice<Category>[] {
+  const m = new Map<Category, number>()
+  for (const r of rows) if (r.value > 0) m.set(r.e.category, (m.get(r.e.category) ?? 0) + r.value)
+  const total = [...m.values()].reduce((s, v) => s + v, 0) || 1
+  return [...m].map(([key, value]) => ({ key, value, share: value / total })).sort((a, b) => b.value - a.value || a.key.localeCompare(b.key))
+}
+
+/**
+ * For the donut: the top `keep` slices that have their own chart colour, with the rest (the tail,
+ * plus any category without a palette slot) folded into one "other" slice, always last.
+ */
+export function foldSlices(slices: Slice<Category>[], keep: number, hasColor: (c: Category) => boolean): Array<Slice<Category | 'other-fold'>> {
+  const head: Array<Slice<Category | 'other-fold'>> = []
+  let rest = 0,
+    restShare = 0
+  for (const s of slices) {
+    if (head.length < keep && hasColor(s.key)) head.push(s)
+    else {
+      rest += s.value
+      restShare += s.share
+    }
+  }
+  if (rest > 0) head.push({ key: 'other-fold', value: rest, share: restShare })
+  return head
+}
+
+// ---- over time -----------------------------------------------------------------------------
+
+export type Bucket = 'day' | 'week' | 'month'
+export interface TimePoint {
+  key: string
+  start: string
+  end: string
+  value: number
+  current: boolean
+}
+
+export function bucketFor(b: Bounds): Bucket {
+  const n = daysBetween(b.from, b.to)
+  return n <= 35 ? 'day' : n <= 120 ? 'week' : 'month'
+}
+
+/**
+ * Spend per bucket over the whole range, empty buckets included (a gap is information).
+ * Weeks are 7-day blocks counted back from the range end, so the last one is always complete-to-date.
+ * `current` marks the bucket containing today.
+ */
+export function overTime(rows: Row[], b: Bounds, today: string, bucket = bucketFor(b)): TimePoint[] {
+  const pts: TimePoint[] = []
+  if (bucket === 'month') {
+    const f = parseISO(b.from),
+      t = parseISO(b.to)
+    // Months counted as year * 12 + month, so the loop never needs to roll the year over by hand.
+    for (let i = f.getFullYear() * 12 + f.getMonth(); i <= t.getFullYear() * 12 + t.getMonth(); i++) {
+      const y = Math.floor(i / 12),
+        m = i % 12
+      const start = iso(new Date(y, m, 1)),
+        end = iso(new Date(y, m, daysInMonth(y, m)))
+      pts.push({ key: start.slice(0, 7), start, end, value: 0, current: today >= start && today <= end })
+    }
+  } else if (bucket === 'week') {
+    for (let end = b.to; end >= b.from; end = addDays(end, -7)) {
+      const s = addDays(end, -6)
+      const start = s < b.from ? b.from : s
+      pts.unshift({ key: start, start, end, value: 0, current: today >= start && today <= end })
+    }
+  } else {
+    for (let d = b.from; d <= b.to; d = addDays(d, 1)) pts.push({ key: d, start: d, end: d, value: 0, current: d === today })
+  }
+  for (const r of rows) {
+    const p = pts.find((x) => r.e.date >= x.start && r.e.date <= x.end)
+    if (p) p.value += r.value
+  }
+  return pts
+}
+
+export interface PacePoint {
+  day: number
+  thisMonth?: number
+  lastMonth?: number
+}
+
+/**
+ * Cumulative spend by day of month: this month up to today, last month in full. Answers
+ * "am I spending faster than last month?". `rows` must cover both months.
+ */
+export function monthPace(rows: Row[], today: string): { points: PacePoint[]; thisTotal: number; lastToDate: number; lastTotal: number } {
+  const t = parseISO(today)
+  const ty = t.getFullYear(),
+    tm = t.getMonth()
+  const ly = tm === 0 ? ty - 1 : ty,
+    lm = (tm + 11) % 12
+  const thisKey = `${ty}-${pad(tm + 1)}`,
+    lastKey = `${ly}-${pad(lm + 1)}`
+  const len = Math.max(daysInMonth(ty, tm), daysInMonth(ly, lm))
+  const a = new Array(len + 1).fill(0),
+    c = new Array(len + 1).fill(0)
+  for (const r of rows) {
+    const k = r.e.date.slice(0, 7),
+      day = Number(r.e.date.slice(8, 10))
+    if (k === thisKey) a[day] += r.value
+    else if (k === lastKey) c[day] += r.value
+  }
+  const points: PacePoint[] = []
+  let sa = 0,
+    sc = 0
+  for (let day = 1; day <= len; day++) {
+    sa += a[day]
+    sc += c[day]
+    points.push({
+      day,
+      thisMonth: day <= t.getDate() ? sa : undefined,
+      lastMonth: day <= daysInMonth(ly, lm) ? sc : undefined,
+    })
+  }
+  const lastToDate = points[Math.min(t.getDate(), daysInMonth(ly, lm)) - 1]?.lastMonth ?? 0
+  return { points, thisTotal: sa, lastToDate, lastTotal: sc }
+}
+
+// ---- groups & people -----------------------------------------------------------------------
+
+export interface PaceWeek {
+  key: string
+  from: number
+  to: number
+  thisMonth?: number
+  lastMonth?: number
+  current: boolean
+}
+
+/**
+ * The pace points folded into week-of-month buckets (1–7, 8–14, 15–21, 22–28, 29–end) for grouped bars.
+ * `thisMonth` is undefined for weeks that haven't started; the current week is a partial (to today).
+ * `lastMonth` is undefined for days last month didn't have (e.g. 29–31 after a February).
+ */
+export function paceWeeks(points: PacePoint[], today: string): PaceWeek[] {
+  const d = parseISO(today).getDate()
+  const len = points.length
+  const cum = (day: number, k: 'thisMonth' | 'lastMonth') => {
+    for (let i = Math.min(day, len); i >= 1; i--) {
+      const v = points[i - 1][k]
+      if (v !== undefined) return v
+    }
+    return 0
+  }
+  const weeks: PaceWeek[] = []
+  for (let from = 1; from <= len; from += 7) {
+    const to = Math.min(from + 6, len)
+    const hasLast = points[from - 1].lastMonth !== undefined
+    weeks.push({
+      key: `${from}`,
+      from,
+      to,
+      thisMonth: from <= d ? cum(Math.min(to, d), 'thisMonth') - cum(from - 1, 'thisMonth') : undefined,
+      lastMonth: hasLast ? cum(to, 'lastMonth') - cum(from - 1, 'lastMonth') : undefined,
+      current: d >= from && d <= to,
+    })
+  }
+  return weeks
+}
+
+export interface GroupTotal {
+  id: string
+  name: string
+  emoji: string
+  value: number
+  paid: number
+  share: number
+}
+
+/** Per group: spend on the basis, and what I paid vs my share (for non-personal groups). */
+export function byGroup(rows: Row[]): GroupTotal[] {
+  const m = new Map<string, GroupTotal>()
+  for (const r of rows) {
+    const g = r.src.group
+    const t = m.get(g.id) ?? { id: g.id, name: g.name, emoji: g.emoji, value: 0, paid: 0, share: 0 }
+    t.value += r.value
+    if (g.type !== 'personal') {
+      t.paid += r.paid
+      t.share += r.share
+    }
+    m.set(g.id, t)
+  }
+  return [...m.values()].sort((a, b) => b.value - a.value || a.name.localeCompare(b.name))
+}
+
+export interface MemberTotal {
+  id: MemberId
+  name: string
+  color: string
+  photoURL?: string
+  paid: number
+  share: number
+  me: boolean
+}
+
+/** One group: what each member fronted vs consumed over the rows (group currency). */
+export function paidVsShare(src: Source, rows: Row[]): MemberTotal[] {
+  const out: MemberTotal[] = Object.entries(src.group.members).map(([id, m]) => ({
+    id,
+    name: m.name,
+    color: m.color,
+    ...(m.photoURL ? { photoURL: m.photoURL } : {}),
+    paid: 0,
+    share: 0,
+    me: id === src.me,
+  }))
+  const idx = new Map(out.map((m, i) => [m.id, i]))
+  for (const r of rows) {
+    if (r.src !== src) continue
+    for (const [id, v] of Object.entries(r.e.paidBy)) {
+      const i = idx.get(id)
+      if (i !== undefined) out[i].paid += v
+    }
+    for (const [id, v] of Object.entries(r.e.splits)) {
+      const i = idx.get(id)
+      if (i !== undefined) out[i].share += v
+    }
+  }
+  return out.filter((m) => m.paid || m.share).sort((a, b) => Number(b.me) - Number(a.me) || b.share - a.share)
+}
+
+// ---- budget --------------------------------------------------------------------------------
+
+export interface BudgetPoint {
   key: string
   label: string
   value: number
 }
 
-export interface InsightStats<G extends InsightGroup = InsightGroup> {
-  total: number
-  count: number
-  /** the same total for the period before this one; null for "all time" */
-  prevTotal: number | null
-  cats: Array<{ cat: Category | 'other-fold'; label: string; value: number }>
-  bucket: 'week' | 'month'
-  series: SeriesPoint[]
-  /** single group: what each member paid vs what they consumed (every expense in the period) */
-  members: Array<{ id: MemberId; name: string; paid: number; share: number }>
-  /** several groups: who you shared the most spending with (your share of expenses you were both in) */
-  people: Array<{ key: string; name: string; value: number }>
-  top: InsightRow<G>[]
-  /** single group with a budget: spend run-up over the group's life, against the budget */
-  budget: { budget: number; spent: number; points: SeriesPoint[] } | null
+/**
+ * A group with a budget: cumulative spend by date over the group's whole life (a budget is per group,
+ * not per filter period), starting at the trip's start date when that comes first. Null without a budget.
+ */
+export function budgetRunUp(src: {
+  group: Pick<Group, 'budget' | 'startDate'>
+  expenses: Expense[]
+}): { budget: number; spent: number; points: BudgetPoint[] } | null {
+  const budget = src.group.budget
+  if (!budget) return null
+  const byDate = new Map<string, number>()
+  for (const e of src.expenses) byDate.set(e.date, (byDate.get(e.date) ?? 0) + e.amount)
+  const dates = [...byDate.keys()].sort()
+  const points: BudgetPoint[] = []
+  const start = src.group.startDate
+  if (start && (!dates[0] || start < dates[0])) points.push({ key: start, label: formatDate(start), value: 0 })
+  let run = 0
+  for (const date of dates) {
+    run += byDate.get(date) ?? 0
+    points.push({ key: date, label: formatDate(date), value: run })
+  }
+  return { budget, spent: run, points }
 }
 
-const ym = (iso: string) => iso.slice(0, 7)
-const nextMonth = (k: string) => {
-  const [y, m] = k.split('-').map(Number)
-  return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`
-}
-/** Days since the epoch for an ISO date, with no time zone involved. */
-export const dayNumber = (iso: string) => {
-  const [y, m, d] = iso.split('-').map(Number)
-  return Math.round(Date.UTC(y, m - 1, d) / 86_400_000)
-}
+// ---- formatting ----------------------------------------------------------------------------
 
-/** The value an expense contributes: the whole amount, or your share (always the whole for a personal wallet). */
-function contribution(e: Expense, d: InsightGroup, basis: Basis): number {
-  return basis === 'total' || d.group.type === 'personal' ? e.amount : d.me ? (e.splits[d.me] ?? 0) : 0
-}
-
-export function compute<G extends InsightGroup>(
-  scope: G[],
-  period: Period,
-  basis: Basis,
-  toHome?: (v: number, d: G) => number,
-  today = todayISO(),
-): InsightStats<G> {
-  const days = periodDays(period)
-  const cutoff = days === Infinity ? '' : addDaysISO(today, -(days - 1))
-  const prevCutoff = days === Infinity ? '' : addDaysISO(cutoff, -days)
-  const conv = (v: number, d: G) => (toHome ? toHome(v, d) : v)
-
-  const rows: InsightRow<G>[] = []
-  let prevTotal = 0
-  for (const d of scope) {
-    for (const e of d.expenses) {
-      if (e.date > today) continue
-      const v = conv(contribution(e, d, basis), d)
-      if (e.date >= cutoff) {
-        if (v > 0) rows.push({ e, d, v })
-      } else if (days !== Infinity && e.date >= prevCutoff && v > 0) prevTotal += v
+/**
+ * Short axis label: ₹1.2k / ₹3.4L / ₹1.1Cr for INR (Indian units read better than Intl's en-IN
+ * "T" for thousand), $1.2k / $3.4M otherwise.
+ */
+export function compactMoney(minor: number, currency: string, symbol: string): string {
+  const v = minor / 10 ** minorDigits(currency)
+  const sign = v < 0 ? '-' : ''
+  const a = Math.abs(v)
+  const units: Array<[number, string]> =
+    currency === 'INR'
+      ? [
+          [1e7, 'Cr'],
+          [1e5, 'L'],
+          [1e3, 'k'],
+        ]
+      : [
+          [1e9, 'B'],
+          [1e6, 'M'],
+          [1e3, 'k'],
+        ]
+  for (const [n, u] of units) {
+    if (a >= n) {
+      const x = a / n
+      return `${sign}${symbol}${x >= 100 ? Math.round(x) : Number(x.toFixed(1))}${u}`
     }
   }
-  const total = rows.reduce((s, r) => s + r.v, 0)
-
-  // Categories (non-palette ones fold into "Other", which always sorts last).
-  const byCat = new Map<Category | 'other-fold', number>()
-  for (const r of rows) {
-    const k = chartFolds(r.e.category) ? 'other-fold' : r.e.category
-    byCat.set(k, (byCat.get(k) ?? 0) + r.v)
-  }
-  const cats = [...byCat]
-    .map(([cat, value]) => ({ cat, value, label: cat === 'other-fold' ? 'Other' : CATEGORIES[cat].label }))
-    .sort((a, b) => (a.cat === 'other-fold' ? 1 : b.cat === 'other-fold' ? -1 : b.value - a.value))
-
-  // Time series: four weeks for the short period, else calendar months from the first expense.
-  const bucket: 'week' | 'month' = period === '1m' ? 'week' : 'month'
-  const series: SeriesPoint[] = []
-  if (bucket === 'month') {
-    const first = rows.length ? rows.reduce((m, r) => (r.e.date < m ? r.e.date : m), today) : today
-    const start = cutoff && cutoff > first ? ym(cutoff) : ym(first)
-    const end = ym(today)
-    const spansYears = start.slice(0, 4) !== end.slice(0, 4)
-    const at = new Map<string, SeriesPoint>()
-    for (let k = start; k <= end; k = nextMonth(k)) {
-      const p = { key: k, label: formatDate(`${k}-01`, spansYears ? { month: 'short', year: '2-digit' } : { month: 'short' }), value: 0 }
-      at.set(k, p)
-      series.push(p)
-    }
-    for (const r of rows) {
-      const s = at.get(ym(r.e.date))
-      if (s) s.value += r.v
-    }
-  } else {
-    const todayN = dayNumber(today)
-    const weeks = 4
-    for (let i = weeks - 1; i >= 0; i--) {
-      const startIso = addDaysISO(today, -(i * 7 + 6))
-      series.push({ key: startIso, label: formatDate(startIso, { day: 'numeric', month: 'short' }), value: 0 })
-    }
-    for (const r of rows) {
-      const age = Math.floor((todayN - dayNumber(r.e.date)) / 7)
-      const s = series[weeks - 1 - Math.min(weeks - 1, Math.max(0, age))]
-      if (s) s.value += r.v
-    }
-  }
-
-  // Paid vs share per member (one group), over every expense in the period, whatever the basis.
-  const members: InsightStats<G>['members'] = []
-  if (scope.length === 1 && scope[0].group.type !== 'personal') {
-    const d = scope[0]
-    const inPeriod = d.expenses.filter((e) => e.date >= cutoff && e.date <= today)
-    for (const [id, m] of Object.entries(d.group.members)) {
-      let paid = 0,
-        share = 0
-      for (const e of inPeriod) {
-        paid += e.paidBy[id] ?? 0
-        share += e.splits[id] ?? 0
-      }
-      if (paid || share) members.push({ id, name: id === d.me ? 'You' : m.name.split(' ')[0], paid, share })
-    }
-    members.sort((a, b) => b.paid + b.share - (a.paid + a.share))
-  }
-
-  // Who you spend with (several groups): your value of each expense, credited to everyone else in its split.
-  const people: InsightStats<G>['people'] = []
-  if (scope.length > 1) {
-    const by = new Map<string, { name: string; value: number }>()
-    for (const r of rows) {
-      if (!r.d.me || r.d.group.type === 'personal' || !(r.d.me in r.e.splits)) continue
-      for (const id of Object.keys(r.e.splits)) {
-        if (id === r.d.me) continue
-        const m = r.d.group.members[id]
-        if (!m) continue
-        const key = m.uid ? `u:${m.uid}` : `n:${m.name.trim().toLowerCase()}`
-        const p = by.get(key) ?? { name: m.name, value: 0 }
-        p.value += r.v
-        by.set(key, p)
-      }
-    }
-    people.push(
-      ...[...by]
-        .map(([key, p]) => ({ key, ...p }))
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 5),
-    )
-  }
-
-  // Budget run-up: cumulative group spend by date over the group's whole life (budgets are per group, not per period).
-  let budget: InsightStats<G>['budget'] = null
-  const budgetOf = scope.length === 1 ? scope[0].group.budget : undefined
-  if (budgetOf) {
-    const d = scope[0]
-    const byDate = new Map<string, number>()
-    for (const e of d.expenses) byDate.set(e.date, (byDate.get(e.date) ?? 0) + e.amount)
-    const dates = [...byDate.keys()].sort()
-    const points: SeriesPoint[] = []
-    const startIso = d.group.startDate && (!dates[0] || d.group.startDate < dates[0]) ? d.group.startDate : undefined
-    if (startIso) points.push({ key: startIso, label: formatDate(startIso), value: 0 })
-    let run = 0
-    for (const date of dates) {
-      run += byDate.get(date)!
-      points.push({ key: date, label: formatDate(date), value: run })
-    }
-    budget = { budget: budgetOf, spent: run, points }
-  }
-
-  return {
-    total,
-    count: rows.length,
-    prevTotal: days === Infinity ? null : prevTotal,
-    cats,
-    bucket,
-    series,
-    members,
-    people,
-    top: [...rows].sort((a, b) => b.v - a.v).slice(0, 5),
-    budget,
-  }
+  return `${sign}${symbol}${Math.round(a)}`
 }
 
-/** "+12%" / "−8%" against the previous period, or null when there is nothing to compare with. */
-export function deltaPercent(total: number, prevTotal: number | null): number | null {
-  if (prevTotal === null || prevTotal <= 0) return null
-  return Math.round(((total - prevTotal) / prevTotal) * 100)
+/** "+12%" / "−8%" / "±0%" for a fractional change. */
+export function formatChange(change: number): string {
+  const p = Math.round(change * 100)
+  return p === 0 ? '±0%' : `${p > 0 ? '+' : '−'}${Math.abs(p)}%`
 }

@@ -1,5 +1,6 @@
 import type { QuickPrefill } from './nl-expense'
 import type { ParsedPayment, ParsedReceipt } from './ocr-parse'
+import type { ScanKind } from './scanHistory'
 
 /**
  * In-memory hand-off between the Scan screen and the expense/settle forms (survives SPA
@@ -7,7 +8,8 @@ import type { ParsedPayment, ParsedReceipt } from './ocr-parse'
  * the expense form follows it rather than the group's.
  */
 export const pending: {
-  receipt?: { parsed: ParsedReceipt; file: File }
+  /** `history`: the Recent scans entry it came from, so the saved expense can be noted on it */
+  receipt?: { parsed: ParsedReceipt; file: File; history?: { id: string; kind: ScanKind } }
   payment?: { parsed: ParsedPayment; file: File }
   /** Quick add → /add?group=…&quick=1: the parsed line the form opens prefilled with (never saved by itself) */
   quick?: { groupId: string; prefill: QuickPrefill }

@@ -1,11 +1,11 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ChevronRight, FileUp, Inbox, Plus, Ticket } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
 import { useAllGroupData, type GroupData } from '@/hooks/data'
 import { useInbox } from '@/hooks/useInbox'
 import { ActivityFeed } from '@/components/Trust'
-import { formatMoney } from '@/lib/money'
+import { currencySymbol, formatMoney } from '@/lib/money'
 import { convertMinor } from '@/lib/fx'
 import { useTodayRates } from '@/hooks/useFx'
 import { CATEGORIES } from '@/lib/categories'
@@ -13,9 +13,9 @@ import { GroupRow } from '@/components/GroupRow'
 import { Avatar } from '@/components/Avatar'
 import { Aurora } from '@/components/Aurora'
 import { CardSkeleton, ListSkeleton, Skeleton } from '@/components/Skeleton'
+import { CardFirework } from '@/components/CardFirework'
 import { formatDate } from '@/lib/locale'
-import { greeting, topCounterparties } from '@/lib/greeting'
-import { friendBalances } from '@/lib/friends'
+import { dayPart, greeting, helloFor, topCounterparties, type DayPart } from '@/lib/greeting'
 import { isLiveTrip, liveTripFor } from '@/lib/capture'
 import { lastGroup } from '@/lib/recents'
 import { QuickAdd } from '@/components/QuickAdd'
@@ -30,6 +30,7 @@ export default function Home() {
   const rates = useTodayRates(home, data ? data.map((d) => d.group.currency) : [])
   const box = useInbox(data)
   const feed = box.feed?.slice(0, 6)
+  const compact = useNarrow(380)
   if (!data) return <HomeSkeleton />
   const groupsById = Object.fromEntries(data.map((d) => [d.group.id, d.group]))
   const active = data.filter((d) => !d.group.archived)
@@ -61,6 +62,8 @@ export default function Home() {
   const net = main.owed - main.owe
   const others = [...totals.entries()].filter(([c]) => c !== cur)
   const ax = approx ? '≈ ' : ''
+  // Nothing owed either way, in any group: no "settle up" CTA, a quiet firework instead.
+  const allSettled = active.some((d) => d.me && d.group.type !== 'personal') && [...totals.values()].every((t) => !t.owed && !t.owe)
 
   const recent = active
     .flatMap((d) => d.expenses.map((e) => ({ e, d })))
@@ -73,9 +76,6 @@ export default function Home() {
     shared.map((d) => ({ ...d.group, me: d.me, debts: d.debts })),
     cur,
   )
-  const friends = friendBalances(active)
-    .filter((f) => f.net !== 0)
-    .slice(0, 5)
   const hello = greeting(profile.displayName, {
     inbox: box.captures.length,
     needsOk: box.approvals.length,
@@ -85,26 +85,19 @@ export default function Home() {
     settled: shared.some((d) => d.expenses.length > 0) && shared.every((d) => !d.me || !d.net[d.me]),
   })
 
+  const part = dayPart(new Date().getHours())
+
   return (
     <div className="pt-[calc(env(safe-area-inset-top)+1.5rem)]">
-      <header className="mb-6 flex items-center justify-between gap-4" data-testid="home-greeting">
-        <div className="min-w-0">
-          <p className="text-muted text-sm font-medium">
-            {hello.salutation}, {hello.name}
-          </p>
-          {/* The subline is the headline: it says what matters today (who owes you, a live trip, things to sort). */}
-          <h1 className="mt-0.5 text-xl font-extrabold leading-tight tracking-tight [overflow-wrap:anywhere]">
-            {firstRun ? 'Welcome to Split Now' : plainLine(hello.subline)}
-          </h1>
-        </div>
-        <div className="flex shrink-0 items-center gap-2.5">
+      <header className="mb-6 flex items-center justify-between gap-3" data-testid="home-greeting">
+        <Greeting salutation={hello.salutation} name={hello.name} part={part} />
+        <div className="flex shrink-0 items-center gap-2 min-[380px]:gap-3">
           <Link
             to="/inbox"
             aria-label={box.toSort ? `Inbox, ${box.toSort} to sort` : box.unread ? `Inbox, ${box.unread} new updates` : 'Inbox'}
             data-testid="home-inbox"
-            className="relative flex h-11 items-center gap-1 rounded-full px-1.5 text-slate-600 transition active:scale-95 dark:text-slate-300"
+            className="relative flex h-12 items-center gap-1 rounded-full px-1.5 text-slate-600 transition active:scale-95 dark:text-slate-300"
           >
-            <Inbox size={24} strokeWidth={2} aria-hidden />
             {box.toSort > 0 ? (
               <span
                 className="animate-pop flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-600 px-1.5 text-[0.6875rem] font-bold text-white"
@@ -115,9 +108,10 @@ export default function Home() {
             ) : box.unread > 0 ? (
               <span className="absolute right-1 top-2 h-2.5 w-2.5 rounded-full bg-brand-500 ring-2 ring-slate-50 dark:ring-ink-950" aria-hidden />
             ) : null}
+            <Inbox className="h-6 w-6 min-[380px]:h-[27px] min-[380px]:w-[27px]" strokeWidth={2} aria-hidden />
           </Link>
           <Link to="/profile" aria-label="Profile" className="rounded-full p-0.5 ring-2 ring-brand-500/40 transition active:scale-95">
-            <Avatar name={profile.displayName} photoURL={profile.photoURL} color="accent" size={46} />
+            <Avatar name={profile.displayName} photoURL={profile.photoURL} color="accent" size={compact ? 48 : 58} />
           </Link>
         </div>
       </header>
@@ -127,15 +121,27 @@ export default function Home() {
       ) : (
         <div className="relative isolate overflow-hidden rounded-[2rem] bg-brand-600 p-6 text-white shadow-xl shadow-brand-600/30">
           <Aurora />
+          {allSettled && <CardFirework />}
           <div className="relative">
-            <div className="text-sm font-medium text-white/90">Overall, {net >= 0 ? 'you are owed' : 'you owe'}</div>
-            <div className="mt-1 text-4xl font-extrabold tracking-tight" data-testid="home-net">
-              {ax}
-              {formatMoney(Math.abs(net), cur)}
+            {/* Settle up: inset from the card's corner, level with the first lines, with a cheque being signed. */}
+            {!allSettled && (
+              <Link
+                to="/settle"
+                aria-label="Balances and settle up"
+                title="Settle up"
+                data-testid="home-settle"
+                className="absolute -top-1 right-0 flex h-14 w-14 items-center justify-center rounded-full text-white transition duration-150 hover:bg-white/10 active:scale-90 active:bg-white/20"
+              >
+                <ChequeSign currency={home} />
+              </Link>
+            )}
+            <div className="pr-16 text-sm font-medium text-white/90">{allSettled ? 'Overall' : `Overall, ${net >= 0 ? 'you are owed' : 'you owe'}`}</div>
+            <div className="mt-1 pr-14 text-4xl font-extrabold tracking-tight" data-testid="home-net">
+              {allSettled ? 'All settled up' : `${ax}${formatMoney(Math.abs(net), cur)}`}
             </div>
             <div className="mt-5 grid grid-cols-2 gap-3">
               <Link
-                to="/friends?filter=owed"
+                to="/settle"
                 className="rounded-2xl bg-white/15 p-3 text-left backdrop-blur transition active:bg-white/25"
                 aria-label={`You are owed ${ax}${formatMoney(main.owed, cur)}. See who owes you`}
               >
@@ -146,7 +152,7 @@ export default function Home() {
                 </div>
               </Link>
               <Link
-                to="/friends?filter=owe"
+                to="/settle"
                 className="rounded-2xl bg-white/15 p-3 text-left backdrop-blur transition active:bg-white/25"
                 aria-label={`You owe ${ax}${formatMoney(main.owe, cur)}. See who you owe`}
               >
@@ -199,24 +205,6 @@ export default function Home() {
         </Section>
       )}
 
-      {friends.length > 0 && (
-        <Section title="People" link={{ to: '/friends', label: 'See all' }}>
-          <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5" data-testid="home-people">
-            {friends.map((f) => (
-              <Link key={f.key} to="/friends" className="flex min-h-14 items-center gap-3 px-4 py-2.5 transition active:bg-slate-50 dark:active:bg-ink-800">
-                <Avatar name={f.name} color={f.color} size={36} />
-                <span className="min-w-0 flex-1 truncate font-medium">{f.name}</span>
-                <span className="text-right">
-                  <span className={`block text-xs ${f.net > 0 ? 'pos' : 'neg'}`}>{f.net > 0 ? 'owes you' : 'you owe'}</span>
-                  <span className={`block font-semibold ${f.net > 0 ? 'pos' : 'neg'}`}>{formatMoney(Math.abs(f.net), f.currency)}</span>
-                </span>
-                <ChevronRight size={18} className="text-slate-300 dark:text-slate-600" aria-hidden />
-              </Link>
-            ))}
-          </div>
-        </Section>
-      )}
-
       {feed && feed.length > 0 ? (
         <Section title="Recent activity">
           <ActivityFeed entries={feed} groups={groupsById} />
@@ -262,11 +250,6 @@ function RecentExpense({ e, d }: { e: GroupData['expenses'][number]; d: GroupDat
       </div>
     </Link>
   )
-}
-
-/** Greeting sublines end in an emoji (greeting.ts); the headline reads better without it. */
-function plainLine(s: string): string {
-  return s.replace(/\s*(?:\p{Extended_Pictographic}️?|\p{Regional_Indicator})+\s*$/u, '').trim()
 }
 
 /**
@@ -418,5 +401,176 @@ export function Section({ title, link, children }: { title: string; link?: { to:
       </div>
       {children}
     </section>
+  )
+}
+
+/**
+ * The icon after "Hi": one icon for the time of day, picked per visit from HELLO, playing its own
+ * motion (wave, bob, tilt, bounce, pulse, swing) a few times and then resting; tapping it plays it again. Static under reduced motion.
+ */
+function HelloIcon({ part }: { part: DayPart }) {
+  const [cur] = useState(() => helloFor(part))
+  const [run, setRun] = useState(0)
+  const motion = {
+    wave: 'animate-wave origin-[70%_70%]',
+    tilt: 'animate-tilt',
+    float: 'animate-float',
+    bounce: 'animate-hello-bounce origin-bottom',
+    pulse: 'animate-hello-pulse',
+    swing: 'animate-hello-swing origin-top',
+  }[cur.motion]
+  return (
+    <span aria-hidden className="inline-flex h-[1.2em] w-[1.2em] items-center justify-center" onClick={() => setRun((n) => n + 1)}>
+      <span key={run} className={`inline-block ${motion}`}>
+        {cur.emoji}
+      </span>
+    </span>
+  )
+}
+
+/** True while the viewport is narrower than `px` (small phones get a tighter header). */
+function useNarrow(px: number) {
+  const q = `(max-width: ${px - 0.02}px)`
+  const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.(q).matches)
+  useEffect(() => {
+    const m = window.matchMedia?.(q)
+    if (!m) return
+    const on = () => setNarrow(m.matches)
+    m.addEventListener('change', on)
+    return () => m.removeEventListener('change', on)
+  }, [q])
+  return narrow
+}
+
+/**
+ * "Good morning" over "Hi, Amrit 👋" on one line when it fits; when it doesn't (small phones,
+ * long names) it switches to "Hi 👋" over the name, rather than letting the line break wherever
+ * it falls. The size scales a little with the viewport; very long names truncate.
+ */
+function Greeting({ salutation, name, part }: { salutation: string; name: string; part: DayPart }) {
+  const box = useRef<HTMLDivElement>(null)
+  const probe = useRef<HTMLSpanElement>(null)
+  const [stacked, setStacked] = useState(false)
+  useLayoutEffect(() => {
+    const el = box.current,
+      p = probe.current
+    if (!el || !p) return
+    const check = () => setStacked(p.offsetWidth > el.clientWidth)
+    check()
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(check) : null
+    ro?.observe(el)
+    return () => ro?.disconnect()
+  }, [name])
+  const size = 'text-[clamp(1.5rem,7.2vw,1.85rem)] font-extrabold leading-[1.15] tracking-tight'
+  return (
+    <div ref={box} className="relative min-w-0 flex-1">
+      <p className="text-muted text-sm font-medium">{salutation}</p>
+      {/* invisible one-line copy, measured to decide the layout */}
+      <span ref={probe} aria-hidden className={`pointer-events-none invisible absolute left-0 top-0 whitespace-nowrap ${size}`}>
+        Hi, {name} 👋
+      </span>
+      <h1 className={`mt-0.5 ${size}`}>
+        {stacked ? (
+          <>
+            <span className="flex items-center gap-2">
+              Hi <HelloIcon part={part} />
+            </span>
+            <span className="block truncate">{name}</span>
+          </>
+        ) : (
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="truncate">Hi, {name}</span>
+            <HelloIcon part={part} />
+          </span>
+        )}
+      </h1>
+    </div>
+  )
+}
+
+/**
+ * The settle icon: a cheque with the user's currency on it and a pen that signs it. The pen's tip
+ * follows the signature path exactly (getPointAtLength each frame) while the ink line draws on
+ * behind it, then the pen lifts away. Signs a few times (first shortly after the page opens),
+ * then rests with the signature in place. Still, already signed, under reduced motion.
+ */
+const SIGNATURE = 'M13.4 20.6 c0.7-2.3 1.9-2.8 2.2-0.7 c0.25 1.8 1 2 1.75 0.2 c0.7-1.7 1.5-1.9 2 0.2 c0.4 1.3 1.15 1.25 2.05-0.4'
+function ChequeSign({ currency }: { currency: string }) {
+  const ink = useRef<SVGPathElement>(null)
+  const pen = useRef<SVGGElement>(null)
+  const [signed, setSigned] = useState(false)
+  useEffect(() => {
+    const path = ink.current,
+      p = pen.current
+    if (!path || !p) return
+    const len = path.getTotalLength()
+    path.style.strokeDasharray = `${len}`
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      path.style.strokeDashoffset = '0'
+      setSigned(true)
+      return
+    }
+    path.style.strokeDashoffset = `${len}`
+    let raf = 0
+    const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2)
+    const place = (d: number, lift = 0, alpha = 1) => {
+      const pt = path.getPointAtLength(d)
+      p.setAttribute('transform', `translate(${pt.x + lift * 0.6} ${pt.y - lift})`)
+      p.style.opacity = String(alpha)
+    }
+    const run = () => {
+      const t0 = performance.now(),
+        IN = 260,
+        WRITE = 1150,
+        OUT = 380
+      const frame = (now: number) => {
+        const t = now - t0
+        if (t < IN) {
+          place(0, 3 * (1 - t / IN), t / IN)
+          path.style.strokeDashoffset = `${len}`
+        } else if (t < IN + WRITE) {
+          const d = ease((t - IN) / WRITE) * len
+          place(d)
+          path.style.strokeDashoffset = `${len - d}`
+        } else if (t < IN + WRITE + OUT) {
+          const k = (t - IN - WRITE) / OUT
+          place(len, 3 * k, 1 - k)
+          path.style.strokeDashoffset = '0'
+        } else {
+          p.style.opacity = '0'
+          setSigned(true)
+          return
+        }
+        raf = requestAnimationFrame(frame)
+      }
+      raf = requestAnimationFrame(frame)
+    }
+    const ts = [1000, 8000, 15000].map((t) => setTimeout(run, t))
+    return () => {
+      ts.forEach(clearTimeout)
+      cancelAnimationFrame(raf)
+    }
+  }, [])
+  const sym = currencySymbol(currency)
+  return (
+    <svg aria-hidden viewBox="0 0 32 32" className="h-9 w-9 overflow-visible" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+      {/* cheque book: the front cheque, its rolled left edge and the page behind */}
+      <path d="M8.2 9.4 H27.2 V23.4 H8.2" strokeWidth="1.7" />
+      <path d="M8.2 23.4 V11.3 a2.05 2.05 0 1 0 -4.1 0 V24.2 a1.9 1.9 0 0 0 1.9 1.9 H25.4 V23.4" strokeWidth="1.7" />
+      <text x="11.6" y="18.1" textAnchor="middle" fontSize={sym.length > 1 ? 5 : 7.2} fontWeight="800" fill="currentColor" stroke="none">
+        {sym}
+      </text>
+      <path d="M15.4 13.3 H24.6 M15.4 16.1 H22" strokeWidth="1.5" />
+      <path d="M10 21.3 H12" strokeWidth="1.5" />
+      <path ref={ink} d={SIGNATURE} strokeWidth="1.25" style={{ strokeDashoffset: signed ? 0 : undefined }} />
+      {/* pen: drawn with its tip at (0,0), leaning right; moved along the signature */}
+      <g ref={pen} style={{ opacity: 0 }}>
+        <g transform="rotate(32)">
+          <path d="M0 0 L-1.15 -2.6 H1.15 Z" fill="currentColor" stroke="none" />
+          <rect x="-1.4" y="-12.5" width="2.8" height="9.9" rx="0.9" strokeWidth="1.3" className="fill-brand-600" />
+          <path d="M1.4 -11.6 h1 v3.4" strokeWidth="1" />
+        </g>
+      </g>
+    </svg>
   )
 }

@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { errText } from '@/lib/errors'
 import { SPLIT_TYPE_LABEL } from '@/lib/expense-draft'
 import { formatDate, formatDateTime } from '@/lib/locale'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { CopyPlus, Pencil, Repeat, Send, Trash2 } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
@@ -28,16 +28,31 @@ export default function ExpenseDetail() {
   const nav = useNavigate()
   const toast = useToast()
   const undoable = useUndoableDelete()
+  const patient = usePatience(`${groupId}/${expenseId}`)
   const e = expenses?.find((x) => x.id === expenseId)
-  usePageTitle(e ? e.description : group === null || (expenses && !e) ? 'Expense' : undefined)
+  // An old link to an import summary pointed here with the group's id: open the group.
+  const importLink = !!groupId && expenseId === groupId
+  usePageTitle(e ? e.description : group === null || (expenses && !e && !patient) ? 'Expense' : undefined)
+  if (importLink) return <Navigate to={`/groups/${groupId}`} replace />
   if (group === undefined || !expenses) return <Loading />
-  if (!group || !e)
+  // The first snapshot can come from the local cache before the server has sent this expense
+  // (opened from a notification or another member's activity): wait a moment before "not found".
+  if (group && !e && patient) return <Loading />
+  if (!group || !e) {
     return (
       <>
         <PageHeader title="Expense" back />
-        <Empty emoji="🔍" title="Expense not found" />
+        <Empty emoji="🔍" title="Expense not found">
+          {group ? 'It may have been deleted for good.' : 'You may no longer be in this group.'}
+          {group && (
+            <Link to={`/groups/${group.id}`} replace className="btn-secondary mx-auto mt-4 w-fit">
+              Open {group.emoji} {group.name}
+            </Link>
+          )}
+        </Empty>
       </>
     )
+  }
   const me = myMemberId(group, user.uid)
   const cur = group.currency
   const cat = CATEGORIES[e.category]
@@ -169,7 +184,7 @@ export default function ExpenseDetail() {
             <div className="label">Paid by</div>
             {Object.entries(e.paidBy).map(([id, v]) => (
               <div key={id} className="flex items-center gap-3 py-1.5">
-                <Avatar name={group.members[id]?.name ?? '?'} color={group.members[id]?.color ?? '#999'} size={32} />
+                <Avatar name={group.members[id]?.name ?? '?'} color={group.members[id]?.color ?? '#999'} photoURL={group.members[id]?.photoURL} size={32} />
                 <span className="flex-1 font-medium">{name(id)}</span>
                 <span className="font-semibold tabular-nums">{formatMoney(v, cur)}</span>
               </div>
@@ -181,7 +196,7 @@ export default function ExpenseDetail() {
               const net = (e.paidBy[id] ?? 0) - v
               return (
                 <div key={id} className="flex items-center gap-3 py-1.5">
-                  <Avatar name={group.members[id]?.name ?? '?'} color={group.members[id]?.color ?? '#999'} size={32} />
+                  <Avatar name={group.members[id]?.name ?? '?'} color={group.members[id]?.color ?? '#999'} photoURL={group.members[id]?.photoURL} size={32} />
                   <div className="flex-1">
                     <div className="font-medium">{name(id)}</div>
                     {e.splitType === 'percent' && <div className="text-xs text-muted">{e.splitInput.percent?.[id]}%</div>}
@@ -248,7 +263,8 @@ function Comments({ group, expense }: { group: Group; expense: Expense }) {
   const toast = useToast()
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
-  const colorOf = (authorUid: string, i: number) => Object.values(group.members).find((m) => m.uid === authorUid)?.color ?? colorFor(i)
+  const memberOf = (authorUid: string) => Object.values(group.members).find((m) => m.uid === authorUid)
+  const colorOf = (authorUid: string, i: number) => memberOf(authorUid)?.color ?? colorFor(i)
 
   const send = async () => {
     const t = text.trim()
@@ -296,7 +312,7 @@ function Comments({ group, expense }: { group: Group; expense: Expense }) {
         <ul className="space-y-3">
           {comments.map((c, i) => (
             <li key={c.id} className="flex gap-2.5">
-              <Avatar name={c.authorName} color={colorOf(c.authorUid, i)} size={30} />
+              <Avatar name={c.authorName} color={colorOf(c.authorUid, i)} photoURL={memberOf(c.authorUid)?.photoURL} size={30} />
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline gap-2 text-xs">
                   <span className="font-semibold text-slate-900 dark:text-slate-100">{c.authorUid === user.uid ? 'You' : c.authorName}</span>
@@ -364,4 +380,16 @@ function fmtWhen(ts: number) {
   if (mins < 60) return `${mins}m ago`
   if (mins < 60 * 24) return `${Math.round(mins / 60)}h ago`
   return formatDate(ts, 'day')
+}
+
+/** True for the first few seconds after `key` changes. */
+function usePatience(key: string, ms = 4000) {
+  const [waiting, setWaiting] = useState(true)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `key` is the signal to start waiting again
+  useEffect(() => {
+    setWaiting(true)
+    const t = setTimeout(() => setWaiting(false), ms)
+    return () => clearTimeout(t)
+  }, [key, ms])
+  return waiting
 }

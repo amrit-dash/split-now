@@ -19,13 +19,13 @@ import { IconPickerField, TypeSuggestion } from '@/components/IconPicker'
 import { Select, currencyOptions } from '@/components/Select'
 import { LiveBadge, Loading, PageHeader } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
-import { useConfirm } from '@/components/ConfirmSheet'
 import { DateField } from '@/components/DateField'
 import { Switch } from '@/components/Switch'
 import { Collapsible } from '@/components/Collapsible'
 import { MoneyInput } from '@/components/MoneyInput'
 import { formatRange } from '@/components/Misc'
 import { formatMoney } from '@/lib/money'
+import { DeleteGroupButton } from '@/components/DeleteGroup'
 import { isEmail, knownPeople, nameFromEmail, recentPeople, searchPeople, type KnownPerson } from '@/lib/people'
 
 const maxOthersFor = (t: GroupType) => (t === 'personal' ? 0 : t === 'direct' ? 1 : Infinity)
@@ -50,7 +50,6 @@ export default function GroupForm() {
   const { user, profile } = useMe()
   const nav = useNavigate()
   const toast = useToast()
-  const confirm = useConfirm()
 
   const [initialType] = useState(() => parseGroupType(params.get('type')))
   const [name, setName] = useState('')
@@ -329,26 +328,6 @@ export default function GroupForm() {
     }
   }
 
-  const remove = async () => {
-    if (!existing) return
-    const ok = await confirm({
-      title: `Delete “${existing.name}”?`,
-      message: 'Every expense and payment in it goes too, for everyone. This cannot be undone.',
-      confirmLabel: 'Delete group',
-      tone: 'danger',
-    })
-    if (!ok) return
-    setBusy(true)
-    try {
-      await repo.deleteGroup(existing.id)
-      toast('Group deleted')
-      nav('/groups', { replace: true })
-    } catch (e) {
-      toast(errText(e), 'err')
-      setBusy(false)
-    }
-  }
-
   const FieldError = ({ id, text }: { id: string; text?: string }) =>
     text ? (
       <p id={id} role="alert" className="mt-1 text-sm text-rose-700 dark:text-rose-400">
@@ -380,7 +359,7 @@ export default function GroupForm() {
                 role="radio"
                 aria-checked={kind === k.kind}
                 onClick={() => chooseKind(k.kind)}
-                className={`min-w-0 rounded-xl px-2.5 py-2.5 text-left transition active:scale-[.98] ${kind === k.kind ? 'bg-gradient-to-br from-brand-600 to-duo-600 text-white shadow-md shadow-brand-600/25' : 'text-slate-700 hover:bg-white/60 dark:text-slate-200 dark:hover:bg-ink-700'}`}
+                className={`min-w-0 rounded-xl px-2.5 py-2.5 text-left transition active:scale-[.98] ${kind === k.kind ? 'accent-live bg-gradient-to-br from-brand-600 to-duo-600 text-white shadow-md shadow-brand-600/25' : 'text-slate-700 hover:bg-white/60 dark:text-slate-200 dark:hover:bg-ink-700'}`}
               >
                 <div className="text-xl leading-none" aria-hidden>
                   {k.emoji}
@@ -453,7 +432,7 @@ export default function GroupForm() {
                 const used = usedIn.get(id)
                 return (
                   <li key={id} className="flex items-center gap-3">
-                    <Avatar name={m.name} color={m.color} size={36} />
+                    <Avatar name={m.name} color={m.color} photoURL={m.photoURL} size={36} />
                     <div className="min-w-0 flex-1">
                       <div className="truncate font-medium">
                         {m.name} {m.uid === user.uid && <span className="text-muted text-xs">(you)</span>}
@@ -511,7 +490,7 @@ export default function GroupForm() {
                             className="flex min-h-12 w-full items-center gap-3 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-ink-800"
                             aria-label={`Add ${k.name}`}
                           >
-                            <Avatar name={k.name} color={colorFor(i + 1)} size={28} />
+                            <Avatar name={k.name} color={colorFor(i + 1)} photoURL={k.photoURL} size={28} />
                             <div className="min-w-0 flex-1">
                               <div className="truncate text-sm font-medium">{k.name}</div>
                               {k.email && <div className="text-muted truncate text-xs">{k.email}</div>}
@@ -738,11 +717,7 @@ export default function GroupForm() {
             Switching from Splitwise? Import a group
           </Link>
         )}
-        {existing && existing.createdBy === user.uid && (
-          <button type="button" className="btn w-full text-rose-700 dark:text-rose-400" onClick={remove} disabled={busy} data-testid="group-delete-form">
-            Delete group
-          </button>
-        )}
+        {existing && <DeleteGroupButton group={existing} />}
       </form>
     </div>
   )
