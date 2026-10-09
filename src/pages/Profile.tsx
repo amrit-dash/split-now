@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Camera, ChevronRight, ImagePlus, LogOut, Settings as SettingsIcon, ShieldCheck, Trash2, Users, Wallet, X } from 'lucide-react'
+import { Camera, ChevronRight, HandHeart, ImagePlus, LogOut, Settings as SettingsIcon, ShieldCheck, Trash2, Users, Wallet, X } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import type { PaymentHandles, UserProfile } from '@/types'
@@ -17,6 +17,7 @@ import { Sheet } from '@/components/Sheet'
 import { Switch } from '@/components/Switch'
 import { useToast } from '@/components/Toast'
 import { AccountCard } from '@/components/ProfileCards'
+import { SupportSheet } from '@/components/SupportSheet'
 import { useAppVersion } from '@/hooks/useAppVersion'
 import { SavedPill, useSavedFlash } from './settings/common'
 
@@ -100,6 +101,7 @@ export default function Profile() {
   const [allHandles, setAllHandles] = useState(false)
   const [photoOpen, setPhotoOpen] = useState(false)
   const [signOutOpen, setSignOutOpen] = useState(false)
+  const [supportOpen, setSupportOpen] = useState(false)
   const [saved, flash] = useSavedFlash()
 
   // Re-sync the form when the saved fields change (not on a photo change, which would drop unsaved edits).
@@ -290,16 +292,35 @@ export default function Profile() {
           </span>
           <ChevronRight size={18} className="text-slate-400" aria-hidden />
         </Link>
+        <button
+          type="button"
+          onClick={() => setSupportOpen(true)}
+          className="flex w-full items-center gap-3 p-4 text-left font-medium transition active:bg-slate-50 dark:active:bg-ink-800"
+          data-testid="profile-support"
+        >
+          <span
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-pink-50 text-pink-600 dark:bg-pink-500/15 dark:text-pink-300"
+            aria-hidden
+          >
+            <HandHeart size={19} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block">Support the developer</span>
+            <span className="text-muted block text-xs font-normal">Buy me a coffee or sponsor on GitHub</span>
+          </span>
+          <ChevronRight size={18} className="text-slate-400" aria-hidden />
+        </button>
       </div>
 
       <button type="button" className="btn-secondary mt-6 w-full text-rose-700 dark:text-rose-400" onClick={() => setSignOutOpen(true)} data-testid="sign-out">
         <LogOut size={18} aria-hidden /> Sign out
       </button>
-      <p className="mt-6 text-center text-xs font-semibold text-brand-600/80 dark:text-brand-300/80">Spending is wise, Splitting is Free. Split Now!</p>
+      <p className="mt-6 text-center text-xs font-semibold text-brand-600/80 dark:text-brand-300/80">Spending is wise, splitting is free. Split Now!</p>
       <p className="text-muted mb-10 mt-1 text-center text-xs" data-testid="profile-version">
         Split Now v{version} · {repo.mode === 'demo' ? 'Demo mode' : 'Connected to Firebase'}
       </p>
 
+      <SupportSheet open={supportOpen} onClose={() => setSupportOpen(false)} />
       <PhotoSheet open={photoOpen} onClose={() => setPhotoOpen(false)} profile={profile} googlePhotoURL={user.googlePhotoURL} />
       <Sheet open={signOutOpen} onClose={() => setSignOutOpen(false)} title="Sign out?">
         <p className="text-muted text-sm">

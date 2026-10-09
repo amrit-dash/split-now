@@ -20,3 +20,13 @@ export function usePageTitle(title: string | null | undefined) {
     document.title = pageTitle(title)
   }, [title])
 }
+
+/**
+ * Where people can support the project (Profile → Support the developer, the README, and
+ * .github/FUNDING.yml for the repository's Sponsor button). Keep the three in step.
+ */
+export const SUPPORT_LINKS = {
+  coffee: 'https://buymeacoffee.com/amritdash',
+  sponsors: 'https://github.com/sponsors/amrit-dash',
+  repo: 'https://github.com/amrit-dash/split-now',
+} as const
