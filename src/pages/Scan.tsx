@@ -65,7 +65,8 @@ export default function Scan() {
   const [notABill, setNotABill] = useState(false)
   const [currency, setCurrency] = useState<string>()
   const [params, setParams] = useSearchParams()
-  // Cancel: the read in flight finishes on its own, but its result is dropped and the overlay goes.
+  // Cancel: the read in flight is aborted (the AI wait ends, the OCR job stops; see useReceiptReader),
+  // and the run counter drops anything that still comes back, so the overlay goes at once.
   const run = useRef(0)
   const [cancelled, setCancelled] = useState(false)
   // History: receipts also match bills scanned on Split by items (same kind of result).
@@ -231,6 +232,7 @@ export default function Scan() {
   const cancel = () => {
     run.current++
     ocr.cancel()
+    reader.cancel()
     setCancelled(true)
     reset()
   }

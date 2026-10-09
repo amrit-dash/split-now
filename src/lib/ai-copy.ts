@@ -1,8 +1,9 @@
 import type { AiStatusResult, AppAiStatusValue } from '@/data/repo'
+import type { AiUnavailableReason } from '../../shared/ai-config'
 
 /*
  * The AI reader's availability as one answer for the settings screens, the scan toggle and the
- * statement import gate. (The per-call "why not" line lives in src/lib/ai.ts `unavailableText`.)
+ * statement import gate, and the per-call "why not" line (`unavailableText`).
  */
 
 export interface AiAvailability {
@@ -66,3 +67,32 @@ export function aiSummaryText(opts: {
   const own = hasOwnKey && prefs.aiSource !== 'app'
   return `On · ${uses}${own || shared || status === undefined ? '' : ' · no key available'}`
 }
+
+/**
+ * One line per reason, for the Scan / Statement screens. 'off', 'not_listed' and 'not_configured'
+ * are not errors (the phone reads the bill instead); 'quota', 'bad_key' and 'server' are worth a
+ * neutral mention. `limit` is the daily shared-key allowance, when known. `onPhone: false` is for
+ * reads with no on-phone fallback (statement import): the line says why and stops there.
+ */
+export function unavailableText(reason: AiUnavailableReason | undefined, opts: { limit?: number; onPhone?: boolean } = {}): string {
+  const phone = opts.onPhone !== false
+  switch (reason) {
+    case 'quota':
+      return `You’ve used today’s AI limit${opts.limit ? ` (${opts.limit})` : ''}.${phone ? ' Read on your phone for now.' : ''}`
+    case 'bad_key':
+      return `Google rejected the Gemini key. Check it in Settings → AI features${phone ? '; reading on your phone instead.' : '.'}`
+    case 'server':
+      return `Gemini didn’t answer.${phone ? ' Reading on your phone instead.' : ''}`
+    case 'not_listed':
+      return `AI reading is limited to listed accounts.${phone ? ' Reading on your phone instead.' : ''}`
+    case 'not_configured':
+      return `AI reading isn’t set up for this app.${phone ? ' Reading on your phone instead.' : ''}`
+    case 'off':
+      return `AI reading is off.${phone ? ' Reading on your phone instead.' : ''}`
+    default:
+      return `AI reading isn’t available right now.${phone ? ' Reading on your phone instead.' : ''}`
+  }
+}
+
+/** Reasons that mean "nothing to fix": show nothing, or at most a quiet line. */
+export const isQuietReason = (reason: AiUnavailableReason | undefined) => reason === 'off' || reason === 'not_listed' || reason === 'not_configured'

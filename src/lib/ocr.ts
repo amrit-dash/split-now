@@ -1,4 +1,5 @@
 import type { Worker } from 'tesseract.js'
+import { abortable, throwIfAborted } from './abortable'
 import { downscale } from './image'
 
 /*
@@ -80,23 +81,38 @@ export function warmOcr(): void {
   })
 }
 
-export async function recognizeImage(file: File, progress?: (p: number) => void): Promise<string> {
+/**
+ * Text of the image. With `signal`, an abort rejects at once with an AbortError. The job on the
+ * shared worker can't be cancelled on its own, so when no other scan is using the worker it is
+ * terminated (the next scan starts a fresh one rather than queueing behind a read nobody wants);
+ * when another scan shares it, the job runs out and its answer is dropped.
+ */
+export async function recognizeImage(file: File, progress?: (p: number) => void, signal?: AbortSignal): Promise<string> {
+  throwIfAborted(signal)
   inFlight++
   clearTimeout(idle)
   onProgress = progress
+  const stop = () => {
+    if (inFlight === 1) dropWorker()
+  }
   try {
-    const [w, image] = await Promise.all([worker(), downscale(file, 1600, 0.9)])
+    // Loading the worker carries on after an abort, so the next scan finds it warm.
+    const [w, image] = await abortable(Promise.all([worker(), downscale(file, 1600, 0.9)]), signal)
+    // Stage boundary: a cancel during loading never starts the recognize.
+    throwIfAborted(signal)
+    signal?.addEventListener('abort', stop, { once: true })
     try {
-      const { data } = await w.recognize(image)
+      const { data } = await abortable(w.recognize(image), signal)
       return data.text
     } catch (e) {
       // A worker that failed mid-recognition isn't trusted again; the next scan starts a fresh one.
-      dropWorker()
+      if (!signal?.aborted) dropWorker()
       throw e
     }
   } finally {
+    signal?.removeEventListener('abort', stop)
     inFlight--
-    onProgress = undefined
+    if (onProgress === progress) onProgress = undefined
     scheduleIdle()
   }
 }
