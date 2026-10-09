@@ -7,11 +7,12 @@ import { AvatarStack } from './Avatar'
 import { LiveBadge } from './Misc'
 import { isLiveTrip } from '@/lib/capture'
 import { todayISO } from '@/lib/id'
+import { activeMembers } from '@/lib/members'
 
 /** One group in a list: icon, name, members (or spend for a personal wallet) and your balance in words and numbers. */
 export function GroupRow({ d }: { d: GroupData }) {
   const bal = d.me ? (d.net[d.me] ?? 0) : 0
-  const members = Object.values(d.group.members)
+  const members = Object.values(activeMembers(d.group.members))
   const personal = d.group.type === 'personal'
   const spent = d.expenses.reduce((s, e) => s + e.amount, 0)
   return (

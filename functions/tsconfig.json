@@ -22,9 +22,11 @@
     "../shared/sms-parse.ts",
     "../shared/capture-filters.ts",
     "../shared/ai-config.ts",
+    "../shared/quick-ai.ts",
     "../shared/money-core.ts",
     "../shared/trips.ts",
     "../shared/balances-core.ts",
+    "../shared/members.ts",
     "../shared/paylinks.ts"
   ],
   "exclude": [

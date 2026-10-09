@@ -671,4 +671,13 @@ describe('merchant memory and Quick add', () => {
     // a foreign currency on the line is kept as the entry currency
     expect(seed({ quick: { ...quick, currency: 'USD', amount: 450 } })).toMatchObject({ cur: 'USD', amount: 450 })
   })
+  it('exact amounts from a Quick add line open as an exact split, only when they add up and everyone is in the group', () => {
+    const quick = { text: 'rent 1000, me 600 Priya 400', description: 'Rent', amount: 100000, currency: 'INR', payer: 'me', exact: { me: 60000, p: 40000 } }
+    const d = seed({ quick })
+    expect(d.splitType).toBe('exact')
+    expect(d.split.selected).toEqual(['me', 'p'])
+    expect(d.split.exact).toEqual({ me: 60000, p: 40000 })
+    expect(seed({ quick: { ...quick, exact: { me: 60000, p: 30000 } } }).splitType).not.toBe('exact')
+    expect(seed({ quick: { ...quick, exact: { me: 60000, ghost: 40000 } } }).splitType).not.toBe('exact')
+  })
 })

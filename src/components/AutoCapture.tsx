@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { Activity, ChevronRight, Copy, KeyRound, MessageSquareText, Pause, Plus, Smartphone, Trash2, X, Zap } from 'lucide-react'
+import { Activity, ChevronRight, Copy, KeyRound, MessageSquareText, Pause, Plus, Smartphone, X, Zap } from 'lucide-react'
 import { firebaseProject, repo } from '@/data'
 import type { CaptureToken } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
@@ -31,6 +31,7 @@ import { formatRange } from './Misc'
 import { CardSkeleton } from './Skeleton'
 import { Switch } from './Switch'
 import { useToast } from './Toast'
+import { SwipeRow } from './SwipeRow'
 
 /** relativeTime falls back to a raw ISO day after a week; show that in the app's date format instead. */
 export const ago = (at: number, now: number) => {
@@ -522,7 +523,11 @@ function Keys({
           const at = lastUsed(t)
           const label = t.label ?? (t.groupId ? (g?.name ?? 'Trip') : 'All my trips')
           return (
-            <li key={t.token} className="flex items-center gap-2">
+            <SwipeRow
+              key={t.token}
+              contentClassName="flex items-center gap-2"
+              actions={[{ label: 'Revoke', ariaLabel: `Revoke capture key for ${label}`, onClick: () => onRevoke(t) }]}
+            >
               <KeyRound size={16} className="shrink-0 text-slate-500" aria-hidden />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium">{label}</div>
@@ -543,15 +548,7 @@ function Keys({
               >
                 <Copy size={16} />
               </button>
-              <button
-                type="button"
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-rose-600 dark:text-rose-400"
-                onClick={() => onRevoke(t)}
-                aria-label={`Revoke capture key for ${label}`}
-              >
-                <Trash2 size={16} />
-              </button>
-            </li>
+            </SwipeRow>
           )
         })}
       </ul>

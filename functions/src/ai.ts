@@ -12,6 +12,7 @@ import {
   resolveAppAi,
   resolveUserAi,
   usefulModels,
+  userFeatureOn,
   type AiFeature,
   type AiUnavailableReason,
   type AppAiConfig,
@@ -44,6 +45,8 @@ import {
   type GeminiUsage,
 } from './lib/gemini'
 import { limitPair } from '../../shared/limits'
+import type { QuickAiResponse } from '../../shared/quick-ai'
+import { cleanQuickRequest, normaliseQuickAi, QUICK_SCHEMA, quickPrompt } from './lib/quick-ai'
 import { flagOn, getLimits } from './lib/limits'
 import { applyRateLimit, type RateState } from './lib/ratelimit'
 import { parseKekList, readStoredKey, storedKeyFields } from './lib/seal'
@@ -224,6 +227,9 @@ async function record(
   await Promise.allSettled(writes)
 }
 
+/** The config/app flag that switches each AI feature off for everyone. */
+const FEATURE_FLAG: Record<AiFeature, string> = { images: 'aiImages', sms: 'aiSms', quickAdd: 'aiQuickAdd' }
+
 type AiOutcome<T> = { ok: true; value: T; via: KeyPlan['key']; model?: string } | { ok: false; reason: AiUnavailableReason; kind?: GeminiErrorKind }
 
 const REASON_ORDER: AiUnavailableReason[] = ['quota', 'bad_key', 'server', 'not_configured', 'not_listed', 'off']
@@ -242,14 +248,13 @@ async function withAi<T>(
   /** how the call is counted in stats/ai_{day} when it isn't the feature it is gated by (Quick add text uses the images allowance) */
   statAs: AiFeature | 'text' = feature,
 ): Promise<AiOutcome<T>> {
-  // The admin's kill switch (config/app flags.aiImages / aiSms) stops the feature for everyone, own keys included.
-  if (!(await flagOn(feature === 'images' ? 'aiImages' : 'aiSms'))) return { ok: false, reason: 'off' }
+  // The admin's kill switch (config/app flags.aiImages / aiSms / aiQuickAdd) stops the feature for everyone, own keys included.
+  if (!(await flagOn(FEATURE_FLAG[feature]))) return { ok: false, reason: 'off' }
   const plans = planAi({ feature, user: ctx.user, app: ctx.app, hasOwnKey: !!ctx.ownKey, email: ctx.email })
   const reasons: AiUnavailableReason[] = []
   let lastKind: GeminiErrorKind | undefined
   if (!plans.length) {
-    const featureOn = ctx.user.aiEnabled && (feature === 'images' ? ctx.user.aiImages : ctx.user.aiSms)
-    if (!featureOn || ctx.user.aiSource === 'own') reasons.push('off')
+    if (!userFeatureOn(ctx.user, feature) || ctx.user.aiSource === 'own') reasons.push('off')
     else reasons.push(appKeyStatus(ctx.app, feature, ctx.email) === 'not_listed' ? 'not_listed' : 'off')
   }
   for (const plan of plans) {
@@ -406,6 +411,39 @@ async function parseText(
   if (r.ok) return { expense: r.value, via: r.via, model: r.model }
   return r.kind === 'blocked' ? { expense: null } : { unavailable: true, reason: r.reason }
 }
+
+/**
+ * Callable, signed-in users only: Quick add with AI, for a line the app's own reader can't
+ * handle ("create a group Goa trip with Rahul and Priya and add dinner 2400 paid by me").
+ *  { text ≤ 300, today, currency, me, groupId?, groups: [{ id, name, type, members: [{ id, name }] }] (≤ 25 × 30) }
+ *  → { result: QuickAiResult, via, model }   (shared/quick-ai.ts; validated by lib/quick-ai.ts)
+ *  → { unavailable: true, reason }           when the flag (config/app aiQuickAdd), the person's own
+ *                                            switch (aiEnabled + aiQuickAdd) or every key says no
+ * Same keys, limits and stats as the other AI reads: the user's own key first (aiOwnPerHour /
+ * aiOwnPerDay from config/limits), then the shared key where config/ai lets this account use it for
+ * bills (its perHour / perDay and the project's globalPerDay); counted as `{own|app}_quickAdd` in
+ * stats/ai_{day}. Nothing is saved here: the app opens the expense form for a check, and a new
+ * group is only made after the person confirms it.
+ */
+export const quickAddAi = onCall({ ...base, timeoutSeconds: 30, maxInstances: 10 }, async (req): Promise<QuickAiResponse> => {
+  const me = signedIn(req)
+  const serverToday = istDay(Date.now())
+  const near = (a: string, b: string) => a >= addDays(b, -2) && a <= addDays(b, 2)
+  const input = cleanQuickRequest(req.data, serverToday, near)
+  if (!input) throw new HttpsError('invalid-argument', 'Nothing to read')
+  const ctx = await loadCtx(me.uid, me.email)
+  const r = await withAi(ctx, 'quickAdd', async (key, models) => {
+    const g = await generateJson(key, [{ text: `<line>${input.text}</line>` }], QUICK_SCHEMA, {
+      models,
+      timeoutMs: 20_000,
+      maxOutputTokens: 1024,
+      systemInstruction: quickPrompt(input),
+    })
+    return { value: normaliseQuickAi(g.json, input), usage: g.usage, model: g.modelVersion ?? g.model }
+  })
+  if (r.ok) return { result: r.value, via: r.via, model: r.model }
+  return r.kind === 'blocked' ? { result: { action: 'unknown' } } : { unavailable: true, reason: r.reason }
+})
 
 function toPart(x: { image?: unknown; mimeType?: unknown }): GeminiPart {
   const { image, mimeType } = x ?? {}

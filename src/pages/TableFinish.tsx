@@ -30,6 +30,7 @@ import { Loading } from '@/components/Misc'
 import { Sheet } from '@/components/Sheet'
 import { useToast } from '@/components/Toast'
 import { Select } from '@/components/Select'
+import { activeMembers } from '@/lib/members'
 
 const NEW = '__new'
 const NONE = '__none'
@@ -172,7 +173,7 @@ function ToGroup({ table, group, ready }: { table: LiveTable; group: Group; read
   const people = order.filter((p) => p === table.hostUid || Object.keys(table.claims[p] ?? {}).length)
   const members = memberOrder(group)
   const [mapping, setMapping] = useState<Record<ParticipantId, string>>(() => {
-    const auto = matchParticipants(table.participants, group.members, people)
+    const auto = matchParticipants(table.participants, activeMembers(group.members), people)
     const me = myMemberId(group, user.uid)
     if (me) auto[table.hostUid] = me
     return Object.fromEntries(people.map((p) => [p, auto[p] ?? NEW]))

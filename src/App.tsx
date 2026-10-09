@@ -30,7 +30,7 @@ import { setAiScan } from './lib/ai'
 import { GroupDataProvider } from './hooks/groupData'
 import { primeAiStatus, useAiStatus } from './hooks/useAiStatus'
 import { useAppConfig, useBlocked } from './hooks/useAppConfig'
-import { IDLE_PREFETCH, load, prefetch, routeKey } from './routes'
+import { IDLE_PREFETCH, load, prefetch, prefetchAfter, routeChunks } from './routes'
 import Login from './pages/Login'
 import Home from './pages/Home'
 import Groups from './pages/Groups'
@@ -38,6 +38,7 @@ import Groups from './pages/Groups'
 // Lazy screens share their import() thunks with the prefetchers (src/routes.ts).
 const GroupForm = lazy(load.GroupForm)
 const GroupDetail = lazy(load.GroupDetail)
+const GroupMembers = lazy(load.GroupMembers)
 const ExpenseForm = lazy(load.ExpenseForm)
 const SplitBill = lazy(load.SplitBill)
 const ExpenseDetail = lazy(load.ExpenseDetail)
@@ -231,6 +232,7 @@ function AppRoutes({ cfg, admin }: { cfg: AppConfig; admin: boolean }) {
   // this one covers the full-screen routes below.
   return (
     <GroupDataProvider>
+      <PrefetchNext />
       <AnnouncementBanner cfg={cfg} admin={admin} />
       <Suspense fallback={<Loading />}>
         <Routes>
@@ -242,6 +244,7 @@ function AppRoutes({ cfg, admin }: { cfg: AppConfig; admin: boolean }) {
             <Route path="groups/:groupId" element={<GroupDetail />} />
             <Route path="groups/:groupId/edit" element={<GroupForm />} />
             <Route path="groups/:groupId/settle" element={<SettleUp />} />
+            <Route path="groups/:groupId/members" element={<GroupMembers />} />
             <Route path="groups/:groupId/expenses/:expenseId" element={<ExpenseDetail />} />
             <Route path="settle" element={<SettleAll />} />
             <Route path="settle/with/:key" element={<SettleWithPerson />} />
@@ -429,38 +432,55 @@ function UpdateRequired({ minVersion }: { minVersion: string }) {
 
 /**
  * Lazy chunks before they are asked for: the usual next screens on idle after the first
- * signed-in paint, and any in-app link's screen on pointerdown (which lands ~100 ms before the
+ * signed-in paint, and any in-app link's screen (plus a settings area's own chunk, routeChunks) on pointerdown (which lands ~100 ms before the
  * click React Router acts on). React Router runs navigations as transitions, so a chunk that is
  * still downloading shows as a frozen tap; this is what keeps that rare.
  */
 function usePrefetch() {
-  useEffect(() => {
-    // Data Saver: a tap still prefetches (the user asked for that screen); idle time does not.
-    const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true
-    let cancelIdle = () => {}
-    if (!saveData) {
-      const idle = () => {
+  useEffect(
+    () =>
+      onIdle(() => {
         for (const k of IDLE_PREFETCH) prefetch(k)
-      }
-      if (typeof window.requestIdleCallback === 'function') {
-        const id = window.requestIdleCallback(idle, { timeout: 4000 })
-        cancelIdle = () => window.cancelIdleCallback(id)
-      } else {
-        const id = window.setTimeout(idle, 2000)
-        cancelIdle = () => window.clearTimeout(id)
-      }
-    }
+      }),
+    [],
+  )
+  useEffect(() => {
     const onPointerDown = (e: Event) => {
       const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null
       if (!a || a.target === '_blank' || a.origin !== location.origin) return
-      prefetch(routeKey(a.pathname))
+      for (const k of routeChunks(a.pathname)) prefetch(k)
     }
     document.addEventListener('pointerdown', onPointerDown, { capture: true, passive: true })
-    return () => {
-      cancelIdle()
-      document.removeEventListener('pointerdown', onPointerDown, true)
-    }
+    return () => document.removeEventListener('pointerdown', onPointerDown, true)
   }, [])
+}
+
+/**
+ * The screens only reachable from the one showing (Profile → Settings → its areas), on idle once
+ * it has painted. Its own component so a route change doesn't re-render AppRoutes.
+ */
+function PrefetchNext() {
+  const { pathname } = useLocation()
+  useEffect(() => {
+    const next = prefetchAfter(pathname)
+    return next.length
+      ? onIdle(() => {
+          for (const k of next) prefetch(k)
+        })
+      : undefined
+  }, [pathname])
+  return null
+}
+
+/** Run `fn` when the main thread is idle (at the latest after 4 s); returns a cancel. Data Saver: never (a tap still prefetches, since the user asked for that screen). */
+function onIdle(fn: () => void): () => void {
+  if ((navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true) return () => {}
+  if (typeof window.requestIdleCallback === 'function') {
+    const id = window.requestIdleCallback(fn, { timeout: 4000 })
+    return () => window.cancelIdleCallback(id)
+  }
+  const id = window.setTimeout(fn, 2000)
+  return () => window.clearTimeout(id)
 }
 
 function TableRoutes() {

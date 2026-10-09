@@ -23,6 +23,7 @@ import { GroupIcon } from '@/components/GroupIcon'
 import { Empty, LiveBadge, Loading, PageHeader } from '@/components/Misc'
 import { Sheet } from '@/components/Sheet'
 import { useToast } from '@/components/Toast'
+import { activeMembers } from '@/lib/members'
 
 /** Guards against React StrictMode / reloads creating the same capture twice. */
 const inflight = new Map<string, Promise<string>>()
@@ -314,7 +315,7 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
                     {g.inWindow && <LiveBadge type={g.type} />}
                   </div>
                   <div className="text-muted text-xs">
-                    {Object.keys(g.members).length} people · {g.currency}
+                    {Object.keys(activeMembers(g.members)).length} people · {g.currency}
                   </div>
                 </div>
                 <span

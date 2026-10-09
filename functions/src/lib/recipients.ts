@@ -1,8 +1,12 @@
+import { isRemoved } from '../../../shared/members'
+
 /** Who hears about a new expense: members with an account who paid or owe, except whoever added it. */
 
 export interface MemberLite {
   name?: string
   uid?: string
+  /** set when they left the group (shared/members.ts) */
+  removedAt?: number
 }
 
 export interface ExpenseRecipient {
@@ -37,14 +41,22 @@ export function expenseRecipients(
   return [...out.values()]
 }
 
-/** The uid behind a member id, only if that uid really is a member of the group. */
+/** The uid behind a member id, only if that uid really is a member of the group (an entry someone left behind never is). */
 export function memberUid(members: Record<string, MemberLite> | undefined, memberId: string | undefined, memberUids: string[] = []): string | undefined {
-  const uid = memberId ? members?.[memberId]?.uid : undefined
+  const m = memberId ? members?.[memberId] : undefined
+  const uid = m && !isRemoved(m) ? m.uid : undefined
   return uid && memberUids.includes(uid) ? uid : undefined
+}
+
+/** The member id of account `uid` in the group now (an entry they left behind only if there is no other). */
+export function memberIdForUid(members: Record<string, MemberLite> | undefined, uid: string | undefined): string | undefined {
+  if (!uid) return undefined
+  const all = Object.entries(members ?? {}).filter(([, m]) => m.uid === uid)
+  return (all.find(([, m]) => !isRemoved(m)) ?? all[0])?.[0]
 }
 
 /** Display name of the member whose account is `uid` in this group. */
 export function memberNameForUid(members: Record<string, MemberLite> | undefined, uid: string | undefined): string | undefined {
-  if (!uid) return undefined
-  return Object.values(members ?? {}).find((m) => m.uid === uid)?.name
+  const id = memberIdForUid(members, uid)
+  return id ? members?.[id]?.name : undefined
 }

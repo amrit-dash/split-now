@@ -9,6 +9,7 @@
  *  fxDaily, fxMorning  Schedule weekdays 17:15 Europe/Berlin + daily 09:00 IST → shared ECB rates (fxRates/*)
  *  refreshFx           Callable { date? } → fetch + store ECB rates (throttled, per-user limit), any signed-in user
  *  parseReceiptAi      Callable { kind, image(s) } → bill / statement read by Gemini (own key, then project key)
+ *  quickAddAi          Callable { text, groups, … } → a Quick add line read by Gemini: an expense, or a new group and an expense (validated; nothing saved)
  *  aiKey, aiModels, aiStatus  Callables: save/test/remove a user's Gemini key (sealed at rest), list models, AI availability
  *  nudge               Callable { groupId, memberId, amount? } or { items } (several groups, one push with the total) → push to someone who owes the caller (1 per pair per day)
  *  onPayLinkPaid       Firestore payLinks/{code} open → paid ("I've paid") → record the settlement in the group, push the payee
@@ -18,7 +19,7 @@ export { capture } from './capture'
 export { onExpenseCreated, onGroupDeleted, onPushTokenCreated, onSettlementCreated } from './triggers'
 export { dailyReminders } from './reminders'
 export { fxDaily, fxMorning, refreshFx } from './fx'
-export { aiKey, aiModels, aiStatus, parseReceiptAi } from './ai'
+export { aiKey, aiModels, aiStatus, parseReceiptAi, quickAddAi } from './ai'
 export { nudge } from './nudge'
 export { onPayLinkPaid } from './paylinks'
 export { adminBlockUser, adminStats, adminUsers } from './admin'

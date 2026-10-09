@@ -10,6 +10,7 @@ import {
   resolveUserAi,
   looksLikeGeminiKey,
   usefulModels,
+  userFeatureOn,
   withFallbacks,
 } from './ai-config'
 
@@ -48,6 +49,21 @@ describe('planAi', () => {
     expect(planAi({ feature: 'images', user: user(), app: listed, hasOwnKey: false, email: 'Amrit@Example.com' })).toHaveLength(1)
     expect(planAi({ feature: 'images', user: user(), app: listed, hasOwnKey: false, email: 'x@y.z' })).toEqual([])
     expect(planAi({ feature: 'sms', user: user(), app: app({ mode: 'everyone', sms: false }), hasOwnKey: false })).toEqual([])
+  })
+  it('Quick add with AI is opt-in, and on the shared key follows the bills switch and allowance', () => {
+    const base = { app: app({ mode: 'everyone' }), hasOwnKey: false }
+    expect(DEFAULT_USER_AI.aiQuickAdd).toBe(false)
+    expect(planAi({ ...base, feature: 'quickAdd', user: user() })).toEqual([])
+    expect(planAi({ ...base, feature: 'quickAdd', user: user({ aiQuickAdd: true }) }).map((p) => p.key)).toEqual(['app'])
+    expect(planAi({ ...base, feature: 'quickAdd', user: user({ aiQuickAdd: true, aiEnabled: false }) })).toEqual([])
+    // Not tied to the person's bills switch, only to the admin's shared-key switch for bills.
+    expect(planAi({ ...base, feature: 'quickAdd', user: user({ aiQuickAdd: true, aiImages: false }) })).toHaveLength(1)
+    expect(planAi({ ...base, app: app({ mode: 'everyone', images: false }), feature: 'quickAdd', user: user({ aiQuickAdd: true }) })).toEqual([])
+    expect(appKeyStatus(app({ mode: 'everyone', images: false }), 'quickAdd', 'a@b.c')).toBe('feature_off')
+    expect(userFeatureOn(user({ aiQuickAdd: true }), 'quickAdd')).toBe(true)
+    expect(userFeatureOn(user({ aiQuickAdd: true }), 'sms')).toBe(false)
+    expect(resolveUserAi({ aiQuickAdd: true }).aiQuickAdd).toBe(true)
+    expect(resolveUserAi({ aiQuickAdd: 'yes' }).aiQuickAdd).toBe(false)
   })
   it('status explains why the shared key is unavailable', () => {
     expect(appKeyStatus(app(), 'images', 'a@b.c')).toBe('off')

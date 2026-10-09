@@ -1,21 +1,34 @@
 import { useEffect, useState, type KeyboardEvent } from 'react'
 import { Check } from 'lucide-react'
-import { ACCENTS, getAccent, getDuo, setAccent, setDuo, type AccentId } from '@/lib/accent'
+import { ACCENTS, allInks, getAccent, getDuo, setAccent, setDuo, setInk, type AccentId, type Ink } from '@/lib/accent'
+import { Segmented } from './Misc'
 import { Switch } from './Switch'
 
-/** Accent colour swatches plus a "Dual tone" switch. Applies and persists immediately. */
+/**
+ * Accent colour swatches, a "Dual tone" switch and the "Text on accent" choice (white on deep
+ * fills, or black on bright ones) for the selected accent. Each accent keeps its own ink, and each
+ * swatch shows its accent in that ink. Applies and persists immediately.
+ */
 export function AccentPicker({ onChange }: { onChange?: () => void } = {}) {
   const [accent, setAccentState] = useState<AccentId>(getAccent)
   const [duo, setDuoState] = useState<boolean>(getDuo)
+  const [inks, setInks] = useState<Record<AccentId, Ink>>(allInks)
+  const ink = inks[accent]
   // Settings may re-mount this while the stored value changed elsewhere (another tab).
   useEffect(() => {
     setAccentState(getAccent())
     setDuoState(getDuo())
+    setInks(allInks())
   }, [])
 
   const pick = (id: AccentId) => {
     setAccentState(id)
     setAccent(id)
+    onChange?.()
+  }
+  const pickInk = (v: Ink) => {
+    setInks((m) => ({ ...m, [accent]: v }))
+    setInk(v, accent)
     onChange?.()
   }
   const toggleDuo = (on: boolean) => {
@@ -54,6 +67,8 @@ export function AccentPicker({ onChange }: { onChange?: () => void } = {}) {
         >
           {ACCENTS.map((a) => {
             const on = a.id === accent
+            // Each accent in its own ink: deep fills for white, bright fills for black.
+            const [from, to] = a.swatch[inks[a.id]]
             return (
               <button
                 key={a.id}
@@ -71,7 +86,7 @@ export function AccentPicker({ onChange }: { onChange?: () => void } = {}) {
                 <span
                   aria-hidden
                   className={`flex size-[30px] shrink-0 items-center justify-center rounded-full text-on-fill shadow-sm min-[360px]:size-9 sm:size-10 ${on ? 'ring-2 ring-slate-900 ring-offset-2 ring-offset-white dark:ring-white dark:ring-offset-ink-900' : ''}`}
-                  style={{ background: duo ? `linear-gradient(135deg, ${a.from}, ${a.to})` : a.from }}
+                  style={{ background: duo ? `linear-gradient(135deg, ${from}, ${to})` : from }}
                 >
                   {on && <Check size={16} strokeWidth={3} className="drop-shadow-sm" />}
                 </span>
@@ -86,6 +101,22 @@ export function AccentPicker({ onChange }: { onChange?: () => void } = {}) {
           <span className="text-muted block text-xs font-normal">Two-colour gradients on buttons and cards</span>
         </span>
         <Switch checked={duo} onChange={toggleDuo} label="Dual tone" testId="accent-duo" />
+      </div>
+      <div>
+        <div className="label" id="ink-label">
+          Text on accent
+        </div>
+        <Segmented<Ink>
+          value={ink}
+          onChange={pickInk}
+          label="Text on accent"
+          testId="accent-ink"
+          options={[
+            { value: 'light', label: 'White' },
+            { value: 'dark', label: 'Black' },
+          ]}
+        />
+        <p className="text-muted mt-1.5 text-xs">Kept for each accent. Black text comes with brighter colours so it stays easy to read.</p>
       </div>
     </div>
   )

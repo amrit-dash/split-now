@@ -36,7 +36,8 @@ import {
 } from './lib/nudge-core'
 import { nudgeAcrossNote, nudgeNote, type Note } from './lib/notify-text'
 import { applyRateLimit, type RateState } from './lib/ratelimit'
-import { memberNameForUid, memberUid, type MemberLite } from './lib/recipients'
+import { memberIdForUid, memberNameForUid, memberUid, type MemberLite } from './lib/recipients'
+import { isRemoved } from '../../shared/members'
 import { sendToUser } from './push'
 
 interface GroupLite {
@@ -91,9 +92,10 @@ async function loadGroup(uid: string, item: NudgeItem): Promise<Loaded> {
   const uids = Array.isArray(g.memberUids) ? g.memberUids.filter((u): u is string => typeof u === 'string') : []
   if (!uids.includes(uid)) throw new HttpsError('permission-denied', 'Not a member of this group')
   const members = g.members ?? {}
-  const senderMemberId = Object.entries(members).find(([, m]) => m.uid === uid)?.[0]
+  const senderMemberId = memberIdForUid(members, uid)
   if (!senderMemberId) throw new HttpsError('permission-denied', 'Not a member of this group')
-  if (!members[item.memberId]) throw new HttpsError('invalid-argument', 'Not a member of this group')
+  // Someone who left (an entry kept for history) can't be nudged: they can't open the group.
+  if (!members[item.memberId] || isRemoved(members[item.memberId])) throw new HttpsError('invalid-argument', 'Not a member of this group')
   if (item.memberId === senderMemberId) throw new HttpsError('invalid-argument', 'You can’t nudge yourself')
   // A placeholder (no account), or an entry whose uid isn't really in the group: nothing to push to.
   const debtorUid = memberUid(members, item.memberId, uids)

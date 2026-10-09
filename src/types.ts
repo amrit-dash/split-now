@@ -50,6 +50,12 @@ export interface Member {
    * (src/lib/memberSync.ts). https only in Firebase; demo mode may hold a data: URL.
    */
   photoURL?: string
+  /**
+   * When they were removed from the group or left it (epoch ms). The entry stays so old expenses
+   * keep their name and stay editable; their uid is out of memberUids, so they have no access.
+   * Lists of the people in a group skip them (activeMembers in shared/members.ts).
+   */
+  removedAt?: number
 }
 
 export interface Group {

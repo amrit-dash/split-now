@@ -12,6 +12,8 @@ import { DEFAULT_LIMITS, resolveLimits, type Limits } from '../../../shared/limi
 import { db } from '../admin'
 
 export const CACHE_MS = 60_000
+/** The emulator tests flip flags between calls, so there nothing is cached. */
+const cacheMs = () => (process.env.FUNCTIONS_EMULATOR === 'true' ? 0 : CACHE_MS)
 
 interface Cached {
   at: number
@@ -23,7 +25,7 @@ let cache: Cached | null = null
 let inflight: Promise<Cached> | null = null
 
 async function load(now: number): Promise<Cached> {
-  if (cache && now - cache.at < CACHE_MS) return cache
+  if (cache && now - cache.at < cacheMs()) return cache
   if (inflight) return inflight
   inflight = (async () => {
     try {

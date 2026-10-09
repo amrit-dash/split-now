@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { repo } from '@/data'
-import { getAppConfig, startAppConfig, subscribeAppConfig, watchBlocked, type AppConfig, type BlockInfo, type FlagName } from '@/lib/flags'
+import { getAppConfig, lastBlocked, startAppConfig, subscribeAppConfig, watchBlocked, type AppConfig, type BlockInfo, type FlagName } from '@/lib/flags'
 
 /**
  * The admin's switches (config/app), live. One listener for the whole session; the first render
@@ -17,15 +17,18 @@ export function useFlag(name: FlagName): boolean {
 }
 
 /**
- * Whether this account is blocked (blocked/{uid}). undefined while the first answer is pending in
- * firebase mode; null when not blocked, in demo mode, or signed out.
+ * Whether this account is blocked (blocked/{uid}). Until Firestore answers, the last answer seen on
+ * this device (lastBlocked), so App doesn't hold the splash for it on every launch; undefined only
+ * when this device has never had an answer for the account. null when not blocked, in demo mode,
+ * or signed out.
  */
 export function useBlocked(uid: string | null | undefined): BlockInfo | null | undefined {
   const firebase = repo.mode === 'firebase'
-  const [state, setState] = useState<BlockInfo | null | undefined>(uid && firebase ? undefined : null)
+  const [state, setState] = useState<{ uid: string; value: BlockInfo | null } | null>(null)
   useEffect(() => {
     if (!uid || !firebase) return
-    return watchBlocked(uid, setState)
+    return watchBlocked(uid, (value) => setState({ uid, value }))
   }, [uid, firebase])
-  return uid && firebase ? state : null
+  if (!uid || !firebase) return null
+  return state?.uid === uid ? state.value : lastBlocked(uid)
 }

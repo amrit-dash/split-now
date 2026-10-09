@@ -194,6 +194,13 @@ export function initialDraft(a: SeedArgs): Draft {
   const description = src?.description ?? q?.description ?? capture?.merchant ?? ''
   const suggested = !src && description ? suggestCategory(description, { memory: a.memory, history }) : null
   const quickPeople = q?.participants?.filter((id) => order.includes(id))
+  // Exact amounts from the line (Quick add with AI) only when every person is in the group and they add up.
+  const quickExact =
+    q?.exact && q.amount !== undefined && Object.keys(q.exact).length && Object.keys(q.exact).every((id) => order.includes(id))
+      ? Object.values(q.exact).reduce((a, b) => a + b, 0) === q.amount
+        ? q.exact
+        : undefined
+      : undefined
   return {
     cur,
     amount: src ? (src.original?.amount ?? src.amount) : (q?.amount ?? capture?.amount),
@@ -205,8 +212,16 @@ export function initialDraft(a: SeedArgs): Draft {
     payer: payerIds[0] ?? (q?.payer && order.includes(q.payer) ? q.payer : !capture && !q && last.payer ? last.payer : me),
     multiPay,
     payers: multiPay ? { ...paidBy } : {},
-    splitType: src?.splitType ?? (quickPeople?.length ? 'equal' : (last.splitType ?? 'equal')),
-    split: fromSplitInput(src?.splitInput ?? (quickPeople?.length ? { selected: quickPeople } : (last.input ?? { selected: order })), order),
+    splitType: src?.splitType ?? (quickExact ? 'exact' : quickPeople?.length ? 'equal' : (last.splitType ?? 'equal')),
+    split: fromSplitInput(
+      src?.splitInput ??
+        (quickExact
+          ? { selected: Object.keys(quickExact), exact: { ...quickExact } }
+          : quickPeople?.length
+            ? { selected: quickPeople }
+            : (last.input ?? { selected: order })),
+      order,
+    ),
     picked: !!src,
     repeat: existing?.recurrence?.freq ?? 'never',
     until: existing?.recurrence?.until ?? '',

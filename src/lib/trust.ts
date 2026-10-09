@@ -1,5 +1,6 @@
 import type { Expense, ExpenseFlag, Group, MemberId, Settlement } from '@/types'
 import { type ApprovalGroup, approvalNeeded, editApprovalOutcome, groupThreshold } from './approval'
+import { activeMembers, isRemoved } from '../../shared/members'
 
 /**
  * Trust features that aren't the activity log: soft delete (trash), disputes (flags) and
@@ -44,7 +45,8 @@ export function pendingApprovers(e: Pick<Expense, 'requiresApproval' | 'approval
   return Object.entries(e.splits)
     .filter(([id, v]) => {
       const u = g.members[id]?.uid
-      return v > 0 && !!u && u !== e.createdBy && !e.approvals?.[u]
+      // Someone who left can't approve any more (the same rule as shared/balances-core.ts).
+      return v > 0 && !!u && u !== e.createdBy && !e.approvals?.[u] && !isRemoved(g.members[id])
     })
     .map(([id]) => id)
 }
@@ -67,7 +69,7 @@ export const isDisputed = (e: Pick<Expense, 'dispute'>) => flagsOf(e).length > 0
 
 /** The member id the user would flag as, if they are part of the expense (paid or owe). */
 export function flaggableAs(e: Pick<Expense, 'paidBy' | 'splits'>, g: Pick<Group, 'members'>, uid: string): MemberId | undefined {
-  const id = Object.entries(g.members).find(([, m]) => m.uid === uid)?.[0]
+  const id = Object.entries(activeMembers(g.members)).find(([, m]) => m.uid === uid)?.[0]
   return id && (id in e.splits || id in e.paidBy) ? id : undefined
 }
 

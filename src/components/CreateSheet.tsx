@@ -90,10 +90,10 @@ export function CreateSheet({ open, onClose, groupId }: { open: boolean; onClose
                 <h3 id={quickId} className="font-semibold">
                   Quick add
                 </h3>
-                <span className="text-muted block text-xs leading-snug">Type or say it in one line</span>
+                <span className="text-muted block text-xs leading-snug">Type or say it, then check the form</span>
               </span>
             </div>
-            <Suspense fallback={<div className="h-28" />}>
+            <Suspense fallback={<div className="h-[6.25rem] rounded-2xl bg-white ring-1 ring-slate-200 dark:bg-ink-900 dark:ring-white/10" />}>
               <QuickAdd
                 groups={groups}
                 defaultGroupId={(groupId && groups.some((g) => g.id === groupId) ? groupId : undefined) ?? liveTripFor(groups, todayISO()) ?? lastGroup()}

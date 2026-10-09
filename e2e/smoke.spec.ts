@@ -111,6 +111,40 @@ test('Quick add can start a new group, then lands on the form with the line', as
   await expect(page.getByRole('textbox', { name: 'Description', exact: true })).toHaveValue('Cab')
 })
 
+test('Quick add composer: outlined field, group chip, 44px mic and send; "New group" brings the named people along', async ({ page }) => {
+  await page.goto('/groups/g_goa')
+  await page.getByTestId('nav-create').click()
+  const quick = page.getByRole('dialog').getByTestId('create-quick-add')
+  const field = quick.getByRole('textbox', { name: 'Quick add' })
+  const go = quick.getByTestId('create-quick-add-go')
+  const picker = quick.getByRole('combobox', { name: 'Group for the quick add' })
+  await expect(picker).toContainText('Goa Trip')
+  await expect(go).toBeDisabled()
+  const box = await go.boundingBox()
+  expect(box && box.width >= 44 && box.height >= 44).toBe(true)
+  await field.fill('Dinner 900 with Kiran and Zoya')
+  await expect(go).toBeEnabled()
+  await picker.click()
+  await page.getByRole('option', { name: /New group/ }).click()
+  await expect(page).toHaveURL(/\/groups\/new\?/)
+  await expect(page.getByText('Kiran', { exact: true })).toBeVisible()
+  await expect(page.getByText('Zoya', { exact: true })).toBeVisible()
+})
+
+test('Quick add with AI (demo reader): "create a group … and add …" asks first, then opens the form in the new group', async ({ page }) => {
+  await page.getByTestId('nav-create').click()
+  const quick = page.getByRole('dialog').getByTestId('create-quick-add')
+  await quick.getByRole('textbox', { name: 'Quick add' }).fill('create a group Manali trip with Kiran and Zoya and add dinner 2400 paid by me split equally')
+  await quick.getByTestId('create-quick-add-go').click()
+  const ask = page.getByRole('dialog').filter({ hasText: 'Create “Manali trip”?' })
+  await expect(ask).toContainText('you, Kiran and Zoya')
+  await ask.getByRole('button', { name: 'Create group' }).click()
+  await expect(page).toHaveURL(/\/add\?group=[^&]+&quick=1/)
+  await expect(amountField(page)).toHaveValue(/2400/)
+  await expect(page.getByRole('textbox', { name: 'Description', exact: true })).toHaveValue('Dinner')
+  await expect(page.getByText('Manali trip', { exact: true })).toBeVisible()
+})
+
 test('settle up records a payment', async ({ page }) => {
   await page.goto('/groups/g_goa')
   await page.getByRole('link', { name: 'Settle up' }).click()
@@ -224,4 +258,36 @@ test('Balances: Remind and Nudge on the rows where someone owes you; a nudge cou
   await page.getByTestId('settle-view').getByRole('radio', { name: 'By person' }).click()
   const card = page.getByTestId('person-card').filter({ hasText: 'Ananya' })
   await expect(card.getByTestId('nudge')).toHaveAttribute('aria-disabled', 'true')
+})
+
+test('Members: from the group menu, a settled person can be removed (swipe) and someone who owes cannot', async ({ page }) => {
+  await page.goto('/groups/g_goa')
+  await page.getByTestId('group-menu').click()
+  await page.getByTestId('group-members').click()
+  await expect(page).toHaveURL(/\/groups\/g_goa\/members$/)
+  await expect(page.getByRole('heading', { level: 1, name: 'Members' })).toBeVisible()
+
+  // Someone who owes offers Settle up, never a working Remove.
+  const owing = page.getByTestId('member-row').filter({ hasText: 'Rohan' })
+  await expect(owing).toContainText(/owes/)
+  await expect(owing.getByTestId('member-remove')).toHaveCount(0)
+  await expect(owing.getByTestId('member-settle')).toHaveCount(1)
+
+  // A newly added person is settled: swipe their row left and remove them.
+  await page.getByLabel('Name of a person to add').fill('Zoe Test')
+  await page.getByTestId('member-add').click()
+  const zoe = page.getByTestId('member-row').filter({ hasText: 'Zoe Test' })
+  await expect(zoe).toBeVisible()
+  const box = await zoe.boundingBox()
+  if (!box) throw new Error('no row box')
+  const y = box.y + box.height / 2
+  await page.mouse.move(box.x + box.width - 30, y)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width - 80, y, { steps: 4 })
+  await page.mouse.move(box.x + box.width - 160, y, { steps: 4 })
+  await page.mouse.up()
+  await expect(zoe).toHaveAttribute('data-swipe', 'open')
+  await zoe.getByTestId('member-remove').click()
+  await page.getByTestId('confirm-ok').click()
+  await expect(page.getByTestId('member-row').filter({ hasText: 'Zoe Test' })).toHaveCount(0)
 })

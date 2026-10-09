@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { IDLE_PREFETCH, load, routeKey } from './routes'
+import { IDLE_PREFETCH, load, prefetchAfter, routeChunks, routeKey } from './routes'
 
 describe('routeKey', () => {
   it('maps every lazy route in App.tsx to its chunk', () => {
@@ -9,6 +9,7 @@ describe('routeKey', () => {
     expect(routeKey('/groups/g1/edit')).toBe('GroupForm')
     expect(routeKey('/groups/import')).toBe('ImportGroup')
     expect(routeKey('/groups/g1/settle')).toBe('SettleUp')
+    expect(routeKey('/groups/g1/members')).toBe('GroupMembers')
     expect(routeKey('/groups/g1/expenses/e1')).toBe('ExpenseDetail')
     expect(routeKey('/groups/g1')).toBe('GroupDetail')
     expect(routeKey('/groups/g1/')).toBe('GroupDetail')
@@ -43,5 +44,43 @@ describe('routeKey', () => {
 
   it('only prefetches screens that exist', () => {
     for (const k of IDLE_PREFETCH) expect(typeof load[k]).toBe('function')
+  })
+})
+
+describe('routeChunks', () => {
+  it('is the screen alone outside settings', () => {
+    expect(routeChunks('/profile')).toEqual(['Profile'])
+    expect(routeChunks('/groups/g1')).toEqual(['GroupDetail'])
+    expect(routeChunks('/settings/auto-capture')).toEqual(['AutoCaptureSetup'])
+    expect(routeChunks('/')).toEqual([])
+    expect(routeChunks('/nope')).toEqual([])
+  })
+
+  it('adds the settings area inside the Settings chunk', () => {
+    expect(routeChunks('/settings')).toEqual(['Settings'])
+    expect(routeChunks('/settings/')).toEqual(['Settings'])
+    expect(routeChunks('/settings/preferences')).toEqual(['Settings', 'SettingsPreferences'])
+    expect(routeChunks('/settings/notifications/')).toEqual(['Settings', 'SettingsNotifications'])
+    expect(routeChunks('/settings/automation')).toEqual(['Settings', 'SettingsAutomation'])
+    expect(routeChunks('/settings/ai')).toEqual(['Settings', 'SettingsAi'])
+    expect(routeChunks('/settings/data')).toEqual(['Settings', 'SettingsData'])
+    expect(routeChunks('/settings/admin')).toEqual(['Settings'])
+    expect(routeChunks('/settings/constructor')).toEqual(['Settings'])
+  })
+})
+
+describe('prefetchAfter', () => {
+  it('fetches Settings and its areas from Profile, and the areas from Settings', () => {
+    const areas = ['SettingsPreferences', 'SettingsNotifications', 'SettingsAutomation', 'SettingsAi', 'SettingsData']
+    expect(prefetchAfter('/profile')).toEqual(['Settings', ...areas])
+    expect(prefetchAfter('/settings')).toEqual(areas)
+    expect(prefetchAfter('/settings/data')).toEqual(areas)
+    for (const k of prefetchAfter('/profile')) expect(typeof load[k]).toBe('function')
+  })
+
+  it('fetches nothing extra elsewhere', () => {
+    expect(prefetchAfter('/')).toEqual([])
+    expect(prefetchAfter('/groups/g1')).toEqual([])
+    expect(prefetchAfter('/settings/auto-capture')).toEqual([])
   })
 })

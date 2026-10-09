@@ -44,7 +44,8 @@ export function ownMemberSyncs(groups: Group[], uid: string, profile: Pick<UserP
   const out: PendingMemberSync[] = []
   for (const group of groups) {
     for (const [memberId, m] of Object.entries(group.members ?? {})) {
-      if (!m || m.uid !== uid) continue
+      // an entry you left behind isn't yours to edit any more (and the rules refuse it)
+      if (!m || m.uid !== uid || typeof m.removedAt === 'number') continue
       const name = profileName || m.name
       if (m.name === name && (m.photoURL ?? undefined) === photo) continue
       out.push({ group, memberId, patch: photo ? { name, photoURL: photo } : { name } })

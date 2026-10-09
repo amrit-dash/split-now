@@ -8,6 +8,10 @@ describe('splashHoldMs', () => {
     expect(splashHoldMs(base)).toBe(SPLASH_MS)
     expect(splashHoldMs({ ...base, elapsed: 600.4 })).toBe(SPLASH_MS - 600)
   })
+  it('fades only after the last tagline line has started (index.html .boot-l2 starts at 1300 ms)', () => {
+    expect(SPLASH_MS).toBeGreaterThan(1300)
+    expect(SPLASH_MS).toBeLessThan(1800)
+  })
   it('does not hold once the animation is over', () => {
     expect(splashHoldMs({ ...base, elapsed: SPLASH_MS + 1 })).toBe(0)
   })

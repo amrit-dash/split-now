@@ -18,6 +18,7 @@ import { appLocale, formatDate } from '@/lib/locale'
 import { Select, currencyOptions } from '@/components/Select'
 import { IconPickerField, TypeSuggestion } from '@/components/IconPicker'
 import { GROUP_TYPES, SHARED_TYPES, guessGroup, iconsFor, type GroupGuess } from '@/lib/groupTypes'
+import { activeMembers } from '@/lib/members'
 
 /** 'me' | an existing member id of the target group | 'new' (a new placeholder) */
 type Target = string
@@ -416,7 +417,7 @@ export default function ImportGroup() {
                           {g.emoji}
                         </span>
                       ),
-                      hint: `${g.currency} · ${Object.keys(g.members).length} people`,
+                      hint: `${g.currency} · ${Object.keys(activeMembers(g.members)).length} people`,
                     })),
                   ]}
                 />
@@ -516,7 +517,7 @@ export default function ImportGroup() {
                           { value: 'me', label: 'Me', hint: profile.displayName },
                           { value: 'new', label: target ? 'New placeholder' : 'Placeholder', hint: 'Can claim later via invite' },
                           ...(target
-                            ? Object.entries(target.members)
+                            ? Object.entries(activeMembers(target.members))
                                 .filter(([, m]) => m.uid !== user.uid)
                                 .map(([id, m]) => ({ value: id, label: m.name, hint: m.uid ? 'Member' : 'Placeholder' }))
                             : []),
@@ -576,7 +577,8 @@ function defaultMapping(members: string[], myName: string, target?: Group, myUid
       out[n] = 'me'
       continue
     }
-    const match = target && Object.entries(target.members).find(([id, m]) => m.uid !== myUid && !taken.has(id) && m.name.toLowerCase() === n.toLowerCase())
+    const match =
+      target && Object.entries(activeMembers(target.members)).find(([id, m]) => m.uid !== myUid && !taken.has(id) && m.name.toLowerCase() === n.toLowerCase())
     if (match) {
       out[n] = match[0]
       taken.add(match[0])

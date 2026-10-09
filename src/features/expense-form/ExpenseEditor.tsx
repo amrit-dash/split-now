@@ -9,6 +9,7 @@ import { useMerchantMemory } from '@/hooks/useMerchants'
 import { useReceiptReader } from '@/hooks/useReceiptReader'
 import type { Capture, Expense, Group, MemberId } from '@/types'
 import { CURRENCIES, formatMoney, fromHundredths } from '@/lib/money'
+import { expenseMemberIds } from '@/lib/members'
 import { convertMinor, lastCurrency, rememberCurrency } from '@/lib/fx'
 import type { ParsedReceipt } from '@/lib/ocr-parse'
 import { pending } from '@/lib/pending'
@@ -106,7 +107,8 @@ export function ExpenseEditor({
   const reader = useReceiptReader()
   usePageTitle(existing ? 'Edit expense' : capture ? 'Captured payment' : 'Add expense')
   const fileRef = useRef<HTMLInputElement>(null)
-  const order = useMemo(() => memberOrder(group), [group])
+  // People who left stay in the pickers only for the old expense being edited (never for a new one).
+  const order = useMemo(() => memberOrder(group, existing && existing.groupId === group.id ? expenseMemberIds(existing) : undefined), [group, existing])
   const me = myMemberId(group, user.uid) ?? order[0]
   const personal = group.type === 'personal'
   // The categories this user picked by hand before (src/lib/merchants.ts), unless an admin turned the memory off.

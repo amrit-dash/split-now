@@ -52,6 +52,9 @@ describe('aiSummaryText', () => {
     expect(aiSummaryText({ mode: 'firebase', prefs: { aiEnabled: false }, hasOwnKey: false, status: null })).toBe('Off · bills are read on this phone')
     expect(aiSummaryText({ mode: 'firebase', prefs: { aiEnabled: true }, hasOwnKey: false, status: null })).toBe('On · nothing selected')
     expect(aiSummaryText({ mode: 'firebase', prefs: { ...on, aiSms: false }, hasOwnKey: false, status: app('available') })).toBe('On · Bills & statements')
+    expect(aiSummaryText({ mode: 'firebase', prefs: { ...on, aiQuickAdd: true }, hasOwnKey: false, status: app('available') })).toBe(
+      'On · Bills & statements, SMS, Quick add',
+    )
   })
   it('warns only when no key can serve it, and not while the status is loading', () => {
     expect(aiSummaryText({ mode: 'firebase', prefs: on, hasOwnKey: false, status: app('off') })).toBe('On · Bills & statements, SMS · no key available')

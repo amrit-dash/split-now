@@ -106,4 +106,10 @@ describe('own key', () => {
     await assertFails(setDoc(ref, { aiModel: 'x'.repeat(81) }))
     await assertFails(setDoc(ref, { aiSmsMerchant: 'yes' }))
   })
+  it('the Quick add with AI switch is a bool', async () => {
+    const ref = doc(as('alice'), 'users/alice/settings/notifications')
+    await assertSucceeds(setDoc(ref, { aiQuickAdd: true, updatedAt: 1 }, { merge: true }))
+    await assertFails(setDoc(ref, { aiQuickAdd: 'on' }, { merge: true }))
+    await assertFails(setDoc(doc(as('bob'), 'users/alice/settings/notifications'), { aiQuickAdd: true }, { merge: true }))
+  })
 })

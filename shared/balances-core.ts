@@ -28,8 +28,8 @@ export interface BalanceSettlement {
   deletedAt?: number
 }
 
-/** members map of a group: member id → { uid? } (placeholders have no uid). */
-export type MembersLite = Record<string, { uid?: string }>
+/** members map of a group: member id → { uid? } (placeholders have no uid; removedAt marks someone who left). */
+export type MembersLite = Record<string, { uid?: string; removedAt?: number }>
 
 const sum = (r: Record<string, number> | undefined) => Object.values(r ?? {}).reduce((a, b) => a + b, 0)
 const ints = (r: Record<string, number> | undefined) => !!r && Object.values(r).every((v) => Number.isInteger(v))
@@ -49,7 +49,8 @@ export function pendingApprovers(e: Pick<BalanceExpense, 'requiresApproval' | 'a
   return Object.entries(e.splits ?? {})
     .filter(([id, v]) => {
       const u = members[id]?.uid
-      return v > 0 && !!u && u !== e.createdBy && !e.approvals?.[u]
+      // Someone who left can't approve any more; waiting on them would hold the expense forever.
+      return v > 0 && !!u && u !== e.createdBy && !e.approvals?.[u] && typeof members[id]?.removedAt !== 'number'
     })
     .map(([id]) => id)
 }

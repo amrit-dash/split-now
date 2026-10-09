@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Clock, Flag, Trash2 } from 'lucide-react'
+import { Clock, Flag } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { useHistory, useTrash } from '@/hooks/data'
@@ -13,6 +13,7 @@ import { errText } from '@/lib/errors'
 import { Sheet } from './Sheet'
 import { useConfirm } from './ConfirmSheet'
 import { useToast } from './Toast'
+import { SwipeRow } from './SwipeRow'
 
 const memberNameFor = (g: Group, uid: string) => (id: string) => (g.members[id]?.uid === uid ? 'you' : (g.members[id]?.name ?? 'Former member'))
 
@@ -387,7 +388,11 @@ export function RecentlyDeleted({ group, open, onClose }: { group: Group; open: 
               ;(r.kind === 'e' ? repo.purgeExpense(group.id, r.id) : repo.purgeSettlement(group.id, r.id)).catch(fail)
             }
             return (
-              <li key={r.id} className="flex items-center gap-3 py-3">
+              <SwipeRow
+                key={r.id}
+                contentClassName="flex items-center gap-3 py-3"
+                actions={purge ? [{ label: 'Delete', ariaLabel: `Delete ${r.kind === 'e' ? r.item.description : 'payment'} forever`, onClick: forever }] : []}
+              >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-lg dark:bg-ink-800" aria-hidden>
                   {r.kind === 'e' ? (CATEGORIES[r.item.category]?.emoji ?? '🧾') : '💸'}
                 </div>
@@ -414,17 +419,7 @@ export function RecentlyDeleted({ group, open, onClose }: { group: Group; open: 
                 >
                   Restore
                 </button>
-                {purge && (
-                  <button
-                    type="button"
-                    className="text-muted -mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full hover:text-rose-600"
-                    onClick={forever}
-                    aria-label="Delete forever"
-                  >
-                    <Trash2 size={18} aria-hidden />
-                  </button>
-                )}
-              </li>
+              </SwipeRow>
             )
           })}
         </ul>

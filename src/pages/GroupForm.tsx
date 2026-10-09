@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Plus, Search, UserPlus, X } from 'lucide-react'
+import { ChevronRight, Users } from 'lucide-react'
 import { repo } from '@/data'
-import { diffMembers } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
-import { createGroup, useAllExpenses, useAllSettlements, useCaptureTokens, useGroup, useGroups } from '@/hooks/data'
+import { createGroup, useAllExpenses, useCaptureTokens, useGroup, useGroups } from '@/hooks/data'
 import { useCapturePrefs } from '@/hooks/useCapturePrefs'
 import { useFlag } from '@/hooks/useAppConfig'
 import { saveCapturePrefs, tripCaptureNotice } from '@/lib/capture-settings'
@@ -13,6 +12,7 @@ import type { Group, GroupType, Member } from '@/types'
 import { CURRENCIES, centsToInput } from '@/lib/money'
 import { colorFor } from '@/lib/colors'
 import { todayISO, uid } from '@/lib/id'
+import { parsePeopleParam } from '@/lib/quick-ai'
 import { isLiveTrip } from '@/lib/capture'
 import { walletNaming } from '@/lib/wallets'
 import { errText } from '@/lib/errors'
@@ -42,7 +42,9 @@ import { MoneyInput } from '@/components/MoneyInput'
 import { formatRange } from '@/components/Misc'
 import { formatMoney } from '@/lib/money'
 import { DeleteGroupButton } from '@/components/DeleteGroup'
-import { isEmail, knownPeople, nameFromEmail, recentPeople, searchPeople, type KnownPerson } from '@/lib/people'
+import { activeMembers, memberState } from '@/lib/members'
+import { MemberPicker } from '@/components/MemberPicker'
+import { SwipeRow } from '@/components/SwipeRow'
 
 const maxOthersFor = (t: GroupType) => (t === 'personal' ? 0 : t === 'direct' ? 1 : Infinity)
 
@@ -59,9 +61,8 @@ export default function GroupForm() {
   const { groupId } = useParams()
   const [params] = useSearchParams()
   const existing = useGroup(groupId)
-  // Including trashed items: their members must stay so a restore still balances.
+  // Including trashed items: once there are any, the currency is fixed.
   const expenses = useAllExpenses(groupId)
-  const settlements = useAllSettlements(groupId)
   const groups = useGroups()
   const { user, profile } = useMe()
   const nav = useNavigate()
@@ -70,6 +71,8 @@ export default function GroupForm() {
   const [initialType] = useState(() => parseGroupType(params.get('type')))
   // Quick add ("… in a new group Bali trip") opens a new group with ?name= filled in, as if typed.
   const [prefillName] = useState(() => (groupId ? '' : (params.get('name') ?? '').trim().slice(0, 60)))
+  // …and with ?people= the people its line named (matched to people you know): "Rahul Sharma,Priya".
+  const [prefillPeople] = useState(() => (groupId ? [] : parsePeopleParam(params.get('people'))))
   const [name, setName] = useState(prefillName)
   const [emoji, setEmoji] = useState(GROUP_TYPES[initialType].emoji)
   const [type, setType] = useState<GroupType>(initialType)
@@ -94,9 +97,6 @@ export default function GroupForm() {
   const [members, setMembers] = useState<Record<string, Member>>({})
   // People set aside when switching to 1:1 or Personal; they come back on switching to a group.
   const [parked, setParked] = useState<Record<string, Member>>({})
-  const [newName, setNewName] = useState('')
-  const [newEmail, setNewEmail] = useState('')
-  const [query, setQuery] = useState('')
   const [busy, setBusy] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({})
@@ -132,9 +132,10 @@ export default function GroupForm() {
       setEditAmountTouched(existing.editAutoApprove !== undefined)
     } else if (!groupId) {
       loaded.current = { key: 'new' }
-      setMembers({ [user.uid]: { name: profile.displayName, uid: user.uid, email: user.email, color: colorFor(0) } })
+      const named = prefillPeople.map((n, i) => [uid('p_'), { name: n, color: colorFor(i + 1) }] as const)
+      setMembers({ [user.uid]: { name: profile.displayName, uid: user.uid, email: user.email, color: colorFor(0) }, ...Object.fromEntries(named) })
     }
-  }, [existing, groupId, user.uid, user.email, profile.displayName])
+  }, [existing, groupId, user.uid, user.email, profile.displayName, prefillPeople])
 
   // Approval is a group setting, off for a new group. Turning it on fills in the currency's
   // defaults (₹2,000 to need an OK, ₹100 for small edits); an amount nobody typed follows the
@@ -188,30 +189,6 @@ export default function GroupForm() {
     if (!groupId && !nameTouched) setName(type === 'direct' ? firstOther : '')
   }, [groupId, nameTouched, type, firstOther])
 
-  // Quick-add pills: people from your ~4 most recent groups/1:1s (the full list only grows).
-  const isAdded = useCallback(
-    (k: KnownPerson) => Object.values(members).some((m) => (k.uid && m.uid === k.uid) || m.name.trim().toLowerCase() === k.name.toLowerCase()),
-    [members],
-  )
-  const recent = useMemo(() => recentPeople(groups ?? [], user.uid, groupId), [groups, user.uid, groupId])
-  // Search covers everyone from all your groups, built only once you start typing.
-  const q = query.trim()
-  const searching = q !== ''
-  const everyone = useMemo(() => (searching ? knownPeople(groups ?? [], user.uid, groupId) : null), [searching, groups, user.uid, groupId])
-  const results = useMemo(
-    () =>
-      everyone
-        ? searchPeople(
-            everyone.filter((k) => !isAdded(k)),
-            q,
-          )
-        : [],
-    [everyone, q, isAdded],
-  )
-  const ql = q.toLowerCase()
-  const inviteEmail =
-    isEmail(q) && !everyone?.some((k) => k.email?.toLowerCase() === ql) && !Object.values(members).some((m) => m.email?.toLowerCase() === ql) ? q : ''
-
   // Trip auto-capture state (used further down; hooks stay above the early returns).
   const capturePrefs = useCapturePrefs()
   const captureTokens = useCaptureTokens()
@@ -220,15 +197,15 @@ export default function GroupForm() {
   if (groupId && existing === undefined) return <Loading />
   if (groupId && existing === null) return <PageHeader title="Group not found" back />
 
-  // Member ids that appear in any expense or payment (trashed ones too): they cannot be removed here.
-  const usedIn = new Map<string, number>()
-  for (const e of expenses ?? []) for (const id of new Set([...Object.keys(e.paidBy), ...Object.keys(e.splits)])) usedIn.set(id, (usedIn.get(id) ?? 0) + 1)
-  for (const s of settlements ?? []) for (const id of new Set([s.from, s.to])) usedIn.set(id, (usedIn.get(id) ?? 0) + 1)
   const others = Object.entries(members).filter(([, m]) => m.uid !== user.uid)
+  const peopleCount = existing ? Object.keys(activeMembers(existing.members)).length : 0
   const info = groupTypeInfo(type)
   const maxOthers = maxOthersFor(type)
   const shared = isSharedType(type)
   const showDates = shared && (info.dates !== null || !!startDate || !!endDate)
+  // Types whose dates drive behaviour (a trip, an outing, an event) show them at the top of the form;
+  // an Other/Home group that happens to carry dates keeps them under More options.
+  const datesOnTop = showDates && info.dates !== null
   const shareable = type !== 'personal'
   const live = showDates && isLiveTrip({ startDate: startDate || undefined, endDate: endDate || undefined }, todayISO())
   // Trip auto-capture is this person's own setting (pausedTrips in their capture settings), not
@@ -252,7 +229,6 @@ export default function GroupForm() {
   const wallet = walletNaming((groups ?? []).filter((g) => g.type === 'personal' && g.id !== groupId).length)
   // Types you can switch between here: any shared type, but never to or from 1:1 / Personal once saved.
   const typeChips = shared && (!existing || isSharedType(groupTypeOf(existing)))
-  const suggestions = recent.filter((k) => !isAdded(k)).slice(0, 12)
   const kind: Kind = shared ? 'group' : type === 'direct' ? 'direct' : 'personal'
   const guess = shared && typedName ? guessGroup(name) : null
   const guessKey = guess ? `${guess.type}${guess.emoji}` : ''
@@ -265,7 +241,7 @@ export default function GroupForm() {
   const moreSummary = [
     currency,
     budget ? `budget ${formatMoney(budget, currency)}` : 'no budget',
-    showDates && (startDate || endDate) ? formatRange(startDate || undefined, endDate || undefined) : null,
+    showDates && !datesOnTop && (startDate || endDate) ? formatRange(startDate || undefined, endDate || undefined) : null,
     type !== 'personal' ? `simplify ${simplify ? 'on' : 'off'}` : null,
     shareable && requireApproval ? 'approval on' : null,
   ]
@@ -332,27 +308,6 @@ export default function GroupForm() {
     const id = uid('p_')
     setMembers((m) => ({ ...m, [id]: { name: personName.trim(), email: email?.trim() || undefined, color: colorFor(Object.keys(m).length) } }))
   }
-  const addKnown = (k: KnownPerson) => {
-    addPerson(k.name, k.email)
-    setQuery('')
-  }
-  const addByEmail = (email: string) => {
-    addPerson(nameFromEmail(email), email)
-    setQuery('')
-  }
-  const onSearchKey = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key !== 'Enter') return
-    e.preventDefault()
-    if (results.length === 1) addKnown(results[0])
-    else if (inviteEmail) addByEmail(inviteEmail)
-  }
-  const addMember = () => {
-    if (!newName.trim()) return
-    addPerson(newName, newEmail)
-    setNewName('')
-    setNewEmail('')
-  }
-
   /** Problems with what was typed, next to the field they belong to (not a passing toast). */
   const validate = (finalName: string): Partial<Record<Field, string>> => {
     const errs: Partial<Record<Field, string>> = {}
@@ -373,7 +328,8 @@ export default function GroupForm() {
       setErrors(errs)
       if (errs.name) nameRef.current?.focus()
       else {
-        setMoreOpen(true)
+        // Trip-like dates sit at the top of the form; everything else may be inside More options.
+        if (!(errs.dates && datesOnTop)) setMoreOpen(true)
         requestAnimationFrame(() =>
           document
             .getElementById(errs.budget ? 'group-budget' : errs.dates ? 'trip-start' : errs.threshold ? 'approval-threshold' : 'edit-auto-approve')
@@ -413,13 +369,9 @@ export default function GroupForm() {
         ],
       }
       if (existing) {
-        // Only send what changed; membership changes are per-member so concurrent joins survive.
+        // Settings only: members are managed on the Members screen (per-member writes, so concurrent joins survive).
         const { members: _m, memberUids: _u, ...settings } = data
-        const base = loaded.current?.base ?? existing
-        const { added, removed } = diffMembers(base.members, saved)
-        await repo.updateGroupSettings(base, settings)
-        for (const id of added) await repo.addMember(base, id, saved[id])
-        for (const id of removed) await repo.removeMember(base, id)
+        await repo.updateGroupSettings(loaded.current?.base ?? existing, settings)
         saveCapture(existing.id)
         toast('Group updated')
         nav(`/groups/${existing.id}`, { replace: true })
@@ -451,6 +403,215 @@ export default function GroupForm() {
         {text}
       </p>
     ) : null
+
+  // Dates, their Live badge and the per-person SMS auto-capture switch: at the top for trip-like types, else under More options.
+  const datesBlock = (
+    <div>
+      <div className="mb-1.5 flex items-center justify-between">
+        <span className="label !mb-0">{info.dates ?? 'Dates'} (optional)</span>
+        {live && <LiveBadge type={type} />}
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label htmlFor="trip-start" className="text-muted mb-1 block text-xs font-medium">
+            Start
+          </label>
+          <DateField
+            id="trip-start"
+            aria-label="Start date"
+            placeholder="Add date"
+            clearable
+            value={startDate}
+            max={endDate || undefined}
+            onChange={(v) => {
+              setDatesTouched(true)
+              setStartDate(v)
+              clearError('dates')
+            }}
+          />
+        </div>
+        <div>
+          <label htmlFor="trip-end" className="text-muted mb-1 block text-xs font-medium">
+            End
+          </label>
+          <DateField
+            id="trip-end"
+            aria-label="End date"
+            placeholder="Add date"
+            clearable
+            value={endDate}
+            min={startDate || undefined}
+            onChange={(v) => {
+              setDatesTouched(true)
+              setEndDate(v)
+              clearError('dates')
+            }}
+          />
+        </div>
+      </div>
+      <FieldError id="trip-dates-error" text={errors.dates} />
+      <p className="text-muted mt-1.5 text-xs">While it’s on, new expenses and captured payments default to this group.</p>
+      {captureSwitch ? (
+        <div className="mt-3 flex items-center justify-between gap-4 rounded-2xl bg-slate-50 p-3 dark:bg-ink-800" data-testid="group-trip-capture">
+          <div id="trip-capture-label">
+            <div className="font-semibold">SMS auto-capture</div>
+            <div className="text-muted text-xs">Adds your bank and UPI payments to this trip. Just for you: others keep their own.</div>
+          </div>
+          <Switch checked={captureChecked} onChange={setCaptureOn} label="SMS auto-capture for this trip" testId="group-trip-capture-switch" />
+        </div>
+      ) : captureNotice === 'off' ? (
+        <p className="text-muted mt-1 text-xs">
+          Your SMS auto-capture is paused.{' '}
+          <Link to="/settings/automation" className="font-semibold text-brand-600 dark:text-brand-300">
+            Settings
+          </Link>
+        </p>
+      ) : (
+        captureNotice === 'setup' && (
+          <p className="text-muted mt-1 text-xs">
+            Tip: each person can add their own bank and UPI payments to this trip with{' '}
+            {existing ? (
+              <Link to={`/settings/auto-capture?group=${existing.id}`} className="font-semibold text-brand-600 dark:text-brand-300">
+                SMS auto-capture
+              </Link>
+            ) : (
+              <b>SMS auto-capture</b>
+            )}
+            {existing ? '' : ' (on the group page after saving)'}.
+          </p>
+        )
+      )}
+    </div>
+  )
+
+  // Currency, budget, simplify and approval: folded under More options for a new group, open when editing.
+  const options = (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <div className="label" id="group-currency-label">
+            Currency
+          </div>
+          <Select
+            aria-label="Currency"
+            value={currency}
+            onChange={(c) => void changeCurrency(c)}
+            options={currencyOptions(CURRENCIES)}
+            disabled={lockCurrency}
+          />
+        </div>
+        <div>
+          <label className="label" htmlFor="group-budget">
+            Budget (optional)
+          </label>
+          <MoneyInput
+            id="group-budget"
+            value={budget}
+            currency={currency}
+            onChange={(v) => {
+              setBudget(v)
+              clearError('budget')
+            }}
+            aria-label="Budget"
+            aria-invalid={!!errors.budget}
+            aria-describedby={errors.budget ? 'group-budget-error' : undefined}
+          />
+          <FieldError id="group-budget-error" text={errors.budget} />
+        </div>
+      </div>
+      {lockCurrency && expenses && (
+        <p className="text-muted -mt-2 text-xs" data-testid="group-currency-locked">
+          The currency can't change once the group has expenses.
+        </p>
+      )}
+      {showDates && !datesOnTop && datesBlock}
+      {type !== 'personal' && (
+        <div className="flex items-center justify-between gap-4 rounded-2xl bg-slate-50 p-3 dark:bg-ink-800">
+          <div id="simplify-label">
+            <div className="font-semibold">Simplify debts</div>
+            <div className="text-muted text-xs">Fewer payments: if A owes B and B owes C, A pays C directly.</div>
+          </div>
+          <Switch checked={simplify} onChange={setSimplify} label="Simplify debts" testId="group-simplify" />
+        </div>
+      )}
+      {shareable && (
+        <div className="rounded-2xl bg-slate-50 p-3 dark:bg-ink-800">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="font-semibold">Needs your OK for big expenses</div>
+              <div className="text-muted text-xs">
+                In this group, a big expense added by someone else stays pending (not counted) until everyone charged taps Approve.
+              </div>
+            </div>
+            <Switch checked={requireApproval} onChange={turnApproval} label="Require approval for big expenses" testId="group-approval" />
+          </div>
+          {requireApproval && (
+            <div className="mt-3">
+              <label className="label" htmlFor="approval-threshold">
+                Needs an OK above
+              </label>
+              <MoneyInput
+                id="approval-threshold"
+                value={threshold}
+                currency={currency}
+                placeholder={centsToInput(suggested, currency)}
+                onChange={(v) => {
+                  setThreshold(v)
+                  setThresholdTouched(true)
+                  clearError('threshold')
+                }}
+                aria-invalid={!!errors.threshold}
+                aria-describedby={errors.threshold ? 'approval-threshold-error' : 'approval-threshold-hint'}
+                data-testid="group-approval-threshold"
+              />
+              <p id="approval-threshold-hint" className="text-muted mt-1 text-xs">
+                In this group, a new expense above {shortMoney(threshold ?? suggested, currency)} waits for an OK. At or below it counts straight away.
+                {threshold === undefined && ` Empty means the default for ${currency}.`}
+              </p>
+              <FieldError id="approval-threshold-error" text={errors.threshold} />
+            </div>
+          )}
+          {requireApproval && (
+            <div className="mt-4 border-t border-slate-200 pt-3 dark:border-white/10">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="font-semibold">Approve small edits automatically</div>
+                  <div className="text-muted text-xs">
+                    In this group, when someone edits an expense that needs an OK, a change of up to this amount keeps its approvals. A bigger change asks
+                    everyone again.
+                  </div>
+                </div>
+                <Switch checked={editAuto} onChange={turnEditAuto} label="Approve small edits automatically" testId="group-edit-auto" />
+              </div>
+              {editAuto && (
+                <div className="mt-3">
+                  <label className="label" htmlFor="edit-auto-approve">
+                    Changes of up to
+                  </label>
+                  <MoneyInput
+                    id="edit-auto-approve"
+                    value={editAmount}
+                    currency={currency}
+                    placeholder={centsToInput(suggestedEdit, currency)}
+                    onChange={(v) => {
+                      setEditAmount(v)
+                      setEditAmountTouched(true)
+                      clearError('editAuto')
+                    }}
+                    aria-invalid={!!errors.editAuto}
+                    aria-describedby={errors.editAuto ? 'edit-auto-approve-error' : undefined}
+                    data-testid="group-edit-auto-amount"
+                  />
+                  <FieldError id="edit-auto-approve-error" text={errors.editAuto} />
+                </div>
+              )}
+            </div>
+          )}
+          {requireApproval && !lockCurrency && <p className="text-muted mt-3 text-xs">Changing the currency converts these amounts.</p>}
+        </div>
+      )}
+    </div>
+  )
 
   return (
     <div>
@@ -537,367 +698,61 @@ export default function GroupForm() {
           )}
         </div>
 
-        {type !== 'personal' && (
+        {datesOnTop && <div className="card p-4">{datesBlock}</div>}
+
+        {type !== 'personal' && !existing && (
           <div className="card p-4">
             <div className="label">Members</div>
-            <ul className="space-y-2">
-              {Object.entries(members).map(([id, m]) => {
-                const used = usedIn.get(id)
-                return (
-                  <li key={id} className="flex items-center gap-3">
-                    <Avatar name={m.name} color={m.color} photoURL={m.photoURL} size={36} />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate font-medium">
-                        {m.name} {m.uid === user.uid && <span className="text-muted text-xs">(you)</span>}
-                      </div>
-                      <div className="text-muted truncate text-xs">
-                        {m.uid ? 'Joined' : m.email ? `${m.email} · not joined yet` : 'Not joined yet. Share the invite link'}
-                      </div>
+            <ul className="-mx-4">
+              {Object.entries(members).map(([id, m]) => (
+                <SwipeRow
+                  key={id}
+                  contentClassName="flex items-center gap-3 px-4 py-1.5"
+                  actions={
+                    m.uid === user.uid ? [] : [{ label: 'Remove', ariaLabel: `Remove ${m.name}`, onClick: () => setMembers(({ [id]: _, ...rest }) => rest) }]
+                  }
+                >
+                  <Avatar name={m.name} color={m.color} photoURL={m.photoURL} size={36} />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-medium">
+                      {m.name} {m.uid === user.uid && <span className="text-muted text-xs">(you)</span>}
                     </div>
-                    {m.uid !== user.uid &&
-                      (used ? (
-                        <span className="text-muted shrink-0 text-xs" title={`In ${used} expense${used === 1 ? '' : 's'} or payment${used === 1 ? '' : 's'}`}>
-                          in {used} expense{used === 1 ? '' : 's'}
-                        </span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setMembers(({ [id]: _, ...rest }) => rest)}
-                          className="text-muted -mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full hover:text-rose-600"
-                          aria-label={`Remove ${m.name}`}
-                        >
-                          <X size={18} aria-hidden />
-                        </button>
-                      ))}
-                  </li>
-                )
-              })}
-            </ul>
-            {others.length < maxOthers && (
-              <div className="mt-4 space-y-2 border-t border-slate-100 pt-4 dark:border-white/5">
-                {recent.length > 0 && (
-                  <div>
-                    <div className="relative">
-                      <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden />
-                      <input
-                        className="input !pl-10"
-                        type="search"
-                        autoComplete="off"
-                        placeholder="Search people or type an email"
-                        aria-label="Search people"
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        onKeyDown={onSearchKey}
-                      />
-                    </div>
-                    {searching ? (
-                      <div
-                        className="mt-1.5 divide-y divide-slate-100 overflow-hidden rounded-2xl ring-1 ring-slate-200 dark:divide-white/5 dark:ring-ink-700"
-                        data-testid="people-results"
-                      >
-                        {results.map((k, i) => (
-                          <button
-                            key={k.uid ?? k.name}
-                            type="button"
-                            onClick={() => addKnown(k)}
-                            className="flex min-h-12 w-full items-center gap-3 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-ink-800"
-                            aria-label={`Add ${k.name}`}
-                          >
-                            <Avatar name={k.name} color={colorFor(i + 1)} photoURL={k.photoURL} size={28} />
-                            <div className="min-w-0 flex-1">
-                              <div className="truncate text-sm font-medium">{k.name}</div>
-                              {k.email && <div className="text-muted truncate text-xs">{k.email}</div>}
-                            </div>
-                            <Plus size={16} className="shrink-0 text-brand-600 dark:text-brand-300" aria-hidden />
-                          </button>
-                        ))}
-                        {inviteEmail && (
-                          <button
-                            type="button"
-                            onClick={() => addByEmail(inviteEmail)}
-                            className="flex min-h-12 w-full items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-slate-50 dark:hover:bg-ink-800"
-                          >
-                            <UserPlus size={18} className="shrink-0 text-brand-600 dark:text-brand-300" aria-hidden />
-                            <span className="min-w-0 truncate">
-                              Add <b>{inviteEmail}</b>
-                            </span>
-                          </button>
-                        )}
-                        {!results.length && !inviteEmail && (
-                          <div className="text-muted px-3 py-2.5 text-sm">No one by that name. Add them below, or type their email.</div>
-                        )}
-                      </div>
-                    ) : (
-                      suggestions.length > 0 && (
-                        <>
-                          <div className="text-muted mb-0.5 mt-2.5 text-xs font-medium">From your recent groups</div>
-                          {/* py-1: overflow-x-auto clips the chips' rings otherwise. The row scrolls inside a small
-                              inset (half the card's padding) rather than to the card's edge; the ::after spacer
-                              keeps that inset at the end too (Safari drops a scroll row's right padding). */}
-                          <div
-                            className="scrollbar-none -mx-2 flex gap-2 overflow-x-auto px-2 py-1 after:block after:w-px after:shrink-0 after:content-['']"
-                            data-testid="known-people"
-                          >
-                            {suggestions.map((k) => (
-                              <button
-                                key={k.uid ?? k.name}
-                                type="button"
-                                onClick={() => addKnown(k)}
-                                className="chip min-h-10 shrink-0"
-                                aria-label={`Add ${k.name}`}
-                              >
-                                <Plus size={14} aria-hidden /> {k.name}
-                              </button>
-                            ))}
-                          </div>
-                        </>
-                      )
-                    )}
+                    <div className="text-muted truncate text-xs">{memberState(m)}</div>
                   </div>
-                )}
-                <label htmlFor="member-name" className="sr-only">
-                  Name of a person to add
-                </label>
-                <input
-                  id="member-name"
-                  className="input"
-                  placeholder="Name"
-                  autoComplete="off"
-                  autoCapitalize="words"
-                  enterKeyHint="done"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addMember())}
-                />
-                <div className="flex gap-2">
-                  <label htmlFor="member-email" className="sr-only">
-                    Their email (optional)
-                  </label>
-                  <input
-                    id="member-email"
-                    className="input"
-                    type="email"
-                    inputMode="email"
-                    autoComplete="off"
-                    autoCapitalize="none"
-                    placeholder="Email (optional)"
-                    value={newEmail}
-                    onChange={(e) => setNewEmail(e.target.value)}
-                  />
-                  <button type="button" className="btn-secondary shrink-0" onClick={addMember} disabled={!newName.trim()}>
-                    Add
-                  </button>
-                </div>
-                <p className="text-muted text-xs">Add people now and log expenses straight away. They can claim their spot later with the invite link.</p>
+                </SwipeRow>
+              ))}
+            </ul>
+            {others.length > 0 && <p className="text-muted mt-1 text-xs">Swipe a person left to remove them.</p>}
+            {others.length < maxOthers && (
+              <div className="mt-4 border-t border-slate-100 pt-4 dark:border-white/5">
+                <MemberPicker groups={groups} myUid={user.uid} members={members} onAdd={addPerson} />
               </div>
             )}
           </div>
         )}
+        {type !== 'personal' && existing && (
+          <Link to={`/groups/${existing.id}/members`} className="card flex min-h-14 items-center gap-3 px-4 py-3" data-testid="group-manage-members">
+            <Users size={20} className="shrink-0 text-brand-600 dark:text-brand-300" aria-hidden />
+            <span className="min-w-0 flex-1">
+              <span className="block font-medium">Manage members</span>
+              <span className="text-muted block truncate text-xs">
+                {peopleCount} {peopleCount === 1 ? 'person' : 'people'}: add or remove
+              </span>
+            </span>
+            <ChevronRight size={18} className="text-slate-300 dark:text-slate-600" aria-hidden />
+          </Link>
+        )}
 
-        <Collapsible title="More options" summary={moreSummary} open={moreOpen} onOpenChange={setMoreOpen} className="!mt-0" testId="group-more">
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <div className="label" id="group-currency-label">
-                  Currency
-                </div>
-                <Select
-                  aria-label="Currency"
-                  value={currency}
-                  onChange={(c) => void changeCurrency(c)}
-                  options={currencyOptions(CURRENCIES)}
-                  disabled={lockCurrency}
-                />
-              </div>
-              <div>
-                <label className="label" htmlFor="group-budget">
-                  Budget (optional)
-                </label>
-                <MoneyInput
-                  id="group-budget"
-                  value={budget}
-                  currency={currency}
-                  onChange={(v) => {
-                    setBudget(v)
-                    clearError('budget')
-                  }}
-                  aria-label="Budget"
-                  aria-invalid={!!errors.budget}
-                  aria-describedby={errors.budget ? 'group-budget-error' : undefined}
-                />
-                <FieldError id="group-budget-error" text={errors.budget} />
-              </div>
-            </div>
-            {lockCurrency && expenses && (
-              <p className="text-muted -mt-2 text-xs" data-testid="group-currency-locked">
-                The currency can't change once the group has expenses.
-              </p>
-            )}
-            {showDates && (
-              <div>
-                <div className="mb-1.5 flex items-center justify-between">
-                  <span className="label !mb-0">{info.dates ?? 'Dates'} (optional)</span>
-                  {live && <LiveBadge type={type} />}
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label htmlFor="trip-start" className="text-muted mb-1 block text-xs font-medium">
-                      Start
-                    </label>
-                    <DateField
-                      id="trip-start"
-                      aria-label="Start date"
-                      placeholder="Add date"
-                      clearable
-                      value={startDate}
-                      max={endDate || undefined}
-                      onChange={(v) => {
-                        setDatesTouched(true)
-                        setStartDate(v)
-                        clearError('dates')
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="trip-end" className="text-muted mb-1 block text-xs font-medium">
-                      End
-                    </label>
-                    <DateField
-                      id="trip-end"
-                      aria-label="End date"
-                      placeholder="Add date"
-                      clearable
-                      value={endDate}
-                      min={startDate || undefined}
-                      onChange={(v) => {
-                        setDatesTouched(true)
-                        setEndDate(v)
-                        clearError('dates')
-                      }}
-                    />
-                  </div>
-                </div>
-                <FieldError id="trip-dates-error" text={errors.dates} />
-                <p className="text-muted mt-1.5 text-xs">While it’s on, new expenses and captured payments default to this group.</p>
-                {captureSwitch ? (
-                  <div className="mt-3 flex items-center justify-between gap-4 rounded-2xl bg-slate-50 p-3 dark:bg-ink-800" data-testid="group-trip-capture">
-                    <div id="trip-capture-label">
-                      <div className="font-semibold">SMS auto-capture</div>
-                      <div className="text-muted text-xs">Adds your bank and UPI payments to this trip. Just for you: others keep their own.</div>
-                    </div>
-                    <Switch checked={captureChecked} onChange={setCaptureOn} label="SMS auto-capture for this trip" testId="group-trip-capture-switch" />
-                  </div>
-                ) : captureNotice === 'off' ? (
-                  <p className="text-muted mt-1 text-xs">
-                    Your SMS auto-capture is paused.{' '}
-                    <Link to="/settings/automation" className="font-semibold text-brand-600 dark:text-brand-300">
-                      Settings
-                    </Link>
-                  </p>
-                ) : (
-                  captureNotice === 'setup' && (
-                    <p className="text-muted mt-1 text-xs">
-                      Tip: each person can add their own bank and UPI payments to this trip with{' '}
-                      {existing ? (
-                        <Link to={`/settings/auto-capture?group=${existing.id}`} className="font-semibold text-brand-600 dark:text-brand-300">
-                          SMS auto-capture
-                        </Link>
-                      ) : (
-                        <b>SMS auto-capture</b>
-                      )}
-                      {existing ? '' : ' (on the group page after saving)'}.
-                    </p>
-                  )
-                )}
-              </div>
-            )}
-            {type !== 'personal' && (
-              <div className="flex items-center justify-between gap-4 rounded-2xl bg-slate-50 p-3 dark:bg-ink-800">
-                <div id="simplify-label">
-                  <div className="font-semibold">Simplify debts</div>
-                  <div className="text-muted text-xs">Fewer payments: if A owes B and B owes C, A pays C directly.</div>
-                </div>
-                <Switch checked={simplify} onChange={setSimplify} label="Simplify debts" testId="group-simplify" />
-              </div>
-            )}
-            {shareable && (
-              <div className="rounded-2xl bg-slate-50 p-3 dark:bg-ink-800">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <div className="font-semibold">Needs your OK for big expenses</div>
-                    <div className="text-muted text-xs">
-                      In this group, a big expense added by someone else stays pending (not counted) until everyone charged taps Approve.
-                    </div>
-                  </div>
-                  <Switch checked={requireApproval} onChange={turnApproval} label="Require approval for big expenses" testId="group-approval" />
-                </div>
-                {requireApproval && (
-                  <div className="mt-3">
-                    <label className="label" htmlFor="approval-threshold">
-                      Needs an OK above
-                    </label>
-                    <MoneyInput
-                      id="approval-threshold"
-                      value={threshold}
-                      currency={currency}
-                      placeholder={centsToInput(suggested, currency)}
-                      onChange={(v) => {
-                        setThreshold(v)
-                        setThresholdTouched(true)
-                        clearError('threshold')
-                      }}
-                      aria-invalid={!!errors.threshold}
-                      aria-describedby={errors.threshold ? 'approval-threshold-error' : 'approval-threshold-hint'}
-                      data-testid="group-approval-threshold"
-                    />
-                    <p id="approval-threshold-hint" className="text-muted mt-1 text-xs">
-                      In this group, a new expense above {shortMoney(threshold ?? suggested, currency)} waits for an OK. At or below it counts straight away.
-                      {threshold === undefined && ` Empty means the default for ${currency}.`}
-                    </p>
-                    <FieldError id="approval-threshold-error" text={errors.threshold} />
-                  </div>
-                )}
-                {requireApproval && (
-                  <div className="mt-4 border-t border-slate-200 pt-3 dark:border-white/10">
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <div className="font-semibold">Approve small edits automatically</div>
-                        <div className="text-muted text-xs">
-                          In this group, when someone edits an expense that needs an OK, a change of up to this amount keeps its approvals. A bigger change asks
-                          everyone again.
-                        </div>
-                      </div>
-                      <Switch checked={editAuto} onChange={turnEditAuto} label="Approve small edits automatically" testId="group-edit-auto" />
-                    </div>
-                    {editAuto && (
-                      <div className="mt-3">
-                        <label className="label" htmlFor="edit-auto-approve">
-                          Changes of up to
-                        </label>
-                        <MoneyInput
-                          id="edit-auto-approve"
-                          value={editAmount}
-                          currency={currency}
-                          placeholder={centsToInput(suggestedEdit, currency)}
-                          onChange={(v) => {
-                            setEditAmount(v)
-                            setEditAmountTouched(true)
-                            clearError('editAuto')
-                          }}
-                          aria-invalid={!!errors.editAuto}
-                          aria-describedby={errors.editAuto ? 'edit-auto-approve-error' : undefined}
-                          data-testid="group-edit-auto-amount"
-                        />
-                        <FieldError id="edit-auto-approve-error" text={errors.editAuto} />
-                      </div>
-                    )}
-                  </div>
-                )}
-                {requireApproval && !lockCurrency && <p className="text-muted mt-3 text-xs">Changing the currency converts these amounts.</p>}
-              </div>
-            )}
+        {/* New group keeps the extras folded so creating stays quick; Edit group shows them all. */}
+        {existing ? (
+          <div className="card p-4" data-testid="group-options">
+            {options}
           </div>
-        </Collapsible>
+        ) : (
+          <Collapsible title="More options" summary={moreSummary} open={moreOpen} onOpenChange={setMoreOpen} className="!mt-0" testId="group-more">
+            {options}
+          </Collapsible>
+        )}
 
         <button type="submit" className="btn-primary w-full" disabled={busy} data-testid="group-save">
           {existing ? 'Save changes' : type === 'direct' ? 'Create 1:1' : type === 'personal' ? 'Create wallet' : 'Create group'}

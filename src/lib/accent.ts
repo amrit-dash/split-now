@@ -10,35 +10,51 @@
  * white text still reads. Neon fills with a highlighter lime and aqua and puts dark ink on them
  * (the --color-fill / --color-on-fill tokens in index.css). A test in accent.test.ts checks every
  * preset's on-fill colour against its fill and fill-to, and its brand-600 against white.
+ *
+ * "Text on accent" (the ink): every preset comes in two fill sets, picked by <html data-ink>.
+ * 'light' is white text and icons on deep fills (brand-600 / duo-600); 'dark' is near-black ink on
+ * bright fills, light enough that the ink still reads at 4.5:1 (black on a deep violet is about
+ * 3:1, so the fills have to change with the ink). Neon defaults to dark ink, every other preset to
+ * white; an explicit choice is stored per accent.
  */
 export type AccentId = 'violet' | 'ocean' | 'neon' | 'berry' | 'lime' | 'gold' | 'graphite'
+/** Colour of text and icons on accent fills: 'light' = white on deep fills, 'dark' = ink on bright fills. */
+export type Ink = 'light' | 'dark'
 
 export interface AccentPreset {
   id: AccentId
   label: string
+  /** The ink this preset starts with until the person picks one. */
+  ink: Ink
   /**
-   * Swatch colours (hex copies of the CSS): the fill, and duo-500 as its partner, or fill-to for a
-   * preset with its own fills (Neon), so the swatch shows the highlighter rather than the text green.
+   * Swatch colours per ink (hex copies of the CSS), [from, to]: for white ink the deep fill and
+   * duo-500 as its partner; for dark ink the bright fill and fill-to, so the swatch shows the
+   * fills the buttons will actually get.
    */
-  from: string
-  to: string
+  swatch: Record<Ink, readonly [string, string]>
   /** brand-700, used for <meta name="theme-color"> in light mode. */
   meta: string
 }
 
 export const ACCENTS: readonly AccentPreset[] = [
-  { id: 'violet', label: 'Violet', from: '#7c3aed', to: '#e12afb', meta: '#6d28d9' },
-  { id: 'ocean', label: 'Ocean', from: '#155dfc', to: '#0092b8', meta: '#1447e6' },
-  { id: 'neon', label: 'Neon', from: '#c6ff00', to: '#3df4ef', meta: '#426400' },
-  { id: 'berry', label: 'Berry', from: '#b32689', to: '#009698', meta: '#97176e' },
-  { id: 'lime', label: 'Lime', from: '#4d7800', to: '#0095ae', meta: '#426400' },
-  { id: 'gold', label: 'Gold', from: '#936500', to: '#de8800', meta: '#774f00' },
-  { id: 'graphite', label: 'Graphite', from: '#45556c', to: '#71717b', meta: '#314158' },
+  { id: 'violet', label: 'Violet', ink: 'light', swatch: { light: ['#7c3aed', '#e12afb'], dark: ['#a98ffc', '#eb7efd'] }, meta: '#6d28d9' },
+  { id: 'ocean', label: 'Ocean', ink: 'light', swatch: { light: ['#155dfc', '#0092b8'], dark: ['#75acfd', '#20d3f4'] }, meta: '#1447e6' },
+  { id: 'neon', label: 'Neon', ink: 'dark', swatch: { light: ['#4d7800', '#00a8a8'], dark: ['#c6ff00', '#3df4ef'] }, meta: '#426400' },
+  { id: 'berry', label: 'Berry', ink: 'light', swatch: { light: ['#b32689', '#009698'], dark: ['#f568c5', '#2ad7d7'] }, meta: '#97176e' },
+  { id: 'lime', label: 'Lime', ink: 'light', swatch: { light: ['#4d7800', '#0095ae'], dark: ['#9ee41e', '#34d3ef'] }, meta: '#426400' },
+  { id: 'gold', label: 'Gold', ink: 'light', swatch: { light: ['#936500', '#de8800'], dark: ['#f8b81c', '#fda848'] }, meta: '#774f00' },
+  { id: 'graphite', label: 'Graphite', ink: 'light', swatch: { light: ['#45556c', '#71717b'], dark: ['#a1b3cb', '#bcbcc7'] }, meta: '#314158' },
 ]
 
 export const DEFAULT_ACCENT: AccentId = 'violet'
 export const ACCENT_KEY = 'splitit-accent'
 export const DUO_KEY = 'splitit-duo'
+/**
+ * The explicit "Text on accent" choices, per accent, as JSON ({"violet":"dark"}). An accent with no
+ * entry follows its preset's default. Anything else stored there (bad JSON, an old plain value) is
+ * ignored, so every accent falls back to its default.
+ */
+export const INK_KEY = 'splitit-ink'
 /** <meta name="theme-color"> in dark mode, matching theme.ts. */
 export const DARK_THEME_COLOR = '#0b0a14'
 
@@ -81,6 +97,35 @@ export function getDuo(): boolean {
   return read(DUO_KEY) !== 'off'
 }
 
+const isInk = (v: unknown): v is Ink => v === 'light' || v === 'dark'
+
+/** The stored per-accent inks, keeping only valid entries. */
+export function storedInks(): Partial<Record<AccentId, Ink>> {
+  try {
+    const raw: unknown = JSON.parse(read(INK_KEY) ?? '{}')
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+    const out: Partial<Record<AccentId, Ink>> = {}
+    for (const a of ACCENTS) {
+      const v = Object.hasOwn(raw, a.id) ? (raw as Record<string, unknown>)[a.id] : undefined
+      if (isInk(v)) out[a.id] = v
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
+/** The ink to use with an accent: its stored choice, else the preset's own default. */
+export function getInk(id: AccentId = getAccent()): Ink {
+  const preset = accentPreset(id)
+  return storedInks()[preset.id] ?? preset.ink
+}
+
+/** Every accent's ink (stored or default), for previews such as the picker's swatches. */
+export function allInks(): Record<AccentId, Ink> {
+  return Object.fromEntries(ACCENTS.map((a) => [a.id, getInk(a.id)])) as Record<AccentId, Ink>
+}
+
 /** Theme colour for the browser chrome: the accent's brand-700, or ink in dark mode. */
 export function themeColor(id: AccentId = getAccent(), dark?: boolean): string {
   const isDark = dark ?? (typeof document !== 'undefined' && document.documentElement.classList.contains('dark'))
@@ -92,11 +137,12 @@ export function syncThemeColor(dark?: boolean) {
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColor(getAccent(), dark))
 }
 
-/** Apply an accent and dual-tone setting to <html> without persisting. */
-export function applyAccent(id: AccentId = getAccent(), duo: boolean = getDuo()) {
+/** Apply an accent, dual-tone and ink setting to <html> without persisting. */
+export function applyAccent(id: AccentId = getAccent(), duo: boolean = getDuo(), ink: Ink = getInk(id)) {
   if (typeof document === 'undefined') return
   const root = document.documentElement
   root.setAttribute('data-accent', accentPreset(id).id)
+  root.setAttribute('data-ink', ink)
   if (duo) root.removeAttribute('data-duo')
   else root.setAttribute('data-duo', 'off')
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColor(id))
@@ -112,6 +158,18 @@ export function setAccent(id: AccentId) {
 export function setDuo(on: boolean) {
   write(DUO_KEY, on ? 'on' : 'off')
   applyAccent(getAccent(), on)
+}
+
+/**
+ * Store an explicit ink for one accent (the current one by default) and show that accent with it. Each accent keeps its own,
+ * so White on Neon does not turn every other accent white, and Neon keeps its highlighter look
+ * unless it is itself set to White.
+ */
+export function setInk(ink: Ink, id: AccentId = getAccent()) {
+  const preset = accentPreset(id)
+  write(INK_KEY, JSON.stringify({ ...storedInks(), [preset.id]: ink }))
+  // Applied even when storage is blocked, so the switch still works for this visit.
+  applyAccent(preset.id, getDuo(), ink)
 }
 
 // --- Desktop favicon tinting -----------------------------------------------------------
