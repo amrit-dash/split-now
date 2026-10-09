@@ -18,7 +18,7 @@ product and architecture source of truth (data model §4.2, security §4.3, perf
 - `npm run test:all` — lint, typecheck:all, unit, rules, functions (what CI runs, minus e2e).
 - `npm run icons` — regenerate every PNG icon from `public/favicon.svg` (`scripts/generate-icons.mjs`; `ICON_BG='#rrggbb'` overrides the Apple icon's background). Run it after any change to the SVG; the design itself is the owner's call.
 - `npm run readme:media` — regenerate `docs/assets/screens/*.png`, `hero.png`, `social-preview.png`, `demo.svg` and `public/og-image.jpg` from demo mode with Playwright (`scripts/readme-media.mjs`; starts its own `vite --mode e2e`, or `-- --url <demo server>`; `-- --only hero,demo` for some). Run it after UI changes the README shows.
-- `npm run build` — typecheck + production build into `dist/`; `npx vite build --mode e2e` builds the demo variant. `npm run deploy` is production (`deploy:hosting`, `deploy:functions`, `deploy:rules` for one piece at a time).
+- `npm run build` — typecheck + production build into `dist/`; `npx vite build --mode e2e` builds the demo variant. `npm run deploy` is production (`deploy:hosting`, `deploy:functions`, `deploy:rules` for one piece at a time); `deploy` and `deploy:hosting` set `SPLIT_NOW_DEPLOY=1`, which makes the build fail rather than ship the demo app when the Firebase web config (`.env.production`, or the same `VITE_FIREBASE_*` variables in the environment) is missing.
 - Node >= 22.12 (Vitest 5 needs it); Cloud Functions run on Node 22.
 
 ## Where things live
@@ -50,7 +50,7 @@ product and architecture source of truth (data model §4.2, security §4.3, perf
 - No new runtime dependencies without a reason written in the PR: charts are hand-rolled, fonts are self-hosted, `re2js` is stubbed; check the per-chunk gzip effect with `npx vite build`.
 - Tests: add a unit test for every pure function you add or change; a rules test for every rules change; keep `data-testid`s that `e2e/` uses (`home-greeting`, `home-net`, `nav-create`, `create-expense`, `demo-name`, `demo-start`, `card-footer`, `group-create`, ...). Prefer roles and testids over copy in e2e selectors. The repo has no DOM test runner; put every decision a component makes into a tested pure function.
 - Demo mode is what the e2e suite runs against, so a feature is not done until `localRepo` supports it too (a server-only feature answers with a toast or a plain card there).
-- Never commit `.env.local`, `dist/`, `functions/lib/`, `*.tsbuildinfo`, `*-debug.log`, `playwright-report/`, `test-results/` (all gitignored). `.env.production` holds the public Firebase keys on purpose; a debug App Check token never goes there.
+- Never commit `.env.local`, `.env.production`, `dist/`, `functions/lib/`, `*.tsbuildinfo`, `*-debug.log`, `playwright-report/`, `test-results/` (all gitignored). For production builds copy `.env.production.example` to `.env.production` and fill in the Firebase web config; a debug App Check token never goes in it.
 
 ## Before opening a PR
 `npm run lint && npm run typecheck:all && npm test` locally; `npm run test:rules` when rules changed. CI (`.github/workflows/ci.yml`) runs four jobs: lint + typecheck, unit, rules + functions under the emulators, build + e2e. One concern per PR; say what changes for the person using the app, and update `docs/PLAN.md` when a status marker, collection or field changes.
