@@ -41,14 +41,15 @@ export function AccentPicker({ onChange }: { onChange?: () => void } = {}) {
         <div className="label" id="accent-label">
           Accent
         </div>
-        {/* One row that fills the width: a column per preset, each swatch a circle sized by its
-            column (capped at 48px), so seven still fit a 320px screen without wrapping. The whole
-            cell is the touch target; the ring sits inside it so neighbours never overlap. */}
+        {/* One row that fills the width: a column per preset, so seven fit a 320px screen without
+            wrapping. The whole 44px-tall cell is the touch target; the swatch inside has a fixed
+            width and height per breakpoint (not aspect-ratio on a stretched button, which some
+            WebKit builds drew as an oval), so it is always a circle. */}
         <div
           role="radiogroup"
           aria-labelledby="accent-label"
           onKeyDown={onKey}
-          className="grid items-center gap-1 sm:gap-2"
+          className="grid items-center sm:gap-2"
           style={{ gridTemplateColumns: `repeat(${ACCENTS.length}, minmax(0, 1fr))` }}
         >
           {ACCENTS.map((a) => {
@@ -65,11 +66,11 @@ export function AccentPicker({ onChange }: { onChange?: () => void } = {}) {
                 data-testid={`accent-${a.id}`}
                 tabIndex={on ? 0 : -1}
                 onClick={() => pick(a.id)}
-                className={`flex aspect-square w-full max-w-12 items-center justify-center justify-self-center rounded-full border-2 p-0.5 transition active:scale-95 ${on ? 'border-slate-900 dark:border-white' : 'border-transparent'}`}
+                className="flex h-11 w-full items-center justify-center rounded-full transition active:scale-95"
               >
                 <span
                   aria-hidden
-                  className="flex h-full w-full items-center justify-center rounded-full text-white shadow-sm"
+                  className={`flex size-[30px] shrink-0 items-center justify-center rounded-full text-white shadow-sm min-[360px]:size-9 sm:size-10 ${on ? 'ring-2 ring-slate-900 ring-offset-2 ring-offset-white dark:ring-white dark:ring-offset-ink-900' : ''}`}
                   style={{ background: duo ? `linear-gradient(135deg, ${a.from}, ${a.to})` : a.from }}
                 >
                   {on && <Check size={16} strokeWidth={3} className="drop-shadow-sm" />}
