@@ -72,6 +72,7 @@ function start(b: Body): State {
 function useBodies(bodies: Body[]) {
   const box = useRef<HTMLDivElement>(null)
   const refs = useRef<Array<HTMLDivElement | null>>([])
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the motion loop starts once per mount; bodies is a module constant (CARD or FAB) and restarting would reset every drift.
   useEffect(() => {
     if (typeof window === 'undefined' || !box.current) return
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
@@ -165,7 +166,7 @@ function useBodies(bodies: Body[]) {
       io?.disconnect()
       document.removeEventListener('visibilitychange', sync)
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
   return {
     box,
     ref: (i: number) => (el: HTMLDivElement | null) => {

@@ -24,7 +24,7 @@ export function markInboxSeen(at = Date.now()) {
   } catch {
     /* storage unavailable */
   }
-  listeners.forEach((l) => l())
+  for (const l of listeners) l()
 }
 
 export function onInboxSeen(cb: () => void): () => void {

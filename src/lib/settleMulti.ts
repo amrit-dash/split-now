@@ -57,7 +57,9 @@ export function allocateAcrossGroups(parts: MultiPart[], payment: Cents): MultiP
 
   const weights = major.map((p) => Math.abs(p.signed))
   const shares = proportional(counter + pay, weights)
-  major.forEach((p, i) => out.set(p.key, shares[i]))
+  major.forEach((p, i) => {
+    out.set(p.key, shares[i])
+  })
 
   const allocations = parts.map((p) => {
     const amount = out.get(p.key) ?? 0

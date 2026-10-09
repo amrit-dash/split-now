@@ -64,7 +64,7 @@
       "preset": "recommended",
       "correctness": {
         "useHookAtTopLevel": "error",
-        "useExhaustiveDependencies": "warn",
+        "useExhaustiveDependencies": "error",
         "noUnusedImports": "error",
         "noUnusedVariables": "error",
         "noUnusedFunctionParameters": "warn",
@@ -73,8 +73,8 @@
       },
       "suspicious": {
         "noExplicitAny": "warn",
-        "noArrayIndexKey": "warn",
-        "useIterableCallbackReturn": "warn",
+        "noArrayIndexKey": "error",
+        "useIterableCallbackReturn": "error",
         "noConsole": "off"
       },
       "style": {
@@ -86,19 +86,23 @@
       },
       "complexity": {
         "noForEach": "off",
-        "noCommaOperator": "off"
+        "noCommaOperator": "off",
+        "useLiteralKeys": "error",
+        "useOptionalChain": "error",
+        "noUselessEscapeInRegex": "error",
+        "noStaticOnlyClass": "error"
       },
       "a11y": {
-        "useButtonType": "warn",
-        "noLabelWithoutControl": "warn",
+        "useButtonType": "error",
+        "noLabelWithoutControl": "error",
         "useSemanticElements": "off",
         "noAutofocus": "off",
         "noSvgWithoutTitle": "off",
-        "noNoninteractiveElementToInteractiveRole": "warn",
-        "useFocusableInteractive": "warn",
-        "useKeyWithClickEvents": "warn",
-        "useKeyWithMouseEvents": "warn",
-        "noStaticElementInteractions": "warn"
+        "noNoninteractiveElementToInteractiveRole": "error",
+        "useFocusableInteractive": "error",
+        "useKeyWithClickEvents": "error",
+        "useKeyWithMouseEvents": "error",
+        "noStaticElementInteractions": "error"
       }
     }
   },

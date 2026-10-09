@@ -12,7 +12,9 @@ type State = { uid: string | null; value: AiStatusResult | null | undefined }
 let state: State = { uid: null, value: undefined }
 let inflight: Promise<void> | null = null
 const subs = new Set<() => void>()
-const emit = () => subs.forEach((f) => f())
+const emit = () => {
+  for (const f of subs) f()
+}
 const storeKey = (uid: string) => `splitit-ai-status:${uid}`
 
 function read(uid: string): AiStatusResult | undefined {

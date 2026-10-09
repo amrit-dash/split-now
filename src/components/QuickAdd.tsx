@@ -11,12 +11,15 @@ import { aiScanEnabled, aiScanPossible } from '@/lib/ai'
 import { errText } from '@/lib/errors'
 import { todayISO } from '@/lib/id'
 import { suggestCategory } from '@/lib/merchants'
-import { mergeAiParse, parseNlExpense, toQuickPrefill, type NlContext } from '@/lib/nl-expense'
+import type { NlContext } from '@/lib/nl-expense'
 import { pending } from '@/lib/pending'
 import { listenOnce, speechSupported, type SpeechSession } from '@/lib/speech'
 import { GroupIcon } from '@/components/GroupIcon'
 import { Select } from '@/components/Select'
 import { useToast } from '@/components/Toast'
+
+// The parser loads on first focus or submit, not with Home (it is only needed once someone types).
+const loadParser = () => import('@/lib/nl-expense')
 
 /**
  * Quick add: one line ("dinner 1200 with Rahul and Priya, I paid"), typed or spoken, opens
@@ -59,6 +62,7 @@ export function QuickAdd({
     const order = memberOrder(group)
     const me = myMemberId(group, user.uid) ?? order[0]
     const ctx: NlContext = { members: order.map((id) => ({ id, name: group.members[id].name })), me, currency: group.currency, today: todayISO() }
+    const { mergeAiParse, parseNlExpense, toQuickPrefill } = await loadParser()
     let parse = parseNlExpense(t, ctx)
     let category = parse.description ? suggestCategory(parse.description, { memory }) : null
     // Unsure (no amount, or a name nobody matched): let Gemini have a go when the user allows AI reading.
@@ -124,6 +128,7 @@ export function QuickAdd({
           placeholder={listening ? 'Listening…' : 'Quick add: dinner 1200 with Rahul, I paid'}
           value={text}
           onChange={(e) => setText(e.target.value)}
+          onFocus={() => void loadParser()}
           autoComplete="off"
           autoCapitalize="sentences"
           enterKeyHint="go"

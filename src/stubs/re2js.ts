@@ -10,6 +10,7 @@
  * Re-check after every firebase upgrade: `grep -l re2js node_modules/@firebase/firestore/dist/*.esm.js`.
  * If upstream moves the import behind the pipelines entry point, delete this file and the alias.
  */
+// biome-ignore lint/complexity/noStaticOnlyClass: mirrors the real package's export shape (a class with a static compile) that Firestore imports.
 export class RE2JS {
   static compile(pattern: string, _flags?: number): never {
     throw new Error(`Regex evaluation is not bundled (pattern: ${pattern})`)

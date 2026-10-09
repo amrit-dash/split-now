@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ChevronRight, FileUp, Inbox, Plus, Ticket } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
@@ -13,7 +13,6 @@ import { GroupRow } from '@/components/GroupRow'
 import { Avatar } from '@/components/Avatar'
 import { Aurora } from '@/components/Aurora'
 import { CardSkeleton, ListSkeleton, Skeleton } from '@/components/Skeleton'
-import { CardFirework } from '@/components/CardFirework'
 import { formatDate } from '@/lib/locale'
 import { dayPart, greeting, helloFor, topCounterparties, type DayPart } from '@/lib/greeting'
 import { isLiveTrip, liveTripFor } from '@/lib/capture'
@@ -21,6 +20,9 @@ import { lastGroup } from '@/lib/recents'
 import { QuickAdd } from '@/components/QuickAdd'
 import { todayISO } from '@/lib/id'
 import { usePageTitle } from '@/lib/brand'
+
+// Only shown once everything is settled: kept out of the first-paint bundle.
+const CardFirework = lazy(() => import('@/components/CardFirework').then((m) => ({ default: m.CardFirework })))
 
 export default function Home() {
   usePageTitle(null)
@@ -121,7 +123,11 @@ export default function Home() {
       ) : (
         <div className="relative isolate overflow-hidden rounded-[2rem] bg-brand-600 p-6 text-white shadow-xl shadow-brand-600/30">
           <Aurora />
-          {allSettled && <CardFirework />}
+          {allSettled && (
+            <Suspense fallback={null}>
+              <CardFirework />
+            </Suspense>
+          )}
           <div className="relative">
             {/* Settle up: inset from the card's corner, level with the first lines, with a cheque being signed. */}
             {!allSettled && (
@@ -451,6 +457,7 @@ function Greeting({ salutation, name, part }: { salutation: string; name: string
   const box = useRef<HTMLDivElement>(null)
   const probe = useRef<HTMLSpanElement>(null)
   const [stacked, setStacked] = useState(false)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: name is the trigger; a new name changes the probe's width, so measure again.
   useLayoutEffect(() => {
     const el = box.current,
       p = probe.current

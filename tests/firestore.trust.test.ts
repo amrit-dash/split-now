@@ -199,12 +199,12 @@ describe('disputes', () => {
     await assertFails(setFlag('bob', 'bob', flag('bob', 'bob', { extra: true })))
   })
   it('flagging cannot change anything else', async () => {
-    await assertFails(updateDoc(e1('bob'), { [`dispute.bob`]: flag('bob', 'bob'), amount: 1 }))
-    await assertFails(updateDoc(e1('bob'), { [`dispute.bob`]: flag('bob', 'bob'), description: 'Bad dinner' }))
+    await assertFails(updateDoc(e1('bob'), { 'dispute.bob': flag('bob', 'bob'), amount: 1 }))
+    await assertFails(updateDoc(e1('bob'), { 'dispute.bob': flag('bob', 'bob'), description: 'Bad dinner' }))
   })
   it('trust writes cannot change the foreign-currency original; edits still validate it', async () => {
     const original = { currency: 'THB', amount: 210000, rate: 0.0428, rateDate: '2026-10-01', source: 'ecb' }
-    await assertFails(updateDoc(e1('bob'), { [`dispute.bob`]: flag('bob', 'bob'), original }))
+    await assertFails(updateDoc(e1('bob'), { 'dispute.bob': flag('bob', 'bob'), original }))
     await assertFails(updateDoc(e1('bob'), { deletedAt: 5, deletedBy: 'bob', original }))
     await assertFails(updateDoc(e1('bob'), { original: { ...original, source: 'guess' } }))
     await assertSucceeds(updateDoc(e1('bob'), { original }))

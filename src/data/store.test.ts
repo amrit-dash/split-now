@@ -17,7 +17,9 @@ function fakeWatch() {
       open.splice(open.indexOf(cb), 1)
     }
   }
-  const push = (v: number[], m?: SnapMeta) => open.forEach((cb) => cb(v, m))
+  const push = (v: number[], m?: SnapMeta) => {
+    for (const cb of open) cb(v, m)
+  }
   return { start, push, starts: () => starts, stops: () => stops, open: () => open.length }
 }
 

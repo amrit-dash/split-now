@@ -64,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => (user ? repo.watchProfile(user.uid, setProfile) : undefined), [user])
   // Shared live queries belong to one account: drop them all when it signs out or changes.
   const uid = user?.uid
+  // biome-ignore lint/correctness/useExhaustiveDependencies: uid is the trigger; the cleanup clears the store whenever the signed-in account changes or signs out.
   useEffect(() => () => clearSharedStore(), [uid])
   useOwnMemberSync(user, profile)
 

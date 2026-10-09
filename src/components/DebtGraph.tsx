@@ -58,8 +58,7 @@ export function DebtGraph({ group, debts }: { group: Group; debts: Debt[]; size?
   const reduced = useReducedMotion()
   const flows = useMemo(() => mergeDebts(debts), [debts])
   const touchesMe = (d: Debt) => d.from === me || d.to === me
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const mine = useMemo(() => flows.filter(touchesMe), [flows, me])
+  const mine = useMemo(() => flows.filter((d) => d.from === me || d.to === me), [flows, me])
   const [mode, setMode] = useState<Mode>(() => (me && flows.some(touchesMe) ? 'me' : 'all'))
   const view: Mode = me && flows.length ? mode : 'all'
   const [focus, setFocus] = useState<Focus>(null)
@@ -125,11 +124,10 @@ export function DebtGraph({ group, debts }: { group: Group; debts: Debt[]; size?
           geom,
           width: flowWidth(d.amount, max),
           speed: flowSpeed(d.amount, max),
-          ...(view === 'me' ? { tone: d.from === me ? ('out' as const) : ('in' as const) } : { color: css(color(d.from)) }),
+          ...(view === 'me' ? { tone: d.from === me ? ('out' as const) : ('in' as const) } : { color: css(group.members[d.from]?.color ?? '#64748b') }),
         },
       ]
     })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shown, layout, view, me, group])
 
   // Payments that disappear (Original → Simplified) stay a moment to drain away.
@@ -242,6 +240,7 @@ export function DebtGraph({ group, debts }: { group: Group; debts: Debt[]; size?
       </div>
 
       {/* The picture: SVG flows under absolutely positioned avatar buttons. */}
+      {/* biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/useKeyWithClickEvents: tapping empty space clears the highlight for pointers; keyboard users have the Clear button and the payment list. */}
       <div
         ref={boxRef}
         className="relative w-full select-none overflow-hidden"
@@ -311,6 +310,7 @@ export function DebtGraph({ group, debts }: { group: Group; debts: Debt[]; size?
                     />
                   </g>
                 )}
+                {/* biome-ignore lint/a11y/noStaticElementInteractions: a wide hit area for tapping a flow; the same toggle is a button in the payment list below. */}
                 <path
                   d={f.geom.d}
                   fill="none"

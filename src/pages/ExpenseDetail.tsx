@@ -220,6 +220,7 @@ export default function ExpenseDetail() {
             {e.splitType === 'itemized' && e.splitInput.items && (
               <div className="mt-3 space-y-1 border-t border-slate-100 pt-3 text-sm dark:border-white/5">
                 {e.splitInput.items.map((it, i) => (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: receipt items have no id and names can repeat; this read-only list keeps its stored order.
                   <div key={i} className="flex justify-between gap-2">
                     <span className="min-w-0">
                       {it.name}{' '}

@@ -332,7 +332,9 @@ describe('parseSplitwiseCsv: tolerance', () => {
         extra = cost - base * 3
       const shares = names.map((_, k) => base + (k < extra ? 1 : 0))
       const nets = shares.map((s, k) => (k === payer ? cost : 0) - s)
-      nets.forEach((v, k) => (tot[k] += v))
+      nets.forEach((v, k) => {
+        tot[k] += v
+      })
       lines.push(
         `2024-02-${String((i % 28) + 1).padStart(2, '0')},Item ${i},General,${(cost / 100).toFixed(2)},AUD,${nets.map((v) => (v / 100).toFixed(2)).join(',')}`,
       )

@@ -45,7 +45,7 @@ export function Celebrate({ size = 88 }: { size?: number }) {
   const anims = useRef<Animation[]>([])
 
   const popIcon = useCallback(() => {
-    anims.current.forEach((a) => a.cancel())
+    for (const a of anims.current) a.cancel()
     anims.current = []
     const icon = iconRef.current
     if (icon?.animate) {
@@ -96,7 +96,7 @@ export function Celebrate({ size = 88 }: { size?: number }) {
     const t = setTimeout(popIcon, 150) // after the page has painted
     return () => {
       clearTimeout(t)
-      anims.current.forEach((a) => a.cancel())
+      for (const a of anims.current) a.cancel()
       anims.current = []
     }
   }, [reduced, popIcon])

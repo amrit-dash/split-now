@@ -90,6 +90,7 @@ export function useTween(target: number[], duration = 650): number[] {
   const [shown, setShown] = useState(target)
   const live = useRef(target)
   const key = target.join(',')
+  // biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the target's values (key), not its identity, so a re-render with an equal new array does not restart the tween.
   useEffect(() => {
     const from = resample(live.current, target.length)
     if (reduced || from.every((v, i) => v === target[i])) {
@@ -109,7 +110,6 @@ export function useTween(target: number[], duration = 650): number[] {
     }
     raf = requestAnimationFrame(step)
     return () => cancelAnimationFrame(raf)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, reduced, duration])
   return resample(shown, target.length)
 }

@@ -7,6 +7,7 @@ export function ListSkeleton({ rows = 4, avatar = true }: { rows?: number; avata
   return (
     <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5" role="status" aria-label="Loading">
       {Array.from({ length: rows }, (_, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: identical static placeholder rows; the index is the only identity they have.
         <div key={i} className="flex items-center gap-3 px-4 py-3">
           {avatar && <Skeleton className="h-10 w-10 shrink-0" />}
           <div className="min-w-0 flex-1 space-y-2">

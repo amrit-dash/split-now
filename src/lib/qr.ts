@@ -159,7 +159,7 @@ export function encodeQr(text: string): QrMatrix {
   }
   put(0b0100, 4)
   put(bytes.length, ver <= 9 ? 8 : 16)
-  bytes.forEach((b) => put(b, 8))
+  for (const b of bytes) put(b, 8)
   const cap = dataCodewords(ver) * 8
   put(0, Math.min(4, cap - bits.length))
   put(0, (8 - (bits.length % 8)) % 8)
@@ -198,12 +198,12 @@ export function encodeQr(text: string): QrMatrix {
   }
   const align = alignmentPositions(ver, size)
   const last = align.length - 1
-  align.forEach((ax, i) =>
+  align.forEach((ax, i) => {
     align.forEach((ay, j) => {
       if ((i === 0 && j === 0) || (i === 0 && j === last) || (i === last && j === 0)) return
       for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) set(ax + dx, ay + dy, Math.max(Math.abs(dx), Math.abs(dy)) !== 1)
-    }),
-  )
+    })
+  })
   const drawFormat = (mask: number) => {
     const d = (FORMAT_M << 3) | mask
     let rem = d
