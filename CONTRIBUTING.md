@@ -37,6 +37,7 @@ npm run build
 - Issues labelled **good first issue** are small and self-contained.
 - **suggestion** issues are bigger ideas still being discussed; comment before starting so the approach can be agreed. See [docs/ROADMAP.md](docs/ROADMAP.md).
 - For anything large, open an issue first describing what you'd like to change.
+- Questions, half-formed ideas and "how do I…" go to [Discussions](https://github.com/amrit-dash/split-now/discussions) (Q&A, Ideas, Show and tell); issues are for bugs and agreed work.
 
 ## Workflow
 

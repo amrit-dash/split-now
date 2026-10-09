@@ -151,7 +151,7 @@ Next up is **on-device AI with Gemma**: no API calls, private, offline. See [#3]
 
 ## Contributing
 
-Issues and pull requests are welcome; start with [CONTRIBUTING.md](CONTRIBUTING.md). For security problems, see [SECURITY.md](SECURITY.md).
+Issues and pull requests are welcome; start with [CONTRIBUTING.md](CONTRIBUTING.md). Questions and ideas go to [Discussions](https://github.com/amrit-dash/split-now/discussions). For security problems, see [SECURITY.md](SECURITY.md).
 
 ## License
 

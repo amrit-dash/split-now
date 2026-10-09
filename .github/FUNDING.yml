@@ -1,0 +1,4 @@
+# Shows the Sponsor button on the repository once Sponsorships is ticked in Settings → General.
+# GitHub Sponsors needs a sponsors profile for this account (github.com/sponsors); add other
+# platforms here (ko_fi, buy_me_a_coffee, custom: ['https://…']) the same way.
+github: [amrit-dash]

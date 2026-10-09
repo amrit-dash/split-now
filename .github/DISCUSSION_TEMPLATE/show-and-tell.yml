@@ -1,0 +1,12 @@
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What you built or how you use Split Now
+      description: A fork, a deployment for your hostel or office, a trip it got you through.
+    validations:
+      required: true
+  - type: input
+    id: link
+    attributes:
+      label: Link (optional)
