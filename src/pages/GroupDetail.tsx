@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { BarChart3, Bell, ChevronRight, Copy, Download, HandCoins, Link2, MessageSquareText, Repeat, Search, Settings, Share2, Trash2, X } from 'lucide-react'
+import { BarChart3, Bell, ChevronRight, Copy, Download, Link2, MessageSquareText, Repeat, Search, Settings, Share2, Trash2, X } from 'lucide-react'
+import { ChequeIcon } from '@/components/ChequeIcon'
 import { useMe } from '@/hooks/auth'
 import { computeGroupData, useActivity, useExpenses, useGroup, useSettlements, useTrash } from '@/hooks/data'
 import type { Category, Expense, Group, Settlement } from '@/types'
@@ -120,7 +121,7 @@ export default function GroupDetail() {
         {group.budget ? <BudgetBar spent={total} budget={group.budget} currency={cur} /> : null}
         {!personal && (
           <div className="mt-4 grid grid-cols-2 gap-2">
-            <Link to={`/groups/${group.id}/settle`} className="btn-primary"><HandCoins size={18} /> Settle up</Link>
+            <Link to={`/groups/${group.id}/settle`} className="btn-primary"><ChequeIcon size={22} /> Settle up</Link>
             <button className="btn-secondary" onClick={() => setInvite(true)}><Link2 size={18} /> Invite</button>
           </div>
         )}

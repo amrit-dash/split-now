@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { CheckCheck, ChevronRight, NotebookPen, Plus, Users } from 'lucide-react'
+import { CheckCheck, ChevronRight, Plus, Users } from 'lucide-react'
+import { ChequeIcon } from '@/components/ChequeIcon'
 import { useMe } from '@/hooks/auth'
 import { useAllGroupData } from '@/hooks/data'
 import { formatMoney } from '@/lib/money'
@@ -151,7 +152,7 @@ function RowAction({ r }: { r: SettleRow }) {
   return (
     <Link to={r.href} data-testid="row-record" aria-label={`Record payment from ${r.name} in ${r.groupName}`} title="Record payment"
       className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600 transition active:scale-95 active:bg-brand-100 dark:bg-brand-900/40 dark:text-brand-200 dark:active:bg-brand-900/70">
-      <NotebookPen size={20} aria-hidden />
+      <ChequeIcon size={24} />
     </Link>
   )
 }
@@ -204,7 +205,7 @@ function PersonAction({ p, n }: { p: PersonBalance; n: number }) {
     <Link to={to} data-testid="person-settle-all" title={p.net > 0 ? 'Record payment' : 'Clear balances'}
       aria-label={p.net > 0 ? `Record payment from ${p.name} across ${n} groups` : `Clear balances with ${p.name} across ${n} groups`}
       className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600 transition active:scale-95 active:bg-brand-100 dark:bg-brand-900/40 dark:text-brand-200 dark:active:bg-brand-900/70">
-      {p.net > 0 ? <NotebookPen size={20} aria-hidden /> : <CheckCheck size={20} aria-hidden />}
+      {p.net > 0 ? <ChequeIcon size={24} /> : <CheckCheck size={20} aria-hidden />}
     </Link>
   )
 }
