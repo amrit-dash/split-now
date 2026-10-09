@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aiAvailability } from './ai-copy'
+import { aiAvailability, aiSummaryText } from './ai-copy'
 
 describe('aiAvailability', () => {
   const app = (images: 'available' | 'off' | 'not_listed' | 'feature_off', sms = images) => ({ admin: false, app: { images, sms, model: 'm' } })
@@ -38,5 +38,27 @@ describe('aiAvailability', () => {
     for (const s of [app('off'), app('not_listed'), app('feature_off'), null, undefined]) {
       expect(aiAvailability({ status: s, hasOwnKey: false, enabled: true }).text).not.toMatch(/error|fail|!/i)
     }
+  })
+})
+
+describe('aiSummaryText', () => {
+  const app = (v: 'available' | 'off') => ({ app: { images: v, sms: v, model: 'm' } })
+  const on = { aiEnabled: true, aiImages: true, aiSms: true, aiSource: 'auto' }
+  it('says nothing in the demo and explains itself before prefs load', () => {
+    expect(aiSummaryText({ mode: 'demo', prefs: on, hasOwnKey: false, status: app('available') })).toBeUndefined()
+    expect(aiSummaryText({ mode: 'firebase', prefs: null, hasOwnKey: false, status: undefined })).toBe('Gemini reads bills, statements and hard-to-read SMS')
+  })
+  it('off, nothing selected, and what it reads', () => {
+    expect(aiSummaryText({ mode: 'firebase', prefs: { aiEnabled: false }, hasOwnKey: false, status: null })).toBe('Off · bills are read on this phone')
+    expect(aiSummaryText({ mode: 'firebase', prefs: { aiEnabled: true }, hasOwnKey: false, status: null })).toBe('On · nothing selected')
+    expect(aiSummaryText({ mode: 'firebase', prefs: { ...on, aiSms: false }, hasOwnKey: false, status: app('available') })).toBe('On · Bills & statements')
+  })
+  it('warns only when no key can serve it, and not while the status is loading', () => {
+    expect(aiSummaryText({ mode: 'firebase', prefs: on, hasOwnKey: false, status: app('off') })).toBe('On · Bills & statements, SMS · no key available')
+    expect(aiSummaryText({ mode: 'firebase', prefs: on, hasOwnKey: false, status: undefined })).toBe('On · Bills & statements, SMS')
+    expect(aiSummaryText({ mode: 'firebase', prefs: on, hasOwnKey: true, status: app('off') })).toBe('On · Bills & statements, SMS')
+    // the shared key doesn't count when the person chose their own key only, and vice versa
+    expect(aiSummaryText({ mode: 'firebase', prefs: { ...on, aiSource: 'own' }, hasOwnKey: false, status: app('available') })).toContain('no key available')
+    expect(aiSummaryText({ mode: 'firebase', prefs: { ...on, aiSource: 'app' }, hasOwnKey: true, status: app('off') })).toContain('no key available')
   })
 })

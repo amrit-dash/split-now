@@ -44,3 +44,25 @@ export function aiAvailability(opts: {
   if (hasOwnKey && ownKeyBroken) return { images, sms, text: 'Your key isn’t working', tone: 'warn' }
   return { images, sms, text: APP_TEXT[status.app.images], tone: 'muted' }
 }
+
+/**
+ * The Settings hub's one-line AI summary: on/off, what it reads, and a warning only when no key
+ * can serve it. `status` undefined means the shared key's status is still loading (no warning yet).
+ */
+export function aiSummaryText(opts: {
+  mode: 'firebase' | 'demo'
+  prefs: { aiEnabled?: boolean; aiImages?: boolean; aiSms?: boolean; aiSource?: string } | null
+  /** the user has their own key (AiState.hint) */
+  hasOwnKey: boolean
+  status: Pick<AiStatusResult, 'app'> | null | undefined
+}): string | undefined {
+  const { mode, prefs, hasOwnKey, status } = opts
+  if (mode !== 'firebase') return undefined
+  if (!prefs) return 'Gemini reads bills, statements and hard-to-read SMS'
+  if (!prefs.aiEnabled) return 'Off · bills are read on this phone'
+  const uses = [prefs.aiImages && 'Bills & statements', prefs.aiSms && 'SMS'].filter(Boolean).join(', ')
+  if (!uses) return 'On · nothing selected'
+  const shared = prefs.aiSource !== 'own' && (status?.app.images === 'available' || status?.app.sms === 'available')
+  const own = hasOwnKey && prefs.aiSource !== 'app'
+  return `On · ${uses}${own || shared || status === undefined ? '' : ' · no key available'}`
+}

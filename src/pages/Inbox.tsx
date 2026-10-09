@@ -5,6 +5,7 @@ import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { memberOrder, myMemberId, useAllGroupData, useCaptures, useCapturesMeta, type GroupData } from '@/hooks/data'
 import { useInbox } from '@/hooks/useInbox'
+import { useFlag } from '@/hooks/useAppConfig'
 import type { Capture, Expense, Group } from '@/types'
 import { usePageTitle } from '@/lib/brand'
 import { SOURCE_LABEL, isSmsSource } from '@/lib/capture'
@@ -15,7 +16,8 @@ import { useMerchantMemory } from '@/hooks/useMerchants'
 import { errText } from '@/lib/errors'
 import { isUnread, markInboxSeen } from '@/lib/inbox'
 import { bulkCandidates, sumCaptures, targetGroupFor, type BulkCandidate } from '@/lib/inbox-sort'
-import { uid } from '@/lib/id'
+import { bulkDuplicates, duplicateLine } from '@/lib/duplicates'
+import { todayISO, uid } from '@/lib/id'
 import { formatDate } from '@/lib/locale'
 import { formatMoney } from '@/lib/money'
 import type { AllPrefs } from '@/lib/push'
@@ -337,7 +339,13 @@ function BulkSheet({ candidate, data, onClose }: { candidate: BulkCandidate<Grou
   const { user } = useMe()
   const memory = useMerchantMemory()
   const toast = useToast()
-  const [ticked, setTicked] = useState<Set<string>>(() => new Set(candidate.captures.map((c) => c.id)))
+  const checkDups = useFlag('duplicates')
+  // Captures that are probably already in the group start unticked, with the reason under them.
+  const dups = useMemo(
+    () => (checkDups && data ? bulkDuplicates(candidate.captures, data.expenses, candidate.group.currency) : new Map<string, Expense>()),
+    [checkDups, data, candidate],
+  )
+  const [ticked, setTicked] = useState<Set<string>>(() => new Set(candidate.captures.filter((c) => !dups.has(c.id)).map((c) => c.id)))
   const [busy, setBusy] = useState(false)
   const g = candidate.group
   const chosen = candidate.captures.filter((c) => ticked.has(c.id))
@@ -422,6 +430,11 @@ function BulkSheet({ candidate, data, onClose }: { candidate: BulkCandidate<Grou
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{c.merchant}</span>
                   <span className="text-muted block text-xs">{formatDate(c.date)}</span>
+                  {dups.has(c.id) && (
+                    <span className="block text-xs font-medium text-amber-700 dark:text-amber-300" data-testid="inbox-bulk-dup">
+                      {duplicateLine(dups.get(c.id)!, g.currency, todayISO())}
+                    </span>
+                  )}
                 </span>
                 <span className="shrink-0 font-bold tabular-nums">{formatMoney(c.amount, g.currency)}</span>
               </button>

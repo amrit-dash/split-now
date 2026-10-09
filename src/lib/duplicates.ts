@@ -92,3 +92,20 @@ export function duplicateLine(dup: Pick<Expense, 'description' | 'amount' | 'ori
   const money = dup.original ? formatMoney(dup.original.amount, dup.original.currency) : formatMoney(dup.amount, groupCurrency)
   return `Looks like a duplicate of “${dup.description}” (${money}, ${relativeDay(dup.date, today)})`
 }
+
+/**
+ * Inbox "Add all": for each captured payment, the expense it probably already is (same amount,
+ * within a day, similar description), keyed by capture id. Captures are in the group's currency.
+ */
+export function bulkDuplicates<E extends Candidate>(
+  captures: Array<{ id: string; amount: Cents; date: string; merchant: string }>,
+  expenses: E[],
+  groupCurrency: string,
+): Map<string, E> {
+  const out = new Map<string, E>()
+  for (const c of captures) {
+    const dup = findDuplicate(expenses, { amount: c.amount, cur: groupCurrency, date: c.date, description: c.merchant }, groupCurrency)
+    if (dup) out.set(c.id, dup)
+  }
+  return out
+}
