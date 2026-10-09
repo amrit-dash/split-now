@@ -13,7 +13,8 @@ import { isLiveTrip } from '@/lib/capture'
 import { errText } from '@/lib/errors'
 import { usePageTitle } from '@/lib/brand'
 import { thresholdOf } from '@/lib/trust'
-import { APPROVAL_BASE_CURRENCY, isApprovalDefault, newGroupApproval, newGroupEditAutoApprove, shortMoney, tableThreshold } from '@/lib/approval'
+import { APPROVAL_BASE_CURRENCY, defaultEditAutoApprove, defaultThreshold, groupApprovalInCurrency, shortMoney, tableThreshold } from '@/lib/approval'
+import { getRate } from '@/lib/fx'
 import { useTodayRates } from '@/hooks/useFx'
 import { GROUP_TYPES, SHARED_TYPES, groupTypeInfo, groupTypeOf, guessGroup, iconsFor, isSharedType, parseGroupType } from '@/lib/groupTypes'
 import { Avatar } from '@/components/Avatar'
@@ -110,46 +111,63 @@ export default function GroupForm() {
       setEndDate(existing.endDate ?? '')
       setRequireApproval(!!existing.requireApproval)
       setThreshold(existing.approvalThreshold)
+      setThresholdTouched(existing.approvalThreshold !== undefined)
       setEditAuto(!!existing.editAutoApprove)
       setEditAmount(existing.editAutoApprove)
+      setEditAmountTouched(existing.editAutoApprove !== undefined)
     } else if (!groupId) {
       loaded.current = { key: 'new' }
-      // A new group starts from the user's "Ask for approval on big expenses" setting.
-      if (isApprovalDefault(profile.approvalDefault)) setRequireApproval(profile.approvalDefault.on)
-      if (isApprovalDefault(profile.editAutoApproveDefault)) setEditAuto(profile.editAutoApproveDefault.on)
       setMembers({ [user.uid]: { name: profile.displayName, uid: user.uid, email: user.email, color: colorFor(0) } })
     }
-  }, [existing, groupId, user.uid, user.email, profile.displayName, profile.approvalDefault, profile.editAutoApproveDefault])
+  }, [existing, groupId, user.uid, user.email, profile.displayName])
 
-  // The approval amount a new group suggests: the user's setting carried into the group's
-  // currency at today's rate (or that currency's default), until the user types their own.
-  const approvalSetting = isApprovalDefault(profile.approvalDefault) ? profile.approvalDefault : undefined
-  const editSetting = isApprovalDefault(profile.editAutoApproveDefault) ? profile.editAutoApproveDefault : undefined
-  const approvalRates = useTodayRates(
-    currency,
-    groupId
-      ? []
-      : [approvalSetting?.currency ?? currency, editSetting?.currency ?? currency, ...(tableThreshold(currency) === undefined ? [APPROVAL_BASE_CURRENCY] : [])],
-  )
-  const suggested = groupId
-    ? thresholdOf({ currency })
-    : newGroupApproval(approvalSetting, currency, {
-        fromSetting: approvalRates?.[approvalSetting?.currency ?? '']?.rate,
-        inr: approvalRates?.[APPROVAL_BASE_CURRENCY]?.rate,
-      }).threshold
+  // Approval is a group setting, off for a new group. Turning it on fills in the currency's
+  // defaults (₹2,000 to need an OK, ₹100 for small edits); an amount nobody typed follows the
+  // currency (a currency off the default table converts the INR default at today's rate).
+  const approvalRates = useTodayRates(currency, tableThreshold(currency) === undefined ? [APPROVAL_BASE_CURRENCY] : [])
+  const inrRate = approvalRates?.[APPROVAL_BASE_CURRENCY]?.rate
+  const suggested = groupId ? thresholdOf({ currency }) : defaultThreshold(currency, inrRate)
+  const suggestedEdit = defaultEditAutoApprove(currency, groupId ? undefined : inrRate)
   useEffect(() => {
     if (!groupId && !thresholdTouched) setThreshold(suggested)
   }, [groupId, thresholdTouched, suggested])
-  // The same for edit auto-approve (an existing group without it suggests the currency's default).
-  const suggestedEdit = newGroupEditAutoApprove(groupId ? undefined : editSetting, currency, {
-    fromSetting: approvalRates?.[editSetting?.currency ?? '']?.rate,
-    inr: approvalRates?.[APPROVAL_BASE_CURRENCY]?.rate,
-  }).amount
   useEffect(() => {
     if (!groupId && !editAmountTouched) setEditAmount(suggestedEdit)
   }, [groupId, editAmountTouched, suggestedEdit])
+  // Switching approval (or small edits) on in a group without a saved amount fills in the default.
+  const turnApproval = (on: boolean) => {
+    setRequireApproval(on)
+    if (on && threshold === undefined) setThreshold(suggested)
+  }
+  const turnEditAuto = (on: boolean) => {
+    setEditAuto(on)
+    if (on && editAmount === undefined) setEditAmount(suggestedEdit)
+  }
   // Approval settings are the creator's (firestore.rules creatorPolicy); others see them read-only.
   const canSetApproval = !existing || existing.createdBy === user.uid
+  // The approval amounts are in the group's currency and only the creator converts them, so
+  // nobody else may change the currency while they are set (firestore.rules creatorPolicy).
+  const currencyLocked = !canSetApproval && !!(existing?.approvalThreshold || existing?.editAutoApprove)
+
+  /** The group's currency changed: amounts someone set are converted at today's rate and rounded (no rate: the new currency's defaults). */
+  const changeCurrency = async (next: string) => {
+    const from = currency
+    setCurrency(next)
+    if (next === from || !canSetApproval) return
+    // A filled-in default nobody typed becomes the new currency's default (new groups: the effect above).
+    if (groupId && !thresholdTouched && threshold !== undefined) setThreshold(defaultThreshold(next))
+    if (groupId && !editAmountTouched && editAmount !== undefined) setEditAmount(defaultEditAutoApprove(next))
+    if (!(thresholdTouched || editAmountTouched)) return
+    const rate = (await getRate(from, next, todayISO()))?.rate ?? null
+    const out = groupApprovalInCurrency(
+      { threshold: thresholdTouched ? threshold : undefined, editAutoApprove: editAmountTouched ? editAmount : undefined },
+      from,
+      next,
+      rate,
+    )
+    if (out.threshold !== undefined) setThreshold(out.threshold)
+    if (out.editAutoApprove !== undefined) setEditAmount(out.editAutoApprove)
+  }
 
   // A new 1:1 is named after the friend until the user types a name of their own.
   const firstOther = Object.values(members).find((m) => m.uid !== user.uid)?.name ?? ''
@@ -636,7 +654,14 @@ export default function GroupForm() {
                 <div className="label" id="group-currency-label">
                   Currency
                 </div>
-                <Select aria-label="Currency" value={currency} onChange={setCurrency} options={currencyOptions(CURRENCIES)} />
+                <Select
+                  aria-label="Currency"
+                  value={currency}
+                  onChange={(c) => void changeCurrency(c)}
+                  options={currencyOptions(CURRENCIES)}
+                  disabled={currencyLocked}
+                />
+                {currencyLocked && <p className="text-muted mt-1 text-xs">Only the creator can change it while approval amounts are set.</p>}
               </div>
               <div>
                 <label className="label" htmlFor="group-budget">
@@ -732,11 +757,13 @@ export default function GroupForm() {
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <div className="font-semibold">Needs your OK for big expenses</div>
-                    <div className="text-muted text-xs">Big expenses added by someone else stay pending (not counted) until everyone charged taps Approve.</div>
+                    <div className="text-muted text-xs">
+                      In this group, a big expense added by someone else stays pending (not counted) until everyone charged taps Approve.
+                    </div>
                   </div>
                   <Switch
                     checked={requireApproval}
-                    onChange={setRequireApproval}
+                    onChange={turnApproval}
                     label="Require approval for big expenses"
                     testId="group-approval"
                     disabled={!canSetApproval}
@@ -763,7 +790,7 @@ export default function GroupForm() {
                       data-testid="group-approval-threshold"
                     />
                     <p id="approval-threshold-hint" className="text-muted mt-1 text-xs">
-                      A new expense above {shortMoney(threshold ?? suggested, currency)} waits for an OK. At or below it counts straight away.
+                      In this group, a new expense above {shortMoney(threshold ?? suggested, currency)} waits for an OK. At or below it counts straight away.
                       {threshold === undefined && ` Empty means the default for ${currency}.`}
                     </p>
                     <FieldError id="approval-threshold-error" text={errors.threshold} />
@@ -775,13 +802,13 @@ export default function GroupForm() {
                       <div>
                         <div className="font-semibold">Approve small edits automatically</div>
                         <div className="text-muted text-xs">
-                          When someone edits an expense that needs an OK, a change of up to this amount keeps its approvals. A bigger change asks everyone
-                          again.
+                          In this group, when someone edits an expense that needs an OK, a change of up to this amount keeps its approvals. A bigger change asks
+                          everyone again.
                         </div>
                       </div>
                       <Switch
                         checked={editAuto}
-                        onChange={setEditAuto}
+                        onChange={turnEditAuto}
                         label="Approve small edits automatically"
                         testId="group-edit-auto"
                         disabled={!canSetApproval}
@@ -812,6 +839,7 @@ export default function GroupForm() {
                     )}
                   </div>
                 )}
+                {requireApproval && canSetApproval && <p className="text-muted mt-3 text-xs">Changing the currency converts these amounts.</p>}
                 {!canSetApproval && <p className="text-muted mt-3 text-xs">Only the person who created the group can change these.</p>}
               </div>
             )}

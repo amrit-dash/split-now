@@ -18,6 +18,9 @@ import {
   tableTotal,
   toggleClaim,
   validateName,
+  billCheck,
+  extrasParts,
+  taxSplitHint,
   TableError,
   type LiveTable,
 } from './table'
@@ -108,13 +111,15 @@ describe('computeTableTotals', () => {
     expect(r.unclaimed).toEqual(['a', 'b', 'c'])
     expect(r.unclaimedAmount).toBe(3700)
     expect(r.allClaimed).toBe(false)
-    expect(r.people.host.total).toBe(0)
+    // only the tip (300 three ways); the tax waits for the items
+    expect(r.people.host.total).toBe(100)
   })
-  it('running totals: extras are proportional and stable while others are still claiming', () => {
-    const partial = computeTableTotals(table({ claims: { g1: { a: 1 } } }))
-    // Ben has 1800 of 3700 in items → 1800/3700 of 670 extras = 325.9 → 326
-    expect(partial.people.g1).toEqual({ items: 1800, extras: 326, total: 2126 })
-    const full = computeTableTotals(table({ claims: { g1: { a: 1 }, g2: { b: 1 }, host: { c: 1 } } }))
+  it('running totals: tax is proportional and stable while others are still claiming', () => {
+    const noTip = { extras: { tax: 670, tip: 0, discount: 0 } }
+    const partial = computeTableTotals(table({ ...noTip, claims: { g1: { a: 1 } } }))
+    // Ben has 1800 of 3700 in items → 1800/3700 of 670 tax = 325.9 → 326
+    expect(partial.people.g1).toEqual({ items: 1800, extras: 326, tip: 0, total: 2126 })
+    const full = computeTableTotals(table({ ...noTip, claims: { g1: { a: 1 }, g2: { b: 1 }, host: { c: 1 } } }))
     expect(full.people.g1.total).toBe(2126)
     expect(full.allClaimed).toBe(true)
     expect(sum(Object.fromEntries(Object.entries(full.people).map(([k, v]) => [k, v.total])))).toBe(full.total)
@@ -166,6 +171,87 @@ describe('computeTableTotals', () => {
       expect(r.allClaimed).toBe(true)
       expect(Object.values(r.people).reduce((s, p) => s + p.total, 0)).toBe(tableTotal(t))
     }
+  })
+  it('the tip is split equally between the people who claimed, remainder by participant order', () => {
+    // tip 301 between Ben and Cleo: Cleo joined first, so she gets the extra cent
+    const r = computeTableTotals(table({ extras: { tax: 0, tip: 301, discount: 0 }, claims: { g1: { a: 1 }, g2: { b: 1 } } }))
+    expect(r.people.g2.tip).toBe(151)
+    expect(r.people.g1.tip).toBe(150)
+    expect(r.people.host).toEqual({ items: 0, extras: 0, tip: 0, total: 0 })
+    // The host claims too: now three ways
+    const s = computeTableTotals(table({ extras: { tax: 0, tip: 301, discount: 0 }, claims: { g1: { a: 1 }, g2: { b: 1 }, host: { c: 1 } } }))
+    expect([s.people.host.tip, s.people.g2.tip, s.people.g1.tip]).toEqual([101, 100, 100])
+    expect(s.people.g1.total).toBe(1800 + 100)
+  })
+  it('before anyone claims, the tip is shown split between everyone at the table', () => {
+    const r = computeTableTotals(table({ extras: { tax: 370, tip: 300, discount: 0 } }))
+    expect([r.people.host.tip, r.people.g2.tip, r.people.g1.tip]).toEqual([100, 100, 100])
+    // tax by items waits in reserve for the unclaimed items
+    expect(r.people.host.extras).toBe(0)
+  })
+  it('the tip never follows item size, even with tax by items', () => {
+    const r = computeTableTotals(table({ claims: { g1: { a: 1 }, g2: { b: 1 }, host: { c: 1 } } }))
+    expect(r.people.g1).toEqual({ items: 1800, extras: 180, tip: 100, total: 2080 })
+    expect(r.people.host).toEqual({ items: 900, extras: 90, tip: 100, total: 1090 })
+    expect(r.people.g2).toEqual({ items: 1000, extras: 100, tip: 100, total: 1200 })
+    expect(r.people.g1.total + r.people.g2.total + r.people.host.total).toBe(r.total)
+  })
+  it('equal mode splits tax/fees equally between the people who claimed', () => {
+    const t = table({ taxSplit: 'equal', extras: { tax: 370, tip: 300, discount: 0 }, claims: { g1: { a: 1 }, g2: { b: 1 } } })
+    const r = computeTableTotals(t)
+    expect(r.people.g2).toEqual({ items: 1000, extras: 185, tip: 150, total: 1335 })
+    expect(r.people.g1).toEqual({ items: 1800, extras: 185, tip: 150, total: 2135 })
+    expect(r.people.host.total).toBe(0)
+    const full = computeTableTotals({ ...t, claims: { ...t.claims, host: { c: 1 } } })
+    // 370 three ways: 124 to the host (first in order), 123 each to the others
+    expect([full.people.host.extras, full.people.g2.extras, full.people.g1.extras]).toEqual([124, 123, 123])
+    expect(Object.values(full.people).reduce((a, p) => a + p.total, 0)).toBe(full.total)
+  })
+  it('a discount follows the tax mode', () => {
+    const claims = { host: { a: 1 }, g1: { b: 1 }, g2: { c: 1 } }
+    const byItems = computeTableTotals(table({ extras: { tax: 0, tip: 0, discount: 370 }, claims }))
+    expect([byItems.people.host.extras, byItems.people.g1.extras, byItems.people.g2.extras]).toEqual([-180, -100, -90])
+    const equal = computeTableTotals(table({ taxSplit: 'equal', extras: { tax: 100, tip: 0, discount: 400 }, claims }))
+    expect([equal.people.host.extras, equal.people.g2.extras, equal.people.g1.extras]).toEqual([-100, -100, -100])
+    expect(Object.values(equal.people).reduce((a, p) => a + p.total, 0)).toBe(equal.total)
+  })
+  it('random tables sum exactly in both modes once fully claimed', () => {
+    let seed = 11
+    const rnd = (n: number) => {
+      seed = (seed * 1103515245 + 12345) % 2 ** 31
+      return seed % n
+    }
+    for (let k = 0; k < 200; k++) {
+      const items: LiveTable['items'] = {}
+      for (let i = 0; i < 1 + rnd(6); i++) items['i' + i] = { name: 'x', amount: 1 + rnd(5000), pos: i }
+      const people = ['host', 'g1', 'g2', 'g3'].slice(0, 1 + rnd(4))
+      const claims: LiveTable['claims'] = {}
+      for (const id of Object.keys(items)) {
+        const p = people[rnd(people.length)]
+        claims[p] ??= {}
+        claims[p][id] = 1 + rnd(3)
+      }
+      const t = table({
+        items,
+        claims,
+        taxSplit: rnd(2) ? 'equal' : 'items',
+        extras: { tax: rnd(900), tip: rnd(900), discount: rnd(300) },
+        participants: Object.fromEntries(people.map((p, i) => [p, { name: p, uid: p, joinedAt: i }])),
+      })
+      const r = computeTableTotals(t)
+      expect(Object.values(r.people).reduce((s, p) => s + p.total, 0)).toBe(tableTotal(t))
+      for (const p of Object.values(r.people)) expect(p.total).toBe(p.items + p.extras + p.tip)
+    }
+  })
+  it('extras parts and the mode hint', () => {
+    expect(extrasParts({ extras: 120, tip: 50 })).toEqual([
+      { label: 'tax/fees', amount: 120 },
+      { label: 'tip', amount: 50 },
+    ])
+    expect(extrasParts({ extras: -40, tip: 0 })).toEqual([{ label: 'discount', amount: -40 }])
+    expect(extrasParts({ extras: 0, tip: 0 })).toEqual([])
+    expect(taxSplitHint('items')).toBe('Tax, fees and discounts are shared in proportion to what each person had. Tip is always split equally.')
+    expect(taxSplitHint('equal')).toBe('Tax, fees and discounts are split equally between everyone who had something. Tip is always split equally.')
   })
   it('claim leftovers for everyone', () => {
     const t = table({ claims: { g1: { a: 1 } } })
@@ -220,8 +306,10 @@ describe('matchParticipants', () => {
 describe('tableToSplit', () => {
   const order = ['host', 'm_ben', 'm_cleo']
   const map = { host: 'host', g1: 'm_ben', g2: 'm_cleo' }
+  // No tip and tax by items: the itemized split, same as before tips were split equally.
+  const noTip = (over: Partial<LiveTable> = {}) => table({ extras: { tax: 670, tip: 0, discount: 0 }, ...over })
   it('even claims become a re-editable itemized split that sums to the total', () => {
-    const t = table({ claims: { host: { a: 1, c: 1 }, g1: { b: 1, c: 1 }, g2: { c: 1 } } })
+    const t = noTip({ claims: { host: { a: 1, c: 1 }, g1: { b: 1, c: 1 }, g2: { c: 1 } } })
     const r = tableToSplit(t, map, order)
     expect(r.splitType).toBe('itemized')
     expect(r.amount).toBe(4370)
@@ -229,7 +317,7 @@ describe('tableToSplit', () => {
     expect(r.splitInput.items?.map((i) => i.members)).toEqual([['host'], ['m_ben'], ['host', 'm_ben', 'm_cleo']])
   })
   it('uneven shares stay itemized, with portions on the item', () => {
-    const t = table({ claims: { host: { a: 2 }, g1: { a: 1, b: 1 }, g2: { c: 1 } } })
+    const t = noTip({ claims: { host: { a: 2 }, g1: { a: 1, b: 1 }, g2: { c: 1 } } })
     const r = tableToSplit(t, map, order)
     expect(r.splitType).toBe('itemized')
     expect(r.splitInput.items?.[0].shares).toEqual({ host: 2, [map.g1]: 1 })
@@ -239,20 +327,59 @@ describe('tableToSplit', () => {
     expect(r.splits.host).toBe(1200 + Math.round((1200 / 3700) * 670))
   })
   it('two participants mapped to one member merge their shares', () => {
-    const t = table({ claims: { host: { a: 1 }, g1: { a: 1 }, g2: { a: 1, b: 1, c: 1 } } })
+    const t = noTip({ claims: { host: { a: 1 }, g1: { a: 1 }, g2: { a: 1, b: 1, c: 1 } } })
     const r = tableToSplit(t, { host: 'host', g1: 'host', g2: 'm_cleo' }, order)
     expect(r.splitType).toBe('itemized')
     expect(r.splitInput.items?.[0].shares).toEqual({ host: 2, m_cleo: 1 })
     expect(sum(r.splits)).toBe(4370)
   })
   it('refuses unclaimed items, unmapped claimers and empty tables', () => {
-    expect(() => tableToSplit(table({ claims: { host: { a: 1 } } }), map, order)).toThrow(TableError)
-    expect(() => tableToSplit(table({ claims: { host: { a: 1, b: 1, c: 1 }, g1: { a: 1 } } }), { host: 'host' }, order)).toThrow(/Ben/)
-    expect(() => tableToSplit(table({ items: {} }), map, order)).toThrow(TableError)
+    expect(() => tableToSplit(noTip({ claims: { host: { a: 1 } } }), map, order)).toThrow(TableError)
+    expect(() => tableToSplit(noTip({ claims: { host: { a: 1, b: 1, c: 1 }, g1: { a: 1 } } }), { host: 'host' }, order)).toThrow(/Ben/)
+    expect(() => tableToSplit(noTip({ items: {} }), map, order)).toThrow(TableError)
   })
   it('ignores participants who claimed nothing', () => {
-    const t = table({ claims: { host: { a: 1, b: 1, c: 1 } } })
+    const t = noTip({ claims: { host: { a: 1, b: 1, c: 1 } } })
     expect(tableToSplit(t, { host: 'host' }, order).splits).toEqual({ host: 4370 })
+  })
+  it('with a tip, gives the group exactly what each person saw, as exact amounts with the items attached', () => {
+    const t = table({ claims: { host: { a: 1, c: 1 }, g1: { b: 1, c: 1 }, g2: { c: 1 } } })
+    const r = tableToSplit(t, map, order)
+    const seen = computeTableTotals(t).people
+    expect(r.splitType).toBe('exact')
+    expect(r.amount).toBe(4370)
+    expect(r.splits).toEqual({ host: seen.host.total, m_ben: seen.g1.total, m_cleo: seen.g2.total })
+    expect(r.splitInput.exact).toEqual(r.splits)
+    expect(r.splitInput.items?.map((i) => i.name)).toEqual(['Pho', 'Spring rolls', 'Beer'])
+    expect(sum(r.splits)).toBe(4370)
+  })
+  it('tax split equally (no tip) is exact too, and merges participants mapped to one member', () => {
+    const t = noTip({ taxSplit: 'equal', claims: { host: { a: 1 }, g1: { b: 1 }, g2: { c: 1 } } })
+    const seen = computeTableTotals(t).people
+    const r = tableToSplit(t, { host: 'host', g1: 'host', g2: 'm_cleo' }, order)
+    expect(r.splitType).toBe('exact')
+    expect(r.splits).toEqual({ host: seen.host.total + seen.g1.total, m_cleo: seen.g2.total })
+    expect(sum(r.splits)).toBe(4370)
+  })
+  it('exact mode still refuses unmapped claimers', () => {
+    const t = table({ claims: { host: { a: 1, b: 1 }, g1: { c: 1 } } })
+    expect(() => tableToSplit(t, { host: 'host' }, order)).toThrow(/Ben/)
+  })
+})
+
+describe('billCheck', () => {
+  const extras = (tax: number, tip: number, discount = 0) => ({ tax, tip, discount })
+  it('matches with nothing printed or when everything adds up', () => {
+    expect(billCheck({ itemsSum: 1000, extras: extras(50, 0) })).toEqual({ kind: 'ok', gap: 0 })
+    expect(billCheck({ itemsSum: 1000, extras: extras(50, 100), printed: 1150 })).toEqual({ kind: 'ok', gap: 0 })
+  })
+  it('a tip paid on top of the printed bill is fine', () => {
+    expect(billCheck({ itemsSum: 1000, extras: extras(50, 100), printed: 1050 })).toEqual({ kind: 'tipOnTop', gap: 0 })
+  })
+  it('otherwise the gap leaves the tip out, so fixing it with tax never absorbs the tip', () => {
+    expect(billCheck({ itemsSum: 1000, extras: extras(50, 100), printed: 1080 })).toEqual({ kind: 'mismatch', gap: 30 })
+    expect(billCheck({ itemsSum: 1000, extras: extras(0, 0, 20), printed: 1000 })).toEqual({ kind: 'mismatch', gap: 20 })
+    expect(billCheck({ itemsSum: 1000, extras: extras(80, 0), printed: 1050 })).toEqual({ kind: 'mismatch', gap: -30 })
   })
 })
 

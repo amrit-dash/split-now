@@ -119,108 +119,24 @@ export function convertThreshold(
 }
 
 /**
- * The user's "Ask for approval on big expenses" setting (users/{uid}.approvalDefault), and the
- * same shape for "Approve small edits automatically" (users/{uid}.editAutoApproveDefault).
+ * A group's two approval amounts after its currency changes in the group form: each set amount
+ * is converted at `rate` (units of `to` per 1 of `from`) and rounded to a nice figure; without a
+ * rate it becomes the new currency's default. An amount not set stays unset.
  */
-export interface ApprovalDefault {
-  on: boolean
-  /** minor units of `currency` */
-  amount: Cents
-  currency: string
-}
-
-/**
- * The setting as Settings shows it: off at the profile currency's default when never set
- * (`fallback`: defaultThreshold for approval, defaultEditAutoApprove for edits).
- */
-export function approvalDefaultOf(
-  setting: ApprovalDefault | undefined,
-  profileCurrency: string,
-  fallback: (currency: string) => Cents = defaultThreshold,
-): ApprovalDefault {
-  if (setting && setting.amount > 0 && typeof setting.currency === 'string') return setting
-  return { on: setting?.on ?? false, amount: fallback(profileCurrency), currency: profileCurrency }
-}
-
-/**
- * The setting after the user changes their default currency: the amount follows at `rate`
- * (units of `to` per 1 of the setting's currency), rounded to a nice figure.
- */
-export function approvalDefaultInCurrency(
-  setting: ApprovalDefault,
+export function groupApprovalInCurrency(
+  amounts: { threshold?: Cents; editAutoApprove?: Cents },
+  from: string,
   to: string,
   rate: number | null | undefined,
-  fallback: (currency: string) => Cents = defaultThreshold,
-): ApprovalDefault {
-  if (setting.currency === to) return setting
-  return { on: setting.on, amount: convertThreshold(setting.amount, setting.currency, to, rate, fallback), currency: to }
-}
-
-/**
- * What a new group's form starts with: the user's setting, its amount carried into the group's
- * currency at `rate` (units of the group currency per 1 of the setting's currency). With no
- * setting, approval is off and the amount is the group currency's default (`inrRate` for an
- * off-table currency).
- */
-export function newGroupApproval(
-  setting: ApprovalDefault | undefined,
-  groupCurrency: string,
-  rates: { fromSetting?: number | null; inr?: number | null } = {},
-): { requireApproval: boolean; threshold: Cents } {
-  const { on, amount } = newGroupAmount(setting, groupCurrency, rates, defaultThreshold)
-  return { requireApproval: on, threshold: amount }
-}
-
-/** The same for edit auto-approve: the user's setting in the group's currency, else off at the currency's default amount. */
-export function newGroupEditAutoApprove(
-  setting: ApprovalDefault | undefined,
-  groupCurrency: string,
-  rates: { fromSetting?: number | null; inr?: number | null } = {},
-): { on: boolean; amount: Cents } {
-  return newGroupAmount(setting, groupCurrency, rates, defaultEditAutoApprove)
-}
-
-function newGroupAmount(
-  setting: ApprovalDefault | undefined,
-  groupCurrency: string,
-  rates: { fromSetting?: number | null; inr?: number | null },
-  fallback: (currency: string, inrRate?: number | null) => Cents,
-): { on: boolean; amount: Cents } {
-  if (!setting || !(setting.amount > 0)) return { on: !!setting?.on, amount: fallback(groupCurrency, rates.inr) }
-  if (setting.currency === groupCurrency) return { on: setting.on, amount: setting.amount }
-  const amount =
-    rates.fromSetting && rates.fromSetting > 0
-      ? convertThreshold(setting.amount, setting.currency, groupCurrency, rates.fromSetting, (c) => fallback(c, rates.inr))
-      : fallback(groupCurrency, rates.inr)
-  return { on: setting.on, amount }
-}
-
-/** Shape check for a stored setting (a profile is read from the server and may be anything). */
-export function isApprovalDefault(x: unknown): x is ApprovalDefault {
-  const o = x as ApprovalDefault | null
-  return (
-    !!o &&
-    typeof o === 'object' &&
-    typeof o.on === 'boolean' &&
-    Number.isInteger(o.amount) &&
-    o.amount > 0 &&
-    typeof o.currency === 'string' &&
-    o.currency.length === 3
-  )
+): { threshold?: Cents; editAutoApprove?: Cents } {
+  return {
+    threshold: amounts.threshold === undefined ? undefined : convertThreshold(amounts.threshold, from, to, rate),
+    editAutoApprove: amounts.editAutoApprove === undefined ? undefined : convertThreshold(amounts.editAutoApprove, from, to, rate, defaultEditAutoApprove),
+  }
 }
 
 /** Money without zero decimals, for short labels: ₹2,000 rather than ₹2,000.00 (₹20.50 stays). */
 export const shortMoney = (amount: Cents, currency: string) => formatMoney(amount, currency).replace(/[.,]0+$/, '')
-
-/**
- * The Settings hub's words for the two settings ("Approval over ₹2,000, edits within ₹100
- * pass"), or null when approval is off (edit auto-approve means nothing without it).
- */
-export function approvalSummary(setting: ApprovalDefault | undefined, edits?: ApprovalDefault): string | null {
-  if (!setting?.on || !(setting.amount > 0)) return null
-  const base = `Approval over ${shortMoney(setting.amount, setting.currency)}`
-  return edits?.on && edits.amount > 0 ? `${base}, edits within ${shortMoney(edits.amount, edits.currency)} pass` : base
-}
 
 // ---- Deciding what an edit does to approval ---------------------------------------------
 

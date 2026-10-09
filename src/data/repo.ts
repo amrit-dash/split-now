@@ -1,6 +1,6 @@
 import type { ActivityEntry, Capture, Cents, Expense, ExpenseComment, Group, Member, MemberId, PaymentHandles, Settlement, UserProfile } from '@/types'
 import type { CaptureDraft, InboxDoc } from '@/lib/capture'
-import type { ItemId, LiveTable, NewTable, ParticipantId, TableExtras, TableItem, TableParticipant, TableStatus } from '@/lib/table'
+import type { ItemId, LiveTable, NewTable, ParticipantId, TableExtras, TableItem, TableParticipant, TableStatus, TaxSplit } from '@/lib/table'
 import type { ActivityCtx } from '@/lib/activity'
 import type { NewPayLink, PayLink, PayLinkClaim } from '@/lib/paylinks'
 import type { FxRatesDoc, FxRefreshResult } from '@/lib/fx'
@@ -403,6 +403,7 @@ export interface AiStatement {
 export interface TablePatch {
   merchant?: string
   extras?: TableExtras
+  taxSplit?: TaxSplit
   groupId?: string | null
   status?: TableStatus
   expenseId?: string

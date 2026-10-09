@@ -35,14 +35,6 @@ export interface UserProfile {
   /** Mobile number (E.164 where possible). Not verified; shown to the user only. */
   phone?: string
   payment?: PaymentHandles
-  /**
-   * "Ask for approval on big expenses": what groups this user creates start with (each group
-   * keeps its own setting afterwards). Amount in minor units of `currency`, which follows the
-   * default currency (src/lib/approval.ts).
-   */
-  approvalDefault?: { on: boolean; amount: Cents; currency: string }
-  /** "Approve small edits automatically": the edit auto-approve default for new groups, same shape and currency handling. */
-  editAutoApproveDefault?: { on: boolean; amount: Cents; currency: string }
 }
 
 export type PhotoSource = 'upload' | 'google' | 'none'
