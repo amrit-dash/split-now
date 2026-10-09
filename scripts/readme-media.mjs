@@ -338,14 +338,46 @@ async function lightScreens(browser, url) {
 const BANNERS = [
   { name: 'hero', file: join(ASSETS, 'hero.png'), w: 1600, h: 860, text: 1, tx: 100, ty: 190, phones: 1, px: 684, py: 0 },
   { name: 'social', file: join(ASSETS, 'social-preview.png'), w: 1280, h: 640, text: 0.82, tx: 72, ty: 118, phones: 0.78, px: 520, py: -40 },
-  { name: 'og', file: join(ROOT, 'public/og-image.jpg'), w: 1200, h: 630, text: 0.86, tx: 60, ty: 104, phones: 0.78, px: 486, py: -48 },
+  // The link preview stays text-only (the owner's call): chat apps show it small, where three
+  // phones turn to noise and the name and tagline are what should read.
+  { name: 'og', file: join(ROOT, 'public/og-image.jpg'), w: 1200, h: 630, textOnly: true },
 ]
+
+/** The text-only card: the app icon, name, tagline and one feature line on the dark ink background. */
+function textCardHtml(b, icon, font) {
+  return `<!doctype html><html><head><meta charset="utf-8"><style>
+    @font-face { font-family: 'Inter'; src: url('file://${font}') format('woff2'); font-weight: 100 900; }
+    html, body { margin: 0; width: ${b.w}px; height: ${b.h}px; overflow: hidden; }
+    body {
+      font-family: Inter, sans-serif; color: #fff; display: flex; align-items: center; gap: 64px; padding: 0 96px; box-sizing: border-box;
+      background:
+        radial-gradient(${b.w * 0.6}px ${b.h * 0.9}px at 20% 50%, rgba(124, 58, 237, 0.45), transparent 70%),
+        radial-gradient(${b.w * 0.55}px ${b.h * 0.8}px at 95% 100%, rgba(219, 39, 119, 0.28), transparent 70%),
+        #0b0a14;
+    }
+    .icon { width: 230px; height: 230px; flex: none; }
+    .icon svg { width: 100%; height: 100%; display: block; }
+    h1 { font-size: 104px; font-weight: 800; letter-spacing: -0.03em; margin: 0 0 22px; line-height: 1; white-space: nowrap; }
+    .tag { font-size: 38px; font-weight: 500; color: #cbd5e1; margin: 0; line-height: 1.3; }
+    .tag b { font-weight: 700; background: linear-gradient(90deg, #c4b5fd, #f9a8d4); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .line { font-size: 25px; font-weight: 500; color: #94a3b8; margin: 34px 0 0; white-space: nowrap; }
+  </style></head><body>
+    <div class="icon">${icon}</div>
+    <div>
+      <h1>Split Now</h1>
+      <p class="tag">Spending is wise, splitting is free.<br><b>Split Now!</b></p>
+      <p class="line">Free and open source · scan bills · settle up over UPI</p>
+    </div>
+  </body></html>`
+}
 
 async function banner(browser, b) {
   const icon = readFileSync(join(ROOT, 'public/favicon.svg'), 'utf8')
   const font = join(ROOT, 'node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2')
   const img = (name) => `data:image/png;base64,${raw.get(name).toString('base64')}`
-  const html = `<!doctype html><html><head><meta charset="utf-8"><style>
+  const html = b.textOnly
+    ? textCardHtml(b, icon, font)
+    : `<!doctype html><html><head><meta charset="utf-8"><style>
     @font-face { font-family: 'Inter'; src: url('file://${font}') format('woff2'); font-weight: 100 900; }
     html, body { margin: 0; width: ${b.w}px; height: ${b.h}px; overflow: hidden; }
     body {
