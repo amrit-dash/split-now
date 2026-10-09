@@ -2,15 +2,16 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ChevronDown, ImageUp, Inbox, Loader2, Plus, Sparkles, X } from 'lucide-react'
 import { repo } from '@/data'
-import type { AiState, StatementTxn } from '@/data/repo'
+import type { StatementTxn } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
-import { memberOrder, myMemberId, useExpenses, useGroups } from '@/hooks/data'
+import { memberOrder, myMemberId, useAiState, useExpenses, useGroups } from '@/hooks/data'
 import { useAiStatus } from '@/hooks/useAiStatus'
 import { useFlag } from '@/hooks/useAppConfig'
 import { useOnline } from '@/hooks/useOnline'
 import type { Category, Group, MemberId } from '@/types'
 import { aiAvailability } from '@/lib/ai-copy'
 import { CATEGORIES, guessCategory } from '@/lib/categories'
+import { abortable, isAbortError } from '@/lib/abortable'
 import { aiScanPossible, unavailableText } from '@/lib/ai'
 import { errText } from '@/lib/errors'
 import { blobToDataUrl, downscale } from '@/lib/image'
@@ -67,7 +68,7 @@ export function StatementImport() {
   const statementImport = useFlag('statementImport')
   const fileRef = useRef<HTMLInputElement>(null)
   const [prefs, setPrefs] = useState<AllPrefs>(DEFAULT_ALL_PREFS)
-  const [aiState, setAiState] = useState<AiState | null>(null)
+  const aiState = useAiState(aiScanPossible())
   const [stage, setStage] = useState<'prep' | 'ai' | null>(null)
   const [saving, setSaving] = useState(false)
   const [currency, setCurrency] = useState('INR')
@@ -77,13 +78,14 @@ export function StatementImport() {
   const [members, setMembers] = useState<MemberId[]>()
   const [open, setOpen] = useState<string | null>(null)
   const run = useRef(0)
+  /** aborts the read in flight on Cancel, so the wait on the AI call ends at once */
+  const ctrl = useRef<AbortController>(undefined)
   const hist = useScanHistory('statement')
   /** picked screenshots that were all read before: offer that result instead */
   const [dup, setDup] = useState<{ match: ScanMatch; files: File[]; prints: ScanPrint[] } | null>(null)
   /** the history entry behind the rows on screen */
   const [scanIds, setScanIds] = useState<string[]>([])
   useEffect(() => (aiScanPossible() ? watchPrefs(user.uid, setPrefs) : undefined), [user.uid])
-  useEffect(() => (aiScanPossible() ? repo.watchAiState(user.uid, setAiState) : undefined), [user.uid])
 
   const group = groups?.find((g) => g.id === groupId)
   const expenses = useExpenses(group?.id)
@@ -163,6 +165,9 @@ export function StatementImport() {
   const read = async (files: File[], prints: ScanPrint[]) => {
     if (!online && aiScanPossible()) return toast('You’re offline. Statement import needs a connection.', 'err')
     const id = ++run.current
+    ctrl.current?.abort()
+    const c = new AbortController()
+    ctrl.current = c
     setStage('prep')
     try {
       const images = await Promise.all(
@@ -174,9 +179,10 @@ export function StatementImport() {
       )
       if (run.current !== id) return
       setStage('ai')
-      const r = await repo.readStatementAi(images, todayISO())
+      const r = await abortable(repo.readStatementAi(images, todayISO()), c.signal)
       if (run.current !== id) return
-      if (r?.unavailable) return toast(unavailableText(r.reason).replace(/ Read(ing)? on your phone.*$/, ''), 'err')
+      // No on-phone fallback here, so the line says why and stops.
+      if (r?.unavailable) return toast(unavailableText(r.reason, { onPhone: false }), 'err')
       if (!r) return toast(!navigator.onLine ? 'You’re offline' : 'AI couldn’t read the screenshots right now. Try again in a little while.', 'err')
       const txns = r.statement?.transactions ?? []
       if (!txns.length) return toast('No transactions found in those screenshots', 'err')
@@ -186,13 +192,16 @@ export function StatementImport() {
       const saved = await hist.save(files, prints, { type: 'statement', currency: cur, transactions: txns })
       setScanIds(saved ? [saved] : [])
     } catch (e) {
-      if (run.current === id) toast(errText(e), 'err')
+      if (run.current === id && !isAbortError(e)) toast(errText(e), 'err')
     } finally {
+      if (ctrl.current === c) ctrl.current = undefined
       if (run.current === id) setStage(null)
     }
   }
   const cancel = () => {
     run.current++
+    ctrl.current?.abort()
+    ctrl.current = undefined
     setStage(null)
   }
 

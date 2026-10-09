@@ -1,5 +1,6 @@
 import { repo } from '@/data'
 import type { AiUnavailableReason } from '../../shared/ai-config'
+import { abortable, throwIfAborted } from './abortable'
 import { downscale, blobToDataUrl } from './image'
 import { recognizeImage } from './ocr'
 import { parseReceipt, type ParsedReceipt } from './ocr-parse'
@@ -10,38 +11,11 @@ import { parseReceipt, type ParsedReceipt } from './ocr-parse'
  */
 
 export type { AiUnavailableReason }
+// The copy for a declined AI call lives with the other AI copy (pure, tested); re-exported for the screens.
+export { isQuietReason, unavailableText } from './ai-copy'
 
 /** What parseReceiptAi answers (the repo passes it through; null = offline, demo or the call failed). */
 export type ReceiptAiResult = { receipt: ParsedReceipt | null; unavailable?: undefined } | { unavailable: true; reason?: AiUnavailableReason }
-
-/**
- * One line per reason, for the Scan / Statement screens. 'off', 'not_listed' and 'not_configured'
- * are not errors (the phone reads the bill instead); 'quota', 'bad_key' and 'server' are worth a
- * neutral mention. `limit` is the daily shared-key allowance, when known.
- */
-export function unavailableText(reason: AiUnavailableReason | undefined, opts: { limit?: number } = {}): string {
-  switch (reason) {
-    case 'quota':
-      return opts.limit
-        ? `You’ve used today’s AI limit (${opts.limit}). Read on your phone for now.`
-        : 'You’ve used today’s AI limit. Read on your phone for now.'
-    case 'bad_key':
-      return 'Google rejected the Gemini key. Check it in Settings → AI features; reading on your phone instead.'
-    case 'server':
-      return 'Gemini didn’t answer. Reading on your phone instead.'
-    case 'not_listed':
-      return 'AI reading is limited to listed accounts. Reading on your phone instead.'
-    case 'not_configured':
-      return 'AI reading isn’t set up for this app. Reading on your phone instead.'
-    case 'off':
-      return 'AI reading is off. Reading on your phone instead.'
-    default:
-      return 'AI reading isn’t available right now. Reading on your phone instead.'
-  }
-}
-
-/** Reasons that mean "nothing to fix": show nothing, or at most a quiet line. */
-export const isQuietReason = (reason: AiUnavailableReason | undefined) => reason === 'off' || reason === 'not_listed' || reason === 'not_configured'
 
 const PREF = 'splitit-ai-scan'
 
@@ -75,29 +49,36 @@ export interface ReadResult {
   notABill?: boolean
 }
 
-/** `stage` reports 'ai' while waiting on Gemini, then OCR progress 0..1 if it falls back. */
-export async function readReceipt(file: File, onStage: (s: { stage: ReadVia; progress?: number }) => void): Promise<ReadResult> {
+/**
+ * `stage` reports 'ai' while waiting on Gemini, then OCR progress 0..1 if it falls back. `signal`
+ * cancels: the wait on Gemini ends at once (the call itself runs out on the server and its answer
+ * is dropped), no fallback starts, and the OCR stage stops (see recognizeImage). An aborted read
+ * rejects with an AbortError (src/lib/abortable.ts isAbortError).
+ */
+export async function readReceipt(file: File, onStage: (s: { stage: ReadVia; progress?: number }) => void, signal?: AbortSignal): Promise<ReadResult> {
   let reason: AiUnavailableReason | undefined
   if (aiScanEnabled() && aiScanPossible()) {
     onStage({ stage: 'ai' })
     try {
-      const img = await downscale(file, 1600, 0.82)
-      const url = await blobToDataUrl(img)
+      const img = await abortable(downscale(file, 1600, 0.82), signal)
+      const url = await abortable(blobToDataUrl(img), signal)
       const [head, data] = url.split(',', 2)
       const mime = head.match(/data:([^;]+)/)?.[1] ?? 'image/jpeg'
       // The repo returns { receipt } or null today; once it passes the server's reason through
       // (src/data/repo.ts contract), the right line is shown without further changes here.
-      const r = (await repo.readReceiptAi(data, mime)) as ReceiptAiResult | null
+      const r = (await abortable(repo.readReceiptAi(data, mime), signal)) as ReceiptAiResult | null
       if (r && !r.unavailable && r.receipt) return { parsed: r.receipt, via: 'ai' }
       if (r && !r.unavailable) return { parsed: { items: [] }, via: 'ai', notABill: true }
       reason = r?.reason ?? 'server'
     } catch (e) {
+      if (signal?.aborted) throw e
       console.warn('AI reading failed, using on-device OCR', e)
       reason = 'server'
     }
   }
+  throwIfAborted(signal)
   const fellBack = aiScanEnabled() && aiScanPossible()
   onStage({ stage: 'device', progress: 0 })
-  const text = await recognizeImage(file, (p) => onStage({ stage: 'device', progress: p }))
+  const text = await recognizeImage(file, (p) => onStage({ stage: 'device', progress: p }), signal)
   return fellBack ? { parsed: parseReceipt(text), via: 'device', fellBack, reason } : { parsed: parseReceipt(text), via: 'device' }
 }

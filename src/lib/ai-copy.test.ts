@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aiAvailability, aiSummaryText } from './ai-copy'
+import { aiAvailability, aiSummaryText, isQuietReason, unavailableText } from './ai-copy'
 
 describe('aiAvailability', () => {
   const app = (images: 'available' | 'off' | 'not_listed' | 'feature_off', sms = images) => ({ admin: false, app: { images, sms, model: 'm' } })
@@ -60,5 +60,33 @@ describe('aiSummaryText', () => {
     // the shared key doesn't count when the person chose their own key only, and vice versa
     expect(aiSummaryText({ mode: 'firebase', prefs: { ...on, aiSource: 'own' }, hasOwnKey: false, status: app('available') })).toContain('no key available')
     expect(aiSummaryText({ mode: 'firebase', prefs: { ...on, aiSource: 'app' }, hasOwnKey: true, status: app('off') })).toContain('no key available')
+  })
+})
+
+describe('unavailableText', () => {
+  it('says the phone reads it instead, by default', () => {
+    expect(unavailableText('quota')).toBe('You’ve used today’s AI limit. Read on your phone for now.')
+    expect(unavailableText('quota', { limit: 20 })).toBe('You’ve used today’s AI limit (20). Read on your phone for now.')
+    expect(unavailableText('bad_key')).toBe('Google rejected the Gemini key. Check it in Settings → AI features; reading on your phone instead.')
+    expect(unavailableText('server')).toBe('Gemini didn’t answer. Reading on your phone instead.')
+    expect(unavailableText('not_listed')).toBe('AI reading is limited to listed accounts. Reading on your phone instead.')
+    expect(unavailableText('not_configured')).toBe('AI reading isn’t set up for this app. Reading on your phone instead.')
+    expect(unavailableText('off')).toBe('AI reading is off. Reading on your phone instead.')
+    expect(unavailableText(undefined)).toBe('AI reading isn’t available right now. Reading on your phone instead.')
+  })
+  it('drops the phone line where there is no on-phone fallback', () => {
+    const reasons = ['quota', 'bad_key', 'server', 'not_listed', 'not_configured', 'off', undefined] as const
+    for (const r of reasons) expect(unavailableText(r, { onPhone: false })).not.toMatch(/phone/i)
+    expect(unavailableText('quota', { limit: 20, onPhone: false })).toBe('You’ve used today’s AI limit (20).')
+    expect(unavailableText('bad_key', { onPhone: false })).toBe('Google rejected the Gemini key. Check it in Settings → AI features.')
+    expect(unavailableText('server', { onPhone: false })).toBe('Gemini didn’t answer.')
+    expect(unavailableText(undefined, { onPhone: false })).toBe('AI reading isn’t available right now.')
+  })
+})
+
+describe('isQuietReason', () => {
+  it('is quiet only for nothing-to-fix reasons', () => {
+    expect(['off', 'not_listed', 'not_configured'].every((r) => isQuietReason(r as 'off'))).toBe(true)
+    expect(['quota', 'bad_key', 'server', undefined].some((r) => isQuietReason(r as 'quota'))).toBe(false)
   })
 })

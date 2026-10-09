@@ -286,8 +286,10 @@ export interface Repo {
   readReceiptAi(image: string, mimeType: string): Promise<ReceiptAiResult | null>
   /**
    * Read payment-app / bank statement screenshots into transactions (amounts in hundredths).
-   * `{ statement: null }`: no transactions found; null: unavailable (the server's reason is not
-   * passed through yet: StatementImport reads `statement` directly). Demo mode returns a sample.
+   * `{ statement: null }`: no transactions found; `{ unavailable: true, reason }`: the server
+   * declined (StatementImport words it with unavailableText, without the on-phone line: this path
+   * has no fallback); null: the call couldn't be made (offline, signed out, failed or timed out).
+   * Demo mode returns a sample.
    */
   readStatementAi(images: Array<{ image: string; mimeType: string }>, today: string): Promise<StatementAiResult | null>
   /**
