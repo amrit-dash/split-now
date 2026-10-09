@@ -3,5 +3,19 @@
     "commit": "",
     "pr": "",
     "sessionUrl": false
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"$FIREBASE_WEB_CONFIG_B64\" ] && [ ! -e \"$CLAUDE_PROJECT_DIR/.env.production\" ] && printf %s \"$FIREBASE_WEB_CONFIG_B64\" | base64 -d > \"$CLAUDE_PROJECT_DIR/.env.production\"; exit 0",
+            "timeout": 10,
+            "statusMessage": "Restoring .env.production from FIREBASE_WEB_CONFIG_B64"
+          }
+        ]
+      }
+    ]
   }
 }

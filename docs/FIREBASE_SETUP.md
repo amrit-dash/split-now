@@ -27,7 +27,9 @@ cp .env.production.example .env.production
 # fill VITE_FIREBASE_*, VITE_FCM_VAPID_KEY, VITE_APPCHECK_SITE_KEY, VITE_IOS_SHORTCUT_URL
 ```
 
-   Both files are gitignored: never commit them. `npm run deploy` and `npm run deploy:hosting` refuse to build without these values (instead of deploying the demo app); a CI deploy can pass them as `VITE_FIREBASE_*` environment variables instead of the file. The web API key still reaches every visitor in the built JavaScript, so restrict it in Google Cloud → Credentials (§6); keeping it out of the repository stops it being scraped from GitHub.
+   Both files are gitignored: never commit them. `npm run deploy` and `npm run deploy:hosting` refuse to build without these values (instead of deploying the demo app); a CI deploy can pass them as `VITE_FIREBASE_*` environment variables instead of the file.
+
+   **Claude Code cloud sessions** start from a fresh clone, so the gitignored file isn't there. Add an environment variable `FIREBASE_WEB_CONFIG_B64` to the cloud environment (environment menu → Edit → Environment variables) holding the file as one line of base64 (`base64 -w0 .env.production` on Linux, `base64 -i .env.production` on macOS). The SessionStart hook in `.claude/settings.json` writes `.env.production` from it when a session starts (never over an existing file). Don't set the `VITE_FIREBASE_*` names themselves there: `npm run dev` would read them and talk to production instead of demo data. The web API key still reaches every visitor in the built JavaScript, so restrict it in Google Cloud → Credentials (§6); keeping it out of the repository stops it being scraped from GitHub.
 
 ## 3. Authorised domains
 **Authentication → Settings → Authorized domains**: `localhost` and `<project>.web.app` are there by default. Add any custom domain you use.
