@@ -1,0 +1,102 @@
+# Change list — 8 Oct 2026 feedback
+
+Status: [ ] todo · [x] done
+
+## AI / Profile
+- [x] 1. AI status (admin + project key) fetched once per sign-in and cached; Profile renders instantly, no re-check on every open.
+- [x] 2. Gemini key input must not zoom on iOS (inputs ≥16px everywhere, incl. `text-sm` inputs).
+- [x] 3. "Doesn't look like a Gemini API key [400]": key check too strict → accept any plausible key shape (strip whitespace), let Google decide.
+- [x] 4. Model selector always visible in AI features (not only after the model list loads).
+- [x] 5. Admin: project key status as a status line (green dot · "Project key set up (GEMINI_API_KEY)"), like the rates line.
+- [x] 6. Admin: choose the project model, and set a different project key from the app (overrides the Secret Manager key; remove to fall back).
+- [x] 7. Admin: replace the big "Save AI settings" button (only show a compact Save/Discard bar when something changed).
+- [x] 8. Collapsible headers: title must align with the icon when expanded (summary line collapses).
+
+## Global UI
+- [x] 9. Currency field: drop the status dot/badge on the Refresh button (status line below stays).
+- [x] 10. All toasts (errors, undo, "group created"…) rise from the bottom, just above the tab bar (bottom of screen when there is none).
+- [x] 11. Tab bar: active tab in a deeper theme shade.
+- [x] 12. Tab bar notch: frosted/blurred glass in the notch so content under it doesn't show through sharply.
+- [x] 13. Tab bar notch: rounded shoulders where the bar meets the cut-out.
+- [x] 14. + button: replace the turning conic with a smooth smoke-like light/dark gradient blend; faster, more visible.
+- [x] 15. Home balance card: same smoke blend of lighter/darker shades on top of the blobs; lighter lights, darker darks, a bit faster.
+- [x] 16. Bottom sheets / dropdown sheets: drag down to close; nicer close button.
+
+## Add expense
+- [x] 17. "With" picker: create a new group / 1:1 friend / personal wallet straight from it.
+- [x] 18. Save button: icon and label on one line.
+- [x] 19. Amount currency trigger shows the symbol (₹ ▾); the list keeps codes.
+- [x] 20. "Scan" button sits on the date row and fills the remaining width.
+- [x] 21. Paid by (multiple people): "all assigned / ₹x left" as a small footer with an icon.
+- [x] 22. Split: the same footer for exact/percent/shares/adjust checks.
+
+## Groups
+- [x] 23. Bug: creating a group lands on "Group not found".
+- [x] 24. New group: Group / 1:1 friend / Personal wallet as a full-width selector; drop the inline "Make it a group" link (the selector covers switching back).
+- [x] 25. Add members: chips no longer clipped at the top.
+- [x] 26. Add members: chips only show people from your last few groups / 1:1s; search box finds anyone in your groups by name or email (lazy, capped) and a typed email can be added directly.
+
+# Round 2 — 8 Oct 2026
+
+- [x] 27. Inbox icon: badge on the left; decide count vs dot.
+- [x] 28. Decide where toasts / update banner / action toasts live so nothing clips the + button.
+- [x] 29. Subtle animated gradient on every accent-filled button / chip.
+- [x] 30. Balance card: slower, soft-bloom smoke (no hard edges); bubbles roam randomly around their own centre in a bounded area; one more small bubble; different per user.
+- [x] 31. + button: same smoother blend, not washed out; proper outline; glow instead of a "transparent gap" in the notch; make the rounded notch shoulders visible.
+- [x] 32. Tab bar: no box behind the active tab; icon + label in a strong accent colour.
+- [x] 33. Bug: activity from a Splitwise import opens "Expense not found".
+- [x] 34. Add expense: bigger currency symbol, no chevron.
+- [x] 35. Top padding on every horizontal pill row (group filters "Involving me" etc.).
+- [x] 36. Group graph: review; Insights: more chart types + collapsible filters.
+- [x] 37. Bug: can't delete a group.
+- [x] 38. Inbox Updates: own actions logged (not flagged new); others' actions are new.
+- [x] 39. AI features: clear "your key is set up" status.
+
+# Round 3
+
+- [x] 40. Group graph: no name overflow; reimagined with motion.
+- [x] 41. Profile photos for every linked member everywhere (incl. your own).
+- [x] 42. Add expense (groups only): first names in Paid by and Split.
+- [x] 43. Profile shows version 2.1.1, read from a Firestore doc; admins edit it.
+- [x] 44. Home balance card: settle-up icon CTA → all pending settlements (owe / owed), settle each; empty state with fireworks behind the cards.
+- [x] 45. Card circles: true 2D motion (travel, bounce off a boundary, any new direction); small circle a little to the right.
+- [x] 46. + button: glow all round (no cut-off), more 3D, outline, glow follows the gradient animation.
+
+# Round 4
+
+- [x] 47. + button: thin border, not 3D; smaller but stronger glow, behind the tab bar for depth; no translucent line through the notch.
+- [x] 48. Desktop: date selector buttons work; bottom sheets look right.
+- [x] 49. Profile → AI features summary: AI on/off and features, not "key set up".
+- [x] 50. Profile: more bottom padding so the version line clears the + button.
+- [x] 51. Insights: spending over time as an animated area line; this month vs last as bars; motion on the other charts.
+- [x] 52. Card shapes: smooth curving paths (no sharp bounces), slower, smaller areas, little overlap; small circle off the big ones.
+- [x] 53. Settle screen: no fireworks (popper only); merge with Friends & balances.
+- [x] 54. Settle rows: amounts centred with the button; record = pencil/note icon.
+- [x] 55. Home card settle CTA: better position, icon only; when all settled show a slow subtle firework in the card instead.
+
+# Round 5
+
+- [x] 56. Scan history: last 10 per scan mode; spot re-scans.
+- [x] 57. Home with no groups: people icon instead of the dancer.
+- [x] 58. Bug: no notifications at all (errors, "Expense added"); stack several without blocking the app.
+- [x] 59. Balances: multi-group person → same icon button → settle screen across groups with the total.
+- [x] 60. Home card settle button bigger.
+- [x] 61. Card fireworks: several at once from random bottom points, real trajectories, random thematic colours, sparkle, rounds that die down.
+- [x] 62. Greeting: salutation / "Hi 👋" (animated, icon by time of day) / first name; icons aligned to it.
+- [x] 63. + button glow stronger at the bottom (masks the gap), softer on top.
+- [x] 64. Bug: tab bar turns see-through when the page is pulled down.
+
+# Round 6
+
+- [x] 65. Home card settle button: bigger, further in from the corner, coin-toss animation.
+- [x] 66. Greeting icon: one icon for the time of day (no cycling); a few rounds of motion, then it rests.
+- [x] 67. Bug: rounded buttons and chips show square corners app-wide.
+- [x] 68. + button: thinner outline, wider outer glow; rethink the tab bar look.
+
+# Round 7
+
+- [x] 69. More greeting icons and motions (picked per visit).
+- [x] 70. + notch fill layer wider, fading out upwards (no visible edge).
+- [x] 71. Settle icon: cheque in the user's currency with a pen signing (coin toss removed).
+- [x] 72. Cheque icon: closed cheque-book shape, signature bottom-right, solid pen; used on every settle-up button (signs once), Home card bigger and signing forever with growing gaps.
+- [x] 73. Notch: removed the outline that drew a line along the bar's edge; gap fill fades smoothly.

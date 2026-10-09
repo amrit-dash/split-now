@@ -1,0 +1,69 @@
+{
+  "name": "split-it",
+  "private": true,
+  "version": "2.1.1",
+  "description": "Split bills, not friendships: a free, open-source expense-splitting PWA with bill scanning, live table splits, UPI settle-ups and optional AI.",
+  "license": "MIT",
+  "author": "Amrit Dash",
+  "homepage": "https://split-now.web.app",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/amrit-dash/split-it.git"
+  },
+  "bugs": {
+    "url": "https://github.com/amrit-dash/split-it/issues"
+  },
+  "keywords": [
+    "splitwise-alternative",
+    "expense-splitting",
+    "pwa",
+    "react",
+    "firebase",
+    "upi",
+    "bill-splitting",
+    "ocr",
+    "gemini"
+  ],
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "icons": "node scripts/generate-icons.mjs",
+    "emulators": "firebase emulators:start",
+    "deploy": "npm run build && firebase deploy",
+    "test:rules": "firebase emulators:exec --only firestore,storage --project demo-splitit \"vitest run --config vitest.rules.config.ts\"",
+    "test:functions": "npm --prefix functions run build && firebase emulators:exec --only firestore --project demo-splitit \"firebase emulators:exec --only functions --project demo-splitit 'vitest run --config vitest.functions.config.ts'\""
+  },
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "firebase": "^12.19.0",
+    "lucide-react": "^1.52.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-router-dom": "^7.18.4",
+    "recharts": "^3.10.1",
+    "tesseract.js": "^7.0.0"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^26.6.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "firebase-tools": "^15.32.1",
+    "sharp": "^0.35.5",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.3",
+    "vite-plugin-pwa": "^2.0.0",
+    "vitest": "^5.0.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

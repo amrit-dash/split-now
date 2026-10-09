@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dev-dist/
+*.tsbuildinfo
+
+# Environment (never commit real Firebase keys for non-prod projects you don't want public)
+.env
+.env.local
+.env.*.local
+
+# Firebase
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+database-debug.log*
+pubsub-debug.log*
+emulator-data/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# Test
+coverage/
+
+# Claude Code agent worktrees
+.claude/worktrees/
