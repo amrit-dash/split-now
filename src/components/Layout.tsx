@@ -108,14 +108,13 @@ export function Layout() {
                 to={t.to}
                 end={'end' in t}
                 className={({ isActive }) =>
-                  `relative flex w-16 flex-col items-center gap-0.5 py-1 text-[11px] transition-colors ${isActive ? 'font-bold text-brand-600 dark:text-brand-300' : 'font-semibold text-slate-500 dark:text-slate-400'}`
+                  `flex w-16 flex-col items-center gap-0.5 py-1 text-[11px] transition-colors ${isActive ? 'font-bold text-brand-700 dark:text-brand-200' : 'font-semibold text-slate-500 dark:text-slate-400'}`
                 }
               >
                 {({ isActive }) => (
                   <>
-                    {/* Active: icon and label in the accent, a heavier stroke, a slight lift and a short accent bar
-                        on top (no box behind the tab: owner's request 32). Inactive stays a readable grey. */}
-                    {isActive && <span aria-hidden className="absolute -top-1.5 h-1 w-6 rounded-full bg-brand-500 dark:bg-brand-400" />}
+                    {/* Active: icon and label in a deeper shade of the accent, a heavier stroke and a slight lift
+                        (no box behind the tab: owner's request 32). Inactive stays a readable grey. */}
                     <t.icon size={23} strokeWidth={isActive ? 2.6 : 2} className={`transition-transform ${isActive ? '-translate-y-px' : ''}`} aria-hidden />
                     {t.label}
                   </>
