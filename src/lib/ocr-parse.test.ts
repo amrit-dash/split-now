@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { findAmounts, matchMember, parseDate, parsePaymentScreenshot, parseReceipt } from './ocr-parse'
+import { findAmounts, matchMember, parseDate, parsePaymentScreenshot, parseReceipt, stripTrailingFigures } from './ocr-parse'
 
 describe('parseReceipt', () => {
   it('extracts merchant, items, total and date', () => {
@@ -191,5 +191,31 @@ UPI Ref No: 628012345681
     expect(p.payee).toBe('Kavya Iyer')
     expect(p.method).toBe('UPI')
     expect(p.date).toBe('2026-10-05')
+  })
+})
+
+describe('stripTrailingFigures', () => {
+  const strip = stripTrailingFigures
+  it('removes the quantity and price columns after an item name', () => {
+    expect(strip('Paneer Tikka 2 280.00 560.00')).toBe('Paneer Tikka')
+    expect(strip('Masala Dosa Rs. 120.00')).toBe('Masala Dosa')
+    expect(strip('Coffee ₹ 90')).toBe('Coffee')
+    expect(strip('Latte $4.50')).toBe('Latte')
+    expect(strip('Naan 1,250.00')).toBe('Naan')
+  })
+  it('keeps the first word and a bare currency sign that has no figure after it', () => {
+    expect(strip('2 3')).toBe('2')
+    expect(strip('Tea Rs.')).toBe('Tea Rs.')
+    expect(strip('Tea')).toBe('Tea')
+  })
+  it('keeps names that only contain digits inside words', () => {
+    expect(strip('7Up')).toBe('7Up')
+    expect(strip('Pepsi 500ml')).toBe('Pepsi 500ml')
+  })
+  it('stays fast on long, adversarial OCR lines (no catastrophic backtracking)', () => {
+    const evil = [`x${'  ,'.repeat(5000)}!`, ` Rs${'., Rs'.repeat(5000)}!`, `a${' 1.'.repeat(5000)}x`]
+    const t0 = performance.now()
+    for (const s of evil) strip(s)
+    expect(performance.now() - t0).toBeLessThan(200)
   })
 })

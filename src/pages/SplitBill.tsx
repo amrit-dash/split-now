@@ -5,6 +5,7 @@ import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { useGroups } from '@/hooks/data'
 import { useReceiptReader } from '@/hooks/useReceiptReader'
+import { imagePreviewUrl } from '@/lib/image'
 import { CURRENCIES, centsToInput, formatMoney, fromHundredths, parseMoney } from '@/lib/money'
 import type { ParsedReceipt } from '@/lib/ocr-parse'
 import { pending } from '@/lib/pending'
@@ -106,12 +107,12 @@ export default function SplitBill() {
     const p = pending.receipt
     if (!p) return
     pending.receipt = undefined
-    setPreview(URL.createObjectURL(p.file))
+    setPreview(imagePreviewUrl(p.file))
     apply(p.parsed)
   }, [])
 
   const onFile = async (f: File) => {
-    setPreview(URL.createObjectURL(f))
+    setPreview(imagePreviewUrl(f))
     setDup(null)
     setScanRef(undefined)
     const { prints, match } = await hist.check([f])
@@ -126,7 +127,7 @@ export default function SplitBill() {
   const openEntry = (e: ScanEntry, f?: File) => {
     setDup(null)
     if (e.result.type !== 'receipt') return
-    setPreview(URL.createObjectURL(f ?? entryFile(e)))
+    setPreview(imagePreviewUrl(f ?? entryFile(e)))
     setScanRef({ id: e.id, kind: e.kind })
     apply(e.result.receipt)
   }
