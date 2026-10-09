@@ -3,6 +3,7 @@ import { initials } from '@/lib/colors'
 
 export function Avatar({ name, color, size = 40, ring, photoURL }: { name: string; color: string; size?: number; ring?: boolean; photoURL?: string }) {
   const [failed, setFailed] = useState(false)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: photoURL is the trigger, so a new photo gets a fresh try after an earlier one failed.
   useEffect(() => setFailed(false), [photoURL])
   const ringCls = ring ? 'ring-2 ring-white dark:ring-ink-900' : ''
   if (photoURL && !failed) {
@@ -52,6 +53,7 @@ export function AvatarStack({
   return (
     <div className="flex -space-x-2">
       {people.slice(0, max).map((p, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: callers pass display-only people without an id, and names can repeat.
         <Avatar key={i} name={p.name} color={p.color} photoURL={p.photoURL} size={size} ring />
       ))}
       {people.length > max && (

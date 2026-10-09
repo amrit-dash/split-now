@@ -1,5 +1,5 @@
 import type { Category, Cents, MemberId } from '@/types'
-import { titleCase } from './expense-draft'
+import { titleCase } from './text'
 import { todayISO } from './id'
 import { fromHundredths, minorDigits } from './money'
 import { addDaysISO } from './recents'

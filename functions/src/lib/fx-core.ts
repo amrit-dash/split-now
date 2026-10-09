@@ -54,7 +54,7 @@ export function parseV2(body: unknown): EcbRates | null {
   const rates: Record<string, number> = { EUR: 1 }
   let date = ''
   for (const r of body as Array<Record<string, unknown>>) {
-    if (!r || r.base !== 'EUR' || typeof r.quote !== 'string' || !isCode(r.quote) || !positive(r.rate) || !isIsoDate(r.date)) continue
+    if (r?.base !== 'EUR' || typeof r.quote !== 'string' || !isCode(r.quote) || !positive(r.rate) || !isIsoDate(r.date)) continue
     rates[r.quote] = r.rate
     if (r.date > date) date = r.date
   }

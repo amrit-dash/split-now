@@ -91,6 +91,7 @@ export default function SettleUp() {
     toast(p.amount ? `Read ${formatMoney(p.amount, d.group.currency)}${match ? ` to ${d.group.members[match].name}` : ''}` : 'Couldn’t read an amount')
   }
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: one-time set-up once the group has loaded (guarded by init); later live updates must not reset what the person entered.
   useEffect(() => {
     if (!d || init) return
     setInit(true)
@@ -123,14 +124,13 @@ export default function SettleUp() {
       applyPayment(pending.payment.parsed)
       pending.payment = undefined
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [d, init])
 
   // A different pair of people: offer what they owe, until the amount is typed by hand.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-offer only when the pair changes, not on every live balance update, so the amount does not change under the person.
   useEffect(() => {
     if (!d || !init || amountTouched || !from || !to) return
     setAmount(d.debts.find((x) => x.from === from && x.to === to)?.amount)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [from, to, init])
 
   const toUid = group?.members[to]?.uid
@@ -153,12 +153,12 @@ export default function SettleUp() {
 
   // Method: what was used to pay this person last time, else UPI when they have a UPI ID.
   const payeeUpi = !!payee?.payment?.upi?.trim()
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-pick the method only when the recipient or their UPI ID changes; a method picked by hand (methodTouched) is kept.
   useEffect(() => {
     if (!d || !init || methodTouched || !to) return
     const ms = settleMethods(d.group.currency)
     const remembered = lastMethod(d.group.id, to)
     setMethod(remembered && ms.includes(remembered) ? remembered : payeeUpi && ms.includes('UPI') ? 'UPI' : ms[0])
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [to, payeeUpi, init])
 
   if (group === null)
@@ -673,6 +673,7 @@ export function SettleWithPerson() {
 
   // The recipient's payment handles: per group, so try each shared group until one has some.
   const recipientUid = toMe ? user.uid : p?.parts.find((r) => r.uid)?.uid
+  // biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the groups' values (majorKey), not the live balance object, so a saved settlement does not refetch the handles.
   useEffect(() => {
     setPayee(null)
     if (!p || p.net === 0) return
@@ -694,17 +695,16 @@ export function SettleWithPerson() {
     return () => {
       off = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [majorKey, toMe, cur, user.uid, p?.net === 0])
 
   // Method: what was last used to pay this person in one of these groups, else UPI when they have a UPI ID.
   const payeeUpi = !!payee?.payment?.upi?.trim()
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-pick only when the groups (majorKey) or the UPI ID change, not on every live balance update; a method picked by hand is kept.
   useEffect(() => {
     if (!p || !init || methodTouched) return
     const ms = settleMethods(cur)
     const remembered = major.map((r) => lastMethod(r.groupId, toMe ? r.me : r.memberId)).find((m) => m && ms.includes(m))
     setMethod(remembered ?? (payeeUpi && ms.includes('UPI') ? 'UPI' : ms[0]))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [majorKey, payeeUpi, init])
 
   if (!people && !snap)

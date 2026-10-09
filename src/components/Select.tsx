@@ -108,7 +108,7 @@ export function Select<T extends string>({
     if (!open) return
     const onDown = (e: PointerEvent) => {
       const t = e.target as Node
-      if (!listRef.current?.contains(t) && !triggerRef.current?.contains(t)) close(false)
+      if (!listRef.current?.contains(t) && !triggerRef.current?.contains(t)) setOpen(false) // close(false): no focus return on an outside tap
     }
     document.addEventListener('pointerdown', onDown)
     return () => document.removeEventListener('pointerdown', onDown)
@@ -214,6 +214,7 @@ export function Select<T extends string>({
           <ul
             ref={listRef}
             id={listId}
+            // biome-ignore lint/a11y/noNoninteractiveElementToInteractiveRole: the WAI-ARIA listbox pattern; keyboard focus stays on the combobox trigger (aria-activedescendant).
             role="listbox"
             aria-label={rest['aria-label']}
             tabIndex={-1}
@@ -223,10 +224,12 @@ export function Select<T extends string>({
             {options.map((o, i) => {
               const isSel = o.value === value
               return (
+                // biome-ignore lint/a11y/useFocusableInteractive lint/a11y/useKeyWithClickEvents: options of the listbox pattern; the trigger's onKeyDown moves the active option and chooses it, so options are not focused themselves.
                 <li
                   key={o.value}
                   id={`${listId}-${i}`}
                   data-index={i}
+                  // biome-ignore lint/a11y/noNoninteractiveElementToInteractiveRole: an option of the listbox pattern (see the list above).
                   role="option"
                   aria-selected={isSel}
                   aria-disabled={o.disabled || undefined}

@@ -101,13 +101,13 @@ export default function SplitBill() {
   }
 
   // A receipt handed over from Smart scan or the expense form.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs once on mount to take the hand-off; pending.receipt is cleared so it is applied only once.
   useEffect(() => {
     const p = pending.receipt
     if (!p) return
     pending.receipt = undefined
     setPreview(URL.createObjectURL(p.file))
     apply(p.parsed)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const onFile = async (f: File) => {

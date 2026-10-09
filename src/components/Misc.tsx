@@ -11,6 +11,7 @@ export function PageHeader({ title, back, right, subtitle }: { title: ReactNode;
       <div className="flex min-h-11 items-center gap-2">
         {back && (
           <button
+            type="button"
             onClick={() => (typeof back === 'string' ? nav(back) : history.length > 1 ? nav(-1) : nav('/'))}
             className="-ml-2 flex h-11 w-11 items-center justify-center rounded-full hover:bg-slate-200/60 dark:hover:bg-ink-800"
             aria-label="Back"

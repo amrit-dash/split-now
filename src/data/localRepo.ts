@@ -100,7 +100,7 @@ export function createLocalRepo(): Repo {
     } catch {
       /* ignore */
     }
-    listeners.forEach((l) => l())
+    for (const l of listeners) l()
   }
   // Another tab changed the demo data (e.g. a second "phone" at a live table): reload and notify.
   if (typeof window !== 'undefined') {
@@ -108,7 +108,7 @@ export function createLocalRepo(): Repo {
       if (e.key !== KEY) return
       state = load()
       state.comments ??= {}
-      listeners.forEach((l) => l())
+      for (const l of listeners) l()
     })
   }
   const tables = () => (state.tables ??= {})

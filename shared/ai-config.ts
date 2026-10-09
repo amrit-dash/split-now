@@ -67,7 +67,7 @@ export interface UserAiPrefs {
 
 export const DEFAULT_USER_AI: UserAiPrefs = { aiEnabled: true, aiImages: true, aiSms: true, aiSource: 'auto', aiModel: '' }
 
-const MODEL_RE = /^[a-z0-9][a-z0-9.\-]{2,79}$/
+const MODEL_RE = /^[a-z0-9][a-z0-9.-]{2,79}$/
 export const validModel = (m: unknown): m is string => typeof m === 'string' && MODEL_RE.test(m)
 const int = (v: unknown, lo: number, hi: number, d: number) => (typeof v === 'number' && Number.isInteger(v) && v >= lo && v <= hi ? v : d)
 

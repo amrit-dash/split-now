@@ -10,6 +10,7 @@ import { sanitizeSplit, type LastSplit, type Suggestion } from './recents'
 import { firstNextDate, nextAfter } from './recurrence'
 import { shortNames } from './shortNames'
 import { todayISO, uid } from './id'
+import { titleCase } from './text'
 
 /*
  * The expense form's state machine, kept pure so the trickiest rules in the app (seeding from
@@ -697,7 +698,4 @@ export function parseDecimal(text: string, maxDecimals = 2): number {
   return Number(t)
 }
 
-/** "TOIT brewpub" → "Toit Brewpub"; works for accented and non-Latin letters too (unlike \b\w). */
-export function titleCase(s: string): string {
-  return s.toLowerCase().replace(/(^|[\s(\-/&])(\p{L})/gu, (_, a: string, b: string) => a + b.toUpperCase())
-}
+export { titleCase }

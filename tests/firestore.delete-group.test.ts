@@ -95,19 +95,23 @@ async function deleteGroupLikeTheApp(d: Firestore, limit = 450) {
   for (const sub of ['expenses', 'settlements', 'profiles']) {
     for (const s of (await getDocs(collection(d, 'groups', 'g1', sub))).docs) {
       refs.push(s.ref)
-      if (sub === 'expenses') (await getDocs(collection(d, 'groups', 'g1', 'expenses', s.id, 'comments'))).forEach((c) => comments.push(c.ref))
+      if (sub === 'expenses') for (const c of (await getDocs(collection(d, 'groups', 'g1', 'expenses', s.id, 'comments'))).docs) comments.push(c.ref)
     }
   }
   refs.push(...comments)
   for (let i = 0; i < refs.length; i += limit) {
     const b = writeBatch(d)
-    refs.slice(i, i + limit).forEach((r) => b.delete(r))
+    refs.slice(i, i + limit).forEach((r) => {
+      b.delete(r)
+    })
     await b.commit()
   }
   const activity = (await getDocs(collection(d, 'groups', 'g1', 'activity'))).docs.map((x) => x.ref)
   const invite = await getDoc(doc(d, 'invites/ABCD2345'))
   const last = writeBatch(d)
-  activity.slice(0, limit - 2).forEach((r) => last.delete(r))
+  activity.slice(0, limit - 2).forEach((r) => {
+    last.delete(r)
+  })
   if (invite.exists()) last.delete(invite.ref)
   last.delete(doc(d, 'groups/g1'))
   await last.commit()

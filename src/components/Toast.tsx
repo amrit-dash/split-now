@@ -79,6 +79,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <Ctx.Provider value={push}>
       {children}
       <div className="toast-stack pointer-events-none fixed inset-x-0 z-[100] mx-auto max-w-lg px-4" role="status" aria-live="polite" data-testid="toasts">
+        {/* biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/useKeyWithClickEvents: tapping to fan out the stack is a pointer convenience; every toast is announced by the live region and its buttons are keyboard operable. */}
         <div
           className={open ? 'flex flex-col items-center gap-2' : 'grid items-end justify-items-center'}
           onClick={() => live.length > 1 && setOpen((o) => !o)}

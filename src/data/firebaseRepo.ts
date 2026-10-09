@@ -617,7 +617,9 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       await Promise.all(
         Array.from({ length: 16 }, async () => {
           for (let d = queue.shift(); d; d = queue.shift()) {
-            ;(await getDocs(commentsCol(id, d.id)).catch(() => null))?.forEach((c) => commentRefs.push(c.ref))
+            ;(await getDocs(commentsCol(id, d.id)).catch(() => null))?.forEach((c) => {
+              commentRefs.push(c.ref)
+            })
           }
         }),
       )
@@ -635,14 +637,14 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       const batches: Promise<void>[] = []
       for (let i = 0; i < refs.length; i += BATCH_LIMIT) {
         const batch = writeBatch(db)
-        refs.slice(i, i + BATCH_LIMIT).forEach((r) => batch.delete(r))
+        for (const r of refs.slice(i, i + BATCH_LIMIT)) batch.delete(r)
         batches.push(batch.commit())
       }
       await ack(Promise.all(batches).then(() => undefined)).catch(failed)
       // The activity log is append-only: rules let the creator delete it only in the batch
       // that deletes the group itself. (Entries beyond one batch are left orphaned and unreadable.)
       const last = writeBatch(db)
-      activity.docs.slice(0, BATCH_LIMIT - 2).forEach((d) => last.delete(d.ref))
+      for (const d of activity.docs.slice(0, BATCH_LIMIT - 2)) last.delete(d.ref)
       // Only an invite that exists: deleting a missing one is refused, and would fail the batch.
       if (invite?.exists() && invite.data().groupId === id) last.delete(invite.ref)
       last.delete(groupRef(id))
@@ -751,7 +753,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         comments.push(...fromServer)
       }
       const batch = writeBatch(db)
-      comments.slice(0, BATCH_LIMIT - 3).forEach((c) => batch.delete(c))
+      for (const c of comments.slice(0, BATCH_LIMIT - 3)) batch.delete(c)
       batch.delete(r)
       batch.update(groupRef(groupId), { updatedAt: Date.now() })
       if (e) log(batch, groupId, expenseEventActivity('purged', e, await actCtx(groupId, e)))
@@ -759,7 +761,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       // Any overflow (or comments we couldn't list) can still be removed afterwards: the expense is gone.
       for (let i = BATCH_LIMIT - 3; i < comments.length; i += BATCH_LIMIT) {
         const b = writeBatch(db)
-        comments.slice(i, i + BATCH_LIMIT).forEach((c) => b.delete(c))
+        for (const c of comments.slice(i, i + BATCH_LIMIT)) b.delete(c)
         fire(b, 'Deleting comments')
       }
       deleteFileLater(receipt)

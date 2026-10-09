@@ -471,7 +471,7 @@ export function errorChannel() {
           ? `${context}: you don’t have permission (the change was undone)`
           : `${context}: ${(error as Error)?.message ?? String(error)}`
       const e: RepoError = { kind, message, error }
-      if (listeners.size) listeners.forEach((l) => l(e))
+      if (listeners.size) for (const l of listeners) l(e)
       else early.push(e)
     },
   }

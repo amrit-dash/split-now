@@ -51,6 +51,7 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
       }),
     [],
   )
+  // biome-ignore lint/correctness/useExhaustiveDependencies: status.app.hint is the trigger; a changed key (new hint) means the model list must be fetched again.
   useEffect(() => {
     if (configured)
       repo
