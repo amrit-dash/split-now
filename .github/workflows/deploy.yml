@@ -1,0 +1,104 @@
+name: Deploy
+
+# Production deploy to split-it-prod, run by hand (Actions → Deploy → Run workflow) or by an agent
+# through the GitHub API. The service-account key lives only in the repository secret
+# FIREBASE_SERVICE_ACCOUNT (the whole JSON file); it never touches a laptop or an agent's container.
+# Order matters: indexes before rules and functions (onPushTokenCreated needs its index), functions
+# before hosting (hosting's /api/* rewrites point at them). See docs/FIREBASE_SETUP.md §4 and §5a.
+on:
+  workflow_dispatch:
+    inputs:
+      what:
+        description: What to deploy
+        type: choice
+        options: [all, hosting, rules, functions]
+        default: all
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: 22
+  PROJECT: split-it-prod
+
+jobs:
+  deploy:
+    name: Deploy (${{ inputs.what }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # A GitHub environment, so you can add required reviewers in Settings → Environments if you want a second click.
+    environment: production
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            functions/package-lock.json
+      - run: npm ci
+      - run: npm ci --prefix functions
+
+      # The same gate as CI, so a red tree never ships even when deployed by hand.
+      - run: npm run check
+      - run: npm run typecheck:all
+      - run: npm test
+
+      - name: Service-account credentials
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$SA" ]; then echo "::error::Add the FIREBASE_SERVICE_ACCOUNT repository secret first (docs/FIREBASE_SETUP.md §4)"; exit 1; fi
+          umask 077
+          printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
+
+      - name: Function secrets (created once, never overwritten)
+        if: inputs.what == 'all' || inputs.what == 'functions'
+        run: |
+          # AI_KEY_KEK seals stored Gemini keys (functions/src/lib/seal.ts). Generated here so no person sees it.
+          if ! npx firebase functions:secrets:get AI_KEY_KEK --project "$PROJECT" > /dev/null 2>&1; then
+            node -e "process.stdout.write(require('crypto').randomBytes(32).toString('base64'))" \
+              | npx firebase functions:secrets:set AI_KEY_KEK --data-file - --project "$PROJECT" --non-interactive
+            echo "Created AI_KEY_KEK"
+          else
+            echo "AI_KEY_KEK already exists; left as is"
+          fi
+          # The functions bind GEMINI_API_KEY, so it must exist to deploy. A placeholder is fine while
+          # config/ai.mode is 'off' or an admin has set the in-app project key (Admin → AI), which wins.
+          if ! npx firebase functions:secrets:get GEMINI_API_KEY --project "$PROJECT" > /dev/null 2>&1; then
+            printf 'not-set' | npx firebase functions:secrets:set GEMINI_API_KEY --data-file - --project "$PROJECT" --non-interactive
+            echo "::warning::GEMINI_API_KEY did not exist; set a placeholder. Paste the real key in the app: Settings → Admin → AI."
+          fi
+
+      - name: Indexes and rules
+        if: inputs.what == 'all' || inputs.what == 'rules'
+        run: npx firebase deploy --only firestore:indexes,firestore:rules,storage --project "$PROJECT" --non-interactive
+
+      - name: Functions
+        if: inputs.what == 'all' || inputs.what == 'functions'
+        run: npx firebase deploy --only functions --project "$PROJECT" --non-interactive
+
+      - name: Hosting (all sites)
+        if: inputs.what == 'all' || inputs.what == 'hosting'
+        run: |
+          npm run build
+          npx firebase deploy --only hosting --project "$PROJECT" --non-interactive
+
+      - name: Check the security headers on every site
+        if: inputs.what == 'all' || inputs.what == 'hosting'
+        run: |
+          for site in split-it-prod split-now freesplit; do
+            h=$(curl -sI "https://$site.web.app/")
+            echo "$h" | grep -qi '^x-frame-options: DENY' && echo "$h" | grep -qi '^content-security-policy' \
+              && echo "$site: headers ok" || { echo "::error::$site is missing its security headers"; exit 1; }
+          done
+
+      - name: Remove the key file
+        if: always()
+        run: rm -f "$RUNNER_TEMP/sa.json"
