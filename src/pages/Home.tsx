@@ -21,6 +21,7 @@ import { lastGroup } from '@/lib/recents'
 import { QuickAdd } from '@/components/QuickAdd'
 import { todayISO } from '@/lib/id'
 import { usePageTitle } from '@/lib/brand'
+import { fitLabel, overflows } from '@/lib/fit'
 
 // Only shown once everything is settled: kept out of the first-paint bundle.
 const CardFirework = lazy(() => import('@/components/CardFirework').then((m) => ({ default: m.CardFirework })))
@@ -143,9 +144,11 @@ export default function Home() {
               </Link>
             )}
             <div className="pr-16 text-sm font-medium text-white/90">{allSettled ? 'Overall' : `Overall, ${net >= 0 ? 'you are owed' : 'you owe'}`}</div>
-            <div className="mt-1 pr-14 text-4xl font-extrabold tracking-tight" data-testid="home-net">
-              {allSettled ? 'All settled up' : `${ax}${formatMoney(Math.abs(net), cur)}`}
-            </div>
+            <FitLine
+              className={`mt-1 text-4xl font-extrabold tracking-tight ${allSettled ? '' : 'pr-14'}`}
+              testId="home-net"
+              labels={allSettled ? ['All settled up', 'All settled', 'All done'] : [`${ax}${formatMoney(Math.abs(net), cur)}`]}
+            />
             <div className="mt-5 grid grid-cols-2 gap-3">
               <Link
                 to="/settle"
@@ -153,10 +156,7 @@ export default function Home() {
                 aria-label={`You are owed ${ax}${formatMoney(main.owed, cur)}. See who owes you`}
               >
                 <div className="text-xs text-white/90">You are owed</div>
-                <div className="text-lg font-bold">
-                  {ax}
-                  {formatMoney(main.owed, cur)}
-                </div>
+                <FitLine className="text-lg font-bold" labels={[`${ax}${formatMoney(main.owed, cur)}`]} />
               </Link>
               <Link
                 to="/settle"
@@ -164,10 +164,7 @@ export default function Home() {
                 aria-label={`You owe ${ax}${formatMoney(main.owe, cur)}. See who you owe`}
               >
                 <div className="text-xs text-white/90">You owe</div>
-                <div className="text-lg font-bold">
-                  {ax}
-                  {formatMoney(main.owe, cur)}
-                </div>
+                <FitLine className="text-lg font-bold" labels={[`${ax}${formatMoney(main.owe, cur)}`]} />
               </Link>
             </div>
             {others.length > 0 && (
@@ -451,8 +448,9 @@ function useNarrow(px: number) {
 
 /**
  * "Good morning" over "Hi, Amrit 👋" on one line when it fits; when it doesn't (small phones,
- * long names) it switches to "Hi 👋" over the name, rather than letting the line break wherever
- * it falls. The size scales a little with the viewport; very long names truncate.
+ * long names, a larger text size on Android) it switches to "Hi 👋" over the name, rather than
+ * truncating the name or letting the line break wherever it falls. The size scales a little
+ * with the viewport, so wide screens keep the one-line form.
  */
 function Greeting({ salutation, name, part }: { salutation: string; name: string; part: DayPart }) {
   const box = useRef<HTMLDivElement>(null)
@@ -463,7 +461,7 @@ function Greeting({ salutation, name, part }: { salutation: string; name: string
     const el = box.current,
       p = probe.current
     if (!el || !p) return
-    const check = () => setStacked(p.offsetWidth > el.clientWidth)
+    const check = () => setStacked(overflows(p.offsetWidth, el.clientWidth))
     check()
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(check) : null
     ro?.observe(el)
@@ -473,9 +471,10 @@ function Greeting({ salutation, name, part }: { salutation: string; name: string
   return (
     <div ref={box} className="relative min-w-0 flex-1">
       <p className="text-muted text-sm font-medium">{salutation}</p>
-      {/* invisible one-line copy, measured to decide the layout */}
-      <span ref={probe} aria-hidden className={`pointer-events-none invisible absolute left-0 top-0 whitespace-nowrap ${size}`}>
-        Hi, {name} 👋
+      {/* invisible one-line copy, laid out exactly like the real line (gap and icon box included), measured to decide the layout */}
+      <span ref={probe} aria-hidden className={`pointer-events-none invisible absolute left-0 top-0 inline-flex items-center gap-2 whitespace-nowrap ${size}`}>
+        <span>Hi, {name}</span>
+        <span className="inline-block h-[1.2em] w-[1.2em]" />
       </span>
       <h1 className={`mt-0.5 ${size}`}>
         {stacked ? (
@@ -483,7 +482,8 @@ function Greeting({ salutation, name, part }: { salutation: string; name: string
             <span className="flex items-center gap-2">
               Hi <HelloIcon part={part} />
             </span>
-            <span className="block truncate">{name}</span>
+            {/* the name gets the whole line; a name too long even for that wraps rather than losing letters */}
+            <span className="block [overflow-wrap:anywhere]">{name}</span>
           </>
         ) : (
           <span className="flex min-w-0 items-center gap-2">
@@ -492,6 +492,55 @@ function Greeting({ salutation, name, part }: { salutation: string; name: string
           </span>
         )}
       </h1>
+    </div>
+  )
+}
+
+/**
+ * One line of headline text that never wraps: the first of `labels` that fits at no less than
+ * 80% of its size (fitLabel in src/lib/fit.ts), shrunk to fit. Each label is measured at full
+ * size in an invisible copy, so Android's larger text settings are taken into account.
+ */
+function FitLine({ labels, className, testId }: { labels: string[]; className: string; testId?: string }) {
+  const box = useRef<HTMLDivElement>(null)
+  const probes = useRef<Array<HTMLSpanElement | null>>([])
+  const [fit, setFit] = useState({ index: 0, scale: 1 })
+  const key = labels.join('\n')
+  // biome-ignore lint/correctness/useExhaustiveDependencies: key stands for labels; new labels mean new widths, so measure again.
+  useLayoutEffect(() => {
+    const el = box.current
+    if (!el) return
+    const check = () => {
+      const width = el.clientWidth - Number.parseFloat(getComputedStyle(el).paddingRight || '0')
+      const next = fitLabel(
+        probes.current.slice(0, labels.length).map((p) => p?.offsetWidth ?? 0),
+        width,
+      )
+      setFit((f) => (f.index === next.index && f.scale === next.scale ? f : next))
+    }
+    check()
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(check) : null
+    ro?.observe(el)
+    return () => ro?.disconnect()
+  }, [key])
+  const text = labels[Math.min(fit.index, labels.length - 1)]
+  return (
+    <div ref={box} className={`relative ${className}`}>
+      {labels.map((l, i) => (
+        <span
+          key={l}
+          ref={(e) => {
+            probes.current[i] = e
+          }}
+          aria-hidden
+          className="pointer-events-none invisible absolute left-0 top-0 whitespace-nowrap"
+        >
+          {l}
+        </span>
+      ))}
+      <span className="block whitespace-nowrap" style={fit.scale < 1 ? { fontSize: `${fit.scale}em` } : undefined} data-testid={testId}>
+        {text}
+      </span>
     </div>
   )
 }

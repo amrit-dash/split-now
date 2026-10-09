@@ -33,7 +33,7 @@ window.addEventListener('vite:preloadError', (e) => {
 console.info(`Split Now ${__APP_VERSION__}`)
 
 // The data layer is a static import picked at build time (src/data/index.ts), so render at once:
-// the HTML splash (index.html) hands over to <Splash/> in App while the sign-in state is read.
+// the HTML splash (index.html) hands over to <Splash/> in App, which carries on its animation while the sign-in state is read.
 initRepo()
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
