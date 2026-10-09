@@ -1,0 +1,291 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --color-ink-950: #0b0a14;
+  --color-ink-900: #13111f;
+  --color-ink-800: #1c1a2b;
+  --color-ink-700: #2a2740;
+  --animate-sheet: sheet-up 0.28s cubic-bezier(0.2, 0.9, 0.3, 1);
+  --animate-fade: fade-in 0.2s ease-out;
+  --animate-pop: pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.4);
+}
+
+/*
+ * Accent colours. `brand` is the primary scale and `duo` its gradient partner. They live in
+ * `@theme static` so every step is always emitted as a variable on :root, and utilities read
+ * them via var() — so the overrides below (set from src/lib/accent.ts as
+ * <html data-accent="…" data-duo="off">) re-theme the whole UI at runtime.
+ * Defaults = Violet (violet + Tailwind fuchsia). Charts (src/lib/chartPalette.ts) are not themed.
+ */
+@theme static {
+  --color-brand-50: #f5f3ff;
+  --color-brand-100: #ede9fe;
+  --color-brand-200: #ddd6fe;
+  --color-brand-300: #c4b5fd;
+  --color-brand-400: #a78bfa;
+  --color-brand-500: #8b5cf6;
+  --color-brand-600: #7c3aed;
+  --color-brand-700: #6d28d9;
+  --color-brand-800: #5b21b6;
+  --color-brand-900: #4c1d95;
+  --color-duo-50: oklch(97.7% 0.017 320.058);
+  --color-duo-100: oklch(95.2% 0.037 318.852);
+  --color-duo-200: oklch(90.3% 0.076 319.62);
+  --color-duo-300: oklch(83.3% 0.145 321.434);
+  --color-duo-400: oklch(74% 0.238 322.16);
+  --color-duo-500: oklch(66.7% 0.295 322.15);
+  --color-duo-600: oklch(59.1% 0.293 322.896);
+  --color-duo-700: oklch(51.8% 0.253 323.949);
+  --color-duo-800: oklch(45.2% 0.211 324.591);
+  --color-duo-900: oklch(40.1% 0.17 325.612);
+  /* Vivid mid-stop for the Home hero (Tailwind violet-600 by default). */
+  --color-brand-vivid: oklch(54.1% 0.281 293.009);
+}
+
+/* Presets: brand + duo scales from Tailwind's palette. Steps 400+ are shifted one shade darker
+   for the lighter hues (emerald/teal, orange, amber) so white text on brand-600 stays readable. */
+:root {
+  &[data-accent='ocean'] {
+    --color-brand-50: oklch(97% 0.014 254.604); --color-brand-100: oklch(93.2% 0.032 255.585); --color-brand-200: oklch(88.2% 0.059 254.128); --color-brand-300: oklch(80.9% 0.105 251.813); --color-brand-400: oklch(70.7% 0.165 254.624); --color-brand-500: oklch(62.3% 0.214 259.815); --color-brand-600: oklch(54.6% 0.245 262.881); --color-brand-700: oklch(48.8% 0.243 264.376); --color-brand-800: oklch(42.4% 0.199 265.638); --color-brand-900: oklch(37.9% 0.146 265.522);
+    --color-duo-50: oklch(98.4% 0.019 200.873); --color-duo-100: oklch(95.6% 0.045 203.388); --color-duo-200: oklch(91.7% 0.08 205.041); --color-duo-300: oklch(86.5% 0.127 207.078); --color-duo-400: oklch(78.9% 0.154 211.53); --color-duo-500: oklch(71.5% 0.143 215.221); --color-duo-600: oklch(60.9% 0.126 221.723); --color-duo-700: oklch(52% 0.105 223.128); --color-duo-800: oklch(45% 0.085 224.283); --color-duo-900: oklch(39.8% 0.07 227.392);
+    --color-brand-vivid: oklch(54.6% 0.245 262.881);
+  }
+  &[data-accent='emerald'] {
+    --color-brand-50: oklch(97.9% 0.021 166.113); --color-brand-100: oklch(95% 0.052 163.051); --color-brand-200: oklch(90.5% 0.093 164.15); --color-brand-300: oklch(84.5% 0.143 164.978); --color-brand-400: oklch(69.6% 0.17 162.48); --color-brand-500: oklch(59.6% 0.145 163.225); --color-brand-600: oklch(50.8% 0.118 165.612); --color-brand-700: oklch(43.2% 0.095 166.913); --color-brand-800: oklch(37.8% 0.077 168.94); --color-brand-900: oklch(26.2% 0.051 172.552);
+    --color-duo-50: oklch(98.4% 0.014 180.72); --color-duo-100: oklch(95.3% 0.051 180.801); --color-duo-200: oklch(91% 0.096 180.426); --color-duo-300: oklch(85.5% 0.138 181.071); --color-duo-400: oklch(70.4% 0.14 182.503); --color-duo-500: oklch(60% 0.118 184.704); --color-duo-600: oklch(51.1% 0.096 186.391); --color-duo-700: oklch(43.7% 0.078 188.216); --color-duo-800: oklch(38.6% 0.063 188.416); --color-duo-900: oklch(27.7% 0.046 192.524);
+    --color-brand-vivid: oklch(50.8% 0.118 165.612);
+  }
+  &[data-accent='rose'] {
+    --color-brand-50: oklch(96.9% 0.015 12.422); --color-brand-100: oklch(94.1% 0.03 12.58); --color-brand-200: oklch(89.2% 0.058 10.001); --color-brand-300: oklch(81% 0.117 11.638); --color-brand-400: oklch(71.2% 0.194 13.428); --color-brand-500: oklch(64.5% 0.246 16.439); --color-brand-600: oklch(58.6% 0.253 17.585); --color-brand-700: oklch(51.4% 0.222 16.935); --color-brand-800: oklch(45.5% 0.188 13.697); --color-brand-900: oklch(41% 0.159 10.272);
+    --color-duo-50: oklch(97.1% 0.014 343.198); --color-duo-100: oklch(94.8% 0.028 342.258); --color-duo-200: oklch(89.9% 0.061 343.231); --color-duo-300: oklch(82.3% 0.12 346.018); --color-duo-400: oklch(71.8% 0.202 349.761); --color-duo-500: oklch(65.6% 0.241 354.308); --color-duo-600: oklch(59.2% 0.249 0.584); --color-duo-700: oklch(52.5% 0.223 3.958); --color-duo-800: oklch(45.9% 0.187 3.815); --color-duo-900: oklch(40.8% 0.153 2.432);
+    --color-brand-vivid: oklch(58.6% 0.253 17.585);
+  }
+  &[data-accent='indigo'] {
+    --color-brand-50: oklch(96.2% 0.018 272.314); --color-brand-100: oklch(93% 0.034 272.788); --color-brand-200: oklch(87% 0.065 274.039); --color-brand-300: oklch(78.5% 0.115 274.713); --color-brand-400: oklch(67.3% 0.182 276.935); --color-brand-500: oklch(58.5% 0.233 277.117); --color-brand-600: oklch(51.1% 0.262 276.966); --color-brand-700: oklch(45.7% 0.24 277.023); --color-brand-800: oklch(39.8% 0.195 277.366); --color-brand-900: oklch(35.9% 0.144 278.697);
+    --color-duo-50: oklch(97.7% 0.013 236.62); --color-duo-100: oklch(95.1% 0.026 236.824); --color-duo-200: oklch(90.1% 0.058 230.902); --color-duo-300: oklch(82.8% 0.111 230.318); --color-duo-400: oklch(74.6% 0.16 232.661); --color-duo-500: oklch(68.5% 0.169 237.323); --color-duo-600: oklch(58.8% 0.158 241.966); --color-duo-700: oklch(50% 0.134 242.749); --color-duo-800: oklch(44.3% 0.11 240.79); --color-duo-900: oklch(39.1% 0.09 240.876);
+    --color-brand-vivid: oklch(51.1% 0.262 276.966);
+  }
+  &[data-accent='saffron'] {
+    --color-brand-50: oklch(98.7% 0.022 95.277); --color-brand-100: oklch(96.2% 0.059 95.617); --color-brand-200: oklch(92.4% 0.12 95.746); --color-brand-300: oklch(87.9% 0.169 91.605); --color-brand-400: oklch(76.9% 0.188 70.08); --color-brand-500: oklch(66.6% 0.179 58.318); --color-brand-600: oklch(55.5% 0.163 48.998); --color-brand-700: oklch(47.3% 0.137 46.201); --color-brand-800: oklch(41.4% 0.112 45.904); --color-brand-900: oklch(27.9% 0.077 45.635);
+    --color-duo-50: oklch(98% 0.016 73.684); --color-duo-100: oklch(95.4% 0.038 75.164); --color-duo-200: oklch(90.1% 0.076 70.697); --color-duo-300: oklch(83.7% 0.128 66.29); --color-duo-400: oklch(70.5% 0.213 47.604); --color-duo-500: oklch(64.6% 0.222 41.116); --color-duo-600: oklch(55.3% 0.195 38.402); --color-duo-700: oklch(47% 0.157 37.304); --color-duo-800: oklch(40.8% 0.123 38.172); --color-duo-900: oklch(26.6% 0.079 36.259);
+    --color-brand-vivid: oklch(55.5% 0.163 48.998);
+  }
+  /* Amber: golden yellow → bright gold. Brand is one step darker from 400 for contrast. */
+  &[data-accent='amber'] {
+    --color-brand-50: oklch(98.7% 0.026 102.212); --color-brand-100: oklch(97.3% 0.071 103.193); --color-brand-200: oklch(94.5% 0.129 101.54); --color-brand-300: oklch(90.5% 0.182 98.111); --color-brand-400: oklch(79.5% 0.184 86.047); --color-brand-500: oklch(68.1% 0.162 75.834); --color-brand-600: oklch(55.4% 0.135 66.442); --color-brand-700: oklch(47.6% 0.114 61.907); --color-brand-800: oklch(42.1% 0.095 57.708); --color-brand-900: oklch(28.6% 0.066 53.813);
+    --color-duo-50: oklch(98.7% 0.026 102.212); --color-duo-100: oklch(97.3% 0.071 103.193); --color-duo-200: oklch(94.5% 0.129 101.54); --color-duo-300: oklch(90.5% 0.182 98.111); --color-duo-400: oklch(85.2% 0.199 91.936); --color-duo-500: oklch(79.5% 0.184 86.047); --color-duo-600: oklch(68.1% 0.162 75.834); --color-duo-700: oklch(55.4% 0.135 66.442); --color-duo-800: oklch(47.6% 0.114 61.907); --color-duo-900: oklch(42.1% 0.095 57.708);
+    --color-brand-vivid: oklch(55.4% 0.135 66.442);
+  }
+  &[data-accent='graphite'] {
+    --color-brand-50: oklch(98.4% 0.003 247.858); --color-brand-100: oklch(96.8% 0.007 247.896); --color-brand-200: oklch(92.9% 0.013 255.508); --color-brand-300: oklch(86.9% 0.022 252.894); --color-brand-400: oklch(70.4% 0.04 256.788); --color-brand-500: oklch(55.4% 0.046 257.417); --color-brand-600: oklch(44.6% 0.043 257.281); --color-brand-700: oklch(37.2% 0.044 257.287); --color-brand-800: oklch(27.9% 0.041 260.031); --color-brand-900: oklch(20.8% 0.042 265.755);
+    --color-duo-50: oklch(98.5% 0 none); --color-duo-100: oklch(96.7% 0.001 286.375); --color-duo-200: oklch(92% 0.004 286.32); --color-duo-300: oklch(87.1% 0.006 286.286); --color-duo-400: oklch(70.5% 0.015 286.067); --color-duo-500: oklch(55.2% 0.016 285.938); --color-duo-600: oklch(44.2% 0.017 285.786); --color-duo-700: oklch(37% 0.013 285.805); --color-duo-800: oklch(27.4% 0.006 286.033); --color-duo-900: oklch(21% 0.006 285.885);
+    --color-brand-vivid: oklch(44.6% 0.043 257.281);
+  }
+  /* Dual tone off: gradients collapse to the brand scale. Must stay after the presets. */
+  &[data-duo='off'] {
+    --color-duo-50: var(--color-brand-50); --color-duo-100: var(--color-brand-100); --color-duo-200: var(--color-brand-200); --color-duo-300: var(--color-brand-300); --color-duo-400: var(--color-brand-400); --color-duo-500: var(--color-brand-500); --color-duo-600: var(--color-brand-600); --color-duo-700: var(--color-brand-700); --color-duo-800: var(--color-brand-800); --color-duo-900: var(--color-brand-900);
+  }
+}
+
+@keyframes sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pop { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+@layer base {
+  /* No rubber-band overscroll on the page: on iOS it dragged the frosted tab bar's backdrop along
+     and the bar briefly went see-through. */
+  html { -webkit-tap-highlight-color: transparent; overscroll-behavior: none; @apply bg-slate-50 dark:bg-ink-950 dark:[color-scheme:dark]; }
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased dark:bg-ink-950 dark:text-slate-100;
+    overscroll-behavior-y: none;
+  }
+  input, select, textarea, button { font: inherit; }
+  /* iOS zooms inputs under 16px — keep them at 16px. */
+  input, select, textarea { font-size: 16px; }
+}
+
+@utility card {
+  --graph-bg: #ffffff;
+  &:where(.dark *) { --graph-bg: #13111f; } @apply rounded-3xl bg-white shadow-sm ring-1 ring-slate-900/5 dark:bg-ink-900 dark:ring-white/5; }
+
+@utility input {
+    @apply w-full rounded-2xl border-0 bg-slate-100 px-4 py-3 text-slate-900 outline-none ring-1 ring-transparent
+      placeholder:text-slate-400 focus:ring-2 focus:ring-brand-500 dark:bg-ink-800 dark:text-slate-100;
+  }
+
+@utility label { @apply mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400; }
+
+@utility btn {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl px-5 py-3 font-semibold transition
+      active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
+  }
+
+/*
+ * Accent fills come alive: soft patches of a lighter shade, a darker shade and the duo colour
+ * float slowly across the fill behind the content, aurora-style. The patches have a fixed size
+ * (not a share of the button) and fade to nothing at their edges (no blur filter, which Safari
+ * wouldn't clip to the rounded corners), so a wide button gets the same gentle drift as a small one; their positions move via animated custom properties.
+ */
+@property --al-x { syntax: '<percentage>'; inherits: false; initial-value: 20%; }
+@property --al-y { syntax: '<percentage>'; inherits: false; initial-value: 30%; }
+@property --ad-x { syntax: '<percentage>'; inherits: false; initial-value: 80%; }
+@property --ad-y { syntax: '<percentage>'; inherits: false; initial-value: 70%; }
+@property --au-x { syntax: '<percentage>'; inherits: false; initial-value: 50%; }
+@keyframes accent-float {
+  0% { --al-x: 12%; --al-y: 25%; --ad-x: 88%; --ad-y: 75%; --au-x: 45%; }
+  25% { --al-x: 35%; --al-y: 70%; --ad-x: 65%; --ad-y: 20%; --au-x: 75%; }
+  50% { --al-x: 62%; --al-y: 35%; --ad-x: 30%; --ad-y: 80%; --au-x: 30%; }
+  75% { --al-x: 85%; --al-y: 65%; --ad-x: 15%; --ad-y: 30%; --au-x: 60%; }
+  100% { --al-x: 55%; --al-y: 20%; --ad-x: 45%; --ad-y: 65%; --au-x: 85%; }
+}
+@utility accent-live {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  &::before {
+    content: '';
+    position: absolute;
+    /* Same box and corners as the button: Safari doesn't always clip an animated layer to the
+       parent's rounded corners, which showed square corners round every accent button. */
+    inset: 0;
+    border-radius: inherit;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(8rem 5rem at var(--al-x) var(--al-y), color-mix(in oklab, var(--color-brand-300) 45%, transparent), transparent),
+      radial-gradient(8.5rem 5.5rem at var(--ad-x) var(--ad-y), color-mix(in oklab, var(--color-brand-900) 40%, transparent), transparent),
+      radial-gradient(7rem 4.5rem at var(--au-x) 50%, color-mix(in oklab, var(--color-duo-400) 30%, transparent), transparent);
+    animation: accent-float 16s ease-in-out infinite alternate;
+  }
+}
+
+@utility btn-primary { @apply btn accent-live bg-gradient-to-r from-brand-600 to-duo-600 text-white shadow-lg shadow-brand-600/25; }
+
+@utility btn-secondary { @apply btn bg-slate-100 text-slate-900 dark:bg-ink-800 dark:text-slate-100; }
+
+@utility btn-ghost { @apply btn bg-transparent text-brand-600 dark:text-brand-300; }
+
+@utility chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium ring-1 ring-slate-200 transition
+      dark:ring-ink-700;
+  }
+
+@utility chip-on { @apply accent-live bg-brand-600 text-white ring-brand-600; }
+
+@utility pos { @apply text-emerald-600 dark:text-emerald-400; }
+
+@utility neg { @apply text-rose-600 dark:text-rose-400; }
+
+@utility safe-top { padding-top: env(safe-area-inset-top); }
+
+@utility safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+/* Horizontal scrollers that should still scroll but not show a bar (icon pickers, chip rows). */
+@utility scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
+/* The update banner (UpdatePrompt) takes the install banner's spot while it is shown. */
+html[data-update-ready] .install-banner { display: none; }
+
+/* Home greeting icon: a short wave a few times, or a gentle bob. Off with reduced motion. */
+@keyframes wave { 0%, 60%, 100% { transform: rotate(0deg); } 10%, 30% { transform: rotate(16deg); } 20% { transform: rotate(-8deg); } 40% { transform: rotate(-4deg); } 50% { transform: rotate(10deg); } }
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+/* Greeting icon motions: a few rounds, each ending at rest, then it stays still. */
+@keyframes wave-loop { 0%, 55%, 100% { transform: rotate(0deg); } 6%, 18% { transform: rotate(16deg); } 12% { transform: rotate(-8deg); } 24% { transform: rotate(-4deg); } 30% { transform: rotate(10deg); } 36% { transform: rotate(0deg); } }
+@keyframes tilt { 0%, 100% { transform: rotate(0) scale(1); } 25% { transform: rotate(-9deg) scale(1.04); } 75% { transform: rotate(9deg) scale(1.04); } }
+@keyframes hello-bounce { 0%, 50%, 100% { transform: translateY(0) scale(1, 1); } 12% { transform: translateY(0) scale(1.08, 0.92); } 26% { transform: translateY(-5px) scale(0.96, 1.05); } 40% { transform: translateY(0) scale(1.05, 0.95); } }
+@keyframes hello-pulse { 0%, 100% { transform: scale(1); filter: brightness(1); } 40% { transform: scale(1.16); filter: brightness(1.15); } }
+@keyframes hello-swing { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(14deg); } 45% { transform: rotate(-10deg); } 70% { transform: rotate(5deg); } }
+@utility animate-hello-bounce { animation: hello-bounce 1.8s ease-in-out 0.4s 3; }
+@utility animate-hello-pulse { animation: hello-pulse 1.9s ease-in-out 0.4s 3; }
+@utility animate-hello-swing { animation: hello-swing 2.2s ease-in-out 0.4s 3; }
+@utility animate-wave { animation: wave-loop 2.6s ease-in-out 0.4s 3; }
+@utility animate-tilt { animation: tilt 2.2s ease-in-out 0.4s 3; }
+@utility animate-float { animation: float 2.4s ease-in-out 0.4s 4; }
+
+/* Progress bar with no known percentage (waiting on the AI reader). */
+@keyframes indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+
+/* Update banner: rises from behind the tab bar. */
+@keyframes rise { from { transform: translateY(110%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+/* Horizontally scrolling rows (chips, split types, filters) scroll by touch without a visible bar. */
+.overflow-x-auto { scrollbar-width: none; }
+.overflow-x-auto::-webkit-scrollbar { display: none; }
+
+/* Tab bar (Layout): bottom padding trimmed into the home-indicator area, and a round notch for the + button. */
+:root {
+  --nav-pad: max(calc(env(safe-area-inset-bottom) - 14px), 6px);
+  --nav-h: calc(3.4rem + var(--nav-pad));
+  /* The floating lane above the tab bar (banners, toasts, save bars): clears the raised + button. */
+  --lane: calc(var(--nav-h) + 2.75rem);
+}
+/* The notch: a 2.35rem circle around the + button with 0.5rem rounded shoulders where it meets
+   the bar's top edge (the SVG path is the cut-out, subtracted from the bar). */
+:root { --notch: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 112 48'%3E%3Cpath d='M0 0H10.41A8 8 0 0 1 18.41 8.14A37.6 37.6 0 1 0 93.59 8.14A8 8 0 0 1 101.59 0H112Z'/%3E%3C/svg%3E"); }
+.nav-notch {
+  -webkit-mask: linear-gradient(#000 0 0), var(--notch) top center / 7rem 3rem no-repeat;
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) exclude, var(--notch) top center / 7rem 3rem no-repeat;
+}
+
+/* The + button: no hard outline; a soft top highlight (glass edge) and a tight shadow. The thin rim
+   round its lower half and the glow underneath are separate layers (Layout). */
+.fab-ring {
+  box-shadow:
+    inset 0 1px 1px rgb(255 255 255 / 0.35),
+    inset 0 -6px 12px -6px color-mix(in oklab, var(--color-brand-900) 45%, transparent),
+    0 4px 12px -3px color-mix(in oklab, var(--color-brand-900) 55%, transparent);
+}
+.dark .fab-ring {
+  box-shadow:
+    inset 0 1px 1px rgb(255 255 255 / 0.25),
+    inset 0 -6px 12px -6px rgb(0 0 0 / 0.35),
+    0 4px 12px -3px rgb(0 0 0 / 0.55);
+}
+
+html[data-capture-alert] [data-testid='update-banner'] { display: none; }
+html[data-capture-alert] .install-banner { display: none; }
+
+/* iOS zooms into any field under 16px on focus; small-text fields stay 16px on touch screens. */
+@media (pointer: coarse) {
+  :is(input, textarea, select):is(.text-sm, .text-xs) { font-size: 16px !important; }
+}
+
+/* Toasts: a stack in the floating lane (above the tab bar where there is one, above the home
+   indicator elsewhere, above any banner showing). Newest at the bottom; see Toast.tsx. */
+.toast-stack { bottom: calc(env(safe-area-inset-bottom) + 1rem); }
+html[data-nav] .toast-stack { bottom: var(--lane); }
+html[data-nav]:has(.install-banner, [data-testid='update-banner'], [data-testid='unsaved-bar'], [data-testid='capture-alert']) .toast-stack { bottom: calc(var(--lane) + 5rem); }
+@keyframes toast-in { from { transform: translateY(1rem) scale(0.96); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+@utility animate-toast { animation: toast-in 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.15); }
+
+/* + button halo (Layout): both layers are blurred, so every edge fades; masks only shape the strength. */
+.fab-halo-a {
+  -webkit-mask: radial-gradient(closest-side, #000 25%, transparent 90%), linear-gradient(to bottom, rgb(0 0 0 / 0.25) 20%, #000 60%);
+  -webkit-mask-composite: source-in;
+  mask: radial-gradient(closest-side, #000 25%, transparent 90%) intersect, linear-gradient(to bottom, rgb(0 0 0 / 0.25) 20%, #000 60%);
+}
+.fab-halo-b {
+  /* eased fade (many stops) so there is no visible band where it starts */
+  -webkit-mask: linear-gradient(to bottom, transparent 28%, rgb(0 0 0 / 0.06) 36%, rgb(0 0 0 / 0.2) 44%, rgb(0 0 0 / 0.42) 52%, rgb(0 0 0 / 0.66) 60%, rgb(0 0 0 / 0.86) 68%, #000 78%);
+  mask: linear-gradient(to bottom, transparent 28%, rgb(0 0 0 / 0.06) 36%, rgb(0 0 0 / 0.2) 44%, rgb(0 0 0 / 0.42) 52%, rgb(0 0 0 / 0.66) 60%, rgb(0 0 0 / 0.86) 68%, #000 78%);
+}
+.fab-rim {
+  -webkit-mask: linear-gradient(to bottom, transparent 30%, #000 75%);
+  mask: linear-gradient(to bottom, transparent 30%, #000 75%);
+}
+

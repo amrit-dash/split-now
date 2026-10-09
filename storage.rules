@@ -1,0 +1,33 @@
+rules_version = '2';
+
+// Receipts live at receipts/{groupId}/{file}. Only members of that group can read or write.
+// Profile photos live at avatars/{uid}/{file}: written only by that user, readable by anyone
+// signed in (co-members see them on group screens; the URL carries a download token anyway).
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isMember(groupId) {
+      return request.auth != null
+        && request.auth.uid in firestore.get(/databases/(default)/documents/groups/$(groupId)).data.memberUids;
+    }
+
+    match /receipts/{groupId}/{fileName} {
+      allow read: if isMember(groupId);
+      allow create: if isMember(groupId)
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if isMember(groupId);
+    }
+
+    match /avatars/{userId}/{fileName} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null && request.auth.uid == userId
+        && request.resource.size < 2 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

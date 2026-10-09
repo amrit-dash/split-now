@@ -1,0 +1,568 @@
+rules_version = '2';
+
+// Split It — Firestore security rules.
+// Model: a user can see a group only if their uid is in group.memberUids.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+    // admins/{uid}: created by hand in the Firebase console; no client can write it.
+    function isAdmin() { return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
+    function groupDoc(groupId) { return get(/databases/$(database)/documents/groups/$(groupId)); }
+    function isGroupMember(groupId) { return signedIn() && uid() in groupDoc(groupId).data.memberUids; }
+    // State of the group once the current write (or batch) is applied.
+    function groupAfter(groupId) { return getAfter(/databases/$(database)/documents/groups/$(groupId)); }
+
+    // ---- Users ---------------------------------------------------------
+    // Private profile (email, default currency, payment handles). Owner only.
+    // What co-members may see (name + payment handles) is copied by the owner into
+    // groups/{groupId}/profiles/{uid}, readable only by that group's members.
+    match /users/{userId} {
+      allow get: if signedIn() && uid() == userId;
+      allow list: if false;
+      allow create, update: if signedIn() && uid() == userId
+        && request.resource.data.uid == userId;
+      allow delete: if signedIn() && uid() == userId;
+
+      // Captured transactions waiting to be sorted into a group: private to the user.
+      // The user's own Gemini key: written and read only by Cloud Functions (aiKey), never by the app.
+      match /secrets/{id} {
+        allow read, write: if false;
+      }
+      // Server-written AI status (key hint, last error); the owner can read it.
+      match /aiState/{id} {
+        allow read: if signedIn() && uid() == userId;
+        allow write: if false;
+      }
+
+      match /captures/{captureId} {
+        allow read, delete: if signedIn() && uid() == userId;
+        allow create, update: if signedIn() && uid() == userId
+          && request.resource.data.amount is int
+          && request.resource.data.amount > 0
+          && request.resource.data.status in ['pending', 'assigned', 'dismissed'];
+      }
+
+      // FCM Web Push registrations, one per browser (doc id = hash of the token). Owner only;
+      // Cloud Functions read them (Admin SDK) to send and delete dead ones.
+      match /pushTokens/{tokenId} {
+        allow read, delete: if signedIn() && uid() == userId;
+        allow create, update: if signedIn() && uid() == userId
+          && request.resource.data.keys().hasOnly(['token', 'ua', 'createdAt', 'lastSeen'])
+          && request.resource.data.token is string
+          && request.resource.data.token.size() > 0 && request.resource.data.token.size() <= 4096
+          && (!('ua' in request.resource.data) || (request.resource.data.ua is string && request.resource.data.ua.size() <= 300))
+          && request.resource.data.createdAt is int
+          && request.resource.data.lastSeen is int;
+      }
+
+      // What the capture webhook did with each request (result, amount, merchant; never SMS
+      // text). Written only by the Cloud Function (Admin SDK); the owner may read and clear it.
+      match /captureLog/{entryId} {
+        allow read, delete: if signedIn() && uid() == userId;
+        allow create, update: if false;
+      }
+
+      // Per-user settings. settings/notifications holds push preferences and auto-capture
+      // settings (outsideTrips, capturePaused, minAmount, ignoreWords) and AI reading (aiSms, aiImages).
+      match /settings/{settingId} {
+        allow read, delete: if signedIn() && uid() == userId;
+        allow create, update: if signedIn() && uid() == userId
+          && (settingId != 'notifications' || (
+            request.resource.data.keys().hasOnly(['captures', 'unsorted', 'expenses', 'settlements', 'reminders', 'outsideTrips',
+              'capturePaused', 'minAmount', 'ignoreWords', 'aiSms', 'aiImages', 'aiEnabled', 'aiSource', 'aiModel', 'updatedAt'])
+            && request.resource.data.get('captures', true) is bool
+            && request.resource.data.get('unsorted', false) is bool
+            && request.resource.data.get('expenses', true) is bool
+            && request.resource.data.get('settlements', true) is bool
+            && request.resource.data.get('reminders', true) is bool
+            && request.resource.data.get('outsideTrips', false) is bool
+            // Auto-capture filters (shared/capture-filters.ts; the webhook re-normalises them)
+            && request.resource.data.get('capturePaused', false) is bool
+            && request.resource.data.get('minAmount', 0) is int
+            && request.resource.data.get('minAmount', 0) >= 0 && request.resource.data.get('minAmount', 0) <= 10000000
+            && request.resource.data.get('ignoreWords', []) is list
+            && request.resource.data.get('ignoreWords', []).size() <= 20
+            // AI reading (Gemini) of SMS and images; on unless turned off
+            && request.resource.data.get('aiSms', true) is bool
+            && request.resource.data.get('aiImages', true) is bool
+            && request.resource.data.get('aiEnabled', true) is bool
+            && request.resource.data.get('aiSource', 'auto') in ['auto', 'own', 'app']
+            && request.resource.data.get('aiModel', '') is string && request.resource.data.get('aiModel', '').size() <= 80
+            && request.resource.data.get('updatedAt', 0) is int));
+      }
+    }
+
+    // ---- Server-only state (Cloud Functions, Admin SDK) ----------------
+    // rateLimits/{tokenHash}: capture webhook counters. reminderState/{groupId}: when each
+    // member was last nudged to settle up. No client access at all.
+    match /rateLimits/{id} {
+      allow read, write: if false;
+    }
+    match /reminderState/{id} {
+      allow read, write: if false;
+    }
+
+    // fxRates/{yyyy-mm-dd | latest}: shared ECB exchange rates (EUR-based), written only by the
+    // fxDaily/fxMorning schedules and the refreshFx callable. Any signed-in user, guests at a
+    // live table included (anonymous auth), may read them; nobody may write from a client.
+    // config/ai: project AI settings (shared Gemini key on/off, allow-list, model, limits).
+    // Everyone signed in reads it (the settings screen shows availability); only admins write.
+    match /config/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin() && id == 'ai'
+        && request.resource.data.keys().hasOnly(['mode', 'allowEmails', 'images', 'sms', 'model', 'perDay', 'perHour', 'updatedAt', 'updatedBy'])
+        && request.resource.data.mode in ['off', 'everyone', 'allowlist']
+        && request.resource.data.get('allowEmails', []) is list && request.resource.data.get('allowEmails', []).size() <= 200
+        && request.resource.data.get('images', true) is bool
+        && request.resource.data.get('sms', true) is bool
+        && request.resource.data.get('model', '') is string && request.resource.data.get('model', '').size() <= 80
+        && request.resource.data.get('perDay', 100) is int && request.resource.data.get('perDay', 100) >= 1 && request.resource.data.get('perDay', 100) <= 5000
+        && request.resource.data.get('perHour', 30) is int && request.resource.data.get('perHour', 30) >= 1 && request.resource.data.get('perHour', 30) <= 1000;
+      // config/app: the version shown in Profile (admins set it).
+      allow write: if isAdmin() && id == 'app'
+        && request.resource.data.keys().hasOnly(['version', 'updatedAt', 'updatedBy'])
+        && request.resource.data.version is string && request.resource.data.version.matches('^[0-9]+([.][0-9]+){0,3}([-+][0-9A-Za-z.]{1,20})?$');
+    }
+    // admins/{uid}: lets a user see that they're an admin. Managed in the Firebase console only.
+    match /admins/{id} {
+      allow get: if signedIn() && uid() == id;
+      allow list, write: if false;
+    }
+    // stats/ai_{day}: AI usage counters written by Cloud Functions; admins read them.
+    match /stats/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /fxRates/{id} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    // ---- Auto-capture --------------------------------------------------
+    // A capture token is a long random secret that lets a signed-out automation (an iOS Shortcut
+    // calling the REST API) drop a transaction into captureInbox for its owner.
+    match /captureTokens/{token} {
+      allow get, list, delete: if signedIn() && resource.data.uid == uid();
+      allow create: if signedIn()
+        && token.size() >= 24
+        && request.resource.data.uid == uid()
+        && request.resource.data.keys().hasOnly(['uid', 'createdAt', 'groupId', 'label'])
+        && (!('groupId' in request.resource.data) || (request.resource.data.groupId is string && request.resource.data.groupId.size() <= 64
+            // a token can only be scoped to a group its owner is in
+            && exists(/databases/$(database)/documents/groups/$(request.resource.data.groupId))
+            && uid() in groupDoc(request.resource.data.groupId).data.memberUids))
+        && (!('label' in request.resource.data) || (request.resource.data.label is string && request.resource.data.label.size() <= 60));
+      allow update: if false;
+    }
+
+    // Written without Firebase Auth. The token must exist and belong to the uid on the doc;
+    // only whitelisted, typed fields are allowed. Only the owner (signed in) can read or delete,
+    // which the app does on open when it moves entries into users/{uid}/captures.
+    match /captureInbox/{id} {
+      function tokenOwner(t) { return get(/databases/$(database)/documents/captureTokens/$(t)).data.uid; }
+      function optStr(d, k, max) { return !(k in d) || (d[k] is string && d[k].size() <= max); }
+      function validInbox(d) {
+        return d.keys().hasAll(['token', 'uid', 'merchant'])
+          && d.keys().hasOnly(['token', 'uid', 'amount', 'raw', 'currency', 'merchant', 'ts', 'src', 'card'])
+          && d.token is string && d.token.size() >= 24 && d.token.size() <= 64
+          && d.uid is string
+          && d.merchant is string && d.merchant.size() > 0 && d.merchant.size() <= 100
+          && (('amount' in d && d.amount is int && d.amount > 0)
+              || (!('amount' in d) && d.raw is string && d.raw.size() > 0))
+          && optStr(d, 'raw', 40) && optStr(d, 'currency', 3) && optStr(d, 'ts', 40)
+          && optStr(d, 'src', 20) && optStr(d, 'card', 40);
+      }
+      allow create: if validInbox(request.resource.data)
+        && exists(/databases/$(database)/documents/captureTokens/$(request.resource.data.token))
+        && tokenOwner(request.resource.data.token) == request.resource.data.uid;
+      allow get, list, delete: if signedIn() && resource.data.uid == uid();
+      allow update: if false;
+    }
+
+    // ---- Groups --------------------------------------------------------
+    match /groups/{groupId} {
+      function isMember() { return signedIn() && uid() in resource.data.memberUids; }
+
+      // A non-member may join only by:
+      //  - presenting the group's current invite code (joinCode == inviteCode),
+      //  - adding exactly their own uid to memberUids,
+      //  - writing exactly one members entry (joinMemberId) that carries their uid,
+      //    and that entry must be new or an unclaimed placeholder.
+      function isJoining() {
+        let before = resource.data;
+        let after = request.resource.data;
+        let mid = after.joinMemberId;
+        return signedIn()
+          && !(uid() in before.memberUids)
+          && after.joinCode == before.inviteCode
+          && after.memberUids.toSet() == before.memberUids.toSet().union([uid()].toSet())
+          && after.diff(before).affectedKeys().hasOnly(['memberUids', 'members', 'joinCode', 'joinMemberId', 'updatedAt'])
+          && after.members.diff(before.members).affectedKeys().hasOnly([mid])
+          && after.members[mid].uid == uid()
+          && (!(mid in before.members) || !('uid' in before.members[mid]));
+      }
+
+      // How an existing member may change membership. Every change to `members` must name
+      // the single entry it touches in `memberOpId` (rules can't iterate a map), so:
+      //  - existing entries are never edited in place (their uid is immutable, and a
+      //    placeholder can only be claimed through isJoining),
+      //  - a new entry is a placeholder (no uid),
+      //  - removing an entry that has a uid also removes that uid from memberUids, and
+      //    only the creator may do that to someone else (anyone may remove themselves),
+      //  - memberUids never gains a uid here and only shrinks as above.
+      function validMembershipChange() {
+        let before = resource.data;
+        let after = request.resource.data;
+        let mdiff = after.members.diff(before.members);
+        let uidsAdded = after.memberUids.toSet().difference(before.memberUids.toSet());
+        let uidsRemoved = before.memberUids.toSet().difference(after.memberUids.toSet());
+        let op = after.get('memberOpId', '');
+        return uidsAdded.size() == 0
+          && mdiff.changedKeys().size() == 0
+          && (
+            // no membership change at all
+            (mdiff.addedKeys().size() == 0 && mdiff.removedKeys().size() == 0 && uidsRemoved.size() == 0)
+            // add one placeholder
+            || (mdiff.removedKeys().size() == 0 && mdiff.addedKeys().size() == 1 && mdiff.addedKeys().hasOnly([op])
+                && !('uid' in after.members[op]) && uidsRemoved.size() == 0)
+            // remove one placeholder
+            || (mdiff.addedKeys().size() == 0 && mdiff.removedKeys().size() == 1 && mdiff.removedKeys().hasOnly([op])
+                && !('uid' in before.members[op]) && uidsRemoved.size() == 0)
+            // remove one joined member (yourself, or anyone if you created the group)
+            || (mdiff.addedKeys().size() == 0 && mdiff.removedKeys().size() == 1 && mdiff.removedKeys().hasOnly([op])
+                && 'uid' in before.members[op]
+                && uidsRemoved == [before.members[op].uid].toSet()
+                && (before.members[op].uid == uid() || before.createdBy == uid()))
+          );
+      }
+
+      // A member with an account may edit their own entry's name and photo (copied from their
+      // profile by their app), named in memberOpId. Nothing else about membership changes.
+      function isOwnMemberEdit() {
+        let before = resource.data;
+        let after = request.resource.data;
+        let op = after.get('memberOpId', '');
+        let mdiff = after.members.diff(before.members);
+        let m = after.members[op];
+        return mdiff.addedKeys().size() == 0 && mdiff.removedKeys().size() == 0
+          && mdiff.changedKeys().size() == 1 && mdiff.changedKeys().hasOnly([op])
+          && after.memberUids.toSet() == before.memberUids.toSet()
+          && 'uid' in before.members[op] && before.members[op].uid == uid()
+          && m.diff(before.members[op]).affectedKeys().hasOnly(['name', 'photoURL'])
+          && m.name is string && m.name.size() > 0 && m.name.size() <= 100
+          && (!('photoURL' in m)
+            || (m.photoURL is string && m.photoURL.size() <= 2048 && m.photoURL.matches('https://.+')));
+      }
+
+      allow get: if isMember();
+      allow list: if signedIn() && uid() in resource.data.memberUids;
+      // The creator starts as the only signed-up member (others join themselves via invite).
+      allow create: if signedIn()
+        && request.resource.data.createdBy == uid()
+        && request.resource.data.memberUids == [uid()]
+        && request.resource.data.inviteCode is string
+        && request.resource.data.inviteCode.size() >= 6;
+      allow update: if (isMember()
+          // members can't silently change who created the group or its invite code
+          && request.resource.data.createdBy == resource.data.createdBy
+          && request.resource.data.inviteCode == resource.data.inviteCode
+          // "Pause auto-capture for this trip": any member may flip it
+          && request.resource.data.get('captureOff', false) is bool
+          && (validMembershipChange() || isOwnMemberEdit()))
+        || isJoining();
+      allow delete: if isMember() && resource.data.createdBy == uid();
+
+      // createdBy is the writer on create and never changes afterwards.
+      function validAuthor() {
+        return (request.method == 'create' && request.resource.data.createdBy == uid())
+          || (request.method == 'update' && request.resource.data.createdBy == resource.data.createdBy);
+      }
+
+      // ---- Trust fields (expenses + settlements) --------------------------
+      // Soft delete: only deletedAt/deletedBy change; trashing records the caller as deletedBy,
+      // restoring removes both. Any member may do either.
+      function isTrashChange() {
+        let before = resource.data;
+        let after = request.resource.data;
+        return after.diff(before).affectedKeys().hasOnly(['deletedAt', 'deletedBy'])
+          && (('deletedAt' in after && after.deletedAt is int && after.deletedBy == uid())
+              || (!('deletedAt' in after) && !('deletedBy' in after)));
+      }
+      // Hard delete: whoever trashed it, or the group creator.
+      function canPurge() {
+        return resource.data.get('deletedBy', '') == uid() || groupDoc(groupId).data.createdBy == uid();
+      }
+      function noTrustFieldsOnCreate() {
+        return !request.resource.data.keys().hasAny(['deletedAt', 'deletedBy', 'dispute', 'approvals']);
+      }
+
+      match /expenses/{expenseId} {
+        // A recurring occurrence keeps its template's author, whoever's client generates it:
+        // its id must be <templateId>_<date> and the template must exist with the same createdBy.
+        function isOccurrence() {
+          let d = request.resource.data;
+          let tpl = /databases/$(database)/documents/groups/$(groupId)/expenses/$(d.recurringFrom);
+          return request.method == 'create'
+            && d.get('recurringFrom', null) is string
+            && d.date is string
+            && expenseId == d.recurringFrom + '_' + d.date
+            && exists(tpl)
+            && get(tpl).data.createdBy == d.createdBy;
+        }
+
+        // Optional foreign-currency original (amount in its own minor units, locked FX rate).
+        // amount/paidBy/splits stay in the group currency, so nothing else depends on it.
+        function validOriginal(d) {
+          return !('original' in d) || (
+            d.original is map
+            && d.original.keys().hasAll(['currency', 'amount', 'rate', 'rateDate', 'source'])
+            && d.original.keys().hasOnly(['currency', 'amount', 'rate', 'rateDate', 'source'])
+            && d.original.currency is string && d.original.currency.size() == 3
+            && d.original.amount is int && d.original.amount > 0
+            && d.original.rate is number && d.original.rate > 0
+            && d.original.rateDate is string && d.original.rateDate.size() == 10
+            && d.original.source in ['ecb', 'manual']);
+        }
+
+        function validExpense() {
+          return (validAuthor() || isOccurrence())
+            && validOriginal(request.resource.data)
+            && request.resource.data.groupId == groupId
+            && request.resource.data.amount is int
+            && request.resource.data.amount > 0
+            // everyone who paid or owes must be a member of this group
+            && request.resource.data.paidBy.keys().hasOnly(groupDoc(groupId).data.members.keys())
+            && request.resource.data.splits.keys().hasOnly(groupDoc(groupId).data.members.keys());
+        }
+        // With group.requireApproval, an expense above approvalThreshold must carry
+        // requiresApproval when created or when its amount changes.
+        function approvalFlagOk() {
+          let g = groupDoc(groupId).data;
+          let d = request.resource.data;
+          return !(g.get('requireApproval', false) == true
+                   && d.amount > g.get('approvalThreshold', 10000)
+                   && (request.method == 'create' || d.amount != resource.data.amount))
+            || d.get('requiresApproval', false) == true;
+        }
+        // A normal edit can't touch anyone's flag or the trash fields, can't drop
+        // requiresApproval, and may only remove approvals (the app clears them when the money
+        // changes); approving is its own write (isFlagOrApproval).
+        function trustFieldsKept() {
+          let before = resource.data;
+          let after = request.resource.data;
+          let approvals = after.get('approvals', {}).diff(before.get('approvals', {}));
+          return !after.diff(before).affectedKeys().hasAny(['dispute', 'deletedAt', 'deletedBy'])
+            && approvals.changedKeys().size() == 0
+            && approvals.addedKeys().size() == 0
+            && (before.get('requiresApproval', false) != true || after.get('requiresApproval', false) == true);
+        }
+        // Flag / resolve / approve: only the caller's own key in `dispute` and `approvals`,
+        // and nothing else in the document.
+        function ownKeyOnly(field) {
+          return request.resource.data.get(field, {}).diff(resource.data.get(field, {})).affectedKeys().hasOnly([uid()]);
+        }
+        function validFlag(f) {
+          return f.keys().hasOnly(['byUid', 'memberId', 'reason', 'at'])
+            && f.byUid == uid()
+            && f.reason is string && f.reason.size() > 0 && f.reason.size() <= 500
+            && f.at is int
+            && f.memberId is string
+            // the flagger flags as themselves and is part of the expense
+            && groupDoc(groupId).data.members[f.memberId].get('uid', '') == uid()
+            && (f.memberId in resource.data.splits || f.memberId in resource.data.paidBy);
+        }
+        function isFlagOrApproval() {
+          let after = request.resource.data;
+          let flags = after.get('dispute', {});
+          let approvals = after.get('approvals', {});
+          return after.diff(resource.data).affectedKeys().hasOnly(['dispute', 'approvals'])
+            && ownKeyOnly('dispute') && ownKeyOnly('approvals')
+            && (!(uid() in flags) || validFlag(flags[uid()]))
+            && (!(uid() in approvals) || approvals[uid()] == true);
+        }
+
+        allow read: if isGroupMember(groupId);
+        allow create: if isGroupMember(groupId) && validExpense() && noTrustFieldsOnCreate() && approvalFlagOk();
+        allow update: if isGroupMember(groupId)
+          && ((validExpense() && trustFieldsKept() && approvalFlagOk()) || isTrashChange() || isFlagOrApproval());
+        allow delete: if isGroupMember(groupId) && canPurge();
+
+        // Comment thread on an expense. Comments are immutable; only the author can
+        // delete one, except that the group creator (who may purge any expense, comments
+        // included, and delete the whole group) may delete any, and members may clean up
+        // comments of an expense that is being deleted in the same batch (or is already gone).
+        // The creator check reads only the group doc: deleting a big group's comments must
+        // not need one existsAfter() per expense (rules allow 20 document reads per batch).
+        match /comments/{commentId} {
+          allow read: if isGroupMember(groupId);
+          allow create: if isGroupMember(groupId)
+            && request.resource.data.keys().hasOnly(['text', 'authorUid', 'authorName', 'createdAt'])
+            && request.resource.data.authorUid == uid()
+            && request.resource.data.text is string
+            && request.resource.data.text.size() > 0
+            && request.resource.data.text.size() <= 2000
+            && request.resource.data.authorName is string
+            && request.resource.data.createdAt is int;
+          allow update: if false;
+          allow delete: if signedIn() && (resource.data.authorUid == uid()
+            || (isGroupMember(groupId)
+              && (groupDoc(groupId).data.createdBy == uid()
+                || !existsAfter(/databases/$(database)/documents/groups/$(groupId)/expenses/$(expenseId)))));
+        }
+      }
+
+      match /settlements/{settlementId} {
+        function validSettlement() {
+          return validAuthor()
+            && request.resource.data.groupId == groupId
+            && request.resource.data.amount is int
+            && request.resource.data.amount > 0
+            && request.resource.data.from != request.resource.data.to
+            && request.resource.data.from in groupDoc(groupId).data.members
+            && request.resource.data.to in groupDoc(groupId).data.members;
+        }
+        allow read: if isGroupMember(groupId);
+        allow create: if isGroupMember(groupId) && validSettlement() && noTrustFieldsOnCreate();
+        allow update: if isGroupMember(groupId)
+          && ((validSettlement() && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['deletedAt', 'deletedBy']))
+              || isTrashChange());
+        allow delete: if isGroupMember(groupId) && canPurge();
+      }
+
+      // Append-only activity log (edit history, feed). Entries are written by members in the
+      // same batch as the change they describe, as themselves, and never edited. The creator
+      // may delete them only together with the group itself (group gone after the batch).
+      match /activity/{activityId} {
+        function validEntry(d) {
+          return d.keys().hasAll(['type', 'actorUid', 'actorName', 'targetId', 'summary', 'createdAt'])
+            && d.keys().hasOnly(['type', 'actorUid', 'actorName', 'targetId', 'summary', 'before', 'after', 'createdAt'])
+            && d.actorUid == uid()
+            && d.type is string && d.type.size() <= 40
+            && d.actorName is string && d.actorName.size() <= 100
+            && d.targetId is string && d.targetId.size() <= 200
+            && d.summary is string && d.summary.size() <= 500
+            && d.createdAt is int
+            && (!('before' in d) || d.before is map)
+            && (!('after' in d) || d.after is map);
+        }
+        allow read: if isGroupMember(groupId);
+        allow create: if isGroupMember(groupId) && validEntry(request.resource.data);
+        allow update: if false;
+        allow delete: if signedIn()
+          && groupDoc(groupId).data.createdBy == uid()
+          && !existsAfter(/databases/$(database)/documents/groups/$(groupId));
+      }
+
+      // Name + payment handles (+ profile photo URL) a member shares with this group only. Written by the owner
+      // (also in the same batch as creating/joining the group, hence getAfter).
+      match /profiles/{userId} {
+        allow read: if isGroupMember(groupId);
+        allow create, update: if signedIn() && uid() == userId
+          && uid() in groupAfter(groupId).data.memberUids
+          && request.resource.data.keys().hasOnly(['displayName', 'payment', 'photoURL'])
+          && request.resource.data.displayName is string
+          && (!('photoURL' in request.resource.data)
+            || (request.resource.data.photoURL is string
+              && request.resource.data.photoURL.size() <= 2048
+              && request.resource.data.photoURL.matches('https://.+')));
+        // the owner, or the group creator when removing the member / deleting the group
+        allow delete: if signedIn() && (uid() == userId
+          || (isGroupMember(groupId) && groupDoc(groupId).data.createdBy == uid()));
+      }
+    }
+
+    // ---- Live table split ---------------------------------------------
+    // tables/{code}: a bill everyone at the table claims items on, from their own phone.
+    // The doc id is the share code (8 random chars), so knowing the code is what grants access;
+    // there is no list. Guests sign in anonymously and their participant id is their uid.
+    // Claims live at claims.{uid}.{itemId} = shares, so a guest's write can be confined to
+    // their own key without iterating the items.
+    match /tables/{code} {
+      function isHost() { return signedIn() && resource.data.hostUid == uid(); }
+      function isLive(t) { return t.status == 'open' && request.time.toMillis() < t.expiresAt; }
+      function validParticipant(p, pid) {
+        return p is map
+          && p.keys().hasOnly(['name', 'uid', 'joinedAt'])
+          && p.name is string && p.name.size() > 0 && p.name.size() <= 40
+          && p.joinedAt is int
+          && (!('uid' in p) || p.uid == pid);
+      }
+      // A guest may add/rename only their own participant entry and replace only their own claims.
+      function isGuestUpdate() {
+        let before = resource.data;
+        let after = request.resource.data;
+        let me = uid();
+        let claimsAfter = after.get('claims', {});
+        return signedIn()
+          && isLive(before)
+          && after.diff(before).affectedKeys().hasOnly(['participants', 'claims'])
+          && after.participants.diff(before.participants).affectedKeys().hasOnly([me])
+          && claimsAfter.diff(before.get('claims', {})).affectedKeys().hasOnly([me])
+          // you must be at the table (after this write) and your entry carries your uid
+          && me in after.participants
+          && validParticipant(after.participants[me], me)
+          && after.participants[me].uid == me
+          && (!(me in claimsAfter)
+            || (claimsAfter[me] is map
+              && claimsAfter[me].size() <= 100
+              && claimsAfter[me].keys().hasOnly(before.items.keys())));
+      }
+
+      // Anyone signed in (anonymous included) with the code can read an open, unexpired table;
+      // the host and the people who joined can still read it after it closes (the summary).
+      // A missing doc is readable so the host's client can check a fresh code is free.
+      allow get: if signedIn() && (resource == null
+        || resource.data.hostUid == uid()
+        || isLive(resource.data)
+        || uid() in resource.data.participants);
+      allow list: if signedIn() && resource.data.hostUid == uid();
+      allow create: if signedIn()
+        && request.resource.data.hostUid == uid()
+        && request.resource.data.code == code
+        && code.size() >= 6 && code.size() <= 12
+        && request.resource.data.status == 'open'
+        && request.resource.data.keys().hasOnly(['code', 'groupId', 'hostUid', 'merchant', 'currency', 'date', 'items', 'extras',
+          'participants', 'claims', 'hostPayment', 'status', 'createdAt', 'expiresAt', 'expenseId', 'closedGroupId'])
+        && request.resource.data.items is map && request.resource.data.items.size() <= 200
+        && request.resource.data.claims is map
+        && request.resource.data.createdAt is int && request.resource.data.expiresAt is int
+        && request.resource.data.createdAt <= request.time.toMillis() + 600000
+        && request.resource.data.expiresAt - request.resource.data.createdAt <= 86400000
+        && request.resource.data.participants[uid()].uid == uid();
+      // The host can change anything except who hosts it, its code and when it expires.
+      allow update: if (isHost()
+          && request.resource.data.hostUid == resource.data.hostUid
+          && request.resource.data.code == resource.data.code
+          && request.resource.data.expiresAt == resource.data.expiresAt
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.status in ['open', 'closed'])
+        || isGuestUpdate();
+      allow delete: if isHost();
+    }
+
+    // ---- Invites -------------------------------------------------------
+    // Public-to-signed-in lookup table: code → group name + unclaimed placeholders.
+    // An invite can only point at a group whose inviteCode is this doc's id, written by
+    // a member of that group (after the batch, so create-group / join can include it).
+    match /invites/{code} {
+      function validInvite() {
+        let g = groupAfter(request.resource.data.groupId);
+        return signedIn()
+          && request.resource.data.keys().hasOnly(['groupId', 'groupName', 'emoji', 'placeholders'])
+          && request.resource.data.groupId is string
+          && g != null
+          && g.data.inviteCode == code
+          && uid() in g.data.memberUids;
+      }
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if validInvite();
+      allow update: if validInvite() && request.resource.data.groupId == resource.data.groupId;
+      allow delete: if signedIn() && isGroupMember(resource.data.groupId)
+        && groupDoc(resource.data.groupId).data.inviteCode == code;
+    }
+  }
+}
