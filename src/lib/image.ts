@@ -40,3 +40,13 @@ export function blobToDataUrl(b: Blob): Promise<string> {
     r.readAsDataURL(b)
   })
 }
+
+/**
+ * Whether a picked or shared file may be shown as a photo. `accept="image/*"` is only a hint
+ * to the picker, and the share target takes whatever the other app sends, so the type is
+ * checked here. An empty type passes: some Android pickers leave it blank for photos.
+ */
+export const isImageType = (type: string) => type === '' || /^image\/[\w.+-]+$/i.test(type)
+
+/** A blob: URL to preview `file` in an <img>, or undefined when it isn't an image. */
+export const imagePreviewUrl = (file: Blob): string | undefined => (isImageType(file.type) ? URL.createObjectURL(file) : undefined)

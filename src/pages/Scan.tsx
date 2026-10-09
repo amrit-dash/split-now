@@ -7,6 +7,7 @@ import { useFlag } from '@/hooks/useAppConfig'
 import { useAllGroupData } from '@/hooks/data'
 import { OcrCancelled, useOcr } from '@/hooks/useOcr'
 import { useReceiptReader } from '@/hooks/useReceiptReader'
+import { imagePreviewUrl } from '@/lib/image'
 import { usePageTitle } from '@/lib/brand'
 import { aiScanEnabled, aiScanPossible, isQuietReason, unavailableText } from '@/lib/ai'
 import { errText } from '@/lib/errors'
@@ -133,7 +134,7 @@ export default function Scan() {
     const id = ++run.current
     setCancelled(false)
     setFile(f)
-    setPreview(URL.createObjectURL(f))
+    setPreview(imagePreviewUrl(f))
     setReceipt(null)
     setPayment(null)
     setNotABill(false)
@@ -197,7 +198,7 @@ export default function Scan() {
     setDup(null)
     setNotABill(false)
     setFile(img)
-    setPreview(URL.createObjectURL(img))
+    setPreview(imagePreviewUrl(img))
     setScanRef({ id: e.id, kind: e.kind })
     if (e.result.type === 'receipt') {
       const r = e.result.receipt

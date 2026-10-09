@@ -86,9 +86,11 @@ const PAD = 84
 
 /** Canvas accepts a colour only if it can parse it; oklch() tokens fall back to the hex twins. */
 function paint(ctx: CanvasRenderingContext2D, value: string, fallback: string): string {
+  // Set a sentinel and read back how the canvas spells it; an unparseable value leaves it in place.
   ctx.fillStyle = '#010203'
+  const sentinel = ctx.fillStyle
   ctx.fillStyle = value
-  return ctx.fillStyle === '#010203' ? fallback : value
+  return ctx.fillStyle === sentinel ? fallback : value
 }
 
 function cssVar(name: string): string {

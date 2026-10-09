@@ -3,7 +3,7 @@ import type { UserRecord } from 'firebase-admin/auth'
 import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 import { logger } from 'firebase-functions/logger'
 import { HttpsError, onCall, type CallableRequest } from 'firebase-functions/v2/https'
-import { REGION } from './config'
+import { ENFORCE_APP_CHECK, REGION } from './config'
 import { addDays, istDate } from './lib/time'
 
 /*
@@ -53,7 +53,7 @@ async function requireAdmin(req: CallableRequest): Promise<string> {
   return uid
 }
 
-const callable = { region: REGION, enforceAppCheck: false, timeoutSeconds: 60, memory: '256MiB' as const, maxInstances: 2 }
+const callable = { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK, timeoutSeconds: 60, memory: '256MiB' as const, maxInstances: 2 }
 
 export interface DayStats {
   day: string

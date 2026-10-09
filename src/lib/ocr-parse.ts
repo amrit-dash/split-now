@@ -25,6 +25,30 @@ export interface ParsedPayment {
  * and Indian lakh grouping (1,00,000) is understood. Without one, a figure needs two decimals
  * (so phone numbers, UPI reference numbers, dates and quantities aren't read as money).
  */
+const FIGURE = /^(?:[$€£₹]|Rs\.?)?\d[\d.,]*$/
+const CURRENCY = /^(?:[$€£₹]|Rs\.?)$/
+
+/**
+ * Drops the quantity / price columns after an item's name ("Paneer Tikka 2 Rs. 280.00 560.00" →
+ * "Paneer Tikka"): whitespace-separated figures from the end, each optionally led by a currency
+ * sign, attached or as its own word. A token loop rather than a regex, so it is linear on any
+ * OCR line (an end-anchored regex with repeated groups backtracks badly on long garbage lines).
+ */
+export function stripTrailingFigures(line: string): string {
+  // ['Paneer', ' ', 'Tikka', ' ', '2', ...]: words at even indexes, the spaces between at odd ones.
+  const parts = line.split(/(\s+)/)
+  if (parts[parts.length - 1] === '') return line
+  let cut = parts.length
+  // The first word always stays: it is the start of the name.
+  for (let i = parts.length - 1; i >= 2; i -= 2) {
+    const w = parts[i]
+    // A bare currency sign counts only right before a figure already dropped ("Rs. 120.00").
+    if (FIGURE.test(w) || (CURRENCY.test(w) && cut === i + 2)) cut = i
+    else break
+  }
+  return cut === parts.length ? line : parts.slice(0, cut - 1).join('')
+}
+
 const CUR = String.raw`(?:[$€£₹¥]|\b(?:AUD|USD|INR|EUR|GBP|NZD|SGD|AED)\b|\bRs\.?|₨)`
 const GROUPED = String.raw`\d{1,3}(?:,\d{2})*,\d{3}|\d{1,3}(?:[,\s]\d{3})+`
 const AMOUNT_RE = new RegExp(
@@ -137,9 +161,7 @@ export function parseReceipt(text: string): ParsedReceipt {
     // "Paneer Tikka   2   280.00   560.00" → name + the last figure (the line total).
     const m = l.match(/^(.*?[A-Za-z].*?)\s+(?:(?:[$€£₹]|Rs\.?)\s*)?(\d{1,3}(?:,\d{2})*,\d{3}\.\d{2}|\d+[.,]\d{2})\s*[A-Z]?$/)
     if (m) {
-      const name = m[1]
-        .replace(/^\d+\s*[xX@]?\s*/, '')
-        .replace(/(?:\s+(?:[$€£₹]|Rs\.?)?\s*[\d.,]+)+$/, '')
+      const name = stripTrailingFigures(m[1].replace(/^\d+\s*[xX@]?\s*/, ''))
         .replace(/[.\s]+$/, '')
         .trim()
       const amount = toCents(m[2])
