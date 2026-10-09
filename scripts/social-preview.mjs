@@ -15,7 +15,7 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" v
 ${logo}
 <g font-family="Inter, sans-serif">
  <text x="430" y="300" font-size="112" font-weight="800" fill="#fff" letter-spacing="-3">Split Now</text>
- <text x="434" y="372" font-size="40" font-weight="500" fill="#cbd5e1">Spending is wise, Splitting is Free.</text>
+ <text x="434" y="372" font-size="40" font-weight="500" fill="#cbd5e1">Spending is wise, splitting is free.</text>
  <text x="434" y="430" font-size="40" font-weight="700" fill="url(#t)">Split Now!</text>
  <text x="434" y="520" font-size="26" font-weight="500" fill="#94a3b8">Free, open-source bill splitting · scan receipts · settle up over UPI</text>
 </g></svg>`

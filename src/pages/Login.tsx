@@ -56,7 +56,7 @@ export default function Login() {
           <h1 className="text-[clamp(1.5rem,7.4vw,2.25rem)] font-extrabold leading-tight tracking-tight">Split bills, not friendships.</h1>
         </div>
         <p className="mt-4 text-sm font-semibold tracking-wide text-duo-300" data-testid="tagline">
-          Spending is wise, Splitting is Free. Split Now!
+          Spending is wise, splitting is free. Split Now!
         </p>
         <p className="mt-2 text-slate-300">Trips, flats and dinners: fair splits, bill scanning and one-tap UPI settle-ups.</p>
 

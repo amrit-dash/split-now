@@ -1,4 +1,4 @@
-# Shows the Sponsor button on the repository once Sponsorships is ticked in Settings → General.
-# GitHub Sponsors needs a sponsors profile for this account (github.com/sponsors); add other
-# platforms here (ko_fi, buy_me_a_coffee, custom: ['https://…']) the same way.
+# The repository's Sponsor button. Keep in step with SUPPORT_LINKS in src/lib/brand.ts (Profile →
+# Support the developer) and the Support section of the README.
 github: [amrit-dash]
+buy_me_a_coffee: amritdash
