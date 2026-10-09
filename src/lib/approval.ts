@@ -135,6 +135,15 @@ export function groupApprovalInCurrency(
   }
 }
 
+/**
+ * Whether the group form must keep the currency as it is: an existing group with any expense,
+ * live or in the trash (amounts are stored in the group's currency, so a switch would
+ * reinterpret every one of them). While the expenses are still loading (null) it stays locked.
+ * A new group, or one with no expenses yet, may change it.
+ */
+export const currencyLocked = (existingGroup: boolean, expenses: readonly unknown[] | null | undefined): boolean =>
+  existingGroup && (!expenses || expenses.length > 0)
+
 /** Money without zero decimals, for short labels: ₹2,000 rather than ₹2,000.00 (₹20.50 stays). */
 export const shortMoney = (amount: Cents, currency: string) => formatMoney(amount, currency).replace(/[.,]0+$/, '')
 

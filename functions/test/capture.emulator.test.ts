@@ -129,6 +129,21 @@ describe('capture webhook (emulator)', () => {
     expect(await captures()).toHaveLength(0)
   })
 
+  it('skips a trip the person paused for themselves, and ignores the legacy group-wide captureOff', async () => {
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'users/alice/settings/notifications'), { pausedTrips: ['goa'], outsideTrips: true }),
+    )
+    const paused = await post({ token: TOKEN, text: sms('333344445555') })
+    expect(await paused.json()).toEqual({ ok: false, reason: 'paused' })
+    expect(await captures()).toHaveLength(0)
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'users/alice/settings/notifications'), { pausedTrips: [] })
+      await setDoc(doc(ctx.firestore(), 'groups/goa'), { captureOff: true }, { merge: true })
+    })
+    const legacy = await post({ token: TOKEN, text: sms('333344446666') })
+    expect(await legacy.json()).toMatchObject({ ok: true, matchedGroupId: 'goa' })
+  })
+
   it('writes the activity log as one document, newest first, never with SMS text', async () => {
     await post({ token: TOKEN, text: sms('222233334444') })
     await post({ token: TOKEN, text: `Rs.500.00 credited to A/c XX1234 on ${ddmmyy} from VPA rahul@okicici (UPI 628112345678)` })

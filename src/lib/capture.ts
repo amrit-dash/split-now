@@ -8,7 +8,7 @@ import { findAmounts, parseDate, parsePaymentScreenshot } from './ocr-parse'
 
 // Shared with the capture webhook (shared/trips.ts, shared/money-core.ts): one ranking, one
 // currency inference, on both sides.
-export { hasTripWindow, inTripWindow, isLiveTrip, liveTripFor, rankGroupsForCapture } from '../../shared/trips'
+export { hasTripWindow, inTripWindow, isLiveTrip, liveTripFor, pausedTrip, rankGroupsForCapture, tripCaptureRelevant } from '../../shared/trips'
 export { currencyFromAmount, sanitiseRef }
 
 /** What a /capture URL (or an inbox document) describes, after validation. */
@@ -274,7 +274,7 @@ export function classifySharedText(
   if (sms.kind !== 'debit' && sms.kind !== 'unknown') return { outcome: 'ignored', kind: sms.kind }
   if (sms.kind === 'debit' && sms.amount) {
     const parsed = { amount: sms.amount, currency: sms.currency, merchant: sms.merchant }
-    const filtered = filters ? filterReason({ capturePaused: false, aiSms: false, aiSmsMerchant: false, aiImages: false, ...filters }, parsed, text) : undefined
+    const filtered = filters ? filterReason(filters, parsed, text) : undefined
     if (filtered) return { outcome: 'ignored', kind: 'debit', filtered }
     const masked = maskSms(text, 200)
     // The bank reference dedupes the same SMS however it arrives; without one, the message itself does.

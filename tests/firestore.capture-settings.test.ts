@@ -1,6 +1,7 @@
 /**
- * Rules for the auto-capture settings: filter keys in settings/notifications, the per-trip
- * pause (groups/{id}.captureOff) and the webhook's activity log (users/{uid}/captureLog).
+ * Rules for the auto-capture settings: filter keys in settings/notifications (including the
+ * person's own paused trips), the legacy group-wide captureOff field (ignored, still allowed) and
+ * the webhook's activity log (users/{uid}/captureLog).
  * Run with: npm run test:rules.
  */
 import { readFileSync } from 'node:fs'
@@ -53,6 +54,7 @@ describe('capture settings in settings/notifications', () => {
     capturePaused: false,
     minAmount: 10000,
     ignoreWords: ['SIP', 'rent'],
+    pausedTrips: ['g1'],
     updatedAt: 1,
   }
   it('owner can write the new keys (set, merge and update)', async () => {
@@ -73,6 +75,13 @@ describe('capture settings in settings/notifications', () => {
     await assertFails(setDoc(doc(db('alice'), prefsPath), { ...full, ignoreWords: Array.from({ length: 21 }, (_, i) => `w${i}`) }))
     await assertFails(setDoc(doc(db('alice'), prefsPath), { ...full, captureAll: true }))
   })
+  it('pausedTrips: a list of at most 100', async () => {
+    await assertSucceeds(setDoc(doc(db('alice'), prefsPath), { pausedTrips: Array.from({ length: 100 }, (_, i) => `g${i}`), updatedAt: 2 }, { merge: true }))
+    await assertSucceeds(setDoc(doc(db('alice'), prefsPath), { pausedTrips: [], updatedAt: 3 }, { merge: true }))
+    await assertFails(setDoc(doc(db('alice'), prefsPath), { pausedTrips: Array.from({ length: 101 }, (_, i) => `g${i}`) }, { merge: true }))
+    await assertFails(setDoc(doc(db('alice'), prefsPath), { pausedTrips: 'g1' }, { merge: true }))
+    await assertFails(setDoc(doc(db('bob'), 'users/alice/settings/notifications'), { pausedTrips: ['g1'] }, { merge: true }))
+  })
   it('nobody else can read or write them', async () => {
     await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), prefsPath), full))
     await assertFails(getDoc(doc(db('bob'), prefsPath)))
@@ -81,7 +90,7 @@ describe('capture settings in settings/notifications', () => {
   })
 })
 
-describe('per-trip pause (group.captureOff)', () => {
+describe('legacy group.captureOff (ignored by matching, still a valid boolean field)', () => {
   it('any member can pause and resume', async () => {
     await assertSucceeds(updateDoc(doc(db('bob'), 'groups/g1'), { captureOff: true, updatedAt: 2 }))
     await assertSucceeds(updateDoc(doc(db('alice'), 'groups/g1'), { captureOff: false, updatedAt: 3 }))

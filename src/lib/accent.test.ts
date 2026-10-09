@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { ACCENTS, ACCENT_KEY, DUO_KEY, applyAccent, getAccent, getDuo, setAccent, setDuo, themeColor, tintIconSvg } from './accent'
+import { ACCENTS, ACCENT_KEY, DUO_KEY, RETIRED_ACCENTS, applyAccent, getAccent, getDuo, setAccent, setDuo, themeColor, tintIconSvg } from './accent'
 
 // vitest runs in node: a minimal fake <html>, <meta name="theme-color"> and localStorage.
 function fakeDom(dark = false) {
@@ -60,13 +60,13 @@ describe('accent', () => {
   })
 
   it('persists accent and duo', () => {
-    setAccent('saffron')
+    setAccent('lime')
     setDuo(false)
-    expect(dom.store.get(ACCENT_KEY)).toBe('saffron')
+    expect(dom.store.get(ACCENT_KEY)).toBe('lime')
     expect(dom.store.get(DUO_KEY)).toBe('off')
-    expect(getAccent()).toBe('saffron')
+    expect(getAccent()).toBe('lime')
     expect(getDuo()).toBe(false)
-    expect(dom.attrs.get('data-accent')).toBe('saffron')
+    expect(dom.attrs.get('data-accent')).toBe('lime')
     expect(dom.attrs.get('data-duo')).toBe('off')
     setDuo(true)
     expect(getDuo()).toBe(true)
@@ -78,11 +78,24 @@ describe('accent', () => {
     expect(getAccent()).toBe('violet')
     applyAccent()
     expect(dom.attrs.get('data-accent')).toBe('violet')
-    // Emerald, Rose and Amber were retired; a phone that stored one gets the default.
-    for (const old of ['emerald', 'rose', 'amber']) {
+    // Emerald and Rose were retired with no successor; a phone that stored one gets the default.
+    for (const old of ['emerald', 'rose']) {
       dom.store.set(ACCENT_KEY, old)
       expect(getAccent()).toBe('violet')
     }
+  })
+
+  it('moves the retired warm presets (Saffron, Amber) to Gold', () => {
+    for (const old of ['saffron', 'amber']) {
+      dom.store.set(ACCENT_KEY, old)
+      expect(getAccent()).toBe('gold')
+      applyAccent()
+      expect(dom.attrs.get('data-accent')).toBe('gold')
+      expect(dom.meta.content).toBe('#774f00')
+    }
+    // Prototype keys are not presets.
+    dom.store.set(ACCENT_KEY, 'constructor')
+    expect(getAccent()).toBe('violet')
   })
 
   it('survives localStorage throwing', () => {
@@ -206,12 +219,18 @@ describe('accent presets stay in sync', () => {
   })
 
   it('retired presets are gone from the CSS and nothing references brand-vivid', () => {
-    for (const id of ['emerald', 'rose', 'amber']) expect(css).not.toContain(`[data-accent='${id}']`)
+    for (const id of ['emerald', 'rose', 'amber', 'saffron']) expect(css).not.toContain(`[data-accent='${id}']`)
     expect(css).not.toContain('brand-vivid')
   })
 
   it('the pre-paint script in index.html knows every preset and its theme colour', () => {
     for (const a of ACCENTS) expect(html).toContain(`${a.id}: '${a.meta}'`)
+    const map = html.match(/var accents = \{([^}]*)\}/)?.[1] ?? ''
+    expect(map.match(/\w+(?=:)/g)).toEqual(ACCENTS.map((a) => a.id))
+    // The same retired → successor moves, so the first paint already shows the successor.
+    const retired = html.match(/var retired = \{([^}]*)\}/)?.[1] ?? ''
+    expect(Object.fromEntries([...retired.matchAll(/(\w+): '(\w+)'/g)].map((m) => [m[1], m[2]]))).toEqual(RETIRED_ACCENTS)
+    for (const to of Object.values(RETIRED_ACCENTS)) expect(ACCENTS.some((a) => a.id === to)).toBe(true)
   })
 
   it('the hex copies in ACCENTS match the CSS (from = brand-600, to = duo-500, meta = brand-700)', () => {
@@ -228,6 +247,21 @@ describe('accent presets stay in sync', () => {
       const block = presetBlock(a.id)
       expect(contrast(WHITE, step(block, 'brand-600')), `${a.id} brand-600`).toBeGreaterThanOrEqual(4.5)
       expect(contrast(WHITE, step(block, 'duo-600')), `${a.id} duo-600`).toBeGreaterThanOrEqual(4.5)
+    }
+  })
+
+  it('no preset fill is the hue of an amount colour (emerald owed, rose owe)', () => {
+    // Hues in oklch degrees: emerald-700 ≈ 166, rose-700 ≈ 16. Near-grey steps (Graphite) and hex
+    // steps (Violet's brand scale) are skipped.
+    const hueGap = (a: number, b: number) => Math.min(Math.abs(a - b), 360 - Math.abs(a - b))
+    for (const a of ACCENTS) {
+      const block = presetBlock(a.id)
+      for (const name of ['brand-500', 'brand-600', 'duo-500', 'duo-600']) {
+        const m = block.match(new RegExp(`--color-${name}:\\s*oklch\\([\\d.]+%\\s+([\\d.]+)\\s+([\\d.]+)\\)`))
+        if (!m || +m[1] < 0.05) continue
+        expect(hueGap(+m[2], 166), `${a.id} ${name} vs emerald`).toBeGreaterThanOrEqual(25)
+        expect(hueGap(+m[2], 16), `${a.id} ${name} vs rose`).toBeGreaterThanOrEqual(25)
+      }
     }
   })
 

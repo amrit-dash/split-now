@@ -17,10 +17,11 @@ import {
   X,
 } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
-import { computeGroupData, useActivity, useExpenses, useGroup, usePayLink, useSettlements, useTrash } from '@/hooks/data'
+import { computeGroupData, useActivity, useCaptureTokens, useClaimedPayLinks, useExpenses, useGroup, useSettlements, useTrash } from '@/hooks/data'
+import { useCapturePrefs } from '@/hooks/useCapturePrefs'
 import { useFlag } from '@/hooks/useAppConfig'
-import type { ActivityEntry, Category, Expense, Group, Settlement } from '@/types'
-import { claimedLinkCodes } from '@/lib/paylinks'
+import type { Category, Expense, Group, Settlement } from '@/types'
+import { claimsInGroup } from '@/lib/paylinks'
 import { ClaimReview } from '@/components/ClaimReview'
 import { formatMoney } from '@/lib/money'
 import { CATEGORIES } from '@/lib/categories'
@@ -33,6 +34,8 @@ import { todayISO } from '@/lib/id'
 import { errText } from '@/lib/errors'
 import { usePageTitle } from '@/lib/brand'
 import { formatDate } from '@/lib/locale'
+import { saveCapturePrefs, tripCaptureNotice } from '@/lib/capture-settings'
+import { setTripPaused } from '@/lib/capture-filters'
 import * as payments from '@/lib/payments'
 import { turnLine, whoseTurn } from '@/lib/fairness'
 import { budgetStatus } from '../../shared/budget'
@@ -44,14 +47,12 @@ import { QrCode } from '@/components/QrCode'
 import { Empty, LiveBadge, Loading, PageHeader, Segmented, formatRange } from '@/components/Misc'
 import { CardSkeleton, ListSkeleton } from '@/components/Skeleton'
 import { Collapsible } from '@/components/Collapsible'
-import { hasTripWindow, isLiveTrip } from '@/lib/capture'
+import { hasTripWindow, isLiveTrip, tripCaptureRelevant } from '@/lib/capture'
 import { Sheet } from '@/components/Sheet'
-import { Switch } from '@/components/Switch'
 import { useConfirm } from '@/components/ConfirmSheet'
 import { repo } from '@/data'
 import { useToast } from '@/components/Toast'
 import { ActivityFeed, RecentlyDeleted, TrustBadges, useUndoableDelete } from '@/components/Trust'
-import { QuickAdd } from '@/components/QuickAdd'
 import { RemindActions } from '@/components/RemindActions'
 
 type Tab = 'expenses' | 'balances' | 'activity'
@@ -296,13 +297,10 @@ export default function GroupDetail() {
             </button>
           </div>
         )}
+        {tripCaptureRelevant(group, todayISO()) && <TripCaptureLine group={group} />}
       </div>
 
-      {!personal && !group.archived && <QuickAdd groups={[group]} defaultGroupId={group.id} lockGroup testId="group-quick-add" />}
-
-      {!personal && hasTripWindow(group) && <TripAutoCapture group={group} />}
-
-      {!personal && <PendingClaims feed={feed} uid={user.uid} />}
+      {!personal && <PendingClaims groupId={group.id} />}
 
       {!personal && (
         <div className="mb-4">
@@ -872,64 +870,85 @@ function ActivityList({
 }
 
 /**
- * "Trip auto-capture" row: a switch that pauses capture for the trip (group.captureOff, for every
- * member; the webhook skips the trip) and the link to the SMS wizard scoped to this trip.
+ * One line under Settle up / Invite about this person's own trip auto-capture (capture is set up
+ * per phone, so pausing is their choice and leaves no group activity): "on for you · Pause",
+ * "Paused for you · Resume" (Undo toast), or, with no key covering the trip, a link to the SMS
+ * wizard scoped to it. tripCaptureNotice decides which, and when there is nothing to say.
  */
-function TripAutoCapture({ group }: { group: Group }) {
+function TripCaptureLine({ group }: { group: Group }) {
+  const { user } = useMe()
   const toast = useToast()
-  const off = !!group.captureOff
-  const set = (on: boolean) => {
-    repo.updateGroupSettings(group, { captureOff: on ? undefined : true }).catch((e) => toast(errText(e), 'err'))
-    toast(on ? `Auto-capture on for ${group.name}` : `Auto-capture paused for ${group.name}`)
+  const prefs = useCapturePrefs()
+  const tokens = useCaptureTokens()
+  const enabled = useFlag('autoCapture')
+  if (!prefs || !tokens) return null
+  const notice = tripCaptureNotice(group, todayISO(), { tokens, pausedTrips: prefs.pausedTrips, capturePaused: prefs.capturePaused, enabled })
+  if (!notice) return null
+
+  const save = (pausedTrips: string[]) => saveCapturePrefs(user.uid, repo.mode, { pausedTrips }).catch((e) => toast(errText(e), 'err'))
+  const toggle = () => {
+    const before = prefs.pausedTrips
+    const pause = notice === 'on'
+    void save(setTripPaused(before, group.id, pause))
+    toast(pause ? `Auto-capture paused for you in ${group.name}` : `Auto-capture on for you in ${group.name}`, 'ok', {
+      action: { label: 'Undo', run: () => void save(before) },
+    })
   }
+  const link = 'shrink-0 font-semibold text-brand-600 dark:text-brand-300'
   return (
-    <div className="card mb-4 px-4 py-3" data-testid="trip-auto-capture">
-      <div className="flex items-center gap-3">
-        <MessageSquareText size={22} className={`shrink-0 ${off ? 'text-muted' : 'text-brand-600 dark:text-brand-300'}`} aria-hidden />
-        <div className="min-w-0 flex-1">
-          <div className="text-sm font-semibold">Trip auto-capture{off ? ' · paused' : ''}</div>
-          <div className="text-muted text-xs">
-            {off ? 'Debit SMS during this trip are skipped for everyone' : 'Debit SMS during the trip ask to be added here'}
-          </div>
-        </div>
-        <Switch checked={!off} onChange={set} label={`Auto-capture for ${group.name}`} testId="trip-capture-switch" />
-      </div>
-      <Link
-        to={`/settings/auto-capture?group=${group.id}`}
-        className="mt-1 flex min-h-9 items-center gap-0.5 pl-[34px] text-sm font-semibold text-brand-600 dark:text-brand-300"
-      >
-        Set up for this trip <ChevronRight size={16} aria-hidden />
-      </Link>
+    <div className="text-muted mt-3 flex min-h-11 items-center gap-2 text-sm" data-testid="trip-auto-capture" data-state={notice}>
+      <MessageSquareText size={16} className={`shrink-0 ${notice === 'on' ? 'text-brand-600 dark:text-brand-300' : ''}`} aria-hidden />
+      {notice === 'setup' ? (
+        <>
+          <span className="min-w-0 flex-1">Add payments from your phone automatically during this trip</span>
+          <Link to={`/settings/auto-capture?group=${group.id}`} className={`${link} flex min-h-11 items-center`} data-testid="trip-capture-setup">
+            Set up
+          </Link>
+        </>
+      ) : notice === 'off' ? (
+        <>
+          <span className="min-w-0 flex-1">Auto-capture is paused for you</span>
+          <Link to="/settings/automation" className={`${link} flex min-h-11 items-center`}>
+            Settings
+          </Link>
+        </>
+      ) : (
+        <>
+          <span className="min-w-0 flex-1">{notice === 'on' ? 'Trip auto-capture is on for you' : 'Paused for you'}</span>
+          <button
+            type="button"
+            className={`${link} min-h-11 px-1`}
+            onClick={toggle}
+            aria-label={notice === 'on' ? `Pause auto-capture for you in ${group.name}` : `Resume auto-capture for you in ${group.name}`}
+            data-testid="trip-capture-toggle"
+          >
+            {notice === 'on' ? 'Pause' : 'Resume'}
+          </button>
+        </>
+      )}
     </div>
   )
 }
 
 /**
- * Live table guests who said they paid on a link the user confirms (status 'claimed'): one card
- * each, "Gran says they've paid ₹250 · Confirm", with the screenshot. Found through the group's
- * activity (the server logs each claim); a link that was confirmed or dismissed drops out.
+ * Live table guests who said they paid on a link the user confirms (status 'claimed'), in this
+ * group: one card each, "Gran says they've paid ₹250 · Confirm", with the screenshot. The same
+ * live list as the Inbox (the user's own claimed links), filtered to the group.
  */
-function PendingClaims({ feed, uid }: { feed: ActivityEntry[] | null; uid: string }) {
-  const codes = useMemo(() => claimedLinkCodes(feed), [feed])
-  if (!codes.length) return null
+function PendingClaims({ groupId }: { groupId: string }) {
+  const claims = useClaimedPayLinks()
+  const mine = useMemo(() => claimsInGroup(claims, groupId), [claims, groupId])
+  if (!mine.length) return null
   return (
     <div className="mb-4 space-y-2">
-      {codes.map((c) => (
-        <PendingClaim key={c} code={c} uid={uid} />
+      {mine.map((l) => (
+        <div key={l.code} className="card p-4" data-testid="group-claim">
+          <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+            Says they’ve paid · Confirm
+          </div>
+          <ClaimReview link={l} compact />
+        </div>
       ))}
-    </div>
-  )
-}
-
-function PendingClaim({ code, uid }: { code: string; uid: string }) {
-  const l = usePayLink(code, uid)
-  if (l?.status !== 'claimed' || l.createdBy !== uid) return null
-  return (
-    <div className="card p-4" data-testid="group-claim">
-      <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
-        Says they’ve paid · Confirm
-      </div>
-      <ClaimReview link={l} compact />
     </div>
   )
 }

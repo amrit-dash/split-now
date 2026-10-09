@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { hasTripWindow, inTripWindow, isLiveTrip, liveTripFor, matchScoped, pausedTrip, pickTrip, rankGroupsForCapture, type TripGroup } from './trips'
+import {
+  hasTripWindow,
+  inTripWindow,
+  isLiveTrip,
+  liveTripFor,
+  matchScoped,
+  pausedTrip,
+  pickTrip,
+  rankGroupsForCapture,
+  tripCaptureRelevant,
+  type TripGroup,
+} from './trips'
 
 const goa: TripGroup = { id: 'goa', name: 'Goa', type: 'trip', currency: 'INR', startDate: '2026-10-05', endDate: '2026-10-10', updatedAt: 1 }
 const india: TripGroup = { id: 'india', name: 'India', type: 'trip', currency: 'INR', startDate: '2026-10-01', endDate: '2026-10-31', updatedAt: 2 }
@@ -35,19 +46,47 @@ describe('rankGroupsForCapture / pickTrip', () => {
     expect(pickTrip([a, b], '2026-10-07', 'EUR')?.id).toBe('b')
     expect(pickTrip([a, b], '2026-10-07')?.id).toBe('a')
   })
-  it('the webhook skips paused trips; the ranking for the Inbox still lists them', () => {
-    expect(pickTrip([{ ...goa, captureOff: true }, india], '2026-10-07')?.id).toBe('india')
-    expect(pickTrip([{ ...goa, captureOff: true }], '2026-10-07')).toBeUndefined()
-    expect(rankGroupsForCapture([{ ...goa, captureOff: true }], { date: '2026-10-07' }).best).toBe('goa')
-    expect(pausedTrip([{ ...goa, captureOff: true }], '2026-10-07')?.id).toBe('goa')
-    expect(pausedTrip([{ ...goa, captureOff: true }], '2026-10-20')).toBeUndefined()
+  it('skips trips the person paused (pausedTrips); the ranking for the Inbox still lists them', () => {
+    expect(pickTrip([goa, india], '2026-10-07', undefined, ['goa'])?.id).toBe('india')
+    expect(pickTrip([goa], '2026-10-07', undefined, ['goa'])).toBeUndefined()
+    expect(pickTrip([goa], '2026-10-07', undefined, ['other'])?.id).toBe('goa')
+    const r = rankGroupsForCapture([goa, india], { date: '2026-10-07', paused: ['goa'] })
+    expect(r.best).toBe('india')
+    expect(r.ranked.map((g) => [g.id, g.inWindow])).toEqual([
+      ['india', true],
+      ['goa', false],
+    ])
+    expect(rankGroupsForCapture([goa], { date: '2026-10-07', paused: ['goa'] }).best).toBeUndefined()
+    expect(pausedTrip([goa], '2026-10-07', ['goa'])?.id).toBe('goa')
+    expect(pausedTrip([goa], '2026-10-20', ['goa'])).toBeUndefined()
     expect(pausedTrip([goa], '2026-10-07')).toBeUndefined()
+    expect(pausedTrip([wallet], '2026-10-07', ['me'])).toBeUndefined()
+  })
+  it('ignores the legacy group-wide captureOff', () => {
+    const legacy = { ...goa, captureOff: true }
+    expect(pickTrip([legacy], '2026-10-07')?.id).toBe('goa')
+    expect(pausedTrip([legacy], '2026-10-07')).toBeUndefined()
+    expect(matchScoped(legacy, '2026-10-07').kind).toBe('matched')
   })
   it('scoped: inside, outside, undated (always on), paused or archived (off)', () => {
     expect(matchScoped(goa, '2026-10-07').kind).toBe('matched')
     expect(matchScoped(goa, '2026-10-11').kind).toBe('outside')
     expect(matchScoped(flat, '2026-10-11').kind).toBe('matched')
-    expect(matchScoped({ ...goa, captureOff: true }, '2026-10-07').kind).toBe('off')
+    expect(matchScoped(goa, '2026-10-07', ['goa']).kind).toBe('off')
+    expect(matchScoped(goa, '2026-10-07', ['india']).kind).toBe('matched')
     expect(matchScoped({ ...goa, archived: true }, '2026-10-07').kind).toBe('off')
+  })
+})
+
+describe('tripCaptureRelevant', () => {
+  it('shared groups with trip dates that have not ended', () => {
+    expect(tripCaptureRelevant(goa, '2026-10-01')).toBe(true)
+    expect(tripCaptureRelevant(goa, '2026-10-10')).toBe(true)
+    expect(tripCaptureRelevant(goa, '2026-10-11')).toBe(false)
+    expect(tripCaptureRelevant({ type: 'trip', startDate: '2026-10-01' }, '2027-01-01')).toBe(true)
+    expect(tripCaptureRelevant(flat, '2026-10-07')).toBe(false)
+    expect(tripCaptureRelevant(wallet, '2026-10-07')).toBe(false)
+    expect(tripCaptureRelevant({ ...goa, archived: true }, '2026-10-07')).toBe(false)
+    expect(tripCaptureRelevant({ ...goa, type: 'direct' }, '2026-10-07')).toBe(false)
   })
 })

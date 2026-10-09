@@ -1,14 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import {
+  adminGateNote,
   announcementActive,
   announcementKey,
   compareSemver,
   DEFAULT_APP_CONFIG,
   FLAG_INFO,
   FLAG_NAMES,
+  MAINTENANCE_FALLBACK,
+  maintenanceText,
   resolveAppConfig,
   resolveBlockInfo,
   semverOf,
+  signupsClosedText,
   signupsOpen,
   toAppConfigDoc,
   updateRequired,
@@ -145,5 +149,38 @@ describe('displayed version (config/app.version)', () => {
     const cfg = resolveAppConfig({ version: '2.1.1', maintenance: true })
     expect(toAppConfigDoc(cfg, 'u', 1).version).toBe('2.1.1')
     expect('version' in toAppConfigDoc(DEFAULT_APP_CONFIG, 'u', 1)).toBe(false)
+  })
+})
+
+describe('sign-ups during maintenance', () => {
+  it('closes them, even on an invite link, and says why', () => {
+    expect(signupsOpen({ signups: 'open', maintenance: true }, '/')).toBe(false)
+    expect(signupsOpen({ signups: 'invite', maintenance: true }, '/join/ABCD2345')).toBe(false)
+    expect(signupsClosedText({ maintenance: true })).toContain('maintenance')
+    expect(signupsClosedText({ maintenance: false })).toContain('invite only')
+  })
+})
+
+describe('maintenance presentation', () => {
+  it('shows the admin message, or the fallback when it is blank', () => {
+    expect(maintenanceText('Back by 10 pm.')).toBe('Back by 10 pm.')
+    expect(maintenanceText('  Moving the database  ')).toBe('Moving the database')
+    expect(maintenanceText('')).toBe(MAINTENANCE_FALLBACK)
+    expect(maintenanceText('   ')).toBe(MAINTENANCE_FALLBACK)
+    expect(maintenanceText(undefined)).toBe(MAINTENANCE_FALLBACK)
+  })
+  it('gives admins a strip for the gate they are exempt from, maintenance first', () => {
+    const base = { maintenance: false, minVersion: '0.0.0' }
+    expect(adminGateNote(base, '1.0.0', true)).toBeNull()
+    expect(adminGateNote({ ...base, maintenance: true }, '1.0.0', false)).toBeNull()
+    expect(adminGateNote({ ...base, maintenance: true }, '1.0.0', true)).toEqual({
+      kind: 'maintenance',
+      text: 'Maintenance mode is on · only admins can use the app',
+    })
+    expect(adminGateNote({ maintenance: true, minVersion: '9.0.0' }, '1.0.0', true)?.kind).toBe('maintenance')
+    const u = adminGateNote({ ...base, minVersion: '2.0.0' }, '1.4.0+abc', true)
+    expect(u?.kind).toBe('update')
+    expect(u?.text).toContain('below 2.0.0')
+    expect(u?.text).toContain('you are on 1.4.0')
   })
 })

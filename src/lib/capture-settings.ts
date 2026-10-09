@@ -9,6 +9,7 @@
  * Like push.ts, this never imports '@/data' and only loads the Firebase SDK in firebase mode.
  */
 import { CAPTURE_LOG_DOC, CAPTURE_LOG_KEEP, MAX_MIN_AMOUNT, isLogResult, normaliseIgnoreWords, type CaptureLogEntry } from './capture-filters'
+import { tripCaptureRelevant, type TripGroup } from '../../shared/trips'
 import { DEFAULT_ALL_PREFS, resolveAllPrefs, savePrefs, watchPrefs, type AllPrefs } from './push'
 
 export type Mode = 'firebase' | 'demo'
@@ -173,4 +174,28 @@ export function captureSettingsLines(
   if (pausedTrips.length) lines.push(`Paused for ${pausedTrips.join(', ')}`)
   lines.push(!p.captures ? 'No capture notifications' : p.outsideTrips && p.unsorted ? 'Notifies for every captured payment' : 'Notifies for trip payments')
   return lines
+}
+
+// ---- Group page notice ----------------------------------------------------------
+
+/**
+ * What the group page's one-line trip auto-capture notice says for this person, or null for no
+ * notice. Capture is set up per phone, so it is their own state: 'on' (a key that covers this
+ * trip and the trip isn't in their pausedTrips), 'paused' (they paused this trip), 'off' (their
+ * capture is paused altogether, which only Settings undoes), or 'setup' (no key covers this trip:
+ * offer the wizard). Only for shared trips with dates that haven't ended, and only while the
+ * admin switch for auto-capture is on.
+ */
+export type TripCaptureNotice = 'on' | 'paused' | 'off' | 'setup'
+
+export function tripCaptureNotice(
+  group: Pick<TripGroup, 'id' | 'type' | 'archived' | 'startDate' | 'endDate'>,
+  today: string,
+  me: { tokens: Array<{ groupId?: string }>; pausedTrips: string[]; capturePaused: boolean; enabled: boolean },
+): TripCaptureNotice | null {
+  if (!me.enabled || !tripCaptureRelevant(group, today)) return null
+  // A key scoped to another trip never captures for this one.
+  if (!me.tokens.some((t) => !t.groupId || t.groupId === group.id)) return 'setup'
+  if (me.capturePaused) return 'off'
+  return me.pausedTrips.includes(group.id) ? 'paused' : 'on'
 }

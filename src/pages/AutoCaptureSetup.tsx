@@ -25,7 +25,7 @@ import { useMe } from '@/hooks/auth'
 import { useCaptures, useCaptureTokens, useGroups } from '@/hooks/data'
 import type { Capture, Group } from '@/types'
 import { APP_NAME, usePageTitle } from '@/lib/brand'
-import { inTripWindow, rankGroupsForCapture, sanitiseRef } from '@/lib/capture'
+import { inTripWindow, pausedTrip, rankGroupsForCapture, sanitiseRef } from '@/lib/capture'
 import { errText } from '@/lib/errors'
 import { appLocale, formatDate } from '@/lib/locale'
 import { formatMoney } from '@/lib/money'
@@ -1181,18 +1181,20 @@ async function simulateWebhook(body: WebhookBody, ctx: { uid: string; token: Cap
   const filtered = filterReason(prefs, parsed, body.text)
   if (filtered) return done({ ok: false, reason: filtered }, parsed)
   const scoped = ctx.token.groupId ? ctx.groups.find((g) => g.id === ctx.token.groupId) : undefined
-  if (scoped?.captureOff) return done({ ok: false, reason: 'paused' }, parsed, scoped.name)
+  // Trips this person paused (their own choice, not the group's) are skipped.
+  const pausedIds = new Set(prefs.pausedTrips)
+  if (scoped && pausedIds.has(scoped.id)) return done({ ok: false, reason: 'paused' }, parsed, scoped.name)
   if (ctx.token.groupId && (!scoped || !inTripWindow(scoped, parsed.date))) return done({ ok: false, reason: 'outside_trip' }, parsed, scoped?.name)
   const id = sanitiseRef(parsed.ref ? `sms_${parsed.ref}` : undefined)
   if (id && ctx.captures.some((c) => c.id === id)) return done({ ok: false, reason: 'duplicate' }, parsed)
   const matchedGroupId =
     scoped?.id ??
     rankGroupsForCapture(
-      ctx.groups.filter((g) => !g.captureOff && !g.archived),
-      { date: parsed.date, currency: parsed.currency },
+      ctx.groups.filter((g) => !g.archived),
+      { date: parsed.date, currency: parsed.currency, paused: pausedIds },
     ).best
   if (!matchedGroupId) {
-    const off = ctx.groups.find((g) => g.captureOff && g.type !== 'personal' && inTripWindow(g, parsed.date))
+    const off = pausedTrip(ctx.groups, parsed.date, pausedIds)
     if (off) return done({ ok: false, reason: 'paused' }, parsed, off.name)
     if (!prefs.outsideTrips) return done({ ok: false, reason: 'outside_trip' }, parsed)
   }

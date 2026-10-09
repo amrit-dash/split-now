@@ -130,7 +130,7 @@ export default function PayLinkPage() {
 }
 
 function Shell({ children }: { children: ReactNode }) {
-  return <div className="mx-auto min-h-dvh max-w-md px-4 pb-10 pt-[calc(env(safe-area-inset-top)+4rem)]">{children}</div>
+  return <div className="mx-auto min-h-dvh max-w-md px-4 pb-10 pt-[calc(var(--safe-top)+4rem)]">{children}</div>
 }
 
 function Hero({ link, title, emoji }: { link: PayLink; title: string; emoji?: string }) {

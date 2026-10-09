@@ -57,11 +57,12 @@ import { defaultCurrency } from '@/lib/locale'
 import { inboxToDraft, newCaptureToken, type InboxDoc } from '@/lib/capture'
 import { downscale } from '@/lib/image'
 import { TABLE_TTL_MS, type LiveTable } from '@/lib/table'
-import { CLAIM_FIELDS, claimStatus, markPaidPatch, type PayLink } from '@/lib/paylinks'
+import { CLAIM_FIELDS, claimStatus, markPaidPatch, sortClaims, type PayLink } from '@/lib/paylinks'
 import {
   disputeActivity,
   expenseEventActivity,
   expenseSaveActivity,
+  groupSettingsActivity,
   importActivity,
   memberActivity,
   settlementActivity,
@@ -100,6 +101,7 @@ import { errText } from '@/lib/errors'
 import type { FxRatesDoc, FxRefreshResult } from '@/lib/fx'
 import { initAppCheck } from '@/lib/appcheck'
 import { disablePush } from '@/lib/push'
+import { getAppConfig } from '@/lib/flags'
 
 /** Firestore allows 500 writes per batch; leave headroom. */
 const BATCH_LIMIT = 450
@@ -277,6 +279,9 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       .then((c) => (c.exists() ? c : getDoc(r)))
       .catch(() => getDoc(r))
     const google = googlePhoto({ photoURL: u.photoURL, providerData: u.providerData ?? [] })
+    // Maintenance refuses non-admin writes: don't fail a new account's profile with an error
+    // toast; the next app open after maintenance creates it (this runs on every open).
+    if (!snap.exists() && getAppConfig().maintenance) return
     if (!snap.exists()) {
       const batch = writeBatch(db)
       batch.set(r, {
@@ -516,6 +521,8 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       if (base.type !== 'personal' && ('name' in changed || 'emoji' in changed)) {
         batch.set(inviteRef(base.inviteCode), { groupId: base.id, groupName: changed.name ?? base.name, emoji: changed.emoji ?? base.emoji }, { merge: true })
       }
+      // Any member may change these, so the change is logged for everyone (a wallet has nobody to tell).
+      if (base.type !== 'personal') log(batch, base.id, groupSettingsActivity(base, { ...base, ...changed }, await actCtx(base.id, undefined, base)))
       fire(batch, 'Saving group')
     },
     async updateGroup(id, patch) {
@@ -1124,6 +1131,11 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       const status = claimStatus(snap.data() as PayLink, claim)
       // Waits for the server: the payer should only see "Marked paid" once it really is.
       await updateDoc(payLinkRef(code), markPaidPatch(code, { ...claim, proofPath }, me, Date.now(), status))
+    },
+    watchClaimedPayLinks(userId, cb) {
+      // Two equality filters: served by merging the single-field indexes, no composite index needed.
+      const q = query(collection(db, 'payLinks'), where('createdBy', '==', userId), where('status', '==', 'claimed'))
+      return watchList(q, (s) => sortClaims(s.docs.map((d) => ({ ...(d.data() as Omit<PayLink, 'code'>), code: d.id }))), cb, 'Loading payments to confirm')
     },
     async confirmPayLinkClaim(code) {
       const batch = writeBatch(db)

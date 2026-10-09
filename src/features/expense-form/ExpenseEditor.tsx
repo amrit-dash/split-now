@@ -367,7 +367,7 @@ export function ExpenseEditor({
       }}
       noValidate
     >
-      <header className="sticky top-0 z-30 -mx-4 flex items-center justify-between bg-slate-50/85 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] backdrop-blur-xl dark:bg-ink-950/85">
+      <header className="sticky top-[var(--banner-h,0px)] z-30 -mx-4 flex items-center justify-between bg-slate-50/85 px-4 pb-3 pt-[calc(var(--safe-top)+0.75rem)] backdrop-blur-xl dark:bg-ink-950/85">
         <button type="button" onClick={cancel} className="-ml-3 flex h-11 w-11 items-center justify-center rounded-full" aria-label="Cancel">
           <X size={24} />
         </button>

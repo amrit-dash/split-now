@@ -35,8 +35,8 @@ test('demo sign-in shows Home with a net balance and the seeded groups', async (
   await page.getByRole('navigation').getByRole('link', { name: 'Groups' }).click()
   await expect(page).toHaveURL(/\/groups$/)
   // The lazy Groups screen can arrive after the URL changes; until then Home (which also names the
-  // groups in its quick add and activity) is still on screen, so wait for the Groups heading and
-  // then look for each group's own row link.
+  // groups in its list and activity) is still on screen, so wait for the Groups heading and then
+  // look for each group's own row link.
   await expect(page.getByRole('heading', { level: 1, name: 'Groups' })).toBeVisible()
   await expect(page.getByRole('link', { name: /^Goa Trip/ })).toBeVisible()
   await expect(page.getByRole('link', { name: /^Indiranagar Flat/ })).toBeVisible()
@@ -84,6 +84,33 @@ test('the + button opens the Create sheet; Add expense saves an equal split', as
   await expect(page.getByText('Dinner at Thalassa')).toBeVisible({ timeout: 15_000 })
 })
 
+test('Quick add in the Create sheet: a group named in the line wins, and opens the form filled in', async ({ page }) => {
+  await page.goto('/groups/g_goa')
+  await page.getByTestId('nav-create').click()
+  const quick = page.getByRole('dialog').getByTestId('create-quick-add')
+  // Not focused on open: the keyboard would cover the tiles.
+  await expect(quick.getByRole('textbox', { name: 'Quick add' })).not.toBeFocused()
+  await quick.getByRole('textbox', { name: 'Quick add' }).fill('Groceries 640 for flat')
+  await expect(quick.getByTestId('create-quick-add-group-chip')).toContainText('Indiranagar Flat')
+  await quick.getByTestId('create-quick-add-go').click()
+  await expect(page).toHaveURL(/\/add\?group=g_flat&quick=1/)
+  await expect(amountField(page)).toHaveValue(/640/)
+  await expect(page.getByRole('textbox', { name: 'Description', exact: true })).toHaveValue('Groceries')
+})
+
+test('Quick add can start a new group, then lands on the form with the line', async ({ page }) => {
+  await page.getByTestId('nav-create').click()
+  const quick = page.getByRole('dialog').getByTestId('create-quick-add')
+  await quick.getByRole('textbox', { name: 'Quick add' }).fill('Cab 300 in a new group Bali trip')
+  await quick.getByTestId('create-quick-add-new-group').click()
+  await expect(page).toHaveURL(/\/groups\/new\?/)
+  await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Bali trip')
+  await page.getByRole('button', { name: 'Create group' }).click()
+  await expect(page).toHaveURL(/\/add\?group=[^&]+&quick=1/)
+  await expect(amountField(page)).toHaveValue(/300/)
+  await expect(page.getByRole('textbox', { name: 'Description', exact: true })).toHaveValue('Cab')
+})
+
 test('settle up records a payment', async ({ page }) => {
   await page.goto('/groups/g_goa')
   await page.getByRole('link', { name: 'Settle up' }).click()
@@ -125,7 +152,7 @@ test('a Pay me link opens like it would for a friend, and “I’ve paid” reco
   await expect(page.getByRole('link', { name: 'Pay me link' }).first()).toBeVisible({ timeout: 15_000 })
 })
 
-test('a table guest’s claim waits for the host, who confirms it on the group', async ({ page }) => {
+test('a table guest’s claim waits for the host: it shows in the Inbox and the host confirms it on the group', async ({ page }) => {
   // A live table link not locked to one guest (someone the host added by hand), put straight
   // into the demo data: finishing a whole table here would only repeat the table flow.
   const code = 'tableclaimtableclaim2345'
@@ -157,6 +184,9 @@ test('a table guest’s claim waits for the host, who confirms it on the group',
   await page.getByTestId('mark-paid').click()
   await page.getByTestId('mark-paid-confirm').click()
   await expect(page.getByTestId('paylink-claimed')).toBeVisible()
+  // The Inbox lists it under "to sort", with Confirm and Dismiss.
+  await page.goto('/inbox')
+  await expect(page.getByTestId('inbox-claim').getByTestId('claim-confirm')).toBeVisible()
   await page.goto('/groups/g_goa')
   const claim = page.getByTestId('group-claim')
   await expect(claim).toBeVisible()

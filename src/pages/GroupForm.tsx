@@ -10,10 +10,19 @@ import { CURRENCIES, centsToInput } from '@/lib/money'
 import { colorFor } from '@/lib/colors'
 import { todayISO, uid } from '@/lib/id'
 import { isLiveTrip } from '@/lib/capture'
+import { walletNaming } from '@/lib/wallets'
 import { errText } from '@/lib/errors'
 import { usePageTitle } from '@/lib/brand'
 import { thresholdOf } from '@/lib/trust'
-import { APPROVAL_BASE_CURRENCY, defaultEditAutoApprove, defaultThreshold, groupApprovalInCurrency, shortMoney, tableThreshold } from '@/lib/approval'
+import {
+  APPROVAL_BASE_CURRENCY,
+  currencyLocked,
+  defaultEditAutoApprove,
+  defaultThreshold,
+  groupApprovalInCurrency,
+  shortMoney,
+  tableThreshold,
+} from '@/lib/approval'
 import { getRate } from '@/lib/fx'
 import { useTodayRates } from '@/hooks/useFx'
 import { GROUP_TYPES, SHARED_TYPES, groupTypeInfo, groupTypeOf, guessGroup, iconsFor, isSharedType, parseGroupType } from '@/lib/groupTypes'
@@ -55,15 +64,17 @@ export default function GroupForm() {
   const toast = useToast()
 
   const [initialType] = useState(() => parseGroupType(params.get('type')))
-  const [name, setName] = useState('')
+  // Quick add ("… in a new group Bali trip") opens a new group with ?name= filled in, as if typed.
+  const [prefillName] = useState(() => (groupId ? '' : (params.get('name') ?? '').trim().slice(0, 60)))
+  const [name, setName] = useState(prefillName)
   const [emoji, setEmoji] = useState(GROUP_TYPES[initialType].emoji)
   const [type, setType] = useState<GroupType>(initialType)
   // What the user chose themselves; name-based guesses and type defaults never overwrite these.
-  const [nameTouched, setNameTouched] = useState(false)
+  const [nameTouched, setNameTouched] = useState(!!prefillName)
   const [typeTouched, setTypeTouched] = useState(false)
   const [iconTouched, setIconTouched] = useState(false)
   const [datesTouched, setDatesTouched] = useState(false)
-  const [typedName, setTypedName] = useState(false)
+  const [typedName, setTypedName] = useState(!!prefillName)
   const [dismissed, setDismissed] = useState('')
   const [currency, setCurrency] = useState(profile.currency)
   const [budget, setBudget] = useState<number | undefined>(undefined)
@@ -144,6 +155,8 @@ export default function GroupForm() {
     if (on && editAmount === undefined) setEditAmount(suggestedEdit)
   }
   // Any member may change the approval settings and the currency; a currency change converts the amounts.
+  // Once the group has an expense (even a trashed one) the currency is fixed: amounts are stored in it.
+  const lockCurrency = currencyLocked(!!existing, expenses)
 
   /** The group's currency changed: amounts someone set are converted at today's rate and rounded (no rate: the new currency's defaults). */
   const changeCurrency = async (next: string) => {
@@ -209,12 +222,12 @@ export default function GroupForm() {
   const showDates = shared && (info.dates !== null || !!startDate || !!endDate)
   const shareable = type !== 'personal'
   const live = showDates && isLiveTrip({ startDate: startDate || undefined, endDate: endDate || undefined }, todayISO())
-  const hasPersonal = (groups ?? []).some((g) => g.type === 'personal')
+  // Several wallets are fine (Fuel, Groceries…); only the first defaults to "My spending".
+  const wallet = walletNaming((groups ?? []).filter((g) => g.type === 'personal' && g.id !== groupId).length)
   // Types you can switch between here: any shared type, but never to or from 1:1 / Personal once saved.
   const typeChips = shared && (!existing || isSharedType(groupTypeOf(existing)))
   const suggestions = recent.filter((k) => !isAdded(k)).slice(0, 12)
   const kind: Kind = shared ? 'group' : type === 'direct' ? 'direct' : 'personal'
-  const kinds = KINDS.filter((k) => k.kind !== 'personal' || !hasPersonal || type === 'personal')
   const guess = shared && typedName ? guessGroup(name) : null
   const guessKey = guess ? `${guess.type}${guess.emoji}` : ''
   const showGuess =
@@ -317,7 +330,8 @@ export default function GroupForm() {
   /** Problems with what was typed, next to the field they belong to (not a passing toast). */
   const validate = (finalName: string): Partial<Record<Field, string>> => {
     const errs: Partial<Record<Field, string>> = {}
-    if (!finalName) errs.name = type === 'direct' ? 'Add the friend, or give it a name' : 'Give your group a name'
+    if (!finalName)
+      errs.name = type === 'direct' ? 'Add the friend, or give it a name' : type === 'personal' ? 'Give your wallet a name' : 'Give your group a name'
     if (startDate && endDate && endDate < startDate) errs.dates = 'It ends before it starts'
     if (shareable && requireApproval && threshold !== undefined && threshold <= 0) errs.threshold = 'Enter an amount above zero'
     if (shareable && requireApproval && editAuto && editAmount !== undefined && editAmount <= 0) errs.editAuto = 'Enter an amount above zero'
@@ -326,7 +340,7 @@ export default function GroupForm() {
   }
 
   const save = async () => {
-    const finalName = name.trim() || (type === 'personal' ? 'My spending' : type === 'direct' ? (others[0]?.[1].name ?? '') : '')
+    const finalName = name.trim() || (type === 'personal' ? wallet.fallbackName : type === 'direct' ? (others[0]?.[1].name ?? '') : '')
     const errs = validate(finalName)
     if (!existing && others.length > maxOthers) return toast(type === 'direct' ? 'A 1:1 is you and one friend' : 'A personal wallet is just you', 'err')
     if (Object.keys(errs).length) {
@@ -385,8 +399,16 @@ export default function GroupForm() {
       } else {
         const id = await createGroup({ ...data, createdBy: user.uid } as Omit<Group, 'id' | 'createdAt' | 'updatedAt' | 'inviteCode'>)
         toast(type === 'personal' ? 'Wallet created' : 'Group created')
-        // ?next=add: opened from Add expense, so go straight back there with the new group picked.
-        nav(params.get('next') === 'add' ? `/add?group=${id}` : `/groups/${id}`, { replace: true })
+        // ?next=add: opened from Add expense, so go straight back there with the new group picked
+        // (&quick=1: from Quick add, whose line waits in memory to fill the form).
+        // (&capture=: from a captured payment's "Personal" → "New wallet…", which goes on to the form for it.)
+        const capture = params.get('capture')
+        nav(
+          params.get('next') === 'add'
+            ? `/add?group=${id}${params.get('quick') ? '&quick=1' : ''}${capture ? `&capture=${encodeURIComponent(capture)}` : ''}`
+            : `/groups/${id}`,
+          { replace: true },
+        )
       }
     } catch (e) {
       toast(errText(e), 'err')
@@ -414,12 +436,8 @@ export default function GroupForm() {
         noValidate
       >
         {!existing && (
-          <div
-            className={`grid gap-1 rounded-2xl bg-slate-100 p-1 dark:bg-ink-800 ${kinds.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}
-            role="radiogroup"
-            aria-label="What are you creating?"
-          >
-            {kinds.map((k) => (
+          <div className="grid grid-cols-3 gap-1 rounded-2xl bg-slate-100 p-1 dark:bg-ink-800" role="radiogroup" aria-label="What are you creating?">
+            {KINDS.map((k) => (
               <button
                 key={k.kind}
                 type="button"
@@ -446,7 +464,7 @@ export default function GroupForm() {
               ref={nameRef}
               id="group-name"
               className={`input ${errors.name ? 'ring-2 ring-rose-500' : ''}`}
-              placeholder={info.placeholder}
+              placeholder={type === 'personal' ? wallet.placeholder : info.placeholder}
               value={name}
               onChange={(e) => onName(e.target.value)}
               autoComplete="off"
@@ -585,8 +603,13 @@ export default function GroupForm() {
                       suggestions.length > 0 && (
                         <>
                           <div className="text-muted mb-0.5 mt-2.5 text-xs font-medium">From your recent groups</div>
-                          {/* py-1: overflow-x-auto clips the chips' rings otherwise */}
-                          <div className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 py-1" data-testid="known-people">
+                          {/* py-1: overflow-x-auto clips the chips' rings otherwise. The row scrolls inside a small
+                              inset (half the card's padding) rather than to the card's edge; the ::after spacer
+                              keeps that inset at the end too (Safari drops a scroll row's right padding). */}
+                          <div
+                            className="scrollbar-none -mx-2 flex gap-2 overflow-x-auto px-2 py-1 after:block after:w-px after:shrink-0 after:content-['']"
+                            data-testid="known-people"
+                          >
                             {suggestions.map((k) => (
                               <button
                                 key={k.uid ?? k.name}
@@ -650,7 +673,13 @@ export default function GroupForm() {
                 <div className="label" id="group-currency-label">
                   Currency
                 </div>
-                <Select aria-label="Currency" value={currency} onChange={(c) => void changeCurrency(c)} options={currencyOptions(CURRENCIES)} />
+                <Select
+                  aria-label="Currency"
+                  value={currency}
+                  onChange={(c) => void changeCurrency(c)}
+                  options={currencyOptions(CURRENCIES)}
+                  disabled={lockCurrency}
+                />
               </div>
               <div>
                 <label className="label" htmlFor="group-budget">
@@ -671,6 +700,11 @@ export default function GroupForm() {
                 <FieldError id="group-budget-error" text={errors.budget} />
               </div>
             </div>
+            {lockCurrency && expenses && (
+              <p className="text-muted -mt-2 text-xs" data-testid="group-currency-locked">
+                The currency can't change once the group has expenses.
+              </p>
+            )}
             {showDates && (
               <div>
                 <div className="mb-1.5 flex items-center justify-between">
@@ -719,7 +753,7 @@ export default function GroupForm() {
                 <p className="text-muted mt-1.5 text-xs">While it’s on, new expenses and captured payments default to this group.</p>
                 {(startDate || endDate) && (
                   <p className="text-muted mt-1 text-xs">
-                    Tip: forward bank and UPI debit SMS to this trip with{' '}
+                    Tip: each person can add their own bank and UPI payments to this trip with{' '}
                     {existing ? (
                       <Link to={`/settings/auto-capture?group=${existing.id}`} className="font-semibold text-brand-600 dark:text-brand-300">
                         SMS auto-capture
@@ -814,7 +848,7 @@ export default function GroupForm() {
                     )}
                   </div>
                 )}
-                {requireApproval && <p className="text-muted mt-3 text-xs">Changing the currency converts these amounts.</p>}
+                {requireApproval && !lockCurrency && <p className="text-muted mt-3 text-xs">Changing the currency converts these amounts.</p>}
               </div>
             )}
           </div>

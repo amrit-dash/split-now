@@ -36,7 +36,7 @@ export default function Limits() {
   }
 
   return (
-    <div data-testid="admin-limits">
+    <div className="pb-[calc(var(--lane)-var(--nav-h))]" data-testid="admin-limits">
       <div className="card divide-y divide-slate-100 p-4 dark:divide-white/5">
         {LIMIT_NAMES.map((k) => (
           <IntField

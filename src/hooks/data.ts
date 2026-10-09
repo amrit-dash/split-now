@@ -83,6 +83,7 @@ const keys = {
   // The viewer's uid is part of the key: an anonymous sign-in (or signing out) clears the store,
   // and a new key makes the screen subscribe again instead of keeping a dropped listener.
   payLink: (code: string, viewer: string) => `payLink/${viewer}/${code}`,
+  claimedPayLinks: (uid: string) => `claimedPayLinks/${uid}`,
 }
 
 const startGroups = (uid: string) => (cb: (g: Group[], m?: SnapMeta) => void) => repo.watchGroups(uid, cb)
@@ -147,6 +148,12 @@ export function usePendingCaptures() {
  */
 export function usePayLink(code: string | null | undefined, viewer: string | null | undefined): PayLink | null | undefined {
   return useShared<PayLink | null>(code && viewer ? keys.payLink(code, viewer) : null, (cb) => repo.watchPayLink(code ?? '', cb))
+}
+
+/** The signed-in user's links a table guest says are paid, waiting for them to confirm (Inbox, group card); null while loading. */
+export function useClaimedPayLinks(): PayLink[] | null {
+  const { user } = useMe()
+  return useShared(keys.claimedPayLinks(user.uid), (cb: (l: PayLink[], m?: SnapMeta) => void) => repo.watchClaimedPayLinks(user.uid, cb)) ?? null
 }
 
 /** undefined while loading, null when the group doesn't exist or the user can't read it. */

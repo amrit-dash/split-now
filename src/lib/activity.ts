@@ -1,7 +1,7 @@
-import type { ActivityEntry, ActivityType, Cents, Expense, ImportedFrom, MemberId, OriginalAmount, Settlement } from '@/types'
+import type { ActivityEntry, ActivityType, Cents, Expense, Group, ImportedFrom, MemberId, OriginalAmount, Settlement } from '@/types'
 import { CATEGORIES } from './categories'
 import { formatMoney } from './money'
-import { shortMoney } from './approval'
+import { groupThreshold, shortMoney } from './approval'
 import { FREQ_LABEL } from './recurrence'
 import { formatDate } from './locale'
 
@@ -260,6 +260,68 @@ export function memberActivity(kind: 'added' | 'removed', memberId: MemberId, na
   return { ...base(`member.${kind}`, memberId, ctx), summary: clip(text) }
 }
 
+/** Group settings whose changes are logged, in the order the summary names them. */
+export const GROUP_SETTINGS_FIELDS = ['name', 'currency', 'requireApproval', 'approvalThreshold', 'editAutoApprove', 'budget'] as const
+type GroupSettingsSnapshot = Pick<Group, 'id' | 'name' | 'currency' | 'requireApproval' | 'approvalThreshold' | 'editAutoApprove' | 'budget'>
+
+/** "a", "a and b", "a, b, and c". */
+export function joinPhrases(parts: string[]): string {
+  if (parts.length <= 2) return parts.join(' and ')
+  return `${parts.slice(0, -1).join(', ')}, and ${parts[parts.length - 1]}`
+}
+
+/**
+ * The entry for saving a group's settings: one line naming every change to the name, currency,
+ * approval settings or budget, so everyone sees who changed what (any member may change them).
+ * Null when none of those changed (archiving, auto-capture, dates or the icon are not logged).
+ * Amounts are shown in the group's currency after the save.
+ */
+export function groupSettingsActivity(before: GroupSettingsSnapshot, after: GroupSettingsSnapshot, ctx: ActivityCtx): NewActivity | null {
+  const cur = after.currency
+  const amt = (v: Cents) => shortMoney(v, cur)
+  const parts: string[] = []
+  if (after.name !== before.name && after.name) parts.push(`renamed the group to ${after.name}`)
+  if (after.currency !== before.currency) parts.push(`changed the currency to ${after.currency}`)
+  const wasOn = !!before.requireApproval,
+    isOn = !!after.requireApproval
+  if (wasOn && !isOn) parts.push('turned off approval')
+  if (!wasOn && isOn) parts.push(`turned on approval for expenses over ${amt(groupThreshold(after))}`)
+  if (wasOn && isOn) {
+    // A cleared threshold that falls back to the same default is not a change; one carried
+    // over by a currency change is (its figure was converted).
+    const stored = before.approvalThreshold !== after.approvalThreshold
+    if (stored && (groupThreshold(before) !== groupThreshold(after) || before.currency !== after.currency))
+      parts.push(`changed the approval threshold to ${amt(groupThreshold(after))}`)
+  }
+  // Edit auto-approve only means something while approval is on; turning approval off clears it.
+  if (isOn && before.editAutoApprove !== after.editAutoApprove) {
+    if (after.editAutoApprove === undefined) {
+      if (wasOn) parts.push('turned off small-edit auto-approve')
+    } else if (before.editAutoApprove === undefined || !wasOn) parts.push(`turned on small-edit auto-approve up to ${amt(after.editAutoApprove)}`)
+    else parts.push(`changed small-edit auto-approve to up to ${amt(after.editAutoApprove)}`)
+  }
+  if ((before.budget || undefined) !== (after.budget || undefined)) {
+    if (!after.budget) parts.push('removed the budget')
+    else if (!before.budget) parts.push(`set a budget of ${amt(after.budget)}`)
+    else parts.push(`changed the budget to ${amt(after.budget)}`)
+  }
+  if (!parts.length) return null
+  const snap = (g: GroupSettingsSnapshot) => {
+    const out: Snapshot = {}
+    for (const k of GROUP_SETTINGS_FIELDS) {
+      const v = g[k]
+      // false and 0 read as "off", the same as absent
+      if (v !== undefined && v !== null && v !== '' && v !== false && v !== 0) out[k] = v
+    }
+    return out
+  }
+  const b = snap(before),
+    a = snap(after)
+  const fields = GROUP_SETTINGS_FIELDS.filter((k) => stable(b[k]) !== stable(a[k]))
+  const pick = (s: Snapshot) => Object.fromEntries(fields.filter((k) => k in s).map((k) => [k, s[k]]))
+  return { ...base('group.updated', after.id, ctx), summary: clip(`${ctx.actorName} ${joinPhrases(parts)}`), before: pick(b), after: pick(a) }
+}
+
 /** The summary from the reader's point of view ("You changed …" for their own entries). */
 export function activityText(a: Pick<ActivityEntry, 'summary' | 'actorUid' | 'actorName'>, myUid: string): string {
   if (a.actorUid === myUid && a.summary.startsWith(a.actorName + ' ')) {
@@ -306,6 +368,7 @@ const ICONS: Record<ActivityType, string> = {
   'settlement.claimed': '🙋',
   'member.added': '👋',
   'member.removed': '🚪',
+  'group.updated': '⚙️',
 }
 /** An emoji for each kind of entry. */
 export const activityIcon = (t: ActivityType): string => ICONS[t] ?? '•'

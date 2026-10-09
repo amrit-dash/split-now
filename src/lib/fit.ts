@@ -25,3 +25,16 @@ export const overflows = (content: number, box: number) => content > box + 0.5
 
 // Floors to 3 decimals, so the scaled line never ends up a hair wider than the box.
 const round = (n: number) => Math.floor(n * 1000) / 1000
+
+/**
+ * A one-line hint wider than its field drifts sideways so it can be read in full (Quick add's
+ * empty field). Null when it fits. `shift` is how far it travels (px, with `gap` of breathing
+ * room at the end); `seconds` is one full cycle at about `speed` px a second, held still at
+ * both ends for a while (see the `hint-marquee` keyframes), never shorter than 6 s.
+ */
+export function marqueeFor(content: number, box: number, speed = 40, gap = 12): { shift: number; seconds: number } | null {
+  if (box <= 0 || !overflows(content, box)) return null
+  const shift = Math.ceil(content - box + gap)
+  // The keyframes spend 35% of the cycle moving each way and 30% holding at the two ends.
+  return { shift, seconds: Math.max(6, Math.round(((shift / speed) * 2) / 0.7)) }
+}

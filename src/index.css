@@ -44,10 +44,13 @@
 }
 
 /* Presets: brand + duo scales from Tailwind's palette. Steps 400+ are shifted one shade darker
-   for the lighter hues (orange, and the cyan / sky duo partners of Ocean and Indigo) so white
-   text on brand-600 AND on duo-600 (the right end of btn-primary) stays at 4.5:1 or better.
-   accent.test.ts measures this for every preset. Emerald / Rose (the owed / owe colours) and
-   Amber (never readable under white text) were retired. */
+   for the lighter hues (the cyan / sky / teal duo partners) so white text on brand-600 AND on
+   duo-600 (the right end of btn-primary) stays at 4.5:1 or better. accent.test.ts measures this
+   for every preset. Lime and Gold keep Tailwind's bright 50–400 (the neon / gold glow in the
+   Aurora patches and dark-mode text) and use hand-tuned deep steps from 500 down, since their
+   Tailwind 600s cannot carry white text. Lime stays a yellow-green (hue ~129) with a petrol-cyan
+   partner so it never reads as the emerald (hue ~165) of "you are owed". Emerald / Rose (the
+   owed / owe colours) and the orange Saffron (too close to Gold) were retired. */
 :root {
   &[data-accent='ocean'] {
     --color-brand-50: oklch(97% 0.014 254.604); --color-brand-100: oklch(93.2% 0.032 255.585); --color-brand-200: oklch(88.2% 0.059 254.128); --color-brand-300: oklch(80.9% 0.105 251.813); --color-brand-400: oklch(70.7% 0.165 254.624); --color-brand-500: oklch(62.3% 0.214 259.815); --color-brand-600: oklch(54.6% 0.245 262.881); --color-brand-700: oklch(48.8% 0.243 264.376); --color-brand-800: oklch(42.4% 0.199 265.638); --color-brand-900: oklch(37.9% 0.146 265.522);
@@ -57,9 +60,17 @@
     --color-brand-50: oklch(96.2% 0.018 272.314); --color-brand-100: oklch(93% 0.034 272.788); --color-brand-200: oklch(87% 0.065 274.039); --color-brand-300: oklch(78.5% 0.115 274.713); --color-brand-400: oklch(67.3% 0.182 276.935); --color-brand-500: oklch(58.5% 0.233 277.117); --color-brand-600: oklch(51.1% 0.262 276.966); --color-brand-700: oklch(45.7% 0.24 277.023); --color-brand-800: oklch(39.8% 0.195 277.366); --color-brand-900: oklch(35.9% 0.144 278.697);
     --color-duo-50: oklch(97.7% 0.013 236.62); --color-duo-100: oklch(95.1% 0.026 236.824); --color-duo-200: oklch(90.1% 0.058 230.902); --color-duo-300: oklch(82.8% 0.111 230.318); --color-duo-400: oklch(68.5% 0.169 237.323); --color-duo-500: oklch(58.8% 0.158 241.966); --color-duo-600: oklch(50% 0.134 242.749); --color-duo-700: oklch(44.3% 0.11 240.79); --color-duo-800: oklch(39.1% 0.09 240.876); --color-duo-900: oklch(33.5% 0.08 241);
   }
-  &[data-accent='saffron'] {
-    --color-brand-50: oklch(98.7% 0.022 95.277); --color-brand-100: oklch(96.2% 0.059 95.617); --color-brand-200: oklch(92.4% 0.12 95.746); --color-brand-300: oklch(87.9% 0.169 91.605); --color-brand-400: oklch(76.9% 0.188 70.08); --color-brand-500: oklch(66.6% 0.179 58.318); --color-brand-600: oklch(55.5% 0.163 48.998); --color-brand-700: oklch(47.3% 0.137 46.201); --color-brand-800: oklch(41.4% 0.112 45.904); --color-brand-900: oklch(27.9% 0.077 45.635);
-    --color-duo-50: oklch(98% 0.016 73.684); --color-duo-100: oklch(95.4% 0.038 75.164); --color-duo-200: oklch(90.1% 0.076 70.697); --color-duo-300: oklch(83.7% 0.128 66.29); --color-duo-400: oklch(70.5% 0.213 47.604); --color-duo-500: oklch(64.6% 0.222 41.116); --color-duo-600: oklch(55.3% 0.195 38.402); --color-duo-700: oklch(47% 0.157 37.304); --color-duo-800: oklch(40.8% 0.123 38.172); --color-duo-900: oklch(26.6% 0.079 36.259);
+  &[data-accent='berry'] {
+    --color-brand-50: oklch(97.7% 0.017 340); --color-brand-100: oklch(94.8% 0.035 340); --color-brand-200: oklch(89.9% 0.07 340); --color-brand-300: oklch(82.3% 0.12 340); --color-brand-400: oklch(71.8% 0.18 342); --color-brand-500: oklch(62% 0.21 343); --color-brand-600: oklch(53% 0.2 343); --color-brand-700: oklch(46% 0.18 345); --color-brand-800: oklch(40% 0.15 347); --color-brand-900: oklch(34% 0.12 348);
+    --color-duo-50: oklch(98.4% 0.015 192); --color-duo-100: oklch(95.5% 0.048 192); --color-duo-200: oklch(91.3% 0.09 193); --color-duo-300: oklch(86% 0.13 194); --color-duo-400: oklch(71% 0.135 195); --color-duo-500: oklch(60.5% 0.115 196); --color-duo-600: oklch(51.5% 0.095 197); --color-duo-700: oklch(44.5% 0.08 198); --color-duo-800: oklch(39% 0.066 199); --color-duo-900: oklch(28.5% 0.048 202);
+  }
+  &[data-accent='lime'] {
+    --color-brand-50: oklch(98.6% 0.031 120.757); --color-brand-100: oklch(96.7% 0.067 122.328); --color-brand-200: oklch(93.8% 0.127 124.321); --color-brand-300: oklch(89.7% 0.196 126.665); --color-brand-400: oklch(84.1% 0.238 128.85); --color-brand-500: oklch(70% 0.2 130); --color-brand-600: oklch(52% 0.15 129); --color-brand-700: oklch(46% 0.125 129); --color-brand-800: oklch(40.5% 0.1 130); --color-brand-900: oklch(33% 0.08 131);
+    --color-duo-50: oklch(98.4% 0.019 200.873); --color-duo-100: oklch(95.6% 0.045 203.388); --color-duo-200: oklch(91.7% 0.08 205.041); --color-duo-300: oklch(86.5% 0.127 207.078); --color-duo-400: oklch(72% 0.135 210); --color-duo-500: oklch(61% 0.12 213); --color-duo-600: oklch(52% 0.1 215); --color-duo-700: oklch(45% 0.085 217); --color-duo-800: oklch(39.5% 0.07 219); --color-duo-900: oklch(30% 0.055 222);
+  }
+  &[data-accent='gold'] {
+    --color-brand-50: oklch(98.7% 0.026 102.212); --color-brand-100: oklch(97.3% 0.071 103.193); --color-brand-200: oklch(94.5% 0.129 101.54); --color-brand-300: oklch(90.5% 0.182 98.111); --color-brand-400: oklch(85.2% 0.199 91.936); --color-brand-500: oklch(72% 0.16 82); --color-brand-600: oklch(54% 0.12 80); --color-brand-700: oklch(46% 0.1 76); --color-brand-800: oklch(40% 0.085 73); --color-brand-900: oklch(30% 0.065 70);
+    --color-duo-50: oklch(98.7% 0.022 95.277); --color-duo-100: oklch(96.2% 0.059 95.617); --color-duo-200: oklch(92.4% 0.12 95.746); --color-duo-300: oklch(87.9% 0.169 91.605); --color-duo-400: oklch(82.8% 0.189 84.429); --color-duo-500: oklch(70% 0.165 70); --color-duo-600: oklch(53% 0.13 66); --color-duo-700: oklch(46% 0.115 63); --color-duo-800: oklch(40% 0.095 60); --color-duo-900: oklch(30% 0.07 56);
   }
   &[data-accent='graphite'] {
     --color-brand-50: oklch(98.4% 0.003 247.858); --color-brand-100: oklch(96.8% 0.007 247.896); --color-brand-200: oklch(92.9% 0.013 255.508); --color-brand-300: oklch(86.9% 0.022 252.894); --color-brand-400: oklch(70.4% 0.04 256.788); --color-brand-500: oklch(55.4% 0.046 257.417); --color-brand-600: oklch(44.6% 0.043 257.281); --color-brand-700: oklch(37.2% 0.044 257.287); --color-brand-800: oklch(27.9% 0.041 260.031); --color-brand-900: oklch(20.8% 0.042 265.755);
@@ -87,6 +98,9 @@
   /* Keyboard focus is always visible; pointer focus stays quiet. */
   :focus-visible { outline: 2px solid var(--color-brand-500); outline-offset: 2px; border-radius: 0.5rem; }
   .input:focus-visible { outline: none; }
+  /* The page container (Layout) and other script-focused targets take focus on navigation for screen
+     readers; they are not controls, so no ring (it read as a random highlight on every page load). */
+  [tabindex="-1"]:focus { outline: none; }
   /* Money and dates line up in lists. */
   body { font-variant-numeric: tabular-nums; }
   /* iOS zooms inputs under 16px — keep them at 16px. */
@@ -171,7 +185,36 @@
 
 @utility neg { @apply text-rose-700 dark:text-rose-400; }
 
-@utility safe-top { padding-top: env(safe-area-inset-top); }
+/*
+ * The top of in-app screens. The announcement banner / admin strip (App.tsx) is sticky at the top
+ * and owns the notch inset while it shows: it sets <html data-banner> and its measured height as
+ * --banner-h. Pages pad with --safe-top (the inset, or 0 under a banner, so the notch gap isn't
+ * paid twice) and sticky headers stick at --banner-h (just under the banner instead of the notch).
+ */
+:root { --banner-h: 0px; --safe-top: env(safe-area-inset-top); }
+html[data-banner] { --safe-top: 0px; }
+
+@utility safe-top { padding-top: var(--safe-top); }
+
+/* One-line text that loops sideways when it doesn't fit (Marquee.tsx). The track is the text twice,
+   each followed by the gap, so sliding it by half its width lands exactly on the second copy. */
+.marquee { display: block; min-width: 0; overflow: hidden; white-space: nowrap; }
+.marquee-track { display: inline-flex; }
+.marquee-item, .marquee-item > span { display: inline-block; flex: none; }
+.marquee[data-scroll] {
+  -webkit-mask: linear-gradient(90deg, transparent, #000 0.75rem, #000 calc(100% - 0.75rem), transparent);
+  mask: linear-gradient(90deg, transparent, #000 0.75rem, #000 calc(100% - 0.75rem), transparent);
+}
+.marquee[data-scroll] .marquee-item { padding-left: 0.75rem; padding-right: calc(var(--marquee-gap) - 0.75rem); }
+.marquee[data-scroll] .marquee-track { animation: marquee var(--marquee-dur) linear 1.5s infinite; }
+.marquee:hover .marquee-track, .marquee-host:hover .marquee-track, .marquee-host:focus-within .marquee-track { animation-play-state: paused; }
+.marquee[data-wrap] { white-space: normal; }
+.marquee[data-wrap] .marquee-track, .marquee[data-wrap] .marquee-item, .marquee[data-wrap] .marquee-item > span { display: inline; }
+@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+/* The maintenance screen's wrench: a small turn now and then, like a hand at work. Off with reduced motion. */
+@keyframes tinker { 0%, 62%, 100% { transform: rotate(0deg); } 70% { transform: rotate(-22deg); } 78% { transform: rotate(8deg); } 86% { transform: rotate(-12deg); } 94% { transform: rotate(3deg); } }
+@utility animate-tinker { animation: tinker 3.2s ease-in-out infinite; transform-origin: 70% 30%; }
 
 @utility safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
 
@@ -205,6 +248,15 @@ html[data-update-ready] .install-banner { display: none; }
 @utility animate-wave { animation: wave-loop 2.6s ease-in-out 0.4s 3; }
 @utility animate-tilt { animation: tilt 2.2s ease-in-out 0.4s 3; }
 @utility animate-float { animation: float 2.4s ease-in-out 0.4s 4; }
+
+/* Quick add's hint, when wider than its field: drifts to its end and back, resting at both ends
+   (QuickAdd's Hint sets --mq-shift and --mq-dur from marqueeFor()). With reduced motion it stays
+   put, cut off with an ellipsis. */
+@keyframes hint-marquee { 0%, 15% { transform: translateX(0); } 50%, 65% { transform: translateX(var(--mq-shift, 0)); } 100% { transform: translateX(0); } }
+@utility hint-marquee { animation: hint-marquee var(--mq-dur, 12s) ease-in-out 1s infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .hint-marquee { animation: none !important; max-width: 100%; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; }
+}
 
 /* Progress bar with no known percentage (waiting on the AI reader). */
 @keyframes indeterminate {

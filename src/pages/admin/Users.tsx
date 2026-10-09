@@ -77,7 +77,7 @@ export default function Users() {
   }
 
   return (
-    <div data-testid="admin-users">
+    <div className="pb-[calc(var(--lane)-var(--nav-h))]" data-testid="admin-users">
       <form onSubmit={submit} className="flex gap-2" role="search">
         <label htmlFor="user-q" className="sr-only">
           Email, uid or name

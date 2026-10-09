@@ -3,7 +3,8 @@ import { Link, useLocation } from 'react-router-dom'
 import { Inbox, Plus, X } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
 import { useCaptures, useGroups } from '@/hooks/data'
-import type { Capture } from '@/types'
+import { usePausedTrips } from '@/hooks/useCapturePrefs'
+import type { Capture, Group } from '@/types'
 import { formatMoney } from '@/lib/money'
 import { targetGroupFor } from '@/lib/inbox-sort'
 
@@ -19,7 +20,6 @@ const APP_START = Date.now()
 const SHOW_MS = 20_000
 
 export function CaptureAlert() {
-  const { profile } = useMe()
   const captures = useCaptures()
   const groups = useGroups()
   const loc = useLocation()
@@ -51,9 +51,26 @@ export function CaptureAlert() {
     return () => document.documentElement.removeAttribute('data-capture-alert')
   }, [visible])
   if (!visible || !current) return null
+  return <AlertCard current={current} groups={groups} waiting={queue.length} advance={advance} clear={() => setQueue([])} />
+}
 
-  const waiting = queue.length
-  const tripId = groups ? targetGroupFor(current, groups) : undefined
+/** The banner itself; mounted only while a capture is up, so the capture settings are read only then. */
+function AlertCard({
+  current,
+  groups,
+  waiting,
+  advance,
+  clear,
+}: {
+  current: Capture
+  groups: Group[] | null
+  waiting: number
+  advance: () => void
+  clear: () => void
+}) {
+  const { profile } = useMe()
+  const paused = usePausedTrips()
+  const tripId = groups ? targetGroupFor(current, groups, paused) : undefined
   const trip = groups?.find((g) => g.id === tripId)
   const several = waiting > 1
   return (
@@ -82,7 +99,7 @@ export function CaptureAlert() {
           )}
         </div>
         {several ? (
-          <Link to="/inbox" onClick={() => setQueue([])} className="btn-primary btn-sm shrink-0">
+          <Link to="/inbox" onClick={clear} className="btn-primary btn-sm shrink-0">
             <Inbox size={16} aria-hidden /> Inbox
           </Link>
         ) : (
@@ -92,7 +109,7 @@ export function CaptureAlert() {
         )}
         <button
           type="button"
-          onClick={several ? () => setQueue([]) : advance}
+          onClick={several ? clear : advance}
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-500 dark:text-slate-400"
           aria-label="Dismiss"
         >

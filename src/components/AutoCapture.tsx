@@ -9,12 +9,12 @@ import { useFlag } from '@/hooks/useAppConfig'
 import type { Group } from '@/types'
 import { copy } from '@/lib/share'
 import { errText } from '@/lib/errors'
-import { hasTripWindow } from '@/lib/capture'
+import { tripCaptureRelevant } from '@/lib/capture'
 import { todayISO } from '@/lib/id'
 import { formatDate } from '@/lib/locale'
 import { currencySymbol, formatMoney } from '@/lib/money'
 import type { AllPrefs } from '@/lib/push'
-import { IGNORE_SUGGESTIONS, MAX_IGNORE_WORDS, logResultText, logResultTone, relativeTime } from '@/lib/capture-filters'
+import { IGNORE_SUGGESTIONS, MAX_IGNORE_WORDS, logResultText, logResultTone, relativeTime, setTripPaused } from '@/lib/capture-filters'
 import {
   addIgnoreWord,
   clearCaptureLog,
@@ -189,7 +189,7 @@ export function AutoCapture() {
         <div className={`transition-opacity ${paused ? 'opacity-50' : ''}`}>
           <OutsideTripsChoice on={prefs.outsideTrips} onChange={(v) => update({ outsideTrips: v })} />
           <Filters prefs={prefs} onChange={update} />
-          {groups && <TripPauses groups={groups} />}
+          {groups && <TripPauses groups={groups} paused={prefs.pausedTrips} onChange={(pausedTrips) => update({ pausedTrips })} />}
           <p className="text-muted mt-3 px-1 text-xs">
             {!prefs.captures
               ? 'Capture notifications are off (Settings → Notifications).'
@@ -457,40 +457,45 @@ function Filters({ prefs, onChange }: { prefs: AllPrefs; onChange: (p: Partial<A
   )
 }
 
-/** Current and upcoming trips with a pause switch each (group.captureOff, shared with the group's members). */
-function TripPauses({ groups }: { groups: Group[] }) {
+/**
+ * Current and upcoming trips with a pause switch each. The pause is this person's own
+ * (pausedTrips in their capture settings): capture is set up per phone, so other members'
+ * captures for the trip carry on.
+ */
+function TripPauses({ groups, paused, onChange }: { groups: Group[]; paused: string[]; onChange: (pausedTrips: string[]) => void }) {
   const toast = useToast()
   const today = todayISO()
-  const trips = groups
-    .filter((g) => g.type !== 'personal' && g.type !== 'direct' && !g.archived && hasTripWindow(g) && (!g.endDate || g.endDate >= today))
-    .sort((a, b) => (a.startDate ?? '').localeCompare(b.startDate ?? ''))
+  const trips = groups.filter((g) => tripCaptureRelevant(g, today)).sort((a, b) => (a.startDate ?? '').localeCompare(b.startDate ?? ''))
   if (!trips.length) return null
   const set = (g: Group, off: boolean) => {
-    repo.updateGroupSettings(g, { captureOff: off || undefined }).catch((e) => toast(errText(e), 'err'))
-    toast(off ? `Capture paused for ${g.name}` : `Capture on for ${g.name}`)
+    onChange(setTripPaused(paused, g.id, off))
+    toast(off ? `Capture paused for you in ${g.name}` : `Capture on for you in ${g.name}`)
   }
   return (
     <Panel title="Trips" testId="capture-trips">
       <ul className="space-y-1">
-        {trips.map((g) => (
-          <li key={g.id} className="flex items-center gap-3 py-1">
-            <span className="text-lg" aria-hidden>
-              {g.emoji}
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-semibold" id={`trip-cap-${g.id}`}>
-                {g.name}
+        {trips.map((g) => {
+          const off = paused.includes(g.id)
+          return (
+            <li key={g.id} className="flex items-center gap-3 py-1">
+              <span className="text-lg" aria-hidden>
+                {g.emoji}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-semibold" id={`trip-cap-${g.id}`}>
+                  {g.name}
+                </div>
+                <div className="text-muted truncate text-xs">
+                  {formatRange(g.startDate, g.endDate)}
+                  {off ? ' · paused' : ''}
+                </div>
               </div>
-              <div className="text-muted truncate text-xs">
-                {formatRange(g.startDate, g.endDate)}
-                {g.captureOff ? ' · paused' : ''}
-              </div>
-            </div>
-            <Switch checked={!g.captureOff} onChange={(v) => set(g, !v)} label={`Capture for ${g.name}`} />
-          </li>
-        ))}
+              <Switch checked={!off} onChange={(v) => set(g, !v)} label={`Capture for ${g.name}`} />
+            </li>
+          )
+        })}
       </ul>
-      <p className="text-muted mt-1 text-xs">Pausing a trip applies to everyone in it: their payments during it are skipped too.</p>
+      <p className="text-muted mt-1 text-xs">Pausing a trip only affects your captures. Others in the trip keep theirs.</p>
     </Panel>
   )
 }

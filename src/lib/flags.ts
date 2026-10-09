@@ -41,7 +41,7 @@ export const FLAG_INFO: Record<FlagName, { label: string; hint: string }> = {
   liveTables: { label: 'Live tables', hint: 'The QR shared bill (/split, /t/CODE). Off hides the routes for everyone, guests included.' },
   autoCapture: { label: 'Auto-capture', hint: 'Bank SMS forwarding. Off makes the webhook answer "paused" and hides the setup wizard.' },
   statementImport: { label: 'Statement import', hint: 'Payment-app screenshots → transactions.' },
-  quickAdd: { label: 'Quick add', hint: 'The natural-language / voice field on Home and group screens.' },
+  quickAdd: { label: 'Quick add', hint: 'The natural-language / voice line in the Create sheet (the + button).' },
   nudges: { label: 'Nudges', hint: 'The "Nudge" push next to Remind.' },
   payLinks: {
     label: 'Pay me links and cards',
@@ -189,13 +189,47 @@ export function dismissAnnouncement(a: Announcement): void {
 }
 
 /** Invite-only sign-ups: the sign-in screen offers "Create an account" only with an invite link (/join/CODE). */
-export function signupsOpen(cfg: Pick<AppConfig, 'signups'>, pathname: string): boolean {
+export function signupsOpen(cfg: Pick<AppConfig, 'signups'> & Partial<Pick<AppConfig, 'maintenance'>>, pathname: string): boolean {
+  // Maintenance refuses every non-admin write, so a new account couldn't even save its profile.
+  if (cfg.maintenance) return false
   return cfg.signups !== 'invite' || /^\/join\/[A-Za-z0-9]+/.test(pathname)
+}
+
+/** Why "Create an account" is hidden on the sign-in screen (when signupsOpen is false). */
+export function signupsClosedText(cfg: Partial<Pick<AppConfig, 'maintenance'>>): string {
+  return cfg.maintenance
+    ? 'Split Now is down for a few minutes of maintenance. New accounts open again shortly; existing accounts can sign in.'
+    : 'Split Now is invite only right now. Ask a friend for their group link to join.'
 }
 
 /** Mirrors the rules' writesOpen(): admins always may; others not in maintenance and not blocked. */
 export function writesOpen(cfg: Pick<AppConfig, 'maintenance'>, blocked: boolean, admin: boolean): boolean {
   return admin || (!cfg.maintenance && !blocked)
+}
+
+/** The maintenance screen's sentence when the admin left the message empty. */
+export const MAINTENANCE_FALLBACK = 'We’re making Split Now better. Your data is safe.'
+
+/** What the maintenance screen (and its preview in the console) says: the admin's message, or the fallback. */
+export function maintenanceText(message: string | undefined): string {
+  return message?.trim() || MAINTENANCE_FALLBACK
+}
+
+/**
+ * The one-line strip admins see at the top of the app while a gate is on that everyone else is
+ * stopped by (admins never get those screens, so this is how they notice it). Maintenance comes
+ * first: it is the one that locks people out right now, and the strip offers to turn it off.
+ */
+export function adminGateNote(
+  cfg: Pick<AppConfig, 'maintenance' | 'minVersion'>,
+  version: string,
+  admin: boolean,
+): { kind: 'maintenance' | 'update'; text: string } | null {
+  if (!admin) return null
+  if (cfg.maintenance) return { kind: 'maintenance', text: 'Maintenance mode is on · only admins can use the app' }
+  if (updateRequired(cfg, version))
+    return { kind: 'update', text: `Update required is on for builds below ${cfg.minVersion} · you are on ${semverOf(version)}` }
+  return null
 }
 
 /** blocked/{uid}, written by the adminBlockUser callable. */

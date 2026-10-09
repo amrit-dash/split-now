@@ -10,13 +10,18 @@ type Rankable = Pick<Group, 'id' | 'type' | 'currency' | 'updatedAt' | 'startDat
 
 /**
  * The group a capture should go to: the server's suggestion when it is still one of the user's
- * groups (the webhook knows the key's scope), else the best trip-window match.
+ * groups (the webhook knows the key's scope), else the best trip-window match, skipping the trips
+ * this person paused capture for (`paused`, their pausedTrips).
  */
-export function targetGroupFor<G extends Rankable>(c: Pick<Capture, 'suggestedGroup' | 'date' | 'currency'>, groups: G[]): string | undefined {
+export function targetGroupFor<G extends Rankable>(
+  c: Pick<Capture, 'suggestedGroup' | 'date' | 'currency'>,
+  groups: G[],
+  paused?: readonly string[],
+): string | undefined {
   if (c.suggestedGroup && groups.some((g) => g.id === c.suggestedGroup && !g.archived)) return c.suggestedGroup
   return rankGroupsForCapture(
     groups.filter((g) => !g.archived),
-    c,
+    { date: c.date, currency: c.currency, paused },
   ).best
 }
 
@@ -30,11 +35,15 @@ export interface BulkCandidate<G> {
  * the group's currency (so an equal split needs no conversion). Only groups with two or more
  * are worth a bulk action; the largest set first.
  */
-export function bulkCandidates<G extends Rankable & { currency: string }>(captures: Capture[], groups: G[]): Array<BulkCandidate<G>> {
+export function bulkCandidates<G extends Rankable & { currency: string }>(
+  captures: Capture[],
+  groups: G[],
+  paused?: readonly string[],
+): Array<BulkCandidate<G>> {
   const by = new Map<string, Capture[]>()
   for (const c of captures) {
     if (c.status !== 'pending') continue
-    const id = targetGroupFor(c, groups)
+    const id = targetGroupFor(c, groups, paused)
     const g = id ? groups.find((x) => x.id === id) : undefined
     if (!g || !inTripWindow(g, c.date) || (c.currency && c.currency !== g.currency)) continue
     by.set(id!, [...(by.get(id!) ?? []), c])

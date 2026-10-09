@@ -70,7 +70,8 @@ export default function Admin() {
         <Route
           path="ai"
           element={
-            <div className="card p-4">
+            // Room at the end so the last line clears the raised + button (as the other tabs do).
+            <div className="mb-[calc(var(--lane)-var(--nav-h))] card p-4">
               <AdminAi status={status} />
             </div>
           }
