@@ -116,7 +116,8 @@ export function paymentsToConfirm<G extends Pick<Group, 'members' | 'paymentAppr
 ): Array<{ s: Settlement; group: G; matched: boolean }> {
   const out: Array<{ s: Settlement; group: G; matched: boolean }> = []
   for (const d of data) {
-    for (const s of d.waiting) if (paymentState(s, d.group, uid).pill === 'needs-ok' && paymentState(s, d.group, uid).canDecide) out.push({ s, group: d.group, matched: false })
+    for (const s of d.waiting)
+      if (paymentState(s, d.group, uid).pill === 'needs-ok' && paymentState(s, d.group, uid).canDecide) out.push({ s, group: d.group, matched: false })
     for (const s of d.settlements) {
       const st = paymentState(s, d.group, uid)
       if (st.pill === 'matched' && st.canDecide && now - (s.ok?.at ?? 0) <= MATCHED_INBOX_DAYS * DAY) out.push({ s, group: d.group, matched: true })

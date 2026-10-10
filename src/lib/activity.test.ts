@@ -192,7 +192,9 @@ describe('settlementActivity for payments that need an OK', () => {
     expect(settlementActivity('created', s, c).summary).not.toContain('needs')
     expect(settlementActivity('approved', s, c)).toMatchObject({ type: 'settlement.approved', targetId: 's1' })
     expect(settlementActivity('approved', s, c).summary).toMatch(/^Asha confirmed a payment: Bob → Asha /)
-    expect(settlementActivity('flagged', s, c, ' Not in my account ').summary).toMatch(/^Asha says a payment hasn’t arrived: Bob → Asha .*\(“Not in my account”\)$/)
+    expect(settlementActivity('flagged', s, c, ' Not in my account ').summary).toMatch(
+      /^Asha says a payment hasn’t arrived: Bob → Asha .*\(“Not in my account”\)$/,
+    )
   })
 })
 

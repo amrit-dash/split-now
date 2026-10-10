@@ -130,7 +130,14 @@ function ToSort({
   const [bulk, setBulk] = useState<BulkCandidate<Group> | null>(null)
   useEffect(() => watchCapturePrefs(user.uid, repo.mode, setPrefs), [user.uid])
   const loadingCaptures = box.loading && box.captures.length === 0 && !handled
-  const nothing = !loadingCaptures && !!data && box.captures.length === 0 && box.approvals.length === 0 && box.payments.length === 0 && box.claims.length === 0 && box.nudges.length === 0
+  const nothing =
+    !loadingCaptures &&
+    !!data &&
+    box.captures.length === 0 &&
+    box.approvals.length === 0 &&
+    box.payments.length === 0 &&
+    box.claims.length === 0 &&
+    box.nudges.length === 0
   const paused = prefs?.pausedTrips
   const candidates = useMemo(() => (groups ? bulkCandidates(box.captures, groups, paused) : []), [box.captures, groups, paused])
 
