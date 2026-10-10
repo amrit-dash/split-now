@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useMotion } from '@/hooks/useMotion'
 import { type FireworkLook, fireworkLook } from '@/lib/firework'
-import { activeMotion, fireworkScale, sparkLife } from '@/lib/motion'
+import { activeMotion, fireworkScale, GLITTER_AT, GLITTER_CHANCE, GLITTER_LIFE, particleScale, SPARK_LIFE } from '@/lib/motion'
 
 /*
  * Quiet fireworks for the Home balance card when you're all settled up.
@@ -10,8 +10,10 @@ import { activeMotion, fireworkScale, sparkLife } from '@/lib/motion'
  * velocity, leaning inwards, and climbs on a ballistic arc (constant gravity, so it slows
  * smoothly) to burst just short of its apex somewhere in the top half of the card. A thin
  * fading spark trail follows it. Bursts are soft, washed-out particles (additive blend at low
- * alpha, a faint halo instead of shadowBlur) under gravity + drag; kept plain, without
- * twinkles or glints, so it stays quiet. Colours are picked per shell from the live theme, read
+ * alpha, a faint halo instead of shadowBlur) under gravity + drag that fly out and fade. With
+ * glitter on, most sparks shed a fine grain as they fade, which twinkles and drifts down on its
+ * own for a while longer; that lingering dust is all the glitter switch controls, so turning it
+ * off leaves a clean burst. Colours are picked per shell from the live theme, read
  * with getComputedStyle at launch so accents just work: on a deep fill light colours glow on top
  * (brand-200/300, duo-300, white, soft gold); on a bright fill (dark text: Neon, or "Text on
  * accent" set to Black) they would vanish, so the sparks are painted in the text's ink and the
@@ -25,13 +27,13 @@ import { activeMotion, fireworkScale, sparkLife } from '@/lib/motion'
  * off-screen or the tab is hidden, sleeps on a timer during quiet gaps, and everything is torn
  * down on unmount. Renders nothing under prefers-reduced-motion or when Settings → Animations
  * turns fireworks off; the size and glitter settings are read per burst, so a change shows on the
- * next one.
+ * next one. Burst size, spark size and glitter size are separate (src/lib/motion.ts).
  *
  * Place it inside the card's `relative isolate overflow-hidden` box, after <Aurora /> and
  * before the (relative) content, so it paints between the two.
  */
 
-const MAX_PARTICLES = 520
+const MAX_PARTICLES = 760
 const FIRST = 700 // ms of show clock before the first launch
 const STEADY_BRIGHT = 0.45
 
@@ -77,6 +79,10 @@ interface Particle {
   alpha: number
   twinkle: number // 0 = none, else phase seed
   ember: boolean
+  /** A grain of glitter shed by a spark: no halo or streak, fades in, twinkles. */
+  glitter: boolean
+  /** A burst spark that has already had its chance to shed glitter. */
+  shed: boolean
   blend: FireworkLook['blend']
   halo: number
   shrink: number
@@ -211,7 +217,7 @@ export function CardFirework({ testId = 'home-firework' }: { testId?: string } =
 
     const burst = (s: Shell) => {
       const k = fireworkScale(prefsRef.current.size)
-      const [lifeMin, lifeMax] = sparkLife(prefsRef.current.glitter)
+      const sparkR = particleScale(prefsRef.current.sparkSize)
       const scale = clamp(Math.min(w, h * 1.9) / 330, 0.75, 1.25) * s.size * k
       // A bigger burst gets more sparks so it doesn't look sparse.
       let n = Math.round(rand(22, 30) * (0.6 + 0.4 * s.bright) * s.look.count * k)
@@ -229,14 +235,16 @@ export function CardFirework({ testId = 'home-firework' }: { testId?: string } =
           vx: Math.cos(a) * v + s.vx * 0.3,
           vy: Math.sin(a) * v + s.vy * 0.3,
           born: clock + rand(0, 60),
-          life: rand(lifeMin, lifeMax),
+          life: rand(SPARK_LIFE[0], SPARK_LIFE[1]),
           color: s.colors[i % s.colors.length],
-          r: rand(0.8, 1.35) * s.look.dot * Math.sqrt(k),
+          r: rand(0.8, 1.35) * s.look.dot * sparkR,
           drag,
           grav: 34,
           alpha: s.bright * 0.75 * s.look.alpha,
           twinkle: 0,
-          ember: false, // no twinkle: kept plain and quiet
+          ember: false, // no twinkle: the burst itself stays plain; glitter twinkles
+          glitter: false,
+          shed: false,
           blend: s.look.blend,
           halo: s.look.halo,
           shrink: s.look.shrink,
@@ -274,6 +282,8 @@ export function CardFirework({ testId = 'home-firework' }: { testId?: string } =
               alpha: s.bright * 0.7,
               twinkle: 0,
               ember: true,
+              glitter: false,
+              shed: true,
               blend: s.look.blend,
               halo: s.look.halo,
               shrink: 0,
@@ -329,9 +339,41 @@ export function CardFirework({ testId = 'home-firework' }: { testId?: string } =
       flashes = flashes.filter((f) => clock - f.t < 600)
 
       // Particles
+      const shedding = prefsRef.current.glitter
+      const glitterR = particleScale(prefsRef.current.glitterSize)
+      const grains: Particle[] = []
       for (const p of parts) {
         const age = (clock - p.born) / p.life
         if (age < 0) continue
+        // A fading burst spark sheds a grain of glitter, which carries on drifting down slowly.
+        if (!p.shed && age >= GLITTER_AT) {
+          p.shed = true
+          if (shedding && Math.random() < GLITTER_CHANCE && parts.length + grains.length < MAX_PARTICLES) {
+            grains.push({
+              x: p.x,
+              y: p.y,
+              px: p.x,
+              py: p.y,
+              vx: p.vx * 0.35 + rand(-6, 6),
+              vy: p.vy * 0.35 + rand(0, 6),
+              born: clock,
+              life: rand(GLITTER_LIFE[0], GLITTER_LIFE[1]),
+              color: p.color,
+              // Painted (bright-fill) looks use slightly bigger dots, as their sparks do.
+              r: rand(0.45, 0.75) * glitterR * (p.blend === 'source-over' ? 1.3 : 1),
+              drag: 1.6,
+              grav: 16,
+              alpha: p.alpha * 0.95,
+              twinkle: rand(1, 100),
+              ember: false,
+              glitter: true,
+              shed: true,
+              blend: p.blend,
+              halo: 0,
+              shrink: p.shrink,
+            })
+          }
+        }
         const d = Math.exp(-p.drag * dt)
         p.px = p.x
         p.py = p.y
@@ -339,10 +381,12 @@ export function CardFirework({ testId = 'home-firework' }: { testId?: string } =
         p.vy = p.vy * d + p.grav * dt
         p.x += p.vx * dt
         p.y += p.vy * dt
-        let a = (1 - age) ** (p.ember ? 1.2 : 1.6) * p.alpha
+        let a = (1 - age) ** (p.ember || p.glitter ? 1.2 : 1.6) * p.alpha
+        // Glitter fades in as the spark that shed it fades out.
+        if (p.glitter) a *= Math.min(1, age / 0.15)
         if (a <= 0.004) continue
         let tw = 0
-        if (p.twinkle && age > 0.3) {
+        if (p.twinkle && age > 0.2) {
           tw = 0.5 + 0.5 * Math.sin(clock / 70 + p.twinkle)
           a *= 0.45 + 0.75 * tw
         }
@@ -351,7 +395,7 @@ export function CardFirework({ testId = 'home-firework' }: { testId?: string } =
         ctx.globalCompositeOperation = p.blend
         ctx.fillStyle = p.color
         ctx.strokeStyle = p.color
-        if (!p.ember) {
+        if (!p.ember && !p.glitter) {
           // soft halo
           ctx.globalAlpha = a * p.halo
           ctx.beginPath()
@@ -377,7 +421,8 @@ export function CardFirework({ testId = 'home-firework' }: { testId?: string } =
           const k = (tw - 0.72) / 0.28
           const len = 2 + 2.6 * k
           ctx.globalAlpha = Math.min(1, a * k * 1.1)
-          ctx.strokeStyle = '#ffffff'
+          // White on a deep fill; on a bright one white vanishes, so the grain's own colour.
+          ctx.strokeStyle = p.blend === 'lighter' ? '#ffffff' : p.color
           ctx.lineWidth = 0.7
           ctx.beginPath()
           ctx.moveTo(p.x - len, p.y)
@@ -388,6 +433,7 @@ export function CardFirework({ testId = 'home-firework' }: { testId?: string } =
         }
       }
       parts = parts.filter((p) => clock - p.born < p.life && p.y < h + 8)
+      if (grains.length) parts.push(...grains)
 
       ctx.globalAlpha = 1
       ctx.globalCompositeOperation = 'source-over'

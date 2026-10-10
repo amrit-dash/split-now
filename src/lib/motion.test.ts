@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { activeMotion, DEFAULT_MOTION, FLOW_SECONDS, fireworkScale, flowRate, isDefaultMotion, motionSummary, parseMotion, sparkLife } from './motion'
+import {
+  activeMotion,
+  DEFAULT_MOTION,
+  FLOW_SECONDS,
+  fireworkScale,
+  flowRate,
+  isDefaultMotion,
+  motionSummary,
+  parseMotion,
+  particleScale,
+  GLITTER_LIFE,
+  SPARK_LIFE,
+} from './motion'
 
 describe('parseMotion', () => {
   it('falls back to the defaults for nothing, bad JSON and non-objects', () => {
@@ -10,11 +22,21 @@ describe('parseMotion', () => {
   })
 
   it('keeps valid fields and replaces bad ones one by one', () => {
-    expect(parseMotion(JSON.stringify({ on: false, size: 'huge', speed: 'fast', glitter: 'no', circles: false }))).toEqual({
+    expect(parseMotion(JSON.stringify({ on: false, size: 'huge', sparkSize: 'big', glitterSize: 2, speed: 'fast', glitter: 'no', circles: false }))).toEqual({
       ...DEFAULT_MOTION,
       on: false,
+      sparkSize: 'big',
       speed: 'fast',
       circles: false,
+    })
+  })
+
+  it('reads settings saved before the particle sizes existed', () => {
+    expect(parseMotion(JSON.stringify({ on: true, fireworks: true, size: 'big', glitter: false, flow: true, speed: 'slow', circles: true }))).toEqual({
+      ...DEFAULT_MOTION,
+      size: 'big',
+      glitter: false,
+      speed: 'slow',
     })
   })
 
@@ -48,10 +70,13 @@ describe('fireworks', () => {
     expect(fireworkScale('small')).toBeLessThan(1)
     expect(fireworkScale('big')).toBeGreaterThan(1)
   })
-  it('keeps sparks shorter without glitter', () => {
-    const [, maxOff] = sparkLife(false)
-    const [minOn] = sparkLife(true)
-    expect(maxOff).toBeLessThan(minOn)
+  it('sizes particles separately from the burst', () => {
+    expect(particleScale('medium')).toBe(1)
+    expect(particleScale('small')).toBeLessThan(1)
+    expect(particleScale('big')).toBeGreaterThan(fireworkScale('big'))
+  })
+  it('glitter outlives the sparks that shed it', () => {
+    expect(GLITTER_LIFE[1]).toBeGreaterThan(SPARK_LIFE[1])
   })
 })
 
@@ -60,8 +85,9 @@ describe('flow speed', () => {
     expect(FLOW_SECONDS.normal).toBe(16)
     expect(flowRate('normal')).toBe(1)
   })
-  it('fast moves faster than slow', () => {
-    expect(flowRate('fast')).toBeGreaterThan(1)
+  it('fast is clearly faster and slow clearly slower', () => {
+    expect(flowRate('fast')).toBeGreaterThanOrEqual(3)
+    expect(flowRate('slow')).toBeLessThanOrEqual(0.5)
     expect(flowRate('slow')).toBeLessThan(1)
     expect(FLOW_SECONDS.fast).toBeLessThan(FLOW_SECONDS.slow)
   })
@@ -69,8 +95,8 @@ describe('flow speed', () => {
 
 describe('motionSummary', () => {
   it('names what is on', () => {
-    expect(motionSummary(DEFAULT_MOTION, false)).toBe('Medium fireworks · Colour flow · Circles')
-    expect(motionSummary({ ...DEFAULT_MOTION, size: 'big', speed: 'slow', circles: false }, false)).toBe('Big fireworks · Slow colour flow')
+    expect(motionSummary(DEFAULT_MOTION, false)).toBe('Fireworks with glitter · Colour flow · Circles')
+    expect(motionSummary({ ...DEFAULT_MOTION, glitter: false, speed: 'slow', circles: false }, false)).toBe('Fireworks · Slow colour flow')
   })
   it('says off, still, or why the device stops it', () => {
     expect(motionSummary({ ...DEFAULT_MOTION, on: false }, false)).toBe('Off')

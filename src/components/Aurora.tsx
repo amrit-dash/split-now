@@ -81,7 +81,8 @@ function start(b: Body): State {
  * only surfaces mounted once at a time use it (the card), never the three + button layers that
  * share FAB and run side by side.
  */
-const resume = new Map<Body[], { st: Array<State | null>; elapsed: number }>()
+type Clocks = Record<Body['kind'], number>
+const resume = new Map<Body[], { st: Array<State | null>; clocks: Clocks }>()
 
 interface Live {
   flow: boolean
@@ -118,23 +119,20 @@ function useBodies(bodies: Body[], persist = false) {
     ro?.observe(host)
     let raf = 0
     let last = performance.now()
-    // Resume the clock too, so size and opacity breathing continue rather than jump.
-    let t0 = last - (kept ? kept.elapsed * 1000 : 0)
-    // Run only while on screen and the tab is visible; the clock skips the paused time.
+    // One clock per kind (seconds), driving the wandering and the size and opacity breathing. Each
+    // only advances while its kind moves, the flow's at its chosen speed, so a speed change or a
+    // pause never makes a shape jump; resumed with the shapes so the card picks up where it was.
+    const clocks: Clocks = kept ? { ...kept.clocks } : { flow: 0, circle: 0 }
+    // Run only while on screen and the tab is visible; the clocks skip the paused time.
     let seen = true
-    let pausedAt = 0
     const sync = () => {
       const run = seen && !document.hidden
       if (run && !raf) {
-        const now = performance.now()
-        if (pausedAt) t0 += now - pausedAt
-        pausedAt = 0
-        last = now
+        last = performance.now()
         raf = requestAnimationFrame(tick)
       } else if (!run && raf) {
         cancelAnimationFrame(raf)
         raf = 0
-        pausedAt = performance.now()
       }
     }
     const io =
@@ -149,8 +147,9 @@ function useBodies(bodies: Body[], persist = false) {
     const tick = (now: number, still = false) => {
       const dt = still ? 0 : Math.min(0.05, (now - last) / 1000)
       last = now
-      const t = (now - t0) / 1000
       const lv = live.current
+      if (lv.flow) clocks.flow += dt * lv.rate
+      if (lv.circles) clocks.circle += dt
       for (let i = 0; i < els.length; i++) {
         const el = els[i],
           s = st[i],
@@ -159,6 +158,7 @@ function useBodies(bodies: Body[], persist = false) {
         // Stilled by Animations: stays where it is (still paints once when resuming).
         if (!still && !(b.kind === 'flow' ? lv.flow : lv.circles)) continue
         const step = b.kind === 'flow' ? dt * lv.rate : dt
+        const t = clocks[b.kind]
         const hx = Math.max(1, b.bx * W),
           hy = Math.max(1, b.by * H) // box half-size in px
         // Wander: a smooth, irregular turn rate.
@@ -195,7 +195,7 @@ function useBodies(bodies: Body[], persist = false) {
     if (kept) tick(performance.now(), true)
     sync()
     return () => {
-      if (persist) resume.set(bodies, { st, elapsed: ((pausedAt || performance.now()) - t0) / 1000 })
+      if (persist) resume.set(bodies, { st, clocks: { ...clocks } })
       cancelAnimationFrame(raf)
       ro?.disconnect()
       io?.disconnect()
