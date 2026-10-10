@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { HandCoins, LogOut, UserMinus } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
@@ -97,13 +98,35 @@ export default function GroupMembers() {
     memberActions(r, v).map((a): SwipeAction => {
       const who = group.members[id].name
       if (a === 'settle')
-        return { label: 'Settle up', ariaLabel: `Settle up with ${who}`, tone: 'neutral', onClick: () => nav(settleLink(id)), testId: 'member-settle' }
-      if (a === 'remove') return { label: 'Remove', ariaLabel: `Remove ${who} from the group`, onClick: () => void remove(id), testId: 'member-remove' }
-      if (a === 'leave') return { label: 'Leave', ariaLabel: `Leave ${group.name}`, onClick: () => void remove(id), testId: 'member-leave' }
+        return {
+          label: 'Settle up',
+          ariaLabel: `Settle up with ${who}`,
+          icon: <HandCoins size={20} strokeWidth={2.25} />,
+          tone: 'accent',
+          onClick: () => nav(settleLink(id)),
+          testId: 'member-settle',
+        }
+      if (a === 'remove')
+        return {
+          label: 'Remove',
+          ariaLabel: `Remove ${who} from the group`,
+          icon: <UserMinus size={20} strokeWidth={2.25} />,
+          onClick: () => void remove(id),
+          testId: 'member-remove',
+        }
+      if (a === 'leave')
+        return {
+          label: 'Leave',
+          ariaLabel: `Leave ${group.name}`,
+          icon: <LogOut size={20} strokeWidth={2.25} />,
+          onClick: () => void remove(id),
+          testId: 'member-leave',
+        }
       // Explains why not (settle up first, waiting for an OK, only the creator…) in a toast.
       return {
         label: self ? 'Leave' : 'Remove',
         ariaLabel: self ? `Leave ${group.name} (not possible yet)` : `Remove ${who} (not possible yet)`,
+        icon: self ? <LogOut size={20} strokeWidth={2.25} /> : <UserMinus size={20} strokeWidth={2.25} />,
         tone: 'muted',
         onClick: () => void remove(id),
         testId: 'member-remove-blocked',
@@ -124,7 +147,13 @@ export default function GroupMembers() {
               const v = net[id] ?? 0
               const r = memberRemoval({ memberId: id, member: m, me, myUid: user.uid, createdBy: group.createdBy, balance: v, inPending: pending, repeating })
               return (
-                <SwipeRow key={id} actions={actionsFor(id, r, v, self)} contentClassName="flex items-center gap-3 px-4 py-3" testId="member-row">
+                <SwipeRow
+                  key={id}
+                  actions={actionsFor(id, r, v, self)}
+                  menuTitle={self ? 'You' : m.name}
+                  contentClassName="flex items-center gap-3 px-4 py-3"
+                  testId="member-row"
+                >
                   <Avatar name={m.name} color={m.color} photoURL={m.photoURL} size={40} />
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-medium">
@@ -139,7 +168,9 @@ export default function GroupMembers() {
               )
             })}
           </ul>
-          <p className="text-muted px-1 text-xs">Swipe a person left to settle up or remove them; only people who are settled up can be removed.</p>
+          <p className="text-muted px-1 text-xs">
+            Swipe a person left, or press and hold (right-click on a computer), to settle up or remove them. Only people who are settled up can be removed.
+          </p>
           {others < maxOthers && (
             <section className="card p-4" aria-labelledby="members-add">
               <h2 id="members-add" className="label">

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { Activity, ChevronRight, Copy, KeyRound, MessageSquareText, Pause, Plus, Smartphone, X, Zap } from 'lucide-react'
+import { Activity, Ban, ChevronRight, Copy, KeyRound, MessageSquareText, Pause, Plus, Smartphone, X, Zap } from 'lucide-react'
 import { firebaseProject, repo } from '@/data'
 import type { CaptureToken } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
@@ -526,7 +526,10 @@ function Keys({
             <SwipeRow
               key={t.token}
               contentClassName="flex items-center gap-2"
-              actions={[{ label: 'Revoke', ariaLabel: `Revoke capture key for ${label}`, onClick: () => onRevoke(t) }]}
+              menuTitle={label}
+              actions={[
+                { label: 'Revoke', ariaLabel: `Revoke capture key for ${label}`, icon: <Ban size={20} strokeWidth={2.25} />, onClick: () => onRevoke(t) },
+              ]}
             >
               <KeyRound size={16} className="shrink-0 text-slate-500" aria-hidden />
               <div className="min-w-0 flex-1">

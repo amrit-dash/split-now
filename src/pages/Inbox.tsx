@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Ban, BookOpen, Check, ChevronDown, ChevronRight, EyeOff, FolderInput, Loader2, Plus, RotateCcw } from 'lucide-react'
+import { Ban, BookOpen, Check, ChevronDown, ChevronRight, EyeOff, FolderInput, Loader2, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { memberOrder, myMemberId, useAllGroupData, useCaptures, useCapturesMeta, type GroupData } from '@/hooks/data'
@@ -538,7 +538,8 @@ function Handled({ list, groups }: { list: Capture[]; groups: Group[] }) {
                 key={c.id}
                 as="div"
                 contentClassName="flex items-center gap-1 px-3 py-2"
-                actions={[{ label: 'Delete', ariaLabel: `Delete ${c.merchant}`, onClick: () => remove(c) }]}
+                menuTitle={c.merchant}
+                actions={[{ label: 'Delete', ariaLabel: `Delete ${c.merchant}`, icon: <Trash2 size={20} strokeWidth={2.25} />, onClick: () => remove(c) }]}
               >
                 {c.status === 'assigned' && c.groupId && c.expenseId ? (
                   <Link to={`/groups/${c.groupId}/expenses/${c.expenseId}`} className="flex min-w-0 flex-1 items-center py-1">
