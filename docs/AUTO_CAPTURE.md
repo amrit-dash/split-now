@@ -309,7 +309,7 @@ An *image* share target must be `POST multipart/form-data`, and a static site ca
 ## 9. Later phases (need Cloud Functions → Blaze plan)
 
 - **Open banking (CDR).** An aggregator such as **Basiq** (about A$0.50 per connected user per month, plus a platform fee) would deliver card transactions by webhook. A function would write them to `users/{uid}/captures`. This covers physical card swipes and online payments that Apple Pay automations miss.
-- **Email forwarding.** A per-user address (e.g. `u_xxx@in.splitit.app`) that parses e-receipts and bank alerts into captures, with `src=email`.
+- **Email forwarding.** A per-user address (e.g. `u_xxx@in.splitnow.app`) that parses e-receipts and bank alerts into captures, with `src=email`.
 
 ## Publishing the shared iPhone Shortcut (owner, once)
 

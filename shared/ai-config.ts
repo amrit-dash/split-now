@@ -29,8 +29,6 @@ export type AppAiMode = 'off' | 'everyone' | 'allowlist'
  */
 export const DEFAULT_MODEL = 'gemini-3.5-flash-lite'
 export const FALLBACK_MODELS = ['gemini-3.1-flash-lite', 'gemini-2.5-flash-lite', 'gemini-flash-lite-latest'] as const
-/** @deprecated the last entry of FALLBACK_MODELS; kept for older imports */
-export const MODEL_ALIAS = 'gemini-flash-lite-latest'
 export const MAX_ALLOW_EMAILS = 200
 /** Calls on the shared key per IST day, over every user, before it is switched off until tomorrow. */
 export const DEFAULT_GLOBAL_PER_DAY = 2000

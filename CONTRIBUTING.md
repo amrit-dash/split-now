@@ -18,10 +18,10 @@ Demo mode (`src/data/localRepo.ts`) keeps data in the browser and is the quickes
 Run what CI runs:
 
 ```bash
-npm run typecheck
-npm test
-npm run test:rules        # needs Java 11+ for the Firestore emulator
-cd functions && npx vitest run src && cd ..
+npm run lint
+npm run typecheck:all
+npm test                  # includes the Cloud Functions unit tests
+npm run test:rules        # needs Java 21 for the Firestore emulator
 npm run build
 ```
 

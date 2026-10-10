@@ -10,7 +10,7 @@ import { isRemoved } from '../../../shared/members'
  */
 
 export type { BalanceExpense as ExpenseLite, BalanceSettlement as SettlementLite }
-export { isBalancedExpense as isBalanced, netBalances } from '../../../shared/balances-core'
+export { netBalances } from '../../../shared/balances-core'
 
 export function reminderThreshold(currency: string): number {
   if (REMINDER.threshold[currency] !== undefined) return REMINDER.threshold[currency]

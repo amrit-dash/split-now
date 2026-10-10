@@ -417,7 +417,7 @@ describe('draftToTable', () => {
 describe('qr', () => {
   it('picks the smallest version and draws finder patterns', () => {
     expect(encodeQr('hello').size).toBe(21)
-    const q = encodeQr('https://split-it.web.app/t/ABCD2345')
+    const q = encodeQr('https://split-now.web.app/t/ABCD2345')
     expect(q.size).toBe(29)
     // finder pattern corners: dark ring, light ring, dark 3×3 centre
     for (const [x, y] of [

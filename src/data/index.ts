@@ -32,8 +32,6 @@ const config = {
 /** Public project identifiers, used to show the Firestore REST endpoint for iOS Shortcuts. */
 export const firebaseProject = { projectId: config.projectId as string | undefined, apiKey: config.apiKey as string | undefined }
 
-export const firebaseConfigured = Boolean(config.apiKey && config.projectId && config.appId)
-
 /**
  * The active repository. Which implementation `#repo-impl` is gets decided at build time
  * (vite.config.ts): impl.firebase.ts when VITE_FIREBASE_* is set for the build, impl.local.ts

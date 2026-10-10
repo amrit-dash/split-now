@@ -32,8 +32,6 @@ export interface CaptureDraft {
 /** `token`/`owner` come from `t` and `u`, used only by the signed-out fallback (writes to captureInbox). */
 export type CaptureParse = { ok: true; draft: CaptureDraft; token?: string; owner?: string } | { ok: false; error: string }
 
-export const CAPTURE_SOURCES = ['sms-ios', 'sms-android', 'ios-shortcut', 'android-auto', 'share', 'email', 'manual'] as const
-
 export const SOURCE_LABEL: Record<string, string> = {
   'sms-ios': 'iPhone SMS',
   'sms-android': 'Android SMS',

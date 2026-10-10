@@ -33,7 +33,7 @@ product and architecture source of truth (data model §4.2, security §4.3, perf
 - `functions/` — Cloud Functions: `capture` webhook, Firestore triggers, schedules (`reminders`, `fx`), callables (`ai`, `nudge`, `admin`), `lib/` pure helpers with tests, `lib/limits.ts` (admin-tunable limits and `flagOn()`), `lib/seal.ts` (key encryption). Its own `package.json` and lockfile.
 - `firestore.rules`, `storage.rules` — tested in `tests/`. Every new collection, field, size cap or flag that rules check gets a case there and a line in `docs/PLAN.md` §4.2.
 - `e2e/` — Playwright smoke tests; `tests/` — rules tests; `functions/test/` — emulator tests.
-- `docs/` — `PLAN.md`, `FIREBASE_SETUP.md` (deploy, secrets, admin console), `AUTO_CAPTURE.md`, `RESEARCH.md`, `REQUESTS-2026-10-08.md` (the owner's decision log: never undo an item there).
+- `docs/` — `PLAN.md`, `FIREBASE_SETUP.md` (deploy, secrets, admin console), `AUTO_CAPTURE.md`, `AI.md`, `ROADMAP.md`, `archive/` (`feedback-2026-10.md` is the owner's decision log: never undo an item there; `RESEARCH.md`).
 
 ## Conventions
 - Style: no semicolons, single quotes, 2-space indent, long lines are fine (160), trailing commas, `@/` alias for `src/`. Biome enforces it; do not hand-format around it.

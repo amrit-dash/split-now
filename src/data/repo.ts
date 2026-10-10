@@ -488,14 +488,6 @@ export function changedSettings(base: Group, patch: GroupSettings): GroupSetting
   return out as GroupSettings
 }
 
-/** Member ids added/removed between two members maps. */
-export function diffMembers(before: Record<MemberId, Member>, after: Record<MemberId, Member>) {
-  return {
-    added: Object.keys(after).filter((id) => !(id in before)),
-    removed: Object.keys(before).filter((id) => !(id in after)),
-  }
-}
-
 /** Storage path from a Firebase Storage download URL (…/o/<encoded path>?alt=media…). */
 export function storagePathFromUrl(url: string | undefined): string | undefined {
   const m = url?.match(/\/o\/([^?]+)/)

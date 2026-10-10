@@ -162,8 +162,6 @@ export function initLocale(info: LocaleInfo = detectFromBrowser()): LocaleInfo {
 
 /** The locale numbers and dates are formatted with ("en-IN-u-nu-latn" by default). */
 export const appLocale = () => current.locale
-/** The detected region ("IN" by default). */
-export const appRegion = () => current.region
 /** Default currency for new profiles ("INR" by default). */
 export const defaultCurrency = () => current.currency
 

@@ -34,7 +34,7 @@ function files(): Record<string, string> {
 
 export function tesseractAssets(): Plugin {
   return {
-    name: 'split-it:tesseract-assets',
+    name: 'split-now:tesseract-assets',
     configureServer(server) {
       const map = files()
       server.middlewares.use('/tesseract/', (req, res, next) => {
