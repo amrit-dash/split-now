@@ -4,6 +4,7 @@ import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 import { logger } from 'firebase-functions/logger'
 import { HttpsError, onCall, type CallableRequest } from 'firebase-functions/v2/https'
 import { ENFORCE_APP_CHECK, REGION } from './config'
+import { adminChangeRefusal } from './lib/admin-core'
 import { addDays, istDate } from './lib/time'
 
 /*
@@ -40,7 +41,8 @@ export async function countStats(kind: StatKind, fields: Record<string, number>,
 }
 
 // ---- Admin console callables ------------------------------------------------------------
-// admins/{uid} (created by hand in the Firebase console) is the only thing that makes an admin;
+// admins/{uid} (created by hand in the Firebase console, or by an admin through adminSetAdmin) is
+// the only thing that makes an admin;
 // the same check the rules make. Table guests (anonymous) are never admins.
 
 const isUid = (v: unknown): v is string => typeof v === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(v)
@@ -154,13 +156,15 @@ export interface AdminUserRow {
   lastSignInAt: number | null
   providers: string[]
   blocked: BlockInfo | null
+  /** admins/{uid} exists */
+  admin: boolean
 }
 
 const ms = (s: string | undefined) => {
   const t = s ? Date.parse(s) : Number.NaN
   return Number.isNaN(t) ? null : t
 }
-const row = (u: UserRecord, blocked: BlockInfo | null): AdminUserRow => ({
+const row = (u: UserRecord, blocked: BlockInfo | null, admin: boolean): AdminUserRow => ({
   uid: u.uid,
   email: u.email ?? null,
   name: u.displayName ?? null,
@@ -170,6 +174,7 @@ const row = (u: UserRecord, blocked: BlockInfo | null): AdminUserRow => ({
   lastSignInAt: ms(u.metadata.lastSignInTime),
   providers: u.providerData.map((p) => p.providerId),
   blocked,
+  admin,
 })
 
 async function blockedMap(uids: string[]): Promise<Map<string, BlockInfo>> {
@@ -182,6 +187,12 @@ async function blockedMap(uids: string[]): Promise<Map<string, BlockInfo>> {
       out.set(s.id, { reason: d.reason, at: typeof d.at === 'number' ? d.at : 0, by: typeof d.by === 'string' ? d.by : '' })
   }
   return out
+}
+
+async function adminSet(uids: string[]): Promise<Set<string>> {
+  if (!uids.length) return new Set()
+  const snaps = await db().getAll(...uids.map((u) => db().collection('admins').doc(u)))
+  return new Set(snaps.filter((s) => s.exists).map((s) => s.id))
 }
 
 /**
@@ -212,8 +223,9 @@ export const adminUsers = onCall(callable, async (req): Promise<{ users: AdminUs
     found.sort((x, y) => (ms(y.metadata.creationTime) ?? 0) - (ms(x.metadata.creationTime) ?? 0))
     found = found.slice(0, limit)
   }
-  const blocked = await blockedMap(found.map((u) => u.uid))
-  return { users: found.map((u) => row(u, blocked.get(u.uid) ?? null)), truncated }
+  const uids = found.map((u) => u.uid)
+  const [blocked, admins] = await Promise.all([blockedMap(uids), adminSet(uids)])
+  return { users: found.map((u) => row(u, blocked.get(u.uid) ?? null, admins.has(u.uid))), truncated }
 })
 
 /**
@@ -230,7 +242,7 @@ export const adminBlockUser = onCall(callable, async (req): Promise<{ uid: strin
   const uid = d.uid
   const reason = (typeof d.reason === 'string' ? d.reason : '').trim().slice(0, 200)
   if (uid === me) throw new HttpsError('failed-precondition', 'You can’t block yourself')
-  if ((await db().collection('admins').doc(uid).get()).exists) throw new HttpsError('failed-precondition', 'Remove their admins/ entry first')
+  if ((await db().collection('admins').doc(uid).get()).exists) throw new HttpsError('failed-precondition', 'Remove their admin access first')
   const now = Date.now()
   const ref = db().collection('blocked').doc(uid)
   let authUpdated = false
@@ -266,4 +278,26 @@ export const adminBlockUser = onCall(callable, async (req): Promise<{ uid: strin
   }
   logger.info(d.block ? 'user blocked' : 'user unblocked', { uid, by: me })
   return { uid, blocked: !!d.block, authUpdated }
+})
+
+/**
+ * Callable { uid, admin: boolean } → { uid, admin }. Makes an account an admin (writes
+ * admins/{uid} = { at, by }) or removes that. Only a real account that has signed in (has a
+ * users/{uid} profile, which live-table guests never get) and isn't blocked can be made one, and
+ * no admin can remove their own access (adminChangeRefusal). Clients can never write admins/.
+ */
+export const adminSetAdmin = onCall(callable, async (req): Promise<{ uid: string; admin: boolean }> => {
+  const me = await requireAdmin(req)
+  const d = (req.data ?? {}) as { uid?: unknown; admin?: unknown }
+  if (!isUid(d.uid)) throw new HttpsError('invalid-argument', 'Which account?')
+  if (typeof d.admin !== 'boolean') throw new HttpsError('invalid-argument', 'admin must be true or false')
+  const uid = d.uid
+  const ref = db().collection('admins').doc(uid)
+  const [adminSnap, profile, blocked] = await db().getAll(ref, db().collection('users').doc(uid), db().collection('blocked').doc(uid))
+  const refusal = adminChangeRefusal({ me, uid, makeAdmin: d.admin, isAdmin: adminSnap.exists, hasProfile: profile.exists, blocked: blocked.exists })
+  if (refusal) throw new HttpsError('failed-precondition', refusal)
+  if (d.admin && !adminSnap.exists) await ref.set({ at: Date.now(), by: me })
+  if (!d.admin && adminSnap.exists) await ref.delete()
+  logger.info(d.admin ? 'admin added' : 'admin removed', { uid, by: me })
+  return { uid, admin: d.admin }
 })

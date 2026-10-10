@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { Ban, Loader2, Search, ShieldOff } from 'lucide-react'
+import { Ban, Loader2, Search, ShieldCheck, ShieldMinus, ShieldOff, ShieldPlus } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
+import { userRowActions } from '@/lib/admin-users'
 import { errText } from '@/lib/errors'
 import { formatDate } from '@/lib/locale'
 import { useConfirm } from '@/components/ConfirmSheet'
 import { Loading } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
-import { adminBlockUser, adminUsers, type AdminUser } from './api'
+import { adminBlockUser, adminSetAdmin, adminUsers, type AdminUser } from './api'
 
 const when = (ms: number | null) => (ms ? formatDate(ms, { day: 'numeric', month: 'short', year: 'numeric' }) : '–')
 
-/** /admin/users: find an account by email, uid or name; block or unblock it. Newest sign-ups by default. */
+/** /admin/users: find an account by email, uid or name; block or unblock it, make it an admin or remove that. Newest sign-ups by default. */
 export default function Users() {
   const { user: me } = useMe()
   const toast = useToast()
@@ -71,6 +72,37 @@ export default function Users() {
     }
   }
 
+  const label = (u: AdminUser) => u.name ?? u.email ?? u.uid
+
+  const setAdmin = async (u: AdminUser, admin: boolean) => {
+    const ok = await confirm(
+      admin
+        ? {
+            title: `Make ${label(u)} an admin?`,
+            message:
+              'They’ll get the admin console: feature switches, maintenance, limits, usage, the AI key and every account, including blocking people. You can remove it here later.',
+            confirmLabel: 'Make admin',
+          }
+        : {
+            title: `Remove admin access for ${label(u)}?`,
+            message: 'They lose the admin console straight away. Their own groups and data stay as they are.',
+            confirmLabel: 'Remove admin',
+            tone: 'danger',
+          },
+    )
+    if (!ok) return
+    setBusy(u.uid)
+    try {
+      await adminSetAdmin(u.uid, admin)
+      setResult((cur) => (cur ? { ...cur, users: cur.users.map((x) => (x.uid === u.uid ? { ...x, admin } : x)) } : cur))
+      toast(admin ? `${label(u)} is now an admin` : `${label(u)} is no longer an admin`)
+    } catch (e) {
+      toast(errText(e), 'err')
+    } finally {
+      setBusy(null)
+    }
+  }
+
   const unblock = async (u: AdminUser) => {
     if (await confirm({ title: `Unblock ${u.email ?? u.uid}?`, message: 'They can sign in and write again straight away.', confirmLabel: 'Unblock' }))
       void setBlocked(u, false, '')
@@ -100,7 +132,7 @@ export default function Users() {
       </form>
       <p className="text-muted mt-2 px-1 text-xs">
         {q.trim() ? 'Matches by email, uid or name.' : 'Newest sign-ups.'} Blocking refuses every write from the account, disables it in Auth and drops its push
-        and capture keys. Admins can’t be blocked here.
+        and capture keys. Making someone an admin gives them this console; remove their admin access before blocking them.
       </p>
 
       {result === undefined ? (
@@ -130,6 +162,11 @@ export default function Users() {
                     Joined {when(u.createdAt)} · last sign-in {when(u.lastSignInAt)}
                     {u.providers.length ? ` · ${u.providers.map((p) => p.replace('.com', '')).join(', ')}` : ''}
                   </div>
+                  {u.admin && (
+                    <div className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-brand-100 px-2 py-0.5 text-xs font-semibold text-brand-800 dark:bg-brand-900/40 dark:text-brand-200">
+                      <ShieldCheck size={12} aria-hidden /> Admin
+                    </div>
+                  )}
                   {u.blocked && (
                     <div className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-800 dark:bg-rose-900/40 dark:text-rose-200">
                       <Ban size={12} aria-hidden /> Blocked · {u.blocked.reason}
@@ -137,28 +174,19 @@ export default function Users() {
                   )}
                   {!u.blocked && u.disabled && <div className="mt-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400">Disabled in Auth</div>}
                 </div>
-                {u.uid !== me.uid && (
-                  <div className="shrink-0">
-                    {u.blocked ? (
-                      <button type="button" className="btn-secondary btn-sm" disabled={busy === u.uid} onClick={() => unblock(u)}>
-                        {busy === u.uid ? <Loader2 size={16} className="animate-spin" /> : <ShieldOff size={16} />} Unblock
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="btn-secondary btn-sm text-rose-700 dark:text-rose-400"
-                        disabled={busy === u.uid}
-                        aria-expanded={reasonFor === u.uid}
-                        onClick={() => {
-                          setReasonFor(reasonFor === u.uid ? null : u.uid)
-                          setReason('')
-                        }}
-                      >
-                        <Ban size={16} /> Block
-                      </button>
-                    )}
-                  </div>
-                )}
+                <RowActions
+                  u={u}
+                  me={me.uid}
+                  busy={busy === u.uid}
+                  blockOpen={reasonFor === u.uid}
+                  onMakeAdmin={() => setAdmin(u, true)}
+                  onRemoveAdmin={() => setAdmin(u, false)}
+                  onUnblock={() => unblock(u)}
+                  onBlock={() => {
+                    setReasonFor(reasonFor === u.uid ? null : u.uid)
+                    setReason('')
+                  }}
+                />
               </div>
               {reasonFor === u.uid && (
                 <form
@@ -190,6 +218,54 @@ export default function Users() {
         </ul>
       )}
       {result?.truncated && <p className="text-muted mt-2 px-1 text-xs">Only the first 3,000 accounts were searched; try a more specific email.</p>}
+    </div>
+  )
+}
+
+function RowActions({
+  u,
+  me,
+  busy,
+  blockOpen,
+  onMakeAdmin,
+  onRemoveAdmin,
+  onBlock,
+  onUnblock,
+}: {
+  u: AdminUser
+  me: string
+  busy: boolean
+  blockOpen: boolean
+  onMakeAdmin: () => void
+  onRemoveAdmin: () => void
+  onBlock: () => void
+  onUnblock: () => void
+}) {
+  const actions = userRowActions({ uid: u.uid, admin: u.admin, blocked: !!u.blocked }, me)
+  if (!actions.length) return null
+  const spin = <Loader2 size={16} className="animate-spin" />
+  return (
+    <div className="flex shrink-0 flex-col items-stretch gap-2">
+      {actions.includes('make-admin') && (
+        <button type="button" className="btn-secondary btn-sm" disabled={busy} onClick={onMakeAdmin} data-testid={`make-admin-${u.uid}`}>
+          {busy ? spin : <ShieldPlus size={16} aria-hidden />} Make admin
+        </button>
+      )}
+      {actions.includes('remove-admin') && (
+        <button type="button" className="btn-secondary btn-sm text-rose-700 dark:text-rose-400" disabled={busy} onClick={onRemoveAdmin}>
+          {busy ? spin : <ShieldMinus size={16} aria-hidden />} Remove admin
+        </button>
+      )}
+      {actions.includes('unblock') && (
+        <button type="button" className="btn-secondary btn-sm" disabled={busy} onClick={onUnblock}>
+          {busy ? spin : <ShieldOff size={16} aria-hidden />} Unblock
+        </button>
+      )}
+      {actions.includes('block') && (
+        <button type="button" className="btn-secondary btn-sm text-rose-700 dark:text-rose-400" disabled={busy} aria-expanded={blockOpen} onClick={onBlock}>
+          <Ban size={16} aria-hidden /> Block
+        </button>
+      )}
     </div>
   )
 }

@@ -1,5 +1,5 @@
 /**
- * Calls the admin callables (adminStats, adminBlockUser) in the Functions emulator and checks
+ * Calls the admin callables (adminStats, adminBlockUser, adminSetAdmin) in the Functions emulator and checks
  * what they read and write in Firestore. The emulator skips ID-token signature checks, so a
  * hand-made JWT stands in for a signed-in user. Run with: npm run test:functions.
  */
@@ -54,6 +54,7 @@ beforeEach(async () => {
   await env.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore()
     await setDoc(doc(db, 'admins/boss'), { note: 'owner' })
+    await setDoc(doc(db, 'users/alice'), { name: 'Alice', currency: 'INR' })
     await setDoc(doc(db, 'groups/g1'), { name: 'Trip', memberUids: ['alice', 'boss'], updatedAt: Date.now() })
     await setDoc(doc(db, 'groups/g2'), { name: 'Old', memberUids: ['alice'], updatedAt: 1 })
     await setDoc(doc(db, `stats/capture_${today}`), { day: today, received: 4, captured: 3 })
@@ -129,5 +130,26 @@ describe('admin callables (emulator)', () => {
     expect((await call('adminBlockUser', { uid: 'second', block: true }, 'boss')).error?.status).toBe('FAILED_PRECONDITION')
     expect((await call('adminBlockUser', { uid: 'alice', block: 'yes' }, 'boss')).error?.status).toBe('INVALID_ARGUMENT')
     expect((await call('adminBlockUser', { uid: 'nope/../x', block: true }, 'boss')).error?.status).toBe('INVALID_ARGUMENT')
+  })
+
+  it('adminSetAdmin makes a signed-up account an admin and removes it again', async () => {
+    expect((await call('adminSetAdmin', { uid: 'alice', admin: true }, 'alice')).error?.status).toBe('PERMISSION_DENIED')
+    const r = await call<{ uid: string; admin: boolean }>('adminSetAdmin', { uid: 'alice', admin: true }, 'boss')
+    expect(r.result).toEqual({ uid: 'alice', admin: true })
+    expect(await read('admins/alice')).toMatchObject({ by: 'boss' })
+    // alice is an admin now and can use the console.
+    expect((await call('adminStats', { days: 1 }, 'alice')).status).toBe(200)
+    expect((await call('adminSetAdmin', { uid: 'alice', admin: false }, 'boss')).result).toEqual({ uid: 'alice', admin: false })
+    expect(await read('admins/alice')).toBeUndefined()
+  })
+
+  it('adminSetAdmin refuses guests without a profile, blocked accounts, removing yourself and bad input', async () => {
+    expect((await call('adminSetAdmin', { uid: 'guest123', admin: true }, 'boss')).error?.status).toBe('FAILED_PRECONDITION')
+    await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'blocked/alice'), { reason: 'Spam', at: 1, by: 'boss' }))
+    expect((await call('adminSetAdmin', { uid: 'alice', admin: true }, 'boss')).error?.status).toBe('FAILED_PRECONDITION')
+    expect(await read('admins/alice')).toBeUndefined()
+    expect((await call('adminSetAdmin', { uid: 'boss', admin: false }, 'boss')).error?.status).toBe('FAILED_PRECONDITION')
+    expect(await read('admins/boss')).toBeDefined()
+    expect((await call('adminSetAdmin', { uid: 'alice', admin: 'yes' }, 'boss')).error?.status).toBe('INVALID_ARGUMENT')
   })
 })
