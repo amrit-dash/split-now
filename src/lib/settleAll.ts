@@ -156,10 +156,11 @@ export const canNudgePerson = (p: Pick<PersonBalance, 'net' | 'parts'>, myUid: s
  * payment's Settle up, prefilled (one tap, as before). With several payments to sort out (several
  * people owe you, or the payments are between others), the group's Balances tab, which lists each
  * one with its own Settle button, instead of quietly picking the first. With nothing owed, the
- * blank Settle up, to record a payment by hand.
+ * Balances tab too, where everyone being square is celebrated (and a payment made outside the app
+ * can still be recorded from there).
  */
 export function groupSettleTarget(groupId: string, debts: Pick<Debt, 'from' | 'to' | 'amount'>[], me?: MemberId): { href: string } | { tab: 'balances' } {
-  if (debts.length === 0) return { href: `/groups/${groupId}/settle` }
+  if (debts.length === 0) return { tab: 'balances' }
   const mine = me ? debts.filter((d) => d.from === me || d.to === me) : []
   // Your one payment is the thing to do, even when others still owe each other.
   if (mine.length === 1) return { href: settleHref(groupId, mine[0].from, mine[0].to, mine[0].amount) }

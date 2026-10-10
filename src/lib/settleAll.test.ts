@@ -168,7 +168,8 @@ describe('groupSettleTarget', () => {
     expect(groupSettleTarget('g1', [d('a', 'b')], 'me')).toEqual({ tab: 'balances' })
     expect(groupSettleTarget('g1', [d('a', 'b')])).toEqual({ tab: 'balances' })
   })
-  it('opens a blank Settle up when nothing is owed, to record a payment by hand', () => {
-    expect(groupSettleTarget('g1', [], 'me')).toEqual({ href: '/groups/g1/settle' })
+  it("opens the group's Balances (and its celebration) when nothing is owed", () => {
+    expect(groupSettleTarget('g1', [], 'me')).toEqual({ tab: 'balances' })
+    expect(groupSettleTarget('g1', [])).toEqual({ tab: 'balances' })
   })
 })

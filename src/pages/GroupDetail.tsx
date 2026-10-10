@@ -49,6 +49,7 @@ import { DebtGraph } from '@/components/DebtGraph'
 import { GroupIcon } from '@/components/GroupIcon'
 import { QrCode } from '@/components/QrCode'
 import { Empty, LiveBadge, Loading, PageHeader, Segmented, formatRange } from '@/components/Misc'
+import { Celebrate } from '@/components/Celebrate'
 import { CardSkeleton, ListSkeleton } from '@/components/Skeleton'
 import { Collapsible } from '@/components/Collapsible'
 import { hasTripWindow, isLiveTrip, tripCaptureRelevant } from '@/lib/capture'
@@ -395,9 +396,12 @@ export default function GroupDetail() {
             })}
           </ul>
           <div id="group-payments" className="scroll-mt-20">
-            <h2 className="text-muted mb-2 px-1 text-sm font-semibold">{group.simplify ? 'Suggested payments (simplified)' : 'Who owes whom'}</h2>
+            {/* With nothing to pay, the celebration below titles itself. */}
+            {debts.length > 0 && (
+              <h2 className="text-muted mb-2 px-1 text-sm font-semibold">{group.simplify ? 'Suggested payments (simplified)' : 'Who owes whom'}</h2>
+            )}
             {debts.length === 0 ? (
-              <Empty emoji="🎉" title="Everyone is square" />
+              <GroupSettled group={group} />
             ) : (
               <ul className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
                 {debts.map((x) => (
@@ -611,6 +615,28 @@ function BudgetBar({ spent, budget, currency }: { spent: number; budget: number;
           style={{ width: `${width}%` }}
         />
       </div>
+    </div>
+  )
+}
+
+/**
+ * Nobody in the group owes anyone: the same party-popper celebration as the Balances screen, for
+ * this group. Settle up lands here too when there's nothing to settle (groupSettleTarget); a
+ * payment made outside the app can still be recorded.
+ */
+function GroupSettled({ group }: { group: Group }) {
+  return (
+    <div className="card flex flex-col items-center px-6 pb-6 pt-8 text-center" data-testid="group-settled">
+      <Celebrate />
+      <h3 className="mt-4 text-xl font-extrabold tracking-tight">Everyone’s square in {group.name}</h3>
+      <p className="text-muted mt-1 max-w-xs text-sm">Nobody owes anyone here.</p>
+      <Link
+        to={`/groups/${group.id}/settle`}
+        className="mt-3 inline-flex min-h-11 items-center px-2 text-sm font-semibold text-brand-600 dark:text-brand-300"
+        data-testid="group-settled-record"
+      >
+        Record a payment
+      </Link>
     </div>
   )
 }
