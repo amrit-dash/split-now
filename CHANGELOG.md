@@ -6,6 +6,8 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 3.7.0 — October 2026
+
 - **Safe delete for groups**: deleting a group moves it to **Recently deleted** (on Groups) for 30 days instead of wiping it. Everyone in it is told, and any of them can restore it with one tap; after 30 days it's gone for good. The confirmation lists any payments still open. Only the person who created a group can delete it, unless they've left it, in which case anyone in it can once everyone is settled up. The creator can still delete a group forever straight away from Recently deleted.
 
 ## 3.6.0 — October 2026
