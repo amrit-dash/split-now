@@ -52,8 +52,6 @@ export default function SettleUp() {
   const proofRef = useRef<HTMLInputElement>(null)
   /** the payment screenshot, attached when the payment needs the recipient's OK */
   const [proof, setProof] = useState<File | null>(null)
-  const proofUrl = useMemo(() => (proof ? URL.createObjectURL(proof) : null), [proof])
-  useEffect(() => () => void (proofUrl && URL.revokeObjectURL(proofUrl)), [proofUrl])
 
   const d = useMemo(
     () => (group && expenses && settlements ? computeGroupData(group, expenses, settlements, user.uid) : null),
@@ -485,9 +483,9 @@ export default function SettleUp() {
               </div>
             </div>
           </div>
-          {proof && proofUrl ? (
+          {proof ? (
             <div className="mt-3 flex items-center gap-3" data-testid="settle-proof">
-              <img src={proofUrl} alt="Payment screenshot" className="h-16 w-12 rounded-lg object-cover ring-1 ring-black/10" />
+              <ProofThumb file={proof} />
               <div className="min-w-0 flex-1 text-sm">Screenshot attached</div>
               <button type="button" className="btn-ghost btn-sm min-h-11 min-w-11" onClick={() => setProof(null)} aria-label="Remove the screenshot">
                 <X size={18} aria-hidden />
@@ -1231,4 +1229,31 @@ export function SettleWithPerson() {
       </p>
     </form>
   )
+}
+
+/**
+ * A preview of the picked screenshot, drawn on a canvas (cropped to fill, like object-cover):
+ * no URL is made from the file, so nothing from it ever reaches the DOM as markup or a link.
+ */
+function ProofThumb({ file }: { file: Blob }) {
+  const ref = useRef<HTMLCanvasElement>(null)
+  useEffect(() => {
+    let live = true
+    createImageBitmap(file)
+      .then((bmp) => {
+        const c = ref.current
+        const ctx = c?.getContext('2d')
+        if (!live || !c || !ctx) return bmp.close()
+        const scale = Math.max(c.width / bmp.width, c.height / bmp.height)
+        const w = bmp.width * scale,
+          h = bmp.height * scale
+        ctx.drawImage(bmp, (c.width - w) / 2, (c.height - h) / 2, w, h)
+        bmp.close()
+      })
+      .catch(() => {})
+    return () => {
+      live = false
+    }
+  }, [file])
+  return <canvas ref={ref} width={96} height={128} role="img" aria-label="Payment screenshot" className="h-16 w-12 rounded-lg ring-1 ring-black/10" />
 }
