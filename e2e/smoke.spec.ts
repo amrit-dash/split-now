@@ -508,3 +508,21 @@ test('with Simplify debts off, the graph opens on the payments as they are, like
   await expect(views.getByRole('radio', { name: /^Original/ })).toHaveAttribute('aria-checked', 'true')
   await expect(views.getByRole('radio', { name: /^Simplified/ })).toHaveAttribute('aria-checked', 'false')
 })
+
+test("Settle up in a group where nobody owes anything opens the group's celebration", async ({ page }) => {
+  await page.goto('/groups/new')
+  const kinds = page.getByRole('radiogroup', { name: 'What are you creating?' })
+  await kinds.getByRole('radio', { name: /^Group/ }).click()
+  await page.getByLabel('Name', { exact: true }).fill('Square Trip')
+  const member = page.getByPlaceholder('Name', { exact: true })
+  await member.fill('Dev')
+  await member.press('Enter')
+  await page.getByRole('button', { name: 'Create group' }).click()
+  await expect(page).toHaveURL(/\/groups\/[^/?]+$/)
+  await page.getByTestId('group-settle').click()
+  const settled = page.getByTestId('group-settled')
+  await expect(settled).toBeVisible()
+  await expect(settled.getByRole('heading', { name: /Everyone’s square in Square Trip/ })).toBeVisible()
+  // A payment made outside the app can still be recorded from here.
+  await expect(page.getByTestId('group-settled-record')).toHaveAttribute('href', /\/groups\/[^/]+\/settle$/)
+})
