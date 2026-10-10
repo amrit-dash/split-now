@@ -8,9 +8,11 @@ import {
   isDefaultMotion,
   motionSummary,
   parseMotion,
+  parsePreviewShown,
   particleScale,
-  GLITTER_LIFE,
-  SPARK_LIFE,
+  remnantMix,
+  sparkLife,
+  sparkRadius,
 } from './motion'
 
 describe('parseMotion', () => {
@@ -75,8 +77,19 @@ describe('fireworks', () => {
     expect(particleScale('small')).toBeLessThan(1)
     expect(particleScale('big')).toBeGreaterThan(fireworkScale('big'))
   })
-  it('glitter outlives the sparks that shed it', () => {
-    expect(GLITTER_LIFE[1]).toBeGreaterThan(SPARK_LIFE[1])
+  it('without glitter, sparks are gone before the remnants would start lingering', () => {
+    expect(sparkLife(false)[1]).toBeLessThan(sparkLife(true)[0])
+  })
+  it('eases a spark from its spark size to its glitter size as it slows', () => {
+    expect(remnantMix(0)).toBe(0)
+    expect(remnantMix(0.3)).toBe(0)
+    expect(remnantMix(0.5)).toBeGreaterThan(0)
+    expect(remnantMix(0.5)).toBeLessThan(1)
+    expect(remnantMix(0.65)).toBe(1)
+    expect(remnantMix(1)).toBe(1)
+    expect(sparkRadius('big', 'small', 0)).toBe(particleScale('big'))
+    expect(sparkRadius('big', 'small', 0.9)).toBe(particleScale('small'))
+    expect(sparkRadius('medium', 'medium', 0.5)).toBe(1)
   })
 })
 
@@ -102,5 +115,14 @@ describe('motionSummary', () => {
     expect(motionSummary({ ...DEFAULT_MOTION, on: false }, false)).toBe('Off')
     expect(motionSummary({ ...DEFAULT_MOTION, fireworks: false, flow: false, circles: false }, false)).toBe('All still')
     expect(motionSummary(DEFAULT_MOTION, true)).toMatch(/less motion/)
+  })
+})
+
+describe('parsePreviewShown', () => {
+  it('shows the preview unless it was turned off', () => {
+    expect(parsePreviewShown(null)).toBe(true)
+    expect(parsePreviewShown('on')).toBe(true)
+    expect(parsePreviewShown('junk')).toBe(true)
+    expect(parsePreviewShown('off')).toBe(false)
   })
 })

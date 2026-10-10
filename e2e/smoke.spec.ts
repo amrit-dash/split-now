@@ -180,6 +180,12 @@ test('Animations: turning them all off stills the preview and the accent buttons
   await page.goto('/settings')
   await page.getByTestId('settings-animations').click()
   await expect(page.getByTestId('motion-preview')).toBeVisible()
+  // The eye in the header hides the preview (and brings it back).
+  await page.getByTestId('motion-preview-toggle').click()
+  await expect(page.getByTestId('motion-preview')).toHaveCount(0)
+  await expect(page.getByTestId('motion-preview-toggle')).toHaveAttribute('aria-pressed', 'false')
+  await page.getByTestId('motion-preview-toggle').click()
+  await expect(page.getByTestId('motion-preview')).toBeVisible()
   await page.getByTestId('motion-size').getByRole('radio', { name: 'Big' }).click()
   await expect(page.getByTestId('motion-size').getByRole('radio', { name: 'Big' })).toHaveAttribute('aria-checked', 'true')
   await page.getByTestId('motion-on').click()
