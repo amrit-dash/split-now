@@ -11,6 +11,7 @@ import {
   getAccent,
   getDuo,
   getInk,
+  installLinks,
   setAccent,
   setDuo,
   setInk,
@@ -226,6 +227,48 @@ describe('accent', () => {
   })
 })
 
+describe('install icons', () => {
+  it('points the default accent at the root files and every other accent at its own set', () => {
+    expect(installLinks('violet')).toEqual({ manifest: '/manifest.webmanifest', appleIcon: '/apple-touch-icon.png' })
+    expect(installLinks('koi')).toEqual({ manifest: '/icons/koi/manifest.webmanifest', appleIcon: '/icons/koi/apple-touch-icon.png' })
+    // A retired id resolves to its successor's set.
+    expect(installLinks('lime' as never).appleIcon).toBe('/icons/neon/apple-touch-icon.png')
+  })
+
+  it('swaps the manifest and Apple icon links when the accent changes', () => {
+    const dom = fakeDom()
+    const links: Record<string, { href: string; getAttribute: () => string; setAttribute: (k: string, v: string) => void }> = {}
+    for (const rel of ['manifest', 'apple-touch-icon']) {
+      const l = {
+        href: '',
+        getAttribute: () => l.href,
+        setAttribute: (_: string, v: string) => {
+          l.href = v
+        },
+      }
+      links[rel] = l
+    }
+    const doc = (globalThis as Record<string, unknown>).document as { querySelector: (sel: string) => unknown }
+    const base = doc.querySelector
+    doc.querySelector = (sel: string) => links[sel.match(/link\[rel="([^"]+)"\]/)?.[1] ?? ''] ?? base(sel)
+    setAccent('berry')
+    expect(links.manifest.href).toBe('/icons/berry/manifest.webmanifest')
+    expect(links['apple-touch-icon'].href).toBe('/icons/berry/apple-touch-icon.png')
+    setAccent('violet')
+    expect(links.manifest.href).toBe('/manifest.webmanifest')
+    expect(links['apple-touch-icon'].href).toBe('/apple-touch-icon.png')
+    expect(dom.attrs.get('data-accent')).toBe('violet')
+  })
+
+  it('ships an icon set for every accent but the default (npm run icons)', () => {
+    for (const a of ACCENTS.filter((p) => p.id !== 'violet')) {
+      for (const f of ['apple-touch-icon.png', 'pwa-192.png', 'pwa-512.png', 'pwa-maskable-512.png']) {
+        expect(existsSync(new URL(`../../public/icons/${a.id}/${f}`, import.meta.url)), `${a.id}/${f}`).toBe(true)
+      }
+    }
+  })
+})
+
 describe('tintIconSvg', () => {
   const svg =
     '<svg><defs><linearGradient id="g"><stop offset="0" stop-color="#7c3aed"/><stop offset="1" stop-color=\'#db2777\' /></linearGradient></defs><rect fill="url(#g)"/><stop stop-color="#000"/></svg>'
@@ -251,7 +294,10 @@ describe('tintIconSvg', () => {
 // The app tsconfig has no Node types; load fs untyped (vitest runs in Node). `?raw` won't do:
 // vitest stubs CSS imports.
 const fsModule = 'node:fs'
-const { readFileSync } = (await import(/* @vite-ignore */ fsModule)) as { readFileSync: (p: URL, enc: 'utf8') => string }
+const { readFileSync, existsSync } = (await import(/* @vite-ignore */ fsModule)) as {
+  readFileSync: (p: URL, enc: 'utf8') => string
+  existsSync: (p: URL) => boolean
+}
 const css = readFileSync(new URL('../index.css', import.meta.url), 'utf8')
 const html = readFileSync(new URL('../../index.html', import.meta.url), 'utf8')
 const favicon = readFileSync(new URL('../../public/favicon.svg', import.meta.url), 'utf8')

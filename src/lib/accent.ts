@@ -173,11 +173,32 @@ export function setInk(ink: Ink, id: AccentId = getAccent()) {
   applyAccent(preset.id, getDuo(), ink)
 }
 
-// --- Desktop favicon tinting -----------------------------------------------------------
-// The browser-tab icon is the one icon surface that can follow the accent at runtime: the
-// shipped /favicon.svg is fetched once and its two gradient stops are swapped for the active
-// accent's brand-600 / duo-600, then set as a data: URL on <link rel="icon">. Home-screen
-// icons are minted at install time and stay as generated (scripts/generate-icons.mjs).
+// --- Icons that follow the accent -------------------------------------------------------
+// The browser-tab icon follows the accent live: the shipped /favicon.svg is fetched once and its
+// two gradient stops are swapped for the active accent's brand-600 / duo-600, then set as a data:
+// URL on <link rel="icon">.
+// Home-screen icons are minted when the app is installed, so the manifest and Apple icon links
+// point at the accent's own pre-rendered set (public/icons/<accent>/, scripts/generate-icons.mjs;
+// the manifests are written by the build, vite.config.ts). iOS reads the Apple icon only at "Add to
+// Home Screen" and never updates it; Chrome on Android and desktop re-reads the manifest on launch
+// and offers to update an installed icon that changed.
+
+/** The manifest and Apple touch icon for an accent: the shipped root files for the default accent. */
+export function installLinks(id: AccentId): { manifest: string; appleIcon: string } {
+  const preset = accentPreset(id)
+  if (preset.id === DEFAULT_ACCENT) return { manifest: '/manifest.webmanifest', appleIcon: '/apple-touch-icon.png' }
+  return { manifest: `/icons/${preset.id}/manifest.webmanifest`, appleIcon: `/icons/${preset.id}/apple-touch-icon.png` }
+}
+
+function applyInstallLinks(id: AccentId) {
+  const links = installLinks(id)
+  const set = (rel: string, href: string) => {
+    const el = document.querySelector?.<HTMLLinkElement>(`link[rel="${rel}"]`)
+    if (el && el.getAttribute('href') !== href) el.setAttribute('href', href)
+  }
+  set('manifest', links.manifest)
+  set('apple-touch-icon', links.appleIcon)
+}
 
 let iconSvg: Promise<string | null> | undefined
 function loadIconSvg(): Promise<string | null> {
@@ -198,9 +219,15 @@ export function tintIconSvg(svg: string, from: string, to: string): string | nul
   return i === 2 ? out : null
 }
 
-/** Re-tint the tab icon for the accent currently applied to <html>. Safe to call often. */
+/**
+ * Point the install links at the stored accent's icons and re-tint the tab icon for the accent
+ * currently applied to <html>. Runs on launch (Layout, Login) and on every accent change; safe to
+ * call often.
+ */
 export async function applyIconTint(): Promise<void> {
-  if (typeof document === 'undefined' || typeof fetch !== 'function' || typeof getComputedStyle !== 'function') return
+  if (typeof document === 'undefined') return
+  applyInstallLinks(getAccent())
+  if (typeof fetch !== 'function' || typeof getComputedStyle !== 'function') return
   const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
   if (!link) return
   const cs = getComputedStyle(document.documentElement)
