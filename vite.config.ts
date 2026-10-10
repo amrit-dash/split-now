@@ -4,9 +4,10 @@ import path from 'node:path'
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { VitePWA } from 'vite-plugin-pwa'
+import { type ManifestOptions, VitePWA } from 'vite-plugin-pwa'
 import pkg from './package.json' with { type: 'json' }
 import { tesseractAssets } from './scripts/vite-tesseract.ts'
+import { ACCENTS, DEFAULT_ACCENT, installLinks } from './src/lib/accent.ts'
 import { missingDeployEnv } from './src/lib/deploy-env.ts'
 
 /** "0.1.0+ab12cd3": package version plus the git commit, so a bug report can name the build. */
@@ -51,6 +52,69 @@ function fontPreload(): Plugin {
   }
 }
 
+/** The web app manifest (vite-plugin-pwa writes it as /manifest.webmanifest). */
+const MANIFEST: Partial<ManifestOptions> = {
+  // A stable identity for the installed app, so start_url can change later without creating a second app.
+  id: '/',
+  name: 'Split Now — split bills, settle up over UPI',
+  short_name: 'Split Now',
+  description: 'Spending is wise, splitting is free. Split Now! Split bills with friends, simplify debts and settle up over UPI in a tap.',
+  lang: 'en',
+  dir: 'ltr',
+  theme_color: '#6d28d9',
+  background_color: '#0b0a14',
+  display: 'standalone',
+  display_override: ['standalone', 'minimal-ui'],
+  // Shortcuts, shares and notification taps reuse the open window instead of opening another.
+  launch_handler: { client_mode: 'navigate-existing' },
+  // No orientation lock: tablets and foldables may rotate.
+  start_url: '/',
+  scope: '/',
+  categories: ['finance', 'productivity'],
+  icons: [
+    { src: 'pwa-192.png', sizes: '192x192', type: 'image/png' },
+    { src: 'pwa-512.png', sizes: '512x512', type: 'image/png' },
+    { src: 'pwa-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+    { src: 'pwa-mono-512.png', sizes: '512x512', type: 'image/png', purpose: 'monochrome' },
+  ],
+  shortcuts: [
+    // Android draws shortcut icons from the alpha channel: the white silhouette, not the colour tile.
+    { name: 'Add expense', url: '/add', icons: [{ src: 'badge-96.png', sizes: '96x96', type: 'image/png' }] },
+    { name: 'Scan receipt', url: '/scan', icons: [{ src: 'badge-96.png', sizes: '96x96', type: 'image/png' }] },
+    { name: 'Inbox', url: '/inbox', icons: [{ src: 'badge-96.png', sizes: '96x96', type: 'image/png' }] },
+  ],
+  // Android only: "Share → Split Now" for payment screenshots, receipts and payment texts.
+  // POST so images can be shared; public/share-target-sw.js handles it in the service worker.
+  share_target: {
+    action: '/share-target',
+    method: 'POST',
+    enctype: 'multipart/form-data',
+    params: { title: 'title', text: 'text', url: 'url', files: [{ name: 'image', accept: ['image/*'] }] },
+  },
+}
+
+/**
+ * One manifest per accent beside its icons (public/icons/<accent>/, scripts/generate-icons.mjs),
+ * so an install takes the accent the person picked; src/lib/accent.ts points <link rel="manifest">
+ * at it. Same id, so it is the same app whichever one installed it. Icon paths stay relative and
+ * resolve inside the accent's folder; the colourless ones are made absolute.
+ */
+function accentManifests(): Plugin {
+  return {
+    name: 'split-now:accent-manifests',
+    apply: 'build',
+    generateBundle() {
+      for (const a of ACCENTS) {
+        if (a.id === DEFAULT_ACCENT) continue
+        const icons = MANIFEST.icons?.map((i) => (i.purpose === 'monochrome' ? { ...i, src: `/${i.src}` } : i))
+        const shortcuts = MANIFEST.shortcuts?.map((sc) => ({ ...sc, icons: sc.icons?.map((i) => ({ ...i, src: `/${i.src}` })) }))
+        const source = JSON.stringify({ ...MANIFEST, theme_color: a.meta, icons, shortcuts })
+        this.emitFile({ type: 'asset', fileName: `${installLinks(a.id).manifest.slice(1)}`, source })
+      }
+    },
+  }
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd())
   // Which data layer `#repo-impl` is (src/data/index.ts): Firebase when the project is configured
@@ -80,48 +144,11 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
       tesseractAssets(),
       fontPreload(),
+      accentManifests(),
       VitePWA({
         registerType: 'prompt',
         includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
-        manifest: {
-          // A stable identity for the installed app, so start_url can change later without creating a second app.
-          id: '/',
-          name: 'Split Now — split bills, settle up over UPI',
-          short_name: 'Split Now',
-          description: 'Spending is wise, splitting is free. Split Now! Split bills with friends, simplify debts and settle up over UPI in a tap.',
-          lang: 'en',
-          dir: 'ltr',
-          theme_color: '#6d28d9',
-          background_color: '#0b0a14',
-          display: 'standalone',
-          display_override: ['standalone', 'minimal-ui'],
-          // Shortcuts, shares and notification taps reuse the open window instead of opening another.
-          launch_handler: { client_mode: 'navigate-existing' },
-          // No orientation lock: tablets and foldables may rotate.
-          start_url: '/',
-          scope: '/',
-          categories: ['finance', 'productivity'],
-          icons: [
-            { src: 'pwa-192.png', sizes: '192x192', type: 'image/png' },
-            { src: 'pwa-512.png', sizes: '512x512', type: 'image/png' },
-            { src: 'pwa-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-            { src: 'pwa-mono-512.png', sizes: '512x512', type: 'image/png', purpose: 'monochrome' },
-          ],
-          shortcuts: [
-            // Android draws shortcut icons from the alpha channel: the white silhouette, not the colour tile.
-            { name: 'Add expense', url: '/add', icons: [{ src: 'badge-96.png', sizes: '96x96', type: 'image/png' }] },
-            { name: 'Scan receipt', url: '/scan', icons: [{ src: 'badge-96.png', sizes: '96x96', type: 'image/png' }] },
-            { name: 'Inbox', url: '/inbox', icons: [{ src: 'badge-96.png', sizes: '96x96', type: 'image/png' }] },
-          ],
-          // Android only: "Share → Split Now" for payment screenshots, receipts and payment texts.
-          // POST so images can be shared; public/share-target-sw.js handles it in the service worker.
-          share_target: {
-            action: '/share-target',
-            method: 'POST',
-            enctype: 'multipart/form-data',
-            params: { title: 'title', text: 'text', url: 'url', files: [{ name: 'image', accept: ['image/*'] }] },
-          },
-        },
+        manifest: MANIFEST,
         workbox: {
           importScripts: ['share-target-sw.js', 'push-sw.js'],
           globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
@@ -134,8 +161,9 @@ export default defineConfig(({ mode }) => {
           // Firebase Auth's redirect handler (/__/auth/*) and the API must reach the network, not the
           // SPA shell; /share-target is answered by share-target-sw.js (a GET there has nothing to show).
           navigateFallbackDenylist: [/^\/__\//, /^\/api\//, /^\/share-target/],
-          // OCR files are big; cache them on first use instead of precaching.
-          globIgnores: ['tesseract/**'],
+          // OCR files are big; cache them on first use instead of precaching. The per-accent install
+          // icons are fetched only by an install, never by the app.
+          globIgnores: ['tesseract/**', 'icons/**'],
           runtimeCaching: [
             { urlPattern: /\/tesseract\/[^/]+\.(?:js|wasm)$/, handler: 'CacheFirst', options: { cacheName: 'tesseract', expiration: { maxEntries: 10 } } },
             {
