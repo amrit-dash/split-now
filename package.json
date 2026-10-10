@@ -41,7 +41,7 @@
     "test:coverage": "vitest run --config vitest.coverage.config.ts --coverage",
     "test:e2e": "playwright test",
     "test:rules": "firebase emulators:exec --only firestore,storage --project demo-splitit \"vitest run --config vitest.rules.config.ts\"",
-    "test:functions": "npm --prefix functions run build && firebase emulators:exec --only firestore --project demo-splitit \"firebase emulators:exec --only functions --project demo-splitit 'vitest run --config vitest.functions.config.ts'\"",
+    "test:functions": "npm --prefix functions run build && firebase emulators:exec --only firestore --project demo-splitit \"firebase emulators:exec --only functions --project demo-splitit 'vitest run --config vitest.functions.config.ts'\" && firebase emulators:exec --only firestore,functions --project demo-splitit \"TRIGGERS=1 vitest run --config vitest.functions.config.ts\"",
     "test:all": "npm run lint && npm run typecheck:all && npm test && npm run test:rules && npm run test:functions",
     "icons": "node scripts/generate-icons.mjs",
     "readme:media": "node scripts/readme-media.mjs",
