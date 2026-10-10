@@ -14,8 +14,9 @@ const SEMVER = /^\d+\.\d+\.\d+$/
 export function releaseNotes(changelog: string, version: string): string {
   if (!SEMVER.test(version)) throw new Error(`Not a release version: ${version}`)
   const lines = changelog.split(/\r?\n/)
-  const head = new RegExp(`^## ${version.replace(/\./g, '\\.')}(\\s|$)`)
-  const start = lines.findIndex((l) => head.test(l))
+  // Plain string matching: "## 3.2.1" or "## 3.2.1 — …", never "## 3.2.10".
+  const head = `## ${version}`
+  const start = lines.findIndex((l) => l.startsWith(head) && (l.length === head.length || /\s/.test(l[head.length])))
   if (start < 0) throw new Error(`CHANGELOG.md has no "## ${version}" section`)
   const end = lines.findIndex((l, i) => i > start && l.startsWith('## '))
   const body = lines
