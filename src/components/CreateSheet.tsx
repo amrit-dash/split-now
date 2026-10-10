@@ -31,7 +31,9 @@ export function CreateSheet({ open, onClose, groupId }: { open: boolean; onClose
   const q = groupId ? `?group=${encodeURIComponent(groupId)}` : ''
   const go = (to: string) => {
     onClose()
-    nav(to)
+    // Navigate once the sheet is gone from the screen: iOS keeps a picture of the page you leave
+    // for its swipe-back, and coming back must show the page, not the sheet half way closed.
+    requestAnimationFrame(() => requestAnimationFrame(() => nav(to)))
   }
   return (
     <Sheet open={open} onClose={onClose} title="Create">

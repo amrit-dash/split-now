@@ -1,3 +1,4 @@
+import { useBack } from '@/hooks/useBack'
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Check, Copy, X } from 'lucide-react'
@@ -102,6 +103,7 @@ export function ExpenseEditor({
 }) {
   const { user, profile } = useMe()
   const nav = useNavigate()
+  const goBack = useBack('/')
   const toast = useToast()
   const confirm = useConfirm()
   const reader = useReceiptReader()
@@ -343,9 +345,8 @@ export function ExpenseEditor({
     done.current = true
     clearDraft(storeKey)
     forgetReceipt()
-    // Opened from the home-screen shortcut there is nothing to go back to.
-    if (window.history.length > 1) nav(-1)
-    else nav('/')
+    // Back to where it was opened from; from the home-screen shortcut, Home.
+    goBack()
   }
 
   // "Same as last time": only when the remembered choice is in use and isn't the plain default.
