@@ -261,8 +261,9 @@ export default function GroupDetail() {
             data-testid="group-people"
           >
             <span className="flex -space-x-2" aria-hidden>
-              {people.slice(0, 5).map(([id, m]) => (
-                <span key={id} className="rounded-full ring-2 ring-white dark:ring-ink-900">
+              {/* First in front, like AvatarStack, so every face shows the same sliver. */}
+              {people.slice(0, 5).map(([id, m], i) => (
+                <span key={id} className="relative rounded-full ring-2 ring-white dark:ring-ink-900" style={{ zIndex: 5 - i }}>
                   <Avatar name={m.name} color={m.color} photoURL={m.photoURL} size={26} />
                 </span>
               ))}
@@ -400,8 +401,15 @@ export default function GroupDetail() {
                       <div className="neg font-semibold">{formatMoney(x.amount, cur)}</div>
                     </div>
                     {x.to === me && <RemindActions group={group} debtor={x.from} amount={x.amount} me={me} feed={feed} className="-mr-1" />}
-                    <Link to={`/groups/${group.id}/settle?from=${x.from}&to=${x.to}&amount=${x.amount}`} className="chip min-h-10">
-                      Settle
+                    {/* An icon button like Balances' record button; filled when it's your own payment to make. */}
+                    <Link
+                      to={`/groups/${group.id}/settle?from=${x.from}&to=${x.to}&amount=${x.amount}`}
+                      aria-label={`Settle up: ${name(x.from)} pays ${name(x.to)} ${formatMoney(x.amount, cur)}`}
+                      title="Settle up"
+                      data-testid="debt-settle"
+                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition active:scale-95 ${x.from === me ? 'bg-fill text-on-fill shadow-sm' : 'bg-brand-50 text-brand-600 active:bg-brand-100 dark:bg-brand-900/40 dark:text-brand-200 dark:active:bg-brand-900/70'}`}
+                    >
+                      <ChequeIcon size={24} />
                     </Link>
                   </li>
                 ))}

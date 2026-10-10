@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { ChevronLeft } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useBack } from '@/hooks/useBack'
 import { formatDate } from '@/lib/locale'
 import type { GroupType } from '@/types'
 
@@ -18,14 +18,15 @@ export function PageHeader({
   subtitle?: ReactNode
   children?: ReactNode
 }) {
-  const nav = useNavigate()
+  // Back is where you came from in the app; the `back` path is only for a screen opened cold.
+  const goBack = useBack(typeof back === 'string' ? back : '/')
   return (
     <header className="sticky top-[var(--banner-h,0px)] z-30 -mx-4 mb-5 bg-slate-50/80 px-4 pb-3 pt-[calc(var(--safe-top)+1.25rem)] backdrop-blur-xl dark:bg-ink-950/80">
       <div className="flex min-h-11 items-center gap-2">
         {back && (
           <button
             type="button"
-            onClick={() => (typeof back === 'string' ? nav(back) : history.length > 1 ? nav(-1) : nav('/'))}
+            onClick={goBack}
             className="-ml-2 flex h-11 w-11 items-center justify-center rounded-full hover:bg-slate-200/60 dark:hover:bg-ink-800"
             aria-label="Back"
           >

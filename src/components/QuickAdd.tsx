@@ -125,7 +125,9 @@ export function QuickAdd({
   const leave = (to: string) => {
     setText('')
     onLeave?.()
-    nav(to)
+    // When it lives in the Create sheet, let the sheet close first (CreateSheet explains why).
+    if (onLeave) requestAnimationFrame(() => requestAnimationFrame(() => nav(to)))
+    else nav(to)
   }
 
   /** The line read on the phone (and, when unsure with AI reading on, gaps filled by Gemini's text reader). */

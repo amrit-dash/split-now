@@ -149,7 +149,7 @@ test('settle up records a payment', async ({ page }) => {
   await page.goto('/groups/g_goa')
   // Two people owe you in the Goa trip: Settle up lists them; each payment's Settle prefills it.
   await page.getByTestId('group-settle').click()
-  await page.locator('#group-payments').getByRole('link', { name: 'Settle' }).first().click()
+  await page.getByTestId('debt-settle').first().click()
   await expect(page).toHaveURL(/\/groups\/g_goa\/settle\?from=/)
   const record = page.getByRole('button', { name: /^Record/ })
   await expect(record).toBeEnabled()
@@ -326,5 +326,24 @@ test('Group Settle up: with several people owing you it opens the group Balances
   await page.getByTestId('group-settle').click()
   await expect(page).toHaveURL(/\/groups\/g_goa$/)
   await expect(page.locator('#group-payments')).toBeVisible()
-  await expect(page.locator('#group-payments').getByRole('link', { name: 'Settle' })).not.toHaveCount(0)
+  await expect(page.locator('#group-payments').getByTestId('debt-settle')).not.toHaveCount(0)
+})
+
+test('Back goes where you came from: Edit group → Manage members → Back returns to Edit group, then the group', async ({ page }) => {
+  await page.goto('/groups/g_goa')
+  await page.getByTestId('group-menu').click()
+  await page.getByRole('button', { name: 'Edit group' }).click()
+  await expect(page).toHaveURL(/\/groups\/g_goa\/edit$/)
+  await page.getByTestId('group-manage-members').click()
+  await expect(page).toHaveURL(/\/groups\/g_goa\/members$/)
+  await page.getByRole('button', { name: 'Back' }).click()
+  await expect(page).toHaveURL(/\/groups\/g_goa\/edit$/)
+  await page.getByRole('button', { name: 'Back' }).click()
+  await expect(page).toHaveURL(/\/groups\/g_goa$/)
+})
+
+test('Back on a screen opened cold goes to its parent', async ({ page }) => {
+  await page.goto('/groups/g_goa/members')
+  await page.getByRole('button', { name: 'Back' }).click()
+  await expect(page).toHaveURL(/\/groups\/g_goa$/)
 })
