@@ -6,6 +6,8 @@
  * Pure: no Firebase, no DOM, no '@/types' (documents are matched structurally).
  */
 
+import { type PaymentFlag, type PaymentOk, settlementCounts } from './payment-ok'
+
 /** The fields of groups/{gid}/expenses/{id} that balances read (see Expense in src/types.ts). */
 export interface BalanceExpense {
   amount: number
@@ -26,6 +28,10 @@ export interface BalanceSettlement {
   amount: number
   createdAt?: number
   deletedAt?: number
+  /** Payments need the recipient's OK (shared/payment-ok.ts) */
+  needsOk?: boolean
+  ok?: PaymentOk
+  flag?: PaymentFlag
 }
 
 /** members map of a group: member id → { uid? } (placeholders have no uid; removedAt marks someone who left). */
@@ -61,14 +67,15 @@ export const isPendingApproval = (e: Pick<BalanceExpense, 'requiresApproval' | '
 
 /**
  * Net per member (positive = is owed). Trash and pending-approval expenses are left out, like
- * the app's countedExpenses; with `asOf`, only items created at or before that instant count.
+ * the app's countedExpenses, and so are payments waiting for the payee's OK when the group asks
+ * for one (`paymentApproval`); with `asOf`, only items created at or before that instant count.
  */
 export function netBalances(
   expenses: BalanceExpense[],
   settlements: BalanceSettlement[],
-  opts: { members?: MembersLite; asOf?: number } = {},
+  opts: { members?: MembersLite; asOf?: number; paymentApproval?: boolean } = {},
 ): Record<string, number> {
-  const { members = {}, asOf = Infinity } = opts
+  const { members = {}, asOf = Infinity, paymentApproval } = opts
   const net: Record<string, number> = {}
   const add = (m: string, v: number) => (net[m] = (net[m] ?? 0) + v)
   for (const e of expenses) {
@@ -77,7 +84,7 @@ export function netBalances(
     for (const [m, v] of Object.entries(e.splits!)) add(m, -v)
   }
   for (const s of settlements) {
-    if (typeof s.deletedAt === 'number' || (s.createdAt ?? 0) > asOf || !Number.isInteger(s.amount)) continue
+    if (!settlementCounts(s, members, paymentApproval) || (s.createdAt ?? 0) > asOf || !Number.isInteger(s.amount)) continue
     add(s.from, s.amount)
     add(s.to, -s.amount)
   }

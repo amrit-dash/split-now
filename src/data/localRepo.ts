@@ -124,7 +124,10 @@ export function createLocalRepo(): Repo {
       Object.values(state.expenses).filter((e) => e.groupId === groupId),
       g,
     )
-    const settlements = countedSettlements(Object.values(state.settlements).filter((x) => x.groupId === groupId))
+    const settlements = countedSettlements(
+      Object.values(state.settlements).filter((x) => x.groupId === groupId),
+      g,
+    )
     const net = netBalances(expenses, settlements)
     const cap = Math.max(0, Math.min(-(net[memberId] ?? 0), net[myId] ?? 0))
     const owes = Math.max(0, Math.min(-(net[myId] ?? 0), net[memberId] ?? 0))

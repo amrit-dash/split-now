@@ -2,7 +2,9 @@
  * Split Now Cloud Functions (2nd gen, Node 22, region asia-south1; see config.ts).
  *  capture             HTTPS  POST /api/sms, /api/capture — bank SMS webhook (token auth, rate-limited)
  *  onExpenseCreated    Firestore groups/{gid}/expenses/{eid} created → push to the people in it
- *  onSettlementCreated Firestore groups/{gid}/settlements/{sid} created → push to the payee (and the payer, if someone else recorded it)
+ *  onSettlementCreated Firestore groups/{gid}/settlements/{sid} created → push to the payee (and the payer, if someone else recorded it);
+ *                      one that needs the payee's OK has its screenshot checked with AI first (payment-ok.ts)
+ *  onSettlementUpdated Firestore the payee confirmed a payment or said it hasn't arrived → push to the payer
  *  onPushTokenCreated  Firestore users/{uid}/pushTokens/{id} created → drop the same browser token from other accounts
  *  onGroupDeleted      Firestore groups/{gid} deleted → delete its subcollections and receipts
  *  dailyReminders      Schedule every day 10:00 Asia/Kolkata → settle-up nudges (active groups only)
@@ -16,7 +18,7 @@
  *  adminStats, adminUsers, adminBlockUser, adminSetAdmin  Callables (admins/{uid} only): usage counters + totals, account lookup, block / unblock, make or remove an admin
  */
 export { capture } from './capture'
-export { onExpenseCreated, onGroupDeleted, onPushTokenCreated, onSettlementCreated } from './triggers'
+export { onExpenseCreated, onGroupDeleted, onPushTokenCreated, onSettlementCreated, onSettlementUpdated } from './triggers'
 export { dailyReminders } from './reminders'
 export { fxDaily, fxMorning, refreshFx } from './fx'
 export { aiKey, aiModels, aiStatus, parseReceiptAi, quickAddAi } from './ai'

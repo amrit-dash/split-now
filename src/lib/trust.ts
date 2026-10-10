@@ -1,6 +1,7 @@
 import type { Expense, ExpenseFlag, Group, MemberId, Settlement } from '@/types'
 import { type ApprovalGroup, approvalNeeded, editApprovalOutcome, groupThreshold } from './approval'
 import { activeMembers, isRemoved } from '../../shared/members'
+import { awaitingOk, settlementCounts } from '../../shared/payment-ok'
 
 /**
  * Trust features that aren't the activity log: soft delete (trash), disputes (flags) and
@@ -62,7 +63,17 @@ export function awaitingMyApproval(e: Expense, g: Pick<Group, 'members'>, uid: s
 export function countedExpenses(expenses: Expense[], g: Pick<Group, 'members'>): Expense[] {
   return expenses.filter((e) => !isTrashed(e) && !isPending(e, g))
 }
-export const countedSettlements = (s: Settlement[]) => liveItems(s)
+/** Payments that count towards balances: not trashed and not waiting for the payee's OK (shared/payment-ok.ts). */
+export const countedSettlements = (s: Settlement[], g: Pick<Group, 'members' | 'paymentApproval'>) =>
+  s.filter((x) => settlementCounts(x, g.members, g.paymentApproval))
+
+/** Payments waiting for the payee's OK (listed, not counted). */
+export const waitingSettlements = (s: Settlement[], g: Pick<Group, 'members' | 'paymentApproval'>) =>
+  s.filter((x) => awaitingOk(x, g.members, g.paymentApproval))
+
+/** Waiting for my OK: I am the payee. */
+export const awaitingMyOk = (s: Settlement, g: Pick<Group, 'members' | 'paymentApproval'>, uid: string) =>
+  awaitingOk(s, g.members, g.paymentApproval) && g.members[s.to]?.uid === uid
 
 export const flagsOf = (e: Pick<Expense, 'dispute'>): ExpenseFlag[] => Object.values(e.dispute ?? {}).sort((a, b) => a.at - b.at)
 export const isDisputed = (e: Pick<Expense, 'dispute'>) => flagsOf(e).length > 0

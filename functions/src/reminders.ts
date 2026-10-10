@@ -23,9 +23,9 @@ const TIMEOUT_S = 540
 const ACTIVE_WINDOW_MS = 36 * 3_600_000
 const CHUNK = 10
 
-const GROUP_FIELDS = ['type', 'memberUids', 'members', 'currency', 'name', 'emoji', 'archived'] as const
+const GROUP_FIELDS = ['type', 'memberUids', 'members', 'currency', 'name', 'emoji', 'archived', 'paymentApproval'] as const
 const EXPENSE_FIELDS = ['amount', 'paidBy', 'splits', 'createdAt', 'deletedAt', 'requiresApproval', 'approvals', 'createdBy'] as const
-const SETTLEMENT_FIELDS = ['from', 'to', 'amount', 'createdAt', 'deletedAt'] as const
+const SETTLEMENT_FIELDS = ['from', 'to', 'amount', 'createdAt', 'deletedAt', 'needsOk', 'ok', 'flag'] as const
 
 interface GroupLite {
   type?: string
@@ -35,6 +35,7 @@ interface GroupLite {
   name?: string
   emoji?: string
   archived?: boolean
+  paymentApproval?: boolean
 }
 
 const eligible = (g: GroupLite | undefined): g is GroupLite =>
@@ -100,6 +101,7 @@ export const dailyReminders = onSchedule(
             currency: g.currency ?? 'INR',
             expenses: ex.docs.map((d) => d.data() as ExpenseLite),
             settlements: st.docs.map((d) => d.data() as SettlementLite),
+            paymentApproval: g.paymentApproval === true,
             now,
             state,
           })

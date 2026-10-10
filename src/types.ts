@@ -1,3 +1,5 @@
+import type { PaymentCheck, PaymentFlag, PaymentOk, PaymentVerdict } from '../shared/payment-ok'
+
 export type Cents = number
 export type MemberId = string
 
@@ -84,6 +86,11 @@ export interface Group {
    * of asking everyone again. Absent = off. Any member may change it, like the threshold.
    */
   editAutoApprove?: Cents
+  /**
+   * Payments need the recipient's OK: a payment someone else records for you waits for your OK
+   * (or a matching screenshot) before it counts (shared/payment-ok.ts). Any member may toggle it.
+   */
+  paymentApproval?: boolean
   /**
    * @deprecated Legacy group-wide capture pause; ignored. Capture is paused per person
    * (`pausedTrips` in users/{uid}/settings/notifications). Old docs may still carry it.
@@ -226,8 +233,26 @@ export interface Settlement {
    * above stays in the group currency, the part of the debt it cleared (src/lib/collect.ts).
    */
   paid?: PaidIn
+  /** Set at creation when the group asks for the payee's OK and someone else recorded it (shared/payment-ok.ts). */
+  needsOk?: boolean
+  /** The payee's OK, or the server's when the screenshot matched ('ai'). */
+  ok?: PaymentOk
+  /** The payee says it didn't arrive: waits for their OK again. */
+  flag?: PaymentFlag
+  /** The payment screenshot, settleproofs/{groupId}/{settlementId}.jpg */
+  proofPath?: string
+  /** What the server's AI check of the screenshot found (written by Cloud Functions only). */
+  aiCheck?: PaymentAiCheck
   deletedAt?: number
   deletedBy?: string
+}
+
+export interface PaymentAiCheck {
+  verdict: PaymentVerdict
+  reasons: PaymentCheck['reasons']
+  at: number
+  /** the payment's reference as the screenshot showed it (so it can't clear a second payment) */
+  ref?: string
 }
 
 /** A settlement's payment in another currency: minor units of `currency`, at `rate` group-currency units per 1 of it. */

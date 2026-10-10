@@ -3,17 +3,17 @@
  * Functions; the server is the one that enforces it.
  *
  *  config/ai                     project settings (admins edit; everyone signed in can read)
- *  users/{uid}/settings/notifications   the user's choices (aiEnabled, aiImages, aiSms, aiQuickAdd, aiSource, aiModel)
+ *  users/{uid}/settings/notifications   the user's choices (aiEnabled, aiImages, aiSms, aiQuickAdd, aiPayments, aiSource, aiModel)
  *  users/{uid}/secrets/gemini    the user's own key (server only; the app can never read it back)
  *  users/{uid}/aiState/status    server-written: own key last 4, last error (owner can read)
  */
 
-export type AiFeature = 'images' | 'sms' | 'quickAdd'
+export type AiFeature = 'images' | 'sms' | 'quickAdd' | 'payments'
 
 /**
  * The config/ai switch (and allowance) a feature's use of the shared key follows. Quick add with
- * AI is a short text call, so it rides on the bills allowance ("images") rather than adding a
- * third switch to the admin's shared-key settings.
+ * AI is a short text call, and checking a payment screenshot is one small image, so both ride on
+ * the bills allowance ("images") rather than adding more switches to the admin's shared-key settings.
  */
 export const appFeatureOf = (f: AiFeature): 'images' | 'sms' => (f === 'sms' ? 'sms' : 'images')
 export type AiSource = 'auto' | 'own' | 'app'
@@ -67,6 +67,8 @@ export interface UserAiPrefs {
   aiSms: boolean
   /** Quick add lines too complex for the built-in reader go to Gemini (quickAddAi); opt-in */
   aiQuickAdd: boolean
+  /** payment screenshots attached in Settle up are checked by AI and clear payments to you that need your OK */
+  aiPayments: boolean
   aiSource: AiSource
   /** model for the user's own key; '' = recommended */
   aiModel: string
@@ -74,7 +76,15 @@ export interface UserAiPrefs {
 
 // Bank SMS reading by AI is opt-in (owner decision, Oct 2026): off until the person turns it on.
 // Quick add with AI is opt-in the same way.
-export const DEFAULT_USER_AI: UserAiPrefs = { aiEnabled: true, aiImages: true, aiSms: false, aiQuickAdd: false, aiSource: 'auto', aiModel: '' }
+export const DEFAULT_USER_AI: UserAiPrefs = {
+  aiEnabled: true,
+  aiImages: true,
+  aiSms: false,
+  aiQuickAdd: false,
+  aiPayments: true,
+  aiSource: 'auto',
+  aiModel: '',
+}
 
 const MODEL_RE = /^[a-z0-9][a-z0-9.-]{2,79}$/
 export const validModel = (m: unknown): m is string => typeof m === 'string' && MODEL_RE.test(m)
@@ -105,6 +115,7 @@ export function resolveUserAi(raw: unknown): UserAiPrefs {
     aiImages: r.aiImages !== false,
     aiSms: r.aiSms === true,
     aiQuickAdd: r.aiQuickAdd === true,
+    aiPayments: r.aiPayments !== false,
     aiSource: r.aiSource === 'own' || r.aiSource === 'app' ? r.aiSource : 'auto',
     aiModel: validModel(r.aiModel) ? r.aiModel : '',
   }
@@ -112,7 +123,7 @@ export function resolveUserAi(raw: unknown): UserAiPrefs {
 
 /** Has this person switched AI on for this feature (the master switch and the feature's own)? */
 export const userFeatureOn = (user: UserAiPrefs, feature: AiFeature): boolean =>
-  user.aiEnabled && (feature === 'images' ? user.aiImages : feature === 'sms' ? user.aiSms : user.aiQuickAdd)
+  user.aiEnabled && { images: user.aiImages, sms: user.aiSms, quickAdd: user.aiQuickAdd, payments: user.aiPayments }[feature]
 
 /** May this person use the shared key for this feature? */
 export function appKeyAllowed(app: AppAiConfig, feature: AiFeature, email: string | undefined): boolean {

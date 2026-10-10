@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { generateJson, listModels, normaliseReceipt, normaliseSms, normaliseStatement, RECEIPT_SCHEMA } from './gemini'
+import { generateJson, listModels, normaliseReceipt, normaliseSms, normaliseStatement, RECEIPT_SCHEMA, normalisePayment } from './gemini'
 
 describe('normaliseReceipt', () => {
   it('converts to hundredths and folds taxes, charges and round-off', () => {
@@ -208,5 +208,43 @@ describe('listModels', () => {
         status: 200,
       })) as unknown as typeof fetch
     expect((await listModels('k', f)).map((m) => m.name)).toEqual(['models/a', 'models/b'])
+  })
+})
+
+describe('normalisePayment', () => {
+  const digits = (c: string) => (c === 'JPY' ? 0 : 2)
+  it('turns what the model read into minor units of the shown currency, with the payee and reference', () => {
+    expect(
+      normalisePayment(
+        {
+          isPayment: true,
+          amount: '1,250.50',
+          currency: 'inr',
+          payee: ' ROHAN  SHARMA ',
+          payeeHandle: 'rohan@okhdfc',
+          date: '2026-10-09',
+          status: 'success',
+          ref: '123456789012',
+        },
+        'INR',
+        digits,
+      ),
+    ).toEqual({
+      amount: 125050,
+      currency: 'INR',
+      payee: 'ROHAN SHARMA',
+      payeeHandle: 'rohan@okhdfc',
+      date: '2026-10-09',
+      status: 'success',
+      ref: '123456789012',
+    })
+  })
+  it('falls back to the expected currency for the minor units; drops what isn’t valid', () => {
+    expect(normalisePayment({ isPayment: true, amount: 2000, date: '2026-02-30', status: 'weird' }, 'JPY', digits)).toEqual({ amount: 2000, status: 'unknown' })
+    expect(normalisePayment({ isPayment: true, amount: -5, status: 'failed' }, 'INR', digits)).toEqual({ status: 'failed' })
+  })
+  it('not a payment screenshot is null', () => {
+    expect(normalisePayment({ isPayment: false, amount: 5 }, 'INR', digits)).toBeNull()
+    expect(normalisePayment('nope', 'INR', digits)).toBeNull()
   })
 })

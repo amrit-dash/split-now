@@ -121,7 +121,7 @@ service cloud.firestore {
           && writesOpen()
           && (settingId != 'notifications' || (
             request.resource.data.keys().hasOnly(['captures', 'unsorted', 'expenses', 'settlements', 'reminders', 'outsideTrips',
-              'capturePaused', 'minAmount', 'ignoreWords', 'pausedTrips', 'aiSms', 'aiSmsMerchant', 'aiImages', 'aiQuickAdd', 'aiEnabled', 'aiSource', 'aiModel', 'updatedAt'])
+              'capturePaused', 'minAmount', 'ignoreWords', 'pausedTrips', 'aiSms', 'aiSmsMerchant', 'aiImages', 'aiQuickAdd', 'aiPayments', 'aiEnabled', 'aiSource', 'aiModel', 'updatedAt'])
             && request.resource.data.get('captures', true) is bool
             && request.resource.data.get('unsorted', false) is bool
             && request.resource.data.get('expenses', true) is bool
@@ -143,6 +143,8 @@ service cloud.firestore {
             && request.resource.data.get('aiImages', true) is bool
             // Quick add lines too complex to read go to Gemini (quickAddAi); opt-in
             && request.resource.data.get('aiQuickAdd', false) is bool
+            // Payment screenshots clear payments to this person that need their OK; on unless turned off
+            && request.resource.data.get('aiPayments', true) is bool
             && request.resource.data.get('aiEnabled', true) is bool
             && request.resource.data.get('aiSource', 'auto') in ['auto', 'own', 'app']
             && request.resource.data.get('aiModel', '') is string && request.resource.data.get('aiModel', '').size() <= 80
@@ -188,8 +190,8 @@ service cloud.firestore {
       function validFlags(f) {
         return f is map
           && f.keys().hasOnly(['aiImages', 'aiSms', 'liveTables', 'autoCapture', 'quickAdd', 'nudges', 'statementImport',
-              'payLinks', 'duplicates', 'merchantMemory', 'whoseTurn', 'budgetAlerts', 'aiQuickAdd'])
-          && f.get('aiQuickAdd', true) is bool
+              'payLinks', 'duplicates', 'merchantMemory', 'whoseTurn', 'budgetAlerts', 'aiQuickAdd', 'aiPayments'])
+          && f.get('aiQuickAdd', true) is bool && f.get('aiPayments', true) is bool
           && f.get('aiImages', true) is bool && f.get('aiSms', true) is bool && f.get('liveTables', true) is bool
           && f.get('autoCapture', true) is bool && f.get('quickAdd', true) is bool && f.get('nudges', true) is bool
           && f.get('statementImport', true) is bool && f.get('payLinks', true) is bool && f.get('duplicates', true) is bool
@@ -318,7 +320,7 @@ service cloud.firestore {
       // settings and the currency (owner decision, Oct 2026); validGroupShape checks their values.
       function validGroupShape(g) {
         return g.keys().hasOnly(['id', 'name', 'emoji', 'type', 'currency', 'budget', 'startDate', 'endDate', 'simplify',
-            'requireApproval', 'approvalThreshold', 'editAutoApprove', 'captureOff', 'archived', 'memberUids', 'members', 'inviteCode',
+            'requireApproval', 'approvalThreshold', 'editAutoApprove', 'paymentApproval', 'captureOff', 'archived', 'memberUids', 'members', 'inviteCode',
             'createdBy', 'createdAt', 'updatedAt', 'joinCode', 'joinMemberId', 'memberOpId'])
           && g.name is string && g.name.size() > 0 && g.name.size() <= 80
           && g.emoji is string && g.emoji.size() <= 16
@@ -333,6 +335,7 @@ service cloud.firestore {
           && (!('requireApproval' in g) || g.requireApproval is bool)
           && (!('approvalThreshold' in g) || (g.approvalThreshold is int && g.approvalThreshold > 0))
           && (!('editAutoApprove' in g) || (g.editAutoApprove is int && g.editAutoApprove > 0))
+          && g.get('paymentApproval', false) is bool
           // "Archive": any member may flip it. captureOff is legacy (capture is paused per person
           // now, users/{uid}/settings/notifications.pausedTrips) and ignored; still allowed so old docs stay valid.
           && g.get('captureOff', false) is bool
@@ -646,11 +649,42 @@ service cloud.firestore {
             && d.paid.rateDate is string && d.paid.rateDate.size() == 10
             && d.paid.source in ['ecb', 'manual']);
         }
+        // Payments need the recipient's OK (shared/payment-ok.ts). The payee's account, when they
+        // have one and are still in the group; '' otherwise.
+        function payeeUidOf(d) {
+          let m = groupDoc(groupId).data.members[d.to];
+          return m.get('uid', '') is string && !('removedAt' in m) ? m.get('uid', '') : '';
+        }
+        // A new payment carries needsOk exactly when the group asks for the payee's OK and someone
+        // else records it (an import is exempt: it copies payments made long ago). It can't arrive
+        // already OK'd, flagged or checked, and its screenshot sits at its own path.
+        function okFieldsOnCreate(d) {
+          let payee = payeeUidOf(d);
+          let asks = groupDoc(groupId).data.get('paymentApproval', false) == true && payee != '' && payee != uid() && !('importedFrom' in d);
+          return (asks ? d.get('needsOk', false) == true : !('needsOk' in d))
+            && !d.keys().hasAny(['ok', 'flag', 'aiCheck'])
+            && (!('proofPath' in d) || d.proofPath == 'settleproofs/' + groupId + '/' + settlementId + '.jpg');
+        }
+        // The payee's OK ({by, at, via: 'payee'}, clearing a flag) or flag ({by, at, reason?},
+        // dropping an OK), and nothing else. The server writes OKs from the screenshot check.
+        function isPayeeDecision() {
+          let d = request.resource.data;
+          return resource.data.get('needsOk', false) == true
+            && payeeUidOf(resource.data) == uid()
+            && d.diff(resource.data).affectedKeys().hasOnly(['ok', 'flag'])
+            && (('ok' in d && !('flag' in d)
+                  && d.ok.keys().hasAll(['by', 'at', 'via']) && d.ok.keys().hasOnly(['by', 'at', 'via'])
+                  && d.ok.by == uid() && d.ok.at is int && d.ok.via == 'payee')
+              || ('flag' in d && !('ok' in d)
+                  && d.flag.keys().hasAll(['by', 'at']) && d.flag.keys().hasOnly(['by', 'at', 'reason'])
+                  && d.flag.by == uid() && d.flag.at is int
+                  && (!('reason' in d.flag) || (d.flag.reason is string && d.flag.reason.size() <= 500))));
+        }
         function validSettlement() {
           return validAuthor()
             // Every field a payment may hold (src/types.ts Settlement); nothing else rides along.
             && request.resource.data.keys().hasOnly(['id', 'groupId', 'from', 'to', 'amount', 'method', 'note', 'date', 'createdBy',
-                'createdAt', 'importedFrom', 'payLink', 'paid', 'deletedAt', 'deletedBy'])
+                'createdAt', 'importedFrom', 'payLink', 'paid', 'needsOk', 'ok', 'flag', 'proofPath', 'aiCheck', 'deletedAt', 'deletedBy'])
             && validPaid(request.resource.data)
             && (!('payLink' in request.resource.data) || (request.resource.data.payLink is string && request.resource.data.payLink.size() <= 40))
             && request.resource.data.groupId == groupId
@@ -663,10 +697,13 @@ service cloud.firestore {
             && request.resource.data.to in groupDoc(groupId).data.members;
         }
         allow read: if isGroupMember(groupId);
-        allow create: if isGroupMember(groupId) && writesOpen() && validSettlement() && noTrustFieldsOnCreate();
+        allow create: if isGroupMember(groupId) && writesOpen() && validSettlement() && noTrustFieldsOnCreate()
+          && okFieldsOnCreate(request.resource.data);
         allow update: if isGroupMember(groupId) && writesOpen()
-          && ((validSettlement() && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['deletedAt', 'deletedBy']))
-              || isTrashChange());
+          && ((validSettlement()
+                && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['deletedAt', 'deletedBy', 'needsOk', 'ok', 'flag', 'proofPath', 'aiCheck']))
+              || isTrashChange()
+              || isPayeeDecision());
         allow delete: if isGroupMember(groupId) && writesOpen() && canPurge();
       }
 
@@ -683,6 +720,7 @@ service cloud.firestore {
             && d.type in ['expense.created', 'expense.updated', 'expense.deleted', 'expense.restored', 'expense.purged',
                 'expense.disputed', 'expense.resolved', 'expense.approved', 'expense.imported',
                 'settlement.created', 'settlement.deleted', 'settlement.restored', 'settlement.purged',
+                'settlement.approved', 'settlement.flagged',
                 'member.added', 'member.removed', 'group.updated']
             && d.actorName is string && d.actorName.size() <= 100
             && d.targetId is string && d.targetId.size() <= 200

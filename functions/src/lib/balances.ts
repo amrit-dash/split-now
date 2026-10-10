@@ -51,6 +51,8 @@ export function evaluateReminders(args: {
   currency: string
   expenses: BalanceExpense[]
   settlements: BalanceSettlement[]
+  /** the group's "Payments need the recipient's OK" */
+  paymentApproval?: boolean
   now: number
   state: Partial<ReminderState> | undefined
 }): { targets: ReminderTarget[]; next: ReminderState } {
@@ -60,7 +62,7 @@ export function evaluateReminders(args: {
   const lastSent: Record<string, number> = { ...(args.state?.lastSent ?? {}) }
   const prevCandidates = args.state?.candidates ?? {}
   const candidates: Record<string, number> = {}
-  const nowNet = netBalances(args.expenses, args.settlements, { members })
+  const nowNet = netBalances(args.expenses, args.settlements, { members, paymentApproval: args.paymentApproval })
   let thenNet: Record<string, number> | undefined
   const targets: ReminderTarget[] = []
   for (const [memberId, m] of Object.entries(members)) {
@@ -68,7 +70,7 @@ export function evaluateReminders(args: {
     if (owed <= threshold) continue
     let since = prevCandidates[memberId]
     if (typeof since !== 'number') {
-      thenNet ??= netBalances(args.expenses, args.settlements, { members, asOf: now - minAge })
+      thenNet ??= netBalances(args.expenses, args.settlements, { members, asOf: now - minAge, paymentApproval: args.paymentApproval })
       since = -(thenNet[memberId] ?? 0) > threshold ? now - minAge : now
     }
     candidates[memberId] = since
@@ -87,6 +89,8 @@ export function reminderTargets(args: {
   currency: string
   expenses: BalanceExpense[]
   settlements: BalanceSettlement[]
+  /** the group's "Payments need the recipient's OK" */
+  paymentApproval?: boolean
   now: number
   lastSent: Record<string, number>
 }): ReminderTarget[] {

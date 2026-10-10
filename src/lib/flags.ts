@@ -29,6 +29,7 @@ export const FLAG_NAMES = [
   'merchantMemory',
   'whoseTurn',
   'budgetAlerts',
+  'aiPayments',
 ] as const
 export type FlagName = (typeof FLAG_NAMES)[number]
 
@@ -56,6 +57,10 @@ export const FLAG_INFO: Record<FlagName, { label: string; hint: string }> = {
   merchantMemory: { label: 'Merchant memory', hint: 'Remembering the category you pick for a merchant.' },
   whoseTurn: { label: 'Whose turn', hint: 'The "Rahul’s turn to pay?" chip.' },
   budgetAlerts: { label: 'Budget alerts', hint: 'Pushes at 80% and 100% of a group budget.' },
+  aiPayments: {
+    label: 'Check payment screenshots with AI',
+    hint: 'In groups where payments need the recipient’s OK, a screenshot attached in Settle up stops clearing the payment; it waits for the recipient’s OK, the screenshot still attached. Server-enforced.',
+  },
 }
 
 export type AnnouncementLevel = 'info' | 'warn'
