@@ -25,6 +25,7 @@ import {
   draftToCapture,
   errorChannel,
   groupDeleteBlocker,
+  memberProfileOf,
   placeholdersOf,
   type AuthUser,
   type CaptureToken,
@@ -38,8 +39,8 @@ import type { MerchantMemory } from '@/lib/merchants'
 import { netBalances } from '@/lib/balances'
 import { isRemoved } from '@/lib/members'
 import { countedExpenses, countedSettlements } from '@/lib/trust'
-import { formatMoney } from '@/lib/money'
-import { claimStatus, claimSummary, markPaidPatch, payLinkState, planRecord, sortClaims, triggerAction, type PayLinkDoc } from '@/lib/paylinks'
+import { formatMoney, minorDigits } from '@/lib/money'
+import { claimStatus, claimSummary, markPaidPatch, payLinkState, planRecord, planRecordParts, sortClaims, triggerAction, type PayLinkDoc } from '@/lib/paylinks'
 
 /**
  * Demo-mode repository. Everything lives in this browser's localStorage, so the app
@@ -217,6 +218,25 @@ export function createLocalRepo(): Repo {
       return
     }
     if (action !== 'record') return
+    if (after.parts?.length) {
+      // Another currency or several groups: a payment per group, as the server's recordParts does.
+      const parts = planRecordParts(code, after, state.groups, todayISO(now), now, formatMoney, minorDigits)
+      for (const r of parts.records) {
+        state.settlements[r.settlementId] = { id: r.settlementId, ...r.settlement }
+        log(r.settlement.groupId, {
+          type: 'settlement.created',
+          actorUid: after.paidBy ?? after.createdBy,
+          actorName: after.payerName,
+          targetId: r.settlementId,
+          summary: r.summary,
+          after: { amount: r.settlement.amount, from: r.settlement.from, to: r.settlement.to, payLink: code },
+          createdAt: now,
+        })
+        touch(r.settlement.groupId)
+      }
+      state.payLinks[code] = { ...after, settlementId: parts.records[0]?.settlementId, recordedAt: now }
+      return
+    }
     const g = after.groupId ? state.groups[after.groupId] : undefined
     const plan = planRecord(code, after, g, todayISO(now), now, fmt)
     if (plan.kind === 'record') {
@@ -274,7 +294,8 @@ export function createLocalRepo(): Repo {
     },
     async getMemberProfile(groupId, id) {
       const p = state.groups[groupId]?.memberUids.includes(id) ? state.profiles[id] : undefined
-      return p ? { displayName: p.displayName, payment: p.payment ?? {}, photoURL: p.photoURL } : null
+      // The same shape the firebase repo shares (photo, currency and Collect in my currency included).
+      return p ? { ...memberProfileOf(p), photoURL: p.photoURL } : null
     },
     async uploadAvatar(_uid, jpeg) {
       return blobToDataUrl(jpeg)

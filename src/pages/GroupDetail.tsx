@@ -836,6 +836,7 @@ function ActivityList({
                       <b>{name(r.s.from)}</b> paid <b>{name(r.s.to)}</b>
                       <div className="text-muted text-xs">
                         {methodLabel(r.s.method)} · {formatDate(r.s.date)}
+                        {r.s.paid && <> · paid {formatMoney(r.s.paid.amount, r.s.paid.currency)}</>}
                         {r.s.payLink && (
                           <>
                             {' · '}

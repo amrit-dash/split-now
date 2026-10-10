@@ -148,6 +148,9 @@ describe('other entries', () => {
     const s: Settlement = { id: 's1', groupId: 'g', from: 'j', to: 's', amount: 5000, method: 'Cash', date: '2026-10-03', createdBy: 'u', createdAt: 1 }
     expect(settlementActivity('created', s, ctx).summary).toBe(`Sarah recorded a payment: Jay → Sarah ${A(5000)}`)
     expect(settlementActivity('deleted', s, ctx).type).toBe('settlement.deleted')
+    // Paid in another currency: the summary says what changed hands too.
+    const inr = { ...s, paid: { currency: 'INR', amount: 275000, rate: 0.0182, rateDate: '2026-10-10', source: 'ecb' as const } }
+    expect(settlementActivity('created', inr, ctx).summary).toBe(`Sarah recorded a payment: Jay → Sarah ${A(5000)}, paid ${formatMoney(275000, 'INR')}`)
   })
   it('members', () => {
     expect(memberActivity('added', 'p_t', 'Tom', ctx).summary).toBe('Sarah added Tom to the group')

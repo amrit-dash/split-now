@@ -6,7 +6,9 @@ import {
   PAY_LINK_CODE_LEN,
   PAY_LINK_TTL_MS,
   payLinkState,
+  recordsInGroup,
   type PayLinkDoc,
+  type PayLinkPart,
   type PayLinkStatus,
 } from '../../shared/paylinks'
 
@@ -55,6 +57,8 @@ export interface PayLinkArgs {
   payment?: PaymentHandles
   forUid?: string
   createdBy: string
+  /** instead of groupId: the groups it clears, in their own currencies (another currency or several groups) */
+  parts?: PayLinkPart[]
 }
 
 /** The document a payee creates. Pure (`now` given) so the shape is tested against the rules' whitelist. */
@@ -76,6 +80,10 @@ export function buildPayLink(a: PayLinkArgs, now: number): NewPayLink {
   if (a.emoji) l.emoji = a.emoji.slice(0, 16)
   if (a.tableCode) l.tableCode = a.tableCode
   if (a.forUid) l.forUid = a.forUid
+  if (a.parts?.length) {
+    delete l.groupId
+    l.parts = a.parts.map((p) => ({ ...p, groupName: p.groupName.trim().slice(0, 80) || 'Group', amount: Math.round(p.amount), paid: Math.round(p.paid) }))
+  }
   return l
 }
 
@@ -139,14 +147,14 @@ export function linkToClose(param: string | null, link: { from: string; to: stri
 
 /** "Paid 7 Oct", "Open until 6 Nov", … for the payee's status line. */
 export function statusLine(
-  l: Pick<PayLink, 'status' | 'expiresAt' | 'paidAt' | 'cancelledAt' | 'settlementId' | 'groupId'>,
+  l: Pick<PayLink, 'status' | 'expiresAt' | 'paidAt' | 'cancelledAt' | 'settlementId' | 'groupId' | 'parts'>,
   now: number,
   fmt: (ms: number) => string,
 ): string {
   const s = payLinkState(l, now)
   if (s === 'claimed') return `Says they’ve paid${l.paidAt ? ` ${fmt(l.paidAt)}` : ''} · confirm it`
   if (s === 'paid')
-    return `Marked paid${l.paidAt ? ` ${fmt(l.paidAt)}` : ''}${l.groupId ? (l.settlementId ? ' · recorded in the group' : ' · recording…') : ''}`
+    return `Marked paid${l.paidAt ? ` ${fmt(l.paidAt)}` : ''}${recordsInGroup(l) ? (l.settlementId ? ` · recorded in the group${l.parts && l.parts.length > 1 ? 's' : ''}` : ' · recording…') : ''}`
   if (s === 'cancelled') return `Cancelled${l.cancelledAt ? ` ${fmt(l.cancelledAt)}` : ''}`
   if (s === 'expired') return `Expired ${fmt(l.expiresAt)}`
   return `Waiting for payment · open until ${fmt(l.expiresAt)}`

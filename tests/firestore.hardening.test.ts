@@ -325,6 +325,12 @@ describe('per-group profiles', () => {
     await assertFails(setDoc(r, { displayName: 'Bob', payment: {}, photoURL: 42 }))
     await assertFails(setDoc(r, { displayName: 'Bob', payment: {}, photoSource: 'upload' }))
   })
+  it('may share their currency and Collect in my currency (src/data/repo.ts memberProfileOf)', async () => {
+    const r = doc(db('bob'), 'groups/g1/profiles/bob')
+    await assertSucceeds(setDoc(r, { displayName: 'Bob', payment: {}, currency: 'INR', collect: true }))
+    await assertFails(setDoc(r, { displayName: 'Bob', payment: {}, currency: 'RUPEES' }))
+    await assertFails(setDoc(r, { displayName: 'Bob', payment: {}, collect: 'yes' }))
+  })
 })
 
 describe('expense & settlement validation', () => {
@@ -387,5 +393,16 @@ describe('expense & settlement validation', () => {
     await assertFails(setDoc(s('bob', 's8'), { ...st, id: 's8', junk: 'x' }))
     await assertSucceeds(setDoc(s('bob', 's9'), { ...st, id: 's9', payLink: 'abcdefghijklmnopqrstuvwx' }))
     await assertFails(setDoc(s('bob', 's10'), { ...st, id: 's10', payLink: 'x'.repeat(41) }))
+  })
+  it('paid in another currency: what changed hands, never the group currency (src/lib/collect.ts)', async () => {
+    const paid = { currency: 'INR', amount: 27500, rate: 0.01818181818, rateDate: '2026-10-10', source: 'ecb' }
+    await assertSucceeds(setDoc(s('bob', 'p1'), { ...st, id: 'p1', paid }))
+    // The group is in AUD: a "paid" in AUD makes no sense.
+    await assertFails(setDoc(s('bob', 'p2'), { ...st, id: 'p2', paid: { ...paid, currency: 'AUD' } }))
+    await assertFails(setDoc(s('bob', 'p3'), { ...st, id: 'p3', paid: { ...paid, amount: 0 } }))
+    await assertFails(setDoc(s('bob', 'p4'), { ...st, id: 'p4', paid: { ...paid, rate: -1 } }))
+    await assertFails(setDoc(s('bob', 'p5'), { ...st, id: 'p5', paid: { ...paid, extra: 1 } }))
+    await assertFails(setDoc(s('bob', 'p6'), { ...st, id: 'p6', paid: { currency: 'INR', amount: 27500 } }))
+    await assertFails(setDoc(s('bob', 'p7'), { ...st, id: 'p7', paid: { ...paid, source: 'guess' } }))
   })
 })

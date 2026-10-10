@@ -22,6 +22,26 @@ export const LINK_HANDLE_KEYS = ['upi', 'phone', 'payid', 'paypal', 'revolut'] a
 export type LinkHandleKey = (typeof LINK_HANDLE_KEYS)[number]
 export type LinkHandles = Partial<Record<LinkHandleKey, string>>
 
+/**
+ * One group a Pay me link clears, when the link is in another currency than the group or covers
+ * several groups (Collect in my currency): what to record there, in that group's currency, and
+ * its share of the link's amount (minor units of the link's currency).
+ */
+export interface PayLinkPart {
+  groupId: string
+  groupName: string
+  from: string
+  to: string
+  /** minor units of `currency`, the group's currency */
+  amount: number
+  currency: string
+  /** this group's share of the link amount, minor units of the link's currency */
+  paid: number
+}
+
+/** A link with `parts` holds at most this many groups (firestore.rules). */
+export const MAX_LINK_PARTS = 8
+
 /** payLinks/{code}. `from` / `to` are member ids (or, for a live table without a group, participant ids). */
 export interface PayLinkDoc {
   groupId?: string
@@ -32,9 +52,11 @@ export interface PayLinkDoc {
   tableCode?: string
   from: string
   to: string
-  /** minor units of `currency` (the group currency) */
+  /** minor units of `currency` (the group currency; with `parts`, the currency the payee collects in) */
   amount: number
   currency: string
+  /** set instead of `groupId` when the link is paid in another currency or clears several groups */
+  parts?: PayLinkPart[]
   payeeName: string
   payerName: string
   payment: LinkHandles
@@ -176,10 +198,21 @@ export interface PayLinkSettlement {
   payLink: string
 }
 
+export interface PayLinkPaid {
+  currency: string
+  amount: number
+  rate: number
+  rateDate: string
+  source: 'ecb'
+}
+
 export type RecordPlan =
-  | { kind: 'record'; settlementId: string; settlement: PayLinkSettlement; summary: string; payeeUid?: string }
+  | { kind: 'record'; settlementId: string; settlement: PayLinkSettlement & { paid?: PayLinkPaid }; summary: string; payeeUid?: string }
   | { kind: 'notify'; payeeUid: string }
   | { kind: 'skip'; reason: 'no_group' | 'not_member' | 'bad_amount' | 'currency' | 'not_payee' }
+
+/** Settlement ids for a link's parts: pl_{code}_{index}, so a re-run can never record twice. */
+export const payLinkPartId = (code: string, i: number) => `${payLinkSettlementId(code)}_${i}`
 
 export const PAY_LINK_NOTE = 'Marked paid from a Pay me link'
 
@@ -230,3 +263,58 @@ export function planRecord(
 }
 
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
+
+/**
+ * A link with `parts` (another currency, or several groups): one record per part, each checked
+ * like a single link (both people in the group, the payee is the link's maker, the currency is the
+ * group's), with the part's share of what was paid kept as `paid` when the currencies differ, at
+ * the rate the two amounts imply. Parts that don't check out are skipped; the rest are recorded.
+ */
+export function planRecordParts(
+  code: string,
+  l: PayLinkDoc,
+  groups: Record<string, GroupLite | null | undefined>,
+  date: string,
+  now: number,
+  fmt: (minor: number, currency: string) => string,
+  digits: (currency: string) => number,
+): { records: Extract<RecordPlan, { kind: 'record' }>[]; skipped: { groupId: string; reason: Extract<RecordPlan, { kind: 'skip' }>['reason'] }[] } {
+  const records: Extract<RecordPlan, { kind: 'record' }>[] = []
+  const skipped: { groupId: string; reason: Extract<RecordPlan, { kind: 'skip' }>['reason'] }[] = []
+  const parts = Array.isArray(l.parts) ? l.parts.slice(0, MAX_LINK_PARTS) : []
+  parts.forEach((p, i) => {
+    const one = planRecord(
+      code,
+      { ...l, groupId: p.groupId, from: p.from, to: p.to, amount: p.amount, currency: p.currency, parts: undefined },
+      groups[p.groupId],
+      date,
+      now,
+      (m) => fmt(m, p.currency),
+    )
+    if (one.kind !== 'record') {
+      skipped.push({ groupId: String(p.groupId), reason: one.kind === 'skip' ? one.reason : 'no_group' })
+      return
+    }
+    const other = p.currency !== l.currency && Number.isInteger(p.paid) && p.paid > 0
+    const paid: PayLinkPaid | undefined = other
+      ? {
+          currency: l.currency,
+          amount: p.paid,
+          rate: Number((p.amount / 10 ** digits(p.currency) / (p.paid / 10 ** digits(l.currency))).toPrecision(10)),
+          rateDate: date,
+          source: 'ecb',
+        }
+      : undefined
+    const paidText = paid ? `, paid ${fmt(paid.amount, paid.currency)}` : ''
+    records.push({
+      ...one,
+      settlementId: payLinkPartId(code, i),
+      settlement: { ...one.settlement, ...(paid ? { paid } : {}) },
+      summary: clip(`${one.summary.replace(/ with a Pay me link\./, `${paidText} with a Pay me link.`)}`, 500),
+    })
+  })
+  return { records, skipped }
+}
+
+/** Whether "I've paid" records a payment in a group (one group, or each of `parts`), rather than only telling the payee. */
+export const recordsInGroup = (l: Pick<PayLinkDoc, 'groupId' | 'parts'>): boolean => !!l.groupId || !!l.parts?.length

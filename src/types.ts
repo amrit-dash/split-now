@@ -32,6 +32,11 @@ export interface UserProfile {
    */
   photoSource?: PhotoSource
   currency: string
+  /**
+   * Collect in my currency (Preferences → Money): Balances folds each person's other currencies
+   * into `currency` (≈, today's rate), and Settle up offers to be paid in it.
+   */
+  collectInHome?: boolean
   /** Mobile number (E.164 where possible). Not verified; shown to the user only. */
   phone?: string
   payment?: PaymentHandles
@@ -216,8 +221,22 @@ export interface Settlement {
   importedFrom?: ImportedFrom
   /** The Pay me link (payLinks/{code}) this payment cleared: recorded by the server when the payer tapped "I've paid", or by a member from Settle up. */
   payLink?: string
+  /**
+   * Paid in another currency (Collect in my currency): what actually changed hands. `amount`
+   * above stays in the group currency, the part of the debt it cleared (src/lib/collect.ts).
+   */
+  paid?: PaidIn
   deletedAt?: number
   deletedBy?: string
+}
+
+/** A settlement's payment in another currency: minor units of `currency`, at `rate` group-currency units per 1 of it. */
+export interface PaidIn {
+  currency: string
+  amount: Cents
+  rate: number
+  rateDate: string
+  source: 'ecb' | 'manual'
 }
 
 export interface Debt {

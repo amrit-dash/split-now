@@ -230,7 +230,9 @@ export function disputeActivity(kind: 'disputed' | 'resolved' | 'approved', e: E
 }
 
 export function settlementActivity(kind: 'created' | 'deleted' | 'restored' | 'purged', s: Settlement, ctx: ActivityCtx): NewActivity {
-  const what = `${ctx.memberName(s.from)} → ${ctx.memberName(s.to)} ${money(s.amount, ctx.currency)}`
+  // Paid in another currency: what changed hands too ("… $12.50, paid ₹1,045").
+  const paid = s.paid ? `, paid ${money(s.paid.amount, s.paid.currency)}` : ''
+  const what = `${ctx.memberName(s.from)} → ${ctx.memberName(s.to)} ${money(s.amount, ctx.currency)}${paid}`
   const text = {
     created: `${ctx.actorName} recorded a payment: ${what}`,
     deleted: `${ctx.actorName} deleted a payment: ${what}`,

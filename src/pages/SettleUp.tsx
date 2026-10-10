@@ -16,6 +16,9 @@ import { pending } from '@/lib/pending'
 import { linkToClose } from '@/lib/paylinks'
 import { pendingSettlements, personBalances, signedAmount, type PersonBalance } from '@/lib/settleAll'
 import { allocateAcrossGroups } from '@/lib/settleMulti'
+import { clearedFor, inHome, paidIn, payInLine, planInHome, type HomeBalance } from '@/lib/collect'
+import { useTodayRates } from '@/hooks/useFx'
+import { formatRate, getRate, type FxRate } from '@/lib/fx'
 import { lastMethod, rememberMethod } from '@/lib/recents'
 import { copy } from '@/lib/share'
 import { errText } from '@/lib/errors'
@@ -36,7 +39,7 @@ export default function SettleUp() {
   usePageTitle('Settle up')
   const { groupId } = useParams()
   const [params] = useSearchParams()
-  const { user } = useMe()
+  const { user, profile } = useMe()
   const group = useGroup(groupId)
   const expenses = useExpenses(groupId)
   const settlements = useSettlements(groupId)
@@ -70,6 +73,12 @@ export default function SettleUp() {
   const [payee, setPayee] = useState<MemberProfile | null>(null)
   const [busy, setBusy] = useState(false)
   const [init, setInit] = useState(false)
+  /** Pay in another currency (the recipient's own): null = in the group's currency */
+  const [payIn, setPayIn] = useState<boolean | null>(null)
+  /** what changes hands in that currency (minor units); undefined = the exact conversion */
+  const [paidTyped, setPaidTyped] = useState<number>()
+  /** ECB rate payment currency → group currency; undefined while loading, null when unavailable */
+  const [rate, setRate] = useState<FxRate | null>()
   const typeAmount = (v: number | undefined) => {
     setAmount(v)
     setAmountTouched(true)
@@ -164,6 +173,21 @@ export default function SettleUp() {
     setMethod(remembered && ms.includes(remembered) ? remembered : payeeUpi && ms.includes('UPI') ? 'UPI' : ms[0])
   }, [to, payeeUpi, init])
 
+  // The recipient's own currency, when it isn't the group's: you (Preferences), or what they share.
+  const groupCur = group?.currency
+  const recipientCur = to && d && to === d.me ? profile.currency : payee?.currency
+  const otherCur = recipientCur && groupCur && recipientCur !== groupCur ? recipientCur : undefined
+  const prefersOther = to && d && to === d.me ? !!profile.collectInHome : !!payee?.collect
+  useEffect(() => {
+    setRate(undefined)
+    if (!otherCur || !groupCur) return
+    let live = true
+    getRate(otherCur, groupCur, todayISO()).then((r) => live && setRate(r))
+    return () => {
+      live = false
+    }
+  }, [otherCur, groupCur])
+
   if (group === null)
     return (
       <>
@@ -183,10 +207,18 @@ export default function SettleUp() {
   const payNote = `Split Now ${group.name}`
   const payeeName = payee?.displayName ?? group.members[to]?.name
   const toMe = to === d.me
-  /** what would still be owed after this payment */
-  const rest = owed !== undefined && validAmount && amount < owed ? owed - amount : 0
   const suggestions = owed ? roundSuggestions(owed, cur) : []
   const big = amount !== undefined && centsToInput(amount, cur).length > 7
+  // Paying in the recipient's currency: on when they collect in it, until switched by hand.
+  const converting = !!otherCur && !!rate && (payIn ?? prefersOther)
+  const due = validAmount ? amount : 0
+  // What changes hands: the exact conversion of the amount, until typed over (a different bank rate, or a part).
+  const expected = converting && otherCur && rate ? clearedFor(0, due, cur, otherCur, rate.rate).expected : 0
+  const paidAmount = converting ? (paidTyped ?? expected) : 0
+  const conv = converting && otherCur && rate ? { ...clearedFor(paidAmount, due, cur, otherCur, rate.rate), cur: otherCur, paid: paidAmount } : null
+  /** what this payment clears in the group (the amount when not converting) */
+  const clears = conv ? conv.cleared : due
+  const restAfter = owed !== undefined && clears > 0 && clears < owed ? owed - clears : 0
 
   const save = async () => {
     if (!validAmount) {
@@ -194,6 +226,8 @@ export default function SettleUp() {
       document.getElementById('settle-amount')?.focus()
       return
     }
+    if (conv && (conv.status === 'over' || conv.status === 'none' || conv.cleared <= 0))
+      return toast(conv.status === 'over' ? `That’s more than the ${formatMoney(conv.expected, conv.cur)} owed` : 'Enter what was paid', 'err')
     if (!from || !to || from === to) return toast('Pick two different people', 'err')
     setBusy(true)
     try {
@@ -202,12 +236,13 @@ export default function SettleUp() {
       // as paid for the payee and can't be recorded a second time by the server.
       const link = linkToClose(params.get('link'), { from: params.get('from') ?? '', to: params.get('to') ?? '' }, { from, to })
       const id = uid('s_')
-      await repo.saveSettlement({ id, ...base, amount, method, note: note.trim() || undefined, payLink: link })
+      const paid = conv && rate ? paidIn(conv.cur, conv.paid, rate.rate, rate.date) : undefined
+      await repo.saveSettlement({ id, ...base, amount: clears, method, note: note.trim() || undefined, payLink: link, paid })
       if (link) repo.markPayLinkPaid(link, { method, settlementId: id }).catch((e) => console.warn('Pay me link not updated', e))
       // The rest is let go as its own record, so the history shows what was paid and what was waived.
-      if (waive && rest > 0) await repo.saveSettlement({ id: uid('s_'), ...base, amount: rest, method: 'waived', note: 'Rest waived' })
+      if (waive && restAfter > 0) await repo.saveSettlement({ id: uid('s_'), ...base, amount: restAfter, method: 'waived', note: 'Rest waived' })
       rememberMethod(group.id, to, method)
-      toast(waive && rest > 0 ? 'Payment recorded, rest waived' : 'Payment recorded')
+      toast(waive && restAfter > 0 ? 'Payment recorded, rest waived' : 'Payment recorded')
       nav(`/groups/${group.id}`, { replace: true })
     } catch (e) {
       toast(errText(e), 'err')
@@ -298,13 +333,41 @@ export default function SettleUp() {
             </div>
           </div>
         )}
-        {rest > 0 && (
+        {otherCur && (
+          <PayInPanel
+            groupCur={cur}
+            otherCur={otherCur}
+            toMe={toMe}
+            recipient={name(to)}
+            on={converting}
+            rate={rate}
+            onToggle={(v) => {
+              setPayIn(v)
+              setPaidTyped(undefined)
+            }}
+            paid={paidAmount}
+            onPaid={setPaidTyped}
+            line={
+              conv
+                ? payInLine(
+                    conv,
+                    conv.paid,
+                    due,
+                    (m) => formatMoney(m, conv.cur),
+                    (m) => formatMoney(m, cur),
+                  )
+                : ''
+            }
+            status={conv?.status}
+          />
+        )}
+        {restAfter > 0 && (
           <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800" data-testid="waive-rest">
             <div className="min-w-0">
-              <div className="font-semibold">Waive the rest ({formatMoney(rest, cur)})</div>
+              <div className="font-semibold">Waive the rest ({formatMoney(restAfter, cur)})</div>
               <div className="text-xs text-muted">Records that nothing more is owed for this.</div>
             </div>
-            <Switch checked={waive} onChange={setWaive} label={`Waive the remaining ${formatMoney(rest, cur)}`} testId="waive-switch" />
+            <Switch checked={waive} onChange={setWaive} label={`Waive the remaining ${formatMoney(restAfter, cur)}`} testId="waive-switch" />
           </div>
         )}
 
@@ -345,15 +408,15 @@ export default function SettleUp() {
 
       {to && (
         <PayWith
-          key={to}
-          cur={cur}
+          key={`${to}-${conv ? conv.cur : cur}`}
+          cur={conv ? conv.cur : cur}
           toMe={toMe}
           payer={name(from)}
           recipient={name(to)}
           recipientJoined={!!toUid}
           payment={payee?.payment}
           payeeName={payeeName}
-          amount={payAmount}
+          amount={conv ? conv.paid : payAmount}
           payNote={payNote}
           onPick={pickMethod}
         />
@@ -365,7 +428,7 @@ export default function SettleUp() {
             Method
           </div>
           <div className="flex flex-wrap gap-2" role="radiogroup" aria-labelledby="settle-method-label">
-            {methods.map((m) => (
+            {[...new Set([...(conv ? settleMethods(conv.cur) : []), ...methods])].map((m) => (
               <button
                 key={m}
                 type="button"
@@ -386,9 +449,91 @@ export default function SettleUp() {
       </div>
 
       <button type="submit" className="btn-primary mt-5 w-full" disabled={busy} data-testid="settle-record">
-        <ChequeIcon size={22} /> Record {validAmount ? formatMoney(amount, cur) : 'payment'}
+        <ChequeIcon size={22} />{' '}
+        {conv && conv.cleared > 0 && conv.status !== 'over'
+          ? `Record ${formatMoney(conv.paid, conv.cur)} (clears ${formatMoney(conv.cleared, cur)})`
+          : `Record ${validAmount ? formatMoney(amount, cur) : 'payment'}`}
       </button>
     </form>
+  )
+}
+
+/**
+ * "Pay in ₹ instead": the debt stays in the group's currency (the amount above is what gets
+ * cleared); this is what changes hands in the recipient's own currency, at the ECB rate, editable
+ * for a bank's slightly different rate or a part payment. The line under it says what it clears.
+ */
+function PayInPanel({
+  groupCur,
+  otherCur,
+  toMe,
+  recipient,
+  on,
+  rate,
+  onToggle,
+  paid,
+  onPaid,
+  line,
+  status,
+}: {
+  groupCur: string
+  otherCur: string
+  toMe: boolean
+  recipient: string
+  on: boolean
+  rate: FxRate | null | undefined
+  onToggle: (on: boolean) => void
+  paid: number
+  onPaid: (v: number | undefined) => void
+  line: string
+  status?: string
+}) {
+  const label = toMe ? `Collect in ${otherCur} instead` : `Pay ${recipient} in ${otherCur} instead`
+  return (
+    <div className="mt-4 rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800" data-testid="pay-in">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="font-semibold">{label}</div>
+          <div className="text-muted text-xs" data-testid="pay-in-rate">
+            {rate === undefined
+              ? 'Getting today’s rate…'
+              : rate === null
+                ? 'No exchange rate right now (offline?). Pay in the group’s currency, or try again online.'
+                : `1 ${groupCur} = ${formatRate(1 / rate.rate)} ${otherCur} · ECB, ${rate.date}`}
+          </div>
+        </div>
+        <Switch checked={on} onChange={onToggle} label={label} disabled={!rate} testId="pay-in-switch" />
+      </div>
+      {on && (
+        <div className="mt-3">
+          <div className="flex items-baseline justify-center gap-2">
+            <span className="text-muted text-xl font-bold" aria-hidden>
+              {currencySymbol(otherCur)}
+            </span>
+            <MoneyInput
+              bare
+              id="pay-in-amount"
+              className="w-full min-w-0 max-w-[12rem] rounded-lg bg-transparent text-center text-3xl font-extrabold tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+              aria-label={`Amount paid in ${otherCur}`}
+              aria-describedby="pay-in-line"
+              enterKeyHint="done"
+              value={paid || undefined}
+              currency={otherCur}
+              onChange={onPaid}
+              data-testid="pay-in-amount"
+            />
+          </div>
+          <p
+            id="pay-in-line"
+            aria-live="polite"
+            className={`mt-1 text-center text-xs ${status === 'over' ? 'neg' : status === 'part' ? 'text-amber-700 dark:text-amber-400' : 'text-muted'}`}
+            data-testid="pay-in-line"
+          >
+            {line}
+          </p>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -649,9 +794,19 @@ export function SettleWithPerson() {
   const data = useAllGroupData()
   const nav = useNavigate()
   const toast = useToast()
-  const people = useMemo(() => (data ? personBalances(pendingSettlements(data, profile.currency)) : null), [data, profile.currency])
+  const home = profile.currency
+  const rows = useMemo(() => (data ? pendingSettlements(data, home) : null), [data, home])
+  // A combined key (person|*, from Balances with Collect in my currency): every currency, in yours.
+  const combined = key.endsWith('|*')
+  const rates = useTodayRates(home, combined && rows ? rows.map((r) => r.currency) : [])
+  const people = useMemo<(PersonBalance | HomeBalance)[] | null>(() => {
+    if (!rows) return null
+    const list = personBalances(rows)
+    if (!combined) return list
+    return rates ? inHome(list, home, rates) : null
+  }, [rows, combined, rates, home])
   /** frozen while saving: each saved settlement changes the live balance under us */
-  const [snap, setSnap] = useState<PersonBalance | null>(null)
+  const [snap, setSnap] = useState<PersonBalance | HomeBalance | null>(null)
   const p = snap ?? people?.find((x) => x.key === key) ?? null
   /** minor units; undefined while empty */
   const [amount, setAmount] = useState<number>()
@@ -742,14 +897,21 @@ export function SettleWithPerson() {
   const even = p.net === 0
   const owedTotal = Math.abs(p.net)
   const value = even ? 0 : (amount ?? 0)
-  const tooMuch = !even && value > owedTotal
-  const plan = allocateAcrossGroups(
+  // Folded into your currency: one payment in it, recorded in each group in that group's currency.
+  const hb = 'approx' in p && p.approx ? (p as HomeBalance) : null
+  const approx = !!hb
+  const homePlan = hb ? planInHome(hb, value) : null
+  const tooMuch = !even && (homePlan ? homePlan.status === 'over' : value > owedTotal)
+  const plain = allocateAcrossGroups(
     p.parts.map((r) => ({ key: r.key, signed: signedAmount(r) })),
     value,
   )
-  const recorded = new Map(plan.allocations.map((a) => [a.key, a]))
+  const plan = homePlan ? { payment: value, clearsAll: homePlan.clearsAll } : plain
+  const recorded = new Map<string, { amount: Cents; left: Cents; paid?: Cents; counter?: boolean }>(
+    homePlan ? homePlan.parts.map((x) => [x.key, x]) : plain.allocations.map((a) => [a.key, a]),
+  )
   const mixed = p.parts.some((r) => r.dir === 'owe') && p.parts.some((r) => r.dir === 'owed')
-  const partial = !even && value > 0 && value < owedTotal
+  const partial = !even && value > 0 && (homePlan ? homePlan.status === 'part' : value < owedTotal)
   const fmt = (c: Cents) => formatMoney(c, cur)
   const recordCount = new Set(p.parts.filter((r) => (recorded.get(r.key)?.amount ?? 0) > 0).map((r) => r.groupId)).size
   const meName = profile.displayName || 'You'
@@ -772,7 +934,10 @@ export function SettleWithPerson() {
         if (!a || a.amount <= 0) continue
         const from = r.dir === 'owed' ? r.memberId : r.me
         const to = r.dir === 'owed' ? r.me : r.memberId
-        const counter = even || Math.sign(signedAmount(r)) !== Math.sign(p.net)
+        const counter = even || (homePlan ? !!a.counter : Math.sign(signedAmount(r)) !== Math.sign(p.net))
+        // The part of the payment that went to this group, when it's in another currency than the money.
+        const paid =
+          approx && !counter && r.currency !== cur && a.paid && 'rates' in p ? paidIn(cur, a.paid, 1 / (p as HomeBalance).rates[r.key], todayISO()) : undefined
         await repo.saveSettlement({
           id: uid('s_'),
           groupId: r.groupId,
@@ -784,6 +949,7 @@ export function SettleWithPerson() {
           date,
           createdBy: user.uid,
           createdAt: Date.now(),
+          paid,
         })
         if (!counter) rememberMethod(r.groupId, to, method)
         saved++
@@ -886,14 +1052,15 @@ export function SettleWithPerson() {
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-semibold">{r.groupName}</div>
                   <div className="text-muted truncate text-xs">
-                    {r.dir === 'owed' ? `${p.name} owes you ${fmt(r.amount)}` : `You owe ${p.name} ${fmt(r.amount)}`}
+                    {r.dir === 'owed' ? `${p.name} owes you ${formatMoney(r.amount, r.currency)}` : `You owe ${p.name} ${formatMoney(r.amount, r.currency)}`}
+                    {approx && r.currency !== cur && a?.paid ? ` · ${fmt(a.paid)} of the payment` : ''}
                   </div>
                 </div>
                 <div className="shrink-0 text-right">
                   <div className={`font-bold tabular-nums ${a?.amount ? (s > 0 ? 'pos' : 'neg') : 'text-muted'}`} data-testid="settle-person-part-amount">
-                    {formatMoney(s * (a?.amount ?? 0), cur, { sign: true })}
+                    {formatMoney(s * (a?.amount ?? 0), r.currency, { sign: true })}
                   </div>
-                  <div className="text-muted text-[11px] tabular-nums">{a && a.left > 0 ? `${fmt(a.left)} left` : 'clears'}</div>
+                  <div className="text-muted text-[11px] tabular-nums">{a && a.left > 0 ? `${formatMoney(a.left, r.currency)} left` : 'clears'}</div>
                 </div>
               </li>
             )
@@ -920,6 +1087,11 @@ export function SettleWithPerson() {
               </p>
             )}
           </div>
+        )}
+        {approx && (
+          <p className="text-muted mt-3 text-xs" data-testid="settle-person-approx">
+            Other currencies are converted at today’s ECB rate. Paying within 4% of the total clears everything; each group records its own currency.
+          </p>
         )}
         {otherCur.length > 0 && (
           <p className="text-muted mt-3 text-xs">

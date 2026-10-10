@@ -66,12 +66,24 @@ export interface MemberProfile {
   payment?: PaymentHandles
   /** profile photo (https URL), for co-members' avatars */
   photoURL?: string
+  /** their own currency, so a payer can offer to pay them in it (Settle up) */
+  currency?: string
+  /** Collect in my currency is on: Settle up starts out paying them in `currency` */
+  collect?: boolean
 }
 
 /** The shareable part of a private profile (data: URLs are demo-only and never shared). */
-export function memberProfileOf(p: Pick<UserProfile, 'displayName' | 'payment' | 'photoURL'>): MemberProfile {
+export function memberProfileOf(
+  p: Pick<UserProfile, 'displayName' | 'payment' | 'photoURL'> & Partial<Pick<UserProfile, 'currency' | 'collectInHome'>>,
+): MemberProfile {
   const photo = sharedPhotoURL(p.photoURL)
-  return compact({ displayName: p.displayName, payment: p.payment ?? {}, photoURL: photo })
+  return compact({
+    displayName: p.displayName,
+    payment: p.payment ?? {},
+    photoURL: photo,
+    currency: p.currency && /^[A-Z]{3}$/.test(p.currency) ? p.currency : undefined,
+    collect: p.collectInHome ? true : undefined,
+  })
 }
 
 export interface RepoError {
