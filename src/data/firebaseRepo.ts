@@ -98,6 +98,7 @@ import type { AiKeyResult, AiModel, AiState, AiStatement, AiStatusResult, AiUnav
 import { parseMemory } from '@/lib/merchants'
 import type { AiTextExpense } from '@/lib/nl-expense'
 import type { QuickAiRequest, QuickAiResponse } from '../../shared/quick-ai'
+import { archiveWrite, isArchivedFor } from '../../shared/archive'
 import type { NudgeItem, NudgeResult } from '@/lib/nudge'
 import { errText } from '@/lib/errors'
 import type { FxRatesDoc, FxRefreshResult } from '@/lib/fx'
@@ -157,6 +158,12 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
   getRedirectResult(auth).catch((e) => errors.emit('read', e, 'Google sign-in failed'))
 
   const groupRef = (id: string) => doc(db, 'groups', id)
+  // `archived` on a Group is personal: derived here for the signed-in person (shared/archive.ts),
+  // never written back (changedSettings skips it; setArchived changes `archivedBy`).
+  const asGroup = (id: string, data: unknown): Group => {
+    const g = { ...(data as Group), id }
+    return { ...g, archived: isArchivedFor(g, auth.currentUser?.uid) }
+  }
   const inviteRef = (code: string) => doc(db, 'invites', code)
   const tableRef = (code: string) => doc(db, 'tables', code)
   const payLinkRef = (code: string) => doc(db, 'payLinks', code)
@@ -484,7 +491,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         q,
         { includeMetadataChanges: true },
         (s) => {
-          if (!last || s.docChanges().length) last = s.docs.map((d) => ({ ...(d.data() as Group), id: d.id })).sort((a, b) => b.updatedAt - a.updatedAt)
+          if (!last || s.docChanges().length) last = s.docs.map((d) => asGroup(d.id, d.data())).sort((a, b) => b.updatedAt - a.updatedAt)
           cb(last, metaOf(s))
         },
         (e) => {
@@ -496,7 +503,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     watchGroup(id, cb) {
       return onSnapshot(
         groupRef(id),
-        (s) => cb(s.exists() ? { ...(s.data() as Group), id: s.id } : null, metaOf(s)),
+        (s) => cb(s.exists() ? asGroup(s.id, s.data()) : null, metaOf(s)),
         listenError('Loading group', () => cb(null, FAILED)),
       )
     },
@@ -526,6 +533,31 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       // Any member may change these, so the change is logged for everyone (a wallet has nobody to tell).
       if (base.type !== 'personal') log(batch, base.id, groupSettingsActivity(base, { ...base, ...changed }, await actCtx(base.id, undefined, base)))
       fire(batch, 'Saving group')
+    },
+    async setArchived(group, on) {
+      const me = auth.currentUser?.uid
+      if (!me) return
+      // Decide from the stored document: `group.archived` is the derived, per-person value, so it
+      // can't tell an old group-wide archive from your own (the cache answers offline).
+      const snap = await getDoc(groupRef(group.id)).catch(() => null)
+      const raw = (snap?.exists() ? snap.data() : { memberUids: group.memberUids, archivedBy: group.archivedBy }) as Pick<
+        Group,
+        'archived' | 'archivedBy' | 'memberUids'
+      >
+      const w = archiveWrite(raw, me, on)
+      if (!w) return
+      // One uid at a time with array union / remove, so two people archiving at once don't
+      // overwrite each other; the rules allow touching only your own uid (or, unarchiving a
+      // group archived the old way, swapping the flag for everyone else's uids).
+      const data =
+        'add' in w
+          ? { archivedBy: arrayUnion(w.add) }
+          : 'remove' in w
+            ? { archivedBy: arrayRemove(w.remove) }
+            : { archivedBy: w.convert.archivedBy, archived: deleteField() }
+      const batch = writeBatch(db)
+      batch.update(groupRef(group.id), data)
+      fire(batch, on ? 'Archiving group' : 'Restoring group')
     },
     async updateGroup(id, patch) {
       const { members: _m, memberUids: _u, id: _i, inviteCode: _c, createdBy: _b, createdAt: _a, updatedAt: _t, ...settings } = patch

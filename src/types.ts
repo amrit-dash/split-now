@@ -96,8 +96,15 @@ export interface Group {
    * (`pausedTrips` in users/{uid}/settings/notifications). Old docs may still carry it.
    */
   captureOff?: boolean
-  /** Archived: hidden from totals, pickers and capture matching; listed under "Archived" on Groups. Any member may toggle it. */
+  /**
+   * Archived *for the signed-in person*: hidden from their totals, Balances, pickers and capture
+   * matching, listed under "Archived" on their Groups. The data layer derives it on read from
+   * `archivedBy` and the old group-wide flag (shared/archive.ts) and never writes it back; change
+   * it with repo.setArchived.
+   */
   archived?: boolean
+  /** Who has archived the group (their uids). Each member may add or remove only themselves. */
+  archivedBy?: string[]
   memberUids: string[]
   members: Record<MemberId, Member>
   inviteCode: string

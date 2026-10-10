@@ -9,14 +9,18 @@
  *  - push token registered → the same browser token is dropped from every other account (a
  *    phone signed out offline, then signed in as someone else, must not keep the first
  *    person's notifications)
+ *  - a new expense or payment → the group comes back (unarchived) for the people it involves
+ *    (archiving is personal: shared/archive.ts), imports and recurring copies included
  *  - group deleted → every subcollection and its receipts go too (the client only deletes the
  *    group document and its invite; rules would stop it deleting most of the rest anyway)
  * Imports, recurring copies and trashed docs are skipped. Each recipient's prefs decide.
  * Only uids in the group's memberUids are ever notified: members[*].uid can be typed in by the
  * group's creator and is not trusted on its own.
  */
+import { FieldValue } from 'firebase-admin/firestore'
 import { logger } from 'firebase-functions/logger'
 import { onDocumentCreated, onDocumentDeleted, onDocumentUpdated } from 'firebase-functions/v2/firestore'
+import { expenseMemberIds, uidsOfMembers, unarchiveInvolved } from '../../shared/archive'
 import { pendingApprovers } from '../../shared/balances-core'
 import { crossedThresholds } from '../../shared/budget'
 import { db, storage } from './admin'
@@ -36,6 +40,22 @@ interface GroupLite {
   members?: Record<string, MemberLite>
   memberUids?: string[]
   budget?: unknown
+  archived?: boolean
+  archivedBy?: string[]
+}
+
+/**
+ * A new expense or payment brings the group back for the members it involves: their balance has
+ * changed, so it belongs in their totals again (unarchiveInvolved). Array remove, so it never
+ * undoes someone archiving at the same moment; an old group-wide archive becomes everyone else.
+ */
+async function unarchiveFor(groupId: string, g: GroupLite, memberIds: string[]) {
+  const w = unarchiveInvolved({ ...g, memberUids: uidsOf(g) }, uidsOfMembers(g.members, memberIds, uidsOf(g)))
+  if (!w) return
+  const ref = db().doc(`groups/${groupId}`)
+  if ('remove' in w) await ref.update({ archivedBy: FieldValue.arrayRemove(...w.remove) })
+  else await ref.update({ archivedBy: w.convert.archivedBy, archived: FieldValue.delete() })
+  logger.info('unarchived for new activity', { groupId })
 }
 
 /** reminderState/{gid}.budget (server-only): which thresholds were announced, for which budget figure. */
@@ -57,10 +77,13 @@ async function actorName(groupId: string, g: GroupLite, uid: string | undefined)
 
 export const onExpenseCreated = onDocumentCreated({ document: 'groups/{groupId}/expenses/{expenseId}', region: REGION }, async (event) => {
   const e = event.data?.data()
-  if (!e || e.importedFrom || e.recurringFrom || typeof e.deletedAt === 'number') return
+  if (!e || typeof e.deletedAt === 'number') return
   const { groupId, expenseId } = event.params
   const g = (await db().doc(`groups/${groupId}`).get()).data() as GroupLite | undefined
   if (!g) return
+  // Any new expense counts here, imports and recurring copies too: they change balances.
+  await unarchiveFor(groupId, g, expenseMemberIds(e)).catch((err) => logger.warn('unarchive', { groupId, error: (err as Error).message }))
+  if (e.importedFrom || e.recurringFrom) return
   // The budget check runs whoever added the expense; the push to the people in it only when there are any.
   const budget = budgetAlert(groupId, g).catch((err) => logger.warn('budget alert', { groupId, error: (err as Error).message }))
   const recipients = expenseRecipients(g.members, e, uidsOf(g))
@@ -128,10 +151,16 @@ const settlementOpts = {
 
 export const onSettlementCreated = onDocumentCreated(settlementOpts, async (event) => {
   const s = event.data?.data()
-  if (!s || s.importedFrom || typeof s.deletedAt === 'number') return
+  if (!s || typeof s.deletedAt === 'number') return
   const { groupId, settlementId } = event.params
   const g = (await db().doc(`groups/${groupId}`).get()).data() as GroupLite | undefined
   if (!g) return
+  await unarchiveFor(
+    groupId,
+    g,
+    [s.from, s.to].filter((x): x is string => typeof x === 'string'),
+  ).catch((err) => logger.warn('unarchive', { groupId, error: (err as Error).message }))
+  if (s.importedFrom) return
   const uids = uidsOf(g)
   const to = memberUid(g.members, s.to, uids)
   const from = memberUid(g.members, s.from, uids)

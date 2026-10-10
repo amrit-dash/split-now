@@ -113,10 +113,32 @@ describe('group shape and settings', () => {
       updateDoc(g1('bob'), { type: 'outing', currency: 'INR', budget: 500000, startDate: '2026-10-05', endDate: '2026-10-10', updatedAt: 2 }),
     )
   })
-  it('any member may archive and unarchive; it must be a boolean', async () => {
-    await assertSucceeds(updateDoc(g1('bob'), { archived: true, updatedAt: 2 }))
-    await assertSucceeds(updateDoc(g1('alice'), { archived: false, updatedAt: 3 }))
-    await assertFails(updateDoc(g1('bob'), { archived: 'yes' }))
+  it('archiving is personal: each member adds or removes only their own uid', async () => {
+    await assertSucceeds(updateDoc(g1('bob'), { archivedBy: arrayUnion('bob') }))
+    // bob can't archive it for alice
+    await assertFails(updateDoc(g1('bob'), { archivedBy: arrayUnion('alice') }))
+    await assertSucceeds(updateDoc(g1('alice'), { archivedBy: arrayUnion('alice') }))
+    await assertSucceeds(updateDoc(g1('bob'), { archivedBy: arrayRemove('bob') }))
+    // never someone else's
+    // nor unarchive it for her
+    await assertFails(updateDoc(g1('bob'), { archivedBy: arrayRemove('alice') }))
+    await assertFails(updateDoc(g1('bob'), { archivedBy: [] }))
+    await assertFails(updateDoc(g1('bob'), { archivedBy: 'bob' }))
+  })
+  it('nobody archives the group for everyone with the old flag any more', async () => {
+    await assertFails(updateDoc(g1('bob'), { archived: true, updatedAt: 2 }))
+    await assertFails(updateDoc(g1('alice'), { archived: true }))
+  })
+  it('unarchiving a group archived the old way swaps the flag for everyone else', async () => {
+    await env.withSecurityRulesDisabled((ctx) => updateDoc(doc(ctx.firestore(), 'groups/g1'), { archived: true }))
+    // bob may not drop the flag and leave nobody archived (that would unarchive alice too) ...
+    await assertFails(updateDoc(g1('bob'), { archived: deleteField() }))
+    // ... nor keep himself archived, nor list someone outside the group
+    await assertFails(updateDoc(g1('bob'), { archived: deleteField(), archivedBy: ['alice', 'bob'] }))
+    await assertFails(updateDoc(g1('bob'), { archived: deleteField(), archivedBy: ['alice', 'mallory'] }))
+    await assertSucceeds(updateDoc(g1('bob'), { archived: deleteField(), archivedBy: ['alice'] }))
+    const after = (await getDoc(g1('alice'))).data()
+    if (after?.archived !== undefined || JSON.stringify(after?.archivedBy) !== '["alice"]') throw new Error(`unexpected ${JSON.stringify(after)}`)
   })
   it('any member changes the approval policy; values are still checked', async () => {
     await assertSucceeds(updateDoc(g1('bob'), { requireApproval: true, approvalThreshold: 5000, updatedAt: 2 }))

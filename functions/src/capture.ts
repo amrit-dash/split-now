@@ -49,6 +49,7 @@ import { resolveCapturePrefs } from './lib/prefs'
 import { applyRateLimit, type RateState } from './lib/ratelimit'
 import { isIdShaped, isTokenShaped, readCaptureRequest, type RawRequest } from './lib/request'
 import { matchScoped, pausedTrip, pickTrip, type TripGroup } from './lib/trips'
+import { isArchivedFor } from '../../shared/archive'
 import { sendToUser } from './push'
 
 export type CaptureResponse =
@@ -98,7 +99,8 @@ export function isKnownUnknown(token: string, now: number, cache = unknownTokens
 async function loadGroup(id: string, uid: string): Promise<GroupDoc | undefined> {
   const s = await db().collection('groups').doc(id).get()
   const g = s.data() as GroupDoc | undefined
-  return g && Array.isArray(g.memberUids) && g.memberUids.includes(uid) ? { ...g, id: s.id } : undefined
+  // `archived` is personal (shared/archive.ts): this person's own, so an archived trip doesn't match for them only.
+  return g && Array.isArray(g.memberUids) && g.memberUids.includes(uid) ? { ...g, id: s.id, archived: isArchivedFor(g, uid) } : undefined
 }
 
 /** Per capture key: config/limits capturePerHour / capturePerDay (60 and 300 by default). */
@@ -218,7 +220,10 @@ export async function handleCapture(
     if (r.kind === 'outside') return reject('outside_trip', parsed, scoped.name)
     matched = r.group
   } else {
-    const groups = (await db().collection('groups').where('memberUids', 'array-contains', uid).get()).docs.map((d) => ({ ...(d.data() as GroupDoc), id: d.id }))
+    const groups = (await db().collection('groups').where('memberUids', 'array-contains', uid).get()).docs.map((d) => {
+      const g = d.data() as GroupDoc
+      return { ...g, id: d.id, archived: isArchivedFor(g, uid) }
+    })
     matched = pickTrip(groups, parsed.date, parsed.currency, prefs.pausedTrips)
     if (!matched) {
       // Dated inside a trip this person paused: skip it (the pause wins over "all payments").

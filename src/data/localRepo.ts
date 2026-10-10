@@ -1,4 +1,5 @@
 import { blobToDataUrl } from '@/lib/image'
+import { archiveWrite, expenseMemberIds, isArchivedFor, uidsOfMembers, unarchiveInvolved } from '../../shared/archive'
 import type { ActivityEntry, Capture, Expense, ExpenseComment, Group, Settlement, UserProfile } from '@/types'
 import { inviteCode, todayISO, uid } from '@/lib/id'
 import { inboxToDraft, newCaptureToken } from '@/lib/capture'
@@ -193,6 +194,19 @@ export function createLocalRepo(): Repo {
       listeners.delete(run)
     }
   }
+  // `archived` is personal: derived for the signed-in person on read (shared/archive.ts), as Firebase does.
+  const asGroup = (g: Group): Group => ({ ...g, archived: isArchivedFor(g, me().uid) })
+  // A new expense or payment brings the group back for the people in it (the onExpenseCreated /
+  // onSettlementCreated triggers do this in Firebase).
+  const unarchiveFor = (groupId: string, memberIds: string[]) => {
+    const g = state.groups[groupId]
+    if (!g) return
+    const w = unarchiveInvolved(g, uidsOfMembers(g.members, memberIds, g.memberUids))
+    if (!w) return
+    const { archived: _legacy, ...rest } = g
+    state.groups[groupId] =
+      'remove' in w ? { ...g, archivedBy: (g.archivedBy ?? []).filter((u) => !w.remove.includes(u)) } : { ...rest, archivedBy: w.convert.archivedBy }
+  }
   const touch = (groupId: string) => {
     const g = state.groups[groupId]
     if (g) state.groups[groupId] = { ...g, updatedAt: Date.now() }
@@ -309,10 +323,11 @@ export function createLocalRepo(): Repo {
         () =>
           Object.values(state.groups)
             .filter((g) => g.memberUids.includes(userId))
-            .sort((a, b) => b.updatedAt - a.updatedAt),
+            .sort((a, b) => b.updatedAt - a.updatedAt)
+            .map(asGroup),
         cb,
       ),
-    watchGroup: (id, cb) => watch(() => state.groups[id] ?? null, cb),
+    watchGroup: (id, cb) => watch(() => (state.groups[id] ? asGroup(state.groups[id]) : null), cb),
     async createGroup(g) {
       const id = uid('g_')
       state.groups[id] = { ...g, id, inviteCode: inviteCode(), createdAt: Date.now(), updatedAt: Date.now() }
@@ -327,6 +342,19 @@ export function createLocalRepo(): Repo {
       for (const [k, v] of Object.entries(changed)) if (v === undefined) delete next[k]
       state.groups[base.id] = next as unknown as Group
       if (base.type !== 'personal') log(base.id, groupSettingsActivity(base, { ...base, ...changed }, ctx(base.id)))
+      commit()
+    },
+    async setArchived(group, on) {
+      const g = state.groups[group.id]
+      const w = g && archiveWrite(g, me().uid, on)
+      if (!g || !w) return
+      const { archived: _legacy, ...rest } = g
+      state.groups[group.id] =
+        'add' in w
+          ? { ...g, archivedBy: [...(g.archivedBy ?? []), w.add] }
+          : 'remove' in w
+            ? { ...g, archivedBy: (g.archivedBy ?? []).filter((u) => u !== w.remove) }
+            : { ...rest, archivedBy: w.convert.archivedBy }
       commit()
     },
     async updateGroup(id, patch) {
@@ -427,6 +455,7 @@ export function createLocalRepo(): Repo {
       const next = prepareExpenseSave(prev, e, g, actor())
       const autoApproved = !!prev && !!g && editAutoApproved({ group: g, before: prev, after: next })
       state.expenses[e.id] = next
+      if (!prev) unarchiveFor(e.groupId, expenseMemberIds(next))
       log(e.groupId, expenseSaveActivity(prev, next, ctx(e.groupId, next), { autoApprovedWithin: autoApproved ? g?.editAutoApprove : undefined }))
       touch(e.groupId)
       commit()
@@ -525,7 +554,10 @@ export function createLocalRepo(): Repo {
         state.payProofs[proofPath] = await blobToDataUrl(await downscale(opts.proof, 900, 0.7))
         s = { ...s, proofPath }
       }
-      if (!state.settlements[s.id]) log(s.groupId, settlementActivity('created', s, ctx(s.groupId)))
+      if (!state.settlements[s.id]) {
+        log(s.groupId, settlementActivity('created', s, ctx(s.groupId)))
+        unarchiveFor(s.groupId, [s.from, s.to])
+      }
       state.settlements[s.id] = s
       touch(s.groupId)
       commit()

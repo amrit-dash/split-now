@@ -28,6 +28,7 @@ import { claimsInGroup } from '@/lib/paylinks'
 import { ClaimReview } from '@/components/ClaimReview'
 import { formatMoney } from '@/lib/money'
 import { groupSettleTarget } from '@/lib/settleAll'
+import { archiveRow } from '@/lib/archive'
 import { CATEGORIES } from '@/lib/categories'
 import { simplifyDebts } from '@/lib/simplify'
 import { copy, shareOrCopy } from '@/lib/share'
@@ -137,19 +138,20 @@ export default function GroupDetail() {
     }
   }
 
+  // Archiving is personal (only for you) and needs you to be square first (archiveRow).
   const setArchived = async (archived: boolean) => {
     setMenu(false)
     try {
-      await repo.updateGroupSettings(group, { archived: archived || undefined })
+      await repo.setArchived(group, archived)
       toast(
-        archived ? `${group.name} archived` : `${group.name} restored`,
+        archived ? `${group.name} archived for you` : `${group.name} restored`,
         'ok',
         archived
           ? {
               action: {
                 label: 'Undo',
                 run: () => {
-                  repo.updateGroupSettings({ ...group, archived: true }, { archived: undefined }).catch(fail)
+                  repo.setArchived(group, false).catch(fail)
                 },
               },
             }
@@ -182,6 +184,12 @@ export default function GroupDetail() {
 
   const settled = myBal === 0
   const pendingIds = membersIn(d.pending)
+  const archive = archiveRow({
+    archived: !!group.archived,
+    personal,
+    myBalance: myBal,
+    waitingOnYou: me ? d.pending.filter((e) => membersIn([e]).has(me)).length + d.waiting.filter((s) => s.from === me || s.to === me).length : 0,
+  })
   const repeating = repeatingByMember(d.expenses)
   const people = Object.entries(activeMembers(group.members))
 
@@ -505,8 +513,9 @@ export default function GroupDetail() {
           <MenuRow icon={<Download size={20} />} label="Export CSV" onClick={exportCsv} testId="group-export" />
           <MenuRow
             icon={<Archive size={20} />}
-            label={group.archived ? 'Unarchive' : 'Archive'}
-            hint={group.archived ? 'Back into your balances and pickers' : 'Keeps it, but out of your balances and pickers'}
+            label={archive.label}
+            hint={archive.hint}
+            disabled={archive.disabled}
             onClick={() => setArchived(!group.archived)}
             testId="group-archive"
           />
