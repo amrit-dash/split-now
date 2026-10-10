@@ -48,7 +48,7 @@ describe('fireworkLook', () => {
     expect(look.flash).toBe('255,246,222')
     expect(look.alpha).toBe(1)
     // The deep-fill look is the original one.
-    expect([look.spark, look.count, look.trailMs, look.mixed, look.halo]).toEqual([1, 1, 260, false, 0.13])
+    expect([look.spark, look.dot, look.shrink, look.count, look.trailMs, look.mixed, look.halo]).toEqual([1, 1, 0, 1, 260, false, 0.13])
   })
 
   it('paints in the ink and deep accent shades on a bright fill (dark text)', () => {
@@ -66,8 +66,14 @@ describe('fireworkLook', () => {
     expect(look.alpha).toBeGreaterThan(1)
     const deep = fireworkLook(theme('#ffffff'))
     expect(look.halo).toBeLessThan(deep.halo)
-    // Bolder than on a deep fill: bigger, more numerous sparks and a longer trail.
+    // Bolder than on a deep fill: a bigger head, more numerous sparks and a longer trail.
     expect(look.spark).toBeGreaterThan(deep.spark)
+    // The sparks start only a little larger and shrink as they fall, so the glitter after a
+    // burst stays fine (painted dots have no glow to soften them): at most 1.3x at the burst,
+    // well under the glow look's size by the end.
+    expect(look.dot).toBeLessThanOrEqual(1.3)
+    expect(look.dot).toBeLessThan(look.spark)
+    expect(look.dot * (1 - look.shrink)).toBeLessThan(deep.dot * (1 - deep.shrink) * 0.6)
     expect(look.count).toBeGreaterThan(deep.count)
     expect(look.trailMs).toBeGreaterThan(deep.trailMs)
   })

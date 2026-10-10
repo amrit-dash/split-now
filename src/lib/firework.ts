@@ -5,7 +5,9 @@
  * blending), so they glow. On a bright fill (dark ink: Neon, or any accent with "Text on accent"
  * set to Black) adding light to a near-white surface shows nothing, so the sparks are drawn
  * normally in rich deep hues instead (violet, indigo, magenta, blue, teal, the accent's own 800 shade),
- * larger and more of them, so the burst still reads as a celebration rather than specks of dirt.
+ * more of them and bolder at the burst, so it still reads as a celebration rather than specks of dirt.
+ * Their sparks then shrink as they fall: painted dots get no glow to soften them, so the glitter
+ * that lingers after a burst stays fine instead of drifting down as large round dots.
  * The fill's own on-fill colour decides which, so it always matches the text on the card.
  */
 
@@ -37,8 +39,12 @@ export interface FireworkLook {
   alpha: number
   /** Opacity of the soft halo round each particle (a dark halo on a light fill looks like smudges, so it stays faint). */
   halo: number
-  /** Size multiplier for sparks, the shell's head and its trail. */
+  /** Size multiplier for the shell's head, its trail and the embers it sheds. */
   spark: number
+  /** Size multiplier for the burst's sparks. */
+  dot: number
+  /** How much a burst spark shrinks by the end of its life (0 = not at all, 0.6 = to 40%). */
+  shrink: number
   /** Multiplier on the number of sparks per burst. */
   count: number
   /** How long the rising shell's trail lingers, in ms. */
@@ -92,6 +98,8 @@ export function fireworkLook(t: FireworkTheme): FireworkLook {
       alpha: 1.6,
       halo: 0.035,
       spark: 1.8,
+      dot: 1.3,
+      shrink: 0.6,
       count: 1.5,
       trailMs: 380,
       mixed: true,
@@ -108,6 +116,8 @@ export function fireworkLook(t: FireworkTheme): FireworkLook {
     alpha: 1,
     halo: 0.13,
     spark: 1,
+    dot: 1,
+    shrink: 0,
     count: 1,
     trailMs: 260,
     mixed: false,

@@ -5,9 +5,9 @@
  * inline before first paint (keep its id → theme-colour map in sync; a test checks it).
  *
  * Seven presets. Emerald and Rose are not offered because they are the owed / owe colours
- * (money direction would stop reading). Lime is a yellow-green with a petrol-cyan partner, kept
- * well apart from the emerald of "you are owed"; Gold and Lime take their deep 500+ steps so
- * white text still reads. Neon fills with a highlighter lime and aqua and puts dark ink on them
+ * (money direction would stop reading). Koi is a coral-orange on a deep indigo, a complementary
+ * pair like Berry's pink and teal, its coral kept well apart from the rose of "you owe"; Gold takes
+ * deep 500+ steps so white text still reads. Neon fills with a highlighter lime and aqua and puts dark ink on them
  * (the --color-fill / --color-on-fill tokens in index.css). A test in accent.test.ts checks every
  * preset's on-fill colour against its fill and fill-to, and its brand-600 against white.
  *
@@ -17,7 +17,7 @@
  * 3:1, so the fills have to change with the ink). Neon defaults to dark ink, every other preset to
  * white; an explicit choice is stored per accent.
  */
-export type AccentId = 'violet' | 'ocean' | 'neon' | 'berry' | 'lime' | 'gold' | 'graphite'
+export type AccentId = 'violet' | 'ocean' | 'neon' | 'berry' | 'koi' | 'gold' | 'graphite'
 /** Colour of text and icons on accent fills: 'light' = white on deep fills, 'dark' = ink on bright fills. */
 export type Ink = 'light' | 'dark'
 
@@ -41,7 +41,7 @@ export const ACCENTS: readonly AccentPreset[] = [
   { id: 'ocean', label: 'Ocean', ink: 'light', swatch: { light: ['#155dfc', '#0092b8'], dark: ['#75acfd', '#20d3f4'] }, meta: '#1447e6' },
   { id: 'neon', label: 'Neon', ink: 'dark', swatch: { light: ['#4d7800', '#00a8a8'], dark: ['#c6ff00', '#3df4ef'] }, meta: '#426400' },
   { id: 'berry', label: 'Berry', ink: 'light', swatch: { light: ['#b32689', '#009698'], dark: ['#f568c5', '#2ad7d7'] }, meta: '#97176e' },
-  { id: 'lime', label: 'Lime', ink: 'light', swatch: { light: ['#4d7800', '#0095ae'], dark: ['#9ee41e', '#34d3ef'] }, meta: '#426400' },
+  { id: 'koi', label: 'Koi', ink: 'light', swatch: { light: ['#bc4b00', '#676cf4'], dark: ['#fe8f5b', '#a2acff'] }, meta: '#9d3d00' },
   { id: 'gold', label: 'Gold', ink: 'light', swatch: { light: ['#936500', '#de8800'], dark: ['#f8b81c', '#fda848'] }, meta: '#774f00' },
   { id: 'graphite', label: 'Graphite', ink: 'light', swatch: { light: ['#45556c', '#71717b'], dark: ['#a1b3cb', '#bcbcc7'] }, meta: '#314158' },
 ]
@@ -60,11 +60,12 @@ export const DARK_THEME_COLOR = '#0b0a14'
 
 /**
  * Retired presets that have a close successor: the orange Saffron and the old Amber both become
- * Gold, the nearest warm look, and Indigo (one blue too many) becomes Ocean. Other retired ids
+ * Gold, the nearest warm look, Indigo (one blue too many) becomes Ocean, and Lime (which with
+ * white text looked the same as Neon) becomes Neon. Other retired ids
  * (emerald, rose) fall back to the default.
  * index.html repeats this map for the first paint.
  */
-export const RETIRED_ACCENTS: Readonly<Record<string, AccentId>> = { saffron: 'gold', amber: 'gold', indigo: 'ocean' }
+export const RETIRED_ACCENTS: Readonly<Record<string, AccentId>> = { saffron: 'gold', amber: 'gold', indigo: 'ocean', lime: 'neon' }
 
 export function accentPreset(id: string | null | undefined): AccentPreset {
   const wanted = (id && Object.hasOwn(RETIRED_ACCENTS, id) ? RETIRED_ACCENTS[id] : id) ?? DEFAULT_ACCENT

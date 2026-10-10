@@ -60,8 +60,8 @@
       } catch (e) {}
       // Accent colour, dual tone and text on accent (src/lib/accent.ts). Keep this map in sync with ACCENTS there.
       try {
-        var accents = { violet: '#6d28d9', ocean: '#1447e6', neon: '#426400', berry: '#97176e', lime: '#426400', gold: '#774f00', graphite: '#314158' }
-        var retired = { saffron: 'gold', amber: 'gold', indigo: 'ocean' }
+        var accents = { violet: '#6d28d9', ocean: '#1447e6', neon: '#426400', berry: '#97176e', koi: '#9d3d00', gold: '#774f00', graphite: '#314158' }
+        var retired = { saffron: 'gold', amber: 'gold', indigo: 'ocean', lime: 'neon' }
         var a = localStorage.getItem('splitit-accent')
         if (retired.hasOwnProperty(a)) a = retired[a]
         if (!accents.hasOwnProperty(a)) a = 'violet'
