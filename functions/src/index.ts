@@ -13,7 +13,7 @@
  *  aiKey, aiModels, aiStatus  Callables: save/test/remove a user's Gemini key (sealed at rest), list models, AI availability
  *  nudge               Callable { groupId, memberId, amount? } or { items } (several groups, one push with the total) → push to someone who owes the caller (1 per pair per day)
  *  onPayLinkPaid       Firestore payLinks/{code} open → paid ("I've paid") → record the settlement in the group, push the payee
- *  adminStats, adminUsers, adminBlockUser  Callables (admins/{uid} only): usage counters + totals, account lookup, block / unblock
+ *  adminStats, adminUsers, adminBlockUser, adminSetAdmin  Callables (admins/{uid} only): usage counters + totals, account lookup, block / unblock, make or remove an admin
  */
 export { capture } from './capture'
 export { onExpenseCreated, onGroupDeleted, onPushTokenCreated, onSettlementCreated } from './triggers'
@@ -22,4 +22,4 @@ export { fxDaily, fxMorning, refreshFx } from './fx'
 export { aiKey, aiModels, aiStatus, parseReceiptAi, quickAddAi } from './ai'
 export { nudge } from './nudge'
 export { onPayLinkPaid } from './paylinks'
-export { adminBlockUser, adminStats, adminUsers } from './admin'
+export { adminBlockUser, adminSetAdmin, adminStats, adminUsers } from './admin'

@@ -11,7 +11,7 @@ service cloud.firestore {
     // A real account (Google / email): anonymous sign-in only exists for live tables.
     function isUser() { return signedIn() && request.auth.token.get('firebase', {}).get('sign_in_provider', '') != 'anonymous'; }
     function uid() { return request.auth.uid; }
-    // admins/{uid}: created by hand in the Firebase console; no client can write it.
+    // admins/{uid}: created by hand in the Firebase console or by the adminSetAdmin callable; no client can write it.
     function isAdmin() { return isUser() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
     function groupDoc(groupId) { return get(/databases/$(database)/documents/groups/$(groupId)); }
     // A group's "Needs your OK" threshold in minor units: its own, else its currency's default.
@@ -238,7 +238,7 @@ service cloud.firestore {
         || (id == 'app' && validAppConfig(request.resource.data))
         || (id == 'limits' && validLimits(request.resource.data)));
     }
-    // admins/{uid}: lets a user see that they're an admin. Managed in the Firebase console only.
+    // admins/{uid}: lets a user see that they're an admin. Written only by the Firebase console or the adminSetAdmin callable.
     match /admins/{id} {
       allow get: if isUser() && uid() == id;
       allow list, write: if false;

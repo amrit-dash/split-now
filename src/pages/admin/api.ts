@@ -3,7 +3,7 @@
  * to Firestore and the admin callables directly (loaded on first use) instead of widening the
  * Repo interface every screen carries. Rules keep non-admins out of everything here.
  *   config/app, config/limits   watched and written (toAppConfigDoc / resolveLimits shape them)
- *   adminStats / adminUsers / adminBlockUser   callables in functions/src/admin.ts
+ *   adminStats / adminUsers / adminBlockUser / adminSetAdmin   callables in functions/src/admin.ts
  */
 import type { Limits } from '../../../shared/limits'
 import { LIMIT_NAMES } from '../../../shared/limits'
@@ -104,9 +104,14 @@ export interface AdminUser {
   lastSignInAt: number | null
   providers: string[]
   blocked: BlockInfo | null
+  /** admins/{uid} exists */
+  admin: boolean
 }
 export const adminUsers = (q: string, limit = 20) =>
   call<{ q: string; limit: number }, { users: AdminUser[]; truncated: boolean }>('adminUsers', { q, limit }, 60_000)
 
 export const adminBlockUser = (uid: string, block: boolean, reason?: string) =>
   call<{ uid: string; block: boolean; reason?: string }, { uid: string; blocked: boolean; authUpdated: boolean }>('adminBlockUser', { uid, block, reason })
+
+export const adminSetAdmin = (uid: string, admin: boolean) =>
+  call<{ uid: string; admin: boolean }, { uid: string; admin: boolean }>('adminSetAdmin', { uid, admin })
