@@ -6,6 +6,8 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 3.6.0 — October 2026
+
 - **Archive is personal**: archiving a group now puts it away only for you, and only once you're square in it, so it never hides money you owe or are owed. A new expense or payment that involves you brings it back by itself. Groups archived before stay archived for everyone until someone unarchives them, which brings them back for that person only. Reminders now go out for archived groups too, so nobody misses a payment they're owed.
 - **Glitter is back as it was**: the soft, translucent sparks of all sizes that hang around a burst for a moment after it are the original look again with Glitter on. Glitter off now ends each burst without them, and Glitter size (Tiny, Small, Medium, Big) sets how big those hanging sparks and their glow are. 3.5.2 had dimmed them away by mistake.
 
