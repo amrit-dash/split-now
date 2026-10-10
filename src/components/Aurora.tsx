@@ -1,4 +1,6 @@
 import { useEffect, useRef } from 'react'
+import { useMotion } from '@/hooks/useMotion'
+import { activeMotion, flowRate } from '@/lib/motion'
 
 /*
  * Animated brand surface. Soft radial "smoke" patches in a lighter and a darker shade of the theme
@@ -13,12 +15,16 @@ import { useEffect, useRef } from 'react'
  * visit gets different paths. Size and opacity breathe on their own slow, irregular cycles.
  * One requestAnimationFrame loop, transform/opacity only; nothing moves under
  * prefers-reduced-motion, and the loop stops while the surface is scrolled off-screen or the tab
- * is hidden (it picks up where it left off), so nothing animates unseen. Put it inside a `relative isolate overflow-hidden` parent and give the
+ * is hidden (it picks up where it left off), so nothing animates unseen. Settings → Animations can
+ * still the colour flow (the smoke) and the circles (the bubbles) separately, and speed the flow up
+ * or slow it down; a stilled shape stays where it was. Put it inside a `relative isolate overflow-hidden` parent and give the
  * content `relative`.
  */
 
 type Range = [number, number]
 interface Body {
+  /** Which Animations setting moves it: the colour flow or the floating circles. */
+  kind: 'flow' | 'circle'
   /** half-size of the box it may roam, as a fraction of the surface's width / height */
   bx: number
   by: number
@@ -77,13 +83,25 @@ function start(b: Body): State {
  */
 const resume = new Map<Body[], { st: Array<State | null>; elapsed: number }>()
 
+interface Live {
+  flow: boolean
+  circles: boolean
+  rate: number
+}
+
 function useBodies(bodies: Body[], persist = false) {
   const box = useRef<HTMLDivElement>(null)
   const refs = useRef<Array<HTMLDivElement | null>>([])
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the motion loop starts once per mount; bodies is a module constant (CARD or FAB) and restarting would reset every drift.
+  const { prefs, reduced } = useMotion()
+  const on = activeMotion(prefs, reduced)
+  // Read every frame, so a speed change applies without restarting the drift.
+  const live = useRef<Live>({ flow: on.flow, circles: on.circles, rate: flowRate(prefs.speed) })
+  live.current = { flow: on.flow, circles: on.circles, rate: flowRate(prefs.speed) }
+  // The loop runs only while something on this surface moves.
+  const active = bodies.some((b) => (b.kind === 'flow' ? on.flow : on.circles))
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the motion loop starts once per mount (and when Animations stops or starts everything on it); bodies is a module constant (CARD or FAB), and the card resumes where it was.
   useEffect(() => {
-    if (typeof window === 'undefined' || !box.current) return
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    if (typeof window === 'undefined' || !box.current || !active) return
     const host = box.current
     const els = refs.current
     const kept = persist ? resume.get(bodies) : undefined
@@ -132,11 +150,15 @@ function useBodies(bodies: Body[], persist = false) {
       const dt = still ? 0 : Math.min(0.05, (now - last) / 1000)
       last = now
       const t = (now - t0) / 1000
+      const lv = live.current
       for (let i = 0; i < els.length; i++) {
         const el = els[i],
           s = st[i],
           b = bodies[i]
         if (!el || !s) continue
+        // Stilled by Animations: stays where it is (still paints once when resuming).
+        if (!still && !(b.kind === 'flow' ? lv.flow : lv.circles)) continue
+        const step = b.kind === 'flow' ? dt * lv.rate : dt
         const hx = Math.max(1, b.bx * W),
           hy = Math.max(1, b.by * H) // box half-size in px
         // Wander: a smooth, irregular turn rate.
@@ -148,9 +170,9 @@ function useBodies(bodies: Body[], persist = false) {
           const diff = Math.atan2(Math.sin(home - s.a), Math.cos(home - s.a))
           turn += diff * HOME_PULL * Math.min(1, (r - SOFT_EDGE) / (1 - SOFT_EDGE))
         }
-        s.a += turn * dt
-        let x = s.x * hx + Math.cos(s.a) * s.v * dt
-        let y = s.y * hy + Math.sin(s.a) * s.v * dt
+        s.a += turn * step
+        let x = s.x * hx + Math.cos(s.a) * s.v * step
+        let y = s.y * hy + Math.sin(s.a) * s.v * step
         // Hard limit only as a safety net (the steering keeps it well inside).
         const rr = Math.hypot(x / hx, y / hy)
         if (rr > 1) {
@@ -179,7 +201,7 @@ function useBodies(bodies: Body[], persist = false) {
       io?.disconnect()
       document.removeEventListener('visibilitychange', sync)
     }
-  }, [])
+  }, [active])
   return {
     box,
     ref: (i: number) => (el: HTMLDivElement | null) => {
@@ -189,8 +211,8 @@ function useBodies(bodies: Body[], persist = false) {
 }
 
 // Card: smoke (light, dark, duo, dark) then bubbles. Smoke drifts slowly so the blend reads as smoke.
-const SMOKE = (opacity: Range): Body => ({ bx: 0.14, by: 0.2, speed: [5, 8], scale: [0.88, 1.22], opacity, breathe: [9, 15] })
-const BUBBLE = (bx: number, by: number): Body => ({ bx, by, speed: [4, 7], scale: [0.95, 1.06], breathe: [8, 13] })
+const SMOKE = (opacity: Range): Body => ({ kind: 'flow', bx: 0.14, by: 0.2, speed: [5, 8], scale: [0.88, 1.22], opacity, breathe: [9, 15] })
+const BUBBLE = (bx: number, by: number): Body => ({ kind: 'circle', bx, by, speed: [4, 7], scale: [0.95, 1.06], breathe: [8, 13] })
 // Bubble areas are small so they drift around their spot and only ever brush each other.
 const CARD: Body[] = [
   SMOKE([0.55, 1]),
@@ -203,17 +225,18 @@ const CARD: Body[] = [
   BUBBLE(0.035, 0.07),
 ]
 const FAB: Body[] = [
-  { bx: 0.3, by: 0.3, speed: [7, 11], scale: [0.9, 1.25], opacity: [0.5, 1], breathe: [3, 5] },
-  { bx: 0.3, by: 0.3, speed: [7, 11], scale: [0.9, 1.25], opacity: [0.45, 1], breathe: [3.2, 5.5] },
-  { bx: 0.25, by: 0.25, speed: [6, 10], scale: [0.85, 1.2], opacity: [0.35, 0.9], breathe: [2.8, 4.6] },
+  { kind: 'flow', bx: 0.3, by: 0.3, speed: [7, 11], scale: [0.9, 1.25], opacity: [0.5, 1], breathe: [3, 5] },
+  { kind: 'flow', bx: 0.3, by: 0.3, speed: [7, 11], scale: [0.9, 1.25], opacity: [0.45, 1], breathe: [3.2, 5.5] },
+  { kind: 'flow', bx: 0.25, by: 0.25, speed: [6, 10], scale: [0.85, 1.2], opacity: [0.35, 0.9], breathe: [2.8, 4.6] },
 ]
 
 /** A patch that fades to transparent at its edge. */
 const bloom = (color: string) => ({ background: `radial-gradient(closest-side, ${color}, transparent)` })
 const mix = (v: string, pct: number) => `color-mix(in oklab, var(${v}) ${pct}%, transparent)`
 
-export function Aurora({ size = 'card' }: { size?: 'card' | 'fab' }) {
-  const { box, ref } = useBodies(size === 'fab' ? FAB : CARD, size === 'card')
+/** `persist` (default on for the card) resumes the drift where Home's card left it; previews turn it off. */
+export function Aurora({ size = 'card', persist = size === 'card' }: { size?: 'card' | 'fab'; persist?: boolean }) {
+  const { box, ref } = useBodies(size === 'fab' ? FAB : CARD, persist)
   if (size === 'fab') {
     return (
       <div

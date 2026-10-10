@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Bell, Database, Palette, ShieldCheck, Sparkles, Zap } from 'lucide-react'
+import { Bell, Database, Palette, ShieldCheck, Sparkles, WandSparkles, Zap } from 'lucide-react'
 import { repo } from '@/data'
 import { useAiState, useCaptureTokens } from '@/hooks/data'
 import { useMe } from '@/hooks/auth'
 import { useAiStatus } from '@/hooks/useAiStatus'
+import { useMotion } from '@/hooks/useMotion'
 import { accentPreset, getAccent } from '@/lib/accent'
 import { aiSummaryText } from '@/lib/ai-copy'
+import { motionSummary } from '@/lib/motion'
 import { watchCapturePrefs } from '@/lib/capture-settings'
 import { getTheme } from '@/lib/theme'
 import { autoCaptureSummary, notificationSummary } from '@/lib/profileSummary'
@@ -22,6 +24,7 @@ export default function SettingsHome() {
   const [prefs, setPrefs] = useState<AllPrefs | null>(null)
   const tokens = useCaptureTokens()
   const aiState = useAiState(repo.mode === 'firebase')
+  const motion = useMotion()
   useEffect(() => watchCapturePrefs(user.uid, repo.mode, setPrefs), [user.uid])
 
   const notifications = !notificationsAvailable()
@@ -47,6 +50,13 @@ export default function SettingsHome() {
           title="Preferences"
           testId="settings-preferences"
           summary={`${profile.currency} · ${THEME_LABEL[getTheme()]} · ${accentPreset(getAccent()).label}`}
+        />
+        <SettingsRow
+          to="/settings/animations"
+          icon={<WandSparkles size={19} />}
+          title="Animations"
+          summary={motionSummary(motion.prefs, motion.reduced)}
+          testId="settings-animations"
         />
         <SettingsRow to="/settings/notifications" icon={<Bell size={19} />} title="Notifications" summary={notifications} testId="settings-notifications" />
         <SettingsRow

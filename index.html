@@ -80,6 +80,13 @@
         root.setAttribute('data-ink', ink)
         document.querySelector('meta[name="theme-color"]').setAttribute('content', root.classList.contains('dark') ? '#0b0a14' : accents[a])
       } catch (e) {}
+      // Animations (src/lib/motion.ts): a stilled colour flow and its speed, before the buttons paint.
+      try {
+        var m = JSON.parse(localStorage.getItem('splitit-motion') || '{}') || {}
+        if (m.on === false || m.flow === false) document.documentElement.setAttribute('data-flow', 'off')
+        var flowDur = { slow: '28s', normal: '16s', fast: '9s' }
+        if (flowDur.hasOwnProperty(m.speed)) document.documentElement.style.setProperty('--flow-dur', flowDur[m.speed])
+      } catch (e) {}
     </script>
   </head>
   <body>

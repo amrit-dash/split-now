@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { FLOW_SECONDS, MOTION_KEY } from './motion'
 import {
   ACCENTS,
   ACCENT_KEY,
@@ -542,5 +543,12 @@ describe('accent presets stay in sync', () => {
         for (let i = 1; i < lums.length; i++) expect(lums[i], `${a.id} ${scale} step ${i}`).toBeLessThanOrEqual(lums[i - 1] + 1e-9)
       }
     }
+  })
+})
+
+describe('index.html pre-paint script for Animations', () => {
+  it('reads the same key and knows every colour flow speed (src/lib/motion.ts)', () => {
+    expect(html).toContain(`localStorage.getItem('${MOTION_KEY}')`)
+    for (const [k, v] of Object.entries(FLOW_SECONDS)) expect(html).toContain(`${k}: '${v}s'`)
   })
 })
