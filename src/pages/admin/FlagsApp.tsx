@@ -21,7 +21,6 @@ import { Collapsible } from '@/components/Collapsible'
 import { Loading, Segmented } from '@/components/Misc'
 import { Switch } from '@/components/Switch'
 import { useToast } from '@/components/Toast'
-import { AdminApp } from '@/components/AdminApp'
 import { MaintenanceScreen } from '@/components/GateScreen'
 import { saveConfig } from './api'
 import { ChangedBy, DirtyBar, SettingRow, useConfigDoc } from './common'
@@ -124,9 +123,10 @@ export default function FlagsApp() {
           Minimum app version
         </label>
         <p className="text-muted mt-0.5 text-xs">
-          Devices running an older build see “Update Split Now” and must reload. You are running {CURRENT}. Admins are never locked out.
+          Devices running an older build see “Update Split Now” and must reload. Leave it alone unless a release must replace every older one (a breaking
+          change). You are running {CURRENT}. Admins are never locked out.
         </p>
-        <div className="mt-2 flex items-center gap-3">
+        <div className="mt-2 flex flex-wrap items-center gap-3">
           <input
             id="min-version"
             className="input !w-36 !px-3 !py-2.5 font-mono"
@@ -140,6 +140,19 @@ export default function FlagsApp() {
               if (isSemver(v)) set({ minVersion: v })
             }}
           />
+          {/* Raising the minimum is for a breaking release; this fills in the running build so it can't be mistyped. */}
+          {minVersion !== CURRENT && (
+            <button
+              type="button"
+              className="btn-ghost !min-h-11 shrink-0 !px-3 text-sm"
+              onClick={() => {
+                setMinVersionDraft(CURRENT)
+                set({ minVersion: CURRENT })
+              }}
+            >
+              Use this build ({CURRENT})
+            </button>
+          )}
           {minVersionBad ? (
             <span className="text-xs text-rose-700 dark:text-rose-400" role="alert">
               Use three numbers, like 0.2.0
@@ -152,12 +165,6 @@ export default function FlagsApp() {
             )
           )}
         </div>
-      </div>
-
-      {/* The displayed version (Profile, Settings → Data) saves on its own, separate from the switches above. */}
-      <h3 className="mb-2 mt-5 px-1 font-bold">Version shown</h3>
-      <div className="card p-4">
-        <AdminApp />
       </div>
 
       <h3 className="mb-2 mt-5 px-1 font-bold">Announcement</h3>

@@ -831,9 +831,6 @@ export function createLocalRepo(): Repo {
     async saveAppAi() {
       throw new Error('Not in the demo')
     },
-    async saveAppVersion() {
-      throw new Error('Not in the demo')
-    },
     async aiUsage() {
       return null
     },

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Camera, ChevronRight, HandHeart, ImagePlus, LogOut, Settings as SettingsIcon, ShieldCheck, Trash2, Users, Wallet, X } from 'lucide-react'
 import { repo } from '@/data'
+import { semverOf } from '@/lib/flags'
 import { useMe } from '@/hooks/auth'
 import type { PaymentHandles, UserProfile } from '@/types'
 import { usePageTitle } from '@/lib/brand'
@@ -18,7 +19,6 @@ import { Switch } from '@/components/Switch'
 import { useToast } from '@/components/Toast'
 import { AccountCard } from '@/components/ProfileCards'
 import { SupportSheet } from '@/components/SupportSheet'
-import { useAppVersion } from '@/hooks/useAppVersion'
 import { SavedPill, useSavedFlash } from './settings/common'
 
 type Handle = {
@@ -93,7 +93,6 @@ export default function Profile() {
     const to = HASH_ROUTES[loc.hash]
     if (to) nav(to, { replace: true })
   }, [loc.hash, nav])
-  const version = useAppVersion()
 
   const [name, setName] = useState(profile.displayName)
   const [phone, setPhone] = useState(profile.phone ?? '')
@@ -317,7 +316,7 @@ export default function Profile() {
       </button>
       <p className="mt-6 text-center text-xs font-semibold text-brand-600/80 dark:text-brand-300/80">Spending is wise, splitting is free. Split Now!</p>
       <p className="text-muted mb-10 mt-1 text-center text-xs" data-testid="profile-version">
-        Split Now v{version} · {repo.mode === 'demo' ? 'Demo mode' : 'Connected to Firebase'}
+        Split Now v{semverOf(__APP_VERSION__)} · {repo.mode === 'demo' ? 'Demo mode' : 'Connected to Firebase'}
       </p>
 
       <SupportSheet open={supportOpen} onClose={() => setSupportOpen(false)} />

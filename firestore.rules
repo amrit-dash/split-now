@@ -196,15 +196,13 @@ service cloud.firestore {
           && f.get('merchantMemory', true) is bool && f.get('whoseTurn', true) is bool && f.get('budgetAlerts', true) is bool;
       }
       function validAppConfig(d) {
-        return d.keys().hasOnly(['maintenance', 'maintenanceMessage', 'minVersion', 'announcement', 'flags', 'signups', 'version', 'updatedAt', 'updatedBy'])
+        return d.keys().hasOnly(['maintenance', 'maintenanceMessage', 'minVersion', 'announcement', 'flags', 'signups', 'updatedAt', 'updatedBy'])
           && d.get('maintenance', false) is bool
           && (!('maintenanceMessage' in d) || (d.maintenanceMessage is string && d.maintenanceMessage.size() <= 300))
           && d.get('minVersion', '0.0.0') is string && d.get('minVersion', '0.0.0').matches('[0-9]{1,5}\\.[0-9]{1,5}\\.[0-9]{1,5}')
           && (!('announcement' in d) || d.announcement == null || validAnnouncement(d.announcement))
           && validFlags(d.get('flags', {}))
           && d.get('signups', 'open') in ['open', 'invite']
-          // The version shown in Profile (src/lib/flags.ts DISPLAY_VERSION).
-          && (!('version' in d) || (d.version is string && d.version.matches('^[0-9]+([.][0-9]+){0,3}([-+][0-9A-Za-z.]{1,20})?$')))
           && d.get('updatedAt', 0) is int
           && d.get('updatedBy', '') is string;
       }

@@ -175,7 +175,7 @@ Splitwise solved "who owes whom". Its weak points today are where Split Now goes
 - ✅ Dark / light / system theme, seven accents (Violet, Ocean, Neon, Berry, Koi, Gold, Graphite) in a one-row picker with a dual-tone switch; the desktop favicon follows the accent at runtime, and installing the app (Add to Home Screen, Install app) takes the accent's own icon set (`public/icons/<accent>/` and a manifest per accent; iOS keeps the icon it was added with, Chrome offers to update an installed icon on launch)
 - ✅ Frosted notch in the tab bar around the + button, active-tab pill, toasts rising above the tab bar, the Aurora "smoke" blend on the + button and the Home card (paused while off-screen or in a hidden tab, stopped under reduced motion), 16 px inputs on touch screens so iOS never zooms
 - ✅ Accessibility baseline: 44 px targets (or 24 px with spacing), labels on every control, `aria-pressed` / radiogroups instead of colour-only state, `text-muted` (4.5:1) for secondary text, one `h1` per screen, `document.title` per route, focus moved on route change, skip link, error toasts as `role="alert"`
-- ✅ Version string `pkg.version+<git sha>` (`__APP_VERSION__`) shown in Settings → Data; a failed chunk load after a deploy reloads once
+- ✅ One version: `package.json`, built in as `pkg.version+<git sha>` (`__APP_VERSION__`); Profile shows `v3.2.0`, Settings → Data `v3.2.0 (c94f47f)`. Releases: a "Release x.y.z" PR (version bump + changelog) merged to main deploys and publishes the GitHub Release (`.github/workflows/release.yml`); a failed chunk load after a deploy reloads once
 - ⏳ Haptics (Android only; iOS Safari has no Vibration API)
 
 ### 3.8 Admin console and app configuration
@@ -373,7 +373,7 @@ fxRates/{yyyy-mm-dd | latest}                 ← server; any signed-in user rea
 config/app                                    ← admin-written, readable by everyone, signed out included (§3.8)
   maintenance, maintenanceMessage? (≤ 300), minVersion (x.y.z), announcement?: { text (≤ 300), level: info|warn, until? } | null,
   flags: { aiImages, aiSms, aiQuickAdd, liveTables, autoCapture, quickAdd, nudges, statementImport, payLinks, duplicates, merchantMemory, whoseTurn, budgetAlerts },
-  signups: open|invite, version? (the version shown in Profile, e.g. 2.1.1; set in /admin), updatedAt, updatedBy
+  signups: open|invite, updatedAt, updatedBy   (no `version`: the version people see is the build's own, package.json)
 config/limits                                 ← admin read/write; functions read (60 s cache); ranges in shared/limits.ts
   capturePerHour (60), capturePerDay (300), aiOwnPerHour (120), aiOwnPerDay (600), nudgePerDay (1),
   fxPerUserPerHour (30), fxPerUserPerDay (200), updatedAt, updatedBy

@@ -1,5 +1,28 @@
 # Changelog
 
+Each release is a "Release x.y.z" pull request: it bumps `package.json` and moves the notes from
+Unreleased under the new version. Merging it deploys to production and publishes the GitHub
+Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, breaking changes X.0.0.
+
+## Unreleased
+
+## 3.2.0 — October 2026
+
+The launch release.
+
+- **Koi accent**: a koi coral-orange on a deep pond indigo replaces Lime, which looked the same as Neon. Neon, a highlighter lime with dark text, is new too, and a stored Lime moves to it.
+- **Text on accent**: pick white or black text on accent colours, kept per accent; black comes with brighter fills. Dual tone off now stops the drifting patches as well.
+- **Your accent on your home screen**: installing the app (Add to Home Screen, Install app) takes the accent's own icon; Chrome offers to update an installed icon when the accent changes.
+- **Approvals**: two thresholds per group (needs an OK above one, small edits approved on their own below the other), defaults per currency, and any member may change them and the group currency.
+- **Pay me links and live tables**: "I've paid" is always recorded and the host confirms it; guests pay without an account; the tip is split equally and tax and fees by items or equally.
+- **Members**: a Members screen with soft remove and swipe actions; Nudge and Remind on Balances, with a share fallback when push is off.
+- **Quick add**: in the Create sheet, with AI help for lines the built-in reader can't follow.
+- **Auto-capture**: trip capture per person from the group form, several wallets, and AI reading of bank SMS only when you turn it on.
+- **Looks**: a calmer tab bar, a redesigned banner and maintenance screen, finer fireworks on bright cards, and a Support the developer card in Profile.
+- **Fixes**: currency decimals follow ISO 4217 instead of the device, and inactive tab labels meet contrast.
+- **Safer**: security headers on every site, patched dependencies, the code-scanning findings closed, and an App Check switch for admins.
+- **Version**: the version you see in Profile and Settings is the app's own (Settings → Data adds the build), not a number set by hand.
+
 ## 3.1.1 — October 2026
 
 The first open-source release, under the new name.

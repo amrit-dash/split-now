@@ -26,6 +26,7 @@ npm run build
 ```
 
 - Keep changes focused; one feature or fix per PR.
+- If people using the app would notice the change, add a line under `## Unreleased` in [CHANGELOG.md](CHANGELOG.md). Releases are cut by the maintainer.
 - Put pure logic in `src/lib/` (or `shared/` if Cloud Functions need it too) with unit tests.
 - Security rules changes need tests in `tests/`.
 - Match the surrounding style: TypeScript, React function components, Tailwind utility classes, short comments that explain *why*.

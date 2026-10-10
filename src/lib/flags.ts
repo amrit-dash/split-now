@@ -74,8 +74,6 @@ export interface AppConfig {
   announcement: Announcement | null
   flags: Record<FlagName, boolean>
   signups: Signups
-  /** The version shown in Profile (admins set it; the build's own version when missing). */
-  version?: string
   updatedAt?: number
   updatedBy?: string
 }
@@ -93,8 +91,6 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
 
 export const MAX_MESSAGE = 300
 const SEMVER = /^\d{1,5}\.\d{1,5}\.\d{1,5}$/
-/** What an admin may type as the displayed version: 2.1.1, 2.1, 2.1.1-beta.1 (mirrors firestore.rules). */
-export const DISPLAY_VERSION = /^\d+(\.\d+){0,3}([-+][0-9A-Za-z.]{1,20})?$/
 
 /** The stored document → a complete config; anything missing or mistyped falls back to the default (everything on). */
 export function resolveAppConfig(raw: unknown): AppConfig {
@@ -118,7 +114,6 @@ export function resolveAppConfig(raw: unknown): AppConfig {
     announcement,
     flags,
     signups: r.signups === 'invite' ? 'invite' : 'open',
-    ...(typeof r.version === 'string' && DISPLAY_VERSION.test(r.version) ? { version: r.version } : {}),
     ...(typeof r.updatedAt === 'number' ? { updatedAt: r.updatedAt } : {}),
     ...(typeof r.updatedBy === 'string' ? { updatedBy: r.updatedBy } : {}),
   }
@@ -135,8 +130,6 @@ export function toAppConfigDoc(cfg: AppConfig, by: string, now = Date.now()): Re
     updatedAt: now,
     updatedBy: by,
   }
-  // The displayed version is edited separately (Profile → Admin); a flags save must not drop it.
-  if (cfg.version && DISPLAY_VERSION.test(cfg.version)) doc.version = cfg.version
   if (cfg.maintenanceMessage.trim()) doc.maintenanceMessage = cfg.maintenanceMessage.trim().slice(0, MAX_MESSAGE)
   if (doc.announcement && (doc.announcement as Announcement).until === undefined) delete (doc.announcement as Announcement).until
   return doc
@@ -148,6 +141,15 @@ export const isSemver = (v: string) => SEMVER.test(v)
 export function semverOf(version: string): string {
   const m = /^\s*v?(\d{1,5}\.\d{1,5}\.\d{1,5})/.exec(version)
   return m ? m[1] : '0.0.0'
+}
+
+/**
+ * The build as people see it: "3.2.0 (c94f47f)" from __APP_VERSION__ ("3.2.0+c94f47f"), so a bug
+ * report names the exact deploy. A build with no commit (or "dev") shows the version alone.
+ */
+export function buildLabel(version: string): string {
+  const sha = /\+([0-9a-f]{7,40})$/.exec(version.trim())?.[1]
+  return sha ? `${semverOf(version)} (${sha})` : semverOf(version)
 }
 
 /** -1, 0 or 1 like a comparator; both inputs may carry a build suffix. */
