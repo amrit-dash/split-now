@@ -75,6 +75,7 @@ interface Particle {
   ember: boolean
   blend: FireworkLook['blend']
   halo: number
+  shrink: number
 }
 interface Flash {
   x: number
@@ -221,7 +222,7 @@ export function CardFirework() {
           born: clock + rand(0, 60),
           life: rand(1300, 2200),
           color: s.colors[i % s.colors.length],
-          r: rand(0.8, 1.35) * s.look.spark,
+          r: rand(0.8, 1.35) * s.look.dot,
           drag,
           grav: 34,
           alpha: s.bright * 0.75 * s.look.alpha,
@@ -229,6 +230,7 @@ export function CardFirework() {
           ember: false, // no twinkle: kept plain and quiet
           blend: s.look.blend,
           halo: s.look.halo,
+          shrink: s.look.shrink,
         })
       }
       flashes.push({ x: s.x, y: s.y, t: clock, a: s.bright, rgb: s.look.flash, blend: s.look.blend })
@@ -265,6 +267,7 @@ export function CardFirework() {
               ember: true,
               blend: s.look.blend,
               halo: s.look.halo,
+              shrink: 0,
             })
           }
           if (clock >= s.burstAt) {
@@ -334,6 +337,8 @@ export function CardFirework() {
           tw = 0.5 + 0.5 * Math.sin(clock / 70 + p.twinkle)
           a *= 0.45 + 0.75 * tw
         }
+        // Painted sparks (bright fills) shrink as they fall, so the lingering glitter stays fine.
+        const r = p.r * (1 - p.shrink * age)
         ctx.globalCompositeOperation = p.blend
         ctx.fillStyle = p.color
         ctx.strokeStyle = p.color
@@ -341,13 +346,13 @@ export function CardFirework() {
           // soft halo
           ctx.globalAlpha = a * p.halo
           ctx.beginPath()
-          ctx.arc(p.x, p.y, p.r * 3.2, 0, Math.PI * 2)
+          ctx.arc(p.x, p.y, r * 3.2, 0, Math.PI * 2)
           ctx.fill()
           // short streak while still moving fast
           const sp = Math.hypot(p.vx, p.vy)
           if (sp > 18) {
             ctx.globalAlpha = a * 0.35
-            ctx.lineWidth = p.r * 0.9
+            ctx.lineWidth = r * 0.9
             ctx.beginPath()
             ctx.moveTo(p.x - p.vx * 0.05, p.y - p.vy * 0.05)
             ctx.lineTo(p.x, p.y)
@@ -356,7 +361,7 @@ export function CardFirework() {
         }
         ctx.globalAlpha = Math.min(1, a * 0.75)
         ctx.beginPath()
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2)
         ctx.fill()
         // tiny four-point glint on the twinklers when they peak
         if (tw > 0.72) {

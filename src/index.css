@@ -66,12 +66,11 @@
    for the lighter hues (the cyan / sky / teal duo partners) so brand-600 reads as text on white
    and, where a preset fills with brand-600 / duo-600 (all but Neon), white text on both ends of
    btn-primary stays at 4.5:1 or better. accent.test.ts measures on-fill against fill and fill-to,
-   and brand-600 against white, for every preset. Lime and Gold keep Tailwind's bright 50–400 (the neon / gold glow in the
-   Aurora patches and dark-mode text) and use hand-tuned deep steps from 500 down, since their
-   Tailwind 600s cannot carry white text. Lime stays a yellow-green (hue ~129) with a petrol-cyan
-   partner so it never reads as the emerald (hue ~165) of "you are owed". Emerald / Rose (the
-   owed / owe colours), the orange Saffron (too close to Gold) and Indigo (a third blue beside
-   Violet and Ocean; Neon took its place) were retired. */
+   and brand-600 against white, for every preset. Gold keeps Tailwind's bright 50–400 (the gold glow in the
+   Aurora patches and dark-mode text) and uses hand-tuned deep steps from 500 down, since its
+   Tailwind 600 cannot carry white text. Emerald / Rose (the owed / owe colours), the orange
+   Saffron (too close to Gold), Indigo (a third blue beside Violet and Ocean; Neon took its place)
+   and Lime (with white text it looked the same as Neon; Koi took its place) were retired. */
 :root {
   &[data-accent='ocean'] {
     --color-brand-50: oklch(97% 0.014 254.604); --color-brand-100: oklch(93.2% 0.032 255.585); --color-brand-200: oklch(88.2% 0.059 254.128); --color-brand-300: oklch(80.9% 0.105 251.813); --color-brand-400: oklch(70.7% 0.165 254.624); --color-brand-500: oklch(62.3% 0.214 259.815); --color-brand-600: oklch(54.6% 0.245 262.881); --color-brand-700: oklch(48.8% 0.243 264.376); --color-brand-800: oklch(42.4% 0.199 265.638); --color-brand-900: oklch(37.9% 0.146 265.522);
@@ -79,7 +78,7 @@
   }
   /* Neon: a highlighter lime fill (#c6ff00) with a bright aqua partner and dark ink on top, since
      white on a highlighter is about 1.2:1. Its brand scale is bright up to 400 (dark-mode text,
-     tints) and deep from 500 (text and rings on white), like Lime's; only the fills are neon. Its
+     tints) and deep from 500 (text and rings on white), like Gold's; only the fills are neon. Its
      fill shades stay light so the aurora patches never darken the fill under the dark text. */
   &[data-accent='neon'] {
     --color-brand-50: oklch(98.6% 0.031 120.757); --color-brand-100: oklch(97.2% 0.075 123); --color-brand-200: oklch(95.5% 0.13 124); --color-brand-300: oklch(94% 0.18 124.5); --color-brand-400: oklch(92.7% 0.231 124.4); --color-brand-500: oklch(72% 0.2 127); --color-brand-600: oklch(52% 0.15 129); --color-brand-700: oklch(46% 0.125 129); --color-brand-800: oklch(40.5% 0.1 130); --color-brand-900: oklch(33% 0.08 131);
@@ -92,9 +91,11 @@
     --color-brand-50: oklch(97.7% 0.017 340); --color-brand-100: oklch(94.8% 0.035 340); --color-brand-200: oklch(89.9% 0.07 340); --color-brand-300: oklch(82.3% 0.12 340); --color-brand-400: oklch(71.8% 0.18 342); --color-brand-500: oklch(62% 0.21 343); --color-brand-600: oklch(53% 0.2 343); --color-brand-700: oklch(46% 0.18 345); --color-brand-800: oklch(40% 0.15 347); --color-brand-900: oklch(34% 0.12 348);
     --color-duo-50: oklch(98.4% 0.015 192); --color-duo-100: oklch(95.5% 0.048 192); --color-duo-200: oklch(91.3% 0.09 193); --color-duo-300: oklch(86% 0.13 194); --color-duo-400: oklch(71% 0.135 195); --color-duo-500: oklch(60.5% 0.115 196); --color-duo-600: oklch(51.5% 0.095 197); --color-duo-700: oklch(44.5% 0.08 198); --color-duo-800: oklch(39% 0.066 199); --color-duo-900: oklch(28.5% 0.048 202);
   }
-  &[data-accent='lime'] {
-    --color-brand-50: oklch(98.6% 0.031 120.757); --color-brand-100: oklch(96.7% 0.067 122.328); --color-brand-200: oklch(93.8% 0.127 124.321); --color-brand-300: oklch(89.7% 0.196 126.665); --color-brand-400: oklch(84.1% 0.238 128.85); --color-brand-500: oklch(70% 0.2 130); --color-brand-600: oklch(52% 0.15 129); --color-brand-700: oklch(46% 0.125 129); --color-brand-800: oklch(40.5% 0.1 130); --color-brand-900: oklch(33% 0.08 131);
-    --color-duo-50: oklch(98.4% 0.019 200.873); --color-duo-100: oklch(95.6% 0.045 203.388); --color-duo-200: oklch(91.7% 0.08 205.041); --color-duo-300: oklch(86.5% 0.127 207.078); --color-duo-400: oklch(72% 0.135 210); --color-duo-500: oklch(61% 0.12 213); --color-duo-600: oklch(52% 0.1 215); --color-duo-700: oklch(45% 0.085 217); --color-duo-800: oklch(39.5% 0.07 219); --color-duo-900: oklch(30% 0.055 222);
+  /* Koi: a koi's coral-orange on a deep pond indigo, the complementary pair the way Berry's pink
+     sits on teal. The coral stays at hue ~43 so it never reads as the rose (~16) of "you owe". */
+  &[data-accent='koi'] {
+    --color-brand-50: oklch(98% 0.016 45); --color-brand-100: oklch(95.4% 0.038 45); --color-brand-200: oklch(90.5% 0.075 44); --color-brand-300: oklch(83.5% 0.12 43); --color-brand-400: oklch(74% 0.165 43); --color-brand-500: oklch(66% 0.18 47); --color-brand-600: oklch(55.5% 0.165 48); --color-brand-700: oklch(48.5% 0.145 47); --color-brand-800: oklch(42% 0.122 46); --color-brand-900: oklch(35% 0.1 46);
+    --color-duo-50: oklch(97.5% 0.014 275); --color-duo-100: oklch(94.5% 0.03 275); --color-duo-200: oklch(89.5% 0.058 275); --color-duo-300: oklch(81.5% 0.1 276); --color-duo-400: oklch(70.5% 0.155 277); --color-duo-500: oklch(60% 0.2 277); --color-duo-600: oklch(51.5% 0.215 277); --color-duo-700: oklch(45.5% 0.2 277); --color-duo-800: oklch(39.5% 0.165 278); --color-duo-900: oklch(33% 0.12 278);
   }
   &[data-accent='gold'] {
     --color-brand-50: oklch(98.7% 0.026 102.212); --color-brand-100: oklch(97.3% 0.071 103.193); --color-brand-200: oklch(94.5% 0.129 101.54); --color-brand-300: oklch(90.5% 0.182 98.111); --color-brand-400: oklch(85.2% 0.199 91.936); --color-brand-500: oklch(72% 0.16 82); --color-brand-600: oklch(54% 0.12 80); --color-brand-700: oklch(46% 0.1 76); --color-brand-800: oklch(40% 0.085 73); --color-brand-900: oklch(30% 0.065 70);
@@ -131,9 +132,9 @@
     --color-fill-to: oklch(80% 0.13 195); --color-fill-to-400: oklch(88% 0.13 195); --color-fill-to-500: oklch(84% 0.13 195);
     --color-on-fill: #0b0a14;
   }
-  &[data-accent='lime']:where([data-ink='dark']) {
-    --color-fill: oklch(84% 0.216 129); --color-fill-300: oklch(96% 0.09 129); --color-fill-400: oklch(93% 0.178 129); --color-fill-500: oklch(89% 0.22 129); --color-fill-700: oklch(81% 0.209 129); --color-fill-800: oklch(78% 0.201 129); --color-fill-900: oklch(75% 0.193 129);
-    --color-fill-to: oklch(80% 0.13 213); --color-fill-to-400: oklch(88% 0.098 213); --color-fill-to-500: oklch(84% 0.13 213);
+  &[data-accent='koi']:where([data-ink='dark']) {
+    --color-fill: oklch(76% 0.15 45); --color-fill-300: oklch(89% 0.07 45); --color-fill-400: oklch(84% 0.1 45); --color-fill-500: oklch(80% 0.128 45); --color-fill-700: oklch(72% 0.16 45); --color-fill-800: oklch(68% 0.17 45); --color-fill-900: oklch(64% 0.175 45);
+    --color-fill-to: oklch(77% 0.12 278); --color-fill-to-400: oklch(86% 0.075 278); --color-fill-to-500: oklch(82% 0.1 278);
     --color-on-fill: #0b0a14;
   }
   &[data-accent='gold']:where([data-ink='dark']) {

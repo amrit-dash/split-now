@@ -112,10 +112,10 @@ describe('accent', () => {
   })
 
   it('lists every accent with its own ink for the swatches', () => {
-    expect(allInks()).toEqual({ violet: 'light', ocean: 'light', neon: 'dark', berry: 'light', lime: 'light', gold: 'light', graphite: 'light' })
-    setInk('dark', 'lime')
+    expect(allInks()).toEqual({ violet: 'light', ocean: 'light', neon: 'dark', berry: 'light', koi: 'light', gold: 'light', graphite: 'light' })
+    setInk('dark', 'koi')
     setInk('light', 'neon')
-    expect(allInks()).toMatchObject({ violet: 'light', neon: 'light', lime: 'dark' })
+    expect(allInks()).toMatchObject({ violet: 'light', neon: 'light', koi: 'dark' })
   })
 
   it('sets the ink of a named accent without touching the others', () => {
@@ -123,7 +123,7 @@ describe('accent', () => {
     setInk('light', 'violet')
     expect(storedInks()).toEqual({ gold: 'dark', violet: 'light' })
     expect(getInk('gold')).toBe('dark')
-    expect(getInk('lime')).toBe('light')
+    expect(getInk('koi')).toBe('light')
   })
 
   it('falls back to the defaults for bad JSON, old plain values and bad entries', () => {
@@ -153,13 +153,13 @@ describe('accent', () => {
   })
 
   it('persists accent and duo', () => {
-    setAccent('lime')
+    setAccent('koi')
     setDuo(false)
-    expect(dom.store.get(ACCENT_KEY)).toBe('lime')
+    expect(dom.store.get(ACCENT_KEY)).toBe('koi')
     expect(dom.store.get(DUO_KEY)).toBe('off')
-    expect(getAccent()).toBe('lime')
+    expect(getAccent()).toBe('koi')
     expect(getDuo()).toBe(false)
-    expect(dom.attrs.get('data-accent')).toBe('lime')
+    expect(dom.attrs.get('data-accent')).toBe('koi')
     expect(dom.attrs.get('data-duo')).toBe('off')
     setDuo(true)
     expect(getDuo()).toBe(true)
@@ -178,7 +178,7 @@ describe('accent', () => {
     }
   })
 
-  it('moves the retired presets to their successors (Saffron, Amber to Gold; Indigo to Ocean)', () => {
+  it('moves the retired presets to their successors (Saffron, Amber to Gold; Indigo to Ocean; Lime to Neon)', () => {
     for (const old of ['saffron', 'amber']) {
       dom.store.set(ACCENT_KEY, old)
       expect(getAccent()).toBe('gold')
@@ -189,6 +189,9 @@ describe('accent', () => {
     // Indigo was one blue too many beside Violet and Ocean; it moves to Ocean.
     dom.store.set(ACCENT_KEY, 'indigo')
     expect(getAccent()).toBe('ocean')
+    // Lime looked the same as Neon with white text; it moves to Neon.
+    dom.store.set(ACCENT_KEY, 'lime')
+    expect(getAccent()).toBe('neon')
     // Prototype keys are not presets.
     dom.store.set(ACCENT_KEY, 'constructor')
     expect(getAccent()).toBe('violet')
@@ -349,7 +352,7 @@ describe('accent presets stay in sync', () => {
   })
 
   it('retired presets are gone from the CSS and nothing references brand-vivid', () => {
-    for (const id of ['emerald', 'rose', 'amber', 'saffron', 'indigo']) expect(css).not.toContain(`[data-accent='${id}']`)
+    for (const id of ['emerald', 'rose', 'amber', 'saffron', 'indigo', 'lime']) expect(css).not.toContain(`[data-accent='${id}']`)
     expect(css).not.toContain('brand-vivid')
   })
 
