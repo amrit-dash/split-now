@@ -1,5 +1,6 @@
 import { blobToDataUrl } from '@/lib/image'
 import { archiveWrite, expenseMemberIds, isArchivedFor, uidsOfMembers, unarchiveInvolved } from '../../shared/archive'
+import { purgeDue } from '../../shared/group-trash'
 import type { ActivityEntry, Capture, Expense, ExpenseComment, Group, Settlement, UserProfile } from '@/types'
 import { inviteCode, todayISO, uid } from '@/lib/id'
 import { inboxToDraft, newCaptureToken } from '@/lib/capture'
@@ -25,7 +26,7 @@ import {
   compact,
   draftToCapture,
   errorChannel,
-  groupDeleteBlocker,
+  groupPurgeBlocker,
   memberProfileOf,
   placeholdersOf,
   type AuthUser,
@@ -97,6 +98,16 @@ export function createLocalRepo(): Repo {
     const u = state.user
     return { uid: u?.uid ?? 'me', name: state.profiles[u?.uid ?? '']?.displayName ?? u?.displayName ?? 'You' }
   }
+  /** A group and everything in it, gone for good (purgeGroup, and the 30-day purge below). */
+  const removeGroup = (id: string) => {
+    delete state.groups[id]
+    for (const [k, e] of Object.entries(state.expenses)) if (e.groupId === id) delete state.expenses[k]
+    for (const [k, s] of Object.entries(state.settlements)) if (s.groupId === id) delete state.settlements[k]
+    for (const [k, c] of Object.entries(comments())) if (c.groupId === id) delete comments()[k]
+    for (const [k, a] of Object.entries(activity())) if (a.groupId === id) delete activity()[k]
+  }
+  // Recently deleted groups past their 30 days go for good, as the daily purge does in Firebase.
+  for (const g of Object.values(state.groups)) if (purgeDue(g, Date.now())) removeGroup(g.id)
   const ctx = (groupId: string, item?: object) => activityCtxFor(state.groups[groupId], me(), item)
   const log = (groupId: string, a: NewActivity | null) => {
     if (!a) return
@@ -322,8 +333,17 @@ export function createLocalRepo(): Repo {
       watch(
         () =>
           Object.values(state.groups)
-            .filter((g) => g.memberUids.includes(userId))
+            .filter((g) => g.memberUids.includes(userId) && typeof g.deletedAt !== 'number')
             .sort((a, b) => b.updatedAt - a.updatedAt)
+            .map(asGroup),
+        cb,
+      ),
+    watchDeletedGroups: (userId, cb) =>
+      watch(
+        () =>
+          Object.values(state.groups)
+            .filter((g) => g.memberUids.includes(userId) && typeof g.deletedAt === 'number')
+            .sort((a, b) => (b.deletedAt ?? 0) - (a.deletedAt ?? 0))
             .map(asGroup),
         cb,
       ),
@@ -409,16 +429,27 @@ export function createLocalRepo(): Repo {
       }
       commit()
     },
-    async deleteGroup(id) {
+    async deleteGroup(group) {
+      const g = state.groups[group.id]
+      if (!g || typeof g.deletedAt === 'number') return
+      // Like the rules: the creator, or any member once the creator has left.
+      if (g.createdBy !== me().uid && g.memberUids.includes(g.createdBy)) return refuse('Deleting group', 'only the person who created it can delete it')
+      state.groups[group.id] = { ...g, deletedAt: Date.now(), deletedBy: me().uid }
+      commit()
+    },
+    async restoreGroup(group) {
+      const g = state.groups[group.id]
+      if (!g) return
+      const { deletedAt: _a, deletedBy: _b, ...rest } = g
+      state.groups[group.id] = rest
+      commit()
+    },
+    async purgeGroup(id) {
       const g = state.groups[id]
       if (!g) return
-      const blocker = groupDeleteBlocker(g, me().uid)
+      const blocker = groupPurgeBlocker(g, me().uid)
       if (blocker) throw new Error(blocker)
-      delete state.groups[id]
-      for (const [k, e] of Object.entries(state.expenses)) if (e.groupId === id) delete state.expenses[k]
-      for (const [k, s] of Object.entries(state.settlements)) if (s.groupId === id) delete state.settlements[k]
-      for (const [k, c] of Object.entries(comments())) if (c.groupId === id) delete comments()[k]
-      for (const [k, a] of Object.entries(activity())) if (a.groupId === id) delete activity()[k]
+      removeGroup(id)
       commit()
     },
 

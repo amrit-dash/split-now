@@ -1,16 +1,20 @@
 import { Link } from 'react-router-dom'
-import { FileUp, Plus, Scale } from 'lucide-react'
-import { useAllGroupData } from '@/hooks/data'
+import { FileUp, Plus, Scale, Trash2 } from 'lucide-react'
+import { useAllGroupData, useDeletedGroups } from '@/hooks/data'
 import { GroupRow } from '@/components/GroupRow'
 import { PageHeader } from '@/components/Misc'
 import { Collapsible } from '@/components/Collapsible'
 import { ListSkeleton } from '@/components/Skeleton'
 import { usePageTitle } from '@/lib/brand'
+import { useMe } from '@/hooks/auth'
+import type { Group } from '@/types'
+import { daysLeft } from '../../shared/group-trash'
 import { EmptyGroups, FirstRun, Section } from './Home'
 
 export default function Groups() {
   usePageTitle('Groups')
   const data = useAllGroupData()
+  const deleted = useDeletedGroups()
   const header = (
     <PageHeader
       title="Groups"
@@ -90,6 +94,47 @@ export default function Groups() {
           </div>
         </Collapsible>
       )}
+      {deleted && deleted.length > 0 && <RecentlyDeletedGroups groups={deleted} />}
     </div>
+  )
+}
+
+/**
+ * Groups someone deleted, kept 30 days (shared/group-trash.ts): who deleted each and how long is
+ * left. Opening one shows Restore (any member) and, for its creator, Delete forever.
+ */
+function RecentlyDeletedGroups({ groups }: { groups: Group[] }) {
+  const { user } = useMe()
+  const now = Date.now()
+  return (
+    <Collapsible
+      title="Recently deleted"
+      summary={`${groups.length} ${groups.length === 1 ? 'group' : 'groups'} · anyone in it can restore it`}
+      className="!mt-3"
+      testId="deleted-groups"
+    >
+      <ul className="-mx-4 -mb-4 divide-y divide-slate-100 dark:divide-white/5">
+        {groups.map((g) => {
+          const by = g.deletedBy === user.uid ? 'you' : (Object.values(g.members).find((m) => m.uid === g.deletedBy)?.name ?? 'someone')
+          const left = daysLeft(g.deletedAt ?? now, now)
+          return (
+            <li key={g.id}>
+              <Link to={`/groups/${g.id}`} className="flex min-h-14 items-center gap-3 px-4 py-3" data-testid="deleted-group-row">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-xl dark:bg-ink-800" aria-hidden>
+                  {g.emoji}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-semibold">{g.name}</span>
+                  <span className="text-muted block truncate text-xs">
+                    Deleted by {by} · {left === 1 ? '1 day' : `${left} days`} left to restore
+                  </span>
+                </span>
+                <Trash2 size={16} className="text-muted shrink-0" aria-hidden />
+              </Link>
+            </li>
+          )
+        })}
+      </ul>
+    </Collapsible>
   )
 }

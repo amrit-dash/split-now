@@ -320,7 +320,7 @@ service cloud.firestore {
       // settings and the currency (owner decision, Oct 2026); validGroupShape checks their values.
       function validGroupShape(g) {
         return g.keys().hasOnly(['id', 'name', 'emoji', 'type', 'currency', 'budget', 'startDate', 'endDate', 'simplify',
-            'requireApproval', 'approvalThreshold', 'editAutoApprove', 'paymentApproval', 'captureOff', 'archived', 'archivedBy', 'memberUids', 'members', 'inviteCode',
+            'requireApproval', 'approvalThreshold', 'editAutoApprove', 'paymentApproval', 'captureOff', 'archived', 'archivedBy', 'deletedAt', 'deletedBy', 'memberUids', 'members', 'inviteCode',
             'createdBy', 'createdAt', 'updatedAt', 'joinCode', 'joinMemberId', 'memberOpId'])
           && g.name is string && g.name.size() > 0 && g.name.size() <= 80
           && g.emoji is string && g.emoji.size() <= 16
@@ -343,6 +343,8 @@ service cloud.firestore {
           && g.get('captureOff', false) is bool
           && g.get('archived', false) is bool
           && g.get('archivedBy', []) is list && g.get('archivedBy', []).size() <= 60
+          && (!('deletedAt' in g) || g.deletedAt is int)
+          && (!('deletedBy' in g) || (g.deletedBy is string && g.deletedBy.size() <= 128))
           && (!('joinCode' in g) || g.joinCode is string)
           && (!('joinMemberId' in g) || g.joinMemberId is string)
           && (!('memberOpId' in g) || g.memberOpId is string);
@@ -358,6 +360,8 @@ service cloud.firestore {
         let mid = after.joinMemberId;
         return isUser()
           && !(uid() in before.memberUids)
+          // nobody joins a group in Recently deleted
+          && !('deletedAt' in before)
           && after.joinCode == before.inviteCode
           && after.memberUids.toSet() == before.memberUids.toSet().union([uid()].toSet())
           && after.memberUids.size() <= 60
@@ -462,8 +466,27 @@ service cloud.firestore {
           && request.resource.data.inviteCode == resource.data.inviteCode
           && validGroupShape(request.resource.data)
           && validArchiveChange()
+          && validDeleteChange()
           && (validMembershipChange() || isOwnMemberEdit()))
         || isJoining());
+
+      // Deleting is safe (shared/group-trash.ts): it sets deletedAt + deletedBy and nothing else,
+      // by the creator, or by any member once the creator has left the group (the app also asks
+      // that everyone be square then). While deleted the group is read-only, except that any
+      // member may restore it by removing just those two fields. The daily purge removes it for
+      // good after 30 days; the creator may do so sooner (allow delete below).
+      function validDeleteChange() {
+        let wasDeleted = 'deletedAt' in resource.data;
+        let isDeleted = 'deletedAt' in request.resource.data;
+        let keys = request.resource.data.diff(resource.data).affectedKeys();
+        return (!wasDeleted && !isDeleted && !keys.hasAny(['deletedBy']))
+          || (!wasDeleted && isDeleted
+            && keys.hasOnly(['deletedAt', 'deletedBy'])
+            && request.resource.data.deletedBy == uid()
+            && (resource.data.createdBy == uid() || !(resource.data.createdBy in resource.data.memberUids)))
+          || (wasDeleted && !isDeleted && !('deletedBy' in request.resource.data)
+            && keys.hasOnly(['deletedAt', 'deletedBy']));
+      }
 
       // Archiving is personal (shared/archive.ts): a member adds or removes only their own uid in
       // archivedBy, and nobody sets the old group-wide `archived` flag again. Unarchiving a group

@@ -90,6 +90,7 @@ async function loadGroup(uid: string, item: NudgeItem): Promise<Loaded> {
   const gSnap = await db().doc(`groups/${item.groupId}`).get()
   const g = gSnap.data() as GroupLite | undefined
   if (!g) throw new HttpsError('not-found', 'Group not found')
+  if (typeof (g as { deletedAt?: unknown }).deletedAt === 'number') throw new HttpsError('failed-precondition', 'This group was deleted')
   const uids = Array.isArray(g.memberUids) ? g.memberUids.filter((u): u is string => typeof u === 'string') : []
   if (!uids.includes(uid)) throw new HttpsError('permission-denied', 'Not a member of this group')
   const members = g.members ?? {}

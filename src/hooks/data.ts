@@ -72,6 +72,7 @@ function useSharedMeta(key: string | null, start: (cb: (v: unknown, meta?: SnapM
 
 const keys = {
   groups: groupsKey,
+  deletedGroups: (uid: string) => `deletedGroups/${uid}`,
   captures: (uid: string) => `captures/${uid}`,
   group: (id: string) => `group/${id}`,
   expenses: (id: string) => `expenses/${id}`,
@@ -104,6 +105,12 @@ const startActivity = (id: string, max: number) => (cb: (a: ActivityEntry[], m?:
   rewatchWhileFresh(id, () => repo.watchActivity(id, cb, max))
 
 // ---- Hooks ---------------------------------------------------------------------------------
+
+/** The user's groups in Recently deleted (newest deletion first); null while loading. */
+export function useDeletedGroups(): Group[] | null {
+  const { user } = useMe()
+  return useShared(keys.deletedGroups(user.uid), (cb: (g: Group[], m?: SnapMeta) => void) => repo.watchDeletedGroups(user.uid, cb)) ?? null
+}
 
 export function useGroups(): Group[] | null {
   const { user } = useMe()

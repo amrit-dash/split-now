@@ -79,7 +79,7 @@ import {
   compact,
   draftToCapture,
   errorChannel,
-  groupDeleteBlocker,
+  groupPurgeBlocker,
   placeholdersOf,
   storagePathFromUrl,
   memberProfileOf,
@@ -491,12 +491,33 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         q,
         { includeMetadataChanges: true },
         (s) => {
-          if (!last || s.docChanges().length) last = s.docs.map((d) => asGroup(d.id, d.data())).sort((a, b) => b.updatedAt - a.updatedAt)
+          // Deleted groups (Recently deleted) are left out here; watchDeletedGroups lists them.
+          if (!last || s.docChanges().length)
+            last = s.docs
+              .map((d) => asGroup(d.id, d.data()))
+              .filter((g) => typeof g.deletedAt !== 'number')
+              .sort((a, b) => b.updatedAt - a.updatedAt)
           cb(last, metaOf(s))
         },
         (e) => {
           cb([], FAILED)
           errors.emit('read', e, 'Loading your groups')
+        },
+      )
+    },
+    watchDeletedGroups(userId, cb) {
+      // memberUids + deletedAt: a composite index (firestore.indexes.json), so only deleted groups are read.
+      const q = query(collection(db, 'groups'), where('memberUids', 'array-contains', userId), where('deletedAt', '>', 0), orderBy('deletedAt', 'desc'))
+      return onSnapshot(
+        q,
+        (s) =>
+          cb(
+            s.docs.map((d) => asGroup(d.id, d.data())),
+            metaOf(s),
+          ),
+        (e) => {
+          cb([], FAILED)
+          errors.emit('read', e, 'Loading recently deleted groups')
         },
       )
     },
@@ -636,7 +657,21 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       if (m?.uid) batch.delete(memberProfileRef(group.id, m.uid))
       fire(batch, `Removing ${m?.name ?? 'member'}`)
     },
-    async deleteGroup(id) {
+    async deleteGroup(group) {
+      const me = auth.currentUser?.uid
+      if (!me) return
+      // A plain write (works offline, like other edits): the group goes to Recently deleted for
+      // everyone. The rules allow it for the creator, or any member once the creator has left.
+      const batch = writeBatch(db)
+      batch.update(groupRef(group.id), { deletedAt: Date.now(), deletedBy: me })
+      fire(batch, 'Deleting group')
+    },
+    async restoreGroup(group) {
+      const batch = writeBatch(db)
+      batch.update(groupRef(group.id), { deletedAt: deleteField(), deletedBy: deleteField() })
+      fire(batch, 'Restoring group')
+    },
+    async purgeGroup(id) {
       // Needs the server: it lists every sub-collection first, and a half-applied offline delete
       // would come back (rolled back) later with no explanation. onGroupDeleted (Cloud Functions)
       // sweeps up anything left behind (activity beyond one batch, a receipt that timed out).
@@ -644,7 +679,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       const s = await getDoc(groupRef(id))
       if (!s.exists()) return // already gone
       const g = { ...(s.data() as Group), id }
-      const blocker = groupDeleteBlocker(g, me())
+      const blocker = groupPurgeBlocker(g, me())
       if (blocker) throw new Error(blocker)
       const failed = (e: unknown): never => {
         const denied = (e as { code?: string })?.code === 'permission-denied'
