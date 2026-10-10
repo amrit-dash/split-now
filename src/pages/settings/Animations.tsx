@@ -5,7 +5,17 @@ import { CardFirework } from '@/components/CardFirework'
 import { Segmented } from '@/components/Misc'
 import { Switch } from '@/components/Switch'
 import { useMotion } from '@/hooks/useMotion'
-import { type FireworkSize, type FlowSpeed, getPreviewShown, isDefaultMotion, type MotionPrefs, resetMotion, setMotion, setPreviewShown } from '@/lib/motion'
+import {
+  type FireworkSize,
+  type FlowSpeed,
+  type GlitterSize,
+  getPreviewShown,
+  isDefaultMotion,
+  type MotionPrefs,
+  resetMotion,
+  setMotion,
+  setPreviewShown,
+} from '@/lib/motion'
 import { SavedPill, SectionTitle, SettingsPage, useSavedFlash } from './common'
 
 /**
@@ -100,12 +110,13 @@ export default function Animations() {
               testId="motion-glitter"
             />
             <fieldset disabled={!prefs.glitter} className={`mt-4 transition-opacity ${prefs.glitter ? '' : 'opacity-50'}`}>
-              <SizePicker
+              <SizePicker<GlitterSize>
                 label="Glitter size"
                 hint="How big they are as they linger"
                 testId="motion-glitter-size"
                 value={prefs.glitterSize}
                 onChange={(glitterSize) => set({ glitterSize })}
+                options={GLITTER_SIZES}
               />
             </fieldset>
           </Sub>
@@ -203,24 +214,28 @@ function Sub({ off, children }: { off: boolean; children: ReactNode }) {
   )
 }
 
-const SIZES = [
-  { value: 'small' as const, label: 'Small' },
-  { value: 'medium' as const, label: 'Medium' },
-  { value: 'big' as const, label: 'Big' },
+const SIZES: Array<{ value: FireworkSize; label: string }> = [
+  { value: 'small', label: 'Small' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'big', label: 'Big' },
 ]
+// Glitter goes one size finer, so it can be clearly smaller than the sparks it comes from.
+const GLITTER_SIZES: Array<{ value: GlitterSize; label: string }> = [{ value: 'tiny', label: 'Tiny' }, ...SIZES]
 
-function SizePicker({
+function SizePicker<T extends string = FireworkSize>({
   label,
   hint,
   value,
   onChange,
   testId,
+  options = SIZES as Array<{ value: T; label: string }>,
 }: {
   label: string
   hint?: string
-  value: FireworkSize
-  onChange: (v: FireworkSize) => void
+  value: T
+  onChange: (v: T) => void
   testId: string
+  options?: Array<{ value: T; label: string }>
 }) {
   return (
     <div>
@@ -228,7 +243,7 @@ function SizePicker({
         <span className="label !mb-0">{label}</span>
         {hint && <span className="text-muted text-xs">{hint}</span>}
       </div>
-      <Segmented<FireworkSize> label={label} testId={testId} value={value} onChange={onChange} options={SIZES} />
+      <Segmented<T> label={label} testId={testId} value={value} onChange={onChange} options={options} />
     </div>
   )
 }
