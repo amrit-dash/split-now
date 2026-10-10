@@ -9,6 +9,8 @@
  */
 
 export type FireworkSize = 'small' | 'medium' | 'big'
+/** Glitter has one size below small, so it can be clearly finer than the sparks it comes from. */
+export type GlitterSize = 'tiny' | FireworkSize
 export type FlowSpeed = 'slow' | 'normal' | 'fast'
 
 export interface MotionPrefs {
@@ -22,7 +24,7 @@ export interface MotionPrefs {
   /** The remnants a burst leaves: its sparks, once slowed, drifting down and flickering out. */
   glitter: boolean
   /** How big those remnants are (the same sparks, eased to this size as they slow). */
-  glitterSize: FireworkSize
+  glitterSize: GlitterSize
   /** The drifting colour patches on the Home card, the + button and accent buttons. */
   flow: boolean
   speed: FlowSpeed
@@ -44,6 +46,7 @@ export const DEFAULT_MOTION: MotionPrefs = {
 export const MOTION_KEY = 'splitit-motion'
 
 const SIZES: readonly FireworkSize[] = ['small', 'medium', 'big']
+const GLITTER_SIZES: readonly GlitterSize[] = ['tiny', 'small', 'medium', 'big']
 const SPEEDS: readonly FlowSpeed[] = ['slow', 'normal', 'fast']
 
 /** Stored JSON to prefs: unknown or bad values fall back to the default one by one, so an old or hand-edited entry never breaks the app. */
@@ -57,14 +60,14 @@ export function parseMotion(raw: string | null | undefined): MotionPrefs {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return { ...DEFAULT_MOTION }
   const o = v as Record<string, unknown>
   const bool = (k: keyof MotionPrefs) => (typeof o[k] === 'boolean' ? (o[k] as boolean) : (DEFAULT_MOTION[k] as boolean))
-  const size = (k: 'size' | 'sparkSize' | 'glitterSize') => (SIZES.includes(o[k] as FireworkSize) ? (o[k] as FireworkSize) : DEFAULT_MOTION[k])
+  const size = (k: 'size' | 'sparkSize') => (SIZES.includes(o[k] as FireworkSize) ? (o[k] as FireworkSize) : DEFAULT_MOTION[k])
   return {
     on: bool('on'),
     fireworks: bool('fireworks'),
     size: size('size'),
     sparkSize: size('sparkSize'),
     glitter: bool('glitter'),
-    glitterSize: size('glitterSize'),
+    glitterSize: GLITTER_SIZES.includes(o.glitterSize as GlitterSize) ? (o.glitterSize as GlitterSize) : DEFAULT_MOTION.glitterSize,
     flow: bool('flow'),
     speed: SPEEDS.includes(o.speed as FlowSpeed) ? (o.speed as FlowSpeed) : DEFAULT_MOTION.speed,
     circles: bool('circles'),
@@ -86,9 +89,9 @@ export function fireworkScale(size: FireworkSize): number {
   return size === 'small' ? 0.7 : size === 'big' ? 1.35 : 1
 }
 
-/** Particle size multiplier, for the burst's sparks and, separately, the remnants they become. */
-export function particleScale(size: FireworkSize): number {
-  return size === 'small' ? 0.65 : size === 'big' ? 1.6 : 1
+/** Particle size multiplier, for the burst's sparks and, separately, the remnants they become (glitter adds Tiny). */
+export function particleScale(size: GlitterSize): number {
+  return size === 'tiny' ? 0.35 : size === 'small' ? 0.6 : size === 'big' ? 1.6 : 1
 }
 
 /**
@@ -101,16 +104,48 @@ export function sparkLife(glitter: boolean): readonly [number, number] {
   return glitter ? [1300, 2200] : [550, 800]
 }
 
-/** How far a spark has become a remnant, 0..1 by the share of its life: 0 while it flies out, easing to 1 as it slows. */
-export function remnantMix(age: number): number {
-  const t = Math.min(1, Math.max(0, (age - 0.3) / 0.35))
+/** ms after the burst when its sparks start turning into glitter, and when they have (the burst has finished spreading by then). */
+export const REMNANT_FROM = 450
+export const REMNANT_TO = 850
+
+/**
+ * How far a spark has become a remnant, 0..1 by the ms since its burst: 0 while it flies out,
+ * easing to 1 as it slows. Timed from the burst rather than as a share of each spark's life, so
+ * long-lived sparks don't keep their burst size (and look like big sparks) while they linger.
+ */
+export function remnantMix(ms: number): number {
+  const t = Math.min(1, Math.max(0, (ms - REMNANT_FROM) / (REMNANT_TO - REMNANT_FROM)))
   return t * t * (3 - 2 * t)
 }
 
-/** A spark's size multiplier at an age: the spark size while it flies, easing into the glitter size once it lingers. */
-export function sparkRadius(sparkSize: FireworkSize, glitterSize: FireworkSize, age: number): number {
+/** A spark's size multiplier `ms` after its burst: the spark size while it flies, easing into the glitter size once it lingers. */
+export function sparkRadius(sparkSize: FireworkSize, glitterSize: GlitterSize, ms: number): number {
   const a = particleScale(sparkSize)
-  return a + (particleScale(glitterSize) - a) * remnantMix(age)
+  return a + (particleScale(glitterSize) - a) * remnantMix(ms)
+}
+
+/** How bright the lingering sparks stay (share of a spark's full opacity) before they flicker out. */
+export const GLITTER_LEVEL = 0.38
+
+/**
+ * A burst spark's opacity (0..1, times its own) at `age` (share of its life) and `ms` after its
+ * burst, with `flicker` -1..1 its own slow wave. Without glitter it simply fades as it flies out.
+ * With glitter, once it has slowed (remnantMix) it holds at GLITTER_LEVEL, flickering gently, and
+ * fades out over the last third of its life. Before, the remnants were the flight fade's dim tail
+ * (about a fifth of full), too faint to tell glitter on from off or one glitter size from another.
+ */
+export function sparkOpacity(age: number, ms: number, glitter: boolean, flicker = 0): number {
+  const flight = Math.max(0, 1 - age) ** 1.6
+  if (!glitter) return flight
+  const m = remnantMix(ms)
+  const tail = age < 0.65 ? 1 : Math.max(0, 1 - (age - 0.65) / 0.35) ** 1.2
+  const remnant = GLITTER_LEVEL * tail * (0.78 + 0.22 * flicker)
+  return flight * (1 - m) + remnant * m
+}
+
+/** The soft glow round a spark, as a share of its full glow: it fades as the spark becomes glitter, so the glitter size is the size you see. */
+export function sparkHalo(ms: number): number {
+  return 1 - 0.85 * remnantMix(ms)
 }
 
 /** Seconds for one pass of the accent buttons' colour drift (CSS --flow-dur). */
