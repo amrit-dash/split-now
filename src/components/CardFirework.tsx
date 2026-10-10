@@ -25,12 +25,12 @@ import { activeMotion, fireworkScale, sparkHalo, sparkLife, sparkOpacity, sparkR
  * off-screen or the tab is hidden, sleeps on a timer during quiet gaps, and everything is torn
  * down on unmount. Renders nothing under prefers-reduced-motion or when Settings → Animations
  * turns fireworks off; the size and glitter settings are read per burst, so a change shows on the
- * next one. The glitter is no separate particle: it is the burst's own sparks once they have
- * slowed, drifting down and flickering out. Glitter off ends their life as the burst finishes
- * spreading; spark size sets a spark's size while it flies, glitter size the size it eases to as it
- * lingers (sparkRadius in src/lib/motion.ts), read every frame so a change shows at once. A
- * lingering spark holds a visible level with a gentle flicker and drops most of its glow
- * (sparkOpacity, sparkHalo), so glitter on, off and its size are each plain to see.
+ * next one. The glitter is no separate particle: it is the burst's own sparks hanging for a moment
+ * after the burst, each with its soft glow, at random sizes and fading opacities. Glitter on (and
+ * Medium) is exactly that, as it always was; off, the sparks lose their glow as the burst spreads
+ * and end when it has (sparkHalo, sparkLife). Spark size sets a spark's size while it flies,
+ * glitter size the size it and its glow ease to once it hangs (sparkRadius in src/lib/motion.ts),
+ * read every frame so a change shows at once.
  *
  * Place it inside the card's `relative isolate overflow-hidden` box, after <Aurora /> and
  * before the (relative) content, so it paints between the two.
@@ -81,10 +81,8 @@ interface Particle {
   grav: number
   alpha: number
   twinkle: number // 0 = none, else phase seed
-  /** A burst spark born with glitter on: it lingers and flickers once it slows. */
+  /** A burst spark born with glitter on: it keeps its glow and hangs for a moment once it slows. */
   lingers: boolean
-  /** Phase of its flicker. */
-  seed: number
   ember: boolean
   blend: FireworkLook['blend']
   halo: number
@@ -246,8 +244,7 @@ export function CardFirework({ testId = 'home-firework' }: { testId?: string } =
           alpha: s.bright * 0.75 * s.look.alpha,
           twinkle: 0,
           lingers: prefsRef.current.glitter,
-          seed: rand(0, Math.PI * 2),
-          ember: false, // no twinkle or glints: the glitter is a gentle flicker of the spark itself
+          ember: false, // no twinkle or glints: kept plain and quiet
           blend: s.look.blend,
           halo: s.look.halo,
           shrink: s.look.shrink,
@@ -285,7 +282,6 @@ export function CardFirework({ testId = 'home-firework' }: { testId?: string } =
               alpha: s.bright * 0.7,
               twinkle: 0,
               lingers: false,
-              seed: 0,
               ember: true,
               blend: s.look.blend,
               halo: s.look.halo,
@@ -354,7 +350,7 @@ export function CardFirework({ testId = 'home-firework' }: { testId?: string } =
         p.x += p.vx * dt
         p.y += p.vy * dt
         const since = clock - p.born // ms since its burst
-        let a = (p.ember ? (1 - age) ** 1.2 : sparkOpacity(age, since, p.lingers, Math.sin(clock / 90 + p.seed))) * p.alpha
+        let a = (p.ember ? (1 - age) ** 1.2 : sparkOpacity(age)) * p.alpha
         if (a <= 0.004) continue
         let tw = 0
         if (p.twinkle && age > 0.3) {
@@ -368,7 +364,7 @@ export function CardFirework({ testId = 'home-firework' }: { testId?: string } =
         ctx.strokeStyle = p.color
         if (!p.ember) {
           // soft halo, fading as the spark becomes glitter so the glitter size is what shows
-          ctx.globalAlpha = a * p.halo * sparkHalo(since)
+          ctx.globalAlpha = a * p.halo * sparkHalo(since, p.lingers)
           ctx.beginPath()
           ctx.arc(p.x, p.y, r * 3.2, 0, Math.PI * 2)
           ctx.fill()

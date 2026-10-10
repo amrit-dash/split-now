@@ -96,9 +96,9 @@ export function particleScale(size: GlitterSize): number {
 
 /**
  * How long a burst's sparks live, in ms. There is no separate glitter particle: the glitter is
- * the burst's own sparks after they have slowed, drifting down and flickering out. With glitter
- * on they live long enough to do that; off, they fade as the burst finishes spreading, so
- * nothing lingers.
+ * the burst's own sparks after they have slowed, hanging for a moment with their soft glow before
+ * they fade. With glitter on they live as long as they always did; off, they fade as the burst
+ * finishes spreading, so nothing lingers.
  */
 export function sparkLife(glitter: boolean): readonly [number, number] {
   return glitter ? [1300, 2200] : [550, 800]
@@ -124,28 +124,25 @@ export function sparkRadius(sparkSize: FireworkSize, glitterSize: GlitterSize, m
   return a + (particleScale(glitterSize) - a) * remnantMix(ms)
 }
 
-/** How bright the lingering sparks stay (share of a spark's full opacity) before they flicker out. */
-export const GLITTER_LEVEL = 0.38
-
 /**
- * A burst spark's opacity (0..1, times its own) at `age` (share of its life) and `ms` after its
- * burst, with `flicker` -1..1 its own slow wave. Without glitter it simply fades as it flies out.
- * With glitter, once it has slowed (remnantMix) it holds at GLITTER_LEVEL, flickering gently, and
- * fades out over the last third of its life. Before, the remnants were the flight fade's dim tail
- * (about a fifth of full), too faint to tell glitter on from off or one glitter size from another.
+ * A burst spark's opacity (0..1, times its own) at `age`, the share of its life: it fades as it
+ * flies out and slows, the original curve. The glitter is not extra light: it is these sparks
+ * still hanging, each with its soft glow (sparkHalo), at random sizes and fading opacities.
  */
-export function sparkOpacity(age: number, ms: number, glitter: boolean, flicker = 0): number {
-  const flight = Math.max(0, 1 - age) ** 1.6
-  if (!glitter) return flight
-  const m = remnantMix(ms)
-  const tail = age < 0.65 ? 1 : Math.max(0, 1 - (age - 0.65) / 0.35) ** 1.2
-  const remnant = GLITTER_LEVEL * tail * (0.78 + 0.22 * flicker)
-  return flight * (1 - m) + remnant * m
+export function sparkOpacity(age: number): number {
+  return Math.max(0, 1 - age) ** 1.6
 }
 
-/** The soft glow round a spark, as a share of its full glow: it fades as the spark becomes glitter, so the glitter size is the size you see. */
-export function sparkHalo(ms: number): number {
-  return 1 - 0.85 * remnantMix(ms)
+/**
+ * The soft glow round a spark (share of its full glow) `ms` after its burst. That translucent
+ * glow, on sparks of random sizes as they hang after the burst, is what makes the glitter. With
+ * glitter on it stays, as it always did; with it off the sparks lose it as the burst spreads
+ * (gone by the time it has finished), so nothing soft hangs about and the burst ends crisply.
+ */
+export function sparkHalo(ms: number, glitter: boolean): number {
+  if (glitter) return 1
+  const t = Math.min(1, Math.max(0, (ms - 150) / 350))
+  return 1 - t
 }
 
 /** Seconds for one pass of the accent buttons' colour drift (CSS --flow-dur). */

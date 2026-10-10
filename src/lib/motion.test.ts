@@ -10,7 +10,6 @@ import {
   parseMotion,
   parsePreviewShown,
   particleScale,
-  GLITTER_LEVEL,
   REMNANT_FROM,
   REMNANT_TO,
   remnantMix,
@@ -108,23 +107,20 @@ describe('fireworks', () => {
     // Tiny is for glitter only; spark sizes stay Small / Medium / Big.
     expect(parseMotion(JSON.stringify({ sparkSize: 'tiny' })).sparkSize).toBe(DEFAULT_MOTION.sparkSize)
   })
-  it('keeps glitter visible while it lingers and lets it flicker, while without glitter sparks just fade', () => {
-    const age = 0.6
-    const ms = REMNANT_TO + 100
-    // With glitter the lingering spark holds near GLITTER_LEVEL, well above the old dim tail of
-    // the flight fade that the remnants used to be.
-    expect(sparkOpacity(age, ms, true)).toBeCloseTo(GLITTER_LEVEL * 0.78, 5)
-    expect(sparkOpacity(0.65, ms, true)).toBeGreaterThan(sparkOpacity(0.65, ms, false) * 1.5)
-    // The flicker moves it, but never to nothing and never above the level.
-    expect(sparkOpacity(age, ms, true, 1)).toBeCloseTo(GLITTER_LEVEL, 5)
-    expect(sparkOpacity(age, ms, true, -1)).toBeGreaterThan(0.2)
-    // It fades out at the end of its life, and the flight itself is the same either way.
-    expect(sparkOpacity(1, 2000, true)).toBe(0)
-    expect(sparkOpacity(0.1, 100, true)).toBe(sparkOpacity(0.1, 100, false))
+  it('fades sparks the original way, with or without glitter: the glitter adds no extra light', () => {
+    expect(sparkOpacity(0)).toBe(1)
+    expect(sparkOpacity(0.5)).toBeCloseTo(0.5 ** 1.6, 9)
+    expect(sparkOpacity(1)).toBe(0)
   })
-  it('drops most of the glow as a spark becomes glitter, so the glitter size is what shows', () => {
-    expect(sparkHalo(0)).toBe(1)
-    expect(sparkHalo(REMNANT_TO)).toBeCloseTo(0.15, 5)
+  it('keeps the soft glow with glitter on, and drops it as the burst spreads with glitter off', () => {
+    // On: the glow that makes the glitter stays all through, as it always did.
+    for (const ms of [0, 400, 900, 2000]) expect(sparkHalo(ms, true)).toBe(1)
+    // Off: full at the burst, gone by the time it has spread (and the sparks end soon after).
+    expect(sparkHalo(0, false)).toBe(1)
+    expect(sparkHalo(300, false)).toBeGreaterThan(0)
+    expect(sparkHalo(300, false)).toBeLessThan(1)
+    expect(sparkHalo(500, false)).toBe(0)
+    expect(sparkLife(false)[0]).toBeGreaterThanOrEqual(500)
   })
 })
 
