@@ -562,3 +562,47 @@ test('archiving is only for you and needs you square: blocked while you are owed
   await page.goto('/groups')
   await expect(page.getByTestId('archived-groups')).toHaveCount(0)
 })
+
+test('deleting a group moves it to Recently deleted, where anyone in it can restore it', async ({ page }) => {
+  await page.goto('/groups/new')
+  await page
+    .getByRole('radiogroup', { name: 'What are you creating?' })
+    .getByRole('radio', { name: /^Group/ })
+    .click()
+  await page.getByLabel('Name', { exact: true }).fill('Oops Trip')
+  const member = page.getByPlaceholder('Name', { exact: true })
+  await member.fill('Dev')
+  await member.press('Enter')
+  await page.getByRole('button', { name: 'Create group' }).click()
+  await expect(page).toHaveURL(/\/groups\/[^/?]+$/)
+  const url = page.url()
+
+  // You created it, so you can delete it; the confirmation says it can be restored.
+  await page.getByTestId('group-menu').click()
+  await page.getByTestId('group-delete').click()
+  await expect(page.getByRole('dialog')).toContainText('restore it within 30 days')
+  await page.getByRole('button', { name: 'Delete group' }).click()
+  await expect(page).toHaveURL(/\/groups$/)
+
+  // Gone from the list, waiting in Recently deleted.
+  const deleted = page.getByTestId('deleted-groups')
+  await expect(deleted).toBeVisible()
+  await deleted.getByRole('button').first().click()
+  await deleted.getByText('Oops Trip').click()
+  await expect(page).toHaveURL(url)
+  await expect(page.getByTestId('group-deleted')).toContainText('Deleted by you')
+
+  // Restore brings it back as it was.
+  await page.getByTestId('group-restore').click()
+  await expect(page.getByTestId('group-deleted')).toHaveCount(0)
+  await expect(page.getByTestId('group-menu')).toBeVisible()
+  await page.goto('/groups')
+  await expect(page.getByTestId('deleted-groups')).toHaveCount(0)
+})
+
+test('only the creator may delete a group while they are in it', async ({ page }) => {
+  // Meera created the seeded gig group and is still in it: no Delete in the menu for you.
+  await page.goto('/groups/g_gig')
+  await page.getByTestId('group-menu').click()
+  await expect(page.getByTestId('group-delete')).toHaveCount(0)
+})

@@ -55,9 +55,10 @@ export interface InviteInfo {
 export type NewGroup = Omit<Group, 'id' | 'createdAt' | 'updatedAt' | 'inviteCode'>
 
 /** Scalar group fields any member may edit. Membership has its own methods. */
-// `archived` / `archivedBy` are personal and change only through setArchived.
+// `archived` / `archivedBy` are personal and change only through setArchived; deletedAt /
+// deletedBy only through deleteGroup / restoreGroup.
 export type GroupSettings = Partial<
-  Omit<Group, 'id' | 'members' | 'memberUids' | 'inviteCode' | 'createdBy' | 'createdAt' | 'updatedAt' | 'archived' | 'archivedBy'>
+  Omit<Group, 'id' | 'members' | 'memberUids' | 'inviteCode' | 'createdBy' | 'createdAt' | 'updatedAt' | 'archived' | 'archivedBy' | 'deletedAt' | 'deletedBy'>
 >
 
 /**
@@ -147,7 +148,10 @@ export interface Repo {
   getMemberProfile(groupId: string, uid: string): Promise<MemberProfile | null>
 
   /** Groups the user belongs to, most recently updated first. */
+  /** The user's groups, without deleted ones (those are in watchDeletedGroups). */
   watchGroups(uid: string, cb: Watch<Group[]>): Unsub
+  /** The user's groups in "Recently deleted" (deletedAt set), newest deletion first. */
+  watchDeletedGroups(uid: string, cb: Watch<Group[]>): Unsub
   /** null when the group doesn't exist or the user can't read it (removed, deleted). */
   watchGroup(id: string, cb: Watch<Group | null>): Unsub
   createGroup(g: NewGroup): Promise<string>
@@ -178,10 +182,19 @@ export interface Repo {
    */
   updateOwnMember(group: Group, memberId: MemberId, patch: OwnMemberPatch): Promise<void>
   /**
-   * Deletes the group with everything under it (expenses, payments, activity, profiles,
-   * receipts). Needs the server: rejects with a readable message offline or on failure.
+   * Moves the group to "Recently deleted" (deletedAt, deletedBy): out of every list for
+   * everyone, restorable by any member for 30 days, then removed for good by the daily purge.
+   * Callers check groupDeleteState first; a server refusal arrives through onError like other writes.
    */
-  deleteGroup(id: string): Promise<void>
+  deleteGroup(group: Group): Promise<void>
+  /** Brings a deleted group back for everyone. Any member may. */
+  restoreGroup(group: Group): Promise<void>
+  /**
+   * Removes a deleted group for good now, with everything under it (expenses, payments,
+   * activity, profiles, receipts). Creator only. Needs the server: rejects with a readable
+   * message offline or on failure.
+   */
+  purgeGroup(id: string): Promise<void>
 
   getInvite(code: string): Promise<InviteInfo | null>
   joinGroup(code: string, memberId: MemberId, member: Member): Promise<string>
@@ -509,8 +522,8 @@ export function placeholdersOf(g: Pick<Group, 'members'>): Record<MemberId, stri
 export const byDateDesc = <T extends { date: string; createdAt: number }>(a: T, b: T) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt
 
 /** Settings fields whose value differs from the base group. `undefined` in the result means "clear the field". */
-/** Personal to each member (setArchived), so never written as a group setting, even if a caller passes them. */
-const PERSONAL_KEYS = new Set(['archived', 'archivedBy'])
+/** Never written as group settings, even if a caller passes them: archiving is personal (setArchived), deleting has its own write. */
+const PERSONAL_KEYS = new Set(['archived', 'archivedBy', 'deletedAt', 'deletedBy'])
 
 export function changedSettings(base: Group, patch: GroupSettings): GroupSettings {
   const out: Record<string, unknown> = {}
@@ -588,10 +601,11 @@ export const compact = <T extends object>(o: T): T => Object.fromEntries(Object.
 export const byCreatedDesc = <T extends { createdAt: number }>(a: T, b: T) => b.createdAt - a.createdAt
 
 /**
- * Why `uid` can't delete group `g`, or null when they can. Only the creator deletes a group
- * (the rules enforce it); everyone else gets a readable reason.
+ * Why `uid` can't delete group `g` for good (purgeGroup), or null when they can. Only the
+ * creator does (the rules enforce it); everyone else gets a readable reason. Moving a group to
+ * Recently deleted has its own rule: src/lib/group-delete.ts.
  */
-export function groupDeleteBlocker(g: Pick<Group, 'name' | 'createdBy' | 'members' | 'memberUids'>, uid: string): string | null {
+export function groupPurgeBlocker(g: Pick<Group, 'name' | 'createdBy' | 'members' | 'memberUids'>, uid: string): string | null {
   if (!g.memberUids.includes(uid)) return `You’re no longer in “${g.name}”.`
   if (g.createdBy === uid) return null
   const by = Object.values(g.members).find((m) => m.uid === g.createdBy)?.name

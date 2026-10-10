@@ -28,7 +28,8 @@
     "../shared/balances-core.ts",
     "../shared/members.ts",
     "../shared/paylinks.ts",
-    "../shared/archive.ts"
+    "../shared/archive.ts",
+    "../shared/group-trash.ts"
   ],
   "exclude": [
     "**/*.test.ts"

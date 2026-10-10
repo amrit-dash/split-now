@@ -42,6 +42,7 @@ interface GroupLite {
   budget?: unknown
   archived?: boolean
   archivedBy?: string[]
+  deletedAt?: number
 }
 
 /**
@@ -80,7 +81,8 @@ export const onExpenseCreated = onDocumentCreated({ document: 'groups/{groupId}/
   if (!e || typeof e.deletedAt === 'number') return
   const { groupId, expenseId } = event.params
   const g = (await db().doc(`groups/${groupId}`).get()).data() as GroupLite | undefined
-  if (!g) return
+  // Nothing about a group in Recently deleted (an offline device may still send one in).
+  if (!g || typeof g.deletedAt === 'number') return
   // Any new expense counts here, imports and recurring copies too: they change balances.
   await unarchiveFor(groupId, g, expenseMemberIds(e)).catch((err) => logger.warn('unarchive', { groupId, error: (err as Error).message }))
   if (e.importedFrom || e.recurringFrom) return
@@ -154,7 +156,7 @@ export const onSettlementCreated = onDocumentCreated(settlementOpts, async (even
   if (!s || typeof s.deletedAt === 'number') return
   const { groupId, settlementId } = event.params
   const g = (await db().doc(`groups/${groupId}`).get()).data() as GroupLite | undefined
-  if (!g) return
+  if (!g || typeof g.deletedAt === 'number') return
   await unarchiveFor(
     groupId,
     g,

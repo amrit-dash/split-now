@@ -7,6 +7,8 @@
  *  onSettlementUpdated Firestore the payee confirmed a payment or said it hasn't arrived → push to the payer
  *  onPushTokenCreated  Firestore users/{uid}/pushTokens/{id} created → drop the same browser token from other accounts
  *  onGroupDeleted      Firestore groups/{gid} deleted → delete its subcollections and receipts
+ *  onGroupTrashed      Firestore groups/{gid} moved to Recently deleted → push the other members (they can restore it)
+ *  purgeDeletedGroups  Schedule every day 03:30 Asia/Kolkata → remove groups deleted 30 days ago for good
  *  dailyReminders      Schedule every day 10:00 Asia/Kolkata → settle-up nudges (active groups only)
  *  fxDaily, fxMorning  Schedule weekdays 17:15 Europe/Berlin + daily 09:00 IST → shared ECB rates (fxRates/*)
  *  refreshFx           Callable { date? } → fetch + store ECB rates (throttled, per-user limit), any signed-in user
@@ -25,3 +27,4 @@ export { aiKey, aiModels, aiStatus, parseReceiptAi, quickAddAi } from './ai'
 export { nudge } from './nudge'
 export { onPayLinkPaid } from './paylinks'
 export { adminBlockUser, adminSetAdmin, adminStats, adminUsers } from './admin'
+export { onGroupTrashed, purgeDeletedGroups } from './trash'

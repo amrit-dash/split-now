@@ -23,7 +23,7 @@ import { useMe } from '@/hooks/auth'
 import { computeGroupData, useActivity, useCaptureTokens, useClaimedPayLinks, useExpenses, useGroup, useSettlements, useTrash } from '@/hooks/data'
 import { useCapturePrefs } from '@/hooks/useCapturePrefs'
 import { useFlag } from '@/hooks/useAppConfig'
-import type { Category, Expense, Group, Settlement } from '@/types'
+import type { Category, Debt, Expense, Group, Settlement } from '@/types'
 import { claimsInGroup } from '@/lib/paylinks'
 import { ClaimReview } from '@/components/ClaimReview'
 import { formatMoney } from '@/lib/money'
@@ -51,11 +51,11 @@ import { GroupIcon } from '@/components/GroupIcon'
 import { QrCode } from '@/components/QrCode'
 import { Empty, LiveBadge, Loading, PageHeader, Segmented, formatRange } from '@/components/Misc'
 import { Celebrate } from '@/components/Celebrate'
+import { DeletedGroupCard, useDeleteGroup } from '@/components/DeleteGroup'
 import { CardSkeleton, ListSkeleton } from '@/components/Skeleton'
 import { Collapsible } from '@/components/Collapsible'
 import { hasTripWindow, isLiveTrip, tripCaptureRelevant } from '@/lib/capture'
 import { Sheet } from '@/components/Sheet'
-import { useConfirm } from '@/components/ConfirmSheet'
 import { repo } from '@/data'
 import { useToast } from '@/components/Toast'
 import { ActivityFeed, RecentlyDeleted, TrustBadges, useUndoableDelete } from '@/components/Trust'
@@ -84,9 +84,7 @@ export default function GroupDetail() {
   const [tab, setTab] = useState<Tab>('expenses')
   const [invite, setInvite] = useState(false)
   const [menu, setMenu] = useState(false)
-  const [deleted, setDeleted] = useState(false)
   const toast = useToast()
-  const confirm = useConfirm()
   // The feed is the same shared listener the Activity tab and Home use; here it says who was nudged today.
   const feed = useActivity(groupId)
   const whoseTurnOn = useFlag('whoseTurn')
@@ -103,6 +101,14 @@ export default function GroupDetail() {
       <>
         <PageHeader title="Group not found" back="/groups" />
         <Empty emoji="🔍" title="This group doesn’t exist or you’re not a member" />
+      </>
+    )
+  // In Recently deleted: read-only, with Restore (and Delete forever for the creator).
+  if (liveGroup && typeof liveGroup.deletedAt === 'number')
+    return (
+      <>
+        <PageHeader title={liveGroup.name} back="/groups" />
+        <DeletedGroupCard group={liveGroup} />
       </>
     )
   if (!d)
@@ -158,26 +164,6 @@ export default function GroupDetail() {
           : undefined,
       )
     } catch (e) {
-      fail(e)
-    }
-  }
-
-  const deleteGroup = async () => {
-    setMenu(false)
-    const ok = await confirm({
-      title: `Delete “${group.name}”?`,
-      message: 'Every expense and payment in it goes too. This cannot be undone.',
-      confirmLabel: 'Delete group',
-      tone: 'danger',
-    })
-    if (!ok) return
-    setDeleted(true)
-    try {
-      await repo.deleteGroup(group.id)
-      toast('Group deleted')
-      nav('/groups', { replace: true })
-    } catch (e) {
-      setDeleted(false)
       fail(e)
     }
   }
@@ -532,17 +518,7 @@ export default function GroupDetail() {
               testId="group-leave"
             />
           )}
-          {creator && (
-            <MenuRow
-              icon={<Trash2 size={20} />}
-              label="Delete group"
-              hint="For everyone, with all its expenses"
-              onClick={deleteGroup}
-              tone="danger"
-              testId="group-delete"
-              disabled={deleted}
-            />
-          )}
+          <DeleteRow group={group} debts={debts} creator={creator} close={() => setMenu(false)} />
         </ul>
       </Sheet>
     </div>
@@ -1120,5 +1096,30 @@ function PendingClaims({ groupId }: { groupId: string }) {
         </div>
       ))}
     </div>
+  )
+}
+
+/**
+ * The menu's "Delete group": shown to the creator, and to everyone once the creator has left
+ * (greyed out with the reason until everyone is square). Its own component, so the delete hook
+ * sits below GroupDetail's loading returns.
+ */
+function DeleteRow({ group, debts, creator, close }: { group: Group; debts: Debt[]; creator: boolean; close: () => void }) {
+  const { state, run } = useDeleteGroup(group, debts)
+  const creatorLeft = !group.memberUids.includes(group.createdBy)
+  if (!creator && !creatorLeft) return null
+  return (
+    <MenuRow
+      icon={<Trash2 size={20} />}
+      label="Delete group"
+      hint={state.allowed ? 'For everyone, restorable for 30 days' : state.reason}
+      onClick={() => {
+        close()
+        void run()
+      }}
+      tone="danger"
+      testId="group-delete"
+      disabled={!state.allowed}
+    />
   )
 }

@@ -254,3 +254,13 @@ export function payLinkClaimedNote(p: {
     tag: `paylink-${p.code}`,
   }
 }
+
+/** To the other members when someone deletes a group: it's in Recently deleted, and any of them can restore it. */
+export function groupDeletedNote(g: { groupId: string; groupName: string; emoji?: string; byName: string; days: number }): Note {
+  return {
+    title: groupTitle(g.groupName, g.emoji),
+    body: `${clip(g.byName, 30)} deleted this group. You can restore it within ${g.days} days.`,
+    url: `/groups/${g.groupId}`,
+    tag: `group-deleted-${g.groupId}`,
+  }
+}

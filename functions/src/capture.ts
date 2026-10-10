@@ -50,6 +50,7 @@ import { applyRateLimit, type RateState } from './lib/ratelimit'
 import { isIdShaped, isTokenShaped, readCaptureRequest, type RawRequest } from './lib/request'
 import { matchScoped, pausedTrip, pickTrip, type TripGroup } from './lib/trips'
 import { isArchivedFor } from '../../shared/archive'
+import { isDeletedGroup } from '../../shared/group-trash'
 import { sendToUser } from './push'
 
 export type CaptureResponse =
@@ -63,6 +64,7 @@ export const MAX_BODY_BYTES = 16_384
 
 interface GroupDoc extends TripGroup {
   memberUids?: string[]
+  deletedAt?: number
 }
 
 // ---- Pre-auth guards (per instance, in memory) -------------------------------------------
@@ -100,7 +102,8 @@ async function loadGroup(id: string, uid: string): Promise<GroupDoc | undefined>
   const s = await db().collection('groups').doc(id).get()
   const g = s.data() as GroupDoc | undefined
   // `archived` is personal (shared/archive.ts): this person's own, so an archived trip doesn't match for them only.
-  return g && Array.isArray(g.memberUids) && g.memberUids.includes(uid) ? { ...g, id: s.id, archived: isArchivedFor(g, uid) } : undefined
+  // A group in Recently deleted takes nothing (shared/group-trash.ts).
+  return g && !isDeletedGroup(g) && Array.isArray(g.memberUids) && g.memberUids.includes(uid) ? { ...g, id: s.id, archived: isArchivedFor(g, uid) } : undefined
 }
 
 /** Per capture key: config/limits capturePerHour / capturePerDay (60 and 300 by default). */
@@ -222,7 +225,8 @@ export async function handleCapture(
   } else {
     const groups = (await db().collection('groups').where('memberUids', 'array-contains', uid).get()).docs.map((d) => {
       const g = d.data() as GroupDoc
-      return { ...g, id: d.id, archived: isArchivedFor(g, uid) }
+      // Recently deleted groups never match, like archived ones.
+      return { ...g, id: d.id, archived: isArchivedFor(g, uid) || isDeletedGroup(g) }
     })
     matched = pickTrip(groups, parsed.date, parsed.currency, prefs.pausedTrips)
     if (!matched) {

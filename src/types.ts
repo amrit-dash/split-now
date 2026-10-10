@@ -105,6 +105,13 @@ export interface Group {
   archived?: boolean
   /** Who has archived the group (their uids). Each member may add or remove only themselves. */
   archivedBy?: string[]
+  /**
+   * Deleted (epoch ms): in "Recently deleted" for 30 days (shared/group-trash.ts), out of every
+   * list and total, read-only; any member may restore it. Set by repo.deleteGroup only.
+   */
+  deletedAt?: number
+  /** Who deleted it (uid). */
+  deletedBy?: string
   memberUids: string[]
   members: Record<MemberId, Member>
   inviteCode: string
