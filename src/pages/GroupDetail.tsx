@@ -3,8 +3,10 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   Archive,
   BarChart3,
+  CheckCheck,
   ChevronRight,
   Download,
+  Flag,
   Link2,
   LogOut,
   MessageSquareText,
@@ -55,6 +57,8 @@ import { useConfirm } from '@/components/ConfirmSheet'
 import { repo } from '@/data'
 import { useToast } from '@/components/Toast'
 import { ActivityFeed, RecentlyDeleted, TrustBadges, useUndoableDelete } from '@/components/Trust'
+import { PaymentPill, ProofButton, usePaymentAnswers } from '@/components/PaymentOk'
+import { paymentState } from '@/lib/trust'
 import { RemindActions } from '@/components/RemindActions'
 import { SwipeRow } from '@/components/SwipeRow'
 import { useRemoveMember } from '@/hooks/useRemoveMember'
@@ -321,7 +325,15 @@ export default function GroupDetail() {
       )}
 
       {(tab === 'expenses' || personal) && (
-        <ActivityList group={group} expenses={d.expenses} settlements={d.settlements} me={me} currency={cur} name={name} personal={personal} />
+        <ActivityList
+          group={group}
+          expenses={d.expenses}
+          settlements={[...d.settlements, ...d.waiting]}
+          me={me}
+          currency={cur}
+          name={name}
+          personal={personal}
+        />
       )}
 
       {tab === 'activity' && !personal && <ActivityTab group={group} expenseIds={new Set(d.expenses.map((e) => e.id))} />}
@@ -691,6 +703,8 @@ function ActivityList({
 }) {
   const groupId = group.id
   const undoable = useUndoableDelete()
+  const answers = usePaymentAnswers()
+  const { user } = useMe()
   const navTo = useNavigate()
   const [filter, setFilter] = useState<ActivityFilter>(EMPTY_FILTER)
   const [onlyMe, setOnlyMe] = useState(false)
@@ -812,6 +826,36 @@ function ActivityList({
           <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
             {list.map((r) => {
               if (r.kind === 's') {
+                const ps = paymentState(r.s, group, user.uid)
+                // The recipient's answers come first on a payment that needs their OK.
+                const answerActions = !ps.canDecide
+                  ? []
+                  : [
+                      ...(ps.pill === 'needs-ok' || ps.pill === 'flagged'
+                        ? [
+                            {
+                              label: 'Confirm',
+                              ariaLabel: 'Confirm you got this payment',
+                              icon: <CheckCheck size={20} strokeWidth={2.25} />,
+                              tone: 'accent' as const,
+                              onClick: () => answers.confirm(r.s),
+                              testId: 'payment-confirm',
+                            },
+                          ]
+                        : []),
+                      ...(ps.pill !== 'flagged'
+                        ? [
+                            {
+                              label: 'Not received',
+                              ariaLabel: 'Say this payment hasn’t arrived',
+                              icon: <Flag size={20} strokeWidth={2.25} />,
+                              tone: 'neutral' as const,
+                              onClick: () => answers.notReceived(r.s),
+                              testId: 'payment-not-received',
+                            },
+                          ]
+                        : []),
+                    ]
                 return (
                   <SwipeRow
                     key={r.s.id}
@@ -820,6 +864,7 @@ function ActivityList({
                     testId="payment-row"
                     menuTitle={`${name(r.s.from)} paid ${name(r.s.to)}`}
                     actions={[
+                      ...answerActions,
                       {
                         label: 'Delete',
                         ariaLabel: 'Delete payment',
@@ -833,10 +878,21 @@ function ActivityList({
                       💸
                     </div>
                     <div className="min-w-0 flex-1 text-sm">
-                      <b>{name(r.s.from)}</b> paid <b>{name(r.s.to)}</b>
+                      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                        <span>
+                          <b>{name(r.s.from)}</b> paid <b>{name(r.s.to)}</b>
+                        </span>
+                        <PaymentPill state={ps} />
+                      </div>
                       <div className="text-muted text-xs">
                         {methodLabel(r.s.method)} · {formatDate(r.s.date)}
                         {r.s.paid && <> · paid {formatMoney(r.s.paid.amount, r.s.paid.currency)}</>}
+                        {r.s.proofPath && (
+                          <>
+                            {' · '}
+                            <ProofButton s={r.s} />
+                          </>
+                        )}
                         {r.s.payLink && (
                           <>
                             {' · '}
@@ -850,7 +906,9 @@ function ActivityList({
                         )}
                       </div>
                     </div>
-                    <div className="pos font-semibold">{formatMoney(r.s.amount, currency)}</div>
+                    <div className={`font-semibold ${ps.pill === 'needs-ok' || ps.pill === 'flagged' ? 'text-muted line-through decoration-1' : 'pos'}`}>
+                      {formatMoney(r.s.amount, currency)}
+                    </div>
                   </SwipeRow>
                 )
               }

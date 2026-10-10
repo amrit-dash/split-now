@@ -65,6 +65,8 @@ export function AiSettings() {
   const aiImages = useFlag('aiImages')
   // The admin's switch for Quick add with AI (config/app flags.aiQuickAdd); the server refuses it anyway.
   const aiQuickAdd = useFlag('aiQuickAdd')
+  // The admin's switch for checking payment screenshots (config/app flags.aiPayments); server-enforced.
+  const aiPayments = useFlag('aiPayments')
   const [models, setModels] = useState<AiModel[] | null>(null)
   const [draft, setDraft] = useState('')
   const [editing, setEditing] = useState(false)
@@ -203,6 +205,24 @@ export function AiSettings() {
                 <div data-testid="ai-quick-add-off">
                   <div className="font-semibold">Quick add with AI</div>
                   <div className="text-muted text-sm">Switched off for everyone right now</div>
+                </div>
+              )}
+              {aiPayments ? (
+                <Row
+                  title="Check payment screenshots"
+                  testId="ai-payments"
+                  checked={prefs.aiPayments}
+                  onChange={(v) => set({ aiPayments: v })}
+                  text={
+                    prefs.aiPayments
+                      ? 'In groups where payments need your OK, a payment to you counts straight away when its screenshot matches. Uses your AI quota.'
+                      : 'Payments to you wait for your OK, even with a screenshot attached.'
+                  }
+                />
+              ) : (
+                <div data-testid="ai-payments-off">
+                  <div className="font-semibold">Check payment screenshots</div>
+                  <div className="text-muted text-sm">Switched off for everyone right now: payments wait for your OK</div>
                 </div>
               )}
             </div>

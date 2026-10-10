@@ -1,7 +1,7 @@
-import type { Expense, ExpenseFlag, Group, MemberId, Settlement } from '@/types'
+import type { Cents, Expense, ExpenseFlag, Group, MemberId, Settlement } from '@/types'
 import { type ApprovalGroup, approvalNeeded, editApprovalOutcome, groupThreshold } from './approval'
 import { activeMembers, isRemoved } from '../../shared/members'
-import { awaitingOk, settlementCounts } from '../../shared/payment-ok'
+import { awaitingOk, needsOkOnCreate, settlementCounts } from '../../shared/payment-ok'
 
 /**
  * Trust features that aren't the activity log: soft delete (trash), disputes (flags) and
@@ -70,6 +70,60 @@ export const countedSettlements = (s: Settlement[], g: Pick<Group, 'members' | '
 /** Payments waiting for the payee's OK (listed, not counted). */
 export const waitingSettlements = (s: Settlement[], g: Pick<Group, 'members' | 'paymentApproval'>) =>
   s.filter((x) => awaitingOk(x, g.members, g.paymentApproval))
+
+/**
+ * A new payment as the rules expect it: needsOk exactly when the group asks for the payee's OK and
+ * someone else records it (an import never), and none of the fields only the payee or the server set.
+ */
+export function prepareSettlementSave(s: Settlement, g: Pick<Group, 'members' | 'paymentApproval'>, uid: string): Settlement {
+  const { needsOk: _n, ok: _o, flag: _f, aiCheck: _a, ...rest } = s
+  return !s.importedFrom && needsOkOnCreate(g.paymentApproval, s, g.members, uid) ? { ...rest, needsOk: true } : rest
+}
+
+/** What `from` has recorded as paid to `to` that is still waiting for the OK (so they don't pay it twice). */
+export const waitingTotal = (waiting: Settlement[], from: MemberId, to: MemberId): Cents =>
+  waiting.filter((s) => s.from === from && s.to === to).reduce((a, s) => a + s.amount, 0)
+
+export interface PaymentState {
+  /** the pill on the payment: waiting, flagged, or cleared by its screenshot */
+  pill?: 'needs-ok' | 'flagged' | 'matched'
+  /** I am the payee and may confirm it or say it hasn't arrived */
+  canDecide: boolean
+}
+
+/** What a payment row shows about the recipient's OK (shared/payment-ok.ts). */
+export function paymentState(s: Settlement, g: Pick<Group, 'members' | 'paymentApproval'>, uid: string): PaymentState {
+  if (!s.needsOk || !g.paymentApproval) return { canDecide: false }
+  const mine = g.members[s.to]?.uid === uid && !isRemoved(g.members[s.to])
+  if (s.flag) return { pill: 'flagged', canDecide: mine }
+  if (!s.ok) return { pill: 'needs-ok', canDecide: mine }
+  // Cleared by the screenshot: the payee can still say it hasn't arrived.
+  return s.ok.via === 'ai' ? { pill: 'matched', canDecide: mine } : { canDecide: false }
+}
+
+/** How long a payment cleared by its screenshot stays in the Inbox for the payee to check. */
+export const MATCHED_INBOX_DAYS = 7
+
+/**
+ * The Inbox's "Payments to confirm": payments waiting for my OK (not ones I said haven't arrived:
+ * that was my answer), and ones their screenshot cleared in the last week, which I can still say
+ * haven't arrived. Newest first.
+ */
+export function paymentsToConfirm<G extends Pick<Group, 'members' | 'paymentApproval'>>(
+  data: Array<{ group: G; waiting: Settlement[]; settlements: Settlement[] }>,
+  uid: string,
+  now: number,
+): Array<{ s: Settlement; group: G; matched: boolean }> {
+  const out: Array<{ s: Settlement; group: G; matched: boolean }> = []
+  for (const d of data) {
+    for (const s of d.waiting) if (paymentState(s, d.group, uid).pill === 'needs-ok' && paymentState(s, d.group, uid).canDecide) out.push({ s, group: d.group, matched: false })
+    for (const s of d.settlements) {
+      const st = paymentState(s, d.group, uid)
+      if (st.pill === 'matched' && st.canDecide && now - (s.ok?.at ?? 0) <= MATCHED_INBOX_DAYS * DAY) out.push({ s, group: d.group, matched: true })
+    }
+  }
+  return out.sort((a, b) => b.s.createdAt - a.s.createdAt)
+}
 
 /** Waiting for my OK: I am the payee. */
 export const awaitingMyOk = (s: Settlement, g: Pick<Group, 'members' | 'paymentApproval'>, uid: string) =>

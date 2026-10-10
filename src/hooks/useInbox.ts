@@ -1,13 +1,14 @@
 import { useMemo, useSyncExternalStore } from 'react'
 import { useMe } from './auth'
 import { useClaimedPayLinks, usePendingCaptures, useRecentActivity, type GroupData } from './data'
-import { awaitingMyApproval } from '@/lib/trust'
+import { awaitingMyApproval, paymentsToConfirm } from '@/lib/trust'
 import { collapseRuns, inboxSeenAt, onInboxSeen, unreadCount } from '@/lib/inbox'
 import { dismissedNudges, nudgeCards, onNudgesDismissed, type NudgeGroupInfo } from '@/lib/nudge-inbox'
 import { pendingSettlements } from '@/lib/settleAll'
 
 /**
- * Everything the Inbox holds: captured payments to sort, expenses waiting for your OK, live table
+ * Everything the Inbox holds: captured payments to sort, expenses waiting for your OK, payments to
+ * you waiting for your OK (or cleared by their screenshot this week, to check), live table
  * guests who say they've paid you (Pay me links waiting for you to confirm, any group or none), and the
  * activity log of your groups (`updates`, your own actions included), and `nudges`: reminders
  * from people you owe that this device hasn't dismissed (shown on Home and at the top of "To sort",
@@ -25,6 +26,8 @@ export function useInbox(data: GroupData[] | null) {
   const dismissed = useSyncExternalStore(onNudgesDismissed, dismissedNudges)
   return useMemo(() => {
     const approvals = (data ?? []).flatMap((d) => d.pending.filter((e) => awaitingMyApproval(e, d.group, user.uid)).map((e) => ({ e, d })))
+    // Payments need the recipient's OK: payments to me waiting for it, and ones a screenshot cleared.
+    const payments = paymentsToConfirm(data ?? [], user.uid, Date.now())
     // One row per import / burst of adds, so a big import is one update (and at most one unread).
     const feed = collapseRuns(raw)
     const updates = feed
@@ -32,11 +35,12 @@ export function useInbox(data: GroupData[] | null) {
     const groups: Record<string, NudgeGroupInfo> = {}
     for (const d of data ?? []) groups[d.group.id] = { name: d.group.name, emoji: d.group.emoji, currency: d.group.currency, me: d.me }
     const nudges = data ? nudgeCards({ feed: raw, rows: pendingSettlements(data), groups, myUid: user.uid, dismissed, now: Date.now() }) : []
-    const toSort = (captures?.length ?? 0) + approvals.length + (claims?.length ?? 0) + nudges.length
+    const toSort = (captures?.length ?? 0) + approvals.length + payments.length + (claims?.length ?? 0) + nudges.length
     return {
       loading: !captures || !data,
       captures: captures ?? [],
       approvals,
+      payments,
       claims: claims ?? [],
       nudges,
       feed,

@@ -334,6 +334,10 @@ export type ActivityType =
   | 'settlement.deleted'
   | 'settlement.restored'
   | 'settlement.purged'
+  /** the payee confirmed a payment that needed their OK */
+  | 'settlement.approved'
+  /** the payee says a payment hasn't arrived (it stops counting until they confirm it) */
+  | 'settlement.flagged'
   /** written by the nudge callable (functions/src/nudge.ts): actor nudged targetId (a member id) to settle up */
   | 'settlement.nudged'
   /** written by onPayLinkPaid (functions/src/paylinks.ts): a table guest says they paid; targetId is the Pay me link code, the host confirms */

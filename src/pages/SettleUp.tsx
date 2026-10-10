@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowDown, Camera, CheckCheck, ChevronDown, Copy, ExternalLink, QrCode as QrIcon } from 'lucide-react'
+import { ArrowDown, Camera, CheckCheck, ChevronDown, Clock, Copy, ExternalLink, ImagePlus, QrCode as QrIcon, X } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { ChequeIcon } from '@/components/ChequeIcon'
@@ -20,6 +20,8 @@ import { clearedFor, inHome, paidIn, payInLine, planInHome, type HomeBalance } f
 import { useTodayRates } from '@/hooks/useFx'
 import { formatRate, getRate, type FxRate } from '@/lib/fx'
 import { lastMethod, rememberMethod } from '@/lib/recents'
+import { waitingTotal } from '@/lib/trust'
+import { needsOkOnCreate } from '../../shared/payment-ok'
 import { copy } from '@/lib/share'
 import { errText } from '@/lib/errors'
 import { todayISO, uid } from '@/lib/id'
@@ -47,6 +49,11 @@ export default function SettleUp() {
   const toast = useToast()
   const ocr = useOcr()
   const fileRef = useRef<HTMLInputElement>(null)
+  const proofRef = useRef<HTMLInputElement>(null)
+  /** the payment screenshot, attached when the payment needs the recipient's OK */
+  const [proof, setProof] = useState<File | null>(null)
+  const proofUrl = useMemo(() => (proof ? URL.createObjectURL(proof) : null), [proof])
+  useEffect(() => () => void (proofUrl && URL.revokeObjectURL(proofUrl)), [proofUrl])
 
   const d = useMemo(
     () => (group && expenses && settlements ? computeGroupData(group, expenses, settlements, user.uid) : null),
@@ -212,6 +219,9 @@ export default function SettleUp() {
   // Paying in the recipient's currency: on when they collect in it, until switched by hand.
   const converting = !!otherCur && !!rate && (payIn ?? prefersOther)
   const due = validAmount ? amount : 0
+  // Payments need the recipient's OK: this one waits for them (unless the screenshot matches).
+  const needsOk = needsOkOnCreate(group.paymentApproval, { to }, group.members, user.uid)
+  const recordedWaiting = from && to ? waitingTotal(d.waiting, from, to) : 0
   // What changes hands: the exact conversion of the amount, until typed over (a different bank rate, or a part).
   const expected = converting && otherCur && rate ? clearedFor(0, due, cur, otherCur, rate.rate).expected : 0
   const paidAmount = converting ? (paidTyped ?? expected) : 0
@@ -237,12 +247,21 @@ export default function SettleUp() {
       const link = linkToClose(params.get('link'), { from: params.get('from') ?? '', to: params.get('to') ?? '' }, { from, to })
       const id = uid('s_')
       const paid = conv && rate ? paidIn(conv.cur, conv.paid, rate.rate, rate.date) : undefined
-      await repo.saveSettlement({ id, ...base, amount: clears, method, note: note.trim() || undefined, payLink: link, paid })
+      await repo.saveSettlement(
+        { id, ...base, amount: clears, method, note: note.trim() || undefined, payLink: link, paid },
+        needsOk && proof ? { proof } : undefined,
+      )
       if (link) repo.markPayLinkPaid(link, { method, settlementId: id }).catch((e) => console.warn('Pay me link not updated', e))
       // The rest is let go as its own record, so the history shows what was paid and what was waived.
       if (waive && restAfter > 0) await repo.saveSettlement({ id: uid('s_'), ...base, amount: restAfter, method: 'waived', note: 'Rest waived' })
       rememberMethod(group.id, to, method)
-      toast(waive && restAfter > 0 ? 'Payment recorded, rest waived' : 'Payment recorded')
+      toast(
+        needsOk
+          ? `Payment recorded. It counts once ${name(to)} confirms it${proof ? ', or when the screenshot matches' : ''}.`
+          : waive && restAfter > 0
+            ? 'Payment recorded, rest waived'
+            : 'Payment recorded',
+      )
       nav(`/groups/${group.id}`, { replace: true })
     } catch (e) {
       toast(errText(e), 'err')
@@ -312,6 +331,11 @@ export default function SettleUp() {
         {owed !== undefined && (
           <div className="mt-2 text-center text-sm text-muted">
             {name(from)} owe{from === d.me ? '' : 's'} {name(to)} {formatMoney(owed, cur)}
+            {recordedWaiting > 0 && (
+              <div className="mt-1 text-xs text-sky-700 dark:text-sky-300" data-testid="settle-waiting">
+                {formatMoney(recordedWaiting, cur)} already recorded, waiting for {name(to) === 'You' ? 'your' : `${name(to)}’s`} OK
+              </div>
+            )}
             {/* Round figures for a part payment; the full amount when something else is typed. */}
             <div className="mt-2 flex flex-wrap justify-center gap-1.5" role="group" aria-label="Amount suggestions">
               {[owed, ...suggestions].map((v) => (
@@ -397,6 +421,8 @@ export default function SettleUp() {
             const f = e.target.files?.[0]
             e.target.value = ''
             if (!f) return
+            // The same screenshot is the proof the recipient (and the server's check) will see.
+            if (needsOk) setProof(f)
             try {
               applyPayment(parsePaymentScreenshot(await ocr.run(f)))
             } catch (err) {
@@ -447,6 +473,45 @@ export default function SettleUp() {
           <input className="input" placeholder="Note (optional)" aria-label="Note" value={note} onChange={(e) => setNote(e.target.value)} />
         </div>
       </div>
+
+      {needsOk && (
+        <div className="card mt-3 p-4" data-testid="settle-needs-ok">
+          <div className="flex items-start gap-2">
+            <Clock size={18} className="mt-0.5 shrink-0 text-sky-600 dark:text-sky-400" aria-hidden />
+            <div className="min-w-0 text-sm">
+              <div className="font-semibold">Needs {group.members[to]?.name ?? 'their'}’s OK</div>
+              <div className="text-muted text-xs">
+                In this group a payment counts once the person paid confirms it. Attach the payment screenshot and it can count straight away when it matches.
+              </div>
+            </div>
+          </div>
+          {proof && proofUrl ? (
+            <div className="mt-3 flex items-center gap-3" data-testid="settle-proof">
+              <img src={proofUrl} alt="Payment screenshot" className="h-16 w-12 rounded-lg object-cover ring-1 ring-black/10" />
+              <div className="min-w-0 flex-1 text-sm">Screenshot attached</div>
+              <button type="button" className="btn-ghost btn-sm min-h-11 min-w-11" onClick={() => setProof(null)} aria-label="Remove the screenshot">
+                <X size={18} aria-hidden />
+              </button>
+            </div>
+          ) : (
+            <button type="button" className="btn-secondary btn-sm mt-3 w-full" onClick={() => proofRef.current?.click()} data-testid="settle-proof-add">
+              <ImagePlus size={16} aria-hidden /> Attach payment screenshot
+            </button>
+          )}
+          <input
+            ref={proofRef}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              e.target.value = ''
+              if (f) setProof(f)
+            }}
+            data-testid="settle-proof-input"
+          />
+        </div>
+      )}
 
       <button type="submit" className="btn-primary mt-5 w-full" disabled={busy} data-testid="settle-record">
         <ChequeIcon size={22} />{' '}

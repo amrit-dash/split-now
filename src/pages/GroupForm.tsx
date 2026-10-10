@@ -87,6 +87,7 @@ export default function GroupForm() {
   const [budget, setBudget] = useState<number | undefined>(undefined)
   const [simplify, setSimplify] = useState(true)
   const [requireApproval, setRequireApproval] = useState(false)
+  const [paymentApproval, setPaymentApproval] = useState(false)
   const [threshold, setThreshold] = useState<number | undefined>(undefined)
   const [thresholdTouched, setThresholdTouched] = useState(false)
   const [editAuto, setEditAuto] = useState(false)
@@ -125,6 +126,7 @@ export default function GroupForm() {
       setStartDate(existing.startDate ?? '')
       setEndDate(existing.endDate ?? '')
       setRequireApproval(!!existing.requireApproval)
+      setPaymentApproval(!!existing.paymentApproval)
       setThreshold(existing.approvalThreshold)
       setThresholdTouched(existing.approvalThreshold !== undefined)
       setEditAuto(!!existing.editAutoApprove)
@@ -244,6 +246,7 @@ export default function GroupForm() {
     showDates && !datesOnTop && (startDate || endDate) ? formatRange(startDate || undefined, endDate || undefined) : null,
     type !== 'personal' ? `simplify ${simplify ? 'on' : 'off'}` : null,
     shareable && requireApproval ? 'approval on' : null,
+    shareable && paymentApproval ? 'payments need an OK' : null,
   ]
     .filter(Boolean)
     .join(' · ')
@@ -358,6 +361,7 @@ export default function GroupForm() {
               requireApproval: requireApproval || undefined,
               approvalThreshold: requireApproval ? (threshold ?? (existing ? undefined : suggested)) : undefined,
               editAutoApprove: requireApproval && editAuto ? (editAmount ?? suggestedEdit) : undefined,
+              paymentApproval: paymentApproval || undefined,
             }
           : {}),
         memberUids: [
@@ -608,6 +612,18 @@ export default function GroupForm() {
             </div>
           )}
           {requireApproval && !lockCurrency && <p className="text-muted mt-3 text-xs">Changing the currency converts these amounts.</p>}
+        </div>
+      )}
+      {shareable && (
+        <div className="flex items-center justify-between gap-4 rounded-2xl bg-slate-50 p-3 dark:bg-ink-800">
+          <div>
+            <div className="font-semibold">Payments need the recipient's OK</div>
+            <div className="text-muted text-xs">
+              In this group, a payment someone records as paid to you counts once you confirm it, or straight away when their screenshot matches. Off: every
+              payment counts at once.
+            </div>
+          </div>
+          <Switch checked={paymentApproval} onChange={setPaymentApproval} label="Payments need the recipient's OK" testId="group-payment-approval" />
         </div>
       )}
     </div>

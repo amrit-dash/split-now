@@ -52,7 +52,7 @@ export function aiAvailability(opts: {
  */
 export function aiSummaryText(opts: {
   mode: 'firebase' | 'demo'
-  prefs: { aiEnabled?: boolean; aiImages?: boolean; aiSms?: boolean; aiQuickAdd?: boolean; aiSource?: string } | null
+  prefs: { aiEnabled?: boolean; aiImages?: boolean; aiSms?: boolean; aiQuickAdd?: boolean; aiPayments?: boolean; aiSource?: string } | null
   /** the user has their own key (AiState.hint) */
   hasOwnKey: boolean
   status: Pick<AiStatusResult, 'app'> | null | undefined
@@ -61,7 +61,9 @@ export function aiSummaryText(opts: {
   if (mode !== 'firebase') return undefined
   if (!prefs) return 'Gemini reads bills, statements and hard-to-read SMS'
   if (!prefs.aiEnabled) return 'Off · bills are read on this phone'
-  const uses = [prefs.aiImages && 'Bills & statements', prefs.aiSms && 'SMS', prefs.aiQuickAdd && 'Quick add'].filter(Boolean).join(', ')
+  const uses = [prefs.aiImages && 'Bills & statements', prefs.aiSms && 'SMS', prefs.aiQuickAdd && 'Quick add', prefs.aiPayments && 'Payment screenshots']
+    .filter(Boolean)
+    .join(', ')
   if (!uses) return 'On · nothing selected'
   const shared = prefs.aiSource !== 'own' && (status?.app.images === 'available' || status?.app.sms === 'available')
   const own = hasOwnKey && prefs.aiSource !== 'app'
