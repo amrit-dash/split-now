@@ -2,7 +2,10 @@
  * Firestore triggers. App Check doesn't apply to them.
  *  - expense added → the other people in it ("Sarah added Dinner · ₹840 · your share ₹210")
  *  - settlement recorded → the person who was paid, and the payer when someone else recorded it
- *    (not for one recorded from a Pay me link: paylinks.ts sends its own push)
+ *    (not for one recorded from a Pay me link: paylinks.ts sends its own push). One that needs the
+ *    payee's OK has its screenshot checked first (payment-ok.ts), then the payee hears whether it
+ *    cleared or needs their OK
+ *  - the payee confirms a payment or says it hasn't arrived → the payer
  *  - push token registered → the same browser token is dropped from every other account (a
  *    phone signed out offline, then signed in as someone else, must not keep the first
  *    person's notifications)
@@ -13,13 +16,16 @@
  * group's creator and is not trusted on its own.
  */
 import { logger } from 'firebase-functions/logger'
-import { onDocumentCreated, onDocumentDeleted } from 'firebase-functions/v2/firestore'
+import { onDocumentCreated, onDocumentDeleted, onDocumentUpdated } from 'firebase-functions/v2/firestore'
 import { pendingApprovers } from '../../shared/balances-core'
 import { crossedThresholds } from '../../shared/budget'
 import { db, storage } from './admin'
 import { REGION } from './config'
 import { flagOn } from './lib/limits'
-import { budgetNote, expenseNote, settlementNote, settlementRecordedNote } from './lib/notify-text'
+import { AI_SECRETS } from './ai'
+import { budgetNote, expenseNote, paymentDecisionNote, paymentOkNote, settlementNote, settlementRecordedNote } from './lib/notify-text'
+import { payeeDecision, type ProofSettlement } from './lib/payment-proof'
+import { checkProof } from './payment-ok'
 import { expenseRecipients, memberNameForUid, memberUid, type MemberLite } from './lib/recipients'
 import { sendToUser } from './push'
 
@@ -111,7 +117,16 @@ async function budgetAlert(groupId: string, g: GroupLite) {
   logger.info('budget alert', { groupId, threshold, spent, budget, sent: sent.reduce((a, b) => a + b, 0) })
 }
 
-export const onSettlementCreated = onDocumentCreated({ document: 'groups/{groupId}/settlements/{settlementId}', region: REGION }, async (event) => {
+// Secrets and room for the screenshot check (one image to Gemini) on payments that need an OK.
+const settlementOpts = {
+  document: 'groups/{groupId}/settlements/{settlementId}',
+  region: REGION,
+  secrets: AI_SECRETS,
+  timeoutSeconds: 120,
+  memory: '512MiB' as const,
+}
+
+export const onSettlementCreated = onDocumentCreated(settlementOpts, async (event) => {
   const s = event.data?.data()
   if (!s || s.importedFrom || typeof s.deletedAt === 'number') return
   const { groupId, settlementId } = event.params
@@ -124,12 +139,49 @@ export const onSettlementCreated = onDocumentCreated({ document: 'groups/{groupI
   // has told the payee already, and the payer is the one who made the claim.
   if (typeof s.payLink === 'string' && to && s.createdBy === to) return
   const common = { groupId, settlementId, groupName: g.name ?? 'Group', emoji: g.emoji, amount: s.amount, currency: g.currency ?? 'INR' }
+  // Needs the payee's OK: check the screenshot, then tell the payee whether it cleared or waits for them.
+  if (s.needsOk === true && to && to !== s.createdBy) {
+    const verdict = await checkProof(groupId, settlementId, s as ProofSettlement, g, to).catch((e) => {
+      logger.warn('payment check failed', { groupId, settlementId, message: (e as Error).message })
+      return null
+    })
+    await sendToUser(to, ['settlements'], paymentOkNote({ ...common, fromName: g.members?.[s.from]?.name ?? 'Someone', cleared: verdict === 'match' }))
+    return
+  }
   const jobs: Array<Promise<number>> = []
   if (to && to !== s.createdBy) jobs.push(sendToUser(to, ['settlements'], settlementNote({ ...common, fromName: g.members?.[s.from]?.name ?? 'Someone' })))
   // "Rahul paid me ₹500", recorded by the creditor: Rahul should hear about it and be able to flag it.
   if (from && from !== s.createdBy)
     jobs.push(sendToUser(from, ['settlements'], settlementRecordedNote({ ...common, toName: g.members?.[s.to]?.name ?? 'Someone' })))
   await Promise.all(jobs)
+})
+
+export const onSettlementUpdated = onDocumentUpdated({ document: 'groups/{groupId}/settlements/{settlementId}', region: REGION }, async (event) => {
+  const before = event.data?.before.data()
+  const after = event.data?.after.data()
+  const decision = payeeDecision(before, after)
+  if (!decision || !after) return
+  const { groupId, settlementId } = event.params
+  const g = (await db().doc(`groups/${groupId}`).get()).data() as GroupLite | undefined
+  if (!g) return
+  const uids = uidsOf(g)
+  const from = memberUid(g.members, after.from, uids)
+  const to = memberUid(g.members, after.to, uids)
+  if (!from || from === to) return
+  await sendToUser(
+    from,
+    ['settlements'],
+    paymentDecisionNote({
+      groupId,
+      settlementId,
+      groupName: g.name ?? 'Group',
+      emoji: g.emoji,
+      toName: g.members?.[after.to]?.name ?? 'Someone',
+      amount: after.amount,
+      currency: g.currency ?? 'INR',
+      decision,
+    }),
+  )
 })
 
 export const onPushTokenCreated = onDocumentCreated({ document: 'users/{uid}/pushTokens/{tokenId}', region: REGION }, async (event) => {
@@ -156,6 +208,7 @@ export const onGroupDeleted = onDocumentDeleted({ document: 'groups/{groupId}', 
   await firestore.recursiveDelete(firestore.doc(`groups/${groupId}`))
   try {
     await (await storage()).bucket().deleteFiles({ prefix: `receipts/${groupId}/` })
+    await (await storage()).bucket().deleteFiles({ prefix: `settleproofs/${groupId}/` })
   } catch (e) {
     logger.warn('receipt cleanup failed', { groupId, error: (e as Error).message })
   }

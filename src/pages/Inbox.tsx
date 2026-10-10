@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Ban, BookOpen, Check, ChevronDown, ChevronRight, EyeOff, FolderInput, Loader2, Plus, RotateCcw, Trash2 } from 'lucide-react'
+import { Ban, BookOpen, Check, ChevronDown, ChevronRight, EyeOff, Flag, FolderInput, Loader2, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { memberOrder, myMemberId, useAllGroupData, useCaptures, useCapturesMeta, type GroupData } from '@/hooks/data'
 import { useInbox } from '@/hooks/useInbox'
 import { useFlag } from '@/hooks/useAppConfig'
-import type { Capture, Expense, Group } from '@/types'
+import type { Capture, Expense, Group, Settlement } from '@/types'
 import { usePageTitle } from '@/lib/brand'
 import { SOURCE_LABEL, isSmsSource } from '@/lib/capture'
 import { addIgnoreWord, saveCapturePrefs, watchCapturePrefs } from '@/lib/capture-settings'
@@ -28,6 +28,7 @@ import { NudgeCards } from '@/components/NudgeCards'
 import { Sheet } from '@/components/Sheet'
 import { ListSkeleton } from '@/components/Skeleton'
 import { ActivityFeed } from '@/components/Trust'
+import { ProofButton, usePaymentAnswers } from '@/components/PaymentOk'
 import { useToast } from '@/components/Toast'
 import { SwipeRow } from '@/components/SwipeRow'
 
@@ -129,7 +130,14 @@ function ToSort({
   const [bulk, setBulk] = useState<BulkCandidate<Group> | null>(null)
   useEffect(() => watchCapturePrefs(user.uid, repo.mode, setPrefs), [user.uid])
   const loadingCaptures = box.loading && box.captures.length === 0 && !handled
-  const nothing = !loadingCaptures && !!data && box.captures.length === 0 && box.approvals.length === 0 && box.claims.length === 0 && box.nudges.length === 0
+  const nothing =
+    !loadingCaptures &&
+    !!data &&
+    box.captures.length === 0 &&
+    box.approvals.length === 0 &&
+    box.payments.length === 0 &&
+    box.claims.length === 0 &&
+    box.nudges.length === 0
   const paused = prefs?.pausedTrips
   const candidates = useMemo(() => (groups ? bulkCandidates(box.captures, groups, paused) : []), [box.captures, groups, paused])
 
@@ -205,6 +213,14 @@ function ToSort({
             ))}
           </Section>
         )
+      )}
+
+      {box.payments.length > 0 && (
+        <Section title="Payments to confirm" hint="Waiting ones count once you confirm them">
+          {box.payments.map(({ s, group, matched }) => (
+            <PaymentConfirmRow key={s.id} s={s} group={group} matched={matched} />
+          ))}
+        </Section>
       )}
 
       {box.claims.length > 0 && (
@@ -286,6 +302,44 @@ function ApprovalRow({ e, d }: { e: Expense; d: GroupData }) {
       >
         <Check size={16} aria-hidden /> Approve
       </button>
+    </div>
+  )
+}
+
+/**
+ * A payment to you that needs your OK (Confirm / Not received), or one its screenshot cleared this
+ * week (Looks right / Not received). The screenshot, when attached, opens in a sheet.
+ */
+function PaymentConfirmRow({ s, group, matched }: { s: Settlement; group: Group; matched: boolean }) {
+  const answers = usePaymentAnswers()
+  const from = group.members[s.from]?.name ?? 'Someone'
+  return (
+    <div className="card p-3" data-testid={matched ? 'inbox-payment-matched' : 'inbox-payment'}>
+      <Link to={`/groups/${group.id}`} className="flex min-w-0 items-center gap-3">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-xl dark:bg-emerald-500/10" aria-hidden>
+          💸
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-semibold">
+            {from} paid you {formatMoney(s.amount, group.currency)}
+          </span>
+          <span className="text-muted block truncate text-xs">
+            <span aria-hidden>{group.emoji} </span>
+            {group.name} · {formatDate(s.date)}
+            {s.paid && <> · paid {formatMoney(s.paid.amount, s.paid.currency)}</>}
+            {matched ? ' · cleared by their screenshot' : ''}
+          </span>
+        </span>
+      </Link>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <ProofButton s={s} className="mr-auto text-sm" />
+        <button type="button" className="btn-secondary btn-sm" onClick={() => answers.notReceived(s)} data-testid="inbox-payment-not-received">
+          <Flag size={16} aria-hidden /> Not received
+        </button>
+        <button type="button" className="btn-primary btn-sm" onClick={() => answers.confirm(s)} data-testid="inbox-payment-confirm">
+          <Check size={16} aria-hidden /> {matched ? 'Looks right' : 'Confirm'}
+        </button>
+      </div>
     </div>
   )
 }

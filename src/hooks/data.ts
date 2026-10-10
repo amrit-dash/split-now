@@ -9,7 +9,7 @@ import { simplifyDebts } from '@/lib/simplify'
 import { planCatchUp } from '@/lib/recurrence'
 import { todayISO } from '@/lib/id'
 import { mergeFeeds } from '@/lib/activity'
-import { canPurge, countedSettlements, expiredTrash, isDisputed, isPending, liveItems, trashedItems } from '@/lib/trust'
+import { canPurge, countedSettlements, expiredTrash, isDisputed, isPending, liveItems, trashedItems, waitingSettlements } from '@/lib/trust'
 import { markCreated, rewatchWhileFresh, watchGroupSettled } from '@/lib/fresh'
 import { isRemoved, orderMembers } from '@/lib/members'
 import { useMe } from './auth'
@@ -314,6 +314,8 @@ export interface GroupData {
   pending: Expense[]
   /** flagged by someone: still counted in net/debts */
   disputed: Expense[]
+  /** payments waiting for the payee's OK (Payments need the recipient's OK): listed, not in net/debts or `settlements` */
+  waiting: Settlement[]
 }
 
 // Malformed expenses (shares that don't add up) already reported in the console this session.
@@ -321,11 +323,12 @@ const reported = new Set<string>()
 
 /**
  * Balances for a group. Trashed items never count; expenses still waiting for approval are
- * listed (in `expenses` and `pending`) but left out of `net` and the debts.
+ * listed (in `expenses` and `pending`) but left out of `net` and the debts, and so are payments
+ * waiting for the payee's OK (in `waiting`, not in `settlements`).
  */
 export function computeGroupData(group: Group, expenses: Expense[], settlements: Settlement[], uid: string): GroupData {
   const live = liveItems(expenses)
-  const liveSettlements = countedSettlements(settlements)
+  const liveSettlements = countedSettlements(settlements, group)
   // Checked once here, then every balance function gets the vetted list.
   const { ok, rejected } = countable(live.filter((e) => !isPending(e, group)))
   for (const e of rejected) {
@@ -346,6 +349,7 @@ export function computeGroupData(group: Group, expenses: Expense[], settlements:
     rawDebts,
     pending: live.filter((e) => isPending(e, group)),
     disputed: ok.filter(isDisputed),
+    waiting: waitingSettlements(settlements, group),
   }
 }
 

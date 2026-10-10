@@ -70,7 +70,7 @@ import {
   type NewActivity,
 } from '@/lib/activity'
 import { editAutoApproved } from '@/lib/approval'
-import { expenseEditPatch, prepareExpenseSave, prepareImportedSettlement, prepareOccurrence } from '@/lib/trust'
+import { expenseEditPatch, prepareExpenseSave, prepareImportedSettlement, prepareOccurrence, prepareSettlementSave } from '@/lib/trust'
 import {
   activityCtxFor,
   byCreatedDesc,
@@ -857,14 +857,53 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         'Loading payments',
       )
     },
-    async saveSettlement(st) {
-      const r = settlementRef(st.groupId, st.id)
-      const prev = await cached<Settlement>(r)
+    async saveSettlement(input, opts) {
+      const r = settlementRef(input.groupId, input.id)
+      const [prev, g] = await Promise.all([cached<Settlement>(r), cachedGroup(input.groupId)])
+      const g2 = g ?? (await latest<Group>(groupRef(input.groupId)))
+      let st = g2 ? prepareSettlementSave(input, g2, me()) : input
+      if (opts?.proof) {
+        // Before the payment exists, so the server's check finds the screenshot when it runs.
+        if (!online()) throw new Error('You’re offline. Connect to attach the screenshot, or record the payment without it.')
+        const [blob, { storage, sdk }] = await Promise.all([downscale(opts.proof, 1600, 0.85), lazyStorage()])
+        const proofPath = `settleproofs/${st.groupId}/${st.id}.jpg`
+        await sdk.uploadBytes(sdk.ref(storage, proofPath), blob, { contentType: 'image/jpeg' })
+        st = { ...st, proofPath }
+      }
       const batch = writeBatch(db)
       batch.set(r, st)
       batch.update(groupRef(st.groupId), { updatedAt: Date.now() })
       if (!prev) log(batch, st.groupId, settlementActivity('created', st, await actCtx(st.groupId)))
       fire(batch, 'Recording payment')
+    },
+    async confirmPayment(groupId, id) {
+      const r = settlementRef(groupId, id)
+      const s = await cached<Settlement>(r)
+      const batch = writeBatch(db)
+      batch.update(r, { ok: { by: me(), at: Date.now(), via: 'payee' }, flag: deleteField() })
+      batch.update(groupRef(groupId), { updatedAt: Date.now() })
+      if (s) log(batch, groupId, settlementActivity('approved', s, await actCtx(groupId)))
+      fire(batch, 'Confirming the payment')
+    },
+    async flagPayment(groupId, id, reason) {
+      const r = settlementRef(groupId, id)
+      const s = await cached<Settlement>(r)
+      const text = reason?.trim().slice(0, 500)
+      const batch = writeBatch(db)
+      batch.update(r, { flag: { by: me(), at: Date.now(), ...(text ? { reason: text } : {}) }, ok: deleteField() })
+      batch.update(groupRef(groupId), { updatedAt: Date.now() })
+      if (s) log(batch, groupId, settlementActivity('flagged', s, await actCtx(groupId), text))
+      fire(batch, 'Flagging the payment')
+    },
+    async settleProofUrl(s) {
+      if (!s.proofPath?.startsWith(`settleproofs/${s.groupId}/`)) return null
+      try {
+        const { storage, sdk } = await lazyStorage()
+        return await sdk.getDownloadURL(sdk.ref(storage, s.proofPath))
+      } catch (e) {
+        console.warn('Payment screenshot unavailable', e)
+        return null
+      }
     },
     async deleteSettlement(groupId, id) {
       const r = settlementRef(groupId, id)
@@ -893,6 +932,11 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       batch.update(groupRef(groupId), { updatedAt: Date.now() })
       if (s) log(batch, groupId, settlementActivity('purged', s, await actCtx(groupId)))
       fire(batch, 'Deleting payment')
+      // Its screenshot goes too (best effort; the group's deletion sweeps any left behind).
+      if (s?.proofPath?.startsWith(`settleproofs/${groupId}/`))
+        lazyStorage()
+          .then(({ storage, sdk }) => sdk.deleteObject(sdk.ref(storage, s.proofPath as string)))
+          .catch((e) => console.warn('Payment screenshot not deleted', e))
     },
 
     watchActivity(groupId, cb, max = 50) {

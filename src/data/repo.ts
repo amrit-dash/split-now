@@ -207,7 +207,19 @@ export interface Repo {
 
   /** Every settlement of the group, including trashed ones. */
   watchSettlements(groupId: string, cb: Watch<Settlement[]>): Unsub
-  saveSettlement(s: Settlement): Promise<void>
+  /**
+   * Records a payment. Sets needsOk when the group asks for the payee's OK and someone else
+   * records it (prepareSettlementSave). With `proof`, the payment screenshot is uploaded first, to
+   * settleproofs/{groupId}/{id}.jpg where the server's AI check reads it: that waits for the
+   * network and throws offline. Without it, fire-and-forget like every other write.
+   */
+  saveSettlement(s: Settlement, opts?: { proof?: Blob }): Promise<void>
+  /** The payee confirms a payment that needs their OK (clearing a flag): it counts from now. */
+  confirmPayment(groupId: string, id: string): Promise<void>
+  /** The payee says a payment hasn't arrived: it stops counting until they confirm it. */
+  flagPayment(groupId: string, id: string, reason?: string): Promise<void>
+  /** A payment screenshot's URL (settleproofs/…); null when missing or unreadable. */
+  settleProofUrl(s: Pick<Settlement, 'groupId' | 'id' | 'proofPath'>): Promise<string | null>
   /** Soft delete (restorable for 30 days). A no-op when already in the trash. */
   deleteSettlement(groupId: string, id: string): Promise<void>
   restoreSettlement(groupId: string, id: string): Promise<void>

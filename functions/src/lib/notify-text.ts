@@ -100,6 +100,52 @@ export function settlementRecordedNote(s: {
   }
 }
 
+/**
+ * To the payee of a payment that needs their OK (Payments need the recipient's OK): cleared by its
+ * screenshot, which they can still flag, or waiting for them. Opens the Inbox, where both are.
+ */
+export function paymentOkNote(s: {
+  settlementId: string
+  groupName: string
+  emoji?: string
+  fromName: string
+  amount: number
+  currency: string
+  cleared: boolean
+}): Note {
+  const who = clip(s.fromName, 30)
+  const money = formatMoney(s.amount, s.currency)
+  return {
+    title: groupTitle(s.groupName, s.emoji),
+    body: s.cleared
+      ? `${who} paid you ${money}, cleared by their screenshot. Not right? Flag it in the Inbox.`
+      : `${who} says they paid you ${money} · needs your OK`,
+    url: '/inbox',
+    tag: `settlement-${s.settlementId}`,
+  }
+}
+
+/** To the payer when the payee confirms their payment, or says it hasn't arrived. */
+export function paymentDecisionNote(s: {
+  groupId: string
+  settlementId: string
+  groupName: string
+  emoji?: string
+  toName: string
+  amount: number
+  currency: string
+  decision: 'ok' | 'flag'
+}): Note {
+  const who = clip(s.toName, 30)
+  const money = formatMoney(s.amount, s.currency)
+  return {
+    title: groupTitle(s.groupName, s.emoji),
+    body: s.decision === 'ok' ? `${who} confirmed your ${money}` : `${who} says your ${money} hasn’t arrived. It doesn’t count until they confirm it.`,
+    url: `/groups/${s.groupId}`,
+    tag: `settlement-${s.settlementId}`,
+  }
+}
+
 /** A manual nudge from the person owed: opens the debtor's Settle up screen with them and the amount filled in. */
 export function nudgeNote(n: {
   groupId: string

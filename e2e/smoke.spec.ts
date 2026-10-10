@@ -443,3 +443,51 @@ test.describe('Collect in my currency', () => {
     await expect(page.getByTestId('payment-row').first()).toContainText('Rohan')
   })
 })
+
+test('Payments need the recipient’s OK: a payment waits for it; the recipient confirms from the Inbox', async ({ page }) => {
+  // Any member turns it on for the group (Goa: Ananya has an account, so her OK can be asked for).
+  await page.goto('/groups/g_goa/edit')
+  await page.getByTestId('group-payment-approval').click()
+  await expect(page.getByTestId('group-payment-approval')).toHaveAttribute('aria-checked', 'true')
+  await page.getByTestId('group-save').click()
+  await expect(page).toHaveURL(/\/groups\/g_goa$/)
+
+  // My payment to Ananya waits for her OK; the screenshot goes with it.
+  await page.goto('/groups/g_goa/settle?from=me&to=p_ananya&amount=50000')
+  await expect(page.getByTestId('settle-needs-ok')).toContainText('Needs Ananya’s OK')
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
+  await page.getByTestId('settle-proof-input').setInputFiles({ name: 'paid.png', mimeType: 'image/png', buffer: png })
+  await expect(page.getByTestId('settle-proof')).toBeVisible()
+  await page.getByTestId('settle-record').click()
+  await expect(page).toHaveURL(/\/groups\/g_goa$/)
+  const mine = page.getByTestId('payment-row').filter({ hasText: 'Ananya' }).first()
+  await expect(mine.getByTestId('payment-pill-needs-ok')).toBeVisible()
+  await mine.getByTestId('payment-proof').click()
+  await expect(page.getByTestId('payment-proof-sheet').getByRole('img')).toBeVisible()
+  await page.keyboard.press('Escape')
+
+  // Ananya says she paid me ₹300: it waits for my OK in the Inbox, and counts once I confirm it.
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('splitit-demo-v1') ?? '{}')
+    s.settlements.s_from_ananya = {
+      id: 's_from_ananya',
+      groupId: 'g_goa',
+      from: 'p_ananya',
+      to: 'me',
+      amount: 30000,
+      method: 'UPI',
+      date: new Date().toISOString().slice(0, 10),
+      createdBy: 'seed_ananya',
+      createdAt: Date.now(),
+      needsOk: true,
+    }
+    localStorage.setItem('splitit-demo-v1', JSON.stringify(s))
+  })
+  await page.goto('/inbox')
+  const card = page.getByTestId('inbox-payment')
+  await expect(card).toContainText('Ananya paid you ₹300.00')
+  await card.getByTestId('inbox-payment-confirm').click()
+  await expect(card).toHaveCount(0)
+  await page.goto('/groups/g_goa')
+  await expect(page.getByTestId('payment-row').filter({ hasText: 'Ananya' }).filter({ hasText: '₹300.00' }).getByTestId('payment-pill-needs-ok')).toHaveCount(0)
+})

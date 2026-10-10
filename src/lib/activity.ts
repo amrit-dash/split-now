@@ -229,7 +229,12 @@ export function disputeActivity(kind: 'disputed' | 'resolved' | 'approved', e: E
   return { ...base(`expense.${kind}`, e.id, ctx), summary: clip(text), ...(reason ? { after: { reason: reason.slice(0, 300) } } : {}) }
 }
 
-export function settlementActivity(kind: 'created' | 'deleted' | 'restored' | 'purged', s: Settlement, ctx: ActivityCtx): NewActivity {
+export function settlementActivity(
+  kind: 'created' | 'deleted' | 'restored' | 'purged' | 'approved' | 'flagged',
+  s: Settlement,
+  ctx: ActivityCtx,
+  reason?: string,
+): NewActivity {
   // Paid in another currency: what changed hands too ("… $12.50, paid ₹1,045").
   const paid = s.paid ? `, paid ${money(s.paid.amount, s.paid.currency)}` : ''
   const what = `${ctx.memberName(s.from)} → ${ctx.memberName(s.to)} ${money(s.amount, ctx.currency)}${paid}`
@@ -238,8 +243,12 @@ export function settlementActivity(kind: 'created' | 'deleted' | 'restored' | 'p
     deleted: `${ctx.actorName} deleted a payment: ${what}`,
     restored: `${ctx.actorName} restored a payment: ${what}`,
     purged: `${ctx.actorName} permanently deleted a payment: ${what}`,
+    approved: `${ctx.actorName} confirmed a payment: ${what}`,
+    flagged: `${ctx.actorName} says a payment hasn’t arrived: ${what}${reason?.trim() ? ` (“${reason.trim()}”)` : ''}`,
   }[kind]
-  return { ...base(`settlement.${kind}`, s.id, ctx), summary: clip(text) }
+  // Waiting for the payee's OK (Payments need the recipient's OK): say so on the new entry.
+  const waits = kind === 'created' && s.needsOk ? ` · needs ${ctx.memberName(s.to)}’s OK` : ''
+  return { ...base(`settlement.${kind}`, s.id, ctx), summary: clip(text + waits) }
 }
 
 /** One summary entry per file import (individual rows aren't logged). */
@@ -263,8 +272,11 @@ export function memberActivity(kind: 'added' | 'removed', memberId: MemberId, na
 }
 
 /** Group settings whose changes are logged, in the order the summary names them. */
-export const GROUP_SETTINGS_FIELDS = ['name', 'currency', 'requireApproval', 'approvalThreshold', 'editAutoApprove', 'budget'] as const
-type GroupSettingsSnapshot = Pick<Group, 'id' | 'name' | 'currency' | 'requireApproval' | 'approvalThreshold' | 'editAutoApprove' | 'budget'>
+export const GROUP_SETTINGS_FIELDS = ['name', 'currency', 'requireApproval', 'approvalThreshold', 'editAutoApprove', 'paymentApproval', 'budget'] as const
+type GroupSettingsSnapshot = Pick<
+  Group,
+  'id' | 'name' | 'currency' | 'requireApproval' | 'approvalThreshold' | 'editAutoApprove' | 'paymentApproval' | 'budget'
+>
 
 /** "a", "a and b", "a, b, and c". */
 export function joinPhrases(parts: string[]): string {
@@ -302,6 +314,8 @@ export function groupSettingsActivity(before: GroupSettingsSnapshot, after: Grou
     } else if (before.editAutoApprove === undefined || !wasOn) parts.push(`turned on small-edit auto-approve up to ${amt(after.editAutoApprove)}`)
     else parts.push(`changed small-edit auto-approve to up to ${amt(after.editAutoApprove)}`)
   }
+  if (!!before.paymentApproval !== !!after.paymentApproval)
+    parts.push(after.paymentApproval ? 'turned on OKs for payments' : 'turned off OKs for payments (every payment counts at once)')
   if ((before.budget || undefined) !== (after.budget || undefined)) {
     if (!after.budget) parts.push('removed the budget')
     else if (!before.budget) parts.push(`set a budget of ${amt(after.budget)}`)
@@ -366,6 +380,8 @@ const ICONS: Record<ActivityType, string> = {
   'settlement.deleted': '🗑️',
   'settlement.restored': '↩️',
   'settlement.purged': '🔥',
+  'settlement.approved': '👍',
+  'settlement.flagged': '🚩',
   'settlement.nudged': '🔔',
   'settlement.claimed': '🙋',
   'member.added': '👋',

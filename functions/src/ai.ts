@@ -20,6 +20,7 @@ import {
   type UserAiPrefs,
 } from '../../shared/ai-config'
 import { minorDigitsOf } from '../../shared/money-core'
+import type { PaymentRead } from '../../shared/payment-ok'
 import {
   GeminiError,
   generateJson,
@@ -36,6 +37,9 @@ import {
   TEXT_SCHEMA,
   textPrompt,
   normaliseText,
+  normalisePayment,
+  PAYMENT_SCHEMA,
+  paymentPrompt,
   type AiReceipt,
   type AiSms,
   type AiTextExpense,
@@ -228,7 +232,7 @@ async function record(
 }
 
 /** The config/app flag that switches each AI feature off for everyone. */
-const FEATURE_FLAG: Record<AiFeature, string> = { images: 'aiImages', sms: 'aiSms', quickAdd: 'aiQuickAdd' }
+const FEATURE_FLAG: Record<AiFeature, string> = { images: 'aiImages', sms: 'aiSms', quickAdd: 'aiQuickAdd', payments: 'aiPayments' }
 
 type AiOutcome<T> = { ok: true; value: T; via: KeyPlan['key']; model?: string } | { ok: false; reason: AiUnavailableReason; kind?: GeminiErrorKind }
 
@@ -607,5 +611,35 @@ export async function aiReadSms(uid: string, text: string): Promise<AiSms | null
   } catch (e) {
     logger.warn('aiReadSms failed', (e as Error).message)
     return null
+  }
+}
+
+/**
+ * Read a payment screenshot for the payment check (payment-ok.ts), as the payee: the admin's
+ * aiPayments flag, their own switches (aiEnabled + aiPayments), their own key or the shared one
+ * and its allowance. `read` is null when the image isn't a payment. Never throws.
+ */
+export async function aiReadPayment(
+  payeeUid: string,
+  jpeg: Buffer,
+  fallbackCurrency: string,
+  today: string,
+): Promise<{ ok: true; read: PaymentRead | null } | { ok: false; reason: AiUnavailableReason }> {
+  try {
+    const u = await (await auth()).getUser(payeeUid).catch(() => null)
+    const ctx = await loadCtx(payeeUid, u?.emailVerified ? u.email : undefined)
+    const r = await withAi(ctx, 'payments', async (key, models) => {
+      const g = await generateJson(key, [{ inlineData: { mimeType: 'image/jpeg', data: jpeg.toString('base64') } }], PAYMENT_SCHEMA, {
+        models,
+        timeoutMs: 30_000,
+        maxOutputTokens: 512,
+        systemInstruction: paymentPrompt(today),
+      })
+      return { value: normalisePayment(g.json, fallbackCurrency, minorDigitsOf), usage: g.usage, model: g.modelVersion ?? g.model }
+    })
+    return r.ok ? { ok: true, read: r.value } : { ok: false, reason: r.reason }
+  } catch (e) {
+    logger.warn('aiReadPayment failed', (e as Error).message)
+    return { ok: false, reason: 'server' }
   }
 }

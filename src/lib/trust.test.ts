@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest'
 import type { Expense, Group } from '@/types'
 import {
   awaitingMyApproval,
+  awaitingMyOk,
   canPurge,
+  paymentState,
+  paymentsToConfirm,
+  countedSettlements,
   countedExpenses,
   daysLeftInTrash,
   expiredTrash,
@@ -15,8 +19,11 @@ import {
   pendingApprovers,
   prepareExpenseSave,
   prepareOccurrence,
+  prepareSettlementSave,
   thresholdOf,
   trashedItems,
+  waitingSettlements,
+  waitingTotal,
 } from './trust'
 
 const DAY = 86_400_000
@@ -245,5 +252,72 @@ describe('expenseEditPatch (more)', () => {
   it('is empty when nothing changed', () => {
     const next = prepareExpenseSave(prev, exp({ notes: 'old' }), group, 'ua')
     expect(expenseEditPatch(prev, next)).toEqual({ set: {}, unset: [] })
+  })
+})
+
+describe('payments that need the recipient’s OK', () => {
+  const g = {
+    members: { me: { name: 'Me', uid: 'u_me', color: '#000' }, b: { name: 'Bob', uid: 'u_b', color: '#111' }, c: { name: 'Cat', color: '#222' } },
+    paymentApproval: true,
+  }
+  const s = { id: 's1', groupId: 'g1', from: 'b', to: 'me', amount: 500, method: 'UPI', date: '2026-10-10', createdBy: 'u_b', createdAt: 1 }
+
+  it('prepareSettlementSave marks a payment someone else records for the payee, and nothing else', () => {
+    expect(prepareSettlementSave(s, g, 'u_b').needsOk).toBe(true)
+    expect(prepareSettlementSave(s, g, 'u_me').needsOk).toBeUndefined()
+    expect(prepareSettlementSave({ ...s, to: 'c' }, g, 'u_b').needsOk).toBeUndefined()
+    expect(prepareSettlementSave(s, { ...g, paymentApproval: false }, 'u_b').needsOk).toBeUndefined()
+    expect(prepareSettlementSave({ ...s, importedFrom: 'csv' }, g, 'u_b').needsOk).toBeUndefined()
+    const sneaky = { ...s, ok: { by: 'u_b', at: 1, via: 'payee' as const }, aiCheck: { verdict: 'match' as const, reasons: [], at: 1 } }
+    expect(prepareSettlementSave(sneaky, g, 'u_b')).not.toHaveProperty('ok')
+    expect(prepareSettlementSave(sneaky, g, 'u_b')).not.toHaveProperty('aiCheck')
+  })
+  it('counted, waiting and mine to OK', () => {
+    const waiting = { ...s, needsOk: true }
+    expect(countedSettlements([waiting, { ...s, id: 's2' }], g).map((x) => x.id)).toEqual(['s2'])
+    expect(waitingSettlements([waiting], g)).toHaveLength(1)
+    expect(awaitingMyOk(waiting, g, 'u_me')).toBe(true)
+    expect(awaitingMyOk(waiting, g, 'u_b')).toBe(false)
+    expect(countedSettlements([waiting], { ...g, paymentApproval: false })).toHaveLength(1)
+  })
+  it('paymentState: the pill and whether I decide', () => {
+    const w = { ...s, needsOk: true }
+    expect(paymentState(w, g, 'u_me')).toEqual({ pill: 'needs-ok', canDecide: true })
+    expect(paymentState(w, g, 'u_b')).toEqual({ pill: 'needs-ok', canDecide: false })
+    expect(paymentState({ ...w, flag: { by: 'u_me', at: 2 } }, g, 'u_me')).toEqual({ pill: 'flagged', canDecide: true })
+    expect(paymentState({ ...w, ok: { by: 'ai', at: 2, via: 'ai' } }, g, 'u_me')).toEqual({ pill: 'matched', canDecide: true })
+    expect(paymentState({ ...w, ok: { by: 'u_me', at: 2, via: 'payee' } }, g, 'u_me')).toEqual({ canDecide: false })
+    expect(paymentState(s, g, 'u_me')).toEqual({ canDecide: false })
+    expect(paymentState(w, { ...g, paymentApproval: false }, 'u_me')).toEqual({ canDecide: false })
+  })
+  it('paymentsToConfirm: waiting for me, and cleared by a screenshot this week', () => {
+    const now = 10 * 86_400_000
+    const waiting = [
+      { ...s, needsOk: true, createdAt: 3 },
+      { ...s, id: 'flagged', needsOk: true, flag: { by: 'u_me', at: 1 } },
+      { ...s, id: 'theirs', from: 'me', to: 'b', needsOk: true },
+    ]
+    const settlements = [
+      { ...s, id: 'matched', needsOk: true, ok: { by: 'ai', at: now - 86_400_000, via: 'ai' as const }, createdAt: 5 },
+      { ...s, id: 'old', needsOk: true, ok: { by: 'ai', at: now - 8 * 86_400_000, via: 'ai' as const } },
+      { ...s, id: 'mine-ok', needsOk: true, ok: { by: 'u_me', at: now, via: 'payee' as const } },
+    ]
+    const out = paymentsToConfirm([{ group: g, waiting, settlements }], 'u_me', now)
+    expect(out.map((x) => [x.s.id, x.matched])).toEqual([
+      ['matched', true],
+      ['s1', false],
+    ])
+    // Bob is the payee of the one recorded to him.
+    expect(paymentsToConfirm([{ group: g, waiting, settlements }], 'u_b', now).map((x) => x.s.id)).toEqual(['theirs'])
+  })
+  it('waitingTotal adds up what one person recorded to another', () => {
+    const w = [
+      { ...s, needsOk: true },
+      { ...s, id: 's2', amount: 250, needsOk: true },
+      { ...s, id: 's3', from: 'me', to: 'b', needsOk: true },
+    ]
+    expect(waitingTotal(w, 'b', 'me')).toBe(750)
+    expect(waitingTotal(w, 'me', 'b')).toBe(500)
+    expect(waitingTotal([], 'b', 'me')).toBe(0)
   })
 })

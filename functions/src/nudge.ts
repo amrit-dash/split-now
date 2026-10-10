@@ -47,6 +47,7 @@ interface GroupLite {
   members?: Record<string, MemberLite>
   memberUids?: string[]
   type?: string
+  paymentApproval?: boolean
 }
 
 type Refusal = 'rate_limited' | 'not_owed' | 'not_member' | 'off'
@@ -58,7 +59,7 @@ export type NudgeResponse =
   | { sent: false; reason: Refusal; nextAllowedAt?: number }
 
 const EXPENSE_FIELDS = ['amount', 'paidBy', 'splits', 'deletedAt', 'requiresApproval', 'approvals', 'createdBy'] as const
-const SETTLEMENT_FIELDS = ['from', 'to', 'amount', 'deletedAt'] as const
+const SETTLEMENT_FIELDS = ['from', 'to', 'amount', 'deletedAt', 'needsOk', 'ok', 'flag'] as const
 
 function caller(req: CallableRequest): string {
   if (!req.auth || req.auth.token.firebase?.sign_in_provider === 'anonymous') throw new HttpsError('unauthenticated', 'Sign in first')
@@ -116,7 +117,7 @@ async function groupNet(l: Loaded): Promise<Record<string, number>> {
   return netBalances(
     ex.docs.map((x) => x.data() as BalanceExpense),
     st.docs.map((x) => x.data() as BalanceSettlement),
-    { members: l.members },
+    { members: l.members, paymentApproval: l.g.paymentApproval === true },
   )
 }
 

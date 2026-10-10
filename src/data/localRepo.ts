@@ -38,7 +38,7 @@ import { defaultCurrency } from '@/lib/locale'
 import type { MerchantMemory } from '@/lib/merchants'
 import { netBalances } from '@/lib/balances'
 import { isRemoved } from '@/lib/members'
-import { countedExpenses, countedSettlements } from '@/lib/trust'
+import { countedExpenses, countedSettlements, prepareSettlementSave } from '@/lib/trust'
 import { formatMoney, minorDigits } from '@/lib/money'
 import { claimStatus, claimSummary, markPaidPatch, payLinkState, planRecord, planRecordParts, sortClaims, triggerAction, type PayLinkDoc } from '@/lib/paylinks'
 
@@ -124,7 +124,10 @@ export function createLocalRepo(): Repo {
       Object.values(state.expenses).filter((e) => e.groupId === groupId),
       g,
     )
-    const settlements = countedSettlements(Object.values(state.settlements).filter((x) => x.groupId === groupId))
+    const settlements = countedSettlements(
+      Object.values(state.settlements).filter((x) => x.groupId === groupId),
+      g,
+    )
     const net = netBalances(expenses, settlements)
     const cap = Math.max(0, Math.min(-(net[memberId] ?? 0), net[myId] ?? 0))
     const owes = Math.max(0, Math.min(-(net[myId] ?? 0), net[memberId] ?? 0))
@@ -512,11 +515,42 @@ export function createLocalRepo(): Repo {
             .sort(byDateDesc),
         cb,
       ),
-    async saveSettlement(s) {
+    async saveSettlement(input, opts) {
+      const g = state.groups[input.groupId]
+      let s = g ? prepareSettlementSave(input, g, actor()) : input
+      if (opts?.proof) {
+        // Kept on this device (no server here, so nothing checks it: it waits for the payee).
+        const proofPath = `settleproofs/${s.groupId}/${s.id}.jpg`
+        state.payProofs ??= {}
+        state.payProofs[proofPath] = await blobToDataUrl(await downscale(opts.proof, 900, 0.7))
+        s = { ...s, proofPath }
+      }
       if (!state.settlements[s.id]) log(s.groupId, settlementActivity('created', s, ctx(s.groupId)))
       state.settlements[s.id] = s
       touch(s.groupId)
       commit()
+    },
+    async confirmPayment(groupId, id) {
+      const s = state.settlements[id]
+      if (!s) return
+      const { flag: _f, ...rest } = s
+      state.settlements[id] = { ...rest, ok: { by: actor(), at: Date.now(), via: 'payee' } }
+      log(groupId, settlementActivity('approved', s, ctx(groupId)))
+      touch(groupId)
+      commit()
+    },
+    async flagPayment(groupId, id, reason) {
+      const s = state.settlements[id]
+      if (!s) return
+      const text = reason?.trim().slice(0, 500)
+      const { ok: _o, ...rest } = s
+      state.settlements[id] = { ...rest, flag: { by: actor(), at: Date.now(), ...(text ? { reason: text } : {}) } }
+      log(groupId, settlementActivity('flagged', s, ctx(groupId), text))
+      touch(groupId)
+      commit()
+    },
+    async settleProofUrl(s) {
+      return (s.proofPath && state.payProofs?.[s.proofPath]) || null
     },
     async deleteSettlement(groupId, id) {
       const s = state.settlements[id]

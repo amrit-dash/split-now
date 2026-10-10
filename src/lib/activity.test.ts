@@ -184,6 +184,20 @@ describe('reading', () => {
   })
 })
 
+describe('settlementActivity for payments that need an OK', () => {
+  const s = { id: 's1', groupId: 'g1', from: 'm_b', to: 'me', amount: 50000, method: 'UPI', date: '2026-10-10', createdBy: 'u_b', createdAt: 1 }
+  const c: ActivityCtx = { ...ctx, actorName: 'Asha', memberName: (id: string) => ({ m_b: 'Bob', me: 'Asha' })[id] ?? id }
+  it('a new one says it waits; confirming and flagging have their own lines', () => {
+    expect(settlementActivity('created', { ...s, needsOk: true }, c).summary).toContain('· needs Asha’s OK')
+    expect(settlementActivity('created', s, c).summary).not.toContain('needs')
+    expect(settlementActivity('approved', s, c)).toMatchObject({ type: 'settlement.approved', targetId: 's1' })
+    expect(settlementActivity('approved', s, c).summary).toMatch(/^Asha confirmed a payment: Bob → Asha /)
+    expect(settlementActivity('flagged', s, c, ' Not in my account ').summary).toMatch(
+      /^Asha says a payment hasn’t arrived: Bob → Asha .*\(“Not in my account”\)$/,
+    )
+  })
+})
+
 describe('groupSettingsActivity', () => {
   const g = { id: 'g1', name: 'Goa', currency: 'INR' }
   const rahul: ActivityCtx = { ...ctx, actorUid: 'u_rahul', actorName: 'Rahul', currency: 'INR' }
@@ -237,6 +251,11 @@ describe('groupSettingsActivity', () => {
     expect(a).toMatchObject({ type: 'group.updated', targetId: 'g1', actorUid: 'u_rahul', actorName: 'Rahul', createdAt: 1000 })
     expect(a?.before).toEqual({ name: 'Goa', currency: 'INR' })
     expect(a?.after).toEqual({ name: 'Goa 2026', currency: 'USD', budget: 100000 })
+  })
+  it('payments need the recipient’s OK, on and off', () => {
+    expect(say(g, { ...g, paymentApproval: true })).toBe('Rahul turned on OKs for payments')
+    expect(say({ ...g, paymentApproval: true }, { ...g })).toBe('Rahul turned off OKs for payments (every payment counts at once)')
+    expect(say({ ...g, paymentApproval: false }, { ...g })).toBeUndefined()
   })
   it('nothing logged for unlisted or unchanged settings', () => {
     expect(groupSettingsActivity(g, { ...g }, rahul)).toBeNull()
