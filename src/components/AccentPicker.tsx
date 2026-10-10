@@ -5,9 +5,9 @@ import { Segmented } from './Misc'
 import { Switch } from './Switch'
 
 /**
- * Accent colour swatches, a "Dual tone" switch and the "Text on accent" choice (white on deep
+ * Accent colour swatches, the "Text on accent" choice (white on deep
  * fills, or black on bright ones) for the selected accent. Each accent keeps its own ink, and each
- * swatch shows its accent in that ink. Applies and persists immediately.
+ * swatch shows its accent in that ink; then a "Dual tone" switch. Applies and persists immediately.
  */
 export function AccentPicker({ onChange }: { onChange?: () => void } = {}) {
   const [accent, setAccentState] = useState<AccentId>(getAccent)
@@ -95,13 +95,6 @@ export function AccentPicker({ onChange }: { onChange?: () => void } = {}) {
           })}
         </div>
       </div>
-      <div className="flex items-center justify-between gap-3">
-        <span id="duo-label" className="text-sm font-medium">
-          Dual tone
-          <span className="text-muted block text-xs font-normal">Two-colour gradients on buttons and cards</span>
-        </span>
-        <Switch checked={duo} onChange={toggleDuo} label="Dual tone" testId="accent-duo" />
-      </div>
       <div>
         <div className="label" id="ink-label">
           Text on accent
@@ -117,6 +110,15 @@ export function AccentPicker({ onChange }: { onChange?: () => void } = {}) {
           ]}
         />
         <p className="text-muted mt-1.5 text-xs">Kept for each accent. Black text comes with brighter colours so it stays easy to read.</p>
+      </div>
+      {/* Dual tone closes the section as its own row, below the two labelled pickers, so the
+          Accent → Text on accent rhythm isn't broken by a switch between them. */}
+      <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4 dark:border-white/5">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold">Dual tone</div>
+          <div className="text-muted text-xs">Two-colour gradients on buttons and cards</div>
+        </div>
+        <Switch checked={duo} onChange={toggleDuo} label="Dual tone" testId="accent-duo" />
       </div>
     </div>
   )

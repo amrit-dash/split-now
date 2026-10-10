@@ -235,7 +235,12 @@
       radial-gradient(8rem 5rem at var(--al-x) var(--al-y), color-mix(in oklab, var(--color-fill-300) 45%, transparent), transparent),
       radial-gradient(8.5rem 5.5rem at var(--ad-x) var(--ad-y), color-mix(in oklab, var(--color-fill-900) 40%, transparent), transparent),
       radial-gradient(7rem 4.5rem at var(--au-x) 50%, color-mix(in oklab, var(--color-fill-to-400) 30%, transparent), transparent);
-    animation: accent-float 16s ease-in-out infinite alternate;
+    /* Settings → Animations sets the speed (src/lib/motion.ts FLOW_SECONDS). */
+    animation: accent-float var(--flow-dur, 16s) ease-in-out infinite alternate;
+  }
+  /* Colour flow turned off in Animations: the patches stay, still. */
+  &:where([data-flow='off'] *)::before {
+    animation: none;
   }
   /* Dual tone off asks for flat accent fills: no drifting patches, and nothing animating unseen. */
   &:where([data-duo='off'] *)::before {

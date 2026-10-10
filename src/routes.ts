@@ -28,6 +28,7 @@ export const load = {
   SettingsAutomation: () => import('./pages/settings/Automation'),
   SettingsAi: () => import('./pages/settings/Ai'),
   SettingsData: () => import('./pages/settings/Data'),
+  SettingsAnimations: () => import('./pages/settings/Animations'),
   Admin: () => import('./pages/Admin'),
   ImportGroup: () => import('./pages/ImportGroup'),
   Table: () => import('./pages/Table'),
@@ -86,6 +87,7 @@ const SETTINGS_AREAS: Readonly<Record<string, RouteKey>> = {
   automation: 'SettingsAutomation',
   ai: 'SettingsAi',
   data: 'SettingsData',
+  animations: 'SettingsAnimations',
 }
 const SETTINGS_SCREENS: readonly RouteKey[] = Object.values(SETTINGS_AREAS)
 

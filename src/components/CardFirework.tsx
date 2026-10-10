@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
+import { useMotion } from '@/hooks/useMotion'
 import { type FireworkLook, fireworkLook } from '@/lib/firework'
+import { activeMotion, fireworkScale, sparkLife } from '@/lib/motion'
 
 /*
  * Quiet fireworks for the Home balance card when you're all settled up.
@@ -21,7 +23,9 @@ import { type FireworkLook, fireworkLook } from '@/lib/firework'
  *
  * One rAF loop driven by its own show clock: it pauses (state kept) while the card is
  * off-screen or the tab is hidden, sleeps on a timer during quiet gaps, and everything is torn
- * down on unmount. Renders nothing under prefers-reduced-motion.
+ * down on unmount. Renders nothing under prefers-reduced-motion or when Settings → Animations
+ * turns fireworks off; the size and glitter settings are read per burst, so a change shows on the
+ * next one.
  *
  * Place it inside the card's `relative isolate overflow-hidden` box, after <Aurora /> and
  * before the (relative) content, so it paints between the two.
@@ -90,14 +94,16 @@ interface Launch {
   bright: number
 }
 
-const prefersReduced = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-
-export function CardFirework() {
-  const [reduced] = useState(prefersReduced)
+export function CardFirework({ testId = 'home-firework' }: { testId?: string } = {}) {
+  const { prefs, reduced } = useMotion()
+  const on = activeMotion(prefs, reduced).fireworks
   const ref = useRef<HTMLCanvasElement>(null)
+  // Size and glitter are read per burst, without restarting the show.
+  const prefsRef = useRef(prefs)
+  prefsRef.current = prefs
 
   useEffect(() => {
-    if (reduced) return
+    if (!on) return
     const canvas = ref.current
     const ctx = canvas?.getContext('2d')
     if (!canvas || !ctx) return
@@ -204,8 +210,11 @@ export function CardFirework() {
     }
 
     const burst = (s: Shell) => {
-      const scale = clamp(Math.min(w, h * 1.9) / 330, 0.75, 1.25) * s.size
-      let n = Math.round(rand(22, 30) * (0.6 + 0.4 * s.bright) * s.look.count)
+      const k = fireworkScale(prefsRef.current.size)
+      const [lifeMin, lifeMax] = sparkLife(prefsRef.current.glitter)
+      const scale = clamp(Math.min(w, h * 1.9) / 330, 0.75, 1.25) * s.size * k
+      // A bigger burst gets more sparks so it doesn't look sparse.
+      let n = Math.round(rand(22, 30) * (0.6 + 0.4 * s.bright) * s.look.count * k)
       n = Math.min(n, MAX_PARTICLES - parts.length)
       const drag = rand(2.1, 2.6)
       for (let i = 0; i < n; i++) {
@@ -220,9 +229,9 @@ export function CardFirework() {
           vx: Math.cos(a) * v + s.vx * 0.3,
           vy: Math.sin(a) * v + s.vy * 0.3,
           born: clock + rand(0, 60),
-          life: rand(1300, 2200),
+          life: rand(lifeMin, lifeMax),
           color: s.colors[i % s.colors.length],
-          r: rand(0.8, 1.35) * s.look.dot,
+          r: rand(0.8, 1.35) * s.look.dot * Math.sqrt(k),
           drag,
           grav: 34,
           alpha: s.bright * 0.75 * s.look.alpha,
@@ -452,8 +461,8 @@ export function CardFirework() {
       io?.disconnect()
       document.removeEventListener('visibilitychange', sync)
     }
-  }, [reduced])
+  }, [on])
 
-  if (reduced) return null
-  return <canvas ref={ref} aria-hidden data-testid="home-firework" className="pointer-events-none absolute inset-0 h-full w-full" />
+  if (!on) return null
+  return <canvas ref={ref} aria-hidden data-testid={testId} className="pointer-events-none absolute inset-0 h-full w-full" />
 }

@@ -167,6 +167,21 @@ test('settings page loads', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1, name: /settings/i })).toBeVisible()
 })
 
+test('Animations: turning them all off stills the preview and the accent buttons, and is kept after a reload', async ({ page }) => {
+  await page.goto('/settings')
+  await page.getByTestId('settings-animations').click()
+  await expect(page.getByTestId('motion-preview')).toBeVisible()
+  await page.getByTestId('motion-size').getByRole('radio', { name: 'Big' }).click()
+  await expect(page.getByTestId('motion-size').getByRole('radio', { name: 'Big' })).toHaveAttribute('aria-checked', 'true')
+  await page.getByTestId('motion-on').click()
+  await expect(page.getByTestId('motion-on')).toHaveAttribute('aria-checked', 'false')
+  await expect(page.getByTestId('motion-preview-firework')).toHaveCount(0)
+  await expect(page.locator('html')).toHaveAttribute('data-flow', 'off')
+  await page.reload()
+  await expect(page.getByTestId('motion-on')).toHaveAttribute('aria-checked', 'false')
+  await expect(page.locator('html')).toHaveAttribute('data-flow', 'off')
+})
+
 test('a Pay me link opens like it would for a friend, and “I’ve paid” records the payment', async ({ page }) => {
   await page.goto('/groups/g_goa')
   await page.getByRole('radio', { name: 'Balances' }).click()
