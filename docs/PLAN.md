@@ -256,7 +256,7 @@ Server-only collections (rules deny all client access): `rateLimits/*` (`{tokenH
   - **Settings → Preferences → refresh button** (next to the currency): icon only; the status line below says where the rates came from ("ECB 7 Oct, fetched 10:42", also in its `aria-label`/`title`). Tapping calls `refreshFx()` (updating the shared copy for everyone), then the local cache.
 - **Home-currency view**: Home and Insights ("All groups") add groups in other currencies to the user's profile currency at *today's* ECB rate, labelled "≈". The exact per-currency numbers stay on Home ("Exact: …") and on each group. Groups whose rate isn't available are listed, not converted.
 - Rules: `original` is optional; if present it must have exactly those keys, a 3-letter `currency`, an int `amount` > 0, a numeric `rate` > 0, a 10-char `rateDate` and `source` in `ecb|manual` (`tests/firestore.fx.test.ts`).
-- **Out of scope:** settling up in a currency other than the group's. A settlement is still recorded in the group currency; pay the converted amount in your own bank/wallet. Supporting it would need `original` on settlements and an FX-aware settle sheet.
+- ✅ **Collect in my currency** (3.4.0, `src/lib/collect.ts`, Settings → Preferences, `profiles.collectInHome`): the recipient's switch decides. With it on, Settle up in a group in another currency starts out in the recipient's home currency (shared with the group as `profiles/{uid}.currency` and `collect`): the QR, app buttons and handles ask for the converted amount at today's ECB rate. The amount stays editable, and what it clears follows it: within ±4% of the exact conversion (`PAY_TOLERANCE`, a bank's or UPI app's rate) it clears the debt in full; less clears only what it is worth (₹4.50 against ₹1,045 owed clears $0.05, and the line under it says so); more than 4% over is refused. The settlement is still recorded in the group currency (`amount` = what it clears), with what changed hands in `paid: { currency, amount, rate, rateDate, source }`; the group's payment list and activity show "paid ₹X". Balances folds a person's balances in other currencies into one ≈ home-currency balance (when every rate is known; otherwise they stay apart), and settling it records one payment per group, each in its own currency, the money moved spread across them so it adds up to exactly what was paid. Remind on such a person makes one Pay me link in the home currency for the total (`payLinks.parts`, up to 8 groups).
 
 ### 4.2 Firestore data model
 
@@ -311,7 +311,7 @@ groups/{groupId}                              ← readable/writable by members (
   joinCode, joinMemberId                      ← set by the last join (rules)
 
 groups/{groupId}/profiles/{uid}               ← what a member shares with ONE group; written only by the owner
-  displayName, payment, photoURL? (https)
+  displayName, payment, photoURL? (https), currency? (3 letters, their home currency), collect? (bool, Collect in my currency)
 
 groups/{groupId}/expenses/{expenseId}
   groupId, description (≤ 200), amount (int > 0), category, date (ISO), notes? (≤ 2000)
@@ -333,7 +333,9 @@ groups/{groupId}/expenses/{expenseId}/comments/{commentId}
 
 groups/{groupId}/settlements/{settlementId}
   groupId, from: memberId, to: memberId (≠ from), amount (int > 0), method? (≤ 40; 'waived' for a let-go remainder),
-  note? (≤ 500), date, createdBy, createdAt, importedFrom?, payLink? (≤ 40, the Pay me link it cleared), deletedAt?, deletedBy?  ← only these keys (rules whitelist)
+  note? (≤ 500), date, createdBy, createdAt, importedFrom?, payLink? (≤ 40, the Pay me link it cleared), deletedAt?, deletedBy?,
+  paid?: { currency (≠ the group's), amount (int > 0), rate (> 0, group units per 1 paid unit), rateDate, source: ecb|manual }  ← paid in another currency (§4.1a)
+  ← only these keys (rules whitelist)
 
 groups/{groupId}/activity/{activityId}        ← append-only; same batch as the change
   type: expense.created|updated|deleted|restored|purged|disputed|resolved|approved|imported
@@ -363,10 +365,11 @@ tables/{code}                                 ← live table; the doc id is the 
 
 payLinks/{code}                               ← Pay me link; code = 20–40 lowercase letters/digits (24 random), get by anyone signed in (anonymous too); list: the payee's own only
   groupId? | tableCode (no group: a live table the creator hosts), groupName (≤ 80), emoji? (≤ 16), from, to (member ids; participant ids without a group),
-  amount (int > 0), currency (= the group's), payeeName, payerName (≤ 80), payment: { upi?, phone?, payid?, paypal?, revolut? } (≤ 100 each),
+  amount (int > 0), currency (= the group's, or the payee's home currency for a parts link), payeeName, payerName (≤ 80), payment: { upi?, phone?, payid?, paypal?, revolut? } (≤ 100 each),
   forUid? (only this uid may mark it paid), createdBy (the payee), createdAt, expiresAt (≤ 31 days), status: open|claimed|paid|cancelled (claimed: a table link without forUid waiting for the host),
   paidAt?, paidBy? (uid that tapped "I've paid"), method? (≤ 40), proofPath? (payproofs/{code}/<name>.jpg), cancelledAt?,
-  settlementId? (a member's own from Settle up, or the server's pl_{code}), recordedAt? (server)
+  settlementId? (a member's own from Settle up, or the server's pl_{code}), recordedAt? (server),
+  parts?: [{ groupId, groupName, from, to, amount, currency, paid }] (1–8; instead of groupId: one link across groups, each part recorded as pl_{code}_{i} in its own currency with `paid`)
 
 fxRates/{yyyy-mm-dd | latest}                 ← server; any signed-in user reads (§4.1a)
 

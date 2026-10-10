@@ -10,6 +10,7 @@ import { AccentPicker } from '@/components/AccentPicker'
 import { Segmented } from '@/components/Misc'
 import { RatesField } from '@/components/ProfileCards'
 import { Select, currencyOptions } from '@/components/Select'
+import { Switch } from '@/components/Switch'
 import { useToast } from '@/components/Toast'
 import { SectionTitle, SettingsPage, useSavedFlash } from './common'
 
@@ -31,6 +32,16 @@ export default function Preferences() {
     }
   }
 
+  // Saved on the profile and shared with every group (memberProfileOf), so payers see it too.
+  const setCollect = async (collectInHome: boolean) => {
+    try {
+      await repo.saveProfile({ ...profile, collectInHome })
+      flashCurrency()
+    } catch (e) {
+      toast(errText(e), 'err')
+    }
+  }
+
   return (
     <SettingsPage title="Preferences">
       <SectionTitle saved={currencySaved}>Money</SectionTitle>
@@ -39,6 +50,18 @@ export default function Preferences() {
           <Select aria-label="Default currency" value={profile.currency} onChange={setCurrency} options={currencyOptions(CURRENCIES, appLocale())} />
         </RatesField>
         <p className="text-muted mt-2 text-xs">Used for new groups and for totals across groups. Each group keeps its own currency.</p>
+        <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-4 dark:border-white/5">
+          <div className="min-w-0">
+            <div className="font-medium" id="collect-home-label">
+              Collect in {profile.currency}
+            </div>
+            <p className="text-muted text-xs" id="collect-home-hint">
+              Balances adds up what each person owes you across currencies, in {profile.currency} at today’s rate, and friends paying you are offered{' '}
+              {profile.currency} first (a UPI QR when it’s INR). Groups keep their own currency.
+            </p>
+          </div>
+          <Switch checked={!!profile.collectInHome} onChange={(on) => void setCollect(on)} label={`Collect in ${profile.currency}`} testId="collect-home" />
+        </div>
       </div>
 
       <SectionTitle saved={lookSaved}>Appearance</SectionTitle>

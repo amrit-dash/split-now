@@ -13,6 +13,9 @@ import {
   payLinkSettlementId,
   payLinkState,
   planRecord,
+  planRecordParts,
+  payLinkPartId,
+  MAX_LINK_PARTS,
   shouldHandle,
   type PayLinkDoc,
 } from './paylinks'
@@ -204,5 +207,53 @@ describe('trigger decision (no flag involved: a claim is always honoured)', () =
   it('claimed stays claimed after the expiry date (the host can still confirm)', () => {
     expect(payLinkState(claimed, link.expiresAt + 1)).toBe('claimed')
     expect(canMarkPaid(claimed, NOW, 'anon2')).toBe(false)
+  })
+})
+
+describe('links in another currency or across groups (parts)', () => {
+  const nyc = {
+    name: 'NYC trip',
+    currency: 'USD',
+    memberUids: ['u_priya', 'u_rahul'],
+    members: { m_priya: { name: 'Priya', uid: 'u_priya' }, m_rahul: { name: 'Rahul Sharma', uid: 'u_rahul' } },
+  }
+  // ₹1,240 (Goa, INR) + $12.50 (NYC, USD) = ₹2,285 at 83.6, collected in rupees.
+  const bundle: PayLinkDoc = {
+    ...link,
+    groupId: undefined,
+    groupName: 'Goa trip and NYC trip',
+    amount: 228500,
+    currency: 'INR',
+    status: 'paid',
+    paidAt: NOW,
+    paidBy: 'anon1',
+    method: 'UPI',
+    parts: [
+      { groupId: 'g_goa', groupName: 'Goa trip', from: 'm_rahul', to: 'm_priya', amount: 124000, currency: 'INR', paid: 124000 },
+      { groupId: 'g_nyc', groupName: 'NYC trip', from: 'm_rahul', to: 'm_priya', amount: 1250, currency: 'USD', paid: 104500 },
+    ],
+  }
+  const money = (m: number, c: string) => `${c} ${m / 100}`
+  const digits = () => 2
+
+  it('records one payment per group, each in its own currency, with what changed hands when it differs', () => {
+    const { records, skipped } = planRecordParts(CODE, bundle, { g_goa: group, g_nyc: nyc }, '2026-10-09', NOW, money, digits)
+    expect(skipped).toEqual([])
+    expect(records.map((r) => r.settlementId)).toEqual([payLinkPartId(CODE, 0), payLinkPartId(CODE, 1)])
+    expect(records[0].settlement).toMatchObject({ groupId: 'g_goa', amount: 124000, from: 'm_rahul', to: 'm_priya', createdBy: 'u_priya', payLink: CODE })
+    expect(records[0].settlement.paid).toBeUndefined()
+    expect(records[1].settlement).toMatchObject({ groupId: 'g_nyc', amount: 1250 })
+    expect(records[1].settlement.paid).toEqual({ currency: 'INR', amount: 104500, rate: 0.01196172249, rateDate: '2026-10-09', source: 'ecb' })
+    expect(records[1].summary).toContain('paid INR 1045 with a Pay me link')
+  })
+  it('skips a part that does not check out and records the rest', () => {
+    const { records, skipped } = planRecordParts(CODE, bundle, { g_goa: group, g_nyc: { ...nyc, currency: 'EUR' } }, 'd', NOW, money, digits)
+    expect(records.map((r) => r.settlement.groupId)).toEqual(['g_goa'])
+    expect(skipped).toEqual([{ groupId: 'g_nyc', reason: 'currency' }])
+    expect(planRecordParts(CODE, bundle, {}, 'd', NOW, money, digits).skipped.map((x) => x.reason)).toEqual(['no_group', 'no_group'])
+  })
+  it('reads at most MAX_LINK_PARTS parts', () => {
+    const many = { ...bundle, parts: Array.from({ length: MAX_LINK_PARTS + 3 }, () => bundle.parts![0]) }
+    expect(planRecordParts(CODE, many, { g_goa: group }, 'd', NOW, money, digits).records).toHaveLength(MAX_LINK_PARTS)
   })
 })

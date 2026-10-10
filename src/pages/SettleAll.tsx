@@ -7,6 +7,9 @@ import { useAllGroupData, useRecentActivity } from '@/hooks/data'
 import type { ActivityEntry, Group } from '@/types'
 import { formatMoney } from '@/lib/money'
 import { groupCount, pendingSettlements, personBalances, settlePersonHref, totalsByCurrency, type PersonBalance, type SettleRow } from '@/lib/settleAll'
+import { inHome, type HomeBalance } from '@/lib/collect'
+import { convertMinor, type FxRate } from '@/lib/fx'
+import { useTodayRates } from '@/hooks/useFx'
 import { Avatar } from '@/components/Avatar'
 import { PageHeader, Segmented } from '@/components/Misc'
 import { CardSkeleton, ListSkeleton } from '@/components/Skeleton'
@@ -46,6 +49,9 @@ export default function SettleAll() {
   const [params, setParams] = useSearchParams()
   const view: View = params.get('view') === 'group' ? 'group' : 'person'
   const setView = (v: View) => setParams(v === 'person' ? {} : { view: v }, { replace: true })
+  // Collect in my currency: other currencies are folded into the home one at today's rate (≈).
+  const collect = !!profile.collectInHome
+  const rates = useTodayRates(home, collect && rows ? rows.map((r) => r.currency) : [])
 
   return (
     <div>
@@ -59,7 +65,7 @@ export default function SettleAll() {
         <AllSettled />
       ) : (
         <div className="space-y-6" data-testid="settle-all">
-          <Totals rows={rows} home={home} />
+          <Totals rows={rows} home={home} rates={collect ? rates : undefined} />
           <Segmented<View>
             value={view}
             onChange={setView}
@@ -70,15 +76,29 @@ export default function SettleAll() {
             label="Show balances"
             testId="settle-view"
           />
-          {view === 'person' ? <ByPerson rows={rows} chase={chase} /> : <ByGroup rows={rows} chase={chase} />}
+          {view === 'person' ? <ByPerson rows={rows} chase={chase} home={home} rates={collect ? rates : undefined} /> : <ByGroup rows={rows} chase={chase} />}
         </div>
       )}
     </div>
   )
 }
 
-function Totals({ rows, home }: { rows: SettleRow[]; home: string }) {
+function Totals({ rows, home, rates }: { rows: SettleRow[]; home: string; rates?: Record<string, FxRate | null> }) {
   const totals = totalsByCurrency(rows, home)
+  // In one ≈ home-currency figure per column when collecting in it and every rate is known.
+  const folded = rates && totals.every((t) => t.currency === home || (rates[t.currency]?.rate ?? 0) > 0)
+  if (folded && totals.some((t) => t.currency !== home)) {
+    const sum = (k: 'owe' | 'owed') =>
+      totals.reduce((a, t) => a + (t.currency === home ? t[k] : convertMinor(t[k], t.currency, home, (rates[t.currency] as FxRate).rate)), 0)
+    const owe = sum('owe'),
+      owed = sum('owed')
+    return (
+      <div className="card grid grid-cols-2 divide-x divide-slate-100 overflow-hidden dark:divide-white/5" data-testid="settle-totals">
+        <TotalCol label="You owe" cls="neg" values={owe ? [`≈ ${formatMoney(owe, home)}`] : []} />
+        <TotalCol label="You are owed" cls="pos" values={owed ? [`≈ ${formatMoney(owed, home)}`] : []} />
+      </div>
+    )
+  }
   return (
     <div className="card grid grid-cols-2 divide-x divide-slate-100 overflow-hidden dark:divide-white/5" data-testid="settle-totals">
       <TotalCol label="You owe" cls="neg" values={totals.filter((t) => t.owe).map((t) => formatMoney(t.owe, t.currency))} />
@@ -256,13 +276,13 @@ function RowAction({ r }: { r: SettleRow }) {
 
 /* ───────────────────────── By person ───────────────────────── */
 
-function ByPerson({ rows, chase }: { rows: SettleRow[]; chase: Chase }) {
-  const people = useMemo(() => personBalances(rows), [rows])
+function ByPerson({ rows, chase, home, rates }: { rows: SettleRow[]; chase: Chase; home: string; rates?: Record<string, FxRate | null> }) {
+  const people = useMemo<(PersonBalance | HomeBalance)[]>(() => (rates ? inHome(personBalances(rows), home, rates) : personBalances(rows)), [rows, home, rates])
   const owe = people.filter((p) => p.net < 0)
   const owed = people.filter((p) => p.net > 0)
   const even = people.filter((p) => p.net === 0)
 
-  const list = (ps: PersonBalance[]) => (
+  const list = (ps: (PersonBalance | HomeBalance)[]) => (
     <div className="space-y-3">
       {ps.map((p) => (
         <PersonCard key={p.key} p={p} chase={chase} />
@@ -321,13 +341,15 @@ function PersonAction({ p, n }: { p: PersonBalance; n: number }) {
   )
 }
 
-function PersonCard({ p, chase }: { p: PersonBalance; chase: Chase }) {
+function PersonCard({ p, chase }: { p: PersonBalance | HomeBalance; chase: Chase }) {
   const n = groupCount(p)
   const multi = n > 1
   const mixed = multi && p.parts.some((r) => r.dir === 'owe') && p.parts.some((r) => r.dir === 'owed')
   const dir = p.net < 0 ? 'owe' : p.net > 0 ? 'owed' : 'even'
   const avatar = <Avatar name={p.name} photoURL={p.photoURL} color={p.color} size={44} />
-  const amount = formatMoney(Math.abs(p.net), p.currency)
+  // Folded into your currency (Collect in my currency): approximate, at today's rate.
+  const approx = 'approx' in p && p.approx
+  const amount = `${approx ? '≈ ' : ''}${formatMoney(Math.abs(p.net), p.currency)}`
 
   if (!multi) {
     const r = p.parts[0]
@@ -336,7 +358,7 @@ function PersonCard({ p, chase }: { p: PersonBalance; chase: Chase }) {
         <ItemRow
           avatar={avatar}
           name={p.name}
-          sub={`${r.groupEmoji} ${r.groupName}`}
+          sub={approx ? `${formatMoney(r.amount, r.currency)} · ${r.groupEmoji} ${r.groupName}` : `${r.groupEmoji} ${r.groupName}`}
           amount={amount}
           dir={dir}
           chase={<RowChase r={r} chase={chase} />}

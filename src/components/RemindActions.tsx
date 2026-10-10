@@ -8,8 +8,11 @@ import type { ActivityEntry, Cents, Group, MemberId } from '@/types'
 import { errText } from '@/lib/errors'
 import { formatMoney } from '@/lib/money'
 import { lastNudgeAcross, lastNudgeAt, localNudgeAt, nudgeCooldownText, nudgeResultText, nudgedRecently, rememberNudge, type NudgeResult } from '@/lib/nudge'
-import { buildPayLink, newPayLinkCode, payLinkFeatures } from '@/lib/paylinks'
+import { buildPayLink, MAX_LINK_PARTS, newPayLinkCode, payLinkFeatures } from '@/lib/paylinks'
 import { canNudgePerson, groupNames, personNudgeItems, settlePersonHref, type PersonBalance } from '@/lib/settleAll'
+import type { HomeBalance } from '@/lib/collect'
+import { convertMinor } from '@/lib/fx'
+import { useTodayRates } from '@/hooks/useFx'
 import { andList, cardSpec, firstName, renderShareCard, shareReminder, type ReminderArgs } from '@/lib/share-card'
 import { useToast } from '@/components/Toast'
 
@@ -51,6 +54,12 @@ export function RemindActions({
   const canNudge = nudges && !!m?.uid && m.uid !== user.uid
   const lastAt = lastNudgeAt(feed, user.uid, debtor, group.id) ?? localNudgeAt(group.id, debtor)
   const cooling = nudgedRecently(lastAt)
+  // Collect in my currency: the link asks for the amount in yours (a UPI QR when it's INR), and
+  // records the group's own amount when paid. Without today's rate, it stays in the group's.
+  const home = profile.currency
+  const collect = !!profile.collectInHome && home !== group.currency
+  const rate = useTodayRates(home, collect ? [group.currency] : [])?.[group.currency]
+  const inHome = collect && rate ? convertMinor(amount, group.currency, home, rate.rate) : undefined
 
   const remind = () =>
     chase.share(async () => {
@@ -69,10 +78,13 @@ export function RemindActions({
                 emoji: group.emoji,
                 from: { id: debtor, name },
                 to: { id: me, name: payeeName },
-                amount,
-                currency: group.currency,
+                amount: inHome ?? amount,
+                currency: inHome ? home : group.currency,
                 payment: profile.payment,
                 createdBy: user.uid,
+                parts: inHome
+                  ? [{ groupId: group.id, groupName: group.name, from: debtor, to: me, amount, currency: group.currency, paid: inHome }]
+                  : undefined,
               },
               Date.now(),
             ),
@@ -85,8 +97,8 @@ export function RemindActions({
         emoji: group.emoji,
         debtor: { id: debtor, name },
         payee: { id: me, name: payeeName },
-        amount,
-        currency: group.currency,
+        amount: inHome ?? amount,
+        currency: inHome ? home : group.currency,
         upi: profile.payment?.upi,
         payLink: code,
       }
@@ -126,12 +138,47 @@ export function PersonRemindActions({ p, feed, className = '' }: { p: PersonBala
   const owedParts = p.parts.filter((r) => r.dir === 'owed')
   const canNudge = nudges && canNudgePerson(p, user.uid)
   const cooling = nudgedRecently(lastNudgeAcross(owedParts, feed, user.uid))
+  const { createLinks } = payLinkFeatures(useFlag('payLinks'))
+  const nav = useNavigate()
   if (p.net <= 0) return null
+
+  // Combined across currencies (Collect in my currency) and all owed to you: one Pay me link for the
+  // ≈ total in your currency, recording each group's own amount when paid (shared/paylinks parts).
+  const hb = 'approx' in p && (p as HomeBalance).approx ? (p as HomeBalance) : null
+  const bundle = !!hb && createLinks && owedParts.length === p.parts.length && p.parts.length <= MAX_LINK_PARTS
 
   const remind = () =>
     chase.share(async () => {
       const names = groupNames(p)
       const lead = owedParts[0] ?? p.parts[0]
+      const code = bundle && hb ? newPayLinkCode() : undefined
+      if (code && hb)
+        repo
+          .createPayLink(
+            code,
+            buildPayLink(
+              {
+                groupName: andList(names),
+                from: { id: lead.memberId, name: p.name },
+                to: { id: lead.me, name: profile.displayName },
+                amount: p.net,
+                currency: p.currency,
+                payment: profile.payment,
+                createdBy: user.uid,
+                parts: p.parts.map((r) => ({
+                  groupId: r.groupId,
+                  groupName: r.groupName,
+                  from: r.memberId,
+                  to: r.me,
+                  amount: r.amount,
+                  currency: r.currency,
+                  paid: Math.abs(hb.home[r.key] ?? r.amount),
+                })),
+              },
+              Date.now(),
+            ),
+          )
+          .catch((e) => toast(errText(e), 'err'))
       const args: ReminderArgs = {
         origin: location.origin,
         groupId: lead.groupId,
@@ -143,11 +190,16 @@ export function PersonRemindActions({ p, feed, className = '' }: { p: PersonBala
         upi: profile.payment?.upi,
         across: names,
         // Their cross-group Settle up is keyed by you (the person they owe).
-        link: settlePersonHref({ key: `u:${user.uid}|${p.currency}` }),
+        // A combined balance (every currency in yours, Balances with Collect in my currency) opens the combined one.
+        link: settlePersonHref({ key: p.key.endsWith('|*') ? `u:${user.uid}|*` : `u:${user.uid}|${p.currency}` }),
+        payLink: code,
       }
       const file = await renderShareCard(cardSpec(args)).catch(() => null)
       const r = await shareReminder(args, file)
-      if (r === 'copied') toast('Reminder copied')
+      // Demo mode has one browser: offer to open the link as the friend would see it.
+      const demo = repo.mode === 'demo' && code ? { action: { label: `Open as ${first}`, run: () => nav(`/r/${code}?guest=demo`) } } : undefined
+      if (r === 'copied') toast(code ? 'Reminder and Pay me link copied' : 'Reminder copied', 'ok', demo)
+      else if (demo) toast('Pay me link ready', 'ok', demo)
     })
 
   const nudge = () =>

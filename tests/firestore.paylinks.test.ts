@@ -157,6 +157,16 @@ describe('creating', () => {
     await assertFails(create(user('priya'), link({ createdAt: Date.now() - 3_600_000 })))
     await assertFails(create(user('priya'), link({ payeeName: 'x'.repeat(81) })))
   })
+  it('in another currency or across groups: parts instead of groupId, 1 to 8 of them (the trigger checks each)', async () => {
+    const { groupId: _g, ...rest } = link({ currency: 'INR' })
+    const part = { groupId: 'g1', groupName: 'Trip', from: 'mr', to: 'mp', amount: 1250, currency: 'USD', paid: 104500 }
+    await assertSucceeds(create(user('priya'), { ...rest, parts: [part] }))
+    await assertFails(create(user('priya'), { ...rest, parts: [] }))
+    await assertFails(create(user('priya'), { ...rest, parts: Array.from({ length: 9 }, () => part) }))
+    await assertFails(create(user('priya'), { ...rest, parts: 'g1' }))
+    // Not both: a group link stays checked against its group by the rules.
+    await assertFails(create(user('priya'), { ...link(), parts: [part] }))
+  })
 })
 
 describe('"I’ve paid"', () => {

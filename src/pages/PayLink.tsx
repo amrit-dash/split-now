@@ -12,7 +12,17 @@ import { errText } from '@/lib/errors'
 import { uid as newId } from '@/lib/id'
 import { formatDate } from '@/lib/locale'
 import { formatMoney } from '@/lib/money'
-import { needsHostConfirm, parsePayLinkCode, payLinkFeatures, payLinkUrl, payLinkView, settleUpPath, statusLine, type PayLink } from '@/lib/paylinks'
+import {
+  needsHostConfirm,
+  parsePayLinkCode,
+  recordsInGroup,
+  payLinkFeatures,
+  payLinkUrl,
+  payLinkView,
+  settleUpPath,
+  statusLine,
+  type PayLink,
+} from '@/lib/paylinks'
 import { payOptions } from '@/lib/payments'
 import { copy, shareOrCopy } from '@/lib/share'
 import { firstName } from '@/lib/share-card'
@@ -111,7 +121,7 @@ export default function PayLinkPage() {
           <div className="text-4xl font-extrabold tabular-nums">{formatMoney(link.amount, link.currency)}</div>
           <p className="mt-3 text-sm">
             Marked paid{link.paidAt ? ` ${formatDate(link.paidAt)}` : ''}. {payee} checks it and confirms
-            {link.groupId ? `, then it’s recorded as a payment in ${link.groupName}` : ''}.
+            {recordsInGroup(link) ? `, then it’s recorded as a payment in ${link.groupName}` : ''}.
           </p>
         </div>
         {viewer.anonymous && <GetApp />}
@@ -187,7 +197,7 @@ function PayView({ link, signedIn }: { link: PayLink; signedIn: boolean }) {
             payee={payee}
             amount={link.amount}
             currency={link.currency}
-            groupName={link.groupId ? link.groupName : undefined}
+            groupName={recordsInGroup(link) ? link.groupName : undefined}
             confirmFirst={needsHostConfirm(link)}
           />
         </div>
@@ -212,7 +222,7 @@ function PaidView({ link, signedIn }: { link: PayLink; signedIn: boolean }) {
           {link.method ? ` · ${link.method}` : ''}
         </div>
         <p className="mt-3 text-sm">
-          {payee} can see it now.{link.groupId ? ` It’s recorded as a payment in ${link.groupName}.` : ''}
+          {payee} can see it now.{recordsInGroup(link) ? ` It’s recorded as a payment in ${link.groupName}.` : ''}
         </p>
       </div>
       {!signedIn && <GetApp />}
@@ -277,7 +287,7 @@ function PayeeView({ link }: { link: PayLink }) {
             )}
           </div>
         )}
-        {link.status === 'paid' && link.groupId && (
+        {link.status === 'paid' && recordsInGroup(link) && (
           <p className="text-muted mt-3 text-xs">Not right? Delete the payment in the group and it counts as owed again.</p>
         )}
       </div>

@@ -17,7 +17,8 @@
  */
 import { logger } from 'firebase-functions/logger'
 import { onDocumentUpdated } from 'firebase-functions/v2/firestore'
-import { claimSummary, planRecord, triggerAction, type GroupLite, type PayLinkDoc, type RecordPlan } from '../../shared/paylinks'
+import { claimSummary, planRecord, planRecordParts, triggerAction, type GroupLite, type PayLinkDoc, type RecordPlan } from '../../shared/paylinks'
+import { minorDigitsOf } from '../../shared/money-core'
 import { db } from './admin'
 import { REGION } from './config'
 import { formatMoney, payLinkClaimedNote, payLinkPaidNote } from './lib/notify-text'
@@ -35,6 +36,7 @@ export const onPayLinkPaid = onDocumentUpdated({ document: 'payLinks/{code}', re
   const firestore = db()
   const linkRef = firestore.doc(`payLinks/${code}`)
   const now = Date.now()
+  if (Array.isArray(after.parts) && after.parts.length) return recordParts(code, after)
   const plan = await firestore.runTransaction(async (tx): Promise<RecordPlan | null> => {
     const fresh = await tx.get(linkRef)
     const l = fresh.data() as PayLinkDoc | undefined
@@ -130,4 +132,59 @@ async function onClaimed(code: string, l: PayLinkDoc) {
     }),
   )
   logger.info('pay link claimed', { code, devices: sent })
+}
+
+/**
+ * A link in another currency, or across several groups (Collect in my currency): one payment per
+ * group, each in its group's currency with what changed hands kept as `paid`, all in one
+ * transaction with the link stamped, so a re-run records nothing twice (ids pl_{code}_{i}).
+ */
+async function recordParts(code: string, after: PayLinkDoc) {
+  const firestore = db()
+  const linkRef = firestore.doc(`payLinks/${code}`)
+  const now = Date.now()
+  const done = await firestore.runTransaction(async (tx) => {
+    const fresh = await tx.get(linkRef)
+    const l = fresh.data() as PayLinkDoc | undefined
+    if (l?.status !== 'paid' || l.recordedAt || l.settlementId || !Array.isArray(l.parts)) return null
+    const ids = [...new Set(l.parts.map((p) => String(p.groupId)))]
+    const snaps = await Promise.all(ids.map((id) => tx.get(firestore.doc(`groups/${id}`))))
+    const groups = Object.fromEntries(snaps.map((g, i) => [ids[i], g.exists ? (g.data() as GroupLite) : null]))
+    const plan = planRecordParts(code, l, groups, istDate(new Date(l.paidAt ?? now)), now, formatMoney, minorDigitsOf)
+    const existing = await Promise.all(plan.records.map((r) => tx.get(firestore.doc(`groups/${r.settlement.groupId}/settlements/${r.settlementId}`))))
+    plan.records.forEach((r, i) => {
+      if (existing[i].exists) return
+      const gid = r.settlement.groupId
+      tx.create(firestore.doc(`groups/${gid}/settlements/${r.settlementId}`), r.settlement)
+      tx.create(firestore.doc(`groups/${gid}/activity/${r.settlementId}`), {
+        type: 'settlement.created',
+        actorUid: l.paidBy ?? l.createdBy,
+        actorName: (l.payerName || 'Someone').slice(0, 100),
+        targetId: r.settlementId,
+        summary: r.summary,
+        after: { amount: r.settlement.amount, from: r.settlement.from, to: r.settlement.to, payLink: code },
+        createdAt: now,
+      })
+      tx.update(firestore.doc(`groups/${gid}`), { updatedAt: now })
+    })
+    tx.update(linkRef, { ...(plan.records[0] ? { settlementId: plan.records[0].settlementId } : {}), recordedAt: now })
+    return plan
+  })
+  if (!done) return
+  for (const s of done.skipped) logger.warn('pay link part not recorded', { code, ...s })
+  const sent = await sendToUser(
+    after.createdBy,
+    ['settlements'],
+    payLinkPaidNote({
+      code,
+      groupName: after.groupName,
+      emoji: after.emoji,
+      payerName: after.payerName,
+      amount: after.amount,
+      currency: after.currency,
+      recorded: done.records.length > 0,
+      withProof: !!after.proofPath,
+    }),
+  )
+  logger.info('pay link paid (parts)', { code, recorded: done.records.length, skipped: done.skipped.length, devices: sent })
 }

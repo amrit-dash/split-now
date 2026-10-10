@@ -632,11 +632,26 @@ service cloud.firestore {
       }
 
       match /settlements/{settlementId} {
+        // Paid in another currency (src/lib/collect.ts): what changed hands, beside `amount` (what it
+        // cleared, in the group currency). Never the group's own currency.
+        function validPaid(d) {
+          return !('paid' in d) || (
+            d.paid is map
+            && d.paid.keys().hasAll(['currency', 'amount', 'rate', 'rateDate', 'source'])
+            && d.paid.keys().hasOnly(['currency', 'amount', 'rate', 'rateDate', 'source'])
+            && d.paid.currency is string && d.paid.currency.size() == 3
+            && d.paid.currency != groupDoc(groupId).data.currency
+            && d.paid.amount is int && d.paid.amount > 0 && d.paid.amount <= 100000000000
+            && d.paid.rate is number && d.paid.rate > 0
+            && d.paid.rateDate is string && d.paid.rateDate.size() == 10
+            && d.paid.source in ['ecb', 'manual']);
+        }
         function validSettlement() {
           return validAuthor()
             // Every field a payment may hold (src/types.ts Settlement); nothing else rides along.
             && request.resource.data.keys().hasOnly(['id', 'groupId', 'from', 'to', 'amount', 'method', 'note', 'date', 'createdBy',
-                'createdAt', 'importedFrom', 'payLink', 'deletedAt', 'deletedBy'])
+                'createdAt', 'importedFrom', 'payLink', 'paid', 'deletedAt', 'deletedBy'])
+            && validPaid(request.resource.data)
             && (!('payLink' in request.resource.data) || (request.resource.data.payLink is string && request.resource.data.payLink.size() <= 40))
             && request.resource.data.groupId == groupId
             && request.resource.data.amount is int
@@ -690,8 +705,10 @@ service cloud.firestore {
         allow read: if isGroupMember(groupId);
         allow create, update: if isUser() && uid() == userId && writesOpen()
           && uid() in groupAfter(groupId).data.memberUids
-          && request.resource.data.keys().hasOnly(['displayName', 'payment', 'photoURL'])
+          && request.resource.data.keys().hasOnly(['displayName', 'payment', 'photoURL', 'currency', 'collect'])
           && request.resource.data.displayName is string
+          && (!('currency' in request.resource.data) || (request.resource.data.currency is string && request.resource.data.currency.size() == 3))
+          && (!('collect' in request.resource.data) || request.resource.data.collect is bool)
           && (!('photoURL' in request.resource.data)
             || (request.resource.data.photoURL is string
               && request.resource.data.photoURL.size() <= 2048
@@ -815,7 +832,7 @@ service cloud.firestore {
         return d.keys().hasAll(['groupName', 'from', 'to', 'amount', 'currency', 'payeeName', 'payerName', 'payment',
             'createdBy', 'createdAt', 'expiresAt', 'status'])
           && d.keys().hasOnly(['groupId', 'groupName', 'emoji', 'tableCode', 'from', 'to', 'amount', 'currency', 'payeeName', 'payerName',
-            'payment', 'forUid', 'createdBy', 'createdAt', 'expiresAt', 'status'])
+            'payment', 'forUid', 'createdBy', 'createdAt', 'expiresAt', 'status', 'parts'])
           && d.createdBy == uid()
           && d.status == 'open'
           && d.amount is int && d.amount > 0 && d.amount <= 100000000000
@@ -826,8 +843,12 @@ service cloud.firestore {
           && validHandles(d.payment)
           && d.createdAt is int && d.createdAt > now - 600000 && d.createdAt < now + 600000
           && d.expiresAt is int && d.expiresAt > d.createdAt && d.expiresAt - d.createdAt <= 2678400000
-          && (('groupId' in d && linkStr(d, 'groupId', 64) && payeeInGroup(d))
-            || (!('groupId' in d) && 'tableCode' in d && hostOfTable(d)));
+          && (('groupId' in d && !('parts' in d) && linkStr(d, 'groupId', 64) && payeeInGroup(d))
+            || (!('groupId' in d) && !('parts' in d) && 'tableCode' in d && hostOfTable(d))
+            // In another currency or across groups (shared/paylinks.ts PayLinkPart): up to 8 groups.
+            // Rules can't loop over them; the trigger checks each part (both people members, the
+            // payee is the maker, the group's currency) before recording anything, as the payee.
+            || (!('groupId' in d) && !('tableCode' in d) && 'parts' in d && d.parts is list && d.parts.size() > 0 && d.parts.size() <= 8));
       }
       // A live table link not locked to one guest: "I've paid" waits for the host (open → claimed).
       function needsHostConfirm(l) { return 'tableCode' in l && !('forUid' in l); }

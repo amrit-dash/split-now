@@ -6,10 +6,18 @@
 import { expect, test as base, type Page } from '@playwright/test'
 
 /** Every test starts signed in to demo mode, and fails if the page threw an uncaught error. */
-const test = base.extend<{ page: Page }>({
-  page: async ({ page }, use) => {
+const test = base.extend<{ page: Page; fixedRates: boolean }>({
+  // A fixed ECB rate (83.6 INR per USD) from the first request on, so no live rate gets cached first.
+  fixedRates: [false, { option: true }],
+  page: async ({ page, fixedRates }, use) => {
     const errors: string[] = []
     page.on('pageerror', (e) => errors.push(e.message))
+    if (fixedRates)
+      await page.route('**/api.frankfurter.dev/**', (route) => {
+        const base = new URL(route.request().url()).searchParams.get('base')
+        const rates = base === 'USD' ? { INR: 83.6 } : base === 'INR' ? { USD: 1 / 83.6 } : {}
+        return route.fulfill({ json: { date: '2026-10-09', base, rates } })
+      })
     await signInDemo(page)
     await use(page)
     expect(errors, 'no uncaught page errors').toEqual([])
@@ -346,4 +354,92 @@ test('Back on a screen opened cold goes to its parent', async ({ page }) => {
   await page.goto('/groups/g_goa/members')
   await page.getByRole('button', { name: 'Back' }).click()
   await expect(page).toHaveURL(/\/groups\/g_goa$/)
+})
+
+/** A dollar trip where Rohan owes you $12.50, beside the seeded rupee groups (use with fixedRates). */
+async function usdTripWithRates(page: Page) {
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('splitit-demo-v1') ?? '{}')
+    const goa = s.groups.g_goa
+    // Home currency rupees (the demo follows the browser's region otherwise).
+    s.profiles.me = { ...s.profiles.me, currency: 'INR' }
+    s.groups.g_nyc = { ...goa, id: 'g_nyc', name: 'NYC trip', emoji: '🗽', currency: 'USD', budget: undefined, startDate: undefined, endDate: undefined }
+    s.expenses.e_nyc = {
+      id: 'e_nyc',
+      groupId: 'g_nyc',
+      description: 'Pizza',
+      amount: 2500,
+      category: 'food',
+      date: '2026-10-09',
+      paidBy: { me: 2500 },
+      splits: { me: 1250, p_rohan: 1250 },
+      splitType: 'equal',
+      splitInput: { selected: ['me', 'p_rohan'] },
+      createdBy: 'me',
+      createdAt: 1,
+      updatedAt: 1,
+    }
+    localStorage.setItem('splitit-demo-v1', JSON.stringify(s))
+  })
+  await page.reload()
+}
+
+test.describe('Collect in my currency', () => {
+  // The fixed ECB rate is served by page.route, which can't see requests the service worker makes.
+  test.use({ serviceWorkers: 'block', fixedRates: true })
+
+  test('Collect in my currency: Balances folds dollars into ≈ rupees; Settle up converts with the 4% rule', async ({ page }) => {
+    await usdTripWithRates(page)
+    await page.goto('/settings/preferences')
+    await page.getByTestId('collect-home').click()
+    await expect(page.getByTestId('collect-home')).toHaveAttribute('aria-checked', 'true')
+
+    // Balances: Rohan's rupees (Goa) and dollars (NYC) are one ≈ ₹ balance across 2 groups.
+    await page.goto('/settle')
+    const rohan = page.getByTestId('person-card').filter({ hasText: 'Rohan' })
+    await expect(rohan.getByTestId('row-amount').first()).toContainText('≈ ₹')
+    await expect(rohan).toContainText('across 2 groups')
+
+    // In the dollar group, Settle up starts out in rupees: ₹1,045 clears $12.50; ₹4.50 clears only a part.
+    await page.goto('/groups/g_nyc/settle?from=p_rohan&to=me&amount=1250')
+    await expect(page.getByTestId('pay-in-switch')).toHaveAttribute('aria-checked', 'true')
+    await expect(page.getByTestId('pay-in-line')).toHaveText('Clears $12.50 in full')
+    await page.getByTestId('pay-in-amount').fill('4.50')
+    await expect(page.getByTestId('pay-in-line')).toContainText('stays owed')
+    await page.getByTestId('pay-in-amount').fill('1060')
+    await expect(page.getByTestId('pay-in-line')).toContainText('in full (within 4%')
+    await page.getByTestId('settle-record').click()
+    await expect(page).toHaveURL(/\/groups\/g_nyc$/)
+    await expect(page.getByTestId('payment-row').first()).toContainText('paid ₹1,060.00')
+  })
+
+  test('Collect in my currency: one Pay me link in rupees clears the rupee and the dollar group', async ({ page }) => {
+    await usdTripWithRates(page)
+    await page.evaluate(() => {
+      const s = JSON.parse(localStorage.getItem('splitit-demo-v1') ?? '{}')
+      s.profiles.me = { ...s.profiles.me, collectInHome: true }
+      localStorage.setItem('splitit-demo-v1', JSON.stringify(s))
+    })
+    await page.goto('/settle')
+    // Until today's rate arrives Rohan shows once per currency; then as one ≈ ₹ card.
+    const rohan = page.getByTestId('person-card').filter({ hasText: 'Rohan' })
+    await expect(rohan).toHaveCount(1)
+    await expect(rohan).toContainText('≈ ₹')
+    await rohan.getByTestId('remind').click()
+    await page
+      .getByRole('button', { name: /^Open as / })
+      .first()
+      .click()
+    await expect(page).toHaveURL(/\/r\/[a-z0-9]{24}\?guest=demo$/)
+    await expect(page.getByTestId('paylink-amount')).toContainText('₹')
+    await page.getByTestId('mark-paid').click()
+    await page.getByTestId('mark-paid-confirm').click()
+    await expect(page.getByTestId('paylink-paid')).toBeVisible()
+    // Each group recorded its own currency: the dollar one with what was paid in rupees.
+    await page.goto('/groups/g_nyc')
+    await expect(page.getByTestId('payment-row').first()).toContainText('$12.50')
+    await expect(page.getByTestId('payment-row').first()).toContainText('paid ₹1,045.00')
+    await page.goto('/groups/g_goa')
+    await expect(page.getByTestId('payment-row').first()).toContainText('Rohan')
+  })
 })
