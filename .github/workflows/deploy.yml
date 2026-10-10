@@ -1,7 +1,7 @@
 name: Deploy
 
-# Production deploy to split-it-prod, run by hand (Actions → Deploy → Run workflow) or by an agent
-# through the GitHub API. The service-account key lives only in the repository secret
+# Production deploy to split-it-prod. Releases call it (release.yml, on a merge to main that bumps
+# package.json); run it by hand (Actions → Deploy → Run workflow) only for an emergency redeploy. The service-account key lives only in the repository secret
 # FIREBASE_SERVICE_ACCOUNT (the whole JSON file); it never touches a laptop or an agent's container.
 # Order matters: indexes before rules and functions (onPushTokenCreated needs its index), functions
 # before hosting (hosting's /api/* rewrites point at them). See docs/FIREBASE_SETUP.md §4 and §5a.
@@ -12,6 +12,11 @@ on:
         description: What to deploy
         type: choice
         options: [all, hosting, rules, functions]
+        default: all
+  workflow_call:
+    inputs:
+      what:
+        type: string
         default: all
 
 concurrency:

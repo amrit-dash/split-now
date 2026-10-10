@@ -1284,10 +1284,6 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     async saveAppAi(cfg) {
       await setDoc(doc(db, 'config', 'ai'), { ...cfg, updatedAt: Date.now(), updatedBy: auth.currentUser?.uid ?? '' })
     },
-    async saveAppVersion(version) {
-      // merge: config/app also holds the admin console's flags, gates and announcement.
-      await setDoc(doc(db, 'config', 'app'), { version, updatedAt: Date.now(), updatedBy: auth.currentUser?.uid ?? '' }, { merge: true })
-    },
     async aiUsage(day) {
       const s = await getDoc(doc(db, 'stats', `ai_${day}`))
       return (s.data() as Record<string, number> | undefined) ?? null

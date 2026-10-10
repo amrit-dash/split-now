@@ -1,0 +1,72 @@
+name: Release
+
+# A release is a merge to main that changes the version in package.json (a "Release x.y.z" PR that
+# also moves CHANGELOG.md's Unreleased notes under "## x.y.z"). This deploys that commit to
+# production with deploy.yml, then tags it vX.Y.Z and publishes a GitHub Release whose notes are
+# the version's changelog section. Every other merge to main finds its version already tagged and
+# stops after one quick check, so only releases reach production. The version people see in the
+# app is the same number (__APP_VERSION__, vite.config.ts).
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      release: ${{ steps.v.outputs.release }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - id: v
+        name: Is this version released yet?
+        run: |
+          version=$(node -p "require('./package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if git rev-parse -q --verify "refs/tags/v$version" > /dev/null; then
+            echo "v$version is already released; nothing to do."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            # Fails the run when CHANGELOG.md has no notes for this version, before anything deploys.
+            node --experimental-strip-types scripts/release.ts notes "$version" > /dev/null
+            echo "Releasing v$version"
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy:
+    needs: check
+    if: needs.check.outputs.release == 'true'
+    uses: ./.github/workflows/deploy.yml
+    with:
+      what: all
+    secrets: inherit
+
+  publish:
+    needs: [check, deploy]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - name: Tag and publish the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          node --experimental-strip-types scripts/release.ts notes "$VERSION" > "$RUNNER_TEMP/notes.md"
+          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "Split Now $VERSION" --notes-file "$RUNNER_TEMP/notes.md"

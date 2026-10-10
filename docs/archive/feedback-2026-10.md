@@ -57,7 +57,7 @@ Status: [ ] todo · [x] done
 - [x] 40. Group graph: no name overflow; reimagined with motion.
 - [x] 41. Profile photos for every linked member everywhere (incl. your own).
 - [x] 42. Add expense (groups only): first names in Paid by and Split.
-- [x] 43. Profile shows version 2.1.1, read from a Firestore doc; admins edit it.
+- [x] ~~43. Profile shows version 2.1.1, read from a Firestore doc; admins edit it.~~ Retired by the owner on 10 Oct 2026: the version shown is the build's own (`package.json`), released through `release.yml`; `config/app.version` and its editor are gone.
 - [x] 44. Home balance card: settle-up icon CTA → all pending settlements (owe / owed), settle each; empty state with fireworks behind the cards.
 - [x] 45. Card circles: true 2D motion (travel, bounce off a boundary, any new direction); small circle a little to the right.
 - [x] 46. + button: glow all round (no cut-off), more 3D, outline, glow follows the gradient animation.

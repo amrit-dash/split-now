@@ -3,6 +3,7 @@ import {
   adminGateNote,
   announcementActive,
   announcementKey,
+  buildLabel,
   compareSemver,
   DEFAULT_APP_CONFIG,
   FLAG_INFO,
@@ -140,17 +141,16 @@ describe('gates', () => {
   })
 })
 
-describe('displayed version (config/app.version)', () => {
-  it('keeps a valid version and drops junk', () => {
-    expect(resolveAppConfig({ version: '2.1.1' }).version).toBe('2.1.1')
-    expect(resolveAppConfig({ version: '2.1.1-beta.1' }).version).toBe('2.1.1-beta.1')
-    expect(resolveAppConfig({ version: 'v2' }).version).toBeUndefined()
-    expect(resolveAppConfig({ version: 3 }).version).toBeUndefined()
+describe('the version people see', () => {
+  it('is the build: version plus commit, or the version alone for a dev build', () => {
+    expect(buildLabel('3.2.0+c94f47f')).toBe('3.2.0 (c94f47f)')
+    expect(buildLabel('3.2.0+dev')).toBe('3.2.0')
+    expect(buildLabel('3.2.0')).toBe('3.2.0')
   })
-  it('survives a flags save so the two admin editors never erase each other', () => {
-    const cfg = resolveAppConfig({ version: '2.1.1', maintenance: true })
-    expect(toAppConfigDoc(cfg, 'u', 1).version).toBe('2.1.1')
-    expect('version' in toAppConfigDoc(DEFAULT_APP_CONFIG, 'u', 1)).toBe(false)
+  it('ignores the retired admin-set config/app.version, and a save clears it from the document', () => {
+    const cfg = resolveAppConfig({ version: '3.0.0', maintenance: true })
+    expect('version' in cfg).toBe(false)
+    expect('version' in toAppConfigDoc(cfg, 'u', 1)).toBe(false)
   })
 })
 

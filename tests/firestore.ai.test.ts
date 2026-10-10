@@ -60,13 +60,13 @@ describe('config/ai', () => {
 })
 
 describe('config/app', () => {
-  it('admins set a version string; nobody else writes it', async () => {
-    const v = { version: '2.1.1', updatedAt: 1, updatedBy: 'boss' }
+  it('admins write it, nobody else; the retired displayed version is refused', async () => {
+    const v = { minVersion: '3.2.0', updatedAt: 1, updatedBy: 'boss' }
     await assertSucceeds(getDoc(doc(as('alice'), 'config/app')))
     await assertFails(setDoc(doc(as('alice'), 'config/app'), v))
     await assertSucceeds(setDoc(doc(as('boss'), 'config/app'), v))
-    await assertSucceeds(setDoc(doc(as('boss'), 'config/app'), { ...v, version: '2.2.0-beta.1' }))
-    await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...v, version: '<script>' }))
+    // The version people see is the build's own (package.json); config/app no longer holds one.
+    await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...v, version: '3.2.0' }))
     await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...v, extra: 1 }))
     await assertFails(setDoc(doc(as('boss'), 'config/other'), v))
   })
