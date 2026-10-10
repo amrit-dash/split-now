@@ -501,6 +501,15 @@ Firestore indexes: one field override, a collection-group index on `pushTokens.t
 - **Firebase web API keys are not secrets.** Security lives in the rules. Still, enable App Check before going public.
 - **Admins are exempt** from maintenance mode and "Update required", so a typo in the console can always be undone from the console.
 
+**Still open from the October 2026 audit** (its working notes were removed before launch; git history keeps them):
+- Approval threshold default is 10,000 minor units (₹100); pick a per-currency default or keep.
+- Pay-me pages for signed-out friends (`/r/{code}`) would expose UPI IDs publicly; not built pending a decision.
+- Trademark check for "Split Now".
+- `members[*].email` in group documents feeds finding people by email; dropping it needs a decision.
+- No component tests (React Testing Library + jsdom); e2e covers the main flows.
+- Push for comments, disputes and approval decisions; quiet hours.
+- Settling in another currency; year in review; Splitwise API import; email forwarding.
+
 ---
 
 ## 8. Glossary (the words the UI uses)
@@ -529,7 +538,7 @@ Firestore indexes: one field override, a collection-group index on `pushTokens.t
 
 ## 9. What changed in the October 2026 audit
 
-An audit of the codebase produced sixteen reports (data layer, security, functions, domain logic, UX, design system, performance, auto-capture, AI, PWA, testing, code quality, product); the fixes landed as seven parallel tracks, then two phase-2 tracks and this docs pass, on top of the owner's own feedback round (`docs/REQUESTS-2026-10-08.md`, 26 items, all kept). Facts, not marketing:
+An audit of the codebase produced sixteen reports (data layer, security, functions, domain logic, UX, design system, performance, auto-capture, AI, PWA, testing, code quality, product); the fixes landed as seven parallel tracks, then two phase-2 tracks and this docs pass, on top of the owner's own feedback round (`docs/archive/feedback-2026-10.md`, all kept). Facts, not marketing:
 
 - **Data layer**: shared refcounted store, `SnapMeta` on every watcher, partial-field expense edits that no longer clobber concurrent flags, cache fallback for a hanging captures listen, lazy Storage import, sign-out that never deletes pending writes, receipt deletes confined to the group's folder. Splits reject bad input and check the sum; `countable()` runs once; the single-payer pairwise path; Splitwise import survives names with `;` and leading `=+-@`; one local "today".
 - **Bundle and first paint**: build-time `#repo-impl`, CSS splash, self-hosted Inter, `re2js` stub, lazy App Check, route prefetch, cached formatters, OCR worker reuse and glue+wasm cores, manifest and workbox fixes, version string. First-paint JS 351 → 306 kB gzip in one stage; Firestore chunk −43 kB gzip; Insights 119 → 7 kB gzip; `dist/tesseract` 12 → 8.6 MB.

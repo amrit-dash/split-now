@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/logo.svg" alt="Split Now logo" width="96" height="96" />
+<img src="public/favicon.svg" alt="Split Now logo" width="96" height="96" />
 
 # Split Now
 
@@ -122,7 +122,7 @@ Demo mode keeps data in your browser and pre-loads sample groups (a Goa trip, a 
 | `npm run check` | Biome lint + format check |
 | `npm run typecheck:all` | App, tooling and Cloud Functions typecheck |
 | `npm test` | Unit tests (Vitest) |
-| `npm run test:rules` | Firestore + Storage security-rule tests in the emulator (Java 11+) |
+| `npm run test:rules` | Firestore + Storage security-rule tests in the emulator (Java 21) |
 | `npm run test:functions` | Cloud Functions tests in the emulators |
 | `npm run test:e2e` | Playwright smoke tests (demo mode) |
 | `npm run test:all` | Everything CI runs |
@@ -151,7 +151,7 @@ docs/           setup guides, product plan, roadmap and the October 2026 audit
 - **Security** lives in `firestore.rules` and `storage.rules`, with emulator tests. AI keys are encrypted on the server and never sent back to the app.
 - **Fast first paint**: lazy routes, a shared Firestore listener store, self-hosted fonts and hand-rolled SVG charts.
 
-More detail: [docs/PLAN.md](docs/PLAN.md) (product and architecture), [docs/audit-2026-10](docs/audit-2026-10/README.md) (the full code audit) and [CHANGELOG.md](CHANGELOG.md).
+More detail: [docs/PLAN.md](docs/PLAN.md) (product and architecture), [docs/ROADMAP.md](docs/ROADMAP.md) and [CHANGELOG.md](CHANGELOG.md).
 
 ## Roadmap
 

@@ -44,7 +44,7 @@ npm i                         # installs firebase-tools locally
 npx firebase login
 cp .firebaserc.example .firebaserc   # set your project id
 npx firebase deploy --only firestore:rules,firestore:indexes,storage
-npm run deploy                # builds and deploys hosting + rules
+npm run deploy                # builds and deploys everything (hosting, rules, indexes, functions)
 ```
 
 The app is then live at `https://<project>.web.app`.

@@ -37,7 +37,6 @@ export type TableStatus = 'open' | 'closed'
  * default), or 'equal' between the people who had something. The tip is always split equally.
  */
 export type TaxSplit = 'items' | 'equal'
-export const TAX_SPLITS: TaxSplit[] = ['items', 'equal']
 
 /** tables/{code}. The doc id is the share code. */
 export interface LiveTable {

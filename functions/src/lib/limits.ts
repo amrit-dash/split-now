@@ -52,9 +52,3 @@ export async function getLimits(now = Date.now()): Promise<Limits> {
 export async function flagOn(name: string, now = Date.now()): Promise<boolean> {
   return (await load(now)).flags[name] !== false
 }
-
-/** Tests: forget the cached documents. */
-export function resetConfigCache(): void {
-  cache = null
-  inflight = null
-}
