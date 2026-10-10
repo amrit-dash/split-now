@@ -497,3 +497,14 @@ test('Payments need the recipient’s OK: a payment waits for it; the recipient 
   await page.goto('/groups/g_goa')
   await expect(page.getByTestId('payment-row').filter({ hasText: 'Ananya' }).filter({ hasText: '₹300.00' }).getByTestId('payment-pill-needs-ok')).toHaveCount(0)
 })
+
+test('with Simplify debts off, the graph opens on the payments as they are, like the list above it', async ({ page }) => {
+  // The seeded flat group has Simplify debts off.
+  await page.goto('/groups/g_flat')
+  await page.getByRole('radio', { name: 'Balances' }).click()
+  const graph = page.getByTestId('group-graph')
+  await graph.getByRole('button').first().click()
+  const views = graph.getByRole('radiogroup', { name: 'Graph view' })
+  await expect(views.getByRole('radio', { name: /^Original/ })).toHaveAttribute('aria-checked', 'true')
+  await expect(views.getByRole('radio', { name: /^Simplified/ })).toHaveAttribute('aria-checked', 'false')
+})

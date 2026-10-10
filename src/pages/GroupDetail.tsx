@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   Archive,
@@ -615,10 +615,17 @@ function BudgetBar({ spent, budget, currency }: { spent: number; budget: number;
   )
 }
 
-/** The debt graph lives under Balances now (it is the same data drawn differently). */
+/**
+ * The debt graph lives under Balances now (it is the same data drawn differently). It opens on
+ * the view the group uses, so with Simplify debts off it shows the payments as they are, the same
+ * as the list above it; Simplified stays one tap away as a comparison. It follows the setting if
+ * someone changes it while the graph is open.
+ */
 function GraphSection({ d }: { d: ReturnType<typeof computeGroupData> }) {
   const simplified = useMemo(() => simplifyDebts(d.net), [d.net])
-  const [view, setView] = useState<'raw' | 'simple'>('simple')
+  const groupView = d.group.simplify ? 'simple' : 'raw'
+  const [view, setView] = useState<'raw' | 'simple'>(groupView)
+  useEffect(() => setView(groupView), [groupView])
   const saved = d.rawDebts.length - simplified.length
   if (d.rawDebts.length === 0) return null
   return (
