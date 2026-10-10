@@ -4,24 +4,31 @@ import { Check, ChevronRight } from 'lucide-react'
 import { usePageTitle } from '@/lib/brand'
 import { PageHeader } from '@/components/Misc'
 
-/** One settings screen: sticky header with a back arrow to /settings, and the document title. */
+/**
+ * One settings screen: sticky header with a back arrow to /settings, and the document title.
+ * `pinned` sits inside the sticky header, so it stays in view while the rest scrolls under it.
+ */
 export function SettingsPage({
   title,
   subtitle,
   back = '/settings',
   right,
+  pinned,
   children,
 }: {
   title: string
   subtitle?: ReactNode
   back?: string
   right?: ReactNode
+  pinned?: ReactNode
   children: ReactNode
 }) {
   usePageTitle(title)
   return (
     <div>
-      <PageHeader title={title} subtitle={subtitle} back={back} right={right} />
+      <PageHeader title={title} subtitle={subtitle} back={back} right={right}>
+        {pinned}
+      </PageHeader>
       {children}
     </div>
   )

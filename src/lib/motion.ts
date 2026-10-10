@@ -19,8 +19,9 @@ export interface MotionPrefs {
   size: FireworkSize
   /** How big each spark of the burst is. */
   sparkSize: FireworkSize
-  /** The fine twinkling dust that drifts down after each burst. */
+  /** The remnants a burst leaves: its sparks, once slowed, drifting down and flickering out. */
   glitter: boolean
+  /** How big those remnants are (the same sparks, eased to this size as they slow). */
   glitterSize: FireworkSize
   /** The drifting colour patches on the Home card, the + button and accent buttons. */
   flow: boolean
@@ -85,21 +86,32 @@ export function fireworkScale(size: FireworkSize): number {
   return size === 'small' ? 0.7 : size === 'big' ? 1.35 : 1
 }
 
-/** Particle size multiplier, for the burst's sparks and, separately, the glitter. */
+/** Particle size multiplier, for the burst's sparks and, separately, the remnants they become. */
 export function particleScale(size: FireworkSize): number {
   return size === 'small' ? 0.65 : size === 'big' ? 1.6 : 1
 }
 
 /**
- * The fireworks' particle timings, in ms. A burst's sparks fly out and fade; with glitter on,
- * most of them shed a grain of glitter as they fade, which twinkles and drifts down on its own
- * for a while longer. With glitter off nothing lingers after the burst.
+ * How long a burst's sparks live, in ms. There is no separate glitter particle: the glitter is
+ * the burst's own sparks after they have slowed, drifting down and flickering out. With glitter
+ * on they live long enough to do that; off, they fade as the burst finishes spreading, so
+ * nothing lingers.
  */
-export const SPARK_LIFE: readonly [number, number] = [1000, 1400]
-export const GLITTER_LIFE: readonly [number, number] = [1100, 1800]
-/** Share of a spark's life after which it sheds its grain of glitter, and the chance that it does. */
-export const GLITTER_AT = 0.55
-export const GLITTER_CHANCE = 0.65
+export function sparkLife(glitter: boolean): readonly [number, number] {
+  return glitter ? [1300, 2200] : [550, 800]
+}
+
+/** How far a spark has become a remnant, 0..1 by the share of its life: 0 while it flies out, easing to 1 as it slows. */
+export function remnantMix(age: number): number {
+  const t = Math.min(1, Math.max(0, (age - 0.3) / 0.35))
+  return t * t * (3 - 2 * t)
+}
+
+/** A spark's size multiplier at an age: the spark size while it flies, easing into the glitter size once it lingers. */
+export function sparkRadius(sparkSize: FireworkSize, glitterSize: FireworkSize, age: number): number {
+  const a = particleScale(sparkSize)
+  return a + (particleScale(glitterSize) - a) * remnantMix(age)
+}
 
 /** Seconds for one pass of the accent buttons' colour drift (CSS --flow-dur). */
 export const FLOW_SECONDS: Readonly<Record<FlowSpeed, number>> = { slow: 32, normal: 16, fast: 5 }
@@ -172,6 +184,31 @@ export function resetMotion() {
     /* ignore */
   }
   changed({ ...DEFAULT_MOTION })
+}
+
+// --- The Animations screen's preview (shown or hidden), a screen preference kept on this device.
+
+export const PREVIEW_KEY = 'splitit-motion-preview'
+
+/** Shown unless it was turned off; anything else stored counts as shown. */
+export function parsePreviewShown(raw: string | null | undefined): boolean {
+  return raw !== 'off'
+}
+
+export function getPreviewShown(): boolean {
+  try {
+    return parsePreviewShown(localStorage.getItem(PREVIEW_KEY))
+  } catch {
+    return true
+  }
+}
+
+export function setPreviewShown(on: boolean) {
+  try {
+    localStorage.setItem(PREVIEW_KEY, on ? 'on' : 'off')
+  } catch {
+    /* ignore: it still toggles for this visit */
+  }
 }
 
 export function subscribeMotion(fn: () => void): () => void {

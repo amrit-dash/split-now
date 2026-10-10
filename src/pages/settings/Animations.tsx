@@ -1,15 +1,18 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
+import { Eye, EyeOff } from 'lucide-react'
 import { Aurora } from '@/components/Aurora'
 import { CardFirework } from '@/components/CardFirework'
 import { Segmented } from '@/components/Misc'
 import { Switch } from '@/components/Switch'
 import { useMotion } from '@/hooks/useMotion'
-import { type FireworkSize, type FlowSpeed, isDefaultMotion, type MotionPrefs, resetMotion, setMotion } from '@/lib/motion'
+import { type FireworkSize, type FlowSpeed, getPreviewShown, isDefaultMotion, type MotionPrefs, resetMotion, setMotion, setPreviewShown } from '@/lib/motion'
 import { SavedPill, SectionTitle, SettingsPage, useSavedFlash } from './common'
 
 /**
  * /settings/animations: the Home card's fireworks, colour flow and floating circles. A master
- * switch, then each one on its own, with a live preview card at the top. Kept on this device
+ * switch, then each one on its own. A live preview of the Home card and an accent button is pinned
+ * under the title (it stays in view while the settings scroll) and the eye in the header hides or
+ * shows it, remembered on this device. Kept on this device
  * (src/lib/motion.ts) and applied at once. The device's reduce-motion setting wins over all of it.
  */
 export default function Animations() {
@@ -20,28 +23,33 @@ export default function Animations() {
     flash()
   }
   const off = reduced || !prefs.on
+  const [preview, setPreview] = useState(getPreviewShown)
+  const togglePreview = () => {
+    setPreview(!preview)
+    setPreviewShown(!preview)
+  }
 
   return (
-    <SettingsPage title="Animations" right={<SavedPill on={saved} />}>
-      {/* Preview: the Home card's surface with the fireworks it shows when you're settled up. */}
-      <div
-        className="relative isolate mb-5 flex h-40 items-end overflow-hidden rounded-[2rem] bg-fill p-5 text-on-fill shadow-xl shadow-fill/30"
-        data-testid="motion-preview"
-      >
-        <Aurora persist={false} />
-        <CardFirework testId="motion-preview-firework" />
-        <div className="relative flex w-full items-end justify-between gap-3">
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-wide opacity-80">Preview</div>
-            <div className="text-lg font-bold">All settled up</div>
-          </div>
-        </div>
-      </div>
-      {/* An accent button, so the colour flow on buttons shows here too (it needs Dual tone on). */}
-      <div aria-hidden className="btn-primary pointer-events-none -mt-2 mb-5 w-full" data-testid="motion-preview-button">
-        Accent button preview
-      </div>
-
+    <SettingsPage
+      title="Animations"
+      right={
+        <>
+          <SavedPill on={saved} />
+          <button
+            type="button"
+            onClick={togglePreview}
+            aria-pressed={preview}
+            aria-label="Show preview"
+            title={preview ? 'Hide preview' : 'Show preview'}
+            className="-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-600 hover:bg-slate-200/60 dark:text-slate-300 dark:hover:bg-ink-800"
+            data-testid="motion-preview-toggle"
+          >
+            {preview ? <Eye size={22} aria-hidden /> : <EyeOff size={22} aria-hidden />}
+          </button>
+        </>
+      }
+      pinned={preview && <Preview />}
+    >
       {reduced && (
         <p className="card mb-4 p-4 text-sm" data-testid="motion-reduced">
           Your device is set to reduce motion, so these stay still. Turn that off in your device’s settings to use them.
@@ -85,14 +93,20 @@ export default function Animations() {
           <Sub off={!prefs.fireworks}>
             <Row
               title="Glitter"
-              text="Fine twinkling dust that drifts down after each burst"
+              text="The sparks that linger and flicker out after each burst"
               checked={prefs.glitter}
               disabled={off || !prefs.fireworks}
               onChange={(glitter) => set({ glitter })}
               testId="motion-glitter"
             />
             <fieldset disabled={!prefs.glitter} className={`mt-4 transition-opacity ${prefs.glitter ? '' : 'opacity-50'}`}>
-              <SizePicker label="Glitter size" testId="motion-glitter-size" value={prefs.glitterSize} onChange={(glitterSize) => set({ glitterSize })} />
+              <SizePicker
+                label="Glitter size"
+                hint="How big they are as they linger"
+                testId="motion-glitter-size"
+                value={prefs.glitterSize}
+                onChange={(glitterSize) => set({ glitterSize })}
+              />
             </fieldset>
           </Sub>
         </div>
@@ -215,6 +229,32 @@ function SizePicker({
         {hint && <span className="text-muted text-xs">{hint}</span>}
       </div>
       <Segmented<FireworkSize> label={label} testId={testId} value={value} onChange={onChange} options={SIZES} />
+    </div>
+  )
+}
+
+/**
+ * The Home card's surface with the fireworks it shows when you're settled up, and an accent
+ * button so the colour flow on buttons shows too (it needs Dual tone on). Unmounted while hidden,
+ * so nothing animates unseen.
+ */
+function Preview() {
+  return (
+    <div className="mt-3 space-y-2.5">
+      <div
+        className="relative isolate flex h-32 items-end overflow-hidden rounded-[1.75rem] bg-fill p-4 text-on-fill shadow-lg shadow-fill/25"
+        data-testid="motion-preview"
+      >
+        <Aurora persist={false} />
+        <CardFirework testId="motion-preview-firework" />
+        <div className="relative">
+          <div className="text-xs font-semibold uppercase tracking-wide opacity-80">Preview</div>
+          <div className="text-lg font-bold">All settled up</div>
+        </div>
+      </div>
+      <div aria-hidden className="btn-primary pointer-events-none w-full" data-testid="motion-preview-button">
+        Accent button preview
+      </div>
     </div>
   )
 }
