@@ -19,7 +19,7 @@ export interface TripGroup {
    * set up per phone, so each person pauses trips for themselves (`pausedTrips` in their capture
    * settings, shared/capture-filters.ts). Old group docs may still carry the field.
    */
-  /** archived groups never match a payment and are not offered */
+  /** archived (for the person whose payment it is: shared/archive.ts) groups never match a payment and are not offered */
   archived?: boolean
 }
 

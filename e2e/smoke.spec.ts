@@ -526,3 +526,39 @@ test("Settle up in a group where nobody owes anything opens the group's celebrat
   // A payment made outside the app can still be recorded from here.
   await expect(page.getByTestId('group-settled-record')).toHaveAttribute('href', /\/groups\/[^/]+\/settle$/)
 })
+
+test('archiving is only for you and needs you square: blocked while you are owed, then archived and restored', async ({ page }) => {
+  // In the seeded Goa trip you are owed money, so Archive waits until you settle up.
+  await page.goto('/groups/g_goa')
+  await page.getByTestId('group-menu').click()
+  await expect(page.getByTestId('group-archive')).toBeDisabled()
+  await expect(page.getByTestId('group-archive')).toContainText('Settle up first')
+  await page.keyboard.press('Escape')
+
+  // A new group has nothing to settle: archive it, and it moves under Archived on Groups.
+  await page.goto('/groups/new')
+  await page
+    .getByRole('radiogroup', { name: 'What are you creating?' })
+    .getByRole('radio', { name: /^Group/ })
+    .click()
+  await page.getByLabel('Name', { exact: true }).fill('Done Trip')
+  const member = page.getByPlaceholder('Name', { exact: true })
+  await member.fill('Dev')
+  await member.press('Enter')
+  await page.getByRole('button', { name: 'Create group' }).click()
+  await expect(page).toHaveURL(/\/groups\/[^/?]+$/)
+  await page.getByTestId('group-menu').click()
+  await expect(page.getByTestId('group-archive')).toBeEnabled()
+  await expect(page.getByTestId('group-archive')).toContainText('Only for you')
+  await page.getByTestId('group-archive').click()
+  await page.goto('/groups')
+  const archived = page.getByTestId('archived-groups')
+  await expect(archived).toBeVisible()
+  await archived.getByRole('button').first().click()
+  await archived.getByText('Done Trip').click()
+  await page.getByTestId('group-menu').click()
+  await expect(page.getByTestId('group-archive')).toContainText('Unarchive')
+  await page.getByTestId('group-archive').click()
+  await page.goto('/groups')
+  await expect(page.getByTestId('archived-groups')).toHaveCount(0)
+})

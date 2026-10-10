@@ -55,7 +55,10 @@ export interface InviteInfo {
 export type NewGroup = Omit<Group, 'id' | 'createdAt' | 'updatedAt' | 'inviteCode'>
 
 /** Scalar group fields any member may edit. Membership has its own methods. */
-export type GroupSettings = Partial<Omit<Group, 'id' | 'members' | 'memberUids' | 'inviteCode' | 'createdBy' | 'createdAt' | 'updatedAt'>>
+// `archived` / `archivedBy` are personal and change only through setArchived.
+export type GroupSettings = Partial<
+  Omit<Group, 'id' | 'members' | 'memberUids' | 'inviteCode' | 'createdBy' | 'createdAt' | 'updatedAt' | 'archived' | 'archivedBy'>
+>
 
 /**
  * What a member shares with the other members of one group (stored per group, so it
@@ -150,6 +153,11 @@ export interface Repo {
   createGroup(g: NewGroup): Promise<string>
   /** Writes only the fields that differ from `base` (the group as the form loaded it). */
   updateGroupSettings(base: Group, patch: GroupSettings): Promise<void>
+  /**
+   * Archive (`on`) or unarchive the group for the signed-in person only (shared/archive.ts).
+   * Fire-and-forget like other settings; archiving and unarchiving someone else is impossible.
+   */
+  setArchived(group: Group, on: boolean): Promise<void>
   /** @deprecated use updateGroupSettings/addMember/removeMember. Membership fields in `patch` are ignored. */
   updateGroup(id: string, patch: Partial<Group>): Promise<void>
   /**
@@ -501,9 +509,13 @@ export function placeholdersOf(g: Pick<Group, 'members'>): Record<MemberId, stri
 export const byDateDesc = <T extends { date: string; createdAt: number }>(a: T, b: T) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt
 
 /** Settings fields whose value differs from the base group. `undefined` in the result means "clear the field". */
+/** Personal to each member (setArchived), so never written as a group setting, even if a caller passes them. */
+const PERSONAL_KEYS = new Set(['archived', 'archivedBy'])
+
 export function changedSettings(base: Group, patch: GroupSettings): GroupSettings {
   const out: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(patch)) {
+    if (PERSONAL_KEYS.has(k)) continue
     const before = (base as unknown as Record<string, unknown>)[k]
     if (JSON.stringify(before) !== JSON.stringify(v)) out[k] = v
   }

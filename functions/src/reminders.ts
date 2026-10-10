@@ -23,7 +23,7 @@ const TIMEOUT_S = 540
 const ACTIVE_WINDOW_MS = 36 * 3_600_000
 const CHUNK = 10
 
-const GROUP_FIELDS = ['type', 'memberUids', 'members', 'currency', 'name', 'emoji', 'archived', 'paymentApproval'] as const
+const GROUP_FIELDS = ['type', 'memberUids', 'members', 'currency', 'name', 'emoji', 'paymentApproval'] as const
 const EXPENSE_FIELDS = ['amount', 'paidBy', 'splits', 'createdAt', 'deletedAt', 'requiresApproval', 'approvals', 'createdBy'] as const
 const SETTLEMENT_FIELDS = ['from', 'to', 'amount', 'createdAt', 'deletedAt', 'needsOk', 'ok', 'flag'] as const
 
@@ -34,12 +34,13 @@ interface GroupLite {
   currency?: string
   name?: string
   emoji?: string
-  archived?: boolean
   paymentApproval?: boolean
 }
 
-const eligible = (g: GroupLite | undefined): g is GroupLite =>
-  !!g && g.type !== 'personal' && !g.archived && Array.isArray(g.memberUids) && g.memberUids.length >= 2
+// Archived groups are not skipped: archiving is personal and needs you to be square (src/lib/archive.ts),
+// so whoever still owes or is owed in an archived group (one archived the old, group-wide way) is
+// still reminded.
+const eligible = (g: GroupLite | undefined): g is GroupLite => !!g && g.type !== 'personal' && Array.isArray(g.memberUids) && g.memberUids.length >= 2
 
 export const dailyReminders = onSchedule(
   { schedule: 'every day 10:00', timeZone: TIME_ZONE, region: REGION, timeoutSeconds: TIMEOUT_S, retryCount: 1, memory: '512MiB' },
@@ -80,7 +81,7 @@ export const dailyReminders = onSchedule(
           const ref = groupsCol.doc(gid)
           const stateRef = stateCol.doc(gid)
           if (!eligible(g)) {
-            // Nothing to watch any more (personal, archived, deleted, one member): drop the flag.
+            // Nothing to watch any more (personal, deleted, one member): drop the flag.
             if (pending.docs.some((d) => d.id === gid)) await stateRef.set({ hasCandidates: false, candidates: {}, evaluatedAt: now }, { merge: true })
             return
           }

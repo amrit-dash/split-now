@@ -320,7 +320,7 @@ service cloud.firestore {
       // settings and the currency (owner decision, Oct 2026); validGroupShape checks their values.
       function validGroupShape(g) {
         return g.keys().hasOnly(['id', 'name', 'emoji', 'type', 'currency', 'budget', 'startDate', 'endDate', 'simplify',
-            'requireApproval', 'approvalThreshold', 'editAutoApprove', 'paymentApproval', 'captureOff', 'archived', 'memberUids', 'members', 'inviteCode',
+            'requireApproval', 'approvalThreshold', 'editAutoApprove', 'paymentApproval', 'captureOff', 'archived', 'archivedBy', 'memberUids', 'members', 'inviteCode',
             'createdBy', 'createdAt', 'updatedAt', 'joinCode', 'joinMemberId', 'memberOpId'])
           && g.name is string && g.name.size() > 0 && g.name.size() <= 80
           && g.emoji is string && g.emoji.size() <= 16
@@ -336,10 +336,13 @@ service cloud.firestore {
           && (!('approvalThreshold' in g) || (g.approvalThreshold is int && g.approvalThreshold > 0))
           && (!('editAutoApprove' in g) || (g.editAutoApprove is int && g.editAutoApprove > 0))
           && g.get('paymentApproval', false) is bool
-          // "Archive": any member may flip it. captureOff is legacy (capture is paused per person
-          // now, users/{uid}/settings/notifications.pausedTrips) and ignored; still allowed so old docs stay valid.
+          // captureOff is legacy (capture is paused per person now, users/{uid}/settings/notifications.pausedTrips)
+          // and ignored; still allowed so old docs stay valid. `archived` is the legacy group-wide
+          // archive (validArchiveChange stops anyone setting it again); archiving is personal now,
+          // the uids in `archivedBy`.
           && g.get('captureOff', false) is bool
           && g.get('archived', false) is bool
+          && g.get('archivedBy', []) is list && g.get('archivedBy', []).size() <= 60
           && (!('joinCode' in g) || g.joinCode is string)
           && (!('joinMemberId' in g) || g.joinMemberId is string)
           && (!('memberOpId' in g) || g.memberOpId is string);
@@ -458,8 +461,28 @@ service cloud.firestore {
           && request.resource.data.createdBy == resource.data.createdBy
           && request.resource.data.inviteCode == resource.data.inviteCode
           && validGroupShape(request.resource.data)
+          && validArchiveChange()
           && (validMembershipChange() || isOwnMemberEdit()))
         || isJoining());
+
+      // Archiving is personal (shared/archive.ts): a member adds or removes only their own uid in
+      // archivedBy, and nobody sets the old group-wide `archived` flag again. Unarchiving a group
+      // archived that way may drop the flag and list everyone else (members only) instead.
+      function validArchiveChange() {
+        let before = resource.data.get('archivedBy', []).toSet();
+        let after = request.resource.data.get('archivedBy', []).toSet();
+        let legacyBefore = resource.data.get('archived', false) == true;
+        let legacyAfter = request.resource.data.get('archived', false) == true;
+        return (legacyAfter == legacyBefore
+            && after.difference(before).hasOnly([uid()])
+            && before.difference(after).hasOnly([uid()]))
+          || (legacyBefore && !legacyAfter
+            && !(uid() in after)
+            // everyone else stays archived: only you see the group again
+            && resource.data.memberUids.toSet().difference([uid()].toSet()).difference(after).size() == 0
+            && after.difference(before).hasOnly(resource.data.memberUids)
+            && before.difference(after).hasOnly([uid()]));
+      }
       allow delete: if isMember() && resource.data.createdBy == uid() && writesOpen();
 
       // createdBy is the writer on create and never changes afterwards.

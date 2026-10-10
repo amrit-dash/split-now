@@ -27,7 +27,8 @@
     "../shared/trips.ts",
     "../shared/balances-core.ts",
     "../shared/members.ts",
-    "../shared/paylinks.ts"
+    "../shared/paylinks.ts",
+    "../shared/archive.ts"
   ],
   "exclude": [
     "**/*.test.ts"
