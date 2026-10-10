@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ChevronRight, Users } from 'lucide-react'
+import { ChevronRight, UserMinus, Users } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { createGroup, useAllExpenses, useCaptureTokens, useGroup, useGroups } from '@/hooks/data'
@@ -708,8 +708,18 @@ export default function GroupForm() {
                 <SwipeRow
                   key={id}
                   contentClassName="flex items-center gap-3 px-4 py-1.5"
+                  menuTitle={m.name}
                   actions={
-                    m.uid === user.uid ? [] : [{ label: 'Remove', ariaLabel: `Remove ${m.name}`, onClick: () => setMembers(({ [id]: _, ...rest }) => rest) }]
+                    m.uid === user.uid
+                      ? []
+                      : [
+                          {
+                            label: 'Remove',
+                            ariaLabel: `Remove ${m.name}`,
+                            icon: <UserMinus size={20} strokeWidth={2.25} />,
+                            onClick: () => setMembers(({ [id]: _, ...rest }) => rest),
+                          },
+                        ]
                   }
                 >
                   <Avatar name={m.name} color={m.color} photoURL={m.photoURL} size={36} />
@@ -722,7 +732,7 @@ export default function GroupForm() {
                 </SwipeRow>
               ))}
             </ul>
-            {others.length > 0 && <p className="text-muted mt-1 text-xs">Swipe a person left to remove them.</p>}
+            {others.length > 0 && <p className="text-muted mt-1 text-xs">Swipe a person left, or press and hold, to remove them.</p>}
             {others.length < maxOthers && (
               <div className="mt-4 border-t border-slate-100 pt-4 dark:border-white/5">
                 <MemberPicker groups={groups} myUid={user.uid} members={members} onAdd={addPerson} />

@@ -317,7 +317,12 @@ function Comments({ group, expense }: { group: Group; expense: Expense }) {
               key={c.id}
               className="-mx-4"
               contentClassName="flex gap-2.5 px-4"
-              actions={c.authorUid === user.uid ? [{ label: 'Delete', ariaLabel: 'Delete comment', onClick: () => remove(c) }] : []}
+              menuTitle="Your comment"
+              actions={
+                c.authorUid === user.uid
+                  ? [{ label: 'Delete', ariaLabel: 'Delete comment', icon: <Trash2 size={20} strokeWidth={2.25} />, onClick: () => remove(c) }]
+                  : []
+              }
             >
               <Avatar name={c.authorName} color={colorOf(c.authorUid, i)} photoURL={memberOf(c.authorUid)?.photoURL} size={30} />
               <div className="min-w-0 flex-1">

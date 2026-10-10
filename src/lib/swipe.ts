@@ -56,3 +56,38 @@ export const isTap = (dx: number, dy: number, slop = SWIPE_SLOP) => Math.abs(dx)
 
 /** px per ms between two samples; 0 when no time passed. */
 export const velocityOf = (x0: number, t0: number, x1: number, t1: number) => (t1 > t0 ? (x1 - x0) / (t1 - t0) : 0)
+
+// --- The action tray, press and hold, and the trackpad ------------------------------------
+
+/** Each action is a round icon button this wide (px), the touch minimum. */
+export const ACTION_SIZE = 44
+/** Space between the buttons, and inside the tray at both ends. */
+export const ACTION_GAP = 8
+/**
+ * How wide the tray of `n` icon buttons is. It slides in over the row's trailing end (the amount)
+ * and the row itself stays put, so the avatar and name on the left are never pushed off screen.
+ */
+export const trayWidth = (n: number) => (n > 0 ? n * ACTION_SIZE + (n + 1) * ACTION_GAP + ACTION_GAP : 0)
+
+/** How long a finger must rest on a row, without moving past the slop, to open its menu. */
+export const LONG_PRESS_MS = 450
+
+/** A press that lasted long enough and stayed inside the slop opens the row's menu. */
+export const isLongPress = (ms: number, dx: number, dy: number, slop = SWIPE_SLOP) => ms >= LONG_PRESS_MS && isTap(dx, dy, slop)
+
+/** Horizontal trackpad travel (px of wheel deltaX, summed) that opens or closes a row. */
+export const WHEEL_TRIGGER = 40
+
+/**
+ * A two-finger horizontal swipe on a trackpad arrives as wheel events. Sums mostly horizontal
+ * deltas (a vertical scroll passes through untouched, `handled` false) and decides once the sum
+ * passes WHEEL_TRIGGER: fingers moving left (positive deltaX) open, right close. Returns the new
+ * sum (reset after a decision) and whether the event belongs to the row.
+ */
+export function wheelStep(acc: number, dx: number, dy: number): { acc: number; handled: boolean; open?: boolean } {
+  if (Math.abs(dx) <= Math.abs(dy) * SWIPE_RATIO) return { acc, handled: false }
+  const next = acc + dx
+  if (next >= WHEEL_TRIGGER) return { acc: 0, handled: true, open: true }
+  if (next <= -WHEEL_TRIGGER) return { acc: 0, handled: true, open: false }
+  return { acc: next, handled: true }
+}

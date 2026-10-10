@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Debt, Group } from '@/types'
 import type { SettleRow } from './settleAll'
 import {
+  groupSettleTarget,
   canNudgePerson,
   groupCount,
   groupNames,
@@ -153,5 +154,21 @@ describe('nudging a person across groups', () => {
     expect(canNudgePerson({ ...p, net: -10 }, 'u_me')).toBe(false)
     expect(canNudgePerson({ net: 100, parts: [row({ uid: undefined })] }, 'u_me')).toBe(false)
     expect(canNudgePerson({ net: 100, parts: [row({})] }, 'u_rohan')).toBe(false)
+  })
+})
+
+describe('groupSettleTarget', () => {
+  const d = (from: string, to: string, amount = 100) => ({ from, to, amount })
+  it('opens your one payment, prefilled, even when others still owe each other', () => {
+    expect(groupSettleTarget('g1', [d('a', 'me', 500)], 'me')).toEqual({ href: '/groups/g1/settle?from=a&to=me&amount=500' })
+    expect(groupSettleTarget('g1', [d('me', 'b', 250), d('c', 'b')], 'me')).toEqual({ href: '/groups/g1/settle?from=me&to=b&amount=250' })
+  })
+  it("opens the group's Balances when there are several payments to choose from", () => {
+    expect(groupSettleTarget('g1', [d('a', 'me'), d('c', 'me')], 'me')).toEqual({ tab: 'balances' })
+    expect(groupSettleTarget('g1', [d('a', 'b')], 'me')).toEqual({ tab: 'balances' })
+    expect(groupSettleTarget('g1', [d('a', 'b')])).toEqual({ tab: 'balances' })
+  })
+  it('opens a blank Settle up when nothing is owed, to record a payment by hand', () => {
+    expect(groupSettleTarget('g1', [], 'me')).toEqual({ href: '/groups/g1/settle' })
   })
 })

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Clock, Flag } from 'lucide-react'
+import { Clock, Flag, Trash2 } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { useHistory, useTrash } from '@/hooks/data'
@@ -391,7 +391,19 @@ export function RecentlyDeleted({ group, open, onClose }: { group: Group; open: 
               <SwipeRow
                 key={r.id}
                 contentClassName="flex items-center gap-3 py-3"
-                actions={purge ? [{ label: 'Delete', ariaLabel: `Delete ${r.kind === 'e' ? r.item.description : 'payment'} forever`, onClick: forever }] : []}
+                menuTitle={r.kind === 'e' ? r.item.description : 'Payment'}
+                actions={
+                  purge
+                    ? [
+                        {
+                          label: 'Delete',
+                          ariaLabel: `Delete ${r.kind === 'e' ? r.item.description : 'payment'} forever`,
+                          icon: <Trash2 size={20} strokeWidth={2.25} />,
+                          onClick: forever,
+                        },
+                      ]
+                    : []
+                }
               >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-lg dark:bg-ink-800" aria-hidden>
                   {r.kind === 'e' ? (CATEGORIES[r.item.category]?.emoji ?? '🧾') : '💸'}

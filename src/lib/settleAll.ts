@@ -150,3 +150,18 @@ export function personNudgeItems(p: Pick<PersonBalance, 'parts'>): NudgeItem[] {
 /** Whether a person's row offers Nudge: they owe you overall and have an account (and it isn't you). */
 export const canNudgePerson = (p: Pick<PersonBalance, 'net' | 'parts'>, myUid: string) =>
   p.net > 0 && p.parts.some((r) => r.dir === 'owed' && !!r.uid && r.uid !== myUid)
+
+/**
+ * Where a group's Settle up button goes. With exactly one suggested payment involving you, that
+ * payment's Settle up, prefilled (one tap, as before). With several payments to sort out (several
+ * people owe you, or the payments are between others), the group's Balances tab, which lists each
+ * one with its own Settle button, instead of quietly picking the first. With nothing owed, the
+ * blank Settle up, to record a payment by hand.
+ */
+export function groupSettleTarget(groupId: string, debts: Pick<Debt, 'from' | 'to' | 'amount'>[], me?: MemberId): { href: string } | { tab: 'balances' } {
+  if (debts.length === 0) return { href: `/groups/${groupId}/settle` }
+  const mine = me ? debts.filter((d) => d.from === me || d.to === me) : []
+  // Your one payment is the thing to do, even when others still owe each other.
+  if (mine.length === 1) return { href: settleHref(groupId, mine[0].from, mine[0].to, mine[0].amount) }
+  return { tab: 'balances' }
+}

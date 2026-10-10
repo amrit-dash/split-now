@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
   Apple,
+  Ban,
   BatteryCharging,
   Bell,
   Check,
@@ -439,7 +440,10 @@ export default function AutoCaptureSetup() {
                   <SwipeRow
                     key={t.token}
                     contentClassName="flex items-center gap-2"
-                    actions={[{ label: 'Revoke', ariaLabel: `Revoke capture key for ${label}`, onClick: () => revoke(t) }]}
+                    menuTitle={label}
+                    actions={[
+                      { label: 'Revoke', ariaLabel: `Revoke capture key for ${label}`, icon: <Ban size={20} strokeWidth={2.25} />, onClick: () => revoke(t) },
+                    ]}
                   >
                     <KeyRound size={16} className="shrink-0 text-slate-500" aria-hidden />
                     <div className="min-w-0 flex-1">

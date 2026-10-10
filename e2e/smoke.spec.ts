@@ -147,9 +147,10 @@ test('Quick add with AI (demo reader): "create a group … and add …" asks fir
 
 test('settle up records a payment', async ({ page }) => {
   await page.goto('/groups/g_goa')
-  await page.getByRole('link', { name: 'Settle up' }).click()
-  await expect(page).toHaveURL(/\/groups\/g_goa\/settle/)
-  // Demo seeds a debt in the Goa trip, so the people and amount are prefilled.
+  // Two people owe you in the Goa trip: Settle up lists them; each payment's Settle prefills it.
+  await page.getByTestId('group-settle').click()
+  await page.locator('#group-payments').getByRole('link', { name: 'Settle' }).first().click()
+  await expect(page).toHaveURL(/\/groups\/g_goa\/settle\?from=/)
   const record = page.getByRole('button', { name: /^Record/ })
   await expect(record).toBeEnabled()
   await record.click()
@@ -305,4 +306,25 @@ test('Members: from the group menu, a settled person can be removed (swipe) and 
   await zoe.getByTestId('member-remove').click()
   await page.getByTestId('confirm-ok').click()
   await expect(page.getByTestId('member-row').filter({ hasText: 'Zoe Test' })).toHaveCount(0)
+})
+
+test('Row actions: icon buttons keep the name in view; right-click opens the same actions with their names', async ({ page }) => {
+  await page.goto('/groups/g_goa')
+  const row = page.getByTestId('expense-row').first()
+  const title = (await row.locator('.font-medium').first().textContent())?.trim() ?? ''
+  await row.click({ button: 'right' })
+  const menu = page.getByTestId('row-menu')
+  await expect(menu).toBeVisible()
+  await expect(menu.getByTestId('expense-edit-menu')).toContainText(`Edit ${title}`)
+  await expect(menu.getByTestId('expense-delete-menu')).toBeVisible()
+  await menu.getByTestId('expense-edit-menu').click()
+  await expect(page).toHaveURL(/\/groups\/g_goa\/expenses\/[^/]+\/edit$/)
+})
+
+test('Group Settle up: with several people owing you it opens the group Balances, each payment with its own Settle', async ({ page }) => {
+  await page.goto('/groups/g_goa')
+  await page.getByTestId('group-settle').click()
+  await expect(page).toHaveURL(/\/groups\/g_goa$/)
+  await expect(page.locator('#group-payments')).toBeVisible()
+  await expect(page.locator('#group-payments').getByRole('link', { name: 'Settle' })).not.toHaveCount(0)
 })

@@ -13,6 +13,7 @@ import {
   Repeat,
   Search,
   Trash2,
+  UserMinus,
   Users,
   X,
 } from 'lucide-react'
@@ -24,6 +25,7 @@ import type { Category, Expense, Group, Settlement } from '@/types'
 import { claimsInGroup } from '@/lib/paylinks'
 import { ClaimReview } from '@/components/ClaimReview'
 import { formatMoney } from '@/lib/money'
+import { groupSettleTarget } from '@/lib/settleAll'
 import { CATEGORIES } from '@/lib/categories'
 import { simplifyDebts } from '@/lib/simplify'
 import { copy, shareOrCopy } from '@/lib/share'
@@ -276,9 +278,20 @@ export default function GroupDetail() {
         {!personal && (
           // When nothing is owed, Invite is the useful action; Settle up stays one tap away as the secondary.
           <div className="mt-4 grid grid-cols-2 gap-2">
-            <Link to={`/groups/${group.id}/settle`} className={settled ? 'btn-secondary' : 'btn-primary'} data-testid="group-settle">
+            <button
+              type="button"
+              className={settled ? 'btn-secondary' : 'btn-primary'}
+              data-testid="group-settle"
+              onClick={() => {
+                // One payment of yours opens it; several open the list of them here (groupSettleTarget).
+                const t = groupSettleTarget(group.id, debts, me)
+                if ('href' in t) return nav(t.href)
+                setTab('balances')
+                requestAnimationFrame(() => document.getElementById('group-payments')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+              }}
+            >
               <ChequeIcon size={22} /> Settle up
-            </Link>
+            </button>
             <button type="button" className={settled ? 'btn-primary' : 'btn-secondary'} onClick={() => setInvite(true)} data-testid="group-invite">
               <Link2 size={18} aria-hidden /> Invite
             </button>
@@ -342,9 +355,18 @@ export default function GroupDetail() {
                   key={id}
                   contentClassName="flex items-center gap-3 px-4 py-3"
                   testId="balance-row"
+                  menuTitle={id === me ? 'You' : m.name}
                   actions={
                     canRemove
-                      ? [{ label: 'Remove', ariaLabel: `Remove ${m.name} from the group`, onClick: () => void removeMember(id), testId: 'balance-remove' }]
+                      ? [
+                          {
+                            label: 'Remove',
+                            ariaLabel: `Remove ${m.name} from the group`,
+                            icon: <UserMinus size={20} strokeWidth={2.25} />,
+                            onClick: () => void removeMember(id),
+                            testId: 'balance-remove',
+                          },
+                        ]
                       : []
                   }
                 >
@@ -359,7 +381,7 @@ export default function GroupDetail() {
               )
             })}
           </ul>
-          <div>
+          <div id="group-payments" className="scroll-mt-20">
             <h2 className="text-muted mb-2 px-1 text-sm font-semibold">{group.simplify ? 'Suggested payments (simplified)' : 'Who owes whom'}</h2>
             {debts.length === 0 ? (
               <Empty emoji="🎉" title="Everyone is square" />
@@ -661,6 +683,7 @@ function ActivityList({
 }) {
   const groupId = group.id
   const undoable = useUndoableDelete()
+  const navTo = useNavigate()
   const [filter, setFilter] = useState<ActivityFilter>(EMPTY_FILTER)
   const [onlyMe, setOnlyMe] = useState(false)
   const f: ActivityFilter = { ...filter, involving: onlyMe ? me : undefined }
@@ -787,7 +810,16 @@ function ActivityList({
                     as="div"
                     contentClassName="flex items-center gap-3 px-4 py-3"
                     testId="payment-row"
-                    actions={[{ label: 'Delete', ariaLabel: 'Delete payment', onClick: () => undoable.settlement(groupId, r.s), testId: 'payment-delete' }]}
+                    menuTitle={`${name(r.s.from)} paid ${name(r.s.to)}`}
+                    actions={[
+                      {
+                        label: 'Delete',
+                        ariaLabel: 'Delete payment',
+                        icon: <Trash2 size={20} strokeWidth={2.25} />,
+                        onClick: () => undoable.settlement(groupId, r.s),
+                        testId: 'payment-delete',
+                      },
+                    ]}
                   >
                     <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-100 text-xl dark:bg-emerald-500/15" aria-hidden>
                       💸
@@ -817,56 +849,76 @@ function ActivityList({
               const payers = Object.keys(e.paidBy)
               const delta = me ? (e.paidBy[me] ?? 0) - (e.splits[me] ?? 0) : 0
               return (
-                <Link
+                <SwipeRow
                   key={e.id}
-                  to={`/groups/${groupId}/expenses/${e.id}`}
-                  className="flex items-center gap-3 px-4 py-3 active:bg-slate-50 dark:active:bg-ink-800"
+                  as="div"
+                  testId="expense-row"
+                  menuTitle={e.description}
+                  actions={[
+                    {
+                      label: 'Edit',
+                      ariaLabel: `Edit ${e.description}`,
+                      icon: <Pencil size={20} strokeWidth={2.25} />,
+                      tone: 'neutral',
+                      onClick: () => navTo(`/groups/${groupId}/expenses/${e.id}/edit`),
+                      testId: 'expense-edit',
+                    },
+                    {
+                      label: 'Delete',
+                      ariaLabel: `Delete ${e.description}`,
+                      icon: <Trash2 size={20} strokeWidth={2.25} />,
+                      onClick: () => undoable.expense(groupId, e),
+                      testId: 'expense-delete',
+                    },
+                  ]}
                 >
-                  <div
-                    className="flex h-11 w-11 items-center justify-center rounded-2xl text-xl"
-                    style={{ background: `${CATEGORIES[e.category].color}22` }}
-                    aria-hidden
-                  >
-                    {CATEGORIES[e.category].emoji}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="truncate font-medium">{e.description}</span>
-                      {e.recurrence && (
-                        <span
-                          className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-brand-50 px-1.5 py-0.5 text-[0.6875rem] font-semibold text-brand-700 dark:bg-brand-900/40 dark:text-brand-200"
-                          title={`Repeats ${FREQ_LABEL[e.recurrence.freq].toLowerCase()}`}
-                        >
-                          <Repeat size={10} strokeWidth={3} aria-hidden />
-                          {FREQ_LABEL[e.recurrence.freq]}
-                        </span>
-                      )}
-                      {e.recurringFrom && !e.recurrence && <Repeat size={12} className="text-muted shrink-0" role="img" aria-label="Repeating expense" />}
-                      <TrustBadges e={e} group={group} />
+                  <Link to={`/groups/${groupId}/expenses/${e.id}`} className="flex items-center gap-3 px-4 py-3 active:bg-slate-50 dark:active:bg-ink-800">
+                    <div
+                      className="flex h-11 w-11 items-center justify-center rounded-2xl text-xl"
+                      style={{ background: `${CATEGORIES[e.category].color}22` }}
+                      aria-hidden
+                    >
+                      {CATEGORIES[e.category].emoji}
                     </div>
-                    <div className="text-muted truncate text-xs">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="truncate font-medium">{e.description}</span>
+                        {e.recurrence && (
+                          <span
+                            className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-brand-50 px-1.5 py-0.5 text-[0.6875rem] font-semibold text-brand-700 dark:bg-brand-900/40 dark:text-brand-200"
+                            title={`Repeats ${FREQ_LABEL[e.recurrence.freq].toLowerCase()}`}
+                          >
+                            <Repeat size={10} strokeWidth={3} aria-hidden />
+                            {FREQ_LABEL[e.recurrence.freq]}
+                          </span>
+                        )}
+                        {e.recurringFrom && !e.recurrence && <Repeat size={12} className="text-muted shrink-0" role="img" aria-label="Repeating expense" />}
+                        <TrustBadges e={e} group={group} />
+                      </div>
+                      <div className="text-muted truncate text-xs">
+                        {personal ? (
+                          formatDate(e.date)
+                        ) : (
+                          <>
+                            {payers.length > 1 ? `${payers.length} people` : name(payers[0])} paid {formatMoney(e.amount, currency)} · {formatDate(e.date)}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right">
                       {personal ? (
-                        formatDate(e.date)
+                        <div className="font-semibold">{formatMoney(e.amount, currency)}</div>
+                      ) : delta === 0 ? (
+                        <div className="text-muted text-xs">{me && e.splits[me] === undefined && !e.paidBy[me] ? 'not involved' : 'even'}</div>
                       ) : (
                         <>
-                          {payers.length > 1 ? `${payers.length} people` : name(payers[0])} paid {formatMoney(e.amount, currency)} · {formatDate(e.date)}
+                          <div className={`text-xs ${delta > 0 ? 'pos' : 'neg'}`}>{delta > 0 ? 'you lent' : 'you borrowed'}</div>
+                          <div className={`font-semibold ${delta > 0 ? 'pos' : 'neg'}`}>{formatMoney(Math.abs(delta), currency)}</div>
                         </>
                       )}
                     </div>
-                  </div>
-                  <div className="text-right">
-                    {personal ? (
-                      <div className="font-semibold">{formatMoney(e.amount, currency)}</div>
-                    ) : delta === 0 ? (
-                      <div className="text-muted text-xs">{me && e.splits[me] === undefined && !e.paidBy[me] ? 'not involved' : 'even'}</div>
-                    ) : (
-                      <>
-                        <div className={`text-xs ${delta > 0 ? 'pos' : 'neg'}`}>{delta > 0 ? 'you lent' : 'you borrowed'}</div>
-                        <div className={`font-semibold ${delta > 0 ? 'pos' : 'neg'}`}>{formatMoney(Math.abs(delta), currency)}</div>
-                      </>
-                    )}
-                  </div>
-                </Link>
+                  </Link>
+                </SwipeRow>
               )
             })}
           </div>
