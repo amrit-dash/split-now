@@ -6,6 +6,8 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 3.5.2 — October 2026
+
 - **Glitter you can see**: with Glitter on, a burst's sparks now stay visible and flicker gently once they have slowed, then fade out; with it off they are gone as soon as the burst finishes spreading. Glitter size now sets the size of those lingering sparks whatever the spark size, and has a new **Tiny** option, so Big sparks can leave fine glitter.
 
 ## 3.5.1 — October 2026
