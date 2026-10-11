@@ -51,7 +51,7 @@ describe('purgeExpiredGroups (emulator)', () => {
       await setDoc(doc(db, 'groups/recent'), group('recent', 'RECENT01', 29 * DAY))
       await setDoc(doc(db, 'groups/live'), group('live', 'LIVECODE'))
     })
-    const removed = await purgeExpiredGroups(30 * DAY)
+    const removed = await purgeExpiredGroups(30 * DAY, 30)
     expect(removed).toBe(1)
     expect(await exists('groups/old')).toBe(false)
     expect(await exists('invites/OLDCODE1')).toBe(false)

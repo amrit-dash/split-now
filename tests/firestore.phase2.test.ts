@@ -66,6 +66,22 @@ describe('merchant memory (settings/merchants)', () => {
   })
 })
 
+describe('cleared Updates (settings/inbox)', () => {
+  const inbox = 'users/alice/settings/inbox'
+  it('the owner keeps what they cleared: a time and up to 200 hidden rows', async () => {
+    await assertSucceeds(setDoc(doc(db('alice'), inbox), { clearedAt: 5, hidden: ['a1', 'a2'], updatedAt: 6 }))
+    await assertSucceeds(getDoc(doc(db('alice'), inbox)))
+    await assertSucceeds(setDoc(doc(db('alice'), inbox), { clearedAt: 5, hidden: Array.from({ length: 200 }, (_, i) => `a${i}`), updatedAt: 6 }))
+    await assertFails(setDoc(doc(db('alice'), inbox), { clearedAt: 5, hidden: Array.from({ length: 201 }, (_, i) => `a${i}`), updatedAt: 6 }))
+    await assertFails(setDoc(doc(db('alice'), inbox), { clearedAt: 'now', hidden: [], updatedAt: 6 }))
+    await assertFails(setDoc(doc(db('alice'), inbox), { clearedAt: 5, hidden: [], extra: true }))
+  })
+  it('nobody else reads or writes it', async () => {
+    await assertFails(setDoc(doc(db('bob'), inbox), { clearedAt: 5, hidden: [], updatedAt: 6 }))
+    await assertFails(getDoc(doc(db('bob'), inbox)))
+  })
+})
+
 describe('activity types', () => {
   const entry = (type: string) => ({ type, actorUid: 'bob', actorName: 'Bob', targetId: 'x', summary: 'Bob did a thing', createdAt: 2 })
   it('members write the kinds the app produces', async () => {

@@ -617,3 +617,80 @@ test('only the creator may delete a group while they are in it', async ({ page }
   await page.getByTestId('group-menu').click()
   await expect(page.getByTestId('group-delete')).toHaveCount(0)
 })
+
+/** Demo data with every group gone: the first-run screens. */
+async function noGroups(page: Page) {
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('splitit-demo-v1') ?? '{}')
+    Object.assign(state, { groups: {}, expenses: {}, settlements: {}, activity: {} })
+    localStorage.setItem('splitit-demo-v1', JSON.stringify(state))
+  })
+  await page.goto('/')
+  await expect(page.getByTestId('first-run')).toBeVisible()
+}
+
+test('Inbox → Updates: sort, ✕ one row, Clear all with Undo', async ({ page }) => {
+  await page.goto('/inbox')
+  await page
+    .getByTestId('inbox-tabs')
+    .getByRole('radio', { name: /Updates/ })
+    .click()
+  const rows = page.getByTestId('update-clear')
+  await expect(rows.first()).toBeVisible()
+  const before = await rows.count()
+  await rows.first().click()
+  await expect(rows).toHaveCount(before - 1)
+  await page.getByTestId('updates-sort').selectOption('group')
+  await expect(page.getByRole('heading', { level: 2 }).first()).toBeVisible()
+  await page.getByTestId('updates-clear-all').click()
+  await expect(rows).toHaveCount(0)
+  await page.getByRole('button', { name: 'Undo' }).click()
+  await expect(rows).toHaveCount(before - 1)
+  // The sort is remembered on this device.
+  await page.reload()
+  await page
+    .getByTestId('inbox-tabs')
+    .getByRole('radio', { name: /Updates/ })
+    .click()
+  await expect(page.getByTestId('updates-sort')).toHaveValue('group')
+})
+
+test('no groups yet: Quick add on Home sets up a 1:1 from one name, checked in the group form first', async ({ page }) => {
+  await noGroups(page)
+  const quick = page.getByTestId('home-quick-add')
+  await quick.getByRole('textbox', { name: 'Quick add' }).fill('dinner 1200 with Rahul')
+  await quick.getByTestId('home-quick-add-go').click()
+  await expect(page).toHaveURL(/\/groups\/new\?.*type=direct/)
+  await expect(page).toHaveURL(/people=Rahul/)
+  await expect(page).toHaveURL(/next=add/)
+})
+
+test('no groups yet: the + sheet has Quick add, and a group named in the line is filled in', async ({ page }) => {
+  await noGroups(page)
+  await page.getByTestId('nav-create').click()
+  const quick = page.getByRole('dialog').getByTestId('create-quick-add')
+  await quick.getByRole('textbox', { name: 'Quick add' }).fill('Goa trip with Rahul and Priya')
+  await quick.getByTestId('create-quick-add-go').click()
+  await expect(page).toHaveURL(/\/groups\/new\?/)
+  await expect(page.getByLabel(/name/i).first()).toHaveValue('Goa trip')
+})
+
+test('no groups yet, Quick add with AI (demo reader): "create a group for my Bali trip with …" makes it after a yes, then Add expense', async ({ page }) => {
+  await noGroups(page)
+  const quick = page.getByTestId('home-quick-add')
+  await quick.getByRole('textbox', { name: 'Quick add' }).fill('Create a group for my Bali trip with Rahul, Priya and Subramaniam')
+  await quick.getByTestId('home-quick-add-go').click()
+  const ask = page.getByRole('dialog').filter({ hasText: 'Create “Bali Trip”?' })
+  await expect(ask).toContainText('you, Rahul, Priya and Subramaniam')
+  await ask.getByRole('button', { name: 'Create group' }).click()
+  await expect(page).toHaveURL(/\/add\?group=[^&]+$/)
+  await expect(page.getByText('Bali Trip', { exact: true })).toBeVisible()
+})
+
+test('no groups yet: Add expense explains why, and ✕ goes back', async ({ page }) => {
+  await noGroups(page)
+  await page.getByTestId('nav-create').click()
+  await page.getByTestId('create-expense').click()
+  await page.getByTestId('nogroups-close').click()
+  await expect(page.getByTestId('first-run')).toBeVisible()
+})

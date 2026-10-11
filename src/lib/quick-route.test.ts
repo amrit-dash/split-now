@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { quickAiAllowed, quickRoute } from './quick-route'
+import { quickAiAllowed, quickRoute, quickRouteNoGroups } from './quick-route'
 
 const none = { kind: 'none' } as const
 const fresh = { kind: 'new', name: 'Bali trip', text: 'Cab 300', phrase: 'in a new group bali trip' } as const
@@ -51,5 +51,16 @@ describe('quickAiAllowed', () => {
   it('the demo only asks the flag (its reader is on the phone)', () => {
     expect(quickAiAllowed({ ...base, mode: 'demo', prefs: null, status: null, online: false })).toBe(true)
     expect(quickAiAllowed({ ...base, mode: 'demo', flag: false })).toBe(false)
+  })
+})
+
+describe('quickRouteNoGroups', () => {
+  it('a plain line starts the group on the phone', () => {
+    expect(quickRouteNoGroups('Goa trip with Rahul and Priya')).toEqual({ route: 'local' })
+    expect(quickRouteNoGroups('dinner 1200 with Rahul')).toEqual({ route: 'local' })
+  })
+  it('asking for a group in words, or several steps, goes to AI', () => {
+    expect(quickRouteNoGroups('Create a group for my Bali trip with Rahul, Priya and Subramaniam').route).toBe('ai')
+    expect(quickRouteNoGroups('Goa with Rahul and add dinner 2400').route).toBe('ai')
   })
 })

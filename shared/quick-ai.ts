@@ -30,6 +30,11 @@ export interface QuickAiRequest {
   /** the group the line goes into unless it names another (the Quick add picker) */
   groupId?: string
   groups: QuickAiGroupIn[]
+  /**
+   * The app takes a new group with no expense (action 'group': "create a group for my Bali trip
+   * with Rahul and Priya"). Apps from before 3.9 don't send it and never get that action.
+   */
+  groupOnly?: boolean
 }
 
 /**
@@ -50,9 +55,17 @@ export interface QuickAiExpense {
   participants?: QuickAiPerson[]
 }
 
+export interface QuickAiNewGroup {
+  name: string
+  type?: QuickGroupType
+  /** the other people, as the line names them; never the caller */
+  members: string[]
+}
+
 export type QuickAiResult =
   | { action: 'expense'; group: { existingId: string }; expense: QuickAiExpense }
-  | { action: 'group_and_expense'; group: { name: string; type?: QuickGroupType; members: string[] }; expense: QuickAiExpense }
+  | { action: 'group_and_expense'; group: QuickAiNewGroup; expense: QuickAiExpense }
+  | { action: 'group'; group: QuickAiNewGroup }
   | { action: 'unknown' }
 
 /** What the callable answers; `unavailable` means no key could be used (see AiUnavailableReason). */

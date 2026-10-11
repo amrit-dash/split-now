@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ReceiptText, Users, Wallet } from 'lucide-react'
+import { ReceiptText, Users, Wallet, X } from 'lucide-react'
+import { useBack } from '@/hooks/useBack'
 import { useMe } from '@/hooks/auth'
 import { memberOrder, myMemberId, useCaptures, useExpenses, useGroup, useGroups } from '@/hooks/data'
 import { descriptionHistory, lastGroup } from '@/lib/recents'
@@ -131,8 +132,19 @@ function FormSkeleton() {
 
 function NoGroups() {
   const nav = useNavigate()
+  // The way out, like the form's own ✕: back where Add expense was opened from (Home when opened cold).
+  const close = useBack('/')
   return (
-    <div className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center px-4 pb-[calc(env(safe-area-inset-bottom)+2rem)] pt-[calc(var(--safe-top)+2rem)]">
+    <div className="relative mx-auto flex min-h-dvh max-w-lg flex-col justify-center px-4 pb-[calc(env(safe-area-inset-bottom)+2rem)] pt-[calc(var(--safe-top)+2rem)]">
+      <button
+        type="button"
+        onClick={close}
+        className="absolute left-1 top-[calc(var(--safe-top)+0.75rem)] flex h-11 w-11 items-center justify-center rounded-full hover:bg-slate-200/60 dark:hover:bg-ink-800"
+        aria-label="Close"
+        data-testid="nogroups-close"
+      >
+        <X size={24} aria-hidden />
+      </button>
       <Empty emoji="👀" title="Create a group first">
         Expenses live inside a group, a 1:1 friend, or your personal wallet.
         <div className="mt-4 flex justify-center gap-2">

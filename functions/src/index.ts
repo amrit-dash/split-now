@@ -18,9 +18,13 @@
  *  aiKey, aiModels, aiStatus  Callables: save/test/remove a user's Gemini key (sealed at rest), list models, AI availability
  *  nudge               Callable { groupId, memberId, amount? } or { items } (several groups, one push with the total) → push to someone who owes the caller (1 per pair per day)
  *  onPayLinkPaid       Firestore payLinks/{code} open → paid ("I've paid") → record the settlement in the group, push the payee
+ *  cleanupCaptures     Schedule every day 03:45 Asia/Kolkata → remove captured payments handled longer than config/limits captureKeepDays
+ *  linkPreview         HTTPS (Hosting rewrites /join/*, /r/*, /t/*) → the app page with a preview about the link (group invite, Pay me link, live table)
  *  adminStats, adminUsers, adminBlockUser, adminSetAdmin  Callables (admins/{uid} only): usage counters + totals, account lookup, block / unblock, make or remove an admin
  */
 export { capture } from './capture'
+export { linkPreview } from './preview'
+export { cleanupCaptures } from './cleanup'
 export { onExpenseCreated, onExpenseUpdated, onGroupDeleted, onPushTokenCreated, onSettlementCreated, onSettlementUpdated } from './triggers'
 export { dailyReminders } from './reminders'
 export { fxDaily, fxMorning, refreshFx } from './fx'

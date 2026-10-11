@@ -37,6 +37,7 @@ import { EMPTY_FILTER, expenseMatches, isFiltering, settlementMatches, type Acti
 import { FREQ_LABEL } from '@/lib/recurrence'
 import { todayISO } from '@/lib/id'
 import { errText } from '@/lib/errors'
+import { inviteLink } from '@/lib/invite-link'
 import { usePageTitle } from '@/lib/brand'
 import { formatDate } from '@/lib/locale'
 import { saveCapturePrefs, tripCaptureNotice } from '@/lib/capture-settings'
@@ -128,7 +129,9 @@ export default function GroupDetail() {
   const personal = group.type === 'personal'
   const total = d.expenses.reduce((s, e) => s + e.amount, 0)
   const name = (id: string) => (id === me ? 'You' : (group.members[id]?.name ?? 'Someone'))
-  const inviteUrl = `${location.origin}/join/${group.inviteCode}`
+  // The QR is scanned in person, so it stays short; shared links carry your name for their preview.
+  const inviteUrl = inviteLink(location.origin, group.inviteCode)
+  const shareInviteUrl = inviteLink(location.origin, group.inviteCode, group.members[me ?? '']?.name)
   const creator = group.createdBy === user.uid
   const fail = (e: unknown) => toast(errText(e), 'err')
   // A private hint for the next bill (src/lib/fairness.ts): never pushed, never a score.
@@ -441,14 +444,14 @@ export default function GroupDetail() {
           <div className="mt-1 font-mono text-3xl font-extrabold tracking-[0.3em]">{group.inviteCode}</div>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2">
-          <button type="button" className="btn-secondary" onClick={async () => toast((await copy(inviteUrl)) ? 'Link copied' : 'Copy failed', 'ok')}>
+          <button type="button" className="btn-secondary" onClick={async () => toast((await copy(shareInviteUrl)) ? 'Link copied' : 'Copy failed', 'ok')}>
             Copy link
           </button>
           <button
             type="button"
             className="btn-primary"
             onClick={() =>
-              shareOrCopy({ title: `Join ${group.name} on Split Now`, text: `Join “${group.name}” on Split Now to split expenses:`, url: inviteUrl })
+              shareOrCopy({ title: `Join ${group.name} on Split Now`, text: `Join “${group.name}” on Split Now to split expenses:`, url: shareInviteUrl })
             }
           >
             Share
