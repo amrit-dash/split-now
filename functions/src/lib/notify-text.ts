@@ -37,8 +37,7 @@ export function formatMoney(minor: number, currency = 'INR'): string {
 }
 
 const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1) + '…' : s)
-/** "🏖️ Goa trip"; a 1:1 (its icon is always 🤝, and only 1:1s use it) reads "Meera 🤝": the person first. */
-export const groupTitle = (name: string, emoji?: string) => clip(emoji === '🤝' ? `${name} 🤝` : emoji ? `${emoji} ${name}` : name, 60)
+const groupTitle = (name: string, emoji?: string) => clip(emoji ? `${emoji} ${name}` : name, 60)
 
 export function captureNote(c: { captureId: string; amount: number; currency?: string; merchant?: string; groupName?: string }): Note {
   const spent = `You spent ${formatMoney(c.amount, c.currency)}${c.merchant ? ` at ${clip(c.merchant, 40)}` : ''}`
