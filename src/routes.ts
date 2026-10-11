@@ -7,6 +7,7 @@ export const load = {
   GroupForm: () => import('./pages/GroupForm'),
   GroupDetail: () => import('./pages/GroupDetail'),
   GroupMembers: () => import('./pages/GroupMembers'),
+  GroupChat: () => import('./pages/GroupChat'),
   ExpenseForm: () => import('./pages/ExpenseForm'),
   SplitBill: () => import('./pages/SplitBill'),
   ExpenseDetail: () => import('./pages/ExpenseDetail'),
@@ -44,6 +45,7 @@ export function routeKey(pathname: string): RouteKey | undefined {
   if (p === '/groups/import') return 'ImportGroup'
   if (/^\/groups\/[^/]+\/settle$/.test(p)) return 'SettleUp'
   if (/^\/groups\/[^/]+\/members$/.test(p)) return 'GroupMembers'
+  if (/^\/groups\/[^/]+\/chat$/.test(p)) return 'GroupChat'
   if (/^\/groups\/[^/]+\/expenses\/[^/]+$/.test(p)) return 'ExpenseDetail'
   if (/^\/groups\/[^/]+$/.test(p)) return 'GroupDetail'
   if (p === '/settle' || p === '/friends') return 'SettleAll'

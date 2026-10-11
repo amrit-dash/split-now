@@ -80,6 +80,7 @@ export function ExpenseEditor({
   capture,
   quick,
   openItem,
+  fromChat,
   expenses,
   history,
   onGroup,
@@ -96,6 +97,8 @@ export function ExpenseEditor({
   quick?: QuickPrefill
   /** the open item this expense claims (its details arrive as `quick`) */
   openItem?: OpenItem
+  /** opened from the group chat: post the new expense's card there, and go back to it */
+  fromChat?: boolean
   /** the group's live expenses (for the duplicate warning) */
   expenses: Expense[]
   history: Suggestion[]
@@ -218,8 +221,11 @@ export function ExpenseEditor({
   useEffect(() => {
     if (restore) toast('Picked up where you left off')
   }, [restore, toast])
+  // Once per form: the prefill object is rebuilt as live data arrives, which must not repeat the toast.
+  const prefillToast = useRef(false)
   useEffect(() => {
-    if (!quick) return
+    if (!quick || prefillToast.current) return
+    prefillToast.current = true
     if (openItem) toast(quick.amount ? 'Paid by you, split equally. Change anything, then save.' : 'Add what you paid, then save.')
     else toast(quick.amount ? 'Filled in from your line. Check it over, then save.' : 'Couldn’t find an amount in your line. Add it, then save.')
   }, [quick, openItem, toast])
@@ -336,7 +342,13 @@ export function ExpenseEditor({
       clearDraft(storeKey)
       forgetReceipt()
       toast(existing ? 'Expense updated' : openItem ? `Claimed “${openItem.title}”` : 'Expense added')
-      nav(`/groups/${group.id}`, { replace: true })
+      if (fromChat && !existing && !personal) {
+        const name = group.members[me]?.name || profile.displayName || 'Someone'
+        repo
+          .postChat(group.id, { authorUid: user.uid, authorName: name.slice(0, 80), text: '', kind: 'expense', ref: e.id, createdAt: Date.now() })
+          .catch((err) => console.warn('Expense card not posted', err))
+        nav(`/groups/${group.id}/chat`, { replace: true })
+      } else nav(`/groups/${group.id}`, { replace: true })
     } catch (err) {
       toast(errText(err), 'err')
       setBusy(false)

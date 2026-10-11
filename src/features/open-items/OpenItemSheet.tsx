@@ -4,7 +4,7 @@ import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { memberOrder, myMemberId } from '@/hooks/data'
 import type { Category, Group, MemberId, OpenItem } from '@/types'
-import { CATEGORIES } from '@/lib/categories'
+import { CATEGORIES, guessCategory } from '@/lib/categories'
 import { todayISO, uid } from '@/lib/id'
 import { errText } from '@/lib/errors'
 import { formatDate } from '@/lib/locale'
@@ -129,7 +129,8 @@ export function OpenItemSheet({
     }
   }
 
-  const category = f.category ?? 'other'
+  // The icon follows the words until one is picked (newOpenItem guesses the same way on save).
+  const category = f.category ?? guessCategory(f.title) ?? 'other'
   const foundBits = found
     ? [
         found.amount !== undefined ? formatMoney(found.amount, group.currency) : '',

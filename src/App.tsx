@@ -41,6 +41,7 @@ import Groups from './pages/Groups'
 const GroupForm = lazy(load.GroupForm)
 const GroupDetail = lazy(load.GroupDetail)
 const GroupMembers = lazy(load.GroupMembers)
+const GroupChat = lazy(load.GroupChat)
 const ExpenseForm = lazy(load.ExpenseForm)
 const SplitBill = lazy(load.SplitBill)
 const ExpenseDetail = lazy(load.ExpenseDetail)
@@ -118,7 +119,8 @@ export default function App() {
         const { title, body, badge } = d.data
         const to = inApp(d.data.url)
         const text = [title, body].filter((x): x is string => typeof x === 'string' && x.trim() !== '').join(' · ')
-        if (text) toast(text, 'ok', to ? { action: { label: 'Open', run: () => nav(to) } } : undefined)
+        // Already looking at it (a chat message while the chat is open): no banner.
+        if (text && to !== location.pathname) toast(text, 'ok', to ? { action: { label: 'Open', run: () => nav(to) } } : undefined)
         if (typeof badge === 'number' || typeof badge === 'string') setBadge(Number(badge))
       }
     }
@@ -293,6 +295,14 @@ function AppRoutes({ cfg, admin }: { cfg: AppConfig; admin: boolean }) {
             element={
               <LiveGroupOnly>
                 <ExpenseForm />
+              </LiveGroupOnly>
+            }
+          />
+          <Route
+            path="groups/:groupId/chat"
+            element={
+              <LiveGroupOnly>
+                <GroupChat />
               </LiveGroupOnly>
             }
           />

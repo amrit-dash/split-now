@@ -29,6 +29,8 @@ export default function ExpenseForm() {
   const captureId = expenseId ? undefined : (params.get('capture') ?? undefined)
   // Claiming an open item (/add?group=…&open=…): paid by you, split among everyone, its details filled in.
   const openId = expenseId ? undefined : (params.get('open') ?? undefined)
+  // Add expense from the group chat (/add?group=…&chat=1): its card is posted there, and Save goes back to the chat.
+  const fromChat = !expenseId && params.get('chat') === '1'
   // Quick add (/add?group=…&quick=1): the parsed line waits in memory; it beats any stored draft (a fresh intent).
   const [handed] = useState(() => {
     if (expenseId || !params.get('quick')) return undefined
@@ -130,6 +132,7 @@ export default function ExpenseForm() {
       capture={capture}
       quick={quick ?? openPrefill}
       openItem={openItem}
+      fromChat={fromChat}
       expenses={groupExpenses}
       history={history}
       onGroup={setGroupId}

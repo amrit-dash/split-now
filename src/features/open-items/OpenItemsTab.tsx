@@ -111,10 +111,10 @@ export function OpenItemsTab({ group, items, expenses }: { group: Group; items: 
                     {cat.emoji}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-semibold">{o.title}</span>
+                    <span className="line-clamp-2 block font-semibold leading-snug">{o.title}</span>
                     <span className="text-muted block truncate text-xs">{openItemMeta(o, group.currency, today)}</span>
                     {who && (
-                      <span className={`block truncate text-xs ${asked ? 'font-semibold text-amber-700 dark:text-amber-300' : 'text-muted'}`}>
+                      <span className={`block text-xs ${asked ? 'font-semibold text-amber-700 dark:text-amber-300' : 'text-muted'}`}>
                         {asked ? 'Did you pay? ' : ''}
                         {who}
                       </span>
