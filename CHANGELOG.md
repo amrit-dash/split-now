@@ -6,6 +6,8 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 4.4.0 — October 2026
+
 - **1:1 notifications, invites and Pay me links name the right person**: every notification about a 1:1 is titled with the other person, for each of you (before, your friend's said their own name). A 1:1 invite says who it's from ("Amrit wants to split expenses with you") instead of the friend's own name, old invites included, and its share message no longer says “Join Meera” to Meera. Pay me links in a 1:1 show the payer your name, and show you theirs.
 - **AI for chat suggestions, if you want it**: ⓘ in a group chat has Use AI for suggestions (off by default, and only when an admin allows it under Admin → Flags: Chat suggestions with AI). When the built-in rules find nothing, it asks AI after you pause typing; a little slower, and it uses your AI allowance.
 - Groups: the 1:1 section is called 1:1 with friends, and each one says Friend under the name (also in Add expense's group picker).
