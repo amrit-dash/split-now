@@ -5,6 +5,7 @@ import { type Basis, DEFAULT_FILTERS, type InsightFilters, type RangePreset } fr
 import { formatDate } from '@/lib/locale'
 import { Collapsible } from '@/components/Collapsible'
 import { DateField } from '@/components/DateField'
+import { type Hint, HintText, InfoTip } from '@/components/Hint'
 import { Segmented } from '@/components/Misc'
 
 export const RANGES: Array<{ value: RangePreset; label: string }> = [
@@ -79,6 +80,10 @@ export function FiltersPanel({
 }) {
   const n = activeCount(filters, groupIds)
   const set = (p: Partial<InsightFilters>) => onChange({ ...filters, ...p })
+  const basisHint: Hint =
+    filters.basis === 'mine'
+      ? { full: 'What you consumed: your split of each expense.', short: 'Your split of each expense', tier: 'help' }
+      : { full: 'The full amount of every expense, whoever it was for.', short: 'Every expense in full', tier: 'help' }
   return (
     <Collapsible
       className="!mt-0 mb-4"
@@ -160,7 +165,10 @@ export function FiltersPanel({
         )}
 
         <div>
-          <div className="label">Count</div>
+          <div className="label flex items-center">
+            Count
+            <InfoTip hint={basisHint} label="About Count" />
+          </div>
           <Segmented<Basis>
             value={filters.basis}
             onChange={(basis) => set({ basis })}
@@ -171,9 +179,7 @@ export function FiltersPanel({
             label="Count"
             testId="insights-basis"
           />
-          <p className="text-muted mt-1.5 text-xs">
-            {filters.basis === 'mine' ? 'What you consumed: your split of each expense.' : 'The full amount of every expense, whoever it was for.'}
-          </p>
+          <HintText hint={basisHint} className="text-muted mt-1.5 text-xs" />
         </div>
 
         {n > 0 && (

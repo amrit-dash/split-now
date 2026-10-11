@@ -10,6 +10,7 @@ import { errText } from '@/lib/errors'
 import { usePageTitle } from '@/lib/brand'
 import { Empty, Loading } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
+import { HintText } from '@/components/Hint'
 
 export default function Join() {
   const { code = '' } = useParams()
@@ -96,9 +97,16 @@ export default function Join() {
           {invite.emoji}
         </div>
         <h1 className="mt-4 text-2xl font-extrabold">Join {invite.groupName}</h1>
-        <p className="text-muted mt-1 text-sm" id="join-help">
-          Which one is you? Expenses already logged for that person become yours.
-        </p>
+        {/* Key in every detail level: the pick moves that person's expenses onto you. */}
+        <HintText
+          id="join-help"
+          className="text-muted mt-1 text-sm"
+          hint={{
+            full: 'Which one is you? Expenses already logged for that person become yours.',
+            short: 'Which one is you? Their expenses become yours.',
+            tier: 'key',
+          }}
+        />
       </div>
       <div
         className="card mt-6 divide-y divide-slate-100 overflow-hidden dark:divide-white/5"
@@ -126,9 +134,14 @@ export default function Join() {
         ))}
       </div>
       {choice && choice !== 'new' && profile.displayName.trim() && invite.placeholders[choice] !== profile.displayName.trim() && (
-        <p className="mt-3 px-1 text-center text-xs text-muted">
-          You’ll show as {profile.displayName.trim()} (not “{invite.placeholders[choice]}”), with your profile photo.
-        </p>
+        <HintText
+          className="mt-3 px-1 text-center text-xs text-muted"
+          hint={{
+            full: `You’ll show as ${profile.displayName.trim()} (not “${invite.placeholders[choice]}”), with your profile photo.`,
+            short: `You’ll show as ${profile.displayName.trim()}.`,
+            tier: 'help',
+          }}
+        />
       )}
       <button type="button" className="btn-primary mt-5 w-full" onClick={join} disabled={busy || !choice} data-testid="join-submit">
         {choice ? 'Join group' : 'Pick one to join'}

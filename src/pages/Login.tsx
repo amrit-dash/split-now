@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom'
 import { ChevronLeft, Eye, EyeOff, Mail, QrCode, UserPlus } from 'lucide-react'
 import { repo } from '@/data'
 import { useToast } from '@/components/Toast'
+import { HintText } from '@/components/Hint'
 import { useAppConfig } from '@/hooks/useAppConfig'
 import { errText } from '@/lib/errors'
 import { emailProblem, passwordProblem } from '@/lib/account'
@@ -72,7 +73,14 @@ export default function Login() {
       <p className="mt-4 text-sm font-semibold tracking-wide text-duo-300" data-testid="tagline">
         Spending is wise, splitting is free. Split Now!
       </p>
-      <p className="mt-2 text-slate-300">Trips, flats and dinners: fair splits, bill scanning and one-tap UPI settle-ups.</p>
+      <HintText
+        className="mt-2 text-slate-300"
+        hint={{
+          full: 'Trips, flats and dinners: fair splits, bill scanning and one-tap UPI settle-ups.',
+          short: 'Fair splits and one-tap UPI settle-ups.',
+          tier: 'help',
+        }}
+      />
 
       {invite && (
         <div className="mt-6 flex gap-3 rounded-2xl bg-white/10 p-4 text-sm text-slate-200 ring-1 ring-white/15" data-testid="invite-banner">
@@ -244,12 +252,17 @@ export default function Login() {
                 </div>
                 {fieldError('login-password', problems.password) ??
                   (mode === 'up' && (
-                    <p id="login-password-help" className="mt-1.5 px-1 text-xs text-slate-400">
-                      At least 8 characters, with letters and numbers.
-                    </p>
+                    // Key: it heads off the "too weak" error, and the field's aria-describedby points at it.
+                    <HintText
+                      id="login-password-help"
+                      className="mt-1.5 px-1 text-xs text-slate-400"
+                      hint={{ full: 'At least 8 characters, with letters and numbers.', tier: 'key' }}
+                    />
                   ))}
               </div>
-              {mode === 'up' && <p className="px-1 text-xs text-slate-400">We’ll email you a link to confirm the address.</p>}
+              {mode === 'up' && (
+                <HintText className="px-1 text-xs text-slate-400" hint={{ full: 'We’ll email you a link to confirm the address.', tier: 'help' }} />
+              )}
               <button type="submit" className="btn-primary w-full" disabled={busy} data-testid="login-submit">
                 {mode === 'in' ? 'Sign in' : 'Create account'}
               </button>
