@@ -6,6 +6,8 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 3.10.1 — October 2026
+
 - Adding an expense saves straight away. It used to wait up to a second and a half for the server first, and Add all and statement imports waited that long for every expense.
 - On narrow phones the group's Settle up button reads Settle, so it stays on one line.
 - Creating a group no longer waits for the server before it opens.
