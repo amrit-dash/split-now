@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { generateJson, listModels, normaliseReceipt, normaliseSms, normaliseStatement, RECEIPT_SCHEMA, normalisePayment } from './gemini'
+import {
+  generateJson,
+  listModels,
+  looseJson,
+  plainInstruction,
+  normaliseReceipt,
+  normaliseSms,
+  normaliseStatement,
+  RECEIPT_SCHEMA,
+  normalisePayment,
+} from './gemini'
 
 describe('normaliseReceipt', () => {
   it('converts to hundredths and folds taxes, charges and round-off', () => {
@@ -165,6 +175,50 @@ describe('generateJson', () => {
     }) as unknown as typeof fetch
     await generateJson('k', [{ text: '<sms>x</sms>' }], {}, { models: ['m'], fetchImpl: f, systemInstruction: 'Rules' })
     expect(JSON.parse(calls[0]).systemInstruction).toEqual({ parts: [{ text: 'Rules' }] })
+  })
+  it('Gemma: tries the schema first, and when refused, sends the rules and schema as text and reads the JSON out of the answer', async () => {
+    const bodies: Array<Record<string, unknown>> = []
+    const answer = (text: string, extra: Array<{ text: string; thought?: boolean }> = []) =>
+      new Response(JSON.stringify({ candidates: [{ content: { parts: [...extra, { text }] }, finishReason: 'STOP' }] }), { status: 200 })
+    let n = 0
+    const f = (async (_u: string, init: RequestInit) => {
+      bodies.push(JSON.parse(String(init.body)))
+      n++
+      if (n === 1) return new Response('{"error":{"code":400,"message":"JSON mode is not enabled for models/gemma-4-26b-a4b-it"}}', { status: 400 })
+      return answer('Here you go:\n```json\n{"isReceipt": true}\n```', [{ text: 'Let me look at the bill…', thought: true }])
+    }) as unknown as typeof fetch
+    const r = await generateJson('k', [{ text: 'bill' }], RECEIPT_SCHEMA, { models: ['gemma-4-26b-a4b-it'], fetchImpl: f, systemInstruction: 'Rules' })
+    expect(r).toMatchObject({ json: { isReceipt: true }, model: 'gemma-4-26b-a4b-it' })
+    expect(bodies[0].generationConfig).toMatchObject({ responseSchema: RECEIPT_SCHEMA })
+    expect(bodies[1].systemInstruction).toBeUndefined()
+    expect(bodies[1].generationConfig).toEqual({ maxOutputTokens: 8192 })
+    const parts = (bodies[1].contents as Array<{ parts: Array<{ text?: string }> }>)[0].parts
+    expect(parts[0].text).toBe(plainInstruction('Rules', RECEIPT_SCHEMA))
+    expect(parts[1]).toEqual({ text: 'bill' })
+    // Remembered: the next call goes straight to plain mode.
+    await generateJson('k', [{ text: 'bill' }], RECEIPT_SCHEMA, { models: ['gemma-4-26b-a4b-it'], fetchImpl: f })
+    expect(bodies).toHaveLength(3)
+    expect(bodies[2].generationConfig).toEqual({ maxOutputTokens: 8192 })
+  })
+  it('Gemma: a bad key is still a bad key, and Gemini models are never switched to plain mode', async () => {
+    const bad = (async () => new Response('API key not valid. Please pass a valid API key.', { status: 400 })) as unknown as typeof fetch
+    await expect(generateJson('k', [], {}, { models: ['gemma-4-31b-it'], fetchImpl: bad })).rejects.toMatchObject({ kind: 'bad_key' })
+    let calls = 0
+    const refuse = (async () => {
+      calls++
+      return new Response('{"error":{"code":400,"message":"Invalid argument"}}', { status: 400 })
+    }) as unknown as typeof fetch
+    await expect(generateJson('k', [], {}, { models: ['gemini-3.5-flash-lite'], fetchImpl: refuse })).rejects.toMatchObject({ kind: 'server' })
+    expect(calls).toBe(1)
+  })
+})
+
+describe('looseJson', () => {
+  it('reads a bare object, a fenced one, or the object inside prose', () => {
+    expect(looseJson('{"a":1}')).toEqual({ a: 1 })
+    expect(looseJson('```json\n{"a":2}\n```')).toEqual({ a: 2 })
+    expect(looseJson('Sure. {"a":{"b":3}} Done.')).toEqual({ a: { b: 3 } })
+    expect(() => looseJson('no json here')).toThrow()
   })
 })
 

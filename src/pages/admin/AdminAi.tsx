@@ -3,7 +3,7 @@ import { KeyRound, Loader2, RefreshCw, RotateCcw, Save, ShieldCheck, Trash2 } fr
 import { repo } from '@/data'
 import type { AiModel, AiStatusResult } from '@/data/repo'
 import { refreshAiStatus } from '@/hooks/useAiStatus'
-import { DEFAULT_MODEL, MAX_ALLOW_EMAILS, normaliseEmail, resolveAppAi, type AppAiConfig, type AppAiMode } from '@/lib/ai-config'
+import { DEFAULT_MODEL, MAX_ALLOW_EMAILS, normaliseEmail, resolveAppAi, type AppAiConfig, type AppAiEngine, type AppAiMode } from '@/lib/ai-config'
 import { errText } from '@/lib/errors'
 import { modelHint } from '@/components/AiSettings'
 import { todayISO } from '@/lib/id'
@@ -15,6 +15,11 @@ const MODES: Array<{ value: AppAiMode; label: string; hint: string }> = [
   { value: 'off', label: 'Off', hint: 'Only people’s own keys work' },
   { value: 'everyone', label: 'Everyone', hint: 'Every signed-in user' },
   { value: 'allowlist', label: 'Only these emails', hint: 'Listed below' },
+]
+
+const ENGINES: Array<{ value: AppAiEngine; label: string; hint: string }> = [
+  { value: 'gemini', label: 'Gemini on this key', hint: 'Fast, paid per bill on the key’s Google project' },
+  { value: 'gemma', label: 'Gemma (free)', hint: 'Google’s open model, free on any key, slower' },
 ]
 
 const same = (a: AppAiConfig, b: AppAiConfig) => JSON.stringify(a) === JSON.stringify(b)
@@ -30,6 +35,7 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
   const [cfg, setCfg] = useState<AppAiConfig | null>(null)
   const [emails, setEmails] = useState('')
   const [models, setModels] = useState<AiModel[] | null>(null)
+  const [gemma, setGemma] = useState<AiModel[] | null>(null)
   const [usage, setUsage] = useState<Record<string, number> | null>(null)
   const [saving, setSaving] = useState(false)
   const [draft, setDraft] = useState('')
@@ -59,6 +65,16 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
         .then(setModels)
         .catch(() => setModels([]))
   }, [configured, status.app.hint])
+  // The Gemma models the key can use, newest first: "Latest" follows Google's releases on its own.
+  const onGemma = cfg?.engine === 'gemma'
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a changed key (new hint) means the list must be fetched again.
+  useEffect(() => {
+    if (configured && onGemma)
+      repo
+        .aiModels('gemma')
+        .then(setGemma)
+        .catch(() => setGemma([]))
+  }, [configured, onGemma, status.app.hint])
   useEffect(() => {
     repo
       .aiUsage(todayISO())
@@ -200,25 +216,68 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
       </div>
 
       <div>
-        <div className="label">Model</div>
+        <div className="label">Split Now’s AI runs on</div>
         <Select
-          aria-label="Project model"
-          value={cfg.model}
-          onChange={(v) => set({ model: v })}
-          options={[
-            { value: DEFAULT_MODEL, label: 'Recommended (cheapest)', hint: DEFAULT_MODEL },
-            ...(models ?? []).filter((m) => m.id !== DEFAULT_MODEL).map((m) => ({ value: m.id, label: m.label, hint: modelHint(m) })),
-            ...(cfg.model !== DEFAULT_MODEL && !(models ?? []).some((m) => m.id === cfg.model) ? [{ value: cfg.model, label: cfg.model }] : []),
-          ]}
+          aria-label="Split Now’s AI runs on"
+          value={cfg.engine}
+          onChange={(v) => set({ engine: v as AppAiEngine, ...(v === 'gemma' && cfg.mode === 'allowlist' ? { mode: 'everyone' as const } : {}) })}
+          options={ENGINES}
         />
-        <p className="mt-1 text-xs text-slate-500">
-          {!configured ? 'Add a key to list its models.' : models === null ? 'Loading models…' : 'A retired model falls back to the recommended one.'}
+        <p className="mt-1 text-xs text-slate-500" data-testid="admin-ai-engine-note">
+          {cfg.engine === 'gemma'
+            ? 'Free on any key and reads everything Gemini does, but slower (up to a minute a bill). Google’s free-service terms apply: Google may use what is sent to improve its products. It is for everyone, and each person turns on “Use free AI” in their AI settings first, where they see this.'
+            : 'People are told their bills go through Google’s paid Gemini API, which doesn’t train on them: keep billing on for this key’s Google project.'}
         </p>
       </div>
 
+      {cfg.engine === 'gemma' ? (
+        <div>
+          <div className="label">Gemma model</div>
+          <Select
+            aria-label="Gemma model"
+            value={cfg.gemmaModel}
+            onChange={(v) => set({ gemmaModel: v })}
+            options={[
+              { value: '', label: 'Latest Gemma (automatic)', hint: gemma?.[0]?.id ?? 'the newest the key can use' },
+              ...(gemma ?? []).map((m) => ({ value: m.id, label: m.label, hint: m.id })),
+              ...(cfg.gemmaModel && !(gemma ?? []).some((m) => m.id === cfg.gemmaModel) ? [{ value: cfg.gemmaModel, label: cfg.gemmaModel }] : []),
+            ]}
+          />
+          <p className="mt-1 text-xs text-slate-500">
+            {!configured
+              ? 'Add a key to list its Gemma models.'
+              : gemma === null
+                ? 'Loading Gemma models…'
+                : 'Automatic moves to a newer Gemma when Google releases one. A retired pick falls back to the latest.'}
+          </p>
+        </div>
+      ) : (
+        <div>
+          <div className="label">Model</div>
+          <Select
+            aria-label="Project model"
+            value={cfg.model}
+            onChange={(v) => set({ model: v })}
+            options={[
+              { value: DEFAULT_MODEL, label: 'Recommended (cheapest)', hint: DEFAULT_MODEL },
+              ...(models ?? []).filter((m) => m.id !== DEFAULT_MODEL).map((m) => ({ value: m.id, label: m.label, hint: modelHint(m) })),
+              ...(cfg.model !== DEFAULT_MODEL && !(models ?? []).some((m) => m.id === cfg.model) ? [{ value: cfg.model, label: cfg.model }] : []),
+            ]}
+          />
+          <p className="mt-1 text-xs text-slate-500">
+            {!configured ? 'Add a key to list its models.' : models === null ? 'Loading models…' : 'A retired model falls back to the recommended one.'}
+          </p>
+        </div>
+      )}
+
       <div>
         <div className="label">Who can use Split Now’s key</div>
-        <Select aria-label="Who can use Split Now’s key" value={cfg.mode} onChange={(v) => set({ mode: v as AppAiMode })} options={MODES} />
+        <Select
+          aria-label="Who can use Split Now’s key"
+          value={cfg.mode}
+          onChange={(v) => set({ mode: v as AppAiMode })}
+          options={cfg.engine === 'gemma' ? MODES.filter((m) => m.value !== 'allowlist') : MODES}
+        />
       </div>
       {cfg.mode === 'allowlist' && (
         <div>
@@ -288,6 +347,7 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
           <Stat n={n('own')} label="Own keys" />
           <Stat n={n('errors')} label="Failed" />
         </div>
+        {n('app_gemma') > 0 && <p className="text-muted mt-1.5 text-xs">Free AI (Gemma): {n('app_gemma')} of the Split Now key’s calls</p>}
         {n('app_quickAdd') + n('own_quickAdd') > 0 && (
           <p className="text-muted mt-1.5 text-xs">
             Quick add with AI: {n('app_quickAdd') + n('own_quickAdd')} of these ({n('app_quickAdd')} on Split Now’s key)

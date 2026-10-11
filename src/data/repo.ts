@@ -405,7 +405,8 @@ export interface Repo {
    */
   aiKey(action: 'set' | 'test' | 'remove', key?: string, which?: 'own' | 'app'): Promise<AiKeyResult>
   /** Models for the user's own key, or the project key (admins). Throws on failure. */
-  aiModels(which: 'own' | 'app'): Promise<AiModel[]>
+  /** 'gemma' (admins): the Gemma models the project key can use, newest first */
+  aiModels(which: 'own' | 'app' | 'gemma'): Promise<AiModel[]>
   /** Whether the shared key can be used; null if unknown (offline, demo). */
   aiStatus(): Promise<AiStatusResult | null>
   /** users/{uid}/aiState/status (server-written). */
@@ -447,6 +448,8 @@ export interface AiStatusResult {
     images: AppAiStatusValue
     sms: AppAiStatusValue
     model: string
+    /** what the shared key runs: Gemini, or Google's free Gemma models (people agree first, aiFreeOk) */
+    engine?: 'gemini' | 'gemma'
     /** per-user daily allowance on the shared key */
     perDay?: number
     configured?: boolean
