@@ -758,3 +758,18 @@ test('group list: sort by amount or date added, filter expenses only, from the l
   await page.getByTestId('list-done').click()
   await expect(page.getByTestId('expense-row').first()).toBeVisible()
 })
+
+test('Quick add: "who paid?" opens the open item sheet in the group, filled in; Rahul-style guesses become “might have paid”', async ({ page }) => {
+  await page.goto('/groups/g_goa')
+  await page.getByTestId('nav-create').click()
+  const quick = page.getByRole('dialog').getByTestId('create-quick-add')
+  await quick.getByRole('textbox', { name: 'Quick add' }).fill('lunch Oct 2 Cafe Blue, maybe Priya paid')
+  await quick.getByTestId('create-quick-add-go').click()
+  await expect(page).toHaveURL(/\/groups\/g_goa\?tab=open&add=1/)
+  const sheet = page.getByTestId('open-item-sheet')
+  await expect(sheet).toBeVisible()
+  await expect(sheet.getByTestId('open-item-title')).toHaveValue('Lunch Cafe Blue')
+  await expect(sheet.getByRole('button', { name: /Priya/, pressed: true })).toBeVisible()
+  await sheet.getByTestId('open-item-save').click()
+  await expect(page.getByTestId('open-item-row').filter({ hasText: 'Lunch Cafe Blue' })).toBeVisible()
+})

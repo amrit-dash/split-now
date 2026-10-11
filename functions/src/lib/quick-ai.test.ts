@@ -227,3 +227,38 @@ describe('group-only answers', () => {
     expect(p).toContain('Bali Trip')
   })
 })
+
+describe('open items', () => {
+  const withItems = { ...req, openItems: true }
+  it('the request carries the switch, and the prompt explains open_item only then', () => {
+    expect(cleanQuickRequest({ ...req, openItems: true }, '2026-10-09', near)?.openItems).toBe(true)
+    expect(cleanQuickRequest({ ...req, openItems: 'yes' }, '2026-10-09', near)?.openItems).toBeUndefined()
+    expect(quickPrompt(withItems)).toContain('action open_item')
+    expect(quickPrompt(req)).not.toContain('action open_item')
+  })
+  it('an open item: title, amount and date when given, suspects resolved to the group', () => {
+    expect(
+      normaliseQuickAi(
+        { action: 'open_item', groupId: 'g_flat', description: 'Lunch at Cafe Blue', amount: 290, date: '2026-10-02', maybePaidBy: ['Rohan', 'me', 'Zed'] },
+        withItems,
+      ),
+    ).toEqual({
+      action: 'open_item',
+      group: { existingId: 'g_flat' },
+      item: { title: 'Lunch at Cafe Blue', currency: 'INR', amount: 29000, date: '2026-10-02', suspects: ['m_rohan', 'me'] },
+    })
+  })
+  it('no title, or no group: unknown; the default group when none is named', () => {
+    expect(normaliseQuickAi({ action: 'open_item', groupId: 'g_flat', amount: 290 }, withItems)).toEqual({ action: 'unknown' })
+    expect(normaliseQuickAi({ action: 'open_item', groupId: 'nope', description: 'Taxi' }, withItems)).toMatchObject({
+      action: 'open_item',
+      group: { existingId: 'g_flat' },
+    })
+  })
+  it('an app without open items gets an expense instead', () => {
+    expect(normaliseQuickAi({ action: 'open_item', groupId: 'g_flat', description: 'Taxi', amount: 400 }, req)).toMatchObject({
+      action: 'expense',
+      expense: { description: 'Taxi', amount: 40000 },
+    })
+  })
+})

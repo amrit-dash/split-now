@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { CheckCircle2, ClipboardList, HandCoins, Plus, Trash2 } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
@@ -9,6 +9,8 @@ import { CATEGORIES } from '@/lib/categories'
 import { authorMember } from '@/lib/chat'
 import { errText } from '@/lib/errors'
 import { todayISO } from '@/lib/id'
+import { pending } from '@/lib/pending'
+import type { OpenItemInput } from '@/lib/open-items'
 import { formatDate } from '@/lib/locale'
 import { askedMe, claimHref, openItemMeta, sortOpenItems, suspectLine } from '@/lib/open-items'
 import { Collapsible } from '@/components/Collapsible'
@@ -43,7 +45,19 @@ export function OpenItemsTab({ group, items, expenses }: { group: Group; items: 
   const nav = useNavigate()
   const me = myMemberId(group, user.uid)
   const today = todayISO()
+  // A line from Quick add ("lunch Oct 2, who paid?") lands here with the sheet open and filled in.
+  // Read on every navigation (Quick add from the + sheet while this group is already open doesn't remount it).
+  const loc = useLocation()
+  const [handed, setHanded] = useState<OpenItemInput | undefined>(undefined)
   const [editing, setEditing] = useState<OpenItem | 'new' | null>(null)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: loc.key is the trigger (a new navigation may carry a hand-off)
+  useEffect(() => {
+    const h = pending.openItem
+    if (!h || h.groupId !== group.id) return
+    pending.openItem = undefined
+    setHanded(h.input)
+    setEditing('new')
+  }, [loc.key, group.id])
   const remove = useDeleteOpenItem()
   const { open, claimed } = useMemo(() => sortOpenItems(items, expenses), [items, expenses])
   const name = (id: string) => group.members[id]?.name
@@ -166,9 +180,13 @@ export function OpenItemsTab({ group, items, expenses }: { group: Group; items: 
 
       <OpenItemSheet
         open={editing !== null}
-        onClose={() => setEditing(null)}
+        onClose={() => {
+          setEditing(null)
+          setHanded(undefined)
+        }}
         group={group}
         item={editing && editing !== 'new' ? editing : undefined}
+        initial={editing === 'new' ? handed : undefined}
         onDelete={remove}
       />
     </div>

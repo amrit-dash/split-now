@@ -120,6 +120,12 @@ export default function GroupDetail() {
   const [params] = useSearchParams()
   // ?tab=open: a push about an open item lands on the Open tab.
   const [tab, setTab] = useState<Tab>(() => (params.get('tab') === 'open' ? 'open' : 'expenses'))
+  // Also when already on this group (Quick add from the + sheet, a notification tap): the screen isn't remounted.
+  const wantsOpen = params.get('tab') === 'open'
+  // biome-ignore lint/correctness/useExhaustiveDependencies: params changes on every navigation here, so a second ?tab=open after switching tabs still lands on Open
+  useEffect(() => {
+    if (wantsOpen) setTab('open')
+  }, [wantsOpen, params])
   const [invite, setInvite] = useState(false)
   const [menu, setMenu] = useState(false)
   /** the Expenses list's sort and filter sheet (also opened from ⋯) */

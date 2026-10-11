@@ -51,3 +51,50 @@ export function openItemFromAi(local: OpenItemInput, ai: AiTextExpense | null | 
     (out.suspects ?? []).length === (local.suspects ?? []).length
   return same ? null : out
 }
+
+// ---- Quick add: a line that is an open item ------------------------------------------------
+
+/** Words that say "nobody's sure yet, write it down": the line is an open item, not an expense. */
+const OPEN_RE =
+  /(?:\bopen[\s-]item\b|\b(?:not sure|unsure|no idea|don'?t know|dunno|forgot|can'?t remember)\s+(?:who|how much)\b(?:\s+(?:paid|it was|was it))?|\bwho(?:ever)?\s+paid\b|\b(?:someone|somebody|one of us)\s+paid\b|\b(?:add|claim|sort(?:\s+it)?(?:\s+out)?)\s+(?:it\s+)?later\b|\bto\s+claim\b|\bnote(?:\s+down)?\s*:|\bnote\s+down\b|\bwrite\s+(?:it\s+)?down\b)\s*\??/giu
+/** "Rahul might have paid", "maybe Priya paid", "Rahul or Priya paid?" (a guess, not a fact). */
+const GUESS_RE =
+  /\b(?:(?:maybe|probably|possibly|i\s+think)\s+)?([\p{L}]+)(?:\s*(?:or|\/|,)\s*([\p{L}]+))?\s+(?:(?:might|may|could)\s+have|probably|maybe|possibly)\s+paid\b\s*\??|\b(?:maybe|probably|possibly)\s+([\p{L}]+)(?:\s*(?:or|\/)\s*([\p{L}]+))?\s+paid\b\s*\??/giu
+/** Words a guess can catch that are never a person. */
+const NOT_A_NAME = new Set(['who', 'whoever', 'someone', 'somebody', 'anyone', 'nobody', 'one', 'it', 'they', 'we', 'us', 'he', 'she'])
+
+/**
+ * Whether a Quick add line asks to write something down rather than add it: "lunch Oct 2 Cafe
+ * Blue, who paid?", "not sure who paid for the taxi", "Rahul might have paid for parasailing",
+ * "note: ferry tickets, add later". A plain "dinner 1200, I paid" never is.
+ */
+export function isOpenItemLine(line: string): boolean {
+  OPEN_RE.lastIndex = 0
+  GUESS_RE.lastIndex = 0
+  return OPEN_RE.test(line) || GUESS_RE.test(line)
+}
+
+/**
+ * An open-item line → the sheet's fields: the open-item words cut out, the rest read like any
+ * line (openItemFromLine), and the people it guesses at as "might have paid".
+ */
+export function openItemFromQuickLine(line: string, ctx: NlContext): OpenItemInput {
+  const suspects: string[] = []
+  const rest = line
+    .replace(GUESS_RE, (whole, a?: string, b?: string, c?: string, d?: string) => {
+      const ids = [a ?? c, b ?? d]
+        .filter((n): n is string => !!n && !NOT_A_NAME.has(n.toLowerCase()))
+        .map((n) => resolveName(n, ctx))
+        .filter((id): id is string => !!id)
+      suspects.push(...ids)
+      return ids.length ? ' ' : whole
+    })
+    .replace(OPEN_RE, ' ')
+    .replace(/\s*[,;]\s*(?=[,;]|$)/g, '')
+    .replace(/\s+for\s*$/i, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  const out = openItemFromLine(rest || line, ctx)
+  const all = [...new Set([...(out.suspects ?? []), ...suspects])]
+  return { ...out, ...(all.length ? { suspects: all } : {}) }
+}

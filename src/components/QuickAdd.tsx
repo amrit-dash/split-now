@@ -18,6 +18,7 @@ import { todayISO, uid } from '@/lib/id'
 import { suggestCategory } from '@/lib/merchants'
 import type { NlContext } from '@/lib/nl-expense'
 import { pending } from '@/lib/pending'
+import type { OpenItemInput } from '@/lib/open-items'
 import { knownPeople } from '@/lib/people'
 import { buildQuickRequest, listNames, newGroupPrefill, noGroupsPrefill, planQuickAi } from '@/lib/quick-ai'
 import { groupInText } from '@/lib/quick-group'
@@ -68,6 +69,7 @@ export function QuickAdd({
 }) {
   const enabled = useFlag('quickAdd')
   const aiFlag = useFlag('aiQuickAdd')
+  const openItemsOn = useFlag('openItems')
   const { user, profile } = useMe()
   const nav = useNavigate()
   const toast = useToast()
@@ -212,7 +214,9 @@ export function QuickAdd({
     setBusy('ai')
     try {
       const today = todayISO()
-      const r = await repo.quickAddAi(buildQuickRequest({ text, groups, uid: user.uid, me: profile.displayName, target, currency: profile.currency, today }))
+      const r = await repo.quickAddAi(
+        buildQuickRequest({ text, groups, uid: user.uid, me: profile.displayName, target, currency: profile.currency, today, openItems: openItemsOn }),
+      )
       if (!r) {
         toast('Couldn’t work that out right now, so it was read on this phone. Check the form.')
         return false
@@ -235,6 +239,10 @@ export function QuickAdd({
       if (plan.kind === 'expense') {
         pending.quick = { groupId: plan.groupId, prefill: plan.prefill }
         leave(`/add?group=${encodeURIComponent(plan.groupId)}&quick=1`)
+        return true
+      }
+      if (plan.kind === 'openItem') {
+        openOpenItem(plan.groupId, plan.input)
         return true
       }
       const ok = await confirm({
@@ -265,12 +273,37 @@ export function QuickAdd({
     btn?.click()
   }
 
+  /** The open item sheet in the group's Open tab, filled in (nothing is saved until the person does). */
+  const openOpenItem = (groupId: string, input: OpenItemInput) => {
+    pending.openItem = { groupId, input }
+    leave(`/groups/${encodeURIComponent(groupId)}?tab=open&add=1`)
+  }
+
   const send = async () => {
     // No groups yet: the line starts one (with AI when it asks for more than a plain line can say).
     if (!target) {
       if (aiAllowed && quickRouteNoGroups(text).route === 'ai' && (await askAi())) return
       await createGroup(fresh?.name ?? '')
       return
+    }
+    // "lunch Oct 2 Cafe Blue, who paid?": nobody's sure yet, so it's an open item, read on the phone
+    // (free and instant); subtler wording still reaches Quick add with AI below, which can answer open_item.
+    if (openItemsOn && !fresh && target.type !== 'personal') {
+      const { isOpenItemLine, openItemFromQuickLine } = await import('@/lib/open-item-line')
+      if (isOpenItemLine(line)) {
+        const order = memberOrder(target)
+        const me = myMemberId(target, user.uid) ?? order[0]
+        openOpenItem(
+          target.id,
+          openItemFromQuickLine(line, {
+            members: order.map((id) => ({ id, name: target.members[id].name })),
+            me,
+            currency: target.currency,
+            today: todayISO(),
+          }),
+        )
+        return
+      }
     }
     // Too much for the phone's grammar, and AI is allowed: try it first.
     if (aiAllowed) {
