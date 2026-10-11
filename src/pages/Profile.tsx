@@ -212,7 +212,19 @@ export default function Profile() {
         }
       />
 
-      <Collapsible id="payment" testId="section-payment" title="How friends can pay you" icon={<Wallet size={20} />} summary={paymentSummary(payment, region)}>
+      <Collapsible
+        id="payment"
+        testId="section-payment"
+        label="How friends can pay you"
+        title={
+          <>
+            <span className="min-[400px]:hidden">How to pay you</span>
+            <span className="hidden min-[400px]:inline">How friends can pay you</span>
+          </>
+        }
+        icon={<Wallet size={20} />}
+        summary={paymentSummary(payment, region)}
+      >
         <p className="text-muted mb-3 text-xs">
           Shown to people in your groups when they settle up: a UPI QR for the exact amount, app buttons and copy buttons.
         </p>

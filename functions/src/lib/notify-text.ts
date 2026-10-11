@@ -269,6 +269,16 @@ export function groupDeletedNote(g: { groupId: string; groupName: string; emoji?
   }
 }
 
+/** To someone whose account was attached to a group they were added to by email. */
+export function addedToGroupNote(g: { groupId: string; groupName: string; emoji?: string; byName?: string }): Note {
+  return {
+    title: groupTitle(g.groupName, g.emoji),
+    body: g.byName ? `${clip(g.byName, 30)} added you to this group.` : 'You were added to this group.',
+    url: `/groups/${g.groupId}`,
+    tag: `group-added-${g.groupId}`,
+  }
+}
+
 /**
  * A group chat message, to everyone else in the group. One notification per chat (the tag): a new
  * message replaces the last one instead of stacking.

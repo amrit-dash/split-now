@@ -8,6 +8,7 @@ import { useMotion } from '@/hooks/useMotion'
 import {
   type FireworkSize,
   type FlowSpeed,
+  GLITTER_SHAPES,
   type GlitterShape,
   type GlitterSize,
   getPreviewShown,
@@ -240,13 +241,37 @@ const SIZES: Array<{ value: FireworkSize; label: string }> = [
   { value: 'medium', label: 'Medium' },
   { value: 'big', label: 'Big' },
 ]
-const GLITTER_SHAPE_OPTIONS: Array<{ value: GlitterShape; label: string }> = [
-  { value: 'mix', label: 'Mix' },
-  { value: 'dots', label: 'Dots' },
-  { value: 'streaks', label: 'Streaks' },
-  { value: 'stars', label: 'Stars' },
-  { value: 'curls', label: 'Curls' },
-]
+// Each shape is one small drawing of it, so the row fits a narrow phone; Mix stays a word. The
+// name is still there for screen readers and as the tooltip.
+const GLITTER_SHAPE_NAMES: Record<GlitterShape, string> = { mix: 'Mix', dots: 'Dots', streaks: 'Streaks', stars: 'Stars', curls: 'Curls' }
+const GLITTER_SHAPE_OPTIONS: Array<{ value: GlitterShape; label: ReactNode }> = GLITTER_SHAPES.map((value) => ({
+  value,
+  label:
+    value === 'mix' ? (
+      'Mix'
+    ) : (
+      <span className="inline-flex items-center justify-center" title={GLITTER_SHAPE_NAMES[value]}>
+        <ShapeGlyph shape={value} />
+        <span className="sr-only">{GLITTER_SHAPE_NAMES[value]}</span>
+      </span>
+    ),
+}))
+
+const SHAPE_PARTS: Record<Exclude<GlitterShape, 'mix'>, ReactNode> = {
+  dots: <circle cx={10} cy={10} r={3.2} fill="currentColor" stroke="none" />,
+  streaks: <path d="M5 15L15 5" />,
+  stars: <path d="M10 3Q10 10 17 10Q10 10 10 17Q10 10 3 10Q10 10 10 3Z" fill="currentColor" strokeWidth={1} strokeLinejoin="round" />,
+  curls: <path d="M2.5 11.5C4.5 6.5 6.5 6.5 8.2 10S11.8 13.5 13.5 10S16.5 6.5 17.5 9" />,
+}
+
+function ShapeGlyph({ shape }: { shape: Exclude<GlitterShape, 'mix'> }) {
+  return (
+    <svg viewBox="0 0 20 20" width={20} height={20} fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" aria-hidden="true">
+      {SHAPE_PARTS[shape]}
+    </svg>
+  )
+}
+
 // Glitter goes one size finer than the sparks.
 const GLITTER_SIZES: Array<{ value: GlitterSize; label: string }> = [{ value: 'tiny', label: 'Tiny' }, ...SIZES]
 
@@ -256,14 +281,14 @@ function SizePicker<T extends string = FireworkSize>({
   value,
   onChange,
   testId,
-  options = SIZES as Array<{ value: T; label: string }>,
+  options = SIZES as Array<{ value: T; label: ReactNode }>,
 }: {
   label: string
   hint?: string
   value: T
   onChange: (v: T) => void
   testId: string
-  options?: Array<{ value: T; label: string }>
+  options?: Array<{ value: T; label: ReactNode }>
 }) {
   return (
     <div>

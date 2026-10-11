@@ -629,6 +629,15 @@ async function noGroups(page: Page) {
   await expect(page.getByTestId('first-run')).toBeVisible()
 }
 
+test('Inbox: Mark all read clears the Updates badge and hides itself', async ({ page }) => {
+  await page.goto('/inbox')
+  const updates = page.getByTestId('inbox-tabs').getByRole('radio', { name: /Updates/ })
+  await expect(updates).toContainText(/unread/)
+  await page.getByTestId('inbox-mark-read').click()
+  await expect(page.getByTestId('inbox-mark-read')).toHaveCount(0)
+  await expect(updates).not.toContainText(/unread/)
+})
+
 test('Inbox → Updates: sort, ✕ one row, Clear all with Undo', async ({ page }) => {
   await page.goto('/inbox')
   await page

@@ -6,6 +6,13 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Settings → Animations no longer runs wider than the screen on narrow phones, and long rows of options like Glitter shape fit better.
+- Someone added to a group by their email now sees it straight away when they already have an account (and gets a notification); people who sign up later get the group when they first sign in with that email. Admins can link people in older groups from Admin → Users → Link now.
+- Settings → Animations: the Glitter shape options are now a small picture of each shape (Mix stays a word), so the row fits any phone.
+- Profile: on narrow phones the payment section is titled How to pay you, so it stays on one line.
+- Inbox: a Mark all read button in the header, shown while there are unread updates.
+- A group's member faces show how many more people there are as small text beside them (+2), not in a circle of its own that hid behind the faces.
+
 ## 4.0.0 — October 2026
 
 - **Open items**: a new Open tab in each group for things the group spent that nobody has added yet, like "lunch on 2 Oct, who paid?". Type one line ("lunch 290 2nd Oct Cafe Blue") and it fills in the details. Name who might have paid and they get a notification. Whoever paid taps Claim: Add expense opens filled in, paid by them and split equally, ready to change. Delete the expense later and the item comes back to Open. If you read bills with AI, the line is also read with AI and offered as a second suggestion when it finds more. Quick add knows open items too: "lunch Oct 2 Cafe Blue, who paid?" or "maybe Priya paid for the ferry" opens the open item filled in, in the right group, for you to check and add.
@@ -19,7 +26,6 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 ## 3.10.2 — October 2026
 
 - Admin → Flags & app: the minimum version and the announcement's end date each sit on a full-width row with a proper button beside them (Use this build, Stop announcement), which drops to its own line on a phone.
-
 - A note shows when your changes haven't reached the server yet: "Saving…" if a save is slow, and offline, how many changes are waiting on this phone. Closing the tab while something is unsent asks first.
 - In Admin, Back leaves the console instead of stepping back through the tabs you opened.
 - AI on Automatic with **Use free AI** turned on tries the free AI first and your own key only if it can't answer, so your key's quota lasts longer.
@@ -37,7 +43,6 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 - People are called by their first name everywhere in a group, and in pushes and activity. Two people who share a first name get a last initial, like Rahul S. and Rahul K., and full names only when even that would clash. Members still shows the full name underneath.
 - Install Split Now from Profile any time, on a phone or a computer, even after closing the install banner. It shows the right steps for your browser.
-
 - **Free AI with Gemma**: an admin can now run Split Now's AI on Gemma, Google's open model, which Google serves free of charge. It reads everything Gemini does (bills, statements, payment screenshots, bank SMS and Quick add) but more slowly. Each person turns on **Use free AI** in Settings → AI features first. The switch explains that Google may use what is sent to improve its products and that the free service isn't for people in the EU, the UK or Switzerland. By default it uses the newest Gemma model, so it moves to a newer one when Google releases it. Admins can also pick a specific model.
 - **AI settings say where your data goes**: on Split Now's Gemini key, bills go from Split Now's servers in Mumbai to Google's paid Gemini API. When no AI is available, the screen says so and points to adding your own Gemini key.
 

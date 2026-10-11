@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { Ban, Loader2, Search, ShieldCheck, ShieldMinus, ShieldOff, ShieldPlus } from 'lucide-react'
+import { Ban, Link2, Loader2, Search, ShieldCheck, ShieldMinus, ShieldOff, ShieldPlus } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
 import { userRowActions } from '@/lib/admin-users'
 import { errText } from '@/lib/errors'
@@ -7,7 +7,7 @@ import { formatDate } from '@/lib/locale'
 import { useConfirm } from '@/components/ConfirmSheet'
 import { Loading } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
-import { adminBlockUser, adminSetAdmin, adminUsers, type AdminUser } from './api'
+import { adminBlockUser, adminLinkMembers, adminSetAdmin, adminUsers, type AdminUser } from './api'
 
 const when = (ms: number | null) => (ms ? formatDate(ms, { day: 'numeric', month: 'short', year: 'numeric' }) : '–')
 
@@ -110,6 +110,20 @@ export default function Users() {
       void setBlocked(u, false, '')
   }
 
+  const [linking, setLinking] = useState(false)
+  // Groups made before people were linked by email: attach every verified account once.
+  const linkAll = async () => {
+    setLinking(true)
+    try {
+      const r = await adminLinkMembers()
+      toast(`Checked ${r.groups} groups: ${r.linked} ${r.linked === 1 ? 'person' : 'people'} linked, ${r.pending} waiting to sign up`)
+    } catch (e) {
+      toast(errText(e), 'err')
+    } finally {
+      setLinking(false)
+    }
+  }
+
   return (
     <div className="pb-[calc(var(--lane)-var(--nav-h))]" data-testid="admin-users">
       <form onSubmit={submit} className="flex gap-2" role="search">
@@ -132,6 +146,18 @@ export default function Users() {
           <Search size={18} />
         </button>
       </form>
+      <div className="card mt-3 flex flex-wrap items-center gap-3 p-4">
+        <div className="min-w-0 flex-1 basis-56">
+          <div className="font-semibold">Link people to their accounts</div>
+          <div className="text-muted text-xs">
+            People added to a group by email now get it straight away. Run this once for groups made before: everyone whose email matches a verified account is
+            added to their groups.
+          </div>
+        </div>
+        <button type="button" className="btn-secondary grow sm:grow-0" onClick={linkAll} disabled={linking} data-testid="admin-link-members">
+          {linking ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <Link2 size={18} aria-hidden />} Link now
+        </button>
+      </div>
       <p className="text-muted mt-2 px-1 text-xs">
         {q.trim() ? 'Matches by email, uid or name.' : 'Newest sign-ups.'} Blocking refuses every write from the account, disables it in Auth and drops its push
         and capture keys. Making someone an admin gives them this console; remove their admin access before blocking them.
