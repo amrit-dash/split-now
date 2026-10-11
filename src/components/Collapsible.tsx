@@ -17,8 +17,11 @@ export function Collapsible({
   id,
   className = '',
   testId,
+  label,
 }: {
   title: ReactNode
+  /** Names the body region when `title` isn't plain text (e.g. a shorter title on narrow screens). */
+  label?: string
   icon?: ReactNode
   summary?: ReactNode
   open?: boolean
@@ -63,7 +66,7 @@ export function Collapsible({
       <div
         id={bodyId}
         role="region"
-        aria-label={typeof title === 'string' ? title : undefined}
+        aria-label={label ?? (typeof title === 'string' ? title : undefined)}
         inert={!open}
         className={`grid transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
       >
