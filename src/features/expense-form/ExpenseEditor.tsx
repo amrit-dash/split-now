@@ -8,7 +8,7 @@ import { memberOrder, myMemberId } from '@/hooks/data'
 import { useFlag } from '@/hooks/useAppConfig'
 import { useMerchantMemory } from '@/hooks/useMerchants'
 import { useReceiptReader } from '@/hooks/useReceiptReader'
-import type { Capture, Expense, Group, MemberId } from '@/types'
+import type { Capture, Expense, Group, MemberId, OpenItem } from '@/types'
 import { CURRENCIES, formatMoney, fromHundredths } from '@/lib/money'
 import { expenseMemberIds } from '@/lib/members'
 import { convertMinor, lastCurrency, rememberCurrency } from '@/lib/fx'
@@ -44,6 +44,9 @@ import { GroupIcon } from '@/components/GroupIcon'
 import { useToast } from '@/components/Toast'
 import { usePageTitle } from '@/lib/brand'
 import { useConfirm } from '@/components/ConfirmSheet'
+import { OpenItemSheet } from '@/features/open-items/OpenItemSheet'
+import { CATEGORIES } from '@/lib/categories'
+import { openItemMeta } from '@/lib/open-items'
 import { AmountCard } from './AmountCard'
 import { PayerCard } from './PayerCard'
 import { SplitCard } from './SplitCard'
@@ -76,6 +79,8 @@ export function ExpenseEditor({
   again,
   capture,
   quick,
+  openItem,
+  fromChat,
   expenses,
   history,
   onGroup,
@@ -90,6 +95,10 @@ export function ExpenseEditor({
   capture?: Capture
   /** Quick add: the parsed line to start from */
   quick?: QuickPrefill
+  /** the open item this expense claims (its details arrive as `quick`) */
+  openItem?: OpenItem
+  /** opened from the group chat: post the new expense's card there, and go back to it */
+  fromChat?: boolean
   /** the group's live expenses (for the duplicate warning) */
   expenses: Expense[]
   history: Suggestion[]
@@ -128,6 +137,7 @@ export function ExpenseEditor({
     again,
     capture,
     quick,
+    notes: openItem?.notes,
     history,
     last: existing ? {} : lastSplit(g.id, o),
     lastCurrency: lastCurrency(g.id),
@@ -167,9 +177,9 @@ export function ExpenseEditor({
   const dirty = isDirty(draft, seedRef.current)
   useEffect(() => {
     if (done.current) return
-    if (dirty) saveDraft(storeKey, { groupId: group.id, again: again?.id, capture: capture?.id, receipt: receiptKey, draft })
+    if (dirty) saveDraft(storeKey, { groupId: group.id, again: again?.id, capture: capture?.id, open: openItem?.id, receipt: receiptKey, draft })
     else clearDraft(storeKey)
-  }, [draft, dirty, storeKey, group.id, again?.id, capture?.id, receiptKey])
+  }, [draft, dirty, storeKey, group.id, again?.id, capture?.id, openItem?.id, receiptKey])
   // Bring back the restored draft's photo; a scan made meanwhile wins.
   useEffect(() => {
     const key = receiptKeyRef.current
@@ -211,9 +221,16 @@ export function ExpenseEditor({
   useEffect(() => {
     if (restore) toast('Picked up where you left off')
   }, [restore, toast])
+  // Once per form: the prefill object is rebuilt as live data arrives, which must not repeat the toast.
+  const prefillToast = useRef(false)
   useEffect(() => {
-    if (quick) toast(quick.amount ? 'Filled in from your line. Check it over, then save.' : 'Couldn’t find an amount in your line. Add it, then save.')
-  }, [quick, toast])
+    if (!quick || prefillToast.current) return
+    prefillToast.current = true
+    if (openItem) toast(quick.amount ? 'Paid by you, split equally. Change anything, then save.' : 'Add what you paid, then save.')
+    else toast(quick.amount ? 'Filled in from your line. Check it over, then save.' : 'Couldn’t find an amount in your line. Add it, then save.')
+  }, [quick, openItem, toast])
+  const openItemsOn = useFlag('openItems')
+  const [asOpenItem, setAsOpenItem] = useState(false)
 
   // Duplicate warning: the same amount within a day, with a similar description, already in this group.
   const [dupIgnored, setDupIgnored] = useState<string | null>(null)
@@ -301,7 +318,7 @@ export function ExpenseEditor({
     setBusy(true)
     try {
       const { expense: e, remember } = toExpense(draft, { ...ctx, existing, userUid: user.uid, now: Date.now() })
-      await repo.saveExpense(e, { isNew: !existing })
+      await repo.saveExpense(e, { isNew: !existing, ...(openItem && !existing ? { claim: openItem.id } : {}) })
       // A category chosen by hand that differs from what would have been suggested teaches the merchant memory.
       if (memory && draft.catTouched) {
         const learned = learnFromSave(memory, e.description, e.category, suggestCategory(e.description, { memory, history }))
@@ -324,8 +341,14 @@ export function ExpenseEditor({
       done.current = true
       clearDraft(storeKey)
       forgetReceipt()
-      toast(existing ? 'Expense updated' : 'Expense added')
-      nav(`/groups/${group.id}`, { replace: true })
+      toast(existing ? 'Expense updated' : openItem ? `Claimed “${openItem.title}”` : 'Expense added')
+      if (fromChat && !existing && !personal) {
+        const name = group.members[me]?.name || profile.displayName || 'Someone'
+        repo
+          .postChat(group.id, { authorUid: user.uid, authorName: name.slice(0, 80), text: '', kind: 'expense', ref: e.id, createdAt: Date.now() })
+          .catch((err) => console.warn('Expense card not posted', err))
+        nav(`/groups/${group.id}/chat`, { replace: true })
+      } else nav(`/groups/${group.id}`, { replace: true })
     } catch (err) {
       toast(errText(err), 'err')
       setBusy(false)
@@ -385,6 +408,21 @@ export function ExpenseEditor({
           {busy ? 'Saving…' : 'Save'}
         </button>
       </header>
+
+      {/* Claiming an open item: said first, above the group and the details it filled in. */}
+      {openItem && (
+        <div className="mt-2 flex items-center gap-3 rounded-2xl bg-amber-50 p-3 text-sm dark:bg-amber-500/10" data-testid="claiming-open-item">
+          <span className="text-xl" aria-hidden>
+            {CATEGORIES[openItem.category ?? 'other'].emoji}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold">Claiming an open item</span>
+            <span className="text-muted block truncate text-xs">
+              {openItem.title} · {openItemMeta(openItem, group.currency, todayISO())}
+            </span>
+          </span>
+        </div>
+      )}
 
       {/* Group picker */}
       <button
@@ -478,6 +516,35 @@ export function ExpenseEditor({
       )}
 
       <MoreCard draft={draft} dispatch={dispatch} existing={existing} errors={errors} />
+
+      {openItemsOn && !existing && !capture && !openItem && !personal && (
+        <div className="mt-4 text-center">
+          <button type="button" className="btn-ghost btn-sm" onClick={() => setAsOpenItem(true)} data-testid="save-as-open-item">
+            Don’t know who paid? Save as an open item
+          </button>
+        </div>
+      )}
+      {asOpenItem && (
+        <OpenItemSheet
+          open
+          onClose={() => setAsOpenItem(false)}
+          group={group}
+          initial={{
+            title: draft.description,
+            // an amount in another currency would need a rate: left for whoever claims it
+            amount: draft.cur === group.currency && validAmount(draft) ? draft.amount : undefined,
+            date: draft.date,
+            category: draft.catTouched ? draft.category : undefined,
+            notes: draft.notes,
+          }}
+          onSaved={() => {
+            done.current = true
+            clearDraft(storeKey)
+            forgetReceipt()
+            nav(`/groups/${group.id}?tab=open`, { replace: true })
+          }}
+        />
+      )}
 
       <GroupPickerSheet
         open={sheet === 'group'}

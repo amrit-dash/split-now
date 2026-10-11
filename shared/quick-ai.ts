@@ -35,6 +35,11 @@ export interface QuickAiRequest {
    * with Rahul and Priya"). Apps from before 3.9 don't send it and never get that action.
    */
   groupOnly?: boolean
+  /**
+   * The app takes an open item (action 'open_item': "lunch at Cafe Blue on the 2nd, not sure who
+   * paid"). Apps without open items don't send it and never get that action.
+   */
+  openItems?: boolean
 }
 
 /**
@@ -62,8 +67,20 @@ export interface QuickAiNewGroup {
   members: string[]
 }
 
+/** Something spent that nobody is sure about yet (who paid, how much): written down to claim later. */
+export interface QuickAiOpenItem {
+  title: string
+  /** integer minor units of `currency`, when the line gave one */
+  amount?: number
+  currency: string
+  date?: string
+  /** who might have paid: 'me' or member ids of the group */
+  suspects?: QuickAiPerson[]
+}
+
 export type QuickAiResult =
   | { action: 'expense'; group: { existingId: string }; expense: QuickAiExpense }
+  | { action: 'open_item'; group: { existingId: string }; item: QuickAiOpenItem }
   | { action: 'group_and_expense'; group: QuickAiNewGroup; expense: QuickAiExpense }
   | { action: 'group'; group: QuickAiNewGroup }
   | { action: 'unknown' }

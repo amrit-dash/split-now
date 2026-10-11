@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   AlertCircle,
   AlertTriangle,
@@ -11,18 +11,34 @@ import {
   Flag,
   Link2,
   LogOut,
+  MessageCircle,
   MessageSquareText,
   MoreHorizontal,
   Pencil,
+  BellOff,
+  Bell,
   Repeat,
   Search,
+  ArrowDownUp,
   Trash2,
   UserMinus,
   Users,
   X,
 } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
-import { computeGroupData, useActivity, useCaptureTokens, useClaimedPayLinks, useExpenses, useGroup, useSettlements, useTrash } from '@/hooks/data'
+import {
+  computeGroupData,
+  memberOrder,
+  useActivity,
+  useCaptureTokens,
+  useChat,
+  useClaimedPayLinks,
+  useExpenses,
+  useGroup,
+  useOpenItems,
+  useSettlements,
+  useTrash,
+} from '@/hooks/data'
 import { useCapturePrefs } from '@/hooks/useCapturePrefs'
 import { useFlag } from '@/hooks/useAppConfig'
 import type { Category, Debt, Expense, Group, Settlement } from '@/types'
@@ -35,7 +51,22 @@ import { CATEGORIES } from '@/lib/categories'
 import { simplifyDebts } from '@/lib/simplify'
 import { copy, shareOrCopy } from '@/lib/share'
 import { csvFilename, deliverCsv, groupCsv } from '@/lib/export'
-import { EMPTY_FILTER, expenseMatches, isFiltering, settlementMatches, type ActivityFilter } from '@/lib/filter'
+import {
+  addedLater,
+  DEFAULT_SORT,
+  EMPTY_FILTER,
+  expenseMatches,
+  isFiltering,
+  isSortKey,
+  sectionRows,
+  settlementMatches,
+  sheetFilterCount,
+  sortRows,
+  type ActivityFilter,
+  type SortKey,
+} from '@/lib/filter'
+import { ListOptionsSheet } from '@/features/group-list/ListOptionsSheet'
+import { localISODate } from '@/lib/id'
 import { FREQ_LABEL } from '@/lib/recurrence'
 import { todayISO } from '@/lib/id'
 import { errText } from '@/lib/errors'
@@ -68,9 +99,13 @@ import { RemindActions } from '@/components/RemindActions'
 import { SwipeRow } from '@/components/SwipeRow'
 import { useRemoveMember } from '@/hooks/useRemoveMember'
 import { activeMembers, isRemoved, listedMemberIds, memberRemoval, membersIn, repeatingByMember } from '@/lib/members'
+import { sortOpenItems } from '@/lib/open-items'
+import { hasUnread, READ_EVENT, readAtOf } from '@/lib/chat'
+import { setChatMuted } from '@/lib/push'
+import { OpenItemsTab } from '@/features/open-items/OpenItemsTab'
 import { labelOf } from '@/lib/shortNames'
 
-type Tab = 'expenses' | 'balances' | 'activity'
+type Tab = 'expenses' | 'open' | 'balances' | 'activity'
 
 /** "Waived" → "Waived", else the stored method; C1 exports methodLabel() from src/lib/payments.ts. */
 const methodLabel = (m: string): string => {
@@ -85,13 +120,30 @@ export default function GroupDetail() {
   const liveGroup = useGroup(groupId)
   const expenses = useExpenses(groupId)
   const settlements = useSettlements(groupId)
-  const [tab, setTab] = useState<Tab>('expenses')
+  const [params] = useSearchParams()
+  // ?tab=open: a push about an open item lands on the Open tab.
+  const [tab, setTab] = useState<Tab>(() => (params.get('tab') === 'open' ? 'open' : 'expenses'))
+  // Also when already on this group (Quick add from the + sheet, a notification tap): the screen isn't remounted.
+  const wantsOpen = params.get('tab') === 'open'
+  // biome-ignore lint/correctness/useExhaustiveDependencies: params changes on every navigation here, so a second ?tab=open after switching tabs still lands on Open
+  useEffect(() => {
+    if (wantsOpen) setTab('open')
+  }, [wantsOpen, params])
   const [invite, setInvite] = useState(false)
   const [menu, setMenu] = useState(false)
+  /** the Expenses list's sort and filter sheet (also opened from ⋯) */
+  const [listSheet, setListSheet] = useState(false)
   const toast = useToast()
   // The feed is the same shared listener the Activity tab and Home use; here it says who was nudged today.
   const feed = useActivity(groupId)
   const whoseTurnOn = useFlag('whoseTurn')
+  const openItemsOn = useFlag('openItems')
+  const chatOn = useFlag('groupChat')
+  const openItems = useOpenItems(openItemsOn ? groupId : undefined)
+  // The unread dot: only the newest message is watched here (one document), not the whole chat.
+  const latestChat = useChat(groupId, 1, chatOn)
+  const prefs = useCapturePrefs()
+  const readAt = useChatReadAt(groupId)
   usePageTitle(liveGroup ? liveGroup.name : liveGroup === null ? 'Group not found' : undefined)
 
   const d = useMemo(
@@ -99,6 +151,7 @@ export default function GroupDetail() {
     [liveGroup, expenses, settlements, user.uid],
   )
   const removeMember = useRemoveMember(d)
+  const openList = useMemo(() => sortOpenItems(openItems, expenses).open, [openItems, expenses])
 
   if (liveGroup === null)
     return (
@@ -139,6 +192,23 @@ export default function GroupDetail() {
   const fail = (e: unknown) => toast(errText(e), 'err')
   // A private hint for the next bill (src/lib/fairness.ts): never pushed, never a score.
   const turn = whoseTurnOn && !personal && !group.archived ? whoseTurn({ group, expenses: d.expenses }) : null
+
+  const showOpen = openItemsOn && !personal
+  const showChat = chatOn && !personal
+  const openCount = showOpen ? openList.length : 0
+  const unread = showChat && hasUnread(latestChat?.[0], readAt, user.uid)
+  const muted = !!prefs?.mutedChats.includes(group.id)
+  const toggleMute = () => {
+    setMenu(false)
+    const next = setChatMuted(prefs?.mutedChats ?? [], group.id, !muted)
+    saveCapturePrefs(user.uid, repo.mode, { mutedChats: next })
+      .then(() => toast(muted ? 'Chat notifications on for this group' : 'Chat muted for this group'))
+      .catch(fail)
+  }
+  const goOpen = () => {
+    setTab('open')
+    requestAnimationFrame(() => document.getElementById('group-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }
 
   const exportCsv = async () => {
     setMenu(false)
@@ -191,16 +261,29 @@ export default function GroupDetail() {
         back="/groups"
         title={group.name}
         right={
-          <button
-            type="button"
-            onClick={() => setMenu(true)}
-            className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-slate-200/60 dark:hover:bg-ink-800"
-            aria-label="More"
-            aria-haspopup="dialog"
-            data-testid="group-menu"
-          >
-            <MoreHorizontal size={22} aria-hidden />
-          </button>
+          <div className="flex items-center">
+            {showChat && (
+              <Link
+                to={`/groups/${group.id}/chat`}
+                className="relative flex h-11 w-11 items-center justify-center rounded-full hover:bg-slate-200/60 dark:hover:bg-ink-800"
+                aria-label={unread ? 'Group chat, new messages' : 'Group chat'}
+                data-testid="group-chat"
+              >
+                <MessageCircle size={22} aria-hidden />
+                {unread && <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-slate-50 dark:ring-ink-950" aria-hidden />}
+              </Link>
+            )}
+            <button
+              type="button"
+              onClick={() => setMenu(true)}
+              className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-slate-200/60 dark:hover:bg-ink-800"
+              aria-label="More"
+              aria-haspopup="dialog"
+              data-testid="group-menu"
+            >
+              <MoreHorizontal size={22} aria-hidden />
+            </button>
+          </div>
         }
       />
 
@@ -320,7 +403,7 @@ export default function GroupDetail() {
       {!personal && <PendingClaims groupId={group.id} />}
 
       {!personal && (
-        <div className="mb-4">
+        <div className="mb-4 scroll-mt-20" id="group-tabs">
           <Segmented<Tab>
             value={tab}
             onChange={setTab}
@@ -328,6 +411,23 @@ export default function GroupDetail() {
             testId="group-tabs"
             options={[
               { value: 'expenses', label: 'Expenses' },
+              ...(showOpen
+                ? [
+                    {
+                      value: 'open' as const,
+                      label: (
+                        <span data-testid="tab-open">
+                          Open
+                          {openCount > 0 && (
+                            <span className="ml-1 rounded-full bg-amber-200 px-1.5 text-xs text-amber-900 dark:bg-amber-500/25 dark:text-amber-100">
+                              {openCount}
+                            </span>
+                          )}
+                        </span>
+                      ),
+                    },
+                  ]
+                : []),
               { value: 'balances', label: 'Balances' },
               { value: 'activity', label: 'Activity' },
             ]}
@@ -344,13 +444,31 @@ export default function GroupDetail() {
           currency={cur}
           name={name}
           personal={personal}
+          sheetOpen={listSheet}
+          onSheet={setListSheet}
         />
       )}
+
+      {tab === 'open' && showOpen && <OpenItemsTab group={group} items={openItems} expenses={d.expenses} />}
 
       {tab === 'activity' && !personal && <ActivityTab group={group} expenseIds={new Set(d.expenses.map((e) => e.id))} />}
 
       {tab === 'balances' && !personal && (
         <div className="space-y-4">
+          {openCount > 0 && (
+            <button
+              type="button"
+              onClick={goOpen}
+              className="card flex min-h-12 w-full items-center gap-2 px-4 py-3 text-left text-sm"
+              data-testid="balances-open-note"
+            >
+              <span aria-hidden>🧾</span>
+              <span className="min-w-0 flex-1">
+                {openCount} open {openCount === 1 ? 'item isn’t' : 'items aren’t'} counted yet. Claim {openCount === 1 ? 'it' : 'them'} before settling up.
+              </span>
+              <ChevronRight size={16} className="text-slate-300 dark:text-slate-600" aria-hidden />
+            </button>
+          )}
           {(d.pending.length > 0 || d.disputed.length > 0) && (
             <div className="card space-y-1 p-3 text-xs text-slate-600 dark:text-slate-300">
               {d.pending.length > 0 && (
@@ -474,6 +592,27 @@ export default function GroupDetail() {
 
       <Sheet open={menu} onClose={() => setMenu(false)} title={group.name} testId="group-menu-sheet">
         <ul className="-mx-2 divide-y divide-slate-100 dark:divide-white/5">
+          {showChat && (
+            <MenuRow
+              icon={<MessageCircle size={20} />}
+              label="Group chat"
+              hint="Talk money with the group: who paid, open items, Pay me"
+              onClick={() => {
+                setMenu(false)
+                nav(`/groups/${group.id}/chat`)
+              }}
+              testId="group-menu-chat"
+            />
+          )}
+          {showChat && (
+            <MenuRow
+              icon={muted ? <Bell size={20} /> : <BellOff size={20} />}
+              label={muted ? 'Unmute chat' : 'Mute chat'}
+              hint={muted ? 'Get notifications for this group’s chat again' : 'No notifications for this group’s chat (only you)'}
+              onClick={toggleMute}
+              testId="group-chat-mute"
+            />
+          )}
           <MenuRow
             icon={<Pencil size={20} />}
             label="Edit group"
@@ -504,6 +643,17 @@ export default function GroupDetail() {
               }}
             />
           )}
+          <MenuRow
+            icon={<ArrowDownUp size={20} />}
+            label="Sort and filter"
+            hint="Order by date spent, date added or amount; filter by who paid or dates"
+            onClick={() => {
+              setMenu(false)
+              setTab('expenses')
+              setListSheet(true)
+            }}
+            testId="group-menu-sort"
+          />
           <MenuRow
             icon={<BarChart3 size={20} />}
             label="Insights"
@@ -539,6 +689,21 @@ export default function GroupDetail() {
       </Sheet>
     </div>
   )
+}
+
+/** This device's last-read time for a group's chat, following the chat screen as it marks messages read. */
+function useChatReadAt(groupId: string | undefined): number | undefined {
+  const [at, setAt] = useState(() => (groupId ? readAtOf(groupId) : undefined))
+  useEffect(() => {
+    if (!groupId) return
+    setAt(readAtOf(groupId))
+    const on = (e: Event) => {
+      if ((e as CustomEvent).detail === groupId) setAt(readAtOf(groupId))
+    }
+    window.addEventListener(READ_EVENT, on)
+    return () => window.removeEventListener(READ_EVENT, on)
+  }, [groupId])
+  return at
 }
 
 function MenuRow({
@@ -733,6 +898,8 @@ function ActivityList({
   currency,
   name,
   personal,
+  sheetOpen,
+  onSheet,
 }: {
   group: Group
   expenses: Expense[]
@@ -741,6 +908,8 @@ function ActivityList({
   currency: string
   name: (id: string) => string
   personal: boolean
+  sheetOpen: boolean
+  onSheet: (open: boolean) => void
 }) {
   const groupId = group.id
   const undoable = useUndoableDelete()
@@ -749,7 +918,14 @@ function ActivityList({
   const navTo = useNavigate()
   const [filter, setFilter] = useState<ActivityFilter>(EMPTY_FILTER)
   const [onlyMe, setOnlyMe] = useState(false)
+  const [sort, setSortState] = useState<SortKey>(readSort)
+  const setSort = (k: SortKey) => {
+    setSortState(k)
+    saveSort(k)
+  }
   const f: ActivityFilter = { ...filter, involving: onlyMe ? me : undefined }
+  const sheetCount = sheetFilterCount(filter) + (sort !== DEFAULT_SORT ? 1 : 0)
+  const byAdded = sort.startsWith('added')
   const filtering = isFiltering(f)
   const usedCategories = useMemo(() => {
     const seen = new Set(expenses.map((e) => e.category))
@@ -762,18 +938,23 @@ function ActivityList({
     setOnlyMe(false)
   }
 
-  type Row = { kind: 'e'; e: Expense } | { kind: 's'; s: Settlement }
+  type Row = ({ kind: 'e'; e: Expense } | { kind: 's'; s: Settlement }) & { date: string; createdAt: number; amount: number }
   const all = expenses.length + settlements.length
-  const rows: Row[] = [
-    ...expenses.filter((e) => expenseMatches(e, f)).map((e) => ({ kind: 'e' as const, e })),
-    ...settlements.filter((s) => settlementMatches(s, f, name)).map((s) => ({ kind: 's' as const, s })),
-  ].sort((a, b) => {
-    const da = a.kind === 'e' ? a.e.date : a.s.date,
-      db = b.kind === 'e' ? b.e.date : b.s.date
-    const ca = a.kind === 'e' ? a.e.createdAt : a.s.createdAt,
-      cb = b.kind === 'e' ? b.e.createdAt : b.s.createdAt
-    return db.localeCompare(da) || cb - ca
-  })
+  const rows: Row[] = sortRows(
+    [
+      ...expenses.filter((e) => expenseMatches(e, f)).map((e) => ({ kind: 'e' as const, e, date: e.date, createdAt: e.createdAt, amount: e.amount })),
+      ...settlements
+        .filter((s) => settlementMatches(s, f, name))
+        .map((s) => ({ kind: 's' as const, s, date: s.date, createdAt: s.createdAt, amount: s.amount })),
+    ],
+    sort,
+  )
+  /** "added 5 Oct" beside the date spent: always when sorted by date added, else only when it was added days later. */
+  const addedNote = (r: Pick<Row, 'date' | 'createdAt'>) => {
+    if (byAdded) return `Added ${formatDate(r.createdAt)}`
+    const later = addedLater(r, localISODate)
+    return later && later > shiftDay(r.date, 1) ? `Added ${formatDate(later)}` : ''
+  }
   if (all === 0)
     return (
       <Empty emoji="🧾" title="No expenses yet">
@@ -781,34 +962,46 @@ function ActivityList({
       </Empty>
     )
 
-  const byMonth = new Map<string, Row[]>()
-  for (const r of rows) {
-    const date = r.kind === 'e' ? r.e.date : r.s.date
-    const k = formatDate(date, { month: 'long', year: 'numeric' })
-    byMonth.set(k, [...(byMonth.get(k) ?? []), r])
-  }
+  const sections = sectionRows(rows, sort, (d) => formatDate(d, { month: 'long', year: 'numeric' }))
   const filters = (
     <div className="space-y-2">
-      <div className="relative">
-        <Search size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden />
-        <input
-          type="search"
-          className="input !py-2.5 pl-10 pr-12"
-          placeholder="Search expenses and notes"
-          aria-label="Search expenses"
-          value={filter.q}
-          onChange={(e) => setFilter((p) => ({ ...p, q: e.target.value }))}
-        />
-        {filter.q && (
-          <button
-            type="button"
-            onClick={() => setFilter((p) => ({ ...p, q: '' }))}
-            className="text-muted absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full"
-            aria-label="Clear search"
-          >
-            <X size={16} aria-hidden />
-          </button>
-        )}
+      <div className="flex items-center gap-2">
+        <div className="relative min-w-0 flex-1">
+          <Search size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden />
+          <input
+            type="search"
+            className="input !py-2.5 pl-10 pr-12"
+            placeholder="Search expenses and notes"
+            aria-label="Search expenses"
+            value={filter.q}
+            onChange={(e) => setFilter((p) => ({ ...p, q: e.target.value }))}
+          />
+          {filter.q && (
+            <button
+              type="button"
+              onClick={() => setFilter((p) => ({ ...p, q: '' }))}
+              className="text-muted absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full"
+              aria-label="Clear search"
+            >
+              <X size={16} aria-hidden />
+            </button>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => onSheet(true)}
+          className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${sheetCount ? 'bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-200' : 'bg-slate-100 text-slate-600 dark:bg-ink-800 dark:text-slate-300'}`}
+          aria-label={sheetCount ? `Sort and filter, ${sheetCount} on` : 'Sort and filter'}
+          aria-haspopup="dialog"
+          data-testid="list-options-open"
+        >
+          <ArrowDownUp size={18} aria-hidden />
+          {sheetCount > 0 && (
+            <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-fill px-1 text-[11px] font-bold text-on-fill">
+              {sheetCount}
+            </span>
+          )}
+        </button>
       </div>
       {(usedCategories.length > 1 || (!personal && me)) && (
         <div className="scrollbar-none -mx-4 flex gap-1.5 overflow-x-auto px-4 py-1">
@@ -840,12 +1033,27 @@ function ActivityList({
             })}
         </div>
       )}
+      {sort !== DEFAULT_SORT && !filtering && (
+        <div className="text-muted flex items-center justify-between px-1 text-xs">
+          <span>Sorted by {sort.startsWith('added') ? 'date added' : 'amount'}</span>
+          <button type="button" onClick={() => setSort(DEFAULT_SORT)} className="min-h-9 font-semibold text-brand-600 dark:text-brand-300">
+            Back to date spent
+          </button>
+        </div>
+      )}
       {filtering && (
         <div className="text-muted flex items-center justify-between px-1 text-xs">
           <span>
             {rows.length} of {all} shown
           </span>
-          <button type="button" onClick={clear} className="min-h-9 font-semibold text-brand-600 dark:text-brand-300">
+          <button
+            type="button"
+            onClick={() => {
+              clear()
+              setSort(DEFAULT_SORT)
+            }}
+            className="min-h-9 font-semibold text-brand-600 dark:text-brand-300"
+          >
             Clear filters
           </button>
         </div>
@@ -861,7 +1069,7 @@ function ActivityList({
           Try a different search or clear the filters.
         </Empty>
       )}
-      {[...byMonth].map(([month, list]) => (
+      {sections.map(({ label: month, rows: list }) => (
         <section key={month} aria-label={month}>
           <h2 className="text-muted mb-2 px-1 text-xs font-bold uppercase tracking-wider">{month}</h2>
           <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
@@ -946,6 +1154,11 @@ function ActivityList({
                           </>
                         )}
                       </div>
+                      {addedNote(r) && (
+                        <div className="text-muted truncate text-[11px]" data-testid="row-added">
+                          {addedNote(r)}
+                        </div>
+                      )}
                     </div>
                     <div className={`font-semibold ${ps.pill === 'needs-ok' || ps.pill === 'flagged' ? 'text-muted line-through decoration-1' : 'pos'}`}>
                       {formatMoney(r.s.amount, currency)}
@@ -1012,6 +1225,11 @@ function ActivityList({
                           </>
                         )}
                       </div>
+                      {addedNote(r) && (
+                        <div className="text-muted truncate text-[11px]" data-testid="row-added">
+                          {addedNote(r)}
+                        </div>
+                      )}
                     </div>
                     <div className="text-right">
                       {personal ? (
@@ -1032,9 +1250,42 @@ function ActivityList({
           </div>
         </section>
       ))}
+      <ListOptionsSheet
+        open={sheetOpen}
+        onClose={() => onSheet(false)}
+        group={group}
+        order={memberOrder(group, [...expenses.flatMap((e) => Object.keys(e.paidBy)), ...settlements.map((s) => s.from)])}
+        me={me}
+        sort={sort}
+        onSort={setSort}
+        filter={filter}
+        onFilter={(patch) => setFilter((p) => ({ ...p, ...patch }))}
+        personal={personal}
+      />
     </div>
   )
 }
+
+/** The list's order is a convenience kept on this device (the same for every group). */
+const SORT_KEY = 'splitit-list-sort'
+function readSort(): SortKey {
+  try {
+    const v = localStorage.getItem(SORT_KEY)
+    return isSortKey(v) ? v : DEFAULT_SORT
+  } catch {
+    return DEFAULT_SORT
+  }
+}
+function saveSort(k: SortKey) {
+  try {
+    if (k === DEFAULT_SORT) localStorage.removeItem(SORT_KEY)
+    else localStorage.setItem(SORT_KEY, k)
+  } catch {
+    /* private mode */
+  }
+}
+/** `iso` plus `n` days (local). */
+const shiftDay = (iso: string, n: number) => localISODate(new Date(`${iso}T12:00:00`).getTime() + n * 86_400_000)
 
 /**
  * A thin card of its own under the group's header card about this person's own trip auto-capture (capture is set up

@@ -32,6 +32,8 @@ export const FLAG_NAMES = [
   'whoseTurn',
   'budgetAlerts',
   'aiPayments',
+  'openItems',
+  'groupChat',
 ] as const
 export type FlagName = (typeof FLAG_NAMES)[number]
 
@@ -59,6 +61,14 @@ export const FLAG_INFO: Record<FlagName, { label: string; hint: string }> = {
   merchantMemory: { label: 'Merchant memory', hint: 'Remembering the category you pick for a merchant.' },
   whoseTurn: { label: 'Whose turn', hint: 'The "Rahul’s turn to pay?" chip.' },
   budgetAlerts: { label: 'Budget alerts', hint: 'Pushes at 80% and 100% of a group budget.' },
+  openItems: {
+    label: 'Open items',
+    hint: 'The Open tab in a group: expenses nobody has added yet, which anyone can claim. Off hides the tab and the chat card; items already written down stay stored.',
+  },
+  groupChat: {
+    label: 'Group chat',
+    hint: 'The chat button on a group and its pushes. Off hides the chat and stops new chat pushes; messages already sent stay stored.',
+  },
   aiPayments: {
     label: 'Check payment screenshots with AI',
     hint: 'In groups where payments need the recipient’s OK, a screenshot attached in Settle up stops clearing the payment; it waits for the recipient’s OK, the screenshot still attached. Server-enforced.',

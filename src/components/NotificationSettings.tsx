@@ -33,6 +33,8 @@ function types(currency: string): Array<{ key: TypeKey; label: string; hint: str
     { key: 'expenses', label: 'New expenses', hint: 'When someone adds an expense that includes you.' },
     { key: 'settlements', label: 'Someone pays you back', hint: 'When someone records a payment to you.' },
     { key: 'reminders', label: 'Settle-up reminders', hint: 'A gentle weekly nudge when you’ve owed someone for a week.' },
+    { key: 'chat', label: 'Group chat', hint: 'New messages in your groups’ chats. Mute one chat from its group’s ⋯ menu.' },
+    { key: 'openItems', label: 'Open items', hint: 'When someone thinks you paid for something nobody has added yet.' },
   ]
 }
 

@@ -8,6 +8,8 @@
  *  onSettlementUpdated Firestore the payee confirmed a payment or said it hasn't arrived → push to the payer
  *  onPushTokenCreated  Firestore users/{uid}/pushTokens/{id} created → drop the same browser token from other accounts
  *  onGroupDeleted      Firestore groups/{gid} deleted → delete its subcollections and receipts
+ *  onChatMessageCreated Firestore groups/{gid}/chat/{mid} created → push everyone else in the group (one per chat, quiet within a minute; mute and prefs respected)
+ *  onOpenItemWritten   Firestore groups/{gid}/openItems/{id} names people as "might have paid" → push them to claim it
  *  onGroupTrashed      Firestore groups/{gid} moved to Recently deleted → push the other members (they can restore it)
  *  purgeDeletedGroups  Schedule every day 03:30 Asia/Kolkata → remove groups deleted 30 days ago for good
  *  dailyReminders      Schedule every day 10:00 Asia/Kolkata → settle-up nudges (active groups only)
@@ -37,3 +39,4 @@ export { onPayLinkPaid } from './paylinks'
 export { adminBlockUser, adminSetAdmin, adminStats, adminUsers } from './admin'
 export { onGroupTrashed, purgeDeletedGroups } from './trash'
 export { adminLinkMembers, linkMyInvites, onGroupMembersLink } from './link-members'
+export { onChatMessageCreated, onOpenItemWritten } from './chat'

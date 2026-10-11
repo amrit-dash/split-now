@@ -1,6 +1,6 @@
 /** One-line summaries shown on collapsed Profile sections. Pure, so they are unit-tested. */
 import type { PaymentHandles } from '@/types'
-import type { NotificationPrefs } from '@/lib/push'
+import { DEFAULT_PREFS, type NotificationPrefs } from '@/lib/push'
 
 const mask = (v: string) => {
   const digits = v.replace(/\s+/g, '')
@@ -56,8 +56,8 @@ export function notificationSummary(s: NotificationState): string {
   if (!s.supported) return 'Not available in this browser'
   if (s.perm === 'denied') return 'Blocked in browser settings'
   if (s.perm !== 'granted') return 'Off'
-  const { outsideTrips: _capture, ...types } = s.prefs // a capture setting, not a notification type
-  const n = Object.values(types).filter(Boolean).length
+  // Only the notification types: the stored document also holds capture and AI settings (and outsideTrips is one of those).
+  const n = (Object.keys(DEFAULT_PREFS) as Array<keyof NotificationPrefs>).filter((k) => k !== 'outsideTrips' && s.prefs[k]).length
   return n === 0 ? 'On · all types muted' : `On · ${n} type${n === 1 ? '' : 's'}`
 }
 

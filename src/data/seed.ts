@@ -1,4 +1,4 @@
-import type { ActivityEntry, Expense, Group, Settlement } from '@/types'
+import type { ActivityEntry, ChatMessage, Expense, Group, OpenItem, Settlement } from '@/types'
 import { computeSplits } from '@/lib/splits'
 import { colorFor } from '@/lib/colors'
 import { firstNextDate } from '@/lib/recurrence'
@@ -194,7 +194,62 @@ export function seedDemo(_state: unknown, user: AuthUser) {
       createdAt: now - 3 * 3600_000,
     },
   ]
+  // Open items and a chat on the trip, so both have something to show on first launch.
+  const openItems: OpenItem[] = [
+    {
+      id: 'o_goa_lunch',
+      groupId: 'g_goa',
+      title: 'Lunch at Fisherman’s Wharf',
+      category: 'food',
+      date: day(15),
+      suspects: ['me', 'p_priya'],
+      status: 'open',
+      createdBy: 'seed_ananya',
+      createdAt: now - 26 * 3600_000,
+      updatedAt: now - 26 * 3600_000,
+    },
+    {
+      id: 'o_goa_parasail',
+      groupId: 'g_goa',
+      title: 'Parasailing at Calangute',
+      category: 'entertainment',
+      date: day(18),
+      amount: 360000,
+      notes: 'The boat guy took cash',
+      status: 'open',
+      createdBy: user.uid,
+      createdAt: now - 5 * 86400000,
+      updatedAt: now - 5 * 86400000,
+    },
+  ]
+  const ananya = { authorUid: 'seed_ananya', authorName: 'Ananya' }
+  const mine = { authorUid: user.uid, authorName: user.displayName }
+  const chat: Array<ChatMessage & { groupId: string }> = [
+    {
+      id: 'm_goa_1',
+      groupId: 'g_goa',
+      ...mine,
+      kind: 'text',
+      text: 'Adding the Goa stuff here so we don’t lose it in the photos group',
+      createdAt: now - 5 * 86400000 - 60_000,
+    },
+    { id: 'm_goa_2', groupId: 'g_goa', ...mine, kind: 'openItem', ref: 'o_goa_parasail', text: 'Who paid the boat guy?', createdAt: now - 5 * 86400000 },
+    { id: 'm_goa_3', groupId: 'g_goa', ...ananya, kind: 'text', text: 'Not me, I think Rohan had the cash', createdAt: now - 5 * 86400000 + 20 * 60_000 },
+    {
+      id: 'm_goa_4',
+      groupId: 'g_goa',
+      ...ananya,
+      kind: 'openItem',
+      ref: 'o_goa_lunch',
+      text: 'Who paid for lunch at Fisherman’s Wharf?',
+      createdAt: now - 26 * 3600_000,
+    },
+    { id: 'm_goa_5', groupId: 'g_goa', ...ananya, kind: 'pay', amount: 120000, text: 'For the scooter rental', createdAt: now - 2 * 3600_000 },
+    { id: 'm_goa_6', groupId: 'g_goa', ...ananya, kind: 'text', text: 'Pay when you can, no rush', createdAt: now - 2 * 3600_000 + 30_000 },
+  ]
   return {
+    openItems: Object.fromEntries(openItems.map((o) => [o.id, o])),
+    chat: Object.fromEntries(chat.map((m) => [m.id, m])),
     activity: Object.fromEntries(activity.map((a) => [a.id, a])),
     groups: { [goa.id]: goa, [flat.id]: flat, [gig.id]: gig },
     expenses: Object.fromEntries(expenses.map((e) => [e.id, e])),

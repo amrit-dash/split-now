@@ -2,13 +2,14 @@ import type { Category, Cents, MemberId } from '@/types'
 import { titleCase } from './text'
 import { todayISO } from './id'
 import { fromHundredths, minorDigits } from './money'
-import { addDaysISO } from './recents'
+import { MONTH_WORD_RE, parseNlDate } from './nl-date'
 
 /*
  * Quick add: "dinner 1200 with Rahul and Priya, I paid" → a prefilled expense form. A small
  * grammar, not a model: the amount (with an optional currency word or symbol), who paid, who
  * took part (first names matched against the group's members; "me"/"I" is the user), a split
- * hint ("3 ways", "only me") and a day word. Whatever is left is the description. The result
+ * hint ("3 ways", "only me") and a date (src/lib/nl-date.ts: "Oct 2", "2nd Oct", "last fri", "02/10/26"). The
+ * date is read and cut first, so its day number is never taken for the amount. Whatever is left is the description. The result
  * always lands in the form for a look before anything is saved. When the local parse is unsure
  * and AI is on, the server's text reader (functions/src/ai.ts, kind 'text') answers in names
  * too; mergeAiParse() resolves those the same way.
@@ -23,7 +24,10 @@ export interface NlContext {
   me: MemberId
   /** the group's currency: amounts without a currency word are in it */
   currency: string
+  /** local ISO day the relative and year-less dates count back from (default todayISO()) */
   today?: string
+  /** numeric dates as DD/MM (default, India and Australia); false reads MM/DD */
+  dayFirst?: boolean
 }
 export type NlConfidence = 'high' | 'medium' | 'low'
 
@@ -68,12 +72,17 @@ const currencyOf = (word: string | undefined): string | undefined => {
 
 const MARK = String.raw`₹|rs\.?|inr|a\$|s\$|nz\$|c\$|\$|€|£|฿|¥|aud|usd|sgd|nzd|cad|eur|gbp|aed|thb|jpy`
 const WORD = String.raw`rupees?|rupaye|rupaiya|rs\.?|inr|dollars?|bucks|usd|aud|sgd|nzd|cad|euros?|eur|pounds?|quid|gbp|dirhams?|aed|baht|thb|yen|jpy`
+// A currency mark sticks to the number ("rs290", "₹ 290"); without one the number must stand on its own.
 const AMOUNT_RE = new RegExp(
-  String.raw`(?:(?<![\p{L}\d])(${MARK})\s*)?(?<![\p{L}\d.,])(\d[\d,]*(?:\.\d+)?)(?:\s*(k|lakhs?|lacs?|crores?|cr))?(?:\s*(${WORD})(?![\p{L}]))?`,
+  String.raw`(?:(?<![\p{L}\d])(${MARK})\s*|(?<![\p{L}\d.,:/]))(\d(?:[\d,]*\d)?(?:\.\d+)?)(?:\s*(k|lakhs?|lacs?|crores?|cr)(?![\p{L}]))?(?:\s*(${WORD})(?![\p{L}]))?(\s*\/-)?`,
   'giu',
 )
 /** A number followed by one of these is a count, not money ("3 ways", "2 people", "20%"). */
-const COUNT_AFTER = /^\s*(?:-?\s*ways?|people|persons?|pax|of us|%|x\b|times|guys|folks)/i
+const COUNT_AFTER = /^\s*(?:-?\s*ways?\b|people|persons?|ppl\b|pax\b|of us\b|%|percent\b|x\b|times\b|guys\b|folks\b|friends\b)/i
+/** ...and one followed by these is an ordinal or a time of day ("2nd", "2pm", "2:30", "7 o'clock"). */
+const NOT_MONEY_AFTER = /^(?:st|nd|rd|th)(?![\p{L}])|^\s*(?:am|pm|a\.m\.|p\.m\.|hrs|o['’]?clock)(?![\p{L}])|^:\d/iu
+const wordBefore = (text: string, index: number) => text.slice(0, index).match(/([\p{L}.]+)[\s,]*$/u)?.[1] ?? ''
+const wordAfter = (text: string) => text.match(/^[\s,]*([\p{L}.]+)/u)?.[1] ?? ''
 const MULT: Record<string, number> = {
   k: 1_000,
   lakh: 100_000,
@@ -137,13 +146,28 @@ interface AmountHit {
 function findAmount(text: string): AmountHit | undefined {
   const hits: AmountHit[] = []
   for (const m of text.matchAll(AMOUNT_RE)) {
-    const [whole, mark, num, mult, word] = m
+    const [whole, mark, num, mult, word, dash] = m
     const after = text.slice(m.index + whole.length)
-    if (!mark && !word && COUNT_AFTER.test(after)) continue
+    const bare = !mark && !word && !dash
+    if (bare && COUNT_AFTER.test(after)) continue
+    if (bare && !mult && NOT_MONEY_AFTER.test(after)) continue
+    const digits = num.replace(/[,.]/g, '')
+    if (bare && !mult) {
+      // a phone number, a year or day beside a month ("Oct 2026", "31 Feb"), a time after "at"
+      if (/^\d+$/.test(num) && digits.length >= 10) continue
+      if (/^\d{1,4}$/.test(num) && (MONTH_WORD_RE.test(wordBefore(text, m.index)) || MONTH_WORD_RE.test(wordAfter(after)))) continue
+      if (/^\d{1,2}$/.test(num) && Number(num) <= 24 && /\bat\s*$/i.test(text.slice(0, m.index))) continue
+    }
     const value = Number(num.replace(/,/g, '')) * (mult ? (MULT[mult.toLowerCase()] ?? 1) : 1)
     if (!Number.isFinite(value) || value <= 0) continue
     const currency = currencyOf(mark) ?? currencyOf(word)
-    hits.push({ index: m.index, length: whole.length, value, currency, strong: !!currency || !!mult || /\./.test(num) || num.replace(/,/g, '').length >= 3 })
+    hits.push({
+      index: m.index,
+      length: whole.length,
+      value,
+      currency,
+      strong: !!currency || !!mult || !!dash || /\./.test(num) || num.replace(/,/g, '').length >= 3,
+    })
   }
   if (!hits.length) return undefined
   // A marked or clearly money-sized figure beats a bare small one ("2 pizzas 600" → 600).
@@ -159,7 +183,14 @@ export function parseNlExpense(input: string, ctx: NlContext): NlParse {
   const unmatched: string[] = []
   const out: NlParse = { description: '', currency: ctx.currency, payer: ctx.me, payerExplicit: false, unmatched, confidence: 'low' }
 
-  // Amount first: everything else is read from what remains.
+  // The date first, so "Oct 2" or "2nd Oct" never lends its day to the amount.
+  const when = parseNlDate(text, today, ctx.dayFirst ?? true)
+  if (when) {
+    out.date = when.date
+    text = cut(text, when.index, when.length)
+  }
+
+  // Then the amount: everything else is read from what remains.
   const amt = findAmount(text)
   if (amt) {
     const currency = amt.currency ?? ctx.currency
@@ -168,23 +199,9 @@ export function parseNlExpense(input: string, ctx: NlContext): NlParse {
     text = cut(text, amt.index, amt.length)
   }
 
-  // Day words.
-  text = text.replace(/\b(?:the\s+)?day before yesterday\b/i, () => {
-    out.date = addDaysISO(today, -2)
-    return ' '
-  })
-  text = text.replace(/\byesterday\b|\bkal\b/i, () => {
-    out.date = out.date ?? addDaysISO(today, -1)
-    return ' '
-  })
-  text = text.replace(/\btoday\b|\baaj\b/i, () => {
-    out.date = out.date ?? today
-    return ' '
-  })
-
   // Split hints.
   text = text.replace(
-    /\b(?:split\s+)?(\d+)\s*-?\s*ways?\b|\bbetween\s+(?:the\s+)?(\d+)\s+(?:of us|people|persons?)\b|\b(\d+)\s+(?:people|persons?|of us|pax)\b/i,
+    /\b(?:split\s+)?(\d+)\s*-?\s*ways?\b|\bbetween\s+(?:the\s+)?(\d+)\s+(?:of us|people|persons?)\b|\b(\d+)\s+(?:people|persons?|of us|pax|ppl)\b/i,
     (_, a, b, c) => {
       const n = Number(a ?? b ?? c)
       if (n >= 2 && n <= 60) out.ways = n
@@ -255,9 +272,9 @@ export function parseNlExpense(input: string, ctx: NlContext): NlParse {
   else if (everyone) out.participants = undefined
 
   // What's left is the description.
-  const rest = tidy(text.replace(/[,;:!?]+/g, ' '))
-    .replace(/^(?:(?:for|on|at|to|the|a|an|of|-|–|—)\s+)+/i, '')
-    .replace(/(?:\s+(?:for|on|at|to|with|the|a|an|and|of|-|–|—))+$/i, '')
+  const rest = tidy(text.replace(/[,;!?]+|(?<!\d):|:(?!\d)/g, ' '))
+    .replace(/^(?:(?:for|on|at|to|the|a|an|of|dated|-|–|—)\s+)+/i, '')
+    .replace(/(?:\s+(?:for|on|at|to|with|the|a|an|and|of|dated|-|–|—))+$/i, '')
     .trim()
   out.description = rest ? titleCase(rest) : ''
 

@@ -10,6 +10,8 @@ export interface Note {
   tag?: string
   /** reminders can wait for the next radio wake-up; everything else is 'high' */
   urgency?: 'high' | 'normal'
+  /** replace the earlier notification with this tag without sound or vibration (a busy chat) */
+  silent?: boolean
 }
 
 const fmtCache = new Map<string, Intl.NumberFormat>()
@@ -276,3 +278,65 @@ export function addedToGroupNote(g: { groupId: string; groupName: string; emoji?
     tag: `group-added-${g.groupId}`,
   }
 }
+
+/**
+ * A group chat message, to everyone else in the group. One notification per chat (the tag): a new
+ * message replaces the last one instead of stacking.
+ */
+export function chatNote(c: {
+  groupId: string
+  groupName: string
+  emoji?: string
+  authorName: string
+  kind: string
+  text: string
+  amount?: number
+  currency: string
+  /** an open item's title, for its card */
+  itemTitle?: string
+  silent?: boolean
+}): Note {
+  const words = c.text.trim().replace(/\s+/g, ' ')
+  const card =
+    c.kind === 'openItem'
+      ? `🧾 Who paid? ${clip(c.itemTitle || 'an open item', 50)}`
+      : c.kind === 'pay'
+        ? `asks for ${formatMoney(c.amount ?? 0, c.currency)}`
+        : c.kind === 'expense'
+          ? 'shared an expense'
+          : ''
+  const said = [card, words].filter(Boolean).join(' · ') || 'sent a message'
+  return {
+    title: groupTitle(c.groupName, c.emoji),
+    body: clip(`${clip(c.authorName, 30)}: ${said}`, 180),
+    url: `/groups/${c.groupId}/chat`,
+    tag: `chat-${c.groupId}`,
+    ...(c.silent ? { silent: true } : {}),
+  }
+}
+
+/** To someone named on an open item: did you pay for it? Opens the group's Open tab. */
+export function openItemNote(o: {
+  groupId: string
+  itemId: string
+  groupName: string
+  emoji?: string
+  /** who wrote it down, when known */
+  byName?: string
+  title: string
+  date?: string
+  amount?: number
+  currency: string
+}): Note {
+  const when = o.date ? ` on ${Number(o.date.slice(8, 10))} ${MONTHS[Number(o.date.slice(5, 7)) - 1] ?? ''}`.trimEnd() : ''
+  const amount = o.amount ? ` (${formatMoney(o.amount, o.currency)})` : ''
+  const who = o.byName ? clip(o.byName, 30) : 'Someone'
+  return {
+    title: groupTitle(o.groupName, o.emoji),
+    body: `${who} thinks you paid for ${clip(o.title, 60)}${when}${amount}. Claim it if you did.`,
+    url: `/groups/${o.groupId}?tab=open`,
+    tag: `open-${o.itemId}`,
+  }
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']

@@ -11,7 +11,7 @@ import { motionSummary } from '@/lib/motion'
 import { watchCapturePrefs } from '@/lib/capture-settings'
 import { getTheme } from '@/lib/theme'
 import { autoCaptureSummary, notificationSummary } from '@/lib/profileSummary'
-import { isIOS, isStandalone, permission, pushSupported, type AllPrefs } from '@/lib/push'
+import { DEFAULT_PREFS, isIOS, isStandalone, permission, pushSupported, type AllPrefs } from '@/lib/push'
 import { notificationsAvailable } from '@/components/NotificationSettings'
 import { SettingsPage, SettingsRow } from './common'
 
@@ -35,7 +35,7 @@ export default function SettingsHome() {
         iosNeedsInstall: isIOS() && !isStandalone(),
         supported: pushSupported(),
         perm: permission(),
-        prefs: prefs ?? { captures: true, unsorted: false, expenses: true, settlements: true, reminders: true, outsideTrips: false },
+        prefs: prefs ?? DEFAULT_PREFS,
       })
   const automation = prefs?.capturePaused && tokens?.length ? 'Paused' : autoCaptureSummary(tokens)
   // The AI row's summary: on/off and what it's used for, and a warning only when no key can serve it.

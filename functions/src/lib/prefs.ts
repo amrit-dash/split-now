@@ -14,6 +14,10 @@ export interface NotificationPrefs {
   settlements: boolean
   /** weekly nudge when you owe money */
   reminders: boolean
+  /** a new message in a group chat (unless that chat is in mutedChats) */
+  chat: boolean
+  /** someone named you on an open item ("Did you pay for this?") */
+  openItems: boolean
   /**
    * Capture setting (not a push type): save debit SMS that match no trip dates to the inbox.
    * Off by default: only payments inside a trip window are captured.
@@ -23,7 +27,22 @@ export interface NotificationPrefs {
 
 export type PrefKey = keyof NotificationPrefs
 
-export const DEFAULT_PREFS: NotificationPrefs = { captures: true, unsorted: false, expenses: true, settlements: true, reminders: true, outsideTrips: false }
+export const DEFAULT_PREFS: NotificationPrefs = {
+  captures: true,
+  unsorted: false,
+  expenses: true,
+  settlements: true,
+  reminders: true,
+  chat: true,
+  openItems: true,
+  outsideTrips: false,
+}
+
+/** Groups whose chat this person muted (users/{uid}/settings/notifications mutedChats). */
+export function mutedChats(raw: unknown): Set<string> {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+  return new Set(Array.isArray(r.mutedChats) ? r.mutedChats.filter((x): x is string => typeof x === 'string') : [])
+}
 
 export function resolvePrefs(raw: unknown): NotificationPrefs {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
