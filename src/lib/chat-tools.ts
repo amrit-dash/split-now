@@ -3,6 +3,7 @@ import { shortNames } from './shortNames'
 import { MAX_MENTIONS } from '../../shared/mentions'
 import { isOpenItemLine } from './open-item-line'
 import { parseNlExpense, type NlMember, type NlParse } from './nl-expense'
+import { fromHundredths } from './money'
 
 /*
  * The chat's tools and the smarter message box (src/features/chat/Composer.tsx draws them):
@@ -288,6 +289,25 @@ export function listNames(names: string[]): string {
 // ---- Per-device choice ------------------------------------------------------------------------
 
 const SUGGEST_KEY = 'splitit-chat-suggest'
+const AI_KEY = 'splitit-chat-suggest-ai'
+
+/** AI for suggestions: off unless turned on on this device (chat info, shown when the admin flag chatAi is on). */
+export function aiSuggestOn(): boolean {
+  try {
+    return localStorage.getItem(AI_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function setAiSuggestOn(on: boolean): void {
+  try {
+    if (on) localStorage.setItem(AI_KEY, '1')
+    else localStorage.removeItem(AI_KEY)
+  } catch {
+    /* private mode */
+  }
+}
 
 /** Suggestions while typing: on unless turned off on this device (chat info). */
 export function suggestOn(): boolean {
@@ -304,5 +324,53 @@ export function setSuggestOn(on: boolean): void {
     else localStorage.setItem(SUGGEST_KEY, '0')
   } catch {
     /* private mode */
+  }
+}
+
+// ---- AI suggestions (optional) --------------------------------------------------------------
+
+/** How long typing must pause before the AI is asked, and how many lines one chat screen may ask about. */
+export const AI_PAUSE_MS = 1200
+export const AI_ASK_MAX = 15
+const AI_MIN_LENGTH = 10
+
+/**
+ * Whether to ask the AI about this line: turned on, the phone's rules found nothing, not a
+ * command, long enough to mean something, not asked already, and under the per-screen cap.
+ */
+export function shouldAskAi(text: string, o: { on: boolean; local: ToolSuggestion | null; asked: ReadonlySet<string>; count: number }): boolean {
+  const t = text.trim()
+  return o.on && !o.local && !t.startsWith('/') && t.length >= AI_MIN_LENGTH && !o.asked.has(t) && o.count < AI_ASK_MAX
+}
+
+/**
+ * The AI's answer (names, hundredths) as a suggestion the composer can offer: names mapped back
+ * to member ids by their label; an expense read by the phone's grammar, with the AI's amount when
+ * the grammar found none. null for "none" or a tool this chat doesn't have.
+ */
+export function suggestionFromAi(
+  intent: { tool: string; amount?: number; to?: string[] },
+  text: string,
+  ctx: Pick<SuggestCtx, 'tools' | 'members' | 'me' | 'currency' | 'today'> & { people: Mentionable[] },
+): ToolSuggestion | null {
+  const tool = ctx.tools.find((t) => t.id === intent.tool)?.id
+  if (!tool) return null
+  const to = (intent.to ?? [])
+    .map((n) => ctx.people.find((p) => p.id !== EVERYONE && p.label.toLowerCase() === n.toLowerCase())?.id)
+    .filter((x): x is string => !!x)
+  // The server answers in hundredths; the group's currency may have other minor units (yen has none).
+  const minor = intent.amount ? fromHundredths(intent.amount, ctx.currency) : undefined
+  switch (tool) {
+    case 'settle':
+      return { tool, ...(to.length ? { to } : {}) }
+    case 'pay':
+      return { tool, ...(minor ? { amount: minor } : {}), ...(to.length ? { to } : {}) }
+    case 'expense': {
+      const p = parseNlExpense(text, { members: ctx.members, me: ctx.me, currency: ctx.currency, today: ctx.today })
+      const amount = p.amount ?? minor
+      return amount ? { tool, expense: { ...p, amount } } : null
+    }
+    default:
+      return { tool }
   }
 }

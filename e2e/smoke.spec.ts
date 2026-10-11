@@ -837,6 +837,10 @@ test('group chat: / lists the tools, @ tags someone, Settle up asks, reply and e
   await expect(page.getByTestId('chat-intro')).toHaveCount(0)
   await page.getByTestId('chat-mute').click()
   await expect(page.getByTestId('chat-mute')).toHaveAttribute('aria-pressed', 'true')
+  // AI for suggestions: listed under ⓘ (the admin flag is on by default), off, and not in the demo.
+  await page.getByTestId('chat-info').click()
+  await expect(page.getByTestId('chat-ai-row')).toContainText('not in the demo')
+  await expect(page.getByTestId('chat-ai-switch')).toBeDisabled()
 })
 
 test('group list: sort by amount or date added, filter expenses only', async ({ page }) => {

@@ -1260,6 +1260,9 @@ export function createLocalRepo(): Repo {
     async parseTextAi() {
       return null
     },
+    async chatIntentAi() {
+      return null
+    },
     async quickAddAi(req) {
       // The server's reader isn't here: a small stand-in on the phone reads the "create a group …
       // and add …" shape (loaded on first use, with the Quick add grammar it builds on).

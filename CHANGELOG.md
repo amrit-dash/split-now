@@ -6,6 +6,8 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- **AI for chat suggestions, if you want it**: ⓘ in a group chat has Use AI for suggestions (off by default, and only when an admin allows it under Admin → Flags: Chat suggestions with AI). When the built-in rules find nothing, it asks AI after you pause typing; a little slower, and it uses your AI allowance.
+- Groups: the 1:1 section is called 1:1 with friends, and each one says Friend under the name (also in Add expense's group picker).
 - **1:1 friends are the friend**: a 1:1 shows as the other person to each of you (you see Priya, Priya sees you), with their photo (or initials) on the same rounded tile as group icons and a small 🤝, on every screen. There's no name or icon to set, no members row, and Invite goes away once they've joined.
 - **Groups hides what's long settled**: groups and 1:1s you've been square in for over a week drop out of the list; the eye in the header (or the line under the list) shows them again. Recently settled ones stay. Personal wallets always show.
 - **A better group chat**: a solid header that stays put with a mute bell and an ⓘ, a faint wallpaper, your messages in a softer shade of your accent, the time and tick under each message, and cards (open item, Pay me, expense) that stand on their own with their own colour. The intro note only shows until the first message, and an updates pill leads with the latest update and its time.

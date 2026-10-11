@@ -122,6 +122,7 @@ import type { AiTextExpense } from '@/lib/nl-expense'
 import type { QuickAiRequest, QuickAiResponse } from '../../shared/quick-ai'
 import { archiveWrite } from '../../shared/archive'
 import { personalView } from './personalView'
+import type { ChatAiIntent } from '../../shared/chat-ai'
 import type { NudgeItem, NudgeResult } from '@/lib/nudge'
 import { errText } from '@/lib/errors'
 import type { FxRatesDoc, FxRefreshResult } from '@/lib/fx'
@@ -1648,6 +1649,21 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         return d.unavailable ? { unavailable: true, reason: d.reason } : { expense: d.expense ?? null }
       } catch (e) {
         console.warn('AI text reading failed', e)
+        return null
+      }
+    },
+    async chatIntentAi(text, ctx) {
+      if (!auth.currentUser || auth.currentUser.isAnonymous || !online()) return null
+      try {
+        const call = await callable<
+          { kind: 'chat'; text: string; names: string[]; tools: string[]; currency: string },
+          { intent?: ChatAiIntent; unavailable?: true; reason?: AiUnavailableReason }
+        >('parseReceiptAi', 45_000)
+        const d = (await call({ kind: 'chat', text, ...ctx })).data
+        if (!d) return null
+        return d.unavailable ? { unavailable: true, reason: d.reason } : d.intent ? { intent: d.intent } : null
+      } catch (e) {
+        console.warn('AI chat suggestion failed', e)
         return null
       }
     },

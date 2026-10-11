@@ -1,3 +1,4 @@
+import type { ChatAiIntent } from '../../shared/chat-ai'
 import type {
   ActivityEntry,
   Capture,
@@ -511,6 +512,12 @@ export interface Repo {
    */
   parseTextAi(text: string, ctx: { members: string[]; currency: string; today: string }): Promise<TextAiResult | null>
   /**
+   * Group chat suggestions with AI (shared/chat-ai.ts): which tool a chat line reads like, asked
+   * only when the phone's own rules found none and the person turned it on. null offline, signed
+   * out, on failure, and in demo mode (no server).
+   */
+  chatIntentAi(text: string, ctx: { names: string[]; tools: string[]; currency: string }): Promise<ChatAiResult | null>
+  /**
    * Quick add with AI (callable quickAddAi): a line the phone's grammar can't handle, read with the
    * caller's groups as context. The answer is validated on the server (shared/quick-ai.ts); it never
    * saves anything. `{ unavailable, reason }`: the flag, the person's switch or every key said no;
@@ -546,6 +553,7 @@ export interface AiUnavailable {
 }
 export type ReceiptAiResult = { receipt: ParsedReceipt | null; unavailable?: undefined } | AiUnavailable
 export type StatementAiResult = { statement: AiStatement | null; unavailable?: undefined } | AiUnavailable
+export type ChatAiResult = { intent: ChatAiIntent; unavailable?: undefined } | AiUnavailable
 export type TextAiResult = { expense: AiTextExpense | null; unavailable?: undefined } | AiUnavailable
 
 export interface AiModel {

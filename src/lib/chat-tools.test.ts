@@ -17,6 +17,9 @@ import {
   suggestTool,
   toolsFor,
   type SuggestCtx,
+  shouldAskAi,
+  suggestionFromAi,
+  AI_ASK_MAX,
 } from './chat-tools'
 
 const members: Record<string, Member> = {
@@ -142,5 +145,28 @@ describe('suggestTool', () => {
     expect(suggestionLabel({ tool: 'pay', amount: 50000, to: ['p'] }, name, money)).toBe('Ask Priya to pay you ₹500')
     expect(listNames(['A', 'B', 'C', 'D'])).toBe('A, B and 2 more')
     expect(listNames(['A', 'B'])).toBe('A and B')
+  })
+})
+
+describe('AI suggestions', () => {
+  const on = { on: true, local: null, asked: new Set<string>(), count: 0 }
+  it('asks only when on, the rules found nothing, and the line is new, long enough and not a command', () => {
+    expect(shouldAskAi('could you sort out the money stuff', on)).toBe(true)
+    expect(shouldAskAi('could you sort out the money stuff', { ...on, on: false })).toBe(false)
+    expect(shouldAskAi('settle up everyone', { ...on, local: { tool: 'settle' } })).toBe(false)
+    expect(shouldAskAi('/settle everyone now', on)).toBe(false)
+    expect(shouldAskAi('ok cool', on)).toBe(false)
+    expect(shouldAskAi('could you sort it', { ...on, asked: new Set(['could you sort it']) })).toBe(false)
+    expect(shouldAskAi('could you sort it', { ...on, count: AI_ASK_MAX })).toBe(false)
+  })
+  it('maps the answer back to members and minor units', () => {
+    const c = { ...ctx, people: list }
+    expect(suggestionFromAi({ tool: 'settle', to: ['priya', 'Nobody'] }, 'x', c)).toEqual({ tool: 'settle', to: ['p'] })
+    expect(suggestionFromAi({ tool: 'pay', amount: 50000, to: ['Rahul S.'] }, 'x', c)).toEqual({ tool: 'pay', amount: 50000, to: ['r1'] })
+    expect(suggestionFromAi({ tool: 'pay', amount: 500 }, 'x', { ...c, currency: 'JPY' })).toEqual({ tool: 'pay', amount: 5 })
+    expect(suggestionFromAi({ tool: 'expense', amount: 60000 }, 'the team lunch thing', c)?.expense?.amount).toBe(60000)
+    expect(suggestionFromAi({ tool: 'expense' }, 'the team lunch thing', c)).toBeNull()
+    expect(suggestionFromAi({ tool: 'none' }, 'x', c)).toBeNull()
+    expect(suggestionFromAi({ tool: 'balances' }, 'x', c)).toEqual({ tool: 'balances' })
   })
 })

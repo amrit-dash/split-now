@@ -97,7 +97,7 @@ export default function Groups() {
         // Every shared group is only hidden as settled: the hint below brings them back, so no "make a group" nudge.
         !quiet.some((d) => d.group.type !== 'direct') && <EmptyGroups />
       )}
-      {direct.length > 0 && <Section title="1:1 friends">{list(direct)}</Section>}
+      {direct.length > 0 && <Section title="1:1 with friends">{list(direct)}</Section>}
       {hidden.size > 0 && (
         <button
           type="button"

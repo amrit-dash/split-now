@@ -22,7 +22,8 @@ import { useCapturePrefs } from '@/hooks/useCapturePrefs'
 import type { ChatMessage, ChatReplyRef } from '@/types'
 import { usePageTitle } from '@/lib/brand'
 import { canEdit, chatIsEmpty, chatRows, markRead, readAtOf, replyRef, unreadCount } from '@/lib/chat'
-import { mentionables, setSuggestOn, suggestOn } from '@/lib/chat-tools'
+import { aiSuggestOn, mentionables, setAiSuggestOn, setSuggestOn, suggestOn } from '@/lib/chat-tools'
+import { unavailableText } from '@/lib/ai'
 import { chatViewportBox } from '@/lib/keyboard'
 import { saveCapturePrefs } from '@/lib/capture-settings'
 import { setChatMuted } from '@/lib/push'
@@ -72,6 +73,11 @@ export default function GroupChat() {
   const [editing, setEditing] = useState<ChatMessage | null>(null)
   const [info, setInfo] = useState(false)
   const [suggest, setSuggest] = useState(suggestOn)
+  // AI for suggestions: offered only while the admin flag chatAi is on; off on each device until turned on.
+  const chatAiOn = useFlag('chatAi')
+  const [aiSuggest, setAiSuggest] = useState(aiSuggestOn)
+  /** the server said no this visit (AI off in settings, no key, the day's allowance used): stop asking */
+  const [aiBlocked, setAiBlocked] = useState(false)
   const settlements = useSettlements(groupId)
   const mergeRequests = useMergeRequests(groupId)
   const prefs = useCapturePrefs()
@@ -383,6 +389,11 @@ export default function GroupChat() {
             mentionList={mentionList}
             pairDebts={data?.rawDebts ?? []}
             suggest={suggest}
+            ai={chatAiOn && aiSuggest && !aiBlocked && repo.mode !== 'demo'}
+            onAiUnavailable={(reason) => {
+              setAiBlocked(true)
+              toast(`AI suggestions paused: ${unavailableText(reason, { onPhone: false })}`, 'err')
+            }}
             onSend={send}
             replyTo={replyTo}
             onCancelReply={() => setReplyTo(null)}
@@ -452,6 +463,29 @@ export default function GroupChat() {
               testId="chat-suggest-switch"
             />
           </div>
+          {chatAiOn && suggest && (
+            <div className="flex items-center gap-3 p-3" data-testid="chat-ai-row">
+              <div className="min-w-0 flex-1">
+                <div className="font-medium">Use AI for suggestions</div>
+                <div className="text-muted text-xs">
+                  {repo.mode === 'demo'
+                    ? 'Needs a Split Now account: not in the demo.'
+                    : 'When the built-in rules find nothing, asks AI after you pause typing. A little slower, and uses your AI allowance (Settings → AI features). Recommended: off.'}
+                </div>
+              </div>
+              <Switch
+                checked={aiSuggest && repo.mode !== 'demo'}
+                onChange={(v) => {
+                  setAiSuggest(v)
+                  setAiSuggestOn(v)
+                  setAiBlocked(false)
+                }}
+                label="Use AI for suggestions"
+                disabled={repo.mode === 'demo'}
+                testId="chat-ai-switch"
+              />
+            </div>
+          )}
           <div className="flex items-center gap-3 p-3">
             <div className="min-w-0 flex-1">
               <div className="font-medium">Mute this chat</div>

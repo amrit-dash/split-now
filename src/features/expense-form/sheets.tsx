@@ -54,7 +54,7 @@ function GroupList({
   const rest = shown.filter((g) => !live.includes(g))
   const sections: Array<[string, Group[]]> = [
     ['Shared', rest.filter((g) => g.type !== 'direct' && g.type !== 'personal')],
-    ['Friends', rest.filter((g) => g.type === 'direct')],
+    ['1:1 with friends', rest.filter((g) => g.type === 'direct')],
     ['Personal', rest.filter((g) => g.type === 'personal')],
   ].filter(([, list]) => list.length) as Array<[string, Group[]]>
   // Headings only help when there is more than one kind of thing in the list.
@@ -78,6 +78,7 @@ function GroupList({
       <GroupIcon emoji={g.emoji} group={g} size={40} />
       <span className="min-w-0 flex-1">
         <span className="block truncate font-semibold">{g.name}</span>
+        {g.type === 'direct' && <span className="text-muted block text-xs">Friend</span>}
         {isLive && <LiveBadge className="mt-0.5" />}
       </span>
       {g.id === current && <Check size={18} className="shrink-0 text-brand-600" aria-hidden />}

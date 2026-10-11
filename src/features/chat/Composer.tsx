@@ -21,6 +21,9 @@ import {
   type ToolInfo,
   type ToolSuggestion,
   toolsFor,
+  AI_PAUSE_MS,
+  shouldAskAi,
+  suggestionFromAi,
 } from '@/lib/chat-tools'
 import { formatDate } from '@/lib/locale'
 import { formatMoney } from '@/lib/money'
@@ -30,6 +33,8 @@ import { labelOf } from '@/lib/shortNames'
 import { MoneyInput } from '@/components/MoneyInput'
 import { Sheet } from '@/components/Sheet'
 import { OpenItemSheet } from '@/features/open-items/OpenItemSheet'
+import { repo } from '@/data'
+import type { AiUnavailableReason } from '@/lib/ai'
 
 export type Draft = Omit<ChatMessage, 'id' | 'authorUid' | 'authorName' | 'createdAt' | 'pending'>
 
@@ -58,6 +63,10 @@ export interface ComposerProps {
   pairDebts: Debt[]
   /** suggest a tool while typing (chat info, per device) */
   suggest: boolean
+  /** also ask the AI when the rules find nothing (chat info; shown only under the admin flag chatAi) */
+  ai: boolean
+  /** the AI said it can't serve this person (off in their settings, no key, over the allowance) */
+  onAiUnavailable: (reason?: AiUnavailableReason) => void
   onSend: (m: Draft) => void
   /** the message being answered (swipe or Reply), shown above the box */
   replyTo: ChatReplyRef | null
@@ -123,10 +132,36 @@ export function Composer(p: ComposerProps) {
   const people = mq ? matchMentions(mq.query, mentionList) : []
   const tagged = mentionsIn(text, mentionList)
   const members = useMemo(() => Object.entries(group.members).map(([id, m]) => ({ id, name: m.name })), [group.members])
-  const suggestion: ToolSuggestion | null =
-    p.suggest && !p.editing && slash === null && !mq && clean !== dismissed && me
-      ? suggestTool(clean, { tools, members, me, currency: group.currency, tagged })
-      : null
+  const canSuggest = p.suggest && !p.editing && slash === null && !mq && clean !== dismissed && !!me
+  const local: ToolSuggestion | null = canSuggest && me ? suggestTool(clean, { tools, members, me, currency: group.currency, tagged }) : null
+
+  // AI (optional, src/lib/chat-tools.ts shouldAskAi): once typing pauses, only for a line the rules
+  // above found nothing in. Its answer is kept for that exact line, so it goes as soon as you type on.
+  const asked = useRef(new Set<string>())
+  const [aiHit, setAiHit] = useState<{ text: string; s: ToolSuggestion } | null>(null)
+  const [aiBusy, setAiBusy] = useState(false)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: asks about the line as typed; the rest is read when it's sent
+  useEffect(() => {
+    if (!me || !canSuggest || !shouldAskAi(clean, { on: p.ai, local, asked: asked.current, count: asked.current.size })) return
+    const line = clean
+    const t = setTimeout(async () => {
+      asked.current.add(line)
+      setAiBusy(true)
+      const people = mentionList.filter((x) => x.id !== EVERYONE)
+      const r = await repo.chatIntentAi(line, { names: people.map((x) => x.label), tools: tools.map((x) => x.id), currency: group.currency })
+      setAiBusy(false)
+      if (!r) return
+      if (r.unavailable) {
+        p.onAiUnavailable(r.reason)
+        return
+      }
+      const s = suggestionFromAi(r.intent, line, { tools, members, me, currency: group.currency, people })
+      if (s) setAiHit({ text: line, s })
+    }, AI_PAUSE_MS)
+    return () => clearTimeout(t)
+  }, [clean, canSuggest, p.ai, local === null])
+  const viaAi = !local && canSuggest && aiHit?.text === clean
+  const suggestion: ToolSuggestion | null = local ?? (viaAi && aiHit ? aiHit.s : null)
   const listLen = slash !== null ? commands.length : mq ? people.length : 0
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new list (or a new query) starts at its first row
   useEffect(() => setPick(0), [listLen, slash, mq?.query])
@@ -280,6 +315,11 @@ export function Composer(p: ComposerProps) {
           >
             <Sparkles size={16} className="shrink-0" aria-hidden />
             <span className="truncate">{suggestionLabel(suggestion, name, money)}</span>
+            {viaAi && (
+              <span className="ml-auto shrink-0 rounded-full bg-brand-100 px-1.5 text-[11px] font-bold text-brand-700 dark:bg-brand-500/20 dark:text-brand-200">
+                AI
+              </span>
+            )}
           </button>
           <button
             type="button"
@@ -289,6 +329,11 @@ export function Composer(p: ComposerProps) {
           >
             <X size={16} aria-hidden />
           </button>
+        </div>
+      )}
+      {!suggestion && aiBusy && canSuggest && (
+        <div className="text-muted mx-auto mb-2 flex max-w-2xl items-center gap-1.5 px-2 text-xs" role="status">
+          <Sparkles size={14} aria-hidden /> Checking with AI…
         </div>
       )}
       {(p.replyTo || p.editing) && (

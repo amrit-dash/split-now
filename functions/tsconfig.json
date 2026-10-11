@@ -23,6 +23,7 @@
     "../shared/capture-filters.ts",
     "../shared/ai-config.ts",
     "../shared/quick-ai.ts",
+    "../shared/chat-ai.ts",
     "../shared/money-core.ts",
     "../shared/trips.ts",
     "../shared/balances-core.ts",
