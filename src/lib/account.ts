@@ -9,8 +9,9 @@ import type { AccountEmail, AuthUser } from '@/data/repo'
 /** Whether this account still has to confirm its email (a code, or the link) before using the app. */
 export function needsEmailCode(u: AuthUser | null | undefined): boolean {
   if (!u || u.isAnonymous || u.emailVerified !== false) return false
-  const p = u.providers ?? []
-  return p.includes('password') && !p.includes('google.com')
+  // Sign-in method ids (Firebase providerId values), compared whole.
+  const has = (id: string) => (u.providers ?? []).some((p) => p === id)
+  return has('password') && !has('google.com')
 }
 
 /** users/{uid}/account/emails → the added emails, oldest first; anything malformed is skipped. */
