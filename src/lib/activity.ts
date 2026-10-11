@@ -390,6 +390,7 @@ const ICONS: Record<ActivityType, string> = {
   'settlement.claimed': '🙋',
   'member.added': '👋',
   'member.removed': '🚪',
+  'member.merged': '🔗',
   'group.updated': '⚙️',
 }
 /** An emoji for each kind of entry. */

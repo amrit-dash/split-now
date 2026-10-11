@@ -15,7 +15,17 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { labelForUid } from '../../shared/names'
 import { auth, db, requireAdmin } from './admin'
 import { ENFORCE_APP_CHECK, REGION } from './config'
-import { inviteKey, linkCandidates, normEmail, pendingEmails, planLinks, MAX_MEMBER_UIDS, type FoundAccount, type LinkMember } from './lib/link'
+import {
+  duplicatePlaceholders,
+  inviteKey,
+  linkCandidates,
+  normEmail,
+  pendingEmails,
+  planLinks,
+  MAX_MEMBER_UIDS,
+  type FoundAccount,
+  type LinkMember,
+} from './lib/link'
 import { addedToGroupNote } from './lib/notify-text'
 import { sendToUser } from './push'
 
@@ -102,6 +112,14 @@ export const onGroupMembersLink = onDocumentWritten({ document: 'groups/{groupId
     const found = await accountsFor([...new Set(candidates.map((c) => c.email))])
     const blocked = await blockedOf(Object.values(found).map((a) => a.uid))
     const plan = planLinks({ candidates, memberUids: after.memberUids ?? [], found, blocked })
+    // Someone added again by an email whose account is already in the group: suggest merging the two.
+    await Promise.all(
+      duplicatePlaceholders(candidates, after.members, found).map((d) =>
+        db()
+          .doc(`groups/${groupId}/mergeRequests/s_${d.from}__${d.into}`)
+          .set({ from: d.from, into: d.into, status: 'suggested', reason: 'same-email', by: 'system', createdAt: Date.now() }, { merge: true }),
+      ),
+    )
     const applied = await applyLinks(
       groupId,
       plan.map((p) => ({ ...p, email: candidates.find((c) => c.memberId === p.memberId)!.email })),

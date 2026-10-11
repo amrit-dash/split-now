@@ -30,6 +30,8 @@
  *  mergeAccount        Callable (after a code proved an address that has its own account) → that account's groups, links and tables move here; it is switched off
  *  adoptGuest          Callable { guestToken } → a guest who signed in to an existing account: their links and tables move, the group entry their locked Pay me link points to gets the account
  *  claimGuestLinks     Callable → the same group entries, when the guest account became a real one in place
+ *  mergeMembers        Callable { groupId, from, into } → two entries that are one person become one (expenses, payments, open items, Pay me links rewritten); waits for the creator's OK when the group asks for it (a chat card @mentioning them, a push)
+ *  decideMerge         Callable { groupId, requestId, approve } → the creator decides a request; any member acts on a suggestion
  *  adminMail           Callable (admins) → the email service codes go out through (Resend or Brevo; key sealed in private/mail)
  *  adminStats, adminUsers, adminBlockUser, adminSetAdmin  Callables (admins/{uid} only): usage counters + totals, account lookup, block / unblock, make or remove an admin
  */
@@ -47,3 +49,4 @@ export { onGroupTrashed, purgeDeletedGroups } from './trash'
 export { adminLinkMembers, linkMyInvites, onGroupMembersLink } from './link-members'
 export { onChatMessageCreated, onOpenItemWritten } from './chat'
 export { adminMail, adoptGuest, claimGuestLinks, confirmEmailCode, mergeAccount, removeEmail, sendEmailCode } from './accounts'
+export { decideMerge, mergeMembers } from './merge-members'

@@ -53,6 +53,8 @@ export interface Member {
   uid?: string
   /** accounts that were merged into this person's account; history written under them still names this entry */
   formerUids?: string[]
+  /** this entry was merged into another (shared/merge-members.ts); it is also marked removed */
+  mergedInto?: MemberId
   color: string
   /**
    * Profile photo of a member who has an account, copied from their profile by their own app
@@ -119,6 +121,8 @@ export interface Group {
   deletedAt?: number
   /** Who deleted it (uid). */
   deletedBy?: string
+  /** Merging two people in this group needs the creator's OK when someone else asks (the creator sets it). */
+  mergeNeedsOk?: boolean
   memberUids: string[]
   members: Record<MemberId, Member>
   inviteCode: string
@@ -347,7 +351,7 @@ export interface OpenItem {
  * settle up, the group's balances or an expense (src/lib/chat.ts draws them). `ref` is the open
  * item or expense id.
  */
-export type ChatKind = 'text' | 'openItem' | 'pay' | 'expense' | 'settle' | 'balances'
+export type ChatKind = 'text' | 'openItem' | 'pay' | 'expense' | 'settle' | 'balances' | 'merge'
 
 /** A quoted message a reply answers: a copy taken when the reply was sent, so it shows even when the original isn't loaded (or is gone). */
 export interface ChatReplyRef {
@@ -370,8 +374,8 @@ export interface ChatMessage {
   ref?: string
   /** Pay me: minor units of the group currency */
   amount?: Cents
-  /** member ids tagged with @ in the words; 'all' = @everyone */
-  mentions?: string[]
+  /** the people "@mentioned" in the words (member ids, shared/mentions.ts); 'all' = @everyone */
+  mentions?: MemberId[]
   /** Pay me / Settle up asked of these member ids only (absent: everyone in the group) */
   to?: MemberId[]
   replyTo?: ChatReplyRef
@@ -437,6 +441,8 @@ export type ActivityType =
   | 'settlement.claimed'
   | 'member.added'
   | 'member.removed'
+  /** two entries were merged into one person (functions/src/merge-members.ts); targetId is the entry that stays */
+  | 'member.merged'
   /** a member changed the group's name, currency, approval settings or budget; targetId is the group id */
   | 'group.updated'
 
@@ -459,4 +465,24 @@ export interface ActivityEntry {
   before?: Record<string, unknown>
   after?: Record<string, unknown>
   createdAt: number
+}
+
+/**
+ * groups/{gid}/mergeRequests/{id}: two entries of the group that are one person. 'suggested' by
+ * the server (an account was merged, or someone added twice); 'pending' when a member asked and
+ * the group needs its creator's OK (approverUid); 'done' or 'declined' once decided. Written only
+ * by functions/src/merge-members.ts.
+ */
+export interface MergeRequest {
+  id: string
+  groupId: string
+  from: MemberId
+  into: MemberId
+  status: 'suggested' | 'pending' | 'done' | 'declined'
+  /** who asked (uid), or 'system' for a suggestion */
+  by: string
+  approverUid?: string
+  createdAt: number
+  decidedBy?: string
+  decidedAt?: number
 }

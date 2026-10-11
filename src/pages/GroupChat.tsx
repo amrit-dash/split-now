@@ -5,7 +5,18 @@ import { ArrowDown, Bell, BellOff, ChevronLeft, Copy, Info, Pencil, Reply, Trash
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { useBack } from '@/hooks/useBack'
-import { CHAT_WINDOW, computeGroupData, myMemberId, useActivity, useChat, useExpenses, useGroup, useOpenItems, useSettlements } from '@/hooks/data'
+import {
+  CHAT_WINDOW,
+  computeGroupData,
+  myMemberId,
+  useActivity,
+  useChat,
+  useExpenses,
+  useGroup,
+  useMergeRequests,
+  useOpenItems,
+  useSettlements,
+} from '@/hooks/data'
 import { useFlag } from '@/hooks/useAppConfig'
 import { useCapturePrefs } from '@/hooks/useCapturePrefs'
 import type { ChatMessage, ChatReplyRef } from '@/types'
@@ -62,6 +73,7 @@ export default function GroupChat() {
   const [info, setInfo] = useState(false)
   const [suggest, setSuggest] = useState(suggestOn)
   const settlements = useSettlements(groupId)
+  const mergeRequests = useMergeRequests(groupId)
   const prefs = useCapturePrefs()
   const box = useChatViewport()
   const [atBottom, setAtBottom] = useState(true)
@@ -98,6 +110,7 @@ export default function GroupChat() {
   )
   const me = group ? myMemberId(group, user.uid) : undefined
   const mentionList = useMemo(() => (group ? mentionables(group.members, me) : []), [group, me])
+  const allTags = useMemo(() => (group ? mentionables(group.members, me, true) : []), [group, me])
 
   /** Reply: the quote keeps a card's one line too (the open item's title, the amount asked). */
   const startReply = useCallback(
@@ -138,12 +151,13 @@ export default function GroupChat() {
       pairDebts: data?.rawDebts ?? [],
       debts: data?.debts ?? [],
       members: Object.keys(group.members).filter((id) => typeof group.members[id].removedAt !== 'number'),
-      mentionList,
+      mentionList: allTags,
+      mergeRequests: new Map((mergeRequests ?? []).map((r) => [r.id, r])),
       onMenu: setMenuFor,
       onReply: startReply,
       onJump: jumpTo,
     }
-  }, [group, user.uid, me, today, expenses, openItems, data, mentionList, startReply, jumpTo])
+  }, [group, user.uid, me, today, expenses, openItems, data, allTags, mergeRequests, startReply, jumpTo])
 
   const scrollToBottom = useCallback((smooth = false) => {
     const el = scroller.current

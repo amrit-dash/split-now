@@ -264,8 +264,8 @@ export function Composer(p: ComposerProps) {
       {mq && people.length > 0 && (
         <Popup label="Tag someone" testId="chat-mentions">
           {people.map((m, i) => (
-            <PopupRow key={m.id} active={i === pick} onPick={() => pickPerson(m)} icon={<AtSign size={18} />}>
-              <span className="font-semibold">{m.label}</span>
+            <PopupRow key={m.id} active={i === pick} onPick={() => pickPerson(m)} icon={<AtSign size={18} />} testId="mention-offer">
+              <span className="font-semibold">@{m.label}</span>
               {m.id === EVERYONE && <span className="text-muted block text-xs">Everyone in the group</span>}
             </PopupRow>
           ))}

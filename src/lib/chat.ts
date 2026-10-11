@@ -1,4 +1,5 @@
-import { memberIdOfUid } from './shortNames'
+import { groupLabels, memberIdOfUid } from './shortNames'
+import { activeMembers } from './members'
 import type { ActivityEntry, ActivityType, Cents, ChatMessage, ChatReplyRef, Debt, Group, MemberId } from '@/types'
 import { localISODate } from './id'
 import { formatDate, formatTime } from './locale'
@@ -286,6 +287,7 @@ const CARD_LABEL: Partial<Record<ChatMessage['kind'], string>> = {
   expense: 'Expense',
   settle: 'Settle up',
   balances: 'Balances',
+  merge: 'Merge',
 }
 
 /** One line for a message, where there's no room for the card (the chat button's hint, a reply). */
@@ -322,3 +324,11 @@ export function markRead(groupId: string, at: number): void {
 
 /** Fired on this window when a chat is marked read, so the group screen's dot updates without a reload. */
 export const READ_EVENT = 'splitit-chat-read'
+
+/**
+ * Everyone's label for @mentions: the same for every reader (not "you"-relative), so "@Rahul S."
+ * written on one phone is found on another. People who left aren't offered or matched.
+ */
+export function mentionLabels(members: Group['members']): Record<MemberId, string> {
+  return groupLabels(activeMembers(members))
+}

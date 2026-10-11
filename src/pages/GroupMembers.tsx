@@ -1,9 +1,9 @@
-import { useMemo } from 'react'
-import { HandCoins, LogOut, UserMinus } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { HandCoins, Link2, LogOut, UserMinus } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
-import { computeGroupData, useExpenses, useGroup, useGroups, useSettlements } from '@/hooks/data'
+import { computeGroupData, useExpenses, useGroup, useGroups, useMergeRequests, useSettlements } from '@/hooks/data'
 import { useRemoveMember } from '@/hooks/useRemoveMember'
 import { usePageTitle } from '@/lib/brand'
 import { colorFor } from '@/lib/colors'
@@ -11,6 +11,7 @@ import { errText } from '@/lib/errors'
 import { uid } from '@/lib/id'
 import {
   activeMembers,
+  currentMemberMatch,
   formerMemberMatch,
   listedMemberIds,
   memberActions,
@@ -28,6 +29,9 @@ import { CardSkeleton, ListSkeleton } from '@/components/Skeleton'
 import { SwipeRow, type SwipeAction } from '@/components/SwipeRow'
 import { useToast } from '@/components/Toast'
 import { labelOf } from '@/lib/shortNames'
+import { Switch } from '@/components/Switch'
+import { MergeOffers, MergeSheet } from '@/features/merge/Merge'
+import { mergeCandidates } from '@/lib/merge'
 
 /**
  * A group's people: who is in it, whether they have joined, where each stands, and adding or
@@ -48,6 +52,8 @@ export default function GroupMembers() {
     [liveGroup, expenses, settlements, user.uid],
   )
   const remove = useRemoveMember(d)
+  const mergeRequests = useMergeRequests(groupId)
+  const [mergeFrom, setMergeFrom] = useState<string | null>(null)
   usePageTitle(liveGroup ? `Members · ${liveGroup.name}` : liveGroup === null ? 'Group not found' : undefined)
 
   if (liveGroup === null)
@@ -80,6 +86,9 @@ export default function GroupMembers() {
 
   const add = (name: string, email?: string, accountUid?: string) => {
     if (others >= maxOthers) return
+    // The same person twice (same account or email) would split their money across two entries.
+    const already = currentMemberMatch(group.members, { email, uid: accountUid })
+    if (already) return toast(`${labelOf(group.members, already, group.members[already]!.name, me)} is already in this group`, 'err')
     // Someone who left comes back into their old entry, so their history joins up.
     const back = formerMemberMatch(group.members, { name, email, uid: accountUid })
     const before = back ? group.members[back] : undefined
@@ -95,7 +104,21 @@ export default function GroupMembers() {
     return x ? `/groups/${group.id}/settle?from=${x.from}&to=${x.to}&amount=${x.amount}` : `/groups/${group.id}/settle`
   }
 
-  const actionsFor = (id: string, r: MemberRemoval, v: number, self: boolean): SwipeAction[] =>
+  const mergeAction = (id: string): SwipeAction[] =>
+    group.members[id]?.removedAt === undefined && mergeCandidates(group.members, id).length
+      ? [
+          {
+            label: 'Merge',
+            ariaLabel: `Merge ${id === me ? 'yourself' : group.members[id].name} with someone else in the group`,
+            icon: <Link2 size={20} strokeWidth={2.25} />,
+            tone: 'neutral',
+            onClick: () => setMergeFrom(id),
+            testId: 'member-merge',
+          },
+        ]
+      : []
+  const actionsFor = (id: string, r: MemberRemoval, v: number, self: boolean): SwipeAction[] => [...mergeAction(id), ...removalActions(id, r, v, self)]
+  const removalActions = (id: string, r: MemberRemoval, v: number, self: boolean): SwipeAction[] =>
     memberActions(r, v).map((a): SwipeAction => {
       const who = group.members[id].name
       if (a === 'settle')
@@ -141,6 +164,7 @@ export default function GroupMembers() {
         <Empty emoji="👛" title="A personal wallet is just you" />
       ) : (
         <div className="space-y-4">
+          <MergeOffers group={group} requests={mergeRequests} me={me} myUid={user.uid} />
           <ul className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5" aria-label="People in this group" data-testid="members-list">
             {ids.map((id) => {
               const m = group.members[id]
@@ -174,8 +198,24 @@ export default function GroupMembers() {
             })}
           </ul>
           <p className="text-muted px-1 text-xs">
-            Swipe a person left, or press and hold (right-click on a computer), to settle up or remove them. Only people who are settled up can be removed.
+            Swipe a person left, or press and hold (right-click on a computer), to settle up, merge or remove them. Merge someone added twice (by name and by
+            email) into one person. Only people who are settled up can be removed.
           </p>
+          {group.createdBy === user.uid && (
+            // Room at the end so it clears the raised + button.
+            <div className="card mb-[calc(var(--lane)-var(--nav-h))] flex items-center justify-between gap-3 p-4">
+              <div className="min-w-0">
+                <div className="font-medium">Merging people needs my OK</div>
+                <div className="text-muted text-xs">When someone else merges two people here, you get a request in the chat to approve.</div>
+              </div>
+              <Switch
+                checked={!!group.mergeNeedsOk}
+                onChange={(on) => repo.updateGroupSettings(group, { mergeNeedsOk: on }).catch((e) => toast(errText(e), 'err'))}
+                label="Merging people needs my OK"
+                testId="merge-needs-ok"
+              />
+            </div>
+          )}
           {others < maxOthers && (
             <section className="card p-4" aria-labelledby="members-add">
               <h2 id="members-add" className="label">
@@ -193,6 +233,7 @@ export default function GroupMembers() {
           )}
         </div>
       )}
+      <MergeSheet group={group} from={mergeFrom} me={me} myUid={user.uid} net={net} open={!!mergeFrom} onClose={() => setMergeFrom(null)} />
     </div>
   )
 }

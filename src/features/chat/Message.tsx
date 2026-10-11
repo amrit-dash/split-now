@@ -1,8 +1,8 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { labelOf } from '@/lib/shortNames'
 import { Link } from 'react-router-dom'
-import { ArrowRight, Check, CheckCheck, ChevronDown, ClipboardList, Clock, HandCoins, Handshake, Receipt, Reply, Scale } from 'lucide-react'
-import type { ActivityEntry, ChatMessage, ChatReplyRef, Debt, Expense, Group, MemberId, OpenItem } from '@/types'
+import { ArrowRight, Check, CheckCheck, ChevronDown, ClipboardList, Clock, HandCoins, Handshake, Receipt, Reply, Scale, Users } from 'lucide-react'
+import type { ActivityEntry, ChatMessage, ChatReplyRef, Debt, Expense, Group, MemberId, MergeRequest, OpenItem } from '@/types'
 import { activityText } from '@/lib/activity'
 import { CATEGORIES } from '@/lib/categories'
 import { authorMember, linkParts, payCard, settleCard, updatesLine, type ChatRow } from '@/lib/chat'
@@ -11,6 +11,7 @@ import { formatTime } from '@/lib/locale'
 import { formatMoney } from '@/lib/money'
 import { claimHref, openItemMeta, type OpenItemState, suspectLine } from '@/lib/open-items'
 import { Avatar } from '@/components/Avatar'
+import { MergeChatCard } from '@/features/merge/Merge'
 
 export interface MessageCtx {
   group: Group
@@ -26,8 +27,10 @@ export interface MessageCtx {
   debts: Debt[]
   /** member ids still in the group */
   members: MemberId[]
-  /** who can be tagged, to draw the tags */
+  /** everyone who can be tagged, you included, to draw the tags */
   mentionList: Mentionable[]
+  /** the group's merge requests by id (a merge card shows its live state) */
+  mergeRequests: Map<string, MergeRequest>
   /** long-press / right-click / Enter on a message */
   onMenu: (m: ChatMessage) => void
   /** swipe right on a message */
@@ -440,6 +443,16 @@ function Card({ m, ctx, mine, memberId }: { m: ChatMessage; ctx: MessageCtx; min
       'chat-card-open',
     )
   }
+
+  if (m.kind === 'merge')
+    return shell(
+      'violet',
+      <Users size={15} />,
+      'Merge',
+      <div data-testid="chat-merge">
+        <MergeChatCard group={group} request={m.ref ? ctx.mergeRequests.get(m.ref) : undefined} me={ctx.me} myUid={ctx.uid} />
+      </div>,
+    )
 
   if (m.kind === 'pay') {
     const amount = formatMoney(m.amount ?? 0, cur)

@@ -26,6 +26,7 @@ import {
   arrayUnion,
   clearIndexedDbPersistence,
   collection,
+  collectionGroup,
   connectFirestoreEmulator,
   deleteField,
   doc,
@@ -54,7 +55,20 @@ import {
   type WriteBatch,
 } from 'firebase/firestore'
 import type { FirebaseStorage } from 'firebase/storage'
-import type { ActivityEntry, Capture, ChatMessage, Expense, ExpenseComment, Group, Member, MemberId, OpenItem, Settlement, UserProfile } from '@/types'
+import type {
+  ActivityEntry,
+  Capture,
+  ChatMessage,
+  Expense,
+  ExpenseComment,
+  Group,
+  Member,
+  MemberId,
+  MergeRequest,
+  OpenItem,
+  Settlement,
+  UserProfile,
+} from '@/types'
 import { inviteCode, todayISO, uid } from '@/lib/id'
 import { defaultCurrency } from '@/lib/locale'
 import { isRemoved } from '@/lib/members'
@@ -1262,6 +1276,34 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       batch.set(r, compact(m))
       fire(batch, 'Sending message')
       return r.id
+    },
+    async mergeMembers(group, from, into) {
+      const fn = await callable<{ groupId: string; from: string; into: string }, { status: 'done' | 'pending' }>('mergeMembers', 300_000)
+      return (await fn({ groupId: group.id, from, into })).data
+    },
+    async decideMerge(group, requestId, approve) {
+      const fn = await callable<{ groupId: string; requestId: string; approve: boolean }, { status: 'done' | 'pending' | 'declined' }>('decideMerge', 300_000)
+      return (await fn({ groupId: group.id, requestId, approve })).data
+    },
+    watchMergeRequests(groupId, cb) {
+      return watchList(
+        query(collection(db, 'groups', groupId, 'mergeRequests'), orderBy('createdAt', 'desc'), limit(50)),
+        (s) => s.docs.map((d) => ({ ...(d.data() as Omit<MergeRequest, 'id' | 'groupId'>), id: d.id, groupId })),
+        cb,
+        'Loading merges',
+      )
+    },
+    watchMergeApprovals(userId, cb) {
+      const q = query(collectionGroup(db, 'mergeRequests'), where('approverUid', '==', userId), where('status', '==', 'pending'))
+      return watchList(
+        q,
+        (s) =>
+          s.docs
+            .map((d) => ({ ...(d.data() as Omit<MergeRequest, 'id' | 'groupId'>), id: d.id, groupId: d.ref.parent.parent?.id ?? '' }))
+            .sort((a, b) => b.createdAt - a.createdAt),
+        cb,
+        'Loading merges to OK',
+      )
     },
     async deleteChat(groupId, id) {
       const batch = writeBatch(db)

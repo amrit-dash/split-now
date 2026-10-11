@@ -1,5 +1,6 @@
 import type { Cents, Member, MemberId } from '@/types'
 import { shortNames } from './shortNames'
+import { MAX_MENTIONS } from '../../shared/mentions'
 import { isOpenItemLine } from './open-item-line'
 import { parseNlExpense, type NlMember, type NlParse } from './nl-expense'
 
@@ -89,14 +90,21 @@ export interface Mentionable {
   label: string
 }
 
-/** Who can be tagged: everyone still in the group but you (short names, as the chat shows them), then @everyone. */
-export function mentionables(members: Record<MemberId, Member>, me: MemberId | undefined): Mentionable[] {
-  const active = Object.fromEntries(Object.entries(members).filter(([id, m]) => id !== me && typeof m.removedAt !== 'number'))
+/**
+ * Who can be tagged: everyone still in the group but you, then @everyone. Labels are worked out
+ * over everyone in the group, you included (the same as mentionLabels in src/lib/chat.ts), so
+ * "@Rahul S." typed on one phone is the same tag on every other. `withMe` keeps you in the list
+ * (to draw tags of you in messages).
+ */
+export function mentionables(members: Record<MemberId, Member>, me: MemberId | undefined, withMe = false): Mentionable[] {
+  const active = Object.fromEntries(Object.entries(members).filter(([, m]) => typeof m.removedAt !== 'number'))
   const labels = shortNames(active)
   const people = Object.keys(active)
+    .filter((id) => withMe || id !== me)
     .map((id) => ({ id, label: labels[id] }))
     .sort((a, b) => a.label.localeCompare(b.label))
-  return people.length > 1 ? [...people, { id: EVERYONE, label: 'everyone' }] : people
+  const others = people.filter((p) => p.id !== me).length
+  return others > 1 ? [...people, { id: EVERYONE, label: 'everyone' }] : people
 }
 
 /** The "@word" being typed at the caret: where its "@" is and what follows it; null when the caret isn't in one. */
@@ -135,7 +143,8 @@ const tagRe = (label: string) => new RegExp(String.raw`(^|[^\p{L}\p{N}])@${label
 export function mentionsIn(text: string, list: Mentionable[]): string[] {
   const out = list.filter((p) => tagRe(p.label).test(text)).map((p) => p.id)
   if (!out.includes(EVERYONE) && list.some((p) => p.id === EVERYONE) && tagRe('all').test(text)) out.push(EVERYONE)
-  return out
+  // The rules keep at most MAX_MENTIONS; @everyone covers the rest anyway.
+  return out.includes(EVERYONE) && out.length > MAX_MENTIONS ? [EVERYONE] : out.slice(0, MAX_MENTIONS)
 }
 
 export type MentionPart = { text: string; mention?: string }

@@ -4,7 +4,7 @@ import { personalView } from './personalView'
 import { DELETED_GROUP_WRITE, purgeDue } from '../../shared/group-trash'
 import { EMPTY_INBOX_STATE, type InboxState } from '@/lib/inbox'
 import { shownCapture } from '@/lib/capture'
-import type { ActivityEntry, Capture, ChatMessage, Expense, ExpenseComment, Group, OpenItem, Settlement, UserProfile } from '@/types'
+import type { ActivityEntry, Capture, ChatMessage, Expense, ExpenseComment, Group, MergeRequest, OpenItem, Settlement, UserProfile } from '@/types'
 import { inviteCode, todayISO, uid } from '@/lib/id'
 import { inboxToDraft, newCaptureToken } from '@/lib/capture'
 import { downscale } from '@/lib/image'
@@ -48,6 +48,16 @@ import { countedExpenses, countedSettlements, prepareSettlementSave } from '@/li
 import { formatMoney, minorDigits } from '@/lib/money'
 import { claimStatus, claimSummary, markPaidPatch, payLinkState, planRecord, planRecordParts, sortClaims, triggerAction, type PayLinkDoc } from '@/lib/paylinks'
 import { labelForUid, labelOf } from '@/lib/shortNames'
+import {
+  mergeApprover,
+  mergedEntries,
+  mergeDirection,
+  mergeExpense,
+  mergeOpenItem,
+  mergePayLink,
+  mergeProblem,
+  mergeSettlement,
+} from '../../shared/merge-members'
 
 /**
  * Demo-mode repository. Everything lives in this browser's localStorage, so the app
@@ -89,6 +99,8 @@ interface State {
   payProofs?: Record<string, string>
   /** emails added to the demo account (users/{uid}/account/emails in Firebase) */
   accountEmails?: AccountEmail[]
+  /** merge suggestions and requests, tagged with their group (groups/{gid}/mergeRequests) */
+  mergeRequests?: Record<string, MergeRequest>
 }
 
 type StoredComment = ExpenseComment & { groupId: string; expenseId: string }
@@ -135,6 +147,84 @@ export function createLocalRepo(): Repo {
     activity()[id] = { ...a, id, groupId }
   }
   const actor = () => me().uid
+  const mergeRequests = () => (state.mergeRequests ??= {})
+  const myMid = (g: Group) => Object.entries(g.members).find(([, m]) => m.uid === actor() && !isRemoved(m))?.[0]
+  /** The merge needs someone's OK (mergeApprover): a pending request and a chat card that @mentions them (as merge-members.ts does). */
+  const askApprover = (g: Group, from: string, into: string, approver: string) => {
+    const id = `r_${from}__${into}`
+    const now = Date.now()
+    mergeRequests()[id] = { id, groupId: g.id, from, into, status: 'pending', by: actor(), approverUid: approver, createdAt: now }
+    const creator = Object.entries(g.members).find(([, m]) => m.uid === approver && !isRemoved(m))?.[0]
+    const mid = uid('m_')
+    const mine = myMid(g)
+    chat()[mid] = compact({
+      id: mid,
+      groupId: g.id,
+      authorUid: actor(),
+      authorName: mine ? labelOf(g.members, mine, me().name) : me().name,
+      text: creator ? `@${labelOf(g.members, creator, '')} can you OK this?` : '',
+      kind: 'merge' as const,
+      ref: id,
+      mentions: creator ? [creator] : undefined,
+      createdAt: now,
+    })
+  }
+  /** Two entries become one person, in this device's data (functions/src/merge-members.ts in Firebase). */
+  const localMerge = (groupId: string, from: string, into: string) => {
+    const g = state.groups[groupId]!
+    const now = Date.now()
+    const names = { from: labelOf(g.members, from, 'Someone'), into: labelOf(g.members, into, 'Someone') }
+    let expenses = 0
+    let payments = 0
+    for (const [k, e] of Object.entries(state.expenses)) {
+      if (e.groupId !== groupId) continue
+      const patch = mergeExpense(e, from, into)
+      if (!patch) continue
+      state.expenses[k] = { ...e, ...patch, updatedAt: now }
+      expenses++
+    }
+    for (const [k, st] of Object.entries(state.settlements)) {
+      if (st.groupId !== groupId) continue
+      const r = mergeSettlement(st, from, into)
+      if (!r) continue
+      if (r === 'delete') delete state.settlements[k]
+      else state.settlements[k] = { ...st, ...r }
+      payments++
+    }
+    for (const [k, o] of Object.entries(openItems())) {
+      if (o.groupId !== groupId) continue
+      const patch = mergeOpenItem(o, from, into)
+      if (patch) openItems()[k] = { ...o, ...patch }
+    }
+    for (const [code, l] of Object.entries(state.payLinks ?? {})) {
+      if (l.groupId !== groupId) continue
+      const patch = mergePayLink(l, from, into)
+      if (patch) (state.payLinks as Record<string, PayLinkDoc>)[code] = { ...l, ...patch } as PayLinkDoc
+    }
+    const e = mergedEntries(g.members, from, into, now)
+    state.groups[groupId] = {
+      ...g,
+      members: { ...g.members, [into]: { ...g.members[into]!, ...e.into }, [from]: { ...g.members[from]!, ...e.from } },
+      updatedAt: now,
+    }
+    const mine = myMid(g)
+    const by = mine ? labelOf(g.members, mine, me().name) : me().name
+    const aid = uid('a_')
+    activity()[aid] = {
+      id: aid,
+      groupId,
+      type: 'member.merged',
+      actorUid: actor(),
+      actorName: by,
+      targetId: into,
+      summary: `${by} merged ${names.from} into ${names.into}`,
+      after: { from, into, expenses, payments },
+      createdAt: now,
+    }
+    for (const [id, r] of Object.entries(mergeRequests()))
+      if (r.groupId === groupId && (r.status === 'suggested' || r.status === 'pending') && (r.from === from || r.into === from))
+        mergeRequests()[id] = { ...r, status: 'done', decidedBy: actor(), decidedAt: now }
+  }
   type DemoNudge = { groupId: string; memberId: string; debtorUid: string; currency: string; owed: number; owes: number }
   /** One group of a demo nudge: who, and what is owed each way (the server's nudgeAmount), or why not. */
   const demoNudge = (groupId: string, memberId: string, amount?: number): DemoNudge | { reason: 'not_member' | 'rate_limited' } => {
@@ -848,6 +938,62 @@ export function createLocalRepo(): Repo {
       commit()
       return mid
     },
+    async mergeMembers(group, a, b) {
+      const g = state.groups[group.id]
+      if (!g) throw new Error('Group not found')
+      const problem = mergeProblem(g.members, a, b)
+      if (problem) throw new Error(problem)
+      const { from, into } = mergeDirection(g.members, a, b)
+      const approver = mergeApprover(g, into, actor())
+      if (approver) {
+        askApprover(g, from, into, approver)
+        commit()
+        return { status: 'pending' as const }
+      }
+      localMerge(g.id, from, into)
+      commit()
+      return { status: 'done' as const }
+    },
+    async decideMerge(group, requestId, approve) {
+      const r = mergeRequests()[requestId]
+      const g = state.groups[group.id]
+      if (!r || !g || (r.status !== 'suggested' && r.status !== 'pending')) throw new Error('This was already decided')
+      if (r.status === 'pending' && r.approverUid !== actor()) throw new Error('Only the person asked can decide this')
+      const decided = { decidedBy: actor(), decidedAt: Date.now() }
+      if (!approve) {
+        mergeRequests()[requestId] = { ...r, status: 'declined', ...decided }
+        commit()
+        return { status: 'declined' as const }
+      }
+      const approver = r.status === 'suggested' ? mergeApprover(g, r.into, actor()) : null
+      if (approver) {
+        mergeRequests()[requestId] = { ...r, status: 'declined', ...decided }
+        askApprover(g, r.from, r.into, approver)
+        commit()
+        return { status: 'pending' as const }
+      }
+      const problem = mergeProblem(g.members, r.from, r.into)
+      if (problem) throw new Error(problem)
+      localMerge(g.id, r.from, r.into)
+      commit()
+      return { status: 'done' as const }
+    },
+    watchMergeRequests: (groupId, cb) =>
+      watch(
+        () =>
+          Object.values(mergeRequests())
+            .filter((r) => r.groupId === groupId)
+            .sort((x, y) => y.createdAt - x.createdAt),
+        cb,
+      ),
+    watchMergeApprovals: (userId, cb) =>
+      watch(
+        () =>
+          Object.values(mergeRequests())
+            .filter((r) => r.approverUid === userId && r.status === 'pending')
+            .sort((x, y) => y.createdAt - x.createdAt),
+        cb,
+      ),
     async deleteChat(_groupId, id) {
       if (chat()[id]?.authorUid !== actor()) return
       delete chat()[id]

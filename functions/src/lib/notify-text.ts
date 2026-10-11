@@ -323,6 +323,39 @@ export function chatNote(c: {
   }
 }
 
+/** To someone @mentioned in a group chat message: always loud, even in a muted chat. */
+export function mentionNote(c: { groupId: string; groupName: string; emoji?: string; authorName: string; text: string }): Note {
+  const words = c.text.trim().replace(/\s+/g, ' ')
+  return {
+    title: groupTitle(c.groupName, c.emoji),
+    body: clip(`${clip(c.authorName, 30)} mentioned you: ${words || 'in the chat'}`, 180),
+    url: `/groups/${c.groupId}/chat`,
+    tag: `chat-${c.groupId}`,
+  }
+}
+
+/** To the group's creator: someone asks to merge two people, which needs their OK. */
+export function mergeAskNote(c: { groupId: string; groupName: string; emoji?: string; byName: string; fromName: string; intoName: string }): Note {
+  return {
+    title: groupTitle(c.groupName, c.emoji),
+    body: `${clip(c.byName, 30)} asks to make ${clip(c.fromName, 30)} and ${clip(c.intoName, 30)} one person. Your OK is needed`,
+    url: `/groups/${c.groupId}/chat`,
+    tag: `merge-${c.groupId}`,
+  }
+}
+
+/** To whoever asked: the creator approved or declined their merge. */
+export function mergeDecidedNote(c: { groupId: string; groupName: string; emoji?: string; ok: boolean; fromName: string; intoName: string }): Note {
+  return {
+    title: groupTitle(c.groupName, c.emoji),
+    body: c.ok
+      ? `${clip(c.fromName, 30)} and ${clip(c.intoName, 30)} are one person now`
+      : `Making ${clip(c.fromName, 30)} and ${clip(c.intoName, 30)} one person was declined`,
+    url: `/groups/${c.groupId}/members`,
+    tag: `merge-${c.groupId}`,
+  }
+}
+
 /** To someone named on an open item: did you pay for it? Opens the group's Open tab. */
 export function openItemNote(o: {
   groupId: string

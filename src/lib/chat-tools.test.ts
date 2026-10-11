@@ -68,6 +68,10 @@ describe('mentions', () => {
   it('everyone still in the group but you, by short name, then @everyone', () => {
     expect(list.map((p) => p.label)).toEqual(['Payal', 'Priya', 'Rahul S.', 'Rahul V.', 'everyone'])
     expect(mentionables({ me: members.me, p: members.p }, 'me').map((p) => p.id)).toEqual(['p'])
+    // With you in it (to draw tags of you): the labels are the same on every phone.
+    expect(mentionables(members, 'me', true).map((p) => p.label)).toEqual(['Asha', 'Payal', 'Priya', 'Rahul S.', 'Rahul V.', 'everyone'])
+    const clash = { a: { name: 'Rahul Sharma', color: '#0' }, b: { name: 'Rahul Verma', color: '#1' } }
+    expect(mentionables(clash, 'a').map((p) => p.label)).toEqual(['Rahul V.'])
   })
   it('mentionQuery finds the @word at the caret', () => {
     expect(mentionQuery('hey @ra', 7)).toEqual({ start: 4, query: 'ra' })

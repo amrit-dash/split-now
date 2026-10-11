@@ -207,7 +207,7 @@ describe('group chat', () => {
     await assertFails(setDoc(chat('bob', 't2'), { ...msg, kind: 'settle', to: [], text: '' }))
     await assertSucceeds(setDoc(chat('bob', 'm5'), { ...msg, mentions: ['all'] }))
     await assertFails(setDoc(chat('bob', 'm6'), { ...msg, mentions: 'alice' }))
-    await assertFails(setDoc(chat('bob', 'm7'), { ...msg, mentions: Array.from({ length: 61 }, (_, i) => `p${i}`) }))
+    await assertFails(setDoc(chat('bob', 'm7'), { ...msg, mentions: Array.from({ length: 21 }, (_, i) => `p${i}`) }))
     const reply = { id: 'm1', authorUid: 'alice', authorName: 'Alice', text: 'Who paid?' }
     await assertSucceeds(setDoc(chat('bob', 'r1'), { ...msg, replyTo: reply }))
     await assertFails(setDoc(chat('bob', 'r2'), { ...msg, replyTo: { ...reply, text: 'x'.repeat(161) } }))
@@ -232,6 +232,36 @@ describe('group chat', () => {
   it('nothing new in a group in Recently deleted', async () => {
     await asAdmin('groups/g1', { ...group, deletedAt: Date.now(), deletedBy: 'alice' })
     await assertFails(setDoc(chat('bob'), msg))
+  })
+})
+
+describe('@mentions and merging two people', () => {
+  const msg = { authorUid: 'bob', authorName: 'Bob', text: '@Alice who paid?', kind: 'text', createdAt: 1 }
+  it('a message may name up to 20 people it mentions', async () => {
+    await assertSucceeds(setDoc(doc(db('bob'), 'groups/g1/chat/m1'), { ...msg, mentions: ['alice'] }))
+    await assertFails(setDoc(doc(db('bob'), 'groups/g1/chat/m2'), { ...msg, mentions: 'alice' }))
+    await assertFails(setDoc(doc(db('bob'), 'groups/g1/chat/m3'), { ...msg, mentions: Array.from({ length: 21 }, (_, i) => `m${i}`) }))
+  })
+  it('a merge card is written by the server only', async () => {
+    await assertFails(setDoc(doc(db('bob'), 'groups/g1/chat/m4'), { ...msg, kind: 'merge', ref: 'r1' }))
+  })
+  it('only the creator turns on "merging needs my OK"', async () => {
+    await assertFails(updateDoc(doc(db('bob'), 'groups/g1'), { mergeNeedsOk: true }))
+    await assertSucceeds(updateDoc(doc(db('alice'), 'groups/g1'), { mergeNeedsOk: true }))
+    await assertFails(updateDoc(doc(db('bob'), 'groups/g1'), { mergeNeedsOk: false }))
+    await assertFails(updateDoc(doc(db('alice'), 'groups/g1'), { mergeNeedsOk: 'yes' }))
+    // Other settings stay open to members.
+    await assertSucceeds(updateDoc(doc(db('bob'), 'groups/g1'), { name: 'Trip 2' }))
+  })
+  it('members read merge requests; nobody writes them from the app; the approver finds theirs across groups', async () => {
+    await asAdmin('groups/g1/mergeRequests/r1', { from: 'p_cat', into: 'bob', status: 'pending', by: 'bob', approverUid: 'alice', createdAt: 1 })
+    await assertSucceeds(getDoc(doc(db('bob'), 'groups/g1/mergeRequests/r1')))
+    await assertFails(getDoc(doc(db('carol'), 'groups/g1/mergeRequests/r1')))
+    await assertFails(setDoc(doc(db('alice'), 'groups/g1/mergeRequests/r2'), { from: 'p_cat', into: 'bob', status: 'done' }))
+    await assertFails(updateDoc(doc(db('alice'), 'groups/g1/mergeRequests/r1'), { status: 'done' }))
+    const { collectionGroup, getDocs, query, where } = await import('firebase/firestore')
+    await assertSucceeds(getDocs(query(collectionGroup(db('alice'), 'mergeRequests'), where('approverUid', '==', 'alice'), where('status', '==', 'pending'))))
+    await assertFails(getDocs(query(collectionGroup(db('carol'), 'mergeRequests'), where('status', '==', 'pending'))))
   })
 })
 

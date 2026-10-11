@@ -35,6 +35,7 @@ import { IconPickerField, TypeSuggestion } from '@/components/IconPicker'
 import { Select, currencyOptions } from '@/components/Select'
 import { LiveBadge, Loading, PageHeader } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
+import { currentMemberMatch } from '@/lib/members'
 import { DateField } from '@/components/DateField'
 import { Switch } from '@/components/Switch'
 import { Collapsible } from '@/components/Collapsible'
@@ -314,8 +315,11 @@ export default function GroupForm() {
     }
   }
 
-  const addPerson = (personName: string, email?: string, _uid?: string, photoURL?: string) => {
+  const addPerson = (personName: string, email?: string, accountUid?: string, photoURL?: string) => {
     if (!personName.trim() || others.length >= maxOthers) return
+    // The same person twice (same account or email) would split their money across two entries.
+    const already = currentMemberMatch(members, { email, uid: accountUid })
+    if (already) return toast(`${members[already]!.name} is already in this group`, 'err')
     const id = uid('p_')
     // Shown on this screen only: their photo joins the group's entry when they claim their spot (memberSync), not before.
     if (photoURL) setPhotos((p) => ({ ...p, [id]: photoURL }))
