@@ -409,6 +409,21 @@ export function ExpenseEditor({
         </button>
       </header>
 
+      {/* Claiming an open item: said first, above the group and the details it filled in. */}
+      {openItem && (
+        <div className="mt-2 flex items-center gap-3 rounded-2xl bg-amber-50 p-3 text-sm dark:bg-amber-500/10" data-testid="claiming-open-item">
+          <span className="text-xl" aria-hidden>
+            {CATEGORIES[openItem.category ?? 'other'].emoji}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold">Claiming an open item</span>
+            <span className="text-muted block truncate text-xs">
+              {openItem.title} · {openItemMeta(openItem, group.currency, todayISO())}
+            </span>
+          </span>
+        </div>
+      )}
+
       {/* Group picker */}
       <button
         type="button"
@@ -478,20 +493,6 @@ export function ExpenseEditor({
               </div>
             </div>
           </div>
-        </div>
-      )}
-
-      {openItem && (
-        <div className="mt-3 flex items-center gap-3 rounded-2xl bg-amber-50 p-3 text-sm dark:bg-amber-500/10" data-testid="claiming-open-item">
-          <span className="text-xl" aria-hidden>
-            {CATEGORIES[openItem.category ?? 'other'].emoji}
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block font-semibold">Claiming an open item</span>
-            <span className="text-muted block truncate text-xs">
-              {openItem.title} · {openItemMeta(openItem, group.currency, todayISO())}
-            </span>
-          </span>
         </div>
       )}
 

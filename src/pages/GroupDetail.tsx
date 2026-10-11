@@ -259,21 +259,10 @@ export default function GroupDetail() {
         }
       />
 
-      <div className="card relative mb-4 p-5">
-        {openCount > 0 && (
-          <button
-            type="button"
-            onClick={goOpen}
-            className="absolute right-3 top-3 inline-flex min-h-9 items-center gap-1 rounded-full bg-amber-100 px-3 text-xs font-semibold text-amber-900 dark:bg-amber-500/15 dark:text-amber-200"
-            aria-label={`${openCount} open ${openCount === 1 ? 'item' : 'items'} nobody has added yet`}
-            data-testid="open-items-badge"
-          >
-            <span aria-hidden>🧾</span> {openCount} open
-          </button>
-        )}
+      <div className="card mb-4 p-5">
         <div className="flex items-center gap-4">
           <GroupIcon emoji={group.emoji} size={56} />
-          <div className={`min-w-0 flex-1 ${openCount > 0 ? 'pr-16' : ''}`}>
+          <div className="min-w-0 flex-1">
             {personal ? (
               <>
                 <div className="text-muted text-sm">Total spent</div>

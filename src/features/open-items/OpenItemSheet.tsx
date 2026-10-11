@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Sparkles, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Sparkles, Trash2, Wand2 } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { memberOrder, myMemberId } from '@/hooks/data'
@@ -7,6 +7,7 @@ import type { Category, Group, MemberId, OpenItem } from '@/types'
 import { CATEGORIES, guessCategory } from '@/lib/categories'
 import { todayISO, uid } from '@/lib/id'
 import { errText } from '@/lib/errors'
+import { aiScanEnabled, aiScanPossible } from '@/lib/ai'
 import { formatDate } from '@/lib/locale'
 import { formatMoney } from '@/lib/money'
 import { NOTES_MAX, TITLE_MAX, editOpenItem, newOpenItem, openItemErrors, type OpenItemInput } from '@/lib/open-items'
@@ -20,10 +21,19 @@ import { CategorySheet } from '@/features/expense-form/sheets'
 /** What a typed line adds beyond what's already in the fields ("Found ₹290 · 2 Oct · Rahul"). */
 type Found = OpenItemInput & { line: string }
 
+/** Wait this long after the last keystroke before asking the AI reader, and at most this many times per sheet. */
+const AI_PAUSE_MS = 1200
+const AI_MAX_CALLS = 4
+
 /**
  * Write down an open item, or edit one. The first field takes a whole line ("lunch 290 2nd Oct
  * Cafe Blue"): what it reads beyond the words is offered as one tap ("Use these"), never applied
  * behind the person's back. Nothing but the title is required.
+ *
+ * Two readings, both only offers: the phone's (the Quick add grammar, instant, always) and, when
+ * the person reads bills with AI (Settings → AI; the admin's aiImages flag and their allowance,
+ * checked on the server), the AI reader Quick add fills its gaps with, once typing pauses. The AI
+ * row shows only when it adds something the phone didn't find.
  */
 export function OpenItemSheet({
   open,
@@ -58,25 +68,38 @@ export function OpenItemSheet({
   const [catOpen, setCatOpen] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [found, setFound] = useState<Found | null>(null)
+  const [aiFound, setAiFound] = useState<Found | null>(null)
+  const [aiBusy, setAiBusy] = useState(false)
+  /** titles a "Use these" produced: not read again (they'd only echo themselves) */
+  const applied = useRef(new Set<string>())
+  const aiCalls = useRef(0)
+  const aiCache = useRef(new Map<string, Found | null>())
   // biome-ignore lint/correctness/useExhaustiveDependencies: a fresh form each time the sheet opens (or opens on another item).
   useEffect(() => {
     if (!open) return
     setF(blank)
     setSubmitted(false)
     setFound(null)
+    setAiFound(null)
+    applied.current.clear()
+    aiCalls.current = 0
   }, [open, item?.id])
+  const ctx = useMemo(
+    () => ({ members: order.map((id) => ({ id, name: group.members[id].name })), me: me ?? order[0], currency: group.currency, today }),
+    [order, group, me, today],
+  )
+  const aiOn = !item && aiScanPossible() && aiScanEnabled()
 
   // Read the line as it's typed (new items only): the parser is a lazy chunk.
   useEffect(() => {
     if (!open || item) return
     const line = f.title
-    if (!/\d|\b(?:yesterday|today|kal|last|paid)\b/i.test(line)) {
+    if (applied.current.has(line) || !/\d|\b(?:yesterday|today|tonight|kal|last|ago|paid|mon|tue|wed|thu|fri|sat|sun)/i.test(line)) {
       setFound(null)
       return
     }
     let live = true
     const t = setTimeout(() => {
-      const ctx = { members: order.map((id) => ({ id, name: group.members[id].name })), me: me ?? order[0], currency: group.currency, today }
       import('@/lib/open-item-line')
         .then(({ openItemFromLine }) => {
           if (!live) return
@@ -90,21 +113,62 @@ export function OpenItemSheet({
       live = false
       clearTimeout(t)
     }
-  }, [open, item, f.title, group, me, today, order])
+  }, [open, item, f.title, ctx])
+
+  // The AI reader, once typing pauses on a line of a few words (never for a line a "Use these" wrote).
+  useEffect(() => {
+    if (!open || !aiOn) return
+    const line = f.title.trim()
+    if (applied.current.has(f.title) || line.length < 6 || !/\s/.test(line)) {
+      setAiFound(null)
+      return
+    }
+    if (aiCache.current.has(line)) {
+      setAiFound(aiCache.current.get(line) ?? null)
+      return
+    }
+    if (aiCalls.current >= AI_MAX_CALLS) return
+    let live = true
+    const t = setTimeout(async () => {
+      aiCalls.current++
+      setAiBusy(true)
+      try {
+        const [{ openItemFromLine, openItemFromAi }, r] = await Promise.all([
+          import('@/lib/open-item-line'),
+          repo.parseTextAi(line, { members: ctx.members.map((m) => m.name), currency: ctx.currency, today: ctx.today }),
+        ])
+        const got = r && !r.unavailable ? openItemFromAi(openItemFromLine(line, ctx), r.expense, ctx) : null
+        const res = got ? { ...got, line } : null
+        aiCache.current.set(line, res)
+        if (live) setAiFound(res)
+      } catch (e) {
+        console.warn('Open item AI read failed', e)
+      } finally {
+        if (live) setAiBusy(false)
+      }
+    }, AI_PAUSE_MS)
+    return () => {
+      live = false
+      clearTimeout(t)
+    }
+  }, [open, aiOn, f.title, ctx])
 
   const errors = submitted ? openItemErrors(f, today) : {}
   const set = (patch: Partial<OpenItemInput>) => setF((p) => ({ ...p, ...patch }))
-  const useFound = () => {
-    if (!found) return
+  const apply = (x: Found | null, fromAi = false) => {
+    if (!x) return
+    applied.current.add(x.title)
     setF((p) => ({
       ...p,
-      title: found.title,
-      amount: found.amount ?? p.amount,
-      date: found.date ?? p.date,
-      category: p.category ?? found.category,
-      suspects: found.suspects?.length ? [...new Set([...(p.suspects ?? []), ...found.suspects])] : p.suspects,
+      title: x.title,
+      amount: x.amount ?? p.amount,
+      date: x.date ?? p.date,
+      // the AI's category is a reading of the words; the phone's only a keyword guess, so a picked one stays
+      category: fromAi ? (x.category ?? p.category) : (p.category ?? x.category),
+      suspects: x.suspects?.length ? [...new Set([...(p.suspects ?? []), ...x.suspects])] : p.suspects,
     }))
     setFound(null)
+    setAiFound(null)
   }
   const toggleSuspect = (id: MemberId) =>
     setF((p) => {
@@ -131,13 +195,20 @@ export function OpenItemSheet({
 
   // The icon follows the words until one is picked (newOpenItem guesses the same way on save).
   const category = f.category ?? guessCategory(f.title) ?? 'other'
-  const foundBits = found
-    ? [
-        found.amount !== undefined ? formatMoney(found.amount, group.currency) : '',
-        found.date ? formatDate(found.date, 'day') : '',
-        ...(found.suspects ?? []).map((id) => (id === me ? 'you paid' : `${group.members[id]?.name ?? ''} paid`)),
-      ].filter(Boolean)
-    : []
+  const bits = (x: Found | null) =>
+    x
+      ? [
+          x.amount !== undefined ? formatMoney(x.amount, group.currency) : '',
+          x.date ? formatDate(x.date, 'day') : '',
+          ...(x.suspects ?? []).map((id) => (id === me ? 'you paid' : `${group.members[id]?.name ?? ''} paid`)),
+        ].filter(Boolean)
+      : []
+  const foundBits = bits(found)
+  // Only an AI reading of what's in the box now, and not one that says the same as the phone's.
+  const aiShown =
+    aiFound && aiFound.line === f.title.trim() && !(found && JSON.stringify({ ...found, line: '' }) === JSON.stringify({ ...aiFound, line: '' }))
+      ? aiFound
+      : null
 
   return (
     <>
@@ -188,7 +259,7 @@ export function OpenItemSheet({
           {found && foundBits.length > 0 && (
             <button
               type="button"
-              onClick={useFound}
+              onClick={() => apply(found)}
               className="mt-2 flex min-h-11 w-full items-center gap-2 rounded-2xl bg-brand-50 px-3 py-2 text-left text-sm dark:bg-brand-500/10"
               data-testid="open-item-found"
             >
@@ -198,6 +269,28 @@ export function OpenItemSheet({
               </span>
               <span className="shrink-0 font-semibold text-brand-700 dark:text-brand-300">Use these</span>
             </button>
+          )}
+          {aiShown && (
+            <button
+              type="button"
+              onClick={() => apply(aiShown, true)}
+              className="mt-2 flex min-h-11 w-full items-center gap-2 rounded-2xl bg-slate-100 px-3 py-2 text-left text-sm dark:bg-ink-800"
+              data-testid="open-item-ai"
+            >
+              <Wand2 size={16} className="shrink-0 text-brand-600 dark:text-brand-300" aria-hidden />
+              <span className="min-w-0 flex-1">
+                <span className="text-muted mr-1 text-xs font-semibold uppercase tracking-wide">AI</span>
+                <span className="font-semibold">“{aiShown.title}”</span>
+                {bits(aiShown).length > 0 && <> · {bits(aiShown).join(' · ')}</>}
+                {aiShown.category && <> · {CATEGORIES[aiShown.category].emoji}</>}
+              </span>
+              <span className="shrink-0 font-semibold text-brand-700 dark:text-brand-300">Use these</span>
+            </button>
+          )}
+          {aiBusy && !aiShown && (
+            <p className="text-muted mt-2 flex items-center gap-1.5 text-xs" role="status">
+              <Wand2 size={13} className="animate-pulse" aria-hidden /> Reading with AI…
+            </p>
           )}
 
           <div className="mt-3 grid grid-cols-2 gap-3">

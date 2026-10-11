@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { openItemFromLine } from './open-item-line'
+import { openItemFromAi, openItemFromLine } from './open-item-line'
 
 describe('openItemFromLine', () => {
   const ctx = {
@@ -32,5 +32,35 @@ describe('openItemFromLine', () => {
   })
   it('an amount in another currency is left for the claimer', () => {
     expect(openItemFromLine('dinner $40', ctx).amount).toBeUndefined()
+  })
+})
+
+describe('openItemFromAi', () => {
+  const ctx = {
+    members: [
+      { id: 'me', name: 'Amrit' },
+      { id: 'r', name: 'Rahul' },
+    ],
+    me: 'me',
+    currency: 'INR',
+    today: '2026-10-11',
+  }
+  const local = { title: 'Lunch Cafe Blue', date: '2026-10-02', category: 'food' as const }
+  it('adds a tidier title and what the phone missed; the phone wins where both found something', () => {
+    expect(openItemFromAi(local, { description: 'lunch at cafe blue', amount: 29000, date: '2026-10-05', payer: 'Rahul' }, ctx)).toEqual({
+      title: 'Lunch At Cafe Blue',
+      date: '2026-10-02',
+      amount: 29000,
+      category: 'food',
+      suspects: ['r'],
+    })
+  })
+  it('nothing new: null', () => {
+    expect(openItemFromAi(local, { description: 'Lunch Cafe Blue' }, ctx)).toBeNull()
+    expect(openItemFromAi(local, null, ctx)).toBeNull()
+  })
+  it('leaves out another currency, a future date and unknown people', () => {
+    const r = openItemFromAi({ title: 'Taxi' }, { amount: 4000, currency: 'USD', date: '2026-12-01', payer: 'Zed', category: 'transport' }, ctx)
+    expect(r).toEqual({ title: 'Taxi', category: 'transport' })
   })
 })
