@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addedToGroupNote, groupDeletedNote, mentionNote, mergeAskNote, mergeDecidedNote, payLinkClaimedNote, payLinkPaidNote } from './notify-text'
+import { addedToGroupNote, groupDeletedNote, groupTitle, mentionNote, mergeAskNote, mergeDecidedNote, payLinkClaimedNote, payLinkPaidNote } from './notify-text'
 
 describe('Pay me link push to the payee', () => {
   const base = { code: 'abcdefghijkmnpqrstuvwxyz', groupName: 'Goa trip', emoji: '🏖️', payerName: 'Rahul', amount: 124000, currency: 'INR' }
@@ -84,5 +84,13 @@ describe('mentions and merges', () => {
     )
     expect(mergeDecidedNote({ ...g, ok: true, fromName: 'Priya', intoName: 'Priya S.' }).body).toBe('Priya and Priya S. are one person now')
     expect(mergeDecidedNote({ ...g, ok: false, fromName: 'Priya', intoName: 'Priya S.' }).body).toBe('Making Priya and Priya S. one person was declined')
+  })
+})
+
+describe('group titles', () => {
+  it('the icon first for a group; a 1:1 is the person, then 🤝', () => {
+    expect(groupTitle('Goa trip', '🏖️')).toBe('🏖️ Goa trip')
+    expect(groupTitle('Meera', '🤝')).toBe('Meera 🤝')
+    expect(groupTitle('Goa trip')).toBe('Goa trip')
   })
 })
