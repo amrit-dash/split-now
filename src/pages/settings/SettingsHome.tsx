@@ -13,7 +13,11 @@ import { getTheme } from '@/lib/theme'
 import { autoCaptureSummary, notificationSummary } from '@/lib/profileSummary'
 import { DEFAULT_PREFS, isIOS, isStandalone, permission, pushSupported, type AllPrefs } from '@/lib/push'
 import { notificationsAvailable } from '@/components/NotificationSettings'
+import { HintText, type Hint } from '@/components/Hint'
 import { SettingsPage, SettingsRow } from './common'
+
+// The Saved pill already says it; only worth reading once.
+const AUTOSAVE_HINT: Hint = { full: 'Changes here save by themselves.', tier: 'extra' }
 
 const THEME_LABEL = { system: 'Auto theme', light: 'Light', dark: 'Dark' } as const
 
@@ -84,7 +88,7 @@ export default function SettingsHome() {
           />
         )}
       </div>
-      <p className="text-muted mt-4 px-1 text-xs">Changes here save by themselves.</p>
+      <HintText hint={AUTOSAVE_HINT} className="text-muted mt-4 px-1 text-xs" />
     </SettingsPage>
   )
 }

@@ -60,6 +60,7 @@ import {
 import { Collapsible } from '@/components/Collapsible'
 import { useConfirm } from '@/components/ConfirmSheet'
 import { GroupIcon } from '@/components/GroupIcon'
+import { HintText, InfoTip, isHint, type Hint } from '@/components/Hint'
 import { LiveBadge, Loading, PageHeader, formatRange } from '@/components/Misc'
 import { Switch } from '@/components/Switch'
 import { useToast } from '@/components/Toast'
@@ -79,6 +80,65 @@ const outsideTripsText = (on: boolean) =>
   on
     ? 'Payments outside every trip wait in the Inbox as “outside any trip”, without a notification.'
     : 'Payments outside every trip are ignored. Want them in the Inbox instead? Turn on All bank & UPI payments in Settings → Automation.'
+
+// The trust line of the first screen: never folded away.
+const INTRO_HINT: Hint = {
+  full: `When your bank texts you about a payment, your phone sends that text to ${APP_NAME}. We ask “add this to your trip?” — nothing is added until you say yes.`,
+  short: 'Your phone forwards bank payment texts. Nothing is added until you say yes.',
+  min: 'Nothing is added until you say yes.',
+  tier: 'key',
+}
+const IGNORED_HINT: Hint = {
+  full: 'OTPs, credits and balance alerts are ignored. Account numbers are masked before anything is saved.',
+  short: 'OTPs are ignored; account numbers are masked',
+  tier: 'help',
+}
+const TIME_HINT: Hint = { full: 'Takes about 3 minutes. Works with any bank that sends SMS.', short: 'Takes about 3 minutes', tier: 'help' }
+const LATER_HINT: Hint = { full: 'Change this later in Settings → Automation.', tier: 'extra' }
+const SCOPE_HINT: Hint = {
+  full: 'A key for one trip only accepts messages dated inside that trip. “All my trips” matches whichever trip the payment date falls in.',
+  short: 'A trip key only takes messages dated in that trip',
+  tier: 'help',
+}
+const KEYS_HINT: Hint = {
+  full: 'A key lets your phone add payments to your Inbox and nothing else. Revoke one if it leaks or a phone is gone.',
+  short: 'Revoke a key if it leaks or a phone is gone',
+  tier: 'help',
+}
+const KEY_BOX_HINT: Hint = {
+  full: 'Copied when you started. It lets your phone add payments to your Inbox, and nothing else.',
+  short: 'It can only add payments to your Inbox',
+  tier: 'help',
+}
+const IOS_FILTER_HINT: Hint = {
+  full: 'It runs on every message, but the Shortcut checks the text on your phone and only sends bank debit SMS. OTPs and personal messages never leave the device.',
+  short: 'Only bank debit SMS leave your phone',
+  tier: 'help',
+}
+const IOS_MANUAL_HINT: Hint = {
+  full: 'iOS 17 or later. Works with SMS from bank sender IDs such as AX-HDFCBK, because the trigger matches the message text, not the sender.',
+  short: 'iOS 17 or later',
+  tier: 'help',
+}
+const ANDROID_FILTER_HINT: Hint = {
+  full: 'Skips anything mentioning an OTP or password, then needs a debit word (debited, spent, paid, sent Rs, withdrawn) or an amount. OTPs and personal messages never leave the phone.',
+  short: 'Only debit messages leave the phone; OTPs never do',
+  tier: 'help',
+}
+const TASKER_HINT: Hint = {
+  full: (
+    <>
+      Tasker works the same way: <i>Event → Phone → Received Text</i> and <i>Net → HTTP Request</i> with <code>%SMSRB</code> (body) and <code>%SMSRF</code>{' '}
+      (sender).
+    </>
+  ),
+  tier: 'extra',
+}
+const TEST_HINT: Hint = {
+  full: 'Sends this sample SMS to the server as if your phone had forwarded it. It checks the server and your key; a real bank SMS is what checks your phone’s automation.',
+  short: 'Checks the server and your key, not your phone',
+  tier: 'help',
+}
 
 /**
  * /settings/auto-capture[?group=<id>][&step=1|2|3][&platform=ios|android]
@@ -195,6 +255,13 @@ export default function AutoCaptureSetup() {
     saveCapturePrefs(user.uid, repo.mode, { outsideTrips: v }).catch((e) => toast(errText(e), 'err'))
   }
   const hasShared = platform === 'ios' ? !!IOS_SHORTCUT_URL : !!ANDROID_MACRO_URL
+  const outsideHint: Hint = prefs?.outsideTrips
+    ? { full: outsideTripsText(true), short: 'Payments outside trips wait in the Inbox', tier: 'help' }
+    : {
+        full: 'Off: only payments dated during a trip are kept. Payments outside every trip are ignored and never stored.',
+        short: 'Off: only payments during a trip are kept',
+        tier: 'help',
+      }
 
   return (
     <div>
@@ -203,12 +270,12 @@ export default function AutoCaptureSetup() {
 
       {step === 1 && (
         <section className="card p-5" data-testid="capture-step-1">
-          <h2 className="text-xl font-extrabold leading-tight">Catch your payments automatically.</h2>
-          <p className="text-muted mt-2 text-sm">
-            When your bank texts you about a payment, your phone sends that text to {APP_NAME}. We ask “add this to your trip?” — nothing is added until you say
-            yes.
-          </p>
-          <p className="text-muted mt-2 text-sm">OTPs, credits and balance alerts are ignored. Account numbers are masked before anything is saved.</p>
+          <h2 className="text-xl font-extrabold leading-tight">
+            Catch your payments automatically.
+            <InfoTip hint={INTRO_HINT} label="How auto-capture works" />
+          </h2>
+          <HintText hint={INTRO_HINT} className="text-muted mt-2 text-sm" />
+          <HintText hint={IGNORED_HINT} className="text-muted mt-2 text-sm" />
           {group && (
             <p className="mt-3 rounded-2xl bg-slate-50 p-3 text-xs text-slate-700 dark:bg-ink-800 dark:text-slate-300">
               For <b>{group.name}</b> only{formatRange(group.startDate, group.endDate) ? ` (${formatRange(group.startDate, group.endDate)})` : ''}.{' '}
@@ -256,7 +323,7 @@ export default function AutoCaptureSetup() {
               </button>
             ))}
           </div>
-          <p className="text-muted mt-3 text-center text-xs">Takes about 3 minutes. Works with any bank that sends SMS.</p>
+          <HintText hint={TIME_HINT} className="text-muted mt-3 text-center text-xs" />
         </section>
       )}
 
@@ -325,10 +392,14 @@ export default function AutoCaptureSetup() {
                   <span className="h-3 w-3 animate-pulse rounded-full bg-brand-600" />
                 </span>
                 <h2 className="mt-3 text-lg font-extrabold">Waiting for your phone…</h2>
-                <p className="text-muted mt-2 text-sm">
-                  We’ll light this up the moment your phone forwards a message. To try it now, pay anyone {formatMoney(100, 'INR')} on UPI, or ask a friend to
-                  text you “Rs.1 debited test”.
-                </p>
+                <HintText
+                  className="text-muted mt-2 text-sm"
+                  hint={{
+                    full: `We’ll light this up the moment your phone forwards a message. To try it now, pay anyone ${formatMoney(100, 'INR')} on UPI, or ask a friend to text you “Rs.1 debited test”.`,
+                    short: `To try it now, pay anyone ${formatMoney(100, 'INR')} on UPI`,
+                    tier: 'help',
+                  }}
+                />
                 {repo.mode === 'demo' && (
                   <p className="text-muted mt-2 text-xs">The demo has no server: send a simulated test from “Try it from this browser” below.</p>
                 )}
@@ -339,16 +410,15 @@ export default function AutoCaptureSetup() {
             <div className="mt-5 rounded-2xl bg-slate-50 p-3 text-left dark:bg-ink-800" data-testid="capture-outside">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="text-sm font-semibold">Keep every payment</div>
-                  <div className="text-muted text-xs">
-                    {prefs.outsideTrips
-                      ? outsideTripsText(true)
-                      : 'Off: only payments dated during a trip are kept. Payments outside every trip are ignored and never stored.'}
+                  <div className="flex items-center text-sm font-semibold">
+                    Keep every payment
+                    <InfoTip hint={outsideHint} label="About keeping every payment" />
                   </div>
+                  <HintText hint={outsideHint} as="div" />
                 </div>
                 <Switch checked={prefs.outsideTrips} onChange={setOutside} label="Keep every payment" testId="capture-outside-switch" />
               </div>
-              <p className="text-muted mt-2 text-xs">Change this later in Settings → Automation.</p>
+              <HintText hint={LATER_HINT} className="text-muted mt-2 text-xs" />
             </div>
           )}
           {hitRow || hitKey ? (
@@ -379,9 +449,7 @@ export default function AutoCaptureSetup() {
           <TestSender token={token} group={group} groups={groups} captures={captures ?? []} platform={platform} outsideTrips={!!prefs?.outsideTrips} />
         </Collapsible>
         <Collapsible title="Only one trip" summary={group ? `${group.name} only` : 'All my trips'} testId="capture-scope">
-          <p className="text-muted mb-3 text-xs">
-            A key for one trip only accepts messages dated inside that trip. “All my trips” matches whichever trip the payment date falls in.
-          </p>
+          <HintText hint={SCOPE_HINT} className="text-muted mb-3 text-xs" />
           <div className="space-y-2" role="radiogroup" aria-label="Capture scope">
             <ScopeOption
               selected={!scope}
@@ -392,7 +460,11 @@ export default function AutoCaptureSetup() {
                 </span>
               }
               title="All my trips"
-              detail={`Matches any trip whose dates include the payment. ${outsideTripsText(!!prefs?.outsideTrips)}`}
+              detail={{
+                full: `Matches any trip whose dates include the payment. ${outsideTripsText(!!prefs?.outsideTrips)}`,
+                short: 'Matches any trip whose dates include the payment',
+                tier: 'help',
+              }}
             />
             {shared.map((g) => (
               <ScopeOption
@@ -471,9 +543,7 @@ export default function AutoCaptureSetup() {
               })}
             </ul>
           )}
-          <p className="text-muted mt-2 text-xs">
-            A key lets your phone add payments to your Inbox and nothing else. Revoke one if it leaks or a phone is gone.
-          </p>
+          <HintText hint={KEYS_HINT} className="text-muted mt-2 text-xs" />
         </Collapsible>
         <Collapsible title="Privacy" summary="What is kept, and what never leaves your phone" testId="capture-privacy">
           <p className="text-muted text-sm">
@@ -519,7 +589,10 @@ function KeyBox({ token, busy, onCopy, onCreate }: { token?: CaptureToken; busy:
   }
   return (
     <div>
-      <div className="label">Your capture key</div>
+      <div className="label flex items-center">
+        Your capture key
+        <InfoTip hint={KEY_BOX_HINT} label="About your capture key" />
+      </div>
       <div className="flex items-center gap-2 rounded-2xl bg-slate-50 p-2 pl-3 dark:bg-ink-800">
         <code className="min-w-0 flex-1 truncate text-sm" data-testid="capture-key">
           {token.token}
@@ -528,7 +601,7 @@ function KeyBox({ token, busy, onCopy, onCreate }: { token?: CaptureToken; busy:
           <Copy size={15} aria-hidden /> Copy
         </button>
       </div>
-      <p className="text-muted mt-1.5 text-xs">Copied when you started. It lets your phone add payments to your Inbox, and nothing else.</p>
+      <HintText hint={KEY_BOX_HINT} className="text-muted mt-1.5 text-xs" />
     </div>
   )
 }
@@ -545,7 +618,8 @@ function ScopeOption({
   onSelect: () => void
   icon: ReactNode
   title: string
-  detail: string
+  /** a trip's dates (status, always shown) or a Hint that follows the look */
+  detail: string | Hint
   badge?: ReactNode
 }) {
   return (
@@ -562,7 +636,11 @@ function ScopeOption({
           <span className="truncate">{title}</span>
           {badge}
         </span>
-        <span className="text-muted block text-xs">{detail}</span>
+        {isHint(detail) ? (
+          <HintText hint={detail} as="span" className="text-muted block text-xs" />
+        ) : (
+          <span className="text-muted block text-xs">{detail}</span>
+        )}
       </span>
       <span
         className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${selected ? 'bg-fill text-on-fill' : 'ring-1 ring-slate-400 dark:ring-ink-600'}`}
@@ -661,10 +739,7 @@ function IosScreen({ token, onDone }: { token?: string; onDone: () => void }) {
           <MockRow k="Run Immediately" v={<Check size={14} className="inline text-brand-600" />} />
           <MockRow k="Notify When Run" v={<span className="inline-block h-4 w-7 rounded-full bg-slate-300" />} />
         </Mock>
-        <p className="text-muted text-xs">
-          It runs on every message, but the Shortcut checks the text on your phone and only sends bank debit SMS. OTPs and personal messages never leave the
-          device.
-        </p>
+        <HintText hint={IOS_FILTER_HINT} />
       </div>
       <SenderNote />
       <button type="button" className="btn-primary w-full" onClick={onDone} data-testid="capture-step-2-done">
@@ -710,9 +785,7 @@ function IosManual({ token, onCopy }: { token?: string; onCopy?: (text: string, 
   const url = webhookUrl(location.origin)
   return (
     <div className="space-y-3">
-      <p className="text-muted text-xs">
-        iOS 17 or later. Works with SMS from bank sender IDs such as AX-HDFCBK, because the trigger matches the message text, not the sender.
-      </p>
+      <HintText hint={IOS_MANUAL_HINT} />
       {onCopy && <CopyButtons token={token} platform="ios" onCopy={onCopy} />}
       <Checklist
         items={[
@@ -934,10 +1007,7 @@ function AndroidManual({ token, onCopy, compact }: { token?: string; onCopy: (te
                   <code className="block break-all font-mono text-xs" data-testid="android-regex">
                     {ANDROID_FILTER_REGEX}
                   </code>
-                  <p className="text-muted mt-1 text-xs">
-                    Skips anything mentioning an OTP or password, then needs a debit word (debited, spent, paid, sent Rs, withdrawn) or an amount. OTPs and
-                    personal messages never leave the phone.
-                  </p>
+                  <HintText hint={ANDROID_FILTER_HINT} className="text-muted mt-1 text-xs" />
                 </div>
               </>
             ),
@@ -995,10 +1065,7 @@ function AndroidManual({ token, onCopy, compact }: { token?: string; onCopy: (te
           </p>
         </details>
       )}
-      <p className="text-muted text-xs">
-        Tasker works the same way: <i>Event → Phone → Received Text</i> and <i>Net → HTTP Request</i> with <code>%SMSRB</code> (body) and <code>%SMSRF</code>{' '}
-        (sender).
-      </p>
+      <HintText hint={TASKER_HINT} />
     </div>
   )
 }
@@ -1061,10 +1128,7 @@ function TestSender({
 
   return (
     <div>
-      <p className="text-muted mb-3 text-xs">
-        Sends this sample SMS to the server as if your phone had forwarded it. It checks the server and your key; a real bank SMS is what checks your phone’s
-        automation.
-      </p>
+      <HintText hint={TEST_HINT} className="text-muted mb-3 text-xs" />
       <div className="rounded-2xl bg-slate-100 p-3 dark:bg-ink-800">
         <div className="text-muted mb-1 flex items-center gap-1.5 text-xs font-semibold">
           <MessageSquareText size={13} aria-hidden /> AX-HDFCBK

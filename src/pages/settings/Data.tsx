@@ -7,12 +7,24 @@ import { useAllGroupData } from '@/hooks/data'
 import { csvFilename, deliverCsv, groupCsv } from '@/lib/export'
 import { errText } from '@/lib/errors'
 import { todayISO } from '@/lib/id'
+import { HintText, useShows, type Hint } from '@/components/Hint'
 import { InstallRow, useInstall } from '@/components/InstallBanner'
 import { GroupIcon } from '@/components/GroupIcon'
 import { ListSkeleton } from '@/components/Skeleton'
 import { Select } from '@/components/Select'
 import { useToast } from '@/components/Toast'
 import { SectionTitle, SettingsPage } from './common'
+
+const EXPORT_HINT: Hint = {
+  full: 'Every expense and payment in the group, with who paid and each person’s share. Opens in Excel or Google Sheets, and imports back into Split Now.',
+  short: 'Every expense and payment, for Excel or Google Sheets',
+  tier: 'help',
+}
+const IMPORT_HINT: Hint = {
+  full: 'A group export (CSV), balances checked against Splitwise’s own totals',
+  short: 'A Splitwise group export (CSV)',
+  tier: 'help',
+}
 
 /** /settings/data: export a group as CSV, import from Splitwise, install the app, version. */
 export default function Data() {
@@ -21,6 +33,8 @@ export default function Data() {
   const install = useInstall()
   const [groupId, setGroupId] = useState('')
   const [busy, setBusy] = useState(false)
+  // "Connected to Firebase" is noise for most people; the demo line stays, it explains where data lives.
+  const showBackend = useShows(3)
   const groups = (data ?? []).filter((d) => !d.group.archived)
   const chosen = groups.find((d) => d.group.id === groupId) ?? groups[0]
 
@@ -66,9 +80,7 @@ export default function Data() {
           <button type="button" className="btn-secondary w-full" onClick={exportCsv} disabled={busy || !chosen} data-testid="export-csv">
             {busy ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <Download size={18} aria-hidden />} Export as CSV
           </button>
-          <p className="text-muted text-xs">
-            Every expense and payment in the group, with who paid and each person’s share. Opens in Excel or Google Sheets, and imports back into Split Now.
-          </p>
+          <HintText hint={EXPORT_HINT} />
         </div>
       )}
 
@@ -82,7 +94,7 @@ export default function Data() {
         </span>
         <span className="min-w-0 flex-1">
           <span className="block">Import from Splitwise</span>
-          <span className="text-muted block text-xs font-normal">A group export (CSV), balances checked against Splitwise’s own totals</span>
+          <HintText hint={IMPORT_HINT} as="span" className="text-muted block text-xs font-normal" />
         </span>
         <ChevronRight size={18} className="text-slate-400" aria-hidden />
       </Link>
@@ -95,7 +107,8 @@ export default function Data() {
       )}
 
       <p className="text-muted mt-6 text-center text-xs" data-testid="app-version">
-        Split Now v{buildLabel(__APP_VERSION__)} · {repo.mode === 'demo' ? 'Demo mode: data stays on this device' : 'Connected to Firebase'}
+        Split Now v{buildLabel(__APP_VERSION__)}
+        {repo.mode === 'demo' ? ' · Demo mode: data stays on this device' : showBackend ? ' · Connected to Firebase' : ''}
       </p>
     </SettingsPage>
   )

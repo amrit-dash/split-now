@@ -5,7 +5,10 @@ import { SettingsPage } from './common'
 /** /settings/ai: one switch, a consent line, and the key plumbing under Advanced. */
 export default function Ai() {
   return (
-    <SettingsPage title="AI features" subtitle="Reading bills, bank SMS and more with Google’s AI">
+    <SettingsPage
+      title="AI features"
+      subtitle={{ full: 'Reading bills, bank SMS and more with Google’s AI', short: 'Bills and bank SMS, read by AI', tier: 'help' }}
+    >
       {repo.mode === 'firebase' ? (
         <AiSettings />
       ) : (

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Loader2, Mail, Plus, X } from 'lucide-react'
 import { repo } from '@/data'
 import { useConfirm } from '@/components/ConfirmSheet'
+import { HintText, InfoTip, type Hint } from '@/components/Hint'
 import { Sheet } from '@/components/Sheet'
 import { useToast } from '@/components/Toast'
 import { useAccountEmails } from '@/hooks/data'
@@ -9,6 +10,18 @@ import { emailProblem, resendIn } from '@/lib/account'
 import { errText } from '@/lib/errors'
 
 const RESEND_MS = 30_000
+
+const EMAILS_HINT: Hint = {
+  full: 'Friends may add you by a work or old address. Add it here and those groups reach this account.',
+  short: 'Add a work or old address friends might use',
+  tier: 'help',
+}
+const ADD_HINT: Hint = { full: 'We’ll email it a link. Opening the link adds it to your account.', short: 'We’ll email it a link to confirm', tier: 'help' }
+const SPAM_HINT: Hint = {
+  full: 'Can’t find it? Check spam or promotions. It comes from Split Now’s Firebase address.',
+  short: 'Can’t find it? Check spam',
+  tier: 'help',
+}
 
 /**
  * Profile → Emails: the account's own email and any others added with Firebase's sign-in link. Groups that add
@@ -36,7 +49,10 @@ export function AccountEmails({ email }: { email?: string }) {
   }
   return (
     <div>
-      <div className="label">Emails</div>
+      <div className="label flex items-center">
+        Emails
+        <InfoTip hint={EMAILS_HINT} label="About emails" />
+      </div>
       <ul className="divide-y divide-slate-100 rounded-2xl bg-slate-50 dark:divide-white/5 dark:bg-ink-800" data-testid="account-emails">
         {email && (
           <li className="flex min-h-12 items-center gap-3 px-4 py-2.5">
@@ -70,7 +86,7 @@ export function AccountEmails({ email }: { email?: string }) {
           </button>
         </li>
       </ul>
-      <p className="text-muted mt-1.5 text-xs">Friends may add you by a work or old address. Add it here and those groups reach this account.</p>
+      <HintText hint={EMAILS_HINT} className="text-muted mt-1.5 text-xs" />
       <AddEmailSheet open={open} onClose={() => setOpen(false)} />
     </div>
   )
@@ -130,9 +146,10 @@ function AddEmailSheet({ open, onClose }: { open: boolean; onClose: () => void }
             if (!problem) void send(input.trim().toLowerCase())
           }}
         >
-          <label htmlFor="add-email-input" className="label">
-            Email
-          </label>
+          <div className="label flex items-center">
+            <label htmlFor="add-email-input">Email</label>
+            <InfoTip hint={ADD_HINT} label="About adding an email" />
+          </div>
           <input
             id="add-email-input"
             className="input"
@@ -147,7 +164,7 @@ function AddEmailSheet({ open, onClose }: { open: boolean; onClose: () => void }
             value={input}
             onChange={(e) => setInput(e.target.value)}
             aria-invalid={tried && !!problem}
-            aria-describedby={tried && problem ? 'add-email-error' : 'add-email-help'}
+            aria-describedby={tried && problem ? 'add-email-error' : undefined}
             data-testid="add-email-input"
           />
           {tried && problem ? (
@@ -155,9 +172,7 @@ function AddEmailSheet({ open, onClose }: { open: boolean; onClose: () => void }
               {problem}
             </p>
           ) : (
-            <p id="add-email-help" className="text-muted mt-1.5 px-1 text-xs">
-              We’ll email it a link. Opening the link adds it to your account.
-            </p>
+            <HintText hint={ADD_HINT} id="add-email-help" className="text-muted mt-1.5 px-1 text-xs" />
           )}
           <button type="submit" className="btn-primary mt-5 w-full" disabled={busy} data-testid="add-email-send">
             {busy && <Loader2 size={16} className="animate-spin" aria-hidden />} Send link
@@ -168,7 +183,7 @@ function AddEmailSheet({ open, onClose }: { open: boolean; onClose: () => void }
           <p className="text-sm">
             We sent a link to <b className="[overflow-wrap:anywhere]">{sentTo}</b>. Open it on this phone and the email joins your account.
           </p>
-          <p className="text-muted mt-2 text-sm">Can’t find it? Check spam or promotions. It comes from Split Now’s Firebase address.</p>
+          <HintText hint={SPAM_HINT} className="text-muted mt-2 text-sm" />
           <div className="mt-5 grid grid-cols-2 gap-2">
             <button type="button" className="btn-secondary" disabled={busy || wait > 0} onClick={() => send(sentTo)}>
               {wait > 0 ? `Again in ${resendIn(wait)}` : 'Send again'}

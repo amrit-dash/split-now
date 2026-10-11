@@ -7,7 +7,16 @@ import { errText } from '@/lib/errors'
 import { isSynced, loadSharedRates, ratesStatus, refreshRates, type RatesStatus } from '@/lib/fx'
 import { appLocale } from '@/lib/locale'
 import { Avatar } from './Avatar'
+import { HintText, InfoTip, type Hint } from './Hint'
 import { useToast } from './Toast'
+
+// The card autosaves and says so once; noise after the first read.
+const AUTOSAVE_HINT: Hint = { full: 'Changes save by themselves.', tier: 'extra' }
+const SIGN_IN_HINT: Hint = {
+  full: 'Link both so you can sign in either way and never end up with two accounts for one email.',
+  short: 'Link both so one email stays one account',
+  tier: 'help',
+}
 
 /**
  * The user card at the top of Profile: photo, name and email; tap to expand and edit the name,
@@ -101,7 +110,7 @@ export function AccountCard({
           </div>
           <AccountEmails email={email} />
           {repo.mode === 'firebase' && <SignInMethods />}
-          <p className="text-muted text-xs">Changes save by themselves.</p>
+          <HintText hint={AUTOSAVE_HINT} />
         </div>
       )}
     </div>
@@ -135,7 +144,10 @@ function SignInMethods() {
 
   return (
     <div>
-      <div className="label">Sign-in methods</div>
+      <div className="label flex items-center">
+        Sign-in methods
+        <InfoTip hint={SIGN_IN_HINT} label="About sign-in methods" />
+      </div>
       <div className="divide-y divide-slate-100 rounded-2xl bg-slate-50 dark:divide-white/5 dark:bg-ink-800">
         <div className="flex items-center gap-3 px-4 py-3">
           <span className="flex-1 font-medium">Google</span>
@@ -193,7 +205,7 @@ function SignInMethods() {
           )}
         </div>
       </div>
-      <p className="text-muted mt-1.5 text-xs">Link both so you can sign in either way and never end up with two accounts for one email.</p>
+      <HintText hint={SIGN_IN_HINT} className="text-muted mt-1.5 text-xs" />
     </div>
   )
 }
@@ -219,7 +231,7 @@ function linkError(e: unknown): string {
  * publication, slate = not synced). Refreshing updates the shared rates
  * for everyone (or this device's copy in demo mode).
  */
-export function RatesField({ base, children }: { base: string; children: React.ReactNode }) {
+export function RatesField({ base, hint, children }: { base: string; hint?: Hint; children: React.ReactNode }) {
   const toast = useToast()
   const [status, setStatus] = useState<RatesStatus | null>(() => ratesStatus(base))
   const [busy, setBusy] = useState(false)
@@ -256,7 +268,10 @@ export function RatesField({ base, children }: { base: string; children: React.R
   const label = `Exchange rates ${synced ? 'synced' : 'not synced'}. Refresh.`
   return (
     <div>
-      <div className="label">Default currency</div>
+      <div className="label flex items-center">
+        Default currency
+        {hint && <InfoTip hint={hint} label="About the default currency" />}
+      </div>
       <div className="flex items-center gap-2">
         <div className="min-w-0 flex-1">{children}</div>
         <button
@@ -276,6 +291,7 @@ export function RatesField({ base, children }: { base: string; children: React.R
         <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${synced ? 'bg-emerald-500' : 'bg-slate-400'}`} aria-hidden />
         {status ? `${synced ? 'Rates synced' : 'Rates not synced'} · ${ratesDetails(status)}` : 'Rates not loaded yet'}
       </p>
+      {hint && <HintText hint={hint} className="text-muted mt-2 text-xs" />}
     </div>
   )
 }

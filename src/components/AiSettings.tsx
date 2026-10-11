@@ -13,6 +13,7 @@ import { setAiScan } from '@/lib/ai'
 import { autoSourceHint, DEFAULT_MODEL, type AiSource } from '@/lib/ai-config'
 import { DEFAULT_ALL_PREFS, savePrefs, watchPrefs, type AllPrefs } from '@/lib/push'
 import { Collapsible } from './Collapsible'
+import { HintText, InfoTip, type Hint } from './Hint'
 import { Select } from './Select'
 import { Switch } from './Switch'
 import { useToast } from './Toast'
@@ -22,6 +23,29 @@ const SOURCE_OPTIONS: Array<{ value: AiSource; label: string; hint: string }> = 
   { value: 'own', label: 'Only my key', hint: 'Never use Split Now’s key' },
   { value: 'app', label: 'Only Split Now’s key', hint: 'Ignore my key' },
 ]
+
+// Consent: what leaves the phone, and the free AI's terms, stay in every look.
+const FREE_AI_HINT: Hint = { full: FREE_AI_NOTE, short: 'Free because Google may read and use what you send', tier: 'key' }
+const OWN_KEY_HINT: Hint = {
+  full: (
+    <>
+      Keys come from{' '}
+      <a
+        className="inline-flex items-center gap-0.5 font-semibold text-brand-600 dark:text-brand-300"
+        href="https://aistudio.google.com/apikey"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        aistudio.google.com/apikey <ExternalLink size={11} aria-hidden />
+      </a>
+      . Google’s free tier may use what you send to improve its models and isn’t meant for personal data, so for bills and bank messages use a key from a
+      project with billing turned on (the paid tier). The key is checked with Google, then kept on Split Now’s server; the app only ever shows its last 4
+      characters.
+    </>
+  ),
+  short: 'For bills and bank messages, use a paid-tier key',
+  tier: 'key',
+}
 
 const APP_STATUS: Record<AppAiStatusValue, { text: string; ok: boolean }> = {
   available: { text: 'Available to you', ok: true },
@@ -132,6 +156,7 @@ export function AiSettings() {
         ? { text: 'Turn on “Use free AI” to use it', ok: false }
         : APP_STATUS[status.app[f]]
       : null
+  const dataNote: Hint = { full: aiDataNote(status), short: 'Bills, screenshots and unreadable SMS are sent to Google to read', tier: 'key' }
   const modelOptions = [
     { value: '', label: 'Recommended (cheapest)', hint: DEFAULT_MODEL },
     ...(models ?? []).map((m) => ({ value: m.id, label: m.label, hint: modelHint(m) })),
@@ -148,12 +173,17 @@ export function AiSettings() {
           onChange={(v) => set({ aiEnabled: v })}
           text={
             prefs.aiEnabled
-              ? 'For what the phone can’t read: bills, bank SMS, Quick add lines and payment screenshots. Choose which under Advanced.'
-              : 'Off: nothing is sent to any AI. Bills are read on this phone, less accurately.'
+              ? {
+                  full: 'For what the phone can’t read: bills, bank SMS, Quick add lines and payment screenshots. Choose which under Advanced.',
+                  short: 'For bills, bank SMS and screenshots the phone can’t read',
+                  tier: 'help',
+                }
+              : { full: 'Off: nothing is sent to any AI. Bills are read on this phone, less accurately.', short: 'Off: nothing is sent to any AI', tier: 'key' }
           }
         />
         <p className="text-muted mt-3 text-xs" data-testid="ai-data-note">
-          {aiDataNote(status)}
+          <HintText as="span" className="" hint={dataNote} />
+          <InfoTip hint={dataNote} label="What is sent" />
         </p>
         {prefs.aiEnabled && (
           <p className="mt-3 flex items-center gap-2 text-sm font-medium" data-testid="ai-status-line">
@@ -163,7 +193,7 @@ export function AiSettings() {
         )}
         {prefs.aiEnabled && freeOffered && (
           <div className="mt-4 rounded-2xl bg-amber-50 p-3.5 dark:bg-amber-500/10" data-testid="ai-free">
-            <Row title="Use free AI" testId="ai-free-ok" checked={prefs.aiFreeOk} onChange={(v) => set({ aiFreeOk: v })} text={FREE_AI_NOTE} />
+            <Row title="Use free AI" testId="ai-free-ok" checked={prefs.aiFreeOk} onChange={(v) => set({ aiFreeOk: v })} text={FREE_AI_HINT} />
             {prefs.aiFreeOk && prefs.aiSource === 'own' && (
               <p className="mt-2 text-xs font-semibold text-amber-900 dark:text-amber-200" data-testid="ai-free-unused">
                 Not used while Which key (under Advanced) is “Only my key”.
@@ -191,8 +221,8 @@ export function AiSettings() {
                   onChange={(v) => set({ aiImages: v })}
                   text={
                     prefs.aiImages
-                      ? `Photos go to ${aiName} to read items, taxes and transactions.`
-                      : 'Read on this phone (less accurate). Statement import needs AI.'
+                      ? { full: `Photos go to ${aiName} to read items, taxes and transactions.`, short: `Photos go to ${aiName}`, tier: 'help' }
+                      : { full: 'Read on this phone (less accurate). Statement import needs AI.', short: 'Read on this phone, less accurately', tier: 'help' }
                   }
                 />
               ) : (
@@ -207,7 +237,13 @@ export function AiSettings() {
                 checked={prefs.aiSms}
                 onChange={(v) => set({ aiSms: v })}
                 text={
-                  prefs.aiSms ? `Only messages the built-in reader misses go to ${aiName}, with account numbers masked.` : 'Unreadable messages are skipped.'
+                  prefs.aiSms
+                    ? {
+                        full: `Only messages the built-in reader misses go to ${aiName}, with account numbers masked.`,
+                        short: 'Only missed messages, account numbers masked',
+                        tier: 'help',
+                      }
+                    : { full: 'Unreadable messages are skipped.', tier: 'help' }
                 }
               />
               {prefs.aiSms && (
@@ -216,7 +252,11 @@ export function AiSettings() {
                   testId="ai-sms-merchant"
                   checked={prefs.aiSmsMerchant}
                   onChange={(v) => set({ aiSmsMerchant: v })}
-                  text={`When the app reads the amount but not the payee, the masked message is sent to ${aiName} for the name. Off: such payments are saved as “Payment”.`}
+                  text={{
+                    full: `When the app reads the amount but not the payee, the masked message is sent to ${aiName} for the name. Off: such payments are saved as “Payment”.`,
+                    short: 'For the payee’s name when the app can’t read it',
+                    tier: 'help',
+                  }}
                 />
               )}
               {aiQuickAdd ? (
@@ -225,7 +265,11 @@ export function AiSettings() {
                   testId="ai-quick-add"
                   checked={prefs.aiQuickAdd}
                   onChange={(v) => set({ aiQuickAdd: v })}
-                  text="When a line is too complex to read, AI works it out. Uses your AI quota."
+                  text={{
+                    full: 'When a line is too complex to read, AI works it out. Uses your AI quota.',
+                    short: 'AI works out lines too complex to read',
+                    tier: 'help',
+                  }}
                 />
               ) : (
                 <div data-testid="ai-quick-add-off">
@@ -241,8 +285,12 @@ export function AiSettings() {
                   onChange={(v) => set({ aiPayments: v })}
                   text={
                     prefs.aiPayments
-                      ? 'In groups where payments need your OK, a payment to you counts straight away when its screenshot matches. Uses your AI quota.'
-                      : 'Payments to you wait for your OK, even with a screenshot attached.'
+                      ? {
+                          full: 'In groups where payments need your OK, a payment to you counts straight away when its screenshot matches. Uses your AI quota.',
+                          short: 'A matching screenshot counts without your OK',
+                          tier: 'key',
+                        }
+                      : { full: 'Payments to you wait for your OK, even with a screenshot attached.', short: 'Payments to you wait for your OK', tier: 'help' }
                   }
                 />
               ) : (
@@ -296,6 +344,7 @@ export function AiSettings() {
             <div className="rounded-2xl ring-1 ring-slate-200 dark:ring-white/10" data-testid="ai-own-key">
               <div className="flex items-center gap-2 px-3.5 pt-3 font-semibold">
                 <KeyRound size={16} className="text-brand-500" aria-hidden /> Your own Gemini key
+                <InfoTip hint={OWN_KEY_HINT} label="About your own key" />
                 {hasKey && (
                   <span
                     className={`ml-auto flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${state?.lastError ? 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'}`}
@@ -381,30 +430,27 @@ export function AiSettings() {
                     </div>
                   </form>
                 )}
-                <p className="text-muted text-xs">
-                  Keys come from{' '}
-                  <a
-                    className="inline-flex items-center gap-0.5 font-semibold text-brand-600 dark:text-brand-300"
-                    href="https://aistudio.google.com/apikey"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    aistudio.google.com/apikey <ExternalLink size={11} aria-hidden />
-                  </a>
-                  . Google’s free tier may use what you send to improve its models and isn’t meant for personal data, so for bills and bank messages use a key
-                  from a project with billing turned on (the paid tier). The key is checked with Google, then kept on Split Now’s server; the app only ever
-                  shows its last 4 characters.
-                </p>
+                <HintText hint={OWN_KEY_HINT} />
                 <div>
                   <div className="label">Model for your key</div>
                   <Select aria-label="Model" value={prefs.aiModel} onChange={(v) => set({ aiModel: v })} options={modelOptions} />
-                  <p className="text-muted mt-1 text-xs">
-                    {!hasKey
-                      ? 'Add a key to see every model it can use.'
-                      : models === null
-                        ? 'Loading the models your key can use…'
-                        : 'If a model is retired, the recommended one is used instead.'}
-                  </p>
+                  {/* Loading is status and always shows; the other two explain the picker. */}
+                  {hasKey && models === null ? (
+                    <p className="text-muted mt-1 text-xs">Loading the models your key can use…</p>
+                  ) : (
+                    <HintText
+                      className="text-muted mt-1 text-xs"
+                      hint={
+                        !hasKey
+                          ? { full: 'Add a key to see every model it can use.', tier: 'help' }
+                          : {
+                              full: 'If a model is retired, the recommended one is used instead.',
+                              short: 'A retired model falls back to the recommended one',
+                              tier: 'help',
+                            }
+                      }
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -425,12 +471,15 @@ export function AiSettings() {
   )
 }
 
-function Row({ title, text, checked, onChange, testId }: { title: string; text: string; checked: boolean; onChange: (v: boolean) => void; testId: string }) {
+function Row({ title, text, checked, onChange, testId }: { title: string; text: Hint; checked: boolean; onChange: (v: boolean) => void; testId: string }) {
   return (
     <div className="flex items-start gap-3">
       <div className="min-w-0 flex-1">
-        <div className="font-semibold">{title}</div>
-        <div className="text-muted text-sm">{text}</div>
+        <div className="flex items-center font-semibold">
+          {title}
+          <InfoTip hint={text} label={`About ${title.toLowerCase()}`} />
+        </div>
+        <HintText hint={text} as="div" className="text-muted text-sm" />
       </div>
       <Switch checked={checked} onChange={onChange} label={title} testId={testId} />
     </div>

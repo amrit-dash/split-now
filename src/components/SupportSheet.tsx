@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Coffee, ExternalLink, Globe, HandHeart, Heart, Quote, Star } from 'lucide-react'
+import { HintText, type Hint } from '@/components/Hint'
 import { Sheet } from '@/components/Sheet'
 import { SUPPORT_LINKS } from '@/lib/brand'
 
@@ -46,7 +47,7 @@ export function SupportSheet({ open, onClose }: { open: boolean; onClose: () => 
           iconClass="bg-white/60 text-slate-900"
           icon={<Coffee size={20} aria-hidden />}
           title="Buy me a coffee"
-          sub="A one-off thank you, any amount"
+          sub={{ full: 'A one-off thank you, any amount', tier: 'help' }}
         />
         <SupportLink
           href={SUPPORT_LINKS.sponsors}
@@ -55,7 +56,7 @@ export function SupportSheet({ open, onClose }: { open: boolean; onClose: () => 
           iconClass="bg-white/10 text-pink-400 dark:bg-pink-50 dark:text-pink-600"
           icon={<Heart size={20} fill="currentColor" aria-hidden />}
           title="Sponsor on GitHub"
-          sub="Monthly or one-time"
+          sub={{ full: 'Monthly or one-time', tier: 'help' }}
         />
       </div>
 
@@ -97,7 +98,7 @@ function SupportLink({
   iconClass: string
   icon: ReactNode
   title: string
-  sub: string
+  sub: Hint
 }) {
   return (
     <a
@@ -110,7 +111,7 @@ function SupportLink({
       <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${iconClass}`}>{icon}</span>
       <span className="min-w-0 flex-1">
         <span className="block font-bold">{title}</span>
-        <span className="block text-xs opacity-75">{sub}</span>
+        <HintText hint={sub} as="span" className="block text-xs opacity-75" />
         <span className="sr-only">, opens outside the app</span>
       </span>
       <ExternalLink size={16} className="shrink-0 opacity-60" aria-hidden />

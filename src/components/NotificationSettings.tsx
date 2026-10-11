@@ -3,6 +3,7 @@ import { Bell, BellOff, Share } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
+import { useCaptureTokens } from '@/hooks/data'
 import { errText } from '@/lib/errors'
 import { formatMoney } from '@/lib/money'
 import {
@@ -20,22 +21,53 @@ import {
   type AllPrefs,
   type NotificationPrefs,
 } from '@/lib/push'
+import { HintText, InfoTip, useShows, type Hint } from './Hint'
 import { Switch } from './Switch'
 import { useToast } from './Toast'
 
 type TypeKey = Exclude<keyof NotificationPrefs, 'outsideTrips'>
 
 /** The notification types, with an example in the user's own currency. */
-function types(currency: string): Array<{ key: TypeKey; label: string; hint: string }> {
+function types(currency: string): Array<{ key: TypeKey; label: string; hint: Hint }> {
   return [
-    { key: 'captures', label: 'Payments on a trip', hint: `“You spent ${formatMoney(84000, currency)} at Swiggy — add to Goa trip?” from forwarded bank SMS.` },
-    { key: 'unsorted', label: 'Payments outside a trip', hint: 'Also tell you about captured payments that match no trip.' },
-    { key: 'expenses', label: 'New expenses', hint: 'When someone adds an expense that includes you.' },
-    { key: 'settlements', label: 'Someone pays you back', hint: 'When someone records a payment to you.' },
-    { key: 'reminders', label: 'Settle-up reminders', hint: 'A gentle weekly nudge when you’ve owed someone for a week.' },
-    { key: 'chat', label: 'Group chat', hint: 'New messages in your groups’ chats. Mute one chat from its group’s ⋯ menu.' },
-    { key: 'openItems', label: 'Open items', hint: 'When someone thinks you paid for something nobody has added yet.' },
+    {
+      key: 'captures',
+      label: 'Payments on a trip',
+      hint: {
+        full: `“You spent ${formatMoney(84000, currency)} at Swiggy — add to Goa trip?” from forwarded bank SMS.`,
+        short: 'Captured payments that match a trip',
+        tier: 'help',
+      },
+    },
+    {
+      key: 'unsorted',
+      label: 'Payments outside a trip',
+      hint: { full: 'Also tell you about captured payments that match no trip.', short: 'Captured payments that match no trip', tier: 'help' },
+    },
+    { key: 'expenses', label: 'New expenses', hint: { full: 'When someone adds an expense that includes you.', tier: 'help' } },
+    { key: 'settlements', label: 'Someone pays you back', hint: { full: 'When someone records a payment to you.', tier: 'help' } },
+    {
+      key: 'reminders',
+      label: 'Settle-up reminders',
+      hint: { full: 'A gentle weekly nudge when you’ve owed someone for a week.', short: 'A weekly nudge when you owe someone', tier: 'help' },
+    },
+    {
+      key: 'chat',
+      label: 'Group chat',
+      hint: { full: 'New messages in your groups’ chats. Mute one chat from its group’s ⋯ menu.', short: 'New messages in your groups’ chats', tier: 'help' },
+    },
+    {
+      key: 'openItems',
+      label: 'Open items',
+      hint: { full: 'When someone thinks you paid for something nobody has added yet.', short: 'When someone thinks you paid for something', tier: 'help' },
+    },
   ]
+}
+
+const TURN_ON_HINT: Hint = {
+  full: 'Get a ping when a trip payment is captured, someone adds an expense with you, or pays you back.',
+  short: 'A ping for new expenses and payments to you',
+  tier: 'help',
 }
 
 /** Whether this build can show the Notifications settings at all (push needs Firebase and a VAPID key). */
@@ -74,6 +106,8 @@ export function NotificationSettings() {
   const toast = useToast()
   const { perm, setPerm, busy, setBusy, turnOn } = useTurnOnPush()
   const [prefs, setPrefs] = useState<AllPrefs>(DEFAULT_ALL_PREFS)
+  const tokens = useCaptureTokens()
+  const showAll = useShows(2)
 
   useEffect(() => (notificationsAvailable() ? watchPrefs(user.uid, setPrefs) : undefined), [user.uid])
 
@@ -123,7 +157,7 @@ export function NotificationSettings() {
           <p className="text-muted text-sm">Notifications are blocked for this site. Allow them in your browser or system settings, then reload.</p>
         ) : (
           <>
-            <p className="text-muted text-sm">Get a ping when a trip payment is captured, someone adds an expense with you, or pays you back.</p>
+            <HintText hint={TURN_ON_HINT} className="text-muted text-sm" />
             <button type="button" className="btn-primary mt-3 w-full" onClick={turnOn} disabled={busy}>
               <Bell size={18} aria-hidden /> Turn on notifications
             </button>
@@ -133,29 +167,43 @@ export function NotificationSettings() {
 
       <h2 className="mb-2 mt-5 px-1 font-bold">What to tell you about</h2>
       <div className="space-y-2">
-        {types(profile.currency).map((t) => {
-          const why = blocked(t.key)
-          const id = `notif-${t.key}-label`
-          return (
-            <div key={t.key} className={`card flex items-center justify-between gap-4 p-3 ${why ? 'opacity-60' : ''}`} data-testid={`notif-${t.key}`}>
-              <div className="min-w-0">
-                <div id={id} className="text-sm font-semibold">
-                  {t.label}
+        {types(profile.currency)
+          // Minimal leaves out the capture rows until auto-capture is set up (a capture key exists): they'd never fire.
+          .filter((t) => showAll || !!tokens?.length || (t.key !== 'captures' && t.key !== 'unsorted'))
+          .map((t) => {
+            const why = blocked(t.key)
+            const id = `notif-${t.key}-label`
+            return (
+              <div key={t.key} className={`card flex items-center justify-between gap-4 p-3 ${why ? 'opacity-60' : ''}`} data-testid={`notif-${t.key}`}>
+                <div className="min-w-0">
+                  <div id={id} className="flex items-center text-sm font-semibold">
+                    {t.label}
+                    {!why && <InfoTip hint={t.hint} label={`About ${t.label.toLowerCase()}`} />}
+                  </div>
+                  {/* Why a row is off is status, always shown; the row's own description follows the look. */}
+                  {why ? <div className="text-muted text-xs">{why}</div> : <HintText hint={t.hint} as="div" />}
                 </div>
-                <div className="text-muted text-xs">{why ?? t.hint}</div>
+                <Switch checked={prefs[t.key] && !why} disabled={!!why} onChange={(v) => toggle(t.key, v)} label={t.label} testId={`notif-${t.key}-switch`} />
               </div>
-              <Switch checked={prefs[t.key] && !why} disabled={!!why} onChange={(v) => toggle(t.key, v)} label={t.label} testId={`notif-${t.key}-switch`} />
-            </div>
-          )
-        })}
+            )
+          })}
       </div>
-      <p className="text-muted mt-3 px-1 text-xs">
-        These choices apply to all your devices. Capture settings live in{' '}
-        <Link to="/settings/automation" className="font-semibold text-brand-600 dark:text-brand-300">
-          Automation
-        </Link>
-        .
-      </p>
+      <HintText
+        className="text-muted mt-3 px-1 text-xs"
+        hint={{
+          full: (
+            <>
+              These choices apply to all your devices. Capture settings live in{' '}
+              <Link to="/settings/automation" className="font-semibold text-brand-600 dark:text-brand-300">
+                Automation
+              </Link>
+              .
+            </>
+          ),
+          short: 'These apply to all your devices',
+          tier: 'help',
+        }}
+      />
     </div>
   )
 }

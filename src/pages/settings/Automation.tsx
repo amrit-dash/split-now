@@ -7,7 +7,7 @@ export default function Automation() {
   // The admin's switch (config/app flags.autoCapture): one line instead of the settings, and none of their listeners started.
   const autoCapture = useFlag('autoCapture')
   return (
-    <SettingsPage title="Automation" subtitle="Bank and UPI payments, captured for you">
+    <SettingsPage title="Automation" subtitle={{ full: 'Bank and UPI payments, captured for you', tier: 'help' }}>
       {autoCapture ? <AutoCapture /> : <AutoCaptureOff />}
     </SettingsPage>
   )
