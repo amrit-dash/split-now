@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { labelOf } from '@/lib/shortNames'
 import { Navigate, useParams } from 'react-router-dom'
 import { ArrowDown, ChevronLeft, Copy, Trash2 } from 'lucide-react'
 import { repo } from '@/data'
@@ -185,7 +186,7 @@ export default function GroupChat() {
       .catch((e) => toast(errText(e), 'err'))
   }
   const newBelow = atBottom ? 0 : unreadCount(messages, seenAt, user.uid)
-  const members = group ? Object.values(group.members).filter((m) => typeof m.removedAt !== 'number') : []
+  const members = group ? Object.keys(group.members).filter((id) => typeof group.members[id].removedAt !== 'number') : []
 
   return (
     <div className="flex h-dvh flex-col bg-slate-100 dark:bg-ink-950">
@@ -205,7 +206,7 @@ export default function GroupChat() {
             <div className="text-muted truncate text-xs">
               {members.length
                 ? members
-                    .map((m) => m.name.split(' ')[0])
+                    .map((id) => (group && id === ctx?.me ? 'You' : labelOf(group?.members ?? {}, id, '', ctx?.me)))
                     .slice(0, 6)
                     .join(', ') + (members.length > 6 ? ` +${members.length - 6}` : '')
                 : ''}

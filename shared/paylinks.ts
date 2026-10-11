@@ -14,6 +14,7 @@
  * records exactly what the server would. Pure: no Firebase, no DOM, no `@/types` (documents are
  * matched structurally).
  */
+import { labelOf } from './names'
 
 export type PayLinkStatus = 'open' | 'claimed' | 'paid' | 'cancelled'
 
@@ -270,8 +271,9 @@ export function planRecord(
   if (members[l.to]?.uid !== l.createdBy || !uids.includes(l.createdBy)) return { kind: 'skip', reason: 'not_payee' }
   if (!Number.isInteger(l.amount) || l.amount <= 0) return { kind: 'skip', reason: 'bad_amount' }
   if (g.currency && g.currency !== l.currency) return { kind: 'skip', reason: 'currency' }
-  const fromName = members[l.from]?.name || l.payerName || 'Someone'
-  const toName = members[l.to]?.name || l.payeeName || 'Someone'
+  // Named the way the group names people (shared/names.ts).
+  const fromName = labelOf(members, l.from, '') || l.payerName || 'Someone'
+  const toName = labelOf(members, l.to, '') || l.payeeName || 'Someone'
   const note = l.proofPath ? `${PAY_LINK_NOTE}, with a screenshot` : PAY_LINK_NOTE
   return {
     kind: 'record',

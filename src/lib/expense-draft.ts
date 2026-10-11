@@ -8,7 +8,7 @@ import { suggestCategory, type MerchantMemory } from './merchants'
 import type { QuickPrefill } from './nl-expense'
 import { sanitizeSplit, type LastSplit, type Suggestion } from './recents'
 import { firstNextDate, nextAfter } from './recurrence'
-import { shortNames } from './shortNames'
+import { groupLabels } from './shortNames'
 import { todayISO, uid } from './id'
 import { titleCase } from './text'
 
@@ -532,22 +532,12 @@ export function buildRecurrence(repeat: RecurrenceFreq | 'never', date: string, 
 
 type Named = Pick<Group, 'members'> & { type?: Group['type'] }
 
-/** Computed once per members map and viewer (groups come from the shared store, so the object is stable). */
-const labelCache = new WeakMap<object, { me: MemberId; type?: Group['type']; labels: Record<MemberId, string> }>()
-
 /**
- * Paid by / Split labels: first names in a shared group ("Rahul S." when two share one), full
- * names in a 1:1 and the personal wallet, where there is no one to confuse; "You" for me.
+ * Paid by / Split labels: first names ("Rahul S." when two share one, src/lib/shortNames.ts), in
+ * every kind of group, 1:1s included; "You" for me.
  */
 export function memberLabels(group: Named, me: MemberId): Record<MemberId, string> {
-  const hit = labelCache.get(group.members)
-  if (hit && hit.me === me && hit.type === group.type) return hit.labels
-  const labels =
-    group.type !== 'direct' && group.type !== 'personal'
-      ? shortNames(group.members, me)
-      : Object.fromEntries(Object.entries(group.members).map(([id, m]) => [id, id === me ? 'You' : m.name]))
-  labelCache.set(group.members, { me, type: group.type, labels })
-  return labels
+  return groupLabels(group.members, me)
 }
 
 /** One member's label; someone no longer in the group keeps a plain placeholder. */

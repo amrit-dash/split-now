@@ -2,6 +2,7 @@ import type { Expense, Group, MemberId } from '@/types'
 import { todayISO } from './id'
 import { addDaysISO } from './recents'
 import { activeMembers } from './members'
+import { labelOf } from './shortNames'
 
 /*
  * "Whose turn to pay?": a private, good-humoured hint for the moment the bill arrives. Over
@@ -59,7 +60,7 @@ export function whoseTurn(
   const [, runnerUp] = candidates[1]
   // Everyone is square and nobody stands out: no hint is better than a random name.
   if (s.fronted === runnerUp.fronted && s.lastPaid === runnerUp.lastPaid) return null
-  return { memberId: id, name: group.members[id]?.name ?? 'Someone', fronted: s.fronted, lastPaid: s.lastPaid }
+  return { memberId: id, name: labelOf(group.members, id), fronted: s.fronted, lastPaid: s.lastPaid }
 }
 
 /** Never paid sorts first (it is their turn more than anyone's), then the oldest last payment. */

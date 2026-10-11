@@ -49,9 +49,11 @@ export default function Admin() {
         <nav aria-label="Admin sections" className="scrollbar-none -mx-4 mt-3 overflow-x-auto px-4">
           <div className="flex w-max min-w-full gap-1 rounded-2xl bg-slate-100 p-1 dark:bg-ink-800">
             {TABS.map((t) => (
+              // Switching tabs replaces the history entry: Back leaves Admin instead of walking the tabs.
               <NavLink
                 key={t.to}
                 to={t.to}
+                replace
                 end={'end' in t}
                 className={({ isActive }) =>
                   `flex min-h-10 flex-1 items-center justify-center whitespace-nowrap rounded-xl px-3.5 text-sm font-semibold transition ${

@@ -3,7 +3,7 @@
  * Functions; the server is the one that enforces it.
  *
  *  config/ai                     project settings (admins edit; everyone signed in can read)
- *  users/{uid}/settings/notifications   the user's choices (aiEnabled, aiImages, aiSms, aiQuickAdd, aiPayments, aiSource, aiModel)
+ *  users/{uid}/settings/notifications   the user's choices (aiEnabled, aiImages, aiSms, aiQuickAdd, aiPayments, aiSource, aiModel, aiFreeOk)
  *  users/{uid}/secrets/gemini    the user's own key (server only; the app can never read it back)
  *  users/{uid}/aiState/status    server-written: own key last 4, last error (owner can read)
  */
@@ -18,6 +18,13 @@ export type AiFeature = 'images' | 'sms' | 'quickAdd' | 'payments'
 export const appFeatureOf = (f: AiFeature): 'images' | 'sms' => (f === 'sms' ? 'sms' : 'images')
 export type AiSource = 'auto' | 'own' | 'app'
 export type AppAiMode = 'off' | 'everyone' | 'allowlist'
+/**
+ * What Split Now's shared AI runs on: Gemini on the project key (paid, fast, admin's choice of who)
+ * or Gemma, Google's open model, which the Gemini API serves free of charge on the same key but
+ * under Google's unpaid-service terms (Google may use what is sent to improve its products). Gemma
+ * is for everyone (no allow-list) and each person agrees to it in their AI settings (aiFreeOk).
+ */
+export type AppAiEngine = 'gemini' | 'gemma'
 
 /**
  * Recommended model, and the fallbacks tried when a chosen model is unknown to a key (404 /
@@ -29,13 +36,22 @@ export type AppAiMode = 'off' | 'everyone' | 'allowlist'
  */
 export const DEFAULT_MODEL = 'gemini-3.5-flash-lite'
 export const FALLBACK_MODELS = ['gemini-3.1-flash-lite', 'gemini-2.5-flash-lite', 'gemini-flash-lite-latest'] as const
+/**
+ * Used when the key's model list can't be fetched. Gemma 4 on the Gemini API (checked
+ * 2026-10-11 against ai.google.dev/gemma/docs/core/gemma_on_gemini_api): 26B A4B is a
+ * mixture-of-experts with 4B active, much quicker than the dense 31B, so it goes first.
+ */
+export const GEMMA_FALLBACK_MODELS = ['gemma-4-26b-a4b-it', 'gemma-4-31b-it'] as const
 export const MAX_ALLOW_EMAILS = 200
 /** Calls on the shared key per IST day, over every user, before it is switched off until tomorrow. */
 export const DEFAULT_GLOBAL_PER_DAY = 2000
 
 export interface AppAiConfig {
-  /** the shared (project) key: off, for everyone, or only for listed emails */
+  /** the shared (project) key: off, for everyone, or only for listed emails (Gemma: off or everyone) */
   mode: AppAiMode
+  engine: AppAiEngine
+  /** Gemma model for the shared key; '' = the newest the key can use (latestGemma) */
+  gemmaModel: string
   allowEmails: string[]
   /** which features the shared key may be used for */
   images: boolean
@@ -51,6 +67,8 @@ export interface AppAiConfig {
 
 export const DEFAULT_APP_AI: AppAiConfig = {
   mode: 'off',
+  engine: 'gemini',
+  gemmaModel: '',
   allowEmails: [],
   images: true,
   sms: true,
@@ -72,6 +90,8 @@ export interface UserAiPrefs {
   aiSource: AiSource
   /** model for the user's own key; '' = recommended */
   aiModel: string
+  /** agreed to Split Now's free AI (Gemma, Google's unpaid terms); nothing goes to it until then */
+  aiFreeOk: boolean
 }
 
 // Bank SMS reading by AI is opt-in (owner decision, Oct 2026): off until the person turns it on.
@@ -84,6 +104,7 @@ export const DEFAULT_USER_AI: UserAiPrefs = {
   aiPayments: true,
   aiSource: 'auto',
   aiModel: '',
+  aiFreeOk: false,
 }
 
 const MODEL_RE = /^[a-z0-9][a-z0-9.-]{2,79}$/
@@ -94,10 +115,15 @@ export const normaliseEmail = (e: string) => e.trim().toLowerCase()
 
 export function resolveAppAi(raw: unknown): AppAiConfig {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
-  const mode: AppAiMode = r.mode === 'everyone' || r.mode === 'allowlist' ? r.mode : 'off'
+  const engine: AppAiEngine = r.engine === 'gemma' ? 'gemma' : 'gemini'
+  const picked: AppAiMode = r.mode === 'everyone' || r.mode === 'allowlist' ? r.mode : 'off'
+  // Gemma is for everyone: an allow-list saved for Gemini is kept but doesn't narrow it.
+  const mode: AppAiMode = engine === 'gemma' && picked === 'allowlist' ? 'everyone' : picked
   const emails = Array.isArray(r.allowEmails) ? r.allowEmails.filter((e): e is string => typeof e === 'string' && e.includes('@')).map(normaliseEmail) : []
   return {
     mode,
+    engine,
+    gemmaModel: isGemma(r.gemmaModel) && validModel(r.gemmaModel) ? r.gemmaModel : '',
     allowEmails: [...new Set(emails)].slice(0, MAX_ALLOW_EMAILS),
     images: r.images !== false,
     sms: r.sms !== false,
@@ -118,8 +144,11 @@ export function resolveUserAi(raw: unknown): UserAiPrefs {
     aiPayments: r.aiPayments !== false,
     aiSource: r.aiSource === 'own' || r.aiSource === 'app' ? r.aiSource : 'auto',
     aiModel: validModel(r.aiModel) ? r.aiModel : '',
+    aiFreeOk: r.aiFreeOk === true,
   }
 }
+
+export const isGemma = (m: unknown): m is string => typeof m === 'string' && /^gemma-/.test(m)
 
 /** Has this person switched AI on for this feature (the master switch and the feature's own)? */
 export const userFeatureOn = (user: UserAiPrefs, feature: AiFeature): boolean =>
@@ -128,7 +157,7 @@ export const userFeatureOn = (user: UserAiPrefs, feature: AiFeature): boolean =>
 /** May this person use the shared key for this feature? */
 export function appKeyAllowed(app: AppAiConfig, feature: AiFeature, email: string | undefined): boolean {
   if (app.mode === 'off' || !app[appFeatureOf(feature)]) return false
-  if (app.mode === 'everyone') return true
+  if (app.mode === 'everyone' || app.engine === 'gemma') return true
   return !!email && app.allowEmails.includes(normaliseEmail(email))
 }
 
@@ -143,6 +172,8 @@ export function appKeyStatus(app: AppAiConfig, feature: AiFeature, email: string
 
 export interface KeyPlan {
   key: 'own' | 'app'
+  /** the shared key on Gemma: `models` is [] for "the newest", filled in by the server (gemmaPlanModels) */
+  engine?: 'gemma'
   models: string[]
 }
 
@@ -154,22 +185,74 @@ export interface KeyPlan {
  *  quota           every usable key is over its hourly / daily limit (or the project's daily budget)
  *  bad_key         Google rejected the key (the user's own, or the project's)
  *  server          Gemini didn't answer, timed out, or returned something unusable
+ *  needs_ok        Split Now's AI is the free one (Gemma) and this person hasn't agreed to it yet
  */
-export type AiUnavailableReason = 'off' | 'not_listed' | 'not_configured' | 'quota' | 'bad_key' | 'server'
+export type AiUnavailableReason = 'off' | 'not_listed' | 'not_configured' | 'quota' | 'bad_key' | 'server' | 'needs_ok'
 
 /** A model list that never ends without the recommended model and its fallbacks. */
 export const withFallbacks = (m: string | undefined) => [...new Set([m || DEFAULT_MODEL, DEFAULT_MODEL, ...FALLBACK_MODELS])]
 
 /**
  * Which keys to try, in order, for one request. Empty = don't call AI at all (the app reads bills
- * on the phone; SMS keep the built-in parser's result).
+ * on the phone; SMS keep the built-in parser's result). Automatic tries the person's own key first,
+ * except when Split Now's AI is the free one (Gemma) and they turned it on: then the free AI goes
+ * first and their key is the fallback, so it doesn't spend their own quota (owner decision, Oct 2026).
  */
 export function planAi(opts: { feature: AiFeature; user: UserAiPrefs; app: AppAiConfig; hasOwnKey: boolean; email?: string }): KeyPlan[] {
   const { feature, user, app, hasOwnKey, email } = opts
   if (!userFeatureOn(user, feature)) return []
   const own: KeyPlan | null = hasOwnKey && user.aiSource !== 'app' ? { key: 'own', models: withFallbacks(user.aiModel) } : null
-  const shared: KeyPlan | null = user.aiSource !== 'own' && appKeyAllowed(app, feature, email) ? { key: 'app', models: withFallbacks(app.model) } : null
-  return [own, shared].filter((p): p is KeyPlan => !!p)
+  let shared: KeyPlan | null = null
+  if (user.aiSource !== 'own' && appKeyAllowed(app, feature, email)) {
+    if (app.engine !== 'gemma') shared = { key: 'app', models: withFallbacks(app.model) }
+    else if (user.aiFreeOk) shared = { key: 'app', engine: 'gemma', models: app.gemmaModel ? [app.gemmaModel] : [] }
+  }
+  const freeFirst = shared?.engine === 'gemma' && user.aiSource === 'auto'
+  return (freeFirst ? [shared, own] : [own, shared]).filter((p): p is KeyPlan => !!p)
+}
+
+/** The hint under "Which key" for Automatic: what it tries first. */
+export const autoSourceHint = (freeFirst: boolean) => (freeFirst ? 'Split Now’s free AI first, then your key' : 'Your key first, then Split Now’s')
+
+/** The shared key would serve this person if only they agreed to the free AI (for the "needs your OK" reason). */
+export const needsFreeOk = (opts: { feature: AiFeature; user: UserAiPrefs; app: AppAiConfig; email?: string }) =>
+  opts.app.engine === 'gemma' &&
+  !opts.user.aiFreeOk &&
+  opts.user.aiSource !== 'own' &&
+  userFeatureOn(opts.user, opts.feature) &&
+  appKeyAllowed(opts.app, opts.feature, opts.email)
+
+const gemmaVer = (id: string) => Number(id.match(/^gemma-(\d+(?:\.\d+)?)/)?.[1] ?? 0)
+const gemmaSize = (id: string) => Number(id.match(/-(\d+)b(?:-|$)/)?.[1] ?? 0)
+
+/**
+ * Gemma models worth offering for reading bills and text: the general instruction-tuned ones that
+ * generate content. Not the specialised families (embedding, translation, medical, safety), not the
+ * on-device E2B/E4B / 3n sizes. Newest generation first; within one, the mixture-of-experts model
+ * (fast) before the dense ones, then bigger before smaller.
+ */
+export function gemmaModels(list: Array<{ name: string; displayName?: string; supportedGenerationMethods?: string[] }>): Array<{ id: string; label: string }> {
+  const out: Array<{ id: string; label: string }> = []
+  for (const m of list) {
+    const id = m.name.replace(/^models\//, '')
+    if (!isGemma(id) || !validModel(id) || !m.supportedGenerationMethods?.includes('generateContent')) continue
+    if (!/^gemma-\d/.test(id) || /embed|translate|med|shield|guard|code|3n|-e\d+b/.test(id)) continue
+    out.push({ id, label: m.displayName || id })
+  }
+  const moe = (id: string) => /-a\d+b/.test(id)
+  return out.sort(
+    (a, b) => gemmaVer(b.id) - gemmaVer(a.id) || Number(moe(b.id)) - Number(moe(a.id)) || gemmaSize(b.id) - gemmaSize(a.id) || a.id.localeCompare(b.id),
+  )
+}
+
+/**
+ * Models to try for the shared key on Gemma: the admin's pick (or the newest available), then the
+ * other current Gemma models, never a paid Gemini model. `available` is gemmaModels' ids, newest first.
+ */
+export function gemmaPlanModels(picked: string, available: string[]): string[] {
+  const list = available.length ? available : [...GEMMA_FALLBACK_MODELS]
+  const newest = gemmaVer(list[0])
+  return [...new Set([...(picked ? [picked] : []), ...list.filter((m) => gemmaVer(m) === newest), ...list])].slice(0, 3)
 }
 
 /**

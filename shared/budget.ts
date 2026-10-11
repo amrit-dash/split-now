@@ -27,6 +27,8 @@ export interface BudgetStatus {
   /** "₹1,200 left" / "₹300 over" / "80% of the budget used" */
   label: string
   short: string
+  /** the one line under the group's budget bar: "₹1,200 left", "₹1,200 left · close to the budget", "Budget reached", "₹300 over budget" */
+  note: string
 }
 
 /** One reading of a budget, for the bar and the Insights card. `fmt` formats minor units. */
@@ -36,5 +38,6 @@ export function budgetStatus(spent: number, budget: number, fmt: (minor: number)
   const over = spent > budget
   const label = over ? `${fmt(spent - budget)} over` : `${fmt(budget - spent)} left`
   const short = reached === 100 ? (over ? 'Over budget' : 'Budget reached') : reached === 80 ? `${pct}% of the budget used` : label
-  return { pct, tone: over || reached === 100 ? 'over' : reached === 80 ? 'near' : 'ok', threshold: reached, label, short }
+  const note = over ? `${fmt(spent - budget)} over budget` : reached === 100 ? 'Budget reached' : reached === 80 ? `${label} · close to the budget` : label
+  return { pct, tone: over || reached === 100 ? 'over' : reached === 80 ? 'near' : 'ok', threshold: reached, label, short, note }
 }

@@ -45,7 +45,7 @@ export function AiScanToggle({ className = '' }: { className?: string }) {
     )
   }
 
-  const avail = aiAvailability({ status, hasOwnKey: hasKey, enabled: true })
+  const avail = aiAvailability({ status, hasOwnKey: hasKey, enabled: true, freeOk: prefs?.aiFreeOk })
   if (status !== undefined && !avail.images) {
     return (
       <p className={`text-muted flex items-center gap-2 text-xs ${className}`}>

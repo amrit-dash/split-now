@@ -31,6 +31,7 @@ import { Sheet } from '@/components/Sheet'
 import { useToast } from '@/components/Toast'
 import { Select } from '@/components/Select'
 import { activeMembers } from '@/lib/members'
+import { labelOf } from '@/lib/shortNames'
 
 const NEW = '__new'
 const NONE = '__none'
@@ -144,7 +145,7 @@ function useSaveExpense(table: LiveTable) {
       createdAt: now,
       updatedAt: now,
     }
-    await repo.saveExpense(e)
+    await repo.saveExpense(e, { isNew: true })
     // Each guest gets their own Pay me link for exactly their share, so their "I've paid" is
     // recorded in this group. Only when the payer is the host's own member (the rules check it).
     const links =
@@ -222,7 +223,7 @@ function ToGroup({ table, group, ready }: { table: LiveTable; group: Group; read
                 onChange={(v) => setMapping({ ...mapping, [p]: v })}
                 aria-label={`Group member for ${table.participants[p].name}`}
                 options={[
-                  ...members.map((m) => ({ value: m, label: group.members[m].name })),
+                  ...members.map((m) => ({ value: m, label: labelOf(group.members, m) })),
                   { value: NEW, label: 'Add as new member', icon: <span>➕</span> },
                 ]}
               />
@@ -232,7 +233,7 @@ function ToGroup({ table, group, ready }: { table: LiveTable; group: Group; read
       </div>
       {dupes.size > 0 && <p className="mt-2 text-xs text-amber-600">Two people point at the same member — their items will be combined.</p>}
       <p className="mt-2 text-muted text-xs">
-        {group.members[payer]?.name ?? 'You'} paid {formatMoney(tableTotal(table), table.currency)}. Everyone else owes their share.
+        {group.members[payer] ? labelOf(group.members, payer) : 'You'} paid {formatMoney(tableTotal(table), table.currency)}. Everyone else owes their share.
       </p>
       <button type="button" className="btn-primary mt-4 w-full" disabled={!ready || busy} onClick={finish}>
         <Check size={18} aria-hidden /> Add expense to {group.name}

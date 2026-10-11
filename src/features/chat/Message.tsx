@@ -1,4 +1,5 @@
 import { useRef, useState, type ReactNode } from 'react'
+import { labelOf } from '@/lib/shortNames'
 import { Link } from 'react-router-dom'
 import { Check, ChevronDown, Clock, HandCoins, Receipt } from 'lucide-react'
 import type { ActivityEntry, ChatMessage, Expense, Group, MemberId, OpenItem } from '@/types'
@@ -139,6 +140,7 @@ export function MessageRow({ row, ctx }: { row: Extract<ChatRow, { type: 'messag
   const { message: m, mine, first, last } = row
   const memberId = authorMember(ctx.group, m.authorUid)
   const member = memberId ? ctx.group.members[memberId] : undefined
+  const label = memberId ? labelOf(ctx.group.members, memberId, m.authorName, ctx.me) : m.authorName
   const hold = useHold(() => ctx.onMenu(m))
   const time = formatTime(m.createdAt)
   const card = m.kind === 'text' ? null : <Card m={m} ctx={ctx} mine={mine} memberId={memberId} />
@@ -155,14 +157,14 @@ export function MessageRow({ row, ctx }: { row: Extract<ChatRow, { type: 'messag
         // biome-ignore lint/a11y/noNoninteractiveTabindex: the bubble opens its menu from the keyboard (Enter)
         tabIndex={0}
         role="article"
-        aria-label={`${mine ? 'You' : (member?.name ?? m.authorName)}, ${time}${m.pending ? ', sending' : ''}. Press Enter for options`}
+        aria-label={`${mine ? 'You' : label}, ${time}${m.pending ? ', sending' : ''}. Press Enter for options`}
         className={`max-w-[80%] select-text rounded-3xl px-3.5 py-2 shadow-sm outline-offset-2 ${tail} ${
           mine ? 'bg-fill text-on-fill' : 'bg-white text-slate-900 dark:bg-ink-800 dark:text-slate-100'
         } ${card ? 'min-w-[14rem]' : ''}`}
       >
         {!mine && first && (
           <div className="mb-0.5 text-xs font-bold" style={{ color: member?.color && member.color !== 'accent' ? member.color : undefined }}>
-            {member?.name ?? m.authorName}
+            {label}
           </div>
         )}
         {card}
@@ -199,7 +201,7 @@ function Card({ m, ctx, mine, memberId }: { m: ChatMessage; ctx: MessageCtx; min
       )
     const { item, state } = entry
     const cat = CATEGORIES[item.category ?? 'other']
-    const who = suspectLine(item.suspects, ctx.me, (id) => group.members[id]?.name)
+    const who = suspectLine(item.suspects, ctx.me, (id) => (group.members[id] ? labelOf(group.members, id, '', ctx.me) : undefined))
     return (
       <CardBox mine={mine}>
         <div className={`text-[11px] font-bold uppercase tracking-wide ${sub}`}>Open item</div>

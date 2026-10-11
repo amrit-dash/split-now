@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Download, PlusSquare, Share, X } from 'lucide-react'
+import { ChevronRight, Download, MoreVertical, PlusSquare, Share, Smartphone, X } from 'lucide-react'
 import { useAllGroupData } from '@/hooks/data'
-import { countVisit, dismissInstall, isInstallDismissed, shouldOfferInstall } from '@/lib/install'
+import { countVisit, dismissInstall, installMethod, isInstallDismissed, shouldOfferInstall, type InstallMethod } from '@/lib/install'
 import { Sheet } from './Sheet'
 
 interface BeforeInstallPromptEvent extends Event {
@@ -52,10 +52,19 @@ export function useInstall() {
   }, [])
   const installed = isStandalone()
   const ios = isIOS()
+  const method = installMethod({
+    installed,
+    canPrompt: !!deferred,
+    ua: navigator.userAgent,
+    platform: navigator.platform,
+    touchPoints: navigator.maxTouchPoints,
+  })
   return {
     installed,
     canPrompt: !!deferred,
     ios,
+    /** how this browser installs the app (src/lib/install.ts), null when it can't */
+    method,
     available: !installed && (!!deferred || ios),
     async prompt() {
       if (!deferred) return false
@@ -103,10 +112,117 @@ export function IOSInstallSteps() {
   )
 }
 
+const STEP = 'flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300'
+
+/** The steps for a browser that installs from its own menu: Safari on a Mac, or Chrome / Edge / Firefox (Android) without their dialog. */
+export function MenuInstallSteps({ method }: { method: Exclude<InstallMethod, 'prompt' | 'ios'> }) {
+  const android = /Android/.test(navigator.userAgent)
+  if (method === 'mac')
+    return (
+      <ol className="space-y-4">
+        <li className="flex items-center gap-3">
+          <span className={STEP} aria-hidden>
+            <Share size={20} />
+          </span>
+          <span>
+            In Safari’s menu bar, choose <b>File → Add to Dock</b> (or the <b>Share</b> button → <b>Add to Dock</b>).
+          </span>
+        </li>
+        <li className="flex items-center gap-3">
+          <span className={`${STEP} text-2xl`} aria-hidden>
+            ✅
+          </span>
+          <span>
+            Click <b>Add</b>. Split Now opens in its own window from the Dock and Launchpad.
+          </span>
+        </li>
+      </ol>
+    )
+  return (
+    <ol className="space-y-4">
+      <li className="flex items-center gap-3">
+        <span className={STEP} aria-hidden>
+          <MoreVertical size={20} />
+        </span>
+        <span>
+          {android ? (
+            <>
+              Open the browser menu (<b>⋮</b>) and choose <b>Install app</b> or <b>Add to Home screen</b>.
+            </>
+          ) : (
+            <>
+              Click the install icon at the right of the address bar, or open the browser menu (<b>⋮</b> or <b>…</b>) and choose <b>Install Split Now</b> (in
+              Chrome it can be under <b>Cast, save and share</b>; in Edge under <b>Apps</b>).
+            </>
+          )}
+        </span>
+      </li>
+      <li className="flex items-center gap-3">
+        <span className={`${STEP} text-2xl`} aria-hidden>
+          ✅
+        </span>
+        <span>
+          {android
+            ? 'Split Now then opens full-screen from your home screen.'
+            : 'Split Now then opens in its own window, from your Start menu, Dock or desktop.'}
+        </span>
+      </li>
+    </ol>
+  )
+}
+
+/**
+ * "Install Split Now on this device": a row (Profile, Settings → Data) for whenever the banner
+ * was dismissed or never shown. Phones and computers alike, wherever this browser can install;
+ * hidden in the installed app and in browsers that can't (Firefox on a computer).
+ */
+export function InstallRow({ className = 'card', testId = 'install-row' }: { className?: string; testId?: string }) {
+  const install = useInstall()
+  const [steps, setSteps] = useState(false)
+  const method = install.method
+  if (!method) return null
+  const phone = method === 'ios' || /Android|Mobi/.test(navigator.userAgent)
+  const hint =
+    method === 'ios'
+      ? 'Add to Home Screen for notifications and offline use'
+      : phone
+        ? 'Full-screen, faster, works offline'
+        : 'Its own window, notifications, works offline'
+  return (
+    <>
+      <button
+        type="button"
+        className={`${className} flex w-full items-center gap-3 p-4 text-left font-medium transition active:bg-slate-50 dark:active:bg-ink-800`}
+        onClick={() => (method === 'prompt' ? void install.prompt() : setSteps(true))}
+        data-testid={testId}
+      >
+        <span
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
+          aria-hidden
+        >
+          {phone ? <Smartphone size={19} /> : <Download size={19} />}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block">Install Split Now {phone ? 'on this phone' : 'on this computer'}</span>
+          <span className="text-muted block text-xs font-normal">{hint}</span>
+        </span>
+        <ChevronRight size={18} className="text-slate-400" aria-hidden />
+      </button>
+      <Sheet
+        open={steps}
+        onClose={() => setSteps(false)}
+        title={method === 'ios' ? 'Add to Home Screen' : method === 'mac' ? 'Add to Dock' : 'Install Split Now'}
+      >
+        {method === 'ios' ? <IOSInstallSteps /> : method === 'prompt' ? null : <MenuInstallSteps method={method} />}
+      </Sheet>
+    </>
+  )
+}
+
 /**
  * "Install Split Now" above the tab bar: offered on the second visit or once the first expense
  * exists (src/lib/install.ts), and gone for good after a dismiss. Settings → Data keeps a row to
- * install later. iOS gets the reason that matters there: notifications need the installed app.
+ * install later, and so does Profile (InstallRow). iOS gets the reason that matters there: notifications need the installed app.
  */
 export function InstallBanner() {
   const install = useInstall()

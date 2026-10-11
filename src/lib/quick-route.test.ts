@@ -48,6 +48,12 @@ describe('quickAiAllowed', () => {
     expect(quickAiAllowed({ ...noShared, hasOwnKey: true, prefs: { ...on, aiSource: 'app' } })).toBe(false)
     expect(quickAiAllowed({ ...base, prefs: { ...on, aiSource: 'own' } })).toBe(false)
   })
+  it('Split Now’s free AI (Gemma) counts only once the person agreed to it', () => {
+    const gemma = { ...base, status: { app: { images: 'available', engine: 'gemma' } } }
+    expect(quickAiAllowed(gemma)).toBe(false)
+    expect(quickAiAllowed({ ...gemma, prefs: { ...on, aiFreeOk: true } })).toBe(true)
+    expect(quickAiAllowed({ ...gemma, hasOwnKey: true })).toBe(true)
+  })
   it('the demo only asks the flag (its reader is on the phone)', () => {
     expect(quickAiAllowed({ ...base, mode: 'demo', prefs: null, status: null, online: false })).toBe(true)
     expect(quickAiAllowed({ ...base, mode: 'demo', flag: false })).toBe(false)

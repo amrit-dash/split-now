@@ -773,3 +773,18 @@ test('Quick add: "who paid?" opens the open item sheet in the group, filled in; 
   await sheet.getByTestId('open-item-save').click()
   await expect(page.getByTestId('open-item-row').filter({ hasText: 'Lunch Cafe Blue' })).toBeVisible()
 })
+
+test('Profile offers Install Split Now in a browser, with the steps for this browser', async ({ page }) => {
+  await page.goto('/profile')
+  const row = page.getByTestId('profile-install')
+  await expect(row).toBeVisible()
+  await row.click()
+  await expect(page.getByRole('dialog')).toContainText(/Install Split Now|Add to/)
+})
+
+test('going offline shows the sync note under the header, and it goes once back online', async ({ page, context }) => {
+  await context.setOffline(true)
+  await expect(page.getByTestId('offline-pill')).toBeVisible()
+  await context.setOffline(false)
+  await expect(page.getByTestId('offline-pill')).toBeHidden()
+})

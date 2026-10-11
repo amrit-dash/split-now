@@ -36,6 +36,7 @@ const owe = (over: Partial<SettleRow>): SettleRow => ({
   me: 'm_me',
   memberId: 'm_priya',
   name: 'Priya Nair',
+  label: 'Priya',
   color: '#000',
   uid: 'u_priya',
   amount: 124000,

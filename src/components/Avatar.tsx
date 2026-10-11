@@ -24,6 +24,8 @@ export function Avatar({ name, color, size = 40, ring, photoURL }: { name: strin
       />
     )
   }
+  // The gradient ends at 95% of the colour (not 73%): stacked avatars overlap, and a see-through
+  // circle let the one behind show through.
   return (
     <div
       className={`flex shrink-0 items-center justify-center rounded-full font-bold ${color === 'accent' ? 'text-on-fill' : 'text-white'} ${ringCls}`}
@@ -32,7 +34,7 @@ export function Avatar({ name, color, size = 40, ring, photoURL }: { name: strin
         height: size,
         fontSize: size * 0.38,
         background:
-          color === 'accent' ? 'linear-gradient(135deg, var(--color-fill-500), var(--color-fill-to))' : `linear-gradient(135deg, ${color}, ${color}bb)`,
+          color === 'accent' ? 'linear-gradient(135deg, var(--color-fill-500), var(--color-fill-to))' : `linear-gradient(135deg, ${color}, ${color}f2)`,
       }}
       aria-hidden
     >

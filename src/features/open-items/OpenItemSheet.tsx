@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { labelOf } from '@/lib/shortNames'
 import { Sparkles, Trash2, Wand2 } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
@@ -202,7 +203,7 @@ export function OpenItemSheet({
       ? [
           x.amount !== undefined ? formatMoney(x.amount, group.currency) : '',
           x.date ? formatDate(x.date, 'day') : '',
-          ...(x.suspects ?? []).map((id) => (id === me ? 'you paid' : `${group.members[id]?.name ?? ''} paid`)),
+          ...(x.suspects ?? []).map((id) => (id === me ? 'you paid' : `${labelOf(group.members, id, '', me)} paid`)),
         ].filter(Boolean)
       : []
   const foundBits = bits(found)
@@ -347,7 +348,7 @@ export function OpenItemSheet({
                     className={`flex min-h-11 items-center gap-2 rounded-full py-1 pl-1 pr-3 text-sm font-medium ring-1 ${on ? 'bg-brand-50 font-semibold text-brand-800 ring-brand-500 dark:bg-brand-500/15 dark:text-brand-100' : 'ring-slate-200 dark:ring-white/10'}`}
                   >
                     <Avatar name={m.name} color={m.color} photoURL={m.photoURL} size={28} />
-                    {id === me ? 'Me' : m.name}
+                    {id === me ? 'Me' : labelOf(group.members, id, m.name, me)}
                     {on && <span className="sr-only">(selected)</span>}
                   </button>
                 )
@@ -369,7 +370,7 @@ export function OpenItemSheet({
 
           {item && (
             <p className="text-muted mt-4 text-center text-xs" data-testid="open-item-added">
-              {addedLine(item, item.createdBy === user.uid ? 'you' : group.members[authorMember(group, item.createdBy) ?? '']?.name, {
+              {addedLine(item, item.createdBy === user.uid ? 'you' : labelOf(group.members, authorMember(group, item.createdBy) ?? '', '', me) || undefined, {
                 dateTime: formatDateTime,
                 date: (ms) => formatDate(ms),
               })}

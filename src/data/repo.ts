@@ -28,6 +28,7 @@ import type { AiUnavailableReason } from '../../shared/ai-config'
 import type { QuickAiRequest, QuickAiResponse } from '../../shared/quick-ai'
 import { defaultCurrency } from '@/lib/locale'
 import { sharedPhotoURL, type OwnMemberPatch } from '@/lib/memberSync'
+import { labelForUid, labelOf, memberIdOfUid } from '@/lib/shortNames'
 
 export type Unsub = () => void
 
@@ -127,6 +128,12 @@ export interface Repo {
    * so a watcher is normally opened once per key for the whole session.
    */
   onError(cb: (e: RepoError) => void): Unsub
+  /**
+   * How many saves this device made that the server hasn't confirmed yet (changes from an earlier
+   * visit that are still queued count as one until they're sent). Called at once and on change.
+   * Demo mode saves on the device only: always 0.
+   */
+  watchPendingWrites(cb: (pending: number) => void): Unsub
 
   onAuth(cb: (u: AuthUser | null) => void): Unsub
   signInWithGoogle(): Promise<void>
@@ -217,7 +224,9 @@ export interface Repo {
    * Create or edit. Writes an activity entry in the same batch, and keeps the stored trust
    * fields (flags, approvals, trash) whatever the form passed (see prepareExpenseSave).
    * An edit only writes the fields that changed, so a flag or approval that landed on the
-   * server after this device last saw the expense survives the save.
+   * server after this device last saw the expense survives the save; to find them it asks the
+   * server for its copy first (up to 1.5 s). `isNew` (an id just made with uid('e_')) says there is
+   * no earlier copy, so a new expense saves at once without that wait.
    */
   saveExpense(e: Expense, opts?: SaveExpenseOpts): Promise<void>
   /** Soft delete: moves the expense to "Recently deleted" (deletedAt/deletedBy). A no-op when already there. */
@@ -452,7 +461,8 @@ export interface Repo {
    */
   aiKey(action: 'set' | 'test' | 'remove', key?: string, which?: 'own' | 'app'): Promise<AiKeyResult>
   /** Models for the user's own key, or the project key (admins). Throws on failure. */
-  aiModels(which: 'own' | 'app'): Promise<AiModel[]>
+  /** 'gemma' (admins): the Gemma models the project key can use, newest first */
+  aiModels(which: 'own' | 'app' | 'gemma'): Promise<AiModel[]>
   /** Whether the shared key can be used; null if unknown (offline, demo). */
   aiStatus(): Promise<AiStatusResult | null>
   /** users/{uid}/aiState/status (server-written). */
@@ -494,6 +504,8 @@ export interface AiStatusResult {
     images: AppAiStatusValue
     sms: AppAiStatusValue
     model: string
+    /** what the shared key runs: Gemini, or Google's free Gemma models (people agree first, aiFreeOk) */
+    engine?: 'gemini' | 'gemma'
     /** per-user daily allowance on the shared key */
     perDay?: number
     configured?: boolean
@@ -525,6 +537,8 @@ export interface AiStatement {
 }
 
 export interface SaveExpenseOpts {
+  /** A new expense: there is no earlier copy to fetch from the server first (saves up to 1.5 s). */
+  isNew?: boolean
   /**
    * The open item this new expense claims: written in the same batch, so two people claiming at
    * once can't both win (the rules refuse a claim on an item that is already claimed).
@@ -660,7 +674,7 @@ export const byCreatedDesc = <T extends { createdAt: number }>(a: T, b: T) => b.
 export function groupPurgeBlocker(g: Pick<Group, 'name' | 'createdBy' | 'members' | 'memberUids'>, uid: string): string | null {
   if (!g.memberUids.includes(uid)) return `You’re no longer in “${g.name}”.`
   if (g.createdBy === uid) return null
-  const by = Object.values(g.members).find((m) => m.uid === g.createdBy)?.name
+  const by = labelForUid(g.members, g.createdBy, memberIdOfUid(g.members, uid))
   return `Only ${by ?? 'the person who created it'} can delete “${g.name}”.`
 }
 
@@ -668,9 +682,11 @@ export function groupPurgeBlocker(g: Pick<Group, 'name' | 'createdBy' | 'members
 export function activityCtxFor(group: Pick<Group, 'currency' | 'members'> | undefined, actor: { uid: string; name: string }, _item?: object): ActivityCtx {
   return {
     actorUid: actor.uid,
-    actorName: actor.name.slice(0, 80) || 'Someone',
+    // Everyone in the group reads the line, so names follow the group's rule (first names,
+    // "Rahul S." when two share one) without anyone's point of view.
+    actorName: (labelForUid(group?.members, actor.uid) ?? actor.name).slice(0, 80) || 'Someone',
     // amounts are stored in the group currency (a foreign original is formatted from `original`)
     currency: group?.currency ?? defaultCurrency(),
-    memberName: (id) => group?.members[id]?.name ?? 'Former member',
+    memberName: (id) => labelOf(group?.members, id, 'Former member'),
   }
 }

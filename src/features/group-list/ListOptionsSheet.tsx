@@ -1,4 +1,5 @@
 import type { Group, MemberId } from '@/types'
+import { labelOf } from '@/lib/shortNames'
 import { type ActivityFilter, DEFAULT_SORT, type RowKind, SORT_OPTIONS, type SortKey } from '@/lib/filter'
 import { todayISO } from '@/lib/id'
 import { Avatar } from '@/components/Avatar'
@@ -98,7 +99,7 @@ export function ListOptionsSheet({
                   className={`flex min-h-11 items-center gap-2 rounded-full py-1 pl-1 pr-3 text-sm font-medium ring-1 ${on ? 'bg-brand-50 font-semibold text-brand-800 ring-brand-500 dark:bg-brand-500/15 dark:text-brand-100' : 'ring-slate-200 dark:ring-white/10'}`}
                 >
                   <Avatar name={m.name} color={m.color} photoURL={m.photoURL} size={28} />
-                  {id === me ? 'Me' : m.name}
+                  {id === me ? 'Me' : labelOf(group.members, id, m.name, me)}
                 </button>
               )
             })}

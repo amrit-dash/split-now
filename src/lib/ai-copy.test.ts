@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aiAvailability, aiSummaryText, isQuietReason, unavailableText } from './ai-copy'
+import { aiAvailability, aiDataNote, aiReaderName, aiSummaryText, FREE_AI_NOTE, isQuietReason, unavailableText } from './ai-copy'
 
 describe('aiAvailability', () => {
   const app = (images: 'available' | 'off' | 'not_listed' | 'feature_off', sms = images) => ({ admin: false, app: { images, sms, model: 'm' } })
@@ -18,7 +18,7 @@ describe('aiAvailability', () => {
     expect(aiAvailability({ status: app('off'), hasOwnKey: true, enabled: true })).toMatchObject({ images: true, sms: true, text: 'Using your own key' })
     expect(aiAvailability({ status: app('not_listed'), hasOwnKey: false, enabled: true })).toMatchObject({
       images: false,
-      text: 'Not turned on for your account',
+      text: 'Not turned on for your account. Add your own Gemini key to use AI',
       tone: 'muted',
     })
     expect(aiAvailability({ status: app('off'), hasOwnKey: true, ownKeyBroken: true, enabled: true })).toMatchObject({ images: false, tone: 'warn' })
@@ -33,6 +33,29 @@ describe('aiAvailability', () => {
   it('unknown status: own key still counts', () => {
     expect(aiAvailability({ status: undefined, hasOwnKey: false, enabled: true }).text).toBe('Checking…')
     expect(aiAvailability({ status: null, hasOwnKey: true, enabled: true })).toMatchObject({ images: true, text: 'Using your own key' })
+  })
+  it('free AI (Gemma) serves only after the person agrees, and says how', () => {
+    const gemma = (images: 'available' | 'off' = 'available') => ({ admin: false, app: { images, sms: images, model: 'm', engine: 'gemma' as const } })
+    expect(aiAvailability({ status: gemma(), hasOwnKey: false, enabled: true })).toMatchObject({
+      images: false,
+      sms: false,
+      text: 'Free AI is available. Turn on “Use free AI” to use it',
+      tone: 'muted',
+    })
+    expect(aiAvailability({ status: gemma(), hasOwnKey: false, enabled: true, freeOk: true })).toMatchObject({
+      images: true,
+      text: 'Available · free AI, slower',
+      tone: 'ok',
+    })
+    expect(aiAvailability({ status: gemma(), hasOwnKey: true, enabled: true })).toMatchObject({ images: true, text: 'Using your own key' })
+    expect(aiAvailability({ status: gemma('off'), hasOwnKey: false, enabled: true }).text).toBe(
+      'AI features aren’t available. Add your own Gemini key to use them',
+    )
+  })
+  it('nothing available points to the own key', () => {
+    expect(aiAvailability({ status: app('off'), hasOwnKey: false, enabled: true }).text).toBe(
+      'AI features aren’t available. Add your own Gemini key to use them',
+    )
   })
   it('copy never blames the user', () => {
     for (const s of [app('off'), app('not_listed'), app('feature_off'), null, undefined]) {
@@ -67,6 +90,11 @@ describe('aiSummaryText', () => {
     expect(aiSummaryText({ mode: 'firebase', prefs: { ...on, aiSource: 'own' }, hasOwnKey: false, status: app('available') })).toContain('no key available')
     expect(aiSummaryText({ mode: 'firebase', prefs: { ...on, aiSource: 'app' }, hasOwnKey: true, status: app('off') })).toContain('no key available')
   })
+  it('free AI counts only once the person agreed to it', () => {
+    const gemma = { app: { images: 'available' as const, sms: 'available' as const, model: 'm', engine: 'gemma' as const } }
+    expect(aiSummaryText({ mode: 'firebase', prefs: on, hasOwnKey: false, status: gemma })).toContain('no key available')
+    expect(aiSummaryText({ mode: 'firebase', prefs: { ...on, aiFreeOk: true }, hasOwnKey: false, status: gemma })).toBe('On · Bills & statements, SMS')
+  })
 })
 
 describe('unavailableText', () => {
@@ -79,9 +107,10 @@ describe('unavailableText', () => {
     expect(unavailableText('not_configured')).toBe('AI reading isn’t set up for this app. Reading on your phone instead.')
     expect(unavailableText('off')).toBe('AI reading is off. Reading on your phone instead.')
     expect(unavailableText(undefined)).toBe('AI reading isn’t available right now. Reading on your phone instead.')
+    expect(unavailableText('needs_ok')).toBe('Free AI is off until you turn on “Use free AI” in Settings → AI features. Reading on your phone instead.')
   })
   it('drops the phone line where there is no on-phone fallback', () => {
-    const reasons = ['quota', 'bad_key', 'server', 'not_listed', 'not_configured', 'off', undefined] as const
+    const reasons = ['quota', 'bad_key', 'server', 'not_listed', 'not_configured', 'off', 'needs_ok', undefined] as const
     for (const r of reasons) expect(unavailableText(r, { onPhone: false })).not.toMatch(/phone/i)
     expect(unavailableText('quota', { limit: 20, onPhone: false })).toBe('You’ve used today’s AI limit (20).')
     expect(unavailableText('bad_key', { onPhone: false })).toBe('Google rejected the Gemini key. Check it in Settings → AI features.')
@@ -92,7 +121,46 @@ describe('unavailableText', () => {
 
 describe('isQuietReason', () => {
   it('is quiet only for nothing-to-fix reasons', () => {
-    expect(['off', 'not_listed', 'not_configured'].every((r) => isQuietReason(r as 'off'))).toBe(true)
+    expect(['off', 'not_listed', 'not_configured', 'needs_ok'].every((r) => isQuietReason(r as 'off'))).toBe(true)
     expect(['quota', 'bad_key', 'server', undefined].some((r) => isQuietReason(r as 'quota'))).toBe(false)
+  })
+})
+
+describe('aiDataNote', () => {
+  const st = (v: 'available' | 'off', engine?: 'gemini' | 'gemma') => ({ app: { images: v, sms: v, model: 'm', engine } })
+  it('on Split Now’s Gemini key says where the data goes and that it stays out of training', () => {
+    const t = aiDataNote(st('available', 'gemini'))
+    expect(t).toContain('Mumbai (Google Cloud, asia-south1)')
+    expect(t).toContain('paid Gemini API')
+    expect(t).not.toMatch(/free/i)
+  })
+  it('on the free AI points to the switch that carries the warning, which names the trade and the regions', () => {
+    expect(aiDataNote(st('available', 'gemma'))).toContain('Gemma, Google’s free model, only if you turn on “Use free AI”')
+    expect(FREE_AI_NOTE).toMatch(/may use what you send/)
+    expect(FREE_AI_NOTE).toMatch(/payment screenshots, bank SMS/)
+    expect(FREE_AI_NOTE).toMatch(/EU, the UK or Switzerland/)
+  })
+  it('with no shared AI claims nothing about it', () => {
+    for (const s of [st('off', 'gemma'), st('off'), null, undefined]) expect(aiDataNote(s)).not.toMatch(/Mumbai|Gemma/)
+  })
+})
+
+describe('aiReaderName', () => {
+  const o = { free: true, freeOk: false, source: 'auto', hasOwnKey: false, appAvailable: true }
+  it('free AI off: never Gemma', () => {
+    expect(aiReaderName(o)).toBe('the AI')
+    expect(aiReaderName({ ...o, hasOwnKey: true })).toBe('Gemini')
+  })
+  it('free AI on: Gemma first on Automatic and Only Split Now’s key', () => {
+    expect(aiReaderName({ ...o, freeOk: true, hasOwnKey: true })).toBe('Gemma')
+    expect(aiReaderName({ ...o, freeOk: true, source: 'app', hasOwnKey: true })).toBe('Gemma')
+  })
+  it('Only my key: their Gemini key, never Gemma', () => {
+    expect(aiReaderName({ ...o, freeOk: true, source: 'own', hasOwnKey: true })).toBe('Gemini')
+    expect(aiReaderName({ ...o, freeOk: true, source: 'own' })).toBe('the AI')
+  })
+  it('Split Now’s paid key is Gemini', () => {
+    expect(aiReaderName({ ...o, free: false })).toBe('Gemini')
+    expect(aiReaderName({ ...o, free: false, appAvailable: false })).toBe('the AI')
   })
 })

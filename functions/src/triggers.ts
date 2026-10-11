@@ -32,6 +32,7 @@ import { payeeDecision, type ProofSettlement } from './lib/payment-proof'
 import { checkProof } from './payment-ok'
 import { expenseRecipients, memberNameForUid, memberUid, type MemberLite } from './lib/recipients'
 import { sendToUser } from './push'
+import { firstNameOf, labelOf } from '../../shared/names'
 
 interface GroupLite {
   name?: string
@@ -92,7 +93,7 @@ async function actorName(groupId: string, g: GroupLite, uid: string | undefined)
   if (!uid) return 'Someone'
   const p = await db().doc(`groups/${groupId}/profiles/${uid}`).get()
   const n = p.get('displayName')
-  return typeof n === 'string' && n ? n : 'Someone'
+  return typeof n === 'string' && n ? firstNameOf(n) : 'Someone'
 }
 
 export const onExpenseCreated = onDocumentCreated({ document: 'groups/{groupId}/expenses/{expenseId}', region: REGION }, async (event) => {
@@ -195,14 +196,13 @@ export const onSettlementCreated = onDocumentCreated(settlementOpts, async (even
       logger.warn('payment check failed', { groupId, settlementId, message: (e as Error).message })
       return null
     })
-    await sendToUser(to, ['settlements'], paymentOkNote({ ...common, fromName: g.members?.[s.from]?.name ?? 'Someone', cleared: verdict === 'match' }))
+    await sendToUser(to, ['settlements'], paymentOkNote({ ...common, fromName: labelOf(g.members, s.from), cleared: verdict === 'match' }))
     return
   }
   const jobs: Array<Promise<number>> = []
-  if (to && to !== s.createdBy) jobs.push(sendToUser(to, ['settlements'], settlementNote({ ...common, fromName: g.members?.[s.from]?.name ?? 'Someone' })))
+  if (to && to !== s.createdBy) jobs.push(sendToUser(to, ['settlements'], settlementNote({ ...common, fromName: labelOf(g.members, s.from) })))
   // "Rahul paid me ₹500", recorded by the creditor: Rahul should hear about it and be able to flag it.
-  if (from && from !== s.createdBy)
-    jobs.push(sendToUser(from, ['settlements'], settlementRecordedNote({ ...common, toName: g.members?.[s.to]?.name ?? 'Someone' })))
+  if (from && from !== s.createdBy) jobs.push(sendToUser(from, ['settlements'], settlementRecordedNote({ ...common, toName: labelOf(g.members, s.to) })))
   await Promise.all(jobs)
 })
 
@@ -227,7 +227,7 @@ export const onSettlementUpdated = onDocumentUpdated({ document: 'groups/{groupI
       settlementId,
       groupName: g.name ?? 'Group',
       emoji: g.emoji,
-      toName: g.members?.[after.to]?.name ?? 'Someone',
+      toName: labelOf(g.members, after.to),
       amount: after.amount,
       currency: g.currency ?? 'INR',
       decision,

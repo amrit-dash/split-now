@@ -1,5 +1,6 @@
 import type { Cents, Debt, Group, MemberId } from '@/types'
 import type { NudgeItem } from './nudge'
+import { shortNames } from './shortNames'
 
 /*
  * "Settle all": every payment you still have to make or receive, across all your groups and
@@ -18,7 +19,10 @@ export interface SettleRow {
   me: MemberId
   /** the other person, as a member id of this group */
   memberId: MemberId
+  /** the full name (people are matched across groups by it when they have no account) */
   name: string
+  /** what the screen calls them: first name, "Rahul S." when two people listed share one */
+  label: string
   color: string
   photoURL?: string
   uid?: string
@@ -40,6 +44,8 @@ export interface CurrencyTotal {
 export interface PersonBalance {
   key: string
   name: string
+  /** first name, "Rahul S." when two people listed share one */
+  label: string
   color: string
   photoURL?: string
   currency: string
@@ -78,6 +84,7 @@ export function pendingSettlements(data: GroupLike[], first?: string): SettleRow
         me: d.me,
         memberId: other,
         name: m?.name ?? 'Someone',
+        label: '',
         color: m?.color ?? '#94a3b8',
         photoURL: m?.photoURL,
         uid: m?.uid,
@@ -87,6 +94,9 @@ export function pendingSettlements(data: GroupLike[], first?: string): SettleRow
       })
     }
   }
+  // Named across groups: two different Rahuls on one screen must not both read "Rahul".
+  const labels = shortNames(Object.fromEntries(rows.map((r) => [personKey(r), { name: r.name }])))
+  for (const r of rows) r.label = labels[personKey(r)] ?? r.name
   return rows.sort((a, b) => currencyOrder(a.currency, b.currency, first) || b.amount - a.amount || a.name.localeCompare(b.name))
 }
 
@@ -115,7 +125,7 @@ export function personBalances(rows: SettleRow[]): PersonBalance[] {
   const map = new Map<string, PersonBalance>()
   for (const r of rows) {
     const key = `${personKey(r)}|${r.currency}`
-    const p = map.get(key) ?? { key, name: r.name, color: r.color, photoURL: r.photoURL, currency: r.currency, net: 0, parts: [] }
+    const p = map.get(key) ?? { key, name: r.name, label: r.label, color: r.color, photoURL: r.photoURL, currency: r.currency, net: 0, parts: [] }
     p.photoURL ??= r.photoURL
     p.net += r.dir === 'owed' ? r.amount : -r.amount
     p.parts.push(r)

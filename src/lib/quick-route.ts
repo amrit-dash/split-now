@@ -50,15 +50,16 @@ export function quickAiAllowed(o: {
   mode: 'firebase' | 'demo'
   flag: boolean
   online: boolean
-  prefs: { aiEnabled: boolean; aiQuickAdd: boolean; aiSource: string } | null | undefined
+  prefs: { aiEnabled: boolean; aiQuickAdd: boolean; aiSource: string; aiFreeOk?: boolean } | null | undefined
   /** the aiStatus answer (undefined while loading, null when it can't be checked) */
-  status: { app: { images: string } } | null | undefined
+  status: { app: { images: string; engine?: string } } | null | undefined
   hasOwnKey: boolean
 }): boolean {
   if (!o.flag) return false
   if (o.mode === 'demo') return true
   if (!o.online || !o.prefs?.aiEnabled || !o.prefs.aiQuickAdd) return false
-  const shared = o.prefs.aiSource !== 'own' && o.status?.app.images === 'available'
+  // Split Now's free AI (Gemma) serves only people who agreed to it.
+  const shared = o.prefs.aiSource !== 'own' && o.status?.app.images === 'available' && (o.status.app.engine !== 'gemma' || o.prefs.aiFreeOk === true)
   const own = o.prefs.aiSource !== 'app' && o.hasOwnKey
   return shared || own
 }

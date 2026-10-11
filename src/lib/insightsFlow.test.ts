@@ -107,8 +107,8 @@ describe('helpers', () => {
   })
   it('shortNames uses first names and disambiguates', () => {
     expect(shortNames({ a: 'Kodai Gandhi', b: 'Kodai rao', c: 'Priya', d: '  Venkataraghavan Subramaniam ' })).toEqual({
-      a: 'Kodai G',
-      b: 'Kodai R',
+      a: 'Kodai G.',
+      b: 'Kodai R.',
       c: 'Priya',
       d: 'Venkataraghavan',
     })

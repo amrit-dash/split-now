@@ -48,6 +48,7 @@ import { ActivityFeed } from '@/components/Trust'
 import { ProofButton, usePaymentAnswers } from '@/components/PaymentOk'
 import { useToast } from '@/components/Toast'
 import { SwipeRow } from '@/components/SwipeRow'
+import { labelForUid, labelOf, memberIdOfUid } from '@/lib/shortNames'
 
 type Tab = 'sort' | 'updates'
 const HANDLED_FIRST = 15
@@ -368,7 +369,7 @@ function ToSort({
 
 function ApprovalRow({ e, d }: { e: Expense; d: GroupData }) {
   const toast = useToast()
-  const by = Object.values(d.group.members).find((m) => m.uid === e.createdBy)?.name ?? 'someone'
+  const by = labelForUid(d.group.members, e.createdBy, d.me) ?? 'someone'
   return (
     <div className="card flex items-center gap-3 p-3">
       <Link to={`/groups/${d.group.id}/expenses/${e.id}`} className="flex min-w-0 flex-1 items-center gap-3">
@@ -407,7 +408,8 @@ function ApprovalRow({ e, d }: { e: Expense; d: GroupData }) {
  */
 function PaymentConfirmRow({ s, group, matched }: { s: Settlement; group: Group; matched: boolean }) {
   const answers = usePaymentAnswers()
-  const from = group.members[s.from]?.name ?? 'Someone'
+  const { user } = useMe()
+  const from = labelOf(group.members, s.from, 'Someone', memberIdOfUid(group.members, user.uid))
   return (
     <div className="card p-3" data-testid={matched ? 'inbox-payment-matched' : 'inbox-payment'}>
       <Link to={`/groups/${group.id}`} className="flex min-w-0 items-center gap-3">
@@ -570,7 +572,7 @@ function BulkSheet({ candidate, data, onClose }: { candidate: BulkCandidate<Grou
           uid('e_'),
           now + i,
         )
-        await repo.saveExpense(e)
+        await repo.saveExpense(e, { isNew: true })
         await repo.updateCapture(user.uid, c.id, { status: 'assigned', groupId: g.id, expenseId: e.id })
         saved.push({ capture: c, expense: e })
       }
@@ -864,7 +866,7 @@ function Updates({
                 {sec.title}
               </h2>
             )}
-            <ActivityFeed entries={sec.entries} groups={sec.title ? undefined : groupsById} isNew={isNew} onHide={hide} />
+            <ActivityFeed entries={sec.entries} groups={groupsById} showGroup={!sec.title} isNew={isNew} onHide={hide} />
           </section>
         ))}
       </div>

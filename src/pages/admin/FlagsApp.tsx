@@ -35,6 +35,13 @@ const endOfDay = (iso: string) => {
 }
 
 /** /admin/flags: maintenance mode, minimum version, announcement, feature flags, sign-up mode (config/app). */
+/**
+ * The action beside a field (Use this build, Stop announcement): a clear tinted button as tall as
+ * the field. When both don't fit on one line (a phone), each takes the full width on its own.
+ */
+const ACTION =
+  'btn grow whitespace-nowrap sm:grow-0 bg-brand-50 px-4 text-sm text-brand-700 ring-1 ring-brand-200 dark:bg-brand-500/15 dark:text-brand-200 dark:ring-brand-500/30'
+
 export default function FlagsApp() {
   const { user } = useMe()
   const toast = useToast()
@@ -126,10 +133,11 @@ export default function FlagsApp() {
           Devices running an older build see “Update Split Now” and must reload. Leave it alone unless a release must replace every older one (a breaking
           change). You are running {CURRENT}. Admins are never locked out.
         </p>
-        <div className="mt-2 flex flex-wrap items-center gap-3">
+        {/* One row for every "value + action" field on this page: the field fills the width, the action sits beside it at the same height. */}
+        <div className="mt-3 flex flex-wrap items-stretch gap-2">
           <input
             id="min-version"
-            className="input !w-36 !px-3 !py-2.5 font-mono"
+            className="input min-w-[8rem] flex-1 font-mono"
             inputMode="decimal"
             placeholder="0.0.0"
             value={minVersion}
@@ -141,30 +149,30 @@ export default function FlagsApp() {
             }}
           />
           {/* Raising the minimum is for a breaking release; this fills in the running build so it can't be mistyped. */}
-          {minVersion !== CURRENT && (
-            <button
-              type="button"
-              className="btn-ghost !min-h-11 shrink-0 !px-3 text-sm"
-              onClick={() => {
-                setMinVersionDraft(CURRENT)
-                set({ minVersion: CURRENT })
-              }}
-            >
-              Use this build ({CURRENT})
-            </button>
-          )}
-          {minVersionBad ? (
-            <span className="text-xs text-rose-700 dark:text-rose-400" role="alert">
-              Use three numbers, like 0.2.0
-            </span>
-          ) : (
-            compareSemver(CURRENT, minVersion) < 0 && (
-              <span className="text-xs text-amber-700 dark:text-amber-400" role="alert">
-                Newer than this build: every non-admin will be asked to update. Make sure {minVersion} is deployed.
-              </span>
-            )
-          )}
+          <button
+            type="button"
+            className={ACTION}
+            disabled={minVersion === CURRENT}
+            onClick={() => {
+              setMinVersionDraft(CURRENT)
+              set({ minVersion: CURRENT })
+            }}
+            data-testid="admin-use-build"
+          >
+            {minVersion === CURRENT ? `This build (${CURRENT})` : `Use this build (${CURRENT})`}
+          </button>
         </div>
+        {minVersionBad ? (
+          <p className="mt-2 text-xs text-rose-700 dark:text-rose-400" role="alert">
+            Use three numbers, like 0.2.0
+          </p>
+        ) : (
+          compareSemver(CURRENT, minVersion) < 0 && (
+            <p className="mt-2 text-xs text-amber-700 dark:text-amber-400" role="alert">
+              Newer than this build: every non-admin will be asked to update. Make sure {minVersion} is deployed.
+            </p>
+          )
+        )}
       </div>
 
       <h3 className="mb-2 mt-5 px-1 font-bold">Announcement</h3>
@@ -197,27 +205,31 @@ export default function FlagsApp() {
             ]}
           />
         </div>
-        <div className="flex flex-wrap items-end gap-3">
-          <div>
-            <label htmlFor="ann-until" className="label">
-              Hide after (optional)
-            </label>
+        <div>
+          <label htmlFor="ann-until" className="label">
+            Hide after (optional)
+          </label>
+          <div className="flex flex-wrap items-stretch gap-2">
             <input
               id="ann-until"
               type="date"
-              className="input !w-44 !px-3 !py-2.5"
+              className="input min-w-[11rem] flex-1"
               value={ann.until ? localISODate(ann.until) : ''}
               onChange={(e) => {
                 const until = e.target.value ? endOfDay(e.target.value) : undefined
                 set({ announcement: ann.text.trim() ? { ...ann, ...(until ? { until } : {}), ...(until ? {} : { until: undefined }) } : null })
               }}
             />
-          </div>
-          {cfg.announcement && (
-            <button type="button" className="btn-secondary btn-sm" onClick={() => set({ announcement: null })}>
-              Clear announcement
+            <button
+              type="button"
+              className={`${ACTION} !bg-rose-50 !text-rose-700 dark:!bg-rose-500/15 dark:!text-rose-300`}
+              disabled={!cfg.announcement}
+              onClick={() => set({ announcement: null })}
+              data-testid="admin-stop-announcement"
+            >
+              Stop announcement
             </button>
-          )}
+          </div>
         </div>
       </div>
 

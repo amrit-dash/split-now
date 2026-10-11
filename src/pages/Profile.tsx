@@ -18,6 +18,7 @@ import { Sheet } from '@/components/Sheet'
 import { Switch } from '@/components/Switch'
 import { useToast } from '@/components/Toast'
 import { AccountCard } from '@/components/ProfileCards'
+import { InstallRow } from '@/components/InstallBanner'
 import { SupportSheet } from '@/components/SupportSheet'
 import { SavedPill, useSavedFlash } from './settings/common'
 
@@ -291,6 +292,8 @@ export default function Profile() {
           </span>
           <ChevronRight size={18} className="text-slate-400" aria-hidden />
         </Link>
+        {/* Shown until the app is installed, on phones and computers that can install it (the banner can be dismissed for good). */}
+        <InstallRow className="" testId="profile-install" />
         <button
           type="button"
           onClick={() => setSupportOpen(true)}

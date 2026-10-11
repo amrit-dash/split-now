@@ -7,10 +7,10 @@ import type { AiModel, AiState, AppAiStatusValue } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
 import { useAiStatus } from '@/hooks/useAiStatus'
 import { useFlag } from '@/hooks/useAppConfig'
-import { aiAvailability } from '@/lib/ai-copy'
+import { aiAvailability, aiDataNote, aiReaderName, FREE_AI_NOTE, isFreeAi } from '@/lib/ai-copy'
 import { errText } from '@/lib/errors'
 import { setAiScan } from '@/lib/ai'
-import { DEFAULT_MODEL, type AiSource } from '@/lib/ai-config'
+import { autoSourceHint, DEFAULT_MODEL, type AiSource } from '@/lib/ai-config'
 import { DEFAULT_ALL_PREFS, savePrefs, watchPrefs, type AllPrefs } from '@/lib/push'
 import { Collapsible } from './Collapsible'
 import { Select } from './Select'
@@ -111,11 +111,27 @@ export function AiSettings() {
     }
   }
 
-  const avail = aiAvailability({ status, hasOwnKey: hasKey, ownKeyBroken: !!state?.lastError, enabled: prefs.aiEnabled })
+  const avail = aiAvailability({ status, hasOwnKey: hasKey, ownKeyBroken: !!state?.lastError, enabled: prefs.aiEnabled, freeOk: prefs.aiFreeOk })
+  // Split Now's AI is the free one (Gemma) and could serve this person: they turn it on themselves.
+  const free = isFreeAi(status)
+  const freeOffered = free && !!status && (status.app.images === 'available' || status.app.sms === 'available')
+  // Named after the AI that will actually read for this person (not just what Split Now's runs on).
+  const aiName = aiReaderName({
+    free,
+    freeOk: prefs.aiFreeOk,
+    source: prefs.aiSource,
+    hasOwnKey: hasKey && !state?.lastError,
+    appAvailable: !!status && (status.app.images === 'available' || status.app.sms === 'available'),
+  })
   // The shared key can't serve this person: their own key is the only route, so show it.
   const byokOnly = !!status && status.app.images !== 'available' && status.app.sms !== 'available'
   const advancedOpen = advanced ?? (prefs.aiEnabled && byokOnly && !hasKey)
-  const appLine = (f: 'images' | 'sms') => (status ? APP_STATUS[status.app[f]] : null)
+  const appLine = (f: 'images' | 'sms') =>
+    status
+      ? free && status.app[f] === 'available' && !prefs.aiFreeOk
+        ? { text: 'Turn on “Use free AI” to use it', ok: false }
+        : APP_STATUS[status.app[f]]
+      : null
   const modelOptions = [
     { value: '', label: 'Recommended (cheapest)', hint: DEFAULT_MODEL },
     ...(models ?? []).map((m) => ({ value: m.id, label: m.label, hint: modelHint(m) })),
@@ -126,26 +142,34 @@ export function AiSettings() {
     <div data-testid="ai-settings">
       <div className="card p-4">
         <Row
-          title="Read bills and SMS with AI"
+          title="Use AI"
           testId="ai-enabled"
           checked={prefs.aiEnabled}
           onChange={(v) => set({ aiEnabled: v })}
           text={
             prefs.aiEnabled
-              ? 'Reads amounts, items and dates that the phone can’t.'
+              ? 'For what the phone can’t read: bills, bank SMS, Quick add lines and payment screenshots. Choose which under Advanced.'
               : 'Off: nothing is sent to any AI. Bills are read on this phone, less accurately.'
           }
         />
-        <p className="text-muted mt-3 text-xs">
-          Photos of bills and statement screenshots, bank SMS the built-in reader can’t make sense of, and Quick add lines it can’t read are sent to Google
-          Gemini to read them. Nothing else leaves your phone, and nothing is sent while this is off.
+        <p className="text-muted mt-3 text-xs" data-testid="ai-data-note">
+          {aiDataNote(status)}
         </p>
         {prefs.aiEnabled && (
           <p className="mt-3 flex items-center gap-2 text-sm font-medium" data-testid="ai-status-line">
             <span className={`h-2 w-2 shrink-0 rounded-full ${TONE[avail.tone]}`} aria-hidden />
             {avail.text}
-            {!avail.images && !avail.sms && status && !hasKey && <span className="text-muted font-normal">· your own key works too (Advanced)</span>}
           </p>
+        )}
+        {prefs.aiEnabled && freeOffered && (
+          <div className="mt-4 rounded-2xl bg-amber-50 p-3.5 dark:bg-amber-500/10" data-testid="ai-free">
+            <Row title="Use free AI" testId="ai-free-ok" checked={prefs.aiFreeOk} onChange={(v) => set({ aiFreeOk: v })} text={FREE_AI_NOTE} />
+            {prefs.aiFreeOk && prefs.aiSource === 'own' && (
+              <p className="mt-2 text-xs font-semibold text-amber-900 dark:text-amber-200" data-testid="ai-free-unused">
+                Not used while Which key (under Advanced) is “Only my key”.
+              </p>
+            )}
+          </div>
         )}
       </div>
 
@@ -167,7 +191,7 @@ export function AiSettings() {
                   onChange={(v) => set({ aiImages: v })}
                   text={
                     prefs.aiImages
-                      ? 'Photos go to Gemini to read items, taxes and transactions.'
+                      ? `Photos go to ${aiName} to read items, taxes and transactions.`
                       : 'Read on this phone (less accurate). Statement import needs AI.'
                   }
                 />
@@ -182,15 +206,17 @@ export function AiSettings() {
                 testId="ai-sms"
                 checked={prefs.aiSms}
                 onChange={(v) => set({ aiSms: v })}
-                text={prefs.aiSms ? 'Only messages the built-in reader misses go to Gemini, with account numbers masked.' : 'Unreadable messages are skipped.'}
+                text={
+                  prefs.aiSms ? `Only messages the built-in reader misses go to ${aiName}, with account numbers masked.` : 'Unreadable messages are skipped.'
+                }
               />
               {prefs.aiSms && (
                 <Row
-                  title="Also ask Gemini who was paid"
+                  title={`Also ask ${aiName} who was paid`}
                   testId="ai-sms-merchant"
                   checked={prefs.aiSmsMerchant}
                   onChange={(v) => set({ aiSmsMerchant: v })}
-                  text="When the app reads the amount but not the payee, the masked message is sent to Gemini for the name. Off: such payments are saved as “Payment”."
+                  text={`When the app reads the amount but not the payee, the masked message is sent to ${aiName} for the name. Off: such payments are saved as “Payment”.`}
                 />
               )}
               {aiQuickAdd ? (
@@ -229,13 +255,19 @@ export function AiSettings() {
 
             <div>
               <div className="label">Which key</div>
-              <Select aria-label="Which key" value={prefs.aiSource} onChange={(v) => set({ aiSource: v as AiSource })} options={SOURCE_OPTIONS} />
+              <Select
+                aria-label="Which key"
+                value={prefs.aiSource}
+                onChange={(v) => set({ aiSource: v as AiSource })}
+                // With the free AI turned on, Automatic tries it before your key (planAi).
+                options={SOURCE_OPTIONS.map((o) => (o.value === 'auto' ? { ...o, hint: autoSourceHint(free && prefs.aiFreeOk) } : o))}
+              />
             </div>
 
             {/* Split Now's (project) key */}
             <div className="rounded-2xl ring-1 ring-slate-200 dark:ring-white/10" data-testid="ai-app-status">
               <div className="flex items-center gap-2 px-3.5 pt-3 font-semibold">
-                <Sparkles size={16} className="text-brand-500" aria-hidden /> Split Now’s key
+                <Sparkles size={16} className="text-brand-500" aria-hidden /> {free ? 'Split Now’s free AI (Gemma)' : 'Split Now’s key'}
               </div>
               <div className="space-y-1 px-3.5 pb-3 pt-1.5 text-sm">
                 {status === undefined ? (

@@ -188,8 +188,24 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
    * synchronously, so listeners update immediately and the UI can move on even offline.
    * Server rejections are reported through onError.
    */
+  // Saves the server hasn't confirmed yet (the "Saving…" / offline note and the warning on closing
+  // the tab). A commit's promise settles when the server answers, or fails on a refusal.
+  let pending = 0
+  const pendingSubs = new Set<(n: number) => void>()
+  const track = <T>(p: Promise<T>): Promise<T> => {
+    pending++
+    for (const s of pendingSubs) s(pending)
+    const done = () => {
+      pending--
+      for (const s of pendingSubs) s(pending)
+    }
+    p.then(done, done)
+    return p
+  }
+  // Changes queued on an earlier visit (closed while offline) are resent on start; count them until they land.
+  track(waitForPendingWrites(db)).catch(() => {})
   const fire = (batch: WriteBatch, context: string) => {
-    batch.commit().catch((e) => errors.emit('write', e, context))
+    track(batch.commit()).catch((e) => errors.emit('write', e, context))
   }
   const listenError = (context: string, fallback: () => void) => (e: FirestoreError) => {
     fallback()
@@ -321,10 +337,6 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     }
   }
 
-  async function uniqueInviteCode(): Promise<string> {
-    return uniqueCode(inviteRef)
-  }
-
   async function uniqueCode(refFor: (code: string) => DocumentReference): Promise<string> {
     // 8 chars from a 31-symbol alphabet makes collisions vanishingly rare; when online we also
     // check (briefly) that the code is free. Offline we skip the check rather than block.
@@ -344,6 +356,13 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
   const repo: Repo = {
     mode: 'firebase',
     onError: errors.on,
+    watchPendingWrites(cb) {
+      pendingSubs.add(cb)
+      cb(pending)
+      return () => {
+        pendingSubs.delete(cb)
+      }
+    },
 
     onAuth(cb) {
       return onAuthStateChanged(auth, (u) => {
@@ -539,7 +558,10 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     async createGroup(g) {
       const id = uid('g_')
       const now = Date.now()
-      const code = g.type === 'personal' ? inviteCode() : await uniqueInviteCode()
+      // No server check that the code is free: 31^8 codes make a clash practically impossible, the
+      // rules refuse one (an invite can't move to another group), and the check cost up to 1.5 s
+      // on every New group before anything happened.
+      const code = inviteCode()
       const me = await myMemberProfile()
       const full: Group = { ...g, members: withOwnPhoto(g.members, me), id, inviteCode: code, createdAt: now, updatedAt: now }
       const batch = writeBatch(db)
@@ -786,8 +808,9 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       const r = expenseRef(e.groupId, e.id)
       // An edit starts from the newest copy we can get, so the activity entry's "before" is right
       // and only what really changed is written (a full set would wipe a flag or approval that
-      // landed on the server after this device's copy).
-      const [prev, group] = await Promise.all([latest<Expense>(r), cachedGroup(e.groupId)])
+      // landed on the server after this device's copy). A new expense has no copy anywhere: asking
+      // the server would only add up to 1.5 s to every Add expense (and to each row of Add all).
+      const [prev, group] = await Promise.all([opts?.isNew ? undefined : latest<Expense>(r), cachedGroup(e.groupId)])
       const next = prepareExpenseSave(prev, { ...e, receiptPath: e.receiptPath ?? storagePathFromUrl(e.receiptUrl) }, group, me())
       // An amount change within the group's edit auto-approve keeps everyone's approvals (and says so in the activity).
       const autoApproved = !!prev && !!group && editAutoApproved({ group, before: prev, after: next })
@@ -1408,7 +1431,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         const call = await callable<
           { kind: 'receipt'; image: string; mimeType: string },
           { receipt?: ParsedReceipt | null; unavailable?: true; reason?: AiUnavailableReason }
-        >('parseReceiptAi', 60_000)
+        >('parseReceiptAi', 125_000)
         const d = (await call({ kind: 'receipt', image, mimeType })).data
         if (!d) return null
         return d.unavailable ? { unavailable: true, reason: d.reason } : { receipt: d.receipt ?? null }
@@ -1423,7 +1446,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         const call = await callable<
           { kind: 'statement'; images: typeof images; today: string },
           { statement?: AiStatement | null; unavailable?: true; reason?: AiUnavailableReason }
-        >('parseReceiptAi', 120_000)
+        >('parseReceiptAi', 180_000)
         const d = (await call({ kind: 'statement', images, today })).data
         if (!d) return null
         return d.unavailable ? { unavailable: true, reason: d.reason } : { statement: d.statement ?? null }
@@ -1435,7 +1458,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     async quickAddAi(req) {
       if (!auth.currentUser || auth.currentUser.isAnonymous || !online()) return null
       try {
-        const call = await callable<QuickAiRequest, QuickAiResponse>('quickAddAi', 30_000)
+        const call = await callable<QuickAiRequest, QuickAiResponse>('quickAddAi', 60_000)
         return (await call(req)).data ?? null
       } catch (e) {
         console.warn('Quick add with AI failed', e)
@@ -1448,7 +1471,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         const call = await callable<
           { kind: 'text'; text: string; members: string[]; currency: string; today: string },
           { expense?: AiTextExpense | null; unavailable?: true; reason?: AiUnavailableReason }
-        >('parseReceiptAi', 30_000)
+        >('parseReceiptAi', 60_000)
         const d = (await call({ kind: 'text', text, ...ctx })).data
         if (!d) return null
         return d.unavailable ? { unavailable: true, reason: d.reason } : { expense: d.expense ?? null }

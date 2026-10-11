@@ -59,6 +59,7 @@ import { MarkPaid } from '@/components/MarkPaid'
 import { QrCode } from '@/components/QrCode'
 import { Sheet } from '@/components/Sheet'
 import { useToast } from '@/components/Toast'
+import { labelOf } from '@/lib/shortNames'
 
 // Uses useGroups (signed-in users only), so it's loaded just for the host.
 const TableFinish = lazy(() => import('./TableFinish'))
@@ -251,7 +252,7 @@ function Live({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; isH
   const [sheet, setSheet] = useState<'qr' | 'person' | 'edit' | 'finish' | null>(isHost && order.length === 1 ? 'qr' : null)
   const cur = table.currency
   const color = (p: ParticipantId) => colorFor(Math.max(0, order.indexOf(p)))
-  const name = (p: ParticipantId) => (p === me ? 'You' : (table.participants[p]?.name ?? '?'))
+  const name = (p: ParticipantId) => (p === me ? 'You' : labelOf(table.participants, p, '?', me))
   const link = `${location.origin}/t/${table.code}`
   const claims = sanitizeClaims(table.claims[who], table.items)
   const write = (next: Record<string, number>) => repo.setTableClaims(table.code, who, next).catch((e) => toast(errText(e), 'err'))
@@ -762,7 +763,7 @@ function Closed({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; i
         {order.map((p, i) => (
           <div key={p} className="flex items-center gap-3 px-4 py-3">
             <Avatar name={table.participants[p].name} color={colorFor(i)} size={32} />
-            <span className="flex-1 font-medium">{p === me ? 'You' : table.participants[p].name}</span>
+            <span className="flex-1 font-medium">{p === me ? 'You' : labelOf(table.participants, p, '?', me)}</span>
             {isHost && table.payLinks?.[p] && <PaidPill code={table.payLinks[p]} viewer={me} name={table.participants[p].name} />}
             <span className="font-bold tabular-nums" data-testid="final-total">
               {formatMoney(totals.people[p].total, cur)}

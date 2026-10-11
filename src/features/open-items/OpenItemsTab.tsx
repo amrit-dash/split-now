@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { labelOf } from '@/lib/shortNames'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { CheckCircle2, ClipboardList, HandCoins, Plus, Trash2 } from 'lucide-react'
 import { repo } from '@/data'
@@ -60,12 +61,12 @@ export function OpenItemsTab({ group, items, expenses }: { group: Group; items: 
   }, [loc.key, group.id])
   const remove = useDeleteOpenItem()
   const { open, claimed } = useMemo(() => sortOpenItems(items, expenses), [items, expenses])
-  const name = (id: string) => group.members[id]?.name
+  const name = (id: string) => (group.members[id] ? labelOf(group.members, id, '', me) : undefined)
   const claimerName = (uid?: string) => {
     if (!uid) return 'Someone'
     if (uid === user.uid) return 'You'
     const id = authorMember(group, uid)
-    return (id && group.members[id]?.name) || 'Someone'
+    return id ? labelOf(group.members, id, 'Someone', me) : 'Someone'
   }
 
   if (items === null) return <ListSkeleton rows={3} />

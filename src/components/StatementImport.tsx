@@ -26,6 +26,7 @@ import { Select } from './Select'
 import { useToast } from './Toast'
 import { DuplicatePrompt, RecentScans, useScanHistory } from './ScanHistory'
 import type { ScanEntry, ScanMatch, ScanPrint } from '@/lib/scanHistory'
+import { labelOf } from '@/lib/shortNames'
 
 interface Row {
   id: string
@@ -97,7 +98,13 @@ export function StatementImport() {
   const busy = stage !== null
 
   // Can AI read for this account right now? Demo mode shows a sample; an unknown status doesn't block.
-  const avail = aiAvailability({ status, hasOwnKey: !!aiState?.hint, ownKeyBroken: !!aiState?.lastError, enabled: prefs.aiEnabled && prefs.aiImages })
+  const avail = aiAvailability({
+    status,
+    hasOwnKey: !!aiState?.hint,
+    ownKeyBroken: !!aiState?.lastError,
+    enabled: prefs.aiEnabled && prefs.aiImages,
+    freeOk: prefs.aiFreeOk,
+  })
   const blocked = aiScanPossible() && status !== undefined && !avail.images
   const keyWouldHelp = aiScanPossible() && !!status && status.app.images !== 'available' && !aiState?.hint
 
@@ -229,6 +236,7 @@ export function StatementImport() {
             uid('e_'),
             now,
           ),
+          { isNew: true },
         )
       }
       for (const id of scanIds) hist.outcome(id, { label: `Added ${chosen.length} to ${group.name}`, href: `/groups/${group.id}` })
@@ -421,7 +429,7 @@ export function StatementImport() {
                 aria-label="Paid by"
                 value={who ?? ''}
                 onChange={setPayer}
-                options={order.map((m) => ({ value: m, label: m === me ? 'You' : group.members[m].name }))}
+                options={order.map((m) => ({ value: m, label: m === me ? 'You' : labelOf(group.members, m, 'Someone', me) }))}
               />
             </div>
             <div>

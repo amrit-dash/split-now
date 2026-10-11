@@ -2,6 +2,7 @@ import type { Category, Expense, Group, MemberId } from '@/types'
 import { CATEGORIES } from './categories'
 import { formatDate } from './locale'
 import { minorDigits } from './money'
+import { labelOf } from './shortNames'
 
 /*
  * Pure computation behind the Insights page. Dates are ISO yyyy-mm-dd strings in local time;
@@ -418,6 +419,8 @@ export function byGroup(rows: Row[]): GroupTotal[] {
 export interface MemberTotal {
   id: MemberId
   name: string
+  /** first name, "Rahul S." when two share one (src/lib/shortNames.ts) */
+  label: string
   color: string
   photoURL?: string
   paid: number
@@ -430,6 +433,7 @@ export function paidVsShare(src: Source, rows: Row[]): MemberTotal[] {
   const out: MemberTotal[] = Object.entries(src.group.members).map(([id, m]) => ({
     id,
     name: m.name,
+    label: labelOf(src.group.members, id),
     color: m.color,
     ...(m.photoURL ? { photoURL: m.photoURL } : {}),
     paid: 0,

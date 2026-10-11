@@ -36,6 +36,7 @@ import { useToast } from '@/components/Toast'
 import { usePageTitle } from '@/lib/brand'
 import { Select } from '@/components/Select'
 import { DateField } from '@/components/DateField'
+import { labelOf } from '@/lib/shortNames'
 
 export default function SettleUp() {
   usePageTitle('Settle up')
@@ -105,7 +106,11 @@ export default function SettleUp() {
       setFrom(d.me)
       setTo(match)
     }
-    toast(p.amount ? `Read ${formatMoney(p.amount, d.group.currency)}${match ? ` to ${d.group.members[match].name}` : ''}` : 'Couldn’t read an amount')
+    toast(
+      p.amount
+        ? `Read ${formatMoney(p.amount, d.group.currency)}${match ? ` to ${labelOf(d.group.members, match, '', d.me)}` : ''}`
+        : 'Couldn’t read an amount',
+    )
   }
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: one-time set-up once the group has loaded (guarded by init); later live updates must not reset what the person entered.
@@ -204,7 +209,7 @@ export default function SettleUp() {
   const cur = group.currency
   // People in the group now, plus anyone who left with money still owed (old data) or is prefilled here.
   const order = memberOrder(group, [...Object.keys(d.net).filter((id) => !isSettled(d.net[id] ?? 0)), from, to])
-  const name = (id: MemberId) => (id === d.me ? 'You' : (group.members[id]?.name ?? ''))
+  const name = (id: MemberId) => (id === d.me ? 'You' : labelOf(group.members, id, '', d.me))
   const owed = d.debts.find((x) => x.from === from && x.to === to)?.amount
   const methods = settleMethods(cur)
   const validAmount = amount !== undefined && amount > 0
@@ -482,7 +487,7 @@ export default function SettleUp() {
           <div className="flex items-start gap-2">
             <Clock size={18} className="mt-0.5 shrink-0 text-sky-600 dark:text-sky-400" aria-hidden />
             <div className="min-w-0 text-sm">
-              <div className="font-semibold">Needs {group.members[to]?.name ?? 'their'}’s OK</div>
+              <div className="font-semibold">Needs {labelOf(group.members, to, 'their', d.me)}’s OK</div>
               <div className="text-muted text-xs">
                 In this group a payment counts once the person paid confirms it. Attach the payment screenshot and it can count straight away when it matches.
               </div>
@@ -1007,7 +1012,7 @@ export function SettleWithPerson() {
     setBusy(true)
     const auto = even
       ? `Netted out across ${n} groups (no payment)`
-      : `Part of one payment of ${fmt(plan.payment)} ${toMe ? `from ${p.name}` : `to ${p.name}`} across ${n} groups`
+      : `Part of one payment of ${fmt(plan.payment)} ${toMe ? `from ${p.label}` : `to ${p.label}`} across ${n} groups`
     let saved = 0
     try {
       for (const r of p.parts) {
@@ -1037,10 +1042,10 @@ export function SettleWithPerson() {
       }
       toast(
         even
-          ? `Cleared ${n} groups with ${p.name}`
+          ? `Cleared ${n} groups with ${p.label}`
           : plan.clearsAll
-            ? `Settled up with ${p.name} across ${n} groups 💸`
-            : `Recorded ${fmt(plan.payment)} ${toMe ? 'from' : 'to'} ${p.name} 💸`,
+            ? `Settled up with ${p.label} across ${n} groups 💸`
+            : `Recorded ${fmt(plan.payment)} ${toMe ? 'from' : 'to'} ${p.label} 💸`,
       )
       nav('/settle', { replace: true })
     } catch (e) {
@@ -1063,18 +1068,18 @@ export function SettleWithPerson() {
       }}
       noValidate
     >
-      <PageHeader title="Settle up" subtitle={`with ${p.name} · ${n} groups`} back />
+      <PageHeader title="Settle up" subtitle={`with ${p.label} · ${n} groups`} back />
       <div className="card p-5">
         <div className="flex flex-col items-center text-center">
-          <Avatar name={p.name} photoURL={p.photoURL} color={p.color} size={56} />
+          <Avatar name={p.label} photoURL={p.photoURL} color={p.color} size={56} />
           <div className="text-muted mt-2 text-sm font-semibold" data-testid="settle-person-dir">
-            {even ? `You and ${p.name} are even overall` : toMe ? `${p.name} pays you` : `You pay ${p.name}`}
+            {even ? `You and ${p.label} are even overall` : toMe ? `${p.label} pays you` : `You pay ${p.label}`}
           </div>
         </div>
         {even ? (
           <div className="mt-3 text-center">
             <div className="text-3xl font-extrabold">No money changes hands</div>
-            <p className="text-muted mt-1 text-sm">What you owe in one group cancels what {p.name} owes in another. Clearing records it in each group.</p>
+            <p className="text-muted mt-1 text-sm">What you owe in one group cancels what {p.label} owes in another. Clearing records it in each group.</p>
           </div>
         ) : (
           <>
@@ -1103,7 +1108,7 @@ export function SettleWithPerson() {
               ) : value === owedTotal ? (
                 `Total across ${n} groups`
               ) : (
-                `${toMe ? `${p.name} owes you` : `You owe ${p.name}`} ${fmt(owedTotal)} overall. `
+                `${toMe ? `${p.label} owes you` : `You owe ${p.label}`} ${fmt(owedTotal)} overall. `
               )}
               {value !== owedTotal && (
                 <button
@@ -1133,7 +1138,7 @@ export function SettleWithPerson() {
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-semibold">{r.groupName}</div>
                   <div className="text-muted truncate text-xs">
-                    {r.dir === 'owed' ? `${p.name} owes you ${formatMoney(r.amount, r.currency)}` : `You owe ${p.name} ${formatMoney(r.amount, r.currency)}`}
+                    {r.dir === 'owed' ? `${p.label} owes you ${formatMoney(r.amount, r.currency)}` : `You owe ${p.label} ${formatMoney(r.amount, r.currency)}`}
                     {approx && r.currency !== cur && a?.paid ? ` · ${fmt(a.paid)} of the payment` : ''}
                   </div>
                 </div>
@@ -1148,7 +1153,7 @@ export function SettleWithPerson() {
           })}
         </ul>
         <div className="mt-1 flex items-center gap-3 border-t border-slate-200 pt-2.5 dark:border-white/10">
-          <span className="flex-1 font-bold">{even ? 'Net' : toMe ? `${p.name} pays you` : `You pay ${p.name}`}</span>
+          <span className="flex-1 font-bold">{even ? 'Net' : toMe ? `${p.label} pays you` : `You pay ${p.label}`}</span>
           <span className={`font-extrabold tabular-nums ${even ? 'text-muted' : toMe ? 'pos' : 'neg'}`} data-testid="settle-person-total">
             {formatMoney(Math.sign(p.net) * plan.payment, cur, { sign: !even })}
           </span>
@@ -1176,17 +1181,17 @@ export function SettleWithPerson() {
         )}
         {waiting > 0 && (
           <p className="mt-3 text-xs text-sky-700 dark:text-sky-300" data-testid="settle-person-waiting">
-            {formatMoney(waiting, cur)} you already recorded is waiting for {p.name}’s OK, and isn’t counted above.
+            {formatMoney(waiting, cur)} you already recorded is waiting for {p.label}’s OK, and isn’t counted above.
           </p>
         )}
         {held.length > 0 && (
           <p className="text-muted mt-3 text-xs" data-testid="settle-person-held">
-            Not included: what you owe {p.name} in {held.map((r) => r.groupName).join(', ')}, where payments need their OK. Settle that in the group.
+            Not included: what you owe {p.label} in {held.map((r) => r.groupName).join(', ')}, where payments need their OK. Settle that in the group.
           </p>
         )}
         {otherCur.length > 0 && (
           <p className="text-muted mt-3 text-xs">
-            {p.name} also has balances in {otherCur.map((x) => x.currency).join(', ')}. Different currencies are never netted together: settle those separately
+            {p.label} also has balances in {otherCur.map((x) => x.currency).join(', ')}. Different currencies are never netted together: settle those separately
             from Balances.
           </p>
         )}
@@ -1197,8 +1202,8 @@ export function SettleWithPerson() {
           key={toMe ? 'me' : p.key}
           cur={cur}
           toMe={toMe}
-          payer={toMe ? p.name : 'You'}
-          recipient={toMe ? 'You' : p.name}
+          payer={toMe ? p.label : 'You'}
+          recipient={toMe ? 'You' : p.label}
           recipientJoined={!!recipientUid}
           payment={payee?.payment}
           payeeName={payee?.displayName ?? (toMe ? meName : p.name)}
