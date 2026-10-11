@@ -229,10 +229,12 @@ export function payLinkPaidNote(p: {
   currency: string
   recorded: boolean
   withProof?: boolean
+  /** why it wasn't recorded (skipText), when the server couldn't */
+  skipped?: string
 }): Note {
   const head = `${clip(p.payerName, 30)} marked ${formatMoney(p.amount, p.currency)} paid · ${clip(p.groupName, 40)}`
   const proof = p.withProof ? ' Screenshot attached.' : ''
-  const tail = p.recorded ? ' It’s recorded as a payment; not right? Delete it in the group.' : ''
+  const tail = p.recorded ? ' It’s recorded as a payment; not right? Delete it in the group.' : p.skipped ? ` ${p.skipped}` : ''
   return { title: groupTitle(p.groupName, p.emoji), body: `${head}.${proof}${tail}`, url: `/r/${p.code}`, tag: `paylink-${p.code}` }
 }
 

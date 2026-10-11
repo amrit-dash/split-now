@@ -6,6 +6,24 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- **Glitter is a flash of light**: as each firework burst fades, a quick flash of small lights goes off where it was, some bigger, some brighter, then gone. Glitter size sets how big they are, and the new **Glitter shape** picks Mix, Dots, Streaks, Stars or Curls. **Twinkle** is a separate setting, off by default: some sparks pulse as they fade.
+- **Gold and Graphite have real dual tones**: Gold now runs from gold into deep bronze, and Graphite from slate into charcoal, with white or black text.
+- **Security fixes**:
+  - A deleted group is fully read-only. Nothing can be added or changed inside it until someone restores it.
+  - A group's delete date can't be made up, so a group always gets its 30 days in Recently deleted.
+  - A recorded payment can't be edited afterwards, so an approved payment stays as it was approved.
+  - Only a group's creator can import payments that skip the recipient's OK.
+- **Payments need the recipient's OK** now depends on the setting when a payment is recorded. Turning the setting off later doesn't let a payment that's waiting for an OK count.
+- **Pay me links**:
+  - A deleted group's links go on hold until it's restored.
+  - If a payment can't be recorded, both people are told why instead of seeing "recorded".
+  - A part payment no longer marks a bigger request paid.
+- **Leaving a deleted group** is possible without restoring it for everyone.
+- **Settle up across groups** shows payments you already recorded that are waiting for an OK, and doesn't net against a group where payments need an OK.
+- **Archived groups** come back when an edit leaves you owing money, and leaving a group clears your archive.
+- **Payment screenshots**: the check needs the recipient's first name or UPI ID, a shared surname isn't enough, and only the payer, the recipient or the group's creator can delete a screenshot.
+- The party confetti follows the All animations switch, and the last day in Recently deleted reads "until the end of today".
+
 ## 3.7.0 — October 2026
 
 - **Safe delete for groups**: deleting a group moves it to **Recently deleted** (on Groups) for 30 days instead of wiping it. Everyone in it is told, and any of them can restore it with one tap; after 30 days it's gone for good. The confirmation lists any payments still open. Only the person who created a group can delete it, unless they've left it, in which case anyone in it can once everyone is settled up. The creator can still delete a group forever straight away from Recently deleted.

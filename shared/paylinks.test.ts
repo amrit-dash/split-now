@@ -17,6 +17,7 @@ import {
   payLinkPartId,
   MAX_LINK_PARTS,
   shouldHandle,
+  skipText,
   type PayLinkDoc,
 } from './paylinks'
 
@@ -91,6 +92,8 @@ describe('status', () => {
   it('anyone may mark an open link paid, only its guest when it is locked to one', () => {
     expect(canMarkPaid(link, NOW, undefined)).toBe(true)
     expect(canMarkPaid(link, NOW, 'anon1')).toBe(true)
+    // on hold while its group is in Recently deleted
+    expect(canMarkPaid({ ...link, held: true }, NOW, 'anon1')).toBe(false)
     expect(canMarkPaid({ ...link, forUid: 'anon1' }, NOW, 'anon1')).toBe(true)
     expect(canMarkPaid({ ...link, forUid: 'anon1' }, NOW, 'anon2')).toBe(false)
     expect(canMarkPaid({ ...link, status: 'paid' }, NOW, 'anon1')).toBe(false)
@@ -167,6 +170,13 @@ describe('what gets recorded', () => {
     expect(planRecord(CODE, paid, { ...group, memberUids: ['u_rahul'] }, 'd', NOW, fmt)).toEqual({ kind: 'skip', reason: 'not_payee' })
     expect(planRecord(CODE, { ...paid, amount: 12.5 }, group, 'd', NOW, fmt)).toEqual({ kind: 'skip', reason: 'bad_amount' })
     expect(planRecord(CODE, paid, { ...group, currency: 'AUD' }, 'd', NOW, fmt)).toEqual({ kind: 'skip', reason: 'currency' })
+    // Nothing is recorded into a group in Recently deleted.
+    expect(planRecord(CODE, paid, { ...group, deletedAt: 5 }, 'd', NOW, fmt)).toEqual({ kind: 'skip', reason: 'deleted' })
+  })
+  it('says why it wasn’t recorded, and what to do instead', () => {
+    expect(skipText('deleted', 'Goa')).toMatch(/Goa.*Recently deleted.*Restore/)
+    expect(skipText('currency', 'Goa')).toMatch(/currency changed.*Settle up/)
+    expect(skipText('not_member', '')).toContain('the group')
   })
 })
 

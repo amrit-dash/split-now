@@ -5,8 +5,8 @@
  * left out of balances until then, like an expense that needs approval. A payment screenshot,
  * checked on the server by AI against you (amount, your name or UPI ID, a successful payment,
  * recent, not used before), clears it without you, marked so you can still flag it. Flagging a
- * payment ("Not received") takes it out of balances again until you OK it. With the setting off
- * every payment counts at once, as before. Imported by the app and by Cloud Functions, so it is
+ * payment ("Not received") takes it out of balances again until you OK it. A payment asks for the
+ * OK only if the setting was on when it was recorded; with it off, new payments count at once. Imported by the app and by Cloud Functions, so it is
  * pure and matches documents structurally.
  */
 
@@ -52,18 +52,20 @@ export function needsOkOnCreate(groupOn: boolean | undefined, s: Pick<OkSettleme
 
 /**
  * Waiting for the payee's OK (left out of balances): asked for, not OK'd (or flagged since), and
- * the payee is still there to give it. Someone who left can't, so their payments count. With the
- * group setting off, nothing waits.
+ * the payee is still there to give it. Someone who left can't, so their payments count. Whether a
+ * payment asks is fixed when it is recorded (needsOk): turning the group setting off later doesn't
+ * let a waiting payment count, and payments from before it was turned on never wait (owner
+ * decision, Oct 2026).
  */
-export function awaitingOk(s: Omit<OkSettlement, 'from' | 'createdBy'>, members: MembersLite, groupOn: boolean | undefined): boolean {
-  if (groupOn !== true || s.needsOk !== true || typeof s.deletedAt === 'number') return false
+export function awaitingOk(s: Omit<OkSettlement, 'from' | 'createdBy'>, members: MembersLite): boolean {
+  if (s.needsOk !== true || typeof s.deletedAt === 'number') return false
   if (!payeeUid(s, members)) return false
   return !s.ok || !!s.flag
 }
 
 /** Counts towards balances: not trashed and not waiting for an OK. */
-export const settlementCounts = (s: Omit<OkSettlement, 'from' | 'createdBy'>, members: MembersLite, groupOn: boolean | undefined): boolean =>
-  typeof s.deletedAt !== 'number' && !awaitingOk(s, members, groupOn)
+export const settlementCounts = (s: Omit<OkSettlement, 'from' | 'createdBy'>, members: MembersLite): boolean =>
+  typeof s.deletedAt !== 'number' && !awaitingOk(s, members)
 
 /* ─────────────── Checking a payment screenshot ─────────────── */
 
@@ -121,9 +123,10 @@ const tokens = (s: string) =>
     .filter((t) => t.length >= 3)
 
 /**
- * The money went to the payee: a handle matches exactly, or the names share a word (UPI apps
- * show the bank's name, "ROHAN K SHARMA", for someone the group calls "Rohan"). A handle that
- * names someone else is a mismatch even when a name word matches.
+ * The money went to the payee: a handle matches exactly, or the name shows their first name (UPI
+ * apps show the bank's name, "ROHAN K SHARMA", for someone the group calls "Rohan"). A shared
+ * surname alone isn't enough ("Amit Kumar" is not "Rohan Kumar"). A handle that names someone
+ * else is a mismatch even when the name matches.
  */
 export function payeeMatches(read: Pick<PaymentRead, 'payee' | 'payeeHandle'>, names: string[], handles: string[]): boolean | null {
   const known = new Set(handles.filter(Boolean).map(handleKey))
@@ -135,8 +138,9 @@ export function payeeMatches(read: Pick<PaymentRead, 'payee' | 'payeeHandle'>, n
     if (h.includes('@') && [...known].some((k) => k.includes('@'))) return false
   }
   if (!read.payee?.trim()) return read.payeeHandle?.trim() ? false : null
-  const want = new Set(names.flatMap(tokens))
-  return tokens(read.payee).some((t) => want.has(t))
+  // Each name the payee goes by contributes its first word (a nickname under 3 letters, none).
+  const firsts = new Set(names.map((n) => tokens(n)[0]).filter(Boolean))
+  return tokens(read.payee).some((t) => firsts.has(t))
 }
 
 const days = (a: string, b: string) => Math.abs(Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / 86_400_000

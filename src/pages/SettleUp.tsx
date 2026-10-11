@@ -14,7 +14,7 @@ import { isIOS, isUpiId, methodFor, methodLabel, payOptions, roundSuggestions, s
 import { matchMember, parsePaymentScreenshot, type ParsedPayment } from '@/lib/ocr-parse'
 import { pending } from '@/lib/pending'
 import { linkToClose } from '@/lib/paylinks'
-import { pendingSettlements, personBalances, signedAmount, type PersonBalance } from '@/lib/settleAll'
+import { nettableRows, pendingSettlements, personBalances, personKey, signedAmount, type PersonBalance } from '@/lib/settleAll'
 import { allocateAcrossGroups } from '@/lib/settleMulti'
 import { clearedFor, inHome, paidIn, payInLine, planInHome, type HomeBalance } from '@/lib/collect'
 import { useTodayRates } from '@/hooks/useFx'
@@ -242,7 +242,12 @@ export default function SettleUp() {
       const base = { groupId: group.id, from, to, date, createdBy: user.uid, createdAt: Date.now() }
       // Opened from a Pay me link (/r/{code} → here): this payment clears it, so the link reads
       // as paid for the payee and can't be recorded a second time by the server.
-      const link = linkToClose(params.get('link'), { from: params.get('from') ?? '', to: params.get('to') ?? '' }, { from, to })
+      const asked = Number(params.get('amount'))
+      const link = linkToClose(
+        params.get('link'),
+        { from: params.get('from') ?? '', to: params.get('to') ?? '', amount: Number.isInteger(asked) && asked > 0 ? asked : undefined },
+        { from, to, amount: clears + (waive ? restAfter : 0) },
+      )
       const id = uid('s_')
       const paid = conv && rate ? paidIn(conv.cur, conv.paid, rate.rate, rate.date) : undefined
       await repo.saveSettlement(
@@ -858,7 +863,14 @@ export function SettleWithPerson() {
   const nav = useNavigate()
   const toast = useToast()
   const home = profile.currency
-  const rows = useMemo(() => (data ? pendingSettlements(data, home) : null), [data, home])
+  // What I owe in a group that asks for the payee's OK isn't netted against what they owe me
+  // elsewhere (it would wait for their OK while the rest counted): it's settled in that group.
+  const split = useMemo(() => {
+    if (!data) return null
+    const gated = new Set(data.filter((d) => d.group.paymentApproval).map((d) => d.group.id))
+    return nettableRows(pendingSettlements(data, home), gated)
+  }, [data, home])
+  const rows = split?.rows ?? null
   // A combined key (person|*, from Balances with Collect in my currency): every currency, in yours.
   const combined = key.endsWith('|*')
   const rates = useTodayRates(home, combined && rows ? rows.map((r) => r.currency) : [])
@@ -981,6 +993,12 @@ export function SettleWithPerson() {
   // Same person, other currencies: separate balances, never netted with this one.
   const personPart = p.key.slice(0, p.key.lastIndexOf('|'))
   const otherCur = (people ?? []).filter((x) => x.key !== p.key && x.key.slice(0, x.key.lastIndexOf('|')) === personPart)
+  const held = (split?.held ?? []).filter((r) => personKey(r) === personPart && (combined || r.currency === cur))
+  // Payments from me to them already recorded and waiting for their OK, in these groups, so nobody pays twice.
+  const waiting = p.parts.reduce((sum, r) => {
+    const g = data?.find((d) => d.group.id === r.groupId)
+    return g && r.currency === cur ? sum + waitingTotal(g.waiting, r.me, r.memberId) : sum
+  }, 0)
 
   const save = async () => {
     if (!even && value <= 0) return toast('Enter an amount', 'err')
@@ -1154,6 +1172,16 @@ export function SettleWithPerson() {
         {approx && (
           <p className="text-muted mt-3 text-xs" data-testid="settle-person-approx">
             Other currencies are converted at today’s ECB rate. Paying within 4% of the total clears everything; each group records its own currency.
+          </p>
+        )}
+        {waiting > 0 && (
+          <p className="mt-3 text-xs text-sky-700 dark:text-sky-300" data-testid="settle-person-waiting">
+            {formatMoney(waiting, cur)} you already recorded is waiting for {p.name}’s OK, and isn’t counted above.
+          </p>
+        )}
+        {held.length > 0 && (
+          <p className="text-muted mt-3 text-xs" data-testid="settle-person-held">
+            Not included: what you owe {p.name} in {held.map((r) => r.groupName).join(', ')}, where payments need their OK. Settle that in the group.
           </p>
         )}
         {otherCur.length > 0 && (

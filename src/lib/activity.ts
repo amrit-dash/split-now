@@ -315,7 +315,7 @@ export function groupSettingsActivity(before: GroupSettingsSnapshot, after: Grou
     else parts.push(`changed small-edit auto-approve to up to ${amt(after.editAutoApprove)}`)
   }
   if (!!before.paymentApproval !== !!after.paymentApproval)
-    parts.push(after.paymentApproval ? 'turned on OKs for payments' : 'turned off OKs for payments (every payment counts at once)')
+    parts.push(after.paymentApproval ? 'turned on OKs for payments' : 'turned off OKs for payments (new payments count at once)')
   if ((before.budget || undefined) !== (after.budget || undefined)) {
     if (!after.budget) parts.push('removed the budget')
     else if (!before.budget) parts.push(`set a budget of ${amt(after.budget)}`)

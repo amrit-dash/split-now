@@ -28,6 +28,12 @@ service cloud.firestore {
       return g.get('requireApproval', false) == true && amount > approvalThresholdOf(g);
     }
     function isGroupMember(groupId) { return isUser() && uid() in groupDoc(groupId).data.memberUids; }
+    // Nothing is added or edited inside a group in Recently deleted (shared/group-trash.ts); deletes
+    // still go through, so the creator's "Delete forever" and the purge work. A write in the same
+    // batch as the delete or the restore itself passes (live on one side of it).
+    function groupLive(groupId) {
+      return !('deletedAt' in groupDoc(groupId).data) || !('deletedAt' in getAfter(/databases/$(database)/documents/groups/$(groupId)).data);
+    }
     // State of the group once the current write (or batch) is applied.
     function groupAfter(groupId) { return getAfter(/databases/$(database)/documents/groups/$(groupId)); }
 
@@ -211,7 +217,7 @@ service cloud.firestore {
       // Ranges mirror LIMIT_META in shared/limits.ts.
       function validLimits(d) {
         return d.keys().hasOnly(['capturePerHour', 'capturePerDay', 'aiOwnPerHour', 'aiOwnPerDay', 'nudgePerDay',
-            'fxPerUserPerHour', 'fxPerUserPerDay', 'updatedAt', 'updatedBy'])
+            'fxPerUserPerHour', 'fxPerUserPerDay', 'proofChecksPerHour', 'proofChecksPerDay', 'updatedAt', 'updatedBy'])
           && d.get('capturePerHour', 60) is int && d.get('capturePerHour', 60) >= 1 && d.get('capturePerHour', 60) <= 1000
           && d.get('capturePerDay', 300) is int && d.get('capturePerDay', 300) >= 1 && d.get('capturePerDay', 300) <= 10000
           && d.get('aiOwnPerHour', 120) is int && d.get('aiOwnPerHour', 120) >= 1 && d.get('aiOwnPerHour', 120) <= 1000
@@ -219,6 +225,8 @@ service cloud.firestore {
           && d.get('nudgePerDay', 1) is int && d.get('nudgePerDay', 1) >= 1 && d.get('nudgePerDay', 1) <= 20
           && d.get('fxPerUserPerHour', 30) is int && d.get('fxPerUserPerHour', 30) >= 1 && d.get('fxPerUserPerHour', 30) <= 500
           && d.get('fxPerUserPerDay', 200) is int && d.get('fxPerUserPerDay', 200) >= 1 && d.get('fxPerUserPerDay', 200) <= 5000
+          && d.get('proofChecksPerHour', 10) is int && d.get('proofChecksPerHour', 10) >= 1 && d.get('proofChecksPerHour', 10) <= 100
+          && d.get('proofChecksPerDay', 30) is int && d.get('proofChecksPerDay', 30) >= 1 && d.get('proofChecksPerDay', 30) <= 500
           && d.get('updatedAt', 0) is int
           && d.get('updatedBy', '') is string;
       }
@@ -472,9 +480,13 @@ service cloud.firestore {
 
       // Deleting is safe (shared/group-trash.ts): it sets deletedAt + deletedBy and nothing else,
       // by the creator, or by any member once the creator has left the group (the app also asks
-      // that everyone be square then). While deleted the group is read-only, except that any
-      // member may restore it by removing just those two fields. The daily purge removes it for
-      // good after 30 days; the creator may do so sooner (allow delete below).
+      // that everyone be square then). deletedAt is the time of the write (within a few minutes,
+      // for a phone's clock): an old or made-up stamp would hide the group from Recently deleted
+      // and let the nightly purge take it at once. While deleted the group is read-only, and so is
+      // everything in it (groupLive), except that any member may restore it by removing just those
+      // two fields, or leave it (their own uid out, their entry marked removed) without bringing it
+      // back for everyone. The daily purge removes it for good after 30 days; the creator may do
+      // so sooner (allow delete below).
       function validDeleteChange() {
         let wasDeleted = 'deletedAt' in resource.data;
         let isDeleted = 'deletedAt' in request.resource.data;
@@ -483,9 +495,15 @@ service cloud.firestore {
           || (!wasDeleted && isDeleted
             && keys.hasOnly(['deletedAt', 'deletedBy'])
             && request.resource.data.deletedBy == uid()
+            && request.resource.data.deletedAt is int
+            && request.resource.data.deletedAt > request.time.toMillis() - 300000
+            && request.resource.data.deletedAt < request.time.toMillis() + 300000
             && (resource.data.createdBy == uid() || !(resource.data.createdBy in resource.data.memberUids)))
           || (wasDeleted && !isDeleted && !('deletedBy' in request.resource.data)
-            && keys.hasOnly(['deletedAt', 'deletedBy']));
+            && keys.hasOnly(['deletedAt', 'deletedBy']))
+          || (wasDeleted && isDeleted
+            && keys.hasOnly(['members', 'memberUids', 'memberOpId', 'archivedBy', 'updatedAt'])
+            && resource.data.memberUids.toSet().difference(request.resource.data.memberUids.toSet()) == [uid()].toSet());
       }
 
       // Archiving is personal (shared/archive.ts): a member adds or removes only their own uid in
@@ -496,9 +514,11 @@ service cloud.firestore {
         let after = request.resource.data.get('archivedBy', []).toSet();
         let legacyBefore = resource.data.get('archived', false) == true;
         let legacyAfter = request.resource.data.get('archived', false) == true;
+        // whoever leaves the group in this write (themselves, or removed by the creator) may leave it too
+        let leaving = resource.data.memberUids.toSet().difference(request.resource.data.memberUids.toSet());
         return (legacyAfter == legacyBefore
             && after.difference(before).hasOnly([uid()])
-            && before.difference(after).hasOnly([uid()]))
+            && before.difference(after).difference(leaving.union([uid()].toSet())).size() == 0)
           || (legacyBefore && !legacyAfter
             && !(uid() in after)
             // everyone else stays archived: only you see the group again
@@ -651,8 +671,8 @@ service cloud.firestore {
         }
 
         allow read: if isGroupMember(groupId);
-        allow create: if isGroupMember(groupId) && writesOpen() && validExpense() && noTrustFieldsOnCreate() && approvalFlagOk();
-        allow update: if isGroupMember(groupId) && writesOpen()
+        allow create: if isGroupMember(groupId) && writesOpen() && groupLive(groupId) && validExpense() && noTrustFieldsOnCreate() && approvalFlagOk();
+        allow update: if isGroupMember(groupId) && writesOpen() && groupLive(groupId)
           && ((validExpense() && trustFieldsKept() && approvalFlagOk() && approvalsResetOk()) || isTrashChange() || isFlagOrApproval());
         allow delete: if isGroupMember(groupId) && writesOpen() && canPurge();
 
@@ -664,7 +684,7 @@ service cloud.firestore {
         // not need one existsAfter() per expense (rules allow 20 document reads per batch).
         match /comments/{commentId} {
           allow read: if isGroupMember(groupId);
-          allow create: if isGroupMember(groupId) && writesOpen()
+          allow create: if isGroupMember(groupId) && writesOpen() && groupLive(groupId)
             && request.resource.data.keys().hasOnly(['text', 'authorUid', 'authorName', 'createdAt'])
             && request.resource.data.authorUid == uid()
             && request.resource.data.text is string
@@ -702,11 +722,14 @@ service cloud.firestore {
           return m.get('uid', '') is string && !('removedAt' in m) ? m.get('uid', '') : '';
         }
         // A new payment carries needsOk exactly when the group asks for the payee's OK and someone
-        // else records it (an import is exempt: it copies payments made long ago). It can't arrive
-        // already OK'd, flagged or checked, and its screenshot sits at its own path.
+        // else records it. An import by the group's creator is exempt (it copies payments made long
+        // ago into their group); anyone else's import waits like any payment, so the field can't be
+        // used to skip the OK. It can't arrive already OK'd, flagged or checked, and its screenshot
+        // sits at its own path.
         function okFieldsOnCreate(d) {
           let payee = payeeUidOf(d);
-          let asks = groupDoc(groupId).data.get('paymentApproval', false) == true && payee != '' && payee != uid() && !('importedFrom' in d);
+          let imported = 'importedFrom' in d && groupDoc(groupId).data.createdBy == uid();
+          let asks = groupDoc(groupId).data.get('paymentApproval', false) == true && payee != '' && payee != uid() && !imported;
           return (asks ? d.get('needsOk', false) == true : !('needsOk' in d))
             && !d.keys().hasAny(['ok', 'flag', 'aiCheck'])
             && (!('proofPath' in d) || d.proofPath == 'settleproofs/' + groupId + '/' + settlementId + '.jpg');
@@ -732,6 +755,7 @@ service cloud.firestore {
             && request.resource.data.keys().hasOnly(['id', 'groupId', 'from', 'to', 'amount', 'method', 'note', 'date', 'createdBy',
                 'createdAt', 'importedFrom', 'payLink', 'paid', 'needsOk', 'ok', 'flag', 'proofPath', 'aiCheck', 'deletedAt', 'deletedBy'])
             && validPaid(request.resource.data)
+            && (!('importedFrom' in request.resource.data) || request.resource.data.importedFrom in ['splitwise', 'csv'])
             && (!('payLink' in request.resource.data) || (request.resource.data.payLink is string && request.resource.data.payLink.size() <= 40))
             && request.resource.data.groupId == groupId
             && request.resource.data.amount is int
@@ -743,13 +767,13 @@ service cloud.firestore {
             && request.resource.data.to in groupDoc(groupId).data.members;
         }
         allow read: if isGroupMember(groupId);
-        allow create: if isGroupMember(groupId) && writesOpen() && validSettlement() && noTrustFieldsOnCreate()
+        allow create: if isGroupMember(groupId) && writesOpen() && groupLive(groupId) && validSettlement() && noTrustFieldsOnCreate()
           && okFieldsOnCreate(request.resource.data);
-        allow update: if isGroupMember(groupId) && writesOpen()
-          && ((validSettlement()
-                && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['deletedAt', 'deletedBy', 'needsOk', 'ok', 'flag', 'proofPath', 'aiCheck']))
-              || isTrashChange()
-              || isPayeeDecision());
+        // A recorded payment is never edited (the app records a new one instead): only moved to
+        // trash and back, or OK'd / flagged by its payee. So an OK can't be followed by a new
+        // amount or a different payer or payee.
+        allow update: if isGroupMember(groupId) && writesOpen() && groupLive(groupId)
+          && (isTrashChange() || isPayeeDecision());
         allow delete: if isGroupMember(groupId) && writesOpen() && canPurge();
       }
 
@@ -776,7 +800,7 @@ service cloud.firestore {
             && (!('after' in d) || d.after is map);
         }
         allow read: if isGroupMember(groupId);
-        allow create: if isGroupMember(groupId) && writesOpen() && validEntry(request.resource.data);
+        allow create: if isGroupMember(groupId) && writesOpen() && groupLive(groupId) && validEntry(request.resource.data);
         allow update: if false;
         allow delete: if isUser() && writesOpen()
           && groupDoc(groupId).data.createdBy == uid()
@@ -787,7 +811,7 @@ service cloud.firestore {
       // (also in the same batch as creating/joining the group, hence getAfter).
       match /profiles/{userId} {
         allow read: if isGroupMember(groupId);
-        allow create, update: if isUser() && uid() == userId && writesOpen()
+        allow create, update: if isUser() && uid() == userId && writesOpen() && groupLive(groupId)
           && uid() in groupAfter(groupId).data.memberUids
           && request.resource.data.keys().hasOnly(['displayName', 'payment', 'photoURL', 'currency', 'collect'])
           && request.resource.data.displayName is string
@@ -902,6 +926,7 @@ service cloud.firestore {
       function payeeInGroup(d) {
         let g = groupDoc(d.groupId).data;
         return uid() in g.memberUids
+          && !('deletedAt' in g)
           && d.to in g.members && g.members[d.to].get('uid', '') == uid()
           && d.from in g.members
           && d.currency == g.currency;
@@ -934,6 +959,10 @@ service cloud.firestore {
             // payee is the maker, the group's currency) before recording anything, as the payee.
             || (!('groupId' in d) && !('tableCode' in d) && 'parts' in d && d.parts is list && d.parts.size() > 0 && d.parts.size() <= 8));
       }
+      function paidBySettlement(l, sid) {
+        let st = getAfter(/databases/$(database)/documents/groups/$(l.groupId)/settlements/$(sid)).data;
+        return st.get('payLink', '') == code && st.from == l.from && st.to == l.to && !('deletedAt' in st);
+      }
       // A live table link not locked to one guest: "I've paid" waits for the host (open → claimed).
       function needsHostConfirm(l) { return 'tableCode' in l && !('forUid' in l); }
       // "I've paid": the only change someone other than the payee may make, once. Straight to paid
@@ -944,6 +973,8 @@ service cloud.firestore {
         let now = request.time.toMillis();
         return signedIn()
           && before.status == 'open'
+          // on hold while its group is in Recently deleted (functions/src/trash.ts)
+          && !before.get('held', false)
           && now < before.expiresAt
           && ((after.status == 'paid' && (!needsHostConfirm(before) || 'settlementId' in after))
             || (after.status == 'claimed' && needsHostConfirm(before) && !('settlementId' in after)))
@@ -954,10 +985,13 @@ service cloud.firestore {
           && linkOptStr(after, 'method', 40)
           && (!('proofPath' in after) || (after.proofPath is string
             && after.proofPath.matches('payproofs/' + code + '/[A-Za-z0-9_-]{1,64}[.]jpg')))
-          // A member who recorded the payment in Settle up says which settlement cleared it.
+          // A member who recorded the payment in Settle up says which settlement cleared it: it
+          // must really exist (written first, or in the same batch), between the same two people,
+          // and name this link, so a link can't be closed with no payment behind it.
           && (!('settlementId' in after) || (isUser() && 'groupId' in before
             && uid() in groupDoc(before.groupId).data.memberUids
-            && linkStr(after, 'settlementId', 64)));
+            && linkStr(after, 'settlementId', 64)
+            && paidBySettlement(before, after.settlementId)));
       }
       // The host on a claimed link: Confirm (→ paid, the claim kept; the trigger records it) or
       // Dismiss (→ open, the claim fields removed, so it can be paid and claimed again).

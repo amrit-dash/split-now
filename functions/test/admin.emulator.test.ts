@@ -6,7 +6,7 @@
 import { readFileSync } from 'node:fs'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing'
-import { doc, getDoc, setDoc } from 'firebase/firestore'
+import { collection, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore'
 
 const PROJECT = 'demo-splitit'
 const url = (name: string) => `http://127.0.0.1:5001/${PROJECT}/asia-south1/${name}`
@@ -141,6 +141,17 @@ describe('admin callables (emulator)', () => {
     expect((await call('adminStats', { days: 1 }, 'alice')).status).toBe(200)
     expect((await call('adminSetAdmin', { uid: 'alice', admin: false }, 'boss')).result).toEqual({ uid: 'alice', admin: false })
     expect(await read('admins/alice')).toBeUndefined()
+    // Both changes are on record, the removal too (admins/alice is gone).
+    let log: Array<{ admin: boolean; by: string; at: number }> = []
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const q = await getDocs(query(collection(ctx.firestore(), 'adminLog'), where('uid', '==', 'alice')))
+      log = q.docs.map((d) => d.data() as { admin: boolean; by: string; at: number }).sort((x, y) => x.at - y.at)
+    })
+    expect(log).toHaveLength(2)
+    expect(log.map((x) => [x.admin, x.by])).toEqual([
+      [true, 'boss'],
+      [false, 'boss'],
+    ])
   })
 
   it('adminSetAdmin refuses guests without a profile, blocked accounts, removing yourself and bad input', async () => {

@@ -1,24 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { PartyPopper } from 'lucide-react'
+import { useMotion } from '@/hooks/useMotion'
 
 /*
  * "All settled up" celebration: a party-popper icon that pops and throws a little confetti
  * (WAAPI, ~1.3 s). Plays once on mount and again on each tap of the icon. Under
- * prefers-reduced-motion it's just a static icon.
+ * prefers-reduced-motion, or with Settings → Animations off, it's just a static icon.
  */
-
-const reducedQuery = '(prefers-reduced-motion: reduce)'
-function useReducedMotion() {
-  const [reduced, setReduced] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.(reducedQuery).matches)
-  useEffect(() => {
-    const mq = window.matchMedia?.(reducedQuery)
-    if (!mq) return
-    const on = () => setReduced(mq.matches)
-    mq.addEventListener('change', on)
-    return () => mq.removeEventListener('change', on)
-  }, [])
-  return reduced
-}
 
 const cssVar = (name: string, fallback: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback
 const isDark = () => document.documentElement.classList.contains('dark')
@@ -39,7 +27,9 @@ const rand = (a: number, b: number) => a + Math.random() * (b - a)
 const CONFETTI = Array.from({ length: 12 }, (_, i) => i)
 
 export function Celebrate({ size = 88 }: { size?: number }) {
-  const reduced = useReducedMotion()
+  // Still when the device asks for less motion or the person turned animations off.
+  const motion = useMotion()
+  const reduced = motion.reduced || !motion.prefs.on
   const iconRef = useRef<HTMLSpanElement>(null)
   const bitsRef = useRef<HTMLSpanElement>(null)
   const anims = useRef<Animation[]>([])

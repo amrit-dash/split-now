@@ -1,6 +1,7 @@
 import type { Cents, Expense, ExpenseFlag, Group, MemberId, Settlement } from '@/types'
 import { type ApprovalGroup, approvalNeeded, editApprovalOutcome, groupThreshold } from './approval'
 import { activeMembers, isRemoved } from '../../shared/members'
+import { TRASH_DAYS } from '../../shared/group-trash'
 import { awaitingOk, needsOkOnCreate, settlementCounts } from '../../shared/payment-ok'
 
 /**
@@ -8,7 +9,7 @@ import { awaitingOk, needsOkOnCreate, settlementCounts } from '../../shared/paym
  * approvals. Pure, so both repos, the hooks and the rules tests agree on the semantics.
  */
 
-export const TRASH_DAYS = 30
+export { TRASH_DAYS }
 const DAY = 86_400_000
 
 type Trashable = Pick<Expense, 'deletedAt' | 'deletedBy'>
@@ -64,20 +65,20 @@ export function countedExpenses(expenses: Expense[], g: Pick<Group, 'members'>):
   return expenses.filter((e) => !isTrashed(e) && !isPending(e, g))
 }
 /** Payments that count towards balances: not trashed and not waiting for the payee's OK (shared/payment-ok.ts). */
-export const countedSettlements = (s: Settlement[], g: Pick<Group, 'members' | 'paymentApproval'>) =>
-  s.filter((x) => settlementCounts(x, g.members, g.paymentApproval))
+export const countedSettlements = (s: Settlement[], g: Pick<Group, 'members'>) => s.filter((x) => settlementCounts(x, g.members))
 
 /** Payments waiting for the payee's OK (listed, not counted). */
-export const waitingSettlements = (s: Settlement[], g: Pick<Group, 'members' | 'paymentApproval'>) =>
-  s.filter((x) => awaitingOk(x, g.members, g.paymentApproval))
+export const waitingSettlements = (s: Settlement[], g: Pick<Group, 'members'>) => s.filter((x) => awaitingOk(x, g.members))
 
 /**
  * A new payment as the rules expect it: needsOk exactly when the group asks for the payee's OK and
- * someone else records it (an import never), and none of the fields only the payee or the server set.
+ * someone else records it (an import by the group's creator never), and none of the fields only
+ * the payee or the server set.
  */
-export function prepareSettlementSave(s: Settlement, g: Pick<Group, 'members' | 'paymentApproval'>, uid: string): Settlement {
+export function prepareSettlementSave(s: Settlement, g: Pick<Group, 'members' | 'paymentApproval' | 'createdBy'>, uid: string): Settlement {
   const { needsOk: _n, ok: _o, flag: _f, aiCheck: _a, ...rest } = s
-  return !s.importedFrom && needsOkOnCreate(g.paymentApproval, s, g.members, uid) ? { ...rest, needsOk: true } : rest
+  const creatorImport = !!s.importedFrom && g.createdBy === uid
+  return !creatorImport && needsOkOnCreate(g.paymentApproval, s, g.members, uid) ? { ...rest, needsOk: true } : rest
 }
 
 /** What `from` has recorded as paid to `to` that is still waiting for the OK (so they don't pay it twice). */
@@ -93,7 +94,7 @@ export interface PaymentState {
 
 /** What a payment row shows about the recipient's OK (shared/payment-ok.ts). */
 export function paymentState(s: Settlement, g: Pick<Group, 'members' | 'paymentApproval'>, uid: string): PaymentState {
-  if (!s.needsOk || !g.paymentApproval) return { canDecide: false }
+  if (!s.needsOk) return { canDecide: false }
   const mine = g.members[s.to]?.uid === uid && !isRemoved(g.members[s.to])
   if (s.flag) return { pill: 'flagged', canDecide: mine }
   if (!s.ok) return { pill: 'needs-ok', canDecide: mine }
@@ -128,7 +129,7 @@ export function paymentsToConfirm<G extends Pick<Group, 'members' | 'paymentAppr
 
 /** Waiting for my OK: I am the payee. */
 export const awaitingMyOk = (s: Settlement, g: Pick<Group, 'members' | 'paymentApproval'>, uid: string) =>
-  awaitingOk(s, g.members, g.paymentApproval) && g.members[s.to]?.uid === uid
+  awaitingOk(s, g.members) && g.members[s.to]?.uid === uid
 
 export const flagsOf = (e: Pick<Expense, 'dispute'>): ExpenseFlag[] => Object.values(e.dispute ?? {}).sort((a, b) => a.at - b.at)
 export const isDisputed = (e: Pick<Expense, 'dispute'>) => flagsOf(e).length > 0

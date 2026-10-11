@@ -35,6 +35,8 @@ describe('resolveLimits', () => {
       nudgePerDay: 1,
       fxPerUserPerHour: 30,
       fxPerUserPerDay: 200,
+      proofChecksPerHour: 10,
+      proofChecksPerDay: 30,
     })
     for (const k of LIMIT_NAMES) {
       const m = LIMIT_META[k]

@@ -32,7 +32,7 @@ export function GateScreen({
   const Heading = preview ? 'h2' : 'h1'
   const body = (
     <>
-      <Aurora />
+      <Aurora persist={false} />
       <div
         className={`relative flex flex-1 flex-col items-center justify-center text-center ${
           preview ? 'px-5 py-8' : 'px-6 pb-8 pt-[calc(env(safe-area-inset-top)+2.5rem)]'

@@ -47,7 +47,6 @@ interface GroupLite {
   members?: Record<string, MemberLite>
   memberUids?: string[]
   type?: string
-  paymentApproval?: boolean
 }
 
 type Refusal = 'rate_limited' | 'not_owed' | 'not_member' | 'off'
@@ -118,7 +117,7 @@ async function groupNet(l: Loaded): Promise<Record<string, number>> {
   return netBalances(
     ex.docs.map((x) => x.data() as BalanceExpense),
     st.docs.map((x) => x.data() as BalanceSettlement),
-    { members: l.members, paymentApproval: l.g.paymentApproval === true },
+    { members: l.members },
   )
 }
 

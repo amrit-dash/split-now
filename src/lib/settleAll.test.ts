@@ -6,6 +6,7 @@ import {
   canNudgePerson,
   groupCount,
   groupNames,
+  nettableRows,
   pendingSettlements,
   personBalances,
   personNudgeItems,
@@ -171,5 +172,39 @@ describe('groupSettleTarget', () => {
   it("opens the group's Balances (and its celebration) when nothing is owed", () => {
     expect(groupSettleTarget('g1', [], 'me')).toEqual({ tab: 'balances' })
     expect(groupSettleTarget('g1', [])).toEqual({ tab: 'balances' })
+  })
+})
+
+describe('nettableRows', () => {
+  const row = (over: Partial<SettleRow>): SettleRow => ({
+    key: 'k',
+    groupId: 'g1',
+    groupName: 'Goa trip',
+    groupEmoji: '🏖️',
+    currency: 'INR',
+    me: 'me',
+    memberId: 'r',
+    name: 'Rohan',
+    color: '#f00',
+    uid: 'u_rohan',
+    amount: 1000,
+    dir: 'owed',
+    href: '/x',
+    ...over,
+  })
+  it('holds out what I owe in a group that needs their OK when they owe me more overall', () => {
+    const rows = [row({ groupId: 'g1', amount: 1000 }), row({ key: 'k2', groupId: 'g2', dir: 'owe', amount: 300 })]
+    const { rows: kept, held } = nettableRows(rows, new Set(['g2']))
+    expect(kept.map((r) => r.groupId)).toEqual(['g1'])
+    expect(held.map((r) => r.groupId)).toEqual(['g2'])
+  })
+  it('nets as before when that group doesn’t ask for an OK, or when I owe overall', () => {
+    const rows = [row({ groupId: 'g1', amount: 1000 }), row({ key: 'k2', groupId: 'g2', dir: 'owe', amount: 300 })]
+    expect(nettableRows(rows, new Set()).held).toEqual([])
+    const iOwe = [row({ groupId: 'g1', amount: 100 }), row({ key: 'k2', groupId: 'g2', dir: 'owe', amount: 300 })]
+    expect(nettableRows(iOwe, new Set(['g2'])).held).toEqual([])
+  })
+  it('a single group is never held', () => {
+    expect(nettableRows([row({ dir: 'owe' })], new Set(['g1'])).held).toEqual([])
   })
 })

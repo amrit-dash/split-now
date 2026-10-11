@@ -25,10 +25,11 @@ export async function badgeCount(uid: string): Promise<number> {
     const [captures, claims, groups] = await Promise.all([
       user.collection('captures').where('status', '==', 'pending').count().get(),
       db().collection('payLinks').where('createdBy', '==', uid).where('status', '==', 'claimed').count().get(),
-      db().collection('groups').where('memberUids', 'array-contains', uid).select('requireApproval', 'members').limit(50).get(),
+      db().collection('groups').where('memberUids', 'array-contains', uid).select('requireApproval', 'members', 'deletedAt').limit(50).get(),
     ])
     let approvals = 0
-    const needing = groups.docs.filter((g) => g.get('requireApproval') === true).slice(0, 10)
+    // A group in Recently deleted asks nothing of anyone (the Inbox leaves it out too).
+    const needing = groups.docs.filter((g) => g.get('requireApproval') === true && typeof g.get('deletedAt') !== 'number').slice(0, 10)
     await Promise.all(
       needing.map(async (g) => {
         const members = (g.get('members') ?? {}) as Record<string, { uid?: string }>

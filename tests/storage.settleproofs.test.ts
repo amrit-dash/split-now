@@ -28,8 +28,12 @@ beforeEach(async () => {
       type: 'home',
       currency: 'INR',
       simplify: true,
-      memberUids: ['alice', 'bob'],
-      members: { alice: { name: 'Alice', uid: 'alice', color: '#000' }, bob: { name: 'Bob', uid: 'bob', color: '#111' } },
+      memberUids: ['alice', 'bob', 'carl'],
+      members: {
+        alice: { name: 'Alice', uid: 'alice', color: '#000' },
+        bob: { name: 'Bob', uid: 'bob', color: '#111' },
+        carl: { name: 'Carl', uid: 'carl', color: '#222' },
+      },
       inviteCode: 'FLAT2345',
       createdBy: 'alice',
       createdAt: 1,
@@ -63,5 +67,43 @@ describe('settleproofs/{groupId}', () => {
     await assertFails(Promise.resolve(st('carol').ref('settleproofs/g1/s5.jpg').getMetadata()))
     await assertFails(Promise.resolve(st('carol').ref('settleproofs/g1/s5.jpg').delete()))
     await assertSucceeds(Promise.resolve(st('alice').ref('settleproofs/g1/s5.jpg').delete()))
+  })
+  it('once its payment exists, only the payer, the payee or the creator may delete it (it is the payee’s evidence)', async () => {
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'groups/g1/settlements/s6'), {
+        id: 's6',
+        groupId: 'g1',
+        from: 'bob',
+        to: 'carl',
+        amount: 100,
+        createdBy: 'bob',
+        createdAt: 1,
+      }),
+    )
+    await assertSucceeds(put('bob', 'settleproofs/g1/s6.jpg'))
+    await assertFails(Promise.resolve(st('dave').ref('settleproofs/g1/s6.jpg').delete()))
+    await assertSucceeds(Promise.resolve(st('carl').ref('settleproofs/g1/s6.jpg').delete()))
+  })
+  it('a third member can’t delete someone else’s', async () => {
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'groups/g1/settlements/s7'), {
+        id: 's7',
+        groupId: 'g1',
+        from: 'bob',
+        to: 'alice',
+        amount: 100,
+        createdBy: 'bob',
+        createdAt: 1,
+      }),
+    )
+    await assertSucceeds(put('bob', 'settleproofs/g1/s7.jpg'))
+    await assertFails(Promise.resolve(st('carl').ref('settleproofs/g1/s7.jpg').delete()))
+    await assertSucceeds(Promise.resolve(st('bob').ref('settleproofs/g1/s7.jpg').delete()))
+  })
+  it('nothing is uploaded into a group in Recently deleted', async () => {
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'groups/g1'), { name: 'Flat', memberUids: ['alice', 'bob'], members: {}, createdBy: 'alice', deletedAt: 5 }),
+    )
+    await assertFails(put('bob', 'settleproofs/g1/s8.jpg'))
   })
 })

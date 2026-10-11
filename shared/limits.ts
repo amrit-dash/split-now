@@ -19,6 +19,9 @@ export interface Limits {
   /** refreshFx callable, per user */
   fxPerUserPerHour: number
   fxPerUserPerDay: number
+  /** payment-screenshot checks one payer can start against one payee (they run on the payee's AI allowance) */
+  proofChecksPerHour: number
+  proofChecksPerDay: number
 }
 
 export type LimitName = keyof Limits
@@ -46,6 +49,14 @@ export const LIMIT_META: Record<LimitName, LimitMeta> = {
   },
   fxPerUserPerHour: { label: 'Exchange-rate refreshes per person, per hour', hint: 'The Refresh button next to the currency', min: 1, max: 500, default: 30 },
   fxPerUserPerDay: { label: 'Exchange-rate refreshes per person, per day', hint: '', min: 1, max: 5000, default: 200 },
+  proofChecksPerHour: {
+    label: 'Screenshot checks per payer, per payee, per hour',
+    hint: 'Payments that need the recipient’s OK; each check uses the recipient’s AI allowance',
+    min: 1,
+    max: 100,
+    default: 10,
+  },
+  proofChecksPerDay: { label: 'Screenshot checks per payer, per payee, per day', hint: '', min: 1, max: 500, default: 30 },
 }
 
 export const LIMIT_NAMES = Object.keys(LIMIT_META) as LimitName[]

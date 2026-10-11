@@ -1,5 +1,5 @@
 /**
- * The daily purge of Recently deleted (functions/src/trash.ts purgeDue) against the Firestore
+ * The daily purge of Recently deleted (functions/src/trash.ts purgeExpiredGroups) against the Firestore
  * emulator: groups deleted 30 days ago go (with their invite), newer ones and live ones stay.
  * Run with: npm run test:functions.
  */
@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
-import { purgeDue } from '../src/trash'
+import { purgeExpiredGroups } from '../src/trash'
 
 const DAY = 86_400_000
 let env: RulesTestEnvironment
@@ -43,7 +43,7 @@ const group = (id: string, code: string, deletedAt?: number) => ({
   ...(deletedAt === undefined ? {} : { deletedAt, deletedBy: 'alice' }),
 })
 
-describe('purgeDue (emulator)', () => {
+describe('purgeExpiredGroups (emulator)', () => {
   it('removes groups whose 30 days are up, with their invite, and keeps the rest', async () => {
     await admin(async (db) => {
       await setDoc(doc(db, 'groups/old'), group('old', 'OLDCODE1', 0))
@@ -51,7 +51,7 @@ describe('purgeDue (emulator)', () => {
       await setDoc(doc(db, 'groups/recent'), group('recent', 'RECENT01', 29 * DAY))
       await setDoc(doc(db, 'groups/live'), group('live', 'LIVECODE'))
     })
-    const removed = await purgeDue(30 * DAY)
+    const removed = await purgeExpiredGroups(30 * DAY)
     expect(removed).toBe(1)
     expect(await exists('groups/old')).toBe(false)
     expect(await exists('invites/OLDCODE1')).toBe(false)

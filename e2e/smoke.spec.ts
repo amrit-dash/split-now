@@ -188,6 +188,10 @@ test('Animations: turning them all off stills the preview and the accent buttons
   await expect(page.getByTestId('motion-preview')).toBeVisible()
   await page.getByTestId('motion-size').getByRole('radio', { name: 'Big' }).click()
   await expect(page.getByTestId('motion-size').getByRole('radio', { name: 'Big' })).toHaveAttribute('aria-checked', 'true')
+  // Glitter shape and Twinkle are their own settings.
+  await page.getByTestId('motion-glitter-shape').getByRole('radio', { name: 'Stars' }).click()
+  await expect(page.getByTestId('motion-glitter-shape').getByRole('radio', { name: 'Stars' })).toHaveAttribute('aria-checked', 'true')
+  await expect(page.getByTestId('motion-twinkle')).toHaveAttribute('aria-checked', 'false')
   await page.getByTestId('motion-on').click()
   await expect(page.getByTestId('motion-on')).toHaveAttribute('aria-checked', 'false')
   await expect(page.getByTestId('motion-preview-firework')).toHaveCount(0)
@@ -591,6 +595,13 @@ test('deleting a group moves it to Recently deleted, where anyone in it can rest
   await deleted.getByText('Oops Trip').click()
   await expect(page).toHaveURL(url)
   await expect(page.getByTestId('group-deleted')).toContainText('Deleted by you')
+
+  // Nothing can be added while it's deleted: Settle up and Add expense show the same card.
+  await page.goto(`${url}/settle`)
+  await expect(page.getByTestId('group-deleted')).toBeVisible()
+  await page.goto(`/add?group=${url.split('/').pop()}`)
+  await expect(page.getByTestId('group-deleted')).toBeVisible()
+  await page.goto(url)
 
   // Restore brings it back as it was.
   await page.getByTestId('group-restore').click()

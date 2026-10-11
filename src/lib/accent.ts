@@ -42,8 +42,8 @@ export const ACCENTS: readonly AccentPreset[] = [
   { id: 'neon', label: 'Neon', ink: 'dark', swatch: { light: ['#4d7800', '#00a8a8'], dark: ['#c6ff00', '#3df4ef'] }, meta: '#426400' },
   { id: 'berry', label: 'Berry', ink: 'light', swatch: { light: ['#b32689', '#009698'], dark: ['#f568c5', '#2ad7d7'] }, meta: '#97176e' },
   { id: 'koi', label: 'Koi', ink: 'light', swatch: { light: ['#bc4b00', '#676cf4'], dark: ['#fe8f5b', '#a2acff'] }, meta: '#9d3d00' },
-  { id: 'gold', label: 'Gold', ink: 'light', swatch: { light: ['#936500', '#de8800'], dark: ['#f8b81c', '#fda848'] }, meta: '#774f00' },
-  { id: 'graphite', label: 'Graphite', ink: 'light', swatch: { light: ['#45556c', '#71717b'], dark: ['#a1b3cb', '#bcbcc7'] }, meta: '#314158' },
+  { id: 'gold', label: 'Gold', ink: 'light', swatch: { light: ['#936500', '#af661b'], dark: ['#f8b81c', '#e78b30'] }, meta: '#774f00' },
+  { id: 'graphite', label: 'Graphite', ink: 'light', swatch: { light: ['#45556c', '#505561'], dark: ['#b5c6db', '#7c8dab'] }, meta: '#314158' },
 ]
 
 export const DEFAULT_ACCENT: AccentId = 'violet'

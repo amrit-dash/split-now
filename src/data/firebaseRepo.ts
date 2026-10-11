@@ -84,7 +84,6 @@ import {
   storagePathFromUrl,
   memberProfileOf,
   type CaptureToken,
-  type GroupSettings,
   type InviteInfo,
   type MemberProfile,
   type Repo,
@@ -580,20 +579,6 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       batch.update(groupRef(group.id), data)
       fire(batch, on ? 'Archiving group' : 'Restoring group')
     },
-    async updateGroup(id, patch) {
-      const { members: _m, memberUids: _u, id: _i, inviteCode: _c, createdBy: _b, createdAt: _a, updatedAt: _t, ...settings } = patch
-      let base: Group | null = null
-      try {
-        const s = await getDocFromCache(groupRef(id))
-        if (s.exists()) base = { ...(s.data() as Group), id }
-      } catch {
-        /* not cached */
-      }
-      if (base) return repo.updateGroupSettings(base, settings as GroupSettings)
-      const batch = writeBatch(db)
-      batch.update(groupRef(id), { ...settings, updatedAt: Date.now() })
-      fire(batch, 'Saving group')
-    },
     async addMember(group, memberId, member) {
       const batch = writeBatch(db)
       const former = group.members[memberId]
@@ -1032,7 +1017,11 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       const writes: Array<[DocumentReference, object]> = [
         // New rows: no trust fields; requiresApproval when the group asks for it (as for any create).
         ...expenses.map((e) => [expenseRef(groupId, e.id), prepareOccurrence({ ...e, groupId }, group ?? {})] as [DocumentReference, object]),
-        ...settlements.map((st) => [settlementRef(groupId, st.id), prepareImportedSettlement({ ...st, groupId })] as [DocumentReference, object]),
+        // An import skips the payee's OK only for the group's creator (the rules check the same).
+        ...settlements.map((st) => {
+          const row = prepareImportedSettlement({ ...st, groupId })
+          return [settlementRef(groupId, st.id), group ? prepareSettlementSave(row, group, me()) : row] as [DocumentReference, object]
+        }),
       ]
       // One summary activity entry for the whole import, in the first batch.
       const entry = importActivity(

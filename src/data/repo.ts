@@ -147,7 +147,6 @@ export interface Repo {
   /** A co-member's shared name + payment handles for one group. */
   getMemberProfile(groupId: string, uid: string): Promise<MemberProfile | null>
 
-  /** Groups the user belongs to, most recently updated first. */
   /** The user's groups, without deleted ones (those are in watchDeletedGroups). */
   watchGroups(uid: string, cb: Watch<Group[]>): Unsub
   /** The user's groups in "Recently deleted" (deletedAt set), newest deletion first. */
@@ -162,8 +161,6 @@ export interface Repo {
    * Fire-and-forget like other settings; archiving and unarchiving someone else is impossible.
    */
   setArchived(group: Group, on: boolean): Promise<void>
-  /** @deprecated use updateGroupSettings/addMember/removeMember. Membership fields in `patch` are ignored. */
-  updateGroup(id: string, patch: Partial<Group>): Promise<void>
   /**
    * Adds a placeholder. When `memberId` is a removed entry (formerMemberMatch), that entry comes
    * back instead, as a placeholder: removedAt and any uid are dropped and `member` is ignored, so

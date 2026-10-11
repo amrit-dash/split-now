@@ -67,15 +67,15 @@ export const isPendingApproval = (e: Pick<BalanceExpense, 'requiresApproval' | '
 
 /**
  * Net per member (positive = is owed). Trash and pending-approval expenses are left out, like
- * the app's countedExpenses, and so are payments waiting for the payee's OK when the group asks
- * for one (`paymentApproval`); with `asOf`, only items created at or before that instant count.
+ * the app's countedExpenses, and so are payments waiting for the payee's OK (needsOk, set when
+ * recorded); with `asOf`, only items created at or before that instant count.
  */
 export function netBalances(
   expenses: BalanceExpense[],
   settlements: BalanceSettlement[],
-  opts: { members?: MembersLite; asOf?: number; paymentApproval?: boolean } = {},
+  opts: { members?: MembersLite; asOf?: number } = {},
 ): Record<string, number> {
-  const { members = {}, asOf = Infinity, paymentApproval } = opts
+  const { members = {}, asOf = Infinity } = opts
   const net: Record<string, number> = {}
   const add = (m: string, v: number) => (net[m] = (net[m] ?? 0) + v)
   for (const e of expenses) {
@@ -84,7 +84,7 @@ export function netBalances(
     for (const [m, v] of Object.entries(e.splits!)) add(m, -v)
   }
   for (const s of settlements) {
-    if (!settlementCounts(s, members, paymentApproval) || (s.createdAt ?? 0) > asOf || !Number.isInteger(s.amount)) continue
+    if (!settlementCounts(s, members) || (s.createdAt ?? 0) > asOf || !Number.isInteger(s.amount)) continue
     add(s.from, s.amount)
     add(s.to, -s.amount)
   }

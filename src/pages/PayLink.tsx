@@ -20,6 +20,7 @@ import {
   payLinkUrl,
   payLinkView,
   settleUpPath,
+  skipText,
   statusLine,
   type PayLink,
 } from '@/lib/paylinks'
@@ -102,6 +103,14 @@ export default function PayLinkPage() {
       <Shell>
         <Empty emoji="🚫" title={`${payee} cancelled this link`}>
           Nothing to pay here. Ask {payee} if you’re not sure.
+        </Empty>
+      </Shell>
+    )
+  if (view === 'held')
+    return (
+      <Shell>
+        <Empty emoji="⏸️" title="This request is on hold">
+          The group it’s for was deleted, so there’s nothing to pay for now. If {payee} restores it, this link works again.
         </Empty>
       </Shell>
     )
@@ -222,7 +231,14 @@ function PaidView({ link, signedIn }: { link: PayLink; signedIn: boolean }) {
           {link.method ? ` · ${link.method}` : ''}
         </div>
         <p className="mt-3 text-sm">
-          {payee} can see it now.{recordsInGroup(link) ? ` It’s recorded as a payment in ${link.groupName}.` : ''}
+          {payee} can see it now.
+          {link.skipReason
+            ? ` ${skipText(link.skipReason, link.groupName)}`
+            : recordsInGroup(link)
+              ? link.settlementId
+                ? ` It’s recorded as a payment in ${link.groupName}.`
+                : ` It’s being recorded in ${link.groupName}.`
+              : ''}
         </p>
       </div>
       {!signedIn && <GetApp />}
@@ -269,6 +285,7 @@ function PayeeView({ link }: { link: PayLink }) {
           {statusLine(link, Date.now(), (ms) => formatDate(ms))}
         </div>
         {link.status === 'paid' && link.method && <p className="text-muted mt-2 text-sm">{`${payer} says they paid by ${link.method}.`}</p>}
+        {link.status === 'paid' && link.skipReason && <p className="mt-2 text-sm">{skipText(link.skipReason, link.groupName)}</p>}
         {link.status === 'claimed' && (
           <div className="mt-4 border-t border-slate-100 pt-4 dark:border-white/5">
             <ClaimReview link={link} />

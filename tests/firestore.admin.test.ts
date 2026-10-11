@@ -59,6 +59,8 @@ const limits = {
   nudgePerDay: 1,
   fxPerUserPerHour: 30,
   fxPerUserPerDay: 200,
+  proofChecksPerHour: 10,
+  proofChecksPerDay: 30,
   updatedAt: 1,
   updatedBy: 'boss',
 }
@@ -133,9 +135,18 @@ describe('config/limits', () => {
     await assertFails(setDoc(doc(as('boss'), 'config/limits'), { ...limits, nudgePerDay: 21 }))
     await assertFails(setDoc(doc(as('boss'), 'config/limits'), { ...limits, capturePerHour: 0 }))
     await assertFails(setDoc(doc(as('boss'), 'config/limits'), { ...limits, fxPerUserPerDay: 1.5 }))
+    await assertFails(setDoc(doc(as('boss'), 'config/limits'), { ...limits, proofChecksPerHour: 101 }))
     await assertFails(setDoc(doc(as('boss'), 'config/limits'), { ...limits, aiOwnPerDay: '600' }))
     await assertFails(setDoc(doc(as('boss'), 'config/limits'), { ...limits, aiGlobalPerDay: 5 }))
     await assertFails(setDoc(doc(as('boss'), 'config/other'), { x: 1 }))
+  })
+})
+
+describe('adminLog (who was made an admin, or stopped being one)', () => {
+  it('is server-only: nobody reads or writes it from the app, admins included', async () => {
+    await assertFails(setDoc(doc(as('boss'), 'adminLog/x'), { uid: 'alice', admin: true, by: 'boss', at: 1 }))
+    await assertFails(getDoc(doc(as('boss'), 'adminLog/x')))
+    await assertFails(getDocs(collection(as('boss'), 'adminLog')))
   })
 })
 

@@ -259,6 +259,7 @@ describe('payments that need the recipient’s OK', () => {
   const g = {
     members: { me: { name: 'Me', uid: 'u_me', color: '#000' }, b: { name: 'Bob', uid: 'u_b', color: '#111' }, c: { name: 'Cat', color: '#222' } },
     paymentApproval: true,
+    createdBy: 'u_me',
   }
   const s = { id: 's1', groupId: 'g1', from: 'b', to: 'me', amount: 500, method: 'UPI', date: '2026-10-10', createdBy: 'u_b', createdAt: 1 }
 
@@ -267,7 +268,10 @@ describe('payments that need the recipient’s OK', () => {
     expect(prepareSettlementSave(s, g, 'u_me').needsOk).toBeUndefined()
     expect(prepareSettlementSave({ ...s, to: 'c' }, g, 'u_b').needsOk).toBeUndefined()
     expect(prepareSettlementSave(s, { ...g, paymentApproval: false }, 'u_b').needsOk).toBeUndefined()
-    expect(prepareSettlementSave({ ...s, importedFrom: 'csv' }, g, 'u_b').needsOk).toBeUndefined()
+    // An import skips the OK only for the group's creator; anyone else's import waits like any payment.
+    expect(prepareSettlementSave({ ...s, to: 'b', from: 'me', importedFrom: 'csv' }, g, 'u_me').needsOk).toBeUndefined()
+    expect(prepareSettlementSave({ ...s, to: 'b', from: 'me' }, g, 'u_me').needsOk).toBe(true)
+    expect(prepareSettlementSave({ ...s, importedFrom: 'csv' }, g, 'u_b').needsOk).toBe(true)
     const sneaky = { ...s, ok: { by: 'u_b', at: 1, via: 'payee' as const }, aiCheck: { verdict: 'match' as const, reasons: [], at: 1 } }
     expect(prepareSettlementSave(sneaky, g, 'u_b')).not.toHaveProperty('ok')
     expect(prepareSettlementSave(sneaky, g, 'u_b')).not.toHaveProperty('aiCheck')
@@ -278,7 +282,9 @@ describe('payments that need the recipient’s OK', () => {
     expect(waitingSettlements([waiting], g)).toHaveLength(1)
     expect(awaitingMyOk(waiting, g, 'u_me')).toBe(true)
     expect(awaitingMyOk(waiting, g, 'u_b')).toBe(false)
-    expect(countedSettlements([waiting], { ...g, paymentApproval: false })).toHaveLength(1)
+    // Turning the setting off later doesn't let a payment recorded while it was on count.
+    const off = { ...g, paymentApproval: false }
+    expect(countedSettlements([waiting], off)).toHaveLength(0)
   })
   it('paymentState: the pill and whether I decide', () => {
     const w = { ...s, needsOk: true }
@@ -288,7 +294,7 @@ describe('payments that need the recipient’s OK', () => {
     expect(paymentState({ ...w, ok: { by: 'ai', at: 2, via: 'ai' } }, g, 'u_me')).toEqual({ pill: 'matched', canDecide: true })
     expect(paymentState({ ...w, ok: { by: 'u_me', at: 2, via: 'payee' } }, g, 'u_me')).toEqual({ canDecide: false })
     expect(paymentState(s, g, 'u_me')).toEqual({ canDecide: false })
-    expect(paymentState(w, { ...g, paymentApproval: false }, 'u_me')).toEqual({ canDecide: false })
+    expect(paymentState(w, { ...g, paymentApproval: false }, 'u_me')).toEqual({ pill: 'needs-ok', canDecide: true })
   })
   it('paymentsToConfirm: waiting for me, and cleared by a screenshot this week', () => {
     const now = 10 * 86_400_000

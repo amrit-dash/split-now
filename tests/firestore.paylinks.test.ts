@@ -88,6 +88,22 @@ const anon = (uid: string) => env.authenticatedContext(uid, { firebase: { sign_i
 const out = () => env.unauthenticatedContext().firestore()
 const seed = (data: object, code = CODE) => env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), `payLinks/${code}`), data))
 const paid = (uid: string, over: Record<string, unknown> = {}) => ({ status: 'paid', paidAt: Date.now(), paidBy: uid, ...over })
+/** The payment a member recorded in Settle up for this link (groups/g1/settlements/{id}). */
+const recorded = (id = 's_1', over: Record<string, unknown> = {}) =>
+  env.withSecurityRulesDisabled((ctx) =>
+    setDoc(doc(ctx.firestore(), `groups/g1/settlements/${id}`), {
+      id,
+      groupId: 'g1',
+      from: 'mr',
+      to: 'mp',
+      amount: 124000,
+      date: '2026-10-10',
+      createdBy: 'rahul',
+      createdAt: 1,
+      payLink: CODE,
+      ...over,
+    }),
+  )
 
 describe('reading', () => {
   it('anyone signed in with the code, anonymous included, can get a link', async () => {
@@ -135,6 +151,10 @@ describe('creating', () => {
     await assertFails(create(user('priya'), link({ from: 'mp' })))
     await assertFails(create(user('priya'), link({ currency: 'AUD' })))
   })
+  it('not for a group in Recently deleted, and never already on hold', async () => {
+    await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'groups/g1'), { ...group, deletedAt: Date.now(), deletedBy: 'priya' }))
+    await assertFails(create(user('priya'), link()))
+  })
   it('anonymous guests and signed-out users cannot create', async () => {
     await assertFails(create(anon('priya'), link()))
     await assertFails(create(out(), link()))
@@ -151,6 +171,7 @@ describe('creating', () => {
     await assertFails(create(user('priya'), link({ paidAt: Date.now() })))
     await assertFails(create(user('priya'), link({ settlementId: 'pl_x' })))
     await assertFails(create(user('priya'), link({ extra: true })))
+    await assertFails(create(user('priya'), link({ held: true })))
     await assertFails(create(user('priya'), link({ amount: 0 })))
     await assertFails(create(user('priya'), link({ amount: 10.5 })))
     await assertFails(create(user('priya'), link({ expiresAt: Date.now() + 40 * 86_400_000 })))
@@ -211,7 +232,23 @@ describe('"I’ve paid"', () => {
     await assertFails(updateDoc(ref(anon('anon1')), paid('anon1', { settlementId: 'pl_fake' })))
     await assertFails(updateDoc(ref(user('carol')), paid('carol', { settlementId: 's_1' })))
     await assertFails(updateDoc(ref(anon('anon1')), paid('anon1', { recordedAt: Date.now() })))
+    await recorded()
     await assertSucceeds(updateDoc(ref(user('rahul')), paid('rahul', { settlementId: 's_1', method: 'UPI' })))
+  })
+  it('the settlement a member names must exist, between the same people, for this link', async () => {
+    // The hole: a link closed with no payment behind it.
+    await assertFails(updateDoc(ref(user('rahul')), paid('rahul', { settlementId: 's_made_up' })))
+    await recorded('s_other', { payLink: OTHER })
+    await assertFails(updateDoc(ref(user('rahul')), paid('rahul', { settlementId: 's_other' })))
+    await recorded('s_wrong', { from: 'mx' })
+    await assertFails(updateDoc(ref(user('rahul')), paid('rahul', { settlementId: 's_wrong' })))
+    await recorded('s_trashed', { deletedAt: 5, deletedBy: 'rahul' })
+    await assertFails(updateDoc(ref(user('rahul')), paid('rahul', { settlementId: 's_trashed' })))
+  })
+  it('not while its group is in Recently deleted (the link is on hold)', async () => {
+    await seed(link({ held: true }))
+    await assertFails(updateDoc(ref(anon('anon1')), paid('anon1')))
+    await assertFails(updateDoc(ref(user('priya')), { held: false }))
   })
   it('signed-out users cannot', async () => {
     await assertFails(updateDoc(ref(out()), paid('x')))
@@ -269,6 +306,7 @@ describe('live table links the host confirms (no forUid)', () => {
   })
   it('a member who recorded it in Settle up marks an unlocked link paid directly', async () => {
     await unlocked()
+    await recorded()
     await assertSucceeds(updateDoc(ref(user('rahul')), paid('rahul', { settlementId: 's_1' })))
   })
   it('only the host confirms: claimed → paid, keeping the claim', async () => {

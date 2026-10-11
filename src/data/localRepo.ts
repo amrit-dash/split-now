@@ -1,6 +1,6 @@
 import { blobToDataUrl } from '@/lib/image'
-import { archiveWrite, expenseMemberIds, isArchivedFor, uidsOfMembers, unarchiveInvolved } from '../../shared/archive'
-import { purgeDue } from '../../shared/group-trash'
+import { archiveWrite, balanceEditMembers, expenseMemberIds, isArchivedFor, uidsOfMembers, unarchiveInvolved } from '../../shared/archive'
+import { DELETED_GROUP_WRITE, purgeDue } from '../../shared/group-trash'
 import type { ActivityEntry, Capture, Expense, ExpenseComment, Group, Settlement, UserProfile } from '@/types'
 import { inviteCode, todayISO, uid } from '@/lib/id'
 import { inboxToDraft, newCaptureToken } from '@/lib/capture'
@@ -218,6 +218,8 @@ export function createLocalRepo(): Repo {
     state.groups[groupId] =
       'remove' in w ? { ...g, archivedBy: (g.archivedBy ?? []).filter((u) => !w.remove.includes(u)) } : { ...rest, archivedBy: w.convert.archivedBy }
   }
+  /** Like onExpenseUpdated / onSettlementUpdated: an edit that moves balances brings the group back for those it touched. */
+  const edited = (groupId: string, before: object, after: object) => unarchiveFor(groupId, balanceEditMembers(before, after))
   const touch = (groupId: string) => {
     const g = state.groups[groupId]
     if (g) state.groups[groupId] = { ...g, updatedAt: Date.now() }
@@ -226,6 +228,21 @@ export function createLocalRepo(): Repo {
   const errors = errorChannel()
   /** Like a rejected Firestore batch: the call resolves, the refusal arrives through onError. */
   const refuse = (context: string, message: string) => queueMicrotask(() => errors.emit('write', new Error(message), context))
+  /** Like the rules: nothing is added or changed in a group in Recently deleted until it's restored. */
+  const inTrash = (groupId: string, context: string) => {
+    if (typeof state.groups[groupId]?.deletedAt !== 'number') return false
+    refuse(context, DELETED_GROUP_WRITE)
+    return true
+  }
+
+  /** Demo stand-in for onGroupTrashed: a deleted group's open Pay me links wait until it's restored. */
+  const holdLinks = (groupId: string, held: boolean) => {
+    for (const [code, l] of Object.entries(state.payLinks ?? {})) {
+      if (l.groupId !== groupId || l.status !== 'open') continue
+      const { held: _h, ...rest } = l
+      ;(state.payLinks as Record<string, PayLinkDoc>)[code] = held ? { ...rest, held: true } : rest
+    }
+  }
 
   /** Demo stand-in for the onPayLinkPaid trigger: what the server does when a link changes. */
   const payLinkChanged = (code: string, before: PayLinkDoc, after: PayLinkDoc, now: number) => {
@@ -281,6 +298,7 @@ export function createLocalRepo(): Repo {
       touch(plan.settlement.groupId)
       state.payLinks[code] = { ...after, settlementId: plan.settlementId, recordedAt: now }
     } else if (plan.kind === 'notify') state.payLinks[code] = { ...after, recordedAt: now }
+    else state.payLinks[code] = { ...after, recordedAt: now, skipReason: plan.reason }
   }
 
   const repo: Repo = {
@@ -355,6 +373,7 @@ export function createLocalRepo(): Repo {
       return id
     },
     async updateGroupSettings(base, patch) {
+      if (inTrash(base.id, 'Saving the group')) return
       const g = state.groups[base.id]
       const changed = changedSettings(base, patch)
       if (!g || !Object.keys(changed).length) return
@@ -365,6 +384,7 @@ export function createLocalRepo(): Repo {
       commit()
     },
     async setArchived(group, on) {
+      if (inTrash(group.id, 'Archiving')) return
       const g = state.groups[group.id]
       const w = g && archiveWrite(g, me().uid, on)
       if (!g || !w) return
@@ -377,12 +397,8 @@ export function createLocalRepo(): Repo {
             : { ...rest, archivedBy: w.convert.archivedBy }
       commit()
     },
-    async updateGroup(id, patch) {
-      const { members: _m, memberUids: _u, ...rest } = patch
-      const g = state.groups[id]
-      if (g) await repo.updateGroupSettings(g, rest)
-    },
     async addMember(group, memberId, member) {
+      if (inTrash(group.id, 'Adding a member')) return
       const g = state.groups[group.id]
       if (!g) return
       const former = g.members[memberId]
@@ -404,6 +420,7 @@ export function createLocalRepo(): Repo {
       commit()
     },
     async updateOwnMember(group, memberId, patch) {
+      if (inTrash(group.id, 'Updating your name')) return
       const g = state.groups[group.id]
       const m = g?.members[memberId]
       if (!g || !m || m.uid !== actor()) return
@@ -419,12 +436,17 @@ export function createLocalRepo(): Repo {
       if (!g) return
       const removed = g.members[memberId]
       if (!removed || isRemoved(removed)) return
-      log(group.id, memberActivity('removed', memberId, removed.name, ctx(group.id), removed.uid === actor()))
+      // In Recently deleted only leaving yourself is allowed, and nothing is logged there.
+      const deleted = typeof g.deletedAt === 'number'
+      if (deleted && removed.uid !== actor()) return refuse('Removing a member', DELETED_GROUP_WRITE)
+      if (!deleted) log(group.id, memberActivity('removed', memberId, removed.name, ctx(group.id), removed.uid === actor()))
       // A soft remove, as in Firebase: the entry stays with removedAt so history keeps the name.
+      // Their archive mark goes with them, so the group isn't archived if they come back.
       state.groups[group.id] = {
         ...g,
         members: { ...g.members, [memberId]: { ...removed, removedAt: Date.now() } },
         memberUids: g.memberUids.filter((u) => u !== removed.uid),
+        ...(removed.uid && g.archivedBy?.includes(removed.uid) ? { archivedBy: g.archivedBy.filter((u) => u !== removed.uid) } : {}),
         updatedAt: Date.now(),
       }
       commit()
@@ -435,6 +457,7 @@ export function createLocalRepo(): Repo {
       // Like the rules: the creator, or any member once the creator has left.
       if (g.createdBy !== me().uid && g.memberUids.includes(g.createdBy)) return refuse('Deleting group', 'only the person who created it can delete it')
       state.groups[group.id] = { ...g, deletedAt: Date.now(), deletedBy: me().uid }
+      holdLinks(group.id, true)
       commit()
     },
     async restoreGroup(group) {
@@ -442,6 +465,7 @@ export function createLocalRepo(): Repo {
       if (!g) return
       const { deletedAt: _a, deletedBy: _b, ...rest } = g
       state.groups[group.id] = rest
+      holdLinks(group.id, false)
       commit()
     },
     async purgeGroup(id) {
@@ -481,29 +505,35 @@ export function createLocalRepo(): Repo {
         cb,
       ),
     async saveExpense(e) {
+      if (inTrash(e.groupId, 'Saving expense')) return
       const prev = state.expenses[e.id]
       const g = state.groups[e.groupId]
       const next = prepareExpenseSave(prev, e, g, actor())
       const autoApproved = !!prev && !!g && editAutoApproved({ group: g, before: prev, after: next })
       state.expenses[e.id] = next
       if (!prev) unarchiveFor(e.groupId, expenseMemberIds(next))
+      else edited(e.groupId, prev, next)
       log(e.groupId, expenseSaveActivity(prev, next, ctx(e.groupId, next), { autoApprovedWithin: autoApproved ? g?.editAutoApprove : undefined }))
       touch(e.groupId)
       commit()
     },
     async deleteExpense(groupId, id) {
+      if (inTrash(groupId, 'Deleting expense')) return
       const e = state.expenses[id]
       if (!e || e.deletedAt) return
       state.expenses[id] = { ...e, deletedAt: Date.now(), deletedBy: actor() }
+      edited(groupId, e, state.expenses[id])
       log(groupId, expenseEventActivity('deleted', e, ctx(groupId, e)))
       touch(groupId)
       commit()
     },
     async restoreExpense(groupId, id) {
+      if (inTrash(groupId, 'Restoring expense')) return
       const e = state.expenses[id]
       if (!e?.deletedAt) return
       const { deletedAt: _t, deletedBy: _b, ...rest } = e
       state.expenses[id] = rest
+      edited(groupId, e, rest)
       log(groupId, expenseEventActivity('restored', rest, ctx(groupId, e)))
       touch(groupId)
       commit()
@@ -520,6 +550,7 @@ export function createLocalRepo(): Repo {
       commit()
     },
     async flagExpense(group, expense, reason) {
+      if (inTrash(group.id, 'Flagging')) return
       const e = state.expenses[expense.id]
       const memberId = Object.entries(group.members).find(([, m]) => m.uid === actor())?.[0]
       if (!memberId) throw new Error('You are not a member of this group')
@@ -530,6 +561,7 @@ export function createLocalRepo(): Repo {
       commit()
     },
     async resolveFlag(group, expense) {
+      if (inTrash(group.id, 'Resolving the flag')) return
       const e = state.expenses[expense.id]
       if (!e?.dispute?.[actor()]) return
       const { [actor()]: _f, ...rest } = e.dispute
@@ -538,9 +570,11 @@ export function createLocalRepo(): Repo {
       commit()
     },
     async approveExpense(group, expense) {
+      if (inTrash(group.id, 'Approving')) return
       const e = state.expenses[expense.id]
       if (!e) return
       state.expenses[e.id] = { ...e, approvals: { ...e.approvals, [actor()]: true } }
+      edited(group.id, e, state.expenses[e.id])
       log(group.id, disputeActivity('approved', e, ctx(group.id, e)))
       commit()
     },
@@ -576,6 +610,7 @@ export function createLocalRepo(): Repo {
         cb,
       ),
     async saveSettlement(input, opts) {
+      if (inTrash(input.groupId, 'Recording payment')) return
       const g = state.groups[input.groupId]
       let s = g ? prepareSettlementSave(input, g, actor()) : input
       if (opts?.proof) {
@@ -594,20 +629,24 @@ export function createLocalRepo(): Repo {
       commit()
     },
     async confirmPayment(groupId, id) {
+      if (inTrash(groupId, 'Confirming the payment')) return
       const s = state.settlements[id]
       if (!s) return
       const { flag: _f, ...rest } = s
       state.settlements[id] = { ...rest, ok: { by: actor(), at: Date.now(), via: 'payee' } }
+      edited(groupId, s, state.settlements[id])
       log(groupId, settlementActivity('approved', s, ctx(groupId)))
       touch(groupId)
       commit()
     },
     async flagPayment(groupId, id, reason) {
+      if (inTrash(groupId, 'Flagging the payment')) return
       const s = state.settlements[id]
       if (!s) return
       const text = reason?.trim().slice(0, 500)
       const { ok: _o, ...rest } = s
       state.settlements[id] = { ...rest, flag: { by: actor(), at: Date.now(), ...(text ? { reason: text } : {}) } }
+      edited(groupId, s, state.settlements[id])
       log(groupId, settlementActivity('flagged', s, ctx(groupId), text))
       touch(groupId)
       commit()
@@ -616,18 +655,22 @@ export function createLocalRepo(): Repo {
       return (s.proofPath && state.payProofs?.[s.proofPath]) || null
     },
     async deleteSettlement(groupId, id) {
+      if (inTrash(groupId, 'Deleting payment')) return
       const s = state.settlements[id]
       if (!s || s.deletedAt) return
       state.settlements[id] = { ...s, deletedAt: Date.now(), deletedBy: actor() }
+      edited(groupId, s, state.settlements[id])
       log(groupId, settlementActivity('deleted', s, ctx(groupId)))
       touch(groupId)
       commit()
     },
     async restoreSettlement(groupId, id) {
+      if (inTrash(groupId, 'Restoring payment')) return
       const s = state.settlements[id]
       if (!s?.deletedAt) return
       const { deletedAt: _t, deletedBy: _b, ...rest } = s
       state.settlements[id] = rest
+      edited(groupId, s, rest)
       log(groupId, settlementActivity('restored', rest, ctx(groupId)))
       touch(groupId)
       commit()
@@ -672,6 +715,7 @@ export function createLocalRepo(): Repo {
     },
 
     async saveRecurringOccurrences(template, occurrences) {
+      if (inTrash(template.groupId, 'Adding recurring expenses')) return
       const current = state.expenses[template.id]
       if (!current) return
       for (const o of occurrences) state.expenses[o.id] = prepareOccurrence(o, state.groups[o.groupId] ?? {})
@@ -681,10 +725,11 @@ export function createLocalRepo(): Repo {
     },
 
     async bulkImport(groupId, expenses, settlements) {
+      if (inTrash(groupId, 'Importing')) return
       const g = state.groups[groupId]
       if (!g) return refuse('Importing', 'group not found')
       for (const e of expenses) state.expenses[e.id] = prepareOccurrence({ ...e, groupId }, g)
-      for (const s of settlements) state.settlements[s.id] = prepareImportedSettlement({ ...s, groupId })
+      for (const s of settlements) state.settlements[s.id] = prepareSettlementSave(prepareImportedSettlement({ ...s, groupId }), g, actor())
       log(groupId, importActivity(groupId, expenses.length, settlements.length, expenses[0]?.importedFrom ?? settlements[0]?.importedFrom, ctx(groupId)))
       touch(groupId)
       commit()
@@ -700,6 +745,7 @@ export function createLocalRepo(): Repo {
         cb,
       ),
     async addComment(groupId, expenseId, c) {
+      if (inTrash(groupId, 'Adding comment')) return
       const id = uid('c_')
       comments()[id] = { ...c, id, groupId, expenseId }
       commit()
@@ -865,6 +911,12 @@ export function createLocalRepo(): Repo {
         throw new Error(
           st === 'paid' ? 'This link is already marked paid' : st === 'claimed' ? 'Already marked paid, waiting for the host' : `This link is ${st}`,
         )
+      if (l.held) throw new Error('This request is on hold while its group is in Recently deleted')
+      // Like the rules: a member's own payment must really exist, between the same two people, for this link.
+      if (claim.settlementId) {
+        const s = state.settlements[claim.settlementId]
+        if (!s || s.payLink !== code || s.from !== l.from || s.to !== l.to || s.deletedAt) throw new Error('That payment wasn’t recorded')
+      }
       let proofPath = claim.proofPath
       if (proof) {
         proofPath = `payproofs/${code}/${uid('p')}.jpg`

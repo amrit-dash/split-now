@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type Archivable, archiveWrite, expenseMemberIds, isArchivedFor, uidsOfMembers, unarchiveInvolved } from './archive'
+import { type Archivable, archiveWrite, balanceEditMembers, expenseMemberIds, isArchivedFor, uidsOfMembers, unarchiveInvolved } from './archive'
 
 const g = (over: Archivable = {}) => ({ memberUids: ['a', 'b', 'c'], ...over })
 
@@ -55,5 +55,21 @@ describe('who a new expense involves', () => {
   it('maps them to accounts that really are in the group', () => {
     const members = { p1: { uid: 'a' }, p2: {}, p3: { uid: 'mallory' } }
     expect(uidsOfMembers(members, ['p1', 'p2', 'p3'], ['a', 'b'])).toEqual(['a'])
+  })
+})
+
+describe('balanceEditMembers', () => {
+  const e = { amount: 900, paidBy: { a: 900 }, splits: { a: 450, b: 450 } }
+  it('an edit that moves money touches everyone in it before and after', () => {
+    expect(balanceEditMembers(e, { ...e, splits: { a: 300, b: 300, c: 300 } }).sort()).toEqual(['a', 'b', 'c'])
+    expect(balanceEditMembers(e, { ...e, deletedAt: 5 }).sort()).toEqual(['a', 'b'])
+  })
+  it('a payment going to trash, or its OK or flag changing, touches both people', () => {
+    const s = { amount: 100, from: 'a', to: 'b' }
+    expect(balanceEditMembers(s, { ...s, deletedAt: 5 }).sort()).toEqual(['a', 'b'])
+    expect(balanceEditMembers(s, { ...s, flag: { by: 'b' } }).sort()).toEqual(['a', 'b'])
+  })
+  it('a change that moves nothing touches nobody', () => {
+    expect(balanceEditMembers(e, { ...e })).toEqual([])
   })
 })

@@ -17,7 +17,7 @@
  */
 import { logger } from 'firebase-functions/logger'
 import { onDocumentUpdated } from 'firebase-functions/v2/firestore'
-import { claimSummary, planRecord, planRecordParts, triggerAction, type GroupLite, type PayLinkDoc, type RecordPlan } from '../../shared/paylinks'
+import { claimSummary, planRecord, planRecordParts, skipText, triggerAction, type GroupLite, type PayLinkDoc, type RecordPlan } from '../../shared/paylinks'
 import { minorDigitsOf } from '../../shared/money-core'
 import { db } from './admin'
 import { REGION } from './config'
@@ -62,17 +62,17 @@ export const onPayLinkPaid = onDocumentUpdated({ document: 'payLinks/{code}', re
       })
       tx.update(firestore.doc(`groups/${p.settlement.groupId}`), { updatedAt: now })
       tx.update(linkRef, { settlementId: p.settlementId, recordedAt: now })
-    } else tx.update(linkRef, { recordedAt: now })
+    } else tx.update(linkRef, { recordedAt: now, ...(p.kind === 'skip' ? { skipReason: p.reason } : {}) })
     return p
   })
   if (!plan) return
-  if (plan.kind === 'skip') {
-    logger.warn('pay link not recorded', { code, reason: plan.reason })
-    return
-  }
-  const sent = plan.payeeUid
+  // Not recorded (the group is deleted, someone left, the currency changed): the link keeps why
+  // (skipReason, shown to the payer), and the payee is told, so nobody thinks it was recorded.
+  if (plan.kind === 'skip') logger.warn('pay link not recorded', { code, reason: plan.reason })
+  const payee = plan.kind === 'skip' ? after.createdBy : plan.payeeUid
+  const sent = payee
     ? await sendToUser(
-        plan.payeeUid,
+        payee,
         ['settlements'],
         payLinkPaidNote({
           code,
@@ -83,6 +83,7 @@ export const onPayLinkPaid = onDocumentUpdated({ document: 'payLinks/{code}', re
           currency: after.currency,
           recorded: plan.kind === 'record',
           withProof: !!after.proofPath,
+          skipped: plan.kind === 'skip' ? skipText(plan.reason, after.groupName) : undefined,
         }),
       )
     : 0
@@ -167,7 +168,13 @@ async function recordParts(code: string, after: PayLinkDoc) {
       })
       tx.update(firestore.doc(`groups/${gid}`), { updatedAt: now })
     })
-    tx.update(linkRef, { ...(plan.records[0] ? { settlementId: plan.records[0].settlementId } : {}), recordedAt: now })
+    // Nothing recorded at all: keep why, as for a single-group link.
+    const nothing = !plan.records.length && plan.skipped[0]
+    tx.update(linkRef, {
+      ...(plan.records[0] ? { settlementId: plan.records[0].settlementId } : {}),
+      recordedAt: now,
+      ...(nothing ? { skipReason: nothing.reason } : {}),
+    })
     return plan
   })
   if (!done) return
@@ -184,6 +191,7 @@ async function recordParts(code: string, after: PayLinkDoc) {
       currency: after.currency,
       recorded: done.records.length > 0,
       withProof: !!after.proofPath,
+      skipped: done.skipped[0] ? skipText(done.skipped[0].reason, after.groupName) : undefined,
     }),
   )
   logger.info('pay link paid (parts)', { code, recorded: done.records.length, skipped: done.skipped.length, devices: sent })

@@ -619,8 +619,8 @@ export default function GroupForm() {
           <div>
             <div className="font-semibold">Payments need the recipient's OK</div>
             <div className="text-muted text-xs">
-              In this group, a payment someone records as paid to you counts once you confirm it, or straight away when their screenshot matches. Off: every
-              payment counts at once.
+              In this group, a payment someone records as paid to you counts once you confirm it, or straight away when their screenshot matches. It applies to
+              payments recorded while it's on: turning it off later doesn't skip the OK for those, and new payments then count at once.
             </div>
           </div>
           <Switch checked={paymentApproval} onChange={setPaymentApproval} label="Payments need the recipient's OK" testId="group-payment-approval" />

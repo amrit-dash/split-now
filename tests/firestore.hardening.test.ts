@@ -125,6 +125,31 @@ describe('group shape and settings', () => {
     await assertFails(updateDoc(g1('bob'), { archivedBy: [] }))
     await assertFails(updateDoc(g1('bob'), { archivedBy: 'bob' }))
   })
+  it('leaving takes your archive mark with you; the creator removing someone takes theirs', async () => {
+    await env.withSecurityRulesDisabled((ctx) => updateDoc(doc(ctx.firestore(), 'groups/g1'), { archivedBy: ['alice', 'bob'] }))
+    const leave = (who: string) => ({
+      memberUids: arrayRemove(who),
+      [`members.${who}.removedAt`]: Date.now(),
+      memberOpId: who,
+      archivedBy: arrayRemove(who),
+      updatedAt: 2,
+    })
+    // leaving can't clear anyone else's mark
+    await assertFails(updateDoc(g1('bob'), { ...leave('bob'), archivedBy: arrayRemove('alice', 'bob') }))
+    await assertSucceeds(updateDoc(g1('bob'), leave('bob')))
+  })
+  it('the creator removing someone clears their archive mark too', async () => {
+    await env.withSecurityRulesDisabled((ctx) => updateDoc(doc(ctx.firestore(), 'groups/g1'), { archivedBy: ['bob'] }))
+    await assertSucceeds(
+      updateDoc(g1('alice'), {
+        memberUids: arrayRemove('bob'),
+        'members.bob.removedAt': Date.now(),
+        memberOpId: 'bob',
+        archivedBy: arrayRemove('bob'),
+        updatedAt: 2,
+      }),
+    )
+  })
   it('nobody archives the group for everyone with the old flag any more', async () => {
     await assertFails(updateDoc(g1('bob'), { archived: true, updatedAt: 2 }))
     await assertFails(updateDoc(g1('alice'), { archived: true }))

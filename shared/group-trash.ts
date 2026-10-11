@@ -13,6 +13,9 @@ export interface Trashable {
   deletedBy?: string
 }
 
+/** What a refused write in a deleted group says (the rules refuse it; demo mode says the same). */
+export const DELETED_GROUP_WRITE = 'This group is in Recently deleted. Restore it to make changes.'
+
 export const isDeletedGroup = (g: Trashable): boolean => typeof g.deletedAt === 'number'
 
 /** When a group deleted at `deletedAt` is removed for good. */
