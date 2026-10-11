@@ -24,6 +24,7 @@ import { isLiveTrip } from '@/lib/capture'
 import { todayISO } from '@/lib/id'
 import { usePageTitle } from '@/lib/brand'
 import { fitLabel, overflows } from '@/lib/fit'
+import { Detail, HintText, InfoTip, type Hint } from '@/components/Hint'
 
 // Only shown once everything is settled: kept out of the first-paint bundle.
 const CardFirework = lazy(() => import('@/components/CardFirework').then((m) => ({ default: m.CardFirework })))
@@ -172,15 +173,18 @@ export default function Home() {
                 <FitLine className="text-lg font-bold" labels={[`${ax}${formatMoney(main.owe, cur)}`]} />
               </Link>
             </div>
+            {/* The ≈ on the totals stays in every look; the sentence behind it is optional. */}
             {others.length > 0 && (
-              <div className="mt-3 text-xs text-on-fill/90">
-                {approx
-                  ? `Includes other currencies at today’s ECB rate. Exact: ${formatMoney(totals.get(home) ? totals.get(home)!.owed - totals.get(home)!.owe : 0, home, { sign: true })} · `
-                  : 'Also: '}
-                {others
-                  .map(([c, t]) => `${formatMoney(t.owed - t.owe, c, { sign: true })}${cur === home && !rates?.[c] && c !== home ? ' (no rate)' : ''}`)
-                  .join(' · ')}
-              </div>
+              <Detail min={2}>
+                <div className="mt-3 text-xs text-on-fill/90">
+                  {approx
+                    ? `Includes other currencies at today’s ECB rate. Exact: ${formatMoney(totals.get(home) ? totals.get(home)!.owed - totals.get(home)!.owe : 0, home, { sign: true })} · `
+                    : 'Also: '}
+                  {others
+                    .map(([c, t]) => `${formatMoney(t.owed - t.owe, c, { sign: true })}${cur === home && !rates?.[c] && c !== home ? ' (no rate)' : ''}`)
+                    .join(' · ')}
+                </div>
+              </Detail>
             )}
           </div>
         </div>
@@ -256,17 +260,14 @@ export function FirstRun() {
   return (
     <>
       <div className="card p-5" data-testid="first-run">
-        <h2 className="text-lg font-bold">Start with a group</h2>
-        <p className="text-muted mt-1 text-sm">A trip, your flat, a dinner: add what people pay and Split Now keeps the balances.</p>
+        <h2 className="text-lg font-bold">
+          Start with a group
+          <InfoTip hint={FIRST_RUN_HINT} label="About groups" />
+        </h2>
+        <HintText hint={FIRST_RUN_HINT} className="text-muted mt-1 text-sm" />
         <div className="mt-4 divide-y divide-slate-100 dark:divide-white/5">
-          <StartRow to="/groups/new" icon={<Plus size={20} />} title="Create a group" text="Trips, flats, dinners, anything" testId="first-run-create" />
-          <StartRow
-            to="/groups/import"
-            icon={<FileUp size={20} />}
-            title="Import from Splitwise"
-            text="Bring a group over with its balances"
-            testId="first-run-import"
-          />
+          <StartRow to="/groups/new" icon={<Plus size={20} />} title="Create a group" text={START_HINTS.create} testId="first-run-create" />
+          <StartRow to="/groups/import" icon={<FileUp size={20} />} title="Import from Splitwise" text={START_HINTS.import} testId="first-run-import" />
           <JoinRow />
         </div>
       </div>
@@ -276,13 +277,26 @@ export function FirstRun() {
   )
 }
 const NO_GROUPS: Group[] = []
+const FIRST_RUN_HINT: Hint = {
+  full: 'A trip, your flat, a dinner: add what people pay and Split Now keeps the balances.',
+  short: 'Add what people pay; Split Now keeps the balances.',
+}
+const START_HINTS: Record<string, Hint> = {
+  create: { full: 'Trips, flats, dinners, anything' },
+  import: { full: 'Bring a group over with its balances', short: 'Bring a group over' },
+  join: { full: 'Someone already made the group? Enter their code', short: "Enter the group's code" },
+}
+const EMPTY_GROUPS_HINT: Hint = { full: 'Create one for a trip, your home, or anything you share.' }
 
 /** The Groups tab's and Home's empty state for "no shared groups yet" (a personal wallet may exist). */
 export function EmptyGroups() {
   return (
     <div className="card p-5">
-      <h3 className="font-bold">No shared groups yet</h3>
-      <p className="text-muted mt-1 text-sm">Create one for a trip, your home, or anything you share.</p>
+      <h3 className="font-bold">
+        No shared groups yet
+        <InfoTip hint={EMPTY_GROUPS_HINT} label="About groups" />
+      </h3>
+      <HintText hint={EMPTY_GROUPS_HINT} className="text-muted mt-1 text-sm" />
       <div className="mt-3 flex flex-wrap gap-2">
         <Link to="/groups/new" className="btn-primary" data-testid="empty-create-group">
           Create a group
@@ -295,7 +309,7 @@ export function EmptyGroups() {
   )
 }
 
-function StartRow({ to, icon, title, text, testId }: { to: string; icon: React.ReactNode; title: string; text: string; testId?: string }) {
+function StartRow({ to, icon, title, text, testId }: { to: string; icon: React.ReactNode; title: string; text: Hint; testId?: string }) {
   return (
     <Link to={to} className="flex min-h-16 items-center gap-3 py-3 transition active:bg-slate-50 dark:active:bg-ink-800" data-testid={testId}>
       <span
@@ -306,7 +320,8 @@ function StartRow({ to, icon, title, text, testId }: { to: string; icon: React.R
       </span>
       <span className="min-w-0 flex-1">
         <span className="block font-semibold">{title}</span>
-        <span className="text-muted block text-xs">{text}</span>
+        {/* Inside a link: no (i) here, the line simply follows the look. */}
+        <HintText hint={text} className="text-muted block text-xs" as="span" />
       </span>
       <ChevronRight size={18} className="text-slate-300 dark:text-slate-600" aria-hidden />
     </Link>
@@ -340,7 +355,7 @@ function JoinRow() {
         </span>
         <span className="min-w-0 flex-1">
           <span className="block font-semibold">Join with an invite code</span>
-          <span className="text-muted block text-xs">Someone already made the group? Enter their code</span>
+          <HintText hint={START_HINTS.join} className="text-muted block text-xs" as="span" />
         </span>
         <ChevronRight size={18} className={`text-slate-300 transition-transform dark:text-slate-600 ${open ? 'rotate-90' : ''}`} aria-hidden />
       </button>

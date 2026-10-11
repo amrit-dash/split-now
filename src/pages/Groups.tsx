@@ -11,6 +11,7 @@ import type { Group } from '@/types'
 import { daysLeft } from '../../shared/group-trash'
 import { EmptyGroups, FirstRun, Section } from './Home'
 import { labelForUid, memberIdOfUid } from '@/lib/shortNames'
+import { Detail } from '@/components/Hint'
 
 export default function Groups() {
   usePageTitle('Groups')
@@ -21,16 +22,19 @@ export default function Groups() {
       title="Groups"
       right={
         <div className="flex gap-2">
-          <Link
-            to="/groups/import"
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-200/70 dark:bg-ink-800"
-            aria-label="Import from Splitwise"
-          >
-            <FileUp size={20} aria-hidden />
-          </Link>
-          <Link to="/settle" className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-200/70 dark:bg-ink-800" aria-label="Balances">
-            <Scale size={20} aria-hidden />
-          </Link>
+          {/* Import and Balances have other doors (the empty state, Settings → Data, Home's card): optional here. */}
+          <Detail min={2}>
+            <Link
+              to="/groups/import"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-200/70 dark:bg-ink-800"
+              aria-label="Import from Splitwise"
+            >
+              <FileUp size={20} aria-hidden />
+            </Link>
+            <Link to="/settle" className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-200/70 dark:bg-ink-800" aria-label="Balances">
+              <Scale size={20} aria-hidden />
+            </Link>
+          </Detail>
           <Link
             to="/groups/new"
             className="accent-live flex h-11 w-11 items-center justify-center rounded-full bg-fill text-on-fill"
@@ -95,7 +99,11 @@ export default function Groups() {
           </div>
         </Collapsible>
       )}
-      {deleted && deleted.length > 0 && <RecentlyDeletedGroups groups={deleted} />}
+      {deleted && deleted.length > 0 && (
+        <Detail min={2}>
+          <RecentlyDeletedGroups groups={deleted} />
+        </Detail>
+      )}
     </div>
   )
 }

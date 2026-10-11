@@ -19,6 +19,7 @@ import { Select, currencyOptions } from '@/components/Select'
 import { IconPickerField, TypeSuggestion } from '@/components/IconPicker'
 import { GROUP_TYPES, SHARED_TYPES, guessGroup, iconsFor, type GroupGuess } from '@/lib/groupTypes'
 import { activeMembers } from '@/lib/members'
+import { HintText, InfoTip, type Hint } from '@/components/Hint'
 
 /** 'me' | an existing member id of the target group | 'new' (a new placeholder) */
 type Target = string
@@ -230,7 +231,7 @@ export default function ImportGroup() {
 
   return (
     <div>
-      <PageHeader title="Import a group" subtitle="From Splitwise, or a Split Now CSV" back={!busy} />
+      <PageHeader title="Import a group" subtitle={{ full: 'From Splitwise, or a Split Now CSV' }} back={!busy} />
       <div className="space-y-5">
         <input
           ref={fileInput}
@@ -253,7 +254,7 @@ export default function ImportGroup() {
             >
               <FileUp className="text-brand-600" size={36} aria-hidden />
               <span className="text-lg font-bold">Choose a CSV file</span>
-              <span className="text-muted text-sm">Your Splitwise group export. Nothing is saved until you tap Import.</span>
+              <HintText hint={CHOOSE_HINT} className="text-muted text-sm" as="span" />
             </button>
             <div className="card space-y-2 p-4 text-sm text-slate-700 dark:text-slate-300">
               <h2 className="font-semibold text-slate-900 dark:text-white">How to export from Splitwise</h2>
@@ -365,7 +366,10 @@ export default function ImportGroup() {
                   })}
                 </tbody>
               </table>
-              <p className="text-muted px-4 pt-2 text-xs">Positive = is owed money. Balances match Splitwise exactly.</p>
+              <HintText
+                hint={{ full: 'Positive = is owed money. Balances match Splitwise exactly.', tier: 'extra' }}
+                className="text-muted px-4 pt-2 text-xs"
+              />
               <details className="text-muted px-4 pb-4 pt-1 text-xs">
                 <summary className="cursor-pointer font-semibold">How amounts are rebuilt</summary>
                 <p className="mt-1">
@@ -498,10 +502,11 @@ export default function ImportGroup() {
             </div>
 
             <div className="card p-4">
-              <h2 className="label">Who’s who</h2>
-              <p className="text-muted -mt-1 mb-3 text-xs">
-                Pick yourself. Everyone else becomes a placeholder they can claim later with the group’s invite link.
-              </p>
+              <h2 className="label">
+                Who’s who
+                <InfoTip hint={WHO_HINT} label="About Who’s who" />
+              </h2>
+              <HintText hint={WHO_HINT} className="text-muted -mt-1 mb-3 text-xs" />
               <div className="space-y-2">
                 {result.members.map((n, i) => (
                   <div key={n} className="flex items-center gap-3">
@@ -553,6 +558,14 @@ export default function ImportGroup() {
       </div>
     </div>
   )
+}
+
+const CHOOSE_HINT: Hint = { full: 'Your Splitwise group export. Nothing is saved until you tap Import.', short: 'Nothing is saved until you tap Import.' }
+/** Kept in every look: mapping yourself wrongly gives your share to someone else. */
+const WHO_HINT: Hint = {
+  full: 'Pick yourself. Everyone else becomes a placeholder they can claim later with the group’s invite link.',
+  short: 'Pick yourself; the others can claim their spot later.',
+  tier: 'key',
 }
 
 function Stat({ label, value }: { label: string; value: number }) {

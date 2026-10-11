@@ -78,6 +78,7 @@ import { setTripPaused } from '@/lib/capture-filters'
 import * as payments from '@/lib/payments'
 import { turnLine, whoseTurn } from '@/lib/fairness'
 import { budgetStatus } from '../../shared/budget'
+import { Detail, HintText, useShows, type Hint } from '@/components/Hint'
 import { Avatar } from '@/components/Avatar'
 import { ChequeIcon } from '@/components/ChequeIcon'
 import { DebtGraph } from '@/components/DebtGraph'
@@ -144,6 +145,8 @@ export default function GroupDetail() {
   const latestChat = useChat(groupId, 1, chatOn)
   const prefs = useCapturePrefs()
   const readAt = useChatReadAt(groupId)
+  // Minimal look: the Whose-turn chip is optional, the group's facts (dates, Archived) stay.
+  const showTurn = useShows(2)
   usePageTitle(liveGroup ? liveGroup.name : liveGroup === null ? 'Group not found' : undefined)
 
   const d = useMemo(
@@ -191,7 +194,7 @@ export default function GroupDetail() {
   const creator = group.createdBy === user.uid
   const fail = (e: unknown) => toast(errText(e), 'err')
   // A private hint for the next bill (src/lib/fairness.ts): never pushed, never a score.
-  const turn = whoseTurnOn && !personal && !group.archived ? whoseTurn({ group, expenses: d.expenses }) : null
+  const turn = whoseTurnOn && showTurn && !personal && !group.archived ? whoseTurn({ group, expenses: d.expenses }) : null
 
   const showOpen = openItemsOn && !personal
   const showChat = chatOn && !personal
@@ -398,7 +401,11 @@ export default function GroupDetail() {
         )}
       </div>
 
-      {tripCaptureRelevant(group, todayISO()) && <TripCaptureLine group={group} />}
+      {tripCaptureRelevant(group, todayISO()) && (
+        <Detail min={2}>
+          <TripCaptureLine group={group} />
+        </Detail>
+      )}
 
       {!personal && <PendingClaims groupId={group.id} />}
 
@@ -565,12 +572,21 @@ export default function GroupDetail() {
       )}
 
       <Sheet open={invite} onClose={() => setInvite(false)} title="Invite to group">
-        <p className="text-muted text-sm">
-          Anyone with this link can join <b>{group.name}</b> and claim their name in the member list.
-        </p>
+        <HintText
+          className="text-muted text-sm"
+          hint={{
+            full: (
+              <>
+                Anyone with this link can join <b>{group.name}</b> and claim their name in the member list.
+              </>
+            ),
+            short: 'Anyone with this link can join.',
+            tier: 'key',
+          }}
+        />
         <div className="mt-4 flex flex-col items-center rounded-2xl bg-slate-100 p-4 text-center dark:bg-ink-800">
           <QrCode value={inviteUrl} size={180} label={`QR code to join ${group.name}`} />
-          <div className="text-muted mt-1.5 text-xs">Friends next to you can scan this with their phone camera</div>
+          <HintText hint={SCAN_INVITE_HINT} className="text-muted mt-1.5 text-xs" as="div" />
           <div className="text-muted mt-4 text-xs font-semibold uppercase tracking-wider">Invite code</div>
           <div className="mt-1 font-mono text-3xl font-extrabold tracking-[0.3em]">{group.inviteCode}</div>
         </div>
@@ -596,7 +612,7 @@ export default function GroupDetail() {
             <MenuRow
               icon={<MessageCircle size={20} />}
               label="Group chat"
-              hint="Talk money with the group: who paid, open items, Pay me"
+              hint={{ full: 'Talk money with the group: who paid, open items, Pay me', tier: 'extra' }}
               onClick={() => {
                 setMenu(false)
                 nav(`/groups/${group.id}/chat`)
@@ -608,7 +624,7 @@ export default function GroupDetail() {
             <MenuRow
               icon={muted ? <Bell size={20} /> : <BellOff size={20} />}
               label={muted ? 'Unmute chat' : 'Mute chat'}
-              hint={muted ? 'Get notifications for this group’s chat again' : 'No notifications for this group’s chat (only you)'}
+              hint={{ full: muted ? 'Get notifications for this group’s chat again' : 'No notifications for this group’s chat (only you)', tier: 'extra' }}
               onClick={toggleMute}
               testId="group-chat-mute"
             />
@@ -625,7 +641,7 @@ export default function GroupDetail() {
             <MenuRow
               icon={<Users size={20} />}
               label="Members"
-              hint="Add people, or remove someone who is settled up"
+              hint={{ full: 'Add people, or remove someone who is settled up', tier: 'extra' }}
               onClick={() => {
                 setMenu(false)
                 nav(`/groups/${group.id}/members`)
@@ -646,7 +662,7 @@ export default function GroupDetail() {
           <MenuRow
             icon={<ArrowDownUp size={20} />}
             label="Sort and filter"
-            hint="Order by date spent, date added or amount; filter by who paid or dates"
+            hint={{ full: 'Order by date spent, date added or amount; filter by who paid or dates', tier: 'extra' }}
             onClick={() => {
               setMenu(false)
               setTab('expenses')
@@ -666,7 +682,7 @@ export default function GroupDetail() {
           <MenuRow
             icon={<Archive size={20} />}
             label={archive.label}
-            hint={archive.hint}
+            hint={{ full: archive.hint, tier: 'key' }}
             disabled={archive.disabled}
             onClick={() => setArchived(!group.archived)}
             testId="group-archive"
@@ -675,7 +691,7 @@ export default function GroupDetail() {
             <MenuRow
               icon={<LogOut size={20} />}
               label="Leave group"
-              hint={myBal === 0 ? undefined : 'Settle up first'}
+              hint={myBal === 0 ? undefined : { full: 'Settle up first', tier: 'key' }}
               onClick={() => {
                 setMenu(false)
                 void removeMember(me)
@@ -706,6 +722,15 @@ function useChatReadAt(groupId: string | undefined): number | undefined {
   return at
 }
 
+const SCAN_INVITE_HINT: Hint = { full: 'Friends next to you can scan this with their phone camera', short: 'Scan with a phone camera to join' }
+const SIMPLIFY_TIP: Hint = {
+  full: (
+    <>
+      Turn on <b>Simplify debts</b> in Edit group to use this.
+    </>
+  ),
+}
+
 function MenuRow({
   icon,
   label,
@@ -717,7 +742,8 @@ function MenuRow({
 }: {
   icon: React.ReactNode
   label: string
-  hint?: string
+  /** ⋯ rows: what a row does is noise past Full ('extra'); why it is greyed out or what it does to others is 'key'. */
+  hint?: Hint
   onClick: () => void
   tone?: 'danger'
   testId?: string
@@ -740,7 +766,8 @@ function MenuRow({
         </span>
         <span className="min-w-0 flex-1">
           <span className="block font-medium">{label}</span>
-          {hint && <span className="text-muted block text-xs">{hint}</span>}
+          {/* Inside the row's button: no (i) here, the line simply follows the look. */}
+          {hint && <HintText hint={hint} className="text-muted block text-xs" as="span" />}
         </span>
         <ChevronRight size={18} className="text-slate-300 dark:text-slate-600" aria-hidden />
       </button>
@@ -849,11 +876,7 @@ function GraphSection({ d }: { d: ReturnType<typeof computeGroupData> }) {
         ) : (
           <>These debts are already as simple as they get.</>
         )}
-        {!d.group.simplify && saved > 0 && (
-          <div className="mt-1 text-xs">
-            Turn on <b>Simplify debts</b> in Edit group to use this.
-          </div>
-        )}
+        {!d.group.simplify && saved > 0 && <HintText hint={SIMPLIFY_TIP} className="mt-1 text-xs" as="div" />}
       </div>
     </Collapsible>
   )
@@ -918,6 +941,8 @@ function ActivityList({
   const navTo = useNavigate()
   const [filter, setFilter] = useState<ActivityFilter>(EMPTY_FILTER)
   const [onlyMe, setOnlyMe] = useState(false)
+  // Minimal look: the category chips go (search and Sort and filter remain); Involving me stays.
+  const catChips = useShows(2)
   const [sort, setSortState] = useState<SortKey>(readSort)
   const setSort = (k: SortKey) => {
     setSortState(k)
@@ -1003,7 +1028,7 @@ function ActivityList({
           )}
         </button>
       </div>
-      {(usedCategories.length > 1 || (!personal && me)) && (
+      {((catChips && usedCategories.length > 1) || (!personal && me)) && (
         <div className="scrollbar-none -mx-4 flex gap-1.5 overflow-x-auto px-4 py-1">
           {!personal && me && (
             <button
@@ -1015,7 +1040,8 @@ function ActivityList({
               Involving me
             </button>
           )}
-          {usedCategories.length > 1 &&
+          {catChips &&
+            usedCategories.length > 1 &&
             usedCategories.map((c) => {
               const on = filter.categories.includes(c)
               return (
@@ -1143,7 +1169,7 @@ function ActivityList({
                           </>
                         )}
                         {r.s.payLink && (
-                          <>
+                          <Detail min={2}>
                             {' · '}
                             <Link
                               to={`/r/${r.s.payLink}`}
@@ -1151,7 +1177,7 @@ function ActivityList({
                             >
                               Pay me link
                             </Link>
-                          </>
+                          </Detail>
                         )}
                       </div>
                       {addedNote(r) && (
@@ -1386,7 +1412,7 @@ function DeleteRow({ group, debts, creator, close }: { group: Group; debts: Debt
     <MenuRow
       icon={<Trash2 size={20} />}
       label="Delete group"
-      hint={state.allowed ? 'For everyone, restorable for 30 days' : state.reason}
+      hint={{ full: state.allowed ? 'For everyone, restorable for 30 days' : state.reason, tier: 'key' }}
       onClick={() => {
         close()
         void run()

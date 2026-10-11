@@ -18,6 +18,15 @@ import { Collapsible } from '@/components/Collapsible'
 import { Empty } from '@/components/Misc'
 import { ListSkeleton } from '@/components/Skeleton'
 import { SwipeRow } from '@/components/SwipeRow'
+import { HintText, type Hint } from '@/components/Hint'
+
+const ADD_HINT: Hint = { full: 'Spent something but not sure who paid or how much? Write it down.', short: 'Not sure who paid? Write it down.' }
+/** Kept in every look: an open item is not in anyone's balance yet. */
+const NOT_COUNTED_HINT: Hint = {
+  full: 'Open items don’t count in balances until someone claims them.',
+  short: 'Not counted in balances until claimed.',
+  tier: 'key',
+}
 import { useToast } from '@/components/Toast'
 import { OpenItemSheet } from './OpenItemSheet'
 
@@ -84,7 +93,7 @@ export function OpenItemsTab({ group, items, expenses }: { group: Group; items: 
         </span>
         <span className="min-w-0 flex-1">
           <span className="block font-semibold">Add an open item</span>
-          <span className="text-muted block text-xs">Spent something but not sure who paid or how much? Write it down.</span>
+          <HintText hint={ADD_HINT} className="text-muted block text-xs" as="span" />
         </span>
       </button>
 
@@ -176,7 +185,7 @@ export function OpenItemsTab({ group, items, expenses }: { group: Group; items: 
 
       <p className="text-muted flex items-start gap-2 px-1 text-xs">
         <ClipboardList size={14} className="mt-0.5 shrink-0" aria-hidden />
-        Open items don’t count in balances until someone claims them.
+        <HintText hint={NOT_COUNTED_HINT} className="" as="span" />
       </p>
 
       <OpenItemSheet

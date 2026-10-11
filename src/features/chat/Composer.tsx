@@ -11,6 +11,7 @@ import { formatMoney } from '@/lib/money'
 import { MoneyInput } from '@/components/MoneyInput'
 import { Sheet } from '@/components/Sheet'
 import { OpenItemSheet } from '@/features/open-items/OpenItemSheet'
+import { HintText, type Hint } from '@/components/Hint'
 
 type Draft = Omit<ChatMessage, 'id' | 'authorUid' | 'authorName' | 'createdAt' | 'pending'>
 
@@ -159,7 +160,7 @@ export function Composer({
             <ToolRow
               icon={<ClipboardList size={20} />}
               label="Open item"
-              hint="Not sure who paid or how much? Anyone can claim it from here."
+              hint={{ full: 'Not sure who paid or how much? Anyone can claim it from here.', short: 'Anyone can claim it from here.' }}
               onClick={() => setTool('open')}
               testId="chat-tool-open"
             />
@@ -167,14 +168,14 @@ export function Composer({
           <ToolRow
             icon={<HandCoins size={20} />}
             label="Pay me"
-            hint="Ask the group to pay you an amount."
+            hint={{ full: 'Ask the group to pay you an amount.' }}
             onClick={() => setTool('pay')}
             testId="chat-tool-pay"
           />
           <ToolRow
             icon={<Receipt size={20} />}
             label="Add expense"
-            hint="Add it now; its card shows up here."
+            hint={{ full: 'Add it now; its card shows up here.' }}
             onClick={() => {
               setTool(null)
               nav(`/add?group=${encodeURIComponent(group.id)}&chat=1`)
@@ -184,7 +185,7 @@ export function Composer({
           <ToolRow
             icon={<Share2 size={20} />}
             label="Share an expense"
-            hint="Point the group at one that’s already added."
+            hint={{ full: 'Point the group at one that’s already added.' }}
             onClick={() => setTool('share')}
             testId="chat-tool-share"
           />
@@ -217,7 +218,7 @@ export function Composer({
   )
 }
 
-function ToolRow({ icon, label, hint, onClick, testId }: { icon: React.ReactNode; label: string; hint: string; onClick: () => void; testId?: string }) {
+function ToolRow({ icon, label, hint, onClick, testId }: { icon: React.ReactNode; label: string; hint: Hint; onClick: () => void; testId?: string }) {
   return (
     <li>
       <button type="button" onClick={onClick} className="flex min-h-14 w-full items-center gap-3 px-2 py-2.5 text-left" data-testid={testId}>
@@ -229,7 +230,8 @@ function ToolRow({ icon, label, hint, onClick, testId }: { icon: React.ReactNode
         </span>
         <span className="min-w-0 flex-1">
           <span className="block font-medium">{label}</span>
-          <span className="text-muted block text-xs">{hint}</span>
+          {/* Inside the row's button: no (i) here, the line simply follows the look. */}
+          <HintText hint={hint} className="text-muted block text-xs" as="span" />
         </span>
       </button>
     </li>
@@ -251,7 +253,13 @@ function PaySheet({ open, onClose, group, onPay }: { open: boolean; onClose: () 
           if (amount && amount > 0) onPay(amount)
         }}
       >
-        <p className="text-muted -mt-1 mb-3 text-sm">Everyone in the group sees a card with a Pay button that opens Settle up, filled in.</p>
+        <HintText
+          hint={{
+            full: 'Everyone in the group sees a card with a Pay button that opens Settle up, filled in.',
+            short: 'The group sees a card with a Pay button.',
+          }}
+          className="text-muted -mt-1 mb-3 text-sm"
+        />
         <label htmlFor="chat-pay-amount" className="label">
           Amount
         </label>

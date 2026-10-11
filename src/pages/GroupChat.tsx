@@ -22,6 +22,15 @@ import { Sheet } from '@/components/Sheet'
 import { useToast } from '@/components/Toast'
 import { Composer } from '@/features/chat/Composer'
 import { DayHeader, type MessageCtx, MessageRow, UnreadLine, UpdatesPill } from '@/features/chat/Message'
+import { HintText, type Hint } from '@/components/Hint'
+
+/** Kept in every look: who can read the chat (people who join later too) is a privacy point. */
+const CHAT_START_HINT: Hint = {
+  full: 'The group’s money chat. Ask who paid, write down an open item anyone can claim, or send a Pay me. Everyone in the group sees the whole chat, including people who join later.',
+  short: 'Everyone in the group sees the whole chat, including people who join later.',
+  min: 'Everyone in the group sees the whole chat.',
+  tier: 'key',
+}
 
 /** How far from the bottom (px) still counts as "at the bottom": new messages then scroll into view. */
 const NEAR_BOTTOM = 160
@@ -232,10 +241,11 @@ export default function GroupChat() {
           ) : (
             <>
               {startLoaded ? (
-                <div className="mx-auto my-4 max-w-sm rounded-2xl bg-amber-50 px-4 py-3 text-center text-xs text-amber-900 dark:bg-amber-500/10 dark:text-amber-100">
-                  The group’s money chat. Ask who paid, write down an open item anyone can claim, or send a Pay me. Everyone in the group sees the whole chat,
-                  including people who join later.
-                </div>
+                <HintText
+                  hint={CHAT_START_HINT}
+                  className="mx-auto my-4 max-w-sm rounded-2xl bg-amber-50 px-4 py-3 text-center text-xs text-amber-900 dark:bg-amber-500/10 dark:text-amber-100"
+                  as="div"
+                />
               ) : (
                 <div className="text-muted py-3 text-center text-xs" role="status">
                   {loadingOlder ? 'Loading earlier messages…' : ''}

@@ -4,6 +4,14 @@ import type { Group, Member } from '@/types'
 import { colorFor } from '@/lib/colors'
 import { isEmail, knownPeople, nameFromEmail, recentPeople, searchPeople, type KnownPerson } from '@/lib/people'
 import { Avatar } from '@/components/Avatar'
+import { HintText, type Hint } from '@/components/Hint'
+
+/** How the people you add get in: kept in every look, so nobody thinks they must wait for others to join. */
+export const MEMBER_PICKER_HINT: Hint = {
+  full: 'Add people now and log expenses straight away. They can claim their spot later with the invite link.',
+  short: 'They can claim their spot later with the invite link.',
+  tier: 'key',
+}
 
 /** Whether a known person is already one of `members` (same account, or the same name). */
 export const isAddedTo = (members: Record<string, Member>) => (k: KnownPerson) =>
@@ -20,7 +28,7 @@ export function MemberPicker({
   groupId,
   members,
   onAdd,
-  hint = 'Add people now and log expenses straight away. They can claim their spot later with the invite link.',
+  hint = MEMBER_PICKER_HINT,
 }: {
   groups: Group[] | null | undefined
   myUid: string
@@ -30,7 +38,7 @@ export function MemberPicker({
   members: Record<string, Member>
   /** `uid` when the person was picked from your other groups and has an account (to recognise someone who left). */
   onAdd: (name: string, email?: string, uid?: string) => void
-  hint?: string
+  hint?: Hint
 }) {
   const [newName, setNewName] = useState('')
   const [newEmail, setNewEmail] = useState('')
@@ -188,7 +196,7 @@ export function MemberPicker({
           Add
         </button>
       </div>
-      {hint && <p className="text-muted text-xs">{hint}</p>}
+      <HintText hint={hint} className="text-muted text-xs" />
     </div>
   )
 }

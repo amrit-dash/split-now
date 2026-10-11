@@ -46,6 +46,31 @@ import { DeleteGroupButton } from '@/components/DeleteGroup'
 import { activeMembers, memberState } from '@/lib/members'
 import { MemberPicker } from '@/components/MemberPicker'
 import { SwipeRow } from '@/components/SwipeRow'
+import { Detail, HintText, InfoTip, useLook, useShows, type Hint } from '@/components/Hint'
+
+const DATES_HINT: Hint = {
+  full: 'While it’s on, new expenses and captured payments default to this group.',
+  short: 'While it’s on, new expenses go to this group.',
+}
+const TRIP_CAPTURE_HINT: Hint = {
+  full: 'Adds your bank and UPI payments to this trip. Just for you: others keep their own.',
+  short: 'Adds your payments to this trip, just for you.',
+}
+const SIMPLIFY_HINT: Hint = { full: 'Fewer payments: if A owes B and B owes C, A pays C directly.', short: 'Fewer payments, same balances.' }
+const APPROVAL_HINT: Hint = {
+  full: 'In this group, a big expense added by someone else stays pending (not counted) until everyone charged taps Approve.',
+  short: 'Big expenses by others wait for an OK.',
+}
+const EDIT_AUTO_HINT: Hint = {
+  full: 'In this group, when someone edits an expense that needs an OK, a change of up to this amount keeps its approvals. A bigger change asks everyone again.',
+  short: 'Small changes keep their approvals.',
+}
+const CONVERTS_HINT: Hint = { full: 'Changing the currency converts these amounts.' }
+const PAYMENT_OK_HINT: Hint = {
+  full: "In this group, a payment someone records as paid to you counts once you confirm it, or straight away when their screenshot matches. It applies to payments recorded while it's on: turning it off later doesn't skip the OK for those, and new payments then count at once.",
+  short: 'Payments to you count once you confirm them.',
+}
+const SWIPE_HINT: Hint = { full: 'Swipe a person left, or press and hold, to remove them.' }
 
 const maxOthersFor = (t: GroupType) => (t === 'personal' ? 0 : t === 'direct' ? 1 : Infinity)
 
@@ -68,6 +93,11 @@ export default function GroupForm() {
   const { user, profile } = useMe()
   const nav = useNavigate()
   const toast = useToast()
+  // Minimal look: the optional extras (type chips, the type guess) step aside.
+  const extras = useShows(2)
+  // A 'help' line is drawn only in Full and When needed; aria-describedby must not point at nothing.
+  const look = useLook()
+  const helpLines = look === 'full' || look === 'needed'
 
   const [initialType] = useState(() => parseGroupType(params.get('type')))
   // Quick add ("… in a new group Bali trip") opens a new group with ?name= filled in, as if typed.
@@ -416,7 +446,10 @@ export default function GroupForm() {
   const datesBlock = (
     <div>
       <div className="mb-1.5 flex items-center justify-between">
-        <span className="label !mb-0">{info.dates ?? 'Dates'} (optional)</span>
+        <span className="label !mb-0 flex items-center">
+          {info.dates ?? 'Dates'} (optional)
+          <InfoTip hint={DATES_HINT} label="About the dates" />
+        </span>
         {live && <LiveBadge type={type} />}
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -458,15 +491,20 @@ export default function GroupForm() {
         </div>
       </div>
       <FieldError id="trip-dates-error" text={errors.dates} />
-      <p className="text-muted mt-1.5 text-xs">While it’s on, new expenses and captured payments default to this group.</p>
+      <HintText hint={DATES_HINT} className="text-muted mt-1.5 text-xs" />
       {captureSwitch ? (
-        <div className="mt-3 flex items-center justify-between gap-4 rounded-2xl bg-slate-50 p-3 dark:bg-ink-800" data-testid="group-trip-capture">
-          <div id="trip-capture-label">
-            <div className="font-semibold">SMS auto-capture</div>
-            <div className="text-muted text-xs">Adds your bank and UPI payments to this trip. Just for you: others keep their own.</div>
+        <Detail min={2}>
+          <div className="mt-3 flex items-center justify-between gap-4 rounded-2xl bg-slate-50 p-3 dark:bg-ink-800" data-testid="group-trip-capture">
+            <div id="trip-capture-label">
+              <div className="flex items-center font-semibold">
+                SMS auto-capture
+                <InfoTip hint={TRIP_CAPTURE_HINT} label="About SMS auto-capture" />
+              </div>
+              <HintText hint={TRIP_CAPTURE_HINT} className="text-muted text-xs" as="div" />
+            </div>
+            <Switch checked={captureChecked} onChange={setCaptureOn} label="SMS auto-capture for this trip" testId="group-trip-capture-switch" />
           </div>
-          <Switch checked={captureChecked} onChange={setCaptureOn} label="SMS auto-capture for this trip" testId="group-trip-capture-switch" />
-        </div>
+        </Detail>
       ) : captureNotice === 'off' ? (
         <p className="text-muted mt-1 text-xs">
           Your SMS auto-capture is paused.{' '}
@@ -476,21 +514,39 @@ export default function GroupForm() {
         </p>
       ) : (
         captureNotice === 'setup' && (
-          <p className="text-muted mt-1 text-xs">
-            Tip: each person can add their own bank and UPI payments to this trip with{' '}
-            {existing ? (
-              <Link to={`/settings/auto-capture?group=${existing.id}`} className="font-semibold text-brand-600 dark:text-brand-300">
-                SMS auto-capture
-              </Link>
-            ) : (
-              <b>SMS auto-capture</b>
-            )}
-            {existing ? '' : ' (on the group page after saving)'}.
-          </p>
+          <HintText
+            className="text-muted mt-1 text-xs"
+            hint={{
+              full: (
+                <>
+                  Tip: each person can add their own bank and UPI payments to this trip with{' '}
+                  {existing ? (
+                    <Link to={`/settings/auto-capture?group=${existing.id}`} className="font-semibold text-brand-600 dark:text-brand-300">
+                      SMS auto-capture
+                    </Link>
+                  ) : (
+                    <b>SMS auto-capture</b>
+                  )}
+                  {existing ? '' : ' (on the group page after saving)'}.
+                </>
+              ),
+              tier: 'extra',
+            }}
+          />
         )
       )}
     </div>
   )
+
+  const thresholdHint: Hint = {
+    full: (
+      <>
+        In this group, a new expense above {shortMoney(threshold ?? suggested, currency)} waits for an OK. At or below it counts straight away.
+        {threshold === undefined && ` Empty means the default for ${currency}.`}
+      </>
+    ),
+    short: `Above ${shortMoney(threshold ?? suggested, currency)} waits for an OK.`,
+  }
 
   // Currency, budget, simplify and approval: folded under More options for a new group, open when editing.
   const options = (
@@ -528,16 +584,22 @@ export default function GroupForm() {
         </div>
       </div>
       {lockCurrency && expenses && (
-        <p className="text-muted -mt-2 text-xs" data-testid="group-currency-locked">
-          The currency can't change once the group has expenses.
-        </p>
+        <div className="-mt-2" data-testid="group-currency-locked">
+          <HintText
+            hint={{ full: "The currency can't change once the group has expenses.", short: 'Currency is fixed once there are expenses.', tier: 'key' }}
+            className="text-muted text-xs"
+          />
+        </div>
       )}
       {showDates && !datesOnTop && datesBlock}
       {type !== 'personal' && (
         <div className="flex items-center justify-between gap-4 rounded-2xl bg-slate-50 p-3 dark:bg-ink-800">
           <div id="simplify-label">
-            <div className="font-semibold">Simplify debts</div>
-            <div className="text-muted text-xs">Fewer payments: if A owes B and B owes C, A pays C directly.</div>
+            <div className="flex items-center font-semibold">
+              Simplify debts
+              <InfoTip hint={SIMPLIFY_HINT} label="About Simplify debts" />
+            </div>
+            <HintText hint={SIMPLIFY_HINT} className="text-muted text-xs" as="div" />
           </div>
           <Switch checked={simplify} onChange={setSimplify} label="Simplify debts" testId="group-simplify" />
         </div>
@@ -546,18 +608,22 @@ export default function GroupForm() {
         <div className="rounded-2xl bg-slate-50 p-3 dark:bg-ink-800">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <div className="font-semibold">Needs your OK for big expenses</div>
-              <div className="text-muted text-xs">
-                In this group, a big expense added by someone else stays pending (not counted) until everyone charged taps Approve.
+              <div className="flex items-center font-semibold">
+                Needs your OK for big expenses
+                <InfoTip hint={APPROVAL_HINT} label="About approval for big expenses" />
               </div>
+              <HintText hint={APPROVAL_HINT} className="text-muted text-xs" as="div" />
             </div>
             <Switch checked={requireApproval} onChange={turnApproval} label="Require approval for big expenses" testId="group-approval" />
           </div>
           {requireApproval && (
             <div className="mt-3">
-              <label className="label" htmlFor="approval-threshold">
-                Needs an OK above
-              </label>
+              <div className="flex items-center">
+                <label className="label" htmlFor="approval-threshold">
+                  Needs an OK above
+                </label>
+                <InfoTip hint={thresholdHint} label="About the approval amount" />
+              </div>
               <MoneyInput
                 id="approval-threshold"
                 value={threshold}
@@ -569,13 +635,10 @@ export default function GroupForm() {
                   clearError('threshold')
                 }}
                 aria-invalid={!!errors.threshold}
-                aria-describedby={errors.threshold ? 'approval-threshold-error' : 'approval-threshold-hint'}
+                aria-describedby={errors.threshold ? 'approval-threshold-error' : helpLines ? 'approval-threshold-hint' : undefined}
                 data-testid="group-approval-threshold"
               />
-              <p id="approval-threshold-hint" className="text-muted mt-1 text-xs">
-                In this group, a new expense above {shortMoney(threshold ?? suggested, currency)} waits for an OK. At or below it counts straight away.
-                {threshold === undefined && ` Empty means the default for ${currency}.`}
-              </p>
+              <HintText id="approval-threshold-hint" hint={thresholdHint} className="text-muted mt-1 text-xs" />
               <FieldError id="approval-threshold-error" text={errors.threshold} />
             </div>
           )}
@@ -583,11 +646,11 @@ export default function GroupForm() {
             <div className="mt-4 border-t border-slate-200 pt-3 dark:border-white/10">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <div className="font-semibold">Approve small edits automatically</div>
-                  <div className="text-muted text-xs">
-                    In this group, when someone edits an expense that needs an OK, a change of up to this amount keeps its approvals. A bigger change asks
-                    everyone again.
+                  <div className="flex items-center font-semibold">
+                    Approve small edits automatically
+                    <InfoTip hint={EDIT_AUTO_HINT} label="About approving small edits" />
                   </div>
+                  <HintText hint={EDIT_AUTO_HINT} className="text-muted text-xs" as="div" />
                 </div>
                 <Switch checked={editAuto} onChange={turnEditAuto} label="Approve small edits automatically" testId="group-edit-auto" />
               </div>
@@ -615,17 +678,17 @@ export default function GroupForm() {
               )}
             </div>
           )}
-          {requireApproval && !lockCurrency && <p className="text-muted mt-3 text-xs">Changing the currency converts these amounts.</p>}
+          {requireApproval && !lockCurrency && <HintText hint={CONVERTS_HINT} className="text-muted mt-3 text-xs" />}
         </div>
       )}
       {shareable && (
         <div className="flex items-center justify-between gap-4 rounded-2xl bg-slate-50 p-3 dark:bg-ink-800">
           <div>
-            <div className="font-semibold">Payments need the recipient's OK</div>
-            <div className="text-muted text-xs">
-              In this group, a payment someone records as paid to you counts once you confirm it, or straight away when their screenshot matches. It applies to
-              payments recorded while it's on: turning it off later doesn't skip the OK for those, and new payments then count at once.
+            <div className="flex items-center font-semibold">
+              Payments need the recipient's OK
+              <InfoTip hint={PAYMENT_OK_HINT} label="About payment approval" />
             </div>
+            <HintText hint={PAYMENT_OK_HINT} className="text-muted text-xs" as="div" />
           </div>
           <Switch checked={paymentApproval} onChange={setPaymentApproval} label="Payments need the recipient's OK" testId="group-payment-approval" />
         </div>
@@ -684,7 +747,7 @@ export default function GroupForm() {
             />
           </IconPickerField>
           <FieldError id="group-name-error" text={errors.name} />
-          {showGuess && guess && (
+          {extras && showGuess && guess && (
             <TypeSuggestion
               guess={guess}
               onDismiss={() => setDismissed(guessKey)}
@@ -695,7 +758,7 @@ export default function GroupForm() {
               }}
             />
           )}
-          {typeChips && (
+          {extras && typeChips && (
             <div role="radiogroup" aria-labelledby="group-type-label">
               <div className="label" id="group-type-label">
                 Type
@@ -752,7 +815,7 @@ export default function GroupForm() {
                 </SwipeRow>
               ))}
             </ul>
-            {others.length > 0 && <p className="text-muted mt-1 text-xs">Swipe a person left, or press and hold, to remove them.</p>}
+            {others.length > 0 && <HintText hint={SWIPE_HINT} className="text-muted mt-1 text-xs" />}
             {others.length < maxOthers && (
               <div className="mt-4 border-t border-slate-100 pt-4 dark:border-white/5">
                 <MemberPicker groups={groups} myUid={user.uid} members={members} onAdd={addPerson} />
@@ -787,7 +850,7 @@ export default function GroupForm() {
         <button type="submit" className="btn-primary w-full" disabled={busy} data-testid="group-save">
           {existing ? 'Save changes' : type === 'direct' ? 'Create 1:1' : type === 'personal' ? 'Create wallet' : 'Create group'}
         </button>
-        {!existing && shared && (
+        {extras && !existing && shared && (
           <Link to="/groups/import" className="text-muted flex min-h-11 items-center justify-center text-sm font-semibold">
             Switching from Splitwise? Import a group
           </Link>

@@ -23,6 +23,9 @@ import { memberOrder, myMemberId } from '@/hooks/data'
 import { Avatar } from '@/components/Avatar'
 import { useCountUp, useInView, useReducedMotion } from '@/components/graph/motion'
 import '@/components/graph/graph.css'
+import { HintText, type Hint } from '@/components/Hint'
+
+const GRAPH_HINT: Hint = { full: 'Thicker = more · tap to focus' }
 
 type Mode = 'me' | 'all'
 type Focus = { flow: string } | { person: MemberId } | null
@@ -422,7 +425,7 @@ export function DebtGraph({ group, debts }: { group: Group; debts: Debt[]; size?
           ) : (
             <span>Coloured by who pays</span>
           )}
-          <span>Thicker = more · tap to focus</span>
+          <HintText hint={GRAPH_HINT} className="" as="span" />
         </div>
       )}
 

@@ -11,6 +11,7 @@ import { keptOf, mergeCandidates, mergeCardState, mergeStillPossible, openMergeR
 import { labelOf } from '@/lib/shortNames'
 import { mergeApprover } from '../../../shared/merge-members'
 import { formatMoney } from '@/lib/money'
+import { HintText } from '@/components/Hint'
 
 /*
  * Two entries that are one person: the Merge sheet (Members → a person → Merge), the offers on
@@ -101,7 +102,13 @@ export function MergeSheet({
           <p className="text-muted text-sm">There’s nobody to merge with: two people who both have accounts sign in separately, so they stay two.</p>
         ) : (
           <>
-            <p className="text-muted -mt-1 mb-2 text-sm">Pick the entry that’s the same person, like someone added once by name and once by email.</p>
+            <HintText
+              hint={{
+                full: 'Pick the entry that’s the same person, like someone added once by name and once by email.',
+                short: 'Pick the entry that’s the same person.',
+              }}
+              className="text-muted -mt-1 mb-2 text-sm"
+            />
             <ul className="-mx-2 divide-y divide-slate-100 dark:divide-white/5">
               {candidates.map((id) => {
                 const m = group.members[id]!
@@ -145,11 +152,22 @@ export function MergeSheet({
               {balanceLine(who(kept!), (net[from] ?? 0) + (net[other] ?? 0), group.currency)}
             </p>
           )}
-          <ul className="text-muted mt-2 list-disc space-y-1 pl-5 text-sm">
-            <li>Everything {who(gone!) === 'You' ? 'you' : who(gone!)} paid or owes moves over, so their balances add up.</li>
-            <li>A payment between the two is removed (it was one person paying themselves).</li>
-            <li>Past activity still shows the old name.</li>
-          </ul>
+          {/* What a merge does to the money: kept in every look, in one line past Full. */}
+          <HintText
+            as="div"
+            className="text-muted mt-2 text-sm"
+            hint={{
+              full: (
+                <ul className="list-disc space-y-1 pl-5">
+                  <li>Everything {who(gone!) === 'You' ? 'you' : who(gone!)} paid or owes moves over, so their balances add up.</li>
+                  <li>A payment between the two is removed (it was one person paying themselves).</li>
+                  <li>Past activity still shows the old name.</li>
+                </ul>
+              ),
+              short: 'Their balances add up; a payment between the two is removed.',
+              tier: 'key',
+            }}
+          />
           {asks && (
             <p className="mt-3 rounded-2xl bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
               This group needs its creator’s OK. They’ll get a request in the chat.
@@ -206,7 +224,9 @@ function MergeOffer({ group, r, me, myUid, compact }: { group: Group; r: MergeRe
           {state.kind === 'pending' && !state.canDecide && (
             <p className="text-muted mt-0.5 text-xs">{approver ? `Waiting for ${approver === me ? 'you' : name(approver)} to OK it.` : 'Waiting for an OK.'}</p>
           )}
-          {state.kind === 'suggested' && <p className="text-muted mt-0.5 text-xs">Merging moves everything into {who(r.into)}; balances add up.</p>}
+          {state.kind === 'suggested' && (
+            <HintText hint={{ full: <>Merging moves everything into {who(r.into)}; balances add up.</>, tier: 'key' }} className="text-muted mt-0.5 text-xs" />
+          )}
         </div>
       </div>
       {state.canDecide && (
