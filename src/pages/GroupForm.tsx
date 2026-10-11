@@ -44,6 +44,7 @@ import { formatMoney } from '@/lib/money'
 import { DeleteGroupButton } from '@/components/DeleteGroup'
 import { activeMembers, memberState } from '@/lib/members'
 import { MemberPicker } from '@/components/MemberPicker'
+import { sharedPhotoURL } from '@/lib/memberSync'
 import { SwipeRow } from '@/components/SwipeRow'
 
 const maxOthersFor = (t: GroupType) => (t === 'personal' ? 0 : t === 'direct' ? 1 : Infinity)
@@ -96,6 +97,8 @@ export default function GroupForm() {
   const [startDate, setStartDate] = useState(() => (GROUP_TYPES[initialType].datesToday ? todayISO() : ''))
   const [endDate, setEndDate] = useState(() => (GROUP_TYPES[initialType].datesToday ? todayISO() : ''))
   const [members, setMembers] = useState<Record<string, Member>>({})
+  /** photos of people picked from your other groups, by draft member id (display only) */
+  const [photos, setPhotos] = useState<Record<string, string>>({})
   // People set aside when switching to 1:1 or Personal; they come back on switching to a group.
   const [parked, setParked] = useState<Record<string, Member>>({})
   const [busy, setBusy] = useState(false)
@@ -135,9 +138,14 @@ export default function GroupForm() {
     } else if (!groupId) {
       loaded.current = { key: 'new' }
       const named = prefillPeople.map((n, i) => [uid('p_'), { name: n, color: colorFor(i + 1) }] as const)
-      setMembers({ [user.uid]: { name: profile.displayName, uid: user.uid, email: user.email, color: colorFor(0) }, ...Object.fromEntries(named) })
+      // Your own photo shows from the start (the saved group gets it too: firebaseRepo fills it in on create).
+      const photo = sharedPhotoURL(profile.photoURL, repo.mode === 'demo')
+      setMembers({
+        [user.uid]: { name: profile.displayName, uid: user.uid, email: user.email, color: colorFor(0), ...(photo ? { photoURL: photo } : {}) },
+        ...Object.fromEntries(named),
+      })
     }
-  }, [existing, groupId, user.uid, user.email, profile.displayName, prefillPeople])
+  }, [existing, groupId, user.uid, user.email, profile.displayName, profile.photoURL, prefillPeople])
 
   // Approval is a group setting, off for a new group. Turning it on fills in the currency's
   // defaults (₹2,000 to need an OK, ₹100 for small edits); an amount nobody typed follows the
@@ -306,9 +314,11 @@ export default function GroupForm() {
     }
   }
 
-  const addPerson = (personName: string, email?: string) => {
+  const addPerson = (personName: string, email?: string, _uid?: string, photoURL?: string) => {
     if (!personName.trim() || others.length >= maxOthers) return
     const id = uid('p_')
+    // Shown on this screen only: their photo joins the group's entry when they claim their spot (memberSync), not before.
+    if (photoURL) setPhotos((p) => ({ ...p, [id]: photoURL }))
     setMembers((m) => ({ ...m, [id]: { name: personName.trim(), email: email?.trim() || undefined, color: colorFor(Object.keys(m).length) } }))
   }
   /** Problems with what was typed, next to the field they belong to (not a passing toast). */
@@ -738,7 +748,7 @@ export default function GroupForm() {
                         ]
                   }
                 >
-                  <Avatar name={m.name} color={m.color} photoURL={m.photoURL} size={36} />
+                  <Avatar name={m.name} color={m.color} photoURL={m.photoURL ?? photos[id]} size={36} />
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-medium">
                       {m.name} {m.uid === user.uid && <span className="text-muted text-xs">(you)</span>}

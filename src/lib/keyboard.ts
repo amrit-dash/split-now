@@ -1,39 +1,23 @@
 /*
- * When the on-screen keyboard opens, mobile browsers scroll a focused field just far enough to
- * clear the keyboard, which leaves it pinned at the very bottom of what is still visible. These
- * helpers move it to the middle of the visible area instead (src/main.tsx installs the listener).
+ * The on-screen keyboard. The app leaves the browser's own behaviour alone everywhere: the focused
+ * field is scrolled just into view above the keyboard, and nothing else moves (an earlier "centre
+ * the field" scroll moved the page under sheets and the chat, and could push the field out of view).
+ *
+ * The full-screen chat is the exception: its header and message box must stay put while only the
+ * messages scroll, so it pins itself to the visible area (the visual viewport, which shrinks and
+ * moves when the keyboard opens) with chatViewportBox.
  */
 
-export interface FieldBox {
-  /** field top and bottom, in the same coordinates as `viewTop` (client px) */
-  top: number
-  bottom: number
-  /** visible area: visualViewport.offsetTop / height, or 0 / innerHeight */
-  viewTop: number
-  viewHeight: number
+export interface ViewportLike {
+  height: number
+  offsetTop: number
 }
 
 /**
- * How far to scroll the page (positive = down) so the field sits around the middle of the visible
- * area; 0 when it is already comfortably inside the middle band (no needless jumps).
+ * The chat's box on screen: as tall as what is visible and moved down by however far the browser
+ * panned (iOS pans the page instead of resizing it). Without a visual viewport, the full height.
  */
-export function fieldScrollDelta({ top, bottom, viewTop, viewHeight }: FieldBox): number {
-  if (!(viewHeight > 0)) return 0
-  const height = bottom - top
-  const band = viewHeight * 0.2
-  const insideBand = top >= viewTop + band && bottom <= viewTop + viewHeight - band
-  if (insideBand) return 0
-  // A field taller than the view: show its top just under the top edge.
-  if (height >= viewHeight * 0.6) return Math.round(top - (viewTop + band / 2))
-  const centre = top + height / 2
-  return Math.round(centre - (viewTop + viewHeight / 2))
-}
-
-/** Text-entry elements the keyboard opens for (not checkboxes, buttons, ranges…). */
-export function opensKeyboard(el: { tagName: string; type?: string; readOnly?: boolean; isContentEditable?: boolean } | null): boolean {
-  if (!el || el.readOnly) return false
-  if (el.isContentEditable) return true
-  if (el.tagName === 'TEXTAREA') return true
-  if (el.tagName !== 'INPUT') return false
-  return ['', 'text', 'email', 'password', 'search', 'tel', 'url', 'number'].includes((el.type ?? '').toLowerCase())
+export function chatViewportBox(vv: ViewportLike | null | undefined, innerHeight: number): { height: number; top: number } {
+  if (!vv || !(vv.height > 0)) return { height: innerHeight, top: 0 }
+  return { height: Math.round(vv.height), top: Math.max(0, Math.round(vv.offsetTop)) }
 }

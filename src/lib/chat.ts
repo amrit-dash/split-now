@@ -1,12 +1,14 @@
 import { memberIdOfUid } from './shortNames'
-import type { ActivityEntry, ActivityType, ChatMessage, Group, MemberId } from '@/types'
+import type { ActivityEntry, ActivityType, Cents, ChatMessage, ChatReplyRef, Debt, Group, MemberId } from '@/types'
 import { localISODate } from './id'
-import { formatDate } from './locale'
+import { formatDate, formatTime } from './locale'
 
 /*
  * Group chat: a money-only chat per group ("who paid for lunch on the 2nd?"). Messages are
- * plain words or cards (an open item anyone can claim, a Pay me request, an expense). Everyone
- * in the group reads the whole history, including people who joined later.
+ * plain words or cards (an open item anyone can claim, a Pay me request, an ask to settle up,
+ * the balances, an expense). Messages can tag people, answer another message (a reply), and be
+ * edited or deleted by their author. Everyone in the group reads the whole history, including
+ * people who joined later. The tools and the message box's smarts are src/lib/chat-tools.ts.
  *
  * This file is every decision the chat screen makes: day headers, which bubbles run together,
  * where the "unread" line goes, the activity pills between messages, links in text, and the
@@ -60,6 +62,8 @@ export type ChatRow =
       first: boolean
       /** ends a run: show the avatar (others') and the bubble's tail */
       last: boolean
+      /** the time (and the tick) under it: the end of a run, or the next one in the run is a later minute */
+      showTime: boolean
     }
 
 export interface RowOpts {
@@ -122,12 +126,31 @@ export function chatRows(messages: ChatMessage[], o: RowOpts): ChatRow[] {
     const joins = !!prev && prev.authorUid === m.authorUid && m.createdAt - prev.createdAt < RUN_GAP_MS
     if (joins) {
       const last = rows[rows.length - 1]
-      if (last.type === 'message') last.last = false
+      if (last.type === 'message') {
+        last.last = false
+        last.showTime = minuteOf(last.message.createdAt) !== minuteOf(m.createdAt)
+      }
     }
-    rows.push({ type: 'message', key: m.id, message: m, mine, first: !joins, last: true })
+    rows.push({ type: 'message', key: m.id, message: m, mine, first: !joins, last: true, showTime: true })
     prev = m
   }
   return rows
+}
+
+const minuteOf = (t: number) => Math.floor(t / 60_000)
+
+/** Nothing said yet and nothing happened: the screen shows what the chat is for. */
+export const chatIsEmpty = (rows: ChatRow[]) => !rows.some((r) => r.type === 'message' || r.type === 'updates')
+
+/**
+ * The updates pill's line: the latest of them first, with its time ("3 updates · 6:21 pm · Rahul
+ * added Dinner"). `entries` are oldest first, as chatRows gives them.
+ */
+export function updatesLine(entries: ActivityEntry[], text: (a: ActivityEntry) => string): string {
+  const latest = entries[entries.length - 1]
+  if (!latest) return ''
+  const head = entries.length === 1 ? formatTime(latest.createdAt) : `${entries.length} updates · ${formatTime(latest.createdAt)}`
+  return `${head} · ${text(latest)}`
 }
 
 /** Messages by others newer than `readAt` (the badge on the chat button). */
@@ -177,26 +200,99 @@ export function authorMember(group: Pick<Group, 'members'>, uid: string): Member
   return memberIdOfUid(group.members, uid)
 }
 
+/** Whether a Pay me / Settle up asks the viewer: it asks everyone, or names them. */
+export const asksMember = (m: Pick<ChatMessage, 'to'>, member: MemberId | undefined) => !m.to?.length || (!!member && m.to.includes(member))
+
 /**
- * A Pay me card, for the person looking at it: the author sees what they asked for; anyone else
- * gets "Pay" into a prefilled Settle up (from them to the author). null for a viewer who isn't
- * a member, or when the author has left the group.
+ * A Pay me card, for the person looking at it: the author sees what they asked for; anyone it
+ * asks gets "Pay" into a prefilled Settle up (from them to the author); someone it doesn't ask
+ * sees who was asked. null for a viewer who isn't a member, or when the author has left the group.
  */
 export function payCard(
-  m: Pick<ChatMessage, 'amount' | 'authorUid'>,
+  m: Pick<ChatMessage, 'amount' | 'authorUid' | 'to'>,
   ctx: { groupId: string; me: string; myMember?: MemberId; authorMember?: MemberId },
-): { mine: true } | { mine: false; href: string } | null {
+): { mine: true } | { mine: false; href: string } | { mine: false; notAsked: true } | null {
   if (m.authorUid === ctx.me) return { mine: true }
   if (!ctx.myMember || !ctx.authorMember || !m.amount) return null
-  const q = new URLSearchParams({ from: ctx.myMember, to: ctx.authorMember, amount: String(m.amount) })
-  return { mine: false, href: `/groups/${encodeURIComponent(ctx.groupId)}/settle?${q}` }
+  if (!asksMember(m, ctx.myMember)) return { mine: false, notAsked: true }
+  return { mine: false, href: settleHref(ctx.groupId, ctx.myMember, ctx.authorMember, m.amount) }
+}
+
+export const settleHref = (groupId: string, from: MemberId, to: MemberId, amount: Cents) =>
+  `/groups/${encodeURIComponent(groupId)}/settle?${new URLSearchParams({ from, to, amount: String(amount) })}`
+
+/** What two people owe each other right now (the group's pairwise debts): positive = `a` owes `b`. */
+export function owedBetween(debts: Debt[], a: MemberId, b: MemberId): Cents {
+  let n = 0
+  for (const d of debts) {
+    if (d.from === a && d.to === b) n += d.amount
+    else if (d.from === b && d.to === a) n -= d.amount
+  }
+  return n
+}
+
+export type SettleCardView =
+  /** the author: who they asked, and how many of them still owe them */
+  | { kind: 'mine'; owing: number }
+  /** asked, and owes the author: one button for exactly that */
+  | { kind: 'owe'; amount: Cents; href: string }
+  /** asked, but the author owes them (or nobody owes anyone) */
+  | { kind: 'owed'; amount: Cents }
+  | { kind: 'square' }
+  /** not asked */
+  | { kind: 'notAsked' }
+
+/**
+ * An ask to settle up, live, for the person looking at it: what they owe the author now (one
+ * button into a prefilled Settle up for exactly that), or that they're square. The amounts are
+ * the pairwise debts (what these two owe each other), so it's the same with Simplify on or off.
+ */
+export function settleCard(
+  m: Pick<ChatMessage, 'authorUid' | 'to'>,
+  ctx: { groupId: string; me: string; myMember?: MemberId; authorMember?: MemberId; debts: Debt[]; members: MemberId[] },
+): SettleCardView | null {
+  if (!ctx.authorMember) return null
+  if (m.authorUid === ctx.me) {
+    const asked = m.to?.length ? m.to : ctx.members.filter((id) => id !== ctx.authorMember)
+    return { kind: 'mine', owing: asked.filter((id) => owedBetween(ctx.debts, id, ctx.authorMember as MemberId) > 0).length }
+  }
+  if (!ctx.myMember) return null
+  if (!asksMember(m, ctx.myMember)) return { kind: 'notAsked' }
+  const n = owedBetween(ctx.debts, ctx.myMember, ctx.authorMember)
+  if (n > 0) return { kind: 'owe', amount: n, href: settleHref(ctx.groupId, ctx.myMember, ctx.authorMember, n) }
+  if (n < 0) return { kind: 'owed', amount: -n }
+  return { kind: 'square' }
+}
+
+/** Only the author edits a message, and only one with words of its own (a card's words go with the card). */
+export const canEdit = (m: Pick<ChatMessage, 'authorUid' | 'kind' | 'pending'>, me: string) => m.authorUid === me && m.kind === 'text'
+
+export const REPLY_PREVIEW_MAX = 140
+
+/** What a reply keeps of the message it answers (a copy, so it shows even when the original isn't loaded). */
+export function replyRef(m: Pick<ChatMessage, 'id' | 'authorUid' | 'authorName' | 'kind' | 'text'>, card?: string): ChatReplyRef {
+  const text = messagePreview(m, card)
+  return {
+    id: m.id,
+    authorUid: m.authorUid,
+    authorName: m.authorName.slice(0, 80),
+    text: text.length > REPLY_PREVIEW_MAX ? `${text.slice(0, REPLY_PREVIEW_MAX - 1)}…` : text,
+  }
+}
+
+const CARD_LABEL: Partial<Record<ChatMessage['kind'], string>> = {
+  openItem: 'Open item',
+  pay: 'Pay me',
+  expense: 'Expense',
+  settle: 'Settle up',
+  balances: 'Balances',
 }
 
 /** One line for a message, where there's no room for the card (the chat button's hint, a reply). */
 export function messagePreview(m: Pick<ChatMessage, 'kind' | 'text'>, card?: string): string {
   const words = m.text.trim().replace(/\s+/g, ' ')
   if (m.kind === 'text') return words
-  const label = m.kind === 'openItem' ? 'Open item' : m.kind === 'pay' ? 'Pay me' : 'Expense'
+  const label = CARD_LABEL[m.kind] ?? 'Message'
   return [label + (card ? `: ${card}` : ''), words].filter(Boolean).join(' · ')
 }
 

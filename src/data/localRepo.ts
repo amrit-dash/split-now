@@ -1,5 +1,6 @@
 import { blobToDataUrl } from '@/lib/image'
-import { archiveWrite, balanceEditMembers, expenseMemberIds, isArchivedFor, uidsOfMembers, unarchiveInvolved } from '../../shared/archive'
+import { archiveWrite, balanceEditMembers, expenseMemberIds, uidsOfMembers, unarchiveInvolved } from '../../shared/archive'
+import { personalView } from './personalView'
 import { DELETED_GROUP_WRITE, purgeDue } from '../../shared/group-trash'
 import { EMPTY_INBOX_STATE, type InboxState } from '@/lib/inbox'
 import { shownCapture } from '@/lib/capture'
@@ -225,8 +226,8 @@ export function createLocalRepo(): Repo {
       listeners.delete(run)
     }
   }
-  // `archived` is personal: derived for the signed-in person on read (shared/archive.ts), as Firebase does.
-  const asGroup = (g: Group): Group => ({ ...g, archived: isArchivedFor(g, me().uid) })
+  // `archived` (and a 1:1's name and peer) are personal: derived for the signed-in person on read, as Firebase does.
+  const asGroup = (g: Group): Group => personalView(g, me().uid)
   // A new expense or payment brings the group back for the people in it (the onExpenseCreated /
   // onSettlementCreated triggers do this in Firebase).
   const unarchiveFor = (groupId: string, memberIds: string[]) => {
@@ -850,6 +851,13 @@ export function createLocalRepo(): Repo {
     async deleteChat(_groupId, id) {
       if (chat()[id]?.authorUid !== actor()) return
       delete chat()[id]
+      commit()
+    },
+    async editChat(_groupId, id, { text, mentions }) {
+      const m = chat()[id]
+      if (!m || m.authorUid !== actor()) return
+      const { mentions: _m, ...rest } = m
+      chat()[id] = { ...rest, text, ...(mentions.length ? { mentions } : {}), editedAt: Date.now() }
       commit()
     },
 

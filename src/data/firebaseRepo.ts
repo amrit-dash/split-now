@@ -106,7 +106,8 @@ import type { AiKeyResult, AiModel, AiState, AiStatement, AiStatusResult, AiUnav
 import { parseMemory } from '@/lib/merchants'
 import type { AiTextExpense } from '@/lib/nl-expense'
 import type { QuickAiRequest, QuickAiResponse } from '../../shared/quick-ai'
-import { archiveWrite, isArchivedFor } from '../../shared/archive'
+import { archiveWrite } from '../../shared/archive'
+import { personalView } from './personalView'
 import type { NudgeItem, NudgeResult } from '@/lib/nudge'
 import { errText } from '@/lib/errors'
 import type { FxRatesDoc, FxRefreshResult } from '@/lib/fx'
@@ -177,10 +178,11 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
 
   const groupRef = (id: string) => doc(db, 'groups', id)
   // `archived` on a Group is personal: derived here for the signed-in person (shared/archive.ts),
-  // never written back (changedSettings skips it; setArchived changes `archivedBy`).
+  // never written back (changedSettings skips it; setArchived changes `archivedBy`). So is a 1:1's
+  // name and `peer`: the other person (shared/names.ts), whatever the group was called.
   const asGroup = (id: string, data: unknown): Group => {
     const g = { ...(data as Group), id }
-    return { ...g, archived: isArchivedFor(g, auth.currentUser?.uid) }
+    return personalView(g, auth.currentUser?.uid)
   }
   const inviteRef = (code: string) => doc(db, 'invites', code)
   const tableRef = (code: string) => doc(db, 'tables', code)
@@ -1265,6 +1267,11 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       const batch = writeBatch(db)
       batch.delete(doc(chatCol(groupId), id))
       fire(batch, 'Deleting message')
+    },
+    async editChat(groupId, id, { text, mentions }) {
+      const batch = writeBatch(db)
+      batch.update(doc(chatCol(groupId), id), { text, mentions: mentions.length ? mentions : deleteField(), editedAt: Date.now() })
+      fire(batch, 'Editing message')
     },
 
     watchComments(groupId, expenseId, cb) {

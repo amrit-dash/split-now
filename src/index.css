@@ -397,9 +397,10 @@ html[data-update-ready] .install-banner { display: none; }
 html[data-capture-alert] [data-testid='update-banner'] { display: none; }
 html[data-capture-alert] .install-banner { display: none; }
 
-/* iOS zooms into any field under 16px on focus; small-text fields stay 16px on touch screens. */
+/* iOS zooms into any field under 16px on focus; small-text fields stay 16px on touch screens
+   (the named sizes and the pixel ones, like the chat box's 15px). */
 @media (pointer: coarse) {
-  :is(input, textarea, select):is(.text-sm, .text-xs) { font-size: 16px !important; }
+  :is(input, textarea, select):is(.text-sm, .text-xs, .text-\[12px\], .text-\[13px\], .text-\[14px\], .text-\[15px\]) { font-size: 16px !important; }
 }
 
 /* Toasts: a stack in the floating lane (above the tab bar where there is one, above the home
@@ -426,3 +427,19 @@ html[data-nav]:has(.install-banner, [data-testid='update-banner'], [data-testid=
   mask: linear-gradient(to bottom, transparent 30%, #000 75%);
 }
 
+
+/* The group chat's wallpaper: a faint, still pattern of money doodles (a coin, a receipt, a
+   note), so the chat reads as its own place without competing with the bubbles. */
+.chat-wallpaper {
+  background-color: #f1f5f9;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' fill='none' stroke='%2364748b' stroke-opacity='.13' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='22' cy='22' r='9'/%3E%3Cpath d='M19 18h6M19 21h6M21 18c3 0 3 6 0 6l4 4'/%3E%3Cpath d='M78 12h18v24l-3-2-3 2-3-2-3 2-3-2-3 2z'/%3E%3Cpath d='M82 19h10M82 24h7'/%3E%3Crect x='14' y='74' width='26' height='15' rx='3'/%3E%3Ccircle cx='27' cy='81.5' r='3'/%3E%3Cpath d='M86 80l6 6 10-12'/%3E%3Cpath d='M58 52l4 4M62 52l-4 4'/%3E%3C/svg%3E");
+  background-size: 120px 120px;
+}
+.dark .chat-wallpaper {
+  background-color: #0b0a14;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' fill='none' stroke='%23ffffff' stroke-opacity='.045' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='22' cy='22' r='9'/%3E%3Cpath d='M19 18h6M19 21h6M21 18c3 0 3 6 0 6l4 4'/%3E%3Cpath d='M78 12h18v24l-3-2-3 2-3-2-3 2-3-2-3 2z'/%3E%3Cpath d='M82 19h10M82 24h7'/%3E%3Crect x='14' y='74' width='26' height='15' rx='3'/%3E%3Ccircle cx='27' cy='81.5' r='3'/%3E%3Cpath d='M86 80l6 6 10-12'/%3E%3Cpath d='M58 52l4 4M62 52l-4 4'/%3E%3C/svg%3E");
+}
+/* A message jumped to from a reply flashes once. */
+@keyframes chat-flash { 0%, 60% { background-color: color-mix(in oklab, var(--color-brand-500) 22%, transparent); } 100% { background-color: transparent; } }
+.chat-flash { animation: chat-flash 1.4s ease-out; border-radius: 1rem; }
+@media (prefers-reduced-motion: reduce) { .chat-flash { animation: none; } }

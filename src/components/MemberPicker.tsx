@@ -28,8 +28,11 @@ export function MemberPicker({
   groupId?: string
   /** Who is in already (suggestions skip them). */
   members: Record<string, Member>
-  /** `uid` when the person was picked from your other groups and has an account (to recognise someone who left). */
-  onAdd: (name: string, email?: string, uid?: string) => void
+  /**
+   * `uid` when the person was picked from your other groups and has an account (to recognise someone who left);
+   * `photoURL` is their photo from those groups, for the caller to show while it is a draft (never saved here).
+   */
+  onAdd: (name: string, email?: string, uid?: string, photoURL?: string) => void
   hint?: string
 }) {
   const [newName, setNewName] = useState('')
@@ -59,7 +62,7 @@ export function MemberPicker({
   const suggestions = recent.filter((k) => !isAdded(k)).slice(0, 12)
 
   const addKnown = (k: KnownPerson) => {
-    onAdd(k.name, k.email, k.uid)
+    onAdd(k.name, k.email, k.uid, k.photoURL)
     setQuery('')
   }
   const addByEmail = (email: string) => {
@@ -82,7 +85,8 @@ export function MemberPicker({
   return (
     <div className="space-y-2">
       {recent.length > 0 && (
-        <div>
+        // Search (and its recent-people pills) is one block; someone new is a second one below it, with room between.
+        <div className="mb-5">
           <div className="relative">
             <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden />
             <input
@@ -146,7 +150,7 @@ export function MemberPicker({
                 >
                   {suggestions.map((k) => (
                     <button key={k.uid ?? k.name} type="button" onClick={() => addKnown(k)} className="chip min-h-10 shrink-0" aria-label={`Add ${k.name}`}>
-                      <Plus size={14} aria-hidden /> {k.name}
+                      {k.photoURL ? <Avatar name={k.name} color={colorFor(1)} photoURL={k.photoURL} size={22} /> : <Plus size={14} aria-hidden />} {k.name}
                     </button>
                   ))}
                 </div>
@@ -155,6 +159,7 @@ export function MemberPicker({
           )}
         </div>
       )}
+      {recent.length > 0 && <div className="text-muted mb-0.5 text-xs font-medium">Someone new</div>}
       <label htmlFor="member-name" className="sr-only">
         Name of a person to add
       </label>

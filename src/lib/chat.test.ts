@@ -1,6 +1,24 @@
 import { describe, expect, it } from 'vitest'
 import type { ActivityEntry, ChatMessage } from '@/types'
-import { authorMember, chatRows, cleanMessage, dayLabel, hasUnread, linkParts, messagePreview, payCard, RUN_GAP_MS, unreadCount } from './chat'
+import {
+  asksMember,
+  authorMember,
+  canEdit,
+  chatIsEmpty,
+  chatRows,
+  cleanMessage,
+  dayLabel,
+  hasUnread,
+  linkParts,
+  messagePreview,
+  owedBetween,
+  payCard,
+  replyRef,
+  RUN_GAP_MS,
+  settleCard,
+  unreadCount,
+  updatesLine,
+} from './chat'
 
 const at = (iso: string) => new Date(iso).getTime()
 let n = 0
@@ -62,6 +80,11 @@ describe('chatRows', () => {
     expect(kinds(rows)).toEqual(['[Today]', 'u2^', 'u2$', 'u1^$', 'u1^$'])
     const mine = rows.filter((r) => r.type === 'message' && r.mine)
     expect(mine).toHaveLength(2)
+    // A run shows the time under a message only when the next one is a later minute (and always at its end).
+    const times = chatRows([msg('u2', '2026-10-11T09:00:05'), msg('u2', '2026-10-11T09:00:40'), msg('u2', '2026-10-11T09:01:10')], base)
+      .filter((r) => r.type === 'message')
+      .map((r) => r.type === 'message' && r.showTime)
+    expect(times).toEqual([false, true, true])
   })
   it('the unread line goes before the first unread message by someone else', () => {
     const rows = chatRows(
@@ -157,6 +180,72 @@ describe('authorMember / payCard', () => {
       href: '/groups/g/settle?from=c&to=b&amount=50000',
     })
     expect(payCard({ amount: 50000, authorUid: 'u2' }, { groupId: 'g', me: 'u1', myMember: 'c' })).toBeNull()
+  })
+  it('a Pay me asked of some people: only they get the button', () => {
+    const ctx = { groupId: 'g', me: 'u1', myMember: 'c', authorMember: 'b' }
+    expect(payCard({ amount: 500, authorUid: 'u2', to: ['c'] }, ctx)).toMatchObject({ href: '/groups/g/settle?from=c&to=b&amount=500' })
+    expect(payCard({ amount: 500, authorUid: 'u2', to: ['x'] }, ctx)).toEqual({ mine: false, notAsked: true })
+    expect(asksMember({}, 'c')).toBe(true)
+    expect(asksMember({ to: ['x'] }, undefined)).toBe(false)
+  })
+})
+
+describe('settleCard', () => {
+  // b (the author) is owed 300 by c, and owes d 100; e is square with b.
+  const debts = [
+    { from: 'c', to: 'b', amount: 300 },
+    { from: 'b', to: 'd', amount: 100 },
+    { from: 'e', to: 'd', amount: 50 },
+  ]
+  const ctx = (me: string, myMember: string) => ({ groupId: 'g', me, myMember, authorMember: 'b', debts, members: ['b', 'c', 'd', 'e'] })
+  it('owedBetween nets both directions', () => {
+    expect(owedBetween(debts, 'c', 'b')).toBe(300)
+    expect(owedBetween(debts, 'b', 'c')).toBe(-300)
+    expect(owedBetween([...debts, { from: 'b', to: 'c', amount: 100 }], 'c', 'b')).toBe(200)
+  })
+  it('the person who owes gets one button for exactly that; others see where they stand', () => {
+    expect(settleCard({ authorUid: 'ub' }, ctx('uc', 'c'))).toEqual({ kind: 'owe', amount: 300, href: '/groups/g/settle?from=c&to=b&amount=300' })
+    expect(settleCard({ authorUid: 'ub' }, ctx('ud', 'd'))).toEqual({ kind: 'owed', amount: 100 })
+    expect(settleCard({ authorUid: 'ub' }, ctx('ue', 'e'))).toEqual({ kind: 'square' })
+    expect(settleCard({ authorUid: 'ub', to: ['c'] }, ctx('ue', 'e'))).toEqual({ kind: 'notAsked' })
+  })
+  it('the author sees how many of the people asked still owe them', () => {
+    expect(settleCard({ authorUid: 'ub' }, ctx('ub', 'b'))).toEqual({ kind: 'mine', owing: 1 })
+    expect(settleCard({ authorUid: 'ub', to: ['e'] }, ctx('ub', 'b'))).toEqual({ kind: 'mine', owing: 0 })
+  })
+  it('nothing when the author left or the viewer is not a member', () => {
+    expect(settleCard({ authorUid: 'ub' }, { ...ctx('uc', 'c'), authorMember: undefined })).toBeNull()
+    expect(settleCard({ authorUid: 'ub' }, { ...ctx('uz', 'c'), myMember: undefined })).toBeNull()
+  })
+})
+
+describe('edit and reply', () => {
+  it('only the author edits, and only words', () => {
+    expect(canEdit({ authorUid: 'u1', kind: 'text' }, 'u1')).toBe(true)
+    expect(canEdit({ authorUid: 'u1', kind: 'pay' }, 'u1')).toBe(false)
+    expect(canEdit({ authorUid: 'u2', kind: 'text' }, 'u1')).toBe(false)
+  })
+  it('a reply keeps a short copy of what it answers', () => {
+    const m = msg('u2', '2026-10-11T09:00:00', { text: 'x'.repeat(300) })
+    const r = replyRef(m)
+    expect(r).toMatchObject({ id: m.id, authorUid: 'u2', authorName: 'u2' })
+    expect(r.text.length).toBe(140)
+    expect(r.text.endsWith('…')).toBe(true)
+    expect(replyRef({ ...m, kind: 'settle', text: '' }).text).toBe('Settle up')
+  })
+})
+
+describe('chatIsEmpty / updatesLine', () => {
+  it('empty until a message or an update shows', () => {
+    expect(chatIsEmpty(chatRows([], { me: 'u1', today: '2026-10-11' }))).toBe(true)
+    expect(chatIsEmpty(chatRows([msg('u2', '2026-10-11T09:00:00')], { me: 'u1', today: '2026-10-11' }))).toBe(false)
+    expect(chatIsEmpty(chatRows([], { me: 'u1', today: '2026-10-11', activity: [act('2026-10-11T09:00:00')] }))).toBe(false)
+  })
+  it('the latest update first, with its time', () => {
+    const a = [act('2026-10-11T09:00:00', { summary: 'first' }), act('2026-10-11T18:21:00', { summary: 'latest' })]
+    expect(updatesLine(a, (x) => x.summary)).toMatch(/^2 updates · 6:21\s?pm · latest$/i)
+    expect(updatesLine(a.slice(0, 1), (x) => x.summary)).toMatch(/^9:00\s?am · first$/i)
+    expect(updatesLine([], (x) => x.summary)).toBe('')
   })
 })
 

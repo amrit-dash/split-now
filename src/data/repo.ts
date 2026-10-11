@@ -356,6 +356,8 @@ export interface Repo {
   postChat(groupId: string, m: Omit<ChatMessage, 'id' | 'pending'>, id?: string): Promise<string>
   /** The author deletes their own message. */
   deleteChat(groupId: string, id: string): Promise<void>
+  /** The author changes their words (and who they tag); sets editedAt. Fire-and-forget. */
+  editChat(groupId: string, id: string, edit: { text: string; mentions: string[] }): Promise<void>
 
   watchComments(groupId: string, expenseId: string, cb: Watch<ExpenseComment[]>): Unsub
   addComment(groupId: string, expenseId: string, c: Omit<ExpenseComment, 'id'>): Promise<void>

@@ -6,6 +6,16 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- **A better group chat**: a solid header that stays put with a mute bell and an ⓘ, a faint wallpaper, your messages in a softer shade of your accent, the time and tick under each message, and cards (open item, Pay me, expense) that stand on their own with their own colour. The intro note only shows until the first message, and an updates pill leads with the latest update and its time.
+- **Group chat tools**: Settle up asks everyone or chosen people, and each person gets one button for exactly what they owe you (or sees you're square). Balances shows who owes whom, live. Pay me can ask chosen people. Type / for the tools, @ to tag someone or @everyone (tags reach people who muted the chat), and lines like “can everyone settle up?” or “we had lunch for ₹600” offer the right tool (on the phone, nothing sent until you tap; switch it off in ⓘ).
+- **Reply, edit and delete in the chat**: swipe a message right to reply, or press and hold for Reply, Copy, Edit and Delete. Only the author edits or deletes.
+- The group's settings button is now a settings icon, and its sheet no longer repeats Group chat, Mute chat and Sort and filter (they're on the chat and the list).
+- Inbox: Mark all read is an icon button and only shows on Updates.
+- Fields no longer zoom the page when the keyboard opens (the chat box was 15px), and the app no longer scrolls a field to the middle of the screen, which could push it out of view.
+- Sheets have room at the bottom in a phone's browser, not only in the installed app.
+- An expense's “Added 11 Oct” sits on the same line as who paid and the date when it fits.
+- New group shows your photo, and the photos of people you pick from your other groups. Add people has more room between search and adding someone new.
+- Profile: How friends can pay you has the same icon tile as the other rows.
 - **A cleaner sign-in screen**: Continue with Google comes first; email has its own button that opens Sign in and Create account, with clear messages under each field and a show-password eye. Joining a live table with its code is its own button.
 - **Email accounts confirm their address with a 6-digit code** sent by email, typed or pasted once. Accounts made before this are asked the next time they open the app. Google accounts don't need it.
 - **More than one email on your account**: Profile → Emails → Add another email, confirmed with a code. Groups that add you by any of your emails reach this one account. If that email already had its own Split Now account, you can merge it in: its groups, Pay me links and tables move over.

@@ -2,7 +2,8 @@
  * Group chat and open item pushes (src/lib/chat.ts, src/lib/open-items.ts in the app).
  *  - a chat message → everyone else in the group: one notification per chat that the next message
  *    replaces, quietly when the last loud one was under a minute ago (lib/chat-push.ts); not for
- *    people who turned chat pushes off or muted this chat (mutedChats)
+ *    people who turned chat pushes off or muted this chat (mutedChats), except that people the
+ *    message tags or asks by name (mentions, to) hear it even in a muted chat, and loudly
  *  - an open item that names people as "might have paid" (written down, or someone added later)
  *    → those people, asking them to claim it
  * Both behind their flags (groupChat, openItems), never for a group in Recently deleted, and only
@@ -12,7 +13,7 @@ import { logger } from 'firebase-functions/logger'
 import { onDocumentCreated, onDocumentWritten } from 'firebase-functions/v2/firestore'
 import { db } from './admin'
 import { REGION } from './config'
-import { chatLoudness, chatRecipients, newSuspects } from './lib/chat-push'
+import { calledUids, chatLoudness, chatRecipients, newSuspects } from './lib/chat-push'
 import { flagOn } from './lib/limits'
 import { chatNote, openItemNote } from './lib/notify-text'
 import { mutedChats } from './lib/prefs'
@@ -44,13 +45,16 @@ export const onChatMessageCreated = onDocumentCreated({ document: 'groups/{group
 
   const stateRef = db().doc(`chatPush/${groupId}`)
   const now = Date.now()
-  const { loud, quiet } = chatLoudness(recipients, (await stateRef.get()).get('last'), now)
+  const called = calledUids(m, (id) => memberUid(g.members, id, uidsOf(g)), recipients)
+  const timed = chatLoudness(recipients, (await stateRef.get()).get('last'), now)
+  const loud = [...new Set([...timed.loud, ...called])]
+  const quiet = timed.quiet.filter((u) => !called.has(u))
   let itemTitle: string | undefined
   if (m.kind === 'openItem' && typeof m.ref === 'string') {
     const t = (await db().doc(`groups/${groupId}/openItems/${m.ref}`).get()).get('title')
     if (typeof t === 'string') itemTitle = t
   }
-  const note = (silent: boolean) =>
+  const note = (silent: boolean, uid: string) =>
     chatNote({
       groupId,
       groupName: g.name ?? 'Group',
@@ -61,12 +65,13 @@ export const onChatMessageCreated = onDocumentCreated({ document: 'groups/{group
       amount: typeof m.amount === 'number' ? m.amount : undefined,
       currency: g.currency ?? 'INR',
       itemTitle,
+      called: called.has(uid),
       silent,
     })
-  const skip = (raw: unknown) => mutedChats(raw).has(groupId)
+  const skip = (uid: string) => (raw: unknown) => !called.has(uid) && mutedChats(raw).has(groupId)
   const sent = await Promise.all([
-    ...loud.map((uid) => sendToUser(uid, ['chat'], note(false), { skip }).then((n) => ({ uid, n }))),
-    ...quiet.map((uid) => sendToUser(uid, ['chat'], note(true), { skip }).then(() => ({ uid, n: 0 }))),
+    ...loud.map((uid) => sendToUser(uid, ['chat'], note(false, uid), { skip: skip(uid) }).then((n) => ({ uid, n }))),
+    ...quiet.map((uid) => sendToUser(uid, ['chat'], note(true, uid), { skip: skip(uid) }).then(() => ({ uid, n: 0 }))),
   ])
   // Remember who was buzzed (only those whose phone took it), so the next minute stays quiet for them.
   const buzzed = Object.fromEntries(sent.filter((s) => s.n > 0).map((s) => [s.uid, now]))

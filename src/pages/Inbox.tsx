@@ -95,6 +95,8 @@ export default function Inbox() {
         title="Inbox"
         back
         right={
+          // Only on Updates: To sort has nothing to mark read (its rows go when they're sorted).
+          current === 'updates' &&
           canMarkAllRead(box.updates, user.uid, box.seenAt, seenBefore) && (
             <button
               type="button"
@@ -103,11 +105,12 @@ export default function Inbox() {
                 markInboxSeen(now)
                 setSeenBefore(now)
               }}
-              className="flex min-h-11 items-center gap-1.5 rounded-full px-3 text-sm font-semibold text-brand-700 hover:bg-slate-200/60 dark:text-brand-300 dark:hover:bg-ink-800"
+              className="flex h-11 w-11 items-center justify-center rounded-full text-brand-700 hover:bg-slate-200/60 dark:text-brand-300 dark:hover:bg-ink-800"
+              aria-label="Mark all read"
+              title="Mark all read"
               data-testid="inbox-mark-read"
             >
-              <CheckCheck size={18} aria-hidden />
-              Mark all read
+              <CheckCheck size={22} aria-hidden />
             </button>
           )
         }

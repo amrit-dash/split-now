@@ -114,3 +114,32 @@ export function labelForUid(
   const id = memberIdOfUid(members, uid)
   return id && members ? memberLabels(members, me)[id] : undefined
 }
+
+/**
+ * A 1:1's other person, for the account `uid`: the member who isn't them (someone still in it
+ * before someone who left). undefined when `uid` isn't in it, or there's nobody else.
+ */
+export function directPeer(
+  members: Record<string, Named & { uid?: string; removedAt?: unknown; formerUids?: string[] }> | undefined,
+  uid: string | undefined,
+): string | undefined {
+  if (!members) return undefined
+  const mine = memberIdOfUid(members, uid)
+  if (!mine) return undefined
+  const others = Object.keys(members).filter((id) => id !== mine && !(uid && members[id].uid === uid))
+  return others.find((id) => members[id].removedAt === undefined) ?? others[0]
+}
+
+/**
+ * What a group is called for the person looking at it: a 1:1 is the other person's name (Rahul
+ * sees "Priya", Priya sees "Rahul"), whatever was typed when it was made; any other group keeps
+ * its own name.
+ */
+export function groupNameFor(
+  g: { type?: string; name: string; members?: Record<string, Named & { uid?: string; removedAt?: unknown; formerUids?: string[] }> },
+  uid: string | undefined,
+): string {
+  if (g.type !== 'direct') return g.name
+  const peer = directPeer(g.members, uid)
+  return (peer && g.members?.[peer]?.name?.trim()) || g.name
+}
