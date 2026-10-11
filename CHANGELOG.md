@@ -6,6 +6,8 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Settings → Animations no longer runs wider than the screen on narrow phones, and long rows of options like Glitter shape fit better.
+
 ## 3.10.2 — October 2026
 
 - Admin → Flags & app: the minimum version and the announcement's end date each sit on a full-width row with a proper button beside them (Use this build, Stop announcement), which drops to its own line on a phone.

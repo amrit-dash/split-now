@@ -169,6 +169,9 @@
   /* No scroll bars anywhere: on a phone they only flash over the content, and on desktop the
      gutter broke the app's edge-to-edge look. Only the bar is hidden; touch, wheel and keyboard
      scrolling still work (the scrollbar-none utility below stays for explicit use). */
+  /* A fieldset's default min-width is its widest content, so a long row of options (Glitter shape)
+     pushed the whole Animations card past the screen on narrow phones. Like any block, it shrinks. */
+  fieldset { min-width: 0; }
   html, body, * { scrollbar-width: none; }
   html::-webkit-scrollbar, body::-webkit-scrollbar, *::-webkit-scrollbar { display: none; }
   input, select, textarea, button { font: inherit; }
