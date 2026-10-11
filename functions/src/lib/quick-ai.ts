@@ -32,10 +32,13 @@ export const QUICK_SCHEMA: Schema = {
     action: {
       type: 'STRING',
       enum: ['expense', 'group_and_expense', 'unknown'],
-      description: 'group_and_expense only when the note asks to create / start / make a new group; unknown when it is not about a cost',
+      description:
+        'group_and_expense when the note asks to create / start / make a new group (with or without a cost), or when the writer has no groups; expense for a cost in a listed group; unknown when it is neither',
     },
     groupId: nstr('id of the listed group the cost goes into (action expense)'),
-    newGroupName: nstr('name of the group to create, as the note says it, in title case (action group_and_expense)'),
+    newGroupName: nstr(
+      'name of the group to create (action group_and_expense), short and in title case: the place or occasion ("Bali Trip", "Flat 4B"), else the people ("Rahul & Priya"), else what the cost was for',
+    ),
     newGroupType: { type: 'STRING', nullable: true, enum: [...QUICK_GROUP_TYPES] },
     newGroupMembers: {
       type: 'ARRAY',
@@ -43,7 +46,7 @@ export const QUICK_SCHEMA: Schema = {
       items: { type: 'STRING' },
       description: 'the other people in the new group, first names as written; never the writer',
     },
-    description: nstr('what the money was for, 1 to 5 words, no amount and no names'),
+    description: nstr('what the money was for, 1 to 5 words, no amount and no names; null when the note records no cost'),
     amount: { type: 'NUMBER', nullable: true, description: 'the amount as a plain number in the currency, e.g. 2400 or 12.50' },
     currency: nstr('ISO 4217 code only if the note names a currency, else null'),
     date: nstr('YYYY-MM-DD only if the note names a day, else null'),
@@ -93,14 +96,22 @@ export const quickPrompt = (r: QuickAiRequest) => {
         `- id ${g.id}: "${g.name}"${g.type ? ` (${g.type})` : ''}; members: ${g.members.map((m) => `${m.id}=${m.name}`).join(', ') || '(only the writer)'}`,
     )
     .join('\n')
-  return `A user of a bill-splitting app typed or spoke one line. It may record a cost in one of their groups, or ask to create a new group and record a cost in it. Fill the schema.
+  const none = r.groups.length === 0
+  return `A user of a bill-splitting app typed or spoke one line. It may record a cost in one of their groups, or ask to create a new group (and maybe record a cost in it). Fill the schema.
 The writer is "${r.me || 'me'}"; "I", "me", "my" or that name mean the writer: answer "me".
 Their groups (id: name; members as id=name, the writer not listed):
 ${groups || '(none)'}
 ${r.groupId ? `When the line names no group, the cost goes into ${r.groupId}.` : ''}
 Rules:
-- action group_and_expense only when the line asks to create, start, make or set up a group. Otherwise expense, in the group the line names, else the default.
+${
+  none
+    ? '- The writer has no groups yet, so the action is group_and_expense whatever the line says (unless it is not about a group or a cost: unknown).'
+    : '- action group_and_expense only when the line asks to create, start, make or set up a group. Otherwise expense, in the group the line names, else the default.'
+}
+- A new group's name is short, in title case: the place or occasion the line names ("for my Bali trip" → "Bali Trip"), else the people ("Rahul & Priya"), else what the cost was for ("Dinner"). Never the writer's name alone.
+- newGroupMembers are every other person the line names, as written, in order ("with Rahul, Priya and Subramaniam" → Rahul, Priya, Subramaniam). Never the writer.
 - For an existing group, people are member ids from its list; never invent ids. For a new group, people are the names in newGroupMembers.
+- ${r.groupOnly ? 'A line that only sets up a group records no cost: description, amount, paidBy, participants and splitMode are null.' : 'Always describe the cost.'}
 - amount is a plain number in ${r.currency} unless the line names another currency. Never invent an amount: null when there is none.
 - "split equally" or no split words: splitMode equal. Only give shares when the line says who owes how much.
 - Today is ${r.today}; "yesterday" and day names mean dates before today.
@@ -152,7 +163,7 @@ export function cleanQuickRequest(raw: unknown, serverToday: string, near: (a: s
   const currency = typeof d.currency === 'string' && /^[A-Z]{3}$/.test(d.currency) ? d.currency : 'INR'
   const today = typeof d.today === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d.today) && near(d.today, serverToday) ? d.today : serverToday
   const groupId = typeof d.groupId === 'string' && groups.some((g) => g.id === d.groupId) ? d.groupId : undefined
-  return { text, today, currency, me: cleanName(d.me), ...(groupId ? { groupId } : {}), groups }
+  return { text, today, currency, me: cleanName(d.me), ...(groupId ? { groupId } : {}), groups, ...(d.groupOnly === true ? { groupOnly: true } : {}) }
 }
 
 // ---- Output -----------------------------------------------------------------------
@@ -254,9 +265,11 @@ export function normaliseQuickAi(raw: unknown, req: QuickAiRequest): QuickAiResu
       return members.find((m) => fold(m) === fold(n)) ?? members.find((m) => fold(m).split(' ')[0] === fold(n)) ?? add(n)
     }
     const expense = base(person)
-    if (!expense) return { action: 'unknown' }
     const type = (QUICK_GROUP_TYPES as readonly string[]).includes(r.newGroupType as string) ? (r.newGroupType as QuickGroupType) : undefined
-    return { action: 'group_and_expense', group: { name, ...(type ? { type } : {}), members }, expense }
+    const group = { name, ...(type ? { type } : {}), members }
+    // No cost in the line: just the group, for an app that takes one (older apps need an expense).
+    if (!expense) return req.groupOnly ? { action: 'group', group } : { action: 'unknown' }
+    return { action: 'group_and_expense', group, expense }
   }
 
   if (r.action === 'expense') {

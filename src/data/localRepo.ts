@@ -1,6 +1,8 @@
 import { blobToDataUrl } from '@/lib/image'
 import { archiveWrite, balanceEditMembers, expenseMemberIds, isArchivedFor, uidsOfMembers, unarchiveInvolved } from '../../shared/archive'
 import { DELETED_GROUP_WRITE, purgeDue } from '../../shared/group-trash'
+import { EMPTY_INBOX_STATE, type InboxState } from '@/lib/inbox'
+import { shownCapture } from '@/lib/capture'
 import type { ActivityEntry, Capture, Expense, ExpenseComment, Group, Settlement, UserProfile } from '@/types'
 import { inviteCode, todayISO, uid } from '@/lib/id'
 import { inboxToDraft, newCaptureToken } from '@/lib/capture'
@@ -69,6 +71,8 @@ interface State {
   tables?: Record<string, LiveTable>
   /** merchant → category memory per user (users/{uid}/settings/merchants in Firebase) */
   merchants?: Record<string, MerchantMemory>
+  /** per user: what they cleared from Inbox → Updates */
+  inbox?: Record<string, InboxState>
   /** Pay me links keyed by code */
   payLinks?: Record<string, PayLinkDoc>
   /** payment screenshots by Storage-style path (small data: URLs) */
@@ -759,7 +763,7 @@ export function createLocalRepo(): Repo {
       watch(
         () =>
           Object.values(state.captures)
-            .filter((c) => c.owner === userId)
+            .filter((c) => c.owner === userId && shownCapture(c, Date.now()))
             .map(({ owner: _, ...c }) => c)
             .sort(byCreatedDesc),
         cb,
@@ -782,6 +786,19 @@ export function createLocalRepo(): Repo {
     },
 
     watchMerchants: (userId, cb) => watch(() => state.merchants?.[userId] ?? null, cb),
+    watchInboxState: (userId, cb) => watch(() => state.inbox?.[userId] ?? EMPTY_INBOX_STATE, cb),
+    async saveInboxState(userId, s) {
+      state.inbox ??= {}
+      state.inbox[userId] = s
+      commit()
+    },
+    async fetchActivityBefore(groupIds, before, max) {
+      const ids = new Set(groupIds)
+      return Object.values(activity())
+        .filter((a) => ids.has(a.groupId) && a.createdAt < before)
+        .sort(byCreatedDesc)
+        .slice(0, max)
+    },
     async saveMerchants(userId, memory) {
       state.merchants ??= {}
       state.merchants[userId] = memory

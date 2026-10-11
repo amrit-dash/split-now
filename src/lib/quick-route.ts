@@ -29,6 +29,17 @@ export function quickRoute(line: string, parse: { amount?: number; unmatched: st
 }
 
 /**
+ * With no groups yet every line starts one, which the phone does well from a plain line ("Goa trip
+ * with Rahul and Priya", "dinner 1200 with Rahul"): only a line that asks for a group in words, or
+ * does several things, is worth Quick add with AI.
+ */
+export function quickRouteNoGroups(line: string): QuickRoute {
+  if (ASKS_FOR_GROUP.test(line)) return { route: 'ai', why: 'asks_for_group' }
+  if (SEVERAL_STEPS.test(line)) return { route: 'ai', why: 'several_steps' }
+  return { route: 'local' }
+}
+
+/**
  * May this line go to Quick add with AI? Both switches must be on (the admin's `aiQuickAdd` flag and
  * the person's own "Quick add with AI", under the AI master switch), the phone must be online, and a
  * key must be able to serve the account: Split Now's (the bills allowance) unless they chose only

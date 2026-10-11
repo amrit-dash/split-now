@@ -37,6 +37,7 @@ describe('resolveLimits', () => {
       fxPerUserPerDay: 200,
       proofChecksPerHour: 10,
       proofChecksPerDay: 30,
+      captureKeepDays: 30,
     })
     for (const k of LIMIT_NAMES) {
       const m = LIMIT_META[k]

@@ -203,3 +203,27 @@ describe('normaliseQuickAi', () => {
     expect(normaliseQuickAi({ action: 'expense', amount: 10 }, { ...req, groupId: undefined })).toEqual({ action: 'unknown' })
   })
 })
+
+describe('group-only answers', () => {
+  const none = cleanQuickRequest(
+    { text: 'Create a group for my Bali trip with Rahul, Priya and Subramaniam', today: '2026-10-09', me: 'Asha', groups: [], groupOnly: true },
+    '2026-10-09',
+    near,
+  )!
+  const answer = { action: 'group_and_expense', newGroupName: 'Bali Trip', newGroupType: 'trip', newGroupMembers: ['Rahul', 'Priya', 'Subramaniam', 'Asha'] }
+  it('a new group with no cost is a group, for an app that takes one', () => {
+    expect(none.groupOnly).toBe(true)
+    expect(normaliseQuickAi(answer, none)).toEqual({ action: 'group', group: { name: 'Bali Trip', type: 'trip', members: ['Rahul', 'Priya', 'Subramaniam'] } })
+  })
+  it('older apps still get unknown for it', () => {
+    const old = cleanQuickRequest({ text: 'x', today: '2026-10-09', me: 'Asha', groups: [] }, '2026-10-09', near)!
+    expect(old.groupOnly).toBeUndefined()
+    expect(normaliseQuickAi(answer, old)).toEqual({ action: 'unknown' })
+  })
+  it('the prompt tells the model there are no groups, and to leave the cost empty', () => {
+    const p = quickPrompt(none)
+    expect(p).toContain('no groups yet')
+    expect(p).toContain('records no cost')
+    expect(p).toContain('Bali Trip')
+  })
+})

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Clock, Flag, Trash2 } from 'lucide-react'
+import { Clock, Flag, Trash2, X } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { useHistory, useTrash } from '@/hooks/data'
@@ -99,6 +99,7 @@ export function ActivityFeed({
   groups,
   linkable,
   isNew,
+  onHide,
 }: {
   entries: ActivityEntry[]
   groups?: Record<string, Group>
@@ -106,6 +107,8 @@ export function ActivityFeed({
   linkable?: (a: ActivityEntry) => boolean
   /** unread entries get a dot */
   isNew?: (a: ActivityEntry) => boolean
+  /** a ✕ on each row that hides it (Inbox → Updates; hidden for you only) */
+  onHide?: (a: ActivityEntry) => void
 }) {
   const { user } = useMe()
   return (
@@ -143,13 +146,24 @@ export function ActivityFeed({
         // membership changes) opens the group, and only in a cross-group feed.
         const canLink = isExpenseEntry(a) ? (linkable ? linkable(a) : true) : !!g
         return (
-          <li key={a.id}>
+          <li key={a.id} className="flex items-center">
             {canLink ? (
-              <Link to={activityHref(a)} className="flex items-center gap-3 px-4 py-3 active:bg-slate-50 dark:active:bg-ink-800">
+              <Link to={activityHref(a)} className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 active:bg-slate-50 dark:active:bg-ink-800">
                 {inner}
               </Link>
             ) : (
-              <div className="flex items-center gap-3 px-4 py-3">{inner}</div>
+              <div className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3">{inner}</div>
+            )}
+            {onHide && (
+              <button
+                type="button"
+                onClick={() => onHide(a)}
+                aria-label={`Clear “${activityText(a, user.uid)}”`}
+                className="text-muted mr-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full active:bg-slate-100 dark:active:bg-ink-800"
+                data-testid="update-clear"
+              >
+                <X size={16} aria-hidden />
+              </button>
             )}
           </li>
         )

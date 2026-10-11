@@ -2,7 +2,9 @@ import { useMemo, useSyncExternalStore } from 'react'
 import { useMe } from './auth'
 import { useClaimedPayLinks, usePendingCaptures, useRecentActivity, type GroupData } from './data'
 import { awaitingMyApproval, paymentsToConfirm } from '@/lib/trust'
-import { collapseRuns, inboxSeenAt, onInboxSeen, unreadCount } from '@/lib/inbox'
+import { collapseRuns, inboxSeenAt, onInboxSeen, unreadCount, visibleUpdates } from '@/lib/inbox'
+import { tuning } from '../../shared/app-tuning'
+import { useInboxState } from './useInboxState'
 import { dismissedNudges, nudgeCards, onNudgesDismissed, type NudgeGroupInfo } from '@/lib/nudge-inbox'
 import { pendingSettlements } from '@/lib/settleAll'
 
@@ -19,9 +21,12 @@ export function useInbox(data: GroupData[] | null) {
   const { user } = useMe()
   const captures = usePendingCaptures()
   const claims = useClaimedPayLinks()
-  const ids = useMemo(() => (data ? data.filter((d) => d.group.type !== 'personal').map((d) => d.group.id) : null), [data])
-  // The same per-group feeds a group's Activity tab reads (one listener each, shared).
-  const raw = useRecentActivity(ids)
+  // Not archived or deleted groups (useGroups already leaves deleted ones out): nothing to hear from them.
+  const ids = useMemo(() => (data ? data.filter((d) => d.group.type !== 'personal' && !d.group.archived).map((d) => d.group.id) : null), [data])
+  // A small live window per group (config/app tuning.activityWindow, 15 by default): this runs on
+  // every screen for the badge, so it stays cheap; Inbox → Show older reads further back.
+  const raw = useRecentActivity(ids, tuning().activityWindow)
+  const cleared = useInboxState()
   const seenAt = useSyncExternalStore(onInboxSeen, inboxSeenAt)
   const dismissed = useSyncExternalStore(onNudgesDismissed, dismissedNudges)
   return useMemo(() => {
@@ -30,7 +35,8 @@ export function useInbox(data: GroupData[] | null) {
     const payments = paymentsToConfirm(data ?? [], user.uid, Date.now())
     // One row per import / burst of adds, so a big import is one update (and at most one unread).
     const feed = collapseRuns(raw)
-    const updates = feed
+    // What this person cleared (Clear all, ✕) stays hidden, on every device; it never counts as new.
+    const updates = visibleUpdates(feed, cleared)
     const unread = unreadCount(updates, user.uid, seenAt)
     const groups: Record<string, NudgeGroupInfo> = {}
     for (const d of data ?? []) groups[d.group.id] = { name: d.group.name, emoji: d.group.emoji, currency: d.group.currency, me: d.me }
@@ -45,10 +51,11 @@ export function useInbox(data: GroupData[] | null) {
       nudges,
       feed,
       updates,
+      ids,
       unread,
       seenAt,
       toSort,
       count: toSort + unread,
     }
-  }, [data, captures, claims, raw, seenAt, dismissed, user.uid])
+  }, [data, ids, captures, claims, raw, seenAt, dismissed, cleared, user.uid])
 }

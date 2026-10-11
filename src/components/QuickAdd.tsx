@@ -19,9 +19,9 @@ import { suggestCategory } from '@/lib/merchants'
 import type { NlContext } from '@/lib/nl-expense'
 import { pending } from '@/lib/pending'
 import { knownPeople } from '@/lib/people'
-import { buildQuickRequest, listNames, newGroupPrefill, planQuickAi } from '@/lib/quick-ai'
+import { buildQuickRequest, listNames, newGroupPrefill, noGroupsPrefill, planQuickAi } from '@/lib/quick-ai'
 import { groupInText } from '@/lib/quick-group'
-import { quickAiAllowed, quickRoute } from '@/lib/quick-route'
+import { quickAiAllowed, quickRoute, quickRouteNoGroups } from '@/lib/quick-route'
 import { listenOnce, speechSupported, type SpeechSession } from '@/lib/speech'
 import { useConfirm } from '@/components/ConfirmSheet'
 import { GroupIcon } from '@/components/GroupIcon'
@@ -33,6 +33,7 @@ import { activeMembers } from '@/lib/members'
 const loadParser = () => import('@/lib/nl-expense')
 
 const HINT = 'Dinner 1200 with Rahul, I paid'
+const HINT_FIRST = 'Goa trip with Rahul and Priya'
 /** The picker's "New group…" entry (never a real group id: those are Firestore ids). */
 const NEW_GROUP = '__new'
 
@@ -55,7 +56,10 @@ export function QuickAdd({
   onLeave,
   testId = 'quick-add',
 }: {
-  /** the groups the line can go into (shared ones; the personal wallet has nobody to split with) */
+  /**
+   * the groups the line can go into (shared ones; the personal wallet has nobody to split with).
+   * None yet: every line starts a group (noGroupsPrefill), or with AI one is set up from it.
+   */
   groups: Group[]
   defaultGroupId?: string
   /** called just before it navigates away (the Create sheet closes) */
@@ -91,7 +95,7 @@ export function QuickAdd({
   const mic = useMemo(() => speechSupported(), [])
   useEffect(() => () => session.current?.stop(), [])
 
-  const picked = groups.find((g) => g.id === groupId) ?? groups[0]
+  const picked: Group | undefined = groups.find((g) => g.id === groupId) ?? groups[0]
   const people = useMemo(() => (picked ? Object.values(activeMembers(picked.members)).map((m) => m.name) : []), [picked])
   const named = useMemo(() => groupInText(text, groups, people), [text, groups, people])
 
@@ -111,7 +115,8 @@ export function QuickAdd({
     el.scrollLeft = el.scrollWidth
   }, [text])
 
-  if (!enabled || !picked) return null
+  if (!enabled) return null
+  const hint = picked ? HINT : HINT_FIRST
 
   const aiAllowed = quickAiAllowed({
     mode: firebase ? 'firebase' : 'demo',
@@ -132,6 +137,7 @@ export function QuickAdd({
 
   /** The line read on the phone (and, when unsure with AI reading on, gaps filled by Gemini's text reader). */
   const go = async () => {
+    if (!target) return
     const t = text.trim()
     const order = memberOrder(target)
     const me = myMemberId(target, user.uid) ?? order[0]
@@ -183,13 +189,17 @@ export function QuickAdd({
       const category = parse.description ? suggestCategory(parse.description, { memory }) : null
       pending.quick = { prefill: toQuickPrefill(parse, t, category), line: rest }
       qs.set('quick', '1')
-      prefill = newGroupPrefill({ text: t, freshName: name, unmatched: parse.unmatched, known: knownPeople(groups, user.uid) })
+      const known = knownPeople(groups, user.uid)
+      // The first group: named from the line, a 1:1 for one person, else after the people or the cost.
+      prefill =
+        picked || name
+          ? newGroupPrefill({ text: t, freshName: name, unmatched: parse.unmatched, known })
+          : noGroupsPrefill({ text: t, description: parse.description, unmatched: parse.unmatched, known })
     }
-    if (prefill.name) {
-      qs.set('name', prefill.name)
-      const type = prefill.type ?? guessGroup(prefill.name)?.type
-      if (type) qs.set('type', type)
-    }
+    if (prefill.name) qs.set('name', prefill.name)
+    // A 1:1 has no name of its own (it takes the friend's), so the type goes on regardless.
+    const type = prefill.type ?? (prefill.name ? guessGroup(prefill.name)?.type : undefined)
+    if (type) qs.set('type', type)
     if (prefill.people.length) qs.set('people', prefill.people.join(','))
     leave(`/groups/new?${qs}`)
   }
@@ -202,7 +212,7 @@ export function QuickAdd({
     setBusy('ai')
     try {
       const today = todayISO()
-      const r = await repo.quickAddAi(buildQuickRequest({ text, groups, uid: user.uid, me: profile.displayName, target, today }))
+      const r = await repo.quickAddAi(buildQuickRequest({ text, groups, uid: user.uid, me: profile.displayName, target, currency: profile.currency, today }))
       if (!r) {
         toast('Couldn’t work that out right now, so it was read on this phone. Check the form.')
         return false
@@ -229,14 +239,16 @@ export function QuickAdd({
       }
       const ok = await confirm({
         title: `Create “${plan.group.name}”?`,
-        message: `A new group with ${listNames(['you', ...plan.people])}. Then the expense opens for you to check.`,
+        message: `A new group with ${listNames(['you', ...plan.people])}. Then ${plan.prefill ? 'the expense opens for you to check' : 'Add expense opens in it'}.`,
         confirmLabel: 'Create group',
       })
       if (!ok) return true
       const id = await saveGroup(plan.group)
-      pending.quick = { groupId: id, prefill: plan.prefill }
       toast('Group created')
-      leave(`/add?group=${encodeURIComponent(id)}&quick=1`)
+      if (plan.prefill) {
+        pending.quick = { groupId: id, prefill: plan.prefill }
+        leave(`/add?group=${encodeURIComponent(id)}&quick=1`)
+      } else leave(`/add?group=${encodeURIComponent(id)}`)
       return true
     } catch (e) {
       toast(errText(e), 'err')
@@ -254,6 +266,12 @@ export function QuickAdd({
   }
 
   const send = async () => {
+    // No groups yet: the line starts one (with AI when it asks for more than a plain line can say).
+    if (!target) {
+      if (aiAllowed && quickRouteNoGroups(text).route === 'ai' && (await askAi())) return
+      await createGroup(fresh?.name ?? '')
+      return
+    }
     // Too much for the phone's grammar, and AI is allowed: try it first.
     if (aiAllowed) {
       const { parseNlExpense } = await loadParser()
@@ -329,7 +347,7 @@ export function QuickAdd({
             id={`${testId}-input`}
             aria-label="Quick add"
             className={`block w-full rounded-t-2xl bg-transparent px-4 pb-1.5 pt-3.5 text-slate-900 outline-none placeholder:text-slate-400 disabled:opacity-60 dark:text-slate-100 ${showHint ? 'placeholder:text-transparent' : ''}`}
-            placeholder={listening ? 'Listening…' : HINT}
+            placeholder={listening ? 'Listening…' : hint}
             value={text}
             onChange={(e) => {
               voiced.current = false
@@ -346,7 +364,7 @@ export function QuickAdd({
             disabled={!!busy}
             data-testid={`${testId}-input`}
           />
-          {showHint && <Hint text={HINT} />}
+          {showHint && <Hint text={hint} />}
         </div>
         <div className="flex items-center gap-1.5 px-2 pb-2 pt-1">
           <div ref={picker} className="flex min-w-0 flex-1 items-center">
@@ -362,6 +380,11 @@ export function QuickAdd({
                 <Plus size={16} className="shrink-0" aria-hidden />
                 <span className="truncate">{fresh.name ? `Create “${fresh.name}”` : 'Create a new group'}</span>
               </button>
+            ) : !picked ? (
+              <span className={`${chip} text-muted px-2 font-medium`} data-testid={`${testId}-first-group`}>
+                <Plus size={16} className="shrink-0" aria-hidden />
+                <span className="truncate">Starts your first group</span>
+              </span>
             ) : match && match.id !== picked.id ? (
               <button
                 type="button"
@@ -430,7 +453,7 @@ export function QuickAdd({
           <button
             type="submit"
             disabled={!!busy || !text.trim()}
-            aria-label={fresh ? 'Create the group, then open the expense form' : 'Open the expense form with this'}
+            aria-label={fresh || !picked ? 'Set up the group, then open the expense form' : 'Open the expense form with this'}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-fill text-on-fill shadow-sm transition active:scale-95 disabled:opacity-40 disabled:shadow-none"
             data-testid={`${testId}-go`}
           >

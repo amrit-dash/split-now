@@ -1,10 +1,10 @@
 /*
  * Safe delete (shared/group-trash.ts): deleting a group sets deletedAt / deletedBy and it sits in
- * Recently deleted for TRASH_DAYS days.
+ * Recently deleted for config/app `tuning.trashDays` days (30 by default).
  *  - onGroupTrashed: someone deleted a group → the other members hear it, and that they can restore
  *    it; its open Pay me links go on hold (nobody pays into a group nobody sees), and a restore
  *    takes the hold off again
- *  - purgeDeletedGroups: daily, removes groups deleted TRASH_DAYS days ago for good (the group
+ *  - purgeDeletedGroups: daily, removes groups deleted that many days ago for good (the group
  *    document and its invite, its open Pay me links cancelled; onGroupDeleted sweeps the rest,
  *    receipts included)
  */
@@ -12,7 +12,8 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { logger } from 'firebase-functions/logger'
 import { onDocumentUpdated } from 'firebase-functions/v2/firestore'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
-import { purgeAt, TRASH_DAYS } from '../../shared/group-trash'
+import { purgeAt } from '../../shared/group-trash'
+import { getTuning } from './lib/limits'
 import { db } from './admin'
 import { REGION, TIME_ZONE } from './config'
 import { groupDeletedNote } from './lib/notify-text'
@@ -67,16 +68,16 @@ export const onGroupTrashed = onDocumentUpdated({ document: 'groups/{groupId}', 
     groupName: after.name ?? 'Group',
     emoji: after.emoji,
     byName: memberNameForUid(after.members, by) ?? 'Someone',
-    days: TRASH_DAYS,
+    days: (await getTuning()).trashDays,
   })
   const sent = await Promise.all(uids.map((u) => sendToUser(u, ['expenses'], note)))
   logger.info('group deleted push', { groupId, held, sent: sent.reduce((a, b) => a + b, 0) })
 })
 
 /** Groups due for the purge at `now`, a page at a time (single-field index on deletedAt). */
-export async function purgeExpiredGroups(now: number, pageSize = 50): Promise<number> {
-  // Deleted at or before this moment means its TRASH_DAYS are up (purgeAt(0) is the whole span).
-  const cutoff = now - purgeAt(0)
+export async function purgeExpiredGroups(now: number, days: number, pageSize = 50): Promise<number> {
+  // Deleted at or before this moment means its days are up (purgeAt(0, days) is the whole span).
+  const cutoff = now - purgeAt(0, days)
   let removed = 0
   for (;;) {
     const page = await db().collection('groups').where('deletedAt', '<=', cutoff).limit(pageSize).get()
@@ -102,7 +103,8 @@ export async function purgeExpiredGroups(now: number, pageSize = 50): Promise<nu
 export const purgeDeletedGroups = onSchedule(
   { schedule: 'every day 03:30', timeZone: TIME_ZONE, region: REGION, timeoutSeconds: 540, retryCount: 1 },
   async () => {
-    const removed = await purgeExpiredGroups(Date.now())
+    const { trashDays } = await getTuning()
+    const removed = await purgeExpiredGroups(Date.now(), trashDays)
     logger.info('purged deleted groups', { removed })
   },
 )

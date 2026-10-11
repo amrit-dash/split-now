@@ -61,6 +61,7 @@ const limits = {
   fxPerUserPerDay: 200,
   proofChecksPerHour: 10,
   proofChecksPerDay: 30,
+  captureKeepDays: 30,
   updatedAt: 1,
   updatedBy: 'boss',
 }
@@ -112,6 +113,15 @@ describe('config/app', () => {
     await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, minVersion: '1.2' }))
     await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, announcement: { text: 'hi', level: 'party' } }))
     await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, announcement: { text: 'x'.repeat(301), level: 'info' } }))
+    // tuning: the admin-set Updates paging and Recently deleted days (shared/app-tuning.ts ranges)
+    await assertSucceeds(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, tuning: { inboxPageSize: 20, activityWindow: 15, trashDays: 30 } }))
+    await assertSucceeds(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, tuning: { trashDays: 7 } }))
+    await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, tuning: { trashDays: 6 } }))
+    await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, tuning: { inboxPageSize: 101 } }))
+    await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, tuning: { activityWindow: 7.5 } }))
+    await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, tuning: { other: 1 } }))
+    await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, tuning: 'x' }))
+    await assertFails(setDoc(doc(as('alice'), 'config/app'), { ...appConfig, tuning: { trashDays: 30 } }))
     await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, announcement: { text: 'hi', level: 'info', url: 'https://x' } }))
     await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, flags: { ...appConfig.flags, teleport: true } }))
     await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, flags: { ...appConfig.flags, nudges: 'on' } }))

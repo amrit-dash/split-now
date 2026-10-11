@@ -15,6 +15,8 @@
  * and never imports '@/data' (the hook passes the mode in).
  */
 
+import { type AppTuning, DEFAULT_TUNING, resolveTuning, setTuning } from '../../shared/app-tuning'
+
 export const FLAG_NAMES = [
   'aiImages',
   'aiSms',
@@ -79,6 +81,8 @@ export interface AppConfig {
   announcement: Announcement | null
   flags: Record<FlagName, boolean>
   signups: Signups
+  /** numbers the app needs that an admin can tune (shared/app-tuning.ts) */
+  tuning: AppTuning
   updatedAt?: number
   updatedBy?: string
 }
@@ -92,6 +96,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
   announcement: null,
   flags: ALL_ON,
   signups: 'open',
+  tuning: DEFAULT_TUNING,
 }
 
 export const MAX_MESSAGE = 300
@@ -119,6 +124,7 @@ export function resolveAppConfig(raw: unknown): AppConfig {
     announcement,
     flags,
     signups: r.signups === 'invite' ? 'invite' : 'open',
+    tuning: resolveTuning(r.tuning),
     ...(typeof r.updatedAt === 'number' ? { updatedAt: r.updatedAt } : {}),
     ...(typeof r.updatedBy === 'string' ? { updatedBy: r.updatedBy } : {}),
   }
@@ -132,6 +138,7 @@ export function toAppConfigDoc(cfg: AppConfig, by: string, now = Date.now()): Re
     announcement: cfg.announcement?.text.trim() ? { ...cfg.announcement, text: cfg.announcement.text.trim().slice(0, MAX_MESSAGE) } : null,
     flags: { ...cfg.flags },
     signups: cfg.signups,
+    tuning: { ...cfg.tuning },
     updatedAt: now,
     updatedBy: by,
   }
@@ -272,12 +279,14 @@ function readCache(): AppConfig | null {
 }
 
 let current: AppConfig = readCache() ?? DEFAULT_APP_CONFIG
+setTuning(current.tuning)
 let started: 'firebase' | 'demo' | null = null
 let stop: Unsub | null = null
 const subs = new Set<() => void>()
 
 function set(next: AppConfig) {
   current = next
+  setTuning(next.tuning)
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify(next))
   } catch {

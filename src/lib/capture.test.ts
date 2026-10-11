@@ -284,3 +284,13 @@ describe('captureFromSharedText', () => {
     expect(captureFromSharedText({}, TODAY)).toBeNull()
   })
 })
+
+describe('which captured payments the list shows', () => {
+  it('everything waiting, and what was handled in the last 30 days', async () => {
+    const { shownCapture, CAPTURES_SHOWN_DAYS } = await import('./capture')
+    const now = 100 * 86_400_000
+    expect(shownCapture({ status: 'pending', updatedAt: 0 }, now)).toBe(true)
+    expect(shownCapture({ status: 'dismissed', updatedAt: now - 5 * 86_400_000 }, now)).toBe(true)
+    expect(shownCapture({ status: 'assigned', updatedAt: now - (CAPTURES_SHOWN_DAYS + 1) * 86_400_000 }, now)).toBe(false)
+  })
+})

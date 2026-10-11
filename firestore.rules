@@ -163,6 +163,13 @@ service cloud.firestore {
             request.resource.data.keys().hasOnly(['categories', 'touched', 'updatedAt'])
             && request.resource.data.categories is map && request.resource.data.categories.size() <= 200
             && request.resource.data.get('touched', {}) is map && request.resource.data.get('touched', {}).size() <= 200
+            && request.resource.data.get('updatedAt', 0) is int))
+          // settings/inbox: what this person cleared from Inbox → Updates (src/lib/inbox.ts). Only
+          // hides entries for them; the groups' activity itself is never touched.
+          && (settingId != 'inbox' || (
+            request.resource.data.keys().hasOnly(['clearedAt', 'hidden', 'updatedAt'])
+            && request.resource.data.get('clearedAt', 0) is int
+            && request.resource.data.get('hidden', []) is list && request.resource.data.get('hidden', []).size() <= 200
             && request.resource.data.get('updatedAt', 0) is int));
       }
     }
@@ -205,8 +212,17 @@ service cloud.firestore {
           && f.get('statementImport', true) is bool && f.get('payLinks', true) is bool && f.get('duplicates', true) is bool
           && f.get('merchantMemory', true) is bool && f.get('whoseTurn', true) is bool && f.get('budgetAlerts', true) is bool;
       }
+      // Numbers the app needs that an admin can tune; ranges mirror shared/app-tuning.ts.
+      function validTuning(t) {
+        return t is map
+          && t.keys().hasOnly(['inboxPageSize', 'activityWindow', 'trashDays'])
+          && t.get('inboxPageSize', 20) is int && t.get('inboxPageSize', 20) >= 10 && t.get('inboxPageSize', 20) <= 100
+          && t.get('activityWindow', 15) is int && t.get('activityWindow', 15) >= 5 && t.get('activityWindow', 15) <= 50
+          && t.get('trashDays', 30) is int && t.get('trashDays', 30) >= 7 && t.get('trashDays', 30) <= 90;
+      }
       function validAppConfig(d) {
-        return d.keys().hasOnly(['maintenance', 'maintenanceMessage', 'minVersion', 'announcement', 'flags', 'signups', 'updatedAt', 'updatedBy'])
+        return d.keys().hasOnly(['maintenance', 'maintenanceMessage', 'minVersion', 'announcement', 'flags', 'signups', 'tuning', 'updatedAt', 'updatedBy'])
+          && validTuning(d.get('tuning', {}))
           && d.get('maintenance', false) is bool
           && (!('maintenanceMessage' in d) || (d.maintenanceMessage is string && d.maintenanceMessage.size() <= 300))
           && d.get('minVersion', '0.0.0') is string && d.get('minVersion', '0.0.0').matches('[0-9]{1,5}\\.[0-9]{1,5}\\.[0-9]{1,5}')
@@ -219,7 +235,7 @@ service cloud.firestore {
       // Ranges mirror LIMIT_META in shared/limits.ts.
       function validLimits(d) {
         return d.keys().hasOnly(['capturePerHour', 'capturePerDay', 'aiOwnPerHour', 'aiOwnPerDay', 'nudgePerDay',
-            'fxPerUserPerHour', 'fxPerUserPerDay', 'proofChecksPerHour', 'proofChecksPerDay', 'updatedAt', 'updatedBy'])
+            'fxPerUserPerHour', 'fxPerUserPerDay', 'proofChecksPerHour', 'proofChecksPerDay', 'captureKeepDays', 'updatedAt', 'updatedBy'])
           && d.get('capturePerHour', 60) is int && d.get('capturePerHour', 60) >= 1 && d.get('capturePerHour', 60) <= 1000
           && d.get('capturePerDay', 300) is int && d.get('capturePerDay', 300) >= 1 && d.get('capturePerDay', 300) <= 10000
           && d.get('aiOwnPerHour', 120) is int && d.get('aiOwnPerHour', 120) >= 1 && d.get('aiOwnPerHour', 120) <= 1000
@@ -229,6 +245,7 @@ service cloud.firestore {
           && d.get('fxPerUserPerDay', 200) is int && d.get('fxPerUserPerDay', 200) >= 1 && d.get('fxPerUserPerDay', 200) <= 5000
           && d.get('proofChecksPerHour', 10) is int && d.get('proofChecksPerHour', 10) >= 1 && d.get('proofChecksPerHour', 10) <= 100
           && d.get('proofChecksPerDay', 30) is int && d.get('proofChecksPerDay', 30) >= 1 && d.get('proofChecksPerDay', 30) <= 500
+          && d.get('captureKeepDays', 30) is int && d.get('captureKeepDays', 30) >= 7 && d.get('captureKeepDays', 30) <= 365
           && d.get('updatedAt', 0) is int
           && d.get('updatedBy', '') is string;
       }

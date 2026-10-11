@@ -22,6 +22,8 @@ export interface Limits {
   /** payment-screenshot checks one payer can start against one payee (they run on the payee's AI allowance) */
   proofChecksPerHour: number
   proofChecksPerDay: number
+  /** days a captured payment you added or dismissed is kept before the daily cleanup removes it */
+  captureKeepDays: number
 }
 
 export type LimitName = keyof Limits
@@ -57,6 +59,13 @@ export const LIMIT_META: Record<LimitName, LimitMeta> = {
     default: 10,
   },
   proofChecksPerDay: { label: 'Screenshot checks per payer, per payee, per day', hint: '', min: 1, max: 500, default: 30 },
+  captureKeepDays: {
+    label: 'Handled captured payments kept for (days)',
+    hint: 'Added or dismissed ones; those still waiting to be sorted are never removed',
+    min: 7,
+    max: 365,
+    default: 30,
+  },
 }
 
 export const LIMIT_NAMES = Object.keys(LIMIT_META) as LimitName[]

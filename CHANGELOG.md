@@ -9,6 +9,18 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 - **Free AI with Gemma**: an admin can now run Split Now's AI on Gemma, Google's open model, which Google serves free of charge. It reads everything Gemini does (bills, statements, payment screenshots, bank SMS and Quick add) but more slowly. Each person turns on **Use free AI** in Settings → AI features first. The switch explains that Google may use what is sent to improve its products and that the free service isn't for people in the EU, the UK or Switzerland. By default it uses the newest Gemma model, so it moves to a newer one when Google releases it. Admins can also pick a specific model.
 - **AI settings say where your data goes**: on Split Now's Gemini key, bills go from Split Now's servers in Mumbai to Google's paid Gemini API. When no AI is available, the screen says so and points to adding your own Gemini key.
 
+## 3.9.0 — October 2026
+
+- Links you share now preview properly in chats: an invite says who invited you and to which group, a Pay me link says who asked you to settle up (never the amount), and a live table says where the bill is from, each with its own picture.
+- Inbox: clear an update with ✕ or Clear all (with Undo). It's hidden for you on every device, and nobody else's history changes.
+- Inbox: sort Updates by newest, oldest or group, and To sort by newest, oldest or biggest amount. Your choice is remembered on this device.
+- Inbox: Updates load a page at a time, with Show older for the rest, so a busy Inbox stays quick.
+- Handled captured payments are tidied away after 30 days.
+- Quick add works before you have any groups, on Home and in the + sheet. Name a trip and who's in it, or just a friend, and the group is set up for you to check first.
+- Quick add with AI can set up a group from a line like "Create a group for my Bali trip with Rahul, Priya and Subramaniam", then opens Add expense in it.
+- Add expense with no groups yet now has a ✕ to go back.
+- Admins can set the Updates page size, the live updates per group, how long Recently deleted keeps things, and how long handled captures are kept.
+
 ## 3.8.0 — October 2026
 
 - **Glitter is a flash of light**: as each firework burst fades, a quick flash of small lights goes off where it was, some bigger, some brighter, then gone. Glitter size sets how big they are, and the new **Glitter shape** picks Mix, Dots, Streaks, Stars or Curls. **Twinkle** is a separate setting, off by default: some sparks pulse as they fade.

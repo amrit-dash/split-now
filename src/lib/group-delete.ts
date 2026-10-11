@@ -1,5 +1,5 @@
 import type { Group, MemberId } from '@/types'
-import { TRASH_DAYS } from '../../shared/group-trash'
+import { tuning } from '../../shared/app-tuning'
 
 /**
  * Who may delete a group (it goes to "Recently deleted" for 30 days, shared/group-trash.ts):
@@ -28,7 +28,7 @@ export function deleteMessage(
   name: (id: MemberId) => string,
   money: (n: number) => string,
 ): string {
-  const base = `It moves to Recently deleted for everyone in the group. Anyone in it can restore it within ${TRASH_DAYS} days; after that it’s gone for good.`
+  const base = `It moves to Recently deleted for everyone in the group. Anyone in it can restore it within ${tuning().trashDays} days; after that it’s gone for good.`
   if (!debts.length) return base
   const shown = debts.slice(0, 3).map((d) => `${name(d.from)} owes ${name(d.to)} ${money(d.amount)}`)
   const more = debts.length > 3 ? `, and ${debts.length - 3} more` : ''

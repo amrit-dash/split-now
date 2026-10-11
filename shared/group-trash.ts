@@ -5,6 +5,9 @@
  * onGroupDeleted sweeps up what was in it. Shared by the app and the functions. Pure.
  */
 
+import { tuning } from './app-tuning'
+
+/** The default; the live value is config/app's `tuning.trashDays` (shared/app-tuning.ts). */
 export const TRASH_DAYS = 30
 const DAY_MS = 86_400_000
 
@@ -19,13 +22,13 @@ export const DELETED_GROUP_WRITE = 'This group is in Recently deleted. Restore i
 export const isDeletedGroup = (g: Trashable): boolean => typeof g.deletedAt === 'number'
 
 /** When a group deleted at `deletedAt` is removed for good. */
-export const purgeAt = (deletedAt: number): number => deletedAt + TRASH_DAYS * DAY_MS
+export const purgeAt = (deletedAt: number, days = tuning().trashDays): number => deletedAt + days * DAY_MS
 
 /** Whether the purge should remove it now. */
-export const purgeDue = (g: Trashable, now: number): boolean => isDeletedGroup(g) && now >= purgeAt(g.deletedAt as number)
+export const purgeDue = (g: Trashable, now: number, days = tuning().trashDays): boolean => isDeletedGroup(g) && now >= purgeAt(g.deletedAt as number, days)
 
 /** Whole days left to restore it (at least 1 while it's still there, 0 once due). */
-export function daysLeft(deletedAt: number, now: number): number {
-  const ms = purgeAt(deletedAt) - now
+export function daysLeft(deletedAt: number, now: number, days = tuning().trashDays): number {
+  const ms = purgeAt(deletedAt, days) - now
   return ms <= 0 ? 0 : Math.max(1, Math.ceil(ms / DAY_MS))
 }

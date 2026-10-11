@@ -2,6 +2,7 @@ import type { Cents, Expense, ExpenseFlag, Group, MemberId, Settlement } from '@
 import { type ApprovalGroup, approvalNeeded, editApprovalOutcome, groupThreshold } from './approval'
 import { activeMembers, isRemoved } from '../../shared/members'
 import { TRASH_DAYS } from '../../shared/group-trash'
+import { tuning } from '../../shared/app-tuning'
 import { awaitingOk, needsOkOnCreate, settlementCounts } from '../../shared/payment-ok'
 
 /**
@@ -19,10 +20,11 @@ export const isTrashed = (x: Trashable) => typeof x.deletedAt === 'number'
 export const liveItems = <T extends Trashable>(xs: T[]): T[] => xs.filter((x) => !isTrashed(x))
 /** Trashed items still restorable (newest deletion first). */
 export const trashedItems = <T extends Trashable>(xs: T[], now = Date.now()): T[] =>
-  xs.filter((x) => isTrashed(x) && now - x.deletedAt! < TRASH_DAYS * DAY).sort((a, b) => b.deletedAt! - a.deletedAt!)
-/** Trashed longer than TRASH_DAYS: due for purging. */
-export const expiredTrash = <T extends Trashable>(xs: T[], now = Date.now()): T[] => xs.filter((x) => isTrashed(x) && now - x.deletedAt! >= TRASH_DAYS * DAY)
-export const daysLeftInTrash = (x: Trashable, now = Date.now()) => Math.max(0, Math.ceil((x.deletedAt! + TRASH_DAYS * DAY - now) / DAY))
+  xs.filter((x) => isTrashed(x) && now - x.deletedAt! < tuning().trashDays * DAY).sort((a, b) => b.deletedAt! - a.deletedAt!)
+/** Trashed longer than the trash period (config/app `tuning.trashDays`, 30 by default): due for purging. */
+export const expiredTrash = <T extends Trashable>(xs: T[], now = Date.now()): T[] =>
+  xs.filter((x) => isTrashed(x) && now - x.deletedAt! >= tuning().trashDays * DAY)
+export const daysLeftInTrash = (x: Trashable, now = Date.now()) => Math.max(0, Math.ceil((x.deletedAt! + tuning().trashDays * DAY - now) / DAY))
 
 /** Hard delete is for whoever trashed it, or the group creator (matches firestore.rules). */
 export function canPurge(x: Trashable, group: Pick<Group, 'createdBy'>, uid: string): boolean {
