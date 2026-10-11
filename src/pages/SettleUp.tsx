@@ -242,7 +242,12 @@ export default function SettleUp() {
       const base = { groupId: group.id, from, to, date, createdBy: user.uid, createdAt: Date.now() }
       // Opened from a Pay me link (/r/{code} → here): this payment clears it, so the link reads
       // as paid for the payee and can't be recorded a second time by the server.
-      const link = linkToClose(params.get('link'), { from: params.get('from') ?? '', to: params.get('to') ?? '' }, { from, to })
+      const asked = Number(params.get('amount'))
+      const link = linkToClose(
+        params.get('link'),
+        { from: params.get('from') ?? '', to: params.get('to') ?? '', amount: Number.isInteger(asked) && asked > 0 ? asked : undefined },
+        { from, to, amount: clears + (waive ? restAfter : 0) },
+      )
       const id = uid('s_')
       const paid = conv && rate ? paidIn(conv.cur, conv.paid, rate.rate, rate.date) : undefined
       await repo.saveSettlement(

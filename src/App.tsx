@@ -10,6 +10,7 @@ import { BlockedScreen, GateScreen, MaintenanceScreen, UpdateRequiredScreen } fr
 import { Marquee } from './components/Marquee'
 import { Layout } from './components/Layout'
 import { Loading } from './components/Misc'
+import { LiveGroupOnly } from './components/DeleteGroup'
 import { UpdatePrompt } from './components/UpdatePrompt'
 import { errText } from './lib/errors'
 import {
@@ -245,10 +246,38 @@ function AppRoutes({ cfg, admin }: { cfg: AppConfig; admin: boolean }) {
             <Route path="groups/new" element={<GroupForm />} />
             <Route path="groups/import" element={<ImportGroup />} />
             <Route path="groups/:groupId" element={<GroupDetail />} />
-            <Route path="groups/:groupId/edit" element={<GroupForm />} />
-            <Route path="groups/:groupId/settle" element={<SettleUp />} />
-            <Route path="groups/:groupId/members" element={<GroupMembers />} />
-            <Route path="groups/:groupId/expenses/:expenseId" element={<ExpenseDetail />} />
+            <Route
+              path="groups/:groupId/edit"
+              element={
+                <LiveGroupOnly>
+                  <GroupForm />
+                </LiveGroupOnly>
+              }
+            />
+            <Route
+              path="groups/:groupId/settle"
+              element={
+                <LiveGroupOnly>
+                  <SettleUp />
+                </LiveGroupOnly>
+              }
+            />
+            <Route
+              path="groups/:groupId/members"
+              element={
+                <LiveGroupOnly>
+                  <GroupMembers />
+                </LiveGroupOnly>
+              }
+            />
+            <Route
+              path="groups/:groupId/expenses/:expenseId"
+              element={
+                <LiveGroupOnly>
+                  <ExpenseDetail />
+                </LiveGroupOnly>
+              }
+            />
             <Route path="settle" element={<SettleAll />} />
             <Route path="settle/with/:key" element={<SettleWithPerson />} />
             <Route path="friends" element={<Navigate to="/settle" replace />} />
@@ -259,8 +288,22 @@ function AppRoutes({ cfg, admin }: { cfg: AppConfig; admin: boolean }) {
             <Route path="settings/*" element={<Settings />} />
             <Route path="admin/*" element={<Admin />} />
           </Route>
-          <Route path="add" element={<ExpenseForm />} />
-          <Route path="groups/:groupId/expenses/:expenseId/edit" element={<ExpenseForm />} />
+          <Route
+            path="add"
+            element={
+              <LiveGroupOnly>
+                <ExpenseForm />
+              </LiveGroupOnly>
+            }
+          />
+          <Route
+            path="groups/:groupId/expenses/:expenseId/edit"
+            element={
+              <LiveGroupOnly>
+                <ExpenseForm />
+              </LiveGroupOnly>
+            }
+          />
           <Route path="split" element={liveTables ? <SplitBill /> : <Navigate to="/" replace />} />
           <Route path="scan" element={<Scan />} />
           <Route path="capture" element={autoCapture ? <Capture /> : <Navigate to="/inbox" replace />} />

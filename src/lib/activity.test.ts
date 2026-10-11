@@ -254,7 +254,7 @@ describe('groupSettingsActivity', () => {
   })
   it('payments need the recipient’s OK, on and off', () => {
     expect(say(g, { ...g, paymentApproval: true })).toBe('Rahul turned on OKs for payments')
-    expect(say({ ...g, paymentApproval: true }, { ...g })).toBe('Rahul turned off OKs for payments (every payment counts at once)')
+    expect(say({ ...g, paymentApproval: true }, { ...g })).toBe('Rahul turned off OKs for payments (new payments count at once)')
     expect(say({ ...g, paymentApproval: false }, { ...g })).toBeUndefined()
   })
   it('nothing logged for unlisted or unchanged settings', () => {

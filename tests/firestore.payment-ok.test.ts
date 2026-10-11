@@ -86,8 +86,14 @@ describe('a new payment', () => {
     await assertSucceeds(setDoc(st('bob'), payment()))
     await assertFails(setDoc(st('bob', 's2'), payment({ id: 's2', needsOk: true })))
   })
-  it('an import is exempt', async () => {
-    await assertSucceeds(setDoc(st('bob'), payment({ importedFrom: 'splitwise' })))
+  it('an import by the group’s creator is exempt; anyone else’s waits like any payment', async () => {
+    await assertSucceeds(setDoc(st('alice'), payment({ createdBy: 'alice', from: 'p_cat', to: 'bob', importedFrom: 'splitwise' })))
+    // The hole: bob adds importedFrom to skip alice's OK.
+    await assertFails(setDoc(st('bob', 's2'), payment({ id: 's2', importedFrom: 'splitwise' })))
+    await assertSucceeds(setDoc(st('bob', 's3'), payment({ id: 's3', importedFrom: 'splitwise', needsOk: true })))
+  })
+  it('importedFrom is only a real import source', async () => {
+    await assertFails(setDoc(st('alice'), payment({ createdBy: 'alice', from: 'p_cat', to: 'bob', importedFrom: 'x' })))
   })
   it('can’t arrive OK’d, flagged or checked; a screenshot sits at its own path', async () => {
     await assertFails(setDoc(st('bob'), payment({ needsOk: true, ok: { by: 'bob', at: 1, via: 'payee' } })))
@@ -129,6 +135,26 @@ describe('the payee’s OK and flag', () => {
   })
   it('either of them can still delete it (trash)', async () => {
     await assertSucceeds(updateDoc(st('bob'), { deletedAt: 5, deletedBy: 'bob' }))
+  })
+})
+
+describe('a recorded payment is never edited', () => {
+  it('not its amount, payer, payee or date, even after the OK, by anyone', async () => {
+    await seed('groups/g1/settlements/s1', payment({ needsOk: true, ok: { by: 'alice', at: 2, via: 'payee' } }))
+    await assertFails(updateDoc(st('bob'), { amount: 9999999 }))
+    await assertFails(updateDoc(st('bob'), { to: 'p_cat' }))
+    await assertFails(updateDoc(st('alice'), { from: 'p_cat' }))
+    await assertFails(updateDoc(st('bob'), { date: '2026-01-01' }))
+    await assertFails(updateDoc(st('bob'), { note: 'changed' }))
+  })
+  it('a payment that never needed an OK can’t be re-pointed at someone who would have to give one', async () => {
+    await seed('groups/g1/settlements/s2', payment({ id: 's2', to: 'p_cat' }))
+    await assertFails(updateDoc(st('bob', 's2'), { to: 'alice' }))
+  })
+  it('it can still go to trash and back', async () => {
+    await seed('groups/g1/settlements/s1', payment({ needsOk: true }))
+    await assertSucceeds(updateDoc(st('bob'), { deletedAt: 5, deletedBy: 'bob' }))
+    await assertSucceeds(updateDoc(st('alice'), { deletedAt: deleteField(), deletedBy: deleteField() }))
   })
 })
 

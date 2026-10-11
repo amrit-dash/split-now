@@ -117,10 +117,17 @@ describe('which screen /r/{code} shows', () => {
 
 describe('Settle up closes the link', () => {
   it('only for the same pair of people and a real code', () => {
-    expect(linkToClose(CODE, { from: 'a', to: 'b' }, { from: 'a', to: 'b' })).toBe(CODE)
-    expect(linkToClose(CODE, { from: 'a', to: 'b' }, { from: 'a', to: 'c' })).toBeUndefined()
-    expect(linkToClose('nope', { from: 'a', to: 'b' }, { from: 'a', to: 'b' })).toBeUndefined()
-    expect(linkToClose(null, { from: 'a', to: 'b' }, { from: 'a', to: 'b' })).toBeUndefined()
+    const r = { from: 'a', to: 'b', amount: 500 }
+    expect(linkToClose(CODE, { from: 'a', to: 'b' }, r)).toBe(CODE)
+    expect(linkToClose(CODE, { from: 'a', to: 'b' }, { ...r, to: 'c' })).toBeUndefined()
+    expect(linkToClose('nope', { from: 'a', to: 'b' }, r)).toBeUndefined()
+    expect(linkToClose(null, { from: 'a', to: 'b' }, r)).toBeUndefined()
+  })
+  it('only for at least the amount it asked (paid plus any rest waived)', () => {
+    const link = { from: 'a', to: 'b', amount: 124_000 }
+    expect(linkToClose(CODE, link, { from: 'a', to: 'b', amount: 100 })).toBeUndefined()
+    expect(linkToClose(CODE, link, { from: 'a', to: 'b', amount: 124_000 })).toBe(CODE)
+    expect(linkToClose(CODE, link, { from: 'a', to: 'b', amount: 130_000 })).toBe(CODE)
   })
 })
 

@@ -1032,7 +1032,11 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       const writes: Array<[DocumentReference, object]> = [
         // New rows: no trust fields; requiresApproval when the group asks for it (as for any create).
         ...expenses.map((e) => [expenseRef(groupId, e.id), prepareOccurrence({ ...e, groupId }, group ?? {})] as [DocumentReference, object]),
-        ...settlements.map((st) => [settlementRef(groupId, st.id), prepareImportedSettlement({ ...st, groupId })] as [DocumentReference, object]),
+        // An import skips the payee's OK only for the group's creator (the rules check the same).
+        ...settlements.map((st) => {
+          const row = prepareImportedSettlement({ ...st, groupId })
+          return [settlementRef(groupId, st.id), group ? prepareSettlementSave(row, group, me()) : row] as [DocumentReference, object]
+        }),
       ]
       // One summary activity entry for the whole import, in the first batch.
       const entry = importActivity(

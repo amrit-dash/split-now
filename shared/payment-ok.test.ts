@@ -18,26 +18,26 @@ describe('needsOkOnCreate', () => {
 
 describe('awaitingOk / settlementCounts', () => {
   it('waits until the payee’s OK, and is left out of balances meanwhile', () => {
-    expect(awaitingOk(pay(), members, true)).toBe(true)
-    expect(settlementCounts(pay(), members, true)).toBe(false)
+    expect(awaitingOk(pay(), members)).toBe(true)
+    expect(settlementCounts(pay(), members)).toBe(false)
     const ok = pay({ ok: { by: 'ub', at: 1, via: 'payee' } })
-    expect(awaitingOk(ok, members, true)).toBe(false)
-    expect(settlementCounts(ok, members, true)).toBe(true)
+    expect(awaitingOk(ok, members)).toBe(false)
+    expect(settlementCounts(ok, members)).toBe(true)
   })
   it('cleared by the screenshot counts; flagged afterwards waits again', () => {
-    expect(settlementCounts(pay({ ok: { by: 'ai', at: 1, via: 'ai' } }), members, true)).toBe(true)
-    expect(settlementCounts(pay({ ok: { by: 'ai', at: 1, via: 'ai' }, flag: { by: 'ub', at: 2 } }), members, true)).toBe(false)
-    expect(settlementCounts(pay({ flag: { by: 'ub', at: 2 } }), members, true)).toBe(false)
+    expect(settlementCounts(pay({ ok: { by: 'ai', at: 1, via: 'ai' } }), members)).toBe(true)
+    expect(settlementCounts(pay({ ok: { by: 'ai', at: 1, via: 'ai' }, flag: { by: 'ub', at: 2 } }), members)).toBe(false)
+    expect(settlementCounts(pay({ flag: { by: 'ub', at: 2 } }), members)).toBe(false)
   })
-  it('with the setting off everything counts; payments without the mark always count', () => {
-    expect(settlementCounts(pay(), members, false)).toBe(true)
-    expect(settlementCounts(pay({ flag: { by: 'ub', at: 2 } }), members, undefined)).toBe(true)
-    expect(settlementCounts(pay({ needsOk: undefined }), members, true)).toBe(true)
+  it('waiting is fixed when recorded: payments without the mark always count, marked ones wait whatever the setting now', () => {
+    expect(settlementCounts(pay({ needsOk: undefined }), members)).toBe(true)
+    expect(settlementCounts(pay({ needsOk: undefined, flag: { by: 'ub', at: 2 } }), members)).toBe(true)
+    expect(settlementCounts(pay(), members)).toBe(false)
   })
   it('a payee who left can’t give an OK, so the payment counts; trash never does', () => {
-    expect(settlementCounts(pay({ to: 'gone' }), members, true)).toBe(true)
-    expect(settlementCounts(pay({ needsOk: undefined, deletedAt: 3 }), members, false)).toBe(false)
-    expect(awaitingOk(pay({ deletedAt: 3 }), members, true)).toBe(false)
+    expect(settlementCounts(pay({ to: 'gone' }), members)).toBe(true)
+    expect(settlementCounts(pay({ needsOk: undefined, deletedAt: 3 }), members)).toBe(false)
+    expect(awaitingOk(pay({ deletedAt: 3 }), members)).toBe(false)
   })
 })
 

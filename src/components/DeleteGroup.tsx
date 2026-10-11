@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { RotateCcw, Trash2 } from 'lucide-react'
+import { type ReactNode, useMemo, useState } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { LogOut, RotateCcw, Trash2 } from 'lucide-react'
 import { repo } from '@/data'
 import { groupPurgeBlocker } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
-import { computeGroupData, useExpenses, useSettlements } from '@/hooks/data'
+import { computeGroupData, useExpenses, useGroup, useSettlements } from '@/hooks/data'
 import { errText } from '@/lib/errors'
 import { formatDate } from '@/lib/locale'
 import { formatMoney } from '@/lib/money'
@@ -12,6 +12,7 @@ import { deleteMessage, groupDeleteState } from '@/lib/group-delete'
 import type { Debt, Group } from '@/types'
 import { daysLeft } from '../../shared/group-trash'
 import { useConfirm } from './ConfirmSheet'
+import { PageHeader } from './Misc'
 import { useToast } from './Toast'
 
 /**
@@ -82,11 +83,33 @@ export function DeletedGroupCard({ group }: { group: Group }) {
   const by = group.deletedBy === user.uid ? 'you' : (Object.values(group.members).find((m) => m.uid === group.deletedBy)?.name ?? 'someone')
   const left = daysLeft(group.deletedAt ?? Date.now(), Date.now())
   const canPurge = !groupPurgeBlocker(group, user.uid)
+  // Anyone else may leave it without restoring it for everyone (owner decision, Oct 2026); it's
+  // gone for good after the 30 days anyway.
+  const myId = Object.entries(group.members).find(([, m]) => m.uid === user.uid && !m.removedAt)?.[0]
+  const canLeave = !!myId && group.createdBy !== user.uid
 
   const restore = async () => {
     try {
       await repo.restoreGroup(group)
       toast(`“${group.name}” is back`)
+    } catch (e) {
+      toast(errText(e), 'err')
+    }
+  }
+  const leave = async () => {
+    if (!myId) return
+    const ok = await confirm({
+      title: `Leave “${group.name}”?`,
+      message:
+        'It stays in Recently deleted for the others, and you won’t see it again even if someone restores it. You can rejoin with the invite link after a restore.',
+      confirmLabel: 'Leave group',
+      tone: 'danger',
+    })
+    if (!ok) return
+    try {
+      await repo.removeMember(group, myId)
+      toast(`You left ${group.name}`)
+      nav('/groups', { replace: true })
     } catch (e) {
       toast(errText(e), 'err')
     }
@@ -121,8 +144,8 @@ export function DeletedGroupCard({ group }: { group: Group }) {
       <h2 className="mt-3 text-lg font-bold">In Recently deleted</h2>
       <p className="text-muted mt-1 text-sm">
         Deleted by {by}
-        {group.deletedAt ? ` on ${formatDate(group.deletedAt, { day: 'numeric', month: 'short' })}` : ''}. Anyone in the group can restore it for{' '}
-        {left === 1 ? '1 more day' : `${left} more days`}, then it’s gone for good.
+        {group.deletedAt ? ` on ${formatDate(group.deletedAt, { day: 'numeric', month: 'short' })}` : ''}. Anyone in the group can restore it{' '}
+        {left <= 1 ? 'until the end of today' : `for ${left} more days`}, then it’s gone for good.
       </p>
       <button type="button" className="btn-primary mt-4 w-full" onClick={() => void restore()} disabled={busy} data-testid="group-restore">
         <RotateCcw size={18} aria-hidden /> Restore group
@@ -138,6 +161,31 @@ export function DeletedGroupCard({ group }: { group: Group }) {
           <Trash2 size={18} aria-hidden /> {busy ? 'Deleting…' : 'Delete forever'}
         </button>
       )}
+      {canLeave && (
+        <button type="button" className="btn mt-2 w-full" onClick={() => void leave()} disabled={busy} data-testid="group-deleted-leave">
+          <LogOut size={18} aria-hidden /> Leave group
+        </button>
+      )}
     </div>
   )
+}
+
+/**
+ * Wraps the screens inside a group (Settle up, Add expense, Edit group, Members, an expense): when
+ * the group is in Recently deleted they show the deleted card instead, since nothing can be added
+ * or changed there until someone restores it (the rules refuse it too). The group comes from the
+ * route, or from ?group= on Add expense.
+ */
+export function LiveGroupOnly({ children }: { children: ReactNode }) {
+  const { groupId } = useParams()
+  const [params] = useSearchParams()
+  const group = useGroup(groupId ?? params.get('group') ?? undefined)
+  if (group && typeof group.deletedAt === 'number')
+    return (
+      <>
+        <PageHeader title={group.name} back="/groups" />
+        <DeletedGroupCard group={group} />
+      </>
+    )
+  return <>{children}</>
 }

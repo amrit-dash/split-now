@@ -15,6 +15,13 @@ service firebase.storage {
       return isUser()
         && request.auth.uid in firestore.get(/databases/(default)/documents/groups/$(groupId)).data.memberUids;
     }
+    function groupOf(groupId) {
+      return firestore.get(/databases/(default)/documents/groups/$(groupId)).data;
+    }
+    // Nothing new goes into a group in Recently deleted (firestore.rules groupLive).
+    function groupLive(groupId) {
+      return !('deletedAt' in groupOf(groupId));
+    }
     function isImage() {
       return request.resource.contentType.matches('image/(jpeg|png|webp|heic|heif)');
     }
@@ -24,6 +31,7 @@ service firebase.storage {
       // New objects only: a receipt is never overwritten in place (the client uploads a fresh
       // path and deletes the old one), so an upload over an existing file is refused.
       allow create: if isMember(groupId)
+        && groupLive(groupId)
         && resource == null
         && request.resource.size < 10 * 1024 * 1024
         && isImage();
@@ -32,15 +40,29 @@ service firebase.storage {
 
     // A screenshot attached to a payment (Payments need the recipient's OK): uploaded before the
     // payment is saved, named after it, read by the group (the payee checks it) and by the
-    // server's AI check. Never overwritten; removed with the payment.
+    // server's AI check. Never overwritten; removed with the payment, by the payer, the payee or the
+    // group's creator (it is the payee's evidence: nobody else may make it disappear), or by any
+    // member once its payment is gone (a left-over upload).
     match /settleproofs/{groupId}/{fileName} {
+      function payment() {
+        return /databases/(default)/documents/groups/$(groupId)/settlements/$(fileName.replace('[.]jpg$', ''));
+      }
+      function mayRemove() {
+        let st = firestore.get(payment()).data;
+        let g = groupOf(groupId);
+        return request.auth.uid == st.createdBy
+          || request.auth.uid == g.createdBy
+          || g.members[st.to].get('uid', '') == request.auth.uid
+          || g.members[st.from].get('uid', '') == request.auth.uid;
+      }
       allow read: if isMember(groupId);
       allow create: if isMember(groupId)
+        && groupLive(groupId)
         && resource == null
         && fileName.matches('[A-Za-z0-9_-]{1,64}[.]jpg')
         && request.resource.size < 5 * 1024 * 1024
         && request.resource.contentType == 'image/jpeg';
-      allow delete: if isMember(groupId);
+      allow delete: if isMember(groupId) && (!firestore.exists(payment()) || mayRemove());
     }
 
     match /avatars/{userId}/{fileName} {
@@ -67,6 +89,7 @@ service firebase.storage {
         && request.resource.size < 5 * 1024 * 1024
         && request.resource.contentType == 'image/jpeg'
         && link().status == 'open'
+        && !link().get('held', false)
         && request.time.toMillis() < link().expiresAt
         && (!('forUid' in link()) || link().forUid == request.auth.uid);
       allow delete: if request.auth != null && link().createdBy == request.auth.uid;

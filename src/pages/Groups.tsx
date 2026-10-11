@@ -126,7 +126,7 @@ function RecentlyDeletedGroups({ groups }: { groups: Group[] }) {
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-semibold">{g.name}</span>
                   <span className="text-muted block truncate text-xs">
-                    Deleted by {by} · {left === 1 ? '1 day' : `${left} days`} left to restore
+                    Deleted by {by} · {left <= 1 ? 'last day to restore' : `${left} days left to restore`}
                   </span>
                 </span>
                 <Trash2 size={16} className="text-muted shrink-0" aria-hidden />

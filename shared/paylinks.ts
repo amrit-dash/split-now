@@ -78,6 +78,13 @@ export interface PayLinkDoc {
   settlementId?: string
   /** server: when the trigger handled the claim (recorded, or told the payee) */
   recordedAt?: number
+  /** server: why it couldn't be recorded in the group (skipText says it to both people) */
+  skipReason?: SkipReason
+  /**
+   * server: its group is in Recently deleted, so it can't be paid until someone restores it
+   * (onGroupTrashed sets and clears it; the rules refuse "I've paid" meanwhile)
+   */
+  held?: boolean
 }
 
 /** The fields "I've paid" writes besides `status`; a dismissed claim clears them again. */
@@ -121,8 +128,8 @@ export function payLinkState(l: Pick<PayLinkDoc, 'status' | 'expiresAt'>, now: n
 }
 
 /** Whether `uid` may tap "I've paid" right now (mirrors the rules). */
-export function canMarkPaid(l: Pick<PayLinkDoc, 'status' | 'expiresAt' | 'forUid'>, now: number, uid: string | undefined): boolean {
-  return payLinkState(l, now) === 'open' && (!l.forUid || l.forUid === uid)
+export function canMarkPaid(l: Pick<PayLinkDoc, 'status' | 'expiresAt' | 'forUid' | 'held'>, now: number, uid: string | undefined): boolean {
+  return payLinkState(l, now) === 'open' && !l.held && (!l.forUid || l.forUid === uid)
 }
 
 /**
@@ -182,6 +189,8 @@ export interface GroupLite {
   currency?: string
   members?: MembersLite
   memberUids?: string[]
+  /** in Recently deleted (shared/group-trash.ts): nothing is recorded there */
+  deletedAt?: number
 }
 
 export interface PayLinkSettlement {
@@ -209,7 +218,28 @@ export interface PayLinkPaid {
 export type RecordPlan =
   | { kind: 'record'; settlementId: string; settlement: PayLinkSettlement & { paid?: PayLinkPaid }; summary: string; payeeUid?: string }
   | { kind: 'notify'; payeeUid: string }
-  | { kind: 'skip'; reason: 'no_group' | 'not_member' | 'bad_amount' | 'currency' | 'not_payee' }
+  | { kind: 'skip'; reason: SkipReason }
+
+/** Why the server couldn't record a paid link in its group (kept on the link as skipReason). */
+export type SkipReason = 'no_group' | 'deleted' | 'not_member' | 'bad_amount' | 'currency' | 'not_payee'
+
+/** What both people see when a paid link couldn't be recorded: why, and what to do instead. */
+export function skipText(reason: SkipReason, groupName: string): string {
+  const g = groupName || 'the group'
+  switch (reason) {
+    case 'deleted':
+      return `It isn’t recorded in ${g} because the group is in Recently deleted. Restore the group, then record it in Settle up.`
+    case 'no_group':
+      return `It isn’t recorded because ${g} no longer exists.`
+    case 'not_member':
+    case 'not_payee':
+      return `It isn’t recorded in ${g} because one of you is no longer in the group.`
+    case 'currency':
+      return `It isn’t recorded in ${g} because the group’s currency changed after the link was made. Record it in Settle up.`
+    default:
+      return `It isn’t recorded in ${g}. Record it in Settle up.`
+  }
+}
 
 /** Settlement ids for a link's parts: pl_{code}_{index}, so a re-run can never record twice. */
 export const payLinkPartId = (code: string, i: number) => `${payLinkSettlementId(code)}_${i}`
@@ -233,6 +263,7 @@ export function planRecord(
 ): RecordPlan {
   if (!l.groupId) return { kind: 'notify', payeeUid: l.createdBy }
   if (!g) return { kind: 'skip', reason: 'no_group' }
+  if (typeof g.deletedAt === 'number') return { kind: 'skip', reason: 'deleted' }
   const members = g.members ?? {}
   const uids = Array.isArray(g.memberUids) ? g.memberUids : []
   if (!members[l.from] || !members[l.to] || l.from === l.to) return { kind: 'skip', reason: 'not_member' }

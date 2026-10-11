@@ -99,9 +99,10 @@ export function settleUpPath(l: Pick<PayLink, 'code' | 'groupId' | 'from' | 'to'
  *  payee    the person who made the link: its status, the screenshot, Cancel
  *  pay      anyone else, while it is open (and, for a table guest's link, only that guest)
  *  claimed  someone said they paid; the host still has to confirm
+ *  held     its group is in Recently deleted: nothing to pay until someone restores it
  *  paid / expired / cancelled / missing / notYours
  */
-export type PayLinkView = 'loading' | 'missing' | 'settle' | 'payee' | 'pay' | 'notYours' | 'claimed' | 'paid' | 'expired' | 'cancelled'
+export type PayLinkView = 'loading' | 'missing' | 'settle' | 'payee' | 'pay' | 'notYours' | 'claimed' | 'paid' | 'expired' | 'cancelled' | 'held'
 
 export function payLinkView(
   l: PayLink | null | undefined,
@@ -117,6 +118,7 @@ export function payLinkView(
     if (v.member === undefined) return 'loading'
     if (v.member) return 'settle'
   }
+  if (l.held) return 'held'
   return canMarkPaid(l, now, v.uid) ? 'pay' : 'notYours'
 }
 
@@ -140,23 +142,33 @@ export function claimsInGroup<T extends { groupId?: string; status: string }>(li
   return (list ?? []).filter((l) => l.groupId === groupId && l.status === 'claimed')
 }
 
-/** The SettleUp link param: the code, only when the payment recorded is the one the link asked for. */
-export function linkToClose(param: string | null, link: { from: string; to: string }, recorded: { from: string; to: string }): string | undefined {
-  return param && isPayLinkCode(param) && link.from === recorded.from && link.to === recorded.to ? param : undefined
+/**
+ * The SettleUp link param: the code, only when the payment recorded is the one the link asked for:
+ * the same two people, and at least the amount it asked (what was paid plus any rest waived), so
+ * a part payment doesn't mark a bigger request paid.
+ */
+export function linkToClose(
+  param: string | null,
+  link: { from: string; to: string; amount?: number },
+  recorded: { from: string; to: string; amount: number },
+): string | undefined {
+  const enough = !link.amount || recorded.amount >= link.amount
+  return param && isPayLinkCode(param) && link.from === recorded.from && link.to === recorded.to && enough ? param : undefined
 }
 
 /** "Paid 7 Oct", "Open until 6 Nov", … for the payee's status line. */
 export function statusLine(
-  l: Pick<PayLink, 'status' | 'expiresAt' | 'paidAt' | 'cancelledAt' | 'settlementId' | 'groupId' | 'parts'>,
+  l: Pick<PayLink, 'status' | 'expiresAt' | 'paidAt' | 'cancelledAt' | 'settlementId' | 'groupId' | 'parts' | 'skipReason' | 'held'>,
   now: number,
   fmt: (ms: number) => string,
 ): string {
   const s = payLinkState(l, now)
   if (s === 'claimed') return `Says they’ve paid${l.paidAt ? ` ${fmt(l.paidAt)}` : ''} · confirm it`
   if (s === 'paid')
-    return `Marked paid${l.paidAt ? ` ${fmt(l.paidAt)}` : ''}${recordsInGroup(l) ? (l.settlementId ? ` · recorded in the group${l.parts && l.parts.length > 1 ? 's' : ''}` : ' · recording…') : ''}`
+    return `Marked paid${l.paidAt ? ` ${fmt(l.paidAt)}` : ''}${recordsInGroup(l) ? (l.settlementId ? ` · recorded in the group${l.parts && l.parts.length > 1 ? 's' : ''}` : l.skipReason ? ' · not recorded' : ' · recording…') : ''}`
   if (s === 'cancelled') return `Cancelled${l.cancelledAt ? ` ${fmt(l.cancelledAt)}` : ''}`
   if (s === 'expired') return `Expired ${fmt(l.expiresAt)}`
+  if (l.held) return 'On hold while the group is in Recently deleted'
   return `Waiting for payment · open until ${fmt(l.expiresAt)}`
 }
 
