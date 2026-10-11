@@ -24,4 +24,10 @@ describe('budget thresholds', () => {
     expect(budgetStatus(10000, 10000, fmt)).toMatchObject({ pct: 100, tone: 'over', threshold: 100, label: '₹0 left', short: 'Budget reached' })
     expect(budgetStatus(10300, 10000, fmt)).toMatchObject({ pct: 103, tone: 'over', threshold: 100, label: '₹3 over', short: 'Over budget' })
   })
+  it('the line under the bar', () => {
+    expect(budgetStatus(5000, 10000, fmt).note).toBe('₹50 left')
+    expect(budgetStatus(8200, 10000, fmt).note).toBe('₹18 left · close to the budget')
+    expect(budgetStatus(10000, 10000, fmt).note).toBe('Budget reached')
+    expect(budgetStatus(10300, 10000, fmt).note).toBe('₹3 over budget')
+  })
 })
