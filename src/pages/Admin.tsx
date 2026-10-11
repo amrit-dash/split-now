@@ -6,7 +6,6 @@ import { Loading, PageHeader } from '@/components/Misc'
 import { AdminAi } from './admin/AdminAi'
 import FlagsApp from './admin/FlagsApp'
 import Limits from './admin/Limits'
-import MailAdmin from './admin/MailAdmin'
 import Overview from './admin/Overview'
 import Users from './admin/Users'
 
@@ -15,7 +14,6 @@ const TABS = [
   { to: '/admin/flags', label: 'Flags & app' },
   { to: '/admin/limits', label: 'Limits' },
   { to: '/admin/ai', label: 'AI' },
-  { to: '/admin/email', label: 'Email' },
   { to: '/admin/users', label: 'Users' },
 ] as const
 
@@ -82,7 +80,6 @@ export default function Admin() {
             </div>
           }
         />
-        <Route path="email" element={<MailAdmin />} />
         <Route path="users" element={<Users />} />
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Routes>

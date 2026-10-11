@@ -95,14 +95,13 @@ describe('scoped capture tokens', () => {
 })
 
 describe('server-only state', () => {
-  it('rate limits, reminder state, email invites, codes, the email index and mail settings are closed to every client', async () => {
+  it('rate limits, reminder state, email invites, pending merges and the email index are closed to every client', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), 'rateLimits/x'), { hourCount: 1 })
       await setDoc(doc(ctx.firestore(), 'reminderState/g1'), { lastSent: {} })
       await setDoc(doc(ctx.firestore(), 'emailInvites/h1'), { email: 'a@b.co', groups: { g1: ['m1'] } })
-      await setDoc(doc(ctx.firestore(), 'emailCodes/alice'), { email: 'a@b.co', hash: 'x' })
+      await setDoc(doc(ctx.firestore(), 'pendingMerges/alice'), { email: 'a@b.co', uid: 'bob' })
       await setDoc(doc(ctx.firestore(), 'emailIndex/h1'), { uid: 'alice', email: 'a@b.co' })
-      await setDoc(doc(ctx.firestore(), 'private/mail'), { provider: 'brevo' })
     })
     for (const who of ['alice', undefined]) {
       await assertFails(getDoc(doc(db(who), 'rateLimits/x')))
@@ -111,11 +110,10 @@ describe('server-only state', () => {
       await assertFails(setDoc(doc(db(who), 'reminderState/g1'), { lastSent: {} }))
       await assertFails(getDoc(doc(db(who), 'emailInvites/h1')))
       await assertFails(setDoc(doc(db(who), 'emailInvites/h1'), { email: 'x@y.co' }))
-      await assertFails(getDoc(doc(db(who), 'emailCodes/alice')))
-      await assertFails(setDoc(doc(db(who), 'emailCodes/alice'), { email: 'x@y.co' }))
+      await assertFails(getDoc(doc(db(who), 'pendingMerges/alice')))
+      await assertFails(setDoc(doc(db(who), 'pendingMerges/alice'), { email: 'x@y.co' }))
       await assertFails(getDoc(doc(db(who), 'emailIndex/h1')))
       await assertFails(setDoc(doc(db(who), 'emailIndex/h1'), { uid: 'alice' }))
-      await assertFails(getDoc(doc(db(who), 'private/mail')))
     }
   })
 })
