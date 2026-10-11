@@ -2,7 +2,7 @@ import type { Category, Cents, Expense, MemberId, OpenItem } from '@/types'
 import { guessCategory } from './categories'
 import { formatMoney } from './money'
 import { formatDate } from './locale'
-import { parseNlExpense, type NlContext, type QuickPrefill } from './nl-expense'
+import type { QuickPrefill } from './nl-expense'
 
 /*
  * Open items: something the group spent that nobody has added yet ("Lunch at Cafe Blue, 2 Oct,
@@ -158,23 +158,5 @@ function cleanInput(input: OpenItemInput): OpenItemInput {
   if (notes) out.notes = notes
   const suspects = [...new Set(input.suspects ?? [])]
   if (suspects.length) out.suspects = suspects
-  return out
-}
-
-/**
- * The one-line way in: "lunch 290 2nd Oct Cafe Blue" → title "Lunch Cafe Blue", ₹290, 2 Oct.
- * Read with the Quick add grammar; a name it reads as the payer ("Rahul paid") becomes a
- * suspect, since nobody is sure yet. Nothing is required but some words.
- */
-export function openItemFromLine(line: string, ctx: NlContext): OpenItemInput {
-  const p = parseNlExpense(line, ctx)
-  const title = p.description || line.trim()
-  const out: OpenItemInput = { title }
-  // An amount in another currency than the group's would need a rate: leave it for the claimer.
-  if (p.amount !== undefined && p.currency === ctx.currency) out.amount = p.amount
-  if (p.date) out.date = p.date
-  const category = guessCategory(title)
-  if (category) out.category = category
-  if (p.payerExplicit) out.suspects = [p.payer]
   return out
 }

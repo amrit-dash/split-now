@@ -51,6 +51,8 @@ describe('capture prefs', () => {
       expenses: true,
       settlements: true,
       reminders: true,
+      chat: true,
+      openItems: true,
       outsideTrips: false,
     })
   })

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   Archive,
   BarChart3,
@@ -9,9 +9,12 @@ import {
   Flag,
   Link2,
   LogOut,
+  MessageCircle,
   MessageSquareText,
   MoreHorizontal,
   Pencil,
+  BellOff,
+  Bell,
   Repeat,
   Search,
   Trash2,
@@ -20,7 +23,18 @@ import {
   X,
 } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
-import { computeGroupData, useActivity, useCaptureTokens, useClaimedPayLinks, useExpenses, useGroup, useSettlements, useTrash } from '@/hooks/data'
+import {
+  computeGroupData,
+  useActivity,
+  useCaptureTokens,
+  useChat,
+  useClaimedPayLinks,
+  useExpenses,
+  useGroup,
+  useOpenItems,
+  useSettlements,
+  useTrash,
+} from '@/hooks/data'
 import { useCapturePrefs } from '@/hooks/useCapturePrefs'
 import { useFlag } from '@/hooks/useAppConfig'
 import type { Category, Debt, Expense, Group, Settlement } from '@/types'
@@ -66,8 +80,12 @@ import { RemindActions } from '@/components/RemindActions'
 import { SwipeRow } from '@/components/SwipeRow'
 import { useRemoveMember } from '@/hooks/useRemoveMember'
 import { activeMembers, isRemoved, listedMemberIds, memberRemoval, membersIn, repeatingByMember } from '@/lib/members'
+import { sortOpenItems } from '@/lib/open-items'
+import { hasUnread, READ_EVENT, readAtOf } from '@/lib/chat'
+import { setChatMuted } from '@/lib/push'
+import { OpenItemsTab } from '@/features/open-items/OpenItemsTab'
 
-type Tab = 'expenses' | 'balances' | 'activity'
+type Tab = 'expenses' | 'open' | 'balances' | 'activity'
 
 /** "Waived" → "Waived", else the stored method; C1 exports methodLabel() from src/lib/payments.ts. */
 const methodLabel = (m: string): string => {
@@ -82,13 +100,22 @@ export default function GroupDetail() {
   const liveGroup = useGroup(groupId)
   const expenses = useExpenses(groupId)
   const settlements = useSettlements(groupId)
-  const [tab, setTab] = useState<Tab>('expenses')
+  const [params] = useSearchParams()
+  // ?tab=open: a push about an open item lands on the Open tab.
+  const [tab, setTab] = useState<Tab>(() => (params.get('tab') === 'open' ? 'open' : 'expenses'))
   const [invite, setInvite] = useState(false)
   const [menu, setMenu] = useState(false)
   const toast = useToast()
   // The feed is the same shared listener the Activity tab and Home use; here it says who was nudged today.
   const feed = useActivity(groupId)
   const whoseTurnOn = useFlag('whoseTurn')
+  const openItemsOn = useFlag('openItems')
+  const chatOn = useFlag('groupChat')
+  const openItems = useOpenItems(openItemsOn ? groupId : undefined)
+  // The unread dot: only the newest message is watched here (one document), not the whole chat.
+  const latestChat = useChat(groupId, 1, chatOn)
+  const prefs = useCapturePrefs()
+  const readAt = useChatReadAt(groupId)
   usePageTitle(liveGroup ? liveGroup.name : liveGroup === null ? 'Group not found' : undefined)
 
   const d = useMemo(
@@ -96,6 +123,7 @@ export default function GroupDetail() {
     [liveGroup, expenses, settlements, user.uid],
   )
   const removeMember = useRemoveMember(d)
+  const openList = useMemo(() => sortOpenItems(openItems, expenses).open, [openItems, expenses])
 
   if (liveGroup === null)
     return (
@@ -136,6 +164,23 @@ export default function GroupDetail() {
   const fail = (e: unknown) => toast(errText(e), 'err')
   // A private hint for the next bill (src/lib/fairness.ts): never pushed, never a score.
   const turn = whoseTurnOn && !personal && !group.archived ? whoseTurn({ group, expenses: d.expenses }) : null
+
+  const showOpen = openItemsOn && !personal
+  const showChat = chatOn && !personal
+  const openCount = showOpen ? openList.length : 0
+  const unread = showChat && hasUnread(latestChat?.[0], readAt, user.uid)
+  const muted = !!prefs?.mutedChats.includes(group.id)
+  const toggleMute = () => {
+    setMenu(false)
+    const next = setChatMuted(prefs?.mutedChats ?? [], group.id, !muted)
+    saveCapturePrefs(user.uid, repo.mode, { mutedChats: next })
+      .then(() => toast(muted ? 'Chat notifications on for this group' : 'Chat muted for this group'))
+      .catch(fail)
+  }
+  const goOpen = () => {
+    setTab('open')
+    requestAnimationFrame(() => document.getElementById('group-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }
 
   const exportCsv = async () => {
     setMenu(false)
@@ -188,23 +233,47 @@ export default function GroupDetail() {
         back="/groups"
         title={group.name}
         right={
-          <button
-            type="button"
-            onClick={() => setMenu(true)}
-            className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-slate-200/60 dark:hover:bg-ink-800"
-            aria-label="More"
-            aria-haspopup="dialog"
-            data-testid="group-menu"
-          >
-            <MoreHorizontal size={22} aria-hidden />
-          </button>
+          <div className="flex items-center">
+            {showChat && (
+              <Link
+                to={`/groups/${group.id}/chat`}
+                className="relative flex h-11 w-11 items-center justify-center rounded-full hover:bg-slate-200/60 dark:hover:bg-ink-800"
+                aria-label={unread ? 'Group chat, new messages' : 'Group chat'}
+                data-testid="group-chat"
+              >
+                <MessageCircle size={22} aria-hidden />
+                {unread && <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-slate-50 dark:ring-ink-950" aria-hidden />}
+              </Link>
+            )}
+            <button
+              type="button"
+              onClick={() => setMenu(true)}
+              className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-slate-200/60 dark:hover:bg-ink-800"
+              aria-label="More"
+              aria-haspopup="dialog"
+              data-testid="group-menu"
+            >
+              <MoreHorizontal size={22} aria-hidden />
+            </button>
+          </div>
         }
       />
 
-      <div className="card mb-4 p-5">
+      <div className="card relative mb-4 p-5">
+        {openCount > 0 && (
+          <button
+            type="button"
+            onClick={goOpen}
+            className="absolute right-3 top-3 inline-flex min-h-9 items-center gap-1 rounded-full bg-amber-100 px-3 text-xs font-semibold text-amber-900 dark:bg-amber-500/15 dark:text-amber-200"
+            aria-label={`${openCount} open ${openCount === 1 ? 'item' : 'items'} nobody has added yet`}
+            data-testid="open-items-badge"
+          >
+            <span aria-hidden>🧾</span> {openCount} open
+          </button>
+        )}
         <div className="flex items-center gap-4">
           <GroupIcon emoji={group.emoji} size={56} />
-          <div className="min-w-0 flex-1">
+          <div className={`min-w-0 flex-1 ${openCount > 0 ? 'pr-16' : ''}`}>
             {personal ? (
               <>
                 <div className="text-muted text-sm">Total spent</div>
@@ -307,7 +376,7 @@ export default function GroupDetail() {
       {!personal && <PendingClaims groupId={group.id} />}
 
       {!personal && (
-        <div className="mb-4">
+        <div className="mb-4 scroll-mt-20" id="group-tabs">
           <Segmented<Tab>
             value={tab}
             onChange={setTab}
@@ -315,6 +384,23 @@ export default function GroupDetail() {
             testId="group-tabs"
             options={[
               { value: 'expenses', label: 'Expenses' },
+              ...(showOpen
+                ? [
+                    {
+                      value: 'open' as const,
+                      label: (
+                        <span data-testid="tab-open">
+                          Open
+                          {openCount > 0 && (
+                            <span className="ml-1 rounded-full bg-amber-200 px-1.5 text-xs text-amber-900 dark:bg-amber-500/25 dark:text-amber-100">
+                              {openCount}
+                            </span>
+                          )}
+                        </span>
+                      ),
+                    },
+                  ]
+                : []),
               { value: 'balances', label: 'Balances' },
               { value: 'activity', label: 'Activity' },
             ]}
@@ -334,10 +420,26 @@ export default function GroupDetail() {
         />
       )}
 
+      {tab === 'open' && showOpen && <OpenItemsTab group={group} items={openItems} expenses={d.expenses} />}
+
       {tab === 'activity' && !personal && <ActivityTab group={group} expenseIds={new Set(d.expenses.map((e) => e.id))} />}
 
       {tab === 'balances' && !personal && (
         <div className="space-y-4">
+          {openCount > 0 && (
+            <button
+              type="button"
+              onClick={goOpen}
+              className="card flex min-h-12 w-full items-center gap-2 px-4 py-3 text-left text-sm"
+              data-testid="balances-open-note"
+            >
+              <span aria-hidden>🧾</span>
+              <span className="min-w-0 flex-1">
+                {openCount} open {openCount === 1 ? 'item isn’t' : 'items aren’t'} counted yet. Claim {openCount === 1 ? 'it' : 'them'} before settling up.
+              </span>
+              <ChevronRight size={16} className="text-slate-300 dark:text-slate-600" aria-hidden />
+            </button>
+          )}
           {(d.pending.length > 0 || d.disputed.length > 0) && (
             <div className="card space-y-1 p-3 text-xs text-slate-600 dark:text-slate-300">
               {d.pending.length > 0 && (
@@ -461,6 +563,27 @@ export default function GroupDetail() {
 
       <Sheet open={menu} onClose={() => setMenu(false)} title={group.name} testId="group-menu-sheet">
         <ul className="-mx-2 divide-y divide-slate-100 dark:divide-white/5">
+          {showChat && (
+            <MenuRow
+              icon={<MessageCircle size={20} />}
+              label="Group chat"
+              hint="Talk money with the group: who paid, open items, Pay me"
+              onClick={() => {
+                setMenu(false)
+                nav(`/groups/${group.id}/chat`)
+              }}
+              testId="group-menu-chat"
+            />
+          )}
+          {showChat && (
+            <MenuRow
+              icon={muted ? <Bell size={20} /> : <BellOff size={20} />}
+              label={muted ? 'Unmute chat' : 'Mute chat'}
+              hint={muted ? 'Get notifications for this group’s chat again' : 'No notifications for this group’s chat (only you)'}
+              onClick={toggleMute}
+              testId="group-chat-mute"
+            />
+          )}
           <MenuRow
             icon={<Pencil size={20} />}
             label="Edit group"
@@ -526,6 +649,21 @@ export default function GroupDetail() {
       </Sheet>
     </div>
   )
+}
+
+/** This device's last-read time for a group's chat, following the chat screen as it marks messages read. */
+function useChatReadAt(groupId: string | undefined): number | undefined {
+  const [at, setAt] = useState(() => (groupId ? readAtOf(groupId) : undefined))
+  useEffect(() => {
+    if (!groupId) return
+    setAt(readAtOf(groupId))
+    const on = (e: Event) => {
+      if ((e as CustomEvent).detail === groupId) setAt(readAtOf(groupId))
+    }
+    window.addEventListener(READ_EVENT, on)
+    return () => window.removeEventListener(READ_EVENT, on)
+  }, [groupId])
+  return at
 }
 
 function MenuRow({

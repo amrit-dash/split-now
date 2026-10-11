@@ -228,7 +228,17 @@ describe('recipients and prefs', () => {
     expect(memberIdForUid({ b: { uid: 'ub', removedAt: 5 } }, 'ub')).toBe('b')
   })
   it('defaults prefs (unsorted off) and respects stored values', () => {
-    expect(resolvePrefs(undefined)).toEqual({ captures: true, unsorted: false, expenses: true, settlements: true, reminders: true, outsideTrips: false })
+    expect(resolvePrefs(undefined)).toEqual({
+      captures: true,
+      unsorted: false,
+      expenses: true,
+      settlements: true,
+      reminders: true,
+      chat: true,
+      openItems: true,
+      outsideTrips: false,
+    })
+    expect(resolvePrefs({ chat: false }).chat).toBe(false)
     expect(resolvePrefs({ expenses: false, unsorted: true, junk: 1 })).toMatchObject({ expenses: false, unsorted: true })
     expect(resolvePrefs({ outsideTrips: true }).outsideTrips).toBe(true)
   })
