@@ -12,7 +12,6 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 ## 3.10.2 — October 2026
 
 - Admin → Flags & app: the minimum version and the announcement's end date each sit on a full-width row with a proper button beside them (Use this build, Stop announcement), which drops to its own line on a phone.
-
 - A note shows when your changes haven't reached the server yet: "Saving…" if a save is slow, and offline, how many changes are waiting on this phone. Closing the tab while something is unsent asks first.
 - In Admin, Back leaves the console instead of stepping back through the tabs you opened.
 - AI on Automatic with **Use free AI** turned on tries the free AI first and your own key only if it can't answer, so your key's quota lasts longer.
@@ -30,7 +29,6 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 - People are called by their first name everywhere in a group, and in pushes and activity. Two people who share a first name get a last initial, like Rahul S. and Rahul K., and full names only when even that would clash. Members still shows the full name underneath.
 - Install Split Now from Profile any time, on a phone or a computer, even after closing the install banner. It shows the right steps for your browser.
-
 - **Free AI with Gemma**: an admin can now run Split Now's AI on Gemma, Google's open model, which Google serves free of charge. It reads everything Gemini does (bills, statements, payment screenshots, bank SMS and Quick add) but more slowly. Each person turns on **Use free AI** in Settings → AI features first. The switch explains that Google may use what is sent to improve its products and that the free service isn't for people in the EU, the UK or Switzerland. By default it uses the newest Gemma model, so it moves to a newer one when Google releases it. Admins can also pick a specific model.
 - **AI settings say where your data goes**: on Split Now's Gemini key, bills go from Split Now's servers in Mumbai to Google's paid Gemini API. When no AI is available, the screen says so and points to adding your own Gemini key.
 
