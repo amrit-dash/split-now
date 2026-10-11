@@ -7,6 +7,7 @@ import { defaultCurrency } from '@/lib/locale'
 import { todayISO } from '@/lib/id'
 import { stashCapture } from '@/lib/pending'
 import { Spinner } from '@/components/Misc'
+import { HintText } from '@/components/Hint'
 import Login from './Login'
 
 /** One submission per link, even under StrictMode's double effects. */
@@ -112,7 +113,10 @@ export default function CaptureGuest() {
           <CheckCircle2 size={56} className="text-emerald-400" aria-hidden />
           <h1 className="mt-4 text-2xl font-extrabold">Saved to your Inbox</h1>
           {amount && <p className="mt-2 text-slate-300">{amount}</p>}
-          <p className="mt-4 max-w-xs text-sm text-slate-400">Open Split Now from your home screen to choose a group. You can close this tab.</p>
+          <HintText
+            className="mt-4 max-w-xs text-sm text-slate-400"
+            hint={{ full: 'Open Split Now from your home screen to choose a group. You can close this tab.', short: 'Open Split Now to choose a group.' }}
+          />
         </>
       )}
     </div>

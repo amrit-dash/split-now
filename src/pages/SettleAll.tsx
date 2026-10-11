@@ -16,6 +16,14 @@ import { CardSkeleton, ListSkeleton } from '@/components/Skeleton'
 import { Celebrate } from '@/components/Celebrate'
 import { PersonRemindActions, RemindActions } from '@/components/RemindActions'
 import { usePageTitle } from '@/lib/brand'
+import { type Hint, HintText } from '@/components/Hint'
+
+const BALANCES_HINT: Hint = { full: 'Across all your groups and 1:1s', tier: 'extra' }
+
+const EVENS_HINT: Hint = {
+  full: 'You owe each other the same overall. Clear them to settle every group with no money changing hands.',
+  short: 'Clear them to settle every group, no money needed.',
+}
 
 /*
  * Balances: everything you owe / are owed, across all groups and 1:1s, in two views.
@@ -55,7 +63,7 @@ export default function SettleAll() {
 
   return (
     <div>
-      <PageHeader title="Balances" subtitle="Across all your groups and 1:1s" back />
+      <PageHeader title="Balances" subtitle={BALANCES_HINT} back />
       {!rows ? (
         <div className="space-y-6" aria-busy>
           <CardSkeleton className="h-24" />
@@ -301,7 +309,7 @@ function ByPerson({ rows, chase, home, rates }: { rows: SettleRow[]; chase: Chas
       {even.length > 0 && (
         <Section title="Evens out" testId="person-even">
           {list(even)}
-          <p className="text-muted mt-2 px-1 text-xs">You owe each other the same overall. Clear them to settle every group with no money changing hands.</p>
+          <HintText hint={EVENS_HINT} className="text-muted mt-2 px-1 text-xs" />
         </Section>
       )}
     </>
@@ -398,9 +406,22 @@ function PersonCard({ p, chase }: { p: PersonBalance | HomeBalance; chase: Chase
         ))}
       </div>
       {mixed && p.net !== 0 && (
-        <div className="mx-4 mb-3 rounded-xl bg-brand-50 p-2.5 text-xs text-brand-900 dark:bg-brand-900/30 dark:text-brand-100">
-          💡 You owe each other in different groups. Settle all of it with <b>one</b> payment of {amount}.
-        </div>
+        <HintText
+          as="div"
+          className="mx-4 mb-3 rounded-xl bg-brand-50 p-2.5 text-xs text-brand-900 dark:bg-brand-900/30 dark:text-brand-100"
+          hint={{
+            full: (
+              <>
+                💡 You owe each other in different groups. Settle all of it with <b>one</b> payment of {amount}.
+              </>
+            ),
+            short: (
+              <>
+                Settle all of it with <b>one</b> payment of {amount}.
+              </>
+            ),
+          }}
+        />
       )}
     </div>
   )

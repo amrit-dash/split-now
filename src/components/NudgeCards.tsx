@@ -4,6 +4,7 @@ import { dismissNudges, nudgeCardText, restoreNudges, type NudgeCard } from '@/l
 import { IOS_INSTALL_FOR_PUSH, isIOS, isStandalone, pushOffer, pushSupported } from '@/lib/push'
 import { notificationsAvailable, useTurnOnPush } from './NotificationSettings'
 import { useToast } from './Toast'
+import { HintText } from './Hint'
 
 /**
  * "Priya reminded you · You owe ₹1,240 in Goa Trip · Settle up": the debtor's side of a nudge,
@@ -52,10 +53,23 @@ export function NudgeCards({ cards, className = '' }: { cards: NudgeCard[]; clas
                 )}
               </div>
               {offer === 'install' && (
-                <p className="text-muted mt-2 flex items-start gap-1.5 text-xs">
-                  <Share size={14} className="mt-0.5 shrink-0" aria-hidden />
-                  {IOS_INSTALL_FOR_PUSH}, so reminders reach you as notifications.
-                </p>
+                <HintText
+                  className="text-muted mt-2 flex items-start gap-1.5 text-xs"
+                  hint={{
+                    full: (
+                      <>
+                        <Share size={14} className="mt-0.5 shrink-0" aria-hidden />
+                        {IOS_INSTALL_FOR_PUSH}, so reminders reach you as notifications.
+                      </>
+                    ),
+                    short: (
+                      <>
+                        <Share size={14} className="mt-0.5 shrink-0" aria-hidden />
+                        Tap Share → Add to Home Screen to get reminders as notifications.
+                      </>
+                    ),
+                  }}
+                />
               )}
             </div>
             <button

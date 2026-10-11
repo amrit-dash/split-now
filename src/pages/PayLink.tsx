@@ -32,6 +32,7 @@ import { ClaimReview, useProofUrl } from '@/components/ClaimReview'
 import { GuestPay } from '@/components/GuestPay'
 import { MarkPaid } from '@/components/MarkPaid'
 import { Empty, Loading } from '@/components/Misc'
+import { HintText } from '@/components/Hint'
 import { useToast } from '@/components/Toast'
 
 /*
@@ -211,9 +212,14 @@ function PayView({ link, signedIn }: { link: PayLink; signedIn: boolean }) {
           />
         </div>
       </div>
-      <p className="text-muted mt-4 text-center text-xs">
-        Split Now never moves money. Pay in your UPI or banking app, then tap “I’ve paid” and {payee} sees it at once. No account needed.
-      </p>
+      <HintText
+        className="text-muted mt-4 text-center text-xs"
+        hint={{
+          full: `Split Now never moves money. Pay in your UPI or banking app, then tap “I’ve paid” and ${payee} sees it at once. No account needed.`,
+          short: 'Split Now never moves money. Pay in your UPI or bank app, then tap “I’ve paid”.',
+          tier: 'key',
+        }}
+      />
       {!signedIn && <GetApp />}
     </Shell>
   )
@@ -305,7 +311,14 @@ function PayeeView({ link }: { link: PayLink }) {
           </div>
         )}
         {link.status === 'paid' && recordsInGroup(link) && (
-          <p className="text-muted mt-3 text-xs">Not right? Delete the payment in the group and it counts as owed again.</p>
+          <HintText
+            className="text-muted mt-3 text-xs"
+            hint={{
+              full: 'Not right? Delete the payment in the group and it counts as owed again.',
+              short: 'Not right? Delete the payment in the group.',
+              tier: 'key',
+            }}
+          />
         )}
       </div>
       {open && (

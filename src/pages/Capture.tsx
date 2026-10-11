@@ -23,6 +23,7 @@ import { GroupIcon } from '@/components/GroupIcon'
 import { Empty, LiveBadge, Loading, PageHeader } from '@/components/Misc'
 import { Sheet } from '@/components/Sheet'
 import { useToast } from '@/components/Toast'
+import { HintText } from '@/components/Hint'
 import { activeMembers } from '@/lib/members'
 
 /** Guards against React StrictMode / reloads creating the same capture twice. */
@@ -328,10 +329,19 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
             ))}
           </div>
           {chosen && c.currency && chosen.currency !== c.currency && (
-            <p className="text-muted mt-2 px-1 text-xs">
-              {chosen.name} uses {chosen.currency}. The expense is entered as {formatMoney(c.amount, c.currency)} and converted to {chosen.currency} at the ECB
-              rate for {formatDate(c.date)}; you can check the rate before saving.
-            </p>
+            <HintText
+              className="text-muted mt-2 px-1 text-xs"
+              hint={{
+                full: (
+                  <>
+                    {chosen.name} uses {chosen.currency}. The expense is entered as {formatMoney(c.amount, c.currency)} and converted to {chosen.currency} at
+                    the ECB rate for {formatDate(c.date)}; you can check the rate before saving.
+                  </>
+                ),
+                short: `Converted to ${chosen.currency} at the ECB rate for ${formatDate(c.date)}.`,
+                tier: 'key',
+              }}
+            />
           )}
           <button
             type="button"
@@ -391,9 +401,10 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
           </Link>
         </div>
       </Sheet>
-      <p className="text-muted mt-4 text-center text-xs">
-        {sameCurrency ? 'Undo from the toast if you change your mind.' : 'Nothing is added until you save the expense.'}
-      </p>
+      <HintText
+        className="text-muted mt-4 text-center text-xs"
+        hint={sameCurrency ? { full: 'Undo from the toast if you change your mind.' } : { full: 'Nothing is added until you save the expense.', tier: 'key' }}
+      />
     </Shell>
   )
 }
