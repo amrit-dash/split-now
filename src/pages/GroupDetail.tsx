@@ -286,7 +286,8 @@ export default function GroupDetail() {
           <div className="mt-4 grid grid-cols-2 gap-2">
             <button
               type="button"
-              className={settled ? 'btn-secondary' : 'btn-primary'}
+              className={`${settled ? 'btn-secondary' : 'btn-primary'} whitespace-nowrap`}
+              aria-label="Settle up"
               data-testid="group-settle"
               onClick={() => {
                 // One payment of yours opens it; several open the list of them here (groupSettleTarget).
@@ -296,9 +297,18 @@ export default function GroupDetail() {
                 requestAnimationFrame(() => document.getElementById('group-payments')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
               }}
             >
-              <ChequeIcon size={22} /> Settle up
+              {/* Narrow phones (most Androids are 360px) get "Settle", so the label stays on one line. */}
+              <ChequeIcon size={22} />{' '}
+              <span>
+                Settle<span className="hidden min-[380px]:inline"> up</span>
+              </span>
             </button>
-            <button type="button" className={settled ? 'btn-primary' : 'btn-secondary'} onClick={() => setInvite(true)} data-testid="group-invite">
+            <button
+              type="button"
+              className={`${settled ? 'btn-primary' : 'btn-secondary'} whitespace-nowrap`}
+              onClick={() => setInvite(true)}
+              data-testid="group-invite"
+            >
               <Link2 size={18} aria-hidden /> Invite
             </button>
           </div>

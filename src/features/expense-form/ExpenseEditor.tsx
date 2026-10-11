@@ -301,7 +301,7 @@ export function ExpenseEditor({
     setBusy(true)
     try {
       const { expense: e, remember } = toExpense(draft, { ...ctx, existing, userUid: user.uid, now: Date.now() })
-      await repo.saveExpense(e)
+      await repo.saveExpense(e, { isNew: !existing })
       // A category chosen by hand that differs from what would have been suggested teaches the merchant memory.
       if (memory && draft.catTouched) {
         const learned = learnFromSave(memory, e.description, e.category, suggestCategory(e.description, { memory, history }))

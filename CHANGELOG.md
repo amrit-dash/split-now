@@ -6,6 +6,8 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Adding an expense saves straight away. It used to wait up to a second and a half for the server first, and Add all and statement imports waited that long for every expense.
+- On narrow phones the group's Settle up button reads Settle, so it stays on one line.
 - The group budget bar is tidier: the percentage used sits above the bar, and what's left (or a warning with an icon when you're close to or over the budget) on one line under it.
 
 ## 3.10.0 — October 2026

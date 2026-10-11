@@ -572,7 +572,7 @@ function BulkSheet({ candidate, data, onClose }: { candidate: BulkCandidate<Grou
           uid('e_'),
           now + i,
         )
-        await repo.saveExpense(e)
+        await repo.saveExpense(e, { isNew: true })
         await repo.updateCapture(user.uid, c.id, { status: 'assigned', groupId: g.id, expenseId: e.id })
         saved.push({ capture: c, expense: e })
       }

@@ -145,7 +145,7 @@ function useSaveExpense(table: LiveTable) {
       createdAt: now,
       updatedAt: now,
     }
-    await repo.saveExpense(e)
+    await repo.saveExpense(e, { isNew: true })
     // Each guest gets their own Pay me link for exactly their share, so their "I've paid" is
     // recorded in this group. Only when the payer is the host's own member (the rules check it).
     const links =
