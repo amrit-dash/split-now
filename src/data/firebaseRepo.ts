@@ -315,7 +315,6 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     }
   }
 
-
   async function uniqueCode(refFor: (code: string) => DocumentReference): Promise<string> {
     // 8 chars from a 31-symbol alphabet makes collisions vanishingly rare; when online we also
     // check (briefly) that the code is free. Offline we skip the check rather than block.
