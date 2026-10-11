@@ -224,7 +224,7 @@ describe('recipients and prefs', () => {
     expect(memberUid(left, 'b', uids)).toBeUndefined()
     expect(memberUid(left, 'b2', uids)).toBe('ub')
     expect(memberIdForUid(left, 'ub')).toBe('b2')
-    expect(memberNameForUid(left, 'ub')).toBe('Bob again')
+    expect(memberNameForUid(left, 'ub')).toBe('Bob A.')
     expect(memberIdForUid({ b: { uid: 'ub', removedAt: 5 } }, 'ub')).toBe('b')
   })
   it('defaults prefs (unsorted off) and respects stored values', () => {

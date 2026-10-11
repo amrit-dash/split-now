@@ -274,3 +274,14 @@ describe('groupSettingsActivity', () => {
     expect(joinPhrases(['a', 'b', 'c'])).toBe('a, b, and c')
   })
 })
+
+describe('activityText with the group’s name for the actor', () => {
+  const old = { summary: 'Rahul Sharma added “Dinner” (₹1,200.00)', actorUid: 'u_r', actorName: 'Rahul Sharma' }
+  it('older lines with a full name read with the short one', () => {
+    expect(activityText(old, 'u_me', 'Rahul')).toBe('Rahul added “Dinner” (₹1,200.00)')
+  })
+  it('your own still read "You", and no label leaves the line as written', () => {
+    expect(activityText(old, 'u_r', 'Rahul')).toBe('You added “Dinner” (₹1,200.00)')
+    expect(activityText(old, 'u_me')).toBe(old.summary)
+  })
+})

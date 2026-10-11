@@ -10,6 +10,7 @@ import { useMe } from '@/hooks/auth'
 import type { Group } from '@/types'
 import { daysLeft } from '../../shared/group-trash'
 import { EmptyGroups, FirstRun, Section } from './Home'
+import { labelForUid, memberIdOfUid } from '@/lib/shortNames'
 
 export default function Groups() {
   usePageTitle('Groups')
@@ -115,7 +116,7 @@ function RecentlyDeletedGroups({ groups }: { groups: Group[] }) {
     >
       <ul className="-mx-4 -mb-4 divide-y divide-slate-100 dark:divide-white/5">
         {groups.map((g) => {
-          const by = g.deletedBy === user.uid ? 'you' : (Object.values(g.members).find((m) => m.uid === g.deletedBy)?.name ?? 'someone')
+          const by = g.deletedBy === user.uid ? 'you' : (labelForUid(g.members, g.deletedBy, memberIdOfUid(g.members, user.uid)) ?? 'someone')
           const left = daysLeft(g.deletedAt ?? now, now)
           return (
             <li key={g.id}>

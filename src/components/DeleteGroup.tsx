@@ -14,6 +14,7 @@ import { daysLeft } from '../../shared/group-trash'
 import { useConfirm } from './ConfirmSheet'
 import { PageHeader } from './Misc'
 import { useToast } from './Toast'
+import { labelOf, memberIdOfUid } from '@/lib/shortNames'
 
 /**
  * Deleting a group moves it to Recently deleted for everyone (30 days to restore, then gone for
@@ -26,7 +27,7 @@ export function useDeleteGroup(group: Group, debts: readonly Debt[]) {
   const toast = useToast()
   const confirm = useConfirm()
   const state = groupDeleteState(group, user.uid, debts.length === 0)
-  const name = (id: string) => (group.members[id]?.uid === user.uid ? 'you' : (group.members[id]?.name ?? 'Someone'))
+  const name = (id: string) => (group.members[id]?.uid === user.uid ? 'you' : labelOf(group.members, id, 'Someone', memberIdOfUid(group.members, user.uid)))
 
   const run = async () => {
     if (!state.allowed) return toast(state.reason, 'err')

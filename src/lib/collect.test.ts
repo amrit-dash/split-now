@@ -59,6 +59,7 @@ const row = (o: Partial<SettleRow> & Pick<SettleRow, 'key' | 'currency' | 'amoun
   me: 'me',
   memberId: 't2',
   name: 'Test User 2',
+  label: 'Test',
   color: '#f97316',
   uid: 'u2',
   href: `/groups/${o.key}/settle`,

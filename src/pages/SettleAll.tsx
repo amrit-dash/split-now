@@ -179,7 +179,7 @@ function GroupItem({ r, chase }: { r: SettleRow; chase: Chase }) {
     <ItemRow
       testId="settle-row"
       avatar={<Avatar name={r.name} photoURL={r.photoURL} color={r.color} size={40} />}
-      name={r.name}
+      name={r.label}
       sub={`${r.groupEmoji} ${r.groupName}`}
       amount={formatMoney(r.amount, r.currency)}
       dir={r.dir}
@@ -254,7 +254,7 @@ function RowAction({ r }: { r: SettleRow }) {
       <Link
         to={r.href}
         data-testid="row-pay"
-        aria-label={`Pay ${r.name} ${amount} in ${r.groupName}`}
+        aria-label={`Pay ${r.label} ${amount} in ${r.groupName}`}
         className="btn-primary !min-h-10 shrink-0 !rounded-full !px-4 !py-0 text-sm"
       >
         Pay
@@ -265,7 +265,7 @@ function RowAction({ r }: { r: SettleRow }) {
     <Link
       to={r.href}
       data-testid="row-record"
-      aria-label={`Record payment from ${r.name} in ${r.groupName}`}
+      aria-label={`Record payment from ${r.label} in ${r.groupName}`}
       title="Record payment"
       className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600 transition active:scale-95 active:bg-brand-100 dark:bg-brand-900/40 dark:text-brand-200 dark:active:bg-brand-900/70"
     >
@@ -321,7 +321,7 @@ function PersonAction({ p, n }: { p: PersonBalance; n: number }) {
       <Link
         to={to}
         data-testid="person-settle-all"
-        aria-label={`Pay ${p.name} ${amount} across ${n} groups`}
+        aria-label={`Pay ${p.label} ${amount} across ${n} groups`}
         className="btn-primary !min-h-10 shrink-0 !rounded-full !px-4 !py-0 text-sm"
       >
         Pay
@@ -333,7 +333,7 @@ function PersonAction({ p, n }: { p: PersonBalance; n: number }) {
       to={to}
       data-testid="person-settle-all"
       title={p.net > 0 ? 'Record payment' : 'Clear balances'}
-      aria-label={p.net > 0 ? `Record payment from ${p.name} across ${n} groups` : `Clear balances with ${p.name} across ${n} groups`}
+      aria-label={p.net > 0 ? `Record payment from ${p.label} across ${n} groups` : `Clear balances with ${p.label} across ${n} groups`}
       className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600 transition active:scale-95 active:bg-brand-100 dark:bg-brand-900/40 dark:text-brand-200 dark:active:bg-brand-900/70"
     >
       {p.net > 0 ? <ChequeIcon size={24} /> : <CheckCheck size={20} aria-hidden />}
@@ -357,7 +357,7 @@ function PersonCard({ p, chase }: { p: PersonBalance | HomeBalance; chase: Chase
       <div className="card overflow-hidden" data-testid="person-card">
         <ItemRow
           avatar={avatar}
-          name={p.name}
+          name={p.label}
           sub={approx ? `${formatMoney(r.amount, r.currency)} · ${r.groupEmoji} ${r.groupName}` : `${r.groupEmoji} ${r.groupName}`}
           amount={amount}
           dir={dir}
@@ -372,7 +372,7 @@ function PersonCard({ p, chase }: { p: PersonBalance | HomeBalance; chase: Chase
     <div className="card overflow-hidden" data-testid="person-card">
       <ItemRow
         avatar={avatar}
-        name={p.name}
+        name={p.label}
         sub={`across ${n} groups`}
         amount={p.net === 0 ? 'evens out' : amount}
         dir={dir}
@@ -385,7 +385,7 @@ function PersonCard({ p, chase }: { p: PersonBalance | HomeBalance; chase: Chase
             key={r.key}
             to={r.href}
             className="-mx-2 flex min-h-10 items-center gap-2 rounded-xl px-2 transition hover:bg-slate-50 active:bg-slate-50 dark:hover:bg-ink-800 dark:active:bg-ink-800"
-            aria-label={`${r.dir === 'owe' ? `You owe ${r.name}` : `${r.name} owes you`} ${formatMoney(r.amount, r.currency)} in ${r.groupName}`}
+            aria-label={`${r.dir === 'owe' ? `You owe ${r.label}` : `${r.label} owes you`} ${formatMoney(r.amount, r.currency)} in ${r.groupName}`}
           >
             <span className="min-w-0 flex-1 truncate">
               {r.groupEmoji} {r.groupName}

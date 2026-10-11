@@ -125,6 +125,7 @@ describe('nudging a person across groups', () => {
     me: 'me',
     memberId: 'r',
     name: 'Rohan',
+    label: 'Rohan',
     color: '#f00',
     uid: 'u_rohan',
     amount: 1000,
@@ -185,6 +186,7 @@ describe('nettableRows', () => {
     me: 'me',
     memberId: 'r',
     name: 'Rohan',
+    label: 'Rohan',
     color: '#f00',
     uid: 'u_rohan',
     amount: 1000,
@@ -206,5 +208,29 @@ describe('nettableRows', () => {
   })
   it('a single group is never held', () => {
     expect(nettableRows([row({ dir: 'owe' })], new Set(['g1'])).held).toEqual([])
+  })
+})
+
+describe('names across groups', () => {
+  it('two different Rahuls on one screen get their last initials; everyone else a first name', () => {
+    const g = (id: string, other: { name: string; uid?: string }) => ({
+      group: {
+        id,
+        name: id,
+        emoji: '🏖️',
+        type: 'trip' as const,
+        currency: 'INR',
+        members: { me: { name: 'Asha', uid: 'u0', color: '#000' }, o: { ...other, color: '#000' } },
+      },
+      me: 'me',
+      debts: [{ from: 'o', to: 'me', amount: 100 }],
+    })
+    const rows = pendingSettlements([g('g1', { name: 'Rahul Sharma', uid: 'u1' }), g('g2', { name: 'Rahul Kumar' }), g('g3', { name: 'Priya Iyer' })])
+    expect(Object.fromEntries(rows.map((r) => [r.groupId, r.label]))).toEqual({ g1: 'Rahul S.', g2: 'Rahul K.', g3: 'Priya' })
+    expect(
+      personBalances(rows)
+        .map((p) => p.label)
+        .sort(),
+    ).toEqual(['Priya', 'Rahul K.', 'Rahul S.'])
   })
 })

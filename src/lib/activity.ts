@@ -338,12 +338,16 @@ export function groupSettingsActivity(before: GroupSettingsSnapshot, after: Grou
   return { ...base('group.updated', after.id, ctx), summary: clip(`${ctx.actorName} ${joinPhrases(parts)}`), before: pick(b), after: pick(a) }
 }
 
-/** The summary from the reader's point of view ("You changed …" for their own entries). */
-export function activityText(a: Pick<ActivityEntry, 'summary' | 'actorUid' | 'actorName'>, myUid: string): string {
-  if (a.actorUid === myUid && a.summary.startsWith(a.actorName + ' ')) {
-    return 'You ' + a.summary.slice(a.actorName.length + 1).replace(/\btheir flag\b/, 'your flag')
-  }
-  return a.summary
+/**
+ * The summary from the reader's point of view ("You changed …" for their own entries). `actor`
+ * is how the group names the actor now (src/lib/shortNames.ts): lines written with a full name
+ * before first names were the rule ("Rahul Sharma added …") read "Rahul added …".
+ */
+export function activityText(a: Pick<ActivityEntry, 'summary' | 'actorUid' | 'actorName'>, myUid: string, actor?: string): string {
+  if (!a.summary.startsWith(a.actorName + ' ')) return a.summary
+  const rest = a.summary.slice(a.actorName.length + 1)
+  if (a.actorUid === myUid) return 'You ' + rest.replace(/\btheir flag\b/, 'your flag')
+  return actor ? `${actor} ${rest}` : a.summary
 }
 
 /** Newest-first merge of several groups' feeds. */
