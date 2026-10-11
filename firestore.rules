@@ -126,13 +126,19 @@ service cloud.firestore {
         allow create, update: if isUser() && uid() == userId
           && writesOpen()
           && (settingId != 'notifications' || (
-            request.resource.data.keys().hasOnly(['captures', 'unsorted', 'expenses', 'settlements', 'reminders', 'outsideTrips',
+            request.resource.data.keys().hasOnly(['captures', 'unsorted', 'expenses', 'settlements', 'reminders', 'chat', 'openItems', 'mutedChats', 'outsideTrips',
               'capturePaused', 'minAmount', 'ignoreWords', 'pausedTrips', 'aiSms', 'aiSmsMerchant', 'aiImages', 'aiQuickAdd', 'aiPayments', 'aiEnabled', 'aiSource', 'aiModel', 'updatedAt'])
             && request.resource.data.get('captures', true) is bool
             && request.resource.data.get('unsorted', false) is bool
             && request.resource.data.get('expenses', true) is bool
             && request.resource.data.get('settlements', true) is bool
             && request.resource.data.get('reminders', true) is bool
+            // Group chat pushes, and the groups whose chat this person muted (their own choice)
+            && request.resource.data.get('chat', true) is bool
+            && request.resource.data.get('mutedChats', []) is list
+            && request.resource.data.get('mutedChats', []).size() <= 200
+            // "Did you pay for this?" when someone names you on an open item
+            && request.resource.data.get('openItems', true) is bool
             && request.resource.data.get('outsideTrips', false) is bool
             // Auto-capture filters (shared/capture-filters.ts; the webhook re-normalises them)
             && request.resource.data.get('capturePaused', false) is bool
@@ -203,7 +209,8 @@ service cloud.firestore {
       function validFlags(f) {
         return f is map
           && f.keys().hasOnly(['aiImages', 'aiSms', 'liveTables', 'autoCapture', 'quickAdd', 'nudges', 'statementImport',
-              'payLinks', 'duplicates', 'merchantMemory', 'whoseTurn', 'budgetAlerts', 'aiQuickAdd', 'aiPayments'])
+              'payLinks', 'duplicates', 'merchantMemory', 'whoseTurn', 'budgetAlerts', 'aiQuickAdd', 'aiPayments', 'openItems', 'groupChat'])
+          && f.get('openItems', true) is bool && f.get('groupChat', true) is bool
           && f.get('aiQuickAdd', true) is bool && f.get('aiPayments', true) is bool
           && f.get('aiImages', true) is bool && f.get('aiSms', true) is bool && f.get('liveTables', true) is bool
           && f.get('autoCapture', true) is bool && f.get('quickAdd', true) is bool && f.get('nudges', true) is bool
@@ -822,6 +829,100 @@ service cloud.firestore {
         allow delete: if isUser() && writesOpen()
           && groupDoc(groupId).data.createdBy == uid()
           && !existsAfter(/databases/$(database)/documents/groups/$(groupId));
+      }
+
+      // Open items (src/lib/open-items.ts): something spent that nobody has added yet. Any member
+      // writes one down, edits it while it's open, deletes it (soft, so Undo works) and claims it.
+      // A claim is written in the same batch as the new expense it points at (by the claimer), and
+      // only on an item that is open, or whose claiming expense was deleted since (so the item
+      // counts as open again). Two people claiming at once: the second batch fails.
+      match /openItems/{itemId} {
+        function validItem(d) {
+          return d.keys().hasAll(['groupId', 'title', 'status', 'createdBy', 'createdAt', 'updatedAt'])
+            && d.keys().hasOnly(['groupId', 'title', 'category', 'date', 'amount', 'notes', 'suspects', 'status', 'expenseId',
+                'claimedBy', 'claimedAt', 'deletedAt', 'deletedBy', 'createdBy', 'createdAt', 'updatedAt'])
+            && d.groupId == groupId
+            && d.title is string && d.title.size() > 0 && d.title.size() <= 120
+            && (!('category' in d) || (d.category is string && d.category.size() <= 32))
+            && (!('date' in d) || (d.date is string && d.date.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}')))
+            && (!('amount' in d) || (d.amount is int && d.amount > 0 && d.amount <= 100000000000))
+            && (!('notes' in d) || (d.notes is string && d.notes.size() <= 500))
+            // the people someone thinks paid: members of this group
+            && (!('suspects' in d) || (d.suspects is list && d.suspects.size() <= 20
+                && d.suspects.hasOnly(groupDoc(groupId).data.members.keys())))
+            && d.status in ['open', 'claimed']
+            && d.createdAt is int && d.updatedAt is int;
+        }
+        function expensePath(id) { return /databases/$(database)/documents/groups/$(groupId)/expenses/$(id); }
+        // Open now: never claimed, or the expense that claimed it is in Recently deleted or gone.
+        function claimable(d) {
+          return d.status == 'open' || !('expenseId' in d) || !exists(expensePath(d.expenseId))
+            || 'deletedAt' in get(expensePath(d.expenseId)).data;
+        }
+        function isEdit() {
+          return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'category', 'date', 'amount', 'notes', 'suspects', 'updatedAt'])
+            && !('deletedAt' in resource.data)
+            && claimable(resource.data);
+        }
+        function isItemTrashChange() {
+          let after = request.resource.data;
+          return after.diff(resource.data).affectedKeys().hasOnly(['deletedAt', 'deletedBy', 'updatedAt'])
+            && (('deletedAt' in after && after.deletedAt is int && after.deletedBy == uid())
+                || (!('deletedAt' in after) && !('deletedBy' in after)));
+        }
+        function isClaim() {
+          let after = request.resource.data;
+          return after.diff(resource.data).affectedKeys().hasOnly(['status', 'expenseId', 'claimedBy', 'claimedAt', 'updatedAt'])
+            && !('deletedAt' in resource.data)
+            && claimable(resource.data)
+            && after.status == 'claimed'
+            && after.claimedBy == uid()
+            && after.claimedAt is int
+            && after.expenseId is string
+            // the expense is written in this same batch, by the claimer, and wasn't there before
+            && !exists(expensePath(after.expenseId))
+            && existsAfter(expensePath(after.expenseId))
+            && getAfter(expensePath(after.expenseId)).data.createdBy == uid();
+        }
+        allow read: if isGroupMember(groupId);
+        allow create: if isGroupMember(groupId) && writesOpen() && groupLive(groupId)
+          && validItem(request.resource.data)
+          && request.resource.data.createdBy == uid()
+          && request.resource.data.status == 'open'
+          && !request.resource.data.keys().hasAny(['expenseId', 'claimedBy', 'claimedAt', 'deletedAt', 'deletedBy']);
+        allow update: if isGroupMember(groupId) && writesOpen() && groupLive(groupId)
+          && validItem(request.resource.data)
+          && request.resource.data.createdBy == resource.data.createdBy
+          && request.resource.data.createdAt == resource.data.createdAt
+          && (isEdit() || isItemTrashChange() || isClaim());
+        // Removed for good only with the group ("Delete forever" by its creator).
+        allow delete: if isUser() && writesOpen() && isGroupMember(groupId) && groupDoc(groupId).data.createdBy == uid();
+      }
+
+      // Group chat (src/lib/chat.ts): every member reads the whole history, including people who
+      // joined later. Messages are words or a card (open item, Pay me, expense), sent as the
+      // writer, never edited. The author deletes their own; the group's creator may delete any
+      // (only "Delete forever" does). No photos: text only.
+      match /chat/{messageId} {
+        function validMessage(d) {
+          return d.keys().hasAll(['authorUid', 'authorName', 'text', 'kind', 'createdAt'])
+            && d.keys().hasOnly(['authorUid', 'authorName', 'text', 'kind', 'ref', 'amount', 'createdAt'])
+            && d.authorUid == uid()
+            && d.authorName is string && d.authorName.size() <= 80
+            && d.text is string && d.text.size() <= 1000
+            && d.kind in ['text', 'openItem', 'pay', 'expense']
+            && (d.kind != 'text' || d.text.size() > 0)
+            && (!('ref' in d) || (d.ref is string && d.ref.size() > 0 && d.ref.size() <= 64))
+            && ((d.kind in ['openItem', 'expense']) == ('ref' in d))
+            && (!('amount' in d) || (d.amount is int && d.amount > 0 && d.amount <= 100000000000))
+            && ((d.kind == 'pay') == ('amount' in d))
+            && d.createdAt is int;
+        }
+        allow read: if isGroupMember(groupId);
+        allow create: if isGroupMember(groupId) && writesOpen() && groupLive(groupId) && validMessage(request.resource.data);
+        allow update: if false;
+        allow delete: if isUser() && writesOpen() && isGroupMember(groupId)
+          && (resource.data.authorUid == uid() || groupDoc(groupId).data.createdBy == uid());
       }
 
       // Name + payment handles (+ profile photo URL) a member shares with this group only. Written by the owner
