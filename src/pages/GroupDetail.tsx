@@ -179,6 +179,9 @@ export default function GroupDetail() {
   const cur = group.currency
   const myBal = me ? (net[me] ?? 0) : 0
   const personal = group.type === 'personal'
+  const direct = group.type === 'direct'
+  // A 1:1 is the two of you: once the friend has joined (has an account in it), there's nobody to invite.
+  const canInvite = !personal && !(direct && group.peer && group.members[group.peer]?.uid)
   const total = d.expenses.reduce((s, e) => s + e.amount, 0)
   const name = (id: string) => (id === me ? 'You' : labelOf(group.members, id, 'Someone', me))
   // The QR is scanned in person, so it stays short; shared links carry your name for their preview.
@@ -277,7 +280,7 @@ export default function GroupDetail() {
 
       <div className="card mb-4 p-5">
         <div className="flex items-center gap-4">
-          <GroupIcon emoji={group.emoji} size={56} />
+          <GroupIcon emoji={group.emoji} group={group} size={56} />
           <div className="min-w-0 flex-1">
             {personal ? (
               <>
@@ -330,7 +333,7 @@ export default function GroupDetail() {
             )}
           </div>
         )}
-        {!personal && (
+        {!personal && !direct && (
           <Link
             to={`/groups/${group.id}/members`}
             className="-mx-1 mt-3 flex min-h-11 items-center gap-2 rounded-xl px-1 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-ink-800"
@@ -354,7 +357,8 @@ export default function GroupDetail() {
         {group.budget ? <BudgetBar spent={total} budget={group.budget} currency={cur} /> : null}
         {!personal && (
           // When nothing is owed, Invite is the useful action; Settle up stays one tap away as the secondary.
-          <div className="mt-4 grid grid-cols-2 gap-2">
+          // A 1:1 whose friend has joined has nobody left to invite.
+          <div className={`mt-4 grid gap-2 ${canInvite ? 'grid-cols-2' : 'grid-cols-1'}`}>
             <button
               type="button"
               className={`${settled ? 'btn-secondary' : 'btn-primary'} whitespace-nowrap`}
@@ -374,14 +378,16 @@ export default function GroupDetail() {
                 Settle<span className="hidden min-[380px]:inline"> up</span>
               </span>
             </button>
-            <button
-              type="button"
-              className={`${settled ? 'btn-primary' : 'btn-secondary'} whitespace-nowrap`}
-              onClick={() => setInvite(true)}
-              data-testid="group-invite"
-            >
-              <Link2 size={18} aria-hidden /> Invite
-            </button>
+            {canInvite && (
+              <button
+                type="button"
+                className={`${settled ? 'btn-primary' : 'btn-secondary'} whitespace-nowrap`}
+                onClick={() => setInvite(true)}
+                data-testid="group-invite"
+              >
+                <Link2 size={18} aria-hidden /> Invite
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -588,7 +594,7 @@ export default function GroupDetail() {
               nav(`/groups/${group.id}/edit`)
             }}
           />
-          {!personal && (
+          {!personal && !direct && (
             <MenuRow
               icon={<Users size={20} />}
               label="Members"
@@ -600,7 +606,7 @@ export default function GroupDetail() {
               testId="group-members"
             />
           )}
-          {!personal && (
+          {canInvite && (
             <MenuRow
               icon={<Link2 size={20} />}
               label="Invite"

@@ -268,16 +268,18 @@ export default function GroupChat() {
           >
             <ChevronLeft size={24} aria-hidden />
           </button>
-          {group && <GroupIcon emoji={group.emoji} size={36} />}
+          {group && <GroupIcon emoji={group.emoji} group={group} size={36} />}
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-base font-bold">{group?.name ?? ' '}</h1>
             <div className="text-muted truncate text-xs">
-              {members.length
-                ? members
-                    .map((id) => (group && id === me ? 'You' : labelOf(group?.members ?? {}, id, '', me)))
-                    .slice(0, 6)
-                    .join(', ') + (members.length > 6 ? ` +${members.length - 6}` : '')
-                : ''}
+              {group?.type === 'direct'
+                ? 'Just the two of you'
+                : members.length
+                  ? members
+                      .map((id) => (group && id === me ? 'You' : labelOf(group?.members ?? {}, id, '', me)))
+                      .slice(0, 6)
+                      .join(', ') + (members.length > 6 ? ` +${members.length - 6}` : '')
+                  : ''}
             </div>
           </div>
           <button

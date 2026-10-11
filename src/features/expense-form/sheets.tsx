@@ -75,7 +75,7 @@ function GroupList({
       aria-pressed={g.id === current}
       className={`${ROW} ${g.id === current ? 'bg-brand-50 dark:bg-brand-900/30' : ''}`}
     >
-      <GroupIcon emoji={g.emoji} size={40} />
+      <GroupIcon emoji={g.emoji} group={g} size={40} />
       <span className="min-w-0 flex-1">
         <span className="block truncate font-semibold">{g.name}</span>
         {isLive && <LiveBadge className="mt-0.5" />}

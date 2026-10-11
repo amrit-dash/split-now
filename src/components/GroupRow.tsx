@@ -9,7 +9,7 @@ import { isLiveTrip } from '@/lib/capture'
 import { todayISO } from '@/lib/id'
 import { activeMembers } from '@/lib/members'
 
-/** One group in a list: icon, name, members (or spend for a personal wallet) and your balance in words and numbers. */
+/** One group in a list: icon, name, members (spend for a personal wallet, "1:1 friend" for a 1:1) and your balance in words and numbers. */
 export function GroupRow({ d }: { d: GroupData }) {
   const bal = d.me ? (d.net[d.me] ?? 0) : 0
   const members = Object.values(activeMembers(d.group.members))
@@ -17,7 +17,7 @@ export function GroupRow({ d }: { d: GroupData }) {
   const spent = d.expenses.reduce((s, e) => s + e.amount, 0)
   return (
     <Link to={`/groups/${d.group.id}`} className="flex min-h-16 items-center gap-3 px-4 py-3 transition active:bg-slate-50 dark:active:bg-ink-800">
-      <GroupIcon emoji={d.group.emoji} />
+      <GroupIcon emoji={d.group.emoji} group={d.group} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate font-semibold">{d.group.name}</span>
@@ -29,6 +29,9 @@ export function GroupRow({ d }: { d: GroupData }) {
         <div className="mt-0.5 flex items-center gap-2">
           {personal ? (
             <span className="text-muted text-xs">{formatMoney(spent, d.group.currency)} spent</span>
+          ) : d.group.type === 'direct' ? (
+            // A 1:1 is just the two of you: no faces to stack (the friend is the icon).
+            <span className="text-muted text-xs">1:1 friend</span>
           ) : (
             <>
               <AvatarStack people={members} size={20} />

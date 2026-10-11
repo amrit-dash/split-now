@@ -308,7 +308,7 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
                 onClick={() => setSelected(g.id)}
                 className={`flex w-full items-center gap-3 px-4 py-3 text-left ${selected === g.id ? 'bg-brand-50 dark:bg-brand-900/30' : ''}`}
               >
-                <GroupIcon emoji={g.emoji} size={40} />
+                <GroupIcon emoji={g.emoji} group={g} size={40} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="truncate font-semibold">{g.name}</span>
@@ -373,7 +373,7 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
         <div className="space-y-1" data-testid="capture-wallets">
           {walletsOf(groups).map((g) => (
             <button key={g.id} type="button" className={SHEET_ROW} onClick={() => toExpense(g.id)}>
-              <GroupIcon emoji={g.emoji} size={40} />
+              <GroupIcon emoji={g.emoji} group={g} size={40} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-semibold">{g.name}</span>
                 <span className="text-muted block truncate text-xs">

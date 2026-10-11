@@ -1,5 +1,27 @@
-/** A group's emoji on a soft tile. Decorative: the group's name is always next to it. */
-export function GroupIcon({ emoji, size = 48 }: { emoji: string; size?: number }) {
+import type { Group } from '@/types'
+import { Avatar } from './Avatar'
+
+/**
+ * A group's face. Most groups: their emoji on a soft tile. A 1:1: the friend's photo (or initials)
+ * with a small 🤝 on its corner, so it reads as a person and as "a 1:1, not a group" at once, the
+ * same on every screen. Decorative: the group's name is always next to it.
+ */
+export function GroupIcon({ emoji, size = 48, group }: { emoji: string; size?: number; group?: Pick<Group, 'type' | 'peer' | 'members'> }) {
+  const peer = group?.type === 'direct' && group.peer ? group.members[group.peer] : undefined
+  if (peer) {
+    const badge = Math.max(14, Math.round(size * 0.42))
+    return (
+      <div aria-hidden className="relative shrink-0" style={{ width: size, height: size }}>
+        <Avatar name={peer.name} color={peer.color} photoURL={peer.photoURL} size={size} />
+        <span
+          className="absolute -bottom-0.5 -right-0.5 flex items-center justify-center rounded-full bg-white ring-2 ring-white dark:bg-ink-800 dark:ring-ink-900"
+          style={{ width: badge, height: badge, fontSize: badge * 0.62 }}
+        >
+          🤝
+        </span>
+      </div>
+    )
+  }
   return (
     <div
       aria-hidden

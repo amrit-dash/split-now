@@ -681,6 +681,18 @@ test('no groups yet: Quick add on Home sets up a 1:1 from one name, checked in t
   await expect(page).toHaveURL(/next=add/)
 })
 
+test('a 1:1 is the friend: no name to type, their face as the icon, no members row', async ({ page }) => {
+  await page.goto('/groups/new?type=direct')
+  await expect(page.getByLabel('Name', { exact: true })).toHaveCount(0)
+  await page.getByLabel('Name of a person to add').fill('Meera Iyer')
+  await page.getByTestId('member-add').click()
+  await page.getByRole('button', { name: 'Create 1:1' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Meera Iyer' })).toBeVisible()
+  await expect(page.getByTestId('group-people')).toHaveCount(0)
+  await page.getByTestId('group-menu').click()
+  await expect(page.getByTestId('group-members')).toHaveCount(0)
+})
+
 test('no groups yet: the + sheet has Quick add, and a group named in the line is filled in', async ({ page }) => {
   await noGroups(page)
   await page.getByTestId('nav-create').click()
