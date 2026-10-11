@@ -6,6 +6,12 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+Next release: **5.0.0** (a major version: the admin console's tabs change, and settings now follow the account).
+
+- **Appearance follows your account**: theme, accent colour, dual tone, text on accent and the animations are saved to your account, so the app looks the same on the web and on the installed app on your phone. The newest change wins. Notifications and auto-capture setup stay on each device.
+- **A detail level for the whole app**, chosen by an admin: Full (as today), When needed (one short line under each option), Minimal (titles only, keeping the lines that stop a mistake, and fewer optional sections) or Tooltip (every explanation behind a small (i) beside its title). Every explanation in the app now has a short version.
+- For admins: Flags & app is now two tabs. **App** has maintenance, update required, the announcement, sign-ups and the new **Detail level**. **Flags** puts the feature switches in sections (AI, Adding expenses, Groups, Payments and reminders, Capture and import), each saying how many are on, with chips to jump between them. Limits is in sections too, and the AI tab links to its switches.
+- For admins: Stop announcement has a red outline.
 - **Emails go through Firebase only**: confirming a new email account and adding another email now use Firebase's own links instead of 6-digit codes, so no outside email service is needed. Profile → Emails → Add another email sends a link to that address; opening it adds the email (or offers to merge the account it already has). Admin → Email is gone.
 - For admins: Admin → Users no longer has Link now; linking by email happens on its own.
 
