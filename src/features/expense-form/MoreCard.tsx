@@ -7,6 +7,7 @@ import { buildRecurrence, REPEAT_OPTIONS, type Action, type Draft, type Errors }
 import { Collapsible } from '@/components/Collapsible'
 import { DateField } from '@/components/DateField'
 import { Select } from '@/components/Select'
+import { HintText, useShows } from '@/components/Hint'
 
 /** Repeat and notes, folded away until needed; the summary line says what is set. */
 export function MoreCard({ draft, dispatch, existing, errors }: { draft: Draft; dispatch: (a: Action) => void; existing?: Expense; errors: Errors }) {
@@ -19,13 +20,22 @@ export function MoreCard({ draft, dispatch, existing, errors }: { draft: Draft; 
     .filter(Boolean)
     .join(' · ')
   const next = repeats ? buildRecurrence(draft.repeat, draft.date, draft.until, existing)?.nextDate : undefined
+  // The Minimal look shows just the title while folded; the summary is a nicety.
+  const showSummary = useShows(2)
   const [open, setOpen] = useState(!!(existing?.recurrence || draft.notes.trim()))
   // A problem with the end date must be visible, so the card opens itself.
   useEffect(() => {
     if (errors.until) setOpen(true)
   }, [errors.until])
   return (
-    <Collapsible title="More" summary={summary} icon={<SlidersHorizontal size={18} aria-hidden />} open={open} onOpenChange={setOpen} testId="more-card">
+    <Collapsible
+      title="More"
+      summary={showSummary ? summary : undefined}
+      icon={<SlidersHorizontal size={18} aria-hidden />}
+      open={open}
+      onOpenChange={setOpen}
+      testId="more-card"
+    >
       {!isOccurrence && (
         <>
           <div className={`grid gap-3 ${repeats ? 'grid-cols-2' : 'grid-cols-1'}`}>
@@ -64,9 +74,14 @@ export function MoreCard({ draft, dispatch, existing, errors }: { draft: Draft; 
             )}
           </div>
           {repeats && (
-            <p className="mt-3 text-xs text-muted">
-              Next copy on {next ? formatDate(next, 'dayYear') : '—'}. Copies are added automatically when anyone in the group opens the app.
-            </p>
+            <HintText
+              className="mt-3 text-xs text-muted"
+              hint={{
+                full: <>Next copy on {next ? formatDate(next, 'dayYear') : '—'}. Copies are added automatically when anyone in the group opens the app.</>,
+                short: <>Next copy on {next ? formatDate(next, 'dayYear') : '—'}</>,
+                tier: 'help',
+              }}
+            />
           )}
         </>
       )}

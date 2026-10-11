@@ -8,6 +8,7 @@ import { useFlag } from '@/hooks/useAppConfig'
 import { aiAvailability } from '@/lib/ai-copy'
 import { aiScanEnabled, aiScanPossible, setAiScan } from '@/lib/ai'
 import { savePrefs, watchPrefs, type AllPrefs } from '@/lib/push'
+import { type Hint, HintText, InfoTip } from './Hint'
 import { Switch } from './Switch'
 
 /**
@@ -79,12 +80,18 @@ export function AiScanToggle({ className = '' }: { className?: string }) {
       </p>
     )
   }
+  // Key: where the photo goes is a privacy line, so every look keeps a short form of it.
+  const hint: Hint = on
+    ? { full: 'the photo is sent to Google Gemini to read items and taxes', short: 'the photo is sent to Google Gemini', tier: 'key' }
+    : { full: 'off, read on this phone only (less accurate)', short: 'off, read on this phone', tier: 'key' }
   return (
     <div className={`flex items-center gap-3 ${className}`}>
       <Sparkles size={16} className="shrink-0 text-brand-500" aria-hidden />
       <div className="text-muted min-w-0 flex-1 text-xs leading-snug">
         <span className="font-semibold text-slate-700 dark:text-slate-200">Read with AI</span>
-        {on ? ' · the photo is sent to Google Gemini to read items and taxes' : ' · off, read on this phone only (less accurate)'}
+        <InfoTip hint={hint} label="About reading with AI" />
+        {' · '}
+        <HintText hint={hint} as="span" />
       </div>
       <Switch
         checked={on}

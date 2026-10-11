@@ -18,6 +18,7 @@ import { colorFor } from '@/lib/colors'
 import { Avatar } from '@/components/Avatar'
 import { Empty, Loading, PageHeader } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
+import { Detail, type Hint, HintText } from '@/components/Hint'
 import { SwipeRow } from '@/components/SwipeRow'
 import { usePageTitle } from '@/lib/brand'
 import { HistoryCard, TrashedBanner, TrustBadges, TrustPanel, useUndoableDelete } from '@/components/Trust'
@@ -256,13 +257,18 @@ export default function ExpenseDetail() {
         </div>
       )}
       {group.type !== 'personal' && <Comments group={group} expense={e} />}
-      <HistoryCard group={group} expense={e} />
-      <p className="mt-4 text-center text-xs text-muted" data-testid="expense-added">
-        {addedLine(e, creatorName(group, e.createdBy, user.uid), { dateTime: formatDateTime, date: (ms) => formatDate(ms) })}
-      </p>
+      {/* History and the "Added by" line are background: the Minimal look leaves them out. */}
+      <Detail min={2}>
+        <HistoryCard group={group} expense={e} />
+        <p className="mt-4 text-center text-xs text-muted" data-testid="expense-added">
+          {addedLine(e, creatorName(group, e.createdBy, user.uid), { dateTime: formatDateTime, date: (ms) => formatDate(ms) })}
+        </p>
+      </Detail>
     </div>
   )
 }
+
+const NO_COMMENTS: Hint = { full: 'No comments yet. Ask a question or add context for the group.', short: 'No comments yet.', tier: 'help' }
 
 function Comments({ group, expense }: { group: Group; expense: Expense }) {
   const { user, profile } = useMe()
@@ -314,7 +320,7 @@ function Comments({ group, expense }: { group: Group; expense: Expense }) {
     <div className="card mt-3 p-4">
       <div className="label">Comments{comments?.length ? ` · ${comments.length}` : ''}</div>
       {comments === null ? null : comments.length === 0 ? (
-        <p className="text-sm text-muted">No comments yet. Ask a question or add context for the group.</p>
+        <HintText hint={NO_COMMENTS} className="text-sm text-muted" />
       ) : (
         <ul className="space-y-3">
           {comments.map((c, i) => (

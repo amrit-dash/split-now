@@ -11,8 +11,15 @@ import { draftKey, loadDraft } from '@/lib/expense-draft'
 import { pending } from '@/lib/pending'
 import { openItemPrefill, openItemState } from '@/lib/open-items'
 import { Empty } from '@/components/Misc'
+import { type Hint, HintText } from '@/components/Hint'
 import { CardSkeleton } from '@/components/Skeleton'
 import { ExpenseEditor } from '@/features/expense-form/ExpenseEditor'
+
+const SPLIT_HINT: Hint = {
+  full: 'Out to eat? Scan the bill and everyone taps what they had, no group needed.',
+  short: 'Everyone taps what they had, no group needed',
+  tier: 'help',
+}
 
 /**
  * /add (new, optionally ?group=&again=&capture=&open=) and /groups/:groupId/expenses/:expenseId/edit.
@@ -183,7 +190,7 @@ function NoGroups() {
         <button type="button" className="btn-secondary mx-auto mt-2 flex" onClick={() => nav('/split', { replace: true })} data-testid="nogroups-split">
           <ReceiptText size={18} aria-hidden /> Split a bill by items
         </button>
-        <p className="mt-2 text-xs text-muted">Out to eat? Scan the bill and everyone taps what they had, no group needed.</p>
+        <HintText hint={SPLIT_HINT} className="mt-2 text-xs text-muted" />
       </Empty>
     </div>
   )

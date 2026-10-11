@@ -25,9 +25,27 @@ import { ListSkeleton } from '@/components/Skeleton'
 import { PageHeader, Segmented } from '@/components/Misc'
 import { Select, currencyOptions } from '@/components/Select'
 import { useToast } from '@/components/Toast'
+import { Detail, type Hint, HintText, InfoTip, useShows } from '@/components/Hint'
 import { activeMembers } from '@/lib/members'
 
 type Mode = 'receipt' | 'statement' | 'payment'
+
+const PAGE_HINT: Hint = { full: 'Bills, statements and payment screenshots', tier: 'extra' }
+const RECEIPT_HINT: Hint = {
+  full: 'We’ll pull out the total, merchant, date and line items for a split by items.',
+  short: 'We read the total, date and items',
+  tier: 'help',
+}
+const PAYMENT_HINT: Hint = {
+  full: 'A GPay, PhonePe, Paytm, bank or PayPal screenshot — we’ll detect the amount and who you paid.',
+  short: 'We read the amount and who you paid',
+  tier: 'help',
+}
+const FOOT_HINT: Hint = {
+  full: 'Nothing is added until you pick a group. Recent scans stay on this device.',
+  short: 'Nothing is added until you pick a group',
+  tier: 'help',
+}
 
 /** The AI reader declined the photo: nothing usable came back (the fallback reader may still manage). */
 const looksEmpty = (r: ParsedReceipt) => !r.total && !r.merchant && r.items.length === 0
@@ -59,6 +77,8 @@ export default function Scan() {
   const [mode, setMode] = useState<Mode>(() => (['receipt', 'statement', 'payment'] as const).find((m) => m === params0.get('mode')) ?? 'receipt')
   // Statement import can be switched off for everyone from the admin console; the tab goes with it.
   const statements = useFlag('statementImport')
+  // The Minimal look keeps Scan to bills and payments; a link straight to ?mode=statement still opens it.
+  const showStatements = useShows(2)
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string>()
   const [text, setText] = useState('')
@@ -285,7 +305,7 @@ export default function Scan() {
 
   return (
     <div className="mx-auto min-h-dvh max-w-lg px-4 pb-10">
-      <PageHeader title="Scan" back subtitle="Bills, statements and payment screenshots" />
+      <PageHeader title="Scan" back subtitle={PAGE_HINT} />
       <Segmented<Mode>
         label="What to scan"
         testId="scan-mode"
@@ -293,7 +313,7 @@ export default function Scan() {
         onChange={switchMode}
         options={[
           { value: 'receipt', label: 'Bill' },
-          ...(statements ? [{ value: 'statement' as const, label: 'Statement' }] : []),
+          ...(statements && (showStatements || mode === 'statement') ? [{ value: 'statement' as const, label: 'Statement' }] : []),
           { value: 'payment', label: 'Payment' },
         ]}
       />
@@ -348,12 +368,11 @@ export default function Scan() {
                 >
                   {mode === 'receipt' ? '🧾' : '📲'}
                 </div>
-                <h2 className="font-bold">{mode === 'receipt' ? 'Snap a bill' : 'Upload a payment confirmation'}</h2>
-                <p className="text-muted mt-1 text-sm">
-                  {mode === 'receipt'
-                    ? 'We’ll pull out the total, merchant, date and line items for a split by items.'
-                    : 'A GPay, PhonePe, Paytm, bank or PayPal screenshot — we’ll detect the amount and who you paid.'}
-                </p>
+                <div className="flex items-center justify-center">
+                  <h2 className="font-bold">{mode === 'receipt' ? 'Snap a bill' : 'Upload a payment confirmation'}</h2>
+                  <InfoTip hint={mode === 'receipt' ? RECEIPT_HINT : PAYMENT_HINT} label="About scanning" />
+                </div>
+                <HintText hint={mode === 'receipt' ? RECEIPT_HINT : PAYMENT_HINT} className="text-muted mt-1 text-sm" />
               </div>
             )}
             <div className="grid grid-cols-2 gap-2 p-3">
@@ -483,10 +502,12 @@ export default function Scan() {
             </div>
           )}
           {text && (
-            <details className="text-muted mt-2 px-1 text-xs">
-              <summary className="cursor-pointer">Show raw text</summary>
-              <pre className="mt-2 whitespace-pre-wrap rounded-xl bg-slate-100 p-3 font-mono dark:bg-ink-800">{text}</pre>
-            </details>
+            <Detail min={2}>
+              <details className="text-muted mt-2 px-1 text-xs">
+                <summary className="cursor-pointer">Show raw text</summary>
+                <pre className="mt-2 whitespace-pre-wrap rounded-xl bg-slate-100 p-3 font-mono dark:bg-ink-800">{text}</pre>
+              </details>
+            </Detail>
           )}
 
           {done && (
@@ -521,7 +542,7 @@ export default function Scan() {
               )}
             </div>
           )}
-          <p className="text-muted mt-6 text-center text-xs">Nothing is added until you pick a group. Recent scans stay on this device.</p>
+          <HintText hint={FOOT_HINT} className="text-muted mt-6 text-center text-xs" />
         </>
       )}
     </div>

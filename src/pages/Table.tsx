@@ -59,7 +59,22 @@ import { MarkPaid } from '@/components/MarkPaid'
 import { QrCode } from '@/components/QrCode'
 import { Sheet } from '@/components/Sheet'
 import { useToast } from '@/components/Toast'
+import { type Hint, HintText, InfoTip } from '@/components/Hint'
 import { labelOf } from '@/lib/shortNames'
+
+const JOIN_HINT: Hint = {
+  full: 'Enter the code shown on the host’s phone, or scan their QR code with your camera.',
+  short: 'The code on the host’s phone, or their QR',
+  tier: 'help',
+}
+const QR_HINT: Hint = { full: 'Guests just enter their name. The table closes after 24 hours.', short: 'The table closes after 24 hours', tier: 'help' }
+const PERSON_HINT: Hint = { full: 'You’ll tap their items for them.', tier: 'help' }
+/** How tax and tip are shared: the full line from the table logic, one phrase for When needed. */
+const taxHint = (mode: TaxSplit): Hint => ({
+  full: taxSplitHint(mode),
+  short: mode === 'equal' ? 'Split equally; tip always equal' : 'By what each had; tip split equally',
+  tier: 'help',
+})
 
 // Uses useGroups (signed-in users only), so it's loaded just for the host.
 const TableFinish = lazy(() => import('./TableFinish'))
@@ -122,8 +137,11 @@ export function TableEntry() {
         >
           🍽️
         </div>
-        <h1 className="mt-4 text-2xl font-extrabold">Join a table</h1>
-        <p className="text-muted mt-1 text-sm">Enter the code shown on the host’s phone, or scan their QR code with your camera.</p>
+        <div className="mt-4 flex items-center justify-center">
+          <h1 className="text-2xl font-extrabold">Join a table</h1>
+          <InfoTip hint={JOIN_HINT} label="About joining a table" />
+        </div>
+        <HintText hint={JOIN_HINT} className="text-muted mt-1 text-sm" />
       </div>
       <form
         className="mt-6 space-y-3"
@@ -452,7 +470,7 @@ function Live({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; isH
               <Share2 size={16} /> Share
             </button>
           </div>
-          <p className="mt-3 text-muted text-xs">Guests just enter their name. The table closes after 24 hours.</p>
+          <HintText hint={QR_HINT} className="mt-3 text-muted text-xs" />
         </div>
       </Sheet>
       <AddPersonSheet open={sheet === 'person'} onClose={() => setSheet(null)} table={table} onAdded={setActingFor} />
@@ -576,7 +594,7 @@ function AddPersonSheet({ open, onClose, table, onAdded }: { open: boolean; onCl
   return (
     <Sheet open={open} onClose={onClose} title="Add someone without a phone">
       <form onSubmit={add} className="space-y-3">
-        <p className="text-muted text-sm">You’ll tap their items for them.</p>
+        <HintText hint={PERSON_HINT} className="text-muted text-sm" />
         <input className="input" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} maxLength={40} autoFocus aria-label="Name" />
         <button type="submit" className="btn-primary w-full">
           <UserPlus size={18} aria-hidden /> Add
@@ -664,7 +682,10 @@ function EditBillSheet({ table, onClose }: { table: LiveTable; onClose: () => vo
           ))}
         </div>
         <div>
-          <div className="label">Tax &amp; fees</div>
+          <div className="flex items-center">
+            <div className="label">Tax &amp; fees</div>
+            <InfoTip hint={taxHint(taxSplit)} label="About tax and fees" />
+          </div>
           <Segmented<TaxSplit>
             value={taxSplit}
             onChange={setTaxSplit}
@@ -676,7 +697,7 @@ function EditBillSheet({ table, onClose }: { table: LiveTable; onClose: () => vo
             ]}
           />
         </div>
-        <p className="text-muted text-xs">{taxSplitHint(taxSplit)}</p>
+        <HintText hint={taxHint(taxSplit)} className="text-muted text-xs" />
         <button type="button" className="btn-primary w-full" onClick={save}>
           <Check size={18} aria-hidden /> Save
         </button>
