@@ -29,6 +29,7 @@ import { takeStashedCapture } from './lib/pending'
 import { isStandalone, refreshPush, setBadge, watchPrefs } from './lib/push'
 import { splashHoldMs } from './lib/splash'
 import { setAiScan } from './lib/ai'
+import { startAppearanceSync } from './lib/appearance-sync'
 import { GroupDataProvider } from './hooks/groupData'
 import { primeAiStatus, useAiStatus } from './hooks/useAiStatus'
 import { useAppConfig, useBlocked } from './hooks/useAppConfig'
@@ -140,6 +141,23 @@ export default function App() {
   // Mirror the account's "read bills with AI" choice onto this device (read synchronously when scanning).
   useEffect(
     () => (user && !user.isAnonymous && repo.mode === 'firebase' ? watchPrefs(user.uid, (p) => setAiScan(p.aiEnabled && p.aiImages)) : undefined),
+    [user],
+  )
+
+  // Theme, accent and animations follow the account (src/lib/appearance-sync.ts). A cached "missing"
+  // or a failed read says nothing about the account, so only real answers take part.
+  useEffect(
+    () =>
+      user && !user.isAnonymous
+        ? startAppearanceSync(
+            (cb) =>
+              repo.watchAppearance(user.uid, (raw, meta) => {
+                if (meta?.error || (raw === null && meta?.fromCache)) return
+                cb(raw)
+              }),
+            (doc) => repo.saveAppearance(user.uid, doc),
+          )
+        : undefined,
     [user],
   )
 
@@ -457,9 +475,9 @@ function AdminStrip({ cfg, kind, text }: { cfg: AppConfig; kind: 'maintenance' |
         </button>
       )}
       <Link
-        to="/admin/flags"
+        to="/admin/app"
         className="flex min-h-9 shrink-0 items-center rounded-xl px-2.5 text-xs font-bold underline underline-offset-2"
-        aria-label="Open Flags & app in the admin console"
+        aria-label="Open App in the admin console"
       >
         Admin
       </Link>

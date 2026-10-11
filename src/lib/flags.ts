@@ -1,5 +1,5 @@
 /*
- * config/app: the switches an admin flips in the console (/admin → Flags & app). The document
+ * config/app: the switches an admin flips in the console (/admin → App and Flags). The document
  * holds no secrets and is readable signed out, so the app watches it once per session and keeps
  * the last copy in localStorage for the first paint.
  *   maintenance, maintenanceMessage  everyone but admins sees a "back in a few minutes" screen;
@@ -11,11 +11,14 @@
  *                                    nothing regresses when the document doesn't exist yet
  *   signups                          'invite' hides "Create an account" on the sign-in screen unless
  *                                    the link carries an invite code (soft: see docs/FIREBASE_SETUP.md)
+ *   look                             how much the app explains: full, needed, minimal or tooltip
+ *                                    (src/lib/look.ts)
  * Pure helpers first; the live store at the bottom loads the Firebase SDK only in firebase mode
  * and never imports '@/data' (the hook passes the mode in).
  */
 
 import { type AppTuning, DEFAULT_TUNING, resolveTuning, setTuning } from '../../shared/app-tuning'
+import { DEFAULT_LOOK, type Look, resolveLook } from './look'
 
 export const FLAG_NAMES = [
   'aiImages',
@@ -91,6 +94,8 @@ export interface AppConfig {
   announcement: Announcement | null
   flags: Record<FlagName, boolean>
   signups: Signups
+  /** How much the app explains under its titles, for everyone (src/lib/look.ts). */
+  look: Look
   /** numbers the app needs that an admin can tune (shared/app-tuning.ts) */
   tuning: AppTuning
   updatedAt?: number
@@ -106,6 +111,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
   announcement: null,
   flags: ALL_ON,
   signups: 'open',
+  look: DEFAULT_LOOK,
   tuning: DEFAULT_TUNING,
 }
 
@@ -134,6 +140,7 @@ export function resolveAppConfig(raw: unknown): AppConfig {
     announcement,
     flags,
     signups: r.signups === 'invite' ? 'invite' : 'open',
+    look: resolveLook(r.look),
     tuning: resolveTuning(r.tuning),
     ...(typeof r.updatedAt === 'number' ? { updatedAt: r.updatedAt } : {}),
     ...(typeof r.updatedBy === 'string' ? { updatedBy: r.updatedBy } : {}),
@@ -148,6 +155,7 @@ export function toAppConfigDoc(cfg: AppConfig, by: string, now = Date.now()): Re
     announcement: cfg.announcement?.text.trim() ? { ...cfg.announcement, text: cfg.announcement.text.trim().slice(0, MAX_MESSAGE) } : null,
     flags: { ...cfg.flags },
     signups: cfg.signups,
+    look: cfg.look,
     tuning: { ...cfg.tuning },
     updatedAt: now,
     updatedBy: by,

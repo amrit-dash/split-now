@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { KeyRound, Loader2, RefreshCw, RotateCcw, Save, ShieldCheck, Trash2 } from 'lucide-react'
 import { repo } from '@/data'
 import type { AiModel, AiStatusResult } from '@/data/repo'
 import { refreshAiStatus } from '@/hooks/useAiStatus'
+import { useAppConfig } from '@/hooks/useAppConfig'
+import { FLAG_SECTIONS, onCount } from '@/lib/admin-sections'
 import { DEFAULT_MODEL, MAX_ALLOW_EMAILS, normaliseEmail, resolveAppAi, type AppAiConfig, type AppAiEngine, type AppAiMode } from '@/lib/ai-config'
 import { errText } from '@/lib/errors'
 import { modelHint } from '@/components/AiSettings'
@@ -23,6 +26,7 @@ const ENGINES: Array<{ value: AppAiEngine; label: string; hint: string }> = [
 ]
 
 const same = (a: AppAiConfig, b: AppAiConfig) => JSON.stringify(a) === JSON.stringify(b)
+const AI_FLAGS = FLAG_SECTIONS.find((s) => s.id === 'ai')?.keys ?? []
 
 /**
  * Admins only: Split Now's (project) Gemini key. The key itself (Secret Manager's GEMINI_API_KEY,
@@ -31,6 +35,7 @@ const same = (a: AppAiConfig, b: AppAiConfig) => JSON.stringify(a) === JSON.stri
  */
 export function AdminAi({ status }: { status: AiStatusResult }) {
   const toast = useToast()
+  const { flags } = useAppConfig()
   const [saved, setSaved] = useState<AppAiConfig | null>(null)
   const [cfg, setCfg] = useState<AppAiConfig | null>(null)
   const [emails, setEmails] = useState('')
@@ -141,6 +146,18 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
   const n = (k: string) => usage?.[k] ?? 0
   return (
     <div className="space-y-4" data-testid="admin-ai">
+      {/* The AI switches live with the other feature flags (one save per document); this row says where, and how many are on. */}
+      <Link
+        to="/admin/flags"
+        className="flex min-h-11 items-center justify-between gap-3 rounded-2xl bg-slate-50 px-3.5 py-2.5 text-sm dark:bg-ink-800/60"
+        data-testid="admin-ai-flags"
+      >
+        <span className="min-w-0">
+          <span className="block font-semibold">AI feature switches</span>
+          <span className="text-muted block text-xs">Bills, SMS, Quick add and payment screenshots, in Flags → AI</span>
+        </span>
+        <span className="shrink-0 text-xs font-semibold text-brand-600 dark:text-brand-300">{onCount(flags, AI_FLAGS)}</span>
+      </Link>
       {/* The project key: where it comes from, and a way to use a different one. */}
       <div>
         <div className="label">Project key</div>
@@ -302,8 +319,12 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
             <Toggle title="Bills & statements" checked={cfg.images} onChange={(v) => set({ images: v })} />
             <Toggle title="SMS fallback" checked={cfg.sms} onChange={(v) => set({ sms: v })} />
             <p className="text-muted text-xs" data-testid="admin-ai-quick-add">
-              Quick add with AI (opt-in per person) uses this key under “Bills & statements” and its limits. Its own switch for everyone is “Quick add with AI”
-              under Flags & app.
+              Quick add with AI (opt-in per person) uses this key under “Bills & statements” and its limits. The switches for everyone (bills, SMS, Quick add,
+              payment screenshots) are in{' '}
+              <Link to="/admin/flags" className="font-semibold text-brand-600 dark:text-brand-300">
+                Flags → AI
+              </Link>
+              .
             </p>
           </div>
           <div className="grid grid-cols-3 gap-2">

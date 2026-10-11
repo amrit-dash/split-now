@@ -5,7 +5,7 @@ import { useMe } from '@/hooks/auth'
 import { CURRENCIES } from '@/lib/money'
 import { errText } from '@/lib/errors'
 import { appLocale } from '@/lib/locale'
-import { applyTheme, getTheme, type Theme } from '@/lib/theme'
+import { getTheme, setTheme as saveTheme, type Theme } from '@/lib/theme'
 import { AccentPicker } from '@/components/AccentPicker'
 import { Segmented } from '@/components/Misc'
 import { RatesField } from '@/components/ProfileCards'
@@ -14,7 +14,7 @@ import { Switch } from '@/components/Switch'
 import { useToast } from '@/components/Toast'
 import { SectionTitle, SettingsPage, useSavedFlash } from './common'
 
-/** /settings/preferences: default currency (with the rates refresh), theme and accent. All autosave. */
+/** /settings/preferences: default currency (with the rates refresh), theme and accent. All autosave; theme and accent follow the account (appearance-sync.ts). */
 export default function Preferences() {
   const { profile } = useMe()
   const toast = useToast()
@@ -76,7 +76,7 @@ export default function Preferences() {
             value={theme}
             onChange={(t) => {
               setTheme(t)
-              applyTheme(t)
+              saveTheme(t)
               flashLook()
             }}
             options={[
@@ -108,7 +108,7 @@ export default function Preferences() {
           />
         </div>
         <AccentPicker onChange={flashLook} />
-        <p className="text-muted text-xs">Theme and accent are kept on this device.</p>
+        <p className="text-muted text-xs">Theme and accent are the same on every device you sign in on.</p>
       </div>
     </SettingsPage>
   )

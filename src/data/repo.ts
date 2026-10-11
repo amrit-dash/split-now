@@ -408,6 +408,13 @@ export interface Repo {
    */
   fetchActivityBefore(groupIds: string[], before: number, max: number): Promise<ActivityEntry[]>
   saveMerchants(uid: string, memory: MerchantMemory): Promise<void>
+  /**
+   * users/{uid}/settings/appearance: theme, accent and animations, so they follow the account to
+   * every device (src/lib/appearance-sync.ts parses it). The raw document; null until it exists.
+   */
+  watchAppearance(uid: string, cb: Watch<unknown>): Unsub
+  /** Fire-and-forget; the whole document is replaced. */
+  saveAppearance(uid: string, doc: Record<string, unknown>): Promise<void>
 
   /**
    * Push a settle-up nudge to a member who owes the signed-in user (the `nudge` callable; one

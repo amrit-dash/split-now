@@ -1,84 +1,51 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useMe } from '@/hooks/auth'
-import { errText } from '@/lib/errors'
-import {
-  compareSemver,
-  FLAG_INFO,
-  FLAG_NAMES,
-  isSemver,
-  MAINTENANCE_FALLBACK,
-  MAX_MESSAGE,
-  resolveAppConfig,
-  semverOf,
-  toAppConfigDoc,
-  type AnnouncementLevel,
-  type AppConfig,
-  type Signups,
-} from '@/lib/flags'
+import { compareSemver, isSemver, MAINTENANCE_FALLBACK, MAX_MESSAGE, semverOf, type AnnouncementLevel, type Signups } from '@/lib/flags'
 import { localISODate } from '@/lib/id'
+import { LOOK_INFO, LOOKS, type Look } from '@/lib/look'
 import { Collapsible } from '@/components/Collapsible'
 import { Loading, Segmented } from '@/components/Misc'
 import { Switch } from '@/components/Switch'
-import { useToast } from '@/components/Toast'
 import { MaintenanceScreen } from '@/components/GateScreen'
-import { saveConfig } from './api'
-import { ChangedBy, DirtyBar, SettingRow, useConfigDoc } from './common'
+import { ChangedBy, DirtyBar, SettingRow, useAppConfigDraft } from './common'
 
 const CURRENT = semverOf(__APP_VERSION__)
-/** Strip the audit fields before comparing, so a save by someone else doesn't read as "unsaved changes". */
-const body = (c: AppConfig) => JSON.stringify({ ...c, updatedAt: undefined, updatedBy: undefined })
 /** A yyyy-mm-dd from the date field → the end of that local day, in ms. */
 const endOfDay = (iso: string) => {
   const [y, m, d] = iso.split('-').map(Number)
   return new Date(y, m - 1, d, 23, 59, 59, 999).getTime()
 }
 
-/** /admin/flags: maintenance mode, minimum version, announcement, feature flags, sign-up mode (config/app). */
 /**
  * The action beside a field (Use this build, Stop announcement): a clear tinted button as tall as
  * the field. When both don't fit on one line (a phone), each takes the full width on its own.
  */
 const ACTION =
   'btn grow whitespace-nowrap sm:grow-0 bg-brand-50 px-4 text-sm text-brand-700 ring-1 ring-brand-200 dark:bg-brand-500/15 dark:text-brand-200 dark:ring-brand-500/30'
+/** Stop announcement takes something down: red all round, outline included. */
+const STOP = `${ACTION} !bg-rose-50 !text-rose-700 !ring-rose-300 dark:!bg-rose-500/15 dark:!text-rose-300 dark:!ring-rose-500/40`
 
-export default function FlagsApp() {
-  const { user } = useMe()
-  const toast = useToast()
-  const { raw, loading, error } = useConfigDoc('app')
-  const saved = useMemo(() => resolveAppConfig(raw), [raw])
-  const [draft, setDraft] = useState<AppConfig | null>(null)
-  const [saving, setSaving] = useState(false)
+/** /admin/app: maintenance mode, minimum version, announcement, sign-up mode and the detail level (config/app). Feature flags are /admin/flags. */
+export default function AppSettings() {
   const [minVersionDraft, setMinVersionDraft] = useState<string | null>(null)
+  const { saved, cfg, set, dirty, saving, save, discard, loading, error } = useAppConfigDraft((c) =>
+    isSemver(c.minVersion) && (minVersionDraft === null || isSemver(minVersionDraft)) ? null : 'Minimum version must look like 1.2.3',
+  )
   if (loading) return <Loading />
-  const cfg = draft ?? saved
-  const set = (p: Partial<AppConfig>) => setDraft({ ...cfg, ...p })
   const minVersion = minVersionDraft ?? cfg.minVersion
   const minVersionBad = !isSemver(minVersion)
-  const dirty = body(cfg) !== body(saved)
   const ann = cfg.announcement ?? { text: '', level: 'info' as AnnouncementLevel }
-
-  const save = async () => {
-    if (minVersionBad) return toast('Minimum version must look like 1.2.3', 'err')
-    setSaving(true)
-    try {
-      await saveConfig('app', toAppConfigDoc(cfg, user.uid))
-      setDraft(null)
-      setMinVersionDraft(null)
-      toast('App settings saved')
-    } catch (e) {
-      toast(errText(e), 'err')
-    } finally {
-      setSaving(false)
-    }
+  const onSave = async () => {
+    await save()
+    setMinVersionDraft(null)
   }
-  const discard = () => {
-    setDraft(null)
+  const onDiscard = () => {
+    discard()
     setMinVersionDraft(null)
   }
 
   return (
-    <div className="pb-[calc(var(--lane)-var(--nav-h))]" data-testid="admin-flags">
+    <div className="pb-[calc(var(--lane)-var(--nav-h))]" data-testid="admin-app">
       {error && (
         <div className="card mb-4 p-4 text-sm" role="alert">
           Couldn’t read config/app. You can still save; the rules decide.
@@ -222,7 +189,7 @@ export default function FlagsApp() {
             />
             <button
               type="button"
-              className={`${ACTION} !bg-rose-50 !text-rose-700 dark:!bg-rose-500/15 dark:!text-rose-300`}
+              className={STOP}
               disabled={!cfg.announcement}
               onClick={() => set({ announcement: null })}
               data-testid="admin-stop-announcement"
@@ -232,21 +199,6 @@ export default function FlagsApp() {
           </div>
         </div>
       </div>
-
-      <h3 className="mb-2 mt-5 px-1 font-bold">Feature flags</h3>
-      <div className="card divide-y divide-slate-100 p-4 dark:divide-white/5" data-testid="admin-flag-list">
-        {FLAG_NAMES.map((f) => (
-          <SettingRow
-            key={f}
-            title={FLAG_INFO[f].label}
-            hint={FLAG_INFO[f].hint}
-            control={
-              <Switch checked={cfg.flags[f]} onChange={(v) => set({ flags: { ...cfg.flags, [f]: v } })} label={FLAG_INFO[f].label} testId={`flag-${f}`} />
-            }
-          />
-        ))}
-      </div>
-      <p className="text-muted mt-2 px-1 text-xs">Off hides the feature in the app (and stops it on the server where noted). A missing switch means on.</p>
 
       <h3 className="mb-2 mt-5 px-1 font-bold">Sign-ups</h3>
       <div className="card p-4">
@@ -264,11 +216,24 @@ export default function FlagsApp() {
           still call Firebase Auth directly. Hard enforcement needs an Identity Platform blocking function (docs/FIREBASE_SETUP.md).
         </p>
       </div>
+      <h3 className="mb-2 mt-5 px-1 font-bold">Detail level</h3>
+      <div className="card p-4" data-testid="admin-look">
+        <Segmented<Look>
+          label="How much the app explains"
+          testId="admin-look-choice"
+          value={cfg.look}
+          onChange={(look) => set({ look })}
+          options={LOOKS.map((l) => ({ value: l, label: LOOK_INFO[l].label }))}
+        />
+        <p className="text-muted mt-2 text-xs" aria-live="polite">
+          {LOOK_INFO[cfg.look].hint} For everyone; the admin console always shows everything.
+        </p>
+      </div>
       <ChangedBy at={saved.updatedAt} by={saved.updatedBy} />
       <p className="text-muted mt-3 px-1 text-xs">
-        Shared-key AI limits live in the{' '}
-        <Link to="/admin/ai" className="font-semibold text-brand-600 dark:text-brand-300">
-          AI tab
+        Feature switches are in{' '}
+        <Link to="/admin/flags" className="font-semibold text-brand-600 dark:text-brand-300">
+          Flags
         </Link>
         ; rate limits in{' '}
         <Link to="/admin/limits" className="font-semibold text-brand-600 dark:text-brand-300">
@@ -276,7 +241,7 @@ export default function FlagsApp() {
         </Link>
         .
       </p>
-      <DirtyBar dirty={dirty} saving={saving} onSave={save} onDiscard={discard} testId="admin-flags-dirty" />
+      <DirtyBar dirty={dirty} saving={saving} onSave={onSave} onDiscard={onDiscard} testId="admin-app-dirty" />
     </div>
   )
 }

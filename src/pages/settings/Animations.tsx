@@ -24,8 +24,8 @@ import { SavedPill, SectionTitle, SettingsPage, useSavedFlash } from './common'
  * /settings/animations: the Home card's fireworks, colour flow and floating circles. A master
  * switch, then each one on its own. A live preview of the Home card and an accent button is pinned
  * under the title (it stays in view while the settings scroll) and the eye in the header hides or
- * shows it, remembered on this device. Kept on this device
- * (src/lib/motion.ts) and applied at once. The device's reduce-motion setting wins over all of it.
+ * shows it, remembered on this device. The settings themselves follow the account
+ * (src/lib/motion.ts, src/lib/appearance-sync.ts) and apply at once. The device's reduce-motion setting wins over all of it.
  */
 export default function Animations() {
   const { prefs, reduced } = useMotion()
@@ -182,7 +182,7 @@ export default function Animations() {
       </fieldset>
 
       <div className="mt-3 flex items-center justify-between gap-3 px-1">
-        <p className="text-muted text-xs">Kept on this device.</p>
+        <p className="text-muted text-xs">Same on every device you sign in on.</p>
         {!isDefaultMotion(prefs) && (
           <button
             type="button"

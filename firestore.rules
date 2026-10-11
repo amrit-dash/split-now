@@ -176,6 +176,16 @@ service cloud.firestore {
             && request.resource.data.categories is map && request.resource.data.categories.size() <= 200
             && request.resource.data.get('touched', {}) is map && request.resource.data.get('touched', {}).size() <= 200
             && request.resource.data.get('updatedAt', 0) is int))
+          // settings/appearance: theme, accent and animations, so they follow the account
+          // (src/lib/appearance-sync.ts). Small maps only; values are re-checked on read.
+          && (settingId != 'appearance' || (
+            request.resource.data.keys().hasOnly(['theme', 'accent', 'duo', 'inks', 'motion', 'updatedAt'])
+            && request.resource.data.get('theme', 'system') in ['system', 'light', 'dark']
+            && request.resource.data.get('accent', '') is string && request.resource.data.get('accent', '').size() <= 20
+            && request.resource.data.get('duo', true) is bool
+            && request.resource.data.get('inks', {}) is map && request.resource.data.get('inks', {}).size() <= 20
+            && request.resource.data.get('motion', {}) is map && request.resource.data.get('motion', {}).size() <= 20
+            && request.resource.data.updatedAt is int))
           // settings/inbox: what this person cleared from Inbox → Updates (src/lib/inbox.ts). Only
           // hides entries for them; the groups' activity itself is never touched.
           && (settingId != 'inbox' || (
@@ -252,7 +262,7 @@ service cloud.firestore {
           && t.get('trashDays', 30) is int && t.get('trashDays', 30) >= 7 && t.get('trashDays', 30) <= 90;
       }
       function validAppConfig(d) {
-        return d.keys().hasOnly(['maintenance', 'maintenanceMessage', 'minVersion', 'announcement', 'flags', 'signups', 'tuning', 'updatedAt', 'updatedBy'])
+        return d.keys().hasOnly(['maintenance', 'maintenanceMessage', 'minVersion', 'announcement', 'flags', 'signups', 'look', 'tuning', 'updatedAt', 'updatedBy'])
           && validTuning(d.get('tuning', {}))
           && d.get('maintenance', false) is bool
           && (!('maintenanceMessage' in d) || (d.maintenanceMessage is string && d.maintenanceMessage.size() <= 300))
@@ -260,6 +270,8 @@ service cloud.firestore {
           && (!('announcement' in d) || d.announcement == null || validAnnouncement(d.announcement))
           && validFlags(d.get('flags', {}))
           && d.get('signups', 'open') in ['open', 'invite']
+          // How much the app explains (src/lib/look.ts LOOKS)
+          && d.get('look', 'full') in ['full', 'needed', 'minimal', 'tooltip']
           && d.get('updatedAt', 0) is int
           && d.get('updatedBy', '') is string;
       }

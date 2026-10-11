@@ -1460,6 +1460,18 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       batch.set(doc(db, 'users', userId, 'settings', 'merchants'), { categories: memory.categories, touched: memory.touched, updatedAt: Date.now() })
       fire(batch, 'Remembering the category')
     },
+    watchAppearance(userId, cb) {
+      return onSnapshot(
+        doc(db, 'users', userId, 'settings', 'appearance'),
+        (s) => cb(s.exists() ? s.data() : null, metaOf(s)),
+        listenError('Loading your appearance settings', () => cb(null, FAILED)),
+      )
+    },
+    async saveAppearance(userId, data) {
+      const batch = writeBatch(db)
+      batch.set(doc(db, 'users', userId, 'settings', 'appearance'), data)
+      fire(batch, 'Saving your appearance settings')
+    },
     nudge(groupId, memberId, amount) {
       return callNudge(amount ? { groupId, memberId, amount } : { groupId, memberId })
     },

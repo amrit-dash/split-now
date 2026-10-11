@@ -88,6 +88,8 @@ interface State {
   tables?: Record<string, LiveTable>
   /** merchant → category memory per user (users/{uid}/settings/merchants in Firebase) */
   merchants?: Record<string, MerchantMemory>
+  /** Appearance settings per account (settings/appearance in Firestore); one device in the demo, kept for parity. */
+  appearance?: Record<string, Record<string, unknown>>
   /** per user: what they cleared from Inbox → Updates */
   inbox?: Record<string, InboxState>
   /** Pay me links keyed by code */
@@ -1059,6 +1061,12 @@ export function createLocalRepo(): Repo {
     async saveMerchants(userId, memory) {
       state.merchants ??= {}
       state.merchants[userId] = memory
+      commit()
+    },
+    watchAppearance: (userId, cb) => watch(() => state.appearance?.[userId] ?? null, cb),
+    async saveAppearance(userId, data) {
+      state.appearance ??= {}
+      state.appearance[userId] = data
       commit()
     },
     async nudge(groupId, memberId, amount) {
