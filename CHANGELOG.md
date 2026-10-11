@@ -6,6 +6,8 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 4.0.0 — October 2026
+
 - **Open items**: a new Open tab in each group for things the group spent that nobody has added yet, like "lunch on 2 Oct, who paid?". Type one line ("lunch 290 2nd Oct Cafe Blue") and it fills in the details. Name who might have paid and they get a notification. Whoever paid taps Claim: Add expense opens filled in, paid by them and split equally, ready to change. Delete the expense later and the item comes back to Open. If you read bills with AI, the line is also read with AI and offered as a second suggestion when it finds more. Quick add knows open items too: "lunch Oct 2 Cafe Blue, who paid?" or "maybe Priya paid for the ferry" opens the open item filled in, in the right group, for you to check and add.
 - **Group chat**: every group has a chat just for money, from the chat icon on the group. Ask who paid, post an open item anyone can claim from the chat, send a Pay me with a Pay button, or add an expense and its card shows up there. Day headers, times, an unread line, and the group's expenses as small updates between messages. People who join later see the whole chat. No photos.
 - Notifications: new **Group chat** and **Open items** switches, and **Mute chat** for one group in its ⋯ menu.
