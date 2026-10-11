@@ -6,6 +6,8 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 3.8.0 — October 2026
+
 - **Glitter is a flash of light**: as each firework burst fades, a quick flash of small lights goes off where it was, some bigger, some brighter, then gone. Glitter size sets how big they are, and the new **Glitter shape** picks Mix, Dots, Streaks, Stars or Curls. **Twinkle** is a separate setting, off by default: some sparks pulse as they fade.
 - **Gold and Graphite have real dual tones**: Gold now runs from gold into deep bronze, and Graphite from slate into charcoal, with white or black text.
 - **Security fixes**:
