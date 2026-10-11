@@ -18,7 +18,7 @@ Instead of Gemini, an admin can run Split Now's shared AI on **Gemma**, Google's
 - **Everyone, after they agree**: Gemma ignores the allow-list. Google's terms for unpaid services let Google use what is sent to improve its products and let people at Google read it, and those terms don't allow serving people in the EU, the UK or Switzerland. So nothing goes to Gemma until a person turns on **Use free AI** (`aiFreeOk`) in Settings → AI features, where that is said plainly. Until then the server answers `reason: 'needs_ok'`.
 - **Structured output**: Google documents system instructions for Gemma 4 but not JSON mode. `generateJson` sends the schema first; if a Gemma model refuses with a 400, that model switches to plain mode (rules and schema as text, the JSON read out of the answer) for the life of the instance. Reasoning ("thought") parts are ignored.
 
-People's own keys still come first, as below.
+People's own keys still come first, as below, except on "Automatic" for someone who turned on **Use free AI**: then the free Gemma AI is tried first and their own key is the fallback, so their own quota is kept for when Gemma can't answer (owner decision, Oct 2026). "Only my key" never uses Gemma.
 
 ## Which key is used
 

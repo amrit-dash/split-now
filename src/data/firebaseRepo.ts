@@ -182,8 +182,24 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
    * synchronously, so listeners update immediately and the UI can move on even offline.
    * Server rejections are reported through onError.
    */
+  // Saves the server hasn't confirmed yet (the "Saving…" / offline note and the warning on closing
+  // the tab). A commit's promise settles when the server answers, or fails on a refusal.
+  let pending = 0
+  const pendingSubs = new Set<(n: number) => void>()
+  const track = <T>(p: Promise<T>): Promise<T> => {
+    pending++
+    for (const s of pendingSubs) s(pending)
+    const done = () => {
+      pending--
+      for (const s of pendingSubs) s(pending)
+    }
+    p.then(done, done)
+    return p
+  }
+  // Changes queued on an earlier visit (closed while offline) are resent on start; count them until they land.
+  track(waitForPendingWrites(db)).catch(() => {})
   const fire = (batch: WriteBatch, context: string) => {
-    batch.commit().catch((e) => errors.emit('write', e, context))
+    track(batch.commit()).catch((e) => errors.emit('write', e, context))
   }
   const listenError = (context: string, fallback: () => void) => (e: FirestoreError) => {
     fallback()
@@ -334,6 +350,13 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
   const repo: Repo = {
     mode: 'firebase',
     onError: errors.on,
+    watchPendingWrites(cb) {
+      pendingSubs.add(cb)
+      cb(pending)
+      return () => {
+        pendingSubs.delete(cb)
+      }
+    },
 
     onAuth(cb) {
       return onAuthStateChanged(auth, (u) => {

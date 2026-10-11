@@ -10,7 +10,7 @@ import { useFlag } from '@/hooks/useAppConfig'
 import { aiAvailability, aiDataNote, FREE_AI_NOTE, isFreeAi } from '@/lib/ai-copy'
 import { errText } from '@/lib/errors'
 import { setAiScan } from '@/lib/ai'
-import { DEFAULT_MODEL, type AiSource } from '@/lib/ai-config'
+import { autoSourceHint, DEFAULT_MODEL, type AiSource } from '@/lib/ai-config'
 import { DEFAULT_ALL_PREFS, savePrefs, watchPrefs, type AllPrefs } from '@/lib/push'
 import { Collapsible } from './Collapsible'
 import { Select } from './Select'
@@ -243,7 +243,13 @@ export function AiSettings() {
 
             <div>
               <div className="label">Which key</div>
-              <Select aria-label="Which key" value={prefs.aiSource} onChange={(v) => set({ aiSource: v as AiSource })} options={SOURCE_OPTIONS} />
+              <Select
+                aria-label="Which key"
+                value={prefs.aiSource}
+                onChange={(v) => set({ aiSource: v as AiSource })}
+                // With the free AI turned on, Automatic tries it before your key (planAi).
+                options={SOURCE_OPTIONS.map((o) => (o.value === 'auto' ? { ...o, hint: autoSourceHint(free && prefs.aiFreeOk) } : o))}
+              />
             </div>
 
             {/* Split Now's (project) key */}

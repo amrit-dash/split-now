@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   appKeyStatus,
+  autoSourceHint,
   DEFAULT_APP_AI,
   DEFAULT_MODEL,
   DEFAULT_USER_AI,
@@ -87,9 +88,20 @@ describe('Gemma (free AI on the shared key)', () => {
     expect(
       planAi({ feature: 'sms', user: user({ aiFreeOk: true, aiSms: true }), app: app({ ...gemma, gemmaModel: 'gemma-4-31b-it' }), hasOwnKey: true }),
     ).toEqual([
-      { key: 'own', models: [DEFAULT_MODEL, ...FALLBACK_MODELS] },
+      // Automatic with the free AI turned on: the free AI first, your own key as the fallback.
       { key: 'app', engine: 'gemma', models: ['gemma-4-31b-it'] },
+      { key: 'own', models: [DEFAULT_MODEL, ...FALLBACK_MODELS] },
     ])
+    // Paid Gemini on Split Now's key, or the free AI not turned on: your own key stays first.
+    expect(planAi({ feature: 'images', user: user({ aiFreeOk: true }), app: app({ mode: 'everyone' }), hasOwnKey: true }).map((p) => p.key)).toEqual([
+      'own',
+      'app',
+    ])
+    expect(planAi({ feature: 'images', user: user(), app: gemma, hasOwnKey: true }).map((p) => p.key)).toEqual(['own'])
+    // "Only my key" never uses the free AI.
+    expect(planAi({ feature: 'images', user: user({ aiFreeOk: true, aiSource: 'own' }), app: gemma, hasOwnKey: true }).map((p) => p.key)).toEqual(['own'])
+    expect(autoSourceHint(true)).toBe('Split Now’s free AI first, then your key')
+    expect(autoSourceHint(false)).toBe('Your key first, then Split Now’s')
     // Not asked when the shared AI couldn't serve them anyway.
     expect(needsFreeOk({ feature: 'images', user: user({ aiSource: 'own' }), app: gemma })).toBe(false)
     expect(needsFreeOk({ feature: 'images', user: user(), app: app({ engine: 'gemma' }) })).toBe(false)

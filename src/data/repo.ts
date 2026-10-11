@@ -114,6 +114,12 @@ export interface Repo {
    * so a watcher is normally opened once per key for the whole session.
    */
   onError(cb: (e: RepoError) => void): Unsub
+  /**
+   * How many saves this device made that the server hasn't confirmed yet (changes from an earlier
+   * visit that are still queued count as one until they're sent). Called at once and on change.
+   * Demo mode saves on the device only: always 0.
+   */
+  watchPendingWrites(cb: (pending: number) => void): Unsub
 
   onAuth(cb: (u: AuthUser | null) => void): Unsub
   signInWithGoogle(): Promise<void>

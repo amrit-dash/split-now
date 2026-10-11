@@ -194,7 +194,9 @@ export const withFallbacks = (m: string | undefined) => [...new Set([m || DEFAUL
 
 /**
  * Which keys to try, in order, for one request. Empty = don't call AI at all (the app reads bills
- * on the phone; SMS keep the built-in parser's result).
+ * on the phone; SMS keep the built-in parser's result). Automatic tries the person's own key first,
+ * except when Split Now's AI is the free one (Gemma) and they turned it on: then the free AI goes
+ * first and their key is the fallback, so it doesn't spend their own quota (owner decision, Oct 2026).
  */
 export function planAi(opts: { feature: AiFeature; user: UserAiPrefs; app: AppAiConfig; hasOwnKey: boolean; email?: string }): KeyPlan[] {
   const { feature, user, app, hasOwnKey, email } = opts
@@ -205,8 +207,12 @@ export function planAi(opts: { feature: AiFeature; user: UserAiPrefs; app: AppAi
     if (app.engine !== 'gemma') shared = { key: 'app', models: withFallbacks(app.model) }
     else if (user.aiFreeOk) shared = { key: 'app', engine: 'gemma', models: app.gemmaModel ? [app.gemmaModel] : [] }
   }
-  return [own, shared].filter((p): p is KeyPlan => !!p)
+  const freeFirst = shared?.engine === 'gemma' && user.aiSource === 'auto'
+  return (freeFirst ? [shared, own] : [own, shared]).filter((p): p is KeyPlan => !!p)
 }
+
+/** The hint under "Which key" for Automatic: what it tries first. */
+export const autoSourceHint = (freeFirst: boolean) => (freeFirst ? 'Split Now’s free AI first, then your key' : 'Your key first, then Split Now’s')
 
 /** The shared key would serve this person if only they agreed to the free AI (for the "needs your OK" reason). */
 export const needsFreeOk = (opts: { feature: AiFeature; user: UserAiPrefs; app: AppAiConfig; email?: string }) =>

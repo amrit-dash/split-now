@@ -702,3 +702,10 @@ test('Profile offers Install Split Now in a browser, with the steps for this bro
   await row.click()
   await expect(page.getByRole('dialog')).toContainText(/Install Split Now|Add to/)
 })
+
+test('going offline shows the sync note under the header, and it goes once back online', async ({ page, context }) => {
+  await context.setOffline(true)
+  await expect(page.getByTestId('offline-pill')).toBeVisible()
+  await context.setOffline(false)
+  await expect(page.getByTestId('offline-pill')).toBeHidden()
+})
