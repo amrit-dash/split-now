@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
+  AlertCircle,
+  AlertTriangle,
   Archive,
   BarChart3,
   CheckCheck,
@@ -575,20 +577,14 @@ function MenuRow({
 function BudgetBar({ spent, budget, currency }: { spent: number; budget: number; currency: string }) {
   const s = budgetStatus(spent, budget, (v) => formatMoney(v, currency))
   const width = Math.min(100, s.pct)
+  const tone = s.tone === 'over' ? 'text-rose-700 dark:text-rose-300' : s.tone === 'near' ? 'text-amber-700 dark:text-amber-300' : ''
+  // One quiet row above the bar (the budget, how much is used) and one line under it (what's
+  // left, or the warning with an icon), so a budget alert never pushes the card's layout around.
   return (
     <div className="mt-4" data-testid="budget-bar">
-      <div className="text-muted mb-1 flex items-center justify-between gap-2 text-xs font-medium">
-        <span>Budget {formatMoney(budget, currency)}</span>
-        <span className="flex items-center gap-1.5">
-          {s.threshold && (
-            <span
-              className={`rounded-full px-1.5 py-0.5 text-[0.6875rem] font-semibold ${s.tone === 'over' ? 'bg-rose-100 text-rose-800 dark:bg-rose-500/15 dark:text-rose-300' : 'bg-amber-100 text-amber-900 dark:bg-amber-500/15 dark:text-amber-200'}`}
-            >
-              {s.short}
-            </span>
-          )}
-          <span className={s.tone === 'over' ? 'neg' : ''}>{s.label}</span>
-        </span>
+      <div className="text-muted mb-1.5 flex items-baseline justify-between gap-2 text-xs font-medium">
+        <span className="truncate">Budget {formatMoney(budget, currency)}</span>
+        <span className={`shrink-0 font-semibold tabular-nums ${tone}`}>{s.pct}% used</span>
       </div>
       <div
         className="h-2.5 overflow-hidden rounded-full bg-slate-100 dark:bg-ink-800"
@@ -597,12 +593,20 @@ function BudgetBar({ spent, budget, currency }: { spent: number; budget: number;
         aria-valuemin={0}
         aria-valuemax={budget}
         aria-valuenow={Math.min(spent, budget)}
-        aria-valuetext={`${formatMoney(spent, currency)} of ${formatMoney(budget, currency)}, ${s.label}${s.threshold ? `, ${s.short}` : ''}`}
+        aria-valuetext={`${formatMoney(spent, currency)} of ${formatMoney(budget, currency)}, ${s.note}`}
       >
         <div
-          className={`h-full rounded-full ${s.tone === 'over' ? 'bg-rose-600' : s.tone === 'near' ? 'bg-amber-600' : 'bg-gradient-to-r from-brand-500 to-duo-500'}`}
+          className={`h-full rounded-full ${s.tone === 'over' ? 'bg-rose-600' : s.tone === 'near' ? 'bg-amber-500' : 'bg-gradient-to-r from-brand-500 to-duo-500'}`}
           style={{ width: `${width}%` }}
         />
+      </div>
+      <div className={`mt-1.5 flex items-center gap-1.5 text-xs font-medium ${tone || 'text-muted'}`} data-testid="budget-note">
+        {s.tone === 'over' ? (
+          <AlertCircle size={14} className="shrink-0" aria-hidden />
+        ) : s.tone === 'near' ? (
+          <AlertTriangle size={14} className="shrink-0" aria-hidden />
+        ) : null}
+        <span className="truncate">{s.note}</span>
       </div>
     </div>
   )
