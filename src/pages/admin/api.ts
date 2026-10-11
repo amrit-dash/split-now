@@ -87,26 +87,6 @@ export interface AdminStats {
   days: DayStats[]
   totals: { users: number | null; usersTruncated: boolean; groups: number; activeGroups: number; blocked: number }
 }
-/** Link every placeholder whose email has a verified account (functions/src/link-members.ts). */
-export const adminLinkMembers = () => call<Record<string, never>, { groups: number; linked: number; pending: number }>('adminLinkMembers', {}, 540_000)
-export type MailProvider = 'resend' | 'brevo'
-export interface MailSettings {
-  provider: MailProvider | null
-  fromEmail: string
-  fromName: string
-  /** the saved key's last characters, never the key */
-  hint: string | null
-  /** codes can go out */
-  ready: boolean
-}
-/** The email service codes go out through (functions/src/accounts.ts adminMail). */
-export const adminMail = {
-  get: () => call<{ action: 'get' }, MailSettings>('adminMail', { action: 'get' }, 30_000),
-  save: (s: { provider: MailProvider; fromEmail: string; fromName: string; apiKey?: string }) =>
-    call<typeof s & { action: 'save' }, { ready: boolean }>('adminMail', { ...s, action: 'save' }, 30_000),
-  test: () => call<{ action: 'test' }, { sentTo: string }>('adminMail', { action: 'test' }, 30_000),
-  remove: () => call<{ action: 'remove' }, { ready: boolean }>('adminMail', { action: 'remove' }, 30_000),
-}
 export const adminStats = (days: number) => call<{ days: number }, AdminStats>('adminStats', { days }, 60_000)
 
 export interface BlockInfo {

@@ -249,7 +249,7 @@ export default function Login() {
                     </p>
                   ))}
               </div>
-              {mode === 'up' && <p className="px-1 text-xs text-slate-400">We’ll email you a 6-digit code to confirm the address.</p>}
+              {mode === 'up' && <p className="px-1 text-xs text-slate-400">We’ll email you a link to confirm the address.</p>}
               <button type="submit" className="btn-primary w-full" disabled={busy} data-testid="login-submit">
                 {mode === 'in' ? 'Sign in' : 'Create account'}
               </button>

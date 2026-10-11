@@ -1,4 +1,4 @@
-import { initializeApp, type FirebaseOptions } from 'firebase/app'
+import { deleteApp, initializeApp, type FirebaseOptions } from 'firebase/app'
 import {
   EmailAuthProvider,
   GoogleAuthProvider,
@@ -7,8 +7,13 @@ import {
   getAuth,
   getRedirectResult,
   onAuthStateChanged,
+  inMemoryPersistence,
+  initializeAuth,
+  isSignInWithEmailLink,
   sendEmailVerification,
+  sendSignInLinkToEmail,
   signInWithCredential,
+  signInWithEmailLink,
   linkWithCredential,
   linkWithPopup,
   linkWithRedirect,
@@ -105,7 +110,7 @@ import {
   memberProfileOf,
   type AuthUser,
   type CaptureToken,
-  type EmailCodeResult,
+  type EmailLinkResult,
   type InviteInfo,
   type MemberProfile,
   type MergeResult,
@@ -130,6 +135,8 @@ import { getAppConfig } from '@/lib/flags'
 
 /** sessionStorage: a guest's ID token while they sign in with Google by redirect (installed app), so their things move over after. */
 const GUEST_TOKEN = 'splitit-guest-token'
+/** localStorage: the email a sign-in link was just sent to (Profile → Add another email), to finish it when the link opens. */
+const PENDING_EMAIL = 'splitit-pending-email'
 
 /** Firestore allows 500 writes per batch; leave headroom. */
 const BATCH_LIMIT = 450
@@ -526,19 +533,50 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     async signInAnonymously() {
       await signInAnonymously(auth)
     },
-    async sendEmailCode(email, purpose) {
-      const fn = await callable<{ email: string; purpose: string }, { sent: boolean }>('sendEmailCode', 30_000)
-      return (await fn({ email, purpose })).data
+    async sendEmailLink(email) {
+      // Firebase's own sign-in link (Authentication → Sign-in method → Email link must be on).
+      await sendSignInLinkToEmail(auth, email, { url: `${location.origin}/email-link`, handleCodeInApp: true })
+      try {
+        localStorage.setItem(PENDING_EMAIL, email)
+      } catch {
+        /* storage unavailable: the link page asks for the email */
+      }
+      return {}
     },
-    async confirmEmailCode(email, purpose, code) {
-      const fn = await callable<{ email: string; purpose: string; code: string }, EmailCodeResult>('confirmEmailCode', 30_000)
-      const r = (await fn({ email, purpose, code })).data
-      if (r.verified) await refreshUser()
-      return r
+    isEmailLink: (href) => isSignInWithEmailLink(auth, href),
+    async finishEmailLink(href, typed) {
+      let email = typed?.trim().toLowerCase()
+      try {
+        email ||= localStorage.getItem(PENDING_EMAIL) ?? undefined
+      } catch {
+        /* storage unavailable */
+      }
+      if (!email) return { needEmail: true }
+      // The link signs in to that email's account: done in a separate, in-memory Firebase session,
+      // so the person stays signed in as themselves here; its ID token is the proof for claimEmail.
+      const side = initializeApp(config, `email-link-${Date.now()}`)
+      const sideAuth = initializeAuth(side, { persistence: inMemoryPersistence })
+      if (useEmulators) connectAuthEmulator(sideAuth, 'http://127.0.0.1:9099', { disableWarnings: true })
+      try {
+        const cred = await signInWithEmailLink(sideAuth, email, href)
+        const token = await cred.user.getIdToken()
+        const fn = await callable<{ token: string }, EmailLinkResult>('claimEmail', 120_000)
+        const r = (await fn({ token })).data
+        try {
+          localStorage.removeItem(PENDING_EMAIL)
+        } catch {
+          /* storage unavailable */
+        }
+        return r
+      } finally {
+        await signOut(sideAuth).catch(() => undefined)
+        await deleteApp(side).catch(() => undefined)
+      }
     },
     async sendVerifyLink() {
       const u = auth.currentUser
       if (!u) throw new Error('Not signed in')
+      // Back to the app after the link; the open screen notices on its own (refreshUser on focus).
       await sendEmailVerification(u, { url: location.origin })
     },
     refreshUser,

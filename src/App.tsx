@@ -53,6 +53,7 @@ const SettleWithPerson = lazy(() => load.SettleUp().then((m) => ({ default: m.Se
 const Scan = lazy(load.Scan)
 const Insights = lazy(load.Insights)
 const Profile = lazy(load.Profile)
+const EmailLink = lazy(load.EmailLink)
 const Join = lazy(load.Join)
 const Capture = lazy(load.Capture)
 const CaptureGuest = lazy(load.CaptureGuest)
@@ -289,6 +290,7 @@ function AppRoutes({ cfg, admin }: { cfg: AppConfig; admin: boolean }) {
             <Route path="friends" element={<Navigate to="/settle" replace />} />
             <Route path="insights" element={<Insights />} />
             <Route path="profile" element={<Profile />} />
+            <Route path="email-link" element={<EmailLink />} />
             <Route path="inbox" element={<Inbox />} />
             <Route path="settings/auto-capture" element={autoCapture ? <AutoCaptureSetup /> : <Navigate to="/settings" replace />} />
             <Route path="settings/*" element={<Settings />} />

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { accountEmailsOf, codeDigits, emailProblem, needsEmailCode, passwordProblem, resendIn } from './account'
+import { accountEmailsOf, emailProblem, needsEmailCode, passwordProblem, resendIn } from './account'
 
 describe('needsEmailCode', () => {
   const base = { uid: 'u', displayName: 'Priya' }
@@ -37,11 +37,6 @@ describe('form checks', () => {
     expect(passwordProblem('allletters')).toMatch(/letters and numbers/)
     expect(passwordProblem('12345678')).toMatch(/letters and numbers/)
     expect(passwordProblem('goa2026trip')).toBe('')
-  })
-  it('codes keep their digits, six at most', () => {
-    expect(codeDigits(' 042-137 ')).toBe('042137')
-    expect(codeDigits('0421379')).toBe('042137')
-    expect(codeDigits('abc')).toBe('')
   })
   it('the resend countdown', () => {
     expect(resendIn(0)).toBe('')

@@ -2,11 +2,11 @@ import type { AccountEmail, AuthUser } from '@/data/repo'
 
 /*
  * Accounts: one person, one account (docs/PLAN.md §4.2 "Accounts"). An email-and-password
- * account confirms its email with a code before anything else; Google accounts are confirmed by
- * Google. Further emails are added with a code (functions/src/accounts.ts).
+ * account confirms its email with Firebase's link before anything else; Google accounts are
+ * confirmed by Google. Further emails are added with Firebase's sign-in link (functions/src/accounts.ts).
  */
 
-/** Whether this account still has to confirm its email (a code, or the link) before using the app. */
+/** Whether this account still has to confirm its email (Firebase's link) before using the app. */
 export function needsEmailCode(u: AuthUser | null | undefined): boolean {
   if (!u || u.isAnonymous || u.emailVerified !== false) return false
   // Sign-in method ids (Firebase providerId values), compared whole.
@@ -42,10 +42,7 @@ export function passwordProblem(p: string): string {
   return ''
 }
 
-/** A code as typed or pasted: its digits, at most six. */
-export const codeDigits = (raw: string) => raw.replace(/\D/g, '').slice(0, 6)
-
-/** "Resend in 0:24" countdown text, or '' when a new code can be sent. */
+/** "0:24" countdown text until another link can be sent, or '' when it can. */
 export function resendIn(ms: number): string {
   if (ms <= 0) return ''
   const s = Math.ceil(ms / 1000)

@@ -4,6 +4,7 @@ import { IDLE_PREFETCH, load, prefetchAfter, routeChunks, routeKey } from './rou
 describe('routeKey', () => {
   it('maps every lazy route in App.tsx to its chunk', () => {
     expect(routeKey('/add')).toBe('ExpenseForm')
+    expect(routeKey('/email-link')).toBe('EmailLink')
     expect(routeKey('/groups/g1/expenses/e1/edit')).toBe('ExpenseForm')
     expect(routeKey('/groups/new')).toBe('GroupForm')
     expect(routeKey('/groups/g1/edit')).toBe('GroupForm')
