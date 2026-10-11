@@ -9,7 +9,7 @@
  */
 
 export type FireworkSize = 'small' | 'medium' | 'big'
-/** Glitter has one size below small, so it can be clearly finer than the sparks it comes from. */
+/** Glitter has one size below small, so its dots can be clearly finer than the sparks. */
 export type GlitterSize = 'tiny' | FireworkSize
 export type FlowSpeed = 'slow' | 'normal' | 'fast'
 
@@ -21,10 +21,15 @@ export interface MotionPrefs {
   size: FireworkSize
   /** How big each spark of the burst is. */
   sparkSize: FireworkSize
-  /** The remnants a burst leaves: its sparks, once slowed, drifting down and flickering out. */
+  /**
+   * The glitter: as a burst's sparks fade out, a brief flash of small dots in and around where it
+   * burst, some bigger, some brighter, a few stretched, gone in a moment (glint* below).
+   */
   glitter: boolean
-  /** How big those remnants are (the same sparks, eased to this size as they slow). */
+  /** How big the glitter's dots are. */
   glitterSize: GlitterSize
+  /** Some of a burst's sparks pulse brighter and dimmer as they fade, the brightest with a small four-point star. */
+  twinkle: boolean
   /** The drifting colour patches on the Home card, the + button and accent buttons. */
   flow: boolean
   speed: FlowSpeed
@@ -39,6 +44,7 @@ export const DEFAULT_MOTION: MotionPrefs = {
   sparkSize: 'medium',
   glitter: true,
   glitterSize: 'medium',
+  twinkle: false,
   flow: true,
   speed: 'normal',
   circles: true,
@@ -68,6 +74,7 @@ export function parseMotion(raw: string | null | undefined): MotionPrefs {
     sparkSize: size('sparkSize'),
     glitter: bool('glitter'),
     glitterSize: GLITTER_SIZES.includes(o.glitterSize as GlitterSize) ? (o.glitterSize as GlitterSize) : DEFAULT_MOTION.glitterSize,
+    twinkle: bool('twinkle'),
     flow: bool('flow'),
     speed: SPEEDS.includes(o.speed as FlowSpeed) ? (o.speed as FlowSpeed) : DEFAULT_MOTION.speed,
     circles: bool('circles'),
@@ -89,60 +96,50 @@ export function fireworkScale(size: FireworkSize): number {
   return size === 'small' ? 0.7 : size === 'big' ? 1.35 : 1
 }
 
-/** Particle size multiplier, for the burst's sparks and, separately, the remnants they become (glitter adds Tiny). */
-export function particleScale(size: GlitterSize): number {
-  return size === 'tiny' ? 0.35 : size === 'small' ? 0.6 : size === 'big' ? 1.6 : 1
+/** Size multiplier for the burst's sparks (Spark size). */
+export function particleScale(size: FireworkSize): number {
+  return size === 'small' ? 0.6 : size === 'big' ? 1.6 : 1
+}
+
+/** How long a burst's sparks live, in ms: as they always have. */
+export const SPARK_LIFE: readonly [number, number] = [1300, 2200]
+
+/*
+ * The glitter (crackle, in fireworks terms). When a burst spark burns out, it leaves a brief flash
+ * of small dots: where it was and partway back towards the burst's centre, so the dots fill the
+ * blast area rather than ring it. Each lives 80–300 ms after a short random delay, rises fast and
+ * falls away, at random sizes and brightness; some blink once, a few are short streaks. The sparks
+ * die at different moments, so the dots light up here and there just as the burst fades.
+ * Technique after Caleb Miller's Firework Simulator crackle (CodePen XgpNwb).
+ */
+
+/** Glitter dot size by the setting (dots under ~0.35 px vanish under antialiasing, so Tiny stays above that). */
+export const GLINT_SCALE: Readonly<Record<GlitterSize, number>> = { tiny: 0.5, small: 0.75, medium: 1, big: 1.5 }
+
+/** A glitter dot's radius in px from its base size and the setting. */
+export function glintRadius(base: number, size: GlitterSize): number {
+  return Math.max(0.35, base * GLINT_SCALE[size])
+}
+
+/** How many dots a burnt-out spark leaves, from two random draws: usually one, sometimes none or two. */
+export function glintCount(a: number, b: number): number {
+  return (a < 0.75 ? 1 : 0) + (b < 0.15 ? 1 : 0)
+}
+
+/** A dot's life in ms from a random draw, skewed short: 80–300. */
+export function glintLife(a: number): number {
+  return 80 + 220 * a ** 1.5
 }
 
 /**
- * How long a burst's sparks live, in ms. There is no separate glitter particle: the glitter is
- * the burst's own sparks after they have slowed, hanging for a moment with their soft glow before
- * they fade. With glitter on they live as long as they always did; off, they fade as the burst
- * finishes spreading, so nothing lingers.
+ * A dot's brightness (share of its peak) `ms` into its `life`: up over the first fifth, then
+ * falling away. A blinking dot is dark one 45 ms step in three, once along the way.
  */
-export function sparkLife(glitter: boolean): readonly [number, number] {
-  return glitter ? [1300, 2200] : [550, 800]
-}
-
-/** ms after the burst when its sparks start turning into glitter, and when they have (the burst has finished spreading by then). */
-export const REMNANT_FROM = 450
-export const REMNANT_TO = 850
-
-/**
- * How far a spark has become a remnant, 0..1 by the ms since its burst: 0 while it flies out,
- * easing to 1 as it slows. Timed from the burst rather than as a share of each spark's life, so
- * long-lived sparks don't keep their burst size (and look like big sparks) while they linger.
- */
-export function remnantMix(ms: number): number {
-  const t = Math.min(1, Math.max(0, (ms - REMNANT_FROM) / (REMNANT_TO - REMNANT_FROM)))
-  return t * t * (3 - 2 * t)
-}
-
-/** A spark's size multiplier `ms` after its burst: the spark size while it flies, easing into the glitter size once it lingers. */
-export function sparkRadius(sparkSize: FireworkSize, glitterSize: GlitterSize, ms: number): number {
-  const a = particleScale(sparkSize)
-  return a + (particleScale(glitterSize) - a) * remnantMix(ms)
-}
-
-/**
- * A burst spark's opacity (0..1, times its own) at `age`, the share of its life: it fades as it
- * flies out and slows, the original curve. The glitter is not extra light: it is these sparks
- * still hanging, each with its soft glow (sparkHalo), at random sizes and fading opacities.
- */
-export function sparkOpacity(age: number): number {
-  return Math.max(0, 1 - age) ** 1.6
-}
-
-/**
- * The soft glow round a spark (share of its full glow) `ms` after its burst. That translucent
- * glow, on sparks of random sizes as they hang after the burst, is what makes the glitter. With
- * glitter on it stays, as it always did; with it off the sparks lose it as the burst spreads
- * (gone by the time it has finished), so nothing soft hangs about and the burst ends crisply.
- */
-export function sparkHalo(ms: number, glitter: boolean): number {
-  if (glitter) return 1
-  const t = Math.min(1, Math.max(0, (ms - 150) / 350))
-  return 1 - t
+export function glintAlpha(ms: number, life: number, blinks: boolean): number {
+  if (ms < 0 || ms >= life) return 0
+  if (blinks && Math.floor(ms / 45) % 3 === 1) return 0
+  const u = ms / life
+  return u < 0.2 ? u / 0.2 : (1 - (u - 0.2) / 0.8) ** 2
 }
 
 /** Seconds for one pass of the accent buttons' colour drift (CSS --flow-dur). */

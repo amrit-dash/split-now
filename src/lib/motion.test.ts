@@ -9,14 +9,13 @@ import {
   motionSummary,
   parseMotion,
   parsePreviewShown,
+  GLINT_SCALE,
+  glintAlpha,
+  glintCount,
+  glintLife,
+  glintRadius,
   particleScale,
-  REMNANT_FROM,
-  REMNANT_TO,
-  remnantMix,
-  sparkHalo,
-  sparkLife,
-  sparkOpacity,
-  sparkRadius,
+  SPARK_LIFE,
 } from './motion'
 
 describe('parseMotion', () => {
@@ -81,46 +80,51 @@ describe('fireworks', () => {
     expect(particleScale('small')).toBeLessThan(1)
     expect(particleScale('big')).toBeGreaterThan(fireworkScale('big'))
   })
-  it('without glitter, sparks are gone before the remnants would start lingering', () => {
-    expect(sparkLife(false)[1]).toBeLessThan(sparkLife(true)[0])
+  it('sparks live as long as they always did, whatever the glitter', () => {
+    expect(SPARK_LIFE).toEqual([1300, 2200])
   })
-  it("turns sparks into glitter by the time since the burst, not by each spark's life", () => {
-    expect(remnantMix(0)).toBe(0)
-    expect(remnantMix(REMNANT_FROM)).toBe(0)
-    const mid = (REMNANT_FROM + REMNANT_TO) / 2
-    expect(remnantMix(mid)).toBeGreaterThan(0)
-    expect(remnantMix(mid)).toBeLessThan(1)
-    expect(remnantMix(REMNANT_TO)).toBe(1)
-    expect(remnantMix(5000)).toBe(1)
-    // Glitter-off sparks are gone by the time sparks would have become glitter.
-    expect(sparkLife(false)[1]).toBeLessThanOrEqual(REMNANT_TO)
+})
+
+describe('glitter: the flash of dots a burnt-out spark leaves', () => {
+  it('leaves usually one dot, sometimes none, sometimes two', () => {
+    expect(glintCount(0.1, 0.9)).toBe(1)
+    expect(glintCount(0.9, 0.9)).toBe(0)
+    expect(glintCount(0.1, 0.1)).toBe(2)
+    expect(glintCount(0.9, 0.1)).toBe(1)
   })
-  it('sizes a spark by spark size while it flies and by glitter size once it lingers', () => {
-    expect(sparkRadius('big', 'small', 0)).toBe(particleScale('big'))
-    expect(sparkRadius('big', 'small', REMNANT_TO)).toBeCloseTo(particleScale('small'), 9)
-    expect(sparkRadius('big', 'tiny', 2000)).toBeCloseTo(particleScale('tiny'), 9)
-    expect(sparkRadius('medium', 'medium', 600)).toBe(1)
+  it('each dot is brief: 80–300 ms, mostly short', () => {
+    expect(glintLife(0)).toBe(80)
+    expect(glintLife(1)).toBe(300)
+    expect(glintLife(0.5)).toBeLessThan(190)
   })
-  it('offers a glitter size finer than any spark size', () => {
-    expect(particleScale('tiny')).toBeLessThan(particleScale('small'))
+  it('rises fast, then falls away to nothing', () => {
+    expect(glintAlpha(0, 200, false)).toBe(0)
+    expect(glintAlpha(40, 200, false)).toBeCloseTo(1, 9)
+    expect(glintAlpha(120, 200, false)).toBeGreaterThan(0)
+    expect(glintAlpha(120, 200, false)).toBeLessThan(1)
+    expect(glintAlpha(200, 200, false)).toBe(0)
+    expect(glintAlpha(-5, 200, false)).toBe(0)
+  })
+  it('a blinking dot goes dark one 45 ms step in three', () => {
+    expect(glintAlpha(60, 300, true)).toBe(0)
+    expect(glintAlpha(60, 300, false)).toBeGreaterThan(0)
+    expect(glintAlpha(100, 300, true)).toBeGreaterThan(0)
+  })
+  it('Glitter size sets the dot size, Tiny finest, never so small it vanishes', () => {
+    expect(GLINT_SCALE.medium).toBe(1)
+    expect(glintRadius(1, 'tiny')).toBeLessThan(glintRadius(1, 'small'))
+    expect(glintRadius(1, 'small')).toBeLessThan(glintRadius(1, 'medium'))
+    expect(glintRadius(1, 'medium')).toBeLessThan(glintRadius(1, 'big'))
+    expect(glintRadius(0.1, 'tiny')).toBe(0.35)
+  })
+  it('Tiny is for glitter only; spark sizes stay Small / Medium / Big', () => {
     expect(parseMotion(JSON.stringify({ glitterSize: 'tiny' })).glitterSize).toBe('tiny')
-    // Tiny is for glitter only; spark sizes stay Small / Medium / Big.
     expect(parseMotion(JSON.stringify({ sparkSize: 'tiny' })).sparkSize).toBe(DEFAULT_MOTION.sparkSize)
   })
-  it('fades sparks the original way, with or without glitter: the glitter adds no extra light', () => {
-    expect(sparkOpacity(0)).toBe(1)
-    expect(sparkOpacity(0.5)).toBeCloseTo(0.5 ** 1.6, 9)
-    expect(sparkOpacity(1)).toBe(0)
-  })
-  it('keeps the soft glow with glitter on, and drops it as the burst spreads with glitter off', () => {
-    // On: the glow that makes the glitter stays all through, as it always did.
-    for (const ms of [0, 400, 900, 2000]) expect(sparkHalo(ms, true)).toBe(1)
-    // Off: full at the burst, gone by the time it has spread (and the sparks end soon after).
-    expect(sparkHalo(0, false)).toBe(1)
-    expect(sparkHalo(300, false)).toBeGreaterThan(0)
-    expect(sparkHalo(300, false)).toBeLessThan(1)
-    expect(sparkHalo(500, false)).toBe(0)
-    expect(sparkLife(false)[0]).toBeGreaterThanOrEqual(500)
+  it('twinkle is its own setting, off unless turned on', () => {
+    expect(DEFAULT_MOTION.twinkle).toBe(false)
+    expect(parseMotion(JSON.stringify({ twinkle: true })).twinkle).toBe(true)
+    expect(parseMotion(JSON.stringify({ twinkle: 'yes' })).twinkle).toBe(false)
   })
 })
 

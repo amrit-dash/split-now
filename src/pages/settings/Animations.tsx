@@ -103,7 +103,7 @@ export default function Animations() {
           <Sub off={!prefs.fireworks}>
             <Row
               title="Glitter"
-              text="The sparks that linger and flicker out after each burst"
+              text="A quick flash of small lights where a burst was, as it fades"
               checked={prefs.glitter}
               disabled={off || !prefs.fireworks}
               onChange={(glitter) => set({ glitter })}
@@ -112,13 +112,23 @@ export default function Animations() {
             <fieldset disabled={!prefs.glitter} className={`mt-4 transition-opacity ${prefs.glitter ? '' : 'opacity-50'}`}>
               <SizePicker<GlitterSize>
                 label="Glitter size"
-                hint="How big they are as they linger"
+                hint="How big those lights are"
                 testId="motion-glitter-size"
                 value={prefs.glitterSize}
                 onChange={(glitterSize) => set({ glitterSize })}
                 options={GLITTER_SIZES}
               />
             </fieldset>
+          </Sub>
+          <Sub off={!prefs.fireworks}>
+            <Row
+              title="Twinkle"
+              text="Some sparks pulse as they fade, the brightest with a tiny star"
+              checked={prefs.twinkle}
+              disabled={off || !prefs.fireworks}
+              onChange={(twinkle) => set({ twinkle })}
+              testId="motion-twinkle"
+            />
           </Sub>
         </div>
 
@@ -219,7 +229,7 @@ const SIZES: Array<{ value: FireworkSize; label: string }> = [
   { value: 'medium', label: 'Medium' },
   { value: 'big', label: 'Big' },
 ]
-// Glitter goes one size finer, so it can be clearly smaller than the sparks it comes from.
+// Glitter goes one size finer than the sparks.
 const GLITTER_SIZES: Array<{ value: GlitterSize; label: string }> = [{ value: 'tiny', label: 'Tiny' }, ...SIZES]
 
 function SizePicker<T extends string = FireworkSize>({

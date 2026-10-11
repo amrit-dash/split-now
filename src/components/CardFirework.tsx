@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useMotion } from '@/hooks/useMotion'
 import { type FireworkLook, fireworkLook } from '@/lib/firework'
-import { activeMotion, fireworkScale, sparkHalo, sparkLife, sparkOpacity, sparkRadius } from '@/lib/motion'
+import { activeMotion, fireworkScale, glintAlpha, glintCount, glintLife, glintRadius, particleScale, SPARK_LIFE } from '@/lib/motion'
 
 /*
  * Quiet fireworks for the Home balance card when you're all settled up.
@@ -10,8 +10,7 @@ import { activeMotion, fireworkScale, sparkHalo, sparkLife, sparkOpacity, sparkR
  * velocity, leaning inwards, and climbs on a ballistic arc (constant gravity, so it slows
  * smoothly) to burst just short of its apex somewhere in the top half of the card. A thin
  * fading spark trail follows it. Bursts are soft, washed-out particles (additive blend at low
- * alpha, a faint halo instead of shadowBlur) under gravity + drag; kept plain, without
- * twinkles or glints, so it stays quiet. Colours are picked per shell from the live theme, read
+ * alpha, a faint halo instead of shadowBlur) under gravity + drag. Colours are picked per shell from the live theme, read
  * with getComputedStyle at launch so accents just work: on a deep fill light colours glow on top
  * (brand-200/300, duo-300, white, soft gold); on a bright fill (dark text: Neon, or "Text on
  * accent" set to Black) they would vanish, so the sparks are painted in the text's ink and the
@@ -24,13 +23,14 @@ import { activeMotion, fireworkScale, sparkHalo, sparkLife, sparkOpacity, sparkR
  * One rAF loop driven by its own show clock: it pauses (state kept) while the card is
  * off-screen or the tab is hidden, sleeps on a timer during quiet gaps, and everything is torn
  * down on unmount. Renders nothing under prefers-reduced-motion or when Settings → Animations
- * turns fireworks off; the size and glitter settings are read per burst, so a change shows on the
- * next one. The glitter is no separate particle: it is the burst's own sparks hanging for a moment
- * after the burst, each with its soft glow, at random sizes and fading opacities. Glitter on (and
- * Medium) is exactly that, as it always was; off, the sparks lose their glow as the burst spreads
- * and end when it has (sparkHalo, sparkLife). Spark size sets a spark's size while it flies,
- * glitter size the size it and its glow ease to once it hangs (sparkRadius in src/lib/motion.ts),
- * read every frame so a change shows at once.
+ * turns fireworks off. Firework size and Twinkle are read per burst, so a change shows on the next
+ * one; Spark size, Glitter and Glitter size every frame.
+ *
+ * Glitter: when a burst spark burns out it leaves a brief flash of small dots in the blast area
+ * (spawnGlints; the timing, count and sizes are glint* in src/lib/motion.ts), so as a burst fades
+ * a few lights flash here and there, some bigger, some brighter, a few stretched, and are gone.
+ * Twinkle (off by default) is separate: some sparks pulse as they fade, the brightest with a
+ * small four-point star.
  *
  * Place it inside the card's `relative isolate overflow-hidden` box, after <Aurora /> and
  * before the (relative) content, so it paints between the two.
@@ -81,9 +81,16 @@ interface Particle {
   grav: number
   alpha: number
   twinkle: number // 0 = none, else phase seed
-  /** A burst spark born with glitter on: it keeps its glow and hangs for a moment once it slows. */
-  lingers: boolean
   ember: boolean
+  /** 0: a spark; 1: a glitter dot; 2: a glitter streak */
+  glint: 0 | 1 | 2
+  /** the burst's centre (a burst spark's glitter is pulled towards it) */
+  ox: number
+  oy: number
+  /** a burst spark's glitter colour when it isn't its own: white-hot on a deep fill */
+  hot: string
+  /** a glitter streak's half-length, in radii */
+  len: number
   blend: FireworkLook['blend']
   halo: number
   shrink: number
@@ -218,7 +225,8 @@ export function CardFirework({ testId = 'home-firework' }: { testId?: string } =
 
     const burst = (s: Shell) => {
       const k = fireworkScale(prefsRef.current.size)
-      const [lifeMin, lifeMax] = sparkLife(prefsRef.current.glitter)
+      const [lifeMin, lifeMax] = SPARK_LIFE
+      const twinkles = prefsRef.current.twinkle
       const scale = clamp(Math.min(w, h * 1.9) / 330, 0.75, 1.25) * s.size * k
       // A bigger burst gets more sparks so it doesn't look sparse.
       let n = Math.round(rand(22, 30) * (0.6 + 0.4 * s.bright) * s.look.count * k)
@@ -242,15 +250,47 @@ export function CardFirework({ testId = 'home-firework' }: { testId?: string } =
           drag,
           grav: 34,
           alpha: s.bright * 0.75 * s.look.alpha,
-          twinkle: 0,
-          lingers: prefsRef.current.glitter,
-          ember: false, // no twinkle or glints: kept plain and quiet
+          twinkle: twinkles && Math.random() < 0.45 ? rand(1, 1000) : 0,
+          ember: false,
+          glint: 0,
+          ox: s.x,
+          oy: s.y,
+          // Painted (bright fill) sparks keep their own ink; light added on a deep fill can flash white.
+          hot: s.look.blend === 'lighter' ? `rgb(${s.look.flash})` : s.colors[i % s.colors.length],
+          len: 0,
           blend: s.look.blend,
           halo: s.look.halo,
           shrink: s.look.shrink,
         })
       }
       flashes.push({ x: s.x, y: s.y, t: clock, a: s.bright, rgb: s.look.flash, blend: s.look.blend })
+    }
+
+    // The glitter a burnt-out burst spark leaves (see the header and glint* in src/lib/motion.ts).
+    const spawnGlints = (p: Particle, into: Particle[]) => {
+      const n = glintCount(Math.random(), Math.random())
+      for (let i = 0; i < n && parts.length + into.length < MAX_PARTICLES; i++) {
+        const pull = rand(0, 0.55)
+        into.push({
+          ...p,
+          x: p.x + (p.ox - p.x) * pull + rand(-5, 5),
+          y: p.y + (p.oy - p.y) * pull + rand(-5, 5),
+          vx: p.vx * 0.2 + rand(-6, 6),
+          vy: p.vy * 0.2 + rand(0, 12),
+          born: clock + rand(0, 140),
+          life: glintLife(Math.random()),
+          r: (0.7 + 1.1 * Math.random() ** 2) * (p.shrink ? 1.2 : 1),
+          drag: 4,
+          grav: 20,
+          // most at a good share of the burst's light, one in ten at full
+          alpha: Math.random() < 0.1 ? 1 : rand(0.6, 1) * Math.min(1, p.alpha * 2.2),
+          color: Math.random() < 0.55 ? p.hot : p.color,
+          twinkle: Math.random() < 0.25 ? 1 : 0, // blinks once
+          glint: Math.random() < 0.18 ? 2 : 1,
+          len: rand(1.25, 2),
+          shrink: 0,
+        })
+      }
     }
 
     const draw = (dt: number) => {
@@ -281,8 +321,12 @@ export function CardFirework({ testId = 'home-firework' }: { testId?: string } =
               grav: 40,
               alpha: s.bright * 0.7,
               twinkle: 0,
-              lingers: false,
               ember: true,
+              glint: 0,
+              ox: 0,
+              oy: 0,
+              hot: s.look.ember,
+              len: 0,
               blend: s.look.blend,
               halo: s.look.halo,
               shrink: 0,
@@ -338,7 +382,8 @@ export function CardFirework({ testId = 'home-firework' }: { testId?: string } =
       flashes = flashes.filter((f) => clock - f.t < 600)
 
       // Particles
-      const { sparkSize, glitterSize } = prefsRef.current
+      const { sparkSize, glitterSize, glitter } = prefsRef.current
+      const sparkK = particleScale(sparkSize)
       for (const p of parts) {
         const age = (clock - p.born) / p.life
         if (age < 0) continue
@@ -349,22 +394,47 @@ export function CardFirework({ testId = 'home-firework' }: { testId?: string } =
         p.vy = p.vy * d + p.grav * dt
         p.x += p.vx * dt
         p.y += p.vy * dt
-        const since = clock - p.born // ms since its burst
-        let a = (p.ember ? (1 - age) ** 1.2 : sparkOpacity(age)) * p.alpha
+        if (p.glint) {
+          // A glitter dot: a sharp point (or short streak), no halo, so it reads against the soft sparks.
+          const ga = glintAlpha(clock - p.born, p.life, p.twinkle === 1) * p.alpha
+          if (ga <= 0.004) continue
+          const gr = glintRadius(p.r, glitterSize)
+          ctx.globalCompositeOperation = p.blend
+          ctx.globalAlpha = Math.min(1, ga)
+          if (p.glint === 2) {
+            const sp = Math.hypot(p.vx, p.vy)
+            const ang = sp > 2 ? Math.atan2(p.vy, p.vx) : Math.PI / 2
+            const dx = Math.cos(ang) * gr * p.len
+            const dy = Math.sin(ang) * gr * p.len
+            ctx.strokeStyle = p.color
+            ctx.lineWidth = gr * 1.4
+            ctx.beginPath()
+            ctx.moveTo(p.x - dx, p.y - dy)
+            ctx.lineTo(p.x + dx, p.y + dy)
+            ctx.stroke()
+          } else {
+            ctx.fillStyle = p.color
+            ctx.beginPath()
+            ctx.arc(p.x, p.y, gr, 0, Math.PI * 2)
+            ctx.fill()
+          }
+          continue
+        }
+        let a = (1 - age) ** (p.ember ? 1.2 : 1.6) * p.alpha
         if (a <= 0.004) continue
         let tw = 0
         if (p.twinkle && age > 0.3) {
           tw = 0.5 + 0.5 * Math.sin(clock / 70 + p.twinkle)
           a *= 0.45 + 0.75 * tw
         }
-        // Painted sparks (bright fills) shrink as they fall, so the lingering glitter stays fine.
-        const r = p.r * (p.ember ? 1 : sparkRadius(sparkSize, glitterSize, since)) * (1 - p.shrink * age)
+        // Painted sparks (bright fills) shrink as they fall, so they stay fine.
+        const r = p.r * (p.ember ? 1 : sparkK) * (1 - p.shrink * age)
         ctx.globalCompositeOperation = p.blend
         ctx.fillStyle = p.color
         ctx.strokeStyle = p.color
         if (!p.ember) {
-          // soft halo, fading as the spark becomes glitter so the glitter size is what shows
-          ctx.globalAlpha = a * p.halo * sparkHalo(since, p.lingers)
+          // soft halo
+          ctx.globalAlpha = a * p.halo
           ctx.beginPath()
           ctx.arc(p.x, p.y, r * 3.2, 0, Math.PI * 2)
           ctx.fill()
@@ -398,7 +468,14 @@ export function CardFirework({ testId = 'home-firework' }: { testId?: string } =
           ctx.stroke()
         }
       }
-      parts = parts.filter((p) => clock - p.born < p.life && p.y < h + 8)
+      // A burst spark that burns out (not one that falls off the card) leaves its glitter.
+      const born: Particle[] = []
+      parts = parts.filter((p) => {
+        const alive = clock - p.born < p.life && p.y < h + 8
+        if (!alive && glitter && !p.ember && !p.glint && p.y < h + 8) spawnGlints(p, born)
+        return alive
+      })
+      if (born.length) parts.push(...born)
 
       ctx.globalAlpha = 1
       ctx.globalCompositeOperation = 'source-over'
