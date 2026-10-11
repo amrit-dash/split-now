@@ -1,5 +1,5 @@
 import { blobToDataUrl } from '@/lib/image'
-import { archiveWrite, expenseMemberIds, isArchivedFor, uidsOfMembers, unarchiveInvolved } from '../../shared/archive'
+import { archiveWrite, balanceEditMembers, expenseMemberIds, isArchivedFor, uidsOfMembers, unarchiveInvolved } from '../../shared/archive'
 import { DELETED_GROUP_WRITE, purgeDue } from '../../shared/group-trash'
 import type { ActivityEntry, Capture, Expense, ExpenseComment, Group, Settlement, UserProfile } from '@/types'
 import { inviteCode, todayISO, uid } from '@/lib/id'
@@ -218,6 +218,8 @@ export function createLocalRepo(): Repo {
     state.groups[groupId] =
       'remove' in w ? { ...g, archivedBy: (g.archivedBy ?? []).filter((u) => !w.remove.includes(u)) } : { ...rest, archivedBy: w.convert.archivedBy }
   }
+  /** Like onExpenseUpdated / onSettlementUpdated: an edit that moves balances brings the group back for those it touched. */
+  const edited = (groupId: string, before: object, after: object) => unarchiveFor(groupId, balanceEditMembers(before, after))
   const touch = (groupId: string) => {
     const g = state.groups[groupId]
     if (g) state.groups[groupId] = { ...g, updatedAt: Date.now() }
@@ -515,6 +517,7 @@ export function createLocalRepo(): Repo {
       const autoApproved = !!prev && !!g && editAutoApproved({ group: g, before: prev, after: next })
       state.expenses[e.id] = next
       if (!prev) unarchiveFor(e.groupId, expenseMemberIds(next))
+      else edited(e.groupId, prev, next)
       log(e.groupId, expenseSaveActivity(prev, next, ctx(e.groupId, next), { autoApprovedWithin: autoApproved ? g?.editAutoApprove : undefined }))
       touch(e.groupId)
       commit()
@@ -524,6 +527,7 @@ export function createLocalRepo(): Repo {
       const e = state.expenses[id]
       if (!e || e.deletedAt) return
       state.expenses[id] = { ...e, deletedAt: Date.now(), deletedBy: actor() }
+      edited(groupId, e, state.expenses[id])
       log(groupId, expenseEventActivity('deleted', e, ctx(groupId, e)))
       touch(groupId)
       commit()
@@ -534,6 +538,7 @@ export function createLocalRepo(): Repo {
       if (!e?.deletedAt) return
       const { deletedAt: _t, deletedBy: _b, ...rest } = e
       state.expenses[id] = rest
+      edited(groupId, e, rest)
       log(groupId, expenseEventActivity('restored', rest, ctx(groupId, e)))
       touch(groupId)
       commit()
@@ -574,6 +579,7 @@ export function createLocalRepo(): Repo {
       const e = state.expenses[expense.id]
       if (!e) return
       state.expenses[e.id] = { ...e, approvals: { ...e.approvals, [actor()]: true } }
+      edited(group.id, e, state.expenses[e.id])
       log(group.id, disputeActivity('approved', e, ctx(group.id, e)))
       commit()
     },
@@ -633,6 +639,7 @@ export function createLocalRepo(): Repo {
       if (!s) return
       const { flag: _f, ...rest } = s
       state.settlements[id] = { ...rest, ok: { by: actor(), at: Date.now(), via: 'payee' } }
+      edited(groupId, s, state.settlements[id])
       log(groupId, settlementActivity('approved', s, ctx(groupId)))
       touch(groupId)
       commit()
@@ -644,6 +651,7 @@ export function createLocalRepo(): Repo {
       const text = reason?.trim().slice(0, 500)
       const { ok: _o, ...rest } = s
       state.settlements[id] = { ...rest, flag: { by: actor(), at: Date.now(), ...(text ? { reason: text } : {}) } }
+      edited(groupId, s, state.settlements[id])
       log(groupId, settlementActivity('flagged', s, ctx(groupId), text))
       touch(groupId)
       commit()
@@ -656,6 +664,7 @@ export function createLocalRepo(): Repo {
       const s = state.settlements[id]
       if (!s || s.deletedAt) return
       state.settlements[id] = { ...s, deletedAt: Date.now(), deletedBy: actor() }
+      edited(groupId, s, state.settlements[id])
       log(groupId, settlementActivity('deleted', s, ctx(groupId)))
       touch(groupId)
       commit()
@@ -666,6 +675,7 @@ export function createLocalRepo(): Repo {
       if (!s?.deletedAt) return
       const { deletedAt: _t, deletedBy: _b, ...rest } = s
       state.settlements[id] = rest
+      edited(groupId, s, rest)
       log(groupId, settlementActivity('restored', rest, ctx(groupId)))
       touch(groupId)
       commit()

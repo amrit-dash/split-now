@@ -8,6 +8,9 @@ describe('userRowActions', () => {
   it('offers make admin and block for an ordinary account', () => {
     expect(userRowActions({ uid: 'a', admin: false, blocked: false }, 'me')).toEqual(['make-admin', 'block'])
   })
+  it('a live-table guest can be blocked but never made an admin', () => {
+    expect(userRowActions({ uid: 'g', admin: false, blocked: false, guest: true }, 'me')).toEqual(['block'])
+  })
   it('only unblock for a blocked account (it must be unblocked before it can be an admin)', () => {
     expect(userRowActions({ uid: 'a', admin: false, blocked: true }, 'me')).toEqual(['unblock'])
   })

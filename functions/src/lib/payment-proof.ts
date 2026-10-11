@@ -6,6 +6,8 @@ import type { PaymentCheck, PaymentExpect, PaymentRead } from '../../../shared/p
 
 export interface ProofSettlement {
   to: string
+  /** who recorded it (the payer, or whoever recorded it for them): screenshot checks are rate-limited per them */
+  createdBy?: string
   amount: number
   date: string
   paid?: { currency: string; amount: number }

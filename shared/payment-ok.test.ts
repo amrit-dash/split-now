@@ -52,6 +52,10 @@ describe('payeeMatches', () => {
     expect(payeeMatches({ payee: 'ROHAN K SHARMA' }, names, handles)).toBe(true)
     expect(payeeMatches({ payee: 'Priya Nair' }, names, handles)).toBe(false)
   })
+  it('a shared surname alone is not the payee', () => {
+    expect(payeeMatches({ payee: 'Amit Sharma' }, names, [])).toBe(false)
+    expect(payeeMatches({ payee: 'SHARMA ROHAN' }, names, [])).toBe(true)
+  })
   it('another UPI ID is someone else, even with the same first name', () => {
     expect(payeeMatches({ payee: 'Rohan Verma', payeeHandle: 'rohanv@ybl' }, names, handles)).toBe(false)
     // Without a known UPI ID to compare, the name decides.

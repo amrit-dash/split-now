@@ -123,9 +123,10 @@ const tokens = (s: string) =>
     .filter((t) => t.length >= 3)
 
 /**
- * The money went to the payee: a handle matches exactly, or the names share a word (UPI apps
- * show the bank's name, "ROHAN K SHARMA", for someone the group calls "Rohan"). A handle that
- * names someone else is a mismatch even when a name word matches.
+ * The money went to the payee: a handle matches exactly, or the name shows their first name (UPI
+ * apps show the bank's name, "ROHAN K SHARMA", for someone the group calls "Rohan"). A shared
+ * surname alone isn't enough ("Amit Kumar" is not "Rohan Kumar"). A handle that names someone
+ * else is a mismatch even when the name matches.
  */
 export function payeeMatches(read: Pick<PaymentRead, 'payee' | 'payeeHandle'>, names: string[], handles: string[]): boolean | null {
   const known = new Set(handles.filter(Boolean).map(handleKey))
@@ -137,8 +138,9 @@ export function payeeMatches(read: Pick<PaymentRead, 'payee' | 'payeeHandle'>, n
     if (h.includes('@') && [...known].some((k) => k.includes('@'))) return false
   }
   if (!read.payee?.trim()) return read.payeeHandle?.trim() ? false : null
-  const want = new Set(names.flatMap(tokens))
-  return tokens(read.payee).some((t) => want.has(t))
+  // Each name the payee goes by contributes its first word (a nickname under 3 letters, none).
+  const firsts = new Set(names.map((n) => tokens(n)[0]).filter(Boolean))
+  return tokens(read.payee).some((t) => firsts.has(t))
 }
 
 const days = (a: string, b: string) => Math.abs(Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / 86_400_000

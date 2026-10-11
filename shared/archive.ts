@@ -64,6 +64,37 @@ export function expenseMemberIds(e: { paidBy?: Record<string, number>; splits?: 
   return [...ids]
 }
 
+interface BalanceItem {
+  amount?: number
+  paidBy?: Record<string, number>
+  splits?: Record<string, number>
+  from?: string
+  to?: string
+  deletedAt?: number
+  /** a payment's OK and flag: they decide whether it counts while it waits for the payee */
+  ok?: unknown
+  flag?: unknown
+  /** an expense's approvals and pending state */
+  approvals?: unknown
+  requiresApproval?: unknown
+}
+
+const same = (x: unknown, y: unknown) => JSON.stringify(x ?? null) === JSON.stringify(y ?? null)
+
+/**
+ * An edit to an expense or payment that can move balances (amount, who paid, the shares, the
+ * people, going to or back from the trash, an OK or flag, an approval), and the members it
+ * touched, before and after: they get the group back if they archived it, like a new expense
+ * (an edit that gives you a share must not stay hidden). Nothing for a change of description,
+ * note or receipt.
+ */
+export function balanceEditMembers(before: BalanceItem, after: BalanceItem): string[] {
+  const keys: (keyof BalanceItem)[] = ['amount', 'paidBy', 'splits', 'from', 'to', 'deletedAt', 'ok', 'flag', 'approvals', 'requiresApproval']
+  if (keys.every((k) => same(before[k], after[k]))) return []
+  const people = (x: BalanceItem) => [...expenseMemberIds(x), ...[x.from, x.to].filter((v): v is string => typeof v === 'string')]
+  return [...new Set([...people(before), ...people(after)])]
+}
+
 /** The accounts behind member ids, trusting only uids in memberUids (members[*].uid can be typed in). */
 export function uidsOfMembers(members: Record<string, { uid?: string }> | undefined, ids: readonly string[], memberUids: readonly string[]): string[] {
   const allowed = new Set(memberUids)

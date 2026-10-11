@@ -7,6 +7,8 @@ export interface UserRowState {
   uid: string
   admin: boolean
   blocked: boolean
+  /** a guest (live tables): no sign-in method, never a profile, so never an admin */
+  guest?: boolean
 }
 
 export type UserAction = 'make-admin' | 'remove-admin' | 'block' | 'unblock'
@@ -17,5 +19,5 @@ export function userRowActions(u: UserRowState, me: string): UserAction[] {
   // An admin can't be blocked; their access comes off first.
   if (u.admin) return ['remove-admin']
   if (u.blocked) return ['unblock']
-  return ['make-admin', 'block']
+  return u.guest ? ['block'] : ['make-admin', 'block']
 }

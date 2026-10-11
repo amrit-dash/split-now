@@ -12,7 +12,20 @@ import { checkPayment, type PaymentCheck } from '../../shared/payment-ok'
 import { aiReadPayment } from './ai'
 import { db, storage } from './admin'
 import { istDate } from './lib/time'
+import { limitPair } from '../../shared/limits'
+import { getLimits } from './lib/limits'
+import { applyRateLimit, type RateState } from './lib/ratelimit'
 import { proofExpect, proofUpdate, shouldCheck, type ProofSettlement } from './lib/payment-proof'
+
+async function proofCheckAllowed(payerUid: string, payeeUid: string, now: number): Promise<boolean> {
+  const limits = limitPair(await getLimits(now), 'proofChecksPerHour', 'proofChecksPerDay')
+  const ref = db().collection('rateLimits').doc(`proof_${payerUid}_${payeeUid}`)
+  return db().runTransaction(async (tx) => {
+    const r = applyRateLimit((await tx.get(ref)).data() as Partial<RateState> | undefined, now, limits)
+    if (r.allowed) tx.set(ref, { ...r.next, kind: 'proof', updatedAt: now })
+    return r.allowed
+  })
+}
 
 /** 5 MB, as storage.rules allows; anything larger isn't ours. */
 const MAX_PROOF = 5 * 1024 * 1024
@@ -26,6 +39,12 @@ export async function checkProof(
   payeeUid: string,
 ): Promise<PaymentCheck['verdict'] | null> {
   if (!shouldCheck(s, groupId, settlementId)) return null
+  // Each check runs on the payee's AI allowance: one payer can't burn through it by recording and
+  // deleting payments in a loop (config/limits proofChecksPerHour / proofChecksPerDay).
+  if (!(await proofCheckAllowed(String(s.createdBy ?? ''), payeeUid, Date.now()))) {
+    logger.info('payment check skipped', { groupId, settlementId, reason: 'rate_limited' })
+    return null
+  }
   const file = (await storage()).bucket().file(s.proofPath as string)
   const [meta] = await file.getMetadata().catch(() => [null])
   if (!meta || Number(meta.size) > MAX_PROOF) return null

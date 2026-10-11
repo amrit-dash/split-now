@@ -124,6 +124,31 @@ export function personBalances(rows: SettleRow[]): PersonBalance[] {
   return [...map.values()].sort((a, b) => Math.abs(b.net) - Math.abs(a.net) || a.name.localeCompare(b.name))
 }
 
+/**
+ * Rows a cross-group Settle up can net. Netting records "counter" payments in the groups that go
+ * against the overall direction; where you owe someone who owes you more overall, that is a
+ * payment from you to them, and in a group that asks for the payee's OK it would wait for theirs
+ * while the rest counted at once, leaving the netting half done. So those rows are held out
+ * (`held`, settled in their own group instead); everything else nets as before.
+ */
+export function nettableRows(rows: SettleRow[], gated: ReadonlySet<string>): { rows: SettleRow[]; held: SettleRow[] } {
+  const net = new Map<string, number>()
+  const mixed = new Map<string, Set<string>>()
+  for (const r of rows) {
+    const k = `${personKey(r)}|${r.currency}`
+    net.set(k, (net.get(k) ?? 0) + (r.dir === 'owed' ? r.amount : -r.amount))
+    mixed.set(k, (mixed.get(k) ?? new Set()).add(r.dir))
+  }
+  const held: SettleRow[] = []
+  const kept = rows.filter((r) => {
+    const k = `${personKey(r)}|${r.currency}`
+    const counter = r.dir === 'owe' && (net.get(k) ?? 0) > 0 && (mixed.get(k)?.size ?? 0) > 1 && gated.has(r.groupId)
+    if (counter) held.push(r)
+    return !counter
+  })
+  return { rows: kept, held }
+}
+
 /** Distinct groups a person's balance spans (a person can appear once per group). */
 export const groupCount = (p: PersonBalance) => new Set(p.parts.map((r) => r.groupId)).size
 

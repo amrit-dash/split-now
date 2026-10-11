@@ -20,7 +20,7 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { logger } from 'firebase-functions/logger'
 import { onDocumentCreated, onDocumentDeleted, onDocumentUpdated } from 'firebase-functions/v2/firestore'
-import { expenseMemberIds, uidsOfMembers, unarchiveInvolved } from '../../shared/archive'
+import { balanceEditMembers, expenseMemberIds, uidsOfMembers, unarchiveInvolved } from '../../shared/archive'
 import { pendingApprovers } from '../../shared/balances-core'
 import { crossedThresholds } from '../../shared/budget'
 import { db, storage } from './admin'
@@ -58,6 +58,25 @@ async function unarchiveFor(groupId: string, g: GroupLite, memberIds: string[]) 
   else await ref.update({ archivedBy: w.convert.archivedBy, archived: FieldValue.delete() })
   logger.info('unarchived for new activity', { groupId })
 }
+
+/**
+ * An edit, trash or restore that moves balances brings the group back for the people it touched,
+ * like a new one (balanceEditMembers): an edit that leaves you owing must not stay archived.
+ */
+async function unarchiveForEdit(groupId: string, before: Record<string, unknown> | undefined, after: Record<string, unknown> | undefined) {
+  if (!before || !after) return
+  const touched = balanceEditMembers(before, after)
+  if (!touched.length) return
+  const g = (await db().doc(`groups/${groupId}`).get()).data() as GroupLite | undefined
+  if (!g || typeof g.deletedAt === 'number' || !(g.archived === true || g.archivedBy?.length)) return
+  await unarchiveFor(groupId, g, touched)
+}
+
+export const onExpenseUpdated = onDocumentUpdated({ document: 'groups/{groupId}/expenses/{expenseId}', region: REGION }, async (event) => {
+  await unarchiveForEdit(event.params.groupId, event.data?.before.data(), event.data?.after.data()).catch((err) =>
+    logger.warn('unarchive', { groupId: event.params.groupId, error: (err as Error).message }),
+  )
+})
 
 /** reminderState/{gid}.budget (server-only): which thresholds were announced, for which budget figure. */
 interface BudgetState {
@@ -190,11 +209,12 @@ export const onSettlementCreated = onDocumentCreated(settlementOpts, async (even
 export const onSettlementUpdated = onDocumentUpdated({ document: 'groups/{groupId}/settlements/{settlementId}', region: REGION }, async (event) => {
   const before = event.data?.before.data()
   const after = event.data?.after.data()
+  const { groupId, settlementId } = event.params
+  await unarchiveForEdit(groupId, before, after).catch((err) => logger.warn('unarchive', { groupId, error: (err as Error).message }))
   const decision = payeeDecision(before, after)
   if (!decision || !after) return
-  const { groupId, settlementId } = event.params
   const g = (await db().doc(`groups/${groupId}`).get()).data() as GroupLite | undefined
-  if (!g) return
+  if (!g || typeof g.deletedAt === 'number') return
   const uids = uidsOf(g)
   const from = memberUid(g.members, after.from, uids)
   const to = memberUid(g.members, after.to, uids)

@@ -110,9 +110,11 @@ export const adminStats = onCall(callable, async (req): Promise<AdminStatsResult
   const today = istDate(new Date(now))
   const dayList = Array.from({ length: days }, (_, i) => addDays(today, i - (days - 1)))
   const refs = dayList.flatMap((day) => STAT_KINDS.map((k) => db().collection('stats').doc(`${k}_${day}`)))
-  const [snaps, groups, active, blocked, users] = await Promise.all([
+  const [snaps, allGroups, deletedGroups, active, blocked, users] = await Promise.all([
     db().getAll(...refs),
     db().collection('groups').count().get(),
+    // Groups in Recently deleted aren't counted as groups (the single-field index on deletedAt).
+    db().collection('groups').where('deletedAt', '>', 0).count().get(),
     db()
       .collection('groups')
       .where('updatedAt', '>', now - 7 * 86_400_000)
@@ -133,7 +135,7 @@ export const adminStats = onCall(callable, async (req): Promise<AdminStatsResult
     totals: {
       users: users.users,
       usersTruncated: users.truncated,
-      groups: groups.data().count,
+      groups: Math.max(0, allGroups.data().count - deletedGroups.data().count),
       activeGroups: active.data().count,
       blocked: blocked.data().count,
     },
@@ -242,12 +244,15 @@ export const adminBlockUser = onCall(callable, async (req): Promise<{ uid: strin
   const uid = d.uid
   const reason = (typeof d.reason === 'string' ? d.reason : '').trim().slice(0, 200)
   if (uid === me) throw new HttpsError('failed-precondition', 'You can’t block yourself')
-  if ((await db().collection('admins').doc(uid).get()).exists) throw new HttpsError('failed-precondition', 'Remove their admin access first')
   const now = Date.now()
   const ref = db().collection('blocked').doc(uid)
   let authUpdated = false
   if (d.block) {
-    await ref.set({ reason: reason || 'Blocked by an admin', at: now, by: me })
+    // Checked and written together, so a promotion at the same moment can't slip in between.
+    await db().runTransaction(async (tx) => {
+      if ((await tx.get(db().collection('admins').doc(uid))).exists) throw new HttpsError('failed-precondition', 'Remove their admin access first')
+      tx.set(ref, { reason: reason || 'Blocked by an admin', at: now, by: me })
+    })
     try {
       const a = await auth()
       await a.updateUser(uid, { disabled: true })
@@ -292,12 +297,29 @@ export const adminSetAdmin = onCall(callable, async (req): Promise<{ uid: string
   if (!isUid(d.uid)) throw new HttpsError('invalid-argument', 'Which account?')
   if (typeof d.admin !== 'boolean') throw new HttpsError('invalid-argument', 'admin must be true or false')
   const uid = d.uid
+  const admin = d.admin
   const ref = db().collection('admins').doc(uid)
-  const [adminSnap, profile, blocked] = await db().getAll(ref, db().collection('users').doc(uid), db().collection('blocked').doc(uid))
-  const refusal = adminChangeRefusal({ me, uid, makeAdmin: d.admin, isAdmin: adminSnap.exists, hasProfile: profile.exists, blocked: blocked.exists })
-  if (refusal) throw new HttpsError('failed-precondition', refusal)
-  if (d.admin && !adminSnap.exists) await ref.set({ at: Date.now(), by: me })
-  if (!d.admin && adminSnap.exists) await ref.delete()
-  logger.info(d.admin ? 'admin added' : 'admin removed', { uid, by: me })
-  return { uid, admin: d.admin }
+  // In one transaction that also reads the caller's own admin entry and the block list, so two
+  // admins removing each other at once can't leave nobody, and a block racing a promotion can't
+  // leave someone both blocked and an admin (adminBlockUser reads admins/ the same way).
+  const changed = await db().runTransaction(async (tx) => {
+    const [mine, adminSnap, profile, blocked] = await tx.getAll(
+      db().collection('admins').doc(me),
+      ref,
+      db().collection('users').doc(uid),
+      db().collection('blocked').doc(uid),
+    )
+    if (!mine.exists) throw new HttpsError('permission-denied', 'Admins only')
+    const refusal = adminChangeRefusal({ me, uid, makeAdmin: admin, isAdmin: adminSnap.exists, hasProfile: profile.exists, blocked: blocked.exists })
+    if (refusal) throw new HttpsError('failed-precondition', refusal)
+    if (admin === adminSnap.exists) return false
+    const now = Date.now()
+    if (admin) tx.set(ref, { at: now, by: me })
+    else tx.delete(ref)
+    // admins/{uid} only says who is an admin now; adminLog keeps who was made one, or stopped being one, by whom (server-only).
+    tx.create(db().collection('adminLog').doc(), { uid, admin, by: me, at: now })
+    return true
+  })
+  if (changed) logger.info(admin ? 'admin added' : 'admin removed', { uid, by: me })
+  return { uid, admin }
 })

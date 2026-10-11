@@ -217,7 +217,7 @@ service cloud.firestore {
       // Ranges mirror LIMIT_META in shared/limits.ts.
       function validLimits(d) {
         return d.keys().hasOnly(['capturePerHour', 'capturePerDay', 'aiOwnPerHour', 'aiOwnPerDay', 'nudgePerDay',
-            'fxPerUserPerHour', 'fxPerUserPerDay', 'updatedAt', 'updatedBy'])
+            'fxPerUserPerHour', 'fxPerUserPerDay', 'proofChecksPerHour', 'proofChecksPerDay', 'updatedAt', 'updatedBy'])
           && d.get('capturePerHour', 60) is int && d.get('capturePerHour', 60) >= 1 && d.get('capturePerHour', 60) <= 1000
           && d.get('capturePerDay', 300) is int && d.get('capturePerDay', 300) >= 1 && d.get('capturePerDay', 300) <= 10000
           && d.get('aiOwnPerHour', 120) is int && d.get('aiOwnPerHour', 120) >= 1 && d.get('aiOwnPerHour', 120) <= 1000
@@ -225,6 +225,8 @@ service cloud.firestore {
           && d.get('nudgePerDay', 1) is int && d.get('nudgePerDay', 1) >= 1 && d.get('nudgePerDay', 1) <= 20
           && d.get('fxPerUserPerHour', 30) is int && d.get('fxPerUserPerHour', 30) >= 1 && d.get('fxPerUserPerHour', 30) <= 500
           && d.get('fxPerUserPerDay', 200) is int && d.get('fxPerUserPerDay', 200) >= 1 && d.get('fxPerUserPerDay', 200) <= 5000
+          && d.get('proofChecksPerHour', 10) is int && d.get('proofChecksPerHour', 10) >= 1 && d.get('proofChecksPerHour', 10) <= 100
+          && d.get('proofChecksPerDay', 30) is int && d.get('proofChecksPerDay', 30) >= 1 && d.get('proofChecksPerDay', 30) <= 500
           && d.get('updatedAt', 0) is int
           && d.get('updatedBy', '') is string;
       }

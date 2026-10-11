@@ -75,6 +75,8 @@ export default function Users() {
   const label = (u: AdminUser) => u.name ?? u.email ?? u.uid
 
   const setAdmin = async (u: AdminUser, admin: boolean) => {
+    // A block form left open on this row would only fail once they're an admin.
+    setReasonFor(null)
     const ok = await confirm(
       admin
         ? {
@@ -241,7 +243,7 @@ function RowActions({
   onBlock: () => void
   onUnblock: () => void
 }) {
-  const actions = userRowActions({ uid: u.uid, admin: u.admin, blocked: !!u.blocked }, me)
+  const actions = userRowActions({ uid: u.uid, admin: u.admin, blocked: !!u.blocked, guest: u.providers.length === 0 }, me)
   if (!actions.length) return null
   const spin = <Loader2 size={16} className="animate-spin" />
   return (
