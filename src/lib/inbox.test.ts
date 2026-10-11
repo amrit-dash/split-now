@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ActivityEntry, ActivityType } from '@/types'
 import { activityHref, activityText } from './activity'
 import {
+  canMarkAllRead,
   clearAllUpdates,
   collapseRuns,
   hideUpdate,
@@ -121,5 +122,19 @@ describe('sorting the Inbox', () => {
     expect(by('newest')).toEqual([3, 2, 1])
     expect(by('oldest')).toEqual([1, 2, 3])
     expect(by('amount')).toEqual([2, 1, 3])
+  })
+})
+
+describe('canMarkAllRead', () => {
+  const e = (actorUid: string, createdAt: number) => ({ id: `${actorUid}${createdAt}`, actorUid, createdAt }) as ActivityEntry
+  it('shows while someone else has an entry newer than the last read', () => {
+    expect(canMarkAllRead([e('bob', 200)], 'me', 100, 100)).toBe(true)
+  })
+  it('keeps showing while this visit still shows dots, even after Updates marked them read', () => {
+    expect(canMarkAllRead([e('bob', 200)], 'me', 300, 100)).toBe(true)
+  })
+  it('hides when nothing is new, your own entries never count, and a missing list is nothing', () => {
+    expect(canMarkAllRead([e('bob', 50), e('me', 500)], 'me', 100, 100)).toBe(false)
+    expect(canMarkAllRead(null, 'me', 0, 0)).toBe(false)
   })
 })

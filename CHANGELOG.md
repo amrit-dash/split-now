@@ -10,6 +10,7 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 - Someone added to a group by their email now sees it straight away when they already have an account (and gets a notification); people who sign up later get the group when they first sign in with that email. Admins can link people in older groups from Admin → Users → Link now.
 - Settings → Animations: the Glitter shape options are now small pictures of each shape (Mix shows one of each), so the row fits any phone.
 - Profile: on narrow phones the payment section is titled How to pay you, so it stays on one line.
+- Inbox: a Mark all read button in the header, shown while there are unread updates.
 
 ## 3.10.2 — October 2026
 

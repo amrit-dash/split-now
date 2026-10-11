@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Ban, BookOpen, Check, ChevronDown, ChevronRight, EyeOff, Flag, FolderInput, Loader2, Plus, RotateCcw, Trash2 } from 'lucide-react'
+import { Ban, BookOpen, Check, CheckCheck, ChevronDown, ChevronRight, EyeOff, Flag, FolderInput, Loader2, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { memberOrder, myMemberId, useAllGroupData, useCaptures, useCapturesMeta, type GroupData } from '@/hooks/data'
@@ -15,6 +15,7 @@ import { suggestCategory } from '@/lib/merchants'
 import { useMerchantMemory } from '@/hooks/useMerchants'
 import { errText } from '@/lib/errors'
 import {
+  canMarkAllRead,
   clearAllUpdates,
   collapseRuns,
   hideUpdate,
@@ -70,7 +71,7 @@ export default function Inbox() {
   const [tab, setTab] = useState<Tab | null>(null)
   const current: Tab = tab ?? (box.toSort === 0 && box.unread > 0 ? 'updates' : 'sort')
   // The moment the user looks at Updates, everything up to now is read (the dots stay for this visit).
-  const [seenBefore] = useState(box.seenAt)
+  const [seenBefore, setSeenBefore] = useState(box.seenAt)
   // biome-ignore lint/correctness/useExhaustiveDependencies: the length is the trigger (new entries while the tab is open are read too)
   useEffect(() => {
     if (current === 'updates') markInboxSeen()
@@ -90,7 +91,27 @@ export default function Inbox() {
 
   return (
     <div>
-      <PageHeader title="Inbox" back />
+      <PageHeader
+        title="Inbox"
+        back
+        right={
+          canMarkAllRead(box.updates, user.uid, box.seenAt, seenBefore) && (
+            <button
+              type="button"
+              onClick={() => {
+                const now = Date.now()
+                markInboxSeen(now)
+                setSeenBefore(now)
+              }}
+              className="flex min-h-11 items-center gap-1.5 rounded-full px-3 text-sm font-semibold text-brand-700 hover:bg-slate-200/60 dark:text-brand-300 dark:hover:bg-ink-800"
+              data-testid="inbox-mark-read"
+            >
+              <CheckCheck size={18} aria-hidden />
+              Mark all read
+            </button>
+          )
+        }
+      />
       <Segmented<Tab>
         label="Inbox sections"
         testId="inbox-tabs"

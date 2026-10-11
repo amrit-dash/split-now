@@ -40,6 +40,13 @@ export const othersActivity = (entries: ActivityEntry[] | null, myUid: string) =
 /** New = someone else did it after `seenAt`. Your own entries are never new. */
 export const isUnread = (a: Pick<ActivityEntry, 'actorUid' | 'createdAt'>, myUid: string, seenAt: number) => a.actorUid !== myUid && a.createdAt > seenAt
 
+/**
+ * "Mark all read" shows while anything would still read as new: unread updates (counted on the
+ * To sort tab's badge), or the dots this visit keeps on Updates after opening it marked them read.
+ */
+export const canMarkAllRead = (entries: ActivityEntry[] | null, myUid: string, seenAt: number, dotsSince: number) =>
+  (entries ?? []).some((a) => isUnread(a, myUid, Math.min(seenAt, dotsSince)))
+
 export const unreadCount = (entries: ActivityEntry[] | null, myUid: string, seenAt: number) => (entries ?? []).filter((a) => isUnread(a, myUid, seenAt)).length
 
 /** Runs of at least this many adds by one person in one group become one row. */
