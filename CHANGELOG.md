@@ -6,6 +6,8 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 4.3.0 — October 2026
+
 - **Emails go through Firebase only**: confirming a new email account and adding another email now use Firebase's own links instead of 6-digit codes, so no outside email service is needed. Profile → Emails → Add another email sends a link to that address; opening it adds the email (or offers to merge the account it already has). Admin → Email is gone.
 - For admins: Admin → Users no longer has Link now; linking by email happens on its own.
 
