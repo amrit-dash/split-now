@@ -310,6 +310,10 @@ export function createLocalRepo(): Repo {
   const repo: Repo = {
     mode: 'demo',
     onError: errors.on,
+    watchPendingWrites(cb) {
+      cb(0)
+      return () => {}
+    },
 
     onAuth: (cb) => watch(() => state.user, cb),
     async signInDemo(name) {

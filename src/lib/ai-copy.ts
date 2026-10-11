@@ -129,10 +129,27 @@ export function aiDataNote(status: Pick<AiStatusResult, 'app'> | null | undefine
   const tail = 'Nothing else leaves your phone, and nothing is sent while this is off.'
   const shared = status?.app.images === 'available' || status?.app.sms === 'available'
   if (shared && isFreeAi(status))
-    return `${what} are sent to Google to read them. Split Now’s AI runs on Gemma, Google’s free model: see “Use free AI” below for what that means. ${tail}`
+    return `${what} are sent to Google to read them: to Gemma, Google’s free model, only if you turn on “Use free AI” below, else only to your own Gemini key. ${tail}`
   if (shared)
     return `${what} are sent to Google Gemini to read them. On Split Now’s key they go from Split Now’s servers in Mumbai (Google Cloud, asia-south1) to Google’s paid Gemini API, which doesn’t use them to improve Google’s models. Split Now keeps only what you save. ${tail}`
   return `${what} are sent to Google Gemini to read them. ${tail}`
+}
+
+/**
+ * Which AI the feature rows should name ("Photos go to Gemma…"): the one that reads first for this
+ * person. The free Gemma only when they turned on "Use free AI" and their key choice allows it
+ * (planAi puts it first on Automatic); their own key is Gemini; Split Now's paid key is Gemini.
+ * "the AI" when none can serve them yet (the status line says why).
+ */
+export function aiReaderName(o: { free: boolean; freeOk: boolean; source: string; hasOwnKey: boolean; appAvailable: boolean }): 'Gemma' | 'Gemini' | 'the AI' {
+  const gemma = o.free && o.freeOk && o.appAvailable && o.source !== 'own'
+  const paidApp = !o.free && o.appAvailable && o.source !== 'own'
+  const own = o.hasOwnKey && o.source !== 'app'
+  if (o.source === 'auto' && gemma) return 'Gemma'
+  if (own) return 'Gemini'
+  if (gemma) return 'Gemma'
+  if (paidApp) return 'Gemini'
+  return 'the AI'
 }
 
 /** The "Use free AI" switch: what the free AI reads, and the price of free. */

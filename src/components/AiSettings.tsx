@@ -7,10 +7,10 @@ import type { AiModel, AiState, AppAiStatusValue } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
 import { useAiStatus } from '@/hooks/useAiStatus'
 import { useFlag } from '@/hooks/useAppConfig'
-import { aiAvailability, aiDataNote, FREE_AI_NOTE, isFreeAi } from '@/lib/ai-copy'
+import { aiAvailability, aiDataNote, aiReaderName, FREE_AI_NOTE, isFreeAi } from '@/lib/ai-copy'
 import { errText } from '@/lib/errors'
 import { setAiScan } from '@/lib/ai'
-import { DEFAULT_MODEL, type AiSource } from '@/lib/ai-config'
+import { autoSourceHint, DEFAULT_MODEL, type AiSource } from '@/lib/ai-config'
 import { DEFAULT_ALL_PREFS, savePrefs, watchPrefs, type AllPrefs } from '@/lib/push'
 import { Collapsible } from './Collapsible'
 import { Select } from './Select'
@@ -115,7 +115,14 @@ export function AiSettings() {
   // Split Now's AI is the free one (Gemma) and could serve this person: they turn it on themselves.
   const free = isFreeAi(status)
   const freeOffered = free && !!status && (status.app.images === 'available' || status.app.sms === 'available')
-  const aiName = free ? 'Gemma' : 'Gemini'
+  // Named after the AI that will actually read for this person (not just what Split Now's runs on).
+  const aiName = aiReaderName({
+    free,
+    freeOk: prefs.aiFreeOk,
+    source: prefs.aiSource,
+    hasOwnKey: hasKey && !state?.lastError,
+    appAvailable: !!status && (status.app.images === 'available' || status.app.sms === 'available'),
+  })
   // The shared key can't serve this person: their own key is the only route, so show it.
   const byokOnly = !!status && status.app.images !== 'available' && status.app.sms !== 'available'
   const advancedOpen = advanced ?? (prefs.aiEnabled && byokOnly && !hasKey)
@@ -135,13 +142,13 @@ export function AiSettings() {
     <div data-testid="ai-settings">
       <div className="card p-4">
         <Row
-          title="Read bills and SMS with AI"
+          title="Use AI"
           testId="ai-enabled"
           checked={prefs.aiEnabled}
           onChange={(v) => set({ aiEnabled: v })}
           text={
             prefs.aiEnabled
-              ? 'Reads amounts, items and dates that the phone can’t.'
+              ? 'For what the phone can’t read: bills, bank SMS, Quick add lines and payment screenshots. Choose which under Advanced.'
               : 'Off: nothing is sent to any AI. Bills are read on this phone, less accurately.'
           }
         />
@@ -157,6 +164,11 @@ export function AiSettings() {
         {prefs.aiEnabled && freeOffered && (
           <div className="mt-4 rounded-2xl bg-amber-50 p-3.5 dark:bg-amber-500/10" data-testid="ai-free">
             <Row title="Use free AI" testId="ai-free-ok" checked={prefs.aiFreeOk} onChange={(v) => set({ aiFreeOk: v })} text={FREE_AI_NOTE} />
+            {prefs.aiFreeOk && prefs.aiSource === 'own' && (
+              <p className="mt-2 text-xs font-semibold text-amber-900 dark:text-amber-200" data-testid="ai-free-unused">
+                Not used while Which key (under Advanced) is “Only my key”.
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -243,7 +255,13 @@ export function AiSettings() {
 
             <div>
               <div className="label">Which key</div>
-              <Select aria-label="Which key" value={prefs.aiSource} onChange={(v) => set({ aiSource: v as AiSource })} options={SOURCE_OPTIONS} />
+              <Select
+                aria-label="Which key"
+                value={prefs.aiSource}
+                onChange={(v) => set({ aiSource: v as AiSource })}
+                // With the free AI turned on, Automatic tries it before your key (planAi).
+                options={SOURCE_OPTIONS.map((o) => (o.value === 'auto' ? { ...o, hint: autoSourceHint(free && prefs.aiFreeOk) } : o))}
+              />
             </div>
 
             {/* Split Now's (project) key */}

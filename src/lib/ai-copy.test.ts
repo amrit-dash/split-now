@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aiAvailability, aiDataNote, aiSummaryText, FREE_AI_NOTE, isQuietReason, unavailableText } from './ai-copy'
+import { aiAvailability, aiDataNote, aiReaderName, aiSummaryText, FREE_AI_NOTE, isQuietReason, unavailableText } from './ai-copy'
 
 describe('aiAvailability', () => {
   const app = (images: 'available' | 'off' | 'not_listed' | 'feature_off', sms = images) => ({ admin: false, app: { images, sms, model: 'm' } })
@@ -135,12 +135,32 @@ describe('aiDataNote', () => {
     expect(t).not.toMatch(/free/i)
   })
   it('on the free AI points to the switch that carries the warning, which names the trade and the regions', () => {
-    expect(aiDataNote(st('available', 'gemma'))).toContain('Gemma, Google’s free model')
+    expect(aiDataNote(st('available', 'gemma'))).toContain('Gemma, Google’s free model, only if you turn on “Use free AI”')
     expect(FREE_AI_NOTE).toMatch(/may use what you send/)
     expect(FREE_AI_NOTE).toMatch(/payment screenshots, bank SMS/)
     expect(FREE_AI_NOTE).toMatch(/EU, the UK or Switzerland/)
   })
   it('with no shared AI claims nothing about it', () => {
     for (const s of [st('off', 'gemma'), st('off'), null, undefined]) expect(aiDataNote(s)).not.toMatch(/Mumbai|Gemma/)
+  })
+})
+
+describe('aiReaderName', () => {
+  const o = { free: true, freeOk: false, source: 'auto', hasOwnKey: false, appAvailable: true }
+  it('free AI off: never Gemma', () => {
+    expect(aiReaderName(o)).toBe('the AI')
+    expect(aiReaderName({ ...o, hasOwnKey: true })).toBe('Gemini')
+  })
+  it('free AI on: Gemma first on Automatic and Only Split Now’s key', () => {
+    expect(aiReaderName({ ...o, freeOk: true, hasOwnKey: true })).toBe('Gemma')
+    expect(aiReaderName({ ...o, freeOk: true, source: 'app', hasOwnKey: true })).toBe('Gemma')
+  })
+  it('Only my key: their Gemini key, never Gemma', () => {
+    expect(aiReaderName({ ...o, freeOk: true, source: 'own', hasOwnKey: true })).toBe('Gemini')
+    expect(aiReaderName({ ...o, freeOk: true, source: 'own' })).toBe('the AI')
+  })
+  it('Split Now’s paid key is Gemini', () => {
+    expect(aiReaderName({ ...o, free: false })).toBe('Gemini')
+    expect(aiReaderName({ ...o, free: false, appAvailable: false })).toBe('the AI')
   })
 })

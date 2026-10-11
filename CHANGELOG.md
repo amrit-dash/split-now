@@ -6,6 +6,13 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Admin → Flags & app: the minimum version and the announcement's end date each sit on a full-width row with a proper button beside them (Use this build, Stop announcement), which drops to its own line on a phone.
+
+- A note shows when your changes haven't reached the server yet: "Saving…" if a save is slow, and offline, how many changes are waiting on this phone. Closing the tab while something is unsent asks first.
+- In Admin, Back leaves the console instead of stepping back through the tabs you opened.
+- AI on Automatic with **Use free AI** turned on tries the free AI first and your own key only if it can't answer, so your key's quota lasts longer.
+- AI features screen: the rows now name the AI that will actually read for you, so with **Use free AI** off they no longer say Gemma. The main switch is now **Use AI**, since it covers bills, bank SMS, Quick add and payment screenshots, and the screen says when **Use free AI** has no effect because you chose **Only my key**.
+
 ## 3.10.1 — October 2026
 
 - Adding an expense saves straight away. It used to wait up to a second and a half for the server first, and Add all and statement imports waited that long for every expense.

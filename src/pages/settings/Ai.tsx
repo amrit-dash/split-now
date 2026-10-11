@@ -5,7 +5,7 @@ import { SettingsPage } from './common'
 /** /settings/ai: one switch, a consent line, and the key plumbing under Advanced. */
 export default function Ai() {
   return (
-    <SettingsPage title="AI features" subtitle="Reading bills and bank SMS with Google Gemini">
+    <SettingsPage title="AI features" subtitle="Reading bills, bank SMS and more with Google’s AI">
       {repo.mode === 'firebase' ? (
         <AiSettings />
       ) : (
