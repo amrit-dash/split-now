@@ -6,8 +6,11 @@ import { auth, db } from './admin'
 import { ENFORCE_APP_CHECK, REGION } from './config'
 import {
   appKeyStatus,
+  gemmaModels,
+  gemmaPlanModels,
   keyHint,
   looksLikeGeminiKey,
+  needsFreeOk,
   planAi,
   resolveAppAi,
   resolveUserAi,
@@ -60,7 +63,9 @@ import { addDays, istDate } from './lib/time'
  * AI reading (Gemini). Every call goes through here: the user's own key first (if saved and
  * allowed by their settings), then the project key if config/ai lets them use it, else nothing
  * (the app falls back to reading on the phone; SMS keep the built-in parser's result).
- * See shared/ai-config.ts for the rules.
+ * See shared/ai-config.ts for the rules. With config/ai.engine 'gemma' the project key runs
+ * Google's free Gemma models instead (newest by default, for everyone who agreed), slower, so
+ * every call below has a longer time budget for it.
  *
  * Keys at rest (users/{uid}/secrets/gemini and private/geminiAppKey) are sealed with AES-256-GCM
  * under AI_KEY_KEK (lib/seal.ts). Documents written before that hold a plaintext `key`; they are
@@ -207,6 +212,7 @@ async function record(
   else {
     doc[key] = FieldValue.increment(1)
     doc[`${key}_${feature}`] = FieldValue.increment(1)
+    if (plan.engine === 'gemma') doc.app_gemma = FieldValue.increment(1)
     if (extra.err) doc.errors = FieldValue.increment(1)
     if (extra.usage) {
       doc.tokensIn = FieldValue.increment(extra.usage.promptTokens)
@@ -236,7 +242,30 @@ const FEATURE_FLAG: Record<AiFeature, string> = { images: 'aiImages', sms: 'aiSm
 
 type AiOutcome<T> = { ok: true; value: T; via: KeyPlan['key']; model?: string } | { ok: false; reason: AiUnavailableReason; kind?: GeminiErrorKind }
 
-const REASON_ORDER: AiUnavailableReason[] = ['quota', 'bad_key', 'server', 'not_configured', 'not_listed', 'off']
+const REASON_ORDER: AiUnavailableReason[] = ['quota', 'bad_key', 'server', 'needs_ok', 'not_configured', 'not_listed', 'off']
+
+/**
+ * The Gemma models the project key can use, newest first (shared/ai-config.ts gemmaModels), kept
+ * for 6 hours per key so "the newest Gemma" follows Google's releases without a deploy. [] when
+ * the list can't be fetched (gemmaPlanModels then uses the built-in fallbacks).
+ */
+let gemmaCache: { at: number; key: string; ids: string[] } | null = null
+async function gemmaIds(key: string): Promise<string[]> {
+  if (gemmaCache && gemmaCache.key === key && Date.now() - gemmaCache.at < 6 * 3600_000) return gemmaCache.ids
+  try {
+    const ids = gemmaModels(await listModels(key)).map((m) => m.id)
+    gemmaCache = { at: Date.now(), key, ids }
+    return ids
+  } catch (e) {
+    logger.warn('gemma model list', (e as Error).message)
+    // Don't ask again on every call while listing fails: retry in 10 minutes.
+    gemmaCache = { at: Date.now() - 6 * 3600_000 + 600_000, key, ids: [] }
+    return []
+  }
+}
+
+/** A call's time budget: Gemini answers in seconds, the free Gemma models can take a minute. */
+const budget = (gemma: boolean, geminiMs: number, gemmaMs: number) => (gemma ? gemmaMs : geminiMs)
 const reasonOf = (kind: GeminiErrorKind): AiUnavailableReason => (kind === 'bad_key' || kind === 'billing' ? 'bad_key' : kind === 'quota' ? 'quota' : 'server')
 
 /**
@@ -248,7 +277,7 @@ const reasonOf = (kind: GeminiErrorKind): AiUnavailableReason => (kind === 'bad_
 async function withAi<T>(
   ctx: Ctx,
   feature: AiFeature,
-  call: (key: string, models: string[]) => Promise<{ value: T; usage?: GeminiUsage; model?: string }>,
+  call: (key: string, models: string[], gemma: boolean) => Promise<{ value: T; usage?: GeminiUsage; model?: string }>,
   /** how the call is counted in stats/ai_{day} when it isn't the feature it is gated by (Quick add text uses the images allowance) */
   statAs: AiFeature | 'text' = feature,
 ): Promise<AiOutcome<T>> {
@@ -257,7 +286,9 @@ async function withAi<T>(
   const plans = planAi({ feature, user: ctx.user, app: ctx.app, hasOwnKey: !!ctx.ownKey, email: ctx.email })
   const reasons: AiUnavailableReason[] = []
   let lastKind: GeminiErrorKind | undefined
-  if (!plans.length) {
+  // Split Now's free AI would serve this person once they agree to it in their AI settings.
+  if (needsFreeOk({ feature, user: ctx.user, app: ctx.app, email: ctx.email })) reasons.push('needs_ok')
+  else if (!plans.length) {
     if (!userFeatureOn(ctx.user, feature) || ctx.user.aiSource === 'own') reasons.push('off')
     else reasons.push(appKeyStatus(ctx.app, feature, ctx.email) === 'not_listed' ? 'not_listed' : 'off')
   }
@@ -276,7 +307,9 @@ async function withAi<T>(
       continue
     }
     try {
-      const r = await call(key, plan.models)
+      const gemma = plan.engine === 'gemma'
+      const models = gemma ? gemmaPlanModels(plan.models[0] ?? '', await gemmaIds(key)) : plan.models
+      const r = await call(key, models, gemma)
       await record(ctx, plan, statAs, now, { usage: r.usage, model: r.model })
       return { ok: true, value: r.value, via: plan.key, model: r.model }
     } catch (e) {
@@ -320,7 +353,7 @@ export interface ParseResult {
  *    `reason` is an AiUnavailableReason from shared/ai-config.ts).
  * `receipt: null` / `statement: null` means the image isn't a bill / has no transactions (or Gemini refused it).
  */
-export const parseReceiptAi = onCall({ ...base, timeoutSeconds: 120, memory: '512MiB', maxInstances: 10 }, async (req): Promise<ParseResult> => {
+export const parseReceiptAi = onCall({ ...base, timeoutSeconds: 180, memory: '512MiB', maxInstances: 10 }, async (req): Promise<ParseResult> => {
   const me = signedIn(req)
   const d = (req.data ?? {}) as { kind?: unknown; image?: unknown; mimeType?: unknown; images?: unknown; today?: unknown }
   // Quick add: a typed or spoken line, no image. Same switch and allowance as bill reading.
@@ -338,10 +371,10 @@ export const parseReceiptAi = onCall({ ...base, timeoutSeconds: 120, memory: '51
       : serverToday
   const ctx = await loadCtx(me.uid, me.email)
   if (kind === 'statement') {
-    const r = await withAi(ctx, 'images', async (key, models) => {
+    const r = await withAi(ctx, 'images', async (key, models, gemma) => {
       const g = await generateJson(key, [...parts, { text: `Today is ${today}.` }], STATEMENT_SCHEMA, {
         models,
-        timeoutMs: 100_000,
+        timeoutMs: budget(gemma, 100_000, 165_000),
         systemInstruction: statementPrompt(today),
       })
       return { value: normaliseStatement(g.json, today), usage: g.usage, model: g.modelVersion ?? g.model }
@@ -349,12 +382,12 @@ export const parseReceiptAi = onCall({ ...base, timeoutSeconds: 120, memory: '51
     if (r.ok) return { statement: r.value, via: r.via, model: r.model }
     return r.kind === 'blocked' ? { statement: null } : { unavailable: true, reason: r.reason }
   }
-  const r = await withAi(ctx, 'images', async (key, models) => {
+  const r = await withAi(ctx, 'images', async (key, models, gemma) => {
     const g = await generateJson(
       key,
       [...parts, { text: `Today is ${today}. Bill language may be Hindi or regional; keep item names as printed, transliterated to Latin letters.` }],
       RECEIPT_SCHEMA,
-      { models, systemInstruction: RECEIPT_PROMPT },
+      { models, systemInstruction: RECEIPT_PROMPT, timeoutMs: budget(gemma, 25_000, 110_000) },
     )
     return { value: normaliseReceipt(g.json), usage: g.usage, model: g.modelVersion ?? g.model }
   })
@@ -401,10 +434,10 @@ async function parseText(
   const r = await withAi(
     ctx,
     'images',
-    async (key, models) => {
+    async (key, models, gemma) => {
       const g = await generateJson(key, [{ text: `<note>${text}</note>` }], TEXT_SCHEMA, {
         models,
-        timeoutMs: 15_000,
+        timeoutMs: budget(gemma, 15_000, 50_000),
         maxOutputTokens: 512,
         systemInstruction: textPrompt(members, currency, today),
       })
@@ -429,17 +462,17 @@ async function parseText(
  * stats/ai_{day}. Nothing is saved here: the app opens the expense form for a check, and a new
  * group is only made after the person confirms it.
  */
-export const quickAddAi = onCall({ ...base, timeoutSeconds: 30, maxInstances: 10 }, async (req): Promise<QuickAiResponse> => {
+export const quickAddAi = onCall({ ...base, timeoutSeconds: 60, maxInstances: 10 }, async (req): Promise<QuickAiResponse> => {
   const me = signedIn(req)
   const serverToday = istDay(Date.now())
   const near = (a: string, b: string) => a >= addDays(b, -2) && a <= addDays(b, 2)
   const input = cleanQuickRequest(req.data, serverToday, near)
   if (!input) throw new HttpsError('invalid-argument', 'Nothing to read')
   const ctx = await loadCtx(me.uid, me.email)
-  const r = await withAi(ctx, 'quickAdd', async (key, models) => {
+  const r = await withAi(ctx, 'quickAdd', async (key, models, gemma) => {
     const g = await generateJson(key, [{ text: `<line>${input.text}</line>` }], QUICK_SCHEMA, {
       models,
-      timeoutMs: 20_000,
+      timeoutMs: budget(gemma, 20_000, 52_000),
       maxOutputTokens: 1024,
       systemInstruction: quickPrompt(input),
     })
@@ -547,12 +580,16 @@ async function projectKey(uid: string, d: { action?: unknown; key?: unknown }, n
   return { hint: k.hint ?? null, source: k.source ?? null, models }
 }
 
-/** Callable { which: 'own' | 'app' } → models for the user's key, or the project key (admins). */
+/**
+ * Callable { which: 'own' | 'app' | 'gemma' } → models for the user's key, or the project key's
+ * Gemini models / Gemma models, newest first (admins).
+ */
 export const aiModels = onCall({ ...base, timeoutSeconds: 30, maxInstances: 5 }, async (req) => {
   const me = signedIn(req)
-  const which = (req.data as { which?: unknown } | null)?.which === 'app' ? 'app' : 'own'
+  const w = (req.data as { which?: unknown } | null)?.which
+  const which = w === 'app' || w === 'gemma' ? w : 'own'
   let key: string | undefined
-  if (which === 'app') {
+  if (which !== 'own') {
     if (!(await isAdmin(me.uid))) throw new HttpsError('permission-denied', 'Admins only')
     key = (await appKey()).key
     if (!key) throw new HttpsError('failed-precondition', 'The project key isn’t set up')
@@ -561,7 +598,13 @@ export const aiModels = onCall({ ...base, timeoutSeconds: 30, maxInstances: 5 },
     if (!key) throw new HttpsError('failed-precondition', 'No key saved')
   }
   try {
-    return { models: usefulModels(await listModels(key)) }
+    const list = await listModels(key)
+    if (which === 'gemma') {
+      const models = gemmaModels(list)
+      gemmaCache = { at: Date.now(), key, ids: models.map((m) => m.id) }
+      return { models }
+    }
+    return { models: usefulModels(list) }
   } catch (e) {
     throw new HttpsError('unavailable', e instanceof GeminiError && e.kind === 'bad_key' ? 'Google rejected the key' : 'Couldn’t reach Gemini')
   }
@@ -584,6 +627,7 @@ export const aiStatus = onCall({ ...base, timeoutSeconds: 15, maxInstances: 5 },
       images: configured ? appKeyStatus(app, 'images', me.email) : 'off',
       sms: configured ? appKeyStatus(app, 'sms', me.email) : 'off',
       model: app.model,
+      engine: app.engine,
       perDay: app.perDay,
       // Admins see where the key comes from; the hint is the last 4 characters only.
       ...(admin ? { configured, source: k.source ?? null, hint: k.hint ?? null, sealed: keks().length > 0, globalPerDay: app.globalPerDay } : {}),
@@ -599,10 +643,11 @@ export async function aiReadSms(uid: string, text: string): Promise<AiSms | null
   try {
     const u = await (await auth()).getUser(uid).catch(() => null)
     const ctx = await loadCtx(uid, u?.emailVerified ? u.email : undefined)
-    const r = await withAi(ctx, 'sms', async (key, models) => {
+    // The capture webhook answers within 30 s, so even Gemma gets 20 s here (SMS are short).
+    const r = await withAi(ctx, 'sms', async (key, models, gemma) => {
       const g = await generateJson(key, [{ text: `<sms>${text.slice(0, 1000)}</sms>` }], SMS_SCHEMA, {
         models,
-        timeoutMs: 12_000,
+        timeoutMs: budget(gemma, 12_000, 20_000),
         systemInstruction: SMS_PROMPT,
       })
       return { value: normaliseSms(g.json, minorDigitsOf), usage: g.usage, model: g.modelVersion ?? g.model }
@@ -628,10 +673,10 @@ export async function aiReadPayment(
   try {
     const u = await (await auth()).getUser(payeeUid).catch(() => null)
     const ctx = await loadCtx(payeeUid, u?.emailVerified ? u.email : undefined)
-    const r = await withAi(ctx, 'payments', async (key, models) => {
+    const r = await withAi(ctx, 'payments', async (key, models, gemma) => {
       const g = await generateJson(key, [{ inlineData: { mimeType: 'image/jpeg', data: jpeg.toString('base64') } }], PAYMENT_SCHEMA, {
         models,
-        timeoutMs: 30_000,
+        timeoutMs: budget(gemma, 30_000, 90_000),
         maxOutputTokens: 512,
         systemInstruction: paymentPrompt(today),
       })

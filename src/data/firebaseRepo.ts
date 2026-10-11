@@ -1332,7 +1332,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         const call = await callable<
           { kind: 'receipt'; image: string; mimeType: string },
           { receipt?: ParsedReceipt | null; unavailable?: true; reason?: AiUnavailableReason }
-        >('parseReceiptAi', 60_000)
+        >('parseReceiptAi', 125_000)
         const d = (await call({ kind: 'receipt', image, mimeType })).data
         if (!d) return null
         return d.unavailable ? { unavailable: true, reason: d.reason } : { receipt: d.receipt ?? null }
@@ -1347,7 +1347,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         const call = await callable<
           { kind: 'statement'; images: typeof images; today: string },
           { statement?: AiStatement | null; unavailable?: true; reason?: AiUnavailableReason }
-        >('parseReceiptAi', 120_000)
+        >('parseReceiptAi', 180_000)
         const d = (await call({ kind: 'statement', images, today })).data
         if (!d) return null
         return d.unavailable ? { unavailable: true, reason: d.reason } : { statement: d.statement ?? null }
@@ -1359,7 +1359,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     async quickAddAi(req) {
       if (!auth.currentUser || auth.currentUser.isAnonymous || !online()) return null
       try {
-        const call = await callable<QuickAiRequest, QuickAiResponse>('quickAddAi', 30_000)
+        const call = await callable<QuickAiRequest, QuickAiResponse>('quickAddAi', 60_000)
         return (await call(req)).data ?? null
       } catch (e) {
         console.warn('Quick add with AI failed', e)
@@ -1372,7 +1372,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         const call = await callable<
           { kind: 'text'; text: string; members: string[]; currency: string; today: string },
           { expense?: AiTextExpense | null; unavailable?: true; reason?: AiUnavailableReason }
-        >('parseReceiptAi', 30_000)
+        >('parseReceiptAi', 60_000)
         const d = (await call({ kind: 'text', text, ...ctx })).data
         if (!d) return null
         return d.unavailable ? { unavailable: true, reason: d.reason } : { expense: d.expense ?? null }

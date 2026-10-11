@@ -55,6 +55,12 @@ describe('config/ai', () => {
     await assertFails(setDoc(doc(as('boss'), 'config/ai'), { ...good, globalPerDay: 0 }))
     await assertFails(setDoc(doc(as('boss'), 'config/ai'), { ...good, globalPerDay: 'lots' }))
     await assertFails(setDoc(doc(as('boss'), 'config/ai'), { ...good, secret: 'x' }))
+    // Gemma, Google's free models, on the same key
+    await assertSucceeds(setDoc(doc(as('boss'), 'config/ai'), { ...good, mode: 'everyone', engine: 'gemma', gemmaModel: '' }))
+    await assertSucceeds(setDoc(doc(as('boss'), 'config/ai'), { ...good, engine: 'gemini', gemmaModel: 'gemma-4-31b-it' }))
+    await assertFails(setDoc(doc(as('boss'), 'config/ai'), { ...good, engine: 'llama' }))
+    await assertFails(setDoc(doc(as('boss'), 'config/ai'), { ...good, engine: 'gemma', gemmaModel: 'x'.repeat(81) }))
+    await assertFails(setDoc(doc(as('boss'), 'config/ai'), { ...good, engine: 'gemma', gemmaModel: 4 }))
     await assertFails(setDoc(doc(as('boss'), 'config/other'), { x: 1 }))
   })
 })
@@ -104,6 +110,8 @@ describe('own key', () => {
     await assertSucceeds(setDoc(ref, { aiEnabled: false, aiSource: 'own', aiModel: 'gemini-3-flash', aiSmsMerchant: true }))
     await assertFails(setDoc(ref, { aiSource: 'anyone' }))
     await assertFails(setDoc(ref, { aiModel: 'x'.repeat(81) }))
+    await assertSucceeds(setDoc(ref, { aiFreeOk: true }))
+    await assertFails(setDoc(ref, { aiFreeOk: 'yes' }))
     await assertFails(setDoc(ref, { aiSmsMerchant: 'yes' }))
   })
   it('the Quick add with AI switch is a bool', async () => {

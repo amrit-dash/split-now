@@ -8,6 +8,18 @@ Split Now can use Google's Gemini models to read:
 
 Everything has a fallback: without AI, bills are read on the phone (Tesseract.js) and SMS keep the built-in parser's result. AI is never required.
 
+## Free AI (Gemma)
+
+Instead of Gemini, an admin can run Split Now's shared AI on **Gemma**, Google's open model. The Gemini API serves it free of charge on the same project key (there is no paid tier for it), so the shared AI costs nothing. In **Admin → AI features**, set "Split Now's AI runs on" to **Gemma (free)**.
+
+- **Same features**: bills, statements, payment screenshots, bank SMS and Quick add all work on Gemma, with the same prompts, the same checks on what comes back, and the same per-person limits and daily budget.
+- **Slower**: a bill can take up to a minute. Time limits are longer on Gemma (`budget()` in `functions/src/ai.ts`), except SMS: the capture webhook must answer within 30 s, so those get 20 s.
+- **Newest by default**: "Latest Gemma (automatic)" picks the newest general Gemma model the key can list (`gemmaModels` in `shared/ai-config.ts`; the model list is cached for 6 h), so a new Gemma release is used without a deploy. An admin can pin a specific model instead. If the list can't be fetched, `GEMMA_FALLBACK_MODELS` is used. A Gemma request never falls back to a paid Gemini model.
+- **Everyone, after they agree**: Gemma ignores the allow-list. Google's terms for unpaid services let Google use what is sent to improve its products and let people at Google read it, and those terms don't allow serving people in the EU, the UK or Switzerland. So nothing goes to Gemma until a person turns on **Use free AI** (`aiFreeOk`) in Settings → AI features, where that is said plainly. Until then the server answers `reason: 'needs_ok'`.
+- **Structured output**: Google documents system instructions for Gemma 4 but not JSON mode. `generateJson` sends the schema first; if a Gemma model refuses with a 400, that model switches to plain mode (rules and schema as text, the JSON read out of the answer) for the life of the instance. Reasoning ("thought") parts are ignored.
+
+People's own keys still come first, as below.
+
 ## Which key is used
 
 For each request the server (`functions/src/ai.ts`, rules in `shared/ai-config.ts`) tries, in order:

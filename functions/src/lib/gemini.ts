@@ -4,6 +4,7 @@
  * again here, so nothing the model returns reaches Firestore or the app unchecked.
  */
 
+import { isGemma } from '../../../shared/ai-config'
 import type { PaymentRead } from '../../../shared/payment-ok'
 
 const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models'
@@ -248,7 +249,7 @@ export interface GeminiUsage {
 }
 
 interface GenerateResponse {
-  candidates?: Array<{ content?: { parts?: Array<{ text?: string }> }; finishReason?: string }>
+  candidates?: Array<{ content?: { parts?: Array<{ text?: string; thought?: boolean }> }; finishReason?: string }>
   promptFeedback?: { blockReason?: string }
   usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number }
   modelVersion?: string
@@ -256,6 +257,39 @@ interface GenerateResponse {
 
 const RETRY_STATUS = new Set([429, 500, 503, 504])
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+/**
+ * Gemma models that refused a request with the schema and system instruction (a 400 that isn't
+ * about the key). Google documents system instructions for Gemma 4 but not JSON mode, so the first
+ * refusal switches that model to plain mode for the life of the instance: the rules and the schema
+ * go in the first text part, and the answer is pulled out of whatever text comes back.
+ */
+const plainModels = new Set<string>()
+
+/** Plain-mode instructions: the rules, then the schema to answer in. */
+export const plainInstruction = (rules: string | undefined, schema: Schema) =>
+  `${rules ? `${rules}\n\n` : ''}Answer with one JSON object only, no other text and no code fence. It must match this schema (OpenAPI types; nullable fields may be null):\n${JSON.stringify(schema)}`
+
+/** The JSON object in a model's answer: as is, inside a ```json fence, or between the first { and the last }. */
+export function looseJson(text: string): unknown {
+  try {
+    return JSON.parse(text)
+  } catch {
+    /* fall through */
+  }
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1]
+  if (fenced) {
+    try {
+      return JSON.parse(fenced)
+    } catch {
+      /* fall through */
+    }
+  }
+  const a = text.indexOf('{')
+  const b = text.lastIndexOf('}')
+  if (a >= 0 && b > a) return JSON.parse(text.slice(a, b + 1))
+  throw new SyntaxError('no JSON object in the answer')
+}
 
 /**
  * One structured-output call. `models` are tried in order, moving on only when a model is
@@ -278,17 +312,25 @@ export async function generateJson(
     let maxOutputTokens = opts.maxOutputTokens ?? 8192
     let retried = false
     let grown = false
+    let plain = plainModels.has(model)
     for (;;) {
       const res = await fetchImpl(`${ENDPOINT}/${encodeURIComponent(model)}:generateContent`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
-        body: JSON.stringify({
-          ...(opts.systemInstruction ? { systemInstruction: { parts: [{ text: opts.systemInstruction }] } } : {}),
-          contents: [{ role: 'user', parts }],
-          // Only settings every Gemini generation accepts: no temperature or thinking config (2.5 uses
-          // thinkingBudget, 3.x thinkingLevel; sending the wrong one is rejected). The schema does the constraining.
-          generationConfig: { responseMimeType: 'application/json', responseSchema: schema, maxOutputTokens },
-        }),
+        body: JSON.stringify(
+          plain
+            ? {
+                contents: [{ role: 'user', parts: [{ text: plainInstruction(opts.systemInstruction, schema) }, ...parts] }],
+                generationConfig: { maxOutputTokens },
+              }
+            : {
+                ...(opts.systemInstruction ? { systemInstruction: { parts: [{ text: opts.systemInstruction }] } } : {}),
+                contents: [{ role: 'user', parts }],
+                // Only settings every Gemini generation accepts: no temperature or thinking config (2.5 uses
+                // thinkingBudget, 3.x thinkingLevel; sending the wrong one is rejected). The schema does the constraining.
+                generationConfig: { responseMimeType: 'application/json', responseSchema: schema, maxOutputTokens },
+              },
+        ),
         signal: AbortSignal.timeout(Math.max(1000, budgetLeft())),
       })
       if (!res.ok) {
@@ -297,6 +339,11 @@ export async function generateJson(
         if (err.kind === 'model') {
           last = err
           break
+        }
+        if (res.status === 400 && err.kind === 'server' && isGemma(model) && !plain) {
+          plain = true
+          plainModels.add(model)
+          continue
         }
         if (RETRY_STATUS.has(res.status) && !retried && budgetLeft() > retryDelayMs + 3000) {
           retried = true
@@ -315,9 +362,14 @@ export async function generateJson(
       if (out.promptFeedback?.blockReason || (c?.finishReason && c.finishReason !== 'STOP' && c.finishReason !== 'MAX_TOKENS')) {
         throw new GeminiError(`Gemini blocked the request: ${out.promptFeedback?.blockReason ?? c?.finishReason}`, undefined, '', 'blocked')
       }
-      const text = c?.content?.parts?.map((p) => p.text ?? '').join('') ?? ''
+      // Gemma may send its reasoning as separate "thought" parts; only the answer counts.
+      const text =
+        c?.content?.parts
+          ?.filter((p) => !p.thought)
+          .map((p) => p.text ?? '')
+          .join('') ?? ''
       try {
-        return { json: JSON.parse(text), model, usage, modelVersion: out.modelVersion }
+        return { json: isGemma(model) ? looseJson(text) : JSON.parse(text), model, usage, modelVersion: out.modelVersion }
       } catch {
         if (c?.finishReason === 'MAX_TOKENS') {
           if (!grown && budgetLeft() > 5000) {

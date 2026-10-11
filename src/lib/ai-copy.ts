@@ -15,24 +15,34 @@ export interface AiAvailability {
   tone: 'ok' | 'muted' | 'warn'
 }
 
+// Nothing can serve this person: say so, and that their own key is the way in.
 const APP_TEXT: Record<AppAiStatusValue, string> = {
   available: 'Available',
-  off: 'Turned off for this app',
-  not_listed: 'Not turned on for your account',
-  feature_off: 'Turned off for this feature',
+  off: 'AI features aren’t available. Add your own Gemini key to use them',
+  not_listed: 'Not turned on for your account. Add your own Gemini key to use AI',
+  feature_off: 'Turned off for this feature. Add your own Gemini key to use it',
 }
+
+/** Split Now's AI is the free one (Gemma): it serves a person only after they agree to it. */
+export const isFreeAi = (status: Pick<AiStatusResult, 'app'> | null | undefined) => status?.app.engine === 'gemma'
 
 /**
  * Combine the shared-key status with the user's own key and switch into one answer. `status`
- * is undefined while it is being checked and null when it can't be (offline, demo).
+ * is undefined while it is being checked and null when it can't be (offline, demo). `freeOk` is
+ * the person's agreement to the free AI (aiFreeOk), which the shared key needs when it runs Gemma.
  */
 export function aiAvailability(opts: {
   status: AiStatusResult | null | undefined
   hasOwnKey: boolean
   ownKeyBroken?: boolean
   enabled: boolean
+  freeOk?: boolean
 }): AiAvailability {
-  const { status, hasOwnKey, ownKeyBroken, enabled } = opts
+  const { hasOwnKey, ownKeyBroken, enabled } = opts
+  // Gemma the person hasn't agreed to can't serve them: count it as off, but say how to turn it on.
+  const waiting = isFreeAi(opts.status) && !opts.freeOk
+  const status =
+    opts.status && waiting ? { ...opts.status, app: { ...opts.status.app, images: off(opts.status.app.images), sms: off(opts.status.app.sms) } } : opts.status
   if (!enabled) return { images: false, sms: false, text: 'Off: nothing is sent to any AI', tone: 'muted' }
   const own = hasOwnKey && !ownKeyBroken
   if (status === undefined) return { images: own, sms: own, text: own ? 'Using your own key' : 'Checking…', tone: own ? 'ok' : 'muted' }
@@ -40,11 +50,16 @@ export function aiAvailability(opts: {
     return { images: own, sms: own, text: own ? 'Using your own key' : 'Can’t check right now (offline, or not set up yet)', tone: own ? 'ok' : 'muted' }
   const images = status.app.images === 'available' || own
   const sms = status.app.sms === 'available' || own
-  if (images && sms) return { images, sms, text: status.app.images === 'available' ? 'Available' : 'Using your own key', tone: 'ok' }
+  const free = isFreeAi(status) && status.app.images === 'available' ? ' · free AI, slower' : ''
+  if (images && sms) return { images, sms, text: status.app.images === 'available' ? `Available${own ? '' : free}` : 'Using your own key', tone: 'ok' }
   if (images || sms) return { images, sms, text: `Available for ${images ? 'bills' : 'SMS'} only`, tone: 'ok' }
   if (hasOwnKey && ownKeyBroken) return { images, sms, text: 'Your key isn’t working', tone: 'warn' }
+  if (waiting && (opts.status?.app.images === 'available' || opts.status?.app.sms === 'available'))
+    return { images, sms, text: 'Free AI is available. Turn on “Use free AI” to use it', tone: 'muted' }
   return { images, sms, text: APP_TEXT[status.app.images], tone: 'muted' }
 }
+
+const off = (v: AppAiStatusValue): AppAiStatusValue => (v === 'available' ? 'off' : v)
 
 /**
  * The Settings hub's one-line AI summary: on/off, what it reads, and a warning only when no key
@@ -52,7 +67,7 @@ export function aiAvailability(opts: {
  */
 export function aiSummaryText(opts: {
   mode: 'firebase' | 'demo'
-  prefs: { aiEnabled?: boolean; aiImages?: boolean; aiSms?: boolean; aiQuickAdd?: boolean; aiPayments?: boolean; aiSource?: string } | null
+  prefs: { aiEnabled?: boolean; aiImages?: boolean; aiSms?: boolean; aiQuickAdd?: boolean; aiPayments?: boolean; aiSource?: string; aiFreeOk?: boolean } | null
   /** the user has their own key (AiState.hint) */
   hasOwnKey: boolean
   status: Pick<AiStatusResult, 'app'> | null | undefined
@@ -65,7 +80,8 @@ export function aiSummaryText(opts: {
     .filter(Boolean)
     .join(', ')
   if (!uses) return 'On · nothing selected'
-  const shared = prefs.aiSource !== 'own' && (status?.app.images === 'available' || status?.app.sms === 'available')
+  const shared =
+    prefs.aiSource !== 'own' && (status?.app.images === 'available' || status?.app.sms === 'available') && (!isFreeAi(status) || prefs.aiFreeOk === true)
   const own = hasOwnKey && prefs.aiSource !== 'app'
   return `On · ${uses}${own || shared || status === undefined ? '' : ' · no key available'}`
 }
@@ -91,10 +107,34 @@ export function unavailableText(reason: AiUnavailableReason | undefined, opts: {
       return `AI reading isn’t set up for this app.${phone ? ' Reading on your phone instead.' : ''}`
     case 'off':
       return `AI reading is off.${phone ? ' Reading on your phone instead.' : ''}`
+    case 'needs_ok':
+      return `Free AI is off until you turn on “Use free AI” in Settings → AI features.${phone ? ' Reading on your phone instead.' : ''}`
     default:
       return `AI reading isn’t available right now.${phone ? ' Reading on your phone instead.' : ''}`
   }
 }
 
 /** Reasons that mean "nothing to fix": show nothing, or at most a quiet line. */
-export const isQuietReason = (reason: AiUnavailableReason | undefined) => reason === 'off' || reason === 'not_listed' || reason === 'not_configured'
+export const isQuietReason = (reason: AiUnavailableReason | undefined) =>
+  reason === 'off' || reason === 'not_listed' || reason === 'not_configured' || reason === 'needs_ok'
+
+/**
+ * Where what AI reads goes, for the AI settings card. On Split Now's Gemini key it stays on
+ * Google Cloud (Split Now's functions in Mumbai, then Google's paid Gemini API, which doesn't train
+ * on it); on the free AI (Gemma) the "Use free AI" switch carries the warning (FREE_AI_NOTE).
+ */
+export function aiDataNote(status: Pick<AiStatusResult, 'app'> | null | undefined): string {
+  const what =
+    'Photos of bills and statement screenshots, payment screenshots, bank SMS the built-in reader can’t make sense of, and Quick add lines it can’t read'
+  const tail = 'Nothing else leaves your phone, and nothing is sent while this is off.'
+  const shared = status?.app.images === 'available' || status?.app.sms === 'available'
+  if (shared && isFreeAi(status))
+    return `${what} are sent to Google to read them. Split Now’s AI runs on Gemma, Google’s free model: see “Use free AI” below for what that means. ${tail}`
+  if (shared)
+    return `${what} are sent to Google Gemini to read them. On Split Now’s key they go from Split Now’s servers in Mumbai (Google Cloud, asia-south1) to Google’s paid Gemini API, which doesn’t use them to improve Google’s models. Split Now keeps only what you save. ${tail}`
+  return `${what} are sent to Google Gemini to read them. ${tail}`
+}
+
+/** The "Use free AI" switch: what the free AI reads, and the price of free. */
+export const FREE_AI_NOTE =
+  'Reads bills, statements, payment screenshots, bank SMS and Quick add lines like the paid AI, only slower. It’s free because Google may use what you send, including names, UPI IDs and amounts, to improve its products, and people at Google may read it. Google’s terms don’t allow this free service for people in the EU, the UK or Switzerland.'

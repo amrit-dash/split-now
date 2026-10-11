@@ -188,7 +188,7 @@ Splitwise solved "who owes whom". Its weak points today are where Split Now goes
 - ✅ **App tuning** (`config/app.tuning`, Admin → Limits → App; `shared/app-tuning.ts`): Updates per page (10–100, 20), live updates per group (5–50, 15), Recently deleted days (7–90, 30; the app's trash, `purgeDeletedGroups` and the delete message all read it). Admin-only, never a user setting. `config/limits.captureKeepDays` (7–365, 30) sets how long handled captures stay
 - ✅ **How the switches look**: maintenance, update required and a paused account are full-screen notices on the Aurora surface (`src/components/GateScreen.tsx`: icon, title, the admin's message or “We’re making Split Now better. Your data is safe.”, “Checking again automatically”, one action); the console previews the maintenance screen with the typed message. Admins instead get a one-line sticky strip (“Maintenance mode is on · only admins can use the app”, with a confirmed **Turn off** and a link to Flags & app). The strip and the announcement sit in one sticky band that owns the notch inset (`--banner-h`, `--safe-top` in `src/index.css`) and loop overlong text sideways (`Marquee`, `src/lib/marquee.ts`; still and wrapped with reduced motion)
 - ✅ **Limits** (`config/limits`): captures per key per hour/day, AI calls on an own key, nudges per day, FX refreshes per user, payment-screenshot checks per payer and payee; defaults and ranges in `shared/limits.ts`, read by the functions with a 60 s cache. The shared Gemini key's limits stay in `config/ai`
-- ✅ **AI** (`config/ai`, `private/geminiAppKey`): the project key (Secret Manager or set in-app, sealed), who may use it, model, per-person limits and the daily budget for everyone
+- ✅ **AI** (`config/ai`, `private/geminiAppKey`): the project key (Secret Manager or set in-app, sealed), Gemini or the free Gemma models on it, who may use it, model, per-person limits and the daily budget for everyone
 - ✅ **Users** (`adminUsers`, `adminBlockUser`): find an account by email, uid or name; **block** writes `blocked/{uid} = { reason, at, by }`, disables the Auth user, revokes sessions and deletes push and capture keys; the rules refuse every write from that account and the app shows "This account is paused" with the reason. **Make admin** (`adminSetAdmin`, after a confirmation) writes `admins/{uid} = { at, by }` for an account that has signed in (has `users/{uid}`, so never a live-table guest) and isn't blocked; **Remove admin** deletes it (never your own). Both run in a transaction with the caller's own entry and the block list, and each change is kept in `adminLog` (server-only). Live-table guests get no Make admin. Rows show an Admin badge; admins can't be blocked until their access is removed
 - 🟡 Invite-only sign-ups (`config/app.signups = 'invite'`): the helper `signupsOpen()` exists in `src/lib/flags.ts`, but the sign-in screen does not read it yet, so the setting has no visible effect. Hard enforcement would need an Identity Platform blocking function
 
@@ -290,7 +290,7 @@ users/{uid}/settings/notifications            ← push preferences + auto-captur
   outsideTrips: bool                                                 keep debits outside every trip
   capturePaused: bool, minAmount: int paise (≤ 1,00,00,000), ignoreWords: string[] (≤ 20)
   pausedTrips: string[] (group ids, unique, ≤ 100)                  trips this person paused capture for (their own choice)
-  aiEnabled, aiImages, aiSms, aiSmsMerchant, aiQuickAdd (opt-in, default false), aiPayments (default true): bool, aiSource: auto|own|app, aiModel (≤ 80), updatedAt
+  aiEnabled, aiImages, aiSms, aiSmsMerchant, aiQuickAdd (opt-in, default false), aiPayments (default true): bool, aiSource: auto|own|app, aiModel (≤ 80), aiFreeOk (agreed to the free Gemma AI, default false), updatedAt
 
 users/{uid}/settings/merchants                ← merchant memory (owner; whole-document replace)
 users/{uid}/settings/inbox                    ← what you cleared from Inbox → Updates: clearedAt, hidden (≤ 200 ids) (owner)
@@ -397,7 +397,8 @@ config/limits                                 ← admin read/write; functions re
   capturePerHour (60), capturePerDay (300), aiOwnPerHour (120), aiOwnPerDay (600), nudgePerDay (1),
   fxPerUserPerHour (30), fxPerUserPerDay (200), updatedAt, updatedBy
 config/ai                                     ← admin read/write; everyone else asks the aiStatus callable
-  mode: off|everyone|allowlist, allowEmails (≤ 200), images, sms: bool, model (≤ 80), perHour (30), perDay (100), globalPerDay (2000), updatedAt, updatedBy
+  mode: off|everyone|allowlist, engine: gemini|gemma (default gemini; gemma ignores the allow-list), gemmaModel (≤ 80, '' = newest),
+  allowEmails (≤ 200), images, sms: bool, model (≤ 80), perHour (30), perDay (100), globalPerDay (2000), updatedAt, updatedBy
 private/geminiAppKey                          ← server only: the admin's in-app project key, sealed (overrides Secret Manager)
 
 admins/{uid} = { at, by }                     ← created in the console or by adminSetAdmin; a user may read only their own entry

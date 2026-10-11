@@ -97,7 +97,13 @@ export function StatementImport() {
   const busy = stage !== null
 
   // Can AI read for this account right now? Demo mode shows a sample; an unknown status doesn't block.
-  const avail = aiAvailability({ status, hasOwnKey: !!aiState?.hint, ownKeyBroken: !!aiState?.lastError, enabled: prefs.aiEnabled && prefs.aiImages })
+  const avail = aiAvailability({
+    status,
+    hasOwnKey: !!aiState?.hint,
+    ownKeyBroken: !!aiState?.lastError,
+    enabled: prefs.aiEnabled && prefs.aiImages,
+    freeOk: prefs.aiFreeOk,
+  })
   const blocked = aiScanPossible() && status !== undefined && !avail.images
   const keyWouldHelp = aiScanPossible() && !!status && status.app.images !== 'available' && !aiState?.hint
 

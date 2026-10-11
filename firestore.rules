@@ -127,7 +127,7 @@ service cloud.firestore {
           && writesOpen()
           && (settingId != 'notifications' || (
             request.resource.data.keys().hasOnly(['captures', 'unsorted', 'expenses', 'settlements', 'reminders', 'outsideTrips',
-              'capturePaused', 'minAmount', 'ignoreWords', 'pausedTrips', 'aiSms', 'aiSmsMerchant', 'aiImages', 'aiQuickAdd', 'aiPayments', 'aiEnabled', 'aiSource', 'aiModel', 'updatedAt'])
+              'capturePaused', 'minAmount', 'ignoreWords', 'pausedTrips', 'aiSms', 'aiSmsMerchant', 'aiImages', 'aiQuickAdd', 'aiPayments', 'aiEnabled', 'aiSource', 'aiModel', 'aiFreeOk', 'updatedAt'])
             && request.resource.data.get('captures', true) is bool
             && request.resource.data.get('unsorted', false) is bool
             && request.resource.data.get('expenses', true) is bool
@@ -154,6 +154,8 @@ service cloud.firestore {
             && request.resource.data.get('aiEnabled', true) is bool
             && request.resource.data.get('aiSource', 'auto') in ['auto', 'own', 'app']
             && request.resource.data.get('aiModel', '') is string && request.resource.data.get('aiModel', '').size() <= 80
+            // Agreed to Split Now's free AI (Gemma, Google's unpaid terms); off until they turn it on
+            && request.resource.data.get('aiFreeOk', false) is bool
             && request.resource.data.get('updatedAt', 0) is int))
           // settings/merchants: merchant → category memory (src/lib/merchants.ts). Two maps keyed by
           // the normalised merchant, at most 200 entries each; the app evicts the least recently used.
@@ -187,8 +189,8 @@ service cloud.firestore {
     //   flags, sign-up mode). It holds no secrets, so anyone may read it, signed out included
     //   (the sign-in screen and a maintenance screen need it before there is a user).
     // config/limits: rate limits the Cloud Functions read (shared/limits.ts has the ranges).
-    // config/ai: project AI settings (shared Gemini key on/off, allow-list of emails, model,
-    //   limits). Only the admin screen reads it; everyone else asks the aiStatus callable, so the
+    // config/ai: project AI settings (shared Gemini key on/off, Gemini or the free Gemma models,
+    //   allow-list of emails, model, limits). Only the admin screen reads it; everyone else asks the aiStatus callable, so the
     //   allow-list never reaches other accounts.
     // Every write is by an admin, validated per document; nothing else under config/ exists.
     match /config/{id} {
@@ -248,8 +250,10 @@ service cloud.firestore {
           && d.get('updatedBy', '') is string;
       }
       function validAiConfig(d) {
-        return d.keys().hasOnly(['mode', 'allowEmails', 'images', 'sms', 'model', 'perDay', 'perHour', 'globalPerDay', 'updatedAt', 'updatedBy'])
+        return d.keys().hasOnly(['mode', 'engine', 'gemmaModel', 'allowEmails', 'images', 'sms', 'model', 'perDay', 'perHour', 'globalPerDay', 'updatedAt', 'updatedBy'])
           && d.mode in ['off', 'everyone', 'allowlist']
+          && d.get('engine', 'gemini') in ['gemini', 'gemma']
+          && d.get('gemmaModel', '') is string && d.get('gemmaModel', '').size() <= 80
           && d.get('allowEmails', []) is list && d.get('allowEmails', []).size() <= 200
           && d.get('images', true) is bool
           && d.get('sms', true) is bool
