@@ -52,7 +52,7 @@ import {
   type WriteBatch,
 } from 'firebase/firestore'
 import type { FirebaseStorage } from 'firebase/storage'
-import type { ActivityEntry, Capture, Expense, ExpenseComment, Group, Member, MemberId, Settlement, UserProfile } from '@/types'
+import type { ActivityEntry, Capture, ChatMessage, Expense, ExpenseComment, Group, Member, MemberId, OpenItem, Settlement, UserProfile } from '@/types'
 import { inviteCode, todayISO, uid } from '@/lib/id'
 import { defaultCurrency } from '@/lib/locale'
 import { isRemoved } from '@/lib/members'
@@ -175,6 +175,12 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
   const activityCol = (groupId: string) => collection(db, 'groups', groupId, 'activity')
   const expenseRef = (groupId: string, id: string) => doc(db, 'groups', groupId, 'expenses', id)
   const settlementRef = (groupId: string, id: string) => doc(db, 'groups', groupId, 'settlements', id)
+  const openItemRef = (groupId: string, id: string) => doc(db, 'groups', groupId, 'openItems', id)
+  const chatCol = (groupId: string) => collection(db, 'groups', groupId, 'chat')
+  const chatOf = (d: { id: string; data: () => unknown; metadata: { hasPendingWrites: boolean } }): ChatMessage => {
+    const m = { ...(d.data() as ChatMessage), id: d.id }
+    return d.metadata.hasPendingWrites ? { ...m, pending: true } : m
+  }
   const inviteDoc = (g: Group): InviteInfo => ({ groupId: g.id, groupName: g.name, emoji: g.emoji, placeholders: placeholdersOf(g) })
 
   /**
@@ -687,8 +693,8 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
           }),
         ])
       }
-      const [expenses, settlements, profiles, activity] = await Promise.all(
-        ['expenses', 'settlements', 'profiles', 'activity'].map((sub) => getDocs(collection(db, 'groups', id, sub))),
+      const [expenses, settlements, profiles, activity, openItems, chat] = await Promise.all(
+        ['expenses', 'settlements', 'profiles', 'activity', 'openItems', 'chat'].map((sub) => getDocs(collection(db, 'groups', id, sub))),
       ).catch(failed)
       const receipts: string[] = []
       for (const d of expenses.docs) {
@@ -718,7 +724,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       }
       // Sub-collection docs (comments after their expenses) in ≤450-write batches, all confirmed by
       // the server before the last batch removes the group: they need the membership checks.
-      const refs = [...expenses.docs, ...settlements.docs, ...profiles.docs].map((d) => d.ref).concat(commentRefs)
+      const refs = [...expenses.docs, ...settlements.docs, ...profiles.docs, ...openItems.docs, ...chat.docs].map((d) => d.ref).concat(commentRefs)
       const batches: Promise<void>[] = []
       for (let i = 0; i < refs.length; i += BATCH_LIMIT) {
         const batch = writeBatch(db)
@@ -776,7 +782,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         'Loading expenses',
       )
     },
-    async saveExpense(e) {
+    async saveExpense(e, opts) {
       const r = expenseRef(e.groupId, e.id)
       // An edit starts from the newest copy we can get, so the activity entry's "before" is right
       // and only what really changed is written (a full set would wipe a flag or approval that
@@ -796,6 +802,11 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         batch.update(r, data)
       }
       batch.update(groupRef(e.groupId), { updatedAt: Date.now() })
+      // Claiming an open item: in the same batch, so a claim someone else got in first fails the whole save.
+      if (opts?.claim && !prev) {
+        const now = Date.now()
+        batch.update(openItemRef(e.groupId, opts.claim), { status: 'claimed', expenseId: e.id, claimedBy: me(), claimedAt: now, updatedAt: now })
+      }
       log(
         batch,
         e.groupId,
@@ -1044,6 +1055,71 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         batch.update(groupRef(groupId), { updatedAt: Date.now() })
         fire(batch, `Importing (${Math.min(i + size, writes.length)} of ${writes.length})`)
       }
+    },
+
+    watchOpenItems(groupId, cb) {
+      return watchList(
+        collection(db, 'groups', groupId, 'openItems'),
+        (s) => s.docs.map((d) => ({ ...(d.data() as OpenItem), id: d.id, groupId })),
+        cb,
+        'Loading open items',
+      )
+    },
+    async saveOpenItem(item) {
+      const { id, ...data } = item
+      const r = openItemRef(item.groupId, id)
+      const prev = await cached<OpenItem>(r)
+      const batch = writeBatch(db)
+      if (!prev) batch.set(r, compact(data))
+      else {
+        // An edit writes only the item's own fields; status, claim and trash have their own writes.
+        const patch: Record<string, unknown> = { updatedAt: Date.now() }
+        for (const k of ['title', 'category', 'date', 'amount', 'notes', 'suspects'] as const) {
+          if (JSON.stringify(prev[k]) !== JSON.stringify(item[k])) patch[k] = item[k] === undefined ? deleteField() : item[k]
+        }
+        batch.update(r, patch)
+      }
+      fire(batch, `Saving “${item.title}”`)
+    },
+    async deleteOpenItem(groupId, id) {
+      const r = openItemRef(groupId, id)
+      const prev = await cached<OpenItem>(r)
+      if (prev?.deletedAt) return
+      const batch = writeBatch(db)
+      batch.update(r, { deletedAt: Date.now(), deletedBy: me(), updatedAt: Date.now() })
+      fire(batch, 'Deleting open item')
+    },
+    async restoreOpenItem(groupId, id) {
+      const batch = writeBatch(db)
+      batch.update(openItemRef(groupId, id), { deletedAt: deleteField(), deletedBy: deleteField(), updatedAt: Date.now() })
+      fire(batch, 'Restoring open item')
+    },
+
+    watchChat(groupId, cb, max) {
+      // Not watchList: a message's own pending flag changes without a document change, so the
+      // list is rebuilt on metadata changes as well (at most `max` small documents).
+      return onSnapshot(
+        query(chatCol(groupId), orderBy('createdAt', 'desc'), limit(max)),
+        { includeMetadataChanges: true },
+        (s) => cb(s.docs.map(chatOf).reverse(), metaOf(s)),
+        listenError('Loading chat', () => cb([], FAILED)),
+      )
+    },
+    async fetchChatBefore(groupId, before, max) {
+      const s = await getDocs(query(chatCol(groupId), where('createdAt', '<', before), orderBy('createdAt', 'desc'), limit(max)))
+      return s.docs.map(chatOf).reverse()
+    },
+    async postChat(groupId, m, id) {
+      const r = id ? doc(chatCol(groupId), id) : doc(chatCol(groupId))
+      const batch = writeBatch(db)
+      batch.set(r, compact(m))
+      fire(batch, 'Sending message')
+      return r.id
+    },
+    async deleteChat(groupId, id) {
+      const batch = writeBatch(db)
+      batch.delete(doc(chatCol(groupId), id))
+      fire(batch, 'Deleting message')
     },
 
     watchComments(groupId, expenseId, cb) {

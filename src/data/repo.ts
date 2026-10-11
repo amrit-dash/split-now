@@ -1,4 +1,18 @@
-import type { ActivityEntry, Capture, Cents, Expense, ExpenseComment, Group, Member, MemberId, PaymentHandles, Settlement, UserProfile } from '@/types'
+import type {
+  ActivityEntry,
+  Capture,
+  Cents,
+  ChatMessage,
+  Expense,
+  ExpenseComment,
+  Group,
+  Member,
+  MemberId,
+  OpenItem,
+  PaymentHandles,
+  Settlement,
+  UserProfile,
+} from '@/types'
 import type { CaptureDraft, InboxDoc } from '@/lib/capture'
 import type { ItemId, LiveTable, NewTable, ParticipantId, TableExtras, TableItem, TableParticipant, TableStatus, TaxSplit } from '@/lib/table'
 import type { ActivityCtx } from '@/lib/activity'
@@ -205,7 +219,7 @@ export interface Repo {
    * An edit only writes the fields that changed, so a flag or approval that landed on the
    * server after this device last saw the expense survives the save.
    */
-  saveExpense(e: Expense): Promise<void>
+  saveExpense(e: Expense, opts?: SaveExpenseOpts): Promise<void>
   /** Soft delete: moves the expense to "Recently deleted" (deletedAt/deletedBy). A no-op when already there. */
   deleteExpense(groupId: string, id: string): Promise<void>
   restoreExpense(groupId: string, id: string): Promise<void>
@@ -262,6 +276,29 @@ export interface Repo {
    * resolves once applied locally; rejections arrive through onError.
    */
   bulkImport(groupId: string, expenses: Expense[], settlements: Settlement[]): Promise<void>
+
+  // ---- Open items (groups/{gid}/openItems, see src/lib/open-items.ts) ----
+  /** Every open item of the group, claimed and deleted ones included (openItemState sorts them). */
+  watchOpenItems(groupId: string, cb: Watch<OpenItem[]>): Unsub
+  /** Create, or edit one still open (title, date, amount, category, notes, suspects). Fire-and-forget. */
+  saveOpenItem(item: OpenItem): Promise<void>
+  /** Soft delete (any member). A no-op when already deleted. */
+  deleteOpenItem(groupId: string, id: string): Promise<void>
+  /** Undo a delete. */
+  restoreOpenItem(groupId: string, id: string): Promise<void>
+
+  // ---- Group chat (groups/{gid}/chat, see src/lib/chat.ts) ----
+  /**
+   * The newest `max` messages, oldest first. Each message says whether it is still only on this
+   * device (`pending`), so the list is rebuilt on metadata changes too.
+   */
+  watchChat(groupId: string, cb: Watch<ChatMessage[]>, max: number): Unsub
+  /** Scrolling up: the `max` messages before `before` (createdAt), oldest first. A one-time read. */
+  fetchChatBefore(groupId: string, before: number, max: number): Promise<ChatMessage[]>
+  /** Sends a message; returns its id. `id` re-sends a deleted one (Undo). Fire-and-forget. */
+  postChat(groupId: string, m: Omit<ChatMessage, 'id' | 'pending'>, id?: string): Promise<string>
+  /** The author deletes their own message. */
+  deleteChat(groupId: string, id: string): Promise<void>
 
   watchComments(groupId: string, expenseId: string, cb: Watch<ExpenseComment[]>): Unsub
   addComment(groupId: string, expenseId: string, c: Omit<ExpenseComment, 'id'>): Promise<void>
@@ -485,6 +522,14 @@ export interface StatementTxn {
 export interface AiStatement {
   currency?: string
   transactions: StatementTxn[]
+}
+
+export interface SaveExpenseOpts {
+  /**
+   * The open item this new expense claims: written in the same batch, so two people claiming at
+   * once can't both win (the rules refuse a claim on an item that is already claimed).
+   */
+  claim?: string
 }
 
 export interface TablePatch {

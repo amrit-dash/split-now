@@ -3,7 +3,7 @@ import { archiveWrite, balanceEditMembers, expenseMemberIds, isArchivedFor, uids
 import { DELETED_GROUP_WRITE, purgeDue } from '../../shared/group-trash'
 import { EMPTY_INBOX_STATE, type InboxState } from '@/lib/inbox'
 import { shownCapture } from '@/lib/capture'
-import type { ActivityEntry, Capture, Expense, ExpenseComment, Group, Settlement, UserProfile } from '@/types'
+import type { ActivityEntry, Capture, ChatMessage, Expense, ExpenseComment, Group, OpenItem, Settlement, UserProfile } from '@/types'
 import { inviteCode, todayISO, uid } from '@/lib/id'
 import { inboxToDraft, newCaptureToken } from '@/lib/capture'
 import { downscale } from '@/lib/image'
@@ -62,6 +62,9 @@ interface State {
   expenses: Record<string, Expense>
   settlements: Record<string, Settlement>
   comments?: Record<string, StoredComment>
+  openItems?: Record<string, OpenItem>
+  /** chat messages keyed by id, tagged with their group */
+  chat?: Record<string, ChatMessage & { groupId: string }>
   activity?: Record<string, ActivityEntry>
 
   /** captures keyed by id, tagged with the owner's uid */
@@ -98,6 +101,8 @@ export function createLocalRepo(): Repo {
   state.comments ??= {}
   const comments = () => (state.comments ??= {})
   const activity = () => (state.activity ??= {})
+  const openItems = () => (state.openItems ??= {})
+  const chat = () => (state.chat ??= {})
   const me = () => {
     const u = state.user
     return { uid: u?.uid ?? 'me', name: state.profiles[u?.uid ?? '']?.displayName ?? u?.displayName ?? 'You' }
@@ -109,6 +114,8 @@ export function createLocalRepo(): Repo {
     for (const [k, s] of Object.entries(state.settlements)) if (s.groupId === id) delete state.settlements[k]
     for (const [k, c] of Object.entries(comments())) if (c.groupId === id) delete comments()[k]
     for (const [k, a] of Object.entries(activity())) if (a.groupId === id) delete activity()[k]
+    for (const [k, o] of Object.entries(openItems())) if (o.groupId === id) delete openItems()[k]
+    for (const [k, m] of Object.entries(chat())) if (m.groupId === id) delete chat()[k]
   }
   // Recently deleted groups past their 30 days go for good, as the daily purge does in Firebase.
   for (const g of Object.values(state.groups)) if (purgeDue(g, Date.now())) removeGroup(g.id)
@@ -508,9 +515,18 @@ export function createLocalRepo(): Repo {
             .sort(byDateDesc),
         cb,
       ),
-    async saveExpense(e) {
+    async saveExpense(e, opts) {
       if (inTrash(e.groupId, 'Saving expense')) return
       const prev = state.expenses[e.id]
+      // Claiming an open item: the same check the rules make (unclaimed, or its expense deleted since).
+      if (opts?.claim && !prev) {
+        const item = openItems()[opts.claim]
+        const claimedBy = item?.expenseId ? state.expenses[item.expenseId] : undefined
+        if (!item || (item.status === 'claimed' && claimedBy && !claimedBy.deletedAt))
+          return refuse(`Saving “${e.description}”`, 'Someone has already claimed this')
+        const now = Date.now()
+        openItems()[opts.claim] = { ...item, status: 'claimed', expenseId: e.id, claimedBy: actor(), claimedAt: now, updatedAt: now }
+      }
       const g = state.groups[e.groupId]
       const next = prepareExpenseSave(prev, e, g, actor())
       const autoApproved = !!prev && !!g && editAutoApproved({ group: g, before: prev, after: next })
@@ -736,6 +752,70 @@ export function createLocalRepo(): Repo {
       for (const s of settlements) state.settlements[s.id] = prepareSettlementSave(prepareImportedSettlement({ ...s, groupId }), g, actor())
       log(groupId, importActivity(groupId, expenses.length, settlements.length, expenses[0]?.importedFrom ?? settlements[0]?.importedFrom, ctx(groupId)))
       touch(groupId)
+      commit()
+    },
+
+    watchOpenItems: (groupId, cb) => watch(() => Object.values(openItems()).filter((o) => o.groupId === groupId), cb),
+    async saveOpenItem(item) {
+      if (inTrash(item.groupId, 'Saving open item')) return
+      const prev = openItems()[item.id]
+      openItems()[item.id] = prev
+        ? compact({
+            ...prev,
+            title: item.title,
+            category: item.category,
+            date: item.date,
+            amount: item.amount,
+            notes: item.notes,
+            suspects: item.suspects,
+            updatedAt: Date.now(),
+          })
+        : compact(item)
+      commit()
+    },
+    async deleteOpenItem(groupId, id) {
+      if (inTrash(groupId, 'Deleting open item')) return
+      const o = openItems()[id]
+      if (!o || o.deletedAt) return
+      openItems()[id] = { ...o, deletedAt: Date.now(), deletedBy: actor(), updatedAt: Date.now() }
+      commit()
+    },
+    async restoreOpenItem(groupId, id) {
+      if (inTrash(groupId, 'Restoring open item')) return
+      const o = openItems()[id]
+      if (!o) return
+      const { deletedAt: _d, deletedBy: _b, ...rest } = o
+      openItems()[id] = { ...rest, updatedAt: Date.now() }
+      commit()
+    },
+
+    watchChat: (groupId, cb, max) =>
+      watch(
+        () =>
+          Object.values(chat())
+            .filter((m) => m.groupId === groupId)
+            .sort((a, b) => a.createdAt - b.createdAt)
+            .slice(-max)
+            .map(({ groupId: _g, ...m }) => m),
+        cb,
+      ),
+    async fetchChatBefore(groupId, before, max) {
+      return Object.values(chat())
+        .filter((m) => m.groupId === groupId && m.createdAt < before)
+        .sort((a, b) => a.createdAt - b.createdAt)
+        .slice(-max)
+        .map(({ groupId: _g, ...m }) => m)
+    },
+    async postChat(groupId, m, id) {
+      const mid = id ?? uid('m_')
+      if (inTrash(groupId, 'Sending message')) return mid
+      chat()[mid] = compact({ ...m, id: mid, groupId })
+      commit()
+      return mid
+    },
+    async deleteChat(_groupId, id) {
+      if (chat()[id]?.authorUid !== actor()) return
+      delete chat()[id]
       commit()
     },
 
