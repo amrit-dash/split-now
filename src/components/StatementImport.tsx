@@ -236,6 +236,7 @@ export function StatementImport() {
             uid('e_'),
             now,
           ),
+          { isNew: true },
         )
       }
       for (const id of scanIds) hist.outcome(id, { label: `Added ${chosen.length} to ${group.name}`, href: `/groups/${group.id}` })

@@ -205,7 +205,7 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
         uid('e_'),
         Date.now(),
       )
-      await repo.saveExpense(e)
+      await repo.saveExpense(e, { isNew: true })
       await repo.updateCapture(user.uid, c.id, { status: 'assigned', groupId: g.id, expenseId: e.id })
       toast(`Added to ${g.name} · ${formatMoney(c.amount, g.currency)}`, 'ok', {
         action: {

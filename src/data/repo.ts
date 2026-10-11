@@ -204,9 +204,11 @@ export interface Repo {
    * Create or edit. Writes an activity entry in the same batch, and keeps the stored trust
    * fields (flags, approvals, trash) whatever the form passed (see prepareExpenseSave).
    * An edit only writes the fields that changed, so a flag or approval that landed on the
-   * server after this device last saw the expense survives the save.
+   * server after this device last saw the expense survives the save; to find them it asks the
+   * server for its copy first (up to 1.5 s). `isNew` (an id just made with uid('e_')) says there is
+   * no earlier copy, so a new expense saves at once without that wait.
    */
-  saveExpense(e: Expense): Promise<void>
+  saveExpense(e: Expense, opts?: { isNew?: boolean }): Promise<void>
   /** Soft delete: moves the expense to "Recently deleted" (deletedAt/deletedBy). A no-op when already there. */
   deleteExpense(groupId: string, id: string): Promise<void>
   restoreExpense(groupId: string, id: string): Promise<void>
