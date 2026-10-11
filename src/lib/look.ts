@@ -60,8 +60,12 @@ export function hintView<T>(look: Look, h: HintSpec<T>): { text: T | null; tip: 
   switch (look) {
     case 'full':
       return { text: h.full, tip: null }
-    case 'tooltip':
-      return { text: tier === 'key' ? (h.min ?? short) : null, tip: h.full }
+    case 'tooltip': {
+      if (tier !== 'key') return { text: null, tip: h.full }
+      const line = h.min ?? short
+      // A key hint with no shorter form is already all there is: no (i) repeating it.
+      return { text: line, tip: line === h.full ? null : h.full }
+    }
     case 'needed':
       return { text: tier === 'extra' ? null : short, tip: null }
     case 'minimal':

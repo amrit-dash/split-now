@@ -40,6 +40,7 @@ describe('hintView', () => {
         const v = hintView(l, { ...h, tier })
         expect(v.text !== null && v.tip !== null).toBe(l === 'tooltip' && tier === 'key')
       }
+    expect(hintView('tooltip', { full: 'Only.', tier: 'key' })).toEqual({ text: 'Only.', tip: null })
   })
   it('a key hint is never dropped in any look', () => {
     for (const l of LOOKS) expect(hintView(l, { ...h, tier: 'key' }).text).not.toBeNull()
