@@ -86,7 +86,7 @@ export function DebtGraph({ group, debts }: { group: Group; debts: Debt[]; size?
   const fullName = (id: MemberId) => group.members[id]?.name ?? 'Someone'
   const shorts = useMemo(() => shortNames(Object.fromEntries(ids.map((id) => [id, group.members[id]?.name ?? 'Someone']))), [ids, group])
   const label = (id: MemberId) => (id === me ? 'You' : shorts[id])
-  const name = (id: MemberId) => (id === me ? 'You' : fullName(id))
+  const name = (id: MemberId) => (id === me ? 'You' : (shorts[id] ?? fullName(id)))
   const color = (id: MemberId) => group.members[id]?.color ?? '#64748b'
   const photo = (id: MemberId) => group.members[id]?.photoURL
   const cur = group.currency

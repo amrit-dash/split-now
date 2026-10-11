@@ -26,6 +26,7 @@ import { Select } from './Select'
 import { useToast } from './Toast'
 import { DuplicatePrompt, RecentScans, useScanHistory } from './ScanHistory'
 import type { ScanEntry, ScanMatch, ScanPrint } from '@/lib/scanHistory'
+import { labelOf } from '@/lib/shortNames'
 
 interface Row {
   id: string
@@ -427,7 +428,7 @@ export function StatementImport() {
                 aria-label="Paid by"
                 value={who ?? ''}
                 onChange={setPayer}
-                options={order.map((m) => ({ value: m, label: m === me ? 'You' : group.members[m].name }))}
+                options={order.map((m) => ({ value: m, label: m === me ? 'You' : labelOf(group.members, m, 'Someone', me) }))}
               />
             </div>
             <div>

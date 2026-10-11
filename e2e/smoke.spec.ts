@@ -694,3 +694,11 @@ test('no groups yet: Add expense explains why, and ✕ goes back', async ({ page
   await page.getByTestId('nogroups-close').click()
   await expect(page.getByTestId('first-run')).toBeVisible()
 })
+
+test('Profile offers Install Split Now in a browser, with the steps for this browser', async ({ page }) => {
+  await page.goto('/profile')
+  const row = page.getByTestId('profile-install')
+  await expect(row).toBeVisible()
+  await row.click()
+  await expect(page.getByRole('dialog')).toContainText(/Install Split Now|Add to/)
+})

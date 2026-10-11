@@ -1,0 +1,69 @@
+import { describe, expect, it } from 'vitest'
+import { firstNameOf, labelForUid, labelOf, shortNames } from './names'
+
+const m = (...names: string[]) => Object.fromEntries(names.map((name, i) => [`m${i}`, { name }]))
+
+describe('shortNames', () => {
+  it('uses first names', () => {
+    expect(shortNames(m('Priya Sharma', 'Rohan', 'Ananya K Iyer'))).toEqual({ m0: 'Priya', m1: 'Rohan', m2: 'Ananya' })
+  })
+  it('labels me as You', () => {
+    expect(shortNames(m('Amrit Singh', 'Priya'), 'm0')).toEqual({ m0: 'You', m1: 'Priya' })
+  })
+  it('adds a last initial when first names clash', () => {
+    expect(shortNames(m('Rahul Sharma', 'Rahul Kumar', 'Zoë'))).toEqual({ m0: 'Rahul S.', m1: 'Rahul K.', m2: 'Zoë' })
+  })
+  it('matches first names case- and accent-insensitively', () => {
+    expect(shortNames(m('José Ruiz', 'jose Alba'))).toEqual({ m0: 'José R.', m1: 'jose A.' })
+  })
+  it('a single-word name next to a clash keeps its first name', () => {
+    expect(shortNames(m('Rahul', 'Rahul Kumar'))).toEqual({ m0: 'Rahul', m1: 'Rahul K.' })
+  })
+  it('falls back to the full name when the initial clashes too', () => {
+    expect(shortNames(m('Rahul Sharma', 'Rahul Singh', 'Rahul Kumar'))).toEqual({ m0: 'Rahul Sharma', m1: 'Rahul Singh', m2: 'Rahul K.' })
+  })
+  it('does not disambiguate against me (shown as You)', () => {
+    expect(shortNames(m('Rahul Sharma', 'Rahul Kumar'), 'm0')).toEqual({ m0: 'You', m1: 'Rahul' })
+  })
+  it('handles email-like and blank names', () => {
+    expect(shortNames(m('priya.s@gmail.com', '  '))).toEqual({ m0: 'priya.s', m1: '?' })
+  })
+})
+
+describe('the owner’s rule (Oct 2026)', () => {
+  it('first names; a last initial only where first names clash', () => {
+    expect(shortNames(m('Rahul Sharma', 'Rahul Kumar', 'Priya Iyer'))).toEqual({ m0: 'Rahul S.', m1: 'Rahul K.', m2: 'Priya' })
+  })
+  it('initials clash too: full names for those two', () => {
+    expect(shortNames(m('Rahul Sharma', 'Rahul Singh'))).toEqual({ m0: 'Rahul Sharma', m1: 'Rahul Singh' })
+  })
+  it('one has a last name, one doesn’t: "Rahul K." and "Rahul"', () => {
+    expect(shortNames(m('Rahul Kumar', 'Rahul'))).toEqual({ m0: 'Rahul K.', m1: 'Rahul' })
+  })
+  it('neither has a last name: both stay "Rahul"', () => {
+    expect(shortNames(m('Rahul', 'rahul'))).toEqual({ m0: 'Rahul', m1: 'rahul' })
+  })
+})
+
+describe('labelOf / labelForUid / firstNameOf', () => {
+  const members = {
+    a: { name: 'Rahul Sharma', uid: 'u1' },
+    b: { name: 'Rahul Kumar' },
+    c: { name: 'Old Rahul S', uid: 'u2', removedAt: 1 },
+    d: { name: 'Priya' },
+  }
+  it('labels one member, with a fallback for someone not there', () => {
+    expect(labelOf(members, 'd')).toBe('Priya')
+    expect(labelOf(members, 'zz', 'Former member')).toBe('Former member')
+    expect(labelOf(undefined, 'd')).toBe('Someone')
+  })
+  it('finds a member by account', () => {
+    expect(labelForUid(members, 'u1')).toBe('Rahul S.')
+    expect(labelForUid(members, 'nobody')).toBeUndefined()
+  })
+  it('first names', () => {
+    expect(firstNameOf('  Venkat Raman ')).toBe('Venkat')
+    expect(firstNameOf('priya@x.com')).toBe('priya')
+    expect(firstNameOf('  ')).toBe('?')
+  })
+})

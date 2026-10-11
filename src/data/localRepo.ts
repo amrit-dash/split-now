@@ -45,6 +45,7 @@ import { isRemoved } from '@/lib/members'
 import { countedExpenses, countedSettlements, prepareSettlementSave } from '@/lib/trust'
 import { formatMoney, minorDigits } from '@/lib/money'
 import { claimStatus, claimSummary, markPaidPatch, payLinkState, planRecord, planRecordParts, sortClaims, triggerAction, type PayLinkDoc } from '@/lib/paylinks'
+import { labelForUid, labelOf } from '@/lib/shortNames'
 
 /**
  * Demo-mode repository. Everything lives in this browser's localStorage, so the app
@@ -151,7 +152,8 @@ export function createLocalRepo(): Repo {
   }
   const logNudge = (n: DemoNudge, amount: number, total?: number) => {
     const g = state.groups[n.groupId]
-    const name = me().name
+    // Named as the functions name people (shared/names.ts).
+    const name = labelForUid(g.members, actor()) ?? me().name
     const id = uid('a_')
     activity()[id] = {
       id,
@@ -160,7 +162,7 @@ export function createLocalRepo(): Repo {
       actorUid: actor(),
       actorName: name,
       targetId: n.memberId,
-      summary: `${name} nudged ${g.members[n.memberId]?.name ?? 'someone'} to settle up (${formatMoney(amount, g.currency)})`,
+      summary: `${name} nudged ${labelOf(g.members, n.memberId, 'someone')} to settle up (${formatMoney(amount, g.currency)})`,
       after: total === undefined ? { amount, memberId: n.memberId } : { amount, memberId: n.memberId, total },
       createdAt: Date.now(),
     }

@@ -1,6 +1,7 @@
 import type { Debt, MemberId } from '@/types'
 import { appLocale } from './locale'
 import { currencySymbol, minorDigits } from './money'
+import { shortNames as sharedShortNames } from '../../shared/names'
 
 /*
  * Geometry for the settle-up graph (DebtGraph): people sit on an ellipse ("ring") as avatar nodes,
@@ -218,21 +219,9 @@ export function netOf(debts: Debt[]): Map<MemberId, number> {
   return m
 }
 
-/**
- * Short labels for the chart: first names, with a last initial (or more) where two people share
- * one, so "Kodai Gandhi" and "Kodai Rao" read "Kodai G" and "Kodai R".
- */
+/** Short labels for the chart: the app's naming rule (shared/names.ts) over these people. */
 export function shortNames(names: Record<MemberId, string>): Record<MemberId, string> {
-  const ids = Object.keys(names)
-  const parts = Object.fromEntries(ids.map((id) => [id, names[id].trim().split(/\s+/).filter(Boolean)]))
-  const first = (id: MemberId) => parts[id][0] ?? '?'
-  const out: Record<MemberId, string> = {}
-  for (const id of ids) {
-    const same = ids.filter((o) => first(o).toLowerCase() === first(id).toLowerCase())
-    const last = parts[id].length > 1 ? parts[id][parts[id].length - 1] : ''
-    out[id] = same.length > 1 && last ? `${first(id)} ${last[0].toUpperCase()}` : first(id)
-  }
-  return out
+  return sharedShortNames(Object.fromEntries(Object.entries(names).map(([id, name]) => [id, { name }])))
 }
 
 /**

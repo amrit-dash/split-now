@@ -14,6 +14,7 @@ import type { AiUnavailableReason } from '../../shared/ai-config'
 import type { QuickAiRequest, QuickAiResponse } from '../../shared/quick-ai'
 import { defaultCurrency } from '@/lib/locale'
 import { sharedPhotoURL, type OwnMemberPatch } from '@/lib/memberSync'
+import { labelForUid, labelOf, memberIdOfUid } from '@/lib/shortNames'
 
 export type Unsub = () => void
 
@@ -618,7 +619,7 @@ export const byCreatedDesc = <T extends { createdAt: number }>(a: T, b: T) => b.
 export function groupPurgeBlocker(g: Pick<Group, 'name' | 'createdBy' | 'members' | 'memberUids'>, uid: string): string | null {
   if (!g.memberUids.includes(uid)) return `You’re no longer in “${g.name}”.`
   if (g.createdBy === uid) return null
-  const by = Object.values(g.members).find((m) => m.uid === g.createdBy)?.name
+  const by = labelForUid(g.members, g.createdBy, memberIdOfUid(g.members, uid))
   return `Only ${by ?? 'the person who created it'} can delete “${g.name}”.`
 }
 
@@ -626,9 +627,11 @@ export function groupPurgeBlocker(g: Pick<Group, 'name' | 'createdBy' | 'members
 export function activityCtxFor(group: Pick<Group, 'currency' | 'members'> | undefined, actor: { uid: string; name: string }, _item?: object): ActivityCtx {
   return {
     actorUid: actor.uid,
-    actorName: actor.name.slice(0, 80) || 'Someone',
+    // Everyone in the group reads the line, so names follow the group's rule (first names,
+    // "Rahul S." when two share one) without anyone's point of view.
+    actorName: (labelForUid(group?.members, actor.uid) ?? actor.name).slice(0, 80) || 'Someone',
     // amounts are stored in the group currency (a foreign original is formatted from `original`)
     currency: group?.currency ?? defaultCurrency(),
-    memberName: (id) => group?.members[id]?.name ?? 'Former member',
+    memberName: (id) => labelOf(group?.members, id, 'Former member'),
   }
 }

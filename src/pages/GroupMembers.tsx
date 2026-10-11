@@ -27,6 +27,7 @@ import { Empty, PageHeader } from '@/components/Misc'
 import { CardSkeleton, ListSkeleton } from '@/components/Skeleton'
 import { SwipeRow, type SwipeAction } from '@/components/SwipeRow'
 import { useToast } from '@/components/Toast'
+import { labelOf } from '@/lib/shortNames'
 
 /**
  * A group's people: who is in it, whether they have joined, where each stands, and adding or
@@ -150,16 +151,20 @@ export default function GroupMembers() {
                 <SwipeRow
                   key={id}
                   actions={actionsFor(id, r, v, self)}
-                  menuTitle={self ? 'You' : m.name}
+                  menuTitle={self ? 'You' : labelOf(group.members, id, m.name, me)}
                   contentClassName="flex items-center gap-3 px-4 py-3"
                   testId="member-row"
                 >
                   <Avatar name={m.name} color={m.color} photoURL={m.photoURL} size={40} />
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-medium">
-                      {m.name} {self && <span className="text-muted text-xs">(you)</span>}
+                      {self ? m.name : labelOf(group.members, id, m.name, me)} {self && <span className="text-muted text-xs">(you)</span>}
                     </div>
-                    <div className="text-muted truncate text-xs">{memberState(m).replace(/\. Share the invite link$/, '')}</div>
+                    {/* The full name under the short one: this is where you check who someone is. */}
+                    <div className="text-muted truncate text-xs">
+                      {!self && labelOf(group.members, id, m.name, me) !== m.name.trim() ? `${m.name.trim()} · ` : ''}
+                      {memberState(m).replace(/\. Share the invite link$/, '')}
+                    </div>
                   </div>
                   <div className={`shrink-0 text-right text-sm font-semibold ${v > 0 ? 'pos' : v < 0 ? 'neg' : 'text-muted'}`}>
                     {v === 0 ? 'settled' : `${v > 0 ? 'gets back' : 'owes'} ${formatMoney(Math.abs(v), cur)}`}

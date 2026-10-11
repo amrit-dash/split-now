@@ -41,6 +41,7 @@ product and architecture source of truth (data model §4.2, security §4.3, perf
 - Comments explain *why*, in plain prose. Keep the existing ones when refactoring.
 - Money is integer minor units (paise, cents) everywhere: `amount`, splits, settlements, budgets. Never a float in storage or arithmetic; format only at the edge with `formatMoney`. Use `MoneyInput` for every money field (string draft inside, minor units outside). Splits use largest-remainder rounding so shares always sum to the total.
 - Dates are local ISO `YYYY-MM-DD` strings (`todayISO()` from `src/lib/id.ts`; never `toISOString().slice(0, 10)`); timestamps are epoch ms. Format dates with the cached `formatDate` / `formatDateTime` / `formatTime` from `src/lib/locale.ts`.
+- People: show members with `labelOf` / `groupLabels` / `shortNames` from `src/lib/shortNames.ts` (first names, "Rahul S." on a clash; the rule is `shared/names.ts`, also used by the functions). The raw `member.name` is for Members, Edit group, export, avatars and matching only.
 - Errors: `errText(e)` from `src/lib/errors.ts` is the one error-message mapper; use it in every catch instead of `(e as Error).message`.
 - Confirmations: `useConfirm()` from `ConfirmSheet`, never `window.confirm`. Restorable actions use the Undo toast instead of a confirm.
 - Live data: subscribe through the hooks in `src/hooks/data.ts`; a new live query is a new key in the store, not a new `onSnapshot` in a page. A watcher's `meta.fromCache` matters: an empty cached list is not "loaded".

@@ -19,6 +19,7 @@ import { useToast } from '@/components/Toast'
 import { SwipeRow } from '@/components/SwipeRow'
 import { usePageTitle } from '@/lib/brand'
 import { HistoryCard, TrashedBanner, TrustBadges, TrustPanel, useUndoableDelete } from '@/components/Trust'
+import { labelOf } from '@/lib/shortNames'
 
 export default function ExpenseDetail() {
   const { groupId, expenseId } = useParams()
@@ -57,7 +58,7 @@ export default function ExpenseDetail() {
   const me = myMemberId(group, user.uid)
   const cur = group.currency
   const cat = CATEGORIES[e.category]
-  const name = (id: string) => (id === me ? 'You' : (group.members[id]?.name ?? 'Former member'))
+  const name = (id: string) => (id === me ? 'You' : labelOf(group.members, id, 'Former member', me))
 
   const template = e.recurringFrom ? expenses.find((x) => x.id === e.recurringFrom) : undefined
 

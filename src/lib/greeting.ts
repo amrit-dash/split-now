@@ -4,6 +4,7 @@
  * render) and mentions real state when there is some.
  */
 import type { Cents, Debt, Member, MemberId } from '@/types'
+import { shortNames } from './shortNames'
 
 export type DayPart = 'earlyMorning' | 'morning' | 'afternoon' | 'evening' | 'lateNight'
 
@@ -192,9 +193,11 @@ export function topCounterparties(groups: DebtGroup[], currency: string): { owed
   }
   let owedBy: { name: string; amount: Cents } | undefined
   let owes: { name: string; amount: Cents } | undefined
-  for (const v of bal.values()) {
-    if (v.amount > 0 && (!owedBy || v.amount > owedBy.amount)) owedBy = { name: firstName(v.name), amount: v.amount }
-    if (v.amount < 0 && (!owes || -v.amount > owes.amount)) owes = { name: firstName(v.name), amount: -v.amount }
+  // Named the way the rest of the app names people: two Rahuls read "Rahul S." and "Rahul K.".
+  const labels = shortNames(Object.fromEntries([...bal.entries()].map(([k, v]) => [k, { name: v.name }])))
+  for (const [k, v] of bal) {
+    if (v.amount > 0 && (!owedBy || v.amount > owedBy.amount)) owedBy = { name: labels[k] ?? firstName(v.name), amount: v.amount }
+    if (v.amount < 0 && (!owes || -v.amount > owes.amount)) owes = { name: labels[k] ?? firstName(v.name), amount: -v.amount }
   }
   return { owedBy, owes }
 }

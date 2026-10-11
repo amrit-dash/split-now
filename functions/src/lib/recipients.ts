@@ -1,4 +1,5 @@
 import { isRemoved } from '../../../shared/members'
+import { labelOf } from '../../../shared/names'
 
 /** Who hears about a new expense: members with an account who paid or owe, except whoever added it. */
 
@@ -55,8 +56,8 @@ export function memberIdForUid(members: Record<string, MemberLite> | undefined, 
   return (all.find(([, m]) => !isRemoved(m)) ?? all[0])?.[0]
 }
 
-/** Display name of the member whose account is `uid` in this group. */
+/** What the group calls the member whose account is `uid`: first name, "Rahul S." when two share one (shared/names.ts). */
 export function memberNameForUid(members: Record<string, MemberLite> | undefined, uid: string | undefined): string | undefined {
   const id = memberIdForUid(members, uid)
-  return id ? members?.[id]?.name : undefined
+  return id && members ? labelOf(members, id, members[id]?.name ?? '') || undefined : undefined
 }

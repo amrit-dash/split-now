@@ -265,7 +265,7 @@ export default function Insights() {
               approx=""
               rows={view.members.map((m) => ({
                 key: m.id,
-                name: m.me ? 'You' : m.name,
+                name: m.me ? 'You' : m.label,
                 icon: <Avatar name={m.name} color={m.color} photoURL={m.photoURL} size={24} />,
                 paid: m.paid,
                 share: m.share,

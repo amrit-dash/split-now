@@ -14,8 +14,10 @@ import { Sheet } from './Sheet'
 import { useConfirm } from './ConfirmSheet'
 import { useToast } from './Toast'
 import { SwipeRow } from './SwipeRow'
+import { labelForUid, labelOf, memberIdOfUid } from '@/lib/shortNames'
 
-const memberNameFor = (g: Group, uid: string) => (id: string) => (g.members[id]?.uid === uid ? 'you' : (g.members[id]?.name ?? 'Former member'))
+const memberNameFor = (g: Group, uid: string) => (id: string) =>
+  g.members[id]?.uid === uid ? 'you' : labelOf(g.members, id, 'Former member', memberIdOfUid(g.members, uid))
 
 /** Small "Flagged" / "Needs OK" pills for expense rows. The icon carries the state, so it stays. */
 export function TrustBadges({ e, group }: { e: Expense; group: Group }) {
@@ -100,9 +102,13 @@ export function ActivityFeed({
   linkable,
   isNew,
   onHide,
+  showGroup = true,
 }: {
   entries: ActivityEntry[]
+  /** the entries' groups: names people the way each group does, and shows the group under each row */
   groups?: Record<string, Group>
+  /** false: the group line under each row is left out (a page or section that is one group already) */
+  showGroup?: boolean
   /** expense entries whose expense can be opened (default: all) */
   linkable?: (a: ActivityEntry) => boolean
   /** unread entries get a dot */
@@ -115,15 +121,16 @@ export function ActivityFeed({
     <ul className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
       {entries.map((a) => {
         const g = groups?.[a.groupId]
+        const text = activityText(a, user.uid, g ? labelForUid(g.members, a.actorUid, memberIdOfUid(g.members, user.uid)) : undefined)
         const inner = (
           <>
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-lg dark:bg-ink-800" aria-hidden>
               {activityIcon(a.type)}
             </div>
             <div className="min-w-0 flex-1">
-              <div className="line-clamp-2 text-sm">{activityText(a, user.uid)}</div>
+              <div className="line-clamp-2 text-sm">{text}</div>
               <div className="text-muted truncate text-xs">
-                {g ? (
+                {g && showGroup ? (
                   <>
                     <span aria-hidden>{g.emoji} </span>
                     {g.name} ·{' '}
@@ -158,7 +165,7 @@ export function ActivityFeed({
               <button
                 type="button"
                 onClick={() => onHide(a)}
-                aria-label={`Clear “${activityText(a, user.uid)}”`}
+                aria-label={`Clear “${text}”`}
                 className="text-muted mr-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full active:bg-slate-100 dark:active:bg-ink-800"
                 data-testid="update-clear"
               >
@@ -186,7 +193,7 @@ export function HistoryCard({ group, expense }: { group: Group; expense: Expense
       <div className="label">History</div>
       <ol className="space-y-3">
         {history.map((a) => {
-          const who = a.actorUid === user.uid ? 'You' : a.actorName
+          const who = a.actorUid === user.uid ? 'You' : (labelForUid(group.members, a.actorUid, memberIdOfUid(group.members, user.uid)) ?? a.actorName)
           const lines = a.type === 'expense.updated' ? describeChanges(a.before, a.after, ctx) : []
           return (
             <li key={a.id} className="flex gap-2.5 text-sm">
@@ -208,7 +215,7 @@ export function HistoryCard({ group, expense }: { group: Group; expense: Expense
                     )}
                   </>
                 ) : (
-                  <div>{activityText(a, user.uid)}</div>
+                  <div>{activityText(a, user.uid, labelForUid(group.members, a.actorUid, memberIdOfUid(group.members, user.uid)))}</div>
                 )}
                 <div className="text-muted text-xs">{fmtAgo(a.createdAt)}</div>
               </div>
@@ -231,7 +238,7 @@ export function TrustPanel({ group, expense: e, myMemberId }: { group: Group; ex
   const involved = !!myMemberId && (myMemberId in e.splits || myMemberId in e.paidBy)
   const waiting = pendingApprovers(e, group)
   const iMustApprove = waiting.some((id) => group.members[id]?.uid === user.uid)
-  const name = (id: string) => (group.members[id]?.uid === user.uid ? 'you' : (group.members[id]?.name ?? 'Former member'))
+  const name = memberNameFor(group, user.uid)
   const cur = group.currency
   const fail = (err: unknown) => toast(errText(err), 'err')
 
@@ -284,7 +291,7 @@ export function TrustPanel({ group, expense: e, myMemberId }: { group: Group; ex
           <ul className="space-y-2">
             {flags.map((f) => (
               <li key={f.byUid} className="text-sm">
-                <b>{f.byUid === user.uid ? 'You' : (group.members[f.memberId]?.name ?? 'Someone')}</b>: {f.reason}
+                <b>{f.byUid === user.uid ? 'You' : labelOf(group.members, f.memberId, 'Someone', memberIdOfUid(group.members, user.uid))}</b>: {f.reason}
                 <span className="text-muted ml-1 text-xs">{fmtAgo(f.at)}</span>
               </li>
             ))}
@@ -379,8 +386,9 @@ export function RecentlyDeleted({ group, open, onClose }: { group: Group; open: 
   const confirm = useConfirm()
   const trash = useTrash(open ? group : null)
   const fail = (err: unknown) => toast(errText(err), 'err')
-  const name = (id: string) => (group.members[id]?.uid === user.uid ? 'You' : (group.members[id]?.name ?? 'Someone'))
-  const by = (uid?: string) => (uid === user.uid ? 'you' : (Object.values(group.members).find((m) => m.uid === uid)?.name ?? 'someone'))
+  const meId = memberIdOfUid(group.members, user.uid)
+  const name = (id: string) => (group.members[id]?.uid === user.uid ? 'You' : labelOf(group.members, id, 'Someone', meId))
+  const by = (uid?: string) => (uid === user.uid ? 'you' : (labelForUid(group.members, uid, meId) ?? 'someone'))
   const rows = [
     ...(trash?.expenses ?? []).map((e) => ({ kind: 'e' as const, id: e.id, at: e.deletedAt!, item: e })),
     ...(trash?.settlements ?? []).map((s) => ({ kind: 's' as const, id: s.id, at: s.deletedAt!, item: s })),

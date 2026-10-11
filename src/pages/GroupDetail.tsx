@@ -66,6 +66,7 @@ import { RemindActions } from '@/components/RemindActions'
 import { SwipeRow } from '@/components/SwipeRow'
 import { useRemoveMember } from '@/hooks/useRemoveMember'
 import { activeMembers, isRemoved, listedMemberIds, memberRemoval, membersIn, repeatingByMember } from '@/lib/members'
+import { labelOf } from '@/lib/shortNames'
 
 type Tab = 'expenses' | 'balances' | 'activity'
 
@@ -128,7 +129,7 @@ export default function GroupDetail() {
   const myBal = me ? (net[me] ?? 0) : 0
   const personal = group.type === 'personal'
   const total = d.expenses.reduce((s, e) => s + e.amount, 0)
-  const name = (id: string) => (id === me ? 'You' : (group.members[id]?.name ?? 'Someone'))
+  const name = (id: string) => (id === me ? 'You' : labelOf(group.members, id, 'Someone', me))
   // The QR is scanned in person, so it stays short; shared links carry your name for their preview.
   const inviteUrl = inviteLink(location.origin, group.inviteCode)
   const shareInviteUrl = inviteLink(location.origin, group.inviteCode, group.members[me ?? '']?.name)
@@ -366,13 +367,13 @@ export default function GroupDetail() {
                   key={id}
                   contentClassName="flex items-center gap-3 px-4 py-3"
                   testId="balance-row"
-                  menuTitle={id === me ? 'You' : m.name}
+                  menuTitle={name(id)}
                   actions={
                     canRemove
                       ? [
                           {
                             label: 'Remove',
-                            ariaLabel: `Remove ${m.name} from the group`,
+                            ariaLabel: `Remove ${name(id)} from the group`,
                             icon: <UserMinus size={20} strokeWidth={2.25} />,
                             onClick: () => void removeMember(id),
                             testId: 'balance-remove',
@@ -383,7 +384,7 @@ export default function GroupDetail() {
                 >
                   <Avatar name={m.name} color={m.color} photoURL={m.photoURL} size={36} />
                   <div className="min-w-0 flex-1 truncate font-medium">
-                    {id === me ? 'You' : m.name} {isRemoved(m) && <span className="text-muted text-xs">(left)</span>}
+                    {name(id)} {isRemoved(m) && <span className="text-muted text-xs">(left)</span>}
                   </div>
                   <div className={`text-right text-sm font-semibold ${v > 0 ? 'pos' : v < 0 ? 'neg' : 'text-muted'}`}>
                     {v === 0 ? 'settled' : `${v > 0 ? 'gets back' : 'owes'} ${formatMoney(Math.abs(v), cur)}`}
@@ -698,7 +699,12 @@ function ActivityTab({ group, expenseIds }: { group: Group; expenseIds: Set<stri
           Adds, edits, deletions and flags show up here.
         </Empty>
       ) : (
-        <ActivityFeed entries={feed} linkable={(a) => expenseIds.has(a.targetId) || !!trash?.expenses.some((e) => e.id === a.targetId)} />
+        <ActivityFeed
+          entries={feed}
+          groups={{ [group.id]: group }}
+          showGroup={false}
+          linkable={(a) => expenseIds.has(a.targetId) || !!trash?.expenses.some((e) => e.id === a.targetId)}
+        />
       )}
       <RecentlyDeleted group={group} open={open} onClose={() => setOpen(false)} />
     </div>

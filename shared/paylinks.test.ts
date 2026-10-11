@@ -149,7 +149,7 @@ describe('what gets recorded', () => {
         createdAt: NOW,
         payLink: CODE,
       },
-      summary: 'Rahul Sharma marked ₹1240 paid to Priya with a Pay me link. Not right? Delete the payment.',
+      summary: 'Rahul marked ₹1240 paid to Priya with a Pay me link. Not right? Delete the payment.',
     })
   })
   it('mentions the screenshot and falls back to Other without a method', () => {

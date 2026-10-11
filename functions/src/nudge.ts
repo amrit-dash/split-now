@@ -39,6 +39,7 @@ import { applyRateLimit, type RateState } from './lib/ratelimit'
 import { memberIdForUid, memberNameForUid, memberUid, type MemberLite } from './lib/recipients'
 import { isRemoved } from '../../shared/members'
 import { sendToUser } from './push'
+import { firstNameOf, labelOf } from '../../shared/names'
 
 interface GroupLite {
   name?: string
@@ -70,7 +71,7 @@ async function senderName(groupId: string, g: GroupLite, uid: string): Promise<s
   if (fromMembers) return fromMembers
   const p = await db().doc(`groups/${groupId}/profiles/${uid}`).get()
   const n = p.get('displayName')
-  return typeof n === 'string' && n ? n : 'Someone'
+  return typeof n === 'string' && n ? firstNameOf(n) : 'Someone'
 }
 
 /** One group of a nudge, checked: the caller and the debtor are members, and the debtor has an account there. */
@@ -138,7 +139,7 @@ function nudgedEntry(l: Loaded, uid: string, fromName: string, amount: number, c
     actorUid: uid,
     actorName: fromName.slice(0, 100),
     targetId: l.item.memberId,
-    summary: nudgeSummary(fromName, l.members[l.item.memberId]?.name ?? 'someone', amount, currency),
+    summary: nudgeSummary(fromName, labelOf(l.members, l.item.memberId, 'someone'), amount, currency),
     after: total === undefined ? { amount, memberId: l.item.memberId } : { amount, memberId: l.item.memberId, total },
     createdAt: now,
   })

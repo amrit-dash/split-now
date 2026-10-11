@@ -511,8 +511,8 @@ describe('member labels', () => {
     expect(nameOf({ type: 'home', members }, 'me', 'c')).toBe('Priya')
     expect(nameOf({ type: 'home', members }, 'me', 'gone')).toBe('Former member')
   })
-  it('keeps full names in a 1:1 and the personal wallet', () => {
-    expect(memberLabels({ type: 'direct', members: { me: members.me, c: members.c } }, 'me')).toEqual({ me: 'You', c: 'Priya Nair' })
+  it('first names in a 1:1 too (owner decision, Oct 2026)', () => {
+    expect(memberLabels({ type: 'direct', members: { me: members.me, c: members.c } }, 'me')).toEqual({ me: 'You', c: 'Priya' })
     expect(nameOf({ type: 'personal', members: { me: members.me } }, 'me', 'me')).toBe('You')
   })
   it('follows a change of viewer on the same members map', () => {

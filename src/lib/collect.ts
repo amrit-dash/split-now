@@ -100,6 +100,7 @@ export function inHome(people: PersonBalance[], home: string, rates: Record<stri
     out.push({
       key: homeKey(person),
       name: first.name,
+      label: first.label,
       color: first.color,
       photoURL: list.find((p) => p.photoURL)?.photoURL,
       currency: home,
