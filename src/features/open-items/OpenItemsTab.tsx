@@ -9,6 +9,7 @@ import { CATEGORIES } from '@/lib/categories'
 import { authorMember } from '@/lib/chat'
 import { errText } from '@/lib/errors'
 import { todayISO } from '@/lib/id'
+import { formatDate } from '@/lib/locale'
 import { askedMe, claimHref, openItemMeta, sortOpenItems, suspectLine } from '@/lib/open-items'
 import { Collapsible } from '@/components/Collapsible'
 import { Empty } from '@/components/Misc'
@@ -147,7 +148,9 @@ export function OpenItemsTab({ group, items, expenses }: { group: Group; items: 
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium">{o.title}</span>
-                    <span className="text-muted block truncate text-xs">{claimerName(o.claimedBy)} claimed it</span>
+                    <span className="text-muted block truncate text-xs">
+                      {claimerName(o.claimedBy)} claimed it{o.claimedAt ? ` on ${formatDate(o.claimedAt)}` : ''}
+                    </span>
                   </span>
                 </Link>
               </li>

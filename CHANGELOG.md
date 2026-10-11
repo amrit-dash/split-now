@@ -11,6 +11,8 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 - Notifications: new **Group chat** and **Open items** switches, and **Mute chat** for one group in its ⋯ menu.
 - Quick add reads dates: "Oct 2", "2nd Oct", "2/10", "last Friday", "3 days ago". A date's day number, a year, a time ("2:30"), "10%" or a phone number is never taken for the amount, and "290/-", "Rs. 290" and "1,20,000" read correctly.
 - Settings shows the right number of notification types turned on.
+- **Sort and filter** a group's expenses: the ⇅ button next to search, or Sort and filter in the ⋯ menu. Sort by the date spent, the date it was added, or the amount; show only expenses or only payments, only what one person paid, or a range of days.
+- The date something was added now shows where it helps: on an expense ("Added by Ananya on 7 Oct, 6:45 pm · edited 8 Oct"), on a row added days after it was spent, and on open items.
 
 - Links you share now preview properly in chats: an invite says who invited you and to which group, a Pay me link says who asked you to settle up (never the amount), and a live table says where the bill is from, each with its own picture.
 - Inbox: clear an update with ✕ or Clear all (with Undo). It's hidden for you on every device, and nobody else's history changes.

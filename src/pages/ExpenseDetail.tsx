@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { errText } from '@/lib/errors'
 import { SPLIT_TYPE_LABEL } from '@/lib/expense-draft'
 import { formatDate, formatDateTime } from '@/lib/locale'
+import { addedLine } from '@/lib/added'
+import { authorMember } from '@/lib/chat'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { CopyPlus, Pencil, Repeat, Send, Trash2 } from 'lucide-react'
 import { repo } from '@/data'
@@ -254,7 +256,9 @@ export default function ExpenseDetail() {
       )}
       {group.type !== 'personal' && <Comments group={group} expense={e} />}
       <HistoryCard group={group} expense={e} />
-      <p className="mt-4 text-center text-xs text-muted">Added {formatDateTime(e.createdAt)}</p>
+      <p className="mt-4 text-center text-xs text-muted" data-testid="expense-added">
+        {addedLine(e, creatorName(group, e.createdBy, user.uid), { dateTime: formatDateTime, date: (ms) => formatDate(ms) })}
+      </p>
     </div>
   )
 }
@@ -394,4 +398,11 @@ function usePatience(key: string, ms = 4000) {
     return () => clearTimeout(t)
   }, [key, ms])
   return waiting
+}
+
+/** "you", the member's name, or undefined when the account isn't in the group any more. */
+function creatorName(group: Group, uid: string, me: string): string | undefined {
+  if (uid === me) return 'you'
+  const id = authorMember(group, uid)
+  return id ? group.members[id]?.name : undefined
 }

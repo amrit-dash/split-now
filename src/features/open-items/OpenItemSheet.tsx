@@ -8,7 +8,9 @@ import { CATEGORIES, guessCategory } from '@/lib/categories'
 import { todayISO, uid } from '@/lib/id'
 import { errText } from '@/lib/errors'
 import { aiScanEnabled, aiScanPossible } from '@/lib/ai'
-import { formatDate } from '@/lib/locale'
+import { formatDate, formatDateTime } from '@/lib/locale'
+import { addedLine } from '@/lib/added'
+import { authorMember } from '@/lib/chat'
 import { formatMoney } from '@/lib/money'
 import { NOTES_MAX, TITLE_MAX, editOpenItem, newOpenItem, openItemErrors, type OpenItemInput } from '@/lib/open-items'
 import { Avatar } from '@/components/Avatar'
@@ -365,6 +367,14 @@ export function OpenItemSheet({
             onChange={(e) => set({ notes: e.target.value })}
           />
 
+          {item && (
+            <p className="text-muted mt-4 text-center text-xs" data-testid="open-item-added">
+              {addedLine(item, item.createdBy === user.uid ? 'you' : group.members[authorMember(group, item.createdBy) ?? '']?.name, {
+                dateTime: formatDateTime,
+                date: (ms) => formatDate(ms),
+              })}
+            </p>
+          )}
           <div className={`mt-5 grid gap-2 ${item && onDelete ? 'grid-cols-[auto_1fr]' : 'grid-cols-1'}`}>
             {item && onDelete && (
               <button

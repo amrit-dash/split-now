@@ -17,6 +17,7 @@ import {
   Bell,
   Repeat,
   Search,
+  ArrowDownUp,
   Trash2,
   UserMinus,
   Users,
@@ -25,6 +26,7 @@ import {
 import { useMe } from '@/hooks/auth'
 import {
   computeGroupData,
+  memberOrder,
   useActivity,
   useCaptureTokens,
   useChat,
@@ -47,7 +49,22 @@ import { CATEGORIES } from '@/lib/categories'
 import { simplifyDebts } from '@/lib/simplify'
 import { copy, shareOrCopy } from '@/lib/share'
 import { csvFilename, deliverCsv, groupCsv } from '@/lib/export'
-import { EMPTY_FILTER, expenseMatches, isFiltering, settlementMatches, type ActivityFilter } from '@/lib/filter'
+import {
+  addedLater,
+  DEFAULT_SORT,
+  EMPTY_FILTER,
+  expenseMatches,
+  isFiltering,
+  isSortKey,
+  sectionRows,
+  settlementMatches,
+  sheetFilterCount,
+  sortRows,
+  type ActivityFilter,
+  type SortKey,
+} from '@/lib/filter'
+import { ListOptionsSheet } from '@/features/group-list/ListOptionsSheet'
+import { localISODate } from '@/lib/id'
 import { FREQ_LABEL } from '@/lib/recurrence'
 import { todayISO } from '@/lib/id'
 import { errText } from '@/lib/errors'
@@ -105,6 +122,8 @@ export default function GroupDetail() {
   const [tab, setTab] = useState<Tab>(() => (params.get('tab') === 'open' ? 'open' : 'expenses'))
   const [invite, setInvite] = useState(false)
   const [menu, setMenu] = useState(false)
+  /** the Expenses list's sort and filter sheet (also opened from ⋯) */
+  const [listSheet, setListSheet] = useState(false)
   const toast = useToast()
   // The feed is the same shared listener the Activity tab and Home use; here it says who was nudged today.
   const feed = useActivity(groupId)
@@ -406,6 +425,8 @@ export default function GroupDetail() {
           currency={cur}
           name={name}
           personal={personal}
+          sheetOpen={listSheet}
+          onSheet={setListSheet}
         />
       )}
 
@@ -603,6 +624,17 @@ export default function GroupDetail() {
               }}
             />
           )}
+          <MenuRow
+            icon={<ArrowDownUp size={20} />}
+            label="Sort and filter"
+            hint="Order by date spent, date added or amount; filter by who paid or dates"
+            onClick={() => {
+              setMenu(false)
+              setTab('expenses')
+              setListSheet(true)
+            }}
+            testId="group-menu-sort"
+          />
           <MenuRow
             icon={<BarChart3 size={20} />}
             label="Insights"
@@ -840,6 +872,8 @@ function ActivityList({
   currency,
   name,
   personal,
+  sheetOpen,
+  onSheet,
 }: {
   group: Group
   expenses: Expense[]
@@ -848,6 +882,8 @@ function ActivityList({
   currency: string
   name: (id: string) => string
   personal: boolean
+  sheetOpen: boolean
+  onSheet: (open: boolean) => void
 }) {
   const groupId = group.id
   const undoable = useUndoableDelete()
@@ -856,7 +892,14 @@ function ActivityList({
   const navTo = useNavigate()
   const [filter, setFilter] = useState<ActivityFilter>(EMPTY_FILTER)
   const [onlyMe, setOnlyMe] = useState(false)
+  const [sort, setSortState] = useState<SortKey>(readSort)
+  const setSort = (k: SortKey) => {
+    setSortState(k)
+    saveSort(k)
+  }
   const f: ActivityFilter = { ...filter, involving: onlyMe ? me : undefined }
+  const sheetCount = sheetFilterCount(filter) + (sort !== DEFAULT_SORT ? 1 : 0)
+  const byAdded = sort.startsWith('added')
   const filtering = isFiltering(f)
   const usedCategories = useMemo(() => {
     const seen = new Set(expenses.map((e) => e.category))
@@ -869,18 +912,23 @@ function ActivityList({
     setOnlyMe(false)
   }
 
-  type Row = { kind: 'e'; e: Expense } | { kind: 's'; s: Settlement }
+  type Row = ({ kind: 'e'; e: Expense } | { kind: 's'; s: Settlement }) & { date: string; createdAt: number; amount: number }
   const all = expenses.length + settlements.length
-  const rows: Row[] = [
-    ...expenses.filter((e) => expenseMatches(e, f)).map((e) => ({ kind: 'e' as const, e })),
-    ...settlements.filter((s) => settlementMatches(s, f, name)).map((s) => ({ kind: 's' as const, s })),
-  ].sort((a, b) => {
-    const da = a.kind === 'e' ? a.e.date : a.s.date,
-      db = b.kind === 'e' ? b.e.date : b.s.date
-    const ca = a.kind === 'e' ? a.e.createdAt : a.s.createdAt,
-      cb = b.kind === 'e' ? b.e.createdAt : b.s.createdAt
-    return db.localeCompare(da) || cb - ca
-  })
+  const rows: Row[] = sortRows(
+    [
+      ...expenses.filter((e) => expenseMatches(e, f)).map((e) => ({ kind: 'e' as const, e, date: e.date, createdAt: e.createdAt, amount: e.amount })),
+      ...settlements
+        .filter((s) => settlementMatches(s, f, name))
+        .map((s) => ({ kind: 's' as const, s, date: s.date, createdAt: s.createdAt, amount: s.amount })),
+    ],
+    sort,
+  )
+  /** "added 5 Oct" beside the date spent: always when sorted by date added, else only when it was added days later. */
+  const addedNote = (r: Pick<Row, 'date' | 'createdAt'>) => {
+    if (byAdded) return `Added ${formatDate(r.createdAt)}`
+    const later = addedLater(r, localISODate)
+    return later && later > shiftDay(r.date, 1) ? `Added ${formatDate(later)}` : ''
+  }
   if (all === 0)
     return (
       <Empty emoji="🧾" title="No expenses yet">
@@ -888,34 +936,46 @@ function ActivityList({
       </Empty>
     )
 
-  const byMonth = new Map<string, Row[]>()
-  for (const r of rows) {
-    const date = r.kind === 'e' ? r.e.date : r.s.date
-    const k = formatDate(date, { month: 'long', year: 'numeric' })
-    byMonth.set(k, [...(byMonth.get(k) ?? []), r])
-  }
+  const sections = sectionRows(rows, sort, (d) => formatDate(d, { month: 'long', year: 'numeric' }))
   const filters = (
     <div className="space-y-2">
-      <div className="relative">
-        <Search size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden />
-        <input
-          type="search"
-          className="input !py-2.5 pl-10 pr-12"
-          placeholder="Search expenses and notes"
-          aria-label="Search expenses"
-          value={filter.q}
-          onChange={(e) => setFilter((p) => ({ ...p, q: e.target.value }))}
-        />
-        {filter.q && (
-          <button
-            type="button"
-            onClick={() => setFilter((p) => ({ ...p, q: '' }))}
-            className="text-muted absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full"
-            aria-label="Clear search"
-          >
-            <X size={16} aria-hidden />
-          </button>
-        )}
+      <div className="flex items-center gap-2">
+        <div className="relative min-w-0 flex-1">
+          <Search size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden />
+          <input
+            type="search"
+            className="input !py-2.5 pl-10 pr-12"
+            placeholder="Search expenses and notes"
+            aria-label="Search expenses"
+            value={filter.q}
+            onChange={(e) => setFilter((p) => ({ ...p, q: e.target.value }))}
+          />
+          {filter.q && (
+            <button
+              type="button"
+              onClick={() => setFilter((p) => ({ ...p, q: '' }))}
+              className="text-muted absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full"
+              aria-label="Clear search"
+            >
+              <X size={16} aria-hidden />
+            </button>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => onSheet(true)}
+          className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${sheetCount ? 'bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-200' : 'bg-slate-100 text-slate-600 dark:bg-ink-800 dark:text-slate-300'}`}
+          aria-label={sheetCount ? `Sort and filter, ${sheetCount} on` : 'Sort and filter'}
+          aria-haspopup="dialog"
+          data-testid="list-options-open"
+        >
+          <ArrowDownUp size={18} aria-hidden />
+          {sheetCount > 0 && (
+            <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-fill px-1 text-[11px] font-bold text-on-fill">
+              {sheetCount}
+            </span>
+          )}
+        </button>
       </div>
       {(usedCategories.length > 1 || (!personal && me)) && (
         <div className="scrollbar-none -mx-4 flex gap-1.5 overflow-x-auto px-4 py-1">
@@ -947,12 +1007,27 @@ function ActivityList({
             })}
         </div>
       )}
+      {sort !== DEFAULT_SORT && !filtering && (
+        <div className="text-muted flex items-center justify-between px-1 text-xs">
+          <span>Sorted by {sort.startsWith('added') ? 'date added' : 'amount'}</span>
+          <button type="button" onClick={() => setSort(DEFAULT_SORT)} className="min-h-9 font-semibold text-brand-600 dark:text-brand-300">
+            Back to date spent
+          </button>
+        </div>
+      )}
       {filtering && (
         <div className="text-muted flex items-center justify-between px-1 text-xs">
           <span>
             {rows.length} of {all} shown
           </span>
-          <button type="button" onClick={clear} className="min-h-9 font-semibold text-brand-600 dark:text-brand-300">
+          <button
+            type="button"
+            onClick={() => {
+              clear()
+              setSort(DEFAULT_SORT)
+            }}
+            className="min-h-9 font-semibold text-brand-600 dark:text-brand-300"
+          >
             Clear filters
           </button>
         </div>
@@ -968,7 +1043,7 @@ function ActivityList({
           Try a different search or clear the filters.
         </Empty>
       )}
-      {[...byMonth].map(([month, list]) => (
+      {sections.map(({ label: month, rows: list }) => (
         <section key={month} aria-label={month}>
           <h2 className="text-muted mb-2 px-1 text-xs font-bold uppercase tracking-wider">{month}</h2>
           <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
@@ -1053,6 +1128,11 @@ function ActivityList({
                           </>
                         )}
                       </div>
+                      {addedNote(r) && (
+                        <div className="text-muted truncate text-[11px]" data-testid="row-added">
+                          {addedNote(r)}
+                        </div>
+                      )}
                     </div>
                     <div className={`font-semibold ${ps.pill === 'needs-ok' || ps.pill === 'flagged' ? 'text-muted line-through decoration-1' : 'pos'}`}>
                       {formatMoney(r.s.amount, currency)}
@@ -1119,6 +1199,11 @@ function ActivityList({
                           </>
                         )}
                       </div>
+                      {addedNote(r) && (
+                        <div className="text-muted truncate text-[11px]" data-testid="row-added">
+                          {addedNote(r)}
+                        </div>
+                      )}
                     </div>
                     <div className="text-right">
                       {personal ? (
@@ -1139,9 +1224,42 @@ function ActivityList({
           </div>
         </section>
       ))}
+      <ListOptionsSheet
+        open={sheetOpen}
+        onClose={() => onSheet(false)}
+        group={group}
+        order={memberOrder(group, [...expenses.flatMap((e) => Object.keys(e.paidBy)), ...settlements.map((s) => s.from)])}
+        me={me}
+        sort={sort}
+        onSort={setSort}
+        filter={filter}
+        onFilter={(patch) => setFilter((p) => ({ ...p, ...patch }))}
+        personal={personal}
+      />
     </div>
   )
 }
+
+/** The list's order is a convenience kept on this device (the same for every group). */
+const SORT_KEY = 'splitit-list-sort'
+function readSort(): SortKey {
+  try {
+    const v = localStorage.getItem(SORT_KEY)
+    return isSortKey(v) ? v : DEFAULT_SORT
+  } catch {
+    return DEFAULT_SORT
+  }
+}
+function saveSort(k: SortKey) {
+  try {
+    if (k === DEFAULT_SORT) localStorage.removeItem(SORT_KEY)
+    else localStorage.setItem(SORT_KEY, k)
+  } catch {
+    /* private mode */
+  }
+}
+/** `iso` plus `n` days (local). */
+const shiftDay = (iso: string, n: number) => localISODate(new Date(`${iso}T12:00:00`).getTime() + n * 86_400_000)
 
 /**
  * A thin card of its own under the group's header card about this person's own trip auto-capture (capture is set up
