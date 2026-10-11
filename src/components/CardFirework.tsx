@@ -1,7 +1,18 @@
 import { useEffect, useRef } from 'react'
 import { useMotion } from '@/hooks/useMotion'
 import { type FireworkLook, fireworkLook } from '@/lib/firework'
-import { activeMotion, fireworkScale, glintAlpha, glintCount, glintLife, glintRadius, particleScale, SPARK_LIFE } from '@/lib/motion'
+import {
+  activeMotion,
+  fireworkScale,
+  type GlintKind,
+  glintAlpha,
+  glintCount,
+  glintLife,
+  glintRadius,
+  glintShape,
+  particleScale,
+  SPARK_LIFE,
+} from '@/lib/motion'
 
 /*
  * Quiet fireworks for the Home balance card when you're all settled up.
@@ -82,8 +93,8 @@ interface Particle {
   alpha: number
   twinkle: number // 0 = none, else phase seed
   ember: boolean
-  /** 0: a spark; 1: a glitter dot; 2: a glitter streak */
-  glint: 0 | 1 | 2
+  /** a glitter light's shape; none for a spark */
+  glint: GlintKind | null
   /** the burst's centre (a burst spark's glitter is pulled towards it) */
   ox: number
   oy: number
@@ -91,6 +102,8 @@ interface Particle {
   hot: string
   /** a glitter streak's half-length, in radii */
   len: number
+  /** a curl's bend: which way, and how far (in radii) */
+  bend: number
   blend: FireworkLook['blend']
   halo: number
   shrink: number
@@ -252,12 +265,13 @@ export function CardFirework({ testId = 'home-firework' }: { testId?: string } =
           alpha: s.bright * 0.75 * s.look.alpha,
           twinkle: twinkles && Math.random() < 0.45 ? rand(1, 1000) : 0,
           ember: false,
-          glint: 0,
+          glint: null,
           ox: s.x,
           oy: s.y,
           // Painted (bright fill) sparks keep their own ink; light added on a deep fill can flash white.
           hot: s.look.blend === 'lighter' ? `rgb(${s.look.flash})` : s.colors[i % s.colors.length],
           len: 0,
+          bend: 0,
           blend: s.look.blend,
           halo: s.look.halo,
           shrink: s.look.shrink,
@@ -286,8 +300,9 @@ export function CardFirework({ testId = 'home-firework' }: { testId?: string } =
           alpha: Math.random() < 0.1 ? 1 : rand(0.6, 1) * Math.min(1, p.alpha * 2.2),
           color: Math.random() < 0.55 ? p.hot : p.color,
           twinkle: Math.random() < 0.25 ? 1 : 0, // blinks once
-          glint: Math.random() < 0.18 ? 2 : 1,
+          glint: glintShape(prefsRef.current.glitterShape, Math.random()),
           len: rand(1.25, 2),
+          bend: (Math.random() < 0.5 ? -1 : 1) * rand(0.8, 1.6),
           shrink: 0,
         })
       }
@@ -322,11 +337,12 @@ export function CardFirework({ testId = 'home-firework' }: { testId?: string } =
               alpha: s.bright * 0.7,
               twinkle: 0,
               ember: true,
-              glint: 0,
+              glint: null,
               ox: 0,
               oy: 0,
               hot: s.look.ember,
               len: 0,
+              bend: 0,
               blend: s.look.blend,
               halo: s.look.halo,
               shrink: 0,
@@ -401,17 +417,35 @@ export function CardFirework({ testId = 'home-firework' }: { testId?: string } =
           const gr = glintRadius(p.r, glitterSize)
           ctx.globalCompositeOperation = p.blend
           ctx.globalAlpha = Math.min(1, ga)
-          if (p.glint === 2) {
+          if (p.glint === 'streak' || p.glint === 'curl') {
+            // Along its drift (down when it has stopped); a curl bends to one side.
             const sp = Math.hypot(p.vx, p.vy)
             const ang = sp > 2 ? Math.atan2(p.vy, p.vx) : Math.PI / 2
             const dx = Math.cos(ang) * gr * p.len
             const dy = Math.sin(ang) * gr * p.len
             ctx.strokeStyle = p.color
-            ctx.lineWidth = gr * 1.4
+            ctx.lineWidth = gr * (p.glint === 'curl' ? 1.1 : 1.4)
             ctx.beginPath()
             ctx.moveTo(p.x - dx, p.y - dy)
-            ctx.lineTo(p.x + dx, p.y + dy)
+            if (p.glint === 'curl')
+              ctx.quadraticCurveTo(p.x - Math.sin(ang) * gr * p.bend * 2, p.y + Math.cos(ang) * gr * p.bend * 2, p.x + dx * 1.3, p.y + dy * 1.3)
+            else ctx.lineTo(p.x + dx, p.y + dy)
             ctx.stroke()
+          } else if (p.glint === 'star') {
+            // A four-point star: a bright centre and a plus of fine rays.
+            const ray = gr * (2.2 + p.len)
+            ctx.strokeStyle = p.color
+            ctx.lineWidth = Math.max(0.5, gr * 0.6)
+            ctx.beginPath()
+            ctx.moveTo(p.x - ray, p.y)
+            ctx.lineTo(p.x + ray, p.y)
+            ctx.moveTo(p.x, p.y - ray)
+            ctx.lineTo(p.x, p.y + ray)
+            ctx.stroke()
+            ctx.fillStyle = p.color
+            ctx.beginPath()
+            ctx.arc(p.x, p.y, gr * 0.8, 0, Math.PI * 2)
+            ctx.fill()
           } else {
             ctx.fillStyle = p.color
             ctx.beginPath()

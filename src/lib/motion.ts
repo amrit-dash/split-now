@@ -12,6 +12,8 @@ export type FireworkSize = 'small' | 'medium' | 'big'
 /** Glitter has one size below small, so its dots can be clearly finer than the sparks. */
 export type GlitterSize = 'tiny' | FireworkSize
 export type FlowSpeed = 'slow' | 'normal' | 'fast'
+/** What the glitter's lights look like: a mix of all of them, or one kind. */
+export type GlitterShape = 'mix' | 'dots' | 'streaks' | 'stars' | 'curls'
 
 export interface MotionPrefs {
   /** The master switch: off stills all three. */
@@ -28,6 +30,8 @@ export interface MotionPrefs {
   glitter: boolean
   /** How big the glitter's dots are. */
   glitterSize: GlitterSize
+  /** The glitter's shape (glintShape). */
+  glitterShape: GlitterShape
   /** Some of a burst's sparks pulse brighter and dimmer as they fade, the brightest with a small four-point star. */
   twinkle: boolean
   /** The drifting colour patches on the Home card, the + button and accent buttons. */
@@ -44,6 +48,7 @@ export const DEFAULT_MOTION: MotionPrefs = {
   sparkSize: 'medium',
   glitter: true,
   glitterSize: 'medium',
+  glitterShape: 'mix',
   twinkle: false,
   flow: true,
   speed: 'normal',
@@ -54,6 +59,7 @@ export const MOTION_KEY = 'splitit-motion'
 const SIZES: readonly FireworkSize[] = ['small', 'medium', 'big']
 const GLITTER_SIZES: readonly GlitterSize[] = ['tiny', 'small', 'medium', 'big']
 const SPEEDS: readonly FlowSpeed[] = ['slow', 'normal', 'fast']
+export const GLITTER_SHAPES: readonly GlitterShape[] = ['mix', 'dots', 'streaks', 'stars', 'curls']
 
 /** Stored JSON to prefs: unknown or bad values fall back to the default one by one, so an old or hand-edited entry never breaks the app. */
 export function parseMotion(raw: string | null | undefined): MotionPrefs {
@@ -74,6 +80,7 @@ export function parseMotion(raw: string | null | undefined): MotionPrefs {
     sparkSize: size('sparkSize'),
     glitter: bool('glitter'),
     glitterSize: GLITTER_SIZES.includes(o.glitterSize as GlitterSize) ? (o.glitterSize as GlitterSize) : DEFAULT_MOTION.glitterSize,
+    glitterShape: GLITTER_SHAPES.includes(o.glitterShape as GlitterShape) ? (o.glitterShape as GlitterShape) : DEFAULT_MOTION.glitterShape,
     twinkle: bool('twinkle'),
     flow: bool('flow'),
     speed: SPEEDS.includes(o.speed as FlowSpeed) ? (o.speed as FlowSpeed) : DEFAULT_MOTION.speed,
@@ -124,6 +131,21 @@ export function glintRadius(base: number, size: GlitterSize): number {
 /** How many dots a burnt-out spark leaves, from two random draws: usually one, sometimes none or two. */
 export function glintCount(a: number, b: number): number {
   return (a < 0.75 ? 1 : 0) + (b < 0.15 ? 1 : 0)
+}
+
+/** One glitter light's shape: a point, a short straight streak, a four-point star, or a short bent streak. */
+export type GlintKind = 'dot' | 'streak' | 'star' | 'curl'
+
+/**
+ * The shape of one light, from the setting and a random draw. Mix is mostly points with some of
+ * each other shape, so it reads as glitter rather than as a pattern; the others are all one kind.
+ */
+export function glintShape(shape: GlitterShape, r: number): GlintKind {
+  if (shape === 'dots') return 'dot'
+  if (shape === 'streaks') return 'streak'
+  if (shape === 'stars') return 'star'
+  if (shape === 'curls') return 'curl'
+  return r < 0.55 ? 'dot' : r < 0.73 ? 'streak' : r < 0.88 ? 'star' : 'curl'
 }
 
 /** A dot's life in ms from a random draw, skewed short: 80–300. */

@@ -14,6 +14,7 @@ import {
   glintCount,
   glintLife,
   glintRadius,
+  glintShape,
   particleScale,
   SPARK_LIFE,
 } from './motion'
@@ -120,6 +121,17 @@ describe('glitter: the flash of dots a burnt-out spark leaves', () => {
   it('Tiny is for glitter only; spark sizes stay Small / Medium / Big', () => {
     expect(parseMotion(JSON.stringify({ glitterSize: 'tiny' })).glitterSize).toBe('tiny')
     expect(parseMotion(JSON.stringify({ sparkSize: 'tiny' })).sparkSize).toBe(DEFAULT_MOTION.sparkSize)
+  })
+  it('Glitter shape: one kind, or a mix that is mostly dots with some of each other shape', () => {
+    expect(glintShape('stars', 0.1)).toBe('star')
+    expect(glintShape('curls', 0.9)).toBe('curl')
+    expect(glintShape('dots', 0.99)).toBe('dot')
+    expect(glintShape('streaks', 0)).toBe('streak')
+    const mix = [0, 0.3, 0.6, 0.8, 0.95].map((r) => glintShape('mix', r))
+    expect(mix).toEqual(['dot', 'dot', 'streak', 'star', 'curl'])
+    expect(DEFAULT_MOTION.glitterShape).toBe('mix')
+    expect(parseMotion(JSON.stringify({ glitterShape: 'stars' })).glitterShape).toBe('stars')
+    expect(parseMotion(JSON.stringify({ glitterShape: 'hearts' })).glitterShape).toBe('mix')
   })
   it('twinkle is its own setting, off unless turned on', () => {
     expect(DEFAULT_MOTION.twinkle).toBe(false)

@@ -8,6 +8,7 @@ import { useMotion } from '@/hooks/useMotion'
 import {
   type FireworkSize,
   type FlowSpeed,
+  type GlitterShape,
   type GlitterSize,
   getPreviewShown,
   isDefaultMotion,
@@ -118,6 +119,16 @@ export default function Animations() {
                 onChange={(glitterSize) => set({ glitterSize })}
                 options={GLITTER_SIZES}
               />
+              <div className="mt-4">
+                <SizePicker<GlitterShape>
+                  label="Glitter shape"
+                  hint="Mix has a bit of each"
+                  testId="motion-glitter-shape"
+                  value={prefs.glitterShape}
+                  onChange={(glitterShape) => set({ glitterShape })}
+                  options={GLITTER_SHAPE_OPTIONS}
+                />
+              </div>
             </fieldset>
           </Sub>
           <Sub off={!prefs.fireworks}>
@@ -228,6 +239,13 @@ const SIZES: Array<{ value: FireworkSize; label: string }> = [
   { value: 'small', label: 'Small' },
   { value: 'medium', label: 'Medium' },
   { value: 'big', label: 'Big' },
+]
+const GLITTER_SHAPE_OPTIONS: Array<{ value: GlitterShape; label: string }> = [
+  { value: 'mix', label: 'Mix' },
+  { value: 'dots', label: 'Dots' },
+  { value: 'streaks', label: 'Streaks' },
+  { value: 'stars', label: 'Stars' },
+  { value: 'curls', label: 'Curls' },
 ]
 // Glitter goes one size finer than the sparks.
 const GLITTER_SIZES: Array<{ value: GlitterSize; label: string }> = [{ value: 'tiny', label: 'Tiny' }, ...SIZES]
