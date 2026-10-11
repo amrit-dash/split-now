@@ -6,6 +6,8 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 4.2.0 — October 2026
+
 - **A cleaner sign-in screen**: Continue with Google comes first; email has its own button that opens Sign in and Create account, with clear messages under each field and a show-password eye. Joining a live table with its code is its own button.
 - **Email accounts confirm their address with a 6-digit code** sent by email, typed or pasted once. Accounts made before this are asked the next time they open the app. Google accounts don't need it.
 - **More than one email on your account**: Profile → Emails → Add another email, confirmed with a code. Groups that add you by any of your emails reach this one account. If that email already had its own Split Now account, you can merge it in: its groups, Pay me links and tables move over.
