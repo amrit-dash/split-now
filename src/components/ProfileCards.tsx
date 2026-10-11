@@ -115,7 +115,7 @@ export function AccountCard({
 function SignInMethods() {
   const { user } = useMe()
   const toast = useToast()
-  const [linked, setLinked] = useState((user.providers ?? []).includes('google.com'))
+  const [linked, setLinked] = useState((user.providers ?? []).some((p) => p === 'google.com'))
   const [busy, setBusy] = useState(false)
   const link = async () => {
     setBusy(true)
