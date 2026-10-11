@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { groupDeletedNote, payLinkClaimedNote, payLinkPaidNote } from './notify-text'
+import { addedToGroupNote, groupDeletedNote, payLinkClaimedNote, payLinkPaidNote } from './notify-text'
 
 describe('Pay me link push to the payee', () => {
   const base = { code: 'abcdefghijkmnpqrstuvwxyz', groupName: 'Goa trip', emoji: '🏖️', payerName: 'Rahul', amount: 124000, currency: 'INR' }
@@ -52,5 +52,17 @@ describe('payLinkPaidNote when the server couldn’t record it', () => {
     })
     expect(n.body).toContain('Recently deleted')
     expect(n.body).not.toContain('It’s recorded')
+  })
+})
+
+describe('addedToGroupNote', () => {
+  it('names who added you, and opens the group', () => {
+    expect(addedToGroupNote({ groupId: 'g1', groupName: 'Goa trip', emoji: '🏖️', byName: 'Priya' })).toEqual({
+      title: '🏖️ Goa trip',
+      body: 'Priya added you to this group.',
+      url: '/groups/g1',
+      tag: 'group-added-g1',
+    })
+    expect(addedToGroupNote({ groupId: 'g1', groupName: 'Flat' }).body).toBe('You were added to this group.')
   })
 })

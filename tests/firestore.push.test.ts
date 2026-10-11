@@ -95,16 +95,19 @@ describe('scoped capture tokens', () => {
 })
 
 describe('server-only state', () => {
-  it('rate limits and reminder state are closed to every client', async () => {
+  it('rate limits, reminder state and email invites are closed to every client', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), 'rateLimits/x'), { hourCount: 1 })
       await setDoc(doc(ctx.firestore(), 'reminderState/g1'), { lastSent: {} })
+      await setDoc(doc(ctx.firestore(), 'emailInvites/h1'), { email: 'a@b.co', groups: { g1: ['m1'] } })
     })
     for (const who of ['alice', undefined]) {
       await assertFails(getDoc(doc(db(who), 'rateLimits/x')))
       await assertFails(setDoc(doc(db(who), 'rateLimits/x'), { hourCount: 0 }))
       await assertFails(getDoc(doc(db(who), 'reminderState/g1')))
       await assertFails(setDoc(doc(db(who), 'reminderState/g1'), { lastSent: {} }))
+      await assertFails(getDoc(doc(db(who), 'emailInvites/h1')))
+      await assertFails(setDoc(doc(db(who), 'emailInvites/h1'), { email: 'x@y.co' }))
     }
   })
 })

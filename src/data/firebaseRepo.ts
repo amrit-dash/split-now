@@ -364,6 +364,14 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         // Anonymous guests (live table split) get no profile and no access to groups.
         if (u.isAnonymous) return cb({ uid: u.uid, displayName: 'Guest', isAnonymous: true })
         ensureProfile(u).catch(console.error)
+        // Groups that added this (verified) email before the account existed are attached now; once
+        // a session, in the background (the group simply appears when it lands).
+        if (u.emailVerified && u.email && linkedFor !== u.uid) {
+          linkedFor = u.uid
+          void callable<Record<string, never>, { linked: number }>('linkMyInvites', 20_000)
+            .then((fn) => fn({}))
+            .catch((e) => console.warn('Linking invites failed', e))
+        }
         cb({
           uid: u.uid,
           displayName: u.displayName ?? u.email ?? 'You',
@@ -1444,6 +1452,8 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     },
   }
 
+  /** linkMyInvites runs once per signed-in account per session. */
+  let linkedFor = ''
   /** Loaded on first use; most sessions never call a function. */
   async function callable<I, O>(name: string, timeout: number) {
     const { connectFunctionsEmulator, getFunctions, httpsCallable } = await import('firebase/functions')

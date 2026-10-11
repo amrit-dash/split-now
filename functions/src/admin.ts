@@ -48,7 +48,7 @@ export async function countStats(kind: StatKind, fields: Record<string, number>,
 const isUid = (v: unknown): v is string => typeof v === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(v)
 const int = (v: unknown, lo: number, hi: number, d: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : d)
 
-async function requireAdmin(req: CallableRequest): Promise<string> {
+export async function requireAdmin(req: CallableRequest): Promise<string> {
   if (!req.auth || req.auth.token.firebase?.sign_in_provider === 'anonymous') throw new HttpsError('unauthenticated', 'Sign in first')
   const uid = req.auth.uid
   if (!(await db().collection('admins').doc(uid).get()).exists) throw new HttpsError('permission-denied', 'Admins only')

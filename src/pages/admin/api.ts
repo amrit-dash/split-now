@@ -87,6 +87,8 @@ export interface AdminStats {
   days: DayStats[]
   totals: { users: number | null; usersTruncated: boolean; groups: number; activeGroups: number; blocked: number }
 }
+/** Link every placeholder whose email has a verified account (functions/src/link-members.ts). */
+export const adminLinkMembers = () => call<Record<string, never>, { groups: number; linked: number; pending: number }>('adminLinkMembers', {}, 540_000)
 export const adminStats = (days: number) => call<{ days: number }, AdminStats>('adminStats', { days }, 60_000)
 
 export interface BlockInfo {

@@ -20,6 +20,9 @@
  *  onPayLinkPaid       Firestore payLinks/{code} open → paid ("I've paid") → record the settlement in the group, push the payee
  *  cleanupCaptures     Schedule every day 03:45 Asia/Kolkata → remove captured payments handled longer than config/limits captureKeepDays
  *  linkPreview         HTTPS (Hosting rewrites /join/*, /r/*, /t/*) → the app page with a preview about the link (group invite, Pay me link, live table)
+ *  onGroupMembersLink  Firestore groups/{gid} written → a placeholder whose email has a verified account gets it attached (the group shows up for them, push); other emails wait in emailInvites
+ *  linkMyInvites       Callable (after sign-in) → attach the groups that added this verified email before the account existed
+ *  adminLinkMembers    Callable (admins) → the same linking for every existing group (Admin → Users)
  *  adminStats, adminUsers, adminBlockUser, adminSetAdmin  Callables (admins/{uid} only): usage counters + totals, account lookup, block / unblock, make or remove an admin
  */
 export { capture } from './capture'
@@ -33,3 +36,4 @@ export { nudge } from './nudge'
 export { onPayLinkPaid } from './paylinks'
 export { adminBlockUser, adminSetAdmin, adminStats, adminUsers } from './admin'
 export { onGroupTrashed, purgeDeletedGroups } from './trash'
+export { adminLinkMembers, linkMyInvites, onGroupMembersLink } from './link-members'

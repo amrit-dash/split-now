@@ -266,3 +266,13 @@ export function groupDeletedNote(g: { groupId: string; groupName: string; emoji?
     tag: `group-deleted-${g.groupId}`,
   }
 }
+
+/** To someone whose account was attached to a group they were added to by email. */
+export function addedToGroupNote(g: { groupId: string; groupName: string; emoji?: string; byName?: string }): Note {
+  return {
+    title: groupTitle(g.groupName, g.emoji),
+    body: g.byName ? `${clip(g.byName, 30)} added you to this group.` : 'You were added to this group.',
+    url: `/groups/${g.groupId}`,
+    tag: `group-added-${g.groupId}`,
+  }
+}

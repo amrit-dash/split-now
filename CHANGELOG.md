@@ -7,6 +7,7 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 ## Unreleased
 
 - Settings → Animations no longer runs wider than the screen on narrow phones, and long rows of options like Glitter shape fit better.
+- Someone added to a group by their email now sees it straight away when they already have an account (and gets a notification); people who sign up later get the group when they first sign in with that email. Admins can link people in older groups from Admin → Users → Link now.
 
 ## 3.10.2 — October 2026
 
