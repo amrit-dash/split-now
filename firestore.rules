@@ -204,9 +204,10 @@ service cloud.firestore {
     match /{path=**}/mergeRequests/{requestId} {
       allow read: if isUser() && resource.data.approverUid == uid();
     }
-    // emailCodes/{uid}: the pending email code (a salted hash, tries, send counts). emailIndex/
-    // {sha256(email)}: which account an added email belongs to. Both written by functions/src/accounts.ts.
-    match /emailCodes/{id} {
+    // pendingMerges/{uid}: an address this person just proved with Firebase's sign-in link that has
+    // its own account, waiting for "Merge accounts". emailIndex/{sha256(email)}: which account an
+    // added email belongs to. Both written by functions/src/accounts.ts.
+    match /pendingMerges/{id} {
       allow read, write: if false;
     }
     match /emailIndex/{id} {

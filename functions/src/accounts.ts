@@ -1,183 +1,96 @@
 /*
- * One account per person (docs/PLAN.md §4.2 "Accounts"):
- *  - sendEmailCode / confirmEmailCode: a 6-digit code by email proves the person reads that
- *    address. 'verify' confirms an email-and-password account's own email (the app waits for it
- *    before anything else); 'add' adds another email to the account (emailIndex), so groups that
- *    add this person by either address reach the same account.
- *  - An address that already has its own account can only be added by merging that account in
- *    (mergeAccount, after the code proved it's theirs): its groups, Pay me links and live tables
- *    move to the account that stays, and the old account is switched off.
+ * One account per person (docs/PLAN.md §4.2 "Accounts"). Everything goes through Firebase's own
+ * emails: no outside mail service.
+ *  - An email-and-password account confirms its own email with Firebase's verification link (the
+ *    app waits for it before anything else).
+ *  - claimEmail: another email joins the account once its owner opens Firebase's sign-in link for
+ *    it; the app hands over that link session's ID token as the proof. An address that is an
+ *    account of its own is merged in only after the person confirms (mergeAccount): its groups, Pay
+ *    me links and live tables move to the account that stays, and the old account is switched off.
  *  - adoptGuest: a guest (live table, Pay me link) who signs in to an account that already exists
  *    hands over the guest's ID token; the guest's links and tables move, the entry their locked
  *    Pay me link points to gets the account, and the guest account is deleted.
- *  - adminMail: the email service the codes go out through (Admin → Email), its key sealed.
- * Decisions are in lib/email-code.ts, lib/mail.ts and lib/move-uid.ts.
+ * Decisions about groups are in lib/move-uid.ts.
  */
 import { inviteNameFor } from '../../shared/names'
-import { randomBytes } from 'node:crypto'
 import { FieldValue } from 'firebase-admin/firestore'
 import { logger } from 'firebase-functions/logger'
 import { HttpsError, onCall, type CallableRequest } from 'firebase-functions/v2/https'
 import { labelForUid } from '../../shared/names'
-import { auth, db, requireAdmin } from './admin'
-import { AI_KEY_KEK, keks } from './ai'
+import { auth, db } from './admin'
 import { ENFORCE_APP_CHECK, REGION } from './config'
-import { checkCode, checkMessage, cleanCode, CODE_TTL_MS, hashCode, newCode, resendWait, SEND_LIMIT, type CodePurpose, type StoredCode } from './lib/email-code'
 import { normEmail } from './lib/link'
-import { codeEmail, mailRequest, parseMailConfig, MAIL_PROVIDERS, type MailConfig, type MailMessage } from './lib/mail'
 import { planGroupMove, planGuestClaim, type MoveGroup } from './lib/move-uid'
 import { addedToGroupNote } from './lib/notify-text'
-import { applyRateLimit, type RateState } from './lib/ratelimit'
-import { readStoredKey, storedKeyFields } from './lib/seal'
-import { keyHint } from '../../shared/ai-config'
 import { emailId, linkInvitesFor } from './link-members'
 import { sendToUser } from './push'
 
-const APP_URL = 'https://split-now.web.app'
 const callable = { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK, timeoutSeconds: 60, memory: '256MiB' as const, maxInstances: 5 }
 
-const codeRef = (uid: string) => db().doc(`emailCodes/${uid}`)
+const pendingRef = (uid: string) => db().doc(`pendingMerges/${uid}`)
+/** How long a proved address stays ready to merge (the person confirms on the same screen). */
+const MERGE_WINDOW_MS = 15 * 60_000
 const indexRef = (email: string) => db().doc(`emailIndex/${emailId(email)}`)
 const emailsRef = (uid: string) => db().doc(`users/${uid}/account/emails`)
-const mailRef = () => db().doc('private/mail')
 
 function signedIn(req: CallableRequest): { uid: string; email: string; verified: boolean } {
   if (!req.auth || req.auth.token.firebase?.sign_in_provider === 'anonymous') throw new HttpsError('unauthenticated', 'Sign in first')
   return { uid: req.auth.uid, email: normEmail(req.auth.token.email), verified: req.auth.token.email_verified === true }
 }
 
-const purposeOf = (p: unknown): CodePurpose => {
-  if (p === 'verify' || p === 'add') return p
-  throw new HttpsError('invalid-argument', 'Unknown request')
-}
+// ---- Adding an email (proved with Firebase's own sign-in link) -------------------------------
 
-// ---- Sending mail -------------------------------------------------------------------------
-
-let mailCache: { at: number; cfg?: MailConfig; key?: string } | null = null
-async function mailSetup(): Promise<{ cfg?: MailConfig; key?: string }> {
-  if (mailCache && Date.now() - mailCache.at < 60_000) return mailCache
-  const d = (await mailRef().get()).data()
-  const { key } = readStoredKey(d, keks())
-  mailCache = { at: Date.now(), cfg: parseMailConfig(d), key }
-  return mailCache
-}
-
-async function sendMail(cfg: MailConfig, key: string, m: MailMessage): Promise<void> {
-  const r = mailRequest(cfg, key, m)
-  const res = await fetch(r.url, { method: 'POST', headers: r.headers, body: r.body, signal: AbortSignal.timeout(10_000) }).catch((e: Error) => {
-    throw new HttpsError('unavailable', `The email service didn’t answer (${e.message}). Try again in a minute`)
-  })
-  if (!res.ok) {
-    const detail = (await res.text().catch(() => '')).slice(0, 300)
-    logger.warn('mail send failed', { provider: cfg.provider, status: res.status, detail })
-    throw new HttpsError('unavailable', 'The code email couldn’t be sent. Try again in a minute')
-  }
-}
-
-// ---- Who owns an address --------------------------------------------------------------------
-
-/** The account an address belongs to, as its own email or an added one; undefined when none. */
-async function ownerOf(email: string): Promise<string | undefined> {
+/**
+ * Firebase sends no custom emails, but it does send a sign-in link to any address. The app opens
+ * that link in a separate, throwaway Firebase session and hands its ID token here: a token for
+ * that address with email_verified is the proof that the person reads it.
+ *  - The link made a brand-new account for the address (nothing in it): its traces move here, it
+ *    is deleted, and the address joins this account.
+ *  - The address is a real account of its own (or another account's added email): it can be
+ *    merged in (mergeAccount) within 15 minutes, after the person confirms. Answers otherAccount.
+ */
+export const claimEmail = onCall({ ...callable, timeoutSeconds: 120 }, async (req) => {
+  const me = signedIn(req)
+  if (!me.verified) throw new HttpsError('failed-precondition', 'Confirm your own email first')
   const a = await auth()
-  const u = await a.getUserByEmail(email).catch(() => undefined)
-  if (u) return u.uid
-  const idx = await indexRef(email).get()
-  return typeof idx.get('uid') === 'string' ? (idx.get('uid') as string) : undefined
-}
-
-// ---- Codes ----------------------------------------------------------------------------------
-
-/**
- * Send a code to `email`. 'verify': the caller's own, not yet verified, email. 'add': an address
- * that isn't already on the caller's account. Answers { sent: true, wait } or, for 'verify' when no
- * email service is set up, { sent: false } (the app then uses Firebase's verification link).
- */
-export const sendEmailCode = onCall({ ...callable, secrets: [AI_KEY_KEK] }, async (req) => {
-  const me = signedIn(req)
-  const purpose = purposeOf(req.data?.purpose)
-  const email = normEmail(req.data?.email)
-  if (!email) throw new HttpsError('invalid-argument', 'Enter a valid email address')
-  if (purpose === 'verify') {
-    if (email !== me.email) throw new HttpsError('invalid-argument', 'That isn’t this account’s email')
-    if (me.verified) return { sent: false, already: true }
-  } else {
-    if (!me.verified) throw new HttpsError('failed-precondition', 'Confirm your own email first')
-    if (email === me.email) throw new HttpsError('already-exists', 'That’s already your email')
-    const mine = (await emailsRef(me.uid).get()).get(`list.${emailId(email)}`)
-    if (mine) throw new HttpsError('already-exists', 'That email is already on your account')
+  const token = typeof req.data?.token === 'string' ? req.data.token : ''
+  const proof = await a.verifyIdToken(token).catch(() => undefined)
+  const email = normEmail(proof?.email)
+  if (proof?.email_verified !== true || !email || proof.firebase?.sign_in_provider === 'anonymous')
+    throw new HttpsError('permission-denied', 'That link didn’t work. Send a new one')
+  if (proof.uid === me.uid || email === me.email) return { already: true }
+  const mine = (await emailsRef(me.uid).get()).get(`list.${emailId(email)}`)
+  if (mine) return { already: true }
+  // The account the address really belongs to: an added email of someone else, else the token's own account.
+  const indexed = (await indexRef(email).get()).get('uid')
+  const owner = typeof indexed === 'string' && indexed !== proof.uid ? indexed : proof.uid
+  const fresh = owner === proof.uid && (await isThrowaway(proof.uid))
+  if (fresh) {
+    // Groups may have linked the throwaway account already (it has the verified email): they move here.
+    const moved = await moveAccount(proof.uid, me.uid)
+    await a.deleteUser(proof.uid).catch((e) => logger.warn('throwaway delete', { error: (e as Error).message }))
+    const linked = (await addEmail(me.uid, email)) + moved.groups + moved.linked
+    return { added: true, linked }
   }
-  const { cfg, key } = await mailSetup()
-  if (!cfg || !key) {
-    if (purpose === 'verify') return { sent: false }
-    throw new HttpsError('failed-precondition', 'Adding another email isn’t switched on yet')
-  }
-  const now = Date.now()
-  const prev = (await codeRef(me.uid).get()).data() as (StoredCode & { rate?: Partial<RateState> }) | undefined
-  const wait = resendWait(prev, now)
-  if (wait > 0) throw new HttpsError('resource-exhausted', `Wait ${Math.ceil(wait / 1000)} seconds before sending another code`)
-  const rate = applyRateLimit(prev?.rate, now, SEND_LIMIT)
-  if (!rate.allowed) throw new HttpsError('resource-exhausted', 'Too many codes sent. Try again later')
-  const code = newCode()
-  const salt = randomBytes(8).toString('hex')
-  const name = (await db().doc(`users/${me.uid}`).get()).get('displayName')
-  await sendMail(cfg, key, { to: email, ...codeEmail({ code, purpose, email, name: typeof name === 'string' ? name : undefined, appUrl: APP_URL }) })
-  const stored: StoredCode & { rate: RateState } = {
-    email,
-    purpose,
-    hash: hashCode(code, salt),
-    salt,
-    expiresAt: now + CODE_TTL_MS,
-    attempts: 0,
-    sentAt: now,
-    rate: rate.next,
-  }
-  await codeRef(me.uid).set(stored)
-  return { sent: true }
+  // The sign-in link may have made a throwaway account even though the address is someone's added email.
+  if (owner !== proof.uid && (await isThrowaway(proof.uid))) await a.deleteUser(proof.uid).catch(() => undefined)
+  if (owner === me.uid) return { already: true }
+  const other = await a.getUser(owner).catch(() => undefined)
+  const groups = (await db().collection('groups').where('memberUids', 'array-contains', owner).count().get()).data().count
+  await pendingRef(me.uid).set({ email, uid: owner, until: Date.now() + MERGE_WINDOW_MS })
+  return { otherAccount: { name: other?.displayName ?? '', email, groups } }
 })
 
-/** Check a code; a wrong one counts as a try. Throws with the reason in plain words. */
-async function useCode(uid: string, email: string, purpose: CodePurpose, input: unknown): Promise<void> {
-  const code = cleanCode(input)
-  if (!code) throw new HttpsError('invalid-argument', 'Enter the 6-digit code from the email')
-  const ref = codeRef(uid)
-  const r = await db().runTransaction(async (tx) => {
-    const stored = (await tx.get(ref)).data() as StoredCode | undefined
-    const result = checkCode(stored, email, purpose, code, Date.now())
-    if (result === 'wrong') tx.update(ref, { attempts: FieldValue.increment(1) })
-    // Used once: a confirmed code can't confirm anything again.
-    if (result === 'ok') tx.update(ref, { hash: FieldValue.delete(), expiresAt: 0 })
-    return result
-  })
-  if (r !== 'ok') throw new HttpsError('invalid-argument', checkMessage(r))
+/** An account the sign-in link just made: created in the last 15 minutes, no profile, in no group. */
+async function isThrowaway(uid: string): Promise<boolean> {
+  const u = await (await auth()).getUser(uid).catch(() => undefined)
+  if (!u || Date.now() - Date.parse(u.metadata.creationTime) > MERGE_WINDOW_MS) return false
+  const [profile, groups] = await Promise.all([
+    db().doc(`users/${uid}`).get(),
+    db().collection('groups').where('memberUids', 'array-contains', uid).limit(1).get(),
+  ])
+  return !profile.exists && groups.empty
 }
-
-/**
- * Confirm a code. 'verify' marks the account's email verified and links the groups waiting for it.
- * 'add' adds the address, unless it has its own account: then it answers { otherAccount } with that
- * account's name and group count, and mergeAccount (within 10 minutes) completes it.
- */
-export const confirmEmailCode = onCall(callable, async (req) => {
-  const me = signedIn(req)
-  const purpose = purposeOf(req.data?.purpose)
-  const email = normEmail(req.data?.email)
-  if (!email) throw new HttpsError('invalid-argument', 'Enter a valid email address')
-  await useCode(me.uid, email, purpose, req.data?.code)
-  if (purpose === 'verify') {
-    if (email !== me.email) throw new HttpsError('invalid-argument', 'That isn’t this account’s email')
-    await (await auth()).updateUser(me.uid, { emailVerified: true })
-    const linked = await linkInvitesFor(me.uid, email)
-    return { verified: true, linked }
-  }
-  const owner = await ownerOf(email)
-  if (owner && owner !== me.uid) {
-    const other = await (await auth()).getUser(owner).catch(() => undefined)
-    const groups = (await db().collection('groups').where('memberUids', 'array-contains', owner).count().get()).data().count
-    await codeRef(me.uid).set({ merge: { email, uid: owner, until: Date.now() + CODE_TTL_MS } }, { merge: true })
-    return { otherAccount: { name: other?.displayName ?? '', email, groups } }
-  }
-  const linked = await addEmail(me.uid, email)
-  return { added: true, linked }
-})
 
 async function addEmail(uid: string, email: string): Promise<number> {
   const at = Date.now()
@@ -327,9 +240,8 @@ async function suggestMerge(groupId: string, from: string, into: string) {
  */
 export const mergeAccount = onCall({ ...callable, timeoutSeconds: 300, memory: '512MiB' }, async (req) => {
   const me = signedIn(req)
-  const pending = (await codeRef(me.uid).get()).get('merge') as { email?: string; uid?: string; until?: number } | undefined
-  if (!pending?.uid || !pending.email || (pending.until ?? 0) < Date.now())
-    throw new HttpsError('failed-precondition', 'Confirm the email with a new code first')
+  const pending = (await pendingRef(me.uid).get()).data() as { email?: string; uid?: string; until?: number } | undefined
+  if (!pending?.uid || !pending.email || (pending.until ?? 0) < Date.now()) throw new HttpsError('failed-precondition', 'Open a new link for that email first')
   if (pending.uid === me.uid) throw new HttpsError('invalid-argument', 'That’s this account')
   if ((await db().doc(`admins/${pending.uid}`).get()).exists)
     throw new HttpsError('failed-precondition', 'That account is an admin. Remove its admin access first')
@@ -348,7 +260,7 @@ export const mergeAccount = onCall({ ...callable, timeoutSeconds: 300, memory: '
     })
   }
   await emailsRef(pending.uid).delete()
-  await codeRef(me.uid).set({ merge: FieldValue.delete() }, { merge: true })
+  await pendingRef(me.uid).delete()
   let linked = moved.linked
   for (const email of new Set(emails)) linked += await linkInvitesFor(me.uid, email)
   logger.info('merged account', { from: pending.uid, into: me.uid, ...moved })
@@ -383,53 +295,4 @@ export const claimGuestLinks = onCall(callable, async (req) => {
     if (typeof groupId === 'string' && (await claimForGuest(groupId, l.get('from'), me.uid)) === 'linked') linked++
   }
   return { linked }
-})
-
-// ---- Admin: the email service -----------------------------------------------------------------
-
-/**
- * Admin → Email. { action: 'get' } → the settings without the key; 'save' { provider, fromEmail,
- * fromName, apiKey? } (the key is kept when omitted); 'test' sends a code email to the admin;
- * 'remove' switches codes off (email sign-ups fall back to Firebase's verification link).
- */
-export const adminMail = onCall({ ...callable, secrets: [AI_KEY_KEK] }, async (req) => {
-  const uid = await requireAdmin(req)
-  const action = req.data?.action
-  const d = (await mailRef().get()).data()
-  if (action === 'get') {
-    const cfg = parseMailConfig(d)
-    return {
-      provider: cfg?.provider ?? d?.provider ?? null,
-      fromEmail: d?.fromEmail ?? '',
-      fromName: d?.fromName ?? 'Split Now',
-      hint: d?.hint ?? null,
-      ready: !!cfg && !!readStoredKey(d, keks()).key,
-    }
-  }
-  if (action === 'remove') {
-    await mailRef().delete()
-    mailCache = null
-    return { ready: false }
-  }
-  if (action === 'save') {
-    const cfg = parseMailConfig({ provider: req.data?.provider, fromEmail: req.data?.fromEmail, fromName: req.data?.fromName })
-    if (!cfg) throw new HttpsError('invalid-argument', `Pick ${MAIL_PROVIDERS.join(' or ')} and enter the sender address`)
-    const apiKey = typeof req.data?.apiKey === 'string' ? req.data.apiKey.trim() : ''
-    if (apiKey && (apiKey.length < 10 || apiKey.length > 300)) throw new HttpsError('invalid-argument', 'That doesn’t look like an API key')
-    const keyFields = apiKey ? { ...storedKeyFields(apiKey, keks()), hint: keyHint(apiKey) } : {}
-    if (!apiKey && !readStoredKey(d, keks()).key) throw new HttpsError('invalid-argument', 'Paste the API key')
-    await mailRef().set({ ...cfg, ...keyFields, by: uid, updatedAt: Date.now() }, { merge: true })
-    mailCache = null
-    return { ready: true }
-  }
-  if (action === 'test') {
-    mailCache = null
-    const { cfg, key } = await mailSetup()
-    if (!cfg || !key) throw new HttpsError('failed-precondition', 'Save the settings first')
-    const to = normEmail(req.auth?.token.email)
-    if (!to) throw new HttpsError('failed-precondition', 'Your account has no email to send the test to')
-    await sendMail(cfg, key, { to, ...codeEmail({ code: newCode(), purpose: 'verify', email: to, appUrl: APP_URL }) })
-    return { sentTo: to }
-  }
-  throw new HttpsError('invalid-argument', 'Unknown action')
 })

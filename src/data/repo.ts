@@ -62,6 +62,8 @@ export interface AuthUser {
   providers?: string[]
   /** Whether the account's own email is confirmed (Google accounts always are). */
   emailVerified?: boolean
+  /** Has no name yet (made by an email link): the app asks once. */
+  needsName?: boolean
 }
 
 /** An email added to the account with a code (users/{uid}/account/emails). */
@@ -70,16 +72,18 @@ export interface AccountEmail {
   addedAt: number
 }
 
-/** What confirming an email code did (functions/src/accounts.ts confirmEmailCode). */
-export interface EmailCodeResult {
-  /** 'verify': the account's email is confirmed */
-  verified?: boolean
-  /** 'add': the email is on the account now */
+/** What opening the sign-in link for another email did (functions/src/accounts.ts claimEmail). */
+export interface EmailLinkResult {
+  /** the email is on the account now */
   added?: boolean
+  /** it already was (or it's this account's own email) */
+  already?: boolean
   /** groups that were waiting for this email and are now linked */
   linked?: number
-  /** 'add': the email has its own account; mergeAccount brings it in */
+  /** the email has its own account; mergeAccount brings it in */
   otherAccount?: { name: string; email: string; groups: number }
+  /** the link was opened on a phone that doesn't know which email it was for: ask, then call again */
+  needEmail?: boolean
 }
 
 /** What moving one account (or a guest) into this one did. */
@@ -168,8 +172,23 @@ export interface Repo {
 
   onAuth(cb: (u: AuthUser | null) => void): Unsub
   signInWithGoogle(): Promise<void>
-  signInWithEmail(email: string, password: string): Promise<void>
-  signUpWithEmail(name: string, email: string, password: string): Promise<void>
+  /**
+   * Passwordless sign-in: Firebase emails a link to the address (it lands on /signin). Signs in,
+   * or makes the account the first time. Firebase only.
+   */
+  sendSignInLink?(email: string): Promise<void>
+  /** Whether this page address is a sign-in link (and not an add-an-email link). */
+  isSignInLink?(href: string): boolean
+  /**
+   * Finish signing in from the link this page was opened with: the email it was sent to,
+   * remembered on this phone, or `email` typed in when opened elsewhere. A guest on this phone
+   * keeps what they did. `isNew` when it made the account.
+   */
+  finishSignInLink?(href: string, email?: string): Promise<{ needEmail?: boolean; isNew?: boolean }>
+  /** The name people see, the first time (an account made by an email link has none). Firebase only. */
+  setDisplayName?(name: string): Promise<void>
+  /** Undo an account just made, e.g. when sign-ups are invite-only and this wasn't an invite. */
+  deleteNewAccount?(): Promise<void>
   signInDemo?(name: string): Promise<void>
   /**
    * Signs out and wipes this device's offline cache so the next person on the browser can't
@@ -180,24 +199,28 @@ export interface Repo {
   signOut(): Promise<void>
   /** Add Google sign-in to the current account (same email → one account). Firebase only. */
   linkGoogle?(): Promise<void>
-  /** Add an email + password sign-in to the current (e.g. Google) account. Firebase only. */
-  addPassword?(password: string): Promise<void>
   /**
-   * A 6-digit code by email. 'verify': this account's own email (an email-and-password account
-   * waits for it before anything else); 'add': another email for this account. { sent: false }
-   * for 'verify' means the project has no email service set up: sendVerifyLink is the way then.
-   * Demo mode sends nothing and answers with the code to type (demoCode).
+   * Confirming an email-and-password account's own email: Firebase's verification link to it.
+   * Firebase only (demo accounts need no confirming).
    */
-  sendEmailCode(email: string, purpose: 'verify' | 'add'): Promise<{ sent: boolean; demoCode?: string }>
-  /** Check a code. A wrong or expired one throws with the reason in plain words. */
-  confirmEmailCode(email: string, purpose: 'verify' | 'add', code: string): Promise<EmailCodeResult>
-  /** Firebase's own verification link, when no email service is set up. Firebase only. */
   sendVerifyLink?(): Promise<void>
+  /**
+   * Adding another email: Firebase sends its sign-in link to it (no account change yet). Opening
+   * the link in the app finishes it (finishEmailLink). Demo mode adds the email at once.
+   */
+  sendEmailLink(email: string): Promise<{ added?: boolean }>
+  /** Whether this page address is such a link. */
+  isEmailLink(href: string): boolean
+  /**
+   * Finish adding the email from the link this page was opened with (the email it was sent to,
+   * remembered on this phone, or `email` typed in when opened elsewhere).
+   */
+  finishEmailLink(href: string, email?: string): Promise<EmailLinkResult>
   /** Re-reads the signed-in account (e.g. after the verification link was opened); onAuth fires again. */
   refreshUser?(): Promise<void>
   /** Take an added email off the account (never its own email). */
   removeEmail(email: string): Promise<void>
-  /** Bring in the account behind the email just confirmed with a code (EmailCodeResult.otherAccount). */
+  /** Bring in the account behind the email just proved with a link (EmailLinkResult.otherAccount). */
   mergeAccount(): Promise<MergeResult>
   /** The emails added to this account, oldest first. */
   watchAccountEmails(uid: string, cb: Watch<AccountEmail[]>): Unsub

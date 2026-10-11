@@ -24,15 +24,13 @@
  *  linkPreview         HTTPS (Hosting rewrites /join/*, /r/*, /t/*) → the app page with a preview about the link (group invite, Pay me link, live table)
  *  onGroupMembersLink  Firestore groups/{gid} written → a placeholder whose email has a verified account gets it attached (the group shows up for them, push); other emails wait in emailInvites
  *  linkMyInvites       Callable (after sign-in) → attach the groups that added this verified email before the account existed
- *  adminLinkMembers    Callable (admins) → the same linking for every existing group (Admin → Users)
- *  sendEmailCode, confirmEmailCode  Callables → a 6-digit code by email: confirm an email-and-password account's email, or add another email (emailIndex)
+ *  claimEmail          Callable { token } → another email joins the account, proved by opening Firebase's sign-in link for it (emailIndex)
  *  removeEmail         Callable → take an added email off the account
- *  mergeAccount        Callable (after a code proved an address that has its own account) → that account's groups, links and tables move here; it is switched off
+ *  mergeAccount        Callable (after a sign-in link proved an address that has its own account) → that account's groups, links and tables move here; it is switched off
  *  adoptGuest          Callable { guestToken } → a guest who signed in to an existing account: their links and tables move, the group entry their locked Pay me link points to gets the account
  *  claimGuestLinks     Callable → the same group entries, when the guest account became a real one in place
  *  mergeMembers        Callable { groupId, from, into } → two entries that are one person become one (expenses, payments, open items, Pay me links rewritten); waits for the creator's OK when the group asks for it (a chat card @mentioning them, a push)
  *  decideMerge         Callable { groupId, requestId, approve } → the creator decides a request; any member acts on a suggestion
- *  adminMail           Callable (admins) → the email service codes go out through (Resend or Brevo; key sealed in private/mail)
  *  adminStats, adminUsers, adminBlockUser, adminSetAdmin  Callables (admins/{uid} only): usage counters + totals, account lookup, block / unblock, make or remove an admin
  */
 export { capture } from './capture'
@@ -46,7 +44,7 @@ export { nudge } from './nudge'
 export { onPayLinkPaid } from './paylinks'
 export { adminBlockUser, adminSetAdmin, adminStats, adminUsers } from './admin'
 export { onGroupTrashed, purgeDeletedGroups } from './trash'
-export { adminLinkMembers, linkMyInvites, onGroupMembersLink } from './link-members'
+export { linkMyInvites, onGroupMembersLink } from './link-members'
 export { onChatMessageCreated, onOpenItemWritten } from './chat'
-export { adminMail, adoptGuest, claimGuestLinks, confirmEmailCode, mergeAccount, removeEmail, sendEmailCode } from './accounts'
+export { adoptGuest, claimEmail, claimGuestLinks, mergeAccount, removeEmail } from './accounts'
 export { decideMerge, mergeMembers } from './merge-members'

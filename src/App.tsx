@@ -35,6 +35,7 @@ import { useAppConfig, useBlocked } from './hooks/useAppConfig'
 import { IDLE_PREFETCH, load, prefetch, prefetchAfter, routeChunks } from './routes'
 import Login from './pages/Login'
 import VerifyEmail from './pages/VerifyEmail'
+import NameStep from './pages/NameStep'
 import { needsEmailCode } from './lib/account'
 import Home from './pages/Home'
 import Groups from './pages/Groups'
@@ -53,6 +54,7 @@ const SettleWithPerson = lazy(() => load.SettleUp().then((m) => ({ default: m.Se
 const Scan = lazy(load.Scan)
 const Insights = lazy(load.Insights)
 const Profile = lazy(load.Profile)
+const EmailLink = lazy(load.EmailLink)
 const Join = lazy(load.Join)
 const Capture = lazy(load.Capture)
 const CaptureGuest = lazy(load.CaptureGuest)
@@ -215,6 +217,8 @@ export default function App() {
         <Login />
       ) : needsEmailCode(user) ? (
         <VerifyEmail />
+      ) : user.needsName ? (
+        <NameStep />
       ) : blocked === undefined || (cfg.maintenance && !admin && aiStatus === undefined && repo.mode === 'firebase') ? (
         // The block check and (in maintenance) the admin check decide which screen this is; a
         // moment of splash beats flashing the wrong one. Demo mode has no admins to wait for.
@@ -289,6 +293,7 @@ function AppRoutes({ cfg, admin }: { cfg: AppConfig; admin: boolean }) {
             <Route path="friends" element={<Navigate to="/settle" replace />} />
             <Route path="insights" element={<Insights />} />
             <Route path="profile" element={<Profile />} />
+            <Route path="email-link" element={<EmailLink />} />
             <Route path="inbox" element={<Inbox />} />
             <Route path="settings/auto-capture" element={autoCapture ? <AutoCaptureSetup /> : <Navigate to="/settings" replace />} />
             <Route path="settings/*" element={<Settings />} />

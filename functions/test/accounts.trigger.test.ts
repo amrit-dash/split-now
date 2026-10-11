@@ -1,7 +1,7 @@
 /**
- * One account per person (functions/src/accounts.ts) in the emulators: confirming an email with a
- * code, adding another email, a guest who signs in to an existing account, and merging an account
- * whose email was proved with a code. Accounts live in the Auth emulator, so this runs in the
+ * One account per person (functions/src/accounts.ts) in the emulators: adding another email with
+ * Firebase's sign-in link, a guest who signs in to an existing account, and merging an account
+ * whose email was proved with a link. Accounts live in the Auth emulator, so this runs in the
  * trigger pass (npm run test:functions starts Firestore, Functions and Auth together).
  */
 import { createHash } from 'node:crypto'
@@ -75,20 +75,6 @@ async function admin<T>(fn: (db: ReturnType<ReturnType<RulesTestEnvironment['una
 const read = (path: string) => admin(async (db) => (await getDoc(doc(db, path))).data() ?? {})
 const sha = (s: string) => createHash('sha256').update(s).digest('hex')
 
-/** A code waiting for `email`, as sendEmailCode leaves it (the emulator sends no mail). */
-const seedCode = (uid: string, email: string, purpose: 'verify' | 'add', code = '123456') =>
-  admin((db) =>
-    setDoc(doc(db, `emailCodes/${uid}`), {
-      email,
-      purpose,
-      salt: 's',
-      hash: sha(`s:${code}`),
-      expiresAt: Date.now() + 600_000,
-      attempts: 0,
-      sentAt: Date.now(),
-    }),
-  )
-
 const group = (over: object) => ({
   name: 'Goa',
   emoji: '🏖️',
@@ -99,39 +85,51 @@ const group = (over: object) => ({
   ...over,
 })
 
-describe('email codes (emulator)', () => {
-  it('confirm an email-and-password account, and a wrong code counts as a try', async () => {
-    const me = await account('code.verify@x.com')
-    await seedCode(me.uid, 'code.verify@x.com', 'verify')
-    const wrong = await call('confirmEmailCode', { email: 'code.verify@x.com', purpose: 'verify', code: '000000' }, me)
-    expect(wrong.error?.message).toMatch(/isn’t right/)
-    expect((await read(`emailCodes/${me.uid}`)).attempts).toBe(1)
-    const ok = await call<{ verified: boolean }>('confirmEmailCode', { email: 'code.verify@x.com', purpose: 'verify', code: '123 456' }, me)
-    expect(ok.result?.verified).toBe(true)
-    expect((await lookup(me.uid))?.emailVerified).toBe(true)
-    // Used once.
-    const again = await call('confirmEmailCode', { email: 'code.verify@x.com', purpose: 'verify', code: '123456' }, me)
-    expect(again.error).toBeDefined()
-  })
-
-  it('add another email: it joins the account and a group waiting for it is linked', async () => {
-    const me = await account('code.add@x.com', true)
+describe('adding an email with Firebase’s sign-in link (emulator)', () => {
+  // Opening the link signs in to that address in a side session; its ID token is the proof. Here a
+  // freshly made, verified account for the address stands in for that session.
+  it('a brand-new account the link made: the email joins this one, it is deleted, a waiting group is linked', async () => {
+    const me = await account('link.add@x.com', true)
     await admin(async (db) => {
       await setDoc(
         doc(db, 'groups/acc_add'),
-        group({ memberUids: ['someone'], createdBy: 'someone', members: { o: { name: 'O', uid: 'someone' }, p1: { name: 'Asha', email: 'asha@work.com' } } }),
+        group({
+          memberUids: ['someone'],
+          createdBy: 'someone',
+          members: { o: { name: 'O', uid: 'someone' }, p1: { name: 'Asha', email: 'asha@work.example' } },
+        }),
       )
-      await setDoc(doc(db, `emailInvites/${sha('asha@work.com')}`), { entries: { acc_add__p1: { groupId: 'acc_add', memberId: 'p1', at: 1 } } })
+      await setDoc(doc(db, `emailInvites/${sha('asha@work.example')}`), { entries: { acc_add__p1: { groupId: 'acc_add', memberId: 'p1', at: 1 } } })
     })
-    await seedCode(me.uid, 'asha@work.com', 'add')
-    const r = await call<{ added: boolean; linked: number }>('confirmEmailCode', { email: 'asha@work.com', purpose: 'add', code: '123456' }, me)
+    const proof = await account('asha@work.example', true)
+    const r = await call<{ added: boolean; linked: number }>('claimEmail', { token: proof.token }, me)
     expect(r.result).toEqual({ added: true, linked: 1 })
-    expect((await read(`emailIndex/${sha('asha@work.com')}`)).uid).toBe(me.uid)
+    expect(await lookup(proof.uid)).toBeUndefined()
+    expect((await read(`emailIndex/${sha('asha@work.example')}`)).uid).toBe(me.uid)
     const list = (await read(`users/${me.uid}/account/emails`)).list as Record<string, { email: string }>
-    expect(Object.values(list).map((e) => e.email)).toEqual(['asha@work.com'])
+    expect(Object.values(list).map((e) => e.email)).toEqual(['asha@work.example'])
     const g = await read('groups/acc_add')
     expect((g.members as Record<string, { uid?: string }>).p1.uid).toBe(me.uid)
     expect(g.memberUids).toContain(me.uid)
+  })
+
+  it('an address that is a real account of its own is offered as a merge, not taken', async () => {
+    const me = await account('link.keeper@x.com', true)
+    const other = await account('link.other@x.com', true)
+    await admin((db) =>
+      setDoc(doc(db, 'groups/acc_other'), group({ memberUids: [other.uid], createdBy: other.uid, members: { o: { name: 'Other', uid: other.uid } } })),
+    )
+    const r = await call<{ otherAccount: { groups: number } }>('claimEmail', { token: other.token }, me)
+    expect(r.result?.otherAccount.groups).toBe(1)
+    expect(await lookup(other.uid)).toBeDefined()
+    expect((await read(`pendingMerges/${me.uid}`)).uid).toBe(other.uid)
+  })
+
+  it('an unverified token, or your own address, adds nothing', async () => {
+    const me = await account('link.self@x.com', true)
+    const unverified = await account('link.unverified@x.com')
+    expect((await call('claimEmail', { token: unverified.token }, me)).error?.status).toBe('PERMISSION_DENIED')
+    expect((await call<{ already: boolean }>('claimEmail', { token: me.token }, me)).result).toEqual({ already: true })
   })
 })
 
@@ -190,7 +188,7 @@ describe('guests and second accounts move into the account that stays (emulator)
         group({ memberUids: [old.uid, me.uid], createdBy: me.uid, members: { o: { name: 'Asha old', uid: old.uid }, k: { name: 'Asha', uid: me.uid } } }),
       )
       await setDoc(doc(db, `groups/acc_m1/profiles/${old.uid}`), { displayName: 'Asha', payment: { upi: 'asha@okaxis' } })
-      await setDoc(doc(db, `emailCodes/${me.uid}`), { merge: { email: 'old.self@x.com', uid: old.uid, until: Date.now() + 600_000 } })
+      await setDoc(doc(db, `pendingMerges/${me.uid}`), { email: 'old.self@x.com', uid: old.uid, until: Date.now() + 600_000 })
     })
     const r = await call<{ groups: number; suggested: number }>('mergeAccount', {}, me)
     expect(r.result).toMatchObject({ groups: 2, suggested: 1 })
@@ -210,7 +208,7 @@ describe('guests and second accounts move into the account that stays (emulator)
     expect((await read(`emailIndex/${sha('old.self@x.com')}`)).uid).toBe(me.uid)
   })
 
-  it('merging needs a code first', async () => {
+  it('merging needs a proved address first', async () => {
     const me = await account('no.code@x.com', true)
     const r = await call('mergeAccount', {}, me)
     expect(r.error?.status).toBe('FAILED_PRECONDITION')

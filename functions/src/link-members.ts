@@ -14,7 +14,7 @@ import { logger } from 'firebase-functions/logger'
 import { onDocumentWritten } from 'firebase-functions/v2/firestore'
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { labelForUid } from '../../shared/names'
-import { auth, db, requireAdmin } from './admin'
+import { auth, db } from './admin'
 import { ENFORCE_APP_CHECK, REGION } from './config'
 import {
   duplicatePlaceholders,
@@ -183,58 +183,3 @@ export const linkMyInvites = onCall({ region: REGION, enforceAppCheck: ENFORCE_A
   if (!email) return { linked: 0 }
   return { linked: await linkInvitesFor(req.auth.uid, email) }
 })
-
-/**
- * Admin → Users "Link people to their accounts": the same linking for groups made before it
- * existed. Pages through every group (300 at a time), links what it can, and remembers the rest
- * in emailInvites. Answers how many groups it looked at and how many people it linked.
- */
-export const adminLinkMembers = onCall(
-  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK, timeoutSeconds: 540, memory: '512MiB', maxInstances: 1 },
-  async (req): Promise<{ groups: number; linked: number; pending: number }> => {
-    await requireAdmin(req)
-    let groups = 0
-    let linked = 0
-    let pending = 0
-    let last: FirebaseFirestore.QueryDocumentSnapshot | undefined
-    for (;;) {
-      let q = db().collection('groups').orderBy('__name__').limit(300)
-      if (last) q = q.startAfter(last)
-      const page = await q.get()
-      if (page.empty) break
-      for (const d of page.docs) {
-        groups++
-        const g = d.data() as GroupDoc
-        if (typeof g.deletedAt === 'number' || g.type === 'personal') continue
-        const candidates = linkCandidates(g.members)
-        if (!candidates.length) continue
-        const found = await accountsFor([...new Set(candidates.map((c) => c.email))])
-        const blocked = await blockedOf(Object.values(found).map((a) => a.uid))
-        const plan = planLinks({ candidates, memberUids: g.memberUids ?? [], found, blocked })
-        const applied = await applyLinks(
-          d.id,
-          plan.map((p) => ({ ...p, email: candidates.find((c) => c.memberId === p.memberId)!.email })),
-        )
-        linked += applied.length
-        await Promise.all(
-          applied.map((l) =>
-            sendToUser(l.uid, ['expenses'], addedToGroupNote({ groupId: d.id, groupName: inviteNameFor({ ...g, name: g.name ?? 'A group' }), emoji: g.emoji })),
-          ),
-        )
-        const waiting = pendingEmails(candidates, found)
-        pending += waiting.length
-        await Promise.all(
-          waiting.map((p) =>
-            db()
-              .doc(`emailInvites/${emailId(p.email)}`)
-              .set({ entries: { [inviteKey(d.id, p.memberId)]: { groupId: d.id, memberId: p.memberId, at: Date.now() } } }, { merge: true }),
-          ),
-        )
-      }
-      last = page.docs[page.docs.length - 1]
-      if (page.size < 300) break
-    }
-    logger.info('admin linked members', { groups, linked, pending })
-    return { groups, linked, pending }
-  },
-)

@@ -16,6 +16,7 @@ export const load = {
   SettleAll: () => import('./pages/SettleAll'),
   Insights: () => import('./pages/Insights'),
   Profile: () => import('./pages/Profile'),
+  EmailLink: () => import('./pages/EmailLink'),
   Join: () => import('./pages/Join'),
   Capture: () => import('./pages/Capture'),
   CaptureGuest: () => import('./pages/CaptureGuest'),
@@ -52,6 +53,7 @@ export function routeKey(pathname: string): RouteKey | undefined {
   if (p.startsWith('/settle/with/')) return 'SettleUp'
   if (p === '/insights') return 'Insights'
   if (p === '/profile') return 'Profile'
+  if (p === '/email-link') return 'EmailLink'
   if (p === '/inbox') return 'Inbox'
   if (p === '/scan') return 'Scan'
   if (p === '/split') return 'SplitBill'

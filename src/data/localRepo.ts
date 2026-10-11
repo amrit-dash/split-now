@@ -69,8 +69,6 @@ import {
  * watchers report a server-equivalent SnapMeta, and the same edge cases (double trash, joining
  * twice, personal groups without an invite) end the same way.
  */
-/** The code every email code is in demo mode (nothing is sent). */
-export const DEMO_CODE = '000000'
 const EMPTY_EMAILS: AccountEmail[] = []
 
 interface State {
@@ -434,24 +432,17 @@ export function createLocalRepo(): Repo {
     async signInWithGoogle() {
       throw new Error('Connect Firebase to enable Google sign-in')
     },
-    async signInWithEmail() {
-      throw new Error('Connect Firebase to enable email sign-in')
-    },
-    async signUpWithEmail() {
-      throw new Error('Connect Firebase to enable email sign-in')
-    },
-    // Demo mode sends no email: the code is always DEMO_CODE, and the app says so.
-    async sendEmailCode() {
-      return { sent: true, demoCode: DEMO_CODE }
-    },
-    async confirmEmailCode(email, purpose, code) {
-      if (code.replace(/\D/g, '') !== DEMO_CODE) throw new Error(`That code isn’t right. In demo mode it’s ${DEMO_CODE}`)
-      if (purpose === 'verify') return { verified: true, linked: 0 }
+    // Demo mode sends no email: an added email is on the account at once.
+    async sendEmailLink(email) {
       const e = email.trim().toLowerCase()
       const list = state.accountEmails ?? []
       if (!list.some((x) => x.email === e)) state.accountEmails = [...list, { email: e, addedAt: Date.now() }]
       commit()
-      return { added: true, linked: 0 }
+      return { added: true }
+    },
+    isEmailLink: () => false,
+    async finishEmailLink() {
+      return { already: true }
     },
     async removeEmail(email) {
       state.accountEmails = (state.accountEmails ?? []).filter((x) => x.email !== email)
