@@ -430,12 +430,6 @@ export function createLocalRepo(): Repo {
     async signInWithGoogle() {
       throw new Error('Connect Firebase to enable Google sign-in')
     },
-    async signInWithEmail() {
-      throw new Error('Connect Firebase to enable email sign-in')
-    },
-    async signUpWithEmail() {
-      throw new Error('Connect Firebase to enable email sign-in')
-    },
     // Demo mode sends no email: an added email is on the account at once.
     async sendEmailLink(email) {
       const e = email.trim().toLowerCase()

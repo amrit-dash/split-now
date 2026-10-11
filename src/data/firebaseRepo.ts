@@ -3,7 +3,7 @@ import {
   EmailAuthProvider,
   GoogleAuthProvider,
   connectAuthEmulator,
-  createUserWithEmailAndPassword,
+  getAdditionalUserInfo,
   getAuth,
   getRedirectResult,
   onAuthStateChanged,
@@ -18,12 +18,12 @@ import {
   linkWithPopup,
   linkWithRedirect,
   signInAnonymously,
-  signInWithEmailAndPassword,
   signInWithPopup,
   signInWithRedirect,
   signOut,
   updateProfile,
   type User,
+  type UserCredential,
 } from 'firebase/auth'
 import {
   FieldPath,
@@ -137,6 +137,8 @@ import { getAppConfig } from '@/lib/flags'
 const GUEST_TOKEN = 'splitit-guest-token'
 /** localStorage: the email a sign-in link was just sent to (Profile → Add another email), to finish it when the link opens. */
 const PENDING_EMAIL = 'splitit-pending-email'
+/** localStorage: the email a sign-in link was just sent to, to finish signing in when the link opens. */
+const SIGNIN_EMAIL = 'splitit-signin-email'
 
 /** Firestore allows 500 writes per batch; leave headroom. */
 const BATCH_LIMIT = 450
@@ -410,6 +412,8 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       displayName: u.displayName ?? u.email ?? 'You',
       email: u.email ?? undefined,
       emailVerified: u.emailVerified,
+      // Signed in with an email link and never asked: the app asks once what people call them.
+      needsName: !u.displayName?.trim(),
       photoURL: u.photoURL ?? undefined,
       googlePhotoURL: googlePhoto(u),
       providers: u.providerData.map((p) => p.providerId),
@@ -501,34 +505,59 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       else await linkWithPopup(u, provider)
       await u.reload()
     },
-    async addPassword(password) {
-      const u = auth.currentUser
-      if (!u?.email) throw new Error('This account has no email address')
-      await linkWithCredential(u, EmailAuthProvider.credential(u.email, password))
-      await u.reload()
-    },
-    async signInWithEmail(email, password) {
-      const guest = auth.currentUser?.isAnonymous ? auth.currentUser : null
-      const guestToken = guest ? await guest.getIdToken() : ''
-      await signInWithEmailAndPassword(auth, email, password)
-      if (guestToken) await adoptGuest(guestToken)
-    },
-    async signUpWithEmail(name, email, password) {
-      const guest = auth.currentUser?.isAnonymous ? auth.currentUser : null
-      // A guest's account becomes this one (same uid), so nothing they did as a guest is lost.
-      const cred = guest
-        ? await linkWithCredential(guest, EmailAuthProvider.credential(email, password))
-        : await createUserWithEmailAndPassword(auth, email, password)
-      await updateProfile(cred.user, { displayName: name })
-      await ensureProfile({ ...cred.user, displayName: name })
-      // onAuthStateChanged fires before updateProfile, so its ensureProfile may already have
-      // created the profile under the email prefix. Set the real name (shown on invites/joins).
-      if (name) {
-        const batch = writeBatch(db)
-        batch.set(doc(db, 'users', cred.user.uid), { uid: cred.user.uid, displayName: name }, { merge: true })
-        fire(batch, 'Saving your name')
+    async sendSignInLink(email) {
+      // Firebase's passwordless sign-in link (Authentication → Sign-in method → Email/Password →
+      // Email link must be on). It lands on /signin, where the Login screen finishes it.
+      await sendSignInLinkToEmail(auth, email, { url: `${location.origin}/signin`, handleCodeInApp: true })
+      try {
+        localStorage.setItem(SIGNIN_EMAIL, email)
+      } catch {
+        /* storage unavailable: the link page asks for the email */
       }
-      if (guest) await afterGuestUpgrade()
+    },
+    async finishSignInLink(href, typed) {
+      let email = typed?.trim().toLowerCase()
+      try {
+        email ||= localStorage.getItem(SIGNIN_EMAIL) ?? undefined
+      } catch {
+        /* storage unavailable */
+      }
+      if (!email) return { needEmail: true }
+      const guest = auth.currentUser?.isAnonymous ? auth.currentUser : null
+      let cred: UserCredential
+      if (guest) {
+        // A guest keeps what they did: the guest account becomes this one when the address is new;
+        // when it already has an account, the guest's things move to it.
+        try {
+          cred = await linkWithCredential(guest, EmailAuthProvider.credentialWithLink(email, href))
+          await afterGuestUpgrade()
+        } catch (e) {
+          const code = (e as { code?: string }).code
+          if (code !== 'auth/credential-already-in-use' && code !== 'auth/email-already-in-use') throw e
+          const guestToken = await guest.getIdToken()
+          cred = await signInWithEmailLink(auth, email, href)
+          await adoptGuest(guestToken)
+        }
+      } else cred = await signInWithEmailLink(auth, email, href)
+      try {
+        localStorage.removeItem(SIGNIN_EMAIL)
+      } catch {
+        /* storage unavailable */
+      }
+      return { isNew: getAdditionalUserInfo(cred)?.isNewUser === true }
+    },
+    async setDisplayName(name) {
+      const u = auth.currentUser
+      if (!u) throw new Error('Not signed in')
+      await updateProfile(u, { displayName: name })
+      await ensureProfile({ ...u, displayName: name })
+      const batch = writeBatch(db)
+      batch.set(doc(db, 'users', u.uid), { uid: u.uid, displayName: name }, { merge: true })
+      fire(batch, 'Saving your name')
+      await refreshUser()
+    },
+    async deleteNewAccount() {
+      await auth.currentUser?.delete()
     },
     async signInAnonymously() {
       await signInAnonymously(auth)
@@ -544,6 +573,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       return {}
     },
     isEmailLink: (href) => isSignInWithEmailLink(auth, href),
+    isSignInLink: (href) => isSignInWithEmailLink(auth, href) && new URL(href).pathname === '/signin',
     async finishEmailLink(href, typed) {
       let email = typed?.trim().toLowerCase()
       try {
