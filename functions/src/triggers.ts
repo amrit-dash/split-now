@@ -257,6 +257,11 @@ export const onGroupDeleted = onDocumentDeleted({ document: 'groups/{groupId}', 
   const { groupId } = event.params
   const firestore = db()
   await firestore.recursiveDelete(firestore.doc(`groups/${groupId}`))
+  // The chat's push bookkeeping lives outside the group (server-only).
+  await firestore
+    .doc(`chatPush/${groupId}`)
+    .delete()
+    .catch(() => {})
   try {
     await (await storage()).bucket().deleteFiles({ prefix: `receipts/${groupId}/` })
     await (await storage()).bucket().deleteFiles({ prefix: `settleproofs/${groupId}/` })

@@ -6,6 +6,12 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- **Open items**: a new Open tab in each group for things the group spent that nobody has added yet, like "lunch on 2 Oct, who paid?". Type one line ("lunch 290 2nd Oct Cafe Blue") and it fills in the details. Name who might have paid and they get a notification. Whoever paid taps Claim: Add expense opens filled in, paid by them and split equally, ready to change. Delete the expense later and the item comes back to Open.
+- **Group chat**: every group has a chat just for money, from the chat icon on the group. Ask who paid, post an open item anyone can claim from the chat, send a Pay me with a Pay button, or add an expense and its card shows up there. Day headers, times, an unread line, and the group's expenses as small updates between messages. People who join later see the whole chat. No photos.
+- Notifications: new **Group chat** and **Open items** switches, and **Mute chat** for one group in its ⋯ menu.
+- Quick add reads dates: "Oct 2", "2nd Oct", "2/10", "last Friday", "3 days ago". A date's day number, a year, a time ("2:30"), "10%" or a phone number is never taken for the amount, and "290/-", "Rs. 290" and "1,20,000" read correctly.
+- Settings shows the right number of notification types turned on.
+
 - Links you share now preview properly in chats: an invite says who invited you and to which group, a Pay me link says who asked you to settle up (never the amount), and a live table says where the bill is from, each with its own picture.
 - Inbox: clear an update with ✕ or Clear all (with Undo). It's hidden for you on every device, and nobody else's history changes.
 - Inbox: sort Updates by newest, oldest or group, and To sort by newest, oldest or biggest amount. Your choice is remembered on this device.

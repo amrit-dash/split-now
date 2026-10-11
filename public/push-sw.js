@@ -1,7 +1,7 @@
 /*
  * Web Push handler, pulled into the Workbox-generated service worker via `workbox.importScripts`
  * (vite.config.ts). Cloud Functions send FCM *data-only* messages:
- *   { data: { title, body, url, tag?, badge? } }
+ *   { data: { title, body, url, tag?, badge?, silent? } }
  * so this worker shows every notification itself (iOS and Chrome both require a visible
  * notification per push). When a window of the app is focused (not on iOS, where a push that
  * shows nothing counts against the permission), the message is handed to that window instead,
@@ -54,7 +54,9 @@ self.addEventListener('push', (event) => {
       icon: '/pwa-192.png',
       badge: '/badge-96.png',
       tag: data.tag || undefined,
-      renotify: Boolean(data.tag),
+      // A busy chat replaces its notification quietly (data.silent) instead of buzzing for every message.
+      renotify: Boolean(data.tag) && data.silent !== '1',
+      silent: data.silent === '1',
       data: { url },
     })
   })())

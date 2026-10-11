@@ -180,7 +180,11 @@ service cloud.firestore {
 
     // ---- Server-only state (Cloud Functions, Admin SDK) ----------------
     // rateLimits/{tokenHash}: capture webhook counters. reminderState/{groupId}: when each
-    // member was last nudged to settle up. No client access at all.
+    // member was last nudged to settle up. chatPush/{groupId}: when each member last got a loud
+    // chat push (functions/src/chat.ts). No client access at all.
+    match /chatPush/{id} {
+      allow read, write: if false;
+    }
     match /rateLimits/{id} {
       allow read, write: if false;
     }

@@ -5,7 +5,7 @@
 import { readFileSync } from 'node:fs'
 import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest'
 import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing'
-import { deleteDoc, deleteField, doc, getDoc, setDoc, updateDoc, writeBatch, type Firestore } from 'firebase/firestore'
+import { deleteDoc, deleteField, doc, getDoc, setDoc, updateDoc, writeBatch } from 'firebase/firestore'
 
 let env: RulesTestEnvironment
 
@@ -75,7 +75,7 @@ const db = (uid: string) => env.authenticatedContext(uid).firestore()
 const itemRef = (uid: string, id = 'o1') => doc(db(uid), `groups/g1/openItems/${id}`)
 const asAdmin = (path: string, data: Record<string, unknown>) => env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), path), data))
 /** Bob claims o1 with a new expense, in one batch (what repo.saveExpense({ claim }) writes). */
-const claim = (fs: Firestore, uid: string, expenseId: string, over: Record<string, unknown> = {}) => {
+const claim = (fs: ReturnType<typeof db>, uid: string, expenseId: string, over: Record<string, unknown> = {}) => {
   const b = writeBatch(fs)
   b.set(doc(fs, `groups/g1/expenses/${expenseId}`), expense(expenseId, uid))
   b.update(doc(fs, 'groups/g1/openItems/o1'), { status: 'claimed', expenseId, claimedBy: uid, claimedAt: 3, updatedAt: 3, ...over })
