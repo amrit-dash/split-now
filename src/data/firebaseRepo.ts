@@ -43,6 +43,7 @@ import {
   updateDoc,
   waitForPendingWrites,
   where,
+  or,
   writeBatch,
   type DocumentReference,
   type FirestoreError,
@@ -70,6 +71,8 @@ import {
   type NewActivity,
 } from '@/lib/activity'
 import { editAutoApproved } from '@/lib/approval'
+import { CAPTURES_SHOWN_DAYS } from '@/lib/capture'
+import { EMPTY_INBOX_STATE, parseInboxState } from '@/lib/inbox'
 import { expenseEditPatch, prepareExpenseSave, prepareImportedSettlement, prepareOccurrence, prepareSettlementSave } from '@/lib/trust'
 import {
   activityCtxFor,
@@ -1075,8 +1078,11 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         if (held) cb(held.list, held.meta)
         else if (!last) cb([], { fromCache: true, hasPendingWrites: false })
       }, CAPTURES_WAIT_MS)
+      // Waiting ones, and handled ones from the last CAPTURES_SHOWN_DAYS (the daily cleanup removes
+      // older handled ones anyway, functions/src/cleanup.ts): the list no longer grows forever.
+      const recent = Date.now() - CAPTURES_SHOWN_DAYS * 86_400_000
       const unsub = onSnapshot(
-        collection(db, 'users', userId, 'captures'),
+        query(collection(db, 'users', userId, 'captures'), or(where('status', '==', 'pending'), where('updatedAt', '>=', recent))),
         { includeMetadataChanges: true },
         (s) => {
           if (!last || s.docChanges().length) last = s.docs.map((d) => ({ ...(d.data() as Capture), id: d.id })).sort(byCreatedDesc)
@@ -1121,6 +1127,31 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         (s) => cb(s.exists() ? parseMemory(s.data()) : null, metaOf(s)),
         listenError('Loading your categories', () => cb(null, FAILED)),
       )
+    },
+    watchInboxState(userId, cb) {
+      return onSnapshot(
+        doc(db, 'users', userId, 'settings', 'inbox'),
+        (s) => cb(parseInboxState(s.data()), metaOf(s)),
+        listenError('Loading your inbox', () => cb(EMPTY_INBOX_STATE, FAILED)),
+      )
+    },
+    async saveInboxState(userId, state) {
+      const batch = writeBatch(db)
+      batch.set(doc(db, 'users', userId, 'settings', 'inbox'), { clearedAt: state.clearedAt, hidden: state.hidden, updatedAt: Date.now() })
+      fire(batch, 'Clearing updates')
+    },
+    async fetchActivityBefore(groupIds, before, max) {
+      const pages = await Promise.all(
+        groupIds.map((id) =>
+          getDocs(query(activityCol(id), where('createdAt', '<', before), orderBy('createdAt', 'desc'), limit(max)))
+            .then((s) => s.docs.map((d) => ({ ...(d.data() as ActivityEntry), id: d.id, groupId: id })))
+            .catch(() => [] as ActivityEntry[]),
+        ),
+      )
+      return pages
+        .flat()
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .slice(0, max)
     },
     async saveMerchants(userId, memory) {
       // A full replace: entries evicted from the memory must leave the document too.

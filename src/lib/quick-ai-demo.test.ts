@@ -24,3 +24,15 @@ describe('demoQuickAi', () => {
     expect(demoQuickAi(req('create a group Goa trip'))).toEqual({ action: 'unknown' })
   })
 })
+
+describe('demoQuickAi: a group with no cost', () => {
+  it('"create a group for my Bali trip with …" is just the group, for an app that takes one', () => {
+    expect(demoQuickAi({ ...req('Create a group for my Bali trip with Rahul, Priya and Subramaniam'), groupOnly: true })).toEqual({
+      action: 'group',
+      group: { name: 'Bali Trip', type: 'trip', members: ['Rahul', 'Priya', 'Subramaniam'] },
+    })
+  })
+  it('older apps (no groupOnly) never get it', () => {
+    expect(demoQuickAi(req('Create a group for my Bali trip with Rahul, Priya and Subramaniam'))).toEqual({ action: 'unknown' })
+  })
+})

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Ban, BookOpen, Check, ChevronDown, ChevronRight, EyeOff, Flag, FolderInput, Loader2, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { repo } from '@/data'
@@ -14,7 +14,24 @@ import { CATEGORIES } from '@/lib/categories'
 import { suggestCategory } from '@/lib/merchants'
 import { useMerchantMemory } from '@/hooks/useMerchants'
 import { errText } from '@/lib/errors'
-import { isUnread, markInboxSeen } from '@/lib/inbox'
+import {
+  clearAllUpdates,
+  collapseRuns,
+  hideUpdate,
+  isUnread,
+  markInboxSeen,
+  mergeOlder,
+  orderToSort,
+  sortUpdates,
+  storeSorts,
+  storedSorts,
+  visibleUpdates,
+  type ToSortOrder,
+  type UpdatesSort,
+} from '@/lib/inbox'
+import { useInboxState } from '@/hooks/useInboxState'
+import { tuning } from '../../shared/app-tuning'
+import type { ActivityEntry } from '@/types'
 import { bulkCandidates, sumCaptures, targetGroupFor, type BulkCandidate } from '@/lib/inbox-sort'
 import { bulkDuplicates, duplicateLine } from '@/lib/duplicates'
 import { todayISO, uid } from '@/lib/id'
@@ -58,6 +75,15 @@ export default function Inbox() {
     if (current === 'updates') markInboxSeen()
   }, [current, box.updates.length])
 
+  const [sorts, setSorts] = useState(storedSorts)
+  const pickSort = useCallback((next: Partial<typeof sorts>) => {
+    setSorts((s) => {
+      const merged = { ...s, ...next }
+      storeSorts(merged)
+      return merged
+    })
+  }, [])
+
   const groups = useMemo(() => data?.map((d) => d.group) ?? null, [data])
   const groupsById = useMemo(() => Object.fromEntries((groups ?? []).map((g) => [g.id, g])), [groups])
 
@@ -81,15 +107,24 @@ export default function Inbox() {
           </p>
         )}
         {current === 'sort' ? (
-          <ToSort box={box} data={data} groups={groups} handled={all ? all.filter((c) => c.status !== 'pending') : null} />
+          <ToSort
+            box={box}
+            data={data}
+            groups={groups}
+            handled={all ? all.filter((c) => c.status !== 'pending') : null}
+            order={sorts.toSort}
+            onOrder={(toSort) => pickSort({ toSort })}
+          />
         ) : !data ? (
           <ListSkeleton rows={4} />
-        ) : box.updates.length === 0 ? (
-          <Quiet emoji="🔔" title="No updates yet">
-            Expenses, payments, imports and new members in your groups show here. New ones from friends get a dot.
-          </Quiet>
         ) : (
-          <ActivityFeed entries={box.updates} groups={groupsById} isNew={(a) => isUnread(a, user.uid, seenBefore)} />
+          <Updates
+            box={box}
+            groupsById={groupsById}
+            isNew={(a) => isUnread(a, user.uid, seenBefore)}
+            sort={sorts.updates}
+            onSort={(updates) => pickSort({ updates })}
+          />
         )}
       </div>
     </div>
@@ -118,11 +153,15 @@ function ToSort({
   data,
   groups,
   handled,
+  order,
+  onOrder,
 }: {
   box: ReturnType<typeof useInbox>
   data: GroupData[] | null
   groups: Group[] | null
   handled: Capture[] | null
+  order: ToSortOrder
+  onOrder: (o: ToSortOrder) => void
 }) {
   const { user } = useMe()
   const toast = useToast()
@@ -140,6 +179,48 @@ function ToSort({
     box.nudges.length === 0
   const paused = prefs?.pausedTrips
   const candidates = useMemo(() => (groups ? bulkCandidates(box.captures, groups, paused) : []), [box.captures, groups, paused])
+  // Each list in the chosen order (newest / oldest / biggest first); reminders keep theirs.
+  const approvals = useMemo(
+    () =>
+      orderToSort(
+        box.approvals,
+        order,
+        (x) => x.e.createdAt,
+        (x) => x.e.amount,
+      ),
+    [box.approvals, order],
+  )
+  const payments = useMemo(
+    () =>
+      orderToSort(
+        box.payments,
+        order,
+        (x) => x.s.createdAt,
+        (x) => x.s.amount,
+      ),
+    [box.payments, order],
+  )
+  const claims = useMemo(
+    () =>
+      orderToSort(
+        box.claims,
+        order,
+        (l) => l.paidAt ?? l.createdAt,
+        (l) => l.amount,
+      ),
+    [box.claims, order],
+  )
+  const captures = useMemo(
+    () =>
+      orderToSort(
+        box.captures,
+        order,
+        (c) => c.createdAt,
+        (c) => c.amount,
+      ),
+    [box.captures, order],
+  )
+  const count = approvals.length + payments.length + claims.length + captures.length
 
   const setStatus = (c: Capture, status: Capture['status']) => repo.updateCapture(user.uid, c.id, { status })
   const notShared = (c: Capture) => {
@@ -174,6 +255,20 @@ function ToSort({
 
   return (
     <>
+      {count > 1 && (
+        <div className="mb-3 flex justify-end">
+          <SortPicker<ToSortOrder>
+            value={order}
+            onChange={onOrder}
+            testId="inbox-sort"
+            options={[
+              { value: 'newest', label: 'Newest first' },
+              { value: 'oldest', label: 'Oldest first' },
+              { value: 'amount', label: 'Biggest amount' },
+            ]}
+          />
+        </div>
+      )}
       {nothing && (
         <>
           <Quiet emoji="✨" title="All sorted">
@@ -208,7 +303,7 @@ function ToSort({
       ) : (
         box.approvals.length > 0 && (
           <Section title="Needs your OK" hint="Not counted in balances until you approve">
-            {box.approvals.map(({ e, d }) => (
+            {approvals.map(({ e, d }) => (
               <ApprovalRow key={e.id} e={e} d={d} />
             ))}
           </Section>
@@ -217,7 +312,7 @@ function ToSort({
 
       {box.payments.length > 0 && (
         <Section title="Payments to confirm" hint="Waiting ones count once you confirm them">
-          {box.payments.map(({ s, group, matched }) => (
+          {payments.map(({ s, group, matched }) => (
             <PaymentConfirmRow key={s.id} s={s} group={group} matched={matched} />
           ))}
         </Section>
@@ -225,7 +320,7 @@ function ToSort({
 
       {box.claims.length > 0 && (
         <Section title="Says they’ve paid" hint="Counts once you confirm it">
-          {box.claims.map((l) => (
+          {claims.map((l) => (
             <div key={l.code} className="card p-4" data-testid="inbox-claim">
               <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
                 <span aria-hidden>{l.emoji ?? '🍽️'}</span>
@@ -250,7 +345,7 @@ function ToSort({
                 <Plus size={18} aria-hidden /> Add all {candidates[0].captures.length} to {candidates[0].group.emoji} {candidates[0].group.name}
               </button>
             )}
-            {box.captures.map((c) => (
+            {captures.map((c) => (
               <CaptureCard
                 key={c.id}
                 c={c}
@@ -652,5 +747,166 @@ function Quiet({ emoji, title, children }: { emoji: string; title: string; child
       <h2 className="font-bold">{title}</h2>
       <p className="text-muted mt-1 text-sm">{children}</p>
     </div>
+  )
+}
+
+/**
+ * Updates: the live window (a few per group), shown a page at a time, with Show older reading
+ * further back from the server. Clear all and ✕ hide entries for this person only (every device);
+ * the groups' history itself is never touched.
+ */
+function Updates({
+  box,
+  groupsById,
+  isNew,
+  sort,
+  onSort,
+}: {
+  box: ReturnType<typeof useInbox>
+  groupsById: Record<string, Group>
+  isNew: (a: ActivityEntry) => boolean
+  sort: UpdatesSort
+  onSort: (s: UpdatesSort) => void
+}) {
+  const { user } = useMe()
+  const toast = useToast()
+  const cleared = useInboxState()
+  const page = tuning().inboxPageSize
+  const [limit, setLimit] = useState(page)
+  const [older, setOlder] = useState<ActivityEntry[]>([])
+  const [loadingOlder, setLoadingOlder] = useState(false)
+  const [exhausted, setExhausted] = useState(false)
+
+  const all = useMemo(() => mergeOlder(box.updates, visibleUpdates(collapseRuns(older), cleared)), [box.updates, older, cleared])
+  const shown = useMemo(() => all.slice(0, limit), [all, limit])
+  const sections = useMemo(() => sortUpdates(shown, sort, (id) => groupsById[id]?.name ?? 'Other'), [shown, sort, groupsById])
+  // Where the next server read starts: the oldest entry read so far, cleared ones included.
+  const oldestRead = Math.min(...box.feed.map((a) => a.createdAt), ...older.map((a) => a.createdAt))
+  const canFetch = !exhausted && !!box.ids?.length && Number.isFinite(oldestRead) && oldestRead > cleared.clearedAt
+  const more = all.length > limit || canFetch
+
+  const save = (next: typeof cleared, undoTo?: typeof cleared, text?: string) => {
+    repo.saveInboxState(user.uid, next).catch((e) => toast(errText(e), 'err'))
+    if (undoTo && text)
+      toast(text, 'ok', {
+        action: {
+          label: 'Undo',
+          run: () => {
+            void repo.saveInboxState(user.uid, undoTo)
+          },
+        },
+      })
+  }
+  const clearAll = () => save(clearAllUpdates(Date.now()), cleared, 'Updates cleared')
+  const hide = (a: ActivityEntry) => save(hideUpdate(cleared, a.id))
+
+  const showOlder = async () => {
+    if (all.length > limit) {
+      setLimit((l) => l + page)
+      return
+    }
+    if (!canFetch || !box.ids) return
+    setLoadingOlder(true)
+    try {
+      const got = await repo.fetchActivityBefore(box.ids, oldestRead, page)
+      if (got.length < page) setExhausted(true)
+      setOlder((o) => [...o, ...got])
+      setLimit((l) => l + page)
+    } catch (e) {
+      toast(errText(e), 'err')
+    } finally {
+      setLoadingOlder(false)
+    }
+  }
+
+  if (all.length === 0 && !more)
+    return (
+      <Quiet emoji="🔔" title={cleared.clearedAt ? 'All caught up' : 'No updates yet'}>
+        Expenses, payments, imports and new members in your groups show here. New ones from friends get a dot.
+      </Quiet>
+    )
+
+  return (
+    <>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <SortPicker<UpdatesSort>
+          value={sort}
+          onChange={onSort}
+          testId="updates-sort"
+          options={[
+            { value: 'newest', label: 'Newest first' },
+            { value: 'oldest', label: 'Oldest first' },
+            { value: 'group', label: 'By group' },
+          ]}
+        />
+        {all.length > 0 && (
+          <button
+            type="button"
+            className="min-h-11 rounded-xl px-3 text-sm font-semibold text-brand-600 dark:text-brand-300"
+            onClick={clearAll}
+            data-testid="updates-clear-all"
+          >
+            Clear all
+          </button>
+        )}
+      </div>
+      {all.length === 0 && (
+        <p className="text-muted px-1 pb-2 text-sm" role="status">
+          Everything recent is cleared.
+        </p>
+      )}
+      <div className="space-y-4">
+        {sections.map((sec) => (
+          <section key={sec.groupId ?? 'all'}>
+            {sec.title && (
+              <h2 className="mb-2 px-1 font-bold">
+                {sec.groupId && groupsById[sec.groupId] && <span aria-hidden>{groupsById[sec.groupId].emoji} </span>}
+                {sec.title}
+              </h2>
+            )}
+            <ActivityFeed entries={sec.entries} groups={sec.title ? undefined : groupsById} isNew={isNew} onHide={hide} />
+          </section>
+        ))}
+      </div>
+      {more && (
+        <button type="button" className="btn-secondary mt-3 w-full" onClick={showOlder} disabled={loadingOlder} data-testid="updates-older">
+          {loadingOlder && <Loader2 size={18} className="animate-spin" aria-hidden />} Show older
+        </button>
+      )}
+    </>
+  )
+}
+
+/** A compact labelled sort menu (a native select: one tap, screen readers and keyboards for free). */
+function SortPicker<T extends string>({
+  value,
+  onChange,
+  options,
+  testId,
+}: {
+  value: T
+  onChange: (v: T) => void
+  options: Array<{ value: T; label: string }>
+  testId?: string
+}) {
+  return (
+    <label className="text-muted flex min-h-11 items-center gap-1.5 text-sm">
+      Sort
+      <span className="relative">
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value as T)}
+          data-testid={testId}
+          className="min-h-10 appearance-none rounded-xl bg-slate-100 py-2 pl-3 pr-8 text-sm font-semibold text-slate-900 dark:bg-ink-800 dark:text-white"
+        >
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+        <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2" aria-hidden />
+      </span>
+    </label>
   )
 }

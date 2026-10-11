@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import type { Group } from '@/types'
-import { buildQuickRequest, listNames, matchKnown, newGroupPrefill, parsePeopleParam, planQuickAi, quickGroupName } from './quick-ai'
+import {
+  buildQuickRequest,
+  listNames,
+  matchKnown,
+  newGroupPrefill,
+  noGroupsPrefill,
+  parsePeopleParam,
+  peopleGroupName,
+  planQuickAi,
+  quickGroupName,
+} from './quick-ai'
 import type { KnownPerson } from './people'
 
 const group = (id: string, name: string, members: Group['members'], extra: Partial<Group> = {}): Group => ({
@@ -54,6 +64,7 @@ describe('buildQuickRequest', () => {
       currency: 'INR',
       me: 'Asha',
       groupId: 'g_goa',
+      groupOnly: true,
       groups: [
         { id: 'g_goa', name: 'Goa Trip', type: 'trip', members: [{ id: 'm_rahul', name: 'Rahul Sharma' }] },
         {
@@ -160,7 +171,7 @@ describe('planQuickAi', () => {
       opts,
     )
     expect(plan.kind === 'create' && plan.group).toMatchObject({ type: 'outing', startDate: '2026-10-09', endDate: '2026-10-09' })
-    expect(plan.kind === 'create' && plan.prefill.payer).toMatch(/^p_/)
+    expect(plan.kind === 'create' && plan.prefill?.payer).toMatch(/^p_/)
   })
 })
 
@@ -195,5 +206,53 @@ describe('the New group prefill', () => {
     expect(listNames(['Rahul'])).toBe('Rahul')
     expect(listNames(['Rahul', 'Priya', 'Kiran'])).toBe('Rahul, Priya and Kiran')
     expect(listNames([])).toBe('')
+  })
+})
+
+describe('Quick add with no groups', () => {
+  it('a request with no group sends the line’s currency and asks for group-only answers', () => {
+    const r = buildQuickRequest({ text: ' Bali trip with Rahul ', groups: [], uid: 'u1', me: 'Asha', currency: 'AUD', today: '2026-10-09' })
+    expect(r).toEqual({ text: 'Bali trip with Rahul', today: '2026-10-09', currency: 'AUD', me: 'Asha', groupOnly: true, groups: [] })
+  })
+  it('a group-only answer plans a new group with no expense', () => {
+    const plan = planQuickAi(
+      { action: 'group', group: { name: 'Bali Trip', type: 'trip', members: ['Rahul', 'Priya', 'Subramaniam'] } },
+      { ...opts, groups: [] },
+    )
+    expect(plan.kind).toBe('create')
+    if (plan.kind !== 'create') return
+    expect(plan.prefill).toBeUndefined()
+    expect(plan.people).toEqual(['Rahul Sharma', 'Priya', 'Subramaniam'])
+    expect(plan.group).toMatchObject({ name: 'Bali Trip', type: 'trip', memberUids: ['u1'] })
+  })
+  it('the line names the group', () => {
+    expect(noGroupsPrefill({ text: 'Goa trip with Rahul and Priya', unmatched: ['Rahul', 'Priya'], known: [] })).toEqual({
+      name: 'Goa trip',
+      type: 'trip',
+      people: ['Rahul', 'Priya'],
+    })
+  })
+  it('one person, no group named: a 1:1 with them', () => {
+    expect(noGroupsPrefill({ text: 'dinner 1200 with Rahul', description: 'dinner', unmatched: ['Rahul'], known })).toEqual({
+      name: '',
+      type: 'direct',
+      people: ['Rahul Sharma'],
+    })
+  })
+  it('several people: named after them', () => {
+    expect(noGroupsPrefill({ text: 'dinner 1200 with Rahul and Priya', description: 'dinner', unmatched: ['Rahul', 'Priya'], known: [] })).toMatchObject({
+      name: 'Rahul & Priya',
+      people: ['Rahul', 'Priya'],
+    })
+  })
+  it('nobody named: named after the cost', () => {
+    expect(noGroupsPrefill({ text: 'groceries 640', description: 'groceries', unmatched: [], known: [] })).toMatchObject({ name: 'Groceries', people: [] })
+    expect(noGroupsPrefill({ text: '640', unmatched: [], known: [] })).toEqual({ name: '', people: [] })
+  })
+  it('peopleGroupName', () => {
+    expect(peopleGroupName(['Rahul Sharma'])).toBe('Rahul')
+    expect(peopleGroupName(['Rahul', 'Priya'])).toBe('Rahul & Priya')
+    expect(peopleGroupName(['Rahul', 'Priya', 'Sam'])).toBe('Rahul, Priya & Sam')
+    expect(peopleGroupName(['Rahul', 'Priya', 'Sam', 'Dev', 'Kiran'])).toBe('Rahul, Priya & 3 more')
   })
 })

@@ -1,7 +1,21 @@
 import { describe, expect, it } from 'vitest'
 import type { ActivityEntry, ActivityType } from '@/types'
 import { activityHref, activityText } from './activity'
-import { collapseRuns, isUnread, othersActivity, RUN_GAP_MS, unreadCount } from './inbox'
+import {
+  clearAllUpdates,
+  collapseRuns,
+  hideUpdate,
+  isUnread,
+  MAX_HIDDEN,
+  mergeOlder,
+  orderToSort,
+  othersActivity,
+  parseInboxState,
+  RUN_GAP_MS,
+  sortUpdates,
+  unreadCount,
+  visibleUpdates,
+} from './inbox'
 
 const a = (actorUid: string, createdAt: number, type: ActivityType = 'expense.created', groupId = 'g') =>
   ({
@@ -57,5 +71,55 @@ describe('collapseRuns', () => {
     const imp = { ...a('me', 5, 'expense.imported'), targetId: 'g' }
     expect(collapseRuns([imp])).toEqual([imp])
     expect(activityHref(imp)).toBe('/groups/g')
+  })
+})
+
+describe('clearing Updates (hidden for you, never deleted)', () => {
+  const e = (id: string, createdAt: number, groupId = 'g1') => ({ id, createdAt, groupId })
+  const list = [e('a', 30), e('b', 20), e('c', 10)]
+  it('✕ hides one row; Clear all hides everything up to then, but not what comes after', () => {
+    const one = hideUpdate(parseInboxState(null), 'b')
+    expect(visibleUpdates(list, one).map((x) => x.id)).toEqual(['a', 'c'])
+    const all = clearAllUpdates(25)
+    expect(visibleUpdates(list, all).map((x) => x.id)).toEqual(['a'])
+  })
+  it('keeps at most MAX_HIDDEN single hides, and reads only what it stored', () => {
+    let s = parseInboxState({})
+    for (let i = 0; i < MAX_HIDDEN + 5; i++) s = hideUpdate(s, `x${i}`)
+    expect(s.hidden).toHaveLength(MAX_HIDDEN)
+    expect(s.hidden.at(-1)).toBe(`x${MAX_HIDDEN + 4}`)
+    expect(parseInboxState({ clearedAt: 'soon', hidden: ['a', 3] })).toEqual({ clearedAt: 0, hidden: ['a'] })
+  })
+})
+
+describe('sorting the Inbox', () => {
+  const e = (id: string, createdAt: number, groupId: string) => ({ id, createdAt, groupId })
+  const list = [e('a', 10, 'g1'), e('b', 30, 'g2'), e('c', 20, 'g1')]
+  it('Updates newest, oldest or by group (most recently active group first)', () => {
+    expect(sortUpdates(list, 'newest', String)[0].entries.map((x) => x.id)).toEqual(['b', 'c', 'a'])
+    expect(sortUpdates(list, 'oldest', String)[0].entries.map((x) => x.id)).toEqual(['a', 'c', 'b'])
+    const groups = sortUpdates(list, 'group', (id) => `Group ${id}`)
+    expect(groups.map((g) => g.title)).toEqual(['Group g2', 'Group g1'])
+    expect(groups[1].entries.map((x) => x.id)).toEqual(['c', 'a'])
+  })
+  it('Show older merges without duplicates, newest first', () => {
+    expect(mergeOlder([e('a', 30, 'g'), e('b', 20, 'g')], [e('b', 20, 'g'), e('c', 5, 'g')]).map((x) => x.id)).toEqual(['a', 'b', 'c'])
+  })
+  it('To sort by when it arrived or the biggest amount first', () => {
+    const items = [
+      { at: 1, amt: 500 },
+      { at: 3, amt: 100 },
+      { at: 2, amt: 900 },
+    ]
+    const by = (o: 'newest' | 'oldest' | 'amount') =>
+      orderToSort(
+        items,
+        o,
+        (x) => x.at,
+        (x) => x.amt,
+      ).map((x) => x.at)
+    expect(by('newest')).toEqual([3, 2, 1])
+    expect(by('oldest')).toEqual([1, 2, 3])
+    expect(by('amount')).toEqual([2, 1, 3])
   })
 })

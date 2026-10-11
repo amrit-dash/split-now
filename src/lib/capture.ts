@@ -12,6 +12,13 @@ export { hasTripWindow, inTripWindow, isLiveTrip, liveTripFor, pausedTrip, rankG
 export { currencyFromAmount, sanitiseRef }
 
 /** What a /capture URL (or an inbox document) describes, after validation. */
+/** Handled captured payments the app keeps listing (waiting ones always show); the daily cleanup removes older ones. */
+export const CAPTURES_SHOWN_DAYS = 30
+
+/** What the captures list shows: everything still waiting, and what was handled lately. */
+export const shownCapture = (c: { status: string; updatedAt?: number }, now: number) =>
+  c.status === 'pending' || (c.updatedAt ?? 0) >= now - CAPTURES_SHOWN_DAYS * 86_400_000
+
 export interface CaptureDraft {
   amount: Cents
   currency?: string

@@ -6,6 +6,9 @@ import { useAllGroupData, type GroupData } from '@/hooks/data'
 import { useInbox } from '@/hooks/useInbox'
 import { ActivityFeed } from '@/components/Trust'
 import { NudgeCards } from '@/components/NudgeCards'
+import { QuickAddCard } from '@/components/QuickAddCard'
+import { useFlag } from '@/hooks/useAppConfig'
+import type { Group } from '@/types'
 import { formatMoney } from '@/lib/money'
 import { convertMinor } from '@/lib/fx'
 import { useTodayRates } from '@/hooks/useFx'
@@ -249,24 +252,30 @@ function RecentExpense({ e, d }: { e: GroupData['expenses'][number]; d: GroupDat
  * start. Shared with the Groups tab so both screens say the same thing.
  */
 export function FirstRun() {
+  const quickAdd = useFlag('quickAdd')
   return (
-    <div className="card p-5" data-testid="first-run">
-      <h2 className="text-lg font-bold">Start with a group</h2>
-      <p className="text-muted mt-1 text-sm">A trip, your flat, a dinner: add what people pay and Split Now keeps the balances.</p>
-      <div className="mt-4 divide-y divide-slate-100 dark:divide-white/5">
-        <StartRow to="/groups/new" icon={<Plus size={20} />} title="Create a group" text="Trips, flats, dinners, anything" testId="first-run-create" />
-        <StartRow
-          to="/groups/import"
-          icon={<FileUp size={20} />}
-          title="Import from Splitwise"
-          text="Bring a group over with its balances"
-          testId="first-run-import"
-        />
-        <JoinRow />
+    <>
+      <div className="card p-5" data-testid="first-run">
+        <h2 className="text-lg font-bold">Start with a group</h2>
+        <p className="text-muted mt-1 text-sm">A trip, your flat, a dinner: add what people pay and Split Now keeps the balances.</p>
+        <div className="mt-4 divide-y divide-slate-100 dark:divide-white/5">
+          <StartRow to="/groups/new" icon={<Plus size={20} />} title="Create a group" text="Trips, flats, dinners, anything" testId="first-run-create" />
+          <StartRow
+            to="/groups/import"
+            icon={<FileUp size={20} />}
+            title="Import from Splitwise"
+            text="Bring a group over with its balances"
+            testId="first-run-import"
+          />
+          <JoinRow />
+        </div>
       </div>
-    </div>
+      {/* Or say it in one line ("Goa trip with Rahul and Priya"): the group is set up from it, checked before it's made. */}
+      {quickAdd && <QuickAddCard className="mt-4" groups={NO_GROUPS} testId="home-quick-add" />}
+    </>
   )
 }
+const NO_GROUPS: Group[] = []
 
 /** The Groups tab's and Home's empty state for "no shared groups yet" (a personal wallet may exist). */
 export function EmptyGroups() {

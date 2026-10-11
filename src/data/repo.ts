@@ -7,6 +7,7 @@ import type { FxRatesDoc, FxRefreshResult } from '@/lib/fx'
 import type { ParsedReceipt } from '@/lib/ocr-parse'
 import type { AppAiConfig } from '@/lib/ai-config'
 import type { MerchantMemory } from '@/lib/merchants'
+import type { InboxState } from '@/lib/inbox'
 import type { AiTextExpense } from '@/lib/nl-expense'
 import type { NudgeItem, NudgeResult } from '@/lib/nudge'
 import type { AiUnavailableReason } from '../../shared/ai-config'
@@ -282,6 +283,15 @@ export interface Repo {
    * evicted, so a merge can't do it). null until it exists.
    */
   watchMerchants(uid: string, cb: Watch<MerchantMemory | null>): Unsub
+  /** What this person cleared from Inbox → Updates (users/{uid}/settings/inbox), the same on every device. */
+  watchInboxState(uid: string, cb: Watch<InboxState>): Unsub
+  /** Fire-and-forget, like other settings. */
+  saveInboxState(uid: string, state: InboxState): Promise<void>
+  /**
+   * Inbox → Show older: the newest `max` activity entries across the groups created before
+   * `before`, newest first. A one-time read (older entries don't change), one small query per group.
+   */
+  fetchActivityBefore(groupIds: string[], before: number, max: number): Promise<ActivityEntry[]>
   saveMerchants(uid: string, memory: MerchantMemory): Promise<void>
 
   /**

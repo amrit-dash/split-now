@@ -29,17 +29,21 @@ export function buildQuickRequest(o: {
   groups: Group[]
   uid: string
   me: string
-  /** the picked group (its currency is the line's) */
-  target: Group
+  /** the picked group (its currency is the line's); none when the person has no groups yet */
+  target?: Group
+  /** the line's currency with no group to take it from */
+  currency?: string
   today: string
 }): QuickAiRequest {
-  const ordered = [o.target, ...o.groups.filter((g) => g.id !== o.target.id)].slice(0, MAX_GROUPS)
+  const t = o.target
+  const ordered = (t ? [t, ...o.groups.filter((g) => g.id !== t.id)] : o.groups).slice(0, MAX_GROUPS)
   return {
     text: o.text.trim().slice(0, 300),
     today: o.today,
-    currency: o.target.currency,
+    currency: t?.currency ?? o.currency ?? 'INR',
     me: o.me,
-    groupId: o.target.id,
+    ...(t ? { groupId: t.id } : {}),
+    groupOnly: true,
     groups: ordered.map((g) => ({
       id: g.id,
       name: g.name,
@@ -87,7 +91,8 @@ export type NewGroupDraft = Omit<Group, 'id' | 'createdAt' | 'updatedAt' | 'invi
 
 export type QuickAiPlan =
   | { kind: 'expense'; groupId: string; prefill: QuickPrefill }
-  | { kind: 'create'; group: NewGroupDraft; people: string[]; prefill: QuickPrefill }
+  /** a new group to confirm; `prefill` when the line also had a cost (else the empty expense form opens in it) */
+  | { kind: 'create'; group: NewGroupDraft; people: string[]; prefill?: QuickPrefill }
   | { kind: 'fallback' }
 
 /**
@@ -116,7 +121,7 @@ export function planQuickAi(
     const map = (p: string): MemberId | undefined => (p === 'me' ? meId : p in activeMembers(g.members) ? p : undefined)
     return { kind: 'expense', groupId: g.id, prefill: toPrefill(result.expense, o.line, map, meId) }
   }
-  if (result.action === 'group_and_expense') {
+  if (result.action === 'group_and_expense' || result.action === 'group') {
     const type: GroupType = result.group.type ?? guessGroup(result.group.name)?.type ?? 'trip'
     const kind = isSharedType(type) ? type : 'trip'
     const meId = o.uid
@@ -150,6 +155,7 @@ export function planQuickAi(
       createdBy: o.uid,
       ...(info.datesToday ? { startDate: o.today, endDate: o.today } : {}),
     }
+    if (result.action === 'group') return { kind: 'create', group, people }
     return { kind: 'create', group, people, prefill: toPrefill(result.expense, o.line, map, meId) }
   }
   return { kind: 'fallback' }
@@ -241,4 +247,38 @@ export function parsePeopleParam(v: string | null | undefined): string[] {
     if (out.length >= MAX_PREFILL_PEOPLE) break
   }
   return out
+}
+
+/**
+ * Quick add with no groups yet: every line starts a group, read on the phone. The name comes from
+ * the line ("Goa trip …", "create a group Flat 4B …"); else one person named makes a 1:1 with them;
+ * else several people name it after themselves ("Rahul & Priya"); else what the money was for
+ * ("Dinner"). GroupForm opens with all of it filled in, so nothing is made until the person says so.
+ */
+export function noGroupsPrefill(o: { text: string; description?: string; unmatched: string[]; known: KnownPerson[] }): {
+  name: string
+  type?: GroupType
+  people: string[]
+} {
+  const base = newGroupPrefill({ text: o.text, unmatched: o.unmatched, known: o.known })
+  if (base.name) return base
+  const { people } = base
+  if (people.length === 1) return { name: '', type: 'direct', people }
+  const what = (o.description ?? '').replace(/\s+/g, ' ').trim()
+  const guess = what ? guessGroup(what)?.type : undefined
+  const type: GroupType | undefined = guess && isSharedType(guess) ? guess : undefined
+  if (people.length > 1) return { name: peopleGroupName(people), ...(type ? { type } : {}), people }
+  return { name: what ? titleCase(what).slice(0, 60) : '', ...(type ? { type } : {}), people }
+}
+
+/** "Rahul & Priya", "Rahul, Priya & Sam", "Rahul, Priya & 3 more": first names, at most 60 characters. */
+export function peopleGroupName(people: string[]): string {
+  const first = people.map((p) => p.split(' ')[0])
+  const name =
+    first.length <= 2
+      ? first.join(' & ')
+      : first.length === 3
+        ? `${first[0]}, ${first[1]} & ${first[2]}`
+        : `${first[0]}, ${first[1]} & ${first.length - 2} more`
+  return name.slice(0, 60)
 }

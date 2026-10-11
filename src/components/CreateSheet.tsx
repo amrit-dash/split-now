@@ -1,16 +1,14 @@
-import { lazy, Suspense, useId, useMemo, type ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, Plus, ReceiptText, ScanLine, Sparkles, Users } from 'lucide-react'
+import { ChevronRight, Plus, ReceiptText, ScanLine, Users } from 'lucide-react'
 import { useGroups } from '@/hooks/data'
 import { useFlag } from '@/hooks/useAppConfig'
 import { liveTripFor } from '@/lib/capture'
 import { todayISO } from '@/lib/id'
 import { lastGroup } from '@/lib/recents'
 import { ChequeIcon } from './ChequeIcon'
+import { QuickAddCard } from './QuickAddCard'
 import { Sheet } from './Sheet'
-
-// Only needed once the sheet is open: kept out of the first-paint bundle (the service worker precaches it).
-const QuickAdd = lazy(() => import('./QuickAdd').then((m) => ({ default: m.QuickAdd })))
 
 /**
  * What the + button in the tab bar opens: the one place to start anything. Add expense is the
@@ -27,7 +25,6 @@ export function CreateSheet({ open, onClose, groupId }: { open: boolean; onClose
   const allGroups = useGroups()
   // Shared, open groups only: the personal wallet has nobody to split with.
   const groups = useMemo(() => (allGroups ?? []).filter((g) => !g.archived && g.type !== 'personal'), [allGroups])
-  const quickId = useId()
   const q = groupId ? `?group=${encodeURIComponent(groupId)}` : ''
   const go = (to: string) => {
     onClose()
@@ -72,39 +69,22 @@ export function CreateSheet({ open, onClose, groupId }: { open: boolean; onClose
           testId="create-settle"
         />
       </div>
-      {quickAdd && groups.length > 0 && (
-        <section aria-labelledby={quickId} className="mt-5">
-          <div className="text-muted flex items-center gap-3 text-xs uppercase tracking-wider" aria-hidden>
+      {quickAdd && (
+        <>
+          <div className="text-muted mt-5 flex items-center gap-3 text-xs uppercase tracking-wider" aria-hidden>
             <span className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
             or
             <span className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
           </div>
-          {/* Its own card, styled like the tiles above, so it reads as one of the sheet's options. */}
-          <div className="mt-3 rounded-3xl bg-slate-50 p-3.5 ring-1 ring-slate-900/5 dark:bg-ink-800 dark:ring-white/5">
-            <div className="mb-3 flex items-center gap-3">
-              <span
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300"
-                aria-hidden
-              >
-                <Sparkles size={20} />
-              </span>
-              <span className="min-w-0">
-                <h3 id={quickId} className="font-semibold">
-                  Quick add
-                </h3>
-                <span className="text-muted block text-xs leading-snug">Type or say it, then check the form</span>
-              </span>
-            </div>
-            <Suspense fallback={<div className="h-[6.25rem] rounded-2xl bg-white ring-1 ring-slate-200 dark:bg-ink-900 dark:ring-white/10" />}>
-              <QuickAdd
-                groups={groups}
-                defaultGroupId={(groupId && groups.some((g) => g.id === groupId) ? groupId : undefined) ?? liveTripFor(groups, todayISO()) ?? lastGroup()}
-                onLeave={onClose}
-                testId="create-quick-add"
-              />
-            </Suspense>
-          </div>
-        </section>
+          {/* Its own card, styled like the tiles above, so it reads as one of the sheet's options. With no groups yet the line sets one up. */}
+          <QuickAddCard
+            className="mt-3"
+            groups={groups}
+            defaultGroupId={(groupId && groups.some((g) => g.id === groupId) ? groupId : undefined) ?? liveTripFor(groups, todayISO()) ?? lastGroup()}
+            onLeave={onClose}
+            testId="create-quick-add"
+          />
+        </>
       )}
     </Sheet>
   )
