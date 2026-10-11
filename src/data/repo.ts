@@ -3,6 +3,7 @@ import type {
   Capture,
   Cents,
   ChatMessage,
+  MergeRequest,
   Expense,
   ExpenseComment,
   Group,
@@ -354,6 +355,18 @@ export interface Repo {
   fetchChatBefore(groupId: string, before: number, max: number): Promise<ChatMessage[]>
   /** Sends a message; returns its id. `id` re-sends a deleted one (Undo). Fire-and-forget. */
   postChat(groupId: string, m: Omit<ChatMessage, 'id' | 'pending'>, id?: string): Promise<string>
+  /**
+   * Make two entries of the group one person (shared/merge-members.ts; the entry with an account
+   * stays). Waits for the server. 'pending' when the group needs its creator's OK and someone
+   * else asked: the creator gets a chat card, a push and an Inbox item.
+   */
+  mergeMembers(group: Group, from: MemberId, into: MemberId): Promise<{ status: 'done' | 'pending' }>
+  /** The creator answers a merge request; any member acts on a suggestion. Waits for the server. */
+  decideMerge(group: Group, requestId: string, approve: boolean): Promise<{ status: 'done' | 'pending' | 'declined' }>
+  /** The group's merge suggestions and requests, newest first (open and decided). */
+  watchMergeRequests(groupId: string, cb: Watch<MergeRequest[]>): Unsub
+  /** Merge requests waiting for this person's OK, across their groups (Inbox → To sort). */
+  watchMergeApprovals(uid: string, cb: Watch<MergeRequest[]>): Unsub
   /** The author deletes their own message. */
   deleteChat(groupId: string, id: string): Promise<void>
 

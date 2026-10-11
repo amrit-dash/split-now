@@ -5,7 +5,9 @@ import { ArrowDown, ChevronLeft, Copy, Trash2 } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { useBack } from '@/hooks/useBack'
-import { CHAT_WINDOW, myMemberId, useActivity, useChat, useExpenses, useGroup, useOpenItems } from '@/hooks/data'
+import { CHAT_WINDOW, myMemberId, useActivity, useChat, useExpenses, useGroup, useMergeRequests, useOpenItems } from '@/hooks/data'
+import { mentionLabels } from '@/lib/chat'
+import { mentionsIn } from '../../shared/mentions'
 import { useFlag } from '@/hooks/useAppConfig'
 import type { ChatMessage } from '@/types'
 import { usePageTitle } from '@/lib/brand'
@@ -42,6 +44,7 @@ export default function GroupChat() {
   const activity = useActivity(groupId)
   const expenses = useExpenses(groupId)
   const openItems = useOpenItems(openItemsOn ? groupId : undefined)
+  const mergeRequests = useMergeRequests(groupId)
   usePageTitle(group ? `${group.name} chat` : undefined)
 
   // Where you left off when the screen opened: the unread line stays there while you read.
@@ -88,9 +91,11 @@ export default function GroupChat() {
       today,
       expenses: byId,
       openItems: new Map((openItems ?? []).map((o) => [o.id, { item: o, state: openItemState(o, expenses ? byId : null) }])),
+      mergeRequests: new Map((mergeRequests ?? []).map((r) => [r.id, r])),
+      labels: mentionLabels(group.members),
       onMenu: setMenuFor,
     }
-  }, [group, user.uid, today, expenses, openItems])
+  }, [group, user.uid, today, expenses, openItems, mergeRequests])
 
   const scrollToBottom = useCallback((smooth = false) => {
     const el = scroller.current
@@ -171,7 +176,10 @@ export default function GroupChat() {
 
   const myName = (group && ctx?.me && group.members[ctx.me]?.name) || profile.displayName || 'Someone'
   const send = (m: Omit<ChatMessage, 'id' | 'authorUid' | 'authorName' | 'createdAt' | 'pending'>) => {
-    repo.postChat(groupId, { ...m, authorUid: user.uid, authorName: myName.slice(0, 80), createdAt: Date.now() }).catch((e) => toast(errText(e), 'err'))
+    const mentions = group && m.text ? mentionsIn(m.text, mentionLabels(group.members), ctx?.me) : []
+    repo
+      .postChat(groupId, { ...m, ...(mentions.length ? { mentions } : {}), authorUid: user.uid, authorName: myName.slice(0, 80), createdAt: Date.now() })
+      .catch((e) => toast(errText(e), 'err'))
   }
   const removeMessage = (m: ChatMessage) => {
     setMenuFor(null)
@@ -262,7 +270,7 @@ export default function GroupChat() {
             <ArrowDown size={18} aria-hidden />
           </button>
         )}
-        {group && <Composer group={group} expenses={expenses ?? []} openItemsOn={openItemsOn} onSend={send} />}
+        {group && <Composer group={group} expenses={expenses ?? []} openItemsOn={openItemsOn} me={ctx?.me} onSend={send} />}
       </div>
 
       <Sheet open={!!menuFor} onClose={() => setMenuFor(null)} title="Message">

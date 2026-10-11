@@ -326,6 +326,22 @@ test('Members: from the group menu, a settled person can be removed (swipe) and 
   await expect(page.getByTestId('member-row').filter({ hasText: 'Zoe Test' })).toHaveCount(0)
 })
 
+test('Members: someone added twice is merged into one person; their money moves with them', async ({ page }) => {
+  await page.goto('/groups/g_goa/members')
+  await page.getByLabel('Name of a person to add').fill('Rohan Again')
+  await page.getByTestId('member-add').click()
+  const twin = page.getByTestId('member-row').filter({ hasText: 'Rohan Again' })
+  await expect(twin).toBeVisible()
+  await twin.click({ button: 'right' })
+  await page.getByTestId('row-menu').getByTestId('member-merge-menu').click()
+  const sheet = page.getByTestId('merge-sheet')
+  await sheet.getByTestId('merge-pick').filter({ hasText: 'Rohan' }).filter({ hasNotText: 'Again' }).click()
+  await sheet.getByTestId('merge-confirm').click()
+  await expect(page.getByTestId('member-row').filter({ hasText: 'Rohan Again' })).toHaveCount(0)
+  // Rohan still owes what he owed: nothing moved away from him.
+  await expect(page.getByTestId('member-row').filter({ hasText: 'Rohan' })).toContainText(/owes/)
+})
+
 test('Row actions: icon buttons keep the name in view; right-click opens the same actions with their names', async ({ page }) => {
   await page.goto('/groups/g_goa')
   const row = page.getByTestId('expense-row').first()
@@ -724,6 +740,17 @@ test('open items: write one down from a line, then claim it into a prefilled exp
   await page.getByTestId('tab-open').click()
   await expect(page.getByTestId('open-item-row').filter({ hasText: /Taxi/i })).toHaveCount(0)
   await expect(page.getByTestId('open-items-claimed')).toBeVisible()
+})
+
+test('group chat: "@" offers the group’s people and the mention is picked out in the message', async ({ page }) => {
+  await page.goto('/groups/g_goa/chat')
+  await page.getByTestId('chat-input').pressSequentially('thanks @Ro')
+  await page.getByTestId('mention-offer').filter({ hasText: '@Rohan' }).click()
+  await expect(page.getByTestId('chat-input')).toHaveValue('thanks @Rohan ')
+  await page.getByTestId('chat-input').pressSequentially('for the cab')
+  await page.getByTestId('chat-send').click()
+  const sent = page.getByTestId('chat-message').filter({ hasText: 'thanks @Rohan for the cab' })
+  await expect(sent.locator('span.font-semibold', { hasText: '@Rohan' })).toBeVisible()
 })
 
 test('group chat: opens from the group, sends a message, posts a Pay me card', async ({ page }) => {

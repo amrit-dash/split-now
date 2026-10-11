@@ -2,7 +2,7 @@ import type { Member, MemberId } from '@/types'
 
 import { activeMembers } from '../../shared/members'
 
-export { activeMemberIds, activeMembers, formerMemberMatch, isRemoved } from '../../shared/members'
+export { activeMemberIds, activeMembers, currentMemberMatch, formerMemberMatch, isRemoved } from '../../shared/members'
 
 /** The people in the group now, by name, plus any removed ids in `keep` (the people in an old expense being edited). */
 export function orderMembers(members: Record<MemberId, Pick<Member, 'name' | 'removedAt'>>, keep?: Iterable<MemberId>): MemberId[] {

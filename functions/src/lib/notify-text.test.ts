@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addedToGroupNote, groupDeletedNote, payLinkClaimedNote, payLinkPaidNote } from './notify-text'
+import { addedToGroupNote, groupDeletedNote, mentionNote, mergeAskNote, mergeDecidedNote, payLinkClaimedNote, payLinkPaidNote } from './notify-text'
 
 describe('Pay me link push to the payee', () => {
   const base = { code: 'abcdefghijkmnpqrstuvwxyz', groupName: 'Goa trip', emoji: '🏖️', payerName: 'Rahul', amount: 124000, currency: 'INR' }
@@ -64,5 +64,25 @@ describe('addedToGroupNote', () => {
       tag: 'group-added-g1',
     })
     expect(addedToGroupNote({ groupId: 'g1', groupName: 'Flat' }).body).toBe('You were added to this group.')
+  })
+})
+
+describe('mentions and merges', () => {
+  const g = { groupId: 'g1', groupName: 'Goa trip', emoji: '🏖️' }
+  it('a mention says who, with the words, and opens the chat', () => {
+    expect(mentionNote({ ...g, authorName: 'Rahul', text: ' @Priya  did you pay\nthe cab? ' })).toEqual({
+      title: '🏖️ Goa trip',
+      body: 'Rahul mentioned you: @Priya did you pay the cab?',
+      url: '/groups/g1/chat',
+      tag: 'chat-g1',
+    })
+    expect(mentionNote({ ...g, authorName: 'Rahul', text: '' }).body).toBe('Rahul mentioned you: in the chat')
+  })
+  it('the creator is asked to OK a merge; the asker hears the answer', () => {
+    expect(mergeAskNote({ ...g, byName: 'Rahul', fromName: 'Priya', intoName: 'Priya S.' }).body).toBe(
+      'Rahul asks to make Priya and Priya S. one person. Your OK is needed',
+    )
+    expect(mergeDecidedNote({ ...g, ok: true, fromName: 'Priya', intoName: 'Priya S.' }).body).toBe('Priya and Priya S. are one person now')
+    expect(mergeDecidedNote({ ...g, ok: false, fromName: 'Priya', intoName: 'Priya S.' }).body).toBe('Making Priya and Priya S. one person was declined')
   })
 })

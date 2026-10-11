@@ -51,3 +51,20 @@ export function formerMemberMatch<M extends MemberLike & { name: string; email?:
     former.find(([, m]) => !m.uid && !m.email && m.name.trim().toLowerCase() === name)?.[0]
   )
 }
+
+/**
+ * Someone in the group now who is the person being added (same account, or same email): adding
+ * them again would make one person two entries, so the app says they're already in instead.
+ * Names alone never match (two Rahuls are fine).
+ */
+export function currentMemberMatch<M extends MemberLike & { email?: string; uid?: string }>(
+  members: Record<string, M> | undefined | null,
+  who: { email?: string; uid?: string },
+): string | undefined {
+  const now = Object.entries(members ?? {}).filter(([, m]) => !isRemoved(m))
+  const email = who.email?.trim().toLowerCase()
+  return (
+    (who.uid ? now.find(([, m]) => m.uid === who.uid)?.[0] : undefined) ??
+    (email ? now.find(([, m]) => m.email?.trim().toLowerCase() === email)?.[0] : undefined)
+  )
+}

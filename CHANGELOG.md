@@ -12,6 +12,9 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 - **Guests keep what they did**: someone who joined a live table or paid a Pay me link without an account and then signs up (or signs in) keeps it, and the group their payment was for shows up for them.
 - People added to a group by an email whose account wasn't confirmed yet now get the group as soon as they confirm it.
 - For admins: Admin → Email connects the service the codes go out through (Brevo or Resend).
+- **One person, one entry in a group**: adding someone who's already in the group (same account or email) says so instead of adding them twice. Someone added twice (by name and by email, say) can be merged: press and hold them on Members → Merge, pick who they really are, see where they'll stand, and everything they paid or owe moves over. Split Now suggests a merge only when it's sure: an email that belongs to someone already in the group, or two accounts of yours that were in the same group. Anyone in the group can accept or dismiss it; it never guesses from names.
+- **Merges that move money onto someone wait for them**: merging into someone who has an account needs their OK (unless it's you), so nobody's balance changes behind their back. The group's creator can also turn on "Merging people needs my OK" on Members for every other merge. A request is a card in the group chat that mentions the person, a notification, and an item in their Inbox to OK or decline.
+- **@mentions in the group chat**: type @ and pick someone. They're highlighted in the message and get a notification even if they muted the chat.
 
 ## 4.1.0 — October 2026
 

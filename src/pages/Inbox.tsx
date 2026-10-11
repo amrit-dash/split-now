@@ -5,6 +5,7 @@ import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { memberOrder, myMemberId, useAllGroupData, useCaptures, useCapturesMeta, type GroupData } from '@/hooks/data'
 import { useInbox } from '@/hooks/useInbox'
+import { MergeApprovalRow } from '@/features/merge/Merge'
 import { useFlag } from '@/hooks/useAppConfig'
 import type { Capture, Expense, Group, Settlement } from '@/types'
 import { usePageTitle } from '@/lib/brand'
@@ -198,6 +199,7 @@ function ToSort({
     box.approvals.length === 0 &&
     box.payments.length === 0 &&
     box.claims.length === 0 &&
+    box.merges.length === 0 &&
     box.nudges.length === 0
   const paused = prefs?.pausedTrips
   const candidates = useMemo(() => (groups ? bulkCandidates(box.captures, groups, paused) : []), [box.captures, groups, paused])
@@ -310,6 +312,14 @@ function ToSort({
             <ChevronRight size={18} className="shrink-0 text-slate-400" aria-hidden />
           </Link>
         </>
+      )}
+
+      {box.merges.length > 0 && (
+        <Section title="Merges to OK" hint="Two people who are one person">
+          {box.merges.map(({ r, d }) => (
+            <MergeApprovalRow key={`${r.groupId}/${r.id}`} group={d.group} request={r} me={d.me} myUid={user.uid} />
+          ))}
+        </Section>
       )}
 
       {box.nudges.length > 0 && (
