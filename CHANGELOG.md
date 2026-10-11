@@ -11,6 +11,7 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 - Settings → Animations: the Glitter shape options are now small pictures of each shape (Mix shows one of each), so the row fits any phone.
 - Profile: on narrow phones the payment section is titled How to pay you, so it stays on one line.
 - Inbox: a Mark all read button in the header, shown while there are unread updates.
+- A group's member faces show how many more people there are as small text beside them (+2), not in a circle of its own that hid behind the faces.
 
 ## 3.10.2 — October 2026
 

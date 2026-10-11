@@ -57,20 +57,19 @@ export function AvatarStack({
     // Each avatar is stacked explicitly, the first in front: a photo and an initials circle would
     // otherwise paint in different orders, and one face could disappear behind its neighbours.
     // The overlap scales with the size (about 30%), so even 20px avatars keep their initials in view.
-    <div className="flex">
+    <div className="flex items-center">
       {shown.map((p, i) => (
         // biome-ignore lint/suspicious/noArrayIndexKey: callers pass display-only people without an id, and names can repeat.
         <span key={i} className="relative rounded-full" style={{ zIndex: shown.length - i + 1, marginLeft: i ? -Math.round(size * 0.3) : 0 }}>
           <Avatar name={p.name} color={p.color} photoURL={p.photoURL} size={size} ring />
         </span>
       ))}
+      {/* The rest as plain text beside the faces: a "+1" in its own circle hid behind the overlap. */}
       {people.length > max && (
-        <div
-          className="relative z-0 flex items-center justify-center rounded-full bg-slate-200 text-xs font-bold text-slate-600 ring-2 ring-white dark:bg-ink-700 dark:text-slate-300 dark:ring-ink-900"
-          style={{ width: size, height: size, marginLeft: -Math.round(size * 0.3) }}
-        >
+        <span className="text-muted ml-1 self-center text-xs font-semibold tabular-nums">
           +{people.length - max}
-        </div>
+          <span className="sr-only"> more</span>
+        </span>
       )}
     </div>
   )
