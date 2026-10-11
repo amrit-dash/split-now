@@ -1,3 +1,5 @@
+import { groupLabels, memberIdOfUid } from './shortNames'
+import { activeMembers } from './members'
 import type { ActivityEntry, ActivityType, ChatMessage, Group, MemberId } from '@/types'
 import { localISODate } from './id'
 import { formatDate } from './locale'
@@ -173,8 +175,7 @@ export function linkParts(text: string): TextPart[] {
 
 /** The member entry behind a message's author (for the avatar and colour), when they're still known. */
 export function authorMember(group: Pick<Group, 'members'>, uid: string): MemberId | undefined {
-  const all = Object.entries(group.members).filter(([, m]) => m.uid === uid)
-  return (all.find(([, m]) => typeof m.removedAt !== 'number') ?? all[0])?.[0]
+  return memberIdOfUid(group.members, uid)
 }
 
 /**
@@ -226,3 +227,11 @@ export function markRead(groupId: string, at: number): void {
 
 /** Fired on this window when a chat is marked read, so the group screen's dot updates without a reload. */
 export const READ_EVENT = 'splitit-chat-read'
+
+/**
+ * Everyone's label for @mentions: the same for every reader (not "you"-relative), so "@Rahul S."
+ * written on one phone is found on another. People who left aren't offered or matched.
+ */
+export function mentionLabels(members: Group['members']): Record<MemberId, string> {
+  return groupLabels(activeMembers(members))
+}

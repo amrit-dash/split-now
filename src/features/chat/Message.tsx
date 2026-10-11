@@ -2,7 +2,7 @@ import { useRef, useState, type ReactNode } from 'react'
 import { labelOf } from '@/lib/shortNames'
 import { Link } from 'react-router-dom'
 import { Check, ChevronDown, Clock, HandCoins, Receipt } from 'lucide-react'
-import type { ActivityEntry, ChatMessage, Expense, Group, MemberId, OpenItem } from '@/types'
+import type { ActivityEntry, ChatMessage, Expense, Group, MemberId, MergeRequest, OpenItem } from '@/types'
 import { activityText } from '@/lib/activity'
 import { CATEGORIES } from '@/lib/categories'
 import { authorMember, linkParts, payCard, type ChatRow } from '@/lib/chat'
@@ -10,6 +10,8 @@ import { formatTime } from '@/lib/locale'
 import { formatMoney } from '@/lib/money'
 import { claimHref, openItemMeta, type OpenItemState, suspectLine } from '@/lib/open-items'
 import { Avatar } from '@/components/Avatar'
+import { MergeChatCard } from '@/features/merge/Merge'
+import { mentionParts } from '../../../shared/mentions'
 
 export interface MessageCtx {
   group: Group
@@ -19,6 +21,10 @@ export interface MessageCtx {
   today: string
   openItems: Map<string, { item: OpenItem; state: OpenItemState }>
   expenses: Map<string, Expense>
+  /** the group's merge requests by id (a merge card shows its live state) */
+  mergeRequests: Map<string, MergeRequest>
+  /** every member's label in the group, for @mentions */
+  labels: Record<MemberId, string>
   /** long-press / right-click / Enter on a bubble */
   onMenu: (m: ChatMessage) => void
 }
@@ -75,25 +81,38 @@ export function UpdatesPill({ entries, uid }: { entries: ActivityEntry[]; uid: s
   )
 }
 
-/** Words with http(s) links made tappable (never any other scheme). */
-function Words({ text, mine }: { text: string; mine: boolean }) {
+/** Words with @mentions picked out (yours stronger) and http(s) links made tappable (never any other scheme). */
+function Words({ text, mine, ctx, mentions }: { text: string; mine: boolean; ctx: MessageCtx; mentions?: MemberId[] }) {
+  const parts = mentions?.length ? mentionParts(text, ctx.labels, mentions) : [{ text }]
   return (
     <>
-      {linkParts(text).map((p, i) =>
-        p.href ? (
-          <a
+      {parts.map((part, j) =>
+        part.mention ? (
+          <span
             // biome-ignore lint/suspicious/noArrayIndexKey: parts of one fixed string
-            key={i}
-            href={p.href}
-            target="_blank"
-            rel="noopener noreferrer nofollow"
-            className={`underline underline-offset-2 ${mine ? '' : 'text-brand-700 dark:text-brand-300'}`}
+            key={j}
+            className={`font-semibold ${part.mention === ctx.me ? (mine ? 'rounded bg-white/25 px-0.5' : 'rounded bg-brand-100 px-0.5 text-brand-800 dark:bg-brand-500/25 dark:text-brand-200') : mine ? '' : 'text-brand-700 dark:text-brand-300'}`}
           >
-            {p.text}
-          </a>
+            {part.text}
+          </span>
         ) : (
-          // biome-ignore lint/suspicious/noArrayIndexKey: parts of one fixed string
-          <span key={i}>{p.text}</span>
+          linkParts(part.text).map((p, i) =>
+            p.href ? (
+              <a
+                // biome-ignore lint/suspicious/noArrayIndexKey: parts of one fixed string
+                key={`${j}-${i}`}
+                href={p.href}
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                className={`underline underline-offset-2 ${mine ? '' : 'text-brand-700 dark:text-brand-300'}`}
+              >
+                {p.text}
+              </a>
+            ) : (
+              // biome-ignore lint/suspicious/noArrayIndexKey: parts of one fixed string
+              <span key={`${j}-${i}`}>{p.text}</span>
+            ),
+          )
         ),
       )}
     </>
@@ -170,7 +189,7 @@ export function MessageRow({ row, ctx }: { row: Extract<ChatRow, { type: 'messag
         {card}
         {m.text && (
           <div className={`whitespace-pre-wrap break-words text-[15px] leading-snug ${card ? 'mt-2' : ''}`}>
-            <Words text={m.text} mine={mine} />
+            <Words text={m.text} mine={mine} ctx={ctx} mentions={m.mentions} />
           </div>
         )}
         <div className={`mt-0.5 flex items-center justify-end gap-1 text-[11px] tabular-nums ${mine ? 'text-on-fill/75' : 'text-muted'}`}>
@@ -234,6 +253,14 @@ function Card({ m, ctx, mine, memberId }: { m: ChatMessage; ctx: MessageCtx; min
           <div className={`mt-2 text-xs ${sub}`}>Deleted</div>
         )}
       </CardBox>
+    )
+  }
+  if (m.kind === 'merge') {
+    // Light inside any bubble: the card has its own buttons.
+    return (
+      <div className="rounded-2xl bg-white p-3 text-slate-900 dark:bg-ink-900 dark:text-slate-100" data-testid="chat-merge">
+        <MergeChatCard group={group} request={m.ref ? ctx.mergeRequests.get(m.ref) : undefined} me={ctx.me} myUid={ctx.uid} />
+      </div>
     )
   }
   if (m.kind === 'pay') {

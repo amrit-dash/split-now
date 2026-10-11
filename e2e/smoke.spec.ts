@@ -326,6 +326,22 @@ test('Members: from the group menu, a settled person can be removed (swipe) and 
   await expect(page.getByTestId('member-row').filter({ hasText: 'Zoe Test' })).toHaveCount(0)
 })
 
+test('Members: someone added twice is merged into one person; their money moves with them', async ({ page }) => {
+  await page.goto('/groups/g_goa/members')
+  await page.getByLabel('Name of a person to add').fill('Rohan Again')
+  await page.getByTestId('member-add').click()
+  const twin = page.getByTestId('member-row').filter({ hasText: 'Rohan Again' })
+  await expect(twin).toBeVisible()
+  await twin.click({ button: 'right' })
+  await page.getByTestId('row-menu').getByTestId('member-merge-menu').click()
+  const sheet = page.getByTestId('merge-sheet')
+  await sheet.getByTestId('merge-pick').filter({ hasText: 'Rohan' }).filter({ hasNotText: 'Again' }).click()
+  await sheet.getByTestId('merge-confirm').click()
+  await expect(page.getByTestId('member-row').filter({ hasText: 'Rohan Again' })).toHaveCount(0)
+  // Rohan still owes what he owed: nothing moved away from him.
+  await expect(page.getByTestId('member-row').filter({ hasText: 'Rohan' })).toContainText(/owes/)
+})
+
 test('Row actions: icon buttons keep the name in view; right-click opens the same actions with their names', async ({ page }) => {
   await page.goto('/groups/g_goa')
   const row = page.getByTestId('expense-row').first()
@@ -726,6 +742,17 @@ test('open items: write one down from a line, then claim it into a prefilled exp
   await expect(page.getByTestId('open-items-claimed')).toBeVisible()
 })
 
+test('group chat: "@" offers the group’s people and the mention is picked out in the message', async ({ page }) => {
+  await page.goto('/groups/g_goa/chat')
+  await page.getByTestId('chat-input').pressSequentially('thanks @Ro')
+  await page.getByTestId('mention-offer').filter({ hasText: '@Rohan' }).click()
+  await expect(page.getByTestId('chat-input')).toHaveValue('thanks @Rohan ')
+  await page.getByTestId('chat-input').pressSequentially('for the cab')
+  await page.getByTestId('chat-send').click()
+  const sent = page.getByTestId('chat-message').filter({ hasText: 'thanks @Rohan for the cab' })
+  await expect(sent.locator('span.font-semibold', { hasText: '@Rohan' })).toBeVisible()
+})
+
 test('group chat: opens from the group, sends a message, posts a Pay me card', async ({ page }) => {
   await page.goto('/groups/g_goa')
   await page.getByTestId('group-chat').click()
@@ -781,6 +808,21 @@ test('Quick add: "who paid?" opens the open item sheet in the group, filled in; 
   await expect(sheet.getByRole('button', { name: /Priya/, pressed: true })).toBeVisible()
   await sheet.getByTestId('open-item-save').click()
   await expect(page.getByTestId('open-item-row').filter({ hasText: 'Lunch Cafe Blue' })).toBeVisible()
+})
+
+test('Profile → Emails: add another email with the code, then remove it', async ({ page }) => {
+  await page.goto('/profile')
+  await page.getByTestId('account-toggle').click()
+  await page.getByTestId('add-email').click()
+  await page.getByTestId('add-email-input').fill('asha@work.com')
+  await page.getByTestId('add-email-send').click()
+  // Demo mode sends nothing; its code is always 000000.
+  await page.getByTestId('add-email-code').fill('000000')
+  const list = page.getByTestId('account-emails')
+  await expect(list).toContainText('asha@work.com')
+  await list.getByRole('button', { name: 'Remove asha@work.com' }).click()
+  await page.getByTestId('confirm-sheet').getByRole('button', { name: 'Remove' }).click()
+  await expect(list).not.toContainText('asha@work.com')
 })
 
 test('Profile offers Install Split Now in a browser, with the steps for this browser', async ({ page }) => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { netBalances, pendingApprovers } from './balances-core'
-import { activeMemberIds, activeMembers, formerMemberMatch, isRemoved } from './members'
+import { activeMemberIds, activeMembers, currentMemberMatch, formerMemberMatch, isRemoved } from './members'
 
 const members: Record<string, { name: string; uid?: string; email?: string; removedAt?: number }> = {
   a: { name: 'Asha', uid: 'ua' },
@@ -54,5 +54,21 @@ describe('balances with removed members', () => {
   it('a removed member is never waited on for approval', () => {
     const e = { requiresApproval: true, splits: { a: 50, d: 50 }, createdBy: 'ua' }
     expect(pendingApprovers(e, members)).toEqual([])
+  })
+})
+
+describe('currentMemberMatch', () => {
+  const members = {
+    a: { name: 'Asha', uid: 'u1', email: 'asha@x.com' },
+    p: { name: 'Priya', email: 'Priya@X.com' },
+    gone: { name: 'Sam', email: 'sam@x.com', removedAt: 1 },
+  }
+  it('the same account or email already in the group', () => {
+    expect(currentMemberMatch(members, { uid: 'u1' })).toBe('a')
+    expect(currentMemberMatch(members, { email: ' priya@x.com ' })).toBe('p')
+  })
+  it('not someone who left, nor a name alone', () => {
+    expect(currentMemberMatch(members, { email: 'sam@x.com' })).toBeUndefined()
+    expect(currentMemberMatch(members, {})).toBeUndefined()
   })
 })

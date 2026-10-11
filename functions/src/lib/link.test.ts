@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { inviteKey, linkCandidates, normEmail, pendingEmails, planLinks } from './link'
+import { duplicatePlaceholders, inviteKey, linkCandidates, normEmail, pendingEmails, planLinks } from './link'
 
 describe('normEmail', () => {
   it('lower-cases and trims real addresses, rejects the rest', () => {
@@ -51,8 +51,30 @@ describe('planLinks', () => {
   it('stops at 60 accounts', () => {
     expect(planLinks({ candidates: candidates.slice(0, 1), memberUids: Array.from({ length: 60 }, (_, i) => `x${i}`), found })).toEqual([])
   })
-  it('emails with no account are remembered', () => {
-    expect(pendingEmails(candidates, found).map((c) => c.email)).toEqual(['sam@x.com'])
+  it('emails with no account, or an account that has not verified them yet, are remembered', () => {
+    expect(pendingEmails(candidates, found).map((c) => c.email)).toEqual(['rahul@x.com', 'sam@x.com'])
     expect(inviteKey('g1', 'p3')).toBe('g1__p3')
+  })
+})
+
+describe('duplicatePlaceholders', () => {
+  it('a placeholder whose verified email is someone already in the group is one person twice', () => {
+    const members = { me: { name: 'Asha', uid: 'u0' }, p4: { name: 'Asha (work)', email: 'asha@x.com' }, gone: { name: 'Old', uid: 'u1', removedAt: 1 } }
+    const found = {
+      'asha@x.com': { uid: 'u0', emailVerified: true },
+      'priya@x.com': { uid: 'u1', emailVerified: true },
+      'sam@x.com': { uid: 'u9', emailVerified: false },
+    }
+    expect(
+      duplicatePlaceholders(
+        [
+          { memberId: 'p4', email: 'asha@x.com' },
+          { memberId: 'p1', email: 'priya@x.com' },
+          { memberId: 'p3', email: 'sam@x.com' },
+        ],
+        members,
+        found,
+      ),
+    ).toEqual([{ from: 'p4', into: 'me' }])
   })
 })

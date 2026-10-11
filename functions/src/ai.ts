@@ -96,7 +96,7 @@ const istDay = (now: number) => istDate(new Date(now))
 
 let kekWarned = false
 /** The configured KEK(s), newest first; [] when the secret isn't set (keys are then stored as before, with a warning). */
-function keks(): Buffer[] {
+export function keks(): Buffer[] {
   let raw: string | undefined
   try {
     raw = AI_KEY_KEK.value() || undefined

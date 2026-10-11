@@ -1,6 +1,7 @@
 import { useEffect, useId, useState } from 'react'
 import { Camera, Check, ChevronDown, KeyRound, Loader2, RefreshCw } from 'lucide-react'
 import { repo } from '@/data'
+import { AccountEmails } from '@/components/AccountEmails'
 import { useMe } from '@/hooks/auth'
 import { errText } from '@/lib/errors'
 import { isSynced, loadSharedRates, ratesStatus, refreshRates, type RatesStatus } from '@/lib/fx'
@@ -98,12 +99,7 @@ export function AccountCard({
             />
             {phoneHint && <div className="mt-2">{phoneHint}</div>}
           </div>
-          {email && (
-            <div>
-              <div className="label">Email</div>
-              <div className="text-muted rounded-2xl bg-slate-100 px-4 py-3 dark:bg-ink-800">{email}</div>
-            </div>
-          )}
+          <AccountEmails email={email} />
           {repo.mode === 'firebase' && <SignInMethods />}
           <p className="text-muted text-xs">Changes save by themselves.</p>
         </div>

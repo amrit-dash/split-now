@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ClipboardList, HandCoins, Plus, Receipt, SendHorizontal, Share2 } from 'lucide-react'
-import type { Cents, ChatMessage, Expense, Group, OpenItem } from '@/types'
+import type { Cents, ChatMessage, Expense, Group, MemberId, OpenItem } from '@/types'
 import { CATEGORIES } from '@/lib/categories'
-import { CHAT_MAX, cleanMessage } from '@/lib/chat'
+import { CHAT_MAX, cleanMessage, mentionLabels } from '@/lib/chat'
+import { Avatar } from '@/components/Avatar'
+import { insertMention, mentionCandidates, mentionQuery } from '../../../shared/mentions'
 import { formatDate } from '@/lib/locale'
 import { formatMoney } from '@/lib/money'
 import { MoneyInput } from '@/components/MoneyInput'
@@ -19,9 +21,37 @@ const enterSends = () => typeof window !== 'undefined' && !window.matchMedia?.('
  * The message box and its ＋ tools: an open item (anyone can claim it from the chat), a Pay me
  * request, Add expense (its card lands back here), or a card for an expense already added.
  */
-export function Composer({ group, expenses, openItemsOn, onSend }: { group: Group; expenses: Expense[]; openItemsOn: boolean; onSend: (m: Draft) => void }) {
+export function Composer({
+  group,
+  expenses,
+  openItemsOn,
+  me,
+  onSend,
+}: {
+  group: Group
+  expenses: Expense[]
+  openItemsOn: boolean
+  /** the writer's member id (not offered as a mention) */
+  me?: MemberId
+  onSend: (m: Draft) => void
+}) {
   const nav = useNavigate()
   const [text, setText] = useState('')
+  // "@" and a few letters: the people to offer, picked by tap (shared/mentions.ts).
+  const [caret, setCaret] = useState(0)
+  const labels = useMemo(() => mentionLabels(group.members), [group.members])
+  const q = mentionQuery(text, caret)
+  const offers = q ? mentionCandidates(labels, q.query, me) : []
+  const pick = (label: string) => {
+    if (!q) return
+    const next = insertMention(text, q.start, caret, label)
+    setText(next.text)
+    setCaret(next.caret)
+    requestAnimationFrame(() => {
+      area.current?.focus()
+      area.current?.setSelectionRange(next.caret, next.caret)
+    })
+  }
   const [tool, setTool] = useState<'menu' | 'open' | 'pay' | 'share' | null>(null)
   const area = useRef<HTMLTextAreaElement>(null)
   const clean = cleanMessage(text)
@@ -50,6 +80,27 @@ export function Composer({ group, expenses, openItemsOn, onSend }: { group: Grou
 
   return (
     <div className="border-t border-slate-200/70 bg-slate-50/95 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 backdrop-blur-xl dark:border-white/5 dark:bg-ink-950/95">
+      {offers.length > 0 && (
+        <ul className="scrollbar-none mx-auto mb-2 flex max-w-2xl gap-1.5 overflow-x-auto px-1" aria-label="Mention someone" data-testid="mention-offers">
+          {offers.map((o) => {
+            const m = group.members[o.id]
+            return (
+              <li key={o.id} className="shrink-0">
+                <button
+                  type="button"
+                  // Keep the keyboard up: the tap shouldn't take focus from the message box first.
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => pick(o.label)}
+                  className="flex min-h-11 items-center gap-2 rounded-full bg-white py-1 pl-1 pr-3.5 text-sm font-semibold shadow-sm ring-1 ring-slate-200 dark:bg-ink-800 dark:ring-white/10"
+                  data-testid="mention-offer"
+                >
+                  <Avatar name={m?.name ?? o.label} color={m?.color ?? '#94a3b8'} photoURL={m?.photoURL} size={28} />@{o.label}
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      )}
       <form
         className="mx-auto flex max-w-2xl items-end gap-1.5"
         onSubmit={(e) => {
@@ -76,14 +127,18 @@ export function Composer({ group, expenses, openItemsOn, onSend }: { group: Grou
           rows={1}
           value={text}
           maxLength={CHAT_MAX + 200}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value)
+            setCaret(e.target.selectionStart ?? e.target.value.length)
+          }}
+          onSelect={(e) => setCaret(e.currentTarget.selectionStart ?? 0)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && enterSends()) {
               e.preventDefault()
               send()
             }
           }}
-          placeholder="Message about money"
+          placeholder="Message about money (@ to mention)"
           className="min-h-11 flex-1 resize-none rounded-3xl border-0 bg-white px-4 py-2.5 text-[15px] leading-snug shadow-sm ring-1 ring-slate-200 focus:ring-2 focus:ring-brand-500 dark:bg-ink-800 dark:ring-white/10"
           data-testid="chat-input"
         />

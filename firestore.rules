@@ -83,6 +83,12 @@ service cloud.firestore {
       match /secrets/{id} {
         allow read, write: if false;
       }
+      // The emails this account added with a code (account/emails: { list: { [sha256]: { email, addedAt } } }).
+      // Written only by Cloud Functions (confirmEmailCode, removeEmail, mergeAccount); the owner reads it.
+      match /account/{id} {
+        allow read: if isUser() && uid() == userId;
+        allow write: if false;
+      }
       // Server-written AI status (key hint, last error); the owner can read it.
       match /aiState/{id} {
         allow read: if isUser() && uid() == userId;
@@ -191,6 +197,19 @@ service cloud.firestore {
       allow read, write: if false;
     }
     match /reminderState/{id} {
+      allow read, write: if false;
+    }
+    // Merges waiting for this person's OK, across their groups (Inbox → To sort): a collection
+    // group query on approverUid. The group's own members read them under groups/{gid} too.
+    match /{path=**}/mergeRequests/{requestId} {
+      allow read: if isUser() && resource.data.approverUid == uid();
+    }
+    // emailCodes/{uid}: the pending email code (a salted hash, tries, send counts). emailIndex/
+    // {sha256(email)}: which account an added email belongs to. Both written by functions/src/accounts.ts.
+    match /emailCodes/{id} {
+      allow read, write: if false;
+    }
+    match /emailIndex/{id} {
       allow read, write: if false;
     }
 
@@ -361,7 +380,7 @@ service cloud.firestore {
       function validGroupShape(g) {
         return g.keys().hasOnly(['id', 'name', 'emoji', 'type', 'currency', 'budget', 'startDate', 'endDate', 'simplify',
             'requireApproval', 'approvalThreshold', 'editAutoApprove', 'paymentApproval', 'captureOff', 'archived', 'archivedBy', 'deletedAt', 'deletedBy', 'memberUids', 'members', 'inviteCode',
-            'createdBy', 'createdAt', 'updatedAt', 'joinCode', 'joinMemberId', 'memberOpId'])
+            'createdBy', 'createdAt', 'updatedAt', 'joinCode', 'joinMemberId', 'memberOpId', 'mergeNeedsOk'])
           && g.name is string && g.name.size() > 0 && g.name.size() <= 80
           && g.emoji is string && g.emoji.size() <= 16
           && g.type in ['trip', 'outing', 'home', 'couple', 'event', 'office', 'other', 'direct', 'personal']
@@ -376,6 +395,7 @@ service cloud.firestore {
           && (!('approvalThreshold' in g) || (g.approvalThreshold is int && g.approvalThreshold > 0))
           && (!('editAutoApprove' in g) || (g.editAutoApprove is int && g.editAutoApprove > 0))
           && g.get('paymentApproval', false) is bool
+          && g.get('mergeNeedsOk', false) is bool
           // captureOff is legacy (capture is paused per person now, users/{uid}/settings/notifications.pausedTrips)
           // and ignored; still allowed so old docs stay valid. `archived` is the legacy group-wide
           // archive (validArchiveChange stops anyone setting it again); archiving is personal now,
@@ -504,6 +524,8 @@ service cloud.firestore {
           // members can't silently change who created the group or its invite code
           && request.resource.data.createdBy == resource.data.createdBy
           && request.resource.data.inviteCode == resource.data.inviteCode
+          // only the creator decides whether merging two people needs their OK
+          && (request.resource.data.get('mergeNeedsOk', false) == resource.data.get('mergeNeedsOk', false) || resource.data.createdBy == uid())
           && validGroupShape(request.resource.data)
           && validArchiveChange()
           && validDeleteChange()
@@ -907,6 +929,13 @@ service cloud.firestore {
         allow delete: if isUser() && writesOpen() && isGroupMember(groupId) && groupDoc(groupId).data.createdBy == uid();
       }
 
+      // Two entries that are one person (functions/src/merge-members.ts): members read the open
+      // ones (the Members screen, the chat card); only the functions write them.
+      match /mergeRequests/{requestId} {
+        allow read: if isGroupMember(groupId);
+        allow write: if false;
+      }
+
       // Group chat (src/lib/chat.ts): every member reads the whole history, including people who
       // joined later. Messages are words or a card (open item, Pay me, expense), sent as the
       // writer, never edited. The author deletes their own; the group's creator may delete any
@@ -914,7 +943,7 @@ service cloud.firestore {
       match /chat/{messageId} {
         function validMessage(d) {
           return d.keys().hasAll(['authorUid', 'authorName', 'text', 'kind', 'createdAt'])
-            && d.keys().hasOnly(['authorUid', 'authorName', 'text', 'kind', 'ref', 'amount', 'createdAt'])
+            && d.keys().hasOnly(['authorUid', 'authorName', 'text', 'kind', 'ref', 'amount', 'mentions', 'createdAt'])
             && d.authorUid == uid()
             && d.authorName is string && d.authorName.size() <= 80
             && d.text is string && d.text.size() <= 1000
@@ -924,6 +953,7 @@ service cloud.firestore {
             && ((d.kind in ['openItem', 'expense']) == ('ref' in d))
             && (!('amount' in d) || (d.amount is int && d.amount > 0 && d.amount <= 100000000000))
             && ((d.kind == 'pay') == ('amount' in d))
+            && (!('mentions' in d) || (d.mentions is list && d.mentions.size() <= 20))
             && d.createdAt is int;
         }
         allow read: if isGroupMember(groupId);

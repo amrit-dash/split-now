@@ -15,7 +15,17 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { labelForUid } from '../../shared/names'
 import { auth, db, requireAdmin } from './admin'
 import { ENFORCE_APP_CHECK, REGION } from './config'
-import { inviteKey, linkCandidates, normEmail, pendingEmails, planLinks, MAX_MEMBER_UIDS, type FoundAccount, type LinkMember } from './lib/link'
+import {
+  duplicatePlaceholders,
+  inviteKey,
+  linkCandidates,
+  normEmail,
+  pendingEmails,
+  planLinks,
+  MAX_MEMBER_UIDS,
+  type FoundAccount,
+  type LinkMember,
+} from './lib/link'
 import { addedToGroupNote } from './lib/notify-text'
 import { sendToUser } from './push'
 
@@ -30,15 +40,28 @@ interface GroupDoc {
   members?: Record<string, LinkMember>
 }
 
-const emailId = (email: string) => createHash('sha256').update(email).digest('hex')
+export const emailId = (email: string) => createHash('sha256').update(email).digest('hex')
 
-/** Accounts for these emails (the Admin SDK looks up 100 at a time). */
+/**
+ * Accounts for these emails: each account's own email (the Admin SDK looks up 100 at a time),
+ * then the extra emails people added to their account with a code (emailIndex, always verified).
+ */
 async function accountsFor(emails: string[]): Promise<Record<string, FoundAccount>> {
   const out: Record<string, FoundAccount> = {}
   const a = await auth()
   for (let i = 0; i < emails.length; i += 100) {
     const r = await a.getUsers(emails.slice(i, i + 100).map((email) => ({ email })))
     for (const u of r.users) if (u.email) out[normEmail(u.email)] = { uid: u.uid, emailVerified: u.emailVerified, disabled: u.disabled }
+  }
+  const rest = emails.filter((e) => !out[e]?.emailVerified)
+  if (rest.length) {
+    const snaps = await db().getAll(...rest.map((e) => db().doc(`emailIndex/${emailId(e)}`)))
+    const extra = snaps.flatMap((s, i) => (typeof s.get('uid') === 'string' ? [{ email: rest[i]!, uid: s.get('uid') as string }] : []))
+    if (extra.length) {
+      const users = await a.getUsers(extra.map((x) => ({ uid: x.uid })))
+      const disabled = new Map(users.users.map((u) => [u.uid, u.disabled]))
+      for (const x of extra) if (disabled.has(x.uid)) out[x.email] = { uid: x.uid, emailVerified: true, disabled: disabled.get(x.uid) }
+    }
   }
   return out
 }
@@ -89,6 +112,14 @@ export const onGroupMembersLink = onDocumentWritten({ document: 'groups/{groupId
     const found = await accountsFor([...new Set(candidates.map((c) => c.email))])
     const blocked = await blockedOf(Object.values(found).map((a) => a.uid))
     const plan = planLinks({ candidates, memberUids: after.memberUids ?? [], found, blocked })
+    // Someone added again by an email whose account is already in the group: suggest merging the two.
+    await Promise.all(
+      duplicatePlaceholders(candidates, after.members, found).map((d) =>
+        db()
+          .doc(`groups/${groupId}/mergeRequests/s_${d.from}__${d.into}`)
+          .set({ from: d.from, into: d.into, status: 'suggested', reason: 'same-email', by: 'system', createdAt: Date.now() }, { merge: true }),
+      ),
+    )
     const applied = await applyLinks(
       groupId,
       plan.map((p) => ({ ...p, email: candidates.find((c) => c.memberId === p.memberId)!.email })),
@@ -113,6 +144,29 @@ export const onGroupMembersLink = onDocumentWritten({ document: 'groups/{groupId
 })
 
 /**
+ * Groups that added this email before it was confirmed as this person's (no account yet, or not
+ * verified yet) are attached now. Every entry is tried once: linked, or no longer an open spot.
+ */
+export async function linkInvitesFor(uid: string, email: string): Promise<number> {
+  const ref = db().doc(`emailInvites/${emailId(email)}`)
+  const doc = await ref.get()
+  const entries = Object.values((doc.data()?.entries ?? {}) as Record<string, { groupId?: string; memberId?: string }>)
+  if (!entries.length) return 0
+  if ((await db().doc(`blocked/${uid}`).get()).exists) return 0
+  let linked = 0
+  for (const e of entries.slice(0, 50)) {
+    if (typeof e.groupId !== 'string' || typeof e.memberId !== 'string') continue
+    try {
+      linked += (await applyLinks(e.groupId, [{ memberId: e.memberId, uid, email }])).length
+    } catch (err) {
+      logger.warn('invite link failed', { groupId: e.groupId, error: (err as Error).message })
+    }
+  }
+  await ref.delete()
+  return linked
+}
+
+/**
  * Called by the app after sign-in: groups that added this person's (verified) email before they
  * had an account are attached now. Answers how many were linked.
  */
@@ -120,23 +174,7 @@ export const linkMyInvites = onCall({ region: REGION, enforceAppCheck: ENFORCE_A
   if (!req.auth || req.auth.token.firebase?.sign_in_provider === 'anonymous') throw new HttpsError('unauthenticated', 'Sign in first')
   const email = req.auth.token.email_verified ? normEmail(req.auth.token.email) : ''
   if (!email) return { linked: 0 }
-  const ref = db().doc(`emailInvites/${emailId(email)}`)
-  const doc = await ref.get()
-  const entries = Object.values((doc.data()?.entries ?? {}) as Record<string, { groupId?: string; memberId?: string }>)
-  if (!entries.length) return { linked: 0 }
-  if ((await db().doc(`blocked/${req.auth.uid}`).get()).exists) return { linked: 0 }
-  let linked = 0
-  for (const e of entries.slice(0, 50)) {
-    if (typeof e.groupId !== 'string' || typeof e.memberId !== 'string') continue
-    try {
-      linked += (await applyLinks(e.groupId, [{ memberId: e.memberId, uid: req.auth.uid, email }])).length
-    } catch (err) {
-      logger.warn('invite link failed', { groupId: e.groupId, error: (err as Error).message })
-    }
-  }
-  // Every entry was tried: linked, or no longer an open spot for this email.
-  await ref.delete()
-  return { linked }
+  return { linked: await linkInvitesFor(req.auth.uid, email) }
 })
 
 /**

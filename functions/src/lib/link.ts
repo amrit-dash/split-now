@@ -73,9 +73,29 @@ export function planLinks(o: {
   return out
 }
 
+/**
+ * Placeholders whose email is the account of someone already in the group under another entry:
+ * one person twice. Suggested to the group as a merge (the placeholder into that entry).
+ */
+export function duplicatePlaceholders(
+  candidates: Array<{ memberId: string; email: string }>,
+  members: Record<string, LinkMember> | undefined,
+  found: Record<string, FoundAccount | undefined>,
+): Array<{ from: string; into: string }> {
+  const out: Array<{ from: string; into: string }> = []
+  for (const c of candidates) {
+    const a = found[c.email]
+    if (!a?.emailVerified) continue
+    const into = Object.entries(members ?? {}).find(([id, m]) => id !== c.memberId && m.uid === a.uid && typeof m.removedAt !== 'number')?.[0]
+    if (into) out.push({ from: c.memberId, into })
+  }
+  return out
+}
+
 /** Emails with no account yet: remembered, so the group shows up once they sign up with it. */
 export const pendingEmails = (candidates: Array<{ memberId: string; email: string }>, found: Record<string, FoundAccount | undefined>) =>
-  candidates.filter((c) => !found[c.email])
+  // An account that hasn't verified this email yet waits too: verifying it (the email code) links it then.
+  candidates.filter((c) => !found[c.email]?.emailVerified)
 
 /** The emailInvites entry key for a group's placeholder. */
 export const inviteKey = (groupId: string, memberId: string) => `${groupId}__${memberId}`

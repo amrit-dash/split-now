@@ -21,7 +21,7 @@ import { useToast } from '@/components/Toast'
 import { SwipeRow } from '@/components/SwipeRow'
 import { usePageTitle } from '@/lib/brand'
 import { HistoryCard, TrashedBanner, TrustBadges, TrustPanel, useUndoableDelete } from '@/components/Trust'
-import { labelOf } from '@/lib/shortNames'
+import { labelOf, memberIdOfUid } from '@/lib/shortNames'
 
 export default function ExpenseDetail() {
   const { groupId, expenseId } = useParams()
@@ -270,7 +270,7 @@ function Comments({ group, expense }: { group: Group; expense: Expense }) {
   const toast = useToast()
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
-  const memberOf = (authorUid: string) => Object.values(group.members).find((m) => m.uid === authorUid)
+  const memberOf = (authorUid: string) => group.members[memberIdOfUid(group.members, authorUid) ?? '']
   const colorOf = (authorUid: string, i: number) => memberOf(authorUid)?.color ?? colorFor(i)
 
   const send = async () => {

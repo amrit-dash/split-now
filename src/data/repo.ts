@@ -3,6 +3,7 @@ import type {
   Capture,
   Cents,
   ChatMessage,
+  MergeRequest,
   Expense,
   ExpenseComment,
   Group,
@@ -58,6 +59,35 @@ export interface AuthUser {
   isAnonymous?: boolean
   /** Sign-in methods on this account: 'google.com', 'password'. */
   providers?: string[]
+  /** Whether the account's own email is confirmed (Google accounts always are). */
+  emailVerified?: boolean
+}
+
+/** An email added to the account with a code (users/{uid}/account/emails). */
+export interface AccountEmail {
+  email: string
+  addedAt: number
+}
+
+/** What confirming an email code did (functions/src/accounts.ts confirmEmailCode). */
+export interface EmailCodeResult {
+  /** 'verify': the account's email is confirmed */
+  verified?: boolean
+  /** 'add': the email is on the account now */
+  added?: boolean
+  /** groups that were waiting for this email and are now linked */
+  linked?: number
+  /** 'add': the email has its own account; mergeAccount brings it in */
+  otherAccount?: { name: string; email: string; groups: number }
+}
+
+/** What moving one account (or a guest) into this one did. */
+export interface MergeResult {
+  groups: number
+  /** groups where both accounts were members: a merge of the two entries is suggested there */
+  suggested: number
+  /** group entries that got this account */
+  linked: number
 }
 
 export interface InviteInfo {
@@ -151,6 +181,25 @@ export interface Repo {
   linkGoogle?(): Promise<void>
   /** Add an email + password sign-in to the current (e.g. Google) account. Firebase only. */
   addPassword?(password: string): Promise<void>
+  /**
+   * A 6-digit code by email. 'verify': this account's own email (an email-and-password account
+   * waits for it before anything else); 'add': another email for this account. { sent: false }
+   * for 'verify' means the project has no email service set up: sendVerifyLink is the way then.
+   * Demo mode sends nothing and answers with the code to type (demoCode).
+   */
+  sendEmailCode(email: string, purpose: 'verify' | 'add'): Promise<{ sent: boolean; demoCode?: string }>
+  /** Check a code. A wrong or expired one throws with the reason in plain words. */
+  confirmEmailCode(email: string, purpose: 'verify' | 'add', code: string): Promise<EmailCodeResult>
+  /** Firebase's own verification link, when no email service is set up. Firebase only. */
+  sendVerifyLink?(): Promise<void>
+  /** Re-reads the signed-in account (e.g. after the verification link was opened); onAuth fires again. */
+  refreshUser?(): Promise<void>
+  /** Take an added email off the account (never its own email). */
+  removeEmail(email: string): Promise<void>
+  /** Bring in the account behind the email just confirmed with a code (EmailCodeResult.otherAccount). */
+  mergeAccount(): Promise<MergeResult>
+  /** The emails added to this account, oldest first. */
+  watchAccountEmails(uid: string, cb: Watch<AccountEmail[]>): Unsub
 
   watchProfile(uid: string, cb: Watch<UserProfile | null>): Unsub
   /**
@@ -306,6 +355,18 @@ export interface Repo {
   fetchChatBefore(groupId: string, before: number, max: number): Promise<ChatMessage[]>
   /** Sends a message; returns its id. `id` re-sends a deleted one (Undo). Fire-and-forget. */
   postChat(groupId: string, m: Omit<ChatMessage, 'id' | 'pending'>, id?: string): Promise<string>
+  /**
+   * Make two entries of the group one person (shared/merge-members.ts; the entry with an account
+   * stays). Waits for the server. 'pending' when the group needs its creator's OK and someone
+   * else asked: the creator gets a chat card, a push and an Inbox item.
+   */
+  mergeMembers(group: Group, from: MemberId, into: MemberId): Promise<{ status: 'done' | 'pending' }>
+  /** The creator answers a merge request; any member acts on a suggestion. Waits for the server. */
+  decideMerge(group: Group, requestId: string, approve: boolean): Promise<{ status: 'done' | 'pending' | 'declined' }>
+  /** The group's merge suggestions and requests, newest first (open and decided). */
+  watchMergeRequests(groupId: string, cb: Watch<MergeRequest[]>): Unsub
+  /** Merge requests waiting for this person's OK, across their groups (Inbox → To sort). */
+  watchMergeApprovals(uid: string, cb: Watch<MergeRequest[]>): Unsub
   /** The author deletes their own message. */
   deleteChat(groupId: string, id: string): Promise<void>
 

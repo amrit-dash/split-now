@@ -1,6 +1,6 @@
 import { useMemo, useSyncExternalStore } from 'react'
 import { useMe } from './auth'
-import { useClaimedPayLinks, usePendingCaptures, useRecentActivity, type GroupData } from './data'
+import { useClaimedPayLinks, useMergeApprovals, usePendingCaptures, useRecentActivity, type GroupData } from './data'
 import { awaitingMyApproval, paymentsToConfirm } from '@/lib/trust'
 import { collapseRuns, inboxSeenAt, onInboxSeen, unreadCount, visibleUpdates } from '@/lib/inbox'
 import { tuning } from '../../shared/app-tuning'
@@ -14,13 +14,15 @@ import { pendingSettlements } from '@/lib/settleAll'
  * guests who say they've paid you (Pay me links waiting for you to confirm, any group or none), and the
  * activity log of your groups (`updates`, your own actions included), and `nudges`: reminders
  * from people you owe that this device hasn't dismissed (shown on Home and at the top of "To sort",
- * counted with it). `unread` counts only what other people did since this device last opened
+ * counted with it), and `merges`: two people in a group you created that someone asked to merge. `unread` counts only what other people did since this device last opened
  * Updates; your own actions never count.
  */
 export function useInbox(data: GroupData[] | null) {
   const { user } = useMe()
   const captures = usePendingCaptures()
   const claims = useClaimedPayLinks()
+  // Merges in groups I created that wait for my OK (only where I'm still in the group).
+  const mergeAsks = useMergeApprovals()
   // Not archived or deleted groups (useGroups already leaves deleted ones out): nothing to hear from them.
   const ids = useMemo(() => (data ? data.filter((d) => d.group.type !== 'personal' && !d.group.archived).map((d) => d.group.id) : null), [data])
   // A small live window per group (config/app tuning.activityWindow, 15 by default): this runs on
@@ -41,13 +43,18 @@ export function useInbox(data: GroupData[] | null) {
     const groups: Record<string, NudgeGroupInfo> = {}
     for (const d of data ?? []) groups[d.group.id] = { name: d.group.name, emoji: d.group.emoji, currency: d.group.currency, me: d.me }
     const nudges = data ? nudgeCards({ feed: raw, rows: pendingSettlements(data), groups, myUid: user.uid, dismissed, now: Date.now() }) : []
-    const toSort = (captures?.length ?? 0) + approvals.length + payments.length + (claims?.length ?? 0) + nudges.length
+    const merges = (mergeAsks ?? []).flatMap((r) => {
+      const d = data?.find((x) => x.group.id === r.groupId)
+      return d ? [{ r, d }] : []
+    })
+    const toSort = (captures?.length ?? 0) + approvals.length + payments.length + (claims?.length ?? 0) + nudges.length + merges.length
     return {
       loading: !captures || !data,
       captures: captures ?? [],
       approvals,
       payments,
       claims: claims ?? [],
+      merges,
       nudges,
       feed,
       updates,
@@ -57,5 +64,5 @@ export function useInbox(data: GroupData[] | null) {
       toSort,
       count: toSort + unread,
     }
-  }, [data, ids, captures, claims, raw, seenAt, dismissed, cleared, user.uid])
+  }, [data, ids, captures, claims, mergeAsks, raw, seenAt, dismissed, cleared, user.uid])
 }

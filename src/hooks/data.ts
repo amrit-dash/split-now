@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { repo } from '@/data'
 import { groupsKey, peekShared, peekSharedMeta, subscribeShared } from '@/data/store'
-import type { AiState, CaptureToken, NewGroup, SnapMeta, Unsub } from '@/data/repo'
-import type { ActivityEntry, Capture, ChatMessage, Expense, ExpenseComment, Group, MemberId, OpenItem, Settlement } from '@/types'
+import type { AccountEmail, AiState, CaptureToken, NewGroup, SnapMeta, Unsub } from '@/data/repo'
+import type { ActivityEntry, Capture, ChatMessage, Expense, ExpenseComment, Group, MemberId, MergeRequest, OpenItem, Settlement } from '@/types'
 import type { PayLink } from '@/lib/paylinks'
 import { countable, netBalances, pairwiseDebts } from '@/lib/balances'
 import { simplifyDebts } from '@/lib/simplify'
@@ -84,6 +84,9 @@ const keys = {
   chat: (gid: string, max: number) => `chat/${gid}/${max}`,
   captureTokens: (uid: string) => `captureTokens/${uid}`,
   aiState: (uid: string) => `aiState/${uid}`,
+  accountEmails: (uid: string) => `accountEmails/${uid}`,
+  mergeRequests: (groupId: string) => `mergeRequests/${groupId}`,
+  mergeApprovals: (uid: string) => `mergeApprovals/${uid}`,
   // The viewer's uid is part of the key: an anonymous sign-in (or signing out) clears the store,
   // and a new key makes the screen subscribe again instead of keeping a dropped listener.
   payLink: (code: string, viewer: string) => `payLink/${viewer}/${code}`,
@@ -123,6 +126,26 @@ export function useGroups(): Group[] | null {
 export function useCaptureTokens(): CaptureToken[] | null {
   const { user } = useMe()
   return useShared(keys.captureTokens(user.uid), (cb: (t: CaptureToken[], m?: SnapMeta) => void) => repo.watchCaptureTokens(user.uid, cb)) ?? null
+}
+
+/** The emails added to this account with a code (not its own sign-in email). */
+export function useAccountEmails(): AccountEmail[] | null {
+  const { user } = useMe()
+  return useShared(keys.accountEmails(user.uid), (cb: (e: AccountEmail[], m?: SnapMeta) => void) => repo.watchAccountEmails(user.uid, cb)) ?? null
+}
+
+/** A group's merge suggestions and requests, newest first (open and decided). */
+export function useMergeRequests(groupId: string | undefined): MergeRequest[] | null {
+  return (
+    useShared(groupId ? keys.mergeRequests(groupId) : null, (cb: (r: MergeRequest[], m?: SnapMeta) => void) => repo.watchMergeRequests(groupId ?? '', cb)) ??
+    null
+  )
+}
+
+/** Merges waiting for my OK, across my groups (Inbox → To sort). */
+export function useMergeApprovals(): MergeRequest[] | null {
+  const { user } = useMe()
+  return useShared(keys.mergeApprovals(user.uid), (cb: (r: MergeRequest[], m?: SnapMeta) => void) => repo.watchMergeApprovals(user.uid, cb)) ?? null
 }
 
 /** Whether the user has their own AI key (users/{uid}/secrets summary); null while loading, when absent, or when `enabled` is false. */
