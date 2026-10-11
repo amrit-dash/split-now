@@ -61,6 +61,8 @@ export interface AuthUser {
   providers?: string[]
   /** Whether the account's own email is confirmed (Google accounts always are). */
   emailVerified?: boolean
+  /** Has no name yet (made by an email link): the app asks once. */
+  needsName?: boolean
 }
 
 /** An email added to the account with a code (users/{uid}/account/emails). */
@@ -169,8 +171,23 @@ export interface Repo {
 
   onAuth(cb: (u: AuthUser | null) => void): Unsub
   signInWithGoogle(): Promise<void>
-  signInWithEmail(email: string, password: string): Promise<void>
-  signUpWithEmail(name: string, email: string, password: string): Promise<void>
+  /**
+   * Passwordless sign-in: Firebase emails a link to the address (it lands on /signin). Signs in,
+   * or makes the account the first time. Firebase only.
+   */
+  sendSignInLink?(email: string): Promise<void>
+  /** Whether this page address is a sign-in link (and not an add-an-email link). */
+  isSignInLink?(href: string): boolean
+  /**
+   * Finish signing in from the link this page was opened with: the email it was sent to,
+   * remembered on this phone, or `email` typed in when opened elsewhere. A guest on this phone
+   * keeps what they did. `isNew` when it made the account.
+   */
+  finishSignInLink?(href: string, email?: string): Promise<{ needEmail?: boolean; isNew?: boolean }>
+  /** The name people see, the first time (an account made by an email link has none). Firebase only. */
+  setDisplayName?(name: string): Promise<void>
+  /** Undo an account just made, e.g. when sign-ups are invite-only and this wasn't an invite. */
+  deleteNewAccount?(): Promise<void>
   signInDemo?(name: string): Promise<void>
   /**
    * Signs out and wipes this device's offline cache so the next person on the browser can't
@@ -181,8 +198,6 @@ export interface Repo {
   signOut(): Promise<void>
   /** Add Google sign-in to the current account (same email → one account). Firebase only. */
   linkGoogle?(): Promise<void>
-  /** Add an email + password sign-in to the current (e.g. Google) account. Firebase only. */
-  addPassword?(password: string): Promise<void>
   /**
    * Confirming an email-and-password account's own email: Firebase's verification link to it.
    * Firebase only (demo accounts need no confirming).

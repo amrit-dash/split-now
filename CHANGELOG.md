@@ -8,6 +8,7 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## 4.3.0 — October 2026
 
+- **Sign in without a password**: Continue with Google, or type your email and tap Email me a sign-in link. Opening the link signs you in, or makes your account the first time, with no password and no separate confirming step. New accounts are asked once what friends should call them. Accounts that used a password sign in the same way, with a link to their email.
 - **Emails go through Firebase only**: confirming a new email account and adding another email now use Firebase's own links instead of 6-digit codes, so no outside email service is needed. Profile → Emails → Add another email sends a link to that address; opening it adds the email (or offers to merge the account it already has). Admin → Email is gone.
 - For admins: Admin → Users no longer has Link now; linking by email happens on its own.
 
