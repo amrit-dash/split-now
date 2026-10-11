@@ -18,19 +18,49 @@ export interface NotificationPrefs {
   expenses: boolean
   settlements: boolean
   reminders: boolean
+  /** a new message in a group chat (each chat can also be muted: mutedChats) */
+  chat: boolean
+  /** someone named you on an open item ("Did you pay for this?") */
+  openItems: boolean
   /** Capture setting: keep debit SMS that match no trip (in the inbox). Off by default. */
   outsideTrips: boolean
 }
-export const DEFAULT_PREFS: NotificationPrefs = { captures: true, unsorted: false, expenses: true, settlements: true, reminders: true, outsideTrips: false }
+export const DEFAULT_PREFS: NotificationPrefs = {
+  captures: true,
+  unsorted: false,
+  expenses: true,
+  settlements: true,
+  reminders: true,
+  chat: true,
+  openItems: true,
+  outsideTrips: false,
+}
+
+/** Groups whose chat this person muted (their own choice; the group's other members still hear). */
+export interface ChatMutes {
+  mutedChats: string[]
+}
 
 /** Everything in settings/notifications: push types plus the auto-capture filters. */
-export type AllPrefs = NotificationPrefs & CaptureFilterPrefs & UserAiPrefs
-export const DEFAULT_ALL_PREFS: AllPrefs = { ...DEFAULT_PREFS, ...DEFAULT_FILTERS, ...DEFAULT_USER_AI }
+export type AllPrefs = NotificationPrefs & ChatMutes & CaptureFilterPrefs & UserAiPrefs
+export const DEFAULT_ALL_PREFS: AllPrefs = { ...DEFAULT_PREFS, mutedChats: [], ...DEFAULT_FILTERS, ...DEFAULT_USER_AI }
+
+/** The stored list of muted chats: group ids only, no duplicates, at most 200 (the rules' cap). */
+export function resolveMutedChats(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return []
+  return [...new Set(raw.filter((x): x is string => typeof x === 'string' && x.length > 0 && x.length <= 128))].slice(0, 200)
+}
+
+/** The list with `groupId` muted (`on`) or not; the newest mute is kept when the list is full. */
+export function setChatMuted(list: string[], groupId: string, on: boolean): string[] {
+  const rest = list.filter((id) => id !== groupId)
+  return on ? [...rest, groupId].slice(-200) : rest
+}
 
 /** Stored doc → prefs with defaults; wrongly typed fields fall back to their defaults. */
 export function resolveAllPrefs(raw: unknown): AllPrefs {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
-  const out: AllPrefs = { ...DEFAULT_ALL_PREFS, ...resolveFilters(r), ...resolveUserAi(r) }
+  const out: AllPrefs = { ...DEFAULT_ALL_PREFS, ...resolveFilters(r), ...resolveUserAi(r), mutedChats: resolveMutedChats(r.mutedChats) }
   for (const k of Object.keys(DEFAULT_PREFS) as Array<keyof NotificationPrefs>) if (typeof r[k] === 'boolean') out[k] = r[k] as boolean
   return out
 }

@@ -168,6 +168,8 @@ export interface SeedArgs {
   capture?: Capture
   /** Quick add: what the typed or spoken line said (src/lib/nl-expense.ts) */
   quick?: QuickPrefill
+  /** notes to start with (an open item's, when it's claimed) */
+  notes?: string
   history: Suggestion[]
   /** what this device used last time in this group (src/lib/recents.ts) */
   last: LastSplit
@@ -208,7 +210,7 @@ export function initialDraft(a: SeedArgs): Draft {
     category: src?.category ?? q?.category ?? suggested ?? 'other',
     catTouched: !!src || !!q?.category,
     date: existing?.date ?? q?.date ?? capture?.date ?? today,
-    notes: src?.notes ?? capture?.note ?? '',
+    notes: src?.notes ?? capture?.note ?? a.notes ?? '',
     payer: payerIds[0] ?? (q?.payer && order.includes(q.payer) ? q.payer : !capture && !q && last.payer ? last.payer : me),
     multiPay,
     payers: multiPay ? { ...paidBy } : {},
@@ -584,6 +586,8 @@ export interface StoredDraft {
   /** the "add again" / capture the draft started from, so a different one doesn't restore it */
   again?: string
   capture?: string
+  /** the open item being claimed */
+  open?: string
   /** the receipt photo kept in IndexedDB for this draft (src/lib/draft-blob.ts), when there is one */
   receipt?: string
   draft: Draft

@@ -10,6 +10,7 @@ describe('routeKey', () => {
     expect(routeKey('/groups/import')).toBe('ImportGroup')
     expect(routeKey('/groups/g1/settle')).toBe('SettleUp')
     expect(routeKey('/groups/g1/members')).toBe('GroupMembers')
+    expect(routeKey('/groups/g1/chat')).toBe('GroupChat')
     expect(routeKey('/groups/g1/expenses/e1')).toBe('ExpenseDetail')
     expect(routeKey('/groups/g1')).toBe('GroupDetail')
     expect(routeKey('/groups/g1/')).toBe('GroupDetail')

@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { repo } from '@/data'
 import { groupsKey, peekShared, peekSharedMeta, subscribeShared } from '@/data/store'
 import type { AiState, CaptureToken, NewGroup, SnapMeta, Unsub } from '@/data/repo'
-import type { ActivityEntry, Capture, Expense, ExpenseComment, Group, MemberId, Settlement } from '@/types'
+import type { ActivityEntry, Capture, ChatMessage, Expense, ExpenseComment, Group, MemberId, OpenItem, Settlement } from '@/types'
 import type { PayLink } from '@/lib/paylinks'
 import { countable, netBalances, pairwiseDebts } from '@/lib/balances'
 import { simplifyDebts } from '@/lib/simplify'
@@ -80,6 +80,8 @@ const keys = {
   activity: (id: string, max: number) => `activity/${id}/${max}`,
   history: (gid: string, tid: string) => `history/${gid}/${tid}`,
   comments: (gid: string, eid: string) => `comments/${gid}/${eid}`,
+  openItems: (gid: string) => `openItems/${gid}`,
+  chat: (gid: string, max: number) => `chat/${gid}/${max}`,
   captureTokens: (uid: string) => `captureTokens/${uid}`,
   aiState: (uid: string) => `aiState/${uid}`,
   // The viewer's uid is part of the key: an anonymous sign-in (or signing out) clears the store,
@@ -293,6 +295,24 @@ export function useRecentActivity(groupIds: string[] | null, max = ACTIVITY_LIMI
 export function useComments(groupId: string | undefined, expenseId: string | undefined): ExpenseComment[] | null {
   const key = groupId && expenseId ? keys.comments(groupId, expenseId) : null
   return useShared(key, (cb: (c: ExpenseComment[], m?: SnapMeta) => void) => repo.watchComments(groupId ?? '', expenseId ?? '', cb)) ?? null
+}
+
+/** The group's open items, claimed and deleted ones included (src/lib/open-items.ts sorts them); null while loading. */
+export function useOpenItems(groupId: string | undefined): OpenItem[] | null {
+  return useShared(groupId ? keys.openItems(groupId) : null, (cb: (o: OpenItem[], m?: SnapMeta) => void) => repo.watchOpenItems(groupId ?? '', cb)) ?? null
+}
+
+/** Messages kept live in the chat screen; older ones are read on scroll (repo.fetchChatBefore). */
+export const CHAT_WINDOW = 50
+
+/**
+ * The newest `max` chat messages of a group, oldest first; null while loading. The group screen
+ * asks for 1 (the unread dot), the chat screen for CHAT_WINDOW: two small listeners, not 50 reads
+ * every time the group opens.
+ */
+export function useChat(groupId: string | undefined, max = CHAT_WINDOW, enabled = true): ChatMessage[] | null {
+  const key = groupId && enabled ? keys.chat(groupId, max) : null
+  return useShared(key, (cb: (m: ChatMessage[], meta?: SnapMeta) => void) => repo.watchChat(groupId ?? '', cb, max)) ?? null
 }
 
 export function myMemberId(g: Group, uid: string): MemberId | undefined {

@@ -303,6 +303,61 @@ export interface ExpenseComment {
   createdAt: number
 }
 
+/**
+ * groups/{gid}/openItems/{id}: something the group spent that nobody has added yet ("Lunch at
+ * Cafe Blue, 2 Oct, who paid?"). Any member may claim it: the expense form opens prefilled and,
+ * on save, the item records the new expense (src/lib/open-items.ts). A claimed item whose
+ * expense is deleted counts as open again, so nothing is written when an expense is trashed.
+ */
+export interface OpenItem {
+  id: string
+  groupId: string
+  title: string
+  category?: Category
+  /** local ISO yyyy-mm-dd, when known */
+  date?: string
+  /** minor units of the group currency, when known */
+  amount?: Cents
+  notes?: string
+  /** the people someone thinks paid ("Rahul, maybe"): they get a push asking them to claim it */
+  suspects?: MemberId[]
+  status: 'open' | 'claimed'
+  /** the expense that claimed it */
+  expenseId?: string
+  /** uid of whoever claimed it */
+  claimedBy?: string
+  claimedAt?: number
+  /** soft delete (any member; Undo clears it) */
+  deletedAt?: number
+  deletedBy?: string
+  createdBy: string
+  createdAt: number
+  updatedAt: number
+}
+
+/**
+ * What a group chat message is: words, or a card for an open item, a Pay me request or an
+ * expense (src/lib/chat.ts draws them). `ref` is the open item or expense id.
+ */
+export type ChatKind = 'text' | 'openItem' | 'pay' | 'expense'
+
+/** groups/{gid}/chat/{id}: the group's money chat. Messages are immutable; the author may delete one. */
+export interface ChatMessage {
+  id: string
+  authorUid: string
+  /** the author's name when they sent it (members can rename later; the avatar follows the member) */
+  authorName: string
+  /** the words (may be empty on a card) */
+  text: string
+  kind: ChatKind
+  ref?: string
+  /** Pay me: minor units of the group currency */
+  amount?: Cents
+  createdAt: number
+  /** not stored: written on this device and not on the server yet (the clock tick) */
+  pending?: boolean
+}
+
 export type CaptureStatus = 'pending' | 'assigned' | 'dismissed'
 
 /**

@@ -64,7 +64,7 @@ export async function badgeCount(uid: string): Promise<number> {
  * `data.url` on click. The newest 20 registrations are used; ones not seen for 90 days and
  * ones FCM reports dead are deleted. Returns how many devices accepted it. Never throws.
  */
-export async function sendToUser(uid: string, prefs: PrefKey[], note: Note): Promise<number> {
+export async function sendToUser(uid: string, prefs: PrefKey[], note: Note, opts?: { skip?: (rawPrefs: unknown) => boolean }): Promise<number> {
   try {
     const user = db().collection('users').doc(uid)
     const [prefSnap, tokens] = await Promise.all([
@@ -77,6 +77,8 @@ export async function sendToUser(uid: string, prefs: PrefKey[], note: Note): Pro
     ])
     const p = resolvePrefs(prefSnap.data())
     if (!prefs.every((k) => p[k])) return 0
+    // A finer choice in the same document (a muted chat).
+    if (opts?.skip?.(prefSnap.data())) return 0
     const now = Date.now()
     const batch = db().batch()
     let dead = 0
@@ -100,6 +102,7 @@ export async function sendToUser(uid: string, prefs: PrefKey[], note: Note): Pro
     const badge = await Promise.race([badgeCount(uid), new Promise<number>((r) => setTimeout(() => r(0), 2500))])
     const data: Record<string, string> = { title: note.title, body: note.body, url: note.url, badge: String(badge) }
     if (note.tag) data.tag = note.tag
+    if (note.silent) data.silent = '1'
     const res = await (await messaging()).sendEach(
       docs.map((d) => ({
         token: d.get('token') as string,

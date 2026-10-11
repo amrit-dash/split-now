@@ -6,6 +6,7 @@
  * anything; the expense form always opens for a check. Pure.
  */
 import type { Group, GroupType, Member, MemberId } from '@/types'
+import type { OpenItemInput } from './open-items'
 import type { QuickAiRequest, QuickAiResult } from '../../shared/quick-ai'
 import { colorFor } from './colors'
 import { GROUP_TYPES, guessGroup, isSharedType } from './groupTypes'
@@ -34,6 +35,8 @@ export function buildQuickRequest(o: {
   /** the line's currency with no group to take it from */
   currency?: string
   today: string
+  /** open items are on (the flag): the answer may be one */
+  openItems?: boolean
 }): QuickAiRequest {
   const t = o.target
   const ordered = (t ? [t, ...o.groups.filter((g) => g.id !== t.id)] : o.groups).slice(0, MAX_GROUPS)
@@ -44,6 +47,7 @@ export function buildQuickRequest(o: {
     me: o.me,
     ...(t ? { groupId: t.id } : {}),
     groupOnly: true,
+    ...(o.openItems ? { openItems: true } : {}),
     groups: ordered.map((g) => ({
       id: g.id,
       name: g.name,
@@ -91,6 +95,8 @@ export type NewGroupDraft = Omit<Group, 'id' | 'createdAt' | 'updatedAt' | 'invi
 
 export type QuickAiPlan =
   | { kind: 'expense'; groupId: string; prefill: QuickPrefill }
+  /** the open item sheet, filled in, in an existing group */
+  | { kind: 'openItem'; groupId: string; input: OpenItemInput }
   /** a new group to confirm; `prefill` when the line also had a cost (else the empty expense form opens in it) */
   | { kind: 'create'; group: NewGroupDraft; people: string[]; prefill?: QuickPrefill }
   | { kind: 'fallback' }
@@ -120,6 +126,20 @@ export function planQuickAi(
     if (!g || !meId) return { kind: 'fallback' }
     const map = (p: string): MemberId | undefined => (p === 'me' ? meId : p in activeMembers(g.members) ? p : undefined)
     return { kind: 'expense', groupId: g.id, prefill: toPrefill(result.expense, o.line, map, meId) }
+  }
+  if (result.action === 'open_item') {
+    const g = o.groups.find((x) => x.id === result.group.existingId)
+    const meId = g && Object.entries(g.members).find(([, m]) => m.uid === o.uid)?.[0]
+    if (!g || !meId) return { kind: 'fallback' }
+    const map = (p: string): MemberId | undefined => (p === 'me' ? meId : p in activeMembers(g.members) ? p : undefined)
+    const { title, amount, currency, date, suspects } = result.item
+    const input: OpenItemInput = { title }
+    // An amount in another currency would need a rate: left for whoever claims it.
+    if (amount !== undefined && currency === g.currency) input.amount = amount
+    if (date && date <= o.today) input.date = date
+    const who = [...new Set((suspects ?? []).map(map).filter((x): x is MemberId => !!x))]
+    if (who.length) input.suspects = who
+    return { kind: 'openItem', groupId: g.id, input }
   }
   if (result.action === 'group_and_expense' || result.action === 'group') {
     const type: GroupType = result.group.type ?? guessGroup(result.group.name)?.type ?? 'trip'

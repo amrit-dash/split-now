@@ -1,4 +1,5 @@
 import type { QuickPrefill } from './nl-expense'
+import type { OpenItemInput } from './open-items'
 import type { ParsedPayment, ParsedReceipt } from './ocr-parse'
 import type { ScanKind } from './scanHistory'
 
@@ -17,6 +18,8 @@ export const pending: {
    * (?next=add&quick=1) first and the form reads `line` again against the new group's members.
    */
   quick?: { groupId?: string; prefill: QuickPrefill; line?: string }
+  /** Quick add → /groups/{id}?tab=open&add=1: the open item sheet opens with these fields (never saved by itself). */
+  openItem?: { groupId: string; input: OpenItemInput }
 } = {}
 
 const CAPTURE_KEY = 'splitit-pending-capture'

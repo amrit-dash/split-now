@@ -3,18 +3,19 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ReceiptText, Users, Wallet, X } from 'lucide-react'
 import { useBack } from '@/hooks/useBack'
 import { useMe } from '@/hooks/auth'
-import { memberOrder, myMemberId, useCaptures, useExpenses, useGroup, useGroups } from '@/hooks/data'
+import { memberOrder, myMemberId, useCaptures, useExpenses, useGroup, useGroups, useOpenItems } from '@/hooks/data'
 import { descriptionHistory, lastGroup } from '@/lib/recents'
 import { liveTripFor } from '@/lib/capture'
 import { todayISO } from '@/lib/id'
 import { draftKey, loadDraft } from '@/lib/expense-draft'
 import { pending } from '@/lib/pending'
+import { openItemPrefill, openItemState } from '@/lib/open-items'
 import { Empty } from '@/components/Misc'
 import { CardSkeleton } from '@/components/Skeleton'
 import { ExpenseEditor } from '@/features/expense-form/ExpenseEditor'
 
 /**
- * /add (new, optionally ?group=&again=&capture=) and /groups/:groupId/expenses/:expenseId/edit.
+ * /add (new, optionally ?group=&again=&capture=&open=) and /groups/:groupId/expenses/:expenseId/edit.
  * Picks the group and loads what the editor needs; the form itself is src/features/expense-form.
  */
 export default function ExpenseForm() {
@@ -26,6 +27,10 @@ export default function ExpenseForm() {
   const againId = expenseId ? undefined : (params.get('again') ?? undefined)
   // Prefill from a captured payment (/add?group=…&capture=…), handed over from the capture prompt.
   const captureId = expenseId ? undefined : (params.get('capture') ?? undefined)
+  // Claiming an open item (/add?group=…&open=…): paid by you, split among everyone, its details filled in.
+  const openId = expenseId ? undefined : (params.get('open') ?? undefined)
+  // Add expense from the group chat (/add?group=…&chat=1): its card is posted there, and Save goes back to the chat.
+  const fromChat = !expenseId && params.get('chat') === '1'
   // Quick add (/add?group=…&quick=1): the parsed line waits in memory; it beats any stored draft (a fresh intent).
   const [handed] = useState(() => {
     if (expenseId || !params.get('quick')) return undefined
@@ -41,7 +46,7 @@ export default function ExpenseForm() {
   // A draft left on this device for this route (a reload, an accidental back), when it started from the same place.
   const [stored] = useState(() => {
     const s = loadDraft(storeKey)
-    return s && (s.again ?? undefined) === againId && (s.capture ?? undefined) === captureId ? s : null
+    return s && (s.again ?? undefined) === againId && (s.capture ?? undefined) === captureId && (s.open ?? undefined) === openId ? s : null
   })
   const [groupId, setGroupId] = useState<string | undefined>(editGroupId ?? params.get('group') ?? stored?.groupId ?? undefined)
   const group = useGroup(groupId)
@@ -51,6 +56,17 @@ export default function ExpenseForm() {
   const again = againId ? expenses?.find((e) => e.id === againId) : undefined
   const captures = useCaptures()
   const capture = captureId ? captures?.find((c) => c.id === captureId && c.status === 'pending') : undefined
+  const openItems = useOpenItems(openId ? groupId : undefined)
+  // Only while it's still open (someone else may have claimed it since the link was tapped).
+  const openItem = useMemo(() => {
+    const it = openId ? openItems?.find((o) => o.id === openId) : undefined
+    return it && openItemState(it, expenses ? new Map(expenses.map((e) => [e.id, e])) : null) === 'open' ? it : undefined
+  }, [openId, openItems, expenses])
+  const openPrefill = useMemo(() => {
+    if (!openItem || !group) return undefined
+    const order = memberOrder(group)
+    return openItemPrefill(openItem, { order, me: myMemberId(group, user.uid) ?? order[0], currency: group.currency })
+  }, [openItem, group, user.uid])
   // A switched group's list arrives a moment later; never suggest from the previous group.
   const groupExpenses = useMemo(() => (expenses ?? []).filter((e) => e.groupId === groupId), [expenses, groupId])
   const history = useMemo(() => descriptionHistory(groupExpenses), [groupExpenses])
@@ -81,7 +97,14 @@ export default function ExpenseForm() {
     }
   }, [unbound, quick, group, user.uid])
 
-  if (!groups || (groupId && group === undefined) || (unbound && !quick) || ((expenseId || againId) && !expenses) || (captureId && !captures))
+  if (
+    !groups ||
+    (groupId && group === undefined) ||
+    (unbound && !quick) ||
+    ((expenseId || againId || openId) && !expenses) ||
+    (captureId && !captures) ||
+    (openId && groupId && !openItems)
+  )
     return <FormSkeleton />
   if (groups.length === 0) return <NoGroups />
   if (group === null && editGroupId)
@@ -101,13 +124,15 @@ export default function ExpenseForm() {
   // Keyed by the expense only: switching group keeps what was typed (the editor re-seeds payer and split).
   return (
     <ExpenseEditor
-      key={existing?.id ?? again?.id ?? 'new'}
+      key={existing?.id ?? again?.id ?? (openItem ? `open-${openItem.id}` : 'new')}
       group={group}
       groups={groups}
       existing={existing}
       again={again}
       capture={capture}
-      quick={quick}
+      quick={quick ?? openPrefill}
+      openItem={openItem}
+      fromChat={fromChat}
       expenses={groupExpenses}
       history={history}
       onGroup={setGroupId}
