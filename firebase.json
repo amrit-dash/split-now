@@ -23,6 +23,27 @@
           }
         },
         {
+          "source": "/join/**",
+          "function": {
+            "functionId": "linkPreview",
+            "region": "asia-south1"
+          }
+        },
+        {
+          "source": "/r/**",
+          "function": {
+            "functionId": "linkPreview",
+            "region": "asia-south1"
+          }
+        },
+        {
+          "source": "/t/**",
+          "function": {
+            "functionId": "linkPreview",
+            "region": "asia-south1"
+          }
+        },
+        {
           "source": "**",
           "destination": "/index.html"
         }
@@ -145,6 +166,27 @@
           }
         },
         {
+          "source": "/join/**",
+          "function": {
+            "functionId": "linkPreview",
+            "region": "asia-south1"
+          }
+        },
+        {
+          "source": "/r/**",
+          "function": {
+            "functionId": "linkPreview",
+            "region": "asia-south1"
+          }
+        },
+        {
+          "source": "/t/**",
+          "function": {
+            "functionId": "linkPreview",
+            "region": "asia-south1"
+          }
+        },
+        {
           "source": "**",
           "destination": "/index.html"
         }
@@ -263,6 +305,27 @@
           "source": "/api/capture",
           "function": {
             "functionId": "capture",
+            "region": "asia-south1"
+          }
+        },
+        {
+          "source": "/join/**",
+          "function": {
+            "functionId": "linkPreview",
+            "region": "asia-south1"
+          }
+        },
+        {
+          "source": "/r/**",
+          "function": {
+            "functionId": "linkPreview",
+            "region": "asia-south1"
+          }
+        },
+        {
+          "source": "/t/**",
+          "function": {
+            "functionId": "linkPreview",
             "region": "asia-south1"
           }
         },

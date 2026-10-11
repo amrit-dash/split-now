@@ -341,6 +341,42 @@ const BANNERS = [
   // The link preview stays text-only (the owner's call): chat apps show it small, where three
   // phones turn to noise and the name and tagline are what should read.
   { name: 'og', file: join(ROOT, 'public/og-image.jpg'), w: 1200, h: 630, textOnly: true },
+  // One card per kind of shared link (functions/src/preview.ts picks it): what the link does, in
+  // the same look, so a chat shows "an invite" or "a payment request" at a glance. The title and
+  // description carry the names; the images stay generic (owner's call).
+  {
+    name: 'og-invite',
+    file: join(ROOT, 'public/og-invite.jpg'),
+    w: 1200,
+    h: 630,
+    textOnly: true,
+    pill: 'Group invite',
+    title: 'Join the group',
+    tag: 'Split expenses together.<br><b>Tap to join on Split Now</b>',
+    line: 'Free · no ads · settle up over UPI',
+  },
+  {
+    name: 'og-paylink',
+    file: join(ROOT, 'public/og-paylink.jpg'),
+    w: 1200,
+    h: 630,
+    textOnly: true,
+    pill: 'Pay me link',
+    title: 'Settle up',
+    tag: 'Pay in one tap with UPI,<br><b>then mark it paid</b>',
+    line: 'No account needed · on Split Now',
+  },
+  {
+    name: 'og-table',
+    file: join(ROOT, 'public/og-table.jpg'),
+    w: 1200,
+    h: 630,
+    textOnly: true,
+    pill: 'Live table',
+    title: 'Split the bill',
+    tag: 'Pick what you had,<br><b>pay your share</b>',
+    line: 'Everyone taps their own items · on Split Now',
+  },
 ]
 
 /** The text-only card: the app icon, name, tagline and one feature line on the dark ink background. */
@@ -361,12 +397,15 @@ function textCardHtml(b, icon, font) {
     .tag { font-size: 38px; font-weight: 500; color: #cbd5e1; margin: 0; line-height: 1.3; }
     .tag b { font-weight: 700; background: linear-gradient(90deg, #c4b5fd, #f9a8d4); -webkit-background-clip: text; background-clip: text; color: transparent; }
     .line { font-size: 25px; font-weight: 500; color: #94a3b8; margin: 34px 0 0; white-space: nowrap; }
+    .pill { display: inline-block; font-size: 24px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #e9d5ff;
+      background: rgba(124, 58, 237, 0.35); border: 1.5px solid rgba(196, 181, 253, 0.45); border-radius: 999px; padding: 8px 20px; margin: 0 0 22px; }
   </style></head><body>
     <div class="icon">${icon}</div>
     <div>
-      <h1>Split Now</h1>
-      <p class="tag">Spending is wise, splitting is free.<br><b>Split Now!</b></p>
-      <p class="line">Free and open source · scan bills · settle up over UPI</p>
+      ${b.pill ? `<p class="pill">${b.pill}</p>` : ''}
+      <h1>${b.title ?? 'Split Now'}</h1>
+      <p class="tag">${b.tag ?? 'Spending is wise, splitting is free.<br><b>Split Now!</b>'}</p>
+      <p class="line">${b.line ?? 'Free and open source · scan bills · settle up over UPI'}</p>
     </div>
   </body></html>`
 }
