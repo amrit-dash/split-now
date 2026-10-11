@@ -18,10 +18,10 @@ describe('hintView', () => {
   it('Full shows the full text inline', () => {
     expect(hintView('full', h)).toEqual({ text: 'Long explanation.', tip: null })
   })
-  it('Tooltip moves the full text into the tip, whatever the tier', () => {
+  it('Tooltip moves the full text into the tip; a key hint also keeps its short line', () => {
     expect(hintView('tooltip', h)).toEqual({ text: null, tip: 'Long explanation.' })
     expect(hintView('tooltip', { ...h, tier: 'extra' })).toEqual({ text: null, tip: 'Long explanation.' })
-    expect(hintView('tooltip', { ...h, tier: 'key' })).toEqual({ text: null, tip: 'Long explanation.' })
+    expect(hintView('tooltip', { ...h, tier: 'key' })).toEqual({ text: 'Short.', tip: 'Long explanation.' })
   })
   it('When needed shows the short text, or the full one when there is no short; drops extra', () => {
     expect(hintView('needed', h).text).toBe('Short.')
@@ -34,12 +34,15 @@ describe('hintView', () => {
     expect(hintView('minimal', { ...h, tier: 'key' }).text).toBe('Short.')
     expect(hintView('minimal', { ...h, tier: 'key', min: 'S.' }).text).toBe('S.')
   })
-  it('never sets both text and tip', () => {
+  it('sets both text and tip only for a key hint in the Tooltip look', () => {
     for (const l of LOOKS)
       for (const tier of ['key', 'help', 'extra'] as const) {
         const v = hintView(l, { ...h, tier })
-        expect(v.text !== null && v.tip !== null).toBe(false)
+        expect(v.text !== null && v.tip !== null).toBe(l === 'tooltip' && tier === 'key')
       }
+  })
+  it('a key hint is never dropped in any look', () => {
+    for (const l of LOOKS) expect(hintView(l, { ...h, tier: 'key' }).text).not.toBeNull()
   })
 })
 

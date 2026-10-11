@@ -6,7 +6,8 @@
  *            the first time are dropped
  *   minimal  titles only; a subtext stays (in its shortest form) only where leaving it out could
  *            lead someone into a mistake, and optional sections are hidden
- *   tooltip  every subtext as written, folded into a small (i) beside its title
+ *   tooltip  every subtext as written, folded into a small (i) beside its title (a key one also
+ *            keeps its short line, see hintView)
  * Pure: the components that read it are src/components/Hint.tsx.
  */
 
@@ -48,7 +49,11 @@ export interface HintSpec<T> {
   tier?: HintTier
 }
 
-/** What to draw for a subtext: `text` under the title, `tip` inside the (i) beside it. At most one is set. */
+/**
+ * What to draw for a subtext: `text` under the title, `tip` inside the (i) beside it. Only a key
+ * hint in the Tooltip look sets both: a line that stops a mistake must not hide behind a tap, so
+ * its short form stays under the title and the full text is in the (i).
+ */
 export function hintView<T>(look: Look, h: HintSpec<T>): { text: T | null; tip: T | null } {
   const tier = h.tier ?? 'help'
   const short = h.short ?? h.full
@@ -56,7 +61,7 @@ export function hintView<T>(look: Look, h: HintSpec<T>): { text: T | null; tip: 
     case 'full':
       return { text: h.full, tip: null }
     case 'tooltip':
-      return { text: null, tip: h.full }
+      return { text: tier === 'key' ? (h.min ?? short) : null, tip: h.full }
     case 'needed':
       return { text: tier === 'extra' ? null : short, tip: null }
     case 'minimal':
