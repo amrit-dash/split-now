@@ -13,6 +13,8 @@ export interface SettleRow {
   key: string
   groupId: string
   groupName: string
+  /** the row is a 1:1 (its group name is the other person) */
+  direct?: boolean
   groupEmoji: string
   currency: string
   /** you, as a member id of this group */
@@ -79,6 +81,7 @@ export function pendingSettlements(data: GroupLike[], first?: string): SettleRow
         key: `${d.group.id}|${x.from}|${x.to}`,
         groupId: d.group.id,
         groupName: d.group.name,
+        ...(d.group.type === 'direct' ? { direct: true } : {}),
         groupEmoji: d.group.emoji,
         currency: d.group.currency,
         me: d.me,

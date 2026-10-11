@@ -10,6 +10,7 @@
  * creation date. The balance maths is the app's (shared/balances-core.ts): pending-approval
  * expenses don't count.
  */
+import { groupNameForRecipient } from '../../shared/names'
 import { logger } from 'firebase-functions/logger'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
 import { db } from './admin'
@@ -111,7 +112,13 @@ export const dailyReminders = onSchedule(
             const n = await sendToUser(
               t.uid,
               ['reminders'],
-              reminderNote({ groupId: gid, groupName: g.name ?? 'your group', emoji: g.emoji, owed: t.owed, currency: g.currency ?? 'INR' }),
+              reminderNote({
+                groupId: gid,
+                groupName: groupNameForRecipient(g, t.uid, 'your group'),
+                emoji: g.emoji,
+                owed: t.owed,
+                currency: g.currency ?? 'INR',
+              }),
             )
             if (n > 0) {
               next.lastSent[t.uid] = now

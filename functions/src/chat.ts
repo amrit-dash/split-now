@@ -12,6 +12,7 @@
  * Both behind their flags (groupChat, openItems), never for a group in Recently deleted, and only
  * to uids in the group's memberUids.
  */
+import { groupNameForRecipient } from '../../shared/names'
 import { logger } from 'firebase-functions/logger'
 import { onDocumentCreated, onDocumentWritten } from 'firebase-functions/v2/firestore'
 import { db } from './admin'
@@ -25,6 +26,7 @@ import { sendToUser } from './push'
 
 interface GroupLite {
   name?: string
+  type?: string
   emoji?: string
   currency?: string
   members?: Record<string, MemberLite>
@@ -63,7 +65,7 @@ export const onChatMessageCreated = onDocumentCreated({ document: 'groups/{group
   const note = (silent: boolean, uid: string) =>
     chatNote({
       groupId,
-      groupName: g.name ?? 'Group',
+      groupName: groupNameForRecipient(g, uid),
       emoji: g.emoji,
       authorName: memberNameForUid(g.members, m.authorUid) ?? (typeof m.authorName === 'string' ? m.authorName : 'Someone'),
       kind: String(m.kind ?? 'text'),
@@ -79,7 +81,7 @@ export const onChatMessageCreated = onDocumentCreated({ document: 'groups/{group
   // Words that tag you read "X mentioned you"; a card that asks you says what it asks.
   const calledNote = (uid: string) =>
     m.kind === 'text' || m.kind === undefined
-      ? mentionNote({ groupId, groupName: g.name ?? 'Group', emoji: g.emoji, authorName, text: typeof m.text === 'string' ? m.text : '' })
+      ? mentionNote({ groupId, groupName: groupNameForRecipient(g, uid), emoji: g.emoji, authorName, text: typeof m.text === 'string' ? m.text : '' })
       : note(false, uid)
   const sent = await Promise.all([
     ...[...called].map((uid) => sendToUser(uid, ['chat'], calledNote(uid)).then((n) => ({ uid, n }))),
@@ -113,7 +115,7 @@ export const onOpenItemWritten = onDocumentWritten({ document: 'groups/{groupId}
         openItemNote({
           groupId,
           itemId,
-          groupName: g.name ?? 'Group',
+          groupName: groupNameForRecipient(g, uid),
           emoji: g.emoji,
           byName,
           title: String(after.title ?? 'something'),

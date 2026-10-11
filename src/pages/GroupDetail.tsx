@@ -182,6 +182,11 @@ export default function GroupDetail() {
   const direct = group.type === 'direct'
   // A 1:1 is the two of you: once the friend has joined (has an account in it), there's nobody to invite.
   const canInvite = !personal && !(direct && group.peer && group.members[group.peer]?.uid)
+  const openInvite = () => {
+    setInvite(true)
+    // An older 1:1 invite stored the friend's own name: fix it before it's shared.
+    if (direct) repo.refreshInviteName(group).catch(() => {})
+  }
   const total = d.expenses.reduce((s, e) => s + e.amount, 0)
   const name = (id: string) => (id === me ? 'You' : labelOf(group.members, id, 'Someone', me))
   // The QR is scanned in person, so it stays short; shared links carry your name for their preview.
@@ -382,7 +387,7 @@ export default function GroupDetail() {
               <button
                 type="button"
                 className={`${settled ? 'btn-primary' : 'btn-secondary'} whitespace-nowrap`}
-                onClick={() => setInvite(true)}
+                onClick={() => openInvite()}
                 data-testid="group-invite"
               >
                 <Link2 size={18} aria-hidden /> Invite
@@ -558,9 +563,17 @@ export default function GroupDetail() {
         </div>
       )}
 
-      <Sheet open={invite} onClose={() => setInvite(false)} title="Invite to group">
+      <Sheet open={invite} onClose={() => setInvite(false)} title={direct ? `Invite ${group.name}` : 'Invite to group'}>
         <p className="text-muted text-sm">
-          Anyone with this link can join <b>{group.name}</b> and claim their name in the member list.
+          {direct ? (
+            <>
+              Send this to <b>{group.name}</b> so they can join and see what you owe each other.
+            </>
+          ) : (
+            <>
+              Anyone with this link can join <b>{group.name}</b> and claim their name in the member list.
+            </>
+          )}
         </p>
         <div className="mt-4 flex flex-col items-center rounded-2xl bg-slate-100 p-4 text-center dark:bg-ink-800">
           <QrCode value={inviteUrl} size={180} label={`QR code to join ${group.name}`} />
@@ -576,7 +589,12 @@ export default function GroupDetail() {
             type="button"
             className="btn-primary"
             onClick={() =>
-              shareOrCopy({ title: `Join ${group.name} on Split Now`, text: `Join “${group.name}” on Split Now to split expenses:`, url: shareInviteUrl })
+              shareOrCopy(
+                direct
+                  ? // A 1:1 is named after the friend you're sending this to: say who it's with instead.
+                    { title: 'Split with me on Split Now', text: 'Let’s split our expenses on Split Now, just the two of us:', url: shareInviteUrl }
+                  : { title: `Join ${group.name} on Split Now`, text: `Join “${group.name}” on Split Now to split expenses:`, url: shareInviteUrl },
+              )
             }
           >
             Share
@@ -612,7 +630,7 @@ export default function GroupDetail() {
               label="Invite"
               onClick={() => {
                 setMenu(false)
-                setInvite(true)
+                openInvite()
               }}
             />
           )}

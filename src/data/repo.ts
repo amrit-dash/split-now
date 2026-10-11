@@ -232,6 +232,8 @@ export interface Repo {
    * Archive (`on`) or unarchive the group for the signed-in person only (shared/archive.ts).
    * Fire-and-forget like other settings; archiving and unarchiving someone else is impossible.
    */
+  /** A 1:1's invite named after the person already in it (an older invite stored the friend's own name). Fire-and-forget; no-op for other groups and in demo mode. */
+  refreshInviteName(group: Group): Promise<void>
   setArchived(group: Group, on: boolean): Promise<void>
   /**
    * Adds a placeholder. When `memberId` is a removed entry (formerMemberMatch), that entry comes

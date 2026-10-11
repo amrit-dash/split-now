@@ -7,6 +7,7 @@
  * is remembered (emailInvites/{sha256(email)}, server-only) and linked the first time that person
  * signs in with it (linkMyInvites). Decisions in lib/link.ts.
  */
+import { inviteNameFor } from '../../shared/names'
 import { createHash } from 'node:crypto'
 import { FieldValue } from 'firebase-admin/firestore'
 import { logger } from 'firebase-functions/logger'
@@ -127,7 +128,13 @@ export const onGroupMembersLink = onDocumentWritten({ document: 'groups/{groupId
     // New group: whoever made it added them; later additions don't record who, so the push says less.
     const byName = !before && after.createdBy ? labelForUid(after.members, after.createdBy) : undefined
     await Promise.all(
-      applied.map((l) => sendToUser(l.uid, ['expenses'], addedToGroupNote({ groupId, groupName: after.name ?? 'A group', emoji: after.emoji, byName }))),
+      applied.map((l) =>
+        sendToUser(
+          l.uid,
+          ['expenses'],
+          addedToGroupNote({ groupId, groupName: inviteNameFor({ ...after, name: after.name ?? 'A group' }), emoji: after.emoji, byName }),
+        ),
+      ),
     )
     const pending = pendingEmails(candidates, found)
     await Promise.all(
@@ -210,7 +217,9 @@ export const adminLinkMembers = onCall(
         )
         linked += applied.length
         await Promise.all(
-          applied.map((l) => sendToUser(l.uid, ['expenses'], addedToGroupNote({ groupId: d.id, groupName: g.name ?? 'A group', emoji: g.emoji }))),
+          applied.map((l) =>
+            sendToUser(l.uid, ['expenses'], addedToGroupNote({ groupId: d.id, groupName: inviteNameFor({ ...g, name: g.name ?? 'A group' }), emoji: g.emoji })),
+          ),
         )
         const waiting = pendingEmails(candidates, found)
         pending += waiting.length

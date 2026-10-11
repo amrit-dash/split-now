@@ -31,6 +31,11 @@ describe('invite preview', () => {
     expect(invitePreview(inv, true, 'Priya')).toMatchObject({ title: 'Priya invited you to 🏖️ Goa trip', image: '/og-invite.jpg' })
     expect(invitePreview(inv, true, '').title).toBe('You’re invited to 🏖️ Goa trip')
   })
+  it('a 1:1 is the person asking, not the friend’s own name', () => {
+    const old = { groupName: 'Meera', emoji: '🤝' }
+    expect(invitePreview(old, true, 'Amrit', 'Amrit Dash')).toMatchObject({ title: 'Amrit wants to split expenses with you', image: '/og-invite.jpg' })
+    expect(invitePreview(old, false, 'Amrit', 'Amrit Dash')).toBe(DEFAULT_PREVIEW)
+  })
   it('a deleted or missing group gets the plain preview', () => {
     expect(invitePreview(inv, false, 'Priya')).toBe(DEFAULT_PREVIEW)
     expect(invitePreview(undefined, true, 'Priya')).toBe(DEFAULT_PREVIEW)

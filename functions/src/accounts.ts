@@ -13,6 +13,7 @@
  *  - adminMail: the email service the codes go out through (Admin → Email), its key sealed.
  * Decisions are in lib/email-code.ts, lib/mail.ts and lib/move-uid.ts.
  */
+import { inviteNameFor } from '../../shared/names'
 import { randomBytes } from 'node:crypto'
 import { FieldValue } from 'firebase-admin/firestore'
 import { logger } from 'firebase-functions/logger'
@@ -294,7 +295,12 @@ async function claimForGuest(groupId: string, fromMid: unknown, into: string): P
     if (g.inviteCode) tx.set(db().doc(`invites/${g.inviteCode}`), { placeholders: { [plan.link]: FieldValue.delete() } }, { merge: true })
     return {
       suggest: undefined,
-      linked: { name: g.name ?? 'A group', emoji: g.emoji, by: g.createdBy ? labelForUid(g.members ?? {}, g.createdBy) : undefined },
+      // A 1:1 is named after the person already in it, not the one just linked (shared/names.ts).
+      linked: {
+        name: inviteNameFor({ ...g, name: g.name ?? 'A group' }),
+        emoji: g.emoji,
+        by: g.createdBy ? labelForUid(g.members ?? {}, g.createdBy) : undefined,
+      },
     }
   })
   if (!r) return null

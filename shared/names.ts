@@ -143,3 +143,32 @@ export function groupNameFor(
   const peer = directPeer(g.members, uid)
   return (peer && g.members?.[peer]?.name?.trim()) || g.name
 }
+
+/**
+ * What a 1:1's invite calls it, for the friend who opens it: the person already in it with an
+ * account (who shares the invite), not the friend's own name. Any other group: its name.
+ */
+export function inviteNameFor(g: {
+  type?: string
+  name: string
+  createdBy?: string
+  members?: Record<string, Named & { uid?: string; removedAt?: unknown }>
+}): string {
+  if (g.type !== 'direct') return g.name
+  const joined = Object.values(g.members ?? {}).filter((m) => m.uid && m.removedAt === undefined)
+  const host = joined.find((m) => m.uid === g.createdBy) ?? joined[0]
+  return host?.name?.trim() || g.name
+}
+
+/**
+ * A notification's group name for the person getting it: a 1:1 is the other person to each of
+ * them (groupNameFor); `fallback` when the group isn't known.
+ */
+export function groupNameForRecipient(
+  g: { type?: string; name?: string; members?: Record<string, Named & { uid?: string; removedAt?: unknown; formerUids?: string[] }> } | undefined,
+  uid: string,
+  fallback = 'Group',
+): string {
+  if (!g) return fallback
+  return groupNameFor({ type: g.type, name: g.name ?? fallback, members: g.members }, uid)
+}

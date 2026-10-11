@@ -1,6 +1,7 @@
 import { blobToDataUrl } from '@/lib/image'
 import { archiveWrite, balanceEditMembers, expenseMemberIds, uidsOfMembers, unarchiveInvolved } from '../../shared/archive'
 import { personalView } from './personalView'
+import { inviteNameFor } from '../../shared/names'
 import { DELETED_GROUP_WRITE, purgeDue } from '../../shared/group-trash'
 import { EMPTY_INBOX_STATE, type InboxState } from '@/lib/inbox'
 import { shownCapture } from '@/lib/capture'
@@ -519,6 +520,9 @@ export function createLocalRepo(): Repo {
       if (base.type !== 'personal') log(base.id, groupSettingsActivity(base, { ...base, ...changed }, ctx(base.id)))
       commit()
     },
+    async refreshInviteName() {
+      // Demo invites are read from the group itself (getInvite), so they are always right.
+    },
     async setArchived(group, on) {
       if (inTrash(group.id, 'Archiving')) return
       const g = state.groups[group.id]
@@ -616,7 +620,7 @@ export function createLocalRepo(): Repo {
     async getInvite(code) {
       // Personal groups have no invite (Firebase never writes one for them).
       const g = Object.values(state.groups).find((x) => x.inviteCode === code.toUpperCase() && x.type !== 'personal')
-      return g ? { groupId: g.id, groupName: g.name, emoji: g.emoji, placeholders: placeholdersOf(g) } : null
+      return g ? { groupId: g.id, groupName: inviteNameFor(g), emoji: g.emoji, placeholders: placeholdersOf(g) } : null
     },
     async joinGroup(code, memberId, member) {
       const g = Object.values(state.groups).find((x) => x.inviteCode === code.toUpperCase())

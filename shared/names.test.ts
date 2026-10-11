@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { directPeer, firstNameOf, groupNameFor, labelForUid, labelOf, shortNames } from './names'
+import { directPeer, firstNameOf, groupNameFor, groupNameForRecipient, inviteNameFor, labelForUid, labelOf, shortNames } from './names'
 
 const m = (...names: string[]) => Object.fromEntries(names.map((name, i) => [`m${i}`, { name }]))
 
@@ -91,5 +91,21 @@ describe('1:1 friends: directPeer / groupNameFor', () => {
     expect(groupNameFor({ type: 'trip', name: 'Goa', members }, 'u1')).toBe('Goa')
     expect(groupNameFor({ type: 'direct', name: 'Priya', members }, 'zz')).toBe('Priya')
     expect(directPeer(undefined, 'u1')).toBeUndefined()
+  })
+})
+
+describe('1:1 invites and notifications', () => {
+  const members = { me: { name: 'Amrit Dash', uid: 'u1' }, p: { name: 'Meera' } }
+  it('the invite names the person who is already in it, not the friend it is for', () => {
+    expect(inviteNameFor({ type: 'direct', name: 'Meera', createdBy: 'u1', members })).toBe('Amrit Dash')
+    expect(inviteNameFor({ type: 'trip', name: 'Goa', members })).toBe('Goa')
+    expect(inviteNameFor({ type: 'direct', name: 'Meera', members: { p: { name: 'Meera' } } })).toBe('Meera')
+  })
+  it('a 1:1 notification is titled with the other person, for each of them', () => {
+    const g = { type: 'direct', name: 'Meera', members: { me: members.me, p: { name: 'Meera Iyer', uid: 'u2' } } }
+    expect(groupNameForRecipient(g, 'u1')).toBe('Meera Iyer')
+    expect(groupNameForRecipient(g, 'u2')).toBe('Amrit Dash')
+    expect(groupNameForRecipient({ type: 'trip', name: 'Goa' }, 'u2')).toBe('Goa')
+    expect(groupNameForRecipient(undefined, 'u2', 'your group')).toBe('your group')
   })
 })

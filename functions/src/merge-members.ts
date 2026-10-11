@@ -11,6 +11,7 @@
  * rewritten to the person who stays; a payment between the two is removed. Each document is
  * rewritten from what it holds, so running it again after an interruption finishes the job.
  */
+import { groupNameForRecipient } from '../../shared/names'
 import { createHash } from 'node:crypto'
 import { FieldValue } from 'firebase-admin/firestore'
 import { logger } from 'firebase-functions/logger'
@@ -35,6 +36,7 @@ import { sendToUser } from './push'
 
 interface GroupDoc {
   name?: string
+  type?: string
   emoji?: string
   createdBy?: string
   deletedAt?: number
@@ -180,7 +182,7 @@ async function askApprover(gid: string, g: GroupDoc, from: string, into: string,
   await sendToUser(
     approver,
     ['chat'],
-    mergeAskNote({ groupId: gid, groupName: g.name ?? 'Group', emoji: g.emoji, byName, fromName: nameOf(g, from), intoName: nameOf(g, into) }),
+    mergeAskNote({ groupId: gid, groupName: groupNameForRecipient(g, approver), emoji: g.emoji, byName, fromName: nameOf(g, from), intoName: nameOf(g, into) }),
   )
 }
 
@@ -214,7 +216,14 @@ export const decideMerge = onCall(callable, async (req) => {
       await sendToUser(
         r.by,
         ['chat'],
-        mergeDecidedNote({ groupId: gid, groupName: g.name ?? 'Group', emoji: g.emoji, ok: false, fromName: nameOf(g, r.from), intoName: nameOf(g, r.into) }),
+        mergeDecidedNote({
+          groupId: gid,
+          groupName: groupNameForRecipient(g, r.by),
+          emoji: g.emoji,
+          ok: false,
+          fromName: nameOf(g, r.from),
+          intoName: nameOf(g, r.into),
+        }),
       )
     return { status: 'declined' }
   }
@@ -232,7 +241,14 @@ export const decideMerge = onCall(callable, async (req) => {
     await sendToUser(
       r.by,
       ['chat'],
-      mergeDecidedNote({ groupId: gid, groupName: g.name ?? 'Group', emoji: g.emoji, ok: true, fromName: nameOf(g, r.from), intoName: nameOf(g, r.into) }),
+      mergeDecidedNote({
+        groupId: gid,
+        groupName: groupNameForRecipient(g, r.by),
+        emoji: g.emoji,
+        ok: true,
+        fromName: nameOf(g, r.from),
+        intoName: nameOf(g, r.into),
+      }),
     )
   return { status: 'done', ...moved }
 })

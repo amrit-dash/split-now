@@ -122,6 +122,7 @@ import type { AiTextExpense } from '@/lib/nl-expense'
 import type { QuickAiRequest, QuickAiResponse } from '../../shared/quick-ai'
 import { archiveWrite } from '../../shared/archive'
 import { personalView } from './personalView'
+import { inviteNameFor } from '../../shared/names'
 import type { ChatAiIntent } from '../../shared/chat-ai'
 import type { NudgeItem, NudgeResult } from '@/lib/nudge'
 import { errText } from '@/lib/errors'
@@ -214,7 +215,8 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     const m = { ...(d.data() as ChatMessage), id: d.id }
     return d.metadata.hasPendingWrites ? { ...m, pending: true } : m
   }
-  const inviteDoc = (g: Group): InviteInfo => ({ groupId: g.id, groupName: g.name, emoji: g.emoji, placeholders: placeholdersOf(g) })
+  // A 1:1's invite is named after the person already in it (shared/names.ts inviteNameFor), not the friend it's for.
+  const inviteDoc = (g: Group): InviteInfo => ({ groupId: g.id, groupName: inviteNameFor(g), emoji: g.emoji, placeholders: placeholdersOf(g) })
 
   /**
    * Commit without waiting for the server. Firestore applies the batch to the local cache
@@ -718,11 +720,22 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       const batch = writeBatch(db)
       batch.update(groupRef(base.id), data)
       if (base.type !== 'personal' && ('name' in changed || 'emoji' in changed)) {
-        batch.set(inviteRef(base.inviteCode), { groupId: base.id, groupName: changed.name ?? base.name, emoji: changed.emoji ?? base.emoji }, { merge: true })
+        batch.set(
+          inviteRef(base.inviteCode),
+          { groupId: base.id, groupName: inviteNameFor({ ...base, name: changed.name ?? base.name }), emoji: changed.emoji ?? base.emoji },
+          { merge: true },
+        )
       }
       // Any member may change these, so the change is logged for everyone (a wallet has nobody to tell).
       if (base.type !== 'personal') log(batch, base.id, groupSettingsActivity(base, { ...base, ...changed }, await actCtx(base.id, undefined, base)))
       fire(batch, 'Saving group')
+    },
+    async refreshInviteName(group) {
+      if (group.type !== 'direct' || !group.inviteCode) return
+      // 1:1 invites made before Oct 2026 stored the friend's own name: name them after you.
+      const batch = writeBatch(db)
+      batch.set(inviteRef(group.inviteCode), { groupId: group.id, groupName: inviteNameFor(group) }, { merge: true })
+      fire(batch, 'Updating the invite')
     },
     async setArchived(group, on) {
       const me = auth.currentUser?.uid
