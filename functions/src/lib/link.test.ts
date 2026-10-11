@@ -51,8 +51,8 @@ describe('planLinks', () => {
   it('stops at 60 accounts', () => {
     expect(planLinks({ candidates: candidates.slice(0, 1), memberUids: Array.from({ length: 60 }, (_, i) => `x${i}`), found })).toEqual([])
   })
-  it('emails with no account are remembered', () => {
-    expect(pendingEmails(candidates, found).map((c) => c.email)).toEqual(['sam@x.com'])
+  it('emails with no account, or an account that has not verified them yet, are remembered', () => {
+    expect(pendingEmails(candidates, found).map((c) => c.email)).toEqual(['rahul@x.com', 'sam@x.com'])
     expect(inviteKey('g1', 'p3')).toBe('g1__p3')
   })
 })

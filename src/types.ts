@@ -51,6 +51,8 @@ export interface Member {
   name: string
   email?: string
   uid?: string
+  /** accounts that were merged into this person's account; history written under them still names this entry */
+  formerUids?: string[]
   color: string
   /**
    * Profile photo of a member who has an account, copied from their profile by their own app

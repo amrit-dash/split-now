@@ -1,3 +1,4 @@
+import { memberIdOfUid } from './shortNames'
 import type { ActivityEntry, ActivityType, ChatMessage, Group, MemberId } from '@/types'
 import { localISODate } from './id'
 import { formatDate } from './locale'
@@ -173,8 +174,7 @@ export function linkParts(text: string): TextPart[] {
 
 /** The member entry behind a message's author (for the avatar and colour), when they're still known. */
 export function authorMember(group: Pick<Group, 'members'>, uid: string): MemberId | undefined {
-  const all = Object.entries(group.members).filter(([, m]) => m.uid === uid)
-  return (all.find(([, m]) => typeof m.removedAt !== 'number') ?? all[0])?.[0]
+  return memberIdOfUid(group.members, uid)
 }
 
 /**

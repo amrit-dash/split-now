@@ -75,7 +75,8 @@ export function planLinks(o: {
 
 /** Emails with no account yet: remembered, so the group shows up once they sign up with it. */
 export const pendingEmails = (candidates: Array<{ memberId: string; email: string }>, found: Record<string, FoundAccount | undefined>) =>
-  candidates.filter((c) => !found[c.email])
+  // An account that hasn't verified this email yet waits too: verifying it (the email code) links it then.
+  candidates.filter((c) => !found[c.email]?.emailVerified)
 
 /** The emailInvites entry key for a group's placeholder. */
 export const inviteKey = (groupId: string, memberId: string) => `${groupId}__${memberId}`

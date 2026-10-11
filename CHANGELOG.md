@@ -6,6 +6,13 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- **A cleaner sign-in screen**: Continue with Google comes first; email has its own button that opens Sign in and Create account, with clear messages under each field and a show-password eye. Joining a live table with its code is its own button.
+- **Email accounts confirm their address with a 6-digit code** sent by email, typed or pasted once. Accounts made before this are asked the next time they open the app. Google accounts don't need it.
+- **More than one email on your account**: Profile → Emails → Add another email, confirmed with a code. Groups that add you by any of your emails reach this one account. If that email already had its own Split Now account, you can merge it in: its groups, Pay me links and tables move over.
+- **Guests keep what they did**: someone who joined a live table or paid a Pay me link without an account and then signs up (or signs in) keeps it, and the group their payment was for shows up for them.
+- People added to a group by an email whose account wasn't confirmed yet now get the group as soon as they confirm it.
+- For admins: Admin → Email connects the service the codes go out through (Brevo or Resend).
+
 ## 4.1.0 — October 2026
 
 - **Added by email, in the group at once**: someone added to a group by their email sees it straight away when they already have an account (and gets a notification); people who sign up later get the group when they first sign in with that email. Admins can link people in older groups from Admin → Users → Link now.

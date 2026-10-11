@@ -90,16 +90,24 @@ export function labelOf(members: Record<string, Named | undefined> | undefined, 
   return memberLabels(members, me)[id] ?? fallback
 }
 
-/** The member id of account `uid` (one still in the group first). */
-export function memberIdOfUid(members: Record<string, { uid?: string; removedAt?: unknown }> | undefined, uid: string | undefined): string | undefined {
+/**
+ * The member id of account `uid` (one still in the group first). An account merged into another
+ * (functions/src/lib/move-uid.ts) is found through the entry's `formerUids`, so expenses and
+ * messages written under the old account still show the right person.
+ */
+export function memberIdOfUid(
+  members: Record<string, { uid?: string; removedAt?: unknown; formerUids?: string[] }> | undefined,
+  uid: string | undefined,
+): string | undefined {
   if (!members || !uid) return undefined
   const all = Object.entries(members).filter(([, m]) => m.uid === uid)
-  return (all.find(([, m]) => m.removedAt === undefined) ?? all[0])?.[0]
+  const now = (all.find(([, m]) => m.removedAt === undefined) ?? all[0])?.[0]
+  return now ?? Object.entries(members).find(([, m]) => Array.isArray(m.formerUids) && m.formerUids.includes(uid))?.[0]
 }
 
 /** The label of the member whose account is `uid`. */
 export function labelForUid(
-  members: Record<string, Named & { uid?: string; removedAt?: unknown }> | undefined,
+  members: Record<string, Named & { uid?: string; removedAt?: unknown; formerUids?: string[] }> | undefined,
   uid: string | undefined,
   me?: string,
 ): string | undefined {

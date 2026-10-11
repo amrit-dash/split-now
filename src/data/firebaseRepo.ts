@@ -7,6 +7,8 @@ import {
   getAuth,
   getRedirectResult,
   onAuthStateChanged,
+  sendEmailVerification,
+  signInWithCredential,
   linkWithCredential,
   linkWithPopup,
   linkWithRedirect,
@@ -57,6 +59,7 @@ import { inviteCode, todayISO, uid } from '@/lib/id'
 import { defaultCurrency } from '@/lib/locale'
 import { isRemoved } from '@/lib/members'
 import { inboxToDraft, newCaptureToken, type InboxDoc } from '@/lib/capture'
+import { accountEmailsOf } from '@/lib/account'
 import { downscale } from '@/lib/image'
 import { TABLE_TTL_MS, type LiveTable } from '@/lib/table'
 import { CLAIM_FIELDS, claimStatus, markPaidPatch, sortClaims, type PayLink } from '@/lib/paylinks'
@@ -86,9 +89,12 @@ import {
   placeholdersOf,
   storagePathFromUrl,
   memberProfileOf,
+  type AuthUser,
   type CaptureToken,
+  type EmailCodeResult,
   type InviteInfo,
   type MemberProfile,
+  type MergeResult,
   type Repo,
   type SnapMeta,
   type TablePatch,
@@ -107,6 +113,9 @@ import type { FxRatesDoc, FxRefreshResult } from '@/lib/fx'
 import { initAppCheck } from '@/lib/appcheck'
 import { disablePush } from '@/lib/push'
 import { getAppConfig } from '@/lib/flags'
+
+/** sessionStorage: a guest's ID token while they sign in with Google by redirect (installed app), so their things move over after. */
+const GUEST_TOKEN = 'splitit-guest-token'
 
 /** Firestore allows 500 writes per batch; leave headroom. */
 const BATCH_LIMIT = 450
@@ -157,7 +166,14 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
   let functionsEmulated = false
 
   // Surface failures from a Google sign-in redirect (installed iOS PWAs use redirect).
-  getRedirectResult(auth).catch((e) => errors.emit('read', e, 'Google sign-in failed'))
+  getRedirectResult(auth)
+    .then((r) => {
+      // A guest who signed in with Google by redirect (installed app): their things move over now.
+      const guestToken = sessionStorage.getItem(GUEST_TOKEN)
+      sessionStorage.removeItem(GUEST_TOKEN)
+      if (r?.user && !r.user.isAnonymous && guestToken) void adoptGuest(guestToken)
+    })
+    .catch((e) => errors.emit('read', e, 'Google sign-in failed'))
 
   const groupRef = (id: string) => doc(db, 'groups', id)
   // `archived` on a Group is personal: derived here for the signed-in person (shared/archive.ts),
@@ -353,6 +369,58 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     return inviteCode()
   }
 
+  const authSubs = new Set<(u: AuthUser | null) => void>()
+  /** The app's view of a Firebase user (and, for a full account, its profile and waiting invites). */
+  function authUserOf(u: User | null): AuthUser | null {
+    if (!u) return null
+    // Anonymous guests (live table split) get no profile and no access to groups.
+    if (u.isAnonymous) return { uid: u.uid, displayName: 'Guest', isAnonymous: true }
+    ensureProfile(u).catch(console.error)
+    // Groups that added this (verified) email before the account existed are attached now; once
+    // a session, in the background (the group simply appears when it lands).
+    if (u.emailVerified && u.email && linkedFor !== u.uid) {
+      linkedFor = u.uid
+      void callable<Record<string, never>, { linked: number }>('linkMyInvites', 20_000)
+        .then((fn) => fn({}))
+        .catch((e) => console.warn('Linking invites failed', e))
+    }
+    return {
+      uid: u.uid,
+      displayName: u.displayName ?? u.email ?? 'You',
+      email: u.email ?? undefined,
+      emailVerified: u.emailVerified,
+      photoURL: u.photoURL ?? undefined,
+      googlePhotoURL: googlePhoto(u),
+      providers: u.providerData.map((p) => p.providerId),
+    }
+  }
+  /** Re-reads the account (verified by a code or a link, or a guest became a full account) and tells onAuth. */
+  async function refreshUser() {
+    const u = auth.currentUser
+    if (!u) return
+    await u.reload()
+    await u.getIdToken(true)
+    const next = authUserOf(auth.currentUser)
+    for (const cb of authSubs) cb(next)
+  }
+  /** A guest's account became a full one in place: tell the app, and give the group spots their locked Pay me links point to. */
+  async function afterGuestUpgrade() {
+    await refreshUser()
+    void callable<Record<string, never>, { linked: number }>('claimGuestLinks', 30_000)
+      .then((fn) => fn({}))
+      .catch((e) => console.warn('Claiming guest links failed', e))
+  }
+  /** A guest signed in to an existing account: the guest's things move to it (the token proves it was this phone). */
+  async function adoptGuest(guestToken: string) {
+    try {
+      const fn = await callable<{ guestToken: string }, MergeResult>('adoptGuest', 120_000)
+      await fn({ guestToken })
+    } catch (e) {
+      console.warn('Moving the guest’s things failed', e)
+    }
+  }
+
+  let linkedFor = ''
   const repo: Repo = {
     mode: 'firebase',
     onError: errors.on,
@@ -365,35 +433,42 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     },
 
     onAuth(cb) {
-      return onAuthStateChanged(auth, (u) => {
-        if (!u) return cb(null)
-        // Anonymous guests (live table split) get no profile and no access to groups.
-        if (u.isAnonymous) return cb({ uid: u.uid, displayName: 'Guest', isAnonymous: true })
-        ensureProfile(u).catch(console.error)
-        // Groups that added this (verified) email before the account existed are attached now; once
-        // a session, in the background (the group simply appears when it lands).
-        if (u.emailVerified && u.email && linkedFor !== u.uid) {
-          linkedFor = u.uid
-          void callable<Record<string, never>, { linked: number }>('linkMyInvites', 20_000)
-            .then((fn) => fn({}))
-            .catch((e) => console.warn('Linking invites failed', e))
-        }
-        cb({
-          uid: u.uid,
-          displayName: u.displayName ?? u.email ?? 'You',
-          email: u.email ?? undefined,
-          photoURL: u.photoURL ?? undefined,
-          googlePhotoURL: googlePhoto(u),
-          providers: u.providerData.map((p) => p.providerId),
-        })
-      })
+      authSubs.add(cb)
+      const off = onAuthStateChanged(auth, (u) => cb(authUserOf(u)))
+      return () => {
+        authSubs.delete(cb)
+        off()
+      }
     },
     async signInWithGoogle() {
       const provider = new GoogleAuthProvider()
       // Popups are unreliable in installed iOS PWAs; use redirect there (result handled at startup).
       const standalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone
-      if (standalone) await signInWithRedirect(auth, provider)
-      else await signInWithPopup(auth, provider)
+      const guest = auth.currentUser?.isAnonymous ? auth.currentUser : null
+      if (!guest) {
+        if (standalone) await signInWithRedirect(auth, provider)
+        else await signInWithPopup(auth, provider)
+        return
+      }
+      // A guest (live table, Pay me link) keeps everything: the guest account becomes this Google
+      // account; if that Google account already exists, the guest's things move to it.
+      if (standalone) {
+        sessionStorage.setItem(GUEST_TOKEN, await guest.getIdToken())
+        await signInWithRedirect(auth, provider)
+        return
+      }
+      try {
+        await linkWithPopup(guest, provider)
+        await afterGuestUpgrade()
+      } catch (e) {
+        const cred = GoogleAuthProvider.credentialFromError(e as Parameters<typeof GoogleAuthProvider.credentialFromError>[0])
+        // That Google account (or its email) already has a Split Now account: sign in to it instead.
+        const code = (e as { code?: string }).code
+        if ((code !== 'auth/credential-already-in-use' && code !== 'auth/email-already-in-use') || !cred) throw e
+        const guestToken = await guest.getIdToken()
+        await signInWithCredential(auth, cred)
+        await adoptGuest(guestToken)
+      }
     },
     async linkGoogle() {
       const u = auth.currentUser
@@ -412,10 +487,17 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       await u.reload()
     },
     async signInWithEmail(email, password) {
+      const guest = auth.currentUser?.isAnonymous ? auth.currentUser : null
+      const guestToken = guest ? await guest.getIdToken() : ''
       await signInWithEmailAndPassword(auth, email, password)
+      if (guestToken) await adoptGuest(guestToken)
     },
     async signUpWithEmail(name, email, password) {
-      const cred = await createUserWithEmailAndPassword(auth, email, password)
+      const guest = auth.currentUser?.isAnonymous ? auth.currentUser : null
+      // A guest's account becomes this one (same uid), so nothing they did as a guest is lost.
+      const cred = guest
+        ? await linkWithCredential(guest, EmailAuthProvider.credential(email, password))
+        : await createUserWithEmailAndPassword(auth, email, password)
       await updateProfile(cred.user, { displayName: name })
       await ensureProfile({ ...cred.user, displayName: name })
       // onAuthStateChanged fires before updateProfile, so its ensureProfile may already have
@@ -425,9 +507,41 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         batch.set(doc(db, 'users', cred.user.uid), { uid: cred.user.uid, displayName: name }, { merge: true })
         fire(batch, 'Saving your name')
       }
+      if (guest) await afterGuestUpgrade()
     },
     async signInAnonymously() {
       await signInAnonymously(auth)
+    },
+    async sendEmailCode(email, purpose) {
+      const fn = await callable<{ email: string; purpose: string }, { sent: boolean }>('sendEmailCode', 30_000)
+      return (await fn({ email, purpose })).data
+    },
+    async confirmEmailCode(email, purpose, code) {
+      const fn = await callable<{ email: string; purpose: string; code: string }, EmailCodeResult>('confirmEmailCode', 30_000)
+      const r = (await fn({ email, purpose, code })).data
+      if (r.verified) await refreshUser()
+      return r
+    },
+    async sendVerifyLink() {
+      const u = auth.currentUser
+      if (!u) throw new Error('Not signed in')
+      await sendEmailVerification(u, { url: location.origin })
+    },
+    refreshUser,
+    async removeEmail(email) {
+      const fn = await callable<{ email: string }, { removed: boolean }>('removeEmail', 20_000)
+      await fn({ email })
+    },
+    async mergeAccount() {
+      const fn = await callable<Record<string, never>, MergeResult>('mergeAccount', 300_000)
+      return (await fn({})).data
+    },
+    watchAccountEmails(id, cb) {
+      return onSnapshot(
+        doc(db, 'users', id, 'account', 'emails'),
+        (s) => cb(accountEmailsOf(s.data()), metaOf(s)),
+        listenError('Loading your emails', () => cb([], FAILED)),
+      )
     },
     async signOut() {
       // Give queued writes a moment to reach the server, then wipe this device's cache so the
@@ -1529,7 +1643,6 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
   }
 
   /** linkMyInvites runs once per signed-in account per session. */
-  let linkedFor = ''
   /** Loaded on first use; most sessions never call a function. */
   async function callable<I, O>(name: string, timeout: number) {
     const { connectFunctionsEmulator, getFunctions, httpsCallable } = await import('firebase/functions')

@@ -783,6 +783,21 @@ test('Quick add: "who paid?" opens the open item sheet in the group, filled in; 
   await expect(page.getByTestId('open-item-row').filter({ hasText: 'Lunch Cafe Blue' })).toBeVisible()
 })
 
+test('Profile → Emails: add another email with the code, then remove it', async ({ page }) => {
+  await page.goto('/profile')
+  await page.getByTestId('account-toggle').click()
+  await page.getByTestId('add-email').click()
+  await page.getByTestId('add-email-input').fill('asha@work.com')
+  await page.getByTestId('add-email-send').click()
+  // Demo mode sends nothing; its code is always 000000.
+  await page.getByTestId('add-email-code').fill('000000')
+  const list = page.getByTestId('account-emails')
+  await expect(list).toContainText('asha@work.com')
+  await list.getByRole('button', { name: 'Remove asha@work.com' }).click()
+  await page.getByTestId('confirm-sheet').getByRole('button', { name: 'Remove' }).click()
+  await expect(list).not.toContainText('asha@work.com')
+})
+
 test('Profile offers Install Split Now in a browser, with the steps for this browser', async ({ page }) => {
   await page.goto('/profile')
   const row = page.getByTestId('profile-install')

@@ -31,6 +31,7 @@ import {
   groupPurgeBlocker,
   memberProfileOf,
   placeholdersOf,
+  type AccountEmail,
   type AuthUser,
   type CaptureToken,
   type Repo,
@@ -56,6 +57,10 @@ import { labelForUid, labelOf } from '@/lib/shortNames'
  * watchers report a server-equivalent SnapMeta, and the same edge cases (double trash, joining
  * twice, personal groups without an invite) end the same way.
  */
+/** The code every email code is in demo mode (nothing is sent). */
+export const DEMO_CODE = '000000'
+const EMPTY_EMAILS: AccountEmail[] = []
+
 interface State {
   user: AuthUser | null
   profiles: Record<string, UserProfile>
@@ -81,6 +86,8 @@ interface State {
   payLinks?: Record<string, PayLinkDoc>
   /** payment screenshots by Storage-style path (small data: URLs) */
   payProofs?: Record<string, string>
+  /** emails added to the demo account (users/{uid}/account/emails in Firebase) */
+  accountEmails?: AccountEmail[]
 }
 
 type StoredComment = ExpenseComment & { groupId: string; expenseId: string }
@@ -341,6 +348,27 @@ export function createLocalRepo(): Repo {
     async signUpWithEmail() {
       throw new Error('Connect Firebase to enable email sign-in')
     },
+    // Demo mode sends no email: the code is always DEMO_CODE, and the app says so.
+    async sendEmailCode() {
+      return { sent: true, demoCode: DEMO_CODE }
+    },
+    async confirmEmailCode(email, purpose, code) {
+      if (code.replace(/\D/g, '') !== DEMO_CODE) throw new Error(`That code isn’t right. In demo mode it’s ${DEMO_CODE}`)
+      if (purpose === 'verify') return { verified: true, linked: 0 }
+      const e = email.trim().toLowerCase()
+      const list = state.accountEmails ?? []
+      if (!list.some((x) => x.email === e)) state.accountEmails = [...list, { email: e, addedAt: Date.now() }]
+      commit()
+      return { added: true, linked: 0 }
+    },
+    async removeEmail(email) {
+      state.accountEmails = (state.accountEmails ?? []).filter((x) => x.email !== email)
+      commit()
+    },
+    async mergeAccount() {
+      return { groups: 0, suggested: 0, linked: 0 }
+    },
+    watchAccountEmails: (_uid, cb) => watch(() => state.accountEmails ?? EMPTY_EMAILS, cb),
     async signOut() {
       state = { ...state, user: null }
       commit()

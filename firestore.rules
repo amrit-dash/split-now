@@ -83,6 +83,12 @@ service cloud.firestore {
       match /secrets/{id} {
         allow read, write: if false;
       }
+      // The emails this account added with a code (account/emails: { list: { [sha256]: { email, addedAt } } }).
+      // Written only by Cloud Functions (confirmEmailCode, removeEmail, mergeAccount); the owner reads it.
+      match /account/{id} {
+        allow read: if isUser() && uid() == userId;
+        allow write: if false;
+      }
       // Server-written AI status (key hint, last error); the owner can read it.
       match /aiState/{id} {
         allow read: if isUser() && uid() == userId;
@@ -191,6 +197,14 @@ service cloud.firestore {
       allow read, write: if false;
     }
     match /reminderState/{id} {
+      allow read, write: if false;
+    }
+    // emailCodes/{uid}: the pending email code (a salted hash, tries, send counts). emailIndex/
+    // {sha256(email)}: which account an added email belongs to. Both written by functions/src/accounts.ts.
+    match /emailCodes/{id} {
+      allow read, write: if false;
+    }
+    match /emailIndex/{id} {
       allow read, write: if false;
     }
 
