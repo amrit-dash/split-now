@@ -84,7 +84,6 @@ import {
   storagePathFromUrl,
   memberProfileOf,
   type CaptureToken,
-  type GroupSettings,
   type InviteInfo,
   type MemberProfile,
   type Repo,
@@ -579,20 +578,6 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       const batch = writeBatch(db)
       batch.update(groupRef(group.id), data)
       fire(batch, on ? 'Archiving group' : 'Restoring group')
-    },
-    async updateGroup(id, patch) {
-      const { members: _m, memberUids: _u, id: _i, inviteCode: _c, createdBy: _b, createdAt: _a, updatedAt: _t, ...settings } = patch
-      let base: Group | null = null
-      try {
-        const s = await getDocFromCache(groupRef(id))
-        if (s.exists()) base = { ...(s.data() as Group), id }
-      } catch {
-        /* not cached */
-      }
-      if (base) return repo.updateGroupSettings(base, settings as GroupSettings)
-      const batch = writeBatch(db)
-      batch.update(groupRef(id), { ...settings, updatedAt: Date.now() })
-      fire(batch, 'Saving group')
     },
     async addMember(group, memberId, member) {
       const batch = writeBatch(db)

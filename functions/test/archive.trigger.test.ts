@@ -6,7 +6,7 @@
 import { readFileSync } from 'node:fs'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing'
-import { doc, getDoc, setDoc } from 'firebase/firestore'
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
 
 let env: RulesTestEnvironment
 
@@ -68,6 +68,14 @@ describe('a new expense or payment unarchives the group for the people in it (em
     await admin((db) => setDoc(doc(db, 'groups/arc_b/settlements/s1'), { from: 'm_b', to: 'm_a', amount: 450, createdBy: 'bob', createdAt: Date.now() }))
     const g = await until('arc_b', (x) => !(x.archivedBy as string[]).includes('bob'))
     expect(g.archivedBy).toEqual(['carol'])
+  })
+
+  it('an edit that gives someone a share brings it back for them (they owe now)', async () => {
+    await admin((db) => setDoc(doc(db, 'groups/arc_d'), group({ archivedBy: ['carol'] })))
+    await admin((db) => setDoc(doc(db, 'groups/arc_d/expenses/e1'), { ...expense, paidBy: { m_a: 900 }, splits: { m_a: 450, m_b: 450 }, splitType: 'equal' }))
+    await admin((db) => updateDoc(doc(db, 'groups/arc_d/expenses/e1'), { splits: { m_a: 300, m_b: 300, m_c: 300 } }))
+    const g = await until('arc_d', (x) => !(x.archivedBy as string[]).includes('carol'))
+    expect(g.archivedBy).toEqual([])
   })
 
   it('a group archived the old, group-wide way stays archived for everyone not involved', async () => {

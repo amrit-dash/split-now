@@ -74,7 +74,7 @@ export const onGroupTrashed = onDocumentUpdated({ document: 'groups/{groupId}', 
 })
 
 /** Groups due for the purge at `now`, a page at a time (single-field index on deletedAt). */
-export async function purgeDue(now: number, pageSize = 50): Promise<number> {
+export async function purgeExpiredGroups(now: number, pageSize = 50): Promise<number> {
   // Deleted at or before this moment means its TRASH_DAYS are up (purgeAt(0) is the whole span).
   const cutoff = now - purgeAt(0)
   let removed = 0
@@ -102,7 +102,7 @@ export async function purgeDue(now: number, pageSize = 50): Promise<number> {
 export const purgeDeletedGroups = onSchedule(
   { schedule: 'every day 03:30', timeZone: TIME_ZONE, region: REGION, timeoutSeconds: 540, retryCount: 1 },
   async () => {
-    const removed = await purgeDue(Date.now())
+    const removed = await purgeExpiredGroups(Date.now())
     logger.info('purged deleted groups', { removed })
   },
 )

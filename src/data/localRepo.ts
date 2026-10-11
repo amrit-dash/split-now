@@ -397,11 +397,6 @@ export function createLocalRepo(): Repo {
             : { ...rest, archivedBy: w.convert.archivedBy }
       commit()
     },
-    async updateGroup(id, patch) {
-      const { members: _m, memberUids: _u, ...rest } = patch
-      const g = state.groups[id]
-      if (g) await repo.updateGroupSettings(g, rest)
-    },
     async addMember(group, memberId, member) {
       if (inTrash(group.id, 'Adding a member')) return
       const g = state.groups[group.id]

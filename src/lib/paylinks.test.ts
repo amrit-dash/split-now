@@ -99,6 +99,9 @@ describe('which screen /r/{code} shows', () => {
     expect(payLinkView(l, { uid: 'm', anonymous: false, member: undefined }, NOW)).toBe('loading')
     expect(payLinkView(l, { uid: 'x', anonymous: false, member: false }, NOW)).toBe('pay')
     expect(payLinkView(l, anon, NOW)).toBe('pay')
+    // Its group is in Recently deleted: nothing to pay; a member goes to Settle up, which offers Restore.
+    expect(payLinkView({ ...l, held: true }, anon, NOW)).toBe('held')
+    expect(payLinkView({ ...l, held: true }, { uid: 'm', anonymous: false, member: true }, NOW)).toBe('settle')
   })
   it('demo guest mode shows the payer screen even to the payee', () => {
     expect(payLinkView(l, { uid: 'payee', anonymous: true, member: true, guestMode: true }, NOW)).toBe('pay')
@@ -141,6 +144,8 @@ describe('status line', () => {
     expect(statusLine({ ...base, status: 'paid', paidAt: 20, settlementId: 's' }, 60, fmt)).toBe('Marked paid day20 · recorded in the group')
     expect(statusLine({ ...base, status: 'paid', groupId: undefined }, 60, fmt)).toBe('Marked paid')
     expect(statusLine({ ...base, status: 'cancelled', cancelledAt: 30 }, 60, fmt)).toBe('Cancelled day30')
+    expect(statusLine({ ...base, status: 'paid', paidAt: 20, skipReason: 'deleted' }, 60, fmt)).toBe('Marked paid day20 · not recorded')
+    expect(statusLine({ ...base, held: true }, 10, fmt)).toBe('On hold while the group is in Recently deleted')
   })
 })
 
