@@ -475,7 +475,10 @@ test('Payments need the recipient’s OK: a payment waits for it; the recipient 
   await page.goto('/groups/g_goa/edit')
   // Every approval setting sits in the Approvals section; closed, it says what is on.
   await expect(page.getByTestId('group-approvals')).toContainText('Off')
-  await page.getByTestId('group-approvals').getByRole('button', { name: /Approvals/ }).click()
+  await page
+    .getByTestId('group-approvals')
+    .getByRole('button', { name: /Approvals/ })
+    .click()
   await page.getByTestId('group-payment-approval').click()
   await expect(page.getByTestId('group-payment-approval')).toHaveAttribute('aria-checked', 'true')
   await page.getByTestId('group-save').click()

@@ -6,7 +6,7 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
-Next release: **6.0.0** (a major version: the admin console's tabs change, and settings now follow the account).
+## 6.0.0 — October 2026
 
 - **Appearance follows your account**: theme, accent colour, dual tone, text on accent, the animations and the detail level are saved to your account, so the app looks the same on the web and on the installed app on your phone. The newest change wins. Notifications and auto-capture setup stay on each device.
 - **Choose how much the app explains**: Settings → Preferences → Detail level. Full (as today), When needed (one short line under each option), Minimal (titles only, keeping the lines that stop a mistake, and fewer optional sections) or Tooltip (every explanation behind a small (i) beside its title). Every explanation in the app now has a short version. An admin sets the default for everyone (App default), and you can pick your own.
@@ -15,6 +15,7 @@ Next release: **6.0.0** (a major version: the admin console's tabs change, and s
 - The QR shared bill is called **Live table** everywhere you start one (the + sheet, Scan), so it no longer shares a name with **Split by items**, the split in Add expense.
 - Groups: the Balances button left the header (Balances is on Home and in the + sheet); Import stays.
 - **Approvals in one place**: in New group and Edit group, big-expense approval (with its amount and small-edit allowance) and payment approval sit together under **Approvals**, which says what's on while closed ("Off", "Expenses over ₹2,000 · payments"). Merging people needs my OK stays on Members.
+- **Needs your OK notifications**: Settings → Notifications has a Needs your OK switch (on). A big expense waiting for your approval, a payment for you to confirm, and an edit that needs your OK again all come under it, so turning off New expenses or Someone pays you back no longer hides them. An edited expense that needs your OK again now sends a notification (before, it only showed in the Inbox).
 
 ## 5.0.0 — October 2026
 

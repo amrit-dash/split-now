@@ -44,6 +44,15 @@ function types(currency: string): Array<{ key: TypeKey; label: string; hint: Hin
       label: 'Payments outside a trip',
       hint: { full: 'Also tell you about captured payments that match no trip.', short: 'Captured payments that match no trip', tier: 'help' },
     },
+    {
+      key: 'approvals',
+      label: 'Needs your OK',
+      hint: {
+        full: 'When an expense or a payment waits for your approval, or an edit needs your OK again. It doesn’t count in balances until you answer.',
+        short: 'An expense or payment waits for your OK',
+        tier: 'help',
+      },
+    },
     { key: 'expenses', label: 'New expenses', hint: { full: 'When someone adds an expense that includes you.', tier: 'help' } },
     { key: 'settlements', label: 'Someone pays you back', hint: { full: 'When someone records a payment to you.', tier: 'help' } },
     {

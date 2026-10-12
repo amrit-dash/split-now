@@ -2,7 +2,8 @@
  * Split Now Cloud Functions (2nd gen, Node 22, region asia-south1; see config.ts).
  *  capture             HTTPS  POST /api/sms, /api/capture — bank SMS webhook (token auth, rate-limited)
  *  onExpenseCreated    Firestore groups/{gid}/expenses/{eid} created → push to the people in it
- *  onExpenseUpdated    Firestore an edit, trash or restore that moves balances → the group comes back for those it touched (if archived)
+ *  onExpenseUpdated    Firestore an edit, trash or restore that moves balances → the group comes back for those it touched (if archived);
+ *                      an edit that takes OKs away pushes those people ("Needs your OK")
  *  onSettlementCreated Firestore groups/{gid}/settlements/{sid} created → push to the payee (and the payer, if someone else recorded it);
  *                      one that needs the payee's OK has its screenshot checked with AI first (payment-ok.ts)
  *  onSettlementUpdated Firestore the payee confirmed a payment or said it hasn't arrived → push to the payer

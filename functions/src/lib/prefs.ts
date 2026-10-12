@@ -18,6 +18,8 @@ export interface NotificationPrefs {
   chat: boolean
   /** someone named you on an open item ("Did you pay for this?") */
   openItems: boolean
+  /** "Needs your OK": an expense or a payment waits for your approval (on its own switch, so muting news never hides it) */
+  approvals: boolean
   /**
    * Capture setting (not a push type): save debit SMS that match no trip dates to the inbox.
    * Off by default: only payments inside a trip window are captured.
@@ -35,6 +37,7 @@ export const DEFAULT_PREFS: NotificationPrefs = {
   reminders: true,
   chat: true,
   openItems: true,
+  approvals: true,
   outsideTrips: false,
 }
 

@@ -273,4 +273,9 @@ describe('notification settings: chat and open items', () => {
     await assertFails(setDoc(prefs('bob'), { mutedChats: 'g1' }))
     await assertFails(setDoc(prefs('bob'), { mutedChats: Array.from({ length: 201 }, (_, i) => `g${i}`) }))
   })
+  it('"Needs your OK" (approvals) is its own switch', async () => {
+    await assertSucceeds(setDoc(prefs('bob'), { expenses: false, approvals: true, updatedAt: 1 }))
+    await assertSucceeds(setDoc(prefs('bob'), { approvals: false, updatedAt: 2 }))
+    await assertFails(setDoc(prefs('bob'), { approvals: 'on' }))
+  })
 })

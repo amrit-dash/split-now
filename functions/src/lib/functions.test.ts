@@ -236,6 +236,7 @@ describe('recipients and prefs', () => {
       reminders: true,
       chat: true,
       openItems: true,
+      approvals: true,
       outsideTrips: false,
     })
     expect(resolvePrefs({ chat: false }).chat).toBe(false)

@@ -66,6 +66,27 @@ export function expenseNote(e: {
   return { title: groupTitle(e.groupName, e.emoji), body, url: `/groups/${e.groupId}/expenses/${e.expenseId}`, tag: `expense-${e.expenseId}` }
 }
 
+/**
+ * An edit took away someone's OK on an expense that needs one (a bigger change than the group's
+ * small-edit allowance): they have to look again. Opens the expense, where Approve is.
+ */
+export function reapprovalNote(e: {
+  groupId: string
+  expenseId: string
+  groupName: string
+  emoji?: string
+  description: string
+  amount: number
+  currency: string
+}): Note {
+  return {
+    title: groupTitle(e.groupName, e.emoji),
+    body: `${clip(e.description || 'An expense', 40)} changed · ${formatMoney(e.amount, e.currency)} · needs your OK again`,
+    url: `/groups/${e.groupId}/expenses/${e.expenseId}`,
+    tag: `expense-${e.expenseId}`,
+  }
+}
+
 /** To the person who was paid. */
 export function settlementNote(s: {
   groupId: string

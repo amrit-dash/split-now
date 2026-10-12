@@ -53,6 +53,7 @@ describe('capture prefs', () => {
       reminders: true,
       chat: true,
       openItems: true,
+      approvals: true,
       outsideTrips: false,
     })
   })

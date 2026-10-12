@@ -132,7 +132,7 @@ service cloud.firestore {
         allow create, update: if isUser() && uid() == userId
           && writesOpen()
           && (settingId != 'notifications' || (
-            request.resource.data.keys().hasOnly(['captures', 'unsorted', 'expenses', 'settlements', 'reminders', 'chat', 'openItems', 'mutedChats', 'outsideTrips',
+            request.resource.data.keys().hasOnly(['captures', 'unsorted', 'expenses', 'settlements', 'reminders', 'chat', 'openItems', 'approvals', 'mutedChats', 'outsideTrips',
               'capturePaused', 'minAmount', 'ignoreWords', 'pausedTrips', 'aiSms', 'aiSmsMerchant', 'aiImages', 'aiQuickAdd', 'aiPayments', 'aiEnabled', 'aiSource', 'aiModel', 'aiFreeOk', 'updatedAt'])
             && request.resource.data.get('captures', true) is bool
             && request.resource.data.get('unsorted', false) is bool
@@ -145,6 +145,8 @@ service cloud.firestore {
             && request.resource.data.get('mutedChats', []).size() <= 200
             // "Did you pay for this?" when someone names you on an open item
             && request.resource.data.get('openItems', true) is bool
+            // "Needs your OK": an expense or a payment waits for this person's approval (functions/src/lib/approval-push.ts)
+            && request.resource.data.get('approvals', true) is bool
             && request.resource.data.get('outsideTrips', false) is bool
             // Auto-capture filters (shared/capture-filters.ts; the webhook re-normalises them)
             && request.resource.data.get('capturePaused', false) is bool
