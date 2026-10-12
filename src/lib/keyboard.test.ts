@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chatViewportBox, opensKeyboard, strayScroll } from './keyboard'
+import { chatViewportBox, needsHeal, opensKeyboard, tallestHeights } from './keyboard'
 
 describe('chatViewportBox', () => {
   it('fills the screen when there is no visual viewport', () => {
@@ -46,22 +46,35 @@ describe('opensKeyboard', () => {
   })
 })
 
-describe('strayScroll', () => {
-  it('scrolls back a page that iOS left past its end once the keyboard has gone', () => {
-    // The full-screen chat: nothing to scroll, but iOS left it 100px down.
-    expect(strayScroll(100, 844, 844, false)).toBe(0)
-    // A long page scrolled past its end.
-    expect(strayScroll(1300, 2000, 800, false)).toBe(1200)
+describe('tallestHeights', () => {
+  it('keeps the tallest height per width, each orientation on its own', () => {
+    let seen = tallestHeights({}, 393, 852)
+    seen = tallestHeights(seen, 393, 809)
+    expect(seen).toEqual({ 393: 852 })
+    seen = tallestHeights(seen, 852.4, 393)
+    expect(seen).toEqual({ 393: 852, 852: 393 })
   })
 
-  it('leaves a scroll within the page alone', () => {
-    expect(strayScroll(0, 844, 844, false)).toBeNull()
-    expect(strayScroll(600, 2000, 800, false)).toBeNull()
-    expect(strayScroll(1200, 2000, 800, false)).toBeNull()
-    expect(strayScroll(1200.6, 2000, 800, false)).toBeNull()
+  it('returns the same object when nothing grew', () => {
+    const seen = { 393: 852 }
+    expect(tallestHeights(seen, 393, 800)).toBe(seen)
+  })
+})
+
+describe('needsHeal', () => {
+  it('is true once the keyboard has gone and the app is still short of its height', () => {
+    expect(needsHeal(809, 852, false)).toBe(true)
   })
 
-  it('leaves the page alone while typing (iOS needs the extra scroll to show the field)', () => {
-    expect(strayScroll(300, 844, 844, true)).toBeNull()
+  it('is false while typing, at full height, within a few pixels, or with nothing seen yet', () => {
+    expect(needsHeal(809, 852, true)).toBe(false)
+    expect(needsHeal(852, 852, false)).toBe(false)
+    expect(needsHeal(848, 852, false)).toBe(false)
+    expect(needsHeal(809, undefined, false)).toBe(false)
+  })
+
+  it('does not try again at a height a re-measure already failed to fix', () => {
+    expect(needsHeal(809, 852, false, 809)).toBe(false)
+    expect(needsHeal(790, 852, false, 809)).toBe(true)
   })
 })
