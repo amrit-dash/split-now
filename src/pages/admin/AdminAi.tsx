@@ -315,12 +315,15 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
       )}
       {cfg.mode !== 'off' && (
         <>
-          <div className="space-y-3 rounded-2xl bg-slate-50 p-3.5 dark:bg-ink-800/60">
-            <Toggle title="Bills & statements" checked={cfg.images} onChange={(v) => set({ images: v })} />
-            <Toggle title="SMS fallback" checked={cfg.sms} onChange={(v) => set({ sms: v })} />
+          {/* What the shared key may be spent on (config/ai images, sms). Not the same as the AI feature flags:
+              these only stop Split Now paying; people's own keys keep working (appKeyAllowed, shared/ai-config.ts). */}
+          <div className="space-y-3 rounded-2xl bg-slate-50 p-3.5 dark:bg-ink-800/60" data-testid="admin-ai-pays-for">
+            <div className="text-sm font-semibold">What Split Now’s key pays for</div>
+            <Toggle title="Bills, statements, Quick add and chat" checked={cfg.images} onChange={(v) => set({ images: v })} />
+            <Toggle title="Bank SMS" checked={cfg.sms} onChange={(v) => set({ sms: v })} />
             <p className="text-muted text-xs" data-testid="admin-ai-quick-add">
-              Quick add with AI (opt-in per person) uses this key under “Bills & statements” and its limits. The switches for everyone (bills, SMS, Quick add,
-              payment screenshots) are in{' '}
+              Payment screenshot checks count under the first one too, with its limits below. Off here, people with their own key still use AI. To turn a
+              feature off for everyone, own keys included, use{' '}
               <Link to="/admin/flags" className="font-semibold text-brand-600 dark:text-brand-300">
                 Flags → AI
               </Link>

@@ -6,6 +6,10 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 6.1.1 — October 2026
+
+- For admins: Admin → AI names what Split Now's key pays for. The box is headed "What Split Now's key pays for", and its switches read **Bills, statements, Quick add and chat** (payment screenshot checks count there too) and **Bank SMS**. A line says these only stop Split Now's key paying (people with their own key keep using AI) and points to Flags → AI to turn a feature off for everyone.
+
 ## 6.1.0 — October 2026
 
 - **Who edited an expense**: an expense now says who changed it last, as well as who added it ("Added by Ananya on 7 Oct · edited by Rahul on 8 Oct"). An edit by someone other than the person who added it always shows, in every detail level. Adding a receipt photo later counts as an edit. The group's activity log already showed who made each change; now the expense itself keeps it too.
