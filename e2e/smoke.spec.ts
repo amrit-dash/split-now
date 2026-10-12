@@ -355,6 +355,18 @@ test('Row actions: icon buttons keep the name in view; right-click opens the sam
   await expect(page).toHaveURL(/\/groups\/g_goa\/expenses\/[^/]+\/edit$/)
 })
 
+test('Editing an expense records who did it: the expense says “edited by you”', async ({ page }) => {
+  await page.goto('/groups/g_goa')
+  await page.getByTestId('expense-row').first().click({ button: 'right' })
+  await page.getByTestId('row-menu').getByTestId('expense-edit-menu').click()
+  await expect(page).toHaveURL(/\/groups\/g_goa\/expenses\/[^/]+\/edit$/)
+  const id = /expenses\/([^/]+)\/edit$/.exec(page.url())?.[1]
+  await page.locator('#expense-description').fill('Edited by me (e2e)')
+  await page.getByTestId('expense-save').click()
+  await page.goto(`/groups/g_goa/expenses/${id}`)
+  await expect(page.getByTestId('expense-added')).toContainText('edited by you')
+})
+
 test('Group Settle up: with several people owing you it opens the group Balances, each payment with its own Settle', async ({ page }) => {
   await page.goto('/groups/g_goa')
   await page.getByTestId('group-settle').click()

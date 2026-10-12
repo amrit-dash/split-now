@@ -78,10 +78,13 @@ export function reapprovalNote(e: {
   description: string
   amount: number
   currency: string
+  /** who made the change, when the expense names its editor */
+  editorName?: string
 }): Note {
+  const what = clip(e.description || 'an expense', 40)
   return {
     title: groupTitle(e.groupName, e.emoji),
-    body: `${clip(e.description || 'An expense', 40)} changed · ${formatMoney(e.amount, e.currency)} · needs your OK again`,
+    body: `${e.editorName ? `${clip(e.editorName, 30)} changed ${what}` : `${what.charAt(0).toUpperCase()}${what.slice(1)} changed`} · ${formatMoney(e.amount, e.currency)} · needs your OK again`,
     url: `/groups/${e.groupId}/expenses/${e.expenseId}`,
     tag: `expense-${e.expenseId}`,
   }

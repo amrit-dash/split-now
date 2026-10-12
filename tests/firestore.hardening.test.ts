@@ -394,8 +394,8 @@ describe('expense & settlement validation', () => {
   it('createdBy must be the writer and cannot change', async () => {
     await assertSucceeds(setDoc(e('bob'), expense))
     await assertFails(setDoc(e('bob', 'e2'), { ...expense, id: 'e2', createdBy: 'alice' }))
-    await assertFails(updateDoc(e('alice'), { createdBy: 'alice' }))
-    await assertSucceeds(updateDoc(e('alice'), { description: 'Dinner!' }))
+    await assertFails(updateDoc(e('alice'), { createdBy: 'alice', updatedBy: 'alice' }))
+    await assertSucceeds(updateDoc(e('alice'), { description: 'Dinner!', updatedBy: 'alice' }))
   })
   it('paidBy / splits must reference group members', async () => {
     await assertFails(setDoc(e('bob', 'e3'), { ...expense, id: 'e3', paidBy: { ghost: 900 } }))

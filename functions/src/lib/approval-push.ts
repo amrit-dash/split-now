@@ -15,6 +15,11 @@ export const paymentOkPref = (cleared: boolean): PrefKey => (cleared ? 'settleme
 
 type ApprovalExpense = Parameters<typeof pendingApprovers>[0] & { deletedAt?: unknown }
 
+/** Who hears about an edit that needs their OK again: each account once, never the editor. */
+export function reapprovalRecipients(uids: Array<string | undefined>, editor: string | undefined): string[] {
+  return [...new Set(uids.filter((u): u is string => !!u && u !== editor))]
+}
+
 /**
  * Member ids an edit made wait again: pending after it, not before (their OK was taken away, or
  * approval was just switched on for it). Nothing for an expense in Recently deleted. Approving

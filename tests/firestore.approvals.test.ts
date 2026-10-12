@@ -64,28 +64,28 @@ describe('dropping requiresApproval on edit', () => {
   beforeEach(() => seed('groups/g1/expenses/e2', { ...big, requiresApproval: true, approvals: { alice: true } }))
 
   it('cannot drop it while the amount is still above the threshold', async () => {
-    await assertFails(updateDoc(exp('bob'), { requiresApproval: deleteField(), description: 'Hotel (2 nights)' }))
-    await assertFails(updateDoc(exp('bob'), { ...money(20000), requiresApproval: deleteField() }))
-    await assertFails(updateDoc(exp('bob'), { ...money(20000), requiresApproval: false }))
+    await assertFails(updateDoc(exp('bob'), { requiresApproval: deleteField(), description: 'Hotel (2 nights)', updatedBy: 'bob' }))
+    await assertFails(updateDoc(exp('bob'), { ...money(20000), requiresApproval: deleteField(), updatedBy: 'bob' }))
+    await assertFails(updateDoc(exp('bob'), { ...money(20000), requiresApproval: false, updatedBy: 'bob' }))
   })
   it('can drop it when the edit brings the amount to the threshold or below', async () => {
-    await assertSucceeds(updateDoc(exp('bob'), { ...money(10000), requiresApproval: deleteField(), approvals: deleteField() }))
+    await assertSucceeds(updateDoc(exp('bob'), { ...money(10000), requiresApproval: deleteField(), approvals: deleteField(), updatedBy: 'bob' }))
   })
   it('can drop it below the threshold with a full set, too', async () => {
     const { requiresApproval: _r, ...rest } = { ...big, ...money(5000), requiresApproval: true }
-    await assertSucceeds(setDoc(exp('alice'), { ...rest, approvals: { alice: true } }))
+    await assertSucceeds(setDoc(exp('alice'), { ...rest, approvals: { alice: true }, updatedBy: 'alice' }))
   })
   it('can drop it once the group no longer asks for approval', async () => {
     await seed('groups/g1', { ...group, requireApproval: false })
-    await assertSucceeds(updateDoc(exp('bob'), { requiresApproval: deleteField(), description: 'Hotel (2 nights)' }))
+    await assertSucceeds(updateDoc(exp('bob'), { requiresApproval: deleteField(), description: 'Hotel (2 nights)', updatedBy: 'bob' }))
   })
   it('an amount change above the threshold still needs the mark', async () => {
     await seed('groups/g1/expenses/e3', { ...big, id: 'e3', ...money(5000) })
-    await assertFails(updateDoc(exp('bob', 'e3'), money(40000)))
-    await assertSucceeds(updateDoc(exp('bob', 'e3'), { ...money(40000), requiresApproval: true }))
+    await assertFails(updateDoc(exp('bob', 'e3'), { ...money(40000), updatedBy: 'bob' }))
+    await assertSucceeds(updateDoc(exp('bob', 'e3'), { ...money(40000), requiresApproval: true, updatedBy: 'bob' }))
   })
   it('an edit still cannot add someone else’s approval while dropping the mark', async () => {
-    await assertFails(updateDoc(exp('bob'), { ...money(5000), requiresApproval: deleteField(), approvals: { alice: true, bob: true } }))
+    await assertFails(updateDoc(exp('bob'), { ...money(5000), requiresApproval: deleteField(), approvals: { alice: true, bob: true }, updatedBy: 'bob' }))
   })
 })
 
@@ -95,36 +95,36 @@ describe('edit auto-approve (group.editAutoApprove)', () => {
 
   it('within the limit (either way, the limit included) the approvals and the mark may stay', async () => {
     await seed('groups/g1', { ...group, editAutoApprove: 1000 })
-    await assertSucceeds(updateDoc(exp('bob'), money(31000)))
+    await assertSucceeds(updateDoc(exp('bob'), { ...money(31000), updatedBy: 'bob' }))
     await seed('groups/g1/expenses/e2', { ...big, requiresApproval: true, approvals: { alice: true } })
-    await assertSucceeds(updateDoc(exp('bob'), money(29000)))
+    await assertSucceeds(updateDoc(exp('bob'), { ...money(29000), updatedBy: 'bob' }))
   })
   it('beyond the limit the approvals must be reset (the editor may keep only their own)', async () => {
     await seed('groups/g1', { ...group, editAutoApprove: 1000 })
-    await assertFails(updateDoc(exp('bob'), money(31001)))
-    await assertSucceeds(updateDoc(exp('bob'), { ...money(31001), approvals: deleteField() }))
+    await assertFails(updateDoc(exp('bob'), { ...money(31001), updatedBy: 'bob' }))
+    await assertSucceeds(updateDoc(exp('bob'), { ...money(31001), approvals: deleteField(), updatedBy: 'bob' }))
     await seed('groups/g1/expenses/e2', { ...big, requiresApproval: true, approvals: { alice: true, bob: true } })
-    await assertSucceeds(updateDoc(exp('bob'), { ...money(35000), approvals: { bob: true } }))
+    await assertSucceeds(updateDoc(exp('bob'), { ...money(35000), approvals: { bob: true }, updatedBy: 'bob' }))
   })
   it('with edit auto-approve off any amount change must reset the approvals', async () => {
-    await assertFails(updateDoc(exp('bob'), money(30100)))
-    await assertSucceeds(updateDoc(exp('bob'), { ...money(30100), approvals: deleteField() }))
+    await assertFails(updateDoc(exp('bob'), { ...money(30100), updatedBy: 'bob' }))
+    await assertSucceeds(updateDoc(exp('bob'), { ...money(30100), approvals: deleteField(), updatedBy: 'bob' }))
   })
   it('within the limit the mark still cannot be dropped above the threshold', async () => {
     await seed('groups/g1', { ...group, editAutoApprove: 1000 })
-    await assertFails(updateDoc(exp('bob'), { ...money(30500), requiresApproval: deleteField() }))
+    await assertFails(updateDoc(exp('bob'), { ...money(30500), requiresApproval: deleteField(), updatedBy: 'bob' }))
   })
   it('an expense never marked is not covered: crossing the threshold needs the mark', async () => {
     await seed('groups/g1', { ...group, editAutoApprove: 1000 })
     await seed('groups/g1/expenses/e3', { ...big, id: 'e3', ...money(9500) })
-    await assertFails(updateDoc(exp('bob', 'e3'), money(10200)))
-    await assertSucceeds(updateDoc(exp('bob', 'e3'), { ...money(10200), requiresApproval: true }))
+    await assertFails(updateDoc(exp('bob', 'e3'), { ...money(10200), updatedBy: 'bob' }))
+    await assertSucceeds(updateDoc(exp('bob', 'e3'), { ...money(10200), requiresApproval: true, updatedBy: 'bob' }))
   })
   it('below the threshold the mark may be cleared and the approvals left', async () => {
-    await assertSucceeds(updateDoc(exp('bob'), { ...money(8000), requiresApproval: deleteField() }))
+    await assertSucceeds(updateDoc(exp('bob'), { ...money(8000), requiresApproval: deleteField(), updatedBy: 'bob' }))
   })
   it('a non-money edit leaves the approvals alone', async () => {
-    await assertSucceeds(updateDoc(exp('bob'), { description: 'Hotel (2 nights)' }))
+    await assertSucceeds(updateDoc(exp('bob'), { description: 'Hotel (2 nights)', updatedBy: 'bob' }))
   })
   it('any member sets editAutoApprove; it must be a positive whole number', async () => {
     const g = (uid: string) => doc(db(uid), 'groups/g1')
@@ -162,8 +162,8 @@ describe('default threshold by currency (no approvalThreshold on the group)', ()
   it('the INR default also decides when the mark may be dropped', async () => {
     await seed('groups/g1', { ...noThreshold, currency: 'INR' })
     await seed('groups/g1/expenses/e2', { ...big, ...money(300000), requiresApproval: true })
-    await assertFails(updateDoc(exp('bob'), { ...money(250000), requiresApproval: deleteField() }))
-    await assertSucceeds(updateDoc(exp('bob'), { ...money(150000), requiresApproval: deleteField() }))
+    await assertFails(updateDoc(exp('bob'), { ...money(250000), requiresApproval: deleteField(), updatedBy: 'bob' }))
+    await assertSucceeds(updateDoc(exp('bob'), { ...money(150000), requiresApproval: deleteField(), updatedBy: 'bob' }))
   })
 })
 

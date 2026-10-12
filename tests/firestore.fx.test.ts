@@ -85,10 +85,17 @@ describe('expense.original', () => {
   })
   it('is validated on update too, and can be removed', async () => {
     await assertSucceeds(setDoc(e(), expense))
-    await assertFails(updateDoc(e(), { 'original.rate': -1 }))
+    await assertFails(updateDoc(e(), { 'original.rate': -1, updatedBy: 'alice' }))
     await assertSucceeds(
-      updateDoc(e(), { 'original.rate': 0.0425, 'original.source': 'manual', amount: 5100, paidBy: { alice: 5100 }, splits: { alice: 2550, p_bob: 2550 } }),
+      updateDoc(e(), {
+        'original.rate': 0.0425,
+        'original.source': 'manual',
+        amount: 5100,
+        paidBy: { alice: 5100 },
+        splits: { alice: 2550, p_bob: 2550 },
+        updatedBy: 'alice',
+      }),
     )
-    await assertSucceeds(updateDoc(e(), { original: deleteField() }))
+    await assertSucceeds(updateDoc(e(), { original: deleteField(), updatedBy: 'alice' }))
   })
 })

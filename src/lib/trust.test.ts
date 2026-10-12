@@ -123,6 +123,10 @@ describe('prepareExpenseSave', () => {
     expect(out.deletedAt).toBeUndefined()
     expect(prepareExpenseSave(undefined, exp({ amount: 5000, paidBy: { a: 5000 }, splits: { a: 5000 } }), group, 'ua').requiresApproval).toBeUndefined()
   })
+  it('an edit names its editor; a new expense has none, whatever the form carried', () => {
+    expect(prepareExpenseSave(undefined, exp({ updatedBy: 'ub' }), group, 'ua').updatedBy).toBeUndefined()
+    expect(prepareExpenseSave(exp({ updatedBy: 'uc' }), exp({ updatedBy: 'uc', description: 'Villa' }), group, 'ub').updatedBy).toBe('ub')
+  })
   it('an edit keeps flags and approvals when the money is unchanged', () => {
     const prev = exp({ dispute: flag, approvals: { ub: true }, requiresApproval: true })
     const out = prepareExpenseSave(prev, exp({ description: 'Villa' }), group, 'ua')
@@ -138,9 +142,19 @@ describe('prepareExpenseSave', () => {
   })
   it('occurrences never inherit trust fields or the receipt', () => {
     const o = prepareOccurrence(
-      exp({ dispute: flag, approvals: { ub: true }, deletedAt: 1, deletedBy: 'ua', receiptUrl: 'https://x/r.jpg', receiptPath: 'receipts/g/e-1.jpg' }),
+      exp({
+        dispute: flag,
+        approvals: { ub: true },
+        deletedAt: 1,
+        deletedBy: 'ua',
+        receiptUrl: 'https://x/r.jpg',
+        receiptPath: 'receipts/g/e-1.jpg',
+        updatedBy: 'ub',
+      }),
       group,
     )
+    // A copy is a new expense: the template's last editor isn't its editor (and the rules refuse one on create).
+    expect(o).not.toHaveProperty('updatedBy')
     expect(o).not.toHaveProperty('dispute')
     expect(o).not.toHaveProperty('approvals')
     expect(o).not.toHaveProperty('deletedAt')
@@ -156,7 +170,8 @@ describe('expenseEditPatch', () => {
   it('writes only the fields that changed and never the trust fields', () => {
     const next = prepareExpenseSave(prev, exp({ description: 'Hotel (2 nights)', notes: undefined, category: 'travel' }), group, 'ua')
     const p = expenseEditPatch(prev, next)
-    expect(p.set).toEqual({ description: 'Hotel (2 nights)', category: 'travel' })
+    // The editor is written with every edit (the rules require it to be the person saving).
+    expect(p.set).toEqual({ description: 'Hotel (2 nights)', category: 'travel', updatedBy: 'ua' })
     expect(p.unset).toEqual(['notes'])
     expect(p.approvals).toBeUndefined()
     expect(Object.keys(p.set)).not.toContain('dispute')
@@ -249,9 +264,11 @@ describe('edit auto-approve', () => {
 
 describe('expenseEditPatch (more)', () => {
   const prev = exp({ notes: 'old', approvals: { ub: true, ua: true }, requiresApproval: true })
-  it('is empty when nothing changed', () => {
+  it('only names the editor when nothing else changed; empty when the same person saves again', () => {
     const next = prepareExpenseSave(prev, exp({ notes: 'old' }), group, 'ua')
-    expect(expenseEditPatch(prev, next)).toEqual({ set: {}, unset: [] })
+    expect(expenseEditPatch(prev, next)).toEqual({ set: { updatedBy: 'ua' }, unset: [] })
+    const mine = { ...prev, updatedBy: 'ua' }
+    expect(expenseEditPatch(mine, prepareExpenseSave(mine, exp({ notes: 'old' }), group, 'ua'))).toEqual({ set: {}, unset: [] })
   })
 })
 

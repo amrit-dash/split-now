@@ -735,7 +735,7 @@ export function createLocalRepo(): Repo {
         .then((url) => {
           const e = state.expenses[expenseId]
           if (e) {
-            state.expenses[expenseId] = { ...e, receiptUrl: url }
+            state.expenses[expenseId] = { ...e, receiptUrl: url, updatedBy: actor(), updatedAt: Date.now() }
             commit()
           }
         })

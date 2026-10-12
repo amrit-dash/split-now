@@ -29,7 +29,7 @@ import { db, storage } from './admin'
 import { REGION } from './config'
 import { flagOn } from './lib/limits'
 import { AI_SECRETS } from './ai'
-import { expensePref, newlyWaiting, paymentOkPref } from './lib/approval-push'
+import { expensePref, newlyWaiting, paymentOkPref, reapprovalRecipients } from './lib/approval-push'
 import { budgetNote, expenseNote, paymentDecisionNote, paymentOkNote, reapprovalNote, settlementNote, settlementRecordedNote } from './lib/notify-text'
 import { payeeDecision, type ProofSettlement } from './lib/payment-proof'
 import { checkProof } from './payment-ok'
@@ -102,25 +102,32 @@ async function reapprovalPush(
   const ids = newlyWaiting(before as Parameters<typeof newlyWaiting>[0], after as Parameters<typeof newlyWaiting>[1], g.members ?? {})
   if (!ids.length) return
   const uids = uidsOf(g)
+  // The editor is on the expense (the rules make an edit name its own editor): they never hear
+  // about their own change. An expense edited before editors were recorded names nobody.
+  const editor = typeof after.updatedBy === 'string' ? after.updatedBy : undefined
+  const to = reapprovalRecipients(
+    ids.map((id) => memberUid(g.members, id, uids)),
+    editor,
+  )
+  if (!to.length) return
+  const editorName = editor ? await actorName(groupId, g, editor) : undefined
   const sent = await Promise.all(
-    ids
-      .map((id) => memberUid(g.members, id, uids))
-      .filter((u): u is string => !!u)
-      .map((u) =>
-        sendToUser(
-          u,
-          ['approvals'],
-          reapprovalNote({
-            groupId,
-            expenseId,
-            groupName: groupNameForRecipient(g, u),
-            emoji: g.emoji,
-            description: String(after.description ?? ''),
-            amount: after.amount,
-            currency: g.currency ?? 'INR',
-          }),
-        ),
+    to.map((u) =>
+      sendToUser(
+        u,
+        ['approvals'],
+        reapprovalNote({
+          groupId,
+          expenseId,
+          groupName: groupNameForRecipient(g, u),
+          emoji: g.emoji,
+          description: String(after.description ?? ''),
+          amount: after.amount,
+          currency: g.currency ?? 'INR',
+          editorName,
+        }),
       ),
+    ),
   )
   logger.info('reapproval push', { groupId, expenseId, waiting: ids.length, sent: sent.reduce((a, b) => a + b, 0) })
 }

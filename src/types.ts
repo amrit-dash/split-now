@@ -188,6 +188,12 @@ export interface Expense {
   createdBy: string
   createdAt: number
   updatedAt: number
+  /**
+   * uid of who last edited it (absent until the first edit; the rules make an edit name its own
+   * editor). A member merge records whoever carried it out. Shown as "edited by …" and used by
+   * the functions so an editor never gets a push about their own edit.
+   */
+  updatedBy?: string
   /** Present on a repeating "template" expense. See src/lib/recurrence.ts. */
   recurrence?: Recurrence
   /** Set on an occurrence generated from a template: the template's id. */

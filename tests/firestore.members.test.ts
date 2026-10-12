@@ -101,7 +101,7 @@ describe('old expenses that name a removed member', () => {
   it('stay editable', async () => {
     await removed('p_cat')
     await removed('bob')
-    await assertSucceeds(updateDoc(doc(db('alice'), 'groups/g1/expenses/e1'), { description: 'Dinner at Thalassa' }))
+    await assertSucceeds(updateDoc(doc(db('alice'), 'groups/g1/expenses/e1'), { description: 'Dinner at Thalassa', updatedBy: 'alice' }))
     await assertSucceeds(
       setDoc(doc(db('dan'), 'groups/g1/settlements/s1'), {
         id: 's1',
