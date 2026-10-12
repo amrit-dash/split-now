@@ -1,6 +1,6 @@
 /*
  * Appearance settings follow the account (users/{uid}/settings/appearance): theme, accent, dual
- * tone, text on accent and the animations. Set the accent on the web, install the app on a phone,
+ * tone, text on accent, the animations and the detail level. Set the accent on the web, install the app on a phone,
  * sign in, and it looks the same. The device still keeps its own copy (localStorage) so the first
  * paint never waits for the network, and everything works signed out or offline.
  *
@@ -15,6 +15,8 @@
  */
 
 import { ACCENTS, type AccentId, DEFAULT_ACCENT, getAccent, getDuo, type Ink, setAccent, setDuo, setInk, storedInks } from './accent'
+import { type LookChoice, resolveLookChoice } from './look'
+import { getLookPref, setLookPref } from './look-pref'
 import { DEFAULT_MOTION, getMotion, isDefaultMotion, type MotionPrefs, parseMotion, setMotion } from './motion'
 import { onPrefChange, withoutPrefEvents } from './pref-events'
 import { getTheme, setTheme, type Theme } from './theme'
@@ -25,6 +27,8 @@ export interface Appearance {
   duo: boolean
   inks: Partial<Record<AccentId, Ink>>
   motion: MotionPrefs
+  /** The detail level this person picked ('app': the admin's) */
+  look: LookChoice
   /** epoch ms of the change this copy carries */
   updatedAt: number
 }
@@ -47,17 +51,18 @@ export function parseAppearance(raw: unknown): Appearance | null {
     inks,
     // parseMotion takes JSON; the document holds the object.
     motion: parseMotion(JSON.stringify(r.motion && typeof r.motion === 'object' ? r.motion : {})),
+    look: resolveLookChoice(r.look),
     updatedAt: r.updatedAt,
   }
 }
 
 /** What goes into the document (the same shape; the rules whitelist it). */
 export function toAppearanceDoc(a: Appearance): Record<string, unknown> {
-  return { theme: a.theme, accent: a.accent, duo: a.duo, inks: { ...a.inks }, motion: { ...a.motion }, updatedAt: a.updatedAt }
+  return { theme: a.theme, accent: a.accent, duo: a.duo, inks: { ...a.inks }, motion: { ...a.motion }, look: a.look, updatedAt: a.updatedAt }
 }
 
 export const isDefaultAppearance = (a: Omit<Appearance, 'updatedAt'>): boolean =>
-  a.theme === 'system' && a.accent === DEFAULT_ACCENT && a.duo && Object.keys(a.inks).length === 0 && isDefaultMotion(a.motion)
+  a.theme === 'system' && a.accent === DEFAULT_ACCENT && a.duo && Object.keys(a.inks).length === 0 && isDefaultMotion(a.motion) && a.look === 'app'
 
 /**
  * What to do when the account's copy arrives: take it (`pull`), send ours (`push`), or nothing.
@@ -91,7 +96,7 @@ function writeAt(at: number) {
 }
 
 export function localAppearance(at = readAt()): Appearance {
-  return { theme: getTheme(), accent: getAccent(), duo: getDuo(), inks: storedInks(), motion: getMotion(), updatedAt: at }
+  return { theme: getTheme(), accent: getAccent(), duo: getDuo(), inks: storedInks(), motion: getMotion(), look: getLookPref(), updatedAt: at }
 }
 
 /** Put the account's copy on this device, live, without it counting as a new change. */
@@ -102,6 +107,7 @@ export function applyAppearance(a: Appearance): void {
     for (const [id, ink] of Object.entries(a.inks)) setInk(ink as Ink, id as AccentId)
     setAccent(a.accent)
     setMotion({ ...DEFAULT_MOTION, ...a.motion })
+    setLookPref(a.look)
   })
   writeAt(a.updatedAt)
 }

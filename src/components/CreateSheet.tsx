@@ -13,7 +13,8 @@ import { Sheet } from './Sheet'
 
 // Tile subtitles: nice to read the first time, gone in the Minimal look (the titles say it).
 const ADD_HINT: Hint = { full: 'What you paid, and how to split it', tier: 'help' }
-const SPLIT_HINT: Hint = { full: 'Everyone taps what they had', tier: 'help' }
+// "Live table" is a name people learn here, so its line stays in every look (Split by items is the form's own split type).
+const SPLIT_HINT: Hint = { full: 'Friends scan a QR and tap what they had', short: 'Everyone taps what they had', tier: 'key' }
 const SCAN_HINT: Hint = { full: 'Read a bill or payment screenshot', short: 'Bills and payment screenshots', tier: 'help' }
 const GROUP_HINT: Hint = { full: 'Trip, flat, dinner, anything', tier: 'help' }
 const SETTLE_HINT: Hint = { full: 'Record a payment', tier: 'help' }
@@ -61,9 +62,7 @@ export function CreateSheet({ open, onClose, groupId }: { open: boolean; onClose
         <ChevronRight size={20} className="shrink-0 text-on-fill/80" aria-hidden />
       </button>
       <div className="mt-3 grid grid-cols-2 gap-2">
-        {liveTables && (
-          <Tile icon={<ReceiptText size={22} />} title="Split by items" text={SPLIT_HINT} onClick={() => go(`/split${q}`)} testId="create-split" />
-        )}
+        {liveTables && <Tile icon={<ReceiptText size={22} />} title="Live table" text={SPLIT_HINT} onClick={() => go(`/split${q}`)} testId="create-split" />}
         <Tile icon={<ScanLine size={22} />} title="Scan" text={SCAN_HINT} onClick={() => go('/scan')} testId="create-scan" />
         <Tile icon={<Users size={22} />} title="New group" text={GROUP_HINT} onClick={() => go('/groups/new')} testId="create-group" />
         <Tile

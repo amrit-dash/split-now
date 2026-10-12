@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_LOOK, hintView, isLook, LOOK_INFO, LOOKS, lookDetail, resolveLook, showsAt } from './look'
+import { DEFAULT_LOOK, effectiveLook, hintView, isLook, LOOK_CHOICES, LOOK_INFO, LOOKS, lookDetail, resolveLook, resolveLookChoice, showsAt } from './look'
 
 describe('resolveLook', () => {
   it('keeps a known look and falls back to Full for anything else', () => {
@@ -60,5 +60,20 @@ describe('lookDetail / showsAt', () => {
     expect(showsAt('tooltip', 2)).toBe(true)
     expect(showsAt('needed', 3)).toBe(false)
     expect(showsAt('minimal', 1)).toBe(true)
+  })
+})
+
+describe('a person’s own choice', () => {
+  it('follows the admin until the person picks a look', () => {
+    expect(effectiveLook('minimal', 'app')).toBe('minimal')
+    expect(effectiveLook('minimal', 'full')).toBe('full')
+    expect(effectiveLook('full', 'tooltip')).toBe('tooltip')
+  })
+  it('reads anything unknown as following the app', () => {
+    expect(resolveLookChoice('needed')).toBe('needed')
+    expect(resolveLookChoice('app')).toBe('app')
+    expect(resolveLookChoice('loud')).toBe('app')
+    expect(resolveLookChoice(undefined)).toBe('app')
+    expect(LOOK_CHOICES[0]).toBe('app')
   })
 })

@@ -226,7 +226,8 @@ export default function AppSettings() {
           options={LOOKS.map((l) => ({ value: l, label: LOOK_INFO[l].label }))}
         />
         <p className="text-muted mt-2 text-xs" aria-live="polite">
-          {LOOK_INFO[cfg.look].hint} For everyone; the admin console always shows everything.
+          {LOOK_INFO[cfg.look].hint} The default for everyone; each person can pick their own in Settings → Preferences. The admin console always shows
+          everything.
         </p>
       </div>
       <ChangedBy at={saved.updatedAt} by={saved.updatedBy} />

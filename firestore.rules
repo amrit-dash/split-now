@@ -176,10 +176,12 @@ service cloud.firestore {
             && request.resource.data.categories is map && request.resource.data.categories.size() <= 200
             && request.resource.data.get('touched', {}) is map && request.resource.data.get('touched', {}).size() <= 200
             && request.resource.data.get('updatedAt', 0) is int))
-          // settings/appearance: theme, accent and animations, so they follow the account
+          // settings/appearance: theme, accent, animations and detail level, so they follow the account
           // (src/lib/appearance-sync.ts). Small maps only; values are re-checked on read.
           && (settingId != 'appearance' || (
-            request.resource.data.keys().hasOnly(['theme', 'accent', 'duo', 'inks', 'motion', 'updatedAt'])
+            request.resource.data.keys().hasOnly(['theme', 'accent', 'duo', 'inks', 'motion', 'look', 'updatedAt'])
+            // The person's own detail level; 'app' follows config/app.look (src/lib/look.ts)
+            && request.resource.data.get('look', 'app') in ['app', 'full', 'needed', 'minimal', 'tooltip']
             && request.resource.data.get('theme', 'system') in ['system', 'light', 'dark']
             && request.resource.data.get('accent', '') is string && request.resource.data.get('accent', '').size() <= 20
             && request.resource.data.get('duo', true) is bool

@@ -1,6 +1,7 @@
 /*
- * The detail level ("look") an admin picks for everyone in Admin → App: how much explaining the
- * app does under its titles and how many optional sections it shows.
+ * The detail level ("look"): how much explaining the app does under its titles and how many
+ * optional sections it shows. An admin picks the default for everyone in Admin → App; each person
+ * may pick their own in Settings → Preferences (LookChoice, effectiveLook).
  *   full     every subtext as written, every section
  *   needed   "When needed": the one-line version of each subtext; the ones only worth reading
  *            the first time are dropped
@@ -24,6 +25,18 @@ export const LOOK_INFO: Record<Look, { label: string; hint: string }> = {
   minimal: { label: 'Minimal', hint: 'Titles only; a few must-read lines stay.' },
   tooltip: { label: 'Tooltip', hint: 'Every explanation behind an (i) beside its title.' },
 }
+
+/**
+ * A person's own choice in Settings → Preferences: one of the looks, or 'app' to follow the one
+ * the admin picked (the default). It follows the account like the theme (appearance-sync.ts).
+ */
+export type LookChoice = Look | 'app'
+export const LOOK_CHOICES: readonly LookChoice[] = ['app', ...LOOKS]
+export const isLookChoice = (v: unknown): v is LookChoice => v === 'app' || isLook(v)
+export const resolveLookChoice = (v: unknown): LookChoice => (isLookChoice(v) ? v : 'app')
+
+/** The look to draw: the person's own choice, else the admin's. */
+export const effectiveLook = (admin: Look, mine: LookChoice): Look => (mine === 'app' ? admin : mine)
 
 export const isLook = (v: unknown): v is Look => typeof v === 'string' && (LOOKS as readonly string[]).includes(v)
 

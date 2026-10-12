@@ -54,7 +54,7 @@ bill scanning, live table splits, UPI-first settle-ups and optional AI.
 <table>
 <tr>
 <td align="center"><img src="docs/assets/screens/dark-home.png" width="220" alt="Home" /><br /><sub><b>Home</b>: balance card, groups and friends, recent activity</sub></td>
-<td align="center"><img src="docs/assets/screens/dark-create.png" width="220" alt="Create sheet with Quick add" /><br /><sub><b>Create</b>: Quick add, Split by items, Scan, new group</sub></td>
+<td align="center"><img src="docs/assets/screens/dark-create.png" width="220" alt="Create sheet with Quick add" /><br /><sub><b>Create</b>: Quick add, Live table, Scan, new group</sub></td>
 <td align="center"><img src="docs/assets/screens/dark-add.png" width="220" alt="Add expense" /><br /><sub><b>Add expense</b>: every split type, scan a receipt</sub></td>
 </tr>
 <tr>
@@ -64,7 +64,7 @@ bill scanning, live table splits, UPI-first settle-ups and optional AI.
 </tr>
 <tr>
 <td align="center"><img src="docs/assets/screens/dark-insights.png" width="220" alt="Insights" /><br /><sub><b>Insights</b>: animated charts and filters</sub></td>
-<td align="center"><img src="docs/assets/screens/dark-split.png" width="220" alt="Split by items" /><br /><sub><b>Split by items</b>: a live table, no sign-up</sub></td>
+<td align="center"><img src="docs/assets/screens/dark-split.png" width="220" alt="Live table" /><br /><sub><b>Live table</b>: everyone taps their items, no sign-up</sub></td>
 <td align="center"><img src="docs/assets/screens/dark-members.png" width="220" alt="Group members" /><br /><sub><b>Members</b>: add people, settle up or remove</sub></td>
 </tr>
 <tr>
@@ -81,7 +81,7 @@ bill scanning, live table splits, UPI-first settle-ups and optional AI.
 | 👥 **Groups, 1:1s and a personal wallet** | Trips, homes, couples, events. Add people before they sign up; they claim their place by invite link or code. Photos and names follow each person's own profile once linked. Leave, archive or remove members. |
 | ➗ **Every kind of split** | Equally, exact amounts, percentages, shares, equal + adjustments, and by item. Several payers per expense. Rounding always adds up. Recurring expenses. |
 | ⚡ **Quick add** | Type or say "dinner 1200 with Rohan" and the form opens filled in. Nothing is saved until you check it. |
-| 🍽️ **Split by items, live** | Scan the bill at the table and show a QR code. Everyone opens it on their own phone, with no account needed, and taps what they had. Shared items split by portions, and everyone sees their total with tax and tip. Finish into an existing group or a new one. |
+| 🍽️ **Live table** | Scan the bill at the table and show a QR code. Everyone opens it on their own phone, with no account needed, and taps what they had. Shared items split by portions, and everyone sees their total with tax and tip. Finish into an existing group or a new one. |
 | 📷 **Smart scan** | Bills, payment screenshots (GPay, PhonePe, Paytm, BHIM) and statement screenshots, with many transactions at once flagged by trip dates. Reading is on the device by default, or by Gemini when AI is on. The last 10 scans are kept, and re-scanning the same bill is spotted. |
 | 🤖 **AI features (optional)** | Gemini reads bills into items, taxes and a total, statements into transactions, and bank SMS the built-in parser can't. Use your own free key, the project key (admin-controlled), or no AI at all. [docs/AI.md](docs/AI.md) |
 | 💬 **Auto-capture** | Bank and UPI debit SMS, Apple Pay taps and the share sheet land in an **Inbox** that asks whether each payment was shared. Nothing is added without your OK. [docs/AUTO_CAPTURE.md](docs/AUTO_CAPTURE.md) |

@@ -1,8 +1,9 @@
-import { isValidElement, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { isValidElement, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Info } from 'lucide-react'
 import { useAppConfig } from '@/hooks/useAppConfig'
-import { hintView, showsAt, type HintSpec, type Look } from '@/lib/look'
+import { effectiveLook, hintView, showsAt, type HintSpec, type Look } from '@/lib/look'
+import { getLookPref, subscribeLookPref } from '@/lib/look-pref'
 
 /**
  * Subtexts that follow the admin's detail level (Admin → App → Detail level, src/lib/look.ts).
@@ -15,8 +16,11 @@ export type Hint = HintSpec<ReactNode>
 /** A subtext prop may be plain text (always shown, as before) or a Hint. */
 export const isHint = (x: unknown): x is Hint => typeof x === 'object' && x !== null && !isValidElement(x) && !Array.isArray(x) && 'full' in x
 
+/** The look to draw: this person's own choice (Settings → Preferences), else the admin's. */
 export function useLook(): Look {
-  return useAppConfig().look
+  const admin = useAppConfig().look
+  const mine = useSyncExternalStore(subscribeLookPref, getLookPref, getLookPref)
+  return effectiveLook(admin, mine)
 }
 
 /** True when the current look shows optional UI of this detail (2: hidden in Minimal; 3: Full and Tooltip only). */

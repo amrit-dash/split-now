@@ -36,7 +36,7 @@ const NO_GROUP = ''
 const blank = (): Row => ({ id: uid('r_'), name: '', amount: '' })
 
 /**
- * "Split by items": scan or type the bill, check the items, then open a live table. Everyone at
+ * "Live table": scan or type the bill, check the items, then open a live table. Everyone at
  * the table scans the QR and taps what they had, no app or account needed (src/pages/Table.tsx).
  */
 const PAGE_HINT: Hint = { full: 'Everyone taps what they had', tier: 'help' }
@@ -54,7 +54,7 @@ const taxHint = (mode: TaxSplit): Hint => ({
 })
 
 export default function SplitBill() {
-  usePageTitle('Split by items')
+  usePageTitle('Live table')
   const groups = useGroups()
   const { user, profile } = useMe()
   const nav = useNavigate()
@@ -199,7 +199,7 @@ export default function SplitBill() {
 
   return (
     <div className="mx-auto min-h-dvh max-w-lg px-4 pb-40">
-      <PageHeader title="Split by items" back subtitle={PAGE_HINT} />
+      <PageHeader title="Live table" back subtitle={PAGE_HINT} />
 
       {/* Scan */}
       <div className="card overflow-hidden">

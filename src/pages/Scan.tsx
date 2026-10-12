@@ -91,7 +91,7 @@ export default function Scan() {
   // and the run counter drops anything that still comes back, so the overlay goes at once.
   const run = useRef(0)
   const [cancelled, setCancelled] = useState(false)
-  // History: receipts also match bills scanned on Split by items (same kind of result).
+  // History: receipts also match bills scanned for a Live table (same kind of result).
   const receiptHist = useScanHistory('receipt', ['bill'])
   const paymentHist = useScanHistory('payment')
   const hist = mode === 'payment' ? paymentHist : receiptHist
@@ -481,13 +481,13 @@ export default function Scan() {
                   type="button"
                   className="btn-primary mt-3 w-full"
                   onClick={() => {
-                    if (scanRef) hist.outcome(scanRef.id, { label: 'Split by items' }, scanRef.kind)
+                    if (scanRef) hist.outcome(scanRef.id, { label: 'Live table' }, scanRef.kind)
                     pending.receipt = { parsed: { ...receipt, currency: cur }, file }
                     nav('/split')
                   }}
                   data-testid="scan-split-items"
                 >
-                  <ListChecks size={18} aria-hidden /> Split by items
+                  <ListChecks size={18} aria-hidden /> Split at a live table
                 </button>
               )}
             </div>

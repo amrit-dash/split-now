@@ -27,7 +27,8 @@ import {
   type LogRow,
 } from '@/lib/capture-settings'
 import { useConfirm } from './ConfirmSheet'
-import { HintText, InfoTip, useShows, type Hint } from './Hint'
+import { captureView } from '@/lib/capture-view'
+import { HintText, InfoTip, useLook, type Hint } from './Hint'
 import { formatRange } from './Misc'
 import { CardSkeleton } from './Skeleton'
 import { Switch } from './Switch'
@@ -180,8 +181,8 @@ export function AutoCapture() {
   const lastUsed = (t: CaptureToken) => t.lastUsedAt ?? demoUse[t.token]
   const lastAny = Math.max(0, ...(tokens ?? []).map((t) => lastUsed(t) ?? 0)) || undefined
   const paused = prefs?.capturePaused ?? false
-  // Before a capture key exists, Minimal shows only the intro, the switch and Set up: the rest has nothing to act on yet.
-  const showPanels = useShows(2) || !!tokens?.length
+  // What this detail level shows, set up or not (src/lib/capture-view.ts).
+  const view = captureView(useLook(), !!tokens?.length)
 
   // Off for everyone: the webhook answers "paused" and the wizard redirects, so these would be dead controls.
   if (!autoCapture) return <AutoCaptureOff />
@@ -193,7 +194,7 @@ export function AutoCapture() {
         <InfoTip hint={INTRO_HINT} label="About auto-capture" />
       </div>
 
-      {prefs ? (
+      {!view.master ? null : prefs ? (
         <div className="card mt-3 flex items-center gap-3 p-3" data-testid="capture-master">
           <span
             className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${paused ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'}`}
@@ -234,11 +235,11 @@ export function AutoCapture() {
         <ChevronRight size={18} className="shrink-0 text-slate-400" aria-hidden />
       </Link>
 
-      {prefs && showPanels && (
+      {prefs && (view.scope || view.filters || view.trips) && (
         <div className={`transition-opacity ${paused ? 'opacity-50' : ''}`}>
-          <OutsideTripsChoice on={prefs.outsideTrips} onChange={(v) => update({ outsideTrips: v })} />
-          <Filters prefs={prefs} onChange={update} />
-          {groups && <TripPauses groups={groups} paused={prefs.pausedTrips} onChange={(pausedTrips) => update({ pausedTrips })} />}
+          {view.scope && <OutsideTripsChoice on={prefs.outsideTrips} onChange={(v) => update({ outsideTrips: v })} />}
+          {view.filters && <Filters prefs={prefs} onChange={update} />}
+          {view.trips && groups && <TripPauses groups={groups} paused={prefs.pausedTrips} onChange={(pausedTrips) => update({ pausedTrips })} />}
           <p className="text-muted mt-3 px-1 text-xs">
             {!prefs.captures
               ? 'Capture notifications are off (Settings → Notifications).'
@@ -254,9 +255,9 @@ export function AutoCapture() {
       {tokens && tokens.length > 0 && (
         <Keys tokens={tokens} groups={groups ?? []} lastUsed={lastUsed} onCopy={(t) => copyIt(t.token, 'Capture key')} onRevoke={revoke} />
       )}
-      {log && showPanels && <RecentActivity rows={log} onClear={() => clearCaptureLog(user.uid, repo.mode, log).then(() => toast('Activity cleared'))} />}
+      {log && view.activity && <RecentActivity rows={log} onClear={() => clearCaptureLog(user.uid, repo.mode, log).then(() => toast('Activity cleared'))} />}
 
-      {showPanels && (
+      {view.advanced && (
         <details className="card mt-3 p-3">
           <summary className="text-muted cursor-pointer py-1 text-sm font-semibold">Advanced: Apple Pay Shortcut and capture links</summary>
 

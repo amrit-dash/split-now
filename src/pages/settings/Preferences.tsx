@@ -1,11 +1,14 @@
-import { useState } from 'react'
+import { useState, useSyncExternalStore } from 'react'
 import { Moon, Sun, SunMoon } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { useGroups } from '@/hooks/data'
+import { useAppConfig } from '@/hooks/useAppConfig'
 import { CURRENCIES } from '@/lib/money'
 import { errText } from '@/lib/errors'
 import { appLocale } from '@/lib/locale'
+import { LOOK_CHOICES, LOOK_INFO, type LookChoice } from '@/lib/look'
+import { getLookPref, setLookPref, subscribeLookPref } from '@/lib/look-pref'
 import { getTheme, setTheme as saveTheme, type Theme } from '@/lib/theme'
 import { AccentPicker } from '@/components/AccentPicker'
 import { HintText, InfoTip, useShows, type Hint } from '@/components/Hint'
@@ -21,15 +24,26 @@ const CURRENCY_HINT: Hint = {
   short: 'For new groups and totals across groups',
   tier: 'help',
 }
-const SYNC_HINT: Hint = { full: 'Theme and accent are the same on every device you sign in on.', short: 'Same on every device you sign in on', tier: 'help' }
+const SYNC_HINT: Hint = {
+  full: 'Theme, accent and detail level are the same on every device you sign in on.',
+  short: 'Same on every device you sign in on',
+  tier: 'help',
+}
+const DETAIL_HINT: Hint = {
+  full: 'How much the app explains under each option. Lines that stop a mistake with money always stay.',
+  short: 'How much the app explains under each option',
+  tier: 'help',
+}
 
-/** /settings/preferences: default currency (with the rates refresh), theme and accent. All autosave; theme and accent follow the account (appearance-sync.ts). */
+/** /settings/preferences: default currency (with the rates refresh), theme, accent and detail level. All autosave; the look follows the account (appearance-sync.ts). */
 export default function Preferences() {
   const { profile } = useMe()
   const toast = useToast()
   const [theme, setTheme] = useState<Theme>(getTheme())
   const [currencySaved, flashCurrency] = useSavedFlash()
   const [lookSaved, flashLook] = useSavedFlash()
+  const adminLook = useAppConfig().look
+  const lookChoice = useSyncExternalStore(subscribeLookPref, getLookPref, getLookPref)
   const groups = useGroups()
   const showAll = useShows(2)
   // Minimal hides "Collect in" unless it matters: a group in another currency, or it's already on (so it can be turned off).
@@ -130,6 +144,31 @@ export default function Preferences() {
           />
         </div>
         <AccentPicker onChange={flashLook} />
+        <div>
+          <div className="flex items-center">
+            <label className="label !mb-0" htmlFor="detail-level">
+              Detail level
+            </label>
+            <InfoTip hint={DETAIL_HINT} label="About detail level" />
+          </div>
+          <div className="mt-1.5">
+            <Select<LookChoice>
+              id="detail-level"
+              aria-label="Detail level"
+              value={lookChoice}
+              onChange={(v) => {
+                setLookPref(v)
+                flashLook()
+              }}
+              options={LOOK_CHOICES.map((c) =>
+                c === 'app'
+                  ? { value: c, label: `App default (${LOOK_INFO[adminLook].label})`, text: 'App default', hint: 'Follows what Split Now sets' }
+                  : { value: c, label: LOOK_INFO[c].label, hint: LOOK_INFO[c].hint },
+              )}
+            />
+          </div>
+          <HintText hint={DETAIL_HINT} className="text-muted mt-1.5 text-xs" />
+        </div>
         <HintText hint={SYNC_HINT} />
       </div>
     </SettingsPage>
