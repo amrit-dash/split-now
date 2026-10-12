@@ -6,6 +6,8 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 6.2.1 — October 2026
+
 - Inbox → Recently handled: Clear all sits beside the arrow and shows only while the list is open (just the bin icon on narrow phones).
 
 ## 6.2.0 — October 2026
