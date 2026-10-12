@@ -704,18 +704,49 @@ function Handled({ list, groups }: { list: Capture[]; groups: Group[] }) {
       },
     })
   }
+  // Clear all is a tidy-up too: everything goes at once, and one Undo brings every one of them back.
+  const clearAll = () => {
+    const gone = [...list]
+    repo
+      .deleteCaptures(
+        user.uid,
+        gone.map((c) => c.id),
+      )
+      .catch((e) => toast(errText(e), 'err'))
+    setOpen(false)
+    setShowAll(false)
+    toast(`Cleared ${gone.length} handled ${gone.length === 1 ? 'payment' : 'payments'}`, 'ok', {
+      action: {
+        label: 'Undo',
+        run: () => {
+          for (const c of gone) void repo.saveCapture(user.uid, c)
+        },
+      },
+    })
+  }
   return (
     <section className="mt-6">
-      <button
-        type="button"
-        className="text-muted flex min-h-11 w-full items-center justify-between px-1 py-1 text-sm font-semibold"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        data-testid="inbox-handled"
-      >
-        Recently handled · {list.length}
-        <ChevronDown size={18} className={`transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
-      </button>
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          className="text-muted flex min-h-11 min-w-0 flex-1 items-center justify-between px-1 py-1 text-sm font-semibold"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          data-testid="inbox-handled"
+        >
+          Recently handled · {list.length}
+          <ChevronDown size={18} className={`transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
+        </button>
+        <button
+          type="button"
+          className="flex min-h-11 shrink-0 items-center gap-1 rounded-full px-3 text-sm font-semibold text-brand-600 dark:text-brand-300"
+          onClick={clearAll}
+          aria-label={`Clear all ${list.length} recently handled payments`}
+          data-testid="inbox-handled-clear"
+        >
+          <Trash2 size={15} aria-hidden /> Clear all
+        </button>
+      </div>
       {open && (
         <div className="card mt-2 divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
           {shown.map((c) => {

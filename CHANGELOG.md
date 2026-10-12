@@ -6,6 +6,13 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 6.2.0 — October 2026
+
+- **Group chat updates are system messages**: each expense, payment or change of people in the group shows on the left as its own update, with an icon for what it's about, so it never looks like someone talking. Three or more in a row fold into one line ("5 updates" and the latest) that opens to show them all. Readable on the narrowest phones.
+- **About this chat is tidier**: what the chat is sits in one highlighted card, the how-tos (tools, tags, replies) fold away under How to use it, and the switches are grouped under Your settings, with explanations that follow your detail level.
+- **Lines under menu options are consistent**: in a list of options, every option has a short line under it or none does, whatever the detail level. A line saying why an option is greyed out (like "Settle up first") always shows.
+- **Inbox → Recently handled → Clear all** removes every handled payment at once, with Undo.
+
 ## 6.1.1 — October 2026
 
 - For admins: Admin → AI names what Split Now's key pays for. The box is headed "What Split Now's key pays for", and its switches read **Bills, statements, Quick add and chat** (payment screenshot checks count there too) and **Bank SMS**. A line says these only stop Split Now's key paying (people with their own key keep using AI) and points to Flags → AI to turn a feature off for everyone.

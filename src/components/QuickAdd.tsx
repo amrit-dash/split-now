@@ -453,7 +453,8 @@ export function QuickAdd({
                     label: g.name,
                     text: g.name,
                     icon: <GroupIcon emoji={g.emoji} group={g} size={24} />,
-                    hint: which && named.kind === 'ambiguous' && named.ids.includes(g.id) ? 'Fits your line' : undefined,
+                    // Every option has a line (New group… explains itself below), so the list never shows some lines and not others.
+                    hint: which && named.kind === 'ambiguous' && named.ids.includes(g.id) ? `Fits your line · ${g.currency}` : g.currency,
                   })),
                   {
                     value: NEW_GROUP,

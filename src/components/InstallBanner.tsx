@@ -205,7 +205,12 @@ export function InstallRow({ className = 'card', testId = 'install-row' }: { cla
         </span>
         <span className="min-w-0 flex-1">
           <span className="block">Install Split Now {phone ? 'on this phone' : 'on this computer'}</span>
-          <HintText hint={{ full: hint, tier: 'help' }} as="span" className="text-muted block text-xs font-normal" />
+          {/* 'help' like the rows it sits among (Profile, Settings → Data). */}
+          <HintText
+            hint={{ full: hint, short: method === 'ios' ? 'For notifications and offline use' : undefined, tier: 'help' }}
+            as="span"
+            className="text-muted block text-xs font-normal"
+          />
         </span>
         <ChevronRight size={18} className="text-slate-400" aria-hidden />
       </button>

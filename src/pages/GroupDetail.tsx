@@ -627,6 +627,7 @@ export default function GroupDetail() {
           <MenuRow
             icon={<Pencil size={20} />}
             label="Edit group"
+            hint={MENU_HINTS.edit}
             onClick={() => {
               setMenu(false)
               nav(`/groups/${group.id}/edit`)
@@ -636,7 +637,7 @@ export default function GroupDetail() {
             <MenuRow
               icon={<Users size={20} />}
               label="Members"
-              hint={{ full: 'Add people, or remove someone who is settled up', tier: 'extra' }}
+              hint={MENU_HINTS.members}
               onClick={() => {
                 setMenu(false)
                 nav(`/groups/${group.id}/members`)
@@ -648,6 +649,7 @@ export default function GroupDetail() {
             <MenuRow
               icon={<Link2 size={20} />}
               label="Invite"
+              hint={MENU_HINTS.invite}
               onClick={() => {
                 setMenu(false)
                 openInvite()
@@ -657,16 +659,23 @@ export default function GroupDetail() {
           <MenuRow
             icon={<BarChart3 size={20} />}
             label="Insights"
+            hint={MENU_HINTS.insights}
             onClick={() => {
               setMenu(false)
               nav(`/insights?group=${group.id}`)
             }}
           />
-          <MenuRow icon={<Download size={20} />} label="Export CSV" onClick={exportCsv} testId="group-export" />
+          <MenuRow icon={<Download size={20} />} label="Export CSV" hint={MENU_HINTS.export} onClick={exportCsv} testId="group-export" />
           <MenuRow
             icon={<Archive size={20} />}
             label={archive.label}
-            hint={{ full: archive.hint, tier: 'key' }}
+            // Greyed out, its reason is a status line (always shown); otherwise what it does, like every other row.
+            hint={
+              archive.disabled
+                ? undefined
+                : { full: archive.hint, short: archive.label === 'Archive' ? 'Only for you' : 'Back into your balances', tier: 'help' }
+            }
+            status={archive.disabled ? archive.hint : undefined}
             disabled={archive.disabled}
             onClick={() => setArchived(!group.archived)}
             testId="group-archive"
@@ -675,7 +684,8 @@ export default function GroupDetail() {
             <MenuRow
               icon={<LogOut size={20} />}
               label="Leave group"
-              hint={myBal === 0 ? undefined : { full: 'Settle up first', tier: 'key' }}
+              hint={MENU_HINTS.leave}
+              status={myBal === 0 ? undefined : 'Settle up first'}
               onClick={() => {
                 setMenu(false)
                 void removeMember(me)
@@ -706,6 +716,17 @@ function useChatReadAt(groupId: string | undefined): number | undefined {
   return at
 }
 
+/** The ⋯ menu's lines: one per row, all 'help', so they show together or not at all (MenuRow). */
+const MENU_HINTS = {
+  edit: { full: 'Name, dates, currency and approvals', short: 'Name, dates, currency', tier: 'help' },
+  members: { full: 'Add people, or remove someone who is settled up', short: 'Add or remove people', tier: 'help' },
+  invite: { full: 'A link or QR code friends can join with', short: 'Share a join link', tier: 'help' },
+  insights: { full: 'Where the group’s money went, in charts', short: 'Spending charts', tier: 'help' },
+  export: { full: 'Every expense and payment as a spreadsheet', short: 'Download a spreadsheet', tier: 'help' },
+  leave: { full: 'You leave; what you added stays in the group', short: 'Leave this group', tier: 'help' },
+  delete: { full: 'For everyone, restorable for 30 days', short: 'For everyone, restorable for 30 days', tier: 'help' },
+} satisfies Record<string, Hint>
+
 const SCAN_INVITE_HINT: Hint = { full: 'Friends next to you can scan this with their phone camera', short: 'Scan with a phone camera to join' }
 const SIMPLIFY_TIP: Hint = {
   full: (
@@ -719,6 +740,7 @@ function MenuRow({
   icon,
   label,
   hint,
+  status,
   onClick,
   tone,
   testId,
@@ -726,8 +748,13 @@ function MenuRow({
 }: {
   icon: React.ReactNode
   label: string
-  /** ⋯ rows: what a row does is noise past Full ('extra'); why it is greyed out or what it does to others is 'key'. */
+  /**
+   * What the row does. Every row of the ⋯ menu has one, all at the same tier (MENU_HINTS), so a
+   * detail level shows a line under every row or under none: never some.
+   */
   hint?: Hint
+  /** Why the row is greyed out (or can't be done yet): state, not explanation, so it shows in every look. */
+  status?: string
   onClick: () => void
   tone?: 'danger'
   testId?: string
@@ -751,7 +778,11 @@ function MenuRow({
         <span className="min-w-0 flex-1">
           <span className="block font-medium">{label}</span>
           {/* Inside the row's button: no (i) here, the line simply follows the look. */}
-          {hint && <HintText hint={hint} className="text-muted block text-xs" as="span" />}
+          {status ? (
+            <span className="text-muted block text-xs">{status}</span>
+          ) : (
+            hint && <HintText hint={hint} className="text-muted block text-xs" as="span" />
+          )}
         </span>
         <ChevronRight size={18} className="text-slate-300 dark:text-slate-600" aria-hidden />
       </button>
@@ -1386,7 +1417,8 @@ function DeleteRow({ group, debts, creator, close }: { group: Group; debts: Debt
     <MenuRow
       icon={<Trash2 size={20} />}
       label="Delete group"
-      hint={{ full: state.allowed ? 'For everyone, restorable for 30 days' : state.reason, tier: 'key' }}
+      hint={state.allowed ? MENU_HINTS.delete : undefined}
+      status={state.allowed ? undefined : state.reason}
       onClick={() => {
         close()
         void run()

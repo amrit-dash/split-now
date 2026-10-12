@@ -154,6 +154,23 @@ export function updatesLine(entries: ActivityEntry[], text: (a: ActivityEntry) =
   return `${head} · ${text(latest)}`
 }
 
+/**
+ * Updates between messages are system messages, one per update. Three or more in a row (nothing
+ * said in between, the same day) fold into one summary line that opens to show them all; one or
+ * two are shown as they are.
+ */
+export const UPDATES_FOLD_AT = 3
+export const foldsUpdates = (entries: readonly unknown[]) => entries.length >= UPDATES_FOLD_AT
+
+/** What an update is about, for its icon. */
+export type UpdateKind = 'expense' | 'payment' | 'people' | 'group'
+export function updateKind(type: ActivityEntry['type']): UpdateKind {
+  if (type.startsWith('expense.')) return 'expense'
+  if (type.startsWith('settlement.')) return 'payment'
+  if (type.startsWith('member.')) return 'people'
+  return 'group'
+}
+
 /** Messages by others newer than `readAt` (the badge on the chat button). */
 export function unreadCount(messages: ChatMessage[] | null, readAt: number | undefined, me: string): number {
   if (!messages) return 0

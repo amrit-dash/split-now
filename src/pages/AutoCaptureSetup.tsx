@@ -460,10 +460,12 @@ export default function AutoCaptureSetup() {
                 </span>
               }
               title="All my trips"
+              // The trips below always show their dates, so this row keeps a line in every look too ('key', shortest in Minimal).
               detail={{
                 full: `Matches any trip whose dates include the payment. ${outsideTripsText(!!prefs?.outsideTrips)}`,
                 short: 'Matches any trip whose dates include the payment',
-                tier: 'help',
+                min: 'Any trip’s dates',
+                tier: 'key',
               }}
             />
             {shared.map((g) => (

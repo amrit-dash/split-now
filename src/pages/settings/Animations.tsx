@@ -94,7 +94,7 @@ export default function Animations() {
             onChange={(fireworks) => set({ fireworks })}
             testId="motion-fireworks"
           />
-          {/* Fine-tuning: hidden in Minimal; the main switches above and below always stay. */}
+          {/* Fine-tuning: hidden in Minimal; the main switches above and below always stay. Every row in a card has a 'help' line, so they show together or not at all. */}
           <Detail min={2}>
             <Sub off={!prefs.fireworks}>
               <SizePicker
@@ -108,7 +108,7 @@ export default function Animations() {
             <Sub off={!prefs.fireworks}>
               <SizePicker
                 label="Spark size"
-                hint={{ full: 'How big each spark is', tier: 'extra' }}
+                hint={{ full: 'How big each spark is', tier: 'help' }}
                 testId="motion-spark-size"
                 value={prefs.sparkSize}
                 onChange={(sparkSize) => set({ sparkSize })}
@@ -126,7 +126,7 @@ export default function Animations() {
               <fieldset disabled={!prefs.glitter} className={`mt-4 transition-opacity ${prefs.glitter ? '' : 'opacity-50'}`}>
                 <SizePicker<GlitterSize>
                   label="Glitter size"
-                  hint={{ full: 'How big those lights are', tier: 'extra' }}
+                  hint={{ full: 'How big those lights are', tier: 'help' }}
                   testId="motion-glitter-size"
                   value={prefs.glitterSize}
                   onChange={(glitterSize) => set({ glitterSize })}
@@ -173,11 +173,10 @@ export default function Animations() {
           />
           <Detail min={2}>
             <Sub off={!prefs.flow}>
-              <div className="label" id="motion-speed-label">
-                Speed
-              </div>
-              <Segmented<FlowSpeed>
-                label="Colour flow speed"
+              <SizePicker<FlowSpeed>
+                label="Speed"
+                groupLabel="Colour flow speed"
+                hint={{ full: 'How fast the colours move', tier: 'help' }}
                 testId="motion-speed"
                 value={prefs.speed}
                 onChange={(speed) => set({ speed })}
@@ -191,7 +190,7 @@ export default function Animations() {
           </Detail>
           <Row
             title="Floating circles"
-            text={{ full: 'The circles drifting in the Home card', tier: 'extra' }}
+            text={{ full: 'The circles drifting in the Home card', tier: 'help' }}
             checked={prefs.circles}
             disabled={off}
             onChange={(circles) => set({ circles })}
@@ -299,6 +298,7 @@ const GLITTER_SIZES: Array<{ value: GlitterSize; label: string }> = [{ value: 't
 
 function SizePicker<T extends string = FireworkSize>({
   label,
+  groupLabel = label,
   hint,
   value,
   onChange,
@@ -306,6 +306,8 @@ function SizePicker<T extends string = FireworkSize>({
   options = SIZES as Array<{ value: T; label: ReactNode }>,
 }: {
   label: string
+  /** The choices' accessible name, when the visible label needs its section to make sense. */
+  groupLabel?: string
   hint?: Hint
   value: T
   onChange: (v: T) => void
@@ -321,7 +323,7 @@ function SizePicker<T extends string = FireworkSize>({
         </span>
         {hint && <HintText hint={hint} as="span" />}
       </div>
-      <Segmented<T> label={label} testId={testId} value={value} onChange={onChange} options={options} />
+      <Segmented<T> label={groupLabel} testId={testId} value={value} onChange={onChange} options={options} />
     </div>
   )
 }

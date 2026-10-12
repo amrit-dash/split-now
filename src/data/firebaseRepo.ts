@@ -1475,6 +1475,13 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       batch.delete(captureRef(userId, id))
       fire(batch, 'Deleting capture')
     },
+    async deleteCaptures(userId, ids) {
+      for (let i = 0; i < ids.length; i += BATCH_LIMIT) {
+        const batch = writeBatch(db)
+        for (const id of ids.slice(i, i + BATCH_LIMIT)) batch.delete(captureRef(userId, id))
+        fire(batch, 'Clearing handled payments')
+      }
+    },
 
     watchMerchants(userId, cb) {
       return onSnapshot(

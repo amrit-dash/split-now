@@ -34,7 +34,8 @@ import { activeMembers } from '@/lib/members'
 import { labelOf } from '@/lib/shortNames'
 import { type Hint, HintText } from '@/components/Hint'
 
-const NEW_GROUP_HINT: Hint = { full: 'With everyone at this table', tier: 'help' }
+// The groups under it always show a line (people and currency), so this one stays in every look too.
+const NEW_GROUP_HINT: Hint = { full: 'With everyone at this table', tier: 'key' }
 
 const NEW = '__new'
 const NONE = '__none'
@@ -103,7 +104,10 @@ export default function TableFinish({ table, totals, onClose }: { table: LiveTab
                       <GroupIcon emoji={g.emoji} group={g} size={36} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate font-semibold">{g.name}</span>
-                        {off && <span className="text-muted block text-xs">Different currency ({g.currency})</span>}
+                        {/* A value line on every group (or why it can't be picked), like New group's line above. */}
+                        <span className="text-muted block truncate text-xs">
+                          {off ? `Different currency (${g.currency})` : `${Object.keys(activeMembers(g.members)).length} people · ${g.currency}`}
+                        </span>
                       </span>
                       {target === g.id && <Check size={18} className="text-brand-600" aria-hidden />}
                     </button>

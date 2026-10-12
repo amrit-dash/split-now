@@ -12,9 +12,9 @@ import { QuickAddCard } from './QuickAddCard'
 import { Sheet } from './Sheet'
 
 // Tile subtitles: nice to read the first time, gone in the Minimal look (the titles say it).
+// All 'help', Live table's too: the tiles show a line under every one or under none.
 const ADD_HINT: Hint = { full: 'What you paid, and how to split it', tier: 'help' }
-// "Live table" is a name people learn here, so its line stays in every look (Split by items is the form's own split type).
-const SPLIT_HINT: Hint = { full: 'Friends scan a QR and tap what they had', short: 'Everyone taps what they had', tier: 'key' }
+const SPLIT_HINT: Hint = { full: 'Friends scan a QR and tap what they had', short: 'Everyone taps what they had', tier: 'help' }
 const SCAN_HINT: Hint = { full: 'Read a bill or payment screenshot', short: 'Bills and payment screenshots', tier: 'help' }
 const GROUP_HINT: Hint = { full: 'Trip, flat, dinner, anything', tier: 'help' }
 const SETTLE_HINT: Hint = { full: 'Record a payment', tier: 'help' }

@@ -411,6 +411,8 @@ export interface Repo {
   saveCapture(uid: string, c: Capture): Promise<void>
   updateCapture(uid: string, id: string, patch: Partial<Omit<Capture, 'id'>>): Promise<void>
   deleteCapture(uid: string, id: string): Promise<void>
+  /** Inbox → Recently handled → Clear all: several at once, fire-and-forget (Undo saves them back). */
+  deleteCaptures(uid: string, ids: string[]): Promise<void>
 
   /**
    * users/{uid}/settings/merchants: the categories this user picked by hand per merchant

@@ -1049,6 +1049,10 @@ export function createLocalRepo(): Repo {
       if (state.captures[id]?.owner === userId) delete state.captures[id]
       commit()
     },
+    async deleteCaptures(userId, ids) {
+      for (const id of ids) if (state.captures[id]?.owner === userId) delete state.captures[id]
+      commit()
+    },
 
     watchMerchants: (userId, cb) => watch(() => state.merchants?.[userId] ?? null, cb),
     watchInboxState: (userId, cb) => watch(() => state.inbox?.[userId] ?? EMPTY_INBOX_STATE, cb),

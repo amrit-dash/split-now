@@ -263,6 +263,21 @@ test('a table guest’s claim waits for the host: it shows in the Inbox and the 
   await expect(page.getByRole('link', { name: 'Pay me link' }).first()).toBeVisible()
 })
 
+test('Inbox → Recently handled: Clear all empties it, and Undo brings every payment back', async ({ page }) => {
+  await page.goto('/inbox')
+  // The demo's captured payment, marked not shared, moves to Recently handled.
+  await page
+    .getByRole('button', { name: /^Mark .+ as not shared$/ })
+    .first()
+    .click()
+  await expect(page.getByTestId('inbox-handled')).toContainText('Recently handled · 1')
+  await page.getByTestId('inbox-handled-clear').click()
+  await expect(page.getByTestId('inbox-handled')).toHaveCount(0)
+  // Marking it not shared left its own Undo toast; Clear all's is the newest.
+  await page.getByRole('button', { name: 'Undo' }).last().click()
+  await expect(page.getByTestId('inbox-handled')).toContainText('Recently handled · 1')
+})
+
 test('someone you owe nudged you: a reminder card on Home leads to the prefilled Settle up, and can be dismissed', async ({ page }) => {
   // The demo seeds a nudge from Meera (Coldplay Night), where the demo user owes her.
   const card = page.getByTestId('nudge-card')
