@@ -12,6 +12,7 @@ import { Layout } from './components/Layout'
 import { Loading } from './components/Misc'
 import { LiveGroupOnly } from './components/DeleteGroup'
 import { UpdatePrompt } from './components/UpdatePrompt'
+import { ViewportReadout } from './components/ViewportReadout'
 import { errText } from './lib/errors'
 import {
   adminGateNote,
@@ -201,6 +202,7 @@ export default function App() {
   return (
     <>
       <UpdatePrompt />
+      <ViewportReadout />
       {hold !== 'off' && <Splash leaving={hold === 'leaving'} />}
       {loading ? (
         <Splash />

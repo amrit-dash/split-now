@@ -6,6 +6,10 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 6.2.5 — October 2026
+
+- Installed app on iPhone: the tab bar and the group chat's message box reach the bottom edge of the screen again after the keyboard has been open, with no dark band under them.
+
 ## 6.2.4 — October 2026
 
 - Installed app on iPhone: no more dark band at the bottom of the screen after the keyboard has been open, in the group chat or anywhere else. iOS kept part of the screen after the keyboard closed until the app was quit; the app now takes it back.

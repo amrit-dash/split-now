@@ -74,3 +74,34 @@ export function needsHeal(height: number, tallest: number | undefined, typing: b
   if (typing || tallest === undefined || height === tried) return false
   return tallest - height > 4
 }
+
+/** What we need of the screen: iOS gives it in portrait whatever the orientation. */
+export interface SizeLike {
+  width: number
+  height: number
+}
+
+/**
+ * How much shorter iOS says the installed app is than the screen it fills, with nothing being typed
+ * (0 when it is not). The installed app always fills the whole screen, so the screen's own size is
+ * the truth when iOS's reported height (innerHeight) is not: things pinned to the bottom are moved
+ * down by this much, which closes the band under them whatever left iOS short. Only when the app is
+ * the full screen wide (not an iPad split view or window) and short by a believable amount.
+ */
+export function missingHeight(inner: SizeLike, screen: SizeLike, typing: boolean): number {
+  if (typing) return 0
+  const landscape = inner.width > inner.height
+  const long = Math.max(screen.width, screen.height)
+  const short = Math.min(screen.width, screen.height)
+  const fullWidth = landscape ? long : short
+  const fullHeight = landscape ? short : long
+  if (Math.abs(inner.width - fullWidth) > 1) return 0
+  const missing = Math.round(fullHeight - inner.height)
+  return missing > 1 && missing <= 120 ? missing : 0
+}
+
+/** Five taps within three seconds turn the screen measurements on or off (Profile's version line). */
+export function tapsToToggle(taps: readonly number[], now: number): { taps: number[]; toggle: boolean } {
+  const recent = [...taps.filter((t) => now - t < 3000), now]
+  return recent.length >= 5 ? { taps: [], toggle: true } : { taps: recent, toggle: false }
+}

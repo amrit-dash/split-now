@@ -18,6 +18,8 @@ import { PageHeader } from '@/components/Misc'
 import { Sheet } from '@/components/Sheet'
 import { Switch } from '@/components/Switch'
 import { useToast } from '@/components/Toast'
+import { readoutOn, setReadoutOn } from '@/components/ViewportReadout'
+import { tapsToToggle } from '@/lib/keyboard'
 import { AccountCard } from '@/components/ProfileCards'
 import { InstallRow } from '@/components/InstallBanner'
 import { SupportSheet } from '@/components/SupportSheet'
@@ -108,6 +110,16 @@ export default function Profile() {
   const toast = useToast()
   const nav = useNavigate()
   const loc = useLocation()
+  // Five taps on the version line: screen measurements on or off (components/ViewportReadout).
+  const versionTaps = useRef<number[]>([])
+  const tapVersion = () => {
+    const r = tapsToToggle(versionTaps.current, Date.now())
+    versionTaps.current = r.taps
+    if (!r.toggle) return
+    const on = !readoutOn()
+    setReadoutOn(on)
+    toast(on ? 'Screen measurements on' : 'Screen measurements off')
+  }
   useEffect(() => {
     const to = HASH_ROUTES[loc.hash]
     if (to) nav(to, { replace: true })
@@ -366,7 +378,9 @@ export default function Profile() {
         <p className="mt-6 text-center text-xs font-semibold text-brand-600/80 dark:text-brand-300/80">Spending is wise, splitting is free. Split Now!</p>
       </Detail>
       <p className={`text-muted mb-10 text-center text-xs ${showAll ? 'mt-1' : 'mt-6'}`} data-testid="profile-version">
-        Split Now v{semverOf(__APP_VERSION__)}
+        <button type="button" onClick={tapVersion} className="min-h-6 px-1">
+          Split Now v{semverOf(__APP_VERSION__)}
+        </button>
         {repo.mode === 'demo' ? ' · Demo mode' : showBackend ? ' · Connected to Firebase' : ''}
       </p>
 
