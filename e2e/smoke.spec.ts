@@ -271,6 +271,9 @@ test('Inbox → Recently handled: Clear all empties it, and Undo brings every pa
     .first()
     .click()
   await expect(page.getByTestId('inbox-handled')).toContainText('Recently handled · 1')
+  // Clear all shows only once the list is open.
+  await expect(page.getByTestId('inbox-handled-clear')).toHaveCount(0)
+  await page.getByTestId('inbox-handled').click()
   await page.getByTestId('inbox-handled-clear').click()
   await expect(page.getByTestId('inbox-handled')).toHaveCount(0)
   // Marking it not shared left its own Undo toast; Clear all's is the newest.

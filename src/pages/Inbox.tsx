@@ -726,25 +726,39 @@ function Handled({ list, groups }: { list: Capture[]; groups: Group[] }) {
   }
   return (
     <section className="mt-6">
+      {/* Title, then Clear all (only while the list is open: it acts on what you can see), then the
+          chevron. On the narrowest phones Clear all is just its icon, so the row never wraps. */}
       <div className="flex items-center gap-1">
         <button
           type="button"
-          className="text-muted flex min-h-11 min-w-0 flex-1 items-center justify-between px-1 py-1 text-sm font-semibold"
+          className="text-muted flex min-h-11 min-w-0 flex-1 items-center px-1 py-1 text-left text-sm font-semibold"
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
           data-testid="inbox-handled"
         >
           Recently handled · {list.length}
-          <ChevronDown size={18} className={`transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
         </button>
+        {open && (
+          <button
+            type="button"
+            className="flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-full px-2.5 text-sm font-semibold text-brand-600 dark:text-brand-300"
+            onClick={clearAll}
+            aria-label={`Clear all ${list.length} recently handled payments`}
+            data-testid="inbox-handled-clear"
+          >
+            <Trash2 size={15} aria-hidden />
+            <span className="hidden min-[360px]:inline">Clear all</span>
+          </button>
+        )}
         <button
           type="button"
-          className="flex min-h-11 shrink-0 items-center gap-1 rounded-full px-3 text-sm font-semibold text-brand-600 dark:text-brand-300"
-          onClick={clearAll}
-          aria-label={`Clear all ${list.length} recently handled payments`}
-          data-testid="inbox-handled-clear"
+          className="text-muted flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          aria-label={open ? 'Hide recently handled' : 'Show recently handled'}
+          data-testid="inbox-handled-chevron"
         >
-          <Trash2 size={15} aria-hidden /> Clear all
+          <ChevronDown size={18} className={`transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
         </button>
       </div>
       {open && (

@@ -6,6 +6,8 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Inbox → Recently handled: Clear all sits beside the arrow and shows only while the list is open (just the bin icon on narrow phones).
+
 ## 6.2.0 — October 2026
 
 - **Group chat updates are system messages**: each expense, payment or change of people in the group shows on the left as its own update, with an icon for what it's about, so it never looks like someone talking. Three or more in a row fold into one line ("5 updates" and the latest) that opens to show them all. Readable on the narrowest phones.
