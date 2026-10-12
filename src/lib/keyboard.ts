@@ -5,8 +5,7 @@
  *
  * The full-screen chat is the exception: its header and message box must stay put while only the
  * messages scroll, so it pins itself to the visible area (the visual viewport, which shrinks and
- * moves when the keyboard opens) with chatViewportBox, and once the keyboard has gone it undoes any
- * scroll iOS left past the end of the page (strayScroll).
+ * moves when the keyboard opens) with chatViewportBox.
  */
 
 export interface ViewportLike {
@@ -51,14 +50,27 @@ export function chatViewportBox(vv: ViewportLike | null | undefined, innerHeight
   return { height, top }
 }
 
-/**
- * Where to scroll the page back to once the keyboard has gone, or null to leave it. To show the
- * field, iOS can scroll the page past its end and not scroll it back after the keyboard closes: the
- * page's background then shows as a band under the chat's message box, and under the screen you go
- * back to. Only a scroll past the end is undone; anywhere within the page is the person's own.
+/*
+ * The installed app on iPhone (WebKit bug 297779 and its standalone cousin): the first time the
+ * keyboard opens, iOS shrinks the app's height (innerHeight, the visual viewport, 100dvh) and does
+ * not give it back after the keyboard closes. Everything pinned to the bottom then sits higher and
+ * the page's background shows as a dead band under it, on every screen, until the app is
+ * force-quit. Hiding and re-showing the page makes WebKit measure the screen again
+ * (useViewportHeal); these decide when.
  */
-export function strayScroll(scrollY: number, scrollHeight: number, innerHeight: number, typing: boolean): number | null {
-  if (typing) return null
-  const end = Math.max(0, scrollHeight - innerHeight)
-  return scrollY > end + 1 ? end : null
+
+/** The tallest height seen at each width (rounded): the app's real height, kept apart per orientation. */
+export function tallestHeights(seen: Readonly<Record<number, number>>, width: number, height: number): Record<number, number> {
+  const w = Math.round(width)
+  return height > (seen[w] ?? 0) ? { ...seen, [w]: height } : (seen as Record<number, number>)
+}
+
+/**
+ * Whether the app has lost height it should have back: nothing being typed (the keyboard has gone)
+ * and more than a few pixels short of the tallest it has been at this width. tried is the height a
+ * re-measure was already tried at, so a re-measure that does not help is not repeated on every focus.
+ */
+export function needsHeal(height: number, tallest: number | undefined, typing: boolean, tried?: number): boolean {
+  if (typing || tallest === undefined || height === tried) return false
+  return tallest - height > 4
 }
