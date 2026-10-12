@@ -107,6 +107,11 @@ export interface Group {
    * it with repo.setArchived.
    */
   archived?: boolean
+  /**
+   * A 1:1, *for the signed-in person*: the other person's member id. Derived on read with `name`
+   * (which then is that person's name: shared/names.ts groupNameFor), never written back.
+   */
+  peer?: MemberId
   /** Who has archived the group (their uids). Each member may add or remove only themselves. */
   archivedBy?: string[]
   /**
@@ -342,12 +347,22 @@ export interface OpenItem {
 }
 
 /**
- * What a group chat message is: words, or a card for an open item, a Pay me request or an
- * expense (src/lib/chat.ts draws them). `ref` is the open item or expense id.
+ * What a group chat message is: words, or a card for an open item, a Pay me request, an ask to
+ * settle up, the group's balances or an expense (src/lib/chat.ts draws them). `ref` is the open
+ * item or expense id.
  */
-export type ChatKind = 'text' | 'openItem' | 'pay' | 'expense' | 'merge'
+export type ChatKind = 'text' | 'openItem' | 'pay' | 'expense' | 'settle' | 'balances' | 'merge'
 
-/** groups/{gid}/chat/{id}: the group's money chat. Messages are immutable; the author may delete one. */
+/** A quoted message a reply answers: a copy taken when the reply was sent, so it shows even when the original isn't loaded (or is gone). */
+export interface ChatReplyRef {
+  id: string
+  authorUid: string
+  authorName: string
+  /** one line of the original (src/lib/chat.ts messagePreview), at most REPLY_PREVIEW_MAX */
+  text: string
+}
+
+/** groups/{gid}/chat/{id}: the group's money chat. The author may edit their words or delete a message. */
 export interface ChatMessage {
   id: string
   authorUid: string
@@ -359,8 +374,13 @@ export interface ChatMessage {
   ref?: string
   /** Pay me: minor units of the group currency */
   amount?: Cents
-  /** the people "@mentioned" in the words (member ids, shared/mentions.ts) */
+  /** the people "@mentioned" in the words (member ids, shared/mentions.ts); 'all' = @everyone */
   mentions?: MemberId[]
+  /** Pay me / Settle up asked of these member ids only (absent: everyone in the group) */
+  to?: MemberId[]
+  replyTo?: ChatReplyRef
+  /** when the author last edited the words */
+  editedAt?: number
   createdAt: number
   /** not stored: written on this device and not on the server yet (the clock tick) */
   pending?: boolean

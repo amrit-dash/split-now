@@ -13,6 +13,7 @@ import { uid as newId } from '@/lib/id'
 import { formatDate } from '@/lib/locale'
 import { formatMoney } from '@/lib/money'
 import {
+  linkGroupName,
   needsHostConfirm,
   parsePayLinkCode,
   recordsInGroup,
@@ -153,7 +154,7 @@ function Shell({ children }: { children: ReactNode }) {
   return <div className="mx-auto min-h-dvh max-w-md px-4 pb-10 pt-[calc(var(--safe-top)+4rem)]">{children}</div>
 }
 
-function Hero({ link, title, emoji }: { link: PayLink; title: string; emoji?: string }) {
+function Hero({ link, title, emoji, groupName }: { link: PayLink; title: string; emoji?: string; groupName?: string }) {
   return (
     <div className="text-center">
       <div
@@ -162,7 +163,7 @@ function Hero({ link, title, emoji }: { link: PayLink; title: string; emoji?: st
       >
         {emoji ?? link.emoji ?? '💸'}
       </div>
-      <p className="text-muted mt-4 text-sm font-semibold">{link.groupName}</p>
+      <p className="text-muted mt-4 text-sm font-semibold">{groupName ?? link.groupName}</p>
       <h1 className="text-2xl font-extrabold">{title}</h1>
     </div>
   )
@@ -254,6 +255,10 @@ function PaidView({ link, signedIn }: { link: PayLink; signedIn: boolean }) {
 
 /** The person who made the link: where it stands, the screenshot, and Share again / Cancel while it is open. */
 function PayeeView({ link }: { link: PayLink }) {
+  const { user } = useAuth()
+  // A 1:1 link stores the name its payer sees (you); you see the group as your app names it.
+  const live = useGroup(link.groupId)
+  const groupName = linkGroupName(link, user?.uid, live)
   const toast = useToast()
   const confirm = useConfirm()
   const payer = firstName(link.payerName)
@@ -273,7 +278,7 @@ function PayeeView({ link }: { link: PayLink }) {
   }
   return (
     <Shell>
-      <Hero link={link} title="Your Pay me link" />
+      <Hero link={link} title="Your Pay me link" groupName={groupName} />
       <div className="card mt-6 p-5 text-center">
         <div className="text-muted text-sm">{payer} owes you</div>
         <div className="text-4xl font-extrabold tabular-nums">{money}</div>

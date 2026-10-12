@@ -434,7 +434,7 @@ export function ExpenseEditor({
         aria-haspopup="dialog"
         data-testid="group-picker"
       >
-        <GroupIcon emoji={group.emoji} size={40} />
+        <GroupIcon emoji={group.emoji} group={group} size={40} />
         <span className="min-w-0 flex-1">
           <span className="block text-xs text-muted">{personal ? 'Personal wallet' : 'With'}</span>
           <span className="block truncate font-semibold">{group.name}</span>

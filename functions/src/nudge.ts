@@ -16,6 +16,7 @@
  * (then the answer is `no_push` with the amount, and the sender's app offers the share sheet).
  * Returns { sent: true, amount } or { sent: false, reason } (see src/lib/nudge.ts NudgeResult).
  */
+import { groupNameForRecipient } from '../../shared/names'
 import { logger } from 'firebase-functions/logger'
 import { HttpsError, onCall, type CallableRequest } from 'firebase-functions/v2/https'
 import type { DocumentReference } from 'firebase-admin/firestore'
@@ -170,7 +171,7 @@ async function nudgeOne(uid: string, item: NudgeItem): Promise<NudgeResponse> {
     ['reminders'],
     nudgeNote({
       groupId: item.groupId,
-      groupName: l.g.name ?? 'your group',
+      groupName: groupNameForRecipient(l.g, debtorUid, 'your group'),
       emoji: l.g.emoji,
       fromName,
       owed: amount,
@@ -213,7 +214,7 @@ async function nudgeAcross(uid: string, items: NudgeItem[]): Promise<NudgeRespon
   const nets = await Promise.all(mine.map(groupNet))
   const parts: GroupNudge[] = mine.map((l, i) => ({
     groupId: l.item.groupId,
-    groupName: l.g.name ?? 'your group',
+    groupName: groupNameForRecipient(l.g, debtorUid, 'your group'),
     emoji: l.g.emoji,
     currency: l.g.currency ?? 'INR',
     memberId: l.item.memberId,

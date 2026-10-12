@@ -100,7 +100,7 @@ export default function TableFinish({ table, totals, onClose }: { table: LiveTab
                       onClick={() => setTarget(g.id)}
                       className={`flex w-full items-center gap-3 rounded-2xl p-2 text-left disabled:opacity-50 ${target === g.id ? 'bg-brand-50 dark:bg-brand-900/30' : ''}`}
                     >
-                      <GroupIcon emoji={g.emoji} size={36} />
+                      <GroupIcon emoji={g.emoji} group={g} size={36} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate font-semibold">{g.name}</span>
                         {off && <span className="text-muted block text-xs">Different currency ({g.currency})</span>}

@@ -243,7 +243,15 @@ export default function Profile() {
             <span className="hidden min-[400px]:inline">How friends can pay you</span>
           </>
         }
-        icon={<Wallet size={20} />}
+        icon={
+          // The same tile as the rows below (Settings, Balances…), so the icons line up and match.
+          <span
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
+            aria-hidden
+          >
+            <Wallet size={19} />
+          </span>
+        }
         summary={paymentSummary(payment, region)}
       >
         <HintText hint={PAYMENT_HINT} className="text-muted mb-3 text-xs" />

@@ -19,7 +19,7 @@ export const FLAG_SECTIONS: readonly Section<FlagName>[] = [
     id: 'ai',
     title: 'AI',
     hint: 'What Gemini reads for people. Who may use Split Now’s key, and its limits, are in the AI tab.',
-    keys: ['aiImages', 'aiSms', 'aiQuickAdd', 'aiPayments'],
+    keys: ['aiImages', 'aiSms', 'aiQuickAdd', 'chatAi', 'aiPayments'],
   },
   { id: 'expenses', title: 'Adding expenses', hint: 'The expense form and the + button.', keys: ['quickAdd', 'duplicates', 'merchantMemory', 'whoseTurn'] },
   { id: 'groups', title: 'Groups', hint: 'What a group offers besides its expenses.', keys: ['groupChat', 'openItems', 'liveTables'] },

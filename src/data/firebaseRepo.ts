@@ -3,7 +3,7 @@ import {
   EmailAuthProvider,
   GoogleAuthProvider,
   connectAuthEmulator,
-  createUserWithEmailAndPassword,
+  getAdditionalUserInfo,
   getAuth,
   getRedirectResult,
   onAuthStateChanged,
@@ -18,12 +18,12 @@ import {
   linkWithPopup,
   linkWithRedirect,
   signInAnonymously,
-  signInWithEmailAndPassword,
   signInWithPopup,
   signInWithRedirect,
   signOut,
   updateProfile,
   type User,
+  type UserCredential,
 } from 'firebase/auth'
 import {
   FieldPath,
@@ -125,7 +125,10 @@ import type { AiKeyResult, AiModel, AiState, AiStatement, AiStatusResult, AiUnav
 import { parseMemory } from '@/lib/merchants'
 import type { AiTextExpense } from '@/lib/nl-expense'
 import type { QuickAiRequest, QuickAiResponse } from '../../shared/quick-ai'
-import { archiveWrite, isArchivedFor } from '../../shared/archive'
+import { archiveWrite } from '../../shared/archive'
+import { personalView } from './personalView'
+import { inviteNameFor } from '../../shared/names'
+import type { ChatAiIntent } from '../../shared/chat-ai'
 import type { NudgeItem, NudgeResult } from '@/lib/nudge'
 import { errText } from '@/lib/errors'
 import type { FxRatesDoc, FxRefreshResult } from '@/lib/fx'
@@ -137,6 +140,8 @@ import { getAppConfig } from '@/lib/flags'
 const GUEST_TOKEN = 'splitit-guest-token'
 /** localStorage: the email a sign-in link was just sent to (Profile → Add another email), to finish it when the link opens. */
 const PENDING_EMAIL = 'splitit-pending-email'
+/** localStorage: the email a sign-in link was just sent to, to finish signing in when the link opens. */
+const SIGNIN_EMAIL = 'splitit-signin-email'
 
 /** Firestore allows 500 writes per batch; leave headroom. */
 const BATCH_LIMIT = 450
@@ -198,10 +203,11 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
 
   const groupRef = (id: string) => doc(db, 'groups', id)
   // `archived` on a Group is personal: derived here for the signed-in person (shared/archive.ts),
-  // never written back (changedSettings skips it; setArchived changes `archivedBy`).
+  // never written back (changedSettings skips it; setArchived changes `archivedBy`). So is a 1:1's
+  // name and `peer`: the other person (shared/names.ts), whatever the group was called.
   const asGroup = (id: string, data: unknown): Group => {
     const g = { ...(data as Group), id }
-    return { ...g, archived: isArchivedFor(g, auth.currentUser?.uid) }
+    return personalView(g, auth.currentUser?.uid)
   }
   const inviteRef = (code: string) => doc(db, 'invites', code)
   const tableRef = (code: string) => doc(db, 'tables', code)
@@ -218,7 +224,8 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     const m = { ...(d.data() as ChatMessage), id: d.id }
     return d.metadata.hasPendingWrites ? { ...m, pending: true } : m
   }
-  const inviteDoc = (g: Group): InviteInfo => ({ groupId: g.id, groupName: g.name, emoji: g.emoji, placeholders: placeholdersOf(g) })
+  // A 1:1's invite is named after the person already in it (shared/names.ts inviteNameFor), not the friend it's for.
+  const inviteDoc = (g: Group): InviteInfo => ({ groupId: g.id, groupName: inviteNameFor(g), emoji: g.emoji, placeholders: placeholdersOf(g) })
 
   /**
    * Commit without waiting for the server. Firestore applies the batch to the local cache
@@ -410,6 +417,8 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       displayName: u.displayName ?? u.email ?? 'You',
       email: u.email ?? undefined,
       emailVerified: u.emailVerified,
+      // Signed in with an email link and never asked: the app asks once what people call them.
+      needsName: !u.displayName?.trim(),
       photoURL: u.photoURL ?? undefined,
       googlePhotoURL: googlePhoto(u),
       providers: u.providerData.map((p) => p.providerId),
@@ -501,34 +510,59 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       else await linkWithPopup(u, provider)
       await u.reload()
     },
-    async addPassword(password) {
-      const u = auth.currentUser
-      if (!u?.email) throw new Error('This account has no email address')
-      await linkWithCredential(u, EmailAuthProvider.credential(u.email, password))
-      await u.reload()
-    },
-    async signInWithEmail(email, password) {
-      const guest = auth.currentUser?.isAnonymous ? auth.currentUser : null
-      const guestToken = guest ? await guest.getIdToken() : ''
-      await signInWithEmailAndPassword(auth, email, password)
-      if (guestToken) await adoptGuest(guestToken)
-    },
-    async signUpWithEmail(name, email, password) {
-      const guest = auth.currentUser?.isAnonymous ? auth.currentUser : null
-      // A guest's account becomes this one (same uid), so nothing they did as a guest is lost.
-      const cred = guest
-        ? await linkWithCredential(guest, EmailAuthProvider.credential(email, password))
-        : await createUserWithEmailAndPassword(auth, email, password)
-      await updateProfile(cred.user, { displayName: name })
-      await ensureProfile({ ...cred.user, displayName: name })
-      // onAuthStateChanged fires before updateProfile, so its ensureProfile may already have
-      // created the profile under the email prefix. Set the real name (shown on invites/joins).
-      if (name) {
-        const batch = writeBatch(db)
-        batch.set(doc(db, 'users', cred.user.uid), { uid: cred.user.uid, displayName: name }, { merge: true })
-        fire(batch, 'Saving your name')
+    async sendSignInLink(email) {
+      // Firebase's passwordless sign-in link (Authentication → Sign-in method → Email/Password →
+      // Email link must be on). It lands on /signin, where the Login screen finishes it.
+      await sendSignInLinkToEmail(auth, email, { url: `${location.origin}/signin`, handleCodeInApp: true })
+      try {
+        localStorage.setItem(SIGNIN_EMAIL, email)
+      } catch {
+        /* storage unavailable: the link page asks for the email */
       }
-      if (guest) await afterGuestUpgrade()
+    },
+    async finishSignInLink(href, typed) {
+      let email = typed?.trim().toLowerCase()
+      try {
+        email ||= localStorage.getItem(SIGNIN_EMAIL) ?? undefined
+      } catch {
+        /* storage unavailable */
+      }
+      if (!email) return { needEmail: true }
+      const guest = auth.currentUser?.isAnonymous ? auth.currentUser : null
+      let cred: UserCredential
+      if (guest) {
+        // A guest keeps what they did: the guest account becomes this one when the address is new;
+        // when it already has an account, the guest's things move to it.
+        try {
+          cred = await linkWithCredential(guest, EmailAuthProvider.credentialWithLink(email, href))
+          await afterGuestUpgrade()
+        } catch (e) {
+          const code = (e as { code?: string }).code
+          if (code !== 'auth/credential-already-in-use' && code !== 'auth/email-already-in-use') throw e
+          const guestToken = await guest.getIdToken()
+          cred = await signInWithEmailLink(auth, email, href)
+          await adoptGuest(guestToken)
+        }
+      } else cred = await signInWithEmailLink(auth, email, href)
+      try {
+        localStorage.removeItem(SIGNIN_EMAIL)
+      } catch {
+        /* storage unavailable */
+      }
+      return { isNew: getAdditionalUserInfo(cred)?.isNewUser === true }
+    },
+    async setDisplayName(name) {
+      const u = auth.currentUser
+      if (!u) throw new Error('Not signed in')
+      await updateProfile(u, { displayName: name })
+      await ensureProfile({ ...u, displayName: name })
+      const batch = writeBatch(db)
+      batch.set(doc(db, 'users', u.uid), { uid: u.uid, displayName: name }, { merge: true })
+      fire(batch, 'Saving your name')
+      await refreshUser()
+    },
+    async deleteNewAccount() {
+      await auth.currentUser?.delete()
     },
     async signInAnonymously() {
       await signInAnonymously(auth)
@@ -544,6 +578,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       return {}
     },
     isEmailLink: (href) => isSignInWithEmailLink(auth, href),
+    isSignInLink: (href) => isSignInWithEmailLink(auth, href) && new URL(href).pathname === '/signin',
     async finishEmailLink(href, typed) {
       let email = typed?.trim().toLowerCase()
       try {
@@ -753,11 +788,22 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       const batch = writeBatch(db)
       batch.update(groupRef(base.id), data)
       if (base.type !== 'personal' && ('name' in changed || 'emoji' in changed)) {
-        batch.set(inviteRef(base.inviteCode), { groupId: base.id, groupName: changed.name ?? base.name, emoji: changed.emoji ?? base.emoji }, { merge: true })
+        batch.set(
+          inviteRef(base.inviteCode),
+          { groupId: base.id, groupName: inviteNameFor({ ...base, name: changed.name ?? base.name }), emoji: changed.emoji ?? base.emoji },
+          { merge: true },
+        )
       }
       // Any member may change these, so the change is logged for everyone (a wallet has nobody to tell).
       if (base.type !== 'personal') log(batch, base.id, groupSettingsActivity(base, { ...base, ...changed }, await actCtx(base.id, undefined, base)))
       fire(batch, 'Saving group')
+    },
+    async refreshInviteName(group) {
+      if (group.type !== 'direct' || !group.inviteCode) return
+      // 1:1 invites made before Oct 2026 stored the friend's own name: name them after you.
+      const batch = writeBatch(db)
+      batch.set(inviteRef(group.inviteCode), { groupId: group.id, groupName: inviteNameFor(group) }, { merge: true })
+      fire(batch, 'Updating the invite')
     },
     async setArchived(group, on) {
       const me = auth.currentUser?.uid
@@ -1346,6 +1392,11 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       batch.delete(doc(chatCol(groupId), id))
       fire(batch, 'Deleting message')
     },
+    async editChat(groupId, id, { text, mentions }) {
+      const batch = writeBatch(db)
+      batch.update(doc(chatCol(groupId), id), { text, mentions: mentions.length ? mentions : deleteField(), editedAt: Date.now() })
+      fire(batch, 'Editing message')
+    },
 
     watchComments(groupId, expenseId, cb) {
       return watchList(
@@ -1691,6 +1742,21 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         return d.unavailable ? { unavailable: true, reason: d.reason } : { expense: d.expense ?? null }
       } catch (e) {
         console.warn('AI text reading failed', e)
+        return null
+      }
+    },
+    async chatIntentAi(text, ctx) {
+      if (!auth.currentUser || auth.currentUser.isAnonymous || !online()) return null
+      try {
+        const call = await callable<
+          { kind: 'chat'; text: string; names: string[]; tools: string[]; currency: string },
+          { intent?: ChatAiIntent; unavailable?: true; reason?: AiUnavailableReason }
+        >('parseReceiptAi', 45_000)
+        const d = (await call({ kind: 'chat', text, ...ctx })).data
+        if (!d) return null
+        return d.unavailable ? { unavailable: true, reason: d.reason } : d.intent ? { intent: d.intent } : null
+      } catch (e) {
+        console.warn('AI chat suggestion failed', e)
         return null
       }
     },

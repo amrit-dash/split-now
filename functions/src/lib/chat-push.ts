@@ -29,6 +29,28 @@ export function chatLoudness(uids: string[], last: unknown, now: number): { loud
 }
 
 /**
+ * Who a message calls on by name: the members it tags (@everyone tags all), and the people a Pay
+ * me or Settle up asks. As uids in the group (memberUids only), never the author. They hear about
+ * it even when they muted the chat (a mute silences talk, not "you were asked").
+ */
+export function calledUids(
+  m: { mentions?: unknown; to?: unknown; kind?: unknown },
+  memberUidOf: (memberId: string) => string | undefined,
+  recipients: string[],
+): Set<string> {
+  const ids = (x: unknown) => (Array.isArray(x) ? x.filter((s): s is string => typeof s === 'string') : [])
+  const tagged = ids(m.mentions)
+  if (tagged.includes('all')) return new Set(recipients)
+  const asked = m.kind === 'pay' || m.kind === 'settle' ? ids(m.to) : []
+  const out = new Set<string>()
+  for (const id of [...tagged, ...asked]) {
+    const uid = memberUidOf(id)
+    if (uid && recipients.includes(uid)) out.add(uid)
+  }
+  return out
+}
+
+/**
  * Members newly named as "might have paid" on an open item (created, or added by an edit), as
  * their member ids. Not the person who wrote it down, nobody once it is claimed or deleted.
  */

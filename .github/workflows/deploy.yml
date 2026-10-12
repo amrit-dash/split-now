@@ -87,7 +87,10 @@ jobs:
 
       - name: Functions
         if: inputs.what == 'all' || inputs.what == 'functions'
-        run: npx firebase deploy --only functions --project "$PROJECT" --non-interactive
+        # --force: the source is the list of functions, so one removed from functions/src/index.ts is
+        # deleted here. Without it a non-interactive deploy stops at the deletion prompt and the
+        # release ships half (4.3.0 did). It changes nothing when no function was removed.
+        run: npx firebase deploy --only functions --project "$PROJECT" --non-interactive --force
 
       - name: Hosting (all sites)
         if: inputs.what == 'all' || inputs.what == 'hosting'

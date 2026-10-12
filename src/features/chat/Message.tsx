@@ -1,17 +1,17 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { labelOf } from '@/lib/shortNames'
 import { Link } from 'react-router-dom'
-import { Check, ChevronDown, Clock, HandCoins, Receipt } from 'lucide-react'
-import type { ActivityEntry, ChatMessage, Expense, Group, MemberId, MergeRequest, OpenItem } from '@/types'
+import { ArrowRight, Check, CheckCheck, ChevronDown, ClipboardList, Clock, HandCoins, Handshake, Receipt, Reply, Scale, Users } from 'lucide-react'
+import type { ActivityEntry, ChatMessage, ChatReplyRef, Debt, Expense, Group, MemberId, MergeRequest, OpenItem } from '@/types'
 import { activityText } from '@/lib/activity'
 import { CATEGORIES } from '@/lib/categories'
-import { authorMember, linkParts, payCard, type ChatRow } from '@/lib/chat'
+import { authorMember, linkParts, payCard, settleCard, updatesLine, type ChatRow } from '@/lib/chat'
+import { listNames, mentionParts, type Mentionable } from '@/lib/chat-tools'
 import { formatTime } from '@/lib/locale'
 import { formatMoney } from '@/lib/money'
 import { claimHref, openItemMeta, type OpenItemState, suspectLine } from '@/lib/open-items'
 import { Avatar } from '@/components/Avatar'
 import { MergeChatCard } from '@/features/merge/Merge'
-import { mentionParts } from '../../../shared/mentions'
 
 export interface MessageCtx {
   group: Group
@@ -21,12 +21,22 @@ export interface MessageCtx {
   today: string
   openItems: Map<string, { item: OpenItem; state: OpenItemState }>
   expenses: Map<string, Expense>
+  /** what each pair owes each other now (Settle up cards) */
+  pairDebts: Debt[]
+  /** the group's suggested payments (the Balances card): simplified when the group simplifies */
+  debts: Debt[]
+  /** member ids still in the group */
+  members: MemberId[]
+  /** everyone who can be tagged, you included, to draw the tags */
+  mentionList: Mentionable[]
   /** the group's merge requests by id (a merge card shows its live state) */
   mergeRequests: Map<string, MergeRequest>
-  /** every member's label in the group, for @mentions */
-  labels: Record<MemberId, string>
-  /** long-press / right-click / Enter on a bubble */
+  /** long-press / right-click / Enter on a message */
   onMenu: (m: ChatMessage) => void
+  /** swipe right on a message */
+  onReply: (m: ChatMessage) => void
+  /** tap a quoted message: scroll to it */
+  onJump: (id: string) => void
 }
 
 /** A day header: a small centred pill that sticks to the top while its day scrolls by. */
@@ -50,28 +60,29 @@ export function UnreadLine() {
   )
 }
 
-/** Expenses and payments between messages, as one quiet pill that opens to show them. */
+/** Expenses and payments between messages, as one quiet pill (the latest first) that opens to show them all. */
 export function UpdatesPill({ entries, uid }: { entries: ActivityEntry[]; uid: string }) {
   const [open, setOpen] = useState(false)
-  const first = activityText(entries[0], uid)
+  const line = updatesLine(entries, (a) => activityText(a, uid))
+  const many = entries.length > 1
   return (
     <div className="my-2 flex flex-col items-center">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className="inline-flex min-h-9 max-w-[85%] items-center gap-1.5 rounded-full bg-slate-200/70 px-3 py-1 text-xs text-slate-600 dark:bg-ink-800 dark:text-slate-300"
+        aria-expanded={many ? open : undefined}
+        className="inline-flex min-h-9 max-w-[90%] items-center gap-1.5 rounded-full bg-white/85 px-3 py-1 text-xs text-slate-600 shadow-sm ring-1 ring-slate-900/5 backdrop-blur dark:bg-ink-800/90 dark:text-slate-300 dark:ring-white/5"
         data-testid="chat-updates"
       >
         <Receipt size={13} className="shrink-0" aria-hidden />
-        <span className="truncate">{entries.length === 1 ? first : `${entries.length} updates · ${first}`}</span>
-        {entries.length > 1 && <ChevronDown size={14} className={`shrink-0 transition ${open ? 'rotate-180' : ''}`} aria-hidden />}
+        <span className="truncate">{line}</span>
+        {many && <ChevronDown size={14} className={`shrink-0 transition ${open ? 'rotate-180' : ''}`} aria-hidden />}
       </button>
-      {open && entries.length > 1 && (
-        <ul className="mt-1.5 w-[85%] space-y-1 rounded-2xl bg-slate-100 p-2 text-xs text-slate-600 dark:bg-ink-900 dark:text-slate-300">
-          {entries.map((a) => (
+      {open && many && (
+        <ul className="mt-1.5 w-[90%] space-y-1 rounded-2xl bg-white/90 p-2.5 text-xs text-slate-600 shadow-sm dark:bg-ink-900/95 dark:text-slate-300">
+          {[...entries].reverse().map((a) => (
             <li key={a.id} className="flex gap-2">
-              <span className="text-muted shrink-0 tabular-nums">{formatTime(a.createdAt)}</span>
+              <span className="text-muted w-14 shrink-0 tabular-nums">{formatTime(a.createdAt)}</span>
               <span className="min-w-0">{activityText(a, uid)}</span>
             </li>
           ))}
@@ -81,36 +92,42 @@ export function UpdatesPill({ entries, uid }: { entries: ActivityEntry[]; uid: s
   )
 }
 
-/** Words with @mentions picked out (yours stronger) and http(s) links made tappable (never any other scheme). */
-function Words({ text, mine, ctx, mentions }: { text: string; mine: boolean; ctx: MessageCtx; mentions?: MemberId[] }) {
-  const parts = mentions?.length ? mentionParts(text, ctx.labels, mentions) : [{ text }]
+/** Words with @tags drawn as tags and http(s) links made tappable (never any other scheme). */
+function Words({ text, mentions, ctx, mine }: { text: string; mentions?: string[]; ctx: MessageCtx; mine: boolean }) {
+  const parts = mentionParts(text, mentions, ctx.mentionList)
   return (
     <>
-      {parts.map((part, j) =>
-        part.mention ? (
+      {parts.map((p, i) =>
+        p.mention ? (
           <span
             // biome-ignore lint/suspicious/noArrayIndexKey: parts of one fixed string
-            key={j}
-            className={`font-semibold ${part.mention === ctx.me ? (mine ? 'rounded bg-white/25 px-0.5' : 'rounded bg-brand-100 px-0.5 text-brand-800 dark:bg-brand-500/25 dark:text-brand-200') : mine ? '' : 'text-brand-700 dark:text-brand-300'}`}
+            key={i}
+            className={`rounded px-0.5 font-semibold ${
+              p.mention === ctx.me || p.mention === 'all'
+                ? 'bg-amber-200/70 text-amber-900 dark:bg-amber-400/20 dark:text-amber-200'
+                : mine
+                  ? 'text-brand-800 dark:text-brand-200'
+                  : 'text-brand-700 dark:text-brand-300'
+            }`}
           >
-            {part.text}
+            {p.text}
           </span>
         ) : (
-          linkParts(part.text).map((p, i) =>
-            p.href ? (
+          linkParts(p.text).map((l, j) =>
+            l.href ? (
               <a
                 // biome-ignore lint/suspicious/noArrayIndexKey: parts of one fixed string
-                key={`${j}-${i}`}
-                href={p.href}
+                key={`${i}-${j}`}
+                href={l.href}
                 target="_blank"
                 rel="noopener noreferrer nofollow"
-                className={`underline underline-offset-2 ${mine ? '' : 'text-brand-700 dark:text-brand-300'}`}
+                className="text-brand-700 underline underline-offset-2 dark:text-brand-300"
               >
-                {p.text}
+                {l.text}
               </a>
             ) : (
               // biome-ignore lint/suspicious/noArrayIndexKey: parts of one fixed string
-              <span key={`${j}-${i}`}>{p.text}</span>
+              <span key={`${i}-${j}`}>{l.text}</span>
             ),
           )
         ),
@@ -119,197 +136,438 @@ function Words({ text, mine, ctx, mentions }: { text: string; mine: boolean; ctx
   )
 }
 
-/** Press and hold (or right-click, or Enter) opens the message's menu. */
-function useHold(onHold: () => void) {
+/** How far right a message is dragged before letting go replies to it. */
+const REPLY_AT = 56
+
+/**
+ * Press and hold (or right-click, or Enter) opens the message's menu; a swipe to the right
+ * replies (the row follows the finger, a reply arrow shows, and letting go past REPLY_AT replies).
+ */
+function useGestures(onHold: () => void, onReply: () => void) {
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
-  const start = useRef<{ x: number; y: number } | null>(null)
+  const start = useRef<{ x: number; y: number; swiping: boolean } | null>(null)
+  const [dx, setDx] = useState(0)
   const clear = () => {
     clearTimeout(timer.current)
     start.current = null
   }
+  const end = () => {
+    if (start.current?.swiping && dx >= REPLY_AT) onReply()
+    clear()
+    setDx(0)
+  }
   return {
-    onPointerDown: (e: React.PointerEvent) => {
-      if (e.pointerType === 'mouse' && e.button !== 0) return
-      start.current = { x: e.clientX, y: e.clientY }
-      timer.current = setTimeout(() => {
-        start.current = null
-        onHold()
-      }, 450)
-    },
-    onPointerMove: (e: React.PointerEvent) => {
-      if (start.current && Math.hypot(e.clientX - start.current.x, e.clientY - start.current.y) > 8) clear()
-    },
-    onPointerUp: clear,
-    onPointerCancel: clear,
-    onContextMenu: (e: React.MouseEvent) => {
-      e.preventDefault()
-      clear()
-      onHold()
-    },
-    onKeyDown: (e: React.KeyboardEvent) => {
-      if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+    dx,
+    handlers: {
+      onPointerDown: (e: React.PointerEvent) => {
+        if (e.pointerType === 'mouse' && e.button !== 0) return
+        start.current = { x: e.clientX, y: e.clientY, swiping: false }
+        timer.current = setTimeout(() => {
+          start.current = null
+          setDx(0)
+          onHold()
+        }, 450)
+      },
+      onPointerMove: (e: React.PointerEvent) => {
+        const s = start.current
+        if (!s) return
+        const mx = e.clientX - s.x
+        const my = e.clientY - s.y
+        if (!s.swiping && Math.hypot(mx, my) > 8) {
+          clearTimeout(timer.current)
+          // Mostly sideways and to the right: a reply swipe. Anything else is a scroll.
+          if (e.pointerType !== 'mouse' && mx > 0 && Math.abs(mx) > Math.abs(my) * 1.5) s.swiping = true
+          else {
+            start.current = null
+            return
+          }
+        }
+        if (s.swiping) setDx(Math.max(0, Math.min(mx, REPLY_AT + 24)))
+      },
+      onPointerUp: end,
+      onPointerCancel: () => {
+        clear()
+        setDx(0)
+      },
+      onContextMenu: (e: React.MouseEvent) => {
         e.preventDefault()
+        clear()
         onHold()
-      }
+      },
+      onKeyDown: (e: React.KeyboardEvent) => {
+        if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault()
+          onHold()
+        }
+      },
     },
   }
 }
 
+/** The answered message, quoted at the top of a reply; tapping it scrolls there. */
+function Quote({ r, ctx, mine }: { r: ChatReplyRef; ctx: MessageCtx; mine: boolean }) {
+  const id = authorMember(ctx.group, r.authorUid)
+  const who = r.authorUid === ctx.uid ? 'You' : id ? labelOf(ctx.group.members, id, r.authorName, ctx.me) : r.authorName
+  const color = id && ctx.group.members[id]?.color !== 'accent' ? ctx.group.members[id]?.color : undefined
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        ctx.onJump(r.id)
+      }}
+      onPointerDown={(e) => e.stopPropagation()}
+      className={`mb-1.5 block w-full rounded-lg border-l-4 px-2.5 py-1.5 text-left text-xs ${
+        mine ? 'border-brand-500 bg-brand-500/10 dark:bg-white/5' : 'border-slate-400 bg-slate-900/5 dark:bg-white/5'
+      }`}
+      style={color ? { borderLeftColor: color } : undefined}
+      aria-label={`Reply to ${who}: ${r.text}. Show the message`}
+    >
+      <span className="block font-bold" style={color ? { color } : undefined}>
+        {who}
+      </span>
+      <span className="text-muted line-clamp-2 break-words">{r.text}</span>
+    </button>
+  )
+}
+
+/** Under a message, outside it: the time, "edited", and for your own the sending clock or the sent tick. */
+function Meta({ m, mine }: { m: ChatMessage; mine: boolean }) {
+  return (
+    <div className={`text-muted mt-0.5 flex items-center gap-1 px-1 text-[11px] tabular-nums ${mine ? 'justify-end' : 'justify-start'}`}>
+      {typeof m.editedAt === 'number' && <span>edited ·</span>}
+      {formatTime(m.createdAt)}
+      {mine &&
+        (m.pending ? <Clock size={12} aria-label="Sending" /> : <CheckCheck size={14} className="text-brand-600 dark:text-brand-300" aria-label="Sent" />)}
+    </div>
+  )
+}
+
 export function MessageRow({ row, ctx }: { row: Extract<ChatRow, { type: 'message' }>; ctx: MessageCtx }) {
-  const { message: m, mine, first, last } = row
+  const { message: m, mine, first, last, showTime } = row
   const memberId = authorMember(ctx.group, m.authorUid)
   const member = memberId ? ctx.group.members[memberId] : undefined
   const label = memberId ? labelOf(ctx.group.members, memberId, m.authorName, ctx.me) : m.authorName
-  const hold = useHold(() => ctx.onMenu(m))
+  const { dx, handlers } = useGestures(
+    () => ctx.onMenu(m),
+    () => ctx.onReply(m),
+  )
   const time = formatTime(m.createdAt)
-  const card = m.kind === 'text' ? null : <Card m={m} ctx={ctx} mine={mine} memberId={memberId} />
+  const isCard = m.kind !== 'text'
   const tail = last ? (mine ? 'rounded-br-md' : 'rounded-bl-md') : ''
+  const nameColor = member?.color && member.color !== 'accent' ? member.color : undefined
   return (
-    <div className={`flex items-end gap-2 ${mine ? 'justify-end' : 'justify-start'} ${first ? 'mt-2' : 'mt-0.5'}`} data-testid="chat-message">
+    <div
+      id={`msg-${m.id}`}
+      className={`relative flex items-end gap-2 ${mine ? 'justify-end' : 'justify-start'} ${first ? 'mt-3' : 'mt-1'}`}
+      data-testid="chat-message"
+    >
+      {/* The reply arrow that shows while swiping. */}
+      {dx > 8 && (
+        <span
+          className="pointer-events-none absolute left-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white text-slate-600 shadow dark:bg-ink-800 dark:text-slate-300"
+          style={{ opacity: Math.min(1, dx / 56) }}
+          aria-hidden
+        >
+          <Reply size={16} />
+        </span>
+      )}
       {!mine && (
-        <div className="w-8 shrink-0" aria-hidden>
+        <div className="w-8 shrink-0 self-end pb-5" aria-hidden>
           {last && <Avatar name={member?.name ?? m.authorName} color={member?.color ?? '#94a3b8'} photoURL={member?.photoURL} size={32} />}
         </div>
       )}
       <div
-        {...hold}
-        // biome-ignore lint/a11y/noNoninteractiveTabindex: the bubble opens its menu from the keyboard (Enter)
-        tabIndex={0}
-        role="article"
-        aria-label={`${mine ? 'You' : label}, ${time}${m.pending ? ', sending' : ''}. Press Enter for options`}
-        className={`max-w-[80%] select-text rounded-3xl px-3.5 py-2 shadow-sm outline-offset-2 ${tail} ${
-          mine ? 'bg-fill text-on-fill' : 'bg-white text-slate-900 dark:bg-ink-800 dark:text-slate-100'
-        } ${card ? 'min-w-[14rem]' : ''}`}
+        className={`flex min-w-0 flex-col ${mine ? 'items-end' : 'items-start'} ${isCard ? 'w-[min(22rem,85%)]' : 'max-w-[80%]'}`}
+        style={dx ? { transform: `translateX(${dx}px)` } : undefined}
       >
         {!mine && first && (
-          <div className="mb-0.5 text-xs font-bold" style={{ color: member?.color && member.color !== 'accent' ? member.color : undefined }}>
+          <div className="mb-0.5 px-1 text-xs font-bold" style={{ color: nameColor }}>
             {label}
           </div>
         )}
-        {card}
-        {m.text && (
-          <div className={`whitespace-pre-wrap break-words text-[15px] leading-snug ${card ? 'mt-2' : ''}`}>
-            <Words text={m.text} mine={mine} ctx={ctx} mentions={m.mentions} />
-          </div>
-        )}
-        <div className={`mt-0.5 flex items-center justify-end gap-1 text-[11px] tabular-nums ${mine ? 'text-on-fill/75' : 'text-muted'}`}>
-          {time}
-          {mine && (m.pending ? <Clock size={12} aria-label="Sending" /> : <Check size={13} aria-label="Sent" />)}
+        <div
+          {...handlers}
+          // biome-ignore lint/a11y/noNoninteractiveTabindex: the message opens its menu from the keyboard (Enter)
+          tabIndex={0}
+          role="article"
+          aria-label={`${mine ? 'You' : label}, ${time}${m.pending ? ', sending' : ''}. Press Enter for options`}
+          className={`touch-pan-y select-text outline-offset-2 ${isCard ? 'w-full' : ''}`}
+        >
+          {isCard ? (
+            <Card m={m} ctx={ctx} mine={mine} memberId={memberId} />
+          ) : (
+            <div
+              className={`rounded-2xl px-3.5 py-2 shadow-sm ${tail} ${
+                mine
+                  ? 'bg-brand-100 text-slate-900 ring-1 ring-brand-200/80 dark:bg-brand-900/45 dark:text-slate-50 dark:ring-brand-500/20'
+                  : 'bg-white text-slate-900 ring-1 ring-slate-900/5 dark:bg-ink-800 dark:text-slate-100 dark:ring-white/5'
+              }`}
+            >
+              {m.replyTo && <Quote r={m.replyTo} ctx={ctx} mine={mine} />}
+              <div className="whitespace-pre-wrap break-words text-[15px] leading-snug">
+                <Words text={m.text} mentions={m.mentions} ctx={ctx} mine={mine} />
+              </div>
+            </div>
+          )}
         </div>
+        {showTime && <Meta m={m} mine={mine} />}
       </div>
     </div>
   )
 }
 
-function CardBox({ children, mine }: { children: ReactNode; mine: boolean }) {
-  return <div className={`rounded-2xl p-3 ${mine ? 'bg-white/15' : 'bg-slate-50 dark:bg-ink-900'}`}>{children}</div>
+// ---- Cards ------------------------------------------------------------------------------------
+
+type Tone = 'amber' | 'emerald' | 'sky' | 'violet' | 'slate'
+const TONES: Record<Tone, { tile: string; label: string; edge: string }> = {
+  amber: {
+    tile: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
+    label: 'text-amber-700 dark:text-amber-300',
+    edge: 'before:bg-amber-400',
+  },
+  emerald: {
+    tile: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
+    label: 'text-emerald-700 dark:text-emerald-300',
+    edge: 'before:bg-emerald-500',
+  },
+  sky: { tile: 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300', label: 'text-sky-700 dark:text-sky-300', edge: 'before:bg-sky-500' },
+  violet: {
+    tile: 'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300',
+    label: 'text-violet-700 dark:text-violet-300',
+    edge: 'before:bg-violet-500',
+  },
+  slate: { tile: 'bg-slate-100 text-slate-700 dark:bg-ink-700 dark:text-slate-200', label: 'text-slate-600 dark:text-slate-300', edge: 'before:bg-slate-400' },
 }
 
-/** The open item, Pay me or expense a message carries, as it is now (live). */
+/**
+ * A card in the chat: its own thing, not a bubble. A coloured edge and icon say what it is (open
+ * item amber, Pay me green, Settle up blue, Balances violet, Expense grey); the words that went
+ * with it sit under a line at the bottom; a reply's quote sits on top.
+ */
+function ChatCard({
+  tone,
+  icon,
+  label,
+  m,
+  ctx,
+  mine,
+  children,
+  testId,
+}: {
+  tone: Tone
+  icon: ReactNode
+  label: string
+  m: ChatMessage
+  ctx: MessageCtx
+  mine: boolean
+  children: ReactNode
+  testId?: string
+}) {
+  const t = TONES[tone]
+  return (
+    <div
+      className={`relative overflow-hidden rounded-2xl bg-white p-3.5 pl-4 shadow-md ring-1 ring-slate-900/5 before:absolute before:inset-y-0 before:left-0 before:w-1 dark:bg-ink-900 dark:ring-white/10 ${t.edge}`}
+      data-testid={testId}
+    >
+      {m.replyTo && <Quote r={m.replyTo} ctx={ctx} mine={mine} />}
+      <div className="flex items-center gap-2">
+        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${t.tile}`} aria-hidden>
+          {icon}
+        </span>
+        <span className={`text-[11px] font-bold uppercase tracking-wide ${t.label}`}>{label}</span>
+      </div>
+      <div className="mt-2">{children}</div>
+      {m.text && (
+        <div className="mt-3 whitespace-pre-wrap break-words border-t border-slate-100 pt-2 text-sm leading-snug dark:border-white/5">
+          <Words text={m.text} mentions={m.mentions} ctx={ctx} mine={mine} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+const btnPrimary = 'mt-3 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl bg-fill px-3 text-sm font-bold text-on-fill'
+const btnQuiet = 'mt-3 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl bg-slate-100 px-3 text-sm font-semibold dark:bg-ink-800'
+
+/** Who an ask is for: "Asked everyone", "Asked Rahul and Priya". */
+function askedLine(to: MemberId[] | undefined, ctx: MessageCtx): string {
+  if (!to?.length) return 'Asked everyone in the group'
+  return `Asked ${listNames(to.map((id) => (id === ctx.me ? 'you' : labelOf(ctx.group.members, id, 'someone', ctx.me))))}`
+}
+
+/** The open item, Pay me, Settle up, Balances or expense a message carries, as it is now (live). */
 function Card({ m, ctx, mine, memberId }: { m: ChatMessage; ctx: MessageCtx; mine: boolean; memberId?: MemberId }) {
   const { group } = ctx
-  const sub = mine ? 'text-on-fill/80' : 'text-muted'
+  const cur = group.currency
+  const authorName = memberId ? labelOf(group.members, memberId, m.authorName, ctx.me) : m.authorName
+  const shell = (tone: Tone, icon: ReactNode, label: string, body: ReactNode, testId?: string) => (
+    <ChatCard tone={tone} icon={icon} label={label} m={m} ctx={ctx} mine={mine} testId={testId}>
+      {body}
+    </ChatCard>
+  )
+
   if (m.kind === 'openItem') {
     const entry = m.ref ? ctx.openItems.get(m.ref) : undefined
-    if (!entry)
-      return (
-        <CardBox mine={mine}>
-          <div className="text-sm font-semibold">🧾 Open item</div>
-          <div className={`text-xs ${sub}`}>No longer here</div>
-        </CardBox>
-      )
+    if (!entry) return shell('amber', <ClipboardList size={15} />, 'Open item', <div className="text-muted text-sm">No longer here</div>)
     const { item, state } = entry
     const cat = CATEGORIES[item.category ?? 'other']
     const who = suspectLine(item.suspects, ctx.me, (id) => (group.members[id] ? labelOf(group.members, id, '', ctx.me) : undefined))
-    return (
-      <CardBox mine={mine}>
-        <div className={`text-[11px] font-bold uppercase tracking-wide ${sub}`}>Open item</div>
-        <div className="mt-1 flex items-center gap-2">
-          <span className="text-xl" aria-hidden>
+    return shell(
+      'amber',
+      <ClipboardList size={15} />,
+      'Open item',
+      <>
+        <div className="flex items-center gap-2.5">
+          <span className="text-2xl" aria-hidden>
             {cat.emoji}
           </span>
           <div className="min-w-0 flex-1">
-            <div className="truncate font-semibold">{item.title}</div>
-            <div className={`truncate text-xs ${sub}`}>{openItemMeta(item, group.currency, ctx.today)}</div>
+            <div className="truncate text-base font-semibold">{item.title}</div>
+            <div className="text-muted truncate text-xs">{openItemMeta(item, cur, ctx.today)}</div>
           </div>
         </div>
-        {who && state === 'open' && <div className={`mt-1 text-xs ${sub}`}>{who}</div>}
+        {who && state === 'open' && <div className="text-muted mt-1.5 text-xs">{who}</div>}
         {state === 'open' ? (
-          <Link
-            to={claimHref(group.id, item.id)}
-            className={`mt-2 flex min-h-10 items-center justify-center gap-1.5 rounded-xl text-sm font-bold ${mine ? 'bg-white/90 text-slate-900' : 'bg-fill text-on-fill'}`}
-            data-testid="chat-claim"
-          >
+          <Link to={claimHref(group.id, item.id)} className={btnPrimary} data-testid="chat-claim">
             <HandCoins size={16} aria-hidden /> I paid, claim it
           </Link>
         ) : state === 'claimed' ? (
-          <Link
-            to={`/groups/${group.id}/expenses/${item.expenseId}`}
-            className={`mt-2 flex min-h-10 items-center gap-1.5 text-sm font-semibold ${mine ? '' : 'pos'}`}
-          >
+          <Link to={`/groups/${group.id}/expenses/${item.expenseId}`} className="pos mt-2 flex min-h-11 items-center gap-1.5 text-sm font-semibold">
             <Check size={16} aria-hidden /> Claimed and added
           </Link>
         ) : (
-          <div className={`mt-2 text-xs ${sub}`}>Deleted</div>
+          <div className="text-muted mt-2 text-xs">Deleted</div>
         )}
-      </CardBox>
+      </>,
+      'chat-card-open',
     )
   }
-  if (m.kind === 'merge') {
-    // Light inside any bubble: the card has its own buttons.
-    return (
-      <div className="rounded-2xl bg-white p-3 text-slate-900 dark:bg-ink-900 dark:text-slate-100" data-testid="chat-merge">
+
+  if (m.kind === 'merge')
+    return shell(
+      'violet',
+      <Users size={15} />,
+      'Merge',
+      <div data-testid="chat-merge">
         <MergeChatCard group={group} request={m.ref ? ctx.mergeRequests.get(m.ref) : undefined} me={ctx.me} myUid={ctx.uid} />
-      </div>
+      </div>,
     )
-  }
+
   if (m.kind === 'pay') {
-    const amount = formatMoney(m.amount ?? 0, group.currency)
+    const amount = formatMoney(m.amount ?? 0, cur)
     const pay = payCard(m, { groupId: group.id, me: ctx.uid, myMember: ctx.me, authorMember: memberId })
-    return (
-      <CardBox mine={mine}>
-        <div className={`text-[11px] font-bold uppercase tracking-wide ${sub}`}>Pay me</div>
-        <div className="mt-0.5 text-2xl font-extrabold tabular-nums">{amount}</div>
-        {pay && !pay.mine && (
-          <Link
-            to={pay.href}
-            className="mt-2 flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-fill text-sm font-bold text-on-fill"
-            data-testid="chat-pay"
-          >
-            Pay {amount}
+    return shell(
+      'emerald',
+      <HandCoins size={15} />,
+      'Pay me',
+      <>
+        <div className="text-3xl font-extrabold tabular-nums">{amount}</div>
+        <div className="text-muted mt-0.5 text-xs">{askedLine(m.to, ctx)}</div>
+        {pay && 'href' in pay && (
+          <Link to={pay.href} className={btnPrimary} data-testid="chat-pay">
+            Pay {authorName} {amount}
           </Link>
         )}
-        {pay?.mine && <div className={`mt-1 text-xs ${sub}`}>You asked the group for this</div>}
-      </CardBox>
+      </>,
+      'chat-card-pay',
     )
   }
+
+  if (m.kind === 'settle') {
+    const view = settleCard(m, { groupId: group.id, me: ctx.uid, myMember: ctx.me, authorMember: memberId, debts: ctx.pairDebts, members: ctx.members })
+    return shell(
+      'sky',
+      <Handshake size={15} />,
+      'Settle up',
+      <>
+        <div className="text-base font-semibold">{mine ? 'You asked to settle up' : `${authorName} asks to settle up`}</div>
+        <div className="text-muted mt-0.5 text-xs">{askedLine(m.to, ctx)}</div>
+        {view?.kind === 'owe' && (
+          <Link to={view.href} className={btnPrimary} data-testid="chat-settle">
+            Settle {formatMoney(view.amount, cur)} with {authorName}
+          </Link>
+        )}
+        {view?.kind === 'owed' && (
+          <div className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-200">
+            {authorName} owes you {formatMoney(view.amount, cur)}
+          </div>
+        )}
+        {view?.kind === 'square' && (
+          <div className="mt-3 flex items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-2 text-sm dark:bg-ink-800">
+            <Check size={16} className="pos" aria-hidden /> You’re all settled with {authorName}
+          </div>
+        )}
+        {view?.kind === 'mine' && (
+          <div className="text-muted mt-2 text-sm">
+            {view.owing === 0 ? 'Everyone you asked is settled with you' : `${view.owing} ${view.owing === 1 ? 'person still owes' : 'people still owe'} you`}
+          </div>
+        )}
+      </>,
+      'chat-card-settle',
+    )
+  }
+
+  if (m.kind === 'balances') {
+    const shown = ctx.debts.slice(0, 6)
+    const name = (id: MemberId) => (id === ctx.me ? 'You' : labelOf(group.members, id, 'Someone', ctx.me))
+    return shell(
+      'violet',
+      <Scale size={15} />,
+      'Balances',
+      <>
+        {shown.length === 0 ? (
+          <div className="flex items-center gap-1.5 text-sm font-semibold">
+            <Check size={16} className="pos" aria-hidden /> Everyone’s settled up
+          </div>
+        ) : (
+          <ul className="space-y-1.5">
+            {shown.map((d) => (
+              <li key={`${d.from}-${d.to}`} className={`flex items-center gap-1.5 text-sm ${d.from === ctx.me || d.to === ctx.me ? 'font-semibold' : ''}`}>
+                <span className="min-w-0 truncate">{name(d.from)}</span>
+                <ArrowRight size={14} className="text-muted shrink-0" aria-label="pays" />
+                <span className="min-w-0 flex-1 truncate">{name(d.to)}</span>
+                <span className="shrink-0 tabular-nums">{formatMoney(d.amount, cur)}</span>
+              </li>
+            ))}
+            {ctx.debts.length > shown.length && <li className="text-muted text-xs">and {ctx.debts.length - shown.length} more</li>}
+          </ul>
+        )}
+        <div className="text-muted mt-1.5 text-[11px]">Live: always shows the group as it is now</div>
+        {shown.length > 0 && (
+          <Link to={`/groups/${group.id}/settle`} className={btnQuiet}>
+            Settle up
+          </Link>
+        )}
+      </>,
+      'chat-card-balances',
+    )
+  }
+
   // expense
   const e = m.ref ? ctx.expenses.get(m.ref) : undefined
   if (!e || typeof e.deletedAt === 'number')
-    return (
-      <CardBox mine={mine}>
-        <div className="text-sm font-semibold">🧾 Expense</div>
-        <div className={`text-xs ${sub}`}>{e ? 'Deleted' : 'No longer here'}</div>
-      </CardBox>
-    )
+    return shell('slate', <Receipt size={15} />, 'Expense', <div className="text-muted text-sm">{e ? 'Deleted' : 'No longer here'}</div>)
   const cat = CATEGORIES[e.category]
   const payers = Object.keys(e.paidBy)
-  const paidBy = payers.length > 1 ? `${payers.length} people` : payers[0] === ctx.me ? 'you' : (group.members[payers[0]]?.name ?? 'someone')
+  const paidBy = payers.length > 1 ? `${payers.length} people` : payers[0] === ctx.me ? 'you' : labelOf(group.members, payers[0], 'someone', ctx.me)
   return (
     <Link to={`/groups/${group.id}/expenses/${e.id}`} className="block" data-testid="chat-expense">
-      <CardBox mine={mine}>
-        <div className={`text-[11px] font-bold uppercase tracking-wide ${sub}`}>Expense</div>
-        <div className="mt-1 flex items-center gap-2">
-          <span className="text-xl" aria-hidden>
+      {shell(
+        'slate',
+        <Receipt size={15} />,
+        'Expense',
+        <div className="flex items-center gap-2.5">
+          <span className="text-2xl" aria-hidden>
             {cat.emoji}
           </span>
           <div className="min-w-0 flex-1">
-            <div className="truncate font-semibold">{e.description}</div>
-            <div className={`truncate text-xs ${sub}`}>Paid by {paidBy}</div>
+            <div className="truncate text-base font-semibold">{e.description}</div>
+            <div className="text-muted truncate text-xs">Paid by {paidBy}</div>
           </div>
-          <div className="shrink-0 font-bold tabular-nums">{formatMoney(e.amount, group.currency)}</div>
-        </div>
-      </CardBox>
+          <div className="shrink-0 text-base font-bold tabular-nums">{formatMoney(e.amount, cur)}</div>
+        </div>,
+      )}
     </Link>
   )
 }

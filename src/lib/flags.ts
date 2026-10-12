@@ -37,6 +37,7 @@ export const FLAG_NAMES = [
   'aiPayments',
   'openItems',
   'groupChat',
+  'chatAi',
 ] as const
 export type FlagName = (typeof FLAG_NAMES)[number]
 
@@ -71,6 +72,10 @@ export const FLAG_INFO: Record<FlagName, { label: string; hint: string }> = {
   groupChat: {
     label: 'Group chat',
     hint: 'The chat button on a group and its pushes. Off hides the chat and stops new chat pushes; messages already sent stay stored.',
+  },
+  chatAi: {
+    label: 'Chat suggestions with AI',
+    hint: 'Lets people turn on "Use AI for suggestions" in a group chat’s ⓘ (off for everyone until they do). Off hides the switch and the server stops reading chat lines. Uses the bill-reading allowance. Server-enforced.',
   },
   aiPayments: {
     label: 'Check payment screenshots with AI',

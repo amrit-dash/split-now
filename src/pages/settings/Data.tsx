@@ -72,7 +72,7 @@ export default function Data() {
                 value: d.group.id,
                 text: d.group.name,
                 label: d.group.name,
-                icon: <GroupIcon emoji={d.group.emoji} size={28} />,
+                icon: <GroupIcon emoji={d.group.emoji} group={d.group} size={28} />,
                 hint: `${d.expenses.length} expense${d.expenses.length === 1 ? '' : 's'} · ${d.group.currency}`,
               }))}
             />

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CHAT_QUIET_MS, chatLoudness, chatRecipients, newSuspects } from './chat-push'
+import { CHAT_QUIET_MS, calledUids, chatLoudness, chatRecipients, newSuspects } from './chat-push'
 import { chatNote, openItemNote } from './notify-text'
 
 describe('chat recipients', () => {
@@ -17,6 +17,21 @@ describe('chat loudness', () => {
     expect(chatLoudness(['b'], undefined, now)).toEqual({ loud: ['b'], quiet: [] })
     // a clock in the future doesn't silence anyone forever
     expect(chatLoudness(['b'], { b: now + 5000 }, now)).toEqual({ loud: ['b'], quiet: [] })
+  })
+})
+
+describe('called by name', () => {
+  const uidOf = (id: string) => ({ r: 'ur', p: 'up', gone: undefined, me: 'ume' })[id]
+  const recipients = ['ur', 'up', 'ux']
+  it('tags and the people a Pay me / Settle up asks, in the group, never the author', () => {
+    expect([...calledUids({ mentions: ['r'] }, uidOf, recipients)]).toEqual(['ur'])
+    expect([...calledUids({ kind: 'settle', to: ['p', 'gone'] }, uidOf, recipients)]).toEqual(['up'])
+    expect([...calledUids({ kind: 'text', to: ['p'] }, uidOf, recipients)]).toEqual([])
+    expect([...calledUids({ mentions: ['me'] }, uidOf, recipients)]).toEqual([])
+  })
+  it('@everyone calls everyone', () => {
+    expect([...calledUids({ mentions: ['all'] }, uidOf, recipients)]).toEqual(recipients)
+    expect([...calledUids({ mentions: 'all' }, uidOf, recipients)]).toEqual([])
   })
 })
 
@@ -43,6 +58,11 @@ describe('chat and open item notes', () => {
       tag: 'chat-g1',
     })
     expect(chatNote({ ...base, kind: 'pay', text: 'scooter', amount: 120000 }).body).toBe('Ananya: asks for ₹1,200 · scooter')
+    expect(chatNote({ ...base, kind: 'pay', text: '', amount: 120000, called: true }).body).toBe('Ananya: asks you for ₹1,200')
+    expect(chatNote({ ...base, kind: 'settle', text: '', called: true }).body).toBe('Ananya: asks you to settle up')
+    expect(chatNote({ ...base, kind: 'settle', text: '' }).body).toBe('Ananya: asks everyone to settle up')
+    expect(chatNote({ ...base, kind: 'balances', text: '' }).body).toBe('Ananya: shared the balances')
+    expect(chatNote({ ...base, kind: 'text', text: '@Ravi lunch?', called: true }).body).toBe('Ananya: tagged you · @Ravi lunch?')
     expect(chatNote({ ...base, kind: 'openItem', text: '', itemTitle: 'Lunch' }).body).toBe('Ananya: 🧾 Who paid? Lunch')
     expect(chatNote({ ...base, kind: 'text', text: 'x', silent: true }).silent).toBe(true)
     expect(chatNote({ ...base, kind: 'text', text: 'y'.repeat(400) }).body.length).toBeLessThanOrEqual(180)

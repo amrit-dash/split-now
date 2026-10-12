@@ -6,12 +6,35 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
-Next release: **5.0.0** (a major version: the admin console's tabs change, and settings now follow the account).
+Next release: **6.0.0** (a major version: the admin console's tabs change, and settings now follow the account).
 
 - **Appearance follows your account**: theme, accent colour, dual tone, text on accent and the animations are saved to your account, so the app looks the same on the web and on the installed app on your phone. The newest change wins. Notifications and auto-capture setup stay on each device.
 - **A detail level for the whole app**, chosen by an admin: Full (as today), When needed (one short line under each option), Minimal (titles only, keeping the lines that stop a mistake, and fewer optional sections) or Tooltip (every explanation behind a small (i) beside its title). Every explanation in the app now has a short version.
 - For admins: Flags & app is now two tabs. **App** has maintenance, update required, the announcement, sign-ups and the new **Detail level**. **Flags** puts the feature switches in sections (AI, Adding expenses, Groups, Payments and reminders, Capture and import), each saying how many are on, with chips to jump between them. Limits is in sections too, and the AI tab links to its switches.
 - For admins: Stop announcement has a red outline.
+
+## 5.0.0 — October 2026
+
+- Adding another email with a sign-in link now always brings in the groups waiting for that email. Before, a group that linked the address in the background at the same moment could end up pointing at an account that no longer exists, or the email was offered as a merge instead of simply added.
+- **1:1 notifications, invites and Pay me links name the right person**: every notification about a 1:1 is titled with the other person, for each of you (before, your friend's said their own name). A 1:1 invite says who it's from ("Amrit wants to split expenses with you") instead of the friend's own name, old invites included, and its share message no longer says “Join Meera” to Meera. Pay me links in a 1:1 show the payer your name, and show you theirs.
+- **AI for chat suggestions, if you want it**: ⓘ in a group chat has Use AI for suggestions (off by default, and only when an admin allows it under Admin → Flags: Chat suggestions with AI). When the built-in rules find nothing, it asks AI after you pause typing; a little slower, and it uses your AI allowance.
+- Groups: the 1:1 section is called 1:1 with friends, and each one says Friend under the name (also in Add expense's group picker).
+- **1:1 friends are the friend**: a 1:1 shows as the other person to each of you (you see Priya, Priya sees you), with their photo (or initials) on the same rounded tile as group icons and a small 🤝, on every screen. There's no name or icon to set, no members row, and Invite goes away once they've joined.
+- **Groups hides what's long settled**: groups and 1:1s you've been square in for over a week drop out of the list; the eye in the header (or the line under the list) shows them again. Recently settled ones stay. Personal wallets always show.
+- **A better group chat**: a solid header that stays put with a mute bell and an ⓘ, a faint wallpaper, your messages in a softer shade of your accent, the time and tick under each message, and cards (open item, Pay me, expense) that stand on their own with their own colour. The intro note only shows until the first message, and an updates pill leads with the latest update and its time.
+- **Group chat tools**: Settle up asks everyone or chosen people, and each person gets one button for exactly what they owe you (or sees you're square). Balances shows who owes whom, live. Pay me can ask chosen people. Type / for the tools, @ to tag someone or @everyone (tags reach people who muted the chat), and lines like “can everyone settle up?” or “we had lunch for ₹600” offer the right tool (on the phone, nothing sent until you tap; switch it off in ⓘ).
+- **Reply, edit and delete in the chat**: swipe a message right to reply, or press and hold for Reply, Copy, Edit and Delete. Only the author edits or deletes.
+- The group's settings button is now a settings icon, and its sheet no longer repeats Group chat, Mute chat and Sort and filter (they're on the chat and the list).
+- Inbox: Mark all read is an icon button and only shows on Updates.
+- Fields no longer zoom the page when the keyboard opens (the chat box was 15px), and the app no longer scrolls a field to the middle of the screen, which could push it out of view.
+- Sheets have room at the bottom in a phone's browser, not only in the installed app.
+- An expense's “Added 11 Oct” sits on the same line as who paid and the date when it fits.
+- New group shows your photo, and the photos of people you pick from your other groups. Add people has more room between search and adding someone new.
+- Profile: How friends can pay you has the same icon tile as the other rows.
+
+## 4.3.0 — October 2026
+
+- **Sign in without a password**: Continue with Google, or type your email and tap Email me a sign-in link. Opening the link signs you in, or makes your account the first time, with no password and no separate confirming step. New accounts are asked once what friends should call them. Accounts that used a password sign in the same way, with a link to their email.
 - **Emails go through Firebase only**: confirming a new email account and adding another email now use Firebase's own links instead of 6-digit codes, so no outside email service is needed. Profile → Emails → Add another email sends a link to that address; opening it adds the email (or offers to merge the account it already has). Admin → Email is gone.
 - For admins: Admin → Users no longer has Link now; linking by email happens on its own.
 

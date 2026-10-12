@@ -1,3 +1,4 @@
+import type { ChatAiIntent } from '../../shared/chat-ai'
 import type {
   ActivityEntry,
   Capture,
@@ -61,6 +62,8 @@ export interface AuthUser {
   providers?: string[]
   /** Whether the account's own email is confirmed (Google accounts always are). */
   emailVerified?: boolean
+  /** Has no name yet (made by an email link): the app asks once. */
+  needsName?: boolean
 }
 
 /** An email added to the account with a code (users/{uid}/account/emails). */
@@ -169,8 +172,23 @@ export interface Repo {
 
   onAuth(cb: (u: AuthUser | null) => void): Unsub
   signInWithGoogle(): Promise<void>
-  signInWithEmail(email: string, password: string): Promise<void>
-  signUpWithEmail(name: string, email: string, password: string): Promise<void>
+  /**
+   * Passwordless sign-in: Firebase emails a link to the address (it lands on /signin). Signs in,
+   * or makes the account the first time. Firebase only.
+   */
+  sendSignInLink?(email: string): Promise<void>
+  /** Whether this page address is a sign-in link (and not an add-an-email link). */
+  isSignInLink?(href: string): boolean
+  /**
+   * Finish signing in from the link this page was opened with: the email it was sent to,
+   * remembered on this phone, or `email` typed in when opened elsewhere. A guest on this phone
+   * keeps what they did. `isNew` when it made the account.
+   */
+  finishSignInLink?(href: string, email?: string): Promise<{ needEmail?: boolean; isNew?: boolean }>
+  /** The name people see, the first time (an account made by an email link has none). Firebase only. */
+  setDisplayName?(name: string): Promise<void>
+  /** Undo an account just made, e.g. when sign-ups are invite-only and this wasn't an invite. */
+  deleteNewAccount?(): Promise<void>
   signInDemo?(name: string): Promise<void>
   /**
    * Signs out and wipes this device's offline cache so the next person on the browser can't
@@ -181,8 +199,6 @@ export interface Repo {
   signOut(): Promise<void>
   /** Add Google sign-in to the current account (same email → one account). Firebase only. */
   linkGoogle?(): Promise<void>
-  /** Add an email + password sign-in to the current (e.g. Google) account. Firebase only. */
-  addPassword?(password: string): Promise<void>
   /**
    * Confirming an email-and-password account's own email: Firebase's verification link to it.
    * Firebase only (demo accounts need no confirming).
@@ -239,6 +255,8 @@ export interface Repo {
    * Archive (`on`) or unarchive the group for the signed-in person only (shared/archive.ts).
    * Fire-and-forget like other settings; archiving and unarchiving someone else is impossible.
    */
+  /** A 1:1's invite named after the person already in it (an older invite stored the friend's own name). Fire-and-forget; no-op for other groups and in demo mode. */
+  refreshInviteName(group: Group): Promise<void>
   setArchived(group: Group, on: boolean): Promise<void>
   /**
    * Adds a placeholder. When `memberId` is a removed entry (formerMemberMatch), that entry comes
@@ -377,6 +395,8 @@ export interface Repo {
   watchMergeApprovals(uid: string, cb: Watch<MergeRequest[]>): Unsub
   /** The author deletes their own message. */
   deleteChat(groupId: string, id: string): Promise<void>
+  /** The author changes their words (and who they tag); sets editedAt. Fire-and-forget. */
+  editChat(groupId: string, id: string, edit: { text: string; mentions: string[] }): Promise<void>
 
   watchComments(groupId: string, expenseId: string, cb: Watch<ExpenseComment[]>): Unsub
   addComment(groupId: string, expenseId: string, c: Omit<ExpenseComment, 'id'>): Promise<void>
@@ -524,6 +544,12 @@ export interface Repo {
    */
   parseTextAi(text: string, ctx: { members: string[]; currency: string; today: string }): Promise<TextAiResult | null>
   /**
+   * Group chat suggestions with AI (shared/chat-ai.ts): which tool a chat line reads like, asked
+   * only when the phone's own rules found none and the person turned it on. null offline, signed
+   * out, on failure, and in demo mode (no server).
+   */
+  chatIntentAi(text: string, ctx: { names: string[]; tools: string[]; currency: string }): Promise<ChatAiResult | null>
+  /**
    * Quick add with AI (callable quickAddAi): a line the phone's grammar can't handle, read with the
    * caller's groups as context. The answer is validated on the server (shared/quick-ai.ts); it never
    * saves anything. `{ unavailable, reason }`: the flag, the person's switch or every key said no;
@@ -559,6 +585,7 @@ export interface AiUnavailable {
 }
 export type ReceiptAiResult = { receipt: ParsedReceipt | null; unavailable?: undefined } | AiUnavailable
 export type StatementAiResult = { statement: AiStatement | null; unavailable?: undefined } | AiUnavailable
+export type ChatAiResult = { intent: ChatAiIntent; unavailable?: undefined } | AiUnavailable
 export type TextAiResult = { expense: AiTextExpense | null; unavailable?: undefined } | AiUnavailable
 
 export interface AiModel {

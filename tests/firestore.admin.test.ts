@@ -126,6 +126,8 @@ describe('config/app', () => {
     await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, flags: { ...appConfig.flags, teleport: true } }))
     await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, flags: { ...appConfig.flags, nudges: 'on' } }))
     await assertSucceeds(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, flags: { ...appConfig.flags, aiQuickAdd: false } }))
+    await assertSucceeds(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, flags: { ...appConfig.flags, chatAi: false } }))
+    await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, flags: { ...appConfig.flags, chatAi: 'off' } }))
     await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, flags: { ...appConfig.flags, aiQuickAdd: 'off' } }))
     await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, flags: 'all' }))
     await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, signups: 'closed' }))

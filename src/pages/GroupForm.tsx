@@ -45,6 +45,7 @@ import { formatMoney } from '@/lib/money'
 import { DeleteGroupButton } from '@/components/DeleteGroup'
 import { activeMembers, memberState } from '@/lib/members'
 import { MemberPicker } from '@/components/MemberPicker'
+import { sharedPhotoURL } from '@/lib/memberSync'
 import { SwipeRow } from '@/components/SwipeRow'
 import { Detail, HintText, InfoTip, useLook, useShows, type Hint } from '@/components/Hint'
 
@@ -127,6 +128,8 @@ export default function GroupForm() {
   const [startDate, setStartDate] = useState(() => (GROUP_TYPES[initialType].datesToday ? todayISO() : ''))
   const [endDate, setEndDate] = useState(() => (GROUP_TYPES[initialType].datesToday ? todayISO() : ''))
   const [members, setMembers] = useState<Record<string, Member>>({})
+  /** photos of people picked from your other groups, by draft member id (display only) */
+  const [photos, setPhotos] = useState<Record<string, string>>({})
   // People set aside when switching to 1:1 or Personal; they come back on switching to a group.
   const [parked, setParked] = useState<Record<string, Member>>({})
   const [busy, setBusy] = useState(false)
@@ -166,9 +169,14 @@ export default function GroupForm() {
     } else if (!groupId) {
       loaded.current = { key: 'new' }
       const named = prefillPeople.map((n, i) => [uid('p_'), { name: n, color: colorFor(i + 1) }] as const)
-      setMembers({ [user.uid]: { name: profile.displayName, uid: user.uid, email: user.email, color: colorFor(0) }, ...Object.fromEntries(named) })
+      // Your own photo shows from the start (the saved group gets it too: firebaseRepo fills it in on create).
+      const photo = sharedPhotoURL(profile.photoURL, repo.mode === 'demo')
+      setMembers({
+        [user.uid]: { name: profile.displayName, uid: user.uid, email: user.email, color: colorFor(0), ...(photo ? { photoURL: photo } : {}) },
+        ...Object.fromEntries(named),
+      })
     }
-  }, [existing, groupId, user.uid, user.email, profile.displayName, prefillPeople])
+  }, [existing, groupId, user.uid, user.email, profile.displayName, profile.photoURL, prefillPeople])
 
   // Approval is a group setting, off for a new group. Turning it on fills in the currency's
   // defaults (₹2,000 to need an OK, ₹100 for small edits); an amount nobody typed follows the
@@ -337,19 +345,20 @@ export default function GroupForm() {
     }
   }
 
-  const addPerson = (personName: string, email?: string, accountUid?: string) => {
+  const addPerson = (personName: string, email?: string, accountUid?: string, photoURL?: string) => {
     if (!personName.trim() || others.length >= maxOthers) return
     // The same person twice (same account or email) would split their money across two entries.
     const already = currentMemberMatch(members, { email, uid: accountUid })
     if (already) return toast(`${members[already]!.name} is already in this group`, 'err')
     const id = uid('p_')
+    // Shown on this screen only: their photo joins the group's entry when they claim their spot (memberSync), not before.
+    if (photoURL) setPhotos((p) => ({ ...p, [id]: photoURL }))
     setMembers((m) => ({ ...m, [id]: { name: personName.trim(), email: email?.trim() || undefined, color: colorFor(Object.keys(m).length) } }))
   }
   /** Problems with what was typed, next to the field they belong to (not a passing toast). */
   const validate = (finalName: string): Partial<Record<Field, string>> => {
     const errs: Partial<Record<Field, string>> = {}
-    if (!finalName)
-      errs.name = type === 'direct' ? 'Add the friend, or give it a name' : type === 'personal' ? 'Give your wallet a name' : 'Give your group a name'
+    if (!finalName) errs.name = type === 'direct' ? 'Add your friend' : type === 'personal' ? 'Give your wallet a name' : 'Give your group a name'
     if (startDate && endDate && endDate < startDate) errs.dates = 'It ends before it starts'
     if (shareable && requireApproval && threshold !== undefined && threshold <= 0) errs.threshold = 'Enter an amount above zero'
     if (shareable && requireApproval && editAuto && editAmount !== undefined && editAmount <= 0) errs.editAuto = 'Enter an amount above zero'
@@ -358,7 +367,9 @@ export default function GroupForm() {
   }
 
   const save = async () => {
-    const finalName = name.trim() || (type === 'personal' ? wallet.fallbackName : type === 'direct' ? (others[0]?.[1].name ?? '') : '')
+    // A 1:1 has no name of its own: it shows as the other person to each of you (shared/names.ts
+    // groupNameFor). The friend's name is still stored, for notifications and older apps.
+    const finalName = type === 'direct' ? (existing?.name ?? others[0]?.[1].name ?? '') : name.trim() || (type === 'personal' ? wallet.fallbackName : '')
     const errs = validate(finalName)
     if (!existing && others.length > maxOthers) return toast(type === 'direct' ? 'A 1:1 is you and one friend' : 'A personal wallet is just you', 'err')
     if (Object.keys(errs).length) {
@@ -698,7 +709,12 @@ export default function GroupForm() {
 
   return (
     <div>
-      <PageHeader title={existing ? 'Edit group' : type === 'direct' ? 'New 1:1' : type === 'personal' ? 'Personal wallet' : 'New group'} back />
+      <PageHeader
+        title={
+          existing ? (type === 'direct' ? 'Edit 1:1' : 'Edit group') : type === 'direct' ? 'New 1:1' : type === 'personal' ? 'Personal wallet' : 'New group'
+        }
+        back
+      />
       <form
         className="space-y-5"
         onSubmit={(e) => {
@@ -727,26 +743,28 @@ export default function GroupForm() {
             ))}
           </div>
         )}
-        <div className="card space-y-4 p-4">
-          <IconPickerField emoji={emoji} onChange={chooseIcon} emojis={iconsFor(type)} idPrefix="group-icon">
-            <label className="label" htmlFor="group-name">
-              Name
-            </label>
-            <input
-              ref={nameRef}
-              id="group-name"
-              className={`input ${errors.name ? 'ring-2 ring-rose-500' : ''}`}
-              placeholder={type === 'personal' ? wallet.placeholder : info.placeholder}
-              value={name}
-              onChange={(e) => onName(e.target.value)}
-              autoComplete="off"
-              autoCapitalize="words"
-              enterKeyHint="done"
-              aria-invalid={!!errors.name}
-              aria-describedby={errors.name ? 'group-name-error' : undefined}
-            />
-          </IconPickerField>
-          <FieldError id="group-name-error" text={errors.name} />
+        <div className={`card space-y-4 p-4 ${type === 'direct' && !typeChips ? 'hidden' : ''}`}>
+          {type !== 'direct' && (
+            <IconPickerField emoji={emoji} onChange={chooseIcon} emojis={iconsFor(type)} idPrefix="group-icon">
+              <label className="label" htmlFor="group-name">
+                Name
+              </label>
+              <input
+                ref={nameRef}
+                id="group-name"
+                className={`input ${errors.name ? 'ring-2 ring-rose-500' : ''}`}
+                placeholder={type === 'personal' ? wallet.placeholder : info.placeholder}
+                value={name}
+                onChange={(e) => onName(e.target.value)}
+                autoComplete="off"
+                autoCapitalize="words"
+                enterKeyHint="done"
+                aria-invalid={!!errors.name}
+                aria-describedby={errors.name ? 'group-name-error' : undefined}
+              />
+            </IconPickerField>
+          )}
+          {type !== 'direct' && <FieldError id="group-name-error" text={errors.name} />}
           {extras && showGuess && guess && (
             <TypeSuggestion
               guess={guess}
@@ -785,45 +803,49 @@ export default function GroupForm() {
 
         {type !== 'personal' && !existing && (
           <div className="card p-4">
-            <div className="label">Members</div>
+            <div className="label">{type === 'direct' ? 'Your friend' : 'Members'}</div>
             <ul className="-mx-4">
-              {Object.entries(members).map(([id, m]) => (
-                <SwipeRow
-                  key={id}
-                  contentClassName="flex items-center gap-3 px-4 py-1.5"
-                  menuTitle={m.name}
-                  actions={
-                    m.uid === user.uid
-                      ? []
-                      : [
-                          {
-                            label: 'Remove',
-                            ariaLabel: `Remove ${m.name}`,
-                            icon: <UserMinus size={20} strokeWidth={2.25} />,
-                            onClick: () => setMembers(({ [id]: _, ...rest }) => rest),
-                          },
-                        ]
-                  }
-                >
-                  <Avatar name={m.name} color={m.color} photoURL={m.photoURL} size={36} />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium">
-                      {m.name} {m.uid === user.uid && <span className="text-muted text-xs">(you)</span>}
+              {/* A 1:1 is about the friend: you're in it anyway, so you aren't listed. */}
+              {Object.entries(members)
+                .filter(([, m]) => type !== 'direct' || m.uid !== user.uid)
+                .map(([id, m]) => (
+                  <SwipeRow
+                    key={id}
+                    contentClassName="flex items-center gap-3 px-4 py-1.5"
+                    menuTitle={m.name}
+                    actions={
+                      m.uid === user.uid
+                        ? []
+                        : [
+                            {
+                              label: 'Remove',
+                              ariaLabel: `Remove ${m.name}`,
+                              icon: <UserMinus size={20} strokeWidth={2.25} />,
+                              onClick: () => setMembers(({ [id]: _, ...rest }) => rest),
+                            },
+                          ]
+                    }
+                  >
+                    <Avatar name={m.name} color={m.color} photoURL={m.photoURL ?? photos[id]} size={36} />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-medium">
+                        {m.name} {m.uid === user.uid && <span className="text-muted text-xs">(you)</span>}
+                      </div>
+                      <div className="text-muted truncate text-xs">{memberState(m)}</div>
                     </div>
-                    <div className="text-muted truncate text-xs">{memberState(m)}</div>
-                  </div>
-                </SwipeRow>
-              ))}
+                  </SwipeRow>
+                ))}
             </ul>
             {others.length > 0 && <HintText hint={SWIPE_HINT} className="text-muted mt-1 text-xs" />}
             {others.length < maxOthers && (
-              <div className="mt-4 border-t border-slate-100 pt-4 dark:border-white/5">
+              <div className={others.length ? 'mt-4 border-t border-slate-100 pt-4 dark:border-white/5' : ''}>
                 <MemberPicker groups={groups} myUid={user.uid} members={members} onAdd={addPerson} />
               </div>
             )}
+            {type === 'direct' && <FieldError id="group-name-error" text={errors.name} />}
           </div>
         )}
-        {type !== 'personal' && existing && (
+        {type !== 'personal' && type !== 'direct' && existing && (
           <Link to={`/groups/${existing.id}/members`} className="card flex min-h-14 items-center gap-3 px-4 py-3" data-testid="group-manage-members">
             <Users size={20} className="shrink-0 text-brand-600 dark:text-brand-300" aria-hidden />
             <span className="min-w-0 flex-1">

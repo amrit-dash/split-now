@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from 'react'
-import { Camera, Check, ChevronDown, KeyRound, Loader2, RefreshCw } from 'lucide-react'
+import { Camera, Check, ChevronDown, Loader2, RefreshCw } from 'lucide-react'
 import { repo } from '@/data'
 import { AccountEmails } from '@/components/AccountEmails'
 import { useMe } from '@/hooks/auth'
@@ -13,8 +13,8 @@ import { useToast } from './Toast'
 // The card autosaves and says so once; noise after the first read.
 const AUTOSAVE_HINT: Hint = { full: 'Changes save by themselves.', tier: 'extra' }
 const SIGN_IN_HINT: Hint = {
-  full: 'Link both so you can sign in either way and never end up with two accounts for one email.',
-  short: 'Link both so one email stays one account',
+  full: 'No passwords: sign in with Google, or with a link we email you.',
+  short: 'Google, or a link we email you.',
   tier: 'help',
 }
 
@@ -117,92 +117,49 @@ export function AccountCard({
   )
 }
 
-/** Google + password on one account, so the same email never ends up as two accounts. */
+/**
+ * How this account signs in: Google, and always a sign-in link to its email (no passwords). Linking
+ * Google to an account made by an email link means one tap next time, and never two accounts.
+ */
 function SignInMethods() {
   const { user } = useMe()
   const toast = useToast()
-  const [providers, setProviders] = useState<string[]>(user.providers ?? [])
-  const [busy, setBusy] = useState<'google' | 'password' | null>(null)
-  const [pw, setPw] = useState('')
-  const [pwOpen, setPwOpen] = useState(false)
-  const has = (p: string) => providers.includes(p)
-
-  const run = async (kind: 'google' | 'password', fn: () => Promise<void>, ok: string, add: string) => {
-    setBusy(kind)
+  const [linked, setLinked] = useState((user.providers ?? []).some((p) => p === 'google.com'))
+  const [busy, setBusy] = useState(false)
+  const link = async () => {
+    setBusy(true)
     try {
-      await fn()
-      setProviders((p) => [...new Set([...p, add])])
-      toast(ok)
-      setPwOpen(false)
-      setPw('')
+      await repo.linkGoogle!()
+      setLinked(true)
+      toast('Google linked')
     } catch (e) {
       toast(linkError(e), 'err')
     } finally {
-      setBusy(null)
+      setBusy(false)
     }
   }
-
   return (
     <div>
       <div className="label flex items-center">
-        Sign-in methods
-        <InfoTip hint={SIGN_IN_HINT} label="About sign-in methods" />
+        Signing in
+        <InfoTip hint={SIGN_IN_HINT} label="About signing in" />
       </div>
       <div className="divide-y divide-slate-100 rounded-2xl bg-slate-50 dark:divide-white/5 dark:bg-ink-800">
-        <div className="flex items-center gap-3 px-4 py-3">
+        <div className="flex min-h-12 items-center gap-3 px-4 py-2">
           <span className="flex-1 font-medium">Google</span>
-          {has('google.com') ? (
+          {linked ? (
             <span className="flex items-center gap-1 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
               <Check size={16} aria-hidden /> Linked
             </span>
           ) : (
-            <button
-              type="button"
-              className="btn-ghost btn-sm !px-2"
-              disabled={!!busy}
-              onClick={() => run('google', () => repo.linkGoogle!(), 'Google linked', 'google.com')}
-            >
-              {busy === 'google' ? <Loader2 size={14} className="animate-spin" aria-hidden /> : null} Link Google
+            <button type="button" className="btn-ghost btn-sm !px-2" disabled={busy} onClick={link}>
+              {busy ? <Loader2 size={14} className="animate-spin" aria-hidden /> : null} Link Google
             </button>
           )}
         </div>
-        <div className="px-4 py-3">
-          <div className="flex items-center gap-3">
-            <span className="flex-1 font-medium">Email &amp; password</span>
-            {has('password') ? (
-              <span className="flex items-center gap-1 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
-                <Check size={16} aria-hidden /> Set
-              </span>
-            ) : (
-              <button type="button" className="btn-ghost btn-sm !px-2" disabled={!!busy} onClick={() => setPwOpen((o) => !o)} aria-expanded={pwOpen}>
-                Add password
-              </button>
-            )}
-          </div>
-          {pwOpen && !has('password') && (
-            <form
-              className="mt-3 flex gap-2"
-              onSubmit={(e) => {
-                e.preventDefault()
-                run('password', () => repo.addPassword!(pw), 'Password added', 'password')
-              }}
-            >
-              <input
-                className="input !py-2"
-                type="password"
-                autoComplete="new-password"
-                placeholder="New password"
-                aria-label="New password"
-                value={pw}
-                onChange={(e) => setPw(e.target.value)}
-                required
-                minLength={6}
-              />
-              <button type="submit" className="btn-primary btn-sm shrink-0 !px-4" disabled={!!busy || !pw}>
-                {busy === 'password' ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <KeyRound size={14} aria-hidden />} Save
-              </button>
-            </form>
-          )}
+        <div className="flex min-h-12 items-center gap-3 px-4 py-2">
+          <span className="flex-1 font-medium">Email link</span>
+          <span className="text-muted text-sm">Always on</span>
         </div>
       </div>
       <HintText hint={SIGN_IN_HINT} className="text-muted mt-1.5 text-xs" />

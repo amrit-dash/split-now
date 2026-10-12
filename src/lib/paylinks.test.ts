@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildPayLink,
+  linkGroupName,
+  nameForPayer,
   claimsInGroup,
   sortClaims,
   payLinkFeatures,
@@ -232,5 +234,20 @@ describe('claims waiting in a group', () => {
     expect(payLinkView(l, { uid: 'anon', anonymous: true, member: false }, NOW)).toBe('claimed')
     expect(payLinkView(l, { uid: 'host', anonymous: false, member: false }, NOW)).toBe('payee')
     expect(statusLine({ ...l, paidAt: 20 }, NOW, (ms) => `day${ms}`)).toBe('Says they’ve paid day20 · confirm it')
+  })
+})
+
+describe('1:1 links name the other person', () => {
+  it('the payer sees the payee; other groups their name', () => {
+    expect(nameForPayer({ type: 'direct', name: 'Meera' }, 'Amrit Dash')).toBe('Amrit Dash')
+    expect(nameForPayer({ type: 'direct', name: 'Meera' }, ' ')).toBe('Meera')
+    expect(nameForPayer({ type: 'trip', name: 'Goa' }, 'Amrit')).toBe('Goa')
+  })
+  it('the payee sees their own copy of a 1:1 (the payer); anyone else the stored name', () => {
+    const l = { groupName: 'Amrit Dash', createdBy: 'u1' }
+    expect(linkGroupName(l, 'u1', { type: 'direct', name: 'Meera' })).toBe('Meera')
+    expect(linkGroupName(l, 'u2', { type: 'direct', name: 'Amrit Dash' })).toBe('Amrit Dash')
+    expect(linkGroupName(l, 'u1', null)).toBe('Amrit Dash')
+    expect(linkGroupName(l, 'u1', { type: 'trip', name: 'Goa' })).toBe('Amrit Dash')
   })
 })

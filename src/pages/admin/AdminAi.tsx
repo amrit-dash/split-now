@@ -154,7 +154,7 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
       >
         <span className="min-w-0">
           <span className="block font-semibold">AI feature switches</span>
-          <span className="text-muted block text-xs">Bills, SMS, Quick add and payment screenshots, in Flags → AI</span>
+          <span className="text-muted block text-xs">Bills, SMS, Quick add, chat and payment screenshots, in Flags → AI</span>
         </span>
         <span className="shrink-0 text-xs font-semibold text-brand-600 dark:text-brand-300">{onCount(flags, AI_FLAGS)}</span>
       </Link>
@@ -372,6 +372,11 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
         {n('app_quickAdd') + n('own_quickAdd') > 0 && (
           <p className="text-muted mt-1.5 text-xs">
             Quick add with AI: {n('app_quickAdd') + n('own_quickAdd')} of these ({n('app_quickAdd')} on Split Now’s key)
+          </p>
+        )}
+        {n('app_chat') + n('own_chat') > 0 && (
+          <p className="text-muted mt-1.5 text-xs">
+            Chat suggestions with AI: {n('app_chat') + n('own_chat')} of these ({n('app_chat')} on Split Now’s key)
           </p>
         )}
       </div>

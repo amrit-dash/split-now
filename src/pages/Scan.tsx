@@ -533,7 +533,7 @@ export default function Scan() {
                       onClick={() => go(d.group.id)}
                       className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-slate-50 dark:active:bg-ink-800"
                     >
-                      <GroupIcon emoji={d.group.emoji} size={40} />
+                      <GroupIcon emoji={d.group.emoji} group={d.group} size={40} />
                       <span className="flex-1 font-semibold">{d.group.name}</span>
                       <span className="text-sm text-brand-600 dark:text-brand-300">Continue →</span>
                     </button>

@@ -1,12 +1,12 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import { useLocation } from 'react-router-dom'
-import { ChevronLeft, Eye, EyeOff, Mail, QrCode, UserPlus } from 'lucide-react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { ChevronLeft, Loader2, Mail, QrCode, UserPlus } from 'lucide-react'
 import { repo } from '@/data'
 import { useToast } from '@/components/Toast'
 import { HintText } from '@/components/Hint'
 import { useAppConfig } from '@/hooks/useAppConfig'
 import { errText } from '@/lib/errors'
-import { emailProblem, passwordProblem } from '@/lib/account'
+import { emailProblem } from '@/lib/account'
 import { signupsClosedText, signupsOpen } from '@/lib/flags'
 import { applyIconTint } from '@/lib/accent'
 import { usePageTitle } from '@/lib/brand'
@@ -16,20 +16,21 @@ export default function Login() {
   const toast = useToast()
   // Opened from an invite link? (App keeps the path and returns to it after sign-in.)
   const { pathname } = useLocation()
+  const nav = useNavigate()
   const invite = pathname.match(/^\/join\/([A-Za-z0-9]+)/)?.[1]
   // Soft invite-only gate (config/app.signups, readable signed out): without an invite link the form
   // only signs in, whatever was chosen before the config arrived. Hard enforcement needs an Identity
   // Platform blocking function (docs/FIREBASE_SETUP.md).
   const cfg = useAppConfig()
   const canSignUp = signupsOpen(cfg, pathname)
-  const [chosen, setChosen] = useState<'in' | 'up'>(invite ? 'up' : 'in')
-  const mode: 'in' | 'up' = canSignUp ? chosen : 'in'
   // Google first; the email form is one tap away and then takes the screen to itself.
   const [withEmail, setWithEmail] = useState(false)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
+  // The address a sign-in link just went to (the "check your inbox" step).
+  const [sentTo, setSentTo] = useState<string | null>(null)
+  // Opened from a sign-in link: finishing it, or asking which email it was for (another phone).
+  const [linkStep, setLinkStep] = useState<'finishing' | 'ask' | null>(null)
   // Field problems show once someone has tried to submit (not while they're still typing).
   const [tried, setTried] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -48,21 +49,36 @@ export default function Login() {
       setBusy(false)
     }
   }
-  const problems = {
-    name: mode === 'up' && !name.trim() ? 'Enter your name' : '',
-    email: emailProblem(email),
-    password: mode === 'up' ? passwordProblem(password) : password ? '' : 'Enter your password',
+  /** Finish signing in from the link this page opened with; invite-only sign-ups undo a new account. */
+  const finishLink = async (typed?: string) => {
+    setLinkStep('finishing')
+    try {
+      const r = await repo.finishSignInLink!(window.location.href, typed)
+      if (r.needEmail) return setLinkStep('ask')
+      if (r.isNew && !canSignUp) {
+        await repo.deleteNewAccount?.()
+        await repo.signOut()
+        toast(signupsClosedText(cfg), 'err')
+      }
+      // Signed in: the app moves past this screen; the link's address is no longer needed.
+      nav('/', { replace: true })
+    } catch (e) {
+      setLinkStep(null)
+      toast(friendly(e), 'err')
+    }
   }
-  const valid = !problems.name && !problems.email && !problems.password
+  const linkChecked = useRef(false)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: finish once, with the address the page opened on
+  useEffect(() => {
+    if (linkChecked.current || demo || !repo.isSignInLink?.(window.location.href)) return
+    linkChecked.current = true
+    void finishLink()
+  }, [])
+  const addingEmail = !demo && pathname === '/email-link'
+  const problem = emailProblem(email)
   // The sign-in form is on a dark surface by design (it matches the install splash), so the
   // fields keep their own light-on-dark look rather than the app's input style.
   const field = 'input !bg-white/10 !text-white placeholder:!text-slate-400'
-  const fieldError = (id: string, problem: string) =>
-    tried && problem ? (
-      <p id={`${id}-error`} className="mt-1.5 px-1 text-xs font-medium text-rose-300" role="alert">
-        {problem}
-      </p>
-    ) : null
 
   return (
     <AuthShell>
@@ -123,8 +139,55 @@ export default function Login() {
               {invite ? 'Continue to the invite' : 'Start exploring'}
             </button>
           </form>
+        ) : linkStep ? (
+          linkStep === 'finishing' ? (
+            <p className="flex items-center justify-center gap-2 py-4 text-slate-200" role="status" data-testid="login-finishing">
+              <Loader2 size={18} className="animate-spin" aria-hidden /> Signing you in…
+            </p>
+          ) : (
+            <form
+              className="space-y-3"
+              noValidate
+              onSubmit={(e) => {
+                e.preventDefault()
+                setTried(true)
+                if (!problem) void finishLink(email.trim())
+              }}
+            >
+              <p className="text-sm text-slate-200">You opened the link on a different phone or browser. Which email was it sent to?</p>
+              <label htmlFor="login-link-email" className="sr-only">
+                Email
+              </label>
+              <input
+                id="login-link-email"
+                className={field}
+                type="email"
+                inputMode="email"
+                placeholder="Email"
+                autoComplete="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+              {tried && problem && (
+                <p className="px-1 text-xs font-medium text-rose-300" role="alert">
+                  {problem}
+                </p>
+              )}
+              <button type="submit" className="btn-primary w-full">
+                Sign in
+              </button>
+            </form>
+          )
         ) : !withEmail ? (
           <>
+            {addingEmail && (
+              <p className="rounded-2xl bg-white/10 p-4 text-sm text-slate-200 ring-1 ring-white/15" data-testid="login-add-email-note">
+                To add that email to your account, sign in as yourself first. The link then finishes on its own.
+              </p>
+            )}
             <button
               type="button"
               className="btn min-h-14 w-full bg-white text-base text-slate-900 shadow-lg shadow-black/20"
@@ -141,7 +204,7 @@ export default function Login() {
               onClick={() => setWithEmail(true)}
               data-testid="login-email"
             >
-              <Mail size={18} aria-hidden /> {canSignUp && invite ? 'Sign up with email' : 'Continue with email'}
+              <Mail size={18} aria-hidden /> Continue with email
             </button>
             {!canSignUp && (
               <p className="min-h-11 py-2 text-center text-sm text-slate-300" data-testid="signups-closed">
@@ -149,58 +212,52 @@ export default function Login() {
               </p>
             )}
           </>
+        ) : sentTo ? (
+          <div className="space-y-3" data-testid="login-link-sent">
+            <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15">
+              <p className="font-semibold text-white">Check your inbox</p>
+              <p className="mt-1 text-sm text-slate-300">
+                We sent a sign-in link to <b className="text-white [overflow-wrap:anywhere]">{sentTo}</b>. Open it on this phone and you’re in. No password
+                needed.
+              </p>
+              <p className="mt-2 text-xs text-slate-400">Can’t find it? Check spam or promotions.</p>
+            </div>
+            <button
+              type="button"
+              className="btn w-full bg-white/10 text-white ring-1 ring-white/15"
+              disabled={busy}
+              onClick={() => run(() => repo.sendSignInLink!(sentTo))}
+            >
+              Send the link again
+            </button>
+            <button
+              type="button"
+              className="flex min-h-11 w-full items-center justify-center gap-1.5 py-2 text-sm text-slate-300"
+              onClick={() => {
+                setSentTo(null)
+                setTried(false)
+              }}
+            >
+              <ChevronLeft size={16} aria-hidden /> Use a different email
+            </button>
+          </div>
         ) : (
           <>
-            {canSignUp && (
-              <div className="grid grid-cols-2 gap-1 rounded-2xl bg-white/10 p-1" role="radiogroup" aria-label="Sign in or create an account">
-                {(['in', 'up'] as const).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    role="radio"
-                    aria-checked={mode === m}
-                    className={`min-h-11 rounded-xl text-sm font-semibold transition ${mode === m ? 'bg-white text-slate-900' : 'text-slate-300'}`}
-                    onClick={() => {
-                      setChosen(m)
-                      setTried(false)
-                    }}
-                  >
-                    {m === 'in' ? 'Sign in' : 'Create account'}
-                  </button>
-                ))}
-              </div>
-            )}
             <form
               className="space-y-3"
-              aria-label={mode === 'in' ? 'Sign in with email' : 'Create an account'}
+              aria-label="Sign in with email"
               noValidate
               onSubmit={(e) => {
                 e.preventDefault()
                 setTried(true)
-                if (!valid) return
-                run(() => (mode === 'in' ? repo.signInWithEmail(email.trim(), password) : repo.signUpWithEmail(name.trim(), email.trim(), password)))
+                if (problem) return
+                const to = email.trim().toLowerCase()
+                void run(async () => {
+                  await repo.sendSignInLink!(to)
+                  setSentTo(to)
+                })
               }}
             >
-              {mode === 'up' && (
-                <div>
-                  <label htmlFor="login-name" className="sr-only">
-                    Your name
-                  </label>
-                  <input
-                    id="login-name"
-                    className={field}
-                    placeholder="Your name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    autoComplete="name"
-                    autoCapitalize="words"
-                    enterKeyHint="next"
-                    aria-invalid={tried && !!problems.name}
-                    aria-describedby={tried && problems.name ? 'login-name-error' : undefined}
-                  />
-                  {fieldError('login-name', problems.name)}
-                </div>
-              )}
               <div>
                 <label htmlFor="login-email" className="sr-only">
                   Email
@@ -210,61 +267,29 @@ export default function Login() {
                   className={field}
                   type="email"
                   inputMode="email"
-                  placeholder="Email"
+                  placeholder="Your email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   autoComplete="email"
                   autoCapitalize="none"
                   autoCorrect="off"
                   spellCheck={false}
-                  enterKeyHint="next"
-                  aria-invalid={tried && !!problems.email}
-                  aria-describedby={tried && problems.email ? 'login-email-error' : undefined}
+                  enterKeyHint="send"
+                  aria-invalid={tried && !!problem}
+                  aria-describedby={tried && problem ? 'login-email-error' : 'login-email-help'}
                 />
-                {fieldError('login-email', problems.email)}
+                {tried && problem ? (
+                  <p id="login-email-error" className="mt-1.5 px-1 text-xs font-medium text-rose-300" role="alert">
+                    {problem}
+                  </p>
+                ) : (
+                  <p id="login-email-help" className="mt-1.5 px-1 text-xs text-slate-400">
+                    We’ll email you a link that signs you in, or makes your account the first time. No password.
+                  </p>
+                )}
               </div>
-              <div>
-                <label htmlFor="login-password" className="sr-only">
-                  Password
-                </label>
-                <div className="relative">
-                  <input
-                    id="login-password"
-                    className={`${field} pr-14`}
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder={mode === 'up' ? 'New password' : 'Password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    autoComplete={mode === 'in' ? 'current-password' : 'new-password'}
-                    enterKeyHint="go"
-                    aria-invalid={tried && !!problems.password}
-                    aria-describedby={tried && problems.password ? 'login-password-error' : mode === 'up' ? 'login-password-help' : undefined}
-                  />
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-slate-300"
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    aria-pressed={showPassword}
-                    onClick={() => setShowPassword((v) => !v)}
-                  >
-                    {showPassword ? <EyeOff size={18} aria-hidden /> : <Eye size={18} aria-hidden />}
-                  </button>
-                </div>
-                {fieldError('login-password', problems.password) ??
-                  (mode === 'up' && (
-                    // Key: it heads off the "too weak" error, and the field's aria-describedby points at it.
-                    <HintText
-                      id="login-password-help"
-                      className="mt-1.5 px-1 text-xs text-slate-400"
-                      hint={{ full: 'At least 8 characters, with letters and numbers.', tier: 'key' }}
-                    />
-                  ))}
-              </div>
-              {mode === 'up' && (
-                <HintText className="px-1 text-xs text-slate-400" hint={{ full: 'We’ll email you a link to confirm the address.', tier: 'help' }} />
-              )}
               <button type="submit" className="btn-primary w-full" disabled={busy} data-testid="login-submit">
-                {mode === 'in' ? 'Sign in' : 'Create account'}
+                {busy && <Loader2 size={16} className="animate-spin" aria-hidden />} Email me a sign-in link
               </button>
             </form>
             {!canSignUp && (
@@ -328,6 +353,10 @@ function friendly(e: unknown) {
   if (code.includes('account-exists-with-different-credential'))
     return 'This email is already registered with another sign-in method. Sign in that way, then link Google from Profile'
   if (code.includes('popup-closed')) return 'Sign-in cancelled'
+  if (code.includes('invalid-action-code') || code.includes('expired-action-code')) return 'That sign-in link has expired or was already used. Send a new one'
+  if (code.includes('invalid-email')) return 'That isn’t the email the link was sent to'
+  if (code.includes('operation-not-allowed')) return 'Signing in with email isn’t switched on yet. Use Continue with Google'
+  if (code.includes('too-many-requests') || code.includes('quota-exceeded')) return 'Too many links sent. Wait a few minutes, then try again'
   if (code.includes('password-does-not-meet-requirements')) {
     // Firebase lists the unmet rules in brackets, e.g. "[Password must contain an upper case character]".
     const rules = (e as Error).message?.match(/\[(.*)\]/)?.[1]

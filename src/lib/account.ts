@@ -33,15 +33,6 @@ export function emailProblem(raw: string): string {
   return ''
 }
 
-export const MIN_PASSWORD = 8
-
-/** What's wrong with a new password, or '' when it's fine. Firebase's own policy may still ask for more. */
-export function passwordProblem(p: string): string {
-  if (p.length < MIN_PASSWORD) return `Use at least ${MIN_PASSWORD} characters`
-  if (!/[A-Za-z]/.test(p) || !/[0-9]/.test(p)) return 'Mix letters and numbers'
-  return ''
-}
-
 /** "0:24" countdown text until another link can be sent, or '' when it can. */
 export function resendIn(ms: number): string {
   if (ms <= 0) return ''

@@ -427,7 +427,7 @@ export function QuickAdd({
                 className={`${chip} bg-brand-50 pl-1.5 pr-2.5 text-brand-700 dark:bg-brand-500/15 dark:text-brand-200`}
                 data-testid={`${testId}-group-chip`}
               >
-                <GroupIcon emoji={match.emoji} size={24} />
+                <GroupIcon emoji={match.emoji} group={match} size={24} />
                 <span className="truncate">{match.name}</span>
                 <X size={15} className="shrink-0 opacity-70" aria-hidden />
               </button>
@@ -452,7 +452,7 @@ export function QuickAdd({
                     value: g.id,
                     label: g.name,
                     text: g.name,
-                    icon: <GroupIcon emoji={g.emoji} size={24} />,
+                    icon: <GroupIcon emoji={g.emoji} group={g} size={24} />,
                     hint: which && named.kind === 'ambiguous' && named.ids.includes(g.id) ? 'Fits your line' : undefined,
                   })),
                   {

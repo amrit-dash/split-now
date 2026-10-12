@@ -4,7 +4,9 @@ import { repo } from '@/data'
 import { errText } from '@/lib/errors'
 import { formatDate } from '@/lib/locale'
 import { formatMoney } from '@/lib/money'
-import type { PayLink } from '@/lib/paylinks'
+import { linkGroupName, type PayLink } from '@/lib/paylinks'
+import { useAuth } from '@/hooks/auth'
+import { useGroup } from '@/hooks/data'
 import { firstName } from '@/lib/share-card'
 import { useToast } from '@/components/Toast'
 import { type Hint, HintText } from '@/components/Hint'
@@ -41,14 +43,17 @@ export function ClaimReview({ link, compact = false, onDone }: { link: PayLink; 
   const [busy, setBusy] = useState(false)
   const payer = firstName(link.payerName)
   const money = formatMoney(link.amount, link.currency)
+  // A 1:1 link stores the name its payer sees (you): you see the group as your app names it.
+  const { user } = useAuth()
+  const mine = !!user && user.uid === link.createdBy
+  const live = useGroup(mine ? link.groupId : undefined)
+  const shownGroup = linkGroupName(link, user?.uid, live)
   const act = async (confirm: boolean) => {
     if (busy) return
     setBusy(true)
     try {
       await (confirm ? repo.confirmPayLinkClaim(link.code) : repo.dismissPayLinkClaim(link.code))
-      toast(
-        confirm ? `Confirmed. ${payer}’s ${money} is recorded${link.groupId ? ` in ${link.groupName}` : ''}.` : `Dismissed. ${payer} can mark it paid again.`,
-      )
+      toast(confirm ? `Confirmed. ${payer}’s ${money} is recorded${link.groupId ? ` in ${shownGroup}` : ''}.` : `Dismissed. ${payer} can mark it paid again.`)
       onDone?.()
     } catch (e) {
       toast(errText(e), 'err')

@@ -8,8 +8,8 @@ import type { ActivityEntry, Cents, Group, MemberId } from '@/types'
 import { errText } from '@/lib/errors'
 import { formatMoney } from '@/lib/money'
 import { lastNudgeAcross, lastNudgeAt, localNudgeAt, nudgeCooldownText, nudgeResultText, nudgedRecently, rememberNudge, type NudgeResult } from '@/lib/nudge'
-import { buildPayLink, MAX_LINK_PARTS, newPayLinkCode, payLinkFeatures } from '@/lib/paylinks'
-import { canNudgePerson, groupNames, personNudgeItems, settlePersonHref, type PersonBalance } from '@/lib/settleAll'
+import { buildPayLink, MAX_LINK_PARTS, nameForPayer, newPayLinkCode, payLinkFeatures } from '@/lib/paylinks'
+import { canNudgePerson, personNudgeItems, settlePersonHref, type PersonBalance } from '@/lib/settleAll'
 import type { HomeBalance } from '@/lib/collect'
 import { convertMinor } from '@/lib/fx'
 import { useTodayRates } from '@/hooks/useFx'
@@ -67,6 +67,8 @@ export function RemindActions({
       // share sheet must open while the tap still counts), refusals arrive through onError.
       const code = createLinks ? newPayLinkCode() : undefined
       const payeeName = group.members[me]?.name ?? profile.displayName
+      // What the payer sees: a 1:1 is you to them (src/lib/paylinks.ts nameForPayer).
+      const shownName = nameForPayer(group, payeeName)
       if (code)
         repo
           .createPayLink(
@@ -74,7 +76,7 @@ export function RemindActions({
             buildPayLink(
               {
                 groupId: group.id,
-                groupName: group.name,
+                groupName: shownName,
                 emoji: group.emoji,
                 from: { id: debtor, name },
                 to: { id: me, name: payeeName },
@@ -82,9 +84,7 @@ export function RemindActions({
                 currency: inHome ? home : group.currency,
                 payment: profile.payment,
                 createdBy: user.uid,
-                parts: inHome
-                  ? [{ groupId: group.id, groupName: group.name, from: debtor, to: me, amount, currency: group.currency, paid: inHome }]
-                  : undefined,
+                parts: inHome ? [{ groupId: group.id, groupName: shownName, from: debtor, to: me, amount, currency: group.currency, paid: inHome }] : undefined,
               },
               Date.now(),
             ),
@@ -93,7 +93,7 @@ export function RemindActions({
       const args: ReminderArgs = {
         origin: location.origin,
         groupId: group.id,
-        groupName: group.name,
+        groupName: shownName,
         emoji: group.emoji,
         debtor: { id: debtor, name },
         payee: { id: me, name: payeeName },
@@ -149,7 +149,9 @@ export function PersonRemindActions({ p, feed, className = '' }: { p: PersonBala
 
   const remind = () =>
     chase.share(async () => {
-      const names = groupNames(p)
+      // Named as the payer sees them: a 1:1 is you to them.
+      const forPayer = (r: { groupName: string; direct?: boolean }) => (r.direct ? profile.displayName : r.groupName)
+      const names = [...new Set(p.parts.map(forPayer))]
       const lead = owedParts[0] ?? p.parts[0]
       const code = bundle && hb ? newPayLinkCode() : undefined
       if (code && hb)
@@ -167,7 +169,7 @@ export function PersonRemindActions({ p, feed, className = '' }: { p: PersonBala
                 createdBy: user.uid,
                 parts: p.parts.map((r) => ({
                   groupId: r.groupId,
-                  groupName: r.groupName,
+                  groupName: forPayer(r),
                   from: r.memberId,
                   to: r.me,
                   amount: r.amount,

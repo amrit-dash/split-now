@@ -8,6 +8,7 @@
  * minute, and a deploy is picked up within a minute. Any failure serves the page with its normal
  * preview: a link must always open.
  */
+import { inviteNameFor } from '../../shared/names'
 import { logger } from 'firebase-functions/logger'
 import { onRequest } from 'firebase-functions/v2/https'
 import { db } from './admin'
@@ -48,7 +49,8 @@ async function previewFor(kind: string, code: string, by: string): Promise<Previ
     if (!inv?.groupId) return DEFAULT_PREVIEW
     const g = await db().doc(`groups/${inv.groupId}`).get()
     const live = g.exists && typeof g.get('deletedAt') !== 'number' && g.get('inviteCode') === code
-    return invitePreview(inv, live, by)
+    const data = g.data() as Parameters<typeof inviteNameFor>[0] | undefined
+    return invitePreview(inv, live, by, data?.type === 'direct' ? inviteNameFor(data) : undefined)
   }
   if (kind === 'paylink') return payLinkPreview((await db().doc(`payLinks/${code}`).get()).data() as PayLinkLite | undefined, now)
   return tablePreview((await db().doc(`tables/${code}`).get()).data() as TableLite | undefined, now)

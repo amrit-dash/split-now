@@ -68,8 +68,20 @@ export interface TableLite {
   expiresAt?: number
 }
 
-/** An invite to a live group (a deleted or missing one gets the plain preview). */
-export function invitePreview(inv: InviteDoc | undefined, groupLive: boolean, by: string): Preview {
+/**
+ * An invite to a live group (a deleted or missing one gets the plain preview). A 1:1 (`directHost`:
+ * the person already in it, from shared/names.ts inviteNameFor) reads as that person asking the
+ * friend to split with them, never as the friend's own name, which older invites stored.
+ */
+export function invitePreview(inv: InviteDoc | undefined, groupLive: boolean, by: string, directHost?: string): Preview {
+  const host = firstName(directHost)
+  if (inv && groupLive && host)
+    return {
+      title: `${host} wants to split expenses with you`,
+      description: 'Just the two of you, on Split Now. Tap to join and see what you owe each other.',
+      image: '/og-invite.jpg',
+      imageAlt: `An invite from ${host} on Split Now`,
+    }
   const name = clip(inv?.groupName, 60)
   if (!inv || !name || !groupLive) return DEFAULT_PREVIEW
   const group = `${inv.emoji ? `${clip(inv.emoji, 8)} ` : ''}${name}`
