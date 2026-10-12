@@ -285,7 +285,9 @@ export function Composer(p: ComposerProps) {
   }
 
   return (
-    <div className="relative border-t border-slate-200/80 bg-white px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 dark:border-white/5 dark:bg-ink-900">
+    // Bottom padding trimmed into the home-indicator area like the tab bar (--nav-pad); none of it while the keyboard is up
+    // (GroupChat sets data-keyboard), where iOS still reports the home-indicator inset and left a gap above the keyboard.
+    <div className="relative border-t border-slate-200/80 bg-white px-2 pb-[max(var(--nav-pad),0.5rem)] pt-2 group-data-[keyboard]/chat:pb-2 dark:border-white/5 dark:bg-ink-900">
       {/* Above the box: the slash list, the people to tag, or a suggestion. */}
       {slash !== null && commands.length > 0 && (
         <Popup label="Tools" testId="chat-commands">
