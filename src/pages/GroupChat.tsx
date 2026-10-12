@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { labelOf } from '@/lib/shortNames'
 import { Navigate, useParams } from 'react-router-dom'
-import { ArrowDown, Bell, BellOff, ChevronLeft, Copy, Info, Pencil, Reply, Trash2 } from 'lucide-react'
+import { ArrowDown, Bell, BellOff, ChevronLeft, Copy, Info, Lightbulb, MessagesSquare, Pencil, Reply, Trash2 } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { useBack } from '@/hooks/useBack'
@@ -39,7 +39,8 @@ import { Switch } from '@/components/Switch'
 import { useToast } from '@/components/Toast'
 import { Composer, type Draft } from '@/features/chat/Composer'
 import { DayHeader, type MessageCtx, MessageRow, UnreadLine, UpdatesPill } from '@/features/chat/Message'
-import { HintText, type Hint } from '@/components/Hint'
+import { HintText, InfoTip, type Hint } from '@/components/Hint'
+import { Collapsible } from '@/components/Collapsible'
 
 /** Kept in every look: who can read the chat (people who join later too) is a privacy point. */
 const CHAT_START_HINT: Hint = {
@@ -448,19 +449,49 @@ export default function GroupChat() {
       </Sheet>
 
       <Sheet open={info} onClose={() => setInfo(false)} title="About this chat" testId="chat-info-sheet">
-        <p className="text-sm">{INTRO}</p>
-        <ul className="text-muted mt-3 list-disc space-y-1 pl-5 text-sm">
-          <li>Type / for tools: /settle, /pay, /expense, /balances and more.</li>
-          <li>Type @ to tag someone, or @everyone. A tag reaches them even if they muted the chat.</li>
-          <li>Swipe a message to the right to reply, or press and hold it for Reply, Edit and Delete.</li>
-        </ul>
-        <div className="mt-4 divide-y divide-slate-100 rounded-2xl bg-slate-50 dark:divide-white/5 dark:bg-ink-800">
+        {/* What the chat is, as one highlighted card; who can read it stays in every detail level. */}
+        <div className="flex gap-3 rounded-2xl bg-brand-50 p-3.5 dark:bg-brand-500/10">
+          <span
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-brand-600 dark:bg-ink-800 dark:text-brand-300"
+            aria-hidden
+          >
+            <MessagesSquare size={18} />
+          </span>
+          <div className="min-w-0">
+            <div className="font-semibold">The group’s money chat</div>
+            <HintText hint={ABOUT_HINT} className="mt-0.5 text-sm text-slate-700 dark:text-slate-200" />
+            <HintText hint={WHO_SEES_HINT} className="text-muted mt-1 text-xs" />
+          </div>
+        </div>
+
+        {/* The how-tos fold away: worth reading once, not every time the sheet opens. */}
+        <Collapsible
+          title="How to use it"
+          icon={<Lightbulb size={20} aria-hidden />}
+          summary="Tools, tags, replies"
+          className="!mt-3 !bg-slate-50 !shadow-none !ring-0 dark:!bg-ink-800"
+          testId="chat-howto"
+        >
+          <ul className="space-y-3 px-4 pb-4 text-sm">
+            <TipRow glyph="/" title="Tools" text="Type / for /settle, /pay, /expense, /balances and more." />
+            <TipRow glyph="@" title="Tags" text="Tag someone, or @everyone. A tag reaches them even if they muted the chat." />
+            <TipRow
+              glyph={<Reply size={15} aria-hidden />}
+              title="Replies"
+              text="Swipe a message right to reply; press and hold it for Reply, Edit and Delete."
+            />
+          </ul>
+        </Collapsible>
+
+        <h3 className="mb-2 mt-5 px-1 text-sm font-bold">Your settings</h3>
+        <div className="divide-y divide-slate-100 rounded-2xl bg-slate-50 dark:divide-white/5 dark:bg-ink-800">
           <div className="flex items-center gap-3 p-3">
             <div className="min-w-0 flex-1">
-              <div className="font-medium">Suggest tools as I type</div>
-              <div className="text-muted text-xs">
-                “Can everyone settle up?” offers Settle up. Read on this phone, nothing is sent until you tap. This device only.
+              <div className="flex items-center font-medium">
+                Suggest tools as I type
+                <InfoTip hint={SUGGEST_HINT} label="About suggesting tools" />
               </div>
+              <HintText hint={SUGGEST_HINT} className="text-muted text-xs" as="div" />
             </div>
             <Switch
               checked={suggest}
@@ -475,12 +506,15 @@ export default function GroupChat() {
           {chatAiOn && suggest && (
             <div className="flex items-center gap-3 p-3" data-testid="chat-ai-row">
               <div className="min-w-0 flex-1">
-                <div className="font-medium">Use AI for suggestions</div>
-                <div className="text-muted text-xs">
-                  {repo.mode === 'demo'
-                    ? 'Needs a Split Now account: not in the demo.'
-                    : 'When the built-in rules find nothing, asks AI after you pause typing. A little slower, and uses your AI allowance (Settings → AI features). Recommended: off.'}
+                <div className="flex items-center font-medium">
+                  Use AI for suggestions
+                  {repo.mode !== 'demo' && <InfoTip hint={AI_SUGGEST_HINT} label="About AI suggestions" />}
                 </div>
+                {repo.mode === 'demo' ? (
+                  <div className="text-muted text-xs">Needs a Split Now account: not in the demo.</div>
+                ) : (
+                  <HintText hint={AI_SUGGEST_HINT} className="text-muted text-xs" as="div" />
+                )}
               </div>
               <Switch
                 checked={aiSuggest && repo.mode !== 'demo'}
@@ -497,8 +531,11 @@ export default function GroupChat() {
           )}
           <div className="flex items-center gap-3 p-3">
             <div className="min-w-0 flex-1">
-              <div className="font-medium">Mute this chat</div>
-              <div className="text-muted text-xs">No notifications for new messages, except when someone tags you. Only for you.</div>
+              <div className="flex items-center font-medium">
+                Mute this chat
+                <InfoTip hint={MUTE_HINT} label="About muting this chat" />
+              </div>
+              <HintText hint={MUTE_HINT} className="text-muted text-xs" as="div" />
             </div>
             <Switch checked={muted} onChange={toggleMute} label="Mute this chat" disabled={!prefs} />
           </div>
@@ -508,8 +545,47 @@ export default function GroupChat() {
   )
 }
 
-const INTRO =
-  'The group’s money chat. Ask who paid, write down an open item anyone can claim, ask people to settle up or send a Pay me. Everyone in the group sees the whole chat, including people who join later.'
+const ABOUT_HINT: Hint = {
+  full: 'Ask who paid, write down an open item anyone can claim, ask people to settle up or send a Pay me.',
+  short: 'Ask who paid, settle up, send a Pay me.',
+  tier: 'help',
+}
+// Who reads it is a privacy fact: it stays in every look.
+const WHO_SEES_HINT: Hint = {
+  full: 'Everyone in the group sees the whole chat, including people who join later.',
+  short: 'Everyone in the group sees it, even people who join later.',
+  tier: 'key',
+}
+const SUGGEST_HINT: Hint = {
+  full: '“Can everyone settle up?” offers Settle up. Read on this phone, nothing is sent until you tap. This device only.',
+  short: 'Offers a tool from what you type. This device only.',
+  tier: 'help',
+}
+const AI_SUGGEST_HINT: Hint = {
+  full: 'When the built-in rules find nothing, asks AI after you pause typing. A little slower, and uses your AI allowance (Settings → AI features). Recommended: off.',
+  short: 'Asks AI when the built-in rules find nothing. Uses your AI allowance.',
+  tier: 'help',
+}
+const MUTE_HINT: Hint = { full: 'No notifications for new messages, except when someone tags you. Only for you.', short: 'Tags still reach you.', tier: 'help' }
+
+/** One how-to in the chat's ⓘ: a glyph chip, a short title and the line. */
+function TipRow({ glyph, title, text }: { glyph: React.ReactNode; title: string; text: string }) {
+  return (
+    <li className="flex gap-3">
+      <span
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white font-mono text-sm font-bold text-brand-600 shadow-sm dark:bg-ink-900 dark:text-brand-300"
+        aria-hidden
+      >
+        {glyph}
+      </span>
+      <span className="min-w-0">
+        <span className="block font-semibold">{title}</span>
+        <span className="text-muted block text-xs">{text}</span>
+      </span>
+    </li>
+  )
+}
+
 
 function MenuRow({ icon, label, onClick, danger, testId }: { icon: React.ReactNode; label: string; onClick: () => void; danger?: boolean; testId?: string }) {
   return (

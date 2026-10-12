@@ -1,11 +1,26 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { labelOf } from '@/lib/shortNames'
 import { Link } from 'react-router-dom'
-import { ArrowRight, Check, CheckCheck, ChevronDown, ClipboardList, Clock, HandCoins, Handshake, Receipt, Reply, Scale, Users } from 'lucide-react'
+import {
+  ArrowRight,
+  Check,
+  CheckCheck,
+  ChevronDown,
+  ClipboardList,
+  Clock,
+  HandCoins,
+  Handshake,
+  Layers,
+  Receipt,
+  Reply,
+  Scale,
+  Settings2,
+  Users,
+} from 'lucide-react'
 import type { ActivityEntry, ChatMessage, ChatReplyRef, Debt, Expense, Group, MemberId, MergeRequest, OpenItem } from '@/types'
 import { activityText } from '@/lib/activity'
 import { CATEGORIES } from '@/lib/categories'
-import { authorMember, linkParts, payCard, settleCard, updatesLine, type ChatRow } from '@/lib/chat'
+import { authorMember, foldsUpdates, linkParts, payCard, settleCard, updateKind, type ChatRow, type UpdateKind } from '@/lib/chat'
 import { listNames, mentionParts, type Mentionable } from '@/lib/chat-tools'
 import { formatTime } from '@/lib/locale'
 import { formatMoney } from '@/lib/money'
@@ -60,34 +75,76 @@ export function UnreadLine() {
   )
 }
 
-/** Expenses and payments between messages, as one quiet pill (the latest first) that opens to show them all. */
+const KIND_ICON: Record<UpdateKind, typeof Receipt> = { expense: Receipt, payment: HandCoins, people: Users, group: Settings2 }
+
+/**
+ * Expenses, payments and people coming and going, between messages: each one a system message on
+ * the left with an icon for what it's about, never mistaken for someone talking. Three or more in a
+ * row fold into one summary (how many, and the latest) that opens to show them all (foldsUpdates).
+ */
 export function UpdatesPill({ entries, uid }: { entries: ActivityEntry[]; uid: string }) {
   const [open, setOpen] = useState(false)
-  const line = updatesLine(entries, (a) => activityText(a, uid))
-  const many = entries.length > 1
+  if (!foldsUpdates(entries)) {
+    return (
+      <div className="my-2 space-y-1.5" data-testid="chat-updates">
+        {entries.map((a) => (
+          <SystemUpdate key={a.id} entry={a} uid={uid} />
+        ))}
+      </div>
+    )
+  }
+  const latest = entries[entries.length - 1]
   return (
-    <div className="my-2 flex flex-col items-center">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={many ? open : undefined}
-        className="inline-flex min-h-9 max-w-[90%] items-center gap-1.5 rounded-full bg-white/85 px-3 py-1 text-xs text-slate-600 shadow-sm ring-1 ring-slate-900/5 backdrop-blur dark:bg-ink-800/90 dark:text-slate-300 dark:ring-white/5"
-        data-testid="chat-updates"
-      >
-        <Receipt size={13} className="shrink-0" aria-hidden />
-        <span className="truncate">{line}</span>
-        {many && <ChevronDown size={14} className={`shrink-0 transition ${open ? 'rotate-180' : ''}`} aria-hidden />}
-      </button>
-      {open && many && (
-        <ul className="mt-1.5 w-[90%] space-y-1 rounded-2xl bg-white/90 p-2.5 text-xs text-slate-600 shadow-sm dark:bg-ink-900/95 dark:text-slate-300">
-          {[...entries].reverse().map((a) => (
-            <li key={a.id} className="flex gap-2">
-              <span className="text-muted w-14 shrink-0 tabular-nums">{formatTime(a.createdAt)}</span>
-              <span className="min-w-0">{activityText(a, uid)}</span>
-            </li>
+    <div className="my-2" data-testid="chat-updates">
+      <div className="flex items-start gap-2">
+        <span
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300"
+          aria-hidden
+        >
+          <Layers size={16} />
+        </span>
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className="flex min-h-11 min-w-0 max-w-[85%] flex-1 items-center gap-2 rounded-2xl rounded-tl-md bg-white/90 px-3 py-2 text-left shadow-sm ring-1 ring-slate-900/5 backdrop-blur sm:flex-none dark:bg-ink-800/90 dark:ring-white/5"
+          data-testid="chat-updates-toggle"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold">{entries.length} updates</span>
+            <span className="text-muted block truncate text-xs">
+              {formatTime(latest.createdAt)} · {activityText(latest, uid)}
+            </span>
+          </span>
+          <ChevronDown size={18} className={`shrink-0 text-slate-400 transition ${open ? 'rotate-180' : ''}`} aria-hidden />
+        </button>
+      </div>
+      {open && (
+        <div className="mt-1.5 space-y-1.5 border-l-2 border-slate-200 pl-2 ml-4 dark:border-white/10" data-testid="chat-updates-list">
+          {entries.map((a) => (
+            <SystemUpdate key={a.id} entry={a} uid={uid} />
           ))}
-        </ul>
+        </div>
       )}
+    </div>
+  )
+}
+
+/** One update as a system message: icon tile, the words, the time. */
+function SystemUpdate({ entry, uid }: { entry: ActivityEntry; uid: string }) {
+  const Icon = KIND_ICON[updateKind(entry.type)]
+  return (
+    <div className="flex items-start gap-2" data-testid="chat-system-update">
+      <span
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 dark:bg-ink-800 dark:text-slate-400"
+        aria-hidden
+      >
+        <Icon size={15} />
+      </span>
+      <div className="min-w-0 max-w-[85%] rounded-2xl rounded-tl-md bg-white/70 px-3 py-1.5 ring-1 ring-slate-900/5 backdrop-blur dark:bg-ink-900/70 dark:ring-white/5">
+        <p className="text-sm text-slate-700 dark:text-slate-200">{activityText(entry, uid)}</p>
+        <p className="text-muted text-[11px] tabular-nums">{formatTime(entry.createdAt)}</p>
+      </div>
     </div>
   )
 }

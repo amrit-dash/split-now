@@ -18,6 +18,9 @@ import {
   settleCard,
   unreadCount,
   updatesLine,
+  foldsUpdates,
+  updateKind,
+  UPDATES_FOLD_AT,
 } from './chat'
 
 const at = (iso: string) => new Date(iso).getTime()
@@ -254,5 +257,21 @@ describe('messagePreview', () => {
     expect(messagePreview({ kind: 'text', text: ' who  paid? ' })).toBe('who paid?')
     expect(messagePreview({ kind: 'openItem', text: 'who paid?' }, 'Lunch')).toBe('Open item: Lunch · who paid?')
     expect(messagePreview({ kind: 'pay', text: '' }, '₹500')).toBe('Pay me: ₹500')
+  })
+})
+
+describe('updates as system messages', () => {
+  it('one or two updates in a row stay as they are; three or more fold into a summary', () => {
+    expect(UPDATES_FOLD_AT).toBe(3)
+    expect(foldsUpdates([1])).toBe(false)
+    expect(foldsUpdates([1, 2])).toBe(false)
+    expect(foldsUpdates([1, 2, 3])).toBe(true)
+  })
+  it('picks the icon from what the update is about', () => {
+    expect(updateKind('expense.created')).toBe('expense')
+    expect(updateKind('expense.imported')).toBe('expense')
+    expect(updateKind('settlement.approved')).toBe('payment')
+    expect(updateKind('member.removed')).toBe('people')
+    expect(updateKind('group.updated')).toBe('group')
   })
 })
