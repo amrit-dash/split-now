@@ -1,11 +1,30 @@
 import { useEffect, useState } from 'react'
 import { initials } from '@/lib/colors'
 
-export function Avatar({ name, color, size = 40, ring, photoURL }: { name: string; color: string; size?: number; ring?: boolean; photoURL?: string }) {
+/**
+ * A person's photo, or their initials on their colour. `shape: 'tile'` is the rounded square the
+ * group icons use (a 1:1's face in a list of groups); people elsewhere are circles.
+ */
+export function Avatar({
+  name,
+  color,
+  size = 40,
+  ring,
+  photoURL,
+  shape = 'circle',
+}: {
+  name: string
+  color: string
+  size?: number
+  ring?: boolean
+  photoURL?: string
+  shape?: 'circle' | 'tile'
+}) {
   const [failed, setFailed] = useState(false)
   // biome-ignore lint/correctness/useExhaustiveDependencies: photoURL is the trigger, so a new photo gets a fresh try after an earlier one failed.
   useEffect(() => setFailed(false), [photoURL])
   const ringCls = ring ? 'ring-2 ring-white dark:ring-ink-900' : ''
+  const round = shape === 'tile' ? 'rounded-2xl' : 'rounded-full'
   if (photoURL && !failed) {
     return (
       <img
@@ -19,7 +38,7 @@ export function Avatar({ name, color, size = 40, ring, photoURL }: { name: strin
         decoding="async"
         draggable={false}
         onError={() => setFailed(true)}
-        className={`shrink-0 rounded-full bg-slate-200 object-cover dark:bg-ink-700 ${ringCls}`}
+        className={`shrink-0 ${round} bg-slate-200 object-cover dark:bg-ink-700 ${ringCls}`}
         style={{ width: size, height: size }}
       />
     )
@@ -28,7 +47,7 @@ export function Avatar({ name, color, size = 40, ring, photoURL }: { name: strin
   // circle let the one behind show through.
   return (
     <div
-      className={`flex shrink-0 items-center justify-center rounded-full font-bold ${color === 'accent' ? 'text-on-fill' : 'text-white'} ${ringCls}`}
+      className={`flex shrink-0 items-center justify-center ${round} font-bold ${color === 'accent' ? 'text-on-fill' : 'text-white'} ${ringCls}`}
       style={{
         width: size,
         height: size,

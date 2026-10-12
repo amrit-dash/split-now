@@ -15,6 +15,7 @@
  * themselves, and the trigger leaves it alone. On → claimed it only logs the claim in the group
  * and tells the host. Recorded whatever the payLinks flag says (the flag only stops new links).
  */
+import { groupNameForRecipient } from '../../shared/names'
 import { logger } from 'firebase-functions/logger'
 import { onDocumentUpdated } from 'firebase-functions/v2/firestore'
 import { claimSummary, planRecord, planRecordParts, skipText, triggerAction, type GroupLite, type PayLinkDoc, type RecordPlan } from '../../shared/paylinks'
@@ -70,20 +71,21 @@ export const onPayLinkPaid = onDocumentUpdated({ document: 'payLinks/{code}', re
   // (skipReason, shown to the payer), and the payee is told, so nobody thinks it was recorded.
   if (plan.kind === 'skip') logger.warn('pay link not recorded', { code, reason: plan.reason })
   const payee = plan.kind === 'skip' ? after.createdBy : plan.payeeUid
+  const groupName = payee ? await linkGroupNameFor(after, payee) : after.groupName
   const sent = payee
     ? await sendToUser(
         payee,
         ['settlements'],
         payLinkPaidNote({
           code,
-          groupName: after.groupName,
+          groupName,
           emoji: after.emoji,
           payerName: after.payerName,
           amount: after.amount,
           currency: after.currency,
           recorded: plan.kind === 'record',
           withProof: !!after.proofPath,
-          skipped: plan.kind === 'skip' ? skipText(plan.reason, after.groupName) : undefined,
+          skipped: plan.kind === 'skip' ? skipText(plan.reason, groupName) : undefined,
         }),
       )
     : 0
@@ -124,7 +126,7 @@ async function onClaimed(code: string, l: PayLinkDoc) {
     ['settlements'],
     payLinkClaimedNote({
       code,
-      groupName: l.groupName,
+      groupName: await linkGroupNameFor(l, l.createdBy),
       emoji: l.emoji,
       payerName: l.payerName,
       amount: l.amount,
@@ -195,4 +197,20 @@ async function recordParts(code: string, after: PayLinkDoc) {
     }),
   )
   logger.info('pay link paid (parts)', { code, recorded: done.records.length, skipped: done.skipped.length, devices: sent })
+}
+
+/**
+ * A link's group, named for the person told about it (the payee): a link stores the name its
+ * payer sees, which for a 1:1 is the payee, so a 1:1's link is titled with the payer for the payee
+ * (shared/names.ts). Several groups or no group: the stored name.
+ */
+async function linkGroupNameFor(l: Pick<PayLinkDoc, 'groupId' | 'groupName'>, uid: string): Promise<string> {
+  if (!l.groupId) return l.groupName
+  const g = (
+    await db()
+      .doc(`groups/${l.groupId}`)
+      .get()
+      .catch(() => null)
+  )?.data() as { type?: string; name?: string; members?: Record<string, { name?: string; uid?: string; removedAt?: number }> } | undefined
+  return g?.type === 'direct' ? groupNameForRecipient(g, uid, l.groupName) : l.groupName
 }

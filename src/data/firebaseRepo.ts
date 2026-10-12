@@ -125,7 +125,10 @@ import type { AiKeyResult, AiModel, AiState, AiStatement, AiStatusResult, AiUnav
 import { parseMemory } from '@/lib/merchants'
 import type { AiTextExpense } from '@/lib/nl-expense'
 import type { QuickAiRequest, QuickAiResponse } from '../../shared/quick-ai'
-import { archiveWrite, isArchivedFor } from '../../shared/archive'
+import { archiveWrite } from '../../shared/archive'
+import { personalView } from './personalView'
+import { inviteNameFor } from '../../shared/names'
+import type { ChatAiIntent } from '../../shared/chat-ai'
 import type { NudgeItem, NudgeResult } from '@/lib/nudge'
 import { errText } from '@/lib/errors'
 import type { FxRatesDoc, FxRefreshResult } from '@/lib/fx'
@@ -200,10 +203,11 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
 
   const groupRef = (id: string) => doc(db, 'groups', id)
   // `archived` on a Group is personal: derived here for the signed-in person (shared/archive.ts),
-  // never written back (changedSettings skips it; setArchived changes `archivedBy`).
+  // never written back (changedSettings skips it; setArchived changes `archivedBy`). So is a 1:1's
+  // name and `peer`: the other person (shared/names.ts), whatever the group was called.
   const asGroup = (id: string, data: unknown): Group => {
     const g = { ...(data as Group), id }
-    return { ...g, archived: isArchivedFor(g, auth.currentUser?.uid) }
+    return personalView(g, auth.currentUser?.uid)
   }
   const inviteRef = (code: string) => doc(db, 'invites', code)
   const tableRef = (code: string) => doc(db, 'tables', code)
@@ -220,7 +224,8 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     const m = { ...(d.data() as ChatMessage), id: d.id }
     return d.metadata.hasPendingWrites ? { ...m, pending: true } : m
   }
-  const inviteDoc = (g: Group): InviteInfo => ({ groupId: g.id, groupName: g.name, emoji: g.emoji, placeholders: placeholdersOf(g) })
+  // A 1:1's invite is named after the person already in it (shared/names.ts inviteNameFor), not the friend it's for.
+  const inviteDoc = (g: Group): InviteInfo => ({ groupId: g.id, groupName: inviteNameFor(g), emoji: g.emoji, placeholders: placeholdersOf(g) })
 
   /**
    * Commit without waiting for the server. Firestore applies the batch to the local cache
@@ -783,11 +788,22 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       const batch = writeBatch(db)
       batch.update(groupRef(base.id), data)
       if (base.type !== 'personal' && ('name' in changed || 'emoji' in changed)) {
-        batch.set(inviteRef(base.inviteCode), { groupId: base.id, groupName: changed.name ?? base.name, emoji: changed.emoji ?? base.emoji }, { merge: true })
+        batch.set(
+          inviteRef(base.inviteCode),
+          { groupId: base.id, groupName: inviteNameFor({ ...base, name: changed.name ?? base.name }), emoji: changed.emoji ?? base.emoji },
+          { merge: true },
+        )
       }
       // Any member may change these, so the change is logged for everyone (a wallet has nobody to tell).
       if (base.type !== 'personal') log(batch, base.id, groupSettingsActivity(base, { ...base, ...changed }, await actCtx(base.id, undefined, base)))
       fire(batch, 'Saving group')
+    },
+    async refreshInviteName(group) {
+      if (group.type !== 'direct' || !group.inviteCode) return
+      // 1:1 invites made before Oct 2026 stored the friend's own name: name them after you.
+      const batch = writeBatch(db)
+      batch.set(inviteRef(group.inviteCode), { groupId: group.id, groupName: inviteNameFor(group) }, { merge: true })
+      fire(batch, 'Updating the invite')
     },
     async setArchived(group, on) {
       const me = auth.currentUser?.uid
@@ -1376,6 +1392,11 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       batch.delete(doc(chatCol(groupId), id))
       fire(batch, 'Deleting message')
     },
+    async editChat(groupId, id, { text, mentions }) {
+      const batch = writeBatch(db)
+      batch.update(doc(chatCol(groupId), id), { text, mentions: mentions.length ? mentions : deleteField(), editedAt: Date.now() })
+      fire(batch, 'Editing message')
+    },
 
     watchComments(groupId, expenseId, cb) {
       return watchList(
@@ -1709,6 +1730,21 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         return d.unavailable ? { unavailable: true, reason: d.reason } : { expense: d.expense ?? null }
       } catch (e) {
         console.warn('AI text reading failed', e)
+        return null
+      }
+    },
+    async chatIntentAi(text, ctx) {
+      if (!auth.currentUser || auth.currentUser.isAnonymous || !online()) return null
+      try {
+        const call = await callable<
+          { kind: 'chat'; text: string; names: string[]; tools: string[]; currency: string },
+          { intent?: ChatAiIntent; unavailable?: true; reason?: AiUnavailableReason }
+        >('parseReceiptAi', 45_000)
+        const d = (await call({ kind: 'chat', text, ...ctx })).data
+        if (!d) return null
+        return d.unavailable ? { unavailable: true, reason: d.reason } : d.intent ? { intent: d.intent } : null
+      } catch (e) {
+        console.warn('AI chat suggestion failed', e)
         return null
       }
     },

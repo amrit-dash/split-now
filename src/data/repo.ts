@@ -1,3 +1,4 @@
+import type { ChatAiIntent } from '../../shared/chat-ai'
 import type {
   ActivityEntry,
   Capture,
@@ -254,6 +255,8 @@ export interface Repo {
    * Archive (`on`) or unarchive the group for the signed-in person only (shared/archive.ts).
    * Fire-and-forget like other settings; archiving and unarchiving someone else is impossible.
    */
+  /** A 1:1's invite named after the person already in it (an older invite stored the friend's own name). Fire-and-forget; no-op for other groups and in demo mode. */
+  refreshInviteName(group: Group): Promise<void>
   setArchived(group: Group, on: boolean): Promise<void>
   /**
    * Adds a placeholder. When `memberId` is a removed entry (formerMemberMatch), that entry comes
@@ -392,6 +395,8 @@ export interface Repo {
   watchMergeApprovals(uid: string, cb: Watch<MergeRequest[]>): Unsub
   /** The author deletes their own message. */
   deleteChat(groupId: string, id: string): Promise<void>
+  /** The author changes their words (and who they tag); sets editedAt. Fire-and-forget. */
+  editChat(groupId: string, id: string, edit: { text: string; mentions: string[] }): Promise<void>
 
   watchComments(groupId: string, expenseId: string, cb: Watch<ExpenseComment[]>): Unsub
   addComment(groupId: string, expenseId: string, c: Omit<ExpenseComment, 'id'>): Promise<void>
@@ -532,6 +537,12 @@ export interface Repo {
    */
   parseTextAi(text: string, ctx: { members: string[]; currency: string; today: string }): Promise<TextAiResult | null>
   /**
+   * Group chat suggestions with AI (shared/chat-ai.ts): which tool a chat line reads like, asked
+   * only when the phone's own rules found none and the person turned it on. null offline, signed
+   * out, on failure, and in demo mode (no server).
+   */
+  chatIntentAi(text: string, ctx: { names: string[]; tools: string[]; currency: string }): Promise<ChatAiResult | null>
+  /**
    * Quick add with AI (callable quickAddAi): a line the phone's grammar can't handle, read with the
    * caller's groups as context. The answer is validated on the server (shared/quick-ai.ts); it never
    * saves anything. `{ unavailable, reason }`: the flag, the person's switch or every key said no;
@@ -567,6 +578,7 @@ export interface AiUnavailable {
 }
 export type ReceiptAiResult = { receipt: ParsedReceipt | null; unavailable?: undefined } | AiUnavailable
 export type StatementAiResult = { statement: AiStatement | null; unavailable?: undefined } | AiUnavailable
+export type ChatAiResult = { intent: ChatAiIntent; unavailable?: undefined } | AiUnavailable
 export type TextAiResult = { expense: AiTextExpense | null; unavailable?: undefined } | AiUnavailable
 
 export interface AiModel {

@@ -314,7 +314,7 @@ export default function SplitBill() {
                   </span>
                 ),
               },
-              ...usable.map((g) => ({ value: g.id, text: g.name, label: g.name, hint: g.currency, icon: <GroupIcon emoji={g.emoji} size={28} /> })),
+              ...usable.map((g) => ({ value: g.id, text: g.name, label: g.name, hint: g.currency, icon: <GroupIcon emoji={g.emoji} group={g} size={28} /> })),
             ]}
           />
         </div>

@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { FileUp, Plus, Scale, Trash2 } from 'lucide-react'
+import { Eye, EyeOff, FileUp, Plus, Scale, Trash2 } from 'lucide-react'
 import { useAllGroupData, useDeletedGroups } from '@/hooks/data'
 import { GroupRow } from '@/components/GroupRow'
 import { PageHeader } from '@/components/Misc'
@@ -11,16 +12,37 @@ import type { Group } from '@/types'
 import { daysLeft } from '../../shared/group-trash'
 import { EmptyGroups, FirstRun, Section } from './Home'
 import { labelForUid, memberIdOfUid } from '@/lib/shortNames'
+import { settledAWhile, showSettledStored, storeShowSettled } from '@/lib/settled-groups'
 
 export default function Groups() {
   usePageTitle('Groups')
   const data = useAllGroupData()
   const deleted = useDeletedGroups()
+  const [showSettled, setShowSettledState] = useState(showSettledStored)
+  const setShowSettled = (on: boolean) => {
+    setShowSettledState(on)
+    storeShowSettled(on)
+  }
+  const now = Date.now()
+  const quiet = (data ?? []).filter((d) => !d.group.archived && settledAWhile(d, now))
   const header = (
     <PageHeader
       title="Groups"
       right={
         <div className="flex gap-2">
+          {quiet.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowSettled(!showSettled)}
+              aria-pressed={showSettled}
+              aria-label={showSettled ? 'Hide groups settled over a week ago' : `Show ${quiet.length} settled ${quiet.length === 1 ? 'group' : 'groups'}`}
+              title={showSettled ? 'Hide settled' : 'Show settled'}
+              className={`flex h-11 w-11 items-center justify-center rounded-full ${showSettled ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200' : 'bg-slate-200/70 dark:bg-ink-800'}`}
+              data-testid="groups-show-settled"
+            >
+              {showSettled ? <Eye size={20} aria-hidden /> : <EyeOff size={20} aria-hidden />}
+            </button>
+          )}
           <Link
             to="/groups/import"
             className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-200/70 dark:bg-ink-800"
@@ -50,7 +72,9 @@ export default function Groups() {
         <ListSkeleton rows={4} />
       </div>
     )
-  const live = data.filter((d) => !d.group.archived)
+  // Square for over a week: out of the way unless the eye is on (src/lib/settled-groups.ts).
+  const hidden = new Set(showSettled ? [] : quiet.map((d) => d.group.id))
+  const live = data.filter((d) => !d.group.archived && !hidden.has(d.group.id))
   const shared = live.filter((d) => d.group.type !== 'personal' && d.group.type !== 'direct')
   const direct = live.filter((d) => d.group.type === 'direct')
   const personal = live.filter((d) => d.group.type === 'personal')
@@ -65,8 +89,25 @@ export default function Groups() {
   return (
     <div>
       {header}
-      {data.length === 0 ? <FirstRun /> : shared.length === 0 ? <EmptyGroups /> : list(shared)}
-      {direct.length > 0 && <Section title="1:1 friends">{list(direct)}</Section>}
+      {data.length === 0 ? (
+        <FirstRun />
+      ) : shared.length > 0 ? (
+        list(shared)
+      ) : (
+        // Every shared group is only hidden as settled: the hint below brings them back, so no "make a group" nudge.
+        !quiet.some((d) => d.group.type !== 'direct') && <EmptyGroups />
+      )}
+      {direct.length > 0 && <Section title="1:1 with friends">{list(direct)}</Section>}
+      {hidden.size > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowSettled(true)}
+          className="text-muted mt-3 flex min-h-11 w-full items-center justify-center gap-2 text-sm"
+          data-testid="groups-settled-hint"
+        >
+          <EyeOff size={16} aria-hidden /> {hidden.size} settled {hidden.size === 1 ? 'group' : 'groups'} hidden · Show
+        </button>
+      )}
       <Section title="Personal">
         {personal.length ? (
           <>

@@ -2,19 +2,22 @@
  * Group chat and open item pushes (src/lib/chat.ts, src/lib/open-items.ts in the app).
  *  - a chat message → everyone else in the group: one notification per chat that the next message
  *    replaces, quietly when the last loud one was under a minute ago (lib/chat-push.ts); not for
- *    people who turned chat pushes off or muted this chat (mutedChats). Someone @mentioned in it
- *    (shared/mentions.ts) gets "X mentioned you" instead, loud, even in a muted chat. A merge
- *    request card (written by merge-members.ts, which pushes the creator itself) sends nothing.
+ *    people who turned chat pushes off or muted this chat (mutedChats). Someone the message calls
+ *    on by name (@mentioned, @everyone, or asked by a Pay me / Settle up: lib/chat-push.ts
+ *    calledUids) hears it loud even in a muted chat: "X mentioned you" for words, "asks you to
+ *    settle up" for a card. A merge request card (written by merge-members.ts, which pushes the
+ *    creator itself) sends nothing.
  *  - an open item that names people as "might have paid" (written down, or someone added later)
  *    → those people, asking them to claim it
  * Both behind their flags (groupChat, openItems), never for a group in Recently deleted, and only
  * to uids in the group's memberUids.
  */
+import { groupNameForRecipient } from '../../shared/names'
 import { logger } from 'firebase-functions/logger'
 import { onDocumentCreated, onDocumentWritten } from 'firebase-functions/v2/firestore'
 import { db } from './admin'
 import { REGION } from './config'
-import { chatLoudness, chatRecipients, newSuspects } from './lib/chat-push'
+import { calledUids, chatLoudness, chatRecipients, newSuspects } from './lib/chat-push'
 import { flagOn } from './lib/limits'
 import { chatNote, mentionNote, openItemNote } from './lib/notify-text'
 import { mutedChats } from './lib/prefs'
@@ -23,19 +26,12 @@ import { sendToUser } from './push'
 
 interface GroupLite {
   name?: string
+  type?: string
   emoji?: string
   currency?: string
   members?: Record<string, MemberLite>
   memberUids?: string[]
   deletedAt?: number
-}
-
-/** The accounts of the people @mentioned (member ids on the message), still in the group, not the author. */
-function mentionedUids(g: GroupLite, mentions: unknown, author: string): string[] {
-  if (!Array.isArray(mentions)) return []
-  const uids = uidsOf(g)
-  const out = mentions.slice(0, 20).map((id) => (typeof id === 'string' ? memberUid(g.members, id, uids) : undefined))
-  return [...new Set(out.filter((u): u is string => !!u && u !== author))]
 }
 
 const uidsOf = (g: GroupLite) => (Array.isArray(g.memberUids) ? g.memberUids.filter((u): u is string => typeof u === 'string') : [])
@@ -52,12 +48,12 @@ export const onChatMessageCreated = onDocumentCreated({ document: 'groups/{group
   if (m.kind === 'merge') return
   const recipients = chatRecipients(g.memberUids, m.authorUid)
   if (!recipients.length) return
-  const mentioned = mentionedUids(g, m.mentions, m.authorUid)
+  const called = calledUids(m, (id) => memberUid(g.members, id, uidsOf(g)), recipients)
 
   const stateRef = db().doc(`chatPush/${groupId}`)
   const now = Date.now()
   const { loud, quiet } = chatLoudness(
-    recipients.filter((u) => !mentioned.includes(u)),
+    recipients.filter((u) => !called.has(u)),
     (await stateRef.get()).get('last'),
     now,
   )
@@ -66,10 +62,10 @@ export const onChatMessageCreated = onDocumentCreated({ document: 'groups/{group
     const t = (await db().doc(`groups/${groupId}/openItems/${m.ref}`).get()).get('title')
     if (typeof t === 'string') itemTitle = t
   }
-  const note = (silent: boolean) =>
+  const note = (silent: boolean, uid: string) =>
     chatNote({
       groupId,
-      groupName: g.name ?? 'Group',
+      groupName: groupNameForRecipient(g, uid),
       emoji: g.emoji,
       authorName: memberNameForUid(g.members, m.authorUid) ?? (typeof m.authorName === 'string' ? m.authorName : 'Someone'),
       kind: String(m.kind ?? 'text'),
@@ -77,20 +73,25 @@ export const onChatMessageCreated = onDocumentCreated({ document: 'groups/{group
       amount: typeof m.amount === 'number' ? m.amount : undefined,
       currency: g.currency ?? 'INR',
       itemTitle,
+      called: called.has(uid),
       silent,
     })
   const skip = (raw: unknown) => mutedChats(raw).has(groupId)
   const authorName = memberNameForUid(g.members, m.authorUid) ?? (typeof m.authorName === 'string' ? m.authorName : 'Someone')
-  const mention = mentionNote({ groupId, groupName: g.name ?? 'Group', emoji: g.emoji, authorName, text: typeof m.text === 'string' ? m.text : '' })
+  // Words that tag you read "X mentioned you"; a card that asks you says what it asks.
+  const calledNote = (uid: string) =>
+    m.kind === 'text' || m.kind === undefined
+      ? mentionNote({ groupId, groupName: groupNameForRecipient(g, uid), emoji: g.emoji, authorName, text: typeof m.text === 'string' ? m.text : '' })
+      : note(false, uid)
   const sent = await Promise.all([
-    ...mentioned.map((uid) => sendToUser(uid, ['chat'], mention).then((n) => ({ uid, n }))),
-    ...loud.map((uid) => sendToUser(uid, ['chat'], note(false), { skip }).then((n) => ({ uid, n }))),
-    ...quiet.map((uid) => sendToUser(uid, ['chat'], note(true), { skip }).then(() => ({ uid, n: 0 }))),
+    ...[...called].map((uid) => sendToUser(uid, ['chat'], calledNote(uid)).then((n) => ({ uid, n }))),
+    ...loud.map((uid) => sendToUser(uid, ['chat'], note(false, uid), { skip }).then((n) => ({ uid, n }))),
+    ...quiet.map((uid) => sendToUser(uid, ['chat'], note(true, uid), { skip }).then(() => ({ uid, n: 0 }))),
   ])
   // Remember who was buzzed (only those whose phone took it), so the next minute stays quiet for them.
   const buzzed = Object.fromEntries(sent.filter((s) => s.n > 0).map((s) => [s.uid, now]))
   if (Object.keys(buzzed).length) await stateRef.set({ last: buzzed }, { merge: true })
-  logger.info('chat push', { groupId, mentioned: mentioned.length, loud: loud.length, quiet: quiet.length })
+  logger.info('chat push', { groupId, called: called.size, loud: loud.length, quiet: quiet.length })
 })
 
 export const onOpenItemWritten = onDocumentWritten({ document: 'groups/{groupId}/openItems/{itemId}', region: REGION }, async (event) => {
@@ -114,7 +115,7 @@ export const onOpenItemWritten = onDocumentWritten({ document: 'groups/{groupId}
         openItemNote({
           groupId,
           itemId,
-          groupName: g.name ?? 'Group',
+          groupName: groupNameForRecipient(g, uid),
           emoji: g.emoji,
           byName,
           title: String(after.title ?? 'something'),

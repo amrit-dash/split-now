@@ -649,6 +649,13 @@ test('Inbox: Mark all read clears the Updates badge and hides itself', async ({ 
   await page.goto('/inbox')
   const updates = page.getByTestId('inbox-tabs').getByRole('radio', { name: /Updates/ })
   await expect(updates).toContainText(/unread/)
+  // Mark all read belongs to Updates: not on To sort.
+  await page
+    .getByTestId('inbox-tabs')
+    .getByRole('radio', { name: /To sort/ })
+    .click()
+  await expect(page.getByTestId('inbox-mark-read')).toHaveCount(0)
+  await updates.click()
   await page.getByTestId('inbox-mark-read').click()
   await expect(page.getByTestId('inbox-mark-read')).toHaveCount(0)
   await expect(updates).not.toContainText(/unread/)
@@ -688,6 +695,18 @@ test('no groups yet: Quick add on Home sets up a 1:1 from one name, checked in t
   await expect(page).toHaveURL(/\/groups\/new\?.*type=direct/)
   await expect(page).toHaveURL(/people=Rahul/)
   await expect(page).toHaveURL(/next=add/)
+})
+
+test('a 1:1 is the friend: no name to type, their face as the icon, no members row', async ({ page }) => {
+  await page.goto('/groups/new?type=direct')
+  await expect(page.getByLabel('Name', { exact: true })).toHaveCount(0)
+  await page.getByLabel('Name of a person to add').fill('Meera Iyer')
+  await page.getByTestId('member-add').click()
+  await page.getByRole('button', { name: 'Create 1:1' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Meera Iyer' })).toBeVisible()
+  await expect(page.getByTestId('group-people')).toHaveCount(0)
+  await page.getByTestId('group-menu').click()
+  await expect(page.getByTestId('group-members')).toHaveCount(0)
 })
 
 test('no groups yet: the + sheet has Quick add, and a group named in the line is filled in', async ({ page }) => {
@@ -774,15 +793,64 @@ test('group chat: opens from the group, sends a message, posts a Pay me card', a
   ).toBeVisible()
 })
 
-test('group list: sort by amount or date added, filter expenses only, from the list or the ⋯ menu', async ({ page }) => {
+test('group chat: / lists the tools, @ tags someone, Settle up asks, reply and edit', async ({ page }) => {
+  await page.goto('/groups/g_goa/chat')
+  const input = page.getByTestId('chat-input')
+  // Slash commands narrow as you type; picking one opens its tool.
+  await input.fill('/se')
+  await expect(page.getByTestId('chat-commands')).toBeVisible()
+  await page.getByTestId('chat-command-settle').click()
+  const settle = page.getByTestId('chat-settle-sheet')
+  await expect(settle).toBeVisible()
+  await settle.getByRole('button', { name: /^Priya/ }).click()
+  await settle.getByTestId('chat-settle-send').click()
+  await expect(page.getByTestId('chat-card-settle').last()).toContainText('Asked Priya')
+  // @ tags: pick from the list.
+  await input.fill('thanks @pri')
+  await page.getByTestId('chat-mentions').getByRole('option', { name: /Priya/ }).click()
+  await expect(input).toHaveValue('thanks @Priya ')
+  await page.getByTestId('chat-send').click()
+  const tagged = page.getByTestId('chat-message').filter({ hasText: 'thanks @Priya' })
+  await expect(tagged).toBeVisible()
+  // A line that reads like a tool offers it.
+  await input.fill('can everyone settle up by friday')
+  await expect(page.getByTestId('chat-suggestion')).toContainText('Ask everyone to settle up')
+  await input.fill('')
+  // Reply (from the menu), then edit your own message.
+  await tagged.getByRole('article').click({ button: 'right' })
+  await page.getByTestId('chat-reply').click()
+  await expect(page.getByTestId('chat-reply-bar')).toBeVisible()
+  await input.fill('see above')
+  await page.getByTestId('chat-send').click()
+  await expect(
+    page
+      .getByTestId('chat-message')
+      .filter({ hasText: 'see above' })
+      .getByRole('button', { name: /Reply to You/ }),
+  ).toBeVisible()
+  await page.getByTestId('chat-message').filter({ hasText: 'see above' }).getByRole('article').click({ button: 'right' })
+  await page.getByTestId('chat-edit').click()
+  await input.fill('see the message above')
+  await page.getByTestId('chat-send').click()
+  await expect(page.getByTestId('chat-message').filter({ hasText: 'see the message above' })).toContainText('edited')
+  // The intro only shows on an empty chat; mute is one tap in the header.
+  await expect(page.getByTestId('chat-intro')).toHaveCount(0)
+  await page.getByTestId('chat-mute').click()
+  await expect(page.getByTestId('chat-mute')).toHaveAttribute('aria-pressed', 'true')
+  // AI for suggestions: listed under ⓘ (the admin flag is on by default), off, and not in the demo.
+  await page.getByTestId('chat-info').click()
+  await expect(page.getByTestId('chat-ai-row')).toContainText('not in the demo')
+  await expect(page.getByTestId('chat-ai-switch')).toBeDisabled()
+})
+
+test('group list: sort by amount or date added, filter expenses only', async ({ page }) => {
   await page.goto('/groups/g_goa')
   await page.getByTestId('list-options-open').click()
   await page.getByTestId('sort-amount-desc').click()
   await page.getByTestId('list-done').click()
   await expect(page.getByRole('heading', { level: 2, name: 'Biggest first' })).toBeVisible()
   await expect(page.getByTestId('list-options-open')).toHaveAccessibleName(/1 on/)
-  await page.getByTestId('group-menu').click()
-  await page.getByTestId('group-menu-sort').click()
+  await page.getByTestId('list-options-open').click()
   await page.getByTestId('sort-added-desc').click()
   await page.getByTestId('list-kind').getByRole('radio', { name: 'Expenses' }).click()
   await page.getByTestId('list-done').click()

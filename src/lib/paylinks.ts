@@ -1,4 +1,4 @@
-import type { Cents, MemberId, PaymentHandles } from '@/types'
+import type { Cents, Group, MemberId, PaymentHandles } from '@/types'
 import {
   canMarkPaid,
   isPayLinkCode,
@@ -202,7 +202,7 @@ export interface TableLinks {
  */
 export function groupTableLinks(
   t: TableLinkSource,
-  g: { id: string; name: string; emoji?: string; members: Record<MemberId, { name: string }> },
+  g: { id: string; name: string; type?: Group['type']; emoji?: string; members: Record<MemberId, { name: string }> },
   mapping: Record<string, MemberId>,
   payer: MemberId,
   splits: Record<MemberId, Cents>,
@@ -224,7 +224,7 @@ export function groupTableLinks(
       link: buildPayLink(
         {
           groupId: g.id,
-          groupName: g.name,
+          groupName: nameForPayer(g, g.members[payer]?.name ?? t.participants[t.hostUid]?.name ?? ''),
           emoji: g.emoji,
           tableCode: t.code,
           from: { id: m, name: g.members[m]?.name ?? t.participants[pids[0]]?.name ?? 'Someone' },
@@ -277,4 +277,24 @@ export function openTableLinks(
     out.byParticipant[pid] = code
   }
   return out
+}
+
+/**
+ * The group a Pay me link (and its share message) names for the payer, who opens it: a 1:1 is
+ * the payee to them (the app's own group name for a 1:1 is the other person, the payer, which is
+ * right for the payee only). Any other group: its name.
+ */
+export const nameForPayer = (g: { type?: Group['type']; name: string }, payeeName: string): string =>
+  g.type === 'direct' ? payeeName.trim() || g.name : g.name
+
+/**
+ * The group a link names for whoever is looking: its creator (the payee) sees a 1:1 as the payer,
+ * as their app names it (`live`, their copy of the group); everyone else sees what was stored.
+ */
+export function linkGroupName(
+  l: Pick<PayLink, 'groupName' | 'createdBy'>,
+  viewerUid: string | undefined,
+  live: Pick<Group, 'type' | 'name'> | null | undefined,
+): string {
+  return viewerUid && viewerUid === l.createdBy && live?.type === 'direct' ? live.name : l.groupName
 }

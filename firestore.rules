@@ -235,8 +235,8 @@ service cloud.firestore {
       function validFlags(f) {
         return f is map
           && f.keys().hasOnly(['aiImages', 'aiSms', 'liveTables', 'autoCapture', 'quickAdd', 'nudges', 'statementImport',
-              'payLinks', 'duplicates', 'merchantMemory', 'whoseTurn', 'budgetAlerts', 'aiQuickAdd', 'aiPayments', 'openItems', 'groupChat'])
-          && f.get('openItems', true) is bool && f.get('groupChat', true) is bool
+              'payLinks', 'duplicates', 'merchantMemory', 'whoseTurn', 'budgetAlerts', 'aiQuickAdd', 'aiPayments', 'openItems', 'groupChat', 'chatAi'])
+          && f.get('openItems', true) is bool && f.get('groupChat', true) is bool && f.get('chatAi', true) is bool
           && f.get('aiQuickAdd', true) is bool && f.get('aiPayments', true) is bool
           && f.get('aiImages', true) is bool && f.get('aiSms', true) is bool && f.get('liveTables', true) is bool
           && f.get('autoCapture', true) is bool && f.get('quickAdd', true) is bool && f.get('nudges', true) is bool
@@ -938,28 +938,49 @@ service cloud.firestore {
       }
 
       // Group chat (src/lib/chat.ts): every member reads the whole history, including people who
-      // joined later. Messages are words or a card (open item, Pay me, expense), sent as the
-      // writer, never edited. The author deletes their own; the group's creator may delete any
-      // (only "Delete forever" does). No photos: text only.
+      // joined later. Messages are words or a card (open item, Pay me, Settle up, balances,
+      // expense), sent as the writer. A message may tag people (mentions: member ids, or 'all'),
+      // ask only some people (to), and quote the message it answers (replyTo, a copy). The author
+      // may edit their words (and tags) later, which stamps editedAt; nothing else changes. The
+      // author deletes their own; the group's creator may delete any (only "Delete forever" does).
+      // No photos: text only.
       match /chat/{messageId} {
+        function idList(x) {
+          return x is list && x.size() <= 60;
+        }
+        function validReply(r) {
+          return r is map && r.keys().hasOnly(['id', 'authorUid', 'authorName', 'text']) && r.keys().hasAll(['id', 'authorUid', 'authorName', 'text'])
+            && r.id is string && r.id.size() > 0 && r.id.size() <= 64
+            && r.authorUid is string && r.authorUid.size() <= 128
+            && r.authorName is string && r.authorName.size() <= 80
+            && r.text is string && r.text.size() <= 160;
+        }
         function validMessage(d) {
           return d.keys().hasAll(['authorUid', 'authorName', 'text', 'kind', 'createdAt'])
-            && d.keys().hasOnly(['authorUid', 'authorName', 'text', 'kind', 'ref', 'amount', 'mentions', 'createdAt'])
+            && d.keys().hasOnly(['authorUid', 'authorName', 'text', 'kind', 'ref', 'amount', 'mentions', 'to', 'replyTo', 'editedAt', 'createdAt'])
             && d.authorUid == uid()
             && d.authorName is string && d.authorName.size() <= 80
             && d.text is string && d.text.size() <= 1000
-            && d.kind in ['text', 'openItem', 'pay', 'expense']
+            && d.kind in ['text', 'openItem', 'pay', 'expense', 'settle', 'balances']
             && (d.kind != 'text' || d.text.size() > 0)
             && (!('ref' in d) || (d.ref is string && d.ref.size() > 0 && d.ref.size() <= 64))
             && ((d.kind in ['openItem', 'expense']) == ('ref' in d))
             && (!('amount' in d) || (d.amount is int && d.amount > 0 && d.amount <= 100000000000))
             && ((d.kind == 'pay') == ('amount' in d))
+            // tags: at most 20 (shared/mentions.ts MAX_MENTIONS); `to` may name up to 60
             && (!('mentions' in d) || (d.mentions is list && d.mentions.size() <= 20))
+            && (!('to' in d) || (idList(d.to) && d.to.size() > 0 && d.kind in ['pay', 'settle']))
+            && (!('replyTo' in d) || validReply(d.replyTo))
+            && (!('editedAt' in d) || d.editedAt is int)
             && d.createdAt is int;
         }
         allow read: if isGroupMember(groupId);
         allow create: if isGroupMember(groupId) && writesOpen() && groupLive(groupId) && validMessage(request.resource.data);
-        allow update: if false;
+        allow update: if isGroupMember(groupId) && writesOpen() && groupLive(groupId)
+          && resource.data.authorUid == uid()
+          && validMessage(request.resource.data)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'mentions', 'editedAt'])
+          && request.resource.data.editedAt is int;
         allow delete: if isUser() && writesOpen() && isGroupMember(groupId)
           && (resource.data.authorUid == uid() || groupDoc(groupId).data.createdBy == uid());
       }

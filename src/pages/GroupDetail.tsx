@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   AlertCircle,
@@ -11,15 +11,13 @@ import {
   Flag,
   Link2,
   LogOut,
-  MessageCircle,
   MessageSquareText,
-  MoreHorizontal,
+  MessagesSquare,
   Pencil,
-  BellOff,
-  Bell,
   Repeat,
   Search,
   ArrowDownUp,
+  Settings2,
   Trash2,
   UserMinus,
   Users,
@@ -101,7 +99,6 @@ import { useRemoveMember } from '@/hooks/useRemoveMember'
 import { activeMembers, isRemoved, listedMemberIds, memberRemoval, membersIn, repeatingByMember } from '@/lib/members'
 import { sortOpenItems } from '@/lib/open-items'
 import { hasUnread, READ_EVENT, readAtOf } from '@/lib/chat'
-import { setChatMuted } from '@/lib/push'
 import { OpenItemsTab } from '@/features/open-items/OpenItemsTab'
 import { labelOf } from '@/lib/shortNames'
 
@@ -131,7 +128,7 @@ export default function GroupDetail() {
   }, [wantsOpen, params])
   const [invite, setInvite] = useState(false)
   const [menu, setMenu] = useState(false)
-  /** the Expenses list's sort and filter sheet (also opened from ⋯) */
+  /** the Expenses list's sort and filter sheet */
   const [listSheet, setListSheet] = useState(false)
   const toast = useToast()
   // The feed is the same shared listener the Activity tab and Home use; here it says who was nudged today.
@@ -142,7 +139,6 @@ export default function GroupDetail() {
   const openItems = useOpenItems(openItemsOn ? groupId : undefined)
   // The unread dot: only the newest message is watched here (one document), not the whole chat.
   const latestChat = useChat(groupId, 1, chatOn)
-  const prefs = useCapturePrefs()
   const readAt = useChatReadAt(groupId)
   usePageTitle(liveGroup ? liveGroup.name : liveGroup === null ? 'Group not found' : undefined)
 
@@ -183,6 +179,14 @@ export default function GroupDetail() {
   const cur = group.currency
   const myBal = me ? (net[me] ?? 0) : 0
   const personal = group.type === 'personal'
+  const direct = group.type === 'direct'
+  // A 1:1 is the two of you: once the friend has joined (has an account in it), there's nobody to invite.
+  const canInvite = !personal && !(direct && group.peer && group.members[group.peer]?.uid)
+  const openInvite = () => {
+    setInvite(true)
+    // An older 1:1 invite stored the friend's own name: fix it before it's shared.
+    if (direct) repo.refreshInviteName(group).catch(() => {})
+  }
   const total = d.expenses.reduce((s, e) => s + e.amount, 0)
   const name = (id: string) => (id === me ? 'You' : labelOf(group.members, id, 'Someone', me))
   // The QR is scanned in person, so it stays short; shared links carry your name for their preview.
@@ -197,14 +201,6 @@ export default function GroupDetail() {
   const showChat = chatOn && !personal
   const openCount = showOpen ? openList.length : 0
   const unread = showChat && hasUnread(latestChat?.[0], readAt, user.uid)
-  const muted = !!prefs?.mutedChats.includes(group.id)
-  const toggleMute = () => {
-    setMenu(false)
-    const next = setChatMuted(prefs?.mutedChats ?? [], group.id, !muted)
-    saveCapturePrefs(user.uid, repo.mode, { mutedChats: next })
-      .then(() => toast(muted ? 'Chat notifications on for this group' : 'Chat muted for this group'))
-      .catch(fail)
-  }
   const goOpen = () => {
     setTab('open')
     requestAnimationFrame(() => document.getElementById('group-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
@@ -269,7 +265,7 @@ export default function GroupDetail() {
                 aria-label={unread ? 'Group chat, new messages' : 'Group chat'}
                 data-testid="group-chat"
               >
-                <MessageCircle size={22} aria-hidden />
+                <MessagesSquare size={22} aria-hidden />
                 {unread && <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-slate-50 dark:ring-ink-950" aria-hidden />}
               </Link>
             )}
@@ -277,11 +273,11 @@ export default function GroupDetail() {
               type="button"
               onClick={() => setMenu(true)}
               className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-slate-200/60 dark:hover:bg-ink-800"
-              aria-label="More"
+              aria-label="Group settings"
               aria-haspopup="dialog"
               data-testid="group-menu"
             >
-              <MoreHorizontal size={22} aria-hidden />
+              <Settings2 size={22} aria-hidden />
             </button>
           </div>
         }
@@ -289,7 +285,7 @@ export default function GroupDetail() {
 
       <div className="card mb-4 p-5">
         <div className="flex items-center gap-4">
-          <GroupIcon emoji={group.emoji} size={56} />
+          <GroupIcon emoji={group.emoji} group={group} size={56} />
           <div className="min-w-0 flex-1">
             {personal ? (
               <>
@@ -342,7 +338,7 @@ export default function GroupDetail() {
             )}
           </div>
         )}
-        {!personal && (
+        {!personal && !direct && (
           <Link
             to={`/groups/${group.id}/members`}
             className="-mx-1 mt-3 flex min-h-11 items-center gap-2 rounded-xl px-1 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-ink-800"
@@ -366,7 +362,8 @@ export default function GroupDetail() {
         {group.budget ? <BudgetBar spent={total} budget={group.budget} currency={cur} /> : null}
         {!personal && (
           // When nothing is owed, Invite is the useful action; Settle up stays one tap away as the secondary.
-          <div className="mt-4 grid grid-cols-2 gap-2">
+          // A 1:1 whose friend has joined has nobody left to invite.
+          <div className={`mt-4 grid gap-2 ${canInvite ? 'grid-cols-2' : 'grid-cols-1'}`}>
             <button
               type="button"
               className={`${settled ? 'btn-secondary' : 'btn-primary'} whitespace-nowrap`}
@@ -386,14 +383,16 @@ export default function GroupDetail() {
                 Settle<span className="hidden min-[380px]:inline"> up</span>
               </span>
             </button>
-            <button
-              type="button"
-              className={`${settled ? 'btn-primary' : 'btn-secondary'} whitespace-nowrap`}
-              onClick={() => setInvite(true)}
-              data-testid="group-invite"
-            >
-              <Link2 size={18} aria-hidden /> Invite
-            </button>
+            {canInvite && (
+              <button
+                type="button"
+                className={`${settled ? 'btn-primary' : 'btn-secondary'} whitespace-nowrap`}
+                onClick={() => openInvite()}
+                data-testid="group-invite"
+              >
+                <Link2 size={18} aria-hidden /> Invite
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -564,9 +563,17 @@ export default function GroupDetail() {
         </div>
       )}
 
-      <Sheet open={invite} onClose={() => setInvite(false)} title="Invite to group">
+      <Sheet open={invite} onClose={() => setInvite(false)} title={direct ? `Invite ${group.name}` : 'Invite to group'}>
         <p className="text-muted text-sm">
-          Anyone with this link can join <b>{group.name}</b> and claim their name in the member list.
+          {direct ? (
+            <>
+              Send this to <b>{group.name}</b> so they can join and see what you owe each other.
+            </>
+          ) : (
+            <>
+              Anyone with this link can join <b>{group.name}</b> and claim their name in the member list.
+            </>
+          )}
         </p>
         <div className="mt-4 flex flex-col items-center rounded-2xl bg-slate-100 p-4 text-center dark:bg-ink-800">
           <QrCode value={inviteUrl} size={180} label={`QR code to join ${group.name}`} />
@@ -582,7 +589,12 @@ export default function GroupDetail() {
             type="button"
             className="btn-primary"
             onClick={() =>
-              shareOrCopy({ title: `Join ${group.name} on Split Now`, text: `Join “${group.name}” on Split Now to split expenses:`, url: shareInviteUrl })
+              shareOrCopy(
+                direct
+                  ? // A 1:1 is named after the friend you're sending this to: say who it's with instead.
+                    { title: 'Split with me on Split Now', text: 'Let’s split our expenses on Split Now, just the two of us:', url: shareInviteUrl }
+                  : { title: `Join ${group.name} on Split Now`, text: `Join “${group.name}” on Split Now to split expenses:`, url: shareInviteUrl },
+              )
             }
           >
             Share
@@ -592,27 +604,6 @@ export default function GroupDetail() {
 
       <Sheet open={menu} onClose={() => setMenu(false)} title={group.name} testId="group-menu-sheet">
         <ul className="-mx-2 divide-y divide-slate-100 dark:divide-white/5">
-          {showChat && (
-            <MenuRow
-              icon={<MessageCircle size={20} />}
-              label="Group chat"
-              hint="Talk money with the group: who paid, open items, Pay me"
-              onClick={() => {
-                setMenu(false)
-                nav(`/groups/${group.id}/chat`)
-              }}
-              testId="group-menu-chat"
-            />
-          )}
-          {showChat && (
-            <MenuRow
-              icon={muted ? <Bell size={20} /> : <BellOff size={20} />}
-              label={muted ? 'Unmute chat' : 'Mute chat'}
-              hint={muted ? 'Get notifications for this group’s chat again' : 'No notifications for this group’s chat (only you)'}
-              onClick={toggleMute}
-              testId="group-chat-mute"
-            />
-          )}
           <MenuRow
             icon={<Pencil size={20} />}
             label="Edit group"
@@ -621,7 +612,7 @@ export default function GroupDetail() {
               nav(`/groups/${group.id}/edit`)
             }}
           />
-          {!personal && (
+          {!personal && !direct && (
             <MenuRow
               icon={<Users size={20} />}
               label="Members"
@@ -633,27 +624,16 @@ export default function GroupDetail() {
               testId="group-members"
             />
           )}
-          {!personal && (
+          {canInvite && (
             <MenuRow
               icon={<Link2 size={20} />}
               label="Invite"
               onClick={() => {
                 setMenu(false)
-                setInvite(true)
+                openInvite()
               }}
             />
           )}
-          <MenuRow
-            icon={<ArrowDownUp size={20} />}
-            label="Sort and filter"
-            hint="Order by date spent, date added or amount; filter by who paid or dates"
-            onClick={() => {
-              setMenu(false)
-              setTab('expenses')
-              setListSheet(true)
-            }}
-            testId="group-menu-sort"
-          />
           <MenuRow
             icon={<BarChart3 size={20} />}
             label="Insights"
@@ -1133,7 +1113,7 @@ function ActivityList({
                         </span>
                         <PaymentPill state={ps} />
                       </div>
-                      <div className="text-muted text-xs">
+                      <MetaLine added={addedNote(r)}>
                         {methodLabel(r.s.method)} · {formatDate(r.s.date)}
                         {r.s.paid && <> · paid {formatMoney(r.s.paid.amount, r.s.paid.currency)}</>}
                         {r.s.proofPath && (
@@ -1153,12 +1133,7 @@ function ActivityList({
                             </Link>
                           </>
                         )}
-                      </div>
-                      {addedNote(r) && (
-                        <div className="text-muted truncate text-[11px]" data-testid="row-added">
-                          {addedNote(r)}
-                        </div>
-                      )}
+                      </MetaLine>
                     </div>
                     <div className={`font-semibold ${ps.pill === 'needs-ok' || ps.pill === 'flagged' ? 'text-muted line-through decoration-1' : 'pos'}`}>
                       {formatMoney(r.s.amount, currency)}
@@ -1216,7 +1191,7 @@ function ActivityList({
                         {e.recurringFrom && !e.recurrence && <Repeat size={12} className="text-muted shrink-0" role="img" aria-label="Repeating expense" />}
                         <TrustBadges e={e} group={group} />
                       </div>
-                      <div className="text-muted truncate text-xs">
+                      <MetaLine added={addedNote(r)}>
                         {personal ? (
                           formatDate(e.date)
                         ) : (
@@ -1224,12 +1199,7 @@ function ActivityList({
                             {payers.length > 1 ? `${payers.length} people` : name(payers[0])} paid {formatMoney(e.amount, currency)} · {formatDate(e.date)}
                           </>
                         )}
-                      </div>
-                      {addedNote(r) && (
-                        <div className="text-muted truncate text-[11px]" data-testid="row-added">
-                          {addedNote(r)}
-                        </div>
-                      )}
+                      </MetaLine>
                     </div>
                     <div className="text-right">
                       {personal ? (
@@ -1395,5 +1365,27 @@ function DeleteRow({ group, debts, creator, close }: { group: Group; debts: Debt
       testId="group-delete"
       disabled={!state.allowed}
     />
+  )
+}
+
+/**
+ * A row's second line, with "Added 11 Oct" on the same line after a dot when it fits, else on
+ * its own line without the dot. Every part carries a dot in the gutter to its left and the line is
+ * shifted left by that gutter inside a clipping box, so whichever part starts a line has its dot
+ * clipped off (no width measuring).
+ */
+function MetaLine({ children, added }: { children: ReactNode; added?: string | null }) {
+  const part = "relative min-w-0 pl-3 before:absolute before:left-1 before:content-['·']"
+  return (
+    <div className="text-muted overflow-hidden text-xs">
+      <div className="-ml-3 flex flex-wrap">
+        <span className={`${part} truncate`}>{children}</span>
+        {added && (
+          <span className={`${part} whitespace-nowrap`} data-testid="row-added">
+            {added}
+          </span>
+        )}
+      </div>
+    </div>
   )
 }

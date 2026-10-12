@@ -399,7 +399,7 @@ export default function AutoCaptureSetup() {
                 key={g.id}
                 selected={scope === g.id}
                 onSelect={() => update({ group: g.id }, true)}
-                icon={<GroupIcon emoji={g.emoji} size={32} />}
+                icon={<GroupIcon emoji={g.emoji} group={g} size={32} />}
                 title={g.name}
                 detail={g.startDate || g.endDate ? formatRange(g.startDate, g.endDate) : 'No trip dates'}
                 badge={inTripWindow(g, today) ? <LiveBadge type={g.type} /> : null}

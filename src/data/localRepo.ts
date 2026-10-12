@@ -1,5 +1,7 @@
 import { blobToDataUrl } from '@/lib/image'
-import { archiveWrite, balanceEditMembers, expenseMemberIds, isArchivedFor, uidsOfMembers, unarchiveInvolved } from '../../shared/archive'
+import { archiveWrite, balanceEditMembers, expenseMemberIds, uidsOfMembers, unarchiveInvolved } from '../../shared/archive'
+import { personalView } from './personalView'
+import { inviteNameFor } from '../../shared/names'
 import { DELETED_GROUP_WRITE, purgeDue } from '../../shared/group-trash'
 import { EMPTY_INBOX_STATE, type InboxState } from '@/lib/inbox'
 import { shownCapture } from '@/lib/capture'
@@ -313,8 +315,8 @@ export function createLocalRepo(): Repo {
       listeners.delete(run)
     }
   }
-  // `archived` is personal: derived for the signed-in person on read (shared/archive.ts), as Firebase does.
-  const asGroup = (g: Group): Group => ({ ...g, archived: isArchivedFor(g, me().uid) })
+  // `archived` (and a 1:1's name and peer) are personal: derived for the signed-in person on read, as Firebase does.
+  const asGroup = (g: Group): Group => personalView(g, me().uid)
   // A new expense or payment brings the group back for the people in it (the onExpenseCreated /
   // onSettlementCreated triggers do this in Firebase).
   const unarchiveFor = (groupId: string, memberIds: string[]) => {
@@ -509,6 +511,9 @@ export function createLocalRepo(): Repo {
       if (base.type !== 'personal') log(base.id, groupSettingsActivity(base, { ...base, ...changed }, ctx(base.id)))
       commit()
     },
+    async refreshInviteName() {
+      // Demo invites are read from the group itself (getInvite), so they are always right.
+    },
     async setArchived(group, on) {
       if (inTrash(group.id, 'Archiving')) return
       const g = state.groups[group.id]
@@ -606,7 +611,7 @@ export function createLocalRepo(): Repo {
     async getInvite(code) {
       // Personal groups have no invite (Firebase never writes one for them).
       const g = Object.values(state.groups).find((x) => x.inviteCode === code.toUpperCase() && x.type !== 'personal')
-      return g ? { groupId: g.id, groupName: g.name, emoji: g.emoji, placeholders: placeholdersOf(g) } : null
+      return g ? { groupId: g.id, groupName: inviteNameFor(g), emoji: g.emoji, placeholders: placeholdersOf(g) } : null
     },
     async joinGroup(code, memberId, member) {
       const g = Object.values(state.groups).find((x) => x.inviteCode === code.toUpperCase())
@@ -989,6 +994,13 @@ export function createLocalRepo(): Repo {
       delete chat()[id]
       commit()
     },
+    async editChat(_groupId, id, { text, mentions }) {
+      const m = chat()[id]
+      if (!m || m.authorUid !== actor()) return
+      const { mentions: _m, ...rest } = m
+      chat()[id] = { ...rest, text, ...(mentions.length ? { mentions } : {}), editedAt: Date.now() }
+      commit()
+    },
 
     watchComments: (groupId, expenseId, cb) =>
       watch(
@@ -1241,6 +1253,9 @@ export function createLocalRepo(): Repo {
       return null
     },
     async parseTextAi() {
+      return null
+    },
+    async chatIntentAi() {
       return null
     },
     async quickAddAi(req) {

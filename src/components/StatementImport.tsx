@@ -406,7 +406,7 @@ export function StatementImport() {
               value: g.id,
               text: g.name,
               label: g.name,
-              icon: <GroupIcon emoji={g.emoji} size={28} />,
+              icon: <GroupIcon emoji={g.emoji} group={g} size={28} />,
               hint:
                 g.startDate || g.endDate
                   ? `${g.startDate ? formatDate(g.startDate) : '…'} – ${g.endDate ? formatDate(g.endDate) : '…'} · ${g.currency}`

@@ -1,4 +1,5 @@
 import { FieldValue } from 'firebase-admin/firestore'
+import { CHAT_AI_MAX_NAMES, CHAT_AI_MAX_TEXT, CHAT_AI_TOOLS, type ChatAiIntent, normaliseChatIntent } from '../../shared/chat-ai'
 import { logger } from 'firebase-functions/logger'
 import { defineSecret } from 'firebase-functions/params'
 import { HttpsError, onCall, type CallableRequest } from 'firebase-functions/v2/https'
@@ -39,6 +40,8 @@ import {
   statementPrompt,
   TEXT_SCHEMA,
   textPrompt,
+  CHAT_SCHEMA,
+  chatPrompt,
   normaliseText,
   normalisePayment,
   PAYMENT_SCHEMA,
@@ -201,7 +204,7 @@ async function allow(
 async function record(
   ctx: Ctx,
   plan: KeyPlan | 'denied',
-  feature: AiFeature | 'text',
+  feature: AiFeature | 'text' | 'chat',
   now: number,
   extra: { err?: GeminiError; usage?: GeminiUsage; model?: string; denied?: 'user' | 'global'; key?: KeyPlan['key'] } = {},
 ) {
@@ -279,7 +282,7 @@ async function withAi<T>(
   feature: AiFeature,
   call: (key: string, models: string[], gemma: boolean) => Promise<{ value: T; usage?: GeminiUsage; model?: string }>,
   /** how the call is counted in stats/ai_{day} when it isn't the feature it is gated by (Quick add text uses the images allowance) */
-  statAs: AiFeature | 'text' = feature,
+  statAs: AiFeature | 'text' | 'chat' = feature,
 ): Promise<AiOutcome<T>> {
   // The admin's kill switch (config/app flags.aiImages / aiSms / aiQuickAdd) stops the feature for everyone, own keys included.
   if (!(await flagOn(FEATURE_FLAG[feature]))) return { ok: false, reason: 'off' }
@@ -338,6 +341,7 @@ export interface ParseResult {
   receipt?: AiReceipt | null
   statement?: { currency?: string; transactions: AiTxn[] } | null
   expense?: AiTextExpense | null
+  intent?: ChatAiIntent
   via?: 'own' | 'app'
   model?: string
   unavailable?: true
@@ -349,6 +353,7 @@ export interface ParseResult {
  *  { kind: 'receipt', image, mimeType } or { kind: 'receipt', images: [...] (≤3) } → { receipt: AiReceipt | null, via }
  *  { kind: 'statement', images: [{ image, mimeType }] (≤6), today }           → { statement: {...} | null, via }
  *  { kind: 'text', text, members: string[], currency, today }                 → { expense: AiTextExpense | null, via } (Quick add)
+ *  { kind: 'chat', text, names: string[], tools: string[], currency }          → { intent: ChatAiIntent, via } (chat suggestions)
  *  → { unavailable: true, reason } when no key may be used or all failed (the app reads on the phone;
  *    `reason` is an AiUnavailableReason from shared/ai-config.ts).
  * `receipt: null` / `statement: null` means the image isn't a bill / has no transactions (or Gemini refused it).
@@ -358,6 +363,7 @@ export const parseReceiptAi = onCall({ ...base, timeoutSeconds: 180, memory: '51
   const d = (req.data ?? {}) as { kind?: unknown; image?: unknown; mimeType?: unknown; images?: unknown; today?: unknown }
   // Quick add: a typed or spoken line, no image. Same switch and allowance as bill reading.
   if (d.kind === 'text') return parseText(me, d as { text?: unknown; members?: unknown; currency?: unknown; today?: unknown })
+  if (d.kind === 'chat') return readChatLine(me, d as { text?: unknown; names?: unknown; tools?: unknown; currency?: unknown })
   const kind = d.kind === 'statement' ? 'statement' : 'receipt'
   const max = kind === 'statement' ? MAX_IMAGES : MAX_RECEIPT_IMAGES
   const list = Array.isArray(d.images) ? d.images : d.image ? [{ image: d.image, mimeType: d.mimeType }] : []
@@ -447,6 +453,59 @@ async function parseText(
   )
   if (r.ok) return { expense: r.value, via: r.via, model: r.model }
   return r.kind === 'blocked' ? { expense: null } : { unavailable: true, reason: r.reason }
+}
+
+/**
+ * { kind: 'chat', text, names, tools, currency } → { intent: ChatAiIntent } (shared/chat-ai.ts).
+ * The group chat's optional AI suggestions: asked only after the phone's own rules found nothing,
+ * by someone who turned "Use AI for suggestions" on. Its own kill switch (config/app chatAi) on top
+ * of bill reading's: the same keys, switch and allowance as Quick add's text reader, counted as
+ * `{own|app}_chat` in stats/ai_{day}.
+ */
+async function readChatLine(
+  me: { uid: string; email?: string },
+  d: { text?: unknown; names?: unknown; tools?: unknown; currency?: unknown },
+): Promise<ParseResult> {
+  const text =
+    typeof d.text === 'string'
+      ? d.text
+          .replace(/\p{Cc}+/gu, ' ')
+          .trim()
+          .slice(0, CHAT_AI_MAX_TEXT)
+      : ''
+  if (!text) throw new HttpsError('invalid-argument', 'Nothing to read')
+  if (!(await flagOn('chatAi'))) return { unavailable: true, reason: 'off' }
+  const names = (Array.isArray(d.names) ? d.names : [])
+    .filter((m): m is string => typeof m === 'string')
+    .map((m) =>
+      m
+        .replace(/[^\p{L}\p{N}\s'.-]/gu, '')
+        .trim()
+        .slice(0, 40),
+    )
+    .filter(Boolean)
+    .slice(0, CHAT_AI_MAX_NAMES)
+  const tools = (Array.isArray(d.tools) ? d.tools : []).filter(
+    (t): t is string => typeof t === 'string' && (CHAT_AI_TOOLS as readonly string[]).includes(t) && t !== 'none',
+  )
+  const currency = typeof d.currency === 'string' && /^[A-Z]{3}$/.test(d.currency) ? d.currency : 'INR'
+  const ctx = await loadCtx(me.uid, me.email)
+  const r = await withAi(
+    ctx,
+    'images',
+    async (key, models, gemma) => {
+      const g = await generateJson(key, [{ text: `<message>${text}</message>` }], CHAT_SCHEMA, {
+        models,
+        timeoutMs: budget(gemma, 10_000, 40_000),
+        maxOutputTokens: 256,
+        systemInstruction: chatPrompt(names, tools, currency),
+      })
+      return { value: normaliseChatIntent(g.json, names, tools), usage: g.usage, model: g.modelVersion ?? g.model }
+    },
+    'chat',
+  )
+  if (r.ok) return { intent: r.value, via: r.via, model: r.model }
+  return r.kind === 'blocked' ? { intent: { tool: 'none' } } : { unavailable: true, reason: r.reason }
 }
 
 /**

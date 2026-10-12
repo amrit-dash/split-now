@@ -187,6 +187,41 @@ export const TEXT_SCHEMA: Schema = {
   propertyOrdering: ['isExpense', 'description', 'amount', 'currency', 'date', 'payer', 'participants', 'category'],
 }
 
+/** Group chat suggestions (shared/chat-ai.ts): which of the app's tools a chat line reads like. */
+export const CHAT_SCHEMA: Schema = {
+  type: 'OBJECT',
+  properties: {
+    tool: { type: 'STRING', enum: ['settle', 'pay', 'expense', 'open', 'balances', 'none'], description: 'the one tool the line asks for, or none' },
+    amount: num('the amount the line names, as a plain number in the group currency; null when none'),
+    to: {
+      type: 'ARRAY',
+      nullable: true,
+      items: { type: 'STRING' },
+      description: 'the listed names the line asks (pay or settle); null for everyone or unsaid',
+    },
+  },
+  required: ['tool'],
+  propertyOrdering: ['tool', 'amount', 'to'],
+}
+
+/** The names and the tools go in the instruction, the chat line in the content. */
+export const chatPrompt = (
+  names: string[],
+  tools: readonly string[],
+  currency: string,
+) => `A user of a bill-splitting app is typing a message in their group's money chat. Decide whether the message asks for one of the app's tools.
+Tools the app offers: ${tools.join(', ')}.
+- settle: they want people to settle up / clear what they owe the writer (no amount needed).
+- pay: they ask people to pay the writer an amount ("pay me 500").
+- expense: they describe money already spent that should be recorded ("we had lunch for 600").
+- open: someone paid for something but nobody is sure who or how much ("who paid for the cab?").
+- balances: they ask who owes whom or how things stand.
+- none: ordinary talk, or a tool not listed above.
+Rules:
+- The people in the group are: ${names.join(', ') || '(none listed)'}. In "to", use only these names, exactly as listed; never invent people. Leave "to" null when they ask everyone.
+- amount is a plain number in ${currency}; null when the message names none. Never invent an amount.
+- When unsure, answer none.`
+
 /** Quick add: the group's names go in the instruction, the note in the content, so neither is mistaken for the other. */
 export const textPrompt = (
   members: string[],

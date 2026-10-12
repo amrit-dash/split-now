@@ -8,6 +8,7 @@
  *    document and its invite, its open Pay me links cancelled; onGroupDeleted sweeps the rest,
  *    receipts included)
  */
+import { groupNameForRecipient } from '../../shared/names'
 import { FieldValue } from 'firebase-admin/firestore'
 import { logger } from 'firebase-functions/logger'
 import { onDocumentUpdated } from 'firebase-functions/v2/firestore'
@@ -22,6 +23,7 @@ import { sendToUser } from './push'
 
 interface GroupLite {
   name?: string
+  type?: string
   emoji?: string
   memberUids?: string[]
   members?: Record<string, MemberLite>
@@ -63,14 +65,16 @@ export const onGroupTrashed = onDocumentUpdated({ document: 'groups/{groupId}', 
   const by = after.deletedBy
   const uids = (Array.isArray(after.memberUids) ? after.memberUids : []).filter((u): u is string => typeof u === 'string' && u !== by)
   if (!uids.length) return
-  const note = groupDeletedNote({
-    groupId,
-    groupName: after.name ?? 'Group',
-    emoji: after.emoji,
-    byName: memberNameForUid(after.members, by) ?? 'Someone',
-    days: (await getTuning()).trashDays,
-  })
-  const sent = await Promise.all(uids.map((u) => sendToUser(u, ['expenses'], note)))
+  const days = (await getTuning()).trashDays
+  const note = (u: string) =>
+    groupDeletedNote({
+      groupId,
+      groupName: groupNameForRecipient(after, u),
+      emoji: after.emoji,
+      byName: memberNameForUid(after.members, by) ?? 'Someone',
+      days,
+    })
+  const sent = await Promise.all(uids.map((u) => sendToUser(u, ['expenses'], note(u))))
   logger.info('group deleted push', { groupId, held, sent: sent.reduce((a, b) => a + b, 0) })
 })
 

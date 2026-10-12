@@ -353,6 +353,11 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
             Quick add with AI: {n('app_quickAdd') + n('own_quickAdd')} of these ({n('app_quickAdd')} on Split Now’s key)
           </p>
         )}
+        {n('app_chat') + n('own_chat') > 0 && (
+          <p className="text-muted mt-1.5 text-xs">
+            Chat suggestions with AI: {n('app_chat') + n('own_chat')} of these ({n('app_chat')} on Split Now’s key)
+          </p>
+        )}
       </div>
       {dirty && (
         <div

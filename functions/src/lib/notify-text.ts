@@ -294,6 +294,8 @@ export function chatNote(c: {
   currency: string
   /** an open item's title, for its card */
   itemTitle?: string
+  /** the reader was tagged or asked by name */
+  called?: boolean
   silent?: boolean
 }): Note {
   const words = c.text.trim().replace(/\s+/g, ' ')
@@ -301,10 +303,16 @@ export function chatNote(c: {
     c.kind === 'openItem'
       ? `🧾 Who paid? ${clip(c.itemTitle || 'an open item', 50)}`
       : c.kind === 'pay'
-        ? `asks for ${formatMoney(c.amount ?? 0, c.currency)}`
-        : c.kind === 'expense'
-          ? 'shared an expense'
-          : ''
+        ? `asks ${c.called ? 'you ' : ''}for ${formatMoney(c.amount ?? 0, c.currency)}`
+        : c.kind === 'settle'
+          ? `asks ${c.called ? 'you' : 'everyone'} to settle up`
+          : c.kind === 'balances'
+            ? 'shared the balances'
+            : c.kind === 'expense'
+              ? 'shared an expense'
+              : c.called
+                ? 'tagged you'
+                : ''
   const said = [card, words].filter(Boolean).join(' · ') || 'sent a message'
   return {
     title: groupTitle(c.groupName, c.emoji),
