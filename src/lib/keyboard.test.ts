@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chatViewportBox, needsHeal, opensKeyboard, tallestHeights } from './keyboard'
+import { chatViewportBox, missingHeight, needsHeal, opensKeyboard, tallestHeights, tapsToToggle } from './keyboard'
 
 describe('chatViewportBox', () => {
   it('fills the screen when there is no visual viewport', () => {
@@ -76,5 +76,39 @@ describe('needsHeal', () => {
   it('does not try again at a height a re-measure already failed to fix', () => {
     expect(needsHeal(809, 852, false, 809)).toBe(false)
     expect(needsHeal(790, 852, false, 809)).toBe(true)
+  })
+})
+
+describe('missingHeight', () => {
+  const phone = { width: 393, height: 852 }
+
+  it('is how far short of the screen iOS says the app is, once the keyboard has gone', () => {
+    expect(missingHeight({ width: 393, height: 809 }, phone, false)).toBe(43)
+    expect(missingHeight({ width: 852, height: 350 }, phone, false)).toBe(43)
+  })
+
+  it('is 0 at full height, while typing, for a narrower window, or for an unbelievable gap', () => {
+    expect(missingHeight({ width: 393, height: 852 }, phone, false)).toBe(0)
+    expect(missingHeight({ width: 393, height: 851.4 }, phone, false)).toBe(0)
+    expect(missingHeight({ width: 393, height: 500 }, phone, true)).toBe(0)
+    expect(missingHeight({ width: 507, height: 1000 }, { width: 1024, height: 1366 }, false)).toBe(0)
+    expect(missingHeight({ width: 393, height: 500 }, phone, false)).toBe(0)
+  })
+})
+
+describe('tapsToToggle', () => {
+  it('toggles on the fifth tap within three seconds, then starts over', () => {
+    let taps: number[] = []
+    for (const t of [0, 400, 800, 1200]) {
+      const r = tapsToToggle(taps, t)
+      expect(r.toggle).toBe(false)
+      taps = r.taps
+    }
+    expect(tapsToToggle(taps, 1600)).toEqual({ taps: [], toggle: true })
+  })
+
+  it('forgets taps older than three seconds', () => {
+    expect(tapsToToggle([0, 100, 200, 300], 3400)).toEqual({ taps: [3400], toggle: false })
+    expect(tapsToToggle([0, 100, 200, 300], 3200)).toEqual({ taps: [300, 3200], toggle: false })
   })
 })

@@ -65,7 +65,8 @@ export function Layout() {
       <AppBadge />
       <InstallBanner />
       <CaptureAlert />
-      <nav className="fixed inset-x-0 bottom-0 z-40" aria-label="Main">
+      {/* --vp-short: how far short of the screen iOS says the installed app is after the keyboard (useViewportHeal). */}
+      <nav className="fixed inset-x-0 bottom-[calc(var(--vp-short,0px)*-1)] z-40" aria-label="Main">
         {/* The + button's glow sits under the bar: muted where the bar covers it, bright in the
             notch, which gives the cut-out depth. A blurred copy of the button's moving gradient,
             centred on the button, faded towards the top and strongest below, filling the notch gap. */}

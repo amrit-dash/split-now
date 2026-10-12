@@ -289,8 +289,10 @@ export default function GroupChat() {
     // Fills the screen, message box on the bottom edge. With the keyboard up it pins to what's visible (src/lib/keyboard.ts):
     // only the messages scroll; the header and the box stay put.
     <div
-      className={`group/chat fixed inset-x-0 top-0 flex flex-col ${box ? '' : 'bottom-0'}`}
+      // --vp-short: how far short of the screen iOS says the installed app is (useViewportHeal); reach that much further down.
+      className={`group/chat fixed inset-x-0 top-0 flex flex-col ${box ? '' : 'bottom-[calc(var(--vp-short,0px)*-1)]'}`}
       data-keyboard={box ? '' : undefined}
+      data-testid="chat-screen"
       style={box ? { height: box.height, transform: box.top ? `translateY(${box.top}px)` : undefined } : undefined}
     >
       <header className="z-20 border-b border-slate-200 bg-white px-2 pb-2 pt-[calc(var(--safe-top)+0.5rem)] shadow-sm dark:border-white/10 dark:bg-ink-900">
