@@ -266,7 +266,10 @@ test('a table guest’s claim waits for the host: it shows in the Inbox and the 
 test('Inbox → Recently handled: Clear all empties it, and Undo brings every payment back', async ({ page }) => {
   await page.goto('/inbox')
   // The demo's captured payment, marked not shared, moves to Recently handled.
-  await page.getByRole('button', { name: /^Mark .+ as not shared$/ }).first().click()
+  await page
+    .getByRole('button', { name: /^Mark .+ as not shared$/ })
+    .first()
+    .click()
   await expect(page.getByTestId('inbox-handled')).toContainText('Recently handled · 1')
   await page.getByTestId('inbox-handled-clear').click()
   await expect(page.getByTestId('inbox-handled')).toHaveCount(0)
