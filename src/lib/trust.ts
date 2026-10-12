@@ -162,8 +162,10 @@ const sortKeys = (r: Record<string, number>) => Object.fromEntries(Object.entrie
  *    since the rules would refuse dropping the mark if the group still asks for it.
  */
 export function prepareExpenseSave(prev: Expense | undefined, next: Expense, g: ApprovalPolicy | undefined, editorUid: string): Expense {
-  const { dispute: _d, approvals: _a, requiresApproval: _r, deletedAt: _t, deletedBy: _b, ...rest } = next
+  const { dispute: _d, approvals: _a, requiresApproval: _r, deletedAt: _t, deletedBy: _b, updatedBy: _u, ...rest } = next
   const out: Expense = { ...rest }
+  // Who edited it is whoever saves this edit, never what the form carried; a new expense has none (createdBy says it).
+  if (prev) out.updatedBy = editorUid
   if (prev?.dispute && Object.keys(prev.dispute).length) out.dispute = prev.dispute
   if (prev && isTrashed(prev)) {
     out.deletedAt = prev.deletedAt
@@ -238,6 +240,7 @@ export function prepareImportedSettlement(s: Settlement): Settlement {
  */
 export function prepareOccurrence(o: Expense, g: ApprovalPolicy): Expense {
   // Nor the template's receipt: the copy has no image of its own (purging it must not delete the template's).
-  const { dispute: _d, approvals: _a, requiresApproval: _r, deletedAt: _t, deletedBy: _b, receiptUrl: _u, receiptPath: _p, ...rest } = o
+  // Nor who last edited the template: a copy is new, and the rules refuse a new expense that names an editor.
+  const { dispute: _d, approvals: _a, requiresApproval: _r, deletedAt: _t, deletedBy: _b, receiptUrl: _u, receiptPath: _p, updatedBy: _e, ...rest } = o
   return needsApproval(g, o.amount) ? { ...rest, requiresApproval: true } : rest
 }

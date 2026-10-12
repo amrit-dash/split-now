@@ -6,6 +6,13 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 6.1.0 — October 2026
+
+- **Who edited an expense**: an expense now says who changed it last, as well as who added it ("Added by Ananya on 7 Oct · edited by Rahul on 8 Oct"). An edit by someone other than the person who added it always shows, in every detail level. Adding a receipt photo later counts as an edit. The group's activity log already showed who made each change; now the expense itself keeps it too.
+- **No more notifications about your own edits**: when an edit means an expense needs everyone's OK again, the notification says who changed it ("Rahul changed Dinner · needs your OK again") and never goes to the person who made the change.
+- Merging two people in a group records whoever carried out the merge as the editor of the expenses it changed.
+- For admins: every edit must now name the person making it (the rules check it), so edits from apps older than 6.1.0 are refused. After this deploys, set Admin → App → Minimum version to 6.1.0 (Use this build) so older apps update first.
+
 ## 6.0.0 — October 2026
 
 - **Appearance follows your account**: theme, accent colour, dual tone, text on accent, the animations and the detail level are saved to your account, so the app looks the same on the web and on the installed app on your phone. The newest change wins. Notifications and auto-capture setup stay on each device.

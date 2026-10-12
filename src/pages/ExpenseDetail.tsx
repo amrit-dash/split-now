@@ -18,7 +18,7 @@ import { colorFor } from '@/lib/colors'
 import { Avatar } from '@/components/Avatar'
 import { Empty, Loading, PageHeader } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
-import { Detail, type Hint, HintText } from '@/components/Hint'
+import { Detail, type Hint, HintText, useShows } from '@/components/Hint'
 import { SwipeRow } from '@/components/SwipeRow'
 import { usePageTitle } from '@/lib/brand'
 import { HistoryCard, TrashedBanner, TrustBadges, TrustPanel, useUndoableDelete } from '@/components/Trust'
@@ -34,6 +34,8 @@ export default function ExpenseDetail() {
   const toast = useToast()
   const undoable = useUndoableDelete()
   const patient = usePatience(`${groupId}/${expenseId}`)
+  // Hooks before the early returns: the "Added by" line hides in the Minimal look.
+  const showAdded = useShows(2)
   const e = expenses?.find((x) => x.id === expenseId)
   // An old link to an import summary pointed here with the group's id: open the group.
   const importLink = !!groupId && expenseId === groupId
@@ -257,13 +259,21 @@ export default function ExpenseDetail() {
         </div>
       )}
       {group.type !== 'personal' && <Comments group={group} expense={e} />}
-      {/* History and the "Added by" line are background: the Minimal look leaves them out. */}
+      {/* History is background: the Minimal look leaves it out. */}
       <Detail min={2}>
         <HistoryCard group={group} expense={e} />
-        <p className="mt-4 text-center text-xs text-muted" data-testid="expense-added">
-          {addedLine(e, creatorName(group, e.createdBy, user.uid), { dateTime: formatDateTime, date: (ms) => formatDate(ms) })}
-        </p>
       </Detail>
+      {/* The "Added by" line too, unless someone other than its author changed it: who did is worth seeing in every look. */}
+      {(showAdded || (!!e.updatedBy && e.updatedBy !== e.createdBy)) && (
+        <p className="mt-4 text-center text-xs text-muted" data-testid="expense-added">
+          {addedLine(
+            e,
+            creatorName(group, e.createdBy, user.uid),
+            { dateTime: formatDateTime, date: (ms) => formatDate(ms) },
+            e.updatedBy ? creatorName(group, e.updatedBy, user.uid) : undefined,
+          )}
+        </p>
+      )}
     </div>
   )
 }

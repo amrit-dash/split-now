@@ -65,8 +65,11 @@ async function liveGroup(gid: string, uid: string): Promise<GroupDoc> {
 const nameOf = (g: GroupDoc, id: string) => labelOf(g.members ?? {}, id, g.members?.[id]?.name ?? 'Someone')
 const memberIdOf = (g: GroupDoc, uid: string) => Object.entries(g.members ?? {}).find(([, m]) => m.uid === uid && typeof m.removedAt !== 'number')?.[0]
 
-/** Rewrites every document of the group that names `from`. Answers what it changed. */
-async function rewrite(gid: string, from: string, into: string): Promise<{ expenses: number; payments: number }> {
+/**
+ * Rewrites every document of the group that names `from`. Answers what it changed. An expense it
+ * changes names `byUid` (whoever carried the merge out) as its editor: who paid and who owes moved.
+ */
+async function rewrite(gid: string, from: string, into: string, byUid: string): Promise<{ expenses: number; payments: number }> {
   let expenses = 0
   let payments = 0
   let batch = db().batch()
@@ -81,7 +84,7 @@ async function rewrite(gid: string, from: string, into: string): Promise<{ expen
   for (const d of (await groupRef(gid).collection('expenses').get()).docs) {
     const patch = mergeExpense(d.data(), from, into)
     if (!patch) continue
-    batch.update(d.ref, { ...patch, updatedAt: Date.now() })
+    batch.update(d.ref, { ...patch, updatedAt: Date.now(), updatedBy: byUid })
     ops++
     expenses++
     await flush()
@@ -134,7 +137,7 @@ async function merge(gid: string, from: string, into: string, byUid: string): Pr
       email: normEmail(g.members![from]!.email),
     }
   })
-  const moved = await rewrite(gid, from, into)
+  const moved = await rewrite(gid, from, into, byUid)
   // A placeholder waiting for its email's account points at the person who stays now.
   if (names.email) {
     const ref = db().doc(`emailInvites/${createHash('sha256').update(names.email).digest('hex')}`)

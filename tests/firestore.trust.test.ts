@@ -79,6 +79,36 @@ const e1 = (uid: string, id = 'e1') => doc(db(uid), `groups/g1/expenses/${id}`)
 const s1 = (uid: string) => doc(db(uid), 'groups/g1/settlements/s1')
 const seed = (path: string, data: Record<string, unknown>) => env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), path), data))
 
+describe('who edited it (updatedBy)', () => {
+  it('an edit must name the person making it', async () => {
+    await assertFails(updateDoc(e1('bob'), { description: 'Dinner!' }))
+    await assertFails(updateDoc(e1('bob'), { description: 'Dinner!', updatedBy: 'alice' }))
+    await assertSucceeds(updateDoc(e1('bob'), { description: 'Dinner!', updatedBy: 'bob' }))
+    // Someone else edited since: the next editor must still name themselves, not keep the last one.
+    await assertFails(updateDoc(e1('alice'), { description: 'Dinner!!' }))
+    await assertSucceeds(updateDoc(e1('alice'), { description: 'Dinner!!', updatedBy: 'alice' }))
+  })
+  it('a new expense has no editor', async () => {
+    await assertFails(setDoc(e1('alice', 'e9'), { ...expense, id: 'e9', updatedBy: 'alice' }))
+    await assertSucceeds(setDoc(e1('alice', 'e9'), { ...expense, id: 'e9' }))
+  })
+  it('approving, flagging and trashing leave the editor alone, and cannot set it', async () => {
+    await seed('groups/g1/expenses/e1', { ...expense, updatedBy: 'alice' })
+    // Approving is its own write: it can't carry an editor (that would be an edit adding an approval).
+    await assertFails(updateDoc(e1('bob'), { 'approvals.bob': true, updatedBy: 'bob' }))
+    await assertSucceeds(updateDoc(e1('bob'), new FieldPath('approvals', 'bob'), true))
+    await assertSucceeds(updateDoc(e1('bob'), { deletedAt: 5, deletedBy: 'bob' }))
+    await assertFails(updateDoc(e1('bob'), { deletedAt: deleteField(), deletedBy: deleteField(), updatedBy: 'bob' }))
+  })
+  it('a repeating expense’s schedule may move on without an editor, but nothing else may change with it', async () => {
+    const tpl = { ...expense, id: 'e5', recurrence: { freq: 'monthly', nextDate: '2026-11-01' }, updatedBy: 'alice' }
+    await seed('groups/g1/expenses/e5', tpl)
+    await assertSucceeds(updateDoc(e1('bob', 'e5'), { recurrence: { freq: 'monthly', nextDate: '2026-12-01' } }))
+    await assertFails(updateDoc(e1('bob', 'e5'), { recurrence: { freq: 'monthly', nextDate: '2027-01-01' }, description: 'Rent!' }))
+    await assertSucceeds(updateDoc(e1('bob', 'e5'), { recurrence: deleteField(), description: 'Rent!', updatedBy: 'bob' }))
+  })
+})
+
 describe('activity log', () => {
   it('members read it; outsiders cannot', async () => {
     await assertSucceeds(getDocs(collection(db('dan'), 'groups/g1/activity')))
@@ -112,7 +142,13 @@ describe('activity log', () => {
   it('an edit and its entry commit in one batch', async () => {
     const fs = db('bob')
     const b = writeBatch(fs)
-    b.set(doc(fs, 'groups/g1/expenses/e1'), { ...expense, amount: 9300, paidBy: { alice: 9300 }, splits: { alice: 3100, bob: 3100, p_cat: 3100 } })
+    b.set(doc(fs, 'groups/g1/expenses/e1'), {
+      ...expense,
+      amount: 9300,
+      paidBy: { alice: 9300 },
+      splits: { alice: 3100, bob: 3100, p_cat: 3100 },
+      updatedBy: 'bob',
+    })
     b.set(doc(fs, 'groups/g1/activity/a8'), entry('bob'))
     b.update(doc(fs, 'groups/g1'), { updatedAt: 3 })
     await assertSucceeds(b.commit())
@@ -206,8 +242,8 @@ describe('disputes', () => {
     const original = { currency: 'THB', amount: 210000, rate: 0.0428, rateDate: '2026-10-01', source: 'ecb' }
     await assertFails(updateDoc(e1('bob'), { 'dispute.bob': flag('bob', 'bob'), original }))
     await assertFails(updateDoc(e1('bob'), { deletedAt: 5, deletedBy: 'bob', original }))
-    await assertFails(updateDoc(e1('bob'), { original: { ...original, source: 'guess' } }))
-    await assertSucceeds(updateDoc(e1('bob'), { original }))
+    await assertFails(updateDoc(e1('bob'), { original: { ...original, source: 'guess' }, updatedBy: 'bob' }))
+    await assertSucceeds(updateDoc(e1('bob'), { original, updatedBy: 'bob' }))
   })
   it('only the flagger resolves (removes) their flag', async () => {
     await seed('groups/g1/expenses/e1', { ...expense, dispute: { bob: flag('bob', 'bob') } })
@@ -216,9 +252,9 @@ describe('disputes', () => {
   })
   it('a normal edit cannot clear or change flags, but keeps them', async () => {
     await seed('groups/g1/expenses/e1', { ...expense, dispute: { bob: flag('bob', 'bob') } })
-    await assertFails(setDoc(e1('alice'), { ...expense, description: 'Dinner (fixed)' }))
-    await assertFails(setDoc(e1('alice'), { ...expense, dispute: { bob: flag('bob', 'bob', { reason: 'fine' }) } }))
-    await assertSucceeds(setDoc(e1('alice'), { ...expense, description: 'Dinner (fixed)', dispute: { bob: flag('bob', 'bob') } }))
+    await assertFails(setDoc(e1('alice'), { ...expense, description: 'Dinner (fixed)', updatedBy: 'alice' }))
+    await assertFails(setDoc(e1('alice'), { ...expense, dispute: { bob: flag('bob', 'bob', { reason: 'fine' }) }, updatedBy: 'alice' }))
+    await assertSucceeds(setDoc(e1('alice'), { ...expense, description: 'Dinner (fixed)', dispute: { bob: flag('bob', 'bob') }, updatedBy: 'alice' }))
   })
 })
 
@@ -248,10 +284,17 @@ describe('approvals', () => {
   })
   it('an edit may drop approvals (money changed) but never add someone else’s or drop requiresApproval', async () => {
     await seed('groups/g1/expenses/e2', { ...big, requiresApproval: true, approvals: { alice: true } })
-    await assertFails(setDoc(e1('bob', 'e2'), { ...big, approvals: { alice: true } })) // requiresApproval dropped
-    await assertFails(setDoc(e1('bob', 'e2'), { ...big, requiresApproval: true, approvals: { alice: true, dan: true } }))
+    await assertFails(setDoc(e1('bob', 'e2'), { ...big, approvals: { alice: true }, updatedBy: 'bob' })) // requiresApproval dropped
+    await assertFails(setDoc(e1('bob', 'e2'), { ...big, requiresApproval: true, approvals: { alice: true, dan: true }, updatedBy: 'bob' }))
     await assertSucceeds(
-      setDoc(e1('bob', 'e2'), { ...big, amount: 33000, paidBy: { bob: 33000 }, splits: { alice: 11000, bob: 11000, p_cat: 11000 }, requiresApproval: true }),
+      setDoc(e1('bob', 'e2'), {
+        ...big,
+        amount: 33000,
+        paidBy: { bob: 33000 },
+        splits: { alice: 11000, bob: 11000, p_cat: 11000 },
+        requiresApproval: true,
+        updatedBy: 'bob',
+      }),
     )
   })
 })

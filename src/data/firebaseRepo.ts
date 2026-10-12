@@ -1038,7 +1038,9 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       if (!prev) batch.set(r, next)
       else {
         const patch = expenseEditPatch(prev, next, { keepApprovals: autoApproved })
-        const data: Record<string, unknown> = { ...patch.set, updatedAt: next.updatedAt }
+        // Always name the editor, even when this device's copy already shows them: someone else may
+        // have edited since, and the rules refuse an edit that doesn't name the person making it.
+        const data: Record<string, unknown> = { ...patch.set, updatedAt: next.updatedAt, updatedBy: me() }
         for (const k of patch.unset) data[k] = deleteField()
         // The rules only let an edit remove approvals (never add or change), which is all this does.
         if (patch.approvals !== undefined) data.approvals = patch.approvals ?? deleteField()
@@ -1145,7 +1147,8 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         // The image being replaced, if this expense owns one (never another expense's or the template's).
         const old = receiptOf(groupId, await cached<Expense>(r))
         const batch = writeBatch(db)
-        batch.update(r, { receiptUrl: url, receiptPath: path })
+        // Adding the photo later is an edit: it names its editor (the rules check it) and its time.
+        batch.update(r, { receiptUrl: url, receiptPath: path, updatedBy: uid(), updatedAt: Date.now() })
         fire(batch, 'Attaching receipt')
         if (old && old !== path) deleteFileLater(old)
       })().catch((e) => errors.emit('write', e, 'Receipt upload failed (the expense was saved without it)'))

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { expensePref, newlyWaiting, paymentOkPref } from './approval-push'
+import { expensePref, newlyWaiting, paymentOkPref, reapprovalRecipients } from './approval-push'
 import { reapprovalNote } from './notify-text'
 
 const members = { a: { uid: 'ua' }, b: { uid: 'ub' }, c: { uid: 'uc' }, gone: { uid: 'ug', removedAt: 1 } }
@@ -37,7 +37,22 @@ describe('newlyWaiting', () => {
   })
 })
 
+describe('reapprovalRecipients', () => {
+  it('never the editor, each account once, nobody without an account', () => {
+    expect(reapprovalRecipients(['ub', 'uc', 'ub', undefined], 'uc')).toEqual(['ub'])
+    expect(reapprovalRecipients(['ub', 'uc'], undefined)).toEqual(['ub', 'uc'])
+    expect(reapprovalRecipients(['ub'], 'ub')).toEqual([])
+  })
+})
+
 describe('reapprovalNote', () => {
+  it('says who changed it when the expense names its editor', () => {
+    const n = reapprovalNote({ groupId: 'g', expenseId: 'e', groupName: 'Goa', description: 'Dinner', amount: 250000, currency: 'INR', editorName: 'Rahul' })
+    expect(n.body).toBe('Rahul changed Dinner · ₹2,500 · needs your OK again')
+    expect(reapprovalNote({ groupId: 'g', expenseId: 'e', groupName: 'Goa', description: '', amount: 100, currency: 'INR' }).body).toBe(
+      'An expense changed · ₹1 · needs your OK again',
+    )
+  })
   it('names the expense and opens it', () => {
     const n = reapprovalNote({ groupId: 'g', expenseId: 'e', groupName: 'Goa', emoji: '🏖️', description: 'Dinner', amount: 250000, currency: 'INR' })
     expect(n.title).toBe('🏖️ Goa')

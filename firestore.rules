@@ -742,9 +742,22 @@ service cloud.firestore {
         }
 
         allow read: if isGroupMember(groupId);
-        allow create: if isGroupMember(groupId) && writesOpen() && groupLive(groupId) && validExpense() && noTrustFieldsOnCreate() && approvalFlagOk();
+        // Who last edited it: an edit (any change outside the flag, approval, trash and schedule
+        // writes) must name the person making it, so "edited by" and the functions' pushes can trust it. A new
+        // expense has none (createdBy says who added it). Server rewrites (member merges) set it
+        // to whoever carried them out.
+        function editorRecorded() {
+          return request.resource.data.get('updatedBy', '') == uid()
+            // Except a repeating expense's schedule moving on: any member's app advances
+            // recurrence.nextDate when it adds the next copies. Nobody edited anything, and no
+            // money changes, so it leaves the editor as it was.
+            || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['recurrence']);
+        }
+
+        allow create: if isGroupMember(groupId) && writesOpen() && groupLive(groupId) && validExpense() && noTrustFieldsOnCreate() && approvalFlagOk()
+          && !('updatedBy' in request.resource.data);
         allow update: if isGroupMember(groupId) && writesOpen() && groupLive(groupId)
-          && ((validExpense() && trustFieldsKept() && approvalFlagOk() && approvalsResetOk()) || isTrashChange() || isFlagOrApproval());
+          && ((validExpense() && trustFieldsKept() && approvalFlagOk() && approvalsResetOk() && editorRecorded()) || isTrashChange() || isFlagOrApproval());
         allow delete: if isGroupMember(groupId) && writesOpen() && canPurge();
 
         // Comment thread on an expense. Comments are immutable; only the author can

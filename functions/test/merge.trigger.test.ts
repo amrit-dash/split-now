@@ -98,6 +98,8 @@ describe('merging two people in a group (emulator)', () => {
     expect(r.result).toEqual({ status: 'done', expenses: 1, payments: 2 })
     const e = await read('groups/mg_1/expenses/e1')
     expect(e?.paidBy).toEqual({ a: 600 })
+    // Who paid moved: the expense names whoever carried the merge out as its editor.
+    expect(e?.updatedBy).toBe(alice.uid)
     expect(e?.splits).toEqual({ a: 400, b: 200 })
     expect(e?.splitInput).toEqual({ selected: ['a', 'b'] })
     const pays = await list('groups/mg_1/settlements')
@@ -136,6 +138,8 @@ describe('merging two people in a group (emulator)', () => {
     const ok = await call<{ status: string }>('decideMerge', { groupId: 'mg_3', requestId: 'r_p__a', approve: true }, alice)
     expect(ok.result?.status).toBe('done')
     expect((await read('groups/mg_3/expenses/e1'))?.paidBy).toEqual({ a: 600 })
+    // Carried out when the creator said yes: they are its editor.
+    expect((await read('groups/mg_3/expenses/e1'))?.updatedBy).toBe(alice.uid)
     expect((await read('groups/mg_3/mergeRequests/r_p__a'))?.status).toBe('done')
   })
 
