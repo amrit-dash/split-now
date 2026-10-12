@@ -6,6 +6,10 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 6.2.2 — October 2026
+
+- Group chat: the message box sits on the bottom of the screen again. On iPhone it could stop partway up, with empty space below it, after the keyboard had been open.
+
 ## 6.2.1 — October 2026
 
 - Inbox → Recently handled: Clear all sits beside the arrow and shows only while the list is open (just the bin icon on narrow phones).

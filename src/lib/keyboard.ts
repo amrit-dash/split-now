@@ -13,11 +13,39 @@ export interface ViewportLike {
   offsetTop: number
 }
 
+/** What we need of the focused element to tell whether it brings up the keyboard. */
+export interface FocusedLike {
+  tagName: string
+  type?: string
+  isContentEditable?: boolean
+  readOnly?: boolean
+}
+
+/** Inputs that never bring up a text keyboard. */
+const NO_KEYBOARD = new Set(['button', 'checkbox', 'color', 'file', 'hidden', 'image', 'radio', 'range', 'reset', 'submit'])
+
+/** Whether focus on this element means the on-screen keyboard can be up. */
+export function opensKeyboard(el: FocusedLike | null | undefined): boolean {
+  if (!el) return false
+  if (el.isContentEditable) return true
+  const tag = el.tagName.toUpperCase()
+  if (tag === 'TEXTAREA') return !el.readOnly
+  if (tag === 'INPUT') return !el.readOnly && !NO_KEYBOARD.has((el.type ?? 'text').toLowerCase())
+  return false
+}
+
 /**
- * The chat's box on screen: as tall as what is visible and moved down by however far the browser
- * panned (iOS pans the page instead of resizing it). Without a visual viewport, the full height.
+ * The chat's box on screen while the keyboard may be up: as tall as what is visible and moved down
+ * by however far the browser panned (iOS pans the page instead of resizing it). null means fill the
+ * screen (pinned top and bottom with CSS), which is what it does whenever nothing is being typed:
+ * iOS can keep reporting the keyboard-sized viewport after the keyboard closes (most often in the
+ * installed app), and a box sized from that left the message box floating mid-screen.
  */
-export function chatViewportBox(vv: ViewportLike | null | undefined, innerHeight: number): { height: number; top: number } {
-  if (!vv || !(vv.height > 0)) return { height: innerHeight, top: 0 }
-  return { height: Math.round(vv.height), top: Math.max(0, Math.round(vv.offsetTop)) }
+export function chatViewportBox(vv: ViewportLike | null | undefined, innerHeight: number, typing: boolean): { height: number; top: number } | null {
+  if (!typing || !vv || !(vv.height > 0)) return null
+  const height = Math.round(vv.height)
+  const top = Math.max(0, Math.round(vv.offsetTop))
+  // Nothing taken from the screen (a hardware keyboard, desktop): fill it like when not typing.
+  if (height >= innerHeight - 1 && top === 0) return null
+  return { height, top }
 }
