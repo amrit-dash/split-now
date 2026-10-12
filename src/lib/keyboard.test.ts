@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chatViewportBox, opensKeyboard } from './keyboard'
+import { chatViewportBox, opensKeyboard, strayScroll } from './keyboard'
 
 describe('chatViewportBox', () => {
   it('fills the screen when there is no visual viewport', () => {
@@ -43,5 +43,25 @@ describe('opensKeyboard', () => {
     expect(opensKeyboard({ tagName: 'INPUT', type: 'checkbox' })).toBe(false)
     expect(opensKeyboard({ tagName: 'INPUT', type: 'text', readOnly: true })).toBe(false)
     expect(opensKeyboard({ tagName: 'TEXTAREA', readOnly: true })).toBe(false)
+  })
+})
+
+describe('strayScroll', () => {
+  it('scrolls back a page that iOS left past its end once the keyboard has gone', () => {
+    // The full-screen chat: nothing to scroll, but iOS left it 100px down.
+    expect(strayScroll(100, 844, 844, false)).toBe(0)
+    // A long page scrolled past its end.
+    expect(strayScroll(1300, 2000, 800, false)).toBe(1200)
+  })
+
+  it('leaves a scroll within the page alone', () => {
+    expect(strayScroll(0, 844, 844, false)).toBeNull()
+    expect(strayScroll(600, 2000, 800, false)).toBeNull()
+    expect(strayScroll(1200, 2000, 800, false)).toBeNull()
+    expect(strayScroll(1200.6, 2000, 800, false)).toBeNull()
+  })
+
+  it('leaves the page alone while typing (iOS needs the extra scroll to show the field)', () => {
+    expect(strayScroll(300, 844, 844, true)).toBeNull()
   })
 })

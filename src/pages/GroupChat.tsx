@@ -24,7 +24,7 @@ import { usePageTitle } from '@/lib/brand'
 import { canEdit, chatIsEmpty, chatRows, markRead, readAtOf, replyRef, unreadCount } from '@/lib/chat'
 import { aiSuggestOn, mentionables, setAiSuggestOn, setSuggestOn, suggestOn } from '@/lib/chat-tools'
 import { unavailableText } from '@/lib/ai'
-import { chatViewportBox, opensKeyboard } from '@/lib/keyboard'
+import { chatViewportBox, opensKeyboard, strayScroll } from '@/lib/keyboard'
 import { saveCapturePrefs } from '@/lib/capture-settings'
 import { setChatMuted } from '@/lib/push'
 import { formatMoney } from '@/lib/money'
@@ -289,7 +289,8 @@ export default function GroupChat() {
     // Fills the screen, message box on the bottom edge. With the keyboard up it pins to what's visible (src/lib/keyboard.ts):
     // only the messages scroll; the header and the box stay put.
     <div
-      className={`fixed inset-x-0 top-0 flex flex-col ${box ? '' : 'bottom-0'}`}
+      className={`group/chat fixed inset-x-0 top-0 flex flex-col ${box ? '' : 'bottom-0'}`}
+      data-keyboard={box ? '' : undefined}
       style={box ? { height: box.height, transform: box.top ? `translateY(${box.top}px)` : undefined } : undefined}
     >
       <header className="z-20 border-b border-slate-200 bg-white px-2 pb-2 pt-[calc(var(--safe-top)+0.5rem)] shadow-sm dark:border-white/10 dark:bg-ink-900">
@@ -606,7 +607,13 @@ function MenuRow({ icon, label, onClick, danger, testId }: { icon: React.ReactNo
 }
 
 /** The visual viewport's box (src/lib/keyboard.ts) while a field has focus, following the keyboard as it opens and closes. */
-const readViewport = () => chatViewportBox(window.visualViewport, window.innerHeight, opensKeyboard(document.activeElement as HTMLElement | null))
+const typing = () => opensKeyboard(document.activeElement as HTMLElement | null)
+const readViewport = () => chatViewportBox(window.visualViewport, window.innerHeight, typing())
+/** Once the keyboard has gone, undo a scroll iOS left past the end of the page (src/lib/keyboard.ts). */
+const unstray = () => {
+  const to = strayScroll(window.scrollY, document.documentElement.scrollHeight, window.innerHeight, typing())
+  if (to !== null) window.scrollTo(0, to)
+}
 function useChatViewport() {
   const [box, setBox] = useState(readViewport)
   useEffect(() => {
@@ -616,7 +623,10 @@ function useChatViewport() {
       setBox(readViewport())
       // iOS settles the viewport only after the keyboard's slide, sometimes without a resize event.
       clearTimeout(timer)
-      timer = setTimeout(() => setBox(readViewport()), 350)
+      timer = setTimeout(() => {
+        unstray()
+        setBox(readViewport())
+      }, 350)
     }
     vv?.addEventListener('resize', on)
     vv?.addEventListener('scroll', on)
@@ -625,6 +635,8 @@ function useChatViewport() {
     document.addEventListener('focusout', on)
     return () => {
       clearTimeout(timer)
+      // Leaving with the keyboard up: the screen we go back to must not keep the stray scroll either.
+      setTimeout(unstray, 350)
       vv?.removeEventListener('resize', on)
       vv?.removeEventListener('scroll', on)
       window.removeEventListener('resize', on)

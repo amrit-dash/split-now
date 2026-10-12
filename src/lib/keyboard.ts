@@ -5,7 +5,8 @@
  *
  * The full-screen chat is the exception: its header and message box must stay put while only the
  * messages scroll, so it pins itself to the visible area (the visual viewport, which shrinks and
- * moves when the keyboard opens) with chatViewportBox.
+ * moves when the keyboard opens) with chatViewportBox, and once the keyboard has gone it undoes any
+ * scroll iOS left past the end of the page (strayScroll).
  */
 
 export interface ViewportLike {
@@ -48,4 +49,16 @@ export function chatViewportBox(vv: ViewportLike | null | undefined, innerHeight
   // Nothing taken from the screen (a hardware keyboard, desktop): fill it like when not typing.
   if (height >= innerHeight - 1 && top === 0) return null
   return { height, top }
+}
+
+/**
+ * Where to scroll the page back to once the keyboard has gone, or null to leave it. To show the
+ * field, iOS can scroll the page past its end and not scroll it back after the keyboard closes: the
+ * page's background then shows as a band under the chat's message box, and under the screen you go
+ * back to. Only a scroll past the end is undone; anywhere within the page is the person's own.
+ */
+export function strayScroll(scrollY: number, scrollHeight: number, innerHeight: number, typing: boolean): number | null {
+  if (typing) return null
+  const end = Math.max(0, scrollHeight - innerHeight)
+  return scrollY > end + 1 ? end : null
 }
