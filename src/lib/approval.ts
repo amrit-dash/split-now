@@ -199,3 +199,14 @@ export function editApprovalOutcome({
 export function editAutoApproved(args: Parameters<typeof editApprovalOutcome>[0]): boolean {
   return args.after.amount !== args.before.amount && editApprovalOutcome(args) === 'keep'
 }
+
+/**
+ * The Approvals row's one line in Edit group while it is closed: what needs an OK in this group.
+ * "Off", "Expenses over ₹2,000", "Payments", or both joined with " · ".
+ */
+export function approvalsSummary(s: { requireApproval: boolean; threshold?: Cents; paymentApproval: boolean }, currency: string): string {
+  const parts: string[] = []
+  if (s.requireApproval) parts.push(s.threshold !== undefined && s.threshold > 0 ? `Expenses over ${shortMoney(s.threshold, currency)}` : 'Big expenses')
+  if (s.paymentApproval) parts.push(parts.length ? 'payments' : 'Payments')
+  return parts.length ? parts.join(' · ') : 'Off'
+}

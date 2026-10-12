@@ -473,6 +473,9 @@ test.describe('Collect in my currency', () => {
 test('Payments need the recipient’s OK: a payment waits for it; the recipient confirms from the Inbox', async ({ page }) => {
   // Any member turns it on for the group (Goa: Ananya has an account, so her OK can be asked for).
   await page.goto('/groups/g_goa/edit')
+  // Every approval setting sits in the Approvals section; closed, it says what is on.
+  await expect(page.getByTestId('group-approvals')).toContainText('Off')
+  await page.getByTestId('group-approvals').getByRole('button', { name: /Approvals/ }).click()
   await page.getByTestId('group-payment-approval').click()
   await expect(page.getByTestId('group-payment-approval')).toHaveAttribute('aria-checked', 'true')
   await page.getByTestId('group-save').click()

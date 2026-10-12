@@ -14,6 +14,7 @@ Next release: **6.0.0** (a major version: the admin console's tabs change, and s
 - For admins: Stop announcement has a red outline.
 - The QR shared bill is called **Live table** everywhere you start one (the + sheet, Scan), so it no longer shares a name with **Split by items**, the split in Add expense.
 - Groups: the Balances button left the header (Balances is on Home and in the + sheet); Import stays.
+- **Approvals in one place**: in New group and Edit group, big-expense approval (with its amount and small-edit allowance) and payment approval sit together under **Approvals**, which says what's on while closed ("Off", "Expenses over ₹2,000 · payments"). Merging people needs my OK stays on Members.
 
 ## 5.0.0 — October 2026
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ChevronRight, UserMinus, Users } from 'lucide-react'
+import { ChevronRight, Stamp, UserMinus, Users } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { createGroup, useAllExpenses, useCaptureTokens, useGroup, useGroups } from '@/hooks/data'
@@ -26,6 +26,7 @@ import {
   groupApprovalInCurrency,
   shortMoney,
   tableThreshold,
+  approvalsSummary,
 } from '@/lib/approval'
 import { getRate } from '@/lib/fx'
 import { useTodayRates } from '@/hooks/useFx'
@@ -134,6 +135,7 @@ export default function GroupForm() {
   const [parked, setParked] = useState<Record<string, Member>>({})
   const [busy, setBusy] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
+  const [approvalsOpen, setApprovalsOpen] = useState(false)
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({})
   const nameRef = useRef<HTMLInputElement>(null)
   const lastShared = useRef<GroupType>(isSharedType(initialType) ? initialType : 'trip')
@@ -279,13 +281,13 @@ export default function GroupForm() {
     guessKey !== dismissed &&
     isSharedType(guess.type) &&
     (!existing || isSharedType(groupTypeOf(existing)))
+  const approvals = approvalsSummary({ requireApproval, threshold, paymentApproval }, currency)
   const moreSummary = [
     currency,
     budget ? `budget ${formatMoney(budget, currency)}` : 'no budget',
     showDates && !datesOnTop && (startDate || endDate) ? formatRange(startDate || undefined, endDate || undefined) : null,
     type !== 'personal' ? `simplify ${simplify ? 'on' : 'off'}` : null,
-    shareable && requireApproval ? 'approval on' : null,
-    shareable && paymentApproval ? 'payments need an OK' : null,
+    shareable && (requireApproval || paymentApproval) ? `approvals: ${approvals.charAt(0).toLowerCase()}${approvals.slice(1)}` : null,
   ]
     .filter(Boolean)
     .join(' · ')
@@ -378,6 +380,7 @@ export default function GroupForm() {
       else {
         // Trip-like dates sit at the top of the form; everything else may be inside More options.
         if (!(errs.dates && datesOnTop)) setMoreOpen(true)
+        if (errs.threshold || errs.editAuto) setApprovalsOpen(true)
         requestAnimationFrame(() =>
           document
             .getElementById(errs.budget ? 'group-budget' : errs.dates ? 'trip-start' : errs.threshold ? 'approval-threshold' : 'edit-auto-approve')
@@ -616,93 +619,104 @@ export default function GroupForm() {
         </div>
       )}
       {shareable && (
-        <div className="rounded-2xl bg-slate-50 p-3 dark:bg-ink-800">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center font-semibold">
-                Needs your OK for big expenses
-                <InfoTip hint={APPROVAL_HINT} label="About approval for big expenses" />
-              </div>
-              <HintText hint={APPROVAL_HINT} className="text-muted text-xs" as="div" />
-            </div>
-            <Switch checked={requireApproval} onChange={turnApproval} label="Require approval for big expenses" testId="group-approval" />
-          </div>
-          {requireApproval && (
-            <div className="mt-3">
-              <div className="flex items-center">
-                <label className="label" htmlFor="approval-threshold">
-                  Needs an OK above
-                </label>
-                <InfoTip hint={thresholdHint} label="About the approval amount" />
-              </div>
-              <MoneyInput
-                id="approval-threshold"
-                value={threshold}
-                currency={currency}
-                placeholder={centsToInput(suggested, currency)}
-                onChange={(v) => {
-                  setThreshold(v)
-                  setThresholdTouched(true)
-                  clearError('threshold')
-                }}
-                aria-invalid={!!errors.threshold}
-                aria-describedby={errors.threshold ? 'approval-threshold-error' : helpLines ? 'approval-threshold-hint' : undefined}
-                data-testid="group-approval-threshold"
-              />
-              <HintText id="approval-threshold-hint" hint={thresholdHint} className="text-muted mt-1 text-xs" />
-              <FieldError id="approval-threshold-error" text={errors.threshold} />
-            </div>
-          )}
-          {requireApproval && (
-            <div className="mt-4 border-t border-slate-200 pt-3 dark:border-white/10">
+        // Everything that needs someone's OK in this group, in one place; closed, its line says what is on.
+        <Collapsible
+          title="Approvals"
+          icon={<Stamp size={20} aria-hidden />}
+          summary={approvals}
+          open={approvalsOpen}
+          onOpenChange={setApprovalsOpen}
+          className="!mt-0 !bg-slate-50 !shadow-none !ring-0 dark:!bg-ink-800"
+          testId="group-approvals"
+        >
+          <div className="space-y-3">
+            <div className="rounded-2xl bg-white p-3 dark:bg-ink-900">
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <div className="flex items-center font-semibold">
-                    Approve small edits automatically
-                    <InfoTip hint={EDIT_AUTO_HINT} label="About approving small edits" />
+                    Needs your OK for big expenses
+                    <InfoTip hint={APPROVAL_HINT} label="About approval for big expenses" />
                   </div>
-                  <HintText hint={EDIT_AUTO_HINT} className="text-muted text-xs" as="div" />
+                  <HintText hint={APPROVAL_HINT} className="text-muted text-xs" as="div" />
                 </div>
-                <Switch checked={editAuto} onChange={turnEditAuto} label="Approve small edits automatically" testId="group-edit-auto" />
+                <Switch checked={requireApproval} onChange={turnApproval} label="Require approval for big expenses" testId="group-approval" />
               </div>
-              {editAuto && (
+              {requireApproval && (
                 <div className="mt-3">
-                  <label className="label" htmlFor="edit-auto-approve">
-                    Changes of up to
-                  </label>
+                  <div className="flex items-center">
+                    <label className="label" htmlFor="approval-threshold">
+                      Needs an OK above
+                    </label>
+                    <InfoTip hint={thresholdHint} label="About the approval amount" />
+                  </div>
                   <MoneyInput
-                    id="edit-auto-approve"
-                    value={editAmount}
+                    id="approval-threshold"
+                    value={threshold}
                     currency={currency}
-                    placeholder={centsToInput(suggestedEdit, currency)}
+                    placeholder={centsToInput(suggested, currency)}
                     onChange={(v) => {
-                      setEditAmount(v)
-                      setEditAmountTouched(true)
-                      clearError('editAuto')
+                      setThreshold(v)
+                      setThresholdTouched(true)
+                      clearError('threshold')
                     }}
-                    aria-invalid={!!errors.editAuto}
-                    aria-describedby={errors.editAuto ? 'edit-auto-approve-error' : undefined}
-                    data-testid="group-edit-auto-amount"
+                    aria-invalid={!!errors.threshold}
+                    aria-describedby={errors.threshold ? 'approval-threshold-error' : helpLines ? 'approval-threshold-hint' : undefined}
+                    data-testid="group-approval-threshold"
                   />
-                  <FieldError id="edit-auto-approve-error" text={errors.editAuto} />
+                  <HintText id="approval-threshold-hint" hint={thresholdHint} className="text-muted mt-1 text-xs" />
+                  <FieldError id="approval-threshold-error" text={errors.threshold} />
                 </div>
               )}
+              {requireApproval && (
+                <div className="mt-4 border-t border-slate-200 pt-3 dark:border-white/10">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <div className="flex items-center font-semibold">
+                        Approve small edits automatically
+                        <InfoTip hint={EDIT_AUTO_HINT} label="About approving small edits" />
+                      </div>
+                      <HintText hint={EDIT_AUTO_HINT} className="text-muted text-xs" as="div" />
+                    </div>
+                    <Switch checked={editAuto} onChange={turnEditAuto} label="Approve small edits automatically" testId="group-edit-auto" />
+                  </div>
+                  {editAuto && (
+                    <div className="mt-3">
+                      <label className="label" htmlFor="edit-auto-approve">
+                        Changes of up to
+                      </label>
+                      <MoneyInput
+                        id="edit-auto-approve"
+                        value={editAmount}
+                        currency={currency}
+                        placeholder={centsToInput(suggestedEdit, currency)}
+                        onChange={(v) => {
+                          setEditAmount(v)
+                          setEditAmountTouched(true)
+                          clearError('editAuto')
+                        }}
+                        aria-invalid={!!errors.editAuto}
+                        aria-describedby={errors.editAuto ? 'edit-auto-approve-error' : undefined}
+                        data-testid="group-edit-auto-amount"
+                      />
+                      <FieldError id="edit-auto-approve-error" text={errors.editAuto} />
+                    </div>
+                  )}
+                </div>
+              )}
+              {requireApproval && !lockCurrency && <HintText hint={CONVERTS_HINT} className="text-muted mt-3 text-xs" />}
             </div>
-          )}
-          {requireApproval && !lockCurrency && <HintText hint={CONVERTS_HINT} className="text-muted mt-3 text-xs" />}
-        </div>
-      )}
-      {shareable && (
-        <div className="flex items-center justify-between gap-4 rounded-2xl bg-slate-50 p-3 dark:bg-ink-800">
-          <div>
-            <div className="flex items-center font-semibold">
-              Payments need the recipient's OK
-              <InfoTip hint={PAYMENT_OK_HINT} label="About payment approval" />
+            <div className="flex items-center justify-between gap-4 rounded-2xl bg-white p-3 dark:bg-ink-900">
+              <div>
+                <div className="flex items-center font-semibold">
+                  Payments need the recipient's OK
+                  <InfoTip hint={PAYMENT_OK_HINT} label="About payment approval" />
+                </div>
+                <HintText hint={PAYMENT_OK_HINT} className="text-muted text-xs" as="div" />
+              </div>
+              <Switch checked={paymentApproval} onChange={setPaymentApproval} label="Payments need the recipient's OK" testId="group-payment-approval" />
             </div>
-            <HintText hint={PAYMENT_OK_HINT} className="text-muted text-xs" as="div" />
           </div>
-          <Switch checked={paymentApproval} onChange={setPaymentApproval} label="Payments need the recipient's OK" testId="group-payment-approval" />
-        </div>
+        </Collapsible>
       )}
     </div>
   )
