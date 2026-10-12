@@ -5,6 +5,7 @@ import { Detail, HintText, InfoTip, type Hint } from './Hint'
 import { Segmented } from './Misc'
 import { Switch } from './Switch'
 
+const ACCENT_HINT: Hint = { full: 'The colour of buttons, links and the Home card', short: 'Buttons and the Home card', tier: 'help' }
 const INK_HINT: Hint = {
   full: 'Kept for each accent. Black text comes with brighter colours so it stays easy to read.',
   short: 'Black text comes with brighter colours',
@@ -59,8 +60,9 @@ export function AccentPicker({ onChange }: { onChange?: () => void } = {}) {
   return (
     <div className="space-y-4">
       <div>
-        <div className="label" id="accent-label">
+        <div className="label flex items-center" id="accent-label">
           Accent
+          <InfoTip hint={ACCENT_HINT} label="About accent" />
         </div>
         {/* One row that fills the width: a column per preset, so seven fit a 320px screen without
             wrapping. The whole 44px-tall cell is the touch target; the swatch inside has a fixed
@@ -68,7 +70,7 @@ export function AccentPicker({ onChange }: { onChange?: () => void } = {}) {
             WebKit builds drew as an oval), so it is always a circle. */}
         <div
           role="radiogroup"
-          aria-labelledby="accent-label"
+          aria-label="Accent"
           onKeyDown={onKey}
           className="grid items-center sm:gap-2"
           style={{ gridTemplateColumns: `repeat(${ACCENTS.length}, minmax(0, 1fr))` }}
@@ -102,6 +104,7 @@ export function AccentPicker({ onChange }: { onChange?: () => void } = {}) {
             )
           })}
         </div>
+        <HintText hint={ACCENT_HINT} className="text-muted mt-1.5 text-xs" />
       </div>
       {/* Fine-tuning: hidden in Minimal, the swatches are enough there. */}
       <Detail min={2}>

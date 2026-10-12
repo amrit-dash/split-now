@@ -325,7 +325,8 @@ export default function SplitBill() {
                 value: NO_GROUP,
                 text: 'Decide at the end',
                 label: 'Decide at the end',
-                hint: { full: 'Make a group with everyone at the table, or pick one', tier: 'help' },
+                // The groups below always show their currency, so this line stays in every look too.
+                hint: { full: 'Make a group with everyone at the table, or pick one', short: 'Make or pick a group later', tier: 'key' },
                 icon: (
                   <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-base dark:bg-ink-700">
                     <Users size={15} />

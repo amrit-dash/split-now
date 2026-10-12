@@ -397,7 +397,11 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300">
               <Plus size={20} aria-hidden />
             </span>
-            <span className="min-w-0 flex-1 font-semibold">New wallet…</span>
+            {/* A line like the wallets above it have, so every row in the sheet has one. */}
+            <span className="min-w-0 flex-1">
+              <span className="block font-semibold">New wallet…</span>
+              <span className="text-muted block truncate text-xs">For spending you track on your own</span>
+            </span>
           </Link>
         </div>
       </Sheet>

@@ -288,7 +288,8 @@ export function AiSettings() {
                       ? {
                           full: 'In groups where payments need your OK, a payment to you counts straight away when its screenshot matches. Uses your AI quota.',
                           short: 'A matching screenshot counts without your OK',
-                          tier: 'key',
+                          // 'help' like every other row here: the list shows a line under all of them or none.
+                          tier: 'help',
                         }
                       : { full: 'Payments to you wait for your OK, even with a screenshot attached.', short: 'Payments to you wait for your OK', tier: 'help' }
                   }

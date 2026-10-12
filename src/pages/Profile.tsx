@@ -73,9 +73,10 @@ const PAYMENT_PRIVACY_HINT: Hint = {
   short: 'Only members of groups you’re in can see these',
   tier: 'key',
 }
-const SETTINGS_ROW_HINT: Hint = { full: 'Currency, theme, notifications, auto-capture, AI, data', tier: 'help' }
-const BALANCES_ROW_HINT: Hint = { full: 'Who owes whom, by person or by group', tier: 'help' }
-const SUPPORT_ROW_HINT: Hint = { full: 'Buy me a coffee or sponsor on GitHub', tier: 'extra' }
+// The rows under the profile card: one line each, all 'help', so a detail level shows them all or none.
+const SETTINGS_ROW_HINT: Hint = { full: 'Currency, theme, notifications, auto-capture, AI, data', short: 'Currency, theme and more', tier: 'help' }
+const BALANCES_ROW_HINT: Hint = { full: 'Who owes whom, by person or by group', short: 'Who owes whom', tier: 'help' }
+const SUPPORT_ROW_HINT: Hint = { full: 'Buy me a coffee or sponsor on GitHub', short: 'Coffee or GitHub sponsor', tier: 'help' }
 const PHOTO_HINT: Hint = { full: 'Your photo is shown to people in your groups.', tier: 'key' }
 
 /** Old deep links into Profile sections now live under Settings. */

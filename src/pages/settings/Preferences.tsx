@@ -29,6 +29,8 @@ const SYNC_HINT: Hint = {
   short: 'Same on every device you sign in on',
   tier: 'help',
 }
+// Every row of the Appearance card has a 'help' line (Accent's and Text on accent's are in AccentPicker), so they show together or not at all.
+const THEME_HINT: Hint = { full: 'Auto follows your device’s light or dark mode', short: 'Auto follows your device', tier: 'help' }
 const DETAIL_HINT: Hint = {
   full: 'How much the app explains under each option. Lines that stop a mistake with money always stay.',
   short: 'How much the app explains under each option',
@@ -103,8 +105,9 @@ export default function Preferences() {
       <SectionTitle saved={lookSaved}>Appearance</SectionTitle>
       <div className="card space-y-4 p-4">
         <div>
-          <div className="label" id="theme-label">
+          <div className="label flex items-center" id="theme-label">
             Theme
+            <InfoTip hint={THEME_HINT} label="About theme" />
           </div>
           <Segmented<Theme>
             label="Theme"
@@ -142,6 +145,7 @@ export default function Preferences() {
               },
             ]}
           />
+          <HintText hint={THEME_HINT} className="text-muted mt-1.5 text-xs" />
         </div>
         <AccentPicker onChange={flashLook} />
         <div>

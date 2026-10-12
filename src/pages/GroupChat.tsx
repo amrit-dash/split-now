@@ -586,7 +586,6 @@ function TipRow({ glyph, title, text }: { glyph: React.ReactNode; title: string;
   )
 }
 
-
 function MenuRow({ icon, label, onClick, danger, testId }: { icon: React.ReactNode; label: string; onClick: () => void; danger?: boolean; testId?: string }) {
   return (
     <li>
