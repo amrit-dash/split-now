@@ -66,14 +66,22 @@ export const claimEmail = onCall({ ...callable, timeoutSeconds: 120 }, async (re
   const owner = typeof indexed === 'string' && indexed !== proof.uid ? indexed : proof.uid
   const fresh = owner === proof.uid && (await isThrowaway(proof.uid))
   if (fresh) {
-    // Groups may have linked the throwaway account already (it has the verified email): they move here.
-    const moved = await moveAccount(proof.uid, me.uid)
+    // Groups may link the throwaway account at any moment (it has the verified email; a group that
+    // adds the address is linked in the background by onGroupMembersLink). So: delete it first, and
+    // nothing new can find it; move what was linked to it; add the email (which links the groups
+    // waiting for it); then sweep once more for a link that was already on its way when it went.
     await a.deleteUser(proof.uid).catch((e) => logger.warn('throwaway delete', { error: (e as Error).message }))
-    const linked = (await addEmail(me.uid, email)) + moved.groups + moved.linked
-    return { added: true, linked }
+    const moved = await moveAccount(proof.uid, me.uid)
+    const added = await addEmail(me.uid, email)
+    const late = await moveAccount(proof.uid, me.uid)
+    return { added: true, linked: added + moved.groups + moved.linked + late.groups + late.linked }
   }
   // The sign-in link may have made a throwaway account even though the address is someone's added email.
-  if (owner !== proof.uid && (await isThrowaway(proof.uid))) await a.deleteUser(proof.uid).catch(() => undefined)
+  // Anything linked to it meanwhile goes to the account the address belongs to, never to a deleted one.
+  if (owner !== proof.uid && (await isThrowaway(proof.uid))) {
+    await a.deleteUser(proof.uid).catch(() => undefined)
+    await moveAccount(proof.uid, owner)
+  }
   if (owner === me.uid) return { already: true }
   const other = await a.getUser(owner).catch(() => undefined)
   const groups = (await db().collection('groups').where('memberUids', 'array-contains', owner).count().get()).data().count
@@ -81,15 +89,16 @@ export const claimEmail = onCall({ ...callable, timeoutSeconds: 120 }, async (re
   return { otherAccount: { name: other?.displayName ?? '', email, groups } }
 })
 
-/** An account the sign-in link just made: created in the last 15 minutes, no profile, in no group. */
+/**
+ * An account the sign-in link just made: created in the last 15 minutes, never opened the app (no
+ * profile) and made no group. It may already be *in* groups: one that added this address links it
+ * in the background (link-members.ts), and those groups move to the account that adds the email.
+ */
 async function isThrowaway(uid: string): Promise<boolean> {
   const u = await (await auth()).getUser(uid).catch(() => undefined)
   if (!u || Date.now() - Date.parse(u.metadata.creationTime) > MERGE_WINDOW_MS) return false
-  const [profile, groups] = await Promise.all([
-    db().doc(`users/${uid}`).get(),
-    db().collection('groups').where('memberUids', 'array-contains', uid).limit(1).get(),
-  ])
-  return !profile.exists && groups.empty
+  const [profile, made] = await Promise.all([db().doc(`users/${uid}`).get(), db().collection('groups').where('createdBy', '==', uid).limit(1).get()])
+  return !profile.exists && made.empty
 }
 
 async function addEmail(uid: string, email: string): Promise<number> {

@@ -113,6 +113,29 @@ describe('adding an email with Firebase’s sign-in link (emulator)', () => {
     expect(g.memberUids).toContain(me.uid)
   })
 
+  it('a link account a group already linked (in the background) still counts as new: its group moves here', async () => {
+    const me = await account('link.early@x.com', true)
+    const proof = await account('early@work.example', true)
+    await admin((db) =>
+      setDoc(
+        doc(db, 'groups/acc_early'),
+        group({
+          memberUids: ['someone', proof.uid],
+          createdBy: 'someone',
+          members: { o: { name: 'O', uid: 'someone' }, p1: { name: 'Early', email: 'early@work.example', uid: proof.uid } },
+        }),
+      ),
+    )
+    const r = await call<{ added: boolean; linked: number }>('claimEmail', { token: proof.token }, me)
+    expect(r.result?.added).toBe(true)
+    expect(r.result?.linked).toBeGreaterThanOrEqual(1)
+    expect(await lookup(proof.uid)).toBeUndefined()
+    const g = await read('groups/acc_early')
+    expect((g.members as Record<string, { uid?: string }>).p1.uid).toBe(me.uid)
+    expect(g.memberUids).toContain(me.uid)
+    expect(g.memberUids).not.toContain(proof.uid)
+  })
+
   it('an address that is a real account of its own is offered as a merge, not taken', async () => {
     const me = await account('link.keeper@x.com', true)
     const other = await account('link.other@x.com', true)
