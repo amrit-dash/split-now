@@ -20,6 +20,13 @@ import { MoneyInput } from '@/components/MoneyInput'
 import { Sheet } from '@/components/Sheet'
 import { useToast } from '@/components/Toast'
 import { CategorySheet } from '@/features/expense-form/sheets'
+import { HintText, InfoTip, type Hint } from '@/components/Hint'
+
+const NEW_ITEM_HINT: Hint = {
+  full: 'Something the group spent that nobody has added yet. Anyone can claim it later.',
+  short: 'Anyone can claim it later.',
+}
+const SUSPECTS_HINT: Hint = { full: 'They’ll get a notification asking them to claim it.', short: 'They’ll get a notification.' }
 
 /** What a typed line adds beyond what's already in the fields ("Found ₹290 · 2 Oct · Rahul"). */
 type Found = OpenItemInput & { line: string }
@@ -225,7 +232,7 @@ export function OpenItemSheet({
             void save()
           }}
         >
-          {!item && <p className="text-muted -mt-1 mb-3 text-sm">Something the group spent that nobody has added yet. Anyone can claim it later.</p>}
+          {!item && <HintText hint={NEW_ITEM_HINT} className="text-muted -mt-1 mb-3 text-sm" />}
           <label htmlFor="open-item-title" className="label">
             What was it?
           </label>
@@ -333,8 +340,11 @@ export function OpenItemSheet({
           )}
 
           <fieldset className="mt-4">
-            <legend className="label">Who might have paid?</legend>
-            <p className="text-muted -mt-1 mb-2 text-xs">They’ll get a notification asking them to claim it.</p>
+            <legend className="label">
+              Who might have paid?
+              <InfoTip hint={SUSPECTS_HINT} label="About Who might have paid" />
+            </legend>
+            <HintText hint={SUSPECTS_HINT} className="text-muted -mt-1 mb-2 text-xs" />
             <div className="flex flex-wrap gap-2">
               {order.map((id) => {
                 const m = group.members[id]

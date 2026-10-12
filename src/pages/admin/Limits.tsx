@@ -7,6 +7,7 @@ import { errText } from '@/lib/errors'
 import { resolveAppConfig, toAppConfigDoc } from '@/lib/flags'
 import { Loading } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
+import { LIMIT_SECTIONS } from '@/lib/admin-sections'
 import { limitsDoc, saveConfig } from './api'
 import { ChangedBy, DirtyBar, IntField, useConfigDoc } from './common'
 
@@ -55,20 +56,29 @@ export default function Limits() {
 
   return (
     <div className="pb-[calc(var(--lane)-var(--nav-h))]" data-testid="admin-limits">
-      <div className="card divide-y divide-slate-100 p-4 dark:divide-white/5">
-        {LIMIT_NAMES.map((k) => (
-          <IntField
-            key={k}
-            id={`limit-${k}`}
-            label={LIMIT_META[k].label}
-            hint={LIMIT_META[k].hint || undefined}
-            value={cfg[k]}
-            min={LIMIT_META[k].min}
-            max={LIMIT_META[k].max}
-            onChange={(v) => setDraft({ ...cfg, [k]: v })}
-          />
-        ))}
-      </div>
+      <h2 className="px-1 text-lg font-extrabold">Rate limits</h2>
+      {LIMIT_SECTIONS.map((s) => (
+        <section key={s.id} aria-labelledby={`limits-${s.id}-title`} data-testid={`limit-section-${s.id}`}>
+          <h3 id={`limits-${s.id}-title`} className="mb-0.5 mt-4 px-1 font-bold">
+            {s.title}
+          </h3>
+          <p className="text-muted mb-2 px-1 text-xs">{s.hint}</p>
+          <div className="card divide-y divide-slate-100 p-4 dark:divide-white/5">
+            {s.keys.map((k) => (
+              <IntField
+                key={k}
+                id={`limit-${k}`}
+                label={LIMIT_META[k].label}
+                hint={LIMIT_META[k].hint || undefined}
+                value={cfg[k]}
+                min={LIMIT_META[k].min}
+                max={LIMIT_META[k].max}
+                onChange={(v) => setDraft({ ...cfg, [k]: v })}
+              />
+            ))}
+          </div>
+        </section>
+      ))}
       <div className="mt-3 flex items-center justify-between gap-3 px-1">
         <p className="text-muted text-xs">Counted in fixed hourly and daily windows per key or person (rateLimits/*, server only).</p>
         <button type="button" className="btn-ghost btn-sm shrink-0" onClick={() => setDraft({ ...DEFAULT_LIMITS })} disabled={isDefault}>
@@ -76,7 +86,7 @@ export default function Limits() {
         </button>
       </div>
       <ChangedBy at={audit.updatedAt} by={audit.updatedBy} />
-      <h2 className="mt-6 mb-2 px-1 font-bold">App</h2>
+      <h2 className="mt-6 mb-2 px-1 text-lg font-extrabold">App</h2>
       <div className="card divide-y divide-slate-100 p-4 dark:divide-white/5" data-testid="admin-tuning">
         {TUNING_NAMES.map((k) => (
           <IntField

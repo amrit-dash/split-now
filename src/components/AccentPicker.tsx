@@ -1,8 +1,16 @@
 import { useEffect, useState, type KeyboardEvent } from 'react'
 import { Check } from 'lucide-react'
 import { ACCENTS, allInks, getAccent, getDuo, setAccent, setDuo, setInk, type AccentId, type Ink } from '@/lib/accent'
+import { Detail, HintText, InfoTip, type Hint } from './Hint'
 import { Segmented } from './Misc'
 import { Switch } from './Switch'
+
+const INK_HINT: Hint = {
+  full: 'Kept for each accent. Black text comes with brighter colours so it stays easy to read.',
+  short: 'Black text comes with brighter colours',
+  tier: 'help',
+}
+const DUO_HINT: Hint = { full: 'Two-colour gradients on buttons and cards', tier: 'help' }
 
 /**
  * Accent colour swatches, the "Text on accent" choice (white on deep
@@ -95,31 +103,38 @@ export function AccentPicker({ onChange }: { onChange?: () => void } = {}) {
           })}
         </div>
       </div>
-      <div>
-        <div className="label" id="ink-label">
-          Text on accent
+      {/* Fine-tuning: hidden in Minimal, the swatches are enough there. */}
+      <Detail min={2}>
+        <div>
+          <div className="label flex items-center" id="ink-label">
+            Text on accent
+            <InfoTip hint={INK_HINT} label="About text on accent" />
+          </div>
+          <Segmented<Ink>
+            value={ink}
+            onChange={pickInk}
+            label="Text on accent"
+            testId="accent-ink"
+            options={[
+              { value: 'light', label: 'White' },
+              { value: 'dark', label: 'Black' },
+            ]}
+          />
+          <HintText hint={INK_HINT} className="text-muted mt-1.5 text-xs" />
         </div>
-        <Segmented<Ink>
-          value={ink}
-          onChange={pickInk}
-          label="Text on accent"
-          testId="accent-ink"
-          options={[
-            { value: 'light', label: 'White' },
-            { value: 'dark', label: 'Black' },
-          ]}
-        />
-        <p className="text-muted mt-1.5 text-xs">Kept for each accent. Black text comes with brighter colours so it stays easy to read.</p>
-      </div>
-      {/* Dual tone closes the section as its own row, below the two labelled pickers, so the
-          Accent → Text on accent rhythm isn't broken by a switch between them. */}
-      <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4 dark:border-white/5">
-        <div className="min-w-0">
-          <div className="text-sm font-semibold">Dual tone</div>
-          <div className="text-muted text-xs">Two-colour gradients on buttons and cards</div>
+        {/* Dual tone closes the section as its own row, below the two labelled pickers, so the
+            Accent → Text on accent rhythm isn't broken by a switch between them. */}
+        <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4 dark:border-white/5">
+          <div className="min-w-0">
+            <div className="flex items-center text-sm font-semibold">
+              Dual tone
+              <InfoTip hint={DUO_HINT} label="About dual tone" />
+            </div>
+            <HintText hint={DUO_HINT} as="div" />
+          </div>
+          <Switch checked={duo} onChange={toggleDuo} label="Dual tone" testId="accent-duo" />
         </div>
-        <Switch checked={duo} onChange={toggleDuo} label="Dual tone" testId="accent-duo" />
-      </div>
+      </Detail>
     </div>
   )
 }

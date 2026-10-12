@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type 
 import { createPortal } from 'react-dom'
 import { Check, ChevronDown } from 'lucide-react'
 import { appLocale } from '@/lib/locale'
+import { type Hint, HintText } from './Hint'
 
 export interface SelectOption<T extends string = string> {
   value: T
@@ -9,7 +10,8 @@ export interface SelectOption<T extends string = string> {
   /** Plain-text label for type-ahead and the trigger's accessible name (defaults to label if it's a string). */
   text?: string
   icon?: ReactNode
-  hint?: ReactNode
+  /** The small line under the label: plain text (a value, always shown) or a Hint that follows the detail level. */
+  hint?: ReactNode | Hint
   disabled?: boolean
 }
 
@@ -242,7 +244,7 @@ export function Select<T extends string>({
                   {o.icon && <span className="shrink-0">{o.icon}</span>}
                   <span className="min-w-0 flex-1">
                     <span className="block truncate">{o.label}</span>
-                    {o.hint && <span className="block truncate text-xs font-normal text-slate-500 dark:text-slate-400">{o.hint}</span>}
+                    {o.hint && <HintText hint={o.hint} as="span" className="block truncate text-xs font-normal text-slate-500 dark:text-slate-400" />}
                   </span>
                   {isSel && <Check size={16} className="shrink-0 text-brand-600 dark:text-brand-300" aria-hidden />}
                 </li>

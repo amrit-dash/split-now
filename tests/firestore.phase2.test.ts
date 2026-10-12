@@ -66,6 +66,33 @@ describe('merchant memory (settings/merchants)', () => {
   })
 })
 
+describe('appearance (settings/appearance)', () => {
+  const look = 'users/alice/settings/appearance'
+  const a = { theme: 'dark', accent: 'ocean', duo: false, inks: { ocean: 'dark' }, motion: { on: true, speed: 'fast' }, updatedAt: 9 }
+  it('the owner keeps theme, accent and animations on the account', async () => {
+    await assertSucceeds(setDoc(doc(db('alice'), look), a))
+    await assertSucceeds(getDoc(doc(db('alice'), look)))
+    await assertSucceeds(setDoc(doc(db('alice'), look), { updatedAt: 10 }))
+  })
+  it('only the known fields, small maps and a time', async () => {
+    await assertFails(setDoc(doc(db('alice'), look), { ...a, extra: 1 }))
+    await assertFails(setDoc(doc(db('alice'), look), { ...a, theme: 'sepia' }))
+    await assertFails(setDoc(doc(db('alice'), look), { ...a, accent: 'x'.repeat(21) }))
+    await assertFails(setDoc(doc(db('alice'), look), { ...a, duo: 'off' }))
+    await assertFails(setDoc(doc(db('alice'), look), { ...a, motion: 'on' }))
+    await assertSucceeds(setDoc(doc(db('alice'), look), { ...a, look: 'minimal' }))
+    await assertSucceeds(setDoc(doc(db('alice'), look), { ...a, look: 'app' }))
+    await assertFails(setDoc(doc(db('alice'), look), { ...a, look: 'compact' }))
+    await assertFails(setDoc(doc(db('alice'), look), { ...a, inks: Object.fromEntries(Array.from({ length: 21 }, (_, i) => [`a${i}`, 'dark'])) }))
+    await assertFails(setDoc(doc(db('alice'), look), { theme: 'dark' }))
+  })
+  it('nobody else can read or write it', async () => {
+    await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), look), a))
+    await assertFails(getDoc(doc(db('bob'), look)))
+    await assertFails(setDoc(doc(db('bob'), look), a))
+  })
+})
+
 describe('cleared Updates (settings/inbox)', () => {
   const inbox = 'users/alice/settings/inbox'
   it('the owner keeps what they cleared: a time and up to 200 hidden rows', async () => {

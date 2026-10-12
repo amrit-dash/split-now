@@ -1,12 +1,14 @@
 /**
  * Animation settings (Settings → Animations): the Home card's fireworks, the colour flow on the
- * card and on accent buttons, and the circles floating in the card. Kept on this device like the
+ * card and on accent buttons, and the circles floating in the card. Follows the account (appearance-sync.ts) like the
  * theme and accent, and applied live: CSS reads <html data-flow="off"> and --flow-dur, the canvas
  * and Aurora loops read the prefs through useMotion (src/hooks/useMotion.ts).
  *
  * The device's own "reduce motion" setting always wins over these: nothing here can turn motion
  * back on for someone who asked their phone for less of it.
  */
+
+import { notePrefChange, withoutPrefEvents } from './pref-events'
 
 export type FireworkSize = 'small' | 'medium' | 'big'
 /** Glitter has one size below small, so its dots can be clearly finer than the sparks. */
@@ -215,6 +217,7 @@ function changed(next: MotionPrefs) {
   cached = next
   applyMotion(next)
   for (const fn of listeners) fn()
+  notePrefChange()
 }
 
 /** Save a change and apply it everywhere at once. Applied even when storage is blocked, for this visit. */
@@ -270,6 +273,7 @@ export function subscribeMotion(fn: () => void): () => void {
 if (typeof window !== 'undefined') {
   // Another tab changed them.
   window.addEventListener('storage', (e) => {
-    if (e.key === MOTION_KEY || e.key === null) changed(parseMotion(read()))
+    // That tab reports its own change to the account; this one only follows.
+    if (e.key === MOTION_KEY || e.key === null) withoutPrefEvents(() => changed(parseMotion(read())))
   })
 }

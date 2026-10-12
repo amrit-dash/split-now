@@ -4,14 +4,16 @@ import { useAiStatus } from '@/hooks/useAiStatus'
 import { usePageTitle } from '@/lib/brand'
 import { Loading, PageHeader } from '@/components/Misc'
 import { AdminAi } from './admin/AdminAi'
-import FlagsApp from './admin/FlagsApp'
+import AppSettings from './admin/AppSettings'
+import Flags from './admin/Flags'
 import Limits from './admin/Limits'
 import Overview from './admin/Overview'
 import Users from './admin/Users'
 
 const TABS = [
   { to: '/admin', label: 'Overview', end: true },
-  { to: '/admin/flags', label: 'Flags & app' },
+  { to: '/admin/app', label: 'App' },
+  { to: '/admin/flags', label: 'Flags' },
   { to: '/admin/limits', label: 'Limits' },
   { to: '/admin/ai', label: 'AI' },
   { to: '/admin/users', label: 'Users' },
@@ -69,7 +71,8 @@ export default function Admin() {
       </PageHeader>
       <Routes>
         <Route index element={<Overview />} />
-        <Route path="flags" element={<FlagsApp />} />
+        <Route path="app" element={<AppSettings />} />
+        <Route path="flags" element={<Flags />} />
         <Route path="limits" element={<Limits />} />
         <Route
           path="ai"

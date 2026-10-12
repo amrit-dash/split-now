@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { MailCheck } from 'lucide-react'
 import { repo } from '@/data'
 import { useToast } from '@/components/Toast'
+import { HintText } from '@/components/Hint'
 import { useAuth } from '@/hooks/auth'
 import { resendIn } from '@/lib/account'
 import { usePageTitle } from '@/lib/brand'
@@ -98,7 +99,14 @@ export default function VerifyEmail() {
       <p className="mt-3 text-slate-300">
         We sent a link to <b className="text-white [overflow-wrap:anywhere]">{email}</b>. Open it and this screen moves on by itself.
       </p>
-      <p className="mt-2 text-sm text-slate-400">Can’t find it? Check spam or promotions. It comes from Split Now’s Firebase address.</p>
+      <HintText
+        className="mt-2 text-sm text-slate-400"
+        hint={{
+          full: 'Can’t find it? Check spam or promotions. It comes from Split Now’s Firebase address.',
+          short: 'Can’t find it? Check spam or promotions.',
+          tier: 'help',
+        }}
+      />
       <button type="button" className="btn-primary mt-8 w-full" disabled={busy} onClick={checkNow} data-testid="verify-link-done">
         I’ve opened the link
       </button>

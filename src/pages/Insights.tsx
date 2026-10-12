@@ -46,6 +46,7 @@ import { GroupIcon } from '@/components/GroupIcon'
 import { ChartCard, StatTile } from '@/components/insights/chrome'
 import { CategoryBreakdown, GroupBars, PaceChart, PaidShare, TimeChart } from '@/components/insights/Charts'
 import { FiltersPanel } from '@/components/insights/Filters'
+import { Detail, type Hint, HintText, InfoTip } from '@/components/Hint'
 import { CountUp } from '@/components/insights/motion'
 
 export default function Insights() {
@@ -173,7 +174,8 @@ export default function Insights() {
     view.turn && view.one ? (
       <p className="text-muted mt-3 text-xs" data-testid="insights-whose-turn">
         <span aria-hidden>🍽️ </span>
-        {turnLine(view.turn, view.one.me)} Based on who has fronted the least over the last three months; only you see this.
+        {turnLine(view.turn, view.one.me)} <HintText hint={TURN_HINT} as="span" className="" />
+        <InfoTip hint={TURN_HINT} label="About whose turn" />
       </p>
     ) : null
   const multiGroupShare = !view.one && view.groups.filter((g) => g.paid || g.share).length > 1
@@ -211,12 +213,19 @@ export default function Insights() {
                 )
               }
             />
-            <StatTile label="Daily average" value={<CountUp value={head.dailyAvg} format={money} />} sub={`over ${head.days} day${head.days > 1 ? 's' : ''}`} />
-            <StatTile
-              label="Expenses"
-              value={<CountUp value={head.count} format={String} duration={600} />}
-              sub={`avg ${money(Math.round(head.total / Math.max(1, head.count)))} each`}
-            />
+            {/* Secondary tiles: the detail level's Minimal look keeps the total and the top category. */}
+            <Detail min={2}>
+              <StatTile
+                label="Daily average"
+                value={<CountUp value={head.dailyAvg} format={money} />}
+                sub={`over ${head.days} day${head.days > 1 ? 's' : ''}`}
+              />
+              <StatTile
+                label="Expenses"
+                value={<CountUp value={head.count} format={String} duration={600} />}
+                sub={`avg ${money(Math.round(head.total / Math.max(1, head.count)))} each`}
+              />
+            </Detail>
             <StatTile
               label="Top category"
               value={view.cats[0] ? `${CATEGORIES[view.cats[0].key].emoji} ${CATEGORIES[view.cats[0].key].label}` : '—'}
@@ -253,14 +262,14 @@ export default function Insights() {
               currency={cur}
               approx={approx}
               title="By group"
-              subtitle={filters.basis === 'mine' ? 'Your share in each group' : 'Total spent in each group'}
+              subtitle={{ full: filters.basis === 'mine' ? 'Your share in each group' : 'Total spent in each group', tier: 'help' }}
             />
           )}
 
           {view.members.length > 1 && (
             <PaidShare
               title="Paid vs. share"
-              subtitle="Who fronted the money vs. what they consumed"
+              subtitle={PAID_SHARE_SUB}
               currency={cur}
               approx=""
               rows={view.members.map((m) => ({
@@ -297,7 +306,7 @@ export default function Insights() {
           {multiGroupShare && (
             <PaidShare
               title="You paid vs. your share"
-              subtitle="Per group: what you fronted vs. what you consumed"
+              subtitle={YOU_PAID_SUB}
               currency={cur}
               approx={approx}
               rows={view.groups
@@ -333,18 +342,33 @@ export default function Insights() {
       )}
 
       {view.converted.length > 0 && (
-        <p className="text-muted mt-4 px-1 text-center text-xs">
-          ≈ {view.converted.join(', ')} groups converted to {home} at today’s ECB rate. Filter to one group for exact amounts in its own currency.
-        </p>
+        <HintText
+          className="text-muted mt-4 px-1 text-center text-xs"
+          hint={{
+            full: `≈ ${view.converted.join(', ')} groups converted to ${home} at today’s ECB rate. Filter to one group for exact amounts in its own currency.`,
+            short: `≈ ${view.converted.join(', ')} groups converted to ${home} at today’s rate.`,
+            tier: 'help',
+          }}
+        />
       )}
       {view.skipped.length > 0 && (
-        <p className="text-muted mt-2 px-1 text-center text-xs">
-          {view.skipped.join(', ')} groups aren’t included (no exchange rate available). Filter to one of them to see it.
-        </p>
+        <HintText
+          className="text-muted mt-2 px-1 text-center text-xs"
+          hint={{
+            // Key: without it the totals silently leave these groups out.
+            full: `${view.skipped.join(', ')} groups aren’t included (no exchange rate available). Filter to one of them to see it.`,
+            short: `${view.skipped.join(', ')} groups aren’t included (no exchange rate).`,
+            tier: 'key',
+          }}
+        />
       )}
     </div>
   )
 }
+
+const TURN_HINT: Hint = { full: 'Based on who has fronted the least over the last three months; only you see this.', short: 'Only you see this.', tier: 'help' }
+const PAID_SHARE_SUB: Hint = { full: 'Who fronted the money vs. what they consumed', short: 'Who paid vs. what they used', tier: 'help' }
+const YOU_PAID_SUB: Hint = { full: 'Per group: what you fronted vs. what you consumed', short: 'Per group', tier: 'help' }
 
 /** Spending up reads as the warning direction; icon + sign so it isn't colour alone. */
 function Delta({ change, vs }: { change: number; vs: string }) {

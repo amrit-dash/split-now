@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  approvalsSummary,
   APPROVAL_DEFAULTS,
   FALLBACK_APPROVAL_THRESHOLD,
   defaultEditAutoApprove,
@@ -158,5 +159,15 @@ describe('currencyLocked', () => {
     expect(currencyLocked(true, [])).toBe(false)
     expect(currencyLocked(false, null)).toBe(false)
     expect(currencyLocked(false, [{ id: 'e1' }])).toBe(false)
+  })
+})
+
+describe('approvalsSummary', () => {
+  it('says what needs an OK, or Off', () => {
+    expect(approvalsSummary({ requireApproval: false, paymentApproval: false }, 'INR')).toBe('Off')
+    expect(approvalsSummary({ requireApproval: true, threshold: 200_000, paymentApproval: false }, 'INR')).toBe('Expenses over ₹2,000')
+    expect(approvalsSummary({ requireApproval: true, threshold: 200_000, paymentApproval: true }, 'INR')).toBe('Expenses over ₹2,000 · payments')
+    expect(approvalsSummary({ requireApproval: false, paymentApproval: true }, 'INR')).toBe('Payments')
+    expect(approvalsSummary({ requireApproval: true, paymentApproval: false }, 'INR')).toBe('Big expenses')
   })
 })

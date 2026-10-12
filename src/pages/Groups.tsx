@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Eye, EyeOff, FileUp, Plus, Scale, Trash2 } from 'lucide-react'
+import { Eye, EyeOff, FileUp, Plus, Trash2 } from 'lucide-react'
 import { useAllGroupData, useDeletedGroups } from '@/hooks/data'
 import { GroupRow } from '@/components/GroupRow'
 import { PageHeader } from '@/components/Misc'
@@ -12,6 +12,7 @@ import type { Group } from '@/types'
 import { daysLeft } from '../../shared/group-trash'
 import { EmptyGroups, FirstRun, Section } from './Home'
 import { labelForUid, memberIdOfUid } from '@/lib/shortNames'
+import { Detail } from '@/components/Hint'
 import { settledAWhile, showSettledStored, storeShowSettled } from '@/lib/settled-groups'
 
 export default function Groups() {
@@ -49,9 +50,6 @@ export default function Groups() {
             aria-label="Import from Splitwise"
           >
             <FileUp size={20} aria-hidden />
-          </Link>
-          <Link to="/settle" className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-200/70 dark:bg-ink-800" aria-label="Balances">
-            <Scale size={20} aria-hidden />
           </Link>
           <Link
             to="/groups/new"
@@ -136,7 +134,11 @@ export default function Groups() {
           </div>
         </Collapsible>
       )}
-      {deleted && deleted.length > 0 && <RecentlyDeletedGroups groups={deleted} />}
+      {deleted && deleted.length > 0 && (
+        <Detail min={2}>
+          <RecentlyDeletedGroups groups={deleted} />
+        </Detail>
+      )}
     </div>
   )
 }

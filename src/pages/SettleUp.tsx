@@ -37,6 +37,25 @@ import { usePageTitle } from '@/lib/brand'
 import { Select } from '@/components/Select'
 import { DateField } from '@/components/DateField'
 import { labelOf } from '@/lib/shortNames'
+import { type Hint, HintText, InfoTip, useShows } from '@/components/Hint'
+
+/** Under "Waive the rest": the waived part is recorded, so it stops counting as owed. */
+const WAIVE_HINT: Hint = { full: 'Records that nothing more is owed for this.', tier: 'key' }
+
+/** The payment needs the recipient's OK, so it doesn't count yet. */
+const NEEDS_OK_HINT: Hint = {
+  full: 'In this group a payment counts once the person paid confirms it. Attach the payment screenshot and it can count straight away when it matches.',
+  short: 'Counts once they confirm it, or when a screenshot matches.',
+  min: 'Counts once they confirm it.',
+  tier: 'key',
+}
+
+/** Under the payment handles: the app never moves money, so the payment is made elsewhere first. */
+const PAY_OUTSIDE_HINT: Hint = {
+  full: 'Pay in your UPI or banking app, then record it below. Split Now never moves money itself.',
+  short: 'Pay in your UPI or bank app, then record it. Split Now never moves money.',
+  tier: 'key',
+}
 
 export default function SettleUp() {
   usePageTitle('Settle up')
@@ -79,6 +98,10 @@ export default function SettleUp() {
   const [payee, setPayee] = useState<MemberProfile | null>(null)
   const [busy, setBusy] = useState(false)
   const [init, setInit] = useState(false)
+  /** opened from a scanned payment screenshot: keep "Read from payment screenshot" in every look */
+  const [fromScan, setFromScan] = useState(false)
+  // Method, Note and the screenshot reader are optional extras: hidden in the Minimal look.
+  const optional = useShows(2)
   /** Pay in another currency (the recipient's own): null = in the group's currency */
   const [payIn, setPayIn] = useState<boolean | null>(null)
   /** what changes hands in that currency (minor units); undefined = the exact conversion */
@@ -143,6 +166,7 @@ export default function SettleUp() {
       }
     }
     if (pending.payment) {
+      setFromScan(true)
       applyPayment(pending.payment.parsed)
       pending.payment = undefined
     }
@@ -397,29 +421,31 @@ export default function SettleUp() {
           <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800" data-testid="waive-rest">
             <div className="min-w-0">
               <div className="font-semibold">Waive the rest ({formatMoney(restAfter, cur)})</div>
-              <div className="text-xs text-muted">Records that nothing more is owed for this.</div>
+              <HintText hint={WAIVE_HINT} as="div" className="text-xs text-muted" />
             </div>
             <Switch checked={waive} onChange={setWaive} label={`Waive the remaining ${formatMoney(restAfter, cur)}`} testId="waive-switch" />
           </div>
         )}
 
-        <button
-          type="button"
-          className="btn-secondary btn-sm mt-4 w-full"
-          onClick={() => fileRef.current?.click()}
-          disabled={ocr.busy}
-          aria-busy={ocr.busy || undefined}
-        >
-          {ocr.busy ? (
-            <>
-              <Spinner className="!h-4 !w-4" label="Reading the screenshot" /> Reading {Math.round(ocr.progress * 100)}%
-            </>
-          ) : (
-            <>
-              <Camera size={16} aria-hidden /> Read from payment screenshot
-            </>
-          )}
-        </button>
+        {(optional || fromScan || ocr.busy) && (
+          <button
+            type="button"
+            className="btn-secondary btn-sm mt-4 w-full"
+            onClick={() => fileRef.current?.click()}
+            disabled={ocr.busy}
+            aria-busy={ocr.busy || undefined}
+          >
+            {ocr.busy ? (
+              <>
+                <Spinner className="!h-4 !w-4" label="Reading the screenshot" /> Reading {Math.round(ocr.progress * 100)}%
+              </>
+            ) : (
+              <>
+                <Camera size={16} aria-hidden /> Read from payment screenshot
+              </>
+            )}
+          </button>
+        )}
         <input
           ref={fileRef}
           type="file"
@@ -457,28 +483,30 @@ export default function SettleUp() {
       )}
 
       <div className="card mt-3 space-y-3 p-4">
-        <div>
-          <div className="label" id="settle-method-label">
-            Method
+        {optional && (
+          <div>
+            <div className="label" id="settle-method-label">
+              Method
+            </div>
+            <div className="flex flex-wrap gap-2" role="radiogroup" aria-labelledby="settle-method-label">
+              {[...new Set([...(conv ? settleMethods(conv.cur) : []), ...methods])].map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  role="radio"
+                  aria-checked={m === method}
+                  onClick={() => pickMethod(m)}
+                  className={`chip min-h-10 ${m === method ? 'chip-on' : ''}`}
+                >
+                  {methodLabel(m)}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2" role="radiogroup" aria-labelledby="settle-method-label">
-            {[...new Set([...(conv ? settleMethods(conv.cur) : []), ...methods])].map((m) => (
-              <button
-                key={m}
-                type="button"
-                role="radio"
-                aria-checked={m === method}
-                onClick={() => pickMethod(m)}
-                className={`chip min-h-10 ${m === method ? 'chip-on' : ''}`}
-              >
-                {methodLabel(m)}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
+        )}
+        <div className={optional ? 'grid grid-cols-2 gap-2' : ''}>
           <DateField aria-label="Date" value={date} onChange={(v) => setDate(v || todayISO())} />
-          <input className="input" placeholder="Note (optional)" aria-label="Note" value={note} onChange={(e) => setNote(e.target.value)} />
+          {optional && <input className="input" placeholder="Note (optional)" aria-label="Note" value={note} onChange={(e) => setNote(e.target.value)} />}
         </div>
       </div>
 
@@ -487,10 +515,11 @@ export default function SettleUp() {
           <div className="flex items-start gap-2">
             <Clock size={18} className="mt-0.5 shrink-0 text-sky-600 dark:text-sky-400" aria-hidden />
             <div className="min-w-0 text-sm">
-              <div className="font-semibold">Needs {labelOf(group.members, to, 'their', d.me)}’s OK</div>
-              <div className="text-muted text-xs">
-                In this group a payment counts once the person paid confirms it. Attach the payment screenshot and it can count straight away when it matches.
+              <div className="flex items-center font-semibold">
+                Needs {labelOf(group.members, to, 'their', d.me)}’s OK
+                <InfoTip hint={NEEDS_OK_HINT} label="About payment OKs" />
               </div>
+              <HintText hint={NEEDS_OK_HINT} as="div" className="text-muted text-xs" />
             </div>
           </div>
           {proof ? (
@@ -721,10 +750,19 @@ function UpiCard({
               </a>
             ))}
           </div>
-          <p className="text-xs leading-snug text-muted">
-            {ios ? 'On iPhone, pick your app: “Pay with a UPI app” opens whichever UPI app iOS chooses.' : 'Android shows a list of your UPI apps.'} If an app
-            refuses the link, scan the QR or pay to the UPI ID.
-          </p>
+          <HintText
+            className="text-xs leading-snug text-muted"
+            hint={{
+              full: (
+                <>
+                  {ios ? 'On iPhone, pick your app: “Pay with a UPI app” opens whichever UPI app iOS chooses.' : 'Android shows a list of your UPI apps.'} If an
+                  app refuses the link, scan the QR or pay to the UPI ID.
+                </>
+              ),
+              short: 'If an app refuses the link, scan the QR or pay to the UPI ID.',
+              tier: 'key',
+            }}
+          />
         </div>
       )}
     </div>
@@ -766,7 +804,10 @@ function PayWith({
   // No UPI on file: let the payer paste the recipient's UPI ID to get the same QR / app links.
   const canTypeUpi = cur === 'INR' && !toMe && !options.some((o) => o.key === 'upi')
   const typed = canTypeUpi && isUpiId(manualUpi) ? payOptions({ upi: manualUpi.trim() }, amount, cur, payNote, payeeName) : []
-  const shown = [...options, ...typed]
+  // In the Minimal look a UPI QR is enough: the other handles (bank, PayPal…) show only when there is no UPI.
+  const allHandles = useShows(2)
+  const all = [...options, ...typed]
+  const shown = allHandles || !all.some((o) => o.qr) ? all : all.filter((o) => o.qr)
   return (
     <div className="card mt-3 p-4">
       <div className="label">{toMe ? `Get paid by ${payer}` : `Pay ${recipient} with`}</div>
@@ -844,7 +885,7 @@ function PayWith({
               </div>
             ),
           )}
-          <p className="text-xs text-muted">Pay in your UPI or banking app, then record it below. Split Now never moves money itself.</p>
+          <HintText hint={PAY_OUTSIDE_HINT} className="text-xs text-muted" />
         </div>
       )}
     </div>
@@ -901,6 +942,8 @@ export function SettleWithPerson() {
   const [payee, setPayee] = useState<MemberProfile | null>(null)
   const [busy, setBusy] = useState(false)
   const [init, setInit] = useState(false)
+  // Method and Note are optional extras: hidden in the Minimal look.
+  const optional = useShows(2)
 
   const cur = p?.currency ?? 'INR'
   const toMe = !!p && p.net > 0
@@ -1079,7 +1122,13 @@ export function SettleWithPerson() {
         {even ? (
           <div className="mt-3 text-center">
             <div className="text-3xl font-extrabold">No money changes hands</div>
-            <p className="text-muted mt-1 text-sm">What you owe in one group cancels what {p.label} owes in another. Clearing records it in each group.</p>
+            <HintText
+              className="text-muted mt-1 text-sm"
+              hint={{
+                full: `What you owe in one group cancels what ${p.label} owes in another. Clearing records it in each group.`,
+                short: 'Clearing records it in each group.',
+              }}
+            />
           </div>
         ) : (
           <>
@@ -1158,25 +1207,45 @@ export function SettleWithPerson() {
             {formatMoney(Math.sign(p.net) * plan.payment, cur, { sign: !even })}
           </span>
         </div>
-        {(mixed || partial) && (
+        {((mixed && !even) || (partial && optional)) && (
           <div className="mt-3 space-y-1.5 rounded-xl bg-brand-50 p-2.5 text-xs text-brand-900 dark:bg-brand-900/30 dark:text-brand-100">
             {mixed && !even && (
-              <p>
-                <span aria-hidden>💡 </span>You owe each other in different groups. Those cancel out, so they’re cleared in full and only {fmt(plan.payment)}{' '}
-                changes hands.
-              </p>
+              <HintText
+                className=""
+                hint={{
+                  full: (
+                    <>
+                      <span aria-hidden>💡 </span>You owe each other in different groups. Those cancel out, so they’re cleared in full and only{' '}
+                      {fmt(plan.payment)} changes hands.
+                    </>
+                  ),
+                  short: `Debts in other groups cancel out: only ${fmt(plan.payment)} changes hands.`,
+                  tier: 'key',
+                }}
+              />
             )}
             {partial && (
-              <p>
-                Paying part of it: the amount is shared across the groups in proportion to what’s owed in each, so every group goes down by the same share. To
-                round down or waive the rest in one group, settle it from that group.
-              </p>
+              <HintText
+                className=""
+                hint={{
+                  full: 'Paying part of it: the amount is shared across the groups in proportion to what’s owed in each, so every group goes down by the same share. To round down or waive the rest in one group, settle it from that group.',
+                  short: 'A part payment is shared across the groups by what’s owed.',
+                }}
+              />
             )}
           </div>
         )}
         {approx && (
           <p className="text-muted mt-3 text-xs" data-testid="settle-person-approx">
-            Other currencies are converted at today’s ECB rate. Paying within 4% of the total clears everything; each group records its own currency.
+            <HintText
+              as="span"
+              className=""
+              hint={{
+                full: 'Other currencies are converted at today’s ECB rate. Paying within 4% of the total clears everything; each group records its own currency.',
+                short: 'Converted at today’s ECB rate. Within 4% of the total clears it all.',
+                tier: 'key',
+              }}
+            />
           </p>
         )}
         {waiting > 0 && (
@@ -1214,7 +1283,7 @@ export function SettleWithPerson() {
       )}
 
       <div className="card mt-3 space-y-3 p-4">
-        {!even && (
+        {!even && optional && (
           <div>
             <div className="label" id="settle-person-method-label">
               Method
@@ -1235,9 +1304,9 @@ export function SettleWithPerson() {
             </div>
           </div>
         )}
-        <div className="grid grid-cols-2 gap-2">
+        <div className={optional ? 'grid grid-cols-2 gap-2' : ''}>
           <DateField aria-label="Date" value={date} onChange={(v) => setDate(v || todayISO())} />
-          <input className="input" placeholder="Note (optional)" aria-label="Note" value={note} onChange={(e) => setNote(e.target.value)} />
+          {optional && <input className="input" placeholder="Note (optional)" aria-label="Note" value={note} onChange={(e) => setNote(e.target.value)} />}
         </div>
       </div>
 

@@ -28,6 +28,7 @@ import { Empty, PageHeader } from '@/components/Misc'
 import { CardSkeleton, ListSkeleton } from '@/components/Skeleton'
 import { SwipeRow, type SwipeAction } from '@/components/SwipeRow'
 import { useToast } from '@/components/Toast'
+import { Detail, HintText, InfoTip, type Hint } from '@/components/Hint'
 import { labelOf } from '@/lib/shortNames'
 import { Switch } from '@/components/Switch'
 import { MergeOffers, MergeSheet } from '@/features/merge/Merge'
@@ -197,38 +198,34 @@ export default function GroupMembers() {
               )
             })}
           </ul>
-          <p className="text-muted px-1 text-xs">
-            Swipe a person left, or press and hold (right-click on a computer), to settle up, merge or remove them. Merge someone added twice (by name and by
-            email) into one person. Only people who are settled up can be removed.
-          </p>
+          <HintText hint={SWIPE_HINT} className="text-muted px-1 text-xs" />
           {group.createdBy === user.uid && (
-            // Room at the end so it clears the raised + button.
-            <div className="card mb-[calc(var(--lane)-var(--nav-h))] flex items-center justify-between gap-3 p-4">
-              <div className="min-w-0">
-                <div className="font-medium">Merging people needs my OK</div>
-                <div className="text-muted text-xs">When someone else merges two people here, you get a request in the chat to approve.</div>
+            // Room at the end so it clears the raised + button. Optional in the Minimal look.
+            <Detail min={2}>
+              <div className="card mb-[calc(var(--lane)-var(--nav-h))] flex items-center justify-between gap-3 p-4">
+                <div className="min-w-0">
+                  <div className="flex items-center font-medium">
+                    Merging people needs my OK
+                    <InfoTip hint={MERGE_OK_HINT} label="About merge approval" />
+                  </div>
+                  <HintText hint={MERGE_OK_HINT} className="text-muted text-xs" as="div" />
+                </div>
+                <Switch
+                  checked={!!group.mergeNeedsOk}
+                  onChange={(on) => repo.updateGroupSettings(group, { mergeNeedsOk: on }).catch((e) => toast(errText(e), 'err'))}
+                  label="Merging people needs my OK"
+                  testId="merge-needs-ok"
+                />
               </div>
-              <Switch
-                checked={!!group.mergeNeedsOk}
-                onChange={(on) => repo.updateGroupSettings(group, { mergeNeedsOk: on }).catch((e) => toast(errText(e), 'err'))}
-                label="Merging people needs my OK"
-                testId="merge-needs-ok"
-              />
-            </div>
+            </Detail>
           )}
           {others < maxOthers && (
             <section className="card p-4" aria-labelledby="members-add">
               <h2 id="members-add" className="label">
                 Add people
+                <InfoTip hint={ADD_HINT} label="About adding people" />
               </h2>
-              <MemberPicker
-                groups={groups}
-                myUid={user.uid}
-                groupId={group.id}
-                members={current}
-                onAdd={add}
-                hint="They can claim their spot with the invite link. You can log expenses with them straight away."
-              />
+              <MemberPicker groups={groups} myUid={user.uid} groupId={group.id} members={current} onAdd={add} hint={ADD_HINT} />
             </section>
           )}
         </div>
@@ -236,4 +233,19 @@ export default function GroupMembers() {
       <MergeSheet group={group} from={mergeFrom} me={me} myUid={user.uid} net={net} open={!!mergeFrom} onClose={() => setMergeFrom(null)} />
     </div>
   )
+}
+
+const SWIPE_HINT: Hint = {
+  full: 'Swipe a person left, or press and hold (right-click on a computer), to settle up, merge or remove them. Merge someone added twice (by name and by email) into one person. Only people who are settled up can be removed.',
+  short: 'Swipe a person left, or press and hold, for more.',
+}
+const MERGE_OK_HINT: Hint = {
+  full: 'When someone else merges two people here, you get a request in the chat to approve.',
+  short: 'Approve merges others make here.',
+}
+/** Must stay in every look: without it people wait for friends to join before logging anything. */
+const ADD_HINT: Hint = {
+  full: 'They can claim their spot with the invite link. You can log expenses with them straight away.',
+  short: 'They can claim their spot with the invite link.',
+  tier: 'key',
 }

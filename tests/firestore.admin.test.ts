@@ -131,6 +131,11 @@ describe('config/app', () => {
     await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, flags: { ...appConfig.flags, aiQuickAdd: 'off' } }))
     await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, flags: 'all' }))
     await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, signups: 'closed' }))
+    // The detail level (src/lib/look.ts): one of four names
+    for (const look of ['full', 'needed', 'minimal', 'tooltip']) await assertSucceeds(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, look }))
+    await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, look: 'compact' }))
+    await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, look: 2 }))
+    await assertFails(setDoc(doc(as('alice'), 'config/app'), { ...appConfig, look: 'minimal' }))
   })
 })
 

@@ -6,8 +6,12 @@ import { currencySymbol, formatMoney } from '@/lib/money'
 import { formatDate } from '@/lib/locale'
 import { compactMoney, formatChange, type Bucket, type GroupTotal, type PaceWeek, type Slice, type TimePoint } from '@/lib/insights'
 import { GroupIcon } from '@/components/GroupIcon'
+import { type Hint, HintText } from '@/components/Hint'
 import { ChartCard, HBar, TipBox, useChartTheme } from './chrome'
 import { CountUp, EASE, monotonePath, niceTicks, svgId, useInView, useOutsideTap, useTween, useWidth } from './motion'
+
+const PACE_AXIS: Hint = { full: 'Days of the month · tap a week', short: 'Days of the month', tier: 'help' }
+const WHERE_SUB: Hint = { full: 'By category · tap the ring to focus, a row to filter', short: 'By category', tier: 'help' }
 
 function bucketLabel(p: TimePoint, bucket: Bucket, long = false) {
   if (bucket === 'month') return formatDate(p.start, long ? { month: 'long', year: 'numeric' } : { month: 'short' })
@@ -417,7 +421,7 @@ export function PaceChart({
           </Readout>
         )}
       </div>
-      <p className="mt-1 text-right text-xs text-slate-500 dark:text-slate-400">Days of the month · tap a week</p>
+      <HintText hint={PACE_AXIS} className="mt-1 text-right text-xs text-slate-500 dark:text-slate-400" />
     </ChartCard>
   )
 }
@@ -487,7 +491,7 @@ export function CategoryBreakdown({
   }
 
   return (
-    <ChartCard title="Where it goes" subtitle="By category · tap the ring to focus, a row to filter">
+    <ChartCard title="Where it goes" subtitle={WHERE_SUB}>
       <div
         ref={(el) => {
           vRef(el)
@@ -597,7 +601,7 @@ export function GroupBars({
   currency: string
   approx: string
   title: string
-  subtitle: string
+  subtitle: ReactNode | Hint
 }) {
   const t = useChartTheme()
   const [vRef, inView] = useInView<HTMLUListElement>()
@@ -650,7 +654,7 @@ export function PaidShare({
   currency: string
   approx: string
   title: string
-  subtitle: string
+  subtitle: ReactNode | Hint
   /** A line under the bars (the "whose turn" hint). */
   footer?: React.ReactNode
 }) {

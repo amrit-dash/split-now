@@ -35,6 +35,7 @@ import { Sheet } from '@/components/Sheet'
 import { OpenItemSheet } from '@/features/open-items/OpenItemSheet'
 import { repo } from '@/data'
 import type { AiUnavailableReason } from '@/lib/ai'
+import { HintText } from '@/components/Hint'
 
 export type Draft = Omit<ChatMessage, 'id' | 'authorUid' | 'authorName' | 'createdAt' | 'pending'>
 
@@ -554,7 +555,8 @@ function ToolRow({
           <span className="block font-medium">
             {label} <span className="text-muted text-xs font-normal">/{command}</span>
           </span>
-          <span className="text-muted block text-xs">{hint}</span>
+          {/* Inside the row's button: no (i) here, the line simply follows the look. */}
+          <HintText hint={{ full: hint }} className="text-muted block text-xs" as="span" />
         </span>
       </button>
     </li>
@@ -609,11 +611,17 @@ function AskSheet({
           if (ready) onAsk(chosen ?? undefined, kind === 'pay' ? amount : undefined)
         }}
       >
-        <p className="text-muted -mt-1 mb-3 text-sm">
-          {kind === 'pay'
-            ? 'They get a card with a Pay button that opens Settle up, filled in.'
-            : 'They get a card with one button that settles exactly what they owe you, or shows that you’re square.'}
-        </p>
+        <HintText
+          hint={
+            kind === 'pay'
+              ? { full: 'They get a card with a Pay button that opens Settle up, filled in.', short: 'They get a card with a Pay button.' }
+              : {
+                  full: 'They get a card with one button that settles exactly what they owe you, or shows that you’re square.',
+                  short: 'They get one button for what they owe you.',
+                }
+          }
+          className="text-muted -mt-1 mb-3 text-sm"
+        />
         {kind === 'pay' && (
           <>
             <label htmlFor="chat-pay-amount" className="label">

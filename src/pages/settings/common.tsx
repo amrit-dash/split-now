@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Check, ChevronRight } from 'lucide-react'
 import { usePageTitle } from '@/lib/brand'
+import type { Hint } from '@/components/Hint'
 import { PageHeader } from '@/components/Misc'
 
 /**
@@ -17,7 +18,7 @@ export function SettingsPage({
   children,
 }: {
   title: string
-  subtitle?: ReactNode
+  subtitle?: ReactNode | Hint
   back?: string
   right?: ReactNode
   pinned?: ReactNode

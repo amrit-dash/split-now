@@ -1,10 +1,14 @@
 import { createContext, useCallback, useContext, useId, useRef, useState, type ReactNode } from 'react'
+import { type Hint, useHint } from './Hint'
 import { Sheet } from './Sheet'
 
 export interface ConfirmOptions {
   title: string
-  /** one or two short sentences; say what is lost and whether it can be undone */
-  message?: ReactNode
+  /**
+   * one or two short sentences; say what is lost and whether it can be undone. Plain text always
+   * shows; a Hint follows the detail level, so what is lost should be tier 'key'.
+   */
+  message?: ReactNode | Hint
   confirmLabel?: string
   cancelLabel?: string
   /** 'danger' paints the confirm button red (destructive, no undo) */
@@ -70,11 +74,14 @@ export function ConfirmSheet({
   busy?: boolean
 }) {
   const descId = useId()
+  // The sheet has no line to hang an (i) on, so a non-key Hint in the Tooltip look shows its full text here.
+  const { text, tip } = useHint(message)
+  const line = text ?? tip
   return (
-    <Sheet open={open} onClose={onClose} title={title} describedBy={message ? descId : undefined} testId="confirm-sheet">
-      {message && (
+    <Sheet open={open} onClose={onClose} title={title} describedBy={line ? descId : undefined} testId="confirm-sheet">
+      {line && (
         <p id={descId} className="text-muted -mt-1 mb-5 text-sm">
-          {message}
+          {line}
         </p>
       )}
       <div className="flex gap-2">

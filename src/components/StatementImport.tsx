@@ -27,6 +27,7 @@ import { useToast } from './Toast'
 import { DuplicatePrompt, RecentScans, useScanHistory } from './ScanHistory'
 import type { ScanEntry, ScanMatch, ScanPrint } from '@/lib/scanHistory'
 import { labelOf } from '@/lib/shortNames'
+import { type Hint, HintText, InfoTip } from './Hint'
 
 interface Row {
   id: string
@@ -51,6 +52,25 @@ const FLAG: Record<Flag, { text: string; cls: string }> = {
 }
 
 const MAX_FILES = 6
+
+const INTRO_HINT: Hint = {
+  full: 'Screenshots of your Google Pay, PhonePe, Paytm or bank transactions. We’ll list every payment, flag the ones in your trip dates, and you pick what to add.',
+  short: 'Payment screenshots in; you pick what to add',
+  tier: 'help',
+}
+// Key: it says where the screenshots go.
+const READER_HINT: Hint = {
+  full: `Up to ${MAX_FILES} screenshots. Read by Google Gemini, usually in under a minute.`,
+  short: 'Read by Google Gemini',
+  tier: 'key',
+}
+const SPLIT_ALL_HINT: Hint = { full: 'For all ticked payments. Open one to change just that one.', short: 'For all ticked payments', tier: 'help' }
+// Key: a repayment recorded as an expense would skew the balances.
+const CREDIT_HINT: Hint = {
+  full: 'Money you received. If a friend paid you back, record it with Settle up instead.',
+  short: 'A friend paid you back? Use Settle up instead',
+  tier: 'key',
+}
 
 /**
  * Scan → Statement: screenshots of GPay / PhonePe / a bank app become a list of payments. Each
@@ -304,11 +324,11 @@ export function StatementImport() {
             >
               📜
             </div>
-            <h2 className="font-bold">Add expenses from a statement</h2>
-            <p className="text-muted mt-1 text-sm">
-              Screenshots of your Google Pay, PhonePe, Paytm or bank transactions. We’ll list every payment, flag the ones in your trip dates, and you pick what
-              to add.
-            </p>
+            <div className="flex items-center justify-center">
+              <h2 className="font-bold">Add expenses from a statement</h2>
+              <InfoTip hint={INTRO_HINT} label="About statements" />
+            </div>
+            <HintText hint={INTRO_HINT} className="text-muted mt-1 text-sm" />
           </div>
           <div className="p-3 pt-0">
             {blocked ? (
@@ -362,7 +382,8 @@ export function StatementImport() {
                 ) : (
                   <p className="text-muted mt-2 flex items-center justify-center gap-1.5 text-xs">
                     <Sparkles size={12} className="text-brand-500" aria-hidden />
-                    {aiScanPossible() ? `Up to ${MAX_FILES} screenshots. Read by Google Gemini, usually in under a minute.` : 'Demo: shows a sample statement.'}
+                    {aiScanPossible() ? <HintText hint={READER_HINT} as="span" /> : 'Demo: shows a sample statement.'}
+                    {aiScanPossible() && <InfoTip hint={READER_HINT} label="About reading statements" />}
                   </p>
                 )}
               </>
@@ -433,7 +454,10 @@ export function StatementImport() {
               />
             </div>
             <div>
-              <div className="label">Split equally between</div>
+              <div className="flex items-center">
+                <div className="label">Split equally between</div>
+                <InfoTip hint={SPLIT_ALL_HINT} label="About the split" />
+              </div>
               <MemberChips
                 group={group}
                 order={order}
@@ -441,7 +465,7 @@ export function StatementImport() {
                 selected={split}
                 onToggle={(id) => setMembers(split.includes(id) ? split.filter((m) => m !== id) : [...split, id])}
               />
-              <p className="text-muted mt-1.5 text-xs">For all ticked payments. Open one to change just that one.</p>
+              <HintText hint={SPLIT_ALL_HINT} className="text-muted mt-1.5 text-xs" />
             </div>
           </>
         )}
@@ -566,7 +590,7 @@ export function StatementImport() {
                       />
                     </div>
                   )}
-                  {credit && <p className="text-muted text-xs">Money you received. If a friend paid you back, record it with Settle up instead.</p>}
+                  {credit && <HintText hint={CREDIT_HINT} className="text-muted text-xs" />}
                 </div>
               )}
             </div>

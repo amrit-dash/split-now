@@ -1,7 +1,11 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Loader2, RotateCcw, Save } from 'lucide-react'
+import { useMe } from '@/hooks/auth'
+import { errText } from '@/lib/errors'
+import { resolveAppConfig, toAppConfigDoc, type AppConfig } from '@/lib/flags'
 import { formatDateTime } from '@/lib/locale'
-import { watchConfig } from './api'
+import { useToast } from '@/components/Toast'
+import { saveConfig, watchConfig } from './api'
 
 /** A config document, live: `undefined` until the first server answer, `null` when it doesn't exist yet. */
 export function useConfigDoc(id: 'app' | 'limits'): { raw: unknown; loading: boolean; error: boolean } {
@@ -16,6 +20,41 @@ export function useConfigDoc(id: 'app' | 'limits'): { raw: unknown; loading: boo
     [id],
   )
   return state
+}
+
+/** Strip the audit fields before comparing, so a save by someone else doesn't read as "unsaved changes". */
+const body = (c: AppConfig) => JSON.stringify({ ...c, updatedAt: undefined, updatedBy: undefined })
+
+/**
+ * config/app with local edits, for the App and Flags tabs. Each tab keeps its own draft and writes
+ * the whole document from the live copy plus its edits, so saving one tab never undoes the other.
+ * `check` runs before saving and may refuse with a message.
+ */
+export function useAppConfigDraft(check?: (cfg: AppConfig) => string | null) {
+  const { user } = useMe()
+  const toast = useToast()
+  const { raw, loading, error } = useConfigDoc('app')
+  const saved = useMemo(() => resolveAppConfig(raw), [raw])
+  const [draft, setDraft] = useState<Partial<AppConfig> | null>(null)
+  const [saving, setSaving] = useState(false)
+  const cfg: AppConfig = { ...saved, ...draft }
+  const set = (p: Partial<AppConfig>) => setDraft((d) => ({ ...d, ...p }))
+  const dirty = body(cfg) !== body(saved)
+  const save = async () => {
+    const bad = check?.(cfg)
+    if (bad) return toast(bad, 'err')
+    setSaving(true)
+    try {
+      await saveConfig('app', toAppConfigDoc(cfg, user.uid))
+      setDraft(null)
+      toast('Saved')
+    } catch (e) {
+      toast(errText(e), 'err')
+    } finally {
+      setSaving(false)
+    }
+  }
+  return { saved, cfg, set, dirty, saving, save, discard: () => setDraft(null), loading, error }
 }
 
 /**

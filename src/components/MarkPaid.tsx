@@ -6,6 +6,7 @@ import { imagePreviewUrl, isImageType } from '@/lib/image'
 import { formatMoney } from '@/lib/money'
 import { settleMethods } from '@/lib/payments'
 import { Sheet } from '@/components/Sheet'
+import { HintText } from '@/components/Hint'
 import { useToast } from '@/components/Toast'
 
 /**
@@ -72,12 +73,21 @@ export function MarkPaid({
       </button>
       <Sheet open={open} onClose={() => !busy && setOpen(false)} title={`Did you pay ${money}?`}>
         <div className="space-y-4">
-          <p className="text-muted text-sm">
-            {confirmFirst
-              ? `${payee} sees it straight away and confirms it${groupName ? `, then it’s recorded as a payment in ${groupName}` : ''}.`
-              : `${payee} sees it straight away${groupName ? ` and it’s recorded as a payment in ${groupName}` : ''}.`}{' '}
-            Only tap this once the money has gone.
-          </p>
+          <HintText
+            className="text-muted text-sm"
+            hint={{
+              full: (
+                <>
+                  {confirmFirst
+                    ? `${payee} sees it straight away and confirms it${groupName ? `, then it’s recorded as a payment in ${groupName}` : ''}.`
+                    : `${payee} sees it straight away${groupName ? ` and it’s recorded as a payment in ${groupName}` : ''}.`}{' '}
+                  Only tap this once the money has gone.
+                </>
+              ),
+              short: 'Only tap this once the money has gone.',
+              tier: 'key',
+            }}
+          />
           <div>
             <div className="label" id="mark-paid-method">
               How did you pay?

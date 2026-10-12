@@ -25,24 +25,44 @@ describe('notificationSummary', () => {
   const base = { iosNeedsInstall: false, supported: true, perm: 'default' as NotificationPermission, prefs: DEFAULT_PREFS }
   it('covers each state', () => {
     expect(notificationSummary(base)).toBe('Off')
-    expect(notificationSummary({ ...base, perm: 'granted' })).toBe('On · 6 types')
+    expect(notificationSummary({ ...base, perm: 'granted' })).toBe('On · 7 types')
     expect(
       notificationSummary({
         ...base,
         perm: 'granted',
-        prefs: { ...DEFAULT_PREFS, captures: true, expenses: false, settlements: false, reminders: false, chat: false, openItems: false, outsideTrips: true },
+        prefs: {
+          ...DEFAULT_PREFS,
+          captures: true,
+          expenses: false,
+          settlements: false,
+          reminders: false,
+          chat: false,
+          openItems: false,
+          approvals: false,
+          outsideTrips: true,
+        },
       }),
     ).toBe('On · 1 type')
     expect(
       notificationSummary({
         ...base,
         perm: 'granted',
-        prefs: { ...DEFAULT_PREFS, captures: false, expenses: false, settlements: false, reminders: false, chat: false, openItems: false, outsideTrips: true },
+        prefs: {
+          ...DEFAULT_PREFS,
+          captures: false,
+          expenses: false,
+          settlements: false,
+          reminders: false,
+          chat: false,
+          openItems: false,
+          approvals: false,
+          outsideTrips: true,
+        },
       }),
     ).toBe('On · all types muted')
     // the stored document's other settings are not notification types
     expect(notificationSummary({ ...base, perm: 'granted', prefs: { ...DEFAULT_ALL_PREFS, aiSms: true, mutedChats: ['g1'] } as typeof DEFAULT_PREFS })).toBe(
-      'On · 6 types',
+      'On · 7 types',
     )
     expect(notificationSummary({ ...base, perm: 'denied' })).toBe('Blocked in browser settings')
     expect(notificationSummary({ ...base, supported: false })).toBe('Not available in this browser')

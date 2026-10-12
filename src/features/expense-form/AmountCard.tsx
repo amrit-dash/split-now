@@ -8,8 +8,11 @@ import { todayISO } from '@/lib/id'
 import { DateField } from '@/components/DateField'
 import { MoneyInput } from '@/components/MoneyInput'
 import { Spinner } from '@/components/Misc'
+import { Detail, HintText, InfoTip, type Hint } from '@/components/Hint'
 import { FxLine } from './FxLine'
 import type { useFxRate } from './useFxRate'
+
+const ITEMS_OFFER_HINT: Hint = { full: 'Split it by who had what', tier: 'help' }
 
 /**
  * What, how much, when: category tile + description (with past-description chips), the big
@@ -98,15 +101,18 @@ export function AmountCard({
           )}
         </div>
       </div>
+      {/* Past descriptions are a shortcut, not a choice: the Minimal look leaves them out. */}
       {suggestions.length > 0 && (
-        <div className="-mx-1 mt-3 flex gap-1.5 overflow-x-auto px-1 py-1" data-testid="desc-suggestions" role="group" aria-label="Past descriptions">
-          {suggestions.map((sg) => (
-            <button key={sg.description} type="button" onClick={() => onPickSuggestion(sg)} className="chip min-h-9 shrink-0 !py-1.5 text-sm">
-              <span aria-hidden>{CATEGORIES[sg.category].emoji}</span>
-              <span className="max-w-[10rem] truncate">{sg.description}</span>
-            </button>
-          ))}
-        </div>
+        <Detail min={2}>
+          <div className="-mx-1 mt-3 flex gap-1.5 overflow-x-auto px-1 py-1" data-testid="desc-suggestions" role="group" aria-label="Past descriptions">
+            {suggestions.map((sg) => (
+              <button key={sg.description} type="button" onClick={() => onPickSuggestion(sg)} className="chip min-h-9 shrink-0 !py-1.5 text-sm">
+                <span aria-hidden>{CATEGORIES[sg.category].emoji}</span>
+                <span className="max-w-[10rem] truncate">{sg.description}</span>
+              </button>
+            ))}
+          </div>
+        </Detail>
       )}
       <div className="mt-4 flex items-baseline gap-3 border-t border-slate-100 pt-4 dark:border-white/5">
         {/* The symbol itself is the currency button (opens the list); sized to sit with the amount. */}
@@ -206,8 +212,11 @@ export function AmountCard({
           <div className="flex items-center gap-3">
             <ReceiptText size={22} className="shrink-0 text-brand-600 dark:text-brand-300" aria-hidden />
             <div className="min-w-0 flex-1 text-sm">
-              <div className="font-semibold">{scannedItems} items on this bill</div>
-              <div className="text-muted">Split it by who had what</div>
+              <div className="flex items-center">
+                <div className="font-semibold">{scannedItems} items on this bill</div>
+                <InfoTip hint={ITEMS_OFFER_HINT} label="About splitting by items" />
+              </div>
+              <HintText hint={ITEMS_OFFER_HINT} as="div" className="text-muted" />
             </div>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">

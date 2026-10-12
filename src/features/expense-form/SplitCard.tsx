@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import { Equal, Percent, ReceiptText, Scale, SlidersHorizontal, Sigma } from 'lucide-react'
 import type { Group, MemberId, SplitType } from '@/types'
 import { formatMoney } from '@/lib/money'
 import { describeSplit, validAmount, type Action, type Draft } from '@/lib/expense-draft'
 import { Sheet } from '@/components/Sheet'
+import { useShows } from '@/components/Hint'
 import { SameHint, SplitFooter, nameOf } from './bits'
 import { SummaryCard } from './sheets'
 import { SplitEditor } from './SplitEditor'
@@ -15,6 +17,8 @@ const TYPES: Array<{ value: SplitType; label: string; icon: typeof Equal }> = [
   { value: 'adjust', label: 'Adjust', icon: SlidersHorizontal },
   { value: 'itemized', label: 'By items', icon: ReceiptText },
 ]
+// The rarer ways: the Minimal look keeps them behind "More ways" (shown anyway while one is picked).
+const MORE_WAYS: SplitType[] = ['percent', 'shares', 'adjust']
 
 /** "Split equally · 4 people" as one row; the sheet holds the six split types and their editors. */
 export function SplitCard({
@@ -43,6 +47,9 @@ export function SplitCard({
   onClose: () => void
 }) {
   const amount = validAmount(draft) ? draft.amount : 0
+  const allWays = useShows(2)
+  const [moreWays, setMoreWays] = useState(false)
+  const types = allWays || moreWays || MORE_WAYS.includes(draft.splitType) ? TYPES : TYPES.filter((t) => !MORE_WAYS.includes(t.value))
   const Icon = TYPES.find((t) => t.value === draft.splitType)?.icon ?? Equal
   // A one-line preview: "₹300.00 each" when everyone pays the same, else the first few shares.
   let detail: string | undefined
@@ -71,7 +78,7 @@ export function SplitCard({
       </SummaryCard>
       <Sheet open={open} onClose={onClose} title="How to split it" testId="split-sheet">
         <div className="grid grid-cols-3 gap-1.5" role="radiogroup" aria-label="Split type">
-          {TYPES.map((t) => {
+          {types.map((t) => {
             const on = draft.splitType === t.value
             return (
               <button
@@ -88,6 +95,16 @@ export function SplitCard({
             )
           })}
         </div>
+        {types.length < TYPES.length && (
+          <button
+            type="button"
+            className="mt-1 min-h-11 text-sm font-semibold text-brand-600 dark:text-brand-300"
+            onClick={() => setMoreWays(true)}
+            data-testid="split-more-ways"
+          >
+            More ways
+          </button>
+        )}
         <div className="mt-4">
           <SplitEditor
             type={draft.splitType}

@@ -17,6 +17,8 @@
  * 3:1, so the fills have to change with the ink). Neon defaults to dark ink, every other preset to
  * white; an explicit choice is stored per accent.
  */
+
+import { notePrefChange } from './pref-events'
 export type AccentId = 'violet' | 'ocean' | 'neon' | 'berry' | 'koi' | 'gold' | 'graphite'
 /** Colour of text and icons on accent fills: 'light' = white on deep fills, 'dark' = ink on bright fills. */
 export type Ink = 'light' | 'dark'
@@ -154,11 +156,13 @@ export function setAccent(id: AccentId) {
   const preset = accentPreset(id)
   write(ACCENT_KEY, preset.id)
   applyAccent(preset.id, getDuo())
+  notePrefChange()
 }
 
 export function setDuo(on: boolean) {
   write(DUO_KEY, on ? 'on' : 'off')
   applyAccent(getAccent(), on)
+  notePrefChange()
 }
 
 /**
@@ -171,6 +175,7 @@ export function setInk(ink: Ink, id: AccentId = getAccent()) {
   write(INK_KEY, JSON.stringify({ ...storedInks(), [preset.id]: ink }))
   // Applied even when storage is blocked, so the switch still works for this visit.
   applyAccent(preset.id, getDuo(), ink)
+  notePrefChange()
 }
 
 // --- Icons that follow the accent -------------------------------------------------------

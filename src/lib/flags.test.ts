@@ -46,13 +46,22 @@ describe('resolveAppConfig', () => {
       minVersion: '1.2.3',
       announcement: { text: '  Hello  ', level: 'warn', until: 5 },
       signups: 'invite',
+      look: 'tooltip',
       updatedAt: 7,
       updatedBy: 'boss',
     })
-    expect(c).toMatchObject({ maintenance: true, maintenanceMessage: 'Back at 10', minVersion: '1.2.3', signups: 'invite', updatedAt: 7, updatedBy: 'boss' })
+    expect(c).toMatchObject({
+      maintenance: true,
+      maintenanceMessage: 'Back at 10',
+      minVersion: '1.2.3',
+      signups: 'invite',
+      look: 'tooltip',
+      updatedAt: 7,
+      updatedBy: 'boss',
+    })
     expect(c.announcement).toEqual({ text: 'Hello', level: 'warn', until: 5 })
-    const bad = resolveAppConfig({ maintenance: 'yes', minVersion: 'v1', announcement: { text: '   ' }, signups: 'closed' })
-    expect(bad).toMatchObject({ maintenance: false, minVersion: '0.0.0', announcement: null, signups: 'open' })
+    const bad = resolveAppConfig({ maintenance: 'yes', minVersion: 'v1', announcement: { text: '   ' }, signups: 'closed', look: 'tiny' })
+    expect(bad).toMatchObject({ maintenance: false, minVersion: '0.0.0', announcement: null, signups: 'open', look: 'full' })
     expect(resolveAppConfig({ announcement: { text: 'x', level: 'loud' } }).announcement).toEqual({ text: 'x', level: 'info' })
   })
   it('round-trips through the document the console writes', () => {
@@ -62,6 +71,7 @@ describe('resolveAppConfig', () => {
       maintenanceMessage: ' soon ',
       announcement: { text: 'Hi', level: 'info' as const },
       flags: { ...DEFAULT_APP_CONFIG.flags, nudges: false },
+      look: 'minimal' as const,
     }
     const doc = toAppConfigDoc(cfg, 'boss', 99)
     expect(doc).toMatchObject({
@@ -69,6 +79,7 @@ describe('resolveAppConfig', () => {
       maintenanceMessage: 'soon',
       announcement: { text: 'Hi', level: 'info' },
       signups: 'open',
+      look: 'minimal',
       updatedAt: 99,
       updatedBy: 'boss',
     })

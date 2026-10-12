@@ -4,9 +4,17 @@ import { centsToInput, formatMoney } from '@/lib/money'
 import type { Action, SplitDraft } from '@/lib/expense-draft'
 import { Avatar } from '@/components/Avatar'
 import { MoneyInput } from '@/components/MoneyInput'
+import { type Hint, HintText } from '@/components/Hint'
 import { DecimalInput } from './DecimalInput'
 import { CheckBox, MemberRow, nameOf, youFirst } from './bits'
 import { ItemsEditor } from './ItemsEditor'
+
+const SHARES_HINT: Hint = { full: 'Use ratios like 2:1:1, so a couple counts as 2 shares.', short: 'Ratios like 2:1:1', tier: 'help' }
+const ADJUST_HINT: Hint = {
+  full: 'Split equally, then add or subtract an amount for anyone who had more or less.',
+  short: 'Equal, plus or minus for anyone',
+  tier: 'help',
+}
 
 /** The editor for one split type. Amounts are in the entry currency `cur`; `splits` is the live preview. */
 export function SplitEditor({
@@ -150,14 +158,14 @@ export function SplitEditor({
               </MemberRow>
             )
           })}
-          <p className="text-xs text-muted">Use ratios like 2:1:1, so a couple counts as 2 shares.</p>
+          <HintText hint={SHARES_HINT} className="text-xs text-muted" />
         </div>
       )
     case 'adjust': {
       const sel = split.selected
       return (
         <div className="space-y-2">
-          <p className="text-xs text-muted">Split equally, then add or subtract an amount for anyone who had more or less.</p>
+          <HintText hint={ADJUST_HINT} className="text-xs text-muted" />
           {shown.map((id) => {
             const on = sel.includes(id)
             return (

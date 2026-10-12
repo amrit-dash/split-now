@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ChevronRight, Download, MoreVertical, PlusSquare, Share, Smartphone, X } from 'lucide-react'
 import { useAllGroupData } from '@/hooks/data'
 import { countVisit, dismissInstall, installMethod, isInstallDismissed, shouldOfferInstall, type InstallMethod } from '@/lib/install'
+import { HintText } from './Hint'
 import { Sheet } from './Sheet'
 
 interface BeforeInstallPromptEvent extends Event {
@@ -204,7 +205,7 @@ export function InstallRow({ className = 'card', testId = 'install-row' }: { cla
         </span>
         <span className="min-w-0 flex-1">
           <span className="block">Install Split Now {phone ? 'on this phone' : 'on this computer'}</span>
-          <span className="text-muted block text-xs font-normal">{hint}</span>
+          <HintText hint={{ full: hint, tier: 'help' }} as="span" className="text-muted block text-xs font-normal" />
         </span>
         <ChevronRight size={18} className="text-slate-400" aria-hidden />
       </button>
@@ -246,9 +247,11 @@ export function InstallBanner() {
           <img src="/pwa-192.png" alt="" className="h-10 w-10 shrink-0 rounded-2xl" />
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-semibold">Install Split Now</div>
-            <div className="truncate text-xs text-slate-300">
-              {install.ios ? 'Add to Home Screen for notifications and offline use' : 'Full-screen, faster, works offline'}
-            </div>
+            <HintText
+              as="div"
+              className="truncate text-xs text-slate-300"
+              hint={{ full: install.ios ? 'Add to Home Screen for notifications and offline use' : 'Full-screen, faster, works offline', tier: 'help' }}
+            />
           </div>
           <button
             type="button"

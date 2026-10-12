@@ -14,7 +14,22 @@ import { Sheet } from './Sheet'
 import { useConfirm } from './ConfirmSheet'
 import { useToast } from './Toast'
 import { SwipeRow } from './SwipeRow'
+import { type Hint, HintText } from './Hint'
 import { labelForUid, labelOf, memberIdOfUid } from '@/lib/shortNames'
+
+/** A flag doesn't take the expense out of the balances: say so before it is sent. */
+const FLAG_HINT: Hint = {
+  full: 'Tell the group what looks wrong. It stays in the balances (marked as flagged) until you resolve it.',
+  short: 'It stays in the balances (marked as flagged) until you resolve it.',
+  tier: 'key',
+}
+
+/** Deleted items can come back for a while, and meanwhile they aren't counted. */
+const TRASH_HINT: Hint = {
+  full: 'Deleted expenses and payments stay here for 30 days. They don’t count in balances.',
+  short: 'Kept here for 30 days. They don’t count in balances.',
+  tier: 'key',
+}
 
 const memberNameFor = (g: Group, uid: string) => (id: string) =>
   g.members[id]?.uid === uid ? 'you' : labelOf(g.members, id, 'Former member', memberIdOfUid(g.members, uid))
@@ -320,7 +335,7 @@ export function TrustPanel({ group, expense: e, myMemberId }: { group: Group; ex
       )}
 
       <Sheet open={flagging} onClose={() => setFlagging(false)} title="Flag this expense">
-        <p className="text-muted text-sm">Tell the group what looks wrong. It stays in the balances (marked as flagged) until you resolve it.</p>
+        <HintText hint={FLAG_HINT} className="text-muted text-sm" />
         <textarea
           className="input mt-3 min-h-24"
           maxLength={500}
@@ -396,7 +411,7 @@ export function RecentlyDeleted({ group, open, onClose }: { group: Group; open: 
 
   return (
     <Sheet open={open} onClose={onClose} title="Recently deleted">
-      <p className="text-muted mb-3 text-sm">Deleted expenses and payments stay here for 30 days. They don’t count in balances.</p>
+      <HintText hint={TRASH_HINT} className="text-muted mb-3 text-sm" />
       {trash === null ? null : rows.length === 0 ? (
         <p className="text-muted py-6 text-center text-sm">Nothing deleted recently.</p>
       ) : (

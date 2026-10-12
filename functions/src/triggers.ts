@@ -6,6 +6,7 @@
  *    payee's OK has its screenshot checked first (payment-ok.ts), then the payee hears whether it
  *    cleared or needs their OK
  *  - the payee confirms a payment or says it hasn't arrived → the payer
+ *  - an edit that needs everyone's OK again → the people whose OK it took away ("Needs your OK")
  *  - push token registered → the same browser token is dropped from every other account (a
  *    phone signed out offline, then signed in as someone else, must not keep the first
  *    person's notifications)
@@ -28,7 +29,8 @@ import { db, storage } from './admin'
 import { REGION } from './config'
 import { flagOn } from './lib/limits'
 import { AI_SECRETS } from './ai'
-import { budgetNote, expenseNote, paymentDecisionNote, paymentOkNote, settlementNote, settlementRecordedNote } from './lib/notify-text'
+import { expensePref, newlyWaiting, paymentOkPref } from './lib/approval-push'
+import { budgetNote, expenseNote, paymentDecisionNote, paymentOkNote, reapprovalNote, settlementNote, settlementRecordedNote } from './lib/notify-text'
 import { payeeDecision, type ProofSettlement } from './lib/payment-proof'
 import { checkProof } from './payment-ok'
 import { expenseRecipients, memberNameForUid, memberUid, type MemberLite } from './lib/recipients'
@@ -76,10 +78,52 @@ async function unarchiveForEdit(groupId: string, before: Record<string, unknown>
 }
 
 export const onExpenseUpdated = onDocumentUpdated({ document: 'groups/{groupId}/expenses/{expenseId}', region: REGION }, async (event) => {
-  await unarchiveForEdit(event.params.groupId, event.data?.before.data(), event.data?.after.data()).catch((err) =>
-    logger.warn('unarchive', { groupId: event.params.groupId, error: (err as Error).message }),
-  )
+  const before = event.data?.before.data()
+  const after = event.data?.after.data()
+  const { groupId, expenseId } = event.params
+  await unarchiveForEdit(groupId, before, after).catch((err) => logger.warn('unarchive', { groupId, error: (err as Error).message }))
+  await reapprovalPush(groupId, expenseId, before, after).catch((err) => logger.warn('reapproval push', { groupId, error: (err as Error).message }))
 })
+
+/**
+ * An edit that needs everyone's OK again (a change bigger than the group's small-edit allowance)
+ * tells the people whose OK it took away, on "Needs your OK". Approving never gets here.
+ */
+async function reapprovalPush(
+  groupId: string,
+  expenseId: string,
+  before: FirebaseFirestore.DocumentData | undefined,
+  after: FirebaseFirestore.DocumentData | undefined,
+) {
+  if (!before || !after || after.importedFrom) return
+  const g0 = await db().doc(`groups/${groupId}`).get()
+  const g = g0.data() as GroupLite | undefined
+  if (!g || typeof g.deletedAt === 'number') return
+  const ids = newlyWaiting(before as Parameters<typeof newlyWaiting>[0], after as Parameters<typeof newlyWaiting>[1], g.members ?? {})
+  if (!ids.length) return
+  const uids = uidsOf(g)
+  const sent = await Promise.all(
+    ids
+      .map((id) => memberUid(g.members, id, uids))
+      .filter((u): u is string => !!u)
+      .map((u) =>
+        sendToUser(
+          u,
+          ['approvals'],
+          reapprovalNote({
+            groupId,
+            expenseId,
+            groupName: groupNameForRecipient(g, u),
+            emoji: g.emoji,
+            description: String(after.description ?? ''),
+            amount: after.amount,
+            currency: g.currency ?? 'INR',
+          }),
+        ),
+      ),
+  )
+  logger.info('reapproval push', { groupId, expenseId, waiting: ids.length, sent: sent.reduce((a, b) => a + b, 0) })
+}
 
 /** reminderState/{gid}.budget (server-only): which thresholds were announced, for which budget figure. */
 interface BudgetState {
@@ -120,7 +164,8 @@ export const onExpenseCreated = onDocumentCreated({ document: 'groups/{groupId}/
     recipients.map((r) =>
       sendToUser(
         r.uid,
-        ['expenses'],
+        // An ask answers to "Needs your OK", plain news to "New expenses".
+        [expensePref(waiting.has(r.uid))],
         expenseNote({
           groupId,
           expenseId,
@@ -207,7 +252,11 @@ export const onSettlementCreated = onDocumentCreated(settlementOpts, async (even
       logger.warn('payment check failed', { groupId, settlementId, message: (e as Error).message })
       return null
     })
-    await sendToUser(to, ['settlements'], paymentOkNote({ ...common(to), fromName: labelOf(g.members, s.from), cleared: verdict === 'match' }))
+    await sendToUser(
+      to,
+      [paymentOkPref(verdict === 'match')],
+      paymentOkNote({ ...common(to), fromName: labelOf(g.members, s.from), cleared: verdict === 'match' }),
+    )
     return
   }
   const jobs: Array<Promise<number>> = []

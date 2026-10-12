@@ -5,6 +5,7 @@ import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { memberOrder, myMemberId, useAllGroupData, useCaptures, useCapturesMeta, type GroupData } from '@/hooks/data'
 import { useInbox } from '@/hooks/useInbox'
+import { Detail, type Hint, HintText, InfoTip, useShows } from '@/components/Hint'
 import { MergeApprovalRow } from '@/features/merge/Merge'
 import { useFlag } from '@/hooks/useAppConfig'
 import type { Capture, Expense, Group, Settlement } from '@/types'
@@ -193,6 +194,8 @@ function ToSort({
   const toast = useToast()
   const [prefs, setPrefs] = useState<AllPrefs | null>(null)
   const [bulk, setBulk] = useState<BulkCandidate<Group> | null>(null)
+  // The sort menu is optional: hidden in the Minimal look.
+  const showSort = useShows(2)
   useEffect(() => watchCapturePrefs(user.uid, repo.mode, setPrefs), [user.uid])
   const loadingCaptures = box.loading && box.captures.length === 0 && !handled
   const nothing =
@@ -282,7 +285,7 @@ function ToSort({
 
   return (
     <>
-      {count > 1 && (
+      {count > 1 && showSort && (
         <div className="mb-3 flex justify-end">
           <SortPicker<ToSortOrder>
             value={order}
@@ -301,24 +304,27 @@ function ToSort({
           <Quiet emoji="✨" title="All sorted">
             Captured payments, expenses waiting for your OK and payments to confirm show up here.
           </Quiet>
-          <Link to="/settings/auto-capture" className="card mt-3 flex items-center gap-3 p-4" data-testid="inbox-setup">
-            <span
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
-              aria-hidden
-            >
-              <BookOpen size={20} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="font-semibold">Set up auto-capture</div>
-              <div className="text-muted text-xs">Bank &amp; UPI payments from your phone land here automatically</div>
-            </div>
-            <ChevronRight size={18} className="shrink-0 text-slate-400" aria-hidden />
-          </Link>
+          {/* A promo, not a decision: hidden in the Minimal look. */}
+          <Detail min={2}>
+            <Link to="/settings/auto-capture" className="card mt-3 flex items-center gap-3 p-4" data-testid="inbox-setup">
+              <span
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
+                aria-hidden
+              >
+                <BookOpen size={20} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold">Set up auto-capture</div>
+                <HintText as="div" className="text-muted text-xs" hint={{ full: 'Bank & UPI payments from your phone land here automatically' }} />
+              </div>
+              <ChevronRight size={18} className="shrink-0 text-slate-400" aria-hidden />
+            </Link>
+          </Detail>
         </>
       )}
 
       {box.merges.length > 0 && (
-        <Section title="Merges to OK" hint="Two people who are one person">
+        <Section title="Merges to OK" hint={{ full: 'Two people who are one person' }}>
           {box.merges.map(({ r, d }) => (
             <MergeApprovalRow key={`${r.groupId}/${r.id}`} group={d.group} request={r} me={d.me} myUid={user.uid} />
           ))}
@@ -326,7 +332,7 @@ function ToSort({
       )}
 
       {box.nudges.length > 0 && (
-        <Section title="Reminders" hint="From people you owe">
+        <Section title="Reminders" hint={{ full: 'From people you owe', tier: 'extra' }}>
           <NudgeCards cards={box.nudges} />
         </Section>
       )}
@@ -337,7 +343,7 @@ function ToSort({
         </Section>
       ) : (
         box.approvals.length > 0 && (
-          <Section title="Needs your OK" hint="Not counted in balances until you approve">
+          <Section title="Needs your OK" hint={{ full: 'Not counted in balances until you approve', tier: 'key' }}>
             {approvals.map(({ e, d }) => (
               <ApprovalRow key={e.id} e={e} d={d} />
             ))}
@@ -346,7 +352,7 @@ function ToSort({
       )}
 
       {box.payments.length > 0 && (
-        <Section title="Payments to confirm" hint="Waiting ones count once you confirm them">
+        <Section title="Payments to confirm" hint={{ full: 'Waiting ones count once you confirm them', tier: 'key' }}>
           {payments.map(({ s, group, matched }) => (
             <PaymentConfirmRow key={s.id} s={s} group={group} matched={matched} />
           ))}
@@ -354,7 +360,7 @@ function ToSort({
       )}
 
       {box.claims.length > 0 && (
-        <Section title="Says they’ve paid" hint="Counts once you confirm it">
+        <Section title="Says they’ve paid" hint={{ full: 'Counts once you confirm it', tier: 'key' }}>
           {claims.map((l) => (
             <div key={l.code} className="card p-4" data-testid="inbox-claim">
               <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
@@ -630,9 +636,14 @@ function BulkSheet({ candidate, data, onClose }: { candidate: BulkCandidate<Grou
 
   return (
     <Sheet open onClose={onClose} title={`Add to ${g.name}`} testId="inbox-bulk-sheet">
-      <p className="text-muted -mt-1 mb-3 text-sm">
-        Each one becomes an expense you paid, split equally between everyone in {g.name}. You can edit any of them afterwards.
-      </p>
+      <HintText
+        className="text-muted -mt-1 mb-3 text-sm"
+        hint={{
+          full: `Each one becomes an expense you paid, split equally between everyone in ${g.name}. You can edit any of them afterwards.`,
+          short: `Each becomes an expense you paid, split equally in ${g.name}.`,
+          tier: 'key',
+        }}
+      />
       <ul className="max-h-72 space-y-1 overflow-y-auto">
         {candidate.captures.map((c) => {
           const on = ticked.has(c.id)
@@ -762,12 +773,16 @@ function Handled({ list, groups }: { list: Capture[]; groups: Group[] }) {
   )
 }
 
-function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+/** `hint`: plain text is a status (a count) and always shows; a Hint follows the detail level. */
+function Section({ title, hint, children }: { title: string; hint?: string | Hint; children: React.ReactNode }) {
   return (
     <section className="mb-5">
       <div className="mb-2 flex items-baseline justify-between px-1">
-        <h2 className="font-bold">{title}</h2>
-        {hint && <span className="text-muted text-xs">{hint}</span>}
+        <h2 className="flex items-center font-bold">
+          {title}
+          {hint && <InfoTip hint={hint} label={`About ${title}`} />}
+        </h2>
+        {hint && <HintText hint={hint} as="span" className="text-muted text-xs" />}
       </div>
       <div className="space-y-2">{children}</div>
     </section>
@@ -865,20 +880,23 @@ function Updates({
   return (
     <>
       <div className="mb-3 flex items-center justify-between gap-2">
-        <SortPicker<UpdatesSort>
-          value={sort}
-          onChange={onSort}
-          testId="updates-sort"
-          options={[
-            { value: 'newest', label: 'Newest first' },
-            { value: 'oldest', label: 'Oldest first' },
-            { value: 'group', label: 'By group' },
-          ]}
-        />
+        {/* The sort menu is optional: hidden in the Minimal look (Clear all stays). */}
+        <Detail min={2}>
+          <SortPicker<UpdatesSort>
+            value={sort}
+            onChange={onSort}
+            testId="updates-sort"
+            options={[
+              { value: 'newest', label: 'Newest first' },
+              { value: 'oldest', label: 'Oldest first' },
+              { value: 'group', label: 'By group' },
+            ]}
+          />
+        </Detail>
         {all.length > 0 && (
           <button
             type="button"
-            className="min-h-11 rounded-xl px-3 text-sm font-semibold text-brand-600 dark:text-brand-300"
+            className="ml-auto min-h-11 rounded-xl px-3 text-sm font-semibold text-brand-600 dark:text-brand-300"
             onClick={clearAll}
             data-testid="updates-clear-all"
           >

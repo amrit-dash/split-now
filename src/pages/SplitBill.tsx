@@ -20,6 +20,7 @@ import { errText } from '@/lib/errors'
 import { titleCase } from '@/lib/expense-draft'
 import { currencyOptions, Select } from '@/components/Select'
 import { useToast } from '@/components/Toast'
+import { type Hint, HintText, InfoTip } from '@/components/Hint'
 import { usePageTitle } from '@/lib/brand'
 import { DuplicatePrompt, RecentScans, useScanHistory } from '@/components/ScanHistory'
 import { entryFile, type ScanEntry, type ScanKind, type ScanMatch, type ScanPrint } from '@/lib/scanHistory'
@@ -35,11 +36,25 @@ const NO_GROUP = ''
 const blank = (): Row => ({ id: uid('r_'), name: '', amount: '' })
 
 /**
- * "Split by items": scan or type the bill, check the items, then open a live table. Everyone at
+ * "Live table": scan or type the bill, check the items, then open a live table. Everyone at
  * the table scans the QR and taps what they had, no app or account needed (src/pages/Table.tsx).
  */
+const PAGE_HINT: Hint = { full: 'Everyone taps what they had', tier: 'help' }
+const SCAN_HINT: Hint = { full: 'We’ll pull out the items, taxes and total. Or type them in below.', short: 'Or type the items in below', tier: 'help' }
+const NEXT_HINT: Hint = {
+  full: 'Next, friends scan your QR code and tap what they had. No app or account needed, and you can still edit the bill while it’s live.',
+  short: 'Friends scan your QR code; no app needed',
+  tier: 'help',
+}
+/** How tax and tip are shared: the full line from the table logic, one phrase for When needed. */
+const taxHint = (mode: TaxSplit): Hint => ({
+  full: taxSplitHint(mode),
+  short: mode === 'equal' ? 'Split equally; tip always equal' : 'By what each had; tip split equally',
+  tier: 'help',
+})
+
 export default function SplitBill() {
-  usePageTitle('Split by items')
+  usePageTitle('Live table')
   const groups = useGroups()
   const { user, profile } = useMe()
   const nav = useNavigate()
@@ -184,7 +199,7 @@ export default function SplitBill() {
 
   return (
     <div className="mx-auto min-h-dvh max-w-lg px-4 pb-40">
-      <PageHeader title="Split by items" back subtitle="Everyone taps what they had" />
+      <PageHeader title="Live table" back subtitle={PAGE_HINT} />
 
       {/* Scan */}
       <div className="card overflow-hidden">
@@ -210,8 +225,11 @@ export default function SplitBill() {
               🧾
             </div>
             <div className="min-w-0">
-              <div className="font-bold">Scan the bill</div>
-              <p className="text-sm text-muted">We’ll pull out the items, taxes and total. Or type them in below.</p>
+              <div className="flex items-center">
+                <div className="font-bold">Scan the bill</div>
+                <InfoTip hint={SCAN_HINT} label="About scanning the bill" />
+              </div>
+              <HintText hint={SCAN_HINT} className="text-sm text-muted" />
             </div>
           </div>
         )}
@@ -307,7 +325,7 @@ export default function SplitBill() {
                 value: NO_GROUP,
                 text: 'Decide at the end',
                 label: 'Decide at the end',
-                hint: 'Make a group with everyone at the table, or pick one',
+                hint: { full: 'Make a group with everyone at the table, or pick one', tier: 'help' },
                 icon: (
                   <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-base dark:bg-ink-700">
                     <Users size={15} />
@@ -372,7 +390,10 @@ export default function SplitBill() {
           ))}
         </div>
         <div className="mt-3">
-          <div className="label">Tax &amp; fees</div>
+          <div className="flex items-center">
+            <div className="label">Tax &amp; fees</div>
+            <InfoTip hint={taxHint(taxSplit)} label="About tax and fees" />
+          </div>
           <Segmented<TaxSplit>
             value={taxSplit}
             onChange={setTaxSplit}
@@ -384,7 +405,7 @@ export default function SplitBill() {
             ]}
           />
         </div>
-        <p className="mt-2 text-xs text-muted">{taxSplitHint(taxSplit)}</p>
+        <HintText hint={taxHint(taxSplit)} className="mt-2 text-xs text-muted" />
 
         <div className="mt-3 space-y-1 rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800">
           <div className="flex justify-between text-muted">
@@ -419,9 +440,7 @@ export default function SplitBill() {
         </div>
       </div>
 
-      <p className="mt-4 px-1 text-center text-xs text-muted">
-        Next, friends scan your QR code and tap what they had. No app or account needed, and you can still edit the bill while it’s live.
-      </p>
+      <HintText hint={NEXT_HINT} className="mt-4 px-1 text-center text-xs text-muted" />
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/70 bg-white/90 backdrop-blur-xl safe-bottom dark:border-white/5 dark:bg-ink-900/90">
         <div className="mx-auto flex max-w-lg items-center gap-3 px-4 py-3">

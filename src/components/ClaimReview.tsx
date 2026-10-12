@@ -9,6 +9,10 @@ import { useAuth } from '@/hooks/auth'
 import { useGroup } from '@/hooks/data'
 import { firstName } from '@/lib/share-card'
 import { useToast } from '@/components/Toast'
+import { type Hint, HintText } from '@/components/Hint'
+
+/** Confirming records the payment, so the payee checks the money arrived first. */
+const CHECK_FIRST: Hint = { full: 'It counts once you confirm it. Check your UPI or bank app first.', tier: 'key' }
 
 /** The payment screenshot on a link, for the payee (Storage URL, or a data: URL in demo mode). */
 export function useProofUrl(path: string | undefined): string | null | undefined {
@@ -64,7 +68,7 @@ export function ClaimReview({ link, compact = false, onDone }: { link: PayLink; 
         {link.method ? ` by ${link.method}` : ''}
         {link.paidAt ? ` · ${formatDate(link.paidAt)}` : ''}.
       </p>
-      {!compact && <p className="text-muted mt-1 text-xs">It counts once you confirm it. Check your UPI or bank app first.</p>}
+      {!compact && <HintText hint={CHECK_FIRST} className="text-muted mt-1 text-xs" />}
       {link.proofPath && (
         <div className="mt-3">
           {proof ? (

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { type Hint, HintText, InfoTip } from '@/components/Hint'
 import { useIsDark } from '@/lib/chartPalette'
 
 /** Axis / grid / surface colours for the hand-rolled SVG charts, which need literal values. */
@@ -13,13 +14,17 @@ export function useChartTheme() {
   }
 }
 
-export function ChartCard({ title, subtitle, right, children }: { title: string; subtitle?: ReactNode; right?: ReactNode; children: ReactNode }) {
+/** `subtitle`: a status line (plain text, always shown) or an explanation that follows the detail level (a Hint), as in PageHeader. */
+export function ChartCard({ title, subtitle, right, children }: { title: string; subtitle?: ReactNode | Hint; right?: ReactNode; children: ReactNode }) {
   return (
     <section className="card p-4">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <h2 className="font-bold">{title}</h2>
-          {subtitle && <p className="text-muted text-xs">{subtitle}</p>}
+          <div className="flex min-w-0 items-center">
+            <h2 className="font-bold">{title}</h2>
+            <InfoTip hint={subtitle} label={`About ${title}`} />
+          </div>
+          <HintText hint={subtitle} />
         </div>
         {right}
       </div>

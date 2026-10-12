@@ -8,7 +8,10 @@ import { Avatar } from '@/components/Avatar'
 import { GroupIcon } from '@/components/GroupIcon'
 import { LiveBadge } from '@/components/Misc'
 import { Sheet } from '@/components/Sheet'
+import { type Hint, HintText } from '@/components/Hint'
 import { nameOf, youFirst } from './bits'
+
+const MULTI_PAY_HINT: Hint = { full: 'Enter what each person put in', tier: 'help' }
 
 const ROW = 'flex min-h-12 w-full items-center gap-3 rounded-2xl p-2.5 text-left hover:bg-slate-50 dark:hover:bg-ink-800'
 
@@ -59,13 +62,13 @@ function GroupList({
   ].filter(([, list]) => list.length) as Array<[string, Group[]]>
   // Headings only help when there is more than one kind of thing in the list.
   const headed = sections.length + (live.length ? 1 : 0) > 1
-  const creates: Array<{ type?: 'direct' | 'personal'; label: string; hint: string; icon: LucideIcon }> = [
-    { label: 'New group', hint: 'Trip, flat, team…', icon: Users },
-    { type: 'direct', label: 'New 1:1 friend', hint: 'Just you and one friend', icon: UserPlus },
+  const creates: Array<{ type?: 'direct' | 'personal'; label: string; hint: Hint; icon: LucideIcon }> = [
+    { label: 'New group', hint: { full: 'Trip, flat, team…', tier: 'help' }, icon: Users },
+    { type: 'direct', label: 'New 1:1 friend', hint: { full: 'Just you and one friend', tier: 'help' }, icon: UserPlus },
     // Several wallets are fine (Fuel, Groceries…), so this stays on offer once one exists.
     groups.some((g) => g.type === 'personal')
-      ? { type: 'personal', label: 'New wallet', hint: 'Fuel, groceries, shopping…', icon: Wallet }
-      : { type: 'personal', label: 'Personal wallet', hint: 'Track your own spending', icon: Wallet },
+      ? { type: 'personal', label: 'New wallet', hint: { full: 'Fuel, groceries, shopping…', tier: 'help' }, icon: Wallet }
+      : { type: 'personal', label: 'Personal wallet', hint: { full: 'Track your own spending', tier: 'help' }, icon: Wallet },
   ]
   const row = (g: Group, isLive = false) => (
     <button
@@ -111,7 +114,7 @@ function GroupList({
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block font-semibold">{c.label}</span>
-                <span className="block truncate text-xs text-muted">{c.hint}</span>
+                <HintText hint={c.hint} as="span" className="block truncate text-xs text-muted" />
               </span>
               <Plus size={18} className="shrink-0 text-slate-400" aria-hidden />
             </button>
@@ -141,9 +144,19 @@ export function CurrencySheet({
 }) {
   return (
     <Sheet open={open} onClose={onClose} title="Currency">
-      <p className="mb-3 text-sm text-muted">
-        {groupName} is in {groupCurrency}. Other currencies are converted at the ECB rate for the expense date, then locked.
-      </p>
+      {/* Key: a foreign amount turns into the group's currency and stays at that rate. */}
+      <HintText
+        className="mb-3 text-sm text-muted"
+        hint={{
+          full: (
+            <>
+              {groupName} is in {groupCurrency}. Other currencies are converted at the ECB rate for the expense date, then locked.
+            </>
+          ),
+          short: `Others are converted to ${groupCurrency} at that day’s rate, then locked`,
+          tier: 'key',
+        }}
+      />
       <div className="grid grid-cols-4 gap-2" role="radiogroup" aria-label="Currency">
         {choices.map((c) => (
           <button
@@ -254,7 +267,7 @@ export function PayerSheet({
           </span>
           <span className="min-w-0 flex-1">
             <span className="block font-semibold">Several people paid</span>
-            <span className="block text-xs text-muted">Enter what each person put in</span>
+            <HintText hint={MULTI_PAY_HINT} as="span" className="block text-xs text-muted" />
           </span>
           {multiPay && <Check size={18} className="text-brand-600" aria-hidden />}
         </button>

@@ -132,7 +132,7 @@ service cloud.firestore {
         allow create, update: if isUser() && uid() == userId
           && writesOpen()
           && (settingId != 'notifications' || (
-            request.resource.data.keys().hasOnly(['captures', 'unsorted', 'expenses', 'settlements', 'reminders', 'chat', 'openItems', 'mutedChats', 'outsideTrips',
+            request.resource.data.keys().hasOnly(['captures', 'unsorted', 'expenses', 'settlements', 'reminders', 'chat', 'openItems', 'approvals', 'mutedChats', 'outsideTrips',
               'capturePaused', 'minAmount', 'ignoreWords', 'pausedTrips', 'aiSms', 'aiSmsMerchant', 'aiImages', 'aiQuickAdd', 'aiPayments', 'aiEnabled', 'aiSource', 'aiModel', 'aiFreeOk', 'updatedAt'])
             && request.resource.data.get('captures', true) is bool
             && request.resource.data.get('unsorted', false) is bool
@@ -145,6 +145,8 @@ service cloud.firestore {
             && request.resource.data.get('mutedChats', []).size() <= 200
             // "Did you pay for this?" when someone names you on an open item
             && request.resource.data.get('openItems', true) is bool
+            // "Needs your OK": an expense or a payment waits for this person's approval (functions/src/lib/approval-push.ts)
+            && request.resource.data.get('approvals', true) is bool
             && request.resource.data.get('outsideTrips', false) is bool
             // Auto-capture filters (shared/capture-filters.ts; the webhook re-normalises them)
             && request.resource.data.get('capturePaused', false) is bool
@@ -176,6 +178,18 @@ service cloud.firestore {
             && request.resource.data.categories is map && request.resource.data.categories.size() <= 200
             && request.resource.data.get('touched', {}) is map && request.resource.data.get('touched', {}).size() <= 200
             && request.resource.data.get('updatedAt', 0) is int))
+          // settings/appearance: theme, accent, animations and detail level, so they follow the account
+          // (src/lib/appearance-sync.ts). Small maps only; values are re-checked on read.
+          && (settingId != 'appearance' || (
+            request.resource.data.keys().hasOnly(['theme', 'accent', 'duo', 'inks', 'motion', 'look', 'updatedAt'])
+            // The person's own detail level; 'app' follows config/app.look (src/lib/look.ts)
+            && request.resource.data.get('look', 'app') in ['app', 'full', 'needed', 'minimal', 'tooltip']
+            && request.resource.data.get('theme', 'system') in ['system', 'light', 'dark']
+            && request.resource.data.get('accent', '') is string && request.resource.data.get('accent', '').size() <= 20
+            && request.resource.data.get('duo', true) is bool
+            && request.resource.data.get('inks', {}) is map && request.resource.data.get('inks', {}).size() <= 20
+            && request.resource.data.get('motion', {}) is map && request.resource.data.get('motion', {}).size() <= 20
+            && request.resource.data.updatedAt is int))
           // settings/inbox: what this person cleared from Inbox → Updates (src/lib/inbox.ts). Only
           // hides entries for them; the groups' activity itself is never touched.
           && (settingId != 'inbox' || (
@@ -252,7 +266,7 @@ service cloud.firestore {
           && t.get('trashDays', 30) is int && t.get('trashDays', 30) >= 7 && t.get('trashDays', 30) <= 90;
       }
       function validAppConfig(d) {
-        return d.keys().hasOnly(['maintenance', 'maintenanceMessage', 'minVersion', 'announcement', 'flags', 'signups', 'tuning', 'updatedAt', 'updatedBy'])
+        return d.keys().hasOnly(['maintenance', 'maintenanceMessage', 'minVersion', 'announcement', 'flags', 'signups', 'look', 'tuning', 'updatedAt', 'updatedBy'])
           && validTuning(d.get('tuning', {}))
           && d.get('maintenance', false) is bool
           && (!('maintenanceMessage' in d) || (d.maintenanceMessage is string && d.maintenanceMessage.size() <= 300))
@@ -260,6 +274,8 @@ service cloud.firestore {
           && (!('announcement' in d) || d.announcement == null || validAnnouncement(d.announcement))
           && validFlags(d.get('flags', {}))
           && d.get('signups', 'open') in ['open', 'invite']
+          // How much the app explains (src/lib/look.ts LOOKS)
+          && d.get('look', 'full') in ['full', 'needed', 'minimal', 'tooltip']
           && d.get('updatedAt', 0) is int
           && d.get('updatedBy', '') is string;
       }

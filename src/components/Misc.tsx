@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import { useBack } from '@/hooks/useBack'
+import { type Hint, HintText, InfoTip } from '@/components/Hint'
 import { formatDate } from '@/lib/locale'
 import type { GroupType } from '@/types'
 
@@ -15,7 +16,8 @@ export function PageHeader({
   title: ReactNode
   back?: boolean | string
   right?: ReactNode
-  subtitle?: ReactNode
+  /** A status line (plain text, always shown) or an explanation that follows the detail level (a Hint). */
+  subtitle?: ReactNode | Hint
   children?: ReactNode
 }) {
   // Back is where you came from in the app; the `back` path is only for a screen opened cold.
@@ -35,8 +37,13 @@ export function PageHeader({
         )}
         <div className="min-w-0 flex-1">
           {/* No empty h1: a page whose heading is in the body (expense detail) passes title="". */}
-          {title ? <h1 className="truncate text-2xl font-extrabold tracking-tight">{title}</h1> : null}
-          {subtitle && <div className="text-sm text-slate-500 dark:text-slate-400">{subtitle}</div>}
+          {title ? (
+            <div className="flex min-w-0 items-center">
+              <h1 className="truncate text-2xl font-extrabold tracking-tight">{title}</h1>
+              <InfoTip hint={subtitle} label={typeof title === 'string' ? `About ${title}` : undefined} />
+            </div>
+          ) : null}
+          <HintText hint={subtitle} as="div" className="text-sm text-slate-500 dark:text-slate-400" />
         </div>
         {right}
       </div>

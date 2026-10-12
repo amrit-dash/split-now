@@ -32,6 +32,9 @@ import { useToast } from '@/components/Toast'
 import { Select } from '@/components/Select'
 import { activeMembers } from '@/lib/members'
 import { labelOf } from '@/lib/shortNames'
+import { type Hint, HintText } from '@/components/Hint'
+
+const NEW_GROUP_HINT: Hint = { full: 'With everyone at this table', tier: 'help' }
 
 const NEW = '__new'
 const NONE = '__none'
@@ -79,7 +82,7 @@ export default function TableFinish({ table, totals, onClose }: { table: LiveTab
                 <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-lg dark:bg-ink-800">➕</span>
                 <span className="min-w-0 flex-1">
                   <span className="block font-semibold">New group</span>
-                  <span className="block text-muted text-xs">With everyone at this table</span>
+                  <HintText hint={NEW_GROUP_HINT} as="span" className="block text-muted text-xs" />
                 </span>
                 {target === NONE && <Check size={18} className="text-brand-600" />}
               </button>
@@ -292,13 +295,22 @@ function NoGroup({ table, ready }: { table: LiveTable; ready: boolean }) {
 
   return (
     <div className="space-y-2">
-      <p className="text-muted text-sm">
-        Creates “{table.merchant}” with everyone here and{' '}
-        {!table.extras.tip && taxSplitOf(table) === 'items'
-          ? 'adds this bill item by item, so you can fix who had what later.'
-          : 'adds each person’s share exactly as shown here (tip and tax included).'}{' '}
-        Friends join it with the invite link.
-      </p>
+      <HintText
+        className="text-muted text-sm"
+        hint={{
+          full: (
+            <>
+              Creates “{table.merchant}” with everyone here and{' '}
+              {!table.extras.tip && taxSplitOf(table) === 'items'
+                ? 'adds this bill item by item, so you can fix who had what later.'
+                : 'adds each person’s share exactly as shown here (tip and tax included).'}{' '}
+              Friends join it with the invite link.
+            </>
+          ),
+          short: 'Makes a group with everyone here; they join with the invite link',
+          tier: 'help',
+        }}
+      />
       <button type="button" className="btn-primary w-full" disabled={!ready || busy} onClick={createGroup} data-testid="create-table-group">
         <Users size={18} aria-hidden /> Create group and add the bill
       </button>

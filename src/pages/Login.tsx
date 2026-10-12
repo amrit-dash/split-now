@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { ChevronLeft, Loader2, Mail, QrCode, UserPlus } from 'lucide-react'
 import { repo } from '@/data'
 import { useToast } from '@/components/Toast'
+import { HintText } from '@/components/Hint'
 import { useAppConfig } from '@/hooks/useAppConfig'
 import { errText } from '@/lib/errors'
 import { emailProblem } from '@/lib/account'
@@ -88,7 +89,14 @@ export default function Login() {
       <p className="mt-4 text-sm font-semibold tracking-wide text-duo-300" data-testid="tagline">
         Spending is wise, splitting is free. Split Now!
       </p>
-      <p className="mt-2 text-slate-300">Trips, flats and dinners: fair splits, bill scanning and one-tap UPI settle-ups.</p>
+      <HintText
+        className="mt-2 text-slate-300"
+        hint={{
+          full: 'Trips, flats and dinners: fair splits, bill scanning and one-tap UPI settle-ups.',
+          short: 'Fair splits and one-tap UPI settle-ups.',
+          tier: 'help',
+        }}
+      />
 
       {invite && (
         <div className="mt-6 flex gap-3 rounded-2xl bg-white/10 p-4 text-sm text-slate-200 ring-1 ring-white/15" data-testid="invite-banner">

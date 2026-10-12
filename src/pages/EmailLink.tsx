@@ -5,6 +5,7 @@ import { repo } from '@/data'
 import type { EmailLinkResult } from '@/data/repo'
 import { PageHeader } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
+import { type Hint, HintText } from '@/components/Hint'
 import { emailProblem } from '@/lib/account'
 import { usePageTitle } from '@/lib/brand'
 import { errText } from '@/lib/errors'
@@ -120,10 +121,7 @@ export default function EmailLink() {
               {state.r.otherAccount.name ? ` as ${state.r.otherAccount.name}` : ''}, in{' '}
               {state.r.otherAccount.groups === 1 ? 'one group' : `${state.r.otherAccount.groups} groups`}.
             </p>
-            <p className="text-muted mt-2 text-sm">
-              Bring it into this account: its groups, Pay me links and tables move here, the email joins this account, and the other account is switched off.
-              Its own settings and captured payments stay behind.
-            </p>
+            <HintText hint={MERGE_HINT} className="text-muted mt-2 text-sm" />
             <div className="mt-5 grid grid-cols-2 gap-2">
               <Link to="/profile" replace className="btn-secondary">
                 Not now
@@ -146,6 +144,13 @@ export default function EmailLink() {
       </div>
     </div>
   )
+}
+
+// Key: merging switches the other account off and leaves its settings and captured payments behind.
+const MERGE_HINT: Hint = {
+  full: 'Bring it into this account: its groups, Pay me links and tables move here, the email joins this account, and the other account is switched off. Its own settings and captured payments stay behind.',
+  short: 'Its groups move here and the other account is switched off. Its settings and captured payments stay behind.',
+  tier: 'key',
 }
 
 /** Firebase's link errors in plain words; anything else through the shared mapper. */

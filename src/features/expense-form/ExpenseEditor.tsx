@@ -42,6 +42,7 @@ import {
 } from '@/lib/expense-draft'
 import { GroupIcon } from '@/components/GroupIcon'
 import { useToast } from '@/components/Toast'
+import { Detail } from '@/components/Hint'
 import { usePageTitle } from '@/lib/brand'
 import { useConfirm } from '@/components/ConfirmSheet'
 import { OpenItemSheet } from '@/features/open-items/OpenItemSheet'
@@ -517,12 +518,15 @@ export function ExpenseEditor({
 
       <MoreCard draft={draft} dispatch={dispatch} existing={existing} errors={errors} />
 
+      {/* Open items are a niche path: the Minimal look leaves the offer out. */}
       {openItemsOn && !existing && !capture && !openItem && !personal && (
-        <div className="mt-4 text-center">
-          <button type="button" className="btn-ghost btn-sm" onClick={() => setAsOpenItem(true)} data-testid="save-as-open-item">
-            Don’t know who paid? Save as an open item
-          </button>
-        </div>
+        <Detail min={2}>
+          <div className="mt-4 text-center">
+            <button type="button" className="btn-ghost btn-sm" onClick={() => setAsOpenItem(true)} data-testid="save-as-open-item">
+              Don’t know who paid? Save as an open item
+            </button>
+          </div>
+        </Detail>
       )}
       {asOpenItem && (
         <OpenItemSheet

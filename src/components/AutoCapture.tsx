@@ -27,11 +27,61 @@ import {
   type LogRow,
 } from '@/lib/capture-settings'
 import { useConfirm } from './ConfirmSheet'
+import { captureView } from '@/lib/capture-view'
+import { HintText, InfoTip, useLook, type Hint } from './Hint'
 import { formatRange } from './Misc'
 import { CardSkeleton } from './Skeleton'
 import { Switch } from './Switch'
 import { useToast } from './Toast'
 import { SwipeRow } from './SwipeRow'
+
+const INTRO_HINT: Hint = {
+  full: (
+    <>
+      Your phone forwards bank and UPI SMS to Split Now, and they wait in your{' '}
+      <Link to="/inbox" className="font-semibold text-brand-600 dark:text-brand-300">
+        Inbox
+      </Link>{' '}
+      until you add them to a group. Nothing is ever added without your OK.
+    </>
+  ),
+  short: (
+    <>
+      Bank and UPI SMS wait in your{' '}
+      <Link to="/inbox" className="font-semibold text-brand-600 dark:text-brand-300">
+        Inbox
+      </Link>
+      . Nothing is ever added without your OK.
+    </>
+  ),
+  // The trust line: never folded away.
+  min: 'Nothing is ever added without your OK.',
+  tier: 'key',
+}
+const SETUP_HINT: Hint = {
+  full: 'About 3 minutes on an iPhone or Android. Works with any bank that sends SMS.',
+  short: 'About 3 minutes, any bank that sends SMS',
+  tier: 'help',
+}
+const KEY_LEAK_HINT: Hint = {
+  full: 'Anyone with this key can add items to your Inbox (never read your data). Revoke it under “Your capture keys” if it leaks.',
+  short: 'Anyone with this key can add to your Inbox. Revoke it if it leaks.',
+  tier: 'key',
+}
+const OPEN_URL_HINT: Hint = {
+  full: (
+    <>
+      Prefer to confirm straight away? Use <b>Open URL</b> with the link below instead (it opens Safari).
+    </>
+  ),
+  short: (
+    <>
+      Or use <b>Open URL</b> with this link (opens Safari)
+    </>
+  ),
+  tier: 'help',
+}
+const NO_FILTERS_HINT: Hint = { full: 'Apple Pay captures and capture links don’t go through the SMS filters above.', tier: 'help' }
 
 /** relativeTime falls back to a raw ISO day after a week; show that in the app's date format instead. */
 export const ago = (at: number, now: number) => {
@@ -131,21 +181,20 @@ export function AutoCapture() {
   const lastUsed = (t: CaptureToken) => t.lastUsedAt ?? demoUse[t.token]
   const lastAny = Math.max(0, ...(tokens ?? []).map((t) => lastUsed(t) ?? 0)) || undefined
   const paused = prefs?.capturePaused ?? false
+  // What this detail level shows, set up or not (src/lib/capture-view.ts).
+  const view = captureView(useLook(), !!tokens?.length)
 
   // Off for everyone: the webhook answers "paused" and the wizard redirects, so these would be dead controls.
   if (!autoCapture) return <AutoCaptureOff />
 
   return (
     <div data-testid="section-auto-capture">
-      <p className="text-muted px-1 text-sm">
-        Your phone forwards bank and UPI SMS to Split Now, and they wait in your{' '}
-        <Link to="/inbox" className="font-semibold text-brand-600 dark:text-brand-300">
-          Inbox
-        </Link>{' '}
-        until you add them to a group. Nothing is ever added without your OK.
-      </p>
+      <div className="text-muted flex items-start px-1 text-sm">
+        <HintText hint={INTRO_HINT} className="" />
+        <InfoTip hint={INTRO_HINT} label="About auto-capture" />
+      </div>
 
-      {prefs ? (
+      {!view.master ? null : prefs ? (
         <div className="card mt-3 flex items-center gap-3 p-3" data-testid="capture-master">
           <span
             className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${paused ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'}`}
@@ -181,16 +230,16 @@ export function AutoCapture() {
         <MessageSquareText size={22} className="shrink-0 text-brand-600 dark:text-brand-300" aria-hidden />
         <div className="min-w-0 flex-1">
           <div className="font-semibold">{tokens?.length ? 'Set up on a new phone' : 'Set up auto-capture'}</div>
-          <div className="text-muted text-xs">About 3 minutes on an iPhone or Android. Works with any bank that sends SMS.</div>
+          <HintText hint={SETUP_HINT} as="div" />
         </div>
         <ChevronRight size={18} className="shrink-0 text-slate-400" aria-hidden />
       </Link>
 
-      {prefs && (
+      {prefs && (view.scope || view.filters || view.trips) && (
         <div className={`transition-opacity ${paused ? 'opacity-50' : ''}`}>
-          <OutsideTripsChoice on={prefs.outsideTrips} onChange={(v) => update({ outsideTrips: v })} />
-          <Filters prefs={prefs} onChange={update} />
-          {groups && <TripPauses groups={groups} paused={prefs.pausedTrips} onChange={(pausedTrips) => update({ pausedTrips })} />}
+          {view.scope && <OutsideTripsChoice on={prefs.outsideTrips} onChange={(v) => update({ outsideTrips: v })} />}
+          {view.filters && <Filters prefs={prefs} onChange={update} />}
+          {view.trips && groups && <TripPauses groups={groups} paused={prefs.pausedTrips} onChange={(pausedTrips) => update({ pausedTrips })} />}
           <p className="text-muted mt-3 px-1 text-xs">
             {!prefs.captures
               ? 'Capture notifications are off (Settings → Notifications).'
@@ -206,92 +255,96 @@ export function AutoCapture() {
       {tokens && tokens.length > 0 && (
         <Keys tokens={tokens} groups={groups ?? []} lastUsed={lastUsed} onCopy={(t) => copyIt(t.token, 'Capture key')} onRevoke={revoke} />
       )}
-      {log && <RecentActivity rows={log} onClear={() => clearCaptureLog(user.uid, repo.mode, log).then(() => toast('Activity cleared'))} />}
+      {log && view.activity && <RecentActivity rows={log} onClear={() => clearCaptureLog(user.uid, repo.mode, log).then(() => toast('Activity cleared'))} />}
 
-      <details className="card mt-3 p-3">
-        <summary className="text-muted cursor-pointer py-1 text-sm font-semibold">Advanced: Apple Pay Shortcut and capture links</summary>
+      {view.advanced && (
+        <details className="card mt-3 p-3">
+          <summary className="text-muted cursor-pointer py-1 text-sm font-semibold">Advanced: Apple Pay Shortcut and capture links</summary>
 
-        {tokens === null ? null : !token ? (
-          <button type="button" className="btn-secondary mt-3 w-full" onClick={create} disabled={busy}>
-            <KeyRound size={18} aria-hidden /> Create a capture key
-          </button>
-        ) : (
-          <div className="mt-3 space-y-3">
-            <div className="flex items-center gap-2 rounded-2xl bg-slate-50 p-2 pl-3 dark:bg-ink-800">
-              <KeyRound size={16} className="shrink-0 text-slate-500" aria-hidden />
-              <code className="min-w-0 flex-1 truncate text-xs">{token.token}</code>
-              <button
-                type="button"
-                className="flex h-11 w-11 items-center justify-center rounded-full text-slate-600 dark:text-slate-300"
-                onClick={() => copyIt(token.token, 'Capture key')}
-                aria-label="Copy capture key"
-              >
-                <Copy size={16} />
-              </button>
-            </div>
-            <p className="text-muted text-xs">
-              Anyone with this key can add items to your Inbox (never read your data). Revoke it under “Your capture keys” if it leaks.
-            </p>
-          </div>
-        )}
-
-        <details className="mt-4 rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800" open={!!token}>
-          <summary className="cursor-pointer font-semibold">
-            <Smartphone size={15} className="mr-1 inline" aria-hidden /> iPhone: Apple Pay Shortcut (iOS 17+)
-          </summary>
-          <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-slate-600 dark:text-slate-300">
-            <li>
-              Shortcuts → <b>Automation</b> → <b>+</b> → <b>Transaction</b>. Pick your cards, choose <b>Run Immediately</b>.
-            </li>
-            <li>
-              Add <b>Format Date</b>: Current Date, ISO 8601, include time.
-            </li>
-            <li>
-              Add <b>Text</b> and paste the body below. Replace each <code>[…]</code> with the matching variable (Amount, Merchant, Card or Pass, Formatted
-              Date).
-            </li>
-            <li>
-              Add <b>Get Contents of URL</b>: paste the URL, Method <b>POST</b>, Header <code>Content-Type: application/json</code>, Request Body <b>File</b> →
-              the Text.
-            </li>
-          </ol>
-          {firebase && token ? (
-            <div className="mt-3 space-y-2">
-              <CopyBlock label="URL" value={restUrl} onCopy={() => copyIt(restUrl, 'URL')} />
-              <CopyBlock label="Body" value={body} onCopy={() => copyIt(body, 'Body')} />
-            </div>
+          {tokens === null ? null : !token ? (
+            <button type="button" className="btn-secondary mt-3 w-full" onClick={create} disabled={busy}>
+              <KeyRound size={18} aria-hidden /> Create a capture key
+            </button>
           ) : (
-            <p className="text-muted mt-3 text-xs">
-              {firebase
-                ? 'Create a capture key to get your URL and body.'
-                : 'Background capture needs Firebase. In demo mode, use the Open URL link below instead.'}
-            </p>
+            <div className="mt-3 space-y-3">
+              <div className="flex items-center gap-2 rounded-2xl bg-slate-50 p-2 pl-3 dark:bg-ink-800">
+                <KeyRound size={16} className="shrink-0 text-slate-500" aria-hidden />
+                <code className="min-w-0 flex-1 truncate text-xs">{token.token}</code>
+                <button
+                  type="button"
+                  className="flex h-11 w-11 items-center justify-center rounded-full text-slate-600 dark:text-slate-300"
+                  onClick={() => copyIt(token.token, 'Capture key')}
+                  aria-label="Copy capture key"
+                >
+                  <Copy size={16} />
+                </button>
+              </div>
+              <div className="text-muted flex items-start text-xs">
+                <HintText hint={KEY_LEAK_HINT} />
+                <InfoTip hint={KEY_LEAK_HINT} label="About this key" />
+              </div>
+            </div>
           )}
-          <p className="text-muted mt-3 text-xs">
-            Prefer to confirm straight away? Use <b>Open URL</b> with the link below instead (it opens Safari).
-          </p>
-          <CopyBlock label="Open URL" value={openUrl} onCopy={() => copyIt(openUrl, 'Link')} />
-          <p className="text-muted mt-2 text-xs">Apple Pay captures and capture links don’t go through the SMS filters above.</p>
-        </details>
 
-        <details className="mt-2 rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800">
-          <summary className="cursor-pointer font-semibold">
-            <Smartphone size={15} className="mr-1 inline" aria-hidden /> Android
-          </summary>
-          <ul className="mt-2 list-disc space-y-1.5 pl-5 text-slate-600 dark:text-slate-300">
-            <li>
-              Install Split Now, then <b>Share</b> a payment screenshot, receipt or bank message to it.
-            </li>
-            <li>
-              Tasker / MacroDroid: on a Google Wallet or bank notification, open
-              <code className="break-all"> {location.origin}/capture?v=1&amp;amount=%amount&amp;merchant=%merchant&amp;src=android-auto</code>
-            </li>
-          </ul>
+          <details className="mt-4 rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800" open={!!token}>
+            <summary className="cursor-pointer font-semibold">
+              <Smartphone size={15} className="mr-1 inline" aria-hidden /> iPhone: Apple Pay Shortcut (iOS 17+)
+            </summary>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-slate-600 dark:text-slate-300">
+              <li>
+                Shortcuts → <b>Automation</b> → <b>+</b> → <b>Transaction</b>. Pick your cards, choose <b>Run Immediately</b>.
+              </li>
+              <li>
+                Add <b>Format Date</b>: Current Date, ISO 8601, include time.
+              </li>
+              <li>
+                Add <b>Text</b> and paste the body below. Replace each <code>[…]</code> with the matching variable (Amount, Merchant, Card or Pass, Formatted
+                Date).
+              </li>
+              <li>
+                Add <b>Get Contents of URL</b>: paste the URL, Method <b>POST</b>, Header <code>Content-Type: application/json</code>, Request Body <b>File</b>{' '}
+                → the Text.
+              </li>
+            </ol>
+            {firebase && token ? (
+              <div className="mt-3 space-y-2">
+                <CopyBlock label="URL" value={restUrl} onCopy={() => copyIt(restUrl, 'URL')} />
+                <CopyBlock label="Body" value={body} onCopy={() => copyIt(body, 'Body')} />
+              </div>
+            ) : (
+              <p className="text-muted mt-3 text-xs">
+                {firebase
+                  ? 'Create a capture key to get your URL and body.'
+                  : 'Background capture needs Firebase. In demo mode, use the Open URL link below instead.'}
+              </p>
+            )}
+            <HintText hint={OPEN_URL_HINT} className="text-muted mt-3 text-xs" />
+            <CopyBlock label="Open URL" value={openUrl} onCopy={() => copyIt(openUrl, 'Link')} />
+            <HintText hint={NO_FILTERS_HINT} className="text-muted mt-2 text-xs" />
+          </details>
+
+          <details className="mt-2 rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800">
+            <summary className="cursor-pointer font-semibold">
+              <Smartphone size={15} className="mr-1 inline" aria-hidden /> Android
+            </summary>
+            <ul className="mt-2 list-disc space-y-1.5 pl-5 text-slate-600 dark:text-slate-300">
+              <li>
+                Install Split Now, then <b>Share</b> a payment screenshot, receipt or bank message to it.
+              </li>
+              <li>
+                Tasker / MacroDroid: on a Google Wallet or bank notification, open
+                <code className="break-all"> {location.origin}/capture?v=1&amp;amount=%amount&amp;merchant=%merchant&amp;src=android-auto</code>
+              </li>
+            </ul>
+          </details>
+          <Link
+            to={`/capture?v=1&amount=4.50&merchant=Test%20Cafe&src=manual&ref=test-${user.uid.slice(0, 6)}-${todayISO()}`}
+            className="btn-ghost mt-2 w-full"
+          >
+            Try a test capture
+          </Link>
         </details>
-        <Link to={`/capture?v=1&amount=4.50&merchant=Test%20Cafe&src=manual&ref=test-${user.uid.slice(0, 6)}-${todayISO()}`} className="btn-ghost mt-2 w-full">
-          Try a test capture
-        </Link>
-      </details>
+      )}
     </div>
   )
 }
@@ -310,10 +363,14 @@ function CopyBlock({ label, value, onCopy }: { label: string; value: string; onC
   )
 }
 
-function Panel({ title, children, testId }: { title: string; children: ReactNode; testId?: string }) {
+/** A titled panel; `tip` is the panel's footer hint, shown as an (i) beside the title in the Tooltip look. */
+function Panel({ title, children, testId, tip }: { title: string; children: ReactNode; testId?: string; tip?: Hint }) {
   return (
     <section className="card mt-3 p-3" data-testid={testId}>
-      <h2 className="text-muted mb-2 text-xs font-bold uppercase tracking-wide">{title}</h2>
+      <h2 className="text-muted mb-2 flex items-center text-xs font-bold uppercase tracking-wide">
+        {title}
+        {tip && <InfoTip hint={tip} label={`About ${title.toLowerCase()}`} />}
+      </h2>
       {children}
     </section>
   )
@@ -328,8 +385,24 @@ function OutsideTripsChoice({ on, onChange }: { on: boolean; onChange: (v: boole
     <Panel title="What gets captured">
       <div role="radiogroup" aria-label="What gets captured" className="space-y-1.5">
         {[
-          { v: false, title: 'Only payments during a trip', hint: 'Debit SMS dated inside a group’s trip dates. Everything else is ignored and never stored.' },
-          { v: true, title: 'All bank & UPI payments', hint: 'Payments outside every trip wait in the Inbox as “outside any trip”, without a notification.' },
+          {
+            v: false,
+            title: 'Only payments during a trip',
+            hint: {
+              full: 'Debit SMS dated inside a group’s trip dates. Everything else is ignored and never stored.',
+              short: 'Inside trip dates; the rest is never stored',
+              tier: 'help',
+            } satisfies Hint,
+          },
+          {
+            v: true,
+            title: 'All bank & UPI payments',
+            hint: {
+              full: 'Payments outside every trip wait in the Inbox as “outside any trip”, without a notification.',
+              short: 'Payments outside trips wait in the Inbox',
+              tier: 'help',
+            } satisfies Hint,
+          },
         ].map((o) => (
           <button
             key={String(o.v)}
@@ -347,13 +420,30 @@ function OutsideTripsChoice({ on, onChange }: { on: boolean; onChange: (v: boole
             </span>
             <span className="min-w-0">
               <span className="block text-sm font-semibold">{o.title}</span>
-              <span className="text-muted block text-xs">{o.hint}</span>
+              <HintText hint={o.hint} as="span" className="text-muted block text-xs" />
             </span>
           </button>
         ))}
       </div>
     </Panel>
   )
+}
+
+const MIN_HINT: Hint = { full: 'Rupee payments only; foreign-currency card spends are always captured.', short: 'Rupee payments only', tier: 'help' }
+const IGNORE_HINT: Hint = {
+  full: 'Skip debits whose SMS or merchant mentions one of these (any case), like SIPs, rent or card bills.',
+  short: 'Skip debits that mention one of these words',
+  tier: 'help',
+}
+const TRIP_PAUSE_HINT: Hint = {
+  full: 'Pausing a trip only affects your captures. Others in the trip keep theirs.',
+  short: 'Only pauses your captures',
+  tier: 'help',
+}
+const KEYS_HINT: Hint = {
+  full: 'A key lets your phone add payments to your Inbox and nothing else. Revoke one if it leaks or a phone is gone.',
+  short: 'Revoke a key if it leaks or a phone is gone',
+  tier: 'help',
 }
 
 /** Minimum amount and ignore keywords. */
@@ -377,9 +467,12 @@ function Filters({ prefs, onChange }: { prefs: AllPrefs; onChange: (p: Partial<A
 
   return (
     <Panel title="Filters" testId="capture-filters">
-      <label htmlFor="capture-min" className="text-sm font-semibold">
-        Ignore small payments
-      </label>
+      <div className="flex items-center">
+        <label htmlFor="capture-min" className="text-sm font-semibold">
+          Ignore small payments
+        </label>
+        <InfoTip hint={MIN_HINT} label="About ignoring small payments" />
+      </div>
       <div className="mt-1 flex items-center gap-2">
         <div className="relative w-36">
           <span className="text-muted pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" aria-hidden>
@@ -401,12 +494,13 @@ function Filters({ prefs, onChange }: { prefs: AllPrefs; onChange: (p: Partial<A
         </div>
         <span className="text-muted text-xs">{prefs.minAmount ? 'Debits below this are skipped.' : 'Off: every amount is captured.'}</span>
       </div>
-      <p className="text-muted mt-1 text-xs">Rupee payments only; foreign-currency card spends are always captured.</p>
+      <HintText hint={MIN_HINT} className="text-muted mt-1 text-xs" />
 
-      <div className="mt-4 text-sm font-semibold" id="capture-ignore-label">
+      <div className="mt-4 flex items-center text-sm font-semibold" id="capture-ignore-label">
         Ignore keywords
+        <InfoTip hint={IGNORE_HINT} label="About ignore keywords" />
       </div>
-      <p className="text-muted text-xs">Skip debits whose SMS or merchant mentions one of these (any case), like SIPs, rent or card bills.</p>
+      <HintText hint={IGNORE_HINT} />
       {prefs.ignoreWords.length > 0 && (
         <ul className="mt-2 flex flex-wrap gap-1.5" aria-labelledby="capture-ignore-label">
           {prefs.ignoreWords.map((w) => (
@@ -473,7 +567,7 @@ function TripPauses({ groups, paused, onChange }: { groups: Group[]; paused: str
     toast(off ? `Capture paused for you in ${g.name}` : `Capture on for you in ${g.name}`)
   }
   return (
-    <Panel title="Trips" testId="capture-trips">
+    <Panel title="Trips" testId="capture-trips" tip={TRIP_PAUSE_HINT}>
       <ul className="space-y-1">
         {trips.map((g) => {
           const off = paused.includes(g.id)
@@ -496,7 +590,7 @@ function TripPauses({ groups, paused, onChange }: { groups: Group[]; paused: str
           )
         })}
       </ul>
-      <p className="text-muted mt-1 text-xs">Pausing a trip only affects your captures. Others in the trip keep theirs.</p>
+      <HintText hint={TRIP_PAUSE_HINT} className="text-muted mt-1 text-xs" />
     </Panel>
   )
 }
@@ -516,7 +610,7 @@ function Keys({
 }) {
   const now = Date.now()
   return (
-    <Panel title="Your capture keys" testId="capture-keys">
+    <Panel title="Your capture keys" testId="capture-keys" tip={KEYS_HINT}>
       <ul className="space-y-1">
         {tokens.map((t) => {
           const g = t.groupId ? groups.find((x) => x.id === t.groupId) : undefined
@@ -555,7 +649,7 @@ function Keys({
           )
         })}
       </ul>
-      <p className="text-muted mt-1 text-xs">A key lets your phone add payments to your Inbox and nothing else. Revoke one if it leaks or a phone is gone.</p>
+      <HintText hint={KEYS_HINT} className="text-muted mt-1 text-xs" />
     </Panel>
   )
 }

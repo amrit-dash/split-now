@@ -13,6 +13,7 @@ import { squareJpeg } from '@/lib/image'
 import { paymentSummary } from '@/lib/profileSummary'
 import { Avatar } from '@/components/Avatar'
 import { Collapsible } from '@/components/Collapsible'
+import { Detail, HintText, InfoTip, useShows, type Hint } from '@/components/Hint'
 import { PageHeader } from '@/components/Misc'
 import { Sheet } from '@/components/Sheet'
 import { Switch } from '@/components/Switch'
@@ -61,6 +62,22 @@ const SECTIONS: Record<'IN' | 'AU' | 'INTL', Array<{ title: string; keys: Handle
   INTL: [{ title: 'International', keys: ['paypal', 'revolut'] }],
 }
 
+const PAYMENT_HINT: Hint = {
+  full: 'Shown to people in your groups when they settle up: a UPI QR for the exact amount, app buttons and copy buttons.',
+  short: 'Shown to your groups when they settle up',
+  tier: 'help',
+}
+// Privacy: what friends can see is never folded away.
+const PAYMENT_PRIVACY_HINT: Hint = {
+  full: 'Only members of groups you’re in can see these. Don’t add details you wouldn’t put on an invoice.',
+  short: 'Only members of groups you’re in can see these',
+  tier: 'key',
+}
+const SETTINGS_ROW_HINT: Hint = { full: 'Currency, theme, notifications, auto-capture, AI, data', tier: 'help' }
+const BALANCES_ROW_HINT: Hint = { full: 'Who owes whom, by person or by group', tier: 'help' }
+const SUPPORT_ROW_HINT: Hint = { full: 'Buy me a coffee or sponsor on GitHub', tier: 'extra' }
+const PHOTO_HINT: Hint = { full: 'Your photo is shown to people in your groups.', tier: 'key' }
+
 /** Old deep links into Profile sections now live under Settings. */
 const HASH_ROUTES: Record<string, string> = {
   '#auto-capture': '/settings/automation',
@@ -103,6 +120,8 @@ export default function Profile() {
   const [signOutOpen, setSignOutOpen] = useState(false)
   const [supportOpen, setSupportOpen] = useState(false)
   const [saved, flash] = useSavedFlash()
+  const showAll = useShows(2)
+  const showBackend = useShows(3)
 
   // Re-sync the form when the saved fields change (not on a photo change, which would drop unsaved edits).
   const paymentKey = handlesKey(profile.payment)
@@ -158,7 +177,9 @@ export default function Profile() {
   const listed = new Set(sections.flatMap((x) => x.keys))
   // Handles from other regions: shown when filled in, or when asked for.
   const extra = (Object.keys(H) as HandleKey[]).filter((k) => !listed.has(k) && (allHandles || payment[k]))
-  const shownSections = extra.length ? [...sections, { title: 'Other', keys: extra }] : sections
+  const allSections = extra.length ? [...sections, { title: 'Other', keys: extra }] : sections
+  // Minimal keeps the main way to pay for the region, plus any section already filled in.
+  const shownSections = showAll ? allSections : allSections.filter((sec, i) => i === 0 || sec.keys.some((k) => payment[k]?.trim()))
 
   return (
     <div>
@@ -233,9 +254,7 @@ export default function Profile() {
         }
         summary={paymentSummary(payment, region)}
       >
-        <p className="text-muted mb-3 text-xs">
-          Shown to people in your groups when they settle up: a UPI QR for the exact amount, app buttons and copy buttons.
-        </p>
+        <HintText hint={PAYMENT_HINT} className="text-muted mb-3 text-xs" />
         <div className="space-y-4">
           {shownSections.map((sec) => (
             <div key={sec.title} className="space-y-3">
@@ -269,15 +288,18 @@ export default function Profile() {
               })}
             </div>
           ))}
-          {!allHandles && (
+          {!allHandles && showAll && (
             <button type="button" className="min-h-9 text-sm font-semibold text-brand-600 dark:text-brand-300" onClick={() => setAllHandles(true)}>
               Show all payment options
             </button>
           )}
         </div>
         <p className="text-muted mt-3 flex items-start gap-1.5 text-xs">
-          <ShieldCheck size={14} className="mt-0.5 shrink-0" aria-hidden /> Only members of groups you’re in can see these. Don’t add details you wouldn’t put
-          on an invoice.
+          <ShieldCheck size={14} className="mt-0.5 shrink-0" aria-hidden />{' '}
+          <span>
+            <HintText hint={PAYMENT_PRIVACY_HINT} as="span" className="" />
+            <InfoTip hint={PAYMENT_PRIVACY_HINT} label="About who can see these" />
+          </span>
         </p>
       </Collapsible>
 
@@ -295,7 +317,7 @@ export default function Profile() {
           </span>
           <span className="min-w-0 flex-1">
             <span className="block">Settings</span>
-            <span className="text-muted block text-xs font-normal">Currency, theme, notifications, auto-capture, AI, data</span>
+            <HintText hint={SETTINGS_ROW_HINT} as="span" className="text-muted block text-xs font-normal" />
           </span>
           <ChevronRight size={18} className="text-slate-400" aria-hidden />
         </Link>
@@ -308,46 +330,56 @@ export default function Profile() {
           </span>
           <span className="min-w-0 flex-1">
             <span className="block">Balances</span>
-            <span className="text-muted block text-xs font-normal">Who owes whom, by person or by group</span>
+            <HintText hint={BALANCES_ROW_HINT} as="span" className="text-muted block text-xs font-normal" />
           </span>
           <ChevronRight size={18} className="text-slate-400" aria-hidden />
         </Link>
         {/* Shown until the app is installed, on phones and computers that can install it (the banner can be dismissed for good). */}
         <InstallRow className="" testId="profile-install" />
-        <button
-          type="button"
-          onClick={() => setSupportOpen(true)}
-          className="flex w-full items-center gap-3 p-4 text-left font-medium transition active:bg-slate-50 dark:active:bg-ink-800"
-          data-testid="profile-support"
-        >
-          <span
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-pink-50 text-pink-600 dark:bg-pink-500/15 dark:text-pink-300"
-            aria-hidden
+        <Detail min={2}>
+          <button
+            type="button"
+            onClick={() => setSupportOpen(true)}
+            className="flex w-full items-center gap-3 p-4 text-left font-medium transition active:bg-slate-50 dark:active:bg-ink-800"
+            data-testid="profile-support"
           >
-            <HandHeart size={19} />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block">Support the developer</span>
-            <span className="text-muted block text-xs font-normal">Buy me a coffee or sponsor on GitHub</span>
-          </span>
-          <ChevronRight size={18} className="text-slate-400" aria-hidden />
-        </button>
+            <span
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-pink-50 text-pink-600 dark:bg-pink-500/15 dark:text-pink-300"
+              aria-hidden
+            >
+              <HandHeart size={19} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block">Support the developer</span>
+              <HintText hint={SUPPORT_ROW_HINT} as="span" className="text-muted block text-xs font-normal" />
+            </span>
+            <ChevronRight size={18} className="text-slate-400" aria-hidden />
+          </button>
+        </Detail>
       </div>
 
       <button type="button" className="btn-secondary mt-6 w-full text-rose-700 dark:text-rose-400" onClick={() => setSignOutOpen(true)} data-testid="sign-out">
         <LogOut size={18} aria-hidden /> Sign out
       </button>
-      <p className="mt-6 text-center text-xs font-semibold text-brand-600/80 dark:text-brand-300/80">Spending is wise, splitting is free. Split Now!</p>
-      <p className="text-muted mb-10 mt-1 text-center text-xs" data-testid="profile-version">
-        Split Now v{semverOf(__APP_VERSION__)} · {repo.mode === 'demo' ? 'Demo mode' : 'Connected to Firebase'}
+      <Detail min={2}>
+        <p className="mt-6 text-center text-xs font-semibold text-brand-600/80 dark:text-brand-300/80">Spending is wise, splitting is free. Split Now!</p>
+      </Detail>
+      <p className={`text-muted mb-10 text-center text-xs ${showAll ? 'mt-1' : 'mt-6'}`} data-testid="profile-version">
+        Split Now v{semverOf(__APP_VERSION__)}
+        {repo.mode === 'demo' ? ' · Demo mode' : showBackend ? ' · Connected to Firebase' : ''}
       </p>
 
       <SupportSheet open={supportOpen} onClose={() => setSupportOpen(false)} />
       <PhotoSheet open={photoOpen} onClose={() => setPhotoOpen(false)} profile={profile} googlePhotoURL={user.googlePhotoURL} />
       <Sheet open={signOutOpen} onClose={() => setSignOutOpen(false)} title="Sign out?">
-        <p className="text-muted text-sm">
-          {repo.mode === 'demo' ? 'Your demo data stays on this device.' : 'Your groups stay in your account. This device’s offline copy is cleared.'}
-        </p>
+        <HintText
+          className="text-muted text-sm"
+          hint={
+            repo.mode === 'demo'
+              ? { full: 'Your demo data stays on this device.', tier: 'key' }
+              : { full: 'Your groups stay in your account. This device’s offline copy is cleared.', tier: 'key' }
+          }
+        />
         <div className="mt-5 grid grid-cols-2 gap-2">
           <button type="button" className="btn-secondary" onClick={() => setSignOutOpen(false)}>
             <X size={18} aria-hidden /> Cancel
@@ -442,7 +474,7 @@ function PhotoSheet({ open, onClose, profile, googlePhotoURL }: { open: boolean;
           </button>
         )}
       </div>
-      <p className="text-muted mt-3 text-xs">Your photo is shown to people in your groups.</p>
+      <HintText hint={PHOTO_HINT} className="text-muted mt-3 text-xs" />
     </Sheet>
   )
 }
