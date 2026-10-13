@@ -4,6 +4,7 @@ import { ChevronLeft, Loader2, Mail, QrCode, UserPlus } from 'lucide-react'
 import { repo } from '@/data'
 import { useToast } from '@/components/Toast'
 import { HintText } from '@/components/Hint'
+import { LoginInstallBanner } from '@/components/InstallBanner'
 import { useAppConfig } from '@/hooks/useAppConfig'
 import { errText } from '@/lib/errors'
 import { emailProblem } from '@/lib/account'
@@ -327,6 +328,8 @@ export default function Login() {
           </div>
         )}
       </div>
+      {/* Install before signing in, so it's once (an iPhone's Home Screen app has its own sign-in). */}
+      <LoginInstallBanner />
     </AuthShell>
   )
 }

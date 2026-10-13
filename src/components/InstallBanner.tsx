@@ -226,6 +226,69 @@ export function InstallRow({ className = 'card', testId = 'install-row' }: { cla
 }
 
 /**
+ * The dark "Install Split Now" bar: the app icon, why, Install (the browser's own dialog, or the
+ * steps where there is none) and ✕, which stops the offer for good. Shared by the banner above the
+ * tab bar and the sign-in screen.
+ */
+function InstallBar({ hint, onDone, className, wrap = false }: { hint: string; onDone: () => void; className: string; wrap?: boolean }) {
+  const install = useInstall()
+  const [steps, setSteps] = useState(false)
+  const method = install.method
+  const installButton = (
+    <button
+      type="button"
+      className="min-h-11 shrink-0 rounded-2xl bg-white px-3.5 py-2 text-sm font-bold text-slate-900"
+      onClick={async () => {
+        if (install.canPrompt) {
+          if (await install.prompt()) onDone()
+        } else setSteps(true)
+      }}
+      data-testid="install-banner-install"
+    >
+      <span className="inline-flex items-center gap-1.5">
+        <Download size={16} aria-hidden /> Install
+      </span>
+    </button>
+  )
+  return (
+    <>
+      <div className={className} data-testid="install-banner">
+        {/* wrap (the sign-in screen): the words get the full width and Install sits under them. */}
+        <div
+          className={`flex gap-2.5 rounded-3xl bg-slate-900 p-2.5 pl-3 text-white shadow-2xl shadow-brand-900/40 dark:bg-ink-800 dark:ring-1 dark:ring-white/10 ${wrap ? 'items-start' : 'items-center'}`}
+        >
+          <img src="/pwa-192.png" alt="" className={`h-10 w-10 shrink-0 rounded-2xl ${wrap ? 'mt-1' : ''}`} />
+          <div className={`min-w-0 flex-1 ${wrap ? 'pt-1' : ''}`}>
+            <div className={`${wrap ? '' : 'truncate '}text-sm font-semibold`}>Install Split Now</div>
+            <HintText as="div" className={`${wrap ? '' : 'truncate '}text-xs text-slate-300`} hint={{ full: hint, tier: 'help' }} />
+            {wrap && <div className="mt-2.5">{installButton}</div>}
+          </div>
+          {!wrap && installButton}
+          <button
+            type="button"
+            onClick={() => {
+              dismissInstall(storage('localStorage'))
+              onDone()
+            }}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-300 hover:text-white"
+            aria-label="Don’t ask again"
+          >
+            <X size={18} />
+          </button>
+        </div>
+      </div>
+      <Sheet
+        open={steps}
+        onClose={() => setSteps(false)}
+        title={method === 'mac' ? 'Add to Dock' : method === 'ios' || !method ? 'Add to Home Screen' : 'Install Split Now'}
+      >
+        {method && method !== 'ios' && method !== 'prompt' ? <MenuInstallSteps method={method} /> : <IOSInstallSteps />}
+      </Sheet>
+    </>
+  )
+}
+
+/**
  * "Install Split Now" above the tab bar: offered on the second visit or once the first expense
  * exists (src/lib/install.ts), and gone for good after a dismiss. Settings → Data keeps a row to
  * install later, and so does Profile (InstallRow). iOS gets the reason that matters there: notifications need the installed app.
@@ -235,55 +298,40 @@ export function InstallBanner() {
   const data = useAllGroupData()
   const [visits] = useState(() => countVisit(storage('localStorage'), storage('sessionStorage')))
   const [hidden, setHidden] = useState(() => isInstallDismissed(storage('localStorage')))
-  const [iosOpen, setIosOpen] = useState(false)
 
   const hasExpense = !!data?.some((d) => d.expenses.length > 0)
   if (hidden || !install.available || !shouldOfferInstall({ visits, hasExpense, dismissed: hidden })) return null
-
-  const dismiss = () => {
-    dismissInstall(storage('localStorage'))
-    setHidden(true)
-  }
-
   return (
-    <>
-      <div className="install-banner animate-pop fixed inset-x-3 bottom-[var(--lane)] z-40 mx-auto max-w-md" data-testid="install-banner">
-        <div className="flex items-center gap-2.5 rounded-3xl bg-slate-900 p-2.5 pl-3 text-white shadow-2xl shadow-brand-900/40 dark:bg-ink-800 dark:ring-1 dark:ring-white/10">
-          <img src="/pwa-192.png" alt="" className="h-10 w-10 shrink-0 rounded-2xl" />
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-semibold">Install Split Now</div>
-            <HintText
-              as="div"
-              className="truncate text-xs text-slate-300"
-              hint={{ full: install.ios ? 'Add to Home Screen for notifications and offline use' : 'Full-screen, faster, works offline', tier: 'help' }}
-            />
-          </div>
-          <button
-            type="button"
-            className="min-h-11 shrink-0 rounded-2xl bg-white px-3.5 py-2 text-sm font-bold text-slate-900"
-            onClick={async () => {
-              if (install.canPrompt) {
-                if (await install.prompt()) setHidden(true)
-              } else setIosOpen(true)
-            }}
-          >
-            <span className="inline-flex items-center gap-1.5">
-              <Download size={16} aria-hidden /> Install
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={dismiss}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-300 hover:text-white"
-            aria-label="Don’t ask again"
-          >
-            <X size={18} />
-          </button>
-        </div>
-      </div>
-      <Sheet open={iosOpen} onClose={() => setIosOpen(false)} title="Add to Home Screen">
-        <IOSInstallSteps />
-      </Sheet>
-    </>
+    <InstallBar
+      hint={install.ios ? 'Add to Home Screen for notifications and offline use' : 'Full-screen, faster, works offline'}
+      onDone={() => setHidden(true)}
+      className="install-banner animate-pop fixed inset-x-3 bottom-[var(--lane)] z-40 mx-auto max-w-md"
+    />
+  )
+}
+
+/**
+ * The same offer on the sign-in screen, from the first visit: installing before signing in means
+ * signing in once. On an iPhone the Home Screen app keeps its own sign-in, apart from Safari's.
+ * In the flow of the page (not floating), so it never covers the sign-in buttons.
+ */
+export function LoginInstallBanner() {
+  const install = useInstall()
+  const [hidden, setHidden] = useState(() => isInstallDismissed(storage('localStorage')))
+  if (hidden || !install.method) return null
+  const phone = install.ios || /Android|Mobi/.test(navigator.userAgent)
+  return (
+    <InstallBar
+      hint={
+        install.ios
+          ? 'Add it to your Home Screen, then sign in there'
+          : phone
+            ? 'Install first, then sign in once'
+            : 'Its own window, notifications, works offline'
+      }
+      onDone={() => setHidden(true)}
+      className="animate-pop mt-8"
+      wrap
+    />
   )
 }
