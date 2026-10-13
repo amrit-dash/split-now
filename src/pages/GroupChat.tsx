@@ -300,8 +300,9 @@ export default function GroupChat() {
       data-testid="chat-screen"
       style={box ? { height: box.height, transform: box.top ? `translateY(${box.top}px)` : undefined } : undefined}
     >
-      <header className="z-20 border-b border-slate-200 bg-white px-2 pb-2 pt-[calc(var(--safe-top)+0.5rem)] shadow-sm dark:border-white/10 dark:bg-ink-900">
-        <div className="mx-auto flex max-w-2xl items-center gap-2">
+      {/* The group screen's header metrics (PageHeader): same top and bottom space, back button and right-hand buttons in the same places. */}
+      <header className="z-20 border-b border-slate-200 bg-white pb-3 pt-[calc(var(--safe-top)+1.25rem)] shadow-sm dark:border-white/10 dark:bg-ink-900">
+        <div className="mx-auto flex min-h-11 max-w-2xl items-center gap-2.5 pl-2 pr-4">
           <button
             type="button"
             onClick={goBack}
@@ -310,10 +311,10 @@ export default function GroupChat() {
           >
             <ChevronLeft size={24} aria-hidden />
           </button>
-          {group && <GroupIcon emoji={group.emoji} group={group} size={36} />}
+          {group && <GroupIcon emoji={group.emoji} group={group} size={44} />}
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-base font-bold">{group?.name ?? ' '}</h1>
-            <div className="text-muted truncate text-xs">
+            <h1 className="truncate text-lg font-bold leading-tight">{group?.name ?? ' '}</h1>
+            <div className="text-muted truncate text-[0.8125rem]">
               {group?.type === 'direct'
                 ? 'Just the two of you'
                 : members.length

@@ -287,7 +287,7 @@ export function Composer(p: ComposerProps) {
   return (
     // Bottom padding trimmed into the home-indicator area like the tab bar (--nav-pad); none of it while the keyboard is up
     // (GroupChat sets data-keyboard), where iOS still reports the home-indicator inset and left a gap above the keyboard.
-    <div className="relative border-t border-slate-200/80 bg-white px-2 pb-[max(var(--nav-pad),0.5rem)] pt-2 group-data-[keyboard]/chat:pb-2 dark:border-white/5 dark:bg-ink-900">
+    <div className="relative border-t border-slate-200/80 bg-white pl-2 pr-4 pb-[max(var(--nav-pad),0.5rem)] pt-2 group-data-[keyboard]/chat:pb-2 dark:border-white/5 dark:bg-ink-900">
       {/* Above the box: the slash list, the people to tag, or a suggestion. */}
       {slash !== null && commands.length > 0 && (
         <Popup label="Tools" testId="chat-commands">
@@ -385,32 +385,35 @@ export function Composer(p: ComposerProps) {
         <label htmlFor="chat-input" className="sr-only">
           Message
         </label>
-        <textarea
-          id="chat-input"
-          ref={area}
-          rows={1}
-          value={text}
-          maxLength={CHAT_MAX + 200}
-          onChange={(e) => {
-            setText(e.target.value)
-            setCaret(e.target.selectionStart ?? e.target.value.length)
-          }}
-          onSelect={(e) => setCaret(e.currentTarget.selectionStart ?? 0)}
-          onKeyDown={onKey}
-          placeholder={p.editing ? 'Edit your message' : 'Message, / for tools, @ to tag'}
-          aria-autocomplete="list"
-          className="min-h-11 flex-1 resize-none rounded-3xl border-0 bg-slate-100 px-4 outline-none py-2.5 text-base leading-snug ring-1 ring-transparent focus:ring-2 focus:ring-brand-500 dark:bg-ink-800"
-          data-testid="chat-input"
-        />
-        <button
-          type="submit"
-          disabled={!clean}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-fill text-on-fill disabled:opacity-40"
-          aria-label={p.editing ? 'Save' : 'Send'}
-          data-testid="chat-send"
-        >
-          <SendHorizontal size={20} aria-hidden />
-        </button>
+        {/* One rounded box: the words, and Send inside it on the bottom edge, where it stays as the box grows. */}
+        <div className="flex min-h-11 flex-1 items-end rounded-3xl bg-slate-100 ring-1 ring-transparent focus-within:ring-2 focus-within:ring-brand-500 dark:bg-ink-800">
+          <textarea
+            id="chat-input"
+            ref={area}
+            rows={1}
+            value={text}
+            maxLength={CHAT_MAX + 200}
+            onChange={(e) => {
+              setText(e.target.value)
+              setCaret(e.target.selectionStart ?? e.target.value.length)
+            }}
+            onSelect={(e) => setCaret(e.currentTarget.selectionStart ?? 0)}
+            onKeyDown={onKey}
+            placeholder={p.editing ? 'Edit your message' : 'Message, / for tools, @ to tag'}
+            aria-autocomplete="list"
+            className="min-h-11 min-w-0 flex-1 resize-none border-0 bg-transparent py-2.5 pl-4 pr-1 text-base leading-snug outline-none"
+            data-testid="chat-input"
+          />
+          <button
+            type="submit"
+            disabled={!clean}
+            className="m-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-fill text-on-fill transition disabled:opacity-40"
+            aria-label={p.editing ? 'Save' : 'Send'}
+            data-testid="chat-send"
+          >
+            <SendHorizontal size={18} aria-hidden />
+          </button>
+        </div>
       </form>
 
       <Sheet open={sheet === 'menu'} onClose={() => setSheet(null)} title="Add to the chat" testId="chat-tools-sheet">

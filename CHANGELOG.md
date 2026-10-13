@@ -6,6 +6,10 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 6.3.2 — October 2026
+
+- Group chat: the header matches the group screen (same height, back button in the same place) with a bigger group picture, and Send sits inside the message box, on its bottom edge as the message grows.
+
 ## 6.3.1 — October 2026
 
 - Sign-in screen: offers to install Split Now straight away, so you can install first and sign in once (on iPhone the Home Screen app has its own sign-in).
