@@ -4,7 +4,6 @@ import { useGroups } from '@/hooks/data'
 import { useFlag } from '@/hooks/useAppConfig'
 import { isIOS, isStandalone, permission, pushSupported } from '@/lib/push'
 import { closedPlaces, pushDevice, pushPromptStep, type PushPromptPlace } from '@/lib/push-prompt'
-import { IOSInstallSteps } from './InstallBanner'
 import { notificationsAvailable, useTurnOnPush } from './NotificationSettings'
 import { Sheet } from './Sheet'
 
@@ -77,12 +76,12 @@ function UnblockSteps() {
     return (
       <ol className="space-y-4">
         <Step icon={<Settings size={20} />}>
-          Open <b>Safari</b> → <b>Settings</b> → <b>Websites</b> → <b>Notifications</b>.
+          Open <b>System Settings</b> → <b>Notifications</b>.
         </Step>
-        <Step icon={<ToggleRight size={20} />}>
-          Set <b>{host}</b> to <b>Allow</b>.
+        <Step icon={<Smartphone size={20} />}>
+          Find <b>Split Now</b> in the list and turn on <b>Allow notifications</b>.
         </Step>
-        <Step icon={<RefreshCw size={20} />}>Reload this page.</Step>
+        <Step icon={<RefreshCw size={20} />}>Come back here.</Step>
       </ol>
     )
   if (device === 'firefox')
@@ -99,8 +98,8 @@ function UnblockSteps() {
     )
   return (
     <ol className="space-y-4">
-      <Step icon={<Lock size={20} />}>
-        Click the icon at the left of the address bar, next to <b>{host}</b>.
+      <Step icon={<MoreVertical size={20} />}>
+        In the Split Now window, click <b>⋮</b> at the top right, then <b>App info</b> (or the icon by <b>{host}</b>).
       </Step>
       <Step icon={<ToggleRight size={20} />}>
         Turn on <b>Notifications</b> (or set them to <b>Allow</b>).
@@ -142,7 +141,6 @@ export function PushPrompt({ place, className = '' }: { place: PushPromptPlace; 
   const step = on
     ? pushPromptStep({
         available: notificationsAvailable(),
-        ios: isIOS(),
         standalone: isStandalone(),
         supported: pushSupported(),
         perm,
@@ -159,11 +157,9 @@ export function PushPrompt({ place, className = '' }: { place: PushPromptPlace; 
     setClosed(next)
   }
   const line =
-    step === 'install'
-      ? 'On iPhone, notifications need Split Now on your Home Screen first.'
-      : step === 'blocked'
-        ? 'Notifications are blocked on this device. It takes a minute to turn them back on.'
-        : 'Know when someone adds an expense with you, pays you back or writes in a group.'
+    step === 'blocked'
+      ? 'Notifications are blocked on this device. It takes a minute to turn them back on.'
+      : 'Know when someone adds an expense with you, pays you back or writes in a group.'
 
   return (
     <section className={`card flex items-start gap-3 p-4 ${className}`} aria-labelledby={`push-prompt-${place}`} data-testid={`push-prompt-${place}`}>
@@ -219,14 +215,7 @@ export function PushPrompt({ place, className = '' }: { place: PushPromptPlace; 
             <MessagesSquare size={16} className="shrink-0 text-brand-600 dark:text-brand-300" aria-hidden /> New messages in your groups’ chats
           </li>
         </ul>
-        {step === 'install' ? (
-          <>
-            <IOSInstallSteps />
-            <p className="text-muted mt-4 text-sm">
-              Then open Split Now from your Home Screen and tap <b>Turn on</b> on this card.
-            </p>
-          </>
-        ) : step === 'blocked' ? (
+        {step === 'blocked' ? (
           <>
             <p className="text-muted mb-4 text-sm">Split Now can’t ask again once notifications are blocked, so they are turned back on in settings:</p>
             <UnblockSteps />

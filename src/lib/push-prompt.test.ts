@@ -2,15 +2,15 @@ import { describe, expect, it } from 'vitest'
 import { closedPlaces, pushDevice, pushPromptStep } from './push-prompt'
 
 describe('pushPromptStep', () => {
-  const base = { available: true, ios: false, standalone: false, supported: true, perm: 'default' as const, inGroup: true }
+  const base = { available: true, standalone: true, supported: true, perm: 'default' as const, inGroup: true }
 
-  it('asks for one Allow when the browser can ask', () => {
+  it('asks for one Allow in the installed app', () => {
     expect(pushPromptStep(base)).toBe('allow')
-    expect(pushPromptStep({ ...base, ios: true, standalone: true })).toBe('allow')
   })
 
-  it('sends an iPhone browser tab to add the app first', () => {
-    expect(pushPromptStep({ ...base, ios: true, supported: false, perm: 'unsupported' })).toBe('install')
+  it('never shows in a browser tab, where the install offer is the one thing asked', () => {
+    expect(pushPromptStep({ ...base, standalone: false })).toBeNull()
+    expect(pushPromptStep({ ...base, standalone: false, supported: false, perm: 'unsupported' })).toBeNull()
   })
 
   it('shows how to unblock when notifications were blocked', () => {

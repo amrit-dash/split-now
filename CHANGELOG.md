@@ -6,6 +6,11 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 6.3.1 — October 2026
+
+- Sign-in screen: offers to install Split Now straight away, so you can install first and sign in once (on iPhone the Home Screen app has its own sign-in).
+- Turn on notifications: the card now shows only in the installed app. In a browser you see just the install offer, not both.
+
 ## 6.3.0 — October 2026
 
 - Turn on notifications: once you're in a group, a card on Home and in Settings asks to turn on notifications, with step-by-step help for your phone or browser (adding the app on iPhone first, or allowing them again if they were blocked). Close it and it stays away in that place.
