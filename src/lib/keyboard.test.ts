@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chatViewportBox, missingHeight, needsHeal, opensKeyboard, tallestHeights, tapsToToggle } from './keyboard'
+import { chatViewportBox, missingHeight, needsReAdd, opensKeyboard, tallestHeights, tapsToToggle } from './keyboard'
 
 describe('chatViewportBox', () => {
   it('fills the screen when there is no visual viewport', () => {
@@ -61,24 +61,6 @@ describe('tallestHeights', () => {
   })
 })
 
-describe('needsHeal', () => {
-  it('is true once the keyboard has gone and the app is still short of its height', () => {
-    expect(needsHeal(809, 852, false)).toBe(true)
-  })
-
-  it('is false while typing, at full height, within a few pixels, or with nothing seen yet', () => {
-    expect(needsHeal(809, 852, true)).toBe(false)
-    expect(needsHeal(852, 852, false)).toBe(false)
-    expect(needsHeal(848, 852, false)).toBe(false)
-    expect(needsHeal(809, undefined, false)).toBe(false)
-  })
-
-  it('does not try again at a height a re-measure already failed to fix', () => {
-    expect(needsHeal(809, 852, false, 809)).toBe(false)
-    expect(needsHeal(790, 852, false, 809)).toBe(true)
-  })
-})
-
 describe('missingHeight', () => {
   const phone = { width: 393, height: 852 }
 
@@ -110,5 +92,21 @@ describe('tapsToToggle', () => {
   it('forgets taps older than three seconds', () => {
     expect(tapsToToggle([0, 100, 200, 300], 3400)).toEqual({ taps: [3400], toggle: false })
     expect(tapsToToggle([0, 100, 200, 300], 3200)).toEqual({ taps: [300, 3200], toggle: false })
+  })
+})
+
+describe('needsReAdd', () => {
+  const old = { ios: true, standalone: true, portrait: true, safeTop: 47 }
+
+  it('is true for the installed iPhone app still under the see-through status bar', () => {
+    expect(needsReAdd(old)).toBe(true)
+    expect(needsReAdd({ ...old, safeTop: 20 })).toBe(true)
+  })
+
+  it('is false once added again (opaque bar), in a browser, off iPhone, or in landscape', () => {
+    expect(needsReAdd({ ...old, safeTop: 0 })).toBe(false)
+    expect(needsReAdd({ ...old, standalone: false })).toBe(false)
+    expect(needsReAdd({ ...old, ios: false })).toBe(false)
+    expect(needsReAdd({ ...old, portrait: false })).toBe(false)
   })
 })

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { viewportStats } from '@/hooks/useViewportHeal'
+import { viewportStats } from '@/hooks/useViewportStats'
 import { opensKeyboard } from '@/lib/keyboard'
 import { isStandalone } from '@/lib/push'
 
@@ -58,7 +58,7 @@ function read(): string[] {
     `vv ${vv ? `${Math.round(vv.height)} @${Math.round(vv.offsetTop)} ×${vv.scale.toFixed(2)}` : 'none'}`,
     `dvh ${cssPx('height', '100dvh')} · lvh ${cssPx('height', '100lvh')} · svh ${cssPx('height', '100svh')} · vh ${cssPx('height', '100vh')}`,
     `safe top ${cssPx('paddingTop', 'env(safe-area-inset-top)')} · bottom ${cssPx('paddingBottom', 'env(safe-area-inset-bottom)')}`,
-    `short ${viewportStats.missing} · tallest ${viewportStats.tallest} · re-measures ${viewportStats.heals}`,
+    `short ${viewportStats.missing} · tallest ${viewportStats.tallest}`,
     `chat bottom ${rootBottom('[data-testid="chat-screen"]')} · tab bar bottom ${rootBottom('nav[aria-label="Main"]')}`,
   ]
 }

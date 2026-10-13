@@ -6,6 +6,10 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 6.2.7 — October 2026
+
+- Installed app on iPhone: no more empty strip at the bottom of the screen. The app now uses a solid status bar, which iOS 26 sizes to the whole screen. iOS only picks this up when the app is added to the Home Screen again; a card on Home shows how, once.
+
 ## 6.2.6 — October 2026
 
 - Group chat: opening the keyboard jumps to the latest message, so it shows right above the message box.

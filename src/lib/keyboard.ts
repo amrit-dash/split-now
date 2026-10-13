@@ -51,27 +51,18 @@ export function chatViewportBox(vv: ViewportLike | null | undefined, innerHeight
 }
 
 /*
- * The installed app on iPhone (WebKit bug 297779 and its standalone cousin): the first time the
- * keyboard opens, iOS gives the app less screen (innerHeight, the visual viewport, 100dvh) and can
- * keep it that way after the keyboard closes: a strip at the bottom where nothing of the app is
- * drawn, so things pinned to the bottom sit above a dark band (and anything moved into the strip is
- * cut off). Scrolling the page makes iOS measure again (useViewportHeal); these decide when.
+ * The installed app on iPhone, iOS 26 (WebKit bug 301108): with the see-through status bar
+ * (black-translucent) iOS sized the app one status-bar height short of the screen and left that
+ * strip at the bottom, outside anything the app can draw: a dark band under the tab bar and the
+ * chat. index.html now asks for an opaque status bar, which iOS sizes correctly; an app added to the
+ * Home Screen before that keeps the old setting until it is added again (needsReAdd, ReAddCard).
+ * The screen measurements (useViewportStats, ViewportReadout) show what iOS reports.
  */
 
 /** The tallest height seen at each width (rounded): the app's real height, kept apart per orientation. */
 export function tallestHeights(seen: Readonly<Record<number, number>>, width: number, height: number): Record<number, number> {
   const w = Math.round(width)
   return height > (seen[w] ?? 0) ? { ...seen, [w]: height } : (seen as Record<number, number>)
-}
-
-/**
- * Whether the app has lost height it should have back: nothing being typed (the keyboard has gone)
- * and more than a few pixels short of the tallest it has been at this width. tried is the height a
- * re-measure was already tried at, so a re-measure that does not help is not repeated on every focus.
- */
-export function needsHeal(height: number, tallest: number | undefined, typing: boolean, tried?: number): boolean {
-  if (typing || tallest === undefined || height === tried) return false
-  return tallest - height > 4
 }
 
 /** What we need of the screen: iOS gives it in portrait whatever the orientation. */
@@ -83,7 +74,7 @@ export interface SizeLike {
 /**
  * How much shorter iOS says the installed app is than the screen it fills, with nothing being typed
  * (0 when it is not). The installed app always fills the whole screen, so the screen's own size says
- * when iOS has kept some of it: then useViewportHeal has iOS measure again. Only when the app is the
+ * when iOS has left some of it out (the screen measurements show it, useViewportStats). Only when the app is the
  * full screen wide (not an iPad split view or window) and short by a believable amount.
  */
 export function missingHeight(inner: SizeLike, screen: SizeLike, typing: boolean): number {
@@ -102,4 +93,14 @@ export function missingHeight(inner: SizeLike, screen: SizeLike, typing: boolean
 export function tapsToToggle(taps: readonly number[], now: number): { taps: number[]; toggle: boolean } {
   const recent = [...taps.filter((t) => now - t < 3000), now]
   return recent.length >= 5 ? { taps: [], toggle: true } : { taps: recent, toggle: false }
+}
+
+/**
+ * Whether this is the installed iPhone app still added with the see-through status bar: the app then
+ * starts under the clock, so the top safe area is above 0 (with the opaque bar it is 0). Only read
+ * in portrait, where every iPhone has a top inset under a see-through bar. Such an install keeps the
+ * bottom band (above) until Split Now is removed from the Home Screen and added again.
+ */
+export function needsReAdd(s: { ios: boolean; standalone: boolean; portrait: boolean; safeTop: number }): boolean {
+  return s.ios && s.standalone && s.portrait && s.safeTop > 0
 }
