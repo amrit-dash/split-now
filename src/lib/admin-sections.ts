@@ -23,7 +23,12 @@ export const FLAG_SECTIONS: readonly Section<FlagName>[] = [
   },
   { id: 'expenses', title: 'Adding expenses', hint: 'The expense form and the + button.', keys: ['quickAdd', 'duplicates', 'merchantMemory', 'whoseTurn'] },
   { id: 'groups', title: 'Groups', hint: 'What a group offers besides its expenses.', keys: ['groupChat', 'openItems', 'liveTables'] },
-  { id: 'payments', title: 'Payments and reminders', hint: 'Getting paid back, and the pushes about it.', keys: ['payLinks', 'nudges', 'budgetAlerts'] },
+  {
+    id: 'payments',
+    title: 'Payments and reminders',
+    hint: 'Getting paid back, and the pushes about it.',
+    keys: ['payLinks', 'nudges', 'budgetAlerts', 'pushPrompt'],
+  },
   { id: 'capture', title: 'Capture and import', hint: 'Payments that come in from outside the app.', keys: ['autoCapture', 'statementImport'] },
 ]
 

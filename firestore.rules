@@ -249,8 +249,9 @@ service cloud.firestore {
       function validFlags(f) {
         return f is map
           && f.keys().hasOnly(['aiImages', 'aiSms', 'liveTables', 'autoCapture', 'quickAdd', 'nudges', 'statementImport',
-              'payLinks', 'duplicates', 'merchantMemory', 'whoseTurn', 'budgetAlerts', 'aiQuickAdd', 'aiPayments', 'openItems', 'groupChat', 'chatAi'])
+              'payLinks', 'duplicates', 'merchantMemory', 'whoseTurn', 'budgetAlerts', 'aiQuickAdd', 'aiPayments', 'openItems', 'groupChat', 'chatAi', 'pushPrompt'])
           && f.get('openItems', true) is bool && f.get('groupChat', true) is bool && f.get('chatAi', true) is bool
+          && f.get('pushPrompt', true) is bool
           && f.get('aiQuickAdd', true) is bool && f.get('aiPayments', true) is bool
           && f.get('aiImages', true) is bool && f.get('aiSms', true) is bool && f.get('liveTables', true) is bool
           && f.get('autoCapture', true) is bool && f.get('quickAdd', true) is bool && f.get('nudges', true) is bool

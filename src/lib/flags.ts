@@ -38,6 +38,7 @@ export const FLAG_NAMES = [
   'openItems',
   'groupChat',
   'chatAi',
+  'pushPrompt',
 ] as const
 export type FlagName = (typeof FLAG_NAMES)[number]
 
@@ -72,6 +73,10 @@ export const FLAG_INFO: Record<FlagName, { label: string; hint: string }> = {
   groupChat: {
     label: 'Group chat',
     hint: 'The chat button on a group and its pushes. Off hides the chat and stops new chat pushes; messages already sent stay stored.',
+  },
+  pushPrompt: {
+    label: 'Ask to turn on notifications',
+    hint: 'The "Turn on notifications" card on Home and in Settings, once someone is in a group, with step-by-step help for their device. Off hides the card; Settings → Notifications still works.',
   },
   chatAi: {
     label: 'Chat suggestions with AI',
