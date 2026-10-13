@@ -6,6 +6,11 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 6.2.6 — October 2026
+
+- Group chat: opening the keyboard jumps to the latest message, so it shows right above the message box.
+- Installed app on iPhone: the message box is no longer cut off at the bottom after the keyboard closes (a 6.2.5 change pushed it into the strip iOS keeps), and the app asks iOS for the full screen back once the keyboard has gone.
+
 ## 6.2.5 — October 2026
 
 - Installed app on iPhone: the tab bar and the group chat's message box reach the bottom edge of the screen again after the keyboard has been open, with no dark band under them.
