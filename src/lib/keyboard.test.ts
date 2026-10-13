@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chatViewportBox, missingHeight, needsHeal, opensKeyboard, tallestHeights, tapsToToggle } from './keyboard'
+import { chatViewportBox, missingHeight, opensKeyboard, tallestHeights, tapsToToggle } from './keyboard'
 
 describe('chatViewportBox', () => {
   it('fills the screen when there is no visual viewport', () => {
@@ -58,24 +58,6 @@ describe('tallestHeights', () => {
   it('returns the same object when nothing grew', () => {
     const seen = { 393: 852 }
     expect(tallestHeights(seen, 393, 800)).toBe(seen)
-  })
-})
-
-describe('needsHeal', () => {
-  it('is true once the keyboard has gone and the app is still short of its height', () => {
-    expect(needsHeal(809, 852, false)).toBe(true)
-  })
-
-  it('is false while typing, at full height, within a few pixels, or with nothing seen yet', () => {
-    expect(needsHeal(809, 852, true)).toBe(false)
-    expect(needsHeal(852, 852, false)).toBe(false)
-    expect(needsHeal(848, 852, false)).toBe(false)
-    expect(needsHeal(809, undefined, false)).toBe(false)
-  })
-
-  it('does not try again at a height a re-measure already failed to fix', () => {
-    expect(needsHeal(809, 852, false, 809)).toBe(false)
-    expect(needsHeal(790, 852, false, 809)).toBe(true)
   })
 })
 

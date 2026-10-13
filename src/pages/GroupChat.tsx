@@ -92,6 +92,11 @@ export default function GroupChat() {
   const mergeRequests = useMergeRequests(groupId)
   const prefs = useCapturePrefs()
   const box = useChatViewport()
+  // The page's background takes the message box's colour, for the strip iOS can keep under it (index.css).
+  useEffect(() => {
+    document.documentElement.setAttribute('data-chat', '')
+    return () => document.documentElement.removeAttribute('data-chat')
+  }, [])
   const [atBottom, setAtBottom] = useState(true)
   const [seenAt, setSeenAt] = useState(readAt ?? 0)
   const scroller = useRef<HTMLDivElement>(null)

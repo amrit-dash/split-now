@@ -55,23 +55,14 @@ export function chatViewportBox(vv: ViewportLike | null | undefined, innerHeight
  * keyboard opens, iOS gives the app less screen (innerHeight, the visual viewport, 100dvh) and can
  * keep it that way after the keyboard closes: a strip at the bottom where nothing of the app is
  * drawn, so things pinned to the bottom sit above a dark band (and anything moved into the strip is
- * cut off). Scrolling the page makes iOS measure again (useViewportHeal); these decide when.
+ * cut off). iOS gives it back on a finger scroll of the page; nothing the app does reliably does, so
+ * the strip is coloured like the bar above it (index.css html[data-nav], html[data-chat]).
  */
 
 /** The tallest height seen at each width (rounded): the app's real height, kept apart per orientation. */
 export function tallestHeights(seen: Readonly<Record<number, number>>, width: number, height: number): Record<number, number> {
   const w = Math.round(width)
   return height > (seen[w] ?? 0) ? { ...seen, [w]: height } : (seen as Record<number, number>)
-}
-
-/**
- * Whether the app has lost height it should have back: nothing being typed (the keyboard has gone)
- * and more than a few pixels short of the tallest it has been at this width. tried is the height a
- * re-measure was already tried at, so a re-measure that does not help is not repeated on every focus.
- */
-export function needsHeal(height: number, tallest: number | undefined, typing: boolean, tried?: number): boolean {
-  if (typing || tallest === undefined || height === tried) return false
-  return tallest - height > 4
 }
 
 /** What we need of the screen: iOS gives it in portrait whatever the orientation. */
@@ -83,7 +74,7 @@ export interface SizeLike {
 /**
  * How much shorter iOS says the installed app is than the screen it fills, with nothing being typed
  * (0 when it is not). The installed app always fills the whole screen, so the screen's own size says
- * when iOS has kept some of it: then useViewportHeal has iOS measure again. Only when the app is the
+ * when iOS has kept some of it (the screen measurements show it, useViewportStats). Only when the app is the
  * full screen wide (not an iPad split view or window) and short by a believable amount.
  */
 export function missingHeight(inner: SizeLike, screen: SizeLike, typing: boolean): number {

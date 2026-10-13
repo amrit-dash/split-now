@@ -34,7 +34,7 @@ import { startAppearanceSync } from './lib/appearance-sync'
 import { GroupDataProvider } from './hooks/groupData'
 import { primeAiStatus, useAiStatus } from './hooks/useAiStatus'
 import { useAppConfig, useBlocked } from './hooks/useAppConfig'
-import { useViewportHeal } from './hooks/useViewportHeal'
+import { useViewportStats } from './hooks/useViewportStats'
 import { IDLE_PREFETCH, load, prefetch, prefetchAfter, routeChunks } from './routes'
 import Login from './pages/Login'
 import VerifyEmail from './pages/VerifyEmail'
@@ -79,8 +79,8 @@ export default function App() {
   // On an installed-app launch the splash stays over the app (which loads underneath) until its
   // animation has played, then fades away.
   const hold = useSplashHold()
-  // The installed iPhone app keeps its full height after the keyboard closes (src/lib/keyboard.ts).
-  useViewportHeal()
+  // The installed iPhone app's height for the screen measurements (src/lib/keyboard.ts).
+  useViewportStats()
   const loc = useLocation()
   const nav = useNavigate()
   const toast = useToast()

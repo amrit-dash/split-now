@@ -6,6 +6,10 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 6.2.7 — October 2026
+
+- Installed app on iPhone: after the keyboard, the strip iOS keeps at the bottom of the screen takes the colour of the tab bar or the chat's message box, instead of showing as a dark band.
+
 ## 6.2.6 — October 2026
 
 - Group chat: opening the keyboard jumps to the latest message, so it shows right above the message box.

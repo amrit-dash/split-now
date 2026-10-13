@@ -407,6 +407,11 @@ html[data-capture-alert] .install-banner { display: none; }
    indicator elsewhere, above any banner showing). Newest at the bottom; see Toast.tsx. */
 .toast-stack { bottom: calc(env(safe-area-inset-bottom) + 1rem); }
 html[data-nav] .toast-stack { bottom: var(--lane); }
+/* The installed iPhone app after the keyboard (src/lib/keyboard.ts): iOS can keep a strip at the bottom
+   of the screen and fills it with the page's background. On screens with a bar on the bottom edge (the
+   tab bar, the chat's message box) that background is the bar's own colour, so the strip reads as the
+   bar's padding instead of a dark band. Everything else on those screens paints its own background. */
+html[data-nav], html[data-chat] { @apply bg-white dark:bg-ink-900; }
 html[data-nav]:has(.install-banner, [data-testid='update-banner'], [data-testid='unsaved-bar'], [data-testid='capture-alert']) .toast-stack { bottom: calc(var(--lane) + 5rem); }
 @keyframes toast-in { from { transform: translateY(1rem) scale(0.96); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
 @utility animate-toast { animation: toast-in 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.15); }
