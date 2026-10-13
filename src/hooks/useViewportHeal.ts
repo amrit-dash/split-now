@@ -6,48 +6,42 @@ import { isStandalone } from '@/lib/push'
 export const viewportStats = { heals: 0, missing: 0, tallest: 0 }
 
 /**
- * Keeps the installed iPhone app filling the screen after the keyboard (src/lib/keyboard.ts):
- * - --vp-short on <html> is how far short of the screen iOS says the app is; the tab bar and the
- *   chat reach that much further down, so no band shows under them.
- * - and once the keyboard has gone with the app still short of its tallest height, the page is
- *   hidden and shown again in one go, which can make WebKit measure the screen again. Scroll
- *   positions are put back and nothing is painted in between.
- * Only the installed app: in a browser tab the height changes as the toolbars come and go, which is not this bug.
+ * The installed iPhone app after the keyboard (src/lib/keyboard.ts): iOS can give the app about
+ * 43pt less screen than it fills, and draws nothing in the strip it took (moving things down into
+ * it only cut them off, 6.2.5). Screens that scroll the page got it back by themselves while the
+ * chat, whose page never scrolls, kept the band, so once the keyboard has gone and the app is
+ * still short of the screen, the page is scrolled a pixel and back to have iOS measure again.
+ * Only the installed app: in a browser tab the height changes as the toolbars come and go.
  */
 export function useViewportHeal() {
   useEffect(() => {
     if (!isStandalone()) return
-    const root = document.documentElement
     let seen: Record<number, number> = {}
-    let tried: number | undefined
+    let last = 0
     const timers: ReturnType<typeof setTimeout>[] = []
     const typing = () => opensKeyboard(document.activeElement as HTMLElement | null)
     const measure = () => {
       seen = tallestHeights(seen, window.innerWidth, window.innerHeight)
       viewportStats.tallest = seen[Math.round(window.innerWidth)] ?? 0
-      const missing = missingHeight({ width: window.innerWidth, height: window.innerHeight }, window.screen, typing())
-      if (missing !== viewportStats.missing) {
-        viewportStats.missing = missing
-        if (missing) root.style.setProperty('--vp-short', `${missing}px`)
-        else root.style.removeProperty('--vp-short')
-      }
+      viewportStats.missing = missingHeight({ width: window.innerWidth, height: window.innerHeight }, window.screen, typing())
     }
     const check = () => {
       measure()
       const height = window.innerHeight
-      if (!needsHeal(height, seen[Math.round(window.innerWidth)], typing(), tried)) return
-      // A sheet's entrance would play again: wait for it to close (the next focus change checks again).
-      if (document.querySelector('[role="dialog"]')) return
-      tried = height
-      remeasure()
+      // Short of the screen it fills (or of its own tallest), with nothing being typed.
+      const full = Math.max(height + viewportStats.missing, seen[Math.round(window.innerWidth)] ?? 0)
+      if (!needsHeal(height, full, typing())) return
+      // At most every two seconds: the nudge is invisible but need not run on every event.
+      if (Date.now() - last < 2000) return
+      last = Date.now()
+      nudge()
       viewportStats.heals++
-      measure()
     }
     const later = () => {
       measure()
       for (const t of timers) clearTimeout(t)
       // After the keyboard's slide, and once more in case iOS settles late.
-      timers.splice(0, timers.length, setTimeout(check, 150), setTimeout(check, 600))
+      timers.splice(0, timers.length, setTimeout(check, 150), setTimeout(check, 700))
     }
     measure()
     const vv = window.visualViewport
@@ -65,21 +59,22 @@ export function useViewportHeal() {
       document.removeEventListener('focusin', later)
       document.removeEventListener('focusout', later)
       document.removeEventListener('visibilitychange', later)
-      root.style.removeProperty('--vp-short')
     }
   }, [])
 }
 
-/** Hide the page and show it again within one task (no paint in between), keeping every scroll position. */
-function remeasure() {
-  const body = document.body
-  const scrolled: [HTMLElement, number][] = []
-  for (const el of body.querySelectorAll<HTMLElement>('*')) if (el.scrollTop > 0) scrolled.push([el, el.scrollTop])
+/**
+ * Scroll the page a pixel and back. A page with nothing to scroll (the chat: everything in it is
+ * fixed) is made a pixel taller for the moment so it can; fixed things do not move with it.
+ */
+function nudge() {
+  const html = document.documentElement
   const y = window.scrollY
-  body.style.display = 'none'
-  void body.offsetHeight
-  body.style.display = ''
-  void body.offsetHeight
-  for (const [el, top] of scrolled) el.scrollTop = top
-  if (y) window.scrollTo(0, y)
+  const grew = html.scrollHeight <= window.innerHeight + 1
+  if (grew) html.style.minHeight = 'calc(100% + 2px)'
+  window.scrollTo(0, y + 1)
+  requestAnimationFrame(() => {
+    window.scrollTo(0, y)
+    if (grew) html.style.minHeight = ''
+  })
 }

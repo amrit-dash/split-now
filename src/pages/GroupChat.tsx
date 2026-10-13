@@ -189,6 +189,12 @@ export default function GroupChat() {
     else scrollToBottom()
   }, [messages, scrollToBottom])
 
+  // The keyboard opening (or settling) shrinks the chat: keep the latest message in view above the box, like any chat app.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the keyboard's room changes
+  useLayoutEffect(() => {
+    if (box && firstScroll.current) scrollToBottom()
+  }, [box?.height])
+
   // A new message: follow it when you're at the bottom or it's yours; otherwise the ↓ button counts it.
   const newest = messages?.[messages.length - 1]
   // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the newest message changes
@@ -289,8 +295,7 @@ export default function GroupChat() {
     // Fills the screen, message box on the bottom edge. With the keyboard up it pins to what's visible (src/lib/keyboard.ts):
     // only the messages scroll; the header and the box stay put.
     <div
-      // --vp-short: how far short of the screen iOS says the installed app is (useViewportHeal); reach that much further down.
-      className={`group/chat fixed inset-x-0 top-0 flex flex-col ${box ? '' : 'bottom-[calc(var(--vp-short,0px)*-1)]'}`}
+      className={`group/chat fixed inset-x-0 top-0 flex flex-col ${box ? '' : 'bottom-0'}`}
       data-keyboard={box ? '' : undefined}
       data-testid="chat-screen"
       style={box ? { height: box.height, transform: box.top ? `translateY(${box.top}px)` : undefined } : undefined}

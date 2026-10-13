@@ -52,11 +52,10 @@ export function chatViewportBox(vv: ViewportLike | null | undefined, innerHeight
 
 /*
  * The installed app on iPhone (WebKit bug 297779 and its standalone cousin): the first time the
- * keyboard opens, iOS shrinks the app's height (innerHeight, the visual viewport, 100dvh) and does
- * not give it back after the keyboard closes. Everything pinned to the bottom then sits higher and
- * the page's background shows as a dead band under it, on every screen, until the app is
- * force-quit. Hiding and re-showing the page makes WebKit measure the screen again
- * (useViewportHeal); these decide when.
+ * keyboard opens, iOS gives the app less screen (innerHeight, the visual viewport, 100dvh) and can
+ * keep it that way after the keyboard closes: a strip at the bottom where nothing of the app is
+ * drawn, so things pinned to the bottom sit above a dark band (and anything moved into the strip is
+ * cut off). Scrolling the page makes iOS measure again (useViewportHeal); these decide when.
  */
 
 /** The tallest height seen at each width (rounded): the app's real height, kept apart per orientation. */
@@ -83,10 +82,9 @@ export interface SizeLike {
 
 /**
  * How much shorter iOS says the installed app is than the screen it fills, with nothing being typed
- * (0 when it is not). The installed app always fills the whole screen, so the screen's own size is
- * the truth when iOS's reported height (innerHeight) is not: things pinned to the bottom are moved
- * down by this much, which closes the band under them whatever left iOS short. Only when the app is
- * the full screen wide (not an iPad split view or window) and short by a believable amount.
+ * (0 when it is not). The installed app always fills the whole screen, so the screen's own size says
+ * when iOS has kept some of it: then useViewportHeal has iOS measure again. Only when the app is the
+ * full screen wide (not an iPad split view or window) and short by a believable amount.
  */
 export function missingHeight(inner: SizeLike, screen: SizeLike, typing: boolean): number {
   if (typing) return 0
