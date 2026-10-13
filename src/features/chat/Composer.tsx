@@ -407,11 +407,12 @@ export function Composer(p: ComposerProps) {
           <button
             type="submit"
             disabled={!clean}
-            className="m-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-fill text-on-fill transition disabled:opacity-40"
+            className="m-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-fill text-on-fill transition disabled:opacity-40"
             aria-label={p.editing ? 'Save' : 'Send'}
             data-testid="chat-send"
           >
-            <SendHorizontal size={18} aria-hidden />
+            {/* The plane's tail outweighs its point: half a pixel to the right reads as centred. */}
+            <SendHorizontal size={16} className="translate-x-[0.5px]" aria-hidden />
           </button>
         </div>
       </form>
