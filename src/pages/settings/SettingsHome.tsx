@@ -14,6 +14,7 @@ import { autoCaptureSummary, notificationSummary } from '@/lib/profileSummary'
 import { DEFAULT_PREFS, isIOS, isStandalone, permission, pushSupported, type AllPrefs } from '@/lib/push'
 import { notificationsAvailable } from '@/components/NotificationSettings'
 import { HintText, type Hint } from '@/components/Hint'
+import { PushPrompt } from '@/components/PushPrompt'
 import { SettingsPage, SettingsRow } from './common'
 
 // The Saved pill already says it; only worth reading once.
@@ -47,6 +48,8 @@ export default function SettingsHome() {
 
   return (
     <SettingsPage title="Settings" back="/profile">
+      {/* Still there when closed on Home; closing it here hides it here (src/lib/push-prompt.ts). */}
+      <PushPrompt place="settings" className="mb-4" />
       <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5" data-testid="settings-list">
         <SettingsRow
           to="/settings/preferences"

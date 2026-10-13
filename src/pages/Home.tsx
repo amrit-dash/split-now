@@ -7,6 +7,7 @@ import { useInbox } from '@/hooks/useInbox'
 import { ActivityFeed } from '@/components/Trust'
 import { NudgeCards } from '@/components/NudgeCards'
 import { ReAddCard } from '@/components/ReAddCard'
+import { PushPrompt } from '@/components/PushPrompt'
 import { QuickAddCard } from '@/components/QuickAddCard'
 import { useFlag } from '@/hooks/useAppConfig'
 import type { Group } from '@/types'
@@ -128,6 +129,8 @@ export default function Home() {
       <NudgeCards cards={box.nudges} className="mb-5" />
       {/* An iPhone install from before the opaque status bar: once, how to add it again (src/lib/keyboard.ts). */}
       <ReAddCard />
+      {/* Once in a group: ask to turn on notifications (src/lib/push-prompt.ts). */}
+      <PushPrompt place="home" className="mb-5" />
 
       {firstRun ? (
         <FirstRun />

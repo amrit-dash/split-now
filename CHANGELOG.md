@@ -6,6 +6,10 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 6.3.0 — October 2026
+
+- Turn on notifications: once you're in a group, a card on Home and in Settings asks to turn on notifications, with step-by-step help for your phone or browser (adding the app on iPhone first, or allowing them again if they were blocked). Close it and it stays away in that place.
+
 ## 6.2.7 — October 2026
 
 - Installed app on iPhone: no more empty strip at the bottom of the screen. The app now uses a solid status bar, which iOS 26 sizes to the whole screen. iOS only picks this up when the app is added to the Home Screen again; a card on Home shows how, once.
