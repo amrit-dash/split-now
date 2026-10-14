@@ -6,6 +6,10 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 6.3.4 — October 2026
+
+- Admin: the tabs fit a phone's width without scrolling, Admin opens on App, and the usage numbers (Overview, now Insights) are the last tab, loaded only when you open it. Detail level is a dropdown.
+
 ## 6.3.3 — October 2026
 
 - Group chat: the send arrow is centred in its button, and the button sits evenly inside the message box's corner, however tall the message grows.

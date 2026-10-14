@@ -5,6 +5,7 @@ import { localISODate } from '@/lib/id'
 import { LOOK_INFO, LOOKS, type Look } from '@/lib/look'
 import { Collapsible } from '@/components/Collapsible'
 import { Loading, Segmented } from '@/components/Misc'
+import { Select } from '@/components/Select'
 import { Switch } from '@/components/Switch'
 import { MaintenanceScreen } from '@/components/GateScreen'
 import { ChangedBy, DirtyBar, SettingRow, useAppConfigDraft } from './common'
@@ -218,12 +219,13 @@ export default function AppSettings() {
       </div>
       <h3 className="mb-2 mt-5 px-1 font-bold">Detail level</h3>
       <div className="card p-4" data-testid="admin-look">
-        <Segmented<Look>
-          label="How much the app explains"
-          testId="admin-look-choice"
+        {/* A dropdown like Settings → Preferences: four choices didn't fit one row on a phone. */}
+        <Select<Look>
+          id="admin-look-choice"
+          aria-label="How much the app explains"
           value={cfg.look}
           onChange={(look) => set({ look })}
-          options={LOOKS.map((l) => ({ value: l, label: LOOK_INFO[l].label }))}
+          options={LOOKS.map((l) => ({ value: l, label: LOOK_INFO[l].label, hint: LOOK_INFO[l].hint }))}
         />
         <p className="text-muted mt-2 text-xs" aria-live="polite">
           {LOOK_INFO[cfg.look].hint} The default for everyone; each person can pick their own in Settings → Preferences. The admin console always shows
