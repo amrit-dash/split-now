@@ -1,4 +1,5 @@
-import { Camera, Paperclip, ReceiptText, Users } from 'lucide-react'
+import { Camera, ImagePlus, Paperclip, ReceiptText, Users } from 'lucide-react'
+import { type FormPhoto, formPhotoLine } from '@/lib/receipt-photo'
 import type { Group } from '@/types'
 import { CATEGORIES } from '@/lib/categories'
 import { centsToInput, currencySymbol } from '@/lib/money'
@@ -34,7 +35,9 @@ export function AmountCard({
   onOpenCategory,
   onOpenCurrency,
   scan,
-  hasReceipt,
+  photo,
+  onAttachPhoto,
+  onRemovePhoto,
   scannedItems,
   onAssignItems,
   onSplitAtTable,
@@ -53,7 +56,12 @@ export function AmountCard({
   onOpenCategory: () => void
   onOpenCurrency: () => void
   scan: { busy: boolean; label: string; onPick: () => void }
-  hasReceipt: boolean
+  /** the expense's photo: none, one picked here, or the saved one (src/lib/receipt-photo.ts) */
+  photo: FormPhoto
+  /** pick a photo to keep with the expense without reading it */
+  onAttachPhoto: () => void
+  /** drop the photo picked here (the saved one stays until another replaces it) */
+  onRemovePhoto: () => void
   /** a scanned bill with this many line items can be assigned item by item */
   scannedItems: number
   onAssignItems: () => void
@@ -62,6 +70,8 @@ export function AmountCard({
   const today = todayISO()
   const yesterday = addDaysISO(today, -1)
   const cat = CATEGORIES[draft.category]
+  const hasReceipt = photo !== 'none'
+  const photoLine = formPhotoLine(photo)
   return (
     <div className="card mt-3 p-5">
       <div className="flex items-center gap-3">
@@ -204,11 +214,23 @@ export function AmountCard({
           )}
         </button>
       </div>
-      {hasReceipt && (
-        <div className="pos mt-2 flex items-center gap-1 text-xs">
-          <Paperclip size={12} aria-hidden /> Receipt attached
-        </div>
-      )}
+      {/* Scan reads the bill and keeps the photo; this keeps a photo without reading it (a bill already typed in, a screenshot). */}
+      <div className="mt-2 flex min-h-10 items-center gap-2 text-xs">
+        {photoLine.text && (
+          <span className="pos flex items-center gap-1" data-testid="receipt-attached">
+            <Paperclip size={12} aria-hidden /> {photoLine.text}
+          </span>
+        )}
+        {photoLine.action === 'remove' ? (
+          <button type="button" className="chip min-h-10" onClick={onRemovePhoto} data-testid="receipt-remove">
+            Remove
+          </button>
+        ) : (
+          <button type="button" className="chip min-h-10" onClick={onAttachPhoto} disabled={scan.busy} data-testid="receipt-attach">
+            <ImagePlus size={14} aria-hidden /> {photoLine.action === 'replace' ? 'Replace photo' : 'Attach a photo'}
+          </button>
+        )}
+      </div>
       {scannedItems >= 2 && !existing && (
         <div className="mt-3 rounded-2xl bg-brand-50 p-3 dark:bg-brand-900/30" data-testid="split-items-offer">
           <div className="flex items-center gap-3">

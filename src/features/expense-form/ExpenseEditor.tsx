@@ -7,6 +7,7 @@ import { useMe } from '@/hooks/auth'
 import { memberOrder, myMemberId } from '@/hooks/data'
 import { useFlag } from '@/hooks/useAppConfig'
 import { useMerchantMemory } from '@/hooks/useMerchants'
+import { formPhoto } from '@/lib/receipt-photo'
 import { useReceiptReader } from '@/hooks/useReceiptReader'
 import type { Capture, Expense, Group, MemberId, OpenItem } from '@/types'
 import { CURRENCIES, formatMoney, fromHundredths } from '@/lib/money'
@@ -120,6 +121,7 @@ export function ExpenseEditor({
   const confirm = useConfirm()
   const reader = useReceiptReader()
   const fileRef = useRef<HTMLInputElement>(null)
+  const attachRef = useRef<HTMLInputElement>(null)
   // People who left stay in the pickers only for the old expense being edited (never for a new one).
   const order = useMemo(() => memberOrder(group, existing && existing.groupId === group.id ? expenseMemberIds(existing) : undefined), [group, existing])
   const me = myMemberId(group, user.uid) ?? order[0]
@@ -289,7 +291,10 @@ export function ExpenseEditor({
       applyReceipt(r.parsed, file)
       if (r.fellBack) toast('Read on this phone (AI isn’t available right now)')
     } catch (e) {
-      toast(`Couldn’t read the image: ${errText(e)}`, 'err')
+      // Not read, but still the receipt: it stays with the expense, and the amount is typed in.
+      setReceipt(file)
+      keepReceipt(file)
+      toast(`Couldn’t read it (${errText(e)}). The photo is attached; enter the amount.`, 'err')
     }
   }
   const splitAtTable = () => {
@@ -478,7 +483,13 @@ export function ExpenseEditor({
         onOpenCategory={() => setSheet('category')}
         onOpenCurrency={() => setSheet('currency')}
         scan={{ busy: reader.busy, label: reader.label, onPick: () => fileRef.current?.click() }}
-        hasReceipt={!!receipt || !!existing?.receiptUrl}
+        photo={formPhoto({ picked: !!receipt, stored: !!(existing?.receiptUrl || existing?.receiptPath) })}
+        onAttachPhoto={() => attachRef.current?.click()}
+        onRemovePhoto={() => {
+          setReceipt(null)
+          forgetReceipt()
+          setReceiptKey(undefined)
+        }}
         scannedItems={scanned?.parsed.items.length ?? 0}
         onAssignItems={assignItems}
         onSplitAtTable={splitAtTable}
@@ -492,6 +503,23 @@ export function ExpenseEditor({
         onChange={(e) => {
           const f = e.target.files?.[0]
           if (f) onScanFile(f)
+          e.target.value = ''
+        }}
+      />
+      {/* Attach a photo: no camera-only capture, so the photo library and files are offered too. */}
+      <input
+        ref={attachRef}
+        type="file"
+        accept="image/*"
+        hidden
+        data-testid="receipt-attach-file"
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          if (f) {
+            setReceipt(f)
+            keepReceipt(f)
+            toast('Photo attached')
+          }
           e.target.value = ''
         }}
       />

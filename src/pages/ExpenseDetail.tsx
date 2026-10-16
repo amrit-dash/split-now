@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react'
-import { usePhotoUrl } from '@/hooks/useVault'
+import { useEffect, useRef, useState } from 'react'
+import { usePhotoUrl, useVaultOpen } from '@/hooks/useVault'
+import { photoArrived, receiptCard } from '@/lib/receipt-photo'
+import { PhotoViewer } from '@/components/PhotoViewer'
 import { errText } from '@/lib/errors'
 import { SPLIT_TYPE_LABEL } from '@/lib/expense-draft'
 import { formatDate, formatDateTime } from '@/lib/locale'
 import { addedLine } from '@/lib/added'
 import { authorMember } from '@/lib/chat'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
-import { CopyPlus, Pencil, Repeat, Send, Trash2 } from 'lucide-react'
+import { Camera, CopyPlus, ImagePlus, Loader2, Pencil, Repeat, Send, Trash2 } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { myMemberId, useAllExpenses, useComments, useGroup } from '@/hooks/data'
@@ -255,7 +257,7 @@ export default function ExpenseDetail() {
           <p className="whitespace-pre-wrap text-sm">{e.notes}</p>
         </div>
       )}
-      {(e.receiptUrl || e.receiptPath) && <ReceiptCard groupId={group.id} path={e.receiptPath} url={e.receiptUrl} />}
+      <ReceiptCard group={group} expense={e} trashed={trashed} />
       {group.type !== 'personal' && <Comments group={group} expense={e} />}
       {/* History is background: the Minimal look leaves it out. */}
       <Detail min={2}>
@@ -422,18 +424,104 @@ function creatorName(group: Group, uid: string, me: string): string | undefined 
   return id ? labelOf(group.members, id, '', authorMember(group, me)) || undefined : undefined
 }
 
-/** The receipt photo: a private group's opened on the phone (repo.photoUrl), never shown sealed. */
-function ReceiptCard({ groupId, path, url }: { groupId: string; path?: string; url?: string }) {
-  const src = usePhotoUrl(groupId, { path, url })
+/**
+ * The receipt photo: a thumbnail that opens full screen (PhotoViewer), a private group's opened on
+ * the phone (repo.photoUrl) and never shown sealed. Without one, Add a receipt photo; with one,
+ * Replace. Either only changes the photo, never the amount (repo.attachReceipt, after which the
+ * live expense names the new photo). Nothing to add to a deleted expense or a locked private group.
+ */
+function ReceiptCard({ group, expense: e, trashed }: { group: Group; expense: Expense; trashed: boolean }) {
+  const toast = useToast()
+  const open = useVaultOpen(group.id)
+  const src = usePhotoUrl(group.id, { path: e.receiptPath, url: e.receiptUrl })
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [viewing, setViewing] = useState(false)
+  // The photo named before the upload started: once the expense names another, it has arrived.
+  const [adding, setAdding] = useState<{ before?: string } | null>(null)
+  const current = e.receiptPath ?? e.receiptUrl
+  useEffect(() => {
+    if (adding && photoArrived(adding.before, current)) setAdding(null)
+  }, [adding, current])
+  // A failed upload says so in its own toast (repo.attachReceipt); the card stops waiting after a minute.
+  useEffect(() => {
+    if (!adding) return
+    const t = setTimeout(() => setAdding(null), 60_000)
+    return () => clearTimeout(t)
+  }, [adding])
+  const hasPhoto = !!current
+  const card = receiptCard({ hasPhoto, trashed, canSeal: !group.vault || open })
+  if (!card.show) return null
+  const pick = (file: File) => {
+    try {
+      if (!repo.attachReceipt(group.id, e.id, file)) return toast('You’re offline. Connect to add the photo.', 'err')
+      setAdding({ before: current })
+      setViewing(false)
+      toast(hasPhoto ? 'Replacing the photo…' : 'Adding the photo…')
+    } catch (err) {
+      toast(errText(err), 'err')
+    }
+  }
+  const choose = () => fileRef.current?.click()
   return (
     <div className="card mt-3 overflow-hidden" data-testid="receipt-card">
-      <div className="label px-4 pt-4">Receipt</div>
-      {src ? (
-        <a href={src} target="_blank" rel="noreferrer">
-          <img src={src} alt="Receipt" className="max-h-96 w-full object-contain" />
-        </a>
+      <div className="flex items-center justify-between gap-2 px-4 pt-3">
+        <div className="label">Receipt</div>
+        {card.replace && (
+          <button type="button" className="chip min-h-10" onClick={choose} disabled={!!adding} data-testid="receipt-replace">
+            <Camera size={14} aria-hidden /> Replace
+          </button>
+        )}
+      </div>
+      {adding ? (
+        <p className="text-muted flex items-center gap-2 px-4 pb-4 pt-2 text-sm" role="status">
+          <Loader2 size={16} className="animate-spin" aria-hidden /> {hasPhoto ? 'Replacing the photo…' : 'Adding the photo…'}
+        </p>
+      ) : hasPhoto ? (
+        src ? (
+          <button
+            type="button"
+            className="block w-full px-4 pb-4 pt-2"
+            onClick={() => setViewing(true)}
+            aria-label="Open the receipt full screen"
+            data-testid="receipt-open"
+          >
+            <img src={src} alt="Receipt" className="max-h-64 w-full rounded-xl bg-slate-50 object-contain dark:bg-ink-900" />
+          </button>
+        ) : (
+          <p className="text-muted px-4 pb-4 pt-1 text-sm">Loading the photo…</p>
+        )
       ) : (
-        <p className="text-muted px-4 pb-4 pt-1 text-sm">Loading the photo…</p>
+        <div className="px-4 pb-4 pt-2">
+          <button type="button" className="btn w-full" onClick={choose} data-testid="receipt-add">
+            <ImagePlus size={18} aria-hidden /> Add a receipt photo
+          </button>
+        </div>
+      )}
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        hidden
+        data-testid="receipt-file"
+        onChange={(ev) => {
+          const f = ev.target.files?.[0]
+          if (f) pick(f)
+          ev.target.value = ''
+        }}
+      />
+      {viewing && src && (
+        <PhotoViewer
+          src={src}
+          alt="Receipt"
+          onClose={() => setViewing(false)}
+          actions={
+            card.replace ? (
+              <button type="button" className="btn min-h-11 bg-white/10 text-white ring-1 ring-white/20" onClick={choose}>
+                <Camera size={18} aria-hidden /> Replace photo
+              </button>
+            ) : undefined
+          }
+        />
       )}
     </div>
   )
