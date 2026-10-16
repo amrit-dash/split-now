@@ -10,6 +10,7 @@ import { useConfirm } from '@/components/ConfirmSheet'
 import { useToast } from '@/components/Toast'
 import { passkeyCancelled, passkeyProof, registerPasskey } from '@/features/vault/passkey'
 import { SetPatternSheet } from '@/features/vault/SetPatternSheet'
+import { AllGroupsLockTime } from '@/features/vault/LockTime'
 import { SettingsPage } from './common'
 
 function Line({ ok, icon, text, testId }: { ok: boolean; icon: React.ReactNode; text: string; testId: string }) {
@@ -119,6 +120,7 @@ export default function Vault() {
             <p>You’ve stopped using private groups, so the app doesn’t offer to make one.</p>
             <p>A private group someone else made still opens with its own pattern, on its lock button, if it has one.</p>
           </div>
+          <AllGroupsLockTime />
           <button
             type="button"
             className="btn-primary w-full"
@@ -161,8 +163,8 @@ export default function Vault() {
               passkey comes up when it’s right. On a private group’s own lock it opens only that group.
             </p>
             <p>Nothing on screen shows the pattern going in, or that it was wrong.</p>
-            <p>Private groups lock again when you leave the app or after a few minutes without a tap.</p>
           </div>
+          <AllGroupsLockTime />
           <button type="button" className="btn w-full text-rose-700 dark:text-rose-300" disabled={busy} onClick={() => void askStop()} data-testid="vault-stop">
             Stop using private groups
           </button>

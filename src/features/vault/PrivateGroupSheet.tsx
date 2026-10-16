@@ -11,6 +11,7 @@ import { useToast } from '@/components/Toast'
 import { vaultKey } from '@/lib/vault-crypto'
 import { lockVault, setVaultKey } from '@/lib/vault-keys'
 import { passkeyCancelled, passkeyProof } from './passkey'
+import { GroupLockTime } from './LockTime'
 import { SetPatternSheet } from './SetPatternSheet'
 
 /**
@@ -139,6 +140,9 @@ export function PrivateGroupSheet({ group, open, onClose, isCreator }: { group: 
               </li>
             </ul>
             <p className="text-muted mt-3 px-1 text-xs">A group’s own pattern opens only this group, for anyone in it who knows it. Tell people in person.</p>
+            <div className="card mt-3 p-4">
+              <GroupLockTime groupId={group.id} />
+            </div>
             <button type="button" className="btn-primary mt-4 w-full" disabled={busy} onClick={() => setSetting('set')} data-testid="vault-group-pattern-set">
               <Lock size={18} aria-hidden /> {own?.hasPattern ? 'Change its pattern' : 'Give it its own pattern'}
             </button>

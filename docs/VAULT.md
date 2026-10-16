@@ -53,9 +53,15 @@ Groups); on by default like every flag, server-enforced in the `vault` callable.
   the group who can open it.
 - **Wrong patterns** (universal or a group's, counted together per person, on the server): 5 tries,
   then 15 minutes, doubling with each further wrong one, up to a day.
-- An open group **locks again** when the app goes to the background, after `tuning.vaultLockMinutes`
-  idle (Admin → Limits → App, 1–60, default 5), on sign-out and on a reload. The lock button in the
-  group's header locks it at once.
+- An open group **locks again** when the app goes to the background, after its idle time, on
+  sign-out and on a reload. The lock button in the group's header locks it at once. Taps, clicks,
+  pointer moves, the wheel, keys, typing and scrolling count as activity, for every open group.
+  The idle time is `tuning.vaultLockMinutes` (Admin → Limits → App, 1–60, default 5) unless the
+  person chose their own in Settings → Encrypted groups (Lock after: 1 min to 1 hour), or one for a
+  group in its Private group sheet. **Lock when I leave the app** (on by default) can be turned
+  off, for a laptop: then only the idle time locks them, checked again the moment the app is back
+  in front. These choices stay on the device (localStorage `sn-vault-lock`,
+  src/lib/vault-lock-prefs.ts); nothing about them is secret.
 - **Home never shows private groups**, open or locked: not in the totals, the people, the recent
   list or the feed; the card says "Doesn't include private groups".
 - **While locked, it looks scrambled** (`src/lib/vault-scramble.ts`): a lock for its icon, animals
