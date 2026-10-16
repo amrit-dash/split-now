@@ -1,5 +1,6 @@
 import { openDeep } from './vault-crypto'
 import { getVaultKey, onVaultChange } from './vault-keys'
+import { sealedLook } from './vault-scramble'
 
 /*
  * Reading a private group (docs/VAULT.md): every live query of a group passes through
@@ -9,7 +10,8 @@ import { getVaultKey, onVaultChange } from './vault-keys'
  * per group only while it is open; locking forgets it.
  */
 
-export const LOCKED_TEXT = '🔒'
+/** A token in a locked group shows as its own ciphertext's characters (vault-scramble.ts sealedLook). */
+export const LOCKED_TEXT = sealedLook
 
 type Watch<T, M> = (cb: (v: T, m?: M) => void) => () => void
 

@@ -1,83 +1,156 @@
-import { HandCoins, Lock, UserPlus } from 'lucide-react'
-import type { Group } from '@/types'
+import { ArrowDownUp, ChevronRight, Link2, Lock, MessagesSquare, Search, Settings2 } from 'lucide-react'
+import type { Expense, Group } from '@/types'
+import { useMe } from '@/hooks/auth'
 import { useExpenses } from '@/hooks/data'
+import { useFlag } from '@/hooks/useAppConfig'
 import { activeMembers } from '@/lib/members'
-import { currencySymbol, gibberish, scrambledAmount } from '@/lib/vault-scramble'
-import { PageHeader } from '@/components/Misc'
+import { currencySymbol, gibberish, isSealed, scrambledAmount } from '@/lib/vault-scramble'
 import { usePageTitle } from '@/lib/brand'
+import { ChequeIcon } from '@/components/ChequeIcon'
+import { PageHeader, Segmented } from '@/components/Misc'
 import { AnimalStack, LockedTile } from './Scrambled'
 import { PatternLock } from './PatternLock'
 
-/** How many made-up rows the locked list shows at most. */
-const ROWS = 12
+/** How many rows the locked list shows at most. */
+const ROWS = 20
+
+/** An expense's description while locked: its own token's characters when it is encrypted, else made up from its id. */
+const descriptionOf = (e: Expense) => (isSealed(e.description) ? e.description : gibberish(e.id, 14))
 
 /**
- * A private group that is locked on this device (docs/VAULT.md). Only its card and its expense
- * list, both scrambled: a lock for its icon, letters for its name and words, animals for its
- * people and symbols for its amounts. No tabs, chat, settings or members; Invite and Settle up
- * are off. The pattern goes in on the lock button itself (PatternLock), with nothing on screen to
- * say so: the universal pattern or the group's own one, either opening only this group.
+ * A private group that is locked on this device (docs/VAULT.md). The same layout as an open group
+ * (GroupDetail): header, card, people, Settle up and Invite, the tabs, the search and the list,
+ * with every text and amount scrambled (src/lib/vault-scramble.ts). Encrypted words show as their
+ * own ciphertext; names and amounts, which have no token, are made up. Amounts carry the viewer's
+ * own currency symbol, not the group's. Nothing here does anything except the lock button, which
+ * takes the pattern itself (PatternLock), with nothing on screen to say so.
  */
 export function VaultLock({ group, back = '/groups' }: { group: Group; back?: string }) {
   usePageTitle('Private group')
+  const { profile } = useMe()
   const expenses = useExpenses(group.id)
   const people = Object.keys(activeMembers(group.members)).length
-  const sym = currencySymbol(group.currency)
+  const sym = currencySymbol(profile.currency)
   const rows = (expenses ?? []).slice(0, ROWS)
+  const id = group.id
+  // The same tabs and header icons an open group has here (GroupDetail).
+  const openItemsOn = useFlag('openItems')
+  const chatOn = useFlag('groupChat')
+  // One line per other person, as an open group lists who owes whom (up to three).
+  const lines = Array.from({ length: Math.min(3, Math.max(1, people - 1)) }, (_, i) => i)
+  const iconButton = 'flex h-11 w-11 items-center justify-center rounded-full'
   return (
-    <>
+    <div data-testid="vault-lock">
       <PageHeader
-        title={gibberish(group.id, 14)}
         back={back}
+        title={gibberish(id, 14)}
         right={
-          <PatternLock
-            groupId={group.id}
-            label="Private group"
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-200/70 dark:bg-ink-800"
-            testId="vault-unlock-open"
-          >
-            <Lock size={20} aria-hidden />
-          </PatternLock>
+          <div className="flex items-center">
+            <PatternLock groupId={id} label="Private group" className={`${iconButton} hover:bg-slate-200/60 dark:hover:bg-ink-800`} testId="vault-unlock-open">
+              <Lock size={20} aria-hidden />
+            </PatternLock>
+            {chatOn && (
+              <span className={iconButton} aria-hidden>
+                <MessagesSquare size={22} />
+              </span>
+            )}
+            <span className={iconButton} aria-hidden>
+              <Settings2 size={22} />
+            </span>
+          </div>
         }
       />
-      <div className="card p-5" data-testid="vault-lock">
-        <div className="flex items-center gap-3">
-          <LockedTile size={52} />
-          <div className="min-w-0 flex-1" aria-hidden>
-            <div className="text-muted truncate text-lg font-bold">{gibberish(group.id, 14)}</div>
-            <div className="mt-1">
-              <AnimalStack seed={group.id} count={people} size={24} />
-            </div>
+
+      <div className="card mb-4 p-5" aria-hidden>
+        <div className="flex items-center gap-4">
+          <LockedTile size={56} />
+          <div className="min-w-0 flex-1">
+            <div className="text-muted text-sm font-medium">{gibberish(`${id}:who`, 11)}</div>
+            <div className="text-3xl font-extrabold tabular-nums">{scrambledAmount(id, sym)}</div>
           </div>
         </div>
-        <div className="mt-4" aria-hidden>
-          <div className="text-muted text-xs font-medium">{gibberish(`${group.id}:who`, 9).toLowerCase()}</div>
-          <div className="text-muted text-3xl font-bold tabular-nums">{scrambledAmount(group.id, sym)}</div>
+        <div className="mt-3 space-y-1 text-sm text-slate-600 dark:text-slate-300">
+          {lines.map((i) => (
+            <div key={i}>
+              <b>{gibberish(`${id}:p${i}`, 5)}</b> {gibberish(`${id}:v${i}`, 8)} <span className="font-semibold">{scrambledAmount(`${id}:d${i}`, sym)}</span>
+            </div>
+          ))}
         </div>
-        <p className="sr-only">Private group, locked.</p>
+        <div className="-mx-1 mt-3 flex min-h-11 items-center gap-2 px-1 text-sm font-medium text-slate-600 dark:text-slate-300">
+          <AnimalStack seed={id} count={people} size={26} max={5} />
+          <span className="min-w-0 flex-1 truncate">{gibberish(`${id}:people`, 9)}</span>
+          <span className="text-muted text-xs">Members</span>
+          <ChevronRight size={16} className="text-slate-300 dark:text-slate-600" />
+        </div>
         <div className="mt-4 grid grid-cols-2 gap-2">
-          <button type="button" className="btn" disabled aria-label="Invite (unlock the group first)">
-            <UserPlus size={18} aria-hidden /> Invite
+          {/* Inert, but not greyed out: a faded button would say the group is locked. */}
+          <button type="button" className="btn-primary pointer-events-none whitespace-nowrap" aria-disabled tabIndex={-1}>
+            <ChequeIcon size={22} />{' '}
+            <span>
+              Settle<span className="hidden min-[380px]:inline"> up</span>
+            </span>
           </button>
-          <button type="button" className="btn" disabled aria-label="Settle up (unlock the group first)">
-            <HandCoins size={18} aria-hidden /> Settle up
+          <button type="button" className="btn-secondary pointer-events-none whitespace-nowrap" aria-disabled tabIndex={-1}>
+            <Link2 size={18} /> Invite
           </button>
         </div>
       </div>
-      {rows.length > 0 && (
-        <ul className="card mt-4 divide-y divide-slate-100 overflow-hidden dark:divide-white/5" aria-hidden data-testid="vault-lock-list">
-          {rows.map((e) => (
-            <li key={e.id} className="flex min-h-14 items-center gap-3 px-4 py-3">
-              <span className="h-9 w-9 shrink-0 rounded-xl bg-slate-100 dark:bg-ink-800" />
-              <span className="min-w-0 flex-1">
-                <span className="text-muted block truncate font-semibold">{gibberish(e.id, 16)}</span>
-                <span className="text-muted block truncate text-xs">{gibberish(`${e.id}:by`, 12).toLowerCase()}</span>
-              </span>
-              <span className="text-muted font-bold tabular-nums">{scrambledAmount(e.id, sym)}</span>
-            </li>
+      <p className="sr-only">Private group, locked.</p>
+
+      <div className="pointer-events-none mb-4" aria-hidden>
+        <Segmented
+          value="expenses"
+          onChange={() => {}}
+          options={[
+            { value: 'expenses', label: 'Expenses' },
+            ...(openItemsOn ? [{ value: 'open', label: 'Open' }] : []),
+            { value: 'balances', label: 'Balances' },
+            { value: 'activity', label: 'Activity' },
+          ]}
+        />
+      </div>
+
+      <div className="pointer-events-none space-y-5" aria-hidden>
+        <div className="flex items-center gap-2">
+          <div className="relative min-w-0 flex-1">
+            <Search size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <div className="input text-muted !py-2.5 pl-10">Search expenses and notes</div>
+          </div>
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-600 dark:bg-ink-800 dark:text-slate-300">
+            <ArrowDownUp size={18} />
+          </span>
+        </div>
+        <div className="scrollbar-none -mx-4 -mt-3 flex gap-1.5 overflow-x-auto px-4 py-1">
+          <span className="chip min-h-10 shrink-0 whitespace-nowrap">Involving me</span>
+          {[0, 1].map((i) => (
+            <span key={i} className="chip min-h-10 shrink-0 whitespace-nowrap">
+              {gibberish(`${id}:cat${i}`, 9)}
+            </span>
           ))}
-        </ul>
-      )}
-    </>
+        </div>
+        {rows.length > 0 && (
+          <section>
+            <h2 className="text-muted mb-2 px-1 text-xs font-bold uppercase tracking-wider">{gibberish(`${id}:month`, 8)}</h2>
+            <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5" data-testid="vault-lock-list">
+              {rows.map((e) => (
+                <div key={e.id} className="flex items-center gap-3 px-4 py-3">
+                  <LockedTile size={44} />
+                  <div className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">{descriptionOf(e)}</span>
+                    <span className="text-muted block truncate text-xs">
+                      {gibberish(`${e.id}:by`, 5)} {gibberish(`${e.id}:v`, 4)} {scrambledAmount(e.id, sym)} · {gibberish(`${e.id}:d`, 6)}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-muted text-xs">{gibberish(`${e.id}:you`, 7)}</div>
+                    <div className="font-semibold tabular-nums">{scrambledAmount(`${e.id}:share`, sym)}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
+    </div>
   )
 }

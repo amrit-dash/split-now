@@ -1,7 +1,7 @@
 import { type ReactNode, useRef, useState } from 'react'
 import { repo } from '@/data'
 import { errText } from '@/lib/errors'
-import { buzzFor, PATTERN_MAX, PATTERN_PAUSE_MS, refusalKind, shouldSend, type Step, type UnlockStarted, type VaultStatus, WRONG_BUZZ } from '@/lib/vault-api'
+import { PATTERN_MAX, PATTERN_PAUSE_MS, refusalKind, shouldSend, type Step, type UnlockStarted, type VaultStatus } from '@/lib/vault-api'
 import { useToast } from '@/components/Toast'
 import { finishUnlock } from './passkey'
 import { SetupSheet } from './SetupSheet'
@@ -9,11 +9,11 @@ import { usePress } from './usePress'
 
 /**
  * The lock button: an ordinary-looking icon button that is also where the pattern goes in
- * (docs/VAULT.md). Taps and long presses on it, nothing on screen changes, each press buzzes, and
+ * (docs/VAULT.md). Taps and long presses on it, nothing on screen changes and nothing buzzes, and
  * the pattern is sent after PATTERN_PAUSE_MS without a press. Without `groupId` (the Groups
  * screen, Balances) the universal pattern opens every private group; with it, the universal or
  * the group's own pattern opens only that group. A right one brings up Face ID or the passkey; a
- * wrong one is a double buzz and nothing else. Fewer presses than any pattern could be are a
+ * wrong one does nothing at all. Fewer presses than any pattern could be are a
  * stray tap and go nowhere (shouldSend). Someone with no pattern set up yet gets the setup prompt.
  */
 export function PatternLock({
@@ -52,8 +52,8 @@ export function PatternLock({
       await finishUnlock(repo, started)
     } catch (e) {
       const kind = refusalKind(e)
-      if (kind === 'wrong' || kind === 'locked') navigator.vibrate?.(WRONG_BUZZ)
-      else if (kind === 'setup') setSetup(true)
+      // A wrong pattern or a lockout shows nothing: the button simply stays a lock.
+      if (kind === 'setup') setSetup(true)
       else if (kind === 'other') toast(errText(e), 'err')
       // A new pattern or a change on another phone shows on the next try.
       status.current = null
@@ -65,7 +65,6 @@ export function PatternLock({
   const add = (s: Step) => {
     if (busy) return
     void statusOf()
-    navigator.vibrate?.(buzzFor(s))
     if (steps.current.length < PATTERN_MAX) steps.current.push(s)
     clearTimeout(timer.current)
     timer.current = setTimeout(() => {
