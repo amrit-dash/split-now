@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formPhoto, formPhotoLine, nextZoom, photoArrived, receiptCard } from './receipt-photo'
+import { formPhoto, formPhotoView, nextZoom, photoArrived, receiptCard, scanReplacedNote } from './receipt-photo'
 
 describe('receipt photo in the form', () => {
   it('a photo picked here wins over the saved one', () => {
@@ -7,10 +7,14 @@ describe('receipt photo in the form', () => {
     expect(formPhoto({ picked: false, stored: true })).toBe('saved')
     expect(formPhoto({ picked: false, stored: false })).toBe('none')
   })
-  it('offers attach, remove (the one picked here) or replace (the saved one)', () => {
-    expect(formPhotoLine('none')).toEqual({ text: null, action: 'attach' })
-    expect(formPhotoLine('new')).toEqual({ text: 'Photo attached', action: 'remove' })
-    expect(formPhotoLine('saved')).toEqual({ text: 'Receipt attached', action: 'replace' })
+  it('one photo: Attach is disabled while one is attached, and the photo has its own row', () => {
+    expect(formPhotoView('none')).toEqual({ attachDisabled: false, row: null })
+    expect(formPhotoView('new')).toEqual({ attachDisabled: true, row: { label: 'Receipt photo', remove: true } })
+    expect(formPhotoView('saved')).toEqual({ attachDisabled: true, row: { label: 'Receipt photo · saved', remove: false } })
+  })
+  it('a scan over an attached photo says it replaced it', () => {
+    expect(scanReplacedNote(true)).toMatch(/replaced the photo/)
+    expect(scanReplacedNote(false)).toBe('')
   })
 })
 

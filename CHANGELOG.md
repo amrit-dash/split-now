@@ -6,7 +6,8 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
-- Receipt photos: Attach a photo keeps a photo with an expense without reading it, and a photo Scan can't read now stays attached instead of being dropped. On an expense, tap the receipt to open it full screen (tap again for full size to read small print), Replace it, or Add a receipt photo to one that has none. None of these change the amount.
+- Add expense: Expense or Money received now sits right above the amount. Scan is the scan icon at the end of the description and still reads the bill. Attach, beside Today and Yesterday, keeps a receipt photo without reading it. An expense has one photo: once there is one, Attach is disabled and the photo gets its own row with a thumbnail, Replace and remove, and a scan over it says it replaced it. A photo Scan can't read now stays attached instead of being dropped.
+- Expense screen: the receipt is folded into one row with a small thumbnail; tap to show it, tap the photo to open it full screen (tap again for full size), Replace it, or Add a receipt photo to an expense without one. None of these change the amount.
 
 ## 8.1.0 — October 2026
 

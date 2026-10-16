@@ -7,7 +7,8 @@ import { useMe } from '@/hooks/auth'
 import { memberOrder, myMemberId } from '@/hooks/data'
 import { useFlag } from '@/hooks/useAppConfig'
 import { useMerchantMemory } from '@/hooks/useMerchants'
-import { formPhoto } from '@/lib/receipt-photo'
+import { formPhoto, scanReplacedNote } from '@/lib/receipt-photo'
+import { usePhotoUrl } from '@/hooks/useVault'
 import { useReceiptReader } from '@/hooks/useReceiptReader'
 import type { Capture, Expense, Group, MemberId, OpenItem } from '@/types'
 import { CURRENCIES, formatMoney, fromHundredths } from '@/lib/money'
@@ -22,7 +23,7 @@ import { learnFromSave, suggestCategory } from '@/lib/merchants'
 import type { QuickPrefill } from '@/lib/nl-expense'
 import { todayISO } from '@/lib/id'
 import { deleteDraftBlob, draftBlobKey, getDraftBlob, isDraftBlobKey, putDraftBlob } from '@/lib/draft-blob'
-import { downscale } from '@/lib/image'
+import { downscale, imagePreviewUrl } from '@/lib/image'
 import { lastSplit, rememberGroup, rememberSplit, sameSplit, suggestDescriptions, type Suggestion } from '@/lib/recents'
 import {
   clearDraft,
@@ -122,6 +123,8 @@ export function ExpenseEditor({
   const reader = useReceiptReader()
   const fileRef = useRef<HTMLInputElement>(null)
   const attachRef = useRef<HTMLInputElement>(null)
+  // The thumbnail in the form: the photo picked here, or the one the expense already has (a private group's opened here).
+  const savedSrc = usePhotoUrl(group.id, { path: existing?.receiptPath, url: existing?.receiptUrl })
   // People who left stay in the pickers only for the old expense being edited (never for a new one).
   const order = useMemo(() => memberOrder(group, existing && existing.groupId === group.id ? expenseMemberIds(existing) : undefined), [group, existing])
   const me = myMemberId(group, user.uid) ?? order[0]
@@ -171,6 +174,16 @@ export function ExpenseEditor({
   /** a save was attempted: show what is still wrong next to each field */
   const [submitted, setSubmitted] = useState(false)
   const [receipt, setReceipt] = useState<File | null>(null)
+  // Its thumbnail, while it's in the form (the object URL goes when the photo changes or the form closes).
+  // imagePreviewUrl (lib/image.ts): only a checked image type, copied into a fresh blob typed as an image.
+  const [receiptSrc, setReceiptSrc] = useState<string | null>(null)
+  useEffect(() => {
+    const url = receipt ? imagePreviewUrl(receipt) : undefined
+    setReceiptSrc(url ?? null)
+    return () => {
+      if (url) URL.revokeObjectURL(url)
+    }
+  }, [receipt])
   // The receipt photo is kept in IndexedDB beside the sessionStorage draft, so a reload brings it
   // back instead of asking for a re-scan. The ref is the key in use (or being written) right now;
   // the state is what the stored draft points at. Any storage failure just leaves the draft without it.
@@ -258,6 +271,8 @@ export function ExpenseEditor({
   const converted = fx.foreign && draft.fx && validAmount(draft) ? convertMinor(draft.amount, draft.cur, group.currency, draft.fx.rate) : undefined
 
   const applyReceipt = (parsed: ParsedReceipt, file: File) => {
+    // One photo per expense: a scan over an attached one replaces it, and says so.
+    const replaced = scanReplacedNote(!!receipt || !!(existing?.receiptUrl || existing?.receiptPath))
     dispatch({ type: 'applyReceipt', parsed })
     setReceipt(file)
     keepReceipt(file)
@@ -265,7 +280,9 @@ export function ExpenseEditor({
     const cur = parsed.currency && CURRENCIES.includes(parsed.currency) ? parsed.currency : draft.cur
     const total = parsed.total ? fromHundredths(parsed.total, cur) : undefined
     toast(
-      total ? `Found ${formatMoney(total, cur)}${parsed.items.length ? ` and ${parsed.items.length} items` : ''}` : 'Couldn’t read a total, please enter it',
+      (total
+        ? `Found ${formatMoney(total, cur)}${parsed.items.length ? ` and ${parsed.items.length} items` : ''}.`
+        : 'Couldn’t read a total, please enter it.') + replaced,
     )
   }
   const applyRef = useRef(applyReceipt)
@@ -468,6 +485,29 @@ export function ExpenseEditor({
         {!existing && <span className="text-sm font-semibold text-brand-600 dark:text-brand-300">Change</span>}
       </button>
 
+      {/* Expense or money received first: it decides what the card below is. */}
+      {showReceived && (
+        <div className="mt-3">
+          <Segmented<'expense' | 'received'>
+            label="What is it"
+            value={draft.received ? 'received' : 'expense'}
+            onChange={(v) => dispatch({ type: 'received', on: v === 'received' })}
+            options={[
+              { value: 'expense', label: 'Expense' },
+              { value: 'received', label: 'Money received' },
+            ]}
+            testId="expense-kind"
+          />
+          {draft.received && (
+            <HintText
+              hint={{ full: 'A refund or reimbursement one person got that belongs to several. Whoever received it owes the others their share.', tier: 'key' }}
+              as="p"
+              className="text-muted mt-2 px-1 text-xs"
+            />
+          )}
+        </div>
+      )}
+
       <AmountCard
         draft={draft}
         dispatch={dispatch}
@@ -484,6 +524,7 @@ export function ExpenseEditor({
         onOpenCurrency={() => setSheet('currency')}
         scan={{ busy: reader.busy, label: reader.label, onPick: () => fileRef.current?.click() }}
         photo={formPhoto({ picked: !!receipt, stored: !!(existing?.receiptUrl || existing?.receiptPath) })}
+        photoSrc={receiptSrc ?? savedSrc}
         onAttachPhoto={() => attachRef.current?.click()}
         onRemovePhoto={() => {
           setReceipt(null)
@@ -546,27 +587,6 @@ export function ExpenseEditor({
         </div>
       )}
 
-      {showReceived && (
-        <div className="mt-3">
-          <Segmented<'expense' | 'received'>
-            label="What is it"
-            value={draft.received ? 'received' : 'expense'}
-            onChange={(v) => dispatch({ type: 'received', on: v === 'received' })}
-            options={[
-              { value: 'expense', label: 'Expense' },
-              { value: 'received', label: 'Money received' },
-            ]}
-            testId="expense-kind"
-          />
-          {draft.received && (
-            <HintText
-              hint={{ full: 'A refund or reimbursement one person got that belongs to several. Whoever received it owes the others their share.', tier: 'key' }}
-              as="p"
-              className="text-muted mt-2 px-1 text-xs"
-            />
-          )}
-        </div>
-      )}
       {!personal && (
         <>
           <PayerCard draft={draft} dispatch={dispatch} group={group} order={order} me={me} hint={payerHint} onOpen={() => setSheet('payer')} />

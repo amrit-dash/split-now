@@ -1,5 +1,5 @@
-import { Camera, ImagePlus, Paperclip, ReceiptText, Users } from 'lucide-react'
-import { type FormPhoto, formPhotoLine } from '@/lib/receipt-photo'
+import { ImagePlus, Paperclip, ReceiptText, ScanText, Users, X } from 'lucide-react'
+import { type FormPhoto, formPhotoView } from '@/lib/receipt-photo'
 import type { Group } from '@/types'
 import { CATEGORIES } from '@/lib/categories'
 import { centsToInput, currencySymbol } from '@/lib/money'
@@ -36,6 +36,7 @@ export function AmountCard({
   onOpenCurrency,
   scan,
   photo,
+  photoSrc,
   onAttachPhoto,
   onRemovePhoto,
   scannedItems,
@@ -58,6 +59,8 @@ export function AmountCard({
   scan: { busy: boolean; label: string; onPick: () => void }
   /** the expense's photo: none, one picked here, or the saved one (src/lib/receipt-photo.ts) */
   photo: FormPhoto
+  /** the photo itself, for the thumbnail (a picked file's object URL, or the saved one opened) */
+  photoSrc: string | null
   /** pick a photo to keep with the expense without reading it */
   onAttachPhoto: () => void
   /** drop the photo picked here (the saved one stays until another replaces it) */
@@ -71,7 +74,7 @@ export function AmountCard({
   const yesterday = addDaysISO(today, -1)
   const cat = CATEGORIES[draft.category]
   const hasReceipt = photo !== 'none'
-  const photoLine = formPhotoLine(photo)
+  const photoView = formPhotoView(photo)
   return (
     <div className="card mt-3 p-5">
       <div className="flex items-center gap-3">
@@ -112,6 +115,18 @@ export function AmountCard({
             </p>
           )}
         </div>
+        {/* Scan reads a bill into the form (total, items, description) and keeps the photo. */}
+        <button
+          type="button"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-brand-600 hover:bg-slate-100 disabled:opacity-60 dark:text-brand-300 dark:hover:bg-ink-800"
+          onClick={scan.onPick}
+          disabled={scan.busy}
+          aria-label={scan.busy ? scan.label : hasReceipt ? 'Rescan receipt' : 'Scan receipt'}
+          aria-busy={scan.busy || undefined}
+          data-testid="receipt-scan"
+        >
+          {scan.busy ? <Spinner className="!h-5 !w-5" label={scan.label} /> : <ScanText size={22} aria-hidden />}
+        </button>
       </div>
       {/* Past descriptions are a shortcut, not a choice: the Minimal look leaves them out. */}
       {suggestions.length > 0 && (
@@ -171,7 +186,7 @@ export function AmountCard({
           error={errors.fx}
         />
       )}
-      {/* Date chips keep their size; Scan takes what's left (icon only on the narrowest phones). */}
+      {/* Date chips keep their size; Attach takes what's left (icon only on the narrowest phones). */}
       <div className="mt-4 flex gap-1.5">
         <DateField
           aria-label="Date"
@@ -193,44 +208,48 @@ export function AmountCard({
             {o.label}
           </button>
         ))}
+        {/* Attach keeps a photo without reading it (a bill already typed in, a screenshot); Scan is beside the description.
+            One photo per expense: while there is one, this is disabled and the photo's own row below replaces or removes it. */}
         <button
           type="button"
-          className="@container btn-secondary !min-h-10 min-w-0 flex-1 !gap-1.5 !px-2 !py-2 text-sm"
-          onClick={scan.onPick}
-          disabled={scan.busy}
-          aria-label={scan.busy ? scan.label : hasReceipt ? 'Rescan receipt' : 'Scan receipt'}
-          aria-busy={scan.busy || undefined}
+          className="@container btn-secondary !min-h-10 min-w-0 flex-1 !gap-1.5 !px-2 !py-2 text-sm disabled:opacity-40"
+          onClick={onAttachPhoto}
+          disabled={scan.busy || photoView.attachDisabled}
+          aria-label={photoView.attachDisabled ? 'Attach a receipt photo (one is attached: replace it below)' : 'Attach a receipt photo'}
+          data-testid="receipt-attach"
         >
-          {scan.busy ? (
-            <>
-              <Spinner className="!h-4 !w-4 shrink-0" label={scan.label} />
-              <span className="truncate">{scan.label}</span>
-            </>
-          ) : (
-            <>
-              <Camera size={16} className="shrink-0" aria-hidden />
-              <span className="hidden @[3.75rem]:inline">Scan</span>
-            </>
-          )}
+          <ImagePlus size={16} className="shrink-0" aria-hidden />
+          <span className="hidden @[3.75rem]:inline">Attach</span>
         </button>
       </div>
-      {/* Scan reads the bill and keeps the photo; this keeps a photo without reading it (a bill already typed in, a screenshot). */}
-      <div className="mt-2 flex min-h-10 items-center gap-2 text-xs">
-        {photoLine.text && (
-          <span className="pos flex items-center gap-1" data-testid="receipt-attached">
-            <Paperclip size={12} aria-hidden /> {photoLine.text}
+      {photoView.row && (
+        <div className="mt-3 flex items-center gap-3 rounded-2xl bg-slate-50 p-2 pr-1 dark:bg-ink-800" data-testid="receipt-attached">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white ring-1 ring-slate-200 dark:bg-ink-900 dark:ring-white/10">
+            {photoSrc ? <img src={photoSrc} alt="" className="h-full w-full object-cover" /> : <Paperclip size={16} className="text-muted" aria-hidden />}
           </span>
-        )}
-        {photoLine.action === 'remove' ? (
-          <button type="button" className="chip min-h-10" onClick={onRemovePhoto} data-testid="receipt-remove">
-            Remove
+          <span className="min-w-0 flex-1 truncate text-sm font-medium">{photoView.row.label}</span>
+          <button
+            type="button"
+            className="min-h-11 shrink-0 rounded-xl px-3 text-sm font-semibold text-brand-600 hover:bg-white dark:text-brand-300 dark:hover:bg-ink-900"
+            onClick={onAttachPhoto}
+            disabled={scan.busy}
+            data-testid="receipt-replace-form"
+          >
+            Replace
           </button>
-        ) : (
-          <button type="button" className="chip min-h-10" onClick={onAttachPhoto} disabled={scan.busy} data-testid="receipt-attach">
-            <ImagePlus size={14} aria-hidden /> {photoLine.action === 'replace' ? 'Replace photo' : 'Attach a photo'}
-          </button>
-        )}
-      </div>
+          {photoView.row.remove && (
+            <button
+              type="button"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-500 hover:bg-white hover:text-rose-600 dark:hover:bg-ink-900"
+              onClick={onRemovePhoto}
+              aria-label="Remove the photo"
+              data-testid="receipt-remove"
+            >
+              <X size={18} aria-hidden />
+            </button>
+          )}
+        </div>
+      )}
       {scannedItems >= 2 && !existing && (
         <div className="mt-3 rounded-2xl bg-brand-50 p-3 dark:bg-brand-900/30" data-testid="split-items-offer">
           <div className="flex items-center gap-3">
