@@ -1,7 +1,8 @@
 import { useMemo, useState, type ReactNode } from 'react'
+import { usePickableGroups } from '@/hooks/useVault'
 import { useNavigate } from 'react-router-dom'
 import { ChevronRight, Plus, ReceiptText, ScanLine, Users } from 'lucide-react'
-import { useGroups } from '@/hooks/data'
+
 import { useFlag } from '@/hooks/useAppConfig'
 import { liveTripFor } from '@/lib/capture'
 import { todayISO } from '@/lib/id'
@@ -34,7 +35,7 @@ export function CreateSheet({ open, onClose, groupId }: { open: boolean; onClose
   // The Minimal look keeps the sheet to its tiles: Quick add sits behind a small link instead.
   const showQuickAdd = useShows(2)
   const [quickOpen, setQuickOpen] = useState(false)
-  const allGroups = useGroups()
+  const allGroups = usePickableGroups()
   // Shared, open groups only: the personal wallet has nobody to split with.
   const groups = useMemo(() => (allGroups ?? []).filter((g) => !g.archived && g.type !== 'personal'), [allGroups])
   const q = groupId ? `?group=${encodeURIComponent(groupId)}` : ''

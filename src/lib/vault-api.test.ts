@@ -3,6 +3,7 @@ import {
   buzzFor,
   groupPatternProblem,
   lockButton,
+  withoutLocked,
   patternProblem,
   refusalWords,
   setupLines,
@@ -70,5 +71,12 @@ describe('groups lock button', () => {
     expect(lockButton([], () => true)).toBe('none')
     expect(lockButton(['a', 'b'], (id) => id === 'a')).toBe('unlock')
     expect(lockButton(['a', 'b'], () => true)).toBe('lock')
+  })
+})
+
+describe('pickers', () => {
+  it('leave out private groups that are locked here', () => {
+    const gs = [{ id: 'a' }, { id: 'b', vault: true }, { id: 'c', vault: true }]
+    expect(withoutLocked(gs, (id) => id === 'c').map((g) => g.id)).toEqual(['a', 'c'])
   })
 })

@@ -33,9 +33,17 @@ Groups); on by default like every flag, server-enforced in the `vault` callable.
 - An open group **locks again** when the app goes to the background, after `tuning.vaultLockMinutes`
   idle (Admin → Limits → App, 1–60, default 5), on sign-out and on a reload. The lock button in the
   group's header locks it at once.
-- While locked, nothing of the group shows outside it: no balance on its row ("locked"), nothing in
-  Home's totals (a line says so), the Inbox, Insights or Settle up across groups. Its pushes say only
-  "Something new in this private group".
+- **Home never shows private groups**, open or locked: not in the totals, the people, the recent
+  list or the feed; the card says "Doesn't include private groups".
+- **While locked, it looks scrambled** (`src/lib/vault-scramble.ts`, seeded by the group's id so it
+  doesn't flicker): a lock for its icon, letters for its name and words, animals for its people,
+  symbols (never digits) for its amounts. On the Groups screen and in Recently deleted, and inside
+  it: only the card and the expense list, no tabs, chat, settings or members, Invite and Settle up
+  off, "Private group" as the page title.
+- **Balances** (/settle) and settling across groups count a private group only while it's open; a
+  line says how many aren't included and opens them. Group pickers (Add expense, Scan, captures,
+  live tables) leave locked ones out (`usePickableGroups`). Nothing of a locked group is in the
+  Inbox or Insights. Its pushes say only "Something new in this private group".
 
 ## What is encrypted
 

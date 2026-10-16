@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { usePickableGroups } from '@/hooks/useVault'
 import { Link } from 'react-router-dom'
 import { Activity, Ban, ChevronRight, Copy, KeyRound, MessageSquareText, Pause, Plus, Smartphone, X, Zap } from 'lucide-react'
 import { firebaseProject, repo } from '@/data'
 import type { CaptureToken } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
-import { useCaptureTokens, useGroups } from '@/hooks/data'
+import { useCaptureTokens } from '@/hooks/data'
 import { useFlag } from '@/hooks/useAppConfig'
 import type { Group } from '@/types'
 import { copy } from '@/lib/share'
@@ -108,7 +109,7 @@ export function AutoCapture() {
   const { user } = useMe()
   const toast = useToast()
   const confirm = useConfirm()
-  const groups = useGroups()
+  const groups = usePickableGroups()
   const autoCapture = useFlag('autoCapture')
   const tokens = useCaptureTokens()
   const [prefs, setPrefs] = useState<AllPrefs | null>(null)

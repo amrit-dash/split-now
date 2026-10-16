@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
+import { usePickableGroups } from '@/hooks/useVault'
 import { Link, useLocation } from 'react-router-dom'
 import { Inbox, Plus, X } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
-import { useCaptures, useGroups } from '@/hooks/data'
+import { useCaptures } from '@/hooks/data'
 import { usePausedTrips } from '@/hooks/useCapturePrefs'
 import type { Capture, Group } from '@/types'
 import { formatMoney } from '@/lib/money'
@@ -21,7 +22,7 @@ const SHOW_MS = 20_000
 
 export function CaptureAlert() {
   const captures = useCaptures()
-  const groups = useGroups()
+  const groups = usePickableGroups()
   const loc = useLocation()
   const queued = useRef(new Set<string>())
   const [queue, setQueue] = useState<string[]>([])

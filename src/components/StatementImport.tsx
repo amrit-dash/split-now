@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { usePickableGroups } from '@/hooks/useVault'
 import { Link, useNavigate } from 'react-router-dom'
 import { ChevronDown, ImageUp, Inbox, Loader2, Plus, Sparkles, X } from 'lucide-react'
 import { repo } from '@/data'
 import type { StatementTxn } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
-import { memberOrder, myMemberId, useAiState, useExpenses, useGroups } from '@/hooks/data'
+import { memberOrder, myMemberId, useAiState, useExpenses } from '@/hooks/data'
 import { useAiStatus } from '@/hooks/useAiStatus'
 import { useFlag } from '@/hooks/useAppConfig'
 import { useOnline } from '@/hooks/useOnline'
@@ -80,7 +81,7 @@ const CREDIT_HINT: Hint = {
  * on-phone fallback, so it is gated up front when AI can't read for this account.
  */
 export function StatementImport() {
-  const groups = useGroups()
+  const groups = usePickableGroups()
   const { user } = useMe()
   const toast = useToast()
   const nav = useNavigate()

@@ -152,7 +152,8 @@ export default function GroupDetail() {
   // Minimal look: the Whose-turn chip is optional, the group's facts (dates, Archived) stay.
   const showTurn = useShows(2)
   const vaultOpen = useVaultOpen(groupId)
-  usePageTitle(liveGroup ? liveGroup.name : liveGroup === null ? 'Group not found' : undefined)
+  // A locked private group's name stays off the tab and the app switcher too.
+  usePageTitle(liveGroup ? (liveGroup.vault && !vaultOpen ? 'Private group' : liveGroup.name) : liveGroup === null ? 'Group not found' : undefined)
 
   const d = useMemo(
     () => (liveGroup && expenses && settlements ? computeGroupData(liveGroup, expenses, settlements, user.uid) : null),

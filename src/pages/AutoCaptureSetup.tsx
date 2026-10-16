@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { usePickableGroups } from '@/hooks/useVault'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -22,7 +23,7 @@ import {
 import { repo } from '@/data'
 import { draftToCapture, type CaptureToken } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
-import { useCaptures, useCaptureTokens, useGroups } from '@/hooks/data'
+import { useCaptures, useCaptureTokens } from '@/hooks/data'
 import type { Capture, Group } from '@/types'
 import { APP_NAME, usePageTitle } from '@/lib/brand'
 import { inTripWindow, pausedTrip, rankGroupsForCapture, sanitiseRef } from '@/lib/capture'
@@ -155,7 +156,7 @@ export default function AutoCaptureSetup() {
   const toast = useToast()
   const confirm = useConfirm()
   const [params, setParams] = useSearchParams()
-  const groups = useGroups()
+  const groups = usePickableGroups()
   const captures = useCaptures()
   const tokens = useCaptureTokens()
   const [prefs, setPrefs] = useState<AllPrefs | null>(null)

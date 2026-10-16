@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
+import { usePickableGroups } from '@/hooks/useVault'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowRight, Check, Home, Inbox, Loader2, Pencil, Plus, Undo2, User, X } from 'lucide-react'
 import { repo } from '@/data'
 import { draftToCapture } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
-import { createGroup, memberOrder, myMemberId, useCaptures, useExpenses, useGroups } from '@/hooks/data'
+import { createGroup, memberOrder, myMemberId, useCaptures, useExpenses } from '@/hooks/data'
 import { useMerchantMemory } from '@/hooks/useMerchants'
 import { usePausedTrips } from '@/hooks/useCapturePrefs'
 import type { Capture, Group } from '@/types'
@@ -94,7 +95,7 @@ function CreateFromLink() {
 
 function Prompt({ id }: { id: string }) {
   const captures = useCaptures()
-  const groups = useGroups()
+  const groups = usePickableGroups()
   if (!captures || !groups) return <Loading />
   const c = captures.find((x) => x.id === id)
   if (!c)
