@@ -432,8 +432,9 @@ service cloud.firestore {
         return g.keys().hasOnly(['id', 'name', 'emoji', 'type', 'currency', 'budget', 'startDate', 'endDate', 'simplify',
             'requireApproval', 'approvalThreshold', 'editAutoApprove', 'paymentApproval', 'captureOff', 'archived', 'archivedBy', 'deletedAt', 'deletedBy', 'memberUids', 'members', 'inviteCode',
             'createdBy', 'createdAt', 'updatedAt', 'joinCode', 'joinMemberId', 'memberOpId', 'mergeNeedsOk', 'vault'])
-          && g.name is string && g.name.size() > 0 && g.name.size() <= 80
-          && g.emoji is string && g.emoji.size() <= 16
+          // A private group's name and emoji are tokens (docs/VAULT.md), longer than the text they hold.
+          && g.name is string && g.name.size() > 0 && g.name.size() <= (g.get('vault', false) == true ? 200 : 80)
+          && g.emoji is string && g.emoji.size() <= (g.get('vault', false) == true ? 80 : 16)
           && g.type in ['trip', 'outing', 'home', 'couple', 'event', 'office', 'other', 'direct', 'personal']
           && g.currency is string && g.currency.size() == 3
           && g.members is map && g.members.size() <= 60
@@ -556,7 +557,7 @@ service cloud.firestore {
           && after.memberUids.toSet() == before.memberUids.toSet()
           && 'uid' in before.members[op] && before.members[op].uid == uid()
           && m.diff(before.members[op]).affectedKeys().hasOnly(['name', 'photoURL'])
-          && m.name is string && m.name.size() > 0 && m.name.size() <= 100
+          && m.name is string && m.name.size() > 0 && m.name.size() <= (after.get('vault', false) == true ? 200 : 100)
           && (!('photoURL' in m)
             || (m.photoURL is string && m.photoURL.size() <= 2048 && m.photoURL.matches('https://.+')));
       }
@@ -933,9 +934,10 @@ service cloud.firestore {
                 'settlement.created', 'settlement.deleted', 'settlement.restored', 'settlement.purged',
                 'settlement.approved', 'settlement.flagged',
                 'member.added', 'member.removed', 'group.updated']
-            && d.actorName is string && d.actorName.size() <= 100
+            // a private group's names and lines are tokens, longer than the text they hold (docs/VAULT.md)
+            && d.actorName is string && d.actorName.size() <= 200
             && d.targetId is string && d.targetId.size() <= 200
-            && d.summary is string && d.summary.size() <= 500
+            && d.summary is string && d.summary.size() <= 1000
             && d.createdAt is int
             && (!('before' in d) || d.before is map)
             && (!('after' in d) || d.after is map);
@@ -1038,14 +1040,14 @@ service cloud.firestore {
           return r is map && r.keys().hasOnly(['id', 'authorUid', 'authorName', 'text']) && r.keys().hasAll(['id', 'authorUid', 'authorName', 'text'])
             && r.id is string && r.id.size() > 0 && r.id.size() <= 64
             && r.authorUid is string && r.authorUid.size() <= 128
-            && r.authorName is string && r.authorName.size() <= 80
+            && r.authorName is string && r.authorName.size() <= 200
             && r.text is string && r.text.size() <= 160;
         }
         function validMessage(d) {
           return d.keys().hasAll(['authorUid', 'authorName', 'text', 'kind', 'createdAt'])
             && d.keys().hasOnly(['authorUid', 'authorName', 'text', 'kind', 'ref', 'amount', 'mentions', 'to', 'replyTo', 'editedAt', 'createdAt'])
             && d.authorUid == uid()
-            && d.authorName is string && d.authorName.size() <= 80
+            && d.authorName is string && d.authorName.size() <= 200
             && d.text is string && d.text.size() <= 1000
             && d.kind in ['text', 'openItem', 'pay', 'expense', 'settle', 'balances']
             && (d.kind != 'text' || d.text.size() > 0)

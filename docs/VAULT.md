@@ -14,7 +14,7 @@ Groups); on by default like every flag, server-enforced in the `vault` callable.
   - a **universal pattern**: at least 6 taps and long presses, mixed, entered twice. **Follow the
     sequence** on: the order matters; off: only how many taps and how many long presses.
 - **New group → Private group** (a switch beside More options) needs a universal pattern first.
-  Chosen once, when the group is made (`firestore.rules` keeps `vault` as it was created). The phone
+  Chosen when the group is made, or later by its creator (below); no client write changes `vault`. The phone
   that made it gets its key at once (`create`), so it opens straight away.
 - **The lock button is the pattern pad** (`src/features/vault/PatternLock.tsx`). There is no pad
   screen: the pattern is tapped and long-pressed on the lock icon itself, and nothing on screen
@@ -56,12 +56,34 @@ Groups); on by default like every flag, server-enforced in the `vault` callable.
 ## What is encrypted
 
 On the phone, with the group's data key (`src/lib/vault-fields.ts`): expense descriptions, notes,
-item names and flag reasons; payment notes and flag reasons; comments; chat messages; open items'
-titles and notes. Activity lines and history quote those as tokens, so they're encrypted too.
+item names and flag reasons; payment notes and flag reasons; comments and their authors' names;
+chat messages, their authors' names and the snippet a reply quotes; open items' titles and notes.
+In the group document (`src/data/vault-repo.ts`): its name, its emoji and every person's name in it.
+Activity lines and history quote those as tokens, so they're encrypted too. The fields and their
+caps are one list, `shared/vault-convert.ts`, which the phones and the server share.
 
 Readable to the server, on purpose: amounts, splits and who paid (balances, reminders, nudges,
-budget alerts and the rules' checks need them), people's names, the group's name and emoji,
-dates and categories. The app still hides amounts while the group is locked.
+budget alerts and the rules' checks need them), dates, categories, people's account ids and the
+emails a placeholder was added by (linking accounts needs them). The app hides amounts while the
+group is locked. An activity line's actor is the writer's account name as the phone had it.
+
+Outside the group nothing names it (`shared/names.ts` PRIVATE_GROUP_NAME): pushes say only what
+kind of thing happened, with "Split Now" as the title (`privateGroupNote`: "You have a balance to
+settle in a private group.", "Rahul sent you a nudge about a private group.", "A private group has
+reached 80% of its budget."); its invite (readable to anyone with the link) is "A private group"
+with a lock and no people; a Pay me link and a Remind message say "A private group", with no emoji.
+
+## Turning an existing group private, or back
+
+Its creator, from Group ⋯ → Make private (or Private group → Turn off private), after a passkey
+and with a universal pattern set (vault op `convert`). The server does it, since the rules let no
+one rewrite other people's comments, chat or the append-only activity: it marks the group private
+first (from then on no phone without the key can write to it), makes its key, seals every
+document's words (`shared/vault-convert.ts` sealDoc; the same token code as the phones,
+`shared/vault-crypto.ts`), then a second pass for anything written meanwhile, renames its invite,
+and tells everyone in it. Turning it off opens every token (openDoc), marks it plain, opens once
+more, deletes its key and names the invite again. Only text changes, so no update trigger fires
+(they react to money, approvals and deletes). Demo mode does the same over its own copy.
 
 Not in private groups (yet): receipt photos and payment screenshots are not uploaded (Scan reads the
 bill on the phone and the photo stays there); the AI doesn't read their bills or chat (Scan in Add

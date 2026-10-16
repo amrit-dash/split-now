@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   groupPatternProblem,
   lockButton,
+  privateMenuShown,
   withoutLocked,
   patternProblem,
   refusalKind,
@@ -77,5 +78,15 @@ describe('the lock button', () => {
     expect(refusalKind({ code: 'functions/failed-precondition', message: 'Set up encrypted groups first: Settings → Encrypted groups.' })).toBe('setup')
     expect(refusalKind(Object.assign(new Error('x'), { name: 'NotAllowedError' }))).toBe('cancelled')
     expect(refusalKind(new Error('offline'))).toBe('other')
+  })
+})
+
+describe('the group menu', () => {
+  it('offers Private group to everyone in a private group, and to the creator of any other shared group', () => {
+    expect(privateMenuShown({ vault: true }, false, false)).toBe(true)
+    expect(privateMenuShown({ type: 'trip' }, true, true)).toBe(true)
+    expect(privateMenuShown({ type: 'trip' }, false, true)).toBe(false)
+    expect(privateMenuShown({ type: 'trip' }, true, false)).toBe(false)
+    expect(privateMenuShown({ type: 'personal' }, true, true)).toBe(false)
   })
 })

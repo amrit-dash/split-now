@@ -213,6 +213,11 @@ describe('group chat', () => {
     await assertFails(setDoc(chat('bob', 'r2'), { ...msg, replyTo: { ...reply, text: 'x'.repeat(161) } }))
     await assertFails(setDoc(chat('bob', 'r3'), { ...msg, replyTo: { ...reply, extra: 1 } }))
     await assertFails(setDoc(chat('bob', 'r4'), { ...msg, replyTo: { id: 'm1' } }))
+    // a private group's names are tokens: up to 200, the author's and the quoted one's
+    const sealedName = `v1:${'A'.repeat(197)}`
+    await assertSucceeds(setDoc(chat('bob', 'r5'), { ...msg, authorName: sealedName, replyTo: { ...reply, authorName: sealedName } }))
+    await assertFails(setDoc(chat('bob', 'r6'), { ...msg, authorName: `${sealedName}A` }))
+    await assertFails(setDoc(chat('bob', 'r7'), { ...msg, replyTo: { ...reply, authorName: `${sealedName}A` } }))
   })
   it('the author edits their words and tags (stamped editedAt), nothing else; deleted by the author or the group’s creator', async () => {
     await assertSucceeds(setDoc(chat('bob'), msg))

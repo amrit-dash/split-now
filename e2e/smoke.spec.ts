@@ -150,6 +150,55 @@ test('Private group: universal pattern, words stored encrypted, patterns go in o
   await expect(page.getByText('Vault trip')).toBeVisible()
 })
 
+test('Private group: its creator makes an existing group private, everything in it sealed, and turns it off again', async ({ page }) => {
+  const enter = async (p = 'TTLTLL') => {
+    for (const s of p) await page.getByTestId(s === 'T' ? 'pattern-add-tap' : 'pattern-add-long').click()
+  }
+  await page.goto('/settings/vault')
+  await page.getByTestId('vault-universal-open').click()
+  await enter()
+  await page.getByTestId('vault-set-next').click()
+  await enter()
+  await page.getByTestId('vault-set-next').click()
+  await expect(page.getByTestId('vault-line-pattern')).toContainText('Universal pattern set')
+
+  await page.goto('/groups/g_goa')
+  await expect(page.getByRole('heading', { level: 1, name: /Goa Trip/ })).toBeVisible()
+  await page.getByTestId('group-menu').click()
+  await page.getByTestId('vault-group-open').click()
+  await page.getByTestId('vault-convert-on').click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Make private' }).click()
+  // Open on this phone straight away; stored sealed: its name, its people, its expenses.
+  await expect(page.getByRole('heading', { level: 1, name: /Goa Trip/ })).toBeVisible()
+  const sealed = await page.evaluate(() => JSON.parse(localStorage.getItem('splitit-demo-v1') ?? '{}'))
+  expect(sealed.groups.g_goa.vault).toBe(true)
+  expect(sealed.groups.g_goa.name).toMatch(/^v1:/)
+  expect(sealed.groups.g_goa.members.p_priya.name).toMatch(/^v1:/)
+  expect(JSON.stringify(sealed.groups.g_goa)).not.toContain('Priya')
+  const goaExpenses = Object.values(sealed.expenses as Record<string, { groupId: string; description: string }>).filter((e) => e.groupId === 'g_goa')
+  expect(goaExpenses.length).toBeGreaterThan(0)
+  for (const e of goaExpenses) expect(e.description).toMatch(/^v1:/)
+
+  // Locked: nothing of its name shows; its own lock opens it again.
+  await page.getByTestId('vault-lock-now').click()
+  await expect(page.getByTestId('vault-lock')).toBeVisible()
+  await expect(page.getByText('Goa Trip')).toHaveCount(0)
+  const lock = page.getByTestId('vault-unlock-open')
+  for (const s of 'TTLTLL') await lock.click(s === 'L' ? { delay: 600 } : undefined)
+  await expect(page.getByRole('heading', { level: 1, name: /Goa Trip/ })).toBeVisible()
+
+  // Turned off: stored readable again.
+  await page.getByTestId('group-menu').click()
+  await page.getByTestId('vault-group-open').click()
+  await page.getByTestId('vault-convert-off').click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Turn off', exact: true }).click()
+  await expect(page.getByRole('heading', { level: 1, name: /Goa Trip/ })).toBeVisible()
+  const plain = await page.evaluate(() => JSON.parse(localStorage.getItem('splitit-demo-v1') ?? '{}'))
+  expect(plain.groups.g_goa.vault).toBeUndefined()
+  expect(plain.groups.g_goa.name).toBe('Goa Trip')
+  expect(JSON.stringify(plain.groups.g_goa)).not.toContain('v1:')
+})
+
 test('the + button opens the Create sheet; Add expense saves an equal split', async ({ page }) => {
   await page.goto('/groups/g_goa')
   await page.getByTestId('nav-create').click()

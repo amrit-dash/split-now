@@ -227,7 +227,11 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     return d.metadata.hasPendingWrites ? { ...m, pending: true } : m
   }
   // A 1:1's invite is named after the person already in it (shared/names.ts inviteNameFor), not the friend it's for.
-  const inviteDoc = (g: Group): InviteInfo => ({ groupId: g.id, groupName: inviteNameFor(g), emoji: g.emoji, placeholders: placeholdersOf(g) })
+  // A private group's invite (readable by anyone with the link) names nothing of it: no name, emoji or people (docs/VAULT.md).
+  const inviteDoc = (g: Group): InviteInfo =>
+    g.vault
+      ? { groupId: g.id, groupName: inviteNameFor(g), emoji: '🔒', placeholders: {} }
+      : { groupId: g.id, groupName: inviteNameFor(g), emoji: g.emoji, placeholders: placeholdersOf(g) }
 
   /**
    * Commit without waiting for the server. Firestore applies the batch to the local cache
@@ -792,7 +796,11 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       if (base.type !== 'personal' && ('name' in changed || 'emoji' in changed)) {
         batch.set(
           inviteRef(base.inviteCode),
-          { groupId: base.id, groupName: inviteNameFor({ ...base, name: changed.name ?? base.name }), emoji: changed.emoji ?? base.emoji },
+          {
+            groupId: base.id,
+            groupName: inviteNameFor({ ...base, name: changed.name ?? base.name }),
+            emoji: base.vault ? '🔒' : (changed.emoji ?? base.emoji),
+          },
           { merge: true },
         )
       }
@@ -1818,7 +1826,8 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     async vault<T>(req: VaultRequest) {
       if (!online()) throw new Error('You’re offline. Connect to the internet to open a private group.')
       // Refusals keep their details (tries left, locked until): src/lib/vault-api.ts vaultRefusal.
-      const fn = await callable<VaultRequest, T>('vault', 30_000)
+      // Converting a group rewrites every document in it on the server: give it the function's whole time.
+      const fn = await callable<VaultRequest, T>('vault', req.op === 'convert' ? 300_000 : 30_000)
       return (await fn(req)).data
     },
   }

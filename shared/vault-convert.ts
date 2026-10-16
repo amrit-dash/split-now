@@ -1,0 +1,142 @@
+import { fitForToken, isToken, openDeep, sealText, type VaultKey } from './vault-crypto'
+
+/*
+ * Turning an existing group private, or back (docs/VAULT.md): which words of each of its documents
+ * become tokens, and back again. The vault callable runs it over every document of the group with
+ * the Admin SDK (functions/src/vault.ts op `convert`, which may rewrite other people's comments and
+ * chat and the append-only activity), and demo mode runs it over its own copy. The phones seal the
+ * same fields of new writes (src/lib/vault-fields.ts, src/data/vault-repo.ts) with the same CAPS.
+ *
+ * Every function answers a patch: the top-level fields that changed, or null when nothing did, so a
+ * second pass over a group (to catch a write that landed during the first) touches only what's new.
+ * Pure apart from WebCrypto (browsers, Node 22). Documents are matched structurally (no @/types).
+ */
+
+/** The longest a field's token may be: the rules' caps (firestore.rules) for a private group. */
+export const CAPS = {
+  description: 200,
+  notes: 2000,
+  note: 500,
+  reason: 500,
+  comment: 2000,
+  chat: 1000,
+  title: 120,
+  itemNotes: 500,
+  groupName: 200,
+  emoji: 80,
+  memberName: 200,
+  authorName: 200,
+  actorName: 200,
+  summary: 1000,
+  replyText: 160,
+} as const
+
+export type ConvertKind = 'group' | 'expense' | 'settlement' | 'comment' | 'chat' | 'openItem' | 'activity'
+
+type Doc = Record<string, unknown>
+type Patch = Record<string, unknown> | null
+
+const isObj = (v: unknown): v is Doc => !!v && typeof v === 'object' && !Array.isArray(v)
+
+/** One text sealed to fit `cap`; empty, missing and already-sealed values stay as they are. */
+export async function sealField(k: VaultKey, v: unknown, cap: number): Promise<unknown> {
+  if (typeof v !== 'string' || !v || isToken(v)) return v
+  return sealText(k, fitForToken(v, cap))
+}
+
+/** The fields of `before` → `after` that differ, as a patch (null when none). */
+function diff(before: Doc, after: Doc): Patch {
+  const out: Doc = {}
+  for (const key of Object.keys(after)) if (JSON.stringify(before[key]) !== JSON.stringify(after[key])) out[key] = after[key]
+  return Object.keys(out).length ? out : null
+}
+
+async function sealMap(k: VaultKey, m: unknown, field: string, cap: number): Promise<unknown> {
+  if (!isObj(m)) return m
+  const out: Doc = {}
+  for (const [id, v] of Object.entries(m)) out[id] = isObj(v) ? { ...v, [field]: await sealField(k, v[field], cap) } : v
+  return out
+}
+
+/** A snapshot's words in an activity entry (before/after): the text fields alone, never amounts, dates or ids. */
+const SNAPSHOT_TEXT: Record<string, number> = {
+  description: CAPS.description,
+  notes: CAPS.notes,
+  title: CAPS.title,
+  note: CAPS.note,
+  reason: CAPS.reason,
+  name: CAPS.memberName,
+}
+
+async function sealSnapshot(k: VaultKey, s: unknown): Promise<unknown> {
+  if (!isObj(s)) return s
+  const out: Doc = { ...s }
+  for (const [key, cap] of Object.entries(SNAPSHOT_TEXT)) if (key in out) out[key] = await sealField(k, out[key], cap)
+  return out
+}
+
+/** The patch that seals one document of kind `kind` (its words; never amounts, dates, ids or emails). */
+export async function sealDoc(k: VaultKey, kind: ConvertKind, doc: Doc): Promise<Patch> {
+  const d: Doc = { ...doc }
+  const f = async (key: string, cap: number) => {
+    if (key in d) d[key] = await sealField(k, d[key], cap)
+  }
+  switch (kind) {
+    case 'group':
+      await f('name', CAPS.groupName)
+      await f('emoji', CAPS.emoji)
+      d.members = await sealMap(k, d.members, 'name', CAPS.memberName)
+      if (!('members' in doc)) delete d.members
+      break
+    case 'expense':
+      await f('description', CAPS.description)
+      await f('notes', CAPS.notes)
+      if (isObj(d.splitInput) && Array.isArray(d.splitInput.items))
+        d.splitInput = {
+          ...d.splitInput,
+          items: await Promise.all(
+            d.splitInput.items.map(async (it: unknown) => (isObj(it) ? { ...it, name: await sealField(k, it.name, CAPS.description) } : it)),
+          ),
+        }
+      if ('dispute' in d) d.dispute = await sealMap(k, d.dispute, 'reason', CAPS.reason)
+      break
+    case 'settlement':
+      await f('note', CAPS.note)
+      if (isObj(d.flag)) d.flag = { ...d.flag, reason: await sealField(k, d.flag.reason, CAPS.reason) }
+      break
+    case 'comment':
+      await f('text', CAPS.comment)
+      await f('authorName', CAPS.authorName)
+      break
+    case 'chat':
+      await f('text', CAPS.chat)
+      await f('authorName', CAPS.authorName)
+      if (isObj(d.replyTo))
+        d.replyTo = {
+          ...d.replyTo,
+          text: await sealField(k, d.replyTo.text, CAPS.replyText),
+          authorName: await sealField(k, d.replyTo.authorName, CAPS.authorName),
+        }
+      break
+    case 'openItem':
+      await f('title', CAPS.title)
+      await f('notes', CAPS.itemNotes)
+      break
+    case 'activity':
+      await f('summary', CAPS.summary)
+      await f('actorName', CAPS.actorName)
+      if ('before' in d) d.before = await sealSnapshot(k, d.before)
+      if ('after' in d) d.after = await sealSnapshot(k, d.after)
+      break
+  }
+  // A missing optional field stays missing: sealField answers undefined for it.
+  for (const key of Object.keys(d)) if (d[key] === undefined && !(key in doc)) delete d[key]
+  return diff(doc, d)
+}
+
+/** The patch that opens every token in one document, any kind, any depth (turning private off). */
+export async function openDoc(k: VaultKey, doc: Doc): Promise<Patch> {
+  // A token that doesn't open with this group's key (damaged, or copied from another group) is left as it is.
+  const opened = (await openDeep(doc, k, (t) => t)) as Doc
+  return diff(doc, opened)
+}

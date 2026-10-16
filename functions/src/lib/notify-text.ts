@@ -439,13 +439,39 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 /** The group a push is about, from where it opens (`/groups/{id}/…`), or undefined. */
 export function groupOfUrl(url: string | undefined): string | undefined {
   const m = url?.match(/^\/groups\/([A-Za-z0-9_-]{1,64})(?:[/?#]|$)/)
-  return m?.[1]
+  if (m) return m[1]
+  // Budget pushes open Insights for the group (?group=).
+  return url?.match(/[?&]group=([A-Za-z0-9_-]{1,64})(?:&|#|$)/)?.[1]
 }
 
+/** What a private group's push says, by what it is about (its tag): never the group, its words, its people or an amount. */
+const PRIVATE_BODY: [RegExp, string][] = [
+  [/^reminder-/, 'You have a balance to settle in a private group.'],
+  [/^nudge-/, 'You have a nudge about a private group. Open it to settle up.'],
+  [/^settlement-/, 'A payment in a private group. Open it to see.'],
+  [/^expense-deleted-/, 'Something was deleted in a private group.'],
+  [/^expense-/, 'New activity in a private group. Open it to see.'],
+  [/^chat-/, 'New message in a private group.'],
+  [/^group-deleted-/, 'A private group was deleted. It can be restored for 30 days.'],
+  [/^group-added-/, 'You were added to a private group.'],
+  [/^group-private-/, 'A group you’re in is now private. Open it with your pattern.'],
+  [/^group-plain-/, 'A group you’re in isn’t private any more.'],
+  [/^paylink-/, 'A Pay me link in a private group was used.'],
+  [/^open-/, 'Something new to sort out in a private group.'],
+]
+
 /**
- * A push about a private group (docs/VAULT.md) says only that something happened: the words are
- * encrypted anyway, and amounts stay off the lock screen until the group is opened in the app.
+ * A push about a private group (docs/VAULT.md) says only what kind of thing happened: no group
+ * name or emoji (the title is the app's), no words, no people and no amounts. A budget push keeps
+ * its threshold ("A private group has reached 80% of its budget"); a nudge names who sent it,
+ * the one name the person already knows (the first words of the nudge builder's body).
  */
 export function privateGroupNote(n: Note): Note {
-  return { ...n, body: 'Something new in this private group. Open it to see.' }
+  const tag = n.tag ?? ''
+  const budget = /^budget-.+-(\d+)$/.exec(tag)
+  let body = PRIVATE_BODY.find(([re]) => re.test(tag))?.[1] ?? 'Something new in a private group. Open it to see.'
+  if (budget) body = Number(budget[1]) >= 100 ? 'A private group is over its budget.' : `A private group has reached ${budget[1]}% of its budget.`
+  const sender = /^nudge-/.test(tag) ? n.body.match(/^(.{1,30}) reminded you/)?.[1] : undefined
+  if (sender) body = `${sender} sent you a nudge about a private group. Open it to settle up.`
+  return { ...n, title: 'Split Now', body }
 }

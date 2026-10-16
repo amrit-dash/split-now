@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { KeyRound, Lock, Server } from 'lucide-react'
+import { KeyRound, Lock, LockOpen, Server } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { repo } from '@/data'
 import type { Group } from '@/types'
 import { errText } from '@/lib/errors'
@@ -7,15 +8,19 @@ import type { VaultStatus } from '@/lib/vault-api'
 import { Sheet } from '@/components/Sheet'
 import { useConfirm } from '@/components/ConfirmSheet'
 import { useToast } from '@/components/Toast'
+import { vaultKey } from '@/lib/vault-crypto'
+import { lockVault, setVaultKey } from '@/lib/vault-keys'
 import { passkeyCancelled, passkeyProof } from './passkey'
 import { SetPatternSheet } from './SetPatternSheet'
 
 /**
  * Group ⋯ → Private group: whether its key is made, and its own pattern (optional: it opens only
  * this group, for anyone in it who knows it, even without a universal pattern). Anyone in the
- * group can set, change or remove it, after their passkey.
+ * group can set, change or remove it, after their passkey. Its creator also turns private on for
+ * an existing group, or off again (vault op `convert`, which seals or opens everything in it on
+ * the server and tells everyone).
  */
-export function PrivateGroupSheet({ group, open, onClose }: { group: Group; open: boolean; onClose: () => void }) {
+export function PrivateGroupSheet({ group, open, onClose, isCreator }: { group: Group; open: boolean; onClose: () => void; isCreator: boolean }) {
   const toast = useToast()
   const confirm = useConfirm()
   const [status, setStatus] = useState<VaultStatus | null>(null)
@@ -30,7 +35,7 @@ export function PrivateGroupSheet({ group, open, onClose }: { group: Group; open
     let live = true
     setFailed(null)
     repo
-      .vault<VaultStatus>({ op: 'status', groupId: group.id })
+      .vault<VaultStatus>(group.vault ? { op: 'status', groupId: group.id } : { op: 'status' })
       .then((s) => live && setStatus(s))
       .catch((e) => live && setFailed(errText(e)))
     return () => {
@@ -62,10 +67,64 @@ export function PrivateGroupSheet({ group, open, onClose }: { group: Group; open
     }
   }
 
+  const convert = async (on: boolean) => {
+    const ok = await confirm(
+      on
+        ? {
+            title: 'Make this group private?',
+            message:
+              'Its name, people’s names, expenses, notes, comments and chat are encrypted, and it opens with each person’s pattern. Everyone in it is told.',
+            confirmLabel: 'Make private',
+          }
+        : {
+            title: 'Turn off private?',
+            message: 'Everything in it is decrypted and stored readable again, and it no longer needs a pattern. Everyone in it is told.',
+            confirmLabel: 'Turn off',
+            tone: 'danger',
+          },
+    )
+    if (!ok) return
+    setBusy(true)
+    try {
+      const auth = await passkeyProof(repo)
+      const r = await repo.vault<{ dek?: string }>({ op: 'convert', groupId: group.id, on, auth })
+      if (on && r.dek) setVaultKey(await vaultKey(group.id, r.dek))
+      if (!on) lockVault(group.id)
+      toast(on ? 'This group is private now' : 'Private is off for this group')
+      onClose()
+    } catch (e) {
+      if (!passkeyCancelled(e)) toast(errText(e), 'err')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <>
       <Sheet open={open && !setting} onClose={onClose} title="Private group" testId="vault-group-sheet">
-        {failed ? (
+        {!group.vault ? (
+          // Not private yet: only its creator gets here (GroupDetail's menu).
+          !status && !failed ? (
+            <p className="text-muted py-6 text-center text-sm">Checking…</p>
+          ) : !status?.universal ? (
+            <div className="py-2 text-sm" data-testid="vault-convert-setup">
+              <p>Set your universal pattern first: it opens the group once it’s private.</p>
+              <Link to="/settings/vault" className="btn-primary mt-4 w-full" onClick={onClose}>
+                <KeyRound size={18} aria-hidden /> Set up encrypted groups
+              </Link>
+            </div>
+          ) : (
+            <div className="text-sm">
+              <p>
+                Encrypt this group: its name, people’s names, expenses, notes, comments and chat. While it’s locked, no one sees what’s in it, here or on the
+                server.
+              </p>
+              <button type="button" className="btn-primary mt-4 w-full" disabled={busy} onClick={() => void convert(true)} data-testid="vault-convert-on">
+                <Lock size={18} aria-hidden /> {busy ? 'Encrypting…' : 'Make this group private'}
+              </button>
+            </div>
+          )
+        ) : failed ? (
           <p className="text-muted py-6 text-center text-sm" role="status">
             {failed}
           </p>
@@ -94,6 +153,11 @@ export function PrivateGroupSheet({ group, open, onClose }: { group: Group; open
             {own?.hasPattern && (
               <button type="button" className="btn mt-2 w-full" disabled={busy} onClick={() => void remove()} data-testid="vault-group-pattern-remove">
                 Remove its pattern
+              </button>
+            )}
+            {isCreator && (
+              <button type="button" className="btn mt-2 w-full" disabled={busy} onClick={() => void convert(false)} data-testid="vault-convert-off">
+                <LockOpen size={18} aria-hidden /> {busy ? 'Decrypting…' : 'Turn off private'}
               </button>
             )}
           </>

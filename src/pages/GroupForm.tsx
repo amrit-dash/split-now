@@ -62,8 +62,8 @@ const TRIP_CAPTURE_HINT: Hint = {
 }
 const SIMPLIFY_HINT: Hint = { full: 'Fewer payments: if A owes B and B owes C, A pays C directly.', short: 'Fewer payments, same balances.' }
 const PRIVATE_HINT: Hint = {
-  full: 'Descriptions, notes, comments and chat are encrypted on your phone. Everyone opens it with their universal pattern of taps and long presses, plus Face ID or a passkey. Can’t be changed later.',
-  short: 'Encrypted, opens with your pattern and Face ID. Can’t be changed later.',
+  full: 'Its name, people’s names, descriptions, notes, comments and chat are encrypted. Everyone opens it with their universal pattern of taps and long presses, plus Face ID or a passkey. You can turn it off later from the group’s menu.',
+  short: 'Encrypted, opens with your pattern and Face ID.',
   tier: 'key',
 }
 const APPROVAL_HINT: Hint = {
@@ -127,7 +127,7 @@ export default function GroupForm() {
   const [budget, setBudget] = useState<number | undefined>(undefined)
   const [simplify, setSimplify] = useState(true)
   const [requireApproval, setRequireApproval] = useState(false)
-  // A private group (docs/VAULT.md): chosen once, when the group is made.
+  // A private group (docs/VAULT.md): chosen here when the group is made; later, its creator turns it on or off from the group's menu.
   const [privateOn, setPrivateOn] = useState(false)
   // A private group opens with its members' universal patterns, so turning it on needs one set first.
   const [privateNote, setPrivateNote] = useState<string | null>(null)
@@ -904,7 +904,7 @@ export default function GroupForm() {
           </Link>
         )}
 
-        {/* Private is chosen once, when the group is made, so it sits out here rather than under More options. */}
+        {/* Private sits out here rather than under More options: it's the one choice that changes how the group opens. */}
         {shareable && !existing && vaultsOn && (
           <div className="card flex items-center justify-between gap-4 p-4">
             <div id="private-label">

@@ -144,16 +144,22 @@ export function groupNameFor(
   return (peer && g.members?.[peer]?.name?.trim()) || g.name
 }
 
+/** What anything outside a private group calls it (docs/VAULT.md): never its name, which may be encrypted anyway. */
+export const PRIVATE_GROUP_NAME = 'A private group'
+
 /**
  * What a 1:1's invite calls it, for the friend who opens it: the person already in it with an
- * account (who shares the invite), not the friend's own name. Any other group: its name.
+ * account (who shares the invite), not the friend's own name. A private group: PRIVATE_GROUP_NAME.
+ * Any other group: its name.
  */
 export function inviteNameFor(g: {
   type?: string
   name: string
   createdBy?: string
+  vault?: boolean
   members?: Record<string, Named & { uid?: string; removedAt?: unknown }>
 }): string {
+  if (g.vault) return PRIVATE_GROUP_NAME
   if (g.type !== 'direct') return g.name
   const joined = Object.values(g.members ?? {}).filter((m) => m.uid && m.removedAt === undefined)
   const host = joined.find((m) => m.uid === g.createdBy) ?? joined[0]
@@ -162,13 +168,16 @@ export function inviteNameFor(g: {
 
 /**
  * A notification's group name for the person getting it: a 1:1 is the other person to each of
- * them (groupNameFor); `fallback` when the group isn't known.
+ * them (groupNameFor); "a private group" for a private one; `fallback` when the group isn't known.
  */
 export function groupNameForRecipient(
-  g: { type?: string; name?: string; members?: Record<string, Named & { uid?: string; removedAt?: unknown; formerUids?: string[] }> } | undefined,
+  g:
+    | { type?: string; name?: string; vault?: boolean; members?: Record<string, Named & { uid?: string; removedAt?: unknown; formerUids?: string[] }> }
+    | undefined,
   uid: string,
   fallback = 'Group',
 ): string {
   if (!g) return fallback
+  if (g.vault) return PRIVATE_GROUP_NAME.toLowerCase()
   return groupNameFor({ type: g.type, name: g.name ?? fallback, members: g.members }, uid)
 }

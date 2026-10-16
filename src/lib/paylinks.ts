@@ -1,4 +1,5 @@
 import type { Cents, Group, MemberId, PaymentHandles } from '@/types'
+import { PRIVATE_GROUP_NAME } from '../../shared/names'
 import {
   canMarkPaid,
   isPayLinkCode,
@@ -282,10 +283,11 @@ export function openTableLinks(
 /**
  * The group a Pay me link (and its share message) names for the payer, who opens it: a 1:1 is
  * the payee to them (the app's own group name for a 1:1 is the other person, the payer, which is
- * right for the payee only). Any other group: its name.
+ * right for the payee only). A private group: "A private group", never its name (the link and
+ * its message leave the app; docs/VAULT.md). Any other group: its name.
  */
-export const nameForPayer = (g: { type?: Group['type']; name: string }, payeeName: string): string =>
-  g.type === 'direct' ? payeeName.trim() || g.name : g.name
+export const nameForPayer = (g: { type?: Group['type']; name: string; vault?: boolean }, payeeName: string): string =>
+  g.vault ? PRIVATE_GROUP_NAME : g.type === 'direct' ? payeeName.trim() || g.name : g.name
 
 /**
  * The group a link names for whoever is looking: its creator (the payee) sees a 1:1 as the payer,

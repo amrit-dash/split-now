@@ -241,6 +241,7 @@ describe('1:1 links name the other person', () => {
   it('the payer sees the payee; other groups their name', () => {
     expect(nameForPayer({ type: 'direct', name: 'Meera' }, 'Amrit Dash')).toBe('Amrit Dash')
     expect(nameForPayer({ type: 'direct', name: 'Meera' }, ' ')).toBe('Meera')
+    expect(nameForPayer({ type: 'trip', name: 'Goa', vault: true }, 'Amrit')).toBe('A private group')
     expect(nameForPayer({ type: 'trip', name: 'Goa' }, 'Amrit')).toBe('Goa')
   })
   it('the payee sees their own copy of a 1:1 (the payer); anyone else the stored name', () => {

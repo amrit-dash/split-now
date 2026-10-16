@@ -12,6 +12,7 @@ export type VaultRequest =
   | { op: 'unlockFinish'; auth?: unknown; register?: unknown }
   | { op: 'groupPattern'; groupId: string; pattern: string | null; ordered: boolean; auth?: unknown }
   | { op: 'create'; groupId: string }
+  | { op: 'convert'; groupId: string; on: boolean; auth?: unknown }
 
 export interface VaultStatus {
   /** the server can make and open keys (VAULT_KEK is set) */
@@ -135,4 +136,10 @@ export function refusalKind(e: unknown): 'wrong' | 'locked' | 'setup' | 'cancell
   // The server's "no pattern yet" refusal (functions/src/vault.ts checkPattern), and the demo's.
   if ((code === '' || code.includes('failed-precondition')) && /Set up encrypted groups/.test(message)) return 'setup'
   return 'other'
+}
+
+/** Whether a group's ⋯ menu offers "Private group": a private one to everyone in it, any other shared group to its creator while private groups are on. */
+export function privateMenuShown(g: { vault?: boolean; type?: string }, isCreator: boolean, flagOn: boolean): boolean {
+  if (g.vault) return true
+  return flagOn && isCreator && g.type !== 'personal'
 }

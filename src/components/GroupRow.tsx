@@ -9,7 +9,7 @@ import { isLiveTrip } from '@/lib/capture'
 import { todayISO } from '@/lib/id'
 import { activeMembers } from '@/lib/members'
 import { spending } from '../../shared/received'
-import { currencySymbol, gibberish, scrambledAmount } from '@/lib/vault-scramble'
+import { currencySymbol, lockedText, scrambledAmount } from '@/lib/vault-scramble'
 import { AnimalStack, LockedTile } from '@/features/vault/Scrambled'
 import { useMe } from '@/hooks/auth'
 
@@ -81,7 +81,7 @@ function LockedRow({ d, count }: { d: GroupData; count: number }) {
     >
       <LockedTile />
       <div className="min-w-0 flex-1" aria-hidden>
-        <span className="block truncate font-semibold">{gibberish(id, 14)}</span>
+        <span className="block truncate font-semibold">{lockedText(d.group.name, id)}</span>
         <div className="mt-0.5 flex items-center gap-2">
           <AnimalStack seed={id} count={count} />
         </div>

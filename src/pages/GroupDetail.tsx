@@ -108,6 +108,7 @@ import { labelOf } from '@/lib/shortNames'
 import { useVaultOpen } from '@/hooks/useVault'
 import { VaultLock } from '@/features/vault/VaultLock'
 import { PrivateGroupSheet } from '@/features/vault/PrivateGroupSheet'
+import { privateMenuShown } from '@/lib/vault-api'
 import { lockVault } from '@/lib/vault-keys'
 
 type Tab = 'expenses' | 'open' | 'balances' | 'activity'
@@ -144,6 +145,7 @@ export default function GroupDetail() {
   const feed = useActivity(groupId)
   const whoseTurnOn = useFlag('whoseTurn')
   const openItemsOn = useFlag('openItems')
+  const vaultsOn = useFlag('vaults')
   const chatOn = useFlag('groupChat')
   const openItems = useOpenItems(openItemsOn ? groupId : undefined)
   // The unread dot: only the newest message is watched here (one document), not the whole chat.
@@ -210,6 +212,8 @@ export default function GroupDetail() {
   const inviteUrl = inviteLink(location.origin, group.inviteCode)
   const shareInviteUrl = inviteLink(location.origin, group.inviteCode, group.members[me ?? '']?.name)
   const creator = group.createdBy === user.uid
+  // A private group's sheet, or for its creator the way to make any other shared group private.
+  const privateMenu = privateMenuShown(group, creator, vaultsOn)
   const fail = (e: unknown) => toast(errText(e), 'err')
   // A private hint for the next bill (src/lib/fairness.ts): never pushed, never a score.
   const turn = whoseTurnOn && showTurn && !personal && !group.archived ? whoseTurn({ group, expenses: d.expenses }) : null
@@ -658,7 +662,7 @@ export default function GroupDetail() {
         </div>
       </Sheet>
 
-      {group.vault && <PrivateGroupSheet group={group} open={patternOpen} onClose={() => setPatternOpen(false)} />}
+      {privateMenu && <PrivateGroupSheet group={group} open={patternOpen} onClose={() => setPatternOpen(false)} isCreator={creator} />}
       <Sheet open={menu} onClose={() => setMenu(false)} title={group.name} testId="group-menu-sheet">
         <ul className="-mx-2 divide-y divide-slate-100 dark:divide-white/5">
           <MenuRow
@@ -693,10 +697,10 @@ export default function GroupDetail() {
               }}
             />
           )}
-          {group.vault && (
+          {privateMenu && (
             <MenuRow
               icon={<Lock size={20} />}
-              label="Private group"
+              label={group.vault ? 'Private group' : 'Make private'}
               hint={MENU_HINTS.pattern}
               onClick={() => {
                 setMenu(false)
@@ -783,7 +787,7 @@ const MENU_HINTS = {
   members: { full: 'Add people, or remove someone who is settled up', short: 'Add or remove people', tier: 'help' },
   invite: { full: 'A link or QR code friends can join with', short: 'Share a join link', tier: 'help' },
   insights: { full: 'Where the group’s money went, in charts', short: 'Spending charts', tier: 'help' },
-  pattern: { full: 'Its encryption key and its own pattern, if it has one', short: 'Key and own pattern', tier: 'help' },
+  pattern: { full: 'Encryption, its key and its own pattern', short: 'Encryption and patterns', tier: 'help' },
   received: { full: 'Refunds and reimbursements, and what they changed for each person', short: 'What came back', tier: 'help' },
   export: { full: 'Every expense and payment as a spreadsheet', short: 'Download a spreadsheet', tier: 'help' },
   leave: { full: 'You leave; what you added stays in the group', short: 'Leave this group', tier: 'help' },

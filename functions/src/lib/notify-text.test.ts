@@ -145,7 +145,29 @@ describe('pushes about a private group', () => {
     expect(groupOfUrl('/groups/g_1?tab=balances')).toBe('g_1')
     expect(groupOfUrl('/settle/with/u1')).toBeUndefined()
     expect(groupOfUrl(undefined)).toBeUndefined()
-    const n = privateGroupNote({ title: '🔒 Goa', body: 'Amrit added Hotel · ₹5,000', url: '/groups/g/expenses/e', tag: 't' })
-    expect(n).toEqual({ title: '🔒 Goa', body: 'Something new in this private group. Open it to see.', url: '/groups/g/expenses/e', tag: 't' })
+    expect(groupOfUrl('/insights?group=g_2')).toBe('g_2')
+    expect(groupOfUrl('/insights?x=1&group=g_3')).toBe('g_3')
+    const n = privateGroupNote({ title: '🏖️ Goa', body: 'Amrit added Hotel · ₹5,000', url: '/groups/g/expenses/e', tag: 't' })
+    expect(n).toEqual({ title: 'Split Now', body: 'Something new in a private group. Open it to see.', url: '/groups/g/expenses/e', tag: 't' })
+  })
+  it('say what kind of thing happened, and nothing more', async () => {
+    const { budgetNote, nudgeNote, privateGroupNote, reminderNote } = await import('./notify-text')
+    const say = (n: Parameters<typeof privateGroupNote>[0]) => {
+      const out = privateGroupNote(n)
+      expect(out.title).toBe('Split Now')
+      expect(out.body).not.toMatch(/Goa|₹|Hotel/)
+      return out.body
+    }
+    expect(say(reminderNote({ groupId: 'g', groupName: 'Goa', owed: 120000, currency: 'INR' }))).toBe('You have a balance to settle in a private group.')
+    expect(say(budgetNote({ groupId: 'g', groupName: 'Goa', threshold: 80, spent: 8000, budget: 10000, currency: 'INR' }))).toBe(
+      'A private group has reached 80% of its budget.',
+    )
+    expect(say(budgetNote({ groupId: 'g', groupName: 'Goa', threshold: 100, spent: 12000, budget: 10000, currency: 'INR' }))).toBe(
+      'A private group is over its budget.',
+    )
+    expect(
+      say(nudgeNote({ groupId: 'g', groupName: 'Goa', fromName: 'Rahul', owed: 120000, currency: 'INR', debtorMemberId: 'm1', senderMemberId: 'm2' })),
+    ).toBe('Rahul sent you a nudge about a private group. Open it to settle up.')
+    expect(say({ title: 'x', body: 'Hotel', url: '/groups/g/chat', tag: 'chat-g' })).toBe('New message in a private group.')
   })
 })
