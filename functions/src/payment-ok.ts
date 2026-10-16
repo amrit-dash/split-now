@@ -35,10 +35,12 @@ export async function checkProof(
   groupId: string,
   settlementId: string,
   s: ProofSettlement,
-  g: { currency?: string; members?: Record<string, { name?: string; uid?: string } | undefined> },
+  g: { currency?: string; vault?: boolean; members?: Record<string, { name?: string; uid?: string } | undefined> },
   payeeUid: string,
 ): Promise<PaymentCheck['verdict'] | null> {
   if (!shouldCheck(s, groupId, settlementId)) return null
+  // A private group's screenshot is sealed on the phone, and its words never reach the AI (docs/VAULT.md): the payee checks it.
+  if (g.vault) return null
   // Each check runs on the payee's AI allowance: one payer can't burn through it by recording and
   // deleting payments in a loop (config/limits proofChecksPerHour / proofChecksPerDay).
   if (!(await proofCheckAllowed(String(s.createdBy ?? ''), payeeUid, Date.now()))) {
@@ -49,6 +51,8 @@ export async function checkProof(
   const [meta] = await file.getMetadata().catch(() => [null])
   if (!meta || Number(meta.size) > MAX_PROOF) return null
   const [bytes] = await file.download()
+  // Sealed (shared/vault-crypto.ts sealBytes: "SNV1" first), whatever the group says now.
+  if (bytes.subarray(0, 4).toString('latin1') === 'SNV1') return null
   const ai = await aiReadPayment(payeeUid, bytes, s.paid?.currency ?? g.currency ?? 'INR', istDate(new Date()))
   if (!ai.ok) {
     logger.info('payment check skipped', { groupId, settlementId, reason: ai.reason })

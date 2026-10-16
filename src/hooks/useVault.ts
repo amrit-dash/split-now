@@ -1,4 +1,5 @@
-import { useMemo, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { repo } from '@/data'
 import type { Group } from '@/types'
 import { useGroups } from '@/hooks/data'
 import { withoutLocked } from '@/lib/vault-api'
@@ -26,4 +27,29 @@ export function usePickableGroups(): Group[] | null {
   const v = useVaultVersion()
   // biome-ignore lint/correctness/useExhaustiveDependencies: v stands for which groups are open, read through isUnlocked.
   return useMemo(() => (groups ? withoutLocked(groups, isUnlocked) : null), [groups, v])
+}
+
+/**
+ * What an <img> shows for a stored photo (repo.photoUrl): its URL, or for a private group's the
+ * photo opened on the phone; null while it loads or can't be shown. Reads again when the group
+ * opens or locks.
+ */
+export function usePhotoUrl(groupId: string | undefined, photo: { path?: string; url?: string } | undefined): string | null {
+  const v = useVaultVersion()
+  const [url, setUrl] = useState<string | null>(null)
+  const path = photo?.path
+  const plain = photo?.url
+  // biome-ignore lint/correctness/useExhaustiveDependencies: v stands for which groups are open.
+  useEffect(() => {
+    if (!groupId || (!path && !plain)) return setUrl(null)
+    let live = true
+    repo
+      .photoUrl(groupId, { path, url: plain })
+      .then((u) => live && setUrl(u))
+      .catch(() => live && setUrl(null))
+    return () => {
+      live = false
+    }
+  }, [groupId, path, plain, v])
+  return url
 }

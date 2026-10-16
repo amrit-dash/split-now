@@ -281,8 +281,8 @@ export default function SettleUp() {
       const paid = conv && rate ? paidIn(conv.cur, conv.paid, rate.rate, rate.date) : undefined
       await repo.saveSettlement(
         { id, ...base, amount: clears, method, note: note.trim() || undefined, payLink: link, paid },
-        // Private groups keep no photos yet (docs/VAULT.md).
-        needsOk && proof && !group.vault ? { proof } : undefined,
+        // A private group's screenshot is sealed on the way up (src/data/vault-repo.ts); only the payee reads it.
+        needsOk && proof ? { proof } : undefined,
       )
       if (link) repo.markPayLinkPaid(link, { method, settlementId: id }).catch((e) => console.warn('Pay me link not updated', e))
       // The rest is let go as its own record, so the history shows what was paid and what was waived.
@@ -457,7 +457,7 @@ export default function SettleUp() {
             e.target.value = ''
             if (!f) return
             // The same screenshot is the proof the recipient (and the server's check) will see.
-            if (needsOk && !group.vault) setProof(f)
+            if (needsOk) setProof(f)
             try {
               applyPayment(parsePaymentScreenshot(await ocr.run(f)))
             } catch (err) {
@@ -531,8 +531,6 @@ export default function SettleUp() {
                 <X size={18} aria-hidden />
               </button>
             </div>
-          ) : group.vault ? (
-            <p className="text-muted mt-3 text-xs">Private groups don’t keep screenshots yet. Tell them how you paid in a note.</p>
           ) : (
             <button type="button" className="btn-secondary btn-sm mt-3 w-full" onClick={() => proofRef.current?.click()} data-testid="settle-proof-add">
               <ImagePlus size={16} aria-hidden /> Attach payment screenshot

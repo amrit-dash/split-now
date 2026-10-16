@@ -1,7 +1,7 @@
 import type { ChatMessage, Expense, ExpenseComment, Group, OpenItem, Settlement } from '@/types'
 import type { Repo } from './repo'
-import { getVaultKey } from '@/lib/vault-keys'
-import type { VaultKey } from '@/lib/vault-crypto'
+import { getVaultKey, onVaultChange } from '@/lib/vault-keys'
+import { openBytes, sealBytes, type VaultKey } from '@/lib/vault-crypto'
 import { CAPS, sealChat, sealComment, sealExpense, sealOpenItem, sealReason, sealSettlement } from '@/lib/vault-fields'
 import { sealField } from '../../shared/vault-convert'
 
@@ -45,8 +45,42 @@ export function withVault(inner: Repo): Repo {
     if (vaults.has(groupId)) throw new Error(LOCKED_WRITE)
     return null
   }
+  /** A photo sealed with `k` before it leaves the phone. */
+  const sealer = (k: VaultKey) => async (b: Blob) => new Blob([(await sealBytes(k, new Uint8Array(await b.arrayBuffer()))) as BlobPart], { type: 'image/jpeg' })
+  // Opened photos, by group and path, until the group locks (the bytes stay sealed in Storage).
+  const opened = new Map<string, string>()
+  onVaultChange((gid) => {
+    for (const [key, url] of opened)
+      if ((gid === null || key.startsWith(`${gid}:`)) && !(gid && getVaultKey(gid))) {
+        URL.revokeObjectURL(url)
+        opened.delete(key)
+      }
+  })
+
   return {
     ...inner,
+    attachReceipt: (groupId: string, expenseId: string, file: Blob) => {
+      const k = keyFor(groupId)
+      return inner.attachReceipt(groupId, expenseId, file, k ? { seal: sealer(k) } : undefined)
+    },
+    async photoUrl(groupId: string, photo: { path?: string; url?: string }) {
+      if (!vaults.has(groupId)) return inner.photoUrl(groupId, photo)
+      const k = getVaultKey(groupId)
+      const where = photo.path ?? photo.url
+      if (!k || !where) return null
+      const hit = opened.get(`${groupId}:${where}`)
+      if (hit) return hit
+      const bytes = await inner.fileBytes(where)
+      const plain = bytes && (await openBytes(k, bytes))
+      if (!plain) return null
+      const url = URL.createObjectURL(new Blob([plain as BlobPart], { type: 'image/jpeg' }))
+      opened.set(`${groupId}:${where}`, url)
+      return url
+    },
+    async settleProofUrl(s: Parameters<Repo['settleProofUrl']>[0]) {
+      if (!vaults.has(s.groupId)) return inner.settleProofUrl(s)
+      return s.proofPath?.startsWith(`settleproofs/${s.groupId}/`) ? this.photoUrl(s.groupId, { path: s.proofPath }) : null
+    },
     watchGroups: (uid: string, cb: Parameters<Repo['watchGroups']>[1]) =>
       inner.watchGroups(uid, (gs, m) => {
         for (const g of gs) note(g)
@@ -76,15 +110,19 @@ export function withVault(inner: Repo): Repo {
     },
     addMember: async (group: Group, memberId: string, member: Parameters<Repo['addMember']>[2]) => {
       const k = group.vault ? keyFor(group.id) : null
-      return inner.addMember(raw(group), memberId, { ...member, name: (await sealName(k, member.name, CAPS.memberName)) ?? member.name })
+      return inner.addMember(raw(group), memberId, {
+        ...member,
+        name: (await sealName(k, member.name, CAPS.memberName)) ?? member.name,
+        ...(member.photoURL ? { photoURL: await sealName(k, member.photoURL, CAPS.memberPhoto) } : {}),
+      })
     },
     updateOwnMember: async (group: Group, memberId: string, patch: Parameters<Repo['updateOwnMember']>[2]) => {
       const k = group.vault ? keyFor(group.id) : null
-      return inner.updateOwnMember(
-        raw(group),
-        memberId,
-        patch.name === undefined ? patch : { ...patch, name: (await sealName(k, patch.name, CAPS.memberName)) ?? patch.name },
-      )
+      const sealed = { ...patch }
+      if (patch.name !== undefined) sealed.name = (await sealName(k, patch.name, CAPS.memberName)) ?? patch.name
+      // a person's photo link names who they are, so it is sealed too
+      if (patch.photoURL) sealed.photoURL = await sealName(k, patch.photoURL, CAPS.memberPhoto)
+      return inner.updateOwnMember(raw(group), memberId, sealed)
     },
     refreshInviteName: (group: Group) => inner.refreshInviteName(raw(group)),
     setArchived: (group: Group, on: boolean) => inner.setArchived(raw(group), on),
@@ -119,7 +157,7 @@ export function withVault(inner: Repo): Repo {
     },
     saveSettlement: async (s: Settlement, opts?: Parameters<Repo['saveSettlement']>[1]) => {
       const k = keyFor(s.groupId)
-      return inner.saveSettlement(k ? await sealSettlement(k, s) : s, opts)
+      return inner.saveSettlement(k ? await sealSettlement(k, s) : s, k && opts?.proof ? { ...opts, seal: sealer(k) } : opts)
     },
     flagPayment: async (groupId: string, id: string, reason?: string) => {
       const k = keyFor(groupId)

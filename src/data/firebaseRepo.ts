@@ -1145,11 +1145,12 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       log(batch, group.id, disputeActivity('approved', e, await actCtx(group.id, e, group)))
       fire(batch, `Approving “${e.description}”`)
     },
-    attachReceipt(groupId, expenseId, file) {
+    attachReceipt(groupId, expenseId, file, opts) {
       if (!online()) return false
       const r = doc(db, 'groups', groupId, 'expenses', expenseId)
       ;(async () => {
-        const [blob, { storage, sdk }] = await Promise.all([downscale(file, 1600, 0.8), lazyStorage()])
+        const [small, { storage, sdk }] = await Promise.all([downscale(file, 1600, 0.8), lazyStorage()])
+        const blob = opts?.seal ? await opts.seal(small) : small
         const path = `receipts/${groupId}/${expenseId}-${uid()}.jpg`
         const fileRef = sdk.ref(storage, path)
         await sdk.uploadBytes(fileRef, blob, { contentType: 'image/jpeg' })
@@ -1187,7 +1188,8 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       if (opts?.proof) {
         // Before the payment exists, so the server's check finds the screenshot when it runs.
         if (!online()) throw new Error('You’re offline. Connect to attach the screenshot, or record the payment without it.')
-        const [blob, { storage, sdk }] = await Promise.all([downscale(opts.proof, 1600, 0.85), lazyStorage()])
+        const [small, { storage, sdk }] = await Promise.all([downscale(opts.proof, 1600, 0.85), lazyStorage()])
+        const blob = opts.seal ? await opts.seal(small) : small
         const proofPath = `settleproofs/${st.groupId}/${st.id}.jpg`
         await sdk.uploadBytes(sdk.ref(storage, proofPath), blob, { contentType: 'image/jpeg' })
         st = { ...st, proofPath }
@@ -1216,6 +1218,18 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       batch.update(groupRef(groupId), { updatedAt: Date.now() })
       if (s) log(batch, groupId, settlementActivity('flagged', s, await actCtx(groupId), text))
       fire(batch, 'Flagging the payment')
+    },
+    async photoUrl(_groupId, photo) {
+      return photo.url ?? null
+    },
+    async fileBytes(path) {
+      try {
+        const { storage, sdk } = await lazyStorage()
+        return new Uint8Array(await sdk.getBytes(sdk.ref(storage, path)))
+      } catch (e) {
+        console.warn('Photo unavailable', e)
+        return null
+      }
     },
     async settleProofUrl(s) {
       if (!s.proofPath?.startsWith(`settleproofs/${s.groupId}/`)) return null

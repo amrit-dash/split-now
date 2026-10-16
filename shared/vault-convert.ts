@@ -25,6 +25,7 @@ export const CAPS = {
   groupName: 200,
   emoji: 80,
   memberName: 200,
+  memberPhoto: 2048,
   authorName: 200,
   actorName: 200,
   summary: 1000,
@@ -54,7 +55,8 @@ function diff(before: Doc, after: Doc): Patch {
 async function sealMap(k: VaultKey, m: unknown, field: string, cap: number): Promise<unknown> {
   if (!isObj(m)) return m
   const out: Doc = {}
-  for (const [id, v] of Object.entries(m)) out[id] = isObj(v) ? { ...v, [field]: await sealField(k, v[field], cap) } : v
+  // Only a field an entry has: an `undefined` written back would be refused (Firestore) or show up as a change.
+  for (const [id, v] of Object.entries(m)) out[id] = isObj(v) && field in v ? { ...v, [field]: await sealField(k, v[field], cap) } : v
   return out
 }
 
@@ -86,6 +88,8 @@ export async function sealDoc(k: VaultKey, kind: ConvertKind, doc: Doc): Promise
       await f('name', CAPS.groupName)
       await f('emoji', CAPS.emoji)
       d.members = await sealMap(k, d.members, 'name', CAPS.memberName)
+      // a person's photo link names who they are: sealed too (the photo itself stays where it is)
+      d.members = await sealMap(k, d.members, 'photoURL', CAPS.memberPhoto)
       if (!('members' in doc)) delete d.members
       break
     case 'expense':

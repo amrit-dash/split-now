@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { usePhotoUrl } from '@/hooks/useVault'
 import { errText } from '@/lib/errors'
 import { SPLIT_TYPE_LABEL } from '@/lib/expense-draft'
 import { formatDate, formatDateTime } from '@/lib/locale'
@@ -254,14 +255,7 @@ export default function ExpenseDetail() {
           <p className="whitespace-pre-wrap text-sm">{e.notes}</p>
         </div>
       )}
-      {e.receiptUrl && (
-        <div className="card mt-3 overflow-hidden">
-          <div className="label px-4 pt-4">Receipt</div>
-          <a href={e.receiptUrl} target="_blank" rel="noreferrer">
-            <img src={e.receiptUrl} alt="Receipt" className="max-h-96 w-full object-contain" />
-          </a>
-        </div>
-      )}
+      {(e.receiptUrl || e.receiptPath) && <ReceiptCard groupId={group.id} path={e.receiptPath} url={e.receiptUrl} />}
       {group.type !== 'personal' && <Comments group={group} expense={e} />}
       {/* History is background: the Minimal look leaves it out. */}
       <Detail min={2}>
@@ -426,4 +420,21 @@ function creatorName(group: Group, uid: string, me: string): string | undefined 
   if (uid === me) return 'you'
   const id = authorMember(group, uid)
   return id ? labelOf(group.members, id, '', authorMember(group, me)) || undefined : undefined
+}
+
+/** The receipt photo: a private group's opened on the phone (repo.photoUrl), never shown sealed. */
+function ReceiptCard({ groupId, path, url }: { groupId: string; path?: string; url?: string }) {
+  const src = usePhotoUrl(groupId, { path, url })
+  return (
+    <div className="card mt-3 overflow-hidden" data-testid="receipt-card">
+      <div className="label px-4 pt-4">Receipt</div>
+      {src ? (
+        <a href={src} target="_blank" rel="noreferrer">
+          <img src={src} alt="Receipt" className="max-h-96 w-full object-contain" />
+        </a>
+      ) : (
+        <p className="text-muted px-4 pb-4 pt-1 text-sm">Loading the photo…</p>
+      )}
+    </div>
+  )
 }

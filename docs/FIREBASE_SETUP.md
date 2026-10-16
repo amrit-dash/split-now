@@ -58,6 +58,16 @@ The app is then live at `https://<project>.web.app`.
 ### Security headers
 Every Hosting site in `firebase.json` (`split-it-prod`, `split-now`, `freesplit`) sends the same headers on every response (`src/lib/hosting.test.ts` fails if a site's headers or rewrites drift from the others): `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin` (so `/join/<code>` and `/t/<code>` never leak to third-party referrers), `X-Frame-Options: DENY`, a `Permissions-Policy` that allows only the camera (for Scan) and a `Cross-Origin-Opener-Policy` that still lets the Google sign-in popup talk to the app. The `Content-Security-Policy-Report-Only` header lists every origin the app talks to (Firebase Auth / Firestore / Storage / Functions / FCM / App Check, Google sign-in, reCAPTCHA Enterprise, Frankfurter, jsDelivr for Tesseract language data). It only reports: open the browser console on each flow (sign-in popup and redirect, a scan with and without AI, statement import, a live table, push) for a week; when nothing is reported, rename it to `Content-Security-Policy` in every site's block. If you add a custom domain or a new backend origin, add it to `connect-src` / `frame-src` first. The service worker and the two scripts it imports (`/*-sw.js`) are served with `Cache-Control: no-cache`, so an update never installs a stale import.
 
+### Storage CORS (private groups' photos)
+
+A private group's receipts and payment screenshots are sealed on the phone, so the app downloads
+their bytes and opens them itself; browsers allow that only with the bucket's CORS set. The deploy
+workflow applies [`storage.cors.json`](../storage.cors.json) (the app's origins, GET only) on
+every rules deploy. The deploy service account needs to manage the bucket for that (Storage Admin
+on the project, or on the bucket alone); without it the step warns and those photos show "Loading
+the photo…" until CORS is set. By hand, once:
+`gcloud storage buckets update gs://<project>.firebasestorage.app --cors-file=storage.cors.json`.
+
 ## 5. Local development against emulators (optional)
 
 ```bash
