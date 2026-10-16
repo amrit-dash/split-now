@@ -1,51 +1,27 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { Delete } from 'lucide-react'
-import { LONG_PRESS_MS, PATTERN_MAX, stepOf, type Step } from '@/lib/vault-api'
+import { PATTERN_MAX, type Step } from '@/lib/vault-api'
+import { usePress } from './usePress'
 
 /**
- * A private group's pattern: taps and long presses on one big pad, in order. The dots only count
- * the steps (they never show which were long), so someone looking over a shoulder learns nothing
- * from the screen. While held, the ring fills to say "this one is long". Space or Enter work the
- * same as a press; the two small buttons add a step for screen readers and switch access.
+ * A pattern being set (Settings → Encrypted groups, a group's own pattern): taps and long presses
+ * on one big pad, in order. The dots only count the steps (they never show which were long), so
+ * someone looking over a shoulder learns little from the screen. While held, the ring fills to say
+ * "this one is long". Space or Enter work the same as a press; the two small buttons add a step for
+ * screen readers and switch access. Unlocking uses BlindPad, which shows nothing at all.
  */
 export function PatternPad({ steps, onChange, disabled }: { steps: Step[]; onChange: (s: Step[]) => void; disabled?: boolean }) {
-  const down = useRef<number | null>(null)
-  const [holding, setHolding] = useState(false)
-  const [long, setLong] = useState(false)
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const stepsRef = useRef(steps)
   stepsRef.current = steps
-  useEffect(() => () => clearTimeout(timer.current), [])
-
   const add = (s: Step) => {
     if (disabled || stepsRef.current.length >= PATTERN_MAX) return
     onChange([...stepsRef.current, s])
   }
-  const start = () => {
-    if (disabled || down.current !== null) return
-    down.current = performance.now()
-    setHolding(true)
-    setLong(false)
-    timer.current = setTimeout(() => {
-      setLong(true)
-      navigator.vibrate?.(15)
-    }, LONG_PRESS_MS)
-  }
-  const end = () => {
-    if (down.current === null) return
-    const ms = performance.now() - down.current
-    down.current = null
-    clearTimeout(timer.current)
-    setHolding(false)
-    setLong(false)
-    add(stepOf(ms))
-  }
-  const cancel = () => {
-    down.current = null
-    clearTimeout(timer.current)
-    setHolding(false)
-    setLong(false)
-  }
+  const { holding, long, handlers } = usePress(add, disabled)
+  // The buzz when a held press becomes a long one.
+  useEffect(() => {
+    if (long) navigator.vibrate?.(15)
+  }, [long])
 
   return (
     <div className="flex flex-col items-center">
@@ -72,25 +48,7 @@ export function PatternPad({ steps, onChange, disabled }: { steps: Step[]; onCha
               : 'border-brand-300 bg-brand-50 dark:bg-brand-900/30'
             : 'border-slate-200 bg-white dark:border-white/10 dark:bg-ink-800'
         } disabled:opacity-50`}
-        onPointerDown={(e) => {
-          e.currentTarget.setPointerCapture(e.pointerId)
-          start()
-        }}
-        onPointerUp={end}
-        onPointerCancel={cancel}
-        onContextMenu={(e) => e.preventDefault()}
-        onKeyDown={(e) => {
-          if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) {
-            e.preventDefault()
-            start()
-          }
-        }}
-        onKeyUp={(e) => {
-          if (e.key === ' ' || e.key === 'Enter') {
-            e.preventDefault()
-            end()
-          }
-        }}
+        {...handlers}
       >
         <span className="text-muted text-sm font-semibold">{holding ? (long ? 'Long press' : 'Hold for long') : 'Press here'}</span>
       </button>

@@ -6,6 +6,8 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Private groups open with your own universal pattern now. Set it once in Settings → Encrypted groups, along with a passkey; it opens every private group you're in from the lock on the Groups screen, or one group from inside it. Nothing shows on screen while you enter it: each press buzzes, and it's checked after a short pause. Face ID or your passkey is asked for only after the pattern is right. Turn off Follow the sequence to have only the number of taps and long presses count. A group can also have its own pattern (Group ⋯ → Private group), which opens only that group. Patterns set in 7.1 keep working as the group's own.
+
 ## 7.2.0 — October 2026
 
 - Admin → Logs: the server's logs (every function, filter by level, function, time, words or an account or group id, open an entry to see everything it carries and copy it) and errors reported from people's phones (crashes, unexpected errors and refused saves). A screen that crashes now shows "This screen hit a problem" with Reload instead of a blank page.

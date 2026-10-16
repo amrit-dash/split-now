@@ -68,6 +68,7 @@ describe('routeChunks', () => {
     expect(routeChunks('/settings/ai')).toEqual(['Settings', 'SettingsAi'])
     expect(routeChunks('/settings/data')).toEqual(['Settings', 'SettingsData'])
     expect(routeChunks('/settings/animations')).toEqual(['Settings', 'SettingsAnimations'])
+    expect(routeChunks('/settings/vault')).toEqual(['Settings', 'SettingsVault'])
     expect(routeChunks('/settings/admin')).toEqual(['Settings'])
     expect(routeChunks('/settings/constructor')).toEqual(['Settings'])
   })
@@ -75,7 +76,7 @@ describe('routeChunks', () => {
 
 describe('prefetchAfter', () => {
   it('fetches Settings and its areas from Profile, and the areas from Settings', () => {
-    const areas = ['SettingsPreferences', 'SettingsNotifications', 'SettingsAutomation', 'SettingsAi', 'SettingsData', 'SettingsAnimations']
+    const areas = ['SettingsPreferences', 'SettingsNotifications', 'SettingsAutomation', 'SettingsAi', 'SettingsData', 'SettingsAnimations', 'SettingsVault']
     expect(prefetchAfter('/profile')).toEqual(['Settings', ...areas])
     expect(prefetchAfter('/settings')).toEqual(areas)
     expect(prefetchAfter('/settings/data')).toEqual(areas)

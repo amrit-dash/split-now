@@ -1,101 +1,140 @@
-import type { VaultRequest, VaultStatus } from '@/lib/vault-api'
-import { patternProblem } from '@/lib/vault-api'
+import type { UnlockStarted, VaultRequest, VaultStatus } from '@/lib/vault-api'
+import { groupPatternProblem, patternProblem } from '@/lib/vault-api'
 
 /*
  * Private groups in demo mode: the vault callable's answers made on the device, so the whole flow
- * (set a pattern, unlock, wrong tries, lockout, change it) works without a server. There is no
- * passkey step and nothing here is secret: the "server" is this browser's storage. The real one
- * is functions/src/vault.ts.
+ * (set a universal pattern, unlock every private group or one, a group's own pattern, wrong tries,
+ * lockout) works without a server. There is no passkey step: unlockStart answers with the keys at
+ * once. Nothing here is secret: the "server" is this browser's storage. The real one is
+ * functions/src/vault.ts.
  */
 
-interface DemoVault {
+interface Hash {
   hash: string
   salt: string
-  dek: string
-  tries?: { wrong: number; lockedUntil?: number }
+  ordered: boolean
 }
 
-const KEY = 'sn-demo-vaults'
+interface DemoState {
+  person?: Hash
+  /** wrong patterns, universal or a group's own, counted together like the server does */
+  tries?: { wrong: number; lockedUntil?: number }
+  groups: Record<string, { dek: string; pattern?: Hash }>
+}
+
+const KEY = 'sn-demo-vault'
+/** 7.1's demo kept one pattern per group; those become the groups' own patterns. */
+const OLD_KEY = 'sn-demo-vaults'
 const FREE_TRIES = 5
 const FIRST_LOCK_MS = 15 * 60_000
 
 const b64 = (b: Uint8Array) => btoa(String.fromCharCode(...b))
+const canonical = (p: string, ordered: boolean) => (ordered ? p : [...p].sort().join(''))
 
-async function hash(pattern: string, salt: string) {
-  return b64(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${salt}:${pattern}`))))
+async function digest(pattern: string, salt: string, ordered: boolean) {
+  return b64(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${salt}:${canonical(pattern, ordered)}`))))
 }
 
-/** A refusal shaped like the callable's (code + details), so the unlock screen reads both the same way. */
+async function hashOf(pattern: string, ordered: boolean): Promise<Hash> {
+  const salt = b64(crypto.getRandomValues(new Uint8Array(16)))
+  return { salt, ordered, hash: await digest(pattern, salt, ordered) }
+}
+
+const matches = async (pattern: string, h: Hash | undefined) => !!h && (await digest(pattern, h.salt, h.ordered)) === h.hash
+
+/** A refusal shaped like the callable's (code + details), so the unlock sheet reads both the same way. */
 function refuse(message: string, details?: object): never {
   throw Object.assign(new Error(message), { code: 'permission-denied', details })
 }
 
-export function demoVault(store: Pick<Storage, 'getItem' | 'setItem'> | undefined, now = () => Date.now()) {
-  const read = (): Record<string, DemoVault> => {
+/**
+ * `privateGroups` lists the live private groups the demo person is in (the "every group" unlock).
+ */
+export function demoVault(store: Pick<Storage, 'getItem' | 'setItem'> | undefined, now = () => Date.now(), privateGroups: () => string[] = () => []) {
+  const read = (): DemoState => {
     try {
-      return JSON.parse(store?.getItem(KEY) ?? '{}') as Record<string, DemoVault>
+      const raw = store?.getItem(KEY)
+      if (raw) return JSON.parse(raw) as DemoState
+      const old = JSON.parse(store?.getItem(OLD_KEY) ?? '{}') as Record<string, { hash: string; salt: string; dek: string }>
+      return { groups: Object.fromEntries(Object.entries(old).map(([id, v]) => [id, { dek: v.dek, pattern: { hash: v.hash, salt: v.salt, ordered: true } }])) }
     } catch {
-      return {}
+      return { groups: {} }
     }
   }
-  const write = (v: Record<string, DemoVault>) => {
+  const write = (v: DemoState) => {
     try {
       store?.setItem(KEY, JSON.stringify(v))
     } catch {
       /* storage full or off */
     }
   }
-  const check = async (all: Record<string, DemoVault>, groupId: string, pattern: string): Promise<DemoVault> => {
-    const v = all[groupId]
-    if (!v) refuse('This group’s pattern isn’t set yet.')
-    if (v.tries?.lockedUntil && now() < v.tries.lockedUntil) refuse('Too many wrong patterns. Try again later.', { lockedUntil: v.tries.lockedUntil })
-    if ((await hash(pattern, v.salt)) !== v.hash) {
-      const wrong = (v.tries?.wrong ?? 0) + 1
-      v.tries = wrong < FREE_TRIES ? { wrong } : { wrong, lockedUntil: now() + FIRST_LOCK_MS * 2 ** (wrong - FREE_TRIES) }
-      write(all)
-      refuse('That’s not the pattern.', { triesLeft: Math.max(0, FREE_TRIES - wrong), lockedUntil: v.tries.lockedUntil })
-    }
-    delete v.tries
-    write(all)
-    return v
+  const keyOf = (s: DemoState, groupId: string): string => {
+    s.groups[groupId] ??= { dek: b64(crypto.getRandomValues(new Uint8Array(32))) }
+    return s.groups[groupId].dek
   }
   return async function vault<T>(req: VaultRequest): Promise<T> {
-    const all = read()
+    const s = read()
+    const person = s.person
+    const locked = !!s.tries?.lockedUntil && now() < s.tries.lockedUntil
     switch (req.op) {
       case 'status': {
-        const v = all[req.groupId]
-        const locked = !!v?.tries?.lockedUntil && now() < v.tries.lockedUntil
+        const g = req.groupId ? s.groups[req.groupId] : undefined
         return {
-          setUp: !!v,
+          serverReady: true,
           hasPasskey: true,
-          triesLeft: locked ? 0 : FREE_TRIES - (v?.tries?.wrong ?? 0),
-          ...(locked ? { lockedUntil: v?.tries?.lockedUntil } : {}),
+          universal: !!person,
+          ...(person ? { ordered: person.ordered } : {}),
+          triesLeft: locked ? 0 : FREE_TRIES - (s.tries?.wrong ?? 0),
+          ...(locked ? { lockedUntil: s.tries?.lockedUntil } : {}),
+          ...(req.groupId ? { group: { keyReady: !!g, hasPattern: !!g?.pattern, ...(g?.pattern ? { ordered: g.pattern.ordered } : {}) } } : {}),
         } satisfies VaultStatus as T
       }
       case 'passkeyOptions':
         return { options: null, hasPasskey: true } as T
       case 'passkeyRegister':
         return { ok: true } as T
-      case 'setup': {
+      case 'setUniversal': {
         const problem = patternProblem(req.pattern)
         if (problem) refuse(problem)
-        if (all[req.groupId]) refuse('Someone already set this group’s pattern. Unlock it with theirs.')
-        const salt = b64(crypto.getRandomValues(new Uint8Array(16)))
-        const dek = b64(crypto.getRandomValues(new Uint8Array(32)))
-        all[req.groupId] = { salt, hash: await hash(req.pattern, salt), dek }
-        write(all)
+        s.person = await hashOf(req.pattern, req.ordered)
+        delete s.tries
+        write(s)
+        return { ok: true } as T
+      }
+      case 'unlockStart': {
+        const own = req.groupId ? s.groups[req.groupId]?.pattern : undefined
+        if (!person && !own) refuse('Set up encrypted groups first: Settings → Encrypted groups.')
+        if (locked) refuse('Too many wrong patterns. Try again later.', { lockedUntil: s.tries?.lockedUntil })
+        const universal = await matches(req.pattern, person)
+        if (!universal && !(await matches(req.pattern, own))) {
+          const wrong = (s.tries?.wrong ?? 0) + 1
+          s.tries = wrong < FREE_TRIES ? { wrong } : { wrong, lockedUntil: now() + FIRST_LOCK_MS * 2 ** (wrong - FREE_TRIES) }
+          write(s)
+          refuse('That’s not it.', { triesLeft: Math.max(0, FREE_TRIES - wrong), lockedUntil: s.tries.lockedUntil })
+        }
+        delete s.tries
+        const ids = universal && !req.groupId ? privateGroups() : [req.groupId as string]
+        const keys = Object.fromEntries(ids.map((id) => [id, keyOf(s, id)]))
+        write(s)
+        return { keys } satisfies UnlockStarted as T
+      }
+      case 'unlockFinish':
+        return refuse('That took too long. Try again.')
+      case 'groupPattern': {
+        if (req.pattern !== null) {
+          const problem = groupPatternProblem(req.pattern)
+          if (problem) refuse(problem)
+        }
+        const dek = keyOf(s, req.groupId)
+        s.groups[req.groupId] = { dek, ...(req.pattern === null ? {} : { pattern: await hashOf(req.pattern, req.ordered) }) }
+        write(s)
         return { dek } as T
       }
-      case 'unlock':
-        return { dek: (await check(all, req.groupId, req.pattern)).dek } as T
-      case 'changePattern': {
-        const problem = patternProblem(req.next)
-        if (problem) refuse(problem)
-        const v = await check(all, req.groupId, req.pattern)
-        v.salt = b64(crypto.getRandomValues(new Uint8Array(16)))
-        v.hash = await hash(req.next, v.salt)
-        write(all)
-        return { dek: v.dek } as T
+      case 'create': {
+        if (s.groups[req.groupId]) refuse('This group already has its key. Unlock it with your pattern.')
+        const dek = keyOf(s, req.groupId)
+        write(s)
+        return { dek } as T
       }
     }
   }

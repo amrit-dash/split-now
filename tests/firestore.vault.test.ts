@@ -68,5 +68,8 @@ describe('private groups', () => {
   it('passkeys live in the server-only secrets', async () => {
     await assertFails(getDoc(doc(db('alice'), 'users/alice/secrets/passkeys')))
     await assertFails(setDoc(doc(db('alice'), 'users/alice/secrets/passkeys'), { credentials: [] }))
+    // the universal pattern's hash and the wrong tries, too: no one may read, reset or forge them
+    await assertFails(getDoc(doc(db('alice'), 'users/alice/secrets/vault')))
+    await assertFails(setDoc(doc(db('alice'), 'users/alice/secrets/vault'), { tries: {} }))
   })
 })

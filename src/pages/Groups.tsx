@@ -1,7 +1,12 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Eye, EyeOff, FileUp, Plus, Trash2 } from 'lucide-react'
+import { Eye, EyeOff, FileUp, Lock, LockOpen, Plus, Trash2 } from 'lucide-react'
 import { useAllGroupData, useDeletedGroups } from '@/hooks/data'
+import { useFlag } from '@/hooks/useAppConfig'
+import { useVaultVersion } from '@/hooks/useVault'
+import { lockButton } from '@/lib/vault-api'
+import { isUnlocked, lockVault } from '@/lib/vault-keys'
+import { UnlockSheet } from '@/features/vault/UnlockSheet'
 import { GroupRow } from '@/components/GroupRow'
 import { PageHeader } from '@/components/Misc'
 import { Collapsible } from '@/components/Collapsible'
@@ -23,6 +28,16 @@ export default function Groups() {
     setShowSettledState(on)
     storeShowSettled(on)
   }
+  const vaultsOn = useFlag('vaults')
+  useVaultVersion()
+  const [unlocking, setUnlocking] = useState(false)
+  // The universal pattern's lock: every private group at once (src/lib/vault-api.ts lockButton).
+  const vaultButton = vaultsOn
+    ? lockButton(
+        (data ?? []).filter((d) => d.group.vault).map((d) => d.group.id),
+        isUnlocked,
+      )
+    : 'none'
   const now = Date.now()
   const quiet = (data ?? []).filter((d) => !d.group.archived && settledAWhile(d, now))
   const header = (
@@ -30,6 +45,18 @@ export default function Groups() {
       title="Groups"
       right={
         <div className="flex gap-2">
+          {vaultButton !== 'none' && (
+            <button
+              type="button"
+              onClick={() => (vaultButton === 'lock' ? lockVault() : setUnlocking(true))}
+              aria-label={vaultButton === 'lock' ? 'Lock private groups' : 'Unlock private groups'}
+              title={vaultButton === 'lock' ? 'Lock private groups' : 'Unlock private groups'}
+              className={`flex h-11 w-11 items-center justify-center rounded-full ${vaultButton === 'lock' ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200' : 'bg-slate-200/70 dark:bg-ink-800'}`}
+              data-testid="groups-vault"
+            >
+              {vaultButton === 'lock' ? <LockOpen size={20} aria-hidden /> : <Lock size={20} aria-hidden />}
+            </button>
+          )}
           {quiet.length > 0 && (
             <button
               type="button"
@@ -62,6 +89,7 @@ export default function Groups() {
       }
     />
   )
+  const unlockSheet = vaultsOn && <UnlockSheet open={unlocking} onClose={() => setUnlocking(false)} />
   if (!data)
     return (
       <div>
@@ -86,6 +114,7 @@ export default function Groups() {
   return (
     <div>
       {header}
+      {unlockSheet}
       {data.length === 0 ? (
         <FirstRun />
       ) : shared.length > 0 ? (
