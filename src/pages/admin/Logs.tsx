@@ -35,14 +35,17 @@ function Row({ head, sub, badge, tone, full, testId }: { head: string; sub: stri
       <button type="button" className="flex min-h-12 w-full items-start gap-2 px-3 py-2 text-left" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
         <span className={`mt-0.5 shrink-0 rounded-md px-1.5 py-0.5 text-[0.6875rem] font-bold ${tone}`}>{badge}</span>
         <span className="min-w-0 flex-1">
-          <span className={`block text-sm ${open ? 'break-words' : 'truncate'}`}>{head || '(no message)'}</span>
+          <span className={`block text-sm ${open ? '[overflow-wrap:anywhere]' : 'truncate'}`}>{head || '(no message)'}</span>
           <span className="text-muted block truncate text-xs">{sub}</span>
         </span>
         <ChevronDown size={16} className={`text-muted mt-1 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
       </button>
       {open && (
         <div className="px-3 pb-3">
-          <pre className="max-h-96 overflow-auto rounded-xl bg-slate-50 p-3 text-xs leading-relaxed dark:bg-ink-900">{asCopyText(full)}</pre>
+          {/* Wrapped, never scrolled sideways: a stack trace or a long URL breaks onto the next line (indentation kept). */}
+          <pre className="max-h-96 overflow-y-auto overflow-x-hidden whitespace-pre-wrap rounded-xl bg-slate-50 p-3 text-xs leading-relaxed [overflow-wrap:anywhere] dark:bg-ink-900">
+            {asCopyText(full)}
+          </pre>
           <button type="button" className="chip mt-2 min-h-10" onClick={() => void copy()}>
             <Copy size={14} aria-hidden /> Copy
           </button>

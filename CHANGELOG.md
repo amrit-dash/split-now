@@ -6,6 +6,8 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Admin → Logs: an opened entry wraps its long lines (stack traces, URLs) instead of scrolling sideways.
+
 ## 8.0.0 — October 2026
 
 - Private groups open with your own universal pattern now. Set it once in Settings → Encrypted groups, along with a passkey. Then tap and long-press it on a lock button: the one on the Groups screen opens every private group you're in, the one inside a group opens just that group. There is no pattern screen and nothing shows the pattern going in or being wrong; it's checked after a short pause. Face ID or your passkey is asked for only after the pattern is right. Turn off Follow the sequence to have only the number of taps and long presses count. A group can also have its own pattern (Group ⋯ → Private group), which opens only that group. Patterns set in 7.1 keep working as the group's own.
