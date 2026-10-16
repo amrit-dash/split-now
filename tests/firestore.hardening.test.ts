@@ -426,6 +426,9 @@ describe('expense & settlement validation', () => {
     await assertSucceeds(setDoc(e('bob', 't6'), { ...expense, id: 't6', icon: '🍕' }))
     await assertFails(setDoc(e('bob', 't7'), { ...expense, id: 't7', icon: 'x'.repeat(81) }))
     await assertFails(setDoc(e('bob', 't8'), { ...expense, id: 't8', icon: 7 }))
+    // an AI-drawn icon: up to 4096 characters of markup
+    await assertSucceeds(setDoc(e('bob', 't9'), { ...expense, id: 't9', iconSvg: '<svg/>' }))
+    await assertFails(setDoc(e('bob', 't10'), { ...expense, id: 't10', iconSvg: 'x'.repeat(4097) }))
   })
   const st = { id: 's1', groupId: 'g1', from: 'bob', to: 'alice', amount: 500, method: 'Cash', date: '2026-01-01', createdBy: 'bob', createdAt: 1 }
   const s = (uid: string, id = 's1') => doc(db(uid), `groups/g1/settlements/${id}`)

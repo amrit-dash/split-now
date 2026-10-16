@@ -75,6 +75,29 @@ describe('private groups', () => {
     await assertFails(updateDoc(doc(db('bob'), 'groups/g2'), { 'members.bob.photoURL': token(300), memberOpId: 'bob', updatedAt: 5 }))
     await assertSucceeds(updateDoc(doc(db('bob'), 'groups/g2'), { 'members.bob.photoURL': 'https://lh3.example/b.jpg', memberOpId: 'bob', updatedAt: 5 }))
   })
+  it('an AI-drawn icon is for plain groups only: it can’t be sealed', async () => {
+    await assertSucceeds(updateDoc(doc(db('alice'), 'groups/g2'), { iconSvg: '<svg/>', updatedAt: 2 }))
+    await assertFails(updateDoc(doc(db('alice'), 'groups/g2'), { iconSvg: 'x'.repeat(4097), updatedAt: 3 }))
+    await assertFails(updateDoc(doc(db('alice'), 'groups/g1'), { iconSvg: '<svg/>', updatedAt: 2 }))
+    const e = {
+      id: 'e1',
+      groupId: 'g1',
+      description: 'v1:AAAA',
+      amount: 500,
+      category: 'food',
+      date: '2026-10-01',
+      paidBy: { alice: 500 },
+      splits: { alice: 500 },
+      splitType: 'equal',
+      splitInput: { selected: ['alice'] },
+      createdBy: 'alice',
+      createdAt: 1,
+      updatedAt: 1,
+    }
+    await assertSucceeds(setDoc(doc(db('alice'), 'groups/g1/expenses/e1'), e))
+    await assertFails(setDoc(doc(db('alice'), 'groups/g1/expenses/e2'), { ...e, id: 'e2', iconSvg: '<svg/>' }))
+    await assertSucceeds(setDoc(doc(db('alice'), 'groups/g2/expenses/e3'), { ...e, id: 'e3', groupId: 'g2', iconSvg: '<svg/>' }))
+  })
   it('nobody joins a private group from its invite; a plain group still takes them', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), 'groups/g1'), { ...group, vault: true, members: { ...group.members, p_x: { name: 'Placeholder', color: '#222' } } })

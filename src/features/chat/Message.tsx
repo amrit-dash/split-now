@@ -21,6 +21,7 @@ import type { ActivityEntry, ChatMessage, ChatReplyRef, Debt, Expense, Group, Me
 import { activityText } from '@/lib/activity'
 import { CATEGORIES } from '@/lib/categories'
 import { expenseEmoji } from '@/lib/icons'
+import { IconFace } from '@/components/IconFace'
 import { authorMember, foldsUpdates, linkParts, payCard, settleCard, updateKind, type ChatRow, type UpdateKind } from '@/lib/chat'
 import { listNames, mentionParts, type Mentionable } from '@/lib/chat-tools'
 import { formatTime } from '@/lib/locale'
@@ -617,7 +618,7 @@ function Card({ m, ctx, mine, memberId }: { m: ChatMessage; ctx: MessageCtx; min
         isReceived(e) ? 'Money received' : 'Expense',
         <div className="flex items-center gap-2.5">
           <span className="text-2xl" aria-hidden>
-            {expenseEmoji(e)}
+            <IconFace iconSvg={e.iconSvg} emoji={expenseEmoji(e)} />
           </span>
           <div className="min-w-0 flex-1">
             <div className="truncate text-base font-semibold">{e.description}</div>

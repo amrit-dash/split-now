@@ -3,7 +3,7 @@
  * Functions; the server is the one that enforces it.
  *
  *  config/ai                     project settings (admins edit; everyone signed in can read)
- *  users/{uid}/settings/notifications   the user's choices (aiEnabled, aiImages, aiSms, aiQuickAdd, aiPayments, aiSource, aiModel, aiFreeOk)
+ *  users/{uid}/settings/notifications   the user's choices (aiEnabled, aiImages, aiSms, aiQuickAdd, aiPayments, aiIcons, aiSource, aiModel, aiFreeOk)
  *  users/{uid}/secrets/gemini    the user's own key (server only; the app can never read it back)
  *  users/{uid}/aiState/status    server-written: own key last 4, last error (owner can read)
  */
@@ -87,6 +87,8 @@ export interface UserAiPrefs {
   aiQuickAdd: boolean
   /** payment screenshots attached in Settle up are checked by AI and clear payments to you that need your OK */
   aiPayments: boolean
+  /** "Suggest with AI" in the icon sheet (iconsAi): asked only when the person taps it; on unless turned off */
+  aiIcons: boolean
   aiSource: AiSource
   /** model for the user's own key; '' = recommended */
   aiModel: string
@@ -102,6 +104,7 @@ export const DEFAULT_USER_AI: UserAiPrefs = {
   aiSms: false,
   aiQuickAdd: false,
   aiPayments: true,
+  aiIcons: true,
   aiSource: 'auto',
   aiModel: '',
   aiFreeOk: false,
@@ -142,6 +145,7 @@ export function resolveUserAi(raw: unknown): UserAiPrefs {
     aiSms: r.aiSms === true,
     aiQuickAdd: r.aiQuickAdd === true,
     aiPayments: r.aiPayments !== false,
+    aiIcons: r.aiIcons !== false,
     aiSource: r.aiSource === 'own' || r.aiSource === 'app' ? r.aiSource : 'auto',
     aiModel: validModel(r.aiModel) ? r.aiModel : '',
     aiFreeOk: r.aiFreeOk === true,

@@ -299,7 +299,11 @@ export function createLocalRepo(): Repo {
     const k = await vaultKey(groupId, dek)
     const apply = async <T extends object>(kind: ConvertKind, doc: T): Promise<T> => {
       const p = on ? await sealDoc(k, kind, doc as Record<string, unknown>) : await openDoc(k, doc as Record<string, unknown>)
-      return p ? ({ ...doc, ...p } as T) : doc
+      if (!p) return doc
+      // null in a patch is a field that goes (sealDoc drops an AI-drawn icon)
+      const out: Record<string, unknown> = { ...doc, ...p }
+      for (const [f, v] of Object.entries(p)) if (v === null) delete out[f]
+      return out as T
     }
     const g = state.groups[groupId]
     if (!g) return
@@ -1376,6 +1380,11 @@ export function createLocalRepo(): Repo {
       // and add …" shape (loaded on first use, with the Quick add grammar it builds on).
       const { demoQuickAi } = await import('@/lib/quick-ai-demo')
       return { result: demoQuickAi(req) }
+    },
+    async iconsAi(req) {
+      // No server here: a stand-in on the phone answers from the icon catalogue (loaded on first use).
+      const { demoIcons } = await import('@/lib/icon-ai-demo')
+      return demoIcons(req)
     },
     async aiKey() {
       throw new Error('AI features aren’t available in the demo')

@@ -9,7 +9,7 @@ import type { PaymentRead } from '../../../shared/payment-ok'
 
 const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models'
 
-type Schema = Record<string, unknown>
+export type Schema = Record<string, unknown>
 const num = (description: string): Schema => ({ type: 'NUMBER', nullable: true, description })
 const str = (description: string): Schema => ({ type: 'STRING', nullable: true, description })
 

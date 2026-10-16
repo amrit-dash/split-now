@@ -119,5 +119,8 @@ describe('own key', () => {
     await assertSucceeds(setDoc(ref, { aiQuickAdd: true, updatedAt: 1 }, { merge: true }))
     await assertFails(setDoc(ref, { aiQuickAdd: 'on' }, { merge: true }))
     await assertFails(setDoc(doc(as('bob'), 'users/alice/settings/notifications'), { aiQuickAdd: true }, { merge: true }))
+    // AI icons: a bool like the other switches
+    await assertSucceeds(setDoc(ref, { aiIcons: false, updatedAt: 1 }, { merge: true }))
+    await assertFails(setDoc(ref, { aiIcons: 'no' }, { merge: true }))
   })
 })

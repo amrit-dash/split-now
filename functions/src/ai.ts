@@ -58,6 +58,8 @@ import { limitPair } from '../../shared/limits'
 import type { QuickAiResponse } from '../../shared/quick-ai'
 import { cleanQuickRequest, normaliseQuickAi, QUICK_SCHEMA, quickPrompt } from './lib/quick-ai'
 import { flagOn, getLimits } from './lib/limits'
+import { cleanIconRequest, ICON_SCHEMA, iconPrompt, normaliseIcons } from './lib/icon-ai'
+import type { IconSuggestions } from '../../shared/icon-ai'
 import { applyRateLimit, type RateState } from './lib/ratelimit'
 import { parseKekList, readStoredKey, storedKeyFields } from './lib/seal'
 import { addDays, istDate } from './lib/time'
@@ -204,7 +206,7 @@ async function allow(
 async function record(
   ctx: Ctx,
   plan: KeyPlan | 'denied',
-  feature: AiFeature | 'text' | 'chat',
+  feature: AiFeature | 'text' | 'chat' | 'icons',
   now: number,
   extra: { err?: GeminiError; usage?: GeminiUsage; model?: string; denied?: 'user' | 'global'; key?: KeyPlan['key'] } = {},
 ) {
@@ -282,7 +284,7 @@ async function withAi<T>(
   feature: AiFeature,
   call: (key: string, models: string[], gemma: boolean) => Promise<{ value: T; usage?: GeminiUsage; model?: string }>,
   /** how the call is counted in stats/ai_{day} when it isn't the feature it is gated by (Quick add text uses the images allowance) */
-  statAs: AiFeature | 'text' | 'chat' = feature,
+  statAs: AiFeature | 'text' | 'chat' | 'icons' = feature,
 ): Promise<AiOutcome<T>> {
   // The admin's kill switch (config/app flags.aiImages / aiSms / aiQuickAdd) stops the feature for everyone, own keys included.
   if (!(await flagOn(FEATURE_FLAG[feature]))) return { ok: false, reason: 'off' }
@@ -540,6 +542,44 @@ export const quickAddAi = onCall({ ...base, timeoutSeconds: 60, maxInstances: 10
   if (r.ok) return { result: r.value, via: r.via, model: r.model }
   return r.kind === 'blocked' ? { result: { action: 'unknown' } } : { unavailable: true, reason: r.reason }
 })
+
+/**
+ * Callable, signed-in users only: "Suggest with AI" in the icon sheet.
+ *  { title ≤ 80, kind: 'expense' | 'group', category? } → { emoji: string[] (≤3), svgs: string[] (≤3, cleaned) }
+ *  → { unavailable: true, reason }   when the flag (config/app aiIcons), bill reading's switches or every key says no
+ * Never sent for a private group (the app doesn't offer it there: the title would leave the phone).
+ * Same keys and allowance as Quick add's text reader (the "images" one), counted as `{own|app}_icons`
+ * in stats/ai_{day}. Every drawing is cleaned (shared/svg-icon.ts); a drawing that isn't plain shapes
+ * is dropped. Nothing is saved here: the person picks one, and the app stores it with the expense or group.
+ */
+export const iconsAi = onCall(
+  { ...base, timeoutSeconds: 60, maxInstances: 10 },
+  async (req): Promise<IconSuggestions | { unavailable: true; reason: AiUnavailableReason }> => {
+    const me = signedIn(req)
+    const input = cleanIconRequest(req.data)
+    if (!input) throw new HttpsError('invalid-argument', 'Nothing to draw')
+    if (!(await flagOn('aiIcons'))) return { unavailable: true, reason: 'off' }
+    const ctx = await loadCtx(me.uid, me.email)
+    // The person's own switch (Settings → AI: AI icons), under the master switch.
+    if (!ctx.user.aiEnabled || !ctx.user.aiIcons) return { unavailable: true, reason: 'off' }
+    const r = await withAi(
+      ctx,
+      'images',
+      async (key, models, gemma) => {
+        const g = await generateJson(key, [{ text: `<title>${input.title}</title>` }], ICON_SCHEMA, {
+          models,
+          timeoutMs: budget(gemma, 20_000, 52_000),
+          maxOutputTokens: 4096,
+          systemInstruction: iconPrompt(input),
+        })
+        return { value: normaliseIcons(g.json), usage: g.usage, model: g.modelVersion ?? g.model }
+      },
+      'icons',
+    )
+    if (r.ok) return r.value
+    return r.kind === 'blocked' ? { emoji: [], svgs: [] } : { unavailable: true, reason: r.reason }
+  },
+)
 
 function toPart(x: { image?: unknown; mimeType?: unknown }): GeminiPart {
   const { image, mimeType } = x ?? {}

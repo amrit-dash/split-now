@@ -413,7 +413,8 @@ async function convertPass(gid: string, k: VaultKey, seal: boolean, opts: { grou
     const patch = seal ? await sealDoc(k, kind, doc) : await openDoc(k, doc)
     if (!patch) return
     changed++
-    void writer.update(ref, patch)
+    // null in a patch is a field that goes (sealDoc drops an AI-drawn icon)
+    void writer.update(ref, Object.fromEntries(Object.entries(patch).map(([f, v]) => [f, v === null ? FieldValue.delete() : v])))
   }
   const groupRef = db().doc(`groups/${gid}`)
   const g = await groupRef.get()

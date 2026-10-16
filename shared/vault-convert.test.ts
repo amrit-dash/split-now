@@ -45,6 +45,9 @@ describe('converting a group', () => {
     expect(p.splitInput.items[0]?.amount).toBe(1)
     expect(isToken(p.dispute.u1?.reason)).toBe(true)
     expect(await sealDoc(k, 'expense', { amount: 5 })).toBeNull()
+    // an AI-drawn icon can't be sealed: it goes (null is a delete)
+    expect(await sealDoc(k, 'expense', { amount: 5, iconSvg: '<svg/>' })).toEqual({ iconSvg: null })
+    expect((await sealDoc(k, 'group', { name: 'Goa', iconSvg: '<svg/>' }))?.iconSvg).toBeNull()
     const chat = (await sealDoc(k, 'chat', {
       text: 'hi',
       authorName: 'Asha',

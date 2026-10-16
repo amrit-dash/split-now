@@ -47,6 +47,10 @@ The project key is **off** until an admin turns it on.
 
 In **Profile → AI features → Your Gemini key**, a person pastes their key; the server checks it with Google (by listing models) and stores it in `users/{uid}/secrets/gemini`, which no client can read. The app only ever shows its last 4 characters. They can pick any Flash model their key can use; a retired model falls back to the recommended one (`gemini-2.5-flash-lite`).
 
+## Icons with AI
+
+Press and hold an icon (an expense's or a group's), then **Suggest with AI** (`iconsAi`): from the title the model returns three emoji and up to three small drawn icons. Gemma can't paint pictures (it writes text), so the drawings are SVG, which is text: the prompt (`functions/src/lib/icon-ai.ts`) asks for a flat, bold icon of 2 to 8 shapes in 2 or 3 hex colours on a 24 × 24 grid, lists the only elements and attributes allowed, and shows two worked examples. Whatever comes back is rebuilt by `shared/svg-icon.ts cleanSvg`: only path, circle, ellipse, rect, line, polyline, polygon and g, with numeric, path-data, hex-colour or keyword values; a script, text, image, link, style, entity or unknown element makes the whole drawing unusable. The app cleans a stored drawing again before showing it, as an image (a data: URL), where SVG can't run anything. It is asked only when the person taps Suggest, never in a private group (the title would leave the phone, and a drawing can't be sealed), and uses the bills allowance. Admin switch: `aiIcons`; per person: Settings → AI features → AI icons.
+
 ## Limits and privacy
 
 - Calls are rate-limited per person and key (`rateLimits/ai_*`), and daily usage is counted in `stats/ai_{day}` for admins.
