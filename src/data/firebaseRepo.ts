@@ -59,6 +59,7 @@ import {
   type QuerySnapshot,
   type WriteBatch,
 } from 'firebase/firestore'
+import type { VaultRequest } from '@/lib/vault-api'
 import type { FirebaseStorage } from 'firebase/storage'
 import type {
   ActivityEntry,
@@ -1807,6 +1808,12 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     async aiUsage(day) {
       const s = await getDoc(doc(db, 'stats', `ai_${day}`))
       return (s.data() as Record<string, number> | undefined) ?? null
+    },
+    async vault<T>(req: VaultRequest) {
+      if (!online()) throw new Error('You’re offline. Connect to the internet to open a private group.')
+      // Refusals keep their details (tries left, locked until): src/lib/vault-api.ts vaultRefusal.
+      const fn = await callable<VaultRequest, T>('vault', 30_000)
+      return (await fn(req)).data
     },
   }
 

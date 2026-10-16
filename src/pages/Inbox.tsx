@@ -54,6 +54,7 @@ import { SwipeRow } from '@/components/SwipeRow'
 import { labelForUid, labelOf, memberIdOfUid } from '@/lib/shortNames'
 import { groupsDeletedByOthers } from '@/lib/trust'
 import { daysLeft } from '../../shared/group-trash'
+import { openOnce } from '@/lib/vault-open'
 
 type Tab = 'sort' | 'updates'
 const HANDLED_FIRST = 15
@@ -963,7 +964,8 @@ function Updates({
     if (!canFetch || !box.ids) return
     setLoadingOlder(true)
     try {
-      const got = await repo.fetchActivityBefore(box.ids, oldestRead, page)
+      // A private group's lines open with its key (or show locked), one entry at a time.
+      const got = await Promise.all((await repo.fetchActivityBefore(box.ids, oldestRead, page)).map((a) => openOnce(a.groupId, a)))
       if (got.length < page) setExhausted(true)
       setOlder((o) => [...o, ...got])
       setLimit((l) => l + page)

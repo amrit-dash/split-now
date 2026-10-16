@@ -10,6 +10,7 @@ export interface AppTuning {
   inboxPageSize: number
   activityWindow: number
   trashDays: number
+  vaultLockMinutes: number
 }
 export type TuningName = keyof AppTuning
 
@@ -17,6 +18,13 @@ export const TUNING_META: Record<TuningName, { label: string; hint: string; min:
   inboxPageSize: { label: 'Updates per page', hint: 'Inbox → Updates loads this many, then more on Show older', min: 10, max: 100, default: 20 },
   activityWindow: { label: 'Live updates per group', hint: 'Recent entries each group keeps live for the Inbox', min: 5, max: 50, default: 15 },
   trashDays: { label: 'Recently deleted keeps items for (days)', hint: 'Groups, expenses and payments, before they go for good', min: 7, max: 90, default: 30 },
+  vaultLockMinutes: {
+    label: 'Private groups lock after (minutes idle)',
+    hint: 'They also lock whenever the app goes to the background',
+    min: 1,
+    max: 60,
+    default: 5,
+  },
 }
 export const TUNING_NAMES = Object.keys(TUNING_META) as TuningName[]
 export const DEFAULT_TUNING: AppTuning = Object.fromEntries(TUNING_NAMES.map((k) => [k, TUNING_META[k].default])) as unknown as AppTuning

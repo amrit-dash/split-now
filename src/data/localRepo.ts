@@ -59,6 +59,7 @@ import {
   mergeProblem,
   mergeSettlement,
 } from '../../shared/merge-members'
+import { demoVault } from './vault-demo'
 
 /**
  * Demo-mode repository. Everything lives in this browser's localStorage, so the app
@@ -416,6 +417,7 @@ export function createLocalRepo(): Repo {
   const repo: Repo = {
     mode: 'demo',
     onError: errors.on,
+    vault: demoVault(typeof localStorage === 'undefined' ? undefined : localStorage),
     watchPendingWrites(cb) {
       cb(0)
       return () => {}

@@ -73,6 +73,48 @@ test('create a group through the kind selector', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1, name: /Manali 2026/ })).toBeVisible()
 })
 
+test('Private group: set a pattern, words are stored encrypted, lock and unlock with the pattern', async ({ page }) => {
+  await page.goto('/groups/new')
+  const kinds = page.getByRole('radiogroup', { name: 'What are you creating?' })
+  await kinds.getByRole('radio', { name: /^Group/ }).click()
+  await page.getByLabel('Name', { exact: true }).fill('Vault trip')
+  const member = page.getByPlaceholder('Name', { exact: true })
+  await member.fill('Dev')
+  await member.press('Enter')
+  await page.getByTestId('group-private').click()
+  await page.getByRole('button', { name: 'Create group' }).click()
+  await expect(page.getByTestId('vault-lock')).toBeVisible()
+  // T T L T L L, entered twice (the step buttons are the accessible way in; the pad takes presses)
+  const enter = async () => {
+    for (const s of 'TTLTLL') await page.getByTestId(s === 'T' ? 'pattern-add-tap' : 'pattern-add-long').click()
+  }
+  await enter()
+  await page.getByTestId('vault-submit').click()
+  await enter()
+  await page.getByTestId('vault-submit').click()
+  await expect(page.getByTestId('vault-lock')).toBeHidden()
+  // In the app (a reload forgets the key, which locks the group again: that's the point).
+  await page.getByTestId('nav-create').click()
+  await page.getByRole('dialog').getByTestId('create-expense').click()
+  await page.getByRole('textbox', { name: 'Description', exact: true }).fill('Secret dinner')
+  await amountField(page).fill('900')
+  await page.getByTestId('expense-save').click()
+  await expect(page.getByText('Secret dinner')).toBeVisible({ timeout: 15_000 })
+  // On the device, as on the server, the words are a token.
+  const stored = await page.evaluate(() => localStorage.getItem('splitit-demo-v1') ?? '')
+  expect(stored).not.toContain('Secret dinner')
+  expect(stored).toMatch(/"description":"v1:[A-Za-z0-9_-]+"/)
+
+  await page.getByTestId('vault-lock-now').click()
+  await expect(page.getByTestId('vault-lock')).toBeVisible()
+  for (const s of 'TTLTLT') await page.getByTestId(s === 'T' ? 'pattern-add-tap' : 'pattern-add-long').click()
+  await page.getByTestId('vault-submit').click()
+  await expect(page.getByTestId('vault-note')).toContainText('4 tries left')
+  await enter()
+  await page.getByTestId('vault-submit').click()
+  await expect(page.getByText('Secret dinner')).toBeVisible()
+})
+
 test('the + button opens the Create sheet; Add expense saves an equal split', async ({ page }) => {
   await page.goto('/groups/g_goa')
   await page.getByTestId('nav-create').click()

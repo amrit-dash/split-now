@@ -41,6 +41,7 @@ import { Composer, type Draft } from '@/features/chat/Composer'
 import { DayHeader, type MessageCtx, MessageRow, UnreadLine, UpdatesPill } from '@/features/chat/Message'
 import { HintText, InfoTip, type Hint } from '@/components/Hint'
 import { Collapsible } from '@/components/Collapsible'
+import { openOnce } from '@/lib/vault-open'
 
 /** Kept in every look: who can read the chat (people who join later too) is a privacy point. */
 const CHAT_START_HINT: Hint = {
@@ -84,7 +85,9 @@ export default function GroupChat() {
   const [info, setInfo] = useState(false)
   const [suggest, setSuggest] = useState(suggestOn)
   // AI for suggestions: offered only while the admin flag chatAi is on; off on each device until turned on.
-  const chatAiOn = useFlag('chatAi')
+  // Never in a private group: the AI would read its messages (docs/VAULT.md).
+  const chatAiFlag = useFlag('chatAi')
+  const chatAiOn = chatAiFlag && !group?.vault
   const [aiSuggest, setAiSuggest] = useState(aiSuggestOn)
   /** the server said no this visit (AI off in settings, no key, the day's allowance used): stop asking */
   const [aiBlocked, setAiBlocked] = useState(false)
@@ -230,7 +233,7 @@ export default function GroupChat() {
     if (!messages?.length || startLoaded || loadingOlder || !el) return
     setLoadingOlder(true)
     try {
-      const page = await repo.fetchChatBefore(groupId, messages[0].createdAt, CHAT_WINDOW)
+      const page = await openOnce(groupId, await repo.fetchChatBefore(groupId, messages[0].createdAt, CHAT_WINDOW))
       keep.current = { height: el.scrollHeight, top: el.scrollTop }
       if (page.length < CHAT_WINDOW) setExhausted(true)
       if (page.length) setOlder((o) => [...page, ...o])

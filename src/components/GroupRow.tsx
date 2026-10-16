@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, Lock } from 'lucide-react'
 import type { GroupData } from '@/hooks/data'
 import { formatMoney } from '@/lib/money'
 import { GroupIcon } from './GroupIcon'
@@ -22,6 +22,7 @@ export function GroupRow({ d }: { d: GroupData }) {
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate font-semibold">{d.group.name}</span>
+          {d.group.vault && <Lock size={13} className="text-muted shrink-0" role="img" aria-label="Private group" />}
           {isLiveTrip(d.group, todayISO()) && <LiveBadge type={d.group.type} />}
           {d.group.archived && (
             <span className="text-muted shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[0.6875rem] font-semibold dark:bg-ink-800">Archived</span>
@@ -43,7 +44,12 @@ export function GroupRow({ d }: { d: GroupData }) {
       </div>
       {!personal && (
         <div className="text-right">
-          {bal === 0 ? (
+          {d.locked ? (
+            // A locked private group shows no amount until it's opened (docs/VAULT.md).
+            <div className="text-muted flex items-center gap-1 text-sm" data-testid="group-row-locked">
+              <Lock size={14} aria-hidden /> locked
+            </div>
+          ) : bal === 0 ? (
             <div className="text-muted text-sm">settled up</div>
           ) : (
             <>

@@ -435,3 +435,17 @@ export function openItemNote(o: {
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** The group a push is about, from where it opens (`/groups/{id}/…`), or undefined. */
+export function groupOfUrl(url: string | undefined): string | undefined {
+  const m = url?.match(/^\/groups\/([A-Za-z0-9_-]{1,64})(?:[/?#]|$)/)
+  return m?.[1]
+}
+
+/**
+ * A push about a private group (docs/VAULT.md) says only that something happened: the words are
+ * encrypted anyway, and amounts stay off the lock screen until the group is opened in the app.
+ */
+export function privateGroupNote(n: Note): Note {
+  return { ...n, body: 'Something new in this private group. Open it to see.' }
+}

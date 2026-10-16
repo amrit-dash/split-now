@@ -1,4 +1,5 @@
 import type { ChatAiIntent } from '../../shared/chat-ai'
+import type { VaultRequest } from '@/lib/vault-api'
 import type {
   ActivityEntry,
   Capture,
@@ -106,11 +107,16 @@ export interface InviteInfo {
 
 export type NewGroup = Omit<Group, 'id' | 'createdAt' | 'updatedAt' | 'inviteCode'>
 
+export type { VaultRequest }
+
 /** Scalar group fields any member may edit. Membership has its own methods. */
 // `archived` / `archivedBy` are personal and change only through setArchived; deletedAt /
 // deletedBy only through deleteGroup / restoreGroup.
 export type GroupSettings = Partial<
-  Omit<Group, 'id' | 'members' | 'memberUids' | 'inviteCode' | 'createdBy' | 'createdAt' | 'updatedAt' | 'archived' | 'archivedBy' | 'deletedAt' | 'deletedBy'>
+  Omit<
+    Group,
+    'id' | 'members' | 'memberUids' | 'inviteCode' | 'createdBy' | 'createdAt' | 'updatedAt' | 'archived' | 'archivedBy' | 'deletedAt' | 'deletedBy' | 'vault'
+  >
 >
 
 /**
@@ -242,6 +248,13 @@ export interface Repo {
   getProfile(uid: string): Promise<UserProfile | null>
   /** A co-member's shared name + payment handles for one group. */
   getMemberProfile(groupId: string, uid: string): Promise<MemberProfile | null>
+
+  /**
+   * Private groups (docs/VAULT.md): one step of the vault callable (functions/src/vault.ts) —
+   * passkeys, the group's pattern, and its data key once both pass. Demo mode answers on the
+   * device (src/data/vault-demo.ts) with no passkey. Waits for the server; throws its message.
+   */
+  vault<T = unknown>(req: VaultRequest): Promise<T>
 
   /** The user's groups, without deleted ones (those are in watchDeletedGroups). */
   watchGroups(uid: string, cb: Watch<Group[]>): Unsub

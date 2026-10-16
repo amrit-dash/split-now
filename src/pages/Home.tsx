@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ChevronRight, FileUp, Inbox, Plus, Ticket } from 'lucide-react'
+import { ChevronRight, FileUp, Inbox, Lock, Plus, Ticket } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
 import { useAllGroupData, type GroupData } from '@/hooks/data'
 import { useInbox } from '@/hooks/useInbox'
@@ -36,6 +36,8 @@ export default function Home() {
   usePageTitle(null)
   const { profile } = useMe()
   const data = useAllGroupData()
+  // Locked private groups add nothing to the totals (hooks/data.ts); the card says so.
+  const lockedCount = data?.filter((d) => d.locked).length ?? 0
   const home = profile.currency
   const rates = useTodayRates(home, data ? data.map((d) => d.group.currency) : [])
   const box = useInbox(data)
@@ -192,6 +194,12 @@ export default function Home() {
                     .join(' · ')}
                 </div>
               </Detail>
+            )}
+            {lockedCount > 0 && (
+              <div className="mt-3 flex items-center gap-1.5 text-xs text-on-fill/90" data-testid="home-locked-note">
+                <Lock size={12} aria-hidden />
+                {lockedCount === 1 ? 'A private group is locked and not in these totals.' : `${lockedCount} private groups are locked and not in these totals.`}
+              </div>
             )}
           </div>
         </div>

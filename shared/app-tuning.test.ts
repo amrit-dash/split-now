@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { DEFAULT_TUNING, resolveTuning, setTuning, TUNING_META, TUNING_NAMES, tuning } from './app-tuning'
 
 describe('app tuning', () => {
-  it('defaults: 20 updates a page, 15 live per group, 30 days in Recently deleted', () => {
-    expect(DEFAULT_TUNING).toEqual({ inboxPageSize: 20, activityWindow: 15, trashDays: 30 })
+  it('defaults: 20 updates a page, 15 live per group, 30 days in Recently deleted, private groups lock after 5 minutes', () => {
+    expect(DEFAULT_TUNING).toEqual({ inboxPageSize: 20, activityWindow: 15, trashDays: 30, vaultLockMinutes: 5 })
     for (const k of TUNING_NAMES) expect(TUNING_META[k].default).toBeGreaterThanOrEqual(TUNING_META[k].min)
   })
   it('keeps valid values and replaces missing or out-of-range ones', () => {

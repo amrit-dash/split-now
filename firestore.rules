@@ -219,6 +219,11 @@ service cloud.firestore {
     match /reminderState/{id} {
       allow read, write: if false;
     }
+    // A private group's data key, sealed with VAULT_KEK, and its pattern hash and wrong tries
+    // (functions/src/vault.ts). Only the vault callable reads or writes it; no client ever can.
+    match /vaultKeys/{id} {
+      allow read, write: if false;
+    }
     // Merges waiting for this person's OK, across their groups (Inbox → To sort): a collection
     // group query on approverUid. The group's own members read them under groups/{gid} too.
     match /{path=**}/mergeRequests/{requestId} {
@@ -255,9 +260,9 @@ service cloud.firestore {
       function validFlags(f) {
         return f is map
           && f.keys().hasOnly(['aiImages', 'aiSms', 'liveTables', 'autoCapture', 'quickAdd', 'nudges', 'statementImport',
-              'payLinks', 'duplicates', 'merchantMemory', 'whoseTurn', 'budgetAlerts', 'aiQuickAdd', 'aiPayments', 'openItems', 'groupChat', 'chatAi', 'pushPrompt', 'moneyReceived'])
+              'payLinks', 'duplicates', 'merchantMemory', 'whoseTurn', 'budgetAlerts', 'aiQuickAdd', 'aiPayments', 'openItems', 'groupChat', 'chatAi', 'pushPrompt', 'moneyReceived', 'vaults'])
           && f.get('openItems', true) is bool && f.get('groupChat', true) is bool && f.get('chatAi', true) is bool
-          && f.get('pushPrompt', true) is bool && f.get('moneyReceived', true) is bool
+          && f.get('pushPrompt', true) is bool && f.get('moneyReceived', true) is bool && f.get('vaults', true) is bool
           && f.get('aiQuickAdd', true) is bool && f.get('aiPayments', true) is bool
           && f.get('aiImages', true) is bool && f.get('aiSms', true) is bool && f.get('liveTables', true) is bool
           && f.get('autoCapture', true) is bool && f.get('quickAdd', true) is bool && f.get('nudges', true) is bool
@@ -267,10 +272,11 @@ service cloud.firestore {
       // Numbers the app needs that an admin can tune; ranges mirror shared/app-tuning.ts.
       function validTuning(t) {
         return t is map
-          && t.keys().hasOnly(['inboxPageSize', 'activityWindow', 'trashDays'])
+          && t.keys().hasOnly(['inboxPageSize', 'activityWindow', 'trashDays', 'vaultLockMinutes'])
           && t.get('inboxPageSize', 20) is int && t.get('inboxPageSize', 20) >= 10 && t.get('inboxPageSize', 20) <= 100
           && t.get('activityWindow', 15) is int && t.get('activityWindow', 15) >= 5 && t.get('activityWindow', 15) <= 50
-          && t.get('trashDays', 30) is int && t.get('trashDays', 30) >= 7 && t.get('trashDays', 30) <= 90;
+          && t.get('trashDays', 30) is int && t.get('trashDays', 30) >= 7 && t.get('trashDays', 30) <= 90
+          && t.get('vaultLockMinutes', 5) is int && t.get('vaultLockMinutes', 5) >= 1 && t.get('vaultLockMinutes', 5) <= 60;
       }
       function validAppConfig(d) {
         return d.keys().hasOnly(['maintenance', 'maintenanceMessage', 'minVersion', 'announcement', 'flags', 'signups', 'look', 'tuning', 'updatedAt', 'updatedBy'])
@@ -404,7 +410,7 @@ service cloud.firestore {
       function validGroupShape(g) {
         return g.keys().hasOnly(['id', 'name', 'emoji', 'type', 'currency', 'budget', 'startDate', 'endDate', 'simplify',
             'requireApproval', 'approvalThreshold', 'editAutoApprove', 'paymentApproval', 'captureOff', 'archived', 'archivedBy', 'deletedAt', 'deletedBy', 'memberUids', 'members', 'inviteCode',
-            'createdBy', 'createdAt', 'updatedAt', 'joinCode', 'joinMemberId', 'memberOpId', 'mergeNeedsOk'])
+            'createdBy', 'createdAt', 'updatedAt', 'joinCode', 'joinMemberId', 'memberOpId', 'mergeNeedsOk', 'vault'])
           && g.name is string && g.name.size() > 0 && g.name.size() <= 80
           && g.emoji is string && g.emoji.size() <= 16
           && g.type in ['trip', 'outing', 'home', 'couple', 'event', 'office', 'other', 'direct', 'personal']
@@ -420,6 +426,7 @@ service cloud.firestore {
           && (!('editAutoApprove' in g) || (g.editAutoApprove is int && g.editAutoApprove > 0))
           && g.get('paymentApproval', false) is bool
           && g.get('mergeNeedsOk', false) is bool
+          && g.get('vault', false) is bool
           // captureOff is legacy (capture is paused per person now, users/{uid}/settings/notifications.pausedTrips)
           // and ignored; still allowed so old docs stay valid. `archived` is the legacy group-wide
           // archive (validArchiveChange stops anyone setting it again); archiving is personal now,
@@ -548,6 +555,8 @@ service cloud.firestore {
           // members can't silently change who created the group or its invite code
           && request.resource.data.createdBy == resource.data.createdBy
           && request.resource.data.inviteCode == resource.data.inviteCode
+          // private is chosen when the group is made and never changes (docs/VAULT.md)
+          && request.resource.data.get('vault', false) == resource.data.get('vault', false)
           // only the creator decides whether merging two people needs their OK
           && (request.resource.data.get('mergeNeedsOk', false) == resource.data.get('mergeNeedsOk', false) || resource.data.createdBy == uid())
           && validGroupShape(request.resource.data)

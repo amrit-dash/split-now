@@ -15,6 +15,8 @@ import { useConfirm } from './ConfirmSheet'
 import { PageHeader } from './Misc'
 import { useToast } from './Toast'
 import { labelOf, memberIdOfUid } from '@/lib/shortNames'
+import { useVaultOpen } from '@/hooks/useVault'
+import { VaultLock } from '@/features/vault/VaultLock'
 
 /**
  * Deleting a group moves it to Recently deleted for everyone (config/app tuning.trashDays, 30 by default, to restore, then gone for
@@ -188,6 +190,7 @@ export function LiveGroupOnly({ children }: { children: ReactNode }) {
   const { groupId } = useParams()
   const [params] = useSearchParams()
   const group = useGroup(groupId ?? params.get('group') ?? undefined)
+  const vaultOpen = useVaultOpen(group?.id)
   if (group && typeof group.deletedAt === 'number')
     return (
       <>
@@ -195,5 +198,7 @@ export function LiveGroupOnly({ children }: { children: ReactNode }) {
         <DeletedGroupCard group={group} />
       </>
     )
+  // A locked private group opens here first, then shows the screen that was asked for.
+  if (group?.vault && !vaultOpen) return <VaultLock group={group} back={`/groups/${group.id}`} />
   return <>{children}</>
 }

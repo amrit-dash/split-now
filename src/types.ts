@@ -123,6 +123,11 @@ export interface Group {
   deletedBy?: string
   /** Merging two people in this group needs the creator's OK when someone else asks (the creator sets it). */
   mergeNeedsOk?: boolean
+  /**
+   * A private group (docs/VAULT.md): its words and photos are encrypted on the phone, and it opens
+   * with the group's pattern and a passkey. Chosen when the group is made; never changes.
+   */
+  vault?: true
   memberUids: string[]
   members: Record<MemberId, Member>
   inviteCode: string

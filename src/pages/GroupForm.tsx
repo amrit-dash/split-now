@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ChevronRight, Stamp, UserMinus, Users } from 'lucide-react'
+import { ChevronRight, Lock, Stamp, UserMinus, Users } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { createGroup, useAllExpenses, useCaptureTokens, useGroup, useGroups } from '@/hooks/data'
@@ -59,6 +59,11 @@ const TRIP_CAPTURE_HINT: Hint = {
   short: 'Adds your payments to this trip, just for you.',
 }
 const SIMPLIFY_HINT: Hint = { full: 'Fewer payments: if A owes B and B owes C, A pays C directly.', short: 'Fewer payments, same balances.' }
+const PRIVATE_HINT: Hint = {
+  full: 'Descriptions, notes, comments, chat and photos are encrypted on your phone. Everyone opens it with a pattern of taps and long presses, plus Face ID or a passkey. Can’t be changed later.',
+  short: 'Encrypted, opens with a pattern and Face ID. Can’t be changed later.',
+  tier: 'key',
+}
 const APPROVAL_HINT: Hint = {
   full: 'In this group, a big expense added by someone else stays pending (not counted) until everyone charged taps Approve.',
   short: 'Big expenses by others wait for an OK.',
@@ -120,6 +125,9 @@ export default function GroupForm() {
   const [budget, setBudget] = useState<number | undefined>(undefined)
   const [simplify, setSimplify] = useState(true)
   const [requireApproval, setRequireApproval] = useState(false)
+  // A private group (docs/VAULT.md): chosen once, when the group is made.
+  const [privateOn, setPrivateOn] = useState(false)
+  const vaultsOn = useFlag('vaults')
   const [paymentApproval, setPaymentApproval] = useState(false)
   const [threshold, setThreshold] = useState<number | undefined>(undefined)
   const [thresholdTouched, setThresholdTouched] = useState(false)
@@ -412,6 +420,7 @@ export default function GroupForm() {
               paymentApproval: paymentApproval || undefined,
             }
           : {}),
+        ...(!existing && shareable && privateOn ? { vault: true as const } : {}),
         memberUids: [
           ...new Set(
             Object.values(saved)
@@ -616,6 +625,12 @@ export default function GroupForm() {
             <HintText hint={SIMPLIFY_HINT} className="text-muted text-xs" as="div" />
           </div>
           <Switch checked={simplify} onChange={setSimplify} label="Simplify debts" testId="group-simplify" />
+        </div>
+      )}
+      {existing?.vault && (
+        <div className="flex items-center gap-2 rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800" data-testid="group-private-on">
+          <Lock size={16} aria-hidden /> <span className="font-semibold">Private group</span>
+          <span className="text-muted">· opens with its pattern and your passkey</span>
         </div>
       )}
       {shareable && (
@@ -870,6 +885,19 @@ export default function GroupForm() {
             </span>
             <ChevronRight size={18} className="text-slate-300 dark:text-slate-600" aria-hidden />
           </Link>
+        )}
+
+        {/* Private is chosen once, when the group is made, so it sits out here rather than under More options. */}
+        {shareable && !existing && vaultsOn && (
+          <div className="card flex items-center justify-between gap-4 p-4">
+            <div id="private-label">
+              <div className="flex items-center gap-1.5 font-semibold">
+                <Lock size={16} aria-hidden /> Private group
+              </div>
+              <HintText hint={PRIVATE_HINT} className="text-muted text-xs" as="div" />
+            </div>
+            <Switch checked={privateOn} onChange={setPrivateOn} label="Private group" testId="group-private" />
+          </div>
         )}
 
         {/* New group keeps the extras folded so creating stays quick; Edit group shows them all. */}

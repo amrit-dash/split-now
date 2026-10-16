@@ -386,6 +386,11 @@ export const onGroupDeleted = onDocumentDeleted({ document: 'groups/{groupId}', 
     .doc(`chatPush/${groupId}`)
     .delete()
     .catch(() => {})
+  // A private group's sealed key goes with it: nothing it encrypted can be opened again.
+  await firestore
+    .doc(`vaultKeys/${groupId}`)
+    .delete()
+    .catch(() => {})
   try {
     await (await storage()).bucket().deleteFiles({ prefix: `receipts/${groupId}/` })
     await (await storage()).bucket().deleteFiles({ prefix: `settleproofs/${groupId}/` })

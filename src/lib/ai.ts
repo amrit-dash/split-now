@@ -55,9 +55,15 @@ export interface ReadResult {
  * is dropped), no fallback starts, and the OCR stage stops (see recognizeImage). An aborted read
  * rejects with an AbortError (src/lib/abortable.ts isAbortError).
  */
-export async function readReceipt(file: File, onStage: (s: { stage: ReadVia; progress?: number }) => void, signal?: AbortSignal): Promise<ReadResult> {
+export async function readReceipt(
+  file: File,
+  onStage: (s: { stage: ReadVia; progress?: number }) => void,
+  signal?: AbortSignal,
+  /** a private group's bill is read on the phone only: it never goes to the AI */
+  deviceOnly = false,
+): Promise<ReadResult> {
   let reason: AiUnavailableReason | undefined
-  if (aiScanEnabled() && aiScanPossible()) {
+  if (!deviceOnly && aiScanEnabled() && aiScanPossible()) {
     onStage({ stage: 'ai' })
     try {
       const img = await abortable(downscale(file, 1600, 0.82), signal)
@@ -77,7 +83,7 @@ export async function readReceipt(file: File, onStage: (s: { stage: ReadVia; pro
     }
   }
   throwIfAborted(signal)
-  const fellBack = aiScanEnabled() && aiScanPossible()
+  const fellBack = !deviceOnly && aiScanEnabled() && aiScanPossible()
   onStage({ stage: 'device', progress: 0 })
   const text = await recognizeImage(file, (p) => onStage({ stage: 'device', progress: p }), signal)
   return fellBack ? { parsed: parseReceipt(text), via: 'device', fellBack, reason } : { parsed: parseReceipt(text), via: 'device' }

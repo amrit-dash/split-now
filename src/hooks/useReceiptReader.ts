@@ -18,11 +18,12 @@ export function useReceiptReader() {
     progress: state?.progress ?? 0,
     /** e.g. "Reading with AI…" / "Reading… 42%" */
     label: !state ? '' : state.stage === 'ai' ? 'Reading with AI…' : `Reading… ${Math.round((state.progress ?? 0) * 100)}%`,
-    async read(file: File) {
+    /** `deviceOnly`: a private group's bill, read on the phone and never sent to the AI. */
+    async read(file: File, deviceOnly = false) {
       const id = ++run.current
       const c = new AbortController()
       ctrl.current = c
-      setState({ stage: 'ai' })
+      setState({ stage: deviceOnly ? 'device' : 'ai' })
       try {
         return await readReceipt(
           file,
@@ -30,6 +31,7 @@ export function useReceiptReader() {
             if (run.current === id) setState(s)
           },
           c.signal,
+          deviceOnly,
         )
       } catch (e) {
         if (c.signal.aborted || isAbortError(e)) throw new OcrCancelled()
