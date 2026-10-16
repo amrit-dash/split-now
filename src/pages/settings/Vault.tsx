@@ -113,10 +113,12 @@ export default function Vault() {
         open={setting}
         onClose={() => setSetting(false)}
         kind="universal"
+        hasCurrent={!!status?.universal}
         ordered={status?.ordered !== false}
-        save={async (pattern, ordered) => {
+        save={async (pattern, ordered, current) => {
+          if (pattern === null) return
           const auth = await passkeyProof(repo)
-          await repo.vault({ op: 'setUniversal', pattern, ordered, auth })
+          await repo.vault({ op: 'setUniversal', pattern, ordered, current, auth })
           setSetting(false)
           setRound((r) => r + 1)
           toast(status?.universal ? 'Universal pattern changed' : 'Universal pattern set')

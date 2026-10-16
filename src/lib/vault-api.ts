@@ -7,10 +7,10 @@ export type VaultRequest =
   | { op: 'status'; groupId?: string }
   | { op: 'passkeyOptions'; purpose: 'register' | 'auth' }
   | { op: 'passkeyRegister'; response: unknown }
-  | { op: 'setUniversal'; pattern: string; ordered: boolean; auth?: unknown }
+  | { op: 'setUniversal'; pattern: string; ordered: boolean; current?: string; auth?: unknown }
   | { op: 'unlockStart'; pattern: string; groupId?: string }
   | { op: 'unlockFinish'; auth?: unknown; register?: unknown }
-  | { op: 'groupPattern'; groupId: string; pattern: string | null; ordered: boolean; auth?: unknown }
+  | { op: 'groupPattern'; groupId: string; pattern: string | null; ordered: boolean; current: string; auth?: unknown }
   | { op: 'create'; groupId: string }
   | { op: 'convert'; groupId: string; on: boolean; auth?: unknown }
   | { op: 'joinStatus'; code: string }
@@ -175,4 +175,23 @@ export function addPlan(g: { vault?: boolean }, isCreator: boolean, accountUid?:
   if (!g.vault) return 'placeholder'
   if (!isCreator) return 'forbidden'
   return accountUid ? 'contact' : 'placeholder'
+}
+
+/** Where the pattern sheet is (src/features/vault/SetPatternSheet.tsx): a pattern that opens it now, the new one, the new one again. */
+export type PatternPhase = 'current' | 'new' | 'again'
+
+/**
+ * The pattern sheet's first step. Changing a pattern takes one that already opens it (the server
+ * checks it, functions/src/vault.ts): the current universal pattern to change it, and for a
+ * group's own, the universal pattern or the group's own. Setting a first universal pattern starts
+ * with the new one. Removing a group's own pattern is only the current step.
+ */
+export function firstPhase(o: { kind: 'universal' | 'group'; hasCurrent: boolean }): PatternPhase {
+  return o.kind === 'group' || o.hasCurrent ? 'current' : 'new'
+}
+
+/** The sheet's heading for each step. */
+export function phasePrompt(phase: PatternPhase, kind: 'universal' | 'group'): string {
+  if (phase === 'current') return kind === 'universal' ? 'Enter your current pattern' : 'Enter a pattern that opens this group'
+  return phase === 'new' ? 'Enter the new pattern' : 'Once more to be sure'
 }

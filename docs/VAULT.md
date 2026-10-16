@@ -30,8 +30,14 @@ Groups); on by default like every flag, server-enforced in the `vault` callable.
     that group.
 - **A group's own pattern** (Group ⋯ → Private group): optional, any length, the same sequence switch.
   It opens only that group, for anyone in it who knows it, even someone with no universal pattern.
-  Anyone in the group can set, change or remove it, after their passkey. 7.1's group patterns are
-  kept as the groups' own.
+  Anyone in the group who can already open it (with their universal pattern or its own) can set,
+  change or remove it, after their passkey. 7.1's group patterns are kept as the groups' own.
+- **Changing a pattern takes one that opens it.** The universal pattern changes only after the
+  current one, and a group's own after the universal pattern or the group's own; a wrong one counts
+  as a wrong try. A passkey alone is never enough, because anyone holding the unlocked phone can
+  add one (it is the phone's own screen lock). There is no reset: a forgotten universal pattern
+  stays until the person remembers it, and a group's own pattern can still be changed by anyone in
+  the group who can open it.
 - **Wrong patterns** (universal or a group's, counted together per person, on the server): 5 tries,
   then 15 minutes, doubling with each further wrong one, up to a day.
 - An open group **locks again** when the app goes to the background, after `tuning.vaultLockMinutes`

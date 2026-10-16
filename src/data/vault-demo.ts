@@ -82,6 +82,26 @@ export function demoVault(
     s.groups[groupId] ??= { dek: b64(crypto.getRandomValues(new Uint8Array(32))) }
     return s.groups[groupId].dek
   }
+  /**
+   * The pattern step, as the server's checkPattern: the universal pattern, or this group's own;
+   * a wrong one counts towards the lockout, a right one clears the count. Answers whether the
+   * universal one matched.
+   */
+  const tryPattern = async (s: DemoState, pattern: string | undefined, groupId?: string): Promise<boolean> => {
+    const own = groupId ? s.groups[groupId]?.pattern : undefined
+    if (!s.person && !own) refuse('Set up encrypted groups first: Settings → Encrypted groups.')
+    if (s.tries?.lockedUntil && now() < s.tries.lockedUntil) refuse('Too many wrong patterns. Try again later.', { lockedUntil: s.tries.lockedUntil })
+    const p = pattern ?? ''
+    const universal = await matches(p, s.person)
+    if (!universal && !(await matches(p, own))) {
+      const wrong = (s.tries?.wrong ?? 0) + 1
+      s.tries = wrong < FREE_TRIES ? { wrong } : { wrong, lockedUntil: now() + FIRST_LOCK_MS * 2 ** (wrong - FREE_TRIES) }
+      write(s)
+      refuse('That’s not it.', { triesLeft: Math.max(0, FREE_TRIES - wrong), lockedUntil: s.tries.lockedUntil })
+    }
+    delete s.tries
+    return universal
+  }
   return async function vault<T>(req: VaultRequest): Promise<T> {
     const s = read()
     const person = s.person
@@ -106,23 +126,15 @@ export function demoVault(
       case 'setUniversal': {
         const problem = patternProblem(req.pattern)
         if (problem) refuse(problem)
+        // changing it takes the current one, as on the server
+        if (person) await tryPattern(s, req.current)
         s.person = await hashOf(req.pattern, req.ordered)
         delete s.tries
         write(s)
         return { ok: true } as T
       }
       case 'unlockStart': {
-        const own = req.groupId ? s.groups[req.groupId]?.pattern : undefined
-        if (!person && !own) refuse('Set up encrypted groups first: Settings → Encrypted groups.')
-        if (locked) refuse('Too many wrong patterns. Try again later.', { lockedUntil: s.tries?.lockedUntil })
-        const universal = await matches(req.pattern, person)
-        if (!universal && !(await matches(req.pattern, own))) {
-          const wrong = (s.tries?.wrong ?? 0) + 1
-          s.tries = wrong < FREE_TRIES ? { wrong } : { wrong, lockedUntil: now() + FIRST_LOCK_MS * 2 ** (wrong - FREE_TRIES) }
-          write(s)
-          refuse('That’s not it.', { triesLeft: Math.max(0, FREE_TRIES - wrong), lockedUntil: s.tries.lockedUntil })
-        }
-        delete s.tries
+        const universal = await tryPattern(s, req.pattern, req.groupId)
         const ids = universal && !req.groupId ? privateGroups() : [req.groupId as string]
         const keys = Object.fromEntries(ids.map((id) => [id, keyOf(s, id)]))
         write(s)
@@ -135,6 +147,7 @@ export function demoVault(
           const problem = groupPatternProblem(req.pattern)
           if (problem) refuse(problem)
         }
+        await tryPattern(s, req.current, req.groupId)
         const dek = keyOf(s, req.groupId)
         s.groups[req.groupId] = { dek, ...(req.pattern === null ? {} : { pattern: await hashOf(req.pattern, req.ordered) }) }
         write(s)
