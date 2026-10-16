@@ -144,3 +144,12 @@ export async function openDoc(k: VaultKey, doc: Doc): Promise<Patch> {
   const opened = (await openDeep(doc, k, (t) => t)) as Doc
   return diff(doc, opened)
 }
+
+/**
+ * A group that keeps someone from stopping private groups (vault op `stop`): a live private group
+ * they made and are still in. Turning it off, deleting it or leaving it frees them; someone else's
+ * private groups never count (those open with their own pattern).
+ */
+export function blocksStopping(g: { vault?: unknown; createdBy?: unknown; memberUids?: unknown; deletedAt?: unknown }, uid: string): boolean {
+  return g.vault === true && g.createdBy === uid && Array.isArray(g.memberUids) && g.memberUids.includes(uid) && typeof g.deletedAt !== 'number'
+}

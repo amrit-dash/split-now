@@ -20,6 +20,8 @@ interface DemoState {
   /** wrong patterns, universal or a group's own, counted together like the server does */
   tries?: { wrong: number; lockedUntil?: number }
   groups: Record<string, { dek: string; pattern?: Hash }>
+  /** stopped using private groups (op stop) */
+  off?: boolean
 }
 
 const KEY = 'sn-demo-vault'
@@ -60,7 +62,10 @@ export function demoVault(
   privateGroups: () => string[] = () => [],
   convert: (groupId: string, on: boolean, dek: string) => Promise<void> = async () => {},
   addContact: (groupId: string, uid: string, dek: string) => Promise<void> = async () => {},
+  /** made: the live private groups the demo person made and is in; setOff: mirrors the stop on their profile */
+  who: { made?: () => number; setOff?: (off: boolean) => void } = {},
 ) {
+  const OFF = 'You stopped using private groups. Start again in Settings → Encrypted groups.'
   const read = (): DemoState => {
     try {
       const raw = store?.getItem(KEY)
@@ -110,6 +115,8 @@ export function demoVault(
       case 'status': {
         const g = req.groupId ? s.groups[req.groupId] : undefined
         return {
+          ...(s.off ? { off: true } : {}),
+          ...(req.made ? { made: who.made?.() ?? 0 } : {}),
           serverReady: true,
           hasPasskey: true,
           universal: !!person,
@@ -130,6 +137,11 @@ export function demoVault(
         if (person) await tryPattern(s, req.current)
         s.person = await hashOf(req.pattern, req.ordered)
         delete s.tries
+        // a universal pattern is how someone who stopped starts again
+        if (s.off) {
+          delete s.off
+          who.setOff?.(false)
+        }
         write(s)
         return { ok: true } as T
       }
@@ -155,7 +167,14 @@ export function demoVault(
       }
       case 'create': {
         if (s.groups[req.groupId]) refuse('This group already has its key. Unlock it with your pattern.')
+        if (req.pattern !== undefined) {
+          const problem = groupPatternProblem(req.pattern)
+          if (problem) refuse(problem)
+        }
+        if (s.off) refuse(OFF)
         const dek = keyOf(s, req.groupId)
+        // its own pattern, when one was chosen as it was made
+        if (req.pattern !== undefined) s.groups[req.groupId].pattern = await hashOf(req.pattern, req.ordered !== false)
         write(s)
         // its own name, emoji and people, sealed with the new key
         await convert(req.groupId, true, dek)
@@ -173,8 +192,20 @@ export function demoVault(
         await addContact(req.groupId, req.uid, dek)
         return { ok: true } as T
       }
+      case 'stop': {
+        const made = who.made?.() ?? 0
+        if (made > 0)
+          throw Object.assign(new Error('Turn off private, or delete, the private groups you made first.'), { code: 'failed-precondition', details: { made } })
+        if (person) await tryPattern(s, req.current)
+        delete s.person
+        s.off = true
+        write(s)
+        who.setOff?.(true)
+        return { ok: true } as T
+      }
       case 'convert': {
         if (req.on) {
+          if (s.off) refuse(OFF)
           if (!person) refuse('Set up encrypted groups first: Settings → Encrypted groups.')
           const dek = keyOf(s, req.groupId)
           write(s)

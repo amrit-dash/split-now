@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  privateOffered,
+  stopPlan,
   firstPhase,
   phasePrompt,
   addPlan,
@@ -129,8 +131,28 @@ describe('the pattern sheet', () => {
     expect(firstPhase({ kind: 'universal', hasCurrent: true })).toBe('current')
     // a group's own: the universal pattern or its own, whether or not it has one yet
     expect(firstPhase({ kind: 'group', hasCurrent: false })).toBe('current')
+    // a group being made: nobody has its pattern yet
+    expect(firstPhase({ kind: 'group', hasCurrent: false, fresh: true })).toBe('new')
     expect(phasePrompt('current', 'universal')).toBe('Enter your current pattern')
     expect(phasePrompt('current', 'group')).toBe('Enter a pattern that opens this group')
     expect(phasePrompt('again', 'group')).toBe('Once more to be sure')
+  })
+})
+
+describe('stopping private groups', () => {
+  it('hides private groups from someone who stopped, except the ones they are in', () => {
+    expect(privateOffered(true, {})).toBe(true)
+    expect(privateOffered(true, { privateGroupsOff: true })).toBe(false)
+    expect(privateOffered(false, {})).toBe(false)
+    expect(privateMenuShown({ type: 'trip' }, true, true, true)).toBe(false)
+    expect(privateMenuShown({ type: 'trip', vault: true }, false, true, true)).toBe(true)
+    // the Groups screen's button: nothing to unlock with, but still locks what is open
+    expect(lockButton(['a'], () => false, true)).toBe('none')
+    expect(lockButton(['a'], () => true, true)).toBe('lock')
+  })
+  it('says what keeps them from stopping', () => {
+    expect(stopPlan({ made: 2 })).toBe('made')
+    expect(stopPlan({ made: 0 })).toBe('ok')
+    expect(stopPlan({ off: true, made: 0 })).toBe('stopped')
   })
 })

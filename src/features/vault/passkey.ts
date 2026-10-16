@@ -52,9 +52,9 @@ export async function finishUnlock(repo: Repo, started: UnlockStarted): Promise<
   return opened.length
 }
 
-/** A new private group's first key, on the phone that made it, so it opens straight away. */
-export async function openNewGroup(repo: Repo, groupId: string): Promise<void> {
-  const { dek } = await repo.vault<{ dek: string }>({ op: 'create', groupId })
+/** A new private group's first key, on the phone that made it, so it opens straight away; with its own pattern when one was chosen. */
+export async function openNewGroup(repo: Repo, groupId: string, own?: { pattern: string; ordered: boolean }): Promise<void> {
+  const { dek } = await repo.vault<{ dek: string }>({ op: 'create', groupId, ...(own ? { pattern: own.pattern, ordered: own.ordered } : {}) })
   setVaultKey(await vaultKey(groupId, dek))
 }
 

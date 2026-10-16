@@ -4,14 +4,15 @@
  */
 
 export type VaultRequest =
-  | { op: 'status'; groupId?: string }
+  | { op: 'status'; groupId?: string; made?: boolean }
   | { op: 'passkeyOptions'; purpose: 'register' | 'auth' }
   | { op: 'passkeyRegister'; response: unknown }
   | { op: 'setUniversal'; pattern: string; ordered: boolean; current?: string; auth?: unknown }
   | { op: 'unlockStart'; pattern: string; groupId?: string }
   | { op: 'unlockFinish'; auth?: unknown; register?: unknown }
   | { op: 'groupPattern'; groupId: string; pattern: string | null; ordered: boolean; current: string; auth?: unknown }
-  | { op: 'create'; groupId: string }
+  | { op: 'create'; groupId: string; pattern?: string; ordered?: boolean }
+  | { op: 'stop'; current?: string; auth?: unknown }
   | { op: 'convert'; groupId: string; on: boolean; auth?: unknown }
   | { op: 'joinStatus'; code: string }
   | { op: 'requestJoin'; code: string }
@@ -29,6 +30,10 @@ export interface VaultStatus {
   triesLeft: number
   lockedUntil?: number
   group?: { keyReady: boolean; hasPattern: boolean; ordered?: boolean }
+  /** stopped using private groups (Settings → Encrypted groups) */
+  off?: boolean
+  /** asked with `made`: live private groups they made and are still in, each keeping them from stopping */
+  made?: number
 }
 
 export interface PasskeyOptions {
@@ -104,9 +109,11 @@ export function setupLines(s: VaultStatus): { passkey: string; pattern: string; 
  * The Groups screen's lock button: none without private groups; "unlock" while any is locked
  * (the universal pattern opens them all); "lock" once all are open (locks them all at once).
  */
-export function lockButton(privateIds: readonly string[], isOpen: (id: string) => boolean): 'none' | 'unlock' | 'lock' {
+export function lockButton(privateIds: readonly string[], isOpen: (id: string) => boolean, stopped = false): 'none' | 'unlock' | 'lock' {
   if (!privateIds.length) return 'none'
-  return privateIds.every(isOpen) ? 'lock' : 'unlock'
+  if (privateIds.every(isOpen)) return 'lock'
+  // Someone who stopped using private groups has no universal pattern: each opens inside, with its own.
+  return stopped ? 'none' : 'unlock'
 }
 
 /** Groups to offer in a picker: a private group only while it's open here (a locked one can't take a write, and its name stays out of sight). */
@@ -143,9 +150,21 @@ export function refusalKind(e: unknown): 'wrong' | 'locked' | 'setup' | 'cancell
 }
 
 /** Whether a group's ⋯ menu offers "Private group": a private one to everyone in it, any other shared group to its creator while private groups are on. */
-export function privateMenuShown(g: { vault?: boolean; type?: string }, isCreator: boolean, flagOn: boolean): boolean {
+export function privateMenuShown(g: { vault?: boolean; type?: string }, isCreator: boolean, flagOn: boolean, stopped = false): boolean {
   if (g.vault) return true
-  return flagOn && isCreator && g.type !== 'personal'
+  return flagOn && !stopped && isCreator && g.type !== 'personal'
+}
+
+/** Whether this person is offered private groups at all: the switch is on and they haven't stopped (users/{uid}.privateGroupsOff, written by the server). */
+export const privateOffered = (flagOn: boolean, profile: { privateGroupsOff?: boolean } | null | undefined): boolean => flagOn && !profile?.privateGroupsOff
+
+/**
+ * Settings → Encrypted groups' "Stop using private groups": what stands in the way. 'made': a
+ * private group they made still needs turning off or deleting; 'ok': they can stop.
+ */
+export function stopPlan(s: Pick<VaultStatus, 'made' | 'off'>): 'stopped' | 'made' | 'ok' {
+  if (s.off) return 'stopped'
+  return (s.made ?? 0) > 0 ? 'made' : 'ok'
 }
 
 /**
@@ -186,7 +205,9 @@ export type PatternPhase = 'current' | 'new' | 'again'
  * group's own, the universal pattern or the group's own. Setting a first universal pattern starts
  * with the new one. Removing a group's own pattern is only the current step.
  */
-export function firstPhase(o: { kind: 'universal' | 'group'; hasCurrent: boolean }): PatternPhase {
+export function firstPhase(o: { kind: 'universal' | 'group'; hasCurrent: boolean; fresh?: boolean }): PatternPhase {
+  // fresh: a group being made, whose own pattern nobody has yet
+  if (o.fresh) return 'new'
   return o.kind === 'group' || o.hasCurrent ? 'current' : 'new'
 }
 

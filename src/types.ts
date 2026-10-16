@@ -42,6 +42,11 @@ export interface UserProfile {
   /** Mobile number (E.164 where possible). Not verified; shown to the user only. */
   phone?: string
   payment?: PaymentHandles
+  /**
+   * Stopped using private groups (Settings → Encrypted groups): the app no longer offers to make
+   * one. Written only by the server (vault op stop / setUniversal), mirroring users/{uid}/secrets/vault.
+   */
+  privateGroupsOff?: boolean
 }
 
 export type PhotoSource = 'upload' | 'google' | 'none'

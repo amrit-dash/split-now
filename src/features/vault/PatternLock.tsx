@@ -14,7 +14,8 @@ import { usePress } from './usePress'
  * screen, Balances) the universal pattern opens every private group; with it, the universal or
  * the group's own pattern opens only that group. A right one brings up Face ID or the passkey; a
  * wrong one does nothing at all. Fewer presses than any pattern could be are a
- * stray tap and go nowhere (shouldSend). Someone with no pattern set up yet gets the setup prompt.
+ * stray tap and go nowhere (shouldSend). Someone with no pattern set up yet gets the setup prompt,
+ * except someone who stopped using private groups: for them a group with no own pattern does nothing.
  */
 export function PatternLock({
   groupId,
@@ -44,7 +45,7 @@ export function PatternLock({
 
   const send = async (pattern: string) => {
     const s = await statusOf()
-    if (s && !s.universal && !s.group?.hasPattern) return setSetup(true)
+    if (s && !s.universal && !s.group?.hasPattern) return setSetup(!s.off)
     if (!shouldSend(pattern, { groupHasOwn: !!s?.group?.hasPattern })) return
     setBusy(true)
     try {
@@ -53,7 +54,7 @@ export function PatternLock({
     } catch (e) {
       const kind = refusalKind(e)
       // A wrong pattern or a lockout shows nothing: the button simply stays a lock.
-      if (kind === 'setup') setSetup(true)
+      if (kind === 'setup') setSetup(!s?.off)
       else if (kind === 'other') toast(errText(e), 'err')
       // A new pattern or a change on another phone shows on the next try.
       status.current = null
