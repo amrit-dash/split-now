@@ -23,7 +23,7 @@ import { learnFromSave, suggestCategory } from '@/lib/merchants'
 import type { QuickPrefill } from '@/lib/nl-expense'
 import { todayISO } from '@/lib/id'
 import { deleteDraftBlob, draftBlobKey, getDraftBlob, isDraftBlobKey, putDraftBlob } from '@/lib/draft-blob'
-import { downscale } from '@/lib/image'
+import { downscale, imagePreviewUrl } from '@/lib/image'
 import { lastSplit, rememberGroup, rememberSplit, sameSplit, suggestDescriptions, type Suggestion } from '@/lib/recents'
 import {
   clearDraft,
@@ -175,12 +175,14 @@ export function ExpenseEditor({
   const [submitted, setSubmitted] = useState(false)
   const [receipt, setReceipt] = useState<File | null>(null)
   // Its thumbnail, while it's in the form (the object URL goes when the photo changes or the form closes).
+  // imagePreviewUrl (lib/image.ts): only a checked image type, copied into a fresh blob typed as an image.
   const [receiptSrc, setReceiptSrc] = useState<string | null>(null)
   useEffect(() => {
-    if (!receipt) return setReceiptSrc(null)
-    const url = URL.createObjectURL(receipt)
-    setReceiptSrc(url)
-    return () => URL.revokeObjectURL(url)
+    const url = receipt ? imagePreviewUrl(receipt) : undefined
+    setReceiptSrc(url ?? null)
+    return () => {
+      if (url) URL.revokeObjectURL(url)
+    }
   }, [receipt])
   // The receipt photo is kept in IndexedDB beside the sessionStorage draft, so a reload brings it
   // back instead of asking for a re-scan. The ref is the key in use (or being written) right now;
