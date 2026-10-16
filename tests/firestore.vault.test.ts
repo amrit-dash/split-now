@@ -75,6 +75,45 @@ describe('private groups', () => {
     await assertFails(updateDoc(doc(db('bob'), 'groups/g2'), { 'members.bob.photoURL': token(300), memberOpId: 'bob', updatedAt: 5 }))
     await assertSucceeds(updateDoc(doc(db('bob'), 'groups/g2'), { 'members.bob.photoURL': 'https://lh3.example/b.jpg', memberOpId: 'bob', updatedAt: 5 }))
   })
+  it('nobody joins a private group from its invite; a plain group still takes them', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'groups/g1'), { ...group, vault: true, members: { ...group.members, p_x: { name: 'Placeholder', color: '#222' } } })
+      await setDoc(doc(ctx.firestore(), 'groups/g2'), { ...group, id: 'g2', members: { ...group.members, p_x: { name: 'Placeholder', color: '#222' } } })
+    })
+    const join = (gid: string) =>
+      updateDoc(doc(db('carol'), `groups/${gid}`), {
+        memberUids: ['alice', 'bob', 'carol'],
+        'members.p_x': { name: 'Carol', uid: 'carol', color: '#222' },
+        joinCode: 'ABCD2345',
+        joinMemberId: 'p_x',
+        updatedAt: 9,
+      })
+    await assertFails(join('g1'))
+    await assertSucceeds(join('g2'))
+  })
+  it('in a private group only its creator adds people', async () => {
+    const add = (who: string, gid: string) =>
+      updateDoc(doc(db(who), `groups/${gid}`), { 'members.p_new': { name: 'New', color: '#333' }, memberOpId: 'p_new', updatedAt: 10 })
+    await assertFails(add('bob', 'g1'))
+    await assertSucceeds(add('alice', 'g1'))
+    await assertSucceeds(add('bob', 'g2'))
+  })
+  it('requests to join are the server’s: read by the asker and the creator alone', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'groups/g1/joinRequests/carol'), { uid: 'carol', name: 'v1:x', status: 'pending', createdAt: 1 })
+    })
+    await assertSucceeds(getDoc(doc(db('carol'), 'groups/g1/joinRequests/carol')))
+    await assertSucceeds(getDoc(doc(db('alice'), 'groups/g1/joinRequests/carol')))
+    await assertFails(getDoc(doc(db('bob'), 'groups/g1/joinRequests/carol')))
+    await assertFails(setDoc(doc(db('carol'), 'groups/g1/joinRequests/carol'), { uid: 'carol', name: 'x', status: 'approved', createdAt: 1 }))
+    await assertFails(setDoc(doc(db('alice'), 'groups/g1/joinRequests/carol'), { uid: 'carol', name: 'x', status: 'approved', createdAt: 1 }))
+  })
+  it('a private group’s invite may say so', async () => {
+    await assertSucceeds(
+      setDoc(doc(db('alice'), 'invites/ABCD2345'), { groupId: 'g1', groupName: 'A private group', emoji: '🔒', placeholders: {}, vault: true }),
+    )
+    await assertFails(setDoc(doc(db('alice'), 'invites/ABCD2345'), { groupId: 'g1', groupName: 'A private group', vault: 'yes' }))
+  })
   it('its sealed key is out of reach, even for its members', async () => {
     await assertFails(getDoc(doc(db('alice'), 'vaultKeys/g1')))
     await assertFails(setDoc(doc(db('alice'), 'vaultKeys/g1'), { pattern: { salt: 'a', hash: 'b' } }))

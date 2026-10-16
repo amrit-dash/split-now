@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  addPlan,
+  askAgainWords,
   aiAfterPick,
   scanOnDeviceFirst,
   groupPatternProblem,
@@ -102,5 +104,19 @@ describe('the Scan tab', () => {
     expect(aiAfterPick({ readOnDevice: true, pickedPrivate: true, aiOn: true })).toBe(false)
     expect(aiAfterPick({ readOnDevice: true, pickedPrivate: false, aiOn: false })).toBe(false)
     expect(aiAfterPick({ readOnDevice: false, pickedPrivate: false, aiOn: true })).toBe(false)
+  })
+})
+
+describe('joining and adding to a private group', () => {
+  it('only its creator adds people; a known account joins at once, a name is a placeholder', () => {
+    expect(addPlan({}, false, 'u1')).toBe('placeholder')
+    expect(addPlan({ vault: true }, false, 'u1')).toBe('forbidden')
+    expect(addPlan({ vault: true }, false)).toBe('forbidden')
+    expect(addPlan({ vault: true }, true, 'u1')).toBe('contact')
+    expect(addPlan({ vault: true }, true)).toBe('placeholder')
+  })
+  it('says when someone may ask again', () => {
+    expect(askAgainWords(30 * 60_000, 0)).toBe('in about an hour')
+    expect(askAgainWords(5 * 3_600_000, 0)).toBe('in about 5 hours')
   })
 })

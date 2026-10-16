@@ -59,6 +59,7 @@ export function demoVault(
   now = () => Date.now(),
   privateGroups: () => string[] = () => [],
   convert: (groupId: string, on: boolean, dek: string) => Promise<void> = async () => {},
+  addContact: (groupId: string, uid: string, dek: string) => Promise<void> = async () => {},
 ) {
   const read = (): DemoState => {
     try {
@@ -146,6 +147,18 @@ export function demoVault(
         // its own name, emoji and people, sealed with the new key
         await convert(req.groupId, true, dek)
         return { dek } as T
+      }
+      // Asking to join needs a second person: the demo has one. Adding someone you know works.
+      case 'joinStatus':
+        return { status: 'none' } as T
+      case 'requestJoin':
+      case 'decideJoin':
+        return refuse('Asking to join a private group needs the online app: the demo has only you.')
+      case 'addContact': {
+        const dek = keyOf(s, req.groupId)
+        write(s)
+        await addContact(req.groupId, req.uid, dek)
+        return { ok: true } as T
       }
       case 'convert': {
         if (req.on) {

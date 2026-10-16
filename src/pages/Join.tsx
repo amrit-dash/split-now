@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Check } from 'lucide-react'
+import { Check, Clock, Lock } from 'lucide-react'
+import { askAgainWords, type JoinState } from '@/lib/vault-api'
 import { repo } from '@/data'
 import type { InviteInfo } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
@@ -59,6 +60,9 @@ export default function Join() {
       </div>
     )
   }
+
+  // A private group: nobody joins from the invite; they ask, and its creator decides (docs/VAULT.md).
+  if (invite.vault) return <PrivateJoin code={code} />
 
   const unclaimed = Object.keys(invite.placeholders).length > 0
   const choice = claim || (unclaimed ? '' : 'new')
@@ -172,4 +176,73 @@ function matchPlaceholder(placeholders: Record<string, string>, displayName: str
   if (full.length === 1) return full[0][0]
   const byFirst = entries.filter(([, n]) => fold(n).split(/\s+/)[0] === first)
   return byFirst.length === 1 ? byFirst[0][0] : undefined
+}
+
+/**
+ * A private group's invite: no name, people or pick of who you are, only a request to its creator,
+ * who lets you in or not (vault ops joinStatus / requestJoin). One request at a time; a day after a
+ * decline before asking again.
+ */
+function PrivateJoin({ code }: { code: string }) {
+  const nav = useNavigate()
+  const toast = useToast()
+  const [state, setState] = useState<JoinState | null>(null)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    let live = true
+    repo
+      .vault<JoinState>({ op: 'joinStatus', code })
+      .then((s) => live && setState(s))
+      .catch(() => live && setState({ status: 'none' }))
+    return () => {
+      live = false
+    }
+  }, [code])
+  useEffect(() => {
+    if (state?.status === 'member') nav(`/groups/${state.groupId}`, { replace: true })
+  }, [state, nav])
+
+  const ask = async () => {
+    setBusy(true)
+    try {
+      setState(await repo.vault<JoinState>({ op: 'requestJoin', code }))
+    } catch (e) {
+      toast(errText(e), 'err')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <main className="mx-auto min-h-dvh max-w-md px-4 pt-[calc(var(--safe-top)+4rem)]" data-testid="join-private">
+      <div className="text-center">
+        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-slate-100 text-slate-500 dark:bg-ink-800" aria-hidden>
+          <Lock size={36} />
+        </div>
+        <h1 className="mt-4 text-2xl font-extrabold">A private group</h1>
+        <p className="text-muted mt-2 text-sm">The person who made it decides who joins. You’ll see what’s in it once they let you in.</p>
+      </div>
+      <div className="mt-8">
+        {!state ? (
+          <Loading />
+        ) : state.status === 'pending' ? (
+          <div className="card flex items-center gap-3 p-4 text-sm" role="status" data-testid="join-pending">
+            <Clock size={20} className="text-muted shrink-0" aria-hidden />
+            <span>Asked. Waiting for the owner’s OK: you’ll get a notification when they decide.</span>
+          </div>
+        ) : state.status === 'declined' ? (
+          <div className="card p-4 text-sm" role="status" data-testid="join-declined">
+            Your last request wasn’t accepted. You can ask again {askAgainWords(state.retryAt, Date.now())}.
+          </div>
+        ) : (
+          <button type="button" className="btn-primary w-full" disabled={busy} onClick={() => void ask()} data-testid="join-ask">
+            {busy ? 'Asking…' : 'Ask to join'}
+          </button>
+        )}
+        <Link to="/" className="btn-ghost mt-3 w-full">
+          Go home
+        </Link>
+      </div>
+    </main>
+  )
 }

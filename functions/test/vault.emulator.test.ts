@@ -156,4 +156,43 @@ describe('vault callable (emulator)', () => {
       expect((await getDoc(doc(ctx.firestore(), 'groups/plain'))).get('name')).toBe('Secret trip')
     })
   })
+  it('joining: ask once, wait for the creator; a decline holds for a day; deciding needs the creator and a passkey', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'groups/vg'), group({ vault: true, inviteCode: 'INVITE12' }))
+      await setDoc(doc(ctx.firestore(), 'invites/INVITE12'), { groupId: 'vg', groupName: 'A private group', emoji: '🔒', placeholders: {}, vault: true })
+      await setDoc(doc(ctx.firestore(), 'users/carol'), { displayName: 'Carol Singh' })
+    })
+    expect((await call({ op: 'joinStatus', code: 'INVITE12' }, 'carol')).result).toEqual({ status: 'none' })
+    expect((await call({ op: 'requestJoin', code: 'INVITE12' }, 'carol')).result).toEqual({ status: 'pending' })
+    expect((await call({ op: 'requestJoin', code: 'INVITE12' }, 'carol')).result).toEqual({ status: 'pending' })
+    expect((await call({ op: 'joinStatus', code: 'INVITE12' }, 'bob')).result).toEqual({ status: 'member', groupId: 'vg' })
+    expect((await call({ op: 'requestJoin', code: 'NOPE1234' }, 'carol')).error?.status).toBe('NOT_FOUND')
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const r = (await getDoc(doc(ctx.firestore(), 'groups/vg/joinRequests/carol'))).data() as { name: string; status: string }
+      expect(r.status).toBe('pending')
+      // their name is sealed with the group's key, never stored in the clear
+      expect(r.name).toMatch(/^v1:/)
+      expect(JSON.stringify(r)).not.toContain('Carol')
+    })
+    // only the creator decides, and not without a passkey
+    expect((await call({ op: 'decideJoin', groupId: 'vg', uid: 'carol', approve: true }, 'bob')).error?.status).toBe('PERMISSION_DENIED')
+    expect(['UNAUTHENTICATED', 'DEADLINE_EXCEEDED']).toContain(
+      (await call({ op: 'decideJoin', groupId: 'vg', uid: 'carol', approve: true }, 'alice')).error?.status,
+    )
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      expect((await getDoc(doc(ctx.firestore(), 'groups/vg'))).get('memberUids')).toEqual(['alice', 'bob'])
+      await setDoc(doc(ctx.firestore(), 'groups/vg/joinRequests/carol'), {
+        uid: 'carol',
+        name: 'v1:x',
+        status: 'declined',
+        createdAt: 1,
+        decidedAt: Date.now(),
+      })
+    })
+    expect((await call({ op: 'requestJoin', code: 'INVITE12' }, 'carol')).error?.status).toBe('RESOURCE_EXHAUSTED')
+    expect((await call<{ status: string }>({ op: 'joinStatus', code: 'INVITE12' }, 'carol')).result?.status).toBe('declined')
+    // adding directly: only the creator, only someone they share another group with
+    expect((await call({ op: 'addContact', groupId: 'vg', uid: 'carol' }, 'bob')).error?.status).toBe('PERMISSION_DENIED')
+    expect((await call({ op: 'addContact', groupId: 'vg', uid: 'carol' }, 'alice')).error?.message).toMatch(/another group with them/)
+  })
 })

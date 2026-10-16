@@ -75,6 +75,7 @@ import type {
   OpenItem,
   Settlement,
   UserProfile,
+  JoinRequest,
 } from '@/types'
 import { inviteCode, todayISO, uid } from '@/lib/id'
 import { defaultCurrency } from '@/lib/locale'
@@ -230,7 +231,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
   // A private group's invite (readable by anyone with the link) names nothing of it: no name, emoji or people (docs/VAULT.md).
   const inviteDoc = (g: Group): InviteInfo =>
     g.vault
-      ? { groupId: g.id, groupName: inviteNameFor(g), emoji: '🔒', placeholders: {} }
+      ? { groupId: g.id, groupName: inviteNameFor(g), emoji: '🔒', placeholders: {}, vault: true }
       : { groupId: g.id, groupName: inviteNameFor(g), emoji: g.emoji, placeholders: placeholdersOf(g) }
 
   /**
@@ -1327,6 +1328,14 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       }
     },
 
+    watchJoinRequests(groupId, cb) {
+      return watchList(
+        query(collection(db, 'groups', groupId, 'joinRequests'), where('status', '==', 'pending')),
+        (s) => s.docs.map((d) => ({ ...(d.data() as JoinRequest), uid: d.id, groupId })).sort((a, b) => a.createdAt - b.createdAt),
+        cb,
+        'Loading requests to join',
+      )
+    },
     watchOpenItems(groupId, cb) {
       return watchList(
         collection(db, 'groups', groupId, 'openItems'),

@@ -5,7 +5,7 @@ import { inviteNameFor } from '../../shared/names'
 import { DELETED_GROUP_WRITE, purgeDue } from '../../shared/group-trash'
 import { EMPTY_INBOX_STATE, type InboxState } from '@/lib/inbox'
 import { shownCapture } from '@/lib/capture'
-import type { ActivityEntry, Capture, ChatMessage, Expense, ExpenseComment, Group, MergeRequest, OpenItem, Settlement, UserProfile } from '@/types'
+import type { ActivityEntry, Capture, ChatMessage, Expense, ExpenseComment, Group, MergeRequest, OpenItem, Settlement, UserProfile, JoinRequest } from '@/types'
 import { inviteCode, todayISO, uid } from '@/lib/id'
 import { inboxToDraft, newCaptureToken } from '@/lib/capture'
 import { downscale } from '@/lib/image'
@@ -321,6 +321,24 @@ export function createLocalRepo(): Repo {
     touch(groupId)
     commit()
   }
+  /** Demo stand-in for addContact: someone from your other demo groups, in at once. */
+  const addContactDemo = async (groupId: string, who: string, dek: string) => {
+    const g = state.groups[groupId]
+    if (!g || g.memberUids.includes(who)) return
+    const known = Object.values(state.groups)
+      .flatMap((x) => Object.values(x.members))
+      .find((m) => m.uid === who)
+    const id = `m_${who.slice(0, 8)}`
+    state.groups[groupId] = {
+      ...g,
+      members: { ...g.members, [id]: { name: known?.name ?? 'Member', uid: who, color: known?.color ?? '#64748b' } },
+      memberUids: [...g.memberUids, who],
+    }
+    // their name sealed like the rest of a private group's people
+    await convertGroup(groupId, true, dek)
+    touch(groupId)
+    commit()
+  }
   const tables = () => (state.tables ??= {})
   /** Demo stand-in for the security rules: guests can only write to open, unexpired tables. */
   const openTable = (code: string) => {
@@ -454,6 +472,7 @@ export function createLocalRepo(): Repo {
           .filter(([, g]) => g.vault && g.deletedAt === undefined && g.memberUids.includes(me().uid))
           .map(([id]) => id),
       convertGroup,
+      addContactDemo,
     ),
     // The demo has no admin console to read reports in.
     reportError: () => {},
@@ -656,7 +675,7 @@ export function createLocalRepo(): Repo {
       const g = Object.values(state.groups).find((x) => x.inviteCode === code.toUpperCase() && x.type !== 'personal')
       if (!g) return null
       return g.vault
-        ? { groupId: g.id, groupName: inviteNameFor(g), emoji: '🔒', placeholders: {} }
+        ? { groupId: g.id, groupName: inviteNameFor(g), emoji: '🔒', placeholders: {}, vault: true }
         : { groupId: g.id, groupName: inviteNameFor(g), emoji: g.emoji, placeholders: placeholdersOf(g) }
     },
     async joinGroup(code, memberId, member) {
@@ -948,6 +967,8 @@ export function createLocalRepo(): Repo {
       commit()
     },
 
+    // Asking to join needs a second person: the demo has none.
+    watchJoinRequests: (_groupId, cb) => watch(() => [] as JoinRequest[], cb),
     watchOpenItems: (groupId, cb) => watch(() => Object.values(openItems()).filter((o) => o.groupId === groupId), cb),
     async saveOpenItem(item) {
       if (inTrash(item.groupId, 'Saving open item')) return
