@@ -353,6 +353,21 @@ describe('the expense icon', () => {
     expect('iconSvg' in reduce(d, { type: 'icon' })).toBe(false)
     expect('iconSvg' in hydrateDraft({ iconSvg: '<svg><text>x</text></svg>' }, seed(), order, 'me')).toBe(false)
   })
+  it('a picture replaces a drawn icon and the other way round; never in a private group', () => {
+    const svg = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="#f59e0b"/></svg>'
+    const pic = 'data:image/webp;base64,AAAA'
+    let d = reduce(seed(), { type: 'amount', amount: 1200 })
+    d = reduce(d, { type: 'iconSvg', svg })
+    d = reduce(d, { type: 'iconImage', image: pic })
+    expect(d.iconImage).toBe(pic)
+    expect('iconSvg' in d).toBe(false)
+    expect(toExpense(d, save).expense.iconImage).toBe(pic)
+    expect(toExpense(d, { ...save, group: { ...save.group, vault: true } }).expense.iconImage).toBeUndefined()
+    expect(reduce(d, { type: 'iconImage', image: 'https://x.test/a.png' }).iconImage).toBe(pic)
+    expect('iconImage' in reduce(d, { type: 'iconSvg', svg })).toBe(false)
+    expect('iconImage' in reduce(d, { type: 'icon' })).toBe(false)
+    expect('iconImage' in hydrateDraft({ iconImage: 'nope' }, seed(), order, 'me')).toBe(false)
+  })
   it('an edit starts from the stored icon, a stored draft loses a bad one', () => {
     expect(seed({ existing: expense({ icon: '🍕' }) }).icon).toBe('🍕')
     expect('icon' in seed({ existing: expense({ icon: 'v1:sealed' }) })).toBe(false)

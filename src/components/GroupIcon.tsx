@@ -15,7 +15,7 @@ export function GroupIcon({
   emoji: string
   size?: number
   /** with its AI-drawn icon (Group.iconSvg) when it has one */
-  group?: Pick<Group, 'type' | 'peer' | 'members'> & Partial<Pick<Group, 'iconSvg' | 'vault'>>
+  group?: Pick<Group, 'type' | 'peer' | 'members'> & Partial<Pick<Group, 'iconSvg' | 'iconImage' | 'vault'>>
 }) {
   const peer = group?.type === 'direct' && group.peer ? group.members[group.peer] : undefined
   if (peer) {
@@ -38,7 +38,7 @@ export function GroupIcon({
       className="flex shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-100 to-duo-100 dark:from-brand-900/50 dark:to-duo-900/30"
       style={{ width: size, height: size, fontSize: size * 0.5 }}
     >
-      <IconFace iconSvg={group?.iconSvg} emoji={emoji} vault={!!group?.vault} />
+      <IconFace iconSvg={group?.iconSvg} iconImage={group?.iconImage} emoji={emoji} vault={!!group?.vault} />
     </div>
   )
 }

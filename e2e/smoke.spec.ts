@@ -1315,3 +1315,22 @@ test('icons: a group takes a drawn icon', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1, name: /Goa trip/ })).toBeVisible()
   await expect(page.locator('main img[src^="data:image/svg+xml"]').first()).toBeVisible()
 })
+
+test('icons: Draw a picture says who pays, and the picture becomes the icon', async ({ page }) => {
+  await page.goto('/add?group=g_goa')
+  await page.getByRole('textbox', { name: 'Description', exact: true }).fill('Sunset cruise')
+  await amountField(page).fill('900')
+  await page.getByTestId('expense-icon').click({ button: 'right' })
+  const sheet = page.getByTestId('icon-sheet')
+  await expect(sheet.getByTestId('icon-picture-note')).toContainText('Split Now')
+  await sheet.getByTestId('icon-picture-draw').click()
+  await sheet.getByTestId('icon-picture-use').click()
+  await expect(page.getByTestId('expense-icon').locator('img')).toHaveAttribute('src', /^data:image\/(webp|png|jpeg);base64,/)
+  await page
+    .getByRole('button', { name: /^(Save|Add expense)$/ })
+    .first()
+    .click()
+  await expect(page).toHaveURL(/\/groups\/g_goa$/)
+  await page.getByText('Sunset cruise').first().click()
+  await expect(page.getByTestId('expense-detail-icon').locator('img')).toHaveAttribute('src', /^data:image\/(webp|png|jpeg)/)
+})

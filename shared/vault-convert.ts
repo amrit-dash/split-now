@@ -79,7 +79,7 @@ async function sealSnapshot(k: VaultKey, s: unknown): Promise<unknown> {
 
 /**
  * The patch that seals one document of kind `kind` (its words; never amounts, dates, ids or emails).
- * An AI-drawn icon (`iconSvg`) can't be sealed into a token that fits and was drawn from the words in
+ * An AI-drawn icon or picture (`iconSvg`, `iconImage`) can't be sealed into a token that fits and was drawn from the words in
  * the clear, so it goes: its patch value is null, which the writer turns into a delete. The emoji stays (sealed).
  */
 export async function sealDoc(k: VaultKey, kind: ConvertKind, doc: Doc): Promise<Patch> {
@@ -87,7 +87,7 @@ export async function sealDoc(k: VaultKey, kind: ConvertKind, doc: Doc): Promise
   const f = async (key: string, cap: number) => {
     if (key in d) d[key] = await sealField(k, d[key], cap)
   }
-  if ((kind === 'group' || kind === 'expense') && typeof d.iconSvg === 'string') d.iconSvg = null
+  if (kind === 'group' || kind === 'expense') for (const f of ['iconSvg', 'iconImage']) if (typeof d[f] === 'string') d[f] = null
   switch (kind) {
     case 'group':
       await f('name', CAPS.groupName)

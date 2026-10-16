@@ -17,6 +17,7 @@
  *  fxDaily, fxMorning  Schedule weekdays 17:15 Europe/Berlin + daily 09:00 IST → shared ECB rates (fxRates/*)
  *  refreshFx           Callable { date? } → fetch + store ECB rates (throttled, per-user limit), any signed-in user
  *  parseReceiptAi      Callable { kind, image(s) } → bill / statement read by Gemini (own key, then project key)
+ *  iconPictureAi       Callable { title, kind, category? } → one picture from a paid Gemini image model (own key, or the shared key when allowed)
  *  iconsAi             Callable { title, kind, category? } → 3 emoji and up to 3 cleaned SVG icons (Gemma or Gemini; nothing saved)
  *  quickAddAi          Callable { text, groups, … } → a Quick add line read by Gemini: an expense, or a new group and an expense (validated; nothing saved)
  *  aiKey, aiModels, aiStatus  Callables: save/test/remove a user's Gemini key (sealed at rest), list models, AI availability
@@ -43,7 +44,7 @@ export { cleanupCaptures } from './cleanup'
 export { onExpenseCreated, onExpenseUpdated, onGroupDeleted, onPushTokenCreated, onSettlementCreated, onSettlementUpdated } from './triggers'
 export { dailyReminders } from './reminders'
 export { fxDaily, fxMorning, refreshFx } from './fx'
-export { aiKey, aiModels, aiStatus, iconsAi, parseReceiptAi, quickAddAi } from './ai'
+export { aiKey, aiModels, aiStatus, iconPictureAi, iconsAi, parseReceiptAi, quickAddAi } from './ai'
 export { nudge } from './nudge'
 export { onPayLinkPaid } from './paylinks'
 export { adminBlockUser, adminSetAdmin, adminStats, adminUsers } from './admin'

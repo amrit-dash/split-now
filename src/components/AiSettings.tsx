@@ -286,7 +286,7 @@ export function AiSettings() {
                   checked={prefs.aiIcons}
                   onChange={(v) => set({ aiIcons: v })}
                   text={{
-                    full: 'Press and hold an icon, then Suggest with AI: three emoji and a few drawn icons from the title. Only when you ask, never in private groups. Uses your AI quota.',
+                    full: 'Press and hold an icon, then Suggest with AI: three emoji and a few drawn icons from the title. With your own Gemini key, Draw a picture too (billed to your key, about US$0.03 a picture). Only when you ask, never in private groups. Uses your AI quota.',
                     short: 'Suggest icons from the title when you ask',
                     tier: 'help',
                   }}

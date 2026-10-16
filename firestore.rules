@@ -333,7 +333,7 @@ service cloud.firestore {
           && d.get('updatedBy', '') is string;
       }
       function validAiConfig(d) {
-        return d.keys().hasOnly(['mode', 'engine', 'gemmaModel', 'allowEmails', 'images', 'sms', 'model', 'perDay', 'perHour', 'globalPerDay', 'updatedAt', 'updatedBy'])
+        return d.keys().hasOnly(['mode', 'engine', 'gemmaModel', 'allowEmails', 'images', 'sms', 'model', 'perDay', 'perHour', 'globalPerDay', 'pictures', 'picturesPerDay', 'updatedAt', 'updatedBy'])
           && d.mode in ['off', 'everyone', 'allowlist']
           && d.get('engine', 'gemini') in ['gemini', 'gemma']
           && d.get('gemmaModel', '') is string && d.get('gemmaModel', '').size() <= 80
@@ -343,7 +343,10 @@ service cloud.firestore {
           && d.get('model', '') is string && d.get('model', '').size() <= 80
           && d.get('perDay', 100) is int && d.get('perDay', 100) >= 1 && d.get('perDay', 100) <= 5000
           && d.get('perHour', 30) is int && d.get('perHour', 30) >= 1 && d.get('perHour', 30) <= 1000
-          && d.get('globalPerDay', 2000) is int && d.get('globalPerDay', 2000) >= 1 && d.get('globalPerDay', 2000) <= 100000;
+          && d.get('globalPerDay', 2000) is int && d.get('globalPerDay', 2000) >= 1 && d.get('globalPerDay', 2000) <= 100000
+          // "Draw a picture" on the shared key (paid per picture): off unless set
+          && d.get('pictures', false) is bool
+          && d.get('picturesPerDay', 5) is int && d.get('picturesPerDay', 5) >= 1 && d.get('picturesPerDay', 5) <= 100;
       }
       allow get: if id == 'app' || isAdmin();
       allow list: if false;
@@ -430,15 +433,20 @@ service cloud.firestore {
       // Every field a group document may hold, with types and sizes. Membership fields are
       // further checked by isJoining / validMembershipChange. Any member may change the approval
       // settings and the currency (owner decision, Oct 2026); validGroupShape checks their values.
+      // A picture icon (Draw a picture): a small image data: URL the phone made (shared/icon-ai.ts cleanIconImage).
+      function validIconImage(v) {
+        return v is string && v.size() <= 24000 && v.matches('data:image/(webp|jpeg|png);base64,[A-Za-z0-9+/]+={0,2}');
+      }
       function validGroupShape(g) {
         return g.keys().hasOnly(['id', 'name', 'emoji', 'type', 'currency', 'budget', 'startDate', 'endDate', 'simplify',
             'requireApproval', 'approvalThreshold', 'editAutoApprove', 'paymentApproval', 'captureOff', 'archived', 'archivedBy', 'deletedAt', 'deletedBy', 'memberUids', 'members', 'inviteCode',
-            'createdBy', 'createdAt', 'updatedAt', 'joinCode', 'joinMemberId', 'memberOpId', 'mergeNeedsOk', 'vault', 'iconSvg'])
+            'createdBy', 'createdAt', 'updatedAt', 'joinCode', 'joinMemberId', 'memberOpId', 'mergeNeedsOk', 'vault', 'iconSvg', 'iconImage'])
           // A private group's name and emoji are tokens (docs/VAULT.md), longer than the text they hold.
           && g.name is string && g.name.size() > 0 && g.name.size() <= (g.get('vault', false) == true ? 200 : 80)
           && g.emoji is string && g.emoji.size() <= (g.get('vault', false) == true ? 80 : 16)
           // an AI-drawn icon (shared/svg-icon.ts SVG_MAX); a private group has none (it can't be sealed)
           && (!('iconSvg' in g) || (g.iconSvg is string && g.iconSvg.size() <= 4096 && g.get('vault', false) != true))
+          && (!('iconImage' in g) || (validIconImage(g.iconImage) && g.get('vault', false) != true))
           && g.type in ['trip', 'outing', 'home', 'couple', 'event', 'office', 'other', 'direct', 'personal']
           && g.currency is string && g.currency.size() == 3
           && g.members is map && g.members.size() <= 60
@@ -731,6 +739,8 @@ service cloud.firestore {
             && (!('icon' in d) || (d.icon is string && d.icon.size() <= 80))
             // an AI-drawn icon (shared/svg-icon.ts SVG_MAX), never in a private group: it can't be sealed
             && (!('iconSvg' in d) || (d.iconSvg is string && d.iconSvg.size() <= 4096 && groupDoc(groupId).data.get('vault', false) != true))
+            // a picture (Draw a picture, shrunk on the phone): a small image data: URL (shared/icon-ai.ts ICON_IMAGE_MAX), never in a private group
+            && (!('iconImage' in d) || (validIconImage(d.iconImage) && groupDoc(groupId).data.get('vault', false) != true))
             && d.paidBy is map && d.paidBy.size() <= 60
             && d.splits is map && d.splits.size() <= 60
             // everyone who paid or owes must be a member of this group

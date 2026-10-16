@@ -23,6 +23,7 @@ export const FUNCTION_NAMES = [
   'decideMerge',
   'fxDaily',
   'fxMorning',
+  'iconPictureAi',
   'iconsAi',
   'linkMyInvites',
   'linkPreview',

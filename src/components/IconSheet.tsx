@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { RefreshCw, Search, Sparkles, Wand2 } from 'lucide-react'
+import { ImageIcon, RefreshCw, Search, Sparkles, Wand2 } from 'lucide-react'
 import { repo } from '@/data'
 import { firstEmoji } from '@/lib/emoji'
-import { iconAiProblem } from '@/lib/icon-ai'
+import { iconAiProblem, pictureNote, pictureProblem } from '@/lib/icon-ai'
+import { shrinkPicture } from '@/lib/icon-picture'
 import { searchIcons } from '@/lib/icons'
-import type { IconRequest, IconSuggestions } from '../../shared/icon-ai'
+import { type IconRequest, type IconSuggestions, PICTURE_COST } from '../../shared/icon-ai'
 import { svgDataUrl } from '../../shared/svg-icon'
 import { Spinner } from './Misc'
 import { Sheet } from './Sheet'
@@ -28,6 +29,9 @@ export function IconSheet({
   ai,
   svgValue,
   onPickSvg,
+  picture,
+  imageValue,
+  onPickImage,
   testId = 'icon-sheet',
 }: {
   open: boolean
@@ -43,19 +47,43 @@ export function IconSheet({
   /** the AI-drawn icon chosen now */
   svgValue?: string
   onPickSvg?: (svg: string) => void
+  /** "Draw a picture" (a paid image model): whose key pays; absent hides it */
+  picture?: 'own' | 'app' | null
+  /** the picture chosen now */
+  imageValue?: string
+  onPickImage?: (image: string) => void
   testId?: string
 }) {
   const [q, setQ] = useState('')
   const [asking, setAsking] = useState(false)
   const [found, setFound] = useState<IconSuggestions | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
+  const [drawing, setDrawing] = useState(false)
+  const [drawn, setDrawn] = useState<string | null>(null)
+  const [pictureWhy, setPictureWhy] = useState<string | null>(null)
   // A new title asks afresh.
   const aiTitle = ai?.title
   // biome-ignore lint/correctness/useExhaustiveDependencies: only when the title changes
   useEffect(() => {
     setFound(null)
     setProblem(null)
+    setDrawn(null)
+    setPictureWhy(null)
   }, [aiTitle])
+  const draw = async () => {
+    if (!ai || drawing) return
+    setDrawing(true)
+    setPictureWhy(null)
+    try {
+      const r = await repo.iconPictureAi(ai)
+      const small = r && 'image' in r ? await shrinkPicture(r.image, r.mimeType) : null
+      const why = pictureProblem(r, !!small)
+      if (why || !small) setPictureWhy(why)
+      else setDrawn(small)
+    } finally {
+      setDrawing(false)
+    }
+  }
   const pick = (icon: string | undefined) => {
     onPick(icon)
     setQ('')
@@ -85,9 +113,9 @@ export function IconSheet({
         {auto !== undefined && (
           <button
             type="button"
-            aria-pressed={value === undefined && !svgValue}
+            aria-pressed={value === undefined && !svgValue && !imageValue}
             onClick={() => pick(undefined)}
-            className={`flex min-h-11 w-full items-center gap-3 rounded-2xl px-3 py-2 text-left text-sm font-semibold ${value === undefined && !svgValue ? 'bg-brand-50 ring-2 ring-brand-500 dark:bg-brand-900/40' : 'bg-slate-100 dark:bg-ink-800'}`}
+            className={`flex min-h-11 w-full items-center gap-3 rounded-2xl px-3 py-2 text-left text-sm font-semibold ${value === undefined && !svgValue && !imageValue ? 'bg-brand-50 ring-2 ring-brand-500 dark:bg-brand-900/40' : 'bg-slate-100 dark:bg-ink-800'}`}
             data-testid="icon-auto"
           >
             <span className="text-2xl" aria-hidden>
@@ -110,7 +138,7 @@ export function IconSheet({
                       key={e}
                       type="button"
                       role="radio"
-                      aria-checked={value === e && !svgValue}
+                      aria-checked={value === e && !svgValue && !imageValue}
                       aria-label={`Icon ${e}`}
                       onClick={() => pick(e)}
                       className="flex aspect-square min-h-11 items-center justify-center rounded-xl bg-white text-2xl dark:bg-ink-800"
@@ -158,6 +186,58 @@ export function IconSheet({
                 {problem}
               </p>
             )}
+            {picture && onPickImage && (
+              <div className="mt-3 border-t border-brand-100 pt-3 dark:border-white/5" data-testid="icon-picture">
+                {drawn ? (
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onPickImage(drawn)
+                        onClose()
+                      }}
+                      aria-label="Use this picture"
+                      aria-pressed={imageValue === drawn}
+                      className={`h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-white dark:bg-ink-800 ${imageValue === drawn ? 'ring-2 ring-brand-500' : ''}`}
+                      data-testid="icon-picture-use"
+                    >
+                      <img src={drawn} alt="" aria-hidden className="h-full w-full object-cover" draggable={false} />
+                    </button>
+                    <div className="min-w-0 flex-1 text-sm">
+                      <div className="font-semibold">Tap it to use it</div>
+                      <button type="button" onClick={draw} disabled={drawing} className="chip mt-1 min-h-11" data-testid="icon-picture-again">
+                        {drawing ? <Spinner className="!h-4 !w-4" label="Drawing" /> : <RefreshCw size={14} aria-hidden />} Draw another
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={draw}
+                    disabled={drawing}
+                    className="flex min-h-11 w-full items-center gap-3 text-left text-sm font-semibold"
+                    data-testid="icon-picture-draw"
+                  >
+                    {drawing ? (
+                      <Spinner className="!h-5 !w-5" label="Drawing" />
+                    ) : (
+                      <ImageIcon size={20} className="text-brand-600 dark:text-brand-300" aria-hidden />
+                    )}
+                    <span className="min-w-0 flex-1">
+                      {drawing ? 'Drawing a picture… this can take half a minute' : 'Draw a picture'}
+                      <span className="text-muted block text-xs font-normal" data-testid="icon-picture-note">
+                        {pictureNote(picture, PICTURE_COST)}
+                      </span>
+                    </span>
+                  </button>
+                )}
+                {pictureWhy && (
+                  <p className="text-muted mt-2 text-xs" role="status" data-testid="icon-picture-problem">
+                    {pictureWhy}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         )}
         <div className="relative">
@@ -185,10 +265,10 @@ export function IconSheet({
                 key={e}
                 type="button"
                 role="radio"
-                aria-checked={value === e && !svgValue}
+                aria-checked={value === e && !svgValue && !imageValue}
                 aria-label={`Icon ${e}`}
                 onClick={() => pick(e)}
-                className={`flex aspect-square min-h-11 items-center justify-center rounded-xl text-2xl transition active:scale-95 ${value === e && !svgValue ? 'bg-brand-100 ring-2 ring-brand-500 dark:bg-brand-900/40' : 'bg-slate-100 dark:bg-ink-800'}`}
+                className={`flex aspect-square min-h-11 items-center justify-center rounded-xl text-2xl transition active:scale-95 ${value === e && !svgValue && !imageValue ? 'bg-brand-100 ring-2 ring-brand-500 dark:bg-brand-900/40' : 'bg-slate-100 dark:bg-ink-800'}`}
               >
                 {e}
               </button>

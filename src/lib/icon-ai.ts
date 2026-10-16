@@ -1,3 +1,4 @@
+import { cleanIconImage } from '../../shared/icon-ai'
 import { cleanSvg, svgDataUrl } from '../../shared/svg-icon'
 
 /*
@@ -29,12 +30,32 @@ export function iconAiOffered(o: {
 }
 
 /**
- * The face to draw for something with an icon: an AI-drawn one (cleaned again here: the stored
- * markup could have been written by anyone in the group) as an image, else the emoji. A private
- * group never shows a drawn one, even if one is stored.
+ * "Draw a picture" next to the drawn icons: whose key would pay, or null when it isn't offered.
+ * The person's own key whenever they added one (the sheet says it's billed to it, even while
+ * Split Now's free AI is what they use), else the shared key when the admin allows pictures on it.
+ * Never in a private group. The demo draws its stand-in.
  */
-export function iconFace(o: { iconSvg?: unknown; emoji: string; vault?: boolean }): { src: string } | { emoji: string } {
-  const svg = !o.vault && typeof o.iconSvg === 'string' ? cleanSvg(o.iconSvg) : null
+export function pictureOffer(
+  o: Parameters<typeof iconAiOffered>[0] & { status: { app: { images: string; engine?: string; pictures?: string } } | null | undefined },
+): 'own' | 'app' | null {
+  if (!o.flag || o.vault) return null
+  if (o.mode === 'demo') return 'app'
+  if (!o.online || !o.prefs?.aiEnabled || !o.prefs.aiIcons) return null
+  if (o.hasOwnKey && o.prefs.aiSource !== 'app') return 'own'
+  if (o.prefs.aiSource !== 'own' && o.status?.app.pictures === 'available') return 'app'
+  return null
+}
+
+/**
+ * The face to draw for something with an icon: a picture (Draw a picture), else an AI-drawn icon
+ * (cleaned again here: the stored markup could have been written by anyone in the group), both
+ * as images, else the emoji. A private group never shows either, even if one is stored.
+ */
+export function iconFace(o: { iconImage?: unknown; iconSvg?: unknown; emoji: string; vault?: boolean }): { src: string } | { emoji: string } {
+  if (o.vault) return { emoji: o.emoji }
+  const picture = cleanIconImage(o.iconImage)
+  if (picture) return { src: picture }
+  const svg = typeof o.iconSvg === 'string' ? cleanSvg(o.iconSvg) : null
   return svg ? { src: svgDataUrl(svg) } : { emoji: o.emoji }
 }
 
@@ -48,4 +69,16 @@ export function iconAiProblem(r: { unavailable: true; reason: string } | { emoji
     return 'AI didn’t answer. Try again in a moment.'
   }
   return r.emoji.length || r.svgs.length ? null : 'No icons this time. Try again.'
+}
+
+/** The line under "Draw a picture": what it costs and who pays, before anything is asked. */
+export const pictureNote = (via: 'own' | 'app', cost: string): string =>
+  via === 'own' ? `Billed to your Gemini key, ${cost} a picture` : 'Uses Split Now’s AI; a few a day'
+
+/** Why no picture came back (null: there is one). */
+export function pictureProblem(r: { unavailable: true; reason: string } | { image: string } | null, shrunk: boolean): string | null {
+  if (r && 'unavailable' in r && r.reason === 'blocked') return 'AI wouldn’t draw that one. Try other words in the title.'
+  if (r && 'unavailable' in r && r.reason === 'bad_key') return 'Google rejected your Gemini key. Check it in Settings → AI features.'
+  if (!r || 'unavailable' in r) return iconAiProblem(r as Parameters<typeof iconAiProblem>[0])
+  return shrunk ? null : 'Couldn’t use that picture. Try again.'
 }

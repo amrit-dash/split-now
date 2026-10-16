@@ -97,6 +97,10 @@ describe('private groups', () => {
     await assertSucceeds(setDoc(doc(db('alice'), 'groups/g1/expenses/e1'), e))
     await assertFails(setDoc(doc(db('alice'), 'groups/g1/expenses/e2'), { ...e, id: 'e2', iconSvg: '<svg/>' }))
     await assertSucceeds(setDoc(doc(db('alice'), 'groups/g2/expenses/e3'), { ...e, id: 'e3', groupId: 'g2', iconSvg: '<svg/>' }))
+    // pictures the same
+    await assertSucceeds(updateDoc(doc(db('alice'), 'groups/g2'), { iconImage: 'data:image/webp;base64,AAAA', updatedAt: 4 }))
+    await assertFails(updateDoc(doc(db('alice'), 'groups/g1'), { iconImage: 'data:image/webp;base64,AAAA', updatedAt: 4 }))
+    await assertFails(setDoc(doc(db('alice'), 'groups/g1/expenses/e4'), { ...e, id: 'e4', iconImage: 'data:image/webp;base64,AAAA' }))
   })
   it('nobody joins a private group from its invite; a plain group still takes them', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {

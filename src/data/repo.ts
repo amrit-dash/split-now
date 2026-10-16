@@ -31,7 +31,7 @@ import type { AiTextExpense } from '@/lib/nl-expense'
 import type { NudgeItem, NudgeResult } from '@/lib/nudge'
 import type { AiUnavailableReason } from '../../shared/ai-config'
 import type { QuickAiRequest, QuickAiResponse } from '../../shared/quick-ai'
-import type { IconAiResponse, IconRequest } from '../../shared/icon-ai'
+import type { IconAiResponse, IconPictureResponse, IconRequest } from '../../shared/icon-ai'
 import { defaultCurrency, formatDate } from '@/lib/locale'
 import { purgeHeld, purgeOpensAt } from '../../shared/group-trash'
 import { sharedPhotoURL, type OwnMemberPatch } from '@/lib/memberSync'
@@ -609,6 +609,13 @@ export interface Repo {
    */
   iconsAi(req: IconRequest): Promise<IconAiResponse | null>
   /**
+   * "Draw a picture" in the icon sheet (callable iconPictureAi): one picture from a paid Gemini image
+   * model, on the person's own key (or the shared key where the admin allows it). The app shrinks it
+   * to a small icon (src/lib/icon-picture.ts) before saving. null: couldn't be called. Demo mode
+   * draws its stand-in drawing as the picture.
+   */
+  iconPictureAi(req: IconRequest): Promise<IconPictureResponse | null>
+  /**
    * Save / re-test / remove the user's own Gemini key (aiKey callable), or with which 'app' the
    * in-app project key (admins; overrides Secret Manager's). Throws with a readable message.
    */
@@ -657,6 +664,8 @@ export interface AiStatusResult {
   app: {
     images: AppAiStatusValue
     sms: AppAiStatusValue
+    /** "Draw a picture" on the shared key (Gemini only, when the admin allows it) */
+    pictures?: AppAiStatusValue
     model: string
     /** what the shared key runs: Gemini, or Google's free Gemma models (people agree first, aiFreeOk) */
     engine?: 'gemini' | 'gemma'

@@ -20,6 +20,9 @@ export function IconPickerField({
   idPrefix = 'icon',
   iconSvg,
   onPickSvg,
+  iconImage,
+  onPickImage,
+  picture,
   ai,
 }: {
   emoji: string
@@ -27,6 +30,10 @@ export function IconPickerField({
   /** an AI-drawn icon, shown over the emoji */
   iconSvg?: string
   onPickSvg?: (svg: string) => void
+  /** a picture (Draw a picture), shown over both */
+  iconImage?: string
+  onPickImage?: (image: string) => void
+  picture?: 'own' | 'app' | null
   /** what "Suggest with AI" asks for (src/hooks/useIconAi.ts); absent hides it */
   ai?: IconRequest
   emojis?: string[]
@@ -56,7 +63,7 @@ export function IconPickerField({
           data-testid="group-icon"
           className={`flex h-12 w-12 shrink-0 press-hold select-none items-center justify-center rounded-2xl [-webkit-touch-callout:none] bg-gradient-to-br from-brand-100 to-duo-100 text-2xl transition active:scale-95 dark:from-brand-900/50 dark:to-duo-900/30 ${open ? 'ring-2 ring-brand-500' : ''}`}
         >
-          <IconFace iconSvg={iconSvg} emoji={emoji} />
+          <IconFace iconSvg={iconSvg} iconImage={iconImage} emoji={emoji} />
           <span
             className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-fill text-on-fill shadow ring-2 ring-white dark:ring-ink-900"
             aria-hidden
@@ -119,6 +126,9 @@ export function IconPickerField({
         ai={ai}
         svgValue={iconSvg}
         onPickSvg={onPickSvg}
+        picture={picture}
+        imageValue={iconImage}
+        onPickImage={onPickImage}
         testId="group-icon-sheet"
       />
     </>
