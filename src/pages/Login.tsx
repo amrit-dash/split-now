@@ -338,8 +338,16 @@ export default function Login() {
 export function AuthShell({ children }: { children: ReactNode }) {
   return (
     <div className="relative flex min-h-dvh flex-col overflow-hidden bg-ink-950 text-white">
-      <div className="pointer-events-none absolute -left-32 -top-32 h-96 w-96 rounded-full bg-brand-600/40 blur-3xl" aria-hidden />
-      <div className="pointer-events-none absolute -bottom-40 -right-20 h-96 w-96 rounded-full bg-duo-600/30 blur-3xl" aria-hidden />
+      {/* The two glows are radial gradients, not blurred circles: Safari (and the installed app on a Mac) cuts a large
+          filter: blur() at its tile edges, which showed as a hard dark rectangle across the glow. */}
+      <div
+        className="pointer-events-none absolute -left-[13rem] -top-[13rem] h-[36rem] w-[36rem] bg-[radial-gradient(closest-side,color-mix(in_oklab,var(--color-brand-600)_40%,transparent),transparent)]"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute -bottom-[15rem] -right-[11rem] h-[36rem] w-[36rem] bg-[radial-gradient(closest-side,color-mix(in_oklab,var(--color-duo-600)_30%,transparent),transparent)]"
+        aria-hidden
+      />
       <main className="relative mx-auto flex w-full max-w-md flex-1 flex-col justify-center-safe px-6 pb-12 pt-[max(3rem,env(safe-area-inset-top))]">
         {children}
       </main>
