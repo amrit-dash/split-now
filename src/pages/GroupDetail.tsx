@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Download,
   Flag,
+  HandCoins,
   Link2,
   LogOut,
   MessageSquareText,
@@ -101,7 +102,7 @@ import { activeMembers, isRemoved, listedMemberIds, memberRemoval, membersIn, re
 import { sortOpenItems } from '@/lib/open-items'
 import { hasUnread, READ_EVENT, readAtOf } from '@/lib/chat'
 import { OpenItemsTab } from '@/features/open-items/OpenItemsTab'
-import { deltaWords, handledVerb, handlersOf, spending } from '../../shared/received'
+import { deltaWords, handledVerb, handlersOf, isReceived, spending } from '../../shared/received'
 import { labelOf } from '@/lib/shortNames'
 
 type Tab = 'expenses' | 'open' | 'balances' | 'activity'
@@ -193,6 +194,7 @@ export default function GroupDetail() {
   }
   // Money received isn't spending (shared/received.ts): out of Total spent and the budget.
   const total = spending(d.expenses).reduce((s, e) => s + e.amount, 0)
+  const receivedTotal = d.expenses.filter((e) => isReceived(e) && !d.pending.includes(e)).reduce((s, e) => s + e.amount, 0)
   const name = (id: string) => (id === me ? 'You' : labelOf(group.members, id, 'Someone', me))
   // The QR is scanned in person, so it stays short; shared links carry your name for their preview.
   const inviteUrl = inviteLink(location.origin, group.inviteCode)
@@ -477,6 +479,17 @@ export default function GroupDetail() {
               <ChevronRight size={16} className="text-slate-300 dark:text-slate-600" aria-hidden />
             </button>
           )}
+          {receivedTotal > 0 && (
+            <Link
+              to={`/groups/${group.id}/money`}
+              className="card flex min-h-12 w-full items-center gap-2 px-4 py-3 text-sm"
+              data-testid="balances-received-note"
+            >
+              <HandCoins size={18} className="pos shrink-0" aria-hidden />
+              <span className="min-w-0 flex-1">Includes {formatMoney(receivedTotal, cur)} money received. See what it changed for each person.</span>
+              <ChevronRight size={16} className="text-slate-300 dark:text-slate-600" aria-hidden />
+            </Link>
+          )}
           {(d.pending.length > 0 || d.disputed.length > 0) && (
             <div className="card space-y-1 p-3 text-xs text-slate-600 dark:text-slate-300">
               {d.pending.length > 0 && (
@@ -658,6 +671,18 @@ export default function GroupDetail() {
               }}
             />
           )}
+          {receivedTotal > 0 && (
+            <MenuRow
+              icon={<HandCoins size={20} />}
+              label="Money received"
+              hint={MENU_HINTS.received}
+              onClick={() => {
+                setMenu(false)
+                nav(`/groups/${group.id}/money`)
+              }}
+              testId="group-money-menu"
+            />
+          )}
           <MenuRow
             icon={<BarChart3 size={20} />}
             label="Insights"
@@ -724,6 +749,7 @@ const MENU_HINTS = {
   members: { full: 'Add people, or remove someone who is settled up', short: 'Add or remove people', tier: 'help' },
   invite: { full: 'A link or QR code friends can join with', short: 'Share a join link', tier: 'help' },
   insights: { full: 'Where the group’s money went, in charts', short: 'Spending charts', tier: 'help' },
+  received: { full: 'Refunds and reimbursements, and what they changed for each person', short: 'What came back', tier: 'help' },
   export: { full: 'Every expense and payment as a spreadsheet', short: 'Download a spreadsheet', tier: 'help' },
   leave: { full: 'You leave; what you added stays in the group', short: 'Leave this group', tier: 'help' },
   delete: { full: 'For everyone; anyone in the group can restore it', short: 'For everyone, and restorable', tier: 'help' },

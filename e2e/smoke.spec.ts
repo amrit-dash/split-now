@@ -107,6 +107,13 @@ test('Money received: shared like an expense, shown as received, and the receive
   await expect(row).toContainText('you pass on')
   await row.click()
   await expect(page.getByText('Received by', { exact: true })).toBeVisible()
+  // The breakdown: reached from Balances, with each person's real cost and balance before and after.
+  await page.goto('/groups/g_goa')
+  await page.getByRole('radio', { name: 'Balances' }).click()
+  await page.getByTestId('balances-received-note').click()
+  await expect(page.getByTestId('group-money')).toBeVisible()
+  await expect(page.getByTestId('money-person').first()).toContainText('Without money received')
+  await expect(page.getByText('Hotel refund')).toBeVisible()
 })
 
 test('Quick add in the Create sheet: a group named in the line wins, and opens the form filled in', async ({ page }) => {
