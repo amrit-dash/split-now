@@ -49,6 +49,7 @@ import { groupSettleTarget } from '@/lib/settleAll'
 import { archiveRow } from '@/lib/archive'
 import { CATEGORIES } from '@/lib/categories'
 import { expenseEmoji } from '@/lib/icons'
+import { IconFace } from '@/components/IconFace'
 import { simplifyDebts } from '@/lib/simplify'
 import { copy, shareOrCopy } from '@/lib/share'
 import { csvFilename, deliverCsv, groupCsv } from '@/lib/export'
@@ -1303,7 +1304,7 @@ function ActivityList({
                       style={{ background: `${CATEGORIES[e.category].color}22` }}
                       aria-hidden
                     >
-                      {expenseEmoji(e)}
+                      <IconFace iconSvg={e.iconSvg} emoji={expenseEmoji(e)} />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">

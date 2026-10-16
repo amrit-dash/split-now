@@ -3,6 +3,7 @@ import { type FormPhoto, formPhotoView } from '@/lib/receipt-photo'
 import type { Group } from '@/types'
 import { CATEGORIES } from '@/lib/categories'
 import { expenseEmoji } from '@/lib/icons'
+import { IconFace } from '@/components/IconFace'
 import { useLongPress } from '@/hooks/useLongPress'
 import { centsToInput, currencySymbol } from '@/lib/money'
 import type { Action, Draft, Errors } from '@/lib/expense-draft'
@@ -94,7 +95,9 @@ export function AmountCard({
           aria-haspopup="dialog"
           data-testid="expense-icon"
         >
-          <span aria-hidden>{expenseEmoji(draft)}</span>
+          <span aria-hidden>
+            <IconFace iconSvg={draft.iconSvg} emoji={expenseEmoji(draft)} />
+          </span>
         </button>
         <div className="min-w-0 flex-1">
           <input

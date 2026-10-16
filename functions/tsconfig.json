@@ -24,6 +24,8 @@
     "../shared/ai-config.ts",
     "../shared/quick-ai.ts",
     "../shared/chat-ai.ts",
+    "../shared/icon-ai.ts",
+    "../shared/svg-icon.ts",
     "../shared/money-core.ts",
     "../shared/trips.ts",
     "../shared/balances-core.ts",

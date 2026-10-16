@@ -139,7 +139,7 @@ service cloud.firestore {
           && writesOpen()
           && (settingId != 'notifications' || (
             request.resource.data.keys().hasOnly(['captures', 'unsorted', 'expenses', 'settlements', 'reminders', 'chat', 'openItems', 'approvals', 'mutedChats', 'outsideTrips',
-              'capturePaused', 'minAmount', 'ignoreWords', 'pausedTrips', 'aiSms', 'aiSmsMerchant', 'aiImages', 'aiQuickAdd', 'aiPayments', 'aiEnabled', 'aiSource', 'aiModel', 'aiFreeOk', 'updatedAt'])
+              'capturePaused', 'minAmount', 'ignoreWords', 'pausedTrips', 'aiSms', 'aiSmsMerchant', 'aiImages', 'aiQuickAdd', 'aiPayments', 'aiIcons', 'aiEnabled', 'aiSource', 'aiModel', 'aiFreeOk', 'updatedAt'])
             && request.resource.data.get('captures', true) is bool
             && request.resource.data.get('unsorted', false) is bool
             && request.resource.data.get('expenses', true) is bool
@@ -171,6 +171,8 @@ service cloud.firestore {
             && request.resource.data.get('aiQuickAdd', false) is bool
             // Payment screenshots clear payments to this person that need their OK; on unless turned off
             && request.resource.data.get('aiPayments', true) is bool
+            // "Suggest with AI" in the icon sheet (iconsAi); on unless turned off
+            && request.resource.data.get('aiIcons', true) is bool
             && request.resource.data.get('aiEnabled', true) is bool
             && request.resource.data.get('aiSource', 'auto') in ['auto', 'own', 'app']
             && request.resource.data.get('aiModel', '') is string && request.resource.data.get('aiModel', '').size() <= 80
@@ -280,8 +282,8 @@ service cloud.firestore {
       function validFlags(f) {
         return f is map
           && f.keys().hasOnly(['aiImages', 'aiSms', 'liveTables', 'autoCapture', 'quickAdd', 'nudges', 'statementImport',
-              'payLinks', 'duplicates', 'merchantMemory', 'whoseTurn', 'budgetAlerts', 'aiQuickAdd', 'aiPayments', 'openItems', 'groupChat', 'chatAi', 'pushPrompt', 'moneyReceived', 'vaults'])
-          && f.get('openItems', true) is bool && f.get('groupChat', true) is bool && f.get('chatAi', true) is bool
+              'payLinks', 'duplicates', 'merchantMemory', 'whoseTurn', 'budgetAlerts', 'aiQuickAdd', 'aiPayments', 'openItems', 'groupChat', 'chatAi', 'pushPrompt', 'moneyReceived', 'vaults', 'aiIcons'])
+          && f.get('openItems', true) is bool && f.get('groupChat', true) is bool && f.get('chatAi', true) is bool && f.get('aiIcons', true) is bool
           && f.get('pushPrompt', true) is bool && f.get('moneyReceived', true) is bool && f.get('vaults', true) is bool
           && f.get('aiQuickAdd', true) is bool && f.get('aiPayments', true) is bool
           && f.get('aiImages', true) is bool && f.get('aiSms', true) is bool && f.get('liveTables', true) is bool
@@ -431,10 +433,12 @@ service cloud.firestore {
       function validGroupShape(g) {
         return g.keys().hasOnly(['id', 'name', 'emoji', 'type', 'currency', 'budget', 'startDate', 'endDate', 'simplify',
             'requireApproval', 'approvalThreshold', 'editAutoApprove', 'paymentApproval', 'captureOff', 'archived', 'archivedBy', 'deletedAt', 'deletedBy', 'memberUids', 'members', 'inviteCode',
-            'createdBy', 'createdAt', 'updatedAt', 'joinCode', 'joinMemberId', 'memberOpId', 'mergeNeedsOk', 'vault'])
+            'createdBy', 'createdAt', 'updatedAt', 'joinCode', 'joinMemberId', 'memberOpId', 'mergeNeedsOk', 'vault', 'iconSvg'])
           // A private group's name and emoji are tokens (docs/VAULT.md), longer than the text they hold.
           && g.name is string && g.name.size() > 0 && g.name.size() <= (g.get('vault', false) == true ? 200 : 80)
           && g.emoji is string && g.emoji.size() <= (g.get('vault', false) == true ? 80 : 16)
+          // an AI-drawn icon (shared/svg-icon.ts SVG_MAX); a private group has none (it can't be sealed)
+          && (!('iconSvg' in g) || (g.iconSvg is string && g.iconSvg.size() <= 4096 && g.get('vault', false) != true))
           && g.type in ['trip', 'outing', 'home', 'couple', 'event', 'office', 'other', 'direct', 'personal']
           && g.currency is string && g.currency.size() == 3
           && g.members is map && g.members.size() <= 60
@@ -725,6 +729,8 @@ service cloud.firestore {
             && (!('notes' in d) || (d.notes is string && d.notes.size() <= 2000))
             // a chosen icon: one emoji, or its token in a private group (shared/vault-convert.ts CAPS.emoji)
             && (!('icon' in d) || (d.icon is string && d.icon.size() <= 80))
+            // an AI-drawn icon (shared/svg-icon.ts SVG_MAX), never in a private group: it can't be sealed
+            && (!('iconSvg' in d) || (d.iconSvg is string && d.iconSvg.size() <= 4096 && groupDoc(groupId).data.get('vault', false) != true))
             && d.paidBy is map && d.paidBy.size() <= 60
             && d.splits is map && d.splits.size() <= 60
             // everyone who paid or owes must be a member of this group

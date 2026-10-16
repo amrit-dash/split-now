@@ -17,6 +17,8 @@ import { CATEGORIES } from '@/lib/categories'
 import { categoryIcons, expenseEmoji, isIcon } from '@/lib/icons'
 import { useLongPress } from '@/hooks/useLongPress'
 import { IconSheet } from '@/components/IconSheet'
+import { IconFace } from '@/components/IconFace'
+import { useIconAiOffered } from '@/hooks/useIconAi'
 import { formatMoney } from '@/lib/money'
 import { FREQ_LABEL } from '@/lib/recurrence'
 import { rateLabel } from '@/lib/fx'
@@ -141,7 +143,7 @@ export default function ExpenseDetail() {
       />
       {trashed && <TrashedBanner group={group} item={e} kind="expense" />}
       <div className="card p-6 text-center">
-        <ExpenseIcon expense={e} color={cat.color} editable={!trashed} />
+        <ExpenseIcon expense={e} color={cat.color} editable={!trashed} vault={!!group.vault} />
         <h1 className="mt-3 text-xl font-bold">{e.description}</h1>
         <div className="mt-1 text-4xl font-extrabold tabular-nums tracking-tight">{formatMoney(e.amount, cur)}</div>
         {e.original && (
@@ -564,26 +566,28 @@ function ReceiptCard({ group, expense: e, trashed }: { group: Group; expense: Ex
  * The expense's icon, at the top of its screen. Tap or press and hold: every icon, saved straight
  * away (only the icon changes, so nobody is asked to approve it again). Read-only in the trash.
  */
-function ExpenseIcon({ expense: e, color, editable }: { expense: Expense; color: string; editable: boolean }) {
+function ExpenseIcon({ expense: e, color, editable, vault }: { expense: Expense; color: string; editable: boolean; vault: boolean }) {
   const toast = useToast()
   const [open, setOpen] = useState(false)
+  const ai = useIconAiOffered(vault)
   const press = useLongPress({ onTap: () => setOpen(true), onHold: () => setOpen(true) })
   const face = expenseEmoji(e)
   const tile = 'mx-auto flex h-16 w-16 items-center justify-center rounded-3xl text-4xl'
   if (!editable)
     return (
       <div className={tile} style={{ background: color + '22' }} aria-hidden>
-        {face}
+        <IconFace iconSvg={e.iconSvg} emoji={face} vault={vault} />
       </div>
     )
-  const save = async (icon: string | undefined) => {
-    if (icon === (isIcon(e.icon) ? e.icon : undefined)) return
+  const write = async (patch: Pick<Expense, 'icon' | 'iconSvg'>) => {
     try {
-      await repo.saveExpense({ ...e, icon, updatedAt: Date.now() })
+      await repo.saveExpense({ ...e, ...patch, updatedAt: Date.now() })
     } catch (err) {
       toast(errText(err), 'err')
     }
   }
+  // Any emoji (or Automatic) drops a drawn icon; a drawn one keeps the emoji for text.
+  const save = (icon: string | undefined) => (icon === (isIcon(e.icon) ? e.icon : undefined) && !e.iconSvg ? undefined : write({ icon, iconSvg: undefined }))
   return (
     <>
       <button
@@ -595,7 +599,9 @@ function ExpenseIcon({ expense: e, color, editable }: { expense: Expense; color:
         aria-haspopup="dialog"
         data-testid="expense-detail-icon"
       >
-        <span aria-hidden>{face}</span>
+        <span aria-hidden>
+          <IconFace iconSvg={e.iconSvg} emoji={face} vault={vault} />
+        </span>
       </button>
       <IconSheet
         open={open}
@@ -605,6 +611,9 @@ function ExpenseIcon({ expense: e, color, editable }: { expense: Expense; color:
         auto={expenseEmoji({ ...e, icon: undefined })}
         first={categoryIcons(e.category)}
         onPick={save}
+        ai={ai && e.description ? { title: e.description, kind: 'expense', category: CATEGORIES[e.category]?.label } : undefined}
+        svgValue={e.iconSvg}
+        onPickSvg={(svg) => write({ icon: e.icon, iconSvg: svg })}
       />
     </>
   )

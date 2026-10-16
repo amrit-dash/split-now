@@ -31,6 +31,7 @@ import type { AiTextExpense } from '@/lib/nl-expense'
 import type { NudgeItem, NudgeResult } from '@/lib/nudge'
 import type { AiUnavailableReason } from '../../shared/ai-config'
 import type { QuickAiRequest, QuickAiResponse } from '../../shared/quick-ai'
+import type { IconAiResponse, IconRequest } from '../../shared/icon-ai'
 import { defaultCurrency, formatDate } from '@/lib/locale'
 import { purgeHeld, purgeOpensAt } from '../../shared/group-trash'
 import { sharedPhotoURL, type OwnMemberPatch } from '@/lib/memberSync'
@@ -599,6 +600,14 @@ export interface Repo {
    * the phone (src/lib/quick-ai-demo.ts) and answers 'unknown' for the rest.
    */
   quickAddAi(req: QuickAiRequest): Promise<QuickAiResponse | null>
+  /**
+   * "Suggest with AI" in the icon sheet (callable iconsAi): three emoji and up to three drawn icons
+   * (cleaned SVG) for a title. Never called for a private group (the app doesn't offer it there).
+   * `{ unavailable, reason }`: the flag, the person's switch or every key said no; null: couldn't be
+   * called (offline, signed out, failed). Demo mode answers on the phone from the icon catalogue
+   * and two built-in drawings (src/lib/icon-ai-demo.ts).
+   */
+  iconsAi(req: IconRequest): Promise<IconAiResponse | null>
   /**
    * Save / re-test / remove the user's own Gemini key (aiKey callable), or with which 'app' the
    * in-app project key (admins; overrides Secret Manager's). Throws with a readable message.

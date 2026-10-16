@@ -41,6 +41,7 @@ import {
   type Draft,
   type ErrorKey,
   type SeedArgs,
+  descriptionOf,
 } from '@/lib/expense-draft'
 import { GroupIcon } from '@/components/GroupIcon'
 import { useToast } from '@/components/Toast'
@@ -53,6 +54,7 @@ import { OpenItemSheet } from '@/features/open-items/OpenItemSheet'
 import { CATEGORIES } from '@/lib/categories'
 import { categoryIcons, expenseEmoji } from '@/lib/icons'
 import { IconSheet } from '@/components/IconSheet'
+import { useIconAiOffered } from '@/hooks/useIconAi'
 import { openItemMeta } from '@/lib/open-items'
 import { AmountCard } from './AmountCard'
 import { PayerCard } from './PayerCard'
@@ -172,6 +174,7 @@ export function ExpenseEditor({
   }
 
   const [sheet, setSheet] = useState<SheetKind>(null)
+  const iconAi = useIconAiOffered(!!group.vault)
   const [busy, setBusy] = useState(false)
   /** a save was attempted: show what is still wrong next to each field */
   const [submitted, setSubmitted] = useState(false)
@@ -679,6 +682,9 @@ export function ExpenseEditor({
         auto={expenseEmoji({ ...draft, icon: undefined })}
         first={categoryIcons(draft.category)}
         onPick={(icon) => dispatch({ type: 'icon', icon })}
+        ai={iconAi && descriptionOf(draft) ? { title: descriptionOf(draft), kind: 'expense', category: CATEGORIES[draft.category].label } : undefined}
+        svgValue={draft.iconSvg}
+        onPickSvg={(svg) => dispatch({ type: 'iconSvg', svg })}
       />
       {!personal && (
         <PayerSheet

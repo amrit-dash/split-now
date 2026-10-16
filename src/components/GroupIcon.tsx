@@ -1,12 +1,22 @@
 import type { Group } from '@/types'
 import { Avatar } from './Avatar'
+import { IconFace } from './IconFace'
 
 /**
  * A group's face. Most groups: their emoji on a soft tile. A 1:1: the friend's photo (or initials)
  * on the same rounded tile, with a small 🤝 on its corner, so it reads as a person and as "a 1:1, not a group" at once, the
  * same on every screen. Decorative: the group's name is always next to it.
  */
-export function GroupIcon({ emoji, size = 48, group }: { emoji: string; size?: number; group?: Pick<Group, 'type' | 'peer' | 'members'> }) {
+export function GroupIcon({
+  emoji,
+  size = 48,
+  group,
+}: {
+  emoji: string
+  size?: number
+  /** with its AI-drawn icon (Group.iconSvg) when it has one */
+  group?: Pick<Group, 'type' | 'peer' | 'members'> & Partial<Pick<Group, 'iconSvg' | 'vault'>>
+}) {
   const peer = group?.type === 'direct' && group.peer ? group.members[group.peer] : undefined
   if (peer) {
     const badge = Math.max(14, Math.round(size * 0.42))
@@ -28,7 +38,7 @@ export function GroupIcon({ emoji, size = 48, group }: { emoji: string; size?: n
       className="flex shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-100 to-duo-100 dark:from-brand-900/50 dark:to-duo-900/30"
       style={{ width: size, height: size, fontSize: size * 0.5 }}
     >
-      {emoji}
+      <IconFace iconSvg={group?.iconSvg} emoji={emoji} vault={!!group?.vault} />
     </div>
   )
 }

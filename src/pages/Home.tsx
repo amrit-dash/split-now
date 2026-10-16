@@ -15,6 +15,7 @@ import { formatMoney } from '@/lib/money'
 import { convertMinor } from '@/lib/fx'
 import { useTodayRates } from '@/hooks/useFx'
 import { expenseEmoji } from '@/lib/icons'
+import { IconFace } from '@/components/IconFace'
 import { GroupRow } from '@/components/GroupRow'
 import { Avatar } from '@/components/Avatar'
 import { Aurora } from '@/components/Aurora'
@@ -248,7 +249,7 @@ function RecentExpense({ e, d }: { e: GroupData['expenses'][number]; d: GroupDat
   return (
     <Link to={`/groups/${d.group.id}/expenses/${e.id}`} className="flex items-center gap-3 px-4 py-3 active:bg-slate-50 dark:active:bg-ink-800">
       <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-xl dark:bg-ink-800" aria-hidden>
-        {expenseEmoji(e)}
+        <IconFace iconSvg={e.iconSvg} emoji={expenseEmoji(e)} />
       </div>
       <div className="min-w-0 flex-1">
         <div className="truncate font-medium">{e.description}</div>

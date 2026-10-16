@@ -6,6 +6,10 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.1.3 — October 2026
+
+- Icons with AI: press and hold an icon, then Suggest with AI. From the title it offers three emoji and up to three small drawn icons, and a drawn one shows wherever the app draws icons (text, like notifications, keeps the emoji). It runs on Split Now's free AI (Gemma) or your own key, only when you tap it, and never in a private group. Turning a group private removes its drawn icons. Every drawing is checked so only plain shapes and colours get through. The admin switch is Icons with AI; for each person it is Settings → AI features → AI icons.
+
 ## 8.1.2 — October 2026
 
 - Private groups: after a wrong pattern on a lock button you can draw the right one straight away, on the same screen. Presses made while the last try is still being checked used to be lost, so the retry failed too and you had to leave and come back. Each press on the lock button now shows it was felt: the button sinks, and a ring closes in while you hold. Every press looks the same, so the screen still gives nothing of the pattern away.

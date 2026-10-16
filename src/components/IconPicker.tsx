@@ -3,6 +3,8 @@ import { MoreHorizontal, Pencil, X } from 'lucide-react'
 import { ALL_GROUP_ICONS, firstEmoji, groupTypeInfo, type GroupGuess } from '@/lib/groupTypes'
 import { useLongPress } from '@/hooks/useLongPress'
 import { IconSheet } from './IconSheet'
+import { IconFace } from './IconFace'
+import type { IconRequest } from '../../shared/icon-ai'
 
 /**
  * Group icon button that sits beside a labelled input (same height as `.input`), plus a hidden
@@ -16,9 +18,17 @@ export function IconPickerField({
   emojis = ALL_GROUP_ICONS,
   children,
   idPrefix = 'icon',
+  iconSvg,
+  onPickSvg,
+  ai,
 }: {
   emoji: string
   onChange: (e: string) => void
+  /** an AI-drawn icon, shown over the emoji */
+  iconSvg?: string
+  onPickSvg?: (svg: string) => void
+  /** what "Suggest with AI" asks for (src/hooks/useIconAi.ts); absent hides it */
+  ai?: IconRequest
   emojis?: string[]
   children: ReactNode
   idPrefix?: string
@@ -46,7 +56,7 @@ export function IconPickerField({
           data-testid="group-icon"
           className={`flex h-12 w-12 shrink-0 press-hold select-none items-center justify-center rounded-2xl [-webkit-touch-callout:none] bg-gradient-to-br from-brand-100 to-duo-100 text-2xl transition active:scale-95 dark:from-brand-900/50 dark:to-duo-900/30 ${open ? 'ring-2 ring-brand-500' : ''}`}
         >
-          {emoji}
+          <IconFace iconSvg={iconSvg} emoji={emoji} />
           <span
             className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-fill text-on-fill shadow ring-2 ring-white dark:ring-ink-900"
             aria-hidden
@@ -106,6 +116,9 @@ export function IconPickerField({
         value={emoji}
         first={list}
         onPick={(e) => e && choose(e)}
+        ai={ai}
+        svgValue={iconSvg}
+        onPickSvg={onPickSvg}
         testId="group-icon-sheet"
       />
     </>

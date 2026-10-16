@@ -11,6 +11,7 @@ import { formatMoney } from '@/lib/money'
 import { formatDate } from '@/lib/locale'
 import { tuning } from '../../shared/app-tuning'
 import { expenseEmoji } from '@/lib/icons'
+import { IconFace } from '@/components/IconFace'
 import { errText } from '@/lib/errors'
 import { Sheet } from './Sheet'
 import { useConfirm } from './ConfirmSheet'
@@ -450,7 +451,7 @@ export function RecentlyDeleted({ group, open, onClose }: { group: Group; open: 
                 }
               >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-lg dark:bg-ink-800" aria-hidden>
-                  {r.kind === 'e' ? expenseEmoji(r.item) : '💸'}
+                  {r.kind === 'e' ? <IconFace iconSvg={r.item.iconSvg} emoji={expenseEmoji(r.item)} /> : '💸'}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium">

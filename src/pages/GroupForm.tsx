@@ -31,6 +31,7 @@ import {
 import { getRate } from '@/lib/fx'
 import { useTodayRates } from '@/hooks/useFx'
 import { GROUP_TYPES, SHARED_TYPES, groupTypeInfo, groupTypeOf, guessGroup, iconsFor, isSharedType, parseGroupType } from '@/lib/groupTypes'
+import { useIconAiOffered } from '@/hooks/useIconAi'
 import { Avatar } from '@/components/Avatar'
 import { IconPickerField, TypeSuggestion } from '@/components/IconPicker'
 import { Select, currencyOptions } from '@/components/Select'
@@ -120,6 +121,8 @@ export default function GroupForm() {
   const [prefillPeople] = useState(() => (groupId ? [] : parsePeopleParam(params.get('people'))))
   const [name, setName] = useState(prefillName)
   const [emoji, setEmoji] = useState(GROUP_TYPES[initialType].emoji)
+  // An AI-drawn icon (Group.iconSvg), shown over the emoji; never in a private group.
+  const [iconSvg, setIconSvg] = useState<string | undefined>(undefined)
   const [type, setType] = useState<GroupType>(initialType)
   // What the user chose themselves; name-based guesses and type defaults never overwrite these.
   const [nameTouched, setNameTouched] = useState(!!prefillName)
@@ -134,6 +137,7 @@ export default function GroupForm() {
   const [requireApproval, setRequireApproval] = useState(false)
   // A private group (docs/VAULT.md): chosen here when the group is made; later, its creator turns it on or off from the group's menu.
   const [privateOn, setPrivateOn] = useState(false)
+  const iconAi = useIconAiOffered(privateOn || !!existing?.vault)
   // A private group opens with its members' universal patterns, so turning it on needs one set first.
   const [privateNote, setPrivateNote] = useState<string | null>(null)
   const turnPrivate = async (on: boolean) => {
@@ -183,6 +187,7 @@ export default function GroupForm() {
       // The rules do not validate `type`: an unknown value reads as Other instead of crashing the screen.
       setName(existing.name)
       setEmoji(existing.emoji)
+      setIconSvg(existing.iconSvg)
       setType(groupTypeOf(existing))
       setCurrency(existing.currency)
       setNameTouched(true)
@@ -366,6 +371,11 @@ export default function GroupForm() {
   const chooseIcon = (e: string) => {
     setIconTouched(true)
     setEmoji(e)
+    setIconSvg(undefined)
+  }
+  const chooseSvg = (svg: string) => {
+    setIconTouched(true)
+    setIconSvg(svg)
   }
 
   const onName = (v: string) => {
@@ -429,6 +439,8 @@ export default function GroupForm() {
       const data = {
         name: finalName,
         emoji,
+        // A private group has none: it can't be sealed (the rules refuse it), and the name must not leave the phone.
+        iconSvg: privateOn || existing?.vault ? undefined : iconSvg,
         type,
         currency,
         budget,
@@ -801,7 +813,15 @@ export default function GroupForm() {
         )}
         <div className={`card space-y-4 p-4 ${type === 'direct' && !typeChips ? 'hidden' : ''}`}>
           {type !== 'direct' && (
-            <IconPickerField emoji={emoji} onChange={chooseIcon} emojis={iconsFor(type)} idPrefix="group-icon">
+            <IconPickerField
+              emoji={emoji}
+              onChange={chooseIcon}
+              emojis={iconsFor(type)}
+              idPrefix="group-icon"
+              iconSvg={privateOn || existing?.vault ? undefined : iconSvg}
+              onPickSvg={chooseSvg}
+              ai={iconAi && name.trim() ? { title: name.trim(), kind: 'group' } : undefined}
+            >
               <label className="label" htmlFor="group-name">
                 Name
               </label>

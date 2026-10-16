@@ -91,6 +91,8 @@ export function AiSettings() {
   const aiQuickAdd = useFlag('aiQuickAdd')
   // The admin's switch for checking payment screenshots (config/app flags.aiPayments); server-enforced.
   const aiPayments = useFlag('aiPayments')
+  // The admin's switch for icons with AI (config/app flags.aiIcons); server-enforced.
+  const aiIcons = useFlag('aiIcons')
   const [models, setModels] = useState<AiModel[] | null>(null)
   const [draft, setDraft] = useState('')
   const [editing, setEditing] = useState(false)
@@ -276,6 +278,19 @@ export function AiSettings() {
                   <div className="font-semibold">Quick add with AI</div>
                   <div className="text-muted text-sm">Switched off for everyone right now</div>
                 </div>
+              )}
+              {aiIcons && (
+                <Row
+                  title="AI icons"
+                  testId="ai-icons"
+                  checked={prefs.aiIcons}
+                  onChange={(v) => set({ aiIcons: v })}
+                  text={{
+                    full: 'Press and hold an icon, then Suggest with AI: three emoji and a few drawn icons from the title. Only when you ask, never in private groups. Uses your AI quota.',
+                    short: 'Suggest icons from the title when you ask',
+                    tier: 'help',
+                  }}
+                />
               )}
               {aiPayments ? (
                 <Row

@@ -78,6 +78,8 @@ export interface Group {
   id: string
   name: string
   emoji: string
+  /** An icon drawn by AI from the name, as for an expense (Expense.iconSvg); `emoji` stays for text. Never in a private group. */
+  iconSvg?: string
   type: GroupType
   currency: string
   budget?: Cents
@@ -191,6 +193,12 @@ export interface Expense {
    * and category (src/lib/icons.ts expenseEmoji). Sealed in a private group.
    */
   icon?: string
+  /**
+   * An icon drawn by AI from the description ("Suggest with AI"): plain-shapes SVG markup, cleaned
+   * on the server and again before it is drawn (shared/svg-icon.ts), shown as an image. Wins over
+   * `icon` where the app draws icons; text (pushes, exports) keeps the emoji. Never in a private group.
+   */
+  iconSvg?: string
   date: string // ISO yyyy-mm-dd
   notes?: string
   paidBy: Record<MemberId, Cents>

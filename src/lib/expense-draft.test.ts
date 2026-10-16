@@ -341,6 +341,18 @@ describe('the expense icon', () => {
     // only one emoji counts
     expect('icon' in reduce(d, { type: 'icon', icon: 'pizza' })).toBe(false)
   })
+  it('a drawn icon is cleaned, kept on save, dropped by any other pick and in a private group', () => {
+    const svg = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="#f59e0b"/></svg>'
+    let d = reduce(seed(), { type: 'amount', amount: 1200 })
+    d = reduce(d, { type: 'iconSvg', svg })
+    expect(d.iconSvg).toContain('xmlns')
+    expect(toExpense(d, save).expense.iconSvg).toBe(d.iconSvg)
+    expect(toExpense(d, { ...save, group: { ...save.group, vault: true } }).expense.iconSvg).toBeUndefined()
+    expect(reduce(d, { type: 'iconSvg', svg: '<svg><script/></svg>' }).iconSvg).toBe(d.iconSvg)
+    expect('iconSvg' in reduce(d, { type: 'icon', icon: '🍕' })).toBe(false)
+    expect('iconSvg' in reduce(d, { type: 'icon' })).toBe(false)
+    expect('iconSvg' in hydrateDraft({ iconSvg: '<svg><text>x</text></svg>' }, seed(), order, 'me')).toBe(false)
+  })
   it('an edit starts from the stored icon, a stored draft loses a bad one', () => {
     expect(seed({ existing: expense({ icon: '🍕' }) }).icon).toBe('🍕')
     expect('icon' in seed({ existing: expense({ icon: 'v1:sealed' }) })).toBe(false)

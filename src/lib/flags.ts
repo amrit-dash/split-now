@@ -41,6 +41,7 @@ export const FLAG_NAMES = [
   'pushPrompt',
   'moneyReceived',
   'vaults',
+  'aiIcons',
 ] as const
 export type FlagName = (typeof FLAG_NAMES)[number]
 
@@ -87,6 +88,10 @@ export const FLAG_INFO: Record<FlagName, { label: string; hint: string }> = {
   pushPrompt: {
     label: 'Ask to turn on notifications',
     hint: 'The "Turn on notifications" card on Home and in Settings, once someone is in a group, with step-by-step help for their device. Off hides the card; Settings → Notifications still works.',
+  },
+  aiIcons: {
+    label: 'Icons with AI',
+    hint: 'Suggest with AI in the icon sheet (press and hold an icon): three emoji and up to three drawn icons from the title, for people who turned AI icons on. Never in private groups. Uses the bill-reading allowance. Server-enforced.',
   },
   chatAi: {
     label: 'Chat suggestions with AI',
