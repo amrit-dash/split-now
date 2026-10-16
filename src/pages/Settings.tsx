@@ -14,6 +14,7 @@ const Automation = lazy(load.SettingsAutomation)
 const Ai = lazy(load.SettingsAi)
 const Data = lazy(load.SettingsData)
 const Animations = lazy(load.SettingsAnimations)
+const Vault = lazy(load.SettingsVault)
 const Admin = lazy(() => import('./settings/Admin'))
 
 /** settings/*: how the app behaves for you. Account details live on /profile. */
@@ -28,6 +29,7 @@ export default function Settings() {
         <Route path="ai" element={<Ai />} />
         <Route path="data" element={<Data />} />
         <Route path="animations" element={<Animations />} />
+        <Route path="vault" element={<Vault />} />
         <Route path="admin" element={<Admin />} />
         <Route path="*" element={<Navigate to="/settings" replace />} />
       </Routes>

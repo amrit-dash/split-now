@@ -6,17 +6,30 @@ Groups); on by default like every flag, server-enforced in the `vault` callable.
 
 ## What people see
 
-- **New group → Private group** (a switch beside More options). Chosen once, when the group is
-  made; it can't be turned off or on later (`firestore.rules` keeps `vault` as it was created).
-- The first person to open it **sets the pattern**: at least 6 taps and long presses, in order,
-  entered twice. Everyone in the group uses the same pattern, told in person. Anyone in the group
-  can **change it** later (group ⋯ → Change pattern: the current one, the new one twice).
-- Opening it takes the **pattern and a passkey** (Face ID, a fingerprint or the screen lock).
-  Someone's first private group on a site registers a passkey; synced passkeys (iCloud Keychain,
-  Google Password Manager) work on their other devices too, and the key lives on the server, so
-  uninstalling the app or a new phone loses nothing.
-- Wrong patterns: 5 tries, then a lockout of 15 minutes that doubles with each further wrong try,
-  up to a day (per person, per group, kept on the server).
+- **Settings → Encrypted groups** (only while the flag is on): a status card (passkey, universal
+  pattern, server key) and the two things that open private groups:
+  - a **passkey** (Face ID, a fingerprint or the screen lock). Synced passkeys (iCloud Keychain,
+    Google Password Manager) work on a person's other devices too, and the group keys live on the
+    server, so uninstalling the app or a new phone loses nothing;
+  - a **universal pattern**: at least 6 taps and long presses, mixed, entered twice. **Follow the
+    sequence** on: the order matters; off: only how many taps and how many long presses.
+- **New group → Private group** (a switch beside More options) needs a universal pattern first.
+  Chosen once, when the group is made (`firestore.rules` keeps `vault` as it was created). The phone
+  that made it gets its key at once (`create`), so it opens straight away.
+- **Groups screen**: a lock button (top right) opens every private group the person is in with
+  the universal pattern; once all are open it locks them all.
+- **Inside a locked group**: Unlock takes the universal pattern or the group's own one, and opens
+  only that group.
+- **The blind pad** (unlocking): nothing on screen changes while a pattern goes in; each press buzzes
+  (longer for a long press) and the pattern is sent after 1.5 s without a press. The passkey is
+  asked for only after the server says the pattern is right, so a wrong guess never reaches Face ID.
+  On a site where the person has no passkey yet, that step makes one.
+- **A group's own pattern** (Group ⋯ → Private group): optional, any length, the same sequence switch.
+  It opens only that group, for anyone in it who knows it, even someone with no universal pattern.
+  Anyone in the group can set, change or remove it, after their passkey. 7.1's group patterns are
+  kept as the groups' own.
+- **Wrong patterns** (universal or a group's, counted together per person, on the server): 5 tries,
+  then 15 minutes, doubling with each further wrong one, up to a day.
 - An open group **locks again** when the app goes to the background, after `tuning.vaultLockMinutes`
   idle (Admin → Limits → App, 1–60, default 5), on sign-out and on a reload. The lock button in the
   group's header locks it at once.
@@ -43,20 +56,24 @@ AI before a group is picked, so scan from Add expense inside a private group ins
 
 ## How it works
 
-- **Data key**: 32 random bytes per group, made by the `vault` callable when the pattern is first set,
+- **Data key**: 32 random bytes per group, made by the `vault` callable when the group is made or first opened,
   stored only sealed with the `VAULT_KEK` secret (AES-256-GCM, `functions/src/lib/seal.ts`) in
   `vaultKeys/{groupId}`, which no client can read or write. Deleting the group for good deletes it
   (`onGroupDeleted`), and nothing that was encrypted can be opened again.
-- **Pattern**: never stored; an scrypt hash with a per-group salt, peppered with the KEK so a copy of
-  the database alone can't be brute-forced (`functions/src/lib/vault-core.ts`). A KEK rotation keeps
-  working: the old hash still opens, and is stored again with the newest key.
+- **Patterns**: never stored; scrypt hashes with their own salt, peppered with the KEK so a copy of
+  the database alone can't be brute-forced (`functions/src/lib/vault-core.ts`). With the sequence off
+  the pattern is sorted before hashing, so only the counts matter. The universal one is in
+  `users/{uid}/secrets/vault` with the person's wrong tries; a group's own one in `vaultKeys/{groupId}`.
+  A KEK rotation keeps working: the old hash still opens, and is stored again with the newest key.
 - **Passkey**: WebAuthn (`@simplewebauthn/server` in the functions, `@simplewebauthn/browser` loaded
   only on the unlock screen), user verification required, relying party = the site's own host
   (`APP_ORIGINS`). Credentials and the one-time challenge are in `users/{uid}/secrets/passkeys`
   (server-only). The challenge is used up on every check, so an answer can't be replayed.
-- **Unlock** (`vault` op `unlock`): passkey, then the lockout, then the pattern in a transaction (so
-  parallel guesses can't skip the count), then the data key is returned. It stays in memory only
-  (`src/lib/vault-keys.ts`).
+- **Unlock**: `unlockStart` checks the pattern in a transaction (so parallel guesses can't skip the
+  count) and only then hands out a passkey challenge that carries what it opens (`*`: every live
+  private group the person is in; or one group). `unlockFinish` checks the passkey and returns those
+  data keys; a group with no key yet gets one then (nothing of it can be encrypted before). The keys
+  stay in memory only (`src/lib/vault-keys.ts`).
 - **Tokens**: `"v1:" + base64url(iv ‖ AES-256-GCM)`, keys from the data key by HKDF, the group id as
   associated data (a token copied into another group won't open). The IV is an HMAC of the text, so
   the same text makes the same token: saving an expense again isn't a change in its history. The
@@ -68,6 +85,8 @@ AI before a group is picked, so scan from Add expense inside a private group ins
   or shows 🔒, and reads again when the group opens or locks.
 - **Demo mode** (`src/data/vault-demo.ts`): the callable's answers made on the device, without the
   passkey step, so the e2e suite runs the whole flow.
+- **Emulators**: `npm run test:functions` writes a throwaway `VAULT_KEK` into the gitignored
+  `functions/.secret.local` (`scripts/emulator-secrets.mjs`).
 
 ## Setup
 

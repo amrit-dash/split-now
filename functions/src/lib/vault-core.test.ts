@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { randomBytes } from 'node:crypto'
 import {
   afterWrong,
+  canonicalPattern,
   FREE_TRIES,
+  groupPatternProblem,
   hashPattern,
   lockedOut,
   newDataKey,
@@ -20,17 +22,34 @@ const kek = randomBytes(32)
 const old = randomBytes(32)
 
 describe('vault pattern', () => {
-  it('is 6 to 32 taps and long presses, mixed', () => {
-    expect(validPattern('TTLTLL')).toBe(true)
-    expect(validPattern('TTLTL')).toBe(false)
-    expect(validPattern('TTLTLX')).toBe(false)
-    expect(validPattern('T'.repeat(33))).toBe(false)
-    expect(validPattern(123456)).toBe(false)
-    expect(patternProblem('TTTTTT')).toBe('Mix taps and long presses.')
+  it('universal: 6 to 32 taps and long presses, mixed', () => {
     expect(patternProblem('TTLTLL')).toBeNull()
+    expect(patternProblem('TTLTL')).not.toBeNull()
+    expect(patternProblem('TTLTLX')).not.toBeNull()
+    expect(patternProblem('T'.repeat(33))).not.toBeNull()
+    expect(patternProblem('TTTTTT')).toBe('Mix taps and long presses.')
+  })
+  it('a group’s own: any length from 1, taps and long presses only', () => {
+    expect(validPattern('T')).toBe(true)
+    expect(validPattern('')).toBe(false)
+    expect(validPattern(123456)).toBe(false)
+    expect(groupPatternProblem('TT')).toBeNull()
+    expect(groupPatternProblem('TX')).not.toBeNull()
+    expect(groupPatternProblem('L'.repeat(33))).not.toBeNull()
+  })
+  it('with the sequence off, only the counts matter', () => {
+    expect(canonicalPattern('TLTTLL', false)).toBe(canonicalPattern('LLTTTL', false))
+    expect(canonicalPattern('TLTTLL', true)).toBe('TLTTLL')
+    const h = hashPattern('TLTTLL', pepperOf(kek), undefined, false)
+    expect(h.ordered).toBe(false)
+    expect(patternMatchesAny('LLLTTT', h, [kek]).ok).toBe(true)
+    expect(patternMatchesAny('TTTLLL', h, [kek]).ok).toBe(true)
+    expect(patternMatchesAny('TTTTLL', h, [kek]).ok).toBe(false)
+    expect(patternMatchesAny('LLLTT', h, [kek]).ok).toBe(false)
   })
   it('is stored only as a salted, peppered hash; order matters', () => {
     const h = hashPattern('TTLTLL', pepperOf(kek))
+    expect(h.ordered).toBeUndefined()
     expect(h.hash).not.toContain('TTLTLL')
     expect(patternMatchesAny('TTLTLL', h, [kek])).toEqual({ ok: true, rehash: false })
     expect(patternMatchesAny('TTLTTL', h, [kek]).ok).toBe(false)

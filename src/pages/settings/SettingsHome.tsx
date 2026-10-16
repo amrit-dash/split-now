@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Bell, Database, Palette, ShieldCheck, Sparkles, WandSparkles, Zap } from 'lucide-react'
+import { Bell, Database, Lock, Palette, ShieldCheck, Sparkles, WandSparkles, Zap } from 'lucide-react'
 import { repo } from '@/data'
 import { useAiState, useCaptureTokens } from '@/hooks/data'
 import { useMe } from '@/hooks/auth'
 import { useAiStatus } from '@/hooks/useAiStatus'
+import { useFlag } from '@/hooks/useAppConfig'
 import { useMotion } from '@/hooks/useMotion'
 import { accentPreset, getAccent } from '@/lib/accent'
 import { aiSummaryText } from '@/lib/ai-copy'
@@ -30,6 +31,7 @@ export default function SettingsHome() {
   const tokens = useCaptureTokens()
   const aiState = useAiState(repo.mode === 'firebase')
   const motion = useMotion()
+  const vaultsOn = useFlag('vaults')
   useEffect(() => watchCapturePrefs(user.uid, repo.mode, setPrefs), [user.uid])
 
   const notifications = !notificationsAvailable()
@@ -73,6 +75,15 @@ export default function SettingsHome() {
           summary={automation || 'Auto-capture and capture keys'}
           testId="settings-automation"
         />
+        {vaultsOn && (
+          <SettingsRow
+            to="/settings/vault"
+            icon={<Lock size={19} />}
+            title="Encrypted groups"
+            summary="Passkey and universal pattern for private groups"
+            testId="settings-vault"
+          />
+        )}
         {repo.mode === 'firebase' && <SettingsRow to="/settings/ai" icon={<Sparkles size={19} />} title="AI features" summary={ai} testId="settings-ai" />}
         <SettingsRow
           to="/settings/data"

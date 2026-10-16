@@ -78,7 +78,7 @@ export const FLAG_INFO: Record<FlagName, { label: string; hint: string }> = {
   },
   vaults: {
     label: 'Private groups',
-    hint: 'Creating a private group (words and photos encrypted on the phone, opened with a pattern and a passkey). Off stops new ones and unlocking: private groups stay locked until it is on again. Server-enforced.',
+    hint: 'Private groups (words encrypted on the phone, opened with a universal or group pattern and a passkey) and Settings → Encrypted groups. Off hides both and stops unlocking: private groups stay locked until it is on again. Server-enforced.',
   },
   moneyReceived: {
     label: 'Money received',

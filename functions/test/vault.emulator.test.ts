@@ -1,8 +1,9 @@
 /**
  * Calls the `vault` callable in the Functions emulator: who may ask about a private group, the
- * passkey options for a known origin only, and nothing opens without a passkey. The full
- * passkey ceremony needs a real authenticator, so the pattern and key steps are covered by
- * functions/src/lib/vault-core.test.ts. Run with: npm run test:functions.
+ * passkey options for a known origin only, a wrong pattern is counted before any passkey is asked
+ * for, and nothing opens or is set without a passkey. The full passkey ceremony needs a real
+ * authenticator, so the hashing and lockout are covered by functions/src/lib/vault-core.test.ts.
+ * Run with: npm run test:functions.
  */
 import { readFileSync } from 'node:fs'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
@@ -76,8 +77,15 @@ describe('vault callable (emulator)', () => {
     expect((await call({ op: 'status', groupId: '../x' }, 'alice')).error?.status).toBe('INVALID_ARGUMENT')
   })
   it('status: not set up, no passkey yet, every try left', async () => {
-    const r = await call<{ setUp: boolean; hasPasskey: boolean; triesLeft: number }>({ op: 'status', groupId: 'vg' }, 'bob')
-    expect(r.result).toEqual({ setUp: false, hasPasskey: false, triesLeft: 5 })
+    const r = await call<Record<string, unknown>>({ op: 'status', groupId: 'vg' }, 'bob')
+    expect(r.result).toEqual({
+      serverReady: true,
+      hasPasskey: false,
+      universal: false,
+      triesLeft: 5,
+      group: { keyReady: false, hasPattern: false },
+    })
+    expect((await call<Record<string, unknown>>({ op: 'status' }, 'bob')).result).not.toHaveProperty('group')
   })
   it('passkey options only for the app’s own origins, with a challenge kept on the server', async () => {
     expect((await call({ op: 'passkeyOptions', purpose: 'register' }, 'alice', 'https://evil.example')).error?.status).toBe('FAILED_PRECONDITION')
@@ -91,12 +99,39 @@ describe('vault callable (emulator)', () => {
     expect(stored).toBe(r.result?.options.challenge)
   })
   it('nothing is set up or opened without a passkey', async () => {
-    for (const op of ['setup', 'unlock', 'changePattern']) {
-      const r = await call({ op, groupId: 'vg', pattern: 'TTLTLL', next: 'LLTLTT' }, 'alice')
+    for (const data of [
+      { op: 'setUniversal', pattern: 'TTLTLL', ordered: true },
+      { op: 'groupPattern', groupId: 'vg', pattern: 'TL', ordered: true },
+      { op: 'unlockFinish' },
+    ]) {
+      const r = await call(data, 'alice')
       expect(['UNAUTHENTICATED', 'FAILED_PRECONDITION', 'DEADLINE_EXCEEDED']).toContain(r.error?.status)
     }
     await env.withSecurityRulesDisabled(async (ctx) => {
       expect((await getDoc(doc(ctx.firestore(), 'vaultKeys/vg'))).exists()).toBe(false)
+      expect((await getDoc(doc(ctx.firestore(), 'users/alice/secrets/vault'))).get('pattern')).toBeUndefined()
     })
+  })
+  it('unlockStart: no pattern set yet asks for setup; a wrong one is counted and gets no passkey challenge', async () => {
+    expect((await call({ op: 'unlockStart', pattern: 'TTLTLL' }, 'alice')).error?.status).toBe('FAILED_PRECONDITION')
+    // a universal pattern, as setUniversal stores it after a passkey (hashed with the emulator's VAULT_KEK)
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'users/alice/secrets/vault'), { pattern: { salt: 'c2FsdA==', hash: 'bm90LXRoZS1oYXNo' } })
+    })
+    const r = await call<unknown>({ op: 'unlockStart', pattern: 'LLTTLT' }, 'alice')
+    expect(r.error?.status).toBe('PERMISSION_DENIED')
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      expect((await getDoc(doc(ctx.firestore(), 'users/alice/secrets/vault'))).get('tries')).toEqual({ wrong: 1 })
+      expect((await getDoc(doc(ctx.firestore(), 'users/alice/secrets/passkeys'))).get('challengePurpose')).toBeUndefined()
+    })
+    // not someone else's group
+    expect((await call({ op: 'unlockStart', pattern: 'TTLTLL', groupId: 'vg' }, 'mallory')).error?.status).toBe('PERMISSION_DENIED')
+  })
+  it('create: a member makes the first key once; never hands out an existing one', async () => {
+    expect((await call({ op: 'create', groupId: 'vg' }, 'mallory')).error?.status).toBe('PERMISSION_DENIED')
+    const first = await call<{ dek: string }>({ op: 'create', groupId: 'vg' }, 'alice')
+    expect(first.result?.dek).toMatch(/^[A-Za-z0-9+/]{43}=$/)
+    expect((await call({ op: 'create', groupId: 'vg' }, 'bob')).error?.status).toBe('ALREADY_EXISTS')
+    expect((await call({ op: 'create', groupId: 'plain' }, 'alice')).error?.status).toBe('FAILED_PRECONDITION')
   })
 })

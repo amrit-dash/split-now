@@ -417,7 +417,11 @@ export function createLocalRepo(): Repo {
   const repo: Repo = {
     mode: 'demo',
     onError: errors.on,
-    vault: demoVault(typeof localStorage === 'undefined' ? undefined : localStorage),
+    vault: demoVault(typeof localStorage === 'undefined' ? undefined : localStorage, undefined, () =>
+      Object.entries(state.groups)
+        .filter(([, g]) => g.vault && g.deletedAt === undefined && g.memberUids.includes(me().uid))
+        .map(([id]) => id),
+    ),
     // The demo has no admin console to read reports in.
     reportError: () => {},
     watchPendingWrites(cb) {

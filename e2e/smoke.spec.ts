@@ -73,7 +73,20 @@ test('create a group through the kind selector', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1, name: /Manali 2026/ })).toBeVisible()
 })
 
-test('Private group: set a pattern, words are stored encrypted, lock and unlock with the pattern', async ({ page }) => {
+test('Private group: universal pattern, words stored encrypted, lock and unlock on the blind pad', async ({ page }) => {
+  // T T L T L L (the step buttons are the accessible way in; the pads take presses)
+  const enter = async (p = 'TTLTLL') => {
+    for (const s of p) await page.getByTestId(s === 'T' ? 'pattern-add-tap' : 'pattern-add-long').click()
+  }
+  // Settings → Encrypted groups: the universal pattern, twice
+  await page.goto('/settings/vault')
+  await page.getByTestId('vault-universal-open').click()
+  await enter()
+  await page.getByTestId('vault-set-next').click()
+  await enter()
+  await page.getByTestId('vault-set-next').click()
+  await expect(page.getByTestId('vault-line-pattern')).toContainText('Universal pattern set · in order')
+
   await page.goto('/groups/new')
   const kinds = page.getByRole('radiogroup', { name: 'What are you creating?' })
   await kinds.getByRole('radio', { name: /^Group/ }).click()
@@ -83,17 +96,10 @@ test('Private group: set a pattern, words are stored encrypted, lock and unlock 
   await member.press('Enter')
   await page.getByTestId('group-private').click()
   await page.getByRole('button', { name: 'Create group' }).click()
-  await expect(page.getByTestId('vault-lock')).toBeVisible()
-  // T T L T L L, entered twice (the step buttons are the accessible way in; the pad takes presses)
-  const enter = async () => {
-    for (const s of 'TTLTLL') await page.getByTestId(s === 'T' ? 'pattern-add-tap' : 'pattern-add-long').click()
-  }
-  await enter()
-  await page.getByTestId('vault-submit').click()
-  await enter()
-  await page.getByTestId('vault-submit').click()
+  // The phone that made it has its key: it opens straight away.
+  await expect(page.getByRole('heading', { level: 1, name: /Vault trip/ })).toBeVisible()
   await expect(page.getByTestId('vault-lock')).toBeHidden()
-  // In the app (a reload forgets the key, which locks the group again: that's the point).
+  // In the app from here on (a reload forgets the keys, which locks every private group: that's the point).
   await page.getByTestId('nav-create').click()
   await page.getByRole('dialog').getByTestId('create-expense').click()
   await page.getByRole('textbox', { name: 'Description', exact: true }).fill('Secret dinner')
@@ -105,14 +111,24 @@ test('Private group: set a pattern, words are stored encrypted, lock and unlock 
   expect(stored).not.toContain('Secret dinner')
   expect(stored).toMatch(/"description":"v1:[A-Za-z0-9_-]+"/)
 
+  // Inside the group: a wrong pattern counts, the right one opens it (sent after a pause, nothing shown).
   await page.getByTestId('vault-lock-now').click()
   await expect(page.getByTestId('vault-lock')).toBeVisible()
-  for (const s of 'TTLTLT') await page.getByTestId(s === 'T' ? 'pattern-add-tap' : 'pattern-add-long').click()
-  await page.getByTestId('vault-submit').click()
+  await page.getByTestId('vault-unlock-open').click()
+  await enter('TTLTLT')
   await expect(page.getByTestId('vault-note')).toContainText('4 tries left')
   await enter()
-  await page.getByTestId('vault-submit').click()
   await expect(page.getByText('Secret dinner')).toBeVisible()
+
+  // The Groups screen's lock: all private groups at once.
+  await page.getByRole('navigation').getByRole('link', { name: 'Groups' }).click()
+  const lock = page.getByTestId('groups-vault')
+  await expect(lock).toHaveAccessibleName('Lock private groups')
+  await lock.click()
+  await expect(lock).toHaveAccessibleName('Unlock private groups')
+  await lock.click()
+  await enter()
+  await expect(lock).toHaveAccessibleName('Lock private groups')
 })
 
 test('the + button opens the Create sheet; Add expense saves an equal split', async ({ page }) => {

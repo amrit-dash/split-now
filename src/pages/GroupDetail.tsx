@@ -107,7 +107,7 @@ import { deltaWords, handledVerb, handlersOf, isReceived, spending } from '../..
 import { labelOf } from '@/lib/shortNames'
 import { useVaultOpen } from '@/hooks/useVault'
 import { VaultLock } from '@/features/vault/VaultLock'
-import { ChangePattern } from '@/features/vault/ChangePattern'
+import { PrivateGroupSheet } from '@/features/vault/PrivateGroupSheet'
 import { lockVault } from '@/lib/vault-keys'
 
 type Tab = 'expenses' | 'open' | 'balances' | 'activity'
@@ -657,7 +657,7 @@ export default function GroupDetail() {
         </div>
       </Sheet>
 
-      {group.vault && <ChangePattern group={group} open={patternOpen} onClose={() => setPatternOpen(false)} />}
+      {group.vault && <PrivateGroupSheet group={group} open={patternOpen} onClose={() => setPatternOpen(false)} />}
       <Sheet open={menu} onClose={() => setMenu(false)} title={group.name} testId="group-menu-sheet">
         <ul className="-mx-2 divide-y divide-slate-100 dark:divide-white/5">
           <MenuRow
@@ -695,13 +695,13 @@ export default function GroupDetail() {
           {group.vault && (
             <MenuRow
               icon={<Lock size={20} />}
-              label="Change pattern"
+              label="Private group"
               hint={MENU_HINTS.pattern}
               onClick={() => {
                 setMenu(false)
                 setPatternOpen(true)
               }}
-              testId="vault-change-open"
+              testId="vault-group-open"
             />
           )}
           {receivedTotal > 0 && (
@@ -782,7 +782,7 @@ const MENU_HINTS = {
   members: { full: 'Add people, or remove someone who is settled up', short: 'Add or remove people', tier: 'help' },
   invite: { full: 'A link or QR code friends can join with', short: 'Share a join link', tier: 'help' },
   insights: { full: 'Where the group’s money went, in charts', short: 'Spending charts', tier: 'help' },
-  pattern: { full: 'A new pattern of taps and long presses for everyone in the group', short: 'For everyone in the group', tier: 'help' },
+  pattern: { full: 'Its encryption key and its own pattern, if it has one', short: 'Key and own pattern', tier: 'help' },
   received: { full: 'Refunds and reimbursements, and what they changed for each person', short: 'What came back', tier: 'help' },
   export: { full: 'Every expense and payment as a spreadsheet', short: 'Download a spreadsheet', tier: 'help' },
   leave: { full: 'You leave; what you added stays in the group', short: 'Leave this group', tier: 'help' },

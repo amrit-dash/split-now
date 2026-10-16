@@ -39,6 +39,8 @@ import { useToast } from '@/components/Toast'
 import { currentMemberMatch } from '@/lib/members'
 import { DateField } from '@/components/DateField'
 import { Switch } from '@/components/Switch'
+import { openNewGroup } from '@/features/vault/passkey'
+import type { VaultStatus } from '@/lib/vault-api'
 import { Collapsible } from '@/components/Collapsible'
 import { MoneyInput } from '@/components/MoneyInput'
 import { formatRange } from '@/components/Misc'
@@ -60,8 +62,8 @@ const TRIP_CAPTURE_HINT: Hint = {
 }
 const SIMPLIFY_HINT: Hint = { full: 'Fewer payments: if A owes B and B owes C, A pays C directly.', short: 'Fewer payments, same balances.' }
 const PRIVATE_HINT: Hint = {
-  full: 'Descriptions, notes, comments, chat and photos are encrypted on your phone. Everyone opens it with a pattern of taps and long presses, plus Face ID or a passkey. Can’t be changed later.',
-  short: 'Encrypted, opens with a pattern and Face ID. Can’t be changed later.',
+  full: 'Descriptions, notes, comments and chat are encrypted on your phone. Everyone opens it with their universal pattern of taps and long presses, plus Face ID or a passkey. Can’t be changed later.',
+  short: 'Encrypted, opens with your pattern and Face ID. Can’t be changed later.',
   tier: 'key',
 }
 const APPROVAL_HINT: Hint = {
@@ -127,6 +129,19 @@ export default function GroupForm() {
   const [requireApproval, setRequireApproval] = useState(false)
   // A private group (docs/VAULT.md): chosen once, when the group is made.
   const [privateOn, setPrivateOn] = useState(false)
+  // A private group opens with its members' universal patterns, so turning it on needs one set first.
+  const [privateNote, setPrivateNote] = useState<string | null>(null)
+  const turnPrivate = async (on: boolean) => {
+    setPrivateNote(null)
+    if (!on) return setPrivateOn(false)
+    try {
+      const s = await repo.vault<VaultStatus>({ op: 'status' })
+      if (!s.universal) return setPrivateNote('Set your universal pattern first: Settings → Encrypted groups.')
+      setPrivateOn(true)
+    } catch (e) {
+      setPrivateNote(errText(e))
+    }
+  }
   const vaultsOn = useFlag('vaults')
   const [paymentApproval, setPaymentApproval] = useState(false)
   const [threshold, setThreshold] = useState<number | undefined>(undefined)
@@ -439,6 +454,8 @@ export default function GroupForm() {
       } else {
         const id = await createGroup({ ...data, createdBy: user.uid } as Omit<Group, 'id' | 'createdAt' | 'updatedAt' | 'inviteCode'>)
         saveCapture(id)
+        // Its first key, here, so the person who made it lands in it open; if that fails it opens with their pattern.
+        if (data.vault) await openNewGroup(repo, id).catch(() => {})
         toast(type === 'personal' ? 'Wallet created' : 'Group created')
         // ?next=add: opened from Add expense, so go straight back there with the new group picked
         // (&quick=1: from Quick add, whose line waits in memory to fill the form).
@@ -630,7 +647,7 @@ export default function GroupForm() {
       {existing?.vault && (
         <div className="flex items-center gap-2 rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800" data-testid="group-private-on">
           <Lock size={16} aria-hidden /> <span className="font-semibold">Private group</span>
-          <span className="text-muted">· opens with its pattern and your passkey</span>
+          <span className="text-muted">· opens with your pattern and passkey</span>
         </div>
       )}
       {shareable && (
@@ -896,8 +913,16 @@ export default function GroupForm() {
               </div>
               <HintText hint={PRIVATE_HINT} className="text-muted text-xs" as="div" />
             </div>
-            <Switch checked={privateOn} onChange={setPrivateOn} label="Private group" testId="group-private" />
+            <Switch checked={privateOn} onChange={(v) => void turnPrivate(v)} label="Private group" testId="group-private" />
           </div>
+        )}
+        {privateNote && (
+          <p className="-mt-2 px-1 text-sm" role="status" data-testid="group-private-note">
+            {privateNote}{' '}
+            <Link to="/settings/vault" className="font-semibold underline">
+              Set it up
+            </Link>
+          </p>
         )}
 
         {/* New group keeps the extras folded so creating stays quick; Edit group shows them all. */}
