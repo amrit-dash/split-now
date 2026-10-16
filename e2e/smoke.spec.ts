@@ -1160,3 +1160,50 @@ test('Private groups: stopping hides them, and a universal pattern starts them a
   await page.getByTestId('vault-set-next').click()
   await expect(page.getByTestId('vault-line-pattern')).toContainText('Universal pattern set')
 })
+
+test('receipt photo: attached without reading it, opened full screen, and added later from the expense', async ({ page }) => {
+  // A tiny real PNG (the demo downscales it like any photo).
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEklEQVR4nGP4z8CAFWEXHbQSACj/P8Fu7N9hAAAAAElFTkSuQmCC', 'base64')
+  const photo = { name: 'bill.png', mimeType: 'image/png', buffer: png }
+  await page.goto('/add?group=g_goa')
+  await page.getByRole('textbox', { name: 'Description', exact: true }).fill('Ferry tickets')
+  await amountField(page).fill('640')
+  // Attach a photo keeps what was typed: nothing is read from it
+  await page.getByTestId('receipt-attach-file').setInputFiles(photo)
+  await expect(page.getByTestId('receipt-attached')).toHaveText(/Photo attached/)
+  await expect(amountField(page)).toHaveValue(/640/)
+  await page.getByTestId('receipt-remove').click()
+  await expect(page.getByTestId('receipt-attached')).toHaveCount(0)
+  await page.getByTestId('receipt-attach-file').setInputFiles(photo)
+  await page
+    .getByRole('button', { name: /^(Save|Add expense)$/ })
+    .first()
+    .click()
+  await expect(page).toHaveURL(/\/groups\/g_goa$/)
+  await page.getByText('Ferry tickets').first().click()
+  // the expense shows it, and opens it full screen
+  await page.getByTestId('receipt-open').click()
+  const viewer = page.getByTestId('photo-viewer')
+  await expect(viewer).toBeVisible()
+  await viewer.getByTestId('photo-viewer-zoom').click()
+  await expect(viewer.getByTestId('photo-viewer-zoom')).toHaveAttribute('aria-pressed', 'true')
+  await page.keyboard.press('Escape')
+  await expect(viewer).toHaveCount(0)
+  await expect(page.getByTestId('receipt-replace')).toBeVisible()
+})
+
+test('receipt photo: an expense without one takes one from its own screen', async ({ page }) => {
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEklEQVR4nGP4z8CAFWEXHbQSACj/P8Fu7N9hAAAAAElFTkSuQmCC', 'base64')
+  await page.goto('/add?group=g_goa')
+  await page.getByRole('textbox', { name: 'Description', exact: true }).fill('Scooter rent')
+  await amountField(page).fill('900')
+  await page
+    .getByRole('button', { name: /^(Save|Add expense)$/ })
+    .first()
+    .click()
+  await expect(page).toHaveURL(/\/groups\/g_goa$/)
+  await page.getByText('Scooter rent').first().click()
+  await expect(page.getByTestId('receipt-add')).toBeVisible()
+  await page.getByTestId('receipt-file').setInputFiles({ name: 'bill.png', mimeType: 'image/png', buffer: png })
+  await expect(page.getByTestId('receipt-open')).toBeVisible({ timeout: 15_000 })
+})

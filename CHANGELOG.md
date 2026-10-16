@@ -6,6 +6,8 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Receipt photos: Attach a photo keeps a photo with an expense without reading it, and a photo Scan can't read now stays attached instead of being dropped. On an expense, tap the receipt to open it full screen (tap again for full size to read small print), Replace it, or Add a receipt photo to one that has none. None of these change the amount.
+
 ## 8.1.0 — October 2026
 
 - Changing your universal pattern now asks for the current one first, and setting, changing or removing a group's own pattern asks for a pattern that already opens the group. Before, Face ID or the passkey alone was enough, and anyone holding your unlocked phone can add a passkey.
