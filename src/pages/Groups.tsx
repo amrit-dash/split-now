@@ -6,7 +6,7 @@ import { useFlag } from '@/hooks/useAppConfig'
 import { useVaultVersion } from '@/hooks/useVault'
 import { lockButton } from '@/lib/vault-api'
 import { isUnlocked, lockVault } from '@/lib/vault-keys'
-import { UnlockSheet } from '@/features/vault/UnlockSheet'
+import { PatternLock } from '@/features/vault/PatternLock'
 import { LockedTile } from '@/features/vault/Scrambled'
 import { gibberish } from '@/lib/vault-scramble'
 import { GroupRow } from '@/components/GroupRow'
@@ -32,7 +32,6 @@ export default function Groups() {
   }
   const vaultsOn = useFlag('vaults')
   useVaultVersion()
-  const [unlocking, setUnlocking] = useState(false)
   // The universal pattern's lock: every private group at once (src/lib/vault-api.ts lockButton).
   const vaultButton = vaultsOn
     ? lockButton(
@@ -47,17 +46,27 @@ export default function Groups() {
       title="Groups"
       right={
         <div className="flex gap-2">
-          {vaultButton !== 'none' && (
+          {vaultButton === 'lock' && (
             <button
               type="button"
-              onClick={() => (vaultButton === 'lock' ? lockVault() : setUnlocking(true))}
-              aria-label={vaultButton === 'lock' ? 'Lock private groups' : 'Unlock private groups'}
-              title={vaultButton === 'lock' ? 'Lock private groups' : 'Unlock private groups'}
-              className={`flex h-11 w-11 items-center justify-center rounded-full ${vaultButton === 'lock' ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200' : 'bg-slate-200/70 dark:bg-ink-800'}`}
+              onClick={() => lockVault()}
+              aria-label="Lock private groups"
+              title="Lock private groups"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200"
               data-testid="groups-vault"
             >
-              {vaultButton === 'lock' ? <LockOpen size={20} aria-hidden /> : <Lock size={20} aria-hidden />}
+              <LockOpen size={20} aria-hidden />
             </button>
+          )}
+          {vaultButton === 'unlock' && (
+            // The pattern goes in on this button itself; nothing on screen says so (PatternLock).
+            <PatternLock
+              label="Private groups"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-200/70 dark:bg-ink-800"
+              testId="groups-vault"
+            >
+              <Lock size={20} aria-hidden />
+            </PatternLock>
           )}
           {quiet.length > 0 && (
             <button
@@ -91,7 +100,6 @@ export default function Groups() {
       }
     />
   )
-  const unlockSheet = vaultsOn && <UnlockSheet open={unlocking} onClose={() => setUnlocking(false)} />
   if (!data)
     return (
       <div>
@@ -116,7 +124,6 @@ export default function Groups() {
   return (
     <div>
       {header}
-      {unlockSheet}
       {data.length === 0 ? (
         <FirstRun />
       ) : shared.length > 0 ? (

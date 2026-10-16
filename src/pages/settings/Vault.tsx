@@ -101,10 +101,10 @@ export default function Vault() {
           </button>
           <div className="card text-muted space-y-2 p-4 text-sm">
             <p>
-              Your universal pattern opens every private group you’re in: tap the lock on the Groups screen, enter it, then confirm with Face ID or your
-              passkey.
+              To open your private groups, tap and long-press your universal pattern on the lock button on the Groups screen, then pause. Face ID or your
+              passkey comes up when it’s right. On a private group’s own lock it opens only that group.
             </p>
-            <p>Nothing shows on screen while you enter it; each press buzzes instead. Inside one group it opens only that group.</p>
+            <p>Nothing on screen shows the pattern going in, or that it was wrong. Phones that can buzz do, once per press and twice for a wrong one.</p>
             <p>Private groups lock again when you leave the app or after a few minutes without a tap.</p>
           </div>
         </div>

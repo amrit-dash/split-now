@@ -73,10 +73,14 @@ test('create a group through the kind selector', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1, name: /Manali 2026/ })).toBeVisible()
 })
 
-test('Private group: universal pattern, words stored encrypted, lock and unlock on the blind pad', async ({ page }) => {
-  // T T L T L L (the step buttons are the accessible way in; the pads take presses)
+test('Private group: universal pattern, words stored encrypted, patterns go in on the lock button itself', async ({ page }) => {
+  // T T L T L L: on the Settings pad through its step buttons; on a lock button as presses (a long one is held 600 ms).
   const enter = async (p = 'TTLTLL') => {
     for (const s of p) await page.getByTestId(s === 'T' ? 'pattern-add-tap' : 'pattern-add-long').click()
+  }
+  const press = async (testId: string, p = 'TTLTLL') => {
+    const lock = page.getByTestId(testId)
+    for (const s of p) await lock.click(s === 'L' ? { delay: 600 } : undefined)
   }
   // Settings → Encrypted groups: the universal pattern, twice
   await page.goto('/settings/vault')
@@ -114,10 +118,16 @@ test('Private group: universal pattern, words stored encrypted, lock and unlock 
   // Inside the group: a wrong pattern counts, the right one opens it (sent after a pause, nothing shown).
   await page.getByTestId('vault-lock-now').click()
   await expect(page.getByTestId('vault-lock')).toBeVisible()
-  await page.getByTestId('vault-unlock-open').click()
-  await enter('TTLTLT')
-  await expect(page.getByTestId('vault-note')).toContainText('4 tries left')
-  await enter()
+  // A stray tap goes nowhere, and a wrong pattern shows nothing at all: the screen stays as it is.
+  await press('vault-unlock-open', 'T')
+  await press('vault-unlock-open', 'TTLTLT')
+  await page.waitForTimeout(2000)
+  await expect(page.getByTestId('vault-lock')).toBeVisible()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  // the wrong one was counted (by the "server", never on screen); the stray tap never reached it
+  const tries = await page.evaluate(() => JSON.parse(localStorage.getItem('sn-demo-vault') ?? '{}').tries)
+  expect(tries).toEqual({ wrong: 1 })
+  await press('vault-unlock-open')
   await expect(page.getByText('Secret dinner')).toBeVisible()
 
   // The Groups screen's lock: all private groups at once.
@@ -125,7 +135,8 @@ test('Private group: universal pattern, words stored encrypted, lock and unlock 
   const lock = page.getByTestId('groups-vault')
   await expect(lock).toHaveAccessibleName('Lock private groups')
   await lock.click()
-  await expect(lock).toHaveAccessibleName('Unlock private groups')
+  // Locked, the button is just "Private groups": nothing says a pattern goes in.
+  await expect(lock).toHaveAccessibleName('Private groups')
   // Locked, its row is a lock, letters, animals and symbols: nothing of its name.
   await expect(page.getByTestId('group-row-locked')).toBeVisible()
   await expect(page.getByText('Vault trip')).toHaveCount(0)
@@ -134,8 +145,7 @@ test('Private group: universal pattern, words stored encrypted, lock and unlock 
   await expect(page.getByTestId('home-private-note')).toBeVisible()
   await expect(page.getByText('Secret dinner')).toHaveCount(0)
   await page.getByRole('navigation').getByRole('link', { name: 'Groups' }).click()
-  await lock.click()
-  await enter()
+  await press('groups-vault')
   await expect(lock).toHaveAccessibleName('Lock private groups')
   await expect(page.getByText('Vault trip')).toBeVisible()
 })

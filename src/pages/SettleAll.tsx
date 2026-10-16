@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { CheckCheck, ChevronRight, Lock, Plus, Users } from 'lucide-react'
-import { UnlockSheet } from '@/features/vault/UnlockSheet'
+import { PatternLock } from '@/features/vault/PatternLock'
 import { ChequeIcon } from '@/components/ChequeIcon'
 import { useMe } from '@/hooks/auth'
 import { useAllGroupData, useRecentActivity } from '@/hooks/data'
@@ -61,23 +61,24 @@ export default function SettleAll() {
   // Collect in my currency: other currencies are folded into the home one at today's rate (≈).
   const collect = !!profile.collectInHome
   const rates = useTodayRates(home, collect && rows ? rows.map((r) => r.currency) : [])
-  // A locked private group adds nothing here (hooks/data.ts); the line says so and opens them.
+  // A locked private group adds nothing here (hooks/data.ts); the line says so, and its lock takes the pattern.
   const locked = data?.filter((d) => d.locked && !d.group.archived).length ?? 0
-  const [unlocking, setUnlocking] = useState(false)
 
   return (
     <div>
       <PageHeader title="Balances" subtitle={BALANCES_HINT} back />
       {locked > 0 && (
         <div className="card mb-4 flex min-h-12 items-center gap-3 py-2 pl-4 pr-2 text-sm" data-testid="settle-private-note">
-          <Lock size={16} className="text-muted shrink-0" aria-hidden />
           <span className="min-w-0 flex-1">{locked === 1 ? '1 private group isn’t included' : `${locked} private groups aren’t included`}</span>
-          <button type="button" className="chip min-h-11" onClick={() => setUnlocking(true)} data-testid="settle-unlock">
-            Unlock
-          </button>
+          <PatternLock
+            label="Private groups"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-200/70 dark:bg-ink-800"
+            testId="settle-unlock"
+          >
+            <Lock size={18} aria-hidden />
+          </PatternLock>
         </div>
       )}
-      {locked > 0 && <UnlockSheet open={unlocking} onClose={() => setUnlocking(false)} />}
       {!rows ? (
         <div className="space-y-6" aria-busy>
           <CardSkeleton className="h-24" />

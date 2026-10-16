@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { HandCoins, Lock, UserPlus } from 'lucide-react'
 import type { Group } from '@/types'
 import { useExpenses } from '@/hooks/data'
@@ -7,7 +6,7 @@ import { currencySymbol, gibberish, scrambledAmount } from '@/lib/vault-scramble
 import { PageHeader } from '@/components/Misc'
 import { usePageTitle } from '@/lib/brand'
 import { AnimalStack, LockedTile } from './Scrambled'
-import { UnlockSheet } from './UnlockSheet'
+import { PatternLock } from './PatternLock'
 
 /** How many made-up rows the locked list shows at most. */
 const ROWS = 12
@@ -16,12 +15,11 @@ const ROWS = 12
  * A private group that is locked on this device (docs/VAULT.md). Only its card and its expense
  * list, both scrambled: a lock for its icon, letters for its name and words, animals for its
  * people and symbols for its amounts. No tabs, chat, settings or members; Invite and Settle up
- * are off. The lock button opens it with the person's universal pattern or the group's own one;
- * either opens only this group from here.
+ * are off. The pattern goes in on the lock button itself (PatternLock), with nothing on screen to
+ * say so: the universal pattern or the group's own one, either opening only this group.
  */
 export function VaultLock({ group, back = '/groups' }: { group: Group; back?: string }) {
   usePageTitle('Private group')
-  const [open, setOpen] = useState(false)
   const expenses = useExpenses(group.id)
   const people = Object.keys(activeMembers(group.members)).length
   const sym = currencySymbol(group.currency)
@@ -32,15 +30,14 @@ export function VaultLock({ group, back = '/groups' }: { group: Group; back?: st
         title={gibberish(group.id, 14)}
         back={back}
         right={
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-fill text-on-fill"
-            aria-label="Unlock this private group"
-            data-testid="vault-unlock-open"
+          <PatternLock
+            groupId={group.id}
+            label="Private group"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-200/70 dark:bg-ink-800"
+            testId="vault-unlock-open"
           >
             <Lock size={20} aria-hidden />
-          </button>
+          </PatternLock>
         }
       />
       <div className="card p-5" data-testid="vault-lock">
@@ -57,7 +54,7 @@ export function VaultLock({ group, back = '/groups' }: { group: Group; back?: st
           <div className="text-muted text-xs font-medium">{gibberish(`${group.id}:who`, 9).toLowerCase()}</div>
           <div className="text-muted text-3xl font-bold tabular-nums">{scrambledAmount(group.id, sym)}</div>
         </div>
-        <p className="sr-only">Private group, locked. Unlock it to see what’s in it.</p>
+        <p className="sr-only">Private group, locked.</p>
         <div className="mt-4 grid grid-cols-2 gap-2">
           <button type="button" className="btn" disabled aria-label="Invite (unlock the group first)">
             <UserPlus size={18} aria-hidden /> Invite
@@ -66,9 +63,6 @@ export function VaultLock({ group, back = '/groups' }: { group: Group; back?: st
             <HandCoins size={18} aria-hidden /> Settle up
           </button>
         </div>
-        <button type="button" className="text-muted mt-3 flex min-h-11 w-full items-center justify-center gap-2 text-sm" onClick={() => setOpen(true)}>
-          <Lock size={14} aria-hidden /> Locked on this phone. Tap to unlock.
-        </button>
       </div>
       {rows.length > 0 && (
         <ul className="card mt-4 divide-y divide-slate-100 overflow-hidden dark:divide-white/5" aria-hidden data-testid="vault-lock-list">
@@ -84,7 +78,6 @@ export function VaultLock({ group, back = '/groups' }: { group: Group; back?: st
           ))}
         </ul>
       )}
-      <UnlockSheet open={open} onClose={() => setOpen(false)} groupId={group.id} />
     </>
   )
 }
