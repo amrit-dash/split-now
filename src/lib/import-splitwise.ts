@@ -42,6 +42,11 @@ export interface ImportedExpense {
   /** member name → paid − share (what Splitwise wrote) */
   nets: Record<string, Cents>
   notes?: string
+  /**
+   * Money received (shared/received.ts): a Splitwise refund (a negative cost) or our own export's
+   * "Money received" row. `paidBy` / `splits` already have the roles swapped (sharers / receiver).
+   */
+  kind?: 'received'
 }
 
 export interface ImportedPayment {
@@ -328,6 +333,27 @@ export function reconstruct(
   order: string[],
 ): { amount: Cents; paidBy: Record<string, Cents>; splits: Record<string, Cents> } {
   const names = order.filter((n) => nets[n])
+  if (cost < 0) {
+    // A refund (money received, shared/received.ts): whoever got the money owes (negative net)
+    // and is charged the whole of it; the part that was their own share comes back to them in paidBy.
+    const debtors = names.filter((n) => nets[n] < 0)
+    const owed = debtors.reduce((s, n) => s - nets[n], 0)
+    const amount = Math.max(-cost, owed)
+    const extra = allocate(
+      amount - owed,
+      debtors.map((n) => [n, -nets[n]]),
+    )
+    const paidBy: Record<string, Cents> = {}
+    const splits: Record<string, Cents> = {}
+    for (const n of names) {
+      if (nets[n] > 0) paidBy[n] = nets[n]
+      else {
+        splits[n] = -nets[n] + (extra[n] ?? 0)
+        if (extra[n]) paidBy[n] = extra[n]
+      }
+    }
+    return { amount, paidBy, splits }
+  }
   const creditors = names.filter((n) => nets[n] > 0)
   const positive = creditors.reduce((s, n) => s + nets[n], 0)
   const amount = Math.max(Math.abs(cost), positive)
@@ -513,6 +539,8 @@ function parseSplitwiseRows(rows: string[][], opts: ParseOptions): ImportResult 
       paidBy: rec.paidBy,
       splits: rec.splits,
       nets,
+      // A refund in Splitwise is a negative cost; its nets already credit the people sharing it.
+      ...(cost < 0 ? { kind: 'received' as const } : {}),
     })
   }
 
@@ -658,6 +686,7 @@ function parseSplitItRows(rows: string[][], opts: ParseOptions): ImportResult {
       splits: shares,
       nets,
       ...(notes ? { notes } : {}),
+      ...(/^money received$/i.test(cell(r, col.type)) ? { kind: 'received' as const } : {}),
     })
   }
   if (!expenses.length && !payments.length) throw new ImportError('No expenses found in this file')

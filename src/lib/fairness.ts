@@ -3,6 +3,7 @@ import { todayISO } from './id'
 import { addDaysISO } from './recents'
 import { activeMembers } from './members'
 import { labelOf } from './shortNames'
+import { spending } from '../../shared/received'
 
 /*
  * "Whose turn to pay?": a private, good-humoured hint for the moment the bill arrives. Over
@@ -32,7 +33,8 @@ export function whoseTurn(
   if (group.type === 'personal') return null
   const today = opts.today ?? todayISO()
   const since = addDaysISO(today, -(opts.windowDays ?? TURN_WINDOW_DAYS))
-  const recent = d.expenses.filter((e) => typeof e.deletedAt !== 'number' && e.date >= since && e.date <= today)
+  // Money received isn't anyone fronting a bill (shared/received.ts), so it doesn't make it someone's turn.
+  const recent = spending(d.expenses).filter((e) => typeof e.deletedAt !== 'number' && e.date >= since && e.date <= today)
   if (recent.length < TURN_MIN_EXPENSES) return null
 
   const stats = new Map<MemberId, { fronted: number; lastPaid?: string; active: boolean }>()

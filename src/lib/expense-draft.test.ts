@@ -681,3 +681,47 @@ describe('merchant memory and Quick add', () => {
     expect(seed({ quick: { ...quick, exact: { me: 60000, ghost: 40000 } } }).splitType).not.toBe('exact')
   })
 })
+
+describe('money received', () => {
+  it('swaps the roles on save: the receiver is charged it all, the people sharing it are credited', () => {
+    let d = reduce(seed(), { type: 'amount', amount: 90000 })
+    d = reduce(d, { type: 'description', value: 'Flight refund', history: [] })
+    d = reduce(d, { type: 'received', on: true })
+    d = reduce(d, { type: 'payer', id: 'p' })
+    expect(validate(d, ctx)).toEqual({})
+    const { expense: e } = toExpense(d, save)
+    expect(e.kind).toBe('received')
+    expect(e.splits).toEqual({ p: 90000 })
+    expect(e.paidBy).toEqual({ me: 30000, p: 30000, r: 30000 })
+    expect(describePayer(d, group, 'me', false)).toBe('Priya received')
+  })
+  it('edits come back the right way round and stay money received', () => {
+    const got = expense({
+      kind: 'received',
+      amount: 90000,
+      paidBy: { me: 45000, r: 45000 },
+      splits: { p: 90000 },
+      splitType: 'equal',
+      splitInput: { selected: ['me', 'r'] },
+    })
+    const d = seed({ existing: got })
+    expect(d.received).toBe(true)
+    expect(d.payer).toBe('p')
+    expect(d.split.selected).toEqual(['me', 'r'])
+    const { expense: e } = toExpense(d, { ...save, existing: got })
+    expect(e.kind).toBe('received')
+    expect(e.splits).toEqual({ p: 90000 })
+    expect(e.paidBy).toEqual({ me: 45000, r: 45000 })
+  })
+  it('a personal group never records money received', () => {
+    const d = reduce(reduce(seed(), { type: 'amount', amount: 5000 }), { type: 'received', on: true })
+    const { expense: e } = toExpense({ ...d, description: 'x' }, { ...save, personal: true })
+    expect(e.kind).toBeUndefined()
+  })
+  it('Quick add can start one, and a stored draft keeps the flag only when it is a real true', () => {
+    expect(seed({ quick: { text: 'refund 500', description: 'Refund', amount: 50000, currency: 'INR', payer: 'me', received: true } }).received).toBe(true)
+    const base = seed()
+    expect(hydrateDraft({ received: 'yes' as unknown as boolean }, base, order, 'me').received).toBe(false)
+    expect(hydrateDraft({ received: true }, base, order, 'me').received).toBe(true)
+  })
+})

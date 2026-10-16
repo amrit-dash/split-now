@@ -4,6 +4,7 @@ import { formatMoney } from './money'
 import { groupThreshold, shortMoney } from './approval'
 import { FREQ_LABEL } from './recurrence'
 import { formatDate } from './locale'
+import { isReceived } from '../../shared/received'
 
 /**
  * Activity log / edit history. Every expense, settlement and membership change writes one
@@ -191,7 +192,7 @@ export function expenseSaveActivity(
   if (!prev) {
     return {
       ...base('expense.created', next.id, ctx),
-      summary: clip(`${ctx.actorName} added ${label(next)} (${expenseAmount(next, ctx.currency)})`),
+      summary: clip(`${ctx.actorName} added ${isReceived(next) ? 'money received ' : ''}${label(next)} (${expenseAmount(next, ctx.currency)})`),
       after: { description: next.description, amount: next.amount, ...(next.original ? { original: next.original } : {}) },
     }
   }

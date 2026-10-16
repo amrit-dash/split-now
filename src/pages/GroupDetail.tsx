@@ -101,6 +101,7 @@ import { activeMembers, isRemoved, listedMemberIds, memberRemoval, membersIn, re
 import { sortOpenItems } from '@/lib/open-items'
 import { hasUnread, READ_EVENT, readAtOf } from '@/lib/chat'
 import { OpenItemsTab } from '@/features/open-items/OpenItemsTab'
+import { deltaWords, handledVerb, handlersOf, spending } from '../../shared/received'
 import { labelOf } from '@/lib/shortNames'
 
 type Tab = 'expenses' | 'open' | 'balances' | 'activity'
@@ -190,7 +191,8 @@ export default function GroupDetail() {
     // An older 1:1 invite stored the friend's own name: fix it before it's shared.
     if (direct) repo.refreshInviteName(group).catch(() => {})
   }
-  const total = d.expenses.reduce((s, e) => s + e.amount, 0)
+  // Money received isn't spending (shared/received.ts): out of Total spent and the budget.
+  const total = spending(d.expenses).reduce((s, e) => s + e.amount, 0)
   const name = (id: string) => (id === me ? 'You' : labelOf(group.members, id, 'Someone', me))
   // The QR is scanned in person, so it stays short; shared links carry your name for their preview.
   const inviteUrl = inviteLink(location.origin, group.inviteCode)
@@ -1203,7 +1205,7 @@ function ActivityList({
                 )
               }
               const e = r.e
-              const payers = Object.keys(e.paidBy)
+              const payers = Object.keys(handlersOf(e))
               const delta = me ? (e.paidBy[me] ?? 0) - (e.splits[me] ?? 0) : 0
               return (
                 <SwipeRow
@@ -1257,7 +1259,8 @@ function ActivityList({
                           formatDate(e.date)
                         ) : (
                           <>
-                            {payers.length > 1 ? `${payers.length} people` : name(payers[0])} paid {formatMoney(e.amount, currency)} · {formatDate(e.date)}
+                            {payers.length > 1 ? `${payers.length} people` : name(payers[0])} {handledVerb(e)} {formatMoney(e.amount, currency)} ·{' '}
+                            {formatDate(e.date)}
                           </>
                         )}
                       </MetaLine>
@@ -1269,7 +1272,7 @@ function ActivityList({
                         <div className="text-muted text-xs">{me && e.splits[me] === undefined && !e.paidBy[me] ? 'not involved' : 'even'}</div>
                       ) : (
                         <>
-                          <div className={`text-xs ${delta > 0 ? 'pos' : 'neg'}`}>{delta > 0 ? 'you lent' : 'you borrowed'}</div>
+                          <div className={`text-xs ${delta > 0 ? 'pos' : 'neg'}`}>{deltaWords(e, delta)}</div>
                           <div className={`font-semibold ${delta > 0 ? 'pos' : 'neg'}`}>{formatMoney(Math.abs(delta), currency)}</div>
                         </>
                       )}

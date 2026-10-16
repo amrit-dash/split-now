@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   addedToGroupNote,
   expenseDeletedNote,
+  expenseNote,
   groupDeletedNote,
   mentionNote,
   mergeAskNote,
@@ -120,5 +121,18 @@ describe('expenseDeletedNote', () => {
     expect(
       expenseDeletedNote({ groupId: 'g', expenseId: 'e', groupName: 'G', actorName: 'A', description: '', amount: 100, currency: 'INR', days: 7 }).body,
     ).toBe('A deleted an expense · ₹1. You can restore it within 7 days.')
+  })
+})
+
+describe('new money received push', () => {
+  const base = { groupId: 'g1', expenseId: 'e1', groupName: 'Goa', actorName: 'Amrit', description: 'Flight refund', amount: 100000, currency: 'INR' }
+  it('tells each sharer their share, and the receiver what they received', () => {
+    expect(expenseNote({ ...base, received: true, paid: 25000, share: 0 }).body).toBe('Amrit added money received: Flight refund · ₹1,000 · your share ₹250')
+    expect(expenseNote({ ...base, received: true, paid: 0, share: 100000 }).body).toBe(
+      'Amrit added money received: Flight refund · ₹1,000 · you received ₹1,000',
+    )
+  })
+  it('an expense reads as before', () => {
+    expect(expenseNote({ ...base, description: 'Dinner', paid: 0, share: 25000 }).body).toBe('Amrit added Dinner · ₹1,000 · your share ₹250')
   })
 })

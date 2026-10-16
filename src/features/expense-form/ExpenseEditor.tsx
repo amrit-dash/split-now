@@ -42,7 +42,9 @@ import {
 } from '@/lib/expense-draft'
 import { GroupIcon } from '@/components/GroupIcon'
 import { useToast } from '@/components/Toast'
-import { Detail } from '@/components/Hint'
+import { Detail, HintText } from '@/components/Hint'
+import { Segmented } from '@/components/Misc'
+import { isReceived } from '../../../shared/received'
 import { usePageTitle } from '@/lib/brand'
 import { useConfirm } from '@/components/ConfirmSheet'
 import { OpenItemSheet } from '@/features/open-items/OpenItemSheet'
@@ -117,7 +119,6 @@ export function ExpenseEditor({
   const toast = useToast()
   const confirm = useConfirm()
   const reader = useReceiptReader()
-  usePageTitle(existing ? 'Edit expense' : capture ? 'Captured payment' : 'Add expense')
   const fileRef = useRef<HTMLInputElement>(null)
   // People who left stay in the pickers only for the old expense being edited (never for a new one).
   const order = useMemo(() => memberOrder(group, existing && existing.groupId === group.id ? expenseMemberIds(existing) : undefined), [group, existing])
@@ -130,6 +131,8 @@ export function ExpenseEditor({
   const memoryRef = useRef(memory)
   memoryRef.current = memory
   const dupOn = useFlag('duplicates')
+  // Money received (shared/received.ts): offered for a new entry while the flag is on; an existing one keeps its switch.
+  const receivedOn = useFlag('moneyReceived')
   const seedArgs = (g: Group, o: MemberId[], m: MemberId): SeedArgs => ({
     group: g,
     order: o,
@@ -137,7 +140,8 @@ export function ExpenseEditor({
     existing,
     again,
     capture,
-    quick,
+    // With money received off, a "refund 500" line opens as an ordinary expense.
+    quick: quick && !receivedOn ? { ...quick, received: undefined } : quick,
     notes: openItem?.notes,
     history,
     last: existing ? {} : lastSplit(g.id, o),
@@ -231,6 +235,10 @@ export function ExpenseEditor({
     else toast(quick.amount ? 'Filled in from your line. Check it over, then save.' : 'Couldn’t find an amount in your line. Add it, then save.')
   }, [quick, openItem, toast])
   const openItemsOn = useFlag('openItems')
+  const what = draft.received && !personal ? 'money received' : 'expense'
+  const title = existing ? `Edit ${what}` : capture ? 'Captured payment' : draft.received && !personal ? 'Add money received' : 'Add expense'
+  usePageTitle(title)
+  const showReceived = !personal && !capture && !openItem && (existing ? isReceived(existing) : receivedOn || draft.received)
   const [asOpenItem, setAsOpenItem] = useState(false)
 
   // Duplicate warning: the same amount within a day, with a similar description, already in this group.
@@ -342,7 +350,17 @@ export function ExpenseEditor({
       done.current = true
       clearDraft(storeKey)
       forgetReceipt()
-      toast(existing ? 'Expense updated' : openItem ? `Claimed “${openItem.title}”` : 'Expense added')
+      toast(
+        existing
+          ? what === 'expense'
+            ? 'Expense updated'
+            : 'Money received updated'
+          : openItem
+            ? `Claimed “${openItem.title}”`
+            : what === 'expense'
+              ? 'Expense added'
+              : 'Money received added',
+      )
       if (fromChat && !existing && !personal) {
         const name = group.members[me]?.name || profile.displayName || 'Someone'
         repo
@@ -398,7 +416,7 @@ export function ExpenseEditor({
         <button type="button" onClick={cancel} className="-ml-3 flex h-11 w-11 items-center justify-center rounded-full" aria-label="Cancel">
           <X size={24} />
         </button>
-        <h1 className="text-base font-bold">{existing ? 'Edit expense' : capture ? 'Captured payment' : 'Add expense'}</h1>
+        <h1 className="text-base font-bold">{title}</h1>
         <button
           type="submit"
           disabled={busy}
@@ -497,6 +515,27 @@ export function ExpenseEditor({
         </div>
       )}
 
+      {showReceived && (
+        <div className="mt-3">
+          <Segmented<'expense' | 'received'>
+            label="What is it"
+            value={draft.received ? 'received' : 'expense'}
+            onChange={(v) => dispatch({ type: 'received', on: v === 'received' })}
+            options={[
+              { value: 'expense', label: 'Expense' },
+              { value: 'received', label: 'Money received' },
+            ]}
+            testId="expense-kind"
+          />
+          {draft.received && (
+            <HintText
+              hint={{ full: 'A refund or reimbursement one person got that belongs to several. Whoever received it owes the others their share.', tier: 'key' }}
+              as="p"
+              className="text-muted mt-2 px-1 text-xs"
+            />
+          )}
+        </div>
+      )}
       {!personal && (
         <>
           <PayerCard draft={draft} dispatch={dispatch} group={group} order={order} me={me} hint={payerHint} onOpen={() => setSheet('payer')} />
@@ -587,6 +626,7 @@ export function ExpenseEditor({
           multiPay={draft.multiPay}
           onPick={(id) => dispatch({ type: 'payer', id })}
           onMultiPay={() => dispatch({ type: 'multiPay', on: true })}
+          received={draft.received}
         />
       )}
     </form>

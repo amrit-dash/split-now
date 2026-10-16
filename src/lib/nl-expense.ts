@@ -44,6 +44,8 @@ export interface NlParse {
   /** "split 3 ways" */
   ways?: number
   date?: string
+  /** money received to share ("Rahul got a 1000 refund"), not spent: shared/received.ts */
+  received?: boolean
   /** words that looked like people but matched nobody */
   unmatched: string[]
   confidence: NlConfidence
@@ -226,6 +228,27 @@ export function parseNlExpense(input: string, ctx: NlContext): NlParse {
   })
   text = text.replace(/\bsplit\s+(?:it\s+)?(?:equally|evenly|equal)\b|\bsplit\s+equal(?:ly)?\b|\bequally\b/i, ' ')
 
+  // Money received ("I got 1000 back", "Rahul received the refund", "refund 500"): who got it is the payer slot.
+  // "got" alone is buying ("got pizza 500"), so only "got back" / "got refunded" count.
+  const GOT = String.raw`(?:received|got\s+(?:back|refunded|reimbursed)|was\s+(?:refunded|reimbursed))`
+  const receivedPatterns: Array<[RegExp, (m: RegExpMatchArray) => MemberId | undefined]> = [
+    [new RegExp(String.raw`\b(?:i|me)\s+${GOT}\b`, 'i'), () => ctx.me],
+    [new RegExp(String.raw`\b(${NAME})\s+${GOT}\b`, 'iu'), (m) => matchName(m[1], ctx.members)],
+    [/^\s*received\b/i, () => ctx.me],
+  ]
+  for (const [re, pick] of receivedPatterns) {
+    const m = text.match(re)
+    if (!m) continue
+    const id = pick(m)
+    if (!id) continue
+    out.payer = id
+    out.payerExplicit = true
+    out.received = true
+    text = cut(text, m.index!, m[0].length)
+    break
+  }
+  if (/\b(?:refund(?:ed)?|reimburse(?:d|ment)?|cash\s*back)\b/i.test(text)) out.received = true
+
   // Who paid.
   const payerPatterns: Array<[RegExp, (m: RegExpMatchArray) => MemberId | undefined]> = [
     [/\b(?:i|me)\s+(?:paid|payed|pay)\b(?:\s+(?:for\s+)?(?:it|this|everything|all|the bill))?/i, () => ctx.me],
@@ -235,7 +258,7 @@ export function parseNlExpense(input: string, ctx: NlContext): NlParse {
     // "paid 500 for chai": nobody named, so the speaker paid.
     [/^\s*(?:paid|payed)\b(?:\s+(?:for\s+)?(?:it|this|everything|all|the bill))?/i, () => ctx.me],
   ]
-  for (const [re, pick] of payerPatterns) {
+  for (const [re, pick] of out.received ? [] : payerPatterns) {
     const m = text.match(re)
     if (!m) continue
     const id = pick(m)
@@ -297,6 +320,8 @@ export interface QuickPrefill {
   exact?: Record<MemberId, Cents>
   date?: string
   category?: Category
+  /** money received to share, not an expense */
+  received?: boolean
 }
 
 export function toQuickPrefill(p: NlParse, text: string, category?: Category | null): QuickPrefill {
@@ -309,6 +334,7 @@ export function toQuickPrefill(p: NlParse, text: string, category?: Category | n
     participants: p.participants,
     date: p.date,
     category: category ?? undefined,
+    received: p.received || undefined,
   }
 }
 

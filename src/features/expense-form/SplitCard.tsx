@@ -67,7 +67,12 @@ export function SplitCard({
     <>
       <SummaryCard
         id="split-card"
-        label={<>Split{hint && <SameHint />}</>}
+        label={
+          <>
+            {draft.received ? 'Shared with' : 'Split'}
+            {hint && <SameHint />}
+          </>
+        }
         title={describeSplit(draft, order, group, me)}
         detail={detail}
         icon={<Icon size={20} />}

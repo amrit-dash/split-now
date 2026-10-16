@@ -188,6 +188,7 @@ export default function ImportGroup() {
       }
       const expenses: Expense[] = result.expenses.map((e, i) => {
         const splits = remap(e.splits)
+        const paidBy = remap(e.paidBy)
         return {
           id: uid('e_'),
           groupId,
@@ -196,10 +197,12 @@ export default function ImportGroup() {
           category: e.category,
           date: e.date,
           notes: e.notes,
-          paidBy: remap(e.paidBy),
+          paidBy,
           splits,
           splitType: 'exact',
-          splitInput: { exact: splits },
+          // Money received keeps its shares in paidBy, which is what the form's split edits.
+          splitInput: { exact: e.kind === 'received' ? paidBy : splits },
+          ...(e.kind ? { kind: e.kind } : {}),
           createdBy: user.uid,
           createdAt: now + i,
           updatedAt: now + i,

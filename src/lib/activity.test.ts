@@ -67,6 +67,7 @@ describe('expenseSaveActivity', () => {
     const a = expenseSaveActivity(undefined, base, ctx)!
     expect(a.type).toBe('expense.created')
     expect(a.summary).toBe(`Sarah added “Dinner” (${A(8000)})`)
+    expect(expenseSaveActivity(undefined, { ...base, kind: 'received' }, ctx)!.summary).toBe(`Sarah added money received “Dinner” (${A(8000)})`)
     expect(a.actorUid).toBe('u_sarah')
     expect(a.targetId).toBe('e1')
     expect(a.createdAt).toBe(1000)

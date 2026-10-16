@@ -27,6 +27,7 @@ import { todayISO } from '@/lib/id'
 import { usePageTitle } from '@/lib/brand'
 import { fitLabel, overflows } from '@/lib/fit'
 import { Detail, HintText, InfoTip, type Hint } from '@/components/Hint'
+import { deltaWords } from '../../shared/received'
 
 // Only shown once everything is settled: kept out of the first-paint bundle.
 const CardFirework = lazy(() => import('@/components/CardFirework').then((m) => ({ default: m.CardFirework })))
@@ -249,7 +250,7 @@ function RecentExpense({ e, d }: { e: GroupData['expenses'][number]; d: GroupDat
         <div className="text-sm font-semibold">{formatMoney(e.amount, d.group.currency)}</div>
         {delta !== 0 && d.group.type !== 'personal' && (
           <div className={`text-xs ${delta > 0 ? 'pos' : 'neg'}`}>
-            {delta > 0 ? 'you lent' : 'you borrowed'} {formatMoney(Math.abs(delta), d.group.currency)}
+            {deltaWords(e, delta)} {formatMoney(Math.abs(delta), d.group.currency)}
           </div>
         )}
       </div>
