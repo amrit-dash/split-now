@@ -92,6 +92,23 @@ test('the + button opens the Create sheet; Add expense saves an equal split', as
   await expect(page.getByText('Dinner at Thalassa')).toBeVisible({ timeout: 15_000 })
 })
 
+test('Money received: shared like an expense, shown as received, and the receiver passes it on', async ({ page }) => {
+  await page.goto('/add?group=g_goa')
+  await page.getByTestId('expense-kind').getByRole('radio', { name: 'Money received' }).click()
+  await expect(page.getByRole('heading', { name: 'Add money received' })).toBeVisible()
+  await expect(page.getByText('Received by', { exact: true })).toBeVisible()
+  await page.getByRole('textbox', { name: 'Description', exact: true }).fill('Hotel refund')
+  await amountField(page).fill('1000')
+  await page.getByTestId('expense-save').click()
+  await expect(page).toHaveURL(/\/groups\/g_goa$/)
+  const row = page.getByRole('link').filter({ hasText: 'Hotel refund' })
+  await expect(row).toBeVisible({ timeout: 15_000 })
+  await expect(row).toContainText('received')
+  await expect(row).toContainText('you pass on')
+  await row.click()
+  await expect(page.getByText('Received by', { exact: true })).toBeVisible()
+})
+
 test('Quick add in the Create sheet: a group named in the line wins, and opens the form filled in', async ({ page }) => {
   await page.goto('/groups/g_goa')
   await page.getByTestId('nav-create').click()

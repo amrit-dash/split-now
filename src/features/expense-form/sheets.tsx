@@ -217,6 +217,7 @@ export function PayerSheet({
   multiPay,
   onPick,
   onMultiPay,
+  received = false,
 }: {
   open: boolean
   onClose: () => void
@@ -225,12 +226,14 @@ export function PayerSheet({
   me: MemberId
   value: MemberId
   multiPay: boolean
+  /** money received: the same choice, worded for who got the money */
+  received?: boolean
   onPick: (id: MemberId) => void
   onMultiPay: () => void
 }) {
   return (
-    <Sheet open={open} onClose={onClose} title="Who paid?" testId="payer-sheet">
-      <div className="space-y-1" role="radiogroup" aria-label="Who paid">
+    <Sheet open={open} onClose={onClose} title={received ? 'Who received it?' : 'Who paid?'} testId="payer-sheet">
+      <div className="space-y-1" role="radiogroup" aria-label={received ? 'Who received it' : 'Who paid'}>
         {youFirst(order, me).map((id) => {
           const on = !multiPay && id === value
           return (
@@ -266,8 +269,8 @@ export function PayerSheet({
             <Users size={18} aria-hidden />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block font-semibold">Several people paid</span>
-            <HintText hint={MULTI_PAY_HINT} as="span" className="block text-xs text-muted" />
+            <span className="block font-semibold">{received ? 'Several people received it' : 'Several people paid'}</span>
+            {!received && <HintText hint={MULTI_PAY_HINT} as="span" className="block text-xs text-muted" />}
           </span>
           {multiPay && <Check size={18} className="text-brand-600" aria-hidden />}
         </button>

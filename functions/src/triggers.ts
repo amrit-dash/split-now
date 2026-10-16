@@ -46,6 +46,7 @@ import { checkProof } from './payment-ok'
 import { expenseRecipients, memberNameForUid, memberUid, type MemberLite } from './lib/recipients'
 import { sendToUser } from './push'
 import { firstNameOf, labelOf } from '../../shared/names'
+import { isReceived } from '../../shared/received'
 
 interface GroupLite {
   name?: string
@@ -237,6 +238,7 @@ export const onExpenseCreated = onDocumentCreated({ document: 'groups/{groupId}/
           share: r.share,
           paid: r.paid,
           needsApproval: waiting.has(r.uid),
+          received: isReceived(e),
         }),
       ),
     ),
@@ -254,8 +256,12 @@ async function budgetAlert(groupId: string, g: GroupLite) {
   const budget = typeof g.budget === 'number' && g.budget > 0 ? g.budget : 0
   if (!budget || !(await flagOn('budgetAlerts'))) return
   const stateRef = db().doc(`reminderState/${groupId}`)
-  const [ex, stateSnap] = await Promise.all([db().collection(`groups/${groupId}/expenses`).select('amount', 'deletedAt').get(), stateRef.get()])
-  const spent = ex.docs.reduce((s, d) => (typeof d.get('deletedAt') === 'number' ? s : s + (Number(d.get('amount')) || 0)), 0)
+  const [ex, stateSnap] = await Promise.all([db().collection(`groups/${groupId}/expenses`).select('amount', 'deletedAt', 'kind').get(), stateRef.get()])
+  // Money received isn't spending (shared/received.ts), as on the budget bar.
+  const spent = ex.docs.reduce(
+    (s, d) => (typeof d.get('deletedAt') === 'number' || isReceived({ kind: d.get('kind') }) ? s : s + (Number(d.get('amount')) || 0)),
+    0,
+  )
   const prev = stateSnap.get('budget') as Partial<BudgetState> | undefined
   const alerted = prev?.at === budget && Array.isArray(prev.alerted) ? prev.alerted.filter((t): t is number => typeof t === 'number') : []
   const crossed = crossedThresholds(spent, budget, alerted)

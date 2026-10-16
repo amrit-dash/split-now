@@ -27,6 +27,7 @@ import { formatMoney } from '@/lib/money'
 import { claimHref, openItemMeta, type OpenItemState, suspectLine } from '@/lib/open-items'
 import { Avatar } from '@/components/Avatar'
 import { MergeChatCard } from '@/features/merge/Merge'
+import { handlersOf, isReceived } from '../../../shared/received'
 
 export interface MessageCtx {
   group: Group
@@ -606,21 +607,23 @@ function Card({ m, ctx, mine, memberId }: { m: ChatMessage; ctx: MessageCtx; min
   if (!e || typeof e.deletedAt === 'number')
     return shell('slate', <Receipt size={15} />, 'Expense', <div className="text-muted text-sm">{e ? 'Deleted' : 'No longer here'}</div>)
   const cat = CATEGORIES[e.category]
-  const payers = Object.keys(e.paidBy)
+  const payers = Object.keys(handlersOf(e))
   const paidBy = payers.length > 1 ? `${payers.length} people` : payers[0] === ctx.me ? 'you' : labelOf(group.members, payers[0], 'someone', ctx.me)
   return (
     <Link to={`/groups/${group.id}/expenses/${e.id}`} className="block" data-testid="chat-expense">
       {shell(
         'slate',
         <Receipt size={15} />,
-        'Expense',
+        isReceived(e) ? 'Money received' : 'Expense',
         <div className="flex items-center gap-2.5">
           <span className="text-2xl" aria-hidden>
             {cat.emoji}
           </span>
           <div className="min-w-0 flex-1">
             <div className="truncate text-base font-semibold">{e.description}</div>
-            <div className="text-muted truncate text-xs">Paid by {paidBy}</div>
+            <div className="text-muted truncate text-xs">
+              {isReceived(e) ? 'Received by' : 'Paid by'} {paidBy}
+            </div>
           </div>
           <div className="shrink-0 text-base font-bold tabular-nums">{formatMoney(e.amount, cur)}</div>
         </div>,

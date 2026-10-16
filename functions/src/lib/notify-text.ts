@@ -58,9 +58,16 @@ export function expenseNote(e: {
   share: number
   paid: number
   needsApproval?: boolean
+  /** money received (shared/received.ts): `paid` is then their share of it, `share` what they received */
+  received?: boolean
 }): Note {
-  const parts = [`${clip(e.actorName, 30)} added ${clip(e.description || 'an expense', 40)}`, formatMoney(e.amount, e.currency)]
-  if (e.share > 0) parts.push(`your share ${formatMoney(e.share, e.currency)}`)
+  const parts = e.received
+    ? [`${clip(e.actorName, 30)} added money received: ${clip(e.description || 'a refund', 40)}`, formatMoney(e.amount, e.currency)]
+    : [`${clip(e.actorName, 30)} added ${clip(e.description || 'an expense', 40)}`, formatMoney(e.amount, e.currency)]
+  if (e.received) {
+    if (e.paid > 0) parts.push(`your share ${formatMoney(e.paid, e.currency)}`)
+    else if (e.share > 0) parts.push(`you received ${formatMoney(e.share, e.currency)}`)
+  } else if (e.share > 0) parts.push(`your share ${formatMoney(e.share, e.currency)}`)
   else if (e.paid > 0) parts.push(`you paid ${formatMoney(e.paid, e.currency)}`)
   const body = parts.join(' · ') + (e.needsApproval ? ' · needs your approval' : '')
   return { title: groupTitle(e.groupName, e.emoji), body, url: `/groups/${e.groupId}/expenses/${e.expenseId}`, tag: `expense-${e.expenseId}` }

@@ -130,6 +130,8 @@ describe('config/app', () => {
     await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, flags: { ...appConfig.flags, chatAi: 'off' } }))
     await assertSucceeds(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, flags: { ...appConfig.flags, pushPrompt: false } }))
     await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, flags: { ...appConfig.flags, pushPrompt: 'off' } }))
+    await assertSucceeds(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, flags: { ...appConfig.flags, moneyReceived: false } }))
+    await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, flags: { ...appConfig.flags, moneyReceived: 'off' } }))
     await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, flags: { ...appConfig.flags, aiQuickAdd: 'off' } }))
     await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, flags: 'all' }))
     await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, signups: 'closed' }))

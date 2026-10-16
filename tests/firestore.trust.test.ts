@@ -316,3 +316,27 @@ describe('approvals', () => {
     )
   })
 })
+
+describe('money received (kind)', () => {
+  const got = {
+    ...expense,
+    id: 'r1',
+    description: 'Flight refund',
+    createdBy: 'bob',
+    kind: 'received',
+    paidBy: { alice: 3000, bob: 3000, p_cat: 3000 },
+    splits: { bob: 9000 },
+  }
+  it('can be added with the roles swapped, and is the only other kind', async () => {
+    await assertSucceeds(setDoc(e1('bob', 'r1'), got))
+    await assertFails(setDoc(e1('bob', 'r2'), { ...got, id: 'r2', kind: 'refund' }))
+    await assertFails(setDoc(e1('bob', 'r3'), { ...got, id: 'r3', kind: true }))
+  })
+  it('an edit keeps what it was added as', async () => {
+    await seed('groups/g1/expenses/r1', got)
+    await seed('groups/g1/expenses/e1', expense)
+    await assertSucceeds(updateDoc(e1('bob', 'r1'), { description: 'Hotel refund', updatedBy: 'bob' }))
+    await assertFails(updateDoc(e1('bob', 'r1'), { kind: deleteField(), updatedBy: 'bob' }))
+    await assertFails(updateDoc(e1('bob', 'e1'), { kind: 'received', updatedBy: 'bob' }))
+  })
+})

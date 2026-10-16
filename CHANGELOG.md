@@ -6,6 +6,9 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 6.5.0 — October 2026
+
+- Money received: when someone gets a refund or reimbursement that belongs to the group, add it with the new Expense / Money received switch in Add expense. Choose who received it and share it the same ways as an expense; whoever received it then owes the others their part. It doesn't count as spending in totals, budgets or Insights. Quick add understands "Rahul received 1000 refund" and "I got back 500", and Splitwise refunds import as money received.
 ## 6.4.0 — October 2026
 
 - Deleting: when someone deletes an expense you're in, you get a notification with a link to restore it. A group someone else deleted shows in your Inbox with Restore, and Recently deleted is on the Groups tab at every detail level.

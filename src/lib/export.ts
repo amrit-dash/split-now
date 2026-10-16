@@ -1,6 +1,7 @@
 import type { Expense, Group, MemberId, Settlement } from '@/types'
 import { CATEGORIES } from './categories'
 import { minorDigits } from './money'
+import { isReceived } from '../../shared/received'
 
 /**
  * CSV export of a group's expenses and settlements.
@@ -68,7 +69,9 @@ export function groupCsv(group: Pick<Group, 'members' | 'currency'>, expenses: E
       createdAt: e.createdAt,
       cells: [
         e.date,
-        'Expense',
+        // Money received is written as stored (the people sharing it under Paid by, the receiver's
+        // column holding the whole amount), so balances add up and the import reads it back as is.
+        isReceived(e) ? 'Money received' : 'Expense',
         e.description,
         CATEGORIES[e.category]?.label ?? e.category,
         dec(e.amount),

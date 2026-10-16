@@ -3,6 +3,7 @@ import { CATEGORIES } from './categories'
 import { formatDate } from './locale'
 import { minorDigits } from './money'
 import { labelOf } from './shortNames'
+import { isReceived, spending } from '../../shared/received'
 
 /*
  * Pure computation behind the Insights page. Dates are ISO yyyy-mm-dd strings in local time;
@@ -175,6 +176,8 @@ export function collectRows(
   for (const src of sources) {
     const personal = src.group.type === 'personal'
     for (const e of src.expenses) {
+      // Money received isn't spending (shared/received.ts): it shows in the group, not in Insights.
+      if (isReceived(e)) continue
       if (e.date < b.from || e.date > b.to) continue
       if (cats && !cats.has(e.category)) continue
       const mine = personal ? e.amount : src.me ? (e.splits[src.me] ?? 0) : 0
@@ -474,7 +477,7 @@ export function budgetRunUp(src: {
   const budget = src.group.budget
   if (!budget) return null
   const byDate = new Map<string, number>()
-  for (const e of src.expenses) byDate.set(e.date, (byDate.get(e.date) ?? 0) + e.amount)
+  for (const e of spending(src.expenses)) byDate.set(e.date, (byDate.get(e.date) ?? 0) + e.amount)
   const dates = [...byDate.keys()].sort()
   const points: BudgetPoint[] = []
   const start = src.group.startDate

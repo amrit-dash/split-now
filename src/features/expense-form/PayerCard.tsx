@@ -30,7 +30,12 @@ export function PayerCard({
   return (
     <SummaryCard
       id="payer-card"
-      label={<>Paid by{hint && <SameHint />}</>}
+      label={
+        <>
+          {draft.received ? 'Received by' : 'Paid by'}
+          {hint && <SameHint />}
+        </>
+      }
       title={describePayer(draft, group, me, false)}
       icon={draft.multiPay ? <Users size={20} /> : <Avatar name={payer?.name ?? '?'} color={payer?.color ?? '#999'} photoURL={payer?.photoURL} size={40} />}
       plainIcon={!draft.multiPay}
@@ -46,7 +51,7 @@ export function PayerCard({
                 value={draft.payers[id]}
                 currency={draft.cur}
                 placeholder={centsToInput(0, draft.cur)}
-                aria-label={`${nameOf(group, me, id)} paid`}
+                aria-label={`${nameOf(group, me, id)} ${draft.received ? 'received' : 'paid'}`}
                 onChange={(v) => dispatch({ type: 'payerAmount', id, amount: v })}
               />
             </MemberRow>
@@ -56,7 +61,7 @@ export function PayerCard({
             className="min-h-9 text-sm font-semibold text-brand-600 dark:text-brand-300"
             onClick={() => dispatch({ type: 'multiPay', on: false })}
           >
-            One person paid
+            {draft.received ? 'One person received it' : 'One person paid'}
           </button>
         </div>
       )}

@@ -217,3 +217,25 @@ describe('bindQuickPrefill', () => {
     expect(p).toMatchObject({ amount: 5000, currency: 'INR', payer: 'me', participants: ['me', 'rahul'] })
   })
 })
+
+describe('money received', () => {
+  it('reads who received it, and keeps the rest as usual', () => {
+    expect(parse('Rahul received 1000 flight refund split with everyone')).toMatchObject({
+      received: true,
+      payer: 'rahul',
+      payerExplicit: true,
+      amount: 100000,
+    })
+    expect(parse('I got back 500 from the hotel')).toMatchObject({ received: true, payer: 'me', amount: 50000 })
+    expect(parse('received 300 cashback')).toMatchObject({ received: true, payer: 'me', amount: 30000 })
+    expect(parse('reimbursement 2000 with Priya')).toMatchObject({ received: true, payer: 'me', participants: ['me', 'priya'] })
+  })
+  it('buying is still an expense', () => {
+    expect(parse('I got pizza 500').received).toBeUndefined()
+    expect(parse('dinner 1200, Rahul paid').received).toBeUndefined()
+  })
+  it('hands the form the flag', () => {
+    expect(toQuickPrefill(parse('refund 500'), 'refund 500').received).toBe(true)
+    expect(toQuickPrefill(parse('dinner 500'), 'dinner 500').received).toBeUndefined()
+  })
+})

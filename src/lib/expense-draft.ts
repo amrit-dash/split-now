@@ -11,6 +11,7 @@ import { firstNextDate, nextAfter } from './recurrence'
 import { groupLabels } from './shortNames'
 import { todayISO, uid } from './id'
 import { titleCase } from './text'
+import { handlersOf, isReceived } from '../../shared/received'
 
 /*
  * The expense form's state machine, kept pure so the trickiest rules in the app (seeding from
@@ -58,7 +59,13 @@ export interface Draft {
   catTouched: boolean
   date: string
   notes: string
-  /** the single payer */
+  /**
+   * Money received (a refund or reimbursement to share) instead of an expense: `payer` / `payers`
+   * are then who received it, and the split is how it's shared (shared/received.ts). Never in a
+   * personal group.
+   */
+  received: boolean
+  /** the single payer (or receiver) */
   payer: MemberId
   multiPay: boolean
   /** what each person paid, when several did */
@@ -190,7 +197,9 @@ export function initialDraft(a: SeedArgs): Draft {
   const src = existing ?? a.again
   const today = a.today ?? todayISO()
   const cur = src ? (src.original?.currency ?? group.currency) : (q?.currency ?? capture?.currency ?? a.lastCurrency ?? group.currency)
-  const paidBy = src ? (src.original ? toOriginal(src.paidBy, src.original) : src.paidBy) : {}
+  // Money received keeps its receiver in `splits`: that's who the form shows under "Received by".
+  const handled = src ? handlersOf(src) : {}
+  const paidBy = src ? (src.original ? toOriginal(handled, src.original) : handled) : {}
   const payerIds = Object.keys(paidBy)
   const multiPay = payerIds.length > 1
   const description = src?.description ?? q?.description ?? capture?.merchant ?? ''
@@ -211,6 +220,7 @@ export function initialDraft(a: SeedArgs): Draft {
     catTouched: !!src || !!q?.category,
     date: existing?.date ?? q?.date ?? capture?.date ?? today,
     notes: src?.notes ?? capture?.note ?? a.notes ?? '',
+    received: src ? isReceived(src) : !!q?.received && group.type !== 'personal',
     payer: payerIds[0] ?? (q?.payer && order.includes(q.payer) ? q.payer : !capture && !q && last.payer ? last.payer : me),
     multiPay,
     payers: multiPay ? { ...paidBy } : {},
@@ -238,6 +248,7 @@ export type Action =
   | { type: 'amount'; amount?: Cents }
   | { type: 'description'; value: string; history: Suggestion[]; memory?: MerchantMemory | null }
   | { type: 'category'; category: Category }
+  | { type: 'received'; on: boolean }
   | { type: 'currency'; cur: string }
   | { type: 'date'; date: string }
   | { type: 'notes'; notes: string }
@@ -291,6 +302,8 @@ export function reduce(d: Draft, a: Action): Draft {
     }
     case 'category':
       return { ...d, category: a.category, catTouched: true }
+    case 'received':
+      return { ...d, received: a.on }
     case 'currency': {
       if (a.cur === d.cur) return d
       const f = (v: Cents) => rescaleMinor(v, d.cur, a.cur)
@@ -443,7 +456,8 @@ export function validate(d: Draft, ctx: DraftCtx): Errors {
   if (!validAmount(d)) return errors
   const paidBy = selectPaidBy(d, ctx.me, ctx.personal)
   const paidSum = sumOf(paidBy)
-  if (paidSum !== d.amount) errors.payers = `Payers add up to ${formatMoney(paidSum, d.cur)}, not ${formatMoney(d.amount, d.cur)}`
+  if (paidSum !== d.amount)
+    errors.payers = `${d.received && !ctx.personal ? 'Amounts received' : 'Payers'} add up to ${formatMoney(paidSum, d.cur)}, not ${formatMoney(d.amount, d.cur)}`
   const sp = selectSplits(d, ctx.order, ctx.me, ctx.personal)
   if (sp.error || !sp.splits) errors.split = sp.error ?? 'Check the split'
   else if (sumOf(sp.splits) !== d.amount) errors.split = 'The split doesn’t add up to the total'
@@ -476,7 +490,10 @@ export function toExpense(d: Draft, ctx: SaveCtx): { expense: Expense; remember:
   const paidBy = selectPaidBy(d, me, personal)
   const sp = selectSplits(d, order, me, personal)
   if (!sp.splits) throw new Error(sp.error ?? 'Check the split')
-  let money = { amount: d.amount, paidBy, splits: sp.splits }
+  // Money received swaps the roles (shared/received.ts): the receiver is charged it all, and
+  // each person it's shared with is credited their part.
+  const received = d.received && !personal
+  let money = received ? { amount: d.amount, paidBy: sp.splits, splits: paidBy } : { amount: d.amount, paidBy, splits: sp.splits }
   let original: OriginalAmount | undefined
   if (d.cur !== group.currency) {
     if (!d.fx) throw new Error(`Enter the ${d.cur} → ${group.currency} exchange rate`)
@@ -505,6 +522,7 @@ export function toExpense(d: Draft, ctx: SaveCtx): { expense: Expense; remember:
     recurringFrom: existing?.recurringFrom,
     original,
     importedFrom: existing?.importedFrom,
+    kind: received ? 'received' : undefined,
     createdBy: existing?.createdBy ?? ctx.userUid,
     createdAt: existing?.createdAt ?? ctx.now,
     updatedAt: ctx.now,
@@ -546,13 +564,14 @@ export const nameOf = (group: Named, me: MemberId, id: MemberId) => (id === me ?
 const list = (names: string[]) => (names.length <= 2 ? names.join(' and ') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`)
 
 export function describePayer(d: Draft, group: Named, me: MemberId, personal: boolean): string {
-  if (personal || !d.multiPay) return `${nameOf(group, me, personal ? me : d.payer)} paid`
+  const verb = d.received && !personal ? 'received' : 'paid'
+  if (personal || !d.multiPay) return `${nameOf(group, me, personal ? me : d.payer)} ${verb}`
   const who = Object.entries(d.payers)
     .filter(([, v]) => typeof v === 'number' && v > 0)
     .map(([id]) => nameOf(group, me, id))
   if (who.length === 0) return 'Nobody yet'
-  if (who.length <= 3) return `${list(who)} paid`
-  return `${who.length} people paid`
+  if (who.length <= 3) return `${list(who)} ${verb}`
+  return `${who.length} people ${verb}`
 }
 
 export function describeSplit(d: Draft, order: MemberId[], group: Named, me: MemberId): string {
@@ -672,6 +691,7 @@ export function hydrateDraft(stored: Partial<Draft>, base: Draft, order: MemberI
   }
   const d: Draft = { ...base, ...stored, split, payers: pick(stored.payers), seededFor: base.seededFor }
   if (!has(d.payer)) d.payer = has(base.payer) ? base.payer : me
+  d.received = d.received === true
   if (typeof d.cur !== 'string' || !d.cur) d.cur = base.cur
   if (typeof d.amount !== 'number' || !Number.isFinite(d.amount)) d.amount = undefined
   if (!(d.splitType in SPLIT_TYPE_LABEL)) d.splitType = base.splitType

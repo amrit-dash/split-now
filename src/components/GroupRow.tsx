@@ -8,13 +8,14 @@ import { LiveBadge } from './Misc'
 import { isLiveTrip } from '@/lib/capture'
 import { todayISO } from '@/lib/id'
 import { activeMembers } from '@/lib/members'
+import { spending } from '../../shared/received'
 
 /** One group in a list: icon, name, members (spend for a personal wallet, "Friend" for a 1:1) and your balance in words and numbers. */
 export function GroupRow({ d }: { d: GroupData }) {
   const bal = d.me ? (d.net[d.me] ?? 0) : 0
   const members = Object.values(activeMembers(d.group.members))
   const personal = d.group.type === 'personal'
-  const spent = d.expenses.reduce((s, e) => s + e.amount, 0)
+  const spent = spending(d.expenses).reduce((s, e) => s + e.amount, 0)
   return (
     <Link to={`/groups/${d.group.id}`} className="flex min-h-16 items-center gap-3 px-4 py-3 transition active:bg-slate-50 dark:active:bg-ink-800">
       <GroupIcon emoji={d.group.emoji} group={d.group} />

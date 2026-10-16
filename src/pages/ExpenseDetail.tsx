@@ -23,6 +23,7 @@ import { SwipeRow } from '@/components/SwipeRow'
 import { usePageTitle } from '@/lib/brand'
 import { HistoryCard, TrashedBanner, TrustBadges, TrustPanel, useUndoableDelete } from '@/components/Trust'
 import { labelOf, memberIdOfUid } from '@/lib/shortNames'
+import { handlersOf, isReceived, sharesOf } from '../../shared/received'
 
 export default function ExpenseDetail() {
   const { groupId, expenseId } = useParams()
@@ -63,6 +64,7 @@ export default function ExpenseDetail() {
   const me = myMemberId(group, user.uid)
   const cur = group.currency
   const cat = CATEGORIES[e.category]
+  const received = isReceived(e)
   const name = (id: string) => (id === me ? 'You' : labelOf(group.members, id, 'Former member', me))
 
   const template = e.recurringFrom ? expenses.find((x) => x.id === e.recurringFrom) : undefined
@@ -145,6 +147,7 @@ export default function ExpenseDetail() {
           </div>
         )}
         <div className="mt-2 text-sm text-muted">
+          {received ? 'Money received · ' : ''}
           {cat.label} · {formatDate(e.date, 'long')}
         </div>
         <div className="mt-1 text-xs text-muted">
@@ -188,8 +191,8 @@ export default function ExpenseDetail() {
       {group.type !== 'personal' && (
         <>
           <div className="card mt-3 p-4">
-            <div className="label">Paid by</div>
-            {Object.entries(e.paidBy).map(([id, v]) => (
+            <div className="label">{received ? 'Received by' : 'Paid by'}</div>
+            {Object.entries(handlersOf(e)).map(([id, v]) => (
               <div key={id} className="flex items-center gap-3 py-1.5">
                 <Avatar name={group.members[id]?.name ?? '?'} color={group.members[id]?.color ?? '#999'} photoURL={group.members[id]?.photoURL} size={32} />
                 <span className="flex-1 font-medium">{name(id)}</span>
@@ -198,9 +201,10 @@ export default function ExpenseDetail() {
             ))}
           </div>
           <div className="card mt-3 p-4">
-            <div className="label">{SPLIT_TYPE_LABEL[e.splitType]}</div>
-            {Object.entries(e.splits).map(([id, v]) => {
-              const net = (e.paidBy[id] ?? 0) - v
+            <div className="label">{received ? `Shared · ${SPLIT_TYPE_LABEL[e.splitType].toLowerCase()}` : SPLIT_TYPE_LABEL[e.splitType]}</div>
+            {Object.entries(sharesOf(e)).map(([id, v]) => {
+              // What they're owed (+) or owe (-) from this entry, either way round.
+              const net = (e.paidBy[id] ?? 0) - (e.splits[id] ?? 0)
               return (
                 <div key={id} className="flex items-center gap-3 py-1.5">
                   <Avatar name={group.members[id]?.name ?? '?'} color={group.members[id]?.color ?? '#999'} photoURL={group.members[id]?.photoURL} size={32} />
@@ -217,7 +221,7 @@ export default function ExpenseDetail() {
                     <div className="font-semibold tabular-nums">{formatMoney(v, cur)}</div>
                     {net !== 0 && (
                       <div className={`text-xs tabular-nums ${net > 0 ? 'pos' : 'neg'}`}>
-                        {net > 0 ? 'gets back' : 'owes'} {formatMoney(Math.abs(net), cur)}
+                        {net > 0 ? (received ? 'gets' : 'gets back') : 'owes'} {formatMoney(Math.abs(net), cur)}
                       </div>
                     )}
                   </div>

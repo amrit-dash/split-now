@@ -27,6 +27,7 @@
     "../shared/money-core.ts",
     "../shared/trips.ts",
     "../shared/balances-core.ts",
+    "../shared/received.ts",
     "../shared/members.ts",
     "../shared/paylinks.ts",
     "../shared/archive.ts",

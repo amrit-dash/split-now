@@ -497,3 +497,35 @@ describe('real-world Splitwise export shape', () => {
     expect(r.expenses[2].category).toBe('groceries')
   })
 })
+
+describe('money received in imports', () => {
+  it('a Splitwise refund (negative cost) comes in as money received, credits the sharers', () => {
+    const r = parseSplitwiseCsv('Date,Description,Category,Cost,Currency,A,B\n2024-01-01,Hotel refund,General,-20.00,USD,-10.00,10.00\n')
+    expect(r.expenses[0]).toMatchObject({ kind: 'received', amount: 2000, paidBy: { A: 1000, B: 1000 }, splits: { A: 2000 } })
+    const plain = parseSplitwiseCsv('Date,Description,Category,Cost,Currency,A,B\n2024-01-01,Lunch,General,20.00,USD,10.00,-10.00\n')
+    expect(plain.expenses[0].kind).toBeUndefined()
+  })
+  it('our own export round-trips it', () => {
+    const g = { currency: 'AUD', members: { a: { name: 'Ann', color: '#000' }, b: { name: 'Ben', color: '#111' } } }
+    const got: Expense = {
+      id: 'r1',
+      groupId: 'g',
+      description: 'Refund',
+      amount: 1000,
+      category: 'other',
+      date: '2024-05-01',
+      paidBy: { a: 500, b: 500 },
+      splits: { a: 1000 },
+      splitType: 'equal',
+      splitInput: { selected: ['a', 'b'] },
+      createdBy: 'u',
+      createdAt: 1,
+      updatedAt: 1,
+      kind: 'received',
+    }
+    const csv = groupCsv(g, [got], [])
+    expect(csv).toContain('Money received')
+    const r = parseImportCsv(csv)
+    expect(r.expenses[0]).toMatchObject({ kind: 'received', amount: 1000, paidBy: { Ann: 500, Ben: 500 }, splits: { Ann: 1000 } })
+  })
+})

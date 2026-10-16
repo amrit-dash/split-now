@@ -255,9 +255,9 @@ service cloud.firestore {
       function validFlags(f) {
         return f is map
           && f.keys().hasOnly(['aiImages', 'aiSms', 'liveTables', 'autoCapture', 'quickAdd', 'nudges', 'statementImport',
-              'payLinks', 'duplicates', 'merchantMemory', 'whoseTurn', 'budgetAlerts', 'aiQuickAdd', 'aiPayments', 'openItems', 'groupChat', 'chatAi', 'pushPrompt'])
+              'payLinks', 'duplicates', 'merchantMemory', 'whoseTurn', 'budgetAlerts', 'aiQuickAdd', 'aiPayments', 'openItems', 'groupChat', 'chatAi', 'pushPrompt', 'moneyReceived'])
           && f.get('openItems', true) is bool && f.get('groupChat', true) is bool && f.get('chatAi', true) is bool
-          && f.get('pushPrompt', true) is bool
+          && f.get('pushPrompt', true) is bool && f.get('moneyReceived', true) is bool
           && f.get('aiQuickAdd', true) is bool && f.get('aiPayments', true) is bool
           && f.get('aiImages', true) is bool && f.get('aiSms', true) is bool && f.get('liveTables', true) is bool
           && f.get('autoCapture', true) is bool && f.get('quickAdd', true) is bool && f.get('nudges', true) is bool
@@ -692,7 +692,14 @@ service cloud.firestore {
             && d.splits is map && d.splits.size() <= 60
             // everyone who paid or owes must be a member of this group
             && d.paidBy.keys().hasOnly(groupDoc(groupId).data.members.keys())
-            && d.splits.keys().hasOnly(groupDoc(groupId).data.members.keys());
+            && d.splits.keys().hasOnly(groupDoc(groupId).data.members.keys())
+            && validKind(d);
+        }
+        // Money received (shared/received.ts) is the only other kind, stored with the roles
+        // swapped; an entry stays what it was added as (an edit can't turn spending into income).
+        function validKind(d) {
+          return (!('kind' in d) || d.kind == 'received')
+            && (request.method == 'create' || d.get('kind', null) == resource.data.get('kind', null));
         }
         // With group.requireApproval, an expense above its threshold (approvalThresholdOf) must
         // carry requiresApproval when created or when its amount changes.

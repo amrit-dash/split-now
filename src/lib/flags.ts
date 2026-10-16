@@ -39,6 +39,7 @@ export const FLAG_NAMES = [
   'groupChat',
   'chatAi',
   'pushPrompt',
+  'moneyReceived',
 ] as const
 export type FlagName = (typeof FLAG_NAMES)[number]
 
@@ -73,6 +74,10 @@ export const FLAG_INFO: Record<FlagName, { label: string; hint: string }> = {
   groupChat: {
     label: 'Group chat',
     hint: 'The chat button on a group and its pushes. Off hides the chat and stops new chat pushes; messages already sent stay stored.',
+  },
+  moneyReceived: {
+    label: 'Money received',
+    hint: 'The Expense / Money received switch in Add expense, and refunds in Quick add. Off hides it for new entries; money received already added stays and can still be edited.',
   },
   pushPrompt: {
     label: 'Ask to turn on notifications',

@@ -216,6 +216,12 @@ export interface Expense {
   requiresApproval?: boolean
   /** uid → true for each person charged who approved it. */
   approvals?: Record<string, true>
+  /**
+   * Money received (a refund or reimbursement shared by several people), stored with the roles
+   * swapped: the receiver in `splits` (the whole amount), the people it's shared with in `paidBy`
+   * (their shares). Absent on an ordinary expense. Never changes after it's added. shared/received.ts.
+   */
+  kind?: 'received'
 }
 
 export interface ExpenseFlag {
