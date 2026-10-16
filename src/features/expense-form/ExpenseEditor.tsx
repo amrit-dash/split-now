@@ -348,8 +348,8 @@ export function ExpenseEditor({
           href: `/groups/${group.id}/expenses/${e.id}`,
         }).catch(() => {})
       // Upload after saving so a slow or offline network never blocks the save.
-      // Private groups keep no photos yet: the scan filled the form, the image stays on the phone.
-      if (receipt && !group.vault && !repo.attachReceipt(group.id, e.id, receipt)) toast('Offline, saved without the receipt image')
+      // A private group's photo is sealed before it leaves the phone (src/data/vault-repo.ts).
+      if (receipt && !repo.attachReceipt(group.id, e.id, receipt)) toast('Offline, saved without the receipt image')
       done.current = true
       clearDraft(storeKey)
       forgetReceipt()

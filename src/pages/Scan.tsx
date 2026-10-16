@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useVaultVersion } from '@/hooks/useVault'
+import { aiAfterPick, scanOnDeviceFirst } from '@/lib/vault-api'
+import { isUnlocked } from '@/lib/vault-keys'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Camera, ImageUp, ListChecks, Plus, Smartphone, X } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
@@ -71,6 +74,12 @@ export default function Scan() {
   const toast = useToast()
   const ocr = useOcr()
   const reader = useReceiptReader()
+  // Someone with private groups: read on the phone first (nobody knows yet which group it's for),
+  // the AI only once a group that isn't private is picked (src/lib/vault-api.ts).
+  const vaultsOn = useFlag('vaults')
+  useVaultVersion()
+  const deviceFirst = scanOnDeviceFirst({ vaultsOn, hasPrivate: !!data?.some((d) => d.group.vault) })
+  const [readOnDevice, setReadOnDevice] = useState(false)
   const camRef = useRef<HTMLInputElement>(null)
   const libRef = useRef<HTMLInputElement>(null)
   const [params0] = useSearchParams()
@@ -133,6 +142,7 @@ export default function Scan() {
     setReceipt(null)
     setPayment(null)
     setNotABill(false)
+    setReadOnDevice(false)
     setFile(null)
     setPreview(undefined)
     setText('')
@@ -175,8 +185,9 @@ export default function Scan() {
     setCancelled(false)
     try {
       if (mode === 'receipt') {
-        const r = await reader.read(f)
+        const r = await reader.read(f, deviceFirst)
         if (run.current !== id) return
+        setReadOnDevice(deviceFirst)
         setText('')
         if (r.via === 'ai' && (r.notABill || looksEmpty(r.parsed))) {
           setNotABill(true)
@@ -262,7 +273,8 @@ export default function Scan() {
   // For payments, rank groups where the payee name matches a member.
   const groups = useMemo(() => {
     if (!data) return []
-    const list = data.filter((d) => !d.group.archived && (mode === 'receipt' || d.group.type !== 'personal'))
+    // A private group locked on this phone isn't offered: it can't take the expense until it's opened.
+    const list = data.filter((d) => !d.group.archived && !(d.group.vault && !isUnlocked(d.group.id)) && (mode === 'receipt' || d.group.type !== 'personal'))
     if (mode !== 'payment' || !payment?.payee) return list
     return [...list].sort((a, b) => {
       const ma = matchMember(
@@ -288,12 +300,26 @@ export default function Scan() {
   const progress = reader.busy ? reader.progress : ocr.progress
   const progressLabel = reader.busy ? reader.label : `Reading… ${Math.round(ocr.progress * 100)}%`
 
-  const go = (groupId: string) => {
+  const go = async (groupId: string) => {
     if (!file) return
-    const name = data?.find((d) => d.group.id === groupId)?.group.name ?? 'a group'
+    const picked = data?.find((d) => d.group.id === groupId)?.group
+    const name = picked?.name ?? 'a group'
     if (scanRef) hist.outcome(scanRef.id, { label: receipt ? `Used in ${name}` : `Payment in ${name}`, href: `/groups/${groupId}` }, scanRef.kind)
     if (receipt) {
-      pending.receipt = { parsed: { ...receipt, currency: cur }, file, history: scanRef }
+      let parsed = receipt
+      // Read on the phone because of private groups, and the group picked isn't one: now the AI may read it.
+      if (aiAfterPick({ readOnDevice, pickedPrivate: !!picked?.vault, aiOn: aiScanEnabled() && aiScanPossible() })) {
+        const id = ++run.current
+        try {
+          const r = await reader.read(file)
+          if (run.current !== id) return
+          if (r.via === 'ai' && !r.notABill && !looksEmpty(r.parsed)) parsed = r.parsed
+        } catch (e) {
+          if (e instanceof OcrCancelled || run.current !== id) return
+          // the phone's own reading stands
+        }
+      }
+      pending.receipt = { parsed: { ...parsed, currency: cur }, file, history: scanRef }
       nav(`/add?group=${groupId}`)
     } else if (payment) {
       pending.payment = { parsed: payment, file }
@@ -530,7 +556,7 @@ export default function Scan() {
                     <button
                       key={d.group.id}
                       type="button"
-                      onClick={() => go(d.group.id)}
+                      onClick={() => void go(d.group.id)}
                       className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-slate-50 dark:active:bg-ink-800"
                     >
                       <GroupIcon emoji={d.group.emoji} group={d.group} size={40} />

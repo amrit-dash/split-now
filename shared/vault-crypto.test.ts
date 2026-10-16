@@ -1,5 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { fitForToken, hasToken, isToken, openDeep, openText, openToken, plainBytesFor, sealText, vaultKey } from './vault-crypto'
+import {
+  fitForToken,
+  hasToken,
+  isSealedFile,
+  isToken,
+  openBytes,
+  openDeep,
+  openText,
+  openToken,
+  plainBytesFor,
+  sealBytes,
+  sealText,
+  vaultKey,
+} from './vault-crypto'
 
 const dek = btoa(String.fromCharCode(...new Array(32).fill(7)))
 const other = btoa(String.fromCharCode(...new Array(32).fill(9)))
@@ -50,5 +63,19 @@ describe('vault tokens', () => {
     expect(fitForToken('x'.repeat(max + 10), cap)).toHaveLength(max)
     expect(new TextEncoder().encode(fitForToken('दाल'.repeat(100), cap)).length).toBeLessThanOrEqual(max)
     expect(fitForToken('short', cap)).toBe('short')
+  })
+  it('seals a photo’s bytes for its group alone, and leaves a plain one as it is', async () => {
+    const dek = btoa(String.fromCharCode(...new Array(32).fill(5)))
+    const k = await vaultKey('g1', dek)
+    const other = await vaultKey('g2', dek)
+    const jpeg = new Uint8Array([0xff, 0xd8, ...new Array(100).fill(1), 0xff, 0xd9])
+    const sealed = await sealBytes(k, jpeg)
+    expect(isSealedFile(sealed)).toBe(true)
+    expect(isSealedFile(jpeg)).toBe(false)
+    expect(await openBytes(k, sealed)).toEqual(jpeg)
+    expect(await openBytes(other, sealed)).toBeNull()
+    expect(await openBytes(k, jpeg)).toBe(jpeg)
+    // random IV: the same photo twice is two different files
+    expect(await sealBytes(k, jpeg)).not.toEqual(sealed)
   })
 })

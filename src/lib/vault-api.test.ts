@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  aiAfterPick,
+  scanOnDeviceFirst,
   groupPatternProblem,
   lockButton,
   privateMenuShown,
@@ -88,5 +90,17 @@ describe('the group menu', () => {
     expect(privateMenuShown({ type: 'trip' }, false, true)).toBe(false)
     expect(privateMenuShown({ type: 'trip' }, true, false)).toBe(false)
     expect(privateMenuShown({ type: 'personal' }, true, true)).toBe(false)
+  })
+})
+
+describe('the Scan tab', () => {
+  it('reads on the phone first for someone with private groups, and uses the AI only for a group that isn’t private', () => {
+    expect(scanOnDeviceFirst({ vaultsOn: true, hasPrivate: true })).toBe(true)
+    expect(scanOnDeviceFirst({ vaultsOn: true, hasPrivate: false })).toBe(false)
+    expect(scanOnDeviceFirst({ vaultsOn: false, hasPrivate: true })).toBe(false)
+    expect(aiAfterPick({ readOnDevice: true, pickedPrivate: false, aiOn: true })).toBe(true)
+    expect(aiAfterPick({ readOnDevice: true, pickedPrivate: true, aiOn: true })).toBe(false)
+    expect(aiAfterPick({ readOnDevice: true, pickedPrivate: false, aiOn: false })).toBe(false)
+    expect(aiAfterPick({ readOnDevice: false, pickedPrivate: false, aiOn: true })).toBe(false)
   })
 })

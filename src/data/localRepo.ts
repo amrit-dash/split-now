@@ -770,9 +770,10 @@ export function createLocalRepo(): Repo {
       log(group.id, disputeActivity('approved', e, ctx(group.id, e)))
       commit()
     },
-    attachReceipt(_groupId, expenseId, file) {
-      // Store a small data URL so the demo can show the receipt.
+    attachReceipt(_groupId, expenseId, file, opts) {
+      // Store a small data URL so the demo can show the receipt (a private group's sealed first, as on the server).
       downscale(file, 900, 0.7)
+        .then((small) => (opts?.seal ? opts.seal(small) : small))
         .then(
           (blob) =>
             new Promise<string>((res, rej) => {
@@ -809,7 +810,8 @@ export function createLocalRepo(): Repo {
         // Kept on this device (no server here, so nothing checks it: it waits for the payee).
         const proofPath = `settleproofs/${s.groupId}/${s.id}.jpg`
         state.payProofs ??= {}
-        state.payProofs[proofPath] = await blobToDataUrl(await downscale(opts.proof, 900, 0.7))
+        const small = await downscale(opts.proof, 900, 0.7)
+        state.payProofs[proofPath] = await blobToDataUrl(opts.seal ? await opts.seal(small) : small)
         s = { ...s, proofPath }
       }
       if (!state.settlements[s.id]) {
@@ -845,6 +847,19 @@ export function createLocalRepo(): Repo {
     },
     async settleProofUrl(s) {
       return (s.proofPath && state.payProofs?.[s.proofPath]) || null
+    },
+    async photoUrl(_groupId, photo) {
+      return photo.url ?? (photo.path ? (state.payProofs?.[photo.path] ?? null) : null)
+    },
+    async fileBytes(path) {
+      // A payment screenshot by its path, or a receipt (stored as the expense's data URL) by its path or URL.
+      const url = state.payProofs?.[path] ?? (path.startsWith('data:') ? path : undefined)
+      if (!url) return null
+      try {
+        return new Uint8Array(await (await fetch(url)).arrayBuffer())
+      } catch {
+        return null
+      }
     },
     async deleteSettlement(groupId, id) {
       if (inTrash(groupId, 'Deleting payment')) return

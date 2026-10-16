@@ -94,6 +94,22 @@ jobs:
         if: inputs.what == 'all' || inputs.what == 'rules'
         run: npx firebase deploy --only firestore:indexes,firestore:rules,storage --project "$PROJECT" --non-interactive
 
+      - name: Storage CORS (private groups' photos)
+        if: inputs.what == 'all' || inputs.what == 'rules'
+        env:
+          FIREBASE_WEB_CONFIG: ${{ secrets.FIREBASE_WEB_CONFIG }}
+        # A private group's photos are sealed on the phone, so the app downloads their bytes
+        # (getBytes) and opens them itself; a browser may only do that with the bucket's CORS set
+        # (storage.cors.json: the app's own origins, GET only). Applied on every deploy so the file
+        # is the truth. Needs the deploy account to manage the bucket (Storage Admin); without it this
+        # warns and private groups' photos don't show until it is set (docs/FIREBASE_SETUP.md §4).
+        run: |
+          bucket=$(printf '%s\n' "$FIREBASE_WEB_CONFIG" | sed -n 's/^VITE_FIREBASE_STORAGE_BUCKET=//p' | tr -d '"\r ')
+          [ -n "$bucket" ] || bucket="$PROJECT.firebasestorage.app"
+          { gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS" --quiet \
+            && gcloud storage buckets update "gs://$bucket" --cors-file=storage.cors.json --project "$PROJECT"; } \
+            || echo "::warning::Couldn't set CORS on gs://$bucket. Give the deploy account Storage Admin, or run: gcloud storage buckets update gs://$bucket --cors-file=storage.cors.json"
+
       - name: Functions
         if: inputs.what == 'all' || inputs.what == 'functions'
         # --force: the source is the list of functions, so one removed from functions/src/index.ts is

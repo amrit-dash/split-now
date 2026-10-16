@@ -143,3 +143,12 @@ export function privateMenuShown(g: { vault?: boolean; type?: string }, isCreato
   if (g.vault) return true
   return flagOn && isCreator && g.type !== 'personal'
 }
+
+/**
+ * The Scan tab, for someone with private groups (docs/VAULT.md): the photo is read on the phone
+ * first, since nobody knows yet which group it's for; the AI reads it only once a group that isn't
+ * private is picked (and only where the AI is on for them).
+ */
+export const scanOnDeviceFirst = (o: { vaultsOn: boolean; hasPrivate: boolean }): boolean => o.vaultsOn && o.hasPrivate
+
+export const aiAfterPick = (o: { readOnDevice: boolean; pickedPrivate: boolean; aiOn: boolean }): boolean => o.readOnDevice && !o.pickedPrivate && o.aiOn

@@ -7,13 +7,22 @@ const dek = btoa(String.fromCharCode(...new Array(32).fill(7)))
 describe('converting a group', () => {
   it('seals a group’s name, emoji and people’s names, never emails, ids or settings', async () => {
     const k = await vaultKey('g', dek)
-    const g = { name: 'Goa', emoji: '🏖️', currency: 'INR', members: { m1: { name: 'Asha', uid: 'u1', email: 'a@x.in', color: '#f00' } } }
+    const g = {
+      name: 'Goa',
+      emoji: '🏖️',
+      currency: 'INR',
+      members: { m1: { name: 'Asha', uid: 'u1', email: 'a@x.in', color: '#f00', photoURL: 'https://lh3.example/a.jpg' } },
+    }
     const p = (await sealDoc(k, 'group', g)) as typeof g
     expect(isToken(p.name)).toBe(true)
     expect(isToken(p.emoji)).toBe(true)
     expect(isToken(p.members.m1.name)).toBe(true)
+    expect(isToken(p.members.m1.photoURL)).toBe(true)
     expect(p.members.m1).toMatchObject({ uid: 'u1', email: 'a@x.in', color: '#f00' })
     expect(p).not.toHaveProperty('currency')
+    // an entry with no photo gets no photo field at all (Firestore refuses undefined)
+    const noPhoto = (await sealDoc(k, 'group', { name: 'Goa', members: { m2: { name: 'Dev' } } })) as { members: { m2: Record<string, unknown> } }
+    expect(Object.keys(noPhoto.members.m2)).toEqual(['name'])
     // sealed twice is the same: a second pass changes nothing
     expect(await sealDoc(k, 'group', { ...g, ...p })).toBeNull()
   })

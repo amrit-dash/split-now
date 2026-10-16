@@ -70,6 +70,10 @@ describe('private groups', () => {
     // one's own name in the group, sealed: up to 200 in a private group, 100 elsewhere
     await assertSucceeds(updateDoc(doc(db('bob'), 'groups/g1'), { 'members.bob.name': token(200), memberOpId: 'bob', updatedAt: 4 }))
     await assertFails(updateDoc(doc(db('bob'), 'groups/g2'), { 'members.bob.name': token(150), memberOpId: 'bob', updatedAt: 4 }))
+    // and one's photo link, sealed: a token only in a private group, an https link anywhere
+    await assertSucceeds(updateDoc(doc(db('bob'), 'groups/g1'), { 'members.bob.photoURL': token(300), memberOpId: 'bob', updatedAt: 5 }))
+    await assertFails(updateDoc(doc(db('bob'), 'groups/g2'), { 'members.bob.photoURL': token(300), memberOpId: 'bob', updatedAt: 5 }))
+    await assertSucceeds(updateDoc(doc(db('bob'), 'groups/g2'), { 'members.bob.photoURL': 'https://lh3.example/b.jpg', memberOpId: 'bob', updatedAt: 5 }))
   })
   it('its sealed key is out of reach, even for its members', async () => {
     await assertFails(getDoc(doc(db('alice'), 'vaultKeys/g1')))

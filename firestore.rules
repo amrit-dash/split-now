@@ -559,7 +559,9 @@ service cloud.firestore {
           && m.diff(before.members[op]).affectedKeys().hasOnly(['name', 'photoURL'])
           && m.name is string && m.name.size() > 0 && m.name.size() <= (after.get('vault', false) == true ? 200 : 100)
           && (!('photoURL' in m)
-            || (m.photoURL is string && m.photoURL.size() <= 2048 && m.photoURL.matches('https://.+')));
+            || (m.photoURL is string && m.photoURL.size() <= 2048
+              // a private group's photo link is a token (docs/VAULT.md)
+              && (m.photoURL.matches('https://.+') || (after.get('vault', false) == true && m.photoURL.matches('v1:[A-Za-z0-9_-]+')))));
       }
 
       allow get: if isMember();

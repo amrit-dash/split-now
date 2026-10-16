@@ -73,6 +73,43 @@ export async function sealText(k: VaultKey, plain: string): Promise<string> {
   return PREFIX + b64url(out)
 }
 
+// ---- files ------------------------------------------------------------------------------
+
+/** The first bytes of a sealed file: "SNV1". A receipt or screenshot without them is a plain image. */
+const FILE_MAGIC = new Uint8Array([0x53, 0x4e, 0x56, 0x31])
+const fileAad = (groupId: string) => te.encode(`${groupId}:file`)
+
+/**
+ * A private group's photo (a receipt, a payment screenshot), sealed: FILE_MAGIC ‖ a random IV ‖
+ * AES-256-GCM, the group's id bound in. Random, unlike text tokens: the same photo twice needn't
+ * look alike, and nothing caches a file by its bytes.
+ */
+export async function sealBytes(k: VaultKey, plain: Uint8Array): Promise<Uint8Array> {
+  const iv = crypto.getRandomValues(new Uint8Array(12))
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: fileAad(k.groupId) }, k.enc, plain as Bytes))
+  const out = new Uint8Array(FILE_MAGIC.length + iv.length + ct.length)
+  out.set(FILE_MAGIC)
+  out.set(iv, FILE_MAGIC.length)
+  out.set(ct, FILE_MAGIC.length + iv.length)
+  return out
+}
+
+/** Whether a file's bytes are a sealed one. */
+export const isSealedFile = (b: Uint8Array): boolean => b.length > 32 && FILE_MAGIC.every((m, i) => b[i] === m)
+
+/** A sealed file's bytes opened; a plain file as it is; null when it doesn't open with this key. */
+export async function openBytes(k: VaultKey, b: Uint8Array): Promise<Uint8Array | null> {
+  if (!isSealedFile(b)) return b
+  try {
+    const iv = b.slice(FILE_MAGIC.length, FILE_MAGIC.length + 12)
+    return new Uint8Array(
+      await crypto.subtle.decrypt({ name: 'AES-GCM', iv, additionalData: fileAad(k.groupId) }, k.enc, b.slice(FILE_MAGIC.length + 12) as Bytes),
+    )
+  } catch {
+    return null
+  }
+}
+
 /** The text of one token; null when it isn't one or doesn't open with this key. */
 export async function openToken(k: VaultKey, token: string): Promise<string | null> {
   if (!isToken(token)) return null

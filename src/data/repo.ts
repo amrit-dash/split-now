@@ -110,6 +110,9 @@ export type NewGroup = Omit<Group, 'id' | 'createdAt' | 'updatedAt' | 'inviteCod
 
 export type { VaultRequest }
 
+/** A photo's last step before upload: a private group's sealed with its key (shared/vault-crypto.ts sealBytes). */
+export type SealFile = (downscaled: Blob) => Promise<Blob>
+
 /** Scalar group fields any member may edit. Membership has its own methods. */
 // `archived` / `archivedBy` are personal and change only through setArchived; deletedAt /
 // deletedBy only through deleteGroup / restoreGroup.
@@ -336,9 +339,10 @@ export interface Repo {
   approveExpense(group: Group, expense: Expense): Promise<void>
   /**
    * Downscales and uploads a receipt in the background, then patches the expense's
-   * receiptUrl/receiptPath. Returns false (and does nothing) when offline.
+   * receiptUrl/receiptPath. Returns false (and does nothing) when offline. `seal` runs on the
+   * downscaled image before it leaves the phone (a private group's: src/data/vault-repo.ts).
    */
-  attachReceipt(groupId: string, expenseId: string, file: Blob): boolean
+  attachReceipt(groupId: string, expenseId: string, file: Blob, opts?: { seal?: SealFile }): boolean
   /** @deprecated blocks on the network; prefer attachReceipt after saving. */
   uploadReceipt(groupId: string, file: Blob): Promise<string>
 
@@ -350,7 +354,18 @@ export interface Repo {
    * settleproofs/{groupId}/{id}.jpg where the server's AI check reads it: that waits for the
    * network and throws offline. Without it, fire-and-forget like every other write.
    */
-  saveSettlement(s: Settlement, opts?: { proof?: Blob }): Promise<void>
+  saveSettlement(s: Settlement, opts?: { proof?: Blob; seal?: SealFile }): Promise<void>
+  /**
+   * A stored photo's bytes (a receipt, a payment screenshot), for a private group's, which the
+   * phone opens itself (Storage getBytes, which needs the bucket's CORS: docs/VAULT.md). Null when
+   * it's gone or can't be read.
+   */
+  fileBytes(path: string): Promise<Uint8Array | null>
+  /**
+   * What an <img> shows for a stored photo: its URL; for a private group's, the photo opened on
+   * the phone (a blob: URL; null while the group is locked or the photo can't be opened).
+   */
+  photoUrl(groupId: string, photo: { path?: string; url?: string }): Promise<string | null>
   /** The payee confirms a payment that needs their OK (clearing a flag): it counts from now. */
   confirmPayment(groupId: string, id: string): Promise<void>
   /** The payee says a payment hasn't arrived: it stops counting until they confirm it. */

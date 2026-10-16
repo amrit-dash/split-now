@@ -85,12 +85,19 @@ and tells everyone in it. Turning it off opens every token (openDoc), marks it p
 more, deletes its key and names the invite again. Only text changes, so no update trigger fires
 (they react to money, approvals and deletes). Demo mode does the same over its own copy.
 
-Not in private groups (yet): receipt photos and payment screenshots are not uploaded (Scan reads the
-bill on the phone and the photo stays there); the AI doesn't read their bills or chat (Scan in Add
-expense uses the phone's own reader, chat suggestions use the built-in rules only); merchant memory
-doesn't learn from them. Encrypted photos need a CORS setting on the Storage bucket so the app can
-download and decrypt them; that's the next step. The Scan tab (outside a group) still reads with the
-AI before a group is picked, so scan from Add expense inside a private group instead.
+Photos: receipts and payment screenshots are sealed on the phone after downscaling
+(`shared/vault-crypto.ts` sealBytes: "SNV1", a random IV, AES-256-GCM with the group bound in)
+and stored as usual; the app downloads the bytes and opens them itself (`repo.photoUrl`, blob URLs
+forgotten when the group locks), which needs the bucket's CORS (`storage.cors.json`, applied by the
+deploy; docs/FIREBASE_SETUP.md). People's photo links in the group are tokens like their names. The
+server's AI check never reads a private group's screenshot; the payee checks it. A Pay me link's
+screenshot (from a payer with no account) can't be sealed and stays as it is.
+
+Not in private groups: the AI doesn't read their bills or chat (Scan in Add expense uses the phone's
+own reader, chat suggestions use the built-in rules only); merchant memory doesn't learn from them.
+The Scan tab, for someone with private groups, reads on the phone first (nobody knows yet which
+group the bill is for) and lets the AI read it only once a group that isn't private is picked;
+locked private groups aren't offered there.
 
 ## How it works
 
@@ -137,4 +144,4 @@ one once every private group has been opened.
 ## Later
 
 Wrapping the same data key for each member's device (passkey PRF) so the server can't open it on
-its own, without re-encrypting anything; encrypted photos.
+its own, without re-encrypting anything.
