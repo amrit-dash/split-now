@@ -28,6 +28,8 @@
     "../shared/trips.ts",
     "../shared/balances-core.ts",
     "../shared/received.ts",
+    "../shared/vault-crypto.ts",
+    "../shared/vault-convert.ts",
     "../shared/members.ts",
     "../shared/paylinks.ts",
     "../shared/archive.ts",

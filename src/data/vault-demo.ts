@@ -50,7 +50,16 @@ function refuse(message: string, details?: object): never {
 /**
  * `privateGroups` lists the live private groups the demo person is in (the "every group" unlock).
  */
-export function demoVault(store: Pick<Storage, 'getItem' | 'setItem'> | undefined, now = () => Date.now(), privateGroups: () => string[] = () => []) {
+/**
+ * `convert` turns a group's documents private (`on`) or back, as the callable does on the server
+ * (shared/vault-convert.ts over the demo's own state; localRepo supplies it).
+ */
+export function demoVault(
+  store: Pick<Storage, 'getItem' | 'setItem'> | undefined,
+  now = () => Date.now(),
+  privateGroups: () => string[] = () => [],
+  convert: (groupId: string, on: boolean, dek: string) => Promise<void> = async () => {},
+) {
   const read = (): DemoState => {
     try {
       const raw = store?.getItem(KEY)
@@ -134,7 +143,24 @@ export function demoVault(store: Pick<Storage, 'getItem' | 'setItem'> | undefine
         if (s.groups[req.groupId]) refuse('This group already has its key. Unlock it with your pattern.')
         const dek = keyOf(s, req.groupId)
         write(s)
+        // its own name, emoji and people, sealed with the new key
+        await convert(req.groupId, true, dek)
         return { dek } as T
+      }
+      case 'convert': {
+        if (req.on) {
+          if (!person) refuse('Set up encrypted groups first: Settings → Encrypted groups.')
+          const dek = keyOf(s, req.groupId)
+          write(s)
+          await convert(req.groupId, true, dek)
+          return { dek } as T
+        }
+        const g = s.groups[req.groupId]
+        if (!g) return { ok: true } as T
+        await convert(req.groupId, false, g.dek)
+        delete s.groups[req.groupId]
+        write(s)
+        return { ok: true } as T
       }
     }
   }

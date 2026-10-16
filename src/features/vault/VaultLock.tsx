@@ -4,7 +4,7 @@ import { useMe } from '@/hooks/auth'
 import { useExpenses } from '@/hooks/data'
 import { useFlag } from '@/hooks/useAppConfig'
 import { activeMembers } from '@/lib/members'
-import { currencySymbol, gibberish, isSealed, scrambledAmount } from '@/lib/vault-scramble'
+import { currencySymbol, gibberish, isSealed, lockedText, scrambledAmount } from '@/lib/vault-scramble'
 import { usePageTitle } from '@/lib/brand'
 import { ChequeIcon } from '@/components/ChequeIcon'
 import { PageHeader, Segmented } from '@/components/Misc'
@@ -43,7 +43,7 @@ export function VaultLock({ group, back = '/groups' }: { group: Group; back?: st
     <div data-testid="vault-lock">
       <PageHeader
         back={back}
-        title={gibberish(id, 14)}
+        title={lockedText(group.name, id)}
         right={
           <div className="flex items-center">
             <PatternLock groupId={id} label="Private group" className={`${iconButton} hover:bg-slate-200/60 dark:hover:bg-ink-800`} testId="vault-unlock-open">

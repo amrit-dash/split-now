@@ -60,6 +60,17 @@ describe('private groups', () => {
     await assertFails(updateDoc(doc(db('alice'), 'groups/g2'), { vault: true, updatedAt: 2 }))
     await assertSucceeds(updateDoc(doc(db('alice'), 'groups/g1'), { name: 'Secret trip', updatedAt: 2 }))
   })
+  it('a private group’s sealed name, emoji and people fit; a plain group keeps the short caps', async () => {
+    const token = (n: number) => `v1:${'A'.repeat(n - 3)}`
+    await assertSucceeds(updateDoc(doc(db('alice'), 'groups/g1'), { name: token(200), emoji: token(80), updatedAt: 2 }))
+    await assertFails(updateDoc(doc(db('alice'), 'groups/g1'), { name: token(201), updatedAt: 3 }))
+    await assertFails(updateDoc(doc(db('alice'), 'groups/g1'), { emoji: token(81), updatedAt: 3 }))
+    await assertFails(updateDoc(doc(db('alice'), 'groups/g2'), { name: token(81), updatedAt: 3 }))
+    await assertFails(updateDoc(doc(db('alice'), 'groups/g2'), { emoji: token(17), updatedAt: 3 }))
+    // one's own name in the group, sealed: up to 200 in a private group, 100 elsewhere
+    await assertSucceeds(updateDoc(doc(db('bob'), 'groups/g1'), { 'members.bob.name': token(200), memberOpId: 'bob', updatedAt: 4 }))
+    await assertFails(updateDoc(doc(db('bob'), 'groups/g2'), { 'members.bob.name': token(150), memberOpId: 'bob', updatedAt: 4 }))
+  })
   it('its sealed key is out of reach, even for its members', async () => {
     await assertFails(getDoc(doc(db('alice'), 'vaultKeys/g1')))
     await assertFails(setDoc(doc(db('alice'), 'vaultKeys/g1'), { pattern: { salt: 'a', hash: 'b' } }))

@@ -133,5 +133,27 @@ describe('vault callable (emulator)', () => {
     expect(first.result?.dek).toMatch(/^[A-Za-z0-9+/]{43}=$/)
     expect((await call({ op: 'create', groupId: 'vg' }, 'bob')).error?.status).toBe('ALREADY_EXISTS')
     expect((await call({ op: 'create', groupId: 'plain' }, 'alice')).error?.status).toBe('FAILED_PRECONDITION')
+    // the new group's own words are sealed with its key; its ids and emails are not
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const g = (await getDoc(doc(ctx.firestore(), 'groups/vg'))).data() as { name: string; members: Record<string, { name: string; uid: string }> }
+      expect(g.name).toMatch(/^v1:/)
+      expect(g.members.m_a.name).toMatch(/^v1:/)
+      expect(g.members.m_a.uid).toBe('alice')
+    })
+  })
+  it('convert: the creator alone, never a wallet, never without a passkey', async () => {
+    expect((await call({ op: 'convert', groupId: 'plain', on: true }, 'bob')).error?.message).toMatch(/Only the person who made the group/)
+    expect((await call({ op: 'convert', groupId: 'plain', on: true }, 'mallory')).error?.status).toBe('PERMISSION_DENIED')
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'groups/wallet'), group({ type: 'personal', memberUids: ['alice'] }))
+    })
+    expect((await call({ op: 'convert', groupId: 'wallet', on: true }, 'alice')).error?.status).toBe('FAILED_PRECONDITION')
+    // already as asked: nothing to do
+    expect((await call({ op: 'convert', groupId: 'vg', on: true }, 'alice')).result).toEqual({ ok: true })
+    expect(['UNAUTHENTICATED', 'DEADLINE_EXCEEDED']).toContain((await call({ op: 'convert', groupId: 'plain', on: true }, 'alice')).error?.status)
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      expect((await getDoc(doc(ctx.firestore(), 'groups/plain'))).get('vault')).toBeUndefined()
+      expect((await getDoc(doc(ctx.firestore(), 'groups/plain'))).get('name')).toBe('Secret trip')
+    })
   })
 })

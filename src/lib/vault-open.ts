@@ -78,3 +78,37 @@ export function openedWatch<T, M>(groupId: string, watch: Watch<T, M>): Watch<T,
     }
   }
 }
+
+/**
+ * A live list of groups with each private group's own words opened with its own key (its name,
+ * emoji and people's names, once it is converted), or shown locked; read again whenever any
+ * group opens or locks.
+ */
+export function openedGroupsWatch<T extends { id: string }, M>(watch: Watch<T[], M>): Watch<T[], M> {
+  return (cb) => {
+    let last: { v: T[]; m?: M } | null = null
+    let seq = 0
+    const emit = () => {
+      if (!last) return
+      const { v, m } = last
+      const mine = ++seq
+      if (!v.some(mayHaveTokens)) {
+        cb(v, m)
+        return
+      }
+      void Promise.all(v.map((g) => (mayHaveTokens(g) ? openOnce(g.id, g) : g))).then((o) => {
+        if (mine === seq) cb(o, m)
+      })
+    }
+    const unsub = watch((v, m) => {
+      last = { v, m }
+      emit()
+    })
+    const off = onVaultChange(() => emit())
+    return () => {
+      seq++
+      unsub()
+      off()
+    }
+  }
+}

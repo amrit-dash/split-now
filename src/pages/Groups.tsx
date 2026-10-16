@@ -8,7 +8,7 @@ import { lockButton } from '@/lib/vault-api'
 import { isUnlocked, lockVault } from '@/lib/vault-keys'
 import { PatternLock } from '@/features/vault/PatternLock'
 import { LockedTile } from '@/features/vault/Scrambled'
-import { gibberish } from '@/lib/vault-scramble'
+import { lockedText } from '@/lib/vault-scramble'
 import { GroupRow } from '@/components/GroupRow'
 import { PageHeader } from '@/components/Misc'
 import { Collapsible } from '@/components/Collapsible'
@@ -209,7 +209,7 @@ function RecentlyDeletedGroups({ groups }: { groups: Group[] }) {
                   </span>
                 )}
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-semibold">{hide(g) ? gibberish(g.id, 14) : g.name}</span>
+                  <span className="block truncate font-semibold">{hide(g) ? lockedText(g.name, g.id) : g.name}</span>
                   <span className="text-muted block truncate text-xs">
                     Deleted by {by} · {left <= 1 ? 'last day to restore' : `${left} days left to restore`}
                   </span>

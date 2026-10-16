@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { sealText, vaultKey } from './vault-crypto'
 import { lockVault, setVaultKey } from './vault-keys'
-import { mayHaveTokens, openedWatch, openOnce } from './vault-open'
+import { mayHaveTokens, openedGroupsWatch, openedWatch, openOnce } from './vault-open'
 import { isSealed, sealedLook } from './vault-scramble'
 
 const dek = btoa(String.fromCharCode(...new Array(32).fill(3)))
@@ -44,6 +44,25 @@ describe('opening a private group', () => {
     await tick()
     expect(seen).toHaveLength(count) // unsubscribed: no more snapshots
     expect(await openOnce('g1', { text: docs[0].description })).toEqual({ text: 'Hotel' })
+    lockVault()
+  })
+  it('opens each private group in a list with its own key', async () => {
+    lockVault()
+    const k = await vaultKey('g2', dek)
+    const groups = [
+      { id: 'g1', name: 'Plain' },
+      { id: 'g2', name: await sealText(k, 'Secret trip') },
+    ]
+    const seen: string[][] = []
+    const off = openedGroupsWatch<(typeof groups)[number], undefined>((cb) => {
+      cb(groups)
+      return () => {}
+    })((v) => seen.push(v.map((g) => g.name)))
+    await vi.waitFor(() => expect(seen.at(-1)?.[1] && isSealed(seen.at(-1)?.[1] ?? '')).toBe(true))
+    expect(seen.at(-1)?.[0]).toBe('Plain')
+    setVaultKey(k)
+    await vi.waitFor(() => expect(seen.at(-1)).toEqual(['Plain', 'Secret trip']))
+    off()
     lockVault()
   })
 })

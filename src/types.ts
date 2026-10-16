@@ -125,7 +125,7 @@ export interface Group {
   mergeNeedsOk?: boolean
   /**
    * A private group (docs/VAULT.md): its words and photos are encrypted on the phone, and it opens
-   * with the group's pattern and a passkey. Chosen when the group is made; never changes.
+   * with a pattern and a passkey. Chosen when the group is made, or later by its creator (the vault callable's `convert`).
    */
   vault?: true
   memberUids: string[]

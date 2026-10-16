@@ -12,7 +12,7 @@ import { mergeFeeds } from '@/lib/activity'
 import { canPurge, countedSettlements, expiredTrash, isDisputed, isPending, liveItems, trashedItems, waitingSettlements } from '@/lib/trust'
 import { markCreated, rewatchWhileFresh, watchGroupSettled } from '@/lib/fresh'
 import { isRemoved, orderMembers } from '@/lib/members'
-import { openedWatch } from '@/lib/vault-open'
+import { openedGroupsWatch, openedWatch } from '@/lib/vault-open'
 import { isUnlocked, onVaultChange, vaultVersion } from '@/lib/vault-keys'
 import { useMe } from './auth'
 
@@ -95,10 +95,11 @@ const keys = {
   claimedPayLinks: (uid: string) => `claimedPayLinks/${uid}`,
 }
 
-const startGroups = (uid: string) => (cb: (g: Group[], m?: SnapMeta) => void) => repo.watchGroups(uid, cb)
+// A converted private group's name, emoji and people's names are tokens too (vault-open.ts).
+const startGroups = (uid: string) => openedGroupsWatch<Group, SnapMeta>((cb) => repo.watchGroups(uid, cb))
 const startCaptures = (uid: string) => (cb: (c: Capture[], m?: SnapMeta) => void) => repo.watchCaptures(uid, cb)
 // A group created a moment ago may not be on the server yet: wait for it rather than say "not found" (lib/fresh).
-const startGroup = (id: string) => (cb: (g: Group | null, m?: SnapMeta) => void) => watchGroupSettled(repo.watchGroup, id, cb)
+const startGroup = (id: string) => openedWatch<Group | null, SnapMeta>(id, (cb) => watchGroupSettled(repo.watchGroup, id, cb))
 /** The group's expenses; the one place recurring catch-up runs (once per snapshot, whoever is watching). */
 // A private group's words arrive as tokens: openedWatch (lib/vault-open.ts) opens them with the
 // group's key, or shows them locked, for every query of that group below. Recurring catch-up
@@ -121,7 +122,12 @@ const startActivity = (id: string, max: number) =>
 /** The user's groups in Recently deleted (newest deletion first); null while loading. */
 export function useDeletedGroups(): Group[] | null {
   const { user } = useMe()
-  return useShared(keys.deletedGroups(user.uid), (cb: (g: Group[], m?: SnapMeta) => void) => repo.watchDeletedGroups(user.uid, cb)) ?? null
+  return (
+    useShared(
+      keys.deletedGroups(user.uid),
+      openedGroupsWatch<Group, SnapMeta>((cb) => repo.watchDeletedGroups(user.uid, cb)),
+    ) ?? null
+  )
 }
 
 export function useGroups(): Group[] | null {

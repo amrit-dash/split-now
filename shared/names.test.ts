@@ -99,6 +99,9 @@ describe('1:1 invites and notifications', () => {
   it('the invite names the person who is already in it, not the friend it is for', () => {
     expect(inviteNameFor({ type: 'direct', name: 'Meera', createdBy: 'u1', members })).toBe('Amrit Dash')
     expect(inviteNameFor({ type: 'trip', name: 'Goa', members })).toBe('Goa')
+    // a private group is never named outside it (docs/VAULT.md)
+    expect(inviteNameFor({ type: 'trip', name: 'Goa', vault: true, members })).toBe('A private group')
+    expect(groupNameForRecipient({ type: 'trip', name: 'Goa', vault: true, members }, 'u1')).toBe('a private group')
     expect(inviteNameFor({ type: 'direct', name: 'Meera', members: { p: { name: 'Meera' } } })).toBe('Meera')
   })
   it('a 1:1 notification is titled with the other person, for each of them', () => {

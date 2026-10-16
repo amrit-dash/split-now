@@ -1,7 +1,10 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { openedGroupsWatch } from '@/lib/vault-open'
+import { withoutLocked } from '@/lib/vault-api'
+import { isUnlocked } from '@/lib/vault-keys'
 import { repo } from '@/data'
 import { clearSharedStore, groupsKey, subscribeShared } from '@/data/store'
-import type { AuthUser } from '@/data/repo'
+import type { AuthUser, SnapMeta } from '@/data/repo'
 import type { Group, UserProfile } from '@/types'
 import { defaultCurrency } from '@/lib/locale'
 import { ownMemberSyncs } from '@/lib/memberSync'
@@ -22,12 +25,15 @@ function useOwnMemberSync(user: AuthUser | null, profile: UserProfile | null) {
   const ready = !!profile && profile.uid === uid
   useEffect(() => {
     if (!uid || !ready) return
-    // The same shared group-list listener the screens read (src/data/store.ts), not a second one.
+    // The same shared group-list listener the screens read (src/data/store.ts), not a second one,
+    // started the same way (private groups' names opened, hooks/data.ts startGroups), whichever
+    // subscribes first.
     return subscribeShared<Group[]>(
       groupsKey(uid),
-      (cb) => repo.watchGroups(uid, cb),
+      openedGroupsWatch<Group, SnapMeta>((cb) => repo.watchGroups(uid, cb)),
       (groups) => {
-        for (const s of ownMemberSyncs(groups, uid, { displayName: name ?? '', photoURL: photo }, repo.mode === 'demo')) {
+        // A private group locked on this phone shows its names scrambled and takes no writes: it syncs once opened.
+        for (const s of ownMemberSyncs(withoutLocked(groups, isUnlocked), uid, { displayName: name ?? '', photoURL: photo }, repo.mode === 'demo')) {
           const key = `${s.group.id}/${s.memberId}`
           const value = `${s.patch.name}|${s.patch.photoURL ?? ''}`
           if (synced.get(key) === value) continue

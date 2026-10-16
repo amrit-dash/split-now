@@ -13,6 +13,8 @@ export interface SettleRow {
   key: string
   groupId: string
   groupName: string
+  /** a private group: named "A private group" in anything that leaves the app (a Pay me link, a Remind) */
+  vault?: true
   /** the row is a 1:1 (its group name is the other person) */
   direct?: boolean
   groupEmoji: string
@@ -57,7 +59,7 @@ export interface PersonBalance {
   parts: SettleRow[]
 }
 
-type GroupLike = { group: Pick<Group, 'id' | 'name' | 'emoji' | 'type' | 'currency' | 'members' | 'archived'>; me?: MemberId; debts: Debt[] }
+type GroupLike = { group: Pick<Group, 'id' | 'name' | 'emoji' | 'type' | 'currency' | 'members' | 'archived' | 'vault'>; me?: MemberId; debts: Debt[] }
 
 export const settleHref = (groupId: string, from: MemberId, to: MemberId, amount: Cents) =>
   `/groups/${encodeURIComponent(groupId)}/settle?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&amount=${amount}`
@@ -81,6 +83,7 @@ export function pendingSettlements(data: GroupLike[], first?: string): SettleRow
         key: `${d.group.id}|${x.from}|${x.to}`,
         groupId: d.group.id,
         groupName: d.group.name,
+        ...(d.group.vault ? { vault: true as const } : {}),
         ...(d.group.type === 'direct' ? { direct: true } : {}),
         groupEmoji: d.group.emoji,
         currency: d.group.currency,

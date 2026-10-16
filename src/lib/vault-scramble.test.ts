@@ -25,6 +25,13 @@ describe('vault scramble', () => {
       expect(body).toMatch(/[^0-9]/)
     }
   })
+  it('a locked name is its ciphertext when sealed, else made up', async () => {
+    const { lockedText } = await import('./vault-scramble')
+    const look = sealedLook(`v1:${'Q'.repeat(60)}`)
+    expect(lockedText(look, 'g1')).toBe(look)
+    expect(lockedText('Goa trip', 'g1')).toBe(gibberish('g1', 14))
+    expect(lockedText(undefined, 'g1')).toBe(gibberish('g1', 14))
+  })
   it('a token shows as its own ciphertext, about as long as its text, marked as sealed', () => {
     // a token for a 6-byte text: 28 bytes of overhead, base64url
     const token = `v1:${'Q2lwaGVydGV4dGJ5dGVzMTIzNDU2Nzg5MGFiY2RlZmdoaQ'.slice(0, 46)}`

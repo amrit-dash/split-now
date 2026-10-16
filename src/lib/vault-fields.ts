@@ -1,15 +1,17 @@
 import type { ChatMessage, Expense, ExpenseComment, OpenItem, Settlement } from '@/types'
 import { fitForToken, isToken, sealText, type VaultKey } from './vault-crypto'
+import { CAPS } from '../../shared/vault-convert'
+
+export { CAPS }
 
 /*
  * Which words of a private group are stored as tokens (docs/VAULT.md), and the field caps the
- * rules keep (a token must fit them, so the text is cut to fit first: plainBytesFor). Names of
- * people and of the group stay readable, so a locked group still shows who's in it. Amounts stay
- * readable to the server (reminders, budgets and the rules' checks need them); the app hides
- * them while a group is locked.
+ * rules keep (shared/vault-convert.ts CAPS; a token must fit them, so the text is cut to fit first:
+ * plainBytesFor). People's names are sealed too where a document copies them (a comment's or a
+ * message's author); the group's own name and people are sealed in the group document (vault-repo).
+ * Amounts stay readable to the server (reminders, budgets and the rules' checks need them); the
+ * app hides them while a group is locked.
  */
-
-export const CAPS = { description: 200, notes: 2000, note: 500, reason: 500, comment: 2000, chat: 1000, title: 120, itemNotes: 500 } as const
 
 /** One text sealed: empty stays empty, and a token (copied from a stored document) is kept as it is. */
 async function seal(k: VaultKey, s: string | undefined, cap: number): Promise<string | undefined> {
@@ -42,12 +44,24 @@ export async function sealSettlement<S extends Partial<Pick<Settlement, 'note' |
 
 export const sealReason = (k: VaultKey, r: string | undefined) => seal(k, r, CAPS.reason)
 
-export async function sealComment<C extends Pick<ExpenseComment, 'text'>>(k: VaultKey, c: C): Promise<C> {
-  return { ...c, text: (await seal(k, c.text, CAPS.comment)) as string }
+export async function sealComment<C extends Pick<ExpenseComment, 'text'> & Partial<Pick<ExpenseComment, 'authorName'>>>(k: VaultKey, c: C): Promise<C> {
+  const out: C = { ...c, text: (await seal(k, c.text, CAPS.comment)) as string }
+  if (c.authorName !== undefined) out.authorName = (await seal(k, c.authorName, CAPS.authorName)) as string
+  return out
 }
 
-export async function sealChat<M extends Partial<Pick<ChatMessage, 'text'>>>(k: VaultKey, m: M): Promise<M> {
-  return m.text ? { ...m, text: await seal(k, m.text, CAPS.chat) } : m
+export async function sealChat<M extends Partial<Pick<ChatMessage, 'text' | 'authorName' | 'replyTo'>>>(k: VaultKey, m: M): Promise<M> {
+  const out: M = { ...m }
+  if (m.text) out.text = await seal(k, m.text, CAPS.chat)
+  if (m.authorName) out.authorName = await seal(k, m.authorName, CAPS.authorName)
+  // A reply quotes the message it answers: its snippet and author are words of the group too.
+  if (m.replyTo)
+    out.replyTo = {
+      ...m.replyTo,
+      text: (await seal(k, m.replyTo.text, CAPS.replyText)) as string,
+      authorName: (await seal(k, m.replyTo.authorName, CAPS.authorName)) as string,
+    }
+  return out
 }
 
 export async function sealOpenItem<O extends Partial<Pick<OpenItem, 'title' | 'notes'>>>(k: VaultKey, o: O): Promise<O> {

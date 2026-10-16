@@ -60,6 +60,8 @@ import {
   mergeSettlement,
 } from '../../shared/merge-members'
 import { demoVault } from './vault-demo'
+import { vaultKey } from '@/lib/vault-crypto'
+import { openDoc, sealDoc, type ConvertKind } from '../../shared/vault-convert'
 
 /**
  * Demo-mode repository. Everything lives in this browser's localStorage, so the app
@@ -292,6 +294,33 @@ export function createLocalRepo(): Repo {
       for (const l of listeners) l()
     })
   }
+  /** Demo stand-in for the vault callable's `convert`: every document of a group sealed (or opened) in place. */
+  const convertGroup = async (groupId: string, on: boolean, dek: string) => {
+    const k = await vaultKey(groupId, dek)
+    const apply = async <T extends object>(kind: ConvertKind, doc: T): Promise<T> => {
+      const p = on ? await sealDoc(k, kind, doc as Record<string, unknown>) : await openDoc(k, doc as Record<string, unknown>)
+      return p ? ({ ...doc, ...p } as T) : doc
+    }
+    const g = state.groups[groupId]
+    if (!g) return
+    const next = await apply('group', g)
+    if (on) state.groups[groupId] = { ...next, vault: true }
+    else {
+      const { vault: _v, ...plain } = next
+      state.groups[groupId] = plain
+    }
+    const each = async <T extends { groupId: string }>(rows: Record<string, T>, kind: ConvertKind) => {
+      for (const [id, row] of Object.entries(rows)) if (row.groupId === groupId) rows[id] = await apply(kind, row)
+    }
+    await each(state.expenses, 'expense')
+    await each(state.settlements, 'settlement')
+    await each(comments(), 'comment')
+    await each(openItems(), 'openItem')
+    await each(chat(), 'chat')
+    await each(activity(), 'activity')
+    touch(groupId)
+    commit()
+  }
   const tables = () => (state.tables ??= {})
   /** Demo stand-in for the security rules: guests can only write to open, unexpired tables. */
   const openTable = (code: string) => {
@@ -417,10 +446,14 @@ export function createLocalRepo(): Repo {
   const repo: Repo = {
     mode: 'demo',
     onError: errors.on,
-    vault: demoVault(typeof localStorage === 'undefined' ? undefined : localStorage, undefined, () =>
-      Object.entries(state.groups)
-        .filter(([, g]) => g.vault && g.deletedAt === undefined && g.memberUids.includes(me().uid))
-        .map(([id]) => id),
+    vault: demoVault(
+      typeof localStorage === 'undefined' ? undefined : localStorage,
+      undefined,
+      () =>
+        Object.entries(state.groups)
+          .filter(([, g]) => g.vault && g.deletedAt === undefined && g.memberUids.includes(me().uid))
+          .map(([id]) => id),
+      convertGroup,
     ),
     // The demo has no admin console to read reports in.
     reportError: () => {},
@@ -621,7 +654,10 @@ export function createLocalRepo(): Repo {
     async getInvite(code) {
       // Personal groups have no invite (Firebase never writes one for them).
       const g = Object.values(state.groups).find((x) => x.inviteCode === code.toUpperCase() && x.type !== 'personal')
-      return g ? { groupId: g.id, groupName: inviteNameFor(g), emoji: g.emoji, placeholders: placeholdersOf(g) } : null
+      if (!g) return null
+      return g.vault
+        ? { groupId: g.id, groupName: inviteNameFor(g), emoji: '🔒', placeholders: {} }
+        : { groupId: g.id, groupName: inviteNameFor(g), emoji: g.emoji, placeholders: placeholdersOf(g) }
     },
     async joinGroup(code, memberId, member) {
       const g = Object.values(state.groups).find((x) => x.inviteCode === code.toUpperCase())

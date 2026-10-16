@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { PRIVATE_GROUP_NAME } from '../../shared/names'
 import { useNavigate } from 'react-router-dom'
 import { BellRing, Loader2, Share2 } from 'lucide-react'
 import { repo } from '@/data'
@@ -77,7 +78,7 @@ export function RemindActions({
               {
                 groupId: group.id,
                 groupName: shownName,
-                emoji: group.emoji,
+                emoji: group.vault ? undefined : group.emoji,
                 from: { id: debtor, name },
                 to: { id: me, name: payeeName },
                 amount: inHome ?? amount,
@@ -94,7 +95,7 @@ export function RemindActions({
         origin: location.origin,
         groupId: group.id,
         groupName: shownName,
-        emoji: group.emoji,
+        emoji: group.vault ? undefined : group.emoji,
         debtor: { id: debtor, name },
         payee: { id: me, name: payeeName },
         amount: inHome ?? amount,
@@ -150,7 +151,8 @@ export function PersonRemindActions({ p, feed, className = '' }: { p: PersonBala
   const remind = () =>
     chase.share(async () => {
       // Named as the payer sees them: a 1:1 is you to them.
-      const forPayer = (r: { groupName: string; direct?: boolean }) => (r.direct ? profile.displayName : r.groupName)
+      const forPayer = (r: { groupName: string; direct?: boolean; vault?: true }) =>
+        r.vault ? PRIVATE_GROUP_NAME : r.direct ? profile.displayName : r.groupName
       const names = [...new Set(p.parts.map(forPayer))]
       const lead = owedParts[0] ?? p.parts[0]
       const code = bundle && hb ? newPayLinkCode() : undefined

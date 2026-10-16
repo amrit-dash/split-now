@@ -14,7 +14,12 @@
  *                                                       (universal pattern on the Groups screen), or one group
  *  - groupPattern   { groupId, pattern, ordered, auth } → set, change or (pattern null) remove a group's own pattern
  *  - create         { groupId }                      → a new private group's first data key, for its member
- *                                                       on the phone that made it (only while it has none)
+ *                                                       on the phone that made it (only while it has none);
+ *                                                       its name, emoji and people's names are sealed with it
+ *  - convert        { groupId, on, auth }            → its creator turns an existing group private, or back:
+ *                                                       every document's words sealed (or opened) here, with
+ *                                                       the Admin SDK, since the rules let no one rewrite
+ *                                                       other people's comments, chat or the activity log
  *
  * The data key is sealed with the VAULT_KEK secret in vaultKeys/{groupId}, which no client can
  * read; patterns are stored only as peppered scrypt hashes (lib/vault-core.ts): a person's universal
@@ -36,6 +41,10 @@ import {
   type RegistrationResponseJSON,
 } from '@simplewebauthn/server'
 import { db } from './admin'
+import { sendToUser } from './push'
+import { vaultKey, type VaultKey } from '../../shared/vault-crypto'
+import { openDoc, sealDoc, type ConvertKind } from '../../shared/vault-convert'
+import { inviteNameFor } from '../../shared/names'
 import { APP_ORIGINS, ENFORCE_APP_CHECK, REGION } from './config'
 import { flagOn } from './lib/limits'
 import { parseKekList, type Sealed } from './lib/seal'
@@ -348,99 +357,224 @@ async function keysFor(uid: string, scope: string, list: Buffer[]): Promise<Reco
   return Object.fromEntries(keys)
 }
 
-const ordered = (v: unknown): boolean => v !== false
+/** The collections of a group whose documents hold words, and what each holds (shared/vault-convert.ts). */
+const COLLECTIONS: [string, ConvertKind][] = [
+  ['expenses', 'expense'],
+  ['settlements', 'settlement'],
+  ['chat', 'chat'],
+  ['openItems', 'openItem'],
+  ['activity', 'activity'],
+]
 
-export const vault = onCall({ region: REGION, secrets: [VAULT_KEK], enforceAppCheck: ENFORCE_APP_CHECK, timeoutSeconds: 30, maxInstances: 10 }, async (req) => {
-  const uid = caller(req)
-  if (!(await flagOn('vaults'))) throw new HttpsError('failed-precondition', 'Private groups are switched off right now.')
-  const data = (req.data ?? {}) as Record<string, unknown>
-  switch (data.op) {
-    case 'passkeyOptions': {
-      const { options, hasPasskey } = await newChallenge(uid, req, data.purpose === 'register' ? 'register' : 'auth')
-      return { options, hasPasskey }
+/**
+ * One pass over a group: every document's words sealed (`seal`) or opened, the comments under each
+ * expense and the group document itself included. Only what changes is written (a patch per
+ * document), so a second pass, which catches a write that landed during the first, is cheap.
+ * Answers how many documents changed.
+ */
+async function convertPass(gid: string, k: VaultKey, seal: boolean, opts: { groupOnly?: boolean } = {}): Promise<number> {
+  const writer = db().bulkWriter()
+  let changed = 0
+  const one = async (ref: FirebaseFirestore.DocumentReference, kind: ConvertKind, doc: FirebaseFirestore.DocumentData) => {
+    const patch = seal ? await sealDoc(k, kind, doc) : await openDoc(k, doc)
+    if (!patch) return
+    changed++
+    void writer.update(ref, patch)
+  }
+  const groupRef = db().doc(`groups/${gid}`)
+  const g = await groupRef.get()
+  if (g.exists) await one(groupRef, 'group', g.data() as FirebaseFirestore.DocumentData)
+  if (!opts.groupOnly)
+    for (const [col, kind] of COLLECTIONS) {
+      const snap = await groupRef.collection(col).get()
+      for (const d of snap.docs) {
+        await one(d.ref, kind, d.data())
+        if (col === 'expenses') for (const c of (await d.ref.collection('comments').get()).docs) await one(c.ref, 'comment', c.data())
+      }
     }
-    case 'passkeyRegister':
-      await registerPasskey(uid, req, data.response as RegistrationResponseJSON, 'register')
-      return { ok: true as const }
-    case 'status': {
-      const gid = data.groupId === undefined ? undefined : groupId(data.groupId)
-      if (gid) await privateGroup(gid, uid)
-      const { rpID } = rp(req)
-      const [person, passkeys, key] = await Promise.all([personRef(uid).get(), passkeysRef(uid).get(), gid ? keyRef(gid).get() : undefined])
-      const p = (person.data() ?? {}) as PersonDoc
-      const k = key?.data() as VaultKeyDoc | undefined
-      const locked = lockedOut(p.tries, Date.now())
-      return {
-        serverReady: kekList().length > 0,
-        hasPasskey: mineHere((passkeys.data() ?? {}) as PasskeyDoc, rpID).length > 0,
-        universal: !!p.pattern,
-        ...(p.pattern ? { ordered: p.pattern.ordered !== false } : {}),
-        triesLeft: locked ? 0 : triesLeft(p.tries),
-        ...(locked ? { lockedUntil: p.tries?.lockedUntil } : {}),
-        ...(gid ? { group: { keyReady: !!k, hasPattern: !!k?.pattern, ...(k?.pattern ? { ordered: k.pattern.ordered !== false } : {}) } } : {}),
-      } satisfies VaultStatus
-    }
-    case 'setUniversal': {
-      const problem = typeof data.pattern === 'string' ? patternProblem(data.pattern) : patternProblem('')
-      if (problem) throw new HttpsError('invalid-argument', problem)
-      const list = keks()
-      await checkPasskey(uid, req, data.auth as AuthenticationResponseJSON)
-      await personRef(uid).set(
-        { pattern: hashPattern(data.pattern as string, pepperOf(list[0]), undefined, ordered(data.ordered)), setAt: Date.now(), tries: FieldValue.delete() },
+  await writer.close()
+  return changed
+}
+
+/** Everyone else in the group hears that it changed: the creator made it private, or plain again. */
+async function tellMembers(gid: string, uid: string, g: FirebaseFirestore.DocumentData, on: boolean) {
+  const others = ((g.memberUids as string[] | undefined) ?? []).filter((u) => u !== uid)
+  const name = inviteNameFor({ type: g.type, name: String(g.name ?? 'A group'), createdBy: g.createdBy, members: g.members })
+  await Promise.all(
+    others.map((u) =>
+      sendToUser(u, ['expenses'], {
+        title: on ? 'Split Now' : name,
+        body: on ? 'A group you’re in is now private. Open it with your pattern.' : `${name} isn’t private any more.`,
+        url: `/groups/${gid}`,
+        tag: `group-${on ? 'private' : 'plain'}-${gid}`,
+      }),
+    ),
+  )
+}
+
+/**
+ * Turning a group private: marked private first (from then on no phone without its key can write
+ * to it), then its key, then every document sealed, twice over (the second pass catches what was
+ * written while the first ran), and its invite renamed. Answers the key, so the creator's phone
+ * opens it at once.
+ */
+async function makePrivate(gid: string, uid: string, g: FirebaseFirestore.DocumentData, list: Buffer[]) {
+  const ref = db().doc(`groups/${gid}`)
+  await ref.update({ vault: true, updatedAt: Date.now() })
+  const dek = await keyOf(gid, uid, list)
+  const k = await vaultKey(gid, dek)
+  const first = await convertPass(gid, k, true)
+  const second = await convertPass(gid, k, true)
+  if (typeof g.inviteCode === 'string')
+    await db().doc(`invites/${g.inviteCode}`).set({ groupId: gid, groupName: 'A private group', emoji: '🔒', placeholders: {} })
+  logger.info('vault group made private', { groupId: gid, uid, docs: first, again: second })
+  await tellMembers(gid, uid, g, true).catch((e) => logger.warn('vault convert push', { groupId: gid, error: (e as Error).message }))
+  return { dek }
+}
+
+/**
+ * Turning private off: every document opened while the group is still private (phones with the
+ * key may still write tokens, which a later pass opens), then marked plain, opened once more, its
+ * key deleted and its invite named again.
+ */
+async function makePlain(gid: string, uid: string, g: FirebaseFirestore.DocumentData, list: Buffer[]) {
+  const ref = db().doc(`groups/${gid}`)
+  const dek = await keyOf(gid, uid, list)
+  const k = await vaultKey(gid, dek)
+  const first = await convertPass(gid, k, false)
+  await ref.update({ vault: FieldValue.delete(), updatedAt: Date.now() })
+  const second = await convertPass(gid, k, false)
+  await keyRef(gid).delete()
+  const opened = (await ref.get()).data() ?? g
+  if (typeof g.inviteCode === 'string')
+    await db()
+      .doc(`invites/${g.inviteCode}`)
+      .set(
+        {
+          groupId: gid,
+          groupName: inviteNameFor({ type: opened.type, name: String(opened.name ?? 'Group'), createdBy: opened.createdBy, members: opened.members }),
+          emoji: String(opened.emoji ?? ''),
+        },
         { merge: true },
       )
-      logger.info('vault universal pattern set', { uid })
-      return { ok: true as const }
-    }
-    case 'unlockStart': {
-      const gid = data.groupId === undefined ? undefined : groupId(data.groupId)
-      if (gid) await privateGroup(gid, uid)
-      const scope = await checkPattern(uid, gid, data.pattern, keks())
-      const { options, register } = await newChallenge(uid, req, 'unlock', scope)
-      return { options, register }
-    }
-    case 'unlockFinish': {
-      const list = keks()
-      const scope = data.register
-        ? await registerPasskey(uid, req, data.register as RegistrationResponseJSON, 'unlock')
-        : await checkPasskey(uid, req, data.auth as AuthenticationResponseJSON, 'unlock')
-      if (!scope) throw new HttpsError('deadline-exceeded', 'That took too long. Try again.')
-      return { keys: await keysFor(uid, scope, list) }
-    }
-    case 'groupPattern': {
-      const gid = groupId(data.groupId)
-      await privateGroup(gid, uid)
-      const remove = data.pattern === null
-      if (!remove) {
-        const problem = typeof data.pattern === 'string' ? groupPatternProblem(data.pattern) : groupPatternProblem('')
-        if (problem) throw new HttpsError('invalid-argument', problem)
+  logger.info('vault group made plain', { groupId: gid, uid, docs: first, again: second })
+  await tellMembers(gid, uid, opened, false).catch((e) => logger.warn('vault convert push', { groupId: gid, error: (e as Error).message }))
+  return { ok: true as const }
+}
+
+const ordered = (v: unknown): boolean => v !== false
+
+// 300 s: `convert` rewrites every document of a group; every other step answers in a second or two.
+export const vault = onCall(
+  { region: REGION, secrets: [VAULT_KEK], enforceAppCheck: ENFORCE_APP_CHECK, timeoutSeconds: 300, memory: '512MiB', maxInstances: 10 },
+  async (req) => {
+    const uid = caller(req)
+    if (!(await flagOn('vaults'))) throw new HttpsError('failed-precondition', 'Private groups are switched off right now.')
+    const data = (req.data ?? {}) as Record<string, unknown>
+    switch (data.op) {
+      case 'passkeyOptions': {
+        const { options, hasPasskey } = await newChallenge(uid, req, data.purpose === 'register' ? 'register' : 'auth')
+        return { options, hasPasskey }
       }
-      const list = keks()
-      await checkPasskey(uid, req, data.auth as AuthenticationResponseJSON)
-      const dek = await keyOf(gid, uid, list)
-      await keyRef(gid).update({
-        pattern: remove ? FieldValue.delete() : hashPattern(data.pattern as string, pepperOf(list[0]), undefined, ordered(data.ordered)),
-        patternChangedAt: Date.now(),
-        patternChangedBy: uid,
-      })
-      logger.info(remove ? 'vault group pattern removed' : 'vault group pattern set', { groupId: gid, uid })
-      return { dek }
-    }
-    case 'create': {
-      const gid = groupId(data.groupId)
-      await privateGroup(gid, uid)
-      const list = keks()
-      const dek = newDataKey()
-      // create(), not keyOf(): a key that already exists is never handed out without a pattern and a passkey.
-      await keyRef(gid)
-        .create({ wrapped: wrapKey(dek, list[0]), createdBy: uid, createdAt: Date.now() } satisfies VaultKeyDoc)
-        .catch(() => {
-          throw new HttpsError('already-exists', 'This group already has its key. Unlock it with your pattern.')
+      case 'passkeyRegister':
+        await registerPasskey(uid, req, data.response as RegistrationResponseJSON, 'register')
+        return { ok: true as const }
+      case 'status': {
+        const gid = data.groupId === undefined ? undefined : groupId(data.groupId)
+        if (gid) await privateGroup(gid, uid)
+        const { rpID } = rp(req)
+        const [person, passkeys, key] = await Promise.all([personRef(uid).get(), passkeysRef(uid).get(), gid ? keyRef(gid).get() : undefined])
+        const p = (person.data() ?? {}) as PersonDoc
+        const k = key?.data() as VaultKeyDoc | undefined
+        const locked = lockedOut(p.tries, Date.now())
+        return {
+          serverReady: kekList().length > 0,
+          hasPasskey: mineHere((passkeys.data() ?? {}) as PasskeyDoc, rpID).length > 0,
+          universal: !!p.pattern,
+          ...(p.pattern ? { ordered: p.pattern.ordered !== false } : {}),
+          triesLeft: locked ? 0 : triesLeft(p.tries),
+          ...(locked ? { lockedUntil: p.tries?.lockedUntil } : {}),
+          ...(gid ? { group: { keyReady: !!k, hasPattern: !!k?.pattern, ...(k?.pattern ? { ordered: k.pattern.ordered !== false } : {}) } } : {}),
+        } satisfies VaultStatus
+      }
+      case 'setUniversal': {
+        const problem = typeof data.pattern === 'string' ? patternProblem(data.pattern) : patternProblem('')
+        if (problem) throw new HttpsError('invalid-argument', problem)
+        const list = keks()
+        await checkPasskey(uid, req, data.auth as AuthenticationResponseJSON)
+        await personRef(uid).set(
+          { pattern: hashPattern(data.pattern as string, pepperOf(list[0]), undefined, ordered(data.ordered)), setAt: Date.now(), tries: FieldValue.delete() },
+          { merge: true },
+        )
+        logger.info('vault universal pattern set', { uid })
+        return { ok: true as const }
+      }
+      case 'unlockStart': {
+        const gid = data.groupId === undefined ? undefined : groupId(data.groupId)
+        if (gid) await privateGroup(gid, uid)
+        const scope = await checkPattern(uid, gid, data.pattern, keks())
+        const { options, register } = await newChallenge(uid, req, 'unlock', scope)
+        return { options, register }
+      }
+      case 'unlockFinish': {
+        const list = keks()
+        const scope = data.register
+          ? await registerPasskey(uid, req, data.register as RegistrationResponseJSON, 'unlock')
+          : await checkPasskey(uid, req, data.auth as AuthenticationResponseJSON, 'unlock')
+        if (!scope) throw new HttpsError('deadline-exceeded', 'That took too long. Try again.')
+        return { keys: await keysFor(uid, scope, list) }
+      }
+      case 'groupPattern': {
+        const gid = groupId(data.groupId)
+        await privateGroup(gid, uid)
+        const remove = data.pattern === null
+        if (!remove) {
+          const problem = typeof data.pattern === 'string' ? groupPatternProblem(data.pattern) : groupPatternProblem('')
+          if (problem) throw new HttpsError('invalid-argument', problem)
+        }
+        const list = keks()
+        await checkPasskey(uid, req, data.auth as AuthenticationResponseJSON)
+        const dek = await keyOf(gid, uid, list)
+        await keyRef(gid).update({
+          pattern: remove ? FieldValue.delete() : hashPattern(data.pattern as string, pepperOf(list[0]), undefined, ordered(data.ordered)),
+          patternChangedAt: Date.now(),
+          patternChangedBy: uid,
         })
-      logger.info('vault key made', { groupId: gid, uid })
-      return { dek }
+        logger.info(remove ? 'vault group pattern removed' : 'vault group pattern set', { groupId: gid, uid })
+        return { dek }
+      }
+      case 'create': {
+        const gid = groupId(data.groupId)
+        await privateGroup(gid, uid)
+        const list = keks()
+        const dek = newDataKey()
+        // create(), not keyOf(): a key that already exists is never handed out without a pattern and a passkey.
+        await keyRef(gid)
+          .create({ wrapped: wrapKey(dek, list[0]), createdBy: uid, createdAt: Date.now() } satisfies VaultKeyDoc)
+          .catch(() => {
+            throw new HttpsError('already-exists', 'This group already has its key. Unlock it with your pattern.')
+          })
+        logger.info('vault key made', { groupId: gid, uid })
+        // Its own document's words, sealed with the new key (made before the key existed, so in the clear).
+        await convertPass(gid, await vaultKey(gid, dek), true, { groupOnly: true })
+        return { dek }
+      }
+      case 'convert': {
+        const gid = groupId(data.groupId)
+        const on = data.on === true
+        const g = (await db().doc(`groups/${gid}`).get()).data()
+        if (!g || !Array.isArray(g.memberUids) || !g.memberUids.includes(uid)) throw new HttpsError('permission-denied', 'You’re not in this group.')
+        if (g.createdBy !== uid) throw new HttpsError('permission-denied', 'Only the person who made the group can change this.')
+        if (typeof g.deletedAt === 'number') throw new HttpsError('failed-precondition', 'This group is in Recently deleted.')
+        if (g.type === 'personal') throw new HttpsError('failed-precondition', 'A personal wallet can’t be private.')
+        // Already as asked: nothing to do (a second tap, or another phone did it first).
+        if ((g.vault === true) === on) return { ok: true as const }
+        const list = keks()
+        await checkPasskey(uid, req, data.auth as AuthenticationResponseJSON)
+        return on ? makePrivate(gid, uid, g, list) : makePlain(gid, uid, g, list)
+      }
+      default:
+        throw new HttpsError('invalid-argument', 'Unknown step.')
     }
-    default:
-      throw new HttpsError('invalid-argument', 'Unknown step.')
-  }
-})
+  },
+)

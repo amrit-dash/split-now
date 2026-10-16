@@ -82,6 +82,9 @@ export function sealedLook(token: string): string {
 /** Whether text came from sealedLook (encrypted, shown locked). */
 export const isSealed = (s: string): boolean => s.startsWith(SEALED_MARK)
 
+/** A locked group's name as shown: its own ciphertext once it is sealed (a converted group), else made up from `seed`. */
+export const lockedText = (shown: string | undefined, seed: string, len = 14): string => (shown && isSealed(shown) ? shown : gibberish(seed, len))
+
 export const ANIMALS = ['🦊', '🐼', '🐨', '🦉', '🐢', '🦔', '🐙', '🦦', '🐧', '🦁', '🐯', '🐸', '🐰', '🦒', '🐳', '🦜'] as const
 
 /** An animal for each of `count` people, in a group's own order: the same animals every time, no two alike while there are enough. */

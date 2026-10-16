@@ -121,7 +121,10 @@ describe('activity log', () => {
   })
   it('entries are validated', async () => {
     await assertFails(setDoc(doc(db('bob'), 'groups/g1/activity/a4'), entry('bob', { extra: 1 })))
-    await assertFails(setDoc(doc(db('bob'), 'groups/g1/activity/a5'), entry('bob', { summary: 'x'.repeat(501) })))
+    // up to 1000 (a private group's lines quote tokens), never more
+    await assertSucceeds(setDoc(doc(db('bob'), 'groups/g1/activity/a5ok'), entry('bob', { summary: 'x'.repeat(1000), actorName: 'v1:'.padEnd(200, 'a') })))
+    await assertFails(setDoc(doc(db('bob'), 'groups/g1/activity/a5'), entry('bob', { summary: 'x'.repeat(1001) })))
+    await assertFails(setDoc(doc(db('bob'), 'groups/g1/activity/a5b'), entry('bob', { actorName: 'x'.repeat(201) })))
     await assertFails(setDoc(doc(db('bob'), 'groups/g1/activity/a6'), entry('bob', { createdAt: 'now' })))
     const { summary: _s, ...noSummary } = entry('bob')
     await assertFails(setDoc(doc(db('bob'), 'groups/g1/activity/a7'), noSummary))
