@@ -35,6 +35,7 @@ import { GroupDataProvider } from './hooks/groupData'
 import { primeAiStatus, useAiStatus } from './hooks/useAiStatus'
 import { useAppConfig, useBlocked } from './hooks/useAppConfig'
 import { lockVault, startAutoLock } from './lib/vault-keys'
+import { lockMinutesFor, lockMs, lockOnLeave, readLockPrefs } from './lib/vault-lock-prefs'
 import { appErrorReport, reportGate, type AppErrorKind } from './lib/app-errors'
 import { ErrorBoundary } from './components/ErrorBoundary'
 
@@ -138,9 +139,17 @@ export default function App() {
       }),
     [toast, report],
   )
-  // Private groups lock when the app goes to the background and after the admin's idle time (lib/vault-keys.ts).
+  // Private groups lock when the app goes to the background and after their idle time (lib/vault-keys.ts):
+  // this device's choices (Settings → Encrypted groups, a group's own), else the admin's default. Read on
+  // each check, so a change in Settings applies at once.
   const vaultIdle = cfg.tuning.vaultLockMinutes
-  useEffect(() => startAutoLock(document, vaultIdle * 60_000), [vaultIdle])
+  useEffect(() => {
+    const prefs = () => readLockPrefs(typeof localStorage === 'undefined' ? undefined : localStorage)
+    return startAutoLock(document, {
+      idleMs: (id) => lockMs(lockMinutesFor(prefs(), id, vaultIdle)),
+      onLeave: () => lockOnLeave(prefs()),
+    })
+  }, [vaultIdle])
   // Signing out locks every private group.
   useEffect(() => {
     if (!signedIn) lockVault()

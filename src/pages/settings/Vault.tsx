@@ -10,6 +10,8 @@ import { useConfirm } from '@/components/ConfirmSheet'
 import { useToast } from '@/components/Toast'
 import { passkeyCancelled, passkeyProof, registerPasskey } from '@/features/vault/passkey'
 import { SetPatternSheet } from '@/features/vault/SetPatternSheet'
+import { AllGroupsLockTime } from '@/features/vault/LockTime'
+import { Detail } from '@/components/Hint'
 import { SettingsPage } from './common'
 
 function Line({ ok, icon, text, testId }: { ok: boolean; icon: React.ReactNode; text: string; testId: string }) {
@@ -119,6 +121,7 @@ export default function Vault() {
             <p>You’ve stopped using private groups, so the app doesn’t offer to make one.</p>
             <p>A private group someone else made still opens with its own pattern, on its lock button, if it has one.</p>
           </div>
+          <AllGroupsLockTime />
           <button
             type="button"
             className="btn-primary w-full"
@@ -155,14 +158,17 @@ export default function Vault() {
           >
             <KeyRound size={18} aria-hidden /> {status.universal ? 'Change universal pattern' : 'Set universal pattern'}
           </button>
-          <div className="card text-muted space-y-2 p-4 text-sm">
-            <p>
-              To open your private groups, tap and long-press your universal pattern on the lock button on the Groups screen, then pause. Face ID or your
-              passkey comes up when it’s right. On a private group’s own lock it opens only that group.
-            </p>
-            <p>Nothing on screen shows the pattern going in, or that it was wrong.</p>
-            <p>Private groups lock again when you leave the app or after a few minutes without a tap.</p>
-          </div>
+          {/* How the lock button works: background, so the Minimal look leaves it out. */}
+          <Detail min={2}>
+            <div className="card text-muted space-y-2 p-4 text-sm">
+              <p>
+                To open your private groups, tap and long-press your universal pattern on the lock button on the Groups screen, then pause. Face ID or your
+                passkey comes up when it’s right. On a private group’s own lock it opens only that group.
+              </p>
+              <p>Nothing on screen shows the pattern going in, or that it was wrong.</p>
+            </div>
+          </Detail>
+          <AllGroupsLockTime />
           <button type="button" className="btn w-full text-rose-700 dark:text-rose-300" disabled={busy} onClick={() => void askStop()} data-testid="vault-stop">
             Stop using private groups
           </button>

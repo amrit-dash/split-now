@@ -20,7 +20,7 @@ export const TUNING_META: Record<TuningName, { label: string; hint: string; min:
   trashDays: { label: 'Recently deleted keeps items for (days)', hint: 'Groups, expenses and payments, before they go for good', min: 7, max: 90, default: 30 },
   vaultLockMinutes: {
     label: 'Private groups lock after (minutes idle)',
-    hint: 'They also lock whenever the app goes to the background',
+    hint: 'The default: each person can choose their own, and one per group, in Settings → Encrypted groups',
     min: 1,
     max: 60,
     default: 5,
