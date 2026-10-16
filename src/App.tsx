@@ -47,6 +47,7 @@ import Groups from './pages/Groups'
 const GroupForm = lazy(load.GroupForm)
 const GroupDetail = lazy(load.GroupDetail)
 const GroupMembers = lazy(load.GroupMembers)
+const GroupMoney = lazy(load.GroupMoney)
 const GroupChat = lazy(load.GroupChat)
 const ExpenseForm = lazy(load.ExpenseForm)
 const SplitBill = lazy(load.SplitBill)
@@ -292,6 +293,14 @@ function AppRoutes({ cfg, admin }: { cfg: AppConfig; admin: boolean }) {
               element={
                 <LiveGroupOnly>
                   <SettleUp />
+                </LiveGroupOnly>
+              }
+            />
+            <Route
+              path="groups/:groupId/money"
+              element={
+                <LiveGroupOnly>
+                  <GroupMoney />
                 </LiveGroupOnly>
               }
             />
