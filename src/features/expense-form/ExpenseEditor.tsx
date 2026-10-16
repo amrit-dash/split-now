@@ -329,7 +329,8 @@ export function ExpenseEditor({
       const { expense: e, remember } = toExpense(draft, { ...ctx, existing, userUid: user.uid, now: Date.now() })
       await repo.saveExpense(e, { isNew: !existing, ...(openItem && !existing ? { claim: openItem.id } : {}) })
       // A category chosen by hand that differs from what would have been suggested teaches the merchant memory.
-      if (memory && draft.catTouched) {
+      // Never for a private group: the memory is stored as plain text.
+      if (memory && draft.catTouched && !group.vault) {
         const learned = learnFromSave(memory, e.description, e.category, suggestCategory(e.description, { memory, history }))
         if (learned) repo.saveMerchants(user.uid, learned).catch((err) => console.warn('Merchant memory not saved', err))
       }

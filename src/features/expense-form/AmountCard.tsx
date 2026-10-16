@@ -85,6 +85,8 @@ export function AmountCard({
             aria-describedby={errors.description ? 'expense-description-error' : undefined}
             autoComplete="off"
             enterKeyHint="next"
+            // A private group stores it encrypted, which takes more room (lib/vault-crypto.ts plainBytesFor).
+            maxLength={group.vault ? 100 : undefined}
             value={draft.description}
             onChange={(e) => dispatch({ type: 'description', value: e.target.value, history })}
             onKeyDown={(e) => {

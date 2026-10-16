@@ -10,6 +10,7 @@ import {
   Download,
   Flag,
   HandCoins,
+  Lock,
   Link2,
   LogOut,
   MessageSquareText,
@@ -104,6 +105,10 @@ import { hasUnread, READ_EVENT, readAtOf } from '@/lib/chat'
 import { OpenItemsTab } from '@/features/open-items/OpenItemsTab'
 import { deltaWords, handledVerb, handlersOf, isReceived, spending } from '../../shared/received'
 import { labelOf } from '@/lib/shortNames'
+import { useVaultOpen } from '@/hooks/useVault'
+import { VaultLock } from '@/features/vault/VaultLock'
+import { ChangePattern } from '@/features/vault/ChangePattern'
+import { lockVault } from '@/lib/vault-keys'
 
 type Tab = 'expenses' | 'open' | 'balances' | 'activity'
 
@@ -131,6 +136,7 @@ export default function GroupDetail() {
   }, [wantsOpen, params])
   const [invite, setInvite] = useState(false)
   const [menu, setMenu] = useState(false)
+  const [patternOpen, setPatternOpen] = useState(false)
   /** the Expenses list's sort and filter sheet */
   const [listSheet, setListSheet] = useState(false)
   const toast = useToast()
@@ -145,6 +151,7 @@ export default function GroupDetail() {
   const readAt = useChatReadAt(groupId)
   // Minimal look: the Whose-turn chip is optional, the group's facts (dates, Archived) stay.
   const showTurn = useShows(2)
+  const vaultOpen = useVaultOpen(groupId)
   usePageTitle(liveGroup ? liveGroup.name : liveGroup === null ? 'Group not found' : undefined)
 
   const d = useMemo(
@@ -169,6 +176,8 @@ export default function GroupDetail() {
         <DeletedGroupCard group={liveGroup} />
       </>
     )
+  // A private group that is locked here: its pattern and a passkey first (docs/VAULT.md).
+  if (liveGroup?.vault && !vaultOpen) return <VaultLock group={liveGroup} />
   if (!d)
     return (
       <>
@@ -265,6 +274,17 @@ export default function GroupDetail() {
         title={group.name}
         right={
           <div className="flex items-center">
+            {group.vault && (
+              <button
+                type="button"
+                onClick={() => lockVault(group.id)}
+                className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-slate-200/60 dark:hover:bg-ink-800"
+                aria-label="Lock this private group"
+                data-testid="vault-lock-now"
+              >
+                <Lock size={20} aria-hidden />
+              </button>
+            )}
             {showChat && (
               <Link
                 to={`/groups/${group.id}/chat`}
@@ -637,6 +657,7 @@ export default function GroupDetail() {
         </div>
       </Sheet>
 
+      {group.vault && <ChangePattern group={group} open={patternOpen} onClose={() => setPatternOpen(false)} />}
       <Sheet open={menu} onClose={() => setMenu(false)} title={group.name} testId="group-menu-sheet">
         <ul className="-mx-2 divide-y divide-slate-100 dark:divide-white/5">
           <MenuRow
@@ -669,6 +690,18 @@ export default function GroupDetail() {
                 setMenu(false)
                 openInvite()
               }}
+            />
+          )}
+          {group.vault && (
+            <MenuRow
+              icon={<Lock size={20} />}
+              label="Change pattern"
+              hint={MENU_HINTS.pattern}
+              onClick={() => {
+                setMenu(false)
+                setPatternOpen(true)
+              }}
+              testId="vault-change-open"
             />
           )}
           {receivedTotal > 0 && (
@@ -749,6 +782,7 @@ const MENU_HINTS = {
   members: { full: 'Add people, or remove someone who is settled up', short: 'Add or remove people', tier: 'help' },
   invite: { full: 'A link or QR code friends can join with', short: 'Share a join link', tier: 'help' },
   insights: { full: 'Where the group’s money went, in charts', short: 'Spending charts', tier: 'help' },
+  pattern: { full: 'A new pattern of taps and long presses for everyone in the group', short: 'For everyone in the group', tier: 'help' },
   received: { full: 'Refunds and reimbursements, and what they changed for each person', short: 'What came back', tier: 'help' },
   export: { full: 'Every expense and payment as a spreadsheet', short: 'Download a spreadsheet', tier: 'help' },
   leave: { full: 'You leave; what you added stays in the group', short: 'Leave this group', tier: 'help' },

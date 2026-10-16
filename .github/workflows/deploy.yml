@@ -74,6 +74,15 @@ jobs:
           else
             echo "AI_KEY_KEK already exists; left as is"
           fi
+          # VAULT_KEK seals each private group's data key (functions/src/vault.ts). Same: generated here,
+          # once, and never overwritten (a new one would lock every private group for good).
+          if ! npx firebase functions:secrets:get VAULT_KEK --project "$PROJECT" > /dev/null 2>&1; then
+            node -e "process.stdout.write(require('crypto').randomBytes(32).toString('base64'))" \
+              | npx firebase functions:secrets:set VAULT_KEK --data-file - --project "$PROJECT" --non-interactive
+            echo "Created VAULT_KEK"
+          else
+            echo "VAULT_KEK already exists; left as is"
+          fi
           # The functions bind GEMINI_API_KEY, so it must exist to deploy. A placeholder is fine while
           # config/ai.mode is 'off' or an admin has set the in-app project key (Admin → AI), which wins.
           if ! npx firebase functions:secrets:get GEMINI_API_KEY --project "$PROJECT" > /dev/null 2>&1; then

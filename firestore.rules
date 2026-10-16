@@ -272,10 +272,11 @@ service cloud.firestore {
       // Numbers the app needs that an admin can tune; ranges mirror shared/app-tuning.ts.
       function validTuning(t) {
         return t is map
-          && t.keys().hasOnly(['inboxPageSize', 'activityWindow', 'trashDays'])
+          && t.keys().hasOnly(['inboxPageSize', 'activityWindow', 'trashDays', 'vaultLockMinutes'])
           && t.get('inboxPageSize', 20) is int && t.get('inboxPageSize', 20) >= 10 && t.get('inboxPageSize', 20) <= 100
           && t.get('activityWindow', 15) is int && t.get('activityWindow', 15) >= 5 && t.get('activityWindow', 15) <= 50
-          && t.get('trashDays', 30) is int && t.get('trashDays', 30) >= 7 && t.get('trashDays', 30) <= 90;
+          && t.get('trashDays', 30) is int && t.get('trashDays', 30) >= 7 && t.get('trashDays', 30) <= 90
+          && t.get('vaultLockMinutes', 5) is int && t.get('vaultLockMinutes', 5) >= 1 && t.get('vaultLockMinutes', 5) <= 60;
       }
       function validAppConfig(d) {
         return d.keys().hasOnly(['maintenance', 'maintenanceMessage', 'minVersion', 'announcement', 'flags', 'signups', 'look', 'tuning', 'updatedAt', 'updatedBy'])

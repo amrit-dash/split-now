@@ -12,6 +12,7 @@ import { mergeFeeds } from '@/lib/activity'
 import { canPurge, countedSettlements, expiredTrash, isDisputed, isPending, liveItems, trashedItems, waitingSettlements } from '@/lib/trust'
 import { markCreated, rewatchWhileFresh, watchGroupSettled } from '@/lib/fresh'
 import { isRemoved, orderMembers } from '@/lib/members'
+import { openedWatch } from '@/lib/vault-open'
 import { useMe } from './auth'
 
 /*
@@ -98,16 +99,21 @@ const startCaptures = (uid: string) => (cb: (c: Capture[], m?: SnapMeta) => void
 // A group created a moment ago may not be on the server yet: wait for it rather than say "not found" (lib/fresh).
 const startGroup = (id: string) => (cb: (g: Group | null, m?: SnapMeta) => void) => watchGroupSettled(repo.watchGroup, id, cb)
 /** The group's expenses; the one place recurring catch-up runs (once per snapshot, whoever is watching). */
-const startExpenses = (id: string) => (cb: (e: Expense[], m?: SnapMeta) => void) =>
-  rewatchWhileFresh(id, () =>
-    repo.watchExpenses(id, (l, m) => {
-      cb(l, m)
-      catchUpRecurring(l)
-    }),
+// A private group's words arrive as tokens: openedWatch (lib/vault-open.ts) opens them with the
+// group's key, or shows them locked, for every query of that group below. Recurring catch-up
+// copies the stored tokens as they are.
+const startExpenses = (id: string) =>
+  openedWatch<Expense[], SnapMeta>(id, (cb) =>
+    rewatchWhileFresh(id, () =>
+      repo.watchExpenses(id, (l, m) => {
+        cb(l, m)
+        catchUpRecurring(l)
+      }),
+    ),
   )
-const startSettlements = (id: string) => (cb: (s: Settlement[], m?: SnapMeta) => void) => rewatchWhileFresh(id, () => repo.watchSettlements(id, cb))
-const startActivity = (id: string, max: number) => (cb: (a: ActivityEntry[], m?: SnapMeta) => void) =>
-  rewatchWhileFresh(id, () => repo.watchActivity(id, cb, max))
+const startSettlements = (id: string) => openedWatch<Settlement[], SnapMeta>(id, (cb) => rewatchWhileFresh(id, () => repo.watchSettlements(id, cb)))
+const startActivity = (id: string, max: number) =>
+  openedWatch<ActivityEntry[], SnapMeta>(id, (cb) => rewatchWhileFresh(id, () => repo.watchActivity(id, cb, max)))
 
 // ---- Hooks ---------------------------------------------------------------------------------
 
@@ -277,7 +283,7 @@ export function useActivity(groupId: string | undefined, max = ACTIVITY_LIMIT): 
 /** Edit history of one expense or settlement, newest first. */
 export function useHistory(groupId: string | undefined, targetId: string | undefined): ActivityEntry[] | null {
   const key = groupId && targetId ? keys.history(groupId, targetId) : null
-  return useShared(key, (cb: (a: ActivityEntry[], m?: SnapMeta) => void) => repo.watchHistory(groupId ?? '', targetId ?? '', cb)) ?? null
+  return useShared(key, openedWatch<ActivityEntry[], SnapMeta>(groupId ?? '', (cb) => repo.watchHistory(groupId ?? '', targetId ?? '', cb))) ?? null
 }
 
 /**
@@ -317,12 +323,12 @@ export function useRecentActivity(groupIds: string[] | null, max = ACTIVITY_LIMI
 
 export function useComments(groupId: string | undefined, expenseId: string | undefined): ExpenseComment[] | null {
   const key = groupId && expenseId ? keys.comments(groupId, expenseId) : null
-  return useShared(key, (cb: (c: ExpenseComment[], m?: SnapMeta) => void) => repo.watchComments(groupId ?? '', expenseId ?? '', cb)) ?? null
+  return useShared(key, openedWatch<ExpenseComment[], SnapMeta>(groupId ?? '', (cb) => repo.watchComments(groupId ?? '', expenseId ?? '', cb))) ?? null
 }
 
 /** The group's open items, claimed and deleted ones included (src/lib/open-items.ts sorts them); null while loading. */
 export function useOpenItems(groupId: string | undefined): OpenItem[] | null {
-  return useShared(groupId ? keys.openItems(groupId) : null, (cb: (o: OpenItem[], m?: SnapMeta) => void) => repo.watchOpenItems(groupId ?? '', cb)) ?? null
+  return useShared(groupId ? keys.openItems(groupId) : null, openedWatch<OpenItem[], SnapMeta>(groupId ?? '', (cb) => repo.watchOpenItems(groupId ?? '', cb))) ?? null
 }
 
 /** Messages kept live in the chat screen; older ones are read on scroll (repo.fetchChatBefore). */
@@ -335,7 +341,7 @@ export const CHAT_WINDOW = 50
  */
 export function useChat(groupId: string | undefined, max = CHAT_WINDOW, enabled = true): ChatMessage[] | null {
   const key = groupId && enabled ? keys.chat(groupId, max) : null
-  return useShared(key, (cb: (m: ChatMessage[], meta?: SnapMeta) => void) => repo.watchChat(groupId ?? '', cb, max)) ?? null
+  return useShared(key, openedWatch<ChatMessage[], SnapMeta>(groupId ?? '', (cb) => repo.watchChat(groupId ?? '', cb, max))) ?? null
 }
 
 export function myMemberId(g: Group, uid: string): MemberId | undefined {

@@ -34,6 +34,7 @@ import { startAppearanceSync } from './lib/appearance-sync'
 import { GroupDataProvider } from './hooks/groupData'
 import { primeAiStatus, useAiStatus } from './hooks/useAiStatus'
 import { useAppConfig, useBlocked } from './hooks/useAppConfig'
+import { lockVault, startAutoLock } from './lib/vault-keys'
 import { useViewportStats } from './hooks/useViewportStats'
 import { IDLE_PREFETCH, load, prefetch, prefetchAfter, routeChunks } from './routes'
 import Login from './pages/Login'
@@ -97,6 +98,13 @@ export default function App() {
 
   // Saves resolve locally (so they work offline); a later server rejection lands here.
   useEffect(() => repo.onError((e) => toast(errText(e), 'err')), [toast])
+  // Private groups lock when the app goes to the background and after the admin's idle time (lib/vault-keys.ts).
+  const vaultIdle = cfg.tuning.vaultLockMinutes
+  useEffect(() => startAutoLock(document, vaultIdle * 60_000), [vaultIdle])
+  // Signing out locks every private group.
+  useEffect(() => {
+    if (!signedIn) lockVault()
+  }, [signedIn])
 
   useEffect(() => {
     if (!user || user.isAnonymous) return

@@ -1,6 +1,7 @@
 import type { Repo } from './repo'
 import { createRepo } from '#repo-impl'
 import { setFxShared } from '@/lib/fx'
+import { withVault } from './vault-repo'
 
 const env = import.meta.env
 
@@ -46,7 +47,8 @@ export let repo: Repo = undefined as unknown as Repo
 
 export function initRepo(): Repo {
   if (!repo) {
-    repo = createRepo(config, env.VITE_USE_EMULATORS === 'true')
+    // Private groups' words are sealed on the way in, whichever repo is underneath (vault-repo.ts).
+    repo = withVault(createRepo(config, env.VITE_USE_EMULATORS === 'true'))
     // Exchange rates: the shared Firestore copy first (demo mode's repo has none, so fx.ts
     // falls back to calling Frankfurter directly).
     if (repo.mode === 'firebase') setFxShared(repo)
