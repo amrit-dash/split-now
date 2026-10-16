@@ -274,7 +274,12 @@ export const vault = onCall({ region: REGION, secrets: [VAULT_KEK], enforceAppCh
       const list = keks()
       await checkPasskey(uid, req, data.auth as AuthenticationResponseJSON)
       const dek = newDataKey()
-      const doc: VaultKeyDoc = { wrapped: wrapKey(dek, list[0]), pattern: hashPattern(data.pattern as string, pepperOf(list[0])), createdBy: uid, createdAt: Date.now() }
+      const doc: VaultKeyDoc = {
+        wrapped: wrapKey(dek, list[0]),
+        pattern: hashPattern(data.pattern as string, pepperOf(list[0])),
+        createdBy: uid,
+        createdAt: Date.now(),
+      }
       // create() fails when it exists: two members setting it up at once get one key, not two.
       await keyRef(gid)
         .create(doc)

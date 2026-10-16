@@ -12,9 +12,15 @@ type Listener = (groupId: string | null) => void
 const keys = new Map<string, VaultKey>()
 const listeners = new Set<Listener>()
 
+let version = 0
+
 function emit(groupId: string | null) {
+  version++
   for (const l of listeners) l(groupId)
 }
+
+/** Changes whenever any group opens or locks (for useSyncExternalStore). */
+export const vaultVersion = (): number => version
 
 export const getVaultKey = (groupId: string): VaultKey | null => keys.get(groupId) ?? null
 export const isUnlocked = (groupId: string): boolean => keys.has(groupId)

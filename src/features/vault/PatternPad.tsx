@@ -49,7 +49,12 @@ export function PatternPad({ steps, onChange, disabled }: { steps: Step[]; onCha
 
   return (
     <div className="flex flex-col items-center">
-      <div className="flex min-h-6 flex-wrap justify-center gap-2" aria-live="polite" aria-label={`${steps.length} ${steps.length === 1 ? 'step' : 'steps'}`} data-testid="pattern-count">
+      <div
+        className="flex min-h-6 flex-wrap justify-center gap-2"
+        aria-live="polite"
+        aria-label={`${steps.length} ${steps.length === 1 ? 'step' : 'steps'}`}
+        data-testid="pattern-count"
+      >
         {steps.length === 0 ? (
           <span className="text-muted text-sm">Tap and long-press below</span>
         ) : (
@@ -65,7 +70,11 @@ export function PatternPad({ steps, onChange, disabled }: { steps: Step[]; onCha
         aria-label="Pattern pad: tap, or press and hold for a long press"
         data-testid="pattern-pad"
         className={`relative mt-6 flex h-48 w-48 touch-none select-none items-center justify-center rounded-full border-4 transition-colors ${
-          holding ? (long ? 'border-brand-600 bg-brand-100 dark:bg-brand-900/50' : 'border-brand-300 bg-brand-50 dark:bg-brand-900/30') : 'border-slate-200 bg-white dark:border-white/10 dark:bg-ink-800'
+          holding
+            ? long
+              ? 'border-brand-600 bg-brand-100 dark:bg-brand-900/50'
+              : 'border-brand-300 bg-brand-50 dark:bg-brand-900/30'
+            : 'border-slate-200 bg-white dark:border-white/10 dark:bg-ink-800'
         } disabled:opacity-50`}
         onPointerDown={(e) => {
           e.currentTarget.setPointerCapture(e.pointerId)

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { sealText, vaultKey } from './vault-crypto'
 import { lockVault, setVaultKey } from './vault-keys'
 import { LOCKED_TEXT, mayHaveTokens, openedWatch, openOnce } from './vault-open'
@@ -28,18 +28,16 @@ describe('opening a private group', () => {
       cb(docs)
       return () => {}
     })((v) => seen.push(v[0].description))
-    await tick()
-    expect(seen).toEqual([LOCKED_TEXT])
+    await vi.waitFor(() => expect(seen).toEqual([LOCKED_TEXT]))
     setVaultKey(k)
-    await tick()
-    expect(seen.at(-1)).toBe('Hotel')
+    await vi.waitFor(() => expect(seen.at(-1)).toBe('Hotel'))
     lockVault('g1')
-    await tick()
-    expect(seen.at(-1)).toBe(LOCKED_TEXT)
+    await vi.waitFor(() => expect(seen.at(-1)).toBe(LOCKED_TEXT))
     off()
+    const count = seen.length
     setVaultKey(k)
     await tick()
-    expect(seen.at(-1)).toBe(LOCKED_TEXT) // unsubscribed: no more snapshots
+    expect(seen).toHaveLength(count) // unsubscribed: no more snapshots
     expect(await openOnce('g1', { text: docs[0].description })).toEqual({ text: 'Hotel' })
     lockVault()
   })

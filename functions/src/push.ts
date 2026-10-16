@@ -1,7 +1,7 @@
 import { logger } from 'firebase-functions/logger'
 import { countStats, db, messaging } from './admin'
 import { pendingApprovers } from '../../shared/balances-core'
-import type { Note } from './lib/notify-text'
+import { groupOfUrl, privateGroupNote, type Note } from './lib/notify-text'
 import { resolvePrefs, type PrefKey } from './lib/prefs'
 
 /** FCM errors that mean the token is dead: delete it. */
@@ -64,8 +64,21 @@ export async function badgeCount(uid: string): Promise<number> {
  * `data.url` on click. The newest 20 registrations are used; ones not seen for 90 days and
  * ones FCM reports dead are deleted. Returns how many devices accepted it. Never throws.
  */
+/** Whether a group is private, remembered for a minute (one push fans out to many people). */
+const vaultSeen = new Map<string, { vault: boolean; at: number }>()
+async function isPrivateGroup(groupId: string): Promise<boolean> {
+  const hit = vaultSeen.get(groupId)
+  if (hit && Date.now() - hit.at < 60_000) return hit.vault
+  const vault = (await db().doc(`groups/${groupId}`).get()).get('vault') === true
+  vaultSeen.set(groupId, { vault, at: Date.now() })
+  return vault
+}
+
 export async function sendToUser(uid: string, prefs: PrefKey[], note: Note, opts?: { skip?: (rawPrefs: unknown) => boolean }): Promise<number> {
   try {
+    // Every push about a private group says only that something happened (docs/VAULT.md).
+    const gid = groupOfUrl(note.url)
+    if (gid && (await isPrivateGroup(gid))) note = privateGroupNote(note)
     const user = db().collection('users').doc(uid)
     const [prefSnap, tokens] = await Promise.all([
       user.collection('settings').doc('notifications').get(),

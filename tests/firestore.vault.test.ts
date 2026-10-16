@@ -47,8 +47,12 @@ const db = (uid: string) => env.authenticatedContext(uid).firestore()
 
 describe('private groups', () => {
   it('a group can be made private when it is created', async () => {
-    await assertSucceeds(setDoc(doc(db('alice'), 'groups/g3'), { ...group, id: 'g3', memberUids: ['alice'], members: { alice: group.members.alice }, vault: true }))
-    await assertFails(setDoc(doc(db('alice'), 'groups/g4'), { ...group, id: 'g4', memberUids: ['alice'], members: { alice: group.members.alice }, vault: 'yes' }))
+    await assertSucceeds(
+      setDoc(doc(db('alice'), 'groups/g3'), { ...group, id: 'g3', memberUids: ['alice'], members: { alice: group.members.alice }, vault: true }),
+    )
+    await assertFails(
+      setDoc(doc(db('alice'), 'groups/g4'), { ...group, id: 'g4', memberUids: ['alice'], members: { alice: group.members.alice }, vault: 'yes' }),
+    )
   })
   it('and never changes after that, either way', async () => {
     await assertFails(updateDoc(doc(db('alice'), 'groups/g1'), { vault: false, updatedAt: 2 }))

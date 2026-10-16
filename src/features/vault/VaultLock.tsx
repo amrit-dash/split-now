@@ -71,7 +71,9 @@ export function VaultLock({ group, back = '/groups' }: { group: Group; back?: st
     setNote(null)
     try {
       const auth = await passkeyProof(repo)
-      const { dek } = await repo.vault<{ dek: string }>(mode === 'setup' ? { op: 'setup', groupId: group.id, pattern, auth } : { op: 'unlock', groupId: group.id, pattern, auth })
+      const { dek } = await repo.vault<{ dek: string }>(
+        mode === 'setup' ? { op: 'setup', groupId: group.id, pattern, auth } : { op: 'unlock', groupId: group.id, pattern, auth },
+      )
       await open(dek)
       if (mode === 'setup') toast('Pattern set. Share it with the group in person.')
     } catch (e) {
@@ -81,7 +83,9 @@ export function VaultLock({ group, back = '/groups' }: { group: Group; back?: st
         const r = vaultRefusal(e)
         if (r.lockedUntil) setStatus((s) => (s ? { ...s, triesLeft: 0, lockedUntil: r.lockedUntil } : s))
         else if (r.triesLeft !== undefined) setStatus((s) => (s ? { ...s, triesLeft: r.triesLeft as number } : s))
-        setNote(r.triesLeft !== undefined && !r.lockedUntil ? `That’s not the pattern. ${r.triesLeft} ${r.triesLeft === 1 ? 'try' : 'tries'} left.` : errText(e))
+        setNote(
+          r.triesLeft !== undefined && !r.lockedUntil ? `That’s not the pattern. ${r.triesLeft} ${r.triesLeft === 1 ? 'try' : 'tries'} left.` : errText(e),
+        )
       }
     } finally {
       setBusy(false)
@@ -99,7 +103,10 @@ export function VaultLock({ group, back = '/groups' }: { group: Group; back?: st
         <h2 className="mt-3 text-lg font-bold">{mode === 'loading' ? 'Private group' : title}</h2>
         {mode === 'setup' && (
           <HintText
-            hint={{ full: 'At least 6 taps and long presses, in an order you’ll remember. Everyone in the group uses the same one, so tell them in person. Anyone can change it later.', tier: 'key' }}
+            hint={{
+              full: 'At least 6 taps and long presses, in an order you’ll remember. Everyone in the group uses the same one, so tell them in person. Anyone can change it later.',
+              tier: 'key',
+            }}
             as="p"
             className="text-muted mt-1 text-sm"
           />
@@ -125,7 +132,13 @@ export function VaultLock({ group, back = '/groups' }: { group: Group; back?: st
                 {note}
               </p>
             )}
-            <button type="button" className="btn-primary mt-5 w-full" disabled={busy || steps.length === 0} onClick={() => void submit()} data-testid="vault-submit">
+            <button
+              type="button"
+              className="btn-primary mt-5 w-full"
+              disabled={busy || steps.length === 0}
+              onClick={() => void submit()}
+              data-testid="vault-submit"
+            >
               <ShieldCheck size={18} aria-hidden />
               {busy ? 'Checking…' : mode === 'setup' ? (first === null ? 'Next' : 'Set pattern') : 'Unlock'}
             </button>

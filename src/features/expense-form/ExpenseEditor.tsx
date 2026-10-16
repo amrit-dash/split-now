@@ -284,7 +284,8 @@ export function ExpenseEditor({
 
   async function onScanFile(file: File) {
     try {
-      const r = await reader.read(file)
+      // A private group's bill is read on the phone only (docs/VAULT.md).
+      const r = await reader.read(file, !!group.vault)
       applyReceipt(r.parsed, file)
       if (r.fellBack) toast('Read on this phone (AI isn’t available right now)')
     } catch (e) {
@@ -347,7 +348,8 @@ export function ExpenseEditor({
           href: `/groups/${group.id}/expenses/${e.id}`,
         }).catch(() => {})
       // Upload after saving so a slow or offline network never blocks the save.
-      if (receipt && !repo.attachReceipt(group.id, e.id, receipt)) toast('Offline, saved without the receipt image')
+      // Private groups keep no photos yet: the scan filled the form, the image stays on the phone.
+      if (receipt && !group.vault && !repo.attachReceipt(group.id, e.id, receipt)) toast('Offline, saved without the receipt image')
       done.current = true
       clearDraft(storeKey)
       forgetReceipt()

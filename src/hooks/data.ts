@@ -13,6 +13,7 @@ import { canPurge, countedSettlements, expiredTrash, isDisputed, isPending, live
 import { markCreated, rewatchWhileFresh, watchGroupSettled } from '@/lib/fresh'
 import { isRemoved, orderMembers } from '@/lib/members'
 import { openedWatch } from '@/lib/vault-open'
+import { isUnlocked, onVaultChange, vaultVersion } from '@/lib/vault-keys'
 import { useMe } from './auth'
 
 /*
@@ -283,7 +284,12 @@ export function useActivity(groupId: string | undefined, max = ACTIVITY_LIMIT): 
 /** Edit history of one expense or settlement, newest first. */
 export function useHistory(groupId: string | undefined, targetId: string | undefined): ActivityEntry[] | null {
   const key = groupId && targetId ? keys.history(groupId, targetId) : null
-  return useShared(key, openedWatch<ActivityEntry[], SnapMeta>(groupId ?? '', (cb) => repo.watchHistory(groupId ?? '', targetId ?? '', cb))) ?? null
+  return (
+    useShared(
+      key,
+      openedWatch<ActivityEntry[], SnapMeta>(groupId ?? '', (cb) => repo.watchHistory(groupId ?? '', targetId ?? '', cb)),
+    ) ?? null
+  )
 }
 
 /**
@@ -323,12 +329,22 @@ export function useRecentActivity(groupIds: string[] | null, max = ACTIVITY_LIMI
 
 export function useComments(groupId: string | undefined, expenseId: string | undefined): ExpenseComment[] | null {
   const key = groupId && expenseId ? keys.comments(groupId, expenseId) : null
-  return useShared(key, openedWatch<ExpenseComment[], SnapMeta>(groupId ?? '', (cb) => repo.watchComments(groupId ?? '', expenseId ?? '', cb))) ?? null
+  return (
+    useShared(
+      key,
+      openedWatch<ExpenseComment[], SnapMeta>(groupId ?? '', (cb) => repo.watchComments(groupId ?? '', expenseId ?? '', cb)),
+    ) ?? null
+  )
 }
 
 /** The group's open items, claimed and deleted ones included (src/lib/open-items.ts sorts them); null while loading. */
 export function useOpenItems(groupId: string | undefined): OpenItem[] | null {
-  return useShared(groupId ? keys.openItems(groupId) : null, openedWatch<OpenItem[], SnapMeta>(groupId ?? '', (cb) => repo.watchOpenItems(groupId ?? '', cb))) ?? null
+  return (
+    useShared(
+      groupId ? keys.openItems(groupId) : null,
+      openedWatch<OpenItem[], SnapMeta>(groupId ?? '', (cb) => repo.watchOpenItems(groupId ?? '', cb)),
+    ) ?? null
+  )
 }
 
 /** Messages kept live in the chat screen; older ones are read on scroll (repo.fetchChatBefore). */
@@ -341,7 +357,12 @@ export const CHAT_WINDOW = 50
  */
 export function useChat(groupId: string | undefined, max = CHAT_WINDOW, enabled = true): ChatMessage[] | null {
   const key = groupId && enabled ? keys.chat(groupId, max) : null
-  return useShared(key, openedWatch<ChatMessage[], SnapMeta>(groupId ?? '', (cb) => repo.watchChat(groupId ?? '', cb, max))) ?? null
+  return (
+    useShared(
+      key,
+      openedWatch<ChatMessage[], SnapMeta>(groupId ?? '', (cb) => repo.watchChat(groupId ?? '', cb, max)),
+    ) ?? null
+  )
 }
 
 export function myMemberId(g: Group, uid: string): MemberId | undefined {
@@ -370,6 +391,11 @@ export interface GroupData {
   pending: Expense[]
   /** flagged by someone: still counted in net/debts */
   disputed: Expense[]
+  /**
+   * A private group that is locked on this device (docs/VAULT.md): shown in lists as locked, with
+   * nothing of its expenses or payments in any total until it's opened.
+   */
+  locked?: boolean
   /** payments waiting for the payee's OK (Payments need the recipient's OK): listed, not in net/debts or `settlements` */
   waiting: Settlement[]
 }
@@ -495,11 +521,16 @@ export function useAllGroupDataImpl(enabled: boolean): GroupData[] | null {
   }, [loaded])
 
   const cache = useRef(new Map<string, { group: Group; exp: Expense[]; set: Settlement[]; uid: string; data: GroupData }>())
+  // Re-read when a private group opens or locks.
+  const vaultV = useSyncExternalStore(onVaultChangeAny, vaultVersion, vaultVersion)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: vaultV stands for the open private groups, read through isUnlocked.
   return useMemo(() => {
     // Until every group has reported once, show a loader rather than a misleading "all settled".
     if (!groups || (!loaded && !initialLoadDone)) return null
     const next = new Map<string, { group: Group; exp: Expense[]; set: Settlement[]; uid: string; data: GroupData }>()
     const out = groups.map((g) => {
+      // A locked private group adds nothing anywhere: no amount of it shows until it's opened.
+      if (g.vault && !isUnlocked(g.id)) return { ...computeGroupData(g, EMPTY, EMPTY, user.uid), locked: true }
       const exp = slots[g.id]?.exp ?? EMPTY
       const set = slots[g.id]?.set ?? EMPTY
       const c = cache.current.get(g.id)
@@ -509,8 +540,10 @@ export function useAllGroupDataImpl(enabled: boolean): GroupData[] | null {
     })
     cache.current = next
     return out
-  }, [groups, slots, user.uid, loaded, initialLoadDone])
+  }, [groups, slots, user.uid, loaded, initialLoadDone, vaultV])
 }
+
+const onVaultChangeAny = (cb: () => void) => onVaultChange(() => cb())
 
 /** Live data for every group the user belongs to (for dashboard / friends / insights). */
 export function useAllGroupData(): GroupData[] | null {

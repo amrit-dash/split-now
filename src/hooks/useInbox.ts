@@ -24,7 +24,8 @@ export function useInbox(data: GroupData[] | null) {
   // Merges in groups I created that wait for my OK (only where I'm still in the group).
   const mergeAsks = useMergeApprovals()
   // Not archived or deleted groups (useGroups already leaves deleted ones out): nothing to hear from them.
-  const ids = useMemo(() => (data ? data.filter((d) => d.group.type !== 'personal' && !d.group.archived).map((d) => d.group.id) : null), [data])
+  // Nor a private group that is locked here: its lines carry amounts (docs/VAULT.md).
+  const ids = useMemo(() => (data ? data.filter((d) => d.group.type !== 'personal' && !d.group.archived && !d.locked).map((d) => d.group.id) : null), [data])
   // A small live window per group (config/app tuning.activityWindow, 15 by default): this runs on
   // every screen for the badge, so it stays cheap; Inbox → Show older reads further back.
   const raw = useRecentActivity(ids, tuning().activityWindow)

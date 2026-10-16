@@ -136,3 +136,16 @@ describe('new money received push', () => {
     expect(expenseNote({ ...base, description: 'Dinner', paid: 0, share: 25000 }).body).toBe('Amrit added Dinner · ₹1,000 · your share ₹250')
   })
 })
+
+describe('pushes about a private group', () => {
+  it('find the group from the link, and say nothing about what happened', async () => {
+    const { groupOfUrl, privateGroupNote } = await import('./notify-text')
+    expect(groupOfUrl('/groups/g_1/expenses/e1')).toBe('g_1')
+    expect(groupOfUrl('/groups/g_1')).toBe('g_1')
+    expect(groupOfUrl('/groups/g_1?tab=balances')).toBe('g_1')
+    expect(groupOfUrl('/settle/with/u1')).toBeUndefined()
+    expect(groupOfUrl(undefined)).toBeUndefined()
+    const n = privateGroupNote({ title: '🔒 Goa', body: 'Amrit added Hotel · ₹5,000', url: '/groups/g/expenses/e', tag: 't' })
+    expect(n).toEqual({ title: '🔒 Goa', body: 'Something new in this private group. Open it to see.', url: '/groups/g/expenses/e', tag: 't' })
+  })
+})

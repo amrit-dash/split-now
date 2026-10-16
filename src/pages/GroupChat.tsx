@@ -85,7 +85,9 @@ export default function GroupChat() {
   const [info, setInfo] = useState(false)
   const [suggest, setSuggest] = useState(suggestOn)
   // AI for suggestions: offered only while the admin flag chatAi is on; off on each device until turned on.
-  const chatAiOn = useFlag('chatAi')
+  // Never in a private group: the AI would read its messages (docs/VAULT.md).
+  const chatAiFlag = useFlag('chatAi')
+  const chatAiOn = chatAiFlag && !group?.vault
   const [aiSuggest, setAiSuggest] = useState(aiSuggestOn)
   /** the server said no this visit (AI off in settings, no key, the day's allowance used): stop asking */
   const [aiBlocked, setAiBlocked] = useState(false)

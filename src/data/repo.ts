@@ -113,7 +113,10 @@ export type { VaultRequest }
 // `archived` / `archivedBy` are personal and change only through setArchived; deletedAt /
 // deletedBy only through deleteGroup / restoreGroup.
 export type GroupSettings = Partial<
-  Omit<Group, 'id' | 'members' | 'memberUids' | 'inviteCode' | 'createdBy' | 'createdAt' | 'updatedAt' | 'archived' | 'archivedBy' | 'deletedAt' | 'deletedBy' | 'vault'>
+  Omit<
+    Group,
+    'id' | 'members' | 'memberUids' | 'inviteCode' | 'createdBy' | 'createdAt' | 'updatedAt' | 'archived' | 'archivedBy' | 'deletedAt' | 'deletedBy' | 'vault'
+  >
 >
 
 /**

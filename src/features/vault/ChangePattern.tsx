@@ -61,7 +61,13 @@ export function ChangePattern({ group, open, onClose }: { group: Group; open: bo
     } catch (e) {
       const r = vaultRefusal(e)
       reset()
-      setNote(passkeyCancelled(e) ? 'Face ID or your passkey is needed to change it.' : r.triesLeft !== undefined && !r.lockedUntil ? `The current pattern wasn’t right. ${r.triesLeft} ${r.triesLeft === 1 ? 'try' : 'tries'} left.` : errText(e))
+      setNote(
+        passkeyCancelled(e)
+          ? 'Face ID or your passkey is needed to change it.'
+          : r.triesLeft !== undefined && !r.lockedUntil
+            ? `The current pattern wasn’t right. ${r.triesLeft} ${r.triesLeft === 1 ? 'try' : 'tries'} left.`
+            : errText(e),
+      )
     } finally {
       setBusy(false)
     }
