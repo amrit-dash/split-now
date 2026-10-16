@@ -27,7 +27,7 @@ export const FLAG_SECTIONS: readonly Section<FlagName>[] = [
     hint: 'The expense form and the + button.',
     keys: ['quickAdd', 'moneyReceived', 'duplicates', 'merchantMemory', 'whoseTurn'],
   },
-  { id: 'groups', title: 'Groups', hint: 'What a group offers besides its expenses.', keys: ['groupChat', 'openItems', 'liveTables'] },
+  { id: 'groups', title: 'Groups', hint: 'What a group offers besides its expenses.', keys: ['groupChat', 'openItems', 'liveTables', 'vaults'] },
   {
     id: 'payments',
     title: 'Payments and reminders',
