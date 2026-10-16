@@ -6,8 +6,10 @@ import { useMe } from '@/hooks/auth'
 import { useHistory, useTrash } from '@/hooks/data'
 import type { ActivityEntry, Expense, Group, Settlement } from '@/types'
 import { activityHref, activityIcon, activityText, amountLabel, describeChanges, fmtAgo, isExpenseEntry, type ActivityCtx } from '@/lib/activity'
-import { canPurge, daysLeftInTrash, flagsOf, isPending, pendingApprovers, thresholdOf } from '@/lib/trust'
+import { canPurge, daysLeftInTrash, flagsOf, isPending, pendingApprovers, PURGE_HOLD_DAYS, purgeAllowedFor, purgeOpensAt, thresholdOf } from '@/lib/trust'
 import { formatMoney } from '@/lib/money'
+import { formatDate } from '@/lib/locale'
+import { tuning } from '../../shared/app-tuning'
 import { CATEGORIES } from '@/lib/categories'
 import { errText } from '@/lib/errors'
 import { Sheet } from './Sheet'
@@ -25,11 +27,11 @@ const FLAG_HINT: Hint = {
 }
 
 /** Deleted items can come back for a while, and meanwhile they aren't counted. */
-const TRASH_HINT: Hint = {
-  full: 'Deleted expenses and payments stay here for 30 days. They don’t count in balances.',
-  short: 'Kept here for 30 days. They don’t count in balances.',
+const trashHint = (): Hint => ({
+  full: `Deleted expenses and payments stay here for ${tuning().trashDays} days. They don’t count in balances. Nothing can be deleted for good in its first ${PURGE_HOLD_DAYS} days.`,
+  short: `Kept here for ${tuning().trashDays} days. They don’t count in balances.`,
   tier: 'key',
-}
+})
 
 const memberNameFor = (g: Group, uid: string) => (id: string) =>
   g.members[id]?.uid === uid ? 'you' : labelOf(g.members, id, 'Former member', memberIdOfUid(g.members, uid))
@@ -390,11 +392,16 @@ export function TrashedBanner({ group, item, kind }: { group: Group; item: Expen
           </button>
         )}
       </div>
+      {purgeAllowedFor(item, group, user.uid) && !canPurge(item, group, user.uid) && (
+        <div className="text-muted mt-2 text-xs">
+          You can delete it for good from {formatDate(purgeOpensAt(item.deletedAt!), { day: 'numeric', month: 'short' })}.
+        </div>
+      )}
     </div>
   )
 }
 
-/** "Recently deleted" sheet for a group (restorable for 30 days). */
+/** "Recently deleted" sheet for a group (restorable for config/app tuning.trashDays days). */
 export function RecentlyDeleted({ group, open, onClose }: { group: Group; open: boolean; onClose: () => void }) {
   const { user } = useMe()
   const toast = useToast()
@@ -411,7 +418,7 @@ export function RecentlyDeleted({ group, open, onClose }: { group: Group; open: 
 
   return (
     <Sheet open={open} onClose={onClose} title="Recently deleted">
-      <HintText hint={TRASH_HINT} className="text-muted mb-3 text-sm" />
+      <HintText hint={trashHint()} className="text-muted mb-3 text-sm" />
       {trash === null ? null : rows.length === 0 ? (
         <p className="text-muted py-6 text-center text-sm">Nothing deleted recently.</p>
       ) : (

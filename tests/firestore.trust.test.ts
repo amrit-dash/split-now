@@ -97,7 +97,7 @@ describe('who edited it (updatedBy)', () => {
     // Approving is its own write: it can't carry an editor (that would be an edit adding an approval).
     await assertFails(updateDoc(e1('bob'), { 'approvals.bob': true, updatedBy: 'bob' }))
     await assertSucceeds(updateDoc(e1('bob'), new FieldPath('approvals', 'bob'), true))
-    await assertSucceeds(updateDoc(e1('bob'), { deletedAt: 5, deletedBy: 'bob' }))
+    await assertSucceeds(updateDoc(e1('bob'), { deletedAt: Date.now(), deletedBy: 'bob' }))
     await assertFails(updateDoc(e1('bob'), { deletedAt: deleteField(), deletedBy: deleteField(), updatedBy: 'bob' }))
   })
   it('a repeating expense’s schedule may move on without an editor, but nothing else may change with it', async () => {
@@ -133,6 +133,7 @@ describe('activity log', () => {
     await assertFails(deleteDoc(doc(db('bob'), 'groups/g1/activity/a0')))
   })
   it('the creator deletes it together with the group', async () => {
+    await env.withSecurityRulesDisabled((ctx) => updateDoc(doc(ctx.firestore(), 'groups/g1'), { deletedAt: 5, deletedBy: 'alice' }))
     const fs = db('alice')
     const b = writeBatch(fs)
     b.delete(doc(fs, 'groups/g1/activity/a0'))
@@ -156,9 +157,17 @@ describe('activity log', () => {
 })
 
 describe('soft delete (trash)', () => {
-  const trash = (by: string) => ({ deletedAt: 5, deletedBy: by })
+  // Trashing stamps the time of the write; `old` was trashed long enough ago to be past the 7-day purge hold.
+  const trash = (by: string) => ({ deletedAt: Date.now(), deletedBy: by })
+  const old = (by: string) => ({ deletedAt: 5, deletedBy: by })
+  const DAY = 86_400_000
   it('any member can trash, recording themselves as deletedBy', async () => {
     await assertSucceeds(updateDoc(e1('bob'), trash('bob')))
+  })
+  it('the trash stamp is the time of the write, so it can’t skip the purge hold', async () => {
+    await assertFails(updateDoc(e1('bob'), old('bob')))
+    await assertFails(updateDoc(e1('bob'), { deletedAt: Date.now() + DAY, deletedBy: 'bob' }))
+    await assertSucceeds(updateDoc(e1('bob'), { deletedAt: Date.now() - DAY / 2, deletedBy: 'bob' })) // a phone that was offline
   })
   it('cannot trash in someone else’s name, or change other fields while trashing', async () => {
     await assertFails(updateDoc(e1('bob'), trash('alice')))
@@ -186,16 +195,23 @@ describe('soft delete (trash)', () => {
     await assertSucceeds(getDocs(collection(db('alice'), 'groups/g1/expenses/e1/comments')))
   })
   it('purge: only the deleter or the group creator', async () => {
-    await seed('groups/g1/expenses/e1', { ...expense, ...trash('bob') })
+    await seed('groups/g1/expenses/e1', { ...expense, ...old('bob') })
     await assertFails(deleteDoc(e1('dan')))
     await assertFails(deleteDoc(e1('mallory')))
     await assertSucceeds(deleteDoc(e1('bob')))
-    await seed('groups/g1/expenses/e1', { ...expense, ...trash('bob') })
+    await seed('groups/g1/expenses/e1', { ...expense, ...old('bob') })
     await assertSucceeds(deleteDoc(e1('alice')))
   })
-  it('an expense that is not in the trash can only be hard-deleted by the creator', async () => {
+  it('purge waits 7 days after the delete, for everyone', async () => {
+    await seed('groups/g1/expenses/e1', { ...expense, deletedAt: Date.now() - 6 * DAY, deletedBy: 'bob' })
     await assertFails(deleteDoc(e1('bob')))
-    await assertSucceeds(deleteDoc(e1('alice')))
+    await assertFails(deleteDoc(e1('alice'))) // the group creator too
+    await seed('groups/g1/expenses/e1', { ...expense, deletedAt: Date.now() - 8 * DAY, deletedBy: 'bob' })
+    await assertSucceeds(deleteDoc(e1('bob')))
+  })
+  it('an expense that is not in the trash is never hard-deleted, even by the creator', async () => {
+    await assertFails(deleteDoc(e1('bob')))
+    await assertFails(deleteDoc(e1('alice')))
   })
   it('settlements: trash, restore, purge', async () => {
     await assertFails(updateDoc(s1('dan'), trash('bob')))
@@ -203,6 +219,8 @@ describe('soft delete (trash)', () => {
     await assertFails(deleteDoc(s1('bob')))
     await assertSucceeds(updateDoc(s1('bob'), { deletedAt: deleteField(), deletedBy: deleteField() }))
     await assertSucceeds(updateDoc(s1('bob'), trash('bob')))
+    await assertFails(deleteDoc(s1('bob'))) // still in its first 7 days
+    await seed('groups/g1/settlements/s1', { ...settlement, ...old('bob') })
     await assertSucceeds(deleteDoc(s1('bob')))
   })
   it('a settlement edit cannot touch the trash fields', async () => {

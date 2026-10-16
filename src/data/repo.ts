@@ -28,7 +28,8 @@ import type { AiTextExpense } from '@/lib/nl-expense'
 import type { NudgeItem, NudgeResult } from '@/lib/nudge'
 import type { AiUnavailableReason } from '../../shared/ai-config'
 import type { QuickAiRequest, QuickAiResponse } from '../../shared/quick-ai'
-import { defaultCurrency } from '@/lib/locale'
+import { defaultCurrency, formatDate } from '@/lib/locale'
+import { purgeHeld, purgeOpensAt } from '../../shared/group-trash'
 import { sharedPhotoURL, type OwnMemberPatch } from '@/lib/memberSync'
 import { labelForUid, labelOf, memberIdOfUid } from '@/lib/shortNames'
 
@@ -776,11 +777,17 @@ export const byCreatedDesc = <T extends { createdAt: number }>(a: T, b: T) => b.
  * creator does (the rules enforce it); everyone else gets a readable reason. Moving a group to
  * Recently deleted has its own rule: src/lib/group-delete.ts.
  */
-export function groupPurgeBlocker(g: Pick<Group, 'name' | 'createdBy' | 'members' | 'memberUids'>, uid: string): string | null {
+export function groupPurgeBlocker(g: Pick<Group, 'name' | 'createdBy' | 'members' | 'memberUids' | 'deletedAt'>, uid: string, now = Date.now()): string | null {
   if (!g.memberUids.includes(uid)) return `You’re no longer in “${g.name}”.`
-  if (g.createdBy === uid) return null
-  const by = labelForUid(g.members, g.createdBy, memberIdOfUid(g.members, uid))
-  return `Only ${by ?? 'the person who created it'} can delete “${g.name}”.`
+  if (g.createdBy !== uid) {
+    const by = labelForUid(g.members, g.createdBy, memberIdOfUid(g.members, uid))
+    return `Only ${by ?? 'the person who created it'} can delete “${g.name}”.`
+  }
+  if (typeof g.deletedAt !== 'number') return `Delete “${g.name}” first; it can be deleted for good from Recently deleted.`
+  // The first week in Recently deleted is the others' chance to restore it (firestore.rules agrees).
+  if (purgeHeld(g.deletedAt, now))
+    return `“${g.name}” can be deleted for good from ${formatDate(purgeOpensAt(g.deletedAt as number), { day: 'numeric', month: 'short' })}.`
+  return null
 }
 
 /** Context for building activity entries (src/lib/activity.ts) for a write by `actor` in `group`. */

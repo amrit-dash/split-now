@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { addedToGroupNote, groupDeletedNote, mentionNote, mergeAskNote, mergeDecidedNote, payLinkClaimedNote, payLinkPaidNote } from './notify-text'
+import {
+  addedToGroupNote,
+  expenseDeletedNote,
+  groupDeletedNote,
+  mentionNote,
+  mergeAskNote,
+  mergeDecidedNote,
+  payLinkClaimedNote,
+  payLinkPaidNote,
+} from './notify-text'
 
 describe('Pay me link push to the payee', () => {
   const base = { code: 'abcdefghijkmnpqrstuvwxyz', groupName: 'Goa trip', emoji: '🏖️', payerName: 'Rahul', amount: 124000, currency: 'INR' }
@@ -84,5 +93,32 @@ describe('mentions and merges', () => {
     )
     expect(mergeDecidedNote({ ...g, ok: true, fromName: 'Priya', intoName: 'Priya S.' }).body).toBe('Priya and Priya S. are one person now')
     expect(mergeDecidedNote({ ...g, ok: false, fromName: 'Priya', intoName: 'Priya S.' }).body).toBe('Making Priya and Priya S. one person was declined')
+  })
+})
+
+describe('expenseDeletedNote', () => {
+  it('says who deleted what, that it can be restored, and opens the expense', () => {
+    const n = expenseDeletedNote({
+      groupId: 'g1',
+      expenseId: 'e1',
+      groupName: 'Goa',
+      emoji: '🏖️',
+      actorName: 'Amrit',
+      description: 'Dinner',
+      amount: 50000,
+      currency: 'INR',
+      days: 30,
+    })
+    expect(n).toEqual({
+      title: '🏖️ Goa',
+      body: 'Amrit deleted Dinner · ₹500. You can restore it within 30 days.',
+      url: '/groups/g1/expenses/e1',
+      tag: 'expense-deleted-e1',
+    })
+  })
+  it('names an untitled expense', () => {
+    expect(
+      expenseDeletedNote({ groupId: 'g', expenseId: 'e', groupName: 'G', actorName: 'A', description: '', amount: 100, currency: 'INR', days: 7 }).body,
+    ).toBe('A deleted an expense · ₹1. You can restore it within 7 days.')
   })
 })

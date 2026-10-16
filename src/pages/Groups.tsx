@@ -12,7 +12,6 @@ import type { Group } from '@/types'
 import { daysLeft } from '../../shared/group-trash'
 import { EmptyGroups, FirstRun, Section } from './Home'
 import { labelForUid, memberIdOfUid } from '@/lib/shortNames'
-import { Detail } from '@/components/Hint'
 import { settledAWhile, showSettledStored, storeShowSettled } from '@/lib/settled-groups'
 
 export default function Groups() {
@@ -134,11 +133,8 @@ export default function Groups() {
           </div>
         </Collapsible>
       )}
-      {deleted && deleted.length > 0 && (
-        <Detail min={2}>
-          <RecentlyDeletedGroups groups={deleted} />
-        </Detail>
-      )}
+      {/* Shown at every detail level: a group someone else deleted must be easy to find and restore. */}
+      {deleted && deleted.length > 0 && <RecentlyDeletedGroups groups={deleted} />}
     </div>
   )
 }

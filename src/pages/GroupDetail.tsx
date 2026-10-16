@@ -724,7 +724,7 @@ const MENU_HINTS = {
   insights: { full: 'Where the group’s money went, in charts', short: 'Spending charts', tier: 'help' },
   export: { full: 'Every expense and payment as a spreadsheet', short: 'Download a spreadsheet', tier: 'help' },
   leave: { full: 'You leave; what you added stays in the group', short: 'Leave this group', tier: 'help' },
-  delete: { full: 'For everyone, restorable for 30 days', short: 'For everyone, restorable for 30 days', tier: 'help' },
+  delete: { full: 'For everyone; anyone in the group can restore it', short: 'For everyone, and restorable', tier: 'help' },
 } satisfies Record<string, Hint>
 
 const SCAN_INVITE_HINT: Hint = { full: 'Friends next to you can scan this with their phone camera', short: 'Scan with a phone camera to join' }

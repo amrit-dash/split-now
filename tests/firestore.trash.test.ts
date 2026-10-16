@@ -48,6 +48,7 @@ beforeEach(async () => {
 const g1 = (uid: string) => doc(env.authenticatedContext(uid).firestore(), 'groups/g1')
 const asAdmin = (data: Record<string, unknown>) => env.withSecurityRulesDisabled((ctx) => updateDoc(doc(ctx.firestore(), 'groups/g1'), data))
 const deleted = { deletedAt: Date.now(), deletedBy: 'alice' }
+const DAY = 86_400_000
 // carol claims the placeholder p_cat through the invite (isJoining)
 const carolJoins = {
   memberUids: ['alice', 'bob', 'carol'],
@@ -159,9 +160,13 @@ describe('a deleted group', () => {
     await assertSucceeds(setDoc(doc(ctx, 'groups/g1/expenses/e1'), expense))
   })
 
-  it('things already in it can still be removed, so Delete forever works', async () => {
+  it('things already in it can still be removed, so Delete forever works once its first 7 days are over', async () => {
     await env.withSecurityRulesDisabled((c) => setDoc(doc(c.firestore(), 'groups/g1/expenses/e1'), { id: 'e1', groupId: 'g1', createdBy: 'bob', amount: 1 }))
-    await assertSucceeds(deleteDoc(doc(env.authenticatedContext('alice').firestore(), 'groups/g1/expenses/e1')))
+    const e1 = (uid: string) => doc(env.authenticatedContext(uid).firestore(), 'groups/g1/expenses/e1')
+    await assertFails(deleteDoc(e1('alice'))) // deleted just now
+    await asAdmin({ deletedAt: Date.now() - 8 * DAY })
+    await assertFails(deleteDoc(e1('bob'))) // only the creator empties it
+    await assertSucceeds(deleteDoc(e1('alice')))
   })
 
   it('a member may leave it without restoring it, and change nothing else while leaving', async () => {
@@ -171,7 +176,11 @@ describe('a deleted group', () => {
     await assertSucceeds(updateDoc(g1('bob'), leave))
   })
 
-  it('only the creator removes it for good before the purge does', async () => {
+  it('only the creator removes it for good before the purge does, and not in its first 7 days', async () => {
+    await assertFails(deleteDoc(g1('alice')))
+    await asAdmin({ deletedAt: Date.now() - 6 * DAY })
+    await assertFails(deleteDoc(g1('alice')))
+    await asAdmin({ deletedAt: Date.now() - 8 * DAY })
     await assertFails(deleteDoc(g1('bob')))
     await assertSucceeds(deleteDoc(g1('alice')))
   })

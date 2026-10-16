@@ -293,6 +293,29 @@ export function groupDeletedNote(g: { groupId: string; groupName: string; emoji?
   }
 }
 
+/**
+ * To the people in an expense when someone else moves it to Recently deleted: what went, and that
+ * it can come back. Opens the expense, which says it's deleted and offers Restore.
+ */
+export function expenseDeletedNote(e: {
+  groupId: string
+  expenseId: string
+  groupName: string
+  emoji?: string
+  actorName: string
+  description: string
+  amount: number
+  currency: string
+  days: number
+}): Note {
+  return {
+    title: groupTitle(e.groupName, e.emoji),
+    body: `${clip(e.actorName, 30)} deleted ${clip(e.description || 'an expense', 40)} · ${formatMoney(e.amount, e.currency)}. You can restore it within ${e.days} days.`,
+    url: `/groups/${e.groupId}/expenses/${e.expenseId}`,
+    tag: `expense-deleted-${e.expenseId}`,
+  }
+}
+
 /** To someone whose account was attached to a group they were added to by email. */
 export function addedToGroupNote(g: { groupId: string; groupName: string; emoji?: string; byName?: string }): Note {
   return {

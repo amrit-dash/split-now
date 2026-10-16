@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Ban, BookOpen, Check, CheckCheck, ChevronDown, ChevronRight, EyeOff, Flag, FolderInput, Loader2, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
-import { memberOrder, myMemberId, useAllGroupData, useCaptures, useCapturesMeta, type GroupData } from '@/hooks/data'
+import { memberOrder, myMemberId, useAllGroupData, useCaptures, useCapturesMeta, useDeletedGroups, type GroupData } from '@/hooks/data'
 import { useInbox } from '@/hooks/useInbox'
 import { Detail, type Hint, HintText, InfoTip, useShows } from '@/components/Hint'
 import { MergeApprovalRow } from '@/features/merge/Merge'
@@ -52,6 +52,8 @@ import { ProofButton, usePaymentAnswers } from '@/components/PaymentOk'
 import { useToast } from '@/components/Toast'
 import { SwipeRow } from '@/components/SwipeRow'
 import { labelForUid, labelOf, memberIdOfUid } from '@/lib/shortNames'
+import { groupsDeletedByOthers } from '@/lib/trust'
+import { daysLeft } from '../../shared/group-trash'
 
 type Tab = 'sort' | 'updates'
 const HANDLED_FIRST = 15
@@ -196,6 +198,8 @@ function ToSort({
   const [bulk, setBulk] = useState<BulkCandidate<Group> | null>(null)
   // The sort menu is optional: hidden in the Minimal look.
   const showSort = useShows(2)
+  const deletedGroups = useDeletedGroups()
+  const deletedByOthers = useMemo(() => groupsDeletedByOthers(deletedGroups ?? [], user.uid), [deletedGroups, user.uid])
   useEffect(() => watchCapturePrefs(user.uid, repo.mode, setPrefs), [user.uid])
   const loadingCaptures = box.loading && box.captures.length === 0 && !handled
   const nothing =
@@ -206,7 +210,8 @@ function ToSort({
     box.payments.length === 0 &&
     box.claims.length === 0 &&
     box.merges.length === 0 &&
-    box.nudges.length === 0
+    box.nudges.length === 0 &&
+    deletedByOthers.length === 0
   const paused = prefs?.pausedTrips
   const candidates = useMemo(() => (groups ? bulkCandidates(box.captures, groups, paused) : []), [box.captures, groups, paused])
   // Each list in the chosen order (newest / oldest / biggest first); reminders keep theirs.
@@ -321,6 +326,14 @@ function ToSort({
             </Link>
           </Detail>
         </>
+      )}
+
+      {deletedByOthers.length > 0 && (
+        <Section title="Deleted groups" hint={{ full: 'Anyone in a group can restore it', tier: 'key' }}>
+          {deletedByOthers.map((g) => (
+            <DeletedGroupRow key={g.id} group={g} />
+          ))}
+        </Section>
       )}
 
       {box.merges.length > 0 && (
@@ -815,6 +828,52 @@ function Handled({ list, groups }: { list: Capture[]; groups: Group[] }) {
         </div>
       )}
     </section>
+  )
+}
+
+/** A group someone else deleted: who and when, how long is left, and Restore in one tap. */
+function DeletedGroupRow({ group }: { group: Group }) {
+  const { user } = useMe()
+  const toast = useToast()
+  const [busy, setBusy] = useState(false)
+  const now = Date.now()
+  const by = labelForUid(group.members, group.deletedBy, memberIdOfUid(group.members, user.uid)) ?? 'Someone'
+  const left = daysLeft(group.deletedAt ?? now, now)
+  const restore = async () => {
+    setBusy(true)
+    try {
+      await repo.restoreGroup(group)
+      toast(`“${group.name}” is back`)
+    } catch (e) {
+      toast(errText(e), 'err')
+      setBusy(false)
+    }
+  }
+  return (
+    <div className="card flex items-center gap-3 p-3" data-testid="inbox-deleted-group">
+      <Link to={`/groups/${group.id}`} className="flex min-h-11 min-w-0 flex-1 items-center gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-rose-50 text-xl dark:bg-rose-500/10" aria-hidden>
+          {group.emoji}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold">{group.name}</span>
+          <span className="text-muted block truncate text-xs">
+            {by} deleted it {group.deletedAt ? formatDate(group.deletedAt, { day: 'numeric', month: 'short' }) : ''} ·{' '}
+            {left <= 1 ? 'last day to restore' : `${left} days left`}
+          </span>
+        </span>
+      </Link>
+      <button
+        type="button"
+        className="chip min-h-11 shrink-0"
+        onClick={() => void restore()}
+        disabled={busy}
+        aria-label={`Restore ${group.name}`}
+        data-testid="inbox-deleted-group-restore"
+      >
+        <RotateCcw size={15} aria-hidden /> Restore
+      </button>
+    </div>
   )
 }
 

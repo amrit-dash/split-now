@@ -340,6 +340,7 @@ describe('invites', () => {
     await assertFails(setDoc(doc(db('carol'), 'groups/g4'), { ...group, id: 'g4', memberUids: ['carol', 'alice'], createdBy: 'carol' }))
   })
   it('the creator deletes group and invite together', async () => {
+    await env.withSecurityRulesDisabled((ctx) => updateDoc(doc(ctx.firestore(), 'groups/g1'), { deletedAt: 5, deletedBy: 'alice' }))
     const d = db('alice')
     const b = writeBatch(d)
     b.delete(doc(d, 'groups/g1/profiles/bob'))

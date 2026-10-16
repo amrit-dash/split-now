@@ -6,6 +6,10 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 6.4.0 — October 2026
+
+- Deleting: when someone deletes an expense you're in, you get a notification with a link to restore it. A group someone else deleted shows in your Inbox with Restore, and Recently deleted is on the Groups tab at every detail level.
+- Nothing in Recently deleted can be deleted for good in its first 7 days, so everyone has a week to see a delete and undo it. The screen says when Delete forever opens.
 ## 6.3.4 — October 2026
 
 - Admin: the tabs fit a phone's width without scrolling, Admin opens on App, and the usage numbers (Overview, now Insights) are the last tab, loaded only when you open it. Detail level is a dropdown.

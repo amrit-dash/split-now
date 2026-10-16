@@ -45,7 +45,7 @@ import { defaultCurrency } from '@/lib/locale'
 import type { MerchantMemory } from '@/lib/merchants'
 import { netBalances } from '@/lib/balances'
 import { isRemoved } from '@/lib/members'
-import { countedExpenses, countedSettlements, prepareSettlementSave } from '@/lib/trust'
+import { canPurge, countedExpenses, countedSettlements, prepareSettlementSave, purgeAllowedFor } from '@/lib/trust'
 import { formatMoney, minorDigits } from '@/lib/money'
 import { claimStatus, claimSummary, markPaidPatch, payLinkState, planRecord, planRecordParts, sortClaims, triggerAction, type PayLinkDoc } from '@/lib/paylinks'
 import { labelForUid, labelOf } from '@/lib/shortNames'
@@ -684,8 +684,14 @@ export function createLocalRepo(): Repo {
       const e = state.expenses[id]
       if (!e) return
       const g = state.groups[groupId]
-      if (g && e.deletedBy !== actor() && g.createdBy !== actor())
-        return refuse('Deleting expense', 'only the person who deleted it, or the group creator, can delete it forever')
+      // Same as firestore.rules canPurge: from Recently deleted, after its first week.
+      if (g && !canPurge(e, g, actor()))
+        return refuse(
+          'Deleting expense',
+          purgeAllowedFor(e, g, actor())
+            ? 'it can be deleted for good a week after it was deleted'
+            : 'only the person who deleted it, or the group creator, can delete it forever',
+        )
       delete state.expenses[id]
       for (const [k, c] of Object.entries(comments())) if (c.expenseId === id) delete comments()[k]
       log(groupId, expenseEventActivity('purged', e, ctx(groupId, e)))
@@ -821,8 +827,14 @@ export function createLocalRepo(): Repo {
       const s = state.settlements[id]
       if (!s) return
       const g = state.groups[groupId]
-      if (g && s.deletedBy !== actor() && g.createdBy !== actor())
-        return refuse('Deleting payment', 'only the person who deleted it, or the group creator, can delete it forever')
+      // Same as firestore.rules canPurge: from Recently deleted, after its first week.
+      if (g && !canPurge(s, g, actor()))
+        return refuse(
+          'Deleting payment',
+          purgeAllowedFor(s, g, actor())
+            ? 'it can be deleted for good a week after it was deleted'
+            : 'only the person who deleted it, or the group creator, can delete it forever',
+        )
       delete state.settlements[id]
       log(groupId, settlementActivity('purged', s, ctx(groupId)))
       commit()

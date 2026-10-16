@@ -1,7 +1,7 @@
 import type { Cents, Expense, ExpenseFlag, Group, MemberId, Settlement } from '@/types'
 import { type ApprovalGroup, approvalNeeded, editApprovalOutcome, groupThreshold } from './approval'
 import { activeMembers, isRemoved } from '../../shared/members'
-import { TRASH_DAYS } from '../../shared/group-trash'
+import { PURGE_HOLD_DAYS, purgeHeld, purgeOpensAt, TRASH_DAYS } from '../../shared/group-trash'
 import { tuning } from '../../shared/app-tuning'
 import { awaitingOk, needsOkOnCreate, settlementCounts } from '../../shared/payment-ok'
 
@@ -10,7 +10,7 @@ import { awaitingOk, needsOkOnCreate, settlementCounts } from '../../shared/paym
  * approvals. Pure, so both repos, the hooks and the rules tests agree on the semantics.
  */
 
-export { TRASH_DAYS }
+export { PURGE_HOLD_DAYS, purgeOpensAt, TRASH_DAYS }
 const DAY = 86_400_000
 
 type Trashable = Pick<Expense, 'deletedAt' | 'deletedBy'>
@@ -26,10 +26,17 @@ export const expiredTrash = <T extends Trashable>(xs: T[], now = Date.now()): T[
   xs.filter((x) => isTrashed(x) && now - x.deletedAt! >= tuning().trashDays * DAY)
 export const daysLeftInTrash = (x: Trashable, now = Date.now()) => Math.max(0, Math.ceil((x.deletedAt! + tuning().trashDays * DAY - now) / DAY))
 
-/** Hard delete is for whoever trashed it, or the group creator (matches firestore.rules). */
-export function canPurge(x: Trashable, group: Pick<Group, 'createdBy'>, uid: string): boolean {
-  return x.deletedBy === uid || group.createdBy === uid
+/**
+ * Hard delete is for whoever trashed it, or the group creator, and only once it has been in
+ * Recently deleted for PURGE_HOLD_DAYS (matches firestore.rules), so the others always get a week
+ * to see a delete and undo it.
+ */
+export function canPurge(x: Trashable, group: Pick<Group, 'createdBy'>, uid: string, now = Date.now()): boolean {
+  return isTrashed(x) && purgeAllowedFor(x, group, uid) && !purgeHeld(x.deletedAt, now)
 }
+
+/** Whether this person may ever delete it for good (ignoring the first-week hold): for showing when they can. */
+export const purgeAllowedFor = (x: Trashable, group: Pick<Group, 'createdBy'>, uid: string): boolean => x.deletedBy === uid || group.createdBy === uid
 
 /**
  * The group's own threshold, else its currency's default (src/lib/approval.ts; firestore.rules
@@ -244,3 +251,10 @@ export function prepareOccurrence(o: Expense, g: ApprovalPolicy): Expense {
   const { dispute: _d, approvals: _a, requiresApproval: _r, deletedAt: _t, deletedBy: _b, receiptUrl: _u, receiptPath: _p, updatedBy: _e, ...rest } = o
   return needsApproval(g, o.amount) ? { ...rest, requiresApproval: true } : rest
 }
+
+/**
+ * Groups someone else moved to Recently deleted that are still restorable, newest first: the
+ * Inbox shows them with Restore, so a group deleted under you is never just gone.
+ */
+export const groupsDeletedByOthers = <G extends Trashable>(groups: readonly G[], uid: string, now = Date.now()): G[] =>
+  trashedItems(groups.filter((g) => isTrashed(g) && g.deletedBy !== uid) as G[], now)
