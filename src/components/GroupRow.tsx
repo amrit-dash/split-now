@@ -9,6 +9,8 @@ import { isLiveTrip } from '@/lib/capture'
 import { todayISO } from '@/lib/id'
 import { activeMembers } from '@/lib/members'
 import { spending } from '../../shared/received'
+import { currencySymbol, gibberish, scrambledAmount } from '@/lib/vault-scramble'
+import { AnimalStack, LockedTile } from '@/features/vault/Scrambled'
 
 /** One group in a list: icon, name, members (spend for a personal wallet, "Friend" for a 1:1) and your balance in words and numbers. */
 export function GroupRow({ d }: { d: GroupData }) {
@@ -16,6 +18,7 @@ export function GroupRow({ d }: { d: GroupData }) {
   const members = Object.values(activeMembers(d.group.members))
   const personal = d.group.type === 'personal'
   const spent = spending(d.expenses).reduce((s, e) => s + e.amount, 0)
+  if (d.locked) return <LockedRow d={d} count={members.length} />
   return (
     <Link to={`/groups/${d.group.id}`} className="flex min-h-16 items-center gap-3 px-4 py-3 transition active:bg-slate-50 dark:active:bg-ink-800">
       <GroupIcon emoji={d.group.emoji} group={d.group} />
@@ -44,12 +47,7 @@ export function GroupRow({ d }: { d: GroupData }) {
       </div>
       {!personal && (
         <div className="text-right">
-          {d.locked ? (
-            // A locked private group shows no amount until it's opened (docs/VAULT.md).
-            <div className="text-muted flex items-center gap-1 text-sm" data-testid="group-row-locked">
-              <Lock size={14} aria-hidden /> locked
-            </div>
-          ) : bal === 0 ? (
+          {bal === 0 ? (
             <div className="text-muted text-sm">settled up</div>
           ) : (
             <>
@@ -59,6 +57,35 @@ export function GroupRow({ d }: { d: GroupData }) {
           )}
         </div>
       )}
+      <ChevronRight size={18} className="text-slate-300 dark:text-slate-600" aria-hidden />
+    </Link>
+  )
+}
+
+/**
+ * A private group that is locked on this device (docs/VAULT.md): a lock for its icon, letters for
+ * its name, animals for its people and symbols for its balance, so a glance at the list shows
+ * only that it is there.
+ */
+function LockedRow({ d, count }: { d: GroupData; count: number }) {
+  const id = d.group.id
+  return (
+    <Link
+      to={`/groups/${id}`}
+      className="flex min-h-16 items-center gap-3 px-4 py-3 transition active:bg-slate-50 dark:active:bg-ink-800"
+      aria-label="Private group, locked"
+      data-testid="group-row-locked"
+    >
+      <LockedTile />
+      <div className="min-w-0 flex-1" aria-hidden>
+        <span className="text-muted block truncate font-semibold blur-[0.5px]">{gibberish(id, 14)}</span>
+        <div className="mt-0.5 flex items-center gap-2">
+          <AnimalStack seed={id} count={count} />
+        </div>
+      </div>
+      <div className="text-muted text-right font-bold tabular-nums" aria-hidden>
+        {scrambledAmount(id, currencySymbol(d.group.currency))}
+      </div>
       <ChevronRight size={18} className="text-slate-300 dark:text-slate-600" aria-hidden />
     </Link>
   )

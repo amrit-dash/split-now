@@ -132,3 +132,8 @@ export function lockButton(privateIds: readonly string[], isOpen: (id: string) =
   if (!privateIds.length) return 'none'
   return privateIds.every(isOpen) ? 'lock' : 'unlock'
 }
+
+/** Groups to offer in a picker: a private group only while it's open here (a locked one can't take a write, and its name stays out of sight). */
+export function withoutLocked<G extends { id: string; vault?: boolean }>(groups: readonly G[], isOpen: (id: string) => boolean): G[] {
+  return groups.filter((g) => !g.vault || isOpen(g.id))
+}

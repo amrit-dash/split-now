@@ -6,6 +6,7 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Private groups stay out of sight while locked: on the Groups screen and inside the group they show a lock, made-up letters for the name and words, animals for the people and symbols for the amounts. Inside, only the card and the list show, with Invite and Settle up off. Home never includes private groups and says so; Balances counts one only while it's open, with a line and an Unlock button for the rest. Group pickers leave locked private groups out.
 - Private groups open with your own universal pattern now. Set it once in Settings → Encrypted groups, along with a passkey; it opens every private group you're in from the lock on the Groups screen, or one group from inside it. Nothing shows on screen while you enter it: each press buzzes, and it's checked after a short pause. Face ID or your passkey is asked for only after the pattern is right. Turn off Follow the sequence to have only the number of taps and long presses count. A group can also have its own pattern (Group ⋯ → Private group), which opens only that group. Patterns set in 7.1 keep working as the group's own.
 
 ## 7.2.0 — October 2026

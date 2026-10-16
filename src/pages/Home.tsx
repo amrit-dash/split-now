@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ChevronRight, FileUp, Inbox, Lock, Plus, Ticket } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
@@ -35,9 +35,11 @@ const CardFirework = lazy(() => import('@/components/CardFirework').then((m) => 
 export default function Home() {
   usePageTitle(null)
   const { profile } = useMe()
-  const data = useAllGroupData()
-  // Locked private groups add nothing to the totals (hooks/data.ts); the card says so.
-  const lockedCount = data?.filter((d) => d.locked).length ?? 0
+  const all = useAllGroupData()
+  // Private groups never show on Home, open or locked (docs/VAULT.md): not in the totals, the
+  // people, the recent list or the feed. The card says so; they're on the Groups screen.
+  const data = useMemo(() => all?.filter((d) => !d.group.vault) ?? null, [all])
+  const privateCount = (all?.length ?? 0) - (data?.length ?? 0)
   const home = profile.currency
   const rates = useTodayRates(home, data ? data.map((d) => d.group.currency) : [])
   const box = useInbox(data)
@@ -82,7 +84,8 @@ export default function Home() {
     .sort((a, b) => b.e.date.localeCompare(a.e.date) || b.e.createdAt - a.e.createdAt)
     .slice(0, 6)
   const shared = active.filter((d) => d.group.type !== 'personal')
-  const firstRun = data.length === 0
+  // Only private groups is not a first run: the card shows nothing owed, and says why.
+  const firstRun = data.length === 0 && privateCount === 0
   const today = todayISO()
   const people = topCounterparties(
     shared.map((d) => ({ ...d.group, me: d.me, debts: d.debts })),
@@ -195,10 +198,10 @@ export default function Home() {
                 </div>
               </Detail>
             )}
-            {lockedCount > 0 && (
-              <div className="mt-3 flex items-center gap-1.5 text-xs text-on-fill/90" data-testid="home-locked-note">
+            {privateCount > 0 && (
+              <div className="mt-3 flex items-center gap-1.5 text-xs text-on-fill/90" data-testid="home-private-note">
                 <Lock size={12} aria-hidden />
-                {lockedCount === 1 ? 'A private group is locked and not in these totals.' : `${lockedCount} private groups are locked and not in these totals.`}
+                Doesn’t include private groups
               </div>
             )}
           </div>

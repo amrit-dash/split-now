@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
+import { usePickableGroups } from '@/hooks/useVault'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ReceiptText, Users, Wallet, X } from 'lucide-react'
 import { useBack } from '@/hooks/useBack'
 import { useMe } from '@/hooks/auth'
-import { memberOrder, myMemberId, useCaptures, useExpenses, useGroup, useGroups, useOpenItems } from '@/hooks/data'
+import { memberOrder, myMemberId, useCaptures, useExpenses, useGroup, useOpenItems } from '@/hooks/data'
 import { descriptionHistory, lastGroup } from '@/lib/recents'
 import { liveTripFor } from '@/lib/capture'
 import { todayISO } from '@/lib/id'
@@ -28,7 +29,7 @@ const SPLIT_HINT: Hint = {
 export default function ExpenseForm() {
   const { groupId: editGroupId, expenseId } = useParams()
   const [params] = useSearchParams()
-  const groups = useGroups()
+  const groups = usePickableGroups()
   const { user } = useMe()
   // "Add again" from an expense: /add?group=…&again=<expenseId> starts a copy dated today.
   const againId = expenseId ? undefined : (params.get('again') ?? undefined)

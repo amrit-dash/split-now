@@ -1,8 +1,9 @@
 import { useState, useSyncExternalStore } from 'react'
+import { usePickableGroups } from '@/hooks/useVault'
 import { Moon, Sun, SunMoon } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
-import { useGroups } from '@/hooks/data'
+
 import { useAppConfig } from '@/hooks/useAppConfig'
 import { CURRENCIES } from '@/lib/money'
 import { errText } from '@/lib/errors'
@@ -46,7 +47,7 @@ export default function Preferences() {
   const [lookSaved, flashLook] = useSavedFlash()
   const adminLook = useAppConfig().look
   const lookChoice = useSyncExternalStore(subscribeLookPref, getLookPref, getLookPref)
-  const groups = useGroups()
+  const groups = usePickableGroups()
   const showAll = useShows(2)
   // Minimal hides "Collect in" unless it matters: a group in another currency, or it's already on (so it can be turned off).
   const showCollect = showAll || !!profile.collectInHome || !!groups?.some((g) => g.currency !== profile.currency)

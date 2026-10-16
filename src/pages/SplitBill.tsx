@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { usePickableGroups } from '@/hooks/useVault'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Camera, ImageUp, Plus, QrCode, Trash2, Users } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
-import { useGroups } from '@/hooks/data'
+
 import { useReceiptReader } from '@/hooks/useReceiptReader'
 import { imagePreviewUrl } from '@/lib/image'
 import { CURRENCIES, centsToInput, formatMoney, fromHundredths, parseMoney } from '@/lib/money'
@@ -55,7 +56,7 @@ const taxHint = (mode: TaxSplit): Hint => ({
 
 export default function SplitBill() {
   usePageTitle('Live table')
-  const groups = useGroups()
+  const groups = usePickableGroups()
   const { user, profile } = useMe()
   const nav = useNavigate()
   const toast = useToast()

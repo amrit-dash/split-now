@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
+import { usePickableGroups } from '@/hooks/useVault'
 import { useNavigate } from 'react-router-dom'
 import { Check, Users } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
-import { createGroup as createNewGroup, memberOrder, myMemberId, useGroups } from '@/hooks/data'
+import { createGroup as createNewGroup, memberOrder, myMemberId } from '@/hooks/data'
 import type { Expense, Group, Member, MemberId } from '@/types'
 import { guessCategory } from '@/lib/categories'
 import { colorFor } from '@/lib/colors'
@@ -42,7 +43,7 @@ const NONE = '__none'
 
 /** Host's "Finish": pick a group, confirm who's who, and add the itemized expense. */
 export default function TableFinish({ table, totals, onClose }: { table: LiveTable; totals: TableTotals; onClose: () => void }) {
-  const groups = useGroups()
+  const groups = usePickableGroups()
   const [target, setTarget] = useState<string>(table.groupId ?? NONE)
   const usable = useMemo(() => (groups ?? []).filter((g) => g.type !== 'personal'), [groups])
   const group = usable.find((g) => g.id === target)

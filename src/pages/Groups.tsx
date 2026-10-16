@@ -7,6 +7,8 @@ import { useVaultVersion } from '@/hooks/useVault'
 import { lockButton } from '@/lib/vault-api'
 import { isUnlocked, lockVault } from '@/lib/vault-keys'
 import { UnlockSheet } from '@/features/vault/UnlockSheet'
+import { LockedTile } from '@/features/vault/Scrambled'
+import { gibberish } from '@/lib/vault-scramble'
 import { GroupRow } from '@/components/GroupRow'
 import { PageHeader } from '@/components/Misc'
 import { Collapsible } from '@/components/Collapsible'
@@ -175,6 +177,9 @@ export default function Groups() {
 function RecentlyDeletedGroups({ groups }: { groups: Group[] }) {
   const { user } = useMe()
   const now = Date.now()
+  useVaultVersion()
+  // A locked private group keeps its look here too (src/lib/vault-scramble.ts).
+  const hide = (g: Group) => !!g.vault && !isUnlocked(g.id)
   return (
     <Collapsible
       title="Recently deleted"
@@ -189,11 +194,15 @@ function RecentlyDeletedGroups({ groups }: { groups: Group[] }) {
           return (
             <li key={g.id}>
               <Link to={`/groups/${g.id}`} className="flex min-h-14 items-center gap-3 px-4 py-3" data-testid="deleted-group-row">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-xl dark:bg-ink-800" aria-hidden>
-                  {g.emoji}
-                </span>
+                {hide(g) ? (
+                  <LockedTile size={40} />
+                ) : (
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-xl dark:bg-ink-800" aria-hidden>
+                    {g.emoji}
+                  </span>
+                )}
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-semibold">{g.name}</span>
+                  <span className="block truncate font-semibold">{hide(g) ? gibberish(g.id, 14) : g.name}</span>
                   <span className="text-muted block truncate text-xs">
                     Deleted by {by} · {left <= 1 ? 'last day to restore' : `${left} days left to restore`}
                   </span>

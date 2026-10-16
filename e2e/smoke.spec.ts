@@ -126,9 +126,18 @@ test('Private group: universal pattern, words stored encrypted, lock and unlock 
   await expect(lock).toHaveAccessibleName('Lock private groups')
   await lock.click()
   await expect(lock).toHaveAccessibleName('Unlock private groups')
+  // Locked, its row is a lock, letters, animals and symbols: nothing of its name.
+  await expect(page.getByTestId('group-row-locked')).toBeVisible()
+  await expect(page.getByText('Vault trip')).toHaveCount(0)
+  // Home never shows private groups, open or locked, and says so.
+  await page.getByRole('navigation').getByRole('link', { name: 'Home' }).click()
+  await expect(page.getByTestId('home-private-note')).toBeVisible()
+  await expect(page.getByText('Secret dinner')).toHaveCount(0)
+  await page.getByRole('navigation').getByRole('link', { name: 'Groups' }).click()
   await lock.click()
   await enter()
   await expect(lock).toHaveAccessibleName('Lock private groups')
+  await expect(page.getByText('Vault trip')).toBeVisible()
 })
 
 test('the + button opens the Create sheet; Add expense saves an equal split', async ({ page }) => {
