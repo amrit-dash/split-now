@@ -55,7 +55,6 @@ import {
   verifyAuthenticationResponse,
   verifyRegistrationResponse,
   type AuthenticationResponseJSON,
-  type AuthenticatorTransportFuture,
   type RegistrationResponseJSON,
 } from '@simplewebauthn/server'
 import { db } from './admin'
@@ -93,7 +92,8 @@ interface StoredPasskey {
   id: string
   publicKey: string
   counter: number
-  transports?: AuthenticatorTransportFuture[]
+  /** as the authenticator reported them (14 types them as plain strings, unknown ones included) */
+  transports?: string[]
   rpID: string
   createdAt: number
   lastUsedAt?: number

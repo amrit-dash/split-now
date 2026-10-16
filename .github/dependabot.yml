@@ -23,6 +23,9 @@ updates:
         update-types: ['version-update:semver-major']
       - dependency-name: '@firebase/*'
         update-types: ['version-update:semver-major']
+      # Passkeys: the browser half here and the server half in functions/ move together (14 came as #99 and #100).
+      - dependency-name: '@simplewebauthn/browser'
+        update-types: ['version-update:semver-major']
   - package-ecosystem: npm
     directory: /functions
     schedule: { interval: weekly }
@@ -36,6 +39,9 @@ updates:
       - dependency-name: 'firebase-admin'
         update-types: ['version-update:semver-major']
       - dependency-name: 'firebase-functions'
+        update-types: ['version-update:semver-major']
+      # With @simplewebauthn/browser at the root: by hand, together.
+      - dependency-name: '@simplewebauthn/server'
         update-types: ['version-update:semver-major']
   - package-ecosystem: github-actions
     directory: /
