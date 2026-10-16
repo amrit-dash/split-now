@@ -5,7 +5,7 @@
 import { readFileSync } from 'node:fs'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing'
-import { collection, deleteDoc, doc, getDoc, getDocs, setDoc, writeBatch, type DocumentReference, type Firestore } from 'firebase/firestore'
+import { collection, deleteDoc, doc, getDoc, getDocs, setDoc, updateDoc, writeBatch, type DocumentReference, type Firestore } from 'firebase/firestore'
 
 let env: RulesTestEnvironment
 
@@ -118,6 +118,10 @@ async function deleteGroupLikeTheApp(d: Firestore, limit = 450) {
 }
 
 describe('deleting a group', () => {
+  // Delete forever starts from Recently deleted, once the group's first 7 days there are over.
+  beforeEach(() =>
+    env.withSecurityRulesDisabled((ctx) => updateDoc(doc(ctx.firestore(), 'groups/g1'), { deletedAt: Date.now() - 8 * 86_400_000, deletedBy: 'alice' })),
+  )
   it('the creator can delete a big imported group with comments', async () => {
     await assertSucceeds(deleteGroupLikeTheApp(db('alice')))
     await env.withSecurityRulesDisabled(async (ctx) => {

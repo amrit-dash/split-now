@@ -4,6 +4,8 @@ import {
   awaitingMyApproval,
   awaitingMyOk,
   canPurge,
+  groupsDeletedByOthers,
+  purgeAllowedFor,
   paymentState,
   paymentsToConfirm,
   countedSettlements,
@@ -70,9 +72,26 @@ describe('trash', () => {
     expect(daysLeftInTrash(items[1], now)).toBe(29)
   })
   it('only the deleter or the group creator may purge', () => {
-    expect(canPurge(items[1], group, 'ub')).toBe(true)
-    expect(canPurge(items[1], group, 'ua')).toBe(true) // creator
-    expect(canPurge(items[1], { createdBy: 'ua' }, 'uz')).toBe(false)
+    expect(canPurge(items[2], group, 'ub', now)).toBe(true)
+    expect(canPurge(items[2], group, 'ua', now)).toBe(true) // creator
+    expect(canPurge(items[2], { createdBy: 'ua' }, 'uz', now)).toBe(false)
+  })
+  it('holds Delete forever for the first 7 days', () => {
+    const fresh = { deletedAt: now - 6 * DAY, deletedBy: 'ub' }
+    expect(canPurge(fresh, group, 'ub', now)).toBe(false)
+    expect(canPurge(fresh, group, 'ua', now)).toBe(false)
+    expect(purgeAllowedFor(fresh, group, 'ub')).toBe(true)
+    expect(canPurge({ ...fresh, deletedAt: now - 7 * DAY }, group, 'ub', now)).toBe(true)
+  })
+  it('lists groups someone else deleted, still restorable, newest first', () => {
+    const gs = [
+      { id: 'a', deletedAt: now - 2 * DAY, deletedBy: 'ub' },
+      { id: 'b', deletedAt: now - DAY, deletedBy: 'uc' },
+      { id: 'c', deletedAt: now - DAY, deletedBy: 'ua' }, // mine
+      { id: 'd' }, // live
+      { id: 'e', deletedAt: now - 40 * DAY, deletedBy: 'ub' }, // past the trash days
+    ]
+    expect(groupsDeletedByOthers(gs, 'ua', now).map((g) => g.id)).toEqual(['b', 'a'])
   })
 })
 

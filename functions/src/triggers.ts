@@ -14,7 +14,8 @@
  *    (archiving is personal: shared/archive.ts), imports and recurring copies included
  *  - group deleted → every subcollection and its receipts go too (the client only deletes the
  *    group document and its invite; rules would stop it deleting most of the rest anyway)
- * Imports, recurring copies and trashed docs are skipped. Each recipient's prefs decide.
+ * Imports, recurring copies and trashed docs are skipped (moving one to the trash tells the others,
+ * onExpenseUpdated). Each recipient's prefs decide.
  * Only uids in the group's memberUids are ever notified: members[*].uid can be typed in by the
  * group's creator and is not trusted on its own.
  */
@@ -27,10 +28,19 @@ import { pendingApprovers } from '../../shared/balances-core'
 import { crossedThresholds } from '../../shared/budget'
 import { db, storage } from './admin'
 import { REGION } from './config'
-import { flagOn } from './lib/limits'
+import { flagOn, getTuning } from './lib/limits'
 import { AI_SECRETS } from './ai'
 import { expensePref, newlyWaiting, paymentOkPref, reapprovalRecipients } from './lib/approval-push'
-import { budgetNote, expenseNote, paymentDecisionNote, paymentOkNote, reapprovalNote, settlementNote, settlementRecordedNote } from './lib/notify-text'
+import {
+  budgetNote,
+  expenseDeletedNote,
+  expenseNote,
+  paymentDecisionNote,
+  paymentOkNote,
+  reapprovalNote,
+  settlementNote,
+  settlementRecordedNote,
+} from './lib/notify-text'
 import { payeeDecision, type ProofSettlement } from './lib/payment-proof'
 import { checkProof } from './payment-ok'
 import { expenseRecipients, memberNameForUid, memberUid, type MemberLite } from './lib/recipients'
@@ -83,7 +93,48 @@ export const onExpenseUpdated = onDocumentUpdated({ document: 'groups/{groupId}/
   const { groupId, expenseId } = event.params
   await unarchiveForEdit(groupId, before, after).catch((err) => logger.warn('unarchive', { groupId, error: (err as Error).message }))
   await reapprovalPush(groupId, expenseId, before, after).catch((err) => logger.warn('reapproval push', { groupId, error: (err as Error).message }))
+  await deletedPush(groupId, expenseId, before, after).catch((err) => logger.warn('expense deleted push', { groupId, error: (err as Error).message }))
 })
+
+/**
+ * Moving an expense to Recently deleted tells the other people in it (whoever paid or has a
+ * share), on "New expenses": until now it vanished from their balances without a word. Restoring
+ * sends nothing; neither does a delete in a group that is itself in Recently deleted.
+ */
+async function deletedPush(
+  groupId: string,
+  expenseId: string,
+  before: FirebaseFirestore.DocumentData | undefined,
+  after: FirebaseFirestore.DocumentData | undefined,
+) {
+  if (!before || !after || typeof before.deletedAt === 'number' || typeof after.deletedAt !== 'number') return
+  const g = (await db().doc(`groups/${groupId}`).get()).data() as GroupLite | undefined
+  if (!g || typeof g.deletedAt === 'number') return
+  const by = typeof after.deletedBy === 'string' ? after.deletedBy : ''
+  const recipients = expenseRecipients(g.members, after, uidsOf(g)).filter((r) => r.uid !== by)
+  if (!recipients.length) return
+  const [actor, { trashDays }] = await Promise.all([actorName(groupId, g, by), getTuning()])
+  const sent = await Promise.all(
+    recipients.map((r) =>
+      sendToUser(
+        r.uid,
+        ['expenses'],
+        expenseDeletedNote({
+          groupId,
+          expenseId,
+          groupName: groupNameForRecipient(g, r.uid),
+          emoji: g.emoji,
+          actorName: actor,
+          description: String(after.description ?? ''),
+          amount: Number(after.amount) || 0,
+          currency: g.currency ?? 'INR',
+          days: trashDays,
+        }),
+      ),
+    ),
+  )
+  logger.info('expense deleted push', { groupId, expenseId, recipients: recipients.length, sent: sent.reduce((a, b) => a + b, 0) })
+}
 
 /**
  * An edit that needs everyone's OK again (a change bigger than the group's small-edit allowance)

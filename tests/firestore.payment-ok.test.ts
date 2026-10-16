@@ -134,7 +134,7 @@ describe('the payee’s OK and flag', () => {
     await assertFails(updateDoc(st('alice', 's2'), { ok: { by: 'alice', at: 2, via: 'payee' } }))
   })
   it('either of them can still delete it (trash)', async () => {
-    await assertSucceeds(updateDoc(st('bob'), { deletedAt: 5, deletedBy: 'bob' }))
+    await assertSucceeds(updateDoc(st('bob'), { deletedAt: Date.now(), deletedBy: 'bob' }))
   })
 })
 
@@ -153,7 +153,7 @@ describe('a recorded payment is never edited', () => {
   })
   it('it can still go to trash and back', async () => {
     await seed('groups/g1/settlements/s1', payment({ needsOk: true }))
-    await assertSucceeds(updateDoc(st('bob'), { deletedAt: 5, deletedBy: 'bob' }))
+    await assertSucceeds(updateDoc(st('bob'), { deletedAt: Date.now(), deletedBy: 'bob' }))
     await assertSucceeds(updateDoc(st('alice'), { deletedAt: deleteField(), deletedBy: deleteField() }))
   })
 })

@@ -32,3 +32,16 @@ export function daysLeft(deletedAt: number, now: number, days = tuning().trashDa
   const ms = purgeAt(deletedAt, days) - now
   return ms <= 0 ? 0 : Math.max(1, Math.ceil(ms / DAY_MS))
 }
+
+/**
+ * Nothing in Recently deleted can be deleted for good in its first PURGE_HOLD_DAYS days, so a
+ * mistaken or unilateral delete always leaves the others a week to see it and restore it
+ * (firestore.rules `purgeHeld` carries the same number in ms).
+ */
+export const PURGE_HOLD_DAYS = 7
+
+/** When something deleted at `deletedAt` may first be deleted for good. */
+export const purgeOpensAt = (deletedAt: number): number => deletedAt + PURGE_HOLD_DAYS * DAY_MS
+
+/** Whether "Delete forever" is still held for something deleted at `deletedAt`. */
+export const purgeHeld = (deletedAt: number | undefined, now: number): boolean => typeof deletedAt === 'number' && now < purgeOpensAt(deletedAt)

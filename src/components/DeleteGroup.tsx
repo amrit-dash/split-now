@@ -10,14 +10,14 @@ import { formatDate } from '@/lib/locale'
 import { formatMoney } from '@/lib/money'
 import { deleteMessage, groupDeleteState } from '@/lib/group-delete'
 import type { Debt, Group } from '@/types'
-import { daysLeft } from '../../shared/group-trash'
+import { daysLeft, purgeOpensAt } from '../../shared/group-trash'
 import { useConfirm } from './ConfirmSheet'
 import { PageHeader } from './Misc'
 import { useToast } from './Toast'
 import { labelOf, memberIdOfUid } from '@/lib/shortNames'
 
 /**
- * Deleting a group moves it to Recently deleted for everyone (30 days to restore, then gone for
+ * Deleting a group moves it to Recently deleted for everyone (config/app tuning.trashDays, 30 by default, to restore, then gone for
  * good). Who may: groupDeleteState (src/lib/group-delete.ts). The confirmation lists the payments
  * still open, and the toast offers Undo. Shared by the group's ⋯ menu and Edit group.
  */
@@ -84,8 +84,10 @@ export function DeletedGroupCard({ group }: { group: Group }) {
   const by = group.deletedBy === user.uid ? 'you' : (Object.values(group.members).find((m) => m.uid === group.deletedBy)?.name ?? 'someone')
   const left = daysLeft(group.deletedAt ?? Date.now(), Date.now())
   const canPurge = !groupPurgeBlocker(group, user.uid)
+  // The creator sees when "Delete forever" opens (the first week is everyone's chance to restore it).
+  const purgeFrom = group.createdBy === user.uid && !canPurge && group.deletedAt ? purgeOpensAt(group.deletedAt) : null
   // Anyone else may leave it without restoring it for everyone (owner decision, Oct 2026); it's
-  // gone for good after the 30 days anyway.
+  // gone for good once Recently deleted's days are up anyway.
   const myId = Object.entries(group.members).find(([, m]) => m.uid === user.uid && !m.removedAt)?.[0]
   const canLeave = !!myId && group.createdBy !== user.uid
 
@@ -146,7 +148,7 @@ export function DeletedGroupCard({ group }: { group: Group }) {
       <p className="text-muted mt-1 text-sm">
         Deleted by {by}
         {group.deletedAt ? ` on ${formatDate(group.deletedAt, { day: 'numeric', month: 'short' })}` : ''}. Anyone in the group can restore it{' '}
-        {left <= 1 ? 'until the end of today' : `for ${left} more days`}, then it’s gone for good.
+        {left <= 1 ? 'until the end of today' : `for ${left} more days`}, then it’s gone for good. Its expenses and payments come back with it.
       </p>
       <button type="button" className="btn-primary mt-4 w-full" onClick={() => void restore()} disabled={busy} data-testid="group-restore">
         <RotateCcw size={18} aria-hidden /> Restore group
@@ -161,6 +163,11 @@ export function DeletedGroupCard({ group }: { group: Group }) {
         >
           <Trash2 size={18} aria-hidden /> {busy ? 'Deleting…' : 'Delete forever'}
         </button>
+      )}
+      {purgeFrom && (
+        <p className="text-muted mt-3 text-xs" data-testid="group-purge-held">
+          You can delete it for good from {formatDate(purgeFrom, { day: 'numeric', month: 'short' })}.
+        </p>
       )}
       {canLeave && (
         <button type="button" className="btn mt-2 w-full" onClick={() => void leave()} disabled={busy} data-testid="group-deleted-leave">

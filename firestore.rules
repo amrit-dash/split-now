@@ -31,6 +31,12 @@ service cloud.firestore {
     // Nothing is added or edited inside a group in Recently deleted (shared/group-trash.ts); deletes
     // still go through, so the creator's "Delete forever" and the purge work. A write in the same
     // batch as the delete or the restore itself passes (live on one side of it).
+    // Nothing in Recently deleted can be deleted for good in its first 7 days (shared/group-trash.ts
+    // PURGE_HOLD_DAYS), so a delete always leaves the others time to see it and restore it.
+    function purgeHeld(deletedAt) {
+      return request.time.toMillis() - deletedAt < 604800000;
+    }
+
     function groupLive(groupId) {
       return !('deletedAt' in groupDoc(groupId).data) || !('deletedAt' in getAfter(/databases/$(database)/documents/groups/$(groupId)).data);
     }
@@ -557,8 +563,8 @@ service cloud.firestore {
       // and let the nightly purge take it at once. While deleted the group is read-only, and so is
       // everything in it (groupLive), except that any member may restore it by removing just those
       // two fields, or leave it (their own uid out, their entry marked removed) without bringing it
-      // back for everyone. The daily purge removes it for good after 30 days; the creator may do
-      // so sooner (allow delete below).
+      // back for everyone. The daily purge removes it for good after tuning.trashDays (30 by
+      // default); the creator may do so sooner, after the first 7 days (allow delete below).
       function validDeleteChange() {
         let wasDeleted = 'deletedAt' in resource.data;
         let isDeleted = 'deletedAt' in request.resource.data;
@@ -598,7 +604,10 @@ service cloud.firestore {
             && after.difference(before).hasOnly(resource.data.memberUids)
             && before.difference(after).hasOnly([uid()]));
       }
-      allow delete: if isMember() && resource.data.createdBy == uid() && writesOpen();
+      // For good: only the creator, only from Recently deleted, and not in its first 7 days
+      // (shared/group-trash.ts PURGE_HOLD_DAYS), so the others always get a week to restore it.
+      allow delete: if isMember() && resource.data.createdBy == uid() && writesOpen()
+        && resource.data.get('deletedAt', null) is int && !purgeHeld(resource.data.deletedAt);
 
       // createdBy is the writer on create and never changes afterwards.
       function validAuthor() {
@@ -612,13 +621,23 @@ service cloud.firestore {
       function isTrashChange() {
         let before = resource.data;
         let after = request.resource.data;
+        // deletedAt is about now (a day's slack for a phone that was offline), so a back-dated
+        // stamp can't skip the purge hold below.
         return after.diff(before).affectedKeys().hasOnly(['deletedAt', 'deletedBy'])
-          && (('deletedAt' in after && after.deletedAt is int && after.deletedBy == uid())
+          && (('deletedAt' in after && after.deletedAt is int && after.deletedBy == uid()
+                && after.deletedAt > request.time.toMillis() - 86400000
+                && after.deletedAt < request.time.toMillis() + 300000)
               || (!('deletedAt' in after) && !('deletedBy' in after)));
       }
-      // Hard delete: whoever trashed it, or the group creator.
+      // Hard delete: from Recently deleted, by whoever trashed it or the group creator, once its
+      // first 7 days are over; or anything in the group while its creator deletes the whole group
+      // for good (purgeGroup), once the group's own 7 days are over. A live expense or payment in a
+      // live group is never deleted outright: it goes to Recently deleted first.
       function canPurge() {
-        return resource.data.get('deletedBy', '') == uid() || groupDoc(groupId).data.createdBy == uid();
+        let g = groupDoc(groupId).data;
+        return (resource.data.get('deletedAt', null) is int && !purgeHeld(resource.data.deletedAt)
+            && (resource.data.get('deletedBy', '') == uid() || g.createdBy == uid()))
+          || (g.get('deletedAt', null) is int && g.createdBy == uid() && !purgeHeld(g.deletedAt));
       }
       function noTrustFieldsOnCreate() {
         return !request.resource.data.keys().hasAny(['deletedAt', 'deletedBy', 'dispute', 'approvals']);
