@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useRef } from 'react'
 import { Delete } from 'lucide-react'
 import { PATTERN_MAX, type Step } from '@/lib/vault-api'
 import { usePress } from './usePress'
@@ -18,10 +18,6 @@ export function PatternPad({ steps, onChange, disabled }: { steps: Step[]; onCha
     onChange([...stepsRef.current, s])
   }
   const { holding, long, handlers } = usePress(add, disabled)
-  // The buzz when a held press becomes a long one.
-  useEffect(() => {
-    if (long) navigator.vibrate?.(15)
-  }, [long])
 
   return (
     <div className="flex flex-col items-center">

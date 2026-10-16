@@ -85,9 +85,6 @@ export const stepOf = (ms: number): Step => (ms >= LONG_PRESS_MS ? 'L' : 'T')
 /** The blind pad sends the pattern after this long without a press. */
 export const PATTERN_PAUSE_MS = 1500
 
-/** A buzz per press on the blind pad, so it can be felt rather than seen: short for a tap, longer for a long press. */
-export const buzzFor = (s: Step): number => (s === 'L' ? 40 : 12)
-
 /** The status card's three lines in Settings → Encrypted groups. */
 export function setupLines(s: VaultStatus): { passkey: string; pattern: string; server: string; ready: boolean } {
   return {
@@ -124,7 +121,7 @@ export function shouldSend(pattern: string, opts: { groupHasOwn?: boolean }): bo
 
 /**
  * What a refused try on the lock button means. Nothing of it shows on screen: 'wrong' and
- * 'locked' are a buzz; 'setup' (no pattern set up yet) opens the setup prompt; 'cancelled' (the
+ * 'locked' do nothing; 'setup' (no pattern set up yet) opens the setup prompt; 'cancelled' (the
  * passkey prompt closed) and 'other' (offline, the server) are a quiet toast.
  */
 export function refusalKind(e: unknown): 'wrong' | 'locked' | 'setup' | 'cancelled' | 'other' {
@@ -139,6 +136,3 @@ export function refusalKind(e: unknown): 'wrong' | 'locked' | 'setup' | 'cancell
   if ((code === '' || code.includes('failed-precondition')) && /Set up encrypted groups/.test(message)) return 'setup'
   return 'other'
 }
-
-/** The buzz for a refused pattern: two short pulses, unlike a press. */
-export const WRONG_BUZZ = [40, 70, 40]

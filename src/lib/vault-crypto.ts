@@ -86,10 +86,14 @@ export async function openToken(k: VaultKey, token: string): Promise<string | nu
 }
 
 /**
- * Every token in `text` replaced: with its text when `k` opens it, else with `locked`. A token the
- * key can't open (another group's, or damaged) also shows as `locked`.
+ * Every token in `text` replaced: with its text when `k` opens it, else with `locked` (a string,
+ * or what it makes of the token). A token the key can't open (another group's, or damaged) also
+ * shows as `locked`.
  */
-export async function openText(text: string, k: VaultKey | null, locked = '🔒', cache?: Map<string, string>): Promise<string> {
+export type Locked = string | ((token: string) => string)
+
+export async function openText(text: string, k: VaultKey | null, locked: Locked = '🔒', cache?: Map<string, string>): Promise<string> {
+  const lockedFor = (t: string) => (typeof locked === 'string' ? locked : locked(t))
   const found = text.match(TOKEN)
   if (!found) return text
   const plain = new Map<string, string>()
@@ -99,14 +103,14 @@ export async function openText(text: string, k: VaultKey | null, locked = '🔒'
     else {
       const p = k ? await openToken(k, t) : null
       if (p !== null) cache?.set(t, p)
-      plain.set(t, p ?? locked)
+      plain.set(t, p ?? lockedFor(t))
     }
   }
-  return text.replace(TOKEN, (t) => plain.get(t) ?? locked)
+  return text.replace(TOKEN, (t) => plain.get(t) ?? lockedFor(t))
 }
 
 /** Every string inside `value` (objects and arrays, any depth) opened with openText. Returns a copy only when something changed. */
-export async function openDeep<T>(value: T, k: VaultKey | null, locked = '🔒', cache?: Map<string, string>): Promise<T> {
+export async function openDeep<T>(value: T, k: VaultKey | null, locked: Locked = '🔒', cache?: Map<string, string>): Promise<T> {
   if (typeof value === 'string') return (hasToken(value) ? await openText(value, k, locked, cache) : value) as T
   if (Array.isArray(value)) {
     let changed = false

@@ -18,11 +18,11 @@ Groups); on by default like every flag, server-enforced in the `vault` callable.
   that made it gets its key at once (`create`), so it opens straight away.
 - **The lock button is the pattern pad** (`src/features/vault/PatternLock.tsx`). There is no pad
   screen: the pattern is tapped and long-pressed on the lock icon itself, and nothing on screen
-  changes or says a pattern exists. Each press buzzes where the phone can (Android; iPhone browsers
-  can't vibrate), and the pattern is sent after 1.5 s without a press. Fewer than 6 presses are a
+  changes or says a pattern exists, and nothing buzzes. The pattern is sent after 1.5 s without a
+  press. Fewer than 6 presses are a
   stray tap and never reach the server (`shouldSend`), unless the group has its own, shorter
   pattern. A right one brings up Face ID or the passkey (made on the spot on a site with none
-  yet); a wrong one is a double buzz and nothing else; someone with no pattern set up gets the
+  yet); a wrong one does nothing at all; someone with no pattern set up gets the
   setup prompt. The passkey is asked for only after the server says the pattern is right.
   - **Groups screen** (top right) and **Balances**: the universal pattern opens every private group
     the person is in; once all are open, the Groups button locks them all.
@@ -39,11 +39,15 @@ Groups); on by default like every flag, server-enforced in the `vault` callable.
   group's header locks it at once.
 - **Home never shows private groups**, open or locked: not in the totals, the people, the recent
   list or the feed; the card says "Doesn't include private groups".
-- **While locked, it looks scrambled** (`src/lib/vault-scramble.ts`, seeded by the group's id so it
-  doesn't flicker): a lock for its icon, letters for its name and words, animals for its people,
-  symbols (never digits) for its amounts. On the Groups screen and in Recently deleted, and inside
-  it: only the card and the expense list, no tabs, chat, settings or members, Invite and Settle up
-  off, "Private group" as the page title.
+- **While locked, it looks scrambled** (`src/lib/vault-scramble.ts`): a lock for its icon, animals
+  for its people, and scrambled letters, digits and symbols for every text and amount. Encrypted
+  words show as their own token (`sealedLook`: the ciphertext's characters, about as long as the
+  text); what has no token yet (the group's and people's names) and amounts (never encrypted, the
+  server needs them) are made up from an id, so they don't flicker. Amounts carry the viewer's own
+  currency symbol, never the group's, and always a non-digit, so none reads as a real balance. On
+  the Groups screen and in Recently deleted, and inside it: the same layout as an open group (card,
+  people, Settle up and Invite, the tabs, search, the list), all inert except the lock button,
+  with "Private group" as the page title.
 - **Balances** (/settle) and settling across groups count a private group only while it's open; a
   line says how many aren't included and opens them. Group pickers (Add expense, Scan, captures,
   live tables) leave locked ones out (`usePickableGroups`). Nothing of a locked group is in the

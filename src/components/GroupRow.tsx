@@ -11,6 +11,7 @@ import { activeMembers } from '@/lib/members'
 import { spending } from '../../shared/received'
 import { currencySymbol, gibberish, scrambledAmount } from '@/lib/vault-scramble'
 import { AnimalStack, LockedTile } from '@/features/vault/Scrambled'
+import { useMe } from '@/hooks/auth'
 
 /** One group in a list: icon, name, members (spend for a personal wallet, "Friend" for a 1:1) and your balance in words and numbers. */
 export function GroupRow({ d }: { d: GroupData }) {
@@ -63,12 +64,14 @@ export function GroupRow({ d }: { d: GroupData }) {
 }
 
 /**
- * A private group that is locked on this device (docs/VAULT.md): a lock for its icon, letters for
- * its name, animals for its people and symbols for its balance, so a glance at the list shows
+ * A private group that is locked on this device (docs/VAULT.md): a lock for its icon, scrambled
+ * characters for its name and its balance, animals for its people, so a glance at the list shows
  * only that it is there.
  */
 function LockedRow({ d, count }: { d: GroupData; count: number }) {
   const id = d.group.id
+  // The viewer's own currency symbol: the group's would say something about it.
+  const { profile } = useMe()
   return (
     <Link
       to={`/groups/${id}`}
@@ -78,13 +81,13 @@ function LockedRow({ d, count }: { d: GroupData; count: number }) {
     >
       <LockedTile />
       <div className="min-w-0 flex-1" aria-hidden>
-        <span className="text-muted block truncate font-semibold blur-[0.5px]">{gibberish(id, 14)}</span>
+        <span className="block truncate font-semibold">{gibberish(id, 14)}</span>
         <div className="mt-0.5 flex items-center gap-2">
           <AnimalStack seed={id} count={count} />
         </div>
       </div>
-      <div className="text-muted text-right font-bold tabular-nums" aria-hidden>
-        {scrambledAmount(id, currencySymbol(d.group.currency))}
+      <div className="text-right font-bold tabular-nums" aria-hidden>
+        {scrambledAmount(id, currencySymbol(profile.currency))}
       </div>
       <ChevronRight size={18} className="text-slate-300 dark:text-slate-600" aria-hidden />
     </Link>

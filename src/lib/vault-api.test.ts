@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  buzzFor,
   groupPatternProblem,
   lockButton,
   withoutLocked,
@@ -28,11 +27,10 @@ describe('vault api', () => {
     expect(groupPatternProblem('')).not.toBeNull()
     expect(groupPatternProblem('T'.repeat(33))).toMatch(/at most 32/)
   })
-  it('a long press is 450 ms or more, and buzzes longer', () => {
+  it('a long press is 450 ms or more', () => {
     expect(stepOf(120)).toBe('T')
     expect(stepOf(449)).toBe('T')
     expect(stepOf(450)).toBe('L')
-    expect(buzzFor('L')).toBeGreaterThan(buzzFor('T'))
   })
   it('reads tries left and the lockout from a refusal', () => {
     expect(vaultRefusal({ details: { triesLeft: 2 } })).toEqual({ triesLeft: 2 })

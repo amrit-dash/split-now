@@ -104,7 +104,7 @@ export default function Vault() {
               To open your private groups, tap and long-press your universal pattern on the lock button on the Groups screen, then pause. Face ID or your
               passkey comes up when it’s right. On a private group’s own lock it opens only that group.
             </p>
-            <p>Nothing on screen shows the pattern going in, or that it was wrong. Phones that can buzz do, once per press and twice for a wrong one.</p>
+            <p>Nothing on screen shows the pattern going in, or that it was wrong.</p>
             <p>Private groups lock again when you leave the app or after a few minutes without a tap.</p>
           </div>
         </div>
