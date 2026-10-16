@@ -100,3 +100,44 @@ export function dueToLock(
   }
   return { lock, nextIn }
 }
+
+/** A subtext in the app's three lengths (src/lib/look.ts HintSpec): full, one line, and how much it matters. */
+interface LockHint {
+  full: string
+  short: string
+  tier: 'key' | 'help'
+}
+
+/**
+ * The lines under Auto-lock and Lock when I leave the app, for the person's current choices. They
+ * follow the detail level like every subtext: help lines shorten in When needed and go in Minimal;
+ * leaving the app with it off keeps groups open in front of anyone, so that line is a key one.
+ */
+export function lockHints(p: LockPrefs): { autoLock: LockHint; onLeave: LockHint; group: LockHint } {
+  const never = p.minutes === NEVER
+  return {
+    autoLock: never
+      ? {
+          full: 'Idle time doesn’t lock private groups on this device. Closing, reloading or restarting the app always does.',
+          short: 'A restart always locks them.',
+          tier: 'help',
+        }
+      : {
+          full: 'How long private groups stay open on this device without a tap, click or scroll. Closing or restarting the app always locks them.',
+          short: 'Without a tap, on this device.',
+          tier: 'help',
+        },
+    onLeave: lockOnLeave(p)
+      ? { full: 'Switching to another app, tab or window locks them at once. Best kept on for a phone.', short: 'Switching apps locks them.', tier: 'help' }
+      : {
+          full: 'Switching apps or windows keeps them open, so anyone at this device can see them. Closing or reloading the app still locks them.',
+          short: 'Switching apps keeps them open.',
+          tier: 'key',
+        },
+    group: {
+      full: 'How long this group stays open on this device without activity. Same as all follows Settings → Encrypted groups.',
+      short: 'This group, on this device.',
+      tier: 'help',
+    },
+  }
+}

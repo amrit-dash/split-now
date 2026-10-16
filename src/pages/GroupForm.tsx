@@ -67,6 +67,10 @@ const PRIVATE_HINT: Hint = {
   short: 'Encrypted, opens with your pattern and Face ID.',
   tier: 'key',
 }
+const OWN_PATTERN_HINT: Hint = {
+  full: 'Optional. A pattern of taps and long presses that opens only this group, for anyone you tell it to in person, even someone with no universal pattern. You can change it later from the group’s menu.',
+  short: 'Optional. Opens only this group.',
+}
 const APPROVAL_HINT: Hint = {
   full: 'In this group, a big expense added by someone else stays pending (not counted) until everyone charged taps Approve.',
   short: 'Big expenses by others wait for an OK.',
@@ -925,12 +929,16 @@ export default function GroupForm() {
         {privateOn && privateShown && (
           <div className="card -mt-2 flex items-center justify-between gap-3 p-4" data-testid="group-own-pattern">
             <div className="min-w-0">
-              <div className="text-sm font-semibold">Its own pattern</div>
-              <div className="text-muted text-xs">
-                {ownPattern
-                  ? `Set · ${ownPattern.ordered ? 'in order' : 'any order'}. Tell people in person.`
-                  : 'Optional. Opens only this group, for anyone you tell it to.'}
+              <div className="flex items-center">
+                <span className="text-sm font-semibold">Its own pattern</span>
+                <InfoTip hint={OWN_PATTERN_HINT} label="About its own pattern" />
               </div>
+              {/* Once set, the line is its state (shown in every look); before, the hint follows the detail level. */}
+              {ownPattern ? (
+                <div className="text-muted text-xs">Set · {ownPattern.ordered ? 'in order' : 'any order'}. Tell people in person.</div>
+              ) : (
+                <HintText hint={OWN_PATTERN_HINT} as="div" />
+              )}
             </div>
             <div className="flex shrink-0 gap-1.5">
               {ownPattern && (

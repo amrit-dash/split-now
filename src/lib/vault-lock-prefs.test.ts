@@ -4,6 +4,7 @@ import {
   lockMinutesFor,
   lockMs,
   NEVER,
+  lockHints,
   lockOnLeave,
   minutesWords,
   parseLockPrefs,
@@ -68,5 +69,14 @@ describe('which groups lock when', () => {
     // Never: no idle lock, and nothing to wait for
     expect(dueToLock(['never', 'short'], 0, 1e12, (id) => (id === 'never' ? Number.POSITIVE_INFINITY : 60_000))).toEqual({ lock: ['short'], nextIn: null })
     expect(dueToLock(['never'], 0, 0, () => Number.POSITIVE_INFINITY)).toEqual({ lock: [], nextIn: null })
+  })
+})
+
+describe('the lines under the lock settings', () => {
+  it('turning off Lock when I leave is a key line, kept in every look', () => {
+    expect(lockHints({}).onLeave.tier).toBe('help')
+    expect(lockHints({ onLeave: false }).onLeave).toMatchObject({ tier: 'key', short: 'Switching apps keeps them open.' })
+    expect(lockHints({ minutes: NEVER }).autoLock.short).toBe('A restart always locks them.')
+    expect(lockHints({ minutes: 5 }).autoLock.tier).toBe('help')
   })
 })
