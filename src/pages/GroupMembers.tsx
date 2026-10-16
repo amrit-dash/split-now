@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react'
+import { addPlan } from '@/lib/vault-api'
+import { passkeyCancelled, passkeyProof } from '@/features/vault/passkey'
 import { HandCoins, Link2, LogOut, UserMinus } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { repo } from '@/data'
@@ -85,8 +87,24 @@ export default function GroupMembers() {
   const others = Object.keys(current).length - (me ? 1 : 0)
   const maxOthers = group.type === 'personal' ? 0 : group.type === 'direct' ? 1 : Number.POSITIVE_INFINITY
 
+  const isCreator = group.createdBy === user.uid
   const add = (name: string, email?: string, accountUid?: string) => {
     if (others >= maxOthers) return
+    // A private group: its creator alone adds people; someone they know joins at once (src/lib/vault-api.ts addPlan).
+    const plan = addPlan(group, isCreator, accountUid)
+    if (plan === 'forbidden') return toast('Only the person who made this private group adds people', 'err')
+    if (plan === 'contact' && accountUid) {
+      void (async () => {
+        try {
+          const auth = await passkeyProof(repo)
+          await repo.vault({ op: 'addContact', groupId: group.id, uid: accountUid, auth })
+          toast(`${name} added`)
+        } catch (e) {
+          if (!passkeyCancelled(e)) toast(errText(e), 'err')
+        }
+      })()
+      return
+    }
     // The same person twice (same account or email) would split their money across two entries.
     const already = currentMemberMatch(group.members, { email, uid: accountUid })
     if (already) return toast(`${labelOf(group.members, already, group.members[already]!.name, me)} is already in this group`, 'err')
@@ -219,7 +237,12 @@ export default function GroupMembers() {
               </div>
             </Detail>
           )}
-          {others < maxOthers && (
+          {others < maxOthers && group.vault && !isCreator && (
+            <p className="card text-muted p-4 text-sm" data-testid="members-private-note">
+              Only the person who made this private group adds people. Anyone else asks to join from its invite.
+            </p>
+          )}
+          {others < maxOthers && (!group.vault || isCreator) && (
             <section className="card p-4" aria-labelledby="members-add">
               <h2 id="members-add" className="label">
                 Add people

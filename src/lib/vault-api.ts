@@ -13,6 +13,10 @@ export type VaultRequest =
   | { op: 'groupPattern'; groupId: string; pattern: string | null; ordered: boolean; auth?: unknown }
   | { op: 'create'; groupId: string }
   | { op: 'convert'; groupId: string; on: boolean; auth?: unknown }
+  | { op: 'joinStatus'; code: string }
+  | { op: 'requestJoin'; code: string }
+  | { op: 'decideJoin'; groupId: string; uid: string; approve: boolean; memberId?: string; auth?: unknown }
+  | { op: 'addContact'; groupId: string; uid: string; auth?: unknown }
 
 export interface VaultStatus {
   /** the server can make and open keys (VAULT_KEK is set) */
@@ -152,3 +156,23 @@ export function privateMenuShown(g: { vault?: boolean; type?: string }, isCreato
 export const scanOnDeviceFirst = (o: { vaultsOn: boolean; hasPrivate: boolean }): boolean => o.vaultsOn && o.hasPrivate
 
 export const aiAfterPick = (o: { readOnDevice: boolean; pickedPrivate: boolean; aiOn: boolean }): boolean => o.readOnDevice && !o.pickedPrivate && o.aiOn
+
+/** Where someone stands with a private group's invite (vault ops joinStatus / requestJoin). */
+export type JoinState = { status: 'none' } | { status: 'pending' } | { status: 'declined'; retryAt: number } | { status: 'member'; groupId: string }
+
+/** "tomorrow at 9:40" style words for when someone may ask again, from now. */
+export function askAgainWords(retryAt: number, now: number): string {
+  const h = Math.max(1, Math.ceil((retryAt - now) / 3_600_000))
+  return h <= 1 ? 'in about an hour' : `in about ${h} hours`
+}
+
+/**
+ * Adding someone to a group from the Members screen: in a private group only its creator adds
+ * people, and someone picked from their other groups (with an account) joins at once through the
+ * server (vault op addContact); a name or an email is a placeholder, as in any group.
+ */
+export function addPlan(g: { vault?: boolean }, isCreator: boolean, accountUid?: string): 'forbidden' | 'contact' | 'placeholder' {
+  if (!g.vault) return 'placeholder'
+  if (!isCreator) return 'forbidden'
+  return accountUid ? 'contact' : 'placeholder'
+}

@@ -503,3 +503,19 @@ export interface MergeRequest {
   decidedBy?: string
   decidedAt?: number
 }
+
+/**
+ * groups/{gid}/joinRequests/{uid}: someone asking to join a private group (docs/VAULT.md), written
+ * by the server alone (vault ops requestJoin / decideJoin); read by them and the group's creator.
+ */
+export interface JoinRequest {
+  /** from the document path (not stored) */
+  groupId: string
+  uid: string
+  /** their account name, sealed with the group's key */
+  name: string
+  status: 'pending' | 'approved' | 'declined'
+  createdAt: number
+  decidedAt?: number
+  memberId?: MemberId
+}

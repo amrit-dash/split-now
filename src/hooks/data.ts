@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { repo } from '@/data'
 import { groupsKey, peekShared, peekSharedMeta, subscribeShared } from '@/data/store'
 import type { AccountEmail, AiState, CaptureToken, NewGroup, SnapMeta, Unsub } from '@/data/repo'
-import type { ActivityEntry, Capture, ChatMessage, Expense, ExpenseComment, Group, MemberId, MergeRequest, OpenItem, Settlement } from '@/types'
+import type { ActivityEntry, Capture, ChatMessage, Expense, ExpenseComment, Group, MemberId, MergeRequest, OpenItem, Settlement, JoinRequest } from '@/types'
 import type { PayLink } from '@/lib/paylinks'
 import { countable, netBalances, pairwiseDebts } from '@/lib/balances'
 import { simplifyDebts } from '@/lib/simplify'
@@ -83,6 +83,7 @@ const keys = {
   history: (gid: string, tid: string) => `history/${gid}/${tid}`,
   comments: (gid: string, eid: string) => `comments/${gid}/${eid}`,
   openItems: (gid: string) => `openItems/${gid}`,
+  joinRequests: (gid: string) => `joinRequests/${gid}`,
   chat: (gid: string, max: number) => `chat/${gid}/${max}`,
   captureTokens: (uid: string) => `captureTokens/${uid}`,
   aiState: (uid: string) => `aiState/${uid}`,
@@ -556,4 +557,50 @@ export function useAllGroupData(): GroupData[] | null {
   const ctx = useContext(GroupDataCtx)
   const own = useAllGroupDataImpl(ctx === undefined)
   return ctx === undefined ? own : ctx
+}
+
+/**
+ * The waiting requests to join the private groups you made (their names opened with each group's
+ * key, or shown locked), one live query per group in the shared store; null while none has answered.
+ */
+export function useJoinRequests(groupIds: string[] | null): JoinRequest[] | null {
+  const [lists, setLists] = useState<Record<string, JoinRequest[]>>({})
+  const key = groupIds ? [...groupIds].sort().join(',') : null
+  const subs = useRef(new Map<string, Unsub>())
+  useEffect(() => {
+    const want = new Set(key ? key.split(',').filter(Boolean) : [])
+    for (const [id, unsub] of subs.current) {
+      if (want.has(id)) continue
+      unsub()
+      subs.current.delete(id)
+      setLists(({ [id]: _, ...rest }) => rest)
+    }
+    for (const id of want) {
+      if (subs.current.has(id)) continue
+      subs.current.set(
+        id,
+        subscribeShared<JoinRequest[]>(
+          keys.joinRequests(id),
+          openedWatch<JoinRequest[], SnapMeta>(id, (cb) => repo.watchJoinRequests(id, cb)),
+          (l) => setLists((p) => (p[id] === l ? p : { ...p, [id]: l })),
+        ),
+      )
+    }
+  }, [key])
+  useEffect(() => {
+    const map = subs.current
+    return () => {
+      for (const u of map.values()) u()
+      map.clear()
+    }
+  }, [])
+  return useMemo(
+    () =>
+      key === null
+        ? null
+        : Object.values(lists)
+            .flat()
+            .sort((a, b) => a.createdAt - b.createdAt),
+    [lists, key],
+  )
 }

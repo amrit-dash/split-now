@@ -16,6 +16,12 @@
  *  - create         { groupId }                      → a new private group's first data key, for its member
  *                                                       on the phone that made it (only while it has none);
  *                                                       its name, emoji and people's names are sealed with it
+ *  - joinStatus     { code }                          → where this person stands with a private group's invite
+ *  - requestJoin    { code }                          → asks to join it (nobody joins a private group from its
+ *                                                       invite); its creator is told
+ *  - decideJoin     { groupId, uid, approve, memberId?, auth } → its creator lets them in (as a new person, or
+ *                                                       into a placeholder), or not
+ *  - addContact     { groupId, uid, auth }            → its creator adds someone they share another group with
  *  - convert        { groupId, on, auth }            → its creator turns an existing group private, or back:
  *                                                       every document's words sealed (or opened) here, with
  *                                                       the Admin SDK, since the rules let no one rewrite
@@ -45,6 +51,7 @@ import { sendToUser } from './push'
 import { vaultKey, type VaultKey } from '../../shared/vault-crypto'
 import { openDoc, sealDoc, type ConvertKind } from '../../shared/vault-convert'
 import { inviteNameFor } from '../../shared/names'
+import { isOpenPlaceholder, joinGate, memberIdFor, sharesAGroup, type JoinRequestDoc } from './lib/join-core'
 import { APP_ORIGINS, ENFORCE_APP_CHECK, REGION } from './config'
 import { flagOn } from './lib/limits'
 import { parseKekList, type Sealed } from './lib/seal'
@@ -426,7 +433,7 @@ async function makePrivate(gid: string, uid: string, g: FirebaseFirestore.Docume
   const first = await convertPass(gid, k, true)
   const second = await convertPass(gid, k, true)
   if (typeof g.inviteCode === 'string')
-    await db().doc(`invites/${g.inviteCode}`).set({ groupId: gid, groupName: 'A private group', emoji: '🔒', placeholders: {} })
+    await db().doc(`invites/${g.inviteCode}`).set({ groupId: gid, groupName: 'A private group', emoji: '🔒', placeholders: {}, vault: true })
   logger.info('vault group made private', { groupId: gid, uid, docs: first, again: second })
   await tellMembers(gid, uid, g, true).catch((e) => logger.warn('vault convert push', { groupId: gid, error: (e as Error).message }))
   return { dek }
@@ -454,11 +461,159 @@ async function makePlain(gid: string, uid: string, g: FirebaseFirestore.Document
           groupId: gid,
           groupName: inviteNameFor({ type: opened.type, name: String(opened.name ?? 'Group'), createdBy: opened.createdBy, members: opened.members }),
           emoji: String(opened.emoji ?? ''),
+          vault: FieldValue.delete(),
         },
         { merge: true },
       )
   logger.info('vault group made plain', { groupId: gid, uid, docs: first, again: second })
   await tellMembers(gid, uid, opened, false).catch((e) => logger.warn('vault convert push', { groupId: gid, error: (e as Error).message }))
+  return { ok: true as const }
+}
+
+// ---- joining a private group (lib/join-core.ts) ------------------------------------------
+
+const MEMBER_COLORS = ['#8b5cf6', '#ec4899', '#f97316', '#10b981', '#0ea5e9', '#eab308', '#ef4444', '#14b8a6', '#6366f1', '#d946ef', '#84cc16', '#f43f5e']
+const requestRef = (gid: string, uid: string) => db().doc(`groups/${gid}/joinRequests/${uid}`)
+
+/** A private group from its invite code; refuses an invite that isn't one. */
+async function privateByCode(code: unknown) {
+  if (typeof code !== 'string' || !/^[A-Za-z0-9]{8,32}$/.test(code)) throw new HttpsError('invalid-argument', 'That invite link isn’t right.')
+  const gid = (await db().doc(`invites/${code}`).get()).get('groupId')
+  const snap = typeof gid === 'string' ? await db().doc(`groups/${gid}`).get() : null
+  const g = snap?.data()
+  if (!snap || !g || g.inviteCode !== code || typeof g.deletedAt === 'number') throw new HttpsError('not-found', 'This invite link no longer works.')
+  if (g.vault !== true) throw new HttpsError('failed-precondition', 'This group isn’t private: join it from the invite.')
+  return { gid: snap.id, g }
+}
+
+/** What someone is called in a group they're let into: their account name, sealed with its key. */
+async function sealedNameOf(uid: string, fallback: string, k: VaultKey): Promise<string> {
+  const p = (await db().doc(`users/${uid}`).get()).data()
+  const name =
+    String(p?.displayName ?? fallback ?? 'Member')
+      .trim()
+      .slice(0, 60) || 'Member'
+  return (await sealDoc(k, 'group', { name }))?.name as string
+}
+
+const keyFor = async (gid: string, uid: string, list: Buffer[]) => vaultKey(gid, await keyOf(gid, uid, list))
+
+/** The creator, of a live private group, or a refusal. */
+async function ownGroup(gid: string, uid: string) {
+  const g = await privateGroup(gid, uid)
+  if (g.createdBy !== uid) throw new HttpsError('permission-denied', 'Only the person who made this private group can decide who joins.')
+  return g
+}
+
+async function joinStatus(uid: string, code: unknown) {
+  const { gid, g } = await privateByCode(code)
+  if ((g.memberUids as string[] | undefined)?.includes(uid)) return { status: 'member' as const, groupId: gid }
+  const r = (await requestRef(gid, uid).get()).data() as JoinRequestDoc | undefined
+  const gate = joinGate(r, Date.now())
+  if (gate.kind === 'pending') return { status: 'pending' as const }
+  if (gate.kind === 'cooldown') return { status: 'declined' as const, retryAt: gate.retryAt }
+  return { status: 'none' as const }
+}
+
+async function requestJoin(uid: string, req: CallableRequest, code: unknown) {
+  const { gid, g } = await privateByCode(code)
+  if ((g.memberUids as string[] | undefined)?.includes(uid)) return { status: 'member' as const, groupId: gid }
+  const ref = requestRef(gid, uid)
+  const gate = joinGate((await ref.get()).data() as JoinRequestDoc | undefined, Date.now())
+  if (gate.kind === 'pending') return { status: 'pending' as const }
+  if (gate.kind === 'cooldown')
+    throw new HttpsError('resource-exhausted', 'Your last request was declined. You can ask again tomorrow.', { retryAt: gate.retryAt })
+  const k = await keyFor(gid, String(g.createdBy), keks())
+  const doc: JoinRequestDoc = { uid, name: await sealedNameOf(uid, String(req.auth?.token.name ?? ''), k), status: 'pending', createdAt: Date.now() }
+  await ref.set(doc)
+  logger.info('vault join asked', { groupId: gid, uid })
+  await sendToUser(String(g.createdBy), ['expenses'], {
+    title: 'Split Now',
+    body: 'Someone asked to join a private group. Open the Inbox to decide.',
+    url: '/inbox',
+    tag: `join-${gid}-${uid}`,
+  }).catch((e) => logger.warn('join push', { error: (e as Error).message }))
+  return { status: 'pending' as const }
+}
+
+async function decideJoin(uid: string, req: CallableRequest, data: Record<string, unknown>) {
+  const gid = groupId(data.groupId)
+  const who = typeof data.uid === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(data.uid) ? data.uid : ''
+  if (!who) throw new HttpsError('invalid-argument', 'Whose request?')
+  await ownGroup(gid, uid)
+  await checkPasskey(uid, req, data.auth as AuthenticationResponseJSON)
+  const approve = data.approve === true
+  const placeholder = typeof data.memberId === 'string' ? data.memberId : undefined
+  const now = Date.now()
+  const out = await db().runTransaction(async (tx) => {
+    const gRef = db().doc(`groups/${gid}`)
+    const [gs, rs] = await Promise.all([tx.get(gRef), tx.get(requestRef(gid, who))])
+    const g = gs.data()
+    const r = rs.data() as JoinRequestDoc | undefined
+    if (!g || !r || r.status !== 'pending') return { gone: true as const }
+    if (!approve) {
+      tx.update(rs.ref, { status: 'declined', decidedAt: now, decidedBy: uid })
+      return { declined: true as const }
+    }
+    const members = (g.members ?? {}) as Record<string, Record<string, unknown>>
+    if (placeholder && !isOpenPlaceholder(members, placeholder))
+      throw new HttpsError('failed-precondition', 'That person in the group is taken now. Pick another, or add them as new.')
+    const memberId = placeholder ?? memberIdFor(members, who, Math.random().toString(36).slice(2, 6))
+    const entry = placeholder
+      ? { ...members[placeholder], uid: who }
+      : { ...(members[memberId] ?? {}), name: r.name, uid: who, color: MEMBER_COLORS[Object.keys(members).length % MEMBER_COLORS.length] }
+    if (!placeholder) delete (entry as Record<string, unknown>).removedAt
+    tx.update(gRef, { [`members.${memberId}`]: entry, memberUids: FieldValue.arrayUnion(who), updatedAt: now })
+    tx.update(rs.ref, { status: 'approved', decidedAt: now, decidedBy: uid, memberId })
+    return { approved: memberId }
+  })
+  if ('gone' in out) throw new HttpsError('not-found', 'That request isn’t waiting any more.')
+  logger.info(approve ? 'vault join approved' : 'vault join declined', { groupId: gid, uid, who })
+  await sendToUser(who, ['expenses'], {
+    title: 'Split Now',
+    body: approve ? 'You were added to a private group.' : 'Your request to join a private group wasn’t accepted.',
+    url: approve ? `/groups/${gid}` : '/',
+    tag: approve ? `group-added-${gid}` : `join-declined-${gid}`,
+  }).catch((e) => logger.warn('join push', { error: (e as Error).message }))
+  return { ok: true as const }
+}
+
+async function addContact(uid: string, req: CallableRequest, data: Record<string, unknown>) {
+  const gid = groupId(data.groupId)
+  const who = typeof data.uid === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(data.uid) ? data.uid : ''
+  if (!who || who === uid) throw new HttpsError('invalid-argument', 'Who should be added?')
+  const g = await ownGroup(gid, uid)
+  if ((g.memberUids as string[]).includes(who)) return { ok: true as const }
+  const mine = await db().collection('groups').where('memberUids', 'array-contains', uid).get()
+  if (
+    !sharesAGroup(
+      mine.docs.map((d) => ({ id: d.id, ...(d.data() as { memberUids?: string[]; deletedAt?: unknown }) })),
+      uid,
+      who,
+      gid,
+    )
+  )
+    throw new HttpsError('permission-denied', 'You can add someone directly only if you’re in another group with them. Add them by name instead.')
+  await checkPasskey(uid, req, data.auth as AuthenticationResponseJSON)
+  const k = await keyFor(gid, uid, keks())
+  const name = await sealedNameOf(who, 'Member', k)
+  const members = (g.members ?? {}) as Record<string, Record<string, unknown>>
+  const memberId = memberIdFor(members, who, Math.random().toString(36).slice(2, 6))
+  const { removedAt: _r, ...prev } = members[memberId] ?? {}
+  await db()
+    .doc(`groups/${gid}`)
+    .update({
+      [`members.${memberId}`]: { ...prev, name, uid: who, color: MEMBER_COLORS[Object.keys(members).length % MEMBER_COLORS.length] },
+      memberUids: FieldValue.arrayUnion(who),
+      updatedAt: Date.now(),
+    })
+  logger.info('vault contact added', { groupId: gid, uid, who })
+  await sendToUser(who, ['expenses'], {
+    title: 'Split Now',
+    body: 'You were added to a private group.',
+    url: `/groups/${gid}`,
+    tag: `group-added-${gid}`,
+  }).catch((e) => logger.warn('join push', { error: (e as Error).message }))
   return { ok: true as const }
 }
 
@@ -559,6 +714,14 @@ export const vault = onCall(
         await convertPass(gid, await vaultKey(gid, dek), true, { groupOnly: true })
         return { dek }
       }
+      case 'joinStatus':
+        return joinStatus(uid, data.code)
+      case 'requestJoin':
+        return requestJoin(uid, req, data.code)
+      case 'decideJoin':
+        return decideJoin(uid, req, data)
+      case 'addContact':
+        return addContact(uid, req, data)
       case 'convert': {
         const gid = groupId(data.groupId)
         const on = data.on === true

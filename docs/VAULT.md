@@ -99,6 +99,22 @@ The Scan tab, for someone with private groups, reads on the phone first (nobody 
 group the bill is for) and lets the AI read it only once a group that isn't private is picked;
 locked private groups aren't offered there.
 
+## Who gets in
+
+Nobody joins a private group from its invite, an old link included (`firestore.rules` isJoining
+refuses it). The invite page says only "A private group" and offers **Ask to join** (vault op
+`requestJoin`): the server records the request in `groups/{gid}/joinRequests/{uid}`, their name
+sealed with the group's key, and tells its creator, who sees it in the Inbox under **Asking to
+join** and lets them in, as someone new or into one of the group's placeholders, or declines
+(`decideJoin`, after their passkey). One request per person at a time; after a decline, a day
+before they may ask again (`functions/src/lib/join-core.ts`). Until they're let in they read
+nothing of the group.
+
+Only its creator adds people (the rules refuse anyone else's placeholder): by name or email, as
+in any group (an email that matches an account links as usual), or directly someone they're
+already in another group with, who is in at once (`addContact`). Demo mode has one person, so
+asking to join answers that it needs the online app.
+
 ## How it works
 
 - **Data key**: 32 random bytes per group, made by the `vault` callable when the group is made or first opened,

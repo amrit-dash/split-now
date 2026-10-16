@@ -16,6 +16,7 @@ import type {
   PaymentHandles,
   Settlement,
   UserProfile,
+  JoinRequest,
 } from '@/types'
 import type { CaptureDraft, InboxDoc } from '@/lib/capture'
 import type { ItemId, LiveTable, NewTable, ParticipantId, TableExtras, TableItem, TableParticipant, TableStatus, TaxSplit } from '@/lib/table'
@@ -104,6 +105,8 @@ export interface InviteInfo {
   emoji: string
   /** unclaimed placeholder members the joiner can claim */
   placeholders: Record<MemberId, string>
+  /** a private group: nobody joins from the invite; they ask its creator (vault op requestJoin) */
+  vault?: boolean
 }
 
 export type NewGroup = Omit<Group, 'id' | 'createdAt' | 'updatedAt' | 'inviteCode'>
@@ -399,6 +402,8 @@ export interface Repo {
   // ---- Open items (groups/{gid}/openItems, see src/lib/open-items.ts) ----
   /** Every open item of the group, claimed and deleted ones included (openItemState sorts them). */
   watchOpenItems(groupId: string, cb: Watch<OpenItem[]>): Unsub
+  /** A private group's waiting requests to join, for its creator (none in demo mode). */
+  watchJoinRequests(groupId: string, cb: Watch<JoinRequest[]>): Unsub
   /** Create, or edit one still open (title, date, amount, category, notes, suspects). Fire-and-forget. */
   saveOpenItem(item: OpenItem): Promise<void>
   /** Soft delete (any member). A no-op when already deleted. */

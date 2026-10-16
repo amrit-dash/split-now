@@ -1,4 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useJoinRequests } from '@/hooks/data'
+import type { JoinRequest } from '@/types'
+import { isSealed } from '@/lib/vault-scramble'
+import { passkeyCancelled, passkeyProof } from '@/features/vault/passkey'
 import { Link } from 'react-router-dom'
 import { Ban, BookOpen, Check, CheckCheck, ChevronDown, ChevronRight, EyeOff, Flag, FolderInput, Loader2, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { repo } from '@/data'
@@ -201,6 +205,9 @@ function ToSort({
   const showSort = useShows(2)
   const deletedGroups = useDeletedGroups()
   const deletedByOthers = useMemo(() => groupsDeletedByOthers(deletedGroups ?? [], user.uid), [deletedGroups, user.uid])
+  // Requests to join the private groups you made (vault op requestJoin): yours to decide.
+  const mine = useMemo(() => (data ?? []).filter((d) => d.group.vault && d.group.createdBy === user.uid && !d.group.deletedAt), [data, user.uid])
+  const joins = useJoinRequests(data ? mine.map((d) => d.group.id) : null) ?? []
   useEffect(() => watchCapturePrefs(user.uid, repo.mode, setPrefs), [user.uid])
   const loadingCaptures = box.loading && box.captures.length === 0 && !handled
   const nothing =
@@ -212,6 +219,7 @@ function ToSort({
     box.claims.length === 0 &&
     box.merges.length === 0 &&
     box.nudges.length === 0 &&
+    joins.length === 0 &&
     deletedByOthers.length === 0
   const paused = prefs?.pausedTrips
   const candidates = useMemo(() => (groups ? bulkCandidates(box.captures, groups, paused) : []), [box.captures, groups, paused])
@@ -333,6 +341,14 @@ function ToSort({
         <Section title="Deleted groups" hint={{ full: 'Anyone in a group can restore it', tier: 'key' }}>
           {deletedByOthers.map((g) => (
             <DeletedGroupRow key={g.id} group={g} />
+          ))}
+        </Section>
+      )}
+
+      {joins.length > 0 && (
+        <Section title="Asking to join" hint={{ full: 'Only you let people into a private group you made', tier: 'key' }}>
+          {joins.map((r) => (
+            <JoinRequestRow key={`${r.groupId}/${r.uid}`} request={r} d={mine.find((d) => d.group.id === r.groupId)} />
           ))}
         </Section>
       )}
@@ -1068,5 +1084,67 @@ function SortPicker<T extends string>({
         <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2" aria-hidden />
       </span>
     </label>
+  )
+}
+
+/**
+ * Someone asking to join a private group you made: let them in, as a new person or as one of its
+ * placeholders, or not (vault op decideJoin, after your passkey). While the group is locked here
+ * its names are sealed: the person is "Someone", and they can only come in as new.
+ */
+function JoinRequestRow({ request, d }: { request: JoinRequest; d: GroupData | undefined }) {
+  const toast = useToast()
+  const [busy, setBusy] = useState(false)
+  const [picking, setPicking] = useState(false)
+  const group = d?.group
+  const open = !!group && !isSealed(group.name)
+  const who = isSealed(request.name) ? 'Someone' : request.name
+  const placeholders = open && group ? Object.entries(group.members).filter(([, m]) => !m.uid && m.removedAt === undefined) : []
+  const decide = async (approve: boolean, memberId?: string) => {
+    setPicking(false)
+    setBusy(true)
+    try {
+      const auth = await passkeyProof(repo)
+      await repo.vault({ op: 'decideJoin', groupId: request.groupId, uid: request.uid, approve, ...(memberId ? { memberId } : {}), auth })
+      toast(approve ? `${who} can open it now` : 'Request declined')
+    } catch (e) {
+      if (!passkeyCancelled(e)) toast(errText(e), 'err')
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <div className="card p-4" data-testid="join-request-row">
+      <div className="text-sm">
+        <b>{who}</b> asked to join <b>{open && group ? group.name : 'a private group'}</b>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          className="btn-primary"
+          disabled={busy}
+          onClick={() => (placeholders.length ? setPicking(true) : void decide(true))}
+          data-testid="join-approve"
+        >
+          Let them in
+        </button>
+        <button type="button" className="btn" disabled={busy} onClick={() => void decide(false)} data-testid="join-decline">
+          Decline
+        </button>
+      </div>
+      <Sheet open={picking} onClose={() => setPicking(false)} title={`Who is ${who}?`}>
+        <p className="text-muted mb-3 text-sm">If they’re already in the group under a name you added, pick it: what was theirs becomes theirs.</p>
+        <div className="space-y-2">
+          {placeholders.map(([id, m]) => (
+            <button key={id} type="button" className="btn w-full" onClick={() => void decide(true, id)}>
+              {m.name}
+            </button>
+          ))}
+          <button type="button" className="btn-primary w-full" onClick={() => void decide(true)}>
+            Someone new
+          </button>
+        </div>
+      </Sheet>
+    </div>
   )
 }
