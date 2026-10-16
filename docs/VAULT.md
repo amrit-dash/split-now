@@ -57,8 +57,9 @@ Groups); on by default like every flag, server-enforced in the `vault` callable.
   sign-out and on a reload. The lock button in the group's header locks it at once. Taps, clicks,
   pointer moves, the wheel, keys, typing and scrolling count as activity, for every open group.
   The idle time is `tuning.vaultLockMinutes` (Admin → Limits → App, 1–60, default 5) unless the
-  person chose their own in Settings → Encrypted groups (Lock after: 1 min to 1 hour, or Never), or
-  one for a group in its Private group sheet. With Never and Lock when I leave off, only closing,
+  person chose their own in Settings → Encrypted groups (Auto-lock: after 1 min to 1 hour, or Only when the app
+  closes), or one for a group in its Private group sheet. Nothing keeps a group open across a restart.
+  With Only when the app closes and Lock when I leave off, only closing,
   reloading or restarting the app (the keys live in memory), signing out or the lock button lock them. **Lock when I leave the app** (on by default) can be turned
   off, for a laptop: then only the idle time locks them, checked again the moment the app is back
   in front. These choices stay on the device (localStorage `sn-vault-lock`,

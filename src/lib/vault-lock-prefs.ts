@@ -5,7 +5,11 @@
  * for all groups replaces it, and a group's own choice replaces both for that group.
  */
 
-/** The idle times offered, in minutes. NEVER: no idle lock at all, only closing the app (or leaving it, if that's on). */
+/**
+ * The idle times offered, in minutes. NEVER: no idle lock; the group still locks when the app is
+ * closed, reloaded or restarted (keys live only in memory), and on leaving it if that's on. Shown as
+ * "Only when the app closes", never as "Never", which would read as open even after a restart.
+ */
 export const NEVER = 0
 export const LOCK_CHOICES = [1, 2, 5, 10, 15, 30, 60, NEVER] as const
 
@@ -69,7 +73,7 @@ export function withGroupMinutes(p: LockPrefs, groupId: string, minutes: number 
 export const lockOnLeave = (p: LockPrefs): boolean => p.onLeave !== false
 
 /** "5 min", "1 hour": the idle time in words. */
-export const minutesWords = (m: number): string => (m === NEVER ? 'Never' : m === 60 ? '1 hour' : `${m} min`)
+export const minutesWords = (m: number): string => (m === NEVER ? 'Only when the app closes' : m === 60 ? '1 hour' : `${m} min`)
 
 /** The idle time in ms for the auto-lock: Infinity for NEVER. */
 export const lockMs = (minutes: number): number => (minutes === NEVER ? Number.POSITIVE_INFINITY : minutes * 60_000)

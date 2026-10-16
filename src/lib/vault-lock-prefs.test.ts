@@ -51,7 +51,7 @@ describe('lock times', () => {
   it('in words', () => {
     expect(minutesWords(5)).toBe('5 min')
     expect(minutesWords(60)).toBe('1 hour')
-    expect(minutesWords(NEVER)).toBe('Never')
+    expect(minutesWords(NEVER)).toBe('Only when the app closes')
     expect(lockMs(5)).toBe(300_000)
     expect(lockMs(NEVER)).toBe(Number.POSITIVE_INFINITY)
     expect(parseLockPrefs('{"minutes":0}')).toEqual({ minutes: NEVER })

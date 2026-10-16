@@ -18,7 +18,8 @@ function useLockPrefs(): [LockPrefs, (p: LockPrefs) => void] {
   return [prefs, save]
 }
 
-const choices = LOCK_CHOICES.map((m) => ({ value: String(m), label: minutesWords(m) }))
+// "After 5 min" … "Only when the app closes": what the setting does, read from the menu alone.
+const choices = LOCK_CHOICES.map((m) => ({ value: String(m), label: m === NEVER ? minutesWords(m) : `After ${minutesWords(m)}` }))
 
 /**
  * Settings → Encrypted groups: how long every private group may sit idle before it locks, and
@@ -30,25 +31,27 @@ export function AllGroupsLockTime() {
   const value = prefs.minutes === undefined ? '' : String(prefs.minutes)
   return (
     <div className="card space-y-4 p-4" data-testid="vault-lock-time">
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
+      <div className="space-y-2">
+        <div>
           <div className="text-sm font-semibold" id="vault-lock-after">
-            Lock after
+            Auto-lock
           </div>
           <div className="text-muted text-xs">
-            {prefs.minutes === NEVER ? 'Only closing the app locks them' : 'Without a tap, click or scroll'}
-            {prefs.minutes === NEVER && lockOnLeave(prefs) ? ', or leaving it' : ''}. On this device.
+            {prefs.minutes === NEVER
+              ? 'Idle time doesn’t lock them. Closing or restarting the app always does.'
+              : 'After this long without a tap, click or scroll.'}{' '}
+            On this device.
           </div>
         </div>
         <Select
-          aria-label="Lock after"
+          aria-label="Auto-lock"
           size="sm"
           value={value}
           onChange={(v) => {
             const { minutes: _m, ...rest } = prefs
             save(v === '' ? rest : { ...rest, minutes: Number(v) })
           }}
-          options={[{ value: '', label: `Default (${minutesWords(admin)})` }, ...choices]}
+          options={[{ value: '', label: `Default (after ${minutesWords(admin)})` }, ...choices]}
         />
       </div>
       <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4 dark:border-white/5">
@@ -83,7 +86,7 @@ export function GroupLockTime({ groupId }: { groupId: string }) {
   return (
     <div className="flex items-center justify-between gap-3" data-testid="vault-group-lock-time">
       <div className="min-w-0">
-        <div className="text-sm font-semibold">Lock after</div>
+        <div className="text-sm font-semibold">Auto-lock</div>
         <div className="text-muted text-xs">This group, on this device.</div>
       </div>
       <Select
@@ -91,7 +94,7 @@ export function GroupLockTime({ groupId }: { groupId: string }) {
         size="sm"
         value={own === undefined ? '' : String(own)}
         onChange={(v) => save(withGroupMinutes(prefs, groupId, v === '' ? undefined : Number(v)))}
-        options={[{ value: '', label: `Same as all (${minutesWords(all)})` }, ...choices]}
+        options={[{ value: '', label: all === NEVER ? 'Same as all (when the app closes)' : `Same as all (after ${minutesWords(all)})` }, ...choices]}
       />
     </div>
   )
