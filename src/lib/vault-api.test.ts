@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  firstPhase,
+  phasePrompt,
   addPlan,
   askAgainWords,
   aiAfterPick,
@@ -118,5 +120,17 @@ describe('joining and adding to a private group', () => {
   it('says when someone may ask again', () => {
     expect(askAgainWords(30 * 60_000, 0)).toBe('in about an hour')
     expect(askAgainWords(5 * 3_600_000, 0)).toBe('in about 5 hours')
+  })
+})
+
+describe('the pattern sheet', () => {
+  it('asks for a pattern that opens it before a new one, except for a first universal pattern', () => {
+    expect(firstPhase({ kind: 'universal', hasCurrent: false })).toBe('new')
+    expect(firstPhase({ kind: 'universal', hasCurrent: true })).toBe('current')
+    // a group's own: the universal pattern or its own, whether or not it has one yet
+    expect(firstPhase({ kind: 'group', hasCurrent: false })).toBe('current')
+    expect(phasePrompt('current', 'universal')).toBe('Enter your current pattern')
+    expect(phasePrompt('current', 'group')).toBe('Enter a pattern that opens this group')
+    expect(phasePrompt('again', 'group')).toBe('Once more to be sure')
   })
 })

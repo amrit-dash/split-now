@@ -112,6 +112,25 @@ describe('vault callable (emulator)', () => {
       expect((await getDoc(doc(ctx.firestore(), 'users/alice/secrets/vault'))).get('pattern')).toBeUndefined()
     })
   })
+  it('changing a pattern takes one that opens it, before any passkey: a passkey alone is not enough', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'users/alice/secrets/vault'), { pattern: { salt: 'c2FsdA==', hash: 'bm90LXRoZS1oYXNo' } })
+    })
+    // a wrong current pattern (or none) is refused and counted, and no passkey is checked
+    for (const data of [
+      { op: 'setUniversal', pattern: 'LLTTLT', ordered: true },
+      { op: 'setUniversal', pattern: 'LLTTLT', ordered: true, current: 'TTLTLL' },
+      { op: 'groupPattern', groupId: 'vg', pattern: 'TL', ordered: true, current: 'TTLTLL' },
+    ])
+      expect((await call(data, 'alice')).error?.status).toBe('PERMISSION_DENIED')
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const person = (await getDoc(doc(ctx.firestore(), 'users/alice/secrets/vault'))).data()
+      expect(person?.tries).toEqual({ wrong: 3 })
+      expect(person?.pattern.hash).toBe('bm90LXRoZS1oYXNo')
+    })
+    // bob has no pattern of any kind: nothing proves he can open it, so he can't give it one
+    expect((await call({ op: 'groupPattern', groupId: 'vg', pattern: 'TL', ordered: true, current: 'TL' }, 'bob')).error?.status).toBe('FAILED_PRECONDITION')
+  })
   it('unlockStart: no pattern set yet asks for setup; a wrong one is counted and gets no passkey challenge', async () => {
     expect((await call({ op: 'unlockStart', pattern: 'TTLTLL' }, 'alice')).error?.status).toBe('FAILED_PRECONDITION')
     // a universal pattern, as setUniversal stores it after a passkey (hashed with the emulator's VAULT_KEK)

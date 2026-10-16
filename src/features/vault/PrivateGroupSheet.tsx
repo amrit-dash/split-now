@@ -25,7 +25,8 @@ export function PrivateGroupSheet({ group, open, onClose, isCreator }: { group: 
   const confirm = useConfirm()
   const [status, setStatus] = useState<VaultStatus | null>(null)
   const [failed, setFailed] = useState<string | null>(null)
-  const [setting, setSetting] = useState(false)
+  // the pattern sheet: setting or changing its own pattern, or removing it
+  const [setting, setSetting] = useState<'set' | 'remove' | null>(null)
   const [busy, setBusy] = useState(false)
   const [round, setRound] = useState(0)
 
@@ -44,9 +45,9 @@ export function PrivateGroupSheet({ group, open, onClose, isCreator }: { group: 
   }, [open, group.id, round])
 
   const own = status?.group
-  const save = async (pattern: string | null, ordered: boolean) => {
+  const save = async (pattern: string | null, ordered: boolean, current = '') => {
     const auth = await passkeyProof(repo)
-    await repo.vault({ op: 'groupPattern', groupId: group.id, pattern, ordered, auth })
+    await repo.vault({ op: 'groupPattern', groupId: group.id, pattern, ordered, current, auth })
     setRound((r) => r + 1)
   }
   const remove = async () => {
@@ -55,16 +56,7 @@ export function PrivateGroupSheet({ group, open, onClose, isCreator }: { group: 
       message: 'People in it open it with their universal pattern instead.',
       confirmLabel: 'Remove',
     })
-    if (!ok) return
-    setBusy(true)
-    try {
-      await save(null, true)
-      toast('Group pattern removed')
-    } catch (e) {
-      if (!passkeyCancelled(e)) toast(errText(e), 'err')
-    } finally {
-      setBusy(false)
-    }
+    if (ok) setSetting('remove')
   }
 
   const convert = async (on: boolean) => {
@@ -147,7 +139,7 @@ export function PrivateGroupSheet({ group, open, onClose, isCreator }: { group: 
               </li>
             </ul>
             <p className="text-muted mt-3 px-1 text-xs">A group’s own pattern opens only this group, for anyone in it who knows it. Tell people in person.</p>
-            <button type="button" className="btn-primary mt-4 w-full" disabled={busy} onClick={() => setSetting(true)} data-testid="vault-group-pattern-set">
+            <button type="button" className="btn-primary mt-4 w-full" disabled={busy} onClick={() => setSetting('set')} data-testid="vault-group-pattern-set">
               <Lock size={18} aria-hidden /> {own?.hasPattern ? 'Change its pattern' : 'Give it its own pattern'}
             </button>
             {own?.hasPattern && (
@@ -164,14 +156,15 @@ export function PrivateGroupSheet({ group, open, onClose, isCreator }: { group: 
         )}
       </Sheet>
       <SetPatternSheet
-        open={setting}
-        onClose={() => setSetting(false)}
+        open={!!setting}
+        onClose={() => setSetting(null)}
         kind="group"
+        remove={setting === 'remove'}
         ordered={own?.ordered !== false}
-        save={async (p, o) => {
-          await save(p, o)
-          setSetting(false)
-          toast('Group pattern saved. Tell the group in person.')
+        save={async (p, o, current) => {
+          await save(p, o, current)
+          setSetting(null)
+          toast(p === null ? 'Group pattern removed' : 'Group pattern saved. Tell the group in person.')
         }}
       />
     </>

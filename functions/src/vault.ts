@@ -7,12 +7,14 @@
  *  - passkeyOptions { purpose: 'register' | 'auth' } → WebAuthn options; the challenge is kept for 5 minutes
  *  - passkeyRegister { response }                    → a passkey (Face ID, fingerprint, screen lock) for
  *                                                       this person on this site, kept in users/{uid}/secrets/passkeys
- *  - setUniversal   { pattern, ordered, auth }       → this person's universal pattern (needs the passkey)
+ *  - setUniversal   { pattern, ordered, current?, auth } → this person's universal pattern (needs the passkey,
+ *                                                       and the current one to change it)
  *  - unlockStart    { pattern, groupId? }            → checks the pattern first (wrong ones count towards a
  *                                                       lockout); only a right one gets a passkey challenge
  *  - unlockFinish   { auth | register }              → the data keys: every private group the person is in
  *                                                       (universal pattern on the Groups screen), or one group
- *  - groupPattern   { groupId, pattern, ordered, auth } → set, change or (pattern null) remove a group's own pattern
+ *  - groupPattern   { groupId, pattern, ordered, current, auth } → set, change or (pattern null) remove a group's own
+ *                                                       pattern; `current` is a pattern that opens it for them
  *  - create         { groupId }                      → a new private group's first data key, for its member
  *                                                       on the phone that made it (only while it has none);
  *                                                       its name, emoji and people's names are sealed with it
@@ -31,7 +33,9 @@
  * read; patterns are stored only as peppered scrypt hashes (lib/vault-core.ts): a person's universal
  * one in users/{uid}/secrets/vault, a group's own one in vaultKeys/{groupId}. A passkey proves it's
  * this person on a device they set up; the pattern proves they know the secret. The passkey is
- * asked for only after a right pattern, so a wrong guess never reaches Face ID.
+ * asked for only after a right pattern, so a wrong guess never reaches Face ID. A passkey can be
+ * added by anyone signed in on the phone (it is the phone's own screen lock), so it never stands in
+ * for the pattern: changing a pattern takes one that already opens it (counted like any try).
  */
 import { logger } from 'firebase-functions/logger'
 import { defineSecret } from 'firebase-functions/params'
@@ -656,6 +660,9 @@ export const vault = onCall(
         const problem = typeof data.pattern === 'string' ? patternProblem(data.pattern) : patternProblem('')
         if (problem) throw new HttpsError('invalid-argument', problem)
         const list = keks()
+        // Changing it takes the current one: someone holding the unlocked phone could add a passkey and set their own.
+        const was = ((await personRef(uid).get()).data() ?? {}) as PersonDoc
+        if (was.pattern) await checkPattern(uid, undefined, data.current, list)
         await checkPasskey(uid, req, data.auth as AuthenticationResponseJSON)
         await personRef(uid).set(
           { pattern: hashPattern(data.pattern as string, pepperOf(list[0]), undefined, ordered(data.ordered)), setAt: Date.now(), tries: FieldValue.delete() },
@@ -688,6 +695,8 @@ export const vault = onCall(
           if (problem) throw new HttpsError('invalid-argument', problem)
         }
         const list = keks()
+        // Only someone who can already open it sets, changes or removes its pattern (their universal one or its own).
+        await checkPattern(uid, gid, data.current, list)
         await checkPasskey(uid, req, data.auth as AuthenticationResponseJSON)
         const dek = await keyOf(gid, uid, list)
         await keyRef(gid).update({
