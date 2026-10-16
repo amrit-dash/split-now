@@ -3,6 +3,7 @@
  * dismissed is removed once it has been handled for config/limits `captureKeepDays` (30 by
  * default), so the list each device loads stops growing. One still waiting to be sorted is never
  * removed. A collection-group query on status + updatedAt (firestore.indexes.json), a page at a time.
+ * It also removes the phones' error reports (appErrors) after config/limits `appErrorKeepDays`.
  */
 import { logger } from 'firebase-functions/logger'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
@@ -28,11 +29,30 @@ export async function purgeHandledCaptures(now: number, keepDays: number, pageSi
   return removed
 }
 
+/** Remove error reports from phones (appErrors, Admin → Logs) older than `keepDays`. Returns how many went. */
+export async function purgeAppErrors(now: number, keepDays: number, pageSize = 400): Promise<number> {
+  const cutoff = now - keepDays * DAY
+  let removed = 0
+  for (;;) {
+    const page = await db().collection('appErrors').where('at', '<', cutoff).limit(pageSize).get()
+    if (page.empty) break
+    const batch = db().batch()
+    for (const d of page.docs) batch.delete(d.ref)
+    await batch.commit()
+    removed += page.size
+    if (page.size < pageSize) break
+  }
+  return removed
+}
+
 export const cleanupCaptures = onSchedule(
   { schedule: 'every day 03:45', timeZone: TIME_ZONE, region: REGION, timeoutSeconds: 540, retryCount: 1 },
   async () => {
-    const { captureKeepDays } = await getLimits()
+    const { captureKeepDays, appErrorKeepDays } = await getLimits()
     const removed = await purgeHandledCaptures(Date.now(), captureKeepDays)
     logger.info('cleaned up handled captures', { removed, keepDays: captureKeepDays })
+    // The same daily tidy-up takes the phones' old error reports (config/limits appErrorKeepDays).
+    const errors = await purgeAppErrors(Date.now(), appErrorKeepDays)
+    logger.info('cleaned up app error reports', { removed: errors, keepDays: appErrorKeepDays })
   },
 )

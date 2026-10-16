@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
-import { purgeHandledCaptures } from '../src/cleanup'
+import { purgeAppErrors, purgeHandledCaptures } from '../src/cleanup'
 
 const DAY = 86_400_000
 let env: RulesTestEnvironment
@@ -46,5 +46,22 @@ describe('purgeHandledCaptures (emulator)', () => {
     expect(await exists('old_dismissed')).toBe(false)
     expect(await exists('recent')).toBe(true)
     expect(await exists('waiting')).toBe(true)
+  })
+})
+
+describe('purgeAppErrors (emulator)', () => {
+  it('removes error reports older than the keep period', async () => {
+    const now = 100 * DAY
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore()
+      await setDoc(doc(db, 'appErrors/old'), { uid: 'u', at: now - 15 * DAY, kind: 'crash', message: 'x' })
+      await setDoc(doc(db, 'appErrors/new'), { uid: 'u', at: now - 2 * DAY, kind: 'crash', message: 'y' })
+    })
+    expect(await purgeAppErrors(now, 14)).toBe(1)
+    let left: boolean[] = []
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      left = await Promise.all(['old', 'new'].map(async (id) => (await getDoc(doc(ctx.firestore(), `appErrors/${id}`))).exists()))
+    })
+    expect(left).toEqual([false, true])
   })
 })

@@ -33,6 +33,7 @@
  *  mergeMembers        Callable { groupId, from, into } → two entries that are one person become one (expenses, payments, open items, Pay me links rewritten); waits for the creator's OK when the group asks for it (a chat card @mentioning them, a push)
  *  decideMerge         Callable { groupId, requestId, approve } → the creator decides a request; any member acts on a suggestion
  *  vault               Callable { op, … } → private groups: passkeys, the group's pattern, and its data key once both pass (vault.ts)
+ *  adminLogs           Callable (admins only) { level?, fn?, hours?, text?, id?, next? } → the functions' own logs from Cloud Logging, newest first (logs.ts)
  *  adminStats, adminUsers, adminBlockUser, adminSetAdmin  Callables (admins/{uid} only): usage counters + totals, account lookup, block / unblock, make or remove an admin
  */
 export { capture } from './capture'
@@ -51,3 +52,4 @@ export { onChatMessageCreated, onOpenItemWritten } from './chat'
 export { adoptGuest, claimEmail, claimGuestLinks, mergeAccount, removeEmail } from './accounts'
 export { decideMerge, mergeMembers } from './merge-members'
 export { vault } from './vault'
+export { adminLogs } from './logs'

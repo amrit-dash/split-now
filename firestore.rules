@@ -224,6 +224,26 @@ service cloud.firestore {
     match /vaultKeys/{id} {
       allow read, write: if false;
     }
+    // Errors from people's phones for the admin's Logs tab (src/lib/app-errors.ts): a signed-in
+    // person files one as themselves, about now, with short fields only; nobody edits one; only
+    // admins read them; the daily cleanup removes them after config/limits appErrorKeepDays.
+    match /appErrors/{id} {
+      allow read: if isAdmin();
+      allow create: if isUser()
+        && request.resource.data.keys().hasOnly(['uid', 'at', 'kind', 'message', 'stack', 'route', 'version', 'ua', 'mode'])
+        && request.resource.data.uid == uid()
+        && request.resource.data.at is int
+        && request.resource.data.at > request.time.toMillis() - 600000
+        && request.resource.data.at < request.time.toMillis() + 300000
+        && request.resource.data.kind in ['crash', 'unhandled', 'save']
+        && request.resource.data.message is string && request.resource.data.message.size() <= 500
+        && request.resource.data.get('stack', '') is string && request.resource.data.get('stack', '').size() <= 3000
+        && request.resource.data.get('route', '') is string && request.resource.data.get('route', '').size() <= 200
+        && request.resource.data.get('version', '') is string && request.resource.data.get('version', '').size() <= 40
+        && request.resource.data.get('ua', '') is string && request.resource.data.get('ua', '').size() <= 300
+        && request.resource.data.get('mode', '') is string && request.resource.data.get('mode', '').size() <= 20;
+      allow update, delete: if false;
+    }
     // Merges waiting for this person's OK, across their groups (Inbox → To sort): a collection
     // group query on approverUid. The group's own members read them under groups/{gid} too.
     match /{path=**}/mergeRequests/{requestId} {
@@ -295,7 +315,7 @@ service cloud.firestore {
       // Ranges mirror LIMIT_META in shared/limits.ts.
       function validLimits(d) {
         return d.keys().hasOnly(['capturePerHour', 'capturePerDay', 'aiOwnPerHour', 'aiOwnPerDay', 'nudgePerDay',
-            'fxPerUserPerHour', 'fxPerUserPerDay', 'proofChecksPerHour', 'proofChecksPerDay', 'captureKeepDays', 'updatedAt', 'updatedBy'])
+            'fxPerUserPerHour', 'fxPerUserPerDay', 'proofChecksPerHour', 'proofChecksPerDay', 'captureKeepDays', 'appErrorKeepDays', 'updatedAt', 'updatedBy'])
           && d.get('capturePerHour', 60) is int && d.get('capturePerHour', 60) >= 1 && d.get('capturePerHour', 60) <= 1000
           && d.get('capturePerDay', 300) is int && d.get('capturePerDay', 300) >= 1 && d.get('capturePerDay', 300) <= 10000
           && d.get('aiOwnPerHour', 120) is int && d.get('aiOwnPerHour', 120) >= 1 && d.get('aiOwnPerHour', 120) <= 1000
@@ -306,6 +326,7 @@ service cloud.firestore {
           && d.get('proofChecksPerHour', 10) is int && d.get('proofChecksPerHour', 10) >= 1 && d.get('proofChecksPerHour', 10) <= 100
           && d.get('proofChecksPerDay', 30) is int && d.get('proofChecksPerDay', 30) >= 1 && d.get('proofChecksPerDay', 30) <= 500
           && d.get('captureKeepDays', 30) is int && d.get('captureKeepDays', 30) >= 7 && d.get('captureKeepDays', 30) <= 365
+          && d.get('appErrorKeepDays', 14) is int && d.get('appErrorKeepDays', 14) >= 1 && d.get('appErrorKeepDays', 14) <= 90
           && d.get('updatedAt', 0) is int
           && d.get('updatedBy', '') is string;
       }

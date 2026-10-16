@@ -5,6 +5,7 @@
  *   config/app, config/limits   watched and written (toAppConfigDoc / resolveLimits shape them)
  *   adminStats / adminUsers / adminBlockUser / adminSetAdmin   callables in functions/src/admin.ts
  */
+import type { AppErrorRow } from '@/lib/admin-logs'
 import type { Limits } from '../../../shared/limits'
 import { LIMIT_NAMES } from '../../../shared/limits'
 
@@ -115,3 +116,40 @@ export const adminBlockUser = (uid: string, block: boolean, reason?: string) =>
 
 export const adminSetAdmin = (uid: string, admin: boolean) =>
   call<{ uid: string; admin: boolean }, { uid: string; admin: boolean }>('adminSetAdmin', { uid, admin })
+
+// ---- Logs (Admin → Logs) --------------------------------------------------------------------
+
+export interface ServerLogEntry {
+  id: string
+  at: string
+  severity: string
+  fn: string
+  message: string
+  data?: unknown
+  trace?: string
+}
+export interface ServerLogQuery {
+  level?: 'DEBUG' | 'INFO' | 'WARNING' | 'ERROR'
+  fn?: string
+  hours: number
+  text?: string
+  id?: string
+  next?: string
+}
+/** The functions' own logs from Cloud Logging, newest first (functions/src/logs.ts). */
+export const adminLogs = (q: ServerLogQuery) => call<ServerLogQuery, { entries: ServerLogEntry[]; next?: string; note?: string }>('adminLogs', q, 30_000)
+
+/** Error reports from phones (appErrors), newest first, 50 at a time; `after` is the last row's `at`. */
+export async function appErrors(q: { hours: number; uid?: string; kind?: string; after?: number }): Promise<AppErrorRow[]> {
+  const { f, db } = await sdk()
+  const since = Date.now() - q.hours * 3_600_000
+  const parts = [
+    f.where('at', '>=', since),
+    ...(q.after !== undefined ? [f.where('at', '<', q.after)] : []),
+    ...(q.uid ? [f.where('uid', '==', q.uid)] : q.kind ? [f.where('kind', '==', q.kind)] : []),
+  ]
+  const snap = await f.getDocs(f.query(f.collection(db, 'appErrors'), ...parts, f.orderBy('at', 'desc'), f.limit(50)))
+  const rows = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<AppErrorRow, 'id'>) }))
+  // An account and a kind together: the kind is checked here (one index per field is enough).
+  return q.uid && q.kind ? rows.filter((r) => r.kind === q.kind) : rows
+}

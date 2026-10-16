@@ -47,6 +47,7 @@ export const LIMIT_SECTIONS: readonly Section<LimitName>[] = [
   },
   { id: 'nudges', title: 'Nudges', hint: 'The push next to Remind.', keys: ['nudgePerDay'] },
   { id: 'fx', title: 'Exchange rates', hint: 'The Refresh button next to a currency.', keys: ['fxPerUserPerHour', 'fxPerUserPerDay'] },
+  { id: 'logs', title: 'Logs', hint: 'Admin → Logs.', keys: ['appErrorKeepDays'] },
 ]
 
 /** "3 of 4 on" for a section's header. */
