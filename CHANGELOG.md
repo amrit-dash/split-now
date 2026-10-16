@@ -6,6 +6,7 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- The sign-in screen's glow no longer shows a hard dark edge in Safari and the installed app on a Mac.
 - Admin → Logs: an opened entry wraps its long lines (stack traces, URLs) instead of scrolling sideways.
 
 ## 8.0.0 — October 2026
