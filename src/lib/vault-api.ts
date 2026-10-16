@@ -88,32 +88,6 @@ export const PATTERN_PAUSE_MS = 1500
 /** A buzz per press on the blind pad, so it can be felt rather than seen: short for a tap, longer for a long press. */
 export const buzzFor = (s: Step): number => (s === 'L' ? 40 : 12)
 
-/** "in 12 minutes" / "in 2 hours" for a lockout's end. */
-export function untilWords(until: number, now: number): string {
-  const min = Math.max(1, Math.ceil((until - now) / 60_000))
-  if (min < 60) return `in ${min} minute${min === 1 ? '' : 's'}`
-  const h = Math.ceil(min / 60)
-  return `in ${h} hour${h === 1 ? '' : 's'}`
-}
-
-/** What the unlock sheet says after a refused pattern. */
-export function refusalWords(r: VaultRefusal, now: number, fallback: string): string {
-  if (r.lockedUntil && r.lockedUntil > now) return `Too many wrong patterns. Try again ${untilWords(r.lockedUntil, now)}.`
-  if (r.triesLeft !== undefined) return `That’s not it. ${r.triesLeft} ${r.triesLeft === 1 ? 'try' : 'tries'} left.`
-  return fallback
-}
-
-/** What the unlock sheet offers, from the status: in a group, its own pattern counts too. */
-export type UnlockMode = 'loading' | 'setup' | 'unlock' | 'lockedOut' | 'unavailable'
-
-export function unlockMode(status: VaultStatus | null | undefined, now: number, error?: boolean): UnlockMode {
-  if (error) return 'unavailable'
-  if (!status) return 'loading'
-  if (!status.serverReady) return 'unavailable'
-  if (status.lockedUntil && now < status.lockedUntil) return 'lockedOut'
-  return status.universal || status.group?.hasPattern ? 'unlock' : 'setup'
-}
-
 /** The status card's three lines in Settings → Encrypted groups. */
 export function setupLines(s: VaultStatus): { passkey: string; pattern: string; server: string; ready: boolean } {
   return {
@@ -137,3 +111,34 @@ export function lockButton(privateIds: readonly string[], isOpen: (id: string) =
 export function withoutLocked<G extends { id: string; vault?: boolean }>(groups: readonly G[], isOpen: (id: string) => boolean): G[] {
   return groups.filter((g) => !g.vault || isOpen(g.id))
 }
+
+/**
+ * Whether the lock button sends what was pressed (src/features/vault/PatternLock.tsx). Fewer than
+ * a universal pattern's 6 presses are only a stray tap and never reach the server (so they can't
+ * count towards a lockout), unless this group has its own pattern, which can be shorter.
+ */
+export function shouldSend(pattern: string, opts: { groupHasOwn?: boolean }): boolean {
+  if (!pattern || pattern.length > PATTERN_MAX) return false
+  return pattern.length >= PATTERN_MIN || !!opts.groupHasOwn
+}
+
+/**
+ * What a refused try on the lock button means. Nothing of it shows on screen: 'wrong' and
+ * 'locked' are a buzz; 'setup' (no pattern set up yet) opens the setup prompt; 'cancelled' (the
+ * passkey prompt closed) and 'other' (offline, the server) are a quiet toast.
+ */
+export function refusalKind(e: unknown): 'wrong' | 'locked' | 'setup' | 'cancelled' | 'other' {
+  const name = (e as { name?: string })?.name
+  if (name === 'NotAllowedError' || name === 'AbortError') return 'cancelled'
+  const r = vaultRefusal(e)
+  if (r.lockedUntil) return 'locked'
+  if (r.triesLeft !== undefined) return 'wrong'
+  const code = String((e as { code?: string })?.code ?? '')
+  const message = String((e as { message?: string })?.message ?? '')
+  // The server's "no pattern yet" refusal (functions/src/vault.ts checkPattern), and the demo's.
+  if ((code === '' || code.includes('failed-precondition')) && /Set up encrypted groups/.test(message)) return 'setup'
+  return 'other'
+}
+
+/** The buzz for a refused pattern: two short pulses, unlike a press. */
+export const WRONG_BUZZ = [40, 70, 40]

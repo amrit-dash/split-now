@@ -16,14 +16,18 @@ Groups); on by default like every flag, server-enforced in the `vault` callable.
 - **New group → Private group** (a switch beside More options) needs a universal pattern first.
   Chosen once, when the group is made (`firestore.rules` keeps `vault` as it was created). The phone
   that made it gets its key at once (`create`), so it opens straight away.
-- **Groups screen**: a lock button (top right) opens every private group the person is in with
-  the universal pattern; once all are open it locks them all.
-- **Inside a locked group**: Unlock takes the universal pattern or the group's own one, and opens
-  only that group.
-- **The blind pad** (unlocking): nothing on screen changes while a pattern goes in; each press buzzes
-  (longer for a long press) and the pattern is sent after 1.5 s without a press. The passkey is
-  asked for only after the server says the pattern is right, so a wrong guess never reaches Face ID.
-  On a site where the person has no passkey yet, that step makes one.
+- **The lock button is the pattern pad** (`src/features/vault/PatternLock.tsx`). There is no pad
+  screen: the pattern is tapped and long-pressed on the lock icon itself, and nothing on screen
+  changes or says a pattern exists. Each press buzzes where the phone can (Android; iPhone browsers
+  can't vibrate), and the pattern is sent after 1.5 s without a press. Fewer than 6 presses are a
+  stray tap and never reach the server (`shouldSend`), unless the group has its own, shorter
+  pattern. A right one brings up Face ID or the passkey (made on the spot on a site with none
+  yet); a wrong one is a double buzz and nothing else; someone with no pattern set up gets the
+  setup prompt. The passkey is asked for only after the server says the pattern is right.
+  - **Groups screen** (top right) and **Balances**: the universal pattern opens every private group
+    the person is in; once all are open, the Groups button locks them all.
+  - **Inside a locked group** (top right): the universal pattern or the group's own one, opening only
+    that group.
 - **A group's own pattern** (Group ⋯ → Private group): optional, any length, the same sequence switch.
   It opens only that group, for anyone in it who knows it, even someone with no universal pattern.
   Anyone in the group can set, change or remove it, after their passkey. 7.1's group patterns are

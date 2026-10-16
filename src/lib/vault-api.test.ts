@@ -5,11 +5,10 @@ import {
   lockButton,
   withoutLocked,
   patternProblem,
-  refusalWords,
+  refusalKind,
+  shouldSend,
   setupLines,
   stepOf,
-  unlockMode,
-  untilWords,
   vaultRefusal,
   type VaultStatus,
 } from './vault-api'
@@ -39,26 +38,10 @@ describe('vault api', () => {
     expect(vaultRefusal({ details: { triesLeft: 2 } })).toEqual({ triesLeft: 2 })
     expect(vaultRefusal({ details: { lockedUntil: 9, x: 1 } })).toEqual({ lockedUntil: 9 })
     expect(vaultRefusal(new Error('x'))).toEqual({})
-    expect(refusalWords({ triesLeft: 1 }, 0, 'x')).toBe('That’s not it. 1 try left.')
-    expect(refusalWords({ triesLeft: 0, lockedUntil: 15 * 60_000 }, 0, 'x')).toBe('Too many wrong patterns. Try again in 15 minutes.')
-    expect(refusalWords({}, 0, 'Offline')).toBe('Offline')
   })
 })
 
-describe('unlock sheet', () => {
-  it('picks what to show from the status', () => {
-    expect(unlockMode(undefined, 0)).toBe('loading')
-    expect(unlockMode(null, 0, true)).toBe('unavailable')
-    expect(unlockMode({ ...base, serverReady: false }, 0)).toBe('unavailable')
-    expect(unlockMode({ ...base, universal: false }, 0)).toBe('setup')
-    // no universal pattern, but this group has its own: it opens with that
-    expect(unlockMode({ ...base, universal: false, group: { keyReady: true, hasPattern: true } }, 0)).toBe('unlock')
-    expect(unlockMode(base, 0)).toBe('unlock')
-    expect(unlockMode({ ...base, triesLeft: 0, lockedUntil: 10 }, 5)).toBe('lockedOut')
-    expect(unlockMode({ ...base, triesLeft: 0, lockedUntil: 10 }, 10)).toBe('unlock')
-    expect(untilWords(60_000, 0)).toBe('in 1 minute')
-    expect(untilWords(90 * 60_000, 0)).toBe('in 2 hours')
-  })
+describe('settings', () => {
   it('says what is set up', () => {
     expect(setupLines(base)).toMatchObject({ passkey: 'Passkey added', pattern: 'Universal pattern set · in order', ready: true })
     expect(setupLines({ ...base, ordered: false }).pattern).toBe('Universal pattern set · any order')
@@ -78,5 +61,23 @@ describe('pickers', () => {
   it('leave out private groups that are locked here', () => {
     const gs = [{ id: 'a' }, { id: 'b', vault: true }, { id: 'c', vault: true }]
     expect(withoutLocked(gs, (id) => id === 'c').map((g) => g.id)).toEqual(['a', 'c'])
+  })
+})
+
+describe('the lock button', () => {
+  it('sends 6 or more presses; fewer only where the group has its own pattern', () => {
+    expect(shouldSend('', {})).toBe(false)
+    expect(shouldSend('T', {})).toBe(false)
+    expect(shouldSend('TTLTL', {})).toBe(false)
+    expect(shouldSend('TTLTLL', {})).toBe(true)
+    expect(shouldSend('TL', { groupHasOwn: true })).toBe(true)
+    expect(shouldSend('T'.repeat(33), { groupHasOwn: true })).toBe(false)
+  })
+  it('reads a refusal without showing it', () => {
+    expect(refusalKind({ details: { triesLeft: 3 } })).toBe('wrong')
+    expect(refusalKind({ details: { triesLeft: 0, lockedUntil: 9 } })).toBe('locked')
+    expect(refusalKind({ code: 'functions/failed-precondition', message: 'Set up encrypted groups first: Settings → Encrypted groups.' })).toBe('setup')
+    expect(refusalKind(Object.assign(new Error('x'), { name: 'NotAllowedError' }))).toBe('cancelled')
+    expect(refusalKind(new Error('offline'))).toBe('other')
   })
 })
