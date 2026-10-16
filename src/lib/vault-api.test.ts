@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  tryStillWanted,
   privateOffered,
   stopPlan,
   firstPhase,
@@ -154,5 +155,13 @@ describe('stopping private groups', () => {
     expect(stopPlan({ made: 2 })).toBe('made')
     expect(stopPlan({ made: 0 })).toBe('ok')
     expect(stopPlan({ off: true, made: 0 })).toBe('stopped')
+  })
+})
+
+describe('tries queued on a lock button', () => {
+  it('a try drawn before the lock opened is dropped; one drawn after is sent', () => {
+    expect(tryStillWanted(0, 0)).toBe(true)
+    expect(tryStillWanted(0, 1)).toBe(false)
+    expect(tryStillWanted(1, 1)).toBe(true)
   })
 })

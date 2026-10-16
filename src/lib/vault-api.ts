@@ -122,6 +122,14 @@ export function withoutLocked<G extends { id: string; vault?: boolean }>(groups:
 }
 
 /**
+ * Tries on a lock button queue up: one drawn while the last is still with the server waits its
+ * turn instead of losing its first presses (which made the retry fail too, and sent people off
+ * the screen to start over). A queued try is dropped when one before it opened the lock: each
+ * opening counts up `opens`, and a try remembers the count it was drawn at.
+ */
+export const tryStillWanted = (drawnAt: number, opens: number): boolean => drawnAt === opens
+
+/**
  * Whether the lock button sends what was pressed (src/features/vault/PatternLock.tsx). Fewer than
  * a universal pattern's 6 presses are only a stray tap and never reach the server (so they can't
  * count towards a lockout), unless this group has its own pattern, which can be shorter.
