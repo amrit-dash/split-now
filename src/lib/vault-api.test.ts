@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  stepMark,
+  stepsSpoken,
   tryStillWanted,
   privateOffered,
   stopPlan,
@@ -163,5 +165,14 @@ describe('tries queued on a lock button', () => {
     expect(tryStillWanted(0, 0)).toBe(true)
     expect(tryStillWanted(0, 1)).toBe(false)
     expect(tryStillWanted(1, 1)).toBe(true)
+  })
+})
+
+describe('the pad that sets a pattern', () => {
+  it('shows a tap as a dot and a long press as a dash', () => {
+    expect(['T', 'L', 'T'].map((s) => stepMark(s as 'T' | 'L'))).toEqual(['·', '–', '·'])
+    expect(stepsSpoken(['T', 'L'])).toBe('2 steps: tap, long press')
+    expect(stepsSpoken(['L'])).toBe('1 step: long press')
+    expect(stepsSpoken([])).toBe('No steps yet')
   })
 })
