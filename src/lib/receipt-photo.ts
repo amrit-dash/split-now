@@ -13,17 +13,19 @@ export function formPhoto(o: { picked: boolean; stored: boolean }): FormPhoto {
   return o.stored ? 'saved' : 'none'
 }
 
-/** The line under the form's date row for each state: what it says and the one action beside it. */
-export function formPhotoLine(p: FormPhoto): { text: string | null; action: 'attach' | 'remove' | 'replace' } {
-  switch (p) {
-    case 'new':
-      return { text: 'Photo attached', action: 'remove' }
-    case 'saved':
-      return { text: 'Receipt attached', action: 'replace' }
-    case 'none':
-      return { text: null, action: 'attach' }
-  }
+/**
+ * What the form shows for its one photo (an expense keeps one: Scan and Attach fill the same slot,
+ * the newer replacing the older). With one, the photo gets its own row: a thumbnail, Replace, and Remove for a photo picked in
+ * this form (a saved one is changed by replacing it). Attach stays in the date row, disabled while
+ * a photo is attached, so the row doesn't shift and it's plain there is room for one.
+ */
+export function formPhotoView(p: FormPhoto): { attachDisabled: boolean; row: null | { label: string; remove: boolean } } {
+  if (p === 'none') return { attachDisabled: false, row: null }
+  return { attachDisabled: true, row: { label: p === 'new' ? 'Receipt photo' : 'Receipt photo · saved', remove: p === 'new' } }
 }
+
+/** Scanning when a photo is already attached replaces it: the toast after a scan says so. */
+export const scanReplacedNote = (hadPhoto: boolean): string => (hadPhoto ? ' It replaced the photo that was attached.' : '')
 
 /**
  * The expense screen's receipt card. A deleted expense is read-only; a private group's photo can

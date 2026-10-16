@@ -8,7 +8,7 @@ import { formatDate, formatDateTime } from '@/lib/locale'
 import { addedLine } from '@/lib/added'
 import { authorMember } from '@/lib/chat'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
-import { Camera, CopyPlus, ImagePlus, Loader2, Pencil, Repeat, Send, Trash2 } from 'lucide-react'
+import { Camera, ChevronDown, CopyPlus, ImagePlus, Loader2, Paperclip, Pencil, Repeat, Send, Trash2 } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { myMemberId, useAllExpenses, useComments, useGroup } from '@/hooks/data'
@@ -436,11 +436,16 @@ function ReceiptCard({ group, expense: e, trashed }: { group: Group; expense: Ex
   const src = usePhotoUrl(group.id, { path: e.receiptPath, url: e.receiptUrl })
   const fileRef = useRef<HTMLInputElement>(null)
   const [viewing, setViewing] = useState(false)
+  // Folded until tapped; a photo just added opens it, so the person sees what went in.
+  const [shown, setShown] = useState(false)
   // The photo named before the upload started: once the expense names another, it has arrived.
   const [adding, setAdding] = useState<{ before?: string } | null>(null)
   const current = e.receiptPath ?? e.receiptUrl
   useEffect(() => {
-    if (adding && photoArrived(adding.before, current)) setAdding(null)
+    if (adding && photoArrived(adding.before, current)) {
+      setAdding(null)
+      setShown(true)
+    }
   }, [adding, current])
   // A failed upload says so in its own toast (repo.attachReceipt); the card stops waiting after a minute.
   useEffect(() => {
@@ -464,39 +469,66 @@ function ReceiptCard({ group, expense: e, trashed }: { group: Group; expense: Ex
   const choose = () => fileRef.current?.click()
   return (
     <div className="card mt-3 overflow-hidden" data-testid="receipt-card">
-      <div className="flex items-center justify-between gap-2 px-4 pt-3">
-        <div className="label">Receipt</div>
-        {card.replace && (
-          <button type="button" className="chip min-h-10" onClick={choose} disabled={!!adding} data-testid="receipt-replace">
-            <Camera size={14} aria-hidden /> Replace
-          </button>
-        )}
-      </div>
-      {adding ? (
-        <p className="text-muted flex items-center gap-2 px-4 pb-4 pt-2 text-sm" role="status">
-          <Loader2 size={16} className="animate-spin" aria-hidden /> {hasPhoto ? 'Replacing the photo…' : 'Adding the photo…'}
-        </p>
-      ) : hasPhoto ? (
-        src ? (
-          <button
-            type="button"
-            className="block w-full px-4 pb-4 pt-2"
-            onClick={() => setViewing(true)}
-            aria-label="Open the receipt full screen"
-            data-testid="receipt-open"
-          >
-            <img src={src} alt="Receipt" className="max-h-64 w-full rounded-xl bg-slate-50 object-contain dark:bg-ink-900" />
-          </button>
-        ) : (
-          <p className="text-muted px-4 pb-4 pt-1 text-sm">Loading the photo…</p>
-        )
+      {hasPhoto ? (
+        // Folded by default: the photo is there when wanted, without pushing comments and history down.
+        <button
+          type="button"
+          className="flex min-h-14 w-full items-center gap-3 px-4 py-2 text-left"
+          onClick={() => setShown((v) => !v)}
+          aria-expanded={shown}
+          aria-controls={`receipt-${e.id}`}
+          data-testid="receipt-toggle"
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-50 ring-1 ring-slate-200 dark:bg-ink-900 dark:ring-white/10">
+            {src ? <img src={src} alt="" className="h-full w-full object-cover" /> : <Paperclip size={16} className="text-muted" aria-hidden />}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold">Receipt</span>
+            <span className="text-muted block text-xs">
+              {adding ? 'Replacing the photo…' : shown ? 'Tap the photo to open it full screen' : 'Show the photo'}
+            </span>
+          </span>
+          <ChevronDown size={18} className={`text-muted shrink-0 transition-transform ${shown ? 'rotate-180' : ''}`} aria-hidden />
+        </button>
       ) : (
-        <div className="px-4 pb-4 pt-2">
-          <button type="button" className="btn w-full" onClick={choose} data-testid="receipt-add">
-            <ImagePlus size={18} aria-hidden /> Add a receipt photo
-          </button>
+        <div className="px-4 pt-3">
+          <div className="label">Receipt</div>
         </div>
       )}
+      {hasPhoto && shown && (
+        <div id={`receipt-${e.id}`} className="px-4 pb-4">
+          {src ? (
+            <button
+              type="button"
+              className="block w-full"
+              onClick={() => setViewing(true)}
+              aria-label="Open the receipt full screen"
+              data-testid="receipt-open"
+            >
+              <img src={src} alt="Receipt" className="max-h-72 w-full rounded-xl bg-slate-50 object-contain dark:bg-ink-900" />
+            </button>
+          ) : (
+            <p className="text-muted text-sm">Loading the photo…</p>
+          )}
+          {card.replace && (
+            <button type="button" className="btn mt-3 w-full" onClick={choose} disabled={!!adding} data-testid="receipt-replace">
+              <Camera size={18} aria-hidden /> Replace photo
+            </button>
+          )}
+        </div>
+      )}
+      {!hasPhoto &&
+        (adding ? (
+          <p className="text-muted flex items-center gap-2 px-4 pb-4 pt-2 text-sm" role="status">
+            <Loader2 size={16} className="animate-spin" aria-hidden /> Adding the photo…
+          </p>
+        ) : (
+          <div className="px-4 pb-4 pt-2">
+            <button type="button" className="btn w-full" onClick={choose} data-testid="receipt-add">
+              <ImagePlus size={18} aria-hidden /> Add a receipt photo
+            </button>
+          </div>
+        ))}
       <input
         ref={fileRef}
         type="file"

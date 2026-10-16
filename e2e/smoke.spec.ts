@@ -1170,8 +1170,10 @@ test('receipt photo: attached without reading it, opened full screen, and added 
   await amountField(page).fill('640')
   // Attach a photo keeps what was typed: nothing is read from it
   await page.getByTestId('receipt-attach-file').setInputFiles(photo)
-  await expect(page.getByTestId('receipt-attached')).toHaveText(/Photo attached/)
+  await expect(page.getByTestId('receipt-attached')).toContainText('Receipt photo')
   await expect(amountField(page)).toHaveValue(/640/)
+  // one photo per expense: once attached, Attach is disabled and the photo's own row replaces or removes it
+  await expect(page.getByTestId('receipt-attach')).toBeDisabled()
   await page.getByTestId('receipt-remove').click()
   await expect(page.getByTestId('receipt-attached')).toHaveCount(0)
   await page.getByTestId('receipt-attach-file').setInputFiles(photo)
@@ -1181,7 +1183,10 @@ test('receipt photo: attached without reading it, opened full screen, and added 
     .click()
   await expect(page).toHaveURL(/\/groups\/g_goa$/)
   await page.getByText('Ferry tickets').first().click()
-  // the expense shows it, and opens it full screen
+  // the expense keeps it folded; a tap shows it, another opens it full screen
+  await expect(page.getByTestId('receipt-open')).toHaveCount(0)
+  await page.getByTestId('receipt-toggle').click()
+  await expect(page.getByTestId('receipt-toggle')).toHaveAttribute('aria-expanded', 'true')
   await page.getByTestId('receipt-open').click()
   const viewer = page.getByTestId('photo-viewer')
   await expect(viewer).toBeVisible()
