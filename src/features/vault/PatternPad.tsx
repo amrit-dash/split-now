@@ -49,12 +49,8 @@ export function PatternPad({ steps, onChange, disabled }: { steps: Step[]; onCha
 
   return (
     <div className="flex flex-col items-center">
-      <div
-        className="flex min-h-6 flex-wrap justify-center gap-2"
-        aria-live="polite"
-        aria-label={`${steps.length} ${steps.length === 1 ? 'step' : 'steps'}`}
-        data-testid="pattern-count"
-      >
+      <div className="flex min-h-6 flex-wrap justify-center gap-2" role="status" data-testid="pattern-count">
+        <span className="sr-only">{`${steps.length} ${steps.length === 1 ? 'step' : 'steps'}`}</span>
         {steps.length === 0 ? (
           <span className="text-muted text-sm">Tap and long-press below</span>
         ) : (

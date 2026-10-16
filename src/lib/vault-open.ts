@@ -21,7 +21,10 @@ onVaultChange((g) => {
 
 function cacheFor(groupId: string): Map<string, string> {
   let c = caches.get(groupId)
-  if (!c) caches.set(groupId, (c = new Map()))
+  if (!c) {
+    c = new Map()
+    caches.set(groupId, c)
+  }
   return c
 }
 
