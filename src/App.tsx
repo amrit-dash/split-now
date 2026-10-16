@@ -35,7 +35,7 @@ import { GroupDataProvider } from './hooks/groupData'
 import { primeAiStatus, useAiStatus } from './hooks/useAiStatus'
 import { useAppConfig, useBlocked } from './hooks/useAppConfig'
 import { lockVault, startAutoLock } from './lib/vault-keys'
-import { lockMinutesFor, lockOnLeave, readLockPrefs } from './lib/vault-lock-prefs'
+import { lockMinutesFor, lockMs, lockOnLeave, readLockPrefs } from './lib/vault-lock-prefs'
 import { appErrorReport, reportGate, type AppErrorKind } from './lib/app-errors'
 import { ErrorBoundary } from './components/ErrorBoundary'
 
@@ -146,7 +146,7 @@ export default function App() {
   useEffect(() => {
     const prefs = () => readLockPrefs(typeof localStorage === 'undefined' ? undefined : localStorage)
     return startAutoLock(document, {
-      idleMs: (id) => lockMinutesFor(prefs(), id, vaultIdle) * 60_000,
+      idleMs: (id) => lockMs(lockMinutesFor(prefs(), id, vaultIdle)),
       onLeave: () => lockOnLeave(prefs()),
     })
   }, [vaultIdle])

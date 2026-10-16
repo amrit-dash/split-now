@@ -5,8 +5,9 @@
  * for all groups replaces it, and a group's own choice replaces both for that group.
  */
 
-/** The idle times offered, in minutes. */
-export const LOCK_CHOICES = [1, 2, 5, 10, 15, 30, 60] as const
+/** The idle times offered, in minutes. NEVER: no idle lock at all, only closing the app (or leaving it, if that's on). */
+export const NEVER = 0
+export const LOCK_CHOICES = [1, 2, 5, 10, 15, 30, 60, NEVER] as const
 
 export interface LockPrefs {
   /** minutes idle before every private group locks (unset: the admin's default) */
@@ -51,7 +52,7 @@ export function writeLockPrefs(store: Pick<Storage, 'setItem'> | undefined, p: L
   }
 }
 
-/** Minutes idle before this group locks (or, without a group, every group without its own choice). */
+/** Minutes idle before this group locks (or, without a group, every group without its own choice); NEVER for none. */
 export function lockMinutesFor(p: LockPrefs, groupId: string | undefined, adminDefault: number): number {
   const own = groupId ? p.groups?.[groupId] : undefined
   return own ?? p.minutes ?? adminDefault
@@ -68,7 +69,10 @@ export function withGroupMinutes(p: LockPrefs, groupId: string, minutes: number 
 export const lockOnLeave = (p: LockPrefs): boolean => p.onLeave !== false
 
 /** "5 min", "1 hour": the idle time in words. */
-export const minutesWords = (m: number): string => (m === 60 ? '1 hour' : `${m} min`)
+export const minutesWords = (m: number): string => (m === NEVER ? 'Never' : m === 60 ? '1 hour' : `${m} min`)
+
+/** The idle time in ms for the auto-lock: Infinity for NEVER. */
+export const lockMs = (minutes: number): number => (minutes === NEVER ? Number.POSITIVE_INFINITY : minutes * 60_000)
 
 /**
  * Which open groups are due to lock, and how long until the next one is: each locks once it has
@@ -83,7 +87,10 @@ export function dueToLock(
   const lock: string[] = []
   let nextIn: number | null = null
   for (const id of open) {
-    const left = lastActive + idleMs(id) - now
+    const idle = idleMs(id)
+    // Never: no idle lock for this group (closing the app, or leaving it if that's on, still locks it)
+    if (!Number.isFinite(idle)) continue
+    const left = lastActive + idle - now
     if (left <= 0) lock.push(id)
     else nextIn = nextIn === null ? left : Math.min(nextIn, left)
   }

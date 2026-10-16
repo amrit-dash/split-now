@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useAppConfig } from '@/hooks/useAppConfig'
 import { refreshAutoLock } from '@/lib/vault-keys'
-import { LOCK_CHOICES, type LockPrefs, lockOnLeave, minutesWords, readLockPrefs, withGroupMinutes, writeLockPrefs } from '@/lib/vault-lock-prefs'
+import { LOCK_CHOICES, type LockPrefs, lockOnLeave, minutesWords, NEVER, readLockPrefs, withGroupMinutes, writeLockPrefs } from '@/lib/vault-lock-prefs'
 import { Select } from '@/components/Select'
 import { Switch } from '@/components/Switch'
 
@@ -35,7 +35,10 @@ export function AllGroupsLockTime() {
           <div className="text-sm font-semibold" id="vault-lock-after">
             Lock after
           </div>
-          <div className="text-muted text-xs">Without a tap, click or scroll. On this device.</div>
+          <div className="text-muted text-xs">
+            {prefs.minutes === NEVER ? 'Only closing the app locks them' : 'Without a tap, click or scroll'}
+            {prefs.minutes === NEVER && lockOnLeave(prefs) ? ', or leaving it' : ''}. On this device.
+          </div>
         </div>
         <Select
           aria-label="Lock after"
@@ -52,7 +55,9 @@ export function AllGroupsLockTime() {
         <div className="min-w-0">
           <div className="text-sm font-semibold">Lock when I leave the app</div>
           <div className="text-muted text-xs">
-            {lockOnLeave(prefs) ? 'Switching apps or tabs locks them at once.' : 'Only the idle time locks them. Best kept on for a phone.'}
+            {lockOnLeave(prefs)
+              ? 'Switching apps or tabs locks them at once.'
+              : 'Switching apps or windows keeps them open. Closing or reloading the app always locks them.'}
           </div>
         </div>
         <Switch

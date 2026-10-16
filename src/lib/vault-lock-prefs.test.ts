@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { dueToLock, lockMinutesFor, lockOnLeave, minutesWords, parseLockPrefs, readLockPrefs, withGroupMinutes, writeLockPrefs } from './vault-lock-prefs'
+import {
+  dueToLock,
+  lockMinutesFor,
+  lockMs,
+  NEVER,
+  lockOnLeave,
+  minutesWords,
+  parseLockPrefs,
+  readLockPrefs,
+  withGroupMinutes,
+  writeLockPrefs,
+} from './vault-lock-prefs'
 
 describe('lock times', () => {
   it('a group’s own time, then the person’s, then the admin’s default', () => {
@@ -40,6 +51,10 @@ describe('lock times', () => {
   it('in words', () => {
     expect(minutesWords(5)).toBe('5 min')
     expect(minutesWords(60)).toBe('1 hour')
+    expect(minutesWords(NEVER)).toBe('Never')
+    expect(lockMs(5)).toBe(300_000)
+    expect(lockMs(NEVER)).toBe(Number.POSITIVE_INFINITY)
+    expect(parseLockPrefs('{"minutes":0}')).toEqual({ minutes: NEVER })
   })
 })
 
@@ -50,5 +65,8 @@ describe('which groups lock when', () => {
     expect(dueToLock(['short', 'long'], 0, 60_000, idle)).toEqual({ lock: ['short'], nextIn: 240_000 })
     expect(dueToLock(['long'], 0, 400_000, idle)).toEqual({ lock: ['long'], nextIn: null })
     expect(dueToLock([], 0, 0, idle)).toEqual({ lock: [], nextIn: null })
+    // Never: no idle lock, and nothing to wait for
+    expect(dueToLock(['never', 'short'], 0, 1e12, (id) => (id === 'never' ? Number.POSITIVE_INFINITY : 60_000))).toEqual({ lock: ['short'], nextIn: null })
+    expect(dueToLock(['never'], 0, 0, () => Number.POSITIVE_INFINITY)).toEqual({ lock: [], nextIn: null })
   })
 })

@@ -6,7 +6,7 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
-- Private groups: choose how long they stay open without activity (Settings → Encrypted groups → Lock after, 1 minute to 1 hour), and per group in its Private group sheet. Turn off Lock when I leave the app to keep them open while you switch windows on a laptop. Both are kept on that device. Mouse moves, the wheel and typing now count as activity too, so a group no longer locks while you're reading with a mouse.
+- Private groups: choose how long they stay open without activity (Settings → Encrypted groups → Lock after, 1 minute to 1 hour, or Never), and per group in its Private group sheet. Turn off Lock when I leave the app to keep them open while you switch apps or windows; with Never as well, they lock only when the app is closed or reloaded. Both are kept on that device. Mouse moves, the wheel and typing now count as activity too, so a group no longer locks while you're reading with a mouse.
 - Passkeys run on SimpleWebAuthn 14, which includes its fix to certificate revocation checks during passkey sign-up.
 - Stop using private groups: Settings → Encrypted groups, at the bottom. It deletes your universal pattern and passkeys, and the app stops offering to make private groups. It works once no private group you made is left (turn private off, delete or leave it). Private groups other people made still open with their own pattern. Start using private groups puts it all back.
 - A new private group can get its own pattern as it's made (New group → Private group → Its own pattern).
