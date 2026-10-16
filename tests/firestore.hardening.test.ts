@@ -422,6 +422,10 @@ describe('expense & settlement validation', () => {
     await assertFails(setDoc(e('bob', 't3'), { ...expense, id: 't3', description: 42 }))
     await assertSucceeds(setDoc(e('bob', 't4'), { ...expense, id: 't4', notes: 'Tip included' }))
     await assertFails(setDoc(e('bob', 't5'), { ...expense, id: 't5', paidBy: 'alice' }))
+    // a chosen icon: one emoji (or a private group's token, up to 80)
+    await assertSucceeds(setDoc(e('bob', 't6'), { ...expense, id: 't6', icon: '🍕' }))
+    await assertFails(setDoc(e('bob', 't7'), { ...expense, id: 't7', icon: 'x'.repeat(81) }))
+    await assertFails(setDoc(e('bob', 't8'), { ...expense, id: 't8', icon: 7 }))
   })
   const st = { id: 's1', groupId: 'g1', from: 'bob', to: 'alice', amount: 500, method: 'Cash', date: '2026-01-01', createdBy: 'bob', createdAt: 1 }
   const s = (uid: string, id = 's1') => doc(db(uid), `groups/g1/settlements/${id}`)

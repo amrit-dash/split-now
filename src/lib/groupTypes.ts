@@ -1,4 +1,5 @@
 import type { GroupType } from '@/types'
+import { GROUP_ICON_LIST, guessGroupIcon } from './icons'
 
 export interface GroupTypeInfo {
   value: GroupType
@@ -62,8 +63,8 @@ export const groupTypeInfo = (g: { type?: unknown } | string | null | undefined)
 
 const EXTRA_ICONS = ['🚗', '🎿', '🏕️', '⚽', '🎓', '🌏', '🛕', '🚆', '🎮', '🐶']
 
-/** Every icon the picker offers, each once: type icons first (in type order), then extras. */
-export const ALL_GROUP_ICONS: string[] = [...new Set([...Object.values(GROUP_TYPES).flatMap((t) => t.icons), ...EXTRA_ICONS])]
+/** Every icon the picker offers, each once: type icons first (in type order), then extras, then the catalogue's group icons (src/lib/icons.ts). */
+export const ALL_GROUP_ICONS: string[] = [...new Set([...Object.values(GROUP_TYPES).flatMap((t) => t.icons), ...EXTRA_ICONS, ...GROUP_ICON_LIST])]
 
 /** The picker list for a type: that type's icons first, then everything else. */
 export function iconsFor(type: GroupType | string): string[] {
@@ -77,21 +78,28 @@ export interface GroupGuess {
 }
 
 // First matching rule wins, so specific words (beach, birthday) come before generic ones (trip, party).
-const RULES: Array<{ words: string[]; type: GroupType; emoji: string }> = [
+// A generic rule settles the type but not the icon: a more telling word in the name picks that
+// (the icon catalogue, src/lib/icons.ts: "Ski trip" is a trip with 🎿, "Pizza night" an outing with 🍕).
+const RULES: Array<{ words: string[]; type: GroupType; emoji: string; generic?: true }> = [
   { words: ['birthday', 'bday'], type: 'event', emoji: '🎂' },
   { words: ['wedding', 'sangeet', 'mehendi', 'mehndi', 'haldi', 'bachelor', 'bachelorette', 'engagement'], type: 'event', emoji: '💍' },
   { words: ['concert', 'gig', 'festival', 'fest'], type: 'event', emoji: '🎵' },
   { words: ['goa', 'bali', 'beach', 'phuket', 'maldives', 'andaman', 'gokarna', 'pondicherry', 'varkala', 'island'], type: 'trip', emoji: '🏖️' },
   {
-    words: ['manali', 'ladakh', 'leh', 'shimla', 'kashmir', 'spiti', 'himalaya', 'himalayas', 'trek', 'mountain', 'hills', 'ski', 'rishikesh', 'kasol'],
+    words: ['manali', 'ladakh', 'leh', 'shimla', 'kashmir', 'spiti', 'himalaya', 'himalayas', 'trek', 'mountain', 'hills', 'rishikesh', 'kasol'],
     type: 'trip',
     emoji: '🏔️',
   },
-  { words: ['trip', 'vacation', 'holiday', 'travel', 'roadtrip', 'getaway', 'tour', 'weekend'], type: 'trip', emoji: '✈️' },
-  { words: ['party', 'drinks', 'beer', 'beers', 'pub', 'bar', 'night'], type: 'outing', emoji: '🍻' },
-  { words: ['dinner', 'lunch', 'brunch', 'breakfast', 'meal', 'food', 'pizza'], type: 'outing', emoji: '🍽️' },
-  { words: ['flat', 'pg', 'roommates', 'roommate', 'roomies', 'flatmates', 'house', 'apartment', 'home', 'rent', 'hostel'], type: 'home', emoji: '🏠' },
-  { words: ['office', 'team', 'work', 'colleagues'], type: 'office', emoji: '💼' },
+  { words: ['trip', 'vacation', 'holiday', 'travel', 'roadtrip', 'getaway', 'tour', 'weekend'], type: 'trip', emoji: '✈️', generic: true },
+  { words: ['party', 'drinks', 'beer', 'beers', 'pub', 'bar', 'night'], type: 'outing', emoji: '🍻', generic: true },
+  { words: ['dinner', 'lunch', 'brunch', 'breakfast', 'meal', 'food', 'pizza'], type: 'outing', emoji: '🍽️', generic: true },
+  {
+    words: ['flat', 'pg', 'roommates', 'roommate', 'roomies', 'flatmates', 'house', 'apartment', 'home', 'rent', 'hostel'],
+    type: 'home',
+    emoji: '🏠',
+    generic: true,
+  },
+  { words: ['office', 'team', 'work', 'colleagues'], type: 'office', emoji: '💼', generic: true },
 ]
 
 /**
@@ -106,14 +114,10 @@ export function guessGroup(name: string): GroupGuess | null {
   if (!words.length) return null
   const has = (w: string) => words.some((x) => x === w || x === `${w}s` || x === `${w}es`)
   const rule = RULES.find((r) => r.words.some(has))
-  return rule ? { type: rule.type, emoji: rule.emoji } : null
+  if (rule && !rule.generic) return { type: rule.type, emoji: rule.emoji }
+  const icon = guessGroupIcon(name)
+  if (rule) return { type: rule.type, emoji: icon?.emoji ?? rule.emoji }
+  return icon
 }
 
-/** The first emoji in free text ("🎸 band" → "🎸"), for the picker's "type any emoji" field. */
-export function firstEmoji(text: string): string | null {
-  const parts =
-    typeof Intl !== 'undefined' && 'Segmenter' in Intl
-      ? [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text)].map((s) => s.segment)
-      : [...text]
-  return parts.find((g) => /\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(g)) ?? null
-}
+export { firstEmoji } from './emoji'

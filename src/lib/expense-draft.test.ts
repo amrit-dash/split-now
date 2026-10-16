@@ -330,6 +330,26 @@ describe('selectors and validation', () => {
   })
 })
 
+describe('the expense icon', () => {
+  it('a chosen icon is kept on save; choosing none goes back to automatic', () => {
+    let d = reduce(seed(), { type: 'amount', amount: 1200 })
+    d = reduce(d, { type: 'icon', icon: '🦄' })
+    expect(toExpense(d, save).expense.icon).toBe('🦄')
+    d = reduce(d, { type: 'icon' })
+    expect('icon' in d).toBe(false)
+    expect(toExpense(d, save).expense.icon).toBeUndefined()
+    // only one emoji counts
+    expect('icon' in reduce(d, { type: 'icon', icon: 'pizza' })).toBe(false)
+  })
+  it('an edit starts from the stored icon, a stored draft loses a bad one', () => {
+    expect(seed({ existing: expense({ icon: '🍕' }) }).icon).toBe('🍕')
+    expect('icon' in seed({ existing: expense({ icon: 'v1:sealed' }) })).toBe(false)
+    const base = seed()
+    expect('icon' in hydrateDraft({ icon: 'nope' }, base, order, 'me')).toBe(false)
+    expect(hydrateDraft({ icon: '🍕' }, base, order, 'me').icon).toBe('🍕')
+  })
+})
+
 describe('toExpense', () => {
   it('builds a plain equal expense and remembers the choice for next time', () => {
     let d = reduce(seed(), { type: 'amount', amount: 1200 })

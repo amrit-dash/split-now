@@ -723,6 +723,8 @@ service cloud.firestore {
             && d.amount > 0
             && d.description is string && d.description.size() <= 200
             && (!('notes' in d) || (d.notes is string && d.notes.size() <= 2000))
+            // a chosen icon: one emoji, or its token in a private group (shared/vault-convert.ts CAPS.emoji)
+            && (!('icon' in d) || (d.icon is string && d.icon.size() <= 80))
             && d.paidBy is map && d.paidBy.size() <= 60
             && d.splits is map && d.splits.size() <= 60
             // everyone who paid or owes must be a member of this group

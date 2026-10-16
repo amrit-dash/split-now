@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AtSign, ClipboardList, HandCoins, Handshake, Pencil, Plus, Receipt, Scale, SendHorizontal, Share2, Sparkles, X } from 'lucide-react'
 import type { Cents, ChatMessage, ChatReplyRef, Debt, Expense, Group, MemberId, OpenItem } from '@/types'
-import { CATEGORIES, guessCategory } from '@/lib/categories'
+import { guessCategory } from '@/lib/categories'
+import { expenseEmoji } from '@/lib/icons'
 import { CHAT_MAX, cleanMessage, owedBetween } from '@/lib/chat'
 import {
   applyMention,
@@ -700,7 +701,7 @@ function ShareSheet({
             <li key={e.id}>
               <button type="button" onClick={() => onPick(e)} className="flex min-h-12 w-full items-center gap-3 px-2 py-2 text-left">
                 <span className="text-xl" aria-hidden>
-                  {CATEGORIES[e.category].emoji}
+                  {expenseEmoji(e)}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{e.description}</span>

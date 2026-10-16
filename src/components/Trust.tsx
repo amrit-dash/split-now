@@ -10,7 +10,7 @@ import { canPurge, daysLeftInTrash, flagsOf, isPending, pendingApprovers, PURGE_
 import { formatMoney } from '@/lib/money'
 import { formatDate } from '@/lib/locale'
 import { tuning } from '../../shared/app-tuning'
-import { CATEGORIES } from '@/lib/categories'
+import { expenseEmoji } from '@/lib/icons'
 import { errText } from '@/lib/errors'
 import { Sheet } from './Sheet'
 import { useConfirm } from './ConfirmSheet'
@@ -450,7 +450,7 @@ export function RecentlyDeleted({ group, open, onClose }: { group: Group; open: 
                 }
               >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-lg dark:bg-ink-800" aria-hidden>
-                  {r.kind === 'e' ? (CATEGORIES[r.item.category]?.emoji ?? '🧾') : '💸'}
+                  {r.kind === 'e' ? expenseEmoji(r.item) : '💸'}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium">

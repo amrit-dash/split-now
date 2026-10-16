@@ -178,7 +178,22 @@ export function CurrencySheet({
   )
 }
 
-export function CategorySheet({ open, onClose, value, onPick }: { open: boolean; onClose: () => void; value: Category; onPick: (c: Category) => void }) {
+export function CategorySheet({
+  open,
+  onClose,
+  value,
+  onPick,
+  icon,
+  onOpenIcon,
+}: {
+  open: boolean
+  onClose: () => void
+  value: Category
+  onPick: (c: Category) => void
+  /** the expense's icon now, and the way to every icon (the same as pressing and holding it) */
+  icon?: string
+  onOpenIcon?: () => void
+}) {
   return (
     <Sheet open={open} onClose={onClose} title="Category">
       <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Category">
@@ -202,6 +217,20 @@ export function CategorySheet({ open, onClose, value, onPick }: { open: boolean;
           </button>
         ))}
       </div>
+      {onOpenIcon && (
+        <button
+          type="button"
+          onClick={onOpenIcon}
+          className="mt-3 flex min-h-11 w-full items-center gap-3 rounded-2xl bg-slate-100 px-3 py-2 text-left text-sm font-semibold dark:bg-ink-800"
+          data-testid="category-icon"
+        >
+          <span className="text-2xl" aria-hidden>
+            {icon}
+          </span>
+          <span className="min-w-0 flex-1">Choose an icon</span>
+          <span className="text-muted text-xs font-normal">or press and hold it</span>
+        </button>
+      )}
     </Sheet>
   )
 }

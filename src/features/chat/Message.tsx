@@ -20,6 +20,7 @@ import {
 import type { ActivityEntry, ChatMessage, ChatReplyRef, Debt, Expense, Group, MemberId, MergeRequest, OpenItem } from '@/types'
 import { activityText } from '@/lib/activity'
 import { CATEGORIES } from '@/lib/categories'
+import { expenseEmoji } from '@/lib/icons'
 import { authorMember, foldsUpdates, linkParts, payCard, settleCard, updateKind, type ChatRow, type UpdateKind } from '@/lib/chat'
 import { listNames, mentionParts, type Mentionable } from '@/lib/chat-tools'
 import { formatTime } from '@/lib/locale'
@@ -606,7 +607,6 @@ function Card({ m, ctx, mine, memberId }: { m: ChatMessage; ctx: MessageCtx; min
   const e = m.ref ? ctx.expenses.get(m.ref) : undefined
   if (!e || typeof e.deletedAt === 'number')
     return shell('slate', <Receipt size={15} />, 'Expense', <div className="text-muted text-sm">{e ? 'Deleted' : 'No longer here'}</div>)
-  const cat = CATEGORIES[e.category]
   const payers = Object.keys(handlersOf(e))
   const paidBy = payers.length > 1 ? `${payers.length} people` : payers[0] === ctx.me ? 'you' : labelOf(group.members, payers[0], 'someone', ctx.me)
   return (
@@ -617,7 +617,7 @@ function Card({ m, ctx, mine, memberId }: { m: ChatMessage; ctx: MessageCtx; min
         isReceived(e) ? 'Money received' : 'Expense',
         <div className="flex items-center gap-2.5">
           <span className="text-2xl" aria-hidden>
-            {cat.emoji}
+            {expenseEmoji(e)}
           </span>
           <div className="min-w-0 flex-1">
             <div className="truncate text-base font-semibold">{e.description}</div>

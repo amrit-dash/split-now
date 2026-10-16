@@ -1,11 +1,14 @@
 import { useState, type ReactNode } from 'react'
-import { Pencil, X } from 'lucide-react'
+import { MoreHorizontal, Pencil, X } from 'lucide-react'
 import { ALL_GROUP_ICONS, firstEmoji, groupTypeInfo, type GroupGuess } from '@/lib/groupTypes'
+import { useLongPress } from '@/hooks/useLongPress'
+import { IconSheet } from './IconSheet'
 
 /**
  * Group icon button that sits beside a labelled input (same height as `.input`), plus a hidden
- * horizontal picker that opens on tap, with a field for any other emoji. `children` is the field
- * next to the button.
+ * horizontal picker that opens on tap, with a field for any other emoji. Press and hold (or the
+ * row's last tile) opens every icon, with a search (src/components/IconSheet.tsx). `children` is
+ * the field next to the button.
  */
 export function IconPickerField({
   emoji,
@@ -21,7 +24,9 @@ export function IconPickerField({
   idPrefix?: string
 }) {
   const [open, setOpen] = useState(false)
+  const [all, setAll] = useState(false)
   const [custom, setCustom] = useState('')
+  const press = useLongPress({ onTap: () => setOpen((o) => !o), onHold: () => setAll(true) })
   const pickerId = `${idPrefix}-picker`
   const list = emojis.includes(emoji) ? emojis : [emoji, ...emojis]
   const choose = (e: string) => {
@@ -34,11 +39,12 @@ export function IconPickerField({
       <div className="flex items-end gap-3">
         <button
           type="button"
-          onClick={() => setOpen((o) => !o)}
+          {...press}
           aria-expanded={open}
           aria-controls={pickerId}
-          aria-label={`Group icon ${emoji}. Change icon`}
-          className={`relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-100 to-duo-100 text-2xl transition active:scale-95 dark:from-brand-900/50 dark:to-duo-900/30 ${open ? 'ring-2 ring-brand-500' : ''}`}
+          aria-label={`Group icon ${emoji}. Change icon. Press and hold for every icon`}
+          data-testid="group-icon"
+          className={`flex h-12 w-12 shrink-0 press-hold select-none items-center justify-center rounded-2xl [-webkit-touch-callout:none] bg-gradient-to-br from-brand-100 to-duo-100 text-2xl transition active:scale-95 dark:from-brand-900/50 dark:to-duo-900/30 ${open ? 'ring-2 ring-brand-500' : ''}`}
         >
           {emoji}
           <span
@@ -66,6 +72,16 @@ export function IconPickerField({
                 {e}
               </button>
             ))}
+            <button
+              type="button"
+              onClick={() => setAll(true)}
+              aria-label="Every icon"
+              aria-haspopup="dialog"
+              className="text-muted flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-ink-800"
+              data-testid="group-icon-more"
+            >
+              <MoreHorizontal size={20} aria-hidden />
+            </button>
           </div>
           {/* Any emoji from the keyboard: picked as soon as one is typed. Stays 16px so iOS doesn't zoom. */}
           <input
@@ -83,6 +99,15 @@ export function IconPickerField({
           />
         </div>
       )}
+      <IconSheet
+        open={all}
+        onClose={() => setAll(false)}
+        title="Group icon"
+        value={emoji}
+        first={list}
+        onPick={(e) => e && choose(e)}
+        testId="group-icon-sheet"
+      />
     </>
   )
 }

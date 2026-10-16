@@ -94,6 +94,7 @@ export async function sealDoc(k: VaultKey, kind: ConvertKind, doc: Doc): Promise
       break
     case 'expense':
       await f('description', CAPS.description)
+      await f('icon', CAPS.emoji)
       await f('notes', CAPS.notes)
       if (isObj(d.splitInput) && Array.isArray(d.splitInput.items))
         d.splitInput = {
