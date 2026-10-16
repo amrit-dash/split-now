@@ -618,7 +618,7 @@ function Card({ m, ctx, mine, memberId }: { m: ChatMessage; ctx: MessageCtx; min
         isReceived(e) ? 'Money received' : 'Expense',
         <div className="flex items-center gap-2.5">
           <span className="text-2xl" aria-hidden>
-            <IconFace iconSvg={e.iconSvg} emoji={expenseEmoji(e)} />
+            <IconFace iconSvg={e.iconSvg} iconImage={e.iconImage} emoji={expenseEmoji(e)} />
           </span>
           <div className="min-w-0 flex-1">
             <div className="truncate text-base font-semibold">{e.description}</div>

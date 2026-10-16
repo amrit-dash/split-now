@@ -80,6 +80,8 @@ export interface Group {
   emoji: string
   /** An icon drawn by AI from the name, as for an expense (Expense.iconSvg); `emoji` stays for text. Never in a private group. */
   iconSvg?: string
+  /** A picture from "Draw a picture", as for an expense (Expense.iconImage). Never in a private group. */
+  iconImage?: string
   type: GroupType
   currency: string
   budget?: Cents
@@ -199,6 +201,11 @@ export interface Expense {
    * `icon` where the app draws icons; text (pushes, exports) keeps the emoji. Never in a private group.
    */
   iconSvg?: string
+  /**
+   * A picture from "Draw a picture" (a paid image model), shrunk on the phone to a small image
+   * data: URL (src/lib/icon-picture.ts). Wins over `iconSvg` and `icon` where the app draws icons. Never in a private group.
+   */
+  iconImage?: string
   date: string // ISO yyyy-mm-dd
   notes?: string
   paidBy: Record<MemberId, Cents>

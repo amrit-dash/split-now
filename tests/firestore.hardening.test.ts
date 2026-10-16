@@ -429,6 +429,11 @@ describe('expense & settlement validation', () => {
     // an AI-drawn icon: up to 4096 characters of markup
     await assertSucceeds(setDoc(e('bob', 't9'), { ...expense, id: 't9', iconSvg: '<svg/>' }))
     await assertFails(setDoc(e('bob', 't10'), { ...expense, id: 't10', iconSvg: 'x'.repeat(4097) }))
+    // a picture: a small image data: URL only
+    await assertSucceeds(setDoc(e('bob', 't11'), { ...expense, id: 't11', iconImage: 'data:image/webp;base64,AAAA' }))
+    await assertFails(setDoc(e('bob', 't12'), { ...expense, id: 't12', iconImage: 'data:image/svg+xml;base64,AAAA' }))
+    await assertFails(setDoc(e('bob', 't13'), { ...expense, id: 't13', iconImage: 'https://x.test/a.png' }))
+    await assertFails(setDoc(e('bob', 't14'), { ...expense, id: 't14', iconImage: `data:image/png;base64,${'A'.repeat(24_000)}` }))
   })
   const st = { id: 's1', groupId: 'g1', from: 'bob', to: 'alice', amount: 500, method: 'Cash', date: '2026-01-01', createdBy: 'bob', createdAt: 1 }
   const s = (uid: string, id = 's1') => doc(db(uid), `groups/g1/settlements/${id}`)

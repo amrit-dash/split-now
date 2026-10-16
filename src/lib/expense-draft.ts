@@ -2,6 +2,7 @@ import type { Capture, Category, Cents, Expense, Group, MemberId, OriginalAmount
 import { CATEGORIES } from './categories'
 import { isIcon } from './icons'
 import { cleanSvg } from '../../shared/svg-icon'
+import { cleanIconImage } from '../../shared/icon-ai'
 import { CURRENCIES, formatMoney, fromHundredths, minorDigits } from './money'
 import { convertExpense, toOriginal, type FxRate } from './fx'
 import { computeSplits, SplitError } from './splits'
@@ -63,6 +64,8 @@ export interface Draft {
   icon?: string
   /** an AI-drawn icon (cleaned SVG, shared/svg-icon.ts); shown over `icon`; never in a private group */
   iconSvg?: string
+  /** a picture from Draw a picture (a small image data: URL); shown over both; never in a private group */
+  iconImage?: string
   date: string
   notes: string
   /**
@@ -226,6 +229,7 @@ export function initialDraft(a: SeedArgs): Draft {
     catTouched: !!src || !!q?.category,
     ...(isIcon(src?.icon) ? { icon: src.icon } : {}),
     ...(src && cleanSvg(src.iconSvg) ? { iconSvg: cleanSvg(src.iconSvg) as string } : {}),
+    ...(src && cleanIconImage(src.iconImage) ? { iconImage: src.iconImage } : {}),
     date: existing?.date ?? q?.date ?? capture?.date ?? today,
     notes: src?.notes ?? capture?.note ?? a.notes ?? '',
     received: src ? isReceived(src) : !!q?.received && group.type !== 'personal',
@@ -258,8 +262,10 @@ export type Action =
   | { type: 'category'; category: Category }
   /** an icon picked in the icon sheet; none goes back to the automatic one. Either drops a drawn icon. */
   | { type: 'icon'; icon?: string }
-  /** an AI-drawn icon picked in the icon sheet */
+  /** an AI-drawn icon picked in the icon sheet (drops a picture) */
   | { type: 'iconSvg'; svg: string }
+  /** a picture from Draw a picture (drops a drawn icon) */
+  | { type: 'iconImage'; image: string }
   | { type: 'received'; on: boolean }
   | { type: 'currency'; cur: string }
   | { type: 'date'; date: string }
@@ -315,12 +321,18 @@ export function reduce(d: Draft, a: Action): Draft {
     case 'category':
       return { ...d, category: a.category, catTouched: true }
     case 'icon': {
-      const { icon: _i, iconSvg: _s, ...rest } = d
+      const { icon: _i, iconSvg: _s, iconImage: _p, ...rest } = d
       return isIcon(a.icon) ? { ...rest, icon: a.icon } : rest
     }
     case 'iconSvg': {
       const svg = cleanSvg(a.svg)
-      return svg ? { ...d, iconSvg: svg } : d
+      const { iconImage: _p, ...rest } = d
+      return svg ? { ...rest, iconSvg: svg } : d
+    }
+    case 'iconImage': {
+      const image = cleanIconImage(a.image)
+      const { iconSvg: _s, ...rest } = d
+      return image ? { ...rest, iconImage: image } : d
     }
     case 'received':
       return { ...d, received: a.on }
@@ -533,6 +545,7 @@ export function toExpense(d: Draft, ctx: SaveCtx): { expense: Expense; remember:
     icon: isIcon(d.icon) ? d.icon : undefined,
     // A private group has no drawn icons (they can't be sealed; the rules refuse them).
     iconSvg: group.vault ? undefined : (cleanSvg(d.iconSvg) ?? undefined),
+    iconImage: group.vault ? undefined : (cleanIconImage(d.iconImage) ?? undefined),
     date: d.date,
     notes: d.notes.trim() || undefined,
     paidBy: money.paidBy,
@@ -721,6 +734,7 @@ export function hydrateDraft(stored: Partial<Draft>, base: Draft, order: MemberI
   if (!REPEAT_OPTIONS.includes(d.repeat)) d.repeat = 'never'
   if (!(d.category in CATEGORIES)) d.category = base.category
   if (!isIcon(d.icon)) delete d.icon
+  if (d.iconImage !== undefined && !cleanIconImage(d.iconImage)) delete d.iconImage
   if (d.iconSvg !== undefined) {
     const svg = cleanSvg(d.iconSvg)
     if (svg) d.iconSvg = svg

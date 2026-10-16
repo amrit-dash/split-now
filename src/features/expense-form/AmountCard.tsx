@@ -96,7 +96,7 @@ export function AmountCard({
           data-testid="expense-icon"
         >
           <span aria-hidden>
-            <IconFace iconSvg={draft.iconSvg} emoji={expenseEmoji(draft)} />
+            <IconFace iconSvg={draft.iconSvg} iconImage={draft.iconImage} emoji={expenseEmoji(draft)} />
           </span>
         </button>
         <div className="min-w-0 flex-1">

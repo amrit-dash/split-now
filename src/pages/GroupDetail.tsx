@@ -1304,7 +1304,7 @@ function ActivityList({
                       style={{ background: `${CATEGORIES[e.category].color}22` }}
                       aria-hidden
                     >
-                      <IconFace iconSvg={e.iconSvg} emoji={expenseEmoji(e)} />
+                      <IconFace iconSvg={e.iconSvg} iconImage={e.iconImage} emoji={expenseEmoji(e)} />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">

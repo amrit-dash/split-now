@@ -63,6 +63,13 @@ export interface AppAiConfig {
   perHour: number
   /** shared-key calls per day over every user (stats/ai_{day}.app); the admin's hard budget */
   globalPerDay: number
+  /**
+   * "Draw a picture" in the icon sheet on the shared key (Gemini engine only: image models have no
+   * free tier, so each picture is billed to the project, about US$0.03). Off unless the admin turns it on.
+   */
+  pictures: boolean
+  /** shared-key pictures per user per day (each is paid for) */
+  picturesPerDay: number
 }
 
 export const DEFAULT_APP_AI: AppAiConfig = {
@@ -76,6 +83,8 @@ export const DEFAULT_APP_AI: AppAiConfig = {
   perDay: 100,
   perHour: 30,
   globalPerDay: DEFAULT_GLOBAL_PER_DAY,
+  pictures: false,
+  picturesPerDay: 5,
 }
 
 export interface UserAiPrefs {
@@ -134,6 +143,8 @@ export function resolveAppAi(raw: unknown): AppAiConfig {
     perDay: int(r.perDay, 1, 5000, DEFAULT_APP_AI.perDay),
     perHour: int(r.perHour, 1, 1000, DEFAULT_APP_AI.perHour),
     globalPerDay: int(r.globalPerDay, 1, 100_000, DEFAULT_APP_AI.globalPerDay),
+    pictures: r.pictures === true,
+    picturesPerDay: int(r.picturesPerDay, 1, 100, DEFAULT_APP_AI.picturesPerDay),
   }
 }
 

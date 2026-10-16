@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  generateImage,
   generateJson,
   listModels,
   looseJson,
@@ -300,5 +301,37 @@ describe('normalisePayment', () => {
   it('not a payment screenshot is null', () => {
     expect(normalisePayment({ isPayment: false, amount: 5 }, 'INR', digits)).toBeNull()
     expect(normalisePayment('nope', 'INR', digits)).toBeNull()
+  })
+})
+
+describe('generateImage', () => {
+  const ok = (parts: unknown[], finishReason = 'STOP') =>
+    new Response(JSON.stringify({ candidates: [{ content: { parts }, finishReason }], modelVersion: 'v' }), { status: 200 })
+  it('asks for a square image and answers its bytes', async () => {
+    let body: Record<string, unknown> = {}
+    const fetchImpl = (async (_u: string, init: RequestInit) => {
+      body = JSON.parse(String(init.body))
+      return ok([{ text: 'here' }, { inlineData: { mimeType: 'image/png', data: 'AAAA' } }])
+    }) as unknown as typeof fetch
+    const r = await generateImage('k', 'draw', { models: ['m1'], fetchImpl })
+    expect(r).toMatchObject({ data: 'AAAA', mimeType: 'image/png', model: 'm1' })
+    expect(body.generationConfig).toEqual({ responseModalities: ['IMAGE'], imageConfig: { aspectRatio: '1:1' } })
+  })
+  it('moves to the next model when one is unknown to the key', async () => {
+    const seen: string[] = []
+    const fetchImpl = (async (u: string) => {
+      seen.push(u)
+      return u.includes('m1') ? new Response('model not found', { status: 404 }) : ok([{ inlineData: { mimeType: 'image/jpeg', data: 'BB' } }])
+    }) as unknown as typeof fetch
+    expect((await generateImage('k', 'd', { models: ['m1', 'm2'], fetchImpl })).model).toBe('m2')
+    expect(seen).toHaveLength(2)
+  })
+  it('a refusal is blocked; no image or an odd type is an error', async () => {
+    const f = (r: Response) => (async () => r) as unknown as typeof fetch
+    await expect(generateImage('k', 'd', { models: ['m'], fetchImpl: f(ok([], 'IMAGE_SAFETY')) })).rejects.toMatchObject({ kind: 'blocked' })
+    await expect(generateImage('k', 'd', { models: ['m'], fetchImpl: f(ok([{ text: 'no' }])) })).rejects.toThrow(/no picture/)
+    await expect(generateImage('k', 'd', { models: ['m'], fetchImpl: f(ok([{ inlineData: { mimeType: 'image/svg+xml', data: 'x' } }])) })).rejects.toThrow(
+      /no picture/,
+    )
   })
 })

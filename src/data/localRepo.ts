@@ -1386,6 +1386,12 @@ export function createLocalRepo(): Repo {
       const { demoIcons } = await import('@/lib/icon-ai-demo')
       return demoIcons(req)
     },
+    async iconPictureAi(req) {
+      // No image model here: the stand-in drawing comes back as the "picture" (the app turns it into a small image).
+      const { demoIcons } = await import('@/lib/icon-ai-demo')
+      const svg = demoIcons(req).svgs[1] ?? demoIcons(req).svgs[0]
+      return { image: btoa(svg), mimeType: 'image/svg+xml', via: 'app' }
+    },
     async aiKey() {
       throw new Error('AI features aren’t available in the demo')
     },

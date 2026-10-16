@@ -18,7 +18,7 @@ import { categoryIcons, expenseEmoji, isIcon } from '@/lib/icons'
 import { useLongPress } from '@/hooks/useLongPress'
 import { IconSheet } from '@/components/IconSheet'
 import { IconFace } from '@/components/IconFace'
-import { useIconAiOffered } from '@/hooks/useIconAi'
+import { useIconAi } from '@/hooks/useIconAi'
 import { formatMoney } from '@/lib/money'
 import { FREQ_LABEL } from '@/lib/recurrence'
 import { rateLabel } from '@/lib/fx'
@@ -569,17 +569,17 @@ function ReceiptCard({ group, expense: e, trashed }: { group: Group; expense: Ex
 function ExpenseIcon({ expense: e, color, editable, vault }: { expense: Expense; color: string; editable: boolean; vault: boolean }) {
   const toast = useToast()
   const [open, setOpen] = useState(false)
-  const ai = useIconAiOffered(vault)
+  const ai = useIconAi(vault)
   const press = useLongPress({ onTap: () => setOpen(true), onHold: () => setOpen(true) })
   const face = expenseEmoji(e)
   const tile = 'mx-auto flex h-16 w-16 items-center justify-center rounded-3xl text-4xl'
   if (!editable)
     return (
       <div className={tile} style={{ background: color + '22' }} aria-hidden>
-        <IconFace iconSvg={e.iconSvg} emoji={face} vault={vault} />
+        <IconFace iconSvg={e.iconSvg} iconImage={e.iconImage} emoji={face} vault={vault} />
       </div>
     )
-  const write = async (patch: Pick<Expense, 'icon' | 'iconSvg'>) => {
+  const write = async (patch: Pick<Expense, 'icon' | 'iconSvg' | 'iconImage'>) => {
     try {
       await repo.saveExpense({ ...e, ...patch, updatedAt: Date.now() })
     } catch (err) {
@@ -587,7 +587,8 @@ function ExpenseIcon({ expense: e, color, editable, vault }: { expense: Expense;
     }
   }
   // Any emoji (or Automatic) drops a drawn icon; a drawn one keeps the emoji for text.
-  const save = (icon: string | undefined) => (icon === (isIcon(e.icon) ? e.icon : undefined) && !e.iconSvg ? undefined : write({ icon, iconSvg: undefined }))
+  const save = (icon: string | undefined) =>
+    icon === (isIcon(e.icon) ? e.icon : undefined) && !e.iconSvg && !e.iconImage ? undefined : write({ icon, iconSvg: undefined, iconImage: undefined })
   return (
     <>
       <button
@@ -600,7 +601,7 @@ function ExpenseIcon({ expense: e, color, editable, vault }: { expense: Expense;
         data-testid="expense-detail-icon"
       >
         <span aria-hidden>
-          <IconFace iconSvg={e.iconSvg} emoji={face} vault={vault} />
+          <IconFace iconSvg={e.iconSvg} iconImage={e.iconImage} emoji={face} vault={vault} />
         </span>
       </button>
       <IconSheet
@@ -611,9 +612,12 @@ function ExpenseIcon({ expense: e, color, editable, vault }: { expense: Expense;
         auto={expenseEmoji({ ...e, icon: undefined })}
         first={categoryIcons(e.category)}
         onPick={save}
-        ai={ai && e.description ? { title: e.description, kind: 'expense', category: CATEGORIES[e.category]?.label } : undefined}
+        ai={ai.suggest && e.description ? { title: e.description, kind: 'expense', category: CATEGORIES[e.category]?.label } : undefined}
         svgValue={e.iconSvg}
-        onPickSvg={(svg) => write({ icon: e.icon, iconSvg: svg })}
+        onPickSvg={(svg) => write({ icon: e.icon, iconSvg: svg, iconImage: undefined })}
+        picture={ai.picture}
+        imageValue={e.iconImage}
+        onPickImage={(image) => write({ icon: e.icon, iconSvg: undefined, iconImage: image })}
       />
     </>
   )

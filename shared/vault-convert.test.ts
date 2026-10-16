@@ -48,6 +48,7 @@ describe('converting a group', () => {
     // an AI-drawn icon can't be sealed: it goes (null is a delete)
     expect(await sealDoc(k, 'expense', { amount: 5, iconSvg: '<svg/>' })).toEqual({ iconSvg: null })
     expect((await sealDoc(k, 'group', { name: 'Goa', iconSvg: '<svg/>' }))?.iconSvg).toBeNull()
+    expect(await sealDoc(k, 'expense', { amount: 5, iconImage: 'data:image/webp;base64,AA' })).toEqual({ iconImage: null })
     const chat = (await sealDoc(k, 'chat', {
       text: 'hi',
       authorName: 'Asha',

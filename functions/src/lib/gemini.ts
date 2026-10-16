@@ -421,6 +421,57 @@ export async function generateJson(
   throw last ?? new GeminiError('no Gemini model available')
 }
 
+/**
+ * One picture from a Gemini image model ("Draw a picture" in the icon sheet): the first model the
+ * key can use, square. No free tier exists for these models, so it only runs on a key someone pays
+ * for (functions/src/ai.ts iconPictureAi). Answers the image's base64 and type; a refusal is 'blocked'.
+ */
+export async function generateImage(
+  key: string,
+  prompt: string,
+  opts: { models: string[]; fetchImpl?: typeof fetch; timeoutMs?: number },
+): Promise<{ data: string; mimeType: string; model: string; usage: GeminiUsage; modelVersion?: string }> {
+  const { models, fetchImpl = fetch, timeoutMs = 50_000 } = opts
+  const started = Date.now()
+  let last: GeminiError | undefined
+  for (const model of models) {
+    const res = await fetchImpl(`${ENDPOINT}/${encodeURIComponent(model)}:generateContent`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { responseModalities: ['IMAGE'], imageConfig: { aspectRatio: '1:1' } },
+      }),
+      signal: AbortSignal.timeout(Math.max(1000, timeoutMs - (Date.now() - started))),
+    })
+    if (!res.ok) {
+      const body = (await res.text()).slice(0, 300)
+      const err = new GeminiError(`Gemini ${res.status}: ${body}`, res.status, body)
+      // A model this key can't use: try the next one.
+      if (err.kind === 'model') {
+        last = err
+        continue
+      }
+      throw err
+    }
+    const out = (await res.json()) as GenerateResponse
+    const c = out.candidates?.[0]
+    if (out.promptFeedback?.blockReason || (c?.finishReason && c.finishReason !== 'STOP')) {
+      throw new GeminiError(`Gemini blocked the request: ${out.promptFeedback?.blockReason ?? c?.finishReason}`, undefined, '', 'blocked')
+    }
+    const part = (c?.content?.parts as Array<{ inlineData?: { mimeType?: string; data?: string } }> | undefined)?.find((p) => p.inlineData?.data)
+    const mimeType = part?.inlineData?.mimeType ?? ''
+    if (!part?.inlineData?.data || !/^image\/(png|jpeg|webp)$/.test(mimeType)) throw new GeminiError('Gemini returned no picture')
+    const usage: GeminiUsage = {
+      promptTokens: out.usageMetadata?.promptTokenCount ?? 0,
+      outputTokens: out.usageMetadata?.candidatesTokenCount ?? 0,
+      thoughtTokens: out.usageMetadata?.thoughtsTokenCount ?? 0,
+    }
+    return { data: part.inlineData.data, mimeType, model, usage, modelVersion: out.modelVersion }
+  }
+  throw last ?? new GeminiError('no Gemini image model available')
+}
+
 export interface GeminiModelInfo {
   name: string
   displayName?: string

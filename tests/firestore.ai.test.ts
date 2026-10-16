@@ -62,6 +62,10 @@ describe('config/ai', () => {
     await assertFails(setDoc(doc(as('boss'), 'config/ai'), { ...good, engine: 'gemma', gemmaModel: 'x'.repeat(81) }))
     await assertFails(setDoc(doc(as('boss'), 'config/ai'), { ...good, engine: 'gemma', gemmaModel: 4 }))
     await assertFails(setDoc(doc(as('boss'), 'config/other'), { x: 1 }))
+    // Draw a picture on the shared key: a bool and a small daily allowance
+    await assertSucceeds(setDoc(doc(as('boss'), 'config/ai'), { ...good, pictures: true, picturesPerDay: 10 }))
+    await assertFails(setDoc(doc(as('boss'), 'config/ai'), { ...good, pictures: 'yes' }))
+    await assertFails(setDoc(doc(as('boss'), 'config/ai'), { ...good, picturesPerDay: 101 }))
   })
 })
 

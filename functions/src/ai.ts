@@ -28,6 +28,7 @@ import type { PaymentRead } from '../../shared/payment-ok'
 import {
   GeminiError,
   generateJson,
+  generateImage,
   listModels,
   normaliseReceipt,
   normaliseSms,
@@ -59,7 +60,7 @@ import type { QuickAiResponse } from '../../shared/quick-ai'
 import { cleanQuickRequest, normaliseQuickAi, QUICK_SCHEMA, quickPrompt } from './lib/quick-ai'
 import { flagOn, getLimits } from './lib/limits'
 import { cleanIconRequest, ICON_SCHEMA, iconPrompt, normaliseIcons } from './lib/icon-ai'
-import type { IconSuggestions } from '../../shared/icon-ai'
+import { type IconPictureResponse, type IconSuggestions, PICTURE_MODELS, picturePlan, picturePrompt } from '../../shared/icon-ai'
 import { applyRateLimit, type RateState } from './lib/ratelimit'
 import { parseKekList, readStoredKey, storedKeyFields } from './lib/seal'
 import { addDays, istDate } from './lib/time'
@@ -184,7 +185,7 @@ type Limited = { allowed: true } | { allowed: false; why: 'user' | 'global' }
  */
 async function allow(
   uid: string,
-  kind: KeyPlan['key'] | 'keycheck',
+  kind: KeyPlan['key'] | 'keycheck' | 'picture',
   limits: { perHour: number; perDay: number },
   now: number,
   global?: { max: number },
@@ -206,7 +207,7 @@ async function allow(
 async function record(
   ctx: Ctx,
   plan: KeyPlan | 'denied',
-  feature: AiFeature | 'text' | 'chat' | 'icons',
+  feature: AiFeature | 'text' | 'chat' | 'icons' | 'pictures',
   now: number,
   extra: { err?: GeminiError; usage?: GeminiUsage; model?: string; denied?: 'user' | 'global'; key?: KeyPlan['key'] } = {},
 ) {
@@ -581,6 +582,48 @@ export const iconsAi = onCall(
   },
 )
 
+/**
+ * Callable, signed-in users only: "Draw a picture" in the icon sheet, a paid Gemini image model.
+ *  { title ≤ 80, kind, category? } → { image: base64, mimeType, via: 'own' | 'app' }
+ *  → { unavailable: true, reason } when the flag (config/app aiIcons), the person's switches or the keys say no
+ * The person's own key whenever they added one (even while they use the free AI day to day: the app
+ * says it is billed to their key), with its aiOwnPerHour / aiOwnPerDay limits; else the shared key
+ * only when it runs Gemini and config/ai `pictures` is on, at most `picturesPerDay` per person and
+ * within the project's globalPerDay. Never Gemma (it can't draw). The app shrinks the picture to a
+ * small icon before saving it; nothing is saved here. Counted as `{own,app}_pictures`.
+ */
+export const iconPictureAi = onCall({ ...base, timeoutSeconds: 90, memory: '512MiB', maxInstances: 5 }, async (req): Promise<IconPictureResponse> => {
+  const me = signedIn(req)
+  const input = cleanIconRequest(req.data)
+  if (!input) throw new HttpsError('invalid-argument', 'Nothing to draw')
+  if (!(await flagOn('aiIcons'))) return { unavailable: true, reason: 'off' }
+  const ctx = await loadCtx(me.uid, me.email)
+  const appPictures = ctx.app.engine === 'gemini' && ctx.app.pictures && appKeyStatus(ctx.app, 'images', ctx.email) === 'available'
+  const which = picturePlan({ user: ctx.user, hasOwnKey: !!ctx.ownKey, appPictures })
+  if (!which) return { unavailable: true, reason: 'off' }
+  const key = which === 'own' ? ctx.ownKey : (await appKey()).key
+  if (!key) return { unavailable: true, reason: 'not_configured' }
+  const plan: KeyPlan = { key: which, models: [...PICTURE_MODELS] }
+  const now = Date.now()
+  const limits =
+    which === 'own' ? limitPair(await getLimits(now), 'aiOwnPerHour', 'aiOwnPerDay') : { perHour: ctx.app.picturesPerDay, perDay: ctx.app.picturesPerDay }
+  const gate = await allow(ctx.uid, which === 'own' ? 'own' : 'picture', limits, now, which === 'app' ? { max: ctx.app.globalPerDay } : undefined)
+  if (!gate.allowed) {
+    await record(ctx, 'denied', 'pictures', now, { denied: gate.why, key: which })
+    return { unavailable: true, reason: 'quota' }
+  }
+  try {
+    const g = await generateImage(key, picturePrompt(input), { models: plan.models, timeoutMs: 80_000 })
+    await record(ctx, plan, 'pictures', now, { usage: g.usage, model: g.modelVersion ?? g.model })
+    return { image: g.data, mimeType: g.mimeType, via: which }
+  } catch (e) {
+    const err = e instanceof GeminiError ? e : new GeminiError((e as Error).message)
+    logger.warn('ai picture failed', { key: which, kind: err.kind, message: err.message.slice(0, 200) })
+    await record(ctx, plan, 'pictures', now, { err })
+    return { unavailable: true, reason: err.kind === 'blocked' ? 'blocked' : reasonOf(err.kind) }
+  }
+})
+
 function toPart(x: { image?: unknown; mimeType?: unknown }): GeminiPart {
   const { image, mimeType } = x ?? {}
   if (typeof image !== 'string' || !image || image.length > MAX_IMAGE_B64 || !/^[A-Za-z0-9+/=]+$/.test(image.slice(0, 2000)))
@@ -725,6 +768,8 @@ export const aiStatus = onCall({ ...base, timeoutSeconds: 15, maxInstances: 5 },
     app: {
       images: configured ? appKeyStatus(app, 'images', me.email) : 'off',
       sms: configured ? appKeyStatus(app, 'sms', me.email) : 'off',
+      // "Draw a picture" on the shared key: Gemini only, and only when the admin turned it on
+      pictures: configured && app.engine === 'gemini' && app.pictures ? appKeyStatus(app, 'images', me.email) : 'off',
       model: app.model,
       engine: app.engine,
       perDay: app.perDay,

@@ -6,6 +6,10 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.2.0 — October 2026
+
+- Icons with AI: Draw a picture. Press and hold an icon to get a picture from Google's image model as well as the emoji and drawn icons. With your own Gemini key it is offered even while Split Now's free AI is what you use, and the sheet says it is billed to your key (about US$0.03 a picture). On Split Now's key it is offered only when an admin turns on pictures, and only while the shared key runs Gemini, never Gemma, with a few a day per person. The picture is shrunk on your phone to a small icon before it's saved. It is never offered in private groups, and turning a group private removes its pictures.
+
 ## 8.1.4 — October 2026
 
 - Private groups: while you set a pattern, each tap now shows as · and each long press as –, in order, so you can check it before saving. The lock buttons that take the pattern still show nothing of it.
