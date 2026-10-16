@@ -224,3 +224,17 @@ export function phasePrompt(phase: PatternPhase, kind: 'universal' | 'group'): s
   if (phase === 'current') return kind === 'universal' ? 'Enter your current pattern' : 'Enter a pattern that opens this group'
   return phase === 'new' ? 'Enter the new pattern' : 'Once more to be sure'
 }
+
+/**
+ * How the pad that sets a pattern shows it (Settings → Encrypted groups, a group's own pattern):
+ * a tap as "·" and a long press as "–", in order, so it can be checked before saving. Only this
+ * pad shows it; the lock buttons that take a pattern show nothing of it.
+ */
+export const stepMark = (s: Step): '·' | '–' => (s === 'L' ? '–' : '·')
+
+/** The same, for a screen reader: "3 steps: tap, long press, tap". */
+export function stepsSpoken(steps: Step[]): string {
+  if (!steps.length) return 'No steps yet'
+  const words = steps.map((s) => (s === 'L' ? 'long press' : 'tap')).join(', ')
+  return `${steps.length} ${steps.length === 1 ? 'step' : 'steps'}: ${words}`
+}

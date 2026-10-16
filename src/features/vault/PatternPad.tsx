@@ -1,13 +1,14 @@
 import { useRef } from 'react'
 import { Delete } from 'lucide-react'
-import { PATTERN_MAX, type Step } from '@/lib/vault-api'
+import { PATTERN_MAX, type Step, stepMark, stepsSpoken } from '@/lib/vault-api'
 import { usePress } from './usePress'
 
 /**
  * A pattern being set (Settings → Encrypted groups, a group's own pattern): taps and long presses
- * on one big pad, in order. The dots only count the steps (they never show which were long), so
- * someone looking over a shoulder learns little from the screen. While held, the ring fills to say
- * "this one is long". Space or Enter work the same as a press; the two small buttons add a step for
+ * on one big pad, in order. Each step shows as it goes in, a tap as "·" and a long press as "–"
+ * (stepMark), so the pattern can be checked before it's saved (owner decision, Oct 2026: this
+ * pad is used rarely and by the owner; the lock buttons that take the pattern still show nothing).
+ * While held, the ring fills to say "this one is long". Space or Enter work the same as a press; the two small buttons add a step for
  * screen readers and switch access. Unlocking uses BlindPad, which shows nothing at all.
  */
 export function PatternPad({ steps, onChange, disabled }: { steps: Step[]; onChange: (s: Step[]) => void; disabled?: boolean }) {
@@ -21,14 +22,16 @@ export function PatternPad({ steps, onChange, disabled }: { steps: Step[]; onCha
 
   return (
     <div className="flex flex-col items-center">
-      <div className="flex min-h-6 flex-wrap justify-center gap-2" role="status" data-testid="pattern-count">
-        <span className="sr-only">{`${steps.length} ${steps.length === 1 ? 'step' : 'steps'}`}</span>
+      <div className="flex min-h-8 flex-wrap items-center justify-center gap-1.5" role="status" data-testid="pattern-count">
+        <span className="sr-only">{stepsSpoken(steps)}</span>
         {steps.length === 0 ? (
           <span className="text-muted text-sm">Tap and long-press below</span>
         ) : (
-          steps.map((_, i) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: the dots are only a count.
-            <span key={i} className="h-3 w-3 rounded-full bg-brand-600 dark:bg-brand-300" aria-hidden />
+          steps.map((s, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: the marks are the steps in order.
+            <span key={i} className="w-4 text-center text-2xl font-black leading-none text-brand-700 dark:text-brand-200" aria-hidden data-step={s}>
+              {stepMark(s)}
+            </span>
           ))
         )}
       </div>

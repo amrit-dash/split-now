@@ -86,6 +86,8 @@ test('Private group: universal pattern, words stored encrypted, patterns go in o
   await page.goto('/settings/vault')
   await page.getByTestId('vault-universal-open').click()
   await enter()
+  // the pad that sets it shows each tap as a dot and each long press as a dash
+  await expect(page.getByTestId('pattern-count')).toContainText('··–·––')
   await page.getByTestId('vault-set-next').click()
   await enter()
   await page.getByTestId('vault-set-next').click()
