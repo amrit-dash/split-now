@@ -1,4 +1,11 @@
 # Weekly dependency PRs, grouped so one PR carries all the minor/patch bumps.
+#
+# Majors of peer-coupled packages are ignored here and done by hand, together, in one PR. Dependabot
+# resolves each package of a group on its own, so when one major needs the other (rules-unit-testing 6
+# needs firebase 13; firebase-functions needs a matching firebase-admin) each half fails `npm ci` and
+# arrives as its own red PR (firebase 13 came as #87 and #88, replaced by #96). To do one: edit both
+# ranges in package.json, `npm install`, run `npm run test:all`. Security updates are not affected:
+# Dependabot still opens those whatever this file ignores.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -11,6 +18,11 @@ updates:
       # Node's type definitions follow the Node major we run (22; see engines and CI), not the latest.
       - dependency-name: '@types/node'
         update-types: ['version-update:semver-major']
+      # Peer-coupled with each other: by hand, together (see the top of this file).
+      - dependency-name: 'firebase'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@firebase/*'
+        update-types: ['version-update:semver-major']
   - package-ecosystem: npm
     directory: /functions
     schedule: { interval: weekly }
@@ -20,6 +32,15 @@ updates:
       # Cloud Functions run on Node 22; a newer @types/node would allow APIs the runtime lacks.
       - dependency-name: '@types/node'
         update-types: ['version-update:semver-major']
+      # firebase-functions declares firebase-admin as a peer: by hand, together.
+      - dependency-name: 'firebase-admin'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'firebase-functions'
+        update-types: ['version-update:semver-major']
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
+    # Every workflow uses the same few actions, so one PR moves them all (majors too: an action's
+    # major is a runtime bump, not an API change for us). Separate PRs (#84, #85) only meant more CI runs.
+    groups:
+      actions: { patterns: ['*'] }
