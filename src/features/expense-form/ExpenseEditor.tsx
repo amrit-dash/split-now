@@ -51,6 +51,8 @@ import { usePageTitle } from '@/lib/brand'
 import { useConfirm } from '@/components/ConfirmSheet'
 import { OpenItemSheet } from '@/features/open-items/OpenItemSheet'
 import { CATEGORIES } from '@/lib/categories'
+import { categoryIcons, expenseEmoji } from '@/lib/icons'
+import { IconSheet } from '@/components/IconSheet'
 import { openItemMeta } from '@/lib/open-items'
 import { AmountCard } from './AmountCard'
 import { PayerCard } from './PayerCard'
@@ -59,7 +61,7 @@ import { MoreCard } from './MoreCard'
 import { CategorySheet, CurrencySheet, GroupPickerSheet, PayerSheet } from './sheets'
 import { useFxRate } from './useFxRate'
 
-type SheetKind = 'group' | 'category' | 'payer' | 'currency' | 'split' | null
+type SheetKind = 'group' | 'category' | 'icon' | 'payer' | 'currency' | 'split' | null
 
 /** Where to send the eye when a save is refused; the first problem in this order gets focus. */
 const ERROR_ORDER: ErrorKey[] = ['amount', 'description', 'payers', 'split', 'fx', 'until']
@@ -521,6 +523,7 @@ export function ExpenseEditor({
         converted={converted}
         onApplyRate={applyRate}
         onOpenCategory={() => setSheet('category')}
+        onOpenIcon={() => setSheet('icon')}
         onOpenCurrency={() => setSheet('currency')}
         scan={{ busy: reader.busy, label: reader.label, onPick: () => fileRef.current?.click() }}
         photo={formPhoto({ picked: !!receipt, stored: !!(existing?.receiptUrl || existing?.receiptPath) })}
@@ -665,6 +668,17 @@ export function ExpenseEditor({
         onClose={() => setSheet(null)}
         value={draft.category}
         onPick={(c) => dispatch({ type: 'category', category: c })}
+        icon={expenseEmoji(draft)}
+        onOpenIcon={() => setSheet('icon')}
+      />
+      <IconSheet
+        open={sheet === 'icon'}
+        onClose={() => setSheet(null)}
+        title="Icon"
+        value={draft.icon}
+        auto={expenseEmoji({ ...draft, icon: undefined })}
+        first={categoryIcons(draft.category)}
+        onPick={(icon) => dispatch({ type: 'icon', icon })}
       />
       {!personal && (
         <PayerSheet

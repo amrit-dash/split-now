@@ -6,8 +6,11 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.1.1 — October 2026
+
 - Add expense: Expense or Money received now sits right above the amount. Scan is the scan icon at the end of the description and still reads the bill. Attach, beside Today and Yesterday, keeps a receipt photo without reading it. An expense has one photo: once there is one, Attach is disabled and the photo gets its own row with a thumbnail, Replace and remove, and a scan over it says it replaced it. A photo Scan can't read now stays attached instead of being dropped.
 - Expense screen: the receipt is folded into one row with a small thumbnail; tap to show it, tap the photo to open it full screen (tap again for full size), Replace it, or Add a receipt photo to an expense without one. None of these change the amount.
+- Icons: an expense now shows an icon for what it was for, not only its category (Pizza 🍕, Ferry ⛴️, Kayaking 🛶), from about 190 sets of words that need no network. Group names pick a telling icon too (Ski trip 🎿, Sunday cricket 🏏), with over 100 group icons. Press and hold an icon (or right-click it) to search every icon or type any emoji; on Add expense a tap is still the category, and the category sheet has Choose an icon. An expense's icon can be changed from its own screen and set back to Automatic. While held, the icon sinks and a ring closes in, so you can see the hold working. In a private group the chosen icon is encrypted like the description.
 
 ## 8.1.0 — October 2026
 

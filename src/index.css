@@ -443,3 +443,32 @@ html[data-nav]:has(.install-banner, [data-testid='update-banner'], [data-testid=
 @keyframes chat-flash { 0%, 60% { background-color: color-mix(in oklab, var(--color-brand-500) 22%, transparent); } 100% { background-color: transparent; } }
 .chat-flash { animation: chat-flash 1.4s ease-out; border-radius: 1rem; }
 @media (prefers-reduced-motion: reduce) { .chat-flash { animation: none; } }
+
+/*
+ * Press and hold (src/hooks/useLongPress.ts sets data-press): while held the control sinks a
+ * little and a ring closes in around it over the hold's 500 ms, so it is plain something is
+ * happening; when the hold takes it pops back. A plain tap only shows the sink.
+ */
+.press-hold { position: relative; transition: transform 120ms ease-out; }
+.press-hold::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  border: 2px solid var(--color-brand-500);
+  opacity: 0;
+  transform: scale(1.12);
+  pointer-events: none;
+}
+.press-hold[data-press='down'] { transform: scale(0.93); }
+.press-hold[data-press='down']::after { animation: hold-ring 500ms linear forwards; }
+.press-hold[data-press='held'] { animation: hold-pop 260ms ease-out; }
+.press-hold[data-press='held']::after { opacity: 1; transform: scale(1); animation: hold-done 400ms ease-out forwards; }
+@keyframes hold-ring { 0% { opacity: 0; transform: scale(1.12); } 25% { opacity: 0.5; } 100% { opacity: 1; transform: scale(1); } }
+@keyframes hold-pop { 0% { transform: scale(0.93); } 60% { transform: scale(1.08); } 100% { transform: scale(1); } }
+@keyframes hold-done { to { opacity: 0; transform: scale(1.15); } }
+@media (prefers-reduced-motion: reduce) {
+  .press-hold, .press-hold[data-press='down'], .press-hold[data-press='held'] { transform: none; animation: none; }
+  .press-hold[data-press='down']::after { animation: none; opacity: 0.6; transform: none; }
+  .press-hold[data-press='held']::after { animation: none; opacity: 0; }
+}

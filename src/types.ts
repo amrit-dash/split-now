@@ -186,6 +186,11 @@ export interface Expense {
   description: string
   amount: Cents
   category: Category
+  /**
+   * The icon someone chose for it (one emoji). Absent: the automatic one from its description
+   * and category (src/lib/icons.ts expenseEmoji). Sealed in a private group.
+   */
+  icon?: string
   date: string // ISO yyyy-mm-dd
   notes?: string
   paidBy: Record<MemberId, Cents>

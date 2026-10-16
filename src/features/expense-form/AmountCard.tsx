@@ -2,6 +2,8 @@ import { ImagePlus, Paperclip, ReceiptText, ScanText, Users, X } from 'lucide-re
 import { type FormPhoto, formPhotoView } from '@/lib/receipt-photo'
 import type { Group } from '@/types'
 import { CATEGORIES } from '@/lib/categories'
+import { expenseEmoji } from '@/lib/icons'
+import { useLongPress } from '@/hooks/useLongPress'
 import { centsToInput, currencySymbol } from '@/lib/money'
 import type { Action, Draft, Errors } from '@/lib/expense-draft'
 import { addDaysISO, type Suggestion } from '@/lib/recents'
@@ -33,6 +35,7 @@ export function AmountCard({
   converted,
   onApplyRate,
   onOpenCategory,
+  onOpenIcon,
   onOpenCurrency,
   scan,
   photo,
@@ -55,6 +58,8 @@ export function AmountCard({
   converted?: number
   onApplyRate: () => void
   onOpenCategory: () => void
+  /** press and hold on the icon: every icon (src/components/IconSheet.tsx) */
+  onOpenIcon: () => void
   onOpenCurrency: () => void
   scan: { busy: boolean; label: string; onPick: () => void }
   /** the expense's photo: none, one picked here, or the saved one (src/lib/receipt-photo.ts) */
@@ -73,20 +78,23 @@ export function AmountCard({
   const today = todayISO()
   const yesterday = addDaysISO(today, -1)
   const cat = CATEGORIES[draft.category]
+  const press = useLongPress({ onTap: onOpenCategory, onHold: onOpenIcon })
   const hasReceipt = photo !== 'none'
   const photoView = formPhotoView(photo)
   return (
     <div className="card mt-3 p-5">
       <div className="flex items-center gap-3">
+        {/* Tap: the category. Press and hold (or the context menu): the icon. */}
         <button
           type="button"
-          onClick={onOpenCategory}
-          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-3xl"
+          {...press}
+          className="flex h-14 w-14 shrink-0 press-hold select-none items-center justify-center rounded-2xl text-3xl [-webkit-touch-callout:none]"
           style={{ background: cat.color + '22' }}
-          aria-label={`Category: ${cat.label}. Change`}
+          aria-label={`Category: ${cat.label}. Change. Press and hold for the icon`}
           aria-haspopup="dialog"
+          data-testid="expense-icon"
         >
-          <span aria-hidden>{cat.emoji}</span>
+          <span aria-hidden>{expenseEmoji(draft)}</span>
         </button>
         <div className="min-w-0 flex-1">
           <input
@@ -134,7 +142,7 @@ export function AmountCard({
           <div className="-mx-1 mt-3 flex gap-1.5 overflow-x-auto px-1 py-1" data-testid="desc-suggestions" role="group" aria-label="Past descriptions">
             {suggestions.map((sg) => (
               <button key={sg.description} type="button" onClick={() => onPickSuggestion(sg)} className="chip min-h-9 shrink-0 !py-1.5 text-sm">
-                <span aria-hidden>{CATEGORIES[sg.category].emoji}</span>
+                <span aria-hidden>{expenseEmoji(sg)}</span>
                 <span className="max-w-[10rem] truncate">{sg.description}</span>
               </button>
             ))}

@@ -19,9 +19,14 @@ async function seal(k: VaultKey, s: string | undefined, cap: number): Promise<st
   return sealText(k, fitForToken(s, cap))
 }
 
-export async function sealExpense<E extends Partial<Pick<Expense, 'description' | 'notes' | 'splitInput' | 'dispute'>>>(k: VaultKey, e: E): Promise<E> {
+export async function sealExpense<E extends Partial<Pick<Expense, 'description' | 'icon' | 'notes' | 'splitInput' | 'dispute'>>>(
+  k: VaultKey,
+  e: E,
+): Promise<E> {
   const out: E = { ...e }
   if (e.description !== undefined) out.description = (await seal(k, e.description, CAPS.description)) as string
+  // a chosen icon says what it was for (🍺) as plainly as the words do
+  if (e.icon !== undefined) out.icon = await seal(k, e.icon, CAPS.emoji)
   if (e.notes !== undefined) out.notes = await seal(k, e.notes, CAPS.notes)
   if (e.splitInput?.items)
     out.splitInput = {

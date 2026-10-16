@@ -14,6 +14,9 @@ import { useMe } from '@/hooks/auth'
 import { myMemberId, useAllExpenses, useComments, useGroup } from '@/hooks/data'
 import type { Expense, ExpenseComment, Group } from '@/types'
 import { CATEGORIES } from '@/lib/categories'
+import { categoryIcons, expenseEmoji, isIcon } from '@/lib/icons'
+import { useLongPress } from '@/hooks/useLongPress'
+import { IconSheet } from '@/components/IconSheet'
 import { formatMoney } from '@/lib/money'
 import { FREQ_LABEL } from '@/lib/recurrence'
 import { rateLabel } from '@/lib/fx'
@@ -138,9 +141,7 @@ export default function ExpenseDetail() {
       />
       {trashed && <TrashedBanner group={group} item={e} kind="expense" />}
       <div className="card p-6 text-center">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl text-4xl" style={{ background: cat.color + '22' }} aria-hidden>
-          {cat.emoji}
-        </div>
+        <ExpenseIcon expense={e} color={cat.color} editable={!trashed} />
         <h1 className="mt-3 text-xl font-bold">{e.description}</h1>
         <div className="mt-1 text-4xl font-extrabold tabular-nums tracking-tight">{formatMoney(e.amount, cur)}</div>
         {e.original && (
@@ -556,5 +557,55 @@ function ReceiptCard({ group, expense: e, trashed }: { group: Group; expense: Ex
         />
       )}
     </div>
+  )
+}
+
+/**
+ * The expense's icon, at the top of its screen. Tap or press and hold: every icon, saved straight
+ * away (only the icon changes, so nobody is asked to approve it again). Read-only in the trash.
+ */
+function ExpenseIcon({ expense: e, color, editable }: { expense: Expense; color: string; editable: boolean }) {
+  const toast = useToast()
+  const [open, setOpen] = useState(false)
+  const press = useLongPress({ onTap: () => setOpen(true), onHold: () => setOpen(true) })
+  const face = expenseEmoji(e)
+  const tile = 'mx-auto flex h-16 w-16 items-center justify-center rounded-3xl text-4xl'
+  if (!editable)
+    return (
+      <div className={tile} style={{ background: color + '22' }} aria-hidden>
+        {face}
+      </div>
+    )
+  const save = async (icon: string | undefined) => {
+    if (icon === (isIcon(e.icon) ? e.icon : undefined)) return
+    try {
+      await repo.saveExpense({ ...e, icon, updatedAt: Date.now() })
+    } catch (err) {
+      toast(errText(err), 'err')
+    }
+  }
+  return (
+    <>
+      <button
+        type="button"
+        {...press}
+        className={`${tile} press-hold select-none [-webkit-touch-callout:none]`}
+        style={{ background: color + '22' }}
+        aria-label={`Icon ${face}. Change icon`}
+        aria-haspopup="dialog"
+        data-testid="expense-detail-icon"
+      >
+        <span aria-hidden>{face}</span>
+      </button>
+      <IconSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Icon"
+        value={isIcon(e.icon) ? e.icon : undefined}
+        auto={expenseEmoji({ ...e, icon: undefined })}
+        first={categoryIcons(e.category)}
+        onPick={save}
+      />
+    </>
   )
 }

@@ -25,7 +25,7 @@ describe('guessGroup', () => {
   })
   it('spots dinners and drinks as outings', () => {
     expect(guessGroup('Friday dinner')).toEqual({ type: 'outing', emoji: '🍽️' })
-    expect(guessGroup('Sunday brunch')).toEqual({ type: 'outing', emoji: '🍽️' })
+    expect(guessGroup('Sunday brunch')).toEqual({ type: 'outing', emoji: '🥐' })
     expect(guessGroup('Drinks at Toit')).toEqual({ type: 'outing', emoji: '🍻' })
   })
   it('prefers the specific event over the generic party', () => {
@@ -42,6 +42,22 @@ describe('guessGroup', () => {
     expect(guessGroup('Misc')).toBeNull()
     expect(guessGroup('Goan')).toBeNull()
     expect(guessGroup('Teamwork')).toBeNull()
+  })
+})
+
+describe('guessGroup with the icon catalogue', () => {
+  it('a generic word settles the type, a telling one the icon', () => {
+    expect(guessGroup('Ski trip')).toEqual({ type: 'trip', emoji: '🎿' })
+    expect(guessGroup('Scuba weekend')).toEqual({ type: 'trip', emoji: '🤿' })
+    expect(guessGroup('Pizza night')).toEqual({ type: 'outing', emoji: '🍕' })
+  })
+  it('names no rule knows still find a type and icon', () => {
+    expect(guessGroup('Kerala backwaters')).toEqual({ type: 'trip', emoji: '🛶' })
+    expect(guessGroup('Sunday cricket')).toEqual({ type: 'other', emoji: '🏏' })
+    expect(guessGroup('Diwali 2026')).toEqual({ type: 'event', emoji: '🪔' })
+  })
+  it('offers far more icons than the types', () => {
+    expect(ALL_GROUP_ICONS.length).toBeGreaterThanOrEqual(100)
   })
 })
 

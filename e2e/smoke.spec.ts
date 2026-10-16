@@ -1212,3 +1212,49 @@ test('receipt photo: an expense without one takes one from its own screen', asyn
   await page.getByTestId('receipt-file').setInputFiles({ name: 'bill.png', mimeType: 'image/png', buffer: png })
   await expect(page.getByTestId('receipt-open')).toBeVisible({ timeout: 15_000 })
 })
+
+test('icons: an expense picks its own from what it is for, and press and hold opens every icon', async ({ page }) => {
+  await page.goto('/add?group=g_goa')
+  await page.getByRole('textbox', { name: 'Description', exact: true }).fill('Ferry to Havelock')
+  await amountField(page).fill('640')
+  // the automatic icon follows the words, not only the category
+  await expect(page.getByTestId('expense-icon')).toContainText('⛴️')
+  // a right click is the hold for a mouse (a finger holds, a keyboard has the menu key)
+  await page.getByTestId('expense-icon').click({ button: 'right' })
+  const sheet = page.getByTestId('icon-sheet')
+  await expect(sheet).toBeVisible()
+  await sheet.getByTestId('icon-search').fill('kayak')
+  await sheet.getByRole('radio', { name: 'Icon 🛶' }).click()
+  await expect(page.getByTestId('expense-icon')).toContainText('🛶')
+  // a tap is still the category
+  await page.getByTestId('expense-icon').click()
+  await expect(page.getByTestId('category-icon')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await page
+    .getByRole('button', { name: /^(Save|Add expense)$/ })
+    .first()
+    .click()
+  await expect(page).toHaveURL(/\/groups\/g_goa$/)
+  await page.getByText('Ferry to Havelock').first().click()
+  await expect(page.getByTestId('expense-detail-icon')).toContainText('🛶')
+  // back to the automatic one, from the expense's own screen
+  await page.getByTestId('expense-detail-icon').click()
+  await page.getByTestId('icon-auto').click()
+  await expect(page.getByTestId('expense-detail-icon')).toContainText('⛴️')
+})
+
+test('icons: a group name suggests a telling icon, and every icon is a search away', async ({ page }) => {
+  await page.goto('/groups/new')
+  await page
+    .getByRole('radiogroup', { name: 'What are you creating?' })
+    .getByRole('radio', { name: /^Group/ })
+    .click()
+  // the name settles the type (trip) and a telling word the icon
+  await page.getByLabel('Name', { exact: true }).fill('Ski trip')
+  await expect(page.getByTestId('group-icon')).toContainText('🎿')
+  await page.getByTestId('group-icon').click({ button: 'right' })
+  const sheet = page.getByTestId('group-icon-sheet')
+  await sheet.getByTestId('icon-search').fill('camp')
+  await sheet.getByRole('radio', { name: 'Icon 🏕️' }).click()
+  await expect(page.getByTestId('group-icon')).toContainText('🏕️')
+})

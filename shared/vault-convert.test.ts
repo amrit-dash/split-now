@@ -30,6 +30,7 @@ describe('converting a group', () => {
     const k = await vaultKey('g', dek)
     const e = {
       description: 'Hotel',
+      icon: '🏨',
       notes: 'two nights',
       amount: 500000,
       date: '2026-10-01',
@@ -37,7 +38,9 @@ describe('converting a group', () => {
       dispute: { u1: { reason: 'too much', at: 1 } },
     }
     const p = (await sealDoc(k, 'expense', e)) as typeof e
-    expect(Object.keys(p).sort()).toEqual(['description', 'dispute', 'notes', 'splitInput'])
+    expect(Object.keys(p).sort()).toEqual(['description', 'dispute', 'icon', 'notes', 'splitInput'])
+    expect(isToken(p.icon)).toBe(true)
+    expect(p.icon.length).toBeLessThanOrEqual(80)
     expect(isToken(p.splitInput.items[0]?.name)).toBe(true)
     expect(p.splitInput.items[0]?.amount).toBe(1)
     expect(isToken(p.dispute.u1?.reason)).toBe(true)
