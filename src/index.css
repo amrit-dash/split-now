@@ -461,7 +461,7 @@ html[data-nav]:has(.install-banner, [data-testid='update-banner'], [data-testid=
   pointer-events: none;
 }
 .press-hold[data-press='down'] { transform: scale(0.93); }
-.press-hold[data-press='down']::after { animation: hold-ring 500ms linear forwards; }
+.press-hold[data-press='down']::after { animation: hold-ring var(--hold-ms, 500ms) linear forwards; }
 .press-hold[data-press='held'] { animation: hold-pop 260ms ease-out; }
 .press-hold[data-press='held']::after { opacity: 1; transform: scale(1); animation: hold-done 400ms ease-out forwards; }
 @keyframes hold-ring { 0% { opacity: 0; transform: scale(1.12); } 25% { opacity: 0.5; } 100% { opacity: 1; transform: scale(1); } }

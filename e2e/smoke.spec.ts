@@ -146,6 +146,15 @@ test('Private group: universal pattern, words stored encrypted, patterns go in o
   // the wrong one was counted (by the "server", never on screen); the stray tap never reached it
   const tries = await page.evaluate(() => JSON.parse(localStorage.getItem('sn-demo-vault') ?? '{}').tries)
   expect(tries).toEqual({ wrong: 1 })
+  // each press shows it was felt, the same for every press
+  const box = await page.getByTestId('vault-unlock-open').boundingBox()
+  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2)
+  await page.mouse.down()
+  await expect(page.getByTestId('vault-unlock-open')).toHaveAttribute('data-press', 'down')
+  await page.mouse.up()
+  await expect(page.getByTestId('vault-unlock-open')).toHaveAttribute('data-press', 'idle')
+  // that stray press goes nowhere after the pause; the right pattern then opens it, on the same screen
+  await page.waitForTimeout(1700)
   await press('vault-unlock-open')
   await expect(page.getByText('Secret dinner')).toBeVisible()
 

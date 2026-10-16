@@ -6,6 +6,10 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.1.2 — October 2026
+
+- Private groups: after a wrong pattern on a lock button you can draw the right one straight away, on the same screen. Presses made while the last try is still being checked used to be lost, so the retry failed too and you had to leave and come back. Each press on the lock button now shows it was felt: the button sinks, and a ring closes in while you hold. Every press looks the same, so the screen still gives nothing of the pattern away.
+
 ## 8.1.1 — October 2026
 
 - Add expense: Expense or Money received now sits right above the amount. Scan is the scan icon at the end of the description and still reads the bill. Attach, beside Today and Yesterday, keeps a receipt photo without reading it. An expense has one photo: once there is one, Attach is disabled and the photo gets its own row with a thumbnail, Replace and remove, and a scan over it says it replaced it. A photo Scan can't read now stays attached instead of being dropped.
