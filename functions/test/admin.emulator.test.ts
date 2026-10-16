@@ -79,6 +79,12 @@ describe('admin callables (emulator)', () => {
     expect((await call('adminBlockUser', { uid: 'alice', block: true }, 'alice')).error?.status).toBe('PERMISSION_DENIED')
   })
 
+  it('adminLogs: admins only, and in the emulator it says where logs show', async () => {
+    expect((await call('adminLogs', { hours: 24 }, 'alice')).error?.status).toBe('PERMISSION_DENIED')
+    const r = await call<{ entries: unknown[]; note?: string }>('adminLogs', { hours: 24, level: 'ERROR' }, 'boss')
+    expect(r.result?.entries).toEqual([])
+    expect(r.result?.note).toMatch(/emulator/)
+  })
   it('adminStats returns the last N days of counters and group totals', async () => {
     const r = await call<{
       today: string

@@ -6,6 +6,9 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 7.2.0 — October 2026
+
+- Admin → Logs: the server's logs (every function, filter by level, function, time, words or an account or group id, open an entry to see everything it carries and copy it) and errors reported from people's phones (crashes, unexpected errors and refused saves). A screen that crashes now shows "This screen hit a problem" with Reload instead of a blank page.
 ## 7.1.0 — October 2026
 
 - Private groups: turn on Private group when you make a group. Descriptions, notes, comments, chat and open items are encrypted on your phone, and the group opens with a pattern of taps and long presses that everyone in it shares, plus Face ID or your passkey. Too many wrong patterns lock it for a while. It locks again when you leave the app or after 5 minutes idle; while locked its amounts don't show anywhere and its notifications say only that something happened. Anyone in the group can change the pattern. Photos and AI reading aren't available in private groups yet.

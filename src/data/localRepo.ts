@@ -418,6 +418,8 @@ export function createLocalRepo(): Repo {
     mode: 'demo',
     onError: errors.on,
     vault: demoVault(typeof localStorage === 'undefined' ? undefined : localStorage),
+    // The demo has no admin console to read reports in.
+    reportError: () => {},
     watchPendingWrites(cb) {
       cb(0)
       return () => {}

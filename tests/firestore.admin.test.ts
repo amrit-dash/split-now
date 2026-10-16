@@ -62,6 +62,7 @@ const limits = {
   proofChecksPerHour: 10,
   proofChecksPerDay: 30,
   captureKeepDays: 30,
+  appErrorKeepDays: 14,
   updatedAt: 1,
   updatedBy: 'boss',
 }
@@ -164,6 +165,8 @@ describe('config/limits', () => {
     await assertFails(setDoc(doc(as('boss'), 'config/limits'), { ...limits, proofChecksPerHour: 101 }))
     await assertFails(setDoc(doc(as('boss'), 'config/limits'), { ...limits, aiOwnPerDay: '600' }))
     await assertFails(setDoc(doc(as('boss'), 'config/limits'), { ...limits, aiGlobalPerDay: 5 }))
+    await assertFails(setDoc(doc(as('boss'), 'config/limits'), { ...limits, appErrorKeepDays: 0 }))
+    await assertFails(setDoc(doc(as('boss'), 'config/limits'), { ...limits, appErrorKeepDays: 91 }))
     await assertFails(setDoc(doc(as('boss'), 'config/other'), { x: 1 }))
   })
 })

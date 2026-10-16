@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useTrackNav } from '@/hooks/useBack'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { Megaphone, RefreshCw, Wrench, X } from 'lucide-react'
@@ -35,6 +35,11 @@ import { GroupDataProvider } from './hooks/groupData'
 import { primeAiStatus, useAiStatus } from './hooks/useAiStatus'
 import { useAppConfig, useBlocked } from './hooks/useAppConfig'
 import { lockVault, startAutoLock } from './lib/vault-keys'
+import { appErrorReport, reportGate, type AppErrorKind } from './lib/app-errors'
+import { ErrorBoundary } from './components/ErrorBoundary'
+
+/** A few error reports per session at most, each message once (lib/app-errors.ts). */
+const reportGateOnce = reportGate()
 import { useViewportStats } from './hooks/useViewportStats'
 import { IDLE_PREFETCH, load, prefetch, prefetchAfter, routeChunks } from './routes'
 import Login from './pages/Login'
@@ -96,8 +101,43 @@ export default function App() {
   const blocked = useBlocked(signedIn ? user.uid : null)
   const open = writesOpen(cfg, !!blocked, admin)
 
+  // Errors from this phone for the admin's Logs tab (lib/app-errors.ts): a few per session, signed-in people only.
+  const uidForReports = signedIn ? user.uid : null
+  const report = useCallback(
+    (e: unknown, kind: AppErrorKind) => {
+      if (!uidForReports) return
+      const r = appErrorReport(e, {
+        uid: uidForReports,
+        kind,
+        path: location.pathname,
+        version: __APP_VERSION__,
+        ua: navigator.userAgent,
+        standalone: isStandalone(),
+        now: Date.now(),
+      })
+      if (reportGateOnce(r)) repo.reportError(r)
+    },
+    [uidForReports],
+  )
+  useEffect(() => {
+    const onError = (ev: ErrorEvent) => report(ev.error ?? ev.message, 'unhandled')
+    const onRejection = (ev: PromiseRejectionEvent) => report(ev.reason, 'unhandled')
+    window.addEventListener('error', onError)
+    window.addEventListener('unhandledrejection', onRejection)
+    return () => {
+      window.removeEventListener('error', onError)
+      window.removeEventListener('unhandledrejection', onRejection)
+    }
+  }, [report])
   // Saves resolve locally (so they work offline); a later server rejection lands here.
-  useEffect(() => repo.onError((e) => toast(errText(e), 'err')), [toast])
+  useEffect(
+    () =>
+      repo.onError((e) => {
+        toast(errText(e), 'err')
+        report(e, 'save')
+      }),
+    [toast, report],
+  )
   // Private groups lock when the app goes to the background and after the admin's idle time (lib/vault-keys.ts).
   const vaultIdle = cfg.tuning.vaultLockMinutes
   useEffect(() => startAutoLock(document, vaultIdle * 60_000), [vaultIdle])
@@ -262,7 +302,9 @@ export default function App() {
       ) : updateRequired(cfg, __APP_VERSION__) && !admin ? (
         <UpdateRequired minVersion={cfg.minVersion} />
       ) : (
-        <AppRoutes cfg={cfg} admin={admin} />
+        <ErrorBoundary onError={(e) => report(e, 'crash')}>
+          <AppRoutes cfg={cfg} admin={admin} />
+        </ErrorBoundary>
       )}
     </>
   )

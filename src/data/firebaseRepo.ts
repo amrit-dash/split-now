@@ -30,6 +30,7 @@ import {
   arrayRemove,
   arrayUnion,
   clearIndexedDbPersistence,
+  addDoc,
   collection,
   collectionGroup,
   connectFirestoreEmulator,
@@ -1808,6 +1809,11 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     async aiUsage(day) {
       const s = await getDoc(doc(db, 'stats', `ai_${day}`))
       return (s.data() as Record<string, number> | undefined) ?? null
+    },
+    reportError(r) {
+      // Not through fire(): a refused report must never turn into another error toast (or report).
+      if (!auth.currentUser || auth.currentUser.isAnonymous) return
+      void addDoc(collection(db, 'appErrors'), r).catch(() => {})
     },
     async vault<T>(req: VaultRequest) {
       if (!online()) throw new Error('You’re offline. Connect to the internet to open a private group.')

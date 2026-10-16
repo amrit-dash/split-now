@@ -7,6 +7,7 @@ import { AdminAi } from './admin/AdminAi'
 import AppSettings from './admin/AppSettings'
 import Flags from './admin/Flags'
 import Limits from './admin/Limits'
+import Logs from './admin/Logs'
 import Overview from './admin/Overview'
 import Users from './admin/Users'
 
@@ -17,6 +18,7 @@ const TABS = [
   { to: '/admin/limits', label: 'Limits' },
   { to: '/admin/ai', label: 'AI' },
   { to: '/admin/users', label: 'Users' },
+  { to: '/admin/logs', label: 'Logs' },
   { to: '/admin/insights', label: 'Insights' },
 ] as const
 
@@ -49,7 +51,7 @@ export default function Admin() {
     <div data-testid="admin-console">
       {/* The section tabs ride in the sticky header, so they stay in reach on long tabs. */}
       <PageHeader title="Admin" back="/settings" subtitle="Switches, limits, usage and accounts. Changes apply within a minute.">
-        {/* Six tabs fit a phone's width (tight padding, each as wide as its word); still scrolls on the narrowest screens. */}
+        {/* Seven tabs, each as wide as its word (tight padding); the row scrolls on narrow phones. */}
         <nav aria-label="Admin sections" className="scrollbar-none -mx-4 mt-3 overflow-x-auto px-4">
           <div className="flex w-max min-w-full gap-0.5 rounded-2xl bg-slate-100 p-1 dark:bg-ink-800">
             {TABS.map((t) => (
@@ -85,6 +87,7 @@ export default function Admin() {
           }
         />
         <Route path="users" element={<Users />} />
+        <Route path="logs" element={<Logs />} />
         <Route path="insights" element={<Overview />} />
         <Route path="*" element={<Navigate to="/admin/app" replace />} />
       </Routes>

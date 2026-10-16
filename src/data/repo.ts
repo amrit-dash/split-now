@@ -1,5 +1,6 @@
 import type { ChatAiIntent } from '../../shared/chat-ai'
 import type { VaultRequest } from '@/lib/vault-api'
+import type { AppErrorReport } from '@/lib/app-errors'
 import type {
   ActivityEntry,
   Capture,
@@ -255,6 +256,11 @@ export interface Repo {
    * device (src/data/vault-demo.ts) with no passkey. Waits for the server; throws its message.
    */
   vault<T = unknown>(req: VaultRequest): Promise<T>
+  /**
+   * An error from this phone for the admin's Logs tab (appErrors; src/lib/app-errors.ts builds
+   * it). Fire-and-forget: a report that can't be sent is dropped. Demo mode keeps none.
+   */
+  reportError(r: AppErrorReport): void
 
   /** The user's groups, without deleted ones (those are in watchDeletedGroups). */
   watchGroups(uid: string, cb: Watch<Group[]>): Unsub

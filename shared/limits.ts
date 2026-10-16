@@ -24,6 +24,8 @@ export interface Limits {
   proofChecksPerDay: number
   /** days a captured payment you added or dismissed is kept before the daily cleanup removes it */
   captureKeepDays: number
+  /** days an error reported from someone's phone (appErrors) is kept for the admin's Logs tab */
+  appErrorKeepDays: number
 }
 
 export type LimitName = keyof Limits
@@ -65,6 +67,13 @@ export const LIMIT_META: Record<LimitName, LimitMeta> = {
     min: 7,
     max: 365,
     default: 30,
+  },
+  appErrorKeepDays: {
+    label: 'App error reports kept for (days)',
+    hint: 'Crashes and refused saves from people’s phones, in Admin → Logs',
+    min: 1,
+    max: 90,
+    default: 14,
   },
 }
 
