@@ -6,11 +6,13 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
-- Private groups: choose how long they stay open without activity (Settings → Encrypted groups → Auto-lock, 1 minute to 1 hour, or Only when the app closes), and per group in its Private group sheet. Turn off Lock when I leave the app to keep them open while you switch apps or windows; with Only when the app closes as well, they lock only when the app is closed, reloaded or restarted (a restart always locks them). Both are kept on that device. Mouse moves, the wheel and typing now count as activity too, so a group no longer locks while you're reading with a mouse.
-- Passkeys run on SimpleWebAuthn 14, which includes its fix to certificate revocation checks during passkey sign-up.
+## 8.1.0 — October 2026
+
+- Changing your universal pattern now asks for the current one first, and setting, changing or removing a group's own pattern asks for a pattern that already opens the group. Before, Face ID or the passkey alone was enough, and anyone holding your unlocked phone can add a passkey.
 - Stop using private groups: Settings → Encrypted groups, at the bottom. It deletes your universal pattern and passkeys, and the app stops offering to make private groups. It works once no private group you made is left (turn private off, delete or leave it). Private groups other people made still open with their own pattern. Start using private groups puts it all back.
 - A new private group can get its own pattern as it's made (New group → Private group → Its own pattern).
-- Changing your universal pattern now asks for the current one first, and setting, changing or removing a group's own pattern asks for a pattern that already opens the group. Before, Face ID or the passkey alone was enough, and anyone holding your unlocked phone can add a passkey.
+- Private groups: choose how long they stay open without activity (Settings → Encrypted groups → Auto-lock, 1 minute to 1 hour, or Only when the app closes), and per group in its Private group sheet. Turn off Lock when I leave the app to keep them open while you switch apps or windows; with Only when the app closes as well, they lock only when the app is closed, reloaded or restarted (a restart always locks them). Both are kept on that device. Mouse moves, the wheel and typing now count as activity too, so a group no longer locks while you're reading with a mouse.
+- Passkeys run on SimpleWebAuthn 14, which includes its fix to certificate revocation checks during passkey sign-up.
 - The sign-in screen's glow no longer shows a hard dark edge in Safari and the installed app on a Mac.
 - Admin → Logs: an opened entry wraps its long lines (stack traces, URLs) instead of scrolling sideways.
 
