@@ -18,7 +18,10 @@ export function SetPatternSheet({
   onClose,
   kind,
   hasCurrent = false,
+  fresh = false,
   remove = false,
+  title: titleOverride,
+  action = 'Remove pattern',
   ordered: startOrdered = true,
   save,
 }: {
@@ -26,11 +29,16 @@ export function SetPatternSheet({
   onClose: () => void
   kind: 'universal' | 'group'
   hasCurrent?: boolean
+  /** a group being made: no current pattern to ask for */
+  fresh?: boolean
   remove?: boolean
+  title?: string
+  /** the button that sends a `remove` sheet's pattern */
+  action?: string
   ordered?: boolean
   save: (pattern: string | null, ordered: boolean, current?: string) => Promise<void>
 }) {
-  const start = remove ? 'current' : firstPhase({ kind, hasCurrent })
+  const start = remove ? 'current' : firstPhase({ kind, hasCurrent, fresh })
   const [phase, setPhase] = useState<PatternPhase>(start)
   const [steps, setSteps] = useState<Step[]>([])
   const [current, setCurrent] = useState<string | undefined>()
@@ -98,7 +106,7 @@ export function SetPatternSheet({
     }
     await send(pattern, current)
   }
-  const title = remove ? 'Remove its own pattern' : kind === 'universal' ? 'Universal pattern' : 'This group’s own pattern'
+  const title = titleOverride ?? (remove ? 'Remove its own pattern' : kind === 'universal' ? 'Universal pattern' : 'This group’s own pattern')
   const hint =
     phase === 'current'
       ? kind === 'universal'
@@ -129,7 +137,7 @@ export function SetPatternSheet({
         </p>
       )}
       <button type="button" className="btn-primary mt-5 w-full" disabled={busy || steps.length === 0} onClick={() => void next()} data-testid="vault-set-next">
-        {busy ? 'Saving…' : phase === 'again' ? 'Save pattern' : remove ? 'Remove pattern' : 'Next'}
+        {busy ? 'Saving…' : phase === 'again' ? 'Save pattern' : remove ? action : 'Next'}
       </button>
     </Sheet>
   )

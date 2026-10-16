@@ -1,9 +1,10 @@
 /*
  * Callable `vault`: private groups (docs/VAULT.md). One function, several steps (`op`):
  *
- *  - status         { groupId? }                     → this person's setup (passkey, universal pattern),
- *                                                       tries left / locked until, and for a group: key
- *                                                       made, own pattern set
+ *  - status         { groupId?, made? }              → this person's setup (passkey, universal pattern,
+ *                                                       stopped), tries left / locked until, and for a
+ *                                                       group: key made, own pattern set; `made`: how many
+ *                                                       private groups they made would keep them from stopping
  *  - passkeyOptions { purpose: 'register' | 'auth' } → WebAuthn options; the challenge is kept for 5 minutes
  *  - passkeyRegister { response }                    → a passkey (Face ID, fingerprint, screen lock) for
  *                                                       this person on this site, kept in users/{uid}/secrets/passkeys
@@ -15,9 +16,16 @@
  *                                                       (universal pattern on the Groups screen), or one group
  *  - groupPattern   { groupId, pattern, ordered, current, auth } → set, change or (pattern null) remove a group's own
  *                                                       pattern; `current` is a pattern that opens it for them
- *  - create         { groupId }                      → a new private group's first data key, for its member
+ *  - create         { groupId, pattern?, ordered? }  → a new private group's first data key, for its member
  *                                                       on the phone that made it (only while it has none);
- *                                                       its name, emoji and people's names are sealed with it
+ *                                                       its name, emoji and people's names are sealed with it,
+ *                                                       and its own pattern set when one was chosen
+ *  - stop           { current?, auth? }               → this person stops using private groups: their
+ *                                                       universal pattern and passkeys are deleted and the app
+ *                                                       stops offering private groups (users/{uid}.privateGroupsOff).
+ *                                                       Refused while they're in a live private group they made;
+ *                                                       other people's open with those groups' own patterns.
+ *                                                       Setting a universal pattern again starts them again
  *  - joinStatus     { code }                          → where this person stands with a private group's invite
  *  - requestJoin    { code }                          → asks to join it (nobody joins a private group from its
  *                                                       invite); its creator is told
@@ -53,7 +61,7 @@ import {
 import { db } from './admin'
 import { sendToUser } from './push'
 import { vaultKey, type VaultKey } from '../../shared/vault-crypto'
-import { openDoc, sealDoc, type ConvertKind } from '../../shared/vault-convert'
+import { blocksStopping, openDoc, sealDoc, type ConvertKind } from '../../shared/vault-convert'
 import { inviteNameFor } from '../../shared/names'
 import { isOpenPlaceholder, joinGate, memberIdFor, sharesAGroup, type JoinRequestDoc } from './lib/join-core'
 import { APP_ORIGINS, ENFORCE_APP_CHECK, REGION } from './config'
@@ -111,6 +119,9 @@ interface PersonDoc {
   setAt?: number
   /** wrong patterns, universal or a group's, counted together */
   tries?: TryState
+  /** stopped using private groups (op `stop`): no new ones until a universal pattern is set again */
+  off?: boolean
+  offAt?: number
 }
 
 interface VaultKeyDoc {
@@ -133,6 +144,10 @@ export type VaultStatus = {
   triesLeft: number
   lockedUntil?: number
   group?: { keyReady: boolean; hasPattern: boolean; ordered?: boolean }
+  /** stopped using private groups */
+  off?: boolean
+  /** asked with `made`: the live private groups they made and are in (each keeps them from stopping) */
+  made?: number
 }
 
 function caller(req: CallableRequest): string {
@@ -174,6 +189,14 @@ async function privateGroup(gid: string, uid: string) {
   if (typeof g.deletedAt === 'number') throw new HttpsError('failed-precondition', 'This group is in Recently deleted.')
   return g
 }
+
+/** How many live private groups this person made and is still in (shared/vault-convert.ts blocksStopping). */
+async function madePrivate(uid: string): Promise<number> {
+  const groups = await db().collection('groups').where('memberUids', 'array-contains', uid).get()
+  return groups.docs.filter((d) => blocksStopping(d.data(), uid)).length
+}
+
+const OFF_TEXT = 'You stopped using private groups. Start again in Settings → Encrypted groups.'
 
 const passkeysRef = (uid: string) => db().doc(`users/${uid}/secrets/passkeys`)
 const personRef = (uid: string) => db().doc(`users/${uid}/secrets/vault`)
@@ -642,7 +665,12 @@ export const vault = onCall(
         const gid = data.groupId === undefined ? undefined : groupId(data.groupId)
         if (gid) await privateGroup(gid, uid)
         const { rpID } = rp(req)
-        const [person, passkeys, key] = await Promise.all([personRef(uid).get(), passkeysRef(uid).get(), gid ? keyRef(gid).get() : undefined])
+        const [person, passkeys, key, made] = await Promise.all([
+          personRef(uid).get(),
+          passkeysRef(uid).get(),
+          gid ? keyRef(gid).get() : undefined,
+          data.made === true ? madePrivate(uid) : undefined,
+        ])
         const p = (person.data() ?? {}) as PersonDoc
         const k = key?.data() as VaultKeyDoc | undefined
         const locked = lockedOut(p.tries, Date.now())
@@ -654,6 +682,8 @@ export const vault = onCall(
           triesLeft: locked ? 0 : triesLeft(p.tries),
           ...(locked ? { lockedUntil: p.tries?.lockedUntil } : {}),
           ...(gid ? { group: { keyReady: !!k, hasPattern: !!k?.pattern, ...(k?.pattern ? { ordered: k.pattern.ordered !== false } : {}) } } : {}),
+          ...(p.off ? { off: true } : {}),
+          ...(made !== undefined ? { made } : {}),
         } satisfies VaultStatus
       }
       case 'setUniversal': {
@@ -665,9 +695,17 @@ export const vault = onCall(
         if (was.pattern) await checkPattern(uid, undefined, data.current, list)
         await checkPasskey(uid, req, data.auth as AuthenticationResponseJSON)
         await personRef(uid).set(
-          { pattern: hashPattern(data.pattern as string, pepperOf(list[0]), undefined, ordered(data.ordered)), setAt: Date.now(), tries: FieldValue.delete() },
+          {
+            pattern: hashPattern(data.pattern as string, pepperOf(list[0]), undefined, ordered(data.ordered)),
+            setAt: Date.now(),
+            tries: FieldValue.delete(),
+            // a universal pattern is how someone who stopped starts again
+            off: FieldValue.delete(),
+            offAt: FieldValue.delete(),
+          },
           { merge: true },
         )
+        if (was.off) await db().doc(`users/${uid}`).set({ privateGroupsOff: FieldValue.delete() }, { merge: true })
         logger.info('vault universal pattern set', { uid })
         return { ok: true as const }
       }
@@ -710,11 +748,26 @@ export const vault = onCall(
       case 'create': {
         const gid = groupId(data.groupId)
         await privateGroup(gid, uid)
+        const own = data.pattern === undefined || data.pattern === null ? undefined : data.pattern
+        if (own !== undefined) {
+          const problem = typeof own === 'string' ? groupPatternProblem(own) : groupPatternProblem('')
+          if (problem) throw new HttpsError('invalid-argument', problem)
+        }
+        if (((await personRef(uid).get()).data() as PersonDoc | undefined)?.off) throw new HttpsError('failed-precondition', OFF_TEXT)
         const list = keks()
         const dek = newDataKey()
+        const now = Date.now()
         // create(), not keyOf(): a key that already exists is never handed out without a pattern and a passkey.
+        // Its own pattern, when one was chosen as it was made: the person making it knows it, nobody else has it yet.
         await keyRef(gid)
-          .create({ wrapped: wrapKey(dek, list[0]), createdBy: uid, createdAt: Date.now() } satisfies VaultKeyDoc)
+          .create({
+            wrapped: wrapKey(dek, list[0]),
+            createdBy: uid,
+            createdAt: now,
+            ...(own !== undefined
+              ? { pattern: hashPattern(own as string, pepperOf(list[0]), undefined, ordered(data.ordered)), patternChangedAt: now, patternChangedBy: uid }
+              : {}),
+          } satisfies VaultKeyDoc)
           .catch(() => {
             throw new HttpsError('already-exists', 'This group already has its key. Unlock it with your pattern.')
           })
@@ -741,9 +794,27 @@ export const vault = onCall(
         if (g.type === 'personal') throw new HttpsError('failed-precondition', 'A personal wallet can’t be private.')
         // Already as asked: nothing to do (a second tap, or another phone did it first).
         if ((g.vault === true) === on) return { ok: true as const }
+        if (on && ((await personRef(uid).get()).data() as PersonDoc | undefined)?.off) throw new HttpsError('failed-precondition', OFF_TEXT)
         const list = keks()
         await checkPasskey(uid, req, data.auth as AuthenticationResponseJSON)
         return on ? makePrivate(gid, uid, g, list) : makePlain(gid, uid, g, list)
+      }
+      case 'stop': {
+        // First what holds it up (no try spent on a pattern that can't help yet).
+        const made = await madePrivate(uid)
+        if (made > 0) throw new HttpsError('failed-precondition', 'Turn off private, or delete, the private groups you made first.', { made })
+        const person = ((await personRef(uid).get()).data() ?? {}) as PersonDoc
+        // As for changing it: the current pattern, then the passkey (someone holding the phone can't do this alone).
+        if (person.pattern) {
+          await checkPattern(uid, undefined, data.current, keks())
+          await checkPasskey(uid, req, data.auth as AuthenticationResponseJSON)
+        }
+        // Wrong tries are kept: a lockout doesn't end by stopping.
+        await personRef(uid).set({ pattern: FieldValue.delete(), setAt: FieldValue.delete(), off: true, offAt: Date.now() }, { merge: true })
+        await passkeysRef(uid).delete()
+        await db().doc(`users/${uid}`).set({ privateGroupsOff: true }, { merge: true })
+        logger.info('vault stopped', { uid })
+        return { ok: true as const }
       }
       default:
         throw new HttpsError('invalid-argument', 'Unknown step.')

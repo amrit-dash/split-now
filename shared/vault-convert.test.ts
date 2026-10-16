@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { isToken, openText, vaultKey } from './vault-crypto'
-import { openDoc, sealDoc } from './vault-convert'
+import { blocksStopping, openDoc, sealDoc } from './vault-convert'
 
 const dek = btoa(String.fromCharCode(...new Array(32).fill(7)))
 
@@ -78,5 +78,16 @@ describe('converting a group', () => {
     const foreign = { ...doc, ...(await sealDoc(other, 'expense', doc)) }
     expect(await openDoc(k, foreign)).toBeNull()
     expect(await openText(sealed.description, k)).toBe('Hotel')
+  })
+})
+
+describe('stopping private groups', () => {
+  it('only live private groups they made and are still in hold it up', () => {
+    const g = { vault: true, createdBy: 'u', memberUids: ['u', 'v'] }
+    expect(blocksStopping(g, 'u')).toBe(true)
+    expect(blocksStopping(g, 'v')).toBe(false) // someone else's
+    expect(blocksStopping({ ...g, vault: undefined }, 'u')).toBe(false) // turned off
+    expect(blocksStopping({ ...g, deletedAt: 5 }, 'u')).toBe(false) // in Recently deleted
+    expect(blocksStopping({ ...g, memberUids: ['v'] }, 'u')).toBe(false) // they left it
   })
 })

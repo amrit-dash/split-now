@@ -32,6 +32,19 @@ Groups); on by default like every flag, server-enforced in the `vault` callable.
   It opens only that group, for anyone in it who knows it, even someone with no universal pattern.
   Anyone in the group who can already open it (with their universal pattern or its own) can set,
   change or remove it, after their passkey. 7.1's group patterns are kept as the groups' own.
+- **A new group's own pattern** can be chosen as it's made (New group → Private group → Its own
+  pattern), entered twice; it goes to the server with the group's first key (`create`). Later it is
+  changed from the group's menu, as above.
+- **Stop using private groups** (Settings → Encrypted groups, at the bottom). Only once no live
+  private group they made is left (turned off, deleted or left: `blocksStopping` in
+  shared/vault-convert.ts); others' private groups don't count. It asks for the current universal
+  pattern and the passkey, then deletes the pattern and every passkey, and sets `off` (and
+  `users/{uid}.privateGroupsOff`, which the app reads). After that the app offers no private group:
+  no switch on New group, no Make private, no lock on the Groups screen, and the server refuses
+  `create` and `convert` on. A private group someone else made still opens inside, on its lock
+  button, with its own pattern (Face ID makes a new passkey on the spot); one with no own pattern
+  stays locked for them, silently, until its creator gives it one. Wrong tries are kept. Setting a
+  universal pattern again (Start using private groups) turns it all back on.
 - **Changing a pattern takes one that opens it.** The universal pattern changes only after the
   current one, and a group's own after the universal pattern or the group's own; a wrong one counts
   as a wrong try. A passkey alone is never enough, because anyone holding the unlocked phone can

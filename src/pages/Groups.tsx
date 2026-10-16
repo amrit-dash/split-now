@@ -31,12 +31,14 @@ export default function Groups() {
     storeShowSettled(on)
   }
   const vaultsOn = useFlag('vaults')
+  const { profile } = useMe()
   useVaultVersion()
   // The universal pattern's lock: every private group at once (src/lib/vault-api.ts lockButton).
   const vaultButton = vaultsOn
     ? lockButton(
         (data ?? []).filter((d) => d.group.vault).map((d) => d.group.id),
         isUnlocked,
+        !!profile.privateGroupsOff,
       )
     : 'none'
   const now = Date.now()

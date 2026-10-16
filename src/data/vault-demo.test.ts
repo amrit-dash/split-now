@@ -62,6 +62,32 @@ describe('demo vault', () => {
     await v({ op: 'setUniversal', pattern: 'LLTTLT', ordered: true, current: 'TTLTLL' })
     await expect(v({ op: 'unlockStart', pattern: 'LLTTLT' })).resolves.toMatchObject({ keys: { a: expect.any(String) } })
   })
+  it('a group’s own pattern chosen as it is made opens it, without anyone’s universal pattern', async () => {
+    const v = demoVault(mem(), undefined, () => ['a'])
+    await expect(v({ op: 'create', groupId: 'a', pattern: '', ordered: true })).rejects.toThrow()
+    const { dek } = await v<{ dek: string }>({ op: 'create', groupId: 'a', pattern: 'TLL', ordered: false })
+    expect(await v({ op: 'status', groupId: 'a' })).toMatchObject({ universal: false, group: { hasPattern: true, ordered: false } })
+    expect(await v<Keys>({ op: 'unlockStart', pattern: 'LTL', groupId: 'a' })).toEqual({ keys: { a: dek } })
+  })
+  it('stopping: held up by private groups they made, takes the current pattern, then no new ones until they start again', async () => {
+    let made = 1
+    const off: boolean[] = []
+    const v = demoVault(mem(), undefined, () => ['a'], undefined, undefined, { made: () => made, setOff: (o) => off.push(o) })
+    await v({ op: 'setUniversal', pattern: 'TTLTLL', ordered: true })
+    expect(await v({ op: 'status', made: true })).toMatchObject({ made: 1 })
+    await expect(v({ op: 'stop', current: 'TTLTLL' })).rejects.toMatchObject({ details: { made: 1 } })
+    made = 0
+    await expect(v({ op: 'stop', current: 'LLTTLT' })).rejects.toThrow('not it')
+    await v({ op: 'stop', current: 'TTLTLL' })
+    expect(off).toEqual([true])
+    expect(await v({ op: 'status' })).toMatchObject({ off: true, universal: false })
+    await expect(v({ op: 'create', groupId: 'n' })).rejects.toThrow('stopped')
+    await expect(v({ op: 'convert', groupId: 'n', on: true })).rejects.toThrow('stopped')
+    // a universal pattern starts them again
+    await v({ op: 'setUniversal', pattern: 'LLTTLT', ordered: true })
+    expect(off).toEqual([true, false])
+    expect(await v({ op: 'status' })).not.toHaveProperty('off')
+  })
   it('keeps 7.1’s per-group patterns as the groups’ own', async () => {
     const s = mem()
     const salt = 'c2FsdA=='

@@ -1111,3 +1111,52 @@ test('going offline shows the sync note under the header, and it goes once back 
   await context.setOffline(false)
   await expect(page.getByTestId('offline-pill')).toBeHidden()
 })
+
+test('Private groups: stopping hides them, and a universal pattern starts them again', async ({ page }) => {
+  const enter = async (p = 'TTLTLL') => {
+    for (const s of p) await page.getByTestId(s === 'T' ? 'pattern-add-tap' : 'pattern-add-long').click()
+  }
+  await page.goto('/settings/vault')
+  await page.getByTestId('vault-universal-open').click()
+  await enter()
+  await page.getByTestId('vault-set-next').click()
+  await enter()
+  await page.getByTestId('vault-set-next').click()
+  await expect(page.getByTestId('vault-line-pattern')).toContainText('Universal pattern set')
+  // a new private group can take its own pattern as it's made
+  await page.goto('/groups/new')
+  await page
+    .getByRole('radiogroup', { name: 'What are you creating?' })
+    .getByRole('radio', { name: /^Group/ })
+    .click()
+  await page.getByTestId('group-private').click()
+  await page.getByTestId('group-own-pattern-set').click()
+  await enter('TL')
+  await page.getByTestId('vault-set-next').click()
+  await enter('TL')
+  await page.getByTestId('vault-set-next').click()
+  await expect(page.getByTestId('group-own-pattern')).toContainText('Set · in order')
+  // stopping: confirm, then the current pattern
+  await page.goto('/settings/vault')
+  await page.getByTestId('vault-stop').click()
+  await page.getByTestId('confirm-ok').click()
+  await expect(page.getByTestId('vault-set-prompt')).toHaveText('Enter your current pattern')
+  await enter()
+  await page.getByTestId('vault-set-next').click()
+  await expect(page.getByTestId('vault-stopped')).toBeVisible()
+  await page.goto('/groups/new')
+  await page
+    .getByRole('radiogroup', { name: 'What are you creating?' })
+    .getByRole('radio', { name: /^Group/ })
+    .click()
+  await expect(page.getByLabel('Name', { exact: true })).toBeVisible()
+  await expect(page.getByTestId('group-private')).toHaveCount(0)
+  // starting again
+  await page.goto('/settings/vault')
+  await page.getByTestId('vault-start').click()
+  await enter('LLTTLT')
+  await page.getByTestId('vault-set-next').click()
+  await enter('LLTTLT')
+  await page.getByTestId('vault-set-next').click()
+  await expect(page.getByTestId('vault-line-pattern')).toContainText('Universal pattern set')
+})

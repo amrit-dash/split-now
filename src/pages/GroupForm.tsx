@@ -40,7 +40,8 @@ import { currentMemberMatch } from '@/lib/members'
 import { DateField } from '@/components/DateField'
 import { Switch } from '@/components/Switch'
 import { openNewGroup } from '@/features/vault/passkey'
-import type { VaultStatus } from '@/lib/vault-api'
+import { privateOffered, type VaultStatus } from '@/lib/vault-api'
+import { SetPatternSheet } from '@/features/vault/SetPatternSheet'
 import { Collapsible } from '@/components/Collapsible'
 import { MoneyInput } from '@/components/MoneyInput'
 import { formatRange } from '@/components/Misc'
@@ -62,7 +63,7 @@ const TRIP_CAPTURE_HINT: Hint = {
 }
 const SIMPLIFY_HINT: Hint = { full: 'Fewer payments: if A owes B and B owes C, A pays C directly.', short: 'Fewer payments, same balances.' }
 const PRIVATE_HINT: Hint = {
-  full: 'Its name, people’s names, descriptions, notes, comments and chat are encrypted. Everyone opens it with their universal pattern of taps and long presses, plus Face ID or a passkey. You can turn it off later from the group’s menu.',
+  full: 'Its name, people’s names, descriptions, notes, comments and chat are encrypted. Everyone opens it with their universal pattern of taps and long presses, or its own pattern if you give it one, plus Face ID or a passkey. You can turn it off later from the group’s menu.',
   short: 'Encrypted, opens with your pattern and Face ID.',
   tier: 'key',
 }
@@ -143,6 +144,11 @@ export default function GroupForm() {
     }
   }
   const vaultsOn = useFlag('vaults')
+  // Not offered to someone who stopped using private groups (Settings → Encrypted groups).
+  const privateShown = privateOffered(vaultsOn, profile)
+  // Its own pattern, chosen as it's made (optional): it opens only this group, for anyone told it in person.
+  const [ownPattern, setOwnPattern] = useState<{ pattern: string; ordered: boolean } | null>(null)
+  const [settingOwn, setSettingOwn] = useState(false)
   const [paymentApproval, setPaymentApproval] = useState(false)
   const [threshold, setThreshold] = useState<number | undefined>(undefined)
   const [thresholdTouched, setThresholdTouched] = useState(false)
@@ -455,7 +461,7 @@ export default function GroupForm() {
         const id = await createGroup({ ...data, createdBy: user.uid } as Omit<Group, 'id' | 'createdAt' | 'updatedAt' | 'inviteCode'>)
         saveCapture(id)
         // Its first key, here, so the person who made it lands in it open; if that fails it opens with their pattern.
-        if (data.vault) await openNewGroup(repo, id).catch(() => {})
+        if (data.vault) await openNewGroup(repo, id, ownPattern ?? undefined).catch(() => {})
         toast(type === 'personal' ? 'Wallet created' : 'Group created')
         // ?next=add: opened from Add expense, so go straight back there with the new group picked
         // (&quick=1: from Quick add, whose line waits in memory to fill the form).
@@ -905,7 +911,7 @@ export default function GroupForm() {
         )}
 
         {/* Private sits out here rather than under More options: it's the one choice that changes how the group opens. */}
-        {shareable && !existing && vaultsOn && (
+        {shareable && !existing && privateShown && (
           <div className="card flex items-center justify-between gap-4 p-4">
             <div id="private-label">
               <div className="flex items-center gap-1.5 font-semibold">
@@ -916,6 +922,38 @@ export default function GroupForm() {
             <Switch checked={privateOn} onChange={(v) => void turnPrivate(v)} label="Private group" testId="group-private" />
           </div>
         )}
+        {privateOn && privateShown && (
+          <div className="card -mt-2 flex items-center justify-between gap-3 p-4" data-testid="group-own-pattern">
+            <div className="min-w-0">
+              <div className="text-sm font-semibold">Its own pattern</div>
+              <div className="text-muted text-xs">
+                {ownPattern
+                  ? `Set · ${ownPattern.ordered ? 'in order' : 'any order'}. Tell people in person.`
+                  : 'Optional. Opens only this group, for anyone you tell it to.'}
+              </div>
+            </div>
+            <div className="flex shrink-0 gap-1.5">
+              {ownPattern && (
+                <button type="button" className="chip min-h-11" onClick={() => setOwnPattern(null)} data-testid="group-own-pattern-clear">
+                  Remove
+                </button>
+              )}
+              <button type="button" className="chip min-h-11" onClick={() => setSettingOwn(true)} data-testid="group-own-pattern-set">
+                {ownPattern ? 'Change' : 'Set'}
+              </button>
+            </div>
+          </div>
+        )}
+        <SetPatternSheet
+          open={settingOwn}
+          onClose={() => setSettingOwn(false)}
+          kind="group"
+          fresh
+          save={async (pattern, ordered) => {
+            if (pattern !== null) setOwnPattern({ pattern, ordered })
+            setSettingOwn(false)
+          }}
+        />
         {privateNote && (
           <p className="-mt-2 px-1 text-sm" role="status" data-testid="group-private-note">
             {privateNote}{' '}

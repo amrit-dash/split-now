@@ -61,7 +61,7 @@ import {
 } from '../../shared/merge-members'
 import { demoVault } from './vault-demo'
 import { vaultKey } from '@/lib/vault-crypto'
-import { openDoc, sealDoc, type ConvertKind } from '../../shared/vault-convert'
+import { blocksStopping, openDoc, sealDoc, type ConvertKind } from '../../shared/vault-convert'
 
 /**
  * Demo-mode repository. Everything lives in this browser's localStorage, so the app
@@ -473,6 +473,15 @@ export function createLocalRepo(): Repo {
           .map(([id]) => id),
       convertGroup,
       addContactDemo,
+      {
+        made: () => Object.values(state.groups).filter((g) => blocksStopping(g, me().uid)).length,
+        setOff: (off) => {
+          const p = state.profiles[me().uid]
+          if (!p) return
+          state.profiles[me().uid] = off ? { ...p, privateGroupsOff: true } : (({ privateGroupsOff: _o, ...rest }) => rest)(p)
+          commit()
+        },
+      },
     ),
     // The demo has no admin console to read reports in.
     reportError: () => {},

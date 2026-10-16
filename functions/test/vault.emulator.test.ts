@@ -160,6 +160,49 @@ describe('vault callable (emulator)', () => {
       expect(g.members.m_a.uid).toBe('alice')
     })
   })
+  it('create: its own pattern chosen as it is made, opening it for someone with no universal pattern', async () => {
+    expect((await call({ op: 'create', groupId: 'vg', pattern: '', ordered: true }, 'alice')).error?.status).toBe('INVALID_ARGUMENT')
+    expect((await call<{ dek: string }>({ op: 'create', groupId: 'vg', pattern: 'TL', ordered: true }, 'alice')).result?.dek).toBeTruthy()
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const k = (await getDoc(doc(ctx.firestore(), 'vaultKeys/vg'))).data()
+      expect(k?.pattern.hash).toBeTruthy()
+      expect(k?.pattern.ordered).toBeUndefined() // in order: only "any order" is written
+      expect(k?.patternChangedBy).toBe('alice')
+    })
+    expect((await call<Record<string, unknown>>({ op: 'status', groupId: 'vg' }, 'bob')).result?.group).toEqual({
+      keyReady: true,
+      hasPattern: true,
+      ordered: true,
+    })
+    // bob has no universal pattern: the group's own gets him to the passkey step (a registration, with none here)
+    const r = await call<{ register: boolean }>({ op: 'unlockStart', pattern: 'TL', groupId: 'vg' }, 'bob')
+    expect(r.result?.register).toBe(true)
+  })
+  it('stop: held up by a private group they made; then no new private groups until a universal pattern is set again', async () => {
+    const s = await call<Record<string, unknown>>({ op: 'status', made: true }, 'alice')
+    expect(s.result?.made).toBe(1)
+    const held = await call<unknown>({ op: 'stop' }, 'alice')
+    expect(held.error?.status).toBe('FAILED_PRECONDITION')
+    // bob is in vg but didn't make it: nothing holds him up, and with no pattern nothing more is asked
+    expect((await call({ op: 'stop' }, 'bob')).result).toEqual({ ok: true })
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      expect((await getDoc(doc(ctx.firestore(), 'users/bob/secrets/vault'))).get('off')).toBe(true)
+      expect((await getDoc(doc(ctx.firestore(), 'users/bob'))).get('privateGroupsOff')).toBe(true)
+      expect((await getDoc(doc(ctx.firestore(), 'users/bob/secrets/passkeys'))).exists()).toBe(false)
+      await setDoc(doc(ctx.firestore(), 'groups/bobs'), group({ vault: true, createdBy: 'bob' }))
+    })
+    expect((await call<Record<string, unknown>>({ op: 'status' }, 'bob')).result?.off).toBe(true)
+    expect((await call({ op: 'create', groupId: 'bobs' }, 'bob')).error?.message).toMatch(/stopped using private groups/)
+    // alice, with a universal pattern and once her group is off: the pattern comes first
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'groups/vg'), group())
+      await setDoc(doc(ctx.firestore(), 'users/alice/secrets/vault'), { pattern: { salt: 'c2FsdA==', hash: 'bm90LXRoZS1oYXNo' } })
+    })
+    expect((await call({ op: 'stop', current: 'TTLTLL' }, 'alice')).error?.status).toBe('PERMISSION_DENIED')
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      expect((await getDoc(doc(ctx.firestore(), 'users/alice/secrets/vault'))).get('off')).toBeUndefined()
+    })
+  })
   it('convert: the creator alone, never a wallet, never without a passkey', async () => {
     expect((await call({ op: 'convert', groupId: 'plain', on: true }, 'bob')).error?.message).toMatch(/Only the person who made the group/)
     expect((await call({ op: 'convert', groupId: 'plain', on: true }, 'mallory')).error?.status).toBe('PERMISSION_DENIED')
