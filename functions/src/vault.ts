@@ -197,6 +197,8 @@ async function madePrivate(uid: string): Promise<number> {
 }
 
 const OFF_TEXT = 'You stopped using private groups. Start again in Settings → Encrypted groups.'
+/** A private group must open with something: the person's universal pattern, or its own (chosen as it's made private). */
+const NO_PATTERN_TEXT = 'Choose how it opens first: your universal pattern, or its own pattern.'
 
 const passkeysRef = (uid: string) => db().doc(`users/${uid}/secrets/passkeys`)
 const personRef = (uid: string) => db().doc(`users/${uid}/secrets/vault`)
@@ -453,10 +455,13 @@ async function tellMembers(gid: string, uid: string, g: FirebaseFirestore.Docume
  * written while the first ran), and its invite renamed. Answers the key, so the creator's phone
  * opens it at once.
  */
-async function makePrivate(gid: string, uid: string, g: FirebaseFirestore.DocumentData, list: Buffer[]) {
+async function makePrivate(gid: string, uid: string, g: FirebaseFirestore.DocumentData, list: Buffer[], own?: { pattern: string; ordered: boolean }) {
   const ref = db().doc(`groups/${gid}`)
   await ref.update({ vault: true, updatedAt: Date.now() })
   const dek = await keyOf(gid, uid, list)
+  // Its own pattern, set with the key: the creator knows it, and tells the group in person.
+  if (own)
+    await keyRef(gid).update({ pattern: hashPattern(own.pattern, pepperOf(list[0]), undefined, own.ordered), patternChangedAt: Date.now(), patternChangedBy: uid })
   const k = await vaultKey(gid, dek)
   const first = await convertPass(gid, k, true)
   const second = await convertPass(gid, k, true)
@@ -754,7 +759,13 @@ export const vault = onCall(
           const problem = typeof own === 'string' ? groupPatternProblem(own) : groupPatternProblem('')
           if (problem) throw new HttpsError('invalid-argument', problem)
         }
-        if (((await personRef(uid).get()).data() as PersonDoc | undefined)?.off) throw new HttpsError('failed-precondition', OFF_TEXT)
+        const person = (await personRef(uid).get()).data() as PersonDoc | undefined
+        if (person?.off) throw new HttpsError('failed-precondition', OFF_TEXT)
+        // A key that exists already answers as before (create() below still settles a race).
+        if (own === undefined && !person?.pattern) {
+          if ((await keyRef(gid).get()).exists) throw new HttpsError('already-exists', 'This group already has its key. Unlock it with your pattern.')
+          throw new HttpsError('failed-precondition', NO_PATTERN_TEXT)
+        }
         const list = keks()
         const dek = newDataKey()
         const now = Date.now()
@@ -795,10 +806,19 @@ export const vault = onCall(
         if (g.type === 'personal') throw new HttpsError('failed-precondition', 'A personal wallet can’t be private.')
         // Already as asked: nothing to do (a second tap, or another phone did it first).
         if ((g.vault === true) === on) return { ok: true as const }
-        if (on && ((await personRef(uid).get()).data() as PersonDoc | undefined)?.off) throw new HttpsError('failed-precondition', OFF_TEXT)
+        // Its own pattern, chosen as it's made private (optional when the creator has a universal one).
+        const own = on && typeof data.pattern === 'string' ? data.pattern : undefined
+        if (on) {
+          const person = (await personRef(uid).get()).data() as PersonDoc | undefined
+          if (person?.off) throw new HttpsError('failed-precondition', OFF_TEXT)
+          if (own !== undefined) {
+            const problem = groupPatternProblem(own)
+            if (problem) throw new HttpsError('invalid-argument', problem)
+          } else if (!person?.pattern) throw new HttpsError('failed-precondition', NO_PATTERN_TEXT)
+        }
         const list = keks()
         await checkPasskey(uid, req, data.auth as AuthenticationResponseJSON)
-        return on ? makePrivate(gid, uid, g, list) : makePlain(gid, uid, g, list)
+        return on ? makePrivate(gid, uid, g, list, own === undefined ? undefined : { pattern: own, ordered: ordered(data.ordered) }) : makePlain(gid, uid, g, list)
       }
       case 'stop': {
         // First what holds it up (no try spent on a pattern that can't help yet).

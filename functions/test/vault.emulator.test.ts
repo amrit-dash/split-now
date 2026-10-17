@@ -148,6 +148,11 @@ describe('vault callable (emulator)', () => {
   })
   it('create: a member makes the first key once; never hands out an existing one', async () => {
     expect((await call({ op: 'create', groupId: 'vg' }, 'mallory')).error?.status).toBe('PERMISSION_DENIED')
+    // nothing would open it: no universal pattern, and no pattern of its own
+    expect((await call({ op: 'create', groupId: 'vg' }, 'alice')).error?.message).toMatch(/Choose how it opens/)
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'users/alice/secrets/vault'), { pattern: { salt: 'c2FsdA==', hash: 'bm90LXRoZS1oYXNo' } })
+    })
     const first = await call<{ dek: string }>({ op: 'create', groupId: 'vg' }, 'alice')
     expect(first.result?.dek).toMatch(/^[A-Za-z0-9+/]{43}=$/)
     expect((await call({ op: 'create', groupId: 'vg' }, 'bob')).error?.status).toBe('ALREADY_EXISTS')
@@ -212,7 +217,12 @@ describe('vault callable (emulator)', () => {
     expect((await call({ op: 'convert', groupId: 'wallet', on: true }, 'alice')).error?.status).toBe('FAILED_PRECONDITION')
     // already as asked: nothing to do
     expect((await call({ op: 'convert', groupId: 'vg', on: true }, 'alice')).result).toEqual({ ok: true })
-    expect(['UNAUTHENTICATED', 'DEADLINE_EXCEEDED']).toContain((await call({ op: 'convert', groupId: 'plain', on: true }, 'alice')).error?.status)
+    // a pattern to open it comes first: the universal one, or its own given here (checked before any passkey)
+    expect((await call({ op: 'convert', groupId: 'plain', on: true }, 'alice')).error?.message).toMatch(/Choose how it opens/)
+    expect((await call({ op: 'convert', groupId: 'plain', on: true, pattern: '' }, 'alice')).error?.status).toBe('INVALID_ARGUMENT')
+    expect(['UNAUTHENTICATED', 'DEADLINE_EXCEEDED']).toContain(
+      (await call({ op: 'convert', groupId: 'plain', on: true, pattern: 'TL' }, 'alice')).error?.status,
+    )
     await env.withSecurityRulesDisabled(async (ctx) => {
       expect((await getDoc(doc(ctx.firestore(), 'groups/plain'))).get('vault')).toBeUndefined()
       expect((await getDoc(doc(ctx.firestore(), 'groups/plain'))).get('name')).toBe('Secret trip')

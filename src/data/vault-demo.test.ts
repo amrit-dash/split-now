@@ -39,11 +39,13 @@ describe('demo vault', () => {
   })
   it('a group’s own pattern opens only that group', async () => {
     const v = demoVault(mem(), undefined, () => ['a', 'b'])
-    const { dek } = await v<{ dek: string }>({ op: 'create', groupId: 'a' })
-    await expect(v({ op: 'create', groupId: 'a' })).rejects.toThrow('already')
-    // setting it takes a pattern that already opens the group: with none at all, there is nothing to prove
+    // a private group must open with something: no universal pattern and none of its own is refused
+    await expect(v({ op: 'create', groupId: 'a' })).rejects.toThrow('Choose how it opens')
+    // setting its own takes a pattern that already opens the group: with none at all, there is nothing to prove
     await expect(v({ op: 'groupPattern', groupId: 'a', pattern: 'TL', ordered: true, current: '' })).rejects.toThrow('Set up')
     await v({ op: 'setUniversal', pattern: 'TTLTLL', ordered: true })
+    const { dek } = await v<{ dek: string }>({ op: 'create', groupId: 'a' })
+    await expect(v({ op: 'create', groupId: 'a' })).rejects.toThrow('already')
     await expect(v({ op: 'groupPattern', groupId: 'a', pattern: 'TL', ordered: true, current: 'LLTTLT' })).rejects.toMatchObject({ details: { triesLeft: 4 } })
     await v({ op: 'groupPattern', groupId: 'a', pattern: 'TL', ordered: true, current: 'TTLTLL' })
     expect(await v({ op: 'status', groupId: 'a' })).toMatchObject({ group: { keyReady: true, hasPattern: true, ordered: true } })
@@ -53,6 +55,15 @@ describe('demo vault', () => {
     // its own pattern is enough to change or remove it
     await v({ op: 'groupPattern', groupId: 'a', pattern: null, ordered: true, current: 'TL' })
     expect(await v({ op: 'status', groupId: 'a' })).toMatchObject({ group: { keyReady: true, hasPattern: false } })
+  })
+  it('making a group private needs a pattern to open it: the universal one, or its own chosen there', async () => {
+    const converted: string[] = []
+    const v = demoVault(mem(), undefined, () => [], async (id, on) => void converted.push(`${id}:${on}`))
+    await expect(v({ op: 'convert', groupId: 'g', on: true })).rejects.toThrow('Choose how it opens')
+    await expect(v({ op: 'convert', groupId: 'g', on: true, pattern: '', ordered: true })).rejects.toThrow()
+    await v({ op: 'convert', groupId: 'g', on: true, pattern: 'TL', ordered: false })
+    expect(converted).toEqual(['g:true'])
+    expect(await v({ op: 'status', groupId: 'g' })).toMatchObject({ universal: false, group: { keyReady: true, hasPattern: true, ordered: false } })
   })
   it('changing the universal pattern takes the current one', async () => {
     const v = demoVault(mem(), undefined, () => ['a'])
