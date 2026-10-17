@@ -6,6 +6,13 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.6.1 — October 2026
+
+- A screen you open now starts at the top. Before, it kept the scroll from the screen before it: a Help section opened from low down on the guide started at its steps, under its picture and title, and looked like another section.
+- Back and the phone's back gesture put each screen where you left it: how far down the page, and how far along Help's How it works row.
+- Help keeps your search: back from a result returns to the results. Back from a section you reached through a link goes to the section you came from.
+- A group that's gone, and the email link page, go back to Groups and Profile rather than to a screen that can't show anything.
+
 ## 8.6.0 — October 2026
 
 - Private groups: one setup card in all three places, Settings → Encrypted groups, New group → Private group and Group ⋯ → Make private. It has a row for your passkey, the pattern and the encryption key, each saying where it stands (Added, Ready or Needed), with an icon button beside it. Add a passkey and Face ID comes up right there. Set or change a pattern without leaving the screen.

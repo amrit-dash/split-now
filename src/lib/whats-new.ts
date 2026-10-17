@@ -24,6 +24,11 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '8.6.1',
+    date: 'October 2026',
+    items: [{ text: 'Screens open at the top, and Back returns you to where you were, scroll included', section: 'help-guide' }],
+  },
+  {
     version: '8.6.0',
     date: 'October 2026',
     items: [
