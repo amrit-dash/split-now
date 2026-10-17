@@ -6,6 +6,11 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.3.14 — October 2026
+
+- Help: thirteen more sections with steps you can play. Adding expenses: editing, deleting and adding an expense again; getting back a deleted expense or payment; repeating expenses; comments and flags; category, date and notes; another currency; Split by items; several payers; approving an expense; finding an expense. Receipts: Live table. Groups: moving a group from Splitwise. Settings: exporting a group as a spreadsheet.
+- Help: in a played scene, the pointer now also finds a quiet line of text (it missed those before, as in unlocking a private group).
+
 ## 8.3.13 — October 2026
 
 - Help: Groups and people now has eleven more sections, each with steps you can play: inviting people, joining with a link, adding people who aren't on Split Now, merging two entries for one person, editing a group, asking for an OK on big expenses and payments, a group budget, trips and other group types, archiving, leaving or deleting a group, removing someone, and the group chat.

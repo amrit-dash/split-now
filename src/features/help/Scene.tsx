@@ -194,7 +194,11 @@ function PartView({ part: p, mark, step, still }: { part: Part; mark?: string; s
       )
     }
     case 'note':
-      return <div className="text-muted px-1 text-[0.55rem]">{p.label}</div>
+      return (
+        <div {...tag} className={`text-muted rounded-lg px-1 text-[0.55rem] ${ring}`}>
+          {p.label}
+        </div>
+      )
     case 'emoji':
       return (
         <div className="grid grid-cols-6 gap-1">

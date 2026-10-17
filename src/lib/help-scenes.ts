@@ -621,6 +621,149 @@ Object.assign(SCENES, {
       { kind: 'chips', mark: 'tag', items: [{ label: '@Meera' }, { label: '@everyone' }] },
     ]),
   ],
+  'edit-delete-expense': [
+    settings('Dinner at Thalassa', [
+      { kind: 'chips', mark: 'top', items: [{ label: '⧉ Add again' }, { label: '✎ Edit' }, { label: '🗑 Delete' }] },
+      { kind: 'row', label: 'Paid by Asha', value: '₹3,240' },
+      { kind: 'row', label: 'Split equally', value: '3 people' },
+    ]),
+    settings('Goa trip', [
+      { kind: 'row', label: 'Scooter rental', value: '✎ Edit · 🗑 Delete', mark: 'swipe' },
+      { kind: 'row', label: 'Ferry tickets', value: '₹600' },
+      { kind: 'message', label: 'Deleted “Scooter rental”', value: 'Undo', mark: 'undo' },
+    ]),
+  ],
+  'recently-deleted': [
+    settings('Goa trip', [
+      { kind: 'chips', items: [{ label: 'Expenses' }, { label: 'Balances' }, { label: 'Activity', mark: 'tab' }] },
+      { kind: 'row', label: 'Recently deleted', value: '2', mark: 'open' },
+      { kind: 'note', label: 'Rahul added Ferry tickets' },
+    ]),
+    {
+      sheet: true,
+      parts: [
+        { kind: 'title', label: 'Recently deleted' },
+        { kind: 'row', label: 'Scooter rental · 28d left', value: 'Restore', mark: 'restore' },
+        { kind: 'row', label: 'Payment to Rahul · 12d left', value: 'Restore' },
+      ],
+    },
+  ],
+  'repeating-expenses': [
+    settings('Add expense', [
+      { kind: 'field', label: 'What was it for?', value: 'Rent', icon: '🏠' },
+      { kind: 'row', label: 'More', value: 'Doesn’t repeat · No notes', mark: 'more' },
+      { kind: 'chips', mark: 'repeat', items: [{ label: 'Weekly' }, { label: 'Monthly', on: true }, { label: 'Yearly' }] },
+      { kind: 'row', label: 'Ends', value: 'Never', mark: 'ends' },
+    ]),
+    settings('Rent', [
+      { kind: 'row', label: 'Repeats monthly', value: 'Next on 1 Nov' },
+      { kind: 'button', label: 'Stop repeating', mark: 'stop' },
+    ]),
+  ],
+  'comments-flags': [
+    settings('Dinner at Thalassa', [
+      { kind: 'message', label: 'Rahul', value: 'Did this include the drinks?' },
+      { kind: 'field', label: 'Add a comment', value: 'Yes, all of them', mark: 'comment' },
+      { kind: 'button', label: 'Flag a problem', mark: 'flag' },
+    ]),
+    settings('Dinner at Thalassa', [
+      { kind: 'row', label: 'Flagged · still counted', value: 'Meera: I wasn’t there' },
+      { kind: 'button', label: 'Resolve my flag', primary: true, mark: 'resolve' },
+    ]),
+  ],
+  'categories-notes-dates': [
+    settings('Add expense', [
+      { kind: 'field', label: 'What was it for?', value: 'Uber to airport', icon: '🚕', mark: 'category' },
+      { kind: 'chips', items: [{ label: 'Today' }, { label: 'Yesterday', mark: 'date' }, { label: '12 Oct' }] },
+      { kind: 'field', label: 'Notes', value: 'Shared with Rahul', mark: 'notes' },
+    ]),
+  ],
+  'foreign-currency': [
+    settings('Add expense', [
+      { kind: 'field', label: 'Amount', value: '฿1,200', mark: 'currency' },
+      { kind: 'chips', mark: 'pick', items: [{ label: 'INR' }, { label: 'THB', on: true }, { label: 'USD' }] },
+      { kind: 'note', label: '≈ ₹2,916 at 1 THB = 2.43 INR (ECB) · Edit rate', mark: 'rate' },
+    ]),
+  ],
+  'split-by-items': [
+    settings('Add expense', [
+      { kind: 'chips', items: [{ label: 'Equally' }, { label: 'Exact' }, { label: 'By items', mark: 'items' }] },
+      { kind: 'row', label: 'Pizza · Asha, Ravi', value: '₹640', mark: 'add' },
+      { kind: 'row', label: 'Beer · Ravi ×2, Meera', value: '₹450', mark: 'portions' },
+      { kind: 'row', label: 'Tax, tip or discount', value: '₹110 shared', mark: 'rest' },
+    ]),
+  ],
+  'several-payers': [
+    settings('Add expense', [{ kind: 'row', label: 'Paid by Asha', value: 'Change', mark: 'change' }]),
+    {
+      sheet: true,
+      parts: [
+        { kind: 'title', label: 'Who paid?' },
+        { kind: 'row', label: 'One person paid', value: '' },
+        { kind: 'row', label: 'Several people paid', value: '›', mark: 'several' },
+      ],
+    },
+    settings('Add expense', [
+      { kind: 'field', label: 'Asha put in', value: '₹2,000', mark: 'amounts' },
+      { kind: 'field', label: 'Ravi put in', value: '₹1,240' },
+      { kind: 'note', label: 'Nothing left to assign' },
+    ]),
+  ],
+  'approve-expense': [
+    settings('Goa trip', [
+      { kind: 'row', label: 'Hotel · Needs OK', value: '₹18,000', mark: 'pill' },
+      { kind: 'row', label: 'Ferry tickets', value: '₹600' },
+    ]),
+    settings('Hotel', [
+      { kind: 'row', label: 'Your share', value: '₹6,000', mark: 'open' },
+      { kind: 'note', label: 'Over ₹2,000: needs an OK from you and Meera' },
+      { kind: 'button', label: 'Approve ₹6,000 share', primary: true, mark: 'approve' },
+    ]),
+  ],
+  'search-expenses': [
+    settings('Goa trip', [
+      { kind: 'field', label: 'Search expenses and notes', value: 'ferry', mark: 'search' },
+      { kind: 'chips', mark: 'chips', items: [{ label: 'Involving me' }, { label: 'Transport' }, { label: 'Food & drink' }] },
+      { kind: 'row', label: 'Sort and filter', value: '1', mark: 'filter' },
+    ]),
+  ],
+  'live-table': [
+    home('plus'),
+    {
+      sheet: true,
+      parts: [
+        {
+          kind: 'tiles',
+          items: [
+            { label: 'Live table', icon: '🍽️', mark: 'tile' },
+            { label: 'Scan', icon: '📷' },
+          ],
+        },
+      ],
+    },
+    settings('Live table', [
+      { kind: 'row', label: 'Pizza · Pasta · 2 Beer', value: '₹1,980' },
+      { kind: 'row', label: 'Tax / fees · Tip', value: '₹220' },
+      { kind: 'button', label: 'Start table', primary: true, mark: 'start' },
+    ]),
+    settings('Table ABCD-2345', [
+      { kind: 'qr', label: 'Scan to join', value: 'Closes after 24 hours' },
+      { kind: 'chips', mark: 'claim', items: [{ label: 'Pizza · Ravi' }, { label: 'Beer · Meera ×2' }] },
+      { kind: 'button', label: 'Finish', primary: true, mark: 'finish' },
+    ]),
+  ],
+  'splitwise-import': [
+    { parts: [{ kind: 'message', label: 'splitwise.com', value: 'Goa trip → Export as spreadsheet', mark: 'export' }] },
+    settings('Import a group', [
+      { kind: 'button', label: 'Choose a CSV file', mark: 'file' },
+      { kind: 'chips', mark: 'who', items: [{ label: 'Asha = me', on: true }, { label: 'Ravi' }, { label: 'Meera' }] },
+      { kind: 'button', label: 'Import 42 items', primary: true, mark: 'import' },
+    ]),
+  ],
+  'export-csv': [
+    settings('Goa trip', [{ kind: 'row', label: '⚙ Export CSV', value: 'Every expense and payment', mark: 'menu' }]),
+    settings('Data', [{ kind: 'row', label: 'Export a group', value: 'Share CSV', mark: 'data' }]),
+  ],
 } satisfies Record<string, Scene>)
 
 /** Every mark in a part or its items. */
