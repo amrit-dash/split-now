@@ -6,6 +6,11 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.6.2 — October 2026
+
+- Help: the auto-capture explainer is redrawn. Messages arrive on a phone, a light scans them, and only the bank alert goes through the filter, turning into a captured payment in your Inbox with Split, Personal and Not shared. The rest stay locked on your phone. Before, the last picture ran off the bottom of its frame and a ring floated over a sieve.
+- The Simplify debts and Splits add up explainers no longer touch the edges of their frame while they play.
+
 ## 8.6.1 — October 2026
 
 - A screen you open now starts at the top. Before, it kept the scroll from the screen before it: a Help section opened from low down on the guide started at its steps, under its picture and title, and looked like another section.
