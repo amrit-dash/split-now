@@ -32,7 +32,7 @@ import type { AiTextExpense } from '@/lib/nl-expense'
 import type { NudgeItem, NudgeResult } from '@/lib/nudge'
 import type { AiUnavailableReason } from '../../shared/ai-config'
 import type { QuickAiRequest, QuickAiResponse } from '../../shared/quick-ai'
-import type { IconAiResponse, IconPickRequest, IconPickResponse, IconPictureResponse, IconRequest } from '../../shared/icon-ai'
+import type { IconAiResponse, IconPickRequest, IconPickResponse, IconPictureResponse, IconRequest, PictureTestResult } from '../../shared/icon-ai'
 import { defaultCurrency, formatDate } from '@/lib/locale'
 import { purgeHeld, purgeOpensAt } from '../../shared/group-trash'
 import { sharedPhotoURL, type OwnMemberPatch } from '@/lib/memberSync'
@@ -636,6 +636,12 @@ export interface Repo {
   /** 'gemma' (admins): the Gemma models the project key can use, newest first */
   /** kind 'pictures': the image models that key can draw with, cheapest first (Draw a picture's picker) */
   aiModels(which: 'own' | 'app' | 'gemma', kind?: 'pictures'): Promise<AiModel[]>
+  /**
+   * Test pictures (callable pictureTest): one billed picture with exactly `model` ('' = the
+   * recommended one), no fallback, on the user's own key or (admins) Split Now's. Google's refusals
+   * come back as `{ ok: false }`; throws when it couldn't be asked. Demo mode has no keys and throws.
+   */
+  pictureTest(which: 'own' | 'app', model: string): Promise<PictureTestResult>
   /** Whether the shared key can be used; null if unknown (offline, demo). */
   aiStatus(): Promise<AiStatusResult | null>
   /** users/{uid}/aiState/status (server-written). */

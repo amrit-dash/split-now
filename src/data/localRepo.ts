@@ -1427,6 +1427,9 @@ export function createLocalRepo(): Repo {
     async aiModels() {
       return []
     },
+    async pictureTest() {
+      throw new Error('AI features aren’t available in the demo')
+    },
     async aiStatus() {
       return null
     },

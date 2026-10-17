@@ -117,6 +117,18 @@ export function cleanIconImage(v: unknown): string | null {
 
 export type IconPictureResponse = { image: string; mimeType: string; via: 'own' | 'app'; model?: string } | { unavailable: true; reason: string }
 
+/**
+ * Test pictures (Settings → AI features for one's own key, Admin → AI for Split Now's): one picture
+ * drawn with exactly the model asked for, no fallback, so a failure is that model's own. `ms` is
+ * how long Google took; `detail` is Google's own sentence when it refused.
+ */
+export type PictureTestResult =
+  | { ok: true; image: string; mimeType: string; model: string; ms: number }
+  | { ok: false; model: string; reason: string; detail?: string }
+
+/** What Test pictures draws: a plain subject every image model handles, so a refusal is about the key. */
+export const PICTURE_TEST_PROMPT = { title: 'Ferry ride', kind: 'expense' as const, category: 'travel' }
+
 // ---- The automatic pick -------------------------------------------------------------
 
 /**

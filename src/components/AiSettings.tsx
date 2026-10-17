@@ -14,6 +14,7 @@ import { autoSourceHint, DEFAULT_MODEL, type AiSource } from '@/lib/ai-config'
 import { pictureModelOptions } from '@/lib/icon-ai'
 import { DEFAULT_ALL_PREFS, savePrefs, watchPrefs, type AllPrefs } from '@/lib/push'
 import { Collapsible } from './Collapsible'
+import { PictureTest } from './PictureTest'
 import { HintText, InfoTip, type Hint } from './Hint'
 import { Select } from './Select'
 import { Switch } from './Switch'
@@ -515,6 +516,7 @@ export function AiSettings() {
                         }}
                       />
                     )}
+                    <PictureTest which="own" model={prefs.aiPictureModel} />
                   </div>
                 )}
               </div>

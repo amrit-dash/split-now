@@ -19,6 +19,7 @@
  *  parseReceiptAi      Callable { kind, image(s) } → bill / statement read by Gemini (own key, then project key)
  *  iconPickAi          Callable { title, kind, choices, categories?, types? } → the automatic icon's AI pick from the app's own list
  *  iconPictureAi       Callable { title, kind, category? } → one picture from a paid Gemini image model (own key, or the shared key when allowed)
+ *  pictureTest         Callable { which, model } → Test pictures: one picture with exactly that model, or Google's reason (own key; shared key for admins)
  *  iconsAi             Callable { title, kind, category? } → 3 emoji and up to 3 cleaned SVG icons (Gemma or Gemini; nothing saved)
  *  quickAddAi          Callable { text, groups, … } → a Quick add line read by Gemini: an expense, or a new group and an expense (validated; nothing saved)
  *  aiKey, aiModels, aiStatus  Callables: save/test/remove a user's Gemini key (sealed at rest), list models, AI availability
@@ -45,7 +46,7 @@ export { cleanupCaptures } from './cleanup'
 export { onExpenseCreated, onExpenseUpdated, onGroupDeleted, onPushTokenCreated, onSettlementCreated, onSettlementUpdated } from './triggers'
 export { dailyReminders } from './reminders'
 export { fxDaily, fxMorning, refreshFx } from './fx'
-export { aiKey, aiModels, aiStatus, iconPickAi, iconPictureAi, iconsAi, parseReceiptAi, quickAddAi } from './ai'
+export { aiKey, aiModels, aiStatus, iconPickAi, iconPictureAi, iconsAi, parseReceiptAi, pictureTest, quickAddAi } from './ai'
 export { nudge } from './nudge'
 export { onPayLinkPaid } from './paylinks'
 export { adminBlockUser, adminSetAdmin, adminStats, adminUsers } from './admin'

@@ -129,7 +129,7 @@ import type { AiKeyResult, AiModel, AiState, AiStatement, AiStatusResult, AiUnav
 import { parseMemory } from '@/lib/merchants'
 import type { AiTextExpense } from '@/lib/nl-expense'
 import type { QuickAiRequest, QuickAiResponse } from '../../shared/quick-ai'
-import type { IconAiResponse, IconPickRequest, IconPickResponse, IconPictureResponse, IconRequest } from '../../shared/icon-ai'
+import type { IconAiResponse, IconPickRequest, IconPickResponse, IconPictureResponse, IconRequest, PictureTestResult } from '../../shared/icon-ai'
 import { archiveWrite } from '../../shared/archive'
 import { personalView } from './personalView'
 import { inviteNameFor } from '../../shared/names'
@@ -1872,6 +1872,10 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     async aiModels(which, kind) {
       const call = await callable<{ which: string; kind?: string }, { models: AiModel[] }>('aiModels', 30_000)
       return (await call({ which, ...(kind ? { kind } : {}) })).data.models
+    },
+    async pictureTest(which, model) {
+      const call = await callable<{ which: string; model: string }, PictureTestResult>('pictureTest', 95_000)
+      return (await call({ which, model })).data
     },
     async aiStatus() {
       try {
