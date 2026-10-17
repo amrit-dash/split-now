@@ -135,7 +135,12 @@ describe('choosing the picture model', () => {
       'gemini-old-image',
     )
     expect(o[0]).toEqual({ value: '', label: 'Recommended (Nano Banana 2 Lite)', hint: 'about US$0.03 a picture · about 3 s' })
-    expect(o[1]).toEqual({ value: 'gemini-3-pro-image', label: 'Nano Banana Pro', hint: 'about US$0.13 a picture · about 14 s' })
+    // every model is offered; a dear one says it buys nothing at icon size
+    expect(o[1]).toEqual({
+      value: 'gemini-3-pro-image',
+      label: 'Nano Banana Pro',
+      hint: 'about US$0.13 a picture · about 14 s · costs more, no difference at icon size',
+    })
     expect(o[2]).toEqual({ value: 'gemini-9-image', label: 'New', hint: undefined })
     expect(o[3]).toEqual({ value: 'gemini-old-image', label: 'gemini-old-image' })
     expect(pictureModelOptions(null, '').length).toBe(1)

@@ -81,7 +81,7 @@ describe('iconPictureAi (emulator)', () => {
   it('a shared key on Gemma for bills still draws when the admin turned pictures on (the key has billing)', async () => {
     await write('config/ai', { mode: 'everyone', engine: 'gemma' })
     expect((await call<Answer>(req, 'alice')).result).toEqual({ unavailable: true, reason: 'off' })
-    await write('config/ai', { mode: 'everyone', engine: 'gemma', pictures: true, pictureModel: 'gemini-3-pro-image' })
+    await write('config/ai', { mode: 'everyone', engine: 'gemma', pictures: true, pictureModel: 'gemini-3.1-flash-image' })
     expect((await call<Answer>(req, 'alice')).result).toEqual({ unavailable: true, reason: 'not_configured' })
   })
 

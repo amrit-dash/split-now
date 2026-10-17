@@ -214,7 +214,7 @@ export const SECTIONS: HelpSection[] = [
       'The app’s own icons need no network: about 190 sets of words for expenses and over 100 group icons.',
       'When they can’t tell (“Parasail”, a restaurant’s name), AI picks one of the app’s icons, and the category while it’s still Other.',
       'Suggest with AI offers three emoji and a few drawn icons, on Split Now’s free AI or your own key.',
-      'Draw a picture shows only when a key that pays for pictures is in use: about US$0.03 a picture on the recommended model, up to US$0.13 on Nano Banana Pro.',
+      'Draw a picture shows only when a key that pays for pictures is in use: about US$0.03 a picture on the recommended model.',
       'Choose the model for pictures in Settings → AI features → Advanced; the picture says which model drew it.',
       'Never in a private group; making a group private removes drawn icons and pictures.',
       'Turn either off in Settings → AI features: AI icons, AI picks icons.',

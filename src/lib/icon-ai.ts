@@ -115,8 +115,12 @@ export function pictureModelOptions(
   chosen: string,
 ): Array<{ value: string; label: string; hint?: string }> {
   const rec = PICTURE_MODEL_INFO[PICTURE_MODELS[0]]
+  // A model well over the recommended one's price says what that buys at icon size: nothing visible.
+  const dear = (m: { usd?: number }) => m.usd !== undefined && m.usd > rec.usd * 2
   const line = (m: { usd?: number; speed?: string }) =>
-    [m.usd !== undefined ? `about US$${m.usd.toFixed(2)} a picture` : null, m.speed].filter(Boolean).join(' · ')
+    [m.usd !== undefined ? `about US$${m.usd.toFixed(2)} a picture` : null, m.speed, dear(m) ? 'costs more, no difference at icon size' : null]
+      .filter(Boolean)
+      .join(' · ')
   return [
     { value: '', label: `Recommended (${rec.name})`, hint: line(rec) },
     ...(models ?? []).map((m) => ({ value: m.id, label: m.label, hint: line(m) || undefined })),
