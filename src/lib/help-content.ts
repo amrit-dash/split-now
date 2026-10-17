@@ -21,6 +21,148 @@ export const CHAPTERS: Chapter[] = [
 ]
 
 export const SECTIONS: HelpSection[] = [
+  // ---- How it works: explainers, an everyday picture instead of taps ----------------------
+  {
+    id: 'how-it-works',
+    icon: '🫙',
+    chapter: 'start',
+    title: 'What Split Now does',
+    summary: 'A shared pot that keeps count, so nobody has to.',
+    keywords: ['about', 'start', 'overview', 'what is', 'basics', 'introduction'],
+    story: {
+      kind: 'pot',
+      beats: [
+        'Think of each group as a shared pot. Whoever pays for something puts it in.',
+        'Each cost is shared out: everyone in it owes their part of the pot.',
+        'Split Now keeps count, so each person sees one number: what they owe, or what they’re owed.',
+        'Settle up when you like. Pay over UPI, and the pot is square again.',
+      ],
+    },
+    points: [
+      'Nobody has to pay back after every meal: it all adds up in the group.',
+      'Everyone in the group sees the same numbers, as soon as something is added.',
+      'Money only moves when you settle up, over UPI or in cash. Split Now never holds it.',
+    ],
+    open: { label: 'Groups', to: '/groups' },
+    related: ['create-group', 'add-expense', 'balances-explained'],
+  },
+  {
+    id: 'balances-explained',
+    icon: '⚖️',
+    chapter: 'settle',
+    title: 'How balances work',
+    summary: 'Paying tips the balance your way; being paid back levels it.',
+    keywords: ['balance', 'owe', 'owed', 'net', 'total', 'credit', 'debt'],
+    story: {
+      kind: 'seesaw',
+      beats: [
+        'A group starts level: nobody owes anybody.',
+        'Asha pays ₹900 for dinner for three. Her side goes up: she is owed ₹600, and Ravi and Meera owe ₹300 each.',
+        'Ravi and Meera pay her back. The balance is level again.',
+      ],
+    },
+    points: [
+      'Your balance in a group is what you paid minus your share of everything.',
+      'Home adds up every group into one number: overall you owe, or you are owed.',
+      'Recording a payment moves the balance the same way an expense does, the other way round.',
+    ],
+    open: { label: 'Balances', to: '/settle' },
+    related: ['settle-up-upi', 'simplify-explained'],
+  },
+  {
+    id: 'simplify-explained',
+    icon: '🧶',
+    chapter: 'settle',
+    title: 'Fewer payments to settle',
+    summary: 'Simplify debts untangles who pays whom into as few payments as it can.',
+    keywords: ['simplify', 'simplified', 'minimum', 'fewer', 'transfers', 'untangle', 'suggested payments'],
+    story: {
+      kind: 'untangle',
+      beats: [
+        'In a busy group, everyone ends up owing a bit to everyone else: a tangle of payments.',
+        'Simplify debts looks only at what each person owes or is owed overall.',
+        'Then it pairs the biggest debts with the biggest credits: a few payments, and everyone ends up exactly square.',
+      ],
+    },
+    points: [
+      'Nobody pays more or gets less: each person’s balance stays exactly the same.',
+      'You may pay someone you didn’t share a bill with; that is what saves the extra payments.',
+      'It is on for new groups. Turn **Simplify debts** off in Edit group to see who owes whom as it happened.',
+      'At most one payment fewer than there are people.',
+    ],
+    open: { label: 'Groups', to: '/groups' },
+    related: ['balances-explained', 'settle-up-upi'],
+  },
+  {
+    id: 'splits-add-up',
+    icon: '🧮',
+    chapter: 'expenses',
+    title: 'Why splits always add up',
+    summary: 'Shares are worked out to the paisa, so they always make the whole bill.',
+    keywords: ['rounding', 'paisa', 'cents', 'remainder', 'decimal', 'odd amount', 'equal split'],
+    story: {
+      kind: 'remainder',
+      beats: [
+        'Split ₹100 three ways and each share is ₹33.333…, which can’t be paid.',
+        'Rounded down to ₹33.33 each, the shares make ₹99.99: one paisa goes missing.',
+        'So the leftover paisa goes to one person, the first in the group’s order: ₹33.34, ₹33.33 and ₹33.33 make exactly ₹100.',
+      ],
+    },
+    points: [
+      'Every split type works this way: equal, exact, percentages, shares and Split by items.',
+      'The shares always add up to the total, so balances never drift by a paisa.',
+      'The same person gets the leftover each time for the same people, so nothing is random.',
+    ],
+    open: { label: 'Add expense', to: '/add' },
+    related: ['split-types', 'add-expense'],
+  },
+  {
+    id: 'private-groups-explained',
+    icon: '🗝️',
+    chapter: 'private',
+    title: 'What a private group hides',
+    summary: 'Words go in a locked box only your group gets the key to; amounts stay on the label.',
+    keywords: ['encrypted', 'encryption', 'what is hidden', 'server', 'privacy', 'vault', 'secret'],
+    story: {
+      kind: 'vault',
+      beats: [
+        'A private group keeps its words in a locked box: the group’s name, people’s names, what each expense was, notes and chat.',
+        'The key is kept sealed, apart from the box. It is handed only to people in the group after their pattern and passkey, and stays in the app only while the group is open.',
+        'Amounts, dates and who paid stay on the label outside, so balances, reminders and budgets still work. The app hides them too while the group is locked.',
+      ],
+    },
+    points: [
+      'Outside the group, pushes, invites and Pay me links say only “A private group”.',
+      'AI features don’t run in private groups: the words would have to leave the box.',
+      'A new phone loses nothing: the key comes back when you unlock.',
+      'Deleting the group for good destroys its key, so nothing in it can be opened again.',
+    ],
+    open: { label: 'Encrypted groups', to: '/settings/vault' },
+    related: ['private-groups', 'private-groups-setup'],
+  },
+  {
+    id: 'auto-capture-explained',
+    icon: '🪣',
+    chapter: 'capture',
+    title: 'How auto-capture picks payments',
+    summary: 'A filter keeps only bank payments, and you say yes to each.',
+    keywords: ['sms', 'filter', 'otp', 'which messages', 'privacy', 'captured payment'],
+    story: {
+      kind: 'filter',
+      beats: [
+        'Your phone gets all sorts of messages: OTPs, offers, chats and bank alerts.',
+        'Only a bank or UPI message about money leaving your account passes the filter. The rest never leave your phone.',
+        'Each one waits in your Inbox as a captured payment, until you split it, keep it Personal or say Not shared.',
+      ],
+    },
+    points: [
+      'Your own rules make the filter finer: a minimum amount, and words to ignore such as SIP or rent.',
+      'By default only payments dated during a trip are kept.',
+      'Nothing is added to a group until you say yes.',
+    ],
+    open: { label: 'Auto-capture', to: '/settings/auto-capture' },
+    related: ['auto-capture-setup'],
+  },
   // ---- Main features -------------------------------------------------------------------
   {
     id: 'create-group',
