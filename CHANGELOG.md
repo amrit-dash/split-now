@@ -6,6 +6,11 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.3.13 — October 2026
+
+- Help: Groups and people now has eleven more sections, each with steps you can play: inviting people, joining with a link, adding people who aren't on Split Now, merging two entries for one person, editing a group, asking for an OK on big expenses and payments, a group budget, trips and other group types, archiving, leaving or deleting a group, removing someone, and the group chat.
+- Help: in a played scene, the pointer now also finds a row in a list (it missed those before).
+
 ## 8.3.12 — October 2026
 
 - Help: How it works, at the top of the guide, explains six ideas with an everyday picture that moves as you read, instead of a list of taps: what Split Now does (a shared pot), how balances work (a seesaw), fewer payments to settle (untangling arrows), why splits always add up (₹100 three ways), what a private group hides (a locked box with the amounts on its label), and how auto-capture picks payments (a filter). Each plays on its own, or tap a line to jump to it.

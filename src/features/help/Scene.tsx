@@ -169,7 +169,8 @@ function PartView({ part: p, mark, step, still }: { part: Part; mark?: string; s
           {(p.items ?? []).map((it, i) => (
             <div
               key={it.label}
-              className={`flex items-center gap-1.5 px-0.5 py-1 text-[0.65rem] ${on && !still ? 'animate-[help-in_0.4s_ease-out_both]' : ''}`}
+              {...(it.mark ? { 'data-mark': it.mark } : {})}
+              className={`flex items-center gap-1.5 rounded-lg px-0.5 py-1 text-[0.65rem] ${it.mark && it.mark === mark ? 'ring-2 ring-brand-500' : ''} ${on && !still ? 'animate-[help-in_0.4s_ease-out_both]' : ''}`}
               style={on && !still ? { animationDelay: `${i * 120}ms` } : undefined}
             >
               <span>{it.icon}</span>
@@ -339,7 +340,7 @@ function PartView({ part: p, mark, step, still }: { part: Part; mark?: string; s
       )
     case 'message':
       return (
-        <div className={`rounded-xl bg-slate-800 p-2 text-[0.6rem] text-white shadow ${still ? '' : 'animate-[help-in_0.4s_ease-out_both]'}`}>
+        <div {...tag} className={`rounded-xl bg-slate-800 p-2 text-[0.6rem] text-white shadow ${ring} ${still ? '' : 'animate-[help-in_0.4s_ease-out_both]'}`}>
           <div className="font-bold">{p.label}</div>
           <div className="opacity-80">{p.value}</div>
         </div>

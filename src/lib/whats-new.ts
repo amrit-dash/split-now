@@ -24,6 +24,15 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '8.3.13',
+    date: 'October 2026',
+    items: [
+      { text: 'Help for inviting people and joining with a link', section: 'invite-people' },
+      { text: 'Help for editing a group, approvals and budgets', section: 'edit-group' },
+      { text: 'Help for archiving, leaving or deleting a group', section: 'archive-leave-delete' },
+    ],
+  },
+  {
     version: '8.3.12',
     date: 'October 2026',
     items: [
