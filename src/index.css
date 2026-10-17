@@ -365,6 +365,40 @@ html[data-update-ready] .install-banner { display: none; }
 @keyframes help-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 @keyframes help-ring { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-brand-500) 45%, transparent); } 50% { box-shadow: 0 0 0 8px color-mix(in oklab, var(--color-brand-500) 0%, transparent); } }
 
+/* Help's explainers (src/features/help/Story.tsx). Every keyframe starts from its first frame and
+   ends on the element's own style, so the still version (.sx-still, when animations are off or
+   motion is reduced) is simply the finished picture. */
+@keyframes sx-fly { from { offset-distance: 0%; } }
+@keyframes sx-fly-vanish { 0% { offset-distance: 0%; opacity: 1; } 82% { opacity: 1; } 100% { offset-distance: 100%; opacity: 0; } }
+@keyframes sx-pop { from { opacity: 0; transform: scale(0.4); } 60% { opacity: 1; transform: scale(1.08); } }
+@keyframes sx-in { from { opacity: 0; transform: translateY(10px); } }
+@keyframes sx-out { from { opacity: 1; } }
+@keyframes sx-draw { from { stroke-dashoffset: 1; } }
+@keyframes sx-spin-y { 50% { transform: scaleX(0.18); } }
+@keyframes sx-breathe { 50% { transform: translateY(-2.5px); } }
+@keyframes sx-drift { 50% { transform: translate(14px, -10px) scale(1.08); } }
+@keyframes sx-wave { to { transform: translateX(-52px); } }
+@keyframes sx-rise { from { transform: translateY(84px); } }
+@keyframes sx-drain { from { transform: translateY(0); } }
+@keyframes sx-sparkle { 0% { opacity: 0; transform: scale(0) rotate(0deg); } 40% { opacity: 1; transform: scale(1) rotate(45deg); } 100% { opacity: 0; transform: scale(0.3) rotate(110deg); } }
+@keyframes sx-drop { from { opacity: 0; transform: translateY(-150px); } 55% { opacity: 1; transform: translateY(5px); } 75% { transform: translateY(-3px); } }
+@keyframes sx-lift { from { opacity: 1; transform: translateY(0); } }
+@keyframes sx-dial { 0% { transform: rotate(0deg); } 45% { transform: rotate(-320deg); } 75% { transform: rotate(-150deg); } }
+@keyframes sx-swing { 0% { opacity: 0; transform: rotate(-38deg); } 15% { opacity: 1; } 40% { transform: rotate(16deg); } 60% { transform: rotate(-8deg); } 80% { transform: rotate(3deg); } }
+@keyframes sx-reveal { from { clip-path: inset(0 100% 0 0); } }
+@keyframes sx-pulse { 50% { opacity: 0.4; transform: scale(0.92); } }
+@keyframes sx-ring { from { opacity: 0.9; transform: scale(0.6); } }
+@keyframes sx-hop { 0% { opacity: 0; transform: translateY(0) scale(0.3); } 35% { opacity: 1; transform: translateY(-38px) scale(1); } 60% { transform: translateY(-2px); } 78% { transform: translateY(-12px); } }
+@keyframes sx-tear { from { transform: translate(0, 0) rotate(0deg); } }
+@keyframes sx-shake { 20%, 60% { transform: translateX(-3px); } 40%, 80% { transform: translateX(3px); } }
+/* The balance beam tips with a real spring: past the angle, back, and settles (with counter-turns so riders stay upright). */
+@keyframes sx-tip { 0% { transform: rotate(0deg); } 40% { transform: rotate(13.8deg); } 62% { transform: rotate(9.6deg); } 80% { transform: rotate(11.7deg); } 100% { transform: rotate(11deg); } }
+@keyframes sx-tip-c { 0% { transform: rotate(0deg); } 40% { transform: rotate(-13.8deg); } 62% { transform: rotate(-9.6deg); } 80% { transform: rotate(-11.7deg); } 100% { transform: rotate(-11deg); } }
+@keyframes sx-level { 0% { transform: rotate(11deg); } 40% { transform: rotate(-2.8deg); } 62% { transform: rotate(1.3deg); } 80% { transform: rotate(-0.5deg); } 100% { transform: rotate(0deg); } }
+@keyframes sx-level-c { 0% { transform: rotate(-11deg); } 40% { transform: rotate(2.8deg); } 62% { transform: rotate(-1.3deg); } 80% { transform: rotate(0.5deg); } 100% { transform: rotate(0deg); } }
+@keyframes sx-bubble { from { transform: translateX(0); } }
+.sx-still, .sx-still * { animation: none !important; transition: none !important; }
+
 /* Horizontally scrolling rows (chips, split types, filters) scroll by touch without a visible bar. */
 .overflow-x-auto { scrollbar-width: none; }
 .overflow-x-auto::-webkit-scrollbar { display: none; }

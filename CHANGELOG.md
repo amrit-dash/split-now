@@ -6,6 +6,10 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.4.3 — October 2026
+
+- Help: the six How it works explainers are redrawn. The shared pot is a glass jar that fills and drains, balances sit on a spring-loaded seesaw, Simplify debts untangles real arrows into three payments, a ₹100 note tears into three shares with the leftover paisa, a private group is a safe with its key, and auto-capture is a sieve over your messages. Each follows your theme and accent, and stays still when Reduce motion is on.
+
 ## 8.4.2 — October 2026
 
 - Behind the scenes: React 19.3.1 and the latest fixes to the testing and deploy tools. Nothing changes in how the app looks or works.
