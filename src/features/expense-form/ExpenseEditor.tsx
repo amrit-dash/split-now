@@ -42,7 +42,9 @@ import {
   type Draft,
   type ErrorKey,
   type SeedArgs,
-  descriptionOf,
+  draftAutoEmoji,
+  draftEmoji,
+  needsAutoPick,
 } from '@/lib/expense-draft'
 import { GroupIcon } from '@/components/GroupIcon'
 import { useToast } from '@/components/Toast'
@@ -53,9 +55,11 @@ import { usePageTitle } from '@/lib/brand'
 import { useConfirm } from '@/components/ConfirmSheet'
 import { OpenItemSheet } from '@/features/open-items/OpenItemSheet'
 import { CATEGORIES } from '@/lib/categories'
-import { categoryIcons, expenseEmoji } from '@/lib/icons'
+import { categoryIcons } from '@/lib/icons'
 import { IconSheet } from '@/components/IconSheet'
 import { useIconAi } from '@/hooks/useIconAi'
+import { useAutoIconPick } from '@/hooks/useAutoIconPick'
+import { expensePickRequest } from '@/lib/icon-pick'
 import { openItemMeta } from '@/lib/open-items'
 import { AmountCard } from './AmountCard'
 import { PayerCard } from './PayerCard'
@@ -181,6 +185,14 @@ export function ExpenseEditor({
 
   const [sheet, setSheet] = useState<SheetKind>(null)
   const iconAi = useIconAi(!!group.vault)
+  // Automatic: the app's own rules first; when they find no icon for the description, the AI picks one of the catalogue's (and the category, while it's still Other).
+  useAutoIconPick({
+    title: draft.description,
+    offered: iconAi.auto,
+    need: needsAutoPick(draft),
+    request: (t) => expensePickRequest(t, draft),
+    onAnswer: (title, a) => dispatch({ type: 'autoPick', title, icon: a.emoji, category: a.category }),
+  })
   const [busy, setBusy] = useState(false)
   /** a save was attempted: show what is still wrong next to each field */
   const [submitted, setSubmitted] = useState(false)
@@ -700,7 +712,7 @@ export function ExpenseEditor({
         onClose={() => setSheet(null)}
         value={draft.category}
         onPick={(c) => dispatch({ type: 'category', category: c })}
-        icon={expenseEmoji(draft)}
+        icon={draftEmoji(draft)}
         onOpenIcon={() => setSheet('icon')}
       />
       <IconSheet
@@ -708,15 +720,13 @@ export function ExpenseEditor({
         onClose={() => setSheet(null)}
         title="Icon"
         value={draft.icon}
-        auto={expenseEmoji({ ...draft, icon: undefined })}
+        auto={draftAutoEmoji(draft)}
         first={categoryIcons(draft.category)}
         onPick={(icon) => dispatch({ type: 'icon', icon })}
-        ai={iconAi.suggest ? { title: descriptionOf(draft), kind: 'expense', category: CATEGORIES[draft.category].label } : undefined}
+        ai={iconAi.suggest ? { kind: 'expense', category: CATEGORIES[draft.category].label } : undefined}
         svgValue={draft.iconSvg}
         onPickSvg={(svg) => dispatch({ type: 'iconSvg', svg })}
         picture={iconAi.picture}
-        pictureHint={iconAi.pictureHint}
-        aiWaiting={iconAi.suggest ? 'Type what it was for, or search for a word: AI suggests icons from it.' : undefined}
         imageValue={draft.iconImage}
         onPickImage={(image) => dispatch({ type: 'iconImage', image })}
       />

@@ -60,8 +60,8 @@ import { limitPair } from '../../shared/limits'
 import type { QuickAiResponse } from '../../shared/quick-ai'
 import { cleanQuickRequest, normaliseQuickAi, QUICK_SCHEMA, quickPrompt } from './lib/quick-ai'
 import { flagOn, getLimits } from './lib/limits'
-import { cleanIconRequest, iconPrompt, parseIconText } from './lib/icon-ai'
-import { type IconPictureResponse, type IconSuggestions, PICTURE_MODELS, picturePlan, picturePrompt } from '../../shared/icon-ai'
+import { cleanIconRequest, cleanPickRequest, iconPrompt, parseIconText, parsePick, pickPrompt } from './lib/icon-ai'
+import { type IconPickResponse, type IconPictureResponse, type IconSuggestions, PICTURE_MODELS, picturePlan, picturePrompt } from '../../shared/icon-ai'
 import { applyRateLimit, type RateState } from './lib/ratelimit'
 import { parseKekList, readStoredKey, storedKeyFields } from './lib/seal'
 import { addDays, istDate } from './lib/time'
@@ -208,7 +208,7 @@ async function allow(
 async function record(
   ctx: Ctx,
   plan: KeyPlan | 'denied',
-  feature: AiFeature | 'text' | 'chat' | 'icons' | 'pictures',
+  feature: AiFeature | 'text' | 'chat' | 'icons' | 'pictures' | 'iconPick',
   now: number,
   extra: { err?: GeminiError; usage?: GeminiUsage; model?: string; denied?: 'user' | 'global'; key?: KeyPlan['key'] } = {},
 ) {
@@ -286,7 +286,7 @@ async function withAi<T>(
   feature: AiFeature,
   call: (key: string, models: string[], gemma: boolean) => Promise<{ value: T; usage?: GeminiUsage; model?: string }>,
   /** how the call is counted in stats/ai_{day} when it isn't the feature it is gated by (Quick add text uses the images allowance) */
-  statAs: AiFeature | 'text' | 'chat' | 'icons' = feature,
+  statAs: AiFeature | 'text' | 'chat' | 'icons' | 'iconPick' = feature,
 ): Promise<AiOutcome<T>> {
   // The admin's kill switch (config/app flags.aiImages / aiSms / aiQuickAdd) stops the feature for everyone, own keys included.
   if (!(await flagOn(FEATURE_FLAG[feature]))) return { ok: false, reason: 'off' }
@@ -584,6 +584,39 @@ export const iconsAi = onCall(
     return r.kind === 'blocked' ? { emoji: [], svgs: [] } : { unavailable: true, reason: r.reason }
   },
 )
+
+/**
+ * Callable, signed-in users only: the automatic icon's AI pick, asked by the app only when its own
+ * rules found no icon for a title (src/lib/icons.ts).
+ *  { title ≤ 80, kind, choices: emoji[] (≤ 300), categories?, types? } → { emoji | null, category?, type? }
+ *  → { unavailable: true, reason } when the flag (config/app aiIconAuto), the person's switches or every key says no
+ * The answer is one of the emoji (and category or type) sent, or null. Never asked for a private
+ * group. Same keys and allowance as the other icon calls, counted as `{own|app}_iconPick`.
+ */
+export const iconPickAi = onCall({ ...base, timeoutSeconds: 60, maxInstances: 10 }, async (req): Promise<IconPickResponse> => {
+  const me = signedIn(req)
+  const input = cleanPickRequest(req.data)
+  if (!input) throw new HttpsError('invalid-argument', 'Nothing to pick from')
+  if (!(await flagOn('aiIconAuto'))) return { unavailable: true, reason: 'off' }
+  const ctx = await loadCtx(me.uid, me.email)
+  if (!ctx.user.aiEnabled || !ctx.user.aiIconAuto) return { unavailable: true, reason: 'off' }
+  const r = await withAi(
+    ctx,
+    'images',
+    async (key, models, gemma) => {
+      const g = await generateText(key, [{ text: `<title>${input.title}</title>` }], {
+        models,
+        timeoutMs: budget(gemma, 15_000, 50_000),
+        maxOutputTokens: 256,
+        systemInstruction: pickPrompt(input),
+      })
+      return { value: parsePick(g.text, input), usage: g.usage, model: g.modelVersion ?? g.model }
+    },
+    'iconPick',
+  )
+  if (r.ok) return r.value
+  return r.kind === 'blocked' ? { emoji: null } : { unavailable: true, reason: r.reason }
+})
 
 /**
  * Callable, signed-in users only: "Draw a picture" in the icon sheet, a paid Gemini image model.

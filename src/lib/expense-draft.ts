@@ -1,6 +1,6 @@
 import type { Capture, Category, Cents, Expense, Group, MemberId, OriginalAmount, Recurrence, RecurrenceFreq, SplitInput, SplitType } from '@/types'
 import { CATEGORIES } from './categories'
-import { isIcon } from './icons'
+import { expenseEmoji, guessExpenseIcon, isIcon } from './icons'
 import { cleanSvg } from '../../shared/svg-icon'
 import { cleanIconImage } from '../../shared/icon-ai'
 import { CURRENCIES, formatMoney, fromHundredths, minorDigits } from './money'
@@ -62,6 +62,11 @@ export interface Draft {
   catTouched: boolean
   /** an icon chosen by hand (one emoji); absent: the automatic one (src/lib/icons.ts expenseEmoji) */
   icon?: string
+  /**
+   * The automatic icon's AI pick for this description (iconPickAi), asked only when the app's own
+   * rules found none. Saved as the icon with `iconAuto`, so Automatic stays chosen; typing drops it.
+   */
+  autoIcon?: string
   /** an AI-drawn icon (cleaned SVG, shared/svg-icon.ts); shown over `icon`; never in a private group */
   iconSvg?: string
   /** a picture from Draw a picture (a small image data: URL); shown over both; never in a private group */
@@ -227,7 +232,7 @@ export function initialDraft(a: SeedArgs): Draft {
     description,
     category: src?.category ?? q?.category ?? suggested ?? 'other',
     catTouched: !!src || !!q?.category,
-    ...(isIcon(src?.icon) ? { icon: src.icon } : {}),
+    ...(isIcon(src?.icon) ? (src.iconAuto ? { autoIcon: src.icon } : { icon: src.icon }) : {}),
     ...(src && cleanSvg(src.iconSvg) ? { iconSvg: cleanSvg(src.iconSvg) as string } : {}),
     ...(src && cleanIconImage(src.iconImage) ? { iconImage: src.iconImage } : {}),
     date: existing?.date ?? q?.date ?? capture?.date ?? today,
@@ -266,6 +271,8 @@ export type Action =
   | { type: 'iconSvg'; svg: string }
   /** a picture from Draw a picture (drops a drawn icon) */
   | { type: 'iconImage'; image: string }
+  /** the AI's pick for the automatic icon; ignored once the description has changed, and its category only while none was chosen */
+  | { type: 'autoPick'; title: string; icon?: string; category?: Category }
   | { type: 'received'; on: boolean }
   | { type: 'currency'; cur: string }
   | { type: 'date'; date: string }
@@ -316,7 +323,8 @@ export function reduce(d: Draft, a: Action): Draft {
     case 'description': {
       // What the user taught the app, then this group's own habit for the description, then the keyword guess.
       const category = d.catTouched ? d.category : (suggestCategory(a.value, { memory: a.memory, history: a.history }) ?? 'other')
-      return { ...d, description: a.value, category, picked: false }
+      const { autoIcon: _a, ...rest } = d
+      return { ...rest, description: a.value, category, picked: false }
     }
     case 'category':
       return { ...d, category: a.category, catTouched: true }
@@ -333,6 +341,11 @@ export function reduce(d: Draft, a: Action): Draft {
       const image = cleanIconImage(a.image)
       const { iconSvg: _s, ...rest } = d
       return image ? { ...rest, iconImage: image } : d
+    }
+    case 'autoPick': {
+      if (a.title !== d.description) return d
+      const category = a.category && a.category in CATEGORIES && !d.catTouched && d.category === 'other' ? a.category : d.category
+      return { ...d, ...(isIcon(a.icon) ? { autoIcon: a.icon } : {}), category }
     }
     case 'received':
       return { ...d, received: a.on }
@@ -445,6 +458,16 @@ export function reduce(d: Draft, a: Action): Draft {
 
 export const validAmount = (d: Pick<Draft, 'amount'>): d is Draft & { amount: Cents } => d.amount !== undefined && Number.isFinite(d.amount) && d.amount > 0
 
+/** The face the form shows: a chosen icon, else the automatic one (its AI pick when the app's rules found none). */
+export const draftEmoji = (d: Pick<Draft, 'icon' | 'autoIcon' | 'description' | 'category'>) => expenseEmoji({ ...d, icon: d.icon ?? d.autoIcon })
+
+/** The Automatic row's emoji: the AI's pick for this description, else the app's own. */
+export const draftAutoEmoji = (d: Pick<Draft, 'autoIcon' | 'description' | 'category'>) => d.autoIcon ?? expenseEmoji({ ...d, icon: undefined })
+
+/** The automatic icon may ask AI: nothing chosen, nothing picked yet, and the app's own rules find no icon for the description. */
+export const needsAutoPick = (d: Pick<Draft, 'icon' | 'autoIcon' | 'iconSvg' | 'iconImage' | 'description' | 'category'>) =>
+  !d.icon && !d.autoIcon && !d.iconSvg && !d.iconImage && !!d.description.trim() && guessExpenseIcon(d.description, d.category) === null
+
 /** No description: a category says enough ("Groceries"); "Other" doesn't. */
 export const descriptionOf = (d: Pick<Draft, 'description' | 'category'>) =>
   d.description.trim() || (d.category !== 'other' ? CATEGORIES[d.category].label : '')
@@ -542,7 +565,9 @@ export function toExpense(d: Draft, ctx: SaveCtx): { expense: Expense; remember:
     description: descriptionOf(d),
     amount: money.amount,
     category: d.category,
-    icon: isIcon(d.icon) ? d.icon : undefined,
+    // The automatic icon's AI pick is stored like a chosen one (text, pushes and other phones show it), marked so Automatic stays chosen.
+    icon: isIcon(d.icon) ? d.icon : isIcon(d.autoIcon) ? d.autoIcon : undefined,
+    iconAuto: !isIcon(d.icon) && isIcon(d.autoIcon) ? true : undefined,
     // A private group has no drawn icons (they can't be sealed; the rules refuse them).
     iconSvg: group.vault ? undefined : (cleanSvg(d.iconSvg) ?? undefined),
     iconImage: group.vault ? undefined : (cleanIconImage(d.iconImage) ?? undefined),
@@ -738,6 +763,7 @@ export function hydrateDraft(stored: Partial<Draft>, base: Draft, order: MemberI
   if (!REPEAT_OPTIONS.includes(d.repeat)) d.repeat = 'never'
   if (!(d.category in CATEGORIES)) d.category = base.category
   if (!isIcon(d.icon)) delete d.icon
+  if (!isIcon(d.autoIcon)) delete d.autoIcon
   if (d.iconImage !== undefined && !cleanIconImage(d.iconImage)) delete d.iconImage
   if (d.iconSvg !== undefined) {
     const svg = cleanSvg(d.iconSvg)

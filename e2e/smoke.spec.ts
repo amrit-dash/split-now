@@ -1277,7 +1277,8 @@ test('icons: a group name suggests a telling icon, and every icon is a search aw
   // the name settles the type (trip) and a telling word the icon
   await page.getByLabel('Name', { exact: true }).fill('Ski trip')
   await expect(page.getByTestId('group-icon')).toContainText('🎿')
-  await page.getByTestId('group-icon').click({ button: 'right' })
+  // a tap opens every icon
+  await page.getByTestId('group-icon').click()
   const sheet = page.getByTestId('group-icon-sheet')
   await sheet.getByTestId('icon-search').fill('camp')
   await sheet.getByRole('radio', { name: 'Icon 🏕️' }).click()
@@ -1286,17 +1287,20 @@ test('icons: a group name suggests a telling icon, and every icon is a search aw
 
 test('icons: Suggest with AI offers emoji and drawn icons, and a drawn one shows as the icon', async ({ page }) => {
   await page.goto('/add?group=g_goa')
-  // with nothing typed yet, the sheet says what AI needs instead of hiding it
-  await page.getByTestId('expense-icon').click({ button: 'right' })
-  await expect(page.getByTestId('icon-sheet').getByTestId('icon-ai-waiting')).toBeVisible()
-  // search words are enough to ask about, even with no title yet
-  await page.getByTestId('icon-sheet').getByTestId('icon-search').fill('anchor')
-  await expect(page.getByTestId('icon-sheet').getByTestId('icon-ai-from')).toContainText('your search “anchor”')
-  await page.keyboard.press('Escape')
   await page.getByRole('textbox', { name: 'Description', exact: true }).fill('Ferry to Havelock')
   await amountField(page).fill('640')
   await page.getByTestId('expense-icon').click({ button: 'right' })
   const sheet = page.getByTestId('icon-sheet')
+  // AI waits for search words: none before typing
+  await expect(sheet.getByTestId('icon-search')).toBeVisible()
+  await expect(sheet.getByTestId('icon-ai')).toHaveCount(0)
+  // words with icons: AI comes after a pause without a pick
+  await sheet.getByTestId('icon-search').fill('kayak')
+  await expect(sheet.getByTestId('icon-ai-suggest')).toContainText('“kayak”', { timeout: 6_000 })
+  // words with no icon: straight away, for those words
+  await sheet.getByTestId('icon-search').fill('anchor')
+  await expect(sheet.getByTestId('icon-none')).toBeVisible()
+  await expect(sheet.getByTestId('icon-ai-suggest')).toContainText('“anchor”', { timeout: 1_500 })
   await sheet.getByTestId('icon-ai-suggest').click()
   await expect(sheet.getByTestId('icon-ai-emoji')).toHaveCount(3)
   await expect(sheet.getByTestId('icon-ai-svg').first()).toBeVisible()
@@ -1316,6 +1320,38 @@ test('icons: Suggest with AI offers emoji and drawn icons, and a drawn one shows
   await expect(page.getByTestId('expense-detail-icon').locator('img')).toHaveCount(0)
 })
 
+test('icons: when the app can’t tell, Automatic asks AI for one of its own icons', async ({ page }) => {
+  await page.goto('/add?group=g_goa')
+  // "Parasail" matches no rule; the demo's stand-in for the AI finds 🪂 (and a category, still Other)
+  await page.getByRole('textbox', { name: 'Description', exact: true }).fill('Parasail')
+  await amountField(page).fill('1500')
+  await expect(page.getByTestId('expense-icon')).toContainText('🪂', { timeout: 6_000 })
+  await page.getByTestId('expense-icon').click({ button: 'right' })
+  // still Automatic, now showing the pick
+  await expect(page.getByTestId('icon-auto')).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByTestId('icon-auto')).toContainText('🪂')
+  await page.keyboard.press('Escape')
+  await page
+    .getByRole('button', { name: /^(Save|Add expense)$/ })
+    .first()
+    .click()
+  await expect(page).toHaveURL(/\/groups\/g_goa$/)
+  await page.getByText('Parasail').first().click()
+  await expect(page.getByTestId('expense-detail-icon')).toContainText('🪂')
+  await page.getByTestId('expense-detail-icon').click()
+  await expect(page.getByTestId('icon-auto')).toHaveAttribute('aria-pressed', 'true')
+})
+
+test('icons: a group name the app can’t tell gets its icon from AI', async ({ page }) => {
+  await page.goto('/groups/new')
+  await page
+    .getByRole('radiogroup', { name: 'What are you creating?' })
+    .getByRole('radio', { name: /^Group/ })
+    .click()
+  await page.getByLabel('Name', { exact: true }).fill('Parasail')
+  await expect(page.getByTestId('group-icon')).toContainText('🪂', { timeout: 6_000 })
+})
+
 test('icons: a group takes a drawn icon', async ({ page }) => {
   await page.goto('/groups/new')
   await page
@@ -1323,8 +1359,9 @@ test('icons: a group takes a drawn icon', async ({ page }) => {
     .getByRole('radio', { name: /^Group/ })
     .click()
   await page.getByLabel('Name', { exact: true }).fill('Goa trip')
-  await page.getByTestId('group-icon').click({ button: 'right' })
+  await page.getByTestId('group-icon').click()
   const sheet = page.getByTestId('group-icon-sheet')
+  await sheet.getByTestId('icon-search').fill('anchor')
   await sheet.getByTestId('icon-ai-suggest').click()
   await sheet.getByTestId('icon-ai-svg').first().click()
   await expect(page.getByTestId('group-icon').locator('img')).toBeVisible()
@@ -1343,6 +1380,8 @@ test('icons: Draw a picture says who pays, and the picture becomes the icon', as
   await amountField(page).fill('900')
   await page.getByTestId('expense-icon').click({ button: 'right' })
   const sheet = page.getByTestId('icon-sheet')
+  await sheet.getByTestId('icon-search').fill('anchor')
+  await expect(sheet.getByTestId('icon-picture-draw')).toContainText('“anchor”')
   await expect(sheet.getByTestId('icon-picture-note')).toContainText('Split Now')
   await sheet.getByTestId('icon-picture-draw').click()
   await sheet.getByTestId('icon-picture-use').click()

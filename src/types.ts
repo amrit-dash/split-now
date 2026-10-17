@@ -195,6 +195,8 @@ export interface Expense {
    * and category (src/lib/icons.ts expenseEmoji). Sealed in a private group.
    */
   icon?: string
+  /** `icon` is the automatic one's AI pick (iconPickAi), not a choice: the icon sheet keeps Automatic chosen, and a new description picks again. */
+  iconAuto?: true
   /**
    * An icon drawn by AI from the description ("Suggest with AI"): plain-shapes SVG markup, cleaned
    * on the server and again before it is drawn (shared/svg-icon.ts), shown as an image. Wins over

@@ -1,4 +1,4 @@
-import { ICON_EMOJI, ICON_SVGS, ICON_TITLE_MAX, type IconRequest, type IconSuggestions } from '../../../shared/icon-ai'
+import { ICON_EMOJI, ICON_SVGS, ICON_TITLE_MAX, type IconPickRequest, type IconRequest, type IconSuggestions, PICK_CHOICES_MAX } from '../../../shared/icon-ai'
 import { cleanSvg } from '../../../shared/svg-icon'
 
 /*
@@ -107,4 +107,48 @@ export function normaliseIcons(raw: unknown): IconSuggestions {
     ),
   ].slice(0, ICON_SVGS)
   return { emoji, svgs }
+}
+
+const word = (v: unknown): v is string => typeof v === 'string' && /^[a-z]{2,20}$/.test(v)
+
+/** The automatic pick's request as the server uses it: a short title, and lists it can trust. */
+export function cleanPickRequest(raw: unknown): IconPickRequest | null {
+  const base = cleanIconRequest(raw)
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+  if (!base) return null
+  const choices = [...new Set((Array.isArray(r.choices) ? r.choices : []).map(oneEmoji).filter((e): e is string => !!e))].slice(0, PICK_CHOICES_MAX)
+  if (!choices.length) return null
+  const list = (v: unknown) => (Array.isArray(v) ? [...new Set(v.filter(word))].slice(0, 30) : [])
+  const categories = list(r.categories)
+  const types = list(r.types)
+  return { title: base.title, kind: base.kind, choices, ...(categories.length ? { categories } : {}), ...(types.length ? { types } : {}) }
+}
+
+/** The pick's instruction: one line back, from the lists given. The title goes in the content. */
+export const pickPrompt = (
+  r: IconPickRequest,
+) => `You choose the icon for ${r.kind === 'group' ? 'a group' : 'an expense'} in a bill-splitting app, from its title.
+Choose exactly one emoji from this list, copied exactly: ${r.choices.join(' ')}
+${r.categories ? `Also choose its category, one of: ${r.categories.join(', ')}.\n` : ''}${r.types ? `Also choose the group's type, one of: ${r.types.join(', ')}.\n` : ''}Answer with one line and nothing else, in this shape:
+EMOJI <emoji>${r.categories ? ' CATEGORY <category>' : ''}${r.types ? ' TYPE <type>' : ''}
+Pick what the title is most likely about (for "Thalassa" a Greek restaurant: 🍽️ food). If nothing in the list fits at all, answer: EMOJI none`
+
+/** The one-line answer, kept only where it names something from the lists sent. */
+export function parsePick(text: string, r: IconPickRequest): { emoji: string | null; category?: string; type?: string } {
+  const line = text
+    .replace(/```\w*|```/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  const after = (label: string) => line.match(new RegExp(`${label}\\s*[:：]?\\s*(\\S+)`, 'i'))?.[1]
+  const raw = after('EMOJI') ?? ''
+  // The emoji may come with a variation selector or without: match the list's own spelling.
+  const strip = (e: string) => e.replace(/️/g, '')
+  const emoji = r.choices.find((c) => strip(c) === strip(raw)) ?? r.choices.find((c) => line.includes(c)) ?? null
+  const category = after('CATEGORY')?.toLowerCase()
+  const type = after('TYPE')?.toLowerCase()
+  return {
+    emoji: raw.toLowerCase() === 'none' ? null : emoji,
+    ...(category && r.categories?.includes(category) ? { category } : {}),
+    ...(type && r.types?.includes(type) ? { type } : {}),
+  }
 }

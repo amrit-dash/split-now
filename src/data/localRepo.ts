@@ -1416,6 +1416,11 @@ export function createLocalRepo(): Repo {
       const svg = demoIcons(req).svgs[1] ?? demoIcons(req).svgs[0]
       return { image: btoa(svg), mimeType: 'image/svg+xml', via: 'app' }
     },
+    async iconPickAi(req) {
+      // No AI here: the stand-in picks from the catalogue by the title's words (loaded on first use).
+      const { demoIconPick } = await import('@/lib/icon-ai-demo')
+      return demoIconPick(req)
+    },
     async aiKey() {
       throw new Error('AI features aren’t available in the demo')
     },

@@ -129,7 +129,7 @@ import type { AiKeyResult, AiModel, AiState, AiStatement, AiStatusResult, AiUnav
 import { parseMemory } from '@/lib/merchants'
 import type { AiTextExpense } from '@/lib/nl-expense'
 import type { QuickAiRequest, QuickAiResponse } from '../../shared/quick-ai'
-import type { IconAiResponse, IconPictureResponse, IconRequest } from '../../shared/icon-ai'
+import type { IconAiResponse, IconPickRequest, IconPickResponse, IconPictureResponse, IconRequest } from '../../shared/icon-ai'
 import { archiveWrite } from '../../shared/archive'
 import { personalView } from './personalView'
 import { inviteNameFor } from '../../shared/names'
@@ -1822,6 +1822,16 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         return (await call(req)).data ?? null
       } catch (e) {
         console.warn('Draw a picture failed', e)
+        return null
+      }
+    },
+    async iconPickAi(req) {
+      if (!auth.currentUser || auth.currentUser.isAnonymous || !online()) return null
+      try {
+        const call = await callable<IconPickRequest, IconPickResponse>('iconPickAi', 60_000)
+        return (await call(req)).data ?? null
+      } catch (e) {
+        console.warn('Automatic icon with AI failed', e)
         return null
       }
     },

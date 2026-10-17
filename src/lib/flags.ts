@@ -42,6 +42,7 @@ export const FLAG_NAMES = [
   'moneyReceived',
   'vaults',
   'aiIcons',
+  'aiIconAuto',
 ] as const
 export type FlagName = (typeof FLAG_NAMES)[number]
 
@@ -89,9 +90,13 @@ export const FLAG_INFO: Record<FlagName, { label: string; hint: string }> = {
     label: 'Ask to turn on notifications',
     hint: 'The "Turn on notifications" card on Home and in Settings, once someone is in a group, with step-by-step help for their device. Off hides the card; Settings → Notifications still works.',
   },
+  aiIconAuto: {
+    label: 'Automatic icons with AI',
+    hint: 'When the app’s own rules find no icon for an expense’s or a group’s title, AI picks one from the app’s icons (and the category or type), for people who left AI picks icons on. Never in private groups. Uses the bill-reading allowance. Server-enforced.',
+  },
   aiIcons: {
     label: 'Icons with AI',
-    hint: 'Suggest with AI in the icon sheet (press and hold an icon): three emoji and up to three drawn icons from the title, for people who turned AI icons on. Never in private groups. Uses the bill-reading allowance. Server-enforced.',
+    hint: 'Suggest with AI and Draw a picture in the icon sheet: three emoji and up to three drawn icons for the words searched, for people who left AI icons on. Never in private groups. Uses the bill-reading allowance. Server-enforced.',
   },
   chatAi: {
     label: 'Chat suggestions with AI',

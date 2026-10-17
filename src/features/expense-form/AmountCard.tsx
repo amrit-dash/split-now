@@ -7,6 +7,7 @@ import { IconFace } from '@/components/IconFace'
 import { useLongPress } from '@/hooks/useLongPress'
 import { centsToInput, currencySymbol } from '@/lib/money'
 import type { Action, Draft, Errors } from '@/lib/expense-draft'
+import { draftEmoji } from '@/lib/expense-draft'
 import { addDaysISO, type Suggestion } from '@/lib/recents'
 import { todayISO } from '@/lib/id'
 import { DateField } from '@/components/DateField'
@@ -101,7 +102,7 @@ export function AmountCard({
           data-testid="expense-icon"
         >
           <span aria-hidden>
-            <IconFace iconSvg={draft.iconSvg} iconImage={draft.iconImage} emoji={expenseEmoji(draft)} />
+            <IconFace iconSvg={draft.iconSvg} iconImage={draft.iconImage} emoji={draftEmoji(draft)} />
           </span>
         </button>
         <div className="min-w-0 flex-1">

@@ -122,3 +122,22 @@ describe('iconsAi (emulator)', () => {
     expect((await call<Answer>(req, 'alice', 'iconsAi')).result).toEqual({ unavailable: true, reason: 'off' })
   })
 })
+
+describe('iconPickAi (emulator)', () => {
+  const pick = { title: 'Thalassa', kind: 'expense', choices: ['🍽️', '🍕', '🚕'], categories: ['food', 'transport'] }
+  it('needs an account and something to pick from', async () => {
+    expect((await call(pick, undefined, 'iconPickAi')).error?.status).toBe('UNAUTHENTICATED')
+    expect((await call({ ...pick, choices: ['pizza'] }, 'alice', 'iconPickAi')).error?.status).toBe('INVALID_ARGUMENT')
+  })
+  it('its own switches: the admin’s flag and the person’s, apart from Suggest with AI', async () => {
+    await write('config/ai', { mode: 'everyone', engine: 'gemini' })
+    // Suggest with AI off doesn't turn this off: it reaches the (missing) key
+    await write('users/alice/settings/notifications', { aiIcons: false })
+    expect((await call<Answer>(pick, 'alice', 'iconPickAi')).result).toEqual({ unavailable: true, reason: 'not_configured' })
+    await write('users/alice/settings/notifications', { aiIconAuto: false })
+    expect((await call<Answer>(pick, 'alice', 'iconPickAi')).result).toEqual({ unavailable: true, reason: 'off' })
+    await write('users/alice/settings/notifications', {})
+    await write('config/app', { flags: { aiIconAuto: false } })
+    expect((await call<Answer>(pick, 'alice', 'iconPickAi')).result).toEqual({ unavailable: true, reason: 'off' })
+  })
+})

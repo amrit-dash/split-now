@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aiAskFor, iconAiOffered, iconAiProblem, iconFace, pictureHint, pictureNote, pictureOffer, pictureProblem } from './icon-ai'
+import { aiRowShown, autoPickOffered, iconAiOffered, iconAiProblem, iconFace, pictureNote, pictureOffer, pictureProblem } from './icon-ai'
 
 const prefs = { aiEnabled: true, aiIcons: true, aiSource: 'auto', aiFreeOk: true }
 const status = { app: { images: 'available', engine: 'gemma' } }
@@ -22,6 +22,19 @@ describe('Suggest with AI', () => {
   })
   it('the demo answers on the phone', () => {
     expect(iconAiOffered({ ...base, mode: 'demo', online: false, prefs: null, status: undefined })).toBe(true)
+  })
+})
+
+describe('the automatic icon with AI', () => {
+  const auto = { ...base, prefs: { ...prefs, aiIconAuto: true } }
+  it('rides on the same keys, under its own switches', () => {
+    expect(autoPickOffered(auto)).toBe(true)
+    expect(autoPickOffered({ ...auto, prefs: { ...auto.prefs, aiIconAuto: false } })).toBe(false)
+    // Suggest with AI turned off doesn't turn this off
+    expect(autoPickOffered({ ...auto, prefs: { ...auto.prefs, aiIcons: false } })).toBe(true)
+    expect(autoPickOffered({ ...auto, flag: false })).toBe(false)
+    expect(autoPickOffered({ ...auto, vault: true })).toBe(false)
+    expect(autoPickOffered({ ...auto, mode: 'demo', prefs: null, online: false })).toBe(true)
   })
 })
 
@@ -90,27 +103,12 @@ describe('what the picture row says', () => {
   })
 })
 
-describe('when Draw a picture isn’t offered', () => {
-  it('says what it needs instead of hiding', () => {
-    // free Gemma, no key of one's own
-    expect(pictureHint(base)).toMatch(/need your own Gemini key/)
-    expect(pictureHint({ ...base, hasOwnKey: true, prefs: { ...prefs, aiSource: 'app' }, status: { app: { images: 'available', engine: 'gemini' } } })).toMatch(
-      /Only Split Now’s key/,
-    )
-  })
-  it('nothing to say when it is offered, or when AI isn’t shown at all', () => {
-    expect(pictureHint({ ...base, hasOwnKey: true })).toBeNull()
-    expect(pictureHint({ ...base, flag: false })).toBeNull()
-    expect(pictureHint({ ...base, vault: true })).toBeNull()
-    expect(pictureHint({ ...base, mode: 'demo' })).toBeNull()
-  })
-})
-
-describe('what AI is asked about', () => {
-  it('the search words when there are some, else the title', () => {
-    expect(aiAskFor('  anchor  ', 'Ferry to Havelock')).toEqual({ title: 'anchor', from: 'search' })
-    expect(aiAskFor('', 'Ferry to Havelock')).toEqual({ title: 'Ferry to Havelock', from: 'title' })
-    expect(aiAskFor('', '  ')).toBeNull()
-    expect(aiAskFor('x'.repeat(90), '')?.title).toHaveLength(80)
+describe('when the sheet offers AI', () => {
+  it('only for typed words, when nothing matches or after a wait', () => {
+    expect(aiRowShown({ query: '', results: 0, idle: true })).toBe(false)
+    expect(aiRowShown({ query: 'a', results: 0, idle: true })).toBe(false)
+    expect(aiRowShown({ query: 'zorb', results: 0, idle: false })).toBe(true)
+    expect(aiRowShown({ query: 'ferry', results: 3, idle: false })).toBe(false)
+    expect(aiRowShown({ query: 'ferry', results: 3, idle: true })).toBe(true)
   })
 })

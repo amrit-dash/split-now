@@ -1,6 +1,6 @@
-import { ICON_EMOJI, type IconRequest, type IconSuggestions } from '../../shared/icon-ai'
+import { ICON_EMOJI, type IconPickRequest, type IconPickResponse, type IconRequest, type IconSuggestions } from '../../shared/icon-ai'
 import { cleanSvg } from '../../shared/svg-icon'
-import { bestIcon, searchIcons } from './icons'
+import { bestIcon, ICONS, searchIcons } from './icons'
 
 /*
  * Demo mode's "Suggest with AI" (localRepo.iconsAi): no model on the phone, so the emoji come from
@@ -31,4 +31,25 @@ export function demoIcons(r: IconRequest): IconSuggestions {
     .map(cleanSvg)
     .filter((s): s is string => !!s)
   return { emoji, svgs }
+}
+
+/**
+ * Demo mode's automatic icon with AI (localRepo.iconPickAi): the first catalogue entry whose
+ * words start like one of the title's ("Gondola" finds 🚡 from "gondola"), with its category or
+ * group type when those were asked for. A stand-in for the model, enough to try it end to end.
+ */
+export function demoIconPick(r: IconPickRequest): IconPickResponse {
+  const words = r.title
+    .toLowerCase()
+    .split(/[^a-z]+/)
+    .filter((w) => w.length > 2)
+  for (const w of words) {
+    const emoji = searchIcons(w).find((e) => r.choices.includes(e))
+    if (!emoji) continue
+    const entry = ICONS.find((e) => e.emoji === emoji)
+    const category = entry?.categories.find((c) => r.categories?.includes(c))
+    const type = entry?.group && r.types?.includes(entry.group) ? entry.group : undefined
+    return { emoji, ...(category ? { category } : {}), ...(type ? { type } : {}) }
+  }
+  return { emoji: null }
 }

@@ -126,5 +126,8 @@ describe('own key', () => {
     // AI icons: a bool like the other switches
     await assertSucceeds(setDoc(ref, { aiIcons: false, updatedAt: 1 }, { merge: true }))
     await assertFails(setDoc(ref, { aiIcons: 'no' }, { merge: true }))
+    // AI picks icons (the automatic icon's fallback): a bool too
+    await assertSucceeds(setDoc(ref, { aiIconAuto: false, updatedAt: 1 }, { merge: true }))
+    await assertFails(setDoc(ref, { aiIconAuto: 'no' }, { merge: true }))
   })
 })

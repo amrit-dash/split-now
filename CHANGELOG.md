@@ -6,6 +6,12 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.3.3 — October 2026
+
+- Icons: tapping a group's icon now opens every icon, like holding it. The small "type an emoji" bar is gone: it saved the form when you pressed Enter and didn't search. In the icon sheet, Enter picks the first icon found and never saves the form.
+- Icons with AI: Suggest with AI now shows up once you search, when nothing matches your words or after 3 seconds without a pick, and it asks about your words only. Draw a picture shows only when a key that pays for pictures is in use, and is hidden otherwise.
+- Icons with AI: when the app can't tell the icon from a title (for example "Parasail" or a restaurant's name), Automatic now asks AI to pick one of the app's own icons, and the category or group type while you haven't chosen one. It works on Split Now's free AI. The expense keeps Automatic chosen, so a new description picks again. Turn it off in Settings → AI features → AI picks icons. It is never used in private groups.
+
 ## 8.3.2 — October 2026
 
 - Icons with AI: Suggest with AI and Draw a picture now use the words typed in the icon sheet's search when there are some, for example "anchor" on a ferry expense, and the title otherwise. They work before a title is typed, and a search with no icons points to Suggest with AI.

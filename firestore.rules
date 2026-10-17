@@ -139,7 +139,7 @@ service cloud.firestore {
           && writesOpen()
           && (settingId != 'notifications' || (
             request.resource.data.keys().hasOnly(['captures', 'unsorted', 'expenses', 'settlements', 'reminders', 'chat', 'openItems', 'approvals', 'mutedChats', 'outsideTrips',
-              'capturePaused', 'minAmount', 'ignoreWords', 'pausedTrips', 'aiSms', 'aiSmsMerchant', 'aiImages', 'aiQuickAdd', 'aiPayments', 'aiIcons', 'aiEnabled', 'aiSource', 'aiModel', 'aiFreeOk', 'updatedAt'])
+              'capturePaused', 'minAmount', 'ignoreWords', 'pausedTrips', 'aiSms', 'aiSmsMerchant', 'aiImages', 'aiQuickAdd', 'aiPayments', 'aiIcons', 'aiIconAuto', 'aiEnabled', 'aiSource', 'aiModel', 'aiFreeOk', 'updatedAt'])
             && request.resource.data.get('captures', true) is bool
             && request.resource.data.get('unsorted', false) is bool
             && request.resource.data.get('expenses', true) is bool
@@ -173,6 +173,8 @@ service cloud.firestore {
             && request.resource.data.get('aiPayments', true) is bool
             // "Suggest with AI" in the icon sheet (iconsAi); on unless turned off
             && request.resource.data.get('aiIcons', true) is bool
+            // the automatic icon asks AI when the app's own rules find none (iconPickAi); on unless turned off
+            && request.resource.data.get('aiIconAuto', true) is bool
             && request.resource.data.get('aiEnabled', true) is bool
             && request.resource.data.get('aiSource', 'auto') in ['auto', 'own', 'app']
             && request.resource.data.get('aiModel', '') is string && request.resource.data.get('aiModel', '').size() <= 80
@@ -282,8 +284,8 @@ service cloud.firestore {
       function validFlags(f) {
         return f is map
           && f.keys().hasOnly(['aiImages', 'aiSms', 'liveTables', 'autoCapture', 'quickAdd', 'nudges', 'statementImport',
-              'payLinks', 'duplicates', 'merchantMemory', 'whoseTurn', 'budgetAlerts', 'aiQuickAdd', 'aiPayments', 'openItems', 'groupChat', 'chatAi', 'pushPrompt', 'moneyReceived', 'vaults', 'aiIcons'])
-          && f.get('openItems', true) is bool && f.get('groupChat', true) is bool && f.get('chatAi', true) is bool && f.get('aiIcons', true) is bool
+              'payLinks', 'duplicates', 'merchantMemory', 'whoseTurn', 'budgetAlerts', 'aiQuickAdd', 'aiPayments', 'openItems', 'groupChat', 'chatAi', 'pushPrompt', 'moneyReceived', 'vaults', 'aiIcons', 'aiIconAuto'])
+          && f.get('openItems', true) is bool && f.get('groupChat', true) is bool && f.get('chatAi', true) is bool && f.get('aiIcons', true) is bool && f.get('aiIconAuto', true) is bool
           && f.get('pushPrompt', true) is bool && f.get('moneyReceived', true) is bool && f.get('vaults', true) is bool
           && f.get('aiQuickAdd', true) is bool && f.get('aiPayments', true) is bool
           && f.get('aiImages', true) is bool && f.get('aiSms', true) is bool && f.get('liveTables', true) is bool
@@ -753,6 +755,8 @@ service cloud.firestore {
             && (!('notes' in d) || (d.notes is string && d.notes.size() <= 2000))
             // a chosen icon: one emoji, or its token in a private group (shared/vault-convert.ts CAPS.emoji)
             && (!('icon' in d) || (d.icon is string && d.icon.size() <= 80))
+            // the icon was the automatic one's AI pick (Automatic stays chosen when it's edited)
+            && d.get('iconAuto', true) == true
             // an AI-drawn icon (shared/svg-icon.ts SVG_MAX), never in a private group: it can't be sealed
             && (!('iconSvg' in d) || (d.iconSvg is string && d.iconSvg.size() <= 4096 && groupDoc(groupId).data.get('vault', false) != true))
             // a picture (Draw a picture, shrunk on the phone): a small image data: URL (shared/icon-ai.ts ICON_IMAGE_MAX), never in a private group

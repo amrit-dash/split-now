@@ -438,7 +438,6 @@ export default function ImportGroup() {
                       setEmoji(e)
                     }}
                     emojis={iconsFor(type)}
-                    idPrefix="import-icon"
                   >
                     <label className="label" htmlFor="import-name">
                       Group name

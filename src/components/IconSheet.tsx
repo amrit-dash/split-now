@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
 import { ImageIcon, RefreshCw, Search, Sparkles, Wand2 } from 'lucide-react'
-import { Link } from 'react-router-dom'
 import { repo } from '@/data'
 import { firstEmoji } from '@/lib/emoji'
-import { aiAskFor, iconAiProblem, pictureNote, pictureProblem } from '@/lib/icon-ai'
+import { AI_IDLE_MS, aiRowShown, iconAiProblem, pictureNote, pictureProblem } from '@/lib/icon-ai'
 import { shrinkPicture } from '@/lib/icon-picture'
 import { searchIcons } from '@/lib/icons'
 import { type IconRequest, type IconSuggestions, PICTURE_COST } from '../../shared/icon-ai'
@@ -12,13 +11,16 @@ import { Spinner } from './Misc'
 import { Sheet } from './Sheet'
 
 /**
- * Every icon in one sheet, opened by pressing and holding an icon (or from the category sheet):
- * a search over the icon catalogue's words ("ferry", "ice cream"), or any emoji typed from the
- * keyboard, picked as soon as it is typed. `auto` is the automatic icon an expense goes back to
- * (absent for a group, which always has one). `first` lists the icons that fit best up front.
- * With `ai` (src/hooks/useIconAi.ts; never in a private group), "Suggest with AI" asks for three
- * emoji and up to three drawn icons, and "Draw a picture" for a picture: from the words typed in the
- * search when there are some, else from the title (aiAskFor). A drawn one comes back through `onPickSvg`.
+ * Every icon in one sheet, opened by tapping a group's icon or holding an expense's (or from the
+ * category sheet). Search first: the icon catalogue's words ("ferry", "ice cream"), or any emoji
+ * typed from the keyboard, picked as soon as it is typed. `auto` is the automatic icon an expense
+ * goes back to, always offered first (absent for a group). `first` lists the icons that fit best.
+ *
+ * With `ai` (src/hooks/useIconAi.ts; never in a private group), once words are typed and nothing
+ * matches them, or the person waits AI_IDLE_MS without picking (aiRowShown), the sheet offers
+ * "Suggest with AI" for those words (three emoji and drawn icons, on the free AI too), and
+ * "Draw a picture" when a key that can pay for it is in use (`picture`). AI is asked about the
+ * search words only; the title has its own automatic pick (src/hooks/useAutoIconPick.ts).
  */
 export function IconSheet({
   open,
@@ -34,8 +36,6 @@ export function IconSheet({
   picture,
   imageValue,
   onPickImage,
-  pictureHint,
-  aiWaiting,
   testId = 'icon-sheet',
 }: {
   open: boolean
@@ -46,61 +46,46 @@ export function IconSheet({
   auto?: string
   first?: string[]
   onPick: (icon: string | undefined) => void
-  /** what to ask AI for (its title may be empty: the search words are used then); absent hides "Suggest with AI" */
-  ai?: IconRequest
+  /** what the AI is told besides the search words; absent: no AI here */
+  ai?: Omit<IconRequest, 'title'>
   /** the AI-drawn icon chosen now */
   svgValue?: string
   onPickSvg?: (svg: string) => void
-  /** "Draw a picture" (a paid image model): whose key pays; absent hides it */
+  /** "Draw a picture" (a paid image model): whose key pays; absent or null: not shown */
   picture?: 'own' | 'app' | null
   /** the picture chosen now */
   imageValue?: string
   onPickImage?: (image: string) => void
-  /** why Draw a picture isn't offered (src/lib/icon-ai.ts pictureHint), said in its place */
-  pictureHint?: string | null
-  /** AI is offered but there is nothing to ask about yet: the line to show instead ("Type what it's for first") */
-  aiWaiting?: string
   testId?: string
 }) {
   const [q, setQ] = useState('')
+  const [idle, setIdle] = useState(false)
   const [asking, setAsking] = useState(false)
   const [found, setFound] = useState<IconSuggestions | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
   const [drawing, setDrawing] = useState(false)
   const [drawn, setDrawn] = useState<string | null>(null)
   const [pictureWhy, setPictureWhy] = useState<string | null>(null)
-  // Each opening starts with an empty search (so AI is asked about the title again).
+  const words = q.replace(/\s+/g, ' ').trim().slice(0, 80)
+  // Each opening starts with an empty search.
   useEffect(() => {
     if (!open) setQ('')
   }, [open])
-  // Asked about the search words when there are some, else the title (aiAskFor); new words ask afresh.
-  const ask = ai ? aiAskFor(q, ai.title) : null
-  const asked: IconRequest | undefined = ai && ask ? { ...ai, title: ask.title } : undefined
-  const aiTitle = asked?.title
-  // biome-ignore lint/correctness/useExhaustiveDependencies: only when the title changes
+  // New words: what AI said before was for other words, and the wait starts over.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only when the words change
   useEffect(() => {
     setFound(null)
     setProblem(null)
     setDrawn(null)
     setPictureWhy(null)
-  }, [aiTitle])
-  const draw = async () => {
-    if (!asked || drawing) return
-    setDrawing(true)
-    setPictureWhy(null)
-    try {
-      const r = await repo.iconPictureAi(asked)
-      const small = r && 'image' in r ? await shrinkPicture(r.image, r.mimeType) : null
-      const why = pictureProblem(r, !!small)
-      if (why || !small) setPictureWhy(why)
-      else setDrawn(small)
-    } finally {
-      setDrawing(false)
-    }
-  }
+    setIdle(false)
+    if (!words) return
+    const t = setTimeout(() => setIdle(true), AI_IDLE_MS)
+    return () => clearTimeout(t)
+  }, [words])
+  const asked: IconRequest | undefined = ai && words ? { ...ai, title: words } : undefined
   const pick = (icon: string | undefined) => {
     onPick(icon)
-    setQ('')
     onClose()
   }
   const pickSvg = (svg: string) => {
@@ -120,7 +105,24 @@ export function IconSheet({
       setAsking(false)
     }
   }
+  const draw = async () => {
+    if (!asked || drawing) return
+    setDrawing(true)
+    setPictureWhy(null)
+    try {
+      const r = await repo.iconPictureAi(asked)
+      const small = r && 'image' in r ? await shrinkPicture(r.image, r.mimeType) : null
+      const why = pictureProblem(r, !!small)
+      if (why || !small) setPictureWhy(why)
+      else setDrawn(small)
+    } finally {
+      setDrawing(false)
+    }
+  }
   const list = searchIcons(q, first)
+  const showAi = !!asked && !!onPickSvg && aiRowShown({ query: words, results: words ? list.length : 1, idle })
+  const chosen = (e: string) => value === e && !svgValue && !imageValue
+  const tile = 'flex aspect-square min-h-11 items-center justify-center rounded-xl'
   return (
     <Sheet open={open} onClose={onClose} title={title} testId={testId}>
       <div className="space-y-3">
@@ -137,22 +139,46 @@ export function IconSheet({
             </span>
             <span className="min-w-0 flex-1">
               Automatic
-              <span className="text-muted block text-xs font-normal">Follows what it’s for and its category</span>
+              <span className="text-muted block text-xs font-normal">Picked from what it’s for and its category</span>
             </span>
             <Sparkles size={16} className="text-muted shrink-0" aria-hidden />
           </button>
         )}
-        {!asked && ai && (
-          <div className="flex min-h-11 items-center gap-3 rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800" data-testid="icon-ai-waiting">
-            <Wand2 size={20} className="text-muted shrink-0" aria-hidden />
-            <span className="min-w-0 flex-1">
-              <span className="font-semibold">Suggest with AI</span>
-              <span className="text-muted block text-xs">{aiWaiting ?? 'Type what it’s for, or search for a word: AI suggests icons from it.'}</span>
-            </span>
-          </div>
-        )}
-        {asked && onPickSvg && (
-          <div className="rounded-2xl bg-gradient-to-br from-brand-50 to-duo-50 p-3 dark:from-brand-900/30 dark:to-duo-900/20" data-testid="icon-ai">
+        {/* A form, so the keyboard's search key searches here and never reaches the page's own form. */}
+        <form
+          className="relative"
+          role="search"
+          onSubmit={(ev) => {
+            ev.preventDefault()
+            ev.stopPropagation()
+            // Enter on words with no icon: straight to AI; with icons, the first one.
+            if (words && !list.length && asked) void suggest()
+            else if (words && list[0]) pick(list[0])
+          }}
+        >
+          <Search size={16} className="text-muted pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" aria-hidden />
+          {/* 16px so iOS doesn't zoom; an emoji typed here is picked straight away. */}
+          <input
+            className="input !pl-9"
+            type="search"
+            aria-label="Search icons or type an emoji"
+            placeholder="Search, e.g. ferry, or type an emoji"
+            enterKeyHint="search"
+            autoComplete="off"
+            value={q}
+            onChange={(ev) => {
+              const e = firstEmoji(ev.target.value)
+              if (e) pick(e)
+              else setQ(ev.target.value.slice(0, 40))
+            }}
+            data-testid="icon-search"
+          />
+        </form>
+        {showAi && (
+          <div
+            className="animate-pop rounded-2xl bg-gradient-to-br from-brand-50 to-duo-50 p-3 dark:from-brand-900/30 dark:to-duo-900/20"
+            data-testid="icon-ai"
+          >
             {found ? (
               <div className="space-y-2">
                 <div role="radiogroup" aria-label="Suggested icons" className="grid grid-cols-6 gap-1.5">
@@ -161,10 +187,10 @@ export function IconSheet({
                       key={e}
                       type="button"
                       role="radio"
-                      aria-checked={value === e && !svgValue && !imageValue}
+                      aria-checked={chosen(e)}
                       aria-label={`Icon ${e}`}
                       onClick={() => pick(e)}
-                      className="flex aspect-square min-h-11 items-center justify-center rounded-xl bg-white text-2xl dark:bg-ink-800"
+                      className={`${tile} animate-pop bg-white text-2xl dark:bg-ink-800`}
                       data-testid="icon-ai-emoji"
                     >
                       {e}
@@ -178,7 +204,7 @@ export function IconSheet({
                       aria-checked={svgValue === svg}
                       aria-label={`Drawn icon ${i + 1}`}
                       onClick={() => pickSvg(svg)}
-                      className={`flex aspect-square min-h-11 items-center justify-center rounded-xl bg-white dark:bg-ink-800 ${svgValue === svg ? 'ring-2 ring-brand-500' : ''}`}
+                      className={`${tile} animate-pop bg-white dark:bg-ink-800 ${svgValue === svg ? 'ring-2 ring-brand-500' : ''}`}
                       data-testid="icon-ai-svg"
                     >
                       <img src={svgDataUrl(svg)} alt="" aria-hidden className="h-8 w-8" draggable={false} />
@@ -199,9 +225,9 @@ export function IconSheet({
               >
                 {asking ? <Spinner className="!h-5 !w-5" label="Asking AI" /> : <Wand2 size={20} className="text-brand-600 dark:text-brand-300" aria-hidden />}
                 <span className="min-w-0 flex-1">
-                  {asking ? 'Drawing icons…' : 'Suggest with AI'}
+                  {asking ? 'Drawing icons… this can take a minute on the free AI' : `Suggest with AI for “${words}”`}
                   <span className="text-muted block text-xs font-normal" data-testid="icon-ai-from">
-                    Three emoji and a few drawn icons, from {ask?.from === 'search' ? 'your search ' : ''}“{asked.title}”
+                    Three emoji and a few drawn icons
                   </span>
                 </span>
               </button>
@@ -210,18 +236,6 @@ export function IconSheet({
               <p className="text-muted mt-2 text-xs" role="status" data-testid="icon-ai-problem">
                 {problem}
               </p>
-            )}
-            {!picture && pictureHint && (
-              <div className="mt-3 flex items-start gap-3 border-t border-brand-100 pt-3 text-sm dark:border-white/5" data-testid="icon-picture-hint">
-                <ImageIcon size={20} className="text-muted mt-0.5 shrink-0" aria-hidden />
-                <span className="min-w-0 flex-1">
-                  <span className="font-semibold">Draw a picture</span>
-                  <span className="text-muted block text-xs">{pictureHint}</span>
-                </span>
-                <Link to="/settings/ai" onClick={onClose} className="chip min-h-11 shrink-0" data-testid="icon-picture-settings">
-                  Settings
-                </Link>
-              </div>
             )}
             {picture && onPickImage && (
               <div className="mt-3 border-t border-brand-100 pt-3 dark:border-white/5" data-testid="icon-picture">
@@ -235,7 +249,7 @@ export function IconSheet({
                       }}
                       aria-label="Use this picture"
                       aria-pressed={imageValue === drawn}
-                      className={`h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-white dark:bg-ink-800 ${imageValue === drawn ? 'ring-2 ring-brand-500' : ''}`}
+                      className={`animate-pop h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-white dark:bg-ink-800 ${imageValue === drawn ? 'ring-2 ring-brand-500' : ''}`}
                       data-testid="icon-picture-use"
                     >
                       <img src={drawn} alt="" aria-hidden className="h-full w-full object-cover" draggable={false} />
@@ -261,7 +275,7 @@ export function IconSheet({
                       <ImageIcon size={20} className="text-brand-600 dark:text-brand-300" aria-hidden />
                     )}
                     <span className="min-w-0 flex-1">
-                      {drawing ? 'Drawing a picture… this can take half a minute' : 'Draw a picture'}
+                      {drawing ? 'Drawing a picture… this can take half a minute' : `Draw a picture of “${words}”`}
                       <span className="text-muted block text-xs font-normal" data-testid="icon-picture-note">
                         {pictureNote(picture, PICTURE_COST)}
                       </span>
@@ -277,24 +291,6 @@ export function IconSheet({
             )}
           </div>
         )}
-        <div className="relative">
-          <Search size={16} className="text-muted pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" aria-hidden />
-          {/* 16px so iOS doesn't zoom; an emoji typed here is picked straight away. */}
-          <input
-            className="input !pl-9"
-            aria-label="Search icons or type an emoji"
-            placeholder="Search, e.g. ferry, or type an emoji"
-            enterKeyHint="search"
-            autoComplete="off"
-            value={q}
-            onChange={(ev) => {
-              const e = firstEmoji(ev.target.value)
-              if (e) pick(e)
-              else setQ(ev.target.value.slice(0, 40))
-            }}
-            data-testid="icon-search"
-          />
-        </div>
         {list.length ? (
           <div role="radiogroup" aria-label={title} className="grid grid-cols-6 gap-1.5 sm:grid-cols-8">
             {list.map((e) => (
@@ -302,10 +298,10 @@ export function IconSheet({
                 key={e}
                 type="button"
                 role="radio"
-                aria-checked={value === e && !svgValue && !imageValue}
+                aria-checked={chosen(e)}
                 aria-label={`Icon ${e}`}
                 onClick={() => pick(e)}
-                className={`flex aspect-square min-h-11 items-center justify-center rounded-xl text-2xl transition active:scale-95 ${value === e && !svgValue && !imageValue ? 'bg-brand-100 ring-2 ring-brand-500 dark:bg-brand-900/40' : 'bg-slate-100 dark:bg-ink-800'}`}
+                className={`${tile} text-2xl transition active:scale-95 ${chosen(e) ? 'bg-brand-100 ring-2 ring-brand-500 dark:bg-brand-900/40' : 'bg-slate-100 dark:bg-ink-800'}`}
               >
                 {e}
               </button>
@@ -313,7 +309,7 @@ export function IconSheet({
           </div>
         ) : (
           <p className="text-muted py-4 text-center text-sm" data-testid="icon-none">
-            No icon for “{q.trim()}”. {asked ? 'Suggest with AI above can make one for it' : 'Try another word, or type any emoji'}.
+            No icon for “{words}”. {asked ? 'Ask AI above, or try another word.' : 'Try another word, or type any emoji.'}
           </p>
         )}
       </div>
