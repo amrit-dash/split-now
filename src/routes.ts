@@ -37,6 +37,7 @@ export const load = {
   ImportGroup: () => import('./pages/ImportGroup'),
   Table: () => import('./pages/Table'),
   PayLink: () => import('./pages/PayLink'),
+  Help: () => import('./pages/Help'),
 }
 export type RouteKey = keyof typeof load
 
@@ -58,6 +59,7 @@ export function routeKey(pathname: string): RouteKey | undefined {
   if (p === '/profile') return 'Profile'
   if (p === '/email-link') return 'EmailLink'
   if (p === '/inbox') return 'Inbox'
+  if (p === '/help' || p.startsWith('/help/')) return 'Help'
   if (p === '/scan') return 'Scan'
   if (p === '/split') return 'SplitBill'
   if (p === '/share') return 'Share'

@@ -35,6 +35,7 @@ export const FLAG_SECTIONS: readonly Section<FlagName>[] = [
     keys: ['payLinks', 'nudges', 'budgetAlerts', 'pushPrompt'],
   },
   { id: 'capture', title: 'Capture and import', hint: 'Payments that come in from outside the app.', keys: ['autoCapture', 'statementImport'] },
+  { id: 'app', title: 'The app', hint: 'Banners about the app itself.', keys: ['whatsNew'] },
 ]
 
 export const LIMIT_SECTIONS: readonly Section<LimitName>[] = [

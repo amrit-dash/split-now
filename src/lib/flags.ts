@@ -43,6 +43,7 @@ export const FLAG_NAMES = [
   'vaults',
   'aiIcons',
   'aiIconAuto',
+  'whatsNew',
 ] as const
 export type FlagName = (typeof FLAG_NAMES)[number]
 
@@ -85,6 +86,10 @@ export const FLAG_INFO: Record<FlagName, { label: string; hint: string }> = {
   moneyReceived: {
     label: 'Money received',
     hint: 'The Expense / Money received switch in Add expense, and refunds in Quick add. Off hides it for new entries; money received already added stays and can still be edited.',
+  },
+  whatsNew: {
+    label: 'What’s new banner',
+    hint: 'After an update, a banner with the version and See what’s new (Profile → Help → What’s new). Off hides the banner; Help and What’s new still work.',
   },
   pushPrompt: {
     label: 'Ask to turn on notifications',

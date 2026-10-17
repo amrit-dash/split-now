@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Camera, ChevronRight, HandHeart, ImagePlus, LogOut, Settings as SettingsIcon, ShieldCheck, Trash2, Users, Wallet, X } from 'lucide-react'
+import { Camera, ChevronRight, HandHeart, ImagePlus, LifeBuoy, LogOut, Settings as SettingsIcon, ShieldCheck, Trash2, Users, Wallet, X } from 'lucide-react'
+import { useWhatsNew } from '@/hooks/useWhatsNew'
 import { repo } from '@/data'
 import { semverOf } from '@/lib/flags'
 import { useMe } from '@/hooks/auth'
@@ -132,6 +133,7 @@ export default function Profile() {
   const [photoOpen, setPhotoOpen] = useState(false)
   const [signOutOpen, setSignOutOpen] = useState(false)
   const [supportOpen, setSupportOpen] = useState(false)
+  const whatsNew = useWhatsNew()
   const [saved, flash] = useSavedFlash()
   const showAll = useShows(2)
   const showBackend = useShows(3)
@@ -332,6 +334,24 @@ export default function Profile() {
             <span className="block">Settings</span>
             <HintText hint={SETTINGS_ROW_HINT} as="span" className="text-muted block text-xs font-normal" />
           </span>
+          <ChevronRight size={18} className="text-slate-400" aria-hidden />
+        </Link>
+        <Link to="/help" className="flex items-center gap-3 p-4 font-medium transition active:bg-slate-50 dark:active:bg-ink-800" data-testid="profile-help">
+          <span
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
+            aria-hidden
+          >
+            <LifeBuoy size={19} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block">Help</span>
+            <span className="text-muted block text-xs font-normal">How things work, and what’s new</span>
+          </span>
+          {whatsNew.unseen.length > 0 && (
+            <span className="rounded-full bg-fill px-2 py-0.5 text-[0.65rem] font-bold text-on-fill" data-testid="profile-help-new">
+              New
+            </span>
+          )}
           <ChevronRight size={18} className="text-slate-400" aria-hidden />
         </Link>
         <Link to="/settle" className="flex items-center gap-3 p-4 font-medium transition active:bg-slate-50 dark:active:bg-ink-800">

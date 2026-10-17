@@ -78,6 +78,7 @@ const ImportGroup = lazy(load.ImportGroup)
 const Table = lazy(load.Table)
 const TableEntry = lazy(() => load.Table().then((m) => ({ default: m.TableEntry })))
 const PayLink = lazy(load.PayLink)
+const Help = lazy(load.Help)
 
 /** A same-origin path only: no protocol-relative (//host) or backslash tricks in the stored return URL. */
 const safePath = (p: string | null) => (p && /^\/(?![/\\])\S*$/.test(p) ? p : null)
@@ -386,6 +387,8 @@ function AppRoutes({ cfg, admin }: { cfg: AppConfig; admin: boolean }) {
             <Route path="profile" element={<Profile />} />
             <Route path="email-link" element={<EmailLink />} />
             <Route path="inbox" element={<Inbox />} />
+            <Route path="help" element={<Help />} />
+            <Route path="help/:sectionId" element={<Help />} />
             <Route path="settings/auto-capture" element={autoCapture ? <AutoCaptureSetup /> : <Navigate to="/settings" replace />} />
             <Route path="settings/*" element={<Settings />} />
             <Route path="admin/*" element={<Admin />} />
