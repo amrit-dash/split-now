@@ -1394,3 +1394,52 @@ test('icons: Draw a picture says who pays, and the picture becomes the icon', as
   await page.getByText('Sunset cruise').first().click()
   await expect(page.getByTestId('expense-detail-icon').locator('img')).toHaveAttribute('src', /^data:image\/(webp|png|jpeg)/)
 })
+
+test('help: Profile → Help finds a feature, plays its steps and goes there', async ({ page }) => {
+  await page.getByRole('navigation').getByRole('link', { name: 'Profile' }).click()
+  await page.getByTestId('profile-help').click()
+  await expect(page).toHaveURL(/\/help$/)
+  await expect(page.getByTestId('help-core-card')).toHaveCount(10)
+  // search by a word that's only in a section's keywords
+  await page.getByTestId('help-search').fill('refund')
+  await page.getByTestId('help-results').getByTestId('help-row').first().click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Money received' })).toBeVisible()
+  // a main feature: the scene and its steps; a tap on a step goes there
+  await page.goto('/help/add-expense')
+  await expect(page.getByTestId('help-scene')).toBeVisible()
+  const steps = page.getByTestId('help-step')
+  await expect(steps).toHaveCount(7)
+  await steps.nth(3).click()
+  await expect(steps.nth(3)).toHaveAttribute('aria-current', 'step')
+  await expect(page.getByTestId('help-play')).toHaveAttribute('aria-pressed', 'false')
+  await page.getByTestId('help-next').click()
+  await expect(steps.nth(4)).toHaveAttribute('aria-current', 'step')
+  await page.getByTestId('help-try').click()
+  await expect(page).toHaveURL(/\/add/)
+})
+
+test('help: What’s new lists this version first and links each line to the guide', async ({ page }) => {
+  await page.goto('/help?tab=new')
+  const releases = page.getByTestId('release')
+  await expect(releases.first()).toBeVisible()
+  expect(await releases.count()).toBeGreaterThan(5)
+  await releases.first().getByTestId('release-item').first().click()
+  await expect(page).toHaveURL(/\/help\/[a-z-]+$/)
+  await expect(page.getByTestId('help-section')).toBeVisible()
+})
+
+test('help: after an update, Home says so once, and See what’s new opens it', async ({ page }) => {
+  // this phone last saw an older version
+  await page.evaluate(() => {
+    localStorage.setItem('splitnow:whats-new-banner', '8.0.0')
+    localStorage.setItem('splitnow:whats-new-seen', '8.0.0')
+  })
+  await page.reload()
+  await expect(page.getByTestId('whats-new-banner')).toBeVisible()
+  await page.getByTestId('whats-new-open').click()
+  await expect(page).toHaveURL(/\/help\?tab=new$/)
+  await expect(page.getByTestId('release').first()).toContainText('New')
+  await page.goto('/')
+  await expect(page.getByTestId('home-greeting')).toBeVisible()
+  await expect(page.getByTestId('whats-new-banner')).toHaveCount(0)
+})

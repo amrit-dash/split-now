@@ -358,6 +358,11 @@ html[data-update-ready] .install-banner { display: none; }
 
 /* Update banner: rises from behind the tab bar. */
 @keyframes rise { from { transform: translateY(110%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+/* Help's scenes (src/features/help/Scene.tsx): a screen slides in, the pointer presses, parts appear and bars grow. */
+@keyframes help-slide { from { transform: translateX(18%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes help-press { 0% { transform: scale(1.6); opacity: 0; } 30% { transform: scale(0.85); opacity: 1; } 60% { transform: scale(1); } 100% { transform: scale(1.9); opacity: 0; } }
+@keyframes help-in { from { transform: translateY(4px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes help-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 
 /* Horizontally scrolling rows (chips, split types, filters) scroll by touch without a visible bar. */
 .overflow-x-auto { scrollbar-width: none; }

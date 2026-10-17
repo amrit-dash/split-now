@@ -143,6 +143,8 @@ describe('config/app', () => {
     await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, flags: { ...appConfig.flags, aiIcons: 'off' } }))
     await assertSucceeds(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, flags: { ...appConfig.flags, aiIconAuto: false } }))
     await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, flags: { ...appConfig.flags, aiIconAuto: 'off' } }))
+    await assertSucceeds(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, flags: { ...appConfig.flags, whatsNew: false } }))
+    await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, flags: { ...appConfig.flags, whatsNew: 'off' } }))
     await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, flags: 'all' }))
     await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, signups: 'closed' }))
     // The detail level (src/lib/look.ts): one of four names

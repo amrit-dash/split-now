@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { WhatsNewBanner } from '@/components/WhatsNewBanner'
 import { Link, useNavigate } from 'react-router-dom'
 import { ChevronRight, FileUp, Inbox, Lock, Plus, Ticket } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
@@ -105,6 +106,7 @@ export default function Home() {
 
   return (
     <div className="pt-[calc(var(--safe-top)+1.5rem)]">
+      <WhatsNewBanner />
       <header className="mb-6 flex items-center justify-between gap-3" data-testid="home-greeting">
         <Greeting salutation={hello.salutation} name={hello.name} part={part} />
         <div className="flex shrink-0 items-center gap-2 min-[380px]:gap-3">

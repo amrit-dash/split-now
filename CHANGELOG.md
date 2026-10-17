@@ -6,6 +6,11 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.3.5 — October 2026
+
+- Help: Profile → Help is a guide to Split Now. Search it, or open a feature to read what to know about it. The ten main features (creating a group, adding an expense, ways to split, settling up with UPI, scanning a bill, Quick add, private groups, icons, auto-capture and Insights) each have steps you can play: a small phone shows each step, and a pointer taps what to tap. Tap a step to jump to it, or use Try it to go there in the app.
+- What's new: a tab in Help lists every release of version 8, newest first, in a few lines each, and each line opens the part of the guide about it. Releases since you last looked on this phone are marked New. After an update, a banner says which version you're on, with See what's new. An admin can turn the banner off.
+
 ## 8.3.4 — October 2026
 
 - Icons with AI on Split Now's free AI: Suggest with AI and AI picks icons came back empty every time, because the free model spent its whole answer thinking. It now answers straight away: suggestions arrive in about 10 seconds instead of timing out, and the automatic pick in under a second.

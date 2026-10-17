@@ -1,0 +1,270 @@
+import { useEffect, useState } from 'react'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { ArrowRight, ChevronRight, Search } from 'lucide-react'
+import { Empty, PageHeader, Segmented } from '@/components/Misc'
+import { StepPlayer, StepText } from '@/features/help/StepPlayer'
+import { APP_SEMVER, useWhatsNew } from '@/hooks/useWhatsNew'
+import { usePageTitle } from '@/lib/brand'
+import { guideLayout, type HelpSection, relatedOf, searchHelp } from '@/lib/help'
+import { CHAPTERS, SECTIONS } from '@/lib/help-content'
+import { type Release, releasesFor } from '@/lib/whats-new'
+
+type Tab = 'guide' | 'new'
+
+/**
+ * Help (Profile → Help): the guide, searchable, with the main features first, and What's new,
+ * every release of this major version with each line linked to its section. /help/<id> is one
+ * section: its steps (played, for a main feature), what to know, Try it, and related sections.
+ */
+export default function Help() {
+  const { sectionId } = useParams()
+  if (sectionId) return <SectionPage id={sectionId} />
+  return <HelpHome />
+}
+
+function HelpHome() {
+  const [params, setParams] = useSearchParams()
+  const tab: Tab = params.get('tab') === 'new' ? 'new' : 'guide'
+  usePageTitle(tab === 'new' ? 'What’s new' : 'Help')
+  const { unseen } = useWhatsNew()
+  return (
+    <div>
+      <PageHeader title="Help" back="/profile" />
+      <Segmented<Tab>
+        value={tab}
+        onChange={(t) => setParams(t === 'new' ? { tab: 'new' } : {}, { replace: true })}
+        label="Help"
+        testId="help-tabs"
+        options={[
+          { value: 'guide', label: 'Guide' },
+          {
+            value: 'new',
+            label: (
+              <span className="inline-flex items-center gap-1.5">
+                What’s new
+                {unseen.length > 0 && (
+                  <>
+                    <span className="h-2 w-2 rounded-full bg-rose-500" aria-hidden />
+                    <span className="sr-only">, new releases</span>
+                  </>
+                )}
+              </span>
+            ),
+          },
+        ]}
+      />
+      <div className="mt-4">{tab === 'new' ? <WhatsNew /> : <Guide />}</div>
+    </div>
+  )
+}
+
+function Guide() {
+  const [q, setQ] = useState('')
+  const found = searchHelp(q, SECTIONS)
+  const layout = guideLayout(CHAPTERS, SECTIONS)
+  return (
+    <div className="space-y-5">
+      <form role="search" className="relative" onSubmit={(e) => e.preventDefault()}>
+        <Search size={16} className="text-muted pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" aria-hidden />
+        <input
+          className="input !pl-9"
+          type="search"
+          value={q}
+          onChange={(e) => setQ(e.target.value.slice(0, 60))}
+          placeholder="Search, e.g. split, UPI, refund"
+          aria-label="Search help"
+          enterKeyHint="search"
+          autoComplete="off"
+          data-testid="help-search"
+        />
+      </form>
+      {q.trim().length >= 2 ? (
+        found.length ? (
+          <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5" data-testid="help-results">
+            {found.map((s) => (
+              <SectionRow key={s.id} s={s} />
+            ))}
+          </div>
+        ) : (
+          <Empty emoji="🔎" title="Nothing found">
+            Try another word, or browse the features below.
+          </Empty>
+        )
+      ) : (
+        <>
+          <section aria-labelledby="help-main">
+            <h2 id="help-main" className="label mb-2">
+              Main features
+            </h2>
+            <div className="grid grid-cols-2 gap-2" data-testid="help-core">
+              {layout.core.map((s, i) => (
+                <Link
+                  key={s.id}
+                  to={`/help/${s.id}`}
+                  className="card animate-pop flex min-h-24 flex-col gap-1 p-3 transition active:scale-[0.98]"
+                  style={{ animationDelay: `${i * 40}ms` }}
+                  data-testid="help-core-card"
+                >
+                  <span className="text-2xl" aria-hidden>
+                    {s.icon}
+                  </span>
+                  <span className="text-sm font-bold leading-tight">{s.title}</span>
+                  <span className="text-muted line-clamp-2 text-xs">{s.summary}</span>
+                </Link>
+              ))}
+            </div>
+          </section>
+          {layout.chapters.map(({ chapter, sections }) => (
+            <section key={chapter.id} aria-labelledby={`help-${chapter.id}`}>
+              <h2 id={`help-${chapter.id}`} className="label mb-2">
+                {chapter.title}
+              </h2>
+              <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
+                {sections.map((s) => (
+                  <SectionRow key={s.id} s={s} />
+                ))}
+              </div>
+            </section>
+          ))}
+        </>
+      )}
+    </div>
+  )
+}
+
+function SectionRow({ s }: { s: HelpSection }) {
+  return (
+    <Link to={`/help/${s.id}`} className="flex min-h-11 items-center gap-3 p-3 transition active:bg-slate-50 dark:active:bg-ink-800" data-testid="help-row">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-lg dark:bg-ink-800" aria-hidden>
+        {s.icon ?? '📄'}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-semibold">{s.title}</span>
+        <span className="text-muted block truncate text-xs">{s.summary}</span>
+      </span>
+      <ChevronRight size={18} className="text-muted shrink-0" aria-hidden />
+    </Link>
+  )
+}
+
+function WhatsNew() {
+  const { unseen, markSeen } = useWhatsNew()
+  // What was new when the tab opened stays marked for this visit; opening it marks it all seen.
+  const [fresh] = useState(() => new Set(unseen.map((r) => r.version)))
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once, on opening the tab
+  useEffect(() => markSeen(), [])
+  const releases = releasesFor(APP_SEMVER)
+  if (!releases.length)
+    return (
+      <Empty emoji="🌱" title="Nothing yet">
+        This version has just started. Its changes will be listed here.
+      </Empty>
+    )
+  return (
+    <div className="space-y-3" data-testid="whats-new">
+      {releases.map((r, i) => (
+        <ReleaseCard key={r.version} r={r} fresh={fresh.has(r.version)} first={i === 0} />
+      ))}
+      <p className="text-muted px-1 text-center text-xs">The full list of changes is in CHANGELOG.md on GitHub.</p>
+    </div>
+  )
+}
+
+function ReleaseCard({ r, fresh, first }: { r: Release; fresh: boolean; first: boolean }) {
+  return (
+    <section className={`card p-4 ${fresh ? 'ring-2 ring-brand-500' : ''}`} aria-labelledby={`v-${r.version}`} data-testid="release">
+      <div className="mb-2 flex items-center gap-2">
+        <h2 id={`v-${r.version}`} className="text-base font-extrabold">
+          {r.version}
+        </h2>
+        <span className="text-muted text-xs">{r.date}</span>
+        {fresh && <span className="rounded-full bg-fill px-2 py-0.5 text-[0.65rem] font-bold text-on-fill">New</span>}
+        {first && !fresh && <span className="text-muted text-[0.65rem] font-semibold">This version</span>}
+      </div>
+      <ul className="space-y-0.5">
+        {r.items.map((it) => (
+          <li key={it.text}>
+            <Link
+              to={`/help/${it.section}`}
+              className="flex min-h-11 items-center gap-2 rounded-xl py-1.5 text-sm transition active:bg-slate-50 dark:active:bg-ink-800"
+              data-testid="release-item"
+            >
+              <span className="min-w-0 flex-1">{it.text}</span>
+              <ChevronRight size={16} className="text-muted shrink-0" aria-hidden />
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+function SectionPage({ id }: { id: string }) {
+  const s = SECTIONS.find((x) => x.id === id)
+  usePageTitle(s ? s.title : 'Help')
+  if (!s)
+    return (
+      <div>
+        <PageHeader title="Help" back="/help" />
+        <Empty emoji="🧭" title="That page isn’t here">
+          <Link to="/help" className="font-semibold text-brand-700 dark:text-brand-300">
+            Back to Help
+          </Link>
+        </Empty>
+      </div>
+    )
+  const related = relatedOf(s, SECTIONS)
+  return (
+    <div className="space-y-4" data-testid="help-section">
+      <PageHeader title={s.title} back="/help" subtitle={s.summary} />
+      {s.steps?.length ? (
+        s.core ? (
+          <StepPlayer key={s.id} sectionId={s.id} steps={s.steps} />
+        ) : (
+          <ol className="card space-y-2 p-4">
+            {s.steps.map((st, n) => (
+              <li key={st.text} className="flex items-start gap-3 text-sm">
+                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold dark:bg-ink-800">
+                  {n + 1}
+                </span>
+                <StepText text={st.text} />
+              </li>
+            ))}
+          </ol>
+        )
+      ) : null}
+      {s.open && (
+        <Link to={s.open.to} className="btn-primary w-full" data-testid="help-try">
+          Try it: {s.open.label} <ArrowRight size={16} aria-hidden />
+        </Link>
+      )}
+      {s.points.length > 0 && (
+        <section className="card p-4" aria-labelledby="help-know">
+          <h2 id="help-know" className="mb-2 text-sm font-bold">
+            What to know
+          </h2>
+          <ul className="space-y-2">
+            {s.points.map((p) => (
+              <li key={p} className="flex gap-2 text-sm">
+                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500" aria-hidden />
+                <StepText text={p} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {related.length > 0 && (
+        <section aria-labelledby="help-related">
+          <h2 id="help-related" className="label mb-2">
+            Related
+          </h2>
+          <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
+            {related.map((r) => (
+              <SectionRow key={r.id} s={r} />
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  )
+}
