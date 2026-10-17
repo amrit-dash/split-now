@@ -20,7 +20,8 @@ import { usePress } from './usePress'
 /**
  * The lock button: an ordinary-looking icon button that is also where the pattern goes in
  * (docs/VAULT.md). Taps and long presses on it; each press shows only what any button shows (it
- * sinks, and a ring closes in while held, the same on every press), nothing says a pattern exists,
+ * sinks and fills from within; held long enough, the fill completes and the icon takes the brand
+ * colour, the same on every press), nothing says a pattern exists,
  * nothing buzzes, and the pattern is sent after PATTERN_PAUSE_MS without a press. The presses
  * then start a fresh try at once: one drawn while the last is still with the server queues behind
  * it (tryStillWanted), so a wrong pattern can be followed by the right one straight away. Without `groupId` (the Groups
@@ -88,7 +89,8 @@ export function PatternLock({
       queue.current = queue.current.then(() => send(p, drawnAt))
     }, PATTERN_PAUSE_MS)
   }
-  const { holding, handlers } = usePress(add)
+  // The pause counts from the last release; a finger on the button stops it, however long the hold.
+  const { holding, long, handlers } = usePress(add, false, () => clearTimeout(timer.current))
 
   return (
     <>
@@ -98,7 +100,7 @@ export function PatternLock({
         title={label}
         className={`press-hold touch-none select-none ${className}`}
         style={{ '--hold-ms': `${LONG_PRESS_MS}ms` } as CSSProperties}
-        data-press={holding ? 'down' : 'idle'}
+        data-press={holding ? (long ? 'long' : 'down') : 'idle'}
         data-testid={testId}
         {...handlers}
       >

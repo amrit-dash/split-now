@@ -45,7 +45,7 @@ The project key is **off** until an admin turns it on.
 
 ## Users' own keys
 
-In **Profile → AI features → Your Gemini key**, a person pastes their key; the server checks it with Google (by listing models) and stores it in `users/{uid}/secrets/gemini`, which no client can read. The app only ever shows its last 4 characters. They can pick any Flash model their key can use; a retired model falls back to the recommended one (`gemini-2.5-flash-lite`).
+In **Settings → AI features → Your Gemini key**, a person pastes their key; the server checks it with Google (by listing models) and stores it in `users/{uid}/secrets/gemini`, which no client can read. The app only ever shows its last 4 characters. They can pick any Flash model their key can use; a retired model falls back to the recommended one (`gemini-2.5-flash-lite`).
 
 ## Icons with AI
 

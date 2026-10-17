@@ -445,30 +445,38 @@ html[data-nav]:has(.install-banner, [data-testid='update-banner'], [data-testid=
 @media (prefers-reduced-motion: reduce) { .chat-flash { animation: none; } }
 
 /*
- * Press and hold (src/hooks/useLongPress.ts sets data-press): while held the control sinks a
- * little and a ring closes in around it over the hold's 500 ms, so it is plain something is
- * happening; when the hold takes it pops back. A plain tap only shows the sink.
+ * Press and hold (src/hooks/useLongPress.ts and the lock buttons' usePress set data-press): the
+ * button sinks a little and fills from within its own shape, the fill growing from the centre
+ * over the hold's time (--hold-ms), so it reads as the button itself pressing in. A hold that took
+ * ('held', 'long') is fully filled, its icon takes the brand colour, and it pops back when let go.
+ * A plain tap only shows the start of the fill. The fill sits behind the content (isolation).
  */
-.press-hold { position: relative; transition: transform 120ms ease-out; }
-.press-hold::after {
+.press-hold { position: relative; isolation: isolate; transition: transform 140ms ease-out, color 160ms ease-out; }
+.press-hold::before {
   content: '';
   position: absolute;
-  inset: -4px;
+  inset: 0;
+  z-index: -1;
   border-radius: inherit;
-  border: 2px solid var(--color-brand-500);
+  background: color-mix(in oklab, var(--color-brand-500) 26%, transparent);
+  transform: scale(0);
   opacity: 0;
-  transform: scale(1.12);
   pointer-events: none;
 }
-.press-hold[data-press='down'] { transform: scale(0.93); }
-.press-hold[data-press='down']::after { animation: hold-ring var(--hold-ms, 500ms) linear forwards; }
-.press-hold[data-press='held'] { animation: hold-pop 260ms ease-out; }
-.press-hold[data-press='held']::after { opacity: 1; transform: scale(1); animation: hold-done 400ms ease-out forwards; }
-@keyframes hold-ring { 0% { opacity: 0; transform: scale(1.12); } 25% { opacity: 0.5; } 100% { opacity: 1; transform: scale(1); } }
-@keyframes hold-pop { 0% { transform: scale(0.93); } 60% { transform: scale(1.08); } 100% { transform: scale(1); } }
-@keyframes hold-done { to { opacity: 0; transform: scale(1.15); } }
+.press-hold[data-press='down'] { transform: scale(0.94); }
+.press-hold[data-press='down']::before { animation: hold-fill var(--hold-ms, 500ms) cubic-bezier(0.2, 0.7, 0.3, 1) forwards; }
+.press-hold[data-press='long'] { transform: scale(0.94); color: var(--color-brand-600); }
+.press-hold[data-press='long']::before,
+.press-hold[data-press='held']::before { opacity: 1; transform: scale(1); }
+.press-hold[data-press='held'] { color: var(--color-brand-600); animation: hold-pop 280ms ease-out; }
+.press-hold[data-press='held']::before { animation: hold-release 420ms ease-out forwards; }
+.dark .press-hold[data-press='long'], .dark .press-hold[data-press='held'] { color: var(--color-brand-300); }
+@keyframes hold-fill { 0% { opacity: 0.5; transform: scale(0.15); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes hold-pop { 0% { transform: scale(0.94); } 55% { transform: scale(1.06); } 100% { transform: scale(1); } }
+@keyframes hold-release { 0% { opacity: 1; } 100% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
-  .press-hold, .press-hold[data-press='down'], .press-hold[data-press='held'] { transform: none; animation: none; }
-  .press-hold[data-press='down']::after { animation: none; opacity: 0.6; transform: none; }
-  .press-hold[data-press='held']::after { animation: none; opacity: 0; }
+  .press-hold, .press-hold[data-press] { transform: none; animation: none; }
+  .press-hold[data-press='down']::before { animation: none; opacity: 0.6; transform: scale(1); }
+  .press-hold[data-press='held']::before { animation: none; opacity: 0; }
 }
+

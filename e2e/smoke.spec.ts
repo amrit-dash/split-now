@@ -1286,6 +1286,10 @@ test('icons: a group name suggests a telling icon, and every icon is a search aw
 
 test('icons: Suggest with AI offers emoji and drawn icons, and a drawn one shows as the icon', async ({ page }) => {
   await page.goto('/add?group=g_goa')
+  // with nothing typed yet, the sheet says what AI needs instead of hiding it
+  await page.getByTestId('expense-icon').click({ button: 'right' })
+  await expect(page.getByTestId('icon-sheet').getByTestId('icon-ai-waiting')).toBeVisible()
+  await page.keyboard.press('Escape')
   await page.getByRole('textbox', { name: 'Description', exact: true }).fill('Ferry to Havelock')
   await amountField(page).fill('640')
   await page.getByTestId('expense-icon').click({ button: 'right' })

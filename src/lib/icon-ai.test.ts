@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { iconAiOffered, iconAiProblem, iconFace, pictureNote, pictureOffer, pictureProblem } from './icon-ai'
+import { iconAiOffered, iconAiProblem, iconFace, pictureHint, pictureNote, pictureOffer, pictureProblem } from './icon-ai'
 
 const prefs = { aiEnabled: true, aiIcons: true, aiSource: 'auto', aiFreeOk: true }
 const status = { app: { images: 'available', engine: 'gemma' } }
@@ -85,5 +85,21 @@ describe('what the picture row says', () => {
     expect(pictureProblem(null, false)).toMatch(/connection/)
     expect(pictureProblem({ image: 'x' }, false)).toMatch(/Couldn’t use/)
     expect(pictureProblem({ image: 'x' }, true)).toBeNull()
+  })
+})
+
+describe('when Draw a picture isn’t offered', () => {
+  it('says what it needs instead of hiding', () => {
+    // free Gemma, no key of one's own
+    expect(pictureHint(base)).toMatch(/need your own Gemini key/)
+    expect(pictureHint({ ...base, hasOwnKey: true, prefs: { ...prefs, aiSource: 'app' }, status: { app: { images: 'available', engine: 'gemini' } } })).toMatch(
+      /Only Split Now’s key/,
+    )
+  })
+  it('nothing to say when it is offered, or when AI isn’t shown at all', () => {
+    expect(pictureHint({ ...base, hasOwnKey: true })).toBeNull()
+    expect(pictureHint({ ...base, flag: false })).toBeNull()
+    expect(pictureHint({ ...base, vault: true })).toBeNull()
+    expect(pictureHint({ ...base, mode: 'demo' })).toBeNull()
   })
 })

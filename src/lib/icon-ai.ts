@@ -47,6 +47,18 @@ export function pictureOffer(
 }
 
 /**
+ * Why "Draw a picture" isn't offered, where the sheet should say so instead of hiding it (null:
+ * it is offered, or Suggest with AI isn't shown at all). Pictures need a paid Gemini image model:
+ * the person's own key, or Split Now's key only where an admin allows it.
+ */
+export function pictureHint(o: Parameters<typeof pictureOffer>[0]): string | null {
+  if (pictureOffer(o) || !iconAiOffered(o) || o.mode === 'demo') return null
+  if (o.hasOwnKey && o.prefs?.aiSource === 'app')
+    return 'You chose “Only Split Now’s key”, so your Gemini key isn’t used for pictures. Change it in Settings → AI features.'
+  return 'Pictures need your own Gemini key (about US$0.03 a picture, billed to it). Add one in Settings → AI features.'
+}
+
+/**
  * The face to draw for something with an icon: a picture (Draw a picture), else an AI-drawn icon
  * (cleaned again here: the stored markup could have been written by anyone in the group), both
  * as images, else the emoji. A private group never shows either, even if one is stored.

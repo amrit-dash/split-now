@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ImageIcon, RefreshCw, Search, Sparkles, Wand2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { repo } from '@/data'
 import { firstEmoji } from '@/lib/emoji'
 import { iconAiProblem, pictureNote, pictureProblem } from '@/lib/icon-ai'
@@ -32,6 +33,8 @@ export function IconSheet({
   picture,
   imageValue,
   onPickImage,
+  pictureHint,
+  aiWaiting,
   testId = 'icon-sheet',
 }: {
   open: boolean
@@ -52,6 +55,10 @@ export function IconSheet({
   /** the picture chosen now */
   imageValue?: string
   onPickImage?: (image: string) => void
+  /** why Draw a picture isn't offered (src/lib/icon-ai.ts pictureHint), said in its place */
+  pictureHint?: string | null
+  /** AI is offered but there is nothing to ask about yet: the line to show instead ("Type what it's for first") */
+  aiWaiting?: string
   testId?: string
 }) {
   const [q, setQ] = useState('')
@@ -128,6 +135,15 @@ export function IconSheet({
             <Sparkles size={16} className="text-muted shrink-0" aria-hidden />
           </button>
         )}
+        {!ai && aiWaiting && (
+          <div className="flex min-h-11 items-center gap-3 rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800" data-testid="icon-ai-waiting">
+            <Wand2 size={20} className="text-muted shrink-0" aria-hidden />
+            <span className="min-w-0 flex-1">
+              <span className="font-semibold">Suggest with AI</span>
+              <span className="text-muted block text-xs">{aiWaiting}</span>
+            </span>
+          </div>
+        )}
         {ai && onPickSvg && (
           <div className="rounded-2xl bg-gradient-to-br from-brand-50 to-duo-50 p-3 dark:from-brand-900/30 dark:to-duo-900/20" data-testid="icon-ai">
             {found ? (
@@ -185,6 +201,18 @@ export function IconSheet({
               <p className="text-muted mt-2 text-xs" role="status" data-testid="icon-ai-problem">
                 {problem}
               </p>
+            )}
+            {!picture && pictureHint && (
+              <div className="mt-3 flex items-start gap-3 border-t border-brand-100 pt-3 text-sm dark:border-white/5" data-testid="icon-picture-hint">
+                <ImageIcon size={20} className="text-muted mt-0.5 shrink-0" aria-hidden />
+                <span className="min-w-0 flex-1">
+                  <span className="font-semibold">Draw a picture</span>
+                  <span className="text-muted block text-xs">{pictureHint}</span>
+                </span>
+                <Link to="/settings/ai" onClick={onClose} className="chip min-h-11 shrink-0" data-testid="icon-picture-settings">
+                  Settings
+                </Link>
+              </div>
             )}
             {picture && onPickImage && (
               <div className="mt-3 border-t border-brand-100 pt-3 dark:border-white/5" data-testid="icon-picture">

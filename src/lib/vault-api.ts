@@ -92,8 +92,13 @@ export const LONG_PRESS_MS = 450
 /** A press of `ms` as a step. */
 export const stepOf = (ms: number): Step => (ms >= LONG_PRESS_MS ? 'L' : 'T')
 
-/** The blind pad sends the pattern after this long without a press. */
-export const PATTERN_PAUSE_MS = 1500
+/**
+ * The blind pad sends the pattern after this long without a press. It is how the pad knows the
+ * pattern ended (there is no "done" key, by design), so it can't be near zero: the first tap would
+ * go alone and count as a wrong try. 0.7 s is longer than the gap between presses when a pattern is
+ * entered smoothly, and short enough that the passkey prompt follows a right one almost at once.
+ */
+export const PATTERN_PAUSE_MS = 700
 
 /** The status card's three lines in Settings → Encrypted groups. */
 export function setupLines(s: VaultStatus): { passkey: string; pattern: string; server: string; ready: boolean } {

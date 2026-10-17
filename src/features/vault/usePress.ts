@@ -4,9 +4,10 @@ import { LONG_PRESS_MS, stepOf, type Step } from '@/lib/vault-api'
 /**
  * One press on a pattern pad, as a tap or a long press: pointer down/up, or Space/Enter held. Both
  * pads use it (PatternPad shows the count, BlindPad shows nothing). `long` turns true once a held
- * press has lasted long enough, for the pad that shows it.
+ * press has lasted long enough, for the pad that shows it. `onDown` runs as a press starts (the
+ * lock button stops its pause there, so a long hold never ends the pattern early).
  */
-export function usePress(onStep: (s: Step) => void, disabled?: boolean) {
+export function usePress(onStep: (s: Step) => void, disabled?: boolean, onDown?: () => void) {
   const down = useRef<number | null>(null)
   const [holding, setHolding] = useState(false)
   const [long, setLong] = useState(false)
@@ -16,6 +17,7 @@ export function usePress(onStep: (s: Step) => void, disabled?: boolean) {
   const start = () => {
     if (disabled || down.current !== null) return
     down.current = performance.now()
+    onDown?.()
     setHolding(true)
     setLong(false)
     timer.current = setTimeout(() => setLong(true), LONG_PRESS_MS)

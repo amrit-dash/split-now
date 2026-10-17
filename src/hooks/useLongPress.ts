@@ -45,8 +45,9 @@ export function useLongPress({ onTap, onHold }: { onTap: () => void; onHold: () 
   return {
     'data-press': press,
     onPointerDown: (e: PointerEvent) => {
-      if (e.button !== 0) return
+      // Any new press starts afresh (a right click too, so its context menu counts as a new hold).
       held.current = false
+      if (e.button !== 0) return
       start.current = { x: e.clientX, y: e.clientY }
       setPress('down')
       timer.current = setTimeout(hold, LONG_PRESS_MS)

@@ -23,6 +23,8 @@ export function IconPickerField({
   iconImage,
   onPickImage,
   picture,
+  pictureHint,
+  aiWaiting,
   ai,
 }: {
   emoji: string
@@ -34,6 +36,8 @@ export function IconPickerField({
   iconImage?: string
   onPickImage?: (image: string) => void
   picture?: 'own' | 'app' | null
+  pictureHint?: string | null
+  aiWaiting?: string
   /** what "Suggest with AI" asks for (src/hooks/useIconAi.ts); absent hides it */
   ai?: IconRequest
   emojis?: string[]
@@ -127,6 +131,8 @@ export function IconPickerField({
         svgValue={iconSvg}
         onPickSvg={onPickSvg}
         picture={picture}
+        pictureHint={pictureHint}
+        aiWaiting={aiWaiting}
         imageValue={iconImage}
         onPickImage={onPickImage}
         testId="group-icon-sheet"
