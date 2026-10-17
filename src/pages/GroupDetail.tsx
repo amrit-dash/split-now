@@ -11,6 +11,7 @@ import {
   Flag,
   HandCoins,
   Lock,
+  LockOpen,
   Link2,
   LogOut,
   MessageSquareText,
@@ -285,11 +286,13 @@ export default function GroupDetail() {
               <button
                 type="button"
                 onClick={() => lockVault(group.id)}
-                className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-slate-200/60 dark:hover:bg-ink-800"
+                // Open (it shows an open lock, as the Groups screen does): a tap locks it.
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-100 text-brand-700 transition active:scale-90 dark:bg-brand-900/40 dark:text-brand-200"
                 aria-label="Lock this private group"
+                title="Open: tap to lock"
                 data-testid="vault-lock-now"
               >
-                <Lock size={20} aria-hidden />
+                <LockOpen size={20} aria-hidden />
               </button>
             )}
             {showChat && (

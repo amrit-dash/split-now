@@ -24,6 +24,11 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '8.3.9',
+    date: 'October 2026',
+    items: [{ text: 'Lock an open private group from its row in Groups', section: 'private-groups-auto-lock' }],
+  },
+  {
     version: '8.3.8',
     date: 'October 2026',
     items: [

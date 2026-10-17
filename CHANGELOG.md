@@ -6,6 +6,10 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.3.9 — October 2026
+
+- Private groups: an open private group shows an open padlock on its row in Groups. Tap it to lock that group straight away, without opening it. The padlock on a group's own page shows open too, in the accent colour, while the group is unlocked.
+
 ## 8.3.8 — October 2026
 
 - Receipt photos in Add expense are one row: the scanned receipt comes first with a scan badge in its corner, then up to four attached photos, five in all. The separate scanned-receipt row and its Rescan button are gone, and the crosses are smaller.
