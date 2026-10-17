@@ -436,6 +436,10 @@ describe('expense & settlement validation', () => {
     await assertSucceeds(setDoc(e('bob', 't6'), { ...expense, id: 't6', icon: '🍕' }))
     await assertFails(setDoc(e('bob', 't7'), { ...expense, id: 't7', icon: 'x'.repeat(81) }))
     await assertFails(setDoc(e('bob', 't8'), { ...expense, id: 't8', icon: 7 }))
+    // the automatic icon's AI pick is marked iconAuto: true, never anything else
+    await assertSucceeds(setDoc(e('bob', 't8a'), { ...expense, id: 't8a', icon: '🍽️', iconAuto: true }))
+    await assertFails(setDoc(e('bob', 't8b'), { ...expense, id: 't8b', icon: '🍽️', iconAuto: false }))
+    await assertFails(setDoc(e('bob', 't8c'), { ...expense, id: 't8c', icon: '🍽️', iconAuto: 'yes' }))
     // an AI-drawn icon: up to 4096 characters of markup
     await assertSucceeds(setDoc(e('bob', 't9'), { ...expense, id: 't9', iconSvg: '<svg/>' }))
     await assertFails(setDoc(e('bob', 't10'), { ...expense, id: 't10', iconSvg: 'x'.repeat(4097) }))

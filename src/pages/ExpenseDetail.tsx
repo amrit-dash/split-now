@@ -626,16 +626,21 @@ function ExpenseIcon({ expense: e, color, editable, vault }: { expense: Expense;
         <IconFace iconSvg={e.iconSvg} iconImage={e.iconImage} emoji={face} vault={vault} />
       </div>
     )
-  const write = async (patch: Pick<Expense, 'icon' | 'iconSvg' | 'iconImage'>) => {
+  const write = async (patch: Pick<Expense, 'icon' | 'iconAuto' | 'iconSvg' | 'iconImage'>) => {
     try {
       await repo.saveExpense({ ...e, ...patch, updatedAt: Date.now() })
     } catch (err) {
       toast(errText(err), 'err')
     }
   }
-  // Any emoji (or Automatic) drops a drawn icon; a drawn one keeps the emoji for text.
-  const save = (icon: string | undefined) =>
-    icon === (isIcon(e.icon) ? e.icon : undefined) && !e.iconSvg && !e.iconImage ? undefined : write({ icon, iconSvg: undefined, iconImage: undefined })
+  // The icon chosen by hand; the automatic one's AI pick (iconAuto) still counts as Automatic.
+  const chosen = isIcon(e.icon) && !e.iconAuto ? e.icon : undefined
+  // Any emoji (or Automatic) drops a drawn icon; a drawn one keeps the emoji for text. Automatic keeps the AI's pick for this description.
+  const save = (icon: string | undefined) => {
+    if (icon === chosen && !e.iconSvg && !e.iconImage) return
+    const drop = { iconSvg: undefined, iconImage: undefined }
+    return write(icon ? { icon, iconAuto: undefined, ...drop } : { icon: e.iconAuto ? e.icon : undefined, iconAuto: e.iconAuto, ...drop })
+  }
   return (
     <>
       <button
@@ -655,15 +660,14 @@ function ExpenseIcon({ expense: e, color, editable, vault }: { expense: Expense;
         open={open}
         onClose={() => setOpen(false)}
         title="Icon"
-        value={isIcon(e.icon) ? e.icon : undefined}
-        auto={expenseEmoji({ ...e, icon: undefined })}
+        value={chosen}
+        auto={e.iconAuto && isIcon(e.icon) ? e.icon : expenseEmoji({ ...e, icon: undefined })}
         first={categoryIcons(e.category)}
         onPick={save}
-        ai={ai.suggest ? { title: e.description, kind: 'expense', category: CATEGORIES[e.category]?.label } : undefined}
+        ai={ai.suggest ? { kind: 'expense', category: CATEGORIES[e.category]?.label } : undefined}
         svgValue={e.iconSvg}
         onPickSvg={(svg) => write({ icon: e.icon, iconSvg: svg, iconImage: undefined })}
         picture={ai.picture}
-        pictureHint={ai.pictureHint}
         imageValue={e.iconImage}
         onPickImage={(image) => write({ icon: e.icon, iconSvg: undefined, iconImage: image })}
       />

@@ -34,6 +34,8 @@ import { GROUP_TYPES, SHARED_TYPES, groupTypeInfo, groupTypeOf, guessGroup, icon
 import { useIconAi } from '@/hooks/useIconAi'
 import { Avatar } from '@/components/Avatar'
 import { IconPickerField, TypeSuggestion } from '@/components/IconPicker'
+import { useAutoIconPick } from '@/hooks/useAutoIconPick'
+import { groupPickRequest } from '@/lib/icon-pick'
 import { Select, currencyOptions } from '@/components/Select'
 import { LiveBadge, Loading, PageHeader } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
@@ -278,6 +280,20 @@ export default function GroupForm() {
   const captureTokens = useCaptureTokens()
   const captureEnabled = useFlag('autoCapture')
   const [captureOn, setCaptureOn] = useState<boolean | null>(null)
+  // When the name finds no icon by the app's own rules, the AI picks one of the group icons (and the type, while it wasn't chosen).
+  useAutoIconPick({
+    title: name,
+    offered: iconAi.auto,
+    need: !groupId && isSharedType(type) && typedName && !iconTouched && !privateOn && !guessGroup(name),
+    request: (t) => groupPickRequest(t, { typeTouched }),
+    onAnswer: (title, a) => {
+      if (title !== name || iconTouched) return
+      // applyType is defined below the early returns; the answer only arrives after a render that defined it.
+      if (a.type && !typeTouched) applyType(a.type, a.emoji)
+      else if (a.emoji) setEmoji(a.emoji)
+    },
+  })
+
   if (groupId && existing === undefined) return <Loading />
   if (groupId && existing === null) return <PageHeader title="Group not found" back />
 
@@ -828,15 +844,12 @@ export default function GroupForm() {
               emoji={emoji}
               onChange={chooseIcon}
               emojis={iconsFor(type)}
-              idPrefix="group-icon"
               iconSvg={privateOn || existing?.vault ? undefined : iconSvg}
               onPickSvg={chooseSvg}
               iconImage={privateOn || existing?.vault ? undefined : iconImage}
               onPickImage={chooseImage}
               picture={iconAi.picture}
-              pictureHint={iconAi.pictureHint}
-              aiWaiting={iconAi.suggest ? 'Type the group’s name, or search for a word: AI suggests icons from it.' : undefined}
-              ai={iconAi.suggest ? { title: name.trim(), kind: 'group' } : undefined}
+              ai={iconAi.suggest ? { kind: 'group' } : undefined}
             >
               <label className="label" htmlFor="group-name">
                 Name

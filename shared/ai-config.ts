@@ -3,7 +3,7 @@
  * Functions; the server is the one that enforces it.
  *
  *  config/ai                     project settings (admins edit; everyone signed in can read)
- *  users/{uid}/settings/notifications   the user's choices (aiEnabled, aiImages, aiSms, aiQuickAdd, aiPayments, aiIcons, aiSource, aiModel, aiFreeOk)
+ *  users/{uid}/settings/notifications   the user's choices (aiEnabled, aiImages, aiSms, aiQuickAdd, aiPayments, aiIcons, aiIconAuto, aiSource, aiModel, aiFreeOk)
  *  users/{uid}/secrets/gemini    the user's own key (server only; the app can never read it back)
  *  users/{uid}/aiState/status    server-written: own key last 4, last error (owner can read)
  */
@@ -98,6 +98,8 @@ export interface UserAiPrefs {
   aiPayments: boolean
   /** "Suggest with AI" in the icon sheet (iconsAi): asked only when the person taps it; on unless turned off */
   aiIcons: boolean
+  /** the automatic icon asks AI when the app's own rules find none for a title (iconPickAi); on unless turned off */
+  aiIconAuto: boolean
   aiSource: AiSource
   /** model for the user's own key; '' = recommended */
   aiModel: string
@@ -114,6 +116,7 @@ export const DEFAULT_USER_AI: UserAiPrefs = {
   aiQuickAdd: false,
   aiPayments: true,
   aiIcons: true,
+  aiIconAuto: true,
   aiSource: 'auto',
   aiModel: '',
   aiFreeOk: false,
@@ -157,6 +160,7 @@ export function resolveUserAi(raw: unknown): UserAiPrefs {
     aiQuickAdd: r.aiQuickAdd === true,
     aiPayments: r.aiPayments !== false,
     aiIcons: r.aiIcons !== false,
+    aiIconAuto: r.aiIconAuto !== false,
     aiSource: r.aiSource === 'own' || r.aiSource === 'app' ? r.aiSource : 'auto',
     aiModel: validModel(r.aiModel) ? r.aiModel : '',
     aiFreeOk: r.aiFreeOk === true,

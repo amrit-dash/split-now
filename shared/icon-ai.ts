@@ -65,3 +65,25 @@ export function cleanIconImage(v: unknown): string | null {
 }
 
 export type IconPictureResponse = { image: string; mimeType: string; via: 'own' | 'app' } | { unavailable: true; reason: string }
+
+// ---- The automatic pick -------------------------------------------------------------
+
+/**
+ * When the app's own rules find no icon for a title (src/lib/icons.ts), the automatic icon asks
+ * the AI to choose one from the app's own list (and, for an expense, a category; for a group, a
+ * type): one short answer, on the free AI too. The answer must be one of the choices sent.
+ */
+export const PICK_CHOICES_MAX = 300
+
+export interface IconPickRequest {
+  title: string
+  kind: 'expense' | 'group'
+  /** the emoji it may pick from */
+  choices: string[]
+  /** an expense's categories (ids) it may pick from, when the category is still to choose */
+  categories?: string[]
+  /** a group's types it may pick from, when the type is still to choose */
+  types?: string[]
+}
+
+export type IconPickResponse = { emoji: string | null; category?: string; type?: string } | { unavailable: true; reason: string }

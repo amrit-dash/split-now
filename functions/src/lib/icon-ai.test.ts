@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { cleanSvg } from '../../../shared/svg-icon'
-import { cleanIconRequest, iconPrompt, normaliseIcons, parseIconText } from './icon-ai'
+import { cleanIconRequest, cleanPickRequest, iconPrompt, normaliseIcons, parseIconText, parsePick, pickPrompt } from './icon-ai'
 
 describe('AI icons', () => {
   it('the request is a short title with no markup', () => {
@@ -51,5 +51,32 @@ describe('reading the plain-text answer', () => {
   it('the prompt asks for that shape, not JSON', () => {
     expect(iconPrompt({ title: 'x', kind: 'group' })).toMatch(/Start your answer with EMOJI:/)
     expect(iconPrompt({ title: 'x', kind: 'group' })).not.toMatch(/Return JSON/)
+  })
+})
+
+describe('the automatic icon’s AI pick', () => {
+  const r = cleanPickRequest({ title: ' Thalassa <b>', kind: 'expense', choices: ['🍽️', '🍕', 'pizza', '🍕', '🚕'], categories: ['food', 'transport', 'Bad!'] })
+  it('keeps a clean title and only lists it can trust', () => {
+    expect(r).toEqual({ title: 'Thalassa b', kind: 'expense', choices: ['🍽️', '🍕', '🚕'], categories: ['food', 'transport'] })
+    expect(cleanPickRequest({ title: 'x', choices: ['pizza'] })).toBeNull()
+    expect(cleanPickRequest({ title: ' ', choices: ['🍕'] })).toBeNull()
+    expect(cleanPickRequest({ title: 'x', choices: Array.from({ length: 400 }, (_, i) => String.fromCodePoint(0x1f300 + i)) })?.choices.length).toBe(300)
+  })
+  it('asks for one line from the lists', () => {
+    const p = pickPrompt(r!)
+    expect(p).toContain('🍽️ 🍕 🚕')
+    expect(p).toContain('food, transport')
+    expect(p).toContain('EMOJI <emoji> CATEGORY <category>')
+    expect(p).not.toContain('TYPE')
+  })
+  it('reads the answer, with or without the variation selector, and nothing outside the lists', () => {
+    expect(parsePick('EMOJI 🍽️ CATEGORY food', r!)).toEqual({ emoji: '🍽️', category: 'food' })
+    expect(parsePick('EMOJI: 🍽 CATEGORY: Food', r!)).toEqual({ emoji: '🍽️', category: 'food' })
+    expect(parsePick('```\nEMOJI 🦄 CATEGORY rent\n```', r!)).toEqual({ emoji: null })
+    expect(parsePick('EMOJI none', r!)).toEqual({ emoji: null })
+    expect(parsePick('I would pick 🚕 here', r!)).toEqual({ emoji: '🚕' })
+    const g = cleanPickRequest({ title: 'Kasol', kind: 'group', choices: ['🏔️'], types: ['trip'] })!
+    expect(parsePick('EMOJI 🏔️ TYPE trip', g)).toEqual({ emoji: '🏔️', type: 'trip' })
+    expect(parsePick('EMOJI 🏔️ TYPE personal', g)).toEqual({ emoji: '🏔️' })
   })
 })

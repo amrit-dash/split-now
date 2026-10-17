@@ -30,6 +30,15 @@ export function iconAiOffered(o: {
 }
 
 /**
+ * The automatic icon's AI fallback (src/lib/icon-pick.ts): offered on the same keys as "Suggest
+ * with AI", under its own admin switch (flags.aiIconAuto) and the person's own (aiIconAuto).
+ */
+type Offer = Parameters<typeof iconAiOffered>[0]
+export function autoPickOffered(o: Omit<Offer, 'prefs'> & { prefs: (NonNullable<Offer['prefs']> & { aiIconAuto: boolean }) | null | undefined }): boolean {
+  return iconAiOffered({ ...o, prefs: o.prefs ? { ...o.prefs, aiIcons: o.prefs.aiIconAuto } : o.prefs })
+}
+
+/**
  * "Draw a picture" next to the drawn icons: whose key would pay, or null when it isn't offered.
  * The person's own key whenever they added one (the sheet says it's billed to it, even while
  * Split Now's free AI is what they use), else the shared key when the admin allows pictures on it.
@@ -44,18 +53,6 @@ export function pictureOffer(
   if (o.hasOwnKey && o.prefs.aiSource !== 'app') return 'own'
   if (o.prefs.aiSource !== 'own' && o.status?.app.pictures === 'available') return 'app'
   return null
-}
-
-/**
- * Why "Draw a picture" isn't offered, where the sheet should say so instead of hiding it (null:
- * it is offered, or Suggest with AI isn't shown at all). Pictures need a paid Gemini image model:
- * the person's own key, or Split Now's key only where an admin allows it.
- */
-export function pictureHint(o: Parameters<typeof pictureOffer>[0]): string | null {
-  if (pictureOffer(o) || !iconAiOffered(o) || o.mode === 'demo') return null
-  if (o.hasOwnKey && o.prefs?.aiSource === 'app')
-    return 'You chose “Only Split Now’s key”, so your Gemini key isn’t used for pictures. Change it in Settings → AI features.'
-  return 'Pictures need your own Gemini key (about US$0.03 a picture, billed to it). Add one in Settings → AI features.'
 }
 
 /**
@@ -97,13 +94,13 @@ export function pictureProblem(r: { unavailable: true; reason: string } | { imag
   return shrunk ? null : 'Couldn’t use that picture. Try again.'
 }
 
+/** After this long with words typed and no icon picked, the sheet offers AI for them. */
+export const AI_IDLE_MS = 3000
+
 /**
- * What "Suggest with AI" and "Draw a picture" ask about: the words typed in the sheet's search when
- * there are some (an icon for "anchor" on "Ferry to Havelock"), else the title. Null with neither.
+ * Whether the icon sheet shows Suggest with AI (and Draw a picture) for what's typed in its
+ * search: only once something is typed, and only when no icon matches it or the person has
+ * waited AI_IDLE_MS without picking one. Never with an empty search: AI is asked about the
+ * search words, the title has its own automatic pick.
  */
-export function aiAskFor(search: string, title: string): { title: string; from: 'search' | 'title' } | null {
-  const q = search.replace(/\s+/g, ' ').trim()
-  if (q) return { title: q.slice(0, 80), from: 'search' }
-  const t = title.trim()
-  return t ? { title: t.slice(0, 80), from: 'title' } : null
-}
+export const aiRowShown = (o: { query: string; results: number; idle: boolean }): boolean => o.query.trim().length >= 2 && (o.results === 0 || o.idle)

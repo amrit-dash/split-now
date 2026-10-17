@@ -4,14 +4,16 @@ import { useAiStatus } from '@/hooks/useAiStatus'
 import { useFlag } from '@/hooks/useAppConfig'
 import { useCapturePrefs } from '@/hooks/useCapturePrefs'
 import { useOnline } from '@/hooks/useOnline'
-import { iconAiOffered, pictureHint, pictureOffer } from '@/lib/icon-ai'
+import { autoPickOffered, iconAiOffered, pictureOffer } from '@/lib/icon-ai'
 
 /**
- * What the icon sheet offers here: "Suggest with AI" (src/lib/icon-ai.ts iconAiOffered) and
- * "Draw a picture" with whose key pays (pictureOffer); neither in a private group.
+ * What the icon sheet offers here: "Suggest with AI" (src/lib/icon-ai.ts iconAiOffered),
+ * "Draw a picture" with whose key pays (pictureOffer), and whether the automatic icon may ask AI
+ * (autoPickOffered); none in a private group.
  */
-export function useIconAi(vault: boolean): { suggest: boolean; picture: 'own' | 'app' | null; pictureHint: string | null } {
+export function useIconAi(vault: boolean): { suggest: boolean; picture: 'own' | 'app' | null; auto: boolean } {
   const flag = useFlag('aiIcons')
+  const autoFlag = useFlag('aiIconAuto')
   const online = useOnline()
   const firebase = repo.mode === 'firebase'
   const prefs = useCapturePrefs()
@@ -19,5 +21,5 @@ export function useIconAi(vault: boolean): { suggest: boolean; picture: 'own' | 
   const status = useAiStatus()
   const o = { mode: firebase ? ('firebase' as const) : ('demo' as const), flag, online, vault, prefs, status, hasOwnKey: !!aiState?.hint }
   // A picture is offered only where suggestions are (its keys are a subset), so the sheet shows both in one box.
-  return { suggest: iconAiOffered(o), picture: pictureOffer(o), pictureHint: pictureHint(o) }
+  return { suggest: iconAiOffered(o), picture: pictureOffer(o), auto: autoPickOffered({ ...o, flag: autoFlag }) }
 }

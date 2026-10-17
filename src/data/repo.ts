@@ -32,7 +32,7 @@ import type { AiTextExpense } from '@/lib/nl-expense'
 import type { NudgeItem, NudgeResult } from '@/lib/nudge'
 import type { AiUnavailableReason } from '../../shared/ai-config'
 import type { QuickAiRequest, QuickAiResponse } from '../../shared/quick-ai'
-import type { IconAiResponse, IconPictureResponse, IconRequest } from '../../shared/icon-ai'
+import type { IconAiResponse, IconPickRequest, IconPickResponse, IconPictureResponse, IconRequest } from '../../shared/icon-ai'
 import { defaultCurrency, formatDate } from '@/lib/locale'
 import { purgeHeld, purgeOpensAt } from '../../shared/group-trash'
 import { sharedPhotoURL, type OwnMemberPatch } from '@/lib/memberSync'
@@ -620,6 +620,13 @@ export interface Repo {
    * draws its stand-in drawing as the picture.
    */
   iconPictureAi(req: IconRequest): Promise<IconPictureResponse | null>
+  /**
+   * The automatic icon's fallback (callable iconPickAi): when the app's own rules find no icon for
+   * a title, the AI picks one of `choices` (and a category or group type from the ones listed). It
+   * never saves anything. null: couldn't be called. Demo mode picks on the phone from the catalogue
+   * search (src/lib/icon-ai-demo.ts).
+   */
+  iconPickAi(req: IconPickRequest): Promise<IconPickResponse | null>
   /**
    * Save / re-test / remove the user's own Gemini key (aiKey callable), or with which 'app' the
    * in-app project key (admins; overrides Secret Manager's). Throws with a readable message.

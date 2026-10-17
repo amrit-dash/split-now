@@ -93,6 +93,8 @@ export function AiSettings() {
   const aiPayments = useFlag('aiPayments')
   // The admin's switch for icons with AI (config/app flags.aiIcons); server-enforced.
   const aiIcons = useFlag('aiIcons')
+  // The admin's switch for the automatic icon asking AI (config/app flags.aiIconAuto); server-enforced.
+  const aiIconAuto = useFlag('aiIconAuto')
   const [models, setModels] = useState<AiModel[] | null>(null)
   const [draft, setDraft] = useState('')
   const [editing, setEditing] = useState(false)
@@ -286,8 +288,21 @@ export function AiSettings() {
                   checked={prefs.aiIcons}
                   onChange={(v) => set({ aiIcons: v })}
                   text={{
-                    full: 'Press and hold an icon, then Suggest with AI: three emoji and a few drawn icons from the title. With your own Gemini key, Draw a picture too (billed to your key, about US$0.03 a picture). Only when you ask, never in private groups. Uses your AI quota.',
-                    short: 'Suggest icons from the title when you ask',
+                    full: 'Tap an icon and search: when nothing fits, Suggest with AI offers three emoji and a few drawn icons for what you typed. With your own Gemini key, Draw a picture too (billed to your key, about US$0.03 a picture). Only when you ask, never in private groups. Uses your AI quota.',
+                    short: 'Suggest icons for what you search',
+                    tier: 'help',
+                  }}
+                />
+              )}
+              {aiIconAuto && (
+                <Row
+                  title="AI picks icons"
+                  testId="ai-icon-auto"
+                  checked={prefs.aiIconAuto}
+                  onChange={(v) => set({ aiIconAuto: v })}
+                  text={{
+                    full: 'When the app can’t tell the icon from a title (“Thalassa”), AI picks one of its own icons, and the category or group type while you haven’t chosen one. Never in private groups. Uses your AI quota.',
+                    short: 'AI picks the icon when the app can’t tell',
                     tier: 'help',
                   }}
                 />
