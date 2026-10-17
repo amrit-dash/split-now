@@ -6,6 +6,10 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.3.15 — October 2026
+
+- Help: Balances and settling up has nine more sections with steps you can play: reminding someone with a Pay me link, nudging, settling up across all your groups, recording cash, part payments and waivers, confirming a payment made to you, adding your UPI ID, weekly settle-up reminders and your Inbox. Settings gains choosing your notifications.
+
 ## 8.3.14 — October 2026
 
 - Help: thirteen more sections with steps you can play. Adding expenses: editing, deleting and adding an expense again; getting back a deleted expense or payment; repeating expenses; comments and flags; category, date and notes; another currency; Split by items; several payers; approving an expense; finding an expense. Receipts: Live table. Groups: moving a group from Splitwise. Settings: exporting a group as a spreadsheet.
