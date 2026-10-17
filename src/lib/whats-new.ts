@@ -24,6 +24,14 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '8.5.0',
+    date: 'October 2026',
+    items: [
+      { text: 'Delete my account, in Settings → Data: see what happens to each group first', section: 'delete-account' },
+      { text: 'Shared groups keep their history, with your name as Deleted account', section: 'delete-account' },
+    ],
+  },
+  {
     version: '8.4.3',
     date: 'October 2026',
     items: [

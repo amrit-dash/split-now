@@ -1519,3 +1519,21 @@ test('receipt photos: the scanned receipt leads the strip with a badge, and a ne
   await expect(page.getByTestId('receipt-attached')).toHaveCount(0)
   await expect(page.getByTestId('attached-line')).toHaveText('1 of 4 attached')
 })
+
+test('delete my account in demo mode: refused while money is owed, then the word, then back to the start', async ({ page }) => {
+  await page.goto('/settings/data')
+  await page.getByTestId('settings-delete-account').click()
+  await expect(page).toHaveURL(/\/settings\/delete-account$/)
+  // The seeded groups have money owed in them.
+  await expect(page.getByTestId('delete-account-blockers')).toBeVisible()
+  await page.getByTestId('delete-account-typed').fill('delete')
+  await expect(page.getByTestId('delete-account-run')).toBeDisabled()
+  await noGroups(page)
+  await page.goto('/settings/delete-account')
+  await expect(page.getByTestId('delete-account-plan')).toContainText('not in any groups')
+  const run = page.getByTestId('delete-account-run')
+  await expect(run).toBeDisabled()
+  await page.getByTestId('delete-account-typed').fill('delete')
+  await run.click()
+  await expect(page.getByTestId('demo-name').or(page.getByTestId('demo-start')).first()).toBeVisible()
+})

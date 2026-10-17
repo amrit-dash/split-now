@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronRight, Download, FileUp, Loader2 } from 'lucide-react'
+import { ChevronRight, Download, FileUp, Loader2, UserX } from 'lucide-react'
 import { repo } from '@/data'
 import { buildLabel } from '@/lib/flags'
 import { useAllGroupData } from '@/hooks/data'
@@ -105,6 +105,22 @@ export default function Data() {
           <InstallRow testId="settings-install" />
         </>
       )}
+
+      <SectionTitle>Account</SectionTitle>
+      <Link
+        to="/settings/delete-account"
+        className="card flex items-center gap-3 p-4 font-medium transition active:scale-[0.99]"
+        data-testid="settings-delete-account"
+      >
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-300" aria-hidden>
+          <UserX size={19} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block">Delete my account</span>
+          <span className="text-muted block text-xs font-normal">See what happens to your groups first</span>
+        </span>
+        <ChevronRight size={18} className="text-slate-400" aria-hidden />
+      </Link>
 
       <p className="text-muted mt-6 text-center text-xs" data-testid="app-version">
         Split Now v{buildLabel(__APP_VERSION__)}
