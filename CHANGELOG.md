@@ -6,6 +6,10 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.4.2 — October 2026
+
+- Behind the scenes: React 19.3.1 and the latest fixes to the testing and deploy tools. Nothing changes in how the app looks or works.
+
 ## 8.4.1 — October 2026
 
 - Help's screenshots now match your app: each one comes in light and dark and in every accent colour, and shows the one you're using. They were all light and violet before. They're retaken from the current screens too, so Add expense, Receipt photos and Money received show today's receipt row.
