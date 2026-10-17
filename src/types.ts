@@ -212,9 +212,15 @@ export interface Expense {
   splits: Record<MemberId, Cents>
   splitType: SplitType
   splitInput: SplitInput
+  /** The scanned receipt (the photo Scan read; a new scan replaces it). */
   receiptUrl?: string
   /** Storage path of the receipt image, for cleanup on delete */
   receiptPath?: string
+  /**
+   * Attached photos (Attach: a card slip, a second page, a screenshot), up to 4 in the order added
+   * (src/lib/receipt-photo.ts MAX_ATTACHED). Sealed like the receipt in a private group.
+   */
+  photos?: ExpensePhoto[]
   createdBy: string
   createdAt: number
   updatedAt: number
@@ -252,6 +258,13 @@ export interface Expense {
    * (their shares). Absent on an ordinary expense. Never changes after it's added. shared/received.ts.
    */
   kind?: 'received'
+}
+
+/** One attached photo: its Storage path (under receipts/{groupId}/) and URL, and when it was added. Demo mode keeps a data: URL and no path. */
+export interface ExpensePhoto {
+  url?: string
+  path?: string
+  at: number
 }
 
 export interface ExpenseFlag {

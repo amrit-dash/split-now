@@ -725,11 +725,27 @@ service cloud.firestore {
             && (!('receiptPath' in d) || (d.receiptPath is string && d.receiptPath.size() <= 256
                 && d.receiptPath.matches('receipts/' + groupId + '/[A-Za-z0-9_.-]+')));
         }
+        // Attached photos (receipt-photo.ts MAX_ATTACHED): up to 4, each a path inside this group's
+        // folder (so cleanup can never be pointed elsewhere), an optional https URL and when it was added.
+        function validPhoto(p) {
+          return p is map && p.keys().hasOnly(['url', 'path', 'at']) && p.keys().hasAll(['path', 'at'])
+            && p.path is string && p.path.size() <= 256 && p.path.matches('receipts/' + groupId + '/[A-Za-z0-9_.-]+')
+            && p.at is int
+            && (!('url' in p) || (p.url is string && p.url.size() <= 1024 && p.url.matches('https://.*')));
+        }
+        function validPhotos(d) {
+          return !('photos' in d) || (d.photos is list && d.photos.size() <= 4
+            && (d.photos.size() < 1 || validPhoto(d.photos[0]))
+            && (d.photos.size() < 2 || validPhoto(d.photos[1]))
+            && (d.photos.size() < 3 || validPhoto(d.photos[2]))
+            && (d.photos.size() < 4 || validPhoto(d.photos[3])));
+        }
         function validExpense() {
           let d = request.resource.data;
           return (validAuthor() || isOccurrence())
             && validOriginal(d)
             && validReceipt(d)
+            && validPhotos(d)
             && d.groupId == groupId
             && d.amount is int
             && d.amount > 0

@@ -246,9 +246,20 @@ export function prepareImportedSettlement(s: Settlement): Settlement {
  * threshold is marked requiresApproval (the rules require it on every create).
  */
 export function prepareOccurrence(o: Expense, g: ApprovalPolicy): Expense {
-  // Nor the template's receipt: the copy has no image of its own (purging it must not delete the template's).
+  // Nor the template's receipt or photos: the copy has no image of its own (purging it must not delete the template's).
   // Nor who last edited the template: a copy is new, and the rules refuse a new expense that names an editor.
-  const { dispute: _d, approvals: _a, requiresApproval: _r, deletedAt: _t, deletedBy: _b, receiptUrl: _u, receiptPath: _p, updatedBy: _e, ...rest } = o
+  const {
+    dispute: _d,
+    approvals: _a,
+    requiresApproval: _r,
+    deletedAt: _t,
+    deletedBy: _b,
+    receiptUrl: _u,
+    receiptPath: _p,
+    photos: _ph,
+    updatedBy: _e,
+    ...rest
+  } = o
   return needsApproval(g, o.amount) ? { ...rest, requiresApproval: true } : rest
 }
 

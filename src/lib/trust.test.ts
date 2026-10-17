@@ -167,6 +167,7 @@ describe('prepareExpenseSave', () => {
         deletedAt: 1,
         deletedBy: 'ua',
         receiptUrl: 'https://x/r.jpg',
+        photos: [{ path: 'receipts/g/a.jpg', at: 1 }],
         receiptPath: 'receipts/g/e-1.jpg',
         updatedBy: 'ub',
       }),
@@ -178,6 +179,7 @@ describe('prepareExpenseSave', () => {
     expect(o).not.toHaveProperty('approvals')
     expect(o).not.toHaveProperty('deletedAt')
     expect(o).not.toHaveProperty('receiptUrl')
+    expect(o).not.toHaveProperty('photos')
     expect(o).not.toHaveProperty('receiptPath')
     expect(o.requiresApproval).toBe(true)
   })

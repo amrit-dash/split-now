@@ -115,7 +115,7 @@ and tells everyone in it. Turning it off opens every token (openDoc), marks it p
 more, deletes its key and names the invite again. Only text changes, so no update trigger fires
 (they react to money, approvals and deletes). Demo mode does the same over its own copy.
 
-Photos: receipts and payment screenshots are sealed on the phone after downscaling
+Photos: receipts, an expense's attached photos and payment screenshots are sealed on the phone after downscaling
 (`shared/vault-crypto.ts` sealBytes: "SNV1", a random IV, AES-256-GCM with the group bound in)
 and stored as usual; the app downloads the bytes and opens them itself (`repo.photoUrl`, blob URLs
 forgotten when the group locks), which needs the bucket's CORS (`storage.cors.json`, applied by the

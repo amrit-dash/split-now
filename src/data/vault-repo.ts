@@ -59,9 +59,9 @@ export function withVault(inner: Repo): Repo {
 
   return {
     ...inner,
-    attachReceipt: (groupId: string, expenseId: string, file: Blob) => {
+    attachReceipt: (groupId: string, expenseId: string, file: Blob, opts?: { slot?: 'scan' | 'attached' }) => {
       const k = keyFor(groupId)
-      return inner.attachReceipt(groupId, expenseId, file, k ? { seal: sealer(k) } : undefined)
+      return inner.attachReceipt(groupId, expenseId, file, { ...(opts?.slot ? { slot: opts.slot } : {}), ...(k ? { seal: sealer(k) } : {}) })
     },
     async photoUrl(groupId: string, photo: { path?: string; url?: string }) {
       if (!vaults.has(groupId)) return inner.photoUrl(groupId, photo)

@@ -1,5 +1,5 @@
 import { ImagePlus, Paperclip, ReceiptText, ScanText, Users, X } from 'lucide-react'
-import { type FormPhoto, formPhotoView } from '@/lib/receipt-photo'
+import { type FormPhoto, formPhotosView } from '@/lib/receipt-photo'
 import type { Group } from '@/types'
 import { CATEGORIES } from '@/lib/categories'
 import { expenseEmoji } from '@/lib/icons'
@@ -43,6 +43,8 @@ export function AmountCard({
   photoSrc,
   onAttachPhoto,
   onRemovePhoto,
+  attached,
+  onRemoveAttached,
   scannedItems,
   onAssignItems,
   onSplitAtTable,
@@ -63,14 +65,17 @@ export function AmountCard({
   onOpenIcon: () => void
   onOpenCurrency: () => void
   scan: { busy: boolean; label: string; onPick: () => void }
-  /** the expense's photo: none, one picked here, or the saved one (src/lib/receipt-photo.ts) */
+  /** the scanned receipt: none, one scanned here, or the saved one (src/lib/receipt-photo.ts) */
   photo: FormPhoto
-  /** the photo itself, for the thumbnail (a picked file's object URL, or the saved one opened) */
+  /** the scanned receipt itself, for the thumbnail (a picked file's object URL, or the saved one opened) */
   photoSrc: string | null
-  /** pick a photo to keep with the expense without reading it */
+  /** attach photos to keep with the expense without reading them */
   onAttachPhoto: () => void
-  /** drop the photo picked here (the saved one stays until another replaces it) */
+  /** drop the receipt scanned here (the saved one stays until a new scan replaces it) */
   onRemovePhoto: () => void
+  /** the attached photos: the saved ones (removed on the expense screen) and the ones picked here */
+  attached: Array<{ id: string; src: string | null; saved: boolean }>
+  onRemoveAttached: (id: string) => void
   /** a scanned bill with this many line items can be assigned item by item */
   scannedItems: number
   onAssignItems: () => void
@@ -81,7 +86,7 @@ export function AmountCard({
   const cat = CATEGORIES[draft.category]
   const press = useLongPress({ onTap: onOpenCategory, onHold: onOpenIcon })
   const hasReceipt = photo !== 'none'
-  const photoView = formPhotoView(photo)
+  const photoView = formPhotosView({ scan: photo, attachedSaved: attached.filter((a) => a.saved).length, attachedNew: attached.filter((a) => !a.saved).length })
   return (
     <div className="card mt-3 p-5">
       <div className="flex items-center gap-3">
@@ -219,45 +224,79 @@ export function AmountCard({
             {o.label}
           </button>
         ))}
-        {/* Attach keeps a photo without reading it (a bill already typed in, a screenshot); Scan is beside the description.
-            One photo per expense: while there is one, this is disabled and the photo's own row below replaces or removes it. */}
+        {/* Attach keeps photos without reading them (a card slip, a second page, a screenshot); Scan is beside the description.
+            Up to four attached: when full, this stays in place, disabled. The scanned receipt is separate (a new scan replaces it). */}
         <button
           type="button"
           className="@container btn-secondary !min-h-10 min-w-0 flex-1 !gap-1.5 !px-2 !py-2 text-sm disabled:opacity-40"
           onClick={onAttachPhoto}
           disabled={scan.busy || photoView.attachDisabled}
-          aria-label={photoView.attachDisabled ? 'Attach a receipt photo (one is attached: replace it below)' : 'Attach a receipt photo'}
+          aria-label={photoView.attachDisabled ? 'Attach photos (four are attached: the most an expense keeps)' : 'Attach photos'}
           data-testid="receipt-attach"
         >
           <ImagePlus size={16} className="shrink-0" aria-hidden />
           <span className="hidden @[3.75rem]:inline">Attach</span>
         </button>
       </div>
-      {photoView.row && (
+      {photoView.scan && (
         <div className="mt-3 flex items-center gap-3 rounded-2xl bg-slate-50 p-2 pr-1 dark:bg-ink-800" data-testid="receipt-attached">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white ring-1 ring-slate-200 dark:bg-ink-900 dark:ring-white/10">
             {photoSrc ? <img src={photoSrc} alt="" className="h-full w-full object-cover" /> : <Paperclip size={16} className="text-muted" aria-hidden />}
           </span>
-          <span className="min-w-0 flex-1 truncate text-sm font-medium">{photoView.row.label}</span>
+          <span className="min-w-0 flex-1 truncate text-sm font-medium">{photoView.scan.label}</span>
           <button
             type="button"
             className="min-h-11 shrink-0 rounded-xl px-3 text-sm font-semibold text-brand-600 hover:bg-white dark:text-brand-300 dark:hover:bg-ink-900"
-            onClick={onAttachPhoto}
+            onClick={scan.onPick}
             disabled={scan.busy}
             data-testid="receipt-replace-form"
           >
-            Replace
+            Rescan
           </button>
-          {photoView.row.remove && (
+          {photoView.scan.remove && (
             <button
               type="button"
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-500 hover:bg-white hover:text-rose-600 dark:hover:bg-ink-900"
               onClick={onRemovePhoto}
-              aria-label="Remove the photo"
+              aria-label="Remove the scanned receipt"
               data-testid="receipt-remove"
             >
               <X size={18} aria-hidden />
             </button>
+          )}
+        </div>
+      )}
+      {attached.length > 0 && (
+        <div className="mt-3 rounded-2xl bg-slate-50 p-2 dark:bg-ink-800" data-testid="attached-photos">
+          <ul className="flex flex-wrap gap-2">
+            {attached.map((a, i) => (
+              <li key={a.id} className="relative" data-testid={a.saved ? 'attached-saved' : 'attached-new'}>
+                <span className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-white ring-1 ring-slate-200 dark:bg-ink-900 dark:ring-white/10">
+                  {a.src ? (
+                    <img src={a.src} alt={`Attached ${i + 1}`} className="h-full w-full object-cover" />
+                  ) : (
+                    <Paperclip size={16} className="text-muted" aria-hidden />
+                  )}
+                </span>
+                {/* One picked here can be dropped; a saved one is removed on the expense screen. */}
+                {!a.saved && (
+                  <button
+                    type="button"
+                    className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full bg-slate-700 text-white shadow ring-2 ring-white dark:ring-ink-800"
+                    onClick={() => onRemoveAttached(a.id)}
+                    aria-label={`Remove attached photo ${i + 1}`}
+                    data-testid="attached-remove"
+                  >
+                    <X size={14} aria-hidden />
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+          {photoView.attachedLine && (
+            <p className="text-muted mt-1.5 px-1 text-xs" data-testid="attached-line">
+              {photoView.attachedLine}
+            </p>
           )}
         </div>
       )}

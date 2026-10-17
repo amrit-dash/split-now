@@ -53,3 +53,27 @@ export function usePhotoUrl(groupId: string | undefined, photo: { path?: string;
   }, [groupId, path, plain, v])
   return url
 }
+
+/** Several stored photos at once (an expense's receipt and attached photos), each as usePhotoUrl opens it; null while one opens. */
+export function usePhotoUrls(groupId: string | undefined, photos: Array<{ path?: string; url?: string }>): Array<string | null> {
+  const v = useVaultVersion()
+  const key = photos.map((p) => p.path ?? p.url ?? '').join('|')
+  const [urls, setUrls] = useState<Record<string, string | null>>({})
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `key` stands for the photos, v for which groups are open.
+  useEffect(() => {
+    if (!groupId || !photos.length) return setUrls({})
+    let live = true
+    void Promise.all(
+      photos.map((p) =>
+        repo
+          .photoUrl(groupId, { path: p.path, url: p.url })
+          .then((u) => [p.path ?? p.url ?? '', u] as const)
+          .catch(() => [p.path ?? p.url ?? '', null] as const),
+      ),
+    ).then((pairs) => live && setUrls(Object.fromEntries(pairs)))
+    return () => {
+      live = false
+    }
+  }, [groupId, key, v])
+  return photos.map((p) => urls[p.path ?? p.url ?? ''] ?? null)
+}
