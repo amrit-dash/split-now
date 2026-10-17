@@ -834,6 +834,8 @@ export default function GroupForm() {
               iconImage={privateOn || existing?.vault ? undefined : iconImage}
               onPickImage={chooseImage}
               picture={iconAi.picture}
+              pictureHint={iconAi.pictureHint}
+              aiWaiting={iconAi.suggest && !name.trim() ? 'Type the group’s name first: AI suggests icons from it.' : undefined}
               ai={iconAi.suggest && name.trim() ? { title: name.trim(), kind: 'group' } : undefined}
             >
               <label className="label" htmlFor="group-name">

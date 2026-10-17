@@ -6,6 +6,11 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.3.1 — October 2026
+
+- Private groups: a right pattern on a lock button now brings up Face ID or the passkey after 0.7 s instead of 1.5 s. Pressing a lock button, or holding an icon, now fills the button from within its own shape instead of drawing a ring around it. Held long enough, the fill completes and the icon takes the brand colour, and it pops back when you let go.
+- Icons: when Draw a picture can't be offered, the icon sheet now says why instead of hiding it. Pictures need your own Gemini key (about US$0.03 a picture, billed to it), and you're pointed to Settings → AI features. The cost note only shows when your own key would pay. With nothing typed yet, Suggest with AI says what it needs. Right-clicking an icon a second time opens the sheet again.
+
 ## 8.3.0 — October 2026
 
 - Receipt photos: an expense now keeps its scanned receipt plus up to four attached photos (a card slip, a second page, a screenshot). Scan reads a bill and keeps it as the scanned receipt, and a new scan replaces it. Attach adds photos without reading them, several at once, and is disabled once four are attached. On the expense screen, the photos sit in one folded row ("Scanned receipt · 2 attached"). Opened, each is labelled Scanned or Attached and opens full screen, where the arrows, ← → or a swipe move between them. You can replace the scanned receipt, remove an attached photo (after a confirm), or add one while there's room. None of this changes the amount. In private groups the attached photos are encrypted like the receipt, and photos picked in the form come back after a reload.

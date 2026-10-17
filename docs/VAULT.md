@@ -18,9 +18,10 @@ Groups); on by default like every flag, server-enforced in the `vault` callable.
   that made it gets its key at once (`create`), so it opens straight away.
 - **The lock button is the pattern pad** (`src/features/vault/PatternLock.tsx`). There is no pad
   screen: the pattern is tapped and long-pressed on the lock icon itself. Each press shows only
-  what any button shows (it sinks, and a ring closes in while held, the same on every press);
-  nothing says a pattern exists, and nothing buzzes. The pattern is sent after 1.5 s without a
-  press, and the next press starts a fresh try at once: a try drawn while the last is still with
+  what any button shows (it sinks and fills from within; held long, the fill completes and the
+  icon takes the brand colour, the same on every press); nothing says a pattern exists, and
+  nothing buzzes. The pattern is sent after 0.7 s without a
+  press (counted from the last release: a finger held on the button stops it), and the next press starts a fresh try at once: a try drawn while the last is still with
   the server waits its turn (and is dropped if that one opened the lock), so after a wrong pattern
   the right one can follow straight away, on the same screen. Fewer than 6 presses are a
   stray tap and never reach the server (`shouldSend`), unless the group has its own, shorter
