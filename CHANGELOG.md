@@ -6,6 +6,10 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.3.0 — October 2026
+
+- Receipt photos: an expense now keeps its scanned receipt plus up to four attached photos (a card slip, a second page, a screenshot). Scan reads a bill and keeps it as the scanned receipt, and a new scan replaces it. Attach adds photos without reading them, several at once, and is disabled once four are attached. On the expense screen, the photos sit in one folded row ("Scanned receipt · 2 attached"). Opened, each is labelled Scanned or Attached and opens full screen, where the arrows, ← → or a swipe move between them. You can replace the scanned receipt, remove an attached photo (after a confirm), or add one while there's room. None of this changes the amount. In private groups the attached photos are encrypted like the receipt, and photos picked in the form come back after a reload.
+
 ## 8.2.0 — October 2026
 
 - Icons with AI: Draw a picture. Press and hold an icon to get a picture from Google's image model as well as the emoji and drawn icons. With your own Gemini key it is offered even while Split Now's free AI is what you use, and the sheet says it is billed to your key (about US$0.03 a picture). On Split Now's key it is offered only when an admin turns on pictures, and only while the shared key runs Gemini, never Gemma, with a few a day per person. The picture is shrunk on your phone to a small icon before it's saved. It is never offered in private groups, and turning a group private removes its pictures.

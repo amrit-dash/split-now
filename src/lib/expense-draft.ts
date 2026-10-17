@@ -554,6 +554,7 @@ export function toExpense(d: Draft, ctx: SaveCtx): { expense: Expense; remember:
     splitInput,
     receiptUrl: existing?.receiptUrl,
     receiptPath: existing?.receiptPath,
+    photos: existing?.photos,
     recurrence: isOccurrence ? undefined : buildRecurrence(d.repeat, d.date, d.until, existing, ctx.today),
     recurringFrom: existing?.recurringFrom,
     original,
@@ -643,8 +644,10 @@ export interface StoredDraft {
   capture?: string
   /** the open item being claimed */
   open?: string
-  /** the receipt photo kept in IndexedDB for this draft (src/lib/draft-blob.ts), when there is one */
+  /** the scanned receipt kept in IndexedDB for this draft (src/lib/draft-blob.ts), when there is one */
   receipt?: string
+  /** the attached photos kept there too (src/features/expense-form/useAttachedPhotos.ts) */
+  photos?: string[]
   draft: Draft
   at: number
 }
@@ -680,6 +683,7 @@ export function loadDraft(key: string): StoredDraft | null {
     const rec = JSON.parse(raw) as Partial<StoredDraft>
     if (rec?.v !== 1 || typeof rec.groupId !== 'string' || !rec.draft || typeof rec.draft !== 'object') return null
     if (rec.receipt !== undefined && typeof rec.receipt !== 'string') delete rec.receipt
+    if (rec.photos !== undefined && !(Array.isArray(rec.photos) && rec.photos.length <= 8 && rec.photos.every((k) => typeof k === 'string'))) delete rec.photos
     return rec as StoredDraft
   } catch {
     return null

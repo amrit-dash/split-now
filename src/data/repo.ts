@@ -2,6 +2,7 @@ import type { ChatAiIntent } from '../../shared/chat-ai'
 import type { VaultRequest } from '@/lib/vault-api'
 import type { AppErrorReport } from '@/lib/app-errors'
 import type {
+  ExpensePhoto,
   ActivityEntry,
   Capture,
   Cents,
@@ -342,11 +343,15 @@ export interface Repo {
   resolveFlag(group: Group, expense: Expense): Promise<void>
   approveExpense(group: Group, expense: Expense): Promise<void>
   /**
-   * Downscales and uploads a receipt in the background, then patches the expense's
-   * receiptUrl/receiptPath. Returns false (and does nothing) when offline. `seal` runs on the
-   * downscaled image before it leaves the phone (a private group's: src/data/vault-repo.ts).
+   * Downscales and uploads a photo in the background, then patches the expense: as the scanned
+   * receipt (receiptUrl/receiptPath, replacing any; the default), or with `slot: 'attached'` as one
+   * more attached photo (`photos`, up to 4: the rules refuse a fifth). Returns false (and does
+   * nothing) when offline. `seal` runs on the downscaled image before it leaves the phone (a
+   * private group's: src/data/vault-repo.ts).
    */
-  attachReceipt(groupId: string, expenseId: string, file: Blob, opts?: { seal?: SealFile }): boolean
+  attachReceipt(groupId: string, expenseId: string, file: Blob, opts?: { seal?: SealFile; slot?: 'scan' | 'attached' }): boolean
+  /** Removes one attached photo from the expense, and its file. Fire-and-forget like other edits. */
+  removePhoto(groupId: string, expenseId: string, photo: ExpensePhoto): Promise<void>
   /** @deprecated blocks on the network; prefer attachReceipt after saving. */
   uploadReceipt(groupId: string, file: Blob): Promise<string>
 

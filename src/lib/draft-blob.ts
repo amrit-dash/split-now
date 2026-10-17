@@ -15,8 +15,8 @@ import { uid } from '@/lib/id'
 export const DRAFT_BLOB_TTL = 3 * 24 * 60 * 60 * 1000
 /** Largest image kept (the share path caps at the same 15 MB); the form downscales well below it. */
 export const DRAFT_BLOB_MAX_BYTES = 15 * 1024 * 1024
-/** At most this many images at once (other tabs, drafts whose tab was closed). */
-export const DRAFT_BLOB_MAX_ENTRIES = 4
+/** At most this many images at once (a draft's scanned receipt and up to four attached photos, other tabs, drafts whose tab was closed). */
+export const DRAFT_BLOB_MAX_ENTRIES = 12
 
 export interface DraftBlobRecord {
   blob: Blob

@@ -416,6 +416,16 @@ describe('expense & settlement validation', () => {
     await assertFails(setDoc(e('bob', 'r4'), { ...expense, id: 'r4', receiptPath: 'receipts/g2/r4.jpg' }))
     await assertFails(setDoc(e('bob', 'r5'), { ...expense, id: 'r5', receiptPath: 'receipts/g1/../avatars/x.jpg' }))
   })
+  it('attached photos: up to four, each inside this group’s folder', async () => {
+    const ph = (n: string) => ({ path: `receipts/g1/${n}.jpg`, url: `https://firebasestorage.googleapis.com/v0/b/x/o/${n}`, at: 1 })
+    await assertSucceeds(setDoc(e('bob', 'p1'), { ...expense, id: 'p1', photos: [ph('a'), ph('b'), ph('c'), ph('d')] }))
+    await assertFails(setDoc(e('bob', 'p2'), { ...expense, id: 'p2', photos: [ph('a'), ph('b'), ph('c'), ph('d'), ph('e')] }))
+    await assertFails(setDoc(e('bob', 'p3'), { ...expense, id: 'p3', photos: [{ ...ph('a'), path: 'receipts/g2/a.jpg' }] }))
+    await assertFails(setDoc(e('bob', 'p4'), { ...expense, id: 'p4', photos: [ph('a'), { ...ph('b'), path: 'avatars/x.jpg' }] }))
+    await assertFails(setDoc(e('bob', 'p5'), { ...expense, id: 'p5', photos: [{ ...ph('a'), url: 'http://x' }] }))
+    await assertFails(setDoc(e('bob', 'p6'), { ...expense, id: 'p6', photos: [{ ...ph('a'), extra: 1 }] }))
+    await assertFails(setDoc(e('bob', 'p7'), { ...expense, id: 'p7', photos: 'a' }))
+  })
   it('caps text fields and money maps', async () => {
     await assertFails(setDoc(e('bob', 't1'), { ...expense, id: 't1', description: 'x'.repeat(201) }))
     await assertFails(setDoc(e('bob', 't2'), { ...expense, id: 't2', notes: 'x'.repeat(2001) }))

@@ -63,6 +63,7 @@ import {
 import type { VaultRequest } from '@/lib/vault-api'
 import type { FirebaseStorage } from 'firebase/storage'
 import type {
+  ExpensePhoto,
   ActivityEntry,
   Capture,
   ChatMessage,
@@ -290,6 +291,12 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
   const receiptOf = (groupId: string, e: Pick<Expense, 'receiptPath' | 'receiptUrl'> | undefined) => {
     const p = e ? (e.receiptPath ?? storagePathFromUrl(e.receiptUrl)) : undefined
     return p?.startsWith(`receipts/${groupId}/`) ? p : undefined
+  }
+  /** Every image an expense owns (the scanned receipt and the attached photos), the same way. */
+  const photosOf = (groupId: string, e: Pick<Expense, 'receiptPath' | 'receiptUrl' | 'photos'> | undefined): string[] => {
+    const attached = (Array.isArray(e?.photos) ? e.photos : []).map((p) => p?.path).filter((p): p is string => !!p?.startsWith(`receipts/${groupId}/`))
+    const scan = receiptOf(groupId, e)
+    return scan ? [scan, ...attached] : attached
   }
 
   /** The signed-in user's shareable profile, from cache (the auth provider keeps it warm). */
@@ -955,6 +962,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         const e = d.data() as Expense
         const p = e.receiptPath ?? storagePathFromUrl(e.receiptUrl)
         if (p) receipts.push(p)
+        for (const a of Array.isArray(e.photos) ? e.photos : []) if (a?.path) receipts.push(a.path)
       }
       // Comment threads, a few expenses at a time (one at a time took minutes for a big import).
       const commentRefs: DocumentReference[] = []
@@ -1094,7 +1102,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     async purgeExpense(groupId, id) {
       const r = expenseRef(groupId, id)
       const e = await cached<Expense>(r)
-      const receipt = receiptOf(groupId, e)
+      const files = photosOf(groupId, e)
       // Comments go in the same batch (rules allow deleting others' comments once the parent is gone).
       const comments = await Promise.race([
         getDocsFromCache(commentsCol(groupId, id))
@@ -1123,7 +1131,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         for (const c of comments.slice(i, i + BATCH_LIMIT)) b.delete(c)
         fire(b, 'Deleting comments')
       }
-      deleteFileLater(receipt)
+      for (const f of files) deleteFileLater(f)
     },
     async flagExpense(group, e, reason) {
       const memberId = Object.entries(group.members).find(([, m]) => m.uid === me())?.[0]
@@ -1150,22 +1158,45 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     attachReceipt(groupId, expenseId, file, opts) {
       if (!online()) return false
       const r = doc(db, 'groups', groupId, 'expenses', expenseId)
+      const attached = opts?.slot === 'attached'
       ;(async () => {
         const [small, { storage, sdk }] = await Promise.all([downscale(file, 1600, 0.8), lazyStorage()])
         const blob = opts?.seal ? await opts.seal(small) : small
-        const path = `receipts/${groupId}/${expenseId}-${uid()}.jpg`
+        const path = `receipts/${groupId}/${expenseId}-${attached ? 'a' : 's'}${uid()}.jpg`
         const fileRef = sdk.ref(storage, path)
         await sdk.uploadBytes(fileRef, blob, { contentType: 'image/jpeg' })
         const url = await sdk.getDownloadURL(fileRef)
-        // The image being replaced, if this expense owns one (never another expense's or the template's).
-        const old = receiptOf(groupId, await cached<Expense>(r))
         const batch = writeBatch(db)
-        // Adding the photo later is an edit: it names its editor (the rules check it) and its time.
+        // Adding a photo later is an edit: it names its editor (the rules check it) and its time.
+        if (attached) {
+          batch.update(r, { photos: arrayUnion({ url, path, at: Date.now() } satisfies ExpensePhoto), updatedBy: uid(), updatedAt: Date.now() })
+          fire(batch, 'Attaching photo')
+          return
+        }
+        // The scanned receipt being replaced, if this expense owns one (never another expense's or the template's).
+        const old = receiptOf(groupId, await cached<Expense>(r))
         batch.update(r, { receiptUrl: url, receiptPath: path, updatedBy: uid(), updatedAt: Date.now() })
         fire(batch, 'Attaching receipt')
         if (old && old !== path) deleteFileLater(old)
-      })().catch((e) => errors.emit('write', e, 'Receipt upload failed (the expense was saved without it)'))
+      })().catch((e) =>
+        errors.emit(
+          'write',
+          e,
+          attached ? 'Photo upload failed (the expense was saved without it)' : 'Receipt upload failed (the expense was saved without it)',
+        ),
+      )
       return true
+    },
+    async removePhoto(groupId, expenseId, photo) {
+      const r = expenseRef(groupId, expenseId)
+      const e = await cached<Expense>(r)
+      // The stored entry itself (arrayRemove matches whole values), found by its path or URL.
+      const stored = (e?.photos ?? []).find((p) => (photo.path ? p.path === photo.path : p.url === photo.url))
+      if (!stored) return
+      const batch = writeBatch(db)
+      batch.update(r, { photos: arrayRemove(stored), updatedBy: uid(), updatedAt: Date.now() })
+      fire(batch, 'Removing photo')
+      if (stored.path?.startsWith(`receipts/${groupId}/`)) deleteFileLater(stored.path)
     },
     async uploadReceipt(groupId, file) {
       const [blob, { storage, sdk }] = await Promise.all([downscale(file, 1600, 0.8), lazyStorage()])

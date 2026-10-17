@@ -1,3 +1,4 @@
+import { MAX_ATTACHED } from '@/lib/receipt-photo'
 import { blobToDataUrl } from '@/lib/image'
 import { archiveWrite, balanceEditMembers, expenseMemberIds, uidsOfMembers, unarchiveInvolved } from '../../shared/archive'
 import { personalView } from './personalView'
@@ -803,7 +804,7 @@ export function createLocalRepo(): Repo {
       commit()
     },
     attachReceipt(_groupId, expenseId, file, opts) {
-      // Store a small data URL so the demo can show the receipt (a private group's sealed first, as on the server).
+      // Store a small data URL so the demo can show the photo (a private group's sealed first, as on the server).
       downscale(file, 900, 0.7)
         .then((small) => (opts?.seal ? opts.seal(small) : small))
         .then(
@@ -817,13 +818,30 @@ export function createLocalRepo(): Repo {
         )
         .then((url) => {
           const e = state.expenses[expenseId]
-          if (e) {
-            state.expenses[expenseId] = { ...e, receiptUrl: url, updatedBy: actor(), updatedAt: Date.now() }
-            commit()
-          }
+          if (!e) return
+          if (opts?.slot === 'attached') {
+            // The server's rules keep four at most; so does the demo.
+            if ((e.photos?.length ?? 0) >= MAX_ATTACHED) throw new Error(`An expense keeps up to ${MAX_ATTACHED} attached photos`)
+            // Its own path, as on the server, so two copies of the same picture stay two photos.
+            state.expenses[expenseId] = {
+              ...e,
+              photos: [...(e.photos ?? []), { url, path: `receipts/${_groupId}/${expenseId}-a${uid()}.jpg`, at: Date.now() }],
+              updatedBy: actor(),
+              updatedAt: Date.now(),
+            }
+          } else state.expenses[expenseId] = { ...e, receiptUrl: url, updatedBy: actor(), updatedAt: Date.now() }
+          commit()
         })
-        .catch((e) => errors.emit('write', e, 'Receipt attach failed'))
+        .catch((e) => errors.emit('write', e, opts?.slot === 'attached' ? 'Photo attach failed' : 'Receipt attach failed'))
       return true
+    },
+    async removePhoto(_groupId, expenseId, photo) {
+      const e = state.expenses[expenseId]
+      if (!e?.photos) return
+      const photos = e.photos.filter((p) => (photo.path ? p.path !== photo.path : p.url !== photo.url))
+      const { photos: _p, ...rest } = e
+      state.expenses[expenseId] = { ...(photos.length ? { ...rest, photos } : rest), updatedBy: actor(), updatedAt: Date.now() }
+      commit()
     },
 
     watchSettlements: (groupId, cb) =>
@@ -885,7 +903,13 @@ export function createLocalRepo(): Repo {
     },
     async fileBytes(path) {
       // A payment screenshot by its path, or a receipt (stored as the expense's data URL) by its path or URL.
-      const url = state.payProofs?.[path] ?? (path.startsWith('data:') ? path : undefined)
+      // An attached photo's path stands for its data URL here (attachReceipt gives each its own).
+      const attachedUrl = path.startsWith('receipts/')
+        ? Object.values(state.expenses)
+            .flatMap((e) => e.photos ?? [])
+            .find((p) => p.path === path)?.url
+        : undefined
+      const url = state.payProofs?.[path] ?? attachedUrl ?? (path.startsWith('data:') ? path : undefined)
       if (!url) return null
       try {
         return new Uint8Array(await (await fetch(url)).arrayBuffer())

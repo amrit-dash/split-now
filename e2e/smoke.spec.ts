@@ -1172,43 +1172,56 @@ test('Private groups: stopping hides them, and a universal pattern starts them a
   await expect(page.getByTestId('vault-line-pattern')).toContainText('Universal pattern set')
 })
 
-test('receipt photo: attached without reading it, opened full screen, and added later from the expense', async ({ page }) => {
+test('receipt photos: several attached beside the scanned one, opened full screen, added and removed later', async ({ page }) => {
   // A tiny real PNG (the demo downscales it like any photo).
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEklEQVR4nGP4z8CAFWEXHbQSACj/P8Fu7N9hAAAAAElFTkSuQmCC', 'base64')
-  const photo = { name: 'bill.png', mimeType: 'image/png', buffer: png }
+  const photo = (n: string) => ({ name: `${n}.png`, mimeType: 'image/png', buffer: png })
   await page.goto('/add?group=g_goa')
   await page.getByRole('textbox', { name: 'Description', exact: true }).fill('Ferry tickets')
   await amountField(page).fill('640')
-  // Attach a photo keeps what was typed: nothing is read from it
-  await page.getByTestId('receipt-attach-file').setInputFiles(photo)
-  await expect(page.getByTestId('receipt-attached')).toContainText('Receipt photo')
+  // Attach keeps what was typed: nothing is read from the photos
+  await page.getByTestId('receipt-attach-file').setInputFiles([photo('a'), photo('b')])
+  await expect(page.getByTestId('attached-new')).toHaveCount(2)
+  await expect(page.getByTestId('attached-line')).toHaveText('2 of 4 attached')
   await expect(amountField(page)).toHaveValue(/640/)
-  // one photo per expense: once attached, Attach is disabled and the photo's own row replaces or removes it
+  // one picked here can be dropped; three more fill it, and the fifth doesn't fit
+  await page.getByTestId('attached-remove').first().click()
+  await expect(page.getByTestId('attached-new')).toHaveCount(1)
+  await page.getByTestId('receipt-attach-file').setInputFiles([photo('c'), photo('d'), photo('e'), photo('f')])
+  await expect(page.getByTestId('attached-new')).toHaveCount(4)
   await expect(page.getByTestId('receipt-attach')).toBeDisabled()
-  await page.getByTestId('receipt-remove').click()
-  await expect(page.getByTestId('receipt-attached')).toHaveCount(0)
-  await page.getByTestId('receipt-attach-file').setInputFiles(photo)
   await page
     .getByRole('button', { name: /^(Save|Add expense)$/ })
     .first()
     .click()
   await expect(page).toHaveURL(/\/groups\/g_goa$/)
   await page.getByText('Ferry tickets').first().click()
-  // the expense keeps it folded; a tap shows it, another opens it full screen
-  await expect(page.getByTestId('receipt-open')).toHaveCount(0)
+  // folded until tapped; the attached photos are listed apart from a scanned receipt
+  await expect(page.getByTestId('receipt-summary')).toHaveText('4 attached photos', { timeout: 15_000 })
   await page.getByTestId('receipt-toggle').click()
-  await expect(page.getByTestId('receipt-toggle')).toHaveAttribute('aria-expanded', 'true')
-  await page.getByTestId('receipt-open').click()
+  await expect(page.getByTestId('receipt-open-attached')).toHaveCount(4)
+  await expect(page.getByTestId('receipt-add-more')).toHaveCount(0)
+  // full screen, moving between them; one removed from there
+  await page.getByTestId('receipt-open-attached').first().click()
   const viewer = page.getByTestId('photo-viewer')
-  await expect(viewer).toBeVisible()
+  await expect(viewer.getByTestId('photo-viewer-label')).toHaveText('Attached photo 1 · 1 of 4')
+  await viewer.getByTestId('photo-viewer-next').click()
+  await expect(viewer.getByTestId('photo-viewer-label')).toHaveText('Attached photo 2 · 2 of 4')
+  await page.keyboard.press('ArrowRight')
+  await expect(viewer.getByTestId('photo-viewer-label')).toHaveText('Attached photo 3 · 3 of 4')
   await viewer.getByTestId('photo-viewer-zoom').click()
   await expect(viewer.getByTestId('photo-viewer-zoom')).toHaveAttribute('aria-pressed', 'true')
-  await page.keyboard.press('Escape')
+  await viewer.getByTestId('photo-viewer-remove').click()
   await expect(viewer).toHaveCount(0)
-  await expect(page.getByTestId('receipt-replace')).toBeVisible()
+  await page.getByRole('dialog').getByRole('button', { name: 'Remove', exact: true }).click()
+  await expect(page.getByTestId('receipt-summary')).toHaveText('3 attached photos')
+  // room again: one more from the expense's own screen
+  await page.getByTestId('receipt-add-more').click()
+  await page.getByTestId('receipt-file').setInputFiles(photo('g'))
+  await expect(page.getByTestId('receipt-summary')).toHaveText('4 attached photos', { timeout: 15_000 })
 })
 
-test('receipt photo: an expense without one takes one from its own screen', async ({ page }) => {
+test('receipt photos: an expense without any takes one from its own screen', async ({ page }) => {
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEklEQVR4nGP4z8CAFWEXHbQSACj/P8Fu7N9hAAAAAElFTkSuQmCC', 'base64')
   await page.goto('/add?group=g_goa')
   await page.getByRole('textbox', { name: 'Description', exact: true }).fill('Scooter rent')
@@ -1220,8 +1233,9 @@ test('receipt photo: an expense without one takes one from its own screen', asyn
   await expect(page).toHaveURL(/\/groups\/g_goa$/)
   await page.getByText('Scooter rent').first().click()
   await expect(page.getByTestId('receipt-add')).toBeVisible()
+  await page.getByTestId('receipt-add').click()
   await page.getByTestId('receipt-file').setInputFiles({ name: 'bill.png', mimeType: 'image/png', buffer: png })
-  await expect(page.getByTestId('receipt-open')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId('receipt-summary')).toHaveText('1 attached photo', { timeout: 15_000 })
 })
 
 test('icons: an expense picks its own from what it is for, and press and hold opens every icon', async ({ page }) => {

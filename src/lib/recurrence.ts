@@ -132,7 +132,7 @@ export function occurrenceId(templateId: string, date: string): string {
  * when purged or when a photo is attached to it.
  */
 export function makeOccurrence(template: Expense, date: string, now = Date.now()): Expense {
-  const { recurrence: _r, receiptUrl: _receipt, receiptPath: _path, ...rest } = template
+  const { recurrence: _r, receiptUrl: _receipt, receiptPath: _path, photos: _photos, ...rest } = template
   return {
     ...rest,
     id: occurrenceId(template.id, date),

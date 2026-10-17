@@ -147,6 +147,7 @@ export default function ExpenseForm() {
       storeKey={storeKey}
       restore={handed ? undefined : stored?.draft}
       restoreReceipt={handed ? undefined : stored?.receipt}
+      restorePhotos={handed ? undefined : stored?.photos}
     />
   )
 }

@@ -7,8 +7,9 @@ import { useMe } from '@/hooks/auth'
 import { memberOrder, myMemberId } from '@/hooks/data'
 import { useFlag } from '@/hooks/useAppConfig'
 import { useMerchantMemory } from '@/hooks/useMerchants'
-import { formPhoto, scanReplacedNote } from '@/lib/receipt-photo'
-import { usePhotoUrl } from '@/hooks/useVault'
+import { attachedNote, fitAttached, formPhoto, MAX_ATTACHED, scanReplacedNote } from '@/lib/receipt-photo'
+import { usePhotoUrl, usePhotoUrls } from '@/hooks/useVault'
+import { useAttachedPhotos } from './useAttachedPhotos'
 import { useReceiptReader } from '@/hooks/useReceiptReader'
 import type { Capture, Expense, Group, MemberId, OpenItem } from '@/types'
 import { CURRENCIES, formatMoney, fromHundredths } from '@/lib/money'
@@ -96,6 +97,7 @@ export function ExpenseEditor({
   storeKey,
   restore,
   restoreReceipt,
+  restorePhotos,
 }: {
   group: Group
   groups: Group[]
@@ -118,6 +120,8 @@ export function ExpenseEditor({
   restore?: Draft
   /** where the restored draft's receipt photo is kept on this device (src/lib/draft-blob.ts) */
   restoreReceipt?: string
+  /** the restored draft's attached photos, kept the same way */
+  restorePhotos?: string[]
 }) {
   const { user, profile } = useMe()
   const nav = useNavigate()
@@ -129,6 +133,8 @@ export function ExpenseEditor({
   const attachRef = useRef<HTMLInputElement>(null)
   // The thumbnail in the form: the photo picked here, or the one the expense already has (a private group's opened here).
   const savedSrc = usePhotoUrl(group.id, { path: existing?.receiptPath, url: existing?.receiptUrl })
+  const savedAttached = existing?.photos ?? []
+  const savedAttachedSrcs = usePhotoUrls(group.id, savedAttached)
   // People who left stay in the pickers only for the old expense being edited (never for a new one).
   const order = useMemo(() => memberOrder(group, existing && existing.groupId === group.id ? expenseMemberIds(existing) : undefined), [group, existing])
   const me = myMemberId(group, user.uid) ?? order[0]
@@ -197,14 +203,25 @@ export function ExpenseEditor({
   /** a scanned bill with line items: offer item-by-item assignment or a live table */
   const [scanned, setScanned] = useState<{ parsed: ParsedReceipt; file: File } | null>(null)
   const done = useRef(false)
+  const attached = useAttachedPhotos(storeKey, restore ? restorePhotos : undefined, done)
+  const attachedKeys = attached.keys.join('|')
 
   // The unsaved draft follows every change; a clean form leaves nothing behind.
   const dirty = isDirty(draft, seedRef.current)
   useEffect(() => {
     if (done.current) return
-    if (dirty) saveDraft(storeKey, { groupId: group.id, again: again?.id, capture: capture?.id, open: openItem?.id, receipt: receiptKey, draft })
+    if (dirty || attachedKeys)
+      saveDraft(storeKey, {
+        groupId: group.id,
+        again: again?.id,
+        capture: capture?.id,
+        open: openItem?.id,
+        receipt: receiptKey,
+        ...(attachedKeys ? { photos: attachedKeys.split('|') } : {}),
+        draft,
+      })
     else clearDraft(storeKey)
-  }, [draft, dirty, storeKey, group.id, again?.id, capture?.id, openItem?.id, receiptKey])
+  }, [draft, dirty, storeKey, group.id, again?.id, capture?.id, openItem?.id, receiptKey, attachedKeys])
   // Bring back the restored draft's photo; a scan made meanwhile wins.
   useEffect(() => {
     const key = receiptKeyRef.current
@@ -242,6 +259,7 @@ export function ExpenseEditor({
   const forgetReceipt = () => {
     void deleteDraftBlob(receiptKeyRef.current)
     receiptKeyRef.current = undefined
+    attached.forget()
   }
   useEffect(() => {
     if (restore) toast('Picked up where you left off')
@@ -276,7 +294,7 @@ export function ExpenseEditor({
   const converted = fx.foreign && draft.fx && validAmount(draft) ? convertMinor(draft.amount, draft.cur, group.currency, draft.fx.rate) : undefined
 
   const applyReceipt = (parsed: ParsedReceipt, file: File) => {
-    // One photo per expense: a scan over an attached one replaces it, and says so.
+    // One scanned receipt per expense: a new scan replaces it, and says so (attached photos stay).
     const replaced = scanReplacedNote(!!receipt || !!(existing?.receiptUrl || existing?.receiptPath))
     dispatch({ type: 'applyReceipt', parsed })
     setReceipt(file)
@@ -376,7 +394,10 @@ export function ExpenseEditor({
         }).catch(() => {})
       // Upload after saving so a slow or offline network never blocks the save.
       // A private group's photo is sealed before it leaves the phone (src/data/vault-repo.ts).
-      if (receipt && !repo.attachReceipt(group.id, e.id, receipt)) toast('Offline, saved without the receipt image')
+      const photosOffline =
+        (receipt && !repo.attachReceipt(group.id, e.id, receipt)) ||
+        attached.picks.map((p) => repo.attachReceipt(group.id, e.id, p.file, { slot: 'attached' })).some((ok) => !ok)
+      if (photosOffline) toast('Offline, saved without the photos')
       done.current = true
       clearDraft(storeKey)
       forgetReceipt()
@@ -405,7 +426,7 @@ export function ExpenseEditor({
   }
 
   const cancel = async () => {
-    if (dirty) {
+    if (dirty || attached.picks.length) {
       const ok = await confirm({
         title: existing ? 'Discard your changes?' : 'Discard this expense?',
         message: 'What you’ve entered here will be lost.',
@@ -534,9 +555,15 @@ export function ExpenseEditor({
         onAttachPhoto={() => attachRef.current?.click()}
         onRemovePhoto={() => {
           setReceipt(null)
-          forgetReceipt()
+          void deleteDraftBlob(receiptKeyRef.current)
+          receiptKeyRef.current = undefined
           setReceiptKey(undefined)
         }}
+        attached={[
+          ...savedAttached.map((p, i) => ({ id: p.path ?? p.url ?? `s${i}`, src: savedAttachedSrcs[i], saved: true })),
+          ...attached.picks.map((p) => ({ id: p.id, src: p.src, saved: false })),
+        ]}
+        onRemoveAttached={attached.remove}
         scannedItems={scanned?.parsed.items.length ?? 0}
         onAssignItems={assignItems}
         onSplitAtTable={splitAtTable}
@@ -558,14 +585,16 @@ export function ExpenseEditor({
         ref={attachRef}
         type="file"
         accept="image/*"
+        multiple
         hidden
         data-testid="receipt-attach-file"
         onChange={(e) => {
-          const f = e.target.files?.[0]
-          if (f) {
-            setReceipt(f)
-            keepReceipt(f)
-            toast('Photo attached')
+          // Several at once go in while there's room; the toast says if some didn't fit.
+          const files = [...(e.target.files ?? [])]
+          if (files.length) {
+            const fit = fitAttached(files, MAX_ATTACHED - savedAttached.length - attached.picks.length)
+            attached.add(fit.take)
+            toast(attachedNote(fit.take.length, fit.dropped), fit.take.length ? 'ok' : 'err')
           }
           e.target.value = ''
         }}

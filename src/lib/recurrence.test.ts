@@ -178,6 +178,7 @@ describe('occurrences', () => {
     splitType: 'equal',
     splitInput: { selected: ['a', 'b'] },
     receiptUrl: 'https://example.com/r.jpg',
+    photos: [{ path: 'receipts/g/a.jpg', at: 1 }],
     receiptPath: 'receipts/g1/e_rent-abc.jpg',
     createdBy: 'u1',
     createdAt: 1,
@@ -196,6 +197,7 @@ describe('occurrences', () => {
     expect(o.recurringFrom).toBe('e_rent')
     expect(o.recurrence).toBeUndefined()
     expect(o.receiptUrl).toBeUndefined()
+    expect(o.photos).toBeUndefined()
     expect(o).not.toHaveProperty('receiptPath')
     expect(o.splits).toEqual(template.splits)
     expect(o.createdAt).toBe(99)
