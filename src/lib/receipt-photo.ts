@@ -118,3 +118,73 @@ export const nextZoom = (z: ViewerZoom): ViewerZoom => (z === 'fit' ? 'full' : '
 
 /** Moving through several photos in the viewer: next / previous, stopping at the ends. */
 export const stepPhoto = (i: number, by: -1 | 1, count: number): number => Math.min(Math.max(0, i + by), Math.max(0, count - 1))
+
+// ---- The form's one photo strip -------------------------------------------------------
+
+/** One thumbnail in the form's strip: the scanned receipt first (badged), then the attached ones. */
+export interface StripPhoto {
+  key: string
+  kind: 'scan' | 'attached'
+  src: string | null
+  /** a photo picked in this form can be crossed out; a saved one is removed on the expense screen */
+  removable: boolean
+  label: string
+}
+
+export function photoStrip(o: {
+  scan: { src: string | null; saved: boolean } | null
+  attached: Array<{ id: string; src: string | null; saved: boolean }>
+}): StripPhoto[] {
+  const out: StripPhoto[] = []
+  if (o.scan) out.push({ key: 'scan', kind: 'scan', src: o.scan.src, removable: !o.scan.saved, label: 'Scanned receipt' })
+  for (const [i, a] of o.attached.entries()) out.push({ key: a.id, kind: 'attached', src: a.src, removable: !a.saved, label: `Attached photo ${i + 1}` })
+  return out
+}
+
+/** The line under the strip: what's there, and the room left for attached photos. */
+export function stripLine(o: { scan: boolean; attached: number }): string | null {
+  if (!o.scan && !o.attached) return null
+  const a = `${o.attached} of ${MAX_ATTACHED} attached`
+  if (!o.scan) return a
+  return o.attached ? `Scanned receipt + ${a}` : 'Scanned receipt'
+}
+
+/** A photo's fingerprint (SHA-256 of its bytes), to notice the same picture picked twice. Null where it can't be read. */
+export async function photoHash(blob: Blob): Promise<string | null> {
+  try {
+    const buf = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer())
+    return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('')
+  } catch {
+    return null
+  }
+}
+
+/** Where a picture already is in the form: the scanned receipt, an attached photo, or nowhere (null). */
+export function alreadyHere(hash: string | null, o: { scan: string | null; attached: Array<string | null> }): 'scan' | 'attached' | null {
+  if (!hash) return null
+  if (hash === o.scan) return 'scan'
+  return o.attached.includes(hash) ? 'attached' : null
+}
+
+/** The note when a photo picked is already here; nothing is added twice. */
+export function alreadyNote(where: 'scan' | 'attached', doing: 'attach' | 'scan', count = 1): string {
+  if (doing === 'scan')
+    return where === 'scan' ? 'That receipt is already scanned. Its details are in the form.' : 'That photo was attached, so it is now the scanned receipt.'
+  const it = count === 1 ? 'That photo is' : `${count} of those photos are`
+  return where === 'scan' ? `${it} already here as the scanned receipt.` : `${it} already attached.`
+}
+
+/**
+ * Scanning again over a scanned receipt asks first: it replaces the receipt and fills in what it
+ * reads again. The words follow the detail level (Minimal and Tooltip get the short form).
+ */
+export function rescanAsk(look: 'full' | 'needed' | 'minimal' | 'tooltip'): { title: string; message: string; confirmLabel: string } {
+  return {
+    title: 'Scan another receipt?',
+    message:
+      look === 'full' || look === 'needed'
+        ? 'This expense already has a scanned receipt and the details read from it. A new scan replaces the scanned receipt and fills in its total, place, date and items again. Attached photos stay.'
+        : 'It replaces the scanned receipt and its details.',
+    confirmLabel: 'Scan another',
+  }
+}

@@ -7,7 +7,21 @@ import { useMe } from '@/hooks/auth'
 import { memberOrder, myMemberId } from '@/hooks/data'
 import { useFlag } from '@/hooks/useAppConfig'
 import { useMerchantMemory } from '@/hooks/useMerchants'
-import { attachedNote, fitAttached, formPhoto, MAX_ATTACHED, scanReplacedNote } from '@/lib/receipt-photo'
+import {
+  alreadyHere,
+  alreadyNote,
+  attachedNote,
+  fitAttached,
+  formPhoto,
+  MAX_ATTACHED,
+  photoHash,
+  photoStrip,
+  rescanAsk,
+  scanReplacedNote,
+} from '@/lib/receipt-photo'
+import { PhotoViewer } from '@/components/PhotoViewer'
+import { useLook } from '@/components/Hint'
+import { usePhotoHashes } from './usePhotoHashes'
 import { usePhotoUrl, usePhotoUrls } from '@/hooks/useVault'
 import { useAttachedPhotos } from './useAttachedPhotos'
 import { useReceiptReader } from '@/hooks/useReceiptReader'
@@ -217,6 +231,24 @@ export function ExpenseEditor({
   const done = useRef(false)
   const attached = useAttachedPhotos(storeKey, restore ? restorePhotos : undefined, done)
   const attachedKeys = attached.keys.join('|')
+  const look = useLook()
+  // The form's photos in strip order (scanned receipt first), for the viewer and the same-picture checks.
+  const hasScan = !!receipt || !!(existing?.receiptUrl || existing?.receiptPath)
+  const strip = photoStrip({
+    scan: hasScan ? { src: receiptSrc ?? savedSrc, saved: !receipt } : null,
+    attached: [
+      ...savedAttached.map((p, i) => ({ id: p.path ?? p.url ?? `s${i}`, src: savedAttachedSrcs[i], saved: true })),
+      ...attached.picks.map((p) => ({ id: p.id, src: p.src, saved: false })),
+    ],
+  })
+  const [viewing, setViewing] = useState<number | null>(null)
+  const hashes = usePhotoHashes([
+    ...(hasScan ? [{ key: receipt ? `scan:${receipt.name}:${receipt.size}:${receipt.lastModified}` : 'scan:saved', file: receipt, src: savedSrc }] : []),
+    ...savedAttached.map((p, i) => ({ key: p.path ?? p.url ?? `s${i}`, src: savedAttachedSrcs[i] })),
+    ...attached.picks.map((p) => ({ key: p.id, file: p.file })),
+  ])
+  const scanHash = hasScan ? (hashes[receipt ? `scan:${receipt.name}:${receipt.size}:${receipt.lastModified}` : 'scan:saved'] ?? null) : null
+  const attachedHashes = strip.filter((p) => p.kind === 'attached').map((p) => hashes[p.key] ?? null)
 
   // The unsaved draft follows every change; a clean form leaves nothing behind.
   const dirty = isDirty(draft, seedRef.current)
@@ -336,7 +368,24 @@ export function ExpenseEditor({
     }
   }, [existing])
 
+  /** Scan over a scanned receipt asks first: it replaces the receipt and what was read from it. */
+  const pickScan = async () => {
+    if (hasScan && !(await confirm(rescanAsk(look)))) return
+    fileRef.current?.click()
+  }
+
   async function onScanFile(file: File) {
+    // The same picture again: nothing to read. One that was attached becomes the scanned receipt instead.
+    const h = await photoHash(file)
+    const where = alreadyHere(h, { scan: scanHash, attached: attachedHashes })
+    if (where === 'scan') return toast(alreadyNote('scan', 'scan'))
+    if (where === 'attached') {
+      const pick = attached.picks.find((p) => hashes[p.id] === h)
+      if (pick) {
+        attached.remove(pick.id)
+        toast(alreadyNote('attached', 'scan'))
+      }
+    }
     try {
       // A private group's bill is read on the phone only (docs/VAULT.md).
       const r = await reader.read(file, !!group.vault)
@@ -561,7 +610,7 @@ export function ExpenseEditor({
         onOpenCategory={() => setSheet('category')}
         onOpenIcon={() => setSheet('icon')}
         onOpenCurrency={() => setSheet('currency')}
-        scan={{ busy: reader.busy, label: reader.label, onPick: () => fileRef.current?.click() }}
+        scan={{ busy: reader.busy, label: reader.label, onPick: () => void pickScan() }}
         photo={formPhoto({ picked: !!receipt, stored: !!(existing?.receiptUrl || existing?.receiptPath) })}
         photoSrc={receiptSrc ?? savedSrc}
         onAttachPhoto={() => attachRef.current?.click()}
@@ -576,6 +625,7 @@ export function ExpenseEditor({
           ...attached.picks.map((p) => ({ id: p.id, src: p.src, saved: false })),
         ]}
         onRemoveAttached={attached.remove}
+        onOpenPhoto={setViewing}
         scannedItems={scanned?.parsed.items.length ?? 0}
         onAssignItems={assignItems}
         onSplitAtTable={splitAtTable}
@@ -601,16 +651,43 @@ export function ExpenseEditor({
         hidden
         data-testid="receipt-attach-file"
         onChange={(e) => {
-          // Several at once go in while there's room; the toast says if some didn't fit.
+          // Several at once go in while there's room; the same picture twice (already attached, or the
+          // scanned receipt) is left out and the toast says so, as it says if some didn't fit.
           const files = [...(e.target.files ?? [])]
-          if (files.length) {
-            const fit = fitAttached(files, MAX_ATTACHED - savedAttached.length - attached.picks.length)
-            attached.add(fit.take)
-            toast(attachedNote(fit.take.length, fit.dropped), fit.take.length ? 'ok' : 'err')
-          }
           e.target.value = ''
+          if (!files.length) return
+          void (async () => {
+            const seen = [...attachedHashes]
+            const fresh: File[] = []
+            const dup = { scan: 0, attached: 0 }
+            for (const f of files) {
+              const h = await photoHash(f)
+              const where = alreadyHere(h, { scan: scanHash, attached: seen })
+              if (where) dup[where]++
+              else {
+                fresh.push(f)
+                seen.push(h)
+              }
+            }
+            const notes = [
+              ...(dup.scan ? [alreadyNote('scan', 'attach', dup.scan)] : []),
+              ...(dup.attached ? [alreadyNote('attached', 'attach', dup.attached)] : []),
+            ]
+            if (!fresh.length) return toast(notes.join(' '), 'err')
+            const fit = fitAttached(fresh, MAX_ATTACHED - savedAttached.length - attached.picks.length)
+            attached.add(fit.take)
+            toast([attachedNote(fit.take.length, fit.dropped), ...notes].join(' '), fit.take.length ? 'ok' : 'err')
+          })()
         }}
       />
+      {viewing !== null && strip.length > 0 && (
+        <PhotoViewer
+          photos={strip.map((p) => ({ src: p.src, alt: p.label, label: p.label }))}
+          index={viewing}
+          onIndex={setViewing}
+          onClose={() => setViewing(null)}
+        />
+      )}
       {showDup && (
         <div
           className="mt-3 rounded-2xl border border-amber-200 bg-amber-50/70 p-3 text-sm dark:border-amber-500/20 dark:bg-amber-500/10"

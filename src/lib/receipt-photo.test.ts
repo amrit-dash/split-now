@@ -13,6 +13,12 @@ import {
   receiptCard,
   scanReplacedNote,
   stepPhoto,
+  photoStrip,
+  stripLine,
+  photoHash,
+  alreadyHere,
+  alreadyNote,
+  rescanAsk,
 } from './receipt-photo'
 
 describe('photos in the form', () => {
@@ -104,5 +110,54 @@ describe('photos on the expense screen', () => {
     expect(stepPhoto(2, 1, 3)).toBe(2)
     expect(stepPhoto(0, -1, 3)).toBe(0)
     expect(stepPhoto(0, 1, 0)).toBe(0)
+  })
+})
+
+describe('the form’s photo strip', () => {
+  it('the scanned receipt first, then the attached ones; what was picked here can be crossed out', () => {
+    const s = photoStrip({
+      scan: { src: 'a', saved: false },
+      attached: [
+        { id: 'p1', src: 'b', saved: true },
+        { id: 'p2', src: 'c', saved: false },
+      ],
+    })
+    expect(s.map((p) => [p.kind, p.removable, p.label])).toEqual([
+      ['scan', true, 'Scanned receipt'],
+      ['attached', false, 'Attached photo 1'],
+      ['attached', true, 'Attached photo 2'],
+    ])
+    expect(photoStrip({ scan: { src: null, saved: true }, attached: [] })[0].removable).toBe(false)
+    expect(photoStrip({ scan: null, attached: [] })).toEqual([])
+  })
+  it('says what is there and the room left: five in all, one scanned and four attached', () => {
+    expect(stripLine({ scan: true, attached: 2 })).toBe('Scanned receipt + 2 of 4 attached')
+    expect(stripLine({ scan: true, attached: 0 })).toBe('Scanned receipt')
+    expect(stripLine({ scan: false, attached: 1 })).toBe('1 of 4 attached')
+    expect(stripLine({ scan: false, attached: 0 })).toBeNull()
+  })
+  it('notices the same picture twice by its contents', async () => {
+    const a = await photoHash(new Blob([new Uint8Array([1, 2, 3])]))
+    const b = await photoHash(new Blob([new Uint8Array([1, 2, 3])]))
+    const c = await photoHash(new Blob([new Uint8Array([3, 2, 1])]))
+    expect(a).toMatch(/^[0-9a-f]{64}$/)
+    expect(a).toBe(b)
+    expect(a).not.toBe(c)
+    expect(alreadyHere(a, { scan: a, attached: [] })).toBe('scan')
+    expect(alreadyHere(a, { scan: c, attached: [null, a] })).toBe('attached')
+    expect(alreadyHere(a, { scan: null, attached: [c] })).toBeNull()
+    expect(alreadyHere(null, { scan: null, attached: [null] })).toBeNull()
+  })
+  it('says why nothing was added twice', () => {
+    expect(alreadyNote('attached', 'attach')).toBe('That photo is already attached.')
+    expect(alreadyNote('scan', 'attach', 2)).toBe('2 of those photos are already here as the scanned receipt.')
+    expect(alreadyNote('scan', 'scan')).toMatch(/already scanned/)
+    expect(alreadyNote('attached', 'scan')).toMatch(/now the scanned receipt/)
+  })
+  it('asks before a new scan replaces the scanned receipt, in the words of the detail level', () => {
+    expect(rescanAsk('full').message).toMatch(/replaces the scanned receipt and fills in/)
+    expect(rescanAsk('needed').message).toBe(rescanAsk('full').message)
+    expect(rescanAsk('minimal').message).toBe('It replaces the scanned receipt and its details.')
+    expect(rescanAsk('tooltip')).toMatchObject({ title: 'Scan another receipt?', confirmLabel: 'Scan another' })
   })
 })

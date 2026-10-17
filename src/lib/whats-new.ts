@@ -24,6 +24,15 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '8.3.8',
+    date: 'October 2026',
+    items: [
+      { text: 'Receipt photos in one row: the scanned receipt first, with a badge, then up to four attached', section: 'receipt-photos' },
+      { text: 'Tap a photo to see it full screen; scanning again asks before it replaces the receipt', section: 'receipt-photos' },
+      { text: 'The same picture isn’t added twice', section: 'receipt-photos' },
+    ],
+  },
+  {
     version: '8.3.7',
     date: 'October 2026',
     items: [
