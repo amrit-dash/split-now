@@ -131,7 +131,7 @@ export const pickPrompt = (
 Choose exactly one emoji from this list, copied exactly: ${r.choices.join(' ')}
 ${r.categories ? `Also choose its category, one of: ${r.categories.join(', ')}.\n` : ''}${r.types ? `Also choose the group's type, one of: ${r.types.join(', ')}.\n` : ''}Answer with one line and nothing else, in this shape:
 EMOJI <emoji>${r.categories ? ' CATEGORY <category>' : ''}${r.types ? ' TYPE <type>' : ''}
-Pick what the title is most likely about (for "Thalassa" a Greek restaurant: 🍽️ food). If nothing in the list fits at all, answer: EMOJI none`
+Pick what the title is most likely about (for "Toit", a brewpub: 🍽️ food). If nothing in the list fits at all, answer: EMOJI none`
 
 /** The one-line answer, kept only where it names something from the lists sent. */
 export function parsePick(text: string, r: IconPickRequest): { emoji: string | null; category?: string; type?: string } {

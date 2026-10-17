@@ -91,23 +91,23 @@ describe('description suggestions', () => {
     ex('2', 'dinner ', '2026-09-20', { category: 'food' }),
     ex('3', 'Dinner', '2026-10-01', { category: 'food' }),
     ex('4', 'Petrol', '2026-10-07', { category: 'transport' }),
-    ex('5', 'Dinner at Thalassa', '2026-10-06', { category: 'food' }),
+    ex('5', 'Dinner at Bob’s Bar', '2026-10-06', { category: 'food' }),
     ex('6', 'Wifi', '2025-01-01', { category: 'utilities' }),
     ex('7', 'Gone', '2026-10-07', { deletedAt: 1 }),
   ]
   const h = descriptionHistory(list)
 
   it('groups case-insensitively, frequent and recent first, skipping trashed', () => {
-    expect(h.map((s) => s.description)).toEqual(['Dinner', 'Petrol', 'Dinner at Thalassa', 'Wifi'])
+    expect(h.map((s) => s.description)).toEqual(['Dinner', 'Petrol', 'Dinner at Bob’s Bar', 'Wifi'])
     expect(h[0].count).toBe(3)
     expect(h[0].last.id).toBe('3')
   })
 
   it('suggests prefix and word matches, not what is already typed', () => {
     expect(suggestDescriptions(h, '').length).toBe(4)
-    expect(suggestDescriptions(h, 'din').map((s) => s.description)).toEqual(['Dinner', 'Dinner at Thalassa'])
-    expect(suggestDescriptions(h, 'dinner').map((s) => s.description)).toEqual(['Dinner at Thalassa'])
-    expect(suggestDescriptions(h, 'thal').map((s) => s.description)).toEqual(['Dinner at Thalassa'])
+    expect(suggestDescriptions(h, 'din').map((s) => s.description)).toEqual(['Dinner', 'Dinner at Bob’s Bar'])
+    expect(suggestDescriptions(h, 'dinner').map((s) => s.description)).toEqual(['Dinner at Bob’s Bar'])
+    expect(suggestDescriptions(h, 'bob').map((s) => s.description)).toEqual(['Dinner at Bob’s Bar'])
   })
 
   it('knows the category used for a description', () => {

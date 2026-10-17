@@ -55,9 +55,9 @@ describe('reading the plain-text answer', () => {
 })
 
 describe('the automatic icon’s AI pick', () => {
-  const r = cleanPickRequest({ title: ' Thalassa <b>', kind: 'expense', choices: ['🍽️', '🍕', 'pizza', '🍕', '🚕'], categories: ['food', 'transport', 'Bad!'] })
+  const r = cleanPickRequest({ title: ' Toit <b>', kind: 'expense', choices: ['🍽️', '🍕', 'pizza', '🍕', '🚕'], categories: ['food', 'transport', 'Bad!'] })
   it('keeps a clean title and only lists it can trust', () => {
-    expect(r).toEqual({ title: 'Thalassa b', kind: 'expense', choices: ['🍽️', '🍕', '🚕'], categories: ['food', 'transport'] })
+    expect(r).toEqual({ title: 'Toit b', kind: 'expense', choices: ['🍽️', '🍕', '🚕'], categories: ['food', 'transport'] })
     expect(cleanPickRequest({ title: 'x', choices: ['pizza'] })).toBeNull()
     expect(cleanPickRequest({ title: ' ', choices: ['🍕'] })).toBeNull()
     expect(cleanPickRequest({ title: 'x', choices: Array.from({ length: 400 }, (_, i) => String.fromCodePoint(0x1f300 + i)) })?.choices.length).toBe(300)

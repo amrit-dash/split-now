@@ -380,10 +380,10 @@ describe('the expense icon', () => {
   })
   it('the automatic icon’s AI pick: for this description only, saved marked as automatic', () => {
     let d = reduce(seed(), { type: 'amount', amount: 1200 })
-    d = reduce(d, { type: 'description', value: 'Thalassa', history: [] })
+    d = reduce(d, { type: 'description', value: 'Toit', history: [] })
     // an answer for a title typed over is ignored
     expect(reduce(d, { type: 'autoPick', title: 'Thal', icon: '🍽️' })).toBe(d)
-    d = reduce(d, { type: 'autoPick', title: 'Thalassa', icon: '🍽️', category: 'food' })
+    d = reduce(d, { type: 'autoPick', title: 'Toit', icon: '🍽️', category: 'food' })
     expect(d.autoIcon).toBe('🍽️')
     expect(d.category).toBe('food')
     expect(needsAutoPick(d)).toBe(false)
@@ -395,16 +395,16 @@ describe('the expense icon', () => {
     const chosen = toExpense(reduce(d, { type: 'icon', icon: '🦄' }), save).expense
     expect([chosen.icon, chosen.iconAuto]).toEqual(['🦄', undefined])
     // typing drops the pick
-    expect('autoIcon' in reduce(d, { type: 'description', value: 'Thalassa 2', history: [] })).toBe(false)
+    expect('autoIcon' in reduce(d, { type: 'description', value: 'Toit 2', history: [] })).toBe(false)
     // an edit of an automatic pick starts on Automatic
     const again = seed({ existing: expense({ icon: '🍽️', iconAuto: true }) })
     expect([again.icon, again.autoIcon]).toEqual([undefined, '🍽️'])
   })
   it('the AI’s category only while the category is still the app’s Other', () => {
-    let d = reduce(seed(), { type: 'description', value: 'Thalassa', history: [] })
+    let d = reduce(seed(), { type: 'description', value: 'Toit', history: [] })
     d = reduce(d, { type: 'category', category: 'travel' })
-    expect(reduce(d, { type: 'autoPick', title: 'Thalassa', icon: '🍽️', category: 'food' }).category).toBe('travel')
-    expect(reduce(d, { type: 'autoPick', title: 'Thalassa', category: 'nope' as never }).category).toBe('travel')
+    expect(reduce(d, { type: 'autoPick', title: 'Toit', icon: '🍽️', category: 'food' }).category).toBe('travel')
+    expect(reduce(d, { type: 'autoPick', title: 'Toit', category: 'nope' as never }).category).toBe('travel')
   })
   it('asks only when nothing is chosen and the app’s own rules find nothing', () => {
     const d = seed()

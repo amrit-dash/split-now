@@ -20,7 +20,7 @@ describe('quickRoute', () => {
   })
   it('several steps, no amount, or names nobody in the group has go to AI', () => {
     expect(quickRoute('Lunch with Priya and then add cab 200', { amount: 20000, unmatched: [] }, none)).toEqual({ route: 'ai', why: 'several_steps' })
-    expect(quickRoute('Dinner at Thalassa, I paid', { unmatched: [] }, none)).toEqual({ route: 'ai', why: 'no_amount' })
+    expect(quickRoute('Dinner at Bob’s Bar, I paid', { unmatched: [] }, none)).toEqual({ route: 'ai', why: 'no_amount' })
     expect(quickRoute('Cab 300 with Zoya', { amount: 30000, unmatched: ['Zoya'] }, none)).toEqual({ route: 'ai', why: 'unknown_people' })
   })
   it('words that only look like intent stay local', () => {

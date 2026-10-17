@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { boldParts, clampStep, guideLayout, type HelpShot, markBox, nextStep, plain, relatedOf, searchHelp, STORY_BEATS } from './help'
+import { boldParts, clampStep, guideLayout, type HelpShot, markBox, nextStep, plain, relatedOf, searchHelp, SHOT_ACCENTS, shotSrc, STORY_BEATS } from './help'
 import SHOTS from './help-shots.json'
+import { ACCENTS } from './accent'
 import { CHAPTERS, SECTIONS } from './help-content'
 import { baseOf, findMark, SCENE_MARKS, SCENES } from './help-scenes'
 
@@ -168,7 +169,7 @@ describe('the scenes', () => {
 describe('the screenshots', () => {
   const shots = SHOTS as Record<string, HelpShot>
   const fsModule = 'node:fs'
-  it('belong to sections, mark steps that exist, and have their picture in public/help', async () => {
+  it('belong to sections, mark steps that exist, and have a picture in public/help for every theme and accent', async () => {
     const { existsSync } = (await import(/* @vite-ignore */ fsModule)) as { existsSync: (p: URL) => boolean }
     for (const [id, shot] of Object.entries(shots)) {
       const s = SECTIONS.find((x) => x.id === id)
@@ -179,8 +180,21 @@ describe('the screenshots', () => {
         expect(m.step, id).toBeLessThanOrEqual(s?.steps?.length ?? 0)
         for (const v of [m.x, m.y, m.w, m.h]) expect(v >= 0 && v <= 1, id).toBe(true)
       }
-      expect(existsSync(new URL(`../../public/help/${id}.webp`, import.meta.url)), id).toBe(true)
+      for (const dark of [false, true])
+        for (const accent of SHOT_ACCENTS) {
+          const src = shotSrc(id, { dark, accent })
+          expect(existsSync(new URL(`../../public${src}`, import.meta.url)), src).toBe(true)
+        }
     }
+  })
+  it('the picture follows the theme and accent, and an unknown accent falls back to violet', () => {
+    expect(shotSrc('add-expense', { dark: true, accent: 'ocean' })).toBe('/help/dark/ocean/add-expense.webp')
+    expect(shotSrc('add-expense', { dark: false, accent: 'koi' })).toBe('/help/light/koi/add-expense.webp')
+    expect(shotSrc('add-expense', { dark: false, accent: 'saffron' })).toBe('/help/light/violet/add-expense.webp')
+    expect(shotSrc('add-expense', { dark: true, accent: null })).toBe('/help/dark/violet/add-expense.webp')
+  })
+  it('there are pictures for every accent the app offers', () => {
+    expect([...SHOT_ACCENTS].sort()).toEqual(ACCENTS.map((a) => a.id).sort())
   })
   it('a marker’s outline is the part with room around it, inside the picture', () => {
     expect(markBox({ step: 1, x: 0.5, y: 0.5, w: 0.2, h: 0.1 })).toEqual({ left: 38.8, top: 43.2, width: 22.4, height: 13.6 })

@@ -136,6 +136,19 @@ export function relatedOf(s: HelpSection, sections: HelpSection[]): HelpSection[
   return (s.related ?? []).map((id) => sections.find((x) => x.id === id)).filter((x): x is HelpSection => !!x)
 }
 
+/** Help's screenshots come in every theme and accent the app has (scripts/help-media.mjs). */
+export const SHOT_ACCENTS = ['violet', 'ocean', 'neon', 'berry', 'koi', 'gold', 'graphite'] as const
+
+/**
+ * Which picture of a section's screen to show: the one in the person's own theme and accent, so
+ * the screenshot looks like their app. An accent the pictures don't have falls back to violet.
+ */
+export function shotSrc(id: string, o: { dark: boolean; accent: string | null | undefined }): string {
+  // The name comes from the page (<html data-accent>); the URL only ever gets one of our own constants.
+  const accent = SHOT_ACCENTS.find((a) => a === o.accent) ?? 'violet'
+  return `/help/${o.dark ? 'dark' : 'light'}/${accent}/${id}.webp`
+}
+
 /** One screenshot in Help (scripts/help-media.mjs writes them): its size and a marker per step. */
 export interface HelpShot {
   w: number

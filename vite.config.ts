@@ -165,8 +165,12 @@ export default defineConfig(({ mode }) => {
           // icons are fetched only by an install, never by the app.
           globIgnores: ['tesseract/**', 'icons/**'],
           runtimeCaching: [
-            // Help's screenshots (public/help/*.webp) aren't in the first download; each is kept once seen, for offline.
-            { urlPattern: /\/help\/[a-z0-9-]+\.webp$/, handler: 'CacheFirst', options: { cacheName: 'help-shots', expiration: { maxEntries: 120 } } },
+            // Help's screenshots (public/help/<theme>/<accent>/*.webp) aren't in the first download; each is kept once seen, for offline.
+            {
+              urlPattern: /\/help\/(light|dark)\/[a-z]+\/[a-z0-9-]+\.webp$/,
+              handler: 'CacheFirst',
+              options: { cacheName: 'help-shots', expiration: { maxEntries: 120 } },
+            },
             { urlPattern: /\/tesseract\/[^/]+\.(?:js|wasm)$/, handler: 'CacheFirst', options: { cacheName: 'tesseract', expiration: { maxEntries: 10 } } },
             {
               urlPattern: /^https:\/\/cdn\.jsdelivr\.net\/npm\/@tesseract\.js-data\//,

@@ -1,5 +1,6 @@
 // Regenerates Help's screenshots from the running app in demo mode:
-//   public/help/<section>.webp   one clipped screenshot per section that has one (light theme)
+//   public/help/<theme>/<accent>/<section>.webp   one clipped screenshot per section that has one, in
+//                                                 every theme and accent, so it matches the person's app
 //   src/lib/help-shots.json      each one's size and where its numbered markers go (fractions of the image)
 //
 // Run: npm run help:media                  starts `vite --mode e2e` on a free port, then stops it
@@ -20,6 +21,13 @@ import { join } from 'node:path'
 import sharp from 'sharp'
 
 const ROOT = new URL('..', import.meta.url).pathname
+// Every theme and accent the app offers, each accent with its default ink (the text colour on it),
+// read from src/lib/accent.ts so a new accent is shot without editing this file.
+const THEMES = ['light', 'dark']
+const ACCENT_INKS = [...readFileSync(join(ROOT, 'src/lib/accent.ts'), 'utf8').matchAll(/\{ id: '([a-z]+)', label: '[^']+', ink: '(light|dark)'/g)].map((m) => ({
+  id: m[1],
+  ink: m[2],
+}))
 const OUT = join(ROOT, 'public/help')
 const DATA = join(ROOT, 'src/lib/help-shots.json')
 
@@ -342,10 +350,27 @@ async function main() {
         crop = { x: 0, y, width: W, height: Math.min(H - y, bottom - top + grow) }
       }
       crop = { x: Math.max(0, crop.x), y: Math.max(0, crop.y), width: Math.min(W, crop.width), height: Math.min(H - Math.max(0, crop.y), crop.height) }
-      const buf = await page.screenshot({ type: 'png', clip: crop, animations: 'disabled' })
       const w = Math.round(crop.width * SAVE)
       const h = Math.round(crop.height * SAVE)
-      await writeFile(join(OUT, `${shot.id}.webp`), await sharp(buf).resize(w, h, { kernel: 'lanczos3' }).webp({ quality: 82 }).toBuffer())
+      // The same screen in every theme and accent: only colours change, so the crop and the
+      // markers found above fit them all. Set on <html> the way the app does (theme.ts, accent.ts).
+      for (const theme of THEMES) {
+        for (const a of ACCENT_INKS) {
+          await page.evaluate(
+            ([dark, id, ink]) => {
+              const root = document.documentElement
+              root.classList.toggle('dark', dark)
+              root.setAttribute('data-accent', id)
+              root.setAttribute('data-ink', ink)
+            },
+            [theme === 'dark', a.id, a.ink],
+          )
+          await page.waitForTimeout(60)
+          const buf = await page.screenshot({ type: 'png', clip: crop, animations: 'disabled' })
+          await mkdir(join(OUT, theme, a.id), { recursive: true })
+          await writeFile(join(OUT, theme, a.id, `${shot.id}.webp`), await sharp(buf).resize(w, h, { kernel: 'lanczos3' }).webp({ quality: 82 }).toBuffer())
+        }
+      }
       const f = (n) => Math.round(n * 1000) / 1000
       data[shot.id] = {
         w,
@@ -358,7 +383,7 @@ async function main() {
           h: f(m.height / crop.height),
         })),
       }
-      console.log(`  ${shot.id}: ${w}×${h}, ${marks.length} markers`)
+      console.log(`  ${shot.id}: ${w}×${h}, ${marks.length} markers, ${THEMES.length * ACCENT_INKS.length} pictures`)
       await context.close()
     }
   } finally {

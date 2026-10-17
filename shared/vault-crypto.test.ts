@@ -20,12 +20,12 @@ const other = btoa(String.fromCharCode(...new Array(32).fill(9)))
 describe('vault tokens', () => {
   it('round-trips text, unicode included, and is the same token for the same text', async () => {
     const k = await vaultKey('g1', dek)
-    const t = await sealText(k, 'Dinner at Thalassa 🍽️ — दाल')
+    const t = await sealText(k, 'Dinner at Bob’s Bar 🍽️ — दाल')
     expect(isToken(t)).toBe(true)
     expect(t).not.toContain('Dinner')
-    expect(await openToken(k, t)).toBe('Dinner at Thalassa 🍽️ — दाल')
-    expect(await sealText(k, 'Dinner at Thalassa 🍽️ — दाल')).toBe(t)
-    expect(await sealText(k, 'Dinner at Thalassa')).not.toBe(t)
+    expect(await openToken(k, t)).toBe('Dinner at Bob’s Bar 🍽️ — दाल')
+    expect(await sealText(k, 'Dinner at Bob’s Bar 🍽️ — दाल')).toBe(t)
+    expect(await sealText(k, 'Dinner at Bob’s Bar')).not.toBe(t)
     expect(await sealText(k, '')).toBe('')
   })
   it('opens only with the same group and key', async () => {

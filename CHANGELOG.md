@@ -6,6 +6,11 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.4.1 — October 2026
+
+- Help's screenshots now match your app: each one comes in light and dark and in every accent colour, and shows the one you're using. They were all light and violet before. They're retaken from the current screens too, so Add expense, Receipt photos and Money received show today's receipt row.
+- The examples use Bob’s Bar and Toit instead of a made-up restaurant name, in Help's scenes, the AI icons explanation in Settings → AI features, and the README.
+
 ## 8.4.0 — October 2026
 
 - Help is complete: every part of Split Now has a section, with an animated scene or picture, steps or captions, what to know, and a Try it button. This release adds the last eleven. Auto-capture: sorting a captured payment, choosing which payments are captured, capture keys, and Apple Pay with Share to Split Now. Getting started: finding your way around Home, and tracking your own spending. Settings: theme, accent and detail level; your currency and Collect in my currency; animations; your profile, sign-in and emails; and installing the app, using it offline and updating.
