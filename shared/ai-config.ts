@@ -3,7 +3,7 @@
  * Functions; the server is the one that enforces it.
  *
  *  config/ai                     project settings (admins edit; everyone signed in can read)
- *  users/{uid}/settings/notifications   the user's choices (aiEnabled, aiImages, aiSms, aiQuickAdd, aiPayments, aiIcons, aiIconAuto, aiSource, aiModel, aiFreeOk)
+ *  users/{uid}/settings/notifications   the user's choices (aiEnabled, aiImages, aiSms, aiQuickAdd, aiPayments, aiIcons, aiIconAuto, aiSource, aiModel, aiPictureModel, aiFreeOk)
  *  users/{uid}/secrets/gemini    the user's own key (server only; the app can never read it back)
  *  users/{uid}/aiState/status    server-written: own key last 4, last error (owner can read)
  */
@@ -64,12 +64,15 @@ export interface AppAiConfig {
   /** shared-key calls per day over every user (stats/ai_{day}.app); the admin's hard budget */
   globalPerDay: number
   /**
-   * "Draw a picture" in the icon sheet on the shared key (Gemini engine only: image models have no
-   * free tier, so each picture is billed to the project, about US$0.03). Off unless the admin turns it on.
+   * "Draw a picture" in the icon sheet on the shared key. Image models have no free tier, so each
+   * picture is billed to the project (shared/icon-ai.ts PICTURE_MODEL_INFO): the key needs billing,
+   * whichever engine reads bills. Off unless the admin turns it on.
    */
   pictures: boolean
   /** shared-key pictures per user per day (each is paid for) */
   picturesPerDay: number
+  /** the image model the shared key draws with; '' = recommended (shared/icon-ai.ts picturePlanModels) */
+  pictureModel: string
 }
 
 export const DEFAULT_APP_AI: AppAiConfig = {
@@ -85,6 +88,7 @@ export const DEFAULT_APP_AI: AppAiConfig = {
   globalPerDay: DEFAULT_GLOBAL_PER_DAY,
   pictures: false,
   picturesPerDay: 5,
+  pictureModel: '',
 }
 
 export interface UserAiPrefs {
@@ -103,6 +107,8 @@ export interface UserAiPrefs {
   aiSource: AiSource
   /** model for the user's own key; '' = recommended */
   aiModel: string
+  /** image model for Draw a picture on the user's own key; '' = recommended */
+  aiPictureModel: string
   /** agreed to Split Now's free AI (Gemma, Google's unpaid terms); nothing goes to it until then */
   aiFreeOk: boolean
 }
@@ -119,6 +125,7 @@ export const DEFAULT_USER_AI: UserAiPrefs = {
   aiIconAuto: true,
   aiSource: 'auto',
   aiModel: '',
+  aiPictureModel: '',
   aiFreeOk: false,
 }
 
@@ -148,6 +155,7 @@ export function resolveAppAi(raw: unknown): AppAiConfig {
     globalPerDay: int(r.globalPerDay, 1, 100_000, DEFAULT_APP_AI.globalPerDay),
     pictures: r.pictures === true,
     picturesPerDay: int(r.picturesPerDay, 1, 100, DEFAULT_APP_AI.picturesPerDay),
+    pictureModel: isPictureModel(r.pictureModel) ? r.pictureModel : '',
   }
 }
 
@@ -163,9 +171,13 @@ export function resolveUserAi(raw: unknown): UserAiPrefs {
     aiIconAuto: r.aiIconAuto !== false,
     aiSource: r.aiSource === 'own' || r.aiSource === 'app' ? r.aiSource : 'auto',
     aiModel: validModel(r.aiModel) ? r.aiModel : '',
+    aiPictureModel: isPictureModel(r.aiPictureModel) ? r.aiPictureModel : '',
     aiFreeOk: r.aiFreeOk === true,
   }
 }
+
+/** An image model's id ("gemini-3.1-flash-lite-image", "gemini-nano-banana-2.1"): what Draw a picture may be set to. */
+export const isPictureModel = (m: unknown): m is string => validModel(m) && /image|banana/.test(m)
 
 export const isGemma = (m: unknown): m is string => typeof m === 'string' && /^gemma-/.test(m)
 

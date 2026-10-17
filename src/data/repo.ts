@@ -634,7 +634,8 @@ export interface Repo {
   aiKey(action: 'set' | 'test' | 'remove', key?: string, which?: 'own' | 'app'): Promise<AiKeyResult>
   /** Models for the user's own key, or the project key (admins). Throws on failure. */
   /** 'gemma' (admins): the Gemma models the project key can use, newest first */
-  aiModels(which: 'own' | 'app' | 'gemma'): Promise<AiModel[]>
+  /** kind 'pictures': the image models that key can draw with, cheapest first (Draw a picture's picker) */
+  aiModels(which: 'own' | 'app' | 'gemma', kind?: 'pictures'): Promise<AiModel[]>
   /** Whether the shared key can be used; null if unknown (offline, demo). */
   aiStatus(): Promise<AiStatusResult | null>
   /** users/{uid}/aiState/status (server-written). */
@@ -662,6 +663,9 @@ export interface AiModel {
   id: string
   label: string /** a cheap model (minimal thinking); the pickers mark the others as costing more */
   lite?: boolean
+  /** an image model's price per picture (US$) and how quick it is, when known (shared/icon-ai.ts PICTURE_MODEL_INFO) */
+  usd?: number
+  speed?: string
 }
 export interface AiKeyResult {
   hint: string | null
@@ -676,8 +680,10 @@ export interface AiStatusResult {
   app: {
     images: AppAiStatusValue
     sms: AppAiStatusValue
-    /** "Draw a picture" on the shared key (Gemini only, when the admin allows it) */
+    /** "Draw a picture" on the shared key (when the admin allows it) */
     pictures?: AppAiStatusValue
+    /** the image model it draws with; '' = recommended */
+    pictureModel?: string
     model: string
     /** what the shared key runs: Gemini, or Google's free Gemma models (people agree first, aiFreeOk) */
     engine?: 'gemini' | 'gemma'

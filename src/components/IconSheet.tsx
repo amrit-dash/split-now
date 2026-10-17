@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { ImageIcon, RefreshCw, Search, Sparkles, Wand2 } from 'lucide-react'
 import { repo } from '@/data'
 import { firstEmoji } from '@/lib/emoji'
-import { AI_IDLE_MS, aiRowShown, iconAiProblem, pictureNote, pictureProblem } from '@/lib/icon-ai'
+import { AI_IDLE_MS, aiRowShown, drawnByLine, iconAiProblem, pictureNote, pictureProblem } from '@/lib/icon-ai'
 import { shrinkPicture } from '@/lib/icon-picture'
 import { searchIcons } from '@/lib/icons'
 import { type IconRequest, type IconSuggestions, PICTURE_COST } from '../../shared/icon-ai'
@@ -34,6 +34,7 @@ export function IconSheet({
   svgValue,
   onPickSvg,
   picture,
+  pictureCost = PICTURE_COST,
   imageValue,
   onPickImage,
   testId = 'icon-sheet',
@@ -53,6 +54,8 @@ export function IconSheet({
   onPickSvg?: (svg: string) => void
   /** "Draw a picture" (a paid image model): whose key pays; absent or null: not shown */
   picture?: 'own' | 'app' | null
+  /** what one picture costs on the model that key draws with (src/hooks/useIconAi.ts) */
+  pictureCost?: string
   /** the picture chosen now */
   imageValue?: string
   onPickImage?: (image: string) => void
@@ -65,6 +68,8 @@ export function IconSheet({
   const [problem, setProblem] = useState<string | null>(null)
   const [drawing, setDrawing] = useState(false)
   const [drawn, setDrawn] = useState<string | null>(null)
+  // Which model drew it, and what that cost: said under the picture.
+  const [drawnBy, setDrawnBy] = useState<string | null>(null)
   const [pictureWhy, setPictureWhy] = useState<string | null>(null)
   const words = q.replace(/\s+/g, ' ').trim().slice(0, 80)
   // Each opening starts with an empty search.
@@ -114,7 +119,10 @@ export function IconSheet({
       const small = r && 'image' in r ? await shrinkPicture(r.image, r.mimeType) : null
       const why = pictureProblem(r, !!small)
       if (why || !small) setPictureWhy(why)
-      else setDrawn(small)
+      else {
+        setDrawn(small)
+        setDrawnBy(r && 'image' in r ? drawnByLine(r.model) : null)
+      }
     } finally {
       setDrawing(false)
     }
@@ -256,6 +264,11 @@ export function IconSheet({
                     </button>
                     <div className="min-w-0 flex-1 text-sm">
                       <div className="font-semibold">Tap it to use it</div>
+                      {drawnBy && (
+                        <div className="text-muted text-xs" data-testid="icon-picture-by">
+                          {drawnBy}
+                        </div>
+                      )}
                       <button type="button" onClick={draw} disabled={drawing} className="chip mt-1 min-h-11" data-testid="icon-picture-again">
                         {drawing ? <Spinner className="!h-4 !w-4" label="Drawing" /> : <RefreshCw size={14} aria-hidden />} Draw another
                       </button>
@@ -277,7 +290,7 @@ export function IconSheet({
                     <span className="min-w-0 flex-1">
                       {drawing ? 'Drawing a picture… this can take half a minute' : `Draw a picture of “${words}”`}
                       <span className="text-muted block text-xs font-normal" data-testid="icon-picture-note">
-                        {pictureNote(picture, PICTURE_COST)}
+                        {pictureNote(picture, pictureCost)}
                       </span>
                     </span>
                   </button>

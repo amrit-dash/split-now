@@ -66,6 +66,8 @@ describe('config/ai', () => {
     await assertSucceeds(setDoc(doc(as('boss'), 'config/ai'), { ...good, pictures: true, picturesPerDay: 10 }))
     await assertFails(setDoc(doc(as('boss'), 'config/ai'), { ...good, pictures: 'yes' }))
     await assertFails(setDoc(doc(as('boss'), 'config/ai'), { ...good, picturesPerDay: 101 }))
+    await assertSucceeds(setDoc(doc(as('boss'), 'config/ai'), { ...good, pictureModel: 'gemini-3-pro-image' }))
+    await assertFails(setDoc(doc(as('boss'), 'config/ai'), { ...good, pictureModel: 'x'.repeat(81) }))
   })
 })
 
@@ -129,5 +131,9 @@ describe('own key', () => {
     // AI picks icons (the automatic icon's fallback): a bool too
     await assertSucceeds(setDoc(ref, { aiIconAuto: false, updatedAt: 1 }, { merge: true }))
     await assertFails(setDoc(ref, { aiIconAuto: 'no' }, { merge: true }))
+    // the picture model: a short string
+    await assertSucceeds(setDoc(ref, { aiPictureModel: 'gemini-3-pro-image', updatedAt: 1 }, { merge: true }))
+    await assertFails(setDoc(ref, { aiPictureModel: 'x'.repeat(81) }, { merge: true }))
+    await assertFails(setDoc(ref, { aiPictureModel: 3 }, { merge: true }))
   })
 })

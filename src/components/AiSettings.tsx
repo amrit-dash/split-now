@@ -11,6 +11,7 @@ import { aiAvailability, aiDataNote, aiReaderName, FREE_AI_NOTE, isFreeAi } from
 import { errText } from '@/lib/errors'
 import { setAiScan } from '@/lib/ai'
 import { autoSourceHint, DEFAULT_MODEL, type AiSource } from '@/lib/ai-config'
+import { pictureModelOptions } from '@/lib/icon-ai'
 import { DEFAULT_ALL_PREFS, savePrefs, watchPrefs, type AllPrefs } from '@/lib/push'
 import { Collapsible } from './Collapsible'
 import { HintText, InfoTip, type Hint } from './Hint'
@@ -111,6 +112,15 @@ export function AiSettings() {
       .then(setModels)
       .catch(() => setModels([]))
   }, [hasKey, models])
+  // The image models the key can draw with, for Draw a picture's picker (only while AI icons are on).
+  const [pictureModels, setPictureModels] = useState<AiModel[] | null>(null)
+  useEffect(() => {
+    if (!hasKey || !prefs.aiIcons || pictureModels) return
+    repo
+      .aiModels('own', 'pictures')
+      .then(setPictureModels)
+      .catch(() => setPictureModels([]))
+  }, [hasKey, prefs.aiIcons, pictureModels])
 
   const set = (patch: Partial<AllPrefs>) => {
     const next = { ...prefs, ...patch }
@@ -125,6 +135,7 @@ export function AiSettings() {
       const r = await repo.aiKey(kind === 'save' ? 'set' : kind, kind === 'save' ? draft.trim() : undefined)
       if (kind === 'remove') {
         setModels(null)
+        setPictureModels(null)
         toast('Key removed')
       } else {
         setModels(r.models)
@@ -483,6 +494,29 @@ export function AiSettings() {
                     />
                   )}
                 </div>
+                {hasKey && prefs.aiIcons && (
+                  <div data-testid="ai-picture-model">
+                    <div className="label">Model for pictures</div>
+                    <Select
+                      aria-label="Model for pictures"
+                      value={prefs.aiPictureModel}
+                      onChange={(v) => set({ aiPictureModel: v })}
+                      options={pictureModelOptions(pictureModels, prefs.aiPictureModel)}
+                    />
+                    {pictureModels === null ? (
+                      <p className="text-muted mt-1 text-xs">Loading the image models your key can use…</p>
+                    ) : (
+                      <HintText
+                        className="text-muted mt-1 text-xs"
+                        hint={{
+                          full: 'Draw a picture in the icon sheet uses it, billed to your key (image models have no free tier). If it fails, the recommended one is tried next.',
+                          short: 'For Draw a picture, billed to your key',
+                          tier: 'help',
+                        }}
+                      />
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>

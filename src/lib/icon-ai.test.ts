@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { aiRowShown, autoPickOffered, iconAiOffered, iconAiProblem, iconFace, pictureNote, pictureOffer, pictureProblem } from './icon-ai'
+import {
+  aiRowShown,
+  drawnByLine,
+  autoPickOffered,
+  pictureCostFor,
+  pictureModelOptions,
+  iconAiOffered,
+  iconAiProblem,
+  iconFace,
+  pictureNote,
+  pictureOffer,
+  pictureProblem,
+} from './icon-ai'
 
 const prefs = { aiEnabled: true, aiIcons: true, aiSource: 'auto', aiFreeOk: true }
 const status = { app: { images: 'available', engine: 'gemma' } }
@@ -110,5 +122,37 @@ describe('when the sheet offers AI', () => {
     expect(aiRowShown({ query: 'zorb', results: 0, idle: false })).toBe(true)
     expect(aiRowShown({ query: 'ferry', results: 3, idle: false })).toBe(false)
     expect(aiRowShown({ query: 'ferry', results: 3, idle: true })).toBe(true)
+  })
+})
+
+describe('choosing the picture model', () => {
+  it('Recommended first, then what the key lists with price and speed; a chosen one the key dropped stays', () => {
+    const o = pictureModelOptions(
+      [
+        { id: 'gemini-3-pro-image', label: 'Nano Banana Pro', usd: 0.134, speed: 'about 14 s' },
+        { id: 'gemini-9-image', label: 'New' },
+      ],
+      'gemini-old-image',
+    )
+    expect(o[0]).toEqual({ value: '', label: 'Recommended (Nano Banana 2 Lite)', hint: 'about US$0.03 a picture · about 3 s' })
+    expect(o[1]).toEqual({ value: 'gemini-3-pro-image', label: 'Nano Banana Pro', hint: 'about US$0.13 a picture · about 14 s' })
+    expect(o[2]).toEqual({ value: 'gemini-9-image', label: 'New', hint: undefined })
+    expect(o[3]).toEqual({ value: 'gemini-old-image', label: 'gemini-old-image' })
+    expect(pictureModelOptions(null, '').length).toBe(1)
+  })
+  it('the cost line follows whose key draws and its model', () => {
+    expect(pictureCostFor({ via: 'own', ownModel: 'gemini-3-pro-image', appModel: '' })).toBe('about US$0.13')
+    expect(pictureCostFor({ via: 'app', ownModel: 'gemini-3-pro-image', appModel: '' })).toBe('about US$0.03')
+    expect(pictureCostFor({ via: 'app', appModel: 'gemini-3.1-flash-image' })).toBe('about US$0.07')
+    expect(pictureCostFor({ via: null })).toBe('about US$0.03')
+  })
+})
+
+describe('under a drawn picture', () => {
+  it('names the model and its cost', () => {
+    expect(drawnByLine('gemini-3.1-flash-lite-image')).toBe('Nano Banana 2 Lite · about US$0.03')
+    expect(drawnByLine('models/gemini-3-pro-image')).toBe('Nano Banana Pro · about US$0.13')
+    expect(drawnByLine('gemini-9-image')).toBe('gemini-9-image')
+    expect(drawnByLine(undefined)).toBeNull()
   })
 })

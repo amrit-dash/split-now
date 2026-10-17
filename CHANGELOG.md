@@ -6,6 +6,11 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.3.6 — October 2026
+
+- Draw a picture: choose the image model. With your own Gemini key, Settings → AI features → Advanced has Model for pictures, listing the image models your key can use with what a picture costs and how quick it is (Nano Banana 2 Lite about US$0.03 and 3 seconds, Nano Banana 2 about US$0.07, Nano Banana Pro about US$0.13). Admins choose the model for Split Now's key in Admin → AI → Pictures. If the chosen model fails, the recommended one is tried. The icon sheet's cost line follows the model in use, and a drawn picture says which model drew it.
+- Draw a picture on Split Now's key now works whenever an admin turns pictures on, also while the free Gemma reads bills. Before, it was offered only on Gemini. The key needs billing either way.
+
 ## 8.3.5 — October 2026
 
 - Help: Profile → Help is a guide to Split Now. Search it, or open a feature to read what to know about it. The ten main features (creating a group, adding an expense, ways to split, settling up with UPI, scanning a bill, Quick add, private groups, icons, auto-capture and Insights) each have steps you can play: a small phone shows each step, and a pointer taps what to tap. Tap a step to jump to it, or use Try it to go there in the app.

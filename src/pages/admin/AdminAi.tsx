@@ -10,6 +10,8 @@ import { DEFAULT_MODEL, MAX_ALLOW_EMAILS, normaliseEmail, resolveAppAi, type App
 import { errText } from '@/lib/errors'
 import { modelHint } from '@/components/AiSettings'
 import { todayISO } from '@/lib/id'
+import { pictureModelOptions } from '@/lib/icon-ai'
+import { pictureCost } from '../../../shared/icon-ai'
 import { Select } from '@/components/Select'
 import { Switch } from '@/components/Switch'
 import { useToast } from '@/components/Toast'
@@ -80,6 +82,17 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
         .then(setGemma)
         .catch(() => setGemma([]))
   }, [configured, onGemma, status.app.hint])
+  // The image models the key can draw with, once pictures are on.
+  const [pictureModels, setPictureModels] = useState<AiModel[] | null>(null)
+  const picturesOn = !!cfg?.pictures
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a changed key (new hint) means the list must be fetched again.
+  useEffect(() => {
+    if (configured && picturesOn)
+      repo
+        .aiModels('app', 'pictures')
+        .then(setPictureModels)
+        .catch(() => setPictureModels([]))
+  }, [configured, picturesOn, status.app.hint])
   useEffect(() => {
     repo
       .aiUsage(todayISO())
@@ -321,24 +334,42 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
             <div className="text-sm font-semibold">What Split Now’s key pays for</div>
             <Toggle title="Bills, statements, Quick add and chat" checked={cfg.images} onChange={(v) => set({ images: v })} />
             <Toggle title="Bank SMS" checked={cfg.sms} onChange={(v) => set({ sms: v })} />
-            {/* Image models have no free tier: on Gemini only, each picture is billed to the project. */}
-            {cfg.engine === 'gemini' && (
-              <div className="space-y-2" data-testid="admin-ai-pictures">
-                <Toggle title="Pictures for icons (about US$0.03 each)" checked={cfg.pictures} onChange={(v) => set({ pictures: v })} />
-                {cfg.pictures && (
-                  <label className="flex items-center gap-3">
-                    <span className="min-w-0 flex-1 text-sm">Pictures per person, per day</span>
-                    <input
-                      className="input !w-20 !px-3"
-                      inputMode="numeric"
-                      aria-label="Pictures per person, per day"
-                      value={cfg.picturesPerDay}
-                      onChange={(e) => set({ picturesPerDay: Math.max(1, Math.min(100, parseInt(e.target.value, 10) || 1)) })}
-                    />
-                  </label>
-                )}
-              </div>
-            )}
+            {/* Image models have no free tier: each picture is billed to the project, whichever engine reads bills (the key needs billing). */}
+            <div className="space-y-2" data-testid="admin-ai-pictures">
+              <Toggle
+                title={`Pictures for icons (${pictureCost(cfg.pictureModel || undefined)} each)`}
+                checked={cfg.pictures}
+                onChange={(v) => set({ pictures: v })}
+              />
+              {cfg.pictures && (
+                <div data-testid="admin-ai-picture-model">
+                  <div className="label">Model for pictures</div>
+                  <Select
+                    aria-label="Model for pictures"
+                    value={cfg.pictureModel}
+                    onChange={(v) => set({ pictureModel: v })}
+                    options={pictureModelOptions(pictureModels, cfg.pictureModel)}
+                  />
+                  <p className="text-muted mt-1 text-xs">
+                    {pictureModels === null
+                      ? 'Loading the image models the key can use…'
+                      : 'Image models have no free tier: the key needs billing, also when Gemma reads bills. A failed model falls back to the recommended one.'}
+                  </p>
+                </div>
+              )}
+              {cfg.pictures && (
+                <label className="flex items-center gap-3">
+                  <span className="min-w-0 flex-1 text-sm">Pictures per person, per day</span>
+                  <input
+                    className="input !w-20 !px-3"
+                    inputMode="numeric"
+                    aria-label="Pictures per person, per day"
+                    value={cfg.picturesPerDay}
+                    onChange={(e) => set({ picturesPerDay: Math.max(1, Math.min(100, parseInt(e.target.value, 10) || 1)) })}
+                  />
+                </label>
+              )}
+            </div>
             <p className="text-muted text-xs" data-testid="admin-ai-quick-add">
               Payment screenshot checks count under the first one too, with its limits below. Off here, people with their own key still use AI. To turn a
               feature off for everyone, own keys included, use{' '}
