@@ -6,6 +6,13 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.3.8 — October 2026
+
+- Receipt photos in Add expense are one row: the scanned receipt comes first with a scan badge in its corner, then up to four attached photos, five in all. The separate scanned-receipt row and its Rescan button are gone, and the crosses are smaller.
+- Tap any photo in the row to see it full screen.
+- Scanning again when there is a scanned receipt asks first: a new scan replaces the receipt and fills in its details again. Crossing out the scanned receipt keeps what it filled in.
+- The same picture isn't added twice. Attaching a photo that is already attached, or that is the scanned receipt, says so instead, and scanning the same receipt again says its details are already in the form.
+
 ## 8.3.7 — October 2026
 
 - Help: every section now plays its steps on a small animated phone, not only the ten main features: signing in, money received, receipt photos, every private group topic, AI features and more. As it plays, each step it has shown is ticked off.

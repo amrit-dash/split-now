@@ -1,5 +1,5 @@
 import { ImagePlus, Paperclip, ReceiptText, ScanText, Users, X } from 'lucide-react'
-import { type FormPhoto, formPhotosView } from '@/lib/receipt-photo'
+import { type FormPhoto, formPhotosView, photoStrip, stripLine } from '@/lib/receipt-photo'
 import type { Group } from '@/types'
 import { CATEGORIES } from '@/lib/categories'
 import { expenseEmoji } from '@/lib/icons'
@@ -44,6 +44,7 @@ export function AmountCard({
   photoSrc,
   onAttachPhoto,
   onRemovePhoto,
+  onOpenPhoto,
   attached,
   onRemoveAttached,
   scannedItems,
@@ -72,6 +73,8 @@ export function AmountCard({
   photoSrc: string | null
   /** attach photos to keep with the expense without reading them */
   onAttachPhoto: () => void
+  /** open the strip's photo at this place in the full-screen viewer */
+  onOpenPhoto: (index: number) => void
   /** drop the receipt scanned here (the saved one stays until a new scan replaces it) */
   onRemovePhoto: () => void
   /** the attached photos: the saved ones (removed on the expense screen) and the ones picked here */
@@ -88,6 +91,9 @@ export function AmountCard({
   const press = useLongPress({ onTap: onOpenCategory, onHold: onOpenIcon })
   const hasReceipt = photo !== 'none'
   const photoView = formPhotosView({ scan: photo, attachedSaved: attached.filter((a) => a.saved).length, attachedNew: attached.filter((a) => !a.saved).length })
+  // One strip: the scanned receipt first (badged), then the attached ones; five at most.
+  const strip = photoStrip({ scan: hasReceipt ? { src: photoSrc, saved: photo === 'saved' } : null, attached })
+  const line = stripLine({ scan: hasReceipt, attached: attached.length })
   return (
     <div className="card mt-3 p-5">
       <div className="flex items-center gap-3">
@@ -138,7 +144,7 @@ export function AmountCard({
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-brand-600 hover:bg-slate-100 disabled:opacity-60 dark:text-brand-300 dark:hover:bg-ink-800"
           onClick={scan.onPick}
           disabled={scan.busy}
-          aria-label={scan.busy ? scan.label : hasReceipt ? 'Rescan receipt' : 'Scan receipt'}
+          aria-label={scan.busy ? scan.label : hasReceipt ? 'Scan another receipt' : 'Scan receipt'}
           aria-busy={scan.busy || undefined}
           data-testid="receipt-scan"
         >
@@ -239,64 +245,53 @@ export function AmountCard({
           <span className="hidden @[3.75rem]:inline">Attach</span>
         </button>
       </div>
-      {photoView.scan && (
-        <div className="mt-3 flex items-center gap-3 rounded-2xl bg-slate-50 p-2 pr-1 dark:bg-ink-800" data-testid="receipt-attached">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white ring-1 ring-slate-200 dark:bg-ink-900 dark:ring-white/10">
-            {photoSrc ? <img src={photoSrc} alt="" className="h-full w-full object-cover" /> : <Paperclip size={16} className="text-muted" aria-hidden />}
-          </span>
-          <span className="min-w-0 flex-1 truncate text-sm font-medium">{photoView.scan.label}</span>
-          <button
-            type="button"
-            className="min-h-11 shrink-0 rounded-xl px-3 text-sm font-semibold text-brand-600 hover:bg-white dark:text-brand-300 dark:hover:bg-ink-900"
-            onClick={scan.onPick}
-            disabled={scan.busy}
-            data-testid="receipt-replace-form"
-          >
-            Rescan
-          </button>
-          {photoView.scan.remove && (
-            <button
-              type="button"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-500 hover:bg-white hover:text-rose-600 dark:hover:bg-ink-900"
-              onClick={onRemovePhoto}
-              aria-label="Remove the scanned receipt"
-              data-testid="receipt-remove"
-            >
-              <X size={18} aria-hidden />
-            </button>
-          )}
-        </div>
-      )}
-      {attached.length > 0 && (
+      {strip.length > 0 && (
         <div className="mt-3 rounded-2xl bg-slate-50 p-2 dark:bg-ink-800" data-testid="attached-photos">
-          <ul className="flex flex-wrap gap-2">
-            {attached.map((a, i) => (
-              <li key={a.id} className="relative" data-testid={a.saved ? 'attached-saved' : 'attached-new'}>
-                <span className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-white ring-1 ring-slate-200 dark:bg-ink-900 dark:ring-white/10">
-                  {a.src ? (
-                    <img src={a.src} alt={`Attached ${i + 1}`} className="h-full w-full object-cover" />
-                  ) : (
-                    <Paperclip size={16} className="text-muted" aria-hidden />
-                  )}
-                </span>
-                {/* One picked here can be dropped; a saved one is removed on the expense screen. */}
-                {!a.saved && (
+          <ul className="flex flex-wrap gap-2.5">
+            {strip.map((p, i) => (
+              <li key={p.key} className="relative" data-testid={p.kind === 'scan' ? 'receipt-attached' : p.removable ? 'attached-new' : 'attached-saved'}>
+                {/* Every thumbnail opens full screen. */}
+                <button
+                  type="button"
+                  onClick={() => onOpenPhoto(i)}
+                  aria-label={`Open ${p.label.toLowerCase()}`}
+                  className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-white ring-1 ring-slate-200 transition active:scale-95 dark:bg-ink-900 dark:ring-white/10"
+                  data-testid="photo-thumb"
+                >
+                  {p.src ? <img src={p.src} alt="" className="h-full w-full object-cover" /> : <Paperclip size={16} className="text-muted" aria-hidden />}
+                </button>
+                {/* The scanned receipt says so with a badge in its corner (its details are already in the form). */}
+                {p.kind === 'scan' && (
+                  <span
+                    className="pointer-events-none absolute -bottom-1 -left-1 flex h-5 w-5 items-center justify-center rounded-full bg-fill text-on-fill shadow ring-2 ring-slate-50 dark:ring-ink-800"
+                    title="Scanned receipt"
+                    data-testid="scan-badge"
+                  >
+                    <ScanText size={11} strokeWidth={2.5} aria-hidden />
+                    <span className="sr-only">Scanned receipt</span>
+                  </span>
+                )}
+                {/* One picked here can be crossed out (a scanned one keeps what it filled in); a saved one is removed on the expense screen.
+                    The cross is small to look at, with a 24px place to tap. */}
+                {p.removable && (
                   <button
                     type="button"
-                    className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full bg-slate-700 text-white shadow ring-2 ring-white dark:ring-ink-800"
-                    onClick={() => onRemoveAttached(a.id)}
-                    aria-label={`Remove attached photo ${i + 1}`}
-                    data-testid="attached-remove"
+                    className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full"
+                    onClick={() => (p.kind === 'scan' ? onRemovePhoto() : onRemoveAttached(p.key))}
+                    aria-label={`Remove ${p.label.toLowerCase()}`}
+                    data-testid={p.kind === 'scan' ? 'receipt-remove' : 'attached-remove'}
                   >
-                    <X size={14} aria-hidden />
+                    <span className="flex h-[1.125rem] w-[1.125rem] items-center justify-center rounded-full bg-slate-700/90 text-white shadow ring-2 ring-slate-50 dark:bg-ink-600 dark:ring-ink-800">
+                      <X size={10} strokeWidth={3} aria-hidden />
+                    </span>
                   </button>
                 )}
               </li>
             ))}
           </ul>
-          {photoView.attachedLine && (
+          {line && (
             <p className="text-muted mt-1.5 px-1 text-xs" data-testid="attached-line">
-              {photoView.attachedLine}
+              {line}
             </p>
           )}
         </div>

@@ -1175,7 +1175,8 @@ test('Private groups: stopping hides them, and a universal pattern starts them a
 test('receipt photos: several attached beside the scanned one, opened full screen, added and removed later', async ({ page }) => {
   // A tiny real PNG (the demo downscales it like any photo).
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEklEQVR4nGP4z8CAFWEXHbQSACj/P8Fu7N9hAAAAAElFTkSuQmCC', 'base64')
-  const photo = (n: string) => ({ name: `${n}.png`, mimeType: 'image/png', buffer: png })
+  // Each a different picture (bytes after the PNG's end are ignored), so the same-picture check lets them in.
+  const photo = (n: string) => ({ name: `${n}.png`, mimeType: 'image/png', buffer: Buffer.concat([png, Buffer.from(n)]) })
   await page.goto('/add?group=g_goa')
   await page.getByRole('textbox', { name: 'Description', exact: true }).fill('Ferry tickets')
   await amountField(page).fill('640')
@@ -1184,6 +1185,15 @@ test('receipt photos: several attached beside the scanned one, opened full scree
   await expect(page.getByTestId('attached-new')).toHaveCount(2)
   await expect(page.getByTestId('attached-line')).toHaveText('2 of 4 attached')
   await expect(amountField(page)).toHaveValue(/640/)
+  // the same picture again isn't added twice
+  await page.getByTestId('receipt-attach-file').setInputFiles([photo('a')])
+  await expect(page.getByText('That photo is already attached.')).toBeVisible()
+  await expect(page.getByTestId('attached-new')).toHaveCount(2)
+  // a thumbnail opens full screen
+  await page.getByTestId('photo-thumb').first().click()
+  await expect(page.getByTestId('photo-viewer')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('photo-viewer')).toHaveCount(0)
   // one picked here can be dropped; three more fill it, and the fifth doesn't fit
   await page.getByTestId('attached-remove').first().click()
   await expect(page.getByTestId('attached-new')).toHaveCount(1)
@@ -1462,4 +1472,31 @@ test('help: after an update, Home says so once, and See what’s new opens it', 
   await page.goto('/')
   await expect(page.getByTestId('home-greeting')).toBeVisible()
   await expect(page.getByTestId('whats-new-banner')).toHaveCount(0)
+})
+
+test('receipt photos: the scanned receipt leads the strip with a badge, and a new scan asks first', async ({ page }) => {
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEklEQVR4nGP4z8CAFWEXHbQSACj/P8Fu7N9hAAAAAElFTkSuQmCC', 'base64')
+  const photo = (n: string) => ({ name: `${n}.png`, mimeType: 'image/png', buffer: Buffer.concat([png, Buffer.from(n)]) })
+  await page.goto('/add?group=g_goa')
+  await page.getByTestId('receipt-attach-file').setInputFiles([photo('slip')])
+  await expect(page.getByTestId('attached-new')).toHaveCount(1)
+  // a scan: it can't read this tiny picture, so it keeps it as the scanned receipt (first, badged)
+  await page.locator('input[type=file][capture]').setInputFiles([photo('bill')])
+  await expect(page.getByTestId('receipt-attached')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByTestId('photo-thumb').first()).toHaveAccessibleName('Open scanned receipt')
+  await expect(page.getByTestId('scan-badge')).toBeVisible()
+  await expect(page.getByTestId('attached-line')).toHaveText('Scanned receipt + 1 of 4 attached')
+  // attaching the scanned receipt again isn't allowed: it's already here
+  await page.getByTestId('receipt-attach-file').setInputFiles([photo('bill')])
+  await expect(page.getByText('That photo is already here as the scanned receipt.')).toBeVisible()
+  await expect(page.getByTestId('attached-new')).toHaveCount(1)
+  // scanning again asks first, and Cancel keeps it
+  await page.getByTestId('receipt-scan').click()
+  const ask = page.getByRole('dialog').filter({ hasText: 'Scan another receipt?' })
+  await expect(ask).toBeVisible()
+  await ask.getByRole('button', { name: 'Cancel' }).click()
+  // crossing the scanned receipt out keeps what's in the form
+  await page.getByTestId('receipt-remove').click()
+  await expect(page.getByTestId('receipt-attached')).toHaveCount(0)
+  await expect(page.getByTestId('attached-line')).toHaveText('1 of 4 attached')
 })
