@@ -6,6 +6,11 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.3.11 — October 2026
+
+- Settings → AI features is split into titled sections: Reading bills and screenshots, Bank SMS, Quick add and Icons, each with its own switches, then Your key and models (which key, Split Now's AI, your own Gemini key and its model). Model for pictures and Test pictures now sit under Icons. Before, everything but the main switch was under one Advanced panel.
+- Admin → AI is split the same way: Feature switches, Project key, Engine and model, Who can use it and how much, What Split Now's key pays for, Pictures for icons, and Today.
+
 ## 8.3.10 — October 2026
 
 - Draw a picture says why Google refused, and what to do: the key's prepaid credit has run out (top it up), the key has no billing (image models have no free tier), or Google is limiting pictures for a minute (wait). Before, all three read as no billing. On Split Now's key it says only that pictures aren't available right now.

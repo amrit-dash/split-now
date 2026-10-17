@@ -24,6 +24,11 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '8.3.11',
+    date: 'October 2026',
+    items: [{ text: 'AI features in titled sections: bills and screenshots, bank SMS, Quick add, icons, your key', section: 'ai-features' }],
+  },
+  {
     version: '8.3.10',
     date: 'October 2026',
     items: [

@@ -2,7 +2,7 @@ import { repo } from '@/data'
 import { AiSettings } from '@/components/AiSettings'
 import { SettingsPage } from './common'
 
-/** /settings/ai: one switch, a consent line, and the key plumbing under Advanced. */
+/** /settings/ai: one switch and a consent line, a titled section per kind of AI work, and the key plumbing under Your key and models. */
 export default function Ai() {
   return (
     <SettingsPage
