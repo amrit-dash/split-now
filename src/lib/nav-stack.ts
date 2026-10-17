@@ -21,7 +21,7 @@ export function recordNav(stack: NavStack, idx: number, path: string, kind: 'pus
 }
 
 /** A path without its query or hash, which is what "the same screen" compares. */
-const screen = (path: string) => path.split(/[?#]/)[0].replace(/\/+$/, '') || '/'
+export const screenOf = (path: string) => path.split(/[?#]/)[0].replace(/\/+$/, '') || '/'
 
 /**
  * How many steps back the last different screen is from history index `idx` (showing `current`),
@@ -30,10 +30,10 @@ const screen = (path: string) => path.split(/[?#]/)[0].replace(/\/+$/, '') || '/
  */
 export function backSteps(stack: NavStack, idx: number | undefined, current: string): number | null {
   if (idx === undefined || idx <= 0) return null
-  const here = screen(current)
+  const here = screenOf(current)
   for (let i = idx - 1; i >= 0; i--) {
     const p = stack[i]
-    if (p === undefined || screen(p) !== here) return idx - i
+    if (p === undefined || screenOf(p) !== here) return idx - i
   }
   return null
 }

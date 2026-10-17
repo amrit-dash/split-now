@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useTrackNav } from '@/hooks/useBack'
+import { useScrollMemory } from '@/hooks/useScrollMemory'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { Megaphone, RefreshCw, Wrench, X } from 'lucide-react'
 import { repo } from './data'
@@ -324,6 +325,8 @@ function AppRoutes({ cfg, admin }: { cfg: AppConfig; admin: boolean }) {
   usePrefetch()
   // Remembers which screen sits at each history entry, so back buttons return where you came from.
   useTrackNav()
+  // A new screen starts at the top; back and forward put it where it was left.
+  useScrollMemory()
   const liveTables = cfg.flags.liveTables !== false
   const autoCapture = cfg.flags.autoCapture !== false
   // Layout has its own Suspense around the Outlet (the tab bar stays while a screen loads);

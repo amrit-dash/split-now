@@ -63,7 +63,9 @@ export default function EmailLink() {
 
   return (
     <div>
-      <PageHeader title="Add an email" back="/profile" />
+      {/* Fixed: this screen is the email's one-use link; once it has run there is nothing to go back
+          to here, and Profile is where the added email shows. */}
+      <PageHeader title="Add an email" back={{ to: '/profile', mode: 'fixed' }} />
       <div className="card p-5" data-testid="email-link">
         {state.kind === 'working' && (
           <p className="flex items-center gap-2 text-sm" role="status">

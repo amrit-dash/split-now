@@ -433,6 +433,7 @@ export const SECTIONS: HelpSection[] = [
       'After an update, a banner says what version you’re on, with See what’s new.',
       'What’s new marks the releases since you last looked on this device.',
       'The full list of changes is in CHANGELOG.md on GitHub.',
+      'Back goes to the section you came from. The guide, its search and the How it works row are where you left them.',
     ],
     open: { label: 'Profile', to: '/profile' },
   },

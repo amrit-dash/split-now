@@ -170,7 +170,8 @@ export default function GroupDetail() {
   if (liveGroup === null)
     return (
       <>
-        <PageHeader title="Group not found" back="/groups" />
+        {/* Fixed: this group is gone for you, and every screen of it behind this one would say the same, so back leaves the group. */}
+        <PageHeader title="Group not found" back={{ to: '/groups', mode: 'fixed' }} />
         <Empty emoji="🔍" title="This group doesn’t exist or you’re not a member" />
       </>
     )

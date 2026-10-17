@@ -598,6 +598,97 @@ test('Back on a screen opened cold goes to its parent', async ({ page }) => {
   await expect(page).toHaveURL(/\/groups\/g_goa$/)
 })
 
+/** Help's front page, reached from Profile as a person would (so there is history behind it). */
+async function openHelpFromProfile(page: Page) {
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Profile' }).click()
+  await page.getByTestId('profile-help').click()
+  await expect(page).toHaveURL(/\/help$/)
+  await expect(page.getByTestId('help-core-card').first()).toBeVisible()
+}
+
+test('help: a related section, then Back, returns to the section it was opened from, then the guide; the system back agrees', async ({ page }) => {
+  await openHelpFromProfile(page)
+  await page.locator('a[href="/help/approvals"]').click()
+  await expect(page).toHaveURL(/\/help\/approvals$/)
+  await page.getByTestId('help-section').locator('a[href="/help/edit-group"]').click()
+  await expect(page).toHaveURL(/\/help\/edit-group$/)
+  await page.getByRole('button', { name: 'Back' }).click()
+  await expect(page).toHaveURL(/\/help\/approvals$/)
+  await page.getByRole('button', { name: 'Back' }).click()
+  await expect(page).toHaveURL(/\/help$/)
+  await page.getByRole('button', { name: 'Back' }).click()
+  await expect(page).toHaveURL(/\/profile$/)
+  // The same trip with the browser's (Android's) back.
+  await page.getByTestId('profile-help').click()
+  await page.locator('a[href="/help/approvals"]').click()
+  await page.getByTestId('help-section').locator('a[href="/help/edit-group"]').click()
+  await expect(page).toHaveURL(/\/help\/edit-group$/)
+  await page.goBack()
+  await expect(page).toHaveURL(/\/help\/approvals$/)
+  await page.goBack()
+  await expect(page).toHaveURL(/\/help$/)
+})
+
+test('help: a section opened from a link goes back to the guide, and a search result back to the results', async ({ page }) => {
+  await page.goto('/help/approvals')
+  await page.getByTestId('help-section').locator('a[href="/help/edit-group"]').click()
+  await page.getByRole('button', { name: 'Back' }).click()
+  await expect(page).toHaveURL(/\/help\/approvals$/)
+  await page.getByRole('button', { name: 'Back' }).click()
+  await expect(page).toHaveURL(/\/help$/)
+  await page.getByTestId('help-search').fill('refund')
+  await page.getByTestId('help-results').getByTestId('help-row').first().click()
+  await expect(page.getByTestId('help-section')).toBeVisible()
+  await page.getByRole('button', { name: 'Back' }).click()
+  await expect(page.getByTestId('help-search')).toHaveValue('refund')
+  await expect(page.getByTestId('help-results')).toBeVisible()
+})
+
+test('help: a section opened from low on the guide starts at the top, and back puts the guide and its row where they were', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await openHelpFromProfile(page)
+  const row = page.getByTestId('help-stories')
+  await row.evaluate((el) => {
+    el.scrollLeft = 260
+  })
+  const left = await row.evaluate((el) => el.scrollLeft)
+  expect(left).toBeGreaterThan(100)
+  const link = page.locator('a[href="/help/confirm-payment"]')
+  await link.scrollIntoViewIfNeeded()
+  const y = await page.evaluate(() => window.scrollY)
+  expect(y).toBeGreaterThan(500)
+  await link.click()
+  await expect(page.getByTestId('help-scene')).toBeVisible()
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeLessThan(5)
+  // A related section opened from the bottom of this one starts at the top too.
+  const related = page.getByTestId('help-section').getByTestId('help-row').first()
+  await related.scrollIntoViewIfNeeded()
+  await related.click()
+  await expect(page).not.toHaveURL(/confirm-payment$/)
+  // The address changes a moment before the new section renders and the page goes to the top,
+  // so wait for that rather than reading the scroll in between (a slow runner lands there).
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeLessThan(5)
+  await page.getByRole('button', { name: 'Back' }).click()
+  await page.getByRole('button', { name: 'Back' }).click()
+  await expect(page).toHaveURL(/\/help$/)
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(y - 20)
+  expect(await page.evaluate(() => window.scrollY)).toBeLessThan(y + 20)
+  await expect.poll(() => page.getByTestId('help-stories').evaluate((el) => el.scrollLeft)).toBeGreaterThan(left - 40)
+  expect(await page.getByTestId('help-stories').evaluate((el) => el.scrollLeft)).toBeLessThan(left + 40)
+})
+
+test('Back in Settings: a settings screen returns to Settings, then to Profile', async ({ page }) => {
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Profile' }).click()
+  await page.getByTestId('profile-settings').click()
+  await expect(page).toHaveURL(/\/settings$/)
+  await page.getByTestId('settings-notifications').click()
+  await expect(page).toHaveURL(/\/settings\/notifications$/)
+  await page.getByRole('button', { name: 'Back' }).click()
+  await expect(page).toHaveURL(/\/settings$/)
+  await page.getByRole('button', { name: 'Back' }).click()
+  await expect(page).toHaveURL(/\/profile$/)
+})
+
 /** A dollar trip where Rohan owes you $12.50, beside the seeded rupee groups (use with fixedRates). */
 async function usdTripWithRates(page: Page) {
   await page.evaluate(() => {

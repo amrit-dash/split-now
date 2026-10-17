@@ -225,7 +225,8 @@ export default function SettleUp() {
   if (group === null)
     return (
       <>
-        <PageHeader title="Settle up" back />
+        {/* Fixed: this group is gone for you, and every screen of it behind this one would say the same, so back leaves the group. */}
+        <PageHeader title="Settle up" back={{ to: '/groups', mode: 'fixed' }} />
         <Empty emoji="🔍" title="This group doesn’t exist or you’re not a member" />
       </>
     )
@@ -317,7 +318,7 @@ export default function SettleUp() {
             <span aria-hidden>{group.emoji}</span> {group.name}
           </>
         }
-        back
+        back={`/groups/${group.id}`}
       />
       <div className="card p-5">
         <PersonSelect
@@ -1112,7 +1113,7 @@ export function SettleWithPerson() {
       }}
       noValidate
     >
-      <PageHeader title="Settle up" subtitle={`with ${p.label} · ${n} groups`} back />
+      <PageHeader title="Settle up" subtitle={`with ${p.label} · ${n} groups`} back="/settle" />
       <div className="card p-5">
         <div className="flex flex-col items-center text-center">
           <Avatar name={p.label} photoURL={p.photoURL} color={p.color} size={56} />

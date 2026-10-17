@@ -194,7 +194,8 @@ export function LiveGroupOnly({ children }: { children: ReactNode }) {
   if (group && typeof group.deletedAt === 'number')
     return (
       <>
-        <PageHeader title={group.name} back="/groups" />
+        {/* Opened cold, back goes to the group itself, where it can be restored. */}
+        <PageHeader title={group.name} back={`/groups/${group.id}`} />
         <DeletedGroupCard group={group} />
       </>
     )

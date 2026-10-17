@@ -417,7 +417,7 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="mx-auto min-h-dvh max-w-lg px-4 pb-10">
-      <PageHeader title="Captured payment" back />
+      <PageHeader title="Captured payment" back="/inbox" />
       {children}
     </div>
   )

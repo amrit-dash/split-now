@@ -58,7 +58,7 @@ export default function ExpenseDetail() {
   if (!group || !e) {
     return (
       <>
-        <PageHeader title="Expense" back />
+        <PageHeader title="Expense" back={group ? `/groups/${group.id}` : '/groups'} />
         <Empty emoji="🔍" title="Expense not found">
           {group ? 'It may have been deleted for good.' : 'You may no longer be in this group.'}
           {group && (
@@ -111,7 +111,7 @@ export default function ExpenseDetail() {
       {/* The heading is the description in the card below, so the header carries no title (no empty h1). */}
       <PageHeader
         title=""
-        back
+        back={`/groups/${group.id}`}
         right={
           trashed ? undefined : (
             <div className="flex gap-1">

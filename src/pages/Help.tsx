@@ -68,7 +68,20 @@ function Guide() {
   useEffect(() => {
     guideShown = true
   }, [])
-  const [q, setQ] = useState('')
+  // The search is in the address (replaced, not a new entry per letter), so back from a result
+  // finds the results it was opened from.
+  const [params, setParams] = useSearchParams()
+  const q = params.get('q') ?? ''
+  const setQ = (v: string) =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (v) next.set('q', v)
+        else next.delete('q')
+        return next
+      },
+      { replace: true },
+    )
   const found = searchHelp(q, SECTIONS)
   const layout = guideLayout(CHAPTERS, SECTIONS)
   return (
@@ -105,7 +118,8 @@ function Guide() {
             <h2 id="help-how" className="label mb-2">
               How it works
             </h2>
-            <div className="-mx-4 flex snap-x scroll-px-4 gap-2 overflow-x-auto px-4 pb-1" data-testid="help-stories">
+            {/* data-keep-scroll: back from an explainer finds the row where it was left (useScrollMemory). */}
+            <div className="-mx-4 flex snap-x scroll-px-4 gap-2 overflow-x-auto px-4 pb-1" data-testid="help-stories" data-keep-scroll="help-stories">
               {layout.stories.map((s, i) => (
                 <Link
                   key={s.id}
