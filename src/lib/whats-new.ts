@@ -24,6 +24,15 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '8.3.14',
+    date: 'October 2026',
+    items: [
+      { text: 'Help for repeating expenses, other currencies and Split by items', section: 'repeating-expenses' },
+      { text: 'Help for getting back a deleted expense, comments and flags', section: 'recently-deleted' },
+      { text: 'Help for the Live table and moving a group from Splitwise', section: 'live-table' },
+    ],
+  },
+  {
     version: '8.3.13',
     date: 'October 2026',
     items: [
