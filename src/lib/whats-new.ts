@@ -24,6 +24,14 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '8.3.6',
+    date: 'October 2026',
+    items: [
+      { text: 'Choose the model for Draw a picture, with what each costs, in Settings → AI features', section: 'ai-features' },
+      { text: 'A drawn picture says which model drew it, and the cost note follows the model', section: 'icons-and-ai' },
+    ],
+  },
+  {
     version: '8.3.5',
     date: 'October 2026',
     items: [

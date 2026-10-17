@@ -1414,7 +1414,7 @@ export function createLocalRepo(): Repo {
       // No image model here: the stand-in drawing comes back as the "picture" (the app turns it into a small image).
       const { demoIcons } = await import('@/lib/icon-ai-demo')
       const svg = demoIcons(req).svgs[1] ?? demoIcons(req).svgs[0]
-      return { image: btoa(svg), mimeType: 'image/svg+xml', via: 'app' }
+      return { image: btoa(svg), mimeType: 'image/svg+xml', via: 'app', model: 'gemini-3.1-flash-lite-image' }
     },
     async iconPickAi(req) {
       // No AI here: the stand-in picks from the catalogue by the title's words (loaded on first use).

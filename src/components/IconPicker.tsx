@@ -20,6 +20,7 @@ export function IconPickerField({
   iconImage,
   onPickImage,
   picture,
+  pictureCost,
   ai,
 }: {
   emoji: string
@@ -31,6 +32,7 @@ export function IconPickerField({
   iconImage?: string
   onPickImage?: (image: string) => void
   picture?: 'own' | 'app' | null
+  pictureCost?: string
   /** what the sheet's AI is told besides the searched words (src/hooks/useIconAi.ts); absent: no AI */
   ai?: Omit<IconRequest, 'title'>
   /** icons offered first (the group type's) */
@@ -71,6 +73,7 @@ export function IconPickerField({
         svgValue={iconSvg}
         onPickSvg={onPickSvg}
         picture={picture}
+        pictureCost={pictureCost}
         imageValue={iconImage}
         onPickImage={onPickImage}
         testId="group-icon-sheet"

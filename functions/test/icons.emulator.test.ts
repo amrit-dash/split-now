@@ -78,9 +78,11 @@ describe('iconPictureAi (emulator)', () => {
     expect((await call({ title: '  ' }, 'alice')).error?.status).toBe('INVALID_ARGUMENT')
   })
 
-  it('the free Gemma key never draws: without a key of one’s own it is off', async () => {
-    await write('config/ai', { mode: 'everyone', engine: 'gemma', pictures: true })
+  it('a shared key on Gemma for bills still draws when the admin turned pictures on (the key has billing)', async () => {
+    await write('config/ai', { mode: 'everyone', engine: 'gemma' })
     expect((await call<Answer>(req, 'alice')).result).toEqual({ unavailable: true, reason: 'off' })
+    await write('config/ai', { mode: 'everyone', engine: 'gemma', pictures: true, pictureModel: 'gemini-3.1-flash-image' })
+    expect((await call<Answer>(req, 'alice')).result).toEqual({ unavailable: true, reason: 'not_configured' })
   })
 
   it('the shared Gemini key draws only when the admin turned pictures on', async () => {

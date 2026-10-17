@@ -61,7 +61,15 @@ import type { QuickAiResponse } from '../../shared/quick-ai'
 import { cleanQuickRequest, normaliseQuickAi, QUICK_SCHEMA, quickPrompt } from './lib/quick-ai'
 import { flagOn, getLimits } from './lib/limits'
 import { cleanIconRequest, cleanPickRequest, iconPrompt, parseIconText, parsePick, pickPrompt } from './lib/icon-ai'
-import { type IconPickResponse, type IconPictureResponse, type IconSuggestions, PICTURE_MODELS, picturePlan, picturePrompt } from '../../shared/icon-ai'
+import {
+  type IconPickResponse,
+  type IconPictureResponse,
+  type IconSuggestions,
+  pictureModelsFrom,
+  picturePlan,
+  picturePlanModels,
+  picturePrompt,
+} from '../../shared/icon-ai'
 import { applyRateLimit, type RateState } from './lib/ratelimit'
 import { parseKekList, readStoredKey, storedKeyFields } from './lib/seal'
 import { addDays, istDate } from './lib/time'
@@ -634,12 +642,15 @@ export const iconPictureAi = onCall({ ...base, timeoutSeconds: 90, memory: '512M
   if (!input) throw new HttpsError('invalid-argument', 'Nothing to draw')
   if (!(await flagOn('aiIcons'))) return { unavailable: true, reason: 'off' }
   const ctx = await loadCtx(me.uid, me.email)
-  const appPictures = ctx.app.engine === 'gemini' && ctx.app.pictures && appKeyStatus(ctx.app, 'images', ctx.email) === 'available'
+  // The admin's switch decides, whichever engine reads bills: a key running the free Gemma for text
+  // can still be a billed key, and Google refuses pictures on one without billing (picture_billing).
+  const appPictures = ctx.app.pictures && appKeyStatus(ctx.app, 'images', ctx.email) === 'available'
   const which = picturePlan({ user: ctx.user, hasOwnKey: !!ctx.ownKey, appPictures })
   if (!which) return { unavailable: true, reason: 'off' }
   const key = which === 'own' ? ctx.ownKey : (await appKey()).key
   if (!key) return { unavailable: true, reason: 'not_configured' }
-  const plan: KeyPlan = { key: which, models: [...PICTURE_MODELS] }
+  // The model chosen for that key (Settings → AI features, or Admin → AI), then the recommended ones.
+  const plan: KeyPlan = { key: which, models: picturePlanModels(which === 'own' ? ctx.user.aiPictureModel : ctx.app.pictureModel) }
   const now = Date.now()
   const limits =
     which === 'own' ? limitPair(await getLimits(now), 'aiOwnPerHour', 'aiOwnPerDay') : { perHour: ctx.app.picturesPerDay, perDay: ctx.app.picturesPerDay }
@@ -651,7 +662,7 @@ export const iconPictureAi = onCall({ ...base, timeoutSeconds: 90, memory: '512M
   try {
     const g = await generateImage(key, picturePrompt(input), { models: plan.models, timeoutMs: 80_000 })
     await record(ctx, plan, 'pictures', now, { usage: g.usage, model: g.modelVersion ?? g.model })
-    return { image: g.data, mimeType: g.mimeType, via: which }
+    return { image: g.data, mimeType: g.mimeType, via: which, model: g.model }
   } catch (e) {
     const err = e instanceof GeminiError ? e : new GeminiError((e as Error).message)
     logger.warn('ai picture failed', { key: which, kind: err.kind, message: err.message.slice(0, 200) })
@@ -764,8 +775,9 @@ async function projectKey(uid: string, d: { action?: unknown; key?: unknown }, n
 }
 
 /**
- * Callable { which: 'own' | 'app' | 'gemma' } → models for the user's key, or the project key's
- * Gemini models / Gemma models, newest first (admins).
+ * Callable { which: 'own' | 'app' | 'gemma', kind?: 'pictures' } → models for the user's key, or the
+ * project key's Gemini models / Gemma models, newest first (admins). With kind 'pictures', the image
+ * models that key can draw with, cheapest first (shared/icon-ai.ts pictureModelsFrom).
  */
 export const aiModels = onCall({ ...base, timeoutSeconds: 30, maxInstances: 5 }, async (req) => {
   const me = signedIn(req)
@@ -782,6 +794,7 @@ export const aiModels = onCall({ ...base, timeoutSeconds: 30, maxInstances: 5 },
   }
   try {
     const list = await listModels(key)
+    if ((req.data as { kind?: unknown } | null)?.kind === 'pictures') return { models: pictureModelsFrom(list) }
     if (which === 'gemma') {
       const models = gemmaModels(list)
       gemmaCache = { at: Date.now(), key, ids: models.map((m) => m.id) }
@@ -809,8 +822,9 @@ export const aiStatus = onCall({ ...base, timeoutSeconds: 15, maxInstances: 5 },
     app: {
       images: configured ? appKeyStatus(app, 'images', me.email) : 'off',
       sms: configured ? appKeyStatus(app, 'sms', me.email) : 'off',
-      // "Draw a picture" on the shared key: Gemini only, and only when the admin turned it on
-      pictures: configured && app.engine === 'gemini' && app.pictures ? appKeyStatus(app, 'images', me.email) : 'off',
+      // "Draw a picture" on the shared key: only when the admin turned it on (the key must have billing)
+      pictures: configured && app.pictures ? appKeyStatus(app, 'images', me.email) : 'off',
+      pictureModel: app.pictureModel,
       model: app.model,
       engine: app.engine,
       perDay: app.perDay,

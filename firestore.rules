@@ -139,7 +139,7 @@ service cloud.firestore {
           && writesOpen()
           && (settingId != 'notifications' || (
             request.resource.data.keys().hasOnly(['captures', 'unsorted', 'expenses', 'settlements', 'reminders', 'chat', 'openItems', 'approvals', 'mutedChats', 'outsideTrips',
-              'capturePaused', 'minAmount', 'ignoreWords', 'pausedTrips', 'aiSms', 'aiSmsMerchant', 'aiImages', 'aiQuickAdd', 'aiPayments', 'aiIcons', 'aiIconAuto', 'aiEnabled', 'aiSource', 'aiModel', 'aiFreeOk', 'updatedAt'])
+              'capturePaused', 'minAmount', 'ignoreWords', 'pausedTrips', 'aiSms', 'aiSmsMerchant', 'aiImages', 'aiQuickAdd', 'aiPayments', 'aiIcons', 'aiIconAuto', 'aiEnabled', 'aiSource', 'aiModel', 'aiPictureModel', 'aiFreeOk', 'updatedAt'])
             && request.resource.data.get('captures', true) is bool
             && request.resource.data.get('unsorted', false) is bool
             && request.resource.data.get('expenses', true) is bool
@@ -178,6 +178,8 @@ service cloud.firestore {
             && request.resource.data.get('aiEnabled', true) is bool
             && request.resource.data.get('aiSource', 'auto') in ['auto', 'own', 'app']
             && request.resource.data.get('aiModel', '') is string && request.resource.data.get('aiModel', '').size() <= 80
+            // the image model for Draw a picture on the person's own key; '' = recommended
+            && request.resource.data.get('aiPictureModel', '') is string && request.resource.data.get('aiPictureModel', '').size() <= 80
             // Agreed to Split Now's free AI (Gemma, Google's unpaid terms); off until they turn it on
             && request.resource.data.get('aiFreeOk', false) is bool
             && request.resource.data.get('updatedAt', 0) is int))
@@ -335,7 +337,7 @@ service cloud.firestore {
           && d.get('updatedBy', '') is string;
       }
       function validAiConfig(d) {
-        return d.keys().hasOnly(['mode', 'engine', 'gemmaModel', 'allowEmails', 'images', 'sms', 'model', 'perDay', 'perHour', 'globalPerDay', 'pictures', 'picturesPerDay', 'updatedAt', 'updatedBy'])
+        return d.keys().hasOnly(['mode', 'engine', 'gemmaModel', 'allowEmails', 'images', 'sms', 'model', 'perDay', 'perHour', 'globalPerDay', 'pictures', 'picturesPerDay', 'pictureModel', 'updatedAt', 'updatedBy'])
           && d.mode in ['off', 'everyone', 'allowlist']
           && d.get('engine', 'gemini') in ['gemini', 'gemma']
           && d.get('gemmaModel', '') is string && d.get('gemmaModel', '').size() <= 80
@@ -348,7 +350,8 @@ service cloud.firestore {
           && d.get('globalPerDay', 2000) is int && d.get('globalPerDay', 2000) >= 1 && d.get('globalPerDay', 2000) <= 100000
           // "Draw a picture" on the shared key (paid per picture): off unless set
           && d.get('pictures', false) is bool
-          && d.get('picturesPerDay', 5) is int && d.get('picturesPerDay', 5) >= 1 && d.get('picturesPerDay', 5) <= 100;
+          && d.get('picturesPerDay', 5) is int && d.get('picturesPerDay', 5) >= 1 && d.get('picturesPerDay', 5) <= 100
+          && d.get('pictureModel', '') is string && d.get('pictureModel', '').size() <= 80;
       }
       allow get: if id == 'app' || isAdmin();
       allow list: if false;

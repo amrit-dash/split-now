@@ -163,6 +163,11 @@ describe('resolvers', () => {
       aiEnabled: false,
       aiModel: 'gemini-3-flash',
     })
+    // the picture model: an image model only, '' (recommended) otherwise
+    expect(resolveUserAi({ aiPictureModel: 'gemini-3-pro-image' }).aiPictureModel).toBe('gemini-3-pro-image')
+    expect(resolveUserAi({ aiPictureModel: 'gemini-3.5-flash-lite' }).aiPictureModel).toBe('')
+    expect(resolveAppAi({ pictureModel: 'gemini-nano-banana-2.1' }).pictureModel).toBe('gemini-nano-banana-2.1')
+    expect(resolveAppAi({ pictureModel: 'x' }).pictureModel).toBe('')
   })
 })
 

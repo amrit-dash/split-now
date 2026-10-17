@@ -1384,6 +1384,8 @@ test('icons: Draw a picture says who pays, and the picture becomes the icon', as
   await expect(sheet.getByTestId('icon-picture-draw')).toContainText('“anchor”')
   await expect(sheet.getByTestId('icon-picture-note')).toContainText('Split Now')
   await sheet.getByTestId('icon-picture-draw').click()
+  // the picture says which model drew it, and what that cost
+  await expect(sheet.getByTestId('icon-picture-by')).toContainText('Nano Banana 2 Lite')
   await sheet.getByTestId('icon-picture-use').click()
   await expect(page.getByTestId('expense-icon').locator('img')).toHaveAttribute('src', /^data:image\/(webp|png|jpeg);base64,/)
   await page

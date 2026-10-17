@@ -1,4 +1,4 @@
-import { cleanIconImage } from '../../shared/icon-ai'
+import { cleanIconImage, PICTURE_MODEL_INFO, PICTURE_MODELS, pictureCost } from '../../shared/icon-ai'
 import { cleanSvg, svgDataUrl } from '../../shared/svg-icon'
 
 /*
@@ -104,3 +104,38 @@ export const AI_IDLE_MS = 3000
  * search words, the title has its own automatic pick.
  */
 export const aiRowShown = (o: { query: string; results: number; idle: boolean }): boolean => o.query.trim().length >= 2 && (o.results === 0 || o.idle)
+
+/**
+ * The picture-model picker (Settings → AI features for one's own key, Admin → AI for Split Now's):
+ * Recommended first, then the models the key lists with price and speed, and a chosen one the
+ * key no longer lists kept so the choice still shows (the server falls back from it anyway).
+ */
+export function pictureModelOptions(
+  models: Array<{ id: string; label: string; usd?: number; speed?: string }> | null,
+  chosen: string,
+): Array<{ value: string; label: string; hint?: string }> {
+  const rec = PICTURE_MODEL_INFO[PICTURE_MODELS[0]]
+  // A model well over the recommended one's price says what that buys at icon size: nothing visible.
+  const dear = (m: { usd?: number }) => m.usd !== undefined && m.usd > rec.usd * 2
+  const line = (m: { usd?: number; speed?: string }) =>
+    [m.usd !== undefined ? `about US$${m.usd.toFixed(2)} a picture` : null, m.speed, dear(m) ? 'costs more, no difference at icon size' : null]
+      .filter(Boolean)
+      .join(' · ')
+  return [
+    { value: '', label: `Recommended (${rec.name})`, hint: line(rec) },
+    ...(models ?? []).map((m) => ({ value: m.id, label: m.label, hint: line(m) || undefined })),
+    ...(chosen && !(models ?? []).some((m) => m.id === chosen) ? [{ value: chosen, label: PICTURE_MODEL_INFO[chosen]?.name ?? chosen }] : []),
+  ]
+}
+
+/** What a picture costs for this person: the model their key (or Split Now's) draws with. */
+export const pictureCostFor = (o: { via: 'own' | 'app' | null; ownModel?: string; appModel?: string }): string =>
+  pictureCost((o.via === 'own' ? o.ownModel : o.via === 'app' ? o.appModel : '') || PICTURE_MODELS[0])
+
+/** Under a drawn picture: which model drew it and what it cost ("Nano Banana 2 Lite · about US$0.03"); null when unknown. */
+export function drawnByLine(model: string | undefined): string | null {
+  const id = model?.replace(/^models\//, '')
+  if (!id) return null
+  const info = PICTURE_MODEL_INFO[id]
+  return info ? `${info.name} · ${pictureCost(id)}` : id
+}
