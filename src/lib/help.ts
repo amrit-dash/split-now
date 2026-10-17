@@ -144,7 +144,8 @@ export const SHOT_ACCENTS = ['violet', 'ocean', 'neon', 'berry', 'koi', 'gold', 
  * the screenshot looks like their app. An accent the pictures don't have falls back to violet.
  */
 export function shotSrc(id: string, o: { dark: boolean; accent: string | null | undefined }): string {
-  const accent = (SHOT_ACCENTS as readonly string[]).includes(o.accent ?? '') ? o.accent : 'violet'
+  // The name comes from the page (<html data-accent>); the URL only ever gets one of our own constants.
+  const accent = SHOT_ACCENTS.find((a) => a === o.accent) ?? 'violet'
   return `/help/${o.dark ? 'dark' : 'light'}/${accent}/${id}.webp`
 }
 
