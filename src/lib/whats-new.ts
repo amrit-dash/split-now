@@ -24,6 +24,14 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '8.3.7',
+    date: 'October 2026',
+    items: [
+      { text: 'Every Help section plays its steps, and ticks each one off as it goes', section: 'help-guide' },
+      { text: 'See a screenshot of the real screen, with the step you’re on lit', section: 'help-guide' },
+    ],
+  },
+  {
     version: '8.3.6',
     date: 'October 2026',
     items: [

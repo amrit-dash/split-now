@@ -58,7 +58,15 @@ function HelpHome() {
   )
 }
 
+// The cards pop in the first time the guide is shown in a visit; switching tabs or coming back
+// from a section shows them as they are, so the page doesn't look like it reloaded.
+let guideShown = false
+
 function Guide() {
+  const [popIn] = useState(() => !guideShown)
+  useEffect(() => {
+    guideShown = true
+  }, [])
   const [q, setQ] = useState('')
   const found = searchHelp(q, SECTIONS)
   const layout = guideLayout(CHAPTERS, SECTIONS)
@@ -101,8 +109,8 @@ function Guide() {
                 <Link
                   key={s.id}
                   to={`/help/${s.id}`}
-                  className="card animate-pop flex min-h-24 flex-col gap-1 p-3 transition active:scale-[0.98]"
-                  style={{ animationDelay: `${i * 40}ms` }}
+                  className={`card flex min-h-24 flex-col gap-1 p-3 transition active:scale-[0.98] ${popIn ? 'animate-pop' : ''}`}
+                  style={popIn ? { animationDelay: `${i * 40}ms` } : undefined}
                   data-testid="help-core-card"
                 >
                   <span className="text-2xl" aria-hidden>
@@ -217,22 +225,7 @@ function SectionPage({ id }: { id: string }) {
   return (
     <div className="space-y-4" data-testid="help-section">
       <PageHeader title={s.title} back="/help" subtitle={s.summary} />
-      {s.steps?.length ? (
-        s.core ? (
-          <StepPlayer key={s.id} sectionId={s.id} steps={s.steps} />
-        ) : (
-          <ol className="card space-y-2 p-4">
-            {s.steps.map((st, n) => (
-              <li key={st.text} className="flex items-start gap-3 text-sm">
-                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold dark:bg-ink-800">
-                  {n + 1}
-                </span>
-                <StepText text={st.text} />
-              </li>
-            ))}
-          </ol>
-        )
-      ) : null}
+      {s.steps?.length ? <StepPlayer key={s.id} sectionId={s.id} steps={s.steps} /> : null}
       {s.open && (
         <Link to={s.open.to} className="btn-primary w-full" data-testid="help-try">
           Try it: {s.open.label} <ArrowRight size={16} aria-hidden />

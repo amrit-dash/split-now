@@ -363,6 +363,7 @@ html[data-update-ready] .install-banner { display: none; }
 @keyframes help-press { 0% { transform: scale(1.6); opacity: 0; } 30% { transform: scale(0.85); opacity: 1; } 60% { transform: scale(1); } 100% { transform: scale(1.9); opacity: 0; } }
 @keyframes help-in { from { transform: translateY(4px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 @keyframes help-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes help-ring { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-brand-500) 45%, transparent); } 50% { box-shadow: 0 0 0 8px color-mix(in oklab, var(--color-brand-500) 0%, transparent); } }
 
 /* Horizontally scrolling rows (chips, split types, filters) scroll by touch without a visible bar. */
 .overflow-x-auto { scrollbar-width: none; }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { boldParts, clampStep, guideLayout, nextStep, plain, relatedOf, searchHelp } from './help'
+import { boldParts, clampStep, guideLayout, type HelpShot, markBox, nextStep, plain, relatedOf, searchHelp } from './help'
+import SHOTS from './help-shots.json'
 import { CHAPTERS, SECTIONS } from './help-content'
 import { baseOf, findMark, SCENE_MARKS, SCENES } from './help-scenes'
 
@@ -102,7 +103,10 @@ describe('the step player and the front page', () => {
     expect(g.core.length).toBe(10)
     expect(g.chapters.flatMap((c) => c.sections).some((s) => s.core)).toBe(false)
     expect(g.chapters.every((c) => c.sections.length > 0)).toBe(true)
-    expect(g.core.length + g.chapters.reduce((n, c) => n + c.sections.length, 0)).toBe(SECTIONS.length)
+    expect(g.core.length + g.chapters.reduce((n, c) => n + c.sections.length, 0)).toBe(SECTIONS.filter((s) => !s.unlisted).length)
+    // Help about Help isn't on Help's own front page, but links and search still reach it
+    expect(g.chapters.flatMap((c) => c.sections).some((s) => s.id === 'help-guide')).toBe(false)
+    expect(searchHelp('What’s new', SECTIONS)[0].id).toBe('help-guide')
   })
 })
 
@@ -120,7 +124,38 @@ describe('the scenes', () => {
     expect(baseOf(SCENES['private-groups'], 3)).toBe(2)
     expect(baseOf(SCENES['private-groups'], 2)).toBeNull()
   })
-  it('every scene belongs to a main feature', () => {
-    for (const id of Object.keys(SCENES)) expect(SECTIONS.find((s) => s.id === id)?.core, id).toBe(true)
+  it('every scene belongs to a section, and every section with steps plays one that has each step’s mark', () => {
+    for (const id of Object.keys(SCENES))
+      expect(
+        SECTIONS.some((s) => s.id === id),
+        id,
+      ).toBe(true)
+    for (const s of SECTIONS.filter((x) => x.steps?.length)) {
+      expect(SCENES[s.id], s.id).toBeDefined()
+      for (const st of s.steps ?? []) expect(SCENE_MARKS[s.id], `${s.id}: ${st.mark}`).toContain(st.mark)
+    }
+  })
+})
+
+describe('the screenshots', () => {
+  const shots = SHOTS as Record<string, HelpShot>
+  const fsModule = 'node:fs'
+  it('belong to sections, mark steps that exist, and have their picture in public/help', async () => {
+    const { existsSync } = (await import(/* @vite-ignore */ fsModule)) as { existsSync: (p: URL) => boolean }
+    for (const [id, shot] of Object.entries(shots)) {
+      const s = SECTIONS.find((x) => x.id === id)
+      expect(s, id).toBeDefined()
+      expect(shot.marks.length, id).toBeGreaterThan(0)
+      for (const m of shot.marks) {
+        expect(m.step, id).toBeGreaterThanOrEqual(1)
+        expect(m.step, id).toBeLessThanOrEqual(s?.steps?.length ?? 0)
+        for (const v of [m.x, m.y, m.w, m.h]) expect(v >= 0 && v <= 1, id).toBe(true)
+      }
+      expect(existsSync(new URL(`../../public/help/${id}.webp`, import.meta.url)), id).toBe(true)
+    }
+  })
+  it('a marker’s outline is the part with room around it, inside the picture', () => {
+    expect(markBox({ step: 1, x: 0.5, y: 0.5, w: 0.2, h: 0.1 })).toEqual({ left: 38.8, top: 43.2, width: 22.4, height: 13.6 })
+    expect(markBox({ step: 1, x: 0.05, y: 0.02, w: 0.1, h: 0.04 })).toEqual({ left: 0, top: 0, width: 11.2, height: 5.8 })
   })
 })

@@ -1416,8 +1416,23 @@ test('help: Profile → Help finds a feature, plays its steps and goes there', a
   await expect(page.getByTestId('help-play')).toHaveAttribute('aria-pressed', 'false')
   await page.getByTestId('help-next').click()
   await expect(steps.nth(4)).toHaveAttribute('aria-current', 'step')
+  // steps already shown are ticked off
+  await expect(steps.nth(0)).toContainText('done')
+  // the real screen, as a picture: opened on request, the current step lit, nothing in it to tap
+  await page.getByTestId('help-shot-panel').getByRole('button').first().click()
+  await expect(page.getByTestId('help-shot').locator('img')).toBeVisible()
+  await expect(page.getByTestId('help-shot').getByRole('button')).toHaveCount(0)
+  await expect(page.getByTestId('help-shot').locator('[data-on]')).toHaveCount(1)
   await page.getByTestId('help-try').click()
   await expect(page).toHaveURL(/\/add/)
+})
+
+test('help: a section that isn’t a main feature plays its own steps too', async ({ page }) => {
+  await page.goto('/help/private-groups-setup')
+  await expect(page.getByTestId('help-scene')).toBeVisible()
+  await expect(page.getByTestId('help-step')).toHaveCount(5)
+  await page.getByTestId('help-next').click()
+  await expect(page.getByTestId('help-step').nth(1)).toHaveAttribute('aria-current', 'step')
 })
 
 test('help: What’s new lists this version first and links each line to the guide', async ({ page }) => {

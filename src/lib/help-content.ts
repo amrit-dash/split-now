@@ -272,15 +272,17 @@ export const SECTIONS: HelpSection[] = [
   // ---- Getting started -----------------------------------------------------------------
   {
     id: 'help-guide',
+    // You're already in Help: listing it on Help's own front page says nothing new. What's new links here.
+    unlisted: true,
     icon: '🧭',
     chapter: 'start',
     title: 'Help and What’s new',
     summary: 'This guide, and what changed in each release.',
     keywords: ['help', 'guide', 'how to', 'changelog', 'release', 'update', 'version'],
     steps: [
-      { text: 'Profile → **Help**.' },
-      { text: 'Search, or open a feature: play its steps, or tap one to jump to it.' },
-      { text: '**What’s new** lists every release of this version; tap a line to read about it.' },
+      { text: 'Profile → **Help**.', mark: 'profile' },
+      { text: 'Search, or open a feature: play its steps, or tap one to jump to it.', mark: 'search' },
+      { text: '**What’s new** lists every release of this version; tap a line to read about it.', mark: 'whatsnew' },
     ],
     points: [
       'After an update, a banner says what version you’re on, with See what’s new.',
@@ -297,9 +299,9 @@ export const SECTIONS: HelpSection[] = [
     summary: 'Sign in with Google or a link emailed to you; there are no passwords.',
     keywords: ['login', 'log in', 'google', 'email', 'link', 'account'],
     steps: [
-      { text: 'Tap **Continue with Google**, or **Continue with email**.' },
-      { text: 'For email: type your address, tap **Email me a sign-in link**, and open it on the same phone.' },
-      { text: 'New here: say what friends should call you.' },
+      { text: 'Tap **Continue with Google**, or **Continue with email**.', mark: 'google' },
+      { text: 'For email: type your address, tap **Email me a sign-in link**, and open it on the same phone.', mark: 'email' },
+      { text: 'New here: say what friends should call you.', mark: 'name' },
     ],
     points: [
       'A link opened on another phone asks which email it was sent to.',
@@ -317,9 +319,9 @@ export const SECTIONS: HelpSection[] = [
     summary: 'A refund or reimbursement one person got that belongs to several.',
     keywords: ['refund', 'reimbursement', 'cashback', 'got back', 'received'],
     steps: [
-      { text: 'In Add expense, switch to **Money received** above the amount.' },
-      { text: 'Pick who received it and who it’s shared with.' },
-      { text: 'Tap **Save**.' },
+      { text: 'In Add expense, switch to **Money received** above the amount.', mark: 'switch' },
+      { text: 'Pick who received it and who it’s shared with.', mark: 'who' },
+      { text: 'Tap **Save**.', mark: 'save' },
     ],
     points: [
       'The person who received it owes the others their share.',
@@ -339,9 +341,9 @@ export const SECTIONS: HelpSection[] = [
     summary: 'One scanned receipt plus up to four attached photos per expense.',
     keywords: ['photo', 'attach', 'image', 'screenshot', 'slip', 'viewer'],
     steps: [
-      { text: 'In Add expense, tap **Attach** and pick one or several photos.' },
-      { text: 'Tap **Save**.' },
-      { text: 'Later, open the expense’s photos row and tap **Add a photo**.' },
+      { text: 'In Add expense, tap **Attach** and pick one or several photos.', mark: 'attach' },
+      { text: 'Tap **Save**.', mark: 'save' },
+      { text: 'Later, open the expense’s photos row and tap **Add a photo**.', mark: 'add' },
     ],
     points: [
       'Scan reads a bill and keeps it as the scanned receipt; a new scan replaces it.',
@@ -362,11 +364,11 @@ export const SECTIONS: HelpSection[] = [
     summary: 'Add a passkey and a universal pattern once, in Settings.',
     keywords: ['universal pattern', 'passkey', 'face id', 'fingerprint', 'set pattern'],
     steps: [
-      { text: 'Settings → **Encrypted groups**.' },
-      { text: 'Add a passkey: Face ID, a fingerprint or your screen lock.' },
-      { text: 'Tap **Set universal pattern**: tap and long-press at least 6 times, mixed.' },
-      { text: 'Choose **Follow the sequence** (order matters) or not (only the counts matter).' },
-      { text: 'Tap **Next**, enter it again, and **Save pattern**.' },
+      { text: 'Settings → **Encrypted groups**.', mark: 'open' },
+      { text: 'Add a passkey: Face ID, a fingerprint or your screen lock.', mark: 'passkey' },
+      { text: 'Tap **Set universal pattern**: tap and long-press at least 6 times, mixed.', mark: 'pattern' },
+      { text: 'Choose **Follow the sequence** (order matters) or not (only the counts matter).', mark: 'order' },
+      { text: 'Tap **Next**, enter it again, and **Save pattern**.', mark: 'save' },
     ],
     points: [
       'While you set it, each tap shows as · and each long press as –; lock buttons show nothing.',
@@ -384,9 +386,9 @@ export const SECTIONS: HelpSection[] = [
     summary: 'Tap and long-press your pattern on a lock button, then Face ID.',
     keywords: ['unlock', 'open', 'lock', 'pattern', 'wrong pattern', 'locked out'],
     steps: [
-      { text: 'On a lock button, tap and long-press your pattern.' },
-      { text: 'Pause: it’s checked a moment later.' },
-      { text: 'Approve Face ID or your passkey.' },
+      { text: 'On a lock button, tap and long-press your pattern.', mark: 'pattern' },
+      { text: 'Pause: it’s checked a moment later.', mark: 'pause' },
+      { text: 'Approve Face ID or your passkey.', mark: 'faceid' },
     ],
     points: [
       'The lock on the Groups screen opens every private group you’re in; the one inside a group opens just that one.',
@@ -404,9 +406,9 @@ export const SECTIONS: HelpSection[] = [
     summary: 'New group → Private group, or Group ⋯ → Make private.',
     keywords: ['convert', 'make private', 'turn off private', 'encrypt group'],
     steps: [
-      { text: 'New group: turn on **Private group** under More options.' },
-      { text: 'A group you made: Group ⋯ → **Make private** → **Make this group private**.' },
-      { text: 'To undo it: the same sheet → **Turn off private**.' },
+      { text: 'New group: turn on **Private group** under More options.', mark: 'new' },
+      { text: 'A group you made: Group ⋯ → **Make private** → **Make this group private**.', mark: 'menu' },
+      { text: 'To undo it: the same sheet → **Turn off private**.', mark: 'off' },
     ],
     points: [
       'It needs your universal pattern first.',
@@ -422,7 +424,11 @@ export const SECTIONS: HelpSection[] = [
     title: 'A group’s own pattern',
     summary: 'An optional pattern that opens only one group, shared in person.',
     keywords: ['group pattern', 'own pattern', 'share pattern'],
-    steps: [{ text: 'Group ⋯ → **Private group** → **Give it its own pattern**.' }, { text: 'Draw it twice and save.' }, { text: 'Tell the group in person.' }],
+    steps: [
+      { text: 'Group ⋯ → **Private group** → **Give it its own pattern**.', mark: 'give' },
+      { text: 'Draw it twice and save.', mark: 'draw' },
+      { text: 'Tell the group in person.', mark: 'tell' },
+    ],
     points: [
       'It opens only that group, for anyone who knows it, even without a universal pattern.',
       'Setting, changing or removing it asks for a pattern that already opens the group.',
@@ -438,8 +444,8 @@ export const SECTIONS: HelpSection[] = [
     summary: 'The creator lets each person in from their Inbox.',
     keywords: ['ask to join', 'invite', 'join request', 'approve'],
     steps: [
-      { text: 'Open the invite and tap **Ask to join**.' },
-      { text: 'The creator approves it in their Inbox, as someone new or as a name already in the group.' },
+      { text: 'Open the invite and tap **Ask to join**.', mark: 'ask' },
+      { text: 'The creator approves it in their Inbox, as someone new or as a name already in the group.', mark: 'approve' },
     ],
     points: [
       'Nobody joins from the link itself, old links included.',
@@ -456,8 +462,8 @@ export const SECTIONS: HelpSection[] = [
     summary: 'Choose the idle time, and whether leaving the app locks them.',
     keywords: ['auto-lock', 'timeout', 'idle', 'stay open'],
     steps: [
-      { text: 'Settings → Encrypted groups → **Auto-lock**: 1 minute to 1 hour, or Only when the app closes.' },
-      { text: 'Turn off **Lock when I leave the app** to keep them open while you switch apps.' },
+      { text: 'Settings → Encrypted groups → **Auto-lock**: 1 minute to 1 hour, or Only when the app closes.', mark: 'time' },
+      { text: 'Turn off **Lock when I leave the app** to keep them open while you switch apps.', mark: 'leave' },
     ],
     points: [
       'Each private group can have its own time, in its Private group sheet.',
@@ -474,7 +480,7 @@ export const SECTIONS: HelpSection[] = [
     title: 'Stop using private groups',
     summary: 'Delete your pattern and passkeys; the app stops offering private groups.',
     keywords: ['stop', 'remove pattern', 'delete passkey', 'disable'],
-    steps: [{ text: 'Settings → Encrypted groups → **Stop using private groups**, at the bottom.' }],
+    steps: [{ text: 'Settings → Encrypted groups → **Stop using private groups**, at the bottom.', mark: 'stop' }],
     points: [
       'It works once no private group you made is left: turn private off, delete or leave it.',
       'Private groups other people made still open with their own pattern.',
@@ -491,7 +497,10 @@ export const SECTIONS: HelpSection[] = [
     title: 'AI features',
     summary: 'One switch lets Google’s AI read what the phone can’t.',
     keywords: ['ai', 'gemini', 'gemma', 'key', 'api key', 'privacy', 'free ai'],
-    steps: [{ text: 'Settings → **AI features**.' }, { text: 'Turn on **Use AI**. Advanced has a switch for each feature and which key to use.' }],
+    steps: [
+      { text: 'Settings → **AI features**.', mark: 'open' },
+      { text: 'Turn on **Use AI**. Advanced has a switch for each feature and which key to use.', mark: 'use' },
+    ],
     points: [
       'Off, nothing is sent to any AI; bills are read on the phone.',
       'Split Now’s free AI (Gemma): Google may read and use what’s sent; nothing goes to it until you agree.',
@@ -510,7 +519,7 @@ export const SECTIONS: HelpSection[] = [
     title: 'Admin console',
     summary: 'Switches, limits, the AI key, accounts and logs, for admins only.',
     keywords: ['admin', 'flags', 'limits', 'logs', 'maintenance'],
-    steps: [{ text: 'Settings → **Admin** (only for accounts with admin access).' }],
+    steps: [{ text: 'Settings → **Admin** (only for accounts with admin access).', mark: 'admin' }],
     points: [
       'Flags switch a feature off for everyone; a missing setting means on.',
       'Logs shows the server’s logs and error reports from phones; an opened entry wraps long lines.',

@@ -29,6 +29,8 @@ export interface HelpSection {
   summary: string
   /** one of the main features: listed first and given a playable scene */
   core?: boolean
+  /** not listed on the guide's front page (it is reached from links: What's new, Related); search still finds it */
+  unlisted?: boolean
   /** the emoji on its card */
   icon?: string
   steps?: HelpStep[]
@@ -106,12 +108,35 @@ export function guideLayout(
   sections: HelpSection[],
 ): { core: HelpSection[]; chapters: Array<{ chapter: Chapter; sections: HelpSection[] }> } {
   return {
-    core: sections.filter((s) => s.core),
-    chapters: chapters.map((chapter) => ({ chapter, sections: sections.filter((s) => s.chapter === chapter.id && !s.core) })).filter((c) => c.sections.length),
+    core: sections.filter((s) => s.core && !s.unlisted),
+    chapters: chapters
+      .map((chapter) => ({ chapter, sections: sections.filter((s) => s.chapter === chapter.id && !s.core && !s.unlisted) }))
+      .filter((c) => c.sections.length),
   }
 }
 
 /** Related sections that exist, in the order given (a link to one not written yet is left out). */
 export function relatedOf(s: HelpSection, sections: HelpSection[]): HelpSection[] {
   return (s.related ?? []).map((id) => sections.find((x) => x.id === id)).filter((x): x is HelpSection => !!x)
+}
+
+/** One screenshot in Help (scripts/help-media.mjs writes them): its size and a marker per step. */
+export interface HelpShot {
+  w: number
+  h: number
+  /** the marked part's centre and size, as fractions of the picture */
+  marks: Array<{ step: number; x: number; y: number; w: number; h: number }>
+}
+
+/**
+ * Where a marker's outline goes, in % of the picture: the part's box with a little room around
+ * it, kept inside the picture. The numbered badge sits on its top-left corner.
+ */
+export function markBox(m: HelpShot['marks'][number], pad = 0.012): { left: number; top: number; width: number; height: number } {
+  const pct = (n: number) => Math.round(n * 1000) / 10
+  const l = Math.max(0, m.x - m.w / 2 - pad)
+  const t = Math.max(0, m.y - m.h / 2 - pad * 1.5)
+  const r = Math.min(1, m.x + m.w / 2 + pad)
+  const b = Math.min(1, m.y + m.h / 2 + pad * 1.5)
+  return { left: pct(l), top: pct(t), width: pct(r - l), height: pct(b - t) }
 }
