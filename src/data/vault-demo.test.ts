@@ -58,7 +58,12 @@ describe('demo vault', () => {
   })
   it('making a group private needs a pattern to open it: the universal one, or its own chosen there', async () => {
     const converted: string[] = []
-    const v = demoVault(mem(), undefined, () => [], async (id, on) => void converted.push(`${id}:${on}`))
+    const v = demoVault(
+      mem(),
+      undefined,
+      () => [],
+      async (id, on) => void converted.push(`${id}:${on}`),
+    )
     await expect(v({ op: 'convert', groupId: 'g', on: true })).rejects.toThrow('Choose how it opens')
     await expect(v({ op: 'convert', groupId: 'g', on: true, pattern: '', ordered: true })).rejects.toThrow()
     await v({ op: 'convert', groupId: 'g', on: true, pattern: 'TL', ordered: false })

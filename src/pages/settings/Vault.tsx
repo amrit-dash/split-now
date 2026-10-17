@@ -1,30 +1,19 @@
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { Check, Fingerprint, KeyRound, Server, X } from 'lucide-react'
+import { KeyRound } from 'lucide-react'
 import { repo } from '@/data'
 import { useFlag } from '@/hooks/useAppConfig'
 import { errText } from '@/lib/errors'
-import { setupLines, stopPlan, type VaultStatus } from '@/lib/vault-api'
+import { stopPlan, type VaultStatus } from '@/lib/vault-api'
 import { lockVault } from '@/lib/vault-keys'
 import { useConfirm } from '@/components/ConfirmSheet'
 import { useToast } from '@/components/Toast'
 import { passkeyCancelled, passkeyProof, registerPasskey } from '@/features/vault/passkey'
 import { SetPatternSheet } from '@/features/vault/SetPatternSheet'
 import { AllGroupsLockTime } from '@/features/vault/LockTime'
+import { LockSetup } from '@/features/vault/LockSetup'
 import { Detail } from '@/components/Hint'
 import { SettingsPage } from './common'
-
-function Line({ ok, icon, text, testId }: { ok: boolean; icon: React.ReactNode; text: string; testId: string }) {
-  return (
-    <li className="flex min-h-12 items-center gap-3 px-4 py-2" data-testid={testId}>
-      <span className="text-muted shrink-0" aria-hidden>
-        {icon}
-      </span>
-      <span className="min-w-0 flex-1 text-sm">{text}</span>
-      {ok ? <Check size={18} className="pos shrink-0" aria-label="Done" /> : <X size={18} className="text-muted shrink-0" aria-label="Not yet" />}
-    </li>
-  )
-}
 
 /**
  * /settings/vault: what opens this person's private groups (docs/VAULT.md). A passkey (Face ID, a
@@ -59,7 +48,6 @@ export default function Vault() {
   }, [on, round])
 
   if (!on) return <Navigate to="/settings" replace />
-  const lines = status && setupLines(status)
 
   const stop = async (current?: string) => {
     const auth = current === undefined ? undefined : await passkeyProof(repo)
@@ -113,7 +101,7 @@ export default function Vault() {
         <p className="card text-muted p-4 text-sm" role="status">
           {failed}
         </p>
-      ) : !status || !lines ? (
+      ) : !status ? (
         <p className="card text-muted p-4 text-sm">Checking…</p>
       ) : status.off ? (
         <div className="space-y-4" data-testid="vault-stopped">
@@ -134,30 +122,17 @@ export default function Vault() {
         </div>
       ) : (
         <div className="space-y-4">
-          <ul className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5" data-testid="vault-setup-status">
-            <Line
-              ok={status.hasPasskey}
-              icon={<Fingerprint size={18} />}
-              text={repo.mode === 'demo' ? 'Passkey: not needed in the demo' : lines.passkey}
-              testId="vault-line-passkey"
-            />
-            <Line ok={status.universal} icon={<KeyRound size={18} />} text={lines.pattern} testId="vault-line-pattern" />
-            <Line ok={status.serverReady} icon={<Server size={18} />} text={lines.server} testId="vault-line-server" />
-          </ul>
-          {!status.hasPasskey && (
-            <button type="button" className="btn w-full" disabled={busy} onClick={() => void addPasskey()} data-testid="vault-add-passkey">
-              <Fingerprint size={18} aria-hidden /> Add a passkey
-            </button>
-          )}
-          <button
-            type="button"
-            className="btn-primary w-full"
-            disabled={busy || !status.serverReady}
-            onClick={() => setSetting(true)}
-            data-testid="vault-universal-open"
-          >
-            <KeyRound size={18} aria-hidden /> {status.universal ? 'Change universal pattern' : 'Set universal pattern'}
-          </button>
+          <LockSetup
+            status={status}
+            scope="all"
+            demo={repo.mode === 'demo'}
+            busy={busy ? 'passkey' : null}
+            testId="vault-setup-status"
+            onAction={(row) => {
+              if (row === 'passkey') void addPasskey()
+              else if (row === 'universal' && status.serverReady) setSetting(true)
+            }}
+          />
           {/* How the lock button works: background, so the Minimal look leaves it out. */}
           <Detail min={2}>
             <div className="card text-muted space-y-2 p-4 text-sm">

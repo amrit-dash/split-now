@@ -259,7 +259,7 @@ const SHOTS = [
     go: async (page, url) => {
       await page.goto(`${url}/settings/vault`)
     },
-    marks: (page) => ({ 3: byId(page, 'vault-universal-open') }),
+    marks: (page) => ({ 2: byId(page, 'vault-line-passkey'), 3: byId(page, 'vault-universal-open') }),
   },
   {
     id: 'money-received',

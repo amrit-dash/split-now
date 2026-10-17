@@ -461,7 +461,11 @@ async function makePrivate(gid: string, uid: string, g: FirebaseFirestore.Docume
   const dek = await keyOf(gid, uid, list)
   // Its own pattern, set with the key: the creator knows it, and tells the group in person.
   if (own)
-    await keyRef(gid).update({ pattern: hashPattern(own.pattern, pepperOf(list[0]), undefined, own.ordered), patternChangedAt: Date.now(), patternChangedBy: uid })
+    await keyRef(gid).update({
+      pattern: hashPattern(own.pattern, pepperOf(list[0]), undefined, own.ordered),
+      patternChangedAt: Date.now(),
+      patternChangedBy: uid,
+    })
   const k = await vaultKey(gid, dek)
   const first = await convertPass(gid, k, true)
   const second = await convertPass(gid, k, true)
@@ -818,7 +822,9 @@ export const vault = onCall(
         }
         const list = keks()
         await checkPasskey(uid, req, data.auth as AuthenticationResponseJSON)
-        return on ? makePrivate(gid, uid, g, list, own === undefined ? undefined : { pattern: own, ordered: ordered(data.ordered) }) : makePlain(gid, uid, g, list)
+        return on
+          ? makePrivate(gid, uid, g, list, own === undefined ? undefined : { pattern: own, ordered: ordered(data.ordered) })
+          : makePlain(gid, uid, g, list)
       }
       case 'stop': {
         // First what holds it up (no try spent on a pattern that can't help yet).

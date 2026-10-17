@@ -6,6 +6,13 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.6.0 — October 2026
+
+- Private groups: one setup card in all three places, Settings → Encrypted groups, New group → Private group and Group ⋯ → Make private. It has a row for your passkey, the pattern and the encryption key, each saying where it stands (Added, Ready or Needed), with an icon button beside it. Add a passkey and Face ID comes up right there. Set or change a pattern without leaving the screen.
+- When you make a group private, pick what it **opens with**: everyone's universal pattern, or a pattern just for this group that you share in person. You no longer have to go to Settings first.
+- A private group always needs a pattern to open it. The button to make it private waits until the pattern you picked and a passkey are ready, and the server refuses a private group that nothing would open.
+- One passkey covers all your groups: it proves it's you, and the pattern is what can differ from group to group.
+
 ## 8.5.2 — October 2026
 
 - Continue with Google now always asks which Google account to use. Before, signing out and back in (in the installed app above all) went straight back to the account used last, with no way to pick another. Pick an account from the list, or Use another account to add one.

@@ -24,6 +24,14 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '8.6.0',
+    date: 'October 2026',
+    items: [
+      { text: 'Private groups: pick what a group opens with, your universal pattern or its own', section: 'private-groups-make' },
+      { text: 'Set your passkey and patterns right there, each with its status', section: 'private-groups-setup' },
+    ],
+  },
+  {
     version: '8.5.2',
     date: 'October 2026',
     items: [{ text: 'Continue with Google asks which account to use, so you can switch accounts', section: 'sign-in' }],

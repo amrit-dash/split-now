@@ -227,8 +227,9 @@ export const SCENES: Record<string, Scene> = {
     {
       parts: [
         { kind: 'title', label: 'Encrypted groups' },
-        { kind: 'switch', label: 'Passkey added', value: 'on' },
-        { kind: 'button', label: 'Set universal pattern', primary: true, mark: 'settings' },
+        { kind: 'row', label: 'Passkey', value: 'Added ✓' },
+        { kind: 'row', label: 'Universal pattern', value: '＋ Set', mark: 'settings' },
+        { kind: 'row', label: 'Encryption key', value: 'Ready ✓' },
       ],
     },
     {
@@ -378,8 +379,9 @@ Object.assign(SCENES, {
       { kind: 'row', label: 'Notifications', value: '›' },
     ]),
     settings('Encrypted groups', [
-      { kind: 'switch', label: 'Passkey (Face ID)', mark: 'passkey' },
-      { kind: 'button', label: 'Set universal pattern', primary: true },
+      { kind: 'row', label: 'Passkey · Face ID', value: '＋ Add', mark: 'passkey' },
+      { kind: 'row', label: 'Universal pattern', value: '＋ Set' },
+      { kind: 'row', label: 'Encryption key', value: 'Ready ✓' },
     ]),
     {
       sheet: true,
@@ -402,7 +404,9 @@ Object.assign(SCENES, {
   'private-groups-make': [
     settings('New group', [
       { kind: 'field', label: 'Name', value: 'Family', icon: '🏡' },
-      { kind: 'switch', label: 'Private group', mark: 'new' },
+      { kind: 'switch', label: 'Private group', value: 'on', mark: 'new' },
+      { kind: 'chips', items: [{ label: 'Universal pattern', on: true }, { label: 'Its own pattern' }] },
+      { kind: 'row', label: 'Universal pattern', value: 'Ready ✓' },
     ]),
     settings('Goa trip ⋯', [
       { kind: 'row', label: 'Edit group', value: '›' },
@@ -413,7 +417,8 @@ Object.assign(SCENES, {
       sheet: true,
       parts: [
         { kind: 'title', label: 'Private group' },
-        { kind: 'note', label: 'Encrypted on everyone’s phone.' },
+        { kind: 'chips', items: [{ label: 'Universal pattern', on: true }, { label: 'Its own pattern' }] },
+        { kind: 'row', label: 'Passkey', value: 'Added ✓' },
         { kind: 'button', label: 'Turn off private', mark: 'off' },
       ],
     },
@@ -423,7 +428,7 @@ Object.assign(SCENES, {
       sheet: true,
       parts: [
         { kind: 'title', label: 'Private group' },
-        { kind: 'button', label: 'Give it its own pattern', primary: true, mark: 'give' },
+        { kind: 'chips', mark: 'give', items: [{ label: 'Universal pattern' }, { label: 'Its own pattern', on: true }] },
         { kind: 'pattern', label: 'Any length', mark: 'draw' },
         { kind: 'note', label: 'Group pattern saved. Tell the group in person.', mark: 'tell' },
       ],
