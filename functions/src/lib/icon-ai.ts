@@ -1,6 +1,5 @@
 import { ICON_EMOJI, ICON_SVGS, ICON_TITLE_MAX, type IconRequest, type IconSuggestions } from '../../../shared/icon-ai'
 import { cleanSvg } from '../../../shared/svg-icon'
-import type { Schema } from './gemini'
 
 /*
  * "Suggest with AI" in the icon sheet (functions/src/ai.ts iconsAi): from an expense's or a
@@ -34,16 +33,6 @@ export function cleanIconRequest(raw: unknown): IconRequest | null {
   return { title, kind, ...(category && kind === 'expense' ? { category } : {}) }
 }
 
-export const ICON_SCHEMA: Schema = {
-  type: 'OBJECT',
-  properties: {
-    emoji: { type: 'ARRAY', items: { type: 'STRING' }, description: `exactly ${ICON_EMOJI} single emoji, best first` },
-    svgs: { type: 'ARRAY', items: { type: 'STRING' }, description: `${ICON_SVGS} complete <svg> icons, each a different idea` },
-  },
-  required: ['emoji', 'svgs'],
-  propertyOrdering: ['emoji', 'svgs'],
-}
-
 /**
  * The instruction. The title goes in the content (<title>…</title>), never here, so a title can't
  * pass for an instruction. The rules are the ones cleanSvg enforces, said plainly, with two worked
@@ -53,9 +42,14 @@ export const iconPrompt = (r: IconRequest) => `You design tiny app icons for a b
   r.kind === 'group' ? 'a group (a trip, a flat, a team, an event)' : `an expense${r.category ? ` in the category "${r.category}"` : ''}`
 }. Return icons that show what the title is about at a glance, at 40 pixels.
 
-Return JSON with:
-- "emoji": exactly ${ICON_EMOJI} different single emoji that fit the title, the best first. One emoji each: no text, no flags unless the title names a country.
-- "svgs": ${ICON_SVGS} different SVG icons for the same title, each a different idea (for "Ferry to Havelock": a ferry; a wave with a sun; an anchor).
+Answer in plain text, in exactly this shape and nothing else (no JSON, no code fences, no explanations):
+EMOJI: <${ICON_EMOJI} different single emoji that fit the title, best first, separated by spaces>
+<svg ...>...</svg>
+<svg ...>...</svg>
+<svg ...>...</svg>
+
+The ${ICON_SVGS} SVG icons are for the same title, each a different idea (for "Ferry to Havelock": a ferry; a wave with a sun; an anchor), each on its own line.
+One emoji each on the EMOJI line: no text, no flags unless the title names a country.
 
 Every SVG must follow ALL of these rules, or it is thrown away:
 1. Start with <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"> and end with </svg>. Nothing before or after.
@@ -74,7 +68,7 @@ Example, title "Coffee with Priya":
 Example, title "Goa trip":
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="17" cy="7" r="3" fill="#f59e0b"/><path d="M3 17c2-1.5 4-1.5 6 0s4 1.5 6 0 4-1.5 6 0" fill="none" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round"/><path d="M3 21c2-1.5 4-1.5 6 0s4 1.5 6 0 4-1.5 6 0" fill="none" stroke="#0284c7" stroke-width="2" stroke-linecap="round"/><path d="M8 15V7M8 7c-2 0-4 1-4 3M8 7c2 0 4 1 4 3" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round"/></svg>
 
-If the title is unclear, draw the most likely everyday object for it. Never refuse; never explain.`
+If the title is unclear, draw the most likely everyday object for it. Never refuse; never explain. Start your answer with EMOJI:`
 
 /** One emoji (a grapheme with a pictograph), else nothing. */
 function oneEmoji(v: unknown): string | null {
@@ -84,6 +78,20 @@ function oneEmoji(v: unknown): string | null {
   const parts = [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(s)]
   if (parts.length !== 1) return null
   return /\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(s) ? s : null
+}
+
+/**
+ * The plain-text answer (iconPrompt's shape) read as suggestions: the emoji on the EMOJI line (or,
+ * if the model left the label off, the first line without markup), and every <svg>…</svg> in the
+ * text, wherever it sits (code fences and stray words around them don't matter). Each part is
+ * kept or dropped on its own, so one broken drawing doesn't spoil the rest.
+ */
+export function parseIconText(text: string): IconSuggestions {
+  const lines = text.split(/\r?\n/).map((l) => l.trim())
+  const line = lines.find((l) => /^\**emoji\**\s*[:：]/i.test(l)) ?? lines.find((l) => l && !l.includes('<') && !l.startsWith('```')) ?? ''
+  const graphemes = [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(line.replace(/^\**emoji\**\s*[:：]/i, ''))].map((g) => g.segment)
+  const svgs = [...text.matchAll(/<svg[\s\S]*?<\/svg>/gi)].map((m) => m[0])
+  return normaliseIcons({ emoji: graphemes.filter((g) => g.trim()), svgs })
 }
 
 /** What the model answered, kept only where it is what was asked for: each emoji single, each SVG clean, no repeats. */

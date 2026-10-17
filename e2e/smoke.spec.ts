@@ -1289,6 +1289,9 @@ test('icons: Suggest with AI offers emoji and drawn icons, and a drawn one shows
   // with nothing typed yet, the sheet says what AI needs instead of hiding it
   await page.getByTestId('expense-icon').click({ button: 'right' })
   await expect(page.getByTestId('icon-sheet').getByTestId('icon-ai-waiting')).toBeVisible()
+  // search words are enough to ask about, even with no title yet
+  await page.getByTestId('icon-sheet').getByTestId('icon-search').fill('anchor')
+  await expect(page.getByTestId('icon-sheet').getByTestId('icon-ai-from')).toContainText('your search “anchor”')
   await page.keyboard.press('Escape')
   await page.getByRole('textbox', { name: 'Description', exact: true }).fill('Ferry to Havelock')
   await amountField(page).fill('640')

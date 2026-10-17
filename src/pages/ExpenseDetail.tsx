@@ -659,7 +659,7 @@ function ExpenseIcon({ expense: e, color, editable, vault }: { expense: Expense;
         auto={expenseEmoji({ ...e, icon: undefined })}
         first={categoryIcons(e.category)}
         onPick={save}
-        ai={ai.suggest && e.description ? { title: e.description, kind: 'expense', category: CATEGORIES[e.category]?.label } : undefined}
+        ai={ai.suggest ? { title: e.description, kind: 'expense', category: CATEGORIES[e.category]?.label } : undefined}
         svgValue={e.iconSvg}
         onPickSvg={(svg) => write({ icon: e.icon, iconSvg: svg, iconImage: undefined })}
         picture={ai.picture}

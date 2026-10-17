@@ -3,7 +3,7 @@ import { ImageIcon, RefreshCw, Search, Sparkles, Wand2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { repo } from '@/data'
 import { firstEmoji } from '@/lib/emoji'
-import { iconAiProblem, pictureNote, pictureProblem } from '@/lib/icon-ai'
+import { aiAskFor, iconAiProblem, pictureNote, pictureProblem } from '@/lib/icon-ai'
 import { shrinkPicture } from '@/lib/icon-picture'
 import { searchIcons } from '@/lib/icons'
 import { type IconRequest, type IconSuggestions, PICTURE_COST } from '../../shared/icon-ai'
@@ -17,7 +17,8 @@ import { Sheet } from './Sheet'
  * keyboard, picked as soon as it is typed. `auto` is the automatic icon an expense goes back to
  * (absent for a group, which always has one). `first` lists the icons that fit best up front.
  * With `ai` (src/hooks/useIconAi.ts; never in a private group), "Suggest with AI" asks for three
- * emoji and up to three drawn icons from the title; a drawn one comes back through `onPickSvg`.
+ * emoji and up to three drawn icons, and "Draw a picture" for a picture: from the words typed in the
+ * search when there are some, else from the title (aiAskFor). A drawn one comes back through `onPickSvg`.
  */
 export function IconSheet({
   open,
@@ -45,7 +46,7 @@ export function IconSheet({
   auto?: string
   first?: string[]
   onPick: (icon: string | undefined) => void
-  /** what to ask AI for; absent hides "Suggest with AI" */
+  /** what to ask AI for (its title may be empty: the search words are used then); absent hides "Suggest with AI" */
   ai?: IconRequest
   /** the AI-drawn icon chosen now */
   svgValue?: string
@@ -68,8 +69,14 @@ export function IconSheet({
   const [drawing, setDrawing] = useState(false)
   const [drawn, setDrawn] = useState<string | null>(null)
   const [pictureWhy, setPictureWhy] = useState<string | null>(null)
-  // A new title asks afresh.
-  const aiTitle = ai?.title
+  // Each opening starts with an empty search (so AI is asked about the title again).
+  useEffect(() => {
+    if (!open) setQ('')
+  }, [open])
+  // Asked about the search words when there are some, else the title (aiAskFor); new words ask afresh.
+  const ask = ai ? aiAskFor(q, ai.title) : null
+  const asked: IconRequest | undefined = ai && ask ? { ...ai, title: ask.title } : undefined
+  const aiTitle = asked?.title
   // biome-ignore lint/correctness/useExhaustiveDependencies: only when the title changes
   useEffect(() => {
     setFound(null)
@@ -78,11 +85,11 @@ export function IconSheet({
     setPictureWhy(null)
   }, [aiTitle])
   const draw = async () => {
-    if (!ai || drawing) return
+    if (!asked || drawing) return
     setDrawing(true)
     setPictureWhy(null)
     try {
-      const r = await repo.iconPictureAi(ai)
+      const r = await repo.iconPictureAi(asked)
       const small = r && 'image' in r ? await shrinkPicture(r.image, r.mimeType) : null
       const why = pictureProblem(r, !!small)
       if (why || !small) setPictureWhy(why)
@@ -101,11 +108,11 @@ export function IconSheet({
     onClose()
   }
   const suggest = async () => {
-    if (!ai || asking) return
+    if (!asked || asking) return
     setAsking(true)
     setProblem(null)
     try {
-      const r = await repo.iconsAi(ai)
+      const r = await repo.iconsAi(asked)
       const why = iconAiProblem(r)
       if (why || !r || 'unavailable' in r) setProblem(why)
       else setFound(r)
@@ -135,16 +142,16 @@ export function IconSheet({
             <Sparkles size={16} className="text-muted shrink-0" aria-hidden />
           </button>
         )}
-        {!ai && aiWaiting && (
+        {!asked && ai && (
           <div className="flex min-h-11 items-center gap-3 rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800" data-testid="icon-ai-waiting">
             <Wand2 size={20} className="text-muted shrink-0" aria-hidden />
             <span className="min-w-0 flex-1">
               <span className="font-semibold">Suggest with AI</span>
-              <span className="text-muted block text-xs">{aiWaiting}</span>
+              <span className="text-muted block text-xs">{aiWaiting ?? 'Type what it’s for, or search for a word: AI suggests icons from it.'}</span>
             </span>
           </div>
         )}
-        {ai && onPickSvg && (
+        {asked && onPickSvg && (
           <div className="rounded-2xl bg-gradient-to-br from-brand-50 to-duo-50 p-3 dark:from-brand-900/30 dark:to-duo-900/20" data-testid="icon-ai">
             {found ? (
               <div className="space-y-2">
@@ -193,7 +200,9 @@ export function IconSheet({
                 {asking ? <Spinner className="!h-5 !w-5" label="Asking AI" /> : <Wand2 size={20} className="text-brand-600 dark:text-brand-300" aria-hidden />}
                 <span className="min-w-0 flex-1">
                   {asking ? 'Drawing icons…' : 'Suggest with AI'}
-                  <span className="text-muted block text-xs font-normal">Three emoji and a few drawn icons, from “{ai.title}”</span>
+                  <span className="text-muted block text-xs font-normal" data-testid="icon-ai-from">
+                    Three emoji and a few drawn icons, from {ask?.from === 'search' ? 'your search ' : ''}“{asked.title}”
+                  </span>
                 </span>
               </button>
             )}
@@ -304,7 +313,7 @@ export function IconSheet({
           </div>
         ) : (
           <p className="text-muted py-4 text-center text-sm" data-testid="icon-none">
-            No icon for “{q.trim()}”. Try another word, or type any emoji.
+            No icon for “{q.trim()}”. {asked ? 'Suggest with AI above can make one for it' : 'Try another word, or type any emoji'}.
           </p>
         )}
       </div>

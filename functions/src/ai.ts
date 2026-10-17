@@ -29,6 +29,7 @@ import {
   GeminiError,
   generateJson,
   generateImage,
+  generateText,
   listModels,
   normaliseReceipt,
   normaliseSms,
@@ -59,7 +60,7 @@ import { limitPair } from '../../shared/limits'
 import type { QuickAiResponse } from '../../shared/quick-ai'
 import { cleanQuickRequest, normaliseQuickAi, QUICK_SCHEMA, quickPrompt } from './lib/quick-ai'
 import { flagOn, getLimits } from './lib/limits'
-import { cleanIconRequest, ICON_SCHEMA, iconPrompt, normaliseIcons } from './lib/icon-ai'
+import { cleanIconRequest, iconPrompt, parseIconText } from './lib/icon-ai'
 import { type IconPictureResponse, type IconSuggestions, PICTURE_MODELS, picturePlan, picturePrompt } from '../../shared/icon-ai'
 import { applyRateLimit, type RateState } from './lib/ratelimit'
 import { parseKekList, readStoredKey, storedKeyFields } from './lib/seal'
@@ -554,7 +555,8 @@ export const quickAddAi = onCall({ ...base, timeoutSeconds: 60, maxInstances: 10
  * is dropped. Nothing is saved here: the person picks one, and the app stores it with the expense or group.
  */
 export const iconsAi = onCall(
-  { ...base, timeoutSeconds: 60, maxInstances: 10 },
+  // Gemma writing three drawings can take most of a minute and a half on the free tier.
+  { ...base, timeoutSeconds: 120, maxInstances: 10 },
   async (req): Promise<IconSuggestions | { unavailable: true; reason: AiUnavailableReason }> => {
     const me = signedIn(req)
     const input = cleanIconRequest(req.data)
@@ -567,13 +569,14 @@ export const iconsAi = onCall(
       ctx,
       'images',
       async (key, models, gemma) => {
-        const g = await generateJson(key, [{ text: `<title>${input.title}</title>` }], ICON_SCHEMA, {
+        // Plain text, not JSON: SVG's double quotes inside a JSON string are where small models slip (lib/icon-ai.ts parseIconText).
+        const g = await generateText(key, [{ text: `<title>${input.title}</title>` }], {
           models,
-          timeoutMs: budget(gemma, 20_000, 52_000),
+          timeoutMs: budget(gemma, 30_000, 105_000),
           maxOutputTokens: 4096,
           systemInstruction: iconPrompt(input),
         })
-        return { value: normaliseIcons(g.json), usage: g.usage, model: g.modelVersion ?? g.model }
+        return { value: parseIconText(g.text), usage: g.usage, model: g.modelVersion ?? g.model }
       },
       'icons',
     )
@@ -620,7 +623,12 @@ export const iconPictureAi = onCall({ ...base, timeoutSeconds: 90, memory: '512M
     const err = e instanceof GeminiError ? e : new GeminiError((e as Error).message)
     logger.warn('ai picture failed', { key: which, kind: err.kind, message: err.message.slice(0, 200) })
     await record(ctx, plan, 'pictures', now, { err })
-    return { unavailable: true, reason: err.kind === 'blocked' ? 'blocked' : reasonOf(err.kind) }
+    // Google refusing for quota here is almost always a key with no allowance for image models
+    // (they have no free tier: billing must be on), not our daily limit, which was checked above.
+    return {
+      unavailable: true,
+      reason: err.kind === 'blocked' ? 'blocked' : err.kind === 'quota' || err.kind === 'billing' ? 'picture_billing' : reasonOf(err.kind),
+    }
   }
 })
 

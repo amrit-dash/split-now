@@ -835,8 +835,8 @@ export default function GroupForm() {
               onPickImage={chooseImage}
               picture={iconAi.picture}
               pictureHint={iconAi.pictureHint}
-              aiWaiting={iconAi.suggest && !name.trim() ? 'Type the group’s name first: AI suggests icons from it.' : undefined}
-              ai={iconAi.suggest && name.trim() ? { title: name.trim(), kind: 'group' } : undefined}
+              aiWaiting={iconAi.suggest ? 'Type the group’s name, or search for a word: AI suggests icons from it.' : undefined}
+              ai={iconAi.suggest ? { title: name.trim(), kind: 'group' } : undefined}
             >
               <label className="label" htmlFor="group-name">
                 Name

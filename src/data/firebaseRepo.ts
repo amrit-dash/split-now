@@ -1808,7 +1808,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     async iconsAi(req) {
       if (!auth.currentUser || auth.currentUser.isAnonymous || !online()) return null
       try {
-        const call = await callable<IconRequest, IconAiResponse>('iconsAi', 60_000)
+        const call = await callable<IconRequest, IconAiResponse>('iconsAi', 125_000)
         return (await call(req)).data ?? null
       } catch (e) {
         console.warn('Icons with AI failed', e)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { iconAiOffered, iconAiProblem, iconFace, pictureHint, pictureNote, pictureOffer, pictureProblem } from './icon-ai'
+import { aiAskFor, iconAiOffered, iconAiProblem, iconFace, pictureHint, pictureNote, pictureOffer, pictureProblem } from './icon-ai'
 
 const prefs = { aiEnabled: true, aiIcons: true, aiSource: 'auto', aiFreeOk: true }
 const status = { app: { images: 'available', engine: 'gemma' } }
@@ -81,6 +81,8 @@ describe('what the picture row says', () => {
   it('why nothing came back', () => {
     expect(pictureProblem({ unavailable: true, reason: 'blocked' }, false)).toMatch(/wouldn’t draw/)
     expect(pictureProblem({ unavailable: true, reason: 'bad_key' }, false)).toMatch(/rejected/)
+    // Google's own refusal (no billing on the key) is not our daily limit
+    expect(pictureProblem({ unavailable: true, reason: 'picture_billing' }, false)).toMatch(/turn on billing/)
     expect(pictureProblem({ unavailable: true, reason: 'quota' }, false)).toMatch(/limit/)
     expect(pictureProblem(null, false)).toMatch(/connection/)
     expect(pictureProblem({ image: 'x' }, false)).toMatch(/Couldn’t use/)
@@ -101,5 +103,14 @@ describe('when Draw a picture isn’t offered', () => {
     expect(pictureHint({ ...base, flag: false })).toBeNull()
     expect(pictureHint({ ...base, vault: true })).toBeNull()
     expect(pictureHint({ ...base, mode: 'demo' })).toBeNull()
+  })
+})
+
+describe('what AI is asked about', () => {
+  it('the search words when there are some, else the title', () => {
+    expect(aiAskFor('  anchor  ', 'Ferry to Havelock')).toEqual({ title: 'anchor', from: 'search' })
+    expect(aiAskFor('', 'Ferry to Havelock')).toEqual({ title: 'Ferry to Havelock', from: 'title' })
+    expect(aiAskFor('', '  ')).toBeNull()
+    expect(aiAskFor('x'.repeat(90), '')?.title).toHaveLength(80)
   })
 })

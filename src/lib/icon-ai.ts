@@ -91,6 +91,19 @@ export const pictureNote = (via: 'own' | 'app', cost: string): string =>
 export function pictureProblem(r: { unavailable: true; reason: string } | { image: string } | null, shrunk: boolean): string | null {
   if (r && 'unavailable' in r && r.reason === 'blocked') return 'AI wouldn’t draw that one. Try other words in the title.'
   if (r && 'unavailable' in r && r.reason === 'bad_key') return 'Google rejected your Gemini key. Check it in Settings → AI features.'
+  if (r && 'unavailable' in r && r.reason === 'picture_billing')
+    return 'Google gave this key no allowance for pictures. Image models have no free tier: turn on billing for the key in Google AI Studio, then try again.'
   if (!r || 'unavailable' in r) return iconAiProblem(r as Parameters<typeof iconAiProblem>[0])
   return shrunk ? null : 'Couldn’t use that picture. Try again.'
+}
+
+/**
+ * What "Suggest with AI" and "Draw a picture" ask about: the words typed in the sheet's search when
+ * there are some (an icon for "anchor" on "Ferry to Havelock"), else the title. Null with neither.
+ */
+export function aiAskFor(search: string, title: string): { title: string; from: 'search' | 'title' } | null {
+  const q = search.replace(/\s+/g, ' ').trim()
+  if (q) return { title: q.slice(0, 80), from: 'search' }
+  const t = title.trim()
+  return t ? { title: t.slice(0, 80), from: 'title' } : null
 }

@@ -422,6 +422,78 @@ export async function generateJson(
 }
 
 /**
+ * A plain-text answer (no JSON mode), for output that doesn't sit well inside a JSON string: SVG
+ * markup is full of double quotes, and a small model (Gemma) often fails to escape them, which
+ * spoils the whole answer. The caller pulls what it needs out of the text. Gemma gets the
+ * instruction as the first part of the message (as generateJson's plain mode does), Gemini as a
+ * system instruction. Same errors, retry and model fallback as generateJson.
+ */
+export async function generateText(
+  key: string,
+  parts: GeminiPart[],
+  opts: { models: string[]; fetchImpl?: typeof fetch; timeoutMs?: number; systemInstruction?: string; retryDelayMs?: number; maxOutputTokens?: number },
+): Promise<{ text: string; model: string; usage: GeminiUsage; modelVersion?: string }> {
+  const { models, fetchImpl = fetch, timeoutMs = 25_000, retryDelayMs = 800, maxOutputTokens = 4096 } = opts
+  const started = Date.now()
+  const budgetLeft = () => timeoutMs - (Date.now() - started)
+  let last: GeminiError | undefined
+  for (const model of models) {
+    const gemma = isGemma(model)
+    let retried = false
+    for (;;) {
+      const res = await fetchImpl(`${ENDPOINT}/${encodeURIComponent(model)}:generateContent`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
+        body: JSON.stringify(
+          gemma
+            ? {
+                contents: [{ role: 'user', parts: [...(opts.systemInstruction ? [{ text: opts.systemInstruction }] : []), ...parts] }],
+                generationConfig: { maxOutputTokens },
+              }
+            : {
+                ...(opts.systemInstruction ? { systemInstruction: { parts: [{ text: opts.systemInstruction }] } } : {}),
+                contents: [{ role: 'user', parts }],
+                generationConfig: { maxOutputTokens },
+              },
+        ),
+        signal: AbortSignal.timeout(Math.max(1000, budgetLeft())),
+      })
+      if (!res.ok) {
+        const body = (await res.text()).slice(0, 300)
+        const err = new GeminiError(`Gemini ${res.status}: ${body}`, res.status, body)
+        if (err.kind === 'model') {
+          last = err
+          break
+        }
+        if (RETRY_STATUS.has(res.status) && !retried && budgetLeft() > retryDelayMs + 3000) {
+          retried = true
+          await sleep(retryDelayMs + Math.random() * 400)
+          continue
+        }
+        throw err
+      }
+      const out = (await res.json()) as GenerateResponse
+      const c = out.candidates?.[0]
+      if (out.promptFeedback?.blockReason || (c?.finishReason && c.finishReason !== 'STOP' && c.finishReason !== 'MAX_TOKENS')) {
+        throw new GeminiError(`Gemini blocked the request: ${out.promptFeedback?.blockReason ?? c?.finishReason}`, undefined, '', 'blocked')
+      }
+      const text =
+        c?.content?.parts
+          ?.filter((p) => !p.thought)
+          .map((p) => p.text ?? '')
+          .join('') ?? ''
+      const usage: GeminiUsage = {
+        promptTokens: out.usageMetadata?.promptTokenCount ?? 0,
+        outputTokens: out.usageMetadata?.candidatesTokenCount ?? 0,
+        thoughtTokens: out.usageMetadata?.thoughtsTokenCount ?? 0,
+      }
+      return { text, model, usage, modelVersion: out.modelVersion }
+    }
+  }
+  throw last ?? new GeminiError('no Gemini model available')
+}
+
+/**
  * One picture from a Gemini image model ("Draw a picture" in the icon sheet): the first model the
  * key can use, square. No free tier exists for these models, so it only runs on a key someone pays
  * for (functions/src/ai.ts iconPictureAi). Answers the image's base64 and type; a refusal is 'blocked'.

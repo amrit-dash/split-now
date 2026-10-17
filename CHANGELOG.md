@@ -6,6 +6,11 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.3.2 — October 2026
+
+- Icons with AI: Suggest with AI and Draw a picture now use the words typed in the icon sheet's search when there are some, for example "anchor" on a ferry expense, and the title otherwise. They work before a title is typed, and a search with no icons points to Suggest with AI.
+- Icons with AI: Suggest with AI on the free AI failed on many titles with "AI didn't answer". It now asks for a plain answer that the free models get right, and keeps every icon it can read even if one drawing is broken. It also has more time to answer. When Draw a picture is refused because the Gemini key has no billing (image models have no free tier), it now says so instead of "You've used today's AI limit".
+
 ## 8.3.1 — October 2026
 
 - Private groups: a right pattern on a lock button now brings up Face ID or the passkey after 0.7 s instead of 1.5 s. Pressing a lock button, or holding an icon, now fills the button from within its own shape instead of drawing a ring around it. Held long enough, the fill completes and the icon takes the brand colour, and it pops back when you let go.
