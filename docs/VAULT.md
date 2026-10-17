@@ -22,7 +22,9 @@ Groups); on by default like every flag, server-enforced in the `vault` callable.
   The button that makes it private waits until the chosen pattern and a passkey are ready
   (`privateBlocker`; no passkey in the demo). The server refuses it too: `create` and `convert`
   without its own pattern from someone with no universal pattern answer "Choose how it opens
-  first" (`NO_PATTERN_TEXT`), before any passkey is asked for. One passkey is the account's, for
+  first" (`NO_PATTERN_TEXT`), before any passkey is asked for. `create` also needs a passkey on file for
+  this site (`NO_PASSKEY_TEXT`; `convert` asks for one outright), and removing a group's own pattern
+  needs the remover's universal pattern (`REMOVE_NEEDS_UNIVERSAL`), so nobody locks themselves out. One passkey is the account's, for
   every group: it proves it's you, and the pattern is what differs between groups, so there is no
   per-group passkey. Chosen when the group is made, or later by its creator (below); no client write
   changes `vault`. The phone that made it gets its key at once (`create`), so it opens straight away.

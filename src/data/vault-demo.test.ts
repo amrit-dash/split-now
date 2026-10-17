@@ -68,6 +68,8 @@ describe('demo vault', () => {
     await expect(v({ op: 'convert', groupId: 'g', on: true, pattern: '', ordered: true })).rejects.toThrow()
     await v({ op: 'convert', groupId: 'g', on: true, pattern: 'TL', ordered: false })
     expect(converted).toEqual(['g:true'])
+    // with no universal pattern, removing its own would leave nothing that opens it for them
+    await expect(v({ op: 'groupPattern', groupId: 'g', pattern: null, ordered: true, current: 'TL' })).rejects.toThrow('universal pattern first')
     expect(await v({ op: 'status', groupId: 'g' })).toMatchObject({ universal: false, group: { keyReady: true, hasPattern: true, ordered: false } })
   })
   it('changing the universal pattern takes the current one', async () => {

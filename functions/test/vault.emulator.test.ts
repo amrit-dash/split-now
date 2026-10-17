@@ -41,6 +41,14 @@ async function call<T>(data: unknown, uid?: string, origin = 'http://localhost:5
   return (await res.json()) as { result?: T; error?: { status: string; message: string } }
 }
 
+/** A passkey on file for `uid` on this site (the emulator's origin is localhost): enough for steps that only check one exists. */
+const passkeyOnFile = (uid: string) =>
+  env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), `users/${uid}/secrets/passkeys`), {
+      credentials: [{ id: 'cred', publicKey: 'cGs=', counter: 0, rpID: 'localhost', createdAt: 1 }],
+    })
+  })
+
 const group = (extra: Record<string, unknown> = {}) => ({
   name: 'Secret trip',
   emoji: '🔒',
@@ -153,6 +161,9 @@ describe('vault callable (emulator)', () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), 'users/alice/secrets/vault'), { pattern: { salt: 'c2FsdA==', hash: 'bm90LXRoZS1oYXNo' } })
     })
+    // and nothing is made private by someone with no passkey here
+    expect((await call({ op: 'create', groupId: 'vg' }, 'alice')).error?.message).toMatch(/Add a passkey first/)
+    await passkeyOnFile('alice')
     const first = await call<{ dek: string }>({ op: 'create', groupId: 'vg' }, 'alice')
     expect(first.result?.dek).toMatch(/^[A-Za-z0-9+/]{43}=$/)
     expect((await call({ op: 'create', groupId: 'vg' }, 'bob')).error?.status).toBe('ALREADY_EXISTS')
@@ -167,6 +178,7 @@ describe('vault callable (emulator)', () => {
   })
   it('create: its own pattern chosen as it is made, opening it for someone with no universal pattern', async () => {
     expect((await call({ op: 'create', groupId: 'vg', pattern: '', ordered: true }, 'alice')).error?.status).toBe('INVALID_ARGUMENT')
+    await passkeyOnFile('alice')
     expect((await call<{ dek: string }>({ op: 'create', groupId: 'vg', pattern: 'TL', ordered: true }, 'alice')).result?.dek).toBeTruthy()
     await env.withSecurityRulesDisabled(async (ctx) => {
       const k = (await getDoc(doc(ctx.firestore(), 'vaultKeys/vg'))).data()
@@ -182,6 +194,8 @@ describe('vault callable (emulator)', () => {
     // bob has no universal pattern: the group's own gets him to the passkey step (a registration, with none here)
     const r = await call<{ register: boolean }>({ op: 'unlockStart', pattern: 'TL', groupId: 'vg' }, 'bob')
     expect(r.result?.register).toBe(true)
+    // bob can't remove it: with no universal pattern, nothing would open the group for him
+    expect((await call({ op: 'groupPattern', groupId: 'vg', pattern: null, current: 'TL' }, 'bob')).error?.message).toMatch(/universal pattern first/)
   })
   it('stop: held up by a private group they made; then no new private groups until a universal pattern is set again', async () => {
     const s = await call<Record<string, unknown>>({ op: 'status', made: true }, 'alice')

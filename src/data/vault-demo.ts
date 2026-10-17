@@ -160,6 +160,8 @@ export function demoVault(
           const problem = groupPatternProblem(req.pattern)
           if (problem) refuse(problem)
         }
+        // without its own pattern it opens with universal patterns only: the one removing it needs one
+        if (req.pattern === null && !person) refuse('Set your universal pattern first: without its own pattern, that’s what opens it.')
         await tryPattern(s, req.current, req.groupId)
         const dek = keyOf(s, req.groupId)
         s.groups[req.groupId] = { dek, ...(req.pattern === null ? {} : { pattern: await hashOf(req.pattern, req.ordered) }) }

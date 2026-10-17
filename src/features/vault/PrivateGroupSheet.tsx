@@ -70,6 +70,8 @@ export function PrivateGroupSheet({ group, open, onClose, isCreator }: { group: 
     setRound((r) => r + 1)
   }
   const askRemove = async () => {
+    // Without its own pattern it opens with universal patterns only (the server refuses this too).
+    if (!status?.universal) return setNote('Set your universal pattern first: without its own pattern, that’s what opens it.')
     const ok = await confirm({
       title: 'Remove this group’s own pattern?',
       message: 'People in it open it with their universal pattern instead.',

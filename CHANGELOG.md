@@ -10,7 +10,7 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 - Private groups: one setup card in all three places, Settings → Encrypted groups, New group → Private group and Group ⋯ → Make private. It has a row for your passkey, the pattern and the encryption key, each saying where it stands (Added, Ready or Needed), with an icon button beside it. Add a passkey and Face ID comes up right there. Set or change a pattern without leaving the screen.
 - When you make a group private, pick what it **opens with**: everyone's universal pattern, or a pattern just for this group that you share in person. You no longer have to go to Settings first.
-- A private group always needs a pattern to open it. The button to make it private waits until the pattern you picked and a passkey are ready, and the server refuses a private group that nothing would open.
+- A private group always needs a pattern to open it and a passkey. The button to make it private waits until both are ready, and the server refuses a private group made without them. Removing a group's own pattern needs your universal pattern, so you can't lock yourself out.
 - One passkey covers all your groups: it proves it's you, and the pattern is what can differ from group to group.
 
 ## 8.5.2 — October 2026

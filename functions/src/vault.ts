@@ -199,6 +199,9 @@ async function madePrivate(uid: string): Promise<number> {
 const OFF_TEXT = 'You stopped using private groups. Start again in Settings → Encrypted groups.'
 /** A private group must open with something: the person's universal pattern, or its own (chosen as it's made private). */
 const NO_PATTERN_TEXT = 'Choose how it opens first: your universal pattern, or its own pattern.'
+const NO_PASSKEY_TEXT = 'Add a passkey first: Face ID, a fingerprint or your screen lock.'
+/** Removing a group's own pattern leaves it opening with universal patterns only: the remover needs one, or they'd be locked out. */
+const REMOVE_NEEDS_UNIVERSAL = 'Set your universal pattern first: without its own pattern, that’s what opens it.'
 
 const passkeysRef = (uid: string) => db().doc(`users/${uid}/secrets/passkeys`)
 const personRef = (uid: string) => db().doc(`users/${uid}/secrets/vault`)
@@ -742,6 +745,7 @@ export const vault = onCall(
           const problem = typeof data.pattern === 'string' ? groupPatternProblem(data.pattern) : groupPatternProblem('')
           if (problem) throw new HttpsError('invalid-argument', problem)
         }
+        if (remove && !(((await personRef(uid).get()).data() ?? {}) as PersonDoc).pattern) throw new HttpsError('failed-precondition', REMOVE_NEEDS_UNIVERSAL)
         const list = keks()
         // Only someone who can already open it sets, changes or removes its pattern (their universal one or its own).
         await checkPattern(uid, gid, data.current, list)
@@ -770,6 +774,10 @@ export const vault = onCall(
           if ((await keyRef(gid).get()).exists) throw new HttpsError('already-exists', 'This group already has its key. Unlock it with your pattern.')
           throw new HttpsError('failed-precondition', NO_PATTERN_TEXT)
         }
+        // The passkey comes with the pattern: a private group opens with both, so it's made only by
+        // someone who has one here (Settings → Encrypted groups, or the setup card's ＋).
+        const passkeys = ((await passkeysRef(uid).get()).data() ?? {}) as PasskeyDoc
+        if (!mineHere(passkeys, rp(req).rpID).length) throw new HttpsError('failed-precondition', NO_PASSKEY_TEXT)
         const list = keks()
         const dek = newDataKey()
         const now = Date.now()
