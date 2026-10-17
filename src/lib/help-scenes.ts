@@ -469,6 +469,158 @@ Object.assign(SCENES, {
       { kind: 'row', label: 'Admin', value: '🛠️', mark: 'admin' },
     ]),
   ],
+  'invite-people': [
+    settings('Goa trip', [
+      { kind: 'row', label: 'You are owed', value: '₹1,200' },
+      { kind: 'chips', items: [{ label: 'Settle up' }, { label: 'Invite', mark: 'invite' }] },
+      {
+        kind: 'list',
+        items: [
+          { label: 'Dinner at Thalassa', icon: '🍽️' },
+          { label: 'Scooter rental', icon: '🛵' },
+        ],
+      },
+    ]),
+    {
+      sheet: true,
+      parts: [
+        { kind: 'title', label: 'Invite to group' },
+        { kind: 'qr', label: 'Scan with the phone camera', mark: 'qr' },
+        { kind: 'chips', items: [{ label: 'Copy link' }, { label: 'Share', mark: 'share' }] },
+      ],
+    },
+  ],
+  'join-group': [
+    { parts: [{ kind: 'message', label: 'Rahul', value: 'Join Goa trip on Split Now: split-now.app/join/K7Q2', mark: 'open' }] },
+    settings('Join Goa trip', [
+      { kind: 'note', label: 'Which one is you?' },
+      { kind: 'chips', mark: 'pick', items: [{ label: 'Priya' }, { label: 'Asha', on: true }, { label: 'I’m not listed' }] },
+      { kind: 'button', label: 'Join group', primary: true, mark: 'join' },
+    ]),
+  ],
+  'people-without-account': [
+    settings('Members', [
+      {
+        kind: 'list',
+        items: [
+          { label: 'You', icon: '🙂' },
+          { label: 'Rahul · Joined', icon: '😄' },
+        ],
+      },
+      { kind: 'button', label: 'Add people', mark: 'add' },
+    ]),
+    {
+      sheet: true,
+      parts: [
+        { kind: 'field', label: 'Name', value: 'Meera', mark: 'name' },
+        { kind: 'field', label: 'Email (optional)', value: 'meera@example.com' },
+        { kind: 'row', label: 'Meera', value: 'Not joined yet', mark: 'status' },
+      ],
+    },
+  ],
+  'merge-people': [
+    settings('Members', [
+      { kind: 'row', label: 'Meera', value: '← Merge', mark: 'swipe' },
+      { kind: 'row', label: 'meera@example.com', value: 'Not joined yet' },
+    ]),
+    {
+      sheet: true,
+      parts: [
+        { kind: 'title', label: 'Who else is Meera?' },
+        {
+          kind: 'list',
+          items: [
+            { label: 'meera@example.com', icon: '📧', mark: 'pick' },
+            { label: 'Rahul', icon: '😄' },
+          ],
+        },
+        { kind: 'button', label: 'Merge', primary: true, mark: 'merge' },
+      ],
+    },
+  ],
+  'edit-group': [
+    settings('Goa trip', [
+      { kind: 'row', label: '⚙ Group settings', value: '›', mark: 'menu' },
+      { kind: 'row', label: 'You are owed', value: '₹1,200' },
+    ]),
+    settings('Edit group', [
+      { kind: 'field', label: 'Name', value: 'Goa trip', icon: '🏖️', mark: 'name' },
+      { kind: 'row', label: 'Currency · Budget', value: 'INR · ₹40,000', mark: 'money' },
+      { kind: 'switch', label: 'Simplify debts' },
+      { kind: 'button', label: 'Save changes', primary: true, mark: 'save' },
+    ]),
+  ],
+  approvals: [
+    settings('Edit group', [
+      { kind: 'row', label: 'Approvals', value: '›', mark: 'open' },
+      { kind: 'switch', label: 'Needs your OK for big expenses', mark: 'big' },
+      { kind: 'row', label: 'Needs an OK above', value: '₹2,000' },
+      { kind: 'switch', label: 'Approve small edits automatically', mark: 'small' },
+      { kind: 'switch', label: 'Payments need the recipient’s OK', mark: 'pay' },
+    ]),
+  ],
+  'group-budget': [
+    settings('Edit group', [
+      { kind: 'field', label: 'Budget (optional)', value: '₹40,000', mark: 'set' },
+      { kind: 'button', label: 'Save changes', primary: true },
+    ]),
+    settings('Goa trip', [{ kind: 'row', label: 'Budget ₹40,000 · 82% used', value: '₹7,200 left', mark: 'card' }, { kind: 'bars' }]),
+  ],
+  'group-types': [
+    settings('New group', [
+      { kind: 'field', label: 'Name', value: 'Goa trip', icon: '🏖️' },
+      { kind: 'chips', mark: 'type', items: [{ label: 'Trip', on: true }, { label: 'Home' }, { label: 'Event' }, { label: 'Office' }] },
+      { kind: 'row', label: 'Trip dates', value: '12 – 16 Oct', mark: 'dates' },
+    ]),
+    settings('Groups', [
+      {
+        kind: 'list',
+        items: [
+          { label: 'Goa trip · Live', icon: '🏖️', mark: 'live' },
+          { label: 'Indiranagar flat', icon: '🏠' },
+        ],
+      },
+    ]),
+  ],
+  'archive-leave-delete': [
+    settings('Goa trip', [
+      { kind: 'row', label: '⚙ Group settings', value: '›', mark: 'menu' },
+      { kind: 'row', label: 'All settled up', value: '✓' },
+    ]),
+    {
+      sheet: true,
+      parts: [
+        { kind: 'row', label: 'Archive', value: 'Only for you', mark: 'archive' },
+        { kind: 'row', label: 'Leave group', value: '›', mark: 'leave' },
+        { kind: 'row', label: 'Delete group', value: '30 days to restore', mark: 'delete' },
+      ],
+    },
+  ],
+  'remove-member': [
+    settings('Members', [
+      { kind: 'row', label: 'Kabir', value: '← Remove', mark: 'swipe' },
+      { kind: 'row', label: 'Meera', value: 'settled' },
+    ]),
+    {
+      sheet: true,
+      parts: [
+        { kind: 'title', label: 'Remove Kabir?' },
+        { kind: 'note', label: 'Their expenses stay. They can rejoin with the invite link.' },
+        { kind: 'button', label: 'Remove', primary: true, mark: 'remove' },
+      ],
+    },
+  ],
+  'group-chat': [
+    settings('Goa trip', [
+      { kind: 'row', label: '💬 Group chat', value: '●', mark: 'open' },
+      { kind: 'row', label: 'You are owed', value: '₹1,200' },
+    ]),
+    settings('Chat', [
+      { kind: 'message', label: 'Rahul', value: 'Who paid for the ferry?', mark: 'hold' },
+      { kind: 'field', label: 'Message', value: '/settle', mark: 'slash' },
+      { kind: 'chips', mark: 'tag', items: [{ label: '@Meera' }, { label: '@everyone' }] },
+    ]),
+  ],
 } satisfies Record<string, Scene>)
 
 /** Every mark in a part or its items. */
