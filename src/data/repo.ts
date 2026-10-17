@@ -102,6 +102,13 @@ export interface AccountDeletionPlan {
   admin: boolean
 }
 
+/** How fresh this session's sign-in is, for actions the server wants a recent sign-in for. */
+export interface SignInCheck {
+  signedInAt: number
+  google: boolean
+  email: string | null
+}
+
 /** What moving one account (or a guest) into this one did. */
 export interface MergeResult {
   groups: number
@@ -252,10 +259,20 @@ export interface Repo {
   accountDeletionPlan(): Promise<AccountDeletionPlan>
   /**
    * Delete this account for good, as the plan said, then sign out. The server wants a sign-in from
-   * the last 5 minutes: a Google account is asked again first; an email account that signed in
-   * longer ago is told to sign in again. Demo mode wipes everything on this device.
+   * the last 5 minutes (signInCheck, then reauthWithGoogle or a reauth link first). Demo mode
+   * wipes everything on this device.
    */
   deleteAccount(): Promise<void>
+  /** When this session last signed in (epoch ms), and the ways it can sign in again. Demo mode: just now. */
+  signInCheck(): Promise<SignInCheck>
+  /** Sign in again with Google, in a popup, as the same account. */
+  reauthWithGoogle(): Promise<void>
+  /** Email the account a sign-in link that opens Delete my account; opening it is a fresh sign-in. */
+  sendReauthLink(): Promise<void>
+  /** Whether this page address is such a link (the signed-out screen finishes it as an ordinary sign-in). */
+  isReauthLink(href: string): boolean
+  /** Sign in again, as the same account, with the link this page was opened with. */
+  finishReauthLink(href: string): Promise<void>
   /** The emails added to this account, oldest first. */
   watchAccountEmails(uid: string, cb: Watch<AccountEmail[]>): Unsub
 

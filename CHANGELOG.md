@@ -6,6 +6,10 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.5.1 — October 2026
+
+- Delete my account: when your last sign-in is older than 5 minutes, the screen asks you to confirm it's you, right there. Sign in again with Google, or have a sign-in link emailed to you that brings you back to the screen. Before, an email account had to sign out and back in. If the link opens in your browser rather than the installed app, you can delete your account there.
+
 ## 8.5.0 — October 2026
 
 - Delete my account (Settings → Data). Before anything changes, it shows what happens to each of your groups and what's still in the way. It can't go ahead while you owe or are owed money in a shared group, an expense of yours still needs an OK, a repeating expense still includes you, or you're an admin.

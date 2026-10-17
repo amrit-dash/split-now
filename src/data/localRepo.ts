@@ -537,6 +537,14 @@ export function createLocalRepo(): Repo {
       }))
       return { ...planDeletion(uid, groups), admin: false }
     },
+    // Demo mode has no sign-in to age: it always counts as just now.
+    async signInCheck() {
+      return { signedInAt: Date.now(), google: false, email: null }
+    },
+    async reauthWithGoogle() {},
+    async sendReauthLink() {},
+    isReauthLink: () => false,
+    async finishReauthLink() {},
     // Demo mode has one account on this device: deleting it wipes everything the demo kept here.
     async deleteAccount() {
       state = { user: null, profiles: {}, groups: {}, expenses: {}, settlements: {}, captures: {}, captureTokens: {} }
