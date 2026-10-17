@@ -439,13 +439,14 @@ export const SECTIONS: HelpSection[] = [
     chapter: 'start',
     title: 'Signing in',
     summary: 'Sign in with Google or a link emailed to you; there are no passwords.',
-    keywords: ['login', 'log in', 'google', 'email', 'link', 'account'],
+    keywords: ['login', 'log in', 'google', 'email', 'link', 'account', 'switch account', 'another account'],
     steps: [
       { text: 'Tap **Continue with Google**, or **Continue with email**.', mark: 'google' },
       { text: 'For email: type your address, tap **Email me a sign-in link**, and open it on the same phone.', mark: 'email' },
       { text: 'New here: say what friends should call you.', mark: 'name' },
     ],
     points: [
+      'Google asks which account to use each time, so after signing out you can pick another one, or **Use another account** to add it.',
       'A link opened on another phone asks which email it was sent to.',
       'Can’t find the email? Check spam or promotions.',
       'Live table guests and people paying from a Pay me link need no account.',
