@@ -659,13 +659,15 @@ test('help: a section opened from low on the guide starts at the top, and back p
   expect(y).toBeGreaterThan(500)
   await link.click()
   await expect(page.getByTestId('help-scene')).toBeVisible()
-  expect(await page.evaluate(() => window.scrollY)).toBeLessThan(5)
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeLessThan(5)
   // A related section opened from the bottom of this one starts at the top too.
   const related = page.getByTestId('help-section').getByTestId('help-row').first()
   await related.scrollIntoViewIfNeeded()
   await related.click()
   await expect(page).not.toHaveURL(/confirm-payment$/)
-  expect(await page.evaluate(() => window.scrollY)).toBeLessThan(5)
+  // The address changes a moment before the new section renders and the page goes to the top,
+  // so wait for that rather than reading the scroll in between (a slow runner lands there).
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeLessThan(5)
   await page.getByRole('button', { name: 'Back' }).click()
   await page.getByRole('button', { name: 'Back' }).click()
   await expect(page).toHaveURL(/\/help$/)
