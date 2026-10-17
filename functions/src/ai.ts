@@ -9,6 +9,7 @@ import {
   appKeyStatus,
   gemmaModels,
   gemmaPlanModels,
+  isPictureModel,
   keyHint,
   looksLikeGeminiKey,
   needsFreeOk,
@@ -28,6 +29,8 @@ import type { PaymentRead } from '../../shared/payment-ok'
 import {
   GeminiError,
   generateJson,
+  googleMessage,
+  pictureRefusal,
   generateImage,
   generateText,
   listModels,
@@ -65,6 +68,9 @@ import {
   type IconPickResponse,
   type IconPictureResponse,
   type IconSuggestions,
+  type PictureTestResult,
+  PICTURE_MODELS,
+  PICTURE_TEST_PROMPT,
   pictureModelsFrom,
   picturePlan,
   picturePlanModels,
@@ -667,12 +673,44 @@ export const iconPictureAi = onCall({ ...base, timeoutSeconds: 90, memory: '512M
     const err = e instanceof GeminiError ? e : new GeminiError((e as Error).message)
     logger.warn('ai picture failed', { key: which, kind: err.kind, message: err.message.slice(0, 200) })
     await record(ctx, plan, 'pictures', now, { err })
-    // Google refusing for quota here is almost always a key with no allowance for image models
-    // (they have no free tier: billing must be on), not our daily limit, which was checked above.
-    return {
-      unavailable: true,
-      reason: err.kind === 'blocked' ? 'blocked' : err.kind === 'quota' || err.kind === 'billing' ? 'picture_billing' : reasonOf(err.kind),
-    }
+    // Google's quota and billing refusals are about the key (a spent credit, no billing, a rate
+    // limit), not our daily limit, which was checked above; pictureRefusal tells them apart.
+    const why = pictureRefusal(err)
+    return { unavailable: true, reason: why === 'model' ? 'server' : why }
+  }
+})
+
+/**
+ * Callable, Test pictures: one picture with exactly the model asked for (no fallback), on the
+ * person's own key, or with { which: 'app' } on Split Now's key (admins only, whether or not
+ * pictures are on, so a model can be checked before people use it).
+ *  { which, model ('' = recommended) } → PictureTestResult: the picture and how long it took, or
+ *  why Google refused, with its own words. It is a real, billed picture: the settings say so, it
+ * shares the key-check limit, and it is counted as `{own,app}_pictures`.
+ */
+export const pictureTest = onCall({ ...base, timeoutSeconds: 90, memory: '512MiB', maxInstances: 3 }, async (req): Promise<PictureTestResult> => {
+  const me = signedIn(req)
+  const d = (req.data ?? {}) as { which?: unknown; model?: unknown }
+  const which = d.which === 'app' ? 'app' : 'own'
+  if (d.model !== '' && d.model !== undefined && !isPictureModel(d.model)) throw new HttpsError('invalid-argument', 'Not an image model')
+  const model = (d.model as string | undefined) || PICTURE_MODELS[0]
+  if (which === 'app' && !(await isAdmin(me.uid))) throw new HttpsError('permission-denied', 'Admins only')
+  const now = Date.now()
+  if (!(await allow(me.uid, 'keycheck', KEYCHECK_LIMIT, now)).allowed) throw new HttpsError('resource-exhausted', 'Too many tries, wait a bit')
+  const ctx = await loadCtx(me.uid, me.email)
+  const key = which === 'own' ? ctx.ownKey : (await appKey()).key
+  if (!key) throw new HttpsError('failed-precondition', which === 'own' ? 'No key saved' : 'The project key isn’t set up')
+  const plan: KeyPlan = { key: which, models: [model] }
+  try {
+    const g = await generateImage(key, picturePrompt(PICTURE_TEST_PROMPT), { models: [model], timeoutMs: 80_000 })
+    await record(ctx, plan, 'pictures', now, { usage: g.usage, model: g.modelVersion ?? g.model })
+    return { ok: true, image: g.data, mimeType: g.mimeType, model: g.model, ms: Date.now() - now }
+  } catch (e) {
+    const err = e instanceof GeminiError ? e : new GeminiError((e as Error).message)
+    logger.warn('ai picture test failed', { key: which, model, kind: err.kind, status: err.status, message: err.message.slice(0, 200) })
+    await record(ctx, plan, 'pictures', now, { err })
+    const detail = err.body ? googleMessage(err.body) : undefined
+    return { ok: false, model, reason: pictureRefusal(err), ...(detail ? { detail } : {}) }
   }
 })
 

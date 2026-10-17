@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   gemmaParts,
+  GeminiError,
+  googleMessage,
+  pictureRefusal,
   generateImage,
   generateText,
   generateJson,
@@ -363,5 +366,34 @@ describe('generateText', () => {
     expect(gemmaParts(undefined, [{ text: 'a' }])).toEqual([{ text: 'a' }])
     const img = { inlineData: { mimeType: 'image/jpeg', data: 'AA' } }
     expect(gemmaParts('rules', [img])).toEqual([{ text: 'rules' }, img])
+  })
+})
+
+describe('why a picture was refused', () => {
+  const err = (status: number, body: string) => new GeminiError(`Gemini ${status}`, status, body)
+  it('tells a spent credit from no billing from a rate limit', () => {
+    expect(pictureRefusal(err(402, '{"error":{"message":"Your prepayment credits are depleted."}}'))).toBe('picture_credit')
+    expect(pictureRefusal(err(429, 'Your prepayment credits are depleted. Please top up.'))).toBe('picture_credit')
+    expect(
+      pictureRefusal(err(429, 'Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: x')),
+    ).toBe('picture_billing')
+    expect(pictureRefusal(err(400, 'FAILED_PRECONDITION: billing is not enabled'))).toBe('picture_billing')
+    expect(pictureRefusal(err(429, 'Quota exceeded for metric: generate_requests_per_model, limit: 10'))).toBe('picture_busy')
+  })
+  it('passes the rest through', () => {
+    expect(pictureRefusal(err(404, 'not found'))).toBe('model')
+    expect(pictureRefusal(err(400, 'API key not valid'))).toBe('bad_key')
+    expect(pictureRefusal(new GeminiError('no', undefined, '', 'blocked'))).toBe('blocked')
+    expect(pictureRefusal(err(500, 'boom'))).toBe('server')
+  })
+})
+
+describe("Google's own words", () => {
+  it('reads error.message, also from a cut-short body, and never shows a key', () => {
+    expect(googleMessage('{"error":{"code":402,"message":"Your prepayment credits are depleted."}}')).toBe('Your prepayment credits are depleted.')
+    expect(googleMessage('{"error":{"code":429,"message":"Quota exceeded,\\n limit: 0","details":[{"x')).toBe('Quota exceeded, limit: 0')
+    expect(googleMessage('plain text')).toBe('plain text')
+    expect(googleMessage(`key AIza${'x'.repeat(35)} bad`)).toBe('key … bad')
+    expect(googleMessage('a'.repeat(400))).toHaveLength(240)
   })
 })

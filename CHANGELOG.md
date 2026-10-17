@@ -6,6 +6,11 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.3.10 — October 2026
+
+- Draw a picture says why Google refused, and what to do: the key's prepaid credit has run out (top it up), the key has no billing (image models have no free tier), or Google is limiting pictures for a minute (wait). Before, all three read as no billing. On Split Now's key it says only that pictures aren't available right now.
+- Test pictures: under Model for pictures, in Settings → AI features → Advanced for your own key and in Admin → AI → Pictures for Split Now's, a button draws one picture with exactly the chosen model, with no fallback to another. It shows the picture, the model, how long it took and what it cost, or why Google refused in its own words. It says first that the picture is billed, about US$0.03 with the recommended model.
+
 ## 8.3.9 — October 2026
 
 - Private groups: an open private group shows an open padlock on its row in Groups. Tap it to lock that group straight away, without opening it. The padlock on a group's own page shows open too, in the accent colour, while the group is unlocked.

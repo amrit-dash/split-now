@@ -84,14 +84,40 @@ export function iconAiProblem(r: { unavailable: true; reason: string } | { emoji
 export const pictureNote = (via: 'own' | 'app', cost: string): string =>
   via === 'own' ? `Billed to your Gemini key, ${cost} a picture` : 'Uses Split Now’s AI; a few a day'
 
-/** Why no picture came back (null: there is one). */
-export function pictureProblem(r: { unavailable: true; reason: string } | { image: string } | null, shrunk: boolean): string | null {
-  if (r && 'unavailable' in r && r.reason === 'blocked') return 'AI wouldn’t draw that one. Try other words in the title.'
-  if (r && 'unavailable' in r && r.reason === 'bad_key') return 'Google rejected your Gemini key. Check it in Settings → AI features.'
-  if (r && 'unavailable' in r && r.reason === 'picture_billing')
+/**
+ * Google's refusals of a picture (functions/src/lib/gemini.ts pictureRefusal), each with its own
+ * fix. On Split Now's key the person can't fix the key, so they hear only that it can't draw now.
+ */
+export function pictureRefusalText(reason: string, via: 'own' | 'app'): string | null {
+  if (via === 'app' && (reason === 'picture_credit' || reason === 'picture_billing')) return 'Split Now’s AI can’t draw pictures right now. Try again later.'
+  if (reason === 'picture_credit') return 'The key’s prepaid Google credit has run out. Top it up in Google AI Studio → Billing, then try again.'
+  if (reason === 'picture_billing')
     return 'Google gave this key no allowance for pictures. Image models have no free tier: turn on billing for the key in Google AI Studio, then try again.'
+  if (reason === 'picture_busy') return 'Google is limiting how many pictures this key can draw just now. Wait a minute and try again.'
+  if (reason === 'blocked') return 'AI wouldn’t draw that one. Try other words in the title.'
+  if (reason === 'bad_key') return 'Google rejected the Gemini key. Check it in Settings → AI features.'
+  if (reason === 'model') return 'This key can’t use that model. Choose another one.'
+  return null
+}
+
+/** Why no picture came back (null: there is one). */
+export function pictureProblem(r: { unavailable: true; reason: string } | { image: string } | null, shrunk: boolean, via: 'own' | 'app' = 'own'): string | null {
+  const refused = r && 'unavailable' in r ? pictureRefusalText(r.reason, via) : null
+  if (refused) return refused
   if (!r || 'unavailable' in r) return iconAiProblem(r as Parameters<typeof iconAiProblem>[0])
   return shrunk ? null : 'Couldn’t use that picture. Try again.'
+}
+
+/** Above Test pictures: it is a real picture, billed to the key, with the model chosen. */
+export const pictureTestNote = (model: string, whose: 'your' | 'Split Now’s'): string =>
+  `Draws one picture with the chosen model and nothing else, so you see whether it works and how fast. It is billed to ${whose} key: ${pictureCost(model || PICTURE_MODELS[0])}.`
+
+/** Under a test: what drew it, how long it took and what it cost, or why Google refused (its own words follow separately). */
+export function pictureTestLine(r: { ok: true; model: string; ms: number } | { ok: false; model: string; reason: string }): string {
+  const id = r.model.replace(/^models\//, '')
+  const name = PICTURE_MODEL_INFO[id]?.name ?? id
+  if (r.ok) return `${name} drew this in ${(r.ms / 1000).toFixed(1)} s · ${pictureCost(id)}`
+  return `${name}: ${pictureRefusalText(r.reason, 'own') ?? 'Google couldn’t draw it. Try again in a moment.'}`
 }
 
 /** After this long with words typed and no icon picked, the sheet offers AI for them. */

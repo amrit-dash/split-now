@@ -11,6 +11,8 @@ import {
   pictureNote,
   pictureOffer,
   pictureProblem,
+  pictureTestLine,
+  pictureTestNote,
 } from './icon-ai'
 
 const prefs = { aiEnabled: true, aiIcons: true, aiSource: 'auto', aiFreeOk: true }
@@ -112,6 +114,26 @@ describe('what the picture row says', () => {
     expect(pictureProblem(null, false)).toMatch(/connection/)
     expect(pictureProblem({ image: 'x' }, false)).toMatch(/Couldn’t use/)
     expect(pictureProblem({ image: 'x' }, true)).toBeNull()
+  })
+  it('tells a spent credit from no billing from a rate limit, and keeps the key’s fixes off Split Now’s key', () => {
+    expect(pictureProblem({ unavailable: true, reason: 'picture_credit' }, false)).toMatch(/prepaid Google credit has run out/)
+    expect(pictureProblem({ unavailable: true, reason: 'picture_busy' }, false)).toMatch(/Wait a minute/)
+    expect(pictureProblem({ unavailable: true, reason: 'picture_credit' }, false, 'app')).toMatch(/Split Now’s AI can’t draw/)
+    expect(pictureProblem({ unavailable: true, reason: 'picture_billing' }, false, 'app')).not.toMatch(/billing/)
+    expect(pictureProblem({ unavailable: true, reason: 'picture_busy' }, false, 'app')).toMatch(/Wait a minute/)
+  })
+})
+
+describe('Test pictures', () => {
+  it('says it is billed, with the chosen model’s price', () => {
+    expect(pictureTestNote('', 'your')).toMatch(/billed to your key: about US\$0\.03/)
+    expect(pictureTestNote('gemini-3-pro-image', 'Split Now’s')).toMatch(/Split Now’s key: about US\$0\.13/)
+  })
+  it('names the model, the time and the cost, or why Google refused', () => {
+    expect(pictureTestLine({ ok: true, model: 'gemini-3.1-flash-lite-image', ms: 3240 })).toBe('Nano Banana 2 Lite drew this in 3.2 s · about US$0.03')
+    expect(pictureTestLine({ ok: false, model: 'models/gemini-3-pro-image', reason: 'picture_credit' })).toMatch(/^Nano Banana Pro: .*prepaid/)
+    expect(pictureTestLine({ ok: false, model: 'gemini-x-image', reason: 'model' })).toBe('gemini-x-image: This key can’t use that model. Choose another one.')
+    expect(pictureTestLine({ ok: false, model: 'gemini-x-image', reason: 'server' })).toMatch(/couldn’t draw/)
   })
 })
 

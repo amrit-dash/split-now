@@ -24,6 +24,14 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '8.3.10',
+    date: 'October 2026',
+    items: [
+      { text: 'Draw a picture says why Google refused: credit run out, no billing, or a short limit', section: 'ai-features' },
+      { text: 'Test pictures checks the chosen image model on your key, or Split Now’s for admins', section: 'ai-features' },
+    ],
+  },
+  {
     version: '8.3.9',
     date: 'October 2026',
     items: [{ text: 'Lock an open private group from its row in Groups', section: 'private-groups-auto-lock' }],

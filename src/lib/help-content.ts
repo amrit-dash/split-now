@@ -510,6 +510,7 @@ export const SECTIONS: HelpSection[] = [
       'Your own Gemini key is stored sealed; the app shows only its last 4 characters.',
       'AI icons and AI picks icons are on by default; Quick add with AI is off by default.',
       'With your own key, Advanced has a model for reading and a model for pictures, each with its price.',
+      'Test pictures draws one billed picture with the chosen model, to check it works and see how fast it is.',
       'Never in private groups.',
     ],
     open: { label: 'AI features', to: '/settings/ai' },

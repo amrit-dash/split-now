@@ -117,7 +117,7 @@ export function IconSheet({
     try {
       const r = await repo.iconPictureAi(asked)
       const small = r && 'image' in r ? await shrinkPicture(r.image, r.mimeType) : null
-      const why = pictureProblem(r, !!small)
+      const why = pictureProblem(r, !!small, picture ?? 'own')
       if (why || !small) setPictureWhy(why)
       else {
         setDrawn(small)

@@ -12,6 +12,7 @@ import { modelHint } from '@/components/AiSettings'
 import { todayISO } from '@/lib/id'
 import { pictureModelOptions } from '@/lib/icon-ai'
 import { pictureCost } from '../../../shared/icon-ai'
+import { PictureTest } from '@/components/PictureTest'
 import { Select } from '@/components/Select'
 import { Switch } from '@/components/Switch'
 import { useToast } from '@/components/Toast'
@@ -355,6 +356,7 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
                       ? 'Loading the image models the key can use…'
                       : 'Image models have no free tier: the key needs billing, also when Gemma reads bills. A failed model falls back to the recommended one.'}
                   </p>
+                  <PictureTest which="app" model={cfg.pictureModel} />
                 </div>
               )}
               {cfg.pictures && (

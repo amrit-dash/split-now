@@ -268,12 +268,47 @@ export class GeminiError extends Error {
   constructor(
     message: string,
     readonly status?: number,
-    body = '',
+    readonly body = '',
     kind?: GeminiErrorKind,
   ) {
     super(message)
     this.kind = kind ?? classify(status, body)
   }
+}
+
+/**
+ * Why Google refused a picture, in the words the app shows. Image models have no free tier, so
+ * Google's refusals mean different things than for text, and each has a different fix:
+ *  picture_credit   402, or "prepayment credits are depleted": the key's prepaid credit ran out (top it up)
+ *  picture_billing  a 429 whose allowance is 0 (the free tier: no billing on the key), or a billing precondition
+ *  picture_busy     any other 429: a real rate limit, which passes
+ *  model            the key can't use that model
+ * and blocked / bad_key / server as for text.
+ */
+export type PictureRefusal = 'picture_credit' | 'picture_billing' | 'picture_busy' | 'model' | 'blocked' | 'bad_key' | 'server'
+
+export function pictureRefusal(err: GeminiError): PictureRefusal {
+  if (err.kind === 'blocked' || err.kind === 'model' || err.kind === 'bad_key') return err.kind
+  if (err.status === 402 || /prepay\w*\s+credits?\s+(?:are|is)\s+depleted|credits? (?:are|is) exhausted/i.test(err.body)) return 'picture_credit'
+  if (err.kind === 'billing') return 'picture_billing'
+  if (err.kind === 'quota') return /limit:\s*0\b|free_?tier/i.test(err.body) ? 'picture_billing' : 'picture_busy'
+  return 'server'
+}
+
+/** Google's own sentence from an error body (its JSON error.message), else the body; at most 240 characters. */
+export function googleMessage(body: string): string {
+  let text = body
+  try {
+    const m = (JSON.parse(body) as { error?: { message?: unknown } }).error?.message
+    if (typeof m === 'string') text = m
+  } catch {
+    // not JSON, or cut short: its "message" if it got that far, else the raw text
+    const m = /"message"\s*:\s*"((?:[^"\\]|\\.)*)"/.exec(body)
+    if (m) text = m[1].replace(/\\n/g, ' ').replace(/\\(.)/g, '$1')
+  }
+  // A key never appears in Google's messages, but strip anything key-shaped all the same.
+  text = text.replace(/AIza[0-9A-Za-z_-]{20,}/g, '…').replace(/\s+/g, ' ').trim()
+  return text.length > 240 ? `${text.slice(0, 239)}…` : text
 }
 
 /** Token counts Gemini reports, for the admin's usage view. */
@@ -527,8 +562,9 @@ export async function generateImage(
       signal: AbortSignal.timeout(Math.max(1000, timeoutMs - (Date.now() - started))),
     })
     if (!res.ok) {
-      const body = (await res.text()).slice(0, 300)
-      const err = new GeminiError(`Gemini ${res.status}: ${body}`, res.status, body)
+      // Kept long enough to tell a spent credit from no billing from a rate limit (pictureRefusal).
+      const body = (await res.text()).slice(0, 2000)
+      const err = new GeminiError(`Gemini ${res.status}: ${body.slice(0, 300)}`, res.status, body)
       // A model this key can't use: try the next one.
       if (err.kind === 'model') {
         last = err

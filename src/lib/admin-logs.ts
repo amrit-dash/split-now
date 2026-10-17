@@ -43,6 +43,7 @@ export const FUNCTION_NAMES = [
   'onSettlementCreated',
   'onSettlementUpdated',
   'parseReceiptAi',
+  'pictureTest',
   'purgeDeletedGroups',
   'quickAddAi',
   'refreshFx',
