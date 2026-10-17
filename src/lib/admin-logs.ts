@@ -21,6 +21,7 @@ export const FUNCTION_NAMES = [
   'cleanupCaptures',
   'dailyReminders',
   'decideMerge',
+  'deleteAccount',
   'fxDaily',
   'fxMorning',
   'iconPickAi',
