@@ -1,14 +1,18 @@
 import { useEffect, useState } from 'react'
-import { ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react'
+import { Camera, Check, ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react'
+import { Collapsible } from '@/components/Collapsible'
 import { useMotion } from '@/hooks/useMotion'
-import { boldParts, clampStep, type HelpStep, nextStep, STEP_MS } from '@/lib/help'
+import { boldParts, clampStep, type HelpShot, type HelpStep, nextStep, STEP_MS } from '@/lib/help'
+import SHOTS from '@/lib/help-shots.json'
 import { SCENES } from '@/lib/help-scenes'
+import { HelpShotView } from './HelpShot'
 import { Scene } from './Scene'
 
 /**
- * A main feature's steps beside its scene (src/features/help/Scene.tsx): it plays one step after
- * another, looping, and a tap on a step (or Back / Next) jumps there and pauses. With reduced
- * motion or animations off it starts paused and the scene stays still; the steps read the same.
+ * A section's steps beside its scene (src/features/help/Scene.tsx): it plays one step after
+ * another, looping, ticking off each step it has shown, and a tap on a step (or Back / Next) jumps
+ * there and pauses. With reduced motion or animations off it starts paused and nothing moves; the
+ * steps read the same. A screenshot of the real screen, when there is one, waits closed underneath.
  */
 export function StepPlayer({ sectionId, steps }: { sectionId: string; steps: HelpStep[] }) {
   const motion = useMotion()
@@ -30,6 +34,7 @@ export function StepPlayer({ sectionId, steps }: { sectionId: string; steps: Hel
     setI(((n % steps.length) + steps.length) % steps.length)
   }
   const scene = SCENES[sectionId]
+  const shot = (SHOTS as Record<string, HelpShot>)[sectionId]
   return (
     <div className="card overflow-hidden p-4" data-testid="help-player">
       {scene && (
@@ -66,15 +71,34 @@ export function StepPlayer({ sectionId, steps }: { sectionId: string; steps: Hel
               data-testid="help-step"
             >
               <span
-                className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold transition ${n === step ? 'bg-fill text-on-fill' : 'bg-slate-100 text-slate-600 dark:bg-ink-800 dark:text-slate-300'}`}
+                className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold transition ${n === step ? 'bg-fill text-on-fill' : n < step ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-600 dark:bg-ink-800 dark:text-slate-300'}`}
               >
-                {n + 1}
+                {/* Steps already shown get a tick (it pops in as the player moves on); the number stays for screen readers. */}
+                {n < step ? (
+                  <>
+                    <Check size={14} strokeWidth={3} className={still ? '' : 'animate-pop'} aria-hidden />
+                    <span className="sr-only">{n + 1}, done</span>
+                  </>
+                ) : (
+                  n + 1
+                )}
               </span>
               <StepText text={s.text} />
             </button>
           </li>
         ))}
       </ol>
+      {shot && (
+        <Collapsible
+          className="mt-4 !shadow-none ring-1 ring-slate-100 dark:ring-white/5"
+          icon={<Camera size={16} aria-hidden />}
+          title="See a screenshot"
+          summary="The real screen, with each step lit"
+          testId="help-shot-panel"
+        >
+          <HelpShotView id={sectionId} shot={shot} active={step + 1} still={still} />
+        </Collapsible>
+      )}
     </div>
   )
 }

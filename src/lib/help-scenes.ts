@@ -303,6 +303,174 @@ export const SCENES: Record<string, Scene> = {
   ],
 }
 
+/*
+ * The other sections' scenes: the same parts, smaller stories (a screen or two each), so every
+ * section in Help plays rather than shows a picture.
+ */
+const settings = (title: string, parts: Part[]): Screen => ({ parts: [{ kind: 'title', label: title }, ...parts] })
+
+Object.assign(SCENES, {
+  'help-guide': [
+    settings('Profile', [
+      { kind: 'row', label: 'Settings', value: '›' },
+      { kind: 'row', label: 'Help', value: 'New', mark: 'profile' },
+      { kind: 'row', label: 'Balances', value: '›' },
+    ]),
+    settings('Help', [
+      { kind: 'chips', mark: 'whatsnew', items: [{ label: 'Guide', on: true }, { label: 'What’s new ●' }] },
+      { kind: 'field', label: 'Search', value: 'refund', mark: 'search' },
+      {
+        kind: 'tiles',
+        items: [
+          { label: 'Add an expense', icon: '🧾' },
+          { label: 'Ways to split', icon: '➗' },
+          { label: 'Settle up', icon: '💸' },
+          { label: 'Scan a bill', icon: '📷' },
+        ],
+      },
+    ]),
+  ],
+  'sign-in': [
+    settings('Split Now', [
+      { kind: 'note', label: 'Split bills, not friendships.' },
+      { kind: 'button', label: 'Continue with Google', primary: true, mark: 'google' },
+      { kind: 'field', label: 'Your email', value: 'asha@example.com', mark: 'email' },
+      { kind: 'button', label: 'Email me a sign-in link' },
+    ]),
+    settings('Welcome', [
+      { kind: 'field', label: 'What should friends call you?', value: 'Asha Rao', mark: 'name' },
+      { kind: 'button', label: 'Continue', primary: true },
+    ]),
+  ],
+  'money-received': [
+    settings('Add expense', [
+      { kind: 'chips', mark: 'switch', items: [{ label: 'Expense' }, { label: 'Money received', on: true }] },
+      { kind: 'field', label: 'Amount in INR', value: '₹1,000' },
+      { kind: 'row', label: 'Received by', value: 'Rahul', mark: 'who' },
+      { kind: 'row', label: 'Shared with', value: 'Everyone' },
+      { kind: 'button', label: 'Save', primary: true, mark: 'save' },
+    ]),
+  ],
+  'receipt-photos': [
+    settings('Add expense', [
+      { kind: 'field', label: 'What was it for?', value: 'Dinner at Toit', icon: '🍺' },
+      { kind: 'field', label: 'Amount in INR', value: '₹3,240' },
+      { kind: 'chips', items: [{ label: 'Today', on: true }, { label: 'Yesterday' }, { label: '📎 Attach', mark: 'attach' }] },
+      {
+        kind: 'list',
+        label: '2 of 4 attached',
+        items: [
+          { label: 'Card slip', icon: '🧾' },
+          { label: 'Second page', icon: '📄' },
+        ],
+      },
+      { kind: 'button', label: 'Save', primary: true, mark: 'save' },
+    ]),
+    settings('Dinner at Toit', [
+      { kind: 'row', label: 'Photos (2)', value: 'Scanned receipt · 1 attached' },
+      { kind: 'button', label: '＋ Add a photo', mark: 'add' },
+    ]),
+  ],
+  'private-groups-setup': [
+    settings('Settings', [
+      { kind: 'row', label: 'Preferences', value: '›' },
+      { kind: 'row', label: 'Encrypted groups', value: '›', mark: 'open' },
+      { kind: 'row', label: 'Notifications', value: '›' },
+    ]),
+    settings('Encrypted groups', [
+      { kind: 'switch', label: 'Passkey (Face ID)', mark: 'passkey' },
+      { kind: 'button', label: 'Set universal pattern', primary: true },
+    ]),
+    {
+      sheet: true,
+      parts: [
+        { kind: 'title', label: 'Universal pattern' },
+        { kind: 'pattern', label: 'Tap and long-press, 6 or more', mark: 'pattern' },
+        { kind: 'switch', label: 'Follow the sequence', mark: 'order' },
+        { kind: 'button', label: 'Save pattern', primary: true, mark: 'save' },
+      ],
+    },
+  ],
+  'private-groups-unlock': [
+    settings('Groups', [
+      { kind: 'locked', label: 'Ẍq#v·9k' },
+      { kind: 'pattern', label: 'Private groups', mark: 'pattern' },
+      { kind: 'note', label: 'Checked a moment after you stop', mark: 'pause' },
+    ]),
+    { sheet: true, parts: [{ kind: 'faceid', label: 'Face ID', mark: 'faceid' }] },
+  ],
+  'private-groups-make': [
+    settings('New group', [
+      { kind: 'field', label: 'Name', value: 'Family', icon: '🏡' },
+      { kind: 'switch', label: 'Private group', mark: 'new' },
+    ]),
+    settings('Goa trip ⋯', [
+      { kind: 'row', label: 'Edit group', value: '›' },
+      { kind: 'row', label: 'Make private', value: '🔐', mark: 'menu' },
+      { kind: 'row', label: 'Export CSV', value: '›' },
+    ]),
+    {
+      sheet: true,
+      parts: [
+        { kind: 'title', label: 'Private group' },
+        { kind: 'note', label: 'Encrypted on everyone’s phone.' },
+        { kind: 'button', label: 'Turn off private', mark: 'off' },
+      ],
+    },
+  ],
+  'private-groups-own-pattern': [
+    {
+      sheet: true,
+      parts: [
+        { kind: 'title', label: 'Private group' },
+        { kind: 'button', label: 'Give it its own pattern', primary: true, mark: 'give' },
+        { kind: 'pattern', label: 'Any length', mark: 'draw' },
+        { kind: 'note', label: 'Group pattern saved. Tell the group in person.', mark: 'tell' },
+      ],
+    },
+  ],
+  'private-groups-join': [
+    settings('A private group', [
+      { kind: 'note', label: 'Its creator lets each person in.' },
+      { kind: 'button', label: 'Ask to join', primary: true, mark: 'ask' },
+    ]),
+    settings('Inbox', [
+      { kind: 'list', label: 'Asking to join', items: [{ label: 'Priya', icon: '👩' }] },
+      { kind: 'chips', mark: 'approve', items: [{ label: 'Let them in', on: true }, { label: 'Decline' }] },
+    ]),
+  ],
+  'private-groups-auto-lock': [
+    settings('Encrypted groups', [
+      { kind: 'chips', mark: 'time', items: [{ label: '1 min' }, { label: '5 min', on: true }, { label: '1 hour' }, { label: 'On close' }] },
+      { kind: 'switch', label: 'Lock when I leave the app', value: 'on', mark: 'leave' },
+    ]),
+  ],
+  'private-groups-stop': [
+    settings('Encrypted groups', [
+      { kind: 'row', label: 'Universal pattern', value: 'Set' },
+      { kind: 'row', label: 'Passkeys', value: '1' },
+      { kind: 'button', label: 'Stop using private groups', mark: 'stop' },
+    ]),
+  ],
+  'ai-features': [
+    settings('Settings', [
+      { kind: 'row', label: 'Preferences', value: '›' },
+      { kind: 'row', label: 'AI features', value: '›', mark: 'open' },
+    ]),
+    settings('AI features', [
+      { kind: 'switch', label: 'Use AI', mark: 'use' },
+      { kind: 'row', label: 'Model for pictures', value: 'Recommended' },
+      { kind: 'row', label: 'Which key', value: 'Automatic' },
+    ]),
+  ],
+  'admin-console': [
+    settings('Settings', [
+      { kind: 'row', label: 'AI features', value: '›' },
+      { kind: 'row', label: 'Admin', value: '🛠️', mark: 'admin' },
+    ]),
+  ],
+} satisfies Record<string, Scene>)
+
 /** Every mark in a part or its items. */
 const marksOf = (p: Part): string[] => [p.mark, ...(p.items ?? []).map((i) => i.mark)].filter((m): m is string => !!m)
 
