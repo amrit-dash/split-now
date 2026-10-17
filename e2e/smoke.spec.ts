@@ -1450,6 +1450,20 @@ test('help: a section that isn’t a main feature plays its own steps too', asyn
   await expect(page.getByTestId('help-step').nth(1)).toHaveAttribute('aria-current', 'step')
 })
 
+test('help: How it works opens an explainer whose picture follows the caption', async ({ page }) => {
+  await page.goto('/help')
+  await expect(page.getByTestId('help-story-card')).toHaveCount(6)
+  await page.getByTestId('help-story-card').first().click()
+  await expect(page).toHaveURL(/\/help\/how-it-works$/)
+  await expect(page.getByTestId('help-story')).toBeVisible()
+  const beats = page.getByTestId('help-beat')
+  await expect(beats).toHaveCount(4)
+  await beats.nth(2).click()
+  await expect(beats.nth(2)).toHaveAttribute('aria-current', 'step')
+  await expect(page.getByTestId('help-story')).toHaveAttribute('data-beat', '2')
+  await expect(page.getByTestId('help-play')).toHaveAttribute('aria-pressed', 'false')
+})
+
 test('help: What’s new lists this version first and links each line to the guide', async ({ page }) => {
   await page.goto('/help?tab=new')
   const releases = page.getByTestId('release')

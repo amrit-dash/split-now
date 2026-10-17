@@ -15,24 +15,8 @@ import { Scene } from './Scene'
  * steps read the same. A screenshot of the real screen, when there is one, waits closed underneath.
  */
 export function StepPlayer({ sectionId, steps }: { sectionId: string; steps: HelpStep[] }) {
-  const motion = useMotion()
-  const still = motion.reduced || !motion.prefs.on
-  const [i, setI] = useState(0)
-  const [playing, setPlaying] = useState(!still)
-  const step = clampStep(i, steps.length)
-  // biome-ignore lint/correctness/useExhaustiveDependencies: each step waits its own time, so a jump restarts the wait
-  useEffect(() => {
-    if (!playing || still) return
-    const t = setTimeout(() => {
-      // A hidden tab doesn't play on: it waits on the step it was showing.
-      if (document.visibilityState === 'visible') setI((x) => nextStep(x, steps.length))
-    }, STEP_MS)
-    return () => clearTimeout(t)
-  }, [playing, still, step, steps.length])
-  const go = (n: number) => {
-    setPlaying(false)
-    setI(((n % steps.length) + steps.length) % steps.length)
-  }
+  const p = usePlayer(steps.length)
+  const { step, still } = p
   const scene = SCENES[sectionId]
   const shot = (SHOTS as Record<string, HelpShot>)[sectionId]
   return (
@@ -42,30 +26,13 @@ export function StepPlayer({ sectionId, steps }: { sectionId: string; steps: Hel
           <Scene scene={scene} mark={steps[step]?.mark} step={step} still={still} />
         </div>
       )}
-      <div className="mb-3 flex items-center gap-2">
-        <button type="button" className="chip min-h-11" onClick={() => go(step - 1)} aria-label="Previous step" data-testid="help-prev">
-          <ChevronLeft size={16} aria-hidden />
-        </button>
-        <button
-          type="button"
-          className="chip min-h-11 flex-1 justify-center"
-          onClick={() => setPlaying((p) => !p)}
-          aria-pressed={playing}
-          disabled={still}
-          data-testid="help-play"
-        >
-          {playing ? <Pause size={14} aria-hidden /> : <Play size={14} aria-hidden />} {playing ? 'Pause' : 'Play'} · step {step + 1} of {steps.length}
-        </button>
-        <button type="button" className="chip min-h-11" onClick={() => go(step + 1)} aria-label="Next step" data-testid="help-next">
-          <ChevronRight size={16} aria-hidden />
-        </button>
-      </div>
+      <PlayControls p={p} count={steps.length} noun="step" />
       <ol className="space-y-1">
         {steps.map((s, n) => (
           <li key={s.text}>
             <button
               type="button"
-              onClick={() => go(n)}
+              onClick={() => p.go(n)}
               aria-current={n === step ? 'step' : undefined}
               className={`flex min-h-11 w-full items-start gap-3 rounded-2xl px-2 py-2 text-left text-sm transition ${n === step ? 'bg-brand-50 dark:bg-brand-900/30' : ''}`}
               data-testid="help-step"
@@ -119,5 +86,56 @@ export function StepText({ text }: { text: string }) {
         ),
       )}
     </span>
+  )
+}
+
+/**
+ * Playing a list of steps (or an explainer's beats): one after another, looping, each STEP_MS;
+ * a jump (a tap on one, Back, Next) pauses. With reduced motion or animations off it starts
+ * paused and nothing moves.
+ */
+export function usePlayer(count: number) {
+  const motion = useMotion()
+  const still = motion.reduced || !motion.prefs.on
+  const [i, setI] = useState(0)
+  const [playing, setPlaying] = useState(!still)
+  const step = clampStep(i, count)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: each step waits its own time, so a jump restarts the wait
+  useEffect(() => {
+    if (!playing || still) return
+    const t = setTimeout(() => {
+      // A hidden tab doesn't play on: it waits on the step it was showing.
+      if (document.visibilityState === 'visible') setI((x) => nextStep(x, count))
+    }, STEP_MS)
+    return () => clearTimeout(t)
+  }, [playing, still, step, count])
+  const go = (n: number) => {
+    setPlaying(false)
+    setI(((n % count) + count) % count)
+  }
+  return { step, still, playing, setPlaying, go }
+}
+
+/** Back, Play or Pause with where it is ("step 2 of 4"), and Next. */
+export function PlayControls({ p, count, noun }: { p: ReturnType<typeof usePlayer>; count: number; noun: string }) {
+  return (
+    <div className="mb-3 flex items-center gap-2">
+      <button type="button" className="chip min-h-11" onClick={() => p.go(p.step - 1)} aria-label={`Previous ${noun}`} data-testid="help-prev">
+        <ChevronLeft size={16} aria-hidden />
+      </button>
+      <button
+        type="button"
+        className="chip min-h-11 flex-1 justify-center"
+        onClick={() => p.setPlaying((x) => !x)}
+        aria-pressed={p.playing}
+        disabled={p.still}
+        data-testid="help-play"
+      >
+        {p.playing ? <Pause size={14} aria-hidden /> : <Play size={14} aria-hidden />} {p.playing ? 'Pause' : 'Play'} · {noun} {p.step + 1} of {count}
+      </button>
+      <button type="button" className="chip min-h-11" onClick={() => p.go(p.step + 1)} aria-label={`Next ${noun}`} data-testid="help-next">
+        <ChevronRight size={16} aria-hidden />
+      </button>
+    </div>
   )
 }

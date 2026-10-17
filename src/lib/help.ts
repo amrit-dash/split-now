@@ -21,6 +21,15 @@ export interface HelpStep {
   mark?: string
 }
 
+/**
+ * The explainers' pictures (src/features/help/Story.tsx): an everyday picture of how a part of
+ * Split Now thinks, not a list of taps. Each draws a fixed number of beats (STORY_BEATS), and
+ * the section's `story.beats` are the captions, one per beat.
+ */
+export type StoryKind = 'pot' | 'seesaw' | 'untangle' | 'remainder' | 'vault' | 'filter'
+
+export const STORY_BEATS: Record<StoryKind, number> = { pot: 4, seesaw: 3, untangle: 3, remainder: 3, vault: 3, filter: 3 }
+
 export interface HelpSection {
   id: string
   chapter: ChapterId
@@ -34,6 +43,8 @@ export interface HelpSection {
   /** the emoji on its card */
   icon?: string
   steps?: HelpStep[]
+  /** an explainer: an animated picture and a caption per beat, in place of steps */
+  story?: { kind: StoryKind; beats: string[] }
   /** what to know: rules, limits and edge cases, one sentence each */
   points: string[]
   /** where to try it: a button to that place in the app */
@@ -87,7 +98,7 @@ export function searchHelp(query: string, sections: HelpSection[]): HelpSection[
     const fields: Array<[string, number]> = [
       [s.title, 6],
       [`${s.summary} ${(s.keywords ?? []).join(' ')}`, 3],
-      [[...(s.steps ?? []).map((x) => plain(x.text)), ...s.points].join(' '), 1],
+      [[...(s.steps ?? []).map((x) => plain(x.text)), ...(s.story?.beats ?? []).map(plain), ...s.points].join(' '), 1],
     ]
     const tokens = fields.map(([t, w]) => [fold(t).split(/[^a-z0-9₹$]+/), w] as const)
     let score = 0
@@ -102,15 +113,20 @@ export function searchHelp(query: string, sections: HelpSection[]): HelpSection[
   return scored.sort((a, b) => b.score - a.score || a.i - b.i).map((x) => x.s)
 }
 
-/** The guide's front page: the main features first, then each chapter with the rest, in order. */
+/**
+ * The guide's front page: the explainers first (how it works), then the main features, then each
+ * chapter with the rest, in order. A section is listed once.
+ */
 export function guideLayout(
   chapters: Chapter[],
   sections: HelpSection[],
-): { core: HelpSection[]; chapters: Array<{ chapter: Chapter; sections: HelpSection[] }> } {
+): { stories: HelpSection[]; core: HelpSection[]; chapters: Array<{ chapter: Chapter; sections: HelpSection[] }> } {
+  const listed = sections.filter((s) => !s.unlisted)
   return {
-    core: sections.filter((s) => s.core && !s.unlisted),
+    stories: listed.filter((s) => s.story),
+    core: listed.filter((s) => s.core && !s.story),
     chapters: chapters
-      .map((chapter) => ({ chapter, sections: sections.filter((s) => s.chapter === chapter.id && !s.core && !s.unlisted) }))
+      .map((chapter) => ({ chapter, sections: listed.filter((s) => s.chapter === chapter.id && !s.core && !s.story) }))
       .filter((c) => c.sections.length),
   }
 }

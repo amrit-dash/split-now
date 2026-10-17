@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowRight, ChevronRight, Search } from 'lucide-react'
 import { Empty, PageHeader, Segmented } from '@/components/Misc'
 import { StepPlayer, StepText } from '@/features/help/StepPlayer'
+import { StoryPlayer } from '@/features/help/StoryPlayer'
 import { APP_SEMVER, useWhatsNew } from '@/hooks/useWhatsNew'
 import { usePageTitle } from '@/lib/brand'
 import { guideLayout, type HelpSection, relatedOf, searchHelp } from '@/lib/help'
@@ -12,9 +13,9 @@ import { type Release, releasesFor } from '@/lib/whats-new'
 type Tab = 'guide' | 'new'
 
 /**
- * Help (Profile → Help): the guide, searchable, with the main features first, and What's new,
+ * Help (Profile → Help): the guide, searchable, with the explainers (How it works) and the main features first, and What's new,
  * every release of this major version with each line linked to its section. /help/<id> is one
- * section: its steps (played, for a main feature), what to know, Try it, and related sections.
+ * section: its explainer or its steps (played), what to know, Try it, and related sections.
  */
 export default function Help() {
   const { sectionId } = useParams()
@@ -100,6 +101,28 @@ function Guide() {
         )
       ) : (
         <>
+          <section aria-labelledby="help-how">
+            <h2 id="help-how" className="label mb-2">
+              How it works
+            </h2>
+            <div className="-mx-4 flex snap-x scroll-px-4 gap-2 overflow-x-auto px-4 pb-1" data-testid="help-stories">
+              {layout.stories.map((s, i) => (
+                <Link
+                  key={s.id}
+                  to={`/help/${s.id}`}
+                  className={`card flex min-h-24 w-40 shrink-0 snap-start flex-col gap-1 bg-gradient-to-br from-brand-50 to-duo-50 p-3 transition active:scale-[0.98] dark:from-brand-900/30 dark:to-duo-900/20 ${popIn ? 'animate-pop' : ''}`}
+                  style={popIn ? { animationDelay: `${i * 40}ms` } : undefined}
+                  data-testid="help-story-card"
+                >
+                  <span className="text-2xl" aria-hidden>
+                    {s.icon}
+                  </span>
+                  <span className="text-sm font-bold leading-tight">{s.title}</span>
+                  <span className="text-muted line-clamp-2 text-xs">{s.summary}</span>
+                </Link>
+              ))}
+            </div>
+          </section>
           <section aria-labelledby="help-main">
             <h2 id="help-main" className="label mb-2">
               Main features
@@ -230,6 +253,7 @@ function SectionPage({ id }: { id: string }) {
   return (
     <div className="space-y-4" data-testid="help-section">
       <PageHeader title={s.title} back="/help" subtitle={s.summary} />
+      {s.story ? <StoryPlayer key={s.id} kind={s.story.kind} beats={s.story.beats} /> : null}
       {s.steps?.length ? <StepPlayer key={s.id} sectionId={s.id} steps={s.steps} /> : null}
       {s.open && (
         <Link to={s.open.to} className="btn-primary w-full" data-testid="help-try">

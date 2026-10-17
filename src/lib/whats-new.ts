@@ -24,6 +24,15 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '8.3.12',
+    date: 'October 2026',
+    items: [
+      { text: 'How it works: what Split Now does, as a shared pot that keeps count', section: 'how-it-works' },
+      { text: 'Balances, simplified payments and rounding, each as a moving picture', section: 'balances-explained' },
+      { text: 'What a private group hides, and how auto-capture picks payments', section: 'private-groups-explained' },
+    ],
+  },
+  {
     version: '8.3.11',
     date: 'October 2026',
     items: [{ text: 'AI features in titled sections: bills and screenshots, bank SMS, Quick add, icons, your key', section: 'ai-features' }],

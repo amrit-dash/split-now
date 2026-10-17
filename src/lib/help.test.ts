@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { boldParts, clampStep, guideLayout, type HelpShot, markBox, nextStep, plain, relatedOf, searchHelp } from './help'
+import { boldParts, clampStep, guideLayout, type HelpShot, markBox, nextStep, plain, relatedOf, searchHelp, STORY_BEATS } from './help'
 import SHOTS from './help-shots.json'
 import { CHAPTERS, SECTIONS } from './help-content'
 import { baseOf, findMark, SCENE_MARKS, SCENES } from './help-scenes'
@@ -53,7 +53,7 @@ describe('the guide’s content', () => {
   })
   it('copy follows the house style: no exclamation marks, no “token”', () => {
     for (const s of SECTIONS) {
-      const all = [s.title, s.summary, ...(s.steps ?? []).map((x) => x.text), ...s.points].join(' ')
+      const all = [s.title, s.summary, ...(s.steps ?? []).map((x) => x.text), ...(s.story?.beats ?? []), ...s.points].join(' ')
       expect(all, s.id).not.toMatch(/!/)
       expect(all, s.id).not.toMatch(/\btoken\b/i)
     }
@@ -98,15 +98,43 @@ describe('the step player and the front page', () => {
     expect(boldParts('**A**')).toEqual([{ text: 'A', bold: true }])
     expect(plain('Tap **Save**')).toBe('Tap Save')
   })
-  it('lists the main features first, then each chapter without them and without empty ones', () => {
+  it('lists the explainers and the main features first, then each chapter without them and without empty ones', () => {
     const g = guideLayout(CHAPTERS, SECTIONS)
+    expect(g.stories.map((s) => s.id)).toEqual([
+      'how-it-works',
+      'balances-explained',
+      'simplify-explained',
+      'splits-add-up',
+      'private-groups-explained',
+      'auto-capture-explained',
+    ])
     expect(g.core.length).toBe(10)
-    expect(g.chapters.flatMap((c) => c.sections).some((s) => s.core)).toBe(false)
+    const rest = g.chapters.flatMap((c) => c.sections)
+    expect(rest.some((s) => s.core || s.story)).toBe(false)
     expect(g.chapters.every((c) => c.sections.length > 0)).toBe(true)
-    expect(g.core.length + g.chapters.reduce((n, c) => n + c.sections.length, 0)).toBe(SECTIONS.filter((s) => !s.unlisted).length)
+    expect(g.stories.length + g.core.length + rest.length).toBe(SECTIONS.filter((s) => !s.unlisted).length)
     // Help about Help isn't on Help's own front page, but links and search still reach it
     expect(g.chapters.flatMap((c) => c.sections).some((s) => s.id === 'help-guide')).toBe(false)
     expect(searchHelp('What’s new', SECTIONS)[0].id).toBe('help-guide')
+  })
+})
+
+describe('the explainers', () => {
+  it('each has a picture that draws one beat per caption, and no steps beside it', () => {
+    const stories = SECTIONS.filter((s) => s.story)
+    expect(stories.length).toBeGreaterThanOrEqual(6)
+    for (const s of stories) {
+      const story = s.story!
+      expect(STORY_BEATS[story.kind], s.id).toBeDefined()
+      expect(story.beats.length, s.id).toBe(STORY_BEATS[story.kind])
+      expect(s.steps, s.id).toBeUndefined()
+      for (const b of story.beats) expect(b.length, s.id).toBeGreaterThan(20)
+    }
+  })
+  it('the guide’s search reads their captions too', () => {
+    expect(searchHelp('paisa', SECTIONS)[0].id).toBe('splits-add-up')
+    expect(searchHelp('seesaw level', SECTIONS).length).toBe(0)
+    expect(searchHelp('tangle', SECTIONS)[0].id).toBe('simplify-explained')
   })
 })
 

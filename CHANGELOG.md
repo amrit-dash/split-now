@@ -6,6 +6,10 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.3.12 — October 2026
+
+- Help: How it works, at the top of the guide, explains six ideas with an everyday picture that moves as you read, instead of a list of taps: what Split Now does (a shared pot), how balances work (a seesaw), fewer payments to settle (untangling arrows), why splits always add up (₹100 three ways), what a private group hides (a locked box with the amounts on its label), and how auto-capture picks payments (a filter). Each plays on its own, or tap a line to jump to it.
+
 ## 8.3.11 — October 2026
 
 - Settings → AI features is split into titled sections: Reading bills and screenshots, Bank SMS, Quick add and Icons, each with its own switches, then Your key and models (which key, Split Now's AI, your own Gemini key and its model). Model for pictures and Test pictures now sit under Icons. Before, everything but the main switch was under one Advanced panel.
