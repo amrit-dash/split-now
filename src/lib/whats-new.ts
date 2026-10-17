@@ -24,6 +24,11 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '8.5.2',
+    date: 'October 2026',
+    items: [{ text: 'Continue with Google asks which account to use, so you can switch accounts', section: 'sign-in' }],
+  },
+  {
     version: '8.5.1',
     date: 'October 2026',
     items: [{ text: 'Delete my account: confirm it’s you with Google or an emailed link, without signing out', section: 'delete-account' }],

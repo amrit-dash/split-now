@@ -6,6 +6,10 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.5.2 — October 2026
+
+- Continue with Google now always asks which Google account to use. Before, signing out and back in (in the installed app above all) went straight back to the account used last, with no way to pick another. Pick an account from the list, or Use another account to add one.
+
 ## 8.5.1 — October 2026
 
 - Delete my account: when your last sign-in is older than 5 minutes, the screen asks you to confirm it's you, right there. Sign in again with Google, or have a sign-in link emailed to you that brings you back to the screen. Before, an email account had to sign out and back in. If the link opens in your browser rather than the installed app, you can delete your account there.

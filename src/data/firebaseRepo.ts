@@ -490,6 +490,9 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     },
     async signInWithGoogle() {
       const provider = new GoogleAuthProvider()
+      // Always Google's account chooser: otherwise, after signing out, Google signs straight back
+      // in to the account this browser used last, and there is no way to pick another one.
+      provider.setCustomParameters({ prompt: 'select_account' })
       // Popups are unreliable in installed iOS PWAs; use redirect there (result handled at startup).
       const standalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone
       const guest = auth.currentUser?.isAnonymous ? auth.currentUser : null
