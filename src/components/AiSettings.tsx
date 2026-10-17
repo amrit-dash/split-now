@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Check, ExternalLink, KeyRound, Loader2, RefreshCw, ShieldCheck, Sparkles, Trash2 } from 'lucide-react'
+import { Check, ExternalLink, Keyboard, KeyRound, Loader2, MessageSquare, RefreshCw, ScanLine, Shapes, ShieldCheck, Sparkles, Trash2 } from 'lucide-react'
 import { repo } from '@/data'
 import { useAiState } from '@/hooks/data'
 import type { AiModel, AiState, AppAiStatusValue } from '@/data/repo'
@@ -17,6 +17,7 @@ import { Collapsible } from './Collapsible'
 import { PictureTest } from './PictureTest'
 import { HintText, InfoTip, type Hint } from './Hint'
 import { Select } from './Select'
+import { SettingsSection } from './SettingsSection'
 import { Switch } from './Switch'
 import { useToast } from './Toast'
 
@@ -77,9 +78,10 @@ const TONE = { ok: 'bg-emerald-500', muted: 'bg-slate-400', warn: 'bg-amber-500'
 export const modelHint = (m: AiModel & { lite?: boolean }) => (m.lite === false ? `${m.id} · costs ~10× more per bill` : m.lite ? `${m.id} · cheapest` : m.id)
 
 /**
- * Settings → AI features. One switch and one consent sentence for everyone; which features, which
- * key, the user's own Gemini key and its model live under Advanced (opened by itself only when
- * the user's own key is the only way AI can work for them).
+ * Settings → AI features. One switch and one consent sentence for everyone, then a titled section
+ * per kind of work (reading bills and screenshots, bank SMS, Quick add, icons) with its switches,
+ * and last Your key and models: which key, Split Now's AI, the user's own Gemini key and its model
+ * (opened by itself only when the user's own key is the only way AI can work for them).
  */
 export function AiSettings() {
   const { user } = useMe()
@@ -190,7 +192,7 @@ export function AiSettings() {
           text={
             prefs.aiEnabled
               ? {
-                  full: 'For what the phone can’t read: bills, bank SMS, Quick add lines and payment screenshots. Choose which under Advanced.',
+                  full: 'For what the phone can’t read: bills, bank SMS, Quick add lines and payment screenshots. Choose each one below.',
                   short: 'For bills, bank SMS and screenshots the phone can’t read',
                   tier: 'help',
                 }
@@ -212,7 +214,7 @@ export function AiSettings() {
             <Row title="Use free AI" testId="ai-free-ok" checked={prefs.aiFreeOk} onChange={(v) => set({ aiFreeOk: v })} text={FREE_AI_HINT} />
             {prefs.aiFreeOk && prefs.aiSource === 'own' && (
               <p className="mt-2 text-xs font-semibold text-amber-900 dark:text-amber-200" data-testid="ai-free-unused">
-                Not used while Which key (under Advanced) is “Only my key”.
+                Not used while Which key (under Your key and models) is “Only my key”.
               </p>
             )}
           </div>
@@ -220,79 +222,102 @@ export function AiSettings() {
       </div>
 
       {prefs.aiEnabled && (
-        <Collapsible
-          title="Advanced"
-          summary="Which features, which key, your own Gemini key"
-          open={advancedOpen}
-          onOpenChange={setAdvanced}
-          testId="ai-advanced"
-        >
-          <div className="space-y-5">
-            <div className="space-y-4 rounded-2xl bg-slate-50 p-3.5 dark:bg-ink-800/60">
-              {aiImages ? (
-                <Row
-                  title="Bills & statements"
-                  testId="ai-images"
-                  checked={prefs.aiImages}
-                  onChange={(v) => set({ aiImages: v })}
-                  text={
-                    prefs.aiImages
-                      ? { full: `Photos go to ${aiName} to read items, taxes and transactions.`, short: `Photos go to ${aiName}`, tier: 'help' }
-                      : { full: 'Read on this phone (less accurate). Statement import needs AI.', short: 'Read on this phone, less accurately', tier: 'help' }
-                  }
-                />
-              ) : (
-                <div data-testid="ai-images-off">
-                  <div className="font-semibold">Bills & statements</div>
-                  <div className="text-muted text-sm">Reading bills with AI is switched off for everyone right now</div>
-                </div>
-              )}
+        <>
+          <SettingsSection icon={<ScanLine size={16} aria-hidden />} title="Reading bills and screenshots" testId="ai-section-reading">
+            {aiImages ? (
               <Row
-                title="Bank SMS the app can’t read"
-                testId="ai-sms"
-                checked={prefs.aiSms}
-                onChange={(v) => set({ aiSms: v })}
+                title="Bills & statements"
+                testId="ai-images"
+                checked={prefs.aiImages}
+                onChange={(v) => set({ aiImages: v })}
                 text={
-                  prefs.aiSms
-                    ? {
-                        full: `Only messages the built-in reader misses go to ${aiName}, with account numbers masked.`,
-                        short: 'Only missed messages, account numbers masked',
-                        tier: 'help',
-                      }
-                    : { full: 'Unreadable messages are skipped.', tier: 'help' }
+                  prefs.aiImages
+                    ? { full: `Photos go to ${aiName} to read items, taxes and transactions.`, short: `Photos go to ${aiName}`, tier: 'help' }
+                    : { full: 'Read on this phone (less accurate). Statement import needs AI.', short: 'Read on this phone, less accurately', tier: 'help' }
                 }
               />
-              {prefs.aiSms && (
-                <Row
-                  title={`Also ask ${aiName} who was paid`}
-                  testId="ai-sms-merchant"
-                  checked={prefs.aiSmsMerchant}
-                  onChange={(v) => set({ aiSmsMerchant: v })}
-                  text={{
-                    full: `When the app reads the amount but not the payee, the masked message is sent to ${aiName} for the name. Off: such payments are saved as “Payment”.`,
-                    short: 'For the payee’s name when the app can’t read it',
-                    tier: 'help',
-                  }}
-                />
-              )}
-              {aiQuickAdd ? (
-                <Row
-                  title="Quick add with AI"
-                  testId="ai-quick-add"
-                  checked={prefs.aiQuickAdd}
-                  onChange={(v) => set({ aiQuickAdd: v })}
-                  text={{
-                    full: 'When a line is too complex to read, AI works it out. Uses your AI quota.',
-                    short: 'AI works out lines too complex to read',
-                    tier: 'help',
-                  }}
-                />
-              ) : (
-                <div data-testid="ai-quick-add-off">
-                  <div className="font-semibold">Quick add with AI</div>
-                  <div className="text-muted text-sm">Switched off for everyone right now</div>
-                </div>
-              )}
+            ) : (
+              <div data-testid="ai-images-off">
+                <div className="font-semibold">Bills & statements</div>
+                <div className="text-muted text-sm">Reading bills with AI is switched off for everyone right now</div>
+              </div>
+            )}
+            {aiPayments ? (
+              <Row
+                title="Check payment screenshots"
+                testId="ai-payments"
+                checked={prefs.aiPayments}
+                onChange={(v) => set({ aiPayments: v })}
+                text={
+                  prefs.aiPayments
+                    ? {
+                        full: 'In groups where payments need your OK, a payment to you counts straight away when its screenshot matches. Uses your AI quota.',
+                        short: 'A matching screenshot counts without your OK',
+                        // 'help' like every other row here: the list shows a line under all of them or none.
+                        tier: 'help',
+                      }
+                    : { full: 'Payments to you wait for your OK, even with a screenshot attached.', short: 'Payments to you wait for your OK', tier: 'help' }
+                }
+              />
+            ) : (
+              <div data-testid="ai-payments-off">
+                <div className="font-semibold">Check payment screenshots</div>
+                <div className="text-muted text-sm">Switched off for everyone right now: payments wait for your OK</div>
+              </div>
+            )}
+          </SettingsSection>
+          <SettingsSection icon={<MessageSquare size={16} aria-hidden />} title="Bank SMS" testId="ai-section-sms">
+            <Row
+              title="Bank SMS the app can’t read"
+              testId="ai-sms"
+              checked={prefs.aiSms}
+              onChange={(v) => set({ aiSms: v })}
+              text={
+                prefs.aiSms
+                  ? {
+                      full: `Only messages the built-in reader misses go to ${aiName}, with account numbers masked.`,
+                      short: 'Only missed messages, account numbers masked',
+                      tier: 'help',
+                    }
+                  : { full: 'Unreadable messages are skipped.', tier: 'help' }
+              }
+            />
+            {prefs.aiSms && (
+              <Row
+                title={`Also ask ${aiName} who was paid`}
+                testId="ai-sms-merchant"
+                checked={prefs.aiSmsMerchant}
+                onChange={(v) => set({ aiSmsMerchant: v })}
+                text={{
+                  full: `When the app reads the amount but not the payee, the masked message is sent to ${aiName} for the name. Off: such payments are saved as “Payment”.`,
+                  short: 'For the payee’s name when the app can’t read it',
+                  tier: 'help',
+                }}
+              />
+            )}
+          </SettingsSection>
+          <SettingsSection icon={<Keyboard size={16} aria-hidden />} title="Quick add" testId="ai-section-quick-add">
+            {aiQuickAdd ? (
+              <Row
+                title="Quick add with AI"
+                testId="ai-quick-add"
+                checked={prefs.aiQuickAdd}
+                onChange={(v) => set({ aiQuickAdd: v })}
+                text={{
+                  full: 'When a line is too complex to read, AI works it out. Uses your AI quota.',
+                  short: 'AI works out lines too complex to read',
+                  tier: 'help',
+                }}
+              />
+            ) : (
+              <div data-testid="ai-quick-add-off">
+                <div className="font-semibold">Quick add with AI</div>
+                <div className="text-muted text-sm">Switched off for everyone right now</div>
+              </div>
+            )}
+          </SettingsSection>
+          {(aiIcons || aiIconAuto) && (
+            <SettingsSection icon={<Shapes size={16} aria-hidden />} title="Icons" testId="ai-section-icons">
               {aiIcons && (
                 <Row
                   title="AI icons"
@@ -319,210 +344,208 @@ export function AiSettings() {
                   }}
                 />
               )}
-              {aiPayments ? (
-                <Row
-                  title="Check payment screenshots"
-                  testId="ai-payments"
-                  checked={prefs.aiPayments}
-                  onChange={(v) => set({ aiPayments: v })}
-                  text={
-                    prefs.aiPayments
-                      ? {
-                          full: 'In groups where payments need your OK, a payment to you counts straight away when its screenshot matches. Uses your AI quota.',
-                          short: 'A matching screenshot counts without your OK',
-                          // 'help' like every other row here: the list shows a line under all of them or none.
-                          tier: 'help',
-                        }
-                      : { full: 'Payments to you wait for your OK, even with a screenshot attached.', short: 'Payments to you wait for your OK', tier: 'help' }
-                  }
-                />
-              ) : (
-                <div data-testid="ai-payments-off">
-                  <div className="font-semibold">Check payment screenshots</div>
-                  <div className="text-muted text-sm">Switched off for everyone right now: payments wait for your OK</div>
-                </div>
-              )}
-            </div>
-
-            <div>
-              <div className="label">Which key</div>
-              <Select
-                aria-label="Which key"
-                value={prefs.aiSource}
-                onChange={(v) => set({ aiSource: v as AiSource })}
-                // With the free AI turned on, Automatic tries it before your key (planAi).
-                options={SOURCE_OPTIONS.map((o) => (o.value === 'auto' ? { ...o, hint: autoSourceHint(free && prefs.aiFreeOk) } : o))}
-              />
-            </div>
-
-            {/* Split Now's (project) key */}
-            <div className="rounded-2xl ring-1 ring-slate-200 dark:ring-white/10" data-testid="ai-app-status">
-              <div className="flex items-center gap-2 px-3.5 pt-3 font-semibold">
-                <Sparkles size={16} className="text-brand-500" aria-hidden /> {free ? 'Split Now’s free AI (Gemma)' : 'Split Now’s key'}
-              </div>
-              <div className="space-y-1 px-3.5 pb-3 pt-1.5 text-sm">
-                {status === undefined ? (
-                  <div className="text-muted">Checking…</div>
-                ) : status === null ? (
-                  <div className="text-muted">Can’t check right now (offline, or not set up yet)</div>
-                ) : (
-                  (['images', 'sms'] as const).map((f) => {
-                    const l = appLine(f)!
-                    return (
-                      <div key={f} className="flex items-center justify-between gap-2">
-                        <span className="text-muted">{f === 'images' ? 'Bills & statements' : 'SMS'}</span>
-                        <span className={`flex items-center gap-1.5 font-medium ${l.ok ? 'text-emerald-700 dark:text-emerald-400' : 'text-muted'}`}>
-                          <span className={`h-2 w-2 rounded-full ${l.ok ? 'bg-emerald-500' : 'bg-slate-400'}`} aria-hidden />
-                          {l.text}
-                        </span>
-                      </div>
-                    )
-                  })
-                )}
-                {status && prefs.aiSource === 'own' && <p className="text-muted pt-1 text-xs">Not used: you chose “Only my key”.</p>}
-              </div>
-            </div>
-
-            {/* The user's own key */}
-            <div className="rounded-2xl ring-1 ring-slate-200 dark:ring-white/10" data-testid="ai-own-key">
-              <div className="flex items-center gap-2 px-3.5 pt-3 font-semibold">
-                <KeyRound size={16} className="text-brand-500" aria-hidden /> Your own Gemini key
-                <InfoTip hint={OWN_KEY_HINT} label="About your own key" />
-                {hasKey && (
-                  <span
-                    className={`ml-auto flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${state?.lastError ? 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'}`}
-                    data-testid="ai-own-badge"
-                  >
-                    {state?.lastError ? (
-                      'Needs attention'
-                    ) : (
-                      <>
-                        <Check size={13} strokeWidth={3} aria-hidden /> Set up
-                      </>
-                    )}
-                  </span>
-                )}
-              </div>
-              <div className="space-y-3 px-3.5 pb-3.5 pt-1.5">
-                {hasKey && !editing ? (
-                  <>
-                    <p className="text-muted flex items-center gap-1.5 text-xs" data-testid="ai-own-status">
-                      <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${state?.lastError ? 'bg-rose-500' : 'bg-emerald-500'}`} />
-                      {state?.lastError ? (
-                        <span>
-                          Key <span className="font-mono">{state.hint}</span> · {ERR[state.lastError.kind]} · {ago(state.lastError.at)}
-                        </span>
-                      ) : (
-                        <span>
-                          Key set up (<span className="font-mono">{state!.hint}</span>) · working{state?.lastOkAt ? `, checked ${ago(state.lastOkAt)}` : ''}
-                        </span>
-                      )}
-                    </p>
-                    <div className="flex gap-2">
-                      <button type="button" className="btn-secondary btn-sm flex-1" disabled={!!busy} onClick={() => run('test')}>
-                        {busy === 'test' ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <RefreshCw size={16} aria-hidden />} Test
-                      </button>
-                      <button type="button" className="btn-secondary btn-sm flex-1" disabled={!!busy} onClick={() => setEditing(true)}>
-                        <KeyRound size={16} aria-hidden /> Replace
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-secondary btn-sm !px-3 text-rose-700 dark:text-rose-400"
-                        disabled={!!busy}
-                        onClick={() => run('remove')}
-                        aria-label="Remove key"
-                      >
-                        {busy === 'remove' ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <form
-                    className="space-y-2"
-                    onSubmit={(e) => {
-                      e.preventDefault()
-                      if (draft.trim()) void run('save')
-                    }}
-                  >
-                    <input
-                      className="input font-mono"
-                      type="password"
-                      autoComplete="off"
-                      spellCheck={false}
-                      placeholder="Paste your Gemini API key"
-                      value={draft}
-                      onChange={(e) => setDraft(e.target.value)}
-                      aria-label="Gemini API key"
-                    />
-                    <div className="flex gap-2">
-                      <button type="submit" className="btn-primary btn-sm flex-1" disabled={!draft.trim() || !!busy}>
-                        {busy === 'save' ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <ShieldCheck size={16} aria-hidden />} Save &amp; check
-                      </button>
-                      {editing && (
-                        <button
-                          type="button"
-                          className="btn-ghost btn-sm"
-                          onClick={() => {
-                            setEditing(false)
-                            setDraft('')
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      )}
-                    </div>
-                  </form>
-                )}
-                <HintText hint={OWN_KEY_HINT} />
-                <div>
-                  <div className="label">Model for your key</div>
-                  <Select aria-label="Model" value={prefs.aiModel} onChange={(v) => set({ aiModel: v })} options={modelOptions} />
-                  {/* Loading is status and always shows; the other two explain the picker. */}
-                  {hasKey && models === null ? (
-                    <p className="text-muted mt-1 text-xs">Loading the models your key can use…</p>
+              {hasKey && prefs.aiIcons && (
+                <div data-testid="ai-picture-model">
+                  <div className="label">Model for pictures</div>
+                  <Select
+                    aria-label="Model for pictures"
+                    value={prefs.aiPictureModel}
+                    onChange={(v) => set({ aiPictureModel: v })}
+                    options={pictureModelOptions(pictureModels, prefs.aiPictureModel)}
+                  />
+                  {pictureModels === null ? (
+                    <p className="text-muted mt-1 text-xs">Loading the image models your key can use…</p>
                   ) : (
                     <HintText
                       className="text-muted mt-1 text-xs"
-                      hint={
-                        !hasKey
-                          ? { full: 'Add a key to see every model it can use.', tier: 'help' }
-                          : {
-                              full: 'If a model is retired, the recommended one is used instead.',
-                              short: 'A retired model falls back to the recommended one',
-                              tier: 'help',
-                            }
-                      }
+                      hint={{
+                        full: 'Draw a picture in the icon sheet uses it, billed to your key (image models have no free tier). If it fails, the recommended one is tried next.',
+                        short: 'For Draw a picture, billed to your key',
+                        tier: 'help',
+                      }}
                     />
                   )}
+                  <PictureTest which="own" model={prefs.aiPictureModel} />
                 </div>
-                {hasKey && prefs.aiIcons && (
-                  <div data-testid="ai-picture-model">
-                    <div className="label">Model for pictures</div>
-                    <Select
-                      aria-label="Model for pictures"
-                      value={prefs.aiPictureModel}
-                      onChange={(v) => set({ aiPictureModel: v })}
-                      options={pictureModelOptions(pictureModels, prefs.aiPictureModel)}
-                    />
-                    {pictureModels === null ? (
-                      <p className="text-muted mt-1 text-xs">Loading the image models your key can use…</p>
+              )}
+              {aiIcons && prefs.aiIcons && !hasKey && (
+                <HintText
+                  className="text-muted text-xs"
+                  hint={{
+                    full: 'Draw a picture needs your own Gemini key, added under Your key and models.',
+                    short: 'Draw a picture needs your own key',
+                    tier: 'help',
+                  }}
+                />
+              )}
+            </SettingsSection>
+          )}
+          <Collapsible
+            icon={<KeyRound size={18} aria-hidden />}
+            title="Your key and models"
+            summary="Which key, Split Now’s AI, your own Gemini key"
+            open={advancedOpen}
+            onOpenChange={setAdvanced}
+            testId="ai-advanced"
+          >
+            <div className="space-y-5">
+              <div>
+                <div className="label">Which key</div>
+                <Select
+                  aria-label="Which key"
+                  value={prefs.aiSource}
+                  onChange={(v) => set({ aiSource: v as AiSource })}
+                  // With the free AI turned on, Automatic tries it before your key (planAi).
+                  options={SOURCE_OPTIONS.map((o) => (o.value === 'auto' ? { ...o, hint: autoSourceHint(free && prefs.aiFreeOk) } : o))}
+                />
+              </div>
+
+              {/* Split Now's (project) key */}
+              <div className="rounded-2xl ring-1 ring-slate-200 dark:ring-white/10" data-testid="ai-app-status">
+                <div className="flex items-center gap-2 px-3.5 pt-3 font-semibold">
+                  <Sparkles size={16} className="text-brand-500" aria-hidden /> {free ? 'Split Now’s free AI (Gemma)' : 'Split Now’s key'}
+                </div>
+                <div className="space-y-1 px-3.5 pb-3 pt-1.5 text-sm">
+                  {status === undefined ? (
+                    <div className="text-muted">Checking…</div>
+                  ) : status === null ? (
+                    <div className="text-muted">Can’t check right now (offline, or not set up yet)</div>
+                  ) : (
+                    (['images', 'sms'] as const).map((f) => {
+                      const l = appLine(f)!
+                      return (
+                        <div key={f} className="flex items-center justify-between gap-2">
+                          <span className="text-muted">{f === 'images' ? 'Bills & statements' : 'SMS'}</span>
+                          <span className={`flex items-center gap-1.5 font-medium ${l.ok ? 'text-emerald-700 dark:text-emerald-400' : 'text-muted'}`}>
+                            <span className={`h-2 w-2 rounded-full ${l.ok ? 'bg-emerald-500' : 'bg-slate-400'}`} aria-hidden />
+                            {l.text}
+                          </span>
+                        </div>
+                      )
+                    })
+                  )}
+                  {status && prefs.aiSource === 'own' && <p className="text-muted pt-1 text-xs">Not used: you chose “Only my key”.</p>}
+                </div>
+              </div>
+
+              {/* The user's own key */}
+              <div className="rounded-2xl ring-1 ring-slate-200 dark:ring-white/10" data-testid="ai-own-key">
+                <div className="flex items-center gap-2 px-3.5 pt-3 font-semibold">
+                  <KeyRound size={16} className="text-brand-500" aria-hidden /> Your own Gemini key
+                  <InfoTip hint={OWN_KEY_HINT} label="About your own key" />
+                  {hasKey && (
+                    <span
+                      className={`ml-auto flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${state?.lastError ? 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'}`}
+                      data-testid="ai-own-badge"
+                    >
+                      {state?.lastError ? (
+                        'Needs attention'
+                      ) : (
+                        <>
+                          <Check size={13} strokeWidth={3} aria-hidden /> Set up
+                        </>
+                      )}
+                    </span>
+                  )}
+                </div>
+                <div className="space-y-3 px-3.5 pb-3.5 pt-1.5">
+                  {hasKey && !editing ? (
+                    <>
+                      <p className="text-muted flex items-center gap-1.5 text-xs" data-testid="ai-own-status">
+                        <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${state?.lastError ? 'bg-rose-500' : 'bg-emerald-500'}`} />
+                        {state?.lastError ? (
+                          <span>
+                            Key <span className="font-mono">{state.hint}</span> · {ERR[state.lastError.kind]} · {ago(state.lastError.at)}
+                          </span>
+                        ) : (
+                          <span>
+                            Key set up (<span className="font-mono">{state!.hint}</span>) · working{state?.lastOkAt ? `, checked ${ago(state.lastOkAt)}` : ''}
+                          </span>
+                        )}
+                      </p>
+                      <div className="flex gap-2">
+                        <button type="button" className="btn-secondary btn-sm flex-1" disabled={!!busy} onClick={() => run('test')}>
+                          {busy === 'test' ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <RefreshCw size={16} aria-hidden />} Test
+                        </button>
+                        <button type="button" className="btn-secondary btn-sm flex-1" disabled={!!busy} onClick={() => setEditing(true)}>
+                          <KeyRound size={16} aria-hidden /> Replace
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-secondary btn-sm !px-3 text-rose-700 dark:text-rose-400"
+                          disabled={!!busy}
+                          onClick={() => run('remove')}
+                          aria-label="Remove key"
+                        >
+                          {busy === 'remove' ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <form
+                      className="space-y-2"
+                      onSubmit={(e) => {
+                        e.preventDefault()
+                        if (draft.trim()) void run('save')
+                      }}
+                    >
+                      <input
+                        className="input font-mono"
+                        type="password"
+                        autoComplete="off"
+                        spellCheck={false}
+                        placeholder="Paste your Gemini API key"
+                        value={draft}
+                        onChange={(e) => setDraft(e.target.value)}
+                        aria-label="Gemini API key"
+                      />
+                      <div className="flex gap-2">
+                        <button type="submit" className="btn-primary btn-sm flex-1" disabled={!draft.trim() || !!busy}>
+                          {busy === 'save' ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <ShieldCheck size={16} aria-hidden />} Save &amp;
+                          check
+                        </button>
+                        {editing && (
+                          <button
+                            type="button"
+                            className="btn-ghost btn-sm"
+                            onClick={() => {
+                              setEditing(false)
+                              setDraft('')
+                            }}
+                          >
+                            Cancel
+                          </button>
+                        )}
+                      </div>
+                    </form>
+                  )}
+                  <HintText hint={OWN_KEY_HINT} />
+                  <div>
+                    <div className="label">Model for your key</div>
+                    <Select aria-label="Model" value={prefs.aiModel} onChange={(v) => set({ aiModel: v })} options={modelOptions} />
+                    {/* Loading is status and always shows; the other two explain the picker. */}
+                    {hasKey && models === null ? (
+                      <p className="text-muted mt-1 text-xs">Loading the models your key can use…</p>
                     ) : (
                       <HintText
                         className="text-muted mt-1 text-xs"
-                        hint={{
-                          full: 'Draw a picture in the icon sheet uses it, billed to your key (image models have no free tier). If it fails, the recommended one is tried next.',
-                          short: 'For Draw a picture, billed to your key',
-                          tier: 'help',
-                        }}
+                        hint={
+                          !hasKey
+                            ? { full: 'Add a key to see every model it can use.', tier: 'help' }
+                            : {
+                                full: 'If a model is retired, the recommended one is used instead.',
+                                short: 'A retired model falls back to the recommended one',
+                                tier: 'help',
+                              }
+                        }
                       />
                     )}
-                    <PictureTest which="own" model={prefs.aiPictureModel} />
                   </div>
-                )}
+                </div>
               </div>
             </div>
-          </div>
-        </Collapsible>
+          </Collapsible>
+        </>
       )}
 
       {status?.admin && (

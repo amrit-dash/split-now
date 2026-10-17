@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { KeyRound, Loader2, RefreshCw, RotateCcw, Save, ShieldCheck, Trash2 } from 'lucide-react'
+import { BarChart3, Cpu, ImageIcon, KeyRound, Loader2, RefreshCw, RotateCcw, Save, ShieldCheck, ToggleRight, Trash2, UsersRound, Wallet } from 'lucide-react'
 import { repo } from '@/data'
 import type { AiModel, AiStatusResult } from '@/data/repo'
 import { refreshAiStatus } from '@/hooks/useAiStatus'
@@ -13,6 +13,7 @@ import { todayISO } from '@/lib/id'
 import { pictureModelOptions } from '@/lib/icon-ai'
 import { pictureCost } from '../../../shared/icon-ai'
 import { PictureTest } from '@/components/PictureTest'
+import { SettingsSection } from '@/components/SettingsSection'
 import { Select } from '@/components/Select'
 import { Switch } from '@/components/Switch'
 import { useToast } from '@/components/Toast'
@@ -159,186 +160,236 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
 
   const n = (k: string) => usage?.[k] ?? 0
   return (
-    <div className="space-y-4" data-testid="admin-ai">
-      {/* The AI switches live with the other feature flags (one save per document); this row says where, and how many are on. */}
-      <Link
-        to="/admin/flags"
-        className="flex min-h-11 items-center justify-between gap-3 rounded-2xl bg-slate-50 px-3.5 py-2.5 text-sm dark:bg-ink-800/60"
-        data-testid="admin-ai-flags"
-      >
-        <span className="min-w-0">
-          <span className="block font-semibold">AI feature switches</span>
-          <span className="text-muted block text-xs">Bills, SMS, Quick add, chat and payment screenshots, in Flags → AI</span>
-        </span>
-        <span className="shrink-0 text-xs font-semibold text-brand-600 dark:text-brand-300">{onCount(flags, AI_FLAGS)}</span>
-      </Link>
-      {/* The project key: where it comes from, and a way to use a different one. */}
-      <div>
-        <div className="label">Project key</div>
-        {editingKey || !configured ? (
-          <form
-            className="space-y-2"
-            onSubmit={(e) => {
-              e.preventDefault()
-              if (draft.trim()) void keyAction('set')
-            }}
-          >
-            <input
-              className="input font-mono"
-              type="password"
-              autoComplete="off"
-              spellCheck={false}
-              placeholder="Paste a Gemini API key"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              aria-label="Project Gemini API key"
-            />
+    <div data-testid="admin-ai">
+      <SettingsSection icon={<ToggleRight size={16} aria-hidden />} title="Feature switches" testId="admin-ai-section-flags">
+        {/* The AI switches live with the other feature flags (one save per document); this row says where, and how many are on. */}
+        <Link
+          to="/admin/flags"
+          className="flex min-h-11 items-center justify-between gap-3 rounded-2xl bg-slate-50 px-3.5 py-2.5 text-sm dark:bg-ink-800/60"
+          data-testid="admin-ai-flags"
+        >
+          <span className="min-w-0">
+            <span className="block font-semibold">AI feature switches</span>
+            <span className="text-muted block text-xs">Bills, SMS, Quick add, chat and payment screenshots, in Flags → AI</span>
+          </span>
+          <span className="shrink-0 text-xs font-semibold text-brand-600 dark:text-brand-300">{onCount(flags, AI_FLAGS)}</span>
+        </Link>
+      </SettingsSection>
+      <SettingsSection icon={<KeyRound size={16} aria-hidden />} title="Project key" testId="admin-ai-section-key">
+        {/* The project key: where it comes from, and a way to use a different one. */}
+        <div>
+          {editingKey || !configured ? (
+            <form
+              className="space-y-2"
+              onSubmit={(e) => {
+                e.preventDefault()
+                if (draft.trim()) void keyAction('set')
+              }}
+            >
+              <input
+                className="input font-mono"
+                type="password"
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="Paste a Gemini API key"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                aria-label="Project Gemini API key"
+              />
+              <div className="flex gap-2">
+                <button type="submit" className="btn-primary !min-h-0 flex-1 !py-2.5 text-sm" disabled={!draft.trim() || !!keyBusy}>
+                  {keyBusy === 'set' ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />} Save &amp; check
+                </button>
+                {configured && (
+                  <button
+                    type="button"
+                    className="btn-ghost !min-h-0 !py-2.5 text-sm"
+                    onClick={() => {
+                      setEditingKey(false)
+                      setDraft('')
+                    }}
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+              <p className="text-xs text-slate-500">
+                Used instead of {source === 'admin' ? 'the current key' : 'GEMINI_API_KEY'}; stored on the server, never shown again.
+              </p>
+            </form>
+          ) : (
             <div className="flex gap-2">
-              <button type="submit" className="btn-primary !min-h-0 flex-1 !py-2.5 text-sm" disabled={!draft.trim() || !!keyBusy}>
-                {keyBusy === 'set' ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />} Save &amp; check
+              <button type="button" className="btn-secondary !min-h-0 flex-1 !py-2 text-sm" disabled={!!keyBusy} onClick={() => keyAction('test')}>
+                {keyBusy === 'test' ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />} Test
               </button>
-              {configured && (
+              <button type="button" className="btn-secondary !min-h-0 flex-1 !py-2 text-sm" disabled={!!keyBusy} onClick={() => setEditingKey(true)}>
+                <KeyRound size={16} /> Use another key
+              </button>
+              {source === 'admin' && (
                 <button
                   type="button"
-                  className="btn-ghost !min-h-0 !py-2.5 text-sm"
-                  onClick={() => {
-                    setEditingKey(false)
-                    setDraft('')
-                  }}
+                  className="btn-secondary !min-h-0 !px-3 !py-2 text-sm text-rose-700 dark:text-rose-400"
+                  disabled={!!keyBusy}
+                  onClick={() => keyAction('remove')}
+                  aria-label="Remove this key and go back to GEMINI_API_KEY"
+                  title="Back to GEMINI_API_KEY"
                 >
-                  Cancel
+                  {keyBusy === 'remove' ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
                 </button>
               )}
             </div>
-            <p className="text-xs text-slate-500">
-              Used instead of {source === 'admin' ? 'the current key' : 'GEMINI_API_KEY'}; stored on the server, never shown again.
+          )}
+          <p className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-500" data-testid="admin-ai-key-status">
+            <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${configured ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+            {!configured
+              ? 'No project key (GEMINI_API_KEY isn’t set)'
+              : source === 'admin'
+                ? `Project key set up (set in the app${status.app.hint ? ` · ${status.app.hint}` : ''})`
+                : 'Project key set up (GEMINI_API_KEY)'}
+          </p>
+        </div>
+      </SettingsSection>
+      <SettingsSection icon={<Cpu size={16} aria-hidden />} title="Engine and model" testId="admin-ai-section-engine">
+        <div>
+          <div className="label">Split Now’s AI runs on</div>
+          <Select
+            aria-label="Split Now’s AI runs on"
+            value={cfg.engine}
+            onChange={(v) => set({ engine: v as AppAiEngine, ...(v === 'gemma' && cfg.mode === 'allowlist' ? { mode: 'everyone' as const } : {}) })}
+            options={ENGINES}
+          />
+          <p className="mt-1 text-xs text-slate-500" data-testid="admin-ai-engine-note">
+            {cfg.engine === 'gemma'
+              ? 'Free on any key and reads everything Gemini does, but slower (up to a minute a bill). Google’s free-service terms apply: Google may use what is sent to improve its products. It is for everyone, and each person turns on “Use free AI” in their AI settings first, where they see this.'
+              : 'People are told their bills go through Google’s paid Gemini API, which doesn’t train on them: keep billing on for this key’s Google project.'}
+          </p>
+        </div>
+
+        {cfg.engine === 'gemma' ? (
+          <div>
+            <div className="label">Gemma model</div>
+            <Select
+              aria-label="Gemma model"
+              value={cfg.gemmaModel}
+              onChange={(v) => set({ gemmaModel: v })}
+              options={[
+                { value: '', label: 'Latest Gemma (automatic)', hint: gemma?.[0]?.id ?? 'the newest the key can use' },
+                ...(gemma ?? []).map((m) => ({ value: m.id, label: m.label, hint: m.id })),
+                ...(cfg.gemmaModel && !(gemma ?? []).some((m) => m.id === cfg.gemmaModel) ? [{ value: cfg.gemmaModel, label: cfg.gemmaModel }] : []),
+              ]}
+            />
+            <p className="mt-1 text-xs text-slate-500">
+              {!configured
+                ? 'Add a key to list its Gemma models.'
+                : gemma === null
+                  ? 'Loading Gemma models…'
+                  : 'Automatic moves to a newer Gemma when Google releases one. A retired pick falls back to the latest.'}
             </p>
-          </form>
+          </div>
         ) : (
-          <div className="flex gap-2">
-            <button type="button" className="btn-secondary !min-h-0 flex-1 !py-2 text-sm" disabled={!!keyBusy} onClick={() => keyAction('test')}>
-              {keyBusy === 'test' ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />} Test
-            </button>
-            <button type="button" className="btn-secondary !min-h-0 flex-1 !py-2 text-sm" disabled={!!keyBusy} onClick={() => setEditingKey(true)}>
-              <KeyRound size={16} /> Use another key
-            </button>
-            {source === 'admin' && (
-              <button
-                type="button"
-                className="btn-secondary !min-h-0 !px-3 !py-2 text-sm text-rose-700 dark:text-rose-400"
-                disabled={!!keyBusy}
-                onClick={() => keyAction('remove')}
-                aria-label="Remove this key and go back to GEMINI_API_KEY"
-                title="Back to GEMINI_API_KEY"
-              >
-                {keyBusy === 'remove' ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
-              </button>
-            )}
+          <div>
+            <div className="label">Model</div>
+            <Select
+              aria-label="Project model"
+              value={cfg.model}
+              onChange={(v) => set({ model: v })}
+              options={[
+                { value: DEFAULT_MODEL, label: 'Recommended (cheapest)', hint: DEFAULT_MODEL },
+                ...(models ?? []).filter((m) => m.id !== DEFAULT_MODEL).map((m) => ({ value: m.id, label: m.label, hint: modelHint(m) })),
+                ...(cfg.model !== DEFAULT_MODEL && !(models ?? []).some((m) => m.id === cfg.model) ? [{ value: cfg.model, label: cfg.model }] : []),
+              ]}
+            />
+            <p className="mt-1 text-xs text-slate-500">
+              {!configured ? 'Add a key to list its models.' : models === null ? 'Loading models…' : 'A retired model falls back to the recommended one.'}
+            </p>
           </div>
         )}
-        <p className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-500" data-testid="admin-ai-key-status">
-          <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${configured ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-          {!configured
-            ? 'No project key (GEMINI_API_KEY isn’t set)'
-            : source === 'admin'
-              ? `Project key set up (set in the app${status.app.hint ? ` · ${status.app.hint}` : ''})`
-              : 'Project key set up (GEMINI_API_KEY)'}
-        </p>
-      </div>
-
-      <div>
-        <div className="label">Split Now’s AI runs on</div>
-        <Select
-          aria-label="Split Now’s AI runs on"
-          value={cfg.engine}
-          onChange={(v) => set({ engine: v as AppAiEngine, ...(v === 'gemma' && cfg.mode === 'allowlist' ? { mode: 'everyone' as const } : {}) })}
-          options={ENGINES}
-        />
-        <p className="mt-1 text-xs text-slate-500" data-testid="admin-ai-engine-note">
-          {cfg.engine === 'gemma'
-            ? 'Free on any key and reads everything Gemini does, but slower (up to a minute a bill). Google’s free-service terms apply: Google may use what is sent to improve its products. It is for everyone, and each person turns on “Use free AI” in their AI settings first, where they see this.'
-            : 'People are told their bills go through Google’s paid Gemini API, which doesn’t train on them: keep billing on for this key’s Google project.'}
-        </p>
-      </div>
-
-      {cfg.engine === 'gemma' ? (
+      </SettingsSection>
+      <SettingsSection icon={<UsersRound size={16} aria-hidden />} title="Who can use it, and how much" testId="admin-ai-section-who">
         <div>
-          <div className="label">Gemma model</div>
+          <div className="label">Who can use Split Now’s key</div>
           <Select
-            aria-label="Gemma model"
-            value={cfg.gemmaModel}
-            onChange={(v) => set({ gemmaModel: v })}
-            options={[
-              { value: '', label: 'Latest Gemma (automatic)', hint: gemma?.[0]?.id ?? 'the newest the key can use' },
-              ...(gemma ?? []).map((m) => ({ value: m.id, label: m.label, hint: m.id })),
-              ...(cfg.gemmaModel && !(gemma ?? []).some((m) => m.id === cfg.gemmaModel) ? [{ value: cfg.gemmaModel, label: cfg.gemmaModel }] : []),
-            ]}
+            aria-label="Who can use Split Now’s key"
+            value={cfg.mode}
+            onChange={(v) => set({ mode: v as AppAiMode })}
+            options={cfg.engine === 'gemma' ? MODES.filter((m) => m.value !== 'allowlist') : MODES}
           />
-          <p className="mt-1 text-xs text-slate-500">
-            {!configured
-              ? 'Add a key to list its Gemma models.'
-              : gemma === null
-                ? 'Loading Gemma models…'
-                : 'Automatic moves to a newer Gemma when Google releases one. A retired pick falls back to the latest.'}
-          </p>
         </div>
-      ) : (
-        <div>
-          <div className="label">Model</div>
-          <Select
-            aria-label="Project model"
-            value={cfg.model}
-            onChange={(v) => set({ model: v })}
-            options={[
-              { value: DEFAULT_MODEL, label: 'Recommended (cheapest)', hint: DEFAULT_MODEL },
-              ...(models ?? []).filter((m) => m.id !== DEFAULT_MODEL).map((m) => ({ value: m.id, label: m.label, hint: modelHint(m) })),
-              ...(cfg.model !== DEFAULT_MODEL && !(models ?? []).some((m) => m.id === cfg.model) ? [{ value: cfg.model, label: cfg.model }] : []),
-            ]}
-          />
-          <p className="mt-1 text-xs text-slate-500">
-            {!configured ? 'Add a key to list its models.' : models === null ? 'Loading models…' : 'A retired model falls back to the recommended one.'}
-          </p>
-        </div>
-      )}
-
-      <div>
-        <div className="label">Who can use Split Now’s key</div>
-        <Select
-          aria-label="Who can use Split Now’s key"
-          value={cfg.mode}
-          onChange={(v) => set({ mode: v as AppAiMode })}
-          options={cfg.engine === 'gemma' ? MODES.filter((m) => m.value !== 'allowlist') : MODES}
-        />
-      </div>
-      {cfg.mode === 'allowlist' && (
-        <div>
-          <label className="label" htmlFor="ai-allow">
-            Allowed emails
-          </label>
-          <textarea
-            id="ai-allow"
-            className="input min-h-24 font-mono"
-            placeholder={'one@example.com\ntwo@example.com'}
-            value={emails}
-            onChange={(e) => setEmails(e.target.value)}
-          />
-          <p className="mt-1 text-xs text-slate-500">
-            {list.length} email{list.length === 1 ? '' : 's'} · the account’s sign-in email must match.
-          </p>
-        </div>
-      )}
+        {cfg.mode === 'allowlist' && (
+          <div>
+            <label className="label" htmlFor="ai-allow">
+              Allowed emails
+            </label>
+            <textarea
+              id="ai-allow"
+              className="input min-h-24 font-mono"
+              placeholder={'one@example.com\ntwo@example.com'}
+              value={emails}
+              onChange={(e) => setEmails(e.target.value)}
+            />
+            <p className="mt-1 text-xs text-slate-500">
+              {list.length} email{list.length === 1 ? '' : 's'} · the account’s sign-in email must match.
+            </p>
+          </div>
+        )}
+        {cfg.mode !== 'off' && (
+          <>
+            <div className="grid grid-cols-3 gap-2">
+              <label className="block">
+                <span className="label">Person / day</span>
+                <input
+                  className="input !px-3"
+                  inputMode="numeric"
+                  value={cfg.perDay}
+                  onChange={(e) => set({ perDay: Math.max(1, Math.min(5000, parseInt(e.target.value, 10) || 1)) })}
+                />
+              </label>
+              <label className="block">
+                <span className="label">Person / hour</span>
+                <input
+                  className="input !px-3"
+                  inputMode="numeric"
+                  value={cfg.perHour}
+                  onChange={(e) => set({ perHour: Math.max(1, Math.min(1000, parseInt(e.target.value, 10) || 1)) })}
+                />
+              </label>
+              <label className="block">
+                <span className="label">Everyone / day</span>
+                <input
+                  className="input !px-3"
+                  inputMode="numeric"
+                  value={cfg.globalPerDay}
+                  onChange={(e) => set({ globalPerDay: Math.max(1, Math.min(100_000, parseInt(e.target.value, 10) || 1)) })}
+                />
+              </label>
+            </div>
+            <p className="text-muted -mt-1 text-xs">
+              “Everyone / day” is the hard budget for Split Now’s key across all users; past it, AI reading waits until tomorrow.
+            </p>
+          </>
+        )}
+      </SettingsSection>
       {cfg.mode !== 'off' && (
         <>
           {/* What the shared key may be spent on (config/ai images, sms). Not the same as the AI feature flags:
               these only stop Split Now paying; people's own keys keep working (appKeyAllowed, shared/ai-config.ts). */}
-          <div className="space-y-3 rounded-2xl bg-slate-50 p-3.5 dark:bg-ink-800/60" data-testid="admin-ai-pays-for">
-            <div className="text-sm font-semibold">What Split Now’s key pays for</div>
+          <SettingsSection icon={<Wallet size={16} aria-hidden />} title="What Split Now’s key pays for" testId="admin-ai-pays-for">
             <Toggle title="Bills, statements, Quick add and chat" checked={cfg.images} onChange={(v) => set({ images: v })} />
             <Toggle title="Bank SMS" checked={cfg.sms} onChange={(v) => set({ sms: v })} />
+            <p className="text-muted text-xs" data-testid="admin-ai-quick-add">
+              Payment screenshot checks count under the first one too, with its limits under Who can use it. Off here, people with their own key still use AI.
+              To turn a feature off for everyone, own keys included, use{' '}
+              <Link to="/admin/flags" className="font-semibold text-brand-600 dark:text-brand-300">
+                Flags → AI
+              </Link>
+              .
+            </p>
+          </SettingsSection>
+          <SettingsSection icon={<ImageIcon size={16} aria-hidden />} title="Pictures for icons" testId="admin-ai-section-pictures">
             {/* Image models have no free tier: each picture is billed to the project, whichever engine reads bills (the key needs billing). */}
             <div className="space-y-2" data-testid="admin-ai-pictures">
               <Toggle
-                title={`Pictures for icons (${pictureCost(cfg.pictureModel || undefined)} each)`}
+                title={`Draw a picture (${pictureCost(cfg.pictureModel || undefined)} each)`}
                 checked={cfg.pictures}
                 onChange={(v) => set({ pictures: v })}
               />
@@ -372,68 +423,30 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
                 </label>
               )}
             </div>
-            <p className="text-muted text-xs" data-testid="admin-ai-quick-add">
-              Payment screenshot checks count under the first one too, with its limits below. Off here, people with their own key still use AI. To turn a
-              feature off for everyone, own keys included, use{' '}
-              <Link to="/admin/flags" className="font-semibold text-brand-600 dark:text-brand-300">
-                Flags → AI
-              </Link>
-              .
-            </p>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            <label className="block">
-              <span className="label">Person / day</span>
-              <input
-                className="input !px-3"
-                inputMode="numeric"
-                value={cfg.perDay}
-                onChange={(e) => set({ perDay: Math.max(1, Math.min(5000, parseInt(e.target.value, 10) || 1)) })}
-              />
-            </label>
-            <label className="block">
-              <span className="label">Person / hour</span>
-              <input
-                className="input !px-3"
-                inputMode="numeric"
-                value={cfg.perHour}
-                onChange={(e) => set({ perHour: Math.max(1, Math.min(1000, parseInt(e.target.value, 10) || 1)) })}
-              />
-            </label>
-            <label className="block">
-              <span className="label">Everyone / day</span>
-              <input
-                className="input !px-3"
-                inputMode="numeric"
-                value={cfg.globalPerDay}
-                onChange={(e) => set({ globalPerDay: Math.max(1, Math.min(100_000, parseInt(e.target.value, 10) || 1)) })}
-              />
-            </label>
-          </div>
-          <p className="text-muted -mt-1 text-xs">
-            “Everyone / day” is the hard budget for Split Now’s key across all users; past it, AI reading waits until tomorrow.
-          </p>
+          </SettingsSection>
         </>
       )}
-      <div className="rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800/60">
-        <div className="mb-1 font-semibold">Today</div>
-        <div className="grid grid-cols-3 gap-2 text-center">
-          <Stat n={n('app')} label="Split Now key" />
-          <Stat n={n('own')} label="Own keys" />
-          <Stat n={n('errors')} label="Failed" />
+      <SettingsSection icon={<BarChart3 size={16} aria-hidden />} title="Today" testId="admin-ai-section-today">
+        <div className="text-sm">
+          <div className="mb-1 font-semibold">Today</div>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <Stat n={n('app')} label="Split Now key" />
+            <Stat n={n('own')} label="Own keys" />
+            <Stat n={n('errors')} label="Failed" />
+          </div>
+          {n('app_gemma') > 0 && <p className="text-muted mt-1.5 text-xs">Free AI (Gemma): {n('app_gemma')} of the Split Now key’s calls</p>}
+          {n('app_quickAdd') + n('own_quickAdd') > 0 && (
+            <p className="text-muted mt-1.5 text-xs">
+              Quick add with AI: {n('app_quickAdd') + n('own_quickAdd')} of these ({n('app_quickAdd')} on Split Now’s key)
+            </p>
+          )}
+          {n('app_chat') + n('own_chat') > 0 && (
+            <p className="text-muted mt-1.5 text-xs">
+              Chat suggestions with AI: {n('app_chat') + n('own_chat')} of these ({n('app_chat')} on Split Now’s key)
+            </p>
+          )}
         </div>
-        {n('app_gemma') > 0 && <p className="text-muted mt-1.5 text-xs">Free AI (Gemma): {n('app_gemma')} of the Split Now key’s calls</p>}
-        {n('app_quickAdd') + n('own_quickAdd') > 0 && (
-          <p className="text-muted mt-1.5 text-xs">
-            Quick add with AI: {n('app_quickAdd') + n('own_quickAdd')} of these ({n('app_quickAdd')} on Split Now’s key)
-          </p>
-        )}
-        {n('app_chat') + n('own_chat') > 0 && (
-          <p className="text-muted mt-1.5 text-xs">
-            Chat suggestions with AI: {n('app_chat') + n('own_chat')} of these ({n('app_chat')} on Split Now’s key)
-          </p>
-        )}
-      </div>
+      </SettingsSection>
       {dirty && (
         <div
           className="animate-pop sticky bottom-[var(--lane)] z-10 flex items-center gap-2 rounded-2xl bg-brand-50 p-2 pl-3.5 shadow-lg ring-1 ring-brand-500/20 dark:bg-ink-800 dark:ring-brand-400/30"

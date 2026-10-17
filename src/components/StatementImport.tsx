@@ -350,7 +350,7 @@ export function StatementImport() {
                       <Link to="/settings/ai" className="font-semibold text-brand-600 dark:text-brand-300">
                         add your own Gemini key
                       </Link>{' '}
-                      under Advanced.
+                      under Your key and models.
                     </>
                   ) : (
                     avail.text
