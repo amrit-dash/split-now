@@ -4,9 +4,10 @@ import { Check, ChevronRight } from 'lucide-react'
 import { usePageTitle } from '@/lib/brand'
 import type { Hint } from '@/components/Hint'
 import { PageHeader } from '@/components/Misc'
+import type { BackConfig } from '@/lib/back'
 
 /**
- * One settings screen: sticky header with a back arrow to /settings, and the document title.
+ * One settings screen: sticky header with a back arrow (where you came from; /settings when opened cold), and the document title.
  * `pinned` sits inside the sticky header, so it stays in view while the rest scrolls under it.
  */
 export function SettingsPage({
@@ -19,7 +20,7 @@ export function SettingsPage({
 }: {
   title: string
   subtitle?: ReactNode | Hint
-  back?: string
+  back?: BackConfig
   right?: ReactNode
   pinned?: ReactNode
   children: ReactNode

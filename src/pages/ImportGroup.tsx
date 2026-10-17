@@ -234,7 +234,7 @@ export default function ImportGroup() {
 
   return (
     <div>
-      <PageHeader title="Import a group" subtitle={{ full: 'From Splitwise, or a Split Now CSV' }} back={!busy} />
+      <PageHeader title="Import a group" subtitle={{ full: 'From Splitwise, or a Split Now CSV' }} back={busy ? false : '/groups'} />
       <div className="space-y-5">
         <input
           ref={fileInput}

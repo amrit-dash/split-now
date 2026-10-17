@@ -303,7 +303,8 @@ export default function GroupForm() {
   })
 
   if (groupId && existing === undefined) return <Loading />
-  if (groupId && existing === null) return <PageHeader title="Group not found" back />
+  // Fixed: this group is gone for you, and every screen of it behind this one would say the same, so back leaves the group.
+  if (groupId && existing === null) return <PageHeader title="Group not found" back={{ to: '/groups', mode: 'fixed' }} />
 
   const others = Object.entries(members).filter(([, m]) => m.uid !== user.uid)
   const peopleCount = existing ? Object.keys(activeMembers(existing.members)).length : 0
@@ -824,7 +825,7 @@ export default function GroupForm() {
         title={
           existing ? (type === 'direct' ? 'Edit 1:1' : 'Edit group') : type === 'direct' ? 'New 1:1' : type === 'personal' ? 'Personal wallet' : 'New group'
         }
-        back
+        back={existing ? `/groups/${existing.id}` : '/groups'}
       />
       <form
         className="space-y-5"

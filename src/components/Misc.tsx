@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import { useBack } from '@/hooks/useBack'
+import type { BackConfig } from '@/lib/back'
 import { type Hint, HintText, InfoTip } from '@/components/Hint'
 import { formatDate } from '@/lib/locale'
 import type { GroupType } from '@/types'
@@ -14,14 +15,18 @@ export function PageHeader({
   children,
 }: {
   title: ReactNode
-  back?: boolean | string
+  /**
+   * Shows the back button. A path (or true, for Home) goes back where you came from in the app and
+   * uses the path only for a screen opened cold; `{ to, mode: 'fixed' }` always goes to `to` (src/lib/back.ts).
+   */
+  back?: boolean | BackConfig
   right?: ReactNode
   /** A status line (plain text, always shown) or an explanation that follows the detail level (a Hint). */
   subtitle?: ReactNode | Hint
   children?: ReactNode
 }) {
   // Back is where you came from in the app; the `back` path is only for a screen opened cold.
-  const goBack = useBack(typeof back === 'string' ? back : '/')
+  const goBack = useBack(back === true || back === false || back === undefined ? '/' : back)
   return (
     <header className="sticky top-[var(--banner-h,0px)] z-30 -mx-4 mb-5 bg-slate-50/80 px-4 pb-3 pt-[calc(var(--safe-top)+1.25rem)] backdrop-blur-xl dark:bg-ink-950/80">
       <div className="flex min-h-11 items-center gap-2">
