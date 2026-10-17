@@ -17,6 +17,7 @@ import {
   linkWithCredential,
   linkWithPopup,
   linkWithRedirect,
+  reauthenticateWithCredential,
   reauthenticateWithPopup,
   signInAnonymously,
   signInWithPopup,
@@ -126,8 +127,7 @@ import {
 } from './repo'
 import type { Functions } from 'firebase/functions'
 import type { ParsedReceipt } from '@/lib/ocr-parse'
-import type { AccountDeletionPlan } from './repo'
-import { RECENT_SIGN_IN_MS } from '../../shared/account-delete'
+import type { AccountDeletionPlan, SignInCheck } from './repo'
 import type { AiKeyResult, AiModel, AiState, AiStatement, AiStatusResult, AiUnavailableReason } from './repo'
 import { parseMemory } from '@/lib/merchants'
 import type { AiTextExpense } from '@/lib/nl-expense'
@@ -596,7 +596,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       return {}
     },
     isEmailLink: (href) => isSignInWithEmailLink(auth, href),
-    isSignInLink: (href) => isSignInWithEmailLink(auth, href) && new URL(href).pathname === '/signin',
+    isSignInLink: (href) => isSignInWithEmailLink(auth, href) && ['/signin', '/settings/delete-account'].includes(new URL(href).pathname),
     async finishEmailLink(href, typed) {
       let email = typed?.trim().toLowerCase()
       try {
@@ -647,22 +647,48 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       return (await fn({})).data
     },
     async deleteAccount() {
-      const u = auth.currentUser
-      if (!u) throw new Error('Not signed in')
+      if (!auth.currentUser) throw new Error('Not signed in')
       if (!online()) throw new Error('You’re offline. Connect to the internet to delete your account.')
-      // The server checks the sign-in time (auth_time); asking again here saves a refusal.
-      const signedInAt = Date.parse((await u.getIdTokenResult()).authTime)
-      if (!(Date.now() - signedInAt < RECENT_SIGN_IN_MS - 30_000)) {
-        if (!u.providerData.some((p) => p.providerId === 'google.com'))
-          throw new Error('For your safety, sign out and sign in again, then delete your account within 5 minutes.')
-        const provider = new GoogleAuthProvider()
-        if (u.email) provider.setCustomParameters({ login_hint: u.email })
-        await reauthenticateWithPopup(u, provider)
-        await u.getIdToken(true)
-      }
       const fn = await callable<{ confirm: true }, { deleted: boolean }>('deleteAccount', 300_000)
       await fn({ confirm: true })
       await repo.signOut()
+    },
+    async signInCheck(): Promise<SignInCheck> {
+      const u = auth.currentUser
+      if (!u) throw new Error('Not signed in')
+      return {
+        signedInAt: Date.parse((await u.getIdTokenResult()).authTime),
+        google: u.providerData.some((p) => p.providerId === 'google.com'),
+        email: u.email,
+      }
+    },
+    async reauthWithGoogle() {
+      const u = auth.currentUser
+      if (!u) throw new Error('Not signed in')
+      const provider = new GoogleAuthProvider()
+      if (u.email) provider.setCustomParameters({ login_hint: u.email })
+      await reauthenticateWithPopup(u, provider)
+      await u.getIdToken(true)
+    },
+    async sendReauthLink() {
+      const email = auth.currentUser?.email
+      if (!email) throw new Error('This account has no email to send a link to')
+      // Opened on this phone it signs in again in place; opened in another browser (an installed
+      // iPhone app's links open in Safari) it is an ordinary sign-in there, back on this screen.
+      await sendSignInLinkToEmail(auth, email, { url: `${location.origin}/settings/delete-account`, handleCodeInApp: true })
+      try {
+        localStorage.setItem(SIGNIN_EMAIL, email)
+      } catch {
+        /* storage unavailable: a signed-out browser asks for the email */
+      }
+    },
+    isReauthLink: (href) => isSignInWithEmailLink(auth, href) && new URL(href).pathname === '/settings/delete-account',
+    async finishReauthLink(href) {
+      const u = auth.currentUser
+      if (!u?.email) throw new Error('Not signed in')
+      // A link for another account is refused here (auth/user-mismatch), never a switch of account.
+      await reauthenticateWithCredential(u, EmailAuthProvider.credentialWithLink(u.email, href))
+      await u.getIdToken(true)
     },
     watchAccountEmails(id, cb) {
       return onSnapshot(

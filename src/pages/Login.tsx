@@ -61,8 +61,9 @@ export default function Login() {
         await repo.signOut()
         toast(signupsClosedText(cfg), 'err')
       }
-      // Signed in: the app moves past this screen; the link's address is no longer needed.
-      nav('/', { replace: true })
+      // Signed in: the app moves past this screen; the link's address is no longer needed. A link
+      // from Delete my account (opened in a browser that wasn't signed in) goes back there.
+      nav(pathname === '/settings/delete-account' ? pathname : '/', { replace: true })
     } catch (e) {
       setLinkStep(null)
       toast(friendly(e), 'err')

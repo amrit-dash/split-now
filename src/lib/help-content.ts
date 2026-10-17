@@ -1578,7 +1578,7 @@ export const SECTIONS: HelpSection[] = [
       'Your Personal wallet, and groups where nobody else has an account, are deleted with it.',
       'In groups shared with others, the expenses stay so the balances still add up, and your name there becomes “Deleted account”. A group you made passes to the next person with an account.',
       'Your profile, photo, capture keys, captured payments, added emails, Pay me links and live tables are deleted.',
-      'For your safety you may be asked to sign in again. It can’t be undone.',
+      'For your safety it needs a sign-in from the last 5 minutes: sign in again with Google, or open a sign-in link we email you. It can’t be undone.',
     ],
     open: { label: 'Delete my account', to: '/settings/delete-account' },
     related: ['profile-account', 'archive-leave-delete', 'export-csv'],

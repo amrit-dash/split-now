@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { blockerLine, canDelete, confirmTyped, planSummary } from './account-delete'
+import { blockerLine, canDelete, confirmTyped, freshSignIn, planSummary, reauthWays } from './account-delete'
 
 const groups = { goa: { name: 'Goa', currency: 'INR' }, flat: { name: 'Flat' } }
 
@@ -29,5 +29,18 @@ describe('delete my account: what the screen says', () => {
     expect(canDelete({ blockers: [], admin: true }, 'DELETE')).toBe(false)
     expect(canDelete({ blockers: [{ groupId: 'goa', reason: 'pending' }], admin: false }, 'DELETE')).toBe(false)
     expect(canDelete(null, 'DELETE')).toBe(false)
+  })
+  it('a sign-in counts as fresh for four and a half minutes, and never from the future', () => {
+    const now = 10_000_000
+    expect(freshSignIn(now - 60_000, now)).toBe(true)
+    expect(freshSignIn(now - 4 * 60_000, now)).toBe(true)
+    expect(freshSignIn(now - 4.6 * 60_000, now)).toBe(false)
+    expect(freshSignIn(now + 2 * 60_000, now)).toBe(false)
+    expect(freshSignIn(Number.NaN, now)).toBe(false)
+  })
+  it('offers Google first, and an email link to anyone with an email', () => {
+    expect(reauthWays({ google: true, email: 'a@x.com' })).toEqual(['google', 'email'])
+    expect(reauthWays({ google: false, email: 'a@x.com' })).toEqual(['email'])
+    expect(reauthWays({ google: false, email: null })).toEqual([])
   })
 })
