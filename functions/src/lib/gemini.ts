@@ -428,6 +428,12 @@ export async function generateJson(
  * instruction as the first part of the message (as generateJson's plain mode does), Gemini as a
  * system instruction. Same errors, retry and model fallback as generateJson.
  */
+/** Gemma has no system instruction: it goes first in the message, joined with the text into one part when there is no image. */
+export function gemmaParts(instruction: string | undefined, parts: GeminiPart[]): GeminiPart[] {
+  const all = [...(instruction ? [{ text: instruction }] : []), ...parts]
+  return all.every((p) => 'text' in p && typeof p.text === 'string') ? [{ text: all.map((p) => (p as { text: string }).text).join('\n\n') }] : all
+}
+
 export async function generateText(
   key: string,
   parts: GeminiPart[],
@@ -447,8 +453,12 @@ export async function generateText(
         body: JSON.stringify(
           gemma
             ? {
-                contents: [{ role: 'user', parts: [...(opts.systemInstruction ? [{ text: opts.systemInstruction }] : []), ...parts] }],
-                generationConfig: { maxOutputTokens },
+                // One text part when it's all text: Gemma read a separate title part as missing ("Please provide the title").
+                contents: [{ role: 'user', parts: gemmaParts(opts.systemInstruction, parts) }],
+                // Gemma 4 thinks before it answers, and the thinking counts against maxOutputTokens: on a
+                // long instruction it used the whole allowance and the answer came back empty. Minimal is
+                // its "don't think" (it refuses a thinkingBudget).
+                generationConfig: { maxOutputTokens, thinkingConfig: { thinkingLevel: 'minimal' } },
               }
             : {
                 ...(opts.systemInstruction ? { systemInstruction: { parts: [{ text: opts.systemInstruction }] } } : {}),

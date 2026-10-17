@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  gemmaParts,
   generateImage,
   generateText,
   generateJson,
@@ -350,9 +351,17 @@ describe('generateText', () => {
     }) as unknown as typeof fetch
     expect((await generateText('k', [{ text: 't' }], { models: ['gemma-4-26b-a4b-it'], systemInstruction: 'rules', fetchImpl })).text).toBe('EMOJI: 🍕')
     expect(bodies[0].systemInstruction).toBeUndefined()
-    expect(JSON.stringify(bodies[0].contents)).toContain('rules')
+    // one part (a separate title part read as missing), and no thinking (it used up the allowance and answered nothing)
+    expect(bodies[0].contents).toEqual([{ role: 'user', parts: [{ text: 'rules\n\nt' }] }])
+    expect(bodies[0].generationConfig).toEqual({ maxOutputTokens: 4096, thinkingConfig: { thinkingLevel: 'minimal' } })
     await generateText('k', [{ text: 't' }], { models: ['gemini-3.5-flash-lite'], systemInstruction: 'rules', fetchImpl })
     expect(bodies[1].systemInstruction).toEqual({ parts: [{ text: 'rules' }] })
     expect(bodies[1].generationConfig).toEqual({ maxOutputTokens: 4096 })
+  })
+  it('Gemma’s message: the instruction and text in one part; with an image, kept apart', () => {
+    expect(gemmaParts('rules', [{ text: 'a' }, { text: 'b' }])).toEqual([{ text: 'rules\n\na\n\nb' }])
+    expect(gemmaParts(undefined, [{ text: 'a' }])).toEqual([{ text: 'a' }])
+    const img = { inlineData: { mimeType: 'image/jpeg', data: 'AA' } }
+    expect(gemmaParts('rules', [img])).toEqual([{ text: 'rules' }, img])
   })
 })
