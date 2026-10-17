@@ -338,7 +338,7 @@ export function AiSettings() {
                   checked={prefs.aiIconAuto}
                   onChange={(v) => set({ aiIconAuto: v })}
                   text={{
-                    full: 'When the app can’t tell the icon from a title (“Thalassa”), AI picks one of its own icons, and the category or group type while you haven’t chosen one. Never in private groups. Uses your AI quota.',
+                    full: 'When the app can’t tell the icon from a title (“Toit”), AI picks one of its own icons, and the category or group type while you haven’t chosen one. Never in private groups. Uses your AI quota.',
                     short: 'AI picks the icon when the app can’t tell',
                     tier: 'help',
                   }}

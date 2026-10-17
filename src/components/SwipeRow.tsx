@@ -65,7 +65,7 @@ export function SwipeRow({
   contentClassName?: string
   /** The tray's background, so it hides what it covers: match the card or sheet the row sits on. */
   surface?: string
-  /** Title of the press-and-hold menu, usually the row's name ("Zoe", "Dinner at Thalassa"). */
+  /** Title of the press-and-hold menu, usually the row's name ("Zoe", "Dinner at Bob’s Bar"). */
   menuTitle?: string
   testId?: string
 }) {

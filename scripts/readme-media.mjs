@@ -257,7 +257,7 @@ async function darkScreens(browser, url) {
 
   console.log('dark-add')
   await page.goto(`${url}/add?group=g_goa`)
-  await page.getByRole('textbox', { name: 'Description', exact: true }).fill('Dinner at Thalassa')
+  await page.getByRole('textbox', { name: 'Description', exact: true }).fill('Dinner at Bob’s Bar')
   await page.getByLabel('Amount', { exact: true }).or(page.getByPlaceholder('0.00')).first().fill('2400')
   await settle(page)
   await shot(page, 'dark-add')

@@ -476,7 +476,7 @@ Object.assign(SCENES, {
       {
         kind: 'list',
         items: [
-          { label: 'Dinner at Thalassa', icon: '🍽️' },
+          { label: 'Dinner at Bob’s Bar', icon: '🍽️' },
           { label: 'Scooter rental', icon: '🛵' },
         ],
       },
@@ -622,7 +622,7 @@ Object.assign(SCENES, {
     ]),
   ],
   'edit-delete-expense': [
-    settings('Dinner at Thalassa', [
+    settings('Dinner at Bob’s Bar', [
       { kind: 'chips', mark: 'top', items: [{ label: '⧉ Add again' }, { label: '✎ Edit' }, { label: '🗑 Delete' }] },
       { kind: 'row', label: 'Paid by Asha', value: '₹3,240' },
       { kind: 'row', label: 'Split equally', value: '3 people' },
@@ -661,12 +661,12 @@ Object.assign(SCENES, {
     ]),
   ],
   'comments-flags': [
-    settings('Dinner at Thalassa', [
+    settings('Dinner at Bob’s Bar', [
       { kind: 'message', label: 'Rahul', value: 'Did this include the drinks?' },
       { kind: 'field', label: 'Add a comment', value: 'Yes, all of them', mark: 'comment' },
       { kind: 'button', label: 'Flag a problem', mark: 'flag' },
     ]),
-    settings('Dinner at Thalassa', [
+    settings('Dinner at Bob’s Bar', [
       { kind: 'row', label: 'Flagged · still counted', value: 'Meera: I wasn’t there' },
       { kind: 'button', label: 'Resolve my flag', primary: true, mark: 'resolve' },
     ]),

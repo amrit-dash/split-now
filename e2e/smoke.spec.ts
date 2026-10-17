@@ -242,7 +242,7 @@ test('the + button opens the Create sheet; Add expense saves an equal split', as
   await sheet.getByTestId('create-expense').click()
   await expect(page).toHaveURL(/\/add\?group=g_goa/)
   await expect(page.getByText('Goa Trip', { exact: true })).toBeVisible()
-  await page.getByRole('textbox', { name: 'Description', exact: true }).fill('Dinner at Thalassa')
+  await page.getByRole('textbox', { name: 'Description', exact: true }).fill('Dinner at Bob’s Bar')
   await amountField(page).fill('1200')
   await page
     .getByRole('button', { name: /^(Save|Add expense)$/ })
@@ -250,7 +250,7 @@ test('the + button opens the Create sheet; Add expense saves an equal split', as
     .click()
   await expect(page).toHaveURL(/\/groups\/g_goa$/)
   // The list re-renders from the shared store once the demo repo commits; give a loaded CI box time.
-  await expect(page.getByText('Dinner at Thalassa')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByText('Dinner at Bob’s Bar')).toBeVisible({ timeout: 15_000 })
 })
 
 test('Money received: shared like an expense, shown as received, and the receiver passes it on', async ({ page }) => {
