@@ -11,7 +11,7 @@ export function StoryPlayer({ kind, beats }: { kind: StoryKind; beats: string[] 
   const p = usePlayer(beats.length)
   return (
     <div className="card overflow-hidden p-4" data-testid="help-explainer">
-      <div className="mb-4 rounded-3xl bg-gradient-to-br from-brand-50 to-duo-50 px-2 py-3 dark:from-brand-900/30 dark:to-duo-900/20">
+      <div className="mb-4">
         <Story kind={kind} beat={p.step} still={p.still} />
       </div>
       <PlayControls p={p} count={beats.length} noun="part" />
