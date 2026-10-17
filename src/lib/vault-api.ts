@@ -13,7 +13,7 @@ export type VaultRequest =
   | { op: 'groupPattern'; groupId: string; pattern: string | null; ordered: boolean; current: string; auth?: unknown }
   | { op: 'create'; groupId: string; pattern?: string; ordered?: boolean }
   | { op: 'stop'; current?: string; auth?: unknown }
-  | { op: 'convert'; groupId: string; on: boolean; auth?: unknown }
+  | { op: 'convert'; groupId: string; on: boolean; pattern?: string; ordered?: boolean; auth?: unknown }
   | { op: 'joinStatus'; code: string }
   | { op: 'requestJoin'; code: string }
   | { op: 'decideJoin'; groupId: string; uid: string; approve: boolean; memberId?: string; auth?: unknown }

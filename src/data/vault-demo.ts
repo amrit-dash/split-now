@@ -66,6 +66,7 @@ export function demoVault(
   who: { made?: () => number; setOff?: (off: boolean) => void } = {},
 ) {
   const OFF = 'You stopped using private groups. Start again in Settings → Encrypted groups.'
+  const NO_PATTERN = 'Choose how it opens first: your universal pattern, or its own pattern.'
   const read = (): DemoState => {
     try {
       const raw = store?.getItem(KEY)
@@ -159,6 +160,8 @@ export function demoVault(
           const problem = groupPatternProblem(req.pattern)
           if (problem) refuse(problem)
         }
+        // without its own pattern it opens with universal patterns only: the one removing it needs one
+        if (req.pattern === null && !person) refuse('Set your universal pattern first: without its own pattern, that’s what opens it.')
         await tryPattern(s, req.current, req.groupId)
         const dek = keyOf(s, req.groupId)
         s.groups[req.groupId] = { dek, ...(req.pattern === null ? {} : { pattern: await hashOf(req.pattern, req.ordered) }) }
@@ -172,6 +175,7 @@ export function demoVault(
           if (problem) refuse(problem)
         }
         if (s.off) refuse(OFF)
+        if (req.pattern === undefined && !person) refuse(NO_PATTERN)
         const dek = keyOf(s, req.groupId)
         // its own pattern, when one was chosen as it was made
         if (req.pattern !== undefined) s.groups[req.groupId].pattern = await hashOf(req.pattern, req.ordered !== false)
@@ -206,8 +210,13 @@ export function demoVault(
       case 'convert': {
         if (req.on) {
           if (s.off) refuse(OFF)
-          if (!person) refuse('Set up encrypted groups first: Settings → Encrypted groups.')
+          if (req.pattern !== undefined) {
+            const problem = groupPatternProblem(req.pattern)
+            if (problem) refuse(problem)
+          } else if (!person) refuse(NO_PATTERN)
           const dek = keyOf(s, req.groupId)
+          // its own pattern, when one was chosen as it was made private
+          if (req.pattern !== undefined) s.groups[req.groupId].pattern = await hashOf(req.pattern, req.ordered !== false)
           write(s)
           await convert(req.groupId, true, dek)
           return { dek } as T

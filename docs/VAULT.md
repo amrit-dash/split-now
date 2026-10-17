@@ -13,9 +13,21 @@ Groups); on by default like every flag, server-enforced in the `vault` callable.
     server, so uninstalling the app or a new phone loses nothing;
   - a **universal pattern**: at least 6 taps and long presses, mixed, entered twice. **Follow the
     sequence** on: the order matters; off: only how many taps and how many long presses.
-- **New group → Private group** (a switch beside More options) needs a universal pattern first.
-  Chosen when the group is made, or later by its creator (below); no client write changes `vault`. The phone
-  that made it gets its key at once (`create`), so it opens straight away.
+- **A private group always opens with a pattern**: the person's universal one, or the group's own.
+  New group → Private group (a switch beside More options) and Group ⋯ → Make private show the same
+  setup card as Settings (`src/features/vault/LockSetup.tsx`, rows from `src/lib/vault-setup.ts`):
+  **Opens with** (Universal pattern / Its own pattern), then a row each for the passkey, the chosen
+  pattern and the key, each saying its state in words (Added, Ready, Needed) with an icon button to
+  add a passkey (Face ID comes up there and then), set or change a pattern, or remove a group's own.
+  The button that makes it private waits until the chosen pattern and a passkey are ready
+  (`privateBlocker`; no passkey in the demo). The server refuses it too: `create` and `convert`
+  without its own pattern from someone with no universal pattern answer "Choose how it opens
+  first" (`NO_PATTERN_TEXT`), before any passkey is asked for. `create` also needs a passkey on file for
+  this site (`NO_PASSKEY_TEXT`; `convert` asks for one outright), and removing a group's own pattern
+  needs the remover's universal pattern (`REMOVE_NEEDS_UNIVERSAL`), so nobody locks themselves out. One passkey is the account's, for
+  every group: it proves it's you, and the pattern is what differs between groups, so there is no
+  per-group passkey. Chosen when the group is made, or later by its creator (below); no client write
+  changes `vault`. The phone that made it gets its key at once (`create`), so it opens straight away.
 - **The lock button is the pattern pad** (`src/features/vault/PatternLock.tsx`). There is no pad
   screen: the pattern is tapped and long-pressed on the lock icon itself. Each press shows only
   what any button shows (it sinks and fills from within; held long, the fill completes and the
@@ -36,9 +48,10 @@ Groups); on by default like every flag, server-enforced in the `vault` callable.
   It opens only that group, for anyone in it who knows it, even someone with no universal pattern.
   Anyone in the group who can already open it (with their universal pattern or its own) can set,
   change or remove it, after their passkey. 7.1's group patterns are kept as the groups' own.
-- **A new group's own pattern** can be chosen as it's made (New group → Private group → Its own
-  pattern), entered twice; it goes to the server with the group's first key (`create`). Later it is
-  changed from the group's menu, as above.
+- **A new group's own pattern** can be chosen as it's made private (New group → Private group, or
+  Group ⋯ → Make private → Opens with: Its own pattern), entered twice; it goes to the server with the
+  group's first key (`create`, or `convert` with `pattern` and `ordered`). Later it is changed from
+  the group's menu, as above, where switching Opens with sets or removes it.
 - **Stop using private groups** (Settings → Encrypted groups, at the bottom). Only once no live
   private group they made is left (turned off, deleted or left: `blocksStopping` in
   shared/vault-convert.ts); others' private groups don't count. It asks for the current universal

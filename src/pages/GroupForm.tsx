@@ -42,8 +42,10 @@ import { useToast } from '@/components/Toast'
 import { currentMemberMatch } from '@/lib/members'
 import { DateField } from '@/components/DateField'
 import { Switch } from '@/components/Switch'
-import { openNewGroup } from '@/features/vault/passkey'
+import { openNewGroup, passkeyCancelled, passkeyProof, registerPasskey } from '@/features/vault/passkey'
 import { privateOffered, type VaultStatus } from '@/lib/vault-api'
+import { defaultOpensWith, type OpensWith, privateBlocker } from '@/lib/vault-setup'
+import { LockSetup } from '@/features/vault/LockSetup'
 import { SetPatternSheet } from '@/features/vault/SetPatternSheet'
 import { Collapsible } from '@/components/Collapsible'
 import { MoneyInput } from '@/components/MoneyInput'
@@ -66,13 +68,9 @@ const TRIP_CAPTURE_HINT: Hint = {
 }
 const SIMPLIFY_HINT: Hint = { full: 'Fewer payments: if A owes B and B owes C, A pays C directly.', short: 'Fewer payments, same balances.' }
 const PRIVATE_HINT: Hint = {
-  full: 'Its name, people’s names, descriptions, notes, comments and chat are encrypted. Everyone opens it with their universal pattern of taps and long presses, or its own pattern if you give it one, plus Face ID or a passkey. You can turn it off later from the group’s menu.',
+  full: 'Its name, people’s names, descriptions, notes, comments and chat are encrypted. It opens with a pattern of taps and long presses, everyone’s universal one or one just for this group, plus Face ID or a passkey. You can turn it off later from the group’s menu.',
   short: 'Encrypted, opens with your pattern and Face ID.',
   tier: 'key',
-}
-const OWN_PATTERN_HINT: Hint = {
-  full: 'Optional. A pattern of taps and long presses that opens only this group, for anyone you tell it to in person, even someone with no universal pattern. You can change it later from the group’s menu.',
-  short: 'Optional. Opens only this group.',
 }
 const APPROVAL_HINT: Hint = {
   full: 'In this group, a big expense added by someone else stays pending (not counted) until everyone charged taps Approve.',
@@ -142,14 +140,24 @@ export default function GroupForm() {
   const iconAi = useIconAi(privateOn || !!existing?.vault)
   // A picture from Draw a picture (Group.iconImage), shown over the drawn icon and the emoji.
   const [iconImage, setIconImage] = useState<string | undefined>(undefined)
-  // A private group opens with its members' universal patterns, so turning it on needs one set first.
+  // A private group must open with a pattern: the person's universal one or its own, chosen right
+  // here (LockSetup), along with their passkey. Saving waits until one is ready (privateBlocker).
   const [privateNote, setPrivateNote] = useState<string | null>(null)
+  const [vaultStatus, setVaultStatus] = useState<VaultStatus | null>(null)
+  const [opensWith, setOpensWith] = useState<OpensWith>('universal')
+  const [settingUniversal, setSettingUniversal] = useState(false)
+  const [vaultBusy, setVaultBusy] = useState<'passkey' | null>(null)
+  const loadVault = async () => {
+    const s = await repo.vault<VaultStatus>({ op: 'status' })
+    setVaultStatus(s)
+    return s
+  }
   const turnPrivate = async (on: boolean) => {
     setPrivateNote(null)
     if (!on) return setPrivateOn(false)
     try {
-      const s = await repo.vault<VaultStatus>({ op: 'status' })
-      if (!s.universal) return setPrivateNote('Set your universal pattern first: Settings → Encrypted groups.')
+      const s = await loadVault()
+      setOpensWith(defaultOpensWith(s, { set: !!ownPattern }))
       setPrivateOn(true)
     } catch (e) {
       setPrivateNote(errText(e))
@@ -458,6 +466,14 @@ export default function GroupForm() {
       }
       return
     }
+    // A private group can't be made until something opens it.
+    if (!existing && privateOn && privateShown && shareable) {
+      const blocked = vaultStatus ? privateBlocker(vaultStatus, { opensWith, own: { set: !!ownPattern }, demo: repo.mode === 'demo' }) : 'Checking…'
+      if (blocked) {
+        setPrivateNote(blocked)
+        return document.getElementById('group-private-setup')?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      }
+    }
     // A personal wallet only ever holds you, whatever was typed before switching to it.
     const saved = type === 'personal' && !existing ? Object.fromEntries(Object.entries(members).filter(([, m]) => m.uid === user.uid)) : members
     setBusy(true)
@@ -504,7 +520,7 @@ export default function GroupForm() {
         const id = await createGroup({ ...data, createdBy: user.uid } as Omit<Group, 'id' | 'createdAt' | 'updatedAt' | 'inviteCode'>)
         saveCapture(id)
         // Its first key, here, so the person who made it lands in it open; if that fails it opens with their pattern.
-        if (data.vault) await openNewGroup(repo, id, ownPattern ?? undefined).catch(() => {})
+        if (data.vault) await openNewGroup(repo, id, opensWith === 'own' ? (ownPattern ?? undefined) : undefined).catch(() => {})
         toast(type === 'personal' ? 'Wallet created' : 'Group created')
         // ?next=add: opened from Add expense, so go straight back there with the new group picked
         // (&quick=1: from Quick add, whose line waits in memory to fill the form).
@@ -976,30 +992,34 @@ export default function GroupForm() {
             <Switch checked={privateOn} onChange={(v) => void turnPrivate(v)} label="Private group" testId="group-private" />
           </div>
         )}
-        {privateOn && privateShown && (
-          <div className="card -mt-2 flex items-center justify-between gap-3 p-4" data-testid="group-own-pattern">
-            <div className="min-w-0">
-              <div className="flex items-center">
-                <span className="text-sm font-semibold">Its own pattern</span>
-                <InfoTip hint={OWN_PATTERN_HINT} label="About its own pattern" />
-              </div>
-              {/* Once set, the line is its state (shown in every look); before, the hint follows the detail level. */}
-              {ownPattern ? (
-                <div className="text-muted text-xs">Set · {ownPattern.ordered ? 'in order' : 'any order'}. Tell people in person.</div>
-              ) : (
-                <HintText hint={OWN_PATTERN_HINT} as="div" />
-              )}
-            </div>
-            <div className="flex shrink-0 gap-1.5">
-              {ownPattern && (
-                <button type="button" className="chip min-h-11" onClick={() => setOwnPattern(null)} data-testid="group-own-pattern-clear">
-                  Remove
-                </button>
-              )}
-              <button type="button" className="chip min-h-11" onClick={() => setSettingOwn(true)} data-testid="group-own-pattern-set">
-                {ownPattern ? 'Change' : 'Set'}
-              </button>
-            </div>
+        {privateOn && privateShown && vaultStatus && (
+          <div id="group-private-setup" className="-mt-2" data-testid="group-own-pattern">
+            <LockSetup
+              status={vaultStatus}
+              scope="group"
+              opensWith={opensWith}
+              onOpensWith={(v) => {
+                setOpensWith(v)
+                setPrivateNote(null)
+              }}
+              own={{ set: !!ownPattern, ordered: ownPattern?.ordered }}
+              demo={repo.mode === 'demo'}
+              busy={vaultBusy}
+              testId="group-private-setup"
+              onAction={(row, action) => {
+                setPrivateNote(null)
+                if (row === 'own') return action === 'remove' ? setOwnPattern(null) : setSettingOwn(true)
+                if (row === 'universal') return setSettingUniversal(true)
+                if (row === 'passkey') {
+                  setVaultBusy('passkey')
+                  registerPasskey(repo)
+                    .then(loadVault)
+                    .then(() => toast('Passkey added'))
+                    .catch((e) => !passkeyCancelled(e) && toast(errText(e), 'err'))
+                    .finally(() => setVaultBusy(null))
+                }
+              }}
+            />
           </div>
         )}
         <SetPatternSheet
@@ -1012,12 +1032,25 @@ export default function GroupForm() {
             setSettingOwn(false)
           }}
         />
+        {/* The universal pattern, set right here (it's the account's, the same as Settings → Encrypted groups). */}
+        <SetPatternSheet
+          open={settingUniversal}
+          onClose={() => setSettingUniversal(false)}
+          kind="universal"
+          hasCurrent={!!vaultStatus?.universal}
+          ordered={vaultStatus?.ordered !== false}
+          save={async (pattern, ordered, current) => {
+            if (pattern === null) return
+            const auth = await passkeyProof(repo)
+            await repo.vault({ op: 'setUniversal', pattern, ordered, current, auth })
+            setSettingUniversal(false)
+            await loadVault()
+            toast('Universal pattern set')
+          }}
+        />
         {privateNote && (
           <p className="-mt-2 px-1 text-sm" role="status" data-testid="group-private-note">
-            {privateNote}{' '}
-            <Link to="/settings/vault" className="font-semibold underline">
-              Set it up
-            </Link>
+            {privateNote}
           </p>
         )}
 

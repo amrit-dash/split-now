@@ -91,7 +91,8 @@ test('Private group: universal pattern, words stored encrypted, patterns go in o
   await page.getByTestId('vault-set-next').click()
   await enter()
   await page.getByTestId('vault-set-next').click()
-  await expect(page.getByTestId('vault-line-pattern')).toContainText('Universal pattern set · in order')
+  await expect(page.getByTestId('vault-line-pattern')).toHaveAttribute('data-state', 'ready')
+  await expect(page.getByTestId('vault-line-pattern')).toContainText('Set · in order')
   // changing it starts with the current one; a wrong one goes nowhere
   await page.getByTestId('vault-universal-open').click()
   await expect(page.getByTestId('vault-set-prompt')).toHaveText('Enter your current pattern')
@@ -195,7 +196,7 @@ test('Private group: its creator makes an existing group private, everything in 
   await page.getByTestId('vault-set-next').click()
   await enter()
   await page.getByTestId('vault-set-next').click()
-  await expect(page.getByTestId('vault-line-pattern')).toContainText('Universal pattern set')
+  await expect(page.getByTestId('vault-line-pattern')).toHaveAttribute('data-state', 'ready')
 
   await page.goto('/groups/g_goa')
   await expect(page.getByRole('heading', { level: 1, name: /Goa Trip/ })).toBeVisible()
@@ -1128,6 +1129,35 @@ test('going offline shows the sync note under the header, and it goes once back 
   await expect(page.getByTestId('offline-pill')).toBeHidden()
 })
 
+test('Private group: it can’t be made without a pattern to open it, chosen right in the form', async ({ page }) => {
+  const enter = async (p: string) => {
+    for (const c of p) await page.getByTestId(c === 'T' ? 'pattern-add-tap' : 'pattern-add-long').click()
+  }
+  await page.goto('/groups/new')
+  await page
+    .getByRole('radiogroup', { name: 'What are you creating?' })
+    .getByRole('radio', { name: /^Group/ })
+    .click()
+  await page.getByLabel('Name', { exact: true }).fill('Secret plans')
+  await page.getByTestId('group-private').click()
+  // no universal pattern yet: it starts on its own pattern, which isn't set, so saving is refused
+  await expect(page.getByTestId('vault-opens-with').getByRole('radio', { name: 'Its own pattern' })).toHaveAttribute('aria-checked', 'true')
+  await page.getByTestId('group-save').click()
+  await expect(page.getByTestId('group-private-note')).toContainText('Set its own pattern first')
+  await expect(page).toHaveURL(/\/groups\/new/)
+  // the universal pattern can be set right here instead
+  await page.getByTestId('vault-opens-with').getByRole('radio', { name: 'Universal pattern' }).click()
+  await expect(page.getByTestId('vault-line-pattern')).toHaveAttribute('data-state', 'missing')
+  await page.getByTestId('vault-universal-open').click()
+  await enter('TTLTLL')
+  await page.getByTestId('vault-set-next').click()
+  await enter('TTLTLL')
+  await page.getByTestId('vault-set-next').click()
+  await expect(page.getByTestId('vault-line-pattern')).toHaveAttribute('data-state', 'ready')
+  await page.getByTestId('group-save').click()
+  await expect(page).toHaveURL(/\/groups\/(?!new)[^/]+$/)
+})
+
 test('Private groups: stopping hides them, and a universal pattern starts them again', async ({ page }) => {
   const enter = async (p = 'TTLTLL') => {
     for (const s of p) await page.getByTestId(s === 'T' ? 'pattern-add-tap' : 'pattern-add-long').click()
@@ -1138,7 +1168,7 @@ test('Private groups: stopping hides them, and a universal pattern starts them a
   await page.getByTestId('vault-set-next').click()
   await enter()
   await page.getByTestId('vault-set-next').click()
-  await expect(page.getByTestId('vault-line-pattern')).toContainText('Universal pattern set')
+  await expect(page.getByTestId('vault-line-pattern')).toHaveAttribute('data-state', 'ready')
   // a new private group can take its own pattern as it's made
   await page.goto('/groups/new')
   await page
@@ -1146,12 +1176,16 @@ test('Private groups: stopping hides them, and a universal pattern starts them a
     .getByRole('radio', { name: /^Group/ })
     .click()
   await page.getByTestId('group-private').click()
-  await page.getByTestId('group-own-pattern-set').click()
+  // with a universal pattern set, it opens with that unless it's given its own
+  await expect(page.getByTestId('vault-opens-with').getByRole('radio', { name: 'Universal pattern' })).toHaveAttribute('aria-checked', 'true')
+  await page.getByTestId('vault-opens-with').getByRole('radio', { name: 'Its own pattern' }).click()
+  await expect(page.getByTestId('vault-line-own')).toHaveAttribute('data-state', 'missing')
+  await page.getByTestId('vault-own-set').click()
   await enter('TL')
   await page.getByTestId('vault-set-next').click()
   await enter('TL')
   await page.getByTestId('vault-set-next').click()
-  await expect(page.getByTestId('group-own-pattern')).toContainText('Set · in order')
+  await expect(page.getByTestId('vault-line-own')).toContainText('Set · in order')
   // stopping: confirm, then the current pattern
   await page.goto('/settings/vault')
   await page.getByTestId('vault-stop').click()
@@ -1174,7 +1208,7 @@ test('Private groups: stopping hides them, and a universal pattern starts them a
   await page.getByTestId('vault-set-next').click()
   await enter('LLTTLT')
   await page.getByTestId('vault-set-next').click()
-  await expect(page.getByTestId('vault-line-pattern')).toContainText('Universal pattern set')
+  await expect(page.getByTestId('vault-line-pattern')).toHaveAttribute('data-state', 'ready')
 })
 
 test('receipt photos: several attached beside the scanned one, opened full screen, added and removed later', async ({ page }) => {
