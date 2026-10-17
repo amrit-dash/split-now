@@ -38,15 +38,15 @@ async function loadGroups(uid: string): Promise<Loaded[]> {
   )
 }
 
-/** Delete every document a query finds, 400 to a batch. */
-async function deleteAll(q: FirebaseFirestore.Query): Promise<number> {
+/** Delete every document a query finds, 400 to a batch; answers their ids. */
+async function deleteAll(q: FirebaseFirestore.Query): Promise<string[]> {
   const snap = await q.get()
   for (let i = 0; i < snap.docs.length; i += 400) {
     const batch = db().batch()
     for (const d of snap.docs.slice(i, i + 400)) batch.delete(d.ref)
     await batch.commit()
   }
-  return snap.size
+  return snap.docs.map((d) => d.id)
 }
 
 /** Leave one group, as the plan said, inside a transaction that checks the plan still holds. */
@@ -96,7 +96,7 @@ async function leave(uid: string, gid: string, now: number): Promise<void> {
 /** Everything about the account outside groups. Each step is safe to repeat. */
 async function wipe(uid: string, emails: string[]): Promise<void> {
   const f = db()
-  await Promise.all([
+  const [, , made, lockedTo] = await Promise.all([
     deleteAll(f.collection('captureTokens').where('uid', '==', uid)),
     deleteAll(f.collection('captureInbox').where('uid', '==', uid)),
     deleteAll(f.collection('payLinks').where('createdBy', '==', uid)),
@@ -124,7 +124,9 @@ async function wipe(uid: string, emails: string[]): Promise<void> {
   // The emulator runs without Storage (npm run test:functions), and would reach the real bucket.
   if (process.env.FUNCTIONS_EMULATOR === 'true' && !process.env.FIREBASE_STORAGE_EMULATOR_HOST) return
   const bucket = (await storage()).bucket()
-  await bucket.deleteFiles({ prefix: `avatars/${uid}/` }).catch((e) => logger.warn('avatar delete', { error: (e as Error).message }))
+  // The photo, and the payment screenshots on the Pay me links that went.
+  for (const prefix of [`avatars/${uid}/`, ...[...made, ...lockedTo].map((code) => `payproofs/${code}/`)])
+    await bucket.deleteFiles({ prefix }).catch((e) => logger.warn('account files delete', { prefix, error: (e as Error).message }))
 }
 
 export const deleteAccount = onCall(callable, async (req) => {
