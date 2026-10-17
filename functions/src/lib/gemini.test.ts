@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   generateImage,
+  generateText,
   generateJson,
   listModels,
   looseJson,
@@ -333,5 +334,25 @@ describe('generateImage', () => {
     await expect(generateImage('k', 'd', { models: ['m'], fetchImpl: f(ok([{ inlineData: { mimeType: 'image/svg+xml', data: 'x' } }])) })).rejects.toThrow(
       /no picture/,
     )
+  })
+})
+
+describe('generateText', () => {
+  const reply = (text: string) =>
+    new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: 'thinking', thought: true }, { text }] }, finishReason: 'STOP' }] }), {
+      status: 200,
+    })
+  it('Gemma gets the instruction in the message, Gemini as a system instruction; thoughts are dropped', async () => {
+    const bodies: Array<Record<string, unknown>> = []
+    const fetchImpl = (async (_u: string, init: RequestInit) => {
+      bodies.push(JSON.parse(String(init.body)))
+      return reply('EMOJI: 🍕')
+    }) as unknown as typeof fetch
+    expect((await generateText('k', [{ text: 't' }], { models: ['gemma-4-26b-a4b-it'], systemInstruction: 'rules', fetchImpl })).text).toBe('EMOJI: 🍕')
+    expect(bodies[0].systemInstruction).toBeUndefined()
+    expect(JSON.stringify(bodies[0].contents)).toContain('rules')
+    await generateText('k', [{ text: 't' }], { models: ['gemini-3.5-flash-lite'], systemInstruction: 'rules', fetchImpl })
+    expect(bodies[1].systemInstruction).toEqual({ parts: [{ text: 'rules' }] })
+    expect(bodies[1].generationConfig).toEqual({ maxOutputTokens: 4096 })
   })
 })

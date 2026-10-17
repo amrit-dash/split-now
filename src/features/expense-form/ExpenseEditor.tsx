@@ -711,12 +711,12 @@ export function ExpenseEditor({
         auto={expenseEmoji({ ...draft, icon: undefined })}
         first={categoryIcons(draft.category)}
         onPick={(icon) => dispatch({ type: 'icon', icon })}
-        ai={iconAi.suggest && descriptionOf(draft) ? { title: descriptionOf(draft), kind: 'expense', category: CATEGORIES[draft.category].label } : undefined}
+        ai={iconAi.suggest ? { title: descriptionOf(draft), kind: 'expense', category: CATEGORIES[draft.category].label } : undefined}
         svgValue={draft.iconSvg}
         onPickSvg={(svg) => dispatch({ type: 'iconSvg', svg })}
         picture={iconAi.picture}
         pictureHint={iconAi.pictureHint}
-        aiWaiting={iconAi.suggest && !descriptionOf(draft) ? 'Type what it was for first: AI suggests icons from it.' : undefined}
+        aiWaiting={iconAi.suggest ? 'Type what it was for, or search for a word: AI suggests icons from it.' : undefined}
         imageValue={draft.iconImage}
         onPickImage={(image) => dispatch({ type: 'iconImage', image })}
       />

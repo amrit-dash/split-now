@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { cleanSvg } from '../../../shared/svg-icon'
-import { cleanIconRequest, iconPrompt, normaliseIcons } from './icon-ai'
+import { cleanIconRequest, iconPrompt, normaliseIcons, parseIconText } from './icon-ai'
 
 describe('AI icons', () => {
   it('the request is a short title with no markup', () => {
@@ -31,5 +31,25 @@ describe('AI icons', () => {
     expect(r.emoji).toEqual(['⛴️', '⚓', '🚢'])
     expect(r.svgs).toHaveLength(2)
     expect(normaliseIcons('nonsense')).toEqual({ emoji: [], svgs: [] })
+  })
+})
+
+describe('reading the plain-text answer', () => {
+  const ok = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="#f59e0b"/></svg>'
+  it('the EMOJI line and every drawing, wherever they sit', () => {
+    const r = parseIconText(`EMOJI: ⛴️ 🌊 ⚓\n${ok}\n\`\`\`svg\n${ok.replace('#f59e0b', '#0ea5e9')}\n\`\`\`\nHope these help`)
+    expect(r.emoji).toEqual(['⛴️', '🌊', '⚓'])
+    expect(r.svgs).toHaveLength(2)
+  })
+  it('one broken drawing doesn’t spoil the rest; a missing label still finds the emoji', () => {
+    const r = parseIconText(`**Emoji**: 🏖️🌴🍹\n<svg><script>x</script></svg>\n${ok}`)
+    expect(r.emoji).toEqual(['🏖️', '🌴', '🍹'])
+    expect(r.svgs).toHaveLength(1)
+    expect(parseIconText(`🏖️ 🌴\n${ok}`).emoji).toEqual(['🏖️', '🌴'])
+    expect(parseIconText('nothing useful')).toEqual({ emoji: [], svgs: [] })
+  })
+  it('the prompt asks for that shape, not JSON', () => {
+    expect(iconPrompt({ title: 'x', kind: 'group' })).toMatch(/Start your answer with EMOJI:/)
+    expect(iconPrompt({ title: 'x', kind: 'group' })).not.toMatch(/Return JSON/)
   })
 })
