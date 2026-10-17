@@ -1439,6 +1439,9 @@ test('help: What’s new lists this version first and links each line to the gui
   await page.goto('/help?tab=new')
   const releases = page.getByTestId('release')
   await expect(releases.first()).toBeVisible()
+  // the newest release says so
+  await expect(releases.first().getByTestId('release-latest')).toHaveText('Latest')
+  await expect(page.getByTestId('release-latest')).toHaveCount(1)
   expect(await releases.count()).toBeGreaterThan(5)
   await releases.first().getByTestId('release-item').first().click()
   await expect(page).toHaveURL(/\/help\/[a-z-]+$/)

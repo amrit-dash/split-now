@@ -186,8 +186,13 @@ function ReleaseCard({ r, fresh, first }: { r: Release; fresh: boolean; first: b
           {r.version}
         </h2>
         <span className="text-muted text-xs">{r.date}</span>
-        {fresh && <span className="rounded-full bg-fill px-2 py-0.5 text-[0.65rem] font-bold text-on-fill">New</span>}
-        {first && !fresh && <span className="text-muted text-[0.65rem] font-semibold">This version</span>}
+        {/* The newest release this app has: the accent pill. New since this phone last looked: an outlined one beside it. */}
+        {first && (
+          <span className="rounded-full bg-fill px-2 py-0.5 text-[0.65rem] font-bold text-on-fill" data-testid="release-latest">
+            Latest
+          </span>
+        )}
+        {fresh && <span className="rounded-full px-2 py-0.5 text-[0.65rem] font-bold text-brand-700 ring-1 ring-brand-500 dark:text-brand-200">New</span>}
       </div>
       <ul className="space-y-0.5">
         {r.items.map((it) => (

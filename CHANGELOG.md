@@ -9,7 +9,7 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 ## 8.3.7 — October 2026
 
 - Help: every section now plays its steps on a small animated phone, not only the ten main features: signing in, money received, receipt photos, every private group topic, AI features and more. As it plays, each step it has shown is ticked off.
-- Help: the guide no longer replays its cards' pop-in each time you come back to it, and no longer lists a section about Help itself (What's new still links to it).
+- Help: the guide no longer replays its cards' pop-in each time you come back to it, and no longer lists a section about Help itself (What's new still links to it). In What's new, the newest release has a Latest badge.
 - Help: thirteen sections also have a screenshot of the real screen, under See a screenshot. It is plainly a picture: framed and labelled Screenshot, nothing in it can be tapped, and the step you're on is lit by dimming the rest. The screenshots load only when you open them, and stay available offline once seen.
 
 ## 8.3.6 — October 2026
