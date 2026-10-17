@@ -521,10 +521,10 @@ const Seesaw: View = ({ beat, still }) => {
 // ---- Fewer payments: untangling -------------------------------------------------------------------
 
 const NODES = [
-  { name: 'Asha', x: 64, y: 64, net: 500 },
-  { name: 'Ravi', x: 296, y: 64, net: -200 },
-  { name: 'Meera', x: 296, y: 182, net: -400 },
-  { name: 'Kabir', x: 64, y: 182, net: 100 },
+  { name: 'Asha', x: 72, y: 64, net: 500 },
+  { name: 'Ravi', x: 288, y: 64, net: -200 },
+  { name: 'Meera', x: 288, y: 182, net: -400 },
+  { name: 'Kabir', x: 72, y: 182, net: 100 },
 ]
 // What was paid along the way (from → to, bend), and what Simplify debts suggests instead:
 // Meera → Asha ₹400, Ravi → Asha ₹100, Ravi → Kabir ₹100. Everyone's balance stays the same.
@@ -671,7 +671,7 @@ const Untangle: View = ({ beat, still }) => {
             </At>
           )
         })}
-      <At x={180} y={beat === 2 ? 212 : 124} style={pop(beat === 0 ? 1300 : beat === 1 ? 400 : 1600)}>
+      <At x={180} y={beat === 2 ? 206 : 124} style={pop(beat === 0 ? 1300 : beat === 1 ? 400 : 1600)}>
         <div className="rounded-2xl bg-white/90 px-3 py-2 text-center shadow-lg ring-1 ring-brand-100 backdrop-blur dark:bg-ink-900/90 dark:ring-white/10">
           <div className="text-[18px] font-black leading-none text-slate-800 tabular-nums dark:text-white">
             {beat === 0 ? '6' : beat === 1 ? '=' : <Count from={6} to={3} still={still} d={1700} ms={700} format={(n) => String(n)} />}
@@ -679,7 +679,7 @@ const Untangle: View = ({ beat, still }) => {
           <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">{beat === 1 ? 'overall' : 'payments'}</div>
         </div>
       </At>
-      {beat === 2 && <Sparkles x={180} y={212} d={2000} spread={40} />}
+      {beat === 2 && <Sparkles x={180} y={206} d={2000} spread={34} />}
     </>
   )
 }
@@ -687,9 +687,9 @@ const Untangle: View = ({ beat, still }) => {
 // ---- Splits add up: ₹100 three ways ------------------------------------------------------------------
 
 const SLICES = [
-  { name: 'Asha', x0: 30, dx: -16, rot: -5 },
+  { name: 'Asha', x0: 30, dx: -8, rot: -4 },
   { name: 'Ravi', x0: 130, dx: 0, rot: 0 },
-  { name: 'Meera', x0: 230, dx: 16, rot: 5 },
+  { name: 'Meera', x0: 230, dx: 8, rot: 4 },
 ]
 
 /** The note's paper: its border, guilloche lines and watermark. `face` adds the printed ₹100. */
@@ -798,7 +798,7 @@ const Remainder: View = ({ beat, still }) => {
         </At>
       ))}
       {/* the total: rounded down it misses a paisa; given to the first person it's exact */}
-      <At x={180} y={16} style={pop(beat === 0 ? 0 : 200)}>
+      <At x={180} y={18} style={pop(beat === 0 ? 0 : 200)}>
         <Pill tone={beat === 1 ? 'down' : beat === 2 ? 'up' : 'even'}>
           {beat === 0 ? '₹100 ÷ 3 people' : beat === 1 ? '3 × ₹33.33 = ₹99.99 · 1 paisa short' : '₹33.34 + ₹33.33 + ₹33.33 = ₹100.00 ✓'}
         </Pill>
@@ -971,113 +971,252 @@ const Vault: View = ({ beat }) => {
   )
 }
 
-// ---- How auto-capture picks payments: a sieve -------------------------------------------------------------
+// ---- How auto-capture picks payments: a phone, a filter gate and the Inbox ----------------------------------
 
+/*
+ * The phone on the left holds the messages; the gate in the middle is the filter; the tray on the
+ * right is the Inbox. A scan runs down the messages: the OTP, the offer and the chat are locked
+ * where they are (they never leave the phone), and only the bank alert slides out through the gate
+ * and lands in the Inbox as a captured payment, waiting for Split, Personal or Not shared.
+ */
+const PHONE = { left: 14, top: 34, w: 96, h: 172 }
+/** The phone's screen, inside its 5px bezel; the messages are placed in its coordinates. */
+const SCREEN = { left: PHONE.left + 5, top: PHONE.top + 5 }
 const MSGS = [
-  { text: 'OTP 482913', bank: false, exit: 'M180,16 Q150,40 128,128 Q90,104 30,160' },
-  { text: '50% off today', bank: false, exit: 'M180,42 Q210,70 232,128 Q270,104 330,160' },
-  { text: '₹450 debited · UPI', bank: true, exit: 'M180,68 L180,206' },
-  { text: 'See you at 8?', bank: false, exit: 'M180,94 Q150,118 120,132 Q70,96 20,86' },
-]
+  { text: 'OTP 482913', top: 18 },
+  { text: '50% off', top: 44 },
+  { text: 'On my way', top: 70 },
+] as const
+const BANK = { top: 98, w: 76, h: 30 }
+const BANK_AT = { x: SCREEN.left + 6 + BANK.w / 2, y: SCREEN.top + BANK.top + BANK.h / 2 }
+const GATE = { x: 128, top: 64, bottom: 176 }
+const TRAY = { left: 146, top: 62, w: 200, h: 108 }
+const CARD = { left: TRAY.left + 8, top: 94, w: TRAY.w - 16, h: 42 }
+const CARD_AT = { x: CARD.left + CARD.w / 2, y: CARD.top + CARD.h / 2 }
+const ROUTE = `M${BANK_AT.x},${BANK_AT.y} C${BANK_AT.x + 34},${BANK_AT.y} ${GATE.x - 26},120 ${GATE.x},120 S${CARD_AT.x - 40},${CARD_AT.y} ${CARD_AT.x},${CARD_AT.y}`
 
-function Bubble({ m, refused }: { m: (typeof MSGS)[number]; refused?: boolean }) {
+// Beat 2's timing (ms): the scan runs down the screen and reaches each message in turn.
+const SCAN = { d: 250, ms: 1100, travel: 158 }
+const scanAt = (screenY: number) => Math.round(SCAN.d + (SCAN.ms * screenY) / SCAN.travel)
+const LEAVE = scanAt(BANK.top + BANK.h / 2) + 220
+const LEAVE_MS = 950
+const LAND = LEAVE + LEAVE_MS - 150
+
+/** A small lock: this message stays on the phone. */
+function Lock({ size = 8, style }: { size?: number; style?: CSSProperties }) {
   return (
-    <span
-      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-2xl px-3 py-1.5 text-[11px] font-semibold shadow-md ring-1 ${
-        m.bank
-          ? 'bg-emerald-50 text-emerald-900 ring-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-100'
-          : 'bg-white text-slate-700 ring-slate-200 dark:bg-ink-800 dark:text-slate-200 dark:ring-white/10'
-      }`}
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="3.5"
+      strokeLinecap="round"
+      style={style}
+      className="shrink-0"
     >
-      {m.bank ? '🏦' : '💬'} {m.text}
-      {refused && (
-        <span className="-mr-1 ml-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-black text-white" style={pop(650)}>
-          ✕
-        </span>
-      )}
-      {m.bank && refused === false && (
-        <span className="-mr-1 ml-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-[9px] font-black text-white" style={pop(900)}>
-          ✓
-        </span>
-      )}
-    </span>
+      <rect x="5" y="11" width="14" height="10" rx="2" />
+      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+    </svg>
   )
 }
 
-const Filter: View = ({ beat }) => {
-  const id = useIds()
+/** The bank alert: the one message that is about money leaving the account. */
+function BankBubble({ ok }: { ok?: CSSProperties }) {
+  return (
+    <div
+      className="relative flex flex-col justify-center rounded-xl rounded-bl-sm bg-brand-50 px-2 text-left shadow-md ring-1 ring-brand-300 dark:bg-brand-900/60 dark:ring-brand-400/50"
+      style={{ width: BANK.w, height: BANK.h }}
+    >
+      <span className="text-[7px] font-bold uppercase leading-none tracking-wider text-brand-700 dark:text-brand-200">Bank · UPI</span>
+      <span className="mt-0.5 whitespace-nowrap text-[9.5px] font-bold leading-none text-slate-800 dark:text-white">₹450 debited</span>
+      {ok && (
+        <span
+          className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-fill text-on-fill shadow ring-2 ring-white dark:ring-ink-800"
+          style={ok}
+        >
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M5 12.5l4.5 4.5L19 7.5" />
+          </svg>
+        </span>
+      )}
+    </div>
+  )
+}
+
+function Phone({ beat }: { beat: number }) {
+  return (
+    <div
+      className="absolute rounded-[20px] bg-slate-900 p-[5px] shadow-xl ring-1 ring-white/10 dark:bg-slate-950 dark:ring-white/20"
+      style={{ left: PHONE.left, top: PHONE.top, width: PHONE.w, height: PHONE.h }}
+    >
+      <div className="relative h-full w-full overflow-hidden rounded-[15px] bg-gradient-to-b from-brand-50 to-white dark:from-ink-800 dark:to-ink-900">
+        <div className="absolute left-1/2 top-1.5 h-1 w-8 -translate-x-1/2 rounded-full bg-slate-900/80" />
+        {MSGS.map((m, i) => (
+          <div
+            key={m.text}
+            className="absolute left-1.5 flex items-center gap-1 whitespace-nowrap rounded-xl rounded-bl-sm bg-white px-[7px] py-[5px] text-[8.5px] font-semibold leading-none text-slate-700 shadow-sm ring-1 ring-slate-200 dark:bg-ink-700 dark:text-slate-200 dark:ring-white/10"
+            style={{ top: m.top, ...(beat === 0 ? rise(150 + i * 260, 560) : undefined) }}
+          >
+            {/* The ones that stay grey out a little, and get a lock, once the scan has passed them. */}
+            <span
+              style={beat === 1 ? { opacity: 0.55, animation: `sx-out 400ms ease ${scanAt(m.top + 11)}ms both` } : beat === 2 ? { opacity: 0.55 } : undefined}
+            >
+              {m.text}
+            </span>
+            {beat > 0 && (
+              <span className="text-slate-500 dark:text-slate-300">
+                <Lock style={beat === 1 ? pop(scanAt(m.top + 11), 420) : undefined} />
+              </span>
+            )}
+          </div>
+        ))}
+        {beat === 0 && (
+          <div className="absolute left-1.5" style={{ top: BANK.top, ...rise(150 + 3 * 260, 560) }}>
+            <BankBubble />
+          </div>
+        )}
+        {/* The bank alert waits for the scan, gets its tick and leaves (the flying copy takes over). */}
+        {beat === 1 && (
+          <div className="absolute left-1.5" style={{ top: BANK.top, ...out(LEAVE, 1) }}>
+            <BankBubble ok={pop(scanAt(BANK.top + BANK.h / 2), 420)} />
+          </div>
+        )}
+        {beat > 0 && (
+          <div className="absolute inset-x-0 flex justify-center" style={{ top: BANK.top + 8, ...(beat === 1 ? rise(LEAVE + 250) : undefined) }}>
+            <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-slate-900/[0.06] px-1.5 py-[3px] text-[7.5px] font-bold leading-none text-slate-600 dark:bg-white/10 dark:text-slate-300">
+              <Lock />
+              Stays on phone
+            </span>
+          </div>
+        )}
+        {/* The scan: a soft band of light that runs down the screen once. */}
+        {beat === 1 && (
+          <div
+            className="absolute inset-x-0 top-[-8px] h-4"
+            style={{ opacity: 0, transform: `translateY(${SCAN.travel}px)`, animation: `sx-scan ${SCAN.ms}ms linear ${SCAN.d}ms both` }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-brand-400/35 to-transparent dark:via-brand-300/30" />
+            <div className="absolute inset-x-0 top-1/2 h-px bg-brand-500 dark:bg-brand-300" />
+          </div>
+        )}
+        <div className="absolute bottom-1.5 left-1/2 h-1 w-8 -translate-x-1/2 rounded-full bg-slate-900/15 dark:bg-white/15" />
+      </div>
+    </div>
+  )
+}
+
+/** The filter: a lit gate between the phone and the Inbox, with a funnel on top. */
+function Gate({ beat }: { beat: number }) {
+  const h = GATE.bottom - GATE.top
   return (
     <>
-      <svg className="absolute inset-0" width={W} height={H}>
-        <defs>
-          <linearGradient id={id('rim')} x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0" style={{ stopColor: 'var(--color-brand-400)' }} />
-            <stop offset="1" style={{ stopColor: 'var(--color-duo-500)' }} />
-          </linearGradient>
-          <pattern id={id('mesh')} width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-            <path d="M0,0 V8 M0,0 H8" style={{ stroke: 'var(--color-brand-400)' }} strokeOpacity="0.55" strokeWidth="1.2" />
-          </pattern>
-          <clipPath id={id('bowl')}>
-            <path d="M92,140 L268,140 Q256,182 180,184 Q104,182 92,140 Z" />
-          </clipPath>
-        </defs>
-        <g style={{ opacity: beat === 2 ? 0.45 : 1, transition: 'opacity 600ms' }}>
-          <path d="M92,140 L268,140 Q256,182 180,184 Q104,182 92,140 Z" className="fill-brand-100/60 dark:fill-brand-900/30" />
-          <rect x="90" y="138" width="180" height="50" fill={`url(#${id('mesh')})`} clipPath={`url(#${id('bowl')})`} />
-          <ellipse cx="180" cy="140" rx="90" ry="9" fill="none" stroke={`url(#${id('rim')})`} strokeWidth="5" />
-          <ellipse
-            cx="180"
-            cy="128"
-            rx="90"
-            ry="9"
-            fill="none"
-            stroke={`url(#${id('rim')})`}
-            strokeWidth="12"
-            opacity="0.18"
-            style={ambient('sx-pulse 2.4s ease-in-out infinite')}
-          />
-        </g>
-      </svg>
-      {/* beat 1: the messages arrive */}
-      {beat === 0 &&
-        MSGS.map((m, i) => (
-          <At key={m.text} x={180} y={16 + i * 26} style={rise(150 + i * 200, 600)}>
-            <Bubble m={m} />
-          </At>
-        ))}
-      {/* beat 2: only the bank debit goes through; the rest bounce off and stay on the phone */}
-      {beat === 1 &&
-        MSGS.map((m, i) => (
-          <Fly key={m.text} path={m.exit} ms={m.bank ? 1100 : 1300} d={200 + i * 180} vanish={!m.bank}>
-            <Bubble m={m} refused={!m.bank} />
-          </Fly>
-        ))}
-      {/* beat 3: it waits in the Inbox for a yes */}
-      {beat === 2 && (
-        <At x={180} y={206} style={pop(200, 650)}>
-          <div className="mb-1 text-center text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Inbox · to sort</div>
-          <div className="w-56 rounded-2xl bg-white p-2.5 shadow-xl ring-1 ring-brand-100 dark:bg-ink-900 dark:ring-white/10">
-            <div className="flex items-center justify-between text-[11px] font-bold text-slate-800 dark:text-white">
-              <span>Captured payment</span>
-              <span className="tabular-nums">₹450</span>
-            </div>
-            <div className="mt-1.5 flex gap-1">
-              {['Split', 'Personal', 'Not shared'].map((b, i) => (
-                <span
-                  key={b}
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${i === 0 ? 'bg-fill text-on-fill' : 'bg-brand-50 text-brand-800 dark:bg-brand-900/40 dark:text-brand-200'}`}
-                  style={pop(700 + i * 140)}
-                >
-                  {b}
-                </span>
-              ))}
-            </div>
-          </div>
-        </At>
+      <div
+        className="absolute w-4 -translate-x-1/2 rounded-full bg-brand-400/40 blur-md dark:bg-brand-400/30"
+        style={{ left: GATE.x, top: GATE.top, height: h, ...ambient('sx-pulse 2.6s ease-in-out infinite') }}
+      />
+      <div
+        className="absolute w-2 -translate-x-1/2 rounded-full bg-gradient-to-b from-brand-400 via-duo-400 to-brand-600 shadow-[0_0_0_3px_rgba(255,255,255,0.7)] dark:shadow-[0_0_0_3px_rgba(255,255,255,0.08)]"
+        style={{ left: GATE.x, top: GATE.top, height: h }}
+      />
+      {/* the moment the bank alert passes */}
+      {beat === 1 && (
+        <div
+          className="absolute h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-brand-400 dark:ring-brand-300"
+          style={{ left: GATE.x, top: 120, opacity: 0, animation: `sx-ring 700ms ease-out ${LEAVE + Math.round(LEAVE_MS * 0.42)}ms` }}
+        />
       )}
-      {beat === 2 && <Sparkles x={180} y={196} d={1100} spread={70} />}
+      <At x={GATE.x} y={GATE.top - 12}>
+        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-fill text-on-fill shadow-lg ring-[3px] ring-white dark:ring-ink-900">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinejoin="round">
+            <path d="M3 5h18l-7 8.5V19l-4 2v-7.5Z" />
+          </svg>
+        </div>
+      </At>
     </>
   )
 }
+
+function Tray({ beat }: { beat: number }) {
+  return (
+    <div
+      className="absolute rounded-3xl bg-white/70 shadow-[0_10px_30px_-14px_rgba(15,23,42,0.35)] ring-1 ring-brand-100 backdrop-blur dark:bg-white/[0.04] dark:shadow-none dark:ring-white/10"
+      style={{ left: TRAY.left, top: TRAY.top, width: TRAY.w, height: TRAY.h }}
+    >
+      <div className="flex items-center gap-1.5 px-3 pt-2.5 text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M22 12h-6l-2 3h-4l-2-3H2" />
+          <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z" />
+        </svg>
+        Inbox
+      </div>
+      {/* the empty place the payment will land in */}
+      {beat === 0 && (
+        <div
+          className="absolute rounded-2xl border-[1.5px] border-dashed border-brand-200 dark:border-white/15"
+          style={{ left: CARD.left - TRAY.left, top: CARD.top - TRAY.top, width: CARD.w, height: CARD.h }}
+        />
+      )}
+    </div>
+  )
+}
+
+const CHOICES = ['Split', 'Personal', 'Not shared']
+
+/** The captured payment in the Inbox; on the last beat with its three answers, lit one after another. */
+function CapturedCard({ beat }: { beat: number }) {
+  return (
+    <div
+      className="absolute rounded-2xl bg-white px-2.5 py-2 shadow-xl ring-1 ring-brand-100 dark:bg-ink-800 dark:ring-white/10"
+      style={{ left: CARD.left, top: CARD.top, width: CARD.w, ...(beat === 1 ? pop(LAND, 560) : undefined) }}
+    >
+      <div className="flex items-center gap-1.5">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700 dark:bg-brand-900/60 dark:text-brand-200">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 3v12m0 0-4.5-4.5M12 15l4.5-4.5" />
+            <path d="M5 20h14" />
+          </svg>
+        </span>
+        <div className="min-w-0 flex-1 leading-none">
+          <div className="whitespace-nowrap text-[10.5px] font-bold text-slate-800 dark:text-white">Captured payment</div>
+          <div className="mt-1 text-[8.5px] font-semibold text-slate-500 dark:text-slate-400">UPI · today</div>
+        </div>
+        <span className="text-[12px] font-extrabold tabular-nums text-slate-900 dark:text-white">₹450</span>
+      </div>
+      {beat === 2 && (
+        <div className="mt-2 flex gap-1">
+          {CHOICES.map((c, i) => (
+            <span
+              key={c}
+              className="flex-auto whitespace-nowrap rounded-full bg-brand-50 px-1.5 py-[5px] text-center text-[9px] font-bold leading-none text-brand-800 ring-1 ring-brand-100 dark:bg-brand-900/40 dark:text-brand-100 dark:ring-white/10"
+              style={{ animation: `sx-pop 420ms cubic-bezier(0.34, 1.56, 0.64, 1) ${250 + i * 110}ms both, sx-lit 700ms ease-in-out ${1000 + i * 520}ms` }}
+            >
+              {c}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const Filter: View = ({ beat }) => (
+  <>
+    {/* the way a payment travels: out of the phone, through the gate, into the Inbox */}
+    <svg className="absolute inset-0" width={W} height={H}>
+      <path d={ROUTE} fill="none" className="stroke-brand-300 dark:stroke-white/20" strokeWidth="1.5" strokeDasharray="2 4" strokeLinecap="round" />
+    </svg>
+    <Tray beat={beat} />
+    <Gate beat={beat} />
+    <Phone beat={beat} />
+    {beat > 0 && <CapturedCard beat={beat} />}
+    {beat === 1 && (
+      <Fly path={ROUTE} d={LEAVE} ms={LEAVE_MS} vanish>
+        <BankBubble />
+      </Fly>
+    )}
+  </>
+)
 
 const VIEWS: Record<StoryKind, View> = { pot: Pot, seesaw: Seesaw, untangle: Untangle, remainder: Remainder, vault: Vault, filter: Filter }

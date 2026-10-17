@@ -142,7 +142,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'auto-capture-explained',
-    icon: '🪣',
+    icon: '🔎',
     chapter: 'capture',
     title: 'How auto-capture picks payments',
     summary: 'A filter keeps only bank payments, and you say yes to each.',

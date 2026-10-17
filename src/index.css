@@ -397,6 +397,10 @@ html[data-update-ready] .install-banner { display: none; }
 @keyframes sx-level { 0% { transform: rotate(11deg); } 40% { transform: rotate(-2.8deg); } 62% { transform: rotate(1.3deg); } 80% { transform: rotate(-0.5deg); } 100% { transform: rotate(0deg); } }
 @keyframes sx-level-c { 0% { transform: rotate(-11deg); } 40% { transform: rotate(2.8deg); } 62% { transform: rotate(-1.3deg); } 80% { transform: rotate(0.5deg); } 100% { transform: rotate(0deg); } }
 @keyframes sx-bubble { from { transform: translateX(0); } }
+/* A band of light that runs down once and fades (it ends on the element's own, hidden, style). */
+@keyframes sx-scan { from { opacity: 1; transform: translateY(0); } 88% { opacity: 1; } }
+/* A soft highlight that lights a choice and lets it go again (starts and ends on its own style). */
+@keyframes sx-lit { 45% { transform: scale(1.08); box-shadow: 0 0 0 2px var(--color-brand-400), 0 6px 14px -4px var(--color-brand-500); } }
 .sx-still, .sx-still * { animation: none !important; transition: none !important; }
 
 /* Horizontally scrolling rows (chips, split types, filters) scroll by touch without a visible bar. */
