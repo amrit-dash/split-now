@@ -33,6 +33,7 @@ import type { NudgeItem, NudgeResult } from '@/lib/nudge'
 import type { AiUnavailableReason } from '../../shared/ai-config'
 import type { QuickAiRequest, QuickAiResponse } from '../../shared/quick-ai'
 import type { IconAiResponse, IconPickRequest, IconPickResponse, IconPictureResponse, IconRequest, PictureTestResult } from '../../shared/icon-ai'
+import type { DeletionBlocker, DeletionStep } from '../../shared/account-delete'
 import { defaultCurrency, formatDate } from '@/lib/locale'
 import { purgeHeld, purgeOpensAt } from '../../shared/group-trash'
 import { sharedPhotoURL, type OwnMemberPatch } from '@/lib/memberSync'
@@ -90,6 +91,15 @@ export interface EmailLinkResult {
   otherAccount?: { name: string; email: string; groups: number }
   /** the link was opened on a phone that doesn't know which email it was for: ask, then call again */
   needEmail?: boolean
+}
+
+/** What deleting the account would do (functions/src/delete-account.ts; shared/account-delete.ts plans it). */
+export interface AccountDeletionPlan {
+  steps: DeletionStep[]
+  /** empty when it can go ahead */
+  blockers: DeletionBlocker[]
+  /** an admin removes their admin access first */
+  admin: boolean
 }
 
 /** What moving one account (or a guest) into this one did. */
@@ -238,6 +248,14 @@ export interface Repo {
   removeEmail(email: string): Promise<void>
   /** Bring in the account behind the email just proved with a link (EmailLinkResult.otherAccount). */
   mergeAccount(): Promise<MergeResult>
+  /** What deleting this account would do to each group, and what stops it. Changes nothing. Needs the server. */
+  accountDeletionPlan(): Promise<AccountDeletionPlan>
+  /**
+   * Delete this account for good, as the plan said, then sign out. The server wants a sign-in from
+   * the last 5 minutes: a Google account is asked again first; an email account that signed in
+   * longer ago is told to sign in again. Demo mode wipes everything on this device.
+   */
+  deleteAccount(): Promise<void>
   /** The emails added to this account, oldest first. */
   watchAccountEmails(uid: string, cb: Watch<AccountEmail[]>): Unsub
 

@@ -61,6 +61,7 @@ import {
   mergeSettlement,
 } from '../../shared/merge-members'
 import { demoVault } from './vault-demo'
+import { planDeletion, type DeletionExpense, type DeletionGroup } from '../../shared/account-delete'
 import { vaultKey } from '@/lib/vault-crypto'
 import { blocksStopping, openDoc, sealDoc, type ConvertKind } from '../../shared/vault-convert'
 
@@ -526,6 +527,26 @@ export function createLocalRepo(): Repo {
     },
     async mergeAccount() {
       return { groups: 0, suggested: 0, linked: 0 }
+    },
+    async accountDeletionPlan() {
+      const uid = me().uid
+      const groups = Object.values(state.groups).map((g) => ({
+        group: g as unknown as DeletionGroup,
+        expenses: Object.values(state.expenses).filter((e) => e.groupId === g.id) as unknown as DeletionExpense[],
+        settlements: Object.values(state.settlements).filter((s) => s.groupId === g.id),
+      }))
+      return { ...planDeletion(uid, groups), admin: false }
+    },
+    // Demo mode has one account on this device: deleting it wipes everything the demo kept here.
+    async deleteAccount() {
+      state = { user: null, profiles: {}, groups: {}, expenses: {}, settlements: {}, captures: {}, captureTokens: {} }
+      commit()
+      for (const k of ['sn-demo-vault', 'sn-demo-vaults', 'sn-vault-lock'])
+        try {
+          localStorage.removeItem(k)
+        } catch {
+          /* storage unavailable */
+        }
     },
     watchAccountEmails: (_uid, cb) => watch(() => state.accountEmails ?? EMPTY_EMAILS, cb),
     async signOut() {

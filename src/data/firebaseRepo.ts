@@ -17,6 +17,7 @@ import {
   linkWithCredential,
   linkWithPopup,
   linkWithRedirect,
+  reauthenticateWithPopup,
   signInAnonymously,
   signInWithPopup,
   signInWithRedirect,
@@ -125,6 +126,8 @@ import {
 } from './repo'
 import type { Functions } from 'firebase/functions'
 import type { ParsedReceipt } from '@/lib/ocr-parse'
+import type { AccountDeletionPlan } from './repo'
+import { RECENT_SIGN_IN_MS } from '../../shared/account-delete'
 import type { AiKeyResult, AiModel, AiState, AiStatement, AiStatusResult, AiUnavailableReason } from './repo'
 import { parseMemory } from '@/lib/merchants'
 import type { AiTextExpense } from '@/lib/nl-expense'
@@ -637,6 +640,29 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     async mergeAccount() {
       const fn = await callable<Record<string, never>, MergeResult>('mergeAccount', 300_000)
       return (await fn({})).data
+    },
+    async accountDeletionPlan() {
+      if (!online()) throw new Error('You’re offline. Connect to the internet to delete your account.')
+      const fn = await callable<Record<string, never>, AccountDeletionPlan>('deleteAccount', 60_000)
+      return (await fn({})).data
+    },
+    async deleteAccount() {
+      const u = auth.currentUser
+      if (!u) throw new Error('Not signed in')
+      if (!online()) throw new Error('You’re offline. Connect to the internet to delete your account.')
+      // The server checks the sign-in time (auth_time); asking again here saves a refusal.
+      const signedInAt = Date.parse((await u.getIdTokenResult()).authTime)
+      if (!(Date.now() - signedInAt < RECENT_SIGN_IN_MS - 30_000)) {
+        if (!u.providerData.some((p) => p.providerId === 'google.com'))
+          throw new Error('For your safety, sign out and sign in again, then delete your account within 5 minutes.')
+        const provider = new GoogleAuthProvider()
+        if (u.email) provider.setCustomParameters({ login_hint: u.email })
+        await reauthenticateWithPopup(u, provider)
+        await u.getIdToken(true)
+      }
+      const fn = await callable<{ confirm: true }, { deleted: boolean }>('deleteAccount', 300_000)
+      await fn({ confirm: true })
+      await repo.signOut()
     },
     watchAccountEmails(id, cb) {
       return onSnapshot(

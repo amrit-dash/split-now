@@ -74,7 +74,10 @@ describe('deleteAccount (emulator)', () => {
     await admin(async (db) => {
       await setDoc(doc(db, `users/${me.uid}`), { name: 'Leah' })
       await setDoc(doc(db, `users/${me.uid}/captures/c1`), { amount: 100 })
-      await setDoc(doc(db, 'groups/del_wallet'), group({ type: 'personal', memberUids: [me.uid], createdBy: me.uid, members: { a: { name: 'Leah', uid: me.uid } } }))
+      await setDoc(
+        doc(db, 'groups/del_wallet'),
+        group({ type: 'personal', memberUids: [me.uid], createdBy: me.uid, members: { a: { name: 'Leah', uid: me.uid } } }),
+      )
       await setDoc(
         doc(db, 'groups/del_shared'),
         group({
@@ -86,7 +89,13 @@ describe('deleteAccount (emulator)', () => {
       )
       await setDoc(doc(db, `groups/del_shared/profiles/${me.uid}`), { upiId: 'leah@upi' })
       // Fran paid ₹600 for both of them: Leah owes ₹300.
-      await setDoc(doc(db, 'groups/del_shared/expenses/e1'), { description: 'Dinner', amount: 60000, paidBy: { b: 60000 }, splits: { a: 30000, b: 30000 }, createdAt: 1 })
+      await setDoc(doc(db, 'groups/del_shared/expenses/e1'), {
+        description: 'Dinner',
+        amount: 60000,
+        paidBy: { b: 60000 },
+        splits: { a: 30000, b: 30000 },
+        createdAt: 1,
+      })
       await setDoc(doc(db, 'captureTokens/tok_leaving_0123456789abcdef'), { uid: me.uid, createdAt: 1 })
       await setDoc(doc(db, 'payLinks/PAYLEAH1'), { createdBy: me.uid, groupId: 'del_shared', status: 'open' })
     })

@@ -33,6 +33,7 @@ export const load = {
   SettingsData: () => import('./pages/settings/Data'),
   SettingsAnimations: () => import('./pages/settings/Animations'),
   SettingsVault: () => import('./pages/settings/Vault'),
+  SettingsDeleteAccount: () => import('./pages/settings/DeleteAccount'),
   Admin: () => import('./pages/Admin'),
   ImportGroup: () => import('./pages/ImportGroup'),
   Table: () => import('./pages/Table'),
@@ -98,6 +99,7 @@ const SETTINGS_AREAS: Readonly<Record<string, RouteKey>> = {
   data: 'SettingsData',
   animations: 'SettingsAnimations',
   vault: 'SettingsVault',
+  'delete-account': 'SettingsDeleteAccount',
 }
 const SETTINGS_SCREENS: readonly RouteKey[] = Object.values(SETTINGS_AREAS)
 
