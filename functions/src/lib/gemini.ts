@@ -307,7 +307,10 @@ export function googleMessage(body: string): string {
     if (m) text = m[1].replace(/\\n/g, ' ').replace(/\\(.)/g, '$1')
   }
   // A key never appears in Google's messages, but strip anything key-shaped all the same.
-  text = text.replace(/AIza[0-9A-Za-z_-]{20,}/g, '…').replace(/\s+/g, ' ').trim()
+  text = text
+    .replace(/AIza[0-9A-Za-z_-]{20,}/g, '…')
+    .replace(/\s+/g, ' ')
+    .trim()
   return text.length > 240 ? `${text.slice(0, 239)}…` : text
 }
 

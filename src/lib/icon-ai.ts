@@ -101,7 +101,11 @@ export function pictureRefusalText(reason: string, via: 'own' | 'app'): string |
 }
 
 /** Why no picture came back (null: there is one). */
-export function pictureProblem(r: { unavailable: true; reason: string } | { image: string } | null, shrunk: boolean, via: 'own' | 'app' = 'own'): string | null {
+export function pictureProblem(
+  r: { unavailable: true; reason: string } | { image: string } | null,
+  shrunk: boolean,
+  via: 'own' | 'app' = 'own',
+): string | null {
   const refused = r && 'unavailable' in r ? pictureRefusalText(r.reason, via) : null
   if (refused) return refused
   if (!r || 'unavailable' in r) return iconAiProblem(r as Parameters<typeof iconAiProblem>[0])
