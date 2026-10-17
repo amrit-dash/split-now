@@ -24,6 +24,15 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '8.3.15',
+    date: 'October 2026',
+    items: [
+      { text: 'Help for Pay me links, nudges and settling across groups', section: 'remind-pay-me' },
+      { text: 'Help for part payments, waivers and confirming a payment', section: 'record-payment' },
+      { text: 'Help for your Inbox and notifications', section: 'inbox' },
+    ],
+  },
+  {
     version: '8.3.14',
     date: 'October 2026',
     items: [

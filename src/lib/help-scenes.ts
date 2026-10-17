@@ -764,6 +764,112 @@ Object.assign(SCENES, {
     settings('Goa trip', [{ kind: 'row', label: '⚙ Export CSV', value: 'Every expense and payment', mark: 'menu' }]),
     settings('Data', [{ kind: 'row', label: 'Export a group', value: 'Share CSV', mark: 'data' }]),
   ],
+  'remind-pay-me': [
+    settings('Balances', [
+      { kind: 'row', label: 'Rahul owes you', value: '₹1,200 ↗', mark: 'share' },
+      { kind: 'row', label: 'Meera owes you', value: '₹450 ↗' },
+    ]),
+    {
+      sheet: true,
+      parts: [
+        {
+          kind: 'tiles',
+          items: [
+            { label: 'WhatsApp', icon: '💬', mark: 'app' },
+            { label: 'Messages', icon: '✉️' },
+            { label: 'Copy', icon: '📋' },
+          ],
+        },
+      ],
+    },
+    settings('Pay Asha', [
+      { kind: 'qr', label: 'Rahul owes Asha ₹1,200', value: 'Pay with UPI' },
+      { kind: 'button', label: 'I’ve paid', primary: true, mark: 'paid' },
+    ]),
+  ],
+  nudge: [
+    settings('Balances', [
+      { kind: 'row', label: 'Rahul owes you', value: '₹1,200 🔔', mark: 'bell' },
+      { kind: 'row', label: 'Meera owes you', value: '₹450 🔔' },
+    ]),
+    { parts: [{ kind: 'message', label: 'Goa trip', value: 'Asha reminded you: you owe ₹1,200 in Goa trip. Pay in one tap.', mark: 'push' }] },
+  ],
+  'balances-screen': [
+    settings('Hi Asha', [
+      { kind: 'row', label: 'Overall, you are owed', value: '₹2,450 ›', mark: 'open' },
+      {
+        kind: 'list',
+        items: [
+          { label: 'Goa trip', icon: '🏖️' },
+          { label: 'Indiranagar flat', icon: '🏠' },
+        ],
+      },
+    ]),
+    settings('Balances', [
+      { kind: 'chips', items: [{ label: 'By person', on: true, mark: 'view' }, { label: 'By group' }] },
+      { kind: 'row', label: 'You owe Kabir', value: 'Pay', mark: 'pay' },
+      { kind: 'row', label: 'Rahul owes you', value: '₹1,200' },
+    ]),
+    settings('Settle up', [
+      { kind: 'row', label: 'Goa trip', value: '₹800 · clears' },
+      { kind: 'row', label: 'Flat', value: '₹400 · clears' },
+      { kind: 'button', label: 'Record ₹1,200', primary: true, mark: 'record' },
+    ]),
+  ],
+  'record-payment': [
+    settings('Settle up', [
+      { kind: 'chips', mark: 'amount', items: [{ label: 'Full ₹1,247' }, { label: '₹1,200', on: true }, { label: '₹1,250' }] },
+      { kind: 'switch', label: 'Waive the rest (₹47)', mark: 'waive' },
+      { kind: 'chips', mark: 'method', items: [{ label: 'UPI' }, { label: 'Cash' }, { label: 'Bank transfer' }] },
+      { kind: 'button', label: 'Record ₹1,200', primary: true, mark: 'record' },
+    ]),
+  ],
+  'confirm-payment': [
+    settings('Inbox', [
+      { kind: 'row', label: 'Payments to confirm', value: '1', mark: 'inbox' },
+      { kind: 'row', label: 'Rahul paid you ₹1,200', value: 'UPI · today' },
+      { kind: 'chips', mark: 'confirm', items: [{ label: 'Not received' }, { label: 'Confirm', on: true }] },
+    ]),
+  ],
+  'upi-id': [
+    settings('Profile', [
+      { kind: 'row', label: 'How friends can pay you', value: '›', mark: 'open' },
+      { kind: 'field', label: 'UPI ID', value: 'asha@okaxis', mark: 'upi' },
+      { kind: 'note', label: 'Only members of groups you’re in can see these.' },
+    ]),
+  ],
+  'settle-reminders': [
+    settings('Settings', [
+      { kind: 'row', label: 'Notifications', value: '›', mark: 'open' },
+      { kind: 'switch', label: 'Settle-up reminders', mark: 'switch' },
+      { kind: 'note', label: 'A gentle weekly nudge when you’ve owed someone for a week.' },
+    ]),
+  ],
+  inbox: [
+    settings('Hi Asha', [
+      { kind: 'row', label: '📥 Inbox', value: '3', mark: 'open' },
+      { kind: 'row', label: 'Overall, you are owed', value: '₹2,450' },
+    ]),
+    settings('Inbox', [
+      {
+        kind: 'chips',
+        items: [
+          { label: 'To sort', on: true, mark: 'sort' },
+          { label: 'Updates', mark: 'updates' },
+        ],
+      },
+      { kind: 'row', label: 'Needs your OK', value: '1' },
+      { kind: 'row', label: 'Captured payments', value: '2' },
+    ]),
+  ],
+  notifications: [
+    settings('Notifications', [
+      { kind: 'row', label: 'Settings → Notifications', value: '›', mark: 'open' },
+      { kind: 'button', label: 'Turn on notifications', primary: true, mark: 'device' },
+      { kind: 'switch', label: 'New expenses', mark: 'kinds' },
+      { kind: 'switch', label: 'Someone pays you back' },
+    ]),
+  ],
 } satisfies Record<string, Scene>)
 
 /** Every mark in a part or its items. */
