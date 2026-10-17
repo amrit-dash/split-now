@@ -24,6 +24,14 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '8.4.3',
+    date: 'October 2026',
+    items: [
+      { text: 'How it works is redrawn: a shared jar, a balance seesaw and more', section: 'how-it-works' },
+      { text: 'See Simplify debts untangle a group’s payments', section: 'simplify-explained' },
+    ],
+  },
+  {
     version: '8.4.2',
     date: 'October 2026',
     items: [{ text: 'Behind-the-scenes updates; your app updates itself', section: 'install-offline' }],
