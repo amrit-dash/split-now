@@ -6,6 +6,15 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.5.0 — October 2026
+
+- Delete my account (Settings → Data). Before anything changes, it shows what happens to each of your groups and what's still in the way. It can't go ahead while you owe or are owed money in a shared group, an expense of yours still needs an OK, a repeating expense still includes you, or you're an admin.
+- Your Personal wallet and any group where nobody else has an account are deleted with your account.
+- In groups shared with others, the expenses stay so the balances still add up, and your name there becomes "Deleted account". A group you made passes to the next person in it with an account.
+- Your profile, photo, capture keys and captured payments, added emails, Pay me links and their screenshots, and live tables are deleted, and your sign-in goes last.
+- For your safety it needs a sign-in from the last 5 minutes: Google asks again, and an email account is asked to sign in again. You type DELETE to confirm.
+- Help has a new section, Delete your account.
+
 ## 8.4.3 — October 2026
 
 - Help: the six How it works explainers are redrawn. The shared pot is a glass jar that fills and drains, balances sit on a spring-loaded seesaw, Simplify debts untangles real arrows into three payments, a ₹100 note tears into three shares with the leftover paisa, a private group is a safe with its key, and auto-capture is a sieve over your messages. Each follows your theme and accent, and stays still when Reduce motion is on.
