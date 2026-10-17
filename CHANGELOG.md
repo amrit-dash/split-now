@@ -6,6 +6,10 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.3.4 — October 2026
+
+- Icons with AI on Split Now's free AI: Suggest with AI and AI picks icons came back empty every time, because the free model spent its whole answer thinking. It now answers straight away: suggestions arrive in about 10 seconds instead of timing out, and the automatic pick in under a second.
+
 ## 8.3.3 — October 2026
 
 - Icons: tapping a group's icon now opens every icon, like holding it. The small "type an emoji" bar is gone: it saved the form when you pressed Enter and didn't search. In the icon sheet, Enter picks the first icon found and never saves the form.
