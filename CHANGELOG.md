@@ -6,6 +6,10 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.4.0 — October 2026
+
+- Help is complete: every part of Split Now has a section, with an animated scene or picture, steps or captions, what to know, and a Try it button. This release adds the last eleven. Auto-capture: sorting a captured payment, choosing which payments are captured, capture keys, and Apple Pay with Share to Split Now. Getting started: finding your way around Home, and tracking your own spending. Settings: theme, accent and detail level; your currency and Collect in my currency; animations; your profile, sign-in and emails; and installing the app, using it offline and updating.
+
 ## 8.3.15 — October 2026
 
 - Help: Balances and settling up has nine more sections with steps you can play: reminding someone with a Pay me link, nudging, settling up across all your groups, recording cash, part payments and waivers, confirming a payment made to you, adding your UPI ID, weekly settle-up reminders and your Inbox. Settings gains choosing your notifications.
