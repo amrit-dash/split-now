@@ -24,6 +24,11 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '8.4.2',
+    date: 'October 2026',
+    items: [{ text: 'Behind-the-scenes updates; your app updates itself', section: 'install-offline' }],
+  },
+  {
     version: '8.4.1',
     date: 'October 2026',
     items: [{ text: 'Help’s screenshots match your theme and accent colour', section: 'look-and-detail' }],
