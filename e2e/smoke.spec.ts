@@ -178,6 +178,11 @@ test('Private group: universal pattern, words stored encrypted, patterns go in o
   await press('groups-vault')
   await expect(lock).toHaveAccessibleName('Lock private groups')
   await expect(page.getByText('Vault trip')).toBeVisible()
+  // An open private group's row has its own open lock: a tap locks just that one, without opening it.
+  await page.getByTestId('group-row-lock').click()
+  await expect(page).toHaveURL(/\/groups$/)
+  await expect(page.getByTestId('group-row-locked')).toBeVisible()
+  await expect(page.getByText('Vault trip')).toHaveCount(0)
 })
 
 test('Private group: its creator makes an existing group private, everything in it sealed, and turns it off again', async ({ page }) => {

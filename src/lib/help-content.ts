@@ -469,6 +469,7 @@ export const SECTIONS: HelpSection[] = [
     ],
     points: [
       'Each private group can have its own time, in its Private group sheet.',
+      'To lock one now, tap the open padlock on its row in Groups, or on its page.',
       'Both are kept on that device; a restart always locks them.',
       'Taps, mouse moves, the wheel, keys and scrolling count as activity.',
     ],

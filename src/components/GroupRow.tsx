@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
-import { ChevronRight, Lock } from 'lucide-react'
+import { ChevronRight, LockOpen } from 'lucide-react'
+import { lockVault } from '@/lib/vault-keys'
 import type { GroupData } from '@/hooks/data'
 import { formatMoney } from '@/lib/money'
 import { GroupIcon } from './GroupIcon'
@@ -20,13 +21,29 @@ export function GroupRow({ d }: { d: GroupData }) {
   const personal = d.group.type === 'personal'
   const spent = spending(d.expenses).reduce((s, e) => s + e.amount, 0)
   if (d.locked) return <LockedRow d={d} count={members.length} />
-  return (
-    <Link to={`/groups/${d.group.id}`} className="flex min-h-16 items-center gap-3 px-4 py-3 transition active:bg-slate-50 dark:active:bg-ink-800">
+  // An open private group has its own lock button in the row (like the Groups screen's for all of
+  // them). A button can't sit inside a link, so the link is the row's background and the button sits above it.
+  const open = !!d.group.vault
+  const row = 'relative flex min-h-16 items-center gap-3 px-4 py-3 transition active:bg-slate-50 dark:active:bg-ink-800'
+  const body = (
+    <>
+      {open && <Link to={`/groups/${d.group.id}`} className="absolute inset-0" aria-label={`${d.group.name}, private group, open`} />}
       <GroupIcon emoji={d.group.emoji} group={d.group} />
-      <div className="min-w-0 flex-1">
+      <div className={`min-w-0 flex-1 ${open ? 'pointer-events-none' : ''}`}>
         <div className="flex items-center gap-2">
           <span className="truncate font-semibold">{d.group.name}</span>
-          {d.group.vault && <Lock size={13} className="text-muted shrink-0" role="img" aria-label="Private group" />}
+          {open && (
+            <button
+              type="button"
+              onClick={() => lockVault(d.group.id)}
+              className="pointer-events-auto relative z-10 -my-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700 transition active:scale-90 dark:bg-brand-900/40 dark:text-brand-200"
+              aria-label={`Lock ${d.group.name}`}
+              title="Open: tap to lock"
+              data-testid="group-row-lock"
+            >
+              <LockOpen size={15} aria-hidden />
+            </button>
+          )}
           {isLiveTrip(d.group, todayISO()) && <LiveBadge type={d.group.type} />}
           {d.group.archived && (
             <span className="text-muted shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[0.6875rem] font-semibold dark:bg-ink-800">Archived</span>
@@ -59,6 +76,13 @@ export function GroupRow({ d }: { d: GroupData }) {
         </div>
       )}
       <ChevronRight size={18} className="text-slate-300 dark:text-slate-600" aria-hidden />
+    </>
+  )
+  return open ? (
+    <div className={`${row} has-[a:active]:bg-slate-50 dark:has-[a:active]:bg-ink-800`}>{body}</div>
+  ) : (
+    <Link to={`/groups/${d.group.id}`} className={row}>
+      {body}
     </Link>
   )
 }
