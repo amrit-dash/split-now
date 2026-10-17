@@ -870,6 +870,123 @@ Object.assign(SCENES, {
       { kind: 'switch', label: 'Someone pays you back' },
     ]),
   ],
+  'captured-payment': [
+    settings('Inbox', [
+      { kind: 'row', label: 'Captured payments', value: '2 to sort' },
+      { kind: 'row', label: '₹450 at Blue Tokai', value: '›', mark: 'open' },
+    ]),
+    settings('Captured payment', [
+      { kind: 'note', label: 'You spent ₹450 at Blue Tokai. Is this a group expense?' },
+      { kind: 'chips', mark: 'group', items: [{ label: 'Goa trip', on: true }, { label: 'Flat' }] },
+      { kind: 'button', label: 'Split equally in Goa trip', primary: true, mark: 'split' },
+      { kind: 'chips', mark: 'other', items: [{ label: 'Personal' }, { label: 'Not shared' }, { label: 'Decide later' }] },
+    ]),
+  ],
+  'capture-filters': [
+    settings('Settings', [{ kind: 'row', label: 'Automation', value: '›', mark: 'open' }]),
+    settings('Automation', [
+      { kind: 'switch', label: 'Capture payments', value: 'on', mark: 'master' },
+      { kind: 'chips', mark: 'what', items: [{ label: 'Only during a trip', on: true }, { label: 'All bank & UPI' }] },
+      { kind: 'row', label: 'Ignore small payments · SIP, rent', value: '₹50', mark: 'filters' },
+      { kind: 'switch', label: 'Capture for Goa trip', value: 'on', mark: 'trip' },
+    ]),
+  ],
+  'capture-keys': [
+    settings('Automation', [
+      { kind: 'button', label: 'Set up on a new phone', primary: true, mark: 'setup' },
+      { kind: 'row', label: 'All my trips', value: '← Revoke', mark: 'revoke' },
+    ]),
+    settings('Auto-capture', [
+      { kind: 'chips', mark: 'scope', items: [{ label: 'All my trips', on: true }, { label: 'Goa trip' }] },
+      { kind: 'button', label: 'Create your capture key', primary: true },
+    ]),
+  ],
+  'apple-pay-share': [
+    settings('Automation', [{ kind: 'row', label: 'Advanced: Apple Pay Shortcut and capture links', value: '›', mark: 'advanced' }]),
+    { parts: [{ kind: 'message', label: 'Shortcuts · Transaction', value: 'When I tap any card → Open URL', mark: 'shortcut' }] },
+    {
+      sheet: true,
+      parts: [
+        {
+          kind: 'tiles',
+          items: [
+            { label: 'Split Now', icon: '🟣', mark: 'share' },
+            { label: 'Photos', icon: '🖼️' },
+            { label: 'Mail', icon: '✉️' },
+          ],
+        },
+      ],
+    },
+  ],
+  'home-tour': [
+    {
+      parts: [
+        { kind: 'row', label: 'Hi Asha', value: '📥 2 · 🙂', mark: 'top' },
+        { kind: 'row', label: 'Overall, you are owed', value: '₹2,450', mark: 'balance' },
+        {
+          kind: 'list',
+          label: 'Groups & friends',
+          mark: 'groups',
+          items: [
+            { label: 'Goa trip', icon: '🏖️' },
+            { label: 'Indiranagar flat', icon: '🏠' },
+          ],
+        },
+        tabbar('plus', 'Home'),
+      ],
+    },
+  ],
+  'personal-wallet': [
+    home('new'),
+    settings('New group', [
+      { kind: 'chips', items: [{ label: 'Group' }, { label: '1:1 friend' }, { label: 'Personal', on: true }] },
+      { kind: 'field', label: 'Name', value: 'My spending', icon: '👛', mark: 'name' },
+      { kind: 'field', label: 'Budget (optional)', value: '₹15,000' },
+    ]),
+    settings('My spending', [
+      { kind: 'row', label: 'Petrol', value: '₹2,100', mark: 'add' },
+      { kind: 'row', label: 'Groceries', value: '₹1,340' },
+    ]),
+  ],
+  'look-and-detail': [
+    settings('Settings', [{ kind: 'row', label: 'Preferences', value: '›', mark: 'open' }]),
+    settings('Preferences', [
+      { kind: 'chips', mark: 'theme', items: [{ label: 'Auto' }, { label: 'Light' }, { label: 'Dark', on: true }] },
+      { kind: 'chips', mark: 'accent', items: [{ label: '🟣 Violet', on: true }, { label: '🔵 Ocean' }, { label: '🟡 Gold' }] },
+      { kind: 'chips', mark: 'detail', items: [{ label: 'Full' }, { label: 'When needed', on: true }, { label: 'Minimal' }, { label: 'Tooltip' }] },
+    ]),
+  ],
+  'money-preferences': [
+    settings('Preferences', [
+      { kind: 'row', label: 'Default currency', value: 'INR ₹', mark: 'currency' },
+      { kind: 'switch', label: 'Collect in INR', mark: 'collect' },
+      { kind: 'note', label: 'Rates synced today' },
+    ]),
+  ],
+  animations: [
+    settings('Settings', [{ kind: 'row', label: 'Animations', value: '›', mark: 'open' }]),
+    settings('Animations', [
+      { kind: 'switch', label: 'All animations', value: 'on', mark: 'all' },
+      { kind: 'row', label: 'Fireworks · Background', value: 'Normal', mark: 'tune' },
+      { kind: 'bars' },
+    ]),
+  ],
+  'profile-account': [
+    settings('Hi Asha', [{ kind: 'row', label: 'Your photo', value: '🙂 ›', mark: 'open' }]),
+    settings('Profile', [
+      { kind: 'field', label: 'Name', value: 'Asha Rao', icon: '🙂', mark: 'name' },
+      { kind: 'row', label: 'Signing in · Google', value: 'Linked', mark: 'signin' },
+      { kind: 'button', label: 'Add another email', mark: 'email' },
+    ]),
+  ],
+  'install-offline': [
+    settings('Home', [{ kind: 'button', label: 'Install Split Now', primary: true, mark: 'install' }]),
+    settings('Goa trip', [
+      { kind: 'note', label: 'Offline — changes will sync when you’re back', mark: 'offline' },
+      { kind: 'row', label: 'Ferry tickets', value: '₹600' },
+      { kind: 'message', label: 'New version ready', value: 'Later · Update', mark: 'update' },
+    ]),
+  ],
 } satisfies Record<string, Scene>)
 
 /** Every mark in a part or its items. */

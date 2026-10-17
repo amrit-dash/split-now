@@ -24,6 +24,15 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '8.4.0',
+    date: 'October 2026',
+    items: [
+      { text: 'Help covers all of Split Now: start with a tour of Home', section: 'home-tour' },
+      { text: 'Sorting captured payments, and choosing which are captured', section: 'captured-payment' },
+      { text: 'Theme, accent and detail level, explained', section: 'look-and-detail' },
+    ],
+  },
+  {
     version: '8.3.15',
     date: 'October 2026',
     items: [
