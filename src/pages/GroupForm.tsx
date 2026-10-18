@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ChevronRight, Lock, Stamp, UserMinus, Users } from 'lucide-react'
+import { ChevronRight, Loader2, Lock, Stamp, UserMinus, Users } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { createGroup, useAllExpenses, useCaptureTokens, useGroup, useGroups } from '@/hooks/data'
@@ -289,7 +289,7 @@ export default function GroupForm() {
   const captureEnabled = useFlag('autoCapture')
   const [captureOn, setCaptureOn] = useState<boolean | null>(null)
   // When the name finds no icon by the app's own rules, the AI picks one of the group icons (and the type, while it wasn't chosen).
-  useAutoIconPick({
+  const pickingIcon = useAutoIconPick({
     title: name,
     offered: iconAi.auto,
     need: !groupId && isSharedType(type) && typedName && !iconTouched && !privateOn && !guessGroup(name),
@@ -419,9 +419,11 @@ export default function GroupForm() {
     setTypedName(true)
     clearError('name')
     // Until the user picks a type or icon, follow the name ("Goa trip" → trip, 🏖️).
+    // A name the rules don't know keeps what's there (the AI may pick one in a moment); it never
+    // falls back to a trip's ✈️, which looked as if typing had changed nothing.
     if (!existing && shared && !typeTouched && !iconTouched) {
       const g = guessGroup(v)
-      applyType(g?.type ?? (isSharedType(initialType) ? initialType : 'trip'), g?.emoji)
+      if (g) applyType(g.type, g.emoji)
     }
   }
 
@@ -889,6 +891,11 @@ export default function GroupForm() {
             </IconPickerField>
           )}
           {type !== 'direct' && <FieldError id="group-name-error" text={errors.name} />}
+          {pickingIcon && (
+            <p className="text-muted flex items-center gap-1.5 px-1 text-xs" role="status" data-testid="group-icon-picking">
+              <Loader2 size={12} className="animate-spin" aria-hidden /> Picking an icon for “{name.trim()}”…
+            </p>
+          )}
           {extras && showGuess && guess && (
             <TypeSuggestion
               guess={guess}

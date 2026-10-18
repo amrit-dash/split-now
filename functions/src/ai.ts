@@ -260,6 +260,11 @@ async function record(
 
 /** The config/app flag that switches each AI feature off for everyone. */
 const FEATURE_FLAG: Record<AiFeature, string> = { images: 'aiImages', sms: 'aiSms', quickAdd: 'aiQuickAdd', payments: 'aiPayments' }
+/** The person's own switch for each feature (UserAiPrefs). */
+const USER_FEATURE_KEY = { images: 'aiImages', sms: 'aiSms', quickAdd: 'aiQuickAdd', payments: 'aiPayments' } as const satisfies Record<
+  AiFeature,
+  keyof UserAiPrefs
+>
 
 type AiOutcome<T> = { ok: true; value: T; via: KeyPlan['key']; model?: string } | { ok: false; reason: AiUnavailableReason; kind?: GeminiErrorKind }
 
@@ -301,9 +306,16 @@ async function withAi<T>(
   call: (key: string, models: string[], gemma: boolean) => Promise<{ value: T; usage?: GeminiUsage; model?: string }>,
   /** how the call is counted in stats/ai_{day} when it isn't the feature it is gated by (Quick add text uses the images allowance) */
   statAs: AiFeature | 'text' | 'chat' | 'icons' | 'iconPick' = feature,
+  /**
+   * The caller already checked its own admin flag and the person's own switch (the icon calls:
+   * aiIcons / aiIconAuto). Then only the keys decide: the feature's flag and the person's switch
+   * for it (bills, for 'images') don't apply, as the app doesn't ask about them for icons either.
+   */
+  ownGate = false,
 ): Promise<AiOutcome<T>> {
   // The admin's kill switch (config/app flags.aiImages / aiSms / aiQuickAdd) stops the feature for everyone, own keys included.
-  if (!(await flagOn(FEATURE_FLAG[feature]))) return { ok: false, reason: 'off' }
+  if (!ownGate && !(await flagOn(FEATURE_FLAG[feature]))) return { ok: false, reason: 'off' }
+  if (ownGate) ctx = { ...ctx, user: { ...ctx.user, [USER_FEATURE_KEY[feature]]: true } }
   const plans = planAi({ feature, user: ctx.user, app: ctx.app, hasOwnKey: !!ctx.ownKey, email: ctx.email })
   const reasons: AiUnavailableReason[] = []
   let lastKind: GeminiErrorKind | undefined
@@ -593,6 +605,7 @@ export const iconsAi = onCall(
         return { value: parseIconText(g.text), usage: g.usage, model: g.modelVersion ?? g.model }
       },
       'icons',
+      true,
     )
     if (r.ok) return r.value
     return r.kind === 'blocked' ? { emoji: [], svgs: [] } : { unavailable: true, reason: r.reason }
@@ -627,6 +640,7 @@ export const iconPickAi = onCall({ ...base, timeoutSeconds: 60, maxInstances: 10
       return { value: parsePick(g.text, input), usage: g.usage, model: g.modelVersion ?? g.model }
     },
     'iconPick',
+    true,
   )
   if (r.ok) return r.value
   return r.kind === 'blocked' ? { emoji: null } : { unavailable: true, reason: r.reason }

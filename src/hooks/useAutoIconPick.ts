@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { repo } from '@/data'
 import { AUTO_PICK_MS, autoPickTitle, pickAnswer } from '@/lib/icon-pick'
 import type { Category, GroupType } from '@/types'
@@ -15,6 +15,7 @@ const ANSWERS_MAX = 60
  * app's own rules found no icon for, ask which of the catalogue's icons fits, and hand the answer
  * back with the title it was for (the form ignores it if the title has changed since).
  * `request` builds the question for a title; `need` is false once an icon was found or chosen.
+ * Returns whether a question is with the AI now, so the form can say it's picking one.
  */
 export function useAutoIconPick(o: {
   title: string
@@ -22,7 +23,8 @@ export function useAutoIconPick(o: {
   need: boolean
   request: (title: string) => IconPickRequest
   onAnswer: (title: string, a: Answer) => void
-}) {
+}): boolean {
+  const [picking, setPicking] = useState(false)
   // The latest callbacks, so a re-render doesn't restart the wait.
   const latest = useRef(o)
   latest.current = o
@@ -39,7 +41,8 @@ export function useAutoIconPick(o: {
     }
     let live = true
     const timer = setTimeout(async () => {
-      const a = pickAnswer(await repo.iconPickAi(req), req)
+      setPicking(true)
+      const a = pickAnswer(await repo.iconPickAi(req).finally(() => live && setPicking(false)), req)
       if (!a) return
       if (answers.size >= ANSWERS_MAX) answers.delete(answers.keys().next().value as string)
       answers.set(key, a)
@@ -48,6 +51,8 @@ export function useAutoIconPick(o: {
     return () => {
       live = false
       clearTimeout(timer)
+      setPicking(false)
     }
   }, [ask])
+  return picking && !!ask
 }

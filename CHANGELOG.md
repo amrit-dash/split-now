@@ -6,6 +6,13 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.6.3 — October 2026
+
+- Icons: when Suggest with AI, Draw a picture and the automatic AI pick aren't available, the icon sheet now says why, with a link to AI features. The reasons it names: AI is off, AI icons are off, the free AI isn't agreed to yet, no Gemini key is added, the shared key isn't open to your account, or you're offline. Before, the buttons just weren't there.
+- Icons with AI no longer need bill reading switched on. With Bills & statements off, Suggest with AI used to show and then refuse, and the automatic pick quietly did nothing. Now only the AI icons and AI picks icons switches count.
+- New group: a name the app doesn't recognise keeps the icon you have, instead of going back to ✈️. While AI picks one, "Picking an icon" shows under the name.
+- Settings → AI features shows the Icons section even when AI icons are switched off for everyone, saying so.
+
 ## 8.6.2 — October 2026
 
 - Help: the auto-capture explainer is redrawn. Messages arrive on a phone, a light scans them, and only the bank alert goes through the filter, turning into a captured payment in your Inbox with Split, Personal and Not shared. The rest stay locked on your phone. Before, the last picture ran off the bottom of its frame and a ring floated over a sieve.

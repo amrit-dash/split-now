@@ -316,6 +316,14 @@ export function AiSettings() {
               </div>
             )}
           </SettingsSection>
+          {!aiIcons && !aiIconAuto && (
+            <SettingsSection icon={<Shapes size={16} aria-hidden />} title="Icons" testId="ai-section-icons">
+              <div data-testid="ai-icons-off">
+                <div className="font-semibold">AI icons</div>
+                <div className="text-muted text-sm">Switched off for everyone right now</div>
+              </div>
+            </SettingsSection>
+          )}
           {(aiIcons || aiIconAuto) && (
             <SettingsSection icon={<Shapes size={16} aria-hidden />} title="Icons" testId="ai-section-icons">
               {aiIcons && (
