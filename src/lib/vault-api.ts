@@ -30,7 +30,8 @@ export interface VaultStatus {
   ordered?: boolean
   triesLeft: number
   lockedUntil?: number
-  group?: { keyReady: boolean; hasPattern: boolean; ordered?: boolean }
+  /** `noUniversal`: the others in it with no universal pattern (without its own pattern they can't open it) */
+  group?: { keyReady: boolean; hasPattern: boolean; ordered?: boolean; noUniversal?: string[] }
   /** private groups are on for them: turned on in Settings → Encrypted groups, or from before they started off */
   on?: boolean
   /** stopped using private groups (Settings → Encrypted groups) */

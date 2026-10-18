@@ -24,6 +24,14 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '8.6.7',
+    date: 'October 2026',
+    items: [
+      { text: 'Letting in someone who can’t open a private group yet? The app offers to give it its own pattern', section: 'private-groups-own-pattern' },
+      { text: 'Icon and type suggestions under a group’s name show in full, and scroll sideways', section: 'icons-and-ai' },
+    ],
+  },
+  {
     version: '8.6.6',
     date: 'October 2026',
     items: [{ text: 'Private groups start off: turn them on in Settings → Encrypted groups', section: 'private-groups-setup' }],

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { VaultStatus } from './vault-api'
-import { defaultOpensWith, privateBlocker, setupRows, stateLabel } from './vault-setup'
+import { addedPrompt, defaultOpensWith, privateBlocker, removeWarning, setupRows, stateLabel, waitingNote } from './vault-setup'
 
 const base: VaultStatus = { serverReady: true, hasPasskey: true, universal: true, ordered: true, triesLeft: 5 }
 const ids = (rows: ReturnType<typeof setupRows>) => rows.map((r) => `${r.id}:${r.state}:${r.actions.join('+')}`)
@@ -55,5 +55,31 @@ describe('what opens a private group: the setup card', () => {
     expect(locked).toMatchObject({ id: 'own', state: 'missing', actions: [], locked: true })
     expect(locked.detail).toMatch(/Too many wrong tries. Try again after/)
     expect(stateLabel(locked)).toBe('Locked')
+  })
+})
+
+describe('people who can’t open a private group yet', () => {
+  it('the card names them, and is gone when nobody is waiting', () => {
+    expect(waitingNote([])).toBeNull()
+    expect(waitingNote(['Mira'])).toEqual({
+      title: 'Mira can’t open it yet',
+      detail: 'They haven’t set up a universal pattern, and this group has no pattern of its own. Give it one and tell them in person.',
+    })
+    expect(waitingNote(['Mira', 'Dev'])?.title).toBe('Mira and Dev can’t open it yet')
+    expect(waitingNote(['Mira', 'Dev', 'Ana'])?.title).toBe('Mira, Dev and Ana can’t open it yet')
+    expect(waitingNote(['Mira', 'Dev', 'Ana', 'Raj'])?.title).toBe('Mira, Dev and 2 others can’t open it yet')
+    expect(waitingNote(['Mira', 'Dev'])?.detail).toMatch(/^None of them has/)
+  })
+  it('removing its own pattern says who it locks out', () => {
+    expect(removeWarning([])).toBe('People in it open it with their universal pattern instead.')
+    expect(removeWarning(['Mira'])).toMatch(/Mira has none, so they won’t be able to open it\.$/)
+    expect(removeWarning(['Mira', 'Dev'])).toMatch(/Mira and Dev have none/)
+  })
+  it('after letting someone in, its creator is offered to give it a pattern', () => {
+    expect(addedPrompt('Mira')).toEqual({
+      title: 'Mira can’t open it yet',
+      message: 'Mira hasn’t set up private groups, and this group has no pattern of its own. Give it one now and tell it to Mira in person?',
+      confirmLabel: 'Give it a pattern',
+    })
   })
 })

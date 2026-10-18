@@ -20,7 +20,8 @@ interface DemoState {
   person?: Hash
   /** wrong patterns, universal or a group's own, counted together like the server does */
   tries?: { wrong: number; lockedUntil?: number }
-  groups: Record<string, { dek: string; pattern?: Hash }>
+  /** `added`: people let in here (addContact); the demo's other people have no universal pattern */
+  groups: Record<string, { dek: string; pattern?: Hash; added?: string[] }>
   /** turned private groups on (op start, a universal pattern, or a private group they made); they start off */
   on?: boolean
   /** stopped using private groups (op stop) */
@@ -155,7 +156,16 @@ export function demoVault(
           ...(person ? { ordered: person.ordered } : {}),
           triesLeft: locked ? 0 : FREE_TRIES - (s.tries?.wrong ?? 0),
           ...(locked ? { lockedUntil: s.tries?.lockedUntil } : {}),
-          ...(req.groupId ? { group: { keyReady: !!g, hasPattern: !!g?.pattern, ...(g?.pattern ? { ordered: g.pattern.ordered } : {}) } } : {}),
+          ...(req.groupId
+            ? {
+                group: {
+                  keyReady: !!g,
+                  hasPattern: !!g?.pattern,
+                  ...(g?.pattern ? { ordered: g.pattern.ordered } : {}),
+                  ...(g?.added?.length ? { noUniversal: g.added } : {}),
+                },
+              }
+            : {}),
         } satisfies VaultStatus as T
       }
       case 'passkeyOptions':
@@ -197,7 +207,8 @@ export function demoVault(
         if (req.pattern === null && !person) refuse('Set your universal pattern first: without its own pattern, that’s what opens it.')
         await tryPattern(s, req.current, req.groupId)
         const dek = keyOf(s, req.groupId)
-        s.groups[req.groupId] = { dek, ...(req.pattern === null ? {} : { pattern: await hashOf(req.pattern, req.ordered) }) }
+        const { pattern: _was, ...kept } = s.groups[req.groupId] ?? {}
+        s.groups[req.groupId] = { ...kept, dek, ...(req.pattern === null ? {} : { pattern: await hashOf(req.pattern, req.ordered) }) }
         write(s)
         return { dek } as T
       }
@@ -227,9 +238,12 @@ export function demoVault(
         return refuse('Asking to join a private group needs the online app: the demo has only you.')
       case 'addContact': {
         const dek = keyOf(s, req.groupId)
+        const g = s.groups[req.groupId]
+        // Nobody else in the demo has a universal pattern: without its own one they can't open it.
+        g.added = [...new Set([...(g.added ?? []), req.uid])]
         write(s)
         await addContact(req.groupId, req.uid, dek)
-        return { ok: true } as T
+        return { ok: true, opens: !!g.pattern } as T
       }
       case 'stop': {
         const made = who.made?.() ?? 0

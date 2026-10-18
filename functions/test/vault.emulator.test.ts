@@ -91,7 +91,8 @@ describe('vault callable (emulator)', () => {
       hasPasskey: false,
       universal: false,
       triesLeft: 5,
-      group: { keyReady: false, hasPattern: false },
+      // alice has no universal pattern either: with no own pattern, she can't open it
+      group: { keyReady: false, hasPattern: false, noUniversal: ['alice'] },
     })
     expect((await call<Record<string, unknown>>({ op: 'status' }, 'bob')).result).not.toHaveProperty('group')
   })
@@ -255,16 +256,35 @@ describe('vault callable (emulator)', () => {
       // making a private group turns private groups on for its maker
       expect((await getDoc(doc(ctx.firestore(), 'users/alice'))).get('privateGroupsOn')).toBe(true)
     })
+    // alice has no universal pattern: bob's sheet says so (she opens it with its own only)
     expect((await call<Record<string, unknown>>({ op: 'status', groupId: 'vg' }, 'bob')).result?.group).toEqual({
       keyReady: true,
       hasPattern: true,
       ordered: true,
+      noUniversal: ['alice'],
     })
     // bob has no universal pattern: the group's own gets him to the passkey step (a registration, with none here)
     const r = await call<{ register: boolean }>({ op: 'unlockStart', pattern: 'TL', groupId: 'vg' }, 'bob')
     expect(r.result?.register).toBe(true)
     // bob can't remove it: with no universal pattern, nothing would open the group for him
     expect((await call({ op: 'groupPattern', groupId: 'vg', pattern: null, current: 'TL' }, 'bob')).error?.message).toMatch(/universal pattern first/)
+  })
+  it('status: who else in a private group has no universal pattern, so can’t open it without its own', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'groups/vg'), group({ vault: true, memberUids: ['alice', 'bob', 'carol'] }))
+      await setDoc(doc(ctx.firestore(), 'users/alice/secrets/vault'), { pattern: { salt: 'c2FsdA==', hash: 'aA==' } })
+      await setDoc(doc(ctx.firestore(), 'users/carol/secrets/vault'), { pattern: { salt: 'c2FsdA==', hash: 'aA==' } })
+    })
+    expect((await call<{ group: Record<string, unknown> }>({ op: 'status', groupId: 'vg' }, 'alice')).result?.group).toEqual({
+      keyReady: false,
+      hasPattern: false,
+      noUniversal: ['bob'],
+    })
+    // never the person asking; nothing listed when everyone else has one
+    expect((await call<{ group: Record<string, unknown> }>({ op: 'status', groupId: 'vg' }, 'bob')).result?.group).toEqual({
+      keyReady: false,
+      hasPattern: false,
+    })
   })
   it('stop: held up by a private group they made; then no new private groups until a universal pattern is set again', async () => {
     const s = await call<Record<string, unknown>>({ op: 'status', made: true }, 'alice')

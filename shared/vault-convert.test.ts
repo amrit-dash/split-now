@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { isToken, openText, vaultKey } from './vault-crypto'
-import { blocksStopping, openDoc, privateGroupsOn, sealDoc } from './vault-convert'
+import { blocksStopping, openDoc, privateGroupsOn, sealDoc, withoutUniversal } from './vault-convert'
 
 const dek = btoa(String.fromCharCode(...new Array(32).fill(7)))
 
@@ -109,5 +109,14 @@ describe('private groups on or off', () => {
     expect(privateGroupsOn({}, 1)).toBe(true)
     // a stop wins over everything
     expect(privateGroupsOn({ off: true, on: true, pattern: { hash: 'h' } }, 2)).toBe(false)
+  })
+})
+
+describe('who has no universal pattern in a private group', () => {
+  it('everyone else in it without one, never the person asking', () => {
+    const members = ['me', 'mira', 'dev', 'ana']
+    expect(withoutUniversal(members, new Set(['me', 'dev']), 'me')).toEqual(['mira', 'ana'])
+    expect(withoutUniversal(members, new Set(['mira', 'dev', 'ana']), 'me')).toEqual([])
+    expect(withoutUniversal(['me'], new Set(), 'me')).toEqual([])
   })
 })

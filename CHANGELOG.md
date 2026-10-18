@@ -6,6 +6,12 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.6.7 — October 2026
+
+- Private groups: when you add someone, or let them in, who hasn't set up private groups, and the group has no pattern of its own, the app says they can't open it yet and offers to give it one now, to tell them in person. Before, they were let in and stayed locked out with no hint why.
+- A private group's Private group sheet names anyone in it who can't open it yet, with **Give it its own pattern**. Removing a group's own pattern warns who it would lock out.
+- New group and Import: the suggestions under the name ("Or 🐝 · use it", "Looks like a trip ✈️ · use it") show their whole text and scroll sideways when there are several, instead of being cut off.
+
 ## 8.6.6 — October 2026
 
 - Private groups now start off. Turn them on in Settings → Encrypted groups; until then, New group and a group's menu don't offer to make one private. Anyone can still add you to a private group whether or not you've turned them on: it opens with its pattern and your passkey as before.

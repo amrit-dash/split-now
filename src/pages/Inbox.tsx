@@ -3,7 +3,7 @@ import { useJoinRequests } from '@/hooks/data'
 import type { JoinRequest } from '@/types'
 import { isSealed } from '@/lib/vault-scramble'
 import { passkeyCancelled, passkeyProof } from '@/features/vault/passkey'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Ban, BookOpen, Check, CheckCheck, ChevronDown, ChevronRight, EyeOff, Flag, FolderInput, Loader2, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
@@ -59,6 +59,8 @@ import { labelForUid, labelOf, memberIdOfUid } from '@/lib/shortNames'
 import { groupsDeletedByOthers } from '@/lib/trust'
 import { daysLeft } from '../../shared/group-trash'
 import { openOnce } from '@/lib/vault-open'
+import { addedPrompt } from '@/lib/vault-setup'
+import { useConfirm } from '@/components/ConfirmSheet'
 
 type Tab = 'sort' | 'updates'
 const HANDLED_FIRST = 15
@@ -1094,6 +1096,8 @@ function SortPicker<T extends string>({
  */
 function JoinRequestRow({ request, d }: { request: JoinRequest; d: GroupData | undefined }) {
   const toast = useToast()
+  const confirm = useConfirm()
+  const nav = useNavigate()
   const [busy, setBusy] = useState(false)
   const [picking, setPicking] = useState(false)
   const group = d?.group
@@ -1105,8 +1109,18 @@ function JoinRequestRow({ request, d }: { request: JoinRequest; d: GroupData | u
     setBusy(true)
     try {
       const auth = await passkeyProof(repo)
-      await repo.vault({ op: 'decideJoin', groupId: request.groupId, uid: request.uid, approve, ...(memberId ? { memberId } : {}), auth })
-      toast(approve ? `${who} can open it now` : 'Request declined')
+      const r = await repo.vault<{ opens?: boolean }>({
+        op: 'decideJoin',
+        groupId: request.groupId,
+        uid: request.uid,
+        approve,
+        ...(memberId ? { memberId } : {}),
+        auth,
+      })
+      // Let in, with nothing to open it with yet: offer to give it its own pattern to tell them.
+      if (approve && r.opens === false) {
+        if (await confirm(addedPrompt(who))) nav(`/groups/${request.groupId}?private=pattern`)
+      } else toast(approve ? `${who} can open it now` : 'Request declined')
     } catch (e) {
       if (!passkeyCancelled(e)) toast(errText(e), 'err')
     } finally {

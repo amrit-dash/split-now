@@ -16,7 +16,7 @@ import { PageHeader } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
 import { appLocale, formatDate } from '@/lib/locale'
 import { Select, currencyOptions } from '@/components/Select'
-import { IconPickerField, TypeSuggestion } from '@/components/IconPicker'
+import { IconPickerField, SuggestionRow, TypeSuggestion } from '@/components/IconPicker'
 import { GROUP_TYPES, SHARED_TYPES, guessGroup, iconsFor, type GroupGuess } from '@/lib/groupTypes'
 import { activeMembers } from '@/lib/members'
 import { HintText, InfoTip, type Hint } from '@/components/Hint'
@@ -451,16 +451,18 @@ export default function ImportGroup() {
                     />
                   </IconPickerField>
                   {showGuess && guess && (
-                    <TypeSuggestion
-                      guess={guess}
-                      onDismiss={() => setDismissed(guessKey)}
-                      onApply={() => {
-                        setTypeTouched(true)
-                        setIconTouched(true)
-                        setType(guess.type)
-                        setEmoji(guess.emoji)
-                      }}
-                    />
+                    <SuggestionRow>
+                      <TypeSuggestion
+                        guess={guess}
+                        onDismiss={() => setDismissed(guessKey)}
+                        onApply={() => {
+                          setTypeTouched(true)
+                          setIconTouched(true)
+                          setType(guess.type)
+                          setEmoji(guess.emoji)
+                        }}
+                      />
+                    </SuggestionRow>
                   )}
                   <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Group type">
                     {SHARED_TYPES.map((t) => (

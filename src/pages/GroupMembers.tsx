@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
 import { addPlan } from '@/lib/vault-api'
+import { addedPrompt } from '@/lib/vault-setup'
+import { useConfirm } from '@/components/ConfirmSheet'
 import { passkeyCancelled, passkeyProof } from '@/features/vault/passkey'
 import { HandCoins, Link2, LogOut, UserMinus } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -49,6 +51,7 @@ export default function GroupMembers() {
   const settlements = useSettlements(groupId)
   const groups = useGroups()
   const toast = useToast()
+  const confirm = useConfirm()
   const nav = useNavigate()
   const d = useMemo(
     () => (liveGroup && expenses && settlements ? computeGroupData(liveGroup, expenses, settlements, user.uid) : null),
@@ -98,8 +101,11 @@ export default function GroupMembers() {
       void (async () => {
         try {
           const auth = await passkeyProof(repo)
-          await repo.vault({ op: 'addContact', groupId: group.id, uid: accountUid, auth })
-          toast(`${name} added`)
+          const r = await repo.vault<{ opens?: boolean }>({ op: 'addContact', groupId: group.id, uid: accountUid, auth })
+          // In, with nothing to open it with yet: offer to give it its own pattern to tell them.
+          if (r.opens === false) {
+            if (await confirm(addedPrompt(name))) nav(`/groups/${group.id}?private=pattern`)
+          } else toast(`${name} added`)
         } catch (e) {
           if (!passkeyCancelled(e)) toast(errText(e), 'err')
         }

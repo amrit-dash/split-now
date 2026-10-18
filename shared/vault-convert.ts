@@ -171,3 +171,12 @@ export function privateGroupsOn(person: { on?: unknown; off?: unknown; pattern?:
   if (person.off === true) return false
   return person.on === true || !!person.pattern || (made ?? 0) > 0
 }
+
+/**
+ * Who else in a private group has no universal pattern (private groups off, or stopped), from the
+ * uids that have one. While the group has no pattern of its own they can't open it; with one, they
+ * open it only with that, so removing it locks them out. The asker is left out: they're being told.
+ */
+export function withoutUniversal(memberUids: string[], withUniversal: ReadonlySet<string>, asker: string): string[] {
+  return memberUids.filter((u) => u !== asker && !withUniversal.has(u))
+}

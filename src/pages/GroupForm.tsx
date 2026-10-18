@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ChevronRight, Loader2, Lock, Stamp, UserMinus, Users, X } from 'lucide-react'
+import { ChevronRight, Loader2, Lock, Stamp, UserMinus, Users } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { createGroup, useAllExpenses, useCaptureTokens, useGroup, useGroups } from '@/hooks/data'
@@ -34,7 +34,7 @@ import { useTodayRates } from '@/hooks/useFx'
 import { GROUP_TYPES, SHARED_TYPES, groupTypeInfo, groupTypeOf, guessGroup, iconsFor, isSharedType, parseGroupType } from '@/lib/groupTypes'
 import { useIconAi } from '@/hooks/useIconAi'
 import { Avatar } from '@/components/Avatar'
-import { IconPickerField, TypeSuggestion } from '@/components/IconPicker'
+import { IconPickerField, SuggestionPill, SuggestionRow, TypeSuggestion } from '@/components/IconPicker'
 import { useAutoIconPick } from '@/hooks/useAutoIconPick'
 import { groupPickRequest } from '@/lib/icon-pick'
 import { Select, currencyOptions } from '@/components/Select'
@@ -350,6 +350,9 @@ export default function GroupForm() {
     guessKey !== dismissed &&
     isSharedType(guess.type) &&
     (!existing || isSharedType(groupTypeOf(existing)))
+  // The pills under the name (one scrolling row): the AI's second icon, and the type the name looks like.
+  const altShown = !pickingIcon && !!pickAlt && pickAlt.title === name && !iconTouched && pickAlt.emoji !== emoji
+  const typeShown = extras && showGuess && !!guess
   const approvals = approvalsSummary({ requireApproval, threshold, paymentApproval }, currency)
   const moreSummary = [
     currency,
@@ -895,47 +898,43 @@ export default function GroupForm() {
             </IconPickerField>
           )}
           {type !== 'direct' && <FieldError id="group-name-error" text={errors.name} />}
-          {!pickingIcon && pickAlt && pickAlt.title === name && !iconTouched && pickAlt.emoji !== emoji && (
-            <div className="animate-fade flex items-center gap-1" data-testid="group-icon-alt">
-              <button
-                type="button"
-                onClick={() => {
-                  setIconTouched(true)
-                  setEmoji(pickAlt.emoji)
-                  setPickAlt(null)
-                }}
-                className="flex min-h-9 min-w-0 items-center rounded-full bg-brand-50 px-3 py-1.5 text-left text-xs font-semibold text-brand-700 dark:bg-brand-900/40 dark:text-brand-200"
-              >
-                <span className="truncate">
-                  Or <span aria-hidden>{pickAlt.emoji}</span>
-                  <span className="sr-only">the icon {pickAlt.emoji}</span> · use it
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setPickAlt(null)}
-                className="text-muted flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
-                aria-label="Dismiss the other icon"
-              >
-                <X size={16} aria-hidden />
-              </button>
-            </div>
-          )}
           {pickingIcon && (
             <p className="text-muted flex items-center gap-1.5 px-1 text-xs" role="status" data-testid="group-icon-picking">
               <Loader2 size={12} className="animate-spin" aria-hidden /> Picking an icon for “{name.trim()}”…
             </p>
           )}
-          {extras && showGuess && guess && (
-            <TypeSuggestion
-              guess={guess}
-              onDismiss={() => setDismissed(guessKey)}
-              onApply={() => {
-                setTypeTouched(true)
-                setIconTouched(true)
-                applyType(guess.type, guess.emoji)
-              }}
-            />
+          {(altShown || typeShown) && (
+            <SuggestionRow>
+              {altShown && pickAlt && (
+                <SuggestionPill
+                  testId="group-icon-alt"
+                  dismissLabel="Dismiss the other icon"
+                  onDismiss={() => setPickAlt(null)}
+                  onApply={() => {
+                    setIconTouched(true)
+                    setEmoji(pickAlt.emoji)
+                    setPickAlt(null)
+                  }}
+                >
+                  Or{' '}
+                  <span aria-hidden className="mx-1">
+                    {pickAlt.emoji}
+                  </span>
+                  <span className="sr-only">the icon {pickAlt.emoji}</span> · use it
+                </SuggestionPill>
+              )}
+              {typeShown && guess && (
+                <TypeSuggestion
+                  guess={guess}
+                  onDismiss={() => setDismissed(guessKey)}
+                  onApply={() => {
+                    setTypeTouched(true)
+                    setIconTouched(true)
+                    applyType(guess.type, guess.emoji)
+                  }}
+                />
+              )}
+            </SuggestionRow>
           )}
           {extras && typeChips && (
             <div role="radiogroup" aria-labelledby="group-type-label">
