@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { KeyRound } from 'lucide-react'
+import { Lock } from 'lucide-react'
 import { repo } from '@/data'
 import { useFlag } from '@/hooks/useAppConfig'
+import { useGroups } from '@/hooks/data'
+import { forgetPrivateStatus } from '@/hooks/usePrivateGroups'
 import { errText } from '@/lib/errors'
-import { stopPlan, type VaultStatus } from '@/lib/vault-api'
+import { stopPlan, vaultView, type VaultStatus } from '@/lib/vault-api'
 import { lockVault } from '@/lib/vault-keys'
 import { useConfirm } from '@/components/ConfirmSheet'
 import { useToast } from '@/components/Toast'
@@ -16,11 +18,13 @@ import { Detail } from '@/components/Hint'
 import { SettingsPage } from './common'
 
 /**
- * /settings/vault: what opens this person's private groups (docs/VAULT.md). A passkey (Face ID, a
- * fingerprint, the screen lock) and a universal pattern of taps and long presses, which opens
- * every private group they're in from the Groups screen. Shown only while the `vaults` flag is on.
- * "Stop using private groups" deletes both and stops the app offering private groups, once none
- * they made is left; setting a universal pattern again starts them again.
+ * /settings/vault: private groups for this person (docs/VAULT.md). They start off: this screen
+ * says so and turns them on (vault op `start`), after which the app offers to make them. On, it
+ * shows what opens them: a passkey (Face ID, a fingerprint, the screen lock) and a universal
+ * pattern of taps and long presses, which opens every private group they're in from the Groups
+ * screen. "Stop using private groups" deletes both and turns them off again, once none they made
+ * is left. Off or on, a private group someone else added them to opens with its own pattern.
+ * Shown only while the `vaults` flag is on.
  */
 export default function Vault() {
   const on = useFlag('vaults')
@@ -33,6 +37,7 @@ export default function Vault() {
   const [stopping, setStopping] = useState(false)
   const [busy, setBusy] = useState(false)
   const [round, setRound] = useState(0)
+  const inPrivate = !!useGroups()?.some((g) => g.vault)
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: round reads the status again after a change.
   useEffect(() => {
@@ -49,10 +54,13 @@ export default function Vault() {
 
   if (!on) return <Navigate to="/settings" replace />
 
+  const view = status ? vaultView(status) : null
+
   const stop = async (current?: string) => {
     const auth = current === undefined ? undefined : await passkeyProof(repo)
     await repo.vault({ op: 'stop', current, auth })
     lockVault()
+    forgetPrivateStatus()
     setStopping(false)
     setRound((r) => r + 1)
     toast('You’ve stopped using private groups')
@@ -82,6 +90,20 @@ export default function Vault() {
     }
   }
 
+  const turnOn = async () => {
+    setBusy(true)
+    try {
+      await repo.vault({ op: 'start' })
+      forgetPrivateStatus()
+      setRound((r) => r + 1)
+      toast('Private groups are on')
+    } catch (e) {
+      toast(errText(e), 'err')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const addPasskey = async () => {
     setBusy(true)
     try {
@@ -103,22 +125,34 @@ export default function Vault() {
         </p>
       ) : !status ? (
         <p className="card text-muted p-4 text-sm">Checking…</p>
-      ) : status.off ? (
-        <div className="space-y-4" data-testid="vault-stopped">
-          <div className="card text-muted space-y-2 p-4 text-sm">
-            <p>You’ve stopped using private groups, so the app doesn’t offer to make one.</p>
-            <p>A private group someone else made still opens with its own pattern, on its lock button, if it has one.</p>
+      ) : view !== 'on' ? (
+        <div className="space-y-4" data-testid="vault-off" data-view={view}>
+          <div className="card space-y-2 p-4 text-sm">
+            <p className="flex items-center gap-2 font-semibold">
+              <Lock size={16} aria-hidden /> Private groups are off
+            </p>
+            {view === 'stopped' ? (
+              <p className="text-muted" data-testid="vault-stopped">
+                You stopped using private groups, so the app doesn’t offer to make one.
+              </p>
+            ) : (
+              <p className="text-muted">
+                A private group keeps its name, people, expenses and chat encrypted. It opens with your passkey and a pattern of taps and long presses. Turn
+                them on to make one.
+              </p>
+            )}
+            <p className="text-muted">You can still be added to a private group. It opens with its own pattern and your passkey.</p>
           </div>
-          <AllGroupsLockTime />
-          <button
-            type="button"
-            className="btn-primary w-full"
-            disabled={busy || !status.serverReady}
-            onClick={() => setSetting(true)}
-            data-testid="vault-start"
-          >
-            <KeyRound size={18} aria-hidden /> Start using private groups
+          <button type="button" className="btn-primary w-full" disabled={busy || !status.serverReady} onClick={() => void turnOn()} data-testid="vault-turn-on">
+            <Lock size={18} aria-hidden /> Turn on private groups
           </button>
+          {!status.serverReady && (
+            <p className="text-muted px-1 text-xs" role="status">
+              The server isn’t set up for private groups yet.
+            </p>
+          )}
+          {/* When private groups someone else made lock again: only for someone in one. */}
+          {inPrivate && <AllGroupsLockTime />}
         </div>
       ) : (
         <div className="space-y-4">
@@ -161,7 +195,7 @@ export default function Vault() {
           await repo.vault({ op: 'setUniversal', pattern, ordered, current, auth })
           setSetting(false)
           setRound((r) => r + 1)
-          toast(status?.off ? 'Private groups are on again' : status?.universal ? 'Universal pattern changed' : 'Universal pattern set')
+          toast(status?.universal ? 'Universal pattern changed' : 'Universal pattern set')
         }}
       />
       <SetPatternSheet

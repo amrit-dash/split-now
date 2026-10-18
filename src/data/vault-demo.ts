@@ -1,5 +1,6 @@
 import type { UnlockStarted, VaultRequest, VaultStatus } from '@/lib/vault-api'
 import { groupPatternProblem, patternProblem } from '@/lib/vault-api'
+import { privateGroupsOn } from '../../shared/vault-convert'
 
 /*
  * Private groups in demo mode: the vault callable's answers made on the device, so the whole flow
@@ -20,6 +21,8 @@ interface DemoState {
   /** wrong patterns, universal or a group's own, counted together like the server does */
   tries?: { wrong: number; lockedUntil?: number }
   groups: Record<string, { dek: string; pattern?: Hash }>
+  /** turned private groups on (op start, a universal pattern, or a private group they made); they start off */
+  on?: boolean
   /** stopped using private groups (op stop) */
   off?: boolean
 }
@@ -50,6 +53,16 @@ function refuse(message: string, details?: object): never {
 }
 
 /**
+ * The demo profile after private groups turn on or off, as the server writes users/{uid}
+ * (privateGroupsOn and privateGroupsOff, never both). The same object when nothing changes.
+ */
+export function privateProfile<P extends { privateGroupsOn?: boolean; privateGroupsOff?: boolean }>(p: P, to: 'on' | 'off'): P {
+  if (to === 'on' ? p.privateGroupsOn && !p.privateGroupsOff : p.privateGroupsOff && !p.privateGroupsOn) return p
+  const { privateGroupsOn: _on, privateGroupsOff: _off, ...rest } = p
+  return (to === 'on' ? { ...rest, privateGroupsOn: true } : { ...rest, privateGroupsOff: true }) as P
+}
+
+/**
  * `privateGroups` lists the live private groups the demo person is in (the "every group" unlock).
  */
 /**
@@ -62,10 +75,13 @@ export function demoVault(
   privateGroups: () => string[] = () => [],
   convert: (groupId: string, on: boolean, dek: string) => Promise<void> = async () => {},
   addContact: (groupId: string, uid: string, dek: string) => Promise<void> = async () => {},
-  /** made: the live private groups the demo person made and is in; setOff: mirrors the stop on their profile */
-  who: { made?: () => number; setOff?: (off: boolean) => void } = {},
+  /**
+   * made: the live private groups the demo person made and is in; setPrivate: mirrors on or off on
+   * their profile (privateGroupsOn / privateGroupsOff), as the server does
+   */
+  who: { made?: () => number; setPrivate?: (state: 'on' | 'off') => void } = {},
 ) {
-  const OFF = 'You stopped using private groups. Start again in Settings → Encrypted groups.'
+  const OFF = 'You stopped using private groups. Turn them on again in Settings → Encrypted groups.'
   const NO_PATTERN = 'Choose how it opens first: your universal pattern, or its own pattern.'
   const read = (): DemoState => {
     try {
@@ -83,6 +99,12 @@ export function demoVault(
     } catch {
       /* storage full or off */
     }
+  }
+  /** Private groups on (which ends a stop), as the server's markOn; the caller writes the state. */
+  const markOn = (s: DemoState) => {
+    s.on = true
+    delete s.off
+    who.setPrivate?.('on')
   }
   const keyOf = (s: DemoState, groupId: string): string => {
     s.groups[groupId] ??= { dek: b64(crypto.getRandomValues(new Uint8Array(32))) }
@@ -115,7 +137,16 @@ export function demoVault(
     switch (req.op) {
       case 'status': {
         const g = req.groupId ? s.groups[req.groupId] : undefined
+        // From before private groups started off: a universal pattern or a private group they made is on (the server's backfill).
+        const on = privateGroupsOn({ on: s.on, off: s.off, pattern: s.person }, who.made?.() ?? 0)
+        if (on) {
+          if (!s.on) {
+            markOn(s)
+            write(s)
+          } else who.setPrivate?.('on')
+        }
         return {
+          ...(on ? { on: true } : {}),
           ...(s.off ? { off: true } : {}),
           ...(req.made ? { made: who.made?.() ?? 0 } : {}),
           serverReady: true,
@@ -138,11 +169,13 @@ export function demoVault(
         if (person) await tryPattern(s, req.current)
         s.person = await hashOf(req.pattern, req.ordered)
         delete s.tries
-        // a universal pattern is how someone who stopped starts again
-        if (s.off) {
-          delete s.off
-          who.setOff?.(false)
-        }
+        // someone with a universal pattern has private groups on (and someone who stopped starts again)
+        markOn(s)
+        write(s)
+        return { ok: true } as T
+      }
+      case 'start': {
+        markOn(s)
         write(s)
         return { ok: true } as T
       }
@@ -179,6 +212,8 @@ export function demoVault(
         const dek = keyOf(s, req.groupId)
         // its own pattern, when one was chosen as it was made
         if (req.pattern !== undefined) s.groups[req.groupId].pattern = await hashOf(req.pattern, req.ordered !== false)
+        // someone who made a private group has them on
+        if (!s.on) markOn(s)
         write(s)
         // its own name, emoji and people, sealed with the new key
         await convert(req.groupId, true, dek)
@@ -202,9 +237,10 @@ export function demoVault(
           throw Object.assign(new Error('Turn off private, or delete, the private groups you made first.'), { code: 'failed-precondition', details: { made } })
         if (person) await tryPattern(s, req.current)
         delete s.person
+        delete s.on
         s.off = true
         write(s)
-        who.setOff?.(true)
+        who.setPrivate?.('off')
         return { ok: true } as T
       }
       case 'convert': {
@@ -217,6 +253,7 @@ export function demoVault(
           const dek = keyOf(s, req.groupId)
           // its own pattern, when one was chosen as it was made private
           if (req.pattern !== undefined) s.groups[req.groupId].pattern = await hashOf(req.pattern, req.ordered !== false)
+          if (!s.on) markOn(s)
           write(s)
           await convert(req.groupId, true, dek)
           return { dek } as T

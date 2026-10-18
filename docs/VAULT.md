@@ -6,7 +6,29 @@ Groups); on by default like every flag, server-enforced in the `vault` callable.
 
 ## What people see
 
-- **Settings → Encrypted groups** (only while the flag is on): a status card (passkey, universal
+- **Private groups start off** for everyone (the owner's decision): the app offers to make one
+  (the New group switch, Group ⋯ → Make private) only to someone who turned them on in **Settings →
+  Encrypted groups → Turn on private groups** (vault op `start`, which needs no pattern: a pattern
+  is chosen per group, or the universal one set later). Off, that screen is a card saying private
+  groups are off, with the Turn on button; the Settings list says **Off** or **On**. The on state is
+  the server's: `users/{uid}/secrets/vault.on` (`onAt`), mirrored to
+  `users/{uid}.privateGroupsOn`, which the app reads and no client writes on purpose (no rules
+  check, as for `privateGroupsOff`: it only decides what the app offers; the server still refuses
+  anything a pattern or passkey guards). `start`, `setUniversal`, `create` and `convert` (on) set
+  it, and clear a stop; `stop` clears it. `privateGroupsOn` in shared/vault-convert.ts is the rule.
+- **Nobody loses anything.** Someone from before who has a universal pattern, or made a private
+  group they're still in, counts as on: `status` marks them on the first time it's asked (the
+  backfill; it also puts the profile's copy right when it's missing), and each device asks once for
+  someone whose profile says neither on nor off (`src/hooks/usePrivateGroups.ts`,
+  `statusCheckWanted`; its answer counts at once through `privateOn`, before the profile catches
+  up). Someone who stopped stays off.
+- **Off, private groups still reach you.** Someone who hasn't turned them on can be added to a
+  private group (asking to join, the Inbox, the creator adding them) and opens it inside, on its
+  lock, with its own pattern and their passkey, as for someone who stopped. The Groups screen has no
+  universal lock for them (they have no universal pattern; it still locks what is open). The
+  group's Private group sheet suggests turning private groups on (`suggestTurningOn`; not to
+  someone who stopped), and a lock with nothing to open it with says to turn them on first.
+- **Settings → Encrypted groups**, once on: a status card (passkey, universal
   pattern, server key) and the two things that open private groups:
   - a **passkey** (Face ID, a fingerprint or the screen lock). Synced passkeys (iCloud Keychain,
     Google Password Manager) work on a person's other devices too, and the group keys live on the
@@ -56,12 +78,14 @@ Groups); on by default like every flag, server-enforced in the `vault` callable.
   private group they made is left (turned off, deleted or left: `blocksStopping` in
   shared/vault-convert.ts); others' private groups don't count. It asks for the current universal
   pattern and the passkey, then deletes the pattern and every passkey, and sets `off` (and
-  `users/{uid}.privateGroupsOff`, which the app reads). After that the app offers no private group:
-  no switch on New group, no Make private, no lock on the Groups screen, and the server refuses
-  `create` and `convert` on. A private group someone else made still opens inside, on its lock
-  button, with its own pattern (Face ID makes a new passkey on the spot); one with no own pattern
-  stays locked for them, silently, until its creator gives it one. Wrong tries are kept. Setting a
-  universal pattern again (Start using private groups) turns it all back on.
+  `users/{uid}.privateGroupsOff`, which the app reads; `on` and `privateGroupsOn` go). After that
+  the app offers no private group: no switch on New group, no Make private, no lock on the Groups
+  screen, and the server refuses `create` and `convert` on. A private group someone else made still
+  opens inside, on its lock button, with its own pattern (Face ID makes a new passkey on the spot);
+  one with no own pattern stays locked for them, silently, until its creator gives it one. Wrong
+  tries are kept. **Turn on private groups** (`start`) turns them back on, as does setting a
+  universal pattern.
+
 - **Changing a pattern takes one that opens it.** The universal pattern changes only after the
   current one, and a group's own after the universal pattern or the group's own; a wrong one counts
   as a wrong try. A passkey alone is never enough, because anyone holding the unlocked phone can
@@ -189,7 +213,8 @@ asking to join answers that it needs the online app.
   of a group passes through `openedWatch` (`src/lib/vault-open.ts`), which opens tokens with the key
   or shows 🔒, and reads again when the group opens or locks.
 - **Demo mode** (`src/data/vault-demo.ts`): the callable's answers made on the device, without the
-  passkey step, so the e2e suite runs the whole flow.
+  passkey step, so the e2e suite runs the whole flow. The demo person starts with private groups off
+  (the seed has no private group they made), and `setPrivate` mirrors on and off on their profile.
 - **Emulators**: `npm run test:functions` writes a throwaway `VAULT_KEK` into the gitignored
   `functions/.secret.local` (`scripts/emulator-secrets.mjs`).
 

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Eye, EyeOff, FileUp, Lock, LockOpen, Plus, Trash2 } from 'lucide-react'
 import { useAllGroupData, useDeletedGroups } from '@/hooks/data'
-import { useFlag } from '@/hooks/useAppConfig'
+import { usePrivateGroups } from '@/hooks/usePrivateGroups'
 import { useVaultVersion } from '@/hooks/useVault'
 import { lockButton } from '@/lib/vault-api'
 import { isUnlocked, lockVault } from '@/lib/vault-keys'
@@ -30,15 +30,15 @@ export default function Groups() {
     setShowSettledState(on)
     storeShowSettled(on)
   }
-  const vaultsOn = useFlag('vaults')
-  const { profile } = useMe()
+  const vaults = usePrivateGroups()
   useVaultVersion()
   // The universal pattern's lock: every private group at once (src/lib/vault-api.ts lockButton).
-  const vaultButton = vaultsOn
+  // With private groups off there's no universal pattern: each one they were added to opens inside.
+  const vaultButton = vaults.flagOn
     ? lockButton(
         (data ?? []).filter((d) => d.group.vault).map((d) => d.group.id),
         isUnlocked,
-        !!profile.privateGroupsOff,
+        !vaults.on,
       )
     : 'none'
   const now = Date.now()

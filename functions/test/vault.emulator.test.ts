@@ -95,6 +95,73 @@ describe('vault callable (emulator)', () => {
     })
     expect((await call<Record<string, unknown>>({ op: 'status' }, 'bob')).result).not.toHaveProperty('group')
   })
+  it('start: private groups start off, and turn on without a pattern or a passkey', async () => {
+    const off = await call<Record<string, unknown>>({ op: 'status' }, 'carol')
+    expect(off.result).not.toHaveProperty('on')
+    expect(off.result).not.toHaveProperty('off')
+    expect((await call({ op: 'start' }, 'carol')).result).toEqual({ ok: true })
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      expect((await getDoc(doc(ctx.firestore(), 'users/carol'))).get('privateGroupsOn')).toBe(true)
+      expect((await getDoc(doc(ctx.firestore(), 'users/carol/secrets/vault'))).get('on')).toBe(true)
+      // nothing is set up by it
+      expect((await getDoc(doc(ctx.firestore(), 'users/carol/secrets/vault'))).get('pattern')).toBeUndefined()
+    })
+    expect((await call<Record<string, unknown>>({ op: 'status' }, 'carol')).result).toMatchObject({ on: true, universal: false, hasPasskey: false })
+    // on is not set up: a private group still needs a pattern to open it, and a passkey
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'groups/cs'), group({ vault: true, createdBy: 'carol', memberUids: ['carol'] }))
+      await setDoc(doc(ctx.firestore(), 'groups/cp'), group({ createdBy: 'carol', memberUids: ['carol'] }))
+    })
+    expect((await call({ op: 'create', groupId: 'cs' }, 'carol')).error?.message).toMatch(/Choose how it opens/)
+    expect((await call({ op: 'create', groupId: 'cs', pattern: 'TL', ordered: true }, 'carol')).error?.message).toMatch(/Add a passkey first/)
+    expect((await call({ op: 'convert', groupId: 'cp', on: true }, 'carol')).error?.message).toMatch(/Choose how it opens/)
+    expect(['UNAUTHENTICATED', 'DEADLINE_EXCEEDED']).toContain((await call({ op: 'convert', groupId: 'cp', on: true, pattern: 'TL' }, 'carol')).error?.status)
+    // stop turns them off again (once the private group she made is plain; nothing set up, so nothing is asked), and start back on
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'groups/cs'), group({ createdBy: 'carol', memberUids: ['carol'] }))
+    })
+    expect((await call({ op: 'stop' }, 'carol')).result).toEqual({ ok: true })
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const u = (await getDoc(doc(ctx.firestore(), 'users/carol'))).data()
+      expect(u?.privateGroupsOn).toBeUndefined()
+      expect(u?.privateGroupsOff).toBe(true)
+    })
+    expect((await call<Record<string, unknown>>({ op: 'status' }, 'carol')).result).not.toHaveProperty('on')
+    expect((await call({ op: 'start' }, 'carol')).result).toEqual({ ok: true })
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const u = (await getDoc(doc(ctx.firestore(), 'users/carol'))).data()
+      expect(u?.privateGroupsOn).toBe(true)
+      expect(u?.privateGroupsOff).toBeUndefined()
+      expect((await getDoc(doc(ctx.firestore(), 'users/carol/secrets/vault'))).get('off')).toBeUndefined()
+    })
+  })
+  it('status: someone from before private groups started off stays on, with a universal pattern or a private group they made', async () => {
+    // dave: a universal pattern, nothing saying on
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'users/dave'), { uid: 'dave', displayName: 'Dave' })
+      await setDoc(doc(ctx.firestore(), 'users/dave/secrets/vault'), { pattern: { salt: 'c2FsdA==', hash: 'bm90LXRoZS1oYXNo' } })
+    })
+    expect((await call<Record<string, unknown>>({ op: 'status' }, 'dave')).result).toMatchObject({ on: true, universal: true })
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const u = (await getDoc(doc(ctx.firestore(), 'users/dave'))).data()
+      expect(u?.privateGroupsOn).toBe(true)
+      expect(u?.displayName).toBe('Dave')
+      expect((await getDoc(doc(ctx.firestore(), 'users/dave/secrets/vault'))).get('on')).toBe(true)
+    })
+    // alice made vg (no pattern of her own): on too; bob is only in it, so stays off
+    expect((await call<Record<string, unknown>>({ op: 'status', groupId: 'vg' }, 'alice')).result).toMatchObject({ on: true })
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      expect((await getDoc(doc(ctx.firestore(), 'users/alice'))).get('privateGroupsOn')).toBe(true)
+      expect((await getDoc(doc(ctx.firestore(), 'users/bob'))).get('privateGroupsOn')).toBeUndefined()
+    })
+    // someone who stopped stays off whatever they have
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'users/erin/secrets/vault'), { off: true, pattern: { salt: 'c2FsdA==', hash: 'bm90LXRoZS1oYXNo' } })
+    })
+    const erin = await call<Record<string, unknown>>({ op: 'status' }, 'erin')
+    expect(erin.result).toMatchObject({ off: true })
+    expect(erin.result).not.toHaveProperty('on')
+  })
   it('passkey options only for the app’s own origins, with a challenge kept on the server', async () => {
     expect((await call({ op: 'passkeyOptions', purpose: 'register' }, 'alice', 'https://evil.example')).error?.status).toBe('FAILED_PRECONDITION')
     const r = await call<{ options: { challenge: string; rp: { id: string } }; hasPasskey: boolean }>({ op: 'passkeyOptions', purpose: 'register' }, 'alice')
@@ -185,6 +252,8 @@ describe('vault callable (emulator)', () => {
       expect(k?.pattern.hash).toBeTruthy()
       expect(k?.pattern.ordered).toBeUndefined() // in order: only "any order" is written
       expect(k?.patternChangedBy).toBe('alice')
+      // making a private group turns private groups on for its maker
+      expect((await getDoc(doc(ctx.firestore(), 'users/alice'))).get('privateGroupsOn')).toBe(true)
     })
     expect((await call<Record<string, unknown>>({ op: 'status', groupId: 'vg' }, 'bob')).result?.group).toEqual({
       keyReady: true,

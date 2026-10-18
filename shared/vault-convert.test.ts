@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { isToken, openText, vaultKey } from './vault-crypto'
-import { blocksStopping, openDoc, sealDoc } from './vault-convert'
+import { blocksStopping, openDoc, privateGroupsOn, sealDoc } from './vault-convert'
 
 const dek = btoa(String.fromCharCode(...new Array(32).fill(7)))
 
@@ -96,5 +96,18 @@ describe('stopping private groups', () => {
     expect(blocksStopping({ ...g, vault: undefined }, 'u')).toBe(false) // turned off
     expect(blocksStopping({ ...g, deletedAt: 5 }, 'u')).toBe(false) // in Recently deleted
     expect(blocksStopping({ ...g, memberUids: ['v'] }, 'u')).toBe(false) // they left it
+  })
+})
+
+describe('private groups on or off', () => {
+  it('start off, are on once turned on, and stay on for anyone who had a universal pattern or made one; a stop turns them off', () => {
+    expect(privateGroupsOn({})).toBe(false)
+    expect(privateGroupsOn({}, 0)).toBe(false)
+    expect(privateGroupsOn({ on: true })).toBe(true)
+    // from before they started off: nothing anyone had goes away
+    expect(privateGroupsOn({ pattern: { hash: 'h' } })).toBe(true)
+    expect(privateGroupsOn({}, 1)).toBe(true)
+    // a stop wins over everything
+    expect(privateGroupsOn({ off: true, on: true, pattern: { hash: 'h' } }, 2)).toBe(false)
   })
 })

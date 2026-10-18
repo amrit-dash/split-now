@@ -6,6 +6,12 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.6.6 — October 2026
+
+- Private groups now start off. Turn them on in Settings → Encrypted groups; until then, New group and a group's menu don't offer to make one private. Anyone can still add you to a private group whether or not you've turned them on: it opens with its pattern and your passkey as before.
+- If you already have a universal pattern or made a private group, private groups stay on for you.
+- In a private group you were added to, its Private group sheet offers to turn private groups on, for making your own.
+
 ## 8.6.5 — October 2026
 
 - The automatic icon with AI picks the emoji that fits best, not just one of the app's own: "honey" gets 🍯, "bees" 🐝, "Sri Lanka bees" 🐝 or 🇱🇰. Before, it could only choose from the app's list, so for "bees" or "honey" it gave a category but no fitting icon.

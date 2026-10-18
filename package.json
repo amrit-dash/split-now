@@ -1,7 +1,7 @@
 {
   "name": "split-now",
   "private": true,
-  "version": "8.6.5",
+  "version": "8.6.6",
   "description": "Spending is wise, splitting is free. Split Now! Free, open-source expense splitting with bill scanning, live table splits, UPI settle-ups and optional AI.",
   "license": "MIT",
   "author": "Amrit Dash",

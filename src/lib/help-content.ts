@@ -321,7 +321,7 @@ export const SECTIONS: HelpSection[] = [
     keywords: ['vault', 'encrypted', 'encryption', 'lock', 'secret', 'hidden', 'pattern', 'passkey', 'face id'],
     steps: [
       {
-        text: 'Once: Settings → **Encrypted groups**, add a passkey and set your universal pattern (or do both as you make a group private).',
+        text: 'They start off. Once: Settings → **Encrypted groups** → **Turn on private groups**, then add a passkey and set your universal pattern (or do both as you make a group private).',
         mark: 'settings',
       },
       { text: 'Make a group private: New group → **Private group**, or Group ⋯ → **Make private**.', mark: 'make' },
@@ -336,6 +336,7 @@ export const SECTIONS: HelpSection[] = [
       'Notifications, invites and Pay me links say only “A private group”.',
       'Not in private groups: AI reading, icons with AI and merchant memory.',
       'It locks again when you leave the app, after the idle time, on reload and on sign-out.',
+      'Off, you can still be added to someone’s private group: it opens with its own pattern and your passkey.',
     ],
     open: { label: 'Encrypted groups', to: '/settings/vault' },
     related: ['private-groups-setup', 'private-groups-unlock', 'private-groups-make', 'private-groups-own-pattern', 'private-groups-join'],
@@ -513,16 +514,17 @@ export const SECTIONS: HelpSection[] = [
     icon: '🛡️',
     chapter: 'private',
     title: 'Set up encrypted groups',
-    summary: 'Add a passkey and a universal pattern once, in Settings.',
-    keywords: ['universal pattern', 'passkey', 'face id', 'fingerprint', 'set pattern'],
+    summary: 'Turn private groups on, then add a passkey and a universal pattern once, in Settings.',
+    keywords: ['universal pattern', 'passkey', 'face id', 'fingerprint', 'set pattern', 'turn on', 'off'],
     steps: [
-      { text: 'Settings → **Encrypted groups**.', mark: 'open' },
+      { text: 'Settings → **Encrypted groups** → **Turn on private groups**. They start off.', mark: 'open' },
       { text: 'Tap **＋** beside **Passkey**: Face ID, a fingerprint or your screen lock comes up.', mark: 'passkey' },
       { text: 'Tap **＋** beside **Universal pattern**: tap and long-press at least 6 times, mixed.', mark: 'pattern' },
       { text: 'Choose **Follow the sequence** (order matters) or not (only the counts matter).', mark: 'order' },
       { text: 'Tap **Next**, enter it again, and **Save pattern**.', mark: 'save' },
     ],
     points: [
+      'Until you turn them on, the app doesn’t offer to make private groups. Someone can still add you to theirs.',
       'While you set it, each tap shows as · and each long press as –; lock buttons show nothing.',
       'Each row says where it stands: Added, Ready, Needed or Locked. The pencil changes a pattern; ＋ on Passkey adds one on this phone.',
       'After a wrong pattern the row says how many tries are left; after too many, until when it is locked.',
@@ -566,6 +568,7 @@ export const SECTIONS: HelpSection[] = [
       { text: 'To undo it: the same sheet → **Turn off private**.', mark: 'off' },
     ],
     points: [
+      'Offered once private groups are on for you: Settings → Encrypted groups → **Turn on private groups**.',
       'It always needs a pattern to open it, your universal one or its own, and a passkey. Set any of them right there with **＋**.',
       'Only the group’s creator can change an existing group.',
       'Everyone in it is told; drawn icons and pictures are removed.',
@@ -606,7 +609,9 @@ export const SECTIONS: HelpSection[] = [
       'Nobody joins from the link itself, old links included.',
       'One request at a time; after a decline, a day before asking again.',
       'Only the creator adds people to a private group.',
+      'You don’t need private groups turned on to join one. It opens with its own pattern and your passkey; the group suggests turning them on.',
     ],
+
     related: ['private-groups'],
   },
   {
@@ -640,7 +645,7 @@ export const SECTIONS: HelpSection[] = [
     points: [
       'It works once no private group you made is left: turn private off, delete or leave it.',
       'Private groups other people made still open with their own pattern.',
-      '**Start using private groups** puts it all back.',
+      'Private groups are off again, as they start: **Turn on private groups** in the same place turns them back on, and you set a new pattern.',
     ],
     related: ['private-groups-setup'],
   },

@@ -48,7 +48,8 @@ export function PatternLock({
   const steps = useRef<Step[]>([])
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const status = useRef<Promise<VaultStatus | null> | null>(null)
-  const [setup, setSetup] = useState(false)
+  // the setup prompt, and whether private groups are on for them (off: it says to turn them on first)
+  const [setup, setSetup] = useState<{ on: boolean } | null>(null)
   // Tries go to the server one at a time; `opens` counts the times this button opened the lock.
   const queue = useRef<Promise<void>>(Promise.resolve())
   const opens = useRef(0)
@@ -62,7 +63,7 @@ export function PatternLock({
   const send = async (pattern: string, drawnAt: number) => {
     if (!tryStillWanted(drawnAt, opens.current)) return
     const s = await statusOf()
-    if (s && !s.universal && !s.group?.hasPattern) return setSetup(!s.off)
+    if (s && !s.universal && !s.group?.hasPattern) return setSetup(s.off ? null : { on: !!s.on })
     if (!shouldSend(pattern, { groupHasOwn: !!s?.group?.hasPattern })) return
     try {
       const started = await repo.vault<UnlockStarted>(groupId ? { op: 'unlockStart', pattern, groupId } : { op: 'unlockStart', pattern })
@@ -71,7 +72,7 @@ export function PatternLock({
     } catch (e) {
       const kind = refusalKind(e)
       // A wrong pattern or a lockout shows nothing: the button simply stays a lock.
-      if (kind === 'setup') setSetup(!s?.off)
+      if (kind === 'setup') setSetup(s?.off ? null : { on: !!s?.on })
       else if (kind === 'other') toast(errText(e), 'err')
       // A new pattern or a change on another phone shows on the next try.
       status.current = null
@@ -106,7 +107,7 @@ export function PatternLock({
       >
         {children}
       </button>
-      <SetupSheet open={setup} onClose={() => setSetup(false)} inGroup={!!groupId} />
+      <SetupSheet open={!!setup} onClose={() => setSetup(null)} inGroup={!!groupId} privateOn={setup?.on !== false} />
     </>
   )
 }
