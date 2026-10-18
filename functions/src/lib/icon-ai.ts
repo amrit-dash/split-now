@@ -124,14 +124,16 @@ export function cleanPickRequest(raw: unknown): IconPickRequest | null {
   return { title: base.title, kind: base.kind, choices, ...(categories.length ? { categories } : {}), ...(types.length ? { types } : {}) }
 }
 
-/** The pick's instruction: one line back, from the lists given. The title goes in the content. */
+/** The pick's instruction: one line back. The title goes in the content. */
 export const pickPrompt = (
   r: IconPickRequest,
 ) => `You choose the icon for ${r.kind === 'group' ? 'a group' : 'an expense'} in a bill-splitting app, from its title.
-Choose exactly one emoji from this list, copied exactly: ${r.choices.join(' ')}
+Choose the two single emoji that best show what the title is about, the most fitting first.
+Use one of the app's own emoji when it fits as well: ${r.choices.join(' ')}
+Otherwise use any single standard emoji (a country's flag is fine). Never two emoji in one place, never text.
 ${r.categories ? `Also choose its category, one of: ${r.categories.join(', ')}.\n` : ''}${r.types ? `Also choose the group's type, one of: ${r.types.join(', ')}.\n` : ''}Answer with one line and nothing else, in this shape:
-EMOJI <emoji>${r.categories ? ' CATEGORY <category>' : ''}${r.types ? ' TYPE <type>' : ''}
-Pick what the title is most likely about (for "Toit", a brewpub: 🍽️ food). If nothing in the list fits at all, answer: EMOJI none`
+EMOJI <emoji> ALSO <emoji>${r.categories ? ' CATEGORY <category>' : ''}${r.types ? ' TYPE <type>' : ''}
+Pick what the title is most likely about. For "Sri Lanka bees": EMOJI 🐝 ALSO 🇱🇰. For "honey": EMOJI 🍯 ALSO 🐝. For "Toit", a brewpub: EMOJI 🍺 ALSO 🍽️. If nothing fits at all, answer: EMOJI none`
 
 /** The one-line answer, kept only where it names something from the lists sent. */
 export function parsePick(text: string, r: IconPickRequest): { emoji: string | null; category?: string; type?: string } {
@@ -141,13 +143,21 @@ export function parsePick(text: string, r: IconPickRequest): { emoji: string | n
     .trim()
   const after = (label: string) => line.match(new RegExp(`${label}\\s*[:：]?\\s*(\\S+)`, 'i'))?.[1]
   const raw = after('EMOJI') ?? ''
-  // The emoji may come with a variation selector or without: match the list's own spelling.
+  // The emoji may come with a variation selector or without: use the list's own spelling when it's
+  // one of the app's, else any single emoji as it came.
   const strip = (e: string) => e.replace(/️/g, '')
-  const emoji = r.choices.find((c) => strip(c) === strip(raw)) ?? r.choices.find((c) => line.includes(c)) ?? null
+  const pick = (v: string | undefined) => (v ? (r.choices.find((c) => strip(c) === strip(v)) ?? oneEmoji(v)) : null)
+  // With no EMOJI line, an answer that names exactly one of the app's emoji means that one; a model
+  // that echoed the list back (reasoning cut short) names many, and then nothing is guessed.
+  const named = r.choices.filter((c) => line.includes(c))
+  const emoji = raw.toLowerCase() === 'none' ? null : (pick(raw) ?? (named.length === 1 ? named[0] : null))
+  const second = emoji ? pick(after('ALSO')) : null
+  const alt = second && strip(second) !== strip(emoji ?? '') ? second : undefined
   const category = after('CATEGORY')?.toLowerCase()
   const type = after('TYPE')?.toLowerCase()
   return {
-    emoji: raw.toLowerCase() === 'none' ? null : emoji,
+    emoji,
+    ...(alt ? { alt } : {}),
     ...(category && r.categories?.includes(category) ? { category } : {}),
     ...(type && r.types?.includes(type) ? { type } : {}),
   }

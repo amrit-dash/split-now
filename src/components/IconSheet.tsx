@@ -39,6 +39,7 @@ export function IconSheet({
   imageValue,
   onPickImage,
   aiWhy,
+  pictureOff,
   testId = 'icon-sheet',
 }: {
   open: boolean
@@ -63,6 +64,8 @@ export function IconSheet({
   onPickImage?: (image: string) => void
   /** why the AI rows aren't here (src/lib/icon-ai.ts iconAiWhy), said under the search with a link to fix it */
   aiWhy?: string | null
+  /** why Draw a picture isn't offered beside Suggest with AI (src/lib/icon-ai.ts pictureWhy) */
+  pictureOff?: string | null
   testId?: string
 }) {
   const [q, setQ] = useState('')
@@ -255,6 +258,14 @@ export function IconSheet({
             {problem && (
               <p className="text-muted mt-2 text-xs" role="status" data-testid="icon-ai-problem">
                 {problem}
+              </p>
+            )}
+            {!picture && onPickImage && pictureOff && (
+              <p className="text-muted mt-3 border-t border-brand-100 pt-3 text-xs dark:border-white/5" role="note" data-testid="icon-picture-why">
+                {pictureOff}{' '}
+                <Link to="/settings/ai" onClick={onClose} className="font-semibold text-brand-600 underline underline-offset-2 dark:text-brand-300">
+                  AI features
+                </Link>
               </p>
             )}
             {picture && onPickImage && (

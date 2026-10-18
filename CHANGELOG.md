@@ -6,6 +6,12 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.6.5 — October 2026
+
+- The automatic icon with AI picks the emoji that fits best, not just one of the app's own: "honey" gets 🍯, "bees" 🐝, "Sri Lanka bees" 🐝 or 🇱🇰. Before, it could only choose from the app's list, so for "bees" or "honey" it gave a category but no fitting icon.
+- New group: AI's pick is applied, and a second icon is offered under the name ("Or 🇱🇰 · use it").
+- When Draw a picture isn't offered, the icon sheet says why: it needs your own Gemini key, or Split Now's key with pictures turned on. For an admin, it points to Admin → AI.
+
 ## 8.6.4 — October 2026
 
 - Delete my account also removes your block record, your nudge and payment-check counters, and any account merged into yours earlier.

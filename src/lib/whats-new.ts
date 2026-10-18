@@ -24,6 +24,14 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '8.6.5',
+    date: 'October 2026',
+    items: [
+      { text: 'AI picks the right emoji for any title, 🍯 for honey, and offers a second one for a group', section: 'icons-and-ai' },
+      { text: 'The icon sheet says why Draw a picture isn’t there', section: 'icons-and-ai' },
+    ],
+  },
+  {
     version: '8.6.4',
     date: 'October 2026',
     items: [

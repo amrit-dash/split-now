@@ -4,7 +4,7 @@ import { AUTO_PICK_MS, autoPickTitle, pickAnswer } from '@/lib/icon-pick'
 import type { Category, GroupType } from '@/types'
 import type { IconPickRequest } from '../../shared/icon-ai'
 
-type Answer = { emoji?: string; category?: Category; type?: GroupType }
+type Answer = { emoji?: string; alt?: string; category?: Category; type?: GroupType }
 
 // Answers by kind and title, for this session: typing a title back, or opening the form again, doesn't ask twice.
 const answers = new Map<string, Answer>()

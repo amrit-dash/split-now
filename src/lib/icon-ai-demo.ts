@@ -34,22 +34,27 @@ export function demoIcons(r: IconRequest): IconSuggestions {
 }
 
 /**
- * Demo mode's automatic icon with AI (localRepo.iconPickAi): the first catalogue entry whose
- * words start like one of the title's ("Gondola" finds 🚡 from "gondola"), with its category or
- * group type when those were asked for. A stand-in for the model, enough to try it end to end.
+ * A few things the catalogue has no icon for, so the demo's stand-in shows the pick going beyond
+ * the app's own list as the real AI does ("Sri Lanka bees": 🐝, also 🇱🇰).
+ */
+const DEMO_WORLD: Record<string, string> = { bee: '🐝', bees: '🐝', honey: '🍯', lanka: '🇱🇰', srilanka: '🇱🇰', japan: '🇯🇵', kyoto: '🇯🇵', bali: '🇮🇩' }
+
+/**
+ * Demo mode's automatic icon with AI (localRepo.iconPickAi): for each of the title's words, a
+ * catalogue entry whose words start like it ("Gondola" finds 🚡), else a few emoji from beyond
+ * the catalogue; the first found is the pick and the next a different one its alternative, with
+ * the first's category or group type when those were asked for. A stand-in for the model.
  */
 export function demoIconPick(r: IconPickRequest): IconPickResponse {
   const words = r.title
     .toLowerCase()
     .split(/[^a-z]+/)
     .filter((w) => w.length > 2)
-  for (const w of words) {
-    const emoji = searchIcons(w).find((e) => r.choices.includes(e))
-    if (!emoji) continue
-    const entry = ICONS.find((e) => e.emoji === emoji)
-    const category = entry?.categories.find((c) => r.categories?.includes(c))
-    const type = entry?.group && r.types?.includes(entry.group) ? entry.group : undefined
-    return { emoji, ...(category ? { category } : {}), ...(type ? { type } : {}) }
-  }
-  return { emoji: null }
+  const found = [...new Set(words.map((w) => DEMO_WORLD[w] ?? searchIcons(w)[0]).filter((e): e is string => !!e))]
+  const [emoji, alt] = found
+  if (!emoji) return { emoji: null }
+  const entry = ICONS.find((e) => e.emoji === emoji)
+  const category = entry?.categories.find((c) => r.categories?.includes(c))
+  const type = entry?.group && r.types?.includes(entry.group) ? entry.group : undefined
+  return { emoji, ...(alt ? { alt } : {}), ...(category ? { category } : {}), ...(type ? { type } : {}) }
 }

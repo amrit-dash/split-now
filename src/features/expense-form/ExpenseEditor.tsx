@@ -806,6 +806,7 @@ export function ExpenseEditor({
         picture={iconAi.picture}
         pictureCost={iconAi.pictureCost}
         aiWhy={iconAi.why}
+        pictureOff={iconAi.pictureWhy}
         imageValue={draft.iconImage}
         onPickImage={(image) => dispatch({ type: 'iconImage', image })}
       />

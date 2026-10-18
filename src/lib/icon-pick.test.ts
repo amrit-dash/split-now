@@ -28,6 +28,10 @@ describe('the automatic icon asks AI', () => {
     const e = EXPENSE_CHOICES[0]
     expect(pickAnswer({ emoji: e, category: 'food' }, req)).toEqual({ emoji: e, category: 'food', type: undefined })
     expect(pickAnswer({ emoji: '🦄🦄', category: 'other' }, req)).toEqual({ emoji: undefined, category: undefined, type: undefined })
+    // any single emoji, the app's or not, with a different second one to offer
+    expect(pickAnswer({ emoji: '🐝', alt: '🇱🇰' }, req)).toEqual({ emoji: '🐝', alt: '🇱🇰', category: undefined, type: undefined })
+    expect(pickAnswer({ emoji: '🍯', alt: '🍯' }, req)).toEqual({ emoji: '🍯', category: undefined, type: undefined })
+    expect(pickAnswer({ emoji: null, alt: '🐝' }, req)?.alt).toBeUndefined()
     expect(pickAnswer({ unavailable: true, reason: 'off' }, req)).toBeNull()
     expect(pickAnswer(null, req)).toBeNull()
     const g = groupPickRequest('Kasol', { typeTouched: false })
