@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Lock, LockOpen } from 'lucide-react'
+import { KeySquare, Lock, LockOpen } from 'lucide-react'
 import { repo } from '@/data'
 import type { Group } from '@/types'
 import { usePrivateGroups } from '@/hooks/usePrivateGroups'
 import { errText } from '@/lib/errors'
 import { suggestTurningOn, type VaultStatus } from '@/lib/vault-api'
-import { type OpensWith, defaultOpensWith, privateBlocker } from '@/lib/vault-setup'
+import { type OpensWith, defaultOpensWith, privateBlocker, removeWarning, waitingNote } from '@/lib/vault-setup'
+import { labelForUid } from '@/lib/shortNames'
 import { Sheet } from '@/components/Sheet'
 import { useConfirm } from '@/components/ConfirmSheet'
 import { useToast } from '@/components/Toast'
@@ -25,7 +26,20 @@ import { SetPatternSheet } from './SetPatternSheet'
  * private without a pattern to open it. Private, anyone in it can give it its own pattern, change
  * it or remove it, after their passkey; its creator can also turn private off.
  */
-export function PrivateGroupSheet({ group, open, onClose, isCreator }: { group: Group; open: boolean; onClose: () => void; isCreator: boolean }) {
+export function PrivateGroupSheet({
+  group,
+  open,
+  onClose,
+  isCreator,
+  startWithPattern,
+}: {
+  group: Group
+  open: boolean
+  onClose: () => void
+  isCreator: boolean
+  /** opened to give it its own pattern (after letting in someone with no way to open it) */
+  startWithPattern?: boolean
+}) {
   const toast = useToast()
   const confirm = useConfirm()
   const [status, setStatus] = useState<VaultStatus | null>(null)
@@ -55,6 +69,7 @@ export function PrivateGroupSheet({ group, open, onClose, isCreator }: { group: 
         if (!live) return
         setStatus(s)
         if (!group.vault && round === 0) setOpensWith(defaultOpensWith(s, { set: false }))
+        if (group.vault && round === 0 && startWithPattern && !s.group?.hasPattern) setSetting('set')
       })
       .catch((e) => live && setFailed(errText(e)))
     return () => {
@@ -64,6 +79,9 @@ export function PrivateGroupSheet({ group, open, onClose, isCreator }: { group: 
 
   const demo = repo.mode === 'demo'
   const own = status?.group
+  // The others in it with no universal pattern: they open it only with its own (src/lib/vault-setup.ts waitingNote).
+  const noUniversal = (own?.noUniversal ?? []).map((u) => labelForUid(group.members, u) ?? 'Someone')
+  const waiting = group.vault && own && !own.hasPattern ? waitingNote(noUniversal) : null
   // A private group opens with its own pattern while it has one; else with everyone's universal one.
   const current: OpensWith = group.vault ? (own?.hasPattern ? 'own' : 'universal') : opensWith
   const ownState = group.vault ? { set: !!own?.hasPattern, ordered: own?.ordered } : { set: !!draftOwn, ordered: draftOwn?.ordered }
@@ -78,7 +96,7 @@ export function PrivateGroupSheet({ group, open, onClose, isCreator }: { group: 
     if (!status?.universal) return setNote('Set your universal pattern first: without its own pattern, that’s what opens it.')
     const ok = await confirm({
       title: 'Remove this group’s own pattern?',
-      message: 'People in it open it with their universal pattern instead.',
+      message: removeWarning(noUniversal),
       confirmLabel: 'Remove',
     })
     if (ok) setSetting('remove')
@@ -188,6 +206,17 @@ export function PrivateGroupSheet({ group, open, onClose, isCreator }: { group: 
               busy={busy === 'passkey' ? 'passkey' : null}
               onAction={onAction}
             />
+            {waiting && (
+              <div className="card space-y-3 p-4" data-testid="vault-waiting">
+                <div>
+                  <p className="text-sm font-semibold">{waiting.title}</p>
+                  <p className="text-muted mt-1 text-sm">{waiting.detail}</p>
+                </div>
+                <button type="button" className="btn w-full" disabled={!!busy} onClick={() => setSetting('set')} data-testid="vault-waiting-set">
+                  <KeySquare size={18} aria-hidden /> Give it its own pattern
+                </button>
+              </div>
+            )}
             {group.vault && (
               <div className="card p-4">
                 <GroupLockTime groupId={group.id} />

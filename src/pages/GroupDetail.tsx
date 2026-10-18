@@ -142,6 +142,8 @@ export default function GroupDetail() {
   const [invite, setInvite] = useState(false)
   const [menu, setMenu] = useState(false)
   const [patternOpen, setPatternOpen] = useState(false)
+  // ?private=pattern: after letting in someone with no way to open it, straight to giving it its own pattern.
+  const wantsPattern = params.get('private') === 'pattern'
   /** the Expenses list's sort and filter sheet */
   const [listSheet, setListSheet] = useState(false)
   const toast = useToast()
@@ -158,6 +160,9 @@ export default function GroupDetail() {
   // Minimal look: the Whose-turn chip is optional, the group's facts (dates, Archived) stay.
   const showTurn = useShows(2)
   const vaultOpen = useVaultOpen(groupId)
+  useEffect(() => {
+    if (wantsPattern && vaultOpen) setPatternOpen(true)
+  }, [wantsPattern, vaultOpen])
   // A locked private group's name stays off the tab and the app switcher too.
   usePageTitle(liveGroup ? (liveGroup.vault && !vaultOpen ? 'Private group' : liveGroup.name) : liveGroup === null ? 'Group not found' : undefined)
 
@@ -669,7 +674,9 @@ export default function GroupDetail() {
         </div>
       </Sheet>
 
-      {privateMenu && <PrivateGroupSheet group={group} open={patternOpen} onClose={() => setPatternOpen(false)} isCreator={creator} />}
+      {privateMenu && (
+        <PrivateGroupSheet group={group} open={patternOpen} onClose={() => setPatternOpen(false)} isCreator={creator} startWithPattern={wantsPattern} />
+      )}
       <Sheet open={menu} onClose={() => setMenu(false)} title={group.name} testId="group-menu-sheet">
         <ul className="-mx-2 divide-y divide-slate-100 dark:divide-white/5">
           <MenuRow

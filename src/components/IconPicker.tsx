@@ -90,27 +90,53 @@ export function IconPickerField({
 }
 
 /** One-tap "Looks like a trip ✈️ — use it" chip for a name-based guess the user can take or dismiss. */
+/**
+ * The suggestions under a group's name (a second AI icon, the type it looks like), in one row that
+ * scrolls sideways: each pill keeps its whole text instead of cutting it short on a narrow phone.
+ */
+export function SuggestionRow({ children }: { children: ReactNode }) {
+  // py-1 and the end spacer: overflow-x-auto clips the pills' edges otherwise.
+  return (
+    <div className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 py-1 after:block after:w-px after:shrink-0 after:content-['']" data-no-drag>
+      {children}
+    </div>
+  )
+}
+
+/** One suggestion: tap to use it, ✕ to dismiss it. Never truncated, never wraps (SuggestionRow scrolls). */
+export function SuggestionPill({
+  children,
+  onApply,
+  onDismiss,
+  dismissLabel,
+  testId,
+}: {
+  children: ReactNode
+  onApply: () => void
+  onDismiss: () => void
+  dismissLabel: string
+  testId?: string
+}) {
+  return (
+    <div
+      className="animate-fade flex shrink-0 items-center rounded-full bg-brand-50 text-xs font-semibold text-brand-700 dark:bg-brand-900/40 dark:text-brand-200"
+      data-testid={testId}
+    >
+      <button type="button" onClick={onApply} className="flex min-h-9 items-center whitespace-nowrap py-1.5 pr-1 pl-3">
+        {children}
+      </button>
+      <button type="button" onClick={onDismiss} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full opacity-70" aria-label={dismissLabel}>
+        <X size={14} aria-hidden />
+      </button>
+    </div>
+  )
+}
+
 export function TypeSuggestion({ guess, onApply, onDismiss }: { guess: GroupGuess; onApply: () => void; onDismiss: () => void }) {
   const label = groupTypeInfo(guess.type).label.toLowerCase()
   return (
-    <div className="animate-fade flex items-center gap-1" data-testid="type-suggestion">
-      <button
-        type="button"
-        onClick={onApply}
-        className="flex min-h-9 min-w-0 items-center rounded-full bg-brand-50 px-3 py-1.5 text-left text-xs font-semibold text-brand-700 dark:bg-brand-900/40 dark:text-brand-200"
-      >
-        <span className="truncate">
-          Looks like {/^[aeiou]/.test(label) ? 'an' : 'a'} {label} {guess.emoji} · use it
-        </span>
-      </button>
-      <button
-        type="button"
-        onClick={onDismiss}
-        className="text-muted flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
-        aria-label="Dismiss suggestion"
-      >
-        <X size={16} aria-hidden />
-      </button>
-    </div>
+    <SuggestionPill onApply={onApply} onDismiss={onDismiss} dismissLabel="Dismiss suggestion" testId="type-suggestion">
+      Looks like {/^[aeiou]/.test(label) ? 'an' : 'a'} {label} {guess.emoji} · use it
+    </SuggestionPill>
   )
 }

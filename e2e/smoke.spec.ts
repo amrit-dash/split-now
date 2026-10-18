@@ -1258,6 +1258,49 @@ test('Private group: it can’t be made without a pattern to open it, chosen rig
   await expect(page).toHaveURL(/\/groups\/(?!new)[^/]+$/)
 })
 
+test('Private group: someone let in with no way to open it gets its creator a prompt to give it its own pattern', async ({ page }) => {
+  const enter = async (p: string) => {
+    for (const c of p) await page.getByTestId(c === 'T' ? 'pattern-add-tap' : 'pattern-add-long').click()
+  }
+  await turnOnPrivateGroups(page)
+  await page.goto('/groups/new')
+  await page
+    .getByRole('radiogroup', { name: 'What are you creating?' })
+    .getByRole('radio', { name: /^Group/ })
+    .click()
+  await page.getByLabel('Name', { exact: true }).fill('Quiet plans')
+  await page.getByTestId('group-private').click()
+  // opens with the universal pattern, set right here
+  await page.getByTestId('vault-opens-with').getByRole('radio', { name: 'Universal pattern' }).click()
+  await page.getByTestId('vault-universal-open').click()
+  await enter('TTLTLL')
+  await page.getByTestId('vault-set-next').click()
+  await enter('TTLTLL')
+  await page.getByTestId('vault-set-next').click()
+  await page.getByTestId('group-save').click()
+  await expect(page).toHaveURL(/\/groups\/(?!new)[^/]+$/)
+  // Ananya, from another group, comes in at once; she has no universal pattern and it has no own one
+  await page.getByTestId('group-menu').click()
+  await page.getByTestId('group-members').click()
+  await page.getByLabel('Search people').fill('Anan')
+  await page.getByRole('button', { name: 'Add Ananya' }).click()
+  const prompt = page.getByTestId('confirm-sheet')
+  await expect(prompt).toContainText('Ananya can’t open it yet')
+  await prompt.getByTestId('confirm-ok').click()
+  // straight to its own pattern: the universal one that opens it first, then the new one twice
+  await expect(page.getByTestId('vault-set-pattern')).toBeVisible()
+  await enter('TTLTLL')
+  await page.getByTestId('vault-set-next').click()
+  await enter('TLT')
+  await page.getByTestId('vault-set-next').click()
+  await enter('TLT')
+  await page.getByTestId('vault-set-next').click()
+  await expect(page.getByTestId('vault-set-pattern')).toBeHidden()
+  await expect(page.getByTestId('vault-group-sheet')).toBeVisible()
+  await expect(page.getByTestId('vault-line-own')).toHaveAttribute('data-state', 'ready')
+  await expect(page.getByTestId('vault-waiting')).toHaveCount(0)
+})
+
 test('Private groups start off: New group has no Private switch until Settings → Encrypted groups → Turn on', async ({ page }) => {
   const newGroup = async () => {
     await page.goto('/groups/new')

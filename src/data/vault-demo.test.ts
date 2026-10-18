@@ -80,6 +80,25 @@ describe('demo vault', () => {
     await v({ op: 'setUniversal', pattern: 'LLTTLT', ordered: true, current: 'TTLTLL' })
     await expect(v({ op: 'unlockStart', pattern: 'LLTTLT' })).resolves.toMatchObject({ keys: { a: expect.any(String) } })
   })
+  it('someone added with no universal pattern can’t open it until it gets its own pattern, which is then kept', async () => {
+    const added: string[] = []
+    const v = demoVault(
+      mem(),
+      undefined,
+      () => ['g'],
+      undefined,
+      async (_g, who) => void added.push(who),
+    )
+    await v({ op: 'setUniversal', pattern: 'TTLTLL', ordered: true })
+    await v({ op: 'create', groupId: 'g' })
+    expect(await v({ op: 'addContact', groupId: 'g', uid: 'seed_ananya' })).toEqual({ ok: true, opens: false })
+    expect(added).toEqual(['seed_ananya'])
+    expect(await v({ op: 'status', groupId: 'g' })).toMatchObject({ group: { hasPattern: false, noUniversal: ['seed_ananya'] } })
+    await v({ op: 'groupPattern', groupId: 'g', pattern: 'TLT', ordered: true, current: 'TTLTLL' })
+    // still without a universal pattern (removing its own would lock them out), and now it opens for them
+    expect(await v({ op: 'status', groupId: 'g' })).toMatchObject({ group: { hasPattern: true, noUniversal: ['seed_ananya'] } })
+    expect(await v({ op: 'addContact', groupId: 'g', uid: 'seed_meera' })).toEqual({ ok: true, opens: true })
+  })
   it('a group’s own pattern chosen as it is made opens it, without anyone’s universal pattern', async () => {
     const v = demoVault(mem(), undefined, () => ['a'])
     await expect(v({ op: 'create', groupId: 'a', pattern: '', ordered: true })).rejects.toThrow()

@@ -73,7 +73,7 @@ import {
 import { db } from './admin'
 import { sendToUser } from './push'
 import { vaultKey, type VaultKey } from '../../shared/vault-crypto'
-import { blocksStopping, openDoc, privateGroupsOn, sealDoc, type ConvertKind } from '../../shared/vault-convert'
+import { blocksStopping, openDoc, privateGroupsOn, sealDoc, type ConvertKind, withoutUniversal } from '../../shared/vault-convert'
 import { inviteNameFor } from '../../shared/names'
 import { isOpenPlaceholder, joinGate, memberIdFor, sharesAGroup, type JoinRequestDoc } from './lib/join-core'
 import { APP_ORIGINS, ENFORCE_APP_CHECK, REGION } from './config'
@@ -159,7 +159,8 @@ export type VaultStatus = {
   ordered?: boolean
   triesLeft: number
   lockedUntil?: number
-  group?: { keyReady: boolean; hasPattern: boolean; ordered?: boolean }
+  /** `noUniversal`: the others in it with no universal pattern (without its own pattern they can't open it) */
+  group?: { keyReady: boolean; hasPattern: boolean; ordered?: boolean; noUniversal?: string[] }
   /** turned private groups on: the app offers to make them */
   on?: boolean
   /** stopped using private groups */
@@ -206,6 +207,19 @@ async function privateGroup(gid: string, uid: string) {
   if (g.vault !== true) throw new HttpsError('failed-precondition', 'This group isn’t private.')
   if (typeof g.deletedAt === 'number') throw new HttpsError('failed-precondition', 'This group is in Recently deleted.')
   return g
+}
+
+/** Of these people, the ones with a universal pattern (each opens every private group they're in). */
+async function withUniversal(uids: string[]): Promise<Set<string>> {
+  if (!uids.length) return new Set()
+  const docs = await db().getAll(...uids.map(personRef))
+  return new Set(uids.filter((_, i) => !!(docs[i].data() as PersonDoc | undefined)?.pattern))
+}
+
+/** Whether someone just added can open the group: its own pattern, or their universal one. */
+async function opensFor(gid: string, who: string): Promise<boolean> {
+  const [key, person] = await Promise.all([keyRef(gid).get(), personRef(who).get()])
+  return !!(key.data() as VaultKeyDoc | undefined)?.pattern || !!(person.data() as PersonDoc | undefined)?.pattern
 }
 
 /** How many live private groups this person made and is still in (shared/vault-convert.ts blocksStopping). */
@@ -646,7 +660,8 @@ async function decideJoin(uid: string, req: CallableRequest, data: Record<string
     url: approve ? `/groups/${gid}` : '/',
     tag: approve ? `group-added-${gid}` : `join-declined-${gid}`,
   }).catch((e) => logger.warn('join push', { error: (e as Error).message }))
-  return { ok: true as const }
+  // Let in with nothing to open it with: the app offers its creator to give it its own pattern.
+  return approve ? { ok: true as const, opens: await opensFor(gid, who) } : { ok: true as const }
 }
 
 async function addContact(uid: string, req: CallableRequest, data: Record<string, unknown>) {
@@ -685,7 +700,7 @@ async function addContact(uid: string, req: CallableRequest, data: Record<string
     url: `/groups/${gid}`,
     tag: `group-added-${gid}`,
   }).catch((e) => logger.warn('join push', { error: (e as Error).message }))
-  return { ok: true as const }
+  return { ok: true as const, opens: await opensFor(gid, who) }
 }
 
 const ordered = (v: unknown): boolean => v !== false
@@ -707,7 +722,7 @@ export const vault = onCall(
         return { ok: true as const }
       case 'status': {
         const gid = data.groupId === undefined ? undefined : groupId(data.groupId)
-        if (gid) await privateGroup(gid, uid)
+        const g = gid ? await privateGroup(gid, uid) : undefined
         const { rpID } = rp(req)
         const [person, passkeys, key, profile] = await Promise.all([
           personRef(uid).get(),
@@ -722,6 +737,9 @@ export const vault = onCall(
         // The backfill: marked on once, and the profile's copy put right when it's missing.
         if (on && (!p.on || profile.get('privateGroupsOn') !== true)) await markOn(uid)
         const k = key?.data() as VaultKeyDoc | undefined
+        // Who else in it has no universal pattern: without its own pattern they can't open it (one read per person).
+        const others = g ? (g.memberUids as string[]).filter((u) => u !== uid) : []
+        const noUniversal = g ? withoutUniversal(g.memberUids as string[], await withUniversal(others), uid) : []
         const locked = lockedOut(p.tries, Date.now())
         return {
           serverReady: kekList().length > 0,
@@ -730,7 +748,16 @@ export const vault = onCall(
           ...(p.pattern ? { ordered: p.pattern.ordered !== false } : {}),
           triesLeft: locked ? 0 : triesLeft(p.tries),
           ...(locked ? { lockedUntil: p.tries?.lockedUntil } : {}),
-          ...(gid ? { group: { keyReady: !!k, hasPattern: !!k?.pattern, ...(k?.pattern ? { ordered: k.pattern.ordered !== false } : {}) } } : {}),
+          ...(gid
+            ? {
+                group: {
+                  keyReady: !!k,
+                  hasPattern: !!k?.pattern,
+                  ...(k?.pattern ? { ordered: k.pattern.ordered !== false } : {}),
+                  ...(noUniversal.length ? { noUniversal } : {}),
+                },
+              }
+            : {}),
           ...(on ? { on: true } : {}),
           ...(p.off ? { off: true } : {}),
           ...(data.made === true ? { made } : {}),

@@ -132,3 +132,39 @@ export function stateLabel(r: SetupRow): string {
   if (r.state === 'ready') return r.id === 'passkey' ? 'Added' : 'Ready'
   return r.id === 'server' ? 'Not ready' : 'Needed'
 }
+
+/** "Mira", "Mira and Dev", "Mira, Dev and 2 others". */
+function nameList(names: string[]): string {
+  if (names.length <= 1) return names[0] ?? 'Someone'
+  if (names.length === 2) return `${names[0]} and ${names[1]}`
+  return names.length === 3 ? `${names[0]}, ${names[1]} and ${names[2]}` : `${names[0]}, ${names[1]} and ${names.length - 2} others`
+}
+
+/**
+ * The card in a private group's sheet when people in it can't open it yet: with no pattern of its
+ * own it opens only with universal patterns, and they haven't set one (private groups off, or
+ * stopped). Null: everyone can, or it has its own pattern.
+ */
+export function waitingNote(names: string[]): { title: string; detail: string } | null {
+  if (!names.length) return null
+  const one = names.length === 1
+  return {
+    title: `${nameList(names)} can’t open it yet`,
+    detail: `${one ? 'They haven’t' : 'None of them has'} set up a universal pattern, and this group has no pattern of its own. Give it one and tell them in person.`,
+  }
+}
+
+/** Removing a group's own pattern while some people open it only with that: say who gets locked out. */
+export function removeWarning(names: string[]): string {
+  if (!names.length) return 'People in it open it with their universal pattern instead.'
+  return `People in it open it with their universal pattern instead. ${nameList(names)} ${names.length === 1 ? 'has' : 'have'} none, so they won’t be able to open it.`
+}
+
+/** After letting someone into a private group they have no way to open yet: what to offer its creator. */
+export function addedPrompt(name: string): { title: string; message: string; confirmLabel: string } {
+  return {
+    title: `${name} can’t open it yet`,
+    message: `${name} hasn’t set up private groups, and this group has no pattern of its own. Give it one now and tell it to ${name} in person?`,
+    confirmLabel: 'Give it a pattern',
+  }
+}

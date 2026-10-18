@@ -70,6 +70,16 @@ Groups); on by default like every flag, server-enforced in the `vault` callable.
   It opens only that group, for anyone in it who knows it, even someone with no universal pattern.
   Anyone in the group who can already open it (with their universal pattern or its own) can set,
   change or remove it, after their passkey. 7.1's group patterns are kept as the groups' own.
+- **Someone with no way in.** A private group with no own pattern opens only with universal
+  patterns, so someone in it without one (private groups off, or stopped) can't open it. `status`
+  with a group answers `group.noUniversal`: the other uids in it with no universal pattern (one read
+  per person, `withoutUniversal` in shared/vault-convert.ts). With no own pattern, the Private group
+  sheet names them ("Mira can't open it yet") with **Give it its own pattern**; with one, removing it
+  warns that they'd be locked out (`waitingNote`, `removeWarning` in src/lib/vault-setup.ts).
+  `addContact` and `decideJoin` (approved) answer `opens: false` for someone let in with nothing to
+  open it with; the app then asks its creator to give it one now (`addedPrompt`), which opens the
+  group at `?private=pattern`, straight into setting its own pattern. Its creator learns only whether
+  that person has a universal pattern, nothing about it.
 - **A new group's own pattern** can be chosen as it's made private (New group → Private group, or
   Group ⋯ → Make private → Opens with: Its own pattern), entered twice; it goes to the server with the
   group's first key (`create`, or `convert` with `pattern` and `ordered`). Later it is changed from
