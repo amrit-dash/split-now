@@ -2,9 +2,15 @@
  * Callable `vault`: private groups (docs/VAULT.md). One function, several steps (`op`):
  *
  *  - status         { groupId?, made? }              → this person's setup (passkey, universal pattern,
- *                                                       stopped), tries left / locked until, and for a
+ *                                                       on, stopped), tries left / locked until, and for a
  *                                                       group: key made, own pattern set; `made`: how many
- *                                                       private groups they made would keep them from stopping
+ *                                                       private groups they made would keep them from stopping.
+ *                                                       Someone from before private groups started off who
+ *                                                       has a universal pattern or made one is marked on here
+ *  - start          {}                                → this person turns private groups on (Settings →
+ *                                                       Encrypted groups): the app offers to make them
+ *                                                       (users/{uid}.privateGroupsOn). Needs no pattern: one
+ *                                                       is chosen per group, or set later
  *  - passkeyOptions { purpose: 'register' | 'auth' } → WebAuthn options; the challenge is kept for 5 minutes
  *  - passkeyRegister { response }                    → a passkey (Face ID, fingerprint, screen lock) for
  *                                                       this person on this site, kept in users/{uid}/secrets/passkeys
@@ -25,7 +31,7 @@
  *                                                       stops offering private groups (users/{uid}.privateGroupsOff).
  *                                                       Refused while they're in a live private group they made;
  *                                                       other people's open with those groups' own patterns.
- *                                                       Setting a universal pattern again starts them again
+ *                                                       `start` (or setting a universal pattern) turns them on again
  *  - joinStatus     { code }                          → where this person stands with a private group's invite
  *  - requestJoin    { code }                          → asks to join it (nobody joins a private group from its
  *                                                       invite); its creator is told
@@ -36,6 +42,13 @@
  *                                                       every document's words sealed (or opened) here, with
  *                                                       the Admin SDK, since the rules let no one rewrite
  *                                                       other people's comments, chat or the activity log
+ *
+ * Private groups start off for everyone (the owner's call): the app offers to make one only to someone
+ * who turned them on. Being off never keeps anyone out of a private group someone else added them
+ * to: it opens with its own pattern and their passkey, and joining, the Inbox and the locks ask
+ * nothing about it. The on state is the server's (users/{uid}/secrets/vault `on`, mirrored to
+ * users/{uid}.privateGroupsOn for the app to read); `start`, `setUniversal`, `create`, `convert`
+ * and the backfill in `status` set it, `stop` clears it.
  *
  * The data key is sealed with the VAULT_KEK secret in vaultKeys/{groupId}, which no client can
  * read; patterns are stored only as peppered scrypt hashes (lib/vault-core.ts): a person's universal
@@ -60,7 +73,7 @@ import {
 import { db } from './admin'
 import { sendToUser } from './push'
 import { vaultKey, type VaultKey } from '../../shared/vault-crypto'
-import { blocksStopping, openDoc, sealDoc, type ConvertKind } from '../../shared/vault-convert'
+import { blocksStopping, openDoc, privateGroupsOn, sealDoc, type ConvertKind } from '../../shared/vault-convert'
 import { inviteNameFor } from '../../shared/names'
 import { isOpenPlaceholder, joinGate, memberIdFor, sharesAGroup, type JoinRequestDoc } from './lib/join-core'
 import { APP_ORIGINS, ENFORCE_APP_CHECK, REGION } from './config'
@@ -119,7 +132,10 @@ interface PersonDoc {
   setAt?: number
   /** wrong patterns, universal or a group's, counted together */
   tries?: TryState
-  /** stopped using private groups (op `stop`): no new ones until a universal pattern is set again */
+  /** turned private groups on (op `start`, a universal pattern, or a private group they made) */
+  on?: boolean
+  onAt?: number
+  /** stopped using private groups (op `stop`): no new ones until they turn them on again */
   off?: boolean
   offAt?: number
 }
@@ -144,6 +160,8 @@ export type VaultStatus = {
   triesLeft: number
   lockedUntil?: number
   group?: { keyReady: boolean; hasPattern: boolean; ordered?: boolean }
+  /** turned private groups on: the app offers to make them */
+  on?: boolean
   /** stopped using private groups */
   off?: boolean
   /** asked with `made`: the live private groups they made and are in (each keeps them from stopping) */
@@ -196,7 +214,7 @@ async function madePrivate(uid: string): Promise<number> {
   return groups.docs.filter((d) => blocksStopping(d.data(), uid)).length
 }
 
-const OFF_TEXT = 'You stopped using private groups. Start again in Settings → Encrypted groups.'
+const OFF_TEXT = 'You stopped using private groups. Turn them on again in Settings → Encrypted groups.'
 /** A private group must open with something: the person's universal pattern, or its own (chosen as it's made private). */
 const NO_PATTERN_TEXT = 'Choose how it opens first: your universal pattern, or its own pattern.'
 const NO_PASSKEY_TEXT = 'Add a passkey first: Face ID, a fingerprint or your screen lock.'
@@ -206,6 +224,19 @@ const REMOVE_NEEDS_UNIVERSAL = 'Set your universal pattern first: without its ow
 const passkeysRef = (uid: string) => db().doc(`users/${uid}/secrets/passkeys`)
 const personRef = (uid: string) => db().doc(`users/${uid}/secrets/vault`)
 const keyRef = (gid: string) => db().doc(`vaultKeys/${gid}`)
+
+/**
+ * Private groups on for this person: on the server's own record, and on their profile for the app
+ * (users/{uid}.privateGroupsOn; the app only reads it, to decide what to offer). Turning on also
+ * ends a stop.
+ */
+async function markOn(uid: string) {
+  const now = Date.now()
+  await Promise.all([
+    personRef(uid).set({ on: true, onAt: now, off: FieldValue.delete(), offAt: FieldValue.delete() }, { merge: true }),
+    db().doc(`users/${uid}`).set({ privateGroupsOn: true, privateGroupsOff: FieldValue.delete() }, { merge: true }),
+  ])
+}
 
 const mineHere = (doc: PasskeyDoc, rpID: string) => (doc.credentials ?? []).filter((c) => c.rpID === rpID)
 
@@ -678,13 +709,18 @@ export const vault = onCall(
         const gid = data.groupId === undefined ? undefined : groupId(data.groupId)
         if (gid) await privateGroup(gid, uid)
         const { rpID } = rp(req)
-        const [person, passkeys, key, made] = await Promise.all([
+        const [person, passkeys, key, profile] = await Promise.all([
           personRef(uid).get(),
           passkeysRef(uid).get(),
           gid ? keyRef(gid).get() : undefined,
-          data.made === true ? madePrivate(uid) : undefined,
+          db().doc(`users/${uid}`).get(),
         ])
         const p = (person.data() ?? {}) as PersonDoc
+        // Counted when asked, and for someone neither on nor off, whose own private groups may make them on.
+        const made = data.made === true || (!p.on && !p.off && !p.pattern) ? await madePrivate(uid) : undefined
+        const on = privateGroupsOn(p, made)
+        // The backfill: marked on once, and the profile's copy put right when it's missing.
+        if (on && (!p.on || profile.get('privateGroupsOn') !== true)) await markOn(uid)
         const k = key?.data() as VaultKeyDoc | undefined
         const locked = lockedOut(p.tries, Date.now())
         return {
@@ -695,8 +731,9 @@ export const vault = onCall(
           triesLeft: locked ? 0 : triesLeft(p.tries),
           ...(locked ? { lockedUntil: p.tries?.lockedUntil } : {}),
           ...(gid ? { group: { keyReady: !!k, hasPattern: !!k?.pattern, ...(k?.pattern ? { ordered: k.pattern.ordered !== false } : {}) } } : {}),
+          ...(on ? { on: true } : {}),
           ...(p.off ? { off: true } : {}),
-          ...(made !== undefined ? { made } : {}),
+          ...(data.made === true ? { made } : {}),
         } satisfies VaultStatus
       }
       case 'setUniversal': {
@@ -712,14 +749,18 @@ export const vault = onCall(
             pattern: hashPattern(data.pattern as string, pepperOf(list[0]), undefined, ordered(data.ordered)),
             setAt: Date.now(),
             tries: FieldValue.delete(),
-            // a universal pattern is how someone who stopped starts again
-            off: FieldValue.delete(),
-            offAt: FieldValue.delete(),
           },
           { merge: true },
         )
-        if (was.off) await db().doc(`users/${uid}`).set({ privateGroupsOff: FieldValue.delete() }, { merge: true })
+        // Someone with a universal pattern has private groups on (and someone who stopped starts again).
+        await markOn(uid)
         logger.info('vault universal pattern set', { uid })
+        return { ok: true as const }
+      }
+      case 'start': {
+        // Only what the app offers changes: nothing is set up, and every private group opens as before.
+        await markOn(uid)
+        logger.info('vault started', { uid })
         return { ok: true as const }
       }
       case 'unlockStart': {
@@ -798,6 +839,8 @@ export const vault = onCall(
         logger.info('vault key made', { groupId: gid, uid })
         // Its own document's words, sealed with the new key (made before the key existed, so in the clear).
         await convertPass(gid, await vaultKey(gid, dek), true, { groupOnly: true })
+        // Someone who made a private group has them on (an older app offers the switch to everyone).
+        if (!person?.on) await markOn(uid)
         return { dek }
       }
       case 'joinStatus':
@@ -830,9 +873,11 @@ export const vault = onCall(
         }
         const list = keks()
         await checkPasskey(uid, req, data.auth as AuthenticationResponseJSON)
-        return on
-          ? makePrivate(gid, uid, g, list, own === undefined ? undefined : { pattern: own, ordered: ordered(data.ordered) })
-          : makePlain(gid, uid, g, list)
+        if (!on) return makePlain(gid, uid, g, list)
+        const out = await makePrivate(gid, uid, g, list, own === undefined ? undefined : { pattern: own, ordered: ordered(data.ordered) })
+        // As for `create`: making a private group turns them on.
+        if (!(((await personRef(uid).get()).data() ?? {}) as PersonDoc).on) await markOn(uid)
+        return out
       }
       case 'stop': {
         // First what holds it up (no try spent on a pattern that can't help yet).
@@ -845,9 +890,12 @@ export const vault = onCall(
           await checkPasskey(uid, req, data.auth as AuthenticationResponseJSON)
         }
         // Wrong tries are kept: a lockout doesn't end by stopping.
-        await personRef(uid).set({ pattern: FieldValue.delete(), setAt: FieldValue.delete(), off: true, offAt: Date.now() }, { merge: true })
+        await personRef(uid).set(
+          { pattern: FieldValue.delete(), setAt: FieldValue.delete(), on: FieldValue.delete(), onAt: FieldValue.delete(), off: true, offAt: Date.now() },
+          { merge: true },
+        )
         await passkeysRef(uid).delete()
-        await db().doc(`users/${uid}`).set({ privateGroupsOff: true }, { merge: true })
+        await db().doc(`users/${uid}`).set({ privateGroupsOff: true, privateGroupsOn: FieldValue.delete() }, { merge: true })
         logger.info('vault stopped', { uid })
         return { ok: true as const }
       }

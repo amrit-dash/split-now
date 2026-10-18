@@ -4,6 +4,12 @@ import {
   stepsSpoken,
   tryStillWanted,
   privateOffered,
+  privateOn,
+  privateSummary,
+  statusCheckWanted,
+  setupPrompt,
+  suggestTurningOn,
+  vaultView,
   stopPlan,
   firstPhase,
   phasePrompt,
@@ -144,14 +150,62 @@ describe('the pattern sheet', () => {
 
 describe('stopping private groups', () => {
   it('hides private groups from someone who stopped, except the ones they are in', () => {
-    expect(privateOffered(true, {})).toBe(true)
+    expect(privateOffered(true, { privateGroupsOn: true })).toBe(true)
     expect(privateOffered(true, { privateGroupsOff: true })).toBe(false)
-    expect(privateOffered(false, {})).toBe(false)
-    expect(privateMenuShown({ type: 'trip' }, true, true, true)).toBe(false)
-    expect(privateMenuShown({ type: 'trip', vault: true }, false, true, true)).toBe(true)
+    expect(privateOffered(false, { privateGroupsOn: true })).toBe(false)
+    expect(privateMenuShown({ type: 'trip' }, true, false)).toBe(false)
+    expect(privateMenuShown({ type: 'trip', vault: true }, false, false)).toBe(true)
     // the Groups screen's button: nothing to unlock with, but still locks what is open
     expect(lockButton(['a'], () => false, true)).toBe('none')
     expect(lockButton(['a'], () => true, true)).toBe('lock')
+    expect(lockButton(['a'], () => false)).toBe('unlock')
+  })
+  it('start off: offered to make them only once turned on', () => {
+    expect(privateOn({})).toBe(false)
+    expect(privateOn(null)).toBe(false)
+    expect(privateOffered(true, {})).toBe(false)
+    expect(privateOn({ privateGroupsOn: true })).toBe(true)
+    // the creator's menu: Make private only for someone offered private groups, never for a wallet
+    expect(privateMenuShown({ type: 'trip' }, true, true)).toBe(true)
+    expect(privateMenuShown({ type: 'trip' }, false, true)).toBe(false)
+    expect(privateMenuShown({ type: 'personal' }, true, true)).toBe(false)
+    // a private group they were added to is still theirs to open, on or off
+    expect(privateMenuShown({ type: 'trip', vault: true }, false, false)).toBe(true)
+  })
+  it('counts someone from before as on as soon as the app knows they have a universal pattern', () => {
+    expect(privateOn({}, { universal: true })).toBe(true)
+    expect(privateOffered(true, {}, { universal: true })).toBe(true)
+    expect(privateOn({}, { universal: false, on: true })).toBe(true)
+    expect(privateOn({}, { universal: false })).toBe(false)
+    // a stop wins, on the profile or in the answer
+    expect(privateOn({ privateGroupsOff: true }, { universal: true })).toBe(false)
+    expect(privateOn({ privateGroupsOn: true }, { universal: false, off: true })).toBe(false)
+  })
+  it('asks the server once per device for someone neither on nor off', () => {
+    expect(statusCheckWanted(true, {}, false)).toBe(true)
+    expect(statusCheckWanted(true, {}, true)).toBe(false)
+    expect(statusCheckWanted(true, { privateGroupsOn: true }, false)).toBe(false)
+    expect(statusCheckWanted(true, { privateGroupsOff: true }, false)).toBe(false)
+    expect(statusCheckWanted(false, {}, false)).toBe(false)
+    expect(statusCheckWanted(true, null, false)).toBe(false)
+  })
+  it('says on or off in Settings, and suggests turning on inside a private group', () => {
+    expect(privateSummary(true)).toMatch(/^On/)
+    expect(privateSummary(false)).toBe('Off')
+    expect(vaultView({})).toBe('off')
+    expect(vaultView({ on: true })).toBe('on')
+    expect(vaultView({ off: true })).toBe('stopped')
+    expect(suggestTurningOn(true, false, false)).toBe(true)
+    expect(suggestTurningOn(true, true, false)).toBe(false)
+    // someone who stopped chose to: no nudge
+    expect(suggestTurningOn(true, false, true)).toBe(false)
+    expect(suggestTurningOn(false, false, false)).toBe(false)
+  })
+  it('a lock button’s setup prompt says to turn private groups on first while they are off', () => {
+    expect(setupPrompt(true, false)).toMatch(/^Private groups are off for you/)
+    expect(setupPrompt(false, false)).toMatch(/Turn them on in Settings/)
+    expect(setupPrompt(true, true)).toMatch(/^Set your universal pattern to open/)
+    expect(setupPrompt(false, true)).toMatch(/^Set your universal pattern first/)
   })
   it('says what keeps them from stopping', () => {
     expect(stopPlan({ made: 2 })).toBe('made')

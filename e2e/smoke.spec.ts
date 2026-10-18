@@ -38,6 +38,13 @@ async function signInDemo(page: Page, name = 'Asha') {
 /** The expense amount: by label once the form labels it, else the big "0.00" field at the top of the amount card. */
 const amountField = (page: Page) => page.getByLabel('Amount', { exact: true }).or(page.getByPlaceholder('0.00')).first()
 
+/** Private groups start off: Settings → Encrypted groups → Turn on private groups, leaving the setup card on screen. */
+async function turnOnPrivateGroups(page: Page) {
+  await page.goto('/settings/vault')
+  await page.getByTestId('vault-turn-on').click()
+  await expect(page.getByTestId('vault-setup-status')).toBeVisible()
+}
+
 test('demo sign-in shows Home with a net balance and the seeded groups', async ({ page }) => {
   await expect(page.getByTestId('home-net')).toBeVisible()
   await page.getByRole('navigation').getByRole('link', { name: 'Groups' }).click()
@@ -82,8 +89,8 @@ test('Private group: universal pattern, words stored encrypted, patterns go in o
     const lock = page.getByTestId(testId)
     for (const s of p) await lock.click(s === 'L' ? { delay: 600 } : undefined)
   }
-  // Settings → Encrypted groups: the universal pattern, twice
-  await page.goto('/settings/vault')
+  // Settings → Encrypted groups: turned on, then the universal pattern, twice
+  await turnOnPrivateGroups(page)
   await page.getByTestId('vault-universal-open').click()
   await enter()
   // the pad that sets it shows each tap as a dot and each long press as a dash
@@ -190,7 +197,7 @@ test('Private group: its creator makes an existing group private, everything in 
   const enter = async (p = 'TTLTLL') => {
     for (const s of p) await page.getByTestId(s === 'T' ? 'pattern-add-tap' : 'pattern-add-long').click()
   }
-  await page.goto('/settings/vault')
+  await turnOnPrivateGroups(page)
   await page.getByTestId('vault-universal-open').click()
   await enter()
   await page.getByTestId('vault-set-next').click()
@@ -1224,6 +1231,8 @@ test('Private group: it can’t be made without a pattern to open it, chosen rig
   const enter = async (p: string) => {
     for (const c of p) await page.getByTestId(c === 'T' ? 'pattern-add-tap' : 'pattern-add-long').click()
   }
+  // turned on, with nothing set up yet
+  await turnOnPrivateGroups(page)
   await page.goto('/groups/new')
   await page
     .getByRole('radiogroup', { name: 'What are you creating?' })
@@ -1249,11 +1258,46 @@ test('Private group: it can’t be made without a pattern to open it, chosen rig
   await expect(page).toHaveURL(/\/groups\/(?!new)[^/]+$/)
 })
 
-test('Private groups: stopping hides them, and a universal pattern starts them again', async ({ page }) => {
+test('Private groups start off: New group has no Private switch until Settings → Encrypted groups → Turn on', async ({ page }) => {
+  const newGroup = async () => {
+    await page.goto('/groups/new')
+    await page
+      .getByRole('radiogroup', { name: 'What are you creating?' })
+      .getByRole('radio', { name: /^Group/ })
+      .click()
+    await expect(page.getByLabel('Name', { exact: true })).toBeVisible()
+  }
+  await newGroup()
+  await expect(page.getByTestId('group-private')).toHaveCount(0)
+  // nor Make private in a group's menu
+  await page.goto('/groups/g_goa')
+  await expect(page.getByRole('heading', { level: 1, name: /Goa Trip/ })).toBeVisible()
+  await page.getByTestId('group-menu').click()
+  await expect(page.getByTestId('vault-group-open')).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  // Settings says Off, and Encrypted groups says why, with the way to turn them on
+  await page.goto('/settings')
+  await expect(page.getByTestId('settings-vault')).toContainText('Off')
+  await page.getByTestId('settings-vault').click()
+  await expect(page.getByTestId('vault-off')).toBeVisible()
+  await expect(page.getByTestId('vault-off')).toContainText('Private groups are off')
+  await expect(page.getByTestId('vault-setup-status')).toHaveCount(0)
+  await page.getByTestId('vault-turn-on').click()
+  // on: the setup card, with nothing set up yet, and the way to stop
+  await expect(page.getByTestId('vault-setup-status')).toBeVisible()
+  await expect(page.getByTestId('vault-line-pattern')).toHaveAttribute('data-state', 'missing')
+  await expect(page.getByTestId('vault-stop')).toBeVisible()
+  await page.goto('/settings')
+  await expect(page.getByTestId('settings-vault')).toContainText('On')
+  await newGroup()
+  await expect(page.getByTestId('group-private')).toBeVisible()
+})
+
+test('Private groups: stopping hides them, and turning them on again brings them back', async ({ page }) => {
   const enter = async (p = 'TTLTLL') => {
     for (const s of p) await page.getByTestId(s === 'T' ? 'pattern-add-tap' : 'pattern-add-long').click()
   }
-  await page.goto('/settings/vault')
+  await turnOnPrivateGroups(page)
   await page.getByTestId('vault-universal-open').click()
   await enter()
   await page.getByTestId('vault-set-next').click()
@@ -1292,9 +1336,10 @@ test('Private groups: stopping hides them, and a universal pattern starts them a
     .click()
   await expect(page.getByLabel('Name', { exact: true })).toBeVisible()
   await expect(page.getByTestId('group-private')).toHaveCount(0)
-  // starting again
-  await page.goto('/settings/vault')
-  await page.getByTestId('vault-start').click()
+  // starting again: turned on, then a new universal pattern
+  await turnOnPrivateGroups(page)
+  await expect(page.getByTestId('vault-line-pattern')).toHaveAttribute('data-state', 'missing')
+  await page.getByTestId('vault-universal-open').click()
   await enter('LLTTLT')
   await page.getByTestId('vault-set-next').click()
   await enter('LLTTLT')

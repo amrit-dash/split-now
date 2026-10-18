@@ -43,8 +43,15 @@ export interface UserProfile {
   phone?: string
   payment?: PaymentHandles
   /**
+   * Private groups are on (Settings → Encrypted groups): the app offers to make them. They start
+   * off. Written only by the server (vault ops start, setUniversal, create, convert, and status's
+   * backfill for someone with a universal pattern or a private group they made from before; stop
+   * clears it), mirroring users/{uid}/secrets/vault `on`.
+   */
+  privateGroupsOn?: boolean
+  /**
    * Stopped using private groups (Settings → Encrypted groups): the app no longer offers to make
-   * one. Written only by the server (vault op stop / setUniversal), mirroring users/{uid}/secrets/vault.
+   * one. Written only by the server (vault op stop; start / setUniversal clear it), mirroring users/{uid}/secrets/vault.
    */
   privateGroupsOff?: boolean
 }

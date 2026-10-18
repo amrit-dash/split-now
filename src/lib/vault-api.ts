@@ -12,6 +12,7 @@ export type VaultRequest =
   | { op: 'unlockFinish'; auth?: unknown; register?: unknown }
   | { op: 'groupPattern'; groupId: string; pattern: string | null; ordered: boolean; current: string; auth?: unknown }
   | { op: 'create'; groupId: string; pattern?: string; ordered?: boolean }
+  | { op: 'start' }
   | { op: 'stop'; current?: string; auth?: unknown }
   | { op: 'convert'; groupId: string; on: boolean; pattern?: string; ordered?: boolean; auth?: unknown }
   | { op: 'joinStatus'; code: string }
@@ -30,6 +31,8 @@ export interface VaultStatus {
   triesLeft: number
   lockedUntil?: number
   group?: { keyReady: boolean; hasPattern: boolean; ordered?: boolean }
+  /** private groups are on for them: turned on in Settings → Encrypted groups, or from before they started off */
+  on?: boolean
   /** stopped using private groups (Settings → Encrypted groups) */
   off?: boolean
   /** asked with `made`: live private groups they made and are still in, each keeping them from stopping */
@@ -114,11 +117,12 @@ export function setupLines(s: VaultStatus): { passkey: string; pattern: string; 
  * The Groups screen's lock button: none without private groups; "unlock" while any is locked
  * (the universal pattern opens them all); "lock" once all are open (locks them all at once).
  */
-export function lockButton(privateIds: readonly string[], isOpen: (id: string) => boolean, stopped = false): 'none' | 'unlock' | 'lock' {
+export function lockButton(privateIds: readonly string[], isOpen: (id: string) => boolean, privateOff = false): 'none' | 'unlock' | 'lock' {
   if (!privateIds.length) return 'none'
   if (privateIds.every(isOpen)) return 'lock'
-  // Someone who stopped using private groups has no universal pattern: each opens inside, with its own.
-  return stopped ? 'none' : 'unlock'
+  // Someone with private groups off (never turned on, or stopped) has no universal pattern: each
+  // private group they were added to opens inside, with its own.
+  return privateOff ? 'none' : 'unlock'
 }
 
 /** Groups to offer in a picker: a private group only while it's open here (a locked one can't take a write, and its name stays out of sight). */
@@ -162,14 +166,76 @@ export function refusalKind(e: unknown): 'wrong' | 'locked' | 'setup' | 'cancell
   return 'other'
 }
 
-/** Whether a group's ⋯ menu offers "Private group": a private one to everyone in it, any other shared group to its creator while private groups are on. */
-export function privateMenuShown(g: { vault?: boolean; type?: string }, isCreator: boolean, flagOn: boolean, stopped = false): boolean {
+/**
+ * Whether a group's ⋯ menu offers "Private group": a private one to everyone in it (whether or not
+ * they turned private groups on), any other shared group to its creator when they're offered
+ * private groups (privateOffered).
+ */
+export function privateMenuShown(g: { vault?: boolean; type?: string }, isCreator: boolean, offered: boolean): boolean {
   if (g.vault) return true
-  return flagOn && !stopped && isCreator && g.type !== 'personal'
+  return offered && isCreator && g.type !== 'personal'
 }
 
-/** Whether this person is offered private groups at all: the switch is on and they haven't stopped (users/{uid}.privateGroupsOff, written by the server). */
-export const privateOffered = (flagOn: boolean, profile: { privateGroupsOff?: boolean } | null | undefined): boolean => flagOn && !profile?.privateGroupsOff
+/** The profile's copy of the on state, written only by the server (vault ops start, setUniversal, create, convert, stop, and status's backfill). */
+export interface PrivateProfile {
+  privateGroupsOn?: boolean
+  privateGroupsOff?: boolean
+}
+
+/** What a vault status told this device about the on state, before the profile catches up. */
+export type KnownStatus = Pick<VaultStatus, 'on' | 'off' | 'universal'>
+
+/**
+ * Whether private groups are on for this person. They start off and are turned on in Settings →
+ * Encrypted groups (users/{uid}.privateGroupsOn). Someone from before that who has a universal
+ * pattern counts as on as soon as the app knows it (a status answer, `known`), even before the
+ * server's backfill reaches their profile. A stop (privateGroupsOff) wins.
+ */
+export function privateOn(profile: PrivateProfile | null | undefined, known?: KnownStatus | null): boolean {
+  if (profile?.privateGroupsOff || known?.off) return false
+  return !!profile?.privateGroupsOn || !!known?.on || !!known?.universal
+}
+
+/** Whether this person is offered to make private groups (the New group switch, Group ⋯ → Make private): the switch is on, and so are private groups for them. */
+export const privateOffered = (flagOn: boolean, profile: PrivateProfile | null | undefined, known?: KnownStatus | null): boolean =>
+  flagOn && privateOn(profile, known)
+
+/**
+ * Whether this device should ask the server once where this person stands (vault op `status`,
+ * which also backfills the on state for someone from before private groups started off). Only for
+ * someone whose profile says neither on nor off, and only once per device and person (`checked`).
+ */
+export const statusCheckWanted = (flagOn: boolean, profile: PrivateProfile | null | undefined, checked: boolean): boolean =>
+  flagOn && !!profile && !profile.privateGroupsOn && !profile.privateGroupsOff && !checked
+
+/** The Settings list's line for Encrypted groups. */
+export const privateSummary = (on: boolean): string => (on ? 'On · passkey and universal pattern' : 'Off')
+
+/**
+ * The suggestion inside a private group someone else added them to (Group ⋯ → Private group):
+ * shown while private groups are off for them, unless they stopped on purpose.
+ */
+export const suggestTurningOn = (inPrivateGroup: boolean, on: boolean, stopped: boolean): boolean => inPrivateGroup && !on && !stopped
+
+/** The setup prompt a lock button opens for someone with no pattern yet (src/features/vault/SetupSheet.tsx). */
+export function setupPrompt(inGroup: boolean, on: boolean): string {
+  if (!on)
+    return inGroup
+      ? 'Private groups are off for you. Turn them on in Settings, then set your universal pattern. Someone in the group can also give it its own pattern.'
+      : 'Private groups are off for you. Turn them on in Settings, then set your universal pattern. It opens every private group you’re in.'
+  return inGroup
+    ? 'Set your universal pattern to open private groups. Someone in the group can also give it its own pattern.'
+    : 'Set your universal pattern first. It opens every private group you’re in.'
+}
+
+/**
+ * What Settings → Encrypted groups shows: 'on', the setup card and "Stop using private groups";
+ * 'off' (never turned on) and 'stopped', a card saying so with "Turn on private groups".
+ */
+export function vaultView(s: Pick<VaultStatus, 'on' | 'off'>): 'on' | 'off' | 'stopped' {
+  if (s.off) return 'stopped'
+  return s.on ? 'on' : 'off'
+}
 
 /**
  * Settings → Encrypted groups' "Stop using private groups": what stands in the way. 'made': a

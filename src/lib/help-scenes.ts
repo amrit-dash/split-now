@@ -227,9 +227,9 @@ export const SCENES: Record<string, Scene> = {
     {
       parts: [
         { kind: 'title', label: 'Encrypted groups' },
-        { kind: 'row', label: 'Passkey', value: 'Added ✓' },
-        { kind: 'row', label: 'Universal pattern', value: '＋ Set', mark: 'settings' },
-        { kind: 'row', label: 'Encryption key', value: 'Ready ✓' },
+        { kind: 'note', label: 'Private groups are off' },
+        { kind: 'button', label: 'Turn on private groups', primary: true, mark: 'settings' },
+        { kind: 'row', label: 'Universal pattern', value: '＋ Set' },
       ],
     },
     {
@@ -375,11 +375,16 @@ Object.assign(SCENES, {
   'private-groups-setup': [
     settings('Settings', [
       { kind: 'row', label: 'Preferences', value: '›' },
-      { kind: 'row', label: 'Encrypted groups', value: '›', mark: 'open' },
+      { kind: 'row', label: 'Encrypted groups', value: 'Off ›' },
       { kind: 'row', label: 'Notifications', value: '›' },
     ]),
     settings('Encrypted groups', [
+      { kind: 'note', label: 'Private groups are off' },
+      { kind: 'button', label: 'Turn on private groups', primary: true, mark: 'open' },
+    ]),
+    settings('Encrypted groups', [
       { kind: 'row', label: 'Passkey · Face ID', value: '＋ Add', mark: 'passkey' },
+
       { kind: 'row', label: 'Universal pattern', value: '＋ Set' },
       { kind: 'row', label: 'Encryption key', value: 'Ready ✓' },
     ]),

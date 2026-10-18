@@ -60,7 +60,7 @@ import {
   mergeProblem,
   mergeSettlement,
 } from '../../shared/merge-members'
-import { demoVault } from './vault-demo'
+import { demoVault, privateProfile } from './vault-demo'
 import { planDeletion, type DeletionExpense, type DeletionGroup } from '../../shared/account-delete'
 import { vaultKey } from '@/lib/vault-crypto'
 import { blocksStopping, openDoc, sealDoc, type ConvertKind } from '../../shared/vault-convert'
@@ -481,10 +481,13 @@ export function createLocalRepo(): Repo {
       addContactDemo,
       {
         made: () => Object.values(state.groups).filter((g) => blocksStopping(g, me().uid)).length,
-        setOff: (off) => {
+        // As the server writes users/{uid}: on and off are each other's opposite.
+        setPrivate: (to) => {
           const p = state.profiles[me().uid]
           if (!p) return
-          state.profiles[me().uid] = off ? { ...p, privateGroupsOff: true } : (({ privateGroupsOff: _o, ...rest }) => rest)(p)
+          const next = privateProfile(p, to)
+          if (next === p) return
+          state.profiles[me().uid] = next
           commit()
         },
       },

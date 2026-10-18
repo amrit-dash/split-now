@@ -42,6 +42,7 @@ import {
 } from '@/hooks/data'
 import { useCapturePrefs } from '@/hooks/useCapturePrefs'
 import { useFlag } from '@/hooks/useAppConfig'
+import { usePrivateGroups } from '@/hooks/usePrivateGroups'
 import type { Category, Debt, Expense, Group, Settlement } from '@/types'
 import { claimsInGroup } from '@/lib/paylinks'
 import { ClaimReview } from '@/components/ClaimReview'
@@ -124,7 +125,7 @@ const methodLabel = (m: string): string => {
 
 export default function GroupDetail() {
   const { groupId } = useParams()
-  const { user, profile } = useMe()
+  const { user } = useMe()
   const nav = useNavigate()
   const liveGroup = useGroup(groupId)
   const expenses = useExpenses(groupId)
@@ -148,7 +149,7 @@ export default function GroupDetail() {
   const feed = useActivity(groupId)
   const whoseTurnOn = useFlag('whoseTurn')
   const openItemsOn = useFlag('openItems')
-  const vaultsOn = useFlag('vaults')
+  const vaults = usePrivateGroups()
   const chatOn = useFlag('groupChat')
   const openItems = useOpenItems(openItemsOn ? groupId : undefined)
   // The unread dot: only the newest message is watched here (one document), not the whole chat.
@@ -217,7 +218,7 @@ export default function GroupDetail() {
   const shareInviteUrl = inviteLink(location.origin, group.inviteCode, group.members[me ?? '']?.name)
   const creator = group.createdBy === user.uid
   // A private group's sheet, or for its creator the way to make any other shared group private.
-  const privateMenu = privateMenuShown(group, creator, vaultsOn, !!profile.privateGroupsOff)
+  const privateMenu = privateMenuShown(group, creator, vaults.offered)
   const fail = (e: unknown) => toast(errText(e), 'err')
   // A private hint for the next bill (src/lib/fairness.ts): never pushed, never a score.
   const turn = whoseTurnOn && showTurn && !personal && !group.archived ? whoseTurn({ group, expenses: d.expenses }) : null

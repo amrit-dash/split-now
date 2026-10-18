@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { demoVault } from './vault-demo'
+import { demoVault, privateProfile } from './vault-demo'
 
 const mem = () => {
   const m = new Map<string, string>()
@@ -89,22 +89,81 @@ describe('demo vault', () => {
   })
   it('stopping: held up by private groups they made, takes the current pattern, then no new ones until they start again', async () => {
     let made = 1
-    const off: boolean[] = []
-    const v = demoVault(mem(), undefined, () => ['a'], undefined, undefined, { made: () => made, setOff: (o) => off.push(o) })
+    const profile: string[] = []
+    const v = demoVault(mem(), undefined, () => ['a'], undefined, undefined, { made: () => made, setPrivate: (to) => profile.push(to) })
     await v({ op: 'setUniversal', pattern: 'TTLTLL', ordered: true })
-    expect(await v({ op: 'status', made: true })).toMatchObject({ made: 1 })
+    expect(profile.at(-1)).toBe('on')
+    expect(await v({ op: 'status', made: true })).toMatchObject({ made: 1, on: true })
     await expect(v({ op: 'stop', current: 'TTLTLL' })).rejects.toMatchObject({ details: { made: 1 } })
     made = 0
     await expect(v({ op: 'stop', current: 'LLTTLT' })).rejects.toThrow('not it')
     await v({ op: 'stop', current: 'TTLTLL' })
-    expect(off).toEqual([true])
-    expect(await v({ op: 'status' })).toMatchObject({ off: true, universal: false })
+    expect(profile.at(-1)).toBe('off')
+    const stopped = await v({ op: 'status' })
+    expect(stopped).toMatchObject({ off: true, universal: false })
+    expect(stopped).not.toHaveProperty('on')
     await expect(v({ op: 'create', groupId: 'n' })).rejects.toThrow('stopped')
     await expect(v({ op: 'convert', groupId: 'n', on: true })).rejects.toThrow('stopped')
     // a universal pattern starts them again
     await v({ op: 'setUniversal', pattern: 'LLTTLT', ordered: true })
-    expect(off).toEqual([true, false])
+    expect(profile.at(-1)).toBe('on')
     expect(await v({ op: 'status' })).not.toHaveProperty('off')
+  })
+  it('private groups start off; start turns them on without a pattern, and stop turns them off again', async () => {
+    const profile: string[] = []
+    const v = demoVault(mem(), undefined, () => [], undefined, undefined, { made: () => 0, setPrivate: (to) => profile.push(to) })
+    const first = await v({ op: 'status' })
+    expect(first).not.toHaveProperty('on')
+    expect(first).not.toHaveProperty('off')
+    expect(profile).toEqual([])
+    await v({ op: 'start' })
+    expect(profile).toEqual(['on'])
+    expect(await v({ op: 'status' })).toMatchObject({ on: true, universal: false })
+    // on, with no universal pattern: stopping asks for none
+    await v({ op: 'stop' })
+    expect(profile.at(-1)).toBe('off')
+    expect(await v({ op: 'status' })).toMatchObject({ off: true })
+    // and on again
+    await v({ op: 'start' })
+    const again = await v({ op: 'status' })
+    expect(again).toMatchObject({ on: true })
+    expect(again).not.toHaveProperty('off')
+  })
+  it('counts someone from before as on: a universal pattern, or a private group they made', async () => {
+    // a 8.6 demo's state: a universal pattern, nothing saying on
+    const s = mem()
+    const profile: string[] = []
+    const v = demoVault(s, undefined, () => [], undefined, undefined, { made: () => 0, setPrivate: (to) => profile.push(to) })
+    await v({ op: 'setUniversal', pattern: 'TTLTLL', ordered: true })
+    const saved = JSON.parse(s.m.get('sn-demo-vault') as string)
+    delete saved.on
+    s.m.set('sn-demo-vault', JSON.stringify(saved))
+    profile.length = 0
+    expect(await v({ op: 'status' })).toMatchObject({ on: true })
+    expect(profile).toEqual(['on'])
+    expect(JSON.parse(s.m.get('sn-demo-vault') as string).on).toBe(true)
+    // a private group they made, with no universal pattern
+    const made: string[] = []
+    const w = demoVault(mem(), undefined, () => [], undefined, undefined, { made: () => 1, setPrivate: (to) => made.push(to) })
+    expect(await w({ op: 'status' })).toMatchObject({ on: true, universal: false })
+    expect(made).toEqual(['on'])
+  })
+  it('making a private group turns them on', async () => {
+    const profile: string[] = []
+    const v = demoVault(mem(), undefined, () => [], undefined, undefined, { made: () => 0, setPrivate: (to) => profile.push(to) })
+    await v({ op: 'create', groupId: 'a', pattern: 'TL', ordered: true })
+    expect(profile).toEqual(['on'])
+    const w = demoVault(mem(), undefined, () => [], undefined, undefined, { made: () => 0, setPrivate: (to) => profile.push(to) })
+    await w({ op: 'convert', groupId: 'b', on: true, pattern: 'TL' })
+    expect(profile).toEqual(['on', 'on'])
+  })
+  it('mirrors on and off on the profile, never both', () => {
+    const p: { uid: string; privateGroupsOn?: boolean } = { uid: 'me' }
+    expect(privateProfile(p, 'on')).toEqual({ uid: 'me', privateGroupsOn: true })
+    expect(privateProfile({ uid: 'me', privateGroupsOff: true }, 'on')).toEqual({ uid: 'me', privateGroupsOn: true })
+    expect(privateProfile({ uid: 'me', privateGroupsOn: true }, 'off')).toEqual({ uid: 'me', privateGroupsOff: true })
+    const on = { uid: 'me', privateGroupsOn: true }
+    expect(privateProfile(on, 'on')).toBe(on)
   })
   it('keeps 7.1’s per-group patterns as the groups’ own', async () => {
     const s = mem()

@@ -4,11 +4,12 @@ import { repo } from '@/data'
 import { useAiState, useCaptureTokens } from '@/hooks/data'
 import { useMe } from '@/hooks/auth'
 import { useAiStatus } from '@/hooks/useAiStatus'
-import { useFlag } from '@/hooks/useAppConfig'
+import { usePrivateGroups } from '@/hooks/usePrivateGroups'
 import { useMotion } from '@/hooks/useMotion'
 import { accentPreset, getAccent } from '@/lib/accent'
 import { aiSummaryText } from '@/lib/ai-copy'
 import { motionSummary } from '@/lib/motion'
+import { privateSummary } from '@/lib/vault-api'
 import { watchCapturePrefs } from '@/lib/capture-settings'
 import { getTheme } from '@/lib/theme'
 import { autoCaptureSummary, notificationSummary } from '@/lib/profileSummary'
@@ -31,7 +32,7 @@ export default function SettingsHome() {
   const tokens = useCaptureTokens()
   const aiState = useAiState(repo.mode === 'firebase')
   const motion = useMotion()
-  const vaultsOn = useFlag('vaults')
+  const vaults = usePrivateGroups()
   useEffect(() => watchCapturePrefs(user.uid, repo.mode, setPrefs), [user.uid])
 
   const notifications = !notificationsAvailable()
@@ -75,14 +76,8 @@ export default function SettingsHome() {
           summary={automation || 'Auto-capture and capture keys'}
           testId="settings-automation"
         />
-        {vaultsOn && (
-          <SettingsRow
-            to="/settings/vault"
-            icon={<Lock size={19} />}
-            title="Encrypted groups"
-            summary="Passkey and universal pattern for private groups"
-            testId="settings-vault"
-          />
+        {vaults.flagOn && (
+          <SettingsRow to="/settings/vault" icon={<Lock size={19} />} title="Encrypted groups" summary={privateSummary(vaults.on)} testId="settings-vault" />
         )}
         {repo.mode === 'firebase' && <SettingsRow to="/settings/ai" icon={<Sparkles size={19} />} title="AI features" summary={ai} testId="settings-ai" />}
         <SettingsRow

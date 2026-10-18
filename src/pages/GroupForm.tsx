@@ -6,6 +6,7 @@ import { useMe } from '@/hooks/auth'
 import { createGroup, useAllExpenses, useCaptureTokens, useGroup, useGroups } from '@/hooks/data'
 import { useCapturePrefs } from '@/hooks/useCapturePrefs'
 import { useFlag } from '@/hooks/useAppConfig'
+import { usePrivateGroups } from '@/hooks/usePrivateGroups'
 import { saveCapturePrefs, tripCaptureNotice } from '@/lib/capture-settings'
 import { setTripPaused } from '@/lib/capture-filters'
 import type { Group, GroupType, Member } from '@/types'
@@ -43,7 +44,7 @@ import { currentMemberMatch } from '@/lib/members'
 import { DateField } from '@/components/DateField'
 import { Switch } from '@/components/Switch'
 import { openNewGroup, passkeyCancelled, passkeyProof, registerPasskey } from '@/features/vault/passkey'
-import { privateOffered, type VaultStatus } from '@/lib/vault-api'
+import type { VaultStatus } from '@/lib/vault-api'
 import { defaultOpensWith, type OpensWith, privateBlocker } from '@/lib/vault-setup'
 import { LockSetup } from '@/features/vault/LockSetup'
 import { SetPatternSheet } from '@/features/vault/SetPatternSheet'
@@ -163,9 +164,8 @@ export default function GroupForm() {
       setPrivateNote(errText(e))
     }
   }
-  const vaultsOn = useFlag('vaults')
-  // Not offered to someone who stopped using private groups (Settings → Encrypted groups).
-  const privateShown = privateOffered(vaultsOn, profile)
+  // Offered only to someone who turned private groups on (Settings → Encrypted groups); they start off.
+  const privateShown = usePrivateGroups().offered
   // Its own pattern, chosen as it's made (optional): it opens only this group, for anyone told it in person.
   const [ownPattern, setOwnPattern] = useState<{ pattern: string; ordered: boolean } | null>(null)
   const [settingOwn, setSettingOwn] = useState(false)

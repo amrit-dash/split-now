@@ -159,3 +159,15 @@ export async function openDoc(k: VaultKey, doc: Doc): Promise<Patch> {
 export function blocksStopping(g: { vault?: unknown; createdBy?: unknown; memberUids?: unknown; deletedAt?: unknown }, uid: string): boolean {
   return g.vault === true && g.createdBy === uid && Array.isArray(g.memberUids) && g.memberUids.includes(uid) && typeof g.deletedAt !== 'number'
 }
+
+/**
+ * Whether private groups are on for someone, from the vault's own record of them
+ * (users/{uid}/secrets/vault in functions/src/vault.ts, and the demo's). They start off; `start`
+ * turns them on, `stop` off. From before they started off, a universal pattern or a private group
+ * they made (`made`, counted as blocksStopping counts) is on, so nothing anyone had goes away.
+ * Someone who stopped is off whatever they have.
+ */
+export function privateGroupsOn(person: { on?: unknown; off?: unknown; pattern?: unknown }, made?: number): boolean {
+  if (person.off === true) return false
+  return person.on === true || !!person.pattern || (made ?? 0) > 0
+}

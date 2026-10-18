@@ -258,6 +258,9 @@ const SHOTS = [
     id: 'private-groups-setup',
     go: async (page, url) => {
       await page.goto(`${url}/settings/vault`)
+      // Private groups start off: the setup card shows once they're turned on.
+      await page.getByTestId('vault-turn-on').or(page.getByTestId('vault-setup-status')).first().waitFor()
+      if (await byId(page, 'vault-turn-on').isVisible()) await byId(page, 'vault-turn-on').click()
     },
     marks: (page) => ({ 2: byId(page, 'vault-line-passkey'), 3: byId(page, 'vault-universal-open') }),
   },

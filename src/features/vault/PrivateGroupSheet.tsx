@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Lock, LockOpen } from 'lucide-react'
 import { repo } from '@/data'
 import type { Group } from '@/types'
+import { usePrivateGroups } from '@/hooks/usePrivateGroups'
 import { errText } from '@/lib/errors'
-import type { VaultStatus } from '@/lib/vault-api'
+import { suggestTurningOn, type VaultStatus } from '@/lib/vault-api'
 import { type OpensWith, defaultOpensWith, privateBlocker } from '@/lib/vault-setup'
 import { Sheet } from '@/components/Sheet'
 import { useConfirm } from '@/components/ConfirmSheet'
@@ -38,6 +40,8 @@ export function PrivateGroupSheet({ group, open, onClose, isCreator }: { group: 
   const [busy, setBusy] = useState<'passkey' | 'convert' | null>(null)
   const [note, setNote] = useState<string | null>(null)
   const [round, setRound] = useState(0)
+  // In a private group someone else added them to, with private groups off: a quiet way to turn them on.
+  const vaults = usePrivateGroups()
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: round reads the status again after a change.
   useEffect(() => {
@@ -187,6 +191,17 @@ export function PrivateGroupSheet({ group, open, onClose, isCreator }: { group: 
             {group.vault && (
               <div className="card p-4">
                 <GroupLockTime groupId={group.id} />
+              </div>
+            )}
+            {suggestTurningOn(!!group.vault, vaults.on, vaults.stopped) && (
+              <div className="card text-muted space-y-3 p-4 text-sm" data-testid="vault-suggest-on">
+                <p>
+                  Private groups are off for you, so the app doesn’t offer to make your own. A private group you’re added to opens with its own pattern and your
+                  passkey. Turn them on to set a universal pattern that opens them all.
+                </p>
+                <Link to="/settings/vault" className="btn w-full" onClick={onClose} data-testid="vault-suggest-on-link">
+                  <Lock size={18} aria-hidden /> Turn on private groups
+                </Link>
               </div>
             )}
             {(note ?? blocked) && (
