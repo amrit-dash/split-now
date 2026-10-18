@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ChevronRight, Loader2, Lock, Stamp, UserMinus, Users } from 'lucide-react'
+import { ChevronRight, Loader2, Lock, Stamp, UserMinus, Users, X } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { createGroup, useAllExpenses, useCaptureTokens, useGroup, useGroups } from '@/hooks/data'
@@ -289,6 +289,8 @@ export default function GroupForm() {
   const captureEnabled = useFlag('autoCapture')
   const [captureOn, setCaptureOn] = useState<boolean | null>(null)
   // When the name finds no icon by the app's own rules, the AI picks one of the group icons (and the type, while it wasn't chosen).
+  // The AI's second icon for the name ("Sri Lanka bees": 🐝, or 🇱🇰), offered beside the one it picked.
+  const [pickAlt, setPickAlt] = useState<{ title: string; emoji: string } | null>(null)
   const pickingIcon = useAutoIconPick({
     title: name,
     offered: iconAi.auto,
@@ -299,6 +301,7 @@ export default function GroupForm() {
       // applyType is defined below the early returns; the answer only arrives after a render that defined it.
       if (a.type && !typeTouched) applyType(a.type, a.emoji)
       else if (a.emoji) setEmoji(a.emoji)
+      setPickAlt(a.emoji && a.alt ? { title, emoji: a.alt } : null)
     },
   })
 
@@ -870,6 +873,7 @@ export default function GroupForm() {
               picture={iconAi.picture}
               pictureCost={iconAi.pictureCost}
               aiWhy={iconAi.why}
+              pictureOff={iconAi.pictureWhy}
               ai={iconAi.suggest ? { kind: 'group' } : undefined}
             >
               <label className="label" htmlFor="group-name">
@@ -891,6 +895,32 @@ export default function GroupForm() {
             </IconPickerField>
           )}
           {type !== 'direct' && <FieldError id="group-name-error" text={errors.name} />}
+          {!pickingIcon && pickAlt && pickAlt.title === name && !iconTouched && pickAlt.emoji !== emoji && (
+            <div className="animate-fade flex items-center gap-1" data-testid="group-icon-alt">
+              <button
+                type="button"
+                onClick={() => {
+                  setIconTouched(true)
+                  setEmoji(pickAlt.emoji)
+                  setPickAlt(null)
+                }}
+                className="flex min-h-9 min-w-0 items-center rounded-full bg-brand-50 px-3 py-1.5 text-left text-xs font-semibold text-brand-700 dark:bg-brand-900/40 dark:text-brand-200"
+              >
+                <span className="truncate">
+                  Or <span aria-hidden>{pickAlt.emoji}</span>
+                  <span className="sr-only">the icon {pickAlt.emoji}</span> · use it
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPickAlt(null)}
+                className="text-muted flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+                aria-label="Dismiss the other icon"
+              >
+                <X size={16} aria-hidden />
+              </button>
+            </div>
+          )}
           {pickingIcon && (
             <p className="text-muted flex items-center gap-1.5 px-1 text-xs" role="status" data-testid="group-icon-picking">
               <Loader2 size={12} className="animate-spin" aria-hidden /> Picking an icon for “{name.trim()}”…

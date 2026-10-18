@@ -1,13 +1,14 @@
 import { ICON_TITLE_MAX, type IconPickRequest, type IconPickResponse } from '../../shared/icon-ai'
 import { CATEGORIES } from './categories'
 import { ALL_GROUP_ICONS, isGroupType, SHARED_TYPES } from './groupTypes'
-import { ICONS } from './icons'
+import { ICONS, isIcon } from './icons'
 import type { Category, GroupType } from '@/types'
 
 /*
  * The automatic icon's AI fallback (functions/src/ai.ts iconPickAi). The app's own rules
  * (src/lib/icons.ts) go first and cost nothing; only when they find no icon for a title, and the
- * person typed enough, does the app ask the AI to choose one from its own catalogue (and the
+ * person typed enough, does the app ask the AI for the emoji that fits best, from its own
+ * catalogue when one does and any other emoji when none does, plus a second to offer (and the
  * category or group type, while those are still the app's to choose). One short answer, so it
  * works on Split Now's free AI too. Never in a private group: its titles don't leave the phone.
  */
@@ -43,11 +44,16 @@ export function groupPickRequest(name: string, o: { typeTouched: boolean }): Ico
   return { title: name, kind: 'group', choices: ALL_GROUP_ICONS, ...(o.typeTouched ? {} : { types: SHARED_TYPES.filter((t) => t !== 'other') }) }
 }
 
-/** What an answer gives the form: only an emoji / category / type from the lists sent; nothing from a refusal. */
-export function pickAnswer(r: IconPickResponse | null, req: IconPickRequest): { emoji?: string; category?: Category; type?: GroupType } | null {
+/**
+ * What an answer gives the form: one emoji (the app's own or any other, as the AI chose) and a
+ * different second one to offer beside it; a category or type only from the lists sent; nothing
+ * from a refusal.
+ */
+export function pickAnswer(r: IconPickResponse | null, req: IconPickRequest): { emoji?: string; alt?: string; category?: Category; type?: GroupType } | null {
   if (!r || 'unavailable' in r) return null
-  const emoji = r.emoji && req.choices.includes(r.emoji) ? r.emoji : undefined
+  const emoji = isIcon(r.emoji) ? r.emoji : undefined
+  const alt = emoji && isIcon(r.alt) && r.alt !== emoji ? r.alt : undefined
   const category = r.category && req.categories?.includes(r.category) ? (r.category as Category) : undefined
   const type = r.type && req.types?.includes(r.type) && isGroupType(r.type) ? r.type : undefined
-  return { emoji, category, type }
+  return { emoji, ...(alt ? { alt } : {}), category, type }
 }

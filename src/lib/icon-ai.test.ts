@@ -8,6 +8,7 @@ import {
   iconAiOffered,
   iconAiProblem,
   iconAiWhy,
+  pictureWhy,
   iconFace,
   pictureNote,
   pictureOffer,
@@ -206,5 +207,20 @@ describe('why AI icons aren’t offered', () => {
     expect(iconAiWhy({ ...base, status: null })).toMatch(/Couldn’t check/)
     // their own key works whatever the shared key does
     expect(iconAiWhy({ ...base, status: { app: { images: 'off' } }, hasOwnKey: true })).toBeNull()
+  })
+})
+
+describe('why Draw a picture isn’t offered', () => {
+  const free = { ...base, status: { app: { images: 'available', engine: 'gemma', pictures: 'off' } } }
+  it('a key with billing is needed: the person’s own, or Split Now’s with pictures on', () => {
+    expect(pictureWhy(free)).toMatch(/add your own Gemini key/)
+    expect(pictureWhy({ ...free, admin: true })).toMatch(/Admin → AI/)
+    expect(pictureWhy({ ...free, hasOwnKey: true })).toBeNull()
+    expect(pictureWhy({ ...free, status: { app: { images: 'available', engine: 'gemini', pictures: 'available' } } })).toBeNull()
+  })
+  it('their own key set aside by Only Split Now’s key; nothing when AI icons aren’t on at all, or in the demo', () => {
+    expect(pictureWhy({ ...free, hasOwnKey: true, prefs: { ...prefs, aiSource: 'app' } })).toMatch(/Only Split Now’s key/)
+    expect(pictureWhy({ ...free, prefs: { ...prefs, aiIcons: false } })).toBeNull()
+    expect(pictureWhy({ ...free, mode: 'demo' })).toBeNull()
   })
 })

@@ -62,17 +62,26 @@ describe('the automatic icon’s AI pick', () => {
     expect(cleanPickRequest({ title: ' ', choices: ['🍕'] })).toBeNull()
     expect(cleanPickRequest({ title: 'x', choices: Array.from({ length: 400 }, (_, i) => String.fromCodePoint(0x1f300 + i)) })?.choices.length).toBe(300)
   })
-  it('asks for one line from the lists', () => {
+  it('asks for one line: two emoji, the app’s own preferred, any single emoji allowed', () => {
     const p = pickPrompt(r!)
     expect(p).toContain('🍽️ 🍕 🚕')
     expect(p).toContain('food, transport')
-    expect(p).toContain('EMOJI <emoji> CATEGORY <category>')
+    expect(p).toContain('EMOJI <emoji> ALSO <emoji> CATEGORY <category>')
+    expect(p).toContain('any single standard emoji')
     expect(p).not.toContain('TYPE')
   })
-  it('reads the answer, with or without the variation selector, and nothing outside the lists', () => {
+  it('reads the answer, with or without the variation selector; an emoji outside the list is kept, a category outside it is not', () => {
     expect(parsePick('EMOJI 🍽️ CATEGORY food', r!)).toEqual({ emoji: '🍽️', category: 'food' })
     expect(parsePick('EMOJI: 🍽 CATEGORY: Food', r!)).toEqual({ emoji: '🍽️', category: 'food' })
-    expect(parsePick('```\nEMOJI 🦄 CATEGORY rent\n```', r!)).toEqual({ emoji: null })
+    expect(parsePick('```\nEMOJI 🦄 CATEGORY rent\n```', r!)).toEqual({ emoji: '🦄' })
+    // the owner's examples: an icon that isn't the app's, and a second one to offer
+    expect(parsePick('EMOJI 🐝 ALSO 🇱🇰', r!)).toEqual({ emoji: '🐝', alt: '🇱🇰' })
+    expect(parsePick('EMOJI 🍯 ALSO 🐝 CATEGORY food', r!)).toEqual({ emoji: '🍯', alt: '🐝', category: 'food' })
+    // the same emoji twice, text, or two emoji in one place: no alternative, nothing made up
+    expect(parsePick('EMOJI 🍯 ALSO 🍯', r!)).toEqual({ emoji: '🍯' })
+    expect(parsePick('EMOJI honey ALSO 🐝🍯', r!)).toEqual({ emoji: null })
+    // the list echoed back by a model that ran out of room: no guess from it
+    expect(parsePick('* List check: 🍽️ 🍕 🚕', r!)).toEqual({ emoji: null })
     expect(parsePick('EMOJI none', r!)).toEqual({ emoji: null })
     expect(parsePick('I would pick 🚕 here', r!)).toEqual({ emoji: '🚕' })
     const g = cleanPickRequest({ title: 'Kasol', kind: 'group', choices: ['🏔️'], types: ['trip'] })!

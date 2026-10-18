@@ -1662,3 +1662,19 @@ test('delete my account in demo mode: refused while money is owed, then the word
   await run.click()
   await expect(page.getByTestId('demo-name').or(page.getByTestId('demo-start')).first()).toBeVisible()
 })
+
+test('New group: a name the app’s own icons don’t cover gets an AI pick from any emoji, with a second one offered', async ({ page }) => {
+  await page.goto('/groups/new')
+  await page
+    .getByRole('radiogroup', { name: 'What are you creating?' })
+    .getByRole('radio', { name: /^Group/ })
+    .click()
+  await page.getByLabel('Name', { exact: true }).fill('Sri Lanka bees')
+  // the demo's stand-in for the AI answers after the typing pause: a flag that isn't one of the app's icons, and 🐝 to switch to
+  await expect(page.getByTestId('group-icon')).toContainText('🇱🇰')
+  const alt = page.getByTestId('group-icon-alt')
+  await expect(alt).toContainText('🐝')
+  await alt.getByRole('button', { name: /use it/ }).click()
+  await expect(page.getByTestId('group-icon')).toContainText('🐝')
+  await expect(alt).toHaveCount(0)
+})

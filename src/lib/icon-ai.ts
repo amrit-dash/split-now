@@ -54,6 +54,19 @@ export function iconAiWhy(o: Offer): string | null {
 }
 
 /**
+ * Why "Draw a picture" isn't offered where "Suggest with AI" is: a picture needs a key with
+ * billing, which is the person's own Gemini key, or Split Now's once an admin turns pictures on
+ * for it (Admin → AI; off until then). Null when it is offered, or when AI icons aren't at all
+ * (iconAiWhy says that).
+ */
+export function pictureWhy(o: Parameters<typeof pictureOffer>[0] & { admin?: boolean }): string | null {
+  if (o.mode === 'demo' || !iconAiOffered(o) || pictureOffer(o)) return null
+  if (o.prefs?.aiSource === 'app' && o.hasOwnKey) return 'Draw a picture uses your own key, and you chose Only Split Now’s key in AI features.'
+  if (o.admin) return 'Draw a picture: add your own Gemini key in AI features, or turn on pictures for Split Now’s key in Admin → AI.'
+  return 'Draw a picture needs a key with billing: add your own Gemini key in AI features.'
+}
+
+/**
  * The automatic icon's AI fallback (src/lib/icon-pick.ts): offered on the same keys as "Suggest
  * with AI", under its own admin switch (flags.aiIconAuto) and the person's own (aiIconAuto).
  */

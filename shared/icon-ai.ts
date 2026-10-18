@@ -133,15 +133,17 @@ export const PICTURE_TEST_PROMPT = { title: 'Ferry ride', kind: 'expense' as con
 
 /**
  * When the app's own rules find no icon for a title (src/lib/icons.ts), the automatic icon asks
- * the AI to choose one from the app's own list (and, for an expense, a category; for a group, a
- * type): one short answer, on the free AI too. The answer must be one of the choices sent.
+ * the AI for the emoji that best shows it, and a second one (and, for an expense, a category; for
+ * a group, a type): one short answer, on the free AI too. The app's own list is sent as the
+ * emoji it prefers, but any single emoji may come back ("Sri Lanka bees": 🐝, also 🇱🇰), as the
+ * owner asked: an icon that isn't on the list is still the right one.
  */
 export const PICK_CHOICES_MAX = 300
 
 export interface IconPickRequest {
   title: string
   kind: 'expense' | 'group'
-  /** the emoji it may pick from */
+  /** the app's own emoji, preferred when one fits as well */
   choices: string[]
   /** an expense's categories (ids) it may pick from, when the category is still to choose */
   categories?: string[]
@@ -149,4 +151,4 @@ export interface IconPickRequest {
   types?: string[]
 }
 
-export type IconPickResponse = { emoji: string | null; category?: string; type?: string } | { unavailable: true; reason: string }
+export type IconPickResponse = { emoji: string | null; alt?: string; category?: string; type?: string } | { unavailable: true; reason: string }
