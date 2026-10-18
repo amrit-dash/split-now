@@ -1108,7 +1108,7 @@ function Phone({ beat }: { beat: number }) {
 }
 
 /** The filter: a lit gate between the phone and the Inbox, with a funnel on top. */
-function Gate({ beat }: { beat: number }) {
+function Gate() {
   const h = GATE.bottom - GATE.top
   return (
     <>
@@ -1120,13 +1120,6 @@ function Gate({ beat }: { beat: number }) {
         className="absolute w-2 -translate-x-1/2 rounded-full bg-gradient-to-b from-brand-400 via-duo-400 to-brand-600 shadow-[0_0_0_3px_rgba(255,255,255,0.7)] dark:shadow-[0_0_0_3px_rgba(255,255,255,0.08)]"
         style={{ left: GATE.x, top: GATE.top, height: h }}
       />
-      {/* the moment the bank alert passes */}
-      {beat === 1 && (
-        <div
-          className="absolute h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-brand-400 dark:ring-brand-300"
-          style={{ left: GATE.x, top: 120, opacity: 0, animation: `sx-ring 700ms ease-out ${LEAVE + Math.round(LEAVE_MS * 0.42)}ms` }}
-        />
-      )}
       <At x={GATE.x} y={GATE.top - 12}>
         <div className="flex h-7 w-7 items-center justify-center rounded-full bg-fill text-on-fill shadow-lg ring-[3px] ring-white dark:ring-ink-900">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinejoin="round">
@@ -1208,7 +1201,7 @@ const Filter: View = ({ beat }) => (
       <path d={ROUTE} fill="none" className="stroke-brand-300 dark:stroke-white/20" strokeWidth="1.5" strokeDasharray="2 4" strokeLinecap="round" />
     </svg>
     <Tray beat={beat} />
-    <Gate beat={beat} />
+    <Gate />
     <Phone beat={beat} />
     {beat > 0 && <CapturedCard beat={beat} />}
     {beat === 1 && (
