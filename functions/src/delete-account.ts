@@ -123,12 +123,7 @@ async function wipe(uid: string, emails: string[]): Promise<void> {
   // Counters whose id starts with the account: nudges they sent a person, payment checks they asked for.
   // (A group nudge's counter, nudge_{gid}_{uid}_…, has the group first and lasts a day.)
   for (const prefix of [`nudgep_${uid}_`, `proof_${uid}_`])
-    await deleteAll(
-      f
-        .collection('rateLimits')
-        .where(FieldPath.documentId(), '>=', prefix)
-        .where(FieldPath.documentId(), '<', `${prefix}\uf8ff`),
-    )
+    await deleteAll(f.collection('rateLimits').where(FieldPath.documentId(), '>=', prefix).where(FieldPath.documentId(), '<', `${prefix}\uf8ff`))
   // Accounts merged into this one earlier (switched off, kept for admins): their traces go too.
   const merged = await f.collection('users').where('mergedInto', '==', uid).get()
   const a = await auth()

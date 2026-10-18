@@ -1581,6 +1581,13 @@ export const SECTIONS: HelpSection[] = [
     title: 'Delete your account',
     summary: 'Remove your account and what’s kept for it, once you’re settled up.',
     keywords: ['delete account', 'close account', 'remove account', 'erase', 'privacy', 'gdpr', 'data'],
+    steps: [
+      { text: 'Settings → **Data** → **Delete my account**.', mark: 'open' },
+      { text: 'Anything that stops it is listed first, each linked to its group: settle up there.', mark: 'sort' },
+      { text: 'See what happens to each group: deleted with your account, or left.', mark: 'plan' },
+      { text: 'Signed in more than 5 minutes ago? **Confirm it’s you** with Google, or a link we email you.', mark: 'reauth' },
+      { text: 'Type **DELETE** and tap **Delete my account**.', mark: 'confirm' },
+    ],
     points: [
       'Settings → **Data** → **Delete my account** shows what happens to each of your groups before anything changes.',
       'Settle up first: it can’t go ahead while you owe or are owed money in a shared group, an expense of yours needs an OK, or a repeating expense still includes you.',

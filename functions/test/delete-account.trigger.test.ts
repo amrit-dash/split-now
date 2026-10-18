@@ -98,6 +98,12 @@ describe('deleteAccount (emulator)', () => {
       })
       await setDoc(doc(db, 'captureTokens/tok_leaving_0123456789abcdef'), { uid: me.uid, createdAt: 1 })
       await setDoc(doc(db, 'payLinks/PAYLEAH1'), { createdBy: me.uid, groupId: 'del_shared', status: 'open' })
+      await setDoc(doc(db, `blocked/${me.uid}`), { at: 1 })
+      await setDoc(doc(db, `rateLimits/nudgep_${me.uid}_friend_uid`), { dayCount: 1 })
+      await setDoc(doc(db, `rateLimits/proof_${me.uid}_friend_uid`), { dayCount: 1 })
+      await setDoc(doc(db, 'rateLimits/nudgep_someone_else'), { dayCount: 1 })
+      // an account merged into this one earlier, switched off
+      await setDoc(doc(db, 'users/old_leah'), { mergedInto: me.uid, mergedAt: 1 })
     })
 
     const plan = (await call<Plan>({}, me)).result
@@ -125,6 +131,11 @@ describe('deleteAccount (emulator)', () => {
     expect(await read(`users/${me.uid}/captures/c1`)).toBeUndefined()
     expect(await read('captureTokens/tok_leaving_0123456789abcdef')).toBeUndefined()
     expect(await read('payLinks/PAYLEAH1')).toBeUndefined()
+    expect(await read(`blocked/${me.uid}`)).toBeUndefined()
+    expect(await read(`rateLimits/nudgep_${me.uid}_friend_uid`)).toBeUndefined()
+    expect(await read(`rateLimits/proof_${me.uid}_friend_uid`)).toBeUndefined()
+    expect(await read('rateLimits/nudgep_someone_else')).toBeDefined()
+    expect(await read('users/old_leah')).toBeUndefined()
     expect(await lookup(me.uid)).toBeUndefined()
   })
 

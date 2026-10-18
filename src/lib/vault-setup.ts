@@ -8,7 +8,11 @@
  * NO_PATTERN_TEXT) plus the person's passkey. The passkey is the account's, one for every group: it
  * proves it's you, while the pattern is what differs from group to group.
  */
+import { formatTime } from './locale'
 import type { VaultStatus } from './vault-api'
+
+/** Wrong tries before a lockout (functions/src/lib/vault-core.ts FREE_TRIES). */
+const FREE_TRIES = 5
 
 /** What a group opens with: everyone's universal pattern, or a pattern of its own (shared in person). */
 export type OpensWith = 'universal' | 'own'
@@ -22,6 +26,8 @@ export interface SetupRow {
   state: RowState
   /** the row's button(s): add or set when missing, change (and for its own pattern, remove) when ready */
   actions: Array<'add' | 'set' | 'change' | 'remove'>
+  /** the pattern row while too many wrong tries keep every pattern out */
+  locked?: boolean
 }
 
 /** The group's own pattern as the card knows it: set (on the server, or chosen in the form), and in order or not. */
@@ -48,7 +54,14 @@ export function setupRows(
     o.demo
       ? { id: 'passkey', title: 'Passkey', detail: 'Not needed in the demo', state: 'info', actions: [] }
       : s.hasPasskey
-        ? { id: 'passkey', title: 'Passkey', detail: 'Face ID, fingerprint or screen lock. One for all your groups', state: 'ready', actions: [] }
+        ? // ＋ still adds one: a phone the synced passkey doesn't reach needs its own
+          {
+            id: 'passkey',
+            title: 'Passkey',
+            detail: 'Face ID, fingerprint or screen lock. One for all your groups; ＋ adds one on this phone',
+            state: 'ready',
+            actions: ['add'],
+          }
         : { id: 'passkey', title: 'Passkey', detail: 'Face ID, fingerprint or screen lock, asked after the pattern', state: 'missing', actions: ['add'] },
   )
   const universal: SetupRow = s.universal
@@ -75,6 +88,18 @@ export function setupRows(
         : { id: 'own', title: 'Its own pattern', detail: 'Any taps and long presses. Opens only this group', state: 'missing', actions: ['set'] },
     )
   }
+  // Wrong tries count across every private group: say so on the pattern row, and when they lock it, until when.
+  const pattern = rows[rows.length - 1]
+  if (s.triesLeft === 0 && typeof s.lockedUntil === 'number')
+    rows[rows.length - 1] = {
+      ...pattern,
+      state: 'missing',
+      detail: `Too many wrong tries. Try again after ${formatTime(s.lockedUntil)}`,
+      actions: [],
+      locked: true,
+    }
+  else if (pattern.state === 'ready' && s.triesLeft > 0 && s.triesLeft < FREE_TRIES)
+    rows[rows.length - 1] = { ...pattern, detail: `${pattern.detail} · ${s.triesLeft} ${s.triesLeft === 1 ? 'try' : 'tries'} left` }
   rows.push(
     !s.serverReady
       ? { id: 'server', title: 'Encryption key', detail: 'The server isn’t set up for private groups yet', state: 'missing', actions: [] }
@@ -102,6 +127,7 @@ export function privateBlocker(s: VaultStatus, o: { opensWith: OpensWith; own: O
 
 /** The pill on a row: what state it's in, in words (never colour alone). */
 export function stateLabel(r: SetupRow): string {
+  if (r.locked) return 'Locked'
   if (r.state === 'info') return 'Demo'
   if (r.state === 'ready') return r.id === 'passkey' ? 'Added' : 'Ready'
   return r.id === 'server' ? 'Not ready' : 'Needed'

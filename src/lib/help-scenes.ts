@@ -765,6 +765,22 @@ Object.assign(SCENES, {
       { kind: 'button', label: 'Import 42 items', primary: true, mark: 'import' },
     ]),
   ],
+  'delete-account': [
+    settings('Data', [
+      { kind: 'row', label: 'Export a group', value: 'Share CSV' },
+      { kind: 'row', label: 'Delete my account', value: '›', mark: 'open' },
+    ]),
+    settings('Delete my account', [
+      { kind: 'row', label: 'You owe ₹300 in Goa trip', value: 'Settle up ›', mark: 'sort' },
+      { kind: 'row', label: 'Deleted with your account', value: 'My spending', mark: 'plan' },
+      { kind: 'row', label: 'You leave', value: 'Goa trip, Flat' },
+    ]),
+    settings('Confirm', [
+      { kind: 'row', label: 'Confirm it’s you', value: 'Google · or an emailed link', mark: 'reauth' },
+      { kind: 'field', label: 'Type DELETE to confirm', value: 'DELETE' },
+      { kind: 'button', label: 'Delete my account', primary: true, mark: 'confirm' },
+    ]),
+  ],
   'export-csv': [
     settings('Goa trip', [{ kind: 'row', label: '⚙ Export CSV', value: 'Every expense and payment', mark: 'menu' }]),
     settings('Data', [{ kind: 'row', label: 'Export a group', value: 'Share CSV', mark: 'data' }]),
