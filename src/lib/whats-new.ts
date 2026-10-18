@@ -24,6 +24,11 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '8.6.6',
+    date: 'October 2026',
+    items: [{ text: 'Private groups start off: turn them on in Settings → Encrypted groups', section: 'private-groups-setup' }],
+  },
+  {
     version: '8.6.5',
     date: 'October 2026',
     items: [
