@@ -51,9 +51,9 @@ export default function Admin() {
     <div data-testid="admin-console">
       {/* The section tabs ride in the sticky header, so they stay in reach on long tabs. */}
       <PageHeader title="Admin" back="/settings" subtitle="Switches, limits, usage and accounts. Changes apply within a minute.">
-        {/* Seven tabs, each as wide as its word (tight padding); the row scrolls on narrow phones. */}
-        <nav aria-label="Admin sections" className="scrollbar-none -mx-4 mt-3 overflow-x-auto px-4">
-          <div className="flex w-max min-w-full gap-0.5 rounded-2xl bg-slate-100 p-1 dark:bg-ink-800">
+        {/* Seven tabs: two rows of four on a phone (a row that scrolled hid Logs and Insights off the edge), one row from sm up. */}
+        <nav aria-label="Admin sections" className="mt-3">
+          <div className="grid grid-cols-4 gap-0.5 rounded-2xl bg-slate-100 p-1 sm:flex dark:bg-ink-800">
             {TABS.map((t) => (
               // Switching tabs replaces the history entry: Back leaves Admin instead of walking the tabs.
               <NavLink
