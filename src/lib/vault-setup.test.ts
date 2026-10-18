@@ -12,7 +12,7 @@ describe('what opens a private group: the setup card', () => {
     expect(defaultOpensWith({ universal: false }, { set: false })).toBe('own')
   })
   it('all groups: passkey, universal pattern, server; each missing one has its button', () => {
-    expect(ids(setupRows(base, { scope: 'all' }))).toEqual(['passkey:ready:', 'universal:ready:change', 'server:ready:'])
+    expect(ids(setupRows(base, { scope: 'all' }))).toEqual(['passkey:ready:add', 'universal:ready:change', 'server:ready:'])
     expect(ids(setupRows({ ...base, hasPasskey: false, universal: false }, { scope: 'all' }))).toEqual([
       'passkey:missing:add',
       'universal:missing:set',
@@ -21,10 +21,10 @@ describe('what opens a private group: the setup card', () => {
     expect(setupRows({ ...base, ordered: false }, { scope: 'all' })[1].detail).toMatch(/any order/)
   })
   it('a group: the pattern row follows what it opens with, and the key row whether it is made', () => {
-    expect(ids(setupRows(base, { scope: 'group', opensWith: 'universal' }))).toEqual(['passkey:ready:', 'universal:ready:change', 'server:ready:'])
-    expect(ids(setupRows(base, { scope: 'group', opensWith: 'own', own: { set: false } }))).toEqual(['passkey:ready:', 'own:missing:set', 'server:ready:'])
+    expect(ids(setupRows(base, { scope: 'group', opensWith: 'universal' }))).toEqual(['passkey:ready:add', 'universal:ready:change', 'server:ready:'])
+    expect(ids(setupRows(base, { scope: 'group', opensWith: 'own', own: { set: false } }))).toEqual(['passkey:ready:add', 'own:missing:set', 'server:ready:'])
     const set = setupRows(base, { scope: 'group', opensWith: 'own', own: { set: true, ordered: false }, keyReady: true })
-    expect(ids(set)).toEqual(['passkey:ready:', 'own:ready:change+remove', 'server:ready:'])
+    expect(ids(set)).toEqual(['passkey:ready:add', 'own:ready:change+remove', 'server:ready:'])
     expect(set[1].detail).toMatch(/any order/)
     expect(set[2].detail).toMatch(/Ready/)
   })
@@ -47,5 +47,13 @@ describe('what opens a private group: the setup card', () => {
     expect(privateBlocker({ ...base, hasPasskey: false }, { opensWith: 'universal', own })).toMatch(/passkey/)
     expect(privateBlocker({ ...base, hasPasskey: false }, { opensWith: 'universal', own, demo: true })).toBeNull()
     expect(privateBlocker({ ...base, serverReady: false }, { opensWith: 'universal', own })).toMatch(/server/)
+  })
+  it('wrong tries show on the pattern row; a lockout says until when and takes its buttons away', () => {
+    expect(setupRows({ ...base, triesLeft: 2 }, { scope: 'all' })[1].detail).toMatch(/2 tries left$/)
+    expect(setupRows({ ...base, triesLeft: 5 }, { scope: 'all' })[1].detail).not.toMatch(/left/)
+    const locked = setupRows({ ...base, triesLeft: 0, lockedUntil: Date.UTC(2026, 9, 18, 12, 0) }, { scope: 'group', opensWith: 'own', own: { set: true } })[1]
+    expect(locked).toMatchObject({ id: 'own', state: 'missing', actions: [], locked: true })
+    expect(locked.detail).toMatch(/Too many wrong tries. Try again after/)
+    expect(stateLabel(locked)).toBe('Locked')
   })
 })

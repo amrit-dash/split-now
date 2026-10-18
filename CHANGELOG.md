@@ -6,6 +6,14 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.6.4 — October 2026
+
+- Delete my account also removes your block record, your nudge and payment-check counters, and any account merged into yours earlier.
+- Help: Delete your account now has steps and a picture that walks through them, like the other sections.
+- Private groups: the Passkey row keeps its ＋ once you have one, so a phone your synced passkey doesn't reach can add its own. The pattern row shows how many tries are left after a wrong pattern. After too many it says "Locked" and until when, instead of "Ready".
+- Help's auto-capture explainer no longer flashes a ring at the filter.
+- Admin: the section tabs wrap onto two rows on a phone instead of hiding Logs and Insights off the edge.
+
 ## 8.6.3 — October 2026
 
 - Icons: when Suggest with AI, Draw a picture and the automatic AI pick aren't available, the icon sheet now says why, with a link to AI features. The reasons it names: AI is off, AI icons are off, the free AI isn't agreed to yet, no Gemini key is added, the shared key isn't open to your account, or you're offline. Before, the buttons just weren't there.

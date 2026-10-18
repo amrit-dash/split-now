@@ -24,6 +24,14 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '8.6.4',
+    date: 'October 2026',
+    items: [
+      { text: 'Delete your account: steps and a picture in Help', section: 'delete-account' },
+      { text: 'Private groups say how many tries are left, and when a lockout ends', section: 'private-groups-setup' },
+    ],
+  },
+  {
     version: '8.6.3',
     date: 'October 2026',
     items: [

@@ -9,7 +9,7 @@
  * and rate counters. The sign-in itself goes last, so a run that stops halfway can simply be
  * repeated (each step finds what's left).
  */
-import { FieldValue } from 'firebase-admin/firestore'
+import { FieldPath, FieldValue } from 'firebase-admin/firestore'
 import { logger } from 'firebase-functions/logger'
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { clearedEntry, DELETED_NAME, type DeletionExpense, type DeletionGroup, planDeletion, planGroup, signedInRecently } from '../../shared/account-delete'
@@ -116,10 +116,21 @@ async function wipe(uid: string, emails: string[]): Promise<void> {
     await f.doc(`emailInvites/${emailId(email)}`).delete()
   }
   await Promise.all(
-    [`pendingMerges/${uid}`, `rateLimits/fx_${uid}`, ...['own', 'app', 'keycheck', 'picture'].map((k) => `rateLimits/ai_${k}_${uid}`)].map((p) =>
-      f.doc(p).delete(),
+    [`pendingMerges/${uid}`, `blocked/${uid}`, `rateLimits/fx_${uid}`, ...['own', 'app', 'keycheck', 'picture'].map((k) => `rateLimits/ai_${k}_${uid}`)].map(
+      (p) => f.doc(p).delete(),
     ),
   )
+  // Counters whose id starts with the account: nudges they sent a person, payment checks they asked for.
+  // (A group nudge's counter, nudge_{gid}_{uid}_…, has the group first and lasts a day.)
+  for (const prefix of [`nudgep_${uid}_`, `proof_${uid}_`])
+    await deleteAll(f.collection('rateLimits').where(FieldPath.documentId(), '>=', prefix).where(FieldPath.documentId(), '<', `${prefix}\uf8ff`))
+  // Accounts merged into this one earlier (switched off, kept for admins): their traces go too.
+  const merged = await f.collection('users').where('mergedInto', '==', uid).get()
+  const a = await auth()
+  for (const d of merged.docs) {
+    await f.recursiveDelete(d.ref)
+    await a.deleteUser(d.id).catch(() => undefined)
+  }
   await f.recursiveDelete(f.doc(`users/${uid}`))
   // The emulator runs without Storage (npm run test:functions), and would reach the real bucket.
   if (process.env.FUNCTIONS_EMULATOR === 'true' && !process.env.FIREBASE_STORAGE_EMULATOR_HOST) return
