@@ -669,6 +669,7 @@ function ExpenseIcon({ expense: e, color, editable, vault }: { expense: Expense;
         onPickSvg={(svg) => write({ icon: e.icon, iconSvg: svg, iconImage: undefined })}
         picture={ai.picture}
         pictureCost={ai.pictureCost}
+        aiWhy={ai.why}
         imageValue={e.iconImage}
         onPickImage={(image) => write({ icon: e.icon, iconSvg: undefined, iconImage: image })}
       />

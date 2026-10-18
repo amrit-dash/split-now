@@ -30,6 +30,30 @@ export function iconAiOffered(o: {
 }
 
 /**
+ * Why "Suggest with AI", "Draw a picture" and the automatic icon's AI pick aren't offered, in
+ * the person's words, so the icon sheet can say so (with a way to fix it) instead of quietly
+ * leaving them out. Null when they are offered, while the AI status is still loading, in a
+ * private group (which never uses AI, and says so elsewhere), and in the demo.
+ */
+export function iconAiWhy(o: Offer): string | null {
+  if (o.vault || o.mode === 'demo') return null
+  if (!o.flag) return 'AI icons are switched off for everyone right now.'
+  if (!o.online) return 'AI icons need the internet.'
+  if (!o.prefs) return null
+  if (!o.prefs.aiEnabled) return 'AI is off for you. Turn on Use AI in AI features.'
+  if (!o.prefs.aiIcons) return 'AI icons are off in AI features.'
+  if (iconAiOffered(o)) return null
+  if (o.prefs.aiSource === 'own' && !o.hasOwnKey) return 'You chose your own Gemini key, but none is added yet. Add it in AI features.'
+  if (o.status === undefined) return null
+  if (o.status === null) return 'Couldn’t check AI right now. Try again in a moment.'
+  const app = o.status.app
+  if (o.prefs.aiSource !== 'own' && app.images === 'available' && app.engine === 'gemma' && o.prefs.aiFreeOk !== true)
+    return 'Agree to Split Now’s free AI in AI features to get AI icons, or add your own Gemini key.'
+  if (app.images === 'not_listed') return 'Split Now’s AI isn’t open to your account yet. Add your own Gemini key in AI features.'
+  return 'Split Now’s AI isn’t on for icons right now. Add your own Gemini key in AI features.'
+}
+
+/**
  * The automatic icon's AI fallback (src/lib/icon-pick.ts): offered on the same keys as "Suggest
  * with AI", under its own admin switch (flags.aiIconAuto) and the person's own (aiIconAuto).
  */

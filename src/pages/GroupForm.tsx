@@ -867,6 +867,7 @@ export default function GroupForm() {
               onPickImage={chooseImage}
               picture={iconAi.picture}
               pictureCost={iconAi.pictureCost}
+              aiWhy={iconAi.why}
               ai={iconAi.suggest ? { kind: 'group' } : undefined}
             >
               <label className="label" htmlFor="group-name">

@@ -805,6 +805,7 @@ export function ExpenseEditor({
         onPickSvg={(svg) => dispatch({ type: 'iconSvg', svg })}
         picture={iconAi.picture}
         pictureCost={iconAi.pictureCost}
+        aiWhy={iconAi.why}
         imageValue={draft.iconImage}
         onPickImage={(image) => dispatch({ type: 'iconImage', image })}
       />

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ImageIcon, RefreshCw, Search, Sparkles, Wand2 } from 'lucide-react'
 import { repo } from '@/data'
 import { firstEmoji } from '@/lib/emoji'
+import { Link } from 'react-router-dom'
 import { AI_IDLE_MS, aiRowShown, drawnByLine, iconAiProblem, pictureNote, pictureProblem } from '@/lib/icon-ai'
 import { shrinkPicture } from '@/lib/icon-picture'
 import { searchIcons } from '@/lib/icons'
@@ -37,6 +38,7 @@ export function IconSheet({
   pictureCost = PICTURE_COST,
   imageValue,
   onPickImage,
+  aiWhy,
   testId = 'icon-sheet',
 }: {
   open: boolean
@@ -59,6 +61,8 @@ export function IconSheet({
   /** the picture chosen now */
   imageValue?: string
   onPickImage?: (image: string) => void
+  /** why the AI rows aren't here (src/lib/icon-ai.ts iconAiWhy), said under the search with a link to fix it */
+  aiWhy?: string | null
   testId?: string
 }) {
   const [q, setQ] = useState('')
@@ -182,6 +186,14 @@ export function IconSheet({
             data-testid="icon-search"
           />
         </form>
+        {!asked && aiWhy && (
+          <p className="text-muted px-1 text-xs" role="note" data-testid="icon-ai-why">
+            {aiWhy}{' '}
+            <Link to="/settings/ai" onClick={onClose} className="font-semibold text-brand-600 underline underline-offset-2 dark:text-brand-300">
+              AI features
+            </Link>
+          </p>
+        )}
         {showAi && (
           <div
             className="animate-pop rounded-2xl bg-gradient-to-br from-brand-50 to-duo-50 p-3 dark:from-brand-900/30 dark:to-duo-900/20"
