@@ -123,10 +123,16 @@ describe('iconsAi (emulator)', () => {
     await write('users/alice/settings/notifications', { aiIcons: false })
     expect((await call<Answer>(req, 'alice', 'iconsAi')).result).toEqual({ unavailable: true, reason: 'off' })
   })
+  it('bill reading off (the person’s switch, or the admin’s) doesn’t turn icons off: the app never asks about it here', async () => {
+    await write('config/ai', { mode: 'everyone', engine: 'gemini' })
+    await write('users/alice/settings/notifications', { aiImages: false })
+    await write('config/app', { flags: { aiImages: false } })
+    expect((await call<Answer>(req, 'alice', 'iconsAi')).result).toEqual({ unavailable: true, reason: 'not_configured' })
+  })
 })
 
 describe('iconPickAi (emulator)', () => {
-  const pick = { title: 'Thalassa', kind: 'expense', choices: ['🍽️', '🍕', '🚕'], categories: ['food', 'transport'] }
+  const pick = { title: 'Toit', kind: 'expense', choices: ['🍽️', '🍕', '🚕'], categories: ['food', 'transport'] }
   it('needs an account and something to pick from', async () => {
     expect((await call(pick, undefined, 'iconPickAi')).error?.status).toBe('UNAUTHENTICATED')
     expect((await call({ ...pick, choices: ['pizza'] }, 'alice', 'iconPickAi')).error?.status).toBe('INVALID_ARGUMENT')
@@ -141,5 +147,11 @@ describe('iconPickAi (emulator)', () => {
     await write('users/alice/settings/notifications', {})
     await write('config/app', { flags: { aiIconAuto: false } })
     expect((await call<Answer>(pick, 'alice', 'iconPickAi')).result).toEqual({ unavailable: true, reason: 'off' })
+  })
+  it('the automatic pick doesn’t depend on bill reading either', async () => {
+    await write('config/ai', { mode: 'everyone', engine: 'gemini' })
+    await write('users/alice/settings/notifications', { aiImages: false })
+    await write('config/app', { flags: { aiImages: false } })
+    expect((await call<Answer>(pick, 'alice', 'iconPickAi')).result).toEqual({ unavailable: true, reason: 'not_configured' })
   })
 })

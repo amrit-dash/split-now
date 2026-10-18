@@ -24,6 +24,14 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '8.6.3',
+    date: 'October 2026',
+    items: [
+      { text: 'No AI icons? The icon sheet says why, with a way to fix it', section: 'icons-and-ai' },
+      { text: 'Icons with AI work without bill reading switched on', section: 'icons-and-ai' },
+    ],
+  },
+  {
     version: '8.6.2',
     date: 'October 2026',
     items: [{ text: 'The auto-capture explainer is redrawn: a phone, a filter and your Inbox', section: 'auto-capture-explained' }],

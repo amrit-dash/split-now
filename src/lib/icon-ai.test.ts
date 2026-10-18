@@ -7,6 +7,7 @@ import {
   pictureModelOptions,
   iconAiOffered,
   iconAiProblem,
+  iconAiWhy,
   iconFace,
   pictureNote,
   pictureOffer,
@@ -181,5 +182,29 @@ describe('under a drawn picture', () => {
     expect(drawnByLine('models/gemini-3-pro-image')).toBe('Nano Banana Pro · about US$0.13')
     expect(drawnByLine('gemini-9-image')).toBe('gemini-9-image')
     expect(drawnByLine(undefined)).toBeNull()
+  })
+})
+
+describe('why AI icons aren’t offered', () => {
+  it('says nothing when they are, in a private group, in the demo, or while the status loads', () => {
+    expect(iconAiWhy(base)).toBeNull()
+    expect(iconAiWhy({ ...base, vault: true, flag: false })).toBeNull()
+    expect(iconAiWhy({ ...base, mode: 'demo', flag: false })).toBeNull()
+    expect(iconAiWhy({ ...base, prefs: { ...prefs, aiFreeOk: false }, status: undefined })).toBeNull()
+  })
+  it('names the switch that is off, in order', () => {
+    expect(iconAiWhy({ ...base, flag: false })).toMatch(/off for everyone/)
+    expect(iconAiWhy({ ...base, online: false })).toMatch(/internet/)
+    expect(iconAiWhy({ ...base, prefs: { ...prefs, aiEnabled: false } })).toMatch(/Use AI/)
+    expect(iconAiWhy({ ...base, prefs: { ...prefs, aiIcons: false } })).toMatch(/AI icons are off/)
+  })
+  it('the free AI not agreed to, the key not open to them, no key at all', () => {
+    expect(iconAiWhy({ ...base, prefs: { ...prefs, aiFreeOk: false } })).toMatch(/Agree to Split Now’s free AI/)
+    expect(iconAiWhy({ ...base, status: { app: { images: 'not_listed' } } })).toMatch(/isn’t open to your account/)
+    expect(iconAiWhy({ ...base, status: { app: { images: 'feature_off' } } })).toMatch(/isn’t on for icons/)
+    expect(iconAiWhy({ ...base, prefs: { ...prefs, aiSource: 'own' } })).toMatch(/none is added yet/)
+    expect(iconAiWhy({ ...base, status: null })).toMatch(/Couldn’t check/)
+    // their own key works whatever the shared key does
+    expect(iconAiWhy({ ...base, status: { app: { images: 'off' } }, hasOwnKey: true })).toBeNull()
   })
 })
