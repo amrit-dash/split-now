@@ -523,7 +523,8 @@ export const SECTIONS: HelpSection[] = [
     ],
     points: [
       'While you set it, each tap shows as · and each long press as –; lock buttons show nothing.',
-      'Each row says where it stands: Added, Ready or Needed. The pencil changes a pattern.',
+      'Each row says where it stands: Added, Ready, Needed or Locked. The pencil changes a pattern; ＋ on Passkey adds one on this phone.',
+      'After a wrong pattern the row says how many tries are left; after too many, until when it is locked.',
       'One passkey covers all your groups: it proves it’s you. The pattern is what can differ from group to group.',
       'Changing it asks for the current one first.',
       'A forgotten universal pattern can’t be reset.',
