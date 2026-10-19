@@ -52,23 +52,31 @@ export default function Admin() {
     <div data-testid="admin-console">
       {/* The section tabs ride in the sticky header, so they stay in reach on long tabs. */}
       <PageHeader title="Admin" back="/settings" subtitle="Switches, limits, usage and accounts. Changes apply within a minute.">
-        {/* Seven tabs in one even row: an icon over a short label, as the bottom bar does (two rows of words looked lopsided; a row that scrolled hid Logs and Insights off the edge). */}
+        {/* Seven tabs in one row: on a phone, icons, with the open tab's name beside its icon (every tab is still named for screen readers); from sm up, every name. */}
         <nav aria-label="Admin sections" className="mt-3">
-          <div className="grid grid-cols-7 gap-0.5 rounded-2xl bg-slate-100 p-1 dark:bg-ink-800">
+          <div className="flex gap-0.5 rounded-2xl bg-slate-100 p-1 dark:bg-ink-800">
             {TABS.map(({ to, label, Icon }) => (
               // Switching tabs replaces the history entry: Back leaves Admin instead of walking the tabs.
               <NavLink
                 key={to}
                 to={to}
                 replace
+                aria-label={label}
+                title={label}
                 className={({ isActive }) =>
-                  `flex min-h-12 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-0 py-1.5 text-[0.625rem] font-semibold leading-tight tracking-tight transition min-[360px]:text-[0.6875rem] ${
-                    isActive ? 'bg-white text-slate-900 shadow-sm dark:bg-ink-700 dark:text-white' : 'text-muted'
+                  `flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-xl text-[0.8125rem] font-semibold transition sm:flex-1 sm:px-2 ${
+                    isActive ? 'flex-none bg-white px-3 text-slate-900 shadow-sm dark:bg-ink-700 dark:text-white' : 'flex-1 text-muted'
                   }`
                 }
               >
-                <Icon size={18} aria-hidden />
-                <span className="max-w-full truncate">{label}</span>
+                {({ isActive }) => (
+                  <>
+                    <Icon size={18} aria-hidden className="shrink-0" />
+                    <span className={isActive ? 'whitespace-nowrap' : 'hidden whitespace-nowrap sm:inline'} aria-hidden>
+                      {label}
+                    </span>
+                  </>
+                )}
               </NavLink>
             ))}
           </div>

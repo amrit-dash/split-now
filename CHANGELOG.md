@@ -6,6 +6,10 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.6.10 — October 2026
+
+- Admin: on a phone the section tabs are icons, with the open tab's name beside its icon; on a wider screen every tab shows its name.
+
 ## 8.6.9 — October 2026
 
 - Edit group: renaming a group now picks a fitting icon as New group does: the app's own icons first, then AI ("Picking an icon"), with AI's second icon offered and **Keep** to go back to the old one. The type isn't changed, and a drawn picture or an icon you chose on that screen is never replaced. Before, renaming left the icon as it was.

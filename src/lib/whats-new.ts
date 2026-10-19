@@ -24,6 +24,11 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '8.6.10',
+    date: 'October 2026',
+    items: [{ text: 'Admin’s tabs are icons on a phone, naming the one you’re on', section: 'admin-console' }],
+  },
+  {
     version: '8.6.9',
     date: 'October 2026',
     items: [{ text: 'Renaming a group picks a fitting icon too, with Keep to go back', section: 'icons-and-ai' }],
