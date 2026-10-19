@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ChevronRight, Loader2, Lock, Stamp, UserMinus, Users } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
-import { createGroup, useAllExpenses, useCaptureTokens, useGroup, useGroups } from '@/hooks/data'
+import { createGroup, useAllExpenses, useCaptureTokens, useGroup, useGroups, useJoinRequests } from '@/hooks/data'
 import { useCapturePrefs } from '@/hooks/useCapturePrefs'
 import { useFlag } from '@/hooks/useAppConfig'
 import { usePrivateGroups } from '@/hooks/usePrivateGroups'
@@ -31,7 +31,7 @@ import {
   approvalsSummary,
 } from '@/lib/approval'
 import { getRate } from '@/lib/fx'
-import { approveJoinsShown } from '@/lib/join-approval'
+import { approveJoinsShown, joinsOffBlocker, waitingRequests } from '@/lib/join-approval'
 import { useTodayRates } from '@/hooks/useFx'
 import { GROUP_TYPES, SHARED_TYPES, groupTypeInfo, groupTypeOf, guessGroup, iconsFor, isSharedType, parseGroupType } from '@/lib/groupTypes'
 import { useIconAi } from '@/hooks/useIconAi'
@@ -326,6 +326,8 @@ export default function GroupForm() {
     },
   })
 
+  // Its creator, with the setting on: who is still waiting to be let in (it stays on until they're answered).
+  const joinWaitlist = useJoinRequests(groupId && existing?.approveJoins && existing.createdBy === user.uid ? [groupId] : null)
   if (groupId && existing === undefined) return <Loading />
   // Fixed: this group is gone for you, and every screen of it behind this one would say the same, so back leaves the group.
   if (groupId && existing === null) return <PageHeader title="Group not found" back={{ to: '/groups', mode: 'fixed' }} />
@@ -382,6 +384,8 @@ export default function GroupForm() {
     { type, vault: !!existing?.vault || (privateOn && privateShown), approveJoins: existing?.approveJoins },
     { flag: joinApprovalOn, creator: !existing || existing.createdBy === user.uid },
   )
+  // Still waiting to be let in: the setting stays on until each is answered.
+  const joinsOff = joinsOffBlocker(existing ? waitingRequests(joinWaitlist ?? [], [existing]).filter((r) => r.status === 'pending').length : 0)
   const approvals = approvalsSummary({ requireApproval, threshold, paymentApproval, approveJoins: joinsShown && approveJoins }, currency)
   const moreSummary = [
     currency,
@@ -874,8 +878,24 @@ export default function GroupForm() {
                   </div>
                   <HintText hint={JOINS_HINT} className="text-muted text-xs" as="div" />
                 </div>
-                <Switch checked={approveJoins} onChange={setApproveJoins} label="New people need my OK" testId="group-approve-joins" />
+                <Switch
+                  checked={approveJoins}
+                  onChange={(on) => {
+                    if (!on && joinsOff) return toast(joinsOff, 'err')
+                    setApproveJoins(on)
+                  }}
+                  label="New people need my OK"
+                  testId="group-approve-joins"
+                />
               </div>
+            )}
+            {joinsShown && approveJoins && joinsOff && (
+              <p className="text-muted px-1 text-xs" role="status" data-testid="group-approve-joins-waiting">
+                {joinsOff}{' '}
+                <Link to="/inbox" className="font-semibold text-brand-700 dark:text-brand-300">
+                  Open the Inbox
+                </Link>
+              </p>
             )}
           </div>
         </Collapsible>

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { addPlan } from '@/lib/vault-api'
+import { addPlan, addRefusal } from '@/lib/vault-api'
 import { addedPrompt } from '@/lib/vault-setup'
 import { useConfirm } from '@/components/ConfirmSheet'
 import { passkeyCancelled, passkeyProof } from '@/features/vault/passkey'
@@ -96,7 +96,7 @@ export default function GroupMembers() {
     if (others >= maxOthers) return
     // A private group: its creator alone adds people; someone they know joins at once (src/lib/vault-api.ts addPlan).
     const plan = addPlan(group, isCreator, accountUid)
-    if (plan === 'forbidden') return toast('Only the person who made this private group adds people', 'err')
+    if (plan === 'forbidden') return toast(addRefusal(group, isCreator) ?? 'Only the person who made this group adds people', 'err')
     if (plan === 'contact' && accountUid) {
       void (async () => {
         try {
@@ -244,12 +244,12 @@ export default function GroupMembers() {
               </div>
             </Detail>
           )}
-          {others < maxOthers && group.vault && !isCreator && (
+          {others < maxOthers && addRefusal(group, isCreator) && (
             <p className="card text-muted p-4 text-sm" data-testid="members-private-note">
-              Only the person who made this private group adds people. Anyone else asks to join from its invite.
+              {addRefusal(group, isCreator)}
             </p>
           )}
-          {others < maxOthers && (!group.vault || isCreator) && (
+          {others < maxOthers && !addRefusal(group, isCreator) && (
             <section className="card p-4" aria-labelledby="members-add">
               <h2 id="members-add" className="label">
                 Add people

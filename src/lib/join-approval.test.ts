@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { approveJoinsShown, decidesJoins, invitePath, waitingRequests } from './join-approval'
+import { approveJoinsShown, decidesJoins, invitePath, joinsOffBlocker, waitingRequests } from './join-approval'
 
 describe('approveJoinsShown', () => {
   const trip = { type: 'trip' }
@@ -53,5 +53,13 @@ describe('invitePath', () => {
     expect(invitePath({ approveJoins: true }, false)).toBe('ask')
     expect(invitePath({ approveJoins: true }, true)).toBe('join')
     expect(invitePath({}, false)).toBe('join')
+  })
+})
+
+describe('turning New people need my OK off', () => {
+  it('waits until nobody is waiting', () => {
+    expect(joinsOffBlocker(0)).toBeNull()
+    expect(joinsOffBlocker(1)).toBe('1 person is waiting to be let in. Let them in or decline them in the Inbox first.')
+    expect(joinsOffBlocker(3)).toMatch(/^3 people are waiting/)
   })
 })

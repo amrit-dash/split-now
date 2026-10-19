@@ -199,7 +199,8 @@ nothing of the group.
 An ordinary group can ask the same way when its creator turns on **New people need my OK**
 (`group.approveJoins`). That goes through its own callable, `joinApproval`
 (`functions/src/join.ts`, docs/PLAN.md §4.0), sharing `join-core.ts`: nothing is sealed and no
-passkey is asked for, it refuses private groups, and the `vaults` flag doesn't gate it.
+passkey is asked for, it refuses private groups, and the `vaults` flag doesn't gate it. As here, only
+its creator adds people while it's on, and its invite names nobody.
 
 Only its creator adds people (the rules refuse anyone else's placeholder): by name or email, as
 in any group (an email that matches an account links as usual), or directly someone they're

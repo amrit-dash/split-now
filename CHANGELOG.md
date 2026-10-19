@@ -6,6 +6,13 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.7.1 — October 2026
+
+- New people need my OK: it can't be turned off while someone is waiting to be let in. Edit group says how many are waiting, with a link to the Inbox. Before, turning it off left their requests hidden.
+- While it's on, only the person who made the group adds people. Before, anyone in the group could add someone by email, and that account was linked straight in without the OK.
+- While it's on, the invite link no longer carries the names you added to the group. Nobody picks a name there; you match them when you let them in.
+- Switching the setting off in Admin → Flags now only hides the switch. Groups that already have it on keep working. Before, people opening their invite could neither join nor ask.
+
 ## 8.7.0 — October 2026
 
 - Groups: the person who made a group can turn on **New people need my OK** (Edit group → Approvals). The invite link, old ones included, then shows **Ask to join** instead of joining; they get a notification and let each person in, as someone new or as a name already in the group, or decline, from Inbox → Asking to join. Turning it off lets people join from the link again. Before, anyone with the link of an ordinary group joined straight away.

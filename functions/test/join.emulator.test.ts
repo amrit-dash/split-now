@@ -174,13 +174,13 @@ describe('joinApproval callable (emulator)', () => {
     expect((await read('groups/g'))?.memberUids).toEqual(['alice', 'bob'])
   })
 
-  it('the joinApproval switch stops asking, not answering', async () => {
+  it('the joinApproval switch off never strands a group that has the setting on: asking and answering go on', async () => {
     await call({ op: 'ask', code: 'INVITE12' }, 'carol')
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), 'config/app'), { flags: { joinApproval: false } })
     })
     try {
-      expect((await call({ op: 'ask', code: 'INVITE12' }, 'dev')).error?.message).toMatch(/switched off/)
+      expect((await call({ op: 'ask', code: 'INVITE12' }, 'dev')).result).toEqual({ status: 'pending' })
       expect((await call({ op: 'decide', groupId: 'g', uid: 'carol', approve: false }, 'alice')).result).toEqual({ ok: true })
     } finally {
       await env.withSecurityRulesDisabled(async (ctx) => {

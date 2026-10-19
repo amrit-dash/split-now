@@ -235,10 +235,17 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
   }
   // A 1:1's invite is named after the person already in it (shared/names.ts inviteNameFor), not the friend it's for.
   // A private group's invite (readable by anyone with the link) names nothing of it: no name, emoji or people (docs/VAULT.md).
+  // One whose new people need its creator's OK lists none of its people either: nobody picks a name there, its creator does.
   const inviteDoc = (g: Group): InviteInfo =>
     g.vault
       ? { groupId: g.id, groupName: inviteNameFor(g), emoji: '🔒', placeholders: {}, vault: true }
-      : { groupId: g.id, groupName: inviteNameFor(g), emoji: g.emoji, placeholders: placeholdersOf(g), ...(g.approveJoins ? { approveJoins: true } : {}) }
+      : {
+          groupId: g.id,
+          groupName: inviteNameFor(g),
+          emoji: g.emoji,
+          placeholders: g.approveJoins ? {} : placeholdersOf(g),
+          ...(g.approveJoins ? { approveJoins: true } : {}),
+        }
 
   /**
    * Commit without waiting for the server. Firestore applies the batch to the local cache
@@ -858,16 +865,17 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       for (const [k, v] of Object.entries(changed)) data[k] = v === undefined ? deleteField() : v
       const batch = writeBatch(db)
       batch.update(groupRef(base.id), data)
-      if (base.type !== 'personal' && ('name' in changed || 'emoji' in changed || 'approveJoins' in changed)) {
+      if (base.type !== 'personal' && 'approveJoins' in changed) {
+        // The whole invite, in the same batch as the group: it asks instead of joining exactly while the
+        // rules refuse a join (isJoining), old links included, and it lists people only while they may pick one.
+        batch.set(inviteRef(base.inviteCode), inviteDoc({ ...base, ...changed } as Group))
+      } else if (base.type !== 'personal' && ('name' in changed || 'emoji' in changed)) {
         batch.set(
           inviteRef(base.inviteCode),
           {
             groupId: base.id,
             groupName: inviteNameFor({ ...base, name: changed.name ?? base.name }),
             emoji: base.vault ? '🔒' : (changed.emoji ?? base.emoji),
-            // In the same batch as the group: the invite page asks instead of joining exactly while
-            // the rules refuse a join (isJoining), old links included (they're the same invite).
-            ...('approveJoins' in changed ? { approveJoins: changed.approveJoins ? true : deleteField() } : {}),
           },
           { merge: true },
         )
@@ -920,7 +928,8 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
           memberOpId: memberId,
           updatedAt: Date.now(),
         })
-        if (group.type !== 'personal') batch.set(inviteRef(group.inviteCode), { groupId: group.id, placeholders: { [memberId]: former.name } }, { merge: true })
+        if (group.type !== 'personal' && !group.approveJoins)
+          batch.set(inviteRef(group.inviteCode), { groupId: group.id, placeholders: { [memberId]: former.name } }, { merge: true })
         log(batch, group.id, memberActivity('added', memberId, former.name, await actCtx(group.id, undefined, group)))
         fire(batch, `Adding ${former.name}`)
         return
@@ -931,7 +940,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         memberOpId: memberId,
         updatedAt: Date.now(),
       })
-      if (!member.uid && group.type !== 'personal') {
+      if (!member.uid && group.type !== 'personal' && !group.approveJoins) {
         batch.set(inviteRef(group.inviteCode), { groupId: group.id, placeholders: { [memberId]: member.name } }, { merge: true })
       }
       log(batch, group.id, memberActivity('added', memberId, member.name, await actCtx(group.id, undefined, group)))

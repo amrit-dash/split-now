@@ -15,10 +15,11 @@
  *  - decide { groupId, uid, approve, memberId? }      → its creator lets them in (as someone new, or into one
  *                                                        of its placeholders) or declines; the asker gets a push
  *
- * The `joinApproval` flag gates asking (and the setting, in the app); deciding is never switched
- * off, so requests already made can be answered. Turning the setting off leaves waiting requests as
- * they are (docs/PLAN.md §4.2): the people who made them can join from the invite again, and the
- * Inbox lists them only while it is on.
+ * The `joinApproval` flag decides who may turn the setting on (in the app); it never stops a group
+ * that has it on: asking and deciding go on, or people would be refused by the rules and by this
+ * callable at once, with no way in. The app keeps the setting on while requests are waiting
+ * (src/lib/join-approval.ts canTurnOffJoins); one an older app left behind still shows in the Inbox
+ * to be answered (docs/PLAN.md §4.2).
  */
 import { logger } from 'firebase-functions/logger'
 import { HttpsError, onCall, type CallableRequest } from 'firebase-functions/v2/https'
@@ -26,7 +27,6 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { db } from './admin'
 import { sendToUser } from './push'
 import { ENFORCE_APP_CHECK, REGION } from './config'
-import { flagOn } from './lib/limits'
 import { accountName, admission, joinGate, memberIdOf, type JoinRequestDoc } from './lib/join-core'
 import { joinAskedNote, joinDecidedNote } from './lib/notify-text'
 
@@ -61,7 +61,6 @@ async function status(uid: string, code: unknown) {
 }
 
 async function ask(uid: string, req: CallableRequest, code: unknown) {
-  if (!(await flagOn('joinApproval'))) throw new HttpsError('failed-precondition', 'Asking to join is switched off right now. Try again later.')
   const { gid, g } = await byCode(code)
   if (isIn(g, uid)) return { status: 'member' as const, groupId: gid }
   if (g.approveJoins !== true) return { status: 'open' as const }
