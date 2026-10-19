@@ -8,6 +8,7 @@ import { useCapturePrefs } from '@/hooks/useCapturePrefs'
 import { useFlag } from '@/hooks/useAppConfig'
 import { usePrivateGroups } from '@/hooks/usePrivateGroups'
 import { saveCapturePrefs, tripCaptureNotice } from '@/lib/capture-settings'
+import { iconFollowsName } from '@/lib/group-icon-follow'
 import { setTripPaused } from '@/lib/capture-filters'
 import type { Group, GroupType, Member } from '@/types'
 import { CURRENCIES, centsToInput } from '@/lib/money'
@@ -129,6 +130,8 @@ export default function GroupForm() {
   const [nameTouched, setNameTouched] = useState(!!prefillName)
   const [typeTouched, setTypeTouched] = useState(false)
   const [iconTouched, setIconTouched] = useState(false)
+  // Editing: an icon chosen on this screen (the saved one counts as chosen, until the name changes).
+  const [iconChosen, setIconChosen] = useState(false)
   const [datesTouched, setDatesTouched] = useState(false)
   const [typedName, setTypedName] = useState(!!prefillName)
   const [dismissed, setDismissed] = useState('')
@@ -291,15 +294,25 @@ export default function GroupForm() {
   // When the name finds no icon by the app's own rules, the AI picks one of the group icons (and the type, while it wasn't chosen).
   // The AI's second icon for the name ("Sri Lanka bees": 🐝, or 🇱🇰), offered beside the one it picked.
   const [pickAlt, setPickAlt] = useState<{ title: string; emoji: string } | null>(null)
+  // The icon follows the name: a new group's until one is chosen; a saved group's once it's renamed,
+  // until one is chosen here, and never over a drawn picture (src/lib/group-icon-follow.ts).
+  const followName = iconFollowsName({
+    editing: !!existing,
+    renamed: !!existing && name.trim() !== existing.name.trim(),
+    iconTouched,
+    iconChosen,
+    hasPicture: !!(iconSvg || iconImage),
+  })
   const pickingIcon = useAutoIconPick({
     title: name,
     offered: iconAi.auto,
-    need: !groupId && isSharedType(type) && typedName && !iconTouched && !privateOn && !guessGroup(name),
+    need: isSharedType(type) && typedName && followName && !privateOn && !guessGroup(name),
     request: (t) => groupPickRequest(t, { typeTouched }),
     onAnswer: (title, a) => {
-      if (title !== name || iconTouched) return
+      if (title !== name || !followName) return
       // applyType is defined below the early returns; the answer only arrives after a render that defined it.
-      if (a.type && !typeTouched) applyType(a.type, a.emoji)
+      // A saved group keeps its type: only its icon follows a new name.
+      if (a.type && !typeTouched && !existing) applyType(a.type, a.emoji)
       else if (a.emoji) setEmoji(a.emoji)
       setPickAlt(a.emoji && a.alt ? { title, emoji: a.alt } : null)
     },
@@ -351,7 +364,9 @@ export default function GroupForm() {
     isSharedType(guess.type) &&
     (!existing || isSharedType(groupTypeOf(existing)))
   // The pills under the name (one scrolling row): the AI's second icon, and the type the name looks like.
-  const altShown = !pickingIcon && !!pickAlt && pickAlt.title === name && !iconTouched && pickAlt.emoji !== emoji
+  const altShown = !pickingIcon && !!pickAlt && pickAlt.title === name && followName && pickAlt.emoji !== emoji
+  // Renamed, and the icon followed: the saved one is a tap away.
+  const keepShown = !!existing && !iconChosen && !existing.iconSvg && !existing.iconImage && emoji !== existing.emoji
   const typeShown = extras && showGuess && !!guess
   const approvals = approvalsSummary({ requireApproval, threshold, paymentApproval }, currency)
   const moreSummary = [
@@ -404,17 +419,20 @@ export default function GroupForm() {
   }
   const chooseIcon = (e: string) => {
     setIconTouched(true)
+    setIconChosen(true)
     setEmoji(e)
     setIconSvg(undefined)
     setIconImage(undefined)
   }
   const chooseSvg = (svg: string) => {
     setIconTouched(true)
+    setIconChosen(true)
     setIconSvg(svg)
     setIconImage(undefined)
   }
   const chooseImage = (image: string) => {
     setIconTouched(true)
+    setIconChosen(true)
     setIconImage(image)
     setIconSvg(undefined)
   }
@@ -430,6 +448,14 @@ export default function GroupForm() {
     if (!existing && shared && !typeTouched && !iconTouched) {
       const g = guessGroup(v)
       if (g) applyType(g.type, g.emoji)
+    }
+    // A saved group: its icon follows a new name (its type stays), and the old name brings its icon back.
+    if (existing && shared && !iconChosen && !existing.iconSvg && !existing.iconImage) {
+      if (v.trim() === existing.name.trim()) setEmoji(existing.emoji)
+      else {
+        const g = guessGroup(v)
+        if (g) setEmoji(g.emoji)
+      }
     }
   }
 
@@ -903,8 +929,26 @@ export default function GroupForm() {
               <Loader2 size={12} className="animate-spin" aria-hidden /> Picking an icon for “{name.trim()}”…
             </p>
           )}
-          {(altShown || typeShown) && (
+          {(altShown || typeShown || keepShown) && (
             <SuggestionRow>
+              {keepShown && existing && (
+                <SuggestionPill
+                  testId="group-icon-keep"
+                  dismissLabel="Dismiss"
+                  onDismiss={() => setIconChosen(true)}
+                  onApply={() => {
+                    setIconChosen(true)
+                    setEmoji(existing.emoji)
+                    setPickAlt(null)
+                  }}
+                >
+                  Keep{' '}
+                  <span aria-hidden className="mx-1">
+                    {existing.emoji}
+                  </span>
+                  <span className="sr-only">the icon {existing.emoji}</span>
+                </SuggestionPill>
+              )}
               {altShown && pickAlt && (
                 <SuggestionPill
                   testId="group-icon-alt"
@@ -912,6 +956,7 @@ export default function GroupForm() {
                   onDismiss={() => setPickAlt(null)}
                   onApply={() => {
                     setIconTouched(true)
+                    setIconChosen(true)
                     setEmoji(pickAlt.emoji)
                     setPickAlt(null)
                   }}

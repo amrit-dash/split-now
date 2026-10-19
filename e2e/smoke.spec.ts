@@ -1770,6 +1770,26 @@ test('delete my account in demo mode: refused while money is owed, then the word
   await expect(page.getByTestId('demo-name').or(page.getByTestId('demo-start')).first()).toBeVisible()
 })
 
+test('Edit group: a new name brings a new icon, the AI’s second one, and Keep for the old one; the type stays', async ({ page }) => {
+  await page.goto('/groups/g_goa/edit')
+  const name = page.getByLabel('Name', { exact: true })
+  await expect(name).toHaveValue('Goa Trip')
+  await expect(page.getByTestId('group-icon')).toContainText('🏖️')
+  await name.fill('Sri Lanka bees')
+  await expect(page.getByTestId('group-icon')).toContainText('🇱🇰')
+  await expect(page.getByTestId('group-icon-alt')).toContainText('🐝')
+  await expect(page.getByRole('radiogroup', { name: 'Type' }).getByRole('radio', { name: /Trip/ })).toHaveAttribute('aria-checked', 'true')
+  const keep = page.getByTestId('group-icon-keep')
+  await expect(keep).toContainText('🏖️')
+  await keep.getByRole('button', { name: /Keep/ }).click()
+  await expect(page.getByTestId('group-icon')).toContainText('🏖️')
+  await expect(keep).toHaveCount(0)
+  // chosen now: typing on doesn't change it again
+  await name.fill('Sri Lanka bees again')
+  await page.waitForTimeout(1500)
+  await expect(page.getByTestId('group-icon')).toContainText('🏖️')
+})
+
 test('New group: a name the app’s own icons don’t cover gets an AI pick from any emoji, with a second one offered', async ({ page }) => {
   await page.goto('/groups/new')
   await page
