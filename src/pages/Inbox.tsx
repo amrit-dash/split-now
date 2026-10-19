@@ -60,6 +60,10 @@ import { labelForUid, labelOf, memberIdOfUid } from '@/lib/shortNames'
 import { groupsDeletedByOthers } from '@/lib/trust'
 import { daysLeft } from '../../shared/group-trash'
 import { openOnce } from '@/lib/vault-open'
+import { fmtAgo } from '@/lib/activity'
+import { colorFor } from '@/lib/colors'
+import { Avatar } from '@/components/Avatar'
+import { GroupIcon } from '@/components/GroupIcon'
 import { addedPrompt } from '@/lib/vault-setup'
 import { useConfirm } from '@/components/ConfirmSheet'
 
@@ -1154,8 +1158,20 @@ function JoinRequestRow({ request, d }: { request: JoinRequest; d: GroupData | u
   }
   return (
     <div className="card p-4" data-testid="join-request-row">
-      <div className="text-sm">
-        <b>{who}</b> asked to join <b>{open && group ? group.name : 'a private group'}</b>
+      {/* Who, which group (its face while it's open here), and when they asked. */}
+      <div className="flex items-center gap-3">
+        <Avatar name={who} color={colorFor(1)} size={40} />
+        <div className="min-w-0 flex-1 text-sm">
+          <div>
+            <b>{who}</b> asked to join
+          </div>
+          <div className="text-muted mt-0.5 flex min-w-0 items-center gap-1.5 text-xs">
+            {open && group ? <GroupIcon emoji={group.emoji} group={group} size={18} /> : null}
+            <span className="truncate font-semibold text-slate-700 dark:text-slate-200">{open && group ? group.name : 'a private group'}</span>
+            <span aria-hidden>·</span>
+            <span className="shrink-0">{fmtAgo(request.createdAt)}</span>
+          </div>
+        </div>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2">
         <button
