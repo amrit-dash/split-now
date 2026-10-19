@@ -38,10 +38,13 @@ export interface OwnPattern {
 
 const order = (ordered?: boolean) => (ordered === false ? 'any order' : 'in order')
 
-/** Its own pattern when it has one; else the universal one when the person has it; else its own (no universal to lean on). */
-export function defaultOpensWith(s: Pick<VaultStatus, 'universal'>, own: OwnPattern): OpensWith {
+/**
+ * Its own pattern when it has one; else the universal one when the person has it and everyone else
+ * in it does too; else its own (no universal to lean on, or someone in it who'd have no way in).
+ */
+export function defaultOpensWith(s: Pick<VaultStatus, 'universal'>, own: OwnPattern, othersWithout = 0): OpensWith {
   if (own.set) return 'own'
-  return s.universal ? 'universal' : 'own'
+  return s.universal && othersWithout === 0 ? 'universal' : 'own'
 }
 
 /** The rows, in order: passkey, then the pattern that opens it, then the server's key. */
@@ -167,4 +170,10 @@ export function addedPrompt(name: string): { title: string; message: string; con
     message: `${name} hasn’t set up private groups, and this group has no pattern of its own. Give it one now and tell it to ${name} in person?`,
     confirmLabel: 'Give it a pattern',
   }
+}
+
+/** Making a group private to open with universal patterns while some in it have none: they'd be locked out. */
+export function convertWarning(names: string[], opensWith: OpensWith): string | null {
+  if (opensWith !== 'universal' || !names.length) return null
+  return `${nameList(names)} ${names.length === 1 ? 'has' : 'have'} no universal pattern, so they couldn’t open it. Give it its own pattern instead, and tell them in person.`
 }

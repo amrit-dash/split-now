@@ -80,6 +80,14 @@ Groups); on by default like every flag, server-enforced in the `vault` callable.
   open it with; the app then asks its creator to give it one now (`addedPrompt`), which opens the
   group at `?private=pattern`, straight into setting its own pattern. Its creator learns only whether
   that person has a universal pattern, nothing about it.
+  However someone came in (added, let in, linked by email after being added by it, there when it was
+  made, or there when it was made private), the group itself shows the same card under its header
+  while it's open (`src/hooks/useVaultWaiting.ts`: `status` asked once per group and set of people
+  while the app runs, again when someone joins or leaves or its own pattern changes).
+  Before an existing group is made private, `status` with `convert` (its creator only, the group not
+  private yet) answers the same list: Make private then starts on **Its own pattern**
+  (`defaultOpensWith`), and choosing Universal pattern says who would be locked out
+  (`convertWarning`), in the sheet and in the confirmation.
 - **A new group's own pattern** can be chosen as it's made private (New group → Private group, or
   Group ⋯ → Make private → Opens with: Its own pattern), entered twice; it goes to the server with the
   group's first key (`create`, or `convert` with `pattern` and `ordered`). Later it is changed from

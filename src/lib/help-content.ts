@@ -591,7 +591,7 @@ export const SECTIONS: HelpSection[] = [
       'It opens only that group, for anyone who knows it, even without a universal pattern.',
       'Setting, changing or removing it asks for a pattern that already opens the group.',
       'A group can get one as it’s made private, new or existing. Removing it goes back to everyone’s universal pattern.',
-      'Someone in it with no universal pattern can open it only with its own. The Private group sheet names them, and removing it warns you first.',
+      'Someone in it with no universal pattern can open it only with its own. The group names them under its header, with a button to give it one, and removing it warns you first.',
     ],
     related: ['private-groups-make', 'private-groups-unlock'],
   },
@@ -611,7 +611,7 @@ export const SECTIONS: HelpSection[] = [
       'One request at a time; after a decline, a day before asking again.',
       'Only the creator adds people to a private group.',
       'You don’t need private groups turned on to join one. It opens with its own pattern and your passkey; the group suggests turning them on.',
-      'Letting in someone who hasn’t set up private groups, when the group has no pattern of its own: the creator is asked to give it one, to tell them in person.',
+      'Letting in someone who hasn’t set up private groups, when the group has no pattern of its own: the creator is asked to give it one, to tell them in person. However they came in, the group says so until it has one.',
     ],
 
     related: ['private-groups'],

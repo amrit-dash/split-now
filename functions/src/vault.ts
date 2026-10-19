@@ -1,10 +1,12 @@
 /*
  * Callable `vault`: private groups (docs/VAULT.md). One function, several steps (`op`):
  *
- *  - status         { groupId?, made? }              → this person's setup (passkey, universal pattern,
+ *  - status         { groupId?, made?, convert? }    → this person's setup (passkey, universal pattern,
  *                                                       on, stopped), tries left / locked until, and for a
  *                                                       group: key made, own pattern set; `made`: how many
- *                                                       private groups they made would keep them from stopping.
+ *                                                       private groups they made would keep them from stopping;
+ *                                                       with a group, who else in it has no universal pattern
+ *                                                       (`convert`: a group its creator may make private).
  *                                                       Someone from before private groups started off who
  *                                                       has a universal pattern or made one is marked on here
  *  - start          {}                                → this person turns private groups on (Settings →
@@ -220,6 +222,15 @@ async function withUniversal(uids: string[]): Promise<Set<string>> {
 async function opensFor(gid: string, who: string): Promise<boolean> {
   const [key, person] = await Promise.all([keyRef(gid).get(), personRef(who).get()])
   return !!(key.data() as VaultKeyDoc | undefined)?.pattern || !!(person.data() as PersonDoc | undefined)?.pattern
+}
+
+/** A shared group its creator may make private (asked with status `convert`: who in it would have no way in). */
+async function convertibleGroup(gid: string, uid: string) {
+  const g = (await db().doc(`groups/${gid}`).get()).data()
+  if (!g || !Array.isArray(g.memberUids) || !g.memberUids.includes(uid)) throw new HttpsError('permission-denied', 'You’re not in this group.')
+  if (g.createdBy !== uid) throw new HttpsError('permission-denied', 'Only the person who made this group can make it private.')
+  if (typeof g.deletedAt === 'number') throw new HttpsError('failed-precondition', 'This group is in Recently deleted.')
+  return g
 }
 
 /** How many live private groups this person made and is still in (shared/vault-convert.ts blocksStopping). */
@@ -722,7 +733,8 @@ export const vault = onCall(
         return { ok: true as const }
       case 'status': {
         const gid = data.groupId === undefined ? undefined : groupId(data.groupId)
-        const g = gid ? await privateGroup(gid, uid) : undefined
+        // `convert`: a group not private yet, asked by its creator before making it private.
+        const g = gid ? await (data.convert === true ? convertibleGroup(gid, uid) : privateGroup(gid, uid)) : undefined
         const { rpID } = rp(req)
         const [person, passkeys, key, profile] = await Promise.all([
           personRef(uid).get(),

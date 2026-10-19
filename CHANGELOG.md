@@ -6,6 +6,11 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.6.8 — October 2026
+
+- Private groups: anyone in one who can't open it yet is now named in the group itself, under its header, with **Give it its own pattern**. This covers every way in, not just adding someone or letting them in: people added by email whose account was linked later, people in a new private group from the start, and people in a group when it was made private.
+- Make private: when people in the group have no universal pattern, it starts on **Its own pattern**. Choosing Universal pattern says who would be locked out, before you confirm.
+
 ## 8.6.7 — October 2026
 
 - Private groups: when you add someone, or let them in, who hasn't set up private groups, and the group has no pattern of its own, the app says they can't open it yet and offers to give it one now, to tell them in person. Before, they were let in and stayed locked out with no hint why.

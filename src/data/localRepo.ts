@@ -481,6 +481,8 @@ export function createLocalRepo(): Repo {
       addContactDemo,
       {
         made: () => Object.values(state.groups).filter((g) => blocksStopping(g, me().uid)).length,
+        // everyone else in a group: nobody but you has a universal pattern in the demo
+        others: (groupId) => (state.groups[groupId]?.memberUids ?? []).filter((u) => u !== me().uid),
         // As the server writes users/{uid}: on and off are each other's opposite.
         setPrivate: (to) => {
           const p = state.profiles[me().uid]

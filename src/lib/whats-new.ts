@@ -24,6 +24,14 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '8.6.8',
+    date: 'October 2026',
+    items: [
+      { text: 'A private group names anyone who can’t open it yet, however they came in', section: 'private-groups-own-pattern' },
+      { text: 'Make private warns who would be locked out with Universal pattern', section: 'private-groups-make' },
+    ],
+  },
+  {
     version: '8.6.7',
     date: 'October 2026',
     items: [

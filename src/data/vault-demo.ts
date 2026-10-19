@@ -78,9 +78,10 @@ export function demoVault(
   addContact: (groupId: string, uid: string, dek: string) => Promise<void> = async () => {},
   /**
    * made: the live private groups the demo person made and is in; setPrivate: mirrors on or off on
-   * their profile (privateGroupsOn / privateGroupsOff), as the server does
+   * their profile (privateGroupsOn / privateGroupsOff), as the server does; others: everyone else in
+   * a group (none of them has a universal pattern in the demo)
    */
-  who: { made?: () => number; setPrivate?: (state: 'on' | 'off') => void } = {},
+  who: { made?: () => number; setPrivate?: (state: 'on' | 'off') => void; others?: (groupId: string) => string[] } = {},
 ) {
   const OFF = 'You stopped using private groups. Turn them on again in Settings → Encrypted groups.'
   const NO_PATTERN = 'Choose how it opens first: your universal pattern, or its own pattern.'
@@ -138,6 +139,8 @@ export function demoVault(
     switch (req.op) {
       case 'status': {
         const g = req.groupId ? s.groups[req.groupId] : undefined
+        // Everyone else in it has no universal pattern here (who.others); without it, those let in here.
+        const noUniversal = req.groupId ? (who.others?.(req.groupId) ?? g?.added ?? []) : []
         // From before private groups started off: a universal pattern or a private group they made is on (the server's backfill).
         const on = privateGroupsOn({ on: s.on, off: s.off, pattern: s.person }, who.made?.() ?? 0)
         if (on) {
@@ -162,7 +165,7 @@ export function demoVault(
                   keyReady: !!g,
                   hasPattern: !!g?.pattern,
                   ...(g?.pattern ? { ordered: g.pattern.ordered } : {}),
-                  ...(g?.added?.length ? { noUniversal: g.added } : {}),
+                  ...(noUniversal.length ? { noUniversal } : {}),
                 },
               }
             : {}),
