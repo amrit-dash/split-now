@@ -209,6 +209,12 @@ test('Private group: its creator makes an existing group private, everything in 
   await expect(page.getByRole('heading', { level: 1, name: /Goa Trip/ })).toBeVisible()
   await page.getByTestId('group-menu').click()
   await page.getByTestId('vault-group-open').click()
+  // Ananya and the others in it have no universal pattern: it starts on its own pattern, and Universal warns
+  const opensWith = page.getByTestId('vault-opens-with')
+  await expect(opensWith.getByRole('radio', { name: 'Its own pattern' })).toHaveAttribute('aria-checked', 'true')
+  await expect(page.getByTestId('vault-convert-locked-out')).toHaveCount(0)
+  await opensWith.getByRole('radio', { name: 'Universal pattern' }).click()
+  await expect(page.getByTestId('vault-convert-locked-out')).toContainText('no universal pattern, so they couldn’t open it')
   await page.getByTestId('vault-convert-on').click()
   await page.getByRole('dialog').getByRole('button', { name: 'Make private' }).click()
   // Open on this phone straight away; stored sealed: its name, its people, its expenses.
@@ -221,6 +227,19 @@ test('Private group: its creator makes an existing group private, everything in 
   const goaExpenses = Object.values(sealed.expenses as Record<string, { groupId: string; description: string }>).filter((e) => e.groupId === 'g_goa')
   expect(goaExpenses.length).toBeGreaterThan(0)
   for (const e of goaExpenses) expect(e.description).toMatch(/^v1:/)
+  // The group says who can't open it, and gives it its own pattern from there; then the card is gone
+  const waiting = page.getByTestId('group-vault-waiting')
+  await expect(waiting).toContainText('can’t open it yet')
+  await waiting.getByTestId('group-vault-waiting-set').click()
+  await enter()
+  await page.getByTestId('vault-set-next').click()
+  await enter('TLT')
+  await page.getByTestId('vault-set-next').click()
+  await enter('TLT')
+  await page.getByTestId('vault-set-next').click()
+  await expect(page.getByTestId('vault-line-own')).toHaveAttribute('data-state', 'ready')
+  await page.keyboard.press('Escape')
+  await expect(waiting).toHaveCount(0)
 
   // Locked: nothing of its name shows; its own lock opens it again.
   await page.getByTestId('vault-lock-now').click()

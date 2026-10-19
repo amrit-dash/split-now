@@ -4,7 +4,7 @@
  */
 
 export type VaultRequest =
-  | { op: 'status'; groupId?: string; made?: boolean }
+  | { op: 'status'; groupId?: string; made?: boolean; convert?: boolean }
   | { op: 'passkeyOptions'; purpose: 'register' | 'auth' }
   | { op: 'passkeyRegister'; response: unknown }
   | { op: 'setUniversal'; pattern: string; ordered: boolean; current?: string; auth?: unknown }

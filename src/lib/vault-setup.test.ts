@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { VaultStatus } from './vault-api'
-import { addedPrompt, defaultOpensWith, privateBlocker, removeWarning, setupRows, stateLabel, waitingNote } from './vault-setup'
+import { addedPrompt, convertWarning, defaultOpensWith, privateBlocker, removeWarning, setupRows, stateLabel, waitingNote } from './vault-setup'
 
 const base: VaultStatus = { serverReady: true, hasPasskey: true, universal: true, ordered: true, triesLeft: 5 }
 const ids = (rows: ReturnType<typeof setupRows>) => rows.map((r) => `${r.id}:${r.state}:${r.actions.join('+')}`)
@@ -10,6 +10,8 @@ describe('what opens a private group: the setup card', () => {
     expect(defaultOpensWith(base, { set: true })).toBe('own')
     expect(defaultOpensWith(base, { set: false })).toBe('universal')
     expect(defaultOpensWith({ universal: false }, { set: false })).toBe('own')
+    // someone in it with no universal pattern would be locked out: its own pattern first
+    expect(defaultOpensWith(base, { set: false }, 2)).toBe('own')
   })
   it('all groups: passkey, universal pattern, server; each missing one has its button', () => {
     expect(ids(setupRows(base, { scope: 'all' }))).toEqual(['passkey:ready:add', 'universal:ready:change', 'server:ready:'])
@@ -74,6 +76,14 @@ describe('people who can’t open a private group yet', () => {
     expect(removeWarning([])).toBe('People in it open it with their universal pattern instead.')
     expect(removeWarning(['Mira'])).toMatch(/Mira has none, so they won’t be able to open it\.$/)
     expect(removeWarning(['Mira', 'Dev'])).toMatch(/Mira and Dev have none/)
+  })
+  it('making it private to open with universal patterns warns who would be locked out', () => {
+    expect(convertWarning([], 'universal')).toBeNull()
+    expect(convertWarning(['Mira'], 'own')).toBeNull()
+    expect(convertWarning(['Mira'], 'universal')).toBe(
+      'Mira has no universal pattern, so they couldn’t open it. Give it its own pattern instead, and tell them in person.',
+    )
+    expect(convertWarning(['Mira', 'Dev'], 'universal')).toMatch(/^Mira and Dev have no universal pattern/)
   })
   it('after letting someone in, its creator is offered to give it a pattern', () => {
     expect(addedPrompt('Mira')).toEqual({

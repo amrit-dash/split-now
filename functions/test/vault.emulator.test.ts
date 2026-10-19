@@ -286,6 +286,17 @@ describe('vault callable (emulator)', () => {
       hasPattern: false,
     })
   })
+  it('status convert: before making a group private, its creator alone learns who in it has no universal pattern', async () => {
+    expect((await call<{ group: Record<string, unknown> }>({ op: 'status', groupId: 'plain', convert: true }, 'alice')).result?.group).toEqual({
+      keyReady: false,
+      hasPattern: false,
+      noUniversal: ['bob'],
+    })
+    expect((await call({ op: 'status', groupId: 'plain', convert: true }, 'bob')).error?.status).toBe('PERMISSION_DENIED')
+    expect((await call({ op: 'status', groupId: 'plain', convert: true }, 'mallory')).error?.status).toBe('PERMISSION_DENIED')
+    // without `convert`, still only a private group
+    expect((await call({ op: 'status', groupId: 'plain' }, 'alice')).error?.status).toBe('FAILED_PRECONDITION')
+  })
   it('stop: held up by a private group they made; then no new private groups until a universal pattern is set again', async () => {
     const s = await call<Record<string, unknown>>({ op: 'status', made: true }, 'alice')
     expect(s.result?.made).toBe(1)

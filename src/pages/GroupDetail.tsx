@@ -10,6 +10,7 @@ import {
   Download,
   Flag,
   HandCoins,
+  KeySquare,
   Lock,
   LockOpen,
   Link2,
@@ -43,6 +44,8 @@ import {
 import { useCapturePrefs } from '@/hooks/useCapturePrefs'
 import { useFlag } from '@/hooks/useAppConfig'
 import { usePrivateGroups } from '@/hooks/usePrivateGroups'
+import { useVaultWaiting } from '@/hooks/useVaultWaiting'
+import { waitingNote } from '@/lib/vault-setup'
 import type { Category, Debt, Expense, Group, Settlement } from '@/types'
 import { claimsInGroup } from '@/lib/paylinks'
 import { ClaimReview } from '@/components/ClaimReview'
@@ -108,7 +111,7 @@ import { sortOpenItems } from '@/lib/open-items'
 import { hasUnread, READ_EVENT, readAtOf } from '@/lib/chat'
 import { OpenItemsTab } from '@/features/open-items/OpenItemsTab'
 import { deltaWords, handledVerb, handlersOf, isReceived, spending } from '../../shared/received'
-import { labelOf } from '@/lib/shortNames'
+import { labelForUid, labelOf } from '@/lib/shortNames'
 import { useVaultOpen } from '@/hooks/useVault'
 import { VaultLock } from '@/features/vault/VaultLock'
 import { PrivateGroupSheet } from '@/features/vault/PrivateGroupSheet'
@@ -144,6 +147,8 @@ export default function GroupDetail() {
   const [patternOpen, setPatternOpen] = useState(false)
   // ?private=pattern: after letting in someone with no way to open it, straight to giving it its own pattern.
   const wantsPattern = params.get('private') === 'pattern'
+  // the card below the group's header: straight to giving it its own pattern
+  const [patternFirst, setPatternFirst] = useState(false)
   /** the Expenses list's sort and filter sheet */
   const [listSheet, setListSheet] = useState(false)
   const toast = useToast()
@@ -160,6 +165,8 @@ export default function GroupDetail() {
   // Minimal look: the Whose-turn chip is optional, the group's facts (dates, Archived) stay.
   const showTurn = useShows(2)
   const vaultOpen = useVaultOpen(groupId)
+  // Someone in it with no way in yet, however they came in (src/hooks/useVaultWaiting.ts).
+  const waitingFor = useVaultWaiting({ id: groupId ?? '', vault: liveGroup?.vault, memberUids: liveGroup?.memberUids ?? [] }, !!vaultOpen)
   useEffect(() => {
     if (wantsPattern && vaultOpen) setPatternOpen(true)
   }, [wantsPattern, vaultOpen])
@@ -203,6 +210,8 @@ export default function GroupDetail() {
     )
 
   const { me, net, debts, group } = d
+  const waiting =
+    group.vault && waitingFor && !waitingFor.hasPattern ? waitingNote(waitingFor.noUniversal.map((u) => labelForUid(group.members, u, me) ?? 'Someone')) : null
   const cur = group.currency
   const myBal = me ? (net[me] ?? 0) : 0
   const personal = group.type === 'personal'
@@ -447,6 +456,26 @@ export default function GroupDetail() {
         </Detail>
       )}
 
+      {waiting && (
+        <div className="card mb-4 space-y-3 p-4" data-testid="group-vault-waiting">
+          <div>
+            <p className="text-sm font-semibold">{waiting.title}</p>
+            <p className="text-muted mt-1 text-sm">{waiting.detail}</p>
+          </div>
+          <button
+            type="button"
+            className="btn w-full"
+            onClick={() => {
+              setPatternFirst(true)
+              setPatternOpen(true)
+            }}
+            data-testid="group-vault-waiting-set"
+          >
+            <KeySquare size={18} aria-hidden /> Give it its own pattern
+          </button>
+        </div>
+      )}
+
       {!personal && <PendingClaims groupId={group.id} />}
 
       {!personal && (
@@ -675,7 +704,16 @@ export default function GroupDetail() {
       </Sheet>
 
       {privateMenu && (
-        <PrivateGroupSheet group={group} open={patternOpen} onClose={() => setPatternOpen(false)} isCreator={creator} startWithPattern={wantsPattern} />
+        <PrivateGroupSheet
+          group={group}
+          open={patternOpen}
+          onClose={() => {
+            setPatternOpen(false)
+            setPatternFirst(false)
+          }}
+          isCreator={creator}
+          startWithPattern={wantsPattern || patternFirst}
+        />
       )}
       <Sheet open={menu} onClose={() => setMenu(false)} title={group.name} testId="group-menu-sheet">
         <ul className="-mx-2 divide-y divide-slate-100 dark:divide-white/5">

@@ -99,6 +99,11 @@ describe('demo vault', () => {
     expect(await v({ op: 'status', groupId: 'g' })).toMatchObject({ group: { hasPattern: true, noUniversal: ['seed_ananya'] } })
     expect(await v({ op: 'addContact', groupId: 'g', uid: 'seed_meera' })).toEqual({ ok: true, opens: true })
   })
+  it('everyone else in a group, however they came in, counts as having no universal pattern', async () => {
+    const v = demoVault(mem(), undefined, () => [], undefined, undefined, { others: (g) => (g === 'g' ? ['seed_meera'] : []) })
+    expect(await v({ op: 'status', groupId: 'g', convert: true })).toMatchObject({ group: { keyReady: false, hasPattern: false, noUniversal: ['seed_meera'] } })
+    expect((await v<{ group: object }>({ op: 'status', groupId: 'h' })).group).toEqual({ keyReady: false, hasPattern: false })
+  })
   it('a group’s own pattern chosen as it is made opens it, without anyone’s universal pattern', async () => {
     const v = demoVault(mem(), undefined, () => ['a'])
     await expect(v({ op: 'create', groupId: 'a', pattern: '', ordered: true })).rejects.toThrow()

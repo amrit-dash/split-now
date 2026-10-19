@@ -6,7 +6,8 @@ import type { Group } from '@/types'
 import { usePrivateGroups } from '@/hooks/usePrivateGroups'
 import { errText } from '@/lib/errors'
 import { suggestTurningOn, type VaultStatus } from '@/lib/vault-api'
-import { type OpensWith, defaultOpensWith, privateBlocker, removeWarning, waitingNote } from '@/lib/vault-setup'
+import { convertWarning, type OpensWith, defaultOpensWith, privateBlocker, removeWarning, waitingNote } from '@/lib/vault-setup'
+import { forgetWaiting } from '@/hooks/useVaultWaiting'
 import { labelForUid } from '@/lib/shortNames'
 import { Sheet } from '@/components/Sheet'
 import { useConfirm } from '@/components/ConfirmSheet'
@@ -64,11 +65,12 @@ export function PrivateGroupSheet({
     setFailed(null)
     setNote(null)
     repo
-      .vault<VaultStatus>(group.vault ? { op: 'status', groupId: group.id } : { op: 'status' })
+      // Not private yet: its creator also learns who in it has no universal pattern (they'd be locked out).
+      .vault<VaultStatus>(group.vault ? { op: 'status', groupId: group.id } : isCreator ? { op: 'status', groupId: group.id, convert: true } : { op: 'status' })
       .then((s) => {
         if (!live) return
         setStatus(s)
-        if (!group.vault && round === 0) setOpensWith(defaultOpensWith(s, { set: false }))
+        if (!group.vault && round === 0) setOpensWith(defaultOpensWith(s, { set: false }, s.group?.noUniversal?.length ?? 0))
         if (group.vault && round === 0 && startWithPattern && !s.group?.hasPattern) setSetting('set')
       })
       .catch((e) => live && setFailed(errText(e)))
@@ -82,6 +84,8 @@ export function PrivateGroupSheet({
   // The others in it with no universal pattern: they open it only with its own (src/lib/vault-setup.ts waitingNote).
   const noUniversal = (own?.noUniversal ?? []).map((u) => labelForUid(group.members, u) ?? 'Someone')
   const waiting = group.vault && own && !own.hasPattern ? waitingNote(noUniversal) : null
+  // Making it private to open with universal patterns would lock these people out.
+  const lockedOut = group.vault ? null : convertWarning(noUniversal, opensWith)
   // A private group opens with its own pattern while it has one; else with everyone's universal one.
   const current: OpensWith = group.vault ? (own?.hasPattern ? 'own' : 'universal') : opensWith
   const ownState = group.vault ? { set: !!own?.hasPattern, ordered: own?.ordered } : { set: !!draftOwn, ordered: draftOwn?.ordered }
@@ -89,6 +93,7 @@ export function PrivateGroupSheet({
   const saveOwn = async (pattern: string | null, ordered: boolean, currentPattern = '') => {
     const auth = await passkeyProof(repo)
     await repo.vault({ op: 'groupPattern', groupId: group.id, pattern, ordered, current: currentPattern, auth })
+    forgetWaiting(group.id)
     setRound((r) => r + 1)
   }
   const askRemove = async () => {
@@ -126,7 +131,7 @@ export function PrivateGroupSheet({
             message:
               opensWith === 'own'
                 ? 'Its name, people’s names, expenses, notes, comments and chat are encrypted. It opens with its own pattern: tell it to people in person. Everyone in it is told.'
-                : 'Its name, people’s names, expenses, notes, comments and chat are encrypted, and it opens with each person’s universal pattern. Everyone in it is told.',
+                : `Its name, people’s names, expenses, notes, comments and chat are encrypted, and it opens with each person’s universal pattern. Everyone in it is told.${lockedOut ? ` ${lockedOut}` : ''}`,
             confirmLabel: 'Make private',
           }
         : {
@@ -232,6 +237,15 @@ export function PrivateGroupSheet({
                   <Lock size={18} aria-hidden /> Turn on private groups
                 </Link>
               </div>
+            )}
+            {lockedOut && (
+              <p
+                className="rounded-2xl bg-amber-50 px-3 py-2.5 text-sm text-amber-900 dark:bg-amber-500/15 dark:text-amber-100"
+                role="status"
+                data-testid="vault-convert-locked-out"
+              >
+                {lockedOut}
+              </p>
             )}
             {(note ?? blocked) && (
               <p className="px-1 text-sm" role="status" data-testid="vault-convert-note">
