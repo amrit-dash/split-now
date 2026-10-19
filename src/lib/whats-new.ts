@@ -24,6 +24,11 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '8.7.1',
+    date: 'October 2026',
+    items: [{ text: 'New people need my OK stays on until everyone waiting is answered, and only you add people', section: 'approve-new-people' }],
+  },
+  {
     version: '8.7.0',
     date: 'October 2026',
     items: [{ text: 'New people need my OK: people ask to join your group, and you let them in from the Inbox', section: 'approve-new-people' }],

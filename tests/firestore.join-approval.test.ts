@@ -54,7 +54,20 @@ const join = (gid: string, code: string, who = 'carol') =>
     updatedAt: 9,
   })
 
+const addPlaceholder = (gid: string, who: string) =>
+  updateDoc(doc(db(who), `groups/${gid}`), {
+    'members.p_new': { name: 'Dev', email: 'dev@example.com', color: '#333' },
+    memberOpId: 'p_new',
+    updatedAt: 9,
+  })
+
 describe('new people need the creator’s OK', () => {
+  it('only its creator adds people while it is on (an email added by anyone else would link them straight in)', async () => {
+    await assertFails(addPlaceholder('g1', 'bob'))
+    await assertSucceeds(addPlaceholder('g1', 'alice'))
+    // with it off, anyone in the group adds people, as before
+    await assertSucceeds(addPlaceholder('g2', 'bob'))
+  })
   it('nobody joins from the invite while it is on; with it off they do', async () => {
     await assertFails(join('g1', 'ABCD2345'))
     // a new entry instead of the placeholder: refused the same

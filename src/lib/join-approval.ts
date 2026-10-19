@@ -43,3 +43,12 @@ export function invitePath(invite: { vault?: boolean; approveJoins?: boolean }, 
   if (invite.vault) return 'private'
   return invite.approveJoins && !openAgain ? 'ask' : 'join'
 }
+
+/**
+ * Turning "New people need my OK" off while people are waiting to be let in: refused until each is
+ * let in or declined (null: it can go off). Otherwise they'd be left asking a group that no longer asks.
+ */
+export function joinsOffBlocker(waiting: number): string | null {
+  if (waiting <= 0) return null
+  return `${waiting === 1 ? '1 person is' : `${waiting} people are`} waiting to be let in. Let them in or decline them in the Inbox first.`
+}

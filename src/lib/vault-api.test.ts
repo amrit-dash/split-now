@@ -14,6 +14,7 @@ import {
   firstPhase,
   phasePrompt,
   addPlan,
+  addRefusal,
   askAgainWords,
   aiAfterPick,
   scanOnDeviceFirst,
@@ -127,6 +128,13 @@ describe('joining and adding to a private group', () => {
     expect(addPlan({ vault: true }, false)).toBe('forbidden')
     expect(addPlan({ vault: true }, true, 'u1')).toBe('contact')
     expect(addPlan({ vault: true }, true)).toBe('placeholder')
+    // new people need the creator's OK: only they add people, as placeholders
+    expect(addPlan({ approveJoins: true }, false)).toBe('forbidden')
+    expect(addPlan({ approveJoins: true }, true, 'u1')).toBe('placeholder')
+    expect(addRefusal({}, false)).toBeNull()
+    expect(addRefusal({ approveJoins: true }, true)).toBeNull()
+    expect(addRefusal({ approveJoins: true }, false)).toMatch(/need their OK/)
+    expect(addRefusal({ vault: true }, false)).toMatch(/private group/)
   })
   it('says when someone may ask again', () => {
     expect(askAgainWords(30 * 60_000, 0)).toBe('in about an hour')

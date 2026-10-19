@@ -730,7 +730,13 @@ export function createLocalRepo(): Repo {
       if (!g) return null
       return g.vault
         ? { groupId: g.id, groupName: inviteNameFor(g), emoji: '🔒', placeholders: {}, vault: true }
-        : { groupId: g.id, groupName: inviteNameFor(g), emoji: g.emoji, placeholders: placeholdersOf(g), ...(g.approveJoins ? { approveJoins: true } : {}) }
+        : {
+            groupId: g.id,
+            groupName: inviteNameFor(g),
+            emoji: g.emoji,
+            placeholders: g.approveJoins ? {} : placeholdersOf(g),
+            ...(g.approveJoins ? { approveJoins: true } : {}),
+          }
     },
     async joinGroup(code, memberId, member) {
       const g = Object.values(state.groups).find((x) => x.inviteCode === code.toUpperCase())

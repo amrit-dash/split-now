@@ -270,10 +270,20 @@ export function askAgainWords(retryAt: number, now: number): string {
  * people, and someone picked from their other groups (with an account) joins at once through the
  * server (vault op addContact); a name or an email is a placeholder, as in any group.
  */
-export function addPlan(g: { vault?: boolean }, isCreator: boolean, accountUid?: string): 'forbidden' | 'contact' | 'placeholder' {
-  if (!g.vault) return 'placeholder'
+export function addPlan(g: { vault?: boolean; approveJoins?: boolean }, isCreator: boolean, accountUid?: string): 'forbidden' | 'contact' | 'placeholder' {
+  // A group whose new people need its creator's OK: only they add people (an email anyone else
+  // added would link that account straight in, firestore.rules refuses it); added as usual.
+  if (!g.vault) return g.approveJoins && !isCreator ? 'forbidden' : 'placeholder'
   if (!isCreator) return 'forbidden'
   return accountUid ? 'contact' : 'placeholder'
+}
+
+/** Why someone in the group can't add people here (null: they can). */
+export function addRefusal(g: { vault?: boolean; approveJoins?: boolean }, isCreator: boolean): string | null {
+  if (isCreator) return null
+  if (g.vault) return 'Only the person who made this private group adds people. Anyone else asks to join from its invite.'
+  if (g.approveJoins) return 'Only the person who made this group adds people: new people need their OK. Anyone else asks to join from its invite.'
+  return null
 }
 
 /** Where the pattern sheet is (src/features/vault/SetPatternSheet.tsx): a pattern that opens it now, the new one, the new one again. */
