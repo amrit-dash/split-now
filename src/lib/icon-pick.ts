@@ -1,4 +1,4 @@
-import { ICON_TITLE_MAX, type IconPickRequest, type IconPickResponse } from '../../shared/icon-ai'
+import { ICON_TITLE_MAX, type IconPickRequest, type IconPickResponse, PICK_ALTS } from '../../shared/icon-ai'
 import { CATEGORIES } from './categories'
 import { ALL_GROUP_ICONS, isGroupType, SHARED_TYPES } from './groupTypes'
 import { ICONS, isIcon } from './icons'
@@ -45,15 +45,20 @@ export function groupPickRequest(name: string, o: { typeTouched: boolean }): Ico
 }
 
 /**
- * What an answer gives the form: one emoji (the app's own or any other, as the AI chose) and a
- * different second one to offer beside it; a category or type only from the lists sent; nothing
+ * What an answer gives the form: one emoji (the app's own or any other, as the AI chose) and up
+ * to three different ones to offer beside it; a category or type only from the lists sent; nothing
  * from a refusal.
  */
-export function pickAnswer(r: IconPickResponse | null, req: IconPickRequest): { emoji?: string; alt?: string; category?: Category; type?: GroupType } | null {
+export function pickAnswer(
+  r: IconPickResponse | null,
+  req: IconPickRequest,
+): { emoji?: string; alts?: string[]; category?: Category; type?: GroupType } | null {
   if (!r || 'unavailable' in r) return null
   const emoji = isIcon(r.emoji) ? r.emoji : undefined
-  const alt = emoji && isIcon(r.alt) && r.alt !== emoji ? r.alt : undefined
+  // Several others to offer (a server from before sends one, as `alt`): each an icon, none the pick, none twice.
+  const offered = r.alts ?? (r.alt ? [r.alt] : [])
+  const alts = emoji ? [...new Set(offered.filter((a) => isIcon(a) && a !== emoji))].slice(0, PICK_ALTS) : []
   const category = r.category && req.categories?.includes(r.category) ? (r.category as Category) : undefined
   const type = r.type && req.types?.includes(r.type) && isGroupType(r.type) ? r.type : undefined
-  return { emoji, ...(alt ? { alt } : {}), category, type }
+  return { emoji, ...(alts.length ? { alts } : {}), category, type }
 }

@@ -1,4 +1,4 @@
-import { ICON_EMOJI, type IconPickRequest, type IconPickResponse, type IconRequest, type IconSuggestions } from '../../shared/icon-ai'
+import { ICON_EMOJI, type IconPickRequest, type IconPickResponse, type IconRequest, type IconSuggestions, PICK_ALTS } from '../../shared/icon-ai'
 import { cleanSvg } from '../../shared/svg-icon'
 import { bestIcon, ICONS, searchIcons } from './icons'
 
@@ -42,7 +42,7 @@ const DEMO_WORLD: Record<string, string> = { bee: '🐝', bees: '🐝', honey: '
 /**
  * Demo mode's automatic icon with AI (localRepo.iconPickAi): for each of the title's words, a
  * catalogue entry whose words start like it ("Gondola" finds 🚡), else a few emoji from beyond
- * the catalogue; the first found is the pick and the next a different one its alternative, with
+ * the catalogue; the first found is the pick and the next (up to three) the ones offered beside it, with
  * the first's category or group type when those were asked for. A stand-in for the model.
  */
 export function demoIconPick(r: IconPickRequest): IconPickResponse {
@@ -51,10 +51,12 @@ export function demoIconPick(r: IconPickRequest): IconPickResponse {
     .split(/[^a-z]+/)
     .filter((w) => w.length > 2)
   const found = [...new Set(words.map((w) => DEMO_WORLD[w] ?? searchIcons(w)[0]).filter((e): e is string => !!e))]
-  const [emoji, alt] = found
+  const [emoji, ...rest] = found
   if (!emoji) return { emoji: null }
+  const alts = rest.slice(0, PICK_ALTS)
+  const alt = alts[0]
   const entry = ICONS.find((e) => e.emoji === emoji)
   const category = entry?.categories.find((c) => r.categories?.includes(c))
   const type = entry?.group && r.types?.includes(entry.group) ? entry.group : undefined
-  return { emoji, ...(alt ? { alt } : {}), ...(category ? { category } : {}), ...(type ? { type } : {}) }
+  return { emoji, ...(alt ? { alt, alts } : {}), ...(category ? { category } : {}), ...(type ? { type } : {}) }
 }

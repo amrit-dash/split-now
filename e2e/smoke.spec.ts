@@ -1770,6 +1770,27 @@ test('delete my account in demo mode: refused while money is owed, then the word
   await expect(page.getByTestId('demo-name').or(page.getByTestId('demo-start')).first()).toBeVisible()
 })
 
+test('New group: a type chosen after the AI’s icon keeps it, and offers the type’s icon instead', async ({ page }) => {
+  await page.goto('/groups/new')
+  await page
+    .getByRole('radiogroup', { name: 'What are you creating?' })
+    .getByRole('radio', { name: /^Group/ })
+    .click()
+  await page.getByLabel('Name', { exact: true }).fill('Sri Lanka bees')
+  await expect(page.getByTestId('group-icon')).toContainText('🇱🇰')
+  await page
+    .getByRole('radiogroup', { name: 'Type' })
+    .getByRole('radio', { name: /Dinner/ })
+    .click()
+  // the name's icon stays; the type's is offered
+  await expect(page.getByTestId('group-icon')).toContainText('🇱🇰')
+  const typeIcon = page.getByTestId('group-icon-type')
+  await expect(typeIcon).toContainText('Dinner')
+  await typeIcon.getByRole('button', { name: /use it/ }).click()
+  await expect(page.getByTestId('group-icon')).toContainText('🍽️')
+  await expect(typeIcon).toHaveCount(0)
+})
+
 test('Edit group: a new name brings a new icon, the AI’s second one, and Keep for the old one; the type stays', async ({ page }) => {
   await page.goto('/groups/g_goa/edit')
   const name = page.getByLabel('Name', { exact: true })
@@ -1790,7 +1811,7 @@ test('Edit group: a new name brings a new icon, the AI’s second one, and Keep 
   await expect(page.getByTestId('group-icon')).toContainText('🏖️')
 })
 
-test('New group: a name the app’s own icons don’t cover gets an AI pick from any emoji, with a second one offered', async ({ page }) => {
+test('New group: a name the app’s own icons don’t cover gets an AI pick from any emoji, with others offered', async ({ page }) => {
   await page.goto('/groups/new')
   await page
     .getByRole('radiogroup', { name: 'What are you creating?' })
@@ -1803,7 +1824,8 @@ test('New group: a name the app’s own icons don’t cover gets an AI pick from
   await expect(alt).toContainText('🐝')
   await alt.getByRole('button', { name: /use it/ }).click()
   await expect(page.getByTestId('group-icon')).toContainText('🐝')
-  await expect(alt).toHaveCount(0)
+  // the AI's first pick stays on offer, to go back to
+  await expect(alt).toContainText('🇱🇰')
 })
 
 test('New people need my OK: the creator turns it on in Approvals, and it is kept', async ({ page }) => {

@@ -24,6 +24,14 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '8.7.2',
+    date: 'October 2026',
+    items: [
+      { text: 'More icon choices from AI for a new group, best first', section: 'icons-and-ai' },
+      { text: 'Choosing a type keeps the icon AI picked, and offers the type’s icon', section: 'icons-and-ai' },
+    ],
+  },
+  {
     version: '8.7.1',
     date: 'October 2026',
     items: [{ text: 'New people need my OK stays on until everyone waiting is answered, and only you add people', section: 'approve-new-people' }],
