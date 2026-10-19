@@ -24,6 +24,11 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '8.6.9',
+    date: 'October 2026',
+    items: [{ text: 'Renaming a group picks a fitting icon too, with Keep to go back', section: 'icons-and-ai' }],
+  },
+  {
     version: '8.6.8',
     date: 'October 2026',
     items: [

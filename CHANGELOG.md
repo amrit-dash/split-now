@@ -6,6 +6,11 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.6.9 — October 2026
+
+- Edit group: renaming a group now picks a fitting icon as New group does: the app's own icons first, then AI ("Picking an icon"), with AI's second icon offered and **Keep** to go back to the old one. The type isn't changed, and a drawn picture or an icon you chose on that screen is never replaced. Before, renaming left the icon as it was.
+- Admin: the seven section tabs sit in one even row on a phone, each an icon over its name, instead of two uneven rows.
+
 ## 8.6.8 — October 2026
 
 - Private groups: anyone in one who can't open it yet is now named in the group itself, under its header, with **Give it its own pattern**. This covers every way in, not just adding someone or letting them in: people added by email whose account was linked later, people in a new private group from the start, and people in a group when it was made private.
