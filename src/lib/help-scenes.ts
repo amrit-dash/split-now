@@ -569,6 +569,20 @@ Object.assign(SCENES, {
       { kind: 'switch', label: 'Payments need the recipient’s OK', mark: 'pay' },
     ]),
   ],
+  'approve-new-people': [
+    settings('Edit group', [
+      { kind: 'row', label: 'Approvals', value: 'New people' },
+      { kind: 'switch', label: 'New people need my OK', value: 'on', mark: 'turn' },
+    ]),
+    settings('Join Goa trip', [
+      { kind: 'note', label: 'The person who made this group lets new people in.' },
+      { kind: 'button', label: 'Ask to join', primary: true, mark: 'ask' },
+    ]),
+    settings('Inbox', [
+      { kind: 'list', label: 'Asking to join', items: [{ label: 'Priya', icon: '👩' }] },
+      { kind: 'chips', mark: 'decide', items: [{ label: 'Let them in', on: true }, { label: 'Decline' }] },
+    ]),
+  ],
   'group-budget': [
     settings('Edit group', [
       { kind: 'field', label: 'Budget (optional)', value: '₹40,000', mark: 'set' },

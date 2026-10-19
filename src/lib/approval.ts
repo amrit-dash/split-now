@@ -202,11 +202,15 @@ export function editAutoApproved(args: Parameters<typeof editApprovalOutcome>[0]
 
 /**
  * The Approvals row's one line in Edit group while it is closed: what needs an OK in this group.
- * "Off", "Expenses over ₹2,000", "Payments", or both joined with " · ".
+ * "Off", "Expenses over ₹2,000", "Payments", "New people", or those that are on joined with " · ".
  */
-export function approvalsSummary(s: { requireApproval: boolean; threshold?: Cents; paymentApproval: boolean }, currency: string): string {
+export function approvalsSummary(
+  s: { requireApproval: boolean; threshold?: Cents; paymentApproval: boolean; approveJoins?: boolean },
+  currency: string,
+): string {
   const parts: string[] = []
   if (s.requireApproval) parts.push(s.threshold !== undefined && s.threshold > 0 ? `Expenses over ${shortMoney(s.threshold, currency)}` : 'Big expenses')
   if (s.paymentApproval) parts.push(parts.length ? 'payments' : 'Payments')
+  if (s.approveJoins) parts.push(parts.length ? 'new people' : 'New people')
   return parts.length ? parts.join(' · ') : 'Off'
 }

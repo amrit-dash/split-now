@@ -1805,3 +1805,55 @@ test('New group: a name the app’s own icons don’t cover gets an AI pick from
   await expect(page.getByTestId('group-icon')).toContainText('🐝')
   await expect(alt).toHaveCount(0)
 })
+
+test('New people need my OK: the creator turns it on in Approvals, and it is kept', async ({ page }) => {
+  await page.goto('/groups/g_goa/edit')
+  const approvals = page.getByTestId('group-approvals')
+  await expect(approvals).toContainText('Off')
+  await approvals.getByRole('button', { name: /Approvals/ }).click()
+  await page.getByTestId('group-approve-joins').click()
+  await expect(page.getByTestId('group-approve-joins')).toHaveAttribute('aria-checked', 'true')
+  await page.getByTestId('group-save').click()
+  await expect(page).toHaveURL(/\/groups\/g_goa$/)
+
+  await page.goto('/groups/g_goa/edit')
+  await expect(page.getByTestId('group-approvals')).toContainText('New people')
+  await page
+    .getByTestId('group-approvals')
+    .getByRole('button', { name: /Approvals/ })
+    .click()
+  await expect(page.getByTestId('group-approve-joins')).toHaveAttribute('aria-checked', 'true')
+  // and off again
+  await page.getByTestId('group-approve-joins').click()
+  await page.getByTestId('group-save').click()
+  await expect(page).toHaveURL(/\/groups\/g_goa$/)
+  await page.goto('/groups/g_goa/edit')
+  await expect(page.getByTestId('group-approvals')).toContainText('Off')
+})
+
+test('New people need my OK: someone else’s group asks instead of joining, and the demo says it needs the online app', async ({ page }) => {
+  // A group made by someone else, that you're not in, with the setting on.
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('splitit-demo-v1') ?? '{}')
+    const goa = s.groups.g_goa
+    s.groups.g_ask = {
+      ...goa,
+      id: 'g_ask',
+      name: 'Pune weekend',
+      inviteCode: 'ASKJOIN1',
+      createdBy: 'seed_ananya',
+      memberUids: ['seed_ananya'],
+      members: { p_ananya: goa.members.p_ananya, p_priya: goa.members.p_priya },
+      approveJoins: true,
+    }
+    localStorage.setItem('splitit-demo-v1', JSON.stringify(s))
+  })
+  await page.reload()
+  await page.goto('/join/ASKJOIN1')
+  await expect(page.getByTestId('join-approval')).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Join Pune weekend')
+  // nobody in it is named, and there's no "which one is you"
+  await expect(page.getByTestId('join-approval')).not.toContainText('Priya')
+  await page.getByTestId('join-ask').click()
+  await expect(page.getByTestId('toasts')).toContainText('needs the online app')
+})

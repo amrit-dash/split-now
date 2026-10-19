@@ -63,6 +63,7 @@ import {
   type WriteBatch,
 } from 'firebase/firestore'
 import type { VaultRequest } from '@/lib/vault-api'
+import type { JoinApprovalRequest } from '@/lib/join-approval'
 import type { FirebaseStorage } from 'firebase/storage'
 import type {
   ExpensePhoto,
@@ -237,7 +238,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
   const inviteDoc = (g: Group): InviteInfo =>
     g.vault
       ? { groupId: g.id, groupName: inviteNameFor(g), emoji: '🔒', placeholders: {}, vault: true }
-      : { groupId: g.id, groupName: inviteNameFor(g), emoji: g.emoji, placeholders: placeholdersOf(g) }
+      : { groupId: g.id, groupName: inviteNameFor(g), emoji: g.emoji, placeholders: placeholdersOf(g), ...(g.approveJoins ? { approveJoins: true } : {}) }
 
   /**
    * Commit without waiting for the server. Firestore applies the batch to the local cache
@@ -857,13 +858,16 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       for (const [k, v] of Object.entries(changed)) data[k] = v === undefined ? deleteField() : v
       const batch = writeBatch(db)
       batch.update(groupRef(base.id), data)
-      if (base.type !== 'personal' && ('name' in changed || 'emoji' in changed)) {
+      if (base.type !== 'personal' && ('name' in changed || 'emoji' in changed || 'approveJoins' in changed)) {
         batch.set(
           inviteRef(base.inviteCode),
           {
             groupId: base.id,
             groupName: inviteNameFor({ ...base, name: changed.name ?? base.name }),
             emoji: base.vault ? '🔒' : (changed.emoji ?? base.emoji),
+            // In the same batch as the group: the invite page asks instead of joining exactly while
+            // the rules refuse a join (isJoining), old links included (they're the same invite).
+            ...('approveJoins' in changed ? { approveJoins: changed.approveJoins ? true : deleteField() } : {}),
           },
           { merge: true },
         )
@@ -1972,6 +1976,11 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       // Refusals keep their details (tries left, locked until): src/lib/vault-api.ts vaultRefusal.
       // Converting a group rewrites every document in it on the server: give it the function's whole time.
       const fn = await callable<VaultRequest, T>('vault', req.op === 'convert' ? 300_000 : 30_000)
+      return (await fn(req)).data
+    },
+    async joinApproval<T>(req: JoinApprovalRequest) {
+      if (!online()) throw new Error('You’re offline. Connect to the internet and try again.')
+      const fn = await callable<JoinApprovalRequest, T>('joinApproval', 20_000)
       return (await fn(req)).data
     },
   }

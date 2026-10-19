@@ -44,6 +44,7 @@ export const FLAG_NAMES = [
   'aiIcons',
   'aiIconAuto',
   'whatsNew',
+  'joinApproval',
 ] as const
 export type FlagName = (typeof FLAG_NAMES)[number]
 
@@ -82,6 +83,10 @@ export const FLAG_INFO: Record<FlagName, { label: string; hint: string }> = {
   vaults: {
     label: 'Private groups',
     hint: 'Private groups (words encrypted on the phone, opened with a universal or group pattern and a passkey) and Settings → Encrypted groups. Off hides both and stops unlocking: private groups stay locked until it is on again. Server-enforced.',
+  },
+  joinApproval: {
+    label: 'New people need the creator’s OK',
+    hint: 'The "New people need my OK" switch in a group’s Approvals (its creator’s), Ask to join on the invite and Asking to join in the Inbox. Off hides the switch and stops new requests; a group that has it on still lets nobody in from the invite, and its creator can still answer requests already made or turn it off. Server-enforced.',
   },
   moneyReceived: {
     label: 'Money received',

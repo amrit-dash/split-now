@@ -286,7 +286,8 @@ service cloud.firestore {
       function validFlags(f) {
         return f is map
           && f.keys().hasOnly(['aiImages', 'aiSms', 'liveTables', 'autoCapture', 'quickAdd', 'nudges', 'statementImport',
-              'payLinks', 'duplicates', 'merchantMemory', 'whoseTurn', 'budgetAlerts', 'aiQuickAdd', 'aiPayments', 'openItems', 'groupChat', 'chatAi', 'pushPrompt', 'moneyReceived', 'vaults', 'aiIcons', 'aiIconAuto', 'whatsNew'])
+              'payLinks', 'duplicates', 'merchantMemory', 'whoseTurn', 'budgetAlerts', 'aiQuickAdd', 'aiPayments', 'openItems', 'groupChat', 'chatAi', 'pushPrompt', 'moneyReceived', 'vaults', 'aiIcons', 'aiIconAuto', 'whatsNew', 'joinApproval'])
+          && f.get('joinApproval', true) is bool
           && f.get('openItems', true) is bool && f.get('groupChat', true) is bool && f.get('chatAi', true) is bool && f.get('aiIcons', true) is bool && f.get('aiIconAuto', true) is bool && f.get('whatsNew', true) is bool
           && f.get('pushPrompt', true) is bool && f.get('moneyReceived', true) is bool && f.get('vaults', true) is bool
           && f.get('aiQuickAdd', true) is bool && f.get('aiPayments', true) is bool
@@ -445,7 +446,7 @@ service cloud.firestore {
       function validGroupShape(g) {
         return g.keys().hasOnly(['id', 'name', 'emoji', 'type', 'currency', 'budget', 'startDate', 'endDate', 'simplify',
             'requireApproval', 'approvalThreshold', 'editAutoApprove', 'paymentApproval', 'captureOff', 'archived', 'archivedBy', 'deletedAt', 'deletedBy', 'memberUids', 'members', 'inviteCode',
-            'createdBy', 'createdAt', 'updatedAt', 'joinCode', 'joinMemberId', 'memberOpId', 'mergeNeedsOk', 'vault', 'iconSvg', 'iconImage'])
+            'createdBy', 'createdAt', 'updatedAt', 'joinCode', 'joinMemberId', 'memberOpId', 'mergeNeedsOk', 'vault', 'iconSvg', 'iconImage', 'approveJoins'])
           // A private group's name and emoji are tokens (docs/VAULT.md), longer than the text they hold.
           && g.name is string && g.name.size() > 0 && g.name.size() <= (g.get('vault', false) == true ? 200 : 80)
           && g.emoji is string && g.emoji.size() <= (g.get('vault', false) == true ? 80 : 16)
@@ -466,6 +467,8 @@ service cloud.firestore {
           && g.get('paymentApproval', false) is bool
           && g.get('mergeNeedsOk', false) is bool
           && g.get('vault', false) is bool
+          // New people need the creator's OK: nobody joins from the invite (isJoining), they ask (functions/src/join.ts)
+          && g.get('approveJoins', false) is bool
           // captureOff is legacy (capture is paused per person now, users/{uid}/settings/notifications.pausedTrips)
           // and ignored; still allowed so old docs stay valid. `archived` is the legacy group-wide
           // archive (validArchiveChange stops anyone setting it again); archiving is personal now,
@@ -494,6 +497,9 @@ service cloud.firestore {
           && !('deletedAt' in before)
           // nor a private group: they ask, and its creator lets them in (vault op requestJoin; docs/VAULT.md)
           && before.get('vault', false) != true
+          // nor a group whose creator turned on "New people need my OK": the same, through the
+          // joinApproval callable (functions/src/join.ts); old invite links included
+          && before.get('approveJoins', false) != true
           && after.joinCode == before.inviteCode
           && after.memberUids.toSet() == before.memberUids.toSet().union([uid()].toSet())
           && after.memberUids.size() <= 60
@@ -602,6 +608,8 @@ service cloud.firestore {
           && request.resource.data.get('vault', false) == resource.data.get('vault', false)
           // only the creator decides whether merging two people needs their OK
           && (request.resource.data.get('mergeNeedsOk', false) == resource.data.get('mergeNeedsOk', false) || resource.data.createdBy == uid())
+          // and whether new people need their OK to join
+          && (request.resource.data.get('approveJoins', false) == resource.data.get('approveJoins', false) || resource.data.createdBy == uid())
           && validGroupShape(request.resource.data)
           && validArchiveChange()
           && validDeleteChange()
@@ -1078,7 +1086,9 @@ service cloud.firestore {
       // author deletes their own; the group's creator may delete any (only "Delete forever" does).
       // No photos: text only.
       // groups/{gid}/joinRequests/{uid}: someone asking to join a private group (functions/src/vault.ts
-      // requestJoin / decideJoin). Written by the server alone; read by the asker and the group's creator.
+      // requestJoin / decideJoin) or an ordinary one with approveJoins on (functions/src/join.ts).
+      // Written by the server alone; read by the asker (their own request, nothing else of the
+      // group) and the group's creator.
       match /joinRequests/{requesterId} {
         allow read: if isUser() && (requesterId == uid() || groupDoc(groupId).data.createdBy == uid());
         allow write: if false;
@@ -1351,8 +1361,10 @@ service cloud.firestore {
         let g = groupAfter(request.resource.data.groupId);
         return isUser()
           && code.size() >= 8
-          && request.resource.data.keys().hasOnly(['groupId', 'groupName', 'emoji', 'placeholders', 'vault'])
+          && request.resource.data.keys().hasOnly(['groupId', 'groupName', 'emoji', 'placeholders', 'vault', 'approveJoins'])
           && request.resource.data.get('vault', false) is bool
+          // a hint for the invite page (Ask to join); the group's own approveJoins is what isJoining checks
+          && request.resource.data.get('approveJoins', false) is bool
           && request.resource.data.groupId is string
           && (!('groupName' in request.resource.data) || (request.resource.data.groupName is string && request.resource.data.groupName.size() <= 80))
           && (!('placeholders' in request.resource.data) || (request.resource.data.placeholders is map && request.resource.data.placeholders.size() <= 60))

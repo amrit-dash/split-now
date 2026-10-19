@@ -410,6 +410,36 @@ export function mergeDecidedNote(c: { groupId: string; groupName: string; emoji?
   }
 }
 
+/** To the creator of a group where new people need their OK: someone asked to join. Opens the Inbox. */
+export function joinAskedNote(c: { groupId: string; groupName: string; emoji?: string; name: string; uid: string }): Note {
+  return {
+    title: groupTitle(c.groupName, c.emoji),
+    body: `${clip(c.name, 30)} asked to join. Open the Inbox to let them in or decline.`,
+    url: '/inbox',
+    tag: `join-${c.groupId}-${c.uid}`,
+  }
+}
+
+/**
+ * To whoever asked: let in (opens the group), or declined (opens Home: the group isn't theirs to
+ * open). Ordinary groups only; a private group's say nothing of it (functions/src/vault.ts).
+ */
+export function joinDecidedNote(c: { groupId: string; groupName: string; emoji?: string; ok: boolean }): Note {
+  return c.ok
+    ? {
+        title: groupTitle(c.groupName, c.emoji),
+        body: 'You’re in. Open the group to see its expenses.',
+        url: `/groups/${c.groupId}`,
+        tag: `group-added-${c.groupId}`,
+      }
+    : {
+        title: groupTitle(c.groupName, c.emoji),
+        body: 'Your request to join wasn’t accepted. You can ask again tomorrow.',
+        url: '/',
+        tag: `join-declined-${c.groupId}`,
+      }
+}
+
 /** To someone named on an open item: did you pay for it? Opens the group's Open tab. */
 export function openItemNote(o: {
   groupId: string

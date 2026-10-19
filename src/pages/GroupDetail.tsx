@@ -665,15 +665,26 @@ export default function GroupDetail() {
                   short: 'They join and see what you owe each other.',
                   tier: 'key',
                 }
-              : {
-                  full: (
-                    <>
-                      Anyone with this link can join <b>{group.name}</b> and claim their name in the member list.
-                    </>
-                  ),
-                  short: 'Anyone with this link can join.',
-                  tier: 'key',
-                }
+              : group.approveJoins || group.vault
+                ? {
+                    // New people need the creator's OK (or it's private): the link only asks.
+                    full: (
+                      <>
+                        Anyone with this link can ask to join <b>{group.name}</b>. The person who made it lets them in from their Inbox.
+                      </>
+                    ),
+                    short: 'Anyone with this link can ask to join.',
+                    tier: 'key',
+                  }
+                : {
+                    full: (
+                      <>
+                        Anyone with this link can join <b>{group.name}</b> and claim their name in the member list.
+                      </>
+                    ),
+                    short: 'Anyone with this link can join.',
+                    tier: 'key',
+                  }
           }
         />
         <div className="mt-4 flex flex-col items-center rounded-2xl bg-slate-100 p-4 text-center dark:bg-ink-800">

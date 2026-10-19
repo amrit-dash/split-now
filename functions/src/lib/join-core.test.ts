@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { COOLDOWN_MS, isOpenPlaceholder, joinGate, memberIdFor, sharesAGroup } from './join-core'
+import { COOLDOWN_MS, MEMBER_COLORS, accountName, admission, isOpenPlaceholder, joinGate, memberIdFor, memberIdOf, sharesAGroup } from './join-core'
 
 describe('joining a private group', () => {
   it('one request at a time, and a day after a decline before asking again', () => {
@@ -31,5 +31,37 @@ describe('joining a private group', () => {
     expect(sharesAGroup(gs, 'me', 'pal', 'here')).toBe(true)
     expect(sharesAGroup(gs, 'me', 'you', 'here')).toBe(false)
     expect(sharesAGroup(gs, 'me', 'them', 'here')).toBe(false)
+  })
+})
+
+describe('letting someone in', () => {
+  const members = { p1: { name: 'Priya' }, p2: { name: 'Dev', uid: 'u2' }, old: { name: 'Sam', uid: 'u3', color: '#000', removedAt: 9 } }
+  it('into the placeholder the creator picked, which keeps its name', () => {
+    expect(admission(members, 'u9', 'Priya Sharma', 'p1', 'x')).toEqual({ memberId: 'p1', entry: { name: 'Priya', uid: 'u9' } })
+  })
+  it('refuses a placeholder someone else has now', () => {
+    expect(admission(members, 'u9', 'Priya', 'p2', 'x')).toEqual({ taken: true })
+    expect(admission(members, 'u9', 'Priya', 'gone', 'x')).toEqual({ taken: true })
+  })
+  it('as someone new, with their name and the next colour', () => {
+    expect(admission(members, 'u1234567890', 'Carol', undefined, 'ab')).toEqual({
+      memberId: 'm_u1234567_ab',
+      entry: { name: 'Carol', uid: 'u1234567890', color: MEMBER_COLORS[3] },
+    })
+  })
+  it('someone who left gets their old entry back, no longer removed', () => {
+    expect(admission(members, 'u3', 'Sam K', undefined, 'ab')).toEqual({ memberId: 'old', entry: { name: 'Sam K', uid: 'u3', color: MEMBER_COLORS[3] } })
+  })
+  it('names them by their account name, trimmed and capped', () => {
+    expect(accountName(' Carol Singh ', 'x')).toBe('Carol Singh')
+    expect(accountName(undefined, 'Carol')).toBe('Carol')
+    expect(accountName(undefined, undefined)).toBe('Member')
+    expect(accountName('   ', 'x')).toBe('Member')
+    expect(accountName('a'.repeat(80))).toHaveLength(60)
+  })
+  it('finds who is in the group already', () => {
+    expect(memberIdOf(members, 'u2')).toBe('p2')
+    expect(memberIdOf(members, 'u3')).toBeUndefined()
+    expect(memberIdOf(members, 'nobody')).toBeUndefined()
   })
 })

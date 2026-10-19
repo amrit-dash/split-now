@@ -169,5 +169,7 @@ describe('approvalsSummary', () => {
     expect(approvalsSummary({ requireApproval: true, threshold: 200_000, paymentApproval: true }, 'INR')).toBe('Expenses over ₹2,000 · payments')
     expect(approvalsSummary({ requireApproval: false, paymentApproval: true }, 'INR')).toBe('Payments')
     expect(approvalsSummary({ requireApproval: true, paymentApproval: false }, 'INR')).toBe('Big expenses')
+    expect(approvalsSummary({ requireApproval: false, paymentApproval: false, approveJoins: true }, 'INR')).toBe('New people')
+    expect(approvalsSummary({ requireApproval: false, paymentApproval: true, approveJoins: true }, 'INR')).toBe('Payments · new people')
   })
 })
