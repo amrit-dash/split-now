@@ -151,4 +151,14 @@ export interface IconPickRequest {
   types?: string[]
 }
 
-export type IconPickResponse = { emoji: string | null; alt?: string; category?: string; type?: string } | { unavailable: true; reason: string }
+/**
+ * `alts`: the other emoji that fit well enough to offer beside the pick (rated PICK_FIT or more,
+ * the best first, at most PICK_ALTS); `alt` is the first of them, for apps from before there were several.
+ */
+export type IconPickResponse = { emoji: string | null; alt?: string; alts?: string[]; category?: string; type?: string } | { unavailable: true; reason: string }
+
+/** How well (0–100, as the model rates it) another emoji must fit the title to be offered beside the pick. */
+export const PICK_FIT = 75
+
+/** At most this many others offered, however many the model rates well: a row of pills, not a page. */
+export const PICK_ALTS = 5

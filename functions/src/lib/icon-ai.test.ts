@@ -62,11 +62,11 @@ describe('the automatic icon’s AI pick', () => {
     expect(cleanPickRequest({ title: ' ', choices: ['🍕'] })).toBeNull()
     expect(cleanPickRequest({ title: 'x', choices: Array.from({ length: 400 }, (_, i) => String.fromCodePoint(0x1f300 + i)) })?.choices.length).toBe(300)
   })
-  it('asks for one line: two emoji, the app’s own preferred, any single emoji allowed', () => {
+  it('asks for one line: the pick and the others with how well each fits, the app’s own preferred, any single emoji allowed', () => {
     const p = pickPrompt(r!)
     expect(p).toContain('🍽️ 🍕 🚕')
     expect(p).toContain('food, transport')
-    expect(p).toContain('EMOJI <emoji> ALSO <emoji> CATEGORY <category>')
+    expect(p).toContain('EMOJI <emoji> <rating> ALSO <emoji> <rating> <emoji> <rating> CATEGORY <category>')
     expect(p).toContain('any single standard emoji')
     expect(p).not.toContain('TYPE')
   })
@@ -75,8 +75,15 @@ describe('the automatic icon’s AI pick', () => {
     expect(parsePick('EMOJI: 🍽 CATEGORY: Food', r!)).toEqual({ emoji: '🍽️', category: 'food' })
     expect(parsePick('```\nEMOJI 🦄 CATEGORY rent\n```', r!)).toEqual({ emoji: '🦄' })
     // the owner's examples: an icon that isn't the app's, and a second one to offer
-    expect(parsePick('EMOJI 🐝 ALSO 🇱🇰', r!)).toEqual({ emoji: '🐝', alt: '🇱🇰' })
-    expect(parsePick('EMOJI 🍯 ALSO 🐝 CATEGORY food', r!)).toEqual({ emoji: '🍯', alt: '🐝', category: 'food' })
+    expect(parsePick('EMOJI 🐝 ALSO 🇱🇰', r!)).toEqual({ emoji: '🐝', alt: '🇱🇰', alts: ['🇱🇰'] })
+    expect(parsePick('EMOJI 🍯 ALSO 🐝 CATEGORY food', r!)).toEqual({ emoji: '🍯', alt: '🐝', alts: ['🐝'], category: 'food' })
+    // several to offer: only those rated 75 or more, best first, none the pick's, none twice, text skipped
+    expect(parsePick('EMOJI 🐝 95 ALSO 🇱🇰 80 🍯 90 🌴 60 🐝 99 CATEGORY food', r!)).toEqual({ emoji: '🐝', alt: '🍯', alts: ['🍯', '🇱🇰'], category: 'food' })
+    expect(parsePick('EMOJI 🍯 95 ALSO 🐝 85%, honey, 🥞 40', r!)).toEqual({ emoji: '🍯', alt: '🐝', alts: ['🐝'] })
+    // nothing rated well enough: the pick alone
+    expect(parsePick('EMOJI 🍯 95 ALSO 🥞 40 🍵 30', r!)).toEqual({ emoji: '🍯' })
+    // ratings left out: each counts as fitting, at most five
+    expect(parsePick('EMOJI 🐝 ALSO 🇱🇰 🍯 🌴 🌸 🌺 🌻', r!).alts).toEqual(['🇱🇰', '🍯', '🌴', '🌸', '🌺'])
     // the same emoji twice, text, or two emoji in one place: no alternative, nothing made up
     expect(parsePick('EMOJI 🍯 ALSO 🍯', r!)).toEqual({ emoji: '🍯' })
     expect(parsePick('EMOJI honey ALSO 🐝🍯', r!)).toEqual({ emoji: null })

@@ -6,6 +6,11 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.7.2 — October 2026
+
+- New group: AI now offers every icon it rates as a good fit (75 out of 100 or more), best first, instead of one second choice. The best becomes the icon; picking another keeps the rest on offer.
+- New group: choosing a type after the name gave the icon no longer replaces it. The type's icon is offered beside it instead ("✈️ Trip icon · use it"). If you choose a type while AI is still picking, the type's icon shows until AI's answer arrives.
+
 ## 8.7.1 — October 2026
 
 - New people need my OK: it can't be turned off while someone is waiting to be let in. Edit group says how many are waiting, with a link to the Inbox. Before, turning it off left their requests hidden.

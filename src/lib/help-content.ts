@@ -359,7 +359,8 @@ export const SECTIONS: HelpSection[] = [
     points: [
       'The app’s own icons need no network: about 190 sets of words for expenses and over 100 group icons.',
       'When they can’t tell (“Parasail”, a restaurant’s name), AI picks the emoji that fits best, one of the app’s or any other (“Sri Lanka bees” 🐝, “honey” 🍯), and the category while it’s still Other.',
-      'For a new group AI also offers a second icon under the name (“Or 🇱🇰 · use it”).',
+      'For a new group AI also offers the other icons it rates as a good fit, best first, under the name (“Or 🇱🇰 · use it”). Picking one keeps the rest on offer.',
+      'A type you choose after the name gave the icon keeps that icon and offers the type’s own beside it (“✈️ Trip icon · use it”). Chosen while AI is still picking, the type’s icon shows until AI’s answer comes.',
       'Renaming a group in Edit group does the same for its icon, with “Keep 🏖️” to go back. Its type stays, and an icon you chose there, or a drawn picture, is never replaced.',
       'Suggest with AI offers three emoji and a few drawn icons, on Split Now’s free AI or your own key.',
       'Draw a picture shows only when a key that pays for pictures is in use: about US$0.03 a picture on the recommended model.',

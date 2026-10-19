@@ -1,4 +1,14 @@
-import { ICON_EMOJI, ICON_SVGS, ICON_TITLE_MAX, type IconPickRequest, type IconRequest, type IconSuggestions, PICK_CHOICES_MAX } from '../../../shared/icon-ai'
+import {
+  ICON_EMOJI,
+  ICON_SVGS,
+  ICON_TITLE_MAX,
+  type IconPickRequest,
+  type IconRequest,
+  type IconSuggestions,
+  PICK_ALTS,
+  PICK_CHOICES_MAX,
+  PICK_FIT,
+} from '../../../shared/icon-ai'
 import { cleanSvg } from '../../../shared/svg-icon'
 
 /*
@@ -128,15 +138,15 @@ export function cleanPickRequest(raw: unknown): IconPickRequest | null {
 export const pickPrompt = (
   r: IconPickRequest,
 ) => `You choose the icon for ${r.kind === 'group' ? 'a group' : 'an expense'} in a bill-splitting app, from its title.
-Choose the two single emoji that best show what the title is about, the most fitting first.
+Choose the single emoji that best shows what the title is about, then any others that also fit. Rate how well each fits, 0 to 100, and list them best first.
 Use one of the app's own emoji when it fits as well: ${r.choices.join(' ')}
 Otherwise use any single standard emoji (a country's flag is fine). Never two emoji in one place, never text.
 ${r.categories ? `Also choose its category, one of: ${r.categories.join(', ')}.\n` : ''}${r.types ? `Also choose the group's type, one of: ${r.types.join(', ')}.\n` : ''}Answer with one line and nothing else, in this shape:
-EMOJI <emoji> ALSO <emoji>${r.categories ? ' CATEGORY <category>' : ''}${r.types ? ' TYPE <type>' : ''}
-Pick what the title is most likely about. For "Sri Lanka bees": EMOJI 🐝 ALSO 🇱🇰. For "honey": EMOJI 🍯 ALSO 🐝. For "Toit", a brewpub: EMOJI 🍺 ALSO 🍽️. If nothing fits at all, answer: EMOJI none`
+EMOJI <emoji> <rating> ALSO <emoji> <rating> <emoji> <rating>${r.categories ? ' CATEGORY <category>' : ''}${r.types ? ' TYPE <type>' : ''}
+Pick what the title is most likely about. For "Sri Lanka bees": EMOJI 🐝 95 ALSO 🇱🇰 90 🍯 80 🌴 60. For "honey": EMOJI 🍯 95 ALSO 🐝 85 🥞 55. For "Toit", a brewpub: EMOJI 🍺 90 ALSO 🍻 85 🍽️ 70. If nothing fits at all, answer: EMOJI none`
 
 /** The one-line answer, kept only where it names something from the lists sent. */
-export function parsePick(text: string, r: IconPickRequest): { emoji: string | null; category?: string; type?: string } {
+export function parsePick(text: string, r: IconPickRequest): { emoji: string | null; alt?: string; alts?: string[]; category?: string; type?: string } {
   const line = text
     .replace(/```\w*|```/g, ' ')
     .replace(/\s+/g, ' ')
@@ -151,13 +161,27 @@ export function parsePick(text: string, r: IconPickRequest): { emoji: string | n
   // that echoed the list back (reasoning cut short) names many, and then nothing is guessed.
   const named = r.choices.filter((c) => line.includes(c))
   const emoji = raw.toLowerCase() === 'none' ? null : (pick(raw) ?? (named.length === 1 ? named[0] : null))
-  const second = emoji ? pick(after('ALSO')) : null
-  const alt = second && strip(second) !== strip(emoji ?? '') ? second : undefined
+  // ALSO's emoji, up to the next label, each with its rating: offered only when rated PICK_FIT or more
+  // (one with no rating counts as fitting), best first; each single, none the pick's, none twice.
+  const also = emoji ? (line.match(/ALSO\s*[:：]?\s*(.*?)(?=\s+(?:CATEGORY|TYPE)\b|$)/i)?.[1] ?? '').split(/[\s,]+/).filter(Boolean) : []
+  const rated: Array<{ e: string; fit: number }> = []
+  for (let i = 0; i < also.length; i++) {
+    const e = pick(also[i])
+    if (!e) continue
+    const n = also[i + 1]?.replace(/%$/, '')
+    const fit = n && /^\d{1,3}$/.test(n) ? Number(n) : 100
+    if (fit >= PICK_FIT && strip(e) !== strip(emoji ?? '') && !rated.some((a) => strip(a.e) === strip(e))) rated.push({ e, fit })
+  }
+  const alts = rated
+    .sort((a, b) => b.fit - a.fit)
+    .slice(0, PICK_ALTS)
+    .map((a) => a.e)
+  const alt = alts[0]
   const category = after('CATEGORY')?.toLowerCase()
   const type = after('TYPE')?.toLowerCase()
   return {
     emoji,
-    ...(alt ? { alt } : {}),
+    ...(alt ? { alt, alts } : {}),
     ...(category && r.categories?.includes(category) ? { category } : {}),
     ...(type && r.types?.includes(type) ? { type } : {}),
   }
