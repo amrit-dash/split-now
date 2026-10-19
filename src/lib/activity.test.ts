@@ -258,6 +258,12 @@ describe('groupSettingsActivity', () => {
     expect(say({ ...g, paymentApproval: true }, { ...g })).toBe('Rahul turned off OKs for payments (new payments count at once)')
     expect(say({ ...g, paymentApproval: false }, { ...g })).toBeUndefined()
   })
+  it('new people need the creator’s OK, on and off', () => {
+    expect(say(g, { ...g, approveJoins: true })).toBe('Rahul turned on OKs for new people (they ask to join)')
+    expect(say({ ...g, approveJoins: true }, { ...g })).toBe('Rahul turned off OKs for new people (the invite lets them in)')
+    expect(say({ ...g, approveJoins: false }, { ...g })).toBeUndefined()
+    expect(groupSettingsActivity(g, { ...g, approveJoins: true }, rahul)?.after).toEqual({ approveJoins: true })
+  })
   it('nothing logged for unlisted or unchanged settings', () => {
     expect(groupSettingsActivity(g, { ...g }, rahul)).toBeNull()
     expect(groupSettingsActivity({ ...g, requireApproval: false }, g, rahul)).toBeNull()

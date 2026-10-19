@@ -61,6 +61,7 @@ import {
   mergeSettlement,
 } from '../../shared/merge-members'
 import { demoVault, privateProfile } from './vault-demo'
+import { DEMO_ASK_REFUSAL, type JoinApprovalRequest } from '@/lib/join-approval'
 import { planDeletion, type DeletionExpense, type DeletionGroup } from '../../shared/account-delete'
 import { vaultKey } from '@/lib/vault-crypto'
 import { blocksStopping, openDoc, sealDoc, type ConvertKind } from '../../shared/vault-convert'
@@ -470,6 +471,11 @@ export function createLocalRepo(): Repo {
   const repo: Repo = {
     mode: 'demo',
     onError: errors.on,
+    // Asking to join needs a second person: the demo has one (as with a private group's).
+    async joinApproval<T>(req: JoinApprovalRequest): Promise<T> {
+      if (req.op === 'status') return { status: 'none' } as T
+      throw new Error(DEMO_ASK_REFUSAL)
+    },
     vault: demoVault(
       typeof localStorage === 'undefined' ? undefined : localStorage,
       undefined,
@@ -724,12 +730,14 @@ export function createLocalRepo(): Repo {
       if (!g) return null
       return g.vault
         ? { groupId: g.id, groupName: inviteNameFor(g), emoji: '🔒', placeholders: {}, vault: true }
-        : { groupId: g.id, groupName: inviteNameFor(g), emoji: g.emoji, placeholders: placeholdersOf(g) }
+        : { groupId: g.id, groupName: inviteNameFor(g), emoji: g.emoji, placeholders: placeholdersOf(g), ...(g.approveJoins ? { approveJoins: true } : {}) }
     },
     async joinGroup(code, memberId, member) {
       const g = Object.values(state.groups).find((x) => x.inviteCode === code.toUpperCase())
       if (!g) throw new Error('Invite not found')
       if (member.uid && g.memberUids.includes(member.uid)) return g.id
+      // Like the rules (isJoining): nobody joins from the invite where new people need the creator's OK.
+      if (g.approveJoins) throw new Error(DEMO_ASK_REFUSAL)
       state.groups[g.id] = {
         ...g,
         memberUids: [...new Set([...g.memberUids, member.uid!])],

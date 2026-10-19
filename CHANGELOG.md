@@ -6,6 +6,10 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.7.0 — October 2026
+
+- Groups: the person who made a group can turn on **New people need my OK** (Edit group → Approvals). The invite link, old ones included, then shows **Ask to join** instead of joining; they get a notification and let each person in, as someone new or as a name already in the group, or decline, from Inbox → Asking to join. Turning it off lets people join from the link again. Before, anyone with the link of an ordinary group joined straight away.
+
 ## 8.6.10 — October 2026
 
 - Admin: on a phone the section tabs are icons, with the open tab's name beside its icon; on a wider screen every tab shows its name.

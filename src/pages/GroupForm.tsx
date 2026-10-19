@@ -31,6 +31,7 @@ import {
   approvalsSummary,
 } from '@/lib/approval'
 import { getRate } from '@/lib/fx'
+import { approveJoinsShown } from '@/lib/join-approval'
 import { useTodayRates } from '@/hooks/useFx'
 import { GROUP_TYPES, SHARED_TYPES, groupTypeInfo, groupTypeOf, guessGroup, iconsFor, isSharedType, parseGroupType } from '@/lib/groupTypes'
 import { useIconAi } from '@/hooks/useIconAi'
@@ -86,6 +87,10 @@ const CONVERTS_HINT: Hint = { full: 'Changing the currency converts these amount
 const PAYMENT_OK_HINT: Hint = {
   full: "In this group, a payment someone records as paid to you counts once you confirm it, or straight away when their screenshot matches. It applies to payments recorded while it's on: turning it off later doesn't skip the OK for those, and new payments then count at once.",
   short: 'Payments to you count once you confirm them.',
+}
+const JOINS_HINT: Hint = {
+  full: 'Nobody joins from the invite link, old links included. They ask, you get a notification, and you let them in or decline from the Inbox. Turning it off lets people join from the link again.',
+  short: 'People ask to join; you let them in from the Inbox.',
 }
 const SWIPE_HINT: Hint = { full: 'Swipe a person left, or press and hold, to remove them.' }
 
@@ -173,6 +178,7 @@ export default function GroupForm() {
   const [ownPattern, setOwnPattern] = useState<{ pattern: string; ordered: boolean } | null>(null)
   const [settingOwn, setSettingOwn] = useState(false)
   const [paymentApproval, setPaymentApproval] = useState(false)
+  const [approveJoins, setApproveJoins] = useState(false)
   const [threshold, setThreshold] = useState<number | undefined>(undefined)
   const [thresholdTouched, setThresholdTouched] = useState(false)
   const [editAuto, setEditAuto] = useState(false)
@@ -217,6 +223,7 @@ export default function GroupForm() {
       setEndDate(existing.endDate ?? '')
       setRequireApproval(!!existing.requireApproval)
       setPaymentApproval(!!existing.paymentApproval)
+      setApproveJoins(!!existing.approveJoins)
       setThreshold(existing.approvalThreshold)
       setThresholdTouched(existing.approvalThreshold !== undefined)
       setEditAuto(!!existing.editAutoApprove)
@@ -290,6 +297,7 @@ export default function GroupForm() {
   const capturePrefs = useCapturePrefs()
   const captureTokens = useCaptureTokens()
   const captureEnabled = useFlag('autoCapture')
+  const joinApprovalOn = useFlag('joinApproval')
   const [captureOn, setCaptureOn] = useState<boolean | null>(null)
   // When the name finds no icon by the app's own rules, the AI picks one of the group icons (and the type, while it wasn't chosen).
   // The AI's second icon for the name ("Sri Lanka bees": 🐝, or 🇱🇰), offered beside the one it picked.
@@ -368,13 +376,21 @@ export default function GroupForm() {
   // Renamed, and the icon followed: the saved one is a tap away.
   const keepShown = !!existing && !iconChosen && !existing.iconSvg && !existing.iconImage && emoji !== existing.emoji
   const typeShown = extras && showGuess && !!guess
-  const approvals = approvalsSummary({ requireApproval, threshold, paymentApproval }, currency)
+  // "New people need my OK": the creator's alone (the rules refuse anyone else's change), so it is
+  // shown, and saved, only for them; a private group always asks.
+  const joinsShown = approveJoinsShown(
+    { type, vault: !!existing?.vault || (privateOn && privateShown), approveJoins: existing?.approveJoins },
+    { flag: joinApprovalOn, creator: !existing || existing.createdBy === user.uid },
+  )
+  const approvals = approvalsSummary({ requireApproval, threshold, paymentApproval, approveJoins: joinsShown && approveJoins }, currency)
   const moreSummary = [
     currency,
     budget ? `budget ${formatMoney(budget, currency)}` : 'no budget',
     showDates && !datesOnTop && (startDate || endDate) ? formatRange(startDate || undefined, endDate || undefined) : null,
     type !== 'personal' ? `simplify ${simplify ? 'on' : 'off'}` : null,
-    shareable && (requireApproval || paymentApproval) ? `approvals: ${approvals.charAt(0).toLowerCase()}${approvals.slice(1)}` : null,
+    shareable && (requireApproval || paymentApproval || (joinsShown && approveJoins))
+      ? `approvals: ${approvals.charAt(0).toLowerCase()}${approvals.slice(1)}`
+      : null,
   ]
     .filter(Boolean)
     .join(' · ')
@@ -535,6 +551,8 @@ export default function GroupForm() {
               paymentApproval: paymentApproval || undefined,
             }
           : {}),
+        // Only when shown: leaving it out keeps someone else's setting as it is.
+        ...(joinsShown ? { approveJoins: approveJoins || undefined } : {}),
         ...(!existing && shareable && privateOn ? { vault: true as const } : {}),
         memberUids: [
           ...new Set(
@@ -847,6 +865,18 @@ export default function GroupForm() {
               </div>
               <Switch checked={paymentApproval} onChange={setPaymentApproval} label="Payments need the recipient's OK" testId="group-payment-approval" />
             </div>
+            {joinsShown && (
+              <div className="flex items-center justify-between gap-4 rounded-2xl bg-white p-3 dark:bg-ink-900" data-testid="group-approve-joins-row">
+                <div>
+                  <div className="flex items-center font-semibold">
+                    New people need my OK
+                    <InfoTip hint={JOINS_HINT} label="About new people needing your OK" />
+                  </div>
+                  <HintText hint={JOINS_HINT} className="text-muted text-xs" as="div" />
+                </div>
+                <Switch checked={approveJoins} onChange={setApproveJoins} label="New people need my OK" testId="group-approve-joins" />
+              </div>
+            )}
           </div>
         </Collapsible>
       )}

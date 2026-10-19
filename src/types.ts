@@ -140,6 +140,11 @@ export interface Group {
   /** Merging two people in this group needs the creator's OK when someone else asks (the creator sets it). */
   mergeNeedsOk?: boolean
   /**
+   * New people need the creator's OK (only the creator sets it): nobody joins from the invite; they
+   * ask (Ask to join, the joinApproval callable) and the creator lets them in from the Inbox.
+   */
+  approveJoins?: boolean
+  /**
    * A private group (docs/VAULT.md): its words and photos are encrypted on the phone, and it opens
    * with a pattern and a passkey. Chosen when the group is made, or later by its creator (the vault callable's `convert`).
    */
@@ -552,14 +557,15 @@ export interface MergeRequest {
 }
 
 /**
- * groups/{gid}/joinRequests/{uid}: someone asking to join a private group (docs/VAULT.md), written
- * by the server alone (vault ops requestJoin / decideJoin); read by them and the group's creator.
+ * groups/{gid}/joinRequests/{uid}: someone asking to join a private group (docs/VAULT.md) or an
+ * ordinary one whose creator turned on `approveJoins`, written by the server alone (vault ops
+ * requestJoin / decideJoin; the joinApproval callable); read by them and the group's creator.
  */
 export interface JoinRequest {
   /** from the document path (not stored) */
   groupId: string
   uid: string
-  /** their account name, sealed with the group's key */
+  /** their account name: sealed with the group's key in a private group, as it is in an ordinary one */
   name: string
   status: 'pending' | 'approved' | 'declined'
   createdAt: number

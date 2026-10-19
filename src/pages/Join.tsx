@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Check, Clock, Lock } from 'lucide-react'
 import { askAgainWords, type JoinState } from '@/lib/vault-api'
+import { type AskState, invitePath } from '@/lib/join-approval'
 import { repo } from '@/data'
 import type { InviteInfo } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
@@ -22,6 +23,8 @@ export default function Join() {
   /** '' = not chosen yet (there are unclaimed people to pick from) */
   const [claim, setClaim] = useState<string>('')
   const [busy, setBusy] = useState(false)
+  /** the server said this group lets people join from its invite again (its creator turned asking off) */
+  const [openAgain, setOpenAgain] = useState(false)
   usePageTitle(invite ? `Join ${invite.groupName}` : invite === null ? 'Invite not found' : undefined)
 
   useEffect(() => {
@@ -61,8 +64,10 @@ export default function Join() {
     )
   }
 
-  // A private group: nobody joins from the invite; they ask, and its creator decides (docs/VAULT.md).
-  if (invite.vault) return <PrivateJoin code={code} />
+  // A private group, or one whose creator wants to OK new people: nobody joins from the invite;
+  // they ask, and its creator decides (docs/VAULT.md; functions/src/join.ts).
+  const path = invitePath(invite, openAgain)
+  if (path !== 'join') return <AskToJoin code={code} invite={invite} onOpen={() => setOpenAgain(true)} />
 
   const unclaimed = Object.keys(invite.placeholders).length > 0
   const choice = claim || (unclaimed ? '' : 'new')
@@ -178,34 +183,42 @@ function matchPlaceholder(placeholders: Record<string, string>, displayName: str
   return byFirst.length === 1 ? byFirst[0][0] : undefined
 }
 
+/** One step of asking: the vault callable's for a private group, the joinApproval callable's otherwise. */
+const askStep = (priv: boolean, code: string, op: 'status' | 'ask'): Promise<AskState> =>
+  priv ? repo.vault<JoinState>({ op: op === 'status' ? 'joinStatus' : 'requestJoin', code }) : repo.joinApproval<AskState>({ op, code })
+
 /**
- * A private group's invite: no name, people or pick of who you are, only a request to its creator,
- * who lets you in or not (vault ops joinStatus / requestJoin). One request at a time; a day after a
- * decline before asking again.
+ * An invite that asks instead of joining, with only a request to the group's creator, who lets you
+ * in or not. A private group's names nothing of it (vault ops joinStatus / requestJoin); an
+ * ordinary one whose creator wants to OK new people shows its name and icon, but not who is in it
+ * (the joinApproval callable). One request at a time; a day after a decline before asking again.
  */
-function PrivateJoin({ code }: { code: string }) {
+function AskToJoin({ code, invite, onOpen }: { code: string; invite: InviteInfo; onOpen: () => void }) {
   const nav = useNavigate()
   const toast = useToast()
-  const [state, setState] = useState<JoinState | null>(null)
+  const [state, setState] = useState<AskState | null>(null)
   const [busy, setBusy] = useState(false)
+  const priv = !!invite.vault
+  const call = (op: 'status' | 'ask') => askStep(priv, code, op)
   useEffect(() => {
     let live = true
-    repo
-      .vault<JoinState>({ op: 'joinStatus', code })
+    askStep(priv, code, 'status')
       .then((s) => live && setState(s))
       .catch(() => live && setState({ status: 'none' }))
     return () => {
       live = false
     }
-  }, [code])
+  }, [code, priv])
   useEffect(() => {
     if (state?.status === 'member') nav(`/groups/${state.groupId}`, { replace: true })
-  }, [state, nav])
+    // Its creator turned asking off since the invite was read: join from it as usual.
+    if (state?.status === 'open') onOpen()
+  }, [state, nav, onOpen])
 
   const ask = async () => {
     setBusy(true)
     try {
-      setState(await repo.vault<JoinState>({ op: 'requestJoin', code }))
+      setState(await call('ask'))
     } catch (e) {
       toast(errText(e), 'err')
     } finally {
@@ -214,13 +227,26 @@ function PrivateJoin({ code }: { code: string }) {
   }
 
   return (
-    <main className="mx-auto min-h-dvh max-w-md px-4 pt-[calc(var(--safe-top)+4rem)]" data-testid="join-private">
+    <main className="mx-auto min-h-dvh max-w-md px-4 pt-[calc(var(--safe-top)+4rem)]" data-testid={priv ? 'join-private' : 'join-approval'}>
       <div className="text-center">
-        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-slate-100 text-slate-500 dark:bg-ink-800" aria-hidden>
-          <Lock size={36} />
-        </div>
-        <h1 className="mt-4 text-2xl font-extrabold">A private group</h1>
-        <p className="text-muted mt-2 text-sm">The person who made it decides who joins. You’ll see what’s in it once they let you in.</p>
+        {priv ? (
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-slate-100 text-slate-500 dark:bg-ink-800" aria-hidden>
+            <Lock size={36} />
+          </div>
+        ) : (
+          <div
+            className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-100 to-duo-100 text-5xl dark:from-brand-900/50 dark:to-duo-900/30"
+            aria-hidden
+          >
+            {invite.emoji}
+          </div>
+        )}
+        <h1 className="mt-4 text-2xl font-extrabold">{priv ? 'A private group' : `Join ${invite.groupName}`}</h1>
+        <p className="text-muted mt-2 text-sm">
+          {priv
+            ? 'The person who made it decides who joins. You’ll see what’s in it once they let you in.'
+            : 'The person who made this group lets new people in. Ask, and you’ll see what’s in it once they say yes.'}
+        </p>
       </div>
       <div className="mt-8">
         {!state ? (

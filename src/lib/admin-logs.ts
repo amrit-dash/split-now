@@ -27,6 +27,7 @@ export const FUNCTION_NAMES = [
   'iconPickAi',
   'iconPictureAi',
   'iconsAi',
+  'joinApproval',
   'linkMyInvites',
   'linkPreview',
   'mergeAccount',

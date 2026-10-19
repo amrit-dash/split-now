@@ -4,6 +4,8 @@ import {
   expenseDeletedNote,
   expenseNote,
   groupDeletedNote,
+  joinAskedNote,
+  joinDecidedNote,
   mentionNote,
   mergeAskNote,
   mergeDecidedNote,
@@ -94,6 +96,24 @@ describe('mentions and merges', () => {
     )
     expect(mergeDecidedNote({ ...g, ok: true, fromName: 'Priya', intoName: 'Priya S.' }).body).toBe('Priya and Priya S. are one person now')
     expect(mergeDecidedNote({ ...g, ok: false, fromName: 'Priya', intoName: 'Priya S.' }).body).toBe('Making Priya and Priya S. one person was declined')
+  })
+})
+
+describe('asking to join a group that needs its creator’s OK', () => {
+  const g = { groupId: 'g1', groupName: 'Goa trip', emoji: '🏖️' }
+  it('the creator hears who asked, and the Inbox opens', () => {
+    expect(joinAskedNote({ ...g, name: 'Carol Singh', uid: 'u9' })).toEqual({
+      title: '🏖️ Goa trip',
+      body: 'Carol Singh asked to join. Open the Inbox to let them in or decline.',
+      url: '/inbox',
+      tag: 'join-g1-u9',
+    })
+  })
+  it('the asker hears the answer; a decline opens Home, not the group', () => {
+    expect(joinDecidedNote({ ...g, ok: true })).toMatchObject({ body: 'You’re in. Open the group to see its expenses.', url: '/groups/g1' })
+    const no = joinDecidedNote({ ...g, ok: false })
+    expect(no).toMatchObject({ url: '/', tag: 'join-declined-g1' })
+    expect(no.body).toBe('Your request to join wasn’t accepted. You can ask again tomorrow.')
   })
 })
 

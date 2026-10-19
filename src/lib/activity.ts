@@ -273,10 +273,19 @@ export function memberActivity(kind: 'added' | 'removed', memberId: MemberId, na
 }
 
 /** Group settings whose changes are logged, in the order the summary names them. */
-export const GROUP_SETTINGS_FIELDS = ['name', 'currency', 'requireApproval', 'approvalThreshold', 'editAutoApprove', 'paymentApproval', 'budget'] as const
+export const GROUP_SETTINGS_FIELDS = [
+  'name',
+  'currency',
+  'requireApproval',
+  'approvalThreshold',
+  'editAutoApprove',
+  'paymentApproval',
+  'approveJoins',
+  'budget',
+] as const
 type GroupSettingsSnapshot = Pick<
   Group,
-  'id' | 'name' | 'currency' | 'requireApproval' | 'approvalThreshold' | 'editAutoApprove' | 'paymentApproval' | 'budget'
+  'id' | 'name' | 'currency' | 'requireApproval' | 'approvalThreshold' | 'editAutoApprove' | 'paymentApproval' | 'approveJoins' | 'budget'
 >
 
 /** "a", "a and b", "a, b, and c". */
@@ -317,6 +326,8 @@ export function groupSettingsActivity(before: GroupSettingsSnapshot, after: Grou
   }
   if (!!before.paymentApproval !== !!after.paymentApproval)
     parts.push(after.paymentApproval ? 'turned on OKs for payments' : 'turned off OKs for payments (new payments count at once)')
+  if (!!before.approveJoins !== !!after.approveJoins)
+    parts.push(after.approveJoins ? 'turned on OKs for new people (they ask to join)' : 'turned off OKs for new people (the invite lets them in)')
   if ((before.budget || undefined) !== (after.budget || undefined)) {
     if (!after.budget) parts.push('removed the budget')
     else if (!before.budget) parts.push(`set a budget of ${amt(after.budget)}`)

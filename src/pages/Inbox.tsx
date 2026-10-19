@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useJoinRequests } from '@/hooks/data'
 import type { JoinRequest } from '@/types'
 import { isSealed } from '@/lib/vault-scramble'
+import { decidesJoins, waitingRequests } from '@/lib/join-approval'
 import { passkeyCancelled, passkeyProof } from '@/features/vault/passkey'
 import { Link, useNavigate } from 'react-router-dom'
 import { Ban, BookOpen, Check, CheckCheck, ChevronDown, ChevronRight, EyeOff, Flag, FolderInput, Loader2, Plus, RotateCcw, Trash2 } from 'lucide-react'
@@ -207,9 +208,27 @@ function ToSort({
   const showSort = useShows(2)
   const deletedGroups = useDeletedGroups()
   const deletedByOthers = useMemo(() => groupsDeletedByOthers(deletedGroups ?? [], user.uid), [deletedGroups, user.uid])
-  // Requests to join the private groups you made (vault op requestJoin): yours to decide.
-  const mine = useMemo(() => (data ?? []).filter((d) => d.group.vault && d.group.createdBy === user.uid && !d.group.deletedAt), [data, user.uid])
-  const joins = useJoinRequests(data ? mine.map((d) => d.group.id) : null) ?? []
+  // Requests to join the groups you made that are private (vault op requestJoin) or need your OK
+  // for new people (joinApproval op ask): yours to decide. A group with it turned off is left out,
+  // its requests kept for if it's turned on again; someone who joined meanwhile isn't asked about.
+  const mine = useMemo(() => {
+    const ids = new Set(
+      decidesJoins(
+        (data ?? []).map((d) => d.group),
+        user.uid,
+      ).map((g) => g.id),
+    )
+    return (data ?? []).filter((d) => ids.has(d.group.id))
+  }, [data, user.uid])
+  const requested = useJoinRequests(data ? mine.map((d) => d.group.id) : null)
+  const joins = useMemo(
+    () =>
+      waitingRequests(
+        requested ?? [],
+        mine.map((d) => d.group),
+      ),
+    [requested, mine],
+  )
   useEffect(() => watchCapturePrefs(user.uid, repo.mode, setPrefs), [user.uid])
   const loadingCaptures = box.loading && box.captures.length === 0 && !handled
   const nothing =
@@ -348,7 +367,7 @@ function ToSort({
       )}
 
       {joins.length > 0 && (
-        <Section title="Asking to join" hint={{ full: 'Only you let people into a private group you made', tier: 'key' }}>
+        <Section title="Asking to join" hint={{ full: 'Only you let people into the groups you made that need your OK', tier: 'key' }}>
           {joins.map((r) => (
             <JoinRequestRow key={`${r.groupId}/${r.uid}`} request={r} d={mine.find((d) => d.group.id === r.groupId)} />
           ))}
@@ -1090,9 +1109,10 @@ function SortPicker<T extends string>({
 }
 
 /**
- * Someone asking to join a private group you made: let them in, as a new person or as one of its
- * placeholders, or not (vault op decideJoin, after your passkey). While the group is locked here
- * its names are sealed: the person is "Someone", and they can only come in as new.
+ * Someone asking to join a group you made: let them in, as a new person or as one of its
+ * placeholders, or not. A private group's through the vault op decideJoin, after your passkey;
+ * while it is locked here its names are sealed: the person is "Someone", and they can only come in
+ * as new. An ordinary group's (new people need your OK) through the joinApproval op decide.
  */
 function JoinRequestRow({ request, d }: { request: JoinRequest; d: GroupData | undefined }) {
   const toast = useToast()
@@ -1108,6 +1128,11 @@ function JoinRequestRow({ request, d }: { request: JoinRequest; d: GroupData | u
     setPicking(false)
     setBusy(true)
     try {
+      if (group && !group.vault) {
+        await repo.joinApproval({ op: 'decide', groupId: request.groupId, uid: request.uid, approve, ...(memberId ? { memberId } : {}) })
+        toast(approve ? `${who} is in the group now` : 'Request declined')
+        return
+      }
       const auth = await passkeyProof(repo)
       const r = await repo.vault<{ opens?: boolean }>({
         op: 'decideJoin',

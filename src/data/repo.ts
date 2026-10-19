@@ -1,5 +1,6 @@
 import type { ChatAiIntent } from '../../shared/chat-ai'
 import type { VaultRequest } from '@/lib/vault-api'
+import type { JoinApprovalRequest } from '@/lib/join-approval'
 import type { AppErrorReport } from '@/lib/app-errors'
 import type {
   ExpensePhoto,
@@ -126,6 +127,8 @@ export interface InviteInfo {
   placeholders: Record<MemberId, string>
   /** a private group: nobody joins from the invite; they ask its creator (vault op requestJoin) */
   vault?: boolean
+  /** new people need its creator's OK: they ask (joinApproval callable) instead of joining */
+  approveJoins?: boolean
 }
 
 export type NewGroup = Omit<Group, 'id' | 'createdAt' | 'updatedAt' | 'inviteCode'>
@@ -299,6 +302,13 @@ export interface Repo {
    * device (src/data/vault-demo.ts) with no passkey. Waits for the server; throws its message.
    */
   vault<T = unknown>(req: VaultRequest): Promise<T>
+  /**
+   * Asking to join an ordinary group whose creator turned on "New people need my OK" (the
+   * joinApproval callable, functions/src/join.ts): where you stand with its invite, ask, or (its
+   * creator) let someone in or decline. Waits for the server; throws its message. Demo mode has
+   * only you: `status` answers 'none', and asking or deciding throws DEMO_ASK_REFUSAL.
+   */
+  joinApproval<T = unknown>(req: JoinApprovalRequest): Promise<T>
   /**
    * An error from this phone for the admin's Logs tab (appErrors; src/lib/app-errors.ts builds
    * it). Fire-and-forget: a report that can't be sent is dropped. Demo mode keeps none.

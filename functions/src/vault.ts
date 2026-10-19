@@ -77,7 +77,7 @@ import { sendToUser } from './push'
 import { vaultKey, type VaultKey } from '../../shared/vault-crypto'
 import { blocksStopping, openDoc, privateGroupsOn, sealDoc, type ConvertKind, withoutUniversal } from '../../shared/vault-convert'
 import { inviteNameFor } from '../../shared/names'
-import { isOpenPlaceholder, joinGate, memberIdFor, sharesAGroup, type JoinRequestDoc } from './lib/join-core'
+import { MEMBER_COLORS, accountName, admission, joinGate, memberIdFor, sharesAGroup, type JoinRequestDoc } from './lib/join-core'
 import { APP_ORIGINS, ENFORCE_APP_CHECK, REGION } from './config'
 import { flagOn } from './lib/limits'
 import { parseKekList, type Sealed } from './lib/seal'
@@ -568,7 +568,6 @@ async function makePlain(gid: string, uid: string, g: FirebaseFirestore.Document
 
 // ---- joining a private group (lib/join-core.ts) ------------------------------------------
 
-const MEMBER_COLORS = ['#8b5cf6', '#ec4899', '#f97316', '#10b981', '#0ea5e9', '#eab308', '#ef4444', '#14b8a6', '#6366f1', '#d946ef', '#84cc16', '#f43f5e']
 const requestRef = (gid: string, uid: string) => db().doc(`groups/${gid}/joinRequests/${uid}`)
 
 /** A private group from its invite code; refuses an invite that isn't one. */
@@ -585,11 +584,7 @@ async function privateByCode(code: unknown) {
 /** What someone is called in a group they're let into: their account name, sealed with its key. */
 async function sealedNameOf(uid: string, fallback: string, k: VaultKey): Promise<string> {
   const p = (await db().doc(`users/${uid}`).get()).data()
-  const name =
-    String(p?.displayName ?? fallback ?? 'Member')
-      .trim()
-      .slice(0, 60) || 'Member'
-  return (await sealDoc(k, 'group', { name }))?.name as string
+  return (await sealDoc(k, 'group', { name: accountName(p?.displayName, fallback) }))?.name as string
 }
 
 const keyFor = async (gid: string, uid: string, list: Buffer[]) => vaultKey(gid, await keyOf(gid, uid, list))
@@ -651,14 +646,9 @@ async function decideJoin(uid: string, req: CallableRequest, data: Record<string
       tx.update(rs.ref, { status: 'declined', decidedAt: now, decidedBy: uid })
       return { declined: true as const }
     }
-    const members = (g.members ?? {}) as Record<string, Record<string, unknown>>
-    if (placeholder && !isOpenPlaceholder(members, placeholder))
-      throw new HttpsError('failed-precondition', 'That person in the group is taken now. Pick another, or add them as new.')
-    const memberId = placeholder ?? memberIdFor(members, who, Math.random().toString(36).slice(2, 6))
-    const entry = placeholder
-      ? { ...members[placeholder], uid: who }
-      : { ...(members[memberId] ?? {}), name: r.name, uid: who, color: MEMBER_COLORS[Object.keys(members).length % MEMBER_COLORS.length] }
-    if (!placeholder) delete (entry as Record<string, unknown>).removedAt
+    const a = admission((g.members ?? {}) as Record<string, Record<string, unknown>>, who, r.name, placeholder, Math.random().toString(36).slice(2, 6))
+    if ('taken' in a) throw new HttpsError('failed-precondition', 'That person in the group is taken now. Pick another, or add them as new.')
+    const { memberId, entry } = a
     tx.update(gRef, { [`members.${memberId}`]: entry, memberUids: FieldValue.arrayUnion(who), updatedAt: now })
     tx.update(rs.ref, { status: 'approved', decidedAt: now, decidedBy: uid, memberId })
     return { approved: memberId }
