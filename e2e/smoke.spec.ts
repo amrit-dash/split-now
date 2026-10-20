@@ -1662,27 +1662,52 @@ test('icons: a group takes a drawn icon', async ({ page }) => {
   await expect(page.locator('main img[src^="data:image/svg+xml"]').first()).toBeVisible()
 })
 
-test('icons: Draw a picture says who pays, and the picture becomes the icon', async ({ page }) => {
-  await page.goto('/add?group=g_goa')
-  await page.getByRole('textbox', { name: 'Description', exact: true }).fill('Sunset cruise')
-  await amountField(page).fill('900')
-  await page.getByTestId('expense-icon').click({ button: 'right' })
-  const sheet = page.getByTestId('icon-sheet')
-  await sheet.getByTestId('icon-search').fill('anchor')
-  await expect(sheet.getByTestId('icon-picture-draw')).toContainText('“anchor”')
-  await expect(sheet.getByTestId('icon-picture-note')).toContainText('Split Now')
-  await sheet.getByTestId('icon-picture-draw').click()
-  // the picture says which model drew it, and what that cost
-  await expect(sheet.getByTestId('icon-picture-by')).toContainText('Nano Banana 2 Lite')
-  await sheet.getByTestId('icon-picture-use').click()
-  await expect(page.getByTestId('expense-icon').locator('img')).toHaveAttribute('src', /^data:image\/(webp|png|jpeg);base64,/)
-  await page
-    .getByRole('button', { name: /^(Save|Add expense)$/ })
-    .first()
-    .click()
-  await expect(page).toHaveURL(/\/groups\/g_goa$/)
-  await page.getByText('Sunset cruise').first().click()
-  await expect(page.getByTestId('expense-detail-icon').locator('img')).toHaveAttribute('src', /^data:image\/(webp|png|jpeg)/)
+test.describe('Draw a picture prices', () => {
+  // A fixed dollar rate, so the price shows in rupees first (page.route can't see service-worker requests).
+  // In India, so the demo's currency is rupees wherever the suite runs (CI is in UTC, en-US: dollars).
+  test.use({ serviceWorkers: 'block', fixedRates: true, timezoneId: 'Asia/Kolkata' })
+
+  test('icons: Draw a picture says who pays, and the picture becomes the icon', async ({ page }) => {
+    await page.goto('/add?group=g_goa')
+    await page.getByRole('textbox', { name: 'Description', exact: true }).fill('Sunset cruise')
+    await amountField(page).fill('900')
+    await page.getByTestId('expense-icon').click({ button: 'right' })
+    const sheet = page.getByTestId('icon-sheet')
+    await sheet.getByTestId('icon-search').fill('anchor')
+    await expect(sheet.getByTestId('icon-picture-draw')).toContainText('“anchor”')
+    await expect(sheet.getByTestId('icon-picture-note')).toContainText('Split Now')
+    await sheet.getByTestId('icon-picture-draw').click()
+    // the picture says which model drew it, and what that cost
+    await expect(sheet.getByTestId('icon-picture-by')).toContainText('Nano Banana 2 Lite')
+    // the price in the person's money first (rupees in the demo), Google's dollars after
+    await expect(sheet.getByTestId('icon-picture-by')).toContainText(/₹[\d.]+ \(US\$0\.03\)/)
+    await sheet.getByTestId('icon-picture-use').click()
+    await expect(page.getByTestId('expense-icon').locator('img')).toHaveAttribute('src', /^data:image\/(webp|png);base64,/)
+    // the magenta backdrop is keyed out and the object cropped to fill the icon
+    const src = await page.getByTestId('expense-icon').locator('img').getAttribute('src')
+    const alpha = await page.evaluate(async (url) => {
+      const img = new Image()
+      img.src = url ?? ''
+      await img.decode()
+      const c = document.createElement('canvas')
+      c.width = img.width
+      c.height = img.height
+      const ctx = c.getContext('2d') as CanvasRenderingContext2D
+      ctx.drawImage(img, 0, 0)
+      const at = (x: number, y: number) => ctx.getImageData(x, y, 1, 1).data
+      const mid = Math.floor(img.width / 2)
+      return { corner: at(1, 1)[3], middle: at(mid, mid)[3] }
+    }, src)
+    expect(alpha.corner).toBe(0)
+    expect(alpha.middle).toBeGreaterThan(200)
+    await page
+      .getByRole('button', { name: /^(Save|Add expense)$/ })
+      .first()
+      .click()
+    await expect(page).toHaveURL(/\/groups\/g_goa$/)
+    await page.getByText('Sunset cruise').first().click()
+    await expect(page.getByTestId('expense-detail-icon').locator('img')).toHaveAttribute('src', /^data:image\/(webp|png|jpeg)/)
+  })
 })
 
 test('help: Profile → Help finds a feature, plays its steps and goes there', async ({ page }) => {
@@ -1777,6 +1802,8 @@ test('What’s new rises above the tab bar a moment after Home loads, and a side
   await expect(page.getByTestId('whats-new-banner')).toHaveCount(0)
   const banner = page.getByTestId('whats-new-banner')
   await expect(banner).toBeVisible()
+  // measured once it has finished rising: mid-animation the drag would start below it
+  await banner.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)))
   // in the floating lane above the tab bar, not at the top of the page
   const box = await banner.boundingBox()
   const vh = page.viewportSize()?.height ?? 0
@@ -1819,6 +1846,26 @@ test('a toast can be swiped away sideways', async ({ page }) => {
   await page.mouse.up()
   // gone well before it would have faded on its own
   await expect(toast).toHaveCount(0, { timeout: 1500 })
+})
+
+test('Home: Recent activity starts folded, opens smoothly, and says how many are new', async ({ page }) => {
+  await page.goto('/')
+  const section = page.getByTestId('home-recent')
+  await expect(section).toBeVisible()
+  const header = section.getByRole('button', { name: /Recent/ })
+  await expect(header).toHaveAttribute('aria-expanded', 'false')
+  // something new since the last look: an older "seen" time makes the demo's entries new
+  await page.evaluate(() => {
+    for (const k of Object.keys(localStorage)) if (k.startsWith('splitnow:recent-seen')) localStorage.setItem(k, '1')
+  })
+  await page.reload()
+  await expect(section.getByTestId('home-recent-unread')).toBeVisible()
+  await header.click()
+  await expect(header).toHaveAttribute('aria-expanded', 'true')
+  await expect(section.getByRole('region')).toBeVisible()
+  // opened: read, so the count is gone next time
+  await page.reload()
+  await expect(section.getByTestId('home-recent-unread')).toHaveCount(0)
 })
 
 test('receipt photos: the scanned receipt leads the strip with a badge, and a new scan asks first', async ({ page }) => {

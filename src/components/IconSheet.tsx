@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom'
 import { AI_IDLE_MS, aiRowShown, drawnByLine, iconAiProblem, pictureNote, pictureProblem } from '@/lib/icon-ai'
 import { shrinkPicture } from '@/lib/icon-picture'
 import { searchIcons } from '@/lib/icons'
-import { type IconRequest, type IconSuggestions, PICTURE_COST } from '../../shared/icon-ai'
+import { type IconRequest, type IconSuggestions, pictureCost as costOf } from '../../shared/icon-ai'
 import { svgDataUrl } from '../../shared/svg-icon'
 import { Spinner } from './Misc'
 import { Sheet } from './Sheet'
@@ -35,7 +35,7 @@ export function IconSheet({
   svgValue,
   onPickSvg,
   picture,
-  pictureCost = PICTURE_COST,
+  pictureCost = costOf(),
   imageValue,
   onPickImage,
   aiWhy,
@@ -283,7 +283,7 @@ export function IconSheet({
                       className={`animate-pop h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-white dark:bg-ink-800 ${imageValue === drawn ? 'ring-2 ring-brand-500' : ''}`}
                       data-testid="icon-picture-use"
                     >
-                      <img src={drawn} alt="" aria-hidden className="h-full w-full object-cover" draggable={false} />
+                      <img src={drawn} alt="" aria-hidden className="h-full w-full object-contain p-1.5" draggable={false} />
                     </button>
                     <div className="min-w-0 flex-1 text-sm">
                       <div className="font-semibold">Tap it to use it</div>

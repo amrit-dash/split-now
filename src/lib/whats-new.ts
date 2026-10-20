@@ -24,6 +24,17 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '8.8.0',
+    date: 'October 2026',
+    items: [
+      { text: 'Drawn pictures have no background and fill the icon, like an emoji', section: 'icons-and-ai' },
+      { text: 'AI picture prices show in your own currency', section: 'icons-and-ai' },
+      { text: 'Recent activity on Home starts folded, with a count of what’s new', section: 'home-tour' },
+      { text: 'Tapped Later on an update? Profile keeps a New version ready row', section: 'install-offline' },
+      { text: 'More room under the last card, clear of the + button', section: 'home-tour' },
+    ],
+  },
+  {
     version: '8.7.5',
     date: 'October 2026',
     items: [{ text: 'Notices are tidier: the ✕ sits by the edge, next to its button', section: 'help-guide' }],

@@ -48,7 +48,8 @@ export function Layout() {
     return () => cancelAnimationFrame(id)
   }, [loc.pathname])
   return (
-    <div className="mx-auto min-h-dvh max-w-2xl px-4 pb-[calc(var(--nav-h)+1.5rem)]">
+    // Room under the last card: it clears the raised + button by about 14px, on every screen with the tab bar.
+    <div className="mx-auto min-h-dvh max-w-2xl px-4 pb-[calc(var(--nav-h)+2.25rem)]">
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-xl focus:bg-fill focus:px-4 focus:py-2 focus:font-semibold focus:text-on-fill"

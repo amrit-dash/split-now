@@ -31,6 +31,9 @@ describe('a stored picture', () => {
   it('the prompt names the title and asks for no words', () => {
     expect(picturePrompt({ title: 'Goa trip', kind: 'group' })).toContain('"Goa trip"')
     expect(picturePrompt({ title: 'Ferry', kind: 'expense', category: 'Transport' })).toMatch(/No text/)
+    // a flat magenta backdrop the phone keys out (src/lib/icon-picture.ts), never white
+    expect(picturePrompt({ title: 'Ferry', kind: 'expense' })).toContain('#FF00FF')
+    expect(picturePrompt({ title: 'Ferry', kind: 'expense' })).not.toMatch(/white background/i)
   })
 })
 
@@ -61,5 +64,21 @@ describe('picture models', () => {
     expect(pictureCost('gemini-3-pro-image')).toBe('about US$0.13')
     expect(pictureCost('gemini-3.1-flash-image')).toBe('about US$0.07')
     expect(pictureCost('gemini-9-flash-image')).toBe('US$0.03 to US$0.13')
+  })
+})
+
+describe('picture prices in the person’s currency', () => {
+  it('shows their money first, the dollars after; dollars alone without a rate or for dollar users', async () => {
+    const { priceText, pictureCost, setPriceCurrency } = await import('./icon-ai')
+    setPriceCurrency(null)
+    expect(priceText(0.03)).toBe('US$0.03')
+    expect(pictureCost('nope')).toBe('US$0.03 to US$0.13')
+    setPriceCurrency({ currency: 'INR', perUsd: 84 })
+    expect(priceText(0.03)).toMatch(/^₹2\.52 \(US\$0\.03\)$/)
+    expect(pictureCost()).toMatch(/^about ₹2\.52 \(US\$0\.03\)$/)
+    expect(pictureCost('nope')).toMatch(/^₹2\.52 to ₹11 \(US\$0\.03 to US\$0\.13\)$/)
+    setPriceCurrency({ currency: 'USD', perUsd: 1 })
+    expect(priceText(0.03)).toBe('US$0.03')
+    setPriceCurrency(null)
   })
 })

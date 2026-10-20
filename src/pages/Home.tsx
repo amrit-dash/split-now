@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { WhatsNewBanner } from '@/components/WhatsNewBanner'
 import { Link, useNavigate } from 'react-router-dom'
-import { ChevronRight, FileUp, Inbox, Lock, Plus, Ticket } from 'lucide-react'
+import { ChevronDown, ChevronRight, FileUp, Inbox, Lock, Plus, Ticket } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
 import { useAllGroupData, type GroupData } from '@/hooks/data'
 import { useInbox } from '@/hooks/useInbox'
@@ -28,6 +28,7 @@ import { isLiveTrip } from '@/lib/capture'
 import { todayISO } from '@/lib/id'
 import { usePageTitle } from '@/lib/brand'
 import { fitLabel, overflows } from '@/lib/fit'
+import { markSeen, readSeen, unreadCount, unreadLabel } from '@/lib/recent-unread'
 import { Detail, HintText, InfoTip, type Hint } from '@/components/Hint'
 import { deltaWords } from '../../shared/received'
 
@@ -36,7 +37,7 @@ const CardFirework = lazy(() => import('@/components/CardFirework').then((m) => 
 
 export default function Home() {
   usePageTitle(null)
-  const { profile } = useMe()
+  const { profile, user } = useMe()
   const all = useAllGroupData()
   // Private groups never show on Home, open or locked (docs/VAULT.md): not in the totals, the
   // people, the recent list or the feed. The card says so; they're on the Groups screen.
@@ -226,18 +227,23 @@ export default function Home() {
       )}
 
       {feed && feed.length > 0 ? (
-        <Section title="Recent activity">
+        <FoldedSection title="Recent activity" uid={user.uid} items={feed} testId="home-recent">
           <ActivityFeed entries={feed} groups={groupsById} />
-        </Section>
+        </FoldedSection>
       ) : (
         recent.length > 0 && (
-          <Section title="Recent expenses">
+          <FoldedSection
+            title="Recent expenses"
+            uid={user.uid}
+            items={recent.map(({ e }) => ({ createdAt: e.createdAt, actorUid: e.createdBy }))}
+            testId="home-recent"
+          >
             <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
               {recent.map(({ e, d }) => (
                 <RecentExpense key={e.id} e={e} d={d} />
               ))}
             </div>
-          </Section>
+          </FoldedSection>
         )
       )}
     </div>
@@ -422,6 +428,72 @@ function HomeSkeleton() {
         <ListSkeleton rows={3} />
       </div>
     </div>
+  )
+}
+
+/**
+ * Recent activity on Home: folded by default, so the money and groups stay on top. The header
+ * says how many entries are new since this device last opened it (src/lib/recent-unread.ts);
+ * opening it marks them read. The height eases open (grid rows), off under reduced motion.
+ */
+function FoldedSection({
+  title,
+  uid,
+  items,
+  testId,
+  children,
+}: {
+  title: string
+  uid: string
+  items: Array<{ createdAt: number; actorUid?: string }>
+  testId?: string
+  children: React.ReactNode
+}) {
+  const [open, setOpen] = useState(false)
+  const [seenAt, setSeenAt] = useState(() => readSeen(uid))
+  const unread = unreadCount(items, seenAt, uid)
+  const toggle = () => {
+    const next = !open
+    setOpen(next)
+    if (next) {
+      const now = Date.now()
+      markSeen(uid, now)
+      // the pill stays until it's closed again, so the new rows can still be told apart
+      if (!unread) setSeenAt(now)
+    } else setSeenAt(readSeen(uid))
+  }
+  return (
+    <section className="mt-7" data-testid={testId} data-open={open || undefined}>
+      <button
+        type="button"
+        onClick={toggle}
+        aria-expanded={open}
+        aria-controls={`${testId}-body`}
+        className="mb-2.5 flex min-h-11 w-full items-center gap-2 px-1 text-left"
+      >
+        <h2 className="text-lg font-bold">{title}</h2>
+        {unread > 0 && (
+          <span className="rounded-full bg-brand-600 px-2 py-0.5 text-xs font-bold text-white" data-testid={`${testId}-unread`}>
+            {unreadLabel(unread)}
+            <span className="sr-only"> new</span>
+          </span>
+        )}
+        <ChevronDown
+          size={20}
+          aria-hidden
+          className={`text-muted ml-auto shrink-0 transition-transform duration-300 motion-reduce:transition-none ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+      <div
+        id={`${testId}-body`}
+        role="region"
+        aria-label={title}
+        inert={!open}
+        className={`grid transition-[grid-template-rows,opacity] duration-300 ease-out motion-reduce:transition-none ${open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
+      >
+        <div className="min-h-0 overflow-clip">{children}</div>
+      </div>
+    </section>
   )
 }
 

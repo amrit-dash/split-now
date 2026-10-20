@@ -23,6 +23,7 @@ import { readoutOn, setReadoutOn } from '@/components/ViewportReadout'
 import { tapsToToggle } from '@/lib/keyboard'
 import { AccountCard } from '@/components/ProfileCards'
 import { InstallRow } from '@/components/InstallBanner'
+import { UpdateRow } from '@/components/UpdateRow'
 import { SupportSheet } from '@/components/SupportSheet'
 import { SavedPill, useSavedFlash } from './settings/common'
 
@@ -367,6 +368,8 @@ export default function Profile() {
           </span>
           <ChevronRight size={18} className="text-slate-400" aria-hidden />
         </Link>
+        {/* A downloaded new version, still on offer after Later on the banner. */}
+        <UpdateRow />
         {/* Shown until the app is installed, on phones and computers that can install it (the banner can be dismissed for good). */}
         <InstallRow className="" testId="profile-install" />
         <Detail min={2}>

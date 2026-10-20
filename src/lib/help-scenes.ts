@@ -990,6 +990,7 @@ Object.assign(SCENES, {
             { label: 'Indiranagar flat', icon: '🏠' },
           ],
         },
+        { kind: 'row', label: 'Recent activity', value: '3 new ⌄', mark: 'recent' },
         tabbar('plus', 'Home'),
       ],
     },
@@ -1043,6 +1044,11 @@ Object.assign(SCENES, {
       { kind: 'note', label: 'Offline — changes will sync when you’re back', mark: 'offline' },
       { kind: 'row', label: 'Ferry tickets', value: '₹600' },
       { kind: 'message', label: 'New version ready', value: 'Later · Update', mark: 'update' },
+    ]),
+    settings('Profile', [
+      { kind: 'row', label: 'Your photo', value: '🙂 ›' },
+      { kind: 'row', label: 'New version ready', value: 'Tap to update', mark: 'later' },
+      { kind: 'row', label: 'Install Split Now', value: '›' },
     ]),
   ],
 } satisfies Record<string, Scene>)

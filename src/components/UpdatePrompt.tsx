@@ -3,6 +3,7 @@ import { useRegisterSW } from 'virtual:pwa-register/react'
 import { Loader2, Sparkles } from 'lucide-react'
 import { APP_NAME } from '@/lib/brand'
 import { useSwipeDismiss } from '@/hooks/useSwipeDismiss'
+import { bannerShown, getUpdate, putUpdateOff, registerUpdater, setUpdateReady, subscribeUpdate } from '@/lib/app-update'
 
 /**
  * "New version" banner, shown just above the bottom tab bar.
@@ -15,7 +16,7 @@ export function UpdatePrompt() {
   const regRef = useRef<ServiceWorkerRegistration | undefined>(undefined)
   const [updating, setUpdating] = useState(false)
   const {
-    needRefresh: [needRefresh, setNeedRefresh],
+    needRefresh: [needRefresh],
   } = useRegisterSW({
     onRegisteredSW(_url, reg) {
       regRef.current = reg
@@ -50,17 +51,25 @@ export function UpdatePrompt() {
     setTimeout(reload, 3000)
   }
 
+  // Shared with Profile (src/lib/app-update.ts): Later hides this banner, Profile still offers Update.
+  useEffect(() => setUpdateReady(needRefresh), [needRefresh])
+  useEffect(() => {
+    registerUpdater(() => void update())
+    return () => registerUpdater(null)
+  })
+  const shown = bannerShown(useSyncExternalStore(subscribeUpdate, getUpdate, getUpdate))
+
   // The install banner sits in the same spot; hide it while this one is up.
   useEffect(() => {
-    document.documentElement.toggleAttribute('data-update-ready', needRefresh)
-  }, [needRefresh])
+    document.documentElement.toggleAttribute('data-update-ready', shown)
+  }, [shown])
 
   // A sideways swipe is Later.
-  const swipe = useSwipeDismiss(() => setNeedRefresh(false))
+  const swipe = useSwipeDismiss(putUpdateOff)
   const withNav = useHasNav()
   // Only on screens with the tab bar, rising from behind it; on forms and full-screen flows it
   // waits (an update is never urgent, and it must not cover Save buttons or bottom bars).
-  if (!needRefresh || !withNav) return null
+  if (!shown || !withNav) return null
   return (
     <div
       className="animate-[rise_0.45s_cubic-bezier(0.2,0.9,0.3,1)] fixed inset-x-3 bottom-[var(--lane)] z-30 mx-auto max-w-md"
@@ -77,12 +86,7 @@ export function UpdatePrompt() {
         <div className="min-w-0 flex-1 truncate text-sm font-bold" title={`A new version of ${APP_NAME} is ready`}>
           New version ready
         </div>
-        <button
-          type="button"
-          className="shrink-0 rounded-2xl px-2 py-2 text-sm font-semibold text-on-fill/85"
-          onClick={() => setNeedRefresh(false)}
-          disabled={updating}
-        >
+        <button type="button" className="shrink-0 rounded-2xl px-2 py-2 text-sm font-semibold text-on-fill/85" onClick={putUpdateOff} disabled={updating}>
           Later
         </button>
         <button
