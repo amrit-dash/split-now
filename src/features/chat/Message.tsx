@@ -19,14 +19,13 @@ import {
 } from 'lucide-react'
 import type { ActivityEntry, ChatMessage, ChatReplyRef, Debt, Expense, Group, MemberId, MergeRequest, OpenItem } from '@/types'
 import { activityText } from '@/lib/activity'
-import { CATEGORIES } from '@/lib/categories'
 import { expenseEmoji } from '@/lib/icons'
 import { IconFace } from '@/components/IconFace'
 import { authorMember, foldsUpdates, linkParts, payCard, settleCard, updateKind, type ChatRow, type UpdateKind } from '@/lib/chat'
 import { listNames, mentionParts, type Mentionable } from '@/lib/chat-tools'
 import { formatTime } from '@/lib/locale'
 import { formatMoney } from '@/lib/money'
-import { claimHref, openItemMeta, type OpenItemState, suspectLine } from '@/lib/open-items'
+import { claimHref, openItemEmoji, openItemMeta, type OpenItemState, suspectLine } from '@/lib/open-items'
 import { Avatar } from '@/components/Avatar'
 import { MergeChatCard } from '@/features/merge/Merge'
 import { handlersOf, isReceived } from '../../../shared/received'
@@ -471,7 +470,6 @@ function Card({ m, ctx, mine, memberId }: { m: ChatMessage; ctx: MessageCtx; min
     const entry = m.ref ? ctx.openItems.get(m.ref) : undefined
     if (!entry) return shell('amber', <ClipboardList size={15} />, 'Open item', <div className="text-muted text-sm">No longer here</div>)
     const { item, state } = entry
-    const cat = CATEGORIES[item.category ?? 'other']
     const who = suspectLine(item.suspects, ctx.me, (id) => (group.members[id] ? labelOf(group.members, id, '', ctx.me) : undefined))
     return shell(
       'amber',
@@ -480,7 +478,7 @@ function Card({ m, ctx, mine, memberId }: { m: ChatMessage; ctx: MessageCtx; min
       <>
         <div className="flex items-center gap-2.5">
           <span className="text-2xl" aria-hidden>
-            {cat.emoji}
+            <IconFace iconSvg={item.iconSvg} iconImage={item.iconImage} emoji={openItemEmoji(item)} vault={!!group.vault} />
           </span>
           <div className="min-w-0 flex-1">
             <div className="truncate text-base font-semibold">{item.title}</div>

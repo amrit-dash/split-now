@@ -6,6 +6,11 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.7.3 — October 2026
+
+- Open items: an open item now has its own icon, as an expense does, from the group's Open tab and from the chat's Open item tool. Tap the icon for every icon, search, Suggest with AI and Draw a picture; the icon follows the title, and when the app can't tell, AI picks one and offers its other good fits under the title. The category has its own row. Claiming an item keeps its icon on the new expense. Before, an open item only showed its category's emoji.
+- Help: a new Open items section, with steps and a picture: writing one down, its icon, who might have paid, and claiming it.
+
 ## 8.7.2 — October 2026
 
 - New group: AI now offers every icon it rates as a good fit (75 out of 100 or more), best first, instead of one second choice. The best becomes the icon; picking another keeps the rest on offer.

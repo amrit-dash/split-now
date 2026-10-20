@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { labelOf } from '@/lib/shortNames'
-import { Sparkles, Trash2, Wand2 } from 'lucide-react'
+import { ChevronRight, Loader2, Sparkles, Trash2, Wand2 } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { memberOrder, myMemberId } from '@/hooks/data'
 import type { Category, Group, MemberId, OpenItem } from '@/types'
-import { CATEGORIES, guessCategory } from '@/lib/categories'
+import { CATEGORIES } from '@/lib/categories'
 import { todayISO, uid } from '@/lib/id'
 import { errText } from '@/lib/errors'
 import { aiScanEnabled, aiScanPossible } from '@/lib/ai'
@@ -13,7 +13,37 @@ import { formatDate, formatDateTime } from '@/lib/locale'
 import { addedLine } from '@/lib/added'
 import { authorMember } from '@/lib/chat'
 import { formatMoney } from '@/lib/money'
-import { NOTES_MAX, TITLE_MAX, editOpenItem, newOpenItem, openItemErrors, type OpenItemInput } from '@/lib/open-items'
+import {
+  NOTES_MAX,
+  TITLE_MAX,
+  aiPickOf,
+  autoIcon,
+  categoryChosen,
+  chosenIcon,
+  editOpenItem,
+  itemAltsOffered,
+  itemInput,
+  needsItemAutoPick,
+  newOpenItem,
+  openItemErrors,
+  sheetCategory,
+  sheetEmoji,
+  withAutoPick,
+  withCategory,
+  withIcon,
+  withIconImage,
+  withIconSvg,
+  withTitle,
+  type OpenItemInput,
+} from '@/lib/open-items'
+import type { AiPick } from '@/lib/group-icon-follow'
+import { expensePickRequest } from '@/lib/icon-pick'
+import { categoryIcons } from '@/lib/icons'
+import { useIconAi } from '@/hooks/useIconAi'
+import { useAutoIconPick } from '@/hooks/useAutoIconPick'
+import { IconFace } from '@/components/IconFace'
+import { IconSheet } from '@/components/IconSheet'
+import { SuggestionPill, SuggestionRow } from '@/components/IconPicker'
 import { Avatar } from '@/components/Avatar'
 import { DateField } from '@/components/DateField'
 import { MoneyInput } from '@/components/MoneyInput'
@@ -71,11 +101,12 @@ export function OpenItemSheet({
   const today = todayISO()
   const order = useMemo(() => memberOrder(group, item?.suspects), [group, item?.suspects])
   const me = myMemberId(group, user.uid)
-  const blank: OpenItemInput = item
-    ? { title: item.title, amount: item.amount, date: item.date, category: item.category, notes: item.notes, suspects: item.suspects }
-    : (initial ?? { title: '', date: today })
+  const blank: OpenItemInput = item ? itemInput(item) : (initial ?? { title: '', date: today })
   const [f, setF] = useState<OpenItemInput>(blank)
   const [catOpen, setCatOpen] = useState(false)
+  const [iconOpen, setIconOpen] = useState(false)
+  // The AI's answer for the title (its pick, then its other good fits, offered as pills: src/lib/open-items.ts itemAltsOffered).
+  const [aiPick, setAiPick] = useState<AiPick | null>(null)
   const [submitted, setSubmitted] = useState(false)
   const [found, setFound] = useState<Found | null>(null)
   const [aiFound, setAiFound] = useState<Found | null>(null)
@@ -91,6 +122,7 @@ export function OpenItemSheet({
     setSubmitted(false)
     setFound(null)
     setAiFound(null)
+    setAiPick(null)
     applied.current.clear()
     aiCalls.current = 0
   }, [open, item?.id])
@@ -99,6 +131,19 @@ export function OpenItemSheet({
     [order, group, me, today],
   )
   const aiOn = !item && aiScanPossible() && aiScanEnabled()
+  // The icon, as the expense form's (src/features/expense-form/ExpenseEditor.tsx): no AI, drawn icon or picture in a private group.
+  const iconAi = useIconAi(!!group.vault)
+  // Automatic: the app's own rules from the title first; when they find none, the AI picks (and the category, while it's still Other).
+  const pickingIcon = useAutoIconPick({
+    title: f.title,
+    offered: open && iconAi.auto,
+    need: needsItemAutoPick(f),
+    request: (t) => expensePickRequest(t, { category: sheetCategory(f), catTouched: categoryChosen(f) }),
+    onAnswer: (title, a) => {
+      setF((p) => withAutoPick(p, { title, icon: a.emoji, category: a.category }))
+      setAiPick(aiPickOf(title, a))
+    },
+  })
 
   // Read the line as it's typed (new items only): the parser is a lazy chunk.
   useEffect(() => {
@@ -168,15 +213,19 @@ export function OpenItemSheet({
   const apply = (x: Found | null, fromAi = false) => {
     if (!x) return
     applied.current.add(x.title)
-    setF((p) => ({
-      ...p,
-      title: x.title,
-      amount: x.amount ?? p.amount,
-      date: x.date ?? p.date,
+    setF((p0) => {
+      // a new title: the AI's icon pick for the old one goes (withTitle)
+      const p = withTitle(p0, x.title)
       // the AI's category is a reading of the words; the phone's only a keyword guess, so a picked one stays
-      category: fromAi ? (x.category ?? p.category) : (p.category ?? x.category),
-      suspects: x.suspects?.length ? [...new Set([...(p.suspects ?? []), ...x.suspects])] : p.suspects,
-    }))
+      const category = fromAi ? (x.category ?? p.category) : (p.category ?? x.category)
+      const next: OpenItemInput = {
+        ...p,
+        amount: x.amount ?? p.amount,
+        date: x.date ?? p.date,
+        suspects: x.suspects?.length ? [...new Set([...(p.suspects ?? []), ...x.suspects])] : p.suspects,
+      }
+      return category && category !== p.category ? withCategory(next, category) : next
+    })
     setFound(null)
     setAiFound(null)
   }
@@ -193,7 +242,8 @@ export function OpenItemSheet({
     if (Object.keys(openItemErrors(f, today)).length) return
     try {
       const now = Date.now()
-      const next = item ? editOpenItem(item, f, now) : newOpenItem(f, { id: uid('o_'), groupId: group.id, uid: user.uid, now })
+      const vault = !!group.vault
+      const next = item ? editOpenItem(item, f, now, { vault }) : newOpenItem(f, { id: uid('o_'), groupId: group.id, uid: user.uid, now, vault })
       await repo.saveOpenItem(next)
       toast(item ? 'Open item updated' : 'Added to open items')
       onSaved?.(next, !item)
@@ -203,8 +253,10 @@ export function OpenItemSheet({
     }
   }
 
-  // The icon follows the words until one is picked (newOpenItem guesses the same way on save).
-  const category = f.category ?? guessCategory(f.title) ?? 'other'
+  // The category follows the words until one is picked (newOpenItem guesses the same way on save).
+  const category = sheetCategory(f)
+  const emoji = sheetEmoji(f)
+  const altsShown = itemAltsOffered(aiPick, f, pickingIcon)
   const bits = (x: Found | null) =>
     x
       ? [
@@ -239,13 +291,16 @@ export function OpenItemSheet({
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => setCatOpen(true)}
+              onClick={() => setIconOpen(true)}
               className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-2xl"
               style={{ background: CATEGORIES[category].color + '22' }}
-              aria-label={`Category: ${CATEGORIES[category].label}. Change`}
-              data-testid="open-item-category"
+              aria-label={`Icon: ${f.iconSvg || f.iconImage ? 'a drawn one' : emoji}. Change`}
+              aria-haspopup="dialog"
+              data-testid="open-item-icon"
             >
-              <span aria-hidden>{CATEGORIES[category].emoji}</span>
+              <span aria-hidden>
+                <IconFace iconSvg={f.iconSvg} iconImage={f.iconImage} emoji={emoji} vault={!!group.vault} />
+              </span>
             </button>
             <input
               id="open-item-title"
@@ -255,7 +310,10 @@ export function OpenItemSheet({
               maxLength={TITLE_MAX + 40}
               autoComplete="off"
               enterKeyHint="done"
-              onChange={(e) => set({ title: e.target.value })}
+              onChange={(e) => {
+                const title = e.target.value
+                setF((p) => withTitle(p, title))
+              }}
               aria-invalid={!!errors.title}
               aria-describedby={errors.title ? 'open-item-title-err' : undefined}
               data-testid="open-item-title"
@@ -265,6 +323,32 @@ export function OpenItemSheet({
             <p id="open-item-title-err" role="alert" className="neg mt-1 text-sm">
               {errors.title}
             </p>
+          )}
+          {pickingIcon && (
+            <p className="text-muted mt-1 flex items-center gap-1.5 px-1 text-xs" role="status" data-testid="open-item-icon-picking">
+              <Loader2 size={12} className="animate-spin" aria-hidden /> Picking an icon for “{f.title.trim()}”…
+            </p>
+          )}
+          {altsShown.length > 0 && (
+            <div className="mt-1">
+              <SuggestionRow>
+                {altsShown.map((alt) => (
+                  <SuggestionPill
+                    key={alt}
+                    testId="open-item-icon-alt"
+                    dismissLabel={`Dismiss the icon ${alt}`}
+                    onDismiss={() => setAiPick((p) => (p ? { ...p, emojis: p.emojis.filter((e) => e !== alt) } : p))}
+                    onApply={() => setF((p) => withIcon(p, alt))}
+                  >
+                    Or{' '}
+                    <span aria-hidden className="mx-1">
+                      {alt}
+                    </span>
+                    <span className="sr-only">the icon {alt}</span> · use it
+                  </SuggestionPill>
+                ))}
+              </SuggestionRow>
+            </div>
           )}
           {found && foundBits.length > 0 && (
             <button
@@ -339,6 +423,28 @@ export function OpenItemSheet({
             </p>
           )}
 
+          {/* The category is its own choice, as on an expense: the icon button above opens every icon. */}
+          <span className="label mt-3" id="open-item-category-label">
+            Category
+          </span>
+          <button
+            type="button"
+            onClick={() => setCatOpen(true)}
+            className="flex min-h-11 w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-sm font-semibold ring-1 ring-slate-200 dark:ring-white/10"
+            aria-labelledby="open-item-category-label open-item-category-value"
+            aria-haspopup="dialog"
+            data-testid="open-item-category"
+          >
+            <span aria-hidden className="text-lg">
+              {CATEGORIES[category].emoji}
+            </span>
+            <span id="open-item-category-value" className="min-w-0 flex-1">
+              {CATEGORIES[category].label}
+            </span>
+            <span className="text-muted text-xs font-normal">Change</span>
+            <ChevronRight size={16} className="text-muted shrink-0" aria-hidden />
+          </button>
+
           <fieldset className="mt-4">
             <legend className="label">
               Who might have paid?
@@ -406,7 +512,36 @@ export function OpenItemSheet({
           </div>
         </form>
       </Sheet>
-      <CategorySheet open={catOpen} onClose={() => setCatOpen(false)} value={category} onPick={(c: Category) => set({ category: c })} />
+      <CategorySheet
+        open={catOpen}
+        onClose={() => setCatOpen(false)}
+        value={category}
+        onPick={(c: Category) => setF((p) => withCategory(p, c))}
+        icon={emoji}
+        onOpenIcon={() => {
+          setCatOpen(false)
+          setIconOpen(true)
+        }}
+      />
+      <IconSheet
+        open={iconOpen}
+        onClose={() => setIconOpen(false)}
+        title="Icon"
+        value={chosenIcon(f)}
+        auto={autoIcon(f)}
+        first={categoryIcons(category)}
+        onPick={(icon) => setF((p) => withIcon(p, icon))}
+        ai={iconAi.suggest ? { kind: 'expense', category: CATEGORIES[category].label } : undefined}
+        svgValue={f.iconSvg}
+        onPickSvg={(svg) => setF((p) => withIconSvg(p, svg))}
+        picture={iconAi.picture}
+        pictureCost={iconAi.pictureCost}
+        aiWhy={iconAi.why}
+        pictureOff={iconAi.pictureWhy}
+        imageValue={f.iconImage}
+        onPickImage={(image) => setF((p) => withIconImage(p, image))}
+        testId="open-item-icon-sheet"
+      />
     </>
   )
 }

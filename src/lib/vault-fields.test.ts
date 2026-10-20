@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { isToken, openText, vaultKey } from './vault-crypto'
-import { CAPS, sealChat, sealComment, sealExpense } from './vault-fields'
+import { CAPS, sealChat, sealComment, sealExpense, sealOpenItem } from './vault-fields'
 
 const dek = btoa(String.fromCharCode(...new Array(32).fill(9)))
 
@@ -24,5 +24,12 @@ describe('sealing a private group’s writes', () => {
     expect(isToken(e.icon)).toBe(true)
     expect(e.icon?.length).toBeLessThanOrEqual(CAPS.emoji)
     expect(e.notes).toBe('')
+  })
+  it('seals an open item’s title and icon (the icon within the emoji cap)', async () => {
+    const k = await vaultKey('g', dek)
+    const o = await sealOpenItem(k, { title: 'Bees', icon: '🐝', notes: 'by the lake' })
+    expect([isToken(o.title), isToken(o.icon), isToken(o.notes)]).toEqual([true, true, true])
+    expect(o.icon?.length).toBeLessThanOrEqual(CAPS.emoji)
+    expect('icon' in (await sealOpenItem(k, { title: 'Bees' }))).toBe(false)
   })
 })

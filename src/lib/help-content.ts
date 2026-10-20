@@ -211,6 +211,7 @@ export const SECTIONS: HelpSection[] = [
       'The scan icon at the end of the description reads a bill; **Attach** keeps a photo without reading it.',
       'In a group where big expenses need an OK, yours waits until the others approve it.',
       'Not sure who paid? **Save as an open item** and whoever paid claims it later.',
+      'An open item gets an icon the same way: see Open items.',
     ],
     open: { label: 'Add expense', to: '/add' },
     related: ['split-types', 'scan-receipt', 'icons-and-ai', 'money-received', 'receipt-photos'],
@@ -369,6 +370,7 @@ export const SECTIONS: HelpSection[] = [
       'Turn either off in Settings → AI features: AI icons, AI picks icons. They don’t depend on reading bills.',
       'No AI buttons in the icon sheet? It says why there, for example the free AI not agreed to yet, with a link to fix it. The same for Draw a picture, which needs your own Gemini key or Split Now’s with pictures turned on.',
       'While AI picks a group’s icon, “Picking an icon” shows under the name. A name it doesn’t know keeps the icon you have.',
+      'Open items work like expenses: the icon follows the title, AI picks one when the app can’t tell, and its other good fits show under the title (“Or 🐝 · use it”).',
     ],
     open: { label: 'Add expense', to: '/add' },
     related: ['ai-features', 'add-expense', 'create-group'],
@@ -943,6 +945,27 @@ export const SECTIONS: HelpSection[] = [
     related: ['invite-people', 'settle-up-upi'],
   },
   // ---- Adding expenses, and receipts ----------------------------------------------------------
+  {
+    id: 'open-items',
+    icon: '📌',
+    chapter: 'expenses',
+    title: 'Open items',
+    summary: 'Write down something the group spent that nobody has added yet; whoever paid claims it.',
+    keywords: ['open item', 'who paid', 'unclaimed', 'claim', 'forgot', 'not sure who paid'],
+    steps: [
+      { text: 'In a group, tap the **Open** tab, then **Add an open item**. In the chat, the Open item tool does the same.', mark: 'add' },
+      { text: 'Say what it was. Its icon follows the words; tap the icon for every icon, Suggest with AI or Draw a picture.', mark: 'title' },
+      { text: 'Add the amount and day if you know them, and who might have paid. They get a notification.', mark: 'who' },
+      { text: 'Whoever paid taps **Claim**: the expense form opens filled in, icon included.', mark: 'claim' },
+    ],
+    points: [
+      'When the app can’t tell the icon from the words, AI picks one and offers its other good fits under the title (“Or 🐝 · use it”).',
+      'The category has its own row under the amount and day.',
+      'Nothing but what it was is needed; an amount and a day can be added later.',
+      'In a private group its words and icon are encrypted, and there are no drawn icons or pictures.',
+    ],
+    related: ['add-expense', 'icons-and-ai', 'group-chat'],
+  },
   {
     id: 'edit-delete-expense',
     icon: '🖊️',

@@ -1202,6 +1202,47 @@ test('group list: sort by amount or date added, filter expenses only', async ({ 
   await expect(page.getByTestId('expense-row').first()).toBeVisible()
 })
 
+test('open items: an icon as an expense’s, with the AI’s pick and its others offered, kept when claimed', async ({ page }) => {
+  await page.goto('/groups/g_goa')
+  await page.getByTestId('tab-open').click()
+  await page.getByTestId('open-item-add').click()
+  const sheet = page.getByTestId('open-item-sheet')
+  // the app's own rules don't know it; the demo's stand-in for the AI picks 🇱🇰 and offers 🐝
+  await sheet.getByTestId('open-item-title').fill('Sri Lanka bees')
+  await expect(sheet.getByTestId('open-item-icon')).toContainText('🇱🇰', { timeout: 6_000 })
+  const alt = sheet.getByTestId('open-item-icon-alt')
+  await expect(alt).toContainText('🐝')
+  await alt.getByRole('button', { name: /use it/ }).click()
+  await expect(sheet.getByTestId('open-item-icon')).toContainText('🐝')
+  // the AI's first pick stays on offer
+  await expect(alt).toContainText('🇱🇰')
+  // every icon, a tap away; the category is its own row
+  await sheet.getByTestId('open-item-icon').click()
+  const icons = page.getByTestId('open-item-icon-sheet')
+  await icons.getByTestId('icon-search').fill('kayak')
+  await icons.getByRole('radio', { name: 'Icon 🛶' }).click()
+  await expect(sheet.getByTestId('open-item-icon')).toContainText('🛶')
+  await expect(sheet.getByTestId('open-item-category')).toBeVisible()
+  await sheet.getByTestId('open-item-save').click()
+  const row = page.getByTestId('open-item-row').filter({ hasText: 'Sri Lanka bees' })
+  await expect(row).toContainText('🛶')
+  // claimed, the expense starts from its icon
+  await row.getByTestId('open-item-claim').click()
+  await expect(page.getByTestId('claiming-open-item')).toContainText('🛶')
+  await expect(page.getByTestId('expense-icon')).toContainText('🛶')
+})
+
+test('chat: the Open item tool has the icon button and every icon', async ({ page }) => {
+  await page.goto('/groups/g_goa/chat')
+  await page.getByTestId('chat-tools').click()
+  await page.getByTestId('chat-tool-open').click()
+  const sheet = page.getByTestId('open-item-sheet')
+  await sheet.getByTestId('open-item-title').fill('Ferry to Havelock')
+  await expect(sheet.getByTestId('open-item-icon')).toContainText('⛴️')
+  await sheet.getByTestId('open-item-icon').click()
+  await expect(page.getByTestId('open-item-icon-sheet').getByTestId('icon-search')).toBeVisible()
+})
+
 test('Quick add: "who paid?" opens the open item sheet in the group, filled in; Rahul-style guesses become “might have paid”', async ({ page }) => {
   await page.goto('/groups/g_goa')
   await page.getByTestId('nav-create').click()

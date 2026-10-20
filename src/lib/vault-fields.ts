@@ -69,9 +69,11 @@ export async function sealChat<M extends Partial<Pick<ChatMessage, 'text' | 'aut
   return out
 }
 
-export async function sealOpenItem<O extends Partial<Pick<OpenItem, 'title' | 'notes'>>>(k: VaultKey, o: O): Promise<O> {
+export async function sealOpenItem<O extends Partial<Pick<OpenItem, 'title' | 'icon' | 'notes'>>>(k: VaultKey, o: O): Promise<O> {
   const out: O = { ...o }
   if (o.title !== undefined) out.title = (await seal(k, o.title, CAPS.title)) as string
+  // its icon says what it was for as plainly as the title does (as an expense's)
+  if (o.icon !== undefined) out.icon = await seal(k, o.icon, CAPS.emoji)
   if (o.notes !== undefined) out.notes = await seal(k, o.notes, CAPS.itemNotes)
   return out
 }

@@ -1,3 +1,4 @@
+import { OPEN_ITEM_EDIT_FIELDS } from '@/lib/open-items'
 import { MAX_ATTACHED } from '@/lib/receipt-photo'
 import { blobToDataUrl } from '@/lib/image'
 import { archiveWrite, balanceEditMembers, expenseMemberIds, uidsOfMembers, unarchiveInvolved } from '../../shared/archive'
@@ -1059,14 +1060,10 @@ export function createLocalRepo(): Repo {
       if (inTrash(item.groupId, 'Saving open item')) return
       const prev = openItems()[item.id]
       openItems()[item.id] = prev
-        ? compact({
+        ? // An edit writes only the item's own fields; status, claim and trash have their own writes.
+          compact({
             ...prev,
-            title: item.title,
-            category: item.category,
-            date: item.date,
-            amount: item.amount,
-            notes: item.notes,
-            suspects: item.suspects,
+            ...Object.fromEntries(OPEN_ITEM_EDIT_FIELDS.map((k) => [k, item[k]])),
             updatedAt: Date.now(),
           })
         : compact(item)

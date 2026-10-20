@@ -24,6 +24,14 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '8.7.3',
+    date: 'October 2026',
+    items: [
+      { text: 'Open items get their own icon, with every icon, AI and Draw a picture', section: 'open-items' },
+      { text: 'Claiming an open item keeps its icon on the expense', section: 'open-items' },
+    ],
+  },
+  {
     version: '8.7.2',
     date: 'October 2026',
     items: [

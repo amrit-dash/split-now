@@ -645,6 +645,24 @@ Object.assign(SCENES, {
       { kind: 'chips', mark: 'tag', items: [{ label: '@Meera' }, { label: '@everyone' }] },
     ]),
   ],
+  'open-items': [
+    settings('Goa trip', [
+      { kind: 'chips', items: [{ label: 'Expenses' }, { label: 'Open', on: true }, { label: 'Balances' }] },
+      { kind: 'button', label: '＋ Add an open item', mark: 'add' },
+    ]),
+    {
+      sheet: true,
+      parts: [
+        { kind: 'title', label: 'New open item' },
+        { kind: 'field', label: 'What was it?', value: 'Ferry to Havelock', icon: '⛴️', mark: 'title' },
+        { kind: 'chips', mark: 'who', items: [{ label: 'Rahul' }, { label: 'Priya' }, { label: 'Me' }] },
+      ],
+    },
+    settings('Goa trip', [
+      { kind: 'row', label: '⛴️ Ferry to Havelock', value: 'Rahul might have paid' },
+      { kind: 'button', label: 'Claim', primary: true, mark: 'claim' },
+    ]),
+  ],
   'edit-delete-expense': [
     settings('Dinner at Bob’s Bar', [
       { kind: 'chips', mark: 'top', items: [{ label: '⧉ Add again' }, { label: '✎ Edit' }, { label: '🗑 Delete' }] },

@@ -3,6 +3,7 @@ import type { Capture, Expense, Group } from '@/types'
 import { descriptionHistory } from './recents'
 import { rememberMerchant, EMPTY_MEMORY } from './merchants'
 import {
+  draftIconFields,
   buildRecurrence,
   clearDraft,
   describePayer,
@@ -399,6 +400,30 @@ describe('the expense icon', () => {
     // an edit of an automatic pick starts on Automatic
     const again = seed({ existing: expense({ icon: '🍽️', iconAuto: true }) })
     expect([again.icon, again.autoIcon]).toEqual([undefined, '🍽️'])
+  })
+  it('the icon as stored for Save as open item: chosen, or the AI’s pick marked, and no drawing in a private group', () => {
+    const svg = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="#f59e0b"/></svg>'
+    expect(draftIconFields({ icon: '🐝', autoIcon: '🇱🇰' }, false)).toEqual({ icon: '🐝' })
+    expect(draftIconFields({ autoIcon: '🇱🇰' }, false)).toEqual({ icon: '🇱🇰', iconAuto: true })
+    expect(draftIconFields({ icon: 'x', iconSvg: svg, iconImage: 'data:image/webp;base64,AAAA' }, false)).toMatchObject({
+      iconImage: 'data:image/webp;base64,AAAA',
+    })
+    expect(draftIconFields({ iconSvg: svg }, false).iconSvg).toContain('<svg')
+    expect(draftIconFields({ icon: '🐝', iconSvg: svg, iconImage: 'data:image/webp;base64,AAAA' }, true)).toEqual({ icon: '🐝' })
+  })
+  it('a prefill’s icon (a claimed open item’s) is where the form starts, each piece checked again', () => {
+    const svg = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="#f59e0b"/></svg>'
+    const pic = 'data:image/webp;base64,AAAA'
+    const quick = { text: 'Bees', description: 'Bees', currency: 'INR', payer: 'me' }
+    const chosen = seed({ quick: { ...quick, icon: '🐝', iconSvg: svg, iconImage: pic } })
+    expect([chosen.icon, chosen.autoIcon, chosen.iconImage]).toEqual(['🐝', undefined, pic])
+    expect(chosen.iconSvg).toContain('<svg')
+    const auto = seed({ quick: { ...quick, icon: '🇱🇰', iconAuto: true } })
+    expect([auto.icon, auto.autoIcon]).toEqual([undefined, '🇱🇰'])
+    const bad = seed({ quick: { ...quick, icon: 'not an emoji', iconSvg: '<svg><script/></svg>', iconImage: 'https://x.test/a.png' } })
+    expect(['icon' in bad, 'iconSvg' in bad, 'iconImage' in bad]).toEqual([false, false, false])
+    // saved in a private group, the drawing goes and the emoji stays
+    expect(toExpense(reduce(chosen, { type: 'amount', amount: 100 }), { ...save, group: { ...save.group, vault: true } }).expense).toMatchObject({ icon: '🐝' })
   })
   it('the AI’s category only while the category is still the app’s Other', () => {
     let d = reduce(seed(), { type: 'description', value: 'Toit', history: [] })

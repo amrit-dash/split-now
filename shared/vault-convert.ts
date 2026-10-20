@@ -87,7 +87,7 @@ export async function sealDoc(k: VaultKey, kind: ConvertKind, doc: Doc): Promise
   const f = async (key: string, cap: number) => {
     if (key in d) d[key] = await sealField(k, d[key], cap)
   }
-  if (kind === 'group' || kind === 'expense') for (const f of ['iconSvg', 'iconImage']) if (typeof d[f] === 'string') d[f] = null
+  if (kind === 'group' || kind === 'expense' || kind === 'openItem') for (const f of ['iconSvg', 'iconImage']) if (typeof d[f] === 'string') d[f] = null
   switch (kind) {
     case 'group':
       await f('name', CAPS.groupName)
@@ -130,6 +130,7 @@ export async function sealDoc(k: VaultKey, kind: ConvertKind, doc: Doc): Promise
       break
     case 'openItem':
       await f('title', CAPS.title)
+      await f('icon', CAPS.emoji)
       await f('notes', CAPS.itemNotes)
       break
     case 'activity':

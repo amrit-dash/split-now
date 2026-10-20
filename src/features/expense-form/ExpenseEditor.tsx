@@ -58,9 +58,11 @@ import {
   type SeedArgs,
   draftAutoEmoji,
   draftEmoji,
+  draftIconFields,
   needsAutoPick,
 } from '@/lib/expense-draft'
 import { GroupIcon } from '@/components/GroupIcon'
+import { IconFace } from '@/components/IconFace'
 import { useToast } from '@/components/Toast'
 import { Detail, HintText } from '@/components/Hint'
 import { Segmented } from '@/components/Misc'
@@ -74,7 +76,7 @@ import { IconSheet } from '@/components/IconSheet'
 import { useIconAi } from '@/hooks/useIconAi'
 import { useAutoIconPick } from '@/hooks/useAutoIconPick'
 import { expensePickRequest } from '@/lib/icon-pick'
-import { openItemMeta } from '@/lib/open-items'
+import { openItemEmoji, openItemMeta } from '@/lib/open-items'
 import { AmountCard } from './AmountCard'
 import { PayerCard } from './PayerCard'
 import { SplitCard } from './SplitCard'
@@ -544,7 +546,7 @@ export function ExpenseEditor({
       {openItem && (
         <div className="mt-2 flex items-center gap-3 rounded-2xl bg-amber-50 p-3 text-sm dark:bg-amber-500/10" data-testid="claiming-open-item">
           <span className="text-xl" aria-hidden>
-            {CATEGORIES[openItem.category ?? 'other'].emoji}
+            <IconFace iconSvg={openItem.iconSvg} iconImage={openItem.iconImage} emoji={openItemEmoji(openItem)} vault={!!group.vault} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block font-semibold">Claiming an open item</span>
@@ -754,6 +756,8 @@ export function ExpenseEditor({
             date: draft.date,
             category: draft.catTouched ? draft.category : undefined,
             notes: draft.notes,
+            // its icon too: whoever claims it gets it back on the expense
+            ...draftIconFields(draft, !!group.vault),
           }}
           onSaved={() => {
             done.current = true

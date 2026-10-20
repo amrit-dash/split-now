@@ -394,6 +394,17 @@ export interface OpenItem {
   groupId: string
   title: string
   category?: Category
+  /**
+   * The icon someone chose for it (one emoji), as for an expense (Expense.icon). Absent: the
+   * automatic one from its title and category (src/lib/open-items.ts openItemEmoji). Sealed in a private group.
+   */
+  icon?: string
+  /** `icon` is the automatic one's AI pick (iconPickAi), not a choice, as for an expense (Expense.iconAuto). */
+  iconAuto?: true
+  /** An icon drawn by AI from the title, as for an expense (Expense.iconSvg). Never in a private group. */
+  iconSvg?: string
+  /** A picture from "Draw a picture", as for an expense (Expense.iconImage). Never in a private group. */
+  iconImage?: string
   /** local ISO yyyy-mm-dd, when known */
   date?: string
   /** minor units of the group currency, when known */
