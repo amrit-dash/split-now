@@ -1676,6 +1676,7 @@ export const SECTIONS: HelpSection[] = [
       'Installed, it opens full screen, faster, and works offline.',
       'While changes haven’t sent yet, closing the app asks first.',
       'A very old copy asks you to **Reload and update** before going on.',
+      'Tapped **Later**? **Profile** keeps a **New version ready** row until you update, and the app updates by itself the next time it opens.',
     ],
     open: { label: 'Data', to: '/settings/data' },
     related: ['notifications', 'apple-pay-share'],
