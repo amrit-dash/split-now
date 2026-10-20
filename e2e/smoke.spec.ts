@@ -1750,7 +1750,7 @@ test('help: What’s new lists this version first and links each line to the gui
   await expect(page.getByTestId('help-section')).toBeVisible()
 })
 
-test('help: after an update, Home says so once, and See what’s new opens it', async ({ page }) => {
+test('help: after an update, Home says so once, and What’s new opens it', async ({ page }) => {
   // this phone last saw an older version
   await page.evaluate(() => {
     localStorage.setItem('splitnow:whats-new-banner', '8.0.0')
@@ -1764,6 +1764,61 @@ test('help: after an update, Home says so once, and See what’s new opens it', 
   await page.goto('/')
   await expect(page.getByTestId('home-greeting')).toBeVisible()
   await expect(page.getByTestId('whats-new-banner')).toHaveCount(0)
+})
+
+test('What’s new rises above the tab bar a moment after Home loads, and a sideways swipe closes it for good', async ({ page }) => {
+  await page.evaluate(() => {
+    localStorage.setItem('splitnow:whats-new-banner', '8.0.0')
+    localStorage.setItem('splitnow:whats-new-seen', '8.0.0')
+  })
+  await page.reload()
+  await expect(page.getByTestId('home-greeting')).toBeVisible()
+  // not straight away: the page shows itself first
+  await expect(page.getByTestId('whats-new-banner')).toHaveCount(0)
+  const banner = page.getByTestId('whats-new-banner')
+  await expect(banner).toBeVisible()
+  // in the floating lane above the tab bar, not at the top of the page
+  const box = await banner.boundingBox()
+  const vh = page.viewportSize()?.height ?? 0
+  expect(box && box.y > vh / 2).toBe(true)
+  // a short drag springs back; a long one closes it
+  const y = (box?.y ?? 0) + (box?.height ?? 0) / 2
+  const x = (box?.x ?? 0) + 40
+  await page.mouse.move(x, y)
+  await page.mouse.down()
+  await page.mouse.move(x + 30, y, { steps: 5 })
+  await page.mouse.up()
+  await expect(banner).toBeVisible()
+  await page.mouse.move(x, y)
+  await page.mouse.down()
+  await page.mouse.move(x + 260, y, { steps: 10 })
+  await page.mouse.up()
+  await expect(banner).toHaveCount(0)
+  // nothing was tapped on the way (What's new stayed shut), and it stays closed
+  await expect(page).toHaveURL(/\/$/)
+  await page.reload()
+  await expect(page.getByTestId('home-greeting')).toBeVisible()
+  await page.waitForTimeout(1500)
+  await expect(banner).toHaveCount(0)
+})
+
+test('a toast can be swiped away sideways', async ({ page }) => {
+  await page.goto('/groups/g_goa')
+  await page.getByTestId('tab-open').click()
+  await page.getByTestId('open-item-add').click()
+  await page.getByTestId('open-item-title').fill('Taxi to the fort')
+  await page.getByTestId('open-item-save').click()
+  const toast = page.getByTestId('toasts').getByText('Added to open items')
+  await expect(toast).toBeVisible()
+  const box = await toast.boundingBox()
+  const y = (box?.y ?? 0) + (box?.height ?? 0) / 2
+  const x = box?.x ?? 0
+  await page.mouse.move(x, y)
+  await page.mouse.down()
+  await page.mouse.move(x - 220, y, { steps: 10 })
+  await page.mouse.up()
+  // gone well before it would have faded on its own
+  await expect(toast).toHaveCount(0, { timeout: 1500 })
 })
 
 test('receipt photos: the scanned receipt leads the strip with a badge, and a new scan asks first', async ({ page }) => {

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ChevronRight, Download, MoreVertical, PlusSquare, Share, Smartphone, X } from 'lucide-react'
 import { useAllGroupData } from '@/hooks/data'
 import { countVisit, dismissInstall, installMethod, isInstallDismissed, shouldOfferInstall, type InstallMethod } from '@/lib/install'
+import { useSwipeDismiss } from '@/hooks/useSwipeDismiss'
 import { HintText } from './Hint'
 import { Sheet } from './Sheet'
 
@@ -234,6 +235,12 @@ function InstallBar({ hint, onDone, className, wrap = false }: { hint: string; o
   const install = useInstall()
   const [steps, setSteps] = useState(false)
   const method = install.method
+  const dismiss = () => {
+    dismissInstall(storage('localStorage'))
+    onDone()
+  }
+  // A sideways swipe is the same as ✕ (Don't ask again).
+  const swipe = useSwipeDismiss(dismiss)
   const installButton = (
     <button
       type="button"
@@ -255,6 +262,7 @@ function InstallBar({ hint, onDone, className, wrap = false }: { hint: string; o
       <div className={className} data-testid="install-banner">
         {/* wrap (the sign-in screen): the words get the full width and Install sits under them. */}
         <div
+          {...swipe.bind}
           className={`flex gap-2.5 rounded-3xl bg-slate-900 p-2.5 pl-3 text-white shadow-2xl shadow-brand-900/40 dark:bg-ink-800 dark:ring-1 dark:ring-white/10 ${wrap ? 'items-start' : 'items-center'}`}
         >
           <img src="/pwa-192.png" alt="" className={`h-10 w-10 shrink-0 rounded-2xl ${wrap ? 'mt-1' : ''}`} />
@@ -266,10 +274,7 @@ function InstallBar({ hint, onDone, className, wrap = false }: { hint: string; o
           {!wrap && installButton}
           <button
             type="button"
-            onClick={() => {
-              dismissInstall(storage('localStorage'))
-              onDone()
-            }}
+            onClick={dismiss}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-300 hover:text-white"
             aria-label="Don’t ask again"
           >
