@@ -364,7 +364,7 @@ export const SECTIONS: HelpSection[] = [
       'A type you choose after the name gave the icon keeps that icon and offers the type’s own beside it (“✈️ Trip icon · use it”). Chosen while AI is still picking, the type’s icon shows until AI’s answer comes.',
       'Renaming a group in Edit group does the same for its icon, with “Keep 🏖️” to go back. Its type stays, and an icon you chose there, or a drawn picture, is never replaced.',
       'Suggest with AI offers three emoji and a few drawn icons, on Split Now’s free AI or your own key.',
-      'Draw a picture shows only when a key that pays for pictures is in use: about US$0.03 a picture on the recommended model.',
+      'Draw a picture shows only when a key that pays for pictures is in use: about US$0.03 a picture on the recommended model (the app shows it in your own currency too).',
       'Choose the model for pictures in Settings → AI features → Icons; the picture says which model drew it.',
       'Never in a private group; making a group private removes drawn icons and pictures.',
       'Turn either off in Settings → AI features: AI icons, AI picks icons. They don’t depend on reading bills.',

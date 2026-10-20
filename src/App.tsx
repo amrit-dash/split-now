@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useTrackNav } from '@/hooks/useBack'
 import { useScrollMemory } from '@/hooks/useScrollMemory'
+import { usePriceCurrency } from '@/hooks/usePriceCurrency'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { Megaphone, RefreshCw, Wrench, X } from 'lucide-react'
 import { repo } from './data'
@@ -323,6 +324,8 @@ export default function App() {
 
 function AppRoutes({ cfg, admin }: { cfg: AppConfig; admin: boolean }) {
   usePrefetch()
+  // AI picture prices in the person's own money, on every signed-in screen (full-screen ones too).
+  usePriceCurrency()
   // Remembers which screen sits at each history entry, so back buttons return where you came from.
   useTrackNav()
   // A new screen starts at the top; back and forward put it where it was left.

@@ -45,14 +45,41 @@ export const PICTURE_MODELS = ['gemini-3.1-flash-lite-image', 'gemini-nano-banan
 /** Models Google is retiring: left out of the pickers even when a key still lists them. */
 const RETIRED_PICTURE_MODELS = /^gemini-2\.[05]-flash(-preview)?-image|^gemini-2\.0/
 
-/** The cost line for the recommended model, as the sheet says it when nothing else is known. */
-export const PICTURE_COST = 'about US$0.03'
+/**
+ * Prices are Google's, in US dollars; the app shows them in the person's own currency too, at
+ * today's rate, with the dollars after ("about ₹2.50 (US$0.03)"). Set once the rate is known
+ * (src/hooks/usePriceCurrency.ts); until then, and for someone who uses dollars, dollars alone.
+ */
+let local: { currency: string; perUsd: number } | null = null
+export const setPriceCurrency = (v: { currency: string; perUsd: number } | null) => {
+  local = v && v.currency !== 'USD' && v.perUsd > 0 ? v : null
+}
 
-/** What a picture costs on a model, for the sheet and the pickers: "about US$0.03", or the range when the model is unknown. */
+const usd = (n: number) => `US$${n.toFixed(2)}`
+function inLocal(n: number): string | null {
+  if (!local) return null
+  try {
+    const amount = n * local.perUsd
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: local.currency, maximumFractionDigits: amount < 10 ? 2 : 0 }).format(amount)
+  } catch {
+    return null
+  }
+}
+
+/** A dollar price as the person reads it: "₹2.50 (US$0.03)", or "US$0.03" without a rate. */
+export function priceText(dollars: number): string {
+  const l = inLocal(dollars)
+  return l ? `${l} (${usd(dollars)})` : usd(dollars)
+}
+
+/** What a picture costs on a model, for the sheet and the pickers: "about ₹2.50 (US$0.03)", or the range when the model is unknown. */
 export function pictureCost(model?: string): string {
   const info = model ? PICTURE_MODEL_INFO[model] : undefined
-  if (!model) return PICTURE_COST
-  return info ? `about US$${info.usd.toFixed(2)}` : 'US$0.03 to US$0.13'
+  if (!model) return `about ${priceText(0.03)}`
+  if (info) return `about ${priceText(info.usd)}`
+  const lo = inLocal(0.03)
+  const hi = inLocal(0.13)
+  return lo && hi ? `${lo} to ${hi} (US$0.03 to US$0.13)` : 'US$0.03 to US$0.13'
 }
 
 /** The models to try for a picture: the one chosen (if any), then the recommended ones; three at most. */

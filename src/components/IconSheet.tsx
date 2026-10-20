@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom'
 import { AI_IDLE_MS, aiRowShown, drawnByLine, iconAiProblem, pictureNote, pictureProblem } from '@/lib/icon-ai'
 import { shrinkPicture } from '@/lib/icon-picture'
 import { searchIcons } from '@/lib/icons'
-import { type IconRequest, type IconSuggestions, PICTURE_COST } from '../../shared/icon-ai'
+import { type IconRequest, type IconSuggestions, pictureCost as costOf } from '../../shared/icon-ai'
 import { svgDataUrl } from '../../shared/svg-icon'
 import { Spinner } from './Misc'
 import { Sheet } from './Sheet'
@@ -35,7 +35,7 @@ export function IconSheet({
   svgValue,
   onPickSvg,
   picture,
-  pictureCost = PICTURE_COST,
+  pictureCost = costOf(),
   imageValue,
   onPickImage,
   aiWhy,

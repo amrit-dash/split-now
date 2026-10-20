@@ -1,4 +1,4 @@
-import { cleanIconImage, PICTURE_MODEL_INFO, PICTURE_MODELS, pictureCost } from '../../shared/icon-ai'
+import { cleanIconImage, PICTURE_MODEL_INFO, PICTURE_MODELS, pictureCost, priceText } from '../../shared/icon-ai'
 import { cleanSvg, svgDataUrl } from '../../shared/svg-icon'
 
 /*
@@ -185,7 +185,7 @@ export function pictureModelOptions(
   // A model well over the recommended one's price says what that buys at icon size: nothing visible.
   const dear = (m: { usd?: number }) => m.usd !== undefined && m.usd > rec.usd * 2
   const line = (m: { usd?: number; speed?: string }) =>
-    [m.usd !== undefined ? `about US$${m.usd.toFixed(2)} a picture` : null, m.speed, dear(m) ? 'costs more, no difference at icon size' : null]
+    [m.usd !== undefined ? `about ${priceText(m.usd)} a picture` : null, m.speed, dear(m) ? 'costs more, no difference at icon size' : null]
       .filter(Boolean)
       .join(' · ')
   return [

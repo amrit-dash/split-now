@@ -1,3 +1,4 @@
+import { pictureCost } from '../../shared/icon-ai'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Check, ExternalLink, Keyboard, KeyRound, Loader2, MessageSquare, RefreshCw, ScanLine, Shapes, ShieldCheck, Sparkles, Trash2 } from 'lucide-react'
@@ -333,7 +334,7 @@ export function AiSettings() {
                   checked={prefs.aiIcons}
                   onChange={(v) => set({ aiIcons: v })}
                   text={{
-                    full: 'Tap an icon and search: when nothing fits, Suggest with AI offers three emoji and a few drawn icons for what you typed. With your own Gemini key, Draw a picture too (billed to your key, about US$0.03 a picture). Only when you ask, never in private groups. Uses your AI quota.',
+                    full: `Tap an icon and search: when nothing fits, Suggest with AI offers three emoji and a few drawn icons for what you typed. With your own Gemini key, Draw a picture too (billed to your key, ${pictureCost()} a picture). Only when you ask, never in private groups. Uses your AI quota.`,
                     short: 'Suggest icons for what you search',
                     tier: 'help',
                   }}
