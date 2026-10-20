@@ -6,6 +6,8 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Home: Recent activity (or Recent expenses) starts folded and opens smoothly with a tap on its title. A number beside the title says how many entries are new since you last opened it, counting only what others did.
+
 - Screens with the tab bar leave a little more room at the bottom, so the last card or button (an expense, Record on Settle up) no longer sits right against the + button.
 
 ## 8.7.5 — October 2026

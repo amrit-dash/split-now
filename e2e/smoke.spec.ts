@@ -1821,6 +1821,26 @@ test('a toast can be swiped away sideways', async ({ page }) => {
   await expect(toast).toHaveCount(0, { timeout: 1500 })
 })
 
+test('Home: Recent activity starts folded, opens smoothly, and says how many are new', async ({ page }) => {
+  await page.goto('/')
+  const section = page.getByTestId('home-recent')
+  await expect(section).toBeVisible()
+  const header = section.getByRole('button', { name: /Recent/ })
+  await expect(header).toHaveAttribute('aria-expanded', 'false')
+  // something new since the last look: an older "seen" time makes the demo's entries new
+  await page.evaluate(() => {
+    for (const k of Object.keys(localStorage)) if (k.startsWith('splitnow:recent-seen')) localStorage.setItem(k, '1')
+  })
+  await page.reload()
+  await expect(section.getByTestId('home-recent-unread')).toBeVisible()
+  await header.click()
+  await expect(header).toHaveAttribute('aria-expanded', 'true')
+  await expect(section.getByRole('region')).toBeVisible()
+  // opened: read, so the count is gone next time
+  await page.reload()
+  await expect(section.getByTestId('home-recent-unread')).toHaveCount(0)
+})
+
 test('receipt photos: the scanned receipt leads the strip with a badge, and a new scan asks first', async ({ page }) => {
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEklEQVR4nGP4z8CAFWEXHbQSACj/P8Fu7N9hAAAAAElFTkSuQmCC', 'base64')
   const photo = (n: string) => ({ name: `${n}.png`, mimeType: 'image/png', buffer: Buffer.concat([png, Buffer.from(n)]) })

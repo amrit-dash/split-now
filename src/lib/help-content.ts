@@ -1525,6 +1525,7 @@ export const SECTIONS: HelpSection[] = [
       { text: 'The **+** in the middle of the tab bar adds anything.', mark: 'plus' },
     ],
     points: [
+      '**Recent activity** starts folded: tap its title to open it. A number beside it says how much is new since you last looked.',
       'Reminders from people you owe show as cards at the top, with Settle up.',
       'With no groups yet, Home offers Create a group, Import from Splitwise and Join with an invite code.',
     ],
