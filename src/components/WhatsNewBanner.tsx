@@ -35,7 +35,7 @@ export function WhatsNewBanner() {
     >
       <div
         {...swipe.bind}
-        className="accent-live flex items-center gap-2.5 rounded-3xl bg-gradient-to-r from-fill to-fill-to p-2 pl-3 text-on-fill shadow-xl shadow-brand-900/30 ring-1 ring-on-fill/20"
+        className="accent-live flex items-center gap-2.5 rounded-3xl bg-gradient-to-r from-fill to-fill-to py-2 pl-3 pr-1 text-on-fill shadow-xl shadow-brand-900/30 ring-1 ring-on-fill/20"
       >
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl bg-on-fill/15">
           <Sparkles size={16} aria-hidden />
@@ -56,7 +56,7 @@ export function WhatsNewBanner() {
         <button
           type="button"
           onClick={closeBanner}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-on-fill/85"
+          className="-ml-2 flex h-10 w-8 shrink-0 items-center justify-center rounded-2xl text-on-fill/85"
           aria-label="Close"
           data-testid="whats-new-close"
         >

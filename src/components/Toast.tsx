@@ -107,7 +107,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               >
                 <SwipeCard
                   onDismiss={() => remove(t.id)}
-                  className={`pointer-events-auto flex w-full items-center gap-2.5 rounded-2xl py-2.5 pl-3.5 pr-1.5 text-sm font-medium text-white shadow-xl shadow-black/20 ring-1 ring-white/10 ${t.tone === 'ok' ? 'bg-slate-900/95 dark:bg-ink-700/95' : 'bg-rose-600/95'} backdrop-blur`}
+                  className={`pointer-events-auto flex w-full items-center gap-2.5 rounded-2xl py-2.5 pl-3.5 pr-1 text-sm font-medium text-white shadow-xl shadow-black/20 ring-1 ring-white/10 ${t.tone === 'ok' ? 'bg-slate-900/95 dark:bg-ink-700/95' : 'bg-rose-600/95'} backdrop-blur`}
                 >
                   {t.tone === 'ok' ? (
                     <CheckCircle2 size={18} className="shrink-0 text-emerald-400" aria-hidden />
@@ -139,7 +139,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                       remove(t.id)
                     }}
                     aria-label="Dismiss"
-                    className="shrink-0 rounded-full p-1.5 text-white/60 hover:bg-white/10 hover:text-white"
+                    className={`shrink-0 rounded-full p-1.5 text-white/60 hover:bg-white/10 hover:text-white ${t.action ? '-ml-2' : ''}`}
                   >
                     <X size={15} aria-hidden />
                   </button>
