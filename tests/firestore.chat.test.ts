@@ -103,6 +103,18 @@ describe('open items: writing one down', () => {
     await assertFails(setDoc(itemRef('bob', 'o3'), { ...mine, notes: 'x'.repeat(501) }))
     await assertFails(setDoc(itemRef('bob', 'o3'), { ...mine, groupId: 'g2' }))
   })
+  it('an icon as an expense’s: one emoji, the AI pick’s mark, a drawn icon and a picture, each capped', async () => {
+    const mine = { ...item, createdBy: 'bob' }
+    await assertSucceeds(setDoc(itemRef('bob', 'o4'), { ...mine, icon: '🐝', iconAuto: true }))
+    await assertSucceeds(setDoc(itemRef('bob', 'o5'), { ...mine, icon: '🐝', iconSvg: '<svg/>' }))
+    await assertSucceeds(setDoc(itemRef('bob', 'o6'), { ...mine, iconImage: 'data:image/webp;base64,AAAA' }))
+    await assertFails(setDoc(itemRef('bob', 'o7'), { ...mine, icon: 'x'.repeat(81) }))
+    await assertFails(setDoc(itemRef('bob', 'o7'), { ...mine, icon: 5 }))
+    await assertFails(setDoc(itemRef('bob', 'o7'), { ...mine, iconAuto: false }))
+    await assertFails(setDoc(itemRef('bob', 'o7'), { ...mine, iconSvg: 'x'.repeat(4097) }))
+    await assertFails(setDoc(itemRef('bob', 'o7'), { ...mine, iconImage: 'https://x.test/a.png' }))
+    await assertFails(setDoc(itemRef('bob', 'o7'), { ...mine, iconImage: `data:image/png;base64,${'A'.repeat(24_000)}` }))
+  })
   it('suspects are members of the group', async () => {
     await assertFails(setDoc(itemRef('bob', 'o3'), { ...item, createdBy: 'bob', suspects: ['zed'] }))
   })
@@ -120,6 +132,11 @@ describe('open items: editing and deleting', () => {
   it('any member edits an open item’s own fields', async () => {
     await assertSucceeds(updateDoc(itemRef('bob'), { title: 'Lunch', amount: 29000, suspects: ['alice'], updatedAt: 2 }))
     await assertSucceeds(updateDoc(itemRef('bob'), { amount: deleteField(), updatedAt: 3 }))
+    // its icon, drawn icon and picture are its own fields too (Automatic again removes them)
+    await assertSucceeds(updateDoc(itemRef('bob'), { icon: '🐝', iconSvg: '<svg/>', updatedAt: 4 }))
+    await assertSucceeds(updateDoc(itemRef('bob'), { iconSvg: deleteField(), iconImage: 'data:image/webp;base64,AAAA', updatedAt: 5 }))
+    await assertSucceeds(updateDoc(itemRef('bob'), { icon: '🇱🇰', iconAuto: true, iconImage: deleteField(), updatedAt: 6 }))
+    await assertSucceeds(updateDoc(itemRef('bob'), { icon: deleteField(), iconAuto: deleteField(), updatedAt: 7 }))
     await assertFails(updateDoc(itemRef('bob'), { createdBy: 'bob' }))
     await assertFails(updateDoc(itemRef('bob'), { createdAt: 5 }))
     await assertFails(updateDoc(itemRef('carol'), { title: 'x' }))

@@ -322,6 +322,12 @@ export interface QuickPrefill {
   category?: Category
   /** money received to share, not an expense */
   received?: boolean
+  /** an icon to start from (a claimed open item's): one emoji, `iconAuto` when it was the automatic one's AI pick */
+  icon?: string
+  iconAuto?: true
+  /** a claimed open item's drawn icon or picture (dropped in a private group when the expense is saved) */
+  iconSvg?: string
+  iconImage?: string
 }
 
 export function toQuickPrefill(p: NlParse, text: string, category?: Category | null): QuickPrefill {

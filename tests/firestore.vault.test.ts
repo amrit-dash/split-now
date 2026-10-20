@@ -101,6 +101,15 @@ describe('private groups', () => {
     await assertSucceeds(updateDoc(doc(db('alice'), 'groups/g2'), { iconImage: 'data:image/webp;base64,AAAA', updatedAt: 4 }))
     await assertFails(updateDoc(doc(db('alice'), 'groups/g1'), { iconImage: 'data:image/webp;base64,AAAA', updatedAt: 4 }))
     await assertFails(setDoc(doc(db('alice'), 'groups/g1/expenses/e4'), { ...e, id: 'e4', iconImage: 'data:image/webp;base64,AAAA' }))
+    // an open item the same: its sealed icon fits, a drawn icon or picture only in a plain group
+    const o = { groupId: 'g1', title: 'v1:AAAA', icon: `v1:${'A'.repeat(77)}`, status: 'open', createdBy: 'alice', createdAt: 1, updatedAt: 1 }
+    const item = (gid: string, id: string) => doc(db('alice'), `groups/${gid}/openItems/${id}`)
+    await assertSucceeds(setDoc(item('g1', 'o1'), o))
+    await assertFails(setDoc(item('g1', 'o2'), { ...o, iconSvg: '<svg/>' }))
+    await assertFails(setDoc(item('g1', 'o3'), { ...o, iconImage: 'data:image/webp;base64,AAAA' }))
+    await assertFails(updateDoc(item('g1', 'o1'), { iconSvg: '<svg/>', updatedAt: 2 }))
+    await assertSucceeds(setDoc(item('g2', 'o4'), { ...o, groupId: 'g2', icon: '🐝', iconSvg: '<svg/>' }))
+    await assertSucceeds(setDoc(item('g2', 'o5'), { ...o, groupId: 'g2', icon: '🐝', iconImage: 'data:image/webp;base64,AAAA' }))
   })
   it('nobody joins a private group from its invite; a plain group still takes them', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {

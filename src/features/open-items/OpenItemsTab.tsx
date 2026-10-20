@@ -13,7 +13,8 @@ import { todayISO } from '@/lib/id'
 import { pending } from '@/lib/pending'
 import type { OpenItemInput } from '@/lib/open-items'
 import { formatDate } from '@/lib/locale'
-import { askedMe, claimHref, openItemMeta, sortOpenItems, suspectLine } from '@/lib/open-items'
+import { askedMe, claimHref, openItemEmoji, openItemMeta, sortOpenItems, suspectLine } from '@/lib/open-items'
+import { IconFace } from '@/components/IconFace'
 import { Collapsible } from '@/components/Collapsible'
 import { Empty } from '@/components/Misc'
 import { ListSkeleton } from '@/components/Skeleton'
@@ -133,7 +134,7 @@ export function OpenItemsTab({ group, items, expenses }: { group: Group; items: 
                     style={{ background: cat.color + '22' }}
                     aria-hidden
                   >
-                    {cat.emoji}
+                    <IconFace iconSvg={o.iconSvg} iconImage={o.iconImage} emoji={openItemEmoji(o)} vault={!!group.vault} />
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="line-clamp-2 block font-semibold leading-snug">{o.title}</span>
@@ -168,7 +169,7 @@ export function OpenItemsTab({ group, items, expenses }: { group: Group; items: 
               <li key={o.id}>
                 <Link to={`/groups/${group.id}/expenses/${o.expenseId}`} className="flex min-h-12 items-center gap-3 px-1 py-2 text-sm">
                   <span aria-hidden className="text-lg">
-                    {CATEGORIES[o.category ?? 'other'].emoji}
+                    <IconFace iconSvg={o.iconSvg} iconImage={o.iconImage} emoji={openItemEmoji(o)} vault={!!group.vault} />
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium">{o.title}</span>

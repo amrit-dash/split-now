@@ -74,6 +74,14 @@ describe('converting a group', () => {
     expect(isToken(a.after.description)).toBe(true)
     expect(Object.keys((await sealDoc(k, 'settlement', { note: 'cash', amount: 1 })) ?? {})).toEqual(['note'])
     expect(Object.keys((await sealDoc(k, 'openItem', { title: 'Tickets', amount: 1 })) ?? {})).toEqual(['title'])
+    // an open item's icon is sealed as an expense's; its drawn icon or picture goes
+    const item = (await sealDoc(k, 'openItem', { title: 'Tickets', icon: '🎟️', iconSvg: '<svg/>', iconImage: 'data:image/webp;base64,AA' })) as Record<
+      string,
+      unknown
+    >
+    expect(isToken(item.icon)).toBe(true)
+    expect(String(item.icon).length).toBeLessThanOrEqual(80)
+    expect([item.iconSvg, item.iconImage]).toEqual([null, null])
     expect(Object.keys((await sealDoc(k, 'comment', { text: 'ok', authorName: 'Asha', createdAt: 1 })) ?? {}).sort()).toEqual(['authorName', 'text'])
   })
   it('opens everything back, and leaves what another group sealed', async () => {

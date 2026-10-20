@@ -1,3 +1,4 @@
+import { OPEN_ITEM_EDIT_FIELDS } from '@/lib/open-items'
 import { deleteApp, initializeApp, type FirebaseOptions } from 'firebase/app'
 import {
   EmailAuthProvider,
@@ -1453,7 +1454,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       else {
         // An edit writes only the item's own fields; status, claim and trash have their own writes.
         const patch: Record<string, unknown> = { updatedAt: Date.now() }
-        for (const k of ['title', 'category', 'date', 'amount', 'notes', 'suspects'] as const) {
+        for (const k of OPEN_ITEM_EDIT_FIELDS) {
           if (JSON.stringify(prev[k]) !== JSON.stringify(item[k])) patch[k] = item[k] === undefined ? deleteField() : item[k]
         }
         batch.update(r, patch)

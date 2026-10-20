@@ -200,6 +200,17 @@ export interface SeedArgs {
   today?: string
 }
 
+/** A stored icon, drawn icon and picture to start from (each checked again); `iconAuto` marks the AI's pick as automatic. */
+function iconSeed(src: { icon?: string; iconAuto?: true; iconSvg?: string; iconImage?: string } | undefined): Partial<Draft> {
+  if (!src) return {}
+  const svg = cleanSvg(src.iconSvg)
+  return {
+    ...(isIcon(src.icon) ? (src.iconAuto ? { autoIcon: src.icon } : { icon: src.icon }) : {}),
+    ...(svg ? { iconSvg: svg } : {}),
+    ...(cleanIconImage(src.iconImage) ? { iconImage: src.iconImage } : {}),
+  }
+}
+
 /**
  * Where the form starts: the expense being edited (in its original currency, with its locked
  * rate), a copy for "add again" (dated today, not repeating), a captured payment (always paid by
@@ -232,9 +243,8 @@ export function initialDraft(a: SeedArgs): Draft {
     description,
     category: src?.category ?? q?.category ?? suggested ?? 'other',
     catTouched: !!src || !!q?.category,
-    ...(isIcon(src?.icon) ? (src.iconAuto ? { autoIcon: src.icon } : { icon: src.icon }) : {}),
-    ...(src && cleanSvg(src.iconSvg) ? { iconSvg: cleanSvg(src.iconSvg) as string } : {}),
-    ...(src && cleanIconImage(src.iconImage) ? { iconImage: src.iconImage } : {}),
+    // The icon of what it starts from: the expense, or what the prefill carries (a claimed open item keeps its icon).
+    ...iconSeed(src ?? q),
     date: existing?.date ?? q?.date ?? capture?.date ?? today,
     notes: src?.notes ?? capture?.note ?? a.notes ?? '',
     received: src ? isReceived(src) : !!q?.received && group.type !== 'personal',
@@ -467,6 +477,27 @@ export const draftAutoEmoji = (d: Pick<Draft, 'autoIcon' | 'description' | 'cate
 /** The automatic icon may ask AI: nothing chosen, nothing picked yet, and the app's own rules find no icon for the description. */
 export const needsAutoPick = (d: Pick<Draft, 'icon' | 'autoIcon' | 'iconSvg' | 'iconImage' | 'description' | 'category'>) =>
   !d.icon && !d.autoIcon && !d.iconSvg && !d.iconImage && !!d.description.trim() && guessExpenseIcon(d.description, d.category) === null
+
+/**
+ * The icon as stored (an expense's or, for Save as open item, an item's): the chosen one, else the
+ * AI's pick marked `iconAuto`, and a drawn icon or picture (each checked again; none in a private group).
+ */
+export function draftIconFields(
+  d: Pick<Draft, 'icon' | 'autoIcon' | 'iconSvg' | 'iconImage'>,
+  vault: boolean,
+): { icon?: string; iconAuto?: true; iconSvg?: string; iconImage?: string } {
+  const out: { icon?: string; iconAuto?: true; iconSvg?: string; iconImage?: string } = {}
+  if (isIcon(d.icon)) out.icon = d.icon
+  else if (isIcon(d.autoIcon)) {
+    out.icon = d.autoIcon
+    out.iconAuto = true
+  }
+  const svg = vault ? null : cleanSvg(d.iconSvg)
+  if (svg) out.iconSvg = svg
+  const image = vault ? null : cleanIconImage(d.iconImage)
+  if (image) out.iconImage = image
+  return out
+}
 
 /** No description: a category says enough ("Groceries"); "Other" doesn't. */
 export const descriptionOf = (d: Pick<Draft, 'description' | 'category'>) =>

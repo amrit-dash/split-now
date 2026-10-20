@@ -2,10 +2,27 @@ import { describe, expect, it } from 'vitest'
 import type { Expense, OpenItem } from '@/types'
 import {
   CLAIM_SETTLE_MS,
+  OPEN_ITEM_EDIT_FIELDS,
+  aiPickOf,
   askedMe,
+  autoIcon,
+  categoryChosen,
+  chosenIcon,
   claimHref,
   editOpenItem,
+  itemAltsOffered,
+  itemInput,
+  needsItemAutoPick,
   newOpenItem,
+  openItemEmoji,
+  sheetCategory,
+  sheetEmoji,
+  withAutoPick,
+  withCategory,
+  withIcon,
+  withIconImage,
+  withIconSvg,
+  withTitle,
   openItemErrors,
   openItemMeta,
   openItemPrefill,
@@ -25,6 +42,8 @@ const item = (over: Partial<OpenItem> = {}): OpenItem => ({
   updatedAt: NOW - 10_000,
   ...over,
 })
+const SVG = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="#f59e0b"/></svg>'
+const PIC = 'data:image/webp;base64,AAAA'
 const expense = (id: string, over: Partial<Expense> = {}) => ({ id, ...over }) as Expense
 
 describe('openItemState', () => {
@@ -93,6 +112,27 @@ describe('openItemPrefill', () => {
   })
   it('leaves the amount empty when unknown', () => {
     expect(openItemPrefill(item(), { order: ['m1'], me: 'm1', currency: 'INR' }).amount).toBeUndefined()
+  })
+  it('carries the item’s icon, drawn icon and picture, so a claimed item keeps its icon', () => {
+    const ctx = { order: ['m1'], me: 'm1', currency: 'INR' }
+    const p = openItemPrefill(item({ icon: '🐝', iconSvg: SVG, iconImage: PIC }), ctx)
+    expect([p.icon, p.iconAuto, p.iconImage]).toEqual(['🐝', undefined, PIC])
+    expect(p.iconSvg).toContain('<svg')
+    expect(openItemPrefill(item({ icon: '🇱🇰', iconAuto: true }), ctx)).toMatchObject({ icon: '🇱🇰', iconAuto: true })
+    const bad = openItemPrefill(item({ icon: 'locked', iconSvg: '<svg><script/></svg>', iconImage: 'nope' }), ctx)
+    expect(['icon' in bad, 'iconSvg' in bad, 'iconImage' in bad]).toEqual([false, false, false])
+  })
+})
+
+describe('openItemEmoji', () => {
+  it('the chosen icon, else the app’s rules from the title, else the category’s', () => {
+    expect(openItemEmoji({ title: 'Lunch', icon: '🐝' })).toBe('🐝')
+    expect(openItemEmoji({ title: 'Pizza night' })).toBe('🍕')
+    expect(openItemEmoji({ title: 'Qwzx', category: 'travel' })).toBe('✈️')
+    expect(openItemEmoji({ title: 'Qwzx' })).toBe('🧾')
+    // a locked private group's token isn't an emoji: the title's (scrambled) words, then the category
+    expect(openItemEmoji({ title: 'Qwzx', icon: 'v1.abcdef', category: 'travel' })).toBe('✈️')
+    expect(openItemEmoji({ title: 'Qwzx', category: 'nope' as never })).toBe('🧾')
   })
 })
 
@@ -174,5 +214,116 @@ describe('newOpenItem / editOpenItem', () => {
     expect(after.date).toBe('2026-10-02')
     expect(after.createdBy).toBe('u1')
     expect(after.updatedAt).toBe(NOW)
+  })
+})
+
+describe('an item’s icon on save', () => {
+  const ctx = { id: 'o1', groupId: 'g1', uid: 'u1', now: NOW }
+  it('keeps a chosen icon, the AI’s pick with iconAuto, a drawn icon and a picture', () => {
+    expect(newOpenItem({ title: 'Bees', icon: '🐝' }, ctx)).toMatchObject({ icon: '🐝' })
+    expect('iconAuto' in newOpenItem({ title: 'Bees', icon: '🐝' }, ctx)).toBe(false)
+    expect(newOpenItem({ title: 'Bees', icon: '🇱🇰', iconAuto: true }, ctx)).toMatchObject({ icon: '🇱🇰', iconAuto: true })
+    const o = newOpenItem({ title: 'Bees', iconSvg: SVG, iconImage: PIC }, ctx)
+    expect(o.iconSvg).toContain('<svg')
+    expect(o.iconImage).toBe(PIC)
+  })
+  it('drops what isn’t an icon, and never keeps a drawing in a private group', () => {
+    const o = newOpenItem({ title: 'Bees', icon: 'bees', iconAuto: true, iconSvg: '<svg><script/></svg>', iconImage: 'https://x.test/a.png' }, ctx)
+    expect(['icon' in o, 'iconAuto' in o, 'iconSvg' in o, 'iconImage' in o]).toEqual([false, false, false, false])
+    const v = newOpenItem({ title: 'Bees', icon: '🐝', iconSvg: SVG, iconImage: PIC }, { ...ctx, vault: true })
+    expect(v.icon).toBe('🐝')
+    expect(['iconSvg' in v, 'iconImage' in v]).toEqual([false, false])
+    expect('iconSvg' in editOpenItem(item({ iconSvg: SVG }), { title: 'x', iconSvg: SVG }, NOW, { vault: true })).toBe(false)
+  })
+  it('an edit replaces the icon fields too (going back to Automatic removes them)', () => {
+    const before = item({ icon: '🐝', iconAuto: true, iconSvg: SVG, iconImage: PIC })
+    const after = editOpenItem(before, { title: 'Lunch' }, NOW)
+    expect(['icon' in after, 'iconAuto' in after, 'iconSvg' in after, 'iconImage' in after]).toEqual([false, false, false, false])
+    expect(itemInput(before)).toMatchObject({ title: 'Lunch', icon: '🐝', iconAuto: true, iconSvg: SVG, iconImage: PIC })
+    expect('icon' in itemInput(item({ icon: 'v1.token' }))).toBe(false)
+  })
+  it('every editable field is one an edit writes', () => {
+    expect([...OPEN_ITEM_EDIT_FIELDS].sort()).toEqual(['amount', 'category', 'date', 'icon', 'iconAuto', 'iconImage', 'iconSvg', 'notes', 'suspects', 'title'])
+  })
+})
+
+describe('the sheet’s icon', () => {
+  it('a category chosen, else the words’ guess, else Other', () => {
+    expect(sheetCategory({ title: 'Pizza' })).toBe('food')
+    expect(sheetCategory({ title: 'Pizza', category: 'travel' })).toBe('travel')
+    expect(sheetCategory({ title: 'Qwzx' })).toBe('other')
+    expect(categoryChosen({ category: 'food' })).toBe(true)
+    expect(categoryChosen({ category: 'food', categoryAuto: true })).toBe(false)
+    expect(categoryChosen({})).toBe(false)
+    expect(withCategory({ title: 'x', category: 'food', categoryAuto: true }, 'travel')).toEqual({ title: 'x', category: 'travel' })
+  })
+  it('asks the AI only when nothing is chosen and the app’s rules find nothing', () => {
+    expect(needsItemAutoPick({ title: '' })).toBe(false)
+    expect(needsItemAutoPick({ title: 'Pizza' })).toBe(false)
+    expect(needsItemAutoPick({ title: 'Sri Lanka bees' })).toBe(true)
+    expect(needsItemAutoPick({ title: 'Sri Lanka bees', icon: '🐝' })).toBe(false)
+    expect(needsItemAutoPick({ title: 'Sri Lanka bees', icon: '🇱🇰', iconAuto: true })).toBe(false)
+    expect(needsItemAutoPick({ title: 'Sri Lanka bees', iconSvg: SVG })).toBe(false)
+    expect(needsItemAutoPick({ title: 'Sri Lanka bees', iconImage: PIC })).toBe(false)
+  })
+  it('applies the AI’s pick for this title, and its category only while none was chosen', () => {
+    const f = { title: 'Sri Lanka bees' }
+    const a = withAutoPick(f, { title: 'Sri Lanka bees', icon: '🇱🇰', category: 'travel' })
+    expect(a).toEqual({ title: 'Sri Lanka bees', icon: '🇱🇰', iconAuto: true, category: 'travel', categoryAuto: true })
+    expect(chosenIcon(a)).toBeUndefined()
+    expect(autoIcon(a)).toBe('🇱🇰')
+    expect(sheetEmoji(a)).toBe('🇱🇰')
+    // an old title's answer, or one after an icon was chosen, changes nothing
+    expect(withAutoPick(f, { title: 'Sri Lanka', icon: '🇱🇰' })).toBe(f)
+    const chosen = { ...f, icon: '🐝' }
+    expect(withAutoPick(chosen, { title: 'Sri Lanka bees', icon: '🇱🇰' })).toBe(chosen)
+    expect(withAutoPick({ ...f, iconSvg: SVG }, { title: 'Sri Lanka bees', icon: '🇱🇰' }).icon).toBeUndefined()
+    // a chosen category stays; one the words guess stays
+    expect(withAutoPick({ ...f, category: 'food' }, { title: 'Sri Lanka bees', icon: '🇱🇰', category: 'travel' }).category).toBe('food')
+    expect(withAutoPick({ title: 'Toit lunch' }, { title: 'Toit lunch', category: 'travel' }).category).toBeUndefined()
+    expect(withAutoPick(f, { title: 'Sri Lanka bees', icon: 'nope', category: 'nope' as never })).toEqual(f)
+  })
+  it('a new title drops the AI’s pick and its category, never a chosen icon or category', () => {
+    const a = withAutoPick({ title: 'Sri Lanka bees' }, { title: 'Sri Lanka bees', icon: '🇱🇰', category: 'travel' })
+    expect(withTitle(a, 'Sri Lanka bees!')).toEqual({ title: 'Sri Lanka bees!' })
+    expect(withTitle(a, 'Sri Lanka bees')).toBe(a)
+    expect(withTitle({ title: 'x', icon: '🐝', category: 'food' }, 'y')).toEqual({ title: 'y', icon: '🐝', category: 'food' })
+  })
+  it('picking an icon, a drawing or a picture', () => {
+    const a = { title: 'Bees', icon: '🇱🇰', iconAuto: true as const, iconSvg: SVG, iconImage: PIC }
+    expect(withIcon(a, '🐝')).toEqual({ title: 'Bees', icon: '🐝' })
+    expect(chosenIcon(withIcon(a, '🐝'))).toBe('🐝')
+    expect(withIcon(a, undefined)).toEqual({ title: 'Bees' })
+    expect(withIcon(a, 'nope')).toEqual({ title: 'Bees' })
+    const s = withIconSvg({ title: 'Bees', iconImage: PIC }, SVG)
+    expect(s.iconSvg).toContain('<svg')
+    expect('iconImage' in s).toBe(false)
+    expect(withIconSvg(s, '<svg><script/></svg>')).toBe(s)
+    const p = withIconImage(s, PIC)
+    expect(p.iconImage).toBe(PIC)
+    expect('iconSvg' in p).toBe(false)
+    expect(withIconImage(p, 'https://x.test/a.png')).toBe(p)
+  })
+  it('the automatic icon without a pick: the title’s, else the category’s', () => {
+    expect(autoIcon({ title: 'Pizza', icon: '🐝' })).toBe('🍕')
+    expect(autoIcon({ title: 'Qwzx', category: 'travel' })).toBe('✈️')
+    expect(sheetEmoji({ title: 'Pizza', icon: '🐝' })).toBe('🐝')
+  })
+})
+
+describe('the AI’s other icons as pills', () => {
+  it('while the icon is one of its answer for this title, the rest of it; picking one keeps the others', () => {
+    const pick = aiPickOf('Sri Lanka bees', { emoji: '🇱🇰', alts: ['🐝', '🍯', '🇱🇰', 'nope'] })
+    expect(pick).toEqual({ title: 'Sri Lanka bees', emojis: ['🇱🇰', '🐝', '🍯'] })
+    expect(aiPickOf('x', { alts: ['🐝'] })).toBeNull()
+    const f = withAutoPick({ title: 'Sri Lanka bees' }, { title: 'Sri Lanka bees', icon: '🇱🇰' })
+    expect(itemAltsOffered(pick, f, false)).toEqual(['🐝', '🍯'])
+    expect(itemAltsOffered(pick, withIcon(f, '🐝'), false)).toEqual(['🇱🇰', '🍯'])
+    // not while asking again, not for another title, not once another icon or a drawing is chosen
+    expect(itemAltsOffered(pick, f, true)).toEqual([])
+    expect(itemAltsOffered(pick, withTitle(f, 'Sri Lanka'), false)).toEqual([])
+    expect(itemAltsOffered(pick, withIcon(f, '🦄'), false)).toEqual([])
+    expect(itemAltsOffered(pick, withIconSvg(f, SVG), false)).toEqual([])
+    expect(itemAltsOffered(null, f, false)).toEqual([])
   })
 })

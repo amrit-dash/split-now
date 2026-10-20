@@ -143,7 +143,7 @@ Groups); on by default like every flag, server-enforced in the `vault` callable.
 
 On the phone, with the group's data key (`src/lib/vault-fields.ts`): expense descriptions, notes,
 item names and flag reasons; payment notes and flag reasons; comments and their authors' names;
-chat messages, their authors' names and the snippet a reply quotes; open items' titles and notes.
+chat messages, their authors' names and the snippet a reply quotes; open items' titles, chosen icons and notes (an open item, like an expense, has no drawn icon or picture there).
 In the group document (`src/data/vault-repo.ts`): its name, its emoji and every person's name in it.
 Activity lines and history quote those as tokens, so they're encrypted too. The fields and their
 caps are one list, `shared/vault-convert.ts`, which the phones and the server share.

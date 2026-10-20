@@ -1011,11 +1011,17 @@ service cloud.firestore {
       match /openItems/{itemId} {
         function validItem(d) {
           return d.keys().hasAll(['groupId', 'title', 'status', 'createdBy', 'createdAt', 'updatedAt'])
-            && d.keys().hasOnly(['groupId', 'title', 'category', 'date', 'amount', 'notes', 'suspects', 'status', 'expenseId',
+            && d.keys().hasOnly(['groupId', 'title', 'category', 'icon', 'iconAuto', 'iconSvg', 'iconImage', 'date', 'amount', 'notes', 'suspects', 'status', 'expenseId',
                 'claimedBy', 'claimedAt', 'deletedAt', 'deletedBy', 'createdBy', 'createdAt', 'updatedAt'])
             && d.groupId == groupId
             && d.title is string && d.title.size() > 0 && d.title.size() <= 120
             && (!('category' in d) || (d.category is string && d.category.size() <= 32))
+            // its icon, as an expense's: one emoji (or its token in a private group), the AI pick's mark,
+            // an AI-drawn icon and a picture, those two never in a private group (they can't be sealed)
+            && (!('icon' in d) || (d.icon is string && d.icon.size() <= 80))
+            && d.get('iconAuto', true) == true
+            && (!('iconSvg' in d) || (d.iconSvg is string && d.iconSvg.size() <= 4096 && groupDoc(groupId).data.get('vault', false) != true))
+            && (!('iconImage' in d) || (validIconImage(d.iconImage) && groupDoc(groupId).data.get('vault', false) != true))
             && (!('date' in d) || (d.date is string && d.date.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}')))
             && (!('amount' in d) || (d.amount is int && d.amount > 0 && d.amount <= 100000000000))
             && (!('notes' in d) || (d.notes is string && d.notes.size() <= 500))
@@ -1032,7 +1038,7 @@ service cloud.firestore {
             || 'deletedAt' in get(expensePath(d.expenseId)).data;
         }
         function isEdit() {
-          return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'category', 'date', 'amount', 'notes', 'suspects', 'updatedAt'])
+          return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'category', 'icon', 'iconAuto', 'iconSvg', 'iconImage', 'date', 'amount', 'notes', 'suspects', 'updatedAt'])
             && !('deletedAt' in resource.data)
             && claimable(resource.data);
         }
