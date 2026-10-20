@@ -1664,7 +1664,8 @@ test('icons: a group takes a drawn icon', async ({ page }) => {
 
 test.describe('Draw a picture prices', () => {
   // A fixed dollar rate, so the price shows in rupees first (page.route can't see service-worker requests).
-  test.use({ serviceWorkers: 'block', fixedRates: true })
+  // In India, so the demo's currency is rupees wherever the suite runs (CI is in UTC, en-US: dollars).
+  test.use({ serviceWorkers: 'block', fixedRates: true, timezoneId: 'Asia/Kolkata' })
 
   test('icons: Draw a picture says who pays, and the picture becomes the icon', async ({ page }) => {
     await page.goto('/add?group=g_goa')
@@ -1801,6 +1802,8 @@ test('What’s new rises above the tab bar a moment after Home loads, and a side
   await expect(page.getByTestId('whats-new-banner')).toHaveCount(0)
   const banner = page.getByTestId('whats-new-banner')
   await expect(banner).toBeVisible()
+  // measured once it has finished rising: mid-animation the drag would start below it
+  await banner.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)))
   // in the floating lane above the tab bar, not at the top of the page
   const box = await banner.boundingBox()
   const vh = page.viewportSize()?.height ?? 0
