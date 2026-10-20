@@ -58,3 +58,36 @@ product and architecture source of truth (data model §4.2, security §4.3, perf
 
 ## Before opening a PR
 `npm run lint && npm run typecheck:all && npm test` locally; `npm run test:rules` when rules changed. CI (`.github/workflows/ci.yml`) runs four jobs: lint + typecheck, unit, rules + functions under the emulators, build + e2e. One concern per PR; say what changes for the person using the app, and update `docs/PLAN.md` when a status marker, collection or field changes.
+
+## How the owner works (do this without being asked)
+The owner describes a feature, a bug or a screenshot; you take it all the way to production. Every request ends as a merged release unless they say otherwise.
+
+**Every change ships as its own release** (patch bump `x.y.Z+1` for fixes and small changes; `x.Y.0` for a new feature or the last PR of a series):
+1. Branch from the latest `origin/main` (`git fetch origin main && git checkout -B <branch> origin/main`). A merged PR's branch is never reused for new work.
+2. Implement. New logic goes in `src/lib` as pure, tested functions; the component only wires it. Demo mode (`localRepo`, `vault-demo`, `icon-ai-demo`) must support it.
+3. Release notes, in the same PR, every time:
+   - `npm version x.y.z --no-git-tag-version` (also bumps `package-lock.json`);
+   - `CHANGELOG.md`: a new `## x.y.z — Month YYYY` section under `## Unreleased`, plain English, what changes for the person and what was wrong before;
+   - `src/lib/whats-new.ts`: a new entry at the top of `RELEASES`, a few short lines, each linked to an existing Help section id;
+   - Help (`src/lib/help-content.ts`): a new section for a new feature (with steps, `mark`s and a scene in `help-scenes.ts` when it has steps), or new/updated points for a change. Section ids never change once shipped. `npm run help:media -- --only <id>` when a screenshot shows something that changed;
+   - `docs/PLAN.md` for a new collection, field, rules check, flag or callable; `docs/VAULT.md` for anything touching private groups.
+4. Checks, all of them, before pushing:
+   - `npm run lint`, `npm run format:check` (run `npx biome format --write .` first), `npm run typecheck:all`, `npm test`;
+   - `HTTPS_PROXY= https_proxy= npm run test:rules` when `firestore.rules`/`storage.rules` changed;
+   - `HTTPS_PROXY= https_proxy= env -u GEMINI_API_KEY npm run test:functions` when `functions/` or `shared/` changed (a real `GEMINI_API_KEY` in the environment makes the emulator tests call Gemini and fail; the proxy breaks the trigger phase);
+   - the e2e suite (`npx playwright test`, or `E2E_CHROMIUM=/opt/pw-browsers/chromium npx playwright test` where a different Chromium is preinstalled; `E2E_PORT=5185` if the port is busy). Add an e2e test for anything visible in demo mode.
+   - For UI changes, screenshot the screen at 320–390 px with Playwright against `npx vite --mode e2e` and look at it: nothing cut off, no sideways scroll, 44 px targets.
+5. Commit authored by the owner only: `git -c user.name="Amrit Dash" -c user.email="37613080+amrit-dash@users.noreply.github.com" commit`. No co-author lines, no model names in commits or PRs. Title: `Release x.y.z: <what changed, in the owner's words>`.
+6. Push, open the PR (sections: What changes for the person using the app / How / Checks; end GitHub posts with the Claude Code footer), wait for all CI checks, then **squash-merge** with the head SHA. Merging deploys to production and publishes the GitHub Release.
+7. Tell the owner in plain language what changed, what you decided on their behalf, and anything still open.
+
+**How to answer.** Lead with the most important point; disagree plainly when their idea has a flaw, give the better option and the risk, then build what's best (they ask you to "take a call"). Say what you verified and what you didn't. When something they asked for was only partly built, say so and finish it, don't claim it's done.
+
+**Things learned the hard way.**
+- Audit the whole path, not the one screen mentioned: a fix for "adding someone" must cover every way in (email links via the server trigger, members at creation, converting a group), and a feature on New group usually belongs on Edit group too.
+- Server-side gates must never strand people: a flag that switches a feature off hides the way to turn it on, it doesn't break groups that already use it.
+- Anything readable by anyone with a link (`invites/{code}`) must not carry names or data the page doesn't need.
+- AI features: say why they're missing (`iconAiWhy`, `pictureWhy`) instead of hiding them silently; test prompts against the real model when a key is available (`GEMINI_API_KEY`; Gemma needs `thinkingLevel: 'minimal'`).
+- Biome may reflow a one-line import into several lines; re-read before scripted edits to it.
+
+**Pending work** lives in `docs/PENDING.md`: read it at the start of a session and keep it current (remove what ships, add what's left).
