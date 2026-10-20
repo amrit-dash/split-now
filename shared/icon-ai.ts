@@ -130,10 +130,14 @@ export function picturePlan(o: {
   return null
 }
 
-/** The picture prompt: one icon-like picture, square, flat, no words. The title goes in as data. */
+/**
+ * The picture prompt: one icon-like picture, square, flat, no words. The title goes in as data.
+ * Image models can't paint transparency, so it asks for a flat magenta backdrop that the phone
+ * keys out (src/lib/icon-picture.ts); magenta is the colour least likely to be in the object.
+ */
 export const picturePrompt = (r: IconRequest) =>
   `Draw one app icon for ${r.kind === 'group' ? 'a group named' : `an expense${r.category ? ` (${r.category})` : ''} called`} "${r.title}".
-Style: a single bold, friendly object or symbol that shows what it is about, centred, filling most of a square canvas, flat colours with soft shading, like a modern emoji. Plain white background. No text, letters or numbers. No people's faces. No border or frame. It must read clearly at 40 pixels.`
+Style: a single bold, friendly object or symbol that shows what it is about, centred, with a little space around it on a square canvas, flat colours with soft shading, like a modern emoji. Background: one solid flat magenta (#FF00FF) from edge to edge, with no gradient, shadow, floor or texture, and no magenta in the object itself. No text, letters or numbers. No people's faces. No border or frame. It must read clearly at 40 pixels.`
 
 /** A stored picture icon: a small data: URL the app made (src/lib/icon-picture.ts), else nothing. */
 export const ICON_IMAGE_MAX = 24_000

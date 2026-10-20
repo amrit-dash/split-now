@@ -366,6 +366,7 @@ export const SECTIONS: HelpSection[] = [
       'Suggest with AI offers three emoji and a few drawn icons, on Split Now’s free AI or your own key.',
       'Draw a picture shows only when a key that pays for pictures is in use: about US$0.03 a picture on the recommended model (the app shows it in your own currency too).',
       'Choose the model for pictures in Settings → AI features → Icons; the picture says which model drew it.',
+      'A drawn picture loses its background and is sized to fill the icon, like an emoji. Pictures drawn before this update keep their white square; Draw another to replace one.',
       'Never in a private group; making a group private removes drawn icons and pictures.',
       'Turn either off in Settings → AI features: AI icons, AI picks icons. They don’t depend on reading bills.',
       'No AI buttons in the icon sheet? It says why there, for example the free AI not agreed to yet, with a link to fix it. The same for Draw a picture, which needs your own Gemini key or Split Now’s with pictures turned on.',

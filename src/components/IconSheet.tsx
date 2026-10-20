@@ -283,7 +283,7 @@ export function IconSheet({
                       className={`animate-pop h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-white dark:bg-ink-800 ${imageValue === drawn ? 'ring-2 ring-brand-500' : ''}`}
                       data-testid="icon-picture-use"
                     >
-                      <img src={drawn} alt="" aria-hidden className="h-full w-full object-cover" draggable={false} />
+                      <img src={drawn} alt="" aria-hidden className="h-full w-full object-contain p-1.5" draggable={false} />
                     </button>
                     <div className="min-w-0 flex-1 text-sm">
                       <div className="font-semibold">Tap it to use it</div>

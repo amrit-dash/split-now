@@ -1681,7 +1681,24 @@ test.describe('Draw a picture prices', () => {
     // the price in the person's money first (rupees in the demo), Google's dollars after
     await expect(sheet.getByTestId('icon-picture-by')).toContainText(/₹[\d.]+ \(US\$0\.03\)/)
     await sheet.getByTestId('icon-picture-use').click()
-    await expect(page.getByTestId('expense-icon').locator('img')).toHaveAttribute('src', /^data:image\/(webp|png|jpeg);base64,/)
+    await expect(page.getByTestId('expense-icon').locator('img')).toHaveAttribute('src', /^data:image\/(webp|png);base64,/)
+    // the magenta backdrop is keyed out and the object cropped to fill the icon
+    const src = await page.getByTestId('expense-icon').locator('img').getAttribute('src')
+    const alpha = await page.evaluate(async (url) => {
+      const img = new Image()
+      img.src = url ?? ''
+      await img.decode()
+      const c = document.createElement('canvas')
+      c.width = img.width
+      c.height = img.height
+      const ctx = c.getContext('2d') as CanvasRenderingContext2D
+      ctx.drawImage(img, 0, 0)
+      const at = (x: number, y: number) => ctx.getImageData(x, y, 1, 1).data
+      const mid = Math.floor(img.width / 2)
+      return { corner: at(1, 1)[3], middle: at(mid, mid)[3] }
+    }, src)
+    expect(alpha.corner).toBe(0)
+    expect(alpha.middle).toBeGreaterThan(200)
     await page
       .getByRole('button', { name: /^(Save|Add expense)$/ })
       .first()

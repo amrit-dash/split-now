@@ -31,6 +31,9 @@ describe('a stored picture', () => {
   it('the prompt names the title and asks for no words', () => {
     expect(picturePrompt({ title: 'Goa trip', kind: 'group' })).toContain('"Goa trip"')
     expect(picturePrompt({ title: 'Ferry', kind: 'expense', category: 'Transport' })).toMatch(/No text/)
+    // a flat magenta backdrop the phone keys out (src/lib/icon-picture.ts), never white
+    expect(picturePrompt({ title: 'Ferry', kind: 'expense' })).toContain('#FF00FF')
+    expect(picturePrompt({ title: 'Ferry', kind: 'expense' })).not.toMatch(/white background/i)
   })
 })
 

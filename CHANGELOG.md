@@ -6,6 +6,8 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- AI pictures: Draw a picture now gives an icon with no background, sized to fill its tile like an emoji. Before, it sat small on a white square that showed up against dark tiles. Pictures drawn earlier keep their square until drawn again.
+
 - AI pictures: Draw a picture prices now show in your own currency, with Google's dollar price after ("about ₹2.81 (US$0.03)"), in the icon sheet, Settings → AI and the model pickers. Before, they were in US dollars only.
 
 - Updates: after **Later** on New version ready, Profile now shows a **New version ready** row to update whenever you like. Before, Later hid it until the app was next reopened.
