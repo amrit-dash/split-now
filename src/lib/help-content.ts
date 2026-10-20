@@ -364,7 +364,7 @@ export const SECTIONS: HelpSection[] = [
       'A type you choose after the name gave the icon keeps that icon and offers the type’s own beside it (“✈️ Trip icon · use it”). Chosen while AI is still picking, the type’s icon shows until AI’s answer comes.',
       'Renaming a group in Edit group does the same for its icon, with “Keep 🏖️” to go back. Its type stays, and an icon you chose there, or a drawn picture, is never replaced.',
       'Suggest with AI offers three emoji and a few drawn icons, on Split Now’s free AI or your own key.',
-      'Draw a picture shows only when a key that pays for pictures is in use: about US$0.03 a picture on the recommended model (the app shows it in your own currency too).',
+      'Draw a picture shows only when a key that pays for pictures is in use: about US$0.03 a picture on the recommended model, shown in your own currency first (about ₹2.80).',
       'Choose the model for pictures in Settings → AI features → Icons; the picture says which model drew it.',
       'A drawn picture loses its background and is sized to fill the icon, like an emoji. Pictures drawn before this update keep their white square; Draw another to replace one.',
       'Never in a private group; making a group private removes drawn icons and pictures.',
@@ -1523,6 +1523,7 @@ export const SECTIONS: HelpSection[] = [
       { text: 'At the top: the **Inbox** with what’s waiting, and your photo for Profile.', mark: 'top' },
       { text: 'The balance card: overall you’re owed or you owe. Tap it for Balances.', mark: 'balance' },
       { text: '**Groups & friends**, then **Recent activity** and **Recent expenses**.', mark: 'groups' },
+      { text: '**Recent activity** starts folded; the number beside it is what’s new. Tap its title to open it.', mark: 'recent' },
       { text: 'The **+** in the middle of the tab bar adds anything.', mark: 'plus' },
     ],
     points: [
@@ -1672,6 +1673,7 @@ export const SECTIONS: HelpSection[] = [
       { text: 'Tap **Install Split Now**, or on iPhone, Share → **Add to Home Screen**.', mark: 'install' },
       { text: 'Offline, keep going: changes sync when you’re back online.', mark: 'offline' },
       { text: 'When **New version ready** shows, tap **Update**.', mark: 'update' },
+      { text: 'Tapped **Later**? Update from **Profile** whenever you like.', mark: 'later' },
     ],
     points: [
       'Installed, it opens full screen, faster, and works offline.',

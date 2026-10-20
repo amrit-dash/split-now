@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AtSign, ClipboardList, HandCoins, Handshake, Pencil, Plus, Receipt, Scale, SendHorizontal, Share2, Sparkles, X } from 'lucide-react'
 import type { Cents, ChatMessage, ChatReplyRef, Debt, Expense, Group, MemberId, OpenItem } from '@/types'
@@ -97,6 +97,18 @@ export function Composer(p: ComposerProps) {
   const [dismissed, setDismissed] = useState<string | null>(null)
   const [pick, setPick] = useState(0)
   const area = useRef<HTMLTextAreaElement>(null)
+  // Where the caret goes once the box shows new words (a picked @name). Placed right after React
+  // writes them, before the next key is handled: a frame later, a letter typed in between landed
+  // at the end and the caret then jumped back in front of it ("@Rohan or the cabf").
+  const caretTo = useRef<number | null>(null)
+  useLayoutEffect(() => {
+    const at = caretTo.current
+    const el = area.current
+    if (at === null || !el) return
+    caretTo.current = null
+    el.focus()
+    el.setSelectionRange(at, at)
+  })
   const clean = cleanMessage(text)
   const tools = useMemo(() => toolsFor({ openItemsOn }), [openItemsOn])
   const name = (id: MemberId) => (id === me ? 'you' : labelOf(group.members, id, 'someone', me))
@@ -238,10 +250,7 @@ export function Composer(p: ComposerProps) {
     const next = applyMention(text, mq.start, caret, m.label)
     setText(next.text)
     setCaret(next.caret)
-    requestAnimationFrame(() => {
-      area.current?.focus()
-      area.current?.setSelectionRange(next.caret, next.caret)
-    })
+    caretTo.current = next.caret
   }
 
   /** A card's note: what was typed (unless it was the command), else a line that tags who it asks. */
