@@ -6,6 +6,10 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.7.5 — October 2026
+
+- Notices: the ✕ on the Updated banner, Install Split Now and toasts sits closer to the right edge and to its button, so the button (What's new, Install, Undo) moves right and the card reads as one row.
+
 ## 8.7.4 — October 2026
 
 - Home: the "Updated" banner no longer sits at the top of the page. A moment after Home opens it rises from behind the tab bar into the spot above it, where New version ready shows, with the version and **What's new**. It waits while the New version, install or capture banner is showing.
