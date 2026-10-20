@@ -94,7 +94,7 @@ export const FLAG_INFO: Record<FlagName, { label: string; hint: string }> = {
   },
   whatsNew: {
     label: 'What’s new banner',
-    hint: 'After an update, a banner with the version and See what’s new (Profile → Help → What’s new). Off hides the banner; Help and What’s new still work.',
+    hint: 'After an update, a banner above the tab bar on Home with the version and What’s new (Profile → Help → What’s new). Off hides the banner; Help and What’s new still work.',
   },
   pushPrompt: {
     label: 'Ask to turn on notifications',

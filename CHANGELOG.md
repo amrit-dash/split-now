@@ -6,6 +6,11 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.7.4 — October 2026
+
+- Home: the "Updated" banner no longer sits at the top of the page. A moment after Home opens it rises from behind the tab bar into the spot above it, where New version ready shows, with the version and **What's new**. It waits while the New version, install or capture banner is showing.
+- Swipe to close: every floating notice can be swiped sideways to close it: the Updated banner, New version ready (same as Later), Install Split Now (same as Don't ask again) and the small messages above the tab bar. A short drag springs back; the ✕ buttons still work.
+
 ## 8.7.3 — October 2026
 
 - Open items: an open item now has its own icon, as an expense does, from the group's Open tab and from the chat's Open item tool. Tap the icon for every icon, search, Suggest with AI and Draw a picture; the icon follows the title, and when the app can't tell, AI picks one and offers its other good fits under the title. The category has its own row. Claiming an item keeps its icon on the new expense. Before, an open item only showed its category's emoji.

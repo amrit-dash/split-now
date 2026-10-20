@@ -324,6 +324,10 @@ html[data-banner] { --safe-top: 0px; }
 
 /* The update banner (UpdatePrompt) takes the install banner's spot while it is shown. */
 html[data-update-ready] .install-banner { display: none; }
+/* What's new waits while the New version, install or capture banner holds the same spot. */
+html[data-update-ready] .whats-new-banner,
+html[data-capture-alert] .whats-new-banner,
+html:has(.install-banner) .whats-new-banner { display: none; }
 
 /* Home greeting icon: a short wave a few times, or a gentle bob. Off with reduced motion. */
 @keyframes wave { 0%, 60%, 100% { transform: rotate(0deg); } 10%, 30% { transform: rotate(16deg); } 20% { transform: rotate(-8deg); } 40% { transform: rotate(-4deg); } 50% { transform: rotate(10deg); } }
@@ -451,7 +455,7 @@ html[data-capture-alert] .install-banner { display: none; }
    indicator elsewhere, above any banner showing). Newest at the bottom; see Toast.tsx. */
 .toast-stack { bottom: calc(env(safe-area-inset-bottom) + 1rem); }
 html[data-nav] .toast-stack { bottom: var(--lane); }
-html[data-nav]:has(.install-banner, [data-testid='update-banner'], [data-testid='unsaved-bar'], [data-testid='capture-alert']) .toast-stack { bottom: calc(var(--lane) + 5rem); }
+html[data-nav]:has(.install-banner, .whats-new-banner, [data-testid='update-banner'], [data-testid='unsaved-bar'], [data-testid='capture-alert']) .toast-stack { bottom: calc(var(--lane) + 5rem); }
 @keyframes toast-in { from { transform: translateY(1rem) scale(0.96); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
 @utility animate-toast { animation: toast-in 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.15); }
 

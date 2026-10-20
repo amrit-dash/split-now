@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { AlertCircle, CheckCircle2, X } from 'lucide-react'
+import { useSwipeDismiss } from '@/hooks/useSwipeDismiss'
 
 export interface ToastOptions {
   /** e.g. { label: 'Undo', run: restore } — shown as a button; tapping it dismisses the toast */
@@ -21,7 +22,7 @@ const PEEK = 3
  * from the screen edges (the page uses 16px) so they read as their own floating card. Collapsed,
  * the newest is in front with older ones peeking behind like a deck, so several never cover
  * the screen; tap the deck to fan them out. A repeat of a showing message bumps its count
- * instead of stacking a copy. Each can be closed, and an action (Undo) closes it too.
+ * instead of stacking a copy. Each can be closed, swiped away sideways, and an action (Undo) closes it too.
  */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
@@ -102,42 +103,47 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 style={{ ...style, gridArea: open ? undefined : '1 / 1' }}
                 aria-hidden={hidden || undefined}
                 role={t.tone === 'err' ? 'alert' : undefined}
-                className={`pointer-events-auto flex w-full max-w-sm items-center gap-2.5 rounded-2xl py-2.5 pl-3.5 pr-1.5 text-sm font-medium text-white shadow-xl shadow-black/20 ring-1 ring-white/10 transition-[transform,opacity] duration-200 ${t.leaving ? 'opacity-0' : 'animate-toast'} ${t.tone === 'ok' ? 'bg-slate-900/95 dark:bg-ink-700/95' : 'bg-rose-600/95'} backdrop-blur ${hidden ? 'pointer-events-none' : ''}`}
+                className={`flex w-full max-w-sm justify-center transition-[transform,opacity] duration-200 ${t.leaving ? 'opacity-0' : 'animate-toast'} ${hidden ? 'pointer-events-none' : ''}`}
               >
-                {t.tone === 'ok' ? (
-                  <CheckCircle2 size={18} className="shrink-0 text-emerald-400" aria-hidden />
-                ) : (
-                  <AlertCircle size={18} className="shrink-0 text-white" aria-hidden />
-                )}
-                <span className="min-w-0 flex-1">
-                  {t.text}
-                  {t.count > 1 && <span className="ml-1.5 rounded-full bg-white/15 px-1.5 text-xs font-bold">×{t.count}</span>}
-                </span>
-                {!open && depth === 0 && live.length > 1 && <span className="shrink-0 text-xs font-semibold text-white/60">+{live.length - 1}</span>}
-                {t.action && (
+                <SwipeCard
+                  onDismiss={() => remove(t.id)}
+                  className={`pointer-events-auto flex w-full items-center gap-2.5 rounded-2xl py-2.5 pl-3.5 pr-1.5 text-sm font-medium text-white shadow-xl shadow-black/20 ring-1 ring-white/10 ${t.tone === 'ok' ? 'bg-slate-900/95 dark:bg-ink-700/95' : 'bg-rose-600/95'} backdrop-blur`}
+                >
+                  {t.tone === 'ok' ? (
+                    <CheckCircle2 size={18} className="shrink-0 text-emerald-400" aria-hidden />
+                  ) : (
+                    <AlertCircle size={18} className="shrink-0 text-white" aria-hidden />
+                  )}
+                  <span className="min-w-0 flex-1">
+                    {t.text}
+                    {t.count > 1 && <span className="ml-1.5 rounded-full bg-white/15 px-1.5 text-xs font-bold">×{t.count}</span>}
+                  </span>
+                  {!open && depth === 0 && live.length > 1 && <span className="shrink-0 text-xs font-semibold text-white/60">+{live.length - 1}</span>}
+                  {t.action && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        remove(t.id)
+                        t.action!.run()
+                      }}
+                      className="shrink-0 rounded-xl px-2.5 py-1.5 font-bold text-brand-300 hover:bg-white/10"
+                    >
+                      {t.action.label}
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation()
                       remove(t.id)
-                      t.action!.run()
                     }}
-                    className="shrink-0 rounded-xl px-2.5 py-1.5 font-bold text-brand-300 hover:bg-white/10"
+                    aria-label="Dismiss"
+                    className="shrink-0 rounded-full p-1.5 text-white/60 hover:bg-white/10 hover:text-white"
                   >
-                    {t.action.label}
+                    <X size={15} aria-hidden />
                   </button>
-                )}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    remove(t.id)
-                  }}
-                  aria-label="Dismiss"
-                  className="shrink-0 rounded-full p-1.5 text-white/60 hover:bg-white/10 hover:text-white"
-                >
-                  <X size={15} aria-hidden />
-                </button>
+                </SwipeCard>
               </div>
             )
           })}
@@ -148,3 +154,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 }
 
 export const useToast = () => useContext(Ctx)
+
+/** One toast's card: swipe it sideways to dismiss it, as every floating notification (src/hooks/useSwipeDismiss.ts). */
+function SwipeCard({ onDismiss, className, children }: { onDismiss: () => void; className: string; children: ReactNode }) {
+  const swipe = useSwipeDismiss(onDismiss)
+  return (
+    <div {...swipe.bind} className={className}>
+      {children}
+    </div>
+  )
+}

@@ -24,6 +24,14 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '8.7.4',
+    date: 'October 2026',
+    items: [
+      { text: 'The Updated banner rises above the tab bar on Home, a moment after it opens', section: 'help-guide' },
+      { text: 'Swipe any floating notice sideways to close it', section: 'help-guide' },
+    ],
+  },
+  {
     version: '8.7.3',
     date: 'October 2026',
     items: [

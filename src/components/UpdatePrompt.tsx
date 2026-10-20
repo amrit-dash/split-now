@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import { Loader2, Sparkles } from 'lucide-react'
 import { APP_NAME } from '@/lib/brand'
+import { useSwipeDismiss } from '@/hooks/useSwipeDismiss'
 
 /**
  * "New version" banner, shown just above the bottom tab bar.
@@ -54,6 +55,8 @@ export function UpdatePrompt() {
     document.documentElement.toggleAttribute('data-update-ready', needRefresh)
   }, [needRefresh])
 
+  // A sideways swipe is Later.
+  const swipe = useSwipeDismiss(() => setNeedRefresh(false))
   const withNav = useHasNav()
   // Only on screens with the tab bar, rising from behind it; on forms and full-screen flows it
   // waits (an update is never urgent, and it must not cover Save buttons or bottom bars).
@@ -64,7 +67,10 @@ export function UpdatePrompt() {
       role="status"
       data-testid="update-banner"
     >
-      <div className="flex items-center gap-2.5 accent-live rounded-3xl bg-gradient-to-r from-fill to-fill-to p-2 pl-3 text-on-fill shadow-xl shadow-brand-900/30 ring-1 ring-on-fill/20">
+      <div
+        {...swipe.bind}
+        className="flex items-center gap-2.5 accent-live rounded-3xl bg-gradient-to-r from-fill to-fill-to p-2 pl-3 text-on-fill shadow-xl shadow-brand-900/30 ring-1 ring-on-fill/20"
+      >
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl bg-on-fill/15">
           <Sparkles size={16} aria-hidden />
         </span>
