@@ -6,6 +6,8 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.7.5 — October 2026
+
 - Notices: the ✕ on the Updated banner, Install Split Now and toasts sits closer to the right edge and to its button, so the button (What's new, Install, Undo) moves right and the card reads as one row.
 
 ## 8.7.4 — October 2026
