@@ -39,8 +39,10 @@ export interface Box {
 
 /** Below this alpha a pixel already counts as see-through. */
 const CLEAR = 16
-/** Corners within this distance of each other are one flat backdrop. */
-const CORNER_SPREAD = 40
+/** Border samples within this distance of their median colour are one flat backdrop. */
+const BORDER_SPREAD = 60
+/** How much of the border must be that one colour (the object may touch an edge here and there). */
+const BORDER_SHARE = 0.6
 /** Distance to the backdrop at or under which a pixel is cleared fully, and over which it is kept (soft in between). */
 export const KEY_NEAR = 60
 export const KEY_FAR = 120
@@ -48,27 +50,54 @@ export const KEY_FAR = 120
 const distance = (d: Uint8ClampedArray, i: number, c: Rgb) => Math.hypot(d[i] - c[0], d[i + 1] - c[1], d[i + 2] - c[2])
 
 /**
- * The flat colour behind the object: the average of the four corners (a few pixels in) when they
- * agree. 'clear' when the corners are already see-through, null when there is no flat backdrop
- * (the object runs to the edges), and then nothing is keyed.
+ * A magenta-looking pixel: red and blue strong and alike, green well below both. Models paint
+ * the asked-for #FF00FF with shading (#E040E0 in one corner, #FF10F0 in another), so magenta is
+ * matched by its hue, not by one exact colour; real objects almost never have it.
  */
-export function backdropOf(p: Pixels): Rgb | 'clear' | null {
-  const inset = Math.min(2, Math.floor(Math.min(p.width, p.height) / 4))
-  const spots = [
-    [inset, inset],
-    [p.width - 1 - inset, inset],
-    [inset, p.height - 1 - inset],
-    [p.width - 1 - inset, p.height - 1 - inset],
-  ].map(([x, y]) => (y * p.width + x) * 4)
-  if (spots.every((i) => p.data[i + 3] < CLEAR)) return 'clear'
-  if (spots.some((i) => p.data[i + 3] < CLEAR)) return null
-  const mean = [0, 1, 2].map((k) => spots.reduce((s, i) => s + p.data[i + k], 0) / spots.length) as unknown as Rgb
-  return spots.every((i) => distance(p.data, i, mean) <= CORNER_SPREAD) ? mean : null
+export function magentaish(r: number, g: number, b: number): boolean {
+  const lo = Math.min(r, b)
+  // Strict, so an object's own pinks and purples (a pink wheel, a violet bag) aren't taken for it.
+  return lo > 140 && g < lo * 0.45 && Math.abs(r - b) < Math.max(r, b) * 0.3
+}
+const magentaAt = (d: Uint8ClampedArray, i: number) => d[i + 3] >= CLEAR && magentaish(d[i], d[i + 1], d[i + 2])
+
+/** The pixel indexes (into data) of a ring just inside the edges, every few pixels. */
+function borderSpots(p: Pixels): number[] {
+  const inset = Math.min(Math.max(1, Math.round(Math.min(p.width, p.height) * 0.01)), Math.floor(Math.min(p.width, p.height) / 4))
+  const step = Math.max(1, Math.floor(Math.min(p.width, p.height) / 32))
+  const at = (x: number, y: number) => (y * p.width + x) * 4
+  const out: number[] = []
+  for (let x = inset; x < p.width - inset; x += step) out.push(at(x, inset), at(x, p.height - 1 - inset))
+  for (let y = inset + step; y < p.height - inset - step; y += step) out.push(at(inset, y), at(p.width - 1 - inset, y))
+  return out
 }
 
 /**
- * Clears the backdrop in place: a flood from every edge pixel through pixels close to `color`, so
- * only backdrop joined to the edges goes. Pixels near the colour go fully clear; ones further off
+ * The flat colour behind the object, from a ring of samples just inside the edges: 'clear' when
+ * they are mostly see-through already, the median colour when most of them agree (magenta by hue,
+ * anything else by distance), else null: no flat backdrop, and then nothing is keyed.
+ */
+export function backdropOf(p: Pixels): Rgb | 'clear' | null {
+  const spots = borderSpots(p)
+  const share = (n: number) => n >= spots.length * BORDER_SHARE
+  if (share(spots.filter((i) => p.data[i + 3] < CLEAR).length)) return 'clear'
+  const solid = spots.filter((i) => p.data[i + 3] >= CLEAR)
+  const median = (k: number) => {
+    const v = solid.map((i) => p.data[i + k]).sort((a, b) => a - b)
+    return v[v.length >> 1] ?? 0
+  }
+  const magenta = solid.filter((i) => magentaAt(p.data, i))
+  if (share(magenta.length)) {
+    const v = (k: number) => magenta.map((i) => p.data[i + k]).sort((a, b) => a - b)[magenta.length >> 1]
+    return [v(0), v(1), v(2)]
+  }
+  const mid: Rgb = [median(0), median(1), median(2)]
+  return share(solid.filter((i) => distance(p.data, i, mid) <= BORDER_SPREAD).length) ? mid : null
+}
+
+/**
+ * Clears the backdrop in place: a flood from every edge pixel through backdrop pixels, so only
+ * backdrop joined to the edges goes (on magenta, also from every magenta pixel: gaps inside). Pixels near the colour go fully clear; ones further off
  * (the soft rim of the object) keep part of their alpha, with the backdrop's tint taken back out
  * of their colour so no magenta fringe is left.
  */
@@ -78,7 +107,10 @@ export function keyOut(p: Pixels, color: Rgb): void {
   const queue = new Int32Array(width * height)
   let head = 0
   let tail = 0
-  const near = (n: number) => data[n * 4 + 3] < CLEAR || distance(data, n * 4, color) <= KEY_FAR
+  // On a magenta backdrop every magenta-looking pixel is backdrop, however the model shaded it.
+  const byHue = magentaish(color[0], color[1], color[2])
+  const gap = (i: number) => (data[i + 3] < CLEAR || (byHue && magentaAt(data, i)) ? 0 : distance(data, i, color))
+  const near = (n: number) => gap(n * 4) <= KEY_FAR
   const push = (n: number) => {
     if (seen[n] || !near(n)) return
     seen[n] = 1
@@ -92,11 +124,14 @@ export function keyOut(p: Pixels, color: Rgb): void {
     push(y * width)
     push(y * width + width - 1)
   }
+  // Magenta inside the object is backdrop showing through a gap the edges can't reach (between
+  // the lenses of glasses, a mug's handle): the prompt keeps magenta out of the object itself.
+  if (byHue) for (let n = 0; n < width * height; n++) if (magentaAt(data, n * 4)) push(n)
   while (head < tail) {
     const n = queue[head++]
     const x = n % width
     const i = n * 4
-    const d = data[i + 3] < CLEAR ? 0 : distance(data, i, color)
+    const d = gap(i)
     if (d <= KEY_NEAR) data[i + 3] = 0
     else {
       const a = (d - KEY_NEAR) / (KEY_FAR - KEY_NEAR)
@@ -104,6 +139,9 @@ export function keyOut(p: Pixels, color: Rgb): void {
       for (let k = 0; k < 3; k++) data[i + k] = Math.max(0, Math.min(255, Math.round((data[i + k] - color[k] * (1 - a)) / a)))
       data[i + 3] = Math.round(data[i + 3] * a)
     }
+    // The flood goes on only through backdrop: a rim pixel is softened but not passed through, so
+    // an object's own pink next to the backdrop loses at most its outer edge.
+    if (d > KEY_NEAR) continue
     if (x > 0) push(n - 1)
     if (x < width - 1) push(n + 1)
     if (n >= width) push(n - width)

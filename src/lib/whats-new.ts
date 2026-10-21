@@ -24,6 +24,11 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '8.8.1',
+    date: 'October 2026',
+    items: [{ text: 'Drawn pictures lose their background more reliably, gaps inside included', section: 'icons-and-ai' }],
+  },
+  {
     version: '8.8.0',
     date: 'October 2026',
     items: [
