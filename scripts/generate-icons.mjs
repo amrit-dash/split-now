@@ -17,9 +17,11 @@
 //                                 and Apple icon links at them, so an install takes the accent's colours.
 import sharp from 'sharp'
 import { mkdir, readFile } from 'node:fs/promises'
+import { fileURLToPath } from 'node:url'
 
 const read = (rel) => readFile(new URL(rel, import.meta.url), 'utf8')
-const out = (f) => new URL(`../public/${f}`, import.meta.url).pathname
+// fileURLToPath, not .pathname: a folder with a space in its name stays a real path, not %20.
+const out = (f) => fileURLToPath(new URL(`../public/${f}`, import.meta.url))
 
 const svg = await read('../public/favicon.svg')
 if (!/<svg\b/.test(svg)) throw new Error('public/favicon.svg is not an SVG')
