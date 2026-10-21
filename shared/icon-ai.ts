@@ -137,7 +137,7 @@ export function picturePlan(o: {
  */
 export const picturePrompt = (r: IconRequest) =>
   `Draw one app icon for ${r.kind === 'group' ? 'a group named' : `an expense${r.category ? ` (${r.category})` : ''} called`} "${r.title}".
-Style: a single bold, friendly object or symbol that shows what it is about, centred, with a little space around it on a square canvas, flat colours with soft shading, like a modern emoji. Background: one solid flat magenta (#FF00FF) from edge to edge, with no gradient, shadow, floor or texture, and no magenta in the object itself. No text, letters or numbers. No people's faces. No border or frame. It must read clearly at 40 pixels.`
+Style: a single bold, friendly object or symbol that shows what it is about, centred, with a little space around it on a square canvas, flat colours with soft shading, like a modern emoji. Background: one solid, even, pure magenta (#FF00FF) from edge to edge, with no lighting, gradient, vignette, shadow, floor or texture, and no magenta or pink in the object itself. Draw glass, lenses and windows solid (light blue or grey), never see-through. No text, letters or numbers. No people's faces. No border or frame. It must read clearly at 40 pixels.`
 
 /** A stored picture icon: a small data: URL the app made (src/lib/icon-picture.ts), else nothing. */
 export const ICON_IMAGE_MAX = 24_000

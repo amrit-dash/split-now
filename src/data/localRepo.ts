@@ -1459,9 +1459,10 @@ export function createLocalRepo(): Repo {
       // No image model here: the stand-in drawing comes back as the "picture" (the app turns it into a small image).
       const { demoIcons } = await import('@/lib/icon-ai-demo')
       const svg = demoIcons(req).svgs[1] ?? demoIcons(req).svgs[0]
-      // Like a real model's answer: the object small in the middle of a flat magenta square, which the phone keys out and crops.
+      // Like a real model's answer: the object small in the middle of a magenta square, shaded the way
+      // models paint it (not one exact colour), which the phone keys out and crops.
       const inner = svg.replace('<svg ', '<svg x="300" y="300" width="424" height="424" ')
-      const picture = `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024"><rect width="1024" height="1024" fill="#FF00FF"/>${inner}</svg>`
+      const picture = `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024"><defs><linearGradient id="m" x2="1" y2="1"><stop offset="0" stop-color="#FF12F4"/><stop offset="1" stop-color="#CE3ED6"/></linearGradient></defs><rect width="1024" height="1024" fill="url(#m)"/>${inner}</svg>`
       return { image: btoa(picture), mimeType: 'image/svg+xml', via: 'app', model: 'gemini-3.1-flash-lite-image' }
     },
     async iconPickAi(req) {

@@ -6,6 +6,10 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 8.8.1 — October 2026
+
+- AI pictures: the magenta background is now removed even when the model shades it, and from gaps inside the picture (between the lenses of glasses, a mug's handle), so the picture fills its icon. Before, a shaded background stayed and the picture sat small on a magenta square. A pink part of the picture next to the background is no longer worn away.
+
 ## 8.8.0 — October 2026
 
 - Group chat: after picking someone from the @ list, the next letters you type go where the cursor is. Before, on a busy phone the first letter could land at the end of the message ("@Rohan or the cabf").
