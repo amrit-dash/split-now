@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { BarChart3, Home, Plus, QrCode, User, Users } from 'lucide-react'
+import { BarChart3, Home, Plus, User, Users, UtensilsCrossed } from 'lucide-react'
 import { useFlag } from '@/hooks/useAppConfig'
 import { useLongPress } from '@/hooks/useLongPress'
 import { groupOfPath, plusTap } from '@/lib/plus-target'
@@ -22,7 +22,7 @@ const tabsFor = (liveTables: boolean) =>
     { to: '/', icon: Home, label: 'Home', end: true },
     { to: '/groups', icon: Users, label: 'Groups' },
     null,
-    liveTables ? { to: '/split', icon: QrCode, label: 'Live table' } : { to: '/insights', icon: BarChart3, label: 'Insights' },
+    liveTables ? { to: '/split', icon: UtensilsCrossed, label: 'Live table' } : { to: '/insights', icon: BarChart3, label: 'Insights' },
     { to: '/profile', icon: User, label: 'Profile' },
   ] as const
 
@@ -101,7 +101,7 @@ export function Layout() {
           aria-hidden
           className="nav-notch absolute inset-0 border-t border-slate-200/70 bg-white/95 backdrop-blur-2xl backdrop-saturate-150 dark:border-white/5 dark:bg-ink-900/95"
         />
-        {/* A faint wash of the accent across the bar, left to right, brightest along the top edge: it
+        {/* A faint wash of the accent across the bar, left to right, brighter towards the top: it
             ties the bar to the + button's glow without competing with it. Same notch mask. */}
         <div aria-hidden className="nav-notch nav-glow pointer-events-none absolute inset-0" />
         <div className="relative mx-auto flex max-w-2xl items-center justify-around px-2 pb-[var(--nav-pad)] pt-1.5">

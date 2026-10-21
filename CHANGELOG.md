@@ -9,7 +9,7 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 - Sheets: the title and ✕ stay at the top while a long sheet scrolls. Before, they scrolled away with it.
 - Group expenses: Involving me and the category chips moved into **Sort and filter** as **Quick filters**, and Sort by starts folded, showing the order picked. Under the search, a pill with a small icon shows each sort or filter that's on ("Biggest first", "Paid by Rohan", "2 Oct – 4 Oct"); tap one to turn it off. Before, a row of chips always sat under the search.
 
-- Tab bar: **Live table** has its own tab where Insights was, and Insights opens from **Profile**. The bar has a faint wash of your accent colour and a thin accent line along its top edge. (With live tables switched off, Insights keeps the tab.)
+- Tab bar: **Live table** has its own tab where Insights was, and Insights opens from **Profile**. The bar has a faint wash of your accent colour. (With live tables switched off, Insights keeps the tab.)
 - Inside a group, **+** opens Add expense for that group straight away; press and hold it for the Create sheet. Before, it always opened the sheet first.
 - Create sheet: **Quick add** comes first, then Add expense, New group and Scan. Settle up (on every group and on Home's balance card) and Live table (now in the tab bar) left the sheet.
 
