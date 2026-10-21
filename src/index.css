@@ -434,6 +434,15 @@ html:has(.install-banner) .whats-new-banner { display: none; }
     linear-gradient(to bottom, color-mix(in oklab, var(--color-fill) 9%, transparent), transparent 55%),
     linear-gradient(to right, color-mix(in oklab, var(--color-fill) 7%, transparent), transparent 42%, transparent 58%, color-mix(in oklab, var(--color-fill-to) 7%, transparent));
 }
+/* The bar's top edge: a hairline of the accent, brightest towards the + button, fading out to the
+   sides, over the plain border. It reads as light along the edge without spilling onto the page above. */
+.nav-glow::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(to right, transparent, color-mix(in oklab, var(--color-fill) 45%, transparent) 30%, color-mix(in oklab, var(--color-fill-to) 45%, transparent) 70%, transparent);
+}
 .dark .nav-glow {
   background:
     linear-gradient(to bottom, color-mix(in oklab, var(--color-fill) 11%, transparent), transparent 55%),

@@ -772,8 +772,23 @@ Object.assign(SCENES, {
   'search-expenses': [
     settings('Goa trip', [
       { kind: 'field', label: 'Search expenses and notes', value: 'ferry', mark: 'search' },
-      { kind: 'chips', mark: 'chips', items: [{ label: 'Involving me' }, { label: 'Transport' }, { label: 'Food & drink' }] },
-      { kind: 'row', label: 'Sort and filter', value: '1', mark: 'filter' },
+      { kind: 'row', label: 'Sort and filter', value: '2', mark: 'filter' },
+    ]),
+    settings('Sort and filter', [
+      { kind: 'row', label: 'Sort by', value: 'Date spent, newest first ⌄' },
+      { kind: 'chips', mark: 'quick', items: [{ label: 'Involving me', on: true }, { label: '🚕 Transport', on: true }, { label: '🍔 Food & drink' }] },
+      { kind: 'chips', items: [{ label: 'Everything', on: true }, { label: 'Expenses' }, { label: 'Payments' }] },
+    ]),
+    settings('Goa trip', [
+      {
+        kind: 'chips',
+        mark: 'chips',
+        items: [
+          { label: 'Involving me ✕', on: true },
+          { label: 'Transport ✕', on: true },
+        ],
+      },
+      { kind: 'row', label: 'Ferry to Havelock', value: '₹2,400' },
     ]),
   ],
   'live-table': [

@@ -21,6 +21,10 @@ import {
   Repeat,
   Search,
   ArrowDownUp,
+  ReceiptText,
+  ArrowLeftRight,
+  CalendarRange,
+  UserRound,
   Settings2,
   Trash2,
   UserMinus,
@@ -67,7 +71,8 @@ import {
   isSortKey,
   sectionRows,
   settlementMatches,
-  sheetFilterCount,
+  appliedPills,
+  removePill,
   sortRows,
   type ActivityFilter,
   type SortKey,
@@ -1086,23 +1091,34 @@ function ActivityList({
   const navTo = useNavigate()
   const [filter, setFilter] = useState<ActivityFilter>(EMPTY_FILTER)
   const [onlyMe, setOnlyMe] = useState(false)
-  // Minimal look: the category chips go (search and Sort and filter remain); Involving me stays.
-  const catChips = useShows(2)
   const [sort, setSortState] = useState<SortKey>(readSort)
   const setSort = (k: SortKey) => {
     setSortState(k)
     saveSort(k)
   }
   const f: ActivityFilter = { ...filter, involving: onlyMe ? me : undefined }
-  const sheetCount = sheetFilterCount(filter) + (sort !== DEFAULT_SORT ? 1 : 0)
+  // What's on, as pills under the search box; their number is the count on the button.
+  const pills = appliedPills({
+    filter,
+    sort,
+    onlyMe: onlyMe && !personal && !!me,
+    name: (id) => (id === me ? 'me' : labelOf(group.members, id, group.members[id]?.name ?? 'someone', me)),
+    day: (d) => formatDate(d),
+    category: (c) => CATEGORIES[c].label,
+  })
+  const sheetCount = pills.length
+  const unpill = (key: string) => {
+    const r = removePill(key, filter)
+    setFilter((p) => ({ ...p, ...r.patch }))
+    if (r.onlyMe === false) setOnlyMe(false)
+    if (r.sort) setSort(r.sort)
+  }
   const byAdded = sort.startsWith('added')
   const filtering = isFiltering(f)
   const usedCategories = useMemo(() => {
     const seen = new Set(expenses.map((e) => e.category))
     return (Object.keys(CATEGORIES) as Category[]).filter((c) => seen.has(c))
   }, [expenses])
-  const toggleCat = (c: Category) =>
-    setFilter((p) => ({ ...p, categories: p.categories.includes(c) ? p.categories.filter((x) => x !== c) : [...p.categories, c] }))
   const clear = () => {
     setFilter(EMPTY_FILTER)
     setOnlyMe(false)
@@ -1173,44 +1189,24 @@ function ActivityList({
           )}
         </button>
       </div>
-      {((catChips && usedCategories.length > 1) || (!personal && me)) && (
-        <div className="scrollbar-none -mx-4 flex gap-1.5 overflow-x-auto px-4 py-1">
-          {!personal && me && (
-            <button
-              type="button"
-              onClick={() => setOnlyMe(!onlyMe)}
-              className={`chip min-h-10 shrink-0 whitespace-nowrap ${onlyMe ? 'chip-on' : ''}`}
-              aria-pressed={onlyMe}
-            >
-              Involving me
-            </button>
-          )}
-          {catChips &&
-            usedCategories.length > 1 &&
-            usedCategories.map((c) => {
-              const on = filter.categories.includes(c)
-              return (
-                <button
-                  type="button"
-                  key={c}
-                  onClick={() => toggleCat(c)}
-                  className={`chip min-h-10 shrink-0 whitespace-nowrap ${on ? 'chip-on' : ''}`}
-                  aria-pressed={on}
-                >
-                  <span aria-hidden>{CATEGORIES[c].emoji}</span>
-                  {CATEGORIES[c].label}
-                </button>
-              )
-            })}
-        </div>
-      )}
-      {sort !== DEFAULT_SORT && !filtering && (
-        <div className="text-muted flex items-center justify-between px-1 text-xs">
-          <span>Sorted by {sort.startsWith('added') ? 'date added' : 'amount'}</span>
-          <button type="button" onClick={() => setSort(DEFAULT_SORT)} className="min-h-9 font-semibold text-brand-600 dark:text-brand-300">
-            Back to date spent
-          </button>
-        </div>
+      {pills.length > 0 && (
+        <ul className="scrollbar-none -mx-4 flex gap-1.5 overflow-x-auto px-4 py-1" aria-label="Sort and filters on" data-testid="list-pills">
+          {pills.map((p) => (
+            <li key={p.key} className="shrink-0">
+              <button
+                type="button"
+                onClick={() => unpill(p.key)}
+                className="chip chip-on min-h-10 gap-1 whitespace-nowrap pr-2.5"
+                aria-label={`${p.label}. Remove`}
+                data-testid="list-pill"
+              >
+                <PillMark pill={p.key} filter={filter} group={group} />
+                {p.label}
+                <X size={14} className="opacity-70" aria-hidden />
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
       {filtering && (
         <div className="text-muted flex items-center justify-between px-1 text-xs">
@@ -1423,6 +1419,7 @@ function ActivityList({
         filter={filter}
         onFilter={(patch) => setFilter((p) => ({ ...p, ...patch }))}
         personal={personal}
+        quick={{ showMe: !personal && !!me, onlyMe, onOnlyMe: setOnlyMe, categories: usedCategories }}
       />
     </div>
   )
@@ -1581,4 +1578,24 @@ function MetaLine({ children, added }: { children: ReactNode; added?: string | n
       </div>
     </div>
   )
+}
+
+/** The small mark at the start of an applied pill: what kind of setting it is, at a glance. */
+function PillMark({ pill, filter, group }: { pill: string; filter: ActivityFilter; group: Group }) {
+  if (pill.startsWith('cat:')) return <span aria-hidden>{CATEGORIES[pill.slice(4) as Category]?.emoji}</span>
+  if (pill === 'paidBy' && filter.paidBy) {
+    const m = group.members[filter.paidBy]
+    return m ? <Avatar name={m.name} color={m.color} photoURL={m.photoURL} size={20} /> : null
+  }
+  const Icon =
+    pill === 'sort'
+      ? ArrowDownUp
+      : pill === 'involving'
+        ? UserRound
+        : pill === 'dates'
+          ? CalendarRange
+          : filter.kind === 'payments'
+            ? ArrowLeftRight
+            : ReceiptText
+  return <Icon size={15} aria-hidden />
 }

@@ -1,6 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import type { Expense, Settlement } from '@/types'
-import { addedLater, EMPTY_FILTER, expenseMatches, isFiltering, isSortKey, sectionRows, settlementMatches, sheetFilterCount, sortRows } from './filter'
+import {
+  addedLater,
+  appliedPills,
+  EMPTY_FILTER,
+  removePill,
+  expenseMatches,
+  isFiltering,
+  isSortKey,
+  sectionRows,
+  settlementMatches,
+  sheetFilterCount,
+  sortRows,
+} from './filter'
 
 const e = (over: Partial<Expense>): Expense => ({
   id: 'e',
@@ -147,5 +159,41 @@ describe('addedLater', () => {
   it('the day it was added, only when after the day spent', () => {
     expect(addedLater({ date: '2026-01-02', createdAt: 500 }, dayOf)).toBe('2026-01-05')
     expect(addedLater({ date: '2026-01-02', createdAt: 1 }, dayOf)).toBeNull()
+  })
+})
+
+describe('applied pills', () => {
+  const base = { name: (id: string) => (id === 'a' ? 'Akash' : id), day: (d: string) => d.slice(5), category: (c: string) => c }
+  it('nothing on: no pills', () => {
+    expect(appliedPills({ ...base, filter: EMPTY_FILTER, sort: 'spent-desc', onlyMe: false })).toEqual([])
+  })
+  it("each setting is one short pill, in the sheet's order", () => {
+    const pills = appliedPills({
+      ...base,
+      filter: { ...EMPTY_FILTER, categories: ['food'], kind: 'expenses', paidBy: 'a', from: '2026-10-02', to: '2026-10-04' },
+      sort: 'amount-desc',
+      onlyMe: true,
+    })
+    expect(pills.map((p) => p.label)).toEqual(['Biggest first', 'Involving me', 'food', 'Expenses only', 'Paid by Akash', '10-02 – 10-04'])
+    expect(pills.length).toBe(6)
+  })
+  it('one side of the days, or one day', () => {
+    expect(appliedPills({ ...base, filter: { ...EMPTY_FILTER, from: '2026-10-02' }, sort: 'spent-desc', onlyMe: false })[0].label).toBe('From 10-02')
+    expect(appliedPills({ ...base, filter: { ...EMPTY_FILTER, to: '2026-10-04' }, sort: 'spent-desc', onlyMe: false })[0].label).toBe('Until 10-04')
+    expect(appliedPills({ ...base, filter: { ...EMPTY_FILTER, from: '2026-10-04', to: '2026-10-04' }, sort: 'spent-desc', onlyMe: false })[0].label).toBe(
+      '10-04',
+    )
+  })
+  it('a search is not a pill (it is in the box)', () => {
+    expect(appliedPills({ ...base, filter: { ...EMPTY_FILTER, q: 'cab' }, sort: 'spent-desc', onlyMe: false })).toEqual([])
+  })
+  it('tapping a pill turns just that off', () => {
+    const f = { ...EMPTY_FILTER, categories: ['food', 'travel'] as never[], paidBy: 'a', from: '2026-10-02' }
+    expect(removePill('cat:food', f)).toEqual({ patch: { categories: ['travel'] } })
+    expect(removePill('paidBy', f)).toEqual({ patch: { paidBy: undefined } })
+    expect(removePill('dates', f)).toEqual({ patch: { from: undefined, to: undefined } })
+    expect(removePill('kind', f)).toEqual({ patch: { kind: 'all' } })
+    expect(removePill('sort', f)).toEqual({ patch: {}, sort: 'spent-desc' })
+    expect(removePill('involving', f)).toEqual({ patch: {}, onlyMe: false })
   })
 })

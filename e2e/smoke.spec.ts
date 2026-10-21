@@ -1202,21 +1202,44 @@ test('group chat: / lists the tools, @ tags someone, Settle up asks, reply and e
 
 test('group list: sort by amount or date added, filter expenses only', async ({ page }) => {
   await page.goto('/groups/g_goa')
+  // no pills until something is on
+  await expect(page.getByTestId('list-pills')).toHaveCount(0)
   await page.getByTestId('list-options-open').click()
+  // Sort by starts folded, its choice in the header
+  await expect(page.getByTestId('list-sort-summary')).toHaveText('Date spent, newest first')
+  await page
+    .getByTestId('list-sort')
+    .getByRole('button', { name: /Sort by/ })
+    .click()
   await page.getByTestId('sort-amount-desc').click()
+  await expect(page.getByTestId('list-sort-summary')).toHaveText('Amount, biggest first')
   await page.getByTestId('list-done').click()
   await expect(page.getByRole('heading', { level: 2, name: 'Biggest first' })).toBeVisible()
   await expect(page.getByTestId('list-options-open')).toHaveAccessibleName(/1 on/)
+  await expect(page.getByTestId('list-pill')).toHaveText(['Biggest first'])
   await page.getByTestId('list-options-open').click()
+  await page
+    .getByTestId('list-sort')
+    .getByRole('button', { name: /Sort by/ })
+    .click()
   await page.getByTestId('sort-added-desc').click()
   await page.getByTestId('list-kind').getByRole('radio', { name: 'Expenses' }).click()
+  // Quick filters: one sideways row of chips
+  await page.getByTestId('quick-me').click()
+  await expect(page.getByTestId('quick-me')).toHaveAttribute('aria-pressed', 'true')
   await page.getByTestId('list-done').click()
   await expect(page.getByTestId('payment-row')).toHaveCount(0)
   await expect(page.getByRole('heading', { level: 2, name: /^Added in/ }).first()).toBeVisible()
   await expect(page.getByTestId('row-added').first()).toContainText('Added')
+  await expect(page.getByTestId('list-pill')).toHaveText(['Newest added first', 'Involving me', 'Expenses only'])
+  await expect(page.getByTestId('list-options-open')).toHaveAccessibleName(/3 on/)
+  // a pill's tap turns just that off
+  await page.getByTestId('list-pill').filter({ hasText: 'Expenses only' }).click()
+  await expect(page.getByTestId('list-pill')).toHaveText(['Newest added first', 'Involving me'])
   await page.getByTestId('list-options-open').click()
   await page.getByTestId('list-reset').click()
   await page.getByTestId('list-done').click()
+  await expect(page.getByTestId('list-pills')).toHaveCount(0)
   await expect(page.getByTestId('expense-row').first()).toBeVisible()
 })
 

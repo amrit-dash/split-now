@@ -158,7 +158,11 @@ export function Sheet({
           <div className="h-1.5 w-10 rounded-full bg-slate-200 dark:bg-ink-700" />
         </div>
         {title && (
-          <div data-sheet-grip className="mb-4 flex items-center justify-between gap-3">
+          // Sticky: in a sheet taller than the screen the title and ✕ stay in view while the body scrolls under them.
+          <div
+            data-sheet-grip
+            className="sticky -top-5 z-10 -mx-5 -mt-2 mb-4 flex items-center justify-between gap-3 bg-white px-5 pb-1 pt-3 sm:-top-6 sm:-mx-6 sm:px-6 dark:bg-ink-900"
+          >
             <h2 id={titleId} className="text-lg font-bold">
               {title}
             </h2>
