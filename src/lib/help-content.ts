@@ -1528,6 +1528,7 @@ export const SECTIONS: HelpSection[] = [
     ],
     points: [
       '**Recent activity** starts folded: tap its title to open it. A number beside it says how much is new since you last looked.',
+      'The top stays put while you scroll; once the balance card is out of sight, the line above your name says the balance.',
       'Reminders from people you owe show as cards at the top, with Settle up.',
       'With no groups yet, Home offers Create a group, Import from Splitwise and Join with an invite code.',
     ],

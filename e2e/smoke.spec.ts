@@ -1848,6 +1848,21 @@ test('a toast can be swiped away sideways', async ({ page }) => {
   await expect(toast).toHaveCount(0, { timeout: 1500 })
 })
 
+test('Home: the header stays at the top and says the balance once the card scrolls away', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 640 })
+  await expect(page.getByTestId('home-header-balance')).toHaveCount(0)
+  await page.getByRole('button', { name: /Recent (activity|expenses)/ }).click()
+  // scrolled to the end once Recent activity has opened (it grows while it opens)
+  await expect(async () => {
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+    await expect(page.getByTestId('home-header-balance')).toContainText(/You’re owed|You owe|All settled up|Nothing owed/, { timeout: 500 })
+  }).toPass()
+  const box = await page.getByTestId('home-greeting').boundingBox()
+  expect(box && box.y <= 1).toBe(true)
+  await page.getByTestId('home-header-balance').click()
+  await expect(page).toHaveURL(/\/settle$/)
+})
+
 test('Home: Recent activity starts folded, opens smoothly, and says how many are new', async ({ page }) => {
   await page.goto('/')
   const section = page.getByTestId('home-recent')

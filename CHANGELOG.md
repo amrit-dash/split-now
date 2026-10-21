@@ -6,6 +6,8 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Home: the greeting, Inbox and your photo stay at the top while the page scrolls under them. Once the balance card has scrolled away, the line above your name says the balance (tap it for Settle up). Before, the whole header scrolled off.
+
 ## 8.8.1 — October 2026
 
 - AI pictures: the magenta background is now removed even when the model shades it, and from gaps inside the picture (between the lenses of glasses, a mug's handle), so the picture fills its icon. Before, a shaded background stayed and the picture sat small on a magenta square. A pink part of the picture next to the background is no longer worn away.

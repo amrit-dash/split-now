@@ -201,3 +201,15 @@ export function topCounterparties(groups: DebtGroup[], currency: string): { owed
   }
   return { owedBy, owes }
 }
+
+/**
+ * The balance in Home's pinned header once the balance card has scrolled away (it takes the
+ * greeting's first line): "You're owed ≈ ₹2,450", "You owe ₹600", "All settled up". Null on a
+ * first run, which has no card to stand in for.
+ */
+export function headerBalance(o: { firstRun: boolean; allSettled: boolean; net: number; amount: string }): string | null {
+  if (o.firstRun) return null
+  if (o.allSettled) return 'All settled up'
+  if (o.net === 0) return 'Nothing owed'
+  return o.net > 0 ? `You’re owed ${o.amount}` : `You owe ${o.amount}`
+}

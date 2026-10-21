@@ -23,7 +23,7 @@ import { Aurora } from '@/components/Aurora'
 import { ChequeIcon } from '@/components/ChequeIcon'
 import { CardSkeleton, ListSkeleton, Skeleton } from '@/components/Skeleton'
 import { formatDate } from '@/lib/locale'
-import { dayPart, greeting, helloFor, topCounterparties, type DayPart } from '@/lib/greeting'
+import { dayPart, greeting, headerBalance, helloFor, topCounterparties, type DayPart } from '@/lib/greeting'
 import { isLiveTrip } from '@/lib/capture'
 import { todayISO } from '@/lib/id'
 import { usePageTitle } from '@/lib/brand'
@@ -48,6 +48,9 @@ export default function Home() {
   const box = useInbox(data)
   const feed = box.feed?.slice(0, 6)
   const compact = useNarrow(380)
+  const header = useRef<HTMLElement>(null)
+  const card = useRef<HTMLDivElement>(null)
+  const scrolledPast = useScrolledPast(card, header)
   if (!data) return <HomeSkeleton />
   const groupsById = Object.fromEntries(data.map((d) => [d.group.id, d.group]))
   const active = data.filter((d) => !d.group.archived)
@@ -104,12 +107,19 @@ export default function Home() {
   })
 
   const part = dayPart(new Date().getHours())
+  const pinned = headerBalance({ firstRun, allSettled, net, amount: `${ax}${formatMoney(Math.abs(net), cur)}` })
 
   return (
-    <div className="pt-[calc(var(--safe-top)+1.5rem)]">
+    <div>
       <WhatsNewBanner />
-      <header className="mb-6 flex items-center justify-between gap-3" data-testid="home-greeting">
-        <Greeting salutation={hello.salutation} name={hello.name} part={part} />
+      {/* Pinned: the greeting, Inbox and Profile stay while the page scrolls under them. Once the
+          balance card has gone up behind it, the greeting's first line says the balance instead. */}
+      <header
+        ref={header}
+        className={`sticky top-[var(--banner-h,0px)] z-30 -mx-4 mb-3 flex items-center justify-between gap-3 bg-slate-50/85 px-4 pb-3 pt-[calc(var(--safe-top)+1.5rem)] backdrop-blur-xl transition-shadow dark:bg-ink-950/85 ${scrolledPast ? 'shadow-sm shadow-slate-900/5 dark:shadow-black/30' : ''}`}
+        data-testid="home-greeting"
+      >
+        <Greeting salutation={hello.salutation} name={hello.name} part={part} balance={scrolledPast ? pinned : null} />
         <div className="flex shrink-0 items-center gap-2 min-[380px]:gap-3">
           <Link
             to="/inbox"
@@ -145,7 +155,7 @@ export default function Home() {
       {firstRun ? (
         <FirstRun />
       ) : (
-        <div className="relative isolate overflow-hidden rounded-[2rem] bg-fill p-6 text-on-fill shadow-xl shadow-fill/30">
+        <div ref={card} className="relative isolate overflow-hidden rounded-[2rem] bg-fill p-6 text-on-fill shadow-xl shadow-fill/30">
           <Aurora />
           {allSettled && (
             <Suspense fallback={null}>
@@ -552,12 +562,39 @@ function useNarrow(px: number) {
 }
 
 /**
+ * Whether the balance card has gone up behind the pinned header (its bottom above the header's).
+ * Checked on scroll at most once a frame (passive), and again when the card mounts.
+ */
+function useScrolledPast(target: React.RefObject<HTMLElement | null>, header: React.RefObject<HTMLElement | null>) {
+  const [past, setPast] = useState(false)
+  useEffect(() => {
+    let frame = 0
+    const check = () => {
+      frame = 0
+      const el = target.current
+      const top = header.current
+      setPast(!!el && !!top && el.getBoundingClientRect().bottom < top.getBoundingClientRect().bottom)
+    }
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(check)
+    }
+    check()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      cancelAnimationFrame(frame)
+    }
+  }, [target, header])
+  return past
+}
+
+/**
  * "Good morning" over "Hi, Amrit 👋" on one line when it fits; when it doesn't (small phones,
  * long names, a larger text size on Android) it switches to "Hi 👋" over the name, rather than
  * truncating the name or letting the line break wherever it falls. The size scales a little
  * with the viewport, so wide screens keep the one-line form.
  */
-function Greeting({ salutation, name, part }: { salutation: string; name: string; part: DayPart }) {
+function Greeting({ salutation, name, part, balance }: { salutation: string; name: string; part: DayPart; balance?: string | null }) {
   const box = useRef<HTMLDivElement>(null)
   const probe = useRef<HTMLSpanElement>(null)
   const [stacked, setStacked] = useState(false)
@@ -575,7 +612,13 @@ function Greeting({ salutation, name, part }: { salutation: string; name: string
   const size = 'text-[clamp(1.5rem,7.2vw,1.85rem)] font-extrabold leading-[1.15] tracking-tight'
   return (
     <div ref={box} className="relative min-w-0 flex-1">
-      <p className="text-muted text-sm font-medium">{salutation}</p>
+      {balance ? (
+        <Link to="/settle" className="animate-fade block truncate text-sm font-semibold text-brand-700 dark:text-brand-300" data-testid="home-header-balance">
+          {balance}
+        </Link>
+      ) : (
+        <p className="text-muted text-sm font-medium">{salutation}</p>
+      )}
       {/* invisible one-line copy, laid out exactly like the real line (gap and icon box included), measured to decide the layout */}
       <span ref={probe} aria-hidden className={`pointer-events-none invisible absolute left-0 top-0 inline-flex items-center gap-2 whitespace-nowrap ${size}`}>
         <span>Hi, {name}</span>
