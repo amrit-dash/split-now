@@ -53,14 +53,14 @@ export interface Screen {
 
 export type Scene = Screen[]
 
-const tabbar = (plus?: string, active?: string, insights?: string): Part => ({
+const tabbar = (plus?: string, active?: string, live?: string): Part => ({
   kind: 'tabbar',
   items: [
     { label: 'Home', icon: '🏠', on: active === 'Home' },
     { label: 'Groups', icon: '👥', on: active === 'Groups' },
     { label: 'Create', icon: '+', mark: plus },
-    { label: 'Insights', icon: '📊', mark: insights, on: active === 'Insights' },
-    { label: 'Profile', icon: '🙂' },
+    { label: 'Live table', icon: '🍽️', mark: live, on: active === 'Live table' },
+    { label: 'Profile', icon: '🙂', on: active === 'Profile' },
   ],
 })
 
@@ -82,19 +82,18 @@ const home = (mark?: string): Screen => ({
 const createSheet = (marks: { add?: string; scan?: string; group?: string; line?: string; chip?: string; go?: string }): Screen => ({
   sheet: true,
   parts: [
+    { kind: 'field', label: 'Quick add', value: 'dinner 1200 with Rahul, I paid', mark: marks.line },
+    ...(marks.chip ? [{ kind: 'chips' as const, mark: marks.chip, items: [{ label: 'Into Goa trip ▾', on: true }] }] : []),
+    ...(marks.go ? [{ kind: 'button' as const, label: 'Send', mark: marks.go }] : []),
+    { kind: 'note', label: 'or' },
     { kind: 'button', label: 'Add expense', primary: true, mark: marks.add },
     {
       kind: 'tiles',
       items: [
-        { label: 'Live table', icon: '🍽️' },
-        { label: 'Scan', icon: '📷', mark: marks.scan },
         { label: 'New group', icon: '👥', mark: marks.group },
-        { label: 'Settle up', icon: '💸' },
+        { label: 'Scan', icon: '📷', mark: marks.scan },
       ],
     },
-    { kind: 'field', label: 'Quick add', value: 'dinner 1200 with Rahul, I paid', mark: marks.line },
-    ...(marks.chip ? [{ kind: 'chips' as const, mark: marks.chip, items: [{ label: 'Into Goa trip ▾', on: true }] }] : []),
-    ...(marks.go ? [{ kind: 'button' as const, label: 'Send', mark: marks.go }] : []),
   ],
 })
 
@@ -292,7 +291,15 @@ export const SCENES: Record<string, Scene> = {
     },
   ],
   insights: [
-    { parts: [{ kind: 'title', label: 'Home' }, { kind: 'row', label: 'Overall, you are owed', value: '₹2,450' }, tabbar(undefined, 'Home', 'tab')] },
+    {
+      parts: [
+        { kind: 'title', label: 'Hi Asha' },
+        { kind: 'row', label: 'Settings', value: '›' },
+        { kind: 'row', label: 'Insights', value: '›', mark: 'tab' },
+        { kind: 'row', label: 'Balances', value: '›' },
+        tabbar(undefined, 'Profile'),
+      ],
+    },
     {
       parts: [
         { kind: 'title', label: 'Insights' },
@@ -770,18 +777,8 @@ Object.assign(SCENES, {
     ]),
   ],
   'live-table': [
-    home('plus'),
     {
-      sheet: true,
-      parts: [
-        {
-          kind: 'tiles',
-          items: [
-            { label: 'Live table', icon: '🍽️', mark: 'tile' },
-            { label: 'Scan', icon: '📷' },
-          ],
-        },
-      ],
+      parts: [{ kind: 'title', label: 'Hi Asha' }, { kind: 'row', label: 'Overall, you are owed', value: '₹2,450' }, tabbar(undefined, 'Home', 'tile')],
     },
     settings('Live table', [
       { kind: 'row', label: 'Pizza · Pasta · 2 Beer', value: '₹1,980' },

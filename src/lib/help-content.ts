@@ -198,7 +198,7 @@ export const SECTIONS: HelpSection[] = [
     summary: 'Enter what was paid, who paid, and how to split it.',
     keywords: ['bill', 'spend', 'cost', 'payer', 'date', 'notes', 'repeat'],
     steps: [
-      { text: 'Tap **+**, then **Add expense**.', mark: 'plus' },
+      { text: 'Tap **+**, then **Add expense**. Inside a group, **+** opens it for that group straight away.', mark: 'plus' },
       { text: 'Check the group next to **With**, or tap **Change**.', mark: 'group' },
       { text: 'Say what it was for. The icon and category follow your words.', mark: 'desc' },
       { text: 'Type the amount. Tap the currency to enter it in another one.', mark: 'amount' },
@@ -297,7 +297,7 @@ export const SECTIONS: HelpSection[] = [
     summary: 'Type or say one line; the expense form opens filled in.',
     keywords: ['quick', 'type', 'voice', 'speak', 'mic', 'line', 'sentence'],
     steps: [
-      { text: 'Tap **+**.', mark: 'plus' },
+      { text: 'Tap **+** (inside a group, press and hold it).', mark: 'plus' },
       { text: 'Type a line, like “dinner 1200 with Rahul and Priya, I paid”, or tap the mic.', mark: 'line' },
       { text: 'Check the group: “in Goa” or “@flat” in the line picks one.', mark: 'chip' },
       { text: 'Tap send. Add expense opens with it all filled in.', mark: 'go' },
@@ -409,7 +409,7 @@ export const SECTIONS: HelpSection[] = [
     summary: 'Where your money goes: charts by period, group and category.',
     keywords: ['charts', 'stats', 'spending', 'report', 'category', 'budget', 'trend'],
     steps: [
-      { text: 'Tap **Insights** in the tab bar.', mark: 'tab' },
+      { text: 'In **Profile**, tap **Insights**.', mark: 'tab' },
       { text: 'Pick the dates, groups and categories, and **My share** or **Total spent**.', mark: 'filters' },
       { text: 'Tap a slice of **Where it goes** to see one category.', mark: 'donut' },
       { text: 'Scroll for spending over time, by group, and the biggest expenses.', mark: 'bars' },
@@ -1176,7 +1176,7 @@ export const SECTIONS: HelpSection[] = [
     summary: 'Scan the bill; friends scan a QR and tap what they had.',
     keywords: ['live table', 'qr', 'restaurant', 'claim items', 'table', 'shared bill', 'who had what'],
     steps: [
-      { text: 'Tap **+**, then **Live table**.', mark: 'tile' },
+      { text: 'Tap **Live table** in the tab bar.', mark: 'tile' },
       { text: '**Scan the bill**, check the items, tax and tip, and tap **Start table**.', mark: 'start' },
       { text: 'Friends scan the QR, enter their name and tap what they had.', mark: 'claim' },
       { text: 'Tap **Finish**, pick the group, and the bill is added as an expense.', mark: 'finish' },
@@ -1524,7 +1524,7 @@ export const SECTIONS: HelpSection[] = [
       { text: 'The balance card: overall you’re owed or you owe. Tap it for Balances.', mark: 'balance' },
       { text: '**Groups & friends**, then **Recent activity** and **Recent expenses**.', mark: 'groups' },
       { text: '**Recent activity** starts folded; the number beside it is what’s new. Tap its title to open it.', mark: 'recent' },
-      { text: 'The **+** in the middle of the tab bar adds anything.', mark: 'plus' },
+      { text: 'The **+** in the middle of the tab bar adds anything; **Live table** sits beside it.', mark: 'plus' },
     ],
     points: [
       '**Recent activity** starts folded: tap its title to open it. A number beside it says how much is new since you last looked.',

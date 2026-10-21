@@ -154,7 +154,7 @@ export default function Insights() {
   if (!data || !view) {
     return (
       <div>
-        <PageHeader title="Insights" />
+        <PageHeader title="Insights" back="/profile" />
         <div className="space-y-3" role="status" aria-label="Loading">
           <CardSkeleton className="h-12" />
           <CardSkeleton className="h-28" />
@@ -182,7 +182,7 @@ export default function Insights() {
 
   return (
     <div>
-      <PageHeader title="Insights" />
+      <PageHeader title="Insights" back="/profile" />
       <FiltersPanel
         filters={filters}
         onChange={setFilters}

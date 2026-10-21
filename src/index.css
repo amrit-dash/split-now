@@ -427,6 +427,19 @@ html:has(.install-banner) .whats-new-banner { display: none; }
   mask: linear-gradient(#000 0 0) exclude, var(--notch) top center / 7rem 3rem no-repeat;
 }
 
+/* The tab bar's accent wash: the accent fading in from the left, the duo colour from the right,
+   both faint, plus a slightly stronger line along the top edge. Under it the bar stays white or ink. */
+.nav-glow {
+  background:
+    linear-gradient(to bottom, color-mix(in oklab, var(--color-fill) 9%, transparent), transparent 55%),
+    linear-gradient(to right, color-mix(in oklab, var(--color-fill) 7%, transparent), transparent 42%, transparent 58%, color-mix(in oklab, var(--color-fill-to) 7%, transparent));
+}
+.dark .nav-glow {
+  background:
+    linear-gradient(to bottom, color-mix(in oklab, var(--color-fill) 11%, transparent), transparent 55%),
+    linear-gradient(to right, color-mix(in oklab, var(--color-fill) 7%, transparent), transparent 42%, transparent 58%, color-mix(in oklab, var(--color-fill-to) 7%, transparent));
+}
+
 /* The + button: no hard outline; a soft top highlight (glass edge) and a tight shadow. The thin rim
    round its lower half and the glow underneath are separate layers (Layout). */
 .fab-ring {

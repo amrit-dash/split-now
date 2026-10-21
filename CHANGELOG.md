@@ -6,6 +6,10 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Tab bar: **Live table** has its own tab where Insights was, and Insights opens from **Profile**. The bar has a faint wash of your accent colour. (With live tables switched off, Insights keeps the tab.)
+- Inside a group, **+** opens Add expense for that group straight away; press and hold it for the Create sheet. Before, it always opened the sheet first.
+- Create sheet: **Quick add** comes first, then Add expense, New group and Scan. Settle up (on every group and on Home's balance card) and Live table (now in the tab bar) left the sheet.
+
 - Home: the greeting, Inbox and your photo stay at the top while the page scrolls under them. Once the balance card has scrolled away, the line above your name says the balance (tap it for Settle up). Before, the whole header scrolled off.
 
 ## 8.8.1 — October 2026

@@ -1,6 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Camera, ChevronRight, HandHeart, ImagePlus, LifeBuoy, LogOut, Settings as SettingsIcon, ShieldCheck, Trash2, Users, Wallet, X } from 'lucide-react'
+import {
+  BarChart3,
+  Camera,
+  ChevronRight,
+  HandHeart,
+  ImagePlus,
+  LifeBuoy,
+  LogOut,
+  Settings as SettingsIcon,
+  ShieldCheck,
+  Trash2,
+  Users,
+  Wallet,
+  X,
+} from 'lucide-react'
 import { useWhatsNew } from '@/hooks/useWhatsNew'
 import { repo } from '@/data'
 import { semverOf } from '@/lib/flags'
@@ -353,6 +367,24 @@ export default function Profile() {
               New
             </span>
           )}
+          <ChevronRight size={18} className="text-slate-400" aria-hidden />
+        </Link>
+        {/* Insights left the tab bar for Live table; it opens from here. */}
+        <Link
+          to="/insights"
+          className="flex items-center gap-3 p-4 font-medium transition active:bg-slate-50 dark:active:bg-ink-800"
+          data-testid="profile-insights"
+        >
+          <span
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
+            aria-hidden
+          >
+            <BarChart3 size={19} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block">Insights</span>
+            <span className="text-muted block text-xs font-normal">Where your money went, by month and category</span>
+          </span>
           <ChevronRight size={18} className="text-slate-400" aria-hidden />
         </Link>
         <Link to="/settle" className="flex items-center gap-3 p-4 font-medium transition active:bg-slate-50 dark:active:bg-ink-800">

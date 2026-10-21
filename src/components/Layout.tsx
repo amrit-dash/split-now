@@ -1,6 +1,9 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { BarChart3, Home, Plus, User, Users } from 'lucide-react'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { BarChart3, Home, Plus, QrCode, User, Users } from 'lucide-react'
+import { useFlag } from '@/hooks/useAppConfig'
+import { useLongPress } from '@/hooks/useLongPress'
+import { groupOfPath, plusTap } from '@/lib/plus-target'
 import { useAllGroupData } from '@/hooks/data'
 import { useInbox } from '@/hooks/useInbox'
 import { applyIconTint } from '@/lib/accent'
@@ -12,19 +15,32 @@ import { CreateSheet } from './CreateSheet'
 import { SyncPill } from './OfflinePill'
 import { Loading } from './Misc'
 
-const tabs = [
-  { to: '/', icon: Home, label: 'Home', end: true },
-  { to: '/groups', icon: Users, label: 'Groups' },
-  null,
-  { to: '/insights', icon: BarChart3, label: 'Insights' },
-  { to: '/profile', icon: User, label: 'Profile' },
-] as const
+// Live table has the slot Insights had (Insights is a row in Profile now); with live tables
+// switched off for everyone, Insights takes its place back, so the bar never has a hole.
+const tabsFor = (liveTables: boolean) =>
+  [
+    { to: '/', icon: Home, label: 'Home', end: true },
+    { to: '/groups', icon: Users, label: 'Groups' },
+    null,
+    liveTables ? { to: '/split', icon: QrCode, label: 'Live table' } : { to: '/insights', icon: BarChart3, label: 'Insights' },
+    { to: '/profile', icon: User, label: 'Profile' },
+  ] as const
 
 export function Layout() {
   const loc = useLocation()
-  const groupMatch = loc.pathname.match(/^\/groups\/([^/]+)/)
-  const groupId = groupMatch && groupMatch[1] !== 'new' && groupMatch[1] !== 'import' ? groupMatch[1] : undefined
+  const nav = useNavigate()
+  const groupId = groupOfPath(loc.pathname)
   const [creating, setCreating] = useState(false)
+  const tabs = tabsFor(useFlag('liveTables'))
+  // Inside a group a tap adds an expense to it; press and hold (or right click) opens the sheet.
+  const plus = useLongPress({
+    onTap: () => {
+      const a = plusTap(loc.pathname)
+      if (a.kind === 'add') nav(a.to)
+      else setCreating(true)
+    },
+    onHold: () => setCreating(true),
+  })
   const main = useRef<HTMLElement>(null)
   // Lets fixed banners (UpdatePrompt) and the toast stack sit above the tab bar only on screens that have one.
   useEffect(() => {
@@ -85,17 +101,20 @@ export function Layout() {
           aria-hidden
           className="nav-notch absolute inset-0 border-t border-slate-200/70 bg-white/95 backdrop-blur-2xl backdrop-saturate-150 dark:border-white/5 dark:bg-ink-900/95"
         />
+        {/* A faint wash of the accent across the bar, left to right, brightest along the top edge: it
+            ties the bar to the + button's glow without competing with it. Same notch mask. */}
+        <div aria-hidden className="nav-notch nav-glow pointer-events-none absolute inset-0" />
         <div className="relative mx-auto flex max-w-2xl items-center justify-around px-2 pb-[var(--nav-pad)] pt-1.5">
           {tabs.map((t) =>
             t === null ? (
               <div key="create" className="relative w-16 self-stretch">
                 <button
                   type="button"
-                  onClick={() => setCreating(true)}
+                  {...plus}
                   data-testid="nav-create"
                   className="fab-ring absolute left-1/2 top-0 flex h-[3.75rem] w-[3.75rem] -translate-x-1/2 -translate-y-[45%] items-center justify-center overflow-hidden rounded-full text-on-fill transition active:scale-95"
-                  aria-label="Create"
-                  aria-haspopup="dialog"
+                  aria-label={groupId ? 'Add expense to this group (press and hold for more)' : 'Create'}
+                  aria-haspopup={groupId ? undefined : 'dialog'}
                 >
                   <Aurora size="fab" />
                   {/* white outline round the lower half, fading out towards the top */}

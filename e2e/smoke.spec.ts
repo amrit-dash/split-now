@@ -59,10 +59,18 @@ test('demo sign-in shows Home with a net balance and the seeded groups', async (
 
 test('every tab renders a page heading', async ({ page }) => {
   const nav = page.getByRole('navigation')
-  for (const tab of ['Groups', 'Insights', 'Profile', 'Home']) {
+  for (const tab of ['Groups', 'Profile', 'Home']) {
     await nav.getByRole('link', { name: tab }).click()
     await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
   }
+  // Insights moved to Profile; Live table has its slot in the bar
+  await nav.getByRole('link', { name: 'Profile' }).click()
+  await page.getByTestId('profile-insights').click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Insights' })).toBeVisible()
+  await page.getByRole('button', { name: 'Back' }).click()
+  await expect(page).toHaveURL(/\/profile$/)
+  await nav.getByRole('link', { name: 'Live table' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Live table' })).toBeVisible()
 })
 
 test('create a group through the kind selector', async ({ page }) => {
@@ -133,8 +141,8 @@ test('Private group: universal pattern, words stored encrypted, patterns go in o
   await expect(page.getByRole('heading', { level: 1, name: /Vault trip/ })).toBeVisible()
   await expect(page.getByTestId('vault-lock')).toBeHidden()
   // In the app from here on (a reload forgets the keys, which locks every private group: that's the point).
+  // inside the group, + adds an expense to it straight away
   await page.getByTestId('nav-create').click()
-  await page.getByRole('dialog').getByTestId('create-expense').click()
   await page.getByRole('textbox', { name: 'Description', exact: true }).fill('Secret dinner')
   await amountField(page).fill('900')
   await page.getByTestId('expense-save').click()
@@ -262,11 +270,19 @@ test('Private group: its creator makes an existing group private, everything in 
 })
 
 test('the + button opens the Create sheet; Add expense saves an equal split', async ({ page }) => {
-  await page.goto('/groups/g_goa')
   await page.getByTestId('nav-create').click()
   const sheet = page.getByRole('dialog')
   await expect(sheet).toBeVisible()
-  await sheet.getByTestId('create-expense').click()
+  // Quick add first, then Add expense, New group and Scan; no Settle up or Live table tiles
+  await expect(sheet.getByTestId('create-split')).toHaveCount(0)
+  await expect(sheet.getByTestId('create-settle')).toHaveCount(0)
+  await expect(sheet.getByTestId('create-group')).toBeVisible()
+  await expect(sheet.getByTestId('create-scan')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(sheet).toBeHidden()
+  // inside a group, a tap on + goes straight to Add expense for it, no sheet
+  await page.goto('/groups/g_goa')
+  await page.getByTestId('nav-create').click()
   await expect(page).toHaveURL(/\/add\?group=g_goa/)
   await expect(page.getByText('Goa Trip', { exact: true })).toBeVisible()
   await page.getByRole('textbox', { name: 'Description', exact: true }).fill('Dinner at Bob’s Bar')
@@ -306,7 +322,8 @@ test('Money received: shared like an expense, shown as received, and the receive
 
 test('Quick add in the Create sheet: a group named in the line wins, and opens the form filled in', async ({ page }) => {
   await page.goto('/groups/g_goa')
-  await page.getByTestId('nav-create').click()
+  // inside a group a tap adds an expense; press and hold (here a right click) opens the sheet
+  await page.getByTestId('nav-create').click({ button: 'right' })
   const quick = page.getByRole('dialog').getByTestId('create-quick-add')
   // Not focused on open: the keyboard would cover the tiles.
   await expect(quick.getByRole('textbox', { name: 'Quick add' })).not.toBeFocused()
@@ -333,7 +350,8 @@ test('Quick add can start a new group, then lands on the form with the line', as
 
 test('Quick add composer: outlined field, group chip, 44px mic and send; "New group" brings the named people along', async ({ page }) => {
   await page.goto('/groups/g_goa')
-  await page.getByTestId('nav-create').click()
+  // inside a group a tap adds an expense; press and hold (here a right click) opens the sheet
+  await page.getByTestId('nav-create').click({ button: 'right' })
   const quick = page.getByRole('dialog').getByTestId('create-quick-add')
   const field = quick.getByRole('textbox', { name: 'Quick add' })
   const go = quick.getByTestId('create-quick-add-go')
@@ -1245,7 +1263,8 @@ test('chat: the Open item tool has the icon button and every icon', async ({ pag
 
 test('Quick add: "who paid?" opens the open item sheet in the group, filled in; Rahul-style guesses become “might have paid”', async ({ page }) => {
   await page.goto('/groups/g_goa')
-  await page.getByTestId('nav-create').click()
+  // inside a group a tap adds an expense; press and hold (here a right click) opens the sheet
+  await page.getByTestId('nav-create').click({ button: 'right' })
   const quick = page.getByRole('dialog').getByTestId('create-quick-add')
   await quick.getByRole('textbox', { name: 'Quick add' }).fill('lunch Oct 2 Cafe Blue, maybe Priya paid')
   await quick.getByTestId('create-quick-add-go').click()
