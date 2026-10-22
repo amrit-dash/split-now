@@ -2440,13 +2440,19 @@ test('Help: a section read to its end is ticked, and the ring moves off 0%', asy
   await page.goto('/help')
   const ring = page.getByTestId('help-ring')
   await expect(ring).toHaveAttribute('aria-label', /Help 0% done/)
-  // An explainer is read once its last part has been shown.
+  // Rushed: the last part shown at once, then gone before 5 s. It doesn't count.
   await page.goto('/help/modes-explained')
   await expect(page.getByTestId('help-story')).toBeVisible()
   await page.getByTestId('help-beat').last().click()
   await expect(page.getByTestId('help-story')).toHaveAttribute('data-beat', '2')
   await page.goto('/help?q=pocket%20knife')
   const row = page.getByTestId('help-row').filter({ hasText: 'Simple and Advanced, the same app' })
+  await expect(row).not.toHaveAttribute('data-done', 'true')
+  // Read: its last part shown and the page kept open for longer than 7.5 s. Now it counts.
+  await page.goto('/help/modes-explained')
+  await page.getByTestId('help-beat').last().click()
+  await page.waitForTimeout(7800)
+  await page.goto('/help?q=pocket%20knife')
   await expect(row).toHaveAttribute('data-done', 'true')
   await expect(page.getByTestId('help-ring')).not.toHaveAttribute('aria-label', /Help 0% done/)
 })
