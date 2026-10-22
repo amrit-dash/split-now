@@ -38,6 +38,17 @@ const RUPEE =
   '<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1" transform="translate(2.4 -.6) scale(.8)" d="M9.25 8.25h5.5M9.25 10.75h5.5M10.25 8.25c1.9 0 2.9.9 2.9 2.25s-1 2.5-2.9 2.5h-1l4.25 4"/>'
 
 const CUSTOM = {
+  /* Profile's Settings button: Fluent's gear with a clean, even ring in the middle (owner: Fluent's own
+     inner circle looked off), the same weight as the gear's outline. Filled is Fluent's as it is. */
+  fluentGear: {
+    get line() {
+      const outer = body('fluent', 'settings-24-regular').match(/d="(M[^M"]+)/)[1]
+      return `<path fill="currentColor" d="${outer}"/>${ring(2.9, 1.6)}`
+    },
+    get fill() {
+      return body('fluent', 'settings-24-filled')
+    },
+  },
   /* Notifications row: Solar's bell with a round dot at its top right (owner: the line inside the
      bell read as a mouse), the bell drawn a little smaller and lower so the dot sits clear of it. */
   bellDot: {
@@ -202,7 +213,9 @@ const UI = {
   RepeatIcon: 'arrow-repeat-all',
   ScanIcon: 'scan-camera',
   SendIcon: 'send',
-  SettingsIcon: 'settings',
+  SettingsIcon: '~fluentGear',
+  /* a group's settings button (owner, 22 Oct 2026): a set of toggles, apart from Profile's gear */
+  GroupSettingsIcon: 'toggle-multiple',
   SimpleModeIcon: 'leaf-one',
   ShapesIcon: 'shapes',
   ShareIcon: 'share',

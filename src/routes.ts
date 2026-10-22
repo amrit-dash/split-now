@@ -90,6 +90,29 @@ export function prefetch(key: RouteKey | undefined): void {
  */
 export const IDLE_PREFETCH: readonly RouteKey[] = ['GroupDetail', 'ExpenseForm', 'Insights', 'Profile', 'Settings']
 
+/**
+ * Everything else a member reaches in a tap or two (owner: no screen should make you wait the
+ * first time), fetched on a second idle once the first set is in: the group's chat, money and
+ * members, settling up, Scan, the Inbox, Help and its pictures' code. About 120 kB gzip in all,
+ * once per install (the service worker keeps them); Data Saver skips it. Admin, import and the
+ * guest-only screens stay on demand.
+ */
+export const IDLE_PREFETCH_LATER: readonly RouteKey[] = [
+  'Help',
+  'GroupChat',
+  'SettleUp',
+  'SettleAll',
+  'Scan',
+  'Inbox',
+  'GroupForm',
+  'GroupMembers',
+  'GroupMoney',
+  'ExpenseDetail',
+  'SplitBill',
+  'Capture',
+  'AutoCaptureSetup',
+]
+
 /** /settings/<area> → the chunk of that settings screen (the Settings chunk only holds the list). */
 const SETTINGS_AREAS: Readonly<Record<string, RouteKey>> = {
   preferences: 'SettingsPreferences',

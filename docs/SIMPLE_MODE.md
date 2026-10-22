@@ -41,6 +41,7 @@ Simple keeps nearly every everyday feature; it differs mostly in Settings and a 
 |---|---|---|
 | Home | Everything else | Import from Splitwise on first run (Settings → Data keeps it) |
 | Groups | Recently deleted, archived | Import from Splitwise, personal wallets (every list, picker and form; the wallets stay) |
+| Group chat | The chat, tools, tags, replies, the header's mute bell; About this chat's explainer and How to use it | About this chat → Your settings (suggest tools, AI suggestions, mute switch) |
 | Create sheet | Quick add, Add expense, New group, Scan | |
 | Group | Chat, Open, Balances, Activity tabs, graph view, sort and filter, trip capture line | Whose-turn chip |
 | Group menu | Insights and the rest | Money received, Export CSV |

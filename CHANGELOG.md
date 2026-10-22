@@ -8,6 +8,10 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## 9.0.0 — October 2026
 
+- New icons for settings: a group's settings button is a set of toggles, so it no longer looks like the app's Settings; Profile's Settings gear has a clean, even circle in the middle. Before, both were the same gear and its middle looked off.
+- Settings → Preferences: Mode (Simple or Advanced) is now the last section, and its Advanced option shows the same picture as Profile's mode button.
+- Simple: a group chat's About sheet shows what the chat is and how to use it, without the settings underneath (the bell at the top still mutes).
+- Help and the screens you open most (a group's chat, money and members, Settle up, Scan, Inbox) now load quietly in the background after the app opens, so the first tap on them doesn't wait.
 - The install offer on the sign-in screen keeps **Install** on the same row as its words on every phone; its line is shorter (“Add to Home Screen first”) and wraps beside the button when it must. Before, on an iPhone the button dropped under the words.
 - Shorter, plainer explanations across the app: the lines under settings, switches and screens say the same in fewer words, and where a title already said it all the line is gone and the title carries it (like **Add my bank payments here** on a trip, **New expenses with you** in Notifications). Warnings about money, privacy and deleting keep every fact. The detail levels have clearer names: **Explain everything**, **Short tips**, **Titles only** and **Tips behind (i)** (they were Full, When needed, Minimal and Tooltip).
 - Finish every section of Help and its ring turns into a tick, with a **Congratulations** banner to claim your **Pro** badge. It stays yours even when Help grows; new sections just bring the ring back.

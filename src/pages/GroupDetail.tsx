@@ -20,7 +20,7 @@ import {
   LockOpenIcon,
   MemberRemoveIcon,
   ReceiptIcon,
-  SettingsIcon,
+  GroupSettingsIcon,
   SortIcon,
   SwapIcon,
   TrashIcon,
@@ -339,7 +339,7 @@ export default function GroupDetail() {
               aria-haspopup="dialog"
               data-testid="group-menu"
             >
-              <SettingsIcon size={22} aria-hidden />
+              <GroupSettingsIcon size={22} aria-hidden />
             </button>
           </div>
         }

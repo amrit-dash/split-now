@@ -45,7 +45,7 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 /** A few error reports per session at most, each message once (lib/app-errors.ts). */
 const reportGateOnce = reportGate()
 import { useViewportStats } from './hooks/useViewportStats'
-import { IDLE_PREFETCH, load, prefetch, prefetchAfter, prefetchHelp, type RouteKey, routeChunks } from './routes'
+import { IDLE_PREFETCH, IDLE_PREFETCH_LATER, load, prefetch, prefetchAfter, prefetchHelp, type RouteKey, routeChunks } from './routes'
 import Login from './pages/Login'
 import VerifyEmail from './pages/VerifyEmail'
 import NameStep from './pages/NameStep'
@@ -614,13 +614,20 @@ function UpdateRequired({ minVersion }: { minVersion: string }) {
  * still downloading shows as a frozen tap; this is what keeps that rare.
  */
 function usePrefetch() {
-  useEffect(
-    () =>
-      onIdle(() => {
-        for (const k of IDLE_PREFETCH) prefetch(k)
-      }),
-    [],
-  )
+  useEffect(() => {
+    // The usual next screens first; the rest on a later idle, so they never compete with them.
+    let later = () => {}
+    const first = onIdle(() => {
+      for (const k of IDLE_PREFETCH) prefetch(k)
+      later = onIdle(() => {
+        for (const k of IDLE_PREFETCH_LATER) prefetch(k)
+      })
+    })
+    return () => {
+      first()
+      later()
+    }
+  }, [])
   useEffect(() => {
     const onPointerDown = (e: Event) => {
       const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null

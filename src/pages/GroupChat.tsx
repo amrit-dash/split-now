@@ -19,6 +19,7 @@ import {
   useSettlements,
 } from '@/hooks/data'
 import { useFlag } from '@/hooks/useAppConfig'
+import { useFeature } from '@/hooks/useMode'
 import { useCapturePrefs } from '@/hooks/useCapturePrefs'
 import type { ChatMessage, ChatReplyRef } from '@/types'
 import { usePageTitle } from '@/lib/brand'
@@ -66,6 +67,7 @@ export default function GroupChat() {
   const { user, profile } = useMe()
   const toast = useToast()
   const goBack = useBack(`/groups/${groupId}`)
+  const chatSettings = useFeature('chatSettings')
   const chatOn = useFlag('groupChat')
   const openItemsOn = useFlag('openItems')
   const group = useGroup(groupId)
@@ -500,63 +502,68 @@ export default function GroupChat() {
           </ul>
         </Collapsible>
 
-        <h3 className="mb-2 mt-5 px-1 text-sm font-bold">Your settings</h3>
-        <div className="divide-y divide-slate-100 rounded-2xl bg-slate-50 dark:divide-white/5 dark:bg-ink-800">
-          <div className="flex items-center gap-3 p-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center font-medium">
-                Suggest tools as I type
-                <InfoTip hint={SUGGEST_HINT} label="About suggesting tools" />
-              </div>
-              <HintText hint={SUGGEST_HINT} className="text-muted text-xs" as="div" />
-            </div>
-            <Switch
-              checked={suggest}
-              onChange={(v) => {
-                setSuggest(v)
-                setSuggestOn(v)
-              }}
-              label="Suggest tools as I type"
-              testId="chat-suggest-switch"
-            />
-          </div>
-          {chatAiOn && suggest && (
-            <div className="flex items-center gap-3 p-3" data-testid="chat-ai-row">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center font-medium">
-                  Use AI for suggestions
-                  {repo.mode !== 'demo' && <InfoTip hint={AI_SUGGEST_HINT} label="About AI suggestions" />}
+        {/* Simple keeps the sheet to what the chat is and how to use it; the header's bell still mutes. */}
+        {chatSettings && (
+          <>
+            <h3 className="mb-2 mt-5 px-1 text-sm font-bold">Your settings</h3>
+            <div className="divide-y divide-slate-100 rounded-2xl bg-slate-50 dark:divide-white/5 dark:bg-ink-800">
+              <div className="flex items-center gap-3 p-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center font-medium">
+                    Suggest tools as I type
+                    <InfoTip hint={SUGGEST_HINT} label="About suggesting tools" />
+                  </div>
+                  <HintText hint={SUGGEST_HINT} className="text-muted text-xs" as="div" />
                 </div>
-                {repo.mode === 'demo' ? (
-                  <div className="text-muted text-xs">Needs a Split Now account: not in the demo.</div>
-                ) : (
-                  <HintText hint={AI_SUGGEST_HINT} className="text-muted text-xs" as="div" />
-                )}
+                <Switch
+                  checked={suggest}
+                  onChange={(v) => {
+                    setSuggest(v)
+                    setSuggestOn(v)
+                  }}
+                  label="Suggest tools as I type"
+                  testId="chat-suggest-switch"
+                />
               </div>
-              <Switch
-                checked={aiSuggest && repo.mode !== 'demo'}
-                onChange={(v) => {
-                  setAiSuggest(v)
-                  setAiSuggestOn(v)
-                  setAiBlocked(false)
-                }}
-                label="Use AI for suggestions"
-                disabled={repo.mode === 'demo'}
-                testId="chat-ai-switch"
-              />
-            </div>
-          )}
-          <div className="flex items-center gap-3 p-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center font-medium">
-                Mute this chat
-                <InfoTip hint={MUTE_HINT} label="About muting this chat" />
+              {chatAiOn && suggest && (
+                <div className="flex items-center gap-3 p-3" data-testid="chat-ai-row">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center font-medium">
+                      Use AI for suggestions
+                      {repo.mode !== 'demo' && <InfoTip hint={AI_SUGGEST_HINT} label="About AI suggestions" />}
+                    </div>
+                    {repo.mode === 'demo' ? (
+                      <div className="text-muted text-xs">Needs a Split Now account: not in the demo.</div>
+                    ) : (
+                      <HintText hint={AI_SUGGEST_HINT} className="text-muted text-xs" as="div" />
+                    )}
+                  </div>
+                  <Switch
+                    checked={aiSuggest && repo.mode !== 'demo'}
+                    onChange={(v) => {
+                      setAiSuggest(v)
+                      setAiSuggestOn(v)
+                      setAiBlocked(false)
+                    }}
+                    label="Use AI for suggestions"
+                    disabled={repo.mode === 'demo'}
+                    testId="chat-ai-switch"
+                  />
+                </div>
+              )}
+              <div className="flex items-center gap-3 p-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center font-medium">
+                    Mute this chat
+                    <InfoTip hint={MUTE_HINT} label="About muting this chat" />
+                  </div>
+                  <HintText hint={MUTE_HINT} className="text-muted text-xs" as="div" />
+                </div>
+                <Switch checked={muted} onChange={toggleMute} label="Mute this chat" disabled={!prefs} />
               </div>
-              <HintText hint={MUTE_HINT} className="text-muted text-xs" as="div" />
             </div>
-            <Switch checked={muted} onChange={toggleMute} label="Mute this chat" disabled={!prefs} />
-          </div>
-        </div>
+          </>
+        )}
       </Sheet>
     </div>
   )

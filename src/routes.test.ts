@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { IDLE_PREFETCH, load, prefetchAfter, prefetchHelp, routeChunks, routeKey } from './routes'
+import { IDLE_PREFETCH, IDLE_PREFETCH_LATER, load, prefetchAfter, prefetchHelp, routeChunks, routeKey } from './routes'
 
 describe('routeKey', () => {
   it('maps every lazy route in App.tsx to its chunk', () => {
@@ -49,6 +49,10 @@ describe('routeKey', () => {
 
   it('only prefetches screens that exist', () => {
     for (const k of IDLE_PREFETCH) expect(typeof load[k]).toBe('function')
+    for (const k of IDLE_PREFETCH_LATER) expect(typeof load[k]).toBe('function')
+    // the second set never repeats the first, and never fetches the admin console for everyone
+    expect(IDLE_PREFETCH_LATER.filter((k) => IDLE_PREFETCH.includes(k))).toEqual([])
+    expect(IDLE_PREFETCH_LATER).not.toContain('Admin')
   })
 })
 

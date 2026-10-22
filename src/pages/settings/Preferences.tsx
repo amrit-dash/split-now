@@ -19,13 +19,14 @@ import { useMode } from '@/hooks/useMode'
 import { getTheme, setTheme as saveTheme, type Theme } from '@/lib/theme'
 import { AccentPicker } from '@/components/AccentPicker'
 import { HintText, InfoTip, useShows, type Hint } from '@/components/Hint'
-import { AdvancedModeIcon, ContrastIcon, HomeIcon, MoonIcon, SimpleModeIcon, SunIcon } from '@/components/icons'
+import { ContrastIcon, HomeIcon, MoonIcon, SimpleModeIcon, SunIcon } from '@/components/icons'
 import { Segmented } from '@/components/Misc'
 import { RatesField } from '@/components/ProfileCards'
 import { Select, currencyOptions } from '@/components/Select'
 import { Switch } from '@/components/Switch'
 import { useToast } from '@/components/Toast'
 import { SectionTitle, SettingsPage, useSavedFlash } from './common'
+import { AdvancedPickIcon } from '@/components/ModeButton'
 
 const CURRENCY_HINT: Hint = {
   full: 'For new groups and totals across groups. Each group keeps its own.',
@@ -118,38 +119,6 @@ export default function Preferences() {
 
   return (
     <SettingsPage title="Preferences">
-      <SectionTitle saved={modeSaved}>Mode</SectionTitle>
-      <div className="card p-4">
-        <Segmented<Mode>
-          label="Mode"
-          testId="mode"
-          value={mode}
-          onChange={(m) => {
-            setModePref(m)
-            flashMode()
-          }}
-          options={[
-            {
-              value: 'simple',
-              label: (
-                <span className="inline-flex items-center gap-1">
-                  <SimpleModeIcon size={16} aria-hidden /> {MODE_INFO.simple.label}
-                </span>
-              ),
-            },
-            {
-              value: 'advanced',
-              label: (
-                <span className="inline-flex items-center gap-1">
-                  <AdvancedModeIcon size={16} aria-hidden /> {MODE_INFO.advanced.label}
-                </span>
-              ),
-            },
-          ]}
-        />
-        <p className="text-muted mt-1.5 text-xs">{MODE_INFO[mode].hint}</p>
-      </div>
-
       <SectionTitle saved={currencySaved}>Money</SectionTitle>
       <div className="card p-4">
         <RatesField base={profile.currency} hint={CURRENCY_HINT} refresh={!simple}>
@@ -308,6 +277,39 @@ export default function Preferences() {
           </div>
         </>
       )}
+
+      {/* Mode last (owner): the everyday choices first. Advanced shows the same picture as Profile's mode button. */}
+      <SectionTitle saved={modeSaved}>Mode</SectionTitle>
+      <div className="card p-4">
+        <Segmented<Mode>
+          label="Mode"
+          testId="mode"
+          value={mode}
+          onChange={(m) => {
+            setModePref(m)
+            flashMode()
+          }}
+          options={[
+            {
+              value: 'simple',
+              label: (
+                <span className="inline-flex items-center gap-1">
+                  <SimpleModeIcon size={16} aria-hidden /> {MODE_INFO.simple.label}
+                </span>
+              ),
+            },
+            {
+              value: 'advanced',
+              label: (
+                <span className="inline-flex items-center gap-1">
+                  <AdvancedPickIcon size={16} /> {MODE_INFO.advanced.label}
+                </span>
+              ),
+            },
+          ]}
+        />
+        <p className="text-muted mt-1.5 text-xs">{MODE_INFO[mode].hint}</p>
+      </div>
     </SettingsPage>
   )
 }

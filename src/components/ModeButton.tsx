@@ -19,6 +19,7 @@ import {
   modeSwitchToast,
   otherMode,
   parseIconPick,
+  pickAdvancedIcon,
   settleIconPick,
 } from '@/lib/mode-icon'
 import { setModePref } from '@/lib/mode-pref'
@@ -48,6 +49,18 @@ function settledPick(mode: Mode): IconPick | null {
   if (!next) return stored
   writePick(next)
   return next
+}
+
+/**
+ * Preferences' Advanced option: the same picture the mode button shows in Advanced (picked now if
+ * Advanced is on without one). In Simple, the last one shown, or a random one until there is one.
+ */
+export function AdvancedPickIcon({ size = 16 }: { size?: number }) {
+  const mode = useMode()
+  const [fallback] = useState(() => pickAdvancedIcon(Math.random(), null))
+  const pick = mode === 'advanced' ? settledPick('advanced') : readPick()
+  const Icon = iconFor(pick?.index ?? fallback)
+  return <Icon size={size} aria-hidden />
 }
 
 const SPRING = 'cubic-bezier(.3,1.3,.5,1)'

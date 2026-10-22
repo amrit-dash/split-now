@@ -102,6 +102,7 @@ export const SIMPLE_HIDES = [
   'fxRate', // editing the exchange rate (the converted amount still shows)
   'scanAiToggle', // Scan's per-card Read with AI toggle (the Settings choice applies)
   'importGroup', // Import from Splitwise on Home and Groups (Settings → Data keeps it)
+  'chatSettings', // a group chat's About sheet → Your settings (suggest tools, AI suggestions, mute: the bell in the header still mutes)
 ] as const
 export type SimpleHide = (typeof SIMPLE_HIDES)[number]
 
