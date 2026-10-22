@@ -14,12 +14,15 @@ export function QuickAddCard({
   groups,
   defaultGroupId,
   onLeave,
+  initialText,
   testId,
   className = '',
 }: {
   groups: Group[]
   defaultGroupId?: string
   onLeave?: () => void
+  /** a line already said (holding + to talk, when it needs a choice made here) */
+  initialText?: string
   testId: string
   className?: string
 }) {
@@ -47,7 +50,7 @@ export function QuickAddCard({
         </span>
       </div>
       <Suspense fallback={<div className="h-[6.25rem] rounded-2xl bg-white ring-1 ring-slate-200 dark:bg-ink-900 dark:ring-white/10" />}>
-        <QuickAdd groups={groups} defaultGroupId={defaultGroupId} onLeave={onLeave} testId={testId} />
+        <QuickAdd groups={groups} defaultGroupId={defaultGroupId} onLeave={onLeave} initialText={initialText} testId={testId} />
       </Suspense>
     </section>
   )

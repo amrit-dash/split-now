@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { groupInText, type NamedGroup } from './quick-group'
+import { groupInText, lineFor, type NamedGroup } from './quick-group'
 
 const groups: NamedGroup[] = [
   { id: 'goa', name: 'Goa trip 🏖️' },
@@ -89,5 +89,32 @@ describe('groupInText: a new group', () => {
   })
   it('"new" alone is not a marker', () => {
     expect(groupInText('new shoes 2000', groups)).toEqual({ kind: 'none' })
+  })
+})
+
+describe('lineFor: where the line goes', () => {
+  const picked = groups[1]
+  const at = (text: string, extra: { undone?: string; answered?: string } = {}) => lineFor({ text, named: groupInText(text, groups), groups, picked, ...extra })
+  it('a named group wins over the picked one, and its words leave the line', () => {
+    expect(at('dinner 1200 in Goa trip')).toMatchObject({ target: groups[0], line: 'dinner 1200', which: false, fresh: null })
+  })
+  it('tapped away, the line goes to the picked group as typed', () => {
+    expect(at('dinner 1200 in Goa trip', { undone: 'in goa trip' })).toMatchObject({ target: picked, line: 'dinner 1200 in Goa trip', match: undefined })
+  })
+  it('nothing named: the picked group and the whole line', () => {
+    expect(at('cab 300')).toMatchObject({ target: picked, line: 'cab 300', which: false })
+  })
+  it('a new group asked for', () => {
+    expect(at('dinner 900 in a new group Bali trip').fresh).toMatchObject({ name: expect.stringMatching(/Bali/i) })
+  })
+  it('two groups fit: it asks which, until the person answers', () => {
+    const two: NamedGroup[] = [
+      { id: 'a', name: 'Goa trip' },
+      { id: 'b', name: 'Goa office' },
+    ]
+    const named = groupInText('lunch 200 in goa', two)
+    expect(lineFor({ text: 'lunch 200 in goa', named, groups: two, picked: two[0] }).which).toBe(true)
+    const answered = lineFor({ text: 'lunch 200 in goa', named, groups: two, picked: two[1], answered: (named as { phrase: string }).phrase })
+    expect(answered).toMatchObject({ which: false, target: two[1], line: 'lunch 200' })
   })
 })

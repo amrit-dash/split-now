@@ -17,6 +17,7 @@ import {
   LiveTableIcon,
   LockIcon,
   MailIcon,
+  MicIcon,
   ProfileIcon,
   ReceiptIcon,
   SettingsIcon,
@@ -25,7 +26,7 @@ import {
 } from '@/components/icons'
 import { type AppIcon, FeatureIcon } from '@/components/Icon'
 import { burstDots, MODE_SWITCH } from '@/lib/mode-icon'
-import { ArrowDownUp, Check, Search } from 'lucide-react'
+import { ArrowDownUp, Check, Loader2, Search } from 'lucide-react'
 import './help-motion.css'
 
 /**
@@ -501,7 +502,8 @@ function PartView({ part: p, mark, step, still }: { part: Part; mark?: string; s
                 {...(it.mark ? { 'data-mark': it.mark } : {})}
                 className={`-mt-4 flex h-9 w-9 items-center justify-center rounded-full bg-fill text-lg font-bold text-on-fill shadow-lg ${it.mark && it.mark === mark ? `${hit} ring-offset-2` : ''}`}
               >
-                +
+                {/* Held to talk (Help → Talk to add): + is a mic while the words come in. */}
+                {mark === 'hold' || mark === 'speak' ? <MicIcon size={16} solid /> : '+'}
               </span>
             ) : (
               <span
@@ -601,6 +603,35 @@ function PartView({ part: p, mark, step, still }: { part: Part; mark?: string; s
           <span {...tag} className={`rounded-full ${ring}`}>
             <MiniRing from={Number(p.value ?? 0)} to={on ? Number(p.value ?? 0) + 20 : Number(p.value ?? 0)} still={still} step={step} />
           </span>
+        </div>
+      )
+    case 'voice':
+      return (
+        <div {...tag} className="mt-auto flex flex-col items-center gap-1.5 pb-1">
+          {p.value === 'working' ? (
+            <div className="flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[0.6rem] font-semibold shadow-sm dark:bg-ink-800">
+              <Loader2 size={10} className={`text-brand-600 dark:text-brand-300 ${still ? '' : 'animate-spin'}`} /> {p.label}
+            </div>
+          ) : (
+            <>
+              <div className="min-h-6 max-w-full rounded-xl bg-white px-2 py-1 text-[0.65rem] font-semibold shadow-sm dark:bg-ink-800">
+                {on ? <Typed text={p.label ?? ''} active={on} still={still} step={step} /> : <span className="text-muted">Listening…</span>}
+              </div>
+              {/* the accent bars above +, moving with the voice */}
+              <div className="flex h-5 items-end gap-[2px]">
+                {[0.5, 0.8, 1, 0.8, 0.5].map((h, i) => (
+                  <span
+                    // biome-ignore lint/suspicious/noArrayIndexKey: fixed bars
+                    key={i}
+                    className="h-full w-[3px] origin-bottom rounded-full bg-gradient-to-t from-fill to-fill-to-400"
+                    style={
+                      on && !still ? { animation: `help-voice-bar 0.6s ease-in-out ${i * 90}ms infinite alternate` } : { transform: `scaleY(${on ? h : 0.25})` }
+                    }
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </div>
       )
     case 'message':

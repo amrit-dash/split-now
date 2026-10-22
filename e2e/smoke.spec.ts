@@ -15,6 +15,9 @@ const test = base.extend<{ page: Page; fixedRates: boolean; mode: 'simple' | 'ad
   page: async ({ page, fixedRates, mode }, use) => {
     await page.addInitScript((m) => {
       if (localStorage.getItem('splitnow-mode') === null) localStorage.setItem('splitnow-mode', m)
+      // The "Press and hold + to talk" bubble would sit over the bottom of every screen: taught
+      // already, unless a test clears it (the voice tests do).
+      if (localStorage.getItem('splitnow-voice-teach') === null) localStorage.setItem('splitnow-voice-teach', '{"intro":true,"visits":0,"nextAt":9999,"tip":0}')
     }, mode)
     const errors: string[] = []
     page.on('pageerror', (e) => errors.push(e.message))
@@ -39,6 +42,63 @@ async function signInDemo(page: Page, name = 'Asha') {
     .first()
     .click()
   await expect(page.getByTestId('home-greeting')).toBeVisible()
+}
+
+/**
+ * A browser without speech recognition (and so no voice): no mic in Quick add, and holding + does
+ * what it did before voice (inside a group, the Create sheet). From the next page load on.
+ */
+async function noSpeech(page: Page) {
+  await page.addInitScript(() => {
+    for (const k of ['SpeechRecognition', 'webkitSpeechRecognition']) Object.defineProperty(window, k, { value: undefined, configurable: true, writable: true })
+  })
+}
+
+/**
+ * The phone's own recognition, stubbed (a headless browser has no microphone): it "hears" `said`
+ * a word at a time once started, and ends when stopped. getUserMedia is refused, so the bars
+ * above + pulse with the words instead of a level meter.
+ */
+async function fakeSpeech(page: Page, said = 'Dinner 1200 with Rahul, I paid') {
+  await page.addInitScript((line) => {
+    const w = window as unknown as Record<string, unknown>
+    w.__said = line
+    class FakeRecognition {
+      lang = ''
+      continuous = false
+      interimResults = false
+      maxAlternatives = 1
+      onresult: ((e: unknown) => void) | null = null
+      onerror: ((e: unknown) => void) | null = null
+      onend: (() => void) | null = null
+      onaudiostart: (() => void) | null = null
+      timers: ReturnType<typeof setTimeout>[] = []
+      start() {
+        w.__listening = true
+        const words = String(w.__said).split(' ')
+        let i = 0
+        this.onaudiostart?.()
+        const tick = () => {
+          i += 1
+          const result = Object.assign([{ transcript: words.slice(0, i).join(' ') }], { isFinal: i === words.length })
+          this.onresult?.({ resultIndex: 0, results: [result] })
+          if (i < words.length) this.timers.push(setTimeout(tick, 60))
+        }
+        this.timers.push(setTimeout(tick, 80))
+      }
+      stop() {
+        w.__listening = false
+        for (const t of this.timers) clearTimeout(t)
+        setTimeout(() => this.onend?.(), 20)
+      }
+      abort() {
+        this.stop()
+      }
+    }
+    w.SpeechRecognition = FakeRecognition
+    w.webkitSpeechRecognition = FakeRecognition
+    if (navigator.mediaDevices) navigator.mediaDevices.getUserMedia = () => Promise.reject(new DOMException('no microphone here', 'NotFoundError'))
+  }, said)
 }
 
 /** The expense amount: by label once the form labels it, else the big "0.00" field at the top of the amount card. */
@@ -327,8 +387,9 @@ test('Money received: shared like an expense, shown as received, and the receive
 })
 
 test('Quick add in the Create sheet: a group named in the line wins, and opens the form filled in', async ({ page }) => {
+  await noSpeech(page)
   await page.goto('/groups/g_goa')
-  // inside a group a tap adds an expense; press and hold (here a right click) opens the sheet
+  // inside a group a tap adds an expense; without voice, press and hold (here a right click) opens the sheet
   await page.getByTestId('nav-create').click({ button: 'right' })
   const quick = page.getByRole('dialog').getByTestId('create-quick-add')
   // Not focused on open: the keyboard would cover the tiles.
@@ -355,17 +416,22 @@ test('Quick add can start a new group, then lands on the form with the line', as
 })
 
 test('Quick add composer: outlined field, group chip, 44px mic and send; "New group" brings the named people along', async ({ page }) => {
-  await page.goto('/groups/g_goa')
-  // inside a group a tap adds an expense; press and hold (here a right click) opens the sheet
-  await page.getByTestId('nav-create').click({ button: 'right' })
+  await fakeSpeech(page)
+  await page.reload()
+  // Inside a group a tap adds an expense and a hold talks: the sheet is Home's +.
+  await page.getByTestId('nav-create').click()
   const quick = page.getByRole('dialog').getByTestId('create-quick-add')
   const field = quick.getByRole('textbox', { name: 'Quick add' })
   const go = quick.getByTestId('create-quick-add-go')
   const picker = quick.getByRole('combobox', { name: 'Group for the quick add' })
+  await picker.click()
+  await page.getByRole('option', { name: /Goa Trip/ }).click()
   await expect(picker).toContainText('Goa Trip')
   await expect(go).toBeDisabled()
   const box = await go.boundingBox()
   expect(box && box.width >= 44 && box.height >= 44).toBe(true)
+  const mic = await quick.getByTestId('create-quick-add-mic').boundingBox()
+  expect(mic && mic.width >= 44 && mic.height >= 44).toBe(true)
   await field.fill('Dinner 900 with Kiran and Zoya')
   await expect(go).toBeEnabled()
   await picker.click()
@@ -387,6 +453,99 @@ test('Quick add with AI (demo reader): "create a group … and add …" asks fir
   await expect(amountField(page)).toHaveValue(/2400/)
   await expect(page.getByRole('textbox', { name: 'Description', exact: true })).toHaveValue('Dinner')
   await expect(page.getByText('Manali trip', { exact: true })).toBeVisible()
+})
+
+test('Voice: without speech recognition there is no mic, and holding + inside a group opens the Create sheet as before', async ({ page }) => {
+  await noSpeech(page)
+  await page.goto('/')
+  await page.getByTestId('nav-create').click()
+  const quick = page.getByRole('dialog').getByTestId('create-quick-add')
+  await expect(quick.getByRole('textbox', { name: 'Quick add' })).toBeVisible()
+  await expect(quick.getByTestId('create-quick-add-mic')).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await page.goto('/groups/g_goa')
+  await expect(page.getByTestId('nav-create')).toHaveAttribute('aria-label', /press and hold for more/)
+  await page.getByTestId('nav-create').click({ button: 'right' })
+  await expect(page.getByRole('dialog').getByTestId('create-quick-add')).toBeVisible()
+  // Preferences → Voice: the demo has no server, so Native alone, with the reason.
+  await page.goto('/settings/preferences')
+  const t = page.getByTestId('transcription')
+  await expect(t.getByRole('radio')).toHaveCount(1)
+  await expect(t.getByRole('radio', { name: /Native/ })).toHaveAttribute('aria-checked', 'true')
+  await expect(t.getByTestId('transcription-note')).toContainText('needs the online app')
+})
+
+test('Voice: Quick add’s mic is a toggle; the words land in the box and wait for send', async ({ page }) => {
+  await fakeSpeech(page)
+  await page.reload()
+  await page.getByTestId('nav-create').click()
+  const quick = page.getByRole('dialog').getByTestId('create-quick-add')
+  const mic = quick.getByTestId('create-quick-add-mic')
+  const field = quick.getByRole('textbox', { name: 'Quick add' })
+  await mic.click()
+  await expect(mic).toHaveAttribute('aria-pressed', 'true')
+  await expect(field).toHaveValue('Dinner 1200 with Rahul, I paid')
+  // Still listening until the second tap: silence doesn't end it.
+  await page.waitForTimeout(300)
+  await expect(mic).toHaveAttribute('aria-pressed', 'true')
+  await mic.click()
+  await expect(mic).toHaveAttribute('aria-pressed', 'false')
+  await expect(field).toHaveValue('Dinner 1200 with Rahul, I paid')
+  await expect(page).toHaveURL(/\/$/)
+  await quick.getByTestId('create-quick-add-go').click()
+  await expect(page).toHaveURL(/\/add\?group=[^&]+&quick=1/)
+  await expect(amountField(page)).toHaveValue(/1200/)
+})
+
+test('Voice: hold + inside a group to talk; letting go runs Quick add and opens the form filled in', async ({ page }) => {
+  await fakeSpeech(page)
+  await page.goto('/groups/g_goa')
+  const plus = page.getByTestId('nav-create')
+  await expect(plus).toHaveAttribute('aria-label', /press and hold to talk/)
+  await plus.hover()
+  await page.mouse.down()
+  await expect(plus).toHaveAttribute('data-voice', 'listening')
+  await expect(page.getByTestId('voice-bars')).toBeVisible()
+  await page.waitForTimeout(700)
+  await page.mouse.up()
+  await expect(page).toHaveURL(/\/add\?group=g_goa&quick=1/)
+  await expect(amountField(page)).toHaveValue(/1200/)
+  await expect(page.getByRole('textbox', { name: 'Description', exact: true })).toHaveValue('Dinner')
+})
+
+test('Voice: a line Quick add can’t act on gets a plain answer, not an empty form', async ({ page }) => {
+  await fakeSpeech(page, 'Make me a sandwich')
+  await page.goto('/groups/g_goa')
+  const plus = page.getByTestId('nav-create')
+  await plus.hover()
+  await page.mouse.down()
+  await page.waitForTimeout(800)
+  await page.mouse.up()
+  await expect(page.getByTestId('voice-answer')).toContainText('adds expenses, starts groups')
+  await expect(page).toHaveURL(/\/groups\/g_goa$/)
+  await page.getByTestId('voice-bubble-close').click()
+  await expect(page.getByTestId('voice-answer')).toHaveCount(0)
+  // Typed, the composer answers the same way.
+  await page.goto('/')
+  await page.getByTestId('nav-create').click()
+  const quick = page.getByRole('dialog').getByTestId('create-quick-add')
+  await quick.getByRole('textbox', { name: 'Quick add' }).fill('Make me a sandwich')
+  await quick.getByTestId('create-quick-add-go').click()
+  await expect(quick.getByTestId('create-quick-add-answer')).toContainText('Quick add can’t do that')
+})
+
+test('Voice: “Press and hold + to talk” rises from + once, and ✕ closes it', async ({ page }) => {
+  await fakeSpeech(page)
+  await page.addInitScript(() => localStorage.removeItem('splitnow-voice-teach'))
+  await page.reload()
+  const bubble = page.getByTestId('voice-teach')
+  await expect(bubble).toContainText('Press and hold + to talk')
+  await page.getByTestId('voice-bubble-close').click()
+  await expect(bubble).toHaveCount(0)
+  // Once: another screen doesn't bring it back.
+  await page.getByRole('navigation').getByRole('link', { name: 'Groups' }).click()
+  await page.waitForTimeout(1800)
+  await expect(bubble).toHaveCount(0)
 })
 
 test('settle up records a payment', async ({ page }) => {
@@ -1350,8 +1509,9 @@ test('chat: the Open item tool has the icon button and every icon', async ({ pag
 })
 
 test('Quick add: "who paid?" opens the open item sheet in the group, filled in; Rahul-style guesses become “might have paid”', async ({ page }) => {
+  await noSpeech(page)
   await page.goto('/groups/g_goa')
-  // inside a group a tap adds an expense; press and hold (here a right click) opens the sheet
+  // inside a group a tap adds an expense; without voice, press and hold (here a right click) opens the sheet
   await page.getByTestId('nav-create').click({ button: 'right' })
   const quick = page.getByRole('dialog').getByTestId('create-quick-add')
   await quick.getByRole('textbox', { name: 'Quick add' }).fill('lunch Oct 2 Cafe Blue, maybe Priya paid')

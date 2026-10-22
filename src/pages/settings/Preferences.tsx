@@ -24,6 +24,7 @@ import { Segmented } from '@/components/Misc'
 import { RatesField } from '@/components/ProfileCards'
 import { Select, currencyOptions } from '@/components/Select'
 import { Switch } from '@/components/Switch'
+import { TranscriptionSetting } from '@/components/VoiceSettings'
 import { useToast } from '@/components/Toast'
 import { SectionTitle, SettingsPage, useSavedFlash } from './common'
 import { AdvancedPickIcon } from '@/components/ModeButton'
@@ -55,6 +56,7 @@ export default function Preferences() {
   const [currencySaved, flashCurrency] = useSavedFlash()
   const [lookSaved, flashLook] = useSavedFlash()
   const [modeSaved, flashMode] = useSavedFlash()
+  const [voiceSaved, flashVoice] = useSavedFlash()
   const mode = useMode()
   // Simple keeps currency, theme, accent and its text; the rest keep their values, out of sight (src/lib/mode.ts).
   const simple = mode === 'simple'
@@ -277,6 +279,12 @@ export default function Preferences() {
           </div>
         </>
       )}
+
+      {/* Voice for Quick add, in Simple too (it follows Quick add): the phone's own recognition, or AI. */}
+      <SectionTitle saved={voiceSaved}>Voice</SectionTitle>
+      <div className="card p-4">
+        <TranscriptionSetting onSaved={flashVoice} />
+      </div>
 
       {/* Mode last (owner): the everyday choices first. Advanced shows the same picture as Profile's mode button. */}
       <SectionTitle saved={modeSaved}>Mode</SectionTitle>

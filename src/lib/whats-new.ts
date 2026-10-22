@@ -24,6 +24,15 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '9.1.0',
+    date: 'October 2026',
+    items: [
+      { text: 'Hold + and say what you paid: the form fills itself in', section: 'voice' },
+      { text: "Quick add's mic keeps listening until you stop it, and answers lines it can't act on", section: 'quick-add' },
+      { text: 'Choose how voice is written down: your phone, or AI', section: 'voice' },
+    ],
+  },
+  {
     version: '9.0.0',
     date: 'October 2026',
     items: [

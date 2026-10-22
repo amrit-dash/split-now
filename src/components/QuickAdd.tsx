@@ -1,37 +1,18 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type PointerEvent } from 'react'
 import { ArrowRight, ChevronDown, Loader2, Mic, Plus, Square, X } from 'lucide-react'
-import { repo } from '@/data'
-import { useMe } from '@/hooks/auth'
-import { createGroup as saveGroup, memberOrder, myMemberId, useAiState } from '@/hooks/data'
-import { useAiStatus } from '@/hooks/useAiStatus'
 import { useFlag } from '@/hooks/useAppConfig'
-import { useCapturePrefs } from '@/hooks/useCapturePrefs'
-import { useMerchantMemory } from '@/hooks/useMerchants'
-import { useOnline } from '@/hooks/useOnline'
+import { loadParser, useQuickRun, type QuickLine } from '@/hooks/useQuickRun'
+import { useVoice, useVoiceSetup } from '@/hooks/useVoice'
 import type { Group } from '@/types'
-import { aiScanEnabled, aiScanPossible, isQuietReason, unavailableText } from '@/lib/ai'
 import { errText } from '@/lib/errors'
 import { marqueeFor } from '@/lib/fit'
-import { guessGroup } from '@/lib/groupTypes'
-import { todayISO, uid } from '@/lib/id'
-import { suggestCategory } from '@/lib/merchants'
-import type { NlContext } from '@/lib/nl-expense'
-import { pending } from '@/lib/pending'
-import type { OpenItemInput } from '@/lib/open-items'
-import { knownPeople } from '@/lib/people'
-import { buildQuickRequest, listNames, newGroupPrefill, noGroupsPrefill, planQuickAi } from '@/lib/quick-ai'
-import { groupInText } from '@/lib/quick-group'
-import { quickAiAllowed, quickRoute, quickRouteNoGroups } from '@/lib/quick-route'
-import { listenOnce, speechSupported, type SpeechSession } from '@/lib/speech'
-import { useConfirm } from '@/components/ConfirmSheet'
+import { primeAudio } from '@/lib/mic'
+import { groupInText, lineFor } from '@/lib/quick-group'
+import { micRelease } from '@/lib/voice'
 import { GroupIcon } from '@/components/GroupIcon'
 import { Select } from '@/components/Select'
 import { useToast } from '@/components/Toast'
 import { activeMembers } from '@/lib/members'
-
-// The parser loads on first focus or submit, not with the Create sheet (it is only needed once someone types).
-const loadParser = () => import('@/lib/nl-expense')
 
 const HINT = 'Dinner 1200 with Rahul, I paid'
 const HINT_FIRST = 'Goa trip with Rahul and Priya'
@@ -40,13 +21,16 @@ const NEW_GROUP = '__new'
 
 /**
  * Quick add, in the Create sheet: one line ("dinner 1200 with Rahul and Priya, I paid"), typed or
- * spoken, opens the expense form prefilled. Nothing is saved from here. The local grammar
- * (src/lib/nl-expense.ts) does the reading; a line it can't handle ("create a group Goa trip with
- * Rahul and Priya and add dinner 2400", src/lib/quick-route.ts) goes to Quick add with AI when the
- * person turned it on (callable quickAddAi), which can also propose a new group (confirmed first).
- * Otherwise, when the grammar is unsure and AI reading is on, Gemini's text reader fills the gaps.
- * The line can name its group ("in Goa trip", "@flat") or ask for a new one ("in a new group Bali
- * trip"); src/lib/quick-group.ts reads that as you type and the composer's group chip follows it.
+ * spoken, opens the expense form prefilled. Nothing is saved from here. The work (the phone's
+ * grammar, Quick add with AI, a new group, an open item, a plain answer for a line it can't act on)
+ * is src/hooks/useQuickRun.ts, which holding + to talk uses too. The line can name its group ("in
+ * Goa trip", "@flat") or ask for a new one ("in a new group Bali trip"); src/lib/quick-group.ts reads
+ * that as you type and the composer's group chip follows it.
+ *
+ * Voice (src/hooks/useVoice.ts): the mic shows only where someone can be heard (the phone's own
+ * recognition, or AI transcription they chose). Tap it to start and tap again to stop, or hold it
+ * while talking and let go. The words land in the box and wait for send; while AI writes a
+ * recording down, a spinner sits in the box.
  *
  * Layout: one outlined composer (the field, then a row with where the line goes on the left and
  * the mic and send buttons on the right), and a status line under it while AI works.
@@ -55,6 +39,7 @@ export function QuickAdd({
   groups,
   defaultGroupId,
   onLeave,
+  initialText = '',
   testId = 'quick-add',
 }: {
   /**
@@ -65,48 +50,45 @@ export function QuickAdd({
   defaultGroupId?: string
   /** called just before it navigates away (the Create sheet closes) */
   onLeave?: () => void
+  /** a line already said (holding + when it needs a choice made here, such as which group) */
+  initialText?: string
   testId?: string
 }) {
   const enabled = useFlag('quickAdd')
-  const aiFlag = useFlag('aiQuickAdd')
-  const openItemsOn = useFlag('openItems')
-  const { user, profile } = useMe()
-  const nav = useNavigate()
   const toast = useToast()
-  const confirm = useConfirm()
-  const memory = useMerchantMemory()
-  const online = useOnline()
-  const firebase = repo.mode === 'firebase'
-  const prefs = useCapturePrefs()
-  const aiState = useAiState(firebase)
-  const aiStatus = useAiStatus()
-  const [text, setText] = useState('')
+  const [text, setText] = useState(initialText)
   const [groupId, setGroupId] = useState(defaultGroupId ?? groups[0]?.id)
   /** 'ai': Quick add with AI is working the line out; 'read': the gap-filling reader */
   const [busy, setBusy] = useState<'ai' | 'read' | null>(null)
-  const [listening, setListening] = useState(false)
+  const [answer, setAnswer] = useState<string | null>(null)
   const [focused, setFocused] = useState(false)
   /** the group words the user tapped away ("→ Goa trip" undone): the line goes to the picked group as typed */
   const [undone, setUndone] = useState<string | null>(null)
   /** the ambiguous group words the user answered by picking a group */
   const [answered, setAnswered] = useState<string | null>(null)
-  const session = useRef<SpeechSession | null>(null)
   const input = useRef<HTMLInputElement>(null)
   const picker = useRef<HTMLDivElement>(null)
   const voiced = useRef(false)
-  const mic = useMemo(() => speechSupported(), [])
-  useEffect(() => () => session.current?.stop(), [])
+  /** when the finger went down on the mic (null: not a press that started listening) */
+  const pressed = useRef<number | null>(null)
+  const { engine } = useVoiceSetup()
+  const voice = useVoice({
+    engine,
+    onText: (t) => {
+      voiced.current = true
+      setText(t)
+    },
+    onError: (m) => toast(errText(m), 'err'),
+  })
+  const listening = voice.state === 'listening'
+  const transcribing = voice.state === 'transcribing'
+  const run = useQuickRun({ groups, onLeave, onBusy: setBusy })
 
   const picked: Group | undefined = groups.find((g) => g.id === groupId) ?? groups[0]
   const people = useMemo(() => (picked ? Object.values(activeMembers(picked.members)).map((m) => m.name) : []), [picked])
   const named = useMemo(() => groupInText(text, groups, people), [text, groups, people])
-
   // What the line says about its group, after the user's answers: where it goes, and the words left to read.
-  const match = named.kind === 'match' && named.phrase !== undone ? groups.find((g) => g.id === named.id) : undefined
-  const which = named.kind === 'ambiguous' && named.phrase !== answered
-  const fresh = named.kind === 'new' ? named : null
-  const target = match ?? picked
-  const line = match || (named.kind === 'ambiguous' && !which) ? (named as { text: string }).text : text
+  const { match, which, fresh, target, line } = lineFor({ text, named, groups, picked, undone, answered })
 
   // After voice: caret and scroll at the end, so the whole sentence can be read back before sending.
   // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the heard text changes
@@ -116,155 +98,20 @@ export function QuickAdd({
     el.setSelectionRange(el.value.length, el.value.length)
     el.scrollLeft = el.scrollWidth
   }, [text])
+  // A line handed over (holding + when it needs a choice here): ready to check and send.
+  useEffect(() => {
+    if (initialText) void loadParser()
+  }, [initialText])
 
   if (!enabled) return null
   const hint = picked ? HINT : HINT_FIRST
 
-  const aiAllowed = quickAiAllowed({
-    mode: firebase ? 'firebase' : 'demo',
-    flag: aiFlag,
-    online,
-    prefs,
-    status: aiStatus,
-    hasOwnKey: !!aiState?.hint,
-  })
-
-  const leave = (to: string) => {
-    setText('')
-    onLeave?.()
-    // When it lives in the Create sheet, let the sheet close first (CreateSheet explains why).
-    if (onLeave) requestAnimationFrame(() => requestAnimationFrame(() => nav(to)))
-    else nav(to)
+  const q = (): QuickLine => ({ text, line, target, picked, fresh, named })
+  const done = (o: Awaited<ReturnType<typeof run.send>>) => {
+    if (o.kind === 'left') setText('')
+    else if (o.kind === 'answer') setAnswer(o.text)
   }
-
-  /** The line read on the phone (and, when unsure with AI reading on, gaps filled by Gemini's text reader). */
-  const go = async () => {
-    if (!target) return
-    const t = text.trim()
-    const order = memberOrder(target)
-    const me = myMemberId(target, user.uid) ?? order[0]
-    const ctx: NlContext = { members: order.map((id) => ({ id, name: target.members[id].name })), me, currency: target.currency, today: todayISO() }
-    const { mergeAiParse, parseNlExpense, toQuickPrefill } = await loadParser()
-    let parse = parseNlExpense(line, ctx)
-    let category = parse.description ? suggestCategory(parse.description, { memory }) : null
-    // Unsure (no amount, or a name nobody matched): let Gemini have a go when the user allows AI reading.
-    if (parse.confidence !== 'high' && aiScanPossible() && aiScanEnabled()) {
-      setBusy('read')
-      try {
-        const r = await repo.parseTextAi(line, { members: ctx.members.map((m) => m.name), currency: target.currency, today: ctx.today! })
-        if (r && !r.unavailable && r.expense) {
-          const merged = mergeAiParse(parse, r.expense, ctx)
-          parse = merged
-          category = merged.category ?? (merged.description ? suggestCategory(merged.description, { memory }) : null)
-        }
-      } catch (e) {
-        console.warn('Quick add AI read failed', e)
-      } finally {
-        setBusy(null)
-      }
-    }
-    pending.quick = { groupId: target.id, prefill: toQuickPrefill(parse, t, category) }
-    if (parse.amount === undefined) toast('Couldn’t find an amount in that. Add it in the form.')
-    else if (parse.unmatched.length) toast(`Didn’t recognise ${parse.unmatched.join(', ')}. Check who’s in the split.`)
-    leave(`/add?group=${encodeURIComponent(target.id)}&quick=1`)
-  }
-
-  /**
-   * A new group first: GroupForm opens with the name and the people the line names filled in
-   * (matched to people you already know), and once it is made the expense form opens with the line
-   * (amount, words and date now; the people read again against the new members by ExpenseForm).
-   * Read locally only: the AI reader needs the group's names.
-   */
-  const createGroup = async (name: string) => {
-    const t = text.trim()
-    const qs = new URLSearchParams({ next: 'add' })
-    let prefill: ReturnType<typeof newGroupPrefill> = { name, people: [] }
-    if (t) {
-      const rest = fresh ? fresh.text : line
-      const { parseNlExpense, toQuickPrefill } = await loadParser()
-      const parse = parseNlExpense(rest, {
-        members: [{ id: user.uid, name: profile.displayName }],
-        me: user.uid,
-        currency: profile.currency,
-        today: todayISO(),
-      })
-      const category = parse.description ? suggestCategory(parse.description, { memory }) : null
-      pending.quick = { prefill: toQuickPrefill(parse, t, category), line: rest }
-      qs.set('quick', '1')
-      const known = knownPeople(groups, user.uid)
-      // The first group: named from the line, a 1:1 for one person, else after the people or the cost.
-      prefill =
-        picked || name
-          ? newGroupPrefill({ text: t, freshName: name, unmatched: parse.unmatched, known })
-          : noGroupsPrefill({ text: t, description: parse.description, unmatched: parse.unmatched, known })
-    }
-    if (prefill.name) qs.set('name', prefill.name)
-    // A 1:1 has no name of its own (it takes the friend's), so the type goes on regardless.
-    const type = prefill.type ?? (prefill.name ? guessGroup(prefill.name)?.type : undefined)
-    if (type) qs.set('type', type)
-    if (prefill.people.length) qs.set('people', prefill.people.join(','))
-    leave(`/groups/new?${qs}`)
-  }
-
-  /**
-   * Quick add with AI. true when it took the line (opened the form, or the person cancelled the
-   * new group and stays here); false sends the line down the phone's own path.
-   */
-  const askAi = async (): Promise<boolean> => {
-    setBusy('ai')
-    try {
-      const today = todayISO()
-      const r = await repo.quickAddAi(
-        buildQuickRequest({ text, groups, uid: user.uid, me: profile.displayName, target, currency: profile.currency, today, openItems: openItemsOn }),
-      )
-      if (!r) {
-        toast('Couldn’t work that out right now, so it was read on this phone. Check the form.')
-        return false
-      }
-      if (r.unavailable) {
-        if (!isQuietReason(r.reason)) toast(unavailableText(r.reason))
-        return false
-      }
-      const plan = planQuickAi(r.result, {
-        line: text.trim(),
-        groups,
-        uid: user.uid,
-        me: { name: profile.displayName, email: user.email ?? undefined },
-        currency: profile.currency,
-        today,
-        known: knownPeople(groups, user.uid),
-        makeId: () => uid('p_'),
-      })
-      if (plan.kind === 'fallback') return false
-      if (plan.kind === 'expense') {
-        pending.quick = { groupId: plan.groupId, prefill: plan.prefill }
-        leave(`/add?group=${encodeURIComponent(plan.groupId)}&quick=1`)
-        return true
-      }
-      if (plan.kind === 'openItem') {
-        openOpenItem(plan.groupId, plan.input)
-        return true
-      }
-      const ok = await confirm({
-        title: `Create “${plan.group.name}”?`,
-        message: `A new group with ${listNames(['you', ...plan.people])}. Then ${plan.prefill ? 'the expense opens for you to check' : 'Add expense opens in it'}.`,
-        confirmLabel: 'Create group',
-      })
-      if (!ok) return true
-      const id = await saveGroup(plan.group)
-      toast('Group created')
-      if (plan.prefill) {
-        pending.quick = { groupId: id, prefill: plan.prefill }
-        leave(`/add?group=${encodeURIComponent(id)}&quick=1`)
-      } else leave(`/add?group=${encodeURIComponent(id)}`)
-      return true
-    } catch (e) {
-      toast(errText(e), 'err')
-      return true
-    } finally {
-      setBusy(null)
-    }
-  }
+  const createGroup = async (name: string) => done(await run.createGroup(name, q()))
 
   /** Two groups fit the words: the picker reads "Which group?"; sending opens it so the user says which. */
   const askWhich = () => {
@@ -273,60 +120,12 @@ export function QuickAdd({
     btn?.click()
   }
 
-  /** The open item sheet in the group's Open tab, filled in (nothing is saved until the person does). */
-  const openOpenItem = (groupId: string, input: OpenItemInput) => {
-    pending.openItem = { groupId, input }
-    leave(`/groups/${encodeURIComponent(groupId)}?tab=open&add=1`)
-  }
-
-  const send = async () => {
-    // No groups yet: the line starts one (with AI when it asks for more than a plain line can say).
-    if (!target) {
-      if (aiAllowed && quickRouteNoGroups(text).route === 'ai' && (await askAi())) return
-      await createGroup(fresh?.name ?? '')
-      return
-    }
-    // "lunch Oct 2 Cafe Blue, who paid?": nobody's sure yet, so it's an open item, read on the phone
-    // (free and instant); subtler wording still reaches Quick add with AI below, which can answer open_item.
-    if (openItemsOn && !fresh && target.type !== 'personal') {
-      const { isOpenItemLine, openItemFromQuickLine } = await import('@/lib/open-item-line')
-      if (isOpenItemLine(line)) {
-        const order = memberOrder(target)
-        const me = myMemberId(target, user.uid) ?? order[0]
-        openOpenItem(
-          target.id,
-          openItemFromQuickLine(line, {
-            members: order.map((id) => ({ id, name: target.members[id].name })),
-            me,
-            currency: target.currency,
-            today: todayISO(),
-          }),
-        )
-        return
-      }
-    }
-    // Too much for the phone's grammar, and AI is allowed: try it first.
-    if (aiAllowed) {
-      const { parseNlExpense } = await loadParser()
-      const order = memberOrder(target)
-      const parse = fresh
-        ? parseNlExpense(fresh.text, { members: [{ id: user.uid, name: profile.displayName }], me: user.uid, currency: profile.currency })
-        : parseNlExpense(line, {
-            members: order.map((id) => ({ id, name: target.members[id].name })),
-            me: myMemberId(target, user.uid) ?? order[0],
-            currency: target.currency,
-          })
-      if (quickRoute(text, parse, named).route === 'ai' && (await askAi())) return
-    }
-    if (fresh) await createGroup(fresh.name)
-    else await go()
-  }
-
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    if (busy || !text.trim()) return
+    if (busy || transcribing || !text.trim()) return
+    if (listening) void stopMic()
     if (which) askWhich()
-    else void send()
+    else void run.send(q()).then(done)
   }
 
   const pick = (v: string) => {
@@ -338,38 +137,49 @@ export function QuickAdd({
     if (named.kind === 'ambiguous') setAnswered(named.phrase)
   }
 
-  const toggleMic = () => {
-    if (listening) {
-      session.current?.stop()
-      return
-    }
+  const startMic = async () => {
+    setAnswer(null)
     voiced.current = true
-    const s = listenOnce({
-      onText: (t) => setText(t),
-      onEnd: (err) => {
-        setListening(false)
-        session.current = null
-        if (err) toast(errText(err), 'err')
-        // Not sent straight away: the field keeps the sentence, caret at the end, for a read-through.
-        else input.current?.focus()
-        requestAnimationFrame(() => {
-          voiced.current = false
-        })
-      },
-    })
-    if (!s) {
+    await voice.start()
+  }
+  const stopMic = async () => {
+    const r = await voice.stop()
+    if (r.error) toast(errText(r.error), 'err')
+    else if (r.text) {
+      voiced.current = true
+      setText(r.text)
+    }
+    // Not sent straight away: the field keeps the sentence, caret at the end, for a read-through.
+    if (!r.error) input.current?.focus()
+    requestAnimationFrame(() => {
       voiced.current = false
+    })
+  }
+  // The mic: a tap starts and the next tap stops; held while talking, letting go stops (src/lib/voice.ts micRelease).
+  const micDown = (e: PointerEvent<HTMLButtonElement>) => {
+    if (e.button !== 0) return
+    primeAudio()
+    if (voice.state === 'listening') {
+      pressed.current = null
+      void stopMic()
       return
     }
-    session.current = s
-    setListening(true)
+    if (voice.state !== 'idle') return
+    e.currentTarget.setPointerCapture?.(e.pointerId)
+    pressed.current = e.timeStamp
+    void startMic()
+  }
+  const micUp = (e: PointerEvent<HTMLButtonElement>) => {
+    const at = pressed.current
+    pressed.current = null
+    if (at !== null && micRelease(e.timeStamp - at) === 'stop') void stopMic()
   }
 
-  const showHint = !text && !focused && !listening
+  const showHint = !text && !focused && !listening && !transcribing
   const chip = 'flex min-h-11 min-w-0 max-w-full items-center gap-1.5 rounded-full py-1.5 text-sm font-semibold'
 
   return (
-    <form onSubmit={submit} data-testid={testId} aria-busy={busy ? true : undefined}>
+    <form onSubmit={submit} data-testid={testId} aria-busy={busy || transcribing ? true : undefined}>
       {/* One outlined composer: the field on top, where it goes and the buttons underneath. */}
       <div
         className={`rounded-2xl bg-white ring-1 ring-slate-200 transition-shadow has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-brand-500 dark:bg-ink-900 dark:ring-white/10 dark:has-[input:focus-visible]:ring-brand-400 ${busy ? 'opacity-90' : ''}`}
@@ -379,11 +189,12 @@ export function QuickAdd({
             ref={input}
             id={`${testId}-input`}
             aria-label="Quick add"
-            className={`block w-full rounded-t-2xl bg-transparent px-4 pb-1.5 pt-3.5 text-slate-900 outline-none placeholder:text-slate-400 disabled:opacity-60 dark:text-slate-100 ${showHint ? 'placeholder:text-transparent' : ''}`}
-            placeholder={listening ? 'Listening…' : hint}
+            className={`block w-full rounded-t-2xl bg-transparent px-4 pb-1.5 pt-3.5 text-slate-900 outline-none placeholder:text-slate-400 disabled:opacity-60 dark:text-slate-100 ${showHint ? 'placeholder:text-transparent' : ''} ${transcribing ? 'pr-11' : ''}`}
+            placeholder={transcribing ? 'Writing it down…' : listening ? 'Listening…' : hint}
             value={text}
             onChange={(e) => {
               voiced.current = false
+              setAnswer(null)
               setText(e.target.value)
             }}
             onFocus={() => {
@@ -394,10 +205,17 @@ export function QuickAdd({
             autoComplete="off"
             autoCapitalize="sentences"
             enterKeyHint="go"
-            disabled={!!busy}
+            disabled={!!busy || transcribing}
             data-testid={`${testId}-input`}
           />
           {showHint && <Hint text={hint} />}
+          {/* AI is writing the recording down: a spinner in the box, where the words will land. */}
+          {transcribing && (
+            <span className="absolute bottom-1.5 right-3 top-3.5 flex items-center text-brand-600 dark:text-brand-300" data-testid={`${testId}-transcribing`}>
+              <Loader2 size={18} className="animate-spin" aria-hidden />
+              <span className="sr-only">Writing down what you said</span>
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1.5 px-2 pb-2 pt-1">
           <div ref={picker} className="flex min-w-0 flex-1 items-center">
@@ -471,14 +289,24 @@ export function QuickAdd({
               />
             )}
           </div>
-          {mic && (
+          {engine && (
             <button
               type="button"
-              onClick={toggleMic}
-              disabled={!!busy}
+              onPointerDown={micDown}
+              onPointerUp={micUp}
+              onPointerCancel={micUp}
+              // Enter and Space (a click with no pointer): the same toggle as a tap.
+              onClick={(e) => {
+                if (e.detail !== 0) return
+                if (listening) void stopMic()
+                else if (voice.state === 'idle') void startMic()
+              }}
+              onContextMenu={(e) => e.preventDefault()}
+              disabled={!!busy || transcribing}
               aria-pressed={listening}
-              aria-label={listening ? 'Stop listening' : 'Speak the expense'}
-              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition disabled:opacity-40 ${listening ? 'bg-rose-600 text-white' : 'text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100 dark:text-slate-300 dark:ring-white/10 dark:hover:bg-white/5'}`}
+              aria-label={listening ? 'Stop listening' : 'Speak the expense (tap, or hold while you talk)'}
+              className={`flex h-11 w-11 shrink-0 touch-none select-none items-center justify-center rounded-full transition disabled:opacity-40 ${listening ? 'bg-brand-50 text-brand-700 ring-2 ring-brand-500 dark:bg-brand-500/15 dark:text-brand-200 dark:ring-brand-400' : 'text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100 dark:text-slate-300 dark:ring-white/10 dark:hover:bg-white/5'}`}
+              style={{ WebkitTouchCallout: 'none' }}
               data-testid={`${testId}-mic`}
             >
               {listening ? <Square size={16} aria-hidden /> : <Mic size={20} aria-hidden />}
@@ -486,7 +314,7 @@ export function QuickAdd({
           )}
           <button
             type="submit"
-            disabled={!!busy || !text.trim()}
+            disabled={!!busy || transcribing || !text.trim()}
             aria-label={fresh || !picked ? 'Set up the group, then open the expense form' : 'Open the expense form with this'}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-fill text-on-fill shadow-sm transition active:scale-95 disabled:opacity-40 disabled:shadow-none"
             data-testid={`${testId}-go`}
@@ -503,6 +331,10 @@ export function QuickAdd({
         ) : busy === 'read' ? (
           <span className="mt-2 flex items-center gap-1.5">
             <Loader2 size={14} className="animate-spin" aria-hidden /> Reading your line…
+          </span>
+        ) : answer ? (
+          <span className="mt-2 block text-sm text-slate-700 dark:text-slate-200" data-testid={`${testId}-answer`}>
+            {answer}
           </span>
         ) : null}
       </p>

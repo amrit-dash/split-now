@@ -10,6 +10,7 @@ import {
   RowIconsIcon,
   RowKeyboardIcon,
   RowScanIcon,
+  RowVoiceIcon,
   ShieldIcon,
   SparkleIcon,
   TrashIcon,
@@ -34,6 +35,7 @@ import { SettingsSection } from './SettingsSection'
 import { useFeature } from '@/hooks/useMode'
 import { Switch } from './Switch'
 import { useToast } from './Toast'
+import { VoiceAiSection } from './VoiceSettings'
 
 const SOURCE_OPTIONS: Array<{ value: AiSource; label: string; hint: string }> = [
   { value: 'auto', label: 'Automatic', hint: 'Your key first, then Split Now’s' },
@@ -113,6 +115,10 @@ export function AiSettings() {
   const aiFeatures = useFeature('aiFeatures')
   // The admin's switch for the automatic icon asking AI (config/app flags.aiIconAuto); server-enforced.
   const aiIconAuto = useFlag('aiIconAuto')
+  // The admin's switch for transcription with AI (config/app flags.aiTranscribe), with Quick add's; server-enforced.
+  const transcribeFlag = useFlag('aiTranscribe')
+  const quickAddFlag = useFlag('quickAdd')
+  const aiTranscribeFlag = transcribeFlag && quickAddFlag
   const [models, setModels] = useState<AiModel[] | null>(null)
   const [draft, setDraft] = useState('')
   const [editing, setEditing] = useState(false)
@@ -414,6 +420,12 @@ export function AiSettings() {
                 </SettingsSection>
               )}
             </>
+          )}
+          {/* Voice follows Quick add, so it shows in Simple too (docs/SIMPLE_MODE.md); only while the admin's switch is on. */}
+          {aiTranscribeFlag && (
+            <SettingsSection icon={<RowVoiceIcon size={18} aria-hidden />} title="Voice" testId="ai-section-voice">
+              <VoiceAiSection prefs={prefs} set={set} />
+            </SettingsSection>
           )}
           <Collapsible
             icon={<KeyIcon size={18} aria-hidden />}

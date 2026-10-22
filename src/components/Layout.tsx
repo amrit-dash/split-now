@@ -1,9 +1,7 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useFlag } from '@/hooks/useAppConfig'
-import { useLongPress } from '@/hooks/useLongPress'
-import { groupOfPath, plusTap } from '@/lib/plus-target'
+import { groupOfPath } from '@/lib/plus-target'
 import { tabIconLook } from '@/lib/icon-style'
 import { useAllGroupData } from '@/hooks/data'
 import { useInbox } from '@/hooks/useInbox'
@@ -15,6 +13,7 @@ import { Aurora } from './Aurora'
 import { CaptureAlert } from './CaptureAlert'
 import { WhatsNewBanner } from './WhatsNewBanner'
 import { CreateSheet } from './CreateSheet'
+import { PlusButton } from './PlusButton'
 import { SyncPill } from './OfflinePill'
 import { Loading } from './Misc'
 import { useIconStyle } from './Icon'
@@ -34,20 +33,12 @@ const tabsFor = (liveTables: boolean) =>
 
 export function Layout() {
   const loc = useLocation()
-  const nav = useNavigate()
   const groupId = groupOfPath(loc.pathname)
   const [creating, setCreating] = useState(false)
+  /** a line said by holding + that needs a choice in Quick add (which group) */
+  const [said, setSaid] = useState<string | undefined>()
   const tabs = tabsFor(useFlag('liveTables'))
   const iconStyle = useIconStyle()
-  // Inside a group a tap adds an expense to it; press and hold (or right click) opens the sheet.
-  const plus = useLongPress({
-    onTap: () => {
-      const a = plusTap(loc.pathname)
-      if (a.kind === 'add') nav(a.to)
-      else setCreating(true)
-    },
-    onHold: () => setCreating(true),
-  })
   const main = useRef<HTMLElement>(null)
   // Lets fixed banners (UpdatePrompt) and the toast stack sit above the tab bar only on screens that have one.
   useEffect(() => {
@@ -117,19 +108,14 @@ export function Layout() {
           {tabs.map((t) =>
             t === null ? (
               <div key="create" className="relative w-16 self-stretch">
-                <button
-                  type="button"
-                  {...plus}
-                  data-testid="nav-create"
-                  className="fab-ring absolute left-1/2 top-0 flex h-[3.75rem] w-[3.75rem] -translate-x-1/2 -translate-y-[45%] items-center justify-center overflow-hidden rounded-full text-on-fill transition active:scale-95"
-                  aria-label={groupId ? 'Add expense to this group (press and hold for more)' : 'Create'}
-                  aria-haspopup={groupId ? undefined : 'dialog'}
-                >
-                  <Aurora size="fab" />
-                  {/* white outline round the lower half, fading out towards the top */}
-                  <span aria-hidden className="fab-rim pointer-events-none absolute inset-0 rounded-full border border-white/55" />
-                  <Plus size={28} strokeWidth={2.6} className="relative" aria-hidden />
-                </button>
+                {/* Tap: Add expense inside a group, the Create sheet elsewhere. Press and hold: talk to Quick add (PlusButton). */}
+                <PlusButton
+                  groupId={groupId}
+                  onSheet={(text) => {
+                    setSaid(text)
+                    setCreating(true)
+                  }}
+                />
               </div>
             ) : (
               <NavLink
@@ -160,7 +146,15 @@ export function Layout() {
           )}
         </div>
       </nav>
-      <CreateSheet open={creating} onClose={() => setCreating(false)} groupId={groupId} />
+      <CreateSheet
+        open={creating}
+        onClose={() => {
+          setCreating(false)
+          setSaid(undefined)
+        }}
+        groupId={groupId}
+        initialText={said}
+      />
     </div>
   )
 }

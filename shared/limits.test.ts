@@ -39,6 +39,8 @@ describe('resolveLimits', () => {
       proofChecksPerDay: 30,
       captureKeepDays: 30,
       appErrorKeepDays: 14,
+      transcribeMaxKb: 512,
+      transcribePerDay: 40,
     })
     for (const k of LIMIT_NAMES) {
       const m = LIMIT_META[k]

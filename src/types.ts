@@ -63,6 +63,11 @@ export interface UserProfile {
   proHidden?: boolean
   /** Preferences → Show my Dev badge (admins only), turned off (src/lib/pro.ts badgeWord). */
   devHidden?: boolean
+  /**
+   * When this account first held + to talk (epoch ms; repo.markVoiceTried). Until it is set, the app
+   * teaches it now and then with a bubble from + (src/lib/voice-teach.ts); after, never again.
+   */
+  voiceTried?: number
 }
 
 export type PhotoSource = 'upload' | 'google' | 'none'

@@ -1,8 +1,11 @@
 /*
- * Voice for Quick add: the browser's Web Speech API (Chrome on Android, Safari on iOS 14.5+).
- * Nothing is recorded by the app and no audio leaves it through us; the browser does the
- * recognition. Where the API doesn't exist the mic button isn't shown.
+ * Voice for Quick add, the phone's own recognition: the browser's Web Speech API (Chrome on
+ * Android, Safari on iOS 14.5+). Free, and always first (src/lib/voice.ts voiceEngine). Nothing is
+ * recorded by the app and no audio leaves it through us; the browser does the recognition. Where
+ * the API doesn't exist, or the person refused it, the mic isn't shown (unless they chose AI
+ * transcription, src/lib/mic.ts).
  */
+import { joinHeard } from './voice'
 
 interface RecognitionResultEvent {
   resultIndex: number
@@ -19,6 +22,7 @@ interface Recognition {
   onresult: ((e: RecognitionResultEvent) => void) | null
   onerror: ((e: { error?: string }) => void) | null
   onend: (() => void) | null
+  onaudiostart?: (() => void) | null
 }
 
 function ctor(): (new () => Recognition) | undefined {
@@ -28,6 +32,34 @@ function ctor(): (new () => Recognition) | undefined {
 }
 
 export const speechSupported = (): boolean => !!ctor()
+
+// ---- Refused on this device -------------------------------------------------------------
+// After a not-allowed error the mic hides (a button that only ever fails is worse than none);
+// when the site's microphone permission later reads "granted", it comes back (src/lib/mic.ts).
+const DENIED_KEY = 'splitnow-speech-denied'
+const deniedSubs = new Set<() => void>()
+export function speechDenied(): boolean {
+  try {
+    return localStorage.getItem(DENIED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+export function setSpeechDenied(on: boolean): void {
+  try {
+    if (on) localStorage.setItem(DENIED_KEY, '1')
+    else localStorage.removeItem(DENIED_KEY)
+  } catch {
+    /* private mode */
+  }
+  for (const f of deniedSubs) f()
+}
+export function subscribeSpeechDenied(f: () => void): () => void {
+  deniedSubs.add(f)
+  return () => deniedSubs.delete(f)
+}
+
+const refused = (code: string | undefined) => code === 'not-allowed' || code === 'service-not-allowed'
 
 /** Plain words for the API's error codes. */
 export function speechErrorText(code: string | undefined): string {
@@ -49,55 +81,99 @@ export function speechErrorText(code: string | undefined): string {
 }
 
 export interface SpeechSession {
+  /** stop listening; onEnd follows with what was heard */
   stop(): void
+  /** stop without waiting for the last words */
+  abort(): void
 }
 
 /**
- * Listen for one utterance. `onText` gets the running transcript (final = the browser is done);
- * `onEnd` fires once, with an error message when something went wrong. null when unsupported.
+ * Listen until stop(). `continuous`: silence never ends it; when the browser ends a session on its
+ * own (Chrome does after a quiet spell), a new one starts and the words carry on. `onText` gets
+ * the running words; `onEnd` fires once, with an error message when something went wrong.
+ * `onAudio` fires when the browser has the microphone (a level meter can open its own then).
+ * null when unsupported.
  */
-export function listenOnce(opts: { lang?: string; onText: (text: string, final: boolean) => void; onEnd: (error?: string) => void }): SpeechSession | null {
+export function listen(opts: { lang?: string; onText: (text: string) => void; onEnd: (error?: string) => void; onAudio?: () => void }): SpeechSession | null {
   const C = ctor()
   if (!C) return null
-  const r = new C()
-  r.lang = opts.lang ?? 'en-IN'
-  r.interimResults = true
-  r.maxAlternatives = 1
-  r.continuous = false
+  let settled = ''
+  let hearing = ''
+  let stopped = false
   let ended = false
   let error: string | undefined
-  const end = () => {
+  let current: Recognition | null = null
+  let restarts = 0
+  const finish = () => {
     if (ended) return
     ended = true
     opts.onEnd(error)
   }
-  r.onresult = (e) => {
-    let text = ''
-    let final = false
-    for (let i = 0; i < e.results.length; i++) {
-      text += e.results[i][0]?.transcript ?? ''
-      if (e.results[i].isFinal) final = true
+  const begin = () => {
+    const r = new C()
+    current = r
+    r.lang = opts.lang ?? 'en-IN'
+    r.interimResults = true
+    r.maxAlternatives = 1
+    r.continuous = true
+    r.onresult = (e) => {
+      let done = ''
+      let now = ''
+      for (let i = 0; i < e.results.length; i++) {
+        const t = e.results[i][0]?.transcript ?? ''
+        if (e.results[i].isFinal) done += ` ${t}`
+        else now += ` ${t}`
+      }
+      hearing = joinHeard(done, now)
+      opts.onText(joinHeard(settled, hearing))
     }
-    opts.onText(text.trim(), final)
-  }
-  r.onerror = (e) => {
-    const msg = speechErrorText(e.error)
-    if (msg) error = msg
-  }
-  r.onend = end
-  try {
+    r.onerror = (e) => {
+      // Silence is not an ending: the session restarts below. A refusal hides the mic from now on.
+      if (e.error === 'no-speech' || e.error === 'aborted') return
+      if (refused(e.error)) setSpeechDenied(true)
+      error = speechErrorText(e.error) || undefined
+      stopped = true
+    }
+    r.onaudiostart = () => opts.onAudio?.()
+    r.onend = () => {
+      settled = joinHeard(settled, hearing)
+      hearing = ''
+      // The browser ended a session the person didn't: start another, a few times a minute at most.
+      if (!stopped && restarts < 40) {
+        restarts += 1
+        try {
+          begin()
+          return
+        } catch {
+          /* fall through: finish */
+        }
+      }
+      finish()
+    }
     r.start()
+  }
+  try {
+    begin()
   } catch {
     error = speechErrorText(undefined)
-    end()
+    finish()
     return null
   }
   return {
     stop() {
+      stopped = true
       try {
-        r.stop()
+        current?.stop()
       } catch {
-        end()
+        finish()
+      }
+    },
+    abort() {
+      stopped = true
+      try {
+        current?.abort()
+      } catch {
+        finish()
       }
     },
   }

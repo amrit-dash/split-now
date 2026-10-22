@@ -25,7 +25,7 @@ Status: **decided** = the owner's call (22 Oct 2026). **proposed** = waiting for
 | Settings → Notifications | The types that apply to what Simple shows | Capture types when capture isn't set up (dynamic) |
 | Settings → Automation | | Whole section and every entry point; automations keep running |
 | Settings → Encrypted groups | Shown; explainer moves to Help behind a ? button | |
-| Settings → AI features | Use AI, free AI (when the admin offers it), Your key and models | Per-feature switches, icons |
+| Settings → AI features | Use AI, free AI (when the admin offers it), Voice (when the admin's transcription switch is on), Your key and models | Per-feature switches, icons |
 | Settings → Data, Admin | As is | |
 | Scan | Camera and Photo per kind | The AI toggle (Settings' choice applies) |
 | New group, Edit group | Everything else | Approvals section (all off by default) |
@@ -43,6 +43,7 @@ Simple keeps nearly every everyday feature; it differs mostly in Settings and a 
 | Groups | Recently deleted, archived | Import from Splitwise, personal wallets (every list, picker and form; the wallets stay) |
 | Group chat | The chat, tools, tags, replies, the header's mute bell; About this chat's explainer and How to use it | About this chat → Your settings (suggest tools, AI suggestions, mute switch) |
 | Create sheet | Quick add, Add expense, New group, Scan | |
+| Voice (9.1) | Quick add's mic, holding + to talk (with its bars, answer and teaching bubbles), Settings → Preferences → Voice → Transcription, Settings → AI features → Voice (Transcribe with AI, Which key) | |
 | Group | Chat, Open, Balances, Activity tabs, graph view, sort and filter, trip capture line | Whose-turn chip |
 | Group menu | Insights and the rest | Money received, Export CSV |
 | Group balances, Balances | Remind and Nudge | |

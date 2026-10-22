@@ -583,6 +583,12 @@ export function createLocalRepo(): Repo {
       if (state.user?.uid === p.uid) state.user = { ...state.user, displayName: p.displayName }
       commit()
     },
+    async markVoiceTried(id) {
+      const p = state.profiles[id]
+      if (!p || p.voiceTried) return
+      state.profiles[id] = { ...p, voiceTried: Date.now() }
+      commit()
+    },
     async getProfile(id) {
       return state.profiles[id] ?? null
     },
@@ -1501,6 +1507,13 @@ export function createLocalRepo(): Repo {
       // No AI here: the stand-in picks from the catalogue by the title's words (loaded on first use).
       const { demoIconPick } = await import('@/lib/icon-ai-demo')
       return demoIconPick(req)
+    },
+    async transcribeAi() {
+      // No server here: the demo's voice is the phone's own recognition.
+      return null
+    },
+    async transcribeKey() {
+      throw new Error('AI features aren’t available in the demo')
     },
     async aiKey() {
       throw new Error('AI features aren’t available in the demo')

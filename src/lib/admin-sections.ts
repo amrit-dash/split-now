@@ -19,7 +19,7 @@ export const FLAG_SECTIONS: readonly Section<FlagName>[] = [
     id: 'ai',
     title: 'AI',
     hint: 'What Gemini reads for people. Who may use Split Now’s key, and its limits, are in the AI tab.',
-    keys: ['aiImages', 'aiSms', 'aiQuickAdd', 'chatAi', 'aiPayments', 'aiIcons', 'aiIconAuto'],
+    keys: ['aiImages', 'aiSms', 'aiQuickAdd', 'chatAi', 'aiPayments', 'aiIcons', 'aiIconAuto', 'aiTranscribe', 'aiTranscribeShared'],
   },
   {
     id: 'expenses',
@@ -54,6 +54,7 @@ export const LIMIT_SECTIONS: readonly Section<LimitName>[] = [
   { id: 'nudges', title: 'Nudges', hint: 'The push next to Remind.', keys: ['nudgePerDay'] },
   { id: 'fx', title: 'Exchange rates', hint: 'The Refresh button next to a currency.', keys: ['fxPerUserPerHour', 'fxPerUserPerDay'] },
   { id: 'logs', title: 'Logs', hint: 'Admin → Logs.', keys: ['appErrorKeepDays'] },
+  { id: 'voice', title: 'Voice', hint: 'Transcription with AI, for people who chose it.', keys: ['transcribeMaxKb', 'transcribePerDay'] },
 ]
 
 /** "3 of 4 on" for a section's header. */

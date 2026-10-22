@@ -47,6 +47,8 @@ export const FLAG_NAMES = [
   'aiIconAuto',
   'whatsNew',
   'joinApproval',
+  'aiTranscribe',
+  'aiTranscribeShared',
 ] as const
 export type FlagName = (typeof FLAG_NAMES)[number]
 
@@ -113,6 +115,14 @@ export const FLAG_INFO: Record<FlagName, { label: string; hint: string }> = {
   chatAi: {
     label: 'Chat suggestions with AI',
     hint: 'Lets people turn on "Use AI for suggestions" in a group chat’s ⓘ (off for everyone until they do). Off hides the switch and the server stops reading chat lines. Uses the bill-reading allowance. Server-enforced.',
+  },
+  aiTranscribe: {
+    label: 'Transcription with AI',
+    hint: 'Lets people choose AI for voice (Preferences → Transcription, AI features → Transcribe with AI): the recording goes to Flash-Lite instead of the phone’s own recognition. Off: voice uses the phone’s own recognition only, and phones without it show no mic. Server-enforced.',
+  },
+  aiTranscribeShared: {
+    label: 'Everyone may use Split Now’s transcription key',
+    hint: 'With Transcription with AI on, anyone may use the transcription key set in AI (with its daily allowance per person in Limits → Voice). Off: only people with their own Gemini key can choose AI. Server-enforced.',
   },
   aiPayments: {
     label: 'Check payment screenshots with AI',

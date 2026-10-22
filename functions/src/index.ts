@@ -22,7 +22,8 @@
  *  pictureTest         Callable { which, model } → Test pictures: one picture with exactly that model, or Google's reason (own key; shared key for admins)
  *  iconsAi             Callable { title, kind, category? } → 3 emoji and up to 3 cleaned SVG icons (Gemma or Gemini; nothing saved)
  *  quickAddAi          Callable { text, groups, … } → a Quick add line read by Gemini: an expense, or a new group and an expense (validated; nothing saved)
- *  aiKey, aiModels, aiStatus  Callables: save/test/remove a user's Gemini key (sealed at rest), list models, AI availability
+ *  transcribeAi        Callable { audio, mimeType, lang? } → a short voice recording written down by Flash-Lite, for people who chose AI transcription (own key or Split Now's transcription key)
+ *  aiKey, aiModels, aiStatus  Callables: save/test/remove a user's Gemini key (sealed at rest; admins: the project key and the transcription key), list models, AI availability
  *  nudge               Callable { groupId, memberId, amount? } or { items } (several groups, one push with the total) → push to someone who owes the caller (1 per pair per day)
  *  onPayLinkPaid       Firestore payLinks/{code} open → paid ("I've paid") → record the settlement in the group, push the payee
  *  cleanupCaptures     Schedule every day 03:45 Asia/Kolkata → remove captured payments handled longer than config/limits captureKeepDays
@@ -48,7 +49,7 @@ export { cleanupCaptures } from './cleanup'
 export { onExpenseCreated, onExpenseUpdated, onGroupDeleted, onPushTokenCreated, onSettlementCreated, onSettlementUpdated } from './triggers'
 export { dailyReminders } from './reminders'
 export { fxDaily, fxMorning, refreshFx } from './fx'
-export { aiKey, aiModels, aiStatus, iconPickAi, iconPictureAi, iconsAi, parseReceiptAi, pictureTest, quickAddAi } from './ai'
+export { aiKey, aiModels, aiStatus, iconPickAi, iconPictureAi, iconsAi, parseReceiptAi, pictureTest, quickAddAi, transcribeAi } from './ai'
 export { nudge } from './nudge'
 export { onPayLinkPaid } from './paylinks'
 export { adminBlockUser, adminSetAdmin, adminStats, adminUsers } from './admin'

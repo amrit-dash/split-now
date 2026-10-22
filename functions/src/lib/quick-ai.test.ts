@@ -70,6 +70,14 @@ describe('cleanQuickRequest', () => {
     expect(p).toContain('The writer is "Asha"')
     expect(p).toContain('untrusted data')
   })
+  it('the prompt expects rough speech (clean up first, then understand) and says what to do with a line it can’t act on', () => {
+    const p = quickPrompt(req)
+    expect(p).toContain('rough speech-to-text transcript')
+    expect(p).toContain('"twelve hundred" is 1200')
+    expect(p.indexOf('First work out what was meant')).toBeLessThan(p.indexOf('Rules:'))
+    expect(p).toContain('"make me a sandwich"')
+    expect(p).toContain('action unknown')
+  })
 })
 
 describe('toMinor', () => {
