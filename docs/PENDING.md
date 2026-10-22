@@ -15,13 +15,36 @@ remove an item when its release merges, and add anything left half-done.
 - [ ] Help: smoother scene motion (pointer, step transitions, sheets), every scene and line matching 9.0.0's UI, and new sections for anything new.
 - [ ] Icons: new modern set for the tab bar; every emoji used as UI chrome (Help, Settings, Profile, notes; not group/expense icons) becomes an icon from one set; Preferences switch Outline / Filled, with an admin default.
 
-## Next: 9.1.0, voice and Quick add (after 9.0.0, same batch habits)
+## Voice and Quick add (owner's decisions, 22 Oct 2026; 9.0.0 or 9.1.0 decided after the owner's next feature)
 
-- [ ] Free-first voice: the phone's own recognition (continuous, no stop at the first pause; today's `continuous: false` in src/lib/speech.ts ends on any pause), then Gemini Flash-Lite on a separate unbilled free-tier key when the phone can't (iOS Home Screen app, Firefox), daily cap shown; paid key only if the admin allows.
-- [ ] A dictation engine that works: live words in the Quick add box as you speak (the phone's own speech recognition where it has one), and a recording sent to Gemini to transcribe where it doesn't (iOS Home Screen app, Firefox), with clear words on why when neither is available.
-- [x] Voice probe (22 Oct 2026): Gemma 4 (26B, 31B) refuse audio ("Audio input modality is not enabled"). gemini-3.5-flash-lite: 5/5 synthetic lines right, about 1.5 s, about 90 audio tokens for a 3-second line; 3.1-flash-lite also 5/5, slower. Voice runs on Flash-Lite. Still to try: the owner's own recordings (`-- --clips <folder>`), noisy rooms, Indian English names.
-- [ ] Hold + to talk, from any screen with the tab bar: + turns into a mic (vibration, a soft sound), 4–5 accent bars react to your voice above it, release fades the bars and puts a spinner on + itself, which can't be tapped until it's done (then the screen it opened, or a plain answer). This replaces press-and-hold for the Create sheet inside a group.
-- [ ] Quick add review: every intent it should handle (expense, payment/settle up, new group, add people, open item, open a screen, use what's on screen), and a clear answer for lines it can't act on ("Make me a sandwich").
+Engine, free first:
+- [ ] The phone's own speech recognition always first, free. `continuous: true`; listening lasts until the person lets go of + (or taps the mic off). Silence alone never ends it.
+- [ ] No phone recognition, or microphone permission denied: no mic button in Quick add and no hold-for-voice on + (hold falls back to nothing new), unless AI transcription is on for that person (below).
+- [ ] AI transcription (Flash-Lite on audio) only where the phone can't, through a separate **transcription key** set by the admin.
+
+Admin (Admin → AI):
+- [ ] A third global key, for transcription only: own model picker (recommended: the current Flash-Lite, e.g. gemini-3.5-flash-lite; 3.1-flash-lite allowed), a Test button, and a check that the key is billed: a free (unbilled) key is refused with an error, a paid one is accepted.
+- [ ] Flag: transcription on/off for everyone (off = no AI transcription offered anywhere).
+- [ ] Flag: everyone may use the global transcription key.
+
+Person (Settings → AI features):
+- [ ] "Transcribe with AI" switch, shown only when the admin flag is on. With the global key allowed, anyone can turn it on; without it, only someone with their own Gemini key.
+- [ ] Which key: Automatic (own key first, then the global one; with the global one not allowed, own key only), Own key, Split Now's key.
+
+Quick add screen:
+- [ ] Mic is a toggle (tap to start, tap to stop) and also press and hold (speak, let go). Transcribing shows a spinner inside the text box; the text lands in the box and waits: Enter / send runs Quick add.
+- [ ] Quick add's AI prompt: the line may be a rough speech transcript (wrong words, no punctuation, numbers as words): clean it up first, then understand it. Same prompt on every model.
+
+Hold + for voice (from any screen with the tab bar):
+- [ ] Single tap: as now. Press and hold: + becomes a mic with a short vibration and a soft sound; 4–5 accent bars above it react to the voice; a subtle ripple/glow from the button itself while held (must not spoil today's look). Let go: bars fade, a spinner on + (not tappable until done), then Quick add's result: the screen it opened, or a plain answer.
+- [ ] Inside a group, tap still adds an expense; hold becomes voice (the Create sheet there is reached from Home's +, or by voice).
+- [ ] Lines Quick add can't act on ("Make me a sandwich"): a clear, friendly answer and what it can do instead.
+
+Teaching it:
+- [ ] After the update, a speech bubble rises from + once: "Press and hold + to talk". Dismiss with ✕ or a swipe.
+- [ ] Per account, across every device: a flag in the profile (`voiceTried`, rules whitelist + test + PLAN.md) set the first time someone holds + for voice (no need to finish Quick add). Until it's set, every few visits (every 3rd–5th) a "Did you know?" bubble from + with different words, urging "Try it now: press and hold +".
+
+- [ ] Free-first voice summary for Help: a new section (voice), plus Quick add's updated.
 
 ## Ideas, not requested (build only if the owner asks)
 

@@ -56,6 +56,7 @@ import { ClaimReview } from '@/components/ClaimReview'
 import { formatMoney } from '@/lib/money'
 import { groupSettleTarget } from '@/lib/settleAll'
 import { archiveRow } from '@/lib/archive'
+import { debtTone } from '@/lib/balances'
 import { CATEGORIES } from '@/lib/categories'
 import { expenseEmoji } from '@/lib/icons'
 import { IconFace } from '@/components/IconFace'
@@ -634,7 +635,8 @@ export default function GroupDetail() {
                     />
                     <div className="min-w-0 flex-1 text-sm">
                       <b>{name(x.from)}</b> → <b>{name(x.to)}</b>
-                      <div className="neg font-semibold">{formatMoney(x.amount, cur)}</div>
+                      {/* Money coming to you is green, money you pay is red, others' is neutral. */}
+                      <div className={`font-semibold ${{ pos: 'pos', neg: 'neg', neutral: '' }[debtTone(x, me)]}`}>{formatMoney(x.amount, cur)}</div>
                     </div>
                     {x.to === me && <RemindActions group={group} debtor={x.from} amount={x.amount} me={me} feed={feed} className="-mr-1" />}
                     {/* An icon button like Balances' record button; filled when it's your own payment to make. */}

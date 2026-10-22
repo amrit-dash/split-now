@@ -85,3 +85,13 @@ export function totalsByMember(expenses: Expense[]) {
   }
   return { paid, share }
 }
+
+/**
+ * How a "who pays whom" row is coloured, from where you stand: green when the money comes to
+ * you, red when you're the one paying, neutral for two other people.
+ */
+export function debtTone(d: Pick<Debt, 'from' | 'to'>, me: MemberId | undefined): 'pos' | 'neg' | 'neutral' {
+  if (me && d.to === me) return 'pos'
+  if (me && d.from === me) return 'neg'
+  return 'neutral'
+}

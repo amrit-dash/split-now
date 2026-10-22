@@ -8,7 +8,7 @@ import { screenOf } from './nav-stack'
  */
 
 /** One entry's position: the page's vertical scroll, and each kept row's sideways scroll by its name. */
-export type ScrollPos = { y: number; rows?: Record<string, number> }
+export type ScrollPos = { y: number; rows?: Record<string, number>; path?: string }
 
 /** The positions of the latest entries, oldest first in `keys`, so the store stays small. */
 export type ScrollStore = { keys: string[]; at: Record<string, ScrollPos> }
@@ -29,7 +29,9 @@ export type ScrollPlan = { kind: 'top' } | { kind: 'keep' } | { kind: 'restore';
  * page alone when there isn't (the first screen of a visit).
  */
 export function scrollPlan(kind: 'push' | 'replace' | 'pop', from: string | undefined, to: string, saved: ScrollPos | undefined): ScrollPlan {
-  if (kind === 'pop') return saved ? { kind: 'restore', pos: saved } : { kind: 'keep' }
+  // Only a position saved on this same screen: every first load of a tab shares the router key
+  // 'default', so a reload or an opened link must not take the last screen's scroll.
+  if (kind === 'pop') return saved && (saved.path === undefined || saved.path === to) ? { kind: 'restore', pos: saved } : { kind: 'keep' }
   if (from !== undefined && screenOf(from) === screenOf(to)) return { kind: 'keep' }
   return { kind: 'top' }
 }
