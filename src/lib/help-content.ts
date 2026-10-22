@@ -1545,7 +1545,7 @@ export const SECTIONS: HelpSection[] = [
     keywords: ['simple', 'advanced', 'mode', 'more features', 'hidden', 'missing', 'power'],
     points: [
       'Simple has groups, expenses, settling up, Live table, private groups and more.',
-      'Switch in Settings → Preferences → **Mode**, or with the icon at the top of Profile.',
+      'Switch in Settings → Preferences → **Mode**, or with the icon at the top of **Profile**, beside Settings. **Undo** switches back.',
       'Advanced adds auto-capture, approvals and merging people.',
       'It also adds Money received, Personal wallets and Waive the rest.',
       'And more settings: Animations, Icons, Detail level and each AI switch.',

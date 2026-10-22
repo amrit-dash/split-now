@@ -43,6 +43,7 @@ import { UpdateRow } from '@/components/UpdateRow'
 import { SupportSheet } from '@/components/SupportSheet'
 import { SavedPill, useSavedFlash } from './settings/common'
 import { RowTile } from '@/components/RowTile'
+import { ModeButton } from '@/components/ModeButton'
 
 type Handle = {
   key: keyof PaymentHandles
@@ -223,6 +224,7 @@ export default function Profile() {
         right={
           <div className="flex items-center gap-2">
             <SavedPill on={saved} />
+            <ModeButton />
             <Link
               to="/settings"
               className="flex h-11 w-11 items-center justify-center rounded-full text-slate-700 hover:bg-slate-200/60 dark:text-slate-200 dark:hover:bg-ink-800"

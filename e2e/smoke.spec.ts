@@ -2232,6 +2232,19 @@ test.describe('Simple mode', () => {
     await kinds.getByRole('radio', { name: 'Payment' }).click()
     await expect(page.getByTestId('scan-ai')).toHaveCount(0)
   })
+  test("Profile's mode button switches mode, Undo puts it back, and Settings follows", async ({ page }) => {
+    await page.goto('/profile')
+    const btn = page.getByTestId('mode-button')
+    await expect(btn).toHaveAttribute('aria-label', /Mode: Simple/)
+    await btn.click()
+    await expect(btn).toHaveAttribute('aria-label', /Mode: Advanced/)
+    await page.getByTestId('toasts').getByRole('button', { name: 'Undo' }).click()
+    await expect(btn).toHaveAttribute('aria-label', /Mode: Simple/)
+    await btn.click()
+    await expect(btn).toHaveAttribute('aria-label', /Mode: Advanced/)
+    await page.goto('/settings')
+    await expect(page.getByTestId('settings-animations')).toBeVisible()
+  })
 })
 
 test('Encrypted groups: ? opens Help on private groups, and back returns to the page', async ({ page }) => {
