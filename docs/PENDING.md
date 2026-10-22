@@ -10,11 +10,11 @@ remove an item when its release merges, and add anything left half-done.
 - [x] + inside a group: tap goes straight to Add expense for that group (the group stays changeable: owner left it to us); press and hold opens the Create sheet.
 - [x] Create sheet: Quick add first, "or", Add expense, then New group + Scan. Settle up and Live table tiles removed.
 - [x] Group expenses: the quick-filter pill row moves into Sort and filter as a collapsible "Quick filters" section (folded, its choice in the header). Below search, pills only for what is applied (sort, show, paid by, dates, quick filters), each tap-to-remove; badge count and Clear stay.
-- [x] Live table icon: a serving dome on a tray (our own drawing on MingCute's grid), used on every Live table entry point; Scan the bill on /split shows a bill.
+- [x] Live table icon: Fluent's fork and knife on every Live table entry point (owner's pick after the dome); Scan the bill on /split shows a bill.
 - [ ] Design pass with the new design skills: motion, polish and UX fixes across screens, alongside the icons.
 - [ ] Help: smoother scene motion (pointer, step transitions, sheets), every scene and line matching 9.0.0's UI, and new sections for anything new.
-- [x] Icons, second pass (owner rejected the Phosphor look): MingCute line / fill for the tab bar, rows, sheets and the group / expense / settle actions; Solar duotone in the accent's gradient for Help, empty screens and notices; Insights is a bar chart; lucide stays for small controls. Outline / Filled and the admin default kept. Built by `npm run icons:art`.
-- [ ] Icons, later: lucide feature icons left on less-used screens (admin, merge, chat composer, expense form internals) could move to MingCute when those screens are next touched.
+- [x] Icons, second pass (owner rejected the Phosphor look, then picked Fluent over MingCute): Fluent Regular / Filled for the tab bar, rows, sheets and the group / expense / settle actions; Settings rows each have their own icon; Quick add is a bot; Profile's Help is a lifebuoy; Solar duotone in the accent's gradient for Help, empty screens and notices; Insights is a bar chart; lucide stays for small controls. Outline / Filled and the admin default kept. Built by `npm run icons:art`.
+- [ ] Icons, later: lucide feature icons left on less-used screens (admin, merge, chat composer, expense form internals) could move to Fluent when those screens are next touched.
 
 ## Voice and Quick add (owner's decisions, 22 Oct 2026; 9.0.0 or 9.1.0 decided after the owner's next feature)
 

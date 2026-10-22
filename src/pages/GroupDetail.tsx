@@ -1,22 +1,9 @@
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import {
-  AlertCircle,
-  AlertTriangle,
-  ChevronRight,
-  MessageSquareText,
-  Repeat,
-  Search,
-  ArrowDownUp,
-  ReceiptText,
-  ArrowLeftRight,
-  CalendarRange,
-  UserRound,
-  UtensilsCrossed,
-  X,
-} from 'lucide-react'
+import { AlertCircle, AlertTriangle, ChevronRight, MessageSquareText, Repeat, Search, UtensilsCrossed, X } from 'lucide-react'
 import {
   ArchiveIcon,
+  CalendarIcon,
   ChatIcon,
   ChecksIcon,
   DownloadIcon,
@@ -34,7 +21,9 @@ import {
   ReceiptIcon,
   SettingsIcon,
   SortIcon,
+  SwapIcon,
   TrashIcon,
+  UserIcon,
 } from '@/components/icons'
 import { QrCode } from '@/components/QrCode'
 import { useMe } from '@/hooks/auth'
@@ -1595,14 +1584,6 @@ function PillMark({ pill, filter, group }: { pill: string; filter: ActivityFilte
     return m ? <Avatar name={m.name} color={m.color} photoURL={m.photoURL} size={20} /> : null
   }
   const Icon =
-    pill === 'sort'
-      ? ArrowDownUp
-      : pill === 'involving'
-        ? UserRound
-        : pill === 'dates'
-          ? CalendarRange
-          : filter.kind === 'payments'
-            ? ArrowLeftRight
-            : ReceiptText
+    pill === 'sort' ? SortIcon : pill === 'involving' ? UserIcon : pill === 'dates' ? CalendarIcon : filter.kind === 'payments' ? SwapIcon : ReceiptIcon
   return <Icon size={15} aria-hidden />
 }

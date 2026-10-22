@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BellIcon, DataIcon, LightningIcon, LockIcon, MagicIcon, PaletteIcon, ShieldIcon, SparkleIcon } from '@/components/icons'
+import { AdminIcon, AiIcon, AnimationsIcon, AutomationIcon, DataIcon, EncryptedIcon, NotificationsIcon, PreferencesIcon } from '@/components/icons'
 import { repo } from '@/data'
 import { useAiState, useCaptureTokens } from '@/hooks/data'
 import { useMe } from '@/hooks/auth'
@@ -56,22 +56,28 @@ export default function SettingsHome() {
       <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5" data-testid="settings-list">
         <SettingsRow
           to="/settings/preferences"
-          icon={<PaletteIcon size={19} />}
+          icon={<PreferencesIcon size={19} />}
           title="Preferences"
           testId="settings-preferences"
           summary={`${profile.currency} · ${THEME_LABEL[getTheme()]} · ${accentPreset(getAccent()).label}`}
         />
         <SettingsRow
           to="/settings/animations"
-          icon={<MagicIcon size={19} />}
+          icon={<AnimationsIcon size={19} />}
           title="Animations"
           summary={motionSummary(motion.prefs, motion.reduced)}
           testId="settings-animations"
         />
-        <SettingsRow to="/settings/notifications" icon={<BellIcon size={19} />} title="Notifications" summary={notifications} testId="settings-notifications" />
+        <SettingsRow
+          to="/settings/notifications"
+          icon={<NotificationsIcon size={19} />}
+          title="Notifications"
+          summary={notifications}
+          testId="settings-notifications"
+        />
         <SettingsRow
           to="/settings/automation"
-          icon={<LightningIcon size={19} />}
+          icon={<AutomationIcon size={19} />}
           title="Automation"
           summary={automation || 'Auto-capture and capture keys'}
           testId="settings-automation"
@@ -79,13 +85,13 @@ export default function SettingsHome() {
         {vaults.flagOn && (
           <SettingsRow
             to="/settings/vault"
-            icon={<LockIcon size={19} />}
+            icon={<EncryptedIcon size={19} />}
             title="Encrypted groups"
             summary={privateSummary(vaults.on)}
             testId="settings-vault"
           />
         )}
-        {repo.mode === 'firebase' && <SettingsRow to="/settings/ai" icon={<SparkleIcon size={19} />} title="AI features" summary={ai} testId="settings-ai" />}
+        {repo.mode === 'firebase' && <SettingsRow to="/settings/ai" icon={<AiIcon size={19} />} title="AI features" summary={ai} testId="settings-ai" />}
         <SettingsRow
           to="/settings/data"
           icon={<DataIcon size={19} />}
@@ -96,7 +102,7 @@ export default function SettingsHome() {
         {aiStatus?.admin && (
           <SettingsRow
             to="/admin"
-            icon={<ShieldIcon size={19} />}
+            icon={<AdminIcon size={19} />}
             title="Admin"
             summary="Switches, limits, usage, AI key and accounts"
             testId="settings-admin"

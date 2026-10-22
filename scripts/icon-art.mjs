@@ -6,11 +6,13 @@
  *   npm run icons:art -- --check   fail when they are out of date (CI-friendly)
  *
  * Three families, one per role (docs: the header of src/components/Icon.tsx):
- *   UI       MingCute line / fill, plus two drawings of ours on its grid (Live table, Insights):
- *            the tab bar, rows, sheets and actions → src/components/icons.tsx
+ *   UI       Fluent UI System Icons, 24 Regular / Filled (MIT): the tab bar, rows, sheets and
+ *            actions → src/components/icons.tsx. One drawing of ours on its grid (Help's lifebuoy).
  *   FEATURE  Solar line duotone / bold duotone, painted in the brand gradient: Help, empty
  *            screens and notices → src/components/feature-art-line.tsx, feature-art-bold.tsx
- *            (each loads on its own, only for the style in use)
+ *            (each loads on its own, only for the style in use). A picture Solar lacks (Live
+ *            table's fork and knife) is Fluent's, made two-tone the same way (half-tone fill
+ *            under the line).
  *   controls lucide (chevrons, close, check, spinners): not built here.
  * Edit the lists below, run the script, commit the output. svgo trims each drawing to one
  * decimal on the 24 grid (invisible at the sizes the app draws, a third smaller).
@@ -26,132 +28,107 @@ const { optimize } = require('svgo')
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 /* ---------------------------------------------------------------- our own drawings
- * 24 grid, 2-unit lines with round ends: MingCute's weight, so they sit in the tab bar beside
- * its icons. Each has the two UI drawings and the two Help (duotone) drawings; the duotone ones
- * mark their soft layer with opacity=".5" exactly as Solar does, so they paint the same way.
+ * On Fluent's grid and weight (1.5 line, round ends), for what Fluent doesn't draw.
  */
-const S = (d, w = 2, extra = '') =>
+const S = (d, w = 1.5, extra = '') =>
   `<path d="${d}" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"${extra}/>`
-const F = (d, extra = '') => `<path d="${d}" fill="currentColor"${extra}/>`
-const shine = 'M7.2 14.1a1 1 0 0 1-.7-1.2 6 6 0 0 1 3.6-3.7 1 1 0 1 1 .7 1.9 4 4 0 0 0-2.4 2.4 1 1 0 0 1-1.2.6Z'
-const dome = 'M12 7.5a9 9 0 0 1 9 9H3a9 9 0 0 1 9-9Z'
+const ring = (r, w = 1.5) => `<circle cx="12" cy="12" r="${r}" fill="none" stroke="currentColor" stroke-width="${w}"/>`
 const CUSTOM = {
-  /* Live table: a serving dome on a tray, the meal everyone at the table shares. Wider and
-     lower than a desk bell, with the tray's rim under it so it reads as food, not "ring for service". */
-  cloche: {
-    line: S('M4 16.5a8 8 0 0 1 16 0') + S('M2.5 16.5h19') + S('M12 8.5V7') + S('M10 6.5h4') + S('M8 13.5a4.5 4.5 0 0 1 2.4-2.4') + S('M6 20h12'),
-    fill: F(dome + shine, ' fill-rule="evenodd"') + S('M2.5 16.5h19', 2.5) + S('M12 8V6.75', 2.5) + S('M9.75 6.25h4.5', 2.5) + S('M6 20h12', 2.5),
-    lineDuo:
-      F('M4 16.5a8 8 0 0 1 16 0Z', ' opacity=".5"') +
-      S('M4 16.5a8 8 0 0 1 16 0', 1.5) +
-      S('M2.5 16.5h19', 1.5) +
-      S('M12 8.5V7', 1.5) +
-      S('M10 6.5h4', 1.5) +
-      S('M6 20h12', 1.5),
-    boldDuo: F(dome, ' opacity=".5"') + S('M2.5 16.5h19', 2) + S('M12 8V6.75', 2) + S('M9.75 6.25h4.5', 2) + S('M6 20h12', 2) + F(shine),
-  },
-  /* Insights: three rising bars, a bar chart and nothing else. */
-  bars: {
-    line: '<rect x="3.5" y="13" width="4.5" height="7.5" rx="1.75" fill="none" stroke="currentColor" stroke-width="2"/><rect x="9.75" y="8.5" width="4.5" height="12" rx="1.75" fill="none" stroke="currentColor" stroke-width="2"/><rect x="16" y="3.5" width="4.5" height="17" rx="1.75" fill="none" stroke="currentColor" stroke-width="2"/>',
-    fill: '<rect x="2.75" y="12.25" width="6" height="9" rx="2.25" fill="currentColor"/><rect x="9" y="7.75" width="6" height="13.5" rx="2.25" fill="currentColor"/><rect x="15.25" y="2.75" width="6" height="18.5" rx="2.25" fill="currentColor"/>',
-    lineDuo:
-      '<rect x="3.5" y="13" width="4.5" height="7.5" rx="1.75" fill="currentColor" opacity=".5"/><rect x="9.75" y="8.5" width="4.5" height="12" rx="1.75" fill="currentColor" opacity=".5"/><rect x="16" y="3.5" width="4.5" height="17" rx="1.75" fill="none" stroke="currentColor" stroke-width="1.5"/>',
-    boldDuo:
-      '<rect x="2.75" y="12.25" width="6" height="9" rx="2.25" fill="currentColor" opacity=".5"/><rect x="9" y="7.75" width="6" height="13.5" rx="2.25" fill="currentColor" opacity=".5"/><rect x="15.25" y="2.75" width="6" height="18.5" rx="2.25" fill="currentColor"/>',
+  /* Help: a lifebuoy (the "floating tube"), the owner's pick: help when you're stuck. Four bands
+     across the ring at the diagonals. Solid: the ring's four coloured sections, the bands left as gaps. */
+  lifebuoy: {
+    line: ring(8.75) + ring(3.75) + S('M5.8 5.8l3.55 3.55M14.65 14.65l3.55 3.55M18.2 5.8l-3.55 3.55M9.35 14.65 5.8 18.2'),
+    fill: '<path fill="currentColor" d="M19.93 5.91A10 10 0 0 1 19.93 18.09L15.90 13.69A4.25 4.25 0 0 0 15.90 10.31ZM18.09 19.93A10 10 0 0 1 5.91 19.93L10.31 15.90A4.25 4.25 0 0 0 13.69 15.90ZM4.07 18.09A10 10 0 0 1 4.07 5.91L8.10 10.31A4.25 4.25 0 0 0 8.10 13.69ZM5.91 4.07A10 10 0 0 1 18.09 4.07L13.69 8.10A4.25 4.25 0 0 0 10.31 8.10Z"/>',
   },
 }
 
-/* ---------------------------------------------------------------- UI: MingCute line / fill
- * Export name → MingCute base name (or ~custom). Names say what the icon is for where that is
- * clearer than what it draws. */
+/* ---------------------------------------------------------------- UI: Fluent Regular / Filled
+ * Export name → Fluent base name (24 px drawing), or ~custom. Names say what the icon is for
+ * where that is clearer than what it draws. */
 const UI = {
   AddIcon: 'add',
+  AdminIcon: 'shield-keyhole',
+  AiIcon: 'brain-sparkle',
+  AnimationsIcon: 'emoji-sparkle',
   ArchiveIcon: 'archive',
-  BalanceIcon: 'balance',
-  BellIcon: 'notification',
-  BellRingingIcon: 'bell-ringing',
-  BellSlashIcon: 'notification-off',
-  CalendarIcon: 'calendar',
-  CameraIcon: 'camera-2',
-  CardIcon: 'bank-card',
-  ChatIcon: 'chat-3',
-  ChatsIcon: 'chat-4',
-  CheckCircleIcon: 'check-circle',
-  ChecksIcon: 'checks',
-  CompassIcon: 'compass',
-  ConfettiIcon: 'celebrate',
-  ContrastIcon: 'sun-cloudy',
-  CopyIcon: 'copy-2',
-  DataIcon: 'safe-box',
-  DownloadIcon: 'download-2',
-  EditIcon: 'edit-2',
-  ExitIcon: 'exit',
-  ExportIcon: 'file-export',
-  ExternalIcon: 'external-link',
-  FaceIdIcon: 'faceid',
-  EyeIcon: 'eye-2',
-  EyeSlashIcon: 'eye-close',
-  FileIcon: 'file',
-  FileUploadIcon: 'file-upload',
-  FilterIcon: 'filter',
-  FlagIcon: 'flag-1',
-  GroupsIcon: 'group-2',
-  HandCoinsIcon: 'hand-card',
-  HandHeartIcon: 'hand-heart',
-  HelpIcon: 'question',
-  HistoryIcon: 'history-anticlockwise',
-  HomeIcon: 'home-4',
-  HourglassIcon: 'time-duration',
-  ImageIcon: 'pic',
-  ImageAddIcon: 'pic-2',
-  InboxIcon: 'inbox',
-  InsightsIcon: '~bars',
-  KeyIcon: 'key-2',
+  AutomationIcon: 'flash-auto',
+  BalanceIcon: 'scales',
+  BellIcon: 'alert',
+  BellRingingIcon: 'alert-on',
+  BellSlashIcon: 'alert-off',
+  BotIcon: 'bot-sparkle',
+  CalendarIcon: 'calendar-ltr',
+  CameraIcon: 'camera',
+  ChatIcon: 'chat',
+  ChatsIcon: 'chat-multiple',
+  CheckCircleIcon: 'checkmark-circle',
+  ChecksIcon: 'checkbox-checked',
+  ContrastIcon: 'dark-theme',
+  CopyIcon: 'copy',
+  DataIcon: 'database',
+  DownloadIcon: 'arrow-download',
+  EditIcon: 'edit',
+  EncryptedIcon: 'lock-shield',
+  ExitIcon: 'sign-out',
+  ExportIcon: 'arrow-export-ltr',
+  ExternalIcon: 'open',
+  EyeIcon: 'eye',
+  EyeSlashIcon: 'eye-off',
+  FaceIdIcon: 'fingerprint',
+  FileIcon: 'document',
+  FileUploadIcon: 'document-arrow-up',
+  FlagIcon: 'flag',
+  GroupsIcon: 'people',
+  HandCoinsIcon: 'money-hand',
+  HandHeartIcon: 'heart',
+  HelpIcon: '~lifebuoy',
+  HistoryIcon: 'history',
+  HomeIcon: 'home',
+  ImageIcon: 'image',
+  ImageAddIcon: 'image-add',
+  InboxIcon: 'mail-inbox',
+  InsightsIcon: 'data-bar-vertical-ascending',
+  KeyIcon: 'key',
   KeyboardIcon: 'keyboard',
-  LightbulbIcon: 'bulb',
+  LightbulbIcon: 'lightbulb',
   LightningIcon: 'flash',
   LinkIcon: 'link',
-  LiveTableIcon: '~cloche',
-  LockIcon: 'lock',
-  LockOpenIcon: 'unlock',
-  MagicIcon: 'magic-2',
+  LiveTableIcon: 'food',
+  LockIcon: 'lock-closed',
+  LockOpenIcon: 'lock-open',
+  MagicIcon: 'wand',
   MailIcon: 'mail',
-  MemberAddIcon: 'user-add-2',
-  MemberRemoveIcon: 'user-remove-2',
-  MoonIcon: 'moon',
-  PaletteIcon: 'palette',
+  MemberAddIcon: 'person-add',
+  MemberRemoveIcon: 'person-delete',
+  MoonIcon: 'weather-moon',
+  NotificationsIcon: 'alert-badge',
+  PaletteIcon: 'color',
   PauseIcon: 'pause',
-  PauseCircleIcon: 'pause-circle',
-  PhoneIcon: 'cellphone',
-  PinIcon: 'pin',
-  PlantIcon: 'leaf',
-  PlugsIcon: 'plugin-2',
-  ProfileIcon: 'user-4',
-  ProhibitIcon: 'forbid-circle',
-  PulseIcon: 'heartbeat-2',
-  QrIcon: 'qrcode-2',
-  ReceiptIcon: 'bill',
-  RefreshIcon: 'refresh-2',
-  RepeatIcon: 'repeat',
-  ScanIcon: 'scan',
-  SearchIcon: 'search',
-  SendIcon: 'send-plane',
-  SettingsIcon: 'settings-3',
-  ShapesIcon: 'emoji-2',
-  ShareIcon: 'share-forward',
-  ShieldIcon: 'safety-certificate',
-  SortIcon: 'sort-descending',
-  SplitIcon: 'chart-pie-2',
-  SparkleIcon: 'sparkles',
+  PhoneIcon: 'phone',
+  PreferencesIcon: 'options',
+  ProfileIcon: 'person-circle',
+  ProhibitIcon: 'prohibited',
+  PulseIcon: 'pulse',
+  QrIcon: 'qr-code',
+  ReceiptIcon: 'receipt',
+  RefreshIcon: 'arrow-sync',
+  RepeatIcon: 'arrow-repeat-all',
+  ScanIcon: 'scan-camera',
+  SendIcon: 'send',
+  SettingsIcon: 'settings',
+  ShapesIcon: 'shapes',
+  ShareIcon: 'share',
+  ShieldIcon: 'shield-checkmark',
+  SortIcon: 'arrow-sort-down-lines',
+  SparkleIcon: 'sparkle',
+  SplitIcon: 'data-pie',
   SuitcaseIcon: 'luggage',
-  SunIcon: 'sun',
-  SwapIcon: 'transfer-3',
-  TagIcon: 'tag',
-  TicketIcon: 'ticket',
-  TrashIcon: 'delete-2',
-  UserIcon: 'user-3',
-  WalletIcon: 'wallet-4',
-  WarningIcon: 'warning',
+  SunIcon: 'weather-sunny',
+  SwapIcon: 'arrow-swap',
+  TicketIcon: 'ticket-diagonal',
+  TrashIcon: 'delete',
+  UserIcon: 'person',
+  WalletIcon: 'wallet',
 }
 
 /* ---------------------------------------------------------------- FEATURE: Solar duotone
@@ -168,7 +145,7 @@ const FEATURE = {
   camera: 'camera',
   card: 'card',
   cash: 'wad-of-money',
-  chart: '~bars',
+  chart: 'chart-2',
   chat: 'chat-round-dots',
   checkCircle: 'check-circle',
   cloudDown: 'cloud-download',
@@ -201,7 +178,7 @@ const FEATURE = {
   lightning: 'bolt',
   link: 'link-round',
   listChecks: 'checklist-minimalistic',
-  liveTable: '~cloche',
+  liveTable: 'fluent:food',
   lock: 'lock-keyhole-minimalistic',
   lockKey: 'lock-password',
   lockOpen: 'lock-keyhole-minimalistic-unlocked',
@@ -293,14 +270,22 @@ function jsx(markup) {
 }
 
 const art = (ref, kind, where) => {
+  // A Fluent drawing as a Help picture: its fill at half tone under its line (Outline), or its
+  // fill (Filled), so it paints like the Solar duotone around it.
+  if (ref.startsWith('fluent:')) {
+    const n = ref.slice(7)
+    const fill = body('fluent', `${n}-24-filled`)
+    const markup = kind === 'lineDuo' ? `<g opacity=".5">${fill}</g>${body('fluent', `${n}-24-regular`)}` : fill
+    return jsx(slim(markup, where))
+  }
   if (ref.startsWith('~')) {
     const c = CUSTOM[ref.slice(1)]
     if (!c) problems.push(`${where}: no custom drawing ${ref}`)
     return jsx(slim(c[kind], where))
   }
   const [setName, suffix] = {
-    line: ['mingcute', '-line'],
-    fill: ['mingcute', '-fill'],
+    line: ['fluent', '-24-regular'],
+    fill: ['fluent', '-24-filled'],
     lineDuo: ['solar', '-line-duotone'],
     boldDuo: ['solar', '-bold-duotone'],
   }[kind]
@@ -314,13 +299,13 @@ const header = (what) => `/*
 `
 
 const uiNames = Object.keys(UI).sort()
-const ui = `${header('UI icons: MingCute line / fill (Apache-2.0, mgc.mingcute.com), and our own Live table and Insights drawings on its grid.')}
+const ui = `${header('UI icons: Fluent UI System Icons 24 Regular / Filled (MIT, github.com/microsoft/fluentui-system-icons), and our own lifebuoy on its grid.')}
 import { makeIcon } from './Icon'
 
 ${uiNames
   .map((n) => {
     const ref = UI[n]
-    const src = ref.startsWith('~') ? 'ours' : `mingcute ${ref}`
+    const src = ref.startsWith('~') ? 'ours' : `fluent ${ref}`
     return `/** ${src} */\nexport const ${n} = /* @__PURE__ */ makeIcon(\n  '${n.replace(/Icon$/, '')}',\n  <>${art(ref, 'line', n)}</>,\n  <>${art(ref, 'fill', n)}</>,\n)`
   })
   .join('\n\n')}
@@ -335,7 +320,7 @@ for (const n of Object.keys(FEATURE)) if (!declared.includes(n)) problems.push(`
 const feature = (
   kind,
   label,
-) => `${header(`Help and empty-screen pictures, ${label}: Solar (CC BY 4.0, 480 Design, github.com/480-Design/Solar-Icon-Set) and our own. Loaded on its own, only when this style is in use (src/components/Icon.tsx).`)}
+) => `${header(`Help and empty-screen pictures, ${label}: Solar (CC BY 4.0, 480 Design, github.com/480-Design/Solar-Icon-Set), with Fluent's fork and knife for Live table. Loaded on its own, only when this style is in use (src/components/Icon.tsx).`)}
 import type { ReactElement } from 'react'
 import type { UiIconName } from '@/lib/ui-icons'
 

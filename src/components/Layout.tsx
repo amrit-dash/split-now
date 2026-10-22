@@ -19,7 +19,7 @@ import { InsightsIcon, HomeIcon, LiveTableIcon, ProfileIcon, GroupsIcon } from '
 
 // Live table has the slot Insights had (Insights is a row in Profile now); with live tables
 // switched off for everyone, Insights takes its place back, so the bar never has a hole.
-// MingCute icons (and our Live table / Insights drawings), solid on the current tab in either icon style.
+// Fluent icons, solid on the current tab in either icon style.
 const tabsFor = (liveTables: boolean) =>
   [
     { to: '/', icon: HomeIcon, label: 'Home', end: true },

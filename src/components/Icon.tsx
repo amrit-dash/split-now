@@ -7,12 +7,12 @@ import type { UiIconName } from '@/lib/ui-icons'
 /*
  * The app's icons, one family per role, so each kind of picture looks the same wherever it is:
  *
- *   UI icons       MingCute line / fill (src/components/icons.tsx): the tab bar, Profile and
- *                  Settings rows, sheets, the Create sheet, group / expense / settle actions.
- *                  Its 2-unit rounded line matches the app's semibold and bold type; its fill
- *                  drawings keep their inner details, so Filled still reads as a drawing.
- *                  Live table (a serving dome on a tray) and Insights (three rising bars) are
- *                  ours, drawn on the same grid.
+ *   UI icons       Fluent UI System Icons, Regular / Filled (src/components/icons.tsx): the tab
+ *                  bar, Profile and Settings rows, sheets, the Create sheet, group / expense /
+ *                  settle actions. The owner's pick for its refined, even line; its Filled
+ *                  drawings keep their inner details. Live table is Fluent's fork and knife,
+ *                  Insights its ascending bar chart, Quick add its bot; Help's lifebuoy is ours
+ *                  on the same grid (Fluent has none).
  *   Feature art    Solar line duotone / bold duotone (FeatureIcon below): Help cards and rows,
  *                  empty screens, notices. Larger, softer pictures painted in the accent's own
  *                  gradient (the + button's colours), so Help looks like the rest of the app.

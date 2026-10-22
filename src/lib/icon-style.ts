@@ -35,7 +35,7 @@ export const effectiveIconStyle = (admin: IconStyle, mine: IconStyleChoice): Ico
 export type IconVariant = 'line' | 'solid'
 
 /**
- * Outline draws line icons and Filled solid ones, everywhere: the UI icons (MingCute) and the
+ * Outline draws line icons and Filled solid ones, everywhere: the UI icons (Fluent) and the
  * Help and empty-screen pictures (Solar line duotone / bold duotone). The place you are (the
  * current tab) is always solid, so it shows by shape as well as colour in Outline.
  */
