@@ -2208,3 +2208,69 @@ test('Encrypted groups: ? opens Help on private groups, and back returns to the 
   await page.getByRole('button', { name: /back/i }).first().click()
   await expect(page).toHaveURL(/\/settings\/vault$/)
 })
+
+/** Pro for the demo user, as Help would award it (repo.markPro): proAt on their profile, then a reload. */
+async function makeMePro(page: Page) {
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('splitit-demo-v1') ?? '{}')
+    s.profiles[s.user.uid].proAt = Date.now()
+    localStorage.setItem('splitit-demo-v1', JSON.stringify(s))
+  })
+  await page.reload()
+}
+
+test('Pro: Rohan’s pill on Members opens Help → Earn Pro for someone without Pro; once you have it, it is just a mark', async ({ page }) => {
+  await page.goto('/groups/g_goa/members')
+  const rohan = page.getByTestId('member-row').filter({ hasText: 'Rohan' })
+  const pill = rohan.getByTestId('member-pro')
+  await expect(pill).toBeVisible()
+  await expect(page.getByTestId('member-pro')).toHaveCount(1)
+  await expect(pill).toHaveAttribute('aria-label', 'Pro. How to earn it')
+  await pill.click()
+  await expect(page).toHaveURL(/\/help\/earn-pro$/)
+
+  // Not Pro yet: no ring on Home and no switch in Preferences.
+  await page.goto('/')
+  await expect(page.getByTestId('home-pro-ring')).toHaveCount(0)
+  await page.goto('/settings/preferences')
+  await expect(page.getByTestId('pro-shown')).toHaveCount(0)
+
+  await makeMePro(page)
+  await page.goto('/groups/g_goa/members')
+  // A Pro viewer's tap does nothing: the mark is no longer a link.
+  await expect(
+    page
+      .getByTestId('member-row')
+      .filter({ hasText: 'Rohan' })
+      .getByRole('link', { name: /earn it/ }),
+  ).toHaveCount(0)
+  await page.goto('/')
+  await expect(page.getByTestId('home-pro-ring')).toBeVisible()
+  await page.goto('/profile')
+  await expect(page.getByTestId('profile-pro')).toBeVisible()
+  // Show my Pro badge, off: gone from your own screens too.
+  await page.goto('/settings/preferences')
+  await page.getByTestId('pro-shown').click()
+  await page.goto('/')
+  await expect(page.getByTestId('home-greeting')).toBeVisible()
+  await expect(page.getByTestId('home-pro-ring')).toHaveCount(0)
+})
+
+test('1:1 tiles carry the handshake icon, not the 🤝 emoji', async ({ page }) => {
+  await page.goto('/groups/new?type=direct')
+  await expect(
+    page
+      .getByRole('radio', { name: /1:1 friend/ })
+      .locator('svg')
+      .first(),
+  ).toBeVisible()
+  await page.getByLabel('Name of a person to add').fill('Meera Iyer')
+  await page.getByTestId('member-add').click()
+  await page.getByRole('button', { name: 'Create 1:1' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Meera Iyer' })).toBeVisible()
+  const badge = page.getByTestId('direct-badge').first()
+  await expect(badge.locator('svg[data-icon="Handshake"]').first()).toBeAttached()
+  await expect(badge).not.toContainText('🤝')
+  await page.goto('/groups')
+  await expect(page.getByTestId('direct-badge').first().locator('svg[data-icon="Handshake"]').first()).toBeAttached()
+})
