@@ -6,6 +6,7 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Voice transcription has one home: Settings → AI features → Voice (Transcribe with AI), in Simple and Advanced. Before, the same setting was also in Preferences as Native / AI.
 - Balances: **Pay** is a round icon button like the others on the row (the filled one, in your accent), a 1:1 says "1:1" under the amount instead of repeating the person's name, and the totals at the top no longer break across lines on a small phone.
 - Profile: your PRO or DEV badge is the ring round your photo alone; the pill beside your name is gone. It said the same thing twice and was bigger than your name. Others still see the pill next to your name in Members and lists.
 - Help: **Talk to add** is now one of the main features, and in Advanced so is asking for an OK on changes, so the main features fill even rows in both modes (10 in Simple, 12 in Advanced). Before, one card sat alone on the last row.

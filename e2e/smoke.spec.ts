@@ -467,12 +467,10 @@ test('Voice: without speech recognition there is no mic, and holding + inside a 
   await expect(page.getByTestId('nav-create')).toHaveAttribute('aria-label', /press and hold for more/)
   await page.getByTestId('nav-create').click({ button: 'right' })
   await expect(page.getByRole('dialog').getByTestId('create-quick-add')).toBeVisible()
-  // Preferences → Voice: the demo has no server, so Native alone, with the reason.
+  // Transcription lives in AI features → Voice alone (owner): Preferences has no Voice section.
   await page.goto('/settings/preferences')
-  const t = page.getByTestId('transcription')
-  await expect(t.getByRole('radio')).toHaveCount(1)
-  await expect(t.getByRole('radio', { name: /Native/ })).toHaveAttribute('aria-checked', 'true')
-  await expect(t.getByTestId('transcription-note')).toContainText('needs the online app')
+  await expect(page.getByTestId('mode')).toBeVisible()
+  await expect(page.getByTestId('transcription')).toHaveCount(0)
 })
 
 test('Voice: Quick add’s mic is a toggle; the words land in the box and wait for send', async ({ page }) => {

@@ -1,25 +1,9 @@
-import { repo } from '@/data'
-import { useMe } from '@/hooks/auth'
 import { useFlag } from '@/hooks/useAppConfig'
-import { useCapturePrefs } from '@/hooks/useCapturePrefs'
 import { useVoiceSetup } from '@/hooks/useVoice'
 import type { AiSource } from '@/lib/ai-config'
-import { savePrefs } from '@/lib/push'
-import { transcriptionView, type Transcription } from '@/lib/voice'
 import { HintText, InfoTip, type Hint } from './Hint'
-import { MicIcon, SparkleIcon } from './icons'
-import { Segmented } from './Misc'
 import { Select } from './Select'
 import { Switch } from './Switch'
-
-const TRANSCRIPTION_HINT: Record<Transcription, Hint> = {
-  native: { full: 'Your phone’s own speech recognition hears you. Free.', short: 'Your phone listens, free', tier: 'help' },
-  ai: {
-    full: 'Your voice is recorded and sent to Google’s Flash-Lite to be written down. Better with names and mixed languages.',
-    short: 'Flash-Lite writes down what you say',
-    tier: 'help',
-  },
-}
 
 const KEY_OPTIONS: Array<{ value: AiSource; label: string; hint: string }> = [
   { value: 'auto', label: 'Automatic', hint: 'Your key first, then Split Now’s' },
@@ -28,55 +12,8 @@ const KEY_OPTIONS: Array<{ value: AiSource; label: string; hint: string }> = [
 ]
 
 /**
- * Settings → Preferences → Voice: Transcription, Native or AI (src/lib/voice.ts transcriptionView).
- * Native is the default, free. AI is offered only when the admin's switch is on and a key can serve
- * this person; otherwise Native shows alone with the reason. One setting with Settings → AI features
- * → Transcribe with AI (aiTranscribe). In both Simple and Advanced: voice follows Quick add.
- */
-export function TranscriptionSetting({ onSaved }: { onSaved?: () => void }) {
-  const { user } = useMe()
-  const quickAdd = useFlag('quickAdd')
-  const prefs = useCapturePrefs()
-  const { offer, aiChosen, nativeOk } = useVoiceSetup()
-  if (!quickAdd) return null
-  const view = transcriptionView({ offer, aiChosen, nativeOk })
-  const pick = (v: Transcription) => {
-    if (v === view.value || repo.mode !== 'firebase' || !prefs) return
-    void savePrefs(user.uid, { aiTranscribe: v === 'ai' }).then(onSaved)
-  }
-  return (
-    <div data-testid="transcription">
-      <div className="label flex items-center" id="transcription-label">
-        Transcription
-        <InfoTip hint={TRANSCRIPTION_HINT[view.value]} label="About transcription" />
-      </div>
-      <Segmented<Transcription>
-        label="Transcription"
-        testId="transcription-choice"
-        value={view.value}
-        onChange={pick}
-        options={view.options.map((o) => ({
-          value: o,
-          label: (
-            <span className="inline-flex items-center gap-1">
-              {o === 'native' ? <MicIcon size={16} aria-hidden /> : <SparkleIcon size={16} aria-hidden />} {o === 'native' ? 'Native' : 'AI'}
-            </span>
-          ),
-        }))}
-      />
-      <HintText hint={TRANSCRIPTION_HINT[view.value]} className="text-muted mt-1.5 text-xs" />
-      {view.note && (
-        <p className="text-muted mt-1 text-xs" data-testid="transcription-note">
-          {view.note}
-        </p>
-      )}
-    </div>
-  )
-}
-
-/**
- * Settings → AI features → Voice: "Transcribe with AI" (the same setting as Preferences →
- * Transcription) and which key it uses. Shown only while the admin's switch is on; with Split Now's
+ * Settings → AI features → Voice: "Transcribe with AI", the one place for it (owner: not in
+ * Preferences too), and which key it uses. Shown only while the admin's switch is on; with Split Now's
  * transcription key open to everyone anyone can turn it on, otherwise only someone with their own
  * Gemini key. Turning it off always works.
  */

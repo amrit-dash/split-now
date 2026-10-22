@@ -1,16 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  barHeights,
-  joinHeard,
-  micRelease,
-  pickRecorderMime,
-  rmsToLevel,
-  smoothLevel,
-  transcribeFailText,
-  transcribeOffer,
-  transcriptionView,
-  voiceEngine,
-} from './voice'
+import { barHeights, joinHeard, micRelease, pickRecorderMime, rmsToLevel, smoothLevel, transcribeFailText, transcribeOffer, voiceEngine } from './voice'
 
 const offer = (o: Partial<Parameters<typeof transcribeOffer>[0]> = {}) =>
   transcribeOffer({
@@ -47,27 +36,6 @@ describe('transcribeOffer', () => {
   })
   it('while the status loads it is not offered yet, without a reason', () => {
     expect(offer({ status: undefined })).toEqual({ ai: false, why: null })
-  })
-})
-
-describe('transcriptionView', () => {
-  const yes = { ai: true, why: null }
-  const no = { ai: false, why: 'Needs your own Gemini key, added in Settings → AI features.' }
-  it('Native and AI when AI can serve the person', () => {
-    expect(transcriptionView({ offer: yes, aiChosen: false, nativeOk: true })).toEqual({ options: ['native', 'ai'], value: 'native', note: null })
-    expect(transcriptionView({ offer: yes, aiChosen: true, nativeOk: true }).value).toBe('ai')
-  })
-  it('Native only, with the reason, when it can’t', () => {
-    expect(transcriptionView({ offer: no, aiChosen: false, nativeOk: true })).toEqual({ options: ['native'], value: 'native', note: no.why })
-  })
-  it('AI picked but unavailable stays visible (to switch back), and says the phone listens meanwhile', () => {
-    const v = transcriptionView({ offer: no, aiChosen: true, nativeOk: true })
-    expect(v.options).toEqual(['native', 'ai'])
-    expect(v.note).toMatch(/your phone listens instead/)
-  })
-  it('a phone without recognition: no mic, or AI to talk', () => {
-    expect(transcriptionView({ offer: no, aiChosen: false, nativeOk: false }).note).toMatch(/has no mic here/)
-    expect(transcriptionView({ offer: yes, aiChosen: false, nativeOk: false }).note).toMatch(/Pick AI to talk/)
   })
 })
 

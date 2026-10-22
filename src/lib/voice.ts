@@ -48,30 +48,6 @@ export function transcribeOffer(o: {
 }
 
 /**
- * Settings → Preferences → Transcription: the choices to show, the one picked, and a line saying
- * why AI isn't there or what happens on a phone that can't recognise speech itself. AI shows when
- * it can serve the person (or is already picked, so it can be switched back).
- */
-export function transcriptionView(o: { offer: TranscribeOffer; aiChosen: boolean; nativeOk: boolean }): {
-  options: Transcription[]
-  value: Transcription
-  note: string | null
-} {
-  const value: Transcription = o.aiChosen ? 'ai' : 'native'
-  const options: Transcription[] = o.offer.ai || o.aiChosen ? ['native', 'ai'] : ['native']
-  const notes: string[] = []
-  if (!o.nativeOk)
-    notes.push(
-      o.offer.ai || o.aiChosen
-        ? 'This phone can’t recognise speech itself. Pick AI to talk to Quick add.'
-        : 'This phone can’t recognise speech itself, so Quick add has no mic here.',
-    )
-  else if (o.aiChosen && !o.offer.ai) notes.push('AI can’t be used right now, so your phone listens instead.')
-  if (!o.offer.ai && o.offer.why) notes.push(o.offer.why)
-  return { options, value, note: notes.length ? notes.join(' ') : null }
-}
-
-/**
  * Who hears the person. AI only when they chose it and it can serve them now (online, a key);
  * else the phone's own recognition when the phone has it and it wasn't refused. null: no voice at
  * all, so no mic in Quick add and no hold-for-voice on + (the hold does what it did before).
@@ -83,7 +59,7 @@ export function voiceEngine(o: {
   nativeDenied: boolean
   /** the microphone itself is blocked for this site (Permissions API) */
   micDenied: boolean
-  /** the person picked AI (Preferences → Transcription, or AI features → Transcribe with AI) */
+  /** the person picked AI (AI features → Voice → Transcribe with AI) */
   aiChosen: boolean
   /** transcribeOffer(...).ai, and online */
   aiReady: boolean
