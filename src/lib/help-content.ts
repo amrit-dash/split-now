@@ -1571,6 +1571,7 @@ export const SECTIONS: HelpSection[] = [
     keywords: ['simple', 'advanced', 'mode', 'more features', 'hidden', 'missing', 'power'],
     points: [
       'Switch in Settings → Preferences → **Mode**.',
+      'Or tap the icon at the top of **Profile**, beside Settings: a leaf in Simple. **Undo** in the message switches back.',
       'Simple: groups, expenses, settling up, Live table and private groups.',
       'Advanced adds captured payments, automations, approvals, Insights, exports and more controls on every screen.',
       'Switching hides things, it never turns them off. What you set up in Advanced keeps working in Simple.',

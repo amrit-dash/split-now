@@ -18,6 +18,7 @@ Status: **decided** = the owner's call (22 Oct 2026). **proposed** = waiting for
 |---|---|---|
 | Profile: you | Name, photo, mobile number, "pay this number by UPI" (one line), emails | Signing in section; subtext that doesn't carry the layout |
 | Profile: how friends pay you | UPI ID, bank transfer, PayPal (international only) | Every other method, "Show more" |
+| Profile: header | The mode button (beside Settings): the leaf in Simple, one of five Advanced pictures in Advanced; a tap switches, with Undo | |
 | Profile: other rows | Balances, Support, Developer, Help | |
 | Settings → Preferences | Mode, default currency, theme, accent, text on accent | Rates refresh, Collect in (on for everyone), dual tone, icons (default), detail level (When needed) |
 | Settings → Animations | | Whole section; defaults: burst Medium, spark Medium, glitter Medium, shape Mix, glitter at the bottom |

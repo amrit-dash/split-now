@@ -115,6 +115,12 @@ const UI = {
   RowUpdateIcon: 'solar:refresh-circle',
   AddIcon: 'add',
   AdvancedModeIcon: 'options',
+  /* Profile header's mode button in Advanced: one of five, picked at random on each switch (src/lib/mode-icon.ts). */
+  AdvancedBrainIcon: 'brain-circuit',
+  AdvancedChipIcon: 'developer-board',
+  AdvancedDevToolsIcon: 'window-dev-tools',
+  AdvancedRocketIcon: 'rocket',
+  AdvancedToolsIcon: 'wrench-screwdriver',
   AdminIcon: 'shield-keyhole',
   AiIcon: 'brain-sparkle',
   AnimationsIcon: 'emoji-sparkle',

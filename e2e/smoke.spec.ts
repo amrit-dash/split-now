@@ -2198,6 +2198,19 @@ test.describe('Simple mode', () => {
     await page.goto('/groups')
     await expect(page.getByRole('heading', { name: 'Personal' })).toBeVisible()
   })
+  test("Profile's mode button switches mode, Undo puts it back, and Settings follows", async ({ page }) => {
+    await page.goto('/profile')
+    const btn = page.getByTestId('mode-button')
+    await expect(btn).toHaveAttribute('aria-label', /Mode: Simple/)
+    await btn.click()
+    await expect(btn).toHaveAttribute('aria-label', /Mode: Advanced/)
+    await page.getByTestId('toasts').getByRole('button', { name: 'Undo' }).click()
+    await expect(btn).toHaveAttribute('aria-label', /Mode: Simple/)
+    await btn.click()
+    await expect(btn).toHaveAttribute('aria-label', /Mode: Advanced/)
+    await page.goto('/settings')
+    await expect(page.getByTestId('settings-animations')).toBeVisible()
+  })
 })
 
 test('Encrypted groups: ? opens Help on private groups, and back returns to the page', async ({ page }) => {
