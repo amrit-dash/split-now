@@ -386,12 +386,14 @@ export function AiSettings() {
                   {hasKey && prefs.aiIcons && (
                     <div data-testid="ai-picture-model">
                       <div className="label">Model for pictures</div>
-                      <Select
-                        aria-label="Model for pictures"
-                        value={prefs.aiPictureModel}
-                        onChange={(v) => set({ aiPictureModel: v })}
-                        options={pictureModelOptions(pictureModels, prefs.aiPictureModel)}
-                      />
+                      <PictureTest which="own" model={prefs.aiPictureModel}>
+                        <Select
+                          aria-label="Model for pictures"
+                          value={prefs.aiPictureModel}
+                          onChange={(v) => set({ aiPictureModel: v })}
+                          options={pictureModelOptions(pictureModels, prefs.aiPictureModel)}
+                        />
+                      </PictureTest>
                       {pictureModels === null ? (
                         <p className="text-muted mt-1 text-xs">Loading the image models your key can use…</p>
                       ) : (
@@ -404,7 +406,6 @@ export function AiSettings() {
                           }}
                         />
                       )}
-                      <PictureTest which="own" model={prefs.aiPictureModel} />
                     </div>
                   )}
                   {aiIcons && prefs.aiIcons && !hasKey && (

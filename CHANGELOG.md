@@ -6,6 +6,7 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- AI features (and Admin → AI): **Test** sits beside Model for pictures, and the test picture appears at the end of that row (tap it to see it bigger), with one line under for the cost and the result. Before, a Test pictures button sat alone under a paragraph.
 - Settings → AI features → Voice is one choice, **Phone | AI**, instead of a switch plus “Which key”. AI always uses your own Gemini key first, then Split Now's transcription key; with neither, it tells you to add your own key.
 - Scan → Payment shows a screenshot with a tick (the payment confirmation you upload) instead of a phone with a rupee on it.
 - Balances: each row's group is a small chip on its own line under the amounts, with room above it, and keeps its full name beside three buttons on a small phone (it was squeezed under the amount and cut to “Goa …”). Someone you share several groups with shows the total, then one chip and amount per group.

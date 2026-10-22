@@ -416,18 +416,19 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
               {cfg.pictures && (
                 <div data-testid="admin-ai-picture-model">
                   <div className="label">Model for pictures</div>
-                  <Select
-                    aria-label="Model for pictures"
-                    value={cfg.pictureModel}
-                    onChange={(v) => set({ pictureModel: v })}
-                    options={pictureModelOptions(pictureModels, cfg.pictureModel)}
-                  />
+                  <PictureTest which="app" model={cfg.pictureModel}>
+                    <Select
+                      aria-label="Model for pictures"
+                      value={cfg.pictureModel}
+                      onChange={(v) => set({ pictureModel: v })}
+                      options={pictureModelOptions(pictureModels, cfg.pictureModel)}
+                    />
+                  </PictureTest>
                   <p className="text-muted mt-1 text-xs">
                     {pictureModels === null
                       ? 'Loading the image models the key can use…'
                       : 'Image models have no free tier: the key needs billing, also when Gemma reads bills. A failed model falls back to the recommended one.'}
                   </p>
-                  <PictureTest which="app" model={cfg.pictureModel} />
                 </div>
               )}
               {cfg.pictures && (
