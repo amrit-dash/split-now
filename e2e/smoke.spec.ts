@@ -2280,6 +2280,8 @@ test('Help: steps wait on each one; Next moves on and the last one ticks the sec
   await expect(page.getByTestId('help-next')).toContainText('Again')
   await page.goto('/help?q=add%20an%20expense')
   await expect(page.getByTestId('help-row').filter({ hasText: 'Add an expense' }).first()).toHaveAttribute('data-done', 'true')
+})
+
 /** Pro for the demo user, as Help would award it (repo.markPro): proAt on their profile, then a reload. */
 async function makeMePro(page: Page) {
   await page.evaluate(() => {
