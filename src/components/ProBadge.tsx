@@ -234,7 +234,6 @@ export function ProTileRing({ tile, radius, word = 'pro', children }: { tile: nu
   }, [moving, tile, radius, word])
   return (
     <span className="relative inline-flex shrink-0" style={{ width: tile, height: tile }}>
-      {children}
       <RingSvg
         art={art}
         gradientId={id}
@@ -242,6 +241,8 @@ export function ProTileRing({ tile, radius, word = 'pro', children }: { tile: nu
           group.current = el
         }}
       />
+      {/* Over the ring: the 1:1's handshake badge hides the letters that pass behind it (owner). */}
+      <span className="relative z-[1] inline-flex">{children}</span>
     </span>
   )
 }
