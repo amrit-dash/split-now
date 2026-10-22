@@ -8,7 +8,7 @@ import { SAVING_AFTER_MS, syncNotice, syncText } from '@/lib/sync'
  * A slim "Offline" notice for screens that write or fetch. Saves still work offline (they sync
  * later), so the default text says so; pass `text` where a screen really needs the network.
  */
-export function OfflinePill({ text = 'Offline — changes will sync when you’re back', className = '' }: { text?: string; className?: string }) {
+export function OfflinePill({ text = 'Offline. Changes sync when you’re back', className = '' }: { text?: string; className?: string }) {
   const online = useOnline()
   if (online) return null
   return (

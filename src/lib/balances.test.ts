@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Expense, Settlement } from '@/types'
-import { countable, isBalancedExpense, netBalances, pairwiseDebts, totalsByMember } from './balances'
+import { countable, isBalancedExpense, netBalances, pairwiseDebts, totalsByMember, debtTone } from './balances'
 import { simplifyDebts } from './simplify'
 
 const exp = (paidBy: Record<string, number>, splits: Record<string, number>): Expense => ({
@@ -137,5 +137,14 @@ describe('pairwise debts', () => {
       { from: 'b', to: 'a', amount: 3000 },
       { from: 'c', to: 'a', amount: 3000 },
     ])
+  })
+})
+
+describe('debtTone', () => {
+  it('green when paid to you, red when you pay, neutral between others', () => {
+    expect(debtTone({ from: 'a', to: 'me' }, 'me')).toBe('pos')
+    expect(debtTone({ from: 'me', to: 'a' }, 'me')).toBe('neg')
+    expect(debtTone({ from: 'a', to: 'b' }, 'me')).toBe('neutral')
+    expect(debtTone({ from: 'a', to: 'b' }, undefined)).toBe('neutral')
   })
 })

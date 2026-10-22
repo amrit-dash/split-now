@@ -1,4 +1,6 @@
+import { EMPTY_HELP_PROGRESS, parseHelpProgress } from '@/lib/help-progress'
 import { OPEN_ITEM_EDIT_FIELDS } from '@/lib/open-items'
+import { withProAwarded } from '@/lib/pro'
 import { deleteApp, initializeApp, type FirebaseOptions } from 'firebase/app'
 import {
   EmailAuthProvider,
@@ -311,6 +313,28 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     return scan ? [scan, ...attached] : attached
   }
 
+  // Whether the signed-in person is an admin (admins/{uid}, which its owner may read: the rules'
+  // isAdmin()), asked once per account and session. Decides the Dev badge (src/lib/pro.ts), which
+  // the rules accept only from an admin; not known (offline, no cache) counts as no.
+  let adminCheck: { uid: string; p: Promise<boolean> } | null = null
+  const amAdmin = (userId: string): Promise<boolean> => {
+    if (adminCheck?.uid !== userId) {
+      const r = doc(db, 'admins', userId)
+      adminCheck = {
+        uid: userId,
+        p: getDoc(r).then(
+          (s) => s.exists(),
+          () =>
+            getDocFromCache(r).then(
+              (s) => s.exists(),
+              () => false,
+            ),
+        ),
+      }
+    }
+    return adminCheck.p
+  }
+
   /** The signed-in user's shareable profile, from cache (the auth provider keeps it warm). */
   async function myMemberProfile(): Promise<MemberProfile | null> {
     const u = auth.currentUser
@@ -318,7 +342,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     try {
       const s = await getDocFromCache(doc(db, 'users', u.uid))
       if (s.exists()) {
-        return memberProfileOf(s.data() as UserProfile)
+        return memberProfileOf(s.data() as UserProfile, await amAdmin(u.uid))
       }
     } catch {
       /* not cached */
@@ -750,7 +774,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       )
     },
     async saveProfile(p) {
-      const shared = memberProfileOf(p)
+      const shared = memberProfileOf(p, await amAdmin(p.uid))
       // An uploaded photo that is being replaced or removed is deleted from Storage.
       let oldUpload: string | undefined
       try {
@@ -797,6 +821,27 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     async getMemberProfile(groupId, userId) {
       const s = await getDoc(memberProfileRef(groupId, userId))
       return s.exists() ? (s.data() as MemberProfile) : null
+    },
+    async markPro(userId) {
+      // The profile as this device has it (the auth provider keeps it warm), else the server's.
+      const p = await getDocFromCache(doc(db, 'users', userId))
+        .then((s) => (s.exists() ? (s.data() as UserProfile) : null))
+        .catch(() => repo.getProfile(userId).catch(() => null))
+      const next = p && withProAwarded(p, Date.now())
+      // saveProfile shares it with every group; the member sync (hooks/auth.tsx) marks the entries.
+      if (next) await repo.saveProfile(next)
+    },
+    async setProHidden(userId, hidden) {
+      const p = await getDocFromCache(doc(db, 'users', userId))
+        .then((s) => (s.exists() ? (s.data() as UserProfile) : null))
+        .catch(() => repo.getProfile(userId).catch(() => null))
+      if (p && (p.proHidden === true) !== hidden) await repo.saveProfile({ ...p, proHidden: hidden })
+    },
+    async setDevHidden(userId, hidden) {
+      const p = await getDocFromCache(doc(db, 'users', userId))
+        .then((s) => (s.exists() ? (s.data() as UserProfile) : null))
+        .catch(() => repo.getProfile(userId).catch(() => null))
+      if (p && (p.devHidden === true) !== hidden) await repo.saveProfile({ ...p, devHidden: hidden })
     },
 
     watchGroups(userId, cb) {
@@ -955,6 +1000,8 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       batch.update(groupRef(group.id), {
         [`members.${memberId}.name`]: patch.name,
         [`members.${memberId}.photoURL`]: patch.photoURL ?? deleteField(),
+        [`members.${memberId}.pro`]: patch.pro === true ? true : deleteField(),
+        [`members.${memberId}.dev`]: patch.dev === true ? true : deleteField(),
         memberOpId: memberId,
       })
       // Background sync: a refusal (e.g. rules not deployed yet) is not the user's problem.
@@ -1635,6 +1682,18 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       const batch = writeBatch(db)
       batch.set(doc(db, 'users', userId, 'settings', 'inbox'), { clearedAt: state.clearedAt, hidden: state.hidden, updatedAt: Date.now() })
       fire(batch, 'Clearing updates')
+    },
+    watchHelpProgress(userId, cb) {
+      return onSnapshot(
+        doc(db, 'users', userId, 'settings', 'help'),
+        (s) => cb(parseHelpProgress(s.data()), metaOf(s)),
+        listenError('Loading your Help progress', () => cb(EMPTY_HELP_PROGRESS, FAILED)),
+      )
+    },
+    async saveHelpProgress(userId, p) {
+      const batch = writeBatch(db)
+      batch.set(doc(db, 'users', userId, 'settings', 'help'), { done: p.done, updatedAt: Date.now() })
+      fire(batch, 'Saving your Help progress')
     },
     async fetchActivityBefore(groupIds, before, max) {
       const pages = await Promise.all(

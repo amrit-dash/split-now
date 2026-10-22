@@ -1,36 +1,33 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { usePickableGroups } from '@/hooks/useVault'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, Plus, ReceiptText, ScanLine, Users } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
+import { ReceiptIcon, ScanIcon, GroupsIcon } from '@/components/icons'
 
 import { useFlag } from '@/hooks/useAppConfig'
 import { liveTripFor } from '@/lib/capture'
 import { todayISO } from '@/lib/id'
 import { lastGroup } from '@/lib/recents'
-import { ChequeIcon } from './ChequeIcon'
 import { type Hint, HintText, useShows } from './Hint'
 import { QuickAddCard } from './QuickAddCard'
 import { Sheet } from './Sheet'
 
 // Tile subtitles: nice to read the first time, gone in the Minimal look (the titles say it).
-// All 'help', Live table's too: the tiles show a line under every one or under none.
+// All 'help': the tiles show a line under every one or under none.
 const ADD_HINT: Hint = { full: 'What you paid, and how to split it', tier: 'help' }
-const SPLIT_HINT: Hint = { full: 'Friends scan a QR and tap what they had', short: 'Everyone taps what they had', tier: 'help' }
-const SCAN_HINT: Hint = { full: 'Read a bill or payment screenshot', short: 'Bills and payment screenshots', tier: 'help' }
+const SCAN_HINT: Hint = { full: 'A bill or payment screenshot', tier: 'help' }
 const GROUP_HINT: Hint = { full: 'Trip, flat, dinner, anything', tier: 'help' }
-const SETTLE_HINT: Hint = { full: 'Record a payment', tier: 'help' }
 
 /**
- * What the + button in the tab bar opens: the one place to start anything. Add expense is the
- * big first choice (it's what people do most); inside a group, every option opens for that group.
- * Below the tiles, Quick add: one typed or spoken line into the group you're in, else the trip
- * that's on today, else the group used last. Its field is not focused on open (the keyboard
- * would cover the tiles).
+ * What the + button in the tab bar opens (inside a group: press and hold; a tap there adds an
+ * expense straight away, src/lib/plus-target.ts). Quick add comes first: one typed or spoken
+ * line into the group you're in, else the trip that's on today, else the group used last. Its
+ * field is not focused on open (the keyboard would cover the sheet). Then Add expense, the big
+ * choice, and New group and Scan. Live table is in the tab bar; Settle up is on every group and
+ * on Home's balance card.
  */
 export function CreateSheet({ open, onClose, groupId }: { open: boolean; onClose: () => void; groupId?: string }) {
   const nav = useNavigate()
-  // Live tables off (config/app flags.liveTables): the tile goes too; /split and /t/* already redirect home.
-  const liveTables = useFlag('liveTables')
   const quickAdd = useFlag('quickAdd')
   // The Minimal look keeps the sheet to its tiles: Quick add sits behind a small link instead.
   const showQuickAdd = useShows(2)
@@ -39,6 +36,7 @@ export function CreateSheet({ open, onClose, groupId }: { open: boolean; onClose
   // Shared, open groups only: the personal wallet has nobody to split with.
   const groups = useMemo(() => (allGroups ?? []).filter((g) => !g.archived && g.type !== 'personal'), [allGroups])
   const q = groupId ? `?group=${encodeURIComponent(groupId)}` : ''
+  const defaultGroupId = (groupId && groups.some((g) => g.id === groupId) ? groupId : undefined) ?? liveTripFor(groups, todayISO()) ?? lastGroup()
   const go = (to: string) => {
     onClose()
     // Navigate once the sheet is gone from the screen: iOS keeps a picture of the page you leave
@@ -47,6 +45,18 @@ export function CreateSheet({ open, onClose, groupId }: { open: boolean; onClose
   }
   return (
     <Sheet open={open} onClose={onClose} title="Create">
+      {/* Quick add first: one typed or spoken line does most of what the tiles below do. */}
+      {quickAdd && (showQuickAdd || quickOpen) && (
+        <>
+          {/* With no groups yet the line sets one up. */}
+          <QuickAddCard groups={groups} defaultGroupId={defaultGroupId} onLeave={onClose} testId="create-quick-add" />
+          <div className="text-muted my-4 flex items-center gap-3 text-xs uppercase tracking-wider" aria-hidden>
+            <span className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
+            or
+            <span className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
+          </div>
+        </>
+      )}
       <button
         type="button"
         onClick={() => go(`/add${q}`)}
@@ -54,7 +64,7 @@ export function CreateSheet({ open, onClose, groupId }: { open: boolean; onClose
         className="flex w-full items-center gap-3 accent-live rounded-3xl bg-gradient-to-r from-fill to-fill-to p-4 text-left text-on-fill shadow-lg shadow-fill/25 transition active:scale-[0.98]"
       >
         <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-on-fill/15" aria-hidden>
-          <Plus size={26} strokeWidth={2.6} />
+          <ReceiptIcon size={26} />
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-lg font-bold">Add expense</span>
@@ -63,16 +73,8 @@ export function CreateSheet({ open, onClose, groupId }: { open: boolean; onClose
         <ChevronRight size={20} className="shrink-0 text-on-fill/80" aria-hidden />
       </button>
       <div className="mt-3 grid grid-cols-2 gap-2">
-        {liveTables && <Tile icon={<ReceiptText size={22} />} title="Live table" text={SPLIT_HINT} onClick={() => go(`/split${q}`)} testId="create-split" />}
-        <Tile icon={<ScanLine size={22} />} title="Scan" text={SCAN_HINT} onClick={() => go('/scan')} testId="create-scan" />
-        <Tile icon={<Users size={22} />} title="New group" text={GROUP_HINT} onClick={() => go('/groups/new')} testId="create-group" />
-        <Tile
-          icon={<ChequeIcon size={26} />}
-          title="Settle up"
-          text={SETTLE_HINT}
-          onClick={() => go(groupId ? `/groups/${encodeURIComponent(groupId)}/settle` : '/settle')}
-          testId="create-settle"
-        />
+        <Tile icon={<GroupsIcon size={22} />} title="New group" text={GROUP_HINT} onClick={() => go('/groups/new')} testId="create-group" />
+        <Tile icon={<ScanIcon size={22} />} title="Scan" text={SCAN_HINT} onClick={() => go('/scan')} testId="create-scan" />
       </div>
       {quickAdd && !showQuickAdd && !quickOpen && (
         <button
@@ -83,23 +85,6 @@ export function CreateSheet({ open, onClose, groupId }: { open: boolean; onClose
         >
           Quick add
         </button>
-      )}
-      {quickAdd && (showQuickAdd || quickOpen) && (
-        <>
-          <div className="text-muted mt-5 flex items-center gap-3 text-xs uppercase tracking-wider" aria-hidden>
-            <span className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
-            or
-            <span className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
-          </div>
-          {/* Its own card, styled like the tiles above, so it reads as one of the sheet's options. With no groups yet the line sets one up. */}
-          <QuickAddCard
-            className="mt-3"
-            groups={groups}
-            defaultGroupId={(groupId && groups.some((g) => g.id === groupId) ? groupId : undefined) ?? liveTripFor(groups, todayISO()) ?? lastGroup()}
-            onLeave={onClose}
-            testId="create-quick-add"
-          />
-        </>
       )}
     </Sheet>
   )

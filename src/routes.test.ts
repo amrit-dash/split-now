@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { IDLE_PREFETCH, load, prefetchAfter, routeChunks, routeKey } from './routes'
+import { IDLE_PREFETCH, IDLE_PREFETCH_LATER, load, prefetchAfter, prefetchHelp, routeChunks, routeKey } from './routes'
 
 describe('routeKey', () => {
   it('maps every lazy route in App.tsx to its chunk', () => {
@@ -49,6 +49,10 @@ describe('routeKey', () => {
 
   it('only prefetches screens that exist', () => {
     for (const k of IDLE_PREFETCH) expect(typeof load[k]).toBe('function')
+    for (const k of IDLE_PREFETCH_LATER) expect(typeof load[k]).toBe('function')
+    // the second set never repeats the first, and never fetches the admin console for everyone
+    expect(IDLE_PREFETCH_LATER.filter((k) => IDLE_PREFETCH.includes(k))).toEqual([])
+    expect(IDLE_PREFETCH_LATER).not.toContain('Admin')
   })
 })
 
@@ -99,5 +103,14 @@ describe('prefetchAfter', () => {
     expect(prefetchAfter('/')).toEqual([])
     expect(prefetchAfter('/groups/g1')).toEqual([])
     expect(prefetchAfter('/settings/auto-capture')).toEqual([])
+  })
+})
+
+describe('prefetchHelp', () => {
+  it('fetches Help on idle from the signed-in screens', () => {
+    for (const p of ['/', '/groups', '/groups/g1', '/profile', '/settings/ai', '/insights', '/inbox']) expect(prefetchHelp(p), p).toBe(true)
+  })
+  it('not on Help itself, nor where a guest lands from a link', () => {
+    for (const p of ['/help', '/help/add-expense', '/t', '/t/XYZ', '/r/abc', '/join/ABCD1234', '/email-link']) expect(prefetchHelp(p), p).toBe(false)
   })
 })

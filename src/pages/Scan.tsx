@@ -3,7 +3,7 @@ import { useVaultVersion } from '@/hooks/useVault'
 import { aiAfterPick, scanOnDeviceFirst } from '@/lib/vault-api'
 import { isUnlocked } from '@/lib/vault-keys'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Camera, ImageUp, ListChecks, Plus, Smartphone, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
 import { useAiStatus } from '@/hooks/useAiStatus'
 import { useFlag } from '@/hooks/useAppConfig'
@@ -20,7 +20,7 @@ import { CURRENCIES, formatMoney, fromHundredths } from '@/lib/money'
 import { matchMember, parsePaymentScreenshot, parseReceipt, type ParsedPayment, type ParsedReceipt } from '@/lib/ocr-parse'
 import { pending } from '@/lib/pending'
 import { GroupIcon } from '@/components/GroupIcon'
-import { AiScanToggle } from '@/components/AiScanToggle'
+import { ScanCard, ScanIntro } from '@/components/ScanCard'
 import { StatementImport } from '@/components/StatementImport'
 import { DuplicatePrompt, RecentScans, useScanHistory } from '@/components/ScanHistory'
 import { entryFile, type ScanEntry, type ScanKind, type ScanMatch, type ScanPrint } from '@/lib/scanHistory'
@@ -28,20 +28,21 @@ import { ListSkeleton } from '@/components/Skeleton'
 import { PageHeader, Segmented } from '@/components/Misc'
 import { Select, currencyOptions } from '@/components/Select'
 import { useToast } from '@/components/Toast'
-import { Detail, type Hint, HintText, InfoTip, useShows } from '@/components/Hint'
+import { Detail, type Hint, HintText } from '@/components/Hint'
 import { activeMembers } from '@/lib/members'
+import { AddIcon, LiveTableIcon, PhoneIcon } from '@/components/icons'
 
 type Mode = 'receipt' | 'statement' | 'payment'
 
 const PAGE_HINT: Hint = { full: 'Bills, statements and payment screenshots', tier: 'extra' }
 const RECEIPT_HINT: Hint = {
-  full: 'We’ll pull out the total, merchant, date and line items for a split by items.',
-  short: 'We read the total, date and items',
+  full: 'Reads the total, merchant, date and items, ready to split by items.',
+  short: 'Reads the total, date and items',
   tier: 'help',
 }
 const PAYMENT_HINT: Hint = {
-  full: 'A GPay, PhonePe, Paytm, bank or PayPal screenshot — we’ll detect the amount and who you paid.',
-  short: 'We read the amount and who you paid',
+  full: 'From GPay, PhonePe, Paytm, a bank or PayPal. Reads the amount and who you paid.',
+  short: 'Reads the amount and who you paid',
   tier: 'help',
 }
 const FOOT_HINT: Hint = {
@@ -80,14 +81,11 @@ export default function Scan() {
   useVaultVersion()
   const deviceFirst = scanOnDeviceFirst({ vaultsOn, hasPrivate: !!data?.some((d) => d.group.vault) })
   const [readOnDevice, setReadOnDevice] = useState(false)
-  const camRef = useRef<HTMLInputElement>(null)
-  const libRef = useRef<HTMLInputElement>(null)
   const [params0] = useSearchParams()
   const [mode, setMode] = useState<Mode>(() => (['receipt', 'statement', 'payment'] as const).find((m) => m === params0.get('mode')) ?? 'receipt')
   // Statement import can be switched off for everyone from the admin console; the tab goes with it.
+  // It shows in Simple too (the owner's call): only the flag decides.
   const statements = useFlag('statementImport')
-  // The Minimal look keeps Scan to bills and payments; a link straight to ?mode=statement still opens it.
-  const showStatements = useShows(2)
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string>()
   const [text, setText] = useState('')
@@ -339,7 +337,7 @@ export default function Scan() {
         onChange={switchMode}
         options={[
           { value: 'receipt', label: 'Bill' },
-          ...(statements && (showStatements || mode === 'statement') ? [{ value: 'statement' as const, label: 'Statement' }] : []),
+          ...(statements ? [{ value: 'statement' as const, label: 'Statement' }] : []),
           { value: 'payment', label: 'Payment' },
         ]}
       />
@@ -356,84 +354,48 @@ export default function Scan() {
               That image is too big to share (15 MB max). Pick it from your photos instead.
             </p>
           )}
-          <div className="card mt-4 overflow-hidden">
-            {preview ? (
-              <div className="relative">
-                <img src={preview} alt="The bill you picked" className="max-h-80 w-full bg-slate-100 object-contain dark:bg-ink-800" />
-                {busy && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white backdrop-blur-sm">
-                    <div className="text-sm font-semibold" aria-live="polite">
-                      {progressLabel}
+          <ScanCard
+            kind={mode === 'receipt' ? 'receipt' : 'payment'}
+            onFiles={(fs) => void onFile(fs[0])}
+            disabled={busy}
+            aiHidden={busy}
+            top={
+              preview ? (
+                <div className="relative">
+                  <img src={preview} alt="The bill you picked" className="max-h-80 w-full bg-slate-100 object-contain dark:bg-ink-800" />
+                  {busy && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white backdrop-blur-sm">
+                      <div className="text-sm font-semibold" aria-live="polite">
+                        {progressLabel}
+                      </div>
+                      <div
+                        className="mt-2 h-1.5 w-40 overflow-hidden rounded-full bg-white/20"
+                        role="progressbar"
+                        aria-label="Reading the photo"
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuenow={reader.stage === 'ai' ? undefined : Math.round(progress * 100)}
+                        aria-valuetext={progressLabel}
+                      >
+                        {reader.stage === 'ai' ? (
+                          <div className="h-full w-1/3 animate-[indeterminate_1.2s_ease-in-out_infinite] rounded-full bg-white" />
+                        ) : (
+                          <div className="h-full bg-white transition-all" style={{ width: `${progress * 100}%` }} />
+                        )}
+                      </div>
+                      <button type="button" className="btn btn-sm mt-4 bg-white/15 text-white ring-1 ring-white/30" onClick={cancel} data-testid="scan-cancel">
+                        <X size={16} aria-hidden /> Cancel
+                      </button>
                     </div>
-                    <div
-                      className="mt-2 h-1.5 w-40 overflow-hidden rounded-full bg-white/20"
-                      role="progressbar"
-                      aria-label="Reading the photo"
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      aria-valuenow={reader.stage === 'ai' ? undefined : Math.round(progress * 100)}
-                      aria-valuetext={progressLabel}
-                    >
-                      {reader.stage === 'ai' ? (
-                        <div className="h-full w-1/3 animate-[indeterminate_1.2s_ease-in-out_infinite] rounded-full bg-white" />
-                      ) : (
-                        <div className="h-full bg-white transition-all" style={{ width: `${progress * 100}%` }} />
-                      )}
-                    </div>
-                    <button type="button" className="btn btn-sm mt-4 bg-white/15 text-white ring-1 ring-white/30" onClick={cancel} data-testid="scan-cancel">
-                      <X size={16} aria-hidden /> Cancel
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center px-6 py-10 text-center">
-                <div
-                  className="mb-3 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-fill-500 to-fill-to text-3xl text-on-fill shadow-lg"
-                  aria-hidden
-                >
-                  {mode === 'receipt' ? '🧾' : '📲'}
+                  )}
                 </div>
-                <div className="flex items-center justify-center">
-                  <h2 className="font-bold">{mode === 'receipt' ? 'Snap a bill' : 'Upload a payment confirmation'}</h2>
-                  <InfoTip hint={mode === 'receipt' ? RECEIPT_HINT : PAYMENT_HINT} label="About scanning" />
-                </div>
-                <HintText hint={mode === 'receipt' ? RECEIPT_HINT : PAYMENT_HINT} className="text-muted mt-1 text-sm" />
-              </div>
-            )}
-            <div className="grid grid-cols-2 gap-2 p-3">
-              <button type="button" className="btn-primary" onClick={() => camRef.current?.click()} disabled={busy}>
-                <Camera size={18} aria-hidden /> Camera
-              </button>
-              <button type="button" className="btn-secondary" onClick={() => libRef.current?.click()} disabled={busy}>
-                <ImageUp size={18} aria-hidden /> Photos
-              </button>
-            </div>
-            {mode === 'receipt' && <AiScanToggle className="px-4 pb-3" />}
-            <input
-              ref={camRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              hidden
-              onChange={(e) => {
-                const f = e.target.files?.[0]
-                e.target.value = ''
-                if (f) onFile(f)
-              }}
-            />
-            <input
-              ref={libRef}
-              type="file"
-              accept="image/*"
-              hidden
-              onChange={(e) => {
-                const f = e.target.files?.[0]
-                e.target.value = ''
-                if (f) onFile(f)
-              }}
-            />
-          </div>
+              ) : mode === 'receipt' ? (
+                <ScanIntro icon="receipt" title="Snap a bill" hint={RECEIPT_HINT} infoLabel="About scanning" />
+              ) : (
+                <ScanIntro icon="phone" title="Upload a payment confirmation" hint={PAYMENT_HINT} infoLabel="About scanning" />
+              )
+            }
+          />
 
           {dup && (
             <DuplicatePrompt
@@ -468,7 +430,7 @@ export default function Scan() {
               <div className="font-bold">That doesn’t look like a bill</div>
               <p className="text-muted mt-1 text-sm">Try a sharper, straighter photo, or read this one on your phone instead.</p>
               <button type="button" className="btn-secondary mt-3 w-full" onClick={readOnPhone} disabled={busy}>
-                <Smartphone size={18} aria-hidden /> Read on this phone instead
+                <PhoneIcon size={18} aria-hidden /> Read on this phone instead
               </button>
             </div>
           )}
@@ -488,9 +450,7 @@ export default function Scan() {
               </div>
               {receipt.date && <Row k="Date" v={formatDate(receipt.date)} />}
               {receipt.items.length > 0 ? <Row k="Line items" v={String(receipt.items.length)} /> : null}
-              {!receipt.total && receipt.items.length === 0 && (
-                <p className="text-muted mt-1 text-xs">Couldn’t read the total — you can type it on the next screen.</p>
-              )}
+              {!receipt.total && receipt.items.length === 0 && <p className="text-muted mt-1 text-xs">Couldn’t read the total. Type it on the next screen.</p>}
               {receipt.items.length > 0 && (
                 <div className="mt-2 max-h-40 space-y-0.5 overflow-y-auto rounded-xl bg-slate-50 p-2 text-sm dark:bg-ink-800">
                   {receipt.items.map((it, i) => (
@@ -513,7 +473,7 @@ export default function Scan() {
                   }}
                   data-testid="scan-split-items"
                 >
-                  <ListChecks size={18} aria-hidden /> Split at a live table
+                  <LiveTableIcon size={18} aria-hidden /> Split at a live table
                 </button>
               )}
             </div>
@@ -547,7 +507,7 @@ export default function Scan() {
                 <div className="card p-4 text-center">
                   <p className="text-muted text-sm">You don’t have a group yet.</p>
                   <Link to="/groups/new?next=add" className="btn-primary mt-3 w-full">
-                    <Plus size={18} aria-hidden /> Create a group first
+                    <AddIcon size={18} aria-hidden /> Create a group first
                   </Link>
                 </div>
               ) : (

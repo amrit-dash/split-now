@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { labelOf } from '@/lib/shortNames'
 import { Navigate, useParams } from 'react-router-dom'
-import { ArrowDown, Bell, BellOff, ChevronLeft, Copy, Info, Lightbulb, MessagesSquare, Pencil, Reply, Trash2 } from 'lucide-react'
+import { ArrowDown, Bell, BellOff, ChevronLeft, Info, Reply } from 'lucide-react'
+import { ChatIcon, CopyIcon, EditIcon, LightbulbIcon, TrashIcon } from '@/components/icons'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { useBack } from '@/hooks/useBack'
@@ -18,6 +19,7 @@ import {
   useSettlements,
 } from '@/hooks/data'
 import { useFlag } from '@/hooks/useAppConfig'
+import { useFeature } from '@/hooks/useMode'
 import { useCapturePrefs } from '@/hooks/useCapturePrefs'
 import type { ChatMessage, ChatReplyRef } from '@/types'
 import { usePageTitle } from '@/lib/brand'
@@ -45,8 +47,8 @@ import { openOnce } from '@/lib/vault-open'
 
 /** Kept in every look: who can read the chat (people who join later too) is a privacy point. */
 const CHAT_START_HINT: Hint = {
-  full: 'The group’s money chat. Ask who paid, write down an open item anyone can claim, ask people to settle up or send a Pay me. Everyone in the group sees the whole chat, including people who join later.',
-  short: 'Everyone in the group sees the whole chat, including people who join later.',
+  full: 'The group’s money chat: ask who paid, add an open item, ask to settle up or send a Pay me. Everyone in the group sees all of it, even people who join later.',
+  short: 'Everyone in the group sees all of it, even people who join later.',
   min: 'Everyone in the group sees the whole chat.',
   tier: 'key',
 }
@@ -65,6 +67,7 @@ export default function GroupChat() {
   const { user, profile } = useMe()
   const toast = useToast()
   const goBack = useBack(`/groups/${groupId}`)
+  const chatSettings = useFeature('chatSettings')
   const chatOn = useFlag('groupChat')
   const openItemsOn = useFlag('openItems')
   const group = useGroup(groupId)
@@ -256,7 +259,7 @@ export default function GroupChat() {
   if (group === null)
     return (
       <div className="mx-auto max-w-lg px-4 pt-[calc(var(--safe-top)+2rem)]">
-        <Empty emoji="🔍" title="This group doesn’t exist or you’re not a member" />
+        <Empty icon="search" title="This group doesn’t exist or you’re not a member" />
       </div>
     )
   if (group && group.type === 'personal') return <Navigate to={`/groups/${groupId}`} replace />
@@ -437,7 +440,7 @@ export default function GroupChat() {
           )}
           {menuFor?.text && (
             <MenuRow
-              icon={<Copy size={20} aria-hidden />}
+              icon={<CopyIcon size={20} aria-hidden />}
               label="Copy text"
               onClick={async () => {
                 const ok = await copy(menuFor.text)
@@ -448,7 +451,7 @@ export default function GroupChat() {
           )}
           {menuFor && canEdit(menuFor, user.uid) && (
             <MenuRow
-              icon={<Pencil size={20} aria-hidden />}
+              icon={<EditIcon size={20} aria-hidden />}
               label="Edit message"
               onClick={() => {
                 setReplyTo(null)
@@ -459,7 +462,7 @@ export default function GroupChat() {
             />
           )}
           {menuFor && menuFor.authorUid === user.uid && (
-            <MenuRow icon={<Trash2 size={20} aria-hidden />} label="Delete message" danger onClick={() => removeMessage(menuFor)} testId="chat-delete" />
+            <MenuRow icon={<TrashIcon size={20} aria-hidden />} label="Delete message" danger onClick={() => removeMessage(menuFor)} testId="chat-delete" />
           )}
         </ul>
       </Sheet>
@@ -471,7 +474,7 @@ export default function GroupChat() {
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-brand-600 dark:bg-ink-800 dark:text-brand-300"
             aria-hidden
           >
-            <MessagesSquare size={18} />
+            <ChatIcon size={18} />
           </span>
           <div className="min-w-0">
             <div className="font-semibold">The group’s money chat</div>
@@ -483,7 +486,7 @@ export default function GroupChat() {
         {/* The how-tos fold away: worth reading once, not every time the sheet opens. */}
         <Collapsible
           title="How to use it"
-          icon={<Lightbulb size={20} aria-hidden />}
+          icon={<LightbulbIcon size={20} aria-hidden />}
           summary="Tools, tags, replies"
           className="!mt-3 !bg-slate-50 !shadow-none !ring-0 dark:!bg-ink-800"
           testId="chat-howto"
@@ -499,87 +502,92 @@ export default function GroupChat() {
           </ul>
         </Collapsible>
 
-        <h3 className="mb-2 mt-5 px-1 text-sm font-bold">Your settings</h3>
-        <div className="divide-y divide-slate-100 rounded-2xl bg-slate-50 dark:divide-white/5 dark:bg-ink-800">
-          <div className="flex items-center gap-3 p-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center font-medium">
-                Suggest tools as I type
-                <InfoTip hint={SUGGEST_HINT} label="About suggesting tools" />
-              </div>
-              <HintText hint={SUGGEST_HINT} className="text-muted text-xs" as="div" />
-            </div>
-            <Switch
-              checked={suggest}
-              onChange={(v) => {
-                setSuggest(v)
-                setSuggestOn(v)
-              }}
-              label="Suggest tools as I type"
-              testId="chat-suggest-switch"
-            />
-          </div>
-          {chatAiOn && suggest && (
-            <div className="flex items-center gap-3 p-3" data-testid="chat-ai-row">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center font-medium">
-                  Use AI for suggestions
-                  {repo.mode !== 'demo' && <InfoTip hint={AI_SUGGEST_HINT} label="About AI suggestions" />}
+        {/* Simple keeps the sheet to what the chat is and how to use it; the header's bell still mutes. */}
+        {chatSettings && (
+          <>
+            <h3 className="mb-2 mt-5 px-1 text-sm font-bold">Your settings</h3>
+            <div className="divide-y divide-slate-100 rounded-2xl bg-slate-50 dark:divide-white/5 dark:bg-ink-800">
+              <div className="flex items-center gap-3 p-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center font-medium">
+                    Suggest tools as I type
+                    <InfoTip hint={SUGGEST_HINT} label="About suggesting tools" />
+                  </div>
+                  <HintText hint={SUGGEST_HINT} className="text-muted text-xs" as="div" />
                 </div>
-                {repo.mode === 'demo' ? (
-                  <div className="text-muted text-xs">Needs a Split Now account: not in the demo.</div>
-                ) : (
-                  <HintText hint={AI_SUGGEST_HINT} className="text-muted text-xs" as="div" />
-                )}
+                <Switch
+                  checked={suggest}
+                  onChange={(v) => {
+                    setSuggest(v)
+                    setSuggestOn(v)
+                  }}
+                  label="Suggest tools as I type"
+                  testId="chat-suggest-switch"
+                />
               </div>
-              <Switch
-                checked={aiSuggest && repo.mode !== 'demo'}
-                onChange={(v) => {
-                  setAiSuggest(v)
-                  setAiSuggestOn(v)
-                  setAiBlocked(false)
-                }}
-                label="Use AI for suggestions"
-                disabled={repo.mode === 'demo'}
-                testId="chat-ai-switch"
-              />
-            </div>
-          )}
-          <div className="flex items-center gap-3 p-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center font-medium">
-                Mute this chat
-                <InfoTip hint={MUTE_HINT} label="About muting this chat" />
+              {chatAiOn && suggest && (
+                <div className="flex items-center gap-3 p-3" data-testid="chat-ai-row">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center font-medium">
+                      Use AI for suggestions
+                      {repo.mode !== 'demo' && <InfoTip hint={AI_SUGGEST_HINT} label="About AI suggestions" />}
+                    </div>
+                    {repo.mode === 'demo' ? (
+                      <div className="text-muted text-xs">Needs a Split Now account: not in the demo.</div>
+                    ) : (
+                      <HintText hint={AI_SUGGEST_HINT} className="text-muted text-xs" as="div" />
+                    )}
+                  </div>
+                  <Switch
+                    checked={aiSuggest && repo.mode !== 'demo'}
+                    onChange={(v) => {
+                      setAiSuggest(v)
+                      setAiSuggestOn(v)
+                      setAiBlocked(false)
+                    }}
+                    label="Use AI for suggestions"
+                    disabled={repo.mode === 'demo'}
+                    testId="chat-ai-switch"
+                  />
+                </div>
+              )}
+              <div className="flex items-center gap-3 p-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center font-medium">
+                    Mute this chat
+                    <InfoTip hint={MUTE_HINT} label="About muting this chat" />
+                  </div>
+                  <HintText hint={MUTE_HINT} className="text-muted text-xs" as="div" />
+                </div>
+                <Switch checked={muted} onChange={toggleMute} label="Mute this chat" disabled={!prefs} />
               </div>
-              <HintText hint={MUTE_HINT} className="text-muted text-xs" as="div" />
             </div>
-            <Switch checked={muted} onChange={toggleMute} label="Mute this chat" disabled={!prefs} />
-          </div>
-        </div>
+          </>
+        )}
       </Sheet>
     </div>
   )
 }
 
 const ABOUT_HINT: Hint = {
-  full: 'Ask who paid, write down an open item anyone can claim, ask people to settle up or send a Pay me.',
+  full: 'Ask who paid, add an open item anyone can claim, ask to settle up or send a Pay me.',
   short: 'Ask who paid, settle up, send a Pay me.',
   tier: 'help',
 }
 // Who reads it is a privacy fact: it stays in every look.
 const WHO_SEES_HINT: Hint = {
-  full: 'Everyone in the group sees the whole chat, including people who join later.',
-  short: 'Everyone in the group sees it, even people who join later.',
+  full: 'Everyone in the group sees all of it, even people who join later.',
+  short: 'Everyone in the group sees it, even later joiners.',
   tier: 'key',
 }
 const SUGGEST_HINT: Hint = {
   full: '“Can everyone settle up?” offers Settle up. Read on this phone, nothing is sent until you tap. This device only.',
-  short: 'Offers a tool from what you type. This device only.',
+  short: 'Offers a tool for what you type. This device only.',
   tier: 'help',
 }
 const AI_SUGGEST_HINT: Hint = {
-  full: 'When the built-in rules find nothing, asks AI after you pause typing. A little slower, and uses your AI allowance (Settings → AI features). Recommended: off.',
-  short: 'Asks AI when the built-in rules find nothing. Uses your AI allowance.',
+  full: 'When the app finds nothing, asks AI after you pause. Slower, and uses your AI allowance. Best left off.',
+  short: 'Asks AI when the app finds nothing.',
   tier: 'help',
 }
 const MUTE_HINT: Hint = { full: 'No notifications for new messages, except when someone tags you. Only for you.', short: 'Tags still reach you.', tier: 'help' }

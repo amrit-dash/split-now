@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ChevronRight, HandCoins } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
+import { HandCoinsIcon } from '@/components/icons'
 import { useMe } from '@/hooks/auth'
 import { computeGroupData, memberOrder, useExpenses, useGroup, useSettlements } from '@/hooks/data'
 import { usePageTitle } from '@/lib/brand'
@@ -46,7 +47,7 @@ export default function GroupMoney() {
       <>
         {/* Fixed: this group is gone for you, and every screen of it behind this one would say the same, so back leaves the group. */}
         <PageHeader title="Money received" back={{ to: '/groups', mode: 'fixed' }} />
-        <Empty emoji="🔍" title="This group doesn’t exist or you’re not a member" />
+        <Empty icon="search" title="This group doesn’t exist or you’re not a member" />
       </>
     )
   if (!d || !b)
@@ -86,7 +87,7 @@ export default function GroupMoney() {
       </section>
       <HintText
         hint={{
-          full: 'Total spent and the budget leave money received out. Balances and Settle up include it: whoever received it owes the others their share.',
+          full: 'Not in Total spent or the budget. Balances and Settle up include it: whoever received it owes the others their share.',
           tier: 'key',
         }}
         as="p"
@@ -138,7 +139,7 @@ export default function GroupMoney() {
             return (
               <li key={e.id}>
                 <Link to={`/groups/${group.id}/expenses/${e.id}`} className="flex min-h-14 items-center gap-3 px-4 py-3">
-                  <HandCoins size={20} className="pos shrink-0" aria-hidden />
+                  <HandCoinsIcon size={20} className="pos shrink-0" aria-hidden />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium">{e.description}</span>
                     <span className="text-muted block truncate text-xs">

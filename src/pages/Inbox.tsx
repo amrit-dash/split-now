@@ -1,3 +1,4 @@
+import { useFeature } from '@/hooks/useMode'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useJoinRequests } from '@/hooks/data'
 import type { JoinRequest } from '@/types'
@@ -5,7 +6,8 @@ import { isSealed } from '@/lib/vault-scramble'
 import { decidesJoins, waitingRequests } from '@/lib/join-approval'
 import { passkeyCancelled, passkeyProof } from '@/features/vault/passkey'
 import { Link, useNavigate } from 'react-router-dom'
-import { Ban, BookOpen, Check, CheckCheck, ChevronDown, ChevronRight, EyeOff, Flag, FolderInput, Loader2, Plus, RotateCcw, Trash2 } from 'lucide-react'
+import { BookOpen, Check, ChevronDown, ChevronRight, FolderInput, Loader2, RotateCcw, Trash2 } from 'lucide-react'
+import { AddIcon, ChecksIcon, EyeSlashIcon, FlagIcon, ProhibitIcon, TrashIcon } from '@/components/icons'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { memberOrder, myMemberId, useAllGroupData, useCaptures, useCapturesMeta, useDeletedGroups, type GroupData } from '@/hooks/data'
@@ -66,6 +68,8 @@ import { Avatar } from '@/components/Avatar'
 import { GroupIcon } from '@/components/GroupIcon'
 import { addedPrompt } from '@/lib/vault-setup'
 import { useConfirm } from '@/components/ConfirmSheet'
+import { FeatureIcon } from '@/components/Icon'
+import type { UiIconName } from '@/lib/ui-icons'
 
 type Tab = 'sort' | 'updates'
 const HANDLED_FIRST = 15
@@ -126,7 +130,7 @@ export default function Inbox() {
               title="Mark all read"
               data-testid="inbox-mark-read"
             >
-              <CheckCheck size={22} aria-hidden />
+              <ChecksIcon size={22} aria-hidden />
             </button>
           )
         }
@@ -208,6 +212,7 @@ function ToSort({
   const toast = useToast()
   const [prefs, setPrefs] = useState<AllPrefs | null>(null)
   const [bulk, setBulk] = useState<BulkCandidate<Group> | null>(null)
+  const showCapturePromo = useFeature('capturePromo')
   // The sort menu is optional: hidden in the Minimal look.
   const showSort = useShows(2)
   const deletedGroups = useDeletedGroups()
@@ -340,24 +345,26 @@ function ToSort({
       )}
       {nothing && (
         <>
-          <Quiet emoji="✨" title="All sorted">
-            Captured payments, expenses waiting for your OK and payments to confirm show up here.
+          <Quiet icon="checkCircle" title="All sorted">
+            Captured payments, approvals and payments to confirm show up here.
           </Quiet>
-          {/* A promo, not a decision: hidden in the Minimal look. */}
+          {/* A promo, not a decision: hidden in the Minimal look, and in Simple, which has no Automation. */}
           <Detail min={2}>
-            <Link to="/settings/auto-capture" className="card mt-3 flex items-center gap-3 p-4" data-testid="inbox-setup">
-              <span
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
-                aria-hidden
-              >
-                <BookOpen size={20} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="font-semibold">Set up auto-capture</div>
-                <HintText as="div" className="text-muted text-xs" hint={{ full: 'Bank & UPI payments from your phone land here automatically' }} />
-              </div>
-              <ChevronRight size={18} className="shrink-0 text-slate-400" aria-hidden />
-            </Link>
+            {showCapturePromo && (
+              <Link to="/settings/auto-capture" className="card mt-3 flex items-center gap-3 p-4" data-testid="inbox-setup">
+                <span
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
+                  aria-hidden
+                >
+                  <BookOpen size={20} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="font-semibold">Set up auto-capture</div>
+                  <HintText as="div" className="text-muted text-xs" hint={{ full: 'Your bank and UPI payments land here by themselves' }} />
+                </div>
+                <ChevronRight size={18} className="shrink-0 text-slate-400" aria-hidden />
+              </Link>
+            )}
           </Detail>
         </>
       )}
@@ -371,7 +378,7 @@ function ToSort({
       )}
 
       {joins.length > 0 && (
-        <Section title="Asking to join" hint={{ full: 'Only you let people into the groups you made that need your OK', tier: 'key' }}>
+        <Section title="Asking to join" hint={{ full: 'Only you can let them into groups you made', tier: 'key' }}>
           {joins.map((r) => (
             <JoinRequestRow key={`${r.groupId}/${r.uid}`} request={r} d={mine.find((d) => d.group.id === r.groupId)} />
           ))}
@@ -379,7 +386,7 @@ function ToSort({
       )}
 
       {box.merges.length > 0 && (
-        <Section title="Merges to OK" hint={{ full: 'Two people who are one person' }}>
+        <Section title="Merges to OK" hint={{ full: 'Two names for the same person' }}>
           {box.merges.map(({ r, d }) => (
             <MergeApprovalRow key={`${r.groupId}/${r.id}`} group={d.group} request={r} me={d.me} myUid={user.uid} />
           ))}
@@ -407,7 +414,7 @@ function ToSort({
       )}
 
       {box.payments.length > 0 && (
-        <Section title="Payments to confirm" hint={{ full: 'Waiting ones count once you confirm them', tier: 'key' }}>
+        <Section title="Payments to confirm" hint={{ full: 'They count once you confirm them', tier: 'key' }}>
           {payments.map(({ s, group, matched }) => (
             <PaymentConfirmRow key={s.id} s={s} group={group} matched={matched} />
           ))}
@@ -438,7 +445,7 @@ function ToSort({
           <Section title="Captured payments" hint={`${box.captures.length} to sort`}>
             {candidates[0] && (
               <button type="button" className="btn-primary w-full" onClick={() => setBulk(candidates[0])} data-testid="inbox-bulk">
-                <Plus size={18} aria-hidden /> Add all {candidates[0].captures.length} to {candidates[0].group.emoji} {candidates[0].group.name}
+                <AddIcon size={18} aria-hidden /> Add all {candidates[0].captures.length} to {candidates[0].group.emoji} {candidates[0].group.name}
               </button>
             )}
             {captures.map((c) => (
@@ -526,7 +533,7 @@ function PaymentConfirmRow({ s, group, matched }: { s: Settlement; group: Group;
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <ProofButton s={s} className="mr-auto text-sm" />
         <button type="button" className="btn-secondary btn-sm" onClick={() => answers.notReceived(s)} data-testid="inbox-payment-not-received">
-          <Flag size={16} aria-hidden /> Not received
+          <FlagIcon size={16} aria-hidden /> Not received
         </button>
         <button type="button" className="btn-primary btn-sm" onClick={() => answers.confirm(s)} data-testid="inbox-payment-confirm">
           <Check size={16} aria-hidden /> {matched ? 'Looks right' : 'Confirm'}
@@ -599,7 +606,7 @@ function CaptureCard({
           className="text-muted flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl px-2.5 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-ink-800"
           aria-label={`Mark ${c.merchant} as not shared`}
         >
-          <EyeOff size={16} aria-hidden />
+          <EyeSlashIcon size={16} aria-hidden />
           <span className="hidden min-[360px]:inline">Not shared</span>
         </button>
         {onIgnore && (
@@ -611,7 +618,7 @@ function CaptureCard({
             aria-label={`Ignore payments at ${c.merchant} from now on`}
             data-testid="inbox-ignore"
           >
-            <Ban size={16} aria-hidden />
+            <ProhibitIcon size={16} aria-hidden />
           </button>
         )}
       </div>
@@ -694,7 +701,7 @@ function BulkSheet({ candidate, data, onClose }: { candidate: BulkCandidate<Grou
       <HintText
         className="text-muted -mt-1 mb-3 text-sm"
         hint={{
-          full: `Each one becomes an expense you paid, split equally between everyone in ${g.name}. You can edit any of them afterwards.`,
+          full: `Each becomes an expense you paid, split equally in ${g.name}. You can edit them after.`,
           short: `Each becomes an expense you paid, split equally in ${g.name}.`,
           tier: 'key',
         }}
@@ -733,7 +740,7 @@ function BulkSheet({ candidate, data, onClose }: { candidate: BulkCandidate<Grou
         })}
       </ul>
       <button type="button" className="btn-primary mt-4 w-full" onClick={add} disabled={busy || !chosen.length || !data} data-testid="inbox-bulk-add">
-        {busy ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <Plus size={18} aria-hidden />} Add {chosen.length} ·{' '}
+        {busy ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <AddIcon size={18} aria-hidden />} Add {chosen.length} ·{' '}
         {formatMoney(sumCaptures(chosen), g.currency)}
       </button>
     </Sheet>
@@ -835,7 +842,7 @@ function Handled({ list, groups }: { list: Capture[]; groups: Group[] }) {
                 as="div"
                 contentClassName="flex items-center gap-1 px-3 py-2"
                 menuTitle={c.merchant}
-                actions={[{ label: 'Delete', ariaLabel: `Delete ${c.merchant}`, icon: <Trash2 size={20} strokeWidth={2.25} />, onClick: () => remove(c) }]}
+                actions={[{ label: 'Delete', ariaLabel: `Delete ${c.merchant}`, icon: <TrashIcon size={20} />, onClick: () => remove(c) }]}
               >
                 {c.status === 'assigned' && c.groupId && c.expenseId ? (
                   <Link to={`/groups/${c.groupId}/expenses/${c.expenseId}`} className="flex min-w-0 flex-1 items-center py-1">
@@ -935,12 +942,10 @@ function Section({ title, hint, children }: { title: string; hint?: string | Hin
   )
 }
 
-function Quiet({ emoji, title, children }: { emoji: string; title: string; children: React.ReactNode }) {
+function Quiet({ icon, title, children }: { icon: UiIconName; title: string; children: React.ReactNode }) {
   return (
     <div className="card flex flex-col items-center px-6 py-8 text-center">
-      <div className="mb-2 text-4xl" aria-hidden>
-        {emoji}
-      </div>
+      <FeatureIcon name={icon} size={46} className="mb-2" />
       <h2 className="font-bold">{title}</h2>
       <p className="text-muted mt-1 text-sm">{children}</p>
     </div>
@@ -1019,8 +1024,8 @@ function Updates({
 
   if (all.length === 0 && !more)
     return (
-      <Quiet emoji="🔔" title={cleared.clearedAt ? 'All caught up' : 'No updates yet'}>
-        Expenses, payments, imports and new members in your groups show here. New ones from friends get a dot.
+      <Quiet icon="bell" title={cleared.clearedAt ? 'All caught up' : 'No updates yet'}>
+        Expenses, payments and new members in your groups show here. New ones get a dot.
       </Quiet>
     )
 
@@ -1188,7 +1193,7 @@ function JoinRequestRow({ request, d }: { request: JoinRequest; d: GroupData | u
         </button>
       </div>
       <Sheet open={picking} onClose={() => setPicking(false)} title={`Who is ${who}?`}>
-        <p className="text-muted mb-3 text-sm">If they’re already in the group under a name you added, pick it: what was theirs becomes theirs.</p>
+        <p className="text-muted mb-3 text-sm">Already in the group under a name you added? Pick it to give them what’s theirs.</p>
         <div className="space-y-2">
           {placeholders.map(([id, m]) => (
             <button key={id} type="button" className="btn w-full" onClick={() => void decide(true, id)}>

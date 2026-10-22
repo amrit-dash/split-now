@@ -320,3 +320,35 @@ export function stepsSpoken(steps: Step[]): string {
   const words = steps.map((s) => (s === 'L' ? 'long press' : 'tap')).join(', ')
   return `${steps.length} ${steps.length === 1 ? 'step' : 'steps'}: ${words}`
 }
+
+/*
+ * Settings → Encrypted groups draws the last answer it had straight away and asks the server
+ * again quietly (each visit used to wait on a cold Cloud Function, showing "Checking…"). Only the
+ * page's own yes/no fields are kept, per account, on this device: no group, no keys, no pattern.
+ * `made` is left out: it is asked for when someone taps Stop, the only place that needs it.
+ */
+export function vaultStatusToCache(s: VaultStatus): string {
+  const { serverReady, hasPasskey, universal, ordered, triesLeft, lockedUntil, on, off } = s
+  return JSON.stringify({ serverReady, hasPasskey, universal, ordered, triesLeft, lockedUntil, on, off })
+}
+
+export function vaultStatusFromCache(raw: string | null): VaultStatus | null {
+  if (!raw) return null
+  try {
+    const v = JSON.parse(raw) as Record<string, unknown>
+    if (typeof v.serverReady !== 'boolean' || typeof v.hasPasskey !== 'boolean' || typeof v.universal !== 'boolean' || typeof v.triesLeft !== 'number')
+      return null
+    return {
+      serverReady: v.serverReady,
+      hasPasskey: v.hasPasskey,
+      universal: v.universal,
+      triesLeft: v.triesLeft,
+      ...(typeof v.ordered === 'boolean' ? { ordered: v.ordered } : {}),
+      ...(typeof v.lockedUntil === 'number' ? { lockedUntil: v.lockedUntil } : {}),
+      ...(v.on === true ? { on: true } : {}),
+      ...(v.off === true ? { off: true } : {}),
+    }
+  } catch {
+    return null
+  }
+}

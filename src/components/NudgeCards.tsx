@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
-import { Bell, BellRing, Share, X } from 'lucide-react'
+import { Share, X } from 'lucide-react'
+import { BellIcon, BellRingingIcon } from '@/components/icons'
 import { dismissNudges, nudgeCardText, restoreNudges, type NudgeCard } from '@/lib/nudge-inbox'
 import { IOS_INSTALL_FOR_PUSH, isIOS, isStandalone, pushOffer, pushSupported } from '@/lib/push'
 import { notificationsAvailable, useTurnOnPush } from './NotificationSettings'
@@ -31,7 +32,7 @@ export function NudgeCards({ cards, className = '' }: { cards: NudgeCard[]; clas
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/40 dark:text-brand-300"
               aria-hidden
             >
-              <BellRing size={20} />
+              <BellRingingIcon size={20} />
             </span>
             <div className="min-w-0 flex-1">
               <h2 className="font-semibold">{t.title}</h2>
@@ -48,7 +49,7 @@ export function NudgeCards({ cards, className = '' }: { cards: NudgeCard[]; clas
                     className="btn-secondary !min-h-10 !rounded-full !px-4 !py-0 text-sm"
                     data-testid="nudge-push-on"
                   >
-                    <Bell size={16} aria-hidden /> Turn on notifications
+                    <BellIcon size={16} aria-hidden /> Turn on notifications
                   </button>
                 )}
               </div>
@@ -65,7 +66,7 @@ export function NudgeCards({ cards, className = '' }: { cards: NudgeCard[]; clas
                     short: (
                       <>
                         <Share size={14} className="mt-0.5 shrink-0" aria-hidden />
-                        Tap Share → Add to Home Screen to get reminders as notifications.
+                        Share → Add to Home Screen to get reminders.
                       </>
                     ),
                   }}

@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { CheckCheck, ChevronRight, Lock, Plus, Users } from 'lucide-react'
+import { ChevronRight, Lightbulb } from 'lucide-react'
+import { AddIcon, ChecksIcon, GroupsIcon, LockIcon } from '@/components/icons'
 import { PatternLock } from '@/features/vault/PatternLock'
 import { ChequeIcon } from '@/components/ChequeIcon'
 import { useMe } from '@/hooks/auth'
@@ -8,7 +9,7 @@ import { useAllGroupData, useRecentActivity } from '@/hooks/data'
 import type { ActivityEntry, Group } from '@/types'
 import { formatMoney } from '@/lib/money'
 import { groupCount, pendingSettlements, personBalances, settlePersonHref, totalsByCurrency, type PersonBalance, type SettleRow } from '@/lib/settleAll'
-import { inHome, type HomeBalance } from '@/lib/collect'
+import { collectsInHome, inHome, type HomeBalance } from '@/lib/collect'
 import { convertMinor, type FxRate } from '@/lib/fx'
 import { useTodayRates } from '@/hooks/useFx'
 import { Avatar } from '@/components/Avatar'
@@ -22,8 +23,8 @@ import { type Hint, HintText } from '@/components/Hint'
 const BALANCES_HINT: Hint = { full: 'Across all your groups and 1:1s', tier: 'extra' }
 
 const EVENS_HINT: Hint = {
-  full: 'You owe each other the same overall. Clear them to settle every group with no money changing hands.',
-  short: 'Clear them to settle every group, no money needed.',
+  full: 'You owe each other the same overall. Clear them to settle every group, no money needed.',
+  short: 'Settles every group, no money needed.',
 }
 
 /*
@@ -59,7 +60,7 @@ export default function SettleAll() {
   const view: View = params.get('view') === 'group' ? 'group' : 'person'
   const setView = (v: View) => setParams(v === 'person' ? {} : { view: v }, { replace: true })
   // Collect in my currency: other currencies are folded into the home one at today's rate (≈).
-  const collect = !!profile.collectInHome
+  const collect = collectsInHome(profile)
   const rates = useTodayRates(home, collect && rows ? rows.map((r) => r.currency) : [])
   // A locked private group adds nothing here (hooks/data.ts); the line says so, and its lock takes the pattern.
   const locked = data?.filter((d) => d.locked && !d.group.archived).length ?? 0
@@ -75,7 +76,7 @@ export default function SettleAll() {
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-200/70 dark:bg-ink-800"
             testId="settle-unlock"
           >
-            <Lock size={18} aria-hidden />
+            <LockIcon size={18} aria-hidden />
           </PatternLock>
         </div>
       )}
@@ -359,7 +360,7 @@ function PersonAction({ p, n }: { p: PersonBalance; n: number }) {
       aria-label={p.net > 0 ? `Record payment from ${p.label} across ${n} groups` : `Clear balances with ${p.label} across ${n} groups`}
       className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600 transition active:scale-95 active:bg-brand-100 dark:bg-brand-900/40 dark:text-brand-200 dark:active:bg-brand-900/70"
     >
-      {p.net > 0 ? <ChequeIcon size={24} /> : <CheckCheck size={20} aria-hidden />}
+      {p.net > 0 ? <ChequeIcon size={24} /> : <ChecksIcon size={20} aria-hidden />}
     </Link>
   )
 }
@@ -427,7 +428,8 @@ function PersonCard({ p, chase }: { p: PersonBalance | HomeBalance; chase: Chase
           hint={{
             full: (
               <>
-                💡 You owe each other in different groups. Settle all of it with <b>one</b> payment of {amount}.
+                <Lightbulb size={14} className="mb-0.5 mr-1 inline" aria-hidden />
+                Debts across groups net out. Settle all of it with <b>one</b> payment of {amount}.
               </>
             ),
             short: (
@@ -455,14 +457,14 @@ function AllSettled() {
       <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
         <Link to="/add" className="flex items-center gap-3 px-4 py-3.5 font-semibold transition active:bg-slate-50 dark:active:bg-ink-800">
           <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/40 dark:text-brand-300">
-            <Plus size={20} aria-hidden />
+            <AddIcon size={20} aria-hidden />
           </span>
           <span className="flex-1">Add an expense</span>
           <ChevronRight size={18} className="text-slate-300 dark:text-slate-600" aria-hidden />
         </Link>
         <Link to="/groups" className="flex items-center gap-3 px-4 py-3.5 font-semibold transition active:bg-slate-50 dark:active:bg-ink-800">
           <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/40 dark:text-brand-300">
-            <Users size={20} aria-hidden />
+            <GroupsIcon size={20} aria-hidden />
           </span>
           <span className="flex-1">Your groups</span>
           <ChevronRight size={18} className="text-slate-300 dark:text-slate-600" aria-hidden />

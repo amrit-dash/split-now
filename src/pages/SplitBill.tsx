@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { usePickableGroups } from '@/hooks/useVault'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Camera, ImageUp, Plus, QrCode, Trash2, Users } from 'lucide-react'
+import { Users } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 
@@ -25,6 +25,8 @@ import { type Hint, HintText, InfoTip } from '@/components/Hint'
 import { usePageTitle } from '@/lib/brand'
 import { DuplicatePrompt, RecentScans, useScanHistory } from '@/components/ScanHistory'
 import { entryFile, type ScanEntry, type ScanKind, type ScanMatch, type ScanPrint } from '@/lib/scanHistory'
+import { FeatureIcon } from '@/components/Icon'
+import { AddIcon, CameraIcon, ImageAddIcon, LiveTableIcon, TrashIcon } from '@/components/icons'
 
 interface Row {
   id: string
@@ -41,16 +43,16 @@ const blank = (): Row => ({ id: uid('r_'), name: '', amount: '' })
  * the table scans the QR and taps what they had, no app or account needed (src/pages/Table.tsx).
  */
 const PAGE_HINT: Hint = { full: 'Everyone taps what they had', tier: 'help' }
-const SCAN_HINT: Hint = { full: 'We’ll pull out the items, taxes and total. Or type them in below.', short: 'Or type the items in below', tier: 'help' }
+const SCAN_HINT: Hint = { full: 'Reads the items, taxes and total. Or type them below.', short: 'Or type the items below', tier: 'help' }
 const NEXT_HINT: Hint = {
-  full: 'Next, friends scan your QR code and tap what they had. No app or account needed, and you can still edit the bill while it’s live.',
-  short: 'Friends scan your QR code; no app needed',
+  full: 'Next, friends scan your QR and tap what they had. No app needed, and you can still edit the bill.',
+  short: 'Friends scan your QR, no app needed',
   tier: 'help',
 }
 /** How tax and tip are shared: the full line from the table logic, one phrase for When needed. */
 const taxHint = (mode: TaxSplit): Hint => ({
   full: taxSplitHint(mode),
-  short: mode === 'equal' ? 'Split equally; tip always equal' : 'By what each had; tip split equally',
+  short: mode === 'equal' ? 'Split equally, tip too' : 'By what each had, tip equally',
   tier: 'help',
 })
 
@@ -110,10 +112,10 @@ export default function SplitBill() {
     })
     toast(
       items.length
-        ? `Found ${items.length} item${items.length === 1 ? '' : 's'} — check them below`
+        ? `Found ${items.length} item${items.length === 1 ? '' : 's'} . Check them below`
         : total
-          ? 'Couldn’t read the items — add them below'
-          : 'Couldn’t read this bill — add the items below',
+          ? 'Couldn’t read the items. Add them below'
+          : 'Couldn’t read this bill. Add the items below',
       items.length ? 'ok' : 'err',
     )
   }
@@ -223,7 +225,7 @@ export default function SplitBill() {
         ) : (
           <div className="flex items-center gap-4 p-4">
             <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-fill-500 to-fill-to-500 text-2xl text-on-fill shadow-lg">
-              🧾
+              <FeatureIcon name="receipt" size={32} tone="current" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center">
@@ -236,10 +238,10 @@ export default function SplitBill() {
         )}
         <div className="grid grid-cols-2 gap-2 p-3 pt-0">
           <button type="button" className="btn-primary" onClick={() => camRef.current?.click()} disabled={ocr.busy}>
-            <Camera size={18} aria-hidden /> {preview ? 'Rescan' : 'Camera'}
+            <CameraIcon size={18} aria-hidden /> {preview ? 'Rescan' : 'Camera'}
           </button>
           <button type="button" className="btn-secondary" onClick={() => libRef.current?.click()} disabled={ocr.busy}>
-            <ImageUp size={18} aria-hidden /> Photos
+            <ImageAddIcon size={18} aria-hidden /> Photos
           </button>
         </div>
         <AiScanToggle className="px-4 pb-3" />
@@ -368,13 +370,13 @@ export default function SplitBill() {
                 onClick={() => setRows(rows.filter((x) => x.id !== r.id))}
                 aria-label={`Remove item ${i + 1}`}
               >
-                <Trash2 size={18} />
+                <TrashIcon size={18} />
               </button>
             </div>
           ))}
         </div>
         <button type="button" className="btn-secondary mt-3 w-full !min-h-0 !py-2.5 text-sm" onClick={() => setRows([...rows, blank()])}>
-          <Plus size={16} /> Add item
+          <AddIcon size={16} /> Add item
         </button>
 
         <div className="mt-4 grid grid-cols-3 gap-2 border-t border-slate-100 pt-4 dark:border-white/5">
@@ -453,7 +455,7 @@ export default function SplitBill() {
             <div className="text-2xl font-extrabold tabular-nums">{formatMoney(total, cur)}</div>
           </div>
           <button type="button" className="btn-primary" onClick={start} disabled={busy || ocr.busy} data-testid="start-table">
-            {busy ? <Spinner className="!h-4 !w-4" /> : <QrCode size={18} />} Start table
+            {busy ? <Spinner className="!h-4 !w-4" /> : <LiveTableIcon size={18} solid aria-hidden />} Start table
           </button>
         </div>
       </div>

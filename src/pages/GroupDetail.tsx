@@ -1,32 +1,32 @@
+import { useFeature } from '@/hooks/useMode'
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { AlertCircle, AlertTriangle, ChevronRight, MessageSquareText, Repeat, Search, UtensilsCrossed, X } from 'lucide-react'
 import {
-  AlertCircle,
-  AlertTriangle,
-  Archive,
-  BarChart3,
-  CheckCheck,
-  ChevronRight,
-  Download,
-  Flag,
-  HandCoins,
-  KeySquare,
-  Lock,
-  LockOpen,
-  Link2,
-  LogOut,
-  MessageSquareText,
-  MessagesSquare,
-  Pencil,
-  Repeat,
-  Search,
-  ArrowDownUp,
-  Settings2,
-  Trash2,
-  UserMinus,
-  Users,
-  X,
-} from 'lucide-react'
+  ArchiveIcon,
+  CalendarIcon,
+  ChatIcon,
+  ChecksIcon,
+  DownloadIcon,
+  EditIcon,
+  ExitIcon,
+  FlagIcon,
+  GroupsIcon,
+  HandCoinsIcon,
+  InsightsIcon,
+  KeyIcon,
+  LinkIcon,
+  LockIcon,
+  LockOpenIcon,
+  MemberRemoveIcon,
+  ReceiptIcon,
+  GroupSettingsIcon,
+  SortIcon,
+  SwapIcon,
+  TrashIcon,
+  UserIcon,
+} from '@/components/icons'
+import { QrCode } from '@/components/QrCode'
 import { useMe } from '@/hooks/auth'
 import {
   computeGroupData,
@@ -52,6 +52,7 @@ import { ClaimReview } from '@/components/ClaimReview'
 import { formatMoney } from '@/lib/money'
 import { groupSettleTarget } from '@/lib/settleAll'
 import { archiveRow } from '@/lib/archive'
+import { debtTone } from '@/lib/balances'
 import { CATEGORIES } from '@/lib/categories'
 import { expenseEmoji } from '@/lib/icons'
 import { IconFace } from '@/components/IconFace'
@@ -67,7 +68,8 @@ import {
   isSortKey,
   sectionRows,
   settlementMatches,
-  sheetFilterCount,
+  appliedPills,
+  removePill,
   sortRows,
   type ActivityFilter,
   type SortKey,
@@ -90,7 +92,8 @@ import { Avatar } from '@/components/Avatar'
 import { ChequeIcon } from '@/components/ChequeIcon'
 import { DebtGraph } from '@/components/DebtGraph'
 import { GroupIcon } from '@/components/GroupIcon'
-import { QrCode } from '@/components/QrCode'
+import { ProTap, ProTileRing } from '@/components/ProBadge'
+import { friendBadge } from '@/lib/pro'
 import { Empty, LiveBadge, Loading, PageHeader, Segmented, formatRange } from '@/components/Misc'
 import { Celebrate } from '@/components/Celebrate'
 import { DeletedGroupCard, useDeleteGroup } from '@/components/DeleteGroup'
@@ -163,7 +166,11 @@ export default function GroupDetail() {
   const latestChat = useChat(groupId, 1, chatOn)
   const readAt = useChatReadAt(groupId)
   // Minimal look: the Whose-turn chip is optional, the group's facts (dates, Archived) stay.
-  const showTurn = useShows(2)
+  // Simple: no whose-turn chip, no Money received or Export CSV in the menu (docs/SIMPLE_MODE.md).
+  const turnShown = useFeature('whoseTurn')
+  const showTurn = useShows(2) && turnShown
+  const showMoneyReceived = useFeature('moneyReceived')
+  const showExport = useFeature('exportGroup')
   const vaultOpen = useVaultOpen(groupId)
   // Someone in it with no way in yet, however they came in (src/hooks/useVaultWaiting.ts).
   const waitingFor = useVaultWaiting({ id: groupId ?? '', vault: liveGroup?.vault, memberUids: liveGroup?.memberUids ?? [] }, !!vaultOpen)
@@ -185,7 +192,7 @@ export default function GroupDetail() {
       <>
         {/* Fixed: this group is gone for you, and every screen of it behind this one would say the same, so back leaves the group. */}
         <PageHeader title="Group not found" back={{ to: '/groups', mode: 'fixed' }} />
-        <Empty emoji="🔍" title="This group doesn’t exist or you’re not a member" />
+        <Empty icon="search" title="This group doesn’t exist or you’re not a member" />
       </>
     )
   // In Recently deleted: read-only, with Restore (and Delete forever for the creator).
@@ -215,6 +222,8 @@ export default function GroupDetail() {
   const cur = group.currency
   const myBal = me ? (net[me] ?? 0) : 0
   const personal = group.type === 'personal'
+  // A 1:1 friend's badge (src/lib/pro.ts): a ring along their tile.
+  const friendMark = friendBadge(group)
   const direct = group.type === 'direct'
   // A 1:1 is the two of you: once the friend has joined (has an account in it), there's nobody to invite.
   const canInvite = !personal && !(direct && group.peer && group.members[group.peer]?.uid)
@@ -308,7 +317,7 @@ export default function GroupDetail() {
                 title="Open: tap to lock"
                 data-testid="vault-lock-now"
               >
-                <LockOpen size={20} aria-hidden />
+                <LockOpenIcon size={20} aria-hidden />
               </button>
             )}
             {showChat && (
@@ -318,7 +327,7 @@ export default function GroupDetail() {
                 aria-label={unread ? 'Group chat, new messages' : 'Group chat'}
                 data-testid="group-chat"
               >
-                <MessagesSquare size={22} aria-hidden />
+                <ChatIcon size={22} aria-hidden />
                 {unread && <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-slate-50 dark:ring-ink-950" aria-hidden />}
               </Link>
             )}
@@ -330,7 +339,7 @@ export default function GroupDetail() {
               aria-haspopup="dialog"
               data-testid="group-menu"
             >
-              <Settings2 size={22} aria-hidden />
+              <GroupSettingsIcon size={22} aria-hidden />
             </button>
           </div>
         }
@@ -338,7 +347,16 @@ export default function GroupDetail() {
 
       <div className="card mb-4 p-5">
         <div className="flex items-center gap-4">
-          <GroupIcon emoji={group.emoji} group={group} size={56} />
+          {friendMark ? (
+            // A friend with a badge: its ring along their tile (rounded-2xl = 16 px corners), never in the title.
+            <ProTap word={friendMark} className="flex shrink-0 rounded-2xl" testId="direct-pro-ring">
+              <ProTileRing tile={56} radius={16} word={friendMark}>
+                <GroupIcon emoji={group.emoji} group={group} size={56} overRing />
+              </ProTileRing>
+            </ProTap>
+          ) : (
+            <GroupIcon emoji={group.emoji} group={group} size={56} />
+          )}
           <div className="min-w-0 flex-1">
             {personal ? (
               <>
@@ -386,7 +404,7 @@ export default function GroupDetail() {
                 title="Who has fronted the least lately, only you can see this"
                 data-testid="whose-turn"
               >
-                <span aria-hidden>🍽️</span> {turnLine(turn, me)}
+                <UtensilsCrossed size={12} aria-hidden /> {turnLine(turn, me)}
               </span>
             )}
           </div>
@@ -443,7 +461,7 @@ export default function GroupDetail() {
                 onClick={() => openInvite()}
                 data-testid="group-invite"
               >
-                <Link2 size={18} aria-hidden /> Invite
+                <LinkIcon size={18} aria-hidden /> Invite
               </button>
             )}
           </div>
@@ -471,7 +489,7 @@ export default function GroupDetail() {
             }}
             data-testid="group-vault-waiting-set"
           >
-            <KeySquare size={18} aria-hidden /> Give it its own pattern
+            <KeyIcon size={18} aria-hidden /> Give it its own pattern
           </button>
         </div>
       )}
@@ -538,7 +556,7 @@ export default function GroupDetail() {
               className="card flex min-h-12 w-full items-center gap-2 px-4 py-3 text-left text-sm"
               data-testid="balances-open-note"
             >
-              <span aria-hidden>🧾</span>
+              <ReceiptIcon size={18} className="text-muted shrink-0" aria-hidden />
               <span className="min-w-0 flex-1">
                 {openCount} open {openCount === 1 ? 'item isn’t' : 'items aren’t'} counted yet. Claim {openCount === 1 ? 'it' : 'them'} before settling up.
               </span>
@@ -551,7 +569,7 @@ export default function GroupDetail() {
               className="card flex min-h-12 w-full items-center gap-2 px-4 py-3 text-sm"
               data-testid="balances-received-note"
             >
-              <HandCoins size={18} className="pos shrink-0" aria-hidden />
+              <HandCoinsIcon size={18} className="pos shrink-0" aria-hidden />
               <span className="min-w-0 flex-1">Includes {formatMoney(receivedTotal, cur)} money received. See what it changed for each person.</span>
               <ChevronRight size={16} className="text-slate-300 dark:text-slate-600" aria-hidden />
             </Link>
@@ -591,7 +609,7 @@ export default function GroupDetail() {
                           {
                             label: 'Remove',
                             ariaLabel: `Remove ${name(id)} from the group`,
-                            icon: <UserMinus size={20} strokeWidth={2.25} />,
+                            icon: <MemberRemoveIcon size={20} />,
                             onClick: () => void removeMember(id),
                             testId: 'balance-remove',
                           },
@@ -629,7 +647,8 @@ export default function GroupDetail() {
                     />
                     <div className="min-w-0 flex-1 text-sm">
                       <b>{name(x.from)}</b> → <b>{name(x.to)}</b>
-                      <div className="neg font-semibold">{formatMoney(x.amount, cur)}</div>
+                      {/* Money coming to you is green, money you pay is red, others' is neutral. */}
+                      <div className={`font-semibold ${{ pos: 'pos', neg: 'neg', neutral: '' }[debtTone(x, me)]}`}>{formatMoney(x.amount, cur)}</div>
                     </div>
                     {x.to === me && <RemindActions group={group} debtor={x.from} amount={x.amount} me={me} feed={feed} className="-mr-1" />}
                     {/* An icon button like Balances' record button; filled when it's your own payment to make. */}
@@ -659,7 +678,7 @@ export default function GroupDetail() {
               ? {
                   full: (
                     <>
-                      Send this to <b>{group.name}</b> so they can join and see what you owe each other.
+                      Send this to <b>{group.name}</b> so they can see what you owe each other.
                     </>
                   ),
                   short: 'They join and see what you owe each other.',
@@ -670,7 +689,7 @@ export default function GroupDetail() {
                     // New people need the creator's OK (or it's private): the link only asks.
                     full: (
                       <>
-                        Anyone with this link can ask to join <b>{group.name}</b>. The person who made it lets them in from their Inbox.
+                        Anyone with this link can ask to join <b>{group.name}</b>. Its creator lets them in from the Inbox.
                       </>
                     ),
                     short: 'Anyone with this link can ask to join.',
@@ -679,7 +698,7 @@ export default function GroupDetail() {
                 : {
                     full: (
                       <>
-                        Anyone with this link can join <b>{group.name}</b> and claim their name in the member list.
+                        Anyone with this link can join <b>{group.name}</b> and claim their name.
                       </>
                     ),
                     short: 'Anyone with this link can join.',
@@ -729,7 +748,7 @@ export default function GroupDetail() {
       <Sheet open={menu} onClose={() => setMenu(false)} title={group.name} testId="group-menu-sheet">
         <ul className="-mx-2 divide-y divide-slate-100 dark:divide-white/5">
           <MenuRow
-            icon={<Pencil size={20} />}
+            icon={<EditIcon size={20} />}
             label="Edit group"
             hint={MENU_HINTS.edit}
             onClick={() => {
@@ -739,7 +758,7 @@ export default function GroupDetail() {
           />
           {!personal && !direct && (
             <MenuRow
-              icon={<Users size={20} />}
+              icon={<GroupsIcon size={20} />}
               label="Members"
               hint={MENU_HINTS.members}
               onClick={() => {
@@ -751,7 +770,7 @@ export default function GroupDetail() {
           )}
           {canInvite && (
             <MenuRow
-              icon={<Link2 size={20} />}
+              icon={<LinkIcon size={20} />}
               label="Invite"
               hint={MENU_HINTS.invite}
               onClick={() => {
@@ -762,7 +781,7 @@ export default function GroupDetail() {
           )}
           {privateMenu && (
             <MenuRow
-              icon={<Lock size={20} />}
+              icon={<LockIcon size={20} />}
               label={group.vault ? 'Private group' : 'Make private'}
               hint={MENU_HINTS.pattern}
               onClick={() => {
@@ -772,9 +791,9 @@ export default function GroupDetail() {
               testId="vault-group-open"
             />
           )}
-          {receivedTotal > 0 && (
+          {receivedTotal > 0 && showMoneyReceived && (
             <MenuRow
-              icon={<HandCoins size={20} />}
+              icon={<HandCoinsIcon size={20} />}
               label="Money received"
               hint={MENU_HINTS.received}
               onClick={() => {
@@ -785,7 +804,7 @@ export default function GroupDetail() {
             />
           )}
           <MenuRow
-            icon={<BarChart3 size={20} />}
+            icon={<InsightsIcon size={20} />}
             label="Insights"
             hint={MENU_HINTS.insights}
             onClick={() => {
@@ -793,9 +812,9 @@ export default function GroupDetail() {
               nav(`/insights?group=${group.id}`)
             }}
           />
-          <MenuRow icon={<Download size={20} />} label="Export CSV" hint={MENU_HINTS.export} onClick={exportCsv} testId="group-export" />
+          {showExport && <MenuRow icon={<DownloadIcon size={20} />} label="Export CSV" hint={MENU_HINTS.export} onClick={exportCsv} testId="group-export" />}
           <MenuRow
-            icon={<Archive size={20} />}
+            icon={<ArchiveIcon size={20} />}
             label={archive.label}
             // Greyed out, its reason is a status line (always shown); otherwise what it does, like every other row.
             hint={
@@ -810,7 +829,7 @@ export default function GroupDetail() {
           />
           {!personal && !creator && me && (
             <MenuRow
-              icon={<LogOut size={20} />}
+              icon={<ExitIcon size={20} />}
               label="Leave group"
               hint={MENU_HINTS.leave}
               status={myBal === 0 ? undefined : 'Settle up first'}
@@ -847,17 +866,17 @@ function useChatReadAt(groupId: string | undefined): number | undefined {
 /** The ⋯ menu's lines: one per row, all 'help', so they show together or not at all (MenuRow). */
 const MENU_HINTS = {
   edit: { full: 'Name, dates, currency and approvals', short: 'Name, dates, currency', tier: 'help' },
-  members: { full: 'Add people, or remove someone who is settled up', short: 'Add or remove people', tier: 'help' },
-  invite: { full: 'A link or QR code friends can join with', short: 'Share a join link', tier: 'help' },
-  insights: { full: 'Where the group’s money went, in charts', short: 'Spending charts', tier: 'help' },
-  pattern: { full: 'Encryption, its key and its own pattern', short: 'Encryption and patterns', tier: 'help' },
-  received: { full: 'Refunds and reimbursements, and what they changed for each person', short: 'What came back', tier: 'help' },
-  export: { full: 'Every expense and payment as a spreadsheet', short: 'Download a spreadsheet', tier: 'help' },
-  leave: { full: 'You leave; what you added stays in the group', short: 'Leave this group', tier: 'help' },
-  delete: { full: 'For everyone; anyone in the group can restore it', short: 'For everyone, and restorable', tier: 'help' },
+  members: { full: 'Add people, or remove someone who’s settled up', short: 'Add or remove people', tier: 'help' },
+  invite: { full: 'A link or QR code to join', short: 'Share a join link', tier: 'help' },
+  insights: { full: 'Where the money went, in charts', short: 'Spending charts', tier: 'help' },
+  pattern: { full: 'Encryption, its key and its pattern', short: 'Encryption and pattern', tier: 'help' },
+  received: { full: 'Refunds and reimbursements, and who they changed', short: 'Refunds and reimbursements', tier: 'help' },
+  export: { full: 'Every expense and payment as a spreadsheet', short: 'As a spreadsheet', tier: 'help' },
+  leave: { full: 'What you added stays in the group', short: 'What you added stays', tier: 'help' },
+  delete: { full: 'For everyone. Anyone in the group can restore it.', short: 'For everyone, restorable', tier: 'help' },
 } satisfies Record<string, Hint>
 
-const SCAN_INVITE_HINT: Hint = { full: 'Friends next to you can scan this with their phone camera', short: 'Scan with a phone camera to join' }
+const SCAN_INVITE_HINT: Hint = { full: 'Friends nearby can scan this with their camera', short: 'Scan with a camera to join' }
 const SIMPLIFY_TIP: Hint = {
   full: (
     <>
@@ -1035,14 +1054,14 @@ function ActivityTab({ group, expenseIds }: { group: Group; expenseIds: Set<stri
   return (
     <div className="space-y-3">
       <button type="button" onClick={() => setOpen(true)} className="card flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left text-sm">
-        <Trash2 size={18} className="text-muted" aria-hidden />
+        <TrashIcon size={18} className="text-muted" aria-hidden />
         <span className="flex-1 font-medium">Recently deleted</span>
         <span className="text-muted">{n || 'empty'}</span>
       </button>
       {feed === null ? (
         <Loading />
       ) : feed.length === 0 ? (
-        <Empty emoji="📜" title="No activity yet">
+        <Empty icon="history" title="No activity yet">
           Adds, edits, deletions and flags show up here.
         </Empty>
       ) : (
@@ -1086,23 +1105,34 @@ function ActivityList({
   const navTo = useNavigate()
   const [filter, setFilter] = useState<ActivityFilter>(EMPTY_FILTER)
   const [onlyMe, setOnlyMe] = useState(false)
-  // Minimal look: the category chips go (search and Sort and filter remain); Involving me stays.
-  const catChips = useShows(2)
   const [sort, setSortState] = useState<SortKey>(readSort)
   const setSort = (k: SortKey) => {
     setSortState(k)
     saveSort(k)
   }
   const f: ActivityFilter = { ...filter, involving: onlyMe ? me : undefined }
-  const sheetCount = sheetFilterCount(filter) + (sort !== DEFAULT_SORT ? 1 : 0)
+  // What's on, as pills under the search box; their number is the count on the button.
+  const pills = appliedPills({
+    filter,
+    sort,
+    onlyMe: onlyMe && !personal && !!me,
+    name: (id) => (id === me ? 'me' : labelOf(group.members, id, group.members[id]?.name ?? 'someone', me)),
+    day: (d) => formatDate(d),
+    category: (c) => CATEGORIES[c].label,
+  })
+  const sheetCount = pills.length
+  const unpill = (key: string) => {
+    const r = removePill(key, filter)
+    setFilter((p) => ({ ...p, ...r.patch }))
+    if (r.onlyMe === false) setOnlyMe(false)
+    if (r.sort) setSort(r.sort)
+  }
   const byAdded = sort.startsWith('added')
   const filtering = isFiltering(f)
   const usedCategories = useMemo(() => {
     const seen = new Set(expenses.map((e) => e.category))
     return (Object.keys(CATEGORIES) as Category[]).filter((c) => seen.has(c))
   }, [expenses])
-  const toggleCat = (c: Category) =>
-    setFilter((p) => ({ ...p, categories: p.categories.includes(c) ? p.categories.filter((x) => x !== c) : [...p.categories, c] }))
   const clear = () => {
     setFilter(EMPTY_FILTER)
     setOnlyMe(false)
@@ -1127,7 +1157,7 @@ function ActivityList({
   }
   if (all === 0)
     return (
-      <Empty emoji="🧾" title="No expenses yet">
+      <Empty icon="receipt" title="No expenses yet">
         Tap the + button to add the first one, or scan a receipt.
       </Empty>
     )
@@ -1141,8 +1171,9 @@ function ActivityList({
           <input
             type="search"
             className="input !py-2.5 pl-10 pr-12"
-            placeholder="Search expenses and notes"
-            aria-label="Search expenses"
+            // Short enough to fit beside the filter button on a 320px phone; the label says the rest.
+            placeholder="Search expenses"
+            aria-label="Search expenses and notes"
             value={filter.q}
             onChange={(e) => setFilter((p) => ({ ...p, q: e.target.value }))}
           />
@@ -1165,7 +1196,7 @@ function ActivityList({
           aria-haspopup="dialog"
           data-testid="list-options-open"
         >
-          <ArrowDownUp size={18} aria-hidden />
+          <SortIcon size={18} aria-hidden />
           {sheetCount > 0 && (
             <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-fill px-1 text-[11px] font-bold text-on-fill">
               {sheetCount}
@@ -1173,44 +1204,24 @@ function ActivityList({
           )}
         </button>
       </div>
-      {((catChips && usedCategories.length > 1) || (!personal && me)) && (
-        <div className="scrollbar-none -mx-4 flex gap-1.5 overflow-x-auto px-4 py-1">
-          {!personal && me && (
-            <button
-              type="button"
-              onClick={() => setOnlyMe(!onlyMe)}
-              className={`chip min-h-10 shrink-0 whitespace-nowrap ${onlyMe ? 'chip-on' : ''}`}
-              aria-pressed={onlyMe}
-            >
-              Involving me
-            </button>
-          )}
-          {catChips &&
-            usedCategories.length > 1 &&
-            usedCategories.map((c) => {
-              const on = filter.categories.includes(c)
-              return (
-                <button
-                  type="button"
-                  key={c}
-                  onClick={() => toggleCat(c)}
-                  className={`chip min-h-10 shrink-0 whitespace-nowrap ${on ? 'chip-on' : ''}`}
-                  aria-pressed={on}
-                >
-                  <span aria-hidden>{CATEGORIES[c].emoji}</span>
-                  {CATEGORIES[c].label}
-                </button>
-              )
-            })}
-        </div>
-      )}
-      {sort !== DEFAULT_SORT && !filtering && (
-        <div className="text-muted flex items-center justify-between px-1 text-xs">
-          <span>Sorted by {sort.startsWith('added') ? 'date added' : 'amount'}</span>
-          <button type="button" onClick={() => setSort(DEFAULT_SORT)} className="min-h-9 font-semibold text-brand-600 dark:text-brand-300">
-            Back to date spent
-          </button>
-        </div>
+      {pills.length > 0 && (
+        <ul className="scrollbar-none -mx-4 flex gap-1.5 overflow-x-auto px-4 py-1" aria-label="Sort and filters on" data-testid="list-pills">
+          {pills.map((p) => (
+            <li key={p.key} className="shrink-0">
+              <button
+                type="button"
+                onClick={() => unpill(p.key)}
+                className="chip chip-on min-h-10 gap-1 whitespace-nowrap pr-2.5"
+                aria-label={`${p.label}. Remove`}
+                data-testid="list-pill"
+              >
+                <PillMark pill={p.key} filter={filter} group={group} />
+                {p.label}
+                <X size={14} className="opacity-70" aria-hidden />
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
       {filtering && (
         <div className="text-muted flex items-center justify-between px-1 text-xs">
@@ -1236,7 +1247,7 @@ function ActivityList({
     <div className="space-y-5">
       {filters}
       {rows.length === 0 && (
-        <Empty emoji="🔎" title="No matches">
+        <Empty icon="search" title="No matches">
           Try a different search or clear the filters.
         </Empty>
       )}
@@ -1256,7 +1267,7 @@ function ActivityList({
                             {
                               label: 'Confirm',
                               ariaLabel: 'Confirm you got this payment',
-                              icon: <CheckCheck size={20} strokeWidth={2.25} />,
+                              icon: <ChecksIcon size={20} />,
                               tone: 'accent' as const,
                               onClick: () => answers.confirm(r.s),
                               testId: 'payment-confirm',
@@ -1268,7 +1279,7 @@ function ActivityList({
                             {
                               label: 'Not received',
                               ariaLabel: 'Say this payment hasn’t arrived',
-                              icon: <Flag size={20} strokeWidth={2.25} />,
+                              icon: <FlagIcon size={20} />,
                               tone: 'neutral' as const,
                               onClick: () => answers.notReceived(r.s),
                               testId: 'payment-not-received',
@@ -1288,7 +1299,7 @@ function ActivityList({
                       {
                         label: 'Delete',
                         ariaLabel: 'Delete payment',
-                        icon: <Trash2 size={20} strokeWidth={2.25} />,
+                        icon: <TrashIcon size={20} />,
                         onClick: () => undoable.settlement(groupId, r.s),
                         testId: 'payment-delete',
                       },
@@ -1345,7 +1356,7 @@ function ActivityList({
                     {
                       label: 'Edit',
                       ariaLabel: `Edit ${e.description}`,
-                      icon: <Pencil size={20} strokeWidth={2.25} />,
+                      icon: <EditIcon size={20} />,
                       tone: 'neutral',
                       onClick: () => navTo(`/groups/${groupId}/expenses/${e.id}/edit`),
                       testId: 'expense-edit',
@@ -1353,7 +1364,7 @@ function ActivityList({
                     {
                       label: 'Delete',
                       ariaLabel: `Delete ${e.description}`,
-                      icon: <Trash2 size={20} strokeWidth={2.25} />,
+                      icon: <TrashIcon size={20} />,
                       onClick: () => undoable.expense(groupId, e),
                       testId: 'expense-delete',
                     },
@@ -1423,6 +1434,7 @@ function ActivityList({
         filter={filter}
         onFilter={(patch) => setFilter((p) => ({ ...p, ...patch }))}
         personal={personal}
+        quick={{ showMe: !personal && !!me, onlyMe, onOnlyMe: setOnlyMe, categories: usedCategories }}
       />
     </div>
   )
@@ -1546,7 +1558,7 @@ function DeleteRow({ group, debts, creator, close }: { group: Group; debts: Debt
   if (!creator && !creatorLeft) return null
   return (
     <MenuRow
-      icon={<Trash2 size={20} />}
+      icon={<TrashIcon size={20} />}
       label="Delete group"
       hint={state.allowed ? MENU_HINTS.delete : undefined}
       status={state.allowed ? undefined : state.reason}
@@ -1581,4 +1593,16 @@ function MetaLine({ children, added }: { children: ReactNode; added?: string | n
       </div>
     </div>
   )
+}
+
+/** The small mark at the start of an applied pill: what kind of setting it is, at a glance. */
+function PillMark({ pill, filter, group }: { pill: string; filter: ActivityFilter; group: Group }) {
+  if (pill.startsWith('cat:')) return <span aria-hidden>{CATEGORIES[pill.slice(4) as Category]?.emoji}</span>
+  if (pill === 'paidBy' && filter.paidBy) {
+    const m = group.members[filter.paidBy]
+    return m ? <Avatar name={m.name} color={m.color} photoURL={m.photoURL} size={20} /> : null
+  }
+  const Icon =
+    pill === 'sort' ? SortIcon : pill === 'involving' ? UserIcon : pill === 'dates' ? CalendarIcon : filter.kind === 'payments' ? SwapIcon : ReceiptIcon
+  return <Icon size={15} aria-hidden />
 }

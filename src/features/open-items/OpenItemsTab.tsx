@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { labelOf } from '@/lib/shortNames'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { CheckCircle2, ClipboardList, HandCoins, Plus, Trash2 } from 'lucide-react'
+import { CheckCircle2, ClipboardList } from 'lucide-react'
+import { AddIcon, HandCoinsIcon, TrashIcon } from '@/components/icons'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { myMemberId } from '@/hooks/data'
@@ -21,10 +22,10 @@ import { ListSkeleton } from '@/components/Skeleton'
 import { SwipeRow } from '@/components/SwipeRow'
 import { HintText, type Hint } from '@/components/Hint'
 
-const ADD_HINT: Hint = { full: 'Spent something but not sure who paid or how much? Write it down.', short: 'Not sure who paid? Write it down.' }
+const ADD_HINT: Hint = { full: 'Unsure who paid or how much? Write it down here.', short: 'Unsure who paid? Write it down.' }
 /** Kept in every look: an open item is not in anyone's balance yet. */
 const NOT_COUNTED_HINT: Hint = {
-  full: 'Open items don’t count in balances until someone claims them.',
+  full: 'Open items don’t count in balances until claimed.',
   short: 'Not counted in balances until claimed.',
   tier: 'key',
 }
@@ -90,7 +91,7 @@ export function OpenItemsTab({ group, items, expenses }: { group: Group; items: 
         data-testid="open-item-add"
       >
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-fill text-on-fill" aria-hidden>
-          <Plus size={20} />
+          <AddIcon size={20} />
         </span>
         <span className="min-w-0 flex-1">
           <span className="block font-semibold">Add an open item</span>
@@ -99,7 +100,7 @@ export function OpenItemsTab({ group, items, expenses }: { group: Group; items: 
       </button>
 
       {open.length === 0 ? (
-        <Empty emoji="🧾" title="Nothing open">
+        <Empty icon="receipt" title="Nothing open">
           Lunch you can’t place, a taxi nobody added: write it down here and whoever paid can claim it.
         </Empty>
       ) : (
@@ -118,7 +119,7 @@ export function OpenItemsTab({ group, items, expenses }: { group: Group; items: 
                   {
                     label: 'Delete',
                     ariaLabel: `Delete “${o.title}”`,
-                    icon: <Trash2 size={20} strokeWidth={2.25} />,
+                    icon: <TrashIcon size={20} />,
                     onClick: () => remove(o),
                   },
                 ]}
@@ -154,7 +155,7 @@ export function OpenItemsTab({ group, items, expenses }: { group: Group; items: 
                   aria-label={`Claim “${o.title}”: I paid`}
                   data-testid="open-item-claim"
                 >
-                  <HandCoins size={16} aria-hidden /> Claim
+                  <HandCoinsIcon size={16} aria-hidden /> Claim
                 </button>
               </SwipeRow>
             )

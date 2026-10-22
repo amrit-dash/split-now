@@ -83,6 +83,13 @@ describe('appearance (settings/appearance)', () => {
     await assertSucceeds(setDoc(doc(db('alice'), look), { ...a, look: 'minimal' }))
     await assertSucceeds(setDoc(doc(db('alice'), look), { ...a, look: 'app' }))
     await assertFails(setDoc(doc(db('alice'), look), { ...a, look: 'compact' }))
+    await assertSucceeds(setDoc(doc(db('alice'), look), { ...a, icons: 'filled' }))
+    await assertSucceeds(setDoc(doc(db('alice'), look), { ...a, icons: 'app' }))
+    await assertFails(setDoc(doc(db('alice'), look), { ...a, icons: 'duotone' }))
+    await assertSucceeds(setDoc(doc(db('alice'), look), { ...a, mode: 'simple' }))
+    await assertSucceeds(setDoc(doc(db('alice'), look), { ...a, mode: 'advanced' }))
+    await assertSucceeds(setDoc(doc(db('alice'), look), { ...a, mode: 'auto' }))
+    await assertFails(setDoc(doc(db('alice'), look), { ...a, mode: 'extreme' }))
     await assertFails(setDoc(doc(db('alice'), look), { ...a, inks: Object.fromEntries(Array.from({ length: 21 }, (_, i) => [`a${i}`, 'dark'])) }))
     await assertFails(setDoc(doc(db('alice'), look), { theme: 'dark' }))
   })
@@ -90,6 +97,21 @@ describe('appearance (settings/appearance)', () => {
     await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), look), a))
     await assertFails(getDoc(doc(db('bob'), look)))
     await assertFails(setDoc(doc(db('bob'), look), a))
+  })
+})
+
+describe('Help progress (settings/help)', () => {
+  const help = 'users/alice/settings/help'
+  it('the owner keeps the sections they finished: up to 200 ids and a time', async () => {
+    await assertSucceeds(setDoc(doc(db('alice'), help), { done: ['add-expense', 'settle-up-upi'], updatedAt: 6 }))
+    await assertSucceeds(getDoc(doc(db('alice'), help)))
+    await assertFails(setDoc(doc(db('alice'), help), { done: Array.from({ length: 201 }, (_, i) => `s${i}`), updatedAt: 6 }))
+    await assertFails(setDoc(doc(db('alice'), help), { done: 'all', updatedAt: 6 }))
+    await assertFails(setDoc(doc(db('alice'), help), { done: [], pro: true }))
+  })
+  it('nobody else reads or writes it', async () => {
+    await assertFails(setDoc(doc(db('bob'), help), { done: [], updatedAt: 6 }))
+    await assertFails(getDoc(doc(db('bob'), help)))
   })
 })
 

@@ -77,7 +77,7 @@ export function MoreCard({ draft, dispatch, existing, errors }: { draft: Draft; 
             <HintText
               className="mt-3 text-xs text-muted"
               hint={{
-                full: <>Next copy on {next ? formatDate(next, 'dayYear') : '—'}. Copies are added automatically when anyone in the group opens the app.</>,
+                full: <>Next copy on {next ? formatDate(next, 'dayYear') : '—'}. Added when anyone in the group opens the app.</>,
                 short: <>Next copy on {next ? formatDate(next, 'dayYear') : '—'}</>,
                 tier: 'help',
               }}

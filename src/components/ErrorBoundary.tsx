@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { FeatureIcon } from '@/components/Icon'
 
 /**
  * A screen that crashed shows this instead of a blank page, with Reload; the error goes to the
@@ -16,9 +17,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode; onError: (e:
     if (!this.state.failed) return this.props.children
     return (
       <div className="mx-auto flex min-h-[60vh] max-w-sm flex-col items-center justify-center px-6 text-center" role="alert" data-testid="crash-screen">
-        <div className="text-4xl" aria-hidden>
-          🧯
-        </div>
+        <FeatureIcon name="warning" size={44} />
         <h1 className="mt-3 text-lg font-bold">This screen hit a problem</h1>
         <p className="text-muted mt-1 text-sm">Your data is safe. Reload to carry on; the problem has been reported.</p>
         <button type="button" className="btn-primary mt-5" onClick={() => location.reload()}>

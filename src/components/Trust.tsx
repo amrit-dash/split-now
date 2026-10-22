@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Clock, Flag, Trash2, X } from 'lucide-react'
+import { Clock, Flag, X } from 'lucide-react'
+import { FlagIcon, HistoryIcon, TrashIcon } from '@/components/icons'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { useHistory, useTrash } from '@/hooks/data'
@@ -22,15 +23,15 @@ import { labelForUid, labelOf, memberIdOfUid } from '@/lib/shortNames'
 
 /** A flag doesn't take the expense out of the balances: say so before it is sent. */
 const FLAG_HINT: Hint = {
-  full: 'Tell the group what looks wrong. It stays in the balances (marked as flagged) until you resolve it.',
-  short: 'It stays in the balances (marked as flagged) until you resolve it.',
+  full: 'Tell the group what looks wrong. It stays in the balances, marked Flagged, until resolved.',
+  short: 'Still counted, marked Flagged, until resolved.',
   tier: 'key',
 }
 
 /** Deleted items can come back for a while, and meanwhile they aren't counted. */
 const trashHint = (): Hint => ({
-  full: `Deleted expenses and payments stay here for ${tuning().trashDays} days. They don’t count in balances. Nothing can be deleted for good in its first ${PURGE_HOLD_DAYS} days.`,
-  short: `Kept here for ${tuning().trashDays} days. They don’t count in balances.`,
+  full: `Deleted expenses and payments stay here ${tuning().trashDays} days, not counted in balances. None can be deleted for good in their first ${PURGE_HOLD_DAYS} days.`,
+  short: `Kept ${tuning().trashDays} days, not counted in balances.`,
   tier: 'key',
 })
 
@@ -276,7 +277,7 @@ export function TrustPanel({ group, expense: e, myMemberId }: { group: Group; ex
       {waiting.length > 0 && (
         <div className="card mt-3 border border-sky-200 bg-sky-50/60 p-4 dark:border-sky-500/20 dark:bg-sky-500/5">
           <div className="flex items-start gap-3">
-            <Clock size={20} className="mt-0.5 shrink-0 text-sky-600 dark:text-sky-300" aria-hidden />
+            <HistoryIcon size={20} className="mt-0.5 shrink-0 text-sky-600 dark:text-sky-300" aria-hidden />
             <div className="min-w-0 flex-1 text-sm">
               <div className="font-semibold">Needs your OK · not counted in balances yet</div>
               <div className="text-slate-600 dark:text-slate-300">
@@ -304,7 +305,7 @@ export function TrustPanel({ group, expense: e, myMemberId }: { group: Group; ex
       {flags.length > 0 && (
         <div className="card mt-3 border border-amber-200 bg-amber-50/60 p-4 dark:border-amber-500/20 dark:bg-amber-500/5">
           <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
-            <Flag size={16} className="text-amber-700 dark:text-amber-300" aria-hidden /> Flagged · still counted in balances
+            <FlagIcon size={16} className="text-amber-700 dark:text-amber-300" aria-hidden /> Flagged · still counted in balances
           </div>
           <ul className="space-y-2">
             {flags.map((f) => (
@@ -443,7 +444,7 @@ export function RecentlyDeleted({ group, open, onClose }: { group: Group; open: 
                         {
                           label: 'Delete',
                           ariaLabel: `Delete ${r.kind === 'e' ? r.item.description : 'payment'} forever`,
-                          icon: <Trash2 size={20} strokeWidth={2.25} />,
+                          icon: <TrashIcon size={20} />,
                           onClick: forever,
                         },
                       ]

@@ -21,11 +21,11 @@ export interface ArchiveRow {
 
 export function archiveRow(i: ArchiveRowInput): ArchiveRow {
   if (i.archived) return { label: 'Unarchive', hint: 'Back into your balances and pickers', disabled: false }
-  if (!i.personal && i.myBalance !== 0) return { label: 'Archive', hint: 'Settle up first: you can archive a group once you’re square', disabled: true }
-  if (!i.personal && i.waitingOnYou > 0) return { label: 'Archive', hint: 'Once what’s waiting for an OK is sorted', disabled: true }
+  if (!i.personal && i.myBalance !== 0) return { label: 'Archive', hint: 'Settle up first: archive once you’re square', disabled: true }
+  if (!i.personal && i.waitingOnYou > 0) return { label: 'Archive', hint: 'Once nothing waits for your OK', disabled: true }
   return {
     label: 'Archive',
-    hint: i.personal ? 'Keeps it, but out of your pickers' : 'Only for you: out of your balances and pickers until something new involves you',
+    hint: i.personal ? 'Kept, but out of your pickers' : 'Only for you: hidden from balances and pickers until something new involves you',
     disabled: false,
   }
 }

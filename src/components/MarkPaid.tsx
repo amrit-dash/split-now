@@ -79,8 +79,8 @@ export function MarkPaid({
               full: (
                 <>
                   {confirmFirst
-                    ? `${payee} sees it straight away and confirms it${groupName ? `, then it’s recorded as a payment in ${groupName}` : ''}.`
-                    : `${payee} sees it straight away${groupName ? ` and it’s recorded as a payment in ${groupName}` : ''}.`}{' '}
+                    ? `${payee} sees it and confirms it${groupName ? `, then it’s recorded in ${groupName}` : ''}.`
+                    : `${payee} sees it at once${groupName ? ` and it’s recorded in ${groupName}` : ''}.`}{' '}
                   Only tap this once the money has gone.
                 </>
               ),

@@ -63,3 +63,13 @@ describe('canReach', () => {
     expect(canReach(157, 1000, 844)).toBe(true)
   })
 })
+
+describe('a position from another screen under the same key', () => {
+  it('is not restored (first loads share the key "default")', () => {
+    expect(scrollPlan('pop', undefined, '/help/live-table', { y: 600, path: '/help/home-tour' })).toEqual({ kind: 'keep' })
+    expect(scrollPlan('pop', undefined, '/help/home-tour', { y: 600, path: '/help/home-tour' })).toEqual({
+      kind: 'restore',
+      pos: { y: 600, path: '/help/home-tour' },
+    })
+  })
+})

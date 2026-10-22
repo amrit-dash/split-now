@@ -1,6 +1,8 @@
+import { useFeature } from '@/hooks/useMode'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowDown, Camera, CheckCheck, ChevronDown, Clock, Copy, ExternalLink, ImagePlus, QrCode as QrIcon, X } from 'lucide-react'
+import { ArrowDown, ChevronDown, Lightbulb, X } from 'lucide-react'
+import { CameraIcon, ChecksIcon, CopyIcon, ExternalIcon, HistoryIcon, ImageAddIcon, QrIcon } from '@/components/icons'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { ChequeIcon } from '@/components/ChequeIcon'
@@ -8,7 +10,7 @@ import { computeGroupData, memberOrder, useAllGroupData, useExpenses, useGroup, 
 import { useOcr } from '@/hooks/useOcr'
 import type { Cents, MemberId, PaymentHandles } from '@/types'
 import type { MemberProfile } from '@/data/repo'
-import { centsToInput, currencySymbol, formatMoney, fromHundredths } from '@/lib/money'
+import { centsToInput, currencySymbol, formatMoney, fromHundredths, groupedInput } from '@/lib/money'
 import { isSettled } from '@/lib/members'
 import { isIOS, isUpiId, methodFor, methodLabel, payOptions, roundSuggestions, settleMethods, type PayOption } from '@/lib/payments'
 import { matchMember, parsePaymentScreenshot, type ParsedPayment } from '@/lib/ocr-parse'
@@ -16,7 +18,7 @@ import { pending } from '@/lib/pending'
 import { linkToClose } from '@/lib/paylinks'
 import { nettableRows, pendingSettlements, personBalances, personKey, signedAmount, type PersonBalance } from '@/lib/settleAll'
 import { allocateAcrossGroups } from '@/lib/settleMulti'
-import { clearedFor, inHome, paidIn, payInLine, planInHome, type HomeBalance } from '@/lib/collect'
+import { clearedFor, collectsInHome, inHome, payeeCollects, paidIn, payInLine, planInHome, type HomeBalance } from '@/lib/collect'
 import { useTodayRates } from '@/hooks/useFx'
 import { formatRate, getRate, type FxRate } from '@/lib/fx'
 import { lastMethod, rememberMethod } from '@/lib/recents'
@@ -40,20 +42,21 @@ import { labelOf } from '@/lib/shortNames'
 import { type Hint, HintText, InfoTip, useShows } from '@/components/Hint'
 
 /** Under "Waive the rest": the waived part is recorded, so it stops counting as owed. */
-const WAIVE_HINT: Hint = { full: 'Records that nothing more is owed for this.', tier: 'key' }
+const WAIVE_HINT: Hint = { full: 'Records that nothing more is owed.', tier: 'key' }
 
 /** The payment needs the recipient's OK, so it doesn't count yet. */
 const NEEDS_OK_HINT: Hint = {
-  full: 'In this group a payment counts once the person paid confirms it. Attach the payment screenshot and it can count straight away when it matches.',
-  short: 'Counts once they confirm it, or when a screenshot matches.',
+  full: 'Counts once the person paid confirms it. Attach a screenshot and it counts at once if it matches.',
+  short: 'Counts once they confirm, or a screenshot matches.',
   min: 'Counts once they confirm it.',
   tier: 'key',
 }
 
 /** Under the payment handles: the app never moves money, so the payment is made elsewhere first. */
 const PAY_OUTSIDE_HINT: Hint = {
-  full: 'Pay in your UPI or banking app, then record it below. Split Now never moves money itself.',
-  short: 'Pay in your UPI or bank app, then record it. Split Now never moves money.',
+  full: 'Pay in your UPI or bank app, then record it below. Split Now never moves money.',
+  short: 'Pay in your UPI or bank app, then record it here.',
+  min: 'Pay in your bank app first. Split Now never moves money.',
   tier: 'key',
 }
 
@@ -95,6 +98,8 @@ export default function SettleUp() {
   const [date, setDate] = useState(todayISO())
   /** part payment: record the rest as waived, so nothing stays owed */
   const [waive, setWaive] = useState(false)
+  // Simple doesn't offer waiving the rest (docs/SIMPLE_MODE.md): a part payment just leaves the rest owed.
+  const showWaive = useFeature('waive')
   const [payee, setPayee] = useState<MemberProfile | null>(null)
   const [busy, setBusy] = useState(false)
   const [init, setInit] = useState(false)
@@ -211,7 +216,7 @@ export default function SettleUp() {
   const groupCur = group?.currency
   const recipientCur = to && d && to === d.me ? profile.currency : payee?.currency
   const otherCur = recipientCur && groupCur && recipientCur !== groupCur ? recipientCur : undefined
-  const prefersOther = to && d && to === d.me ? !!profile.collectInHome : !!payee?.collect
+  const prefersOther = to && d && to === d.me ? collectsInHome(profile) : payeeCollects(payee)
   useEffect(() => {
     setRate(undefined)
     if (!otherCur || !groupCur) return
@@ -227,7 +232,7 @@ export default function SettleUp() {
       <>
         {/* Fixed: this group is gone for you, and every screen of it behind this one would say the same, so back leaves the group. */}
         <PageHeader title="Settle up" back={{ to: '/groups', mode: 'fixed' }} />
-        <Empty emoji="🔍" title="This group doesn’t exist or you’re not a member" />
+        <Empty icon="search" title="This group doesn’t exist or you’re not a member" />
       </>
     )
   if (!d || !group) return <Loading />
@@ -243,7 +248,7 @@ export default function SettleUp() {
   const payeeName = payee?.displayName ?? group.members[to]?.name
   const toMe = to === d.me
   const suggestions = owed ? roundSuggestions(owed, cur) : []
-  const big = amount !== undefined && centsToInput(amount, cur).length > 7
+  const big = amount !== undefined && groupedInput(amount, cur).length > 7
   // Paying in the recipient's currency: on when they collect in it, until switched by hand.
   const converting = !!otherCur && !!rate && (payIn ?? prefersOther)
   const due = validAmount ? amount : 0
@@ -340,13 +345,18 @@ export default function SettleUp() {
         <PersonSelect label="Recipient" value={to} onChange={setTo} order={order.filter((x) => x !== from)} group={group} name={name} />
 
         <div className="mt-5 flex items-baseline justify-center gap-2">
-          <span className="text-2xl font-bold text-muted" aria-hidden>
+          {/* Sized with the amount, as on Add expense (AmountCard). */}
+          <span
+            className={`text-muted font-extrabold leading-none tracking-tight ${currencySymbol(cur).length > 2 ? 'text-3xl' : big ? 'text-4xl' : 'text-5xl'}`}
+            aria-hidden
+          >
             {currencySymbol(cur)}
           </span>
           <MoneyInput
             bare
+            grouped
             id="settle-amount"
-            className={`w-full min-w-0 max-w-[15rem] rounded-lg bg-transparent text-center font-extrabold tabular-nums outline-none placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-brand-500 ${big ? 'text-4xl' : 'text-5xl'}`}
+            className={`w-auto min-w-[3ch] max-w-[15rem] rounded-lg bg-transparent text-center [field-sizing:content] font-extrabold tabular-nums outline-none placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-brand-500 ${big ? 'text-4xl' : 'text-5xl'}`}
             placeholder={centsToInput(0, cur)}
             aria-label={`Amount in ${cur}`}
             aria-invalid={amountError ? true : undefined}
@@ -419,7 +429,7 @@ export default function SettleUp() {
             status={conv?.status}
           />
         )}
-        {restAfter > 0 && (
+        {restAfter > 0 && showWaive && (
           <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800" data-testid="waive-rest">
             <div className="min-w-0">
               <div className="font-semibold">Waive the rest ({formatMoney(restAfter, cur)})</div>
@@ -443,7 +453,7 @@ export default function SettleUp() {
               </>
             ) : (
               <>
-                <Camera size={16} aria-hidden /> Read from payment screenshot
+                <CameraIcon size={16} aria-hidden /> Read from payment screenshot
               </>
             )}
           </button>
@@ -515,7 +525,7 @@ export default function SettleUp() {
       {needsOk && (
         <div className="card mt-3 p-4" data-testid="settle-needs-ok">
           <div className="flex items-start gap-2">
-            <Clock size={18} className="mt-0.5 shrink-0 text-sky-600 dark:text-sky-400" aria-hidden />
+            <HistoryIcon size={18} className="mt-0.5 shrink-0 text-sky-600 dark:text-sky-400" aria-hidden />
             <div className="min-w-0 text-sm">
               <div className="flex items-center font-semibold">
                 Needs {labelOf(group.members, to, 'their', d.me)}’s OK
@@ -534,7 +544,7 @@ export default function SettleUp() {
             </div>
           ) : (
             <button type="button" className="btn-secondary btn-sm mt-3 w-full" onClick={() => proofRef.current?.click()} data-testid="settle-proof-add">
-              <ImagePlus size={16} aria-hidden /> Attach payment screenshot
+              <ImageAddIcon size={16} aria-hidden /> Attach payment screenshot
             </button>
           )}
           <input
@@ -552,12 +562,15 @@ export default function SettleUp() {
         </div>
       )}
 
-      <button type="submit" className="btn-primary mt-5 w-full" disabled={busy} data-testid="settle-record">
-        <ChequeIcon size={22} />{' '}
-        {conv && conv.cleared > 0 && conv.status !== 'over'
-          ? `Record ${formatMoney(conv.paid, conv.cur)} (clears ${formatMoney(conv.cleared, cur)})`
-          : `Record ${validAmount ? formatMoney(amount, cur) : 'payment'}`}
-      </button>
+      {/* Pinned to the bottom of the screen (full screen, no tab bar), so Record is always in reach. */}
+      <div className="pinned-action sticky bottom-0 z-20 -mx-4 mt-5 bg-gradient-to-t from-slate-50 from-70% to-slate-50/0 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-4 dark:from-ink-950 dark:to-ink-950/0">
+        <button type="submit" className="btn-primary w-full" disabled={busy} data-testid="settle-record">
+          <ChequeIcon size={22} />{' '}
+          {conv && conv.cleared > 0 && conv.status !== 'over'
+            ? `Record ${formatMoney(conv.paid, conv.cur)} (clears ${formatMoney(conv.cleared, cur)})`
+            : `Record ${validAmount ? formatMoney(amount, cur) : 'payment'}`}
+        </button>
+      </div>
     </form>
   )
 }
@@ -721,7 +734,7 @@ function UpiCard({
           onClick={onCopy}
           aria-label="Copy UPI ID"
         >
-          <Copy size={18} />
+          <CopyIcon size={18} />
         </button>
       </div>
       {o.qr && qrOk && (
@@ -729,7 +742,7 @@ function UpiCard({
           <QrCode value={o.qr} size={196} label={`UPI QR code to pay ${o.value}${amount > 0 ? ` ${formatMoney(amount, cur)}` : ''}`} />
           <div className="flex items-center gap-1.5 text-center text-xs text-muted">
             <QrIcon size={14} className="shrink-0" aria-hidden />
-            {toMe ? `Show this to ${payer}: they scan it with any UPI app` : 'Scan with any UPI app on another phone'}
+            {toMe ? `${payer} scans this with any UPI app` : 'Scan with any UPI app on another phone'}
             {amount > 0 ? ` · ${formatMoney(amount, cur)}` : ''}
           </div>
         </div>
@@ -737,7 +750,7 @@ function UpiCard({
       {!toMe && o.href && (
         <div className="mt-3 space-y-2">
           <a className="btn-primary btn-sm w-full" href={o.href} onClick={onPick} data-testid="upi-open">
-            Pay {amount > 0 ? formatMoney(amount, cur) : ''} with a UPI app <ExternalLink size={16} aria-hidden />
+            Pay {amount > 0 ? formatMoney(amount, cur) : ''} with a UPI app <ExternalIcon size={16} aria-hidden />
           </a>
           <div className="grid grid-cols-3 gap-2">
             {o.apps?.map((a) => (
@@ -757,11 +770,11 @@ function UpiCard({
             hint={{
               full: (
                 <>
-                  {ios ? 'On iPhone, pick your app: “Pay with a UPI app” opens whichever UPI app iOS chooses.' : 'Android shows a list of your UPI apps.'} If an
-                  app refuses the link, scan the QR or pay to the UPI ID.
+                  {ios ? 'On iPhone, “Pay with a UPI app” opens the one iOS picks.' : 'Android lists your UPI apps.'} If an app refuses the link, scan the QR or
+                  pay to the UPI ID.
                 </>
               ),
-              short: 'If an app refuses the link, scan the QR or pay to the UPI ID.',
+              short: 'App refuses the link? Scan the QR or pay to the UPI ID.',
               tier: 'key',
             }}
           />
@@ -816,7 +829,7 @@ function PayWith({
       {shown.length === 0 && (
         <p className="text-sm text-muted">
           {toMe
-            ? 'Add your UPI ID in Profile so friends can scan a QR to pay you.'
+            ? 'Add your UPI ID in Profile so friends can pay you by QR.'
             : recipientJoined
               ? `${recipient} hasn’t added payment details yet.`
               : `${recipient} hasn’t joined Split Now yet. Ask them for their ${cur === 'INR' ? 'UPI ID' : cur === 'AUD' ? 'PayID or bank details' : 'payment details'}.`}
@@ -870,7 +883,7 @@ function PayWith({
                   }}
                   aria-label={`Copy ${o.label}`}
                 >
-                  <Copy size={18} />
+                  <CopyIcon size={18} />
                 </button>
                 {o.href && (
                   <a
@@ -881,7 +894,7 @@ function PayWith({
                     onClick={() => onPick(methodFor(o))}
                     aria-label={`Open ${o.label} (opens in a new tab)`}
                   >
-                    <ExternalLink size={18} />
+                    <ExternalIcon size={18} />
                   </a>
                 )}
               </div>
@@ -1008,7 +1021,7 @@ export function SettleWithPerson() {
     return (
       <>
         <PageHeader title="Settle up" back="/settle" />
-        <Empty emoji="🎉" title="Nothing left to settle">
+        <Empty icon="confetti" title="Nothing left to settle">
           You’re all square with this person.{' '}
           <Link to="/settle" className="font-semibold text-brand-600 dark:text-brand-300">
             Back to Balances
@@ -1102,7 +1115,7 @@ export function SettleWithPerson() {
     }
   }
 
-  const big = amount !== undefined && centsToInput(amount, cur).length > 7
+  const big = amount !== undefined && groupedInput(amount, cur).length > 7
 
   return (
     <form
@@ -1127,7 +1140,7 @@ export function SettleWithPerson() {
             <HintText
               className="text-muted mt-1 text-sm"
               hint={{
-                full: `What you owe in one group cancels what ${p.label} owes in another. Clearing records it in each group.`,
+                full: `What you owe in one group cancels what ${p.label} owes in another. Clearing records it in each.`,
                 short: 'Clearing records it in each group.',
               }}
             />
@@ -1135,13 +1148,17 @@ export function SettleWithPerson() {
         ) : (
           <>
             <div className="mt-3 flex items-baseline justify-center gap-2">
-              <span className="text-muted text-2xl font-bold" aria-hidden>
+              <span
+                className={`text-muted font-extrabold leading-none tracking-tight ${currencySymbol(cur).length > 2 ? 'text-3xl' : big ? 'text-4xl' : 'text-5xl'}`}
+                aria-hidden
+              >
                 {currencySymbol(cur)}
               </span>
               <MoneyInput
                 bare
+                grouped
                 id="settle-person-amount"
-                className={`w-full min-w-0 max-w-[15rem] rounded-lg bg-transparent text-center font-extrabold tabular-nums outline-none placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-brand-500 ${tooMuch ? 'neg' : ''} ${big ? 'text-4xl' : 'text-5xl'}`}
+                className={`w-auto min-w-[3ch] max-w-[15rem] rounded-lg bg-transparent text-center [field-sizing:content] font-extrabold tabular-nums outline-none placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-brand-500 ${tooMuch ? 'neg' : ''} ${big ? 'text-4xl' : 'text-5xl'}`}
                 placeholder={centsToInput(0, cur)}
                 aria-label={`Total amount in ${cur}`}
                 aria-invalid={tooMuch || undefined}
@@ -1217,11 +1234,11 @@ export function SettleWithPerson() {
                 hint={{
                   full: (
                     <>
-                      <span aria-hidden>💡 </span>You owe each other in different groups. Those cancel out, so they’re cleared in full and only{' '}
-                      {fmt(plan.payment)} changes hands.
+                      <Lightbulb size={14} className="mb-0.5 mr-1 inline" aria-hidden />
+                      Debts across groups cancel out. All are cleared and only {fmt(plan.payment)} changes hands.
                     </>
                   ),
-                  short: `Debts in other groups cancel out: only ${fmt(plan.payment)} changes hands.`,
+                  short: `Debts across groups cancel out: only ${fmt(plan.payment)} changes hands.`,
                   tier: 'key',
                 }}
               />
@@ -1230,8 +1247,8 @@ export function SettleWithPerson() {
               <HintText
                 className=""
                 hint={{
-                  full: 'Paying part of it: the amount is shared across the groups in proportion to what’s owed in each, so every group goes down by the same share. To round down or waive the rest in one group, settle it from that group.',
-                  short: 'A part payment is shared across the groups by what’s owed.',
+                  full: 'A part payment is split across groups by what’s owed in each. To waive the rest in one group, settle from that group.',
+                  short: 'Split across groups by what’s owed.',
                 }}
               />
             )}
@@ -1243,8 +1260,8 @@ export function SettleWithPerson() {
               as="span"
               className=""
               hint={{
-                full: 'Other currencies are converted at today’s ECB rate. Paying within 4% of the total clears everything; each group records its own currency.',
-                short: 'Converted at today’s ECB rate. Within 4% of the total clears it all.',
+                full: 'Converted at today’s ECB rate. Paying within 4% of the total clears it all. Each group records its own currency.',
+                short: 'At today’s ECB rate. Within 4% clears it all.',
                 tier: 'key',
               }}
             />
@@ -1252,18 +1269,17 @@ export function SettleWithPerson() {
         )}
         {waiting > 0 && (
           <p className="mt-3 text-xs text-sky-700 dark:text-sky-300" data-testid="settle-person-waiting">
-            {formatMoney(waiting, cur)} you already recorded is waiting for {p.label}’s OK, and isn’t counted above.
+            {formatMoney(waiting, cur)} you recorded waits for {p.label}’s OK and isn’t counted above.
           </p>
         )}
         {held.length > 0 && (
           <p className="text-muted mt-3 text-xs" data-testid="settle-person-held">
-            Not included: what you owe {p.label} in {held.map((r) => r.groupName).join(', ')}, where payments need their OK. Settle that in the group.
+            Not included: what you owe {p.label} in {held.map((r) => r.groupName).join(', ')}, where payments need their OK. Settle it there.
           </p>
         )}
         {otherCur.length > 0 && (
           <p className="text-muted mt-3 text-xs">
-            {p.label} also has balances in {otherCur.map((x) => x.currency).join(', ')}. Different currencies are never netted together: settle those separately
-            from Balances.
+            {p.label} also has balances in {otherCur.map((x) => x.currency).join(', ')}. Currencies never net together: settle those from Balances.
           </p>
         )}
       </div>
@@ -1312,25 +1328,28 @@ export function SettleWithPerson() {
         </div>
       </div>
 
-      <button type="submit" className="btn-primary mt-5 w-full" disabled={busy || tooMuch || (!even && value <= 0)} data-testid="settle-person-confirm">
-        {even ? (
-          <>
-            <CheckCheck size={18} aria-hidden /> Clear {n} groups
-          </>
-        ) : (
-          <>
-            <ChequeIcon size={22} /> Record {value > 0 ? fmt(value) : 'payment'}
-          </>
-        )}
-      </button>
-      <p className="text-muted mt-2 text-center text-xs">
-        {recordCount > 0 && (
-          <>
-            Records a settlement in {recordCount} group{recordCount === 1 ? '' : 's'}
-            {plan.clearsAll ? ', clearing every one' : ''}.
-          </>
-        )}
-      </p>
+      {/* Pinned to the bottom of the screen (full screen, no tab bar), so Record is always in reach. */}
+      <div className="pinned-action sticky bottom-0 z-20 -mx-4 mt-5 bg-gradient-to-t from-slate-50 from-70% to-slate-50/0 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-4 dark:from-ink-950 dark:to-ink-950/0">
+        <button type="submit" className="btn-primary w-full" disabled={busy || tooMuch || (!even && value <= 0)} data-testid="settle-person-confirm">
+          {even ? (
+            <>
+              <ChecksIcon size={18} aria-hidden /> Clear {n} groups
+            </>
+          ) : (
+            <>
+              <ChequeIcon size={22} /> Record {value > 0 ? fmt(value) : 'payment'}
+            </>
+          )}
+        </button>
+        <p className="text-muted mt-2 text-center text-xs">
+          {recordCount > 0 && (
+            <>
+              Records a settlement in {recordCount} group{recordCount === 1 ? '' : 's'}
+              {plan.clearsAll ? ', clearing every one' : ''}.
+            </>
+          )}
+        </p>
+      </div>
     </form>
   )
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Check, Clock, Lock } from 'lucide-react'
+import { Check } from 'lucide-react'
+import { HistoryIcon, LockIcon } from '@/components/icons'
 import { askAgainWords, type JoinState } from '@/lib/vault-api'
 import { type AskState, invitePath } from '@/lib/join-approval'
 import { repo } from '@/data'
@@ -52,7 +53,7 @@ export default function Join() {
   if (invite === null) {
     return (
       <div className="mx-auto max-w-md px-4 pt-20">
-        <Empty emoji="🔗" title="Invite not found">
+        <Empty icon="link" title="Invite not found">
           The link may be mistyped, or the group was deleted. Ask for a new link, or go home.
           <div className="mt-4">
             <Link to="/" className="btn-secondary btn-sm">
@@ -94,7 +95,7 @@ export default function Join() {
     }
   }
 
-  const options = [...Object.entries(invite.placeholders), ['new', `I’m not listed — join as ${myName}`] as [string, string]]
+  const options = [...Object.entries(invite.placeholders), ['new', `I’m not listed: join as ${myName}`] as [string, string]]
 
   return (
     <main className="mx-auto min-h-dvh max-w-md px-4 pt-[calc(var(--safe-top)+4rem)]">
@@ -111,7 +112,7 @@ export default function Join() {
           id="join-help"
           className="text-muted mt-1 text-sm"
           hint={{
-            full: 'Which one is you? Expenses already logged for that person become yours.',
+            full: 'Which one is you? Expenses already added for them become yours.',
             short: 'Which one is you? Their expenses become yours.',
             tier: 'key',
           }}
@@ -231,7 +232,7 @@ function AskToJoin({ code, invite, onOpen }: { code: string; invite: InviteInfo;
       <div className="text-center">
         {priv ? (
           <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-slate-100 text-slate-500 dark:bg-ink-800" aria-hidden>
-            <Lock size={36} />
+            <LockIcon size={36} />
           </div>
         ) : (
           <div
@@ -253,7 +254,7 @@ function AskToJoin({ code, invite, onOpen }: { code: string; invite: InviteInfo;
           <Loading />
         ) : state.status === 'pending' ? (
           <div className="card flex items-center gap-3 p-4 text-sm" role="status" data-testid="join-pending">
-            <Clock size={20} className="text-muted shrink-0" aria-hidden />
+            <HistoryIcon size={20} className="text-muted shrink-0" aria-hidden />
             <span>Asked. Waiting for the owner’s OK: you’ll get a notification when they decide.</span>
           </div>
         ) : state.status === 'declined' ? (

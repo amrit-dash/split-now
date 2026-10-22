@@ -24,6 +24,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '9.0.0',
+    date: 'October 2026',
+    items: [
+      { text: 'Simple and Advanced: the everyday app by default, every feature one tap away', section: 'simple-advanced' },
+      { text: 'Finish Help to earn the Pro badge; the ring at the top shows how far you are', section: 'earn-pro' },
+      { text: 'Help is shorter, waits for you on each step, and has new explainers', section: 'help-guide' },
+      { text: 'Scan: one card for bills, payments and statements, with AI in the corner', section: 'scan-receipt' },
+      { text: 'Live table has its own tab, and + inside a group adds an expense straight away', section: 'home-tour' },
+      { text: 'New icons, with Outline or Filled in Preferences', section: 'look-and-detail' },
+      { text: 'Collect in your currency is on for everyone', section: 'money-preferences' },
+    ],
+  },
+  {
     version: '8.8.1',
     date: 'October 2026',
     items: [{ text: 'Drawn pictures lose their background more reliably, gaps inside included', section: 'icons-and-ai' }],

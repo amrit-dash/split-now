@@ -7,9 +7,12 @@
  * switch turns on, a chip is picked). Pure data and lookups, so a test can check every mark.
  */
 
+import type { SceneGlyph } from './ui-icons'
+
 export type PartKind =
   | 'title' // a screen's heading
   | 'field' // a text field: types `value` when tapped
+  | 'search' // a search field (types `value`) with the Sort and filter button beside it: `items[0]`, its label the count
   | 'row' // a label with a value on the right (Paid by, Split)
   | 'button' // a full-width button; `primary` for the main one
   | 'chips' // a row of choices; the tapped one is picked
@@ -26,10 +29,17 @@ export type PartKind =
   | 'bars' // a bar chart
   | 'tabbar' // the bottom tab bar, with the + in the middle
   | 'message' // a phone notification or SMS
+  | 'header' // a screen's heading with its round icon buttons on the right (Profile: the mode icon, Settings)
+  | 'toast' // a toast at the bottom with its action (`value`, the mark's target); shown only on its own step
+  | 'scancard' // Scan's card: the intro, Read with AI in the top-right corner (`items[2]`), Camera and Photos (`items[0..1]`)
+  | 'helphead' // Help's heading with the progress ring; the ring fills a little when its step plays
 
 export interface PartItem {
   label: string
+  /** an emoji the person chose (a group's or an expense's icon, an avatar) */
   icon?: string
+  /** an interface icon (src/lib/ui-icons.ts), drawn as the app draws it */
+  glyph?: SceneGlyph
   mark?: string
   /** shown as chosen before anything is tapped */
   on?: boolean
@@ -43,6 +53,13 @@ export interface Part {
   mark?: string
   primary?: boolean
   items?: PartItem[]
+  /**
+   * marks of other steps on this screen where the part shows a change: the mode icon stays switched
+   * after its own step, a toast also appears after the press that brings it, Help's tiles tick the next one
+   */
+  alsoOn?: string[]
+  /** tiles: each shows Help's done tick (item `on`) or the dot of one not read yet */
+  done?: boolean
 }
 
 export interface Screen {
@@ -53,14 +70,14 @@ export interface Screen {
 
 export type Scene = Screen[]
 
-const tabbar = (plus?: string, active?: string, insights?: string): Part => ({
+const tabbar = (plus?: string, active?: string, live?: string): Part => ({
   kind: 'tabbar',
   items: [
-    { label: 'Home', icon: '🏠', on: active === 'Home' },
-    { label: 'Groups', icon: '👥', on: active === 'Groups' },
+    { label: 'Home', glyph: 'house', on: active === 'Home' },
+    { label: 'Groups', glyph: 'users', on: active === 'Groups' },
     { label: 'Create', icon: '+', mark: plus },
-    { label: 'Insights', icon: '📊', mark: insights, on: active === 'Insights' },
-    { label: 'Profile', icon: '🙂' },
+    { label: 'Live table', glyph: 'liveTable', mark: live, on: active === 'Live table' },
+    { label: 'Profile', glyph: 'user', on: active === 'Profile' },
   ],
 })
 
@@ -82,19 +99,18 @@ const home = (mark?: string): Screen => ({
 const createSheet = (marks: { add?: string; scan?: string; group?: string; line?: string; chip?: string; go?: string }): Screen => ({
   sheet: true,
   parts: [
+    { kind: 'field', label: 'Quick add', value: 'dinner 1200 with Rahul, I paid', mark: marks.line },
+    ...(marks.chip ? [{ kind: 'chips' as const, mark: marks.chip, items: [{ label: 'Into Goa trip ▾', on: true }] }] : []),
+    ...(marks.go ? [{ kind: 'button' as const, label: 'Send', mark: marks.go }] : []),
+    { kind: 'note', label: 'or' },
     { kind: 'button', label: 'Add expense', primary: true, mark: marks.add },
     {
       kind: 'tiles',
       items: [
-        { label: 'Live table', icon: '🍽️' },
-        { label: 'Scan', icon: '📷', mark: marks.scan },
-        { label: 'New group', icon: '👥', mark: marks.group },
-        { label: 'Settle up', icon: '💸' },
+        { label: 'New group', glyph: 'users', mark: marks.group },
+        { label: 'Scan', glyph: 'camera', mark: marks.scan },
       ],
     },
-    { kind: 'field', label: 'Quick add', value: 'dinner 1200 with Rahul, I paid', mark: marks.line },
-    ...(marks.chip ? [{ kind: 'chips' as const, mark: marks.chip, items: [{ label: 'Into Goa trip ▾', on: true }] }] : []),
-    ...(marks.go ? [{ kind: 'button' as const, label: 'Send', mark: marks.go }] : []),
   ],
 })
 
@@ -158,10 +174,10 @@ export const SCENES: Record<string, Scene> = {
         {
           kind: 'list',
           items: [
-            { label: 'You · ₹1,212.50', icon: '✅' },
-            { label: 'Rahul · ₹1,212.50', icon: '✅' },
-            { label: 'Priya · ₹1,212.50', icon: '✅' },
-            { label: 'Dev · ₹1,212.50', icon: '✅' },
+            { label: 'You · ₹1,212.50', glyph: 'checkCircle' },
+            { label: 'Rahul · ₹1,212.50', glyph: 'checkCircle' },
+            { label: 'Priya · ₹1,212.50', glyph: 'checkCircle' },
+            { label: 'Dev · ₹1,212.50', glyph: 'checkCircle' },
           ],
         },
         { kind: 'button', label: 'Done', primary: true, mark: 'done' },
@@ -193,9 +209,9 @@ export const SCENES: Record<string, Scene> = {
     {
       parts: [
         { kind: 'title', label: 'Scan' },
-        { kind: 'chips', items: [{ label: 'Bill', on: true }, { label: 'Payment' }, { label: 'Statement' }] },
-        { kind: 'button', label: '📷 Camera', primary: true, mark: 'camera' },
-        { kind: 'button', label: 'Photos' },
+        { kind: 'chips', items: [{ label: 'Bill', on: true }, { label: 'Statement' }, { label: 'Payment' }] },
+        // As Scan draws it: the intro, the bot (Read with AI) in the card's corner, Camera and Photos side by side.
+        { kind: 'scancard', label: 'Snap a bill', items: [{ label: 'Camera', mark: 'camera' }, { label: 'Photos' }, { label: 'AI off' }] },
       ],
     },
     {
@@ -264,7 +280,7 @@ export const SCENES: Record<string, Scene> = {
         { kind: 'row', label: 'Automatic', value: '⛴️', mark: 'auto' },
         { kind: 'field', label: 'Search icons', value: 'kayak', mark: 'search' },
         { kind: 'emoji', items: [{ label: '🛶' }, { label: '🚣' }, { label: '🏝️' }, { label: '🌊' }, { label: '⛵' }, { label: '🐬' }] },
-        { kind: 'button', label: '✨ Suggest with AI for “kayak”', mark: 'ai' },
+        { kind: 'button', label: 'Suggest with AI for “kayak”', mark: 'ai' },
       ],
     },
   ],
@@ -292,7 +308,15 @@ export const SCENES: Record<string, Scene> = {
     },
   ],
   insights: [
-    { parts: [{ kind: 'title', label: 'Home' }, { kind: 'row', label: 'Overall, you are owed', value: '₹2,450' }, tabbar(undefined, 'Home', 'tab')] },
+    {
+      parts: [
+        { kind: 'title', label: 'Hi Asha' },
+        { kind: 'row', label: 'Settings', value: '›' },
+        { kind: 'row', label: 'Insights', value: '›', mark: 'tab' },
+        { kind: 'row', label: 'Balances', value: '›' },
+        tabbar(undefined, 'Profile'),
+      ],
+    },
     {
       parts: [
         { kind: 'title', label: 'Insights' },
@@ -317,19 +341,31 @@ Object.assign(SCENES, {
       { kind: 'row', label: 'Help', value: 'New', mark: 'profile' },
       { kind: 'row', label: 'Balances', value: '›' },
     ]),
-    settings('Help', [
-      { kind: 'chips', mark: 'whatsnew', items: [{ label: 'Guide', on: true }, { label: 'What’s new ●' }] },
-      { kind: 'field', label: 'Search', value: 'refund', mark: 'search' },
-      {
-        kind: 'tiles',
-        items: [
-          { label: 'Add an expense', icon: '🧾' },
-          { label: 'Ways to split', icon: '➗' },
-          { label: 'Settle up', icon: '💸' },
-          { label: 'Scan a bill', icon: '📷' },
-        ],
-      },
-    ]),
+    {
+      parts: [
+        { kind: 'helphead', label: 'Help', value: '40', mark: 'ring' },
+        // The pointer taps What's new itself, so the item carries the mark (and becomes the picked tab).
+        {
+          kind: 'chips',
+          items: [
+            { label: 'Guide', on: true },
+            { label: 'What’s new ●', mark: 'whatsnew' },
+          ],
+        },
+        { kind: 'field', label: 'Search', value: 'refund', mark: 'search' },
+        {
+          kind: 'tiles',
+          done: true,
+          alsoOn: ['ring'],
+          items: [
+            { label: 'Add an expense', glyph: 'receipt', on: true },
+            { label: 'Ways to split', glyph: 'divide', on: true },
+            { label: 'Settle up', glyph: 'money' },
+            { label: 'Scan a bill', glyph: 'camera' },
+          ],
+        },
+      ],
+    },
   ],
   'sign-in': [
     settings('Split Now', [
@@ -356,13 +392,13 @@ Object.assign(SCENES, {
     settings('Add expense', [
       { kind: 'field', label: 'What was it for?', value: 'Dinner at Toit', icon: '🍺' },
       { kind: 'field', label: 'Amount in INR', value: '₹3,240' },
-      { kind: 'chips', items: [{ label: 'Today', on: true }, { label: 'Yesterday' }, { label: '📎 Attach', mark: 'attach' }] },
+      { kind: 'chips', items: [{ label: 'Today', on: true }, { label: 'Yesterday' }, { label: 'Attach', mark: 'attach' }] },
       {
         kind: 'list',
         label: '2 of 4 attached',
         items: [
-          { label: 'Card slip', icon: '🧾' },
-          { label: 'Second page', icon: '📄' },
+          { label: 'Card slip', glyph: 'receipt' },
+          { label: 'Second page', glyph: 'file' },
         ],
       },
       { kind: 'button', label: 'Save', primary: true, mark: 'save' },
@@ -415,7 +451,7 @@ Object.assign(SCENES, {
     ]),
     settings('Goa trip ⋯', [
       { kind: 'row', label: 'Edit group', value: '›' },
-      { kind: 'row', label: 'Make private', value: '🔐', mark: 'menu' },
+      { kind: 'row', label: 'Make private', value: '›', mark: 'menu' },
       { kind: 'row', label: 'Export CSV', value: '›' },
     ]),
     {
@@ -476,7 +512,7 @@ Object.assign(SCENES, {
   'admin-console': [
     settings('Settings', [
       { kind: 'row', label: 'AI features', value: '›' },
-      { kind: 'row', label: 'Admin', value: '🛠️', mark: 'admin' },
+      { kind: 'row', label: 'Admin', value: '›', mark: 'admin' },
     ]),
   ],
   'invite-people': [
@@ -636,7 +672,7 @@ Object.assign(SCENES, {
   ],
   'group-chat': [
     settings('Goa trip', [
-      { kind: 'row', label: '💬 Group chat', value: '●', mark: 'open' },
+      { kind: 'row', label: 'Group chat', value: '●', mark: 'open' },
       { kind: 'row', label: 'You are owed', value: '₹1,200' },
     ]),
     settings('Chat', [
@@ -665,12 +701,12 @@ Object.assign(SCENES, {
   ],
   'edit-delete-expense': [
     settings('Dinner at Bob’s Bar', [
-      { kind: 'chips', mark: 'top', items: [{ label: '⧉ Add again' }, { label: '✎ Edit' }, { label: '🗑 Delete' }] },
+      { kind: 'chips', mark: 'top', items: [{ label: 'Add again' }, { label: 'Edit' }, { label: 'Delete' }] },
       { kind: 'row', label: 'Paid by Asha', value: '₹3,240' },
       { kind: 'row', label: 'Split equally', value: '3 people' },
     ]),
     settings('Goa trip', [
-      { kind: 'row', label: 'Scooter rental', value: '✎ Edit · 🗑 Delete', mark: 'swipe' },
+      { kind: 'row', label: 'Scooter rental', value: 'Edit · Delete', mark: 'swipe' },
       { kind: 'row', label: 'Ferry tickets', value: '₹600' },
       { kind: 'message', label: 'Deleted “Scooter rental”', value: 'Undo', mark: 'undo' },
     ]),
@@ -764,24 +800,39 @@ Object.assign(SCENES, {
   ],
   'search-expenses': [
     settings('Goa trip', [
-      { kind: 'field', label: 'Search expenses and notes', value: 'ferry', mark: 'search' },
-      { kind: 'chips', mark: 'chips', items: [{ label: 'Involving me' }, { label: 'Transport' }, { label: 'Food & drink' }] },
-      { kind: 'row', label: 'Sort and filter', value: '1', mark: 'filter' },
+      { kind: 'chips', items: [{ label: 'Expenses', on: true }, { label: 'Balances' }, { label: 'Activity' }] },
+      { kind: 'search', label: 'Search expenses', value: 'ferry', mark: 'search', items: [{ label: '', mark: 'filter' }] },
+      { kind: 'row', label: 'Ferry to Havelock', value: '₹2,400' },
+      { kind: 'row', label: 'Ferry back', value: '₹2,200' },
     ]),
-  ],
-  'live-table': [
-    home('plus'),
     {
       sheet: true,
       parts: [
-        {
-          kind: 'tiles',
-          items: [
-            { label: 'Live table', icon: '🍽️', mark: 'tile' },
-            { label: 'Scan', icon: '📷' },
-          ],
-        },
+        { kind: 'title', label: 'Sort and filter' },
+        { kind: 'row', label: 'Sort by', value: 'Date spent ⌄' },
+        { kind: 'note', label: 'Quick filters' },
+        { kind: 'chips', mark: 'quick', items: [{ label: 'Involving me', on: true }, { label: '🚕 Transport', on: true }, { label: '🍔 Food' }] },
+        { kind: 'note', label: 'Show' },
+        { kind: 'chips', items: [{ label: 'Everything', on: true }, { label: 'Expenses' }, { label: 'Payments' }] },
       ],
+    },
+    settings('Goa trip', [
+      { kind: 'chips', items: [{ label: 'Expenses', on: true }, { label: 'Balances' }, { label: 'Activity' }] },
+      { kind: 'search', label: 'Search expenses', value: 'ferry', items: [{ label: '2' }] },
+      {
+        kind: 'chips',
+        mark: 'chips',
+        items: [
+          { label: 'Involving me ✕', on: true },
+          { label: '🚕 Transport ✕', on: true },
+        ],
+      },
+      { kind: 'row', label: 'Ferry to Havelock', value: '₹2,400' },
+    ]),
+  ],
+  'live-table': [
+    {
+      parts: [{ kind: 'title', label: 'Hi Asha' }, { kind: 'row', label: 'Overall, you are owed', value: '₹2,450' }, tabbar(undefined, 'Home', 'tile')],
     },
     settings('Live table', [
       { kind: 'row', label: 'Pizza · Pasta · 2 Beer', value: '₹1,980' },
@@ -833,9 +884,9 @@ Object.assign(SCENES, {
         {
           kind: 'tiles',
           items: [
-            { label: 'WhatsApp', icon: '💬', mark: 'app' },
-            { label: 'Messages', icon: '✉️' },
-            { label: 'Copy', icon: '📋' },
+            { label: 'WhatsApp', glyph: 'chat', mark: 'app' },
+            { label: 'Messages', glyph: 'envelope' },
+            { label: 'Copy', glyph: 'copy' },
           ],
         },
       ],
@@ -847,8 +898,8 @@ Object.assign(SCENES, {
   ],
   nudge: [
     settings('Balances', [
-      { kind: 'row', label: 'Rahul owes you', value: '₹1,200 🔔', mark: 'bell' },
-      { kind: 'row', label: 'Meera owes you', value: '₹450 🔔' },
+      { kind: 'row', label: 'Rahul owes you', value: '₹1,200 · Nudge', mark: 'bell' },
+      { kind: 'row', label: 'Meera owes you', value: '₹450 · Nudge' },
     ]),
     { parts: [{ kind: 'message', label: 'Goa trip', value: 'Asha reminded you: you owe ₹1,200 in Goa trip. Pay in one tap.', mark: 'push' }] },
   ],
@@ -905,7 +956,7 @@ Object.assign(SCENES, {
   ],
   inbox: [
     settings('Hi Asha', [
-      { kind: 'row', label: '📥 Inbox', value: '3', mark: 'open' },
+      { kind: 'row', label: 'Inbox', value: '3', mark: 'open' },
       { kind: 'row', label: 'Overall, you are owed', value: '₹2,450' },
     ]),
     settings('Inbox', [
@@ -924,7 +975,7 @@ Object.assign(SCENES, {
     settings('Notifications', [
       { kind: 'row', label: 'Settings → Notifications', value: '›', mark: 'open' },
       { kind: 'button', label: 'Turn on notifications', primary: true, mark: 'device' },
-      { kind: 'switch', label: 'New expenses', mark: 'kinds' },
+      { kind: 'switch', label: 'New expenses with you', mark: 'kinds' },
       { kind: 'switch', label: 'Someone pays you back' },
     ]),
   ],
@@ -968,9 +1019,9 @@ Object.assign(SCENES, {
         {
           kind: 'tiles',
           items: [
-            { label: 'Split Now', icon: '🟣', mark: 'share' },
-            { label: 'Photos', icon: '🖼️' },
-            { label: 'Mail', icon: '✉️' },
+            { label: 'Split Now', glyph: 'divide', mark: 'share' },
+            { label: 'Photos', glyph: 'file' },
+            { label: 'Mail', glyph: 'envelope' },
           ],
         },
       ],
@@ -979,7 +1030,7 @@ Object.assign(SCENES, {
   'home-tour': [
     {
       parts: [
-        { kind: 'row', label: 'Hi Asha', value: '📥 2 · 🙂', mark: 'top' },
+        { kind: 'row', label: 'Hi Asha', value: 'Inbox 2 · Profile', mark: 'top' },
         { kind: 'row', label: 'Overall, you are owed', value: '₹2,450', mark: 'balance' },
         {
           kind: 'list',
@@ -1007,12 +1058,38 @@ Object.assign(SCENES, {
       { kind: 'row', label: 'Groceries', value: '₹1,340' },
     ]),
   ],
+  'simple-advanced': [
+    {
+      parts: [
+        // The leaf in Profile's header, as ModeButton draws it; the switch plays its pop and accent burst.
+        { kind: 'header', label: 'Profile', items: [{ label: 'Simple', mark: 'mode' }], alsoOn: ['undo'] },
+        { kind: 'row', label: 'Asha Rao', value: 'asha@example.com' },
+        { kind: 'row', label: 'How friends can pay you', value: '›' },
+        { kind: 'row', label: 'Insights', value: '›' },
+        { kind: 'toast', label: 'Advanced: every feature and setting', value: 'Undo', mark: 'undo', alsoOn: ['mode'] },
+        tabbar(undefined, 'Profile'),
+      ],
+    },
+    settings('Preferences', [
+      { kind: 'note', label: 'Mode' },
+      {
+        kind: 'chips',
+        items: [
+          { label: 'Simple', mark: 'pref' },
+          { label: 'Advanced', on: true },
+        ],
+      },
+      { kind: 'note', label: 'Theme' },
+      { kind: 'chips', items: [{ label: 'Auto', on: true }, { label: 'Light' }, { label: 'Dark' }] },
+    ]),
+  ],
   'look-and-detail': [
     settings('Settings', [{ kind: 'row', label: 'Preferences', value: '›', mark: 'open' }]),
     settings('Preferences', [
       { kind: 'chips', mark: 'theme', items: [{ label: 'Auto' }, { label: 'Light' }, { label: 'Dark', on: true }] },
-      { kind: 'chips', mark: 'accent', items: [{ label: '🟣 Violet', on: true }, { label: '🔵 Ocean' }, { label: '🟡 Gold' }] },
-      { kind: 'chips', mark: 'detail', items: [{ label: 'Full' }, { label: 'When needed', on: true }, { label: 'Minimal' }, { label: 'Tooltip' }] },
+      { kind: 'chips', mark: 'accent', items: [{ label: 'Violet', on: true }, { label: 'Ocean' }, { label: 'Gold' }] },
+      { kind: 'chips', mark: 'icons', items: [{ label: 'Default' }, { label: 'Outline' }, { label: 'Filled', on: true }] },
+      { kind: 'chips', mark: 'detail', items: [{ label: 'Explain all' }, { label: 'Short tips', on: true }, { label: 'Titles' }, { label: '(i)' }] },
     ]),
   ],
   'money-preferences': [
@@ -1041,7 +1118,7 @@ Object.assign(SCENES, {
   'install-offline': [
     settings('Home', [{ kind: 'button', label: 'Install Split Now', primary: true, mark: 'install' }]),
     settings('Goa trip', [
-      { kind: 'note', label: 'Offline — changes will sync when you’re back', mark: 'offline' },
+      { kind: 'note', label: 'Offline. Changes sync when you’re back.', mark: 'offline' },
       { kind: 'row', label: 'Ferry tickets', value: '₹600' },
       { kind: 'message', label: 'New version ready', value: 'Later · Update', mark: 'update' },
     ]),

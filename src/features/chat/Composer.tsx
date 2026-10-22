@@ -631,9 +631,9 @@ function AskSheet({
         <HintText
           hint={
             kind === 'pay'
-              ? { full: 'They get a card with a Pay button that opens Settle up, filled in.', short: 'They get a card with a Pay button.' }
+              ? { full: 'They get a card whose Pay button opens Settle up, filled in.', short: 'They get a card with a Pay button.' }
               : {
-                  full: 'They get a card with one button that settles exactly what they owe you, or shows that you’re square.',
+                  full: 'They get a card with one button that settles what they owe you, or shows you’re square.',
                   short: 'They get one button for what they owe you.',
                 }
           }

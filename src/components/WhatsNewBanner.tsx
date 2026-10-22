@@ -3,15 +3,18 @@ import { Link, useLocation } from 'react-router-dom'
 import { Sparkles, X } from 'lucide-react'
 import { useWhatsNew } from '@/hooks/useWhatsNew'
 import { useSwipeDismiss } from '@/hooks/useSwipeDismiss'
+import { whatsNewMayShow } from '@/lib/whats-new-spot'
 
-/** Home shows itself first; the banner rises a moment later, so it reads as news, not as part of the page. */
+/** The screen shows itself first; the banner rises a moment later, so it reads as news, not as part of the page. */
 const RISE_DELAY_MS = 1000
 
 /**
  * "Updated to 8.7.3 · What's new", once after an update on this device (src/lib/whats-new.ts
- * updateBanner; the admin's flags.whatsNew turns it off). On Home only, it rises from behind the
- * tab bar into the floating lane above it, where the New version banner shows, a second after the
- * page has loaded; it never covers a form. It waits while the New version, install or capture
+ * updateBanner; the admin's flags.whatsNew turns it off). Layout mounts it, so it shows on whichever
+ * tab-bar screen the app opens on (an update from Profile reloads on Profile): it rises from behind
+ * the tab bar into the floating lane above it, where the New version banner shows, a second after
+ * the screen has loaded. Full-screen flows and tab-bar forms make it wait (whatsNewMayShow), so it
+ * never covers a form's main action. It also waits while the New version, install or capture
  * banner holds that spot (index.css). What's new opens Help → What's new; that, ✕ or a
  * sideways swipe closes it for good.
  */
@@ -20,13 +23,17 @@ export function WhatsNewBanner() {
   const { pathname } = useLocation()
   const [ready, setReady] = useState(false)
   const swipe = useSwipeDismiss(closeBanner)
-  const home = pathname === '/'
+  // Inside Layout the tab bar is always there; the check stays so the rule lives in one place.
+  const may = whatsNewMayShow({ pathname, hasNav: true })
+  // Keyed by the version, not the banner object (a new one every render), so a re-render doesn't restart the wait.
+  const version = banner?.version
   useEffect(() => {
-    if (!banner || !home) return
+    setReady(false)
+    if (!version || !may) return
     const t = setTimeout(() => setReady(true), RISE_DELAY_MS)
     return () => clearTimeout(t)
-  }, [banner, home])
-  if (!banner || !home || !ready) return null
+  }, [version, may])
+  if (!banner || !may || !ready) return null
   return (
     <div
       className="whats-new-banner animate-[rise_0.45s_cubic-bezier(0.2,0.9,0.3,1)] fixed inset-x-3 bottom-[var(--lane)] z-30 mx-auto max-w-md"

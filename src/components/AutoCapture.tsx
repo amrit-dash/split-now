@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { usePickableGroups } from '@/hooks/useVault'
 import { Link } from 'react-router-dom'
-import { Activity, Ban, ChevronRight, Copy, KeyRound, MessageSquareText, Pause, Plus, Smartphone, X, Zap } from 'lucide-react'
+import { ChevronRight, X } from 'lucide-react'
+import { ChatsIcon, CopyIcon, PhoneIcon, KeyIcon, LightningIcon, PauseIcon, AddIcon, ProhibitIcon, PulseIcon } from '@/components/icons'
 import { firebaseProject, repo } from '@/data'
 import type { CaptureToken } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
@@ -39,11 +40,11 @@ import { SwipeRow } from './SwipeRow'
 const INTRO_HINT: Hint = {
   full: (
     <>
-      Your phone forwards bank and UPI SMS to Split Now, and they wait in your{' '}
+      Your phone forwards bank and UPI SMS to your{' '}
       <Link to="/inbox" className="font-semibold text-brand-600 dark:text-brand-300">
         Inbox
-      </Link>{' '}
-      until you add them to a group. Nothing is ever added without your OK.
+      </Link>
+      . Nothing is added to a group without your OK.
     </>
   ),
   short: (
@@ -52,27 +53,27 @@ const INTRO_HINT: Hint = {
       <Link to="/inbox" className="font-semibold text-brand-600 dark:text-brand-300">
         Inbox
       </Link>
-      . Nothing is ever added without your OK.
+      . Nothing is added without your OK.
     </>
   ),
   // The trust line: never folded away.
-  min: 'Nothing is ever added without your OK.',
+  min: 'Nothing is added without your OK.',
   tier: 'key',
 }
 const SETUP_HINT: Hint = {
-  full: 'About 3 minutes on an iPhone or Android. Works with any bank that sends SMS.',
-  short: 'About 3 minutes, any bank that sends SMS',
+  full: 'About 3 minutes on iPhone or Android. Any bank that sends SMS.',
+  short: 'About 3 minutes',
   tier: 'help',
 }
 const KEY_LEAK_HINT: Hint = {
-  full: 'Anyone with this key can add items to your Inbox (never read your data). Revoke it under “Your capture keys” if it leaks.',
-  short: 'Anyone with this key can add to your Inbox. Revoke it if it leaks.',
+  full: 'Anyone with this key can add to your Inbox, never read it. Revoke it under “Your capture keys” if it leaks.',
+  short: 'Anyone with it can add to your Inbox. Revoke if leaked.',
   tier: 'key',
 }
 const OPEN_URL_HINT: Hint = {
   full: (
     <>
-      Prefer to confirm straight away? Use <b>Open URL</b> with the link below instead (it opens Safari).
+      To confirm straight away, use <b>Open URL</b> with the link below (opens Safari).
     </>
   ),
   short: (
@@ -82,7 +83,7 @@ const OPEN_URL_HINT: Hint = {
   ),
   tier: 'help',
 }
-const NO_FILTERS_HINT: Hint = { full: 'Apple Pay captures and capture links don’t go through the SMS filters above.', tier: 'help' }
+const NO_FILTERS_HINT: Hint = { full: 'Apple Pay captures and capture links skip the SMS filters above.', tier: 'help' }
 
 /** relativeTime falls back to a raw ISO day after a week; show that in the app's date format instead. */
 export const ago = (at: number, now: number) => {
@@ -94,7 +95,7 @@ export const ago = (at: number, now: number) => {
 export function AutoCaptureOff() {
   return (
     <p className="text-muted px-1 text-sm" data-testid="section-auto-capture">
-      Auto-capture is switched off for everyone right now
+      Auto-capture is off for everyone right now
     </p>
   )
 }
@@ -201,7 +202,7 @@ export function AutoCapture() {
             className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${paused ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'}`}
             aria-hidden
           >
-            {paused ? <Pause size={18} /> : <Zap size={18} />}
+            {paused ? <PauseIcon size={18} /> : <LightningIcon size={18} />}
           </span>
           <div className="min-w-0 flex-1">
             <div id="capture-master-label" className="text-sm font-semibold">
@@ -214,7 +215,7 @@ export function AutoCapture() {
                   ? 'Not set up yet.'
                   : lastAny
                     ? `Last message received ${ago(lastAny, Date.now())}.`
-                    : 'Waiting for the first message from your phone.'}
+                    : 'Waiting for your phone’s first message.'}
             </div>
           </div>
           <Switch checked={!paused} onChange={(v) => update({ capturePaused: !v })} label="Capture payments" testId="capture-paused-switch" />
@@ -228,7 +229,7 @@ export function AutoCapture() {
         className="card mt-3 flex items-center gap-3 p-3 ring-1 ring-brand-200 dark:ring-brand-800"
         data-testid="capture-setup-link"
       >
-        <MessageSquareText size={22} className="shrink-0 text-brand-600 dark:text-brand-300" aria-hidden />
+        <ChatsIcon size={22} className="shrink-0 text-brand-600 dark:text-brand-300" aria-hidden />
         <div className="min-w-0 flex-1">
           <div className="font-semibold">{tokens?.length ? 'Set up on a new phone' : 'Set up auto-capture'}</div>
           <HintText hint={SETUP_HINT} as="div" />
@@ -247,7 +248,7 @@ export function AutoCapture() {
               : prefs.outsideTrips && prefs.unsorted
                 ? 'You’re notified about every captured payment.'
                 : prefs.outsideTrips
-                  ? 'You’re notified about trip payments. Turn on “Payments outside a trip” in Notifications to hear about the rest.'
+                  ? 'You’re notified about trip payments. For the rest, turn on “Payments outside a trip” in Notifications.'
                   : 'You’re notified when a trip payment is captured.'}
           </p>
         </div>
@@ -264,12 +265,12 @@ export function AutoCapture() {
 
           {tokens === null ? null : !token ? (
             <button type="button" className="btn-secondary mt-3 w-full" onClick={create} disabled={busy}>
-              <KeyRound size={18} aria-hidden /> Create a capture key
+              <KeyIcon size={18} aria-hidden /> Create a capture key
             </button>
           ) : (
             <div className="mt-3 space-y-3">
               <div className="flex items-center gap-2 rounded-2xl bg-slate-50 p-2 pl-3 dark:bg-ink-800">
-                <KeyRound size={16} className="shrink-0 text-slate-500" aria-hidden />
+                <KeyIcon size={16} className="shrink-0 text-slate-500" aria-hidden />
                 <code className="min-w-0 flex-1 truncate text-xs">{token.token}</code>
                 <button
                   type="button"
@@ -277,7 +278,7 @@ export function AutoCapture() {
                   onClick={() => copyIt(token.token, 'Capture key')}
                   aria-label="Copy capture key"
                 >
-                  <Copy size={16} />
+                  <CopyIcon size={16} />
                 </button>
               </div>
               <div className="text-muted flex items-start text-xs">
@@ -289,7 +290,7 @@ export function AutoCapture() {
 
           <details className="mt-4 rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800" open={!!token}>
             <summary className="cursor-pointer font-semibold">
-              <Smartphone size={15} className="mr-1 inline" aria-hidden /> iPhone: Apple Pay Shortcut (iOS 17+)
+              <PhoneIcon size={15} className="mr-1 inline" aria-hidden /> iPhone: Apple Pay Shortcut (iOS 17+)
             </summary>
             <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-slate-600 dark:text-slate-300">
               <li>
@@ -314,9 +315,7 @@ export function AutoCapture() {
               </div>
             ) : (
               <p className="text-muted mt-3 text-xs">
-                {firebase
-                  ? 'Create a capture key to get your URL and body.'
-                  : 'Background capture needs Firebase. In demo mode, use the Open URL link below instead.'}
+                {firebase ? 'Create a capture key to get your URL and body.' : 'The demo can’t capture in the background. Use the Open URL link below.'}
               </p>
             )}
             <HintText hint={OPEN_URL_HINT} className="text-muted mt-3 text-xs" />
@@ -326,7 +325,7 @@ export function AutoCapture() {
 
           <details className="mt-2 rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800">
             <summary className="cursor-pointer font-semibold">
-              <Smartphone size={15} className="mr-1 inline" aria-hidden /> Android
+              <PhoneIcon size={15} className="mr-1 inline" aria-hidden /> Android
             </summary>
             <ul className="mt-2 list-disc space-y-1.5 pl-5 text-slate-600 dark:text-slate-300">
               <li>
@@ -356,7 +355,7 @@ function CopyBlock({ label, value, onCopy }: { label: string; value: string; onC
       <div className="text-muted mb-1 flex items-center justify-between text-xs font-semibold">
         {label}
         <button type="button" className="inline-flex min-h-9 items-center gap-1 px-2 text-brand-600 dark:text-brand-300" onClick={onCopy}>
-          <Copy size={13} aria-hidden /> Copy
+          <CopyIcon size={13} aria-hidden /> CopyIcon
         </button>
       </div>
       <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-xl bg-white p-2 font-mono text-xs dark:bg-ink-900">{value}</pre>
@@ -390,8 +389,8 @@ function OutsideTripsChoice({ on, onChange }: { on: boolean; onChange: (v: boole
             v: false,
             title: 'Only payments during a trip',
             hint: {
-              full: 'Debit SMS dated inside a group’s trip dates. Everything else is ignored and never stored.',
-              short: 'Inside trip dates; the rest is never stored',
+              full: 'Debit SMS dated inside a trip. Everything else is ignored and never stored.',
+              short: 'The rest is never stored',
               tier: 'help',
             } satisfies Hint,
           },
@@ -399,7 +398,7 @@ function OutsideTripsChoice({ on, onChange }: { on: boolean; onChange: (v: boole
             v: true,
             title: 'All bank & UPI payments',
             hint: {
-              full: 'Payments outside every trip wait in the Inbox as “outside any trip”, without a notification.',
+              full: 'Payments outside every trip wait quietly in the Inbox as “outside any trip”.',
               short: 'Payments outside trips wait in the Inbox',
               tier: 'help',
             } satisfies Hint,
@@ -430,20 +429,20 @@ function OutsideTripsChoice({ on, onChange }: { on: boolean; onChange: (v: boole
   )
 }
 
-const MIN_HINT: Hint = { full: 'Rupee payments only; foreign-currency card spends are always captured.', short: 'Rupee payments only', tier: 'help' }
+const MIN_HINT: Hint = { full: 'Rupee payments only. Foreign-currency card spends are always captured.', short: 'Rupee payments only', tier: 'help' }
 const IGNORE_HINT: Hint = {
-  full: 'Skip debits whose SMS or merchant mentions one of these (any case), like SIPs, rent or card bills.',
-  short: 'Skip debits that mention one of these words',
+  full: 'Skips debits whose SMS or merchant mentions one of these, like SIPs, rent or card bills.',
+  short: 'Skips debits that mention these words',
   tier: 'help',
 }
 const TRIP_PAUSE_HINT: Hint = {
-  full: 'Pausing a trip only affects your captures. Others in the trip keep theirs.',
+  full: 'Pauses only your captures. Others in the trip keep theirs.',
   short: 'Only pauses your captures',
   tier: 'help',
 }
 const KEYS_HINT: Hint = {
-  full: 'A key lets your phone add payments to your Inbox and nothing else. Revoke one if it leaks or a phone is gone.',
-  short: 'Revoke a key if it leaks or a phone is gone',
+  full: 'A key can only add payments to your Inbox. Revoke it if it leaks or a phone is lost.',
+  short: 'Revoke a key if a phone is lost',
   tier: 'help',
 }
 
@@ -537,14 +536,14 @@ function Filters({ prefs, onChange }: { prefs: AllPrefs; onChange: (p: Partial<A
           data-testid="capture-ignore-input"
         />
         <button type="submit" className="btn-secondary !px-3" disabled={full || !word.trim()} aria-label="Add keyword">
-          <Plus size={18} />
+          <AddIcon size={18} />
         </button>
       </form>
       {!full && suggestions.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {suggestions.map((s) => (
             <button key={s} type="button" className="chip !py-1.5 text-xs text-slate-700 dark:text-slate-300" onClick={() => add(s)}>
-              <Plus size={12} aria-hidden /> {s}
+              <AddIcon size={12} aria-hidden /> {s}
             </button>
           ))}
         </div>
@@ -622,11 +621,9 @@ function Keys({
               key={t.token}
               contentClassName="flex items-center gap-2"
               menuTitle={label}
-              actions={[
-                { label: 'Revoke', ariaLabel: `Revoke capture key for ${label}`, icon: <Ban size={20} strokeWidth={2.25} />, onClick: () => onRevoke(t) },
-              ]}
+              actions={[{ label: 'Revoke', ariaLabel: `Revoke capture key for ${label}`, icon: <ProhibitIcon size={20} />, onClick: () => onRevoke(t) }]}
             >
-              <KeyRound size={16} className="shrink-0 text-slate-500" aria-hidden />
+              <KeyIcon size={16} className="shrink-0 text-slate-500" aria-hidden />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium">{label}</div>
                 <div className="text-muted truncate text-xs">
@@ -644,7 +641,7 @@ function Keys({
                 onClick={() => onCopy(t)}
                 aria-label={`Copy capture key for ${label}`}
               >
-                <Copy size={16} />
+                <CopyIcon size={16} />
               </button>
             </SwipeRow>
           )
@@ -668,8 +665,7 @@ function RecentActivity({ rows, onClear }: { rows: LogRow[]; onClear: () => void
     <Panel title="Recent activity" testId="capture-activity">
       {rows.length === 0 ? (
         <p className="text-muted flex items-start gap-2 text-xs">
-          <Activity size={14} className="mt-0.5 shrink-0" aria-hidden /> Nothing yet. Every message your phone forwards shows up here, captured or not, so you
-          can tell the automation is working.
+          <PulseIcon size={14} className="mt-0.5 shrink-0" aria-hidden /> Nothing yet. Every message your phone forwards shows here, captured or not.
         </p>
       ) : (
         <>

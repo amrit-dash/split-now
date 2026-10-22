@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { ImageIcon, RefreshCw, Search, Sparkles, Wand2 } from 'lucide-react'
+import { RefreshCw, Search } from 'lucide-react'
+import { ImageIcon, MagicIcon, SparkleIcon } from '@/components/icons'
 import { repo } from '@/data'
 import { firstEmoji } from '@/lib/emoji'
 import { Link } from 'react-router-dom'
@@ -156,7 +157,7 @@ export function IconSheet({
               Automatic
               <span className="text-muted block text-xs font-normal">Picked from what it’s for and its category</span>
             </span>
-            <Sparkles size={16} className="text-muted shrink-0" aria-hidden />
+            <SparkleIcon size={16} className="text-muted shrink-0" aria-hidden />
           </button>
         )}
         {/* A form, so the keyboard's search key searches here and never reaches the page's own form. */}
@@ -246,7 +247,11 @@ export function IconSheet({
                 className="flex min-h-11 w-full items-center gap-3 text-left text-sm font-semibold"
                 data-testid="icon-ai-suggest"
               >
-                {asking ? <Spinner className="!h-5 !w-5" label="Asking AI" /> : <Wand2 size={20} className="text-brand-600 dark:text-brand-300" aria-hidden />}
+                {asking ? (
+                  <Spinner className="!h-5 !w-5" label="Asking AI" />
+                ) : (
+                  <MagicIcon size={20} className="text-brand-600 dark:text-brand-300" aria-hidden />
+                )}
                 <span className="min-w-0 flex-1">
                   {asking ? 'Drawing icons… this can take a minute on the free AI' : `Suggest with AI for “${words}”`}
                   <span className="text-muted block text-xs font-normal" data-testid="icon-ai-from">

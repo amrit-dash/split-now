@@ -118,3 +118,58 @@ export function addedLater(row: Pick<SortableRow, 'date' | 'createdAt'>, dayOf: 
   const added = dayOf(row.createdAt)
   return added > row.date ? added : null
 }
+
+/** The order in a few words, for its pill under the search box ("Biggest first"). */
+export const SORT_SHORT: Record<SortKey, string> = {
+  'spent-desc': 'Newest first',
+  'spent-asc': 'Oldest first',
+  'added-desc': 'Newest added first',
+  'added-asc': 'Oldest added first',
+  'amount-desc': 'Biggest first',
+  'amount-asc': 'Smallest first',
+}
+
+/** One thing that is on: shown as a pill under the search box, tapped to turn it off. */
+export interface FilterPill {
+  /** 'sort', 'kind', 'paidBy', 'dates', 'involving' or 'cat:<category>' */
+  key: string
+  label: string
+}
+
+/**
+ * Everything Sort and filter has turned on, as pills, in the sheet's order: the sort (when not
+ * the usual newest first), Involving me and the categories (Quick filters), then Show, Paid by
+ * and the days. Search is not one: it's in the box. Its length is the count on the button.
+ */
+export function appliedPills(o: {
+  filter: ActivityFilter
+  sort: SortKey
+  onlyMe: boolean
+  name: (id: MemberId) => string
+  day: (iso: string) => string
+  category: (c: Category) => string
+}): FilterPill[] {
+  const { filter: f } = o
+  const out: FilterPill[] = []
+  if (o.sort !== DEFAULT_SORT) out.push({ key: 'sort', label: SORT_SHORT[o.sort] })
+  if (o.onlyMe) out.push({ key: 'involving', label: 'Involving me' })
+  for (const c of f.categories) out.push({ key: `cat:${c}`, label: o.category(c) })
+  if (f.kind === 'expenses') out.push({ key: 'kind', label: 'Expenses only' })
+  if (f.kind === 'payments') out.push({ key: 'kind', label: 'Payments only' })
+  if (f.paidBy) out.push({ key: 'paidBy', label: `Paid by ${o.name(f.paidBy)}` })
+  if (f.from && f.to) out.push({ key: 'dates', label: f.from === f.to ? o.day(f.from) : `${o.day(f.from)} – ${o.day(f.to)}` })
+  else if (f.from) out.push({ key: 'dates', label: `From ${o.day(f.from)}` })
+  else if (f.to) out.push({ key: 'dates', label: `Until ${o.day(f.to)}` })
+  return out
+}
+
+/** What a pill's tap turns off: the filter patch, and whether it also ends Involving me or resets the sort. */
+export function removePill(key: string, f: ActivityFilter): { patch: Partial<ActivityFilter>; onlyMe?: false; sort?: SortKey } {
+  if (key === 'sort') return { patch: {}, sort: DEFAULT_SORT }
+  if (key === 'involving') return { patch: {}, onlyMe: false }
+  if (key === 'kind') return { patch: { kind: 'all' } }
+  if (key === 'paidBy') return { patch: { paidBy: undefined } }
+  if (key === 'dates') return { patch: { from: undefined, to: undefined } }
+  if (key.startsWith('cat:')) return { patch: { categories: f.categories.filter((c) => c !== key.slice(4)) } }
+  return { patch: {} }
+}

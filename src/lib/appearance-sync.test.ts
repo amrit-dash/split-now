@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { decideSync, isDefaultAppearance, localAppearance, parseAppearance, startAppearanceSync, toAppearanceDoc } from './appearance-sync'
+import { getIconStylePref, resetIconStylePref } from './icon-style-pref'
 import { getLookPref, resetLookPref } from './look-pref'
+import { getModePref, resetModePref } from './mode-pref'
 import { DEFAULT_MOTION, resetMotion } from './motion'
 import { notePrefChange } from './pref-events'
 
@@ -28,6 +30,8 @@ beforeEach(() => {
   // motion.ts and look-pref.ts cache what they last read; start each test from the default.
   resetMotion()
   resetLookPref()
+  resetIconStylePref()
+  resetModePref()
 })
 afterEach(() => {
   const g = globalThis as Record<string, unknown>
@@ -42,7 +46,17 @@ describe('parseAppearance', () => {
     expect(parseAppearance(null)).toBeNull()
     expect(parseAppearance({ theme: 'dark' })).toBeNull()
     const a = parseAppearance({ theme: 'sepia', accent: 'rainbow', duo: 'x', inks: { ocean: 'dark', nope: 'dark', koi: 'grey' }, motion: 'on', updatedAt: 5 })
-    expect(a).toEqual({ theme: 'system', accent: 'violet', duo: true, inks: { ocean: 'dark' }, motion: DEFAULT_MOTION, look: 'app', updatedAt: 5 })
+    expect(a).toEqual({
+      theme: 'system',
+      accent: 'violet',
+      duo: true,
+      inks: { ocean: 'dark' },
+      motion: DEFAULT_MOTION,
+      look: 'app',
+      icons: 'app',
+      mode: 'auto',
+      updatedAt: 5,
+    })
   })
   it('round-trips through the document', () => {
     const a = {
@@ -52,6 +66,8 @@ describe('parseAppearance', () => {
       inks: { koi: 'dark' as const },
       motion: { ...DEFAULT_MOTION, speed: 'fast' as const },
       look: 'tooltip' as const,
+      icons: 'filled' as const,
+      mode: 'simple' as const,
       updatedAt: 7,
     }
     expect(parseAppearance(toAppearanceDoc(a))).toEqual(a)
@@ -66,6 +82,8 @@ describe('decideSync', () => {
     inks: {},
     motion: DEFAULT_MOTION,
     look: 'app' as const,
+    icons: 'app' as const,
+    mode: 'auto' as const,
     updatedAt,
   })
   it('takes a newer copy from the account, sends a newer local change', () => {
@@ -90,6 +108,16 @@ describe('isDefaultAppearance', () => {
     store.set('splitnow-look', 'tooltip')
     resetLookPref()
     expect(isDefaultAppearance(localAppearance())).toBe(false)
+    store.delete('splitnow-look')
+    resetLookPref()
+    store.set('splitnow-icons', 'filled')
+    resetIconStylePref()
+    expect(isDefaultAppearance(localAppearance())).toBe(false)
+    store.delete('splitnow-icons')
+    resetIconStylePref()
+    store.set('splitnow-mode', 'advanced')
+    resetModePref()
+    expect(isDefaultAppearance(localAppearance())).toBe(false)
   })
 })
 
@@ -101,13 +129,15 @@ describe('startAppearanceSync', () => {
       answer = cb
       return () => {}
     }, save)
-    answer({ theme: 'dark', accent: 'ocean', duo: false, inks: {}, motion: { on: false }, look: 'minimal', updatedAt: 50 })
+    answer({ theme: 'dark', accent: 'ocean', duo: false, inks: {}, motion: { on: false }, look: 'minimal', icons: 'filled', mode: 'advanced', updatedAt: 50 })
     expect(store.get('splitit-accent')).toBe('ocean')
     expect(store.get('splitit-theme')).toBe('dark')
     expect(store.get('splitit-duo')).toBe('off')
     expect(JSON.parse(store.get('splitit-motion') ?? '{}').on).toBe(false)
     expect(store.get('splitnow-appearance-at')).toBe('50')
     expect(getLookPref()).toBe('minimal')
+    expect(getIconStylePref()).toBe('filled')
+    expect(getModePref()).toBe('advanced')
     expect(save).not.toHaveBeenCalled()
     stop()
   })

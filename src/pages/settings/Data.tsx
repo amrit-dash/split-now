@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronRight, Download, FileUp, Loader2, UserX } from 'lucide-react'
+import { ChevronRight, Loader2 } from 'lucide-react'
+import { DownloadIcon, RowDeleteAccountIcon, RowImportIcon } from '@/components/icons'
 import { repo } from '@/data'
 import { buildLabel } from '@/lib/flags'
 import { useAllGroupData } from '@/hooks/data'
@@ -14,14 +15,15 @@ import { ListSkeleton } from '@/components/Skeleton'
 import { Select } from '@/components/Select'
 import { useToast } from '@/components/Toast'
 import { SectionTitle, SettingsPage } from './common'
+import { RowTile } from '@/components/RowTile'
 
 const EXPORT_HINT: Hint = {
-  full: 'Every expense and payment in the group, with who paid and each person’s share. Opens in Excel or Google Sheets, and imports back into Split Now.',
-  short: 'Every expense and payment, for Excel or Google Sheets',
+  full: 'Every expense and payment, with who paid and each share. Opens in Excel or Google Sheets and imports back.',
+  short: 'For Excel or Google Sheets',
   tier: 'help',
 }
 const IMPORT_HINT: Hint = {
-  full: 'A group export (CSV), balances checked against Splitwise’s own totals',
+  full: 'A group export (CSV), balances checked against Splitwise’s totals',
   short: 'A Splitwise group export (CSV)',
   tier: 'help',
 }
@@ -78,7 +80,7 @@ export default function Data() {
             />
           </div>
           <button type="button" className="btn-secondary w-full" onClick={exportCsv} disabled={busy || !chosen} data-testid="export-csv">
-            {busy ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <Download size={18} aria-hidden />} Export as CSV
+            {busy ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <DownloadIcon size={18} aria-hidden />} Export as CSV
           </button>
           <HintText hint={EXPORT_HINT} />
         </div>
@@ -86,12 +88,9 @@ export default function Data() {
 
       <SectionTitle>Import</SectionTitle>
       <Link to="/groups/import" className="card flex items-center gap-3 p-4 font-medium transition active:scale-[0.99]" data-testid="settings-import">
-        <span
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
-          aria-hidden
-        >
-          <FileUp size={19} />
-        </span>
+        <RowTile>
+          <RowImportIcon size={22} />
+        </RowTile>
         <span className="min-w-0 flex-1">
           <span className="block">Import from Splitwise</span>
           <HintText hint={IMPORT_HINT} as="span" className="text-muted block text-xs font-normal" />
@@ -112,9 +111,9 @@ export default function Data() {
         className="card flex items-center gap-3 p-4 font-medium transition active:scale-[0.99]"
         data-testid="settings-delete-account"
       >
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-300" aria-hidden>
-          <UserX size={19} />
-        </span>
+        <RowTile tone="danger">
+          <RowDeleteAccountIcon size={22} />
+        </RowTile>
         <span className="min-w-0 flex-1">
           <span className="block">Delete my account</span>
           <span className="text-muted block text-xs font-normal">See what happens to your groups first</span>

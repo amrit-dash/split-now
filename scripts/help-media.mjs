@@ -99,6 +99,8 @@ function initScript() {
   try {
     localStorage.setItem('splitit-theme', 'light')
     localStorage.setItem('splitit-accent', 'violet')
+    // Help's pictures show the whole app: steps cover Advanced-only features too (docs/SIMPLE_MODE.md).
+    localStorage.setItem('splitnow-mode', 'advanced')
   } catch {
     /* storage blocked */
   }

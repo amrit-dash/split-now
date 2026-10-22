@@ -9,7 +9,8 @@ import { formatDate, formatDateTime } from '@/lib/locale'
 import { addedLine } from '@/lib/added'
 import { authorMember } from '@/lib/chat'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
-import { Camera, ChevronDown, CopyPlus, ImagePlus, Loader2, Paperclip, Pencil, Repeat, Send, Trash2 } from 'lucide-react'
+import { ChevronDown, Loader2, Paperclip } from 'lucide-react'
+import { CameraIcon, CopyIcon, EditIcon, ImageAddIcon, RepeatIcon, SendIcon, TrashIcon } from '@/components/icons'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { myMemberId, useAllExpenses, useComments, useGroup } from '@/hooks/data'
@@ -59,7 +60,7 @@ export default function ExpenseDetail() {
     return (
       <>
         <PageHeader title="Expense" back={group ? `/groups/${group.id}` : '/groups'} />
-        <Empty emoji="🔍" title="Expense not found">
+        <Empty icon="search" title="Expense not found">
           {group ? 'It may have been deleted for good.' : 'You may no longer be in this group.'}
           {group && (
             <Link to={`/groups/${group.id}`} replace className="btn-secondary mx-auto mt-4 w-fit">
@@ -121,14 +122,14 @@ export default function ExpenseDetail() {
                 aria-label="Add again, dated today"
                 data-testid="add-again"
               >
-                <CopyPlus size={20} />
+                <CopyIcon size={20} />
               </Link>
               <Link
                 to={`/groups/${group.id}/expenses/${e.id}/edit`}
                 className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-slate-200/60 dark:hover:bg-ink-800"
                 aria-label="Edit"
               >
-                <Pencil size={20} />
+                <EditIcon size={20} />
               </Link>
               <button
                 type="button"
@@ -136,7 +137,7 @@ export default function ExpenseDetail() {
                 className="flex h-11 w-11 items-center justify-center rounded-full text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10"
                 aria-label="Delete"
               >
-                <Trash2 size={20} />
+                <TrashIcon size={20} />
               </button>
             </div>
           )
@@ -169,7 +170,7 @@ export default function ExpenseDetail() {
       {e.recurrence && (
         <div className="card mt-3 flex items-center gap-3 p-4">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/40 dark:text-brand-200">
-            <Repeat size={20} />
+            <RepeatIcon size={20} />
           </div>
           <div className="min-w-0 flex-1 text-sm">
             <div className="font-semibold">Repeats {FREQ_LABEL[e.recurrence.freq].toLowerCase()}</div>
@@ -185,7 +186,7 @@ export default function ExpenseDetail() {
       )}
       {e.recurringFrom && !e.recurrence && (
         <div className="card mt-3 flex items-center gap-3 p-4 text-sm">
-          <Repeat size={18} className="shrink-0 text-slate-400" aria-hidden />
+          <RepeatIcon size={18} className="shrink-0 text-slate-400" aria-hidden />
           <div className="flex-1 text-muted">Added automatically from a repeating expense.</div>
           {template && (
             <Link to={`/groups/${group.id}/expenses/${template.id}`} className="chip shrink-0">
@@ -282,7 +283,7 @@ export default function ExpenseDetail() {
   )
 }
 
-const NO_COMMENTS: Hint = { full: 'No comments yet. Ask a question or add context for the group.', short: 'No comments yet.', tier: 'help' }
+const NO_COMMENTS: Hint = { full: 'No comments yet. Ask a question or add some context.', short: 'No comments yet.', tier: 'help' }
 
 function Comments({ group, expense }: { group: Group; expense: Expense }) {
   const { user, profile } = useMe()
@@ -344,9 +345,7 @@ function Comments({ group, expense }: { group: Group; expense: Expense }) {
               contentClassName="flex gap-2.5 px-4"
               menuTitle="Your comment"
               actions={
-                c.authorUid === user.uid
-                  ? [{ label: 'Delete', ariaLabel: 'Delete comment', icon: <Trash2 size={20} strokeWidth={2.25} />, onClick: () => remove(c) }]
-                  : []
+                c.authorUid === user.uid ? [{ label: 'Delete', ariaLabel: 'Delete comment', icon: <TrashIcon size={20} />, onClick: () => remove(c) }] : []
               }
             >
               <Avatar name={c.authorName} color={colorOf(c.authorUid, i)} photoURL={memberOf(c.authorUid)?.photoURL} size={30} />
@@ -390,7 +389,7 @@ function Comments({ group, expense }: { group: Group; expense: Expense }) {
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-fill text-on-fill disabled:opacity-40"
           aria-label="Send comment"
         >
-          <Send size={18} />
+          <SendIcon size={18} />
         </button>
       </form>
     </div>
@@ -545,12 +544,12 @@ function ReceiptCard({ group, expense: e, trashed }: { group: Group; expense: Ex
           <div className="mt-3 flex flex-wrap gap-2">
             {card.replaceScan && (
               <button type="button" className="btn min-h-11 flex-1" onClick={() => choose('scan')} disabled={!!adding} data-testid="receipt-replace">
-                <Camera size={18} aria-hidden /> Replace scanned
+                <CameraIcon size={18} aria-hidden /> Replace scanned
               </button>
             )}
             {card.add && (
               <button type="button" className="btn min-h-11 flex-1" onClick={() => choose('attached')} disabled={!!adding} data-testid="receipt-add-more">
-                <ImagePlus size={18} aria-hidden /> Add a photo
+                <ImageAddIcon size={18} aria-hidden /> Add a photo
               </button>
             )}
           </div>
@@ -564,7 +563,7 @@ function ReceiptCard({ group, expense: e, trashed }: { group: Group; expense: Ex
         ) : (
           <div className="px-4 pb-4 pt-2">
             <button type="button" className="btn w-full" onClick={() => choose('attached')} data-testid="receipt-add">
-              <ImagePlus size={18} aria-hidden /> Add a photo
+              <ImageAddIcon size={18} aria-hidden /> Add a photo
             </button>
           </div>
         ))}
@@ -592,13 +591,13 @@ function ReceiptCard({ group, expense: e, trashed }: { group: Group; expense: Ex
             if (p?.kind === 'scan' && card.replaceScan)
               return (
                 <button type="button" className={btn} onClick={() => choose('scan')}>
-                  <Camera size={18} aria-hidden /> Replace scanned
+                  <CameraIcon size={18} aria-hidden /> Replace scanned
                 </button>
               )
             if (p?.kind === 'attached' && card.removeAttached)
               return (
                 <button type="button" className={btn} onClick={() => void remove(i)} data-testid="photo-viewer-remove">
-                  <Trash2 size={18} aria-hidden /> Remove photo
+                  <TrashIcon size={18} aria-hidden /> Remove photo
                 </button>
               )
             return null

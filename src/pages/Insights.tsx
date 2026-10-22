@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ArrowDownRight, ArrowUpRight } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, UtensilsCrossed } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
 import { useAllGroupData } from '@/hooks/data'
 import { useTodayRates } from '@/hooks/useFx'
@@ -154,7 +154,7 @@ export default function Insights() {
   if (!data || !view) {
     return (
       <div>
-        <PageHeader title="Insights" />
+        <PageHeader title="Insights" back="/profile" />
         <div className="space-y-3" role="status" aria-label="Loading">
           <CardSkeleton className="h-12" />
           <CardSkeleton className="h-28" />
@@ -173,7 +173,7 @@ export default function Insights() {
   const turnHint =
     view.turn && view.one ? (
       <p className="text-muted mt-3 text-xs" data-testid="insights-whose-turn">
-        <span aria-hidden>🍽️ </span>
+        <UtensilsCrossed size={13} className="mb-0.5 mr-1 inline" aria-hidden />
         {turnLine(view.turn, view.one.me)} <HintText hint={TURN_HINT} as="span" className="" />
         <InfoTip hint={TURN_HINT} label="About whose turn" />
       </p>
@@ -182,7 +182,7 @@ export default function Insights() {
 
   return (
     <div>
-      <PageHeader title="Insights" />
+      <PageHeader title="Insights" back="/profile" />
       <FiltersPanel
         filters={filters}
         onChange={setFilters}
@@ -196,7 +196,7 @@ export default function Insights() {
       />
 
       {head.count === 0 ? (
-        <Empty emoji="📊" title="Nothing to chart yet">
+        <Empty icon="chart" title="Nothing to chart yet">
           No expenses match these filters. Try a longer date range or fewer filters.
         </Empty>
       ) : (
@@ -345,7 +345,7 @@ export default function Insights() {
         <HintText
           className="text-muted mt-4 px-1 text-center text-xs"
           hint={{
-            full: `≈ ${view.converted.join(', ')} groups converted to ${home} at today’s ECB rate. Filter to one group for exact amounts in its own currency.`,
+            full: `≈ ${view.converted.join(', ')} groups converted to ${home} at today’s ECB rate. Filter to one group for exact amounts.`,
             short: `≈ ${view.converted.join(', ')} groups converted to ${home} at today’s rate.`,
             tier: 'help',
           }}
@@ -356,7 +356,7 @@ export default function Insights() {
           className="text-muted mt-2 px-1 text-center text-xs"
           hint={{
             // Key: without it the totals silently leave these groups out.
-            full: `${view.skipped.join(', ')} groups aren’t included (no exchange rate available). Filter to one of them to see it.`,
+            full: `${view.skipped.join(', ')} groups aren’t included (no exchange rate). Filter to one to see it.`,
             short: `${view.skipped.join(', ')} groups aren’t included (no exchange rate).`,
             tier: 'key',
           }}
@@ -366,9 +366,9 @@ export default function Insights() {
   )
 }
 
-const TURN_HINT: Hint = { full: 'Based on who has fronted the least over the last three months; only you see this.', short: 'Only you see this.', tier: 'help' }
-const PAID_SHARE_SUB: Hint = { full: 'Who fronted the money vs. what they consumed', short: 'Who paid vs. what they used', tier: 'help' }
-const YOU_PAID_SUB: Hint = { full: 'Per group: what you fronted vs. what you consumed', short: 'Per group', tier: 'help' }
+const TURN_HINT: Hint = { full: 'Whoever fronted least in the last three months. Only you see this.', short: 'Only you see this.', tier: 'help' }
+const PAID_SHARE_SUB: Hint = { full: 'What each person paid against what they used', short: 'Paid against used', tier: 'help' }
+const YOU_PAID_SUB: Hint = { full: 'Per group: what you paid against what you used', short: 'Per group', tier: 'help' }
 
 /** Spending up reads as the warning direction; icon + sign so it isn't colour alone. */
 function Delta({ change, vs }: { change: number; vs: string }) {

@@ -150,8 +150,9 @@ caps are one list, `shared/vault-convert.ts`, which the phones and the server sh
 
 Readable to the server, on purpose: amounts, splits and who paid (balances, reminders, nudges,
 budget alerts and the rules' checks need them), dates, categories, people's account ids and the
-emails a placeholder was added by (linking accounts needs them). The app hides amounts while the
-group is locked. An activity line's actor is the writer's account name as the phone had it.
+emails a placeholder was added by (linking accounts needs them), and whether someone's Pro or Dev badge
+shows (`members.{id}.pro`, `dev`: yes/no about the person, not the group; src/lib/pro.ts). The app hides
+amounts while the group is locked. An activity line's actor is the writer's account name as the phone had it.
 
 Outside the group nothing names it (`shared/names.ts` PRIVATE_GROUP_NAME): pushes say only what
 kind of thing happened, with "Split Now" as the title (`privateGroupNote`: "You have a balance to
@@ -254,3 +255,7 @@ one once every private group has been opened.
 
 Wrapping the same data key for each member's device (passkey PRF) so the server can't open it on
 its own, without re-encrypting anything.
+
+## Settings → Encrypted groups on this device
+
+The page draws the last `status` answer at once from `localStorage` (`sn-vault-status:<uid>`, `vaultStatusToCache` in `src/lib/vault-api.ts`): only its yes/no fields (server ready, passkey here, universal pattern set and ordered, tries left, lock time, on, off). No group, key or pattern is kept. It then asks the server again without `made`; the count of private groups someone made (one read of every group they're in) is asked only when they tap **Stop using private groups**.

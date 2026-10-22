@@ -10,8 +10,8 @@ import { type Hint, HintText } from '@/components/Hint'
 import { ChartCard, HBar, TipBox, useChartTheme } from './chrome'
 import { CountUp, EASE, monotonePath, niceTicks, svgId, useInView, useOutsideTap, useTween, useWidth } from './motion'
 
-const PACE_AXIS: Hint = { full: 'Days of the month · tap a week', short: 'Days of the month', tier: 'help' }
-const WHERE_SUB: Hint = { full: 'By category · tap the ring to focus, a row to filter', short: 'By category', tier: 'help' }
+const PACE_AXIS: Hint = { full: 'Days of the month. Tap a week.', short: 'Days of the month', tier: 'help' }
+const WHERE_SUB: Hint = { full: 'By category. Tap the ring to focus, a row to filter.', short: 'By category', tier: 'help' }
 
 function bucketLabel(p: TimePoint, bucket: Bucket, long = false) {
   if (bucket === 'month') return formatDate(p.start, long ? { month: 'long', year: 'numeric' } : { month: 'short' })

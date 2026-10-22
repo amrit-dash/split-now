@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { Coffee, ExternalLink, Globe, HandHeart, Heart, Quote, Star } from 'lucide-react'
+import { Coffee, Globe, HandHeart, Heart, Quote, Star } from 'lucide-react'
+import { ExternalIcon } from '@/components/icons'
 import { HintText, type Hint } from '@/components/Hint'
 import { Sheet } from '@/components/Sheet'
 import { SUPPORT_LINKS } from '@/lib/brand'
@@ -114,7 +115,7 @@ function SupportLink({
         <HintText hint={sub} as="span" className="block text-xs opacity-75" />
         <span className="sr-only">, opens outside the app</span>
       </span>
-      <ExternalLink size={16} className="shrink-0 opacity-60" aria-hidden />
+      <ExternalIcon size={16} className="shrink-0 opacity-60" aria-hidden />
     </a>
   )
 }

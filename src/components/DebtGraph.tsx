@@ -25,7 +25,7 @@ import { useCountUp, useInView, useReducedMotion } from '@/components/graph/moti
 import '@/components/graph/graph.css'
 import { HintText, type Hint } from '@/components/Hint'
 
-const GRAPH_HINT: Hint = { full: 'Thicker = more · tap to focus' }
+const GRAPH_HINT: Hint = { full: 'Thicker means more. Tap to focus.' }
 
 type Mode = 'me' | 'all'
 type Focus = { flow: string } | { person: MemberId } | null

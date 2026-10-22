@@ -105,18 +105,18 @@ describe('expenseSaveActivity', () => {
 describe('describeChanges', () => {
   it('names people in split and payer changes', () => {
     const lines = describeChanges({ paidBy: { s: 8000 }, splits: { s: 4000, j: 4000 } }, { paidBy: { j: 8000 }, splits: { s: 4000, j: 2000, m: 2000 } }, ctx)
-    expect(lines).toEqual(['paid by Sarah → Jay', `split (Jay ${A(4000)} → ${A(2000)}, Mia added (${A(2000)}))`])
+    expect(lines).toEqual(['paid by Sarah → Jay', `split (Jay ${A(4000)} → ${A(2000)}, Mia added at ${A(2000)})`])
   })
   it('shows the foreign original next to the group amount', () => {
     const o = (amount: number) => ({ currency: 'THB', amount, rate: 0.0421, rateDate: '2026-10-01', source: 'ecb' as const })
     expect(describeChanges({ amount: 5052, original: o(120000) }, { amount: 5473, original: o(130000) }, ctx)).toEqual([
-      `amount ${formatMoney(120000, 'THB')} (${A(5052)}) → ${formatMoney(130000, 'THB')} (${A(5473)})`,
+      `amount ${formatMoney(120000, 'THB')} · ${A(5052)} → ${formatMoney(130000, 'THB')} · ${A(5473)}`,
     ])
     const thai = { ...base, amount: 5052, paidBy: { s: 5052 }, splits: { s: 2526, j: 2526 }, original: o(120000) }
-    expect(expenseSaveActivity(undefined, thai, ctx)!.summary).toBe(`Sarah added “Dinner” (${formatMoney(120000, 'THB')} (${A(5052)}))`)
+    expect(expenseSaveActivity(undefined, thai, ctx)!.summary).toBe(`Sarah added “Dinner” (${formatMoney(120000, 'THB')} · ${A(5052)})`)
     // amount edit where the original stays the same is still shown with it
     expect(expenseSaveActivity(thai, { ...thai, amount: 5000, paidBy: { s: 5000 }, splits: { s: 2500, j: 2500 } }, ctx)!.summary).toBe(
-      `Sarah changed amount ${formatMoney(120000, 'THB')} (${A(5052)}) → ${formatMoney(120000, 'THB')} (${A(5000)}) on “Dinner”`,
+      `Sarah changed amount ${formatMoney(120000, 'THB')} · ${A(5052)} → ${formatMoney(120000, 'THB')} · ${A(5000)} on “Dinner”`,
     )
   })
   it('summarises an import in one entry', () => {
@@ -289,6 +289,10 @@ describe('activityText with the group’s name for the actor', () => {
   })
   it('your own still read "You", and no label leaves the line as written', () => {
     expect(activityText(old, 'u_r', 'Rahul')).toBe('You added “Dinner” (₹1,200.00)')
+    // entries saved before the dot keep no brackets inside brackets
+    expect(activityText({ ...old, summary: 'Rahul Sharma added “Dinner” ($72.00 (₹6,056.64))' }, 'u_me', 'Rahul')).toBe(
+      'Rahul added “Dinner” ($72.00 · ₹6,056.64)',
+    )
     expect(activityText(old, 'u_me')).toBe(old.summary)
   })
 })

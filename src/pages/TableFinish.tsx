@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { usePickableGroups } from '@/hooks/useVault'
 import { useNavigate } from 'react-router-dom'
-import { Check, Users } from 'lucide-react'
+import { Check } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { createGroup as createNewGroup, memberOrder, myMemberId } from '@/hooks/data'
@@ -34,6 +34,7 @@ import { Select } from '@/components/Select'
 import { activeMembers } from '@/lib/members'
 import { labelOf } from '@/lib/shortNames'
 import { type Hint, HintText } from '@/components/Hint'
+import { GroupsIcon, MemberAddIcon } from '@/components/icons'
 
 // The groups under it always show a line (people and currency), so this one stays in every look too.
 const NEW_GROUP_HINT: Hint = { full: 'With everyone at this table', tier: 'key' }
@@ -68,7 +69,7 @@ export default function TableFinish({ table, totals, onClose }: { table: LiveTab
                   repo.updateTable(table.code, { claims: claimLeftoversForAll(table) }).catch((e) => toast(errText(e), 'err'))
                 }}
               >
-                <Users size={16} aria-hidden /> Split leftovers between everyone
+                <GroupsIcon size={16} aria-hidden /> Split leftovers between everyone
               </button>
             </div>
           )}
@@ -81,7 +82,9 @@ export default function TableFinish({ table, totals, onClose }: { table: LiveTab
                 className={`flex w-full items-center gap-3 rounded-2xl p-2 text-left ${target === NONE ? 'bg-brand-50 dark:bg-brand-900/30' : ''}`}
                 data-testid="finish-new-group"
               >
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-lg dark:bg-ink-800">➕</span>
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300">
+                  <GroupsIcon size={20} />
+                </span>
                 <span className="min-w-0 flex-1">
                   <span className="block font-semibold">New group</span>
                   <HintText hint={NEW_GROUP_HINT} as="span" className="block text-muted text-xs" />
@@ -232,14 +235,14 @@ function ToGroup({ table, group, ready }: { table: LiveTable; group: Group; read
                 aria-label={`Group member for ${table.participants[p].name}`}
                 options={[
                   ...members.map((m) => ({ value: m, label: labelOf(group.members, m) })),
-                  { value: NEW, label: 'Add as new member', icon: <span>➕</span> },
+                  { value: NEW, label: 'Add as new member', icon: <MemberAddIcon size={20} /> },
                 ]}
               />
             </div>
           </div>
         ))}
       </div>
-      {dupes.size > 0 && <p className="mt-2 text-xs text-amber-600">Two people point at the same member — their items will be combined.</p>}
+      {dupes.size > 0 && <p className="mt-2 text-xs text-amber-600">Two people point at the same member. Their items will be combined.</p>}
       <p className="mt-2 text-muted text-xs">
         {group.members[payer] ? labelOf(group.members, payer) : 'You'} paid {formatMoney(tableTotal(table), table.currency)}. Everyone else owes their share.
       </p>
@@ -307,17 +310,17 @@ function NoGroup({ table, ready }: { table: LiveTable; ready: boolean }) {
             <>
               Creates “{table.merchant}” with everyone here and{' '}
               {!table.extras.tip && taxSplitOf(table) === 'items'
-                ? 'adds this bill item by item, so you can fix who had what later.'
+                ? 'adds the bill item by item, so you can fix who had what later.'
                 : 'adds each person’s share exactly as shown here (tip and tax included).'}{' '}
               Friends join it with the invite link.
             </>
           ),
-          short: 'Makes a group with everyone here; they join with the invite link',
+          short: 'A group with everyone here. They join by invite link',
           tier: 'help',
         }}
       />
       <button type="button" className="btn-primary w-full" disabled={!ready || busy} onClick={createGroup} data-testid="create-table-group">
-        <Users size={18} aria-hidden /> Create group and add the bill
+        <GroupsIcon size={18} aria-hidden /> Create group and add the bill
       </button>
       {!ready && <p className="text-muted text-center text-xs">Claim or split the leftover items first.</p>}
       <button type="button" className="btn-ghost w-full" disabled={busy} onClick={() => closeWithoutGroup().catch((e) => toast(errText(e), 'err'))}>

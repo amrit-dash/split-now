@@ -44,8 +44,8 @@ function readPos(): ScrollPos {
   return Object.keys(rows).length ? { y: Math.round(window.scrollY), rows } : { y: Math.round(window.scrollY) }
 }
 
-function save(key: string, pos: ScrollPos) {
-  store = rememberScroll(store, key, pos)
+function save(key: string, pos: ScrollPos, path: string) {
+  store = rememberScroll(store, key, { ...pos, path })
   if (!persistTimer) persistTimer = setTimeout(persist, 300)
 }
 
@@ -115,7 +115,7 @@ export function useScrollMemory() {
       if (raf) return
       raf = requestAnimationFrame(() => {
         raf = 0
-        if (here.current && !restoring.current) save(here.current.key, readPos())
+        if (here.current && !restoring.current) save(here.current.key, readPos(), here.current.path)
       })
     }
     document.addEventListener('scroll', onScroll, { capture: true, passive: true })
@@ -138,15 +138,15 @@ export function useScrollMemory() {
     here.current = { key: loc.key, path }
     if (plan.kind === 'top') {
       jump(0)
-      save(loc.key, { y: 0 })
-    } else if (plan.kind === 'keep') save(loc.key, readPos())
+      save(loc.key, { y: 0 }, path)
+    } else if (plan.kind === 'keep') save(loc.key, readPos(), path)
     else {
       // Scrolls while it restores are its own (and the screen's content arriving), not the person's.
       let finished = false
       const cancel = restore(plan.pos, () => {
         finished = true
         restoring.current = null
-        save(loc.key, readPos())
+        save(loc.key, readPos(), path)
       })
       restoring.current = finished ? null : cancel
     }

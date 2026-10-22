@@ -1,9 +1,29 @@
 import { describe, expect, it } from 'vitest'
-import { boldParts, clampStep, guideLayout, type HelpShot, markBox, nextStep, plain, relatedOf, searchHelp, SHOT_ACCENTS, shotSrc, STORY_BEATS } from './help'
+import {
+  countedSections,
+  beatMs,
+  boldParts,
+  pickStory,
+  clampStep,
+  guideLayout,
+  type HelpShot,
+  markBox,
+  nextStep,
+  plain,
+  relatedOf,
+  searchHelp,
+  sectionsFor,
+  SHOT_ACCENTS,
+  shotSrc,
+  STORY_ANIM_MS,
+  STORY_BEATS,
+  stepMs,
+} from './help'
 import SHOTS from './help-shots.json'
 import { ACCENTS } from './accent'
 import { CHAPTERS, SECTIONS } from './help-content'
 import { baseOf, findMark, SCENE_MARKS, SCENES } from './help-scenes'
+import { isSceneGlyph, isUiIcon } from './ui-icons'
 
 describe('the guide’s content', () => {
   it('every section has a unique id, a known chapter, a title, a summary and something to read', () => {
@@ -64,6 +84,42 @@ describe('the guide’s content', () => {
   })
 })
 
+describe('Simple’s guide and Advanced’s', () => {
+  it('Advanced shows every section; Simple leaves out the ones for features it hides, in order', () => {
+    expect(sectionsFor('advanced', SECTIONS)).toEqual(SECTIONS)
+    const simple = sectionsFor('simple', SECTIONS)
+    expect(simple).toEqual(SECTIONS.filter((s) => !s.advanced))
+    expect(simple.some((s) => s.advanced)).toBe(false)
+    const hidden = SECTIONS.filter((s) => s.advanced).map((s) => s.id)
+    // docs/SIMPLE_MODE.md: Automation, approvals settings, merging, Money received, wallets, Animations, Admin
+    for (const id of ['auto-capture-setup', 'capture-keys', 'approvals', 'merge-people', 'money-received', 'personal-wallet', 'animations', 'admin-console'])
+      expect(hidden, id).toContain(id)
+    // What arrives for someone still shows in Simple, and so do the mode's own section and Earn Pro
+    for (const id of ['approve-expense', 'captured-payment', 'confirm-payment', 'private-groups', 'live-table', 'simple-advanced', 'earn-pro'])
+      expect(
+        simple.some((s) => s.id === id),
+        id,
+      ).toBe(true)
+  })
+  it('Simple’s front page has no empty chapter, and Earn Pro ends the guide', () => {
+    const g = guideLayout(CHAPTERS, sectionsFor('simple', SECTIONS))
+    expect(g.chapters.every((c) => c.sections.length > 0)).toBe(true)
+    expect(SECTIONS[SECTIONS.length - 1].id).toBe('earn-pro')
+  })
+  it('Simple’s Related links leave out the sections it hides', () => {
+    const simple = sectionsFor('simple', SECTIONS)
+    const add = simple.find((s) => s.id === 'add-expense')!
+    expect(relatedOf(add, simple).some((s) => s.id === 'money-received')).toBe(false)
+    expect(relatedOf(add, SECTIONS).some((s) => s.id === 'money-received')).toBe(true)
+  })
+  it('the guide has no dashes used as punctuation', () => {
+    for (const s of SECTIONS) {
+      const all = [s.title, s.summary, ...(s.steps ?? []).map((x) => x.text), ...(s.story?.beats ?? []), ...s.points].join(' ')
+      expect(all, s.id).not.toMatch(/[—–]| - /)
+    }
+  })
+})
+
 describe('the guide’s search', () => {
   it('finds by title first, then by summary and keywords, then by steps', () => {
     expect(searchHelp('settle', SECTIONS)[0].id).toBe('settle-up-upi')
@@ -108,15 +164,25 @@ describe('the step player and the front page', () => {
       'splits-add-up',
       'private-groups-explained',
       'auto-capture-explained',
+      'captured-explained',
+      'modes-explained',
+      'collect-explained',
     ])
     expect(g.core.length).toBe(10)
     const rest = g.chapters.flatMap((c) => c.sections)
-    expect(rest.some((s) => s.core || s.story)).toBe(false)
+    expect(rest.some((s) => s.core || (s.story && !s.inChapter))).toBe(false)
     expect(g.chapters.every((c) => c.sections.length > 0)).toBe(true)
     expect(g.stories.length + g.core.length + rest.length).toBe(SECTIONS.filter((s) => !s.unlisted).length)
     // Help about Help isn't on Help's own front page, but links and search still reach it
     expect(g.chapters.flatMap((c) => c.sections).some((s) => s.id === 'help-guide')).toBe(false)
     expect(searchHelp('What’s new', SECTIONS)[0].id).toBe('help-guide')
+  })
+  it('an explainer marked inChapter stays in its chapter: Earn Pro ends Insights and settings, not How it works', () => {
+    const g = guideLayout(CHAPTERS, SECTIONS)
+    expect(g.stories.some((s) => s.id === 'earn-pro')).toBe(false)
+    const account = g.chapters.find((c) => c.chapter.id === 'account')?.sections ?? []
+    expect(account[account.length - 1].id).toBe('earn-pro')
+    expect(SECTIONS.find((s) => s.id === 'earn-pro')?.story?.kind).toBe('pro')
   })
 })
 
@@ -199,5 +265,62 @@ describe('the screenshots', () => {
   it('a marker’s outline is the part with room around it, inside the picture', () => {
     expect(markBox({ step: 1, x: 0.5, y: 0.5, w: 0.2, h: 0.1 })).toEqual({ left: 38.8, top: 43.2, width: 22.4, height: 13.6 })
     expect(markBox({ step: 1, x: 0.05, y: 0.02, w: 0.1, h: 0.04 })).toEqual({ left: 0, top: 0, width: 11.2, height: 5.8 })
+  })
+})
+
+describe('icons in Help', () => {
+  it('every section names an interface icon, not an emoji', () => {
+    for (const s of SECTIONS) expect(isUiIcon(s.icon), s.id).toBe(true)
+  })
+  it('the scenes draw interface parts as icons: the tab bar, the + sheet’s tiles', () => {
+    for (const scene of Object.values(SCENES))
+      for (const screen of scene)
+        for (const part of screen.parts)
+          for (const it of part.items ?? []) {
+            if (it.glyph) expect(isSceneGlyph(it.glyph), it.glyph).toBe(true)
+            if (part.kind === 'tabbar' && it.label !== 'Create') expect(it.glyph, it.label).toBeTruthy()
+          }
+  })
+})
+
+describe('how long a step plays', () => {
+  it('grows with the words, between 3.2 s and 6 s, counting what is read (not the ** marks)', () => {
+    expect(stepMs('Tap **Save**.')).toBe(3200)
+    expect(stepMs('x'.repeat(40))).toBe(2400 + 45 * 40)
+    expect(stepMs('**x**'.repeat(10))).toBe(stepMs('x'.repeat(10)))
+    expect(stepMs('x'.repeat(200))).toBe(6000)
+  })
+  it('every step in the guide gets a time in that range', () => {
+    for (const s of SECTIONS) for (const st of s.steps ?? []) expect(stepMs(st.text)).toBeGreaterThanOrEqual(3200)
+  })
+  it('an explainer beat waits for its picture to finish, plus 1.2 s, and for its caption to be read', () => {
+    for (const kind of Object.keys(STORY_BEATS) as Array<keyof typeof STORY_BEATS>) {
+      expect(STORY_ANIM_MS[kind], kind).toHaveLength(STORY_BEATS[kind])
+      STORY_ANIM_MS[kind].forEach((ms, beat) => {
+        expect(beatMs(kind, beat, 'Hi')).toBe(Math.max(3200, ms + 1200))
+        expect(beatMs(kind, beat, 'x'.repeat(200))).toBe(Math.max(6000, ms + 1200))
+      })
+    }
+  })
+})
+
+describe('countedSections', () => {
+  it('counts what the guide lists, not unlisted sections', () => {
+    const ids = countedSections(SECTIONS)
+    expect(ids).not.toContain('help-guide')
+    expect(ids).toContain('add-expense')
+    expect(ids.length).toBe(SECTIONS.filter((s) => !s.unlisted).length)
+  })
+})
+
+describe('pickStory', () => {
+  const story = { kind: 'doors' as const, beats: ['a'], alt: { kind: 'jars' as const, beats: ['b'], chance: 0.2 } }
+  it('plays the main picture most visits and the alternative under its chance', () => {
+    expect(pickStory(story, () => 0.5).kind).toBe('doors')
+    expect(pickStory(story, () => 0.1)).toEqual({ kind: 'jars', beats: ['b'] })
+  })
+  it('always plays the main one when there is no alternative or the run is automated', () => {
+    expect(pickStory({ kind: 'pot', beats: ['x'] }, () => 0)).toEqual({ kind: 'pot', beats: ['x'] })
+    expect(pickStory(story, () => 0, true).kind).toBe('doors')
   })
 })

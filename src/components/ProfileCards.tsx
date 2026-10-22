@@ -1,19 +1,24 @@
 import { useEffect, useId, useState } from 'react'
-import { Camera, Check, ChevronDown, Loader2, RefreshCw } from 'lucide-react'
+import { Check, ChevronDown, Loader2 } from 'lucide-react'
+import { RefreshIcon, CameraIcon } from '@/components/icons'
 import { repo } from '@/data'
 import { AccountEmails } from '@/components/AccountEmails'
+import { useFeature } from '@/hooks/useMode'
 import { useMe } from '@/hooks/auth'
 import { errText } from '@/lib/errors'
 import { isSynced, loadSharedRates, ratesStatus, refreshRates, type RatesStatus } from '@/lib/fx'
 import { appLocale } from '@/lib/locale'
+import { usePro } from '@/hooks/usePro'
 import { Avatar } from './Avatar'
+import { ProPill, ProRing } from './ProBadge'
+import { badgeLabel } from '@/lib/pro'
 import { HintText, InfoTip, type Hint } from './Hint'
 import { useToast } from './Toast'
 
 // The card autosaves and says so once; noise after the first read.
 const AUTOSAVE_HINT: Hint = { full: 'Changes save by themselves.', tier: 'extra' }
 const SIGN_IN_HINT: Hint = {
-  full: 'No passwords: sign in with Google, or with a link we email you.',
+  full: 'No passwords: sign in with Google or a link we email you.',
   short: 'Google, or a link we email you.',
   tier: 'help',
 }
@@ -47,6 +52,9 @@ export function AccountCard({
 }) {
   const [open, setOpen] = useState(false)
   const bodyId = useId()
+  const signingIn = useFeature('signingIn')
+  // The badge (src/lib/pro.ts): the ring on the photo and the pill by the name, while it shows.
+  const pro = usePro().word
   const sub = email ?? (repo.mode === 'demo' ? 'Demo account (this device only)' : phone || '')
   return (
     <div className="card overflow-hidden">
@@ -58,12 +66,18 @@ export function AccountCard({
           aria-label="Change profile photo"
           data-testid="profile-photo"
         >
-          <Avatar name={name || '?'} photoURL={photoURL} color="accent" size={60} />
+          {pro ? (
+            <ProRing photo={60} word={pro}>
+              <Avatar name={name || '?'} photoURL={photoURL} color="accent" size={60} />
+            </ProRing>
+          ) : (
+            <Avatar name={name || '?'} photoURL={photoURL} color="accent" size={60} />
+          )}
           <span
             className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-white text-slate-600 shadow ring-1 ring-slate-200 dark:bg-ink-800 dark:text-slate-300 dark:ring-ink-700"
             aria-hidden
           >
-            <Camera size={13} />
+            <CameraIcon size={13} />
           </span>
         </button>
         <button
@@ -75,7 +89,16 @@ export function AccountCard({
           data-testid="account-toggle"
         >
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-xl font-bold">{name || 'Your name'}</span>
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="truncate text-xl font-bold">{name || 'Your name'}</span>
+              {pro && (
+                // Your own badge: just the mark, nothing to tap.
+                <span className="flex shrink-0 items-center" data-testid="profile-pro">
+                  <ProPill h={12} word={pro} />
+                  <span className="sr-only">{badgeLabel(pro, false)}</span>
+                </span>
+              )}
+            </span>
             <span className="text-muted block truncate text-sm">{sub}</span>
           </span>
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-ink-800 dark:text-slate-400">
@@ -109,7 +132,8 @@ export function AccountCard({
             {phoneHint && <div className="mt-2">{phoneHint}</div>}
           </div>
           <AccountEmails email={email} />
-          {repo.mode === 'firebase' && <SignInMethods />}
+          {/* Simple leaves Signing in out (docs/SIMPLE_MODE.md); the email link always works. */}
+          {repo.mode === 'firebase' && signingIn && <SignInMethods />}
           <HintText hint={AUTOSAVE_HINT} />
         </div>
       )}
@@ -188,7 +212,8 @@ function linkError(e: unknown): string {
  * publication, slate = not synced). Refreshing updates the shared rates
  * for everyone (or this device's copy in demo mode).
  */
-export function RatesField({ base, hint, children }: { base: string; hint?: Hint; children: React.ReactNode }) {
+/** `refresh={false}` (Simple mode): just the picker; rates still load when a screen needs them. */
+export function RatesField({ base, hint, refresh: showRefresh = true, children }: { base: string; hint?: Hint; refresh?: boolean; children: React.ReactNode }) {
   const toast = useToast()
   const [status, setStatus] = useState<RatesStatus | null>(() => ratesStatus(base))
   const [busy, setBusy] = useState(false)
@@ -231,23 +256,27 @@ export function RatesField({ base, hint, children }: { base: string; hint?: Hint
       </div>
       <div className="flex items-center gap-2">
         <div className="min-w-0 flex-1">{children}</div>
-        <button
-          type="button"
-          onClick={refresh}
-          disabled={busy}
-          aria-label={label}
-          title={label}
-          data-testid="rates-button"
-          className="relative flex h-12 shrink-0 items-center gap-1.5 rounded-2xl bg-brand-50 px-3.5 text-sm font-semibold text-brand-700 ring-1 ring-brand-500/30 transition active:scale-95 disabled:opacity-70 dark:bg-brand-500/10 dark:text-brand-200 dark:ring-brand-400/30"
-        >
-          <RefreshCw size={16} className={busy ? 'animate-spin' : ''} aria-hidden />
-          Refresh
-        </button>
+        {showRefresh && (
+          <button
+            type="button"
+            onClick={refresh}
+            disabled={busy}
+            aria-label={label}
+            title={label}
+            data-testid="rates-button"
+            className="relative flex h-12 shrink-0 items-center gap-1.5 rounded-2xl bg-brand-50 px-3.5 text-sm font-semibold text-brand-700 ring-1 ring-brand-500/30 transition active:scale-95 disabled:opacity-70 dark:bg-brand-500/10 dark:text-brand-200 dark:ring-brand-400/30"
+          >
+            <RefreshIcon size={16} className={busy ? 'animate-spin' : ''} aria-hidden />
+            Refresh
+          </button>
+        )}
       </div>
-      <p className="text-muted mt-1.5 flex items-center gap-1.5 text-xs" data-testid="rates-status">
-        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${synced ? 'bg-emerald-500' : 'bg-slate-400'}`} aria-hidden />
-        {status ? `${synced ? 'Rates synced' : 'Rates not synced'} · ${ratesDetails(status)}` : 'Rates not loaded yet'}
-      </p>
+      {showRefresh && (
+        <p className="text-muted mt-1.5 flex items-center gap-1.5 text-xs" data-testid="rates-status">
+          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${synced ? 'bg-emerald-500' : 'bg-slate-400'}`} aria-hidden />
+          {status ? `${synced ? 'Rates synced' : 'Rates not synced'} · ${ratesDetails(status)}` : 'Rates not loaded yet'}
+        </p>
+      )}
       {hint && <HintText hint={hint} className="text-muted mt-2 text-xs" />}
     </div>
   )

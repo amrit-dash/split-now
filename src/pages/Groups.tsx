@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Eye, EyeOff, FileUp, Lock, LockOpen, Plus, Trash2 } from 'lucide-react'
+import { AddIcon, EyeIcon, EyeSlashIcon, FileUploadIcon, LockIcon, LockOpenIcon, TrashIcon } from '@/components/icons'
 import { useAllGroupData, useDeletedGroups } from '@/hooks/data'
 import { usePrivateGroups } from '@/hooks/usePrivateGroups'
 import { useVaultVersion } from '@/hooks/useVault'
@@ -20,11 +20,14 @@ import { daysLeft } from '../../shared/group-trash'
 import { EmptyGroups, FirstRun, Section } from './Home'
 import { labelForUid, memberIdOfUid } from '@/lib/shortNames'
 import { settledAWhile, showSettledStored, storeShowSettled } from '@/lib/settled-groups'
+import { useFeature } from '@/hooks/useMode'
 
 export default function Groups() {
   usePageTitle('Groups')
   const data = useAllGroupData()
   const deleted = useDeletedGroups()
+  const showWallets = useFeature('wallets')
+  const showImport = useFeature('importGroup')
   const [showSettled, setShowSettledState] = useState(showSettledStored)
   const setShowSettled = (on: boolean) => {
     setShowSettledState(on)
@@ -57,7 +60,7 @@ export default function Groups() {
               className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200"
               data-testid="groups-vault"
             >
-              <LockOpen size={20} aria-hidden />
+              <LockOpenIcon size={20} aria-hidden />
             </button>
           )}
           {vaultButton === 'unlock' && (
@@ -67,7 +70,7 @@ export default function Groups() {
               className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-200/70 dark:bg-ink-800"
               testId="groups-vault"
             >
-              <Lock size={20} aria-hidden />
+              <LockIcon size={20} aria-hidden />
             </PatternLock>
           )}
           {quiet.length > 0 && (
@@ -80,23 +83,25 @@ export default function Groups() {
               className={`flex h-11 w-11 items-center justify-center rounded-full ${showSettled ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200' : 'bg-slate-200/70 dark:bg-ink-800'}`}
               data-testid="groups-show-settled"
             >
-              {showSettled ? <Eye size={20} aria-hidden /> : <EyeOff size={20} aria-hidden />}
+              {showSettled ? <EyeIcon size={20} aria-hidden /> : <EyeSlashIcon size={20} aria-hidden />}
             </button>
           )}
-          <Link
-            to="/groups/import"
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-200/70 dark:bg-ink-800"
-            aria-label="Import from Splitwise"
-          >
-            <FileUp size={20} aria-hidden />
-          </Link>
+          {showImport && (
+            <Link
+              to="/groups/import"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-200/70 dark:bg-ink-800"
+              aria-label="Import from Splitwise"
+            >
+              <FileUploadIcon size={20} aria-hidden />
+            </Link>
+          )}
+          {/* A labelled secondary chip, not a filled round +: that read as a second copy of the tab bar's + button. */}
           <Link
             to="/groups/new"
-            className="accent-live flex h-11 w-11 items-center justify-center rounded-full bg-fill text-on-fill"
-            aria-label="New group"
+            className="flex h-11 shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-brand-100 pl-2.5 pr-3.5 text-sm font-bold text-brand-700 dark:bg-brand-900/40 dark:text-brand-200"
             data-testid="groups-new"
           >
-            <Plus size={20} aria-hidden />
+            <AddIcon size={18} aria-hidden /> New group
           </Link>
         </div>
       }
@@ -142,23 +147,26 @@ export default function Groups() {
           className="text-muted mt-3 flex min-h-11 w-full items-center justify-center gap-2 text-sm"
           data-testid="groups-settled-hint"
         >
-          <EyeOff size={16} aria-hidden /> {hidden.size} settled {hidden.size === 1 ? 'group' : 'groups'} hidden · Show
+          <EyeSlashIcon size={16} aria-hidden /> {hidden.size} settled {hidden.size === 1 ? 'group' : 'groups'} hidden · Show
         </button>
       )}
-      <Section title="Personal">
-        {personal.length ? (
-          <>
-            {list(personal)}
-            <Link to="/groups/new?type=personal" className="text-muted mt-2 flex min-h-11 items-center gap-2 px-1 text-sm" data-testid="wallet-new">
-              <Plus size={18} aria-hidden /> New wallet, e.g. Fuel or Groceries
+      {/* Simple has no personal wallets (docs/SIMPLE_MODE.md); they stay, out of sight. */}
+      {showWallets && (
+        <Section title="Personal">
+          {personal.length ? (
+            <>
+              {list(personal)}
+              <Link to="/groups/new?type=personal" className="text-muted mt-2 flex min-h-11 items-center gap-2 px-1 text-sm" data-testid="wallet-new">
+                <AddIcon size={18} aria-hidden /> New wallet, e.g. Fuel or Groceries
+              </Link>
+            </>
+          ) : (
+            <Link to="/groups/new?type=personal" className="card text-muted flex min-h-14 items-center gap-2 px-4 py-3 text-sm">
+              <AddIcon size={18} aria-hidden /> Track your own spending in a personal wallet
             </Link>
-          </>
-        ) : (
-          <Link to="/groups/new?type=personal" className="card text-muted flex min-h-14 items-center gap-2 px-4 py-3 text-sm">
-            <Plus size={18} aria-hidden /> Track your own spending in a personal wallet
-          </Link>
-        )}
-      </Section>
+          )}
+        </Section>
+      )}
       {archived.length > 0 && (
         <Collapsible
           title="Archived"
@@ -216,7 +224,7 @@ function RecentlyDeletedGroups({ groups }: { groups: Group[] }) {
                     Deleted by {by} · {left <= 1 ? 'last day to restore' : `${left} days left to restore`}
                   </span>
                 </span>
-                <Trash2 size={16} className="text-muted shrink-0" aria-hidden />
+                <TrashIcon size={16} className="text-muted shrink-0" aria-hidden />
               </Link>
             </li>
           )

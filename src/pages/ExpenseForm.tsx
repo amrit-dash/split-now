@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { usePickableGroups } from '@/hooks/useVault'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ReceiptText, Users, Wallet, X } from 'lucide-react'
+import { X } from 'lucide-react'
+import { GroupsIcon, ReceiptIcon, WalletIcon } from '@/components/icons'
 import { useBack } from '@/hooks/useBack'
 import { useMe } from '@/hooks/auth'
 import { memberOrder, myMemberId, useCaptures, useExpenses, useGroup, useOpenItems } from '@/hooks/data'
@@ -17,8 +18,8 @@ import { CardSkeleton } from '@/components/Skeleton'
 import { ExpenseEditor } from '@/features/expense-form/ExpenseEditor'
 
 const SPLIT_HINT: Hint = {
-  full: 'Out to eat? Scan the bill and everyone taps what they had, no group needed.',
-  short: 'Everyone taps what they had, no group needed',
+  full: 'Out to eat? Scan the bill and everyone taps what they had. No group needed.',
+  short: 'Everyone taps what they had',
   tier: 'help',
 }
 
@@ -118,14 +119,14 @@ export default function ExpenseForm() {
   if (group === null && editGroupId)
     return (
       <div className="mx-auto max-w-lg px-4 pt-[calc(var(--safe-top)+2rem)]">
-        <Empty emoji="🔍" title="This group doesn’t exist or you’re not a member" />
+        <Empty icon="search" title="This group doesn’t exist or you’re not a member" />
       </div>
     )
   if (!group) return <FormSkeleton />
   if (expenseId && !existing)
     return (
       <div className="mx-auto max-w-lg px-4 pt-[calc(var(--safe-top)+2rem)]">
-        <Empty emoji="🔍" title="Expense not found" />
+        <Empty icon="search" title="Expense not found" />
       </div>
     )
 
@@ -179,18 +180,18 @@ function NoGroups() {
       >
         <X size={24} aria-hidden />
       </button>
-      <Empty emoji="👀" title="Create a group first">
+      <Empty icon="users" title="Create a group first">
         Expenses live inside a group, a 1:1 friend, or your personal wallet.
         <div className="mt-4 flex justify-center gap-2">
           <button type="button" className="btn-primary" onClick={() => nav('/groups/new?next=add')}>
-            <Users size={18} aria-hidden /> New group
+            <GroupsIcon size={18} aria-hidden /> New group
           </button>
           <button type="button" className="btn-secondary" onClick={() => nav('/groups/new?type=personal&next=add')}>
-            <Wallet size={18} aria-hidden /> Personal
+            <WalletIcon size={18} aria-hidden /> Personal
           </button>
         </div>
         <button type="button" className="btn-secondary mx-auto mt-2 flex" onClick={() => nav('/split', { replace: true })} data-testid="nogroups-split">
-          <ReceiptText size={18} aria-hidden /> Split a bill by items
+          <ReceiptIcon size={18} aria-hidden /> Split a bill by items
         </button>
         <HintText hint={SPLIT_HINT} className="mt-2 text-xs text-muted" />
       </Empty>

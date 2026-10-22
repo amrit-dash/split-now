@@ -1,5 +1,5 @@
 import { lazy, Suspense, useId } from 'react'
-import { Sparkles } from 'lucide-react'
+import { BotIcon } from '@/components/icons'
 import type { Group } from '@/types'
 import { type Hint, HintText, InfoTip } from './Hint'
 
@@ -26,7 +26,7 @@ export function QuickAddCard({
   const id = useId()
   const hint: Hint = groups.length
     ? { full: 'Type or say it, then check the form', tier: 'help' }
-    : { full: 'Say who it’s with, and we’ll set up the group for you to check', short: 'Say who it’s with; we set up the group', tier: 'help' }
+    : { full: 'Say who it’s with and we set up the group for you to check', short: 'Say who it’s with', tier: 'help' }
   return (
     <section aria-labelledby={id} className={`rounded-3xl bg-slate-50 p-3.5 ring-1 ring-slate-900/5 dark:bg-ink-800 dark:ring-white/5 ${className}`}>
       <div className="mb-3 flex items-center gap-3">
@@ -34,7 +34,7 @@ export function QuickAddCard({
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300"
           aria-hidden
         >
-          <Sparkles size={20} />
+          <BotIcon size={22} />
         </span>
         <span className="min-w-0">
           <span className="flex items-center">

@@ -22,6 +22,6 @@ export function syncNotice(o: { pending: number; online: boolean; waitedMs: numb
 
 export function syncText(n: Exclude<SyncNotice, null>): string {
   if (n.kind === 'saving') return n.pending === 1 ? 'Saving your change…' : `Saving ${n.pending} changes…`
-  if (n.pending === 0) return 'Offline — changes will sync when you’re back'
-  return `Offline — ${n.pending === 1 ? '1 change is' : `${n.pending} changes are`} saved on this phone and will sync when you’re back`
+  if (n.pending === 0) return 'Offline. Changes sync when you’re back'
+  return `Offline. ${n.pending === 1 ? '1 change is' : `${n.pending} changes are`} saved on this phone and will sync when you’re back`
 }

@@ -6,10 +6,16 @@
 import { expect, test as base, type Page } from '@playwright/test'
 
 /** Every test starts signed in to demo mode, and fails if the page threw an uncaught error. */
-const test = base.extend<{ page: Page; fixedRates: boolean }>({
+const test = base.extend<{ page: Page; fixedRates: boolean; mode: 'simple' | 'advanced' }>({
   // A fixed ECB rate (83.6 INR per USD) from the first request on, so no live rate gets cached first.
   fixedRates: [false, { option: true }],
-  page: async ({ page, fixedRates }, use) => {
+  // The tests below were written for the whole app, so they start in Advanced; Simple's own tests
+  // say test.use({ mode: 'simple' }). Set once: a test that switches the mode keeps its switch.
+  mode: ['advanced', { option: true }],
+  page: async ({ page, fixedRates, mode }, use) => {
+    await page.addInitScript((m) => {
+      if (localStorage.getItem('splitnow-mode') === null) localStorage.setItem('splitnow-mode', m)
+    }, mode)
     const errors: string[] = []
     page.on('pageerror', (e) => errors.push(e.message))
     if (fixedRates)
@@ -59,10 +65,18 @@ test('demo sign-in shows Home with a net balance and the seeded groups', async (
 
 test('every tab renders a page heading', async ({ page }) => {
   const nav = page.getByRole('navigation')
-  for (const tab of ['Groups', 'Insights', 'Profile', 'Home']) {
+  for (const tab of ['Groups', 'Profile', 'Home']) {
     await nav.getByRole('link', { name: tab }).click()
     await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
   }
+  // Insights moved to Profile; Live table has its slot in the bar
+  await nav.getByRole('link', { name: 'Profile' }).click()
+  await page.getByTestId('profile-insights').click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Insights' })).toBeVisible()
+  await page.getByRole('button', { name: 'Back' }).click()
+  await expect(page).toHaveURL(/\/profile$/)
+  await nav.getByRole('link', { name: 'Live table' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Live table' })).toBeVisible()
 })
 
 test('create a group through the kind selector', async ({ page }) => {
@@ -133,8 +147,8 @@ test('Private group: universal pattern, words stored encrypted, patterns go in o
   await expect(page.getByRole('heading', { level: 1, name: /Vault trip/ })).toBeVisible()
   await expect(page.getByTestId('vault-lock')).toBeHidden()
   // In the app from here on (a reload forgets the keys, which locks every private group: that's the point).
+  // inside the group, + adds an expense to it straight away
   await page.getByTestId('nav-create').click()
-  await page.getByRole('dialog').getByTestId('create-expense').click()
   await page.getByRole('textbox', { name: 'Description', exact: true }).fill('Secret dinner')
   await amountField(page).fill('900')
   await page.getByTestId('expense-save').click()
@@ -262,11 +276,19 @@ test('Private group: its creator makes an existing group private, everything in 
 })
 
 test('the + button opens the Create sheet; Add expense saves an equal split', async ({ page }) => {
-  await page.goto('/groups/g_goa')
   await page.getByTestId('nav-create').click()
   const sheet = page.getByRole('dialog')
   await expect(sheet).toBeVisible()
-  await sheet.getByTestId('create-expense').click()
+  // Quick add first, then Add expense, New group and Scan; no Settle up or Live table tiles
+  await expect(sheet.getByTestId('create-split')).toHaveCount(0)
+  await expect(sheet.getByTestId('create-settle')).toHaveCount(0)
+  await expect(sheet.getByTestId('create-group')).toBeVisible()
+  await expect(sheet.getByTestId('create-scan')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(sheet).toBeHidden()
+  // inside a group, a tap on + goes straight to Add expense for it, no sheet
+  await page.goto('/groups/g_goa')
+  await page.getByTestId('nav-create').click()
   await expect(page).toHaveURL(/\/add\?group=g_goa/)
   await expect(page.getByText('Goa Trip', { exact: true })).toBeVisible()
   await page.getByRole('textbox', { name: 'Description', exact: true }).fill('Dinner at Bob’s Bar')
@@ -306,7 +328,8 @@ test('Money received: shared like an expense, shown as received, and the receive
 
 test('Quick add in the Create sheet: a group named in the line wins, and opens the form filled in', async ({ page }) => {
   await page.goto('/groups/g_goa')
-  await page.getByTestId('nav-create').click()
+  // inside a group a tap adds an expense; press and hold (here a right click) opens the sheet
+  await page.getByTestId('nav-create').click({ button: 'right' })
   const quick = page.getByRole('dialog').getByTestId('create-quick-add')
   // Not focused on open: the keyboard would cover the tiles.
   await expect(quick.getByRole('textbox', { name: 'Quick add' })).not.toBeFocused()
@@ -333,7 +356,8 @@ test('Quick add can start a new group, then lands on the form with the line', as
 
 test('Quick add composer: outlined field, group chip, 44px mic and send; "New group" brings the named people along', async ({ page }) => {
   await page.goto('/groups/g_goa')
-  await page.getByTestId('nav-create').click()
+  // inside a group a tap adds an expense; press and hold (here a right click) opens the sheet
+  await page.getByTestId('nav-create').click({ button: 'right' })
   const quick = page.getByRole('dialog').getByTestId('create-quick-add')
   const field = quick.getByRole('textbox', { name: 'Quick add' })
   const go = quick.getByTestId('create-quick-add-go')
@@ -383,9 +407,65 @@ test('scan page loads', async ({ page }) => {
   await expect(page.getByRole('button', { name: /camera/i })).toBeVisible()
 })
 
+test('Scan: every kind has Camera and Photos; Read with AI is a corner button on Bill and Statement, not Payment', async ({ page }) => {
+  await page.goto('/scan')
+  const kinds = page.getByTestId('scan-mode')
+  await expect(page.getByTestId('scan-camera')).toBeVisible()
+  await expect(page.getByTestId('scan-photos')).toBeVisible()
+  // demo mode can't read with AI: the button stays, unpressed, and a tap says why
+  const ai = page.getByTestId('scan-ai')
+  await expect(ai).toHaveAttribute('aria-pressed', 'false')
+  await expect(ai).toHaveAccessibleName(/Read with AI/)
+  await ai.click()
+  await expect(page.getByText('AI reading isn’t part of the demo. Bills are read on this phone.')).toBeVisible()
+  // payment screenshots are read on the phone only
+  await kinds.getByRole('radio', { name: 'Payment' }).click()
+  await expect(page.getByTestId('scan-camera')).toBeVisible()
+  await expect(page.getByTestId('scan-ai')).toHaveCount(0)
+  await kinds.getByRole('radio', { name: 'Statement' }).click()
+  await expect(page.getByTestId('statement-start')).toBeVisible()
+  await expect(page.getByTestId('scan-camera')).toBeVisible()
+  await expect(page.getByTestId('statement-pick')).toBeVisible()
+  await expect(page.getByTestId('scan-ai')).toBeVisible()
+})
+
 test('settings page loads', async ({ page }) => {
   await page.goto('/settings')
   await expect(page.getByRole('heading', { level: 1, name: /settings/i })).toBeVisible()
+})
+
+test('Preferences → Icons: Filled turns the tab bar icons solid, Outline brings the lines back, and it is kept after a reload', async ({ page }) => {
+  await page.goto('/')
+  const nav = page.getByRole('navigation', { name: 'Main' })
+  const groupsIcon = nav.getByRole('link', { name: 'Groups' }).locator('svg')
+  // Outline by default; the current tab (Home) is two-tone in Outline (its line plus a soft fill).
+  await expect(nav).toHaveAttribute('data-icon-style', 'outline')
+  await expect(groupsIcon).toHaveAttribute('data-variant', 'line')
+  const homeIcon = nav.getByRole('link', { name: 'Home' }).locator('svg')
+  await expect(homeIcon).toHaveAttribute('data-variant', 'line')
+  await expect(homeIcon).toHaveAttribute('data-duo', 'true')
+  await expect(homeIcon.locator('.icon-duo')).toBeVisible()
+  await expect(groupsIcon.locator('.icon-duo')).toBeHidden()
+  await page.goto('/settings/preferences')
+  const icons = page.getByTestId('icon-style')
+  await icons.getByRole('radio', { name: 'Filled' }).click()
+  await expect(icons.getByRole('radio', { name: 'Filled' })).toHaveAttribute('aria-checked', 'true')
+  await expect(page.locator('html')).toHaveAttribute('data-icon-style', 'filled')
+  await page.goto('/')
+  await expect(nav).toHaveAttribute('data-icon-style', 'filled')
+  await expect(groupsIcon).toHaveAttribute('data-variant', 'solid')
+  await page.reload()
+  await expect(groupsIcon).toHaveAttribute('data-variant', 'solid')
+  await page.goto('/settings/preferences')
+  // Help's pictures follow the style too (Solar bold duotone in Filled).
+  await page.goto('/help')
+  await expect(page.getByTestId('help-core-card').first().locator('svg[data-variant="solid"] path').first()).toBeAttached()
+  await page.goto('/settings/preferences')
+  await page.getByTestId('icon-style').getByRole('radio', { name: 'Outline' }).click()
+  await page.goto('/')
+  await expect(groupsIcon).toHaveAttribute('data-variant', 'line')
+  await page.goto('/help')
+  await expect(page.getByTestId('help-core-card').first().locator('svg[data-variant="line"] path').first()).toBeAttached()
 })
 
 test('Animations: turning them all off stills the preview and the accent buttons, and is kept after a reload', async ({ page }) => {
@@ -612,8 +692,11 @@ test('Back goes where you came from: Edit group → Manage members → Back retu
   await expect(page).toHaveURL(/\/groups\/g_goa\/edit$/)
   await page.getByTestId('group-manage-members').click()
   await expect(page).toHaveURL(/\/groups\/g_goa\/members$/)
+  // The URL changes before the lazy screen draws: wait for its heading, so Back is the new screen's, not Edit group's.
+  await expect(page.getByRole('heading', { level: 1, name: 'Members' })).toBeVisible()
   await page.getByRole('button', { name: 'Back' }).click()
   await expect(page).toHaveURL(/\/groups\/g_goa\/edit$/)
+  await expect(page.getByRole('heading', { level: 1, name: 'Edit group' })).toBeVisible()
   await page.getByRole('button', { name: 'Back' }).click()
   await expect(page).toHaveURL(/\/groups\/g_goa$/)
 })
@@ -749,8 +832,8 @@ test.describe('Collect in my currency', () => {
 
   test('Collect in my currency: Balances folds dollars into ≈ rupees; Settle up converts with the 4% rule', async ({ page }) => {
     await usdTripWithRates(page)
+    // On for everyone by default (src/lib/collect.ts collectsInHome).
     await page.goto('/settings/preferences')
-    await page.getByTestId('collect-home').click()
     await expect(page.getByTestId('collect-home')).toHaveAttribute('aria-checked', 'true')
 
     // Balances: Rohan's rupees (Goa) and dollars (NYC) are one ≈ ₹ balance across 2 groups.
@@ -1184,21 +1267,44 @@ test('group chat: / lists the tools, @ tags someone, Settle up asks, reply and e
 
 test('group list: sort by amount or date added, filter expenses only', async ({ page }) => {
   await page.goto('/groups/g_goa')
+  // no pills until something is on
+  await expect(page.getByTestId('list-pills')).toHaveCount(0)
   await page.getByTestId('list-options-open').click()
+  // Sort by starts folded, its choice in the header
+  await expect(page.getByTestId('list-sort-summary')).toHaveText('Date spent, newest first')
+  await page
+    .getByTestId('list-sort')
+    .getByRole('button', { name: /Sort by/ })
+    .click()
   await page.getByTestId('sort-amount-desc').click()
+  await expect(page.getByTestId('list-sort-summary')).toHaveText('Amount, biggest first')
   await page.getByTestId('list-done').click()
   await expect(page.getByRole('heading', { level: 2, name: 'Biggest first' })).toBeVisible()
   await expect(page.getByTestId('list-options-open')).toHaveAccessibleName(/1 on/)
+  await expect(page.getByTestId('list-pill')).toHaveText(['Biggest first'])
   await page.getByTestId('list-options-open').click()
+  await page
+    .getByTestId('list-sort')
+    .getByRole('button', { name: /Sort by/ })
+    .click()
   await page.getByTestId('sort-added-desc').click()
   await page.getByTestId('list-kind').getByRole('radio', { name: 'Expenses' }).click()
+  // Quick filters: one sideways row of chips
+  await page.getByTestId('quick-me').click()
+  await expect(page.getByTestId('quick-me')).toHaveAttribute('aria-pressed', 'true')
   await page.getByTestId('list-done').click()
   await expect(page.getByTestId('payment-row')).toHaveCount(0)
   await expect(page.getByRole('heading', { level: 2, name: /^Added in/ }).first()).toBeVisible()
   await expect(page.getByTestId('row-added').first()).toContainText('Added')
+  await expect(page.getByTestId('list-pill')).toHaveText(['Newest added first', 'Involving me', 'Expenses only'])
+  await expect(page.getByTestId('list-options-open')).toHaveAccessibleName(/3 on/)
+  // a pill's tap turns just that off
+  await page.getByTestId('list-pill').filter({ hasText: 'Expenses only' }).click()
+  await expect(page.getByTestId('list-pill')).toHaveText(['Newest added first', 'Involving me'])
   await page.getByTestId('list-options-open').click()
   await page.getByTestId('list-reset').click()
   await page.getByTestId('list-done').click()
+  await expect(page.getByTestId('list-pills')).toHaveCount(0)
   await expect(page.getByTestId('expense-row').first()).toBeVisible()
 })
 
@@ -1245,7 +1351,8 @@ test('chat: the Open item tool has the icon button and every icon', async ({ pag
 
 test('Quick add: "who paid?" opens the open item sheet in the group, filled in; Rahul-style guesses become “might have paid”', async ({ page }) => {
   await page.goto('/groups/g_goa')
-  await page.getByTestId('nav-create').click()
+  // inside a group a tap adds an expense; press and hold (here a right click) opens the sheet
+  await page.getByTestId('nav-create').click({ button: 'right' })
   const quick = page.getByRole('dialog').getByTestId('create-quick-add')
   await quick.getByRole('textbox', { name: 'Quick add' }).fill('lunch Oct 2 Cafe Blue, maybe Priya paid')
   await quick.getByTestId('create-quick-add-go').click()
@@ -1750,7 +1857,7 @@ test('help: a section that isn’t a main feature plays its own steps too', asyn
 
 test('help: How it works opens an explainer whose picture follows the caption', async ({ page }) => {
   await page.goto('/help')
-  await expect(page.getByTestId('help-story-card')).toHaveCount(6)
+  await expect(page.getByTestId('help-story-card')).toHaveCount(9)
   await page.getByTestId('help-story-card').first().click()
   await expect(page).toHaveURL(/\/help\/how-it-works$/)
   await expect(page.getByTestId('help-story')).toBeVisible()
@@ -1769,7 +1876,8 @@ test('help: What’s new lists this version first and links each line to the gui
   // the newest release says so
   await expect(releases.first().getByTestId('release-latest')).toHaveText('Latest')
   await expect(page.getByTestId('release-latest')).toHaveCount(1)
-  expect(await releases.count()).toBeGreaterThan(5)
+  // A new major starts its own list (src/lib/whats-new.ts releasesFor): at least this version.
+  expect(await releases.count()).toBeGreaterThanOrEqual(1)
   await releases.first().getByTestId('release-item').first().click()
   await expect(page).toHaveURL(/\/help\/[a-z-]+$/)
   await expect(page.getByTestId('help-section')).toBeVisible()
@@ -1791,7 +1899,7 @@ test('help: after an update, Home says so once, and What’s new opens it', asyn
   await expect(page.getByTestId('whats-new-banner')).toHaveCount(0)
 })
 
-test('What’s new rises above the tab bar a moment after Home loads, and a sideways swipe closes it for good', async ({ page }) => {
+test('What’s new rises above the tab bar a moment after the screen loads, and a sideways swipe closes it for good', async ({ page }) => {
   await page.evaluate(() => {
     localStorage.setItem('splitnow:whats-new-banner', '8.0.0')
     localStorage.setItem('splitnow:whats-new-seen', '8.0.0')
@@ -1808,23 +1916,62 @@ test('What’s new rises above the tab bar a moment after Home loads, and a side
   const box = await banner.boundingBox()
   const vh = page.viewportSize()?.height ?? 0
   expect(box && box.y > vh / 2).toBe(true)
-  // a short drag springs back; a long one closes it
-  const y = (box?.y ?? 0) + (box?.height ?? 0) / 2
-  const x = (box?.x ?? 0) + 40
-  await page.mouse.move(x, y)
-  await page.mouse.down()
-  await page.mouse.move(x + 30, y, { steps: 5 })
-  await page.mouse.up()
+  // a short, slow drag springs back; a long one closes it. Both start on the words (not the icon
+  // or a button), move in small steps with a pause between them so the release speed is what a
+  // finger would give (a quick 30px jump reads as a flick), and wait for the card to settle.
+  const words = await banner.getByText('Updated', { exact: true }).boundingBox()
+  const width = box?.width ?? 320
+  const y = (words?.y ?? 0) + (words?.height ?? 0) / 2
+  const x = (words?.x ?? 0) + 4
+  const drag = async (to: number, steps: number) => {
+    await page.mouse.move(x, y)
+    await page.mouse.down()
+    for (let i = 1; i <= steps; i++) {
+      await page.mouse.move(x + (to * i) / steps, y)
+      await page.waitForTimeout(16)
+    }
+    await page.mouse.up()
+  }
+  await drag(30, 10)
+  await page.waitForTimeout(300)
   await expect(banner).toBeVisible()
-  await page.mouse.move(x, y)
-  await page.mouse.down()
-  await page.mouse.move(x + 260, y, { steps: 10 })
-  await page.mouse.up()
+  await expect.poll(() => banner.evaluate((el) => (el.firstElementChild as HTMLElement).style.transform || 'none')).toBe('none')
+  // well past the share of its width that closes it
+  await drag(Math.round(width * 0.6), 20)
   await expect(banner).toHaveCount(0)
   // nothing was tapped on the way (What's new stayed shut), and it stays closed
   await expect(page).toHaveURL(/\/$/)
   await page.reload()
   await expect(page.getByTestId('home-greeting')).toBeVisible()
+  await page.waitForTimeout(1500)
+  await expect(banner).toHaveCount(0)
+})
+
+test('after an update from Profile, What’s new shows on Profile, and waits on a full-screen form', async ({ page }) => {
+  await page.evaluate(() => {
+    localStorage.setItem('splitnow:whats-new-banner', '8.0.0')
+    localStorage.setItem('splitnow:whats-new-seen', '8.0.0')
+  })
+  // Updating from Profile reloads on Profile: the banner comes to it, not only to Home.
+  await page.goto('/profile')
+  const banner = page.getByTestId('whats-new-banner')
+  await expect(banner).toBeVisible()
+  await banner.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)))
+  const box = await banner.boundingBox()
+  const nav = await page.getByRole('navigation', { name: 'Main' }).boundingBox()
+  // in the floating lane: above the tab bar, never under it
+  expect(box && nav && box.y + box.height <= nav.y + 1).toBe(true)
+  // a full-screen form (Add expense) has no room for it: it waits there
+  await page.goto('/add?group=g_goa')
+  await expect(page.getByTestId('expense-save')).toBeVisible()
+  await page.waitForTimeout(1500)
+  await expect(banner).toHaveCount(0)
+  // and shows again once back on a screen with the tab bar; ✕ closes it for good
+  await page.goto('/groups')
+  await expect(banner).toBeVisible()
+  await page.getByTestId('whats-new-close').click()
+  await expect(banner).toHaveCount(0)
+  await page.reload()
   await page.waitForTimeout(1500)
   await expect(banner).toHaveCount(0)
 })
@@ -1846,6 +1993,21 @@ test('a toast can be swiped away sideways', async ({ page }) => {
   await page.mouse.up()
   // gone well before it would have faded on its own
   await expect(toast).toHaveCount(0, { timeout: 1500 })
+})
+
+test('Home: the header stays at the top and says the balance once the card scrolls away', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 640 })
+  await expect(page.getByTestId('home-header-balance')).toHaveCount(0)
+  await page.getByRole('button', { name: /Recent (activity|expenses)/ }).click()
+  // scrolled to the end once Recent activity has opened (it grows while it opens)
+  await expect(async () => {
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+    await expect(page.getByTestId('home-header-balance')).toContainText(/You’re owed|You owe|All settled up|Nothing owed/, { timeout: 500 })
+  }).toPass()
+  const box = await page.getByTestId('home-greeting').boundingBox()
+  expect(box && box.y <= 1).toBe(true)
+  await page.getByTestId('home-header-balance').click()
+  await expect(page).toHaveURL(/\/settle$/)
 })
 
 test('Home: Recent activity starts folded, opens smoothly, and says how many are new', async ({ page }) => {
@@ -2021,4 +2183,199 @@ test('New people need my OK: someone else’s group asks instead of joining, and
   await expect(page.getByTestId('join-approval')).not.toContainText('Priya')
   await page.getByTestId('join-ask').click()
   await expect(page.getByTestId('toasts')).toContainText('needs the online app')
+})
+
+test.describe('Simple mode', () => {
+  test.use({ mode: 'simple' })
+  test('Preferences shows the mode and only the everyday settings; Advanced brings the rest back, values kept', async ({ page }) => {
+    await page.goto('/settings/preferences')
+    const mode = page.getByTestId('mode')
+    await expect(mode).toBeVisible()
+    await expect(page.getByRole('combobox', { name: 'Detail level' }).or(page.getByLabel('Detail level'))).toHaveCount(0)
+    await expect(page.getByTestId('icon-style')).toHaveCount(0)
+    await expect(page.getByTestId('accent-duo')).toHaveCount(0)
+    await mode.getByRole('radio', { name: /Advanced/ }).click()
+    await expect(page.getByTestId('icon-style')).toBeVisible()
+    await expect(page.getByTestId('accent-duo')).toBeVisible()
+    await page.reload()
+    await expect(page.getByTestId('icon-style')).toBeVisible()
+  })
+  test('Simple leaves out Animations, Automation and personal wallets; Advanced has them, and nothing was lost', async ({ page }) => {
+    await page.goto('/settings')
+    await expect(page.getByTestId('settings-preferences')).toBeVisible()
+    await expect(page.getByTestId('settings-animations')).toHaveCount(0)
+    await expect(page.getByTestId('settings-automation')).toHaveCount(0)
+    await page.goto('/groups')
+    await expect(
+      page
+        .getByTestId('group-create')
+        .or(page.getByRole('link', { name: /new group/i }))
+        .first(),
+    ).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Personal' })).toHaveCount(0)
+    await page.goto('/settings/preferences')
+    await page
+      .getByTestId('mode')
+      .getByRole('radio', { name: /Advanced/ })
+      .click()
+    await page.goto('/settings')
+    await expect(page.getByTestId('settings-animations')).toBeVisible()
+    await expect(page.getByTestId('settings-automation')).toBeVisible()
+    await page.goto('/groups')
+    await expect(page.getByRole('heading', { name: 'Personal' })).toBeVisible()
+  })
+
+  test('Scan has no AI corner button on any card, and Statement still shows', async ({ page }) => {
+    await page.goto('/scan')
+    const kinds = page.getByTestId('scan-mode')
+    await expect(page.getByTestId('scan-camera')).toBeVisible()
+    await expect(page.getByTestId('scan-ai')).toHaveCount(0)
+    await kinds.getByRole('radio', { name: 'Statement' }).click()
+    await expect(page.getByTestId('statement-start')).toBeVisible()
+    await expect(page.getByTestId('scan-ai')).toHaveCount(0)
+    await kinds.getByRole('radio', { name: 'Payment' }).click()
+    await expect(page.getByTestId('scan-ai')).toHaveCount(0)
+  })
+  test("Profile's mode button switches mode, Undo puts it back, and Settings follows", async ({ page }) => {
+    await page.goto('/profile')
+    const btn = page.getByTestId('mode-button')
+    await expect(btn).toHaveAttribute('aria-label', /Mode: Simple/)
+    await btn.click()
+    await expect(btn).toHaveAttribute('aria-label', /Mode: Advanced/)
+    await page.getByTestId('toasts').getByRole('button', { name: 'Undo' }).click()
+    await expect(btn).toHaveAttribute('aria-label', /Mode: Simple/)
+    await btn.click()
+    await expect(btn).toHaveAttribute('aria-label', /Mode: Advanced/)
+    await page.goto('/settings')
+    await expect(page.getByTestId('settings-animations')).toBeVisible()
+  })
+})
+
+test('Encrypted groups: ? opens Help on private groups, and back returns to the page', async ({ page }) => {
+  await page.goto('/settings/vault')
+  await expect(page.getByTestId('vault-turn-on')).toBeVisible()
+  await page.getByTestId('vault-help').click()
+  await expect(page).toHaveURL(/\/help\/private-groups$/)
+  await page.getByRole('button', { name: /back/i }).first().click()
+  await expect(page).toHaveURL(/\/settings\/vault$/)
+})
+
+test('Help: a section read to its end is ticked, and the ring moves off 0%', async ({ page }) => {
+  await page.goto('/help')
+  const ring = page.getByTestId('help-ring')
+  await expect(ring).toHaveAttribute('aria-label', /Help 0% done/)
+  // An explainer is read once its last part has been shown.
+  await page.goto('/help/modes-explained')
+  await expect(page.getByTestId('help-story')).toBeVisible()
+  await page.getByTestId('help-beat').last().click()
+  await expect(page.getByTestId('help-story')).toHaveAttribute('data-beat', '2')
+  await page.goto('/help?q=pocket%20knife')
+  const row = page.getByTestId('help-row').filter({ hasText: 'Simple and Advanced, the same app' })
+  await expect(row).toHaveAttribute('data-done', 'true')
+  await expect(page.getByTestId('help-ring')).not.toHaveAttribute('aria-label', /Help 0% done/)
+})
+
+test('Help: steps wait on each one; Next moves on and the last one ticks the section', async ({ page }) => {
+  await page.goto('/help/add-expense')
+  const caption = page.getByTestId('help-caption')
+  const first = await caption.textContent()
+  await page.waitForTimeout(6000)
+  await expect(caption).toHaveText(first ?? '')
+  const steps = await page.getByTestId('help-step').count()
+  for (let i = 1; i < steps; i++) await page.getByTestId('help-next').click()
+  await expect(page.getByTestId('help-next')).toContainText('Again')
+  await page.goto('/help?q=add%20an%20expense')
+  await expect(page.getByTestId('help-row').filter({ hasText: 'Add an expense' }).first()).toHaveAttribute('data-done', 'true')
+})
+
+/** Pro for the demo user, as Help would award it (repo.markPro): proAt on their profile, then a reload. */
+async function makeMePro(page: Page) {
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('splitit-demo-v1') ?? '{}')
+    s.profiles[s.user.uid].proAt = Date.now()
+    localStorage.setItem('splitit-demo-v1', JSON.stringify(s))
+  })
+  await page.reload()
+}
+
+test('Pro: Rohan’s pill on Members opens Help → Earn Pro for someone without Pro; once you have it, it is just a mark; Dev never links', async ({ page }) => {
+  await page.goto('/groups/g_goa/members')
+  const rohan = page.getByTestId('member-row').filter({ hasText: 'Rohan' })
+  const pill = rohan.getByTestId('member-pro')
+  await expect(pill).toBeVisible()
+  // Ananya is Dev (an admin's badge): a mark only, never a link, for anyone.
+  const dev = page.getByTestId('member-row').filter({ hasText: 'Ananya' }).getByTestId('member-pro')
+  await expect(dev).toBeVisible()
+  await expect(dev).toContainText('Dev')
+  await expect(page.getByTestId('member-row').filter({ hasText: 'Ananya' }).getByRole('link')).toHaveCount(0)
+  await expect(pill).toHaveAttribute('aria-label', 'Pro. How to earn it')
+  await pill.click()
+  await expect(page).toHaveURL(/\/help\/earn-pro$/)
+
+  // Not Pro yet: no ring on Home and no switch in Preferences.
+  await page.goto('/')
+  await expect(page.getByTestId('home-pro-ring')).toHaveCount(0)
+  await page.goto('/settings/preferences')
+  await expect(page.getByTestId('pro-shown')).toHaveCount(0)
+
+  await makeMePro(page)
+  await page.goto('/groups/g_goa/members')
+  // A Pro viewer's tap does nothing: the mark is no longer a link.
+  await expect(
+    page
+      .getByTestId('member-row')
+      .filter({ hasText: 'Rohan' })
+      .getByRole('link', { name: /earn it/ }),
+  ).toHaveCount(0)
+  await page.goto('/')
+  await expect(page.getByTestId('home-pro-ring')).toBeVisible()
+  await page.goto('/profile')
+  await expect(page.getByTestId('profile-pro')).toBeVisible()
+  // Show my Pro badge, off: gone from your own screens too.
+  await page.goto('/settings/preferences')
+  await page.getByTestId('pro-shown').click()
+  await page.goto('/')
+  await expect(page.getByTestId('home-greeting')).toBeVisible()
+  await expect(page.getByTestId('home-pro-ring')).toHaveCount(0)
+})
+
+test('1:1 tiles carry the handshake icon, not the 🤝 emoji', async ({ page }) => {
+  await page.goto('/groups/new?type=direct')
+  await expect(
+    page
+      .getByRole('radio', { name: /1:1 friend/ })
+      .locator('svg')
+      .first(),
+  ).toBeVisible()
+  await page.getByLabel('Name of a person to add').fill('Meera Iyer')
+  await page.getByTestId('member-add').click()
+  await page.getByRole('button', { name: 'Create 1:1' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Meera Iyer' })).toBeVisible()
+  const badge = page.getByTestId('direct-badge').first()
+  await expect(badge.locator('svg[data-icon="Handshake"]').first()).toBeAttached()
+  await expect(badge).not.toContainText('🤝')
+  await page.goto('/groups')
+  await expect(page.getByTestId('direct-badge').first().locator('svg[data-icon="Handshake"]').first()).toBeAttached()
+})
+
+test('Help: finishing every section turns the ring into a tick and offers Pro; claiming it puts the PRO ring on Home', async ({ page }) => {
+  await page.goto('/help')
+  await expect(page.getByTestId('help-ring')).toBeVisible()
+  // Every section the guide lists, marked done the way Help saves it (settings/help in the demo store).
+  const ids = await page
+    .locator('a[href^="/help/"]')
+    .evaluateAll((as) => [...new Set(as.map((a) => (a.getAttribute('href') ?? '').split('/')[2]).filter(Boolean))])
+  await page.evaluate((done) => {
+    const s = JSON.parse(localStorage.getItem('splitit-demo-v1') ?? '{}')
+    s.help = { ...(s.help ?? {}), [s.user.uid]: { done } }
+    localStorage.setItem('splitit-demo-v1', JSON.stringify(s))
+  }, ids)
+  await page.reload()
+  await expect(page.getByTestId('help-ring')).toHaveAttribute('aria-label', 'Help complete')
+  await expect(page.getByTestId('pro-celebration')).toContainText('Congratulations')
+  await page.getByTestId('pro-claim').click()
+  await expect(page.getByTestId('pro-celebration')).toContainText('Pro is yours')
+  await page.goto('/')
+  await expect(page.getByTestId('home-greeting')).toBeVisible()
+  await expect(page.locator('[data-testid="pro-ring"]').first()).toBeVisible()
 })

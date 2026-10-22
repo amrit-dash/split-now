@@ -1,4 +1,6 @@
+import { EMPTY_HELP_PROGRESS, type HelpProgress } from '@/lib/help-progress'
 import { OPEN_ITEM_EDIT_FIELDS } from '@/lib/open-items'
+import { withProAwarded } from '@/lib/pro'
 import { MAX_ATTACHED } from '@/lib/receipt-photo'
 import { blobToDataUrl } from '@/lib/image'
 import { archiveWrite, balanceEditMembers, expenseMemberIds, uidsOfMembers, unarchiveInvolved } from '../../shared/archive'
@@ -101,6 +103,7 @@ interface State {
   appearance?: Record<string, Record<string, unknown>>
   /** per user: what they cleared from Inbox → Updates */
   inbox?: Record<string, InboxState>
+  help?: Record<string, HelpProgress>
   /** Pay me links keyed by code */
   payLinks?: Record<string, PayLinkDoc>
   /** payment screenshots by Storage-style path (small data: URLs) */
@@ -588,6 +591,20 @@ export function createLocalRepo(): Repo {
       // The same shape the firebase repo shares (photo, currency and Collect in my currency included).
       return p ? { ...memberProfileOf(p), photoURL: p.photoURL } : null
     },
+    async markPro(id) {
+      const p = state.profiles[id]
+      const next = p && withProAwarded(p, Date.now())
+      if (next) await repo.saveProfile(next)
+    },
+    async setProHidden(id, hidden) {
+      const p = state.profiles[id]
+      if (p && (p.proHidden === true) !== hidden) await repo.saveProfile({ ...p, proHidden: hidden })
+    },
+    // The demo has no admins, so no Dev badge of your own; kept so the switch behaves the same.
+    async setDevHidden(id, hidden) {
+      const p = state.profiles[id]
+      if (p && (p.devHidden === true) !== hidden) await repo.saveProfile({ ...p, devHidden: hidden })
+    },
     async uploadAvatar(_uid, jpeg) {
       return blobToDataUrl(jpeg)
     },
@@ -672,10 +689,19 @@ export function createLocalRepo(): Repo {
       const g = state.groups[group.id]
       const m = g?.members[memberId]
       if (!g || !m || m.uid !== actor()) return
-      const { photoURL: _old, ...rest } = m
+      const { photoURL: _old, pro: _pro, dev: _dev, ...rest } = m
       state.groups[group.id] = {
         ...g,
-        members: { ...g.members, [memberId]: { ...rest, name: patch.name, ...(patch.photoURL ? { photoURL: patch.photoURL } : {}) } },
+        members: {
+          ...g.members,
+          [memberId]: {
+            ...rest,
+            name: patch.name,
+            ...(patch.photoURL ? { photoURL: patch.photoURL } : {}),
+            ...(patch.pro ? { pro: true } : {}),
+            ...(patch.dev ? { dev: true } : {}),
+          },
+        },
       }
       commit()
     },
@@ -1233,6 +1259,12 @@ export function createLocalRepo(): Repo {
     async saveInboxState(userId, s) {
       state.inbox ??= {}
       state.inbox[userId] = s
+      commit()
+    },
+    watchHelpProgress: (userId, cb) => watch(() => state.help?.[userId] ?? EMPTY_HELP_PROGRESS, cb),
+    async saveHelpProgress(userId, p) {
+      state.help ??= {}
+      state.help[userId] = p
       commit()
     },
     async fetchActivityBefore(groupIds, before, max) {

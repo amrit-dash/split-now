@@ -124,15 +124,14 @@ export const isQuietReason = (reason: AiUnavailableReason | undefined) =>
  * on it); on the free AI (Gemma) the "Use free AI" switch carries the warning (FREE_AI_NOTE).
  */
 export function aiDataNote(status: Pick<AiStatusResult, 'app'> | null | undefined): string {
-  const what =
-    'Photos of bills and statement screenshots, payment screenshots, bank SMS the built-in reader can’t make sense of, and Quick add lines it can’t read'
+  const what = 'Bills, statements, payment screenshots, and bank SMS or Quick add lines the app can’t read'
   const tail = 'Nothing else leaves your phone, and nothing is sent while this is off.'
   const shared = status?.app.images === 'available' || status?.app.sms === 'available'
   if (shared && isFreeAi(status))
-    return `${what} are sent to Google to read them: to Gemma, Google’s free model, only if you turn on “Use free AI” below, else only to your own Gemini key. ${tail}`
+    return `${what} go to Google: to Gemma, Google’s free model, only if you turn on “Use free AI” below, else only to your own Gemini key. ${tail}`
   if (shared)
-    return `${what} are sent to Google Gemini to read them. On Split Now’s key they go from Split Now’s servers in Mumbai (Google Cloud, asia-south1) to Google’s paid Gemini API, which doesn’t use them to improve Google’s models. Split Now keeps only what you save. ${tail}`
-  return `${what} are sent to Google Gemini to read them. ${tail}`
+    return `${what} go to Google Gemini. On Split Now’s key they pass through our servers in Mumbai (Google Cloud, asia-south1) to Google’s paid Gemini API, which doesn’t train on them. Split Now keeps only what you save. ${tail}`
+  return `${what} go to Google Gemini. ${tail}`
 }
 
 /**
@@ -154,4 +153,4 @@ export function aiReaderName(o: { free: boolean; freeOk: boolean; source: string
 
 /** The "Use free AI" switch: what the free AI reads, and the price of free. */
 export const FREE_AI_NOTE =
-  'Reads bills, statements, payment screenshots, bank SMS and Quick add lines like the paid AI, only slower. It’s free because Google may use what you send, including names, UPI IDs and amounts, to improve its products, and people at Google may read it. Google’s terms don’t allow this free service for people in the EU, the UK or Switzerland.'
+  'Reads bills, statements, payment screenshots, bank SMS and Quick add lines, slower than the paid AI. It’s free because Google may use what you send, including names, UPI IDs and amounts, to improve its products, and people at Google may read it. Not allowed for people in the EU, the UK or Switzerland.'

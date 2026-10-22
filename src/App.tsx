@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { lazy, type ReactNode, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useTrackNav } from '@/hooks/useBack'
 import { useScrollMemory } from '@/hooks/useScrollMemory'
 import { usePriceCurrency } from '@/hooks/usePriceCurrency'
@@ -34,6 +34,7 @@ import { splashHoldMs } from './lib/splash'
 import { setAiScan } from './lib/ai'
 import { startAppearanceSync } from './lib/appearance-sync'
 import { GroupDataProvider } from './hooks/groupData'
+import { IconStyleProvider } from './components/Icon'
 import { primeAiStatus, useAiStatus } from './hooks/useAiStatus'
 import { useAppConfig, useBlocked } from './hooks/useAppConfig'
 import { lockVault, startAutoLock } from './lib/vault-keys'
@@ -44,7 +45,7 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 /** A few error reports per session at most, each message once (lib/app-errors.ts). */
 const reportGateOnce = reportGate()
 import { useViewportStats } from './hooks/useViewportStats'
-import { IDLE_PREFETCH, load, prefetch, prefetchAfter, routeChunks } from './routes'
+import { IDLE_PREFETCH, IDLE_PREFETCH_LATER, load, prefetch, prefetchAfter, prefetchHelp, type RouteKey, routeChunks } from './routes'
 import Login from './pages/Login'
 import VerifyEmail from './pages/VerifyEmail'
 import NameStep from './pages/NameStep'
@@ -261,7 +262,7 @@ export default function App() {
   // UpdatePrompt is mounted exactly once, outside the auth switch, so the service worker is
   // registered (and its hourly update timer started) a single time.
   return (
-    <>
+    <IconStyleProvider>
       <UpdatePrompt />
       <ViewportReadout />
       {hold !== 'off' && <Splash leaving={hold === 'leaving'} />}
@@ -318,7 +319,7 @@ export default function App() {
           <AppRoutes cfg={cfg} admin={admin} />
         </ErrorBoundary>
       )}
-    </>
+    </IconStyleProvider>
   )
 }
 
@@ -355,14 +356,6 @@ function AppRoutes({ cfg, admin }: { cfg: AppConfig; admin: boolean }) {
               }
             />
             <Route
-              path="groups/:groupId/settle"
-              element={
-                <LiveGroupOnly>
-                  <SettleUp />
-                </LiveGroupOnly>
-              }
-            />
-            <Route
               path="groups/:groupId/money"
               element={
                 <LiveGroupOnly>
@@ -387,7 +380,6 @@ function AppRoutes({ cfg, admin }: { cfg: AppConfig; admin: boolean }) {
               }
             />
             <Route path="settle" element={<SettleAll />} />
-            <Route path="settle/with/:key" element={<SettleWithPerson />} />
             <Route path="friends" element={<Navigate to="/settle" replace />} />
             <Route path="insights" element={<Insights />} />
             <Route path="profile" element={<Profile />} />
@@ -405,6 +397,26 @@ function AppRoutes({ cfg, admin }: { cfg: AppConfig; admin: boolean }) {
               <LiveGroupOnly>
                 <ExpenseForm />
               </LiveGroupOnly>
+            }
+          />
+          {/* Settle up is a form with its button pinned at the bottom: full screen like Add expense, so
+              the tab bar and + never sit over the Record button. */}
+          <Route
+            path="groups/:groupId/settle"
+            element={
+              <LiveGroupOnly>
+                <FullScreen>
+                  <SettleUp />
+                </FullScreen>
+              </LiveGroupOnly>
+            }
+          />
+          <Route
+            path="settle/with/:key"
+            element={
+              <FullScreen>
+                <SettleWithPerson />
+              </FullScreen>
             }
           />
           <Route
@@ -602,13 +614,20 @@ function UpdateRequired({ minVersion }: { minVersion: string }) {
  * still downloading shows as a frozen tap; this is what keeps that rare.
  */
 function usePrefetch() {
-  useEffect(
-    () =>
-      onIdle(() => {
-        for (const k of IDLE_PREFETCH) prefetch(k)
-      }),
-    [],
-  )
+  useEffect(() => {
+    // The usual next screens first; the rest on a later idle, so they never compete with them.
+    let later = () => {}
+    const first = onIdle(() => {
+      for (const k of IDLE_PREFETCH) prefetch(k)
+      later = onIdle(() => {
+        for (const k of IDLE_PREFETCH_LATER) prefetch(k)
+      })
+    })
+    return () => {
+      first()
+      later()
+    }
+  }, [])
   useEffect(() => {
     const onPointerDown = (e: Event) => {
       const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null
@@ -621,13 +640,13 @@ function usePrefetch() {
 }
 
 /**
- * The screens only reachable from the one showing (Profile → Settings → its areas), on idle once
- * it has painted. Its own component so a route change doesn't re-render AppRoutes.
+ * The screens only reachable from the one showing (Profile → Settings → its areas), and Help from
+ * any signed-in screen (prefetchHelp), on idle once it has painted. Its own component so a route change doesn't re-render AppRoutes.
  */
 function PrefetchNext() {
   const { pathname } = useLocation()
   useEffect(() => {
-    const next = prefetchAfter(pathname)
+    const next: RouteKey[] = [...prefetchAfter(pathname), ...(prefetchHelp(pathname) ? (['Help'] as const) : [])]
     return next.length
       ? onIdle(() => {
           for (const k of next) prefetch(k)
@@ -708,4 +727,9 @@ function useSplashHold(): 'on' | 'leaving' | 'off' {
     }
   }, [ms])
   return state
+}
+
+/** A full-screen form (no tab bar): the page column Layout gives its screens; the form's pinned action keeps clear of the home indicator itself. */
+function FullScreen({ children }: { children: ReactNode }) {
+  return <div className="mx-auto min-h-dvh max-w-lg px-4">{children}</div>
 }

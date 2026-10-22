@@ -176,3 +176,5 @@ The same two links are in the app under **Profile → Support the developer**. A
 ## License
 
 [MIT](LICENSE) © Amrit Dash
+
+Icons: [Fluent UI System Icons](https://github.com/microsoft/fluentui-system-icons) (MIT), [Solar](https://github.com/480-Design/Solar-Icon-Set) by 480 Design ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); recoloured to the accent), and [Lucide](https://lucide.dev) (ISC).

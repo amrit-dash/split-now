@@ -82,8 +82,8 @@ export function FiltersPanel({
   const set = (p: Partial<InsightFilters>) => onChange({ ...filters, ...p })
   const basisHint: Hint =
     filters.basis === 'mine'
-      ? { full: 'What you consumed: your split of each expense.', short: 'Your split of each expense', tier: 'help' }
-      : { full: 'The full amount of every expense, whoever it was for.', short: 'Every expense in full', tier: 'help' }
+      ? { full: 'Your share of each expense.', short: 'Your share of each', tier: 'help' }
+      : { full: 'Every expense in full, whoever it was for.', short: 'Every expense in full', tier: 'help' }
   return (
     <Collapsible
       className="!mt-0 mb-4"

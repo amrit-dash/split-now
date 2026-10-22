@@ -1,24 +1,28 @@
 import { useEffect, useState, type KeyboardEvent } from 'react'
 import { Check } from 'lucide-react'
 import { ACCENTS, allInks, getAccent, getDuo, setAccent, setDuo, setInk, type AccentId, type Ink } from '@/lib/accent'
-import { Detail, HintText, InfoTip, type Hint } from './Hint'
+import { HintText, InfoTip, useShows, type Hint } from './Hint'
 import { Segmented } from './Misc'
 import { Switch } from './Switch'
 
-const ACCENT_HINT: Hint = { full: 'The colour of buttons, links and the Home card', short: 'Buttons and the Home card', tier: 'help' }
+// The swatches and choices show what they do, so these lines are background for Full only.
+const ACCENT_HINT: Hint = { full: 'For buttons, links and the Home card.', tier: 'extra' }
 const INK_HINT: Hint = {
-  full: 'Kept for each accent. Black text comes with brighter colours so it stays easy to read.',
-  short: 'Black text comes with brighter colours',
+  full: 'Saved per accent. Black brings brighter colours so text stays easy to read.',
+  short: 'Black brings brighter colours',
   tier: 'help',
 }
-const DUO_HINT: Hint = { full: 'Two-colour gradients on buttons and cards', tier: 'help' }
+const DUO_HINT: Hint = { full: 'Two-colour gradients on buttons and cards.', tier: 'extra' }
 
 /**
  * Accent colour swatches, the "Text on accent" choice (white on deep
  * fills, or black on bright ones) for the selected accent. Each accent keeps its own ink, and each
  * swatch shows its accent in that ink; then a "Dual tone" switch. Applies and persists immediately.
  */
-export function AccentPicker({ onChange }: { onChange?: () => void } = {}) {
+/** `simple`: Simple mode keeps Text on accent and leaves Dual tone out (its value stays as it was). */
+export function AccentPicker({ onChange, simple = false }: { onChange?: () => void; simple?: boolean } = {}) {
+  const fine = useShows(2)
+  const showDuo = !simple
   const [accent, setAccentState] = useState<AccentId>(getAccent)
   const [duo, setDuoState] = useState<boolean>(getDuo)
   const [inks, setInks] = useState<Record<AccentId, Ink>>(allInks)
@@ -106,38 +110,42 @@ export function AccentPicker({ onChange }: { onChange?: () => void } = {}) {
         </div>
         <HintText hint={ACCENT_HINT} className="text-muted mt-1.5 text-xs" />
       </div>
-      {/* Fine-tuning: hidden in Minimal, the swatches are enough there. */}
-      <Detail min={2}>
-        <div>
-          <div className="label flex items-center" id="ink-label">
-            Text on accent
-            <InfoTip hint={INK_HINT} label="About text on accent" />
-          </div>
-          <Segmented<Ink>
-            value={ink}
-            onChange={pickInk}
-            label="Text on accent"
-            testId="accent-ink"
-            options={[
-              { value: 'light', label: 'White' },
-              { value: 'dark', label: 'Black' },
-            ]}
-          />
-          <HintText hint={INK_HINT} className="text-muted mt-1.5 text-xs" />
-        </div>
-        {/* Dual tone closes the section as its own row, below the two labelled pickers, so the
-            Accent → Text on accent rhythm isn't broken by a switch between them. */}
-        <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4 dark:border-white/5">
-          <div className="min-w-0">
-            <div className="flex items-center text-sm font-semibold">
-              Dual tone
-              <InfoTip hint={DUO_HINT} label="About dual tone" />
+      {/* Fine-tuning: hidden in Minimal, the swatches are enough there; Simple keeps Text on accent (owner). */}
+      {(fine || simple) && (
+        <>
+          <div>
+            <div className="label flex items-center" id="ink-label">
+              Text on accent
+              <InfoTip hint={INK_HINT} label="About text on accent" />
             </div>
-            <HintText hint={DUO_HINT} as="div" />
+            <Segmented<Ink>
+              value={ink}
+              onChange={pickInk}
+              label="Text on accent"
+              testId="accent-ink"
+              options={[
+                { value: 'light', label: 'White' },
+                { value: 'dark', label: 'Black' },
+              ]}
+            />
+            <HintText hint={INK_HINT} className="text-muted mt-1.5 text-xs" />
           </div>
-          <Switch checked={duo} onChange={toggleDuo} label="Dual tone" testId="accent-duo" />
-        </div>
-      </Detail>
+          {/* Dual tone closes the section as its own row, below the two labelled pickers, so the
+            Accent → Text on accent rhythm isn't broken by a switch between them. */}
+          {showDuo && (
+            <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4 dark:border-white/5">
+              <div className="min-w-0">
+                <div className="flex items-center text-sm font-semibold">
+                  Dual tone
+                  <InfoTip hint={DUO_HINT} label="About dual tone" />
+                </div>
+                <HintText hint={DUO_HINT} as="div" />
+              </div>
+              <Switch checked={duo} onChange={toggleDuo} label="Dual tone" testId="accent-duo" />
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }

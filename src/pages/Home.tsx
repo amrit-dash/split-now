@@ -1,7 +1,8 @@
+import { useFeature } from '@/hooks/useMode'
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import { WhatsNewBanner } from '@/components/WhatsNewBanner'
 import { Link, useNavigate } from 'react-router-dom'
-import { ChevronDown, ChevronRight, FileUp, Inbox, Lock, Plus, Ticket } from 'lucide-react'
+import { ChevronDown, ChevronRight, Lock } from 'lucide-react'
+import { AddIcon, FileUploadIcon, InboxIcon, TicketIcon } from '@/components/icons'
 import { useMe } from '@/hooks/auth'
 import { useAllGroupData, type GroupData } from '@/hooks/data'
 import { useInbox } from '@/hooks/useInbox'
@@ -19,11 +20,15 @@ import { expenseEmoji } from '@/lib/icons'
 import { IconFace } from '@/components/IconFace'
 import { GroupRow } from '@/components/GroupRow'
 import { Avatar } from '@/components/Avatar'
+import { ProRing } from '@/components/ProBadge'
+import { badgeLabel } from '@/lib/pro'
+import { usePro } from '@/hooks/usePro'
 import { Aurora } from '@/components/Aurora'
 import { ChequeIcon } from '@/components/ChequeIcon'
 import { CardSkeleton, ListSkeleton, Skeleton } from '@/components/Skeleton'
+import { useScrolled } from '@/components/Misc'
 import { formatDate } from '@/lib/locale'
-import { dayPart, greeting, helloFor, topCounterparties, type DayPart } from '@/lib/greeting'
+import { dayPart, greeting, headerBalance, helloFor, topCounterparties, type DayPart } from '@/lib/greeting'
 import { isLiveTrip } from '@/lib/capture'
 import { todayISO } from '@/lib/id'
 import { usePageTitle } from '@/lib/brand'
@@ -38,6 +43,7 @@ const CardFirework = lazy(() => import('@/components/CardFirework').then((m) => 
 export default function Home() {
   usePageTitle(null)
   const { profile, user } = useMe()
+  const pro = usePro()
   const all = useAllGroupData()
   // Private groups never show on Home, open or locked (docs/VAULT.md): not in the totals, the
   // people, the recent list or the feed. The card says so; they're on the Groups screen.
@@ -48,6 +54,11 @@ export default function Home() {
   const box = useInbox(data)
   const feed = box.feed?.slice(0, 6)
   const compact = useNarrow(380)
+  const header = useRef<HTMLElement>(null)
+  const card = useRef<HTMLDivElement>(null)
+  const scrolledPast = useScrolledPast(card, header)
+  // The hairline under the pinned header shows once the page has scrolled at all (PageHeader does the same).
+  const scrolled = useScrolled()
   if (!data) return <HomeSkeleton />
   const groupsById = Object.fromEntries(data.map((d) => [d.group.id, d.group]))
   const active = data.filter((d) => !d.group.archived)
@@ -104,12 +115,18 @@ export default function Home() {
   })
 
   const part = dayPart(new Date().getHours())
+  const pinned = headerBalance({ firstRun, allSettled, net, amount: `${ax}${formatMoney(Math.abs(net), cur)}` })
 
   return (
-    <div className="pt-[calc(var(--safe-top)+1.5rem)]">
-      <WhatsNewBanner />
-      <header className="mb-6 flex items-center justify-between gap-3" data-testid="home-greeting">
-        <Greeting salutation={hello.salutation} name={hello.name} part={part} />
+    <div>
+      {/* Pinned: the greeting, Inbox and Profile stay while the page scrolls under them. Once the
+          balance card has gone up behind it, the greeting's first line says the balance instead. */}
+      <header
+        ref={header}
+        className={`sticky top-[var(--banner-h,0px)] z-30 -mx-4 mb-3 flex items-center justify-between gap-3 border-b bg-slate-50/92 px-4 pb-3 pt-[calc(var(--safe-top)+1.5rem)] backdrop-blur-xl transition-colors dark:bg-ink-950/92 ${scrolled ? 'border-slate-900/[0.07] dark:border-white/[0.07]' : 'border-transparent'}`}
+        data-testid="home-greeting"
+      >
+        <Greeting salutation={hello.salutation} name={hello.name} part={part} balance={scrolledPast ? pinned : null} />
         <div className="flex shrink-0 items-center gap-2 min-[380px]:gap-3">
           <Link
             to="/inbox"
@@ -127,11 +144,25 @@ export default function Home() {
             ) : box.unread > 0 ? (
               <span className="absolute right-1 top-2 h-2.5 w-2.5 rounded-full bg-brand-500 ring-2 ring-slate-50 dark:ring-ink-950" aria-hidden />
             ) : null}
-            <Inbox className="h-6 w-6 min-[380px]:h-[27px] min-[380px]:w-[27px]" strokeWidth={2} aria-hidden />
+            <InboxIcon size="1em" className="text-[24px] min-[380px]:text-[27px]" aria-hidden />
           </Link>
-          <Link to="/profile" aria-label="Profile" className="rounded-full p-0.5 ring-2 ring-brand-500/40 transition active:scale-95">
-            <Avatar name={profile.displayName} photoURL={profile.photoURL} color="accent" size={compact ? 48 : 58} />
-          </Link>
+          {pro.word ? (
+            // Pro / Dev: the badge ring in place of the plain one, around the same photo in the same space.
+            <Link
+              to="/profile"
+              aria-label={`Profile, ${badgeLabel(pro.word, false)}`}
+              className="rounded-full p-0.5 transition active:scale-95"
+              data-testid="home-pro-ring"
+            >
+              <ProRing photo={compact ? 48 : 58} word={pro.word}>
+                <Avatar name={profile.displayName} photoURL={profile.photoURL} color="accent" size={compact ? 48 : 58} />
+              </ProRing>
+            </Link>
+          ) : (
+            <Link to="/profile" aria-label="Profile" className="rounded-full p-0.5 ring-2 ring-brand-500/40 transition active:scale-95">
+              <Avatar name={profile.displayName} photoURL={profile.photoURL} color="accent" size={compact ? 48 : 58} />
+            </Link>
+          )}
         </div>
       </header>
 
@@ -145,7 +176,7 @@ export default function Home() {
       {firstRun ? (
         <FirstRun />
       ) : (
-        <div className="relative isolate overflow-hidden rounded-[2rem] bg-fill p-6 text-on-fill shadow-xl shadow-fill/30">
+        <div ref={card} className="relative isolate overflow-hidden rounded-[2rem] bg-fill p-6 text-on-fill shadow-xl shadow-fill/30">
           <Aurora />
           {allSettled && (
             <Suspense fallback={null}>
@@ -284,6 +315,7 @@ function RecentExpense({ e, d }: { e: GroupData['expenses'][number]; d: GroupDat
  */
 export function FirstRun() {
   const quickAdd = useFlag('quickAdd')
+  const showImport = useFeature('importGroup')
   return (
     <>
       <div className="card p-5" data-testid="first-run">
@@ -293,8 +325,17 @@ export function FirstRun() {
         </h2>
         <HintText hint={FIRST_RUN_HINT} className="text-muted mt-1 text-sm" />
         <div className="mt-4 divide-y divide-slate-100 dark:divide-white/5">
-          <StartRow to="/groups/new" icon={<Plus size={20} />} title="Create a group" text={START_HINTS.create} testId="first-run-create" />
-          <StartRow to="/groups/import" icon={<FileUp size={20} />} title="Import from Splitwise" text={START_HINTS.import} testId="first-run-import" />
+          <StartRow to="/groups/new" icon={<AddIcon size={20} />} title="Create a group" text={START_HINTS.create} testId="first-run-create" />
+          {/* Simple: Settings → Data keeps the import (docs/SIMPLE_MODE.md). */}
+          {showImport && (
+            <StartRow
+              to="/groups/import"
+              icon={<FileUploadIcon size={20} />}
+              title="Import from Splitwise"
+              text={START_HINTS.import}
+              testId="first-run-import"
+            />
+          )}
           <JoinRow />
         </div>
       </div>
@@ -306,12 +347,12 @@ export function FirstRun() {
 const NO_GROUPS: Group[] = []
 const FIRST_RUN_HINT: Hint = {
   full: 'A trip, your flat, a dinner: add what people pay and Split Now keeps the balances.',
-  short: 'Add what people pay; Split Now keeps the balances.',
+  short: 'Add what people pay. We keep the balances.',
 }
 const START_HINTS: Record<string, Hint> = {
   create: { full: 'Trips, flats, dinners, anything' },
   import: { full: 'Bring a group over with its balances', short: 'Bring a group over' },
-  join: { full: 'Someone already made the group? Enter their code', short: "Enter the group's code" },
+  join: { full: 'Someone already made the group? Enter its code', short: "Enter the group's code" },
 }
 const EMPTY_GROUPS_HINT: Hint = { full: 'Create one for a trip, your home, or anything you share.' }
 
@@ -378,7 +419,7 @@ function JoinRow() {
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300"
           aria-hidden
         >
-          <Ticket size={20} />
+          <TicketIcon size={20} />
         </span>
         <span className="min-w-0 flex-1">
           <span className="block font-semibold">Join with an invite code</span>
@@ -552,12 +593,39 @@ function useNarrow(px: number) {
 }
 
 /**
+ * Whether the balance card has gone up behind the pinned header (its bottom above the header's).
+ * Checked on scroll at most once a frame (passive), and again when the card mounts.
+ */
+function useScrolledPast(target: React.RefObject<HTMLElement | null>, header: React.RefObject<HTMLElement | null>) {
+  const [past, setPast] = useState(false)
+  useEffect(() => {
+    let frame = 0
+    const check = () => {
+      frame = 0
+      const el = target.current
+      const top = header.current
+      setPast(!!el && !!top && el.getBoundingClientRect().bottom < top.getBoundingClientRect().bottom)
+    }
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(check)
+    }
+    check()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      cancelAnimationFrame(frame)
+    }
+  }, [target, header])
+  return past
+}
+
+/**
  * "Good morning" over "Hi, Amrit 👋" on one line when it fits; when it doesn't (small phones,
  * long names, a larger text size on Android) it switches to "Hi 👋" over the name, rather than
  * truncating the name or letting the line break wherever it falls. The size scales a little
  * with the viewport, so wide screens keep the one-line form.
  */
-function Greeting({ salutation, name, part }: { salutation: string; name: string; part: DayPart }) {
+function Greeting({ salutation, name, part, balance }: { salutation: string; name: string; part: DayPart; balance?: string | null }) {
   const box = useRef<HTMLDivElement>(null)
   const probe = useRef<HTMLSpanElement>(null)
   const [stacked, setStacked] = useState(false)
@@ -575,7 +643,13 @@ function Greeting({ salutation, name, part }: { salutation: string; name: string
   const size = 'text-[clamp(1.5rem,7.2vw,1.85rem)] font-extrabold leading-[1.15] tracking-tight'
   return (
     <div ref={box} className="relative min-w-0 flex-1">
-      <p className="text-muted text-sm font-medium">{salutation}</p>
+      {balance ? (
+        <Link to="/settle" className="animate-fade block truncate text-sm font-semibold text-brand-700 dark:text-brand-300" data-testid="home-header-balance">
+          {balance}
+        </Link>
+      ) : (
+        <p className="text-muted text-sm font-medium">{salutation}</p>
+      )}
       {/* invisible one-line copy, laid out exactly like the real line (gap and icon box included), measured to decide the layout */}
       <span ref={probe} aria-hidden className={`pointer-events-none invisible absolute left-0 top-0 inline-flex items-center gap-2 whitespace-nowrap ${size}`}>
         <span>Hi, {name}</span>

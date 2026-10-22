@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
-import { ChevronRight, Download, MoreVertical, PlusSquare, Share, Smartphone, X } from 'lucide-react'
+import { Check, ChevronRight, MoreVertical, PlusSquare, Share, X } from 'lucide-react'
+import { DownloadIcon, RowInstallIcon } from '@/components/icons'
 import { useAllGroupData } from '@/hooks/data'
 import { countVisit, dismissInstall, installMethod, isInstallDismissed, shouldOfferInstall, type InstallMethod } from '@/lib/install'
 import { useSwipeDismiss } from '@/hooks/useSwipeDismiss'
 import { HintText } from './Hint'
 import { Sheet } from './Sheet'
+import { RowTile } from '@/components/RowTile'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>
@@ -100,7 +102,7 @@ export function IOSInstallSteps() {
       </li>
       <li className="flex items-center gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-2xl dark:bg-brand-900/40" aria-hidden>
-          ✅
+          <Check size={20} strokeWidth={2.5} />
         </span>
         <span>
           Tap <b>Add</b>. Split Now then opens full-screen from your home screen, and can send you notifications.
@@ -132,7 +134,7 @@ export function MenuInstallSteps({ method }: { method: Exclude<InstallMethod, 'p
         </li>
         <li className="flex items-center gap-3">
           <span className={`${STEP} text-2xl`} aria-hidden>
-            ✅
+            <Check size={20} strokeWidth={2.5} />
           </span>
           <span>
             Click <b>Add</b>. Split Now opens in its own window from the Dock and Launchpad.
@@ -161,7 +163,7 @@ export function MenuInstallSteps({ method }: { method: Exclude<InstallMethod, 'p
       </li>
       <li className="flex items-center gap-3">
         <span className={`${STEP} text-2xl`} aria-hidden>
-          ✅
+          <Check size={20} strokeWidth={2.5} />
         </span>
         <span>
           {android
@@ -198,12 +200,9 @@ export function InstallRow({ className = 'card', testId = 'install-row' }: { cla
         onClick={() => (method === 'prompt' ? void install.prompt() : setSteps(true))}
         data-testid={testId}
       >
-        <span
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
-          aria-hidden
-        >
-          {phone ? <Smartphone size={19} /> : <Download size={19} />}
-        </span>
+        <RowTile>
+          <RowInstallIcon size={22} />
+        </RowTile>
         <span className="min-w-0 flex-1">
           <span className="block">Install Split Now {phone ? 'on this phone' : 'on this computer'}</span>
           {/* 'help' like the rows it sits among (Profile, Settings → Data). */}
@@ -244,7 +243,7 @@ function InstallBar({ hint, onDone, className, wrap = false }: { hint: string; o
   const installButton = (
     <button
       type="button"
-      className="min-h-11 shrink-0 rounded-2xl bg-white px-3.5 py-2 text-sm font-bold text-slate-900"
+      className="min-h-11 shrink-0 rounded-2xl bg-white px-3.5 py-2 text-sm font-bold text-slate-900 max-[389px]:px-3"
       onClick={async () => {
         if (install.canPrompt) {
           if (await install.prompt()) onDone()
@@ -253,25 +252,29 @@ function InstallBar({ hint, onDone, className, wrap = false }: { hint: string; o
       data-testid="install-banner-install"
     >
       <span className="inline-flex items-center gap-1.5">
-        <Download size={16} aria-hidden /> Install
+        {/* the icon gives way on the narrowest phones, so the words beside it aren't cut */}
+        <DownloadIcon size={16} aria-hidden className="max-[389px]:hidden" /> Install
       </span>
     </button>
   )
   return (
     <>
       <div className={className} data-testid="install-banner">
-        {/* wrap (the sign-in screen): the words get the full width and Install sits under them. */}
+        {/* One row everywhere: the words, Install and ✕. wrap (the sign-in screen, a longer line): the line under the title may take two lines beside Install instead of being cut. */}
         <div
           {...swipe.bind}
-          className={`flex gap-2.5 rounded-3xl bg-slate-900 py-2.5 pl-3 pr-1 text-white shadow-2xl shadow-brand-900/40 dark:bg-ink-800 dark:ring-1 dark:ring-white/10 ${wrap ? 'items-start' : 'items-center'}`}
+          className="flex items-center gap-2.5 rounded-3xl bg-slate-900 py-2.5 pl-3 pr-1 text-white shadow-2xl shadow-brand-900/40 dark:bg-ink-800 dark:ring-1 dark:ring-white/10"
         >
-          <img src="/pwa-192.png" alt="" className={`h-10 w-10 shrink-0 rounded-2xl ${wrap ? 'mt-1' : ''}`} />
-          <div className={`min-w-0 flex-1 ${wrap ? 'pt-1' : ''}`}>
-            <div className={`${wrap ? '' : 'truncate '}text-sm font-semibold`}>Install Split Now</div>
-            <HintText as="div" className={`${wrap ? '' : 'truncate '}text-xs text-slate-300`} hint={{ full: hint, tier: 'help' }} />
-            {wrap && <div className="mt-2.5">{installButton}</div>}
+          <img src="/pwa-192.png" alt="" className="h-10 w-10 shrink-0 rounded-2xl" />
+          <div className="min-w-0 flex-1">
+            <div className={`text-sm font-semibold leading-tight ${wrap ? 'line-clamp-2' : 'truncate'}`}>Install Split Now</div>
+            <HintText
+              as="div"
+              className={`mt-0.5 text-xs leading-tight text-slate-300 ${wrap ? 'line-clamp-2' : 'truncate'}`}
+              hint={{ full: hint, tier: 'help' }}
+            />
           </div>
-          {!wrap && installButton}
+          {installButton}
           <button
             type="button"
             onClick={dismiss}
@@ -308,7 +311,7 @@ export function InstallBanner() {
   if (hidden || !install.available || !shouldOfferInstall({ visits, hasExpense, dismissed: hidden })) return null
   return (
     <InstallBar
-      hint={install.ios ? 'Add to Home Screen for notifications and offline use' : 'Full-screen, faster, works offline'}
+      hint={install.ios ? 'For notifications and offline use' : 'Faster, full screen, offline'}
       onDone={() => setHidden(true)}
       className="install-banner animate-pop fixed inset-x-3 bottom-[var(--lane)] z-40 mx-auto max-w-md"
     />
@@ -327,13 +330,7 @@ export function LoginInstallBanner() {
   const phone = install.ios || /Android|Mobi/.test(navigator.userAgent)
   return (
     <InstallBar
-      hint={
-        install.ios
-          ? 'Add it to your Home Screen, then sign in there'
-          : phone
-            ? 'Install first, then sign in once'
-            : 'Its own window, notifications, works offline'
-      }
+      hint={install.ios ? 'Add to Home Screen first' : phone ? 'Install, then sign in once' : 'Own window, works offline'}
       onDone={() => setHidden(true)}
       className="animate-pop mt-8"
       wrap

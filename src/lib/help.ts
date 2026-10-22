@@ -4,6 +4,9 @@
  * scenes in src/features/help/. Pure: no React, no storage.
  */
 
+import type { Mode } from './mode'
+import type { UiIconName } from './ui-icons'
+
 export type ChapterId = 'start' | 'groups' | 'expenses' | 'receipts' | 'settle' | 'capture' | 'private' | 'account'
 
 export interface Chapter {
@@ -26,9 +29,21 @@ export interface HelpStep {
  * Split Now thinks, not a list of taps. Each draws a fixed number of beats (STORY_BEATS), and
  * the section's `story.beats` are the captions, one per beat.
  */
-export type StoryKind = 'pot' | 'seesaw' | 'untangle' | 'remainder' | 'vault' | 'filter'
+export type StoryKind = 'pot' | 'seesaw' | 'untangle' | 'remainder' | 'vault' | 'filter' | 'knife' | 'jug' | 'jars' | 'doors' | 'pro'
 
-export const STORY_BEATS: Record<StoryKind, number> = { pot: 4, seesaw: 3, untangle: 3, remainder: 3, vault: 3, filter: 3 }
+export const STORY_BEATS: Record<StoryKind, number> = {
+  pot: 4,
+  seesaw: 3,
+  untangle: 3,
+  remainder: 3,
+  vault: 3,
+  filter: 3,
+  knife: 3,
+  jug: 3,
+  jars: 3,
+  doors: 3,
+  pro: 3,
+}
 
 export interface HelpSection {
   id: string
@@ -40,11 +55,24 @@ export interface HelpSection {
   core?: boolean
   /** not listed on the guide's front page (it is reached from links: What's new, Related); search still finds it */
   unlisted?: boolean
-  /** the emoji on its card */
-  icon?: string
+  /**
+   * only in Advanced's guide: its feature is one Simple hides (docs/SIMPLE_MODE.md). Absent: both
+   * modes show it. What arrives for someone (an expense to approve, a captured payment) stays in Simple.
+   */
+  advanced?: true
+  /** the icon on its card and row (src/lib/ui-icons.ts) */
+  icon?: UiIconName
   steps?: HelpStep[]
-  /** an explainer: an animated picture and a caption per beat, in place of steps */
-  story?: { kind: StoryKind; beats: string[] }
+  /**
+   * an explainer: an animated picture and a caption per beat, in place of steps. `alt` is another
+   * picture of the same idea, shown instead now and then (`chance` of the visits) for variety.
+   */
+  story?: { kind: StoryKind; beats: string[]; alt?: { kind: StoryKind; beats: string[]; chance: number } }
+  /**
+   * an explainer listed in its own chapter, not under How it works on the front page: one that is
+   * a quiet extra (Earn Pro), not a picture of how the app thinks
+   */
+  inChapter?: true
   /** what to know: rules, limits and edge cases, one sentence each */
   points: string[]
   /** where to try it: a button to that place in the app */
@@ -55,8 +83,37 @@ export interface HelpSection {
   keywords?: string[]
 }
 
-/** Each step of a played scene stays this long before the next one (a tap on a step jumps to it). */
-export const STEP_MS = 2800
+/**
+ * How long a played step stays before the next one (a tap on a step jumps to it): long enough to
+ * read its words, so a short step doesn't drag and a long one isn't cut off. 45 ms a character on
+ * top of the pointer's move and press, kept between 3.2 s and 6 s.
+ */
+export function stepMs(text: string): number {
+  return Math.min(6000, Math.max(3200, 2400 + 45 * plain(text).length))
+}
+
+/**
+ * When each explainer beat's own motion has finished (ms after the beat starts), as drawn in
+ * src/features/help/Story.tsx. Keep these in step with its delays and durations.
+ */
+export const STORY_ANIM_MS: Record<StoryKind, number[]> = {
+  pot: [2000, 1720, 1280, 2950],
+  seesaw: [2220, 1000, 3650],
+  untangle: [1930, 1910, 3250],
+  remainder: [2240, 1800, 2400],
+  vault: [3020, 2970, 2020],
+  filter: [1490, 2620, 2740],
+  knife: [1400, 1750, 1850],
+  jug: [900, 4100, 700],
+  jars: [1350, 1800, 1850],
+  doors: [1700, 1500, 2300],
+  pro: [1600, 1650, 1300],
+}
+
+/** An explainer beat stays until its caption is read and its picture has finished, plus a moment to take it in. */
+export function beatMs(kind: StoryKind, beat: number, caption: string): number {
+  return Math.max(stepMs(caption), (STORY_ANIM_MS[kind][beat] ?? 0) + 1200)
+}
 
 /** The next step while playing: round to the start after the last, so the scene loops. */
 export const nextStep = (i: number, count: number): number => (count <= 0 ? 0 : (i + 1) % count)
@@ -115,21 +172,35 @@ export function searchHelp(query: string, sections: HelpSection[]): HelpSection[
 
 /**
  * The guide's front page: the explainers first (how it works), then the main features, then each
- * chapter with the rest, in order. A section is listed once.
+ * chapter with the rest, in order. A section is listed once. An explainer marked `inChapter`
+ * stays in its chapter with the rest.
  */
 export function guideLayout(
   chapters: Chapter[],
   sections: HelpSection[],
 ): { stories: HelpSection[]; core: HelpSection[]; chapters: Array<{ chapter: Chapter; sections: HelpSection[] }> } {
   const listed = sections.filter((s) => !s.unlisted)
+  const howItWorks = (s: HelpSection) => !!s.story && !s.inChapter
   return {
-    stories: listed.filter((s) => s.story),
-    core: listed.filter((s) => s.core && !s.story),
+    stories: listed.filter(howItWorks),
+    core: listed.filter((s) => s.core && !howItWorks(s)),
     chapters: chapters
-      .map((chapter) => ({ chapter, sections: listed.filter((s) => s.chapter === chapter.id && !s.core && !s.story) }))
+      .map((chapter) => ({ chapter, sections: listed.filter((s) => s.chapter === chapter.id && !s.core && !howItWorks(s)) }))
       .filter((c) => c.sections.length),
   }
 }
+
+/**
+ * The guide a mode shows: Advanced has every section; Simple leaves out the ones for features it
+ * hides, so its guide (and its search, front page and Related links, given this list) only talks
+ * about what the person can see. Order is kept.
+ */
+export function sectionsFor(mode: Mode, sections: HelpSection[]): HelpSection[] {
+  return mode === 'advanced' ? sections : sections.filter((s) => !s.advanced)
+}
+
+/** The sections Help's progress counts: the ones the guide lists (an unlisted one can't be found from it). */
+export const countedSections = (shown: HelpSection[]): string[] => shown.filter((s) => !s.unlisted).map((s) => s.id)
 
 /** Related sections that exist, in the order given (a link to one not written yet is left out). */
 export function relatedOf(s: HelpSection, sections: HelpSection[]): HelpSection[] {
@@ -168,4 +239,14 @@ export function markBox(m: HelpShot['marks'][number], pad = 0.012): { left: numb
   const r = Math.min(1, m.x + m.w / 2 + pad)
   const b = Math.min(1, m.y + m.h / 2 + pad * 1.5)
   return { left: pct(l), top: pct(t), width: pct(r - l), height: pct(b - t) }
+}
+
+/**
+ * Which picture an explainer plays this visit: usually its own, now and then its `alt` (the owner
+ * keeps the jar for Why a captured payment waits as an occasional variant of the doors). `still`
+ * (automated runs, screenshots) always gets the main one, so they stay repeatable.
+ */
+export function pickStory(story: NonNullable<HelpSection['story']>, rand: () => number, still = false): { kind: StoryKind; beats: string[] } {
+  if (!story.alt || still || rand() >= story.alt.chance) return { kind: story.kind, beats: story.beats }
+  return { kind: story.alt.kind, beats: story.alt.beats }
 }

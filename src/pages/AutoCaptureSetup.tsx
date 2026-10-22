@@ -4,20 +4,16 @@ import { Link, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
   Apple,
-  Ban,
   BatteryCharging,
   Bell,
   Check,
   CheckCircle2,
   ChevronRight,
   Copy,
-  Download,
   Info,
-  KeyRound,
   Loader2,
   MessageSquareText,
   Send,
-  Smartphone,
   XCircle,
 } from 'lucide-react'
 import { repo } from '@/data'
@@ -66,6 +62,7 @@ import { LiveBadge, Loading, PageHeader, formatRange } from '@/components/Misc'
 import { Switch } from '@/components/Switch'
 import { useToast } from '@/components/Toast'
 import { SwipeRow } from '@/components/SwipeRow'
+import { CopyIcon, DownloadIcon, KeyIcon, PhoneIcon, ProhibitIcon, SendIcon, SuitcaseIcon } from '@/components/icons'
 
 const IOS_SHORTCUT_URL = (import.meta.env.VITE_IOS_SHORTCUT_URL as string | undefined)?.trim() || undefined
 const ANDROID_MACRO_URL = (import.meta.env.VITE_ANDROID_MACRO_URL as string | undefined)?.trim() || undefined
@@ -79,51 +76,51 @@ const time = (at: number) => new Date(at).toLocaleTimeString(appLocale(), { hour
 /** What happens to a payment outside every trip, as the server does it (B's contract): off = dropped, on = Inbox without a push. */
 const outsideTripsText = (on: boolean) =>
   on
-    ? 'Payments outside every trip wait in the Inbox as “outside any trip”, without a notification.'
-    : 'Payments outside every trip are ignored. Want them in the Inbox instead? Turn on All bank & UPI payments in Settings → Automation.'
+    ? 'Payments outside every trip wait quietly in the Inbox as “outside any trip”.'
+    : 'Payments outside every trip are ignored. To keep them, turn on All bank & UPI payments in Settings → Automation.'
 
 // The trust line of the first screen: never folded away.
 const INTRO_HINT: Hint = {
-  full: `When your bank texts you about a payment, your phone sends that text to ${APP_NAME}. We ask “add this to your trip?” — nothing is added until you say yes.`,
+  full: `Your phone forwards your bank’s payment texts to ${APP_NAME}. We ask before adding each one to your trip.`,
   short: 'Your phone forwards bank payment texts. Nothing is added until you say yes.',
   min: 'Nothing is added until you say yes.',
   tier: 'key',
 }
 const IGNORED_HINT: Hint = {
-  full: 'OTPs, credits and balance alerts are ignored. Account numbers are masked before anything is saved.',
-  short: 'OTPs are ignored; account numbers are masked',
+  full: 'OTPs, credits and balance alerts are ignored. Account numbers are masked before saving.',
+  short: 'OTPs ignored, account numbers masked',
   tier: 'help',
 }
-const TIME_HINT: Hint = { full: 'Takes about 3 minutes. Works with any bank that sends SMS.', short: 'Takes about 3 minutes', tier: 'help' }
+const TIME_HINT: Hint = { full: 'About 3 minutes. Works with any bank that sends SMS.', short: 'About 3 minutes', tier: 'help' }
 const LATER_HINT: Hint = { full: 'Change this later in Settings → Automation.', tier: 'extra' }
 const SCOPE_HINT: Hint = {
-  full: 'A key for one trip only accepts messages dated inside that trip. “All my trips” matches whichever trip the payment date falls in.',
-  short: 'A trip key only takes messages dated in that trip',
+  full: 'A key for one trip takes only payments dated in it. “All my trips” picks the trip by date.',
+  short: 'A trip key takes only payments in its dates',
   tier: 'help',
 }
 const KEYS_HINT: Hint = {
-  full: 'A key lets your phone add payments to your Inbox and nothing else. Revoke one if it leaks or a phone is gone.',
-  short: 'Revoke a key if it leaks or a phone is gone',
+  full: 'A key can only add payments to your Inbox. Revoke it if it leaks or a phone is lost.',
+  short: 'Revoke a key if a phone is lost',
   tier: 'help',
 }
 const KEY_BOX_HINT: Hint = {
-  full: 'Copied when you started. It lets your phone add payments to your Inbox, and nothing else.',
+  full: 'Copied when you started. It can only add payments to your Inbox.',
   short: 'It can only add payments to your Inbox',
   tier: 'help',
 }
 const IOS_FILTER_HINT: Hint = {
-  full: 'It runs on every message, but the Shortcut checks the text on your phone and only sends bank debit SMS. OTPs and personal messages never leave the device.',
+  full: 'It runs on every message but sends only bank debit SMS. OTPs and personal messages stay on your phone.',
   short: 'Only bank debit SMS leave your phone',
   tier: 'help',
 }
 const IOS_MANUAL_HINT: Hint = {
-  full: 'iOS 17 or later. Works with SMS from bank sender IDs such as AX-HDFCBK, because the trigger matches the message text, not the sender.',
+  full: 'iOS 17 or later. Works with bank sender IDs like AX-HDFCBK, as it matches the text, not the sender.',
   short: 'iOS 17 or later',
   tier: 'help',
 }
 const ANDROID_FILTER_HINT: Hint = {
-  full: 'Skips anything mentioning an OTP or password, then needs a debit word (debited, spent, paid, sent Rs, withdrawn) or an amount. OTPs and personal messages never leave the phone.',
-  short: 'Only debit messages leave the phone; OTPs never do',
+  full: 'Skips OTPs and passwords, then needs a debit word (debited, spent, paid, sent Rs, withdrawn) or an amount. Personal messages stay on the phone.',
+  short: 'Only debit messages leave the phone, never OTPs',
   tier: 'help',
 }
 const TASKER_HINT: Hint = {
@@ -136,8 +133,8 @@ const TASKER_HINT: Hint = {
   tier: 'extra',
 }
 const TEST_HINT: Hint = {
-  full: 'Sends this sample SMS to the server as if your phone had forwarded it. It checks the server and your key; a real bank SMS is what checks your phone’s automation.',
-  short: 'Checks the server and your key, not your phone',
+  full: 'Sends this sample as if your phone forwarded it. It checks the server and your key, not your phone.',
+  short: 'Checks the server and key, not your phone',
   tier: 'help',
 }
 
@@ -259,7 +256,7 @@ export default function AutoCaptureSetup() {
   const outsideHint: Hint = prefs?.outsideTrips
     ? { full: outsideTripsText(true), short: 'Payments outside trips wait in the Inbox', tier: 'help' }
     : {
-        full: 'Off: only payments dated during a trip are kept. Payments outside every trip are ignored and never stored.',
+        full: 'Off: only payments dated during a trip are kept. Others are never stored.',
         short: 'Off: only payments during a trip are kept',
         tier: 'help',
       }
@@ -318,7 +315,7 @@ export default function AutoCaptureSetup() {
                 ) : p === 'ios' ? (
                   <Apple size={18} aria-hidden />
                 ) : (
-                  <Smartphone size={18} aria-hidden />
+                  <PhoneIcon size={18} aria-hidden />
                 )}
                 {p === 'ios' ? 'Set up on this iPhone' : 'Set up on this Android'}
               </button>
@@ -383,7 +380,7 @@ export default function AutoCaptureSetup() {
                   )}
                 </h2>
                 {hitRow && hitRow.result !== 'captured' && (
-                  <p className="text-muted mt-1 text-sm">{logResultText(hitRow)} — that’s fine, the phone side works.</p>
+                  <p className="text-muted mt-1 text-sm">{logResultText(hitRow)}. That’s fine, the phone side works.</p>
                 )}
                 <p className="mt-2 font-semibold text-emerald-700 dark:text-emerald-400">Auto-capture is on.</p>
               </>
@@ -396,14 +393,12 @@ export default function AutoCaptureSetup() {
                 <HintText
                   className="text-muted mt-2 text-sm"
                   hint={{
-                    full: `We’ll light this up the moment your phone forwards a message. To try it now, pay anyone ${formatMoney(100, 'INR')} on UPI, or ask a friend to text you “Rs.1 debited test”.`,
-                    short: `To try it now, pay anyone ${formatMoney(100, 'INR')} on UPI`,
+                    full: `This lights up when your phone forwards a message. To test, pay anyone ${formatMoney(100, 'INR')} on UPI, or get a friend to text “Rs.1 debited test”.`,
+                    short: `To test, pay anyone ${formatMoney(100, 'INR')} on UPI`,
                     tier: 'help',
                   }}
                 />
-                {repo.mode === 'demo' && (
-                  <p className="text-muted mt-2 text-xs">The demo has no server: send a simulated test from “Try it from this browser” below.</p>
-                )}
+                {repo.mode === 'demo' && <p className="text-muted mt-2 text-xs">The demo has no server. Use “Try it from this browser” below.</p>}
               </>
             )}
           </div>
@@ -455,16 +450,12 @@ export default function AutoCaptureSetup() {
             <ScopeOption
               selected={!scope}
               onSelect={() => update({ group: undefined }, true)}
-              icon={
-                <span className="text-xl" aria-hidden>
-                  🧳
-                </span>
-              }
+              icon={<SuitcaseIcon size={22} className="text-brand-600 dark:text-brand-300" />}
               title="All my trips"
               // The trips below always show their dates, so this row keeps a line in every look too ('key', shortest in Minimal).
               detail={{
-                full: `Matches any trip whose dates include the payment. ${outsideTripsText(!!prefs?.outsideTrips)}`,
-                short: 'Matches any trip whose dates include the payment',
+                full: `Picks the trip whose dates include the payment. ${outsideTripsText(!!prefs?.outsideTrips)}`,
+                short: 'Picks the trip by the payment’s date',
                 min: 'Any trip’s dates',
                 tier: 'key',
               }}
@@ -516,11 +507,9 @@ export default function AutoCaptureSetup() {
                     key={t.token}
                     contentClassName="flex items-center gap-2"
                     menuTitle={label}
-                    actions={[
-                      { label: 'Revoke', ariaLabel: `Revoke capture key for ${label}`, icon: <Ban size={20} strokeWidth={2.25} />, onClick: () => revoke(t) },
-                    ]}
+                    actions={[{ label: 'Revoke', ariaLabel: `Revoke capture key for ${label}`, icon: <ProhibitIcon size={20} />, onClick: () => revoke(t) }]}
                   >
-                    <KeyRound size={16} className="shrink-0 text-slate-500" aria-hidden />
+                    <KeyIcon size={16} className="shrink-0 text-slate-500" aria-hidden />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium">{label}</div>
                       <div className="text-muted truncate text-xs">
@@ -539,7 +528,7 @@ export default function AutoCaptureSetup() {
                       onClick={() => copyIt(t.token, 'Capture key')}
                       aria-label={`Copy capture key for ${label}`}
                     >
-                      <Copy size={16} />
+                      <CopyIcon size={16} />
                     </button>
                   </SwipeRow>
                 )
@@ -550,8 +539,8 @@ export default function AutoCaptureSetup() {
         </Collapsible>
         <Collapsible title="Privacy" summary="What is kept, and what never leaves your phone" testId="capture-privacy">
           <p className="text-muted text-sm">
-            The server keeps only what it read from the message (amount, currency, merchant, date, reference) and the message itself with account and card
-            numbers masked. OTPs, credits and balance alerts are ignored and never stored. Revoking a key stops forwarding at once. Change what gets captured in{' '}
+            The server keeps the amount, currency, merchant, date and reference, and the message with account and card numbers masked. OTPs, credits and balance
+            alerts are never stored. Revoking a key stops forwarding at once. Change what gets captured in{' '}
             <Link to="/settings/automation" className="font-semibold text-brand-600 dark:text-brand-300">
               Settings → Automation
             </Link>
@@ -586,7 +575,7 @@ function KeyBox({ token, busy, onCopy, onCreate }: { token?: CaptureToken; busy:
   if (!token) {
     return (
       <button type="button" className="btn-primary w-full" onClick={onCreate} disabled={busy}>
-        {busy ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <KeyRound size={18} aria-hidden />} Create your capture key
+        {busy ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <KeyIcon size={18} aria-hidden />} Create your capture key
       </button>
     )
   }
@@ -724,11 +713,11 @@ function IosScreen({ token, onDone }: { token?: string; onDone: () => void }) {
       <h2 className="text-lg font-bold">Two things to do in Shortcuts</h2>
       <div className="space-y-2 text-sm text-slate-700 dark:text-slate-200">
         <p>
-          <b>1. Add the {APP_NAME} shortcut.</b> Tap <i>Add Shortcut</i>. When it asks for your key, long-press the box and tap <i>Paste</i> — it’s already
+          <b>1. Add the {APP_NAME} shortcut.</b> Tap <i>Add Shortcut</i>. When it asks for your key, long-press the box and tap <i>Paste</i>. It’s already
           copied.
         </p>
         <a href={IOS_SHORTCUT_URL} className="btn-primary w-full" target="_blank" rel="noreferrer" data-testid="ios-add-shortcut">
-          <Download size={18} aria-hidden /> Add Shortcut
+          <DownloadIcon size={18} aria-hidden /> Add Shortcut
         </a>
       </div>
       <div className="space-y-2 text-sm text-slate-700 dark:text-slate-200">
@@ -907,7 +896,7 @@ function AndroidScreen({ token, onDone }: { token?: string; onDone: () => void }
           <b>1.</b> Get MacroDroid (free; one macro is all this needs).
         </p>
         <a href={macrodroidPlayLink(navigator.userAgent)} className="btn-primary w-full" target="_blank" rel="noreferrer" data-testid="macrodroid-play">
-          <Download size={18} aria-hidden /> Get MacroDroid on Google Play
+          <DownloadIcon size={18} aria-hidden /> Get MacroDroid on Google Play
         </a>
         <p className="text-muted text-xs">
           On another device?{' '}
@@ -920,11 +909,11 @@ function AndroidScreen({ token, onDone }: { token?: string; onDone: () => void }
       {ANDROID_MACRO_URL ? (
         <div className="space-y-2 text-sm text-slate-700 dark:text-slate-200">
           <p>
-            <b>2.</b> Download your {APP_NAME} macro — it already has your capture key in it. Then in MacroDroid: <i>Macros</i> → <i>⋮</i> → <i>Import</i> →
-            pick the file → allow SMS.
+            <b>2.</b> Download your {APP_NAME} macro. Your capture key is already in it. Then in MacroDroid: <i>Macros</i> → <i>⋮</i> → <i>Import</i> → pick the
+            file → allow SMS.
           </p>
           <button type="button" className="btn-secondary w-full" onClick={download} disabled={!token || downloading} data-testid="android-macro-download">
-            {downloading ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <Download size={18} aria-hidden />} Download your {APP_NAME} macro
+            {downloading ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <DownloadIcon size={18} aria-hidden />} Download your {APP_NAME} macro
           </button>
         </div>
       ) : (
@@ -1139,7 +1128,7 @@ function TestSender({
         <div className="max-w-[90%] rounded-2xl rounded-tl-md bg-white px-3 py-2 text-sm dark:bg-ink-900">{text}</div>
       </div>
       <button type="button" className="btn-secondary mt-3 w-full" onClick={send} disabled={!token || sending} data-testid="capture-send-test">
-        {sending ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <Send size={18} aria-hidden />} Send test SMS
+        {sending ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <SendIcon size={18} aria-hidden />} Send test SMS
         {repo.mode === 'demo' ? ' (simulated)' : ''}
       </button>
       {!token && <p className="text-muted mt-2 text-xs">Start the setup first so you have a capture key.</p>}

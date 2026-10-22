@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, Check, Link2, Loader2, X } from 'lucide-react'
+import { ArrowRight, Check, Loader2, X } from 'lucide-react'
+import { LinkIcon } from '@/components/icons'
 import { repo } from '@/data'
 import type { Group, MemberId, MergeRequest } from '@/types'
 import { Avatar } from '@/components/Avatar'
@@ -104,7 +105,7 @@ export function MergeSheet({
           <>
             <HintText
               hint={{
-                full: 'Pick the entry that’s the same person, like someone added once by name and once by email.',
+                full: 'Pick the same person, like someone added once by name and once by email.',
                 short: 'Pick the entry that’s the same person.',
               }}
               className="text-muted -mt-1 mb-2 text-sm"
@@ -141,7 +142,7 @@ export function MergeSheet({
         <div>
           <div className="flex items-center justify-center gap-3 py-2" aria-hidden>
             <Avatar name={group.members[gone!]!.name} color={group.members[gone!]!.color} photoURL={group.members[gone!]!.photoURL} size={44} />
-            <Link2 size={20} className="text-slate-400" />
+            <LinkIcon size={20} className="text-slate-400" />
             <Avatar name={group.members[kept!]!.name} color={group.members[kept!]!.color} photoURL={group.members[kept!]!.photoURL} size={44} />
           </div>
           <p className="text-sm">
@@ -160,11 +161,11 @@ export function MergeSheet({
               full: (
                 <ul className="list-disc space-y-1 pl-5">
                   <li>Everything {who(gone!) === 'You' ? 'you' : who(gone!)} paid or owes moves over, so their balances add up.</li>
-                  <li>A payment between the two is removed (it was one person paying themselves).</li>
+                  <li>A payment between the two is removed (one person paying themselves).</li>
                   <li>Past activity still shows the old name.</li>
                 </ul>
               ),
-              short: 'Their balances add up; a payment between the two is removed.',
+              short: 'Balances add up. A payment between them is removed.',
               tier: 'key',
             }}
           />
@@ -217,7 +218,7 @@ function MergeOffer({ group, r, me, myUid, compact }: { group: Group; r: MergeRe
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
           aria-hidden
         >
-          <Link2 size={18} />
+          <LinkIcon size={18} />
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium">{text}</p>
@@ -225,7 +226,7 @@ function MergeOffer({ group, r, me, myUid, compact }: { group: Group; r: MergeRe
             <p className="text-muted mt-0.5 text-xs">{approver ? `Waiting for ${approver === me ? 'you' : name(approver)} to OK it.` : 'Waiting for an OK.'}</p>
           )}
           {state.kind === 'suggested' && (
-            <HintText hint={{ full: <>Merging moves everything into {who(r.into)}; balances add up.</>, tier: 'key' }} className="text-muted mt-0.5 text-xs" />
+            <HintText hint={{ full: <>Merging moves everything into {who(r.into)}. Balances add up.</>, tier: 'key' }} className="text-muted mt-0.5 text-xs" />
           )}
         </div>
       </div>

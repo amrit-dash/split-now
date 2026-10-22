@@ -46,3 +46,4 @@ blob-report/
 
 # Production Firebase web config: copy .env.production.example and fill it in (docs/FIREBASE_SETUP.md).
 .env.production
+tmp/

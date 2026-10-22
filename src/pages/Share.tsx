@@ -1,4 +1,5 @@
-import { Plus, ScanLine } from 'lucide-react'
+import { ScanLine } from 'lucide-react'
+import { AddIcon } from '@/components/icons'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { repo } from '@/data'
@@ -41,11 +42,11 @@ export default function Share() {
   return (
     <div className="mx-auto min-h-dvh max-w-lg px-4 pb-10">
       <PageHeader title="Shared to Split Now" back="/" />
-      <Empty emoji={ignored ? '🙈' : '🔎'} title={ignored ? 'Not a payment to add' : 'No amount found'}>
+      <Empty icon={ignored ? 'eyeSlash' : 'search'} title={ignored ? 'Not a payment to add' : 'No amount found'}>
         {ignored ? sharedTextIgnoredText(outcome) : shared ? <>We couldn’t find an amount in “{shared.slice(0, 120)}”.</> : 'Nothing was shared.'}
         <div className="mt-4 flex justify-center gap-2">
           <Link to="/add" className="btn-primary">
-            <Plus size={18} aria-hidden /> Add expense
+            <AddIcon size={18} aria-hidden /> Add expense
           </Link>
           <Link to="/scan" className="btn-secondary">
             <ScanLine size={18} aria-hidden /> Scan

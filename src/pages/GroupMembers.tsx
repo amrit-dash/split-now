@@ -3,7 +3,7 @@ import { addPlan, addRefusal } from '@/lib/vault-api'
 import { addedPrompt } from '@/lib/vault-setup'
 import { useConfirm } from '@/components/ConfirmSheet'
 import { passkeyCancelled, passkeyProof } from '@/features/vault/passkey'
-import { HandCoins, Link2, LogOut, UserMinus } from 'lucide-react'
+import { ExitIcon, HandCoinsIcon, LinkIcon, MemberRemoveIcon } from '@/components/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
@@ -27,6 +27,8 @@ import {
 } from '@/lib/members'
 import { formatMoney } from '@/lib/money'
 import { Avatar } from '@/components/Avatar'
+import { ProPill, ProTap } from '@/components/ProBadge'
+import { badgeLabel, memberBadge } from '@/lib/pro'
 import { MemberPicker } from '@/components/MemberPicker'
 import { Empty, PageHeader } from '@/components/Misc'
 import { CardSkeleton, ListSkeleton } from '@/components/Skeleton'
@@ -37,6 +39,7 @@ import { labelOf } from '@/lib/shortNames'
 import { Switch } from '@/components/Switch'
 import { MergeOffers, MergeSheet } from '@/features/merge/Merge'
 import { mergeCandidates } from '@/lib/merge'
+import { useFeature } from '@/hooks/useMode'
 
 /**
  * A group's people: who is in it, whether they have joined, where each stands, and adding or
@@ -60,6 +63,7 @@ export default function GroupMembers() {
   const remove = useRemoveMember(d)
   const mergeRequests = useMergeRequests(groupId)
   const [mergeFrom, setMergeFrom] = useState<string | null>(null)
+  const showMerge = useFeature('merge')
   usePageTitle(liveGroup ? `Members · ${liveGroup.name}` : liveGroup === null ? 'Group not found' : undefined)
 
   if (liveGroup === null)
@@ -67,7 +71,7 @@ export default function GroupMembers() {
       <>
         {/* Fixed: this group is gone for you, and every screen of it behind this one would say the same, so back leaves the group. */}
         <PageHeader title="Members" back={{ to: '/groups', mode: 'fixed' }} />
-        <Empty emoji="🔍" title="This group doesn’t exist or you’re not a member" />
+        <Empty icon="search" title="This group doesn’t exist or you’re not a member" />
       </>
     )
   if (!d)
@@ -130,13 +134,14 @@ export default function GroupMembers() {
     return x ? `/groups/${group.id}/settle?from=${x.from}&to=${x.to}&amount=${x.amount}` : `/groups/${group.id}/settle`
   }
 
+  // Simple has no Merge (docs/SIMPLE_MODE.md); merges others ask for still arrive (MergeOffers).
   const mergeAction = (id: string): SwipeAction[] =>
-    group.members[id]?.removedAt === undefined && mergeCandidates(group.members, id).length
+    showMerge && group.members[id]?.removedAt === undefined && mergeCandidates(group.members, id).length
       ? [
           {
             label: 'Merge',
             ariaLabel: `Merge ${id === me ? 'yourself' : group.members[id].name} with someone else in the group`,
-            icon: <Link2 size={20} strokeWidth={2.25} />,
+            icon: <LinkIcon size={20} />,
             tone: 'neutral',
             onClick: () => setMergeFrom(id),
             testId: 'member-merge',
@@ -151,7 +156,7 @@ export default function GroupMembers() {
         return {
           label: 'Settle up',
           ariaLabel: `Settle up with ${who}`,
-          icon: <HandCoins size={20} strokeWidth={2.25} />,
+          icon: <HandCoinsIcon size={20} />,
           tone: 'accent',
           onClick: () => nav(settleLink(id)),
           testId: 'member-settle',
@@ -160,7 +165,7 @@ export default function GroupMembers() {
         return {
           label: 'Remove',
           ariaLabel: `Remove ${who} from the group`,
-          icon: <UserMinus size={20} strokeWidth={2.25} />,
+          icon: <MemberRemoveIcon size={20} />,
           onClick: () => void remove(id),
           testId: 'member-remove',
         }
@@ -168,7 +173,7 @@ export default function GroupMembers() {
         return {
           label: 'Leave',
           ariaLabel: `Leave ${group.name}`,
-          icon: <LogOut size={20} strokeWidth={2.25} />,
+          icon: <ExitIcon size={20} />,
           onClick: () => void remove(id),
           testId: 'member-leave',
         }
@@ -176,7 +181,7 @@ export default function GroupMembers() {
       return {
         label: self ? 'Leave' : 'Remove',
         ariaLabel: self ? `Leave ${group.name} (not possible yet)` : `Remove ${who} (not possible yet)`,
-        icon: self ? <LogOut size={20} strokeWidth={2.25} /> : <UserMinus size={20} strokeWidth={2.25} />,
+        icon: self ? <ExitIcon size={20} /> : <MemberRemoveIcon size={20} />,
         tone: 'muted',
         onClick: () => void remove(id),
         testId: 'member-remove-blocked',
@@ -187,7 +192,7 @@ export default function GroupMembers() {
     <div>
       <PageHeader title="Members" subtitle={group.name} back={`/groups/${group.id}`} />
       {group.type === 'personal' ? (
-        <Empty emoji="👛" title="A personal wallet is just you" />
+        <Empty icon="wallet" title="A personal wallet is just you" />
       ) : (
         <div className="space-y-4">
           <MergeOffers group={group} requests={mergeRequests} me={me} myUid={user.uid} />
@@ -195,6 +200,7 @@ export default function GroupMembers() {
             {ids.map((id) => {
               const m = group.members[id]
               const self = id === me
+              const badge = memberBadge(m)
               const v = net[id] ?? 0
               const r = memberRemoval({ memberId: id, member: m, me, myUid: user.uid, createdBy: group.createdBy, balance: v, inPending: pending, repeating })
               return (
@@ -207,8 +213,22 @@ export default function GroupMembers() {
                 >
                   <Avatar name={m.name} color={m.color} photoURL={m.photoURL} size={40} />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium">
-                      {self ? m.name : labelOf(group.members, id, m.name, me)} {self && <span className="text-muted text-xs">(you)</span>}
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <span className="truncate font-medium">
+                        {self ? m.name : labelOf(group.members, id, m.name, me)} {self && <span className="text-muted text-xs">(you)</span>}
+                      </span>
+                      {/* The badge (src/lib/pro.ts): the pill by the name; someone else's PRO opens Help → Earn Pro for a viewer without it. */}
+                      {badge &&
+                        (self ? (
+                          <span className="flex shrink-0 items-center">
+                            <ProPill h={9} word={badge} />
+                            <span className="sr-only">{badgeLabel(badge, false)}</span>
+                          </span>
+                        ) : (
+                          <ProTap word={badge} className="-my-2 flex min-h-8 shrink-0 items-center px-1" testId="member-pro">
+                            <ProPill h={9} word={badge} />
+                          </ProTap>
+                        ))}
                     </div>
                     {/* The full name under the short one: this is where you check who someone is. */}
                     <div className="text-muted truncate text-xs">
@@ -224,7 +244,7 @@ export default function GroupMembers() {
             })}
           </ul>
           <HintText hint={SWIPE_HINT} className="text-muted px-1 text-xs" />
-          {group.createdBy === user.uid && (
+          {group.createdBy === user.uid && showMerge && (
             // Room at the end so it clears the raised + button. Optional in the Minimal look.
             <Detail min={2}>
               <div className="card mb-[calc(var(--lane)-var(--nav-h))] flex items-center justify-between gap-3 p-4">
@@ -266,16 +286,16 @@ export default function GroupMembers() {
 }
 
 const SWIPE_HINT: Hint = {
-  full: 'Swipe a person left, or press and hold (right-click on a computer), to settle up, merge or remove them. Merge someone added twice (by name and by email) into one person. Only people who are settled up can be removed.',
-  short: 'Swipe a person left, or press and hold, for more.',
+  full: 'Swipe left or press and hold (right-click on a computer) to settle up, merge or remove. Merge someone added twice into one. Only settled people can be removed.',
+  short: 'Swipe left or press and hold for more.',
 }
 const MERGE_OK_HINT: Hint = {
-  full: 'When someone else merges two people here, you get a request in the chat to approve.',
-  short: 'Approve merges others make here.',
+  full: 'When someone else merges two people here, you approve it in the chat.',
+  short: 'Approve others’ merges in the chat.',
 }
 /** Must stay in every look: without it people wait for friends to join before logging anything. */
 const ADD_HINT: Hint = {
-  full: 'They can claim their spot with the invite link. You can log expenses with them straight away.',
+  full: 'They can claim their spot with the invite link. Add expenses with them now.',
   short: 'They can claim their spot with the invite link.',
   tier: 'key',
 }

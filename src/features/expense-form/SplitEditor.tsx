@@ -9,9 +9,9 @@ import { DecimalInput } from './DecimalInput'
 import { CheckBox, MemberRow, nameOf, youFirst } from './bits'
 import { ItemsEditor } from './ItemsEditor'
 
-const SHARES_HINT: Hint = { full: 'Use ratios like 2:1:1, so a couple counts as 2 shares.', short: 'Ratios like 2:1:1', tier: 'help' }
+const SHARES_HINT: Hint = { full: 'Ratios like 2:1:1, so a couple counts as 2 shares.', short: 'Ratios like 2:1:1', tier: 'help' }
 const ADJUST_HINT: Hint = {
-  full: 'Split equally, then add or subtract an amount for anyone who had more or less.',
+  full: 'Split equally, then add or take off for anyone who had more or less.',
   short: 'Equal, plus or minus for anyone',
   tier: 'help',
 }

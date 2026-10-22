@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Bell, Database, Lock, Palette, ShieldCheck, Sparkles, WandSparkles, Zap } from 'lucide-react'
+import {
+  RowAdminIcon,
+  RowAiIcon,
+  RowAnimationsIcon,
+  RowAutomationIcon,
+  RowDataIcon,
+  RowEncryptedIcon,
+  RowNotificationsIcon,
+  RowPreferencesIcon,
+} from '@/components/icons'
 import { repo } from '@/data'
 import { useAiState, useCaptureTokens } from '@/hooks/data'
 import { useMe } from '@/hooks/auth'
@@ -17,6 +26,7 @@ import { DEFAULT_PREFS, isIOS, isStandalone, permission, pushSupported, type All
 import { notificationsAvailable } from '@/components/NotificationSettings'
 import { HintText, type Hint } from '@/components/Hint'
 import { PushPrompt } from '@/components/PushPrompt'
+import { useFeature } from '@/hooks/useMode'
 import { SettingsPage, SettingsRow } from './common'
 
 // The Saved pill already says it; only worth reading once.
@@ -33,6 +43,9 @@ export default function SettingsHome() {
   const aiState = useAiState(repo.mode === 'firebase')
   const motion = useMotion()
   const vaults = usePrivateGroups()
+  // Simple leaves these two out (docs/SIMPLE_MODE.md); what they set keeps working.
+  const showAnimations = useFeature('animations')
+  const showAutomation = useFeature('automation')
   useEffect(() => watchCapturePrefs(user.uid, repo.mode, setPrefs), [user.uid])
 
   const notifications = !notificationsAvailable()
@@ -56,41 +69,51 @@ export default function SettingsHome() {
       <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5" data-testid="settings-list">
         <SettingsRow
           to="/settings/preferences"
-          icon={<Palette size={19} />}
+          icon={<RowPreferencesIcon size={22} />}
           title="Preferences"
           testId="settings-preferences"
           summary={`${profile.currency} · ${THEME_LABEL[getTheme()]} · ${accentPreset(getAccent()).label}`}
         />
-        <SettingsRow
-          to="/settings/animations"
-          icon={<WandSparkles size={19} />}
-          title="Animations"
-          summary={motionSummary(motion.prefs, motion.reduced)}
-          testId="settings-animations"
-        />
-        <SettingsRow to="/settings/notifications" icon={<Bell size={19} />} title="Notifications" summary={notifications} testId="settings-notifications" />
-        <SettingsRow
-          to="/settings/automation"
-          icon={<Zap size={19} />}
-          title="Automation"
-          summary={automation || 'Auto-capture and capture keys'}
-          testId="settings-automation"
-        />
-        {vaults.flagOn && (
-          <SettingsRow to="/settings/vault" icon={<Lock size={19} />} title="Encrypted groups" summary={privateSummary(vaults.on)} testId="settings-vault" />
+        {showAnimations && (
+          <SettingsRow
+            to="/settings/animations"
+            icon={<RowAnimationsIcon size={22} />}
+            title="Animations"
+            summary={motionSummary(motion.prefs, motion.reduced)}
+            testId="settings-animations"
+          />
         )}
-        {repo.mode === 'firebase' && <SettingsRow to="/settings/ai" icon={<Sparkles size={19} />} title="AI features" summary={ai} testId="settings-ai" />}
         <SettingsRow
-          to="/settings/data"
-          icon={<Database size={19} />}
-          title="Data"
-          summary="Export, import from Splitwise, install the app"
-          testId="settings-data"
+          to="/settings/notifications"
+          icon={<RowNotificationsIcon size={22} />}
+          title="Notifications"
+          summary={notifications}
+          testId="settings-notifications"
         />
+        {showAutomation && (
+          <SettingsRow
+            to="/settings/automation"
+            icon={<RowAutomationIcon size={22} />}
+            title="Automation"
+            summary={automation || 'Auto-capture and capture keys'}
+            testId="settings-automation"
+          />
+        )}
+        {vaults.flagOn && (
+          <SettingsRow
+            to="/settings/vault"
+            icon={<RowEncryptedIcon size={22} />}
+            title="Encrypted groups"
+            summary={privateSummary(vaults.on)}
+            testId="settings-vault"
+          />
+        )}
+        {repo.mode === 'firebase' && <SettingsRow to="/settings/ai" icon={<RowAiIcon size={22} />} title="AI features" summary={ai} testId="settings-ai" />}
+        <SettingsRow to="/settings/data" icon={<RowDataIcon size={22} />} title="Data" summary="Export, import, install the app" testId="settings-data" />
         {aiStatus?.admin && (
           <SettingsRow
             to="/admin"
-            icon={<ShieldCheck size={19} />}
+            icon={<RowAdminIcon size={22} />}
             title="Admin"
             summary="Switches, limits, usage, AI key and accounts"
             testId="settings-admin"

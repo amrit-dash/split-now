@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Loader2, Mail, Trash2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
+import { MailIcon, TrashIcon } from '@/components/icons'
 import { repo } from '@/data'
 import type { AccountDeletionPlan, SignInCheck } from '@/data/repo'
 import { useAllGroupData } from '@/hooks/data'
@@ -182,7 +183,7 @@ export default function DeleteAccount() {
                     disabled={busy}
                     data-testid="delete-reauth-email"
                   >
-                    <Mail size={18} aria-hidden /> {linkSent ? 'Send the link again' : 'Email me a sign-in link'}
+                    <MailIcon size={18} aria-hidden /> {linkSent ? 'Send the link again' : 'Email me a sign-in link'}
                   </button>
                 ),
               )}
@@ -216,7 +217,7 @@ export default function DeleteAccount() {
                 disabled={busy || !canDelete(plan, typed)}
                 data-testid="delete-account-run"
               >
-                {busy ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <Trash2 size={18} aria-hidden />} Delete my account
+                {busy ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <TrashIcon size={18} aria-hidden />} Delete my account
               </button>
             </div>
           )}

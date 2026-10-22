@@ -1,7 +1,19 @@
 import { pictureCost } from '../../shared/icon-ai'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Check, ExternalLink, Keyboard, KeyRound, Loader2, MessageSquare, RefreshCw, ScanLine, Shapes, ShieldCheck, Sparkles, Trash2 } from 'lucide-react'
+import { Check, Loader2 } from 'lucide-react'
+import {
+  ExternalIcon,
+  KeyIcon,
+  RefreshIcon,
+  RowChatIcon,
+  RowIconsIcon,
+  RowKeyboardIcon,
+  RowScanIcon,
+  ShieldIcon,
+  SparkleIcon,
+  TrashIcon,
+} from '@/components/icons'
 import { repo } from '@/data'
 import { useAiState } from '@/hooks/data'
 import type { AiModel, AiState, AppAiStatusValue } from '@/data/repo'
@@ -19,6 +31,7 @@ import { PictureTest } from './PictureTest'
 import { HintText, InfoTip, type Hint } from './Hint'
 import { Select } from './Select'
 import { SettingsSection } from './SettingsSection'
+import { useFeature } from '@/hooks/useMode'
 import { Switch } from './Switch'
 import { useToast } from './Toast'
 
@@ -29,25 +42,24 @@ const SOURCE_OPTIONS: Array<{ value: AiSource; label: string; hint: string }> = 
 ]
 
 // Consent: what leaves the phone, and the free AI's terms, stay in every look.
-const FREE_AI_HINT: Hint = { full: FREE_AI_NOTE, short: 'Free because Google may read and use what you send', tier: 'key' }
+const FREE_AI_HINT: Hint = { full: FREE_AI_NOTE, short: 'Free, but Google may read and use what you send', tier: 'key' }
 const OWN_KEY_HINT: Hint = {
   full: (
     <>
-      Keys come from{' '}
+      Get a key at{' '}
       <a
         className="inline-flex items-center gap-0.5 font-semibold text-brand-600 dark:text-brand-300"
         href="https://aistudio.google.com/apikey"
         target="_blank"
         rel="noopener noreferrer"
       >
-        aistudio.google.com/apikey <ExternalLink size={11} aria-hidden />
+        aistudio.google.com/apikey <ExternalIcon size={11} aria-hidden />
       </a>
-      . Google’s free tier may use what you send to improve its models and isn’t meant for personal data, so for bills and bank messages use a key from a
-      project with billing turned on (the paid tier). The key is checked with Google, then kept on Split Now’s server; the app only ever shows its last 4
-      characters.
+      . Google’s free tier may use what you send to train its models, so for bills and bank messages use a key from a project with billing on. We check the key
+      with Google and keep it on Split Now’s server. The app only shows its last 4 characters.
     </>
   ),
-  short: 'For bills and bank messages, use a paid-tier key',
+  short: 'Use a paid-tier key for bills and bank messages',
   tier: 'key',
 }
 
@@ -98,6 +110,7 @@ export function AiSettings() {
   const aiPayments = useFlag('aiPayments')
   // The admin's switch for icons with AI (config/app flags.aiIcons); server-enforced.
   const aiIcons = useFlag('aiIcons')
+  const aiFeatures = useFeature('aiFeatures')
   // The admin's switch for the automatic icon asking AI (config/app flags.aiIconAuto); server-enforced.
   const aiIconAuto = useFlag('aiIconAuto')
   const [models, setModels] = useState<AiModel[] | null>(null)
@@ -175,7 +188,7 @@ export function AiSettings() {
         ? { text: 'Turn on “Use free AI” to use it', ok: false }
         : APP_STATUS[status.app[f]]
       : null
-  const dataNote: Hint = { full: aiDataNote(status), short: 'Bills, screenshots and unreadable SMS are sent to Google to read', tier: 'key' }
+  const dataNote: Hint = { full: aiDataNote(status), short: 'Bills, screenshots and unreadable SMS go to Google', tier: 'key' }
   const modelOptions = [
     { value: '', label: 'Recommended (cheapest)', hint: DEFAULT_MODEL },
     ...(models ?? []).map((m) => ({ value: m.id, label: m.label, hint: modelHint(m) })),
@@ -193,11 +206,11 @@ export function AiSettings() {
           text={
             prefs.aiEnabled
               ? {
-                  full: 'For what the phone can’t read: bills, bank SMS, Quick add lines and payment screenshots. Choose each one below.',
-                  short: 'For bills, bank SMS and screenshots the phone can’t read',
+                  full: 'Reads what the phone can’t: bills, bank SMS, Quick add lines and payment screenshots.',
+                  short: 'Reads what the phone can’t',
                   tier: 'help',
                 }
-              : { full: 'Off: nothing is sent to any AI. Bills are read on this phone, less accurately.', short: 'Off: nothing is sent to any AI', tier: 'key' }
+              : { full: 'Off: nothing goes to any AI. Bills are read on this phone, less accurately.', short: 'Off: nothing goes to any AI', tier: 'key' }
           }
         />
         <p className="text-muted mt-3 text-xs" data-testid="ai-data-note">
@@ -215,7 +228,7 @@ export function AiSettings() {
             <Row title="Use free AI" testId="ai-free-ok" checked={prefs.aiFreeOk} onChange={(v) => set({ aiFreeOk: v })} text={FREE_AI_HINT} />
             {prefs.aiFreeOk && prefs.aiSource === 'own' && (
               <p className="mt-2 text-xs font-semibold text-amber-900 dark:text-amber-200" data-testid="ai-free-unused">
-                Not used while Which key (under Your key and models) is “Only my key”.
+                Not used while Which key is “Only my key”.
               </p>
             )}
           </div>
@@ -224,173 +237,186 @@ export function AiSettings() {
 
       {prefs.aiEnabled && (
         <>
-          <SettingsSection icon={<ScanLine size={16} aria-hidden />} title="Reading bills and screenshots" testId="ai-section-reading">
-            {aiImages ? (
-              <Row
-                title="Bills & statements"
-                testId="ai-images"
-                checked={prefs.aiImages}
-                onChange={(v) => set({ aiImages: v })}
-                text={
-                  prefs.aiImages
-                    ? { full: `Photos go to ${aiName} to read items, taxes and transactions.`, short: `Photos go to ${aiName}`, tier: 'help' }
-                    : { full: 'Read on this phone (less accurate). Statement import needs AI.', short: 'Read on this phone, less accurately', tier: 'help' }
-                }
-              />
-            ) : (
-              <div data-testid="ai-images-off">
-                <div className="font-semibold">Bills & statements</div>
-                <div className="text-muted text-sm">Reading bills with AI is switched off for everyone right now</div>
-              </div>
-            )}
-            {aiPayments ? (
-              <Row
-                title="Check payment screenshots"
-                testId="ai-payments"
-                checked={prefs.aiPayments}
-                onChange={(v) => set({ aiPayments: v })}
-                text={
-                  prefs.aiPayments
-                    ? {
-                        full: 'In groups where payments need your OK, a payment to you counts straight away when its screenshot matches. Uses your AI quota.',
-                        short: 'A matching screenshot counts without your OK',
-                        // 'help' like every other row here: the list shows a line under all of them or none.
-                        tier: 'help',
-                      }
-                    : { full: 'Payments to you wait for your OK, even with a screenshot attached.', short: 'Payments to you wait for your OK', tier: 'help' }
-                }
-              />
-            ) : (
-              <div data-testid="ai-payments-off">
-                <div className="font-semibold">Check payment screenshots</div>
-                <div className="text-muted text-sm">Switched off for everyone right now: payments wait for your OK</div>
-              </div>
-            )}
-          </SettingsSection>
-          <SettingsSection icon={<MessageSquare size={16} aria-hidden />} title="Bank SMS" testId="ai-section-sms">
-            <Row
-              title="Bank SMS the app can’t read"
-              testId="ai-sms"
-              checked={prefs.aiSms}
-              onChange={(v) => set({ aiSms: v })}
-              text={
-                prefs.aiSms
-                  ? {
-                      full: `Only messages the built-in reader misses go to ${aiName}, with account numbers masked.`,
-                      short: 'Only missed messages, account numbers masked',
-                      tier: 'help',
+          {/* Simple keeps Use AI, free AI and Your key and models; the per-feature switches keep their values (docs/SIMPLE_MODE.md). */}
+          {aiFeatures && (
+            <>
+              <SettingsSection icon={<RowScanIcon size={18} aria-hidden />} title="Reading bills and screenshots" testId="ai-section-reading">
+                {aiImages ? (
+                  <Row
+                    title="Bills & statements"
+                    testId="ai-images"
+                    checked={prefs.aiImages}
+                    onChange={(v) => set({ aiImages: v })}
+                    text={
+                      prefs.aiImages
+                        ? { full: `Photos go to ${aiName} to read items, taxes and transactions.`, short: `Photos go to ${aiName}`, tier: 'help' }
+                        : {
+                            full: 'Read on this phone, less accurately. Statement import needs AI.',
+                            short: 'Read on this phone, less accurately',
+                            tier: 'help',
+                          }
                     }
-                  : { full: 'Unreadable messages are skipped.', tier: 'help' }
-              }
-            />
-            {prefs.aiSms && (
-              <Row
-                title={`Also ask ${aiName} who was paid`}
-                testId="ai-sms-merchant"
-                checked={prefs.aiSmsMerchant}
-                onChange={(v) => set({ aiSmsMerchant: v })}
-                text={{
-                  full: `When the app reads the amount but not the payee, the masked message is sent to ${aiName} for the name. Off: such payments are saved as “Payment”.`,
-                  short: 'For the payee’s name when the app can’t read it',
-                  tier: 'help',
-                }}
-              />
-            )}
-          </SettingsSection>
-          <SettingsSection icon={<Keyboard size={16} aria-hidden />} title="Quick add" testId="ai-section-quick-add">
-            {aiQuickAdd ? (
-              <Row
-                title="Quick add with AI"
-                testId="ai-quick-add"
-                checked={prefs.aiQuickAdd}
-                onChange={(v) => set({ aiQuickAdd: v })}
-                text={{
-                  full: 'When a line is too complex to read, AI works it out. Uses your AI quota.',
-                  short: 'AI works out lines too complex to read',
-                  tier: 'help',
-                }}
-              />
-            ) : (
-              <div data-testid="ai-quick-add-off">
-                <div className="font-semibold">Quick add with AI</div>
-                <div className="text-muted text-sm">Switched off for everyone right now</div>
-              </div>
-            )}
-          </SettingsSection>
-          {!aiIcons && !aiIconAuto && (
-            <SettingsSection icon={<Shapes size={16} aria-hidden />} title="Icons" testId="ai-section-icons">
-              <div data-testid="ai-icons-off">
-                <div className="font-semibold">AI icons</div>
-                <div className="text-muted text-sm">Switched off for everyone right now</div>
-              </div>
-            </SettingsSection>
-          )}
-          {(aiIcons || aiIconAuto) && (
-            <SettingsSection icon={<Shapes size={16} aria-hidden />} title="Icons" testId="ai-section-icons">
-              {aiIcons && (
-                <Row
-                  title="AI icons"
-                  testId="ai-icons"
-                  checked={prefs.aiIcons}
-                  onChange={(v) => set({ aiIcons: v })}
-                  text={{
-                    full: `Tap an icon and search: when nothing fits, Suggest with AI offers three emoji and a few drawn icons for what you typed. With your own Gemini key, Draw a picture too (billed to your key, ${pictureCost()} a picture). Only when you ask, never in private groups. Uses your AI quota.`,
-                    short: 'Suggest icons for what you search',
-                    tier: 'help',
-                  }}
-                />
-              )}
-              {aiIconAuto && (
-                <Row
-                  title="AI picks icons"
-                  testId="ai-icon-auto"
-                  checked={prefs.aiIconAuto}
-                  onChange={(v) => set({ aiIconAuto: v })}
-                  text={{
-                    full: 'When the app can’t tell the icon from a title (“Toit”), AI picks one of its own icons, and the category or group type while you haven’t chosen one. Never in private groups. Uses your AI quota.',
-                    short: 'AI picks the icon when the app can’t tell',
-                    tier: 'help',
-                  }}
-                />
-              )}
-              {hasKey && prefs.aiIcons && (
-                <div data-testid="ai-picture-model">
-                  <div className="label">Model for pictures</div>
-                  <Select
-                    aria-label="Model for pictures"
-                    value={prefs.aiPictureModel}
-                    onChange={(v) => set({ aiPictureModel: v })}
-                    options={pictureModelOptions(pictureModels, prefs.aiPictureModel)}
                   />
-                  {pictureModels === null ? (
-                    <p className="text-muted mt-1 text-xs">Loading the image models your key can use…</p>
-                  ) : (
-                    <HintText
-                      className="text-muted mt-1 text-xs"
-                      hint={{
-                        full: 'Draw a picture in the icon sheet uses it, billed to your key (image models have no free tier). If it fails, the recommended one is tried next.',
-                        short: 'For Draw a picture, billed to your key',
+                ) : (
+                  <div data-testid="ai-images-off">
+                    <div className="font-semibold">Bills & statements</div>
+                    <div className="text-muted text-sm">Switched off for everyone right now</div>
+                  </div>
+                )}
+                {aiPayments ? (
+                  <Row
+                    title="Check payment screenshots"
+                    testId="ai-payments"
+                    checked={prefs.aiPayments}
+                    onChange={(v) => set({ aiPayments: v })}
+                    text={
+                      prefs.aiPayments
+                        ? {
+                            full: 'Where payments need your OK, one with a matching screenshot counts straight away. Uses your AI quota.',
+                            short: 'A matching screenshot skips your OK',
+                            // 'help' like every other row here: the list shows a line under all of them or none.
+                            tier: 'help',
+                          }
+                        : {
+                            full: 'Payments to you wait for your OK, even with a screenshot.',
+                            short: 'Payments to you wait for your OK',
+                            tier: 'help',
+                          }
+                    }
+                  />
+                ) : (
+                  <div data-testid="ai-payments-off">
+                    <div className="font-semibold">Check payment screenshots</div>
+                    <div className="text-muted text-sm">Off for everyone right now: payments wait for your OK</div>
+                  </div>
+                )}
+              </SettingsSection>
+              <SettingsSection icon={<RowChatIcon size={18} aria-hidden />} title="Bank SMS" testId="ai-section-sms">
+                <Row
+                  title="Bank SMS the app can’t read"
+                  testId="ai-sms"
+                  checked={prefs.aiSms}
+                  onChange={(v) => set({ aiSms: v })}
+                  text={
+                    prefs.aiSms
+                      ? {
+                          full: `Only messages the app can’t read go to ${aiName}, account numbers masked.`,
+                          short: 'Only unread ones, account numbers masked',
+                          tier: 'help',
+                        }
+                      : { full: 'Unreadable messages are skipped.', tier: 'help' }
+                  }
+                />
+                {prefs.aiSms && (
+                  <Row
+                    title={`Also ask ${aiName} who was paid`}
+                    testId="ai-sms-merchant"
+                    checked={prefs.aiSmsMerchant}
+                    onChange={(v) => set({ aiSmsMerchant: v })}
+                    text={{
+                      full: `When the app misses the payee, the masked message goes to ${aiName}. Off: saved as “Payment”.`,
+                      short: 'When the app misses the payee',
+                      tier: 'help',
+                    }}
+                  />
+                )}
+              </SettingsSection>
+              <SettingsSection icon={<RowKeyboardIcon size={18} aria-hidden />} title="Quick add" testId="ai-section-quick-add">
+                {aiQuickAdd ? (
+                  <Row
+                    title="Quick add with AI"
+                    testId="ai-quick-add"
+                    checked={prefs.aiQuickAdd}
+                    onChange={(v) => set({ aiQuickAdd: v })}
+                    text={{
+                      full: 'AI works out lines too complex for the app. Uses your AI quota.',
+                      short: 'For lines too complex for the app',
+                      tier: 'help',
+                    }}
+                  />
+                ) : (
+                  <div data-testid="ai-quick-add-off">
+                    <div className="font-semibold">Quick add with AI</div>
+                    <div className="text-muted text-sm">Switched off for everyone right now</div>
+                  </div>
+                )}
+              </SettingsSection>
+              {!aiIcons && !aiIconAuto && (
+                <SettingsSection icon={<RowIconsIcon size={18} aria-hidden />} title="Icons" testId="ai-section-icons">
+                  <div data-testid="ai-icons-off">
+                    <div className="font-semibold">AI icons</div>
+                    <div className="text-muted text-sm">Switched off for everyone right now</div>
+                  </div>
+                </SettingsSection>
+              )}
+              {(aiIcons || aiIconAuto) && (
+                <SettingsSection icon={<RowIconsIcon size={18} aria-hidden />} title="Icons" testId="ai-section-icons">
+                  {aiIcons && (
+                    <Row
+                      title="AI icons"
+                      testId="ai-icons"
+                      checked={prefs.aiIcons}
+                      onChange={(v) => set({ aiIcons: v })}
+                      text={{
+                        full: `When icon search finds nothing, AI suggests some. Your own key adds Draw a picture (${pictureCost()} each). Only when you ask, never in private groups.`,
+                        short: 'AI suggests icons when search finds nothing',
                         tier: 'help',
                       }}
                     />
                   )}
-                  <PictureTest which="own" model={prefs.aiPictureModel} />
-                </div>
+                  {aiIconAuto && (
+                    <Row
+                      title="AI picks icons"
+                      testId="ai-icon-auto"
+                      checked={prefs.aiIconAuto}
+                      onChange={(v) => set({ aiIconAuto: v })}
+                      text={{
+                        full: 'When a title doesn’t say which icon (“Toit”), AI picks one, plus a category or group type you haven’t chosen. Never in private groups.',
+                        short: 'When the title doesn’t say which icon',
+                        tier: 'help',
+                      }}
+                    />
+                  )}
+                  {hasKey && prefs.aiIcons && (
+                    <div data-testid="ai-picture-model">
+                      <div className="label">Model for pictures</div>
+                      <Select
+                        aria-label="Model for pictures"
+                        value={prefs.aiPictureModel}
+                        onChange={(v) => set({ aiPictureModel: v })}
+                        options={pictureModelOptions(pictureModels, prefs.aiPictureModel)}
+                      />
+                      {pictureModels === null ? (
+                        <p className="text-muted mt-1 text-xs">Loading the image models your key can use…</p>
+                      ) : (
+                        <HintText
+                          className="text-muted mt-1 text-xs"
+                          hint={{
+                            full: 'Used by Draw a picture, billed to your key (no free tier). If it fails, the recommended one is tried.',
+                            short: 'For Draw a picture, billed to your key',
+                            tier: 'help',
+                          }}
+                        />
+                      )}
+                      <PictureTest which="own" model={prefs.aiPictureModel} />
+                    </div>
+                  )}
+                  {aiIcons && prefs.aiIcons && !hasKey && (
+                    <HintText
+                      className="text-muted text-xs"
+                      hint={{
+                        full: 'Draw a picture needs your own Gemini key, under Your key and models.',
+                        short: 'Draw a picture needs your own key',
+                        tier: 'help',
+                      }}
+                    />
+                  )}
+                </SettingsSection>
               )}
-              {aiIcons && prefs.aiIcons && !hasKey && (
-                <HintText
-                  className="text-muted text-xs"
-                  hint={{
-                    full: 'Draw a picture needs your own Gemini key, added under Your key and models.',
-                    short: 'Draw a picture needs your own key',
-                    tier: 'help',
-                  }}
-                />
-              )}
-            </SettingsSection>
+            </>
           )}
           <Collapsible
-            icon={<KeyRound size={18} aria-hidden />}
+            icon={<KeyIcon size={18} aria-hidden />}
             title="Your key and models"
             summary="Which key, Split Now’s AI, your own Gemini key"
             open={advancedOpen}
@@ -412,7 +438,7 @@ export function AiSettings() {
               {/* Split Now's (project) key */}
               <div className="rounded-2xl ring-1 ring-slate-200 dark:ring-white/10" data-testid="ai-app-status">
                 <div className="flex items-center gap-2 px-3.5 pt-3 font-semibold">
-                  <Sparkles size={16} className="text-brand-500" aria-hidden /> {free ? 'Split Now’s free AI (Gemma)' : 'Split Now’s key'}
+                  <SparkleIcon size={16} className="text-brand-500" aria-hidden /> {free ? 'Split Now’s free AI (Gemma)' : 'Split Now’s key'}
                 </div>
                 <div className="space-y-1 px-3.5 pb-3 pt-1.5 text-sm">
                   {status === undefined ? (
@@ -440,7 +466,7 @@ export function AiSettings() {
               {/* The user's own key */}
               <div className="rounded-2xl ring-1 ring-slate-200 dark:ring-white/10" data-testid="ai-own-key">
                 <div className="flex items-center gap-2 px-3.5 pt-3 font-semibold">
-                  <KeyRound size={16} className="text-brand-500" aria-hidden /> Your own Gemini key
+                  <KeyIcon size={16} className="text-brand-500" aria-hidden /> Your own Gemini key
                   <InfoTip hint={OWN_KEY_HINT} label="About your own key" />
                   {hasKey && (
                     <span
@@ -474,10 +500,10 @@ export function AiSettings() {
                       </p>
                       <div className="flex gap-2">
                         <button type="button" className="btn-secondary btn-sm flex-1" disabled={!!busy} onClick={() => run('test')}>
-                          {busy === 'test' ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <RefreshCw size={16} aria-hidden />} Test
+                          {busy === 'test' ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <RefreshIcon size={16} aria-hidden />} Test
                         </button>
                         <button type="button" className="btn-secondary btn-sm flex-1" disabled={!!busy} onClick={() => setEditing(true)}>
-                          <KeyRound size={16} aria-hidden /> Replace
+                          <KeyIcon size={16} aria-hidden /> Replace
                         </button>
                         <button
                           type="button"
@@ -486,7 +512,7 @@ export function AiSettings() {
                           onClick={() => run('remove')}
                           aria-label="Remove key"
                         >
-                          {busy === 'remove' ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                          {busy === 'remove' ? <Loader2 size={16} className="animate-spin" /> : <TrashIcon size={16} />}
                         </button>
                       </div>
                     </>
@@ -510,8 +536,7 @@ export function AiSettings() {
                       />
                       <div className="flex gap-2">
                         <button type="submit" className="btn-primary btn-sm flex-1" disabled={!draft.trim() || !!busy}>
-                          {busy === 'save' ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <ShieldCheck size={16} aria-hidden />} Save &amp;
-                          check
+                          {busy === 'save' ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <ShieldIcon size={16} aria-hidden />} Save &amp; check
                         </button>
                         {editing && (
                           <button
@@ -543,7 +568,7 @@ export function AiSettings() {
                             ? { full: 'Add a key to see every model it can use.', tier: 'help' }
                             : {
                                 full: 'If a model is retired, the recommended one is used instead.',
-                                short: 'A retired model falls back to the recommended one',
+                                short: 'Retired models fall back to the recommended one',
                                 tier: 'help',
                               }
                         }
@@ -559,7 +584,7 @@ export function AiSettings() {
 
       {status?.admin && (
         <p className="text-muted mt-3 flex items-center gap-1.5 px-1 text-xs">
-          <ShieldCheck size={14} className="text-brand-500" aria-hidden /> You’re an admin: Split Now’s key is managed under{' '}
+          <ShieldIcon size={14} className="text-brand-500" aria-hidden /> You’re an admin: Split Now’s key is managed under{' '}
           <Link to="/settings/admin" className="font-semibold text-brand-600 dark:text-brand-300">
             Admin
           </Link>

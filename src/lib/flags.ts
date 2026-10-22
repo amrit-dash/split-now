@@ -13,11 +13,13 @@
  *                                    the link carries an invite code (soft: see docs/FIREBASE_SETUP.md)
  *   look                             how much the app explains: full, needed, minimal or tooltip
  *                                    (src/lib/look.ts)
+ *   icons                            the default icon style: outline or filled (src/lib/icon-style.ts)
  * Pure helpers first; the live store at the bottom loads the Firebase SDK only in firebase mode
  * and never imports '@/data' (the hook passes the mode in).
  */
 
 import { type AppTuning, DEFAULT_TUNING, resolveTuning, setTuning } from '../../shared/app-tuning'
+import { DEFAULT_ICON_STYLE, type IconStyle, resolveIconStyle } from './icon-style'
 import { DEFAULT_LOOK, type Look, resolveLook } from './look'
 
 export const FLAG_NAMES = [
@@ -136,6 +138,8 @@ export interface AppConfig {
   signups: Signups
   /** How much the app explains under its titles, for everyone (src/lib/look.ts). */
   look: Look
+  /** Outline or Filled icons, for everyone who hasn't picked their own (src/lib/icon-style.ts). */
+  icons: IconStyle
   /** numbers the app needs that an admin can tune (shared/app-tuning.ts) */
   tuning: AppTuning
   updatedAt?: number
@@ -152,6 +156,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
   flags: ALL_ON,
   signups: 'open',
   look: DEFAULT_LOOK,
+  icons: DEFAULT_ICON_STYLE,
   tuning: DEFAULT_TUNING,
 }
 
@@ -181,6 +186,7 @@ export function resolveAppConfig(raw: unknown): AppConfig {
     flags,
     signups: r.signups === 'invite' ? 'invite' : 'open',
     look: resolveLook(r.look),
+    icons: resolveIconStyle(r.icons),
     tuning: resolveTuning(r.tuning),
     ...(typeof r.updatedAt === 'number' ? { updatedAt: r.updatedAt } : {}),
     ...(typeof r.updatedBy === 'string' ? { updatedBy: r.updatedBy } : {}),
@@ -196,6 +202,7 @@ export function toAppConfigDoc(cfg: AppConfig, by: string, now = Date.now()): Re
     flags: { ...cfg.flags },
     signups: cfg.signups,
     look: cfg.look,
+    icons: cfg.icons,
     tuning: { ...cfg.tuning },
     updatedAt: now,
     updatedBy: by,

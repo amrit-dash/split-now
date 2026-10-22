@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { CircleCheck, Loader2, MailX, Users } from 'lucide-react'
+import { CircleCheck, Loader2, MailX } from 'lucide-react'
+import { GroupsIcon } from '@/components/icons'
 import { repo } from '@/data'
 import type { EmailLinkResult } from '@/data/repo'
 import { PageHeader } from '@/components/Misc'
@@ -116,7 +117,7 @@ export default function EmailLink() {
         )}
         {state.kind === 'done' && state.r.otherAccount && (
           <div>
-            <Users size={32} className="text-brand-600 dark:text-brand-300" aria-hidden />
+            <GroupsIcon size={32} className="text-brand-600 dark:text-brand-300" aria-hidden />
             <h2 className="mt-3 text-lg font-bold">This email has its own account</h2>
             <p className="mt-2 text-sm">
               <b className="[overflow-wrap:anywhere]">{state.r.otherAccount.email}</b> already signs in to Split Now
@@ -150,8 +151,8 @@ export default function EmailLink() {
 
 // Key: merging switches the other account off and leaves its settings and captured payments behind.
 const MERGE_HINT: Hint = {
-  full: 'Bring it into this account: its groups, Pay me links and tables move here, the email joins this account, and the other account is switched off. Its own settings and captured payments stay behind.',
-  short: 'Its groups move here and the other account is switched off. Its settings and captured payments stay behind.',
+  full: 'Its groups, Pay me links, tables and email move here, and the other account is switched off. Its settings and captured payments stay behind.',
+  short: 'Groups move here, the other account switches off. Its settings and captures stay behind.',
   tier: 'key',
 }
 

@@ -1,5 +1,7 @@
+import { useFeature } from '@/hooks/useMode'
 import { useState, type ReactNode } from 'react'
-import { Check, Plus, Search, UserPlus, Users, Wallet, type LucideIcon } from 'lucide-react'
+import { Check, Search, UserPlus, Users, Wallet, type LucideIcon } from 'lucide-react'
+import { AddIcon, GroupsIcon } from '@/components/icons'
 import type { Category, Group, MemberId } from '@/types'
 import { CATEGORIES } from '@/lib/categories'
 import { isLiveTrip } from '@/lib/capture'
@@ -52,7 +54,10 @@ function GroupList({
   const [q, setQ] = useState('')
   const today = todayISO()
   const t = q.trim().toLowerCase()
-  const shown = t ? groups.filter((g) => g.name.toLowerCase().includes(t)) : groups
+  // Simple has no personal wallets: neither the ones there are nor a new one (docs/SIMPLE_MODE.md).
+  const showWallets = useFeature('wallets')
+  const pickable = showWallets ? groups : groups.filter((g) => g.type !== 'personal' || g.id === current)
+  const shown = t ? pickable.filter((g) => g.name.toLowerCase().includes(t)) : pickable
   const live = shown.filter((g) => g.type !== 'personal' && isLiveTrip(g, today))
   const rest = shown.filter((g) => !live.includes(g))
   const sections: Array<[string, Group[]]> = [
@@ -66,9 +71,13 @@ function GroupList({
     { label: 'New group', hint: { full: 'Trip, flat, team…', tier: 'help' }, icon: Users },
     { type: 'direct', label: 'New 1:1 friend', hint: { full: 'Just you and one friend', tier: 'help' }, icon: UserPlus },
     // Several wallets are fine (Fuel, Groceries…), so this stays on offer once one exists.
-    groups.some((g) => g.type === 'personal')
-      ? { type: 'personal', label: 'New wallet', hint: { full: 'Fuel, groceries, shopping…', tier: 'help' }, icon: Wallet }
-      : { type: 'personal', label: 'Personal wallet', hint: { full: 'Track your own spending', tier: 'help' }, icon: Wallet },
+    ...(showWallets
+      ? [
+          groups.some((g) => g.type === 'personal')
+            ? { type: 'personal' as const, label: 'New wallet', hint: { full: 'Fuel, groceries, shopping…', tier: 'help' as const }, icon: Wallet }
+            : { type: 'personal' as const, label: 'Personal wallet', hint: { full: 'Your own spending', tier: 'help' as const }, icon: Wallet },
+        ]
+      : []),
   ]
   const row = (g: Group, isLive = false) => (
     <button
@@ -116,7 +125,7 @@ function GroupList({
                 <span className="block font-semibold">{c.label}</span>
                 <HintText hint={c.hint} as="span" className="block truncate text-xs text-muted" />
               </span>
-              <Plus size={18} className="shrink-0 text-slate-400" aria-hidden />
+              <AddIcon size={18} className="shrink-0 text-slate-400" aria-hidden />
             </button>
           ))}
         </div>
@@ -150,10 +159,10 @@ export function CurrencySheet({
         hint={{
           full: (
             <>
-              {groupName} is in {groupCurrency}. Other currencies are converted at the ECB rate for the expense date, then locked.
+              {groupName} is in {groupCurrency}. Others convert at the ECB rate for the expense date, then stay locked.
             </>
           ),
-          short: `Others are converted to ${groupCurrency} at that day’s rate, then locked`,
+          short: `Converted to ${groupCurrency} at that day’s rate, then locked`,
           tier: 'key',
         }}
       />
@@ -295,7 +304,7 @@ export function PayerSheet({
           data-testid="payer-multiple"
         >
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-ink-800">
-            <Users size={18} aria-hidden />
+            <GroupsIcon size={18} aria-hidden />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block font-semibold">{received ? 'Several people received it' : 'Several people paid'}</span>

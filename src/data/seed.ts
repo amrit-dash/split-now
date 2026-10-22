@@ -33,8 +33,12 @@ export function seedDemo(_state: unknown, user: AuthUser) {
     members: {
       me: { name: user.displayName, uid: user.uid, color: colorFor(0) },
       p_priya: { name: 'Priya', color: colorFor(1) },
-      p_rohan: { name: 'Rohan', color: colorFor(2) },
-      p_ananya: { name: 'Ananya', uid: 'seed_ananya', color: colorFor(3) },
+      // Pro (src/lib/pro.ts), so the badge shows somewhere in the demo. A real placeholder never
+      // carries it (only a person's own app marks their entry); here it stands for Rohan's account.
+      p_rohan: { name: 'Rohan', color: colorFor(2), pro: true },
+      // DEV (an admin's badge), so the demo shows a mark that is not a link. Seeded only: the rules
+      // accept `dev` only from an admin's own app.
+      p_ananya: { name: 'Ananya', uid: 'seed_ananya', color: colorFor(3), dev: true },
     },
     inviteCode: 'GOA2026',
     createdBy: user.uid,

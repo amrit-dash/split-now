@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { GENERIC_LINES, dayPart, firstName, greeting, localDayNumber, pickSubline, stateLines, topCounterparties, type DebtGroup } from './greeting'
+import {
+  GENERIC_LINES,
+  dayPart,
+  firstName,
+  greeting,
+  headerBalance,
+  localDayNumber,
+  pickSubline,
+  stateLines,
+  topCounterparties,
+  type DebtGroup,
+} from './greeting'
 
 const at = (y: number, m: number, d: number, h = 10) => new Date(y, m - 1, d, h, 0, 0)
 
@@ -93,5 +104,17 @@ describe('topCounterparties', () => {
         'INR',
       ),
     ).toEqual({ owedBy: undefined, owes: undefined })
+  })
+})
+
+describe('headerBalance', () => {
+  it('says the balance the card showed, in a few words', () => {
+    expect(headerBalance({ firstRun: false, allSettled: false, net: 245000, amount: '≈ ₹2,450.00' })).toBe('You’re owed ≈ ₹2,450.00')
+    expect(headerBalance({ firstRun: false, allSettled: false, net: -60000, amount: '₹600.00' })).toBe('You owe ₹600.00')
+    expect(headerBalance({ firstRun: false, allSettled: true, net: 0, amount: '₹0.00' })).toBe('All settled up')
+    expect(headerBalance({ firstRun: false, allSettled: false, net: 0, amount: '₹0.00' })).toBe('Nothing owed')
+  })
+  it('nothing on a first run (no card to stand in for)', () => {
+    expect(headerBalance({ firstRun: true, allSettled: false, net: 0, amount: '₹0.00' })).toBeNull()
   })
 })
