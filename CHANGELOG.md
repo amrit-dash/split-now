@@ -6,6 +6,7 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Admin → AI: the Bills and Bank SMS switches say they only stop Split Now's key paying (people's own keys keep working), and the matching Flags say they switch the feature off for everyone, each pointing to the other.
 - AI features (and Admin → AI): **Test** sits beside Model for pictures, and the test picture appears at the end of that row (tap it to see it bigger), with one line under for the cost and the result. Before, a Test pictures button sat alone under a paragraph.
 - Settings → AI features → Voice is one choice, **Phone | AI**, instead of a switch plus “Which key”. AI always uses your own Gemini key first, then Split Now's transcription key; with neither, it tells you to add your own key.
 - Scan → Payment shows a screenshot with a tick (the payment confirmation you upload) instead of a phone with a rupee on it.

@@ -394,8 +394,20 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
           {/* What the shared key may be spent on (config/ai images, sms). Not the same as the AI feature flags:
               these only stop Split Now paying; people's own keys keep working (appKeyAllowed, shared/ai-config.ts). */}
           <SettingsSection icon={<Wallet size={16} aria-hidden />} title="What Split Now’s key pays for" testId="admin-ai-pays-for">
-            <Toggle title="Bills, statements, Quick add and chat" checked={cfg.images} onChange={(v) => set({ images: v })} />
-            <Toggle title="Bank SMS" checked={cfg.sms} onChange={(v) => set({ sms: v })} />
+            {/* Not the Flags (owner asked, 22 Oct 2026): these are spending on Split Now's key, kept with the
+                key and its limits; Flags switch a feature off for everyone. Each says which it is. */}
+            <Toggle
+              title="Bills, statements, Quick add and chat"
+              sub="On Split Now’s key. Off: only people with their own key get AI for these."
+              checked={cfg.images}
+              onChange={(v) => set({ images: v })}
+            />
+            <Toggle
+              title="Bank SMS"
+              sub="On Split Now’s key. Off: only people with their own key get AI for SMS."
+              checked={cfg.sms}
+              onChange={(v) => set({ sms: v })}
+            />
             <p className="text-muted text-xs" data-testid="admin-ai-quick-add">
               Payment screenshot checks count under the first one too, with its limits under Who can use it. Off here, people with their own key still use AI.
               To turn a feature off for everyone, own keys included, use{' '}
@@ -495,10 +507,13 @@ function Stat({ n, label }: { n: number; label: string }) {
   )
 }
 
-function Toggle({ title, checked, onChange }: { title: string; checked: boolean; onChange: (v: boolean) => void }) {
+function Toggle({ title, sub, checked, onChange }: { title: string; sub?: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <div className="flex items-center gap-3">
-      <span className="min-w-0 flex-1 font-medium">{title}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block font-medium">{title}</span>
+        {sub && <span className="text-muted block text-xs">{sub}</span>}
+      </span>
       <Switch checked={checked} onChange={onChange} label={title} />
     </div>
   )

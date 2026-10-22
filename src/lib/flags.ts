@@ -56,9 +56,12 @@ export type FlagName = (typeof FLAG_NAMES)[number]
 export const FLAG_INFO: Record<FlagName, { label: string; hint: string }> = {
   aiImages: {
     label: 'Read bills and statements with AI',
-    hint: 'Scan and Statement import stop asking Gemini; the phone reads bills instead. Server-enforced.',
+    hint: 'Off for everyone, own keys too: Scan and Statement read on the phone instead. To only stop Split Now’s key paying, use AI → What Split Now’s key pays for. Server-enforced.',
   },
-  aiSms: { label: 'Read bank SMS with AI', hint: 'The capture webhook stops sending unreadable messages to Gemini. Server-enforced.' },
+  aiSms: {
+    label: 'Read bank SMS with AI',
+    hint: 'Off for everyone, own keys too: the capture webhook stops sending unreadable messages to Gemini. To only stop Split Now’s key paying, use AI → What Split Now’s key pays for. Server-enforced.',
+  },
   aiQuickAdd: {
     label: 'Quick add with AI',
     hint: 'Quick add lines too complex for the built-in reader stop going to Gemini (for people who turned it on); the line opens the form as read. Server-enforced.',
