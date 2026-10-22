@@ -225,3 +225,14 @@ export function addDaysISO(iso: string, days: number): string {
   const dt = new Date(Date.UTC(y, m - 1, d + days))
   return dt.toISOString().slice(0, 10)
 }
+
+/**
+ * The expense form's date row: when the date is today or yesterday, its chip says so and is
+ * selected, so the date box shows only its calendar icon instead of repeating it ("22 Oct" beside
+ * a selected Today read like two different dates). Any other date shows in the box.
+ */
+export function quickDay(date: string, today: string): 'today' | 'yesterday' | null {
+  if (date === today) return 'today'
+  if (date === addDaysISO(today, -1)) return 'yesterday'
+  return null
+}

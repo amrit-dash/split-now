@@ -778,7 +778,7 @@ Object.assign(SCENES, {
   'search-expenses': [
     settings('Goa trip', [
       { kind: 'chips', items: [{ label: 'Expenses', on: true }, { label: 'Balances' }, { label: 'Activity' }] },
-      { kind: 'search', label: 'Search expenses and notes', value: 'ferry', mark: 'search', items: [{ label: '', mark: 'filter' }] },
+      { kind: 'search', label: 'Search expenses', value: 'ferry', mark: 'search', items: [{ label: '', mark: 'filter' }] },
       { kind: 'row', label: 'Ferry to Havelock', value: '₹2,400' },
       { kind: 'row', label: 'Ferry back', value: '₹2,200' },
     ]),
@@ -795,7 +795,7 @@ Object.assign(SCENES, {
     },
     settings('Goa trip', [
       { kind: 'chips', items: [{ label: 'Expenses', on: true }, { label: 'Balances' }, { label: 'Activity' }] },
-      { kind: 'search', label: 'Search expenses and notes', value: 'ferry', items: [{ label: '2' }] },
+      { kind: 'search', label: 'Search expenses', value: 'ferry', items: [{ label: '2' }] },
       {
         kind: 'chips',
         mark: 'chips',

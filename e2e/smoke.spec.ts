@@ -1863,7 +1863,7 @@ test('help: after an update, Home says so once, and What’s new opens it', asyn
   await expect(page.getByTestId('whats-new-banner')).toHaveCount(0)
 })
 
-test('What’s new rises above the tab bar a moment after Home loads, and a sideways swipe closes it for good', async ({ page }) => {
+test('What’s new rises above the tab bar a moment after the screen loads, and a sideways swipe closes it for good', async ({ page }) => {
   await page.evaluate(() => {
     localStorage.setItem('splitnow:whats-new-banner', '8.0.0')
     localStorage.setItem('splitnow:whats-new-seen', '8.0.0')
@@ -1880,23 +1880,62 @@ test('What’s new rises above the tab bar a moment after Home loads, and a side
   const box = await banner.boundingBox()
   const vh = page.viewportSize()?.height ?? 0
   expect(box && box.y > vh / 2).toBe(true)
-  // a short drag springs back; a long one closes it
-  const y = (box?.y ?? 0) + (box?.height ?? 0) / 2
-  const x = (box?.x ?? 0) + 40
-  await page.mouse.move(x, y)
-  await page.mouse.down()
-  await page.mouse.move(x + 30, y, { steps: 5 })
-  await page.mouse.up()
+  // a short, slow drag springs back; a long one closes it. Both start on the words (not the icon
+  // or a button), move in small steps with a pause between them so the release speed is what a
+  // finger would give (a quick 30px jump reads as a flick), and wait for the card to settle.
+  const words = await banner.getByText('Updated', { exact: true }).boundingBox()
+  const width = box?.width ?? 320
+  const y = (words?.y ?? 0) + (words?.height ?? 0) / 2
+  const x = (words?.x ?? 0) + 4
+  const drag = async (to: number, steps: number) => {
+    await page.mouse.move(x, y)
+    await page.mouse.down()
+    for (let i = 1; i <= steps; i++) {
+      await page.mouse.move(x + (to * i) / steps, y)
+      await page.waitForTimeout(16)
+    }
+    await page.mouse.up()
+  }
+  await drag(30, 10)
+  await page.waitForTimeout(300)
   await expect(banner).toBeVisible()
-  await page.mouse.move(x, y)
-  await page.mouse.down()
-  await page.mouse.move(x + 260, y, { steps: 10 })
-  await page.mouse.up()
+  await expect.poll(() => banner.evaluate((el) => (el.firstElementChild as HTMLElement).style.transform || 'none')).toBe('none')
+  // well past the share of its width that closes it
+  await drag(Math.round(width * 0.6), 20)
   await expect(banner).toHaveCount(0)
   // nothing was tapped on the way (What's new stayed shut), and it stays closed
   await expect(page).toHaveURL(/\/$/)
   await page.reload()
   await expect(page.getByTestId('home-greeting')).toBeVisible()
+  await page.waitForTimeout(1500)
+  await expect(banner).toHaveCount(0)
+})
+
+test('after an update from Profile, What’s new shows on Profile, and waits on a full-screen form', async ({ page }) => {
+  await page.evaluate(() => {
+    localStorage.setItem('splitnow:whats-new-banner', '8.0.0')
+    localStorage.setItem('splitnow:whats-new-seen', '8.0.0')
+  })
+  // Updating from Profile reloads on Profile: the banner comes to it, not only to Home.
+  await page.goto('/profile')
+  const banner = page.getByTestId('whats-new-banner')
+  await expect(banner).toBeVisible()
+  await banner.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)))
+  const box = await banner.boundingBox()
+  const nav = await page.getByRole('navigation', { name: 'Main' }).boundingBox()
+  // in the floating lane: above the tab bar, never under it
+  expect(box && nav && box.y + box.height <= nav.y + 1).toBe(true)
+  // a full-screen form (Add expense) has no room for it: it waits there
+  await page.goto('/add?group=g_goa')
+  await expect(page.getByTestId('expense-save')).toBeVisible()
+  await page.waitForTimeout(1500)
+  await expect(banner).toHaveCount(0)
+  // and shows again once back on a screen with the tab bar; ✕ closes it for good
+  await page.goto('/groups')
+  await expect(banner).toBeVisible()
+  await page.getByTestId('whats-new-close').click()
+  await expect(banner).toHaveCount(0)
+  await page.reload()
   await page.waitForTimeout(1500)
   await expect(banner).toHaveCount(0)
 })

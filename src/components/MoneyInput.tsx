@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type InputHTMLAttributes } from 'react'
-import { centsToInput, parseMoney } from '@/lib/money'
+import { centsToInput, groupedInput, parseMoney } from '@/lib/money'
 
 type Props = Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'type' | 'inputMode'> & {
   /** minor units; undefined = empty */
@@ -11,6 +11,8 @@ type Props = Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 
   allowNegative?: boolean
   /** no `.input` box styling: the caller styles it (the big amount on the expense form) */
   bare?: boolean
+  /** show the amount with thousands grouping ("4,500.00") when it isn't being typed (Settle up's big amount) */
+  grouped?: boolean
 }
 
 /**
@@ -19,16 +21,17 @@ type Props = Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 
  * text mid-keystroke. The draft re-syncs when the parent changes the value to something else
  * (a reset, a scan, switching currency).
  */
-export function MoneyInput({ value, currency, onChange, allowNegative, bare, className = '', ...rest }: Props) {
-  const [draft, setDraft] = useState(() => (value === undefined ? '' : centsToInput(value, currency)))
+export function MoneyInput({ value, currency, onChange, allowNegative, bare, grouped, className = '', ...rest }: Props) {
+  const show = (minor: number) => (grouped ? groupedInput(minor, currency) : centsToInput(minor, currency))
+  const [draft, setDraft] = useState(() => (value === undefined ? '' : show(value)))
   const last = useRef(value)
   useEffect(() => {
     if (value === last.current) return
     last.current = value
     const parsed = parseMoney(draft, currency)
     const same = value === undefined ? draft.trim() === '' : parsed === value
-    if (!same) setDraft(value === undefined ? '' : centsToInput(value, currency))
-  }, [value, currency, draft])
+    if (!same) setDraft(value === undefined ? '' : grouped ? groupedInput(value, currency) : centsToInput(value, currency))
+  }, [value, currency, draft, grouped])
   return (
     <input
       {...rest}
@@ -52,9 +55,9 @@ export function MoneyInput({ value, currency, onChange, allowNegative, bare, cla
         onChange(n)
       }}
       onBlur={(e) => {
-        // Tidy "12." → "12.00" once the user leaves the field.
+        // Tidy "12." → "12.00" (and "4500" → "4,500.00" when grouped) once the user leaves the field.
         const n = parseMoney(e.target.value, currency)
-        if (Number.isFinite(n) && e.target.value.trim() !== '') setDraft(centsToInput(n, currency))
+        if (Number.isFinite(n) && e.target.value.trim() !== '') setDraft(show(n))
         rest.onBlur?.(e)
       }}
     />

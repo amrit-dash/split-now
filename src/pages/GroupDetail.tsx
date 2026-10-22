@@ -1153,8 +1153,9 @@ function ActivityList({
           <input
             type="search"
             className="input !py-2.5 pl-10 pr-12"
-            placeholder="Search expenses and notes"
-            aria-label="Search expenses"
+            // Short enough to fit beside the filter button on a 320px phone; the label says the rest.
+            placeholder="Search expenses"
+            aria-label="Search expenses and notes"
             value={filter.q}
             onChange={(e) => setFilter((p) => ({ ...p, q: e.target.value }))}
           />

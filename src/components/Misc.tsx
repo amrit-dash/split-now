@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import { FeatureIcon } from './Icon'
 import type { UiIconName } from '@/lib/ui-icons'
@@ -29,8 +29,13 @@ export function PageHeader({
 }) {
   // Back is where you came from in the app; the `back` path is only for a screen opened cold.
   const goBack = useBack(back === true || back === false || back === undefined ? '/' : back)
+  const scrolled = useScrolled()
   return (
-    <header className="sticky top-[var(--banner-h,0px)] z-30 -mx-4 mb-5 bg-slate-50/80 px-4 pb-3 pt-[calc(var(--safe-top)+1.25rem)] backdrop-blur-xl dark:bg-ink-950/80">
+    // 92% so what scrolls under it doesn't show through as clutter; a hairline under it once the page has scrolled.
+    <header
+      className={`sticky top-[var(--banner-h,0px)] z-30 -mx-4 mb-5 border-b bg-slate-50/92 px-4 pb-3 pt-[calc(var(--safe-top)+1.25rem)] backdrop-blur-xl transition-colors dark:bg-ink-950/92 ${scrolled ? 'border-slate-900/[0.07] dark:border-white/[0.07]' : 'border-transparent'}`}
+      data-scrolled={scrolled || undefined}
+    >
       <div className="flex min-h-11 items-center gap-2">
         {back && (
           <button
@@ -59,6 +64,18 @@ export function PageHeader({
   )
 }
 
+/** Whether the page has scrolled at all: pinned headers show their hairline only then. */
+export function useScrolled(): boolean {
+  const [on, setOn] = useState(false)
+  useEffect(() => {
+    const check = () => setOn(window.scrollY > 0)
+    check()
+    window.addEventListener('scroll', check, { passive: true })
+    return () => window.removeEventListener('scroll', check)
+  }, [])
+  return on
+}
+
 /** An empty or not-found screen: a large picture (a feature icon by name), a title and an optional line. */
 export function Empty({ icon, title, children }: { icon: UiIconName; title: string; children?: ReactNode }) {
   return (
@@ -85,6 +102,10 @@ export function Loading() {
 /**
  * A segmented control (one choice out of a few). Rendered as a radio group so the selected
  * option is announced, not just coloured. `label` names the group for assistive tech.
+ * One highlight slides to the picked option (transform and width, 200ms); it is placed without
+ * motion on the first render, and reduced motion moves it at once (index.css). Until it has been
+ * measured the picked option draws its own highlight, so nothing flashes. Four or more options
+ * size to their labels (a long label like "Expenses" keeps its room); fewer share the width.
  */
 export function Segmented<T extends string>({
   value,
@@ -99,8 +120,50 @@ export function Segmented<T extends string>({
   label?: string
   testId?: string
 }) {
+  const wrap = useRef<HTMLDivElement>(null)
+  const [box, setBox] = useState<{ x: number; w: number } | null>(null)
+  // No slide for the first placement: only a change of choice moves it.
+  const [moving, setMoving] = useState(false)
+  const keys = options.map((o) => o.value).join('|')
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-measure when the choice or the options change
+  useLayoutEffect(() => {
+    const el = wrap.current
+    if (!el) return
+    const measure = () => {
+      const on = el.querySelector<HTMLElement>('[aria-checked="true"]')
+      setBox(on ? { x: on.offsetLeft, w: on.offsetWidth } : null)
+    }
+    measure()
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure)
+    ro?.observe(el)
+    return () => ro?.disconnect()
+  }, [value, keys])
+  useEffect(() => {
+    if (!box || moving) return
+    const id = requestAnimationFrame(() => setMoving(true))
+    return () => cancelAnimationFrame(id)
+  }, [box, moving])
+  const many = options.length >= 4
   return (
-    <div role="radiogroup" aria-label={label} data-testid={testId} className="flex gap-1 overflow-x-auto rounded-2xl bg-slate-100 p-1 dark:bg-ink-800">
+    <div
+      ref={wrap}
+      role="radiogroup"
+      aria-label={label}
+      data-testid={testId}
+      className="relative flex gap-1 overflow-x-auto rounded-2xl bg-slate-100 p-1 dark:bg-ink-800"
+    >
+      {box && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-y-1 left-0 rounded-xl bg-white shadow-sm dark:bg-ink-700"
+          style={{
+            width: box.w,
+            transform: `translateX(${box.x}px)`,
+            transition: moving ? 'transform 200ms cubic-bezier(0.23, 1, 0.32, 1), width 200ms cubic-bezier(0.23, 1, 0.32, 1)' : 'none',
+          }}
+          data-testid={testId ? `${testId}-highlight` : undefined}
+        />
+      )}
       {options.map((o) => (
         <button
           key={o.value}
@@ -108,7 +171,7 @@ export function Segmented<T extends string>({
           role="radio"
           aria-checked={value === o.value}
           onClick={() => onChange(o.value)}
-          className={`min-w-0 whitespace-nowrap rounded-xl ${options.length > 4 ? 'flex-auto px-2' : 'flex-1 px-3'} py-2 text-sm font-semibold transition ${value === o.value ? 'bg-white text-slate-900 shadow-sm dark:bg-ink-700 dark:text-white' : 'text-slate-600 dark:text-slate-400'}`}
+          className={`relative min-h-10 min-w-0 whitespace-nowrap rounded-xl ${many ? 'flex-auto px-2' : 'flex-1 px-3'} py-2 text-sm font-semibold transition-colors ${value === o.value ? `text-slate-900 dark:text-white ${box ? '' : 'bg-white shadow-sm dark:bg-ink-700'}` : 'text-slate-600 dark:text-slate-400'}`}
         >
           {o.label}
         </button>

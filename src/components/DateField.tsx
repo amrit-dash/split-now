@@ -17,6 +17,7 @@ export function DateField({
   id,
   'aria-label': ariaLabel,
   clearable = false,
+  iconOnly = false,
   className = '',
 }: {
   value: string
@@ -27,6 +28,8 @@ export function DateField({
   id?: string
   'aria-label'?: string
   clearable?: boolean
+  /** just the calendar icon (the date is said beside it, by a selected Today chip); still opens the picker */
+  iconOnly?: boolean
   className?: string
 }) {
   const ref = useRef<HTMLInputElement>(null)
@@ -51,9 +54,11 @@ export function DateField({
     <div className={`input relative flex min-w-0 items-center gap-1.5 !pl-3.5 !pr-2 focus-within:ring-2 focus-within:ring-brand-500 ${className}`}>
       {/* The icon makes room for the date once one is picked (half-width columns on small phones). */}
       <CalendarDays size={16} className={`shrink-0 text-slate-400 ${value && clearable ? 'hidden' : ''}`} aria-hidden />
-      <span className={`min-w-0 flex-1 truncate ${value ? '' : 'text-muted'}`} aria-hidden>
-        {label}
-      </span>
+      {!iconOnly && (
+        <span className={`min-w-0 flex-1 truncate ${value ? '' : 'text-muted'}`} aria-hidden>
+          {label}
+        </span>
+      )}
       <input
         ref={ref}
         id={id}

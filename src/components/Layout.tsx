@@ -11,6 +11,7 @@ import { setBadge } from '@/lib/push'
 import { InstallBanner } from './InstallBanner'
 import { Aurora } from './Aurora'
 import { CaptureAlert } from './CaptureAlert'
+import { WhatsNewBanner } from './WhatsNewBanner'
 import { CreateSheet } from './CreateSheet'
 import { SyncPill } from './OfflinePill'
 import { Loading } from './Misc'
@@ -86,6 +87,7 @@ export function Layout() {
       <AppBadge />
       <InstallBanner />
       <CaptureAlert />
+      <WhatsNewBanner />
       <nav className="fixed inset-x-0 bottom-0 z-40" aria-label="Main" data-icon-style={iconStyle}>
         {/* The + button's glow sits under the bar: muted where the bar covers it, bright in the
             notch, which gives the cut-out depth. A blurred copy of the button's moving gradient,

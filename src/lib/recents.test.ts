@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { Expense } from '@/types'
 import {
   addDaysISO,
+  quickDay,
   descriptionHistory,
   lastGroup,
   lastMethod,
@@ -119,4 +120,11 @@ describe('description suggestions', () => {
 it('addDaysISO crosses months and years', () => {
   expect(addDaysISO('2026-03-01', -1)).toBe('2026-02-28')
   expect(addDaysISO('2026-01-01', -1)).toBe('2025-12-31')
+})
+
+it('quickDay names today and yesterday, across a month edge, and nothing else', () => {
+  expect(quickDay('2026-10-22', '2026-10-22')).toBe('today')
+  expect(quickDay('2026-02-28', '2026-03-01')).toBe('yesterday')
+  expect(quickDay('2026-10-20', '2026-10-22')).toBeNull()
+  expect(quickDay('2026-10-23', '2026-10-22')).toBeNull()
 })

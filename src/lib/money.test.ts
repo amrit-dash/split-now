@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { centsToInput, currencySymbol, formatMoney, fromHundredths, minorDigits, parseMoney } from './money'
+import { centsToInput, currencySymbol, formatMoney, fromHundredths, groupedInput, minorDigits, parseMoney } from './money'
 import { captureQuery, parseCaptureAmount, parseCaptureParams } from './capture'
 import { centsToDecimal } from './export'
 
@@ -76,5 +76,21 @@ describe('money', () => {
     expect(currencySymbol('AUD', 'en-AU')).toBe('$')
     expect(currencySymbol('AUD', 'en-IN')).toBe('A$')
     expect(currencySymbol('XYZ1', 'en-IN')).toBe('XYZ1')
+  })
+})
+
+describe('groupedInput', () => {
+  it('groups thousands in the locale and keeps the currency’s decimals', () => {
+    expect(groupedInput(450000, 'INR', 'en-IN')).toBe('4,500.00')
+    expect(groupedInput(12000000, 'INR', 'en-IN')).toBe('1,20,000.00')
+    expect(groupedInput(12000000, 'AUD', 'en-AU')).toBe('120,000.00')
+    expect(groupedInput(98765, 'JPY', 'en-AU')).toBe('98,765')
+    expect(groupedInput(1250, 'INR', 'en-IN')).toBe('12.50')
+  })
+  it('reads back to the same amount', () => {
+    for (const n of [0, 5, 99999, 450000, 12345678]) expect(parseMoney(groupedInput(n, 'INR', 'en-IN'), 'INR')).toBe(n)
+  })
+  it('falls back to the plain form where grouping would not parse', () => {
+    expect(groupedInput(450000, 'EUR', 'de-DE')).toBe('4500.00')
   })
 })

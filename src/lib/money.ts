@@ -68,6 +68,23 @@ export function centsToInput(minor: Cents, currency = 'INR'): string {
 }
 
 /**
+ * Minor units → an amount field's text with thousands grouping, in the app locale: "4,500.00",
+ * "1,20,000.00" in en-IN. For the big amount on Settle up, where "4500.00" read like a code.
+ * Falls back to the plain form when the grouped text wouldn't read back to the same amount
+ * (a locale that groups with "." or a space), so the field never holds what it can't parse.
+ */
+export function groupedInput(minor: Cents, currency = 'INR', locale = appLocale()): string {
+  const plain = centsToInput(minor, currency)
+  let text: string
+  try {
+    text = new Intl.NumberFormat(locale, { useGrouping: true, ...digitOpts(currency) }).format(minor / factor(currency))
+  } catch {
+    return plain
+  }
+  return parseMoney(text, currency) === minor ? text : plain
+}
+
+/**
  * Rescale an amount parsed as hundredths (what the OCR / text parsers produce: "1,200" → 120000)
  * to the minor units of `currency` (1200 for JPY, 120000 for AUD).
  */

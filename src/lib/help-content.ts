@@ -1161,7 +1161,7 @@ export const SECTIONS: HelpSection[] = [
     summary: 'Search a group’s expenses and notes, sort them, and filter by who paid or when.',
     keywords: ['search', 'find', 'filter', 'sort', 'involving me', 'date range'],
     steps: [
-      { text: 'In the group’s **Expenses**, type in **Search expenses and notes**. The button beside it sorts and filters.', mark: 'search' },
+      { text: 'In the group’s **Expenses**, type in **Search expenses** (it finds notes too). The button beside it sorts and filters.', mark: 'search' },
       { text: 'Tap that button (arrows up and down) to sort by date or amount, or filter by who paid and when.', mark: 'filter' },
       { text: 'Under **Quick filters**, tap **Involving me** or a category. **Sort by** stays folded, showing the order picked.', mark: 'quick' },
       { text: 'What’s on shows as pills under the search. Tap one to turn it off.', mark: 'chips' },

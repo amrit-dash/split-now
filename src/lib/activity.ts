@@ -74,10 +74,13 @@ const orig = (o: unknown) => {
   const x = o as OriginalAmount | undefined
   return x && typeof x.amount === 'number' ? formatMoney(x.amount, x.currency) : undefined
 }
-/** "฿1,200.00 (A$50.52)" for a foreign-currency expense, else just "A$50.52". */
+/**
+ * "฿1,200.00 · A$50.52" for a foreign-currency expense, else just "A$50.52". A dot, not brackets:
+ * summaries already put the amount in brackets, and "(฿1,200.00 (A$50.52))" was hard to read.
+ */
 export function amountLabel(amount: unknown, original: unknown, cur: string): string {
   const o = orig(original)
-  return o ? `${o} (${money(amount, cur)})` : money(amount, cur)
+  return o ? `${o} · ${money(amount, cur)}` : money(amount, cur)
 }
 const expenseAmount = (e: Pick<Expense, 'amount' | 'original'>, cur: string) => amountLabel(e.amount, e.original, cur)
 const day = (v: unknown) => (typeof v === 'string' && v ? formatDate(v, 'day') : '—')
@@ -100,7 +103,8 @@ function shareChanges(a: unknown, b: unknown, cur: string, name: (id: string) =>
   const parts: string[] = []
   for (const id of ids) {
     if (x[id] === y[id]) continue
-    if (x[id] === undefined) parts.push(`${name(id)} added (${money(y[id], cur)})`)
+    // No brackets: this sits inside "split (…)".
+    if (x[id] === undefined) parts.push(`${name(id)} added at ${money(y[id], cur)}`)
     else if (y[id] === undefined) parts.push(`${name(id)} removed`)
     else parts.push(`${name(id)} ${money(x[id], cur)} → ${money(y[id], cur)}`)
   }
@@ -356,11 +360,15 @@ export function groupSettingsActivity(before: GroupSettingsSnapshot, after: Grou
  * before first names were the rule ("Rahul Sharma added …") read "Rahul added …".
  */
 export function activityText(a: Pick<ActivityEntry, 'summary' | 'actorUid' | 'actorName'>, myUid: string, actor?: string): string {
-  if (!a.summary.startsWith(a.actorName + ' ')) return a.summary
-  const rest = a.summary.slice(a.actorName.length + 1)
+  const summary = unnest(a.summary)
+  if (!summary.startsWith(a.actorName + ' ')) return summary
+  const rest = summary.slice(a.actorName.length + 1)
   if (a.actorUid === myUid) return 'You ' + rest.replace(/\btheir flag\b/, 'your flag')
-  return actor ? `${actor} ${rest}` : a.summary
+  return actor ? `${actor} ${rest}` : summary
 }
+
+/** Entries written before amountLabel used a dot: "(฿1,200.00 (A$50.52))" reads "(฿1,200.00 · A$50.52)". */
+const unnest = (s: string) => s.replace(/\(([^()]+) \(([^()]+)\)\)/g, '($1 · $2)')
 
 /** Newest-first merge of several groups' feeds. */
 export function mergeFeeds(lists: ActivityEntry[][], limit = 20): ActivityEntry[] {

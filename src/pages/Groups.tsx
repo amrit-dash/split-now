@@ -90,13 +90,13 @@ export default function Groups() {
           >
             <FileUploadIcon size={20} aria-hidden />
           </Link>
+          {/* A labelled secondary chip, not a filled round +: that read as a second copy of the tab bar's + button. */}
           <Link
             to="/groups/new"
-            className="accent-live flex h-11 w-11 items-center justify-center rounded-full bg-fill text-on-fill"
-            aria-label="New group"
+            className="flex h-11 shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-brand-100 pl-2.5 pr-3.5 text-sm font-bold text-brand-700 dark:bg-brand-900/40 dark:text-brand-200"
             data-testid="groups-new"
           >
-            <AddIcon size={20} aria-hidden />
+            <AddIcon size={18} aria-hidden /> New group
           </Link>
         </div>
       }

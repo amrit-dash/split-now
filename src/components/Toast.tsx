@@ -32,9 +32,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const remove = useCallback((id: number) => {
     clearTimeout(timers.current.get(id))
     timers.current.delete(id)
-    // Fade out, then drop.
+    // Fade out while dropping a little (150ms, Toast's leaving classes), then go.
     setToasts((t) => t.map((x) => (x.id === id ? { ...x, leaving: true } : x)))
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 200)
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 150)
   }, [])
 
   const schedule = useCallback(
@@ -103,7 +103,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 style={{ ...style, gridArea: open ? undefined : '1 / 1' }}
                 aria-hidden={hidden || undefined}
                 role={t.tone === 'err' ? 'alert' : undefined}
-                className={`flex w-full max-w-sm justify-center transition-[transform,opacity] duration-200 ${t.leaving ? 'opacity-0' : 'animate-toast'} ${hidden ? 'pointer-events-none' : ''}`}
+                className={`flex w-full max-w-sm justify-center transition-[transform,translate,opacity] ${t.leaving ? 'translate-y-2 opacity-0 duration-150 ease-in' : 'animate-toast duration-200'} ${hidden ? 'pointer-events-none' : ''}`}
               >
                 <SwipeCard
                   onDismiss={() => remove(t.id)}
