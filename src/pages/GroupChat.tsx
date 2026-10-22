@@ -528,7 +528,7 @@ export default function GroupChat() {
                   {repo.mode !== 'demo' && <InfoTip hint={AI_SUGGEST_HINT} label="About AI suggestions" />}
                 </div>
                 {repo.mode === 'demo' ? (
-                  <div className="text-muted text-xs">Not in the demo: needs a Split Now account.</div>
+                  <div className="text-muted text-xs">Needs a Split Now account: not in the demo.</div>
                 ) : (
                   <HintText hint={AI_SUGGEST_HINT} className="text-muted text-xs" as="div" />
                 )}
