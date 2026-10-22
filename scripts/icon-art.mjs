@@ -204,6 +204,8 @@ const UI = {
   MoonIcon: 'weather-moon',
   NotificationsIcon: 'alert-badge',
   PaletteIcon: 'color',
+  /* Balances' Pay button (owner, 22 Oct 2026): a rupee note, not the paper plane */
+  PayIcon: 'money',
   PauseIcon: 'pause',
   PhoneIcon: 'phone',
   PreferencesIcon: 'options',
@@ -396,6 +398,7 @@ const DUO = new Set([
   'CameraIcon',
   'BellIcon',
   'WalletIcon',
+  'PayIcon',
   'ShieldIcon',
   'ShareIcon',
   'MemberAddIcon',

@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ChevronRight, Lightbulb } from 'lucide-react'
-import { AddIcon, ChecksIcon, GroupsIcon, LockIcon, SendIcon } from '@/components/icons'
+import { AddIcon, ChecksIcon, GroupsIcon, LockIcon, PayIcon } from '@/components/icons'
 import { PatternLock } from '@/features/vault/PatternLock'
 import { ChequeIcon } from '@/components/ChequeIcon'
 import { useMe } from '@/hooks/auth'
@@ -292,7 +292,7 @@ function RowAction({ r }: { r: SettleRow }) {
   if (r.dir === 'owe') {
     return (
       <Link to={r.href} data-testid="row-pay" aria-label={`Pay ${r.label} ${amount} in ${r.groupName}`} className={PAY}>
-        <SendIcon size={20} aria-hidden />
+        <PayIcon size={20} aria-hidden />
       </Link>
     )
   }
@@ -354,7 +354,7 @@ function PersonAction({ p, n }: { p: PersonBalance; n: number }) {
   if (p.net < 0) {
     return (
       <Link to={to} data-testid="person-settle-all" aria-label={`Pay ${p.label} ${amount} across ${n} groups`} className={PAY}>
-        <SendIcon size={20} aria-hidden />
+        <PayIcon size={20} aria-hidden />
       </Link>
     )
   }
