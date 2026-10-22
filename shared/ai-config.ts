@@ -3,10 +3,13 @@
  * Functions; the server is the one that enforces it.
  *
  *  config/ai                     project settings (admins edit; everyone signed in can read)
- *  users/{uid}/settings/notifications   the user's choices (aiEnabled, aiImages, aiSms, aiQuickAdd, aiPayments, aiIcons, aiIconAuto, aiSource, aiModel, aiPictureModel, aiFreeOk)
+ *  users/{uid}/settings/notifications   the user's choices (aiEnabled, aiImages, aiSms, aiQuickAdd, aiPayments, aiIcons, aiIconAuto, aiSource, aiModel, aiPictureModel, aiFreeOk,
+ *                                       aiTranscribe, aiTranscribeKey)
  *  users/{uid}/secrets/gemini    the user's own key (server only; the app can never read it back)
  *  users/{uid}/aiState/status    server-written: own key last 4, last error (owner can read)
  */
+
+import { resolveTranscribeModel } from './transcribe'
 
 export type AiFeature = 'images' | 'sms' | 'quickAdd' | 'payments'
 
@@ -73,6 +76,8 @@ export interface AppAiConfig {
   picturesPerDay: number
   /** the image model the shared key draws with; '' = recommended (shared/icon-ai.ts picturePlanModels) */
   pictureModel: string
+  /** the model Split Now's transcription key hears voice with; '' = recommended (shared/transcribe.ts) */
+  transcribeModel: string
 }
 
 export const DEFAULT_APP_AI: AppAiConfig = {
@@ -89,6 +94,7 @@ export const DEFAULT_APP_AI: AppAiConfig = {
   pictures: false,
   picturesPerDay: 5,
   pictureModel: '',
+  transcribeModel: '',
 }
 
 export interface UserAiPrefs {
@@ -111,6 +117,13 @@ export interface UserAiPrefs {
   aiPictureModel: string
   /** agreed to Split Now's free AI (Gemma, Google's unpaid terms); nothing goes to it until then */
   aiFreeOk: boolean
+  /**
+   * Voice is heard by AI (Settings → Preferences → Transcription: AI, or Settings → AI features →
+   * Transcribe with AI: one setting, two places) instead of the phone's own recognition; opt-in
+   */
+  aiTranscribe: boolean
+  /** which key transcription uses: Automatic (own first), Own key, Split Now's key (shared/transcribe.ts planTranscribe) */
+  aiTranscribeKey: AiSource
 }
 
 // Bank SMS reading by AI is opt-in (owner decision, Oct 2026): off until the person turns it on.
@@ -127,6 +140,8 @@ export const DEFAULT_USER_AI: UserAiPrefs = {
   aiModel: '',
   aiPictureModel: '',
   aiFreeOk: false,
+  aiTranscribe: false,
+  aiTranscribeKey: 'auto',
 }
 
 const MODEL_RE = /^[a-z0-9][a-z0-9.-]{2,79}$/
@@ -156,6 +171,7 @@ export function resolveAppAi(raw: unknown): AppAiConfig {
     pictures: r.pictures === true,
     picturesPerDay: int(r.picturesPerDay, 1, 100, DEFAULT_APP_AI.picturesPerDay),
     pictureModel: isPictureModel(r.pictureModel) ? r.pictureModel : '',
+    transcribeModel: resolveTranscribeModel(r.transcribeModel),
   }
 }
 
@@ -173,6 +189,8 @@ export function resolveUserAi(raw: unknown): UserAiPrefs {
     aiModel: validModel(r.aiModel) ? r.aiModel : '',
     aiPictureModel: isPictureModel(r.aiPictureModel) ? r.aiPictureModel : '',
     aiFreeOk: r.aiFreeOk === true,
+    aiTranscribe: r.aiTranscribe === true,
+    aiTranscribeKey: r.aiTranscribeKey === 'own' || r.aiTranscribeKey === 'app' ? r.aiTranscribeKey : 'auto',
   }
 }
 

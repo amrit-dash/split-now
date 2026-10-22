@@ -19,14 +19,25 @@ const SCAN_HINT: Hint = { full: 'A bill or payment screenshot', tier: 'help' }
 const GROUP_HINT: Hint = { full: 'Trip, flat, dinner, anything', tier: 'help' }
 
 /**
- * What the + button in the tab bar opens (inside a group: press and hold; a tap there adds an
- * expense straight away, src/lib/plus-target.ts). Quick add comes first: one typed or spoken
+ * What the + button in the tab bar opens with a tap (inside a group a tap adds an expense straight
+ * away, src/lib/plus-target.ts, and holding + talks to Quick add; without voice a hold opens this). Quick add comes first: one typed or spoken
  * line into the group you're in, else the trip that's on today, else the group used last. Its
  * field is not focused on open (the keyboard would cover the sheet). Then Add expense, the big
  * choice, and New group and Scan. Live table is in the tab bar; Settle up is on every group and
  * on Home's balance card.
  */
-export function CreateSheet({ open, onClose, groupId }: { open: boolean; onClose: () => void; groupId?: string }) {
+export function CreateSheet({
+  open,
+  onClose,
+  groupId,
+  initialText,
+}: {
+  open: boolean
+  onClose: () => void
+  groupId?: string
+  /** a line said by holding + that needs a choice made in Quick add (which group): it opens filled in */
+  initialText?: string
+}) {
   const nav = useNavigate()
   const quickAdd = useFlag('quickAdd')
   // The Minimal look keeps the sheet to its tiles: Quick add sits behind a small link instead.
@@ -46,10 +57,18 @@ export function CreateSheet({ open, onClose, groupId }: { open: boolean; onClose
   return (
     <Sheet open={open} onClose={onClose} title="Create">
       {/* Quick add first: one typed or spoken line does most of what the tiles below do. */}
-      {quickAdd && (showQuickAdd || quickOpen) && (
+      {quickAdd && (showQuickAdd || quickOpen || !!initialText) && (
         <>
           {/* With no groups yet the line sets one up. */}
-          <QuickAddCard groups={groups} defaultGroupId={defaultGroupId} onLeave={onClose} testId="create-quick-add" />
+          <QuickAddCard
+            // A new line said by holding + starts a fresh composer with it.
+            key={initialText ?? ''}
+            groups={groups}
+            defaultGroupId={defaultGroupId}
+            onLeave={onClose}
+            initialText={initialText}
+            testId="create-quick-add"
+          />
           <div className="text-muted my-4 flex items-center gap-3 text-xs uppercase tracking-wider" aria-hidden>
             <span className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
             or

@@ -26,6 +26,10 @@ export interface Limits {
   captureKeepDays: number
   /** days an error reported from someone's phone (appErrors) is kept for the admin's Logs tab */
   appErrorKeepDays: number
+  /** the biggest voice recording transcribeAi accepts, in KB (about a minute of speech is 200 KB) */
+  transcribeMaxKb: number
+  /** recordings one person may have transcribed on Split Now's transcription key, per day */
+  transcribePerDay: number
 }
 
 export type LimitName = keyof Limits
@@ -74,6 +78,20 @@ export const LIMIT_META: Record<LimitName, LimitMeta> = {
     min: 1,
     max: 90,
     default: 14,
+  },
+  transcribeMaxKb: {
+    label: 'Biggest voice recording (KB)',
+    hint: 'Transcription with AI: about a minute of speech is 200 KB; longer recordings are refused',
+    min: 32,
+    max: 4096,
+    default: 512,
+  },
+  transcribePerDay: {
+    label: 'Voice transcriptions per person, per day',
+    hint: 'On Split Now’s transcription key; people’s own keys follow the own-key limits',
+    min: 1,
+    max: 1000,
+    default: 40,
   },
 }
 

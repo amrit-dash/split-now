@@ -33,6 +33,7 @@ export type PartKind =
   | 'toast' // a toast at the bottom with its action (`value`, the mark's target); shown only on its own step
   | 'scancard' // Scan's card: the intro, Read with AI in the top-right corner (`items[2]`), Camera and Photos (`items[0..1]`)
   | 'helphead' // Help's heading with the progress ring; the ring fills a little when its step plays
+  | 'voice' // holding + to talk: the accent bars and the words heard (`label`); `value` 'working' shows the spinner
 
 export interface PartItem {
   label: string
@@ -239,6 +240,35 @@ export const SCENES: Record<string, Scene> = {
     },
   ],
   'quick-add': [home('plus'), createSheet({ line: 'line', chip: 'chip', go: 'go' }), expenseForm({ save: 'save' })],
+  voice: [
+    {
+      parts: [
+        { kind: 'title', label: 'Goa trip' },
+        { kind: 'row', label: 'You are owed', value: '₹2,450' },
+        { kind: 'voice', label: 'dinner 1200 with Rahul, I paid', mark: 'speak' },
+        tabbar('hold', undefined),
+      ],
+    },
+    {
+      parts: [
+        { kind: 'title', label: 'Goa trip' },
+        { kind: 'row', label: 'You are owed', value: '₹2,450' },
+        { kind: 'voice', label: 'Working it out', value: 'working', mark: 'release' },
+        tabbar(),
+      ],
+    },
+    {
+      parts: [
+        { kind: 'title', label: 'Add expense' },
+        { kind: 'row', label: 'With', value: 'Goa trip' },
+        { kind: 'field', label: 'What was it for?', value: 'Dinner', icon: '🍽️' },
+        { kind: 'field', label: 'Amount in INR', value: '₹1,200' },
+        { kind: 'row', label: 'Paid by', value: 'You' },
+        { kind: 'row', label: 'Split', value: 'Equally with Rahul' },
+        { kind: 'button', label: 'Save', primary: true, mark: 'save' },
+      ],
+    },
+  ],
   'private-groups': [
     {
       parts: [

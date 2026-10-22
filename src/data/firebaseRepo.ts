@@ -136,6 +136,7 @@ import type { AiKeyResult, AiModel, AiState, AiStatement, AiStatusResult, AiUnav
 import { parseMemory } from '@/lib/merchants'
 import type { AiTextExpense } from '@/lib/nl-expense'
 import type { QuickAiRequest, QuickAiResponse } from '../../shared/quick-ai'
+import type { TranscribeRequest, TranscribeResponse, TranscribeTestResult } from '../../shared/transcribe'
 import type { IconAiResponse, IconPickRequest, IconPickResponse, IconPictureResponse, IconRequest, PictureTestResult } from '../../shared/icon-ai'
 import { archiveWrite } from '../../shared/archive'
 import { personalView } from './personalView'
@@ -772,6 +773,10 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         (s) => cb(s.exists() ? (s.data() as UserProfile) : null, metaOf(s)),
         listenError('Loading your profile', () => cb(null, FAILED)),
       )
+    },
+    async markVoiceTried(uid) {
+      // Only the one field, merged: saveProfile would copy the profile into every group for nothing.
+      await updateDoc(doc(db, 'users', uid), { voiceTried: Date.now() }).catch((e) => console.warn('voiceTried not saved', e))
     },
     async saveProfile(p) {
       const shared = memberProfileOf(p, await amAdmin(p.uid))
@@ -1932,6 +1937,20 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
         console.warn('Quick add with AI failed', e)
         return null
       }
+    },
+    async transcribeAi(req) {
+      if (!auth.currentUser || auth.currentUser.isAnonymous || !online()) return null
+      try {
+        const call = await callable<TranscribeRequest, TranscribeResponse>('transcribeAi', 45_000)
+        return (await call(req)).data ?? null
+      } catch (e) {
+        console.warn('AI transcription failed', e)
+        return null
+      }
+    },
+    async transcribeKey(action, key) {
+      const call = await callable<{ action: string; key?: string; which: 'transcribe' }, TranscribeTestResult>('aiKey', 45_000)
+      return (await call(key ? { action, key, which: 'transcribe' } : { action, which: 'transcribe' })).data
     },
     async iconsAi(req) {
       if (!auth.currentUser || auth.currentUser.isAnonymous || !online()) return null

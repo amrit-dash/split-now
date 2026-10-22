@@ -1144,6 +1144,23 @@ export const MemberRemoveIcon = /* @__PURE__ */ makeIcon(
   </>,
 )
 
+/** fluent mic */
+export const MicIcon = /* @__PURE__ */ makeIcon(
+  'Mic',
+  <>
+    <path
+      fill="currentColor"
+      d="M18.3 11a1 1 0 0 1 .7.6v.6a7 7 0 0 1-6.2 6.8v2.2a.8.8 0 0 1-1.5.2V19A7 7 0 0 1 5 12.5v-.8a.8.8 0 0 1 1.5 0v.6a5.3 5.3 0 0 0 5 5.2h.7a5.3 5.3 0 0 0 5.3-5v-.7a1 1 0 0 1 .8-.8M12 2a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4m0 1.5A2.5 2.5 0 0 0 9.5 6v6a2.5 2.5 0 0 0 5 0V6A2.5 2.5 0 0 0 12 3.5"
+    />
+  </>,
+  <>
+    <path
+      fill="currentColor"
+      d="M18.3 11a1 1 0 0 1 .7.6v.6a7 7 0 0 1-6.2 6.8v2.2a.8.8 0 0 1-1.5.2V19A7 7 0 0 1 5 12.5v-.8a.8.8 0 0 1 1.5 0v.6a5.3 5.3 0 0 0 5 5.2h.7a5.3 5.3 0 0 0 5.3-5v-.7a1 1 0 0 1 .8-.8M12 2a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4"
+    />
+  </>,
+)
+
 /** fluent weather-moon */
 export const MoonIcon = /* @__PURE__ */ makeIcon(
   'Moon',
@@ -1852,6 +1869,24 @@ export const RowUpdateIcon = /* @__PURE__ */ makeIcon(
     <g fill="currentColor">
       <circle cx="12" cy="12" r="10" opacity=".5" />
       <path d="M16.6 10.7q.4 0 .6.2l1.4 1.6a.7.7 0 1 1-1.2 1l-.1-.2A5.4 5.4 0 0 1 8 16a.8.8 0 1 1 1-1 4 4 0 0 0 6.7-1.7l-.2.2a.8.8 0 1 1-1-1l1.6-1.6zM12 6.3q2.4 0 4 1.7a.8.8 0 0 1-1 1 4 4 0 0 0-6.8 1.7l.3-.2a.8.8 0 0 1 1 1L8 13.1a1 1 0 0 1-1 0l-1.5-1.6a.8.8 0 0 1 1.2-1l.1.2A5.4 5.4 0 0 1 12 6.3" />
+    </g>
+  </>,
+)
+
+/** solar:microphone duotone */
+export const RowVoiceIcon = /* @__PURE__ */ makeIcon(
+  'RowVoice',
+  <>
+    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2">
+      <path d="M7 8a5 5 0 0 1 10 0v3a5 5 0 0 1-10 0z" />
+      <path d="M13 8h4m-4 3h4m3-1v1a8 8 0 0 1-8 8m-8-9v1a8 8 0 0 0 8 8m0 0v3" opacity=".5" />
+    </g>
+  </>,
+  <>
+    <g fill="currentColor">
+      <path d="M20 9q.7 0 .8.8v1c0 4.5-3.6 8.3-8 8.7v2.3a.8.8 0 0 1-1.6 0v-2.3c-4.4-.4-8-4.2-8-8.7v-1a.8.8 0 0 1 1.5 0v1a7.2 7.2 0 1 0 14.6 0v-1q0-.8.7-.8" />
+      <path d="M17.7 11.5H13a.8.8 0 0 1 0-1.5h4.8zm.1-3H13A.8.8 0 0 1 13 7h4.7z" />
+      <path d="M12 2a5.7 5.7 0 0 0-5.7 5.8v3a5.8 5.8 0 0 0 11.4.7H13a.8.8 0 0 1 0-1.5h4.8V8.5H13A.8.8 0 0 1 13 7h4.7c-.4-2.8-2.8-5-5.7-5" opacity=".5" />
     </g>
   </>,
 )

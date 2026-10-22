@@ -77,6 +77,16 @@ import {
   picturePrompt,
 } from '../../shared/icon-ai'
 import { applyRateLimit, type RateState } from './lib/ratelimit'
+import {
+  cleanTranscribeRequest,
+  cleanTranscript,
+  planTranscribe,
+  transcribeModels,
+  transcribePrompt,
+  type TranscribeResponse,
+  type TranscribeTestResult,
+} from '../../shared/transcribe'
+import { probeBilling, silentWavBase64 } from './lib/transcribe'
 import { parseKekList, readStoredKey, storedKeyFields } from './lib/seal'
 import { addDays, istDate } from './lib/time'
 
@@ -200,7 +210,7 @@ type Limited = { allowed: true } | { allowed: false; why: 'user' | 'global' }
  */
 async function allow(
   uid: string,
-  kind: KeyPlan['key'] | 'keycheck' | 'picture',
+  kind: KeyPlan['key'] | 'keycheck' | 'picture' | 'transcribe',
   limits: { perHour: number; perDay: number },
   now: number,
   global?: { max: number },
@@ -364,6 +374,50 @@ function signedIn(req: CallableRequest): { uid: string; email?: string } {
 }
 
 const isAdmin = async (uid: string) => (await db().collection('admins').doc(uid).get()).exists
+
+/**
+ * Split Now's transcription key (private/geminiTranscribeKey, sealed like the project key): a
+ * separate key for voice only, set by an admin in Admin → AI, which must be billed (a free-tier
+ * key may have what is sent used by Google, and voice is personal). No Secret Manager fallback.
+ */
+const transcribeKeyRef = () => db().collection('private').doc('geminiTranscribeKey')
+let transcribeCache: { at: number; key?: string; hint?: string; billing?: string } | null = null
+async function transcribeKey(): Promise<{ key?: string; hint?: string; billing?: string }> {
+  if (transcribeCache && Date.now() - transcribeCache.at < 60_000 && process.env.FUNCTIONS_EMULATOR !== 'true') return transcribeCache
+  const d = (await transcribeKeyRef().get()).data()
+  const { key, reseal } = readStoredKey(d, keks())
+  if (key && reseal) {
+    await transcribeKeyRef()
+      .set({ ...storedKeyFields(key, keks()), key: FieldValue.delete(), resealedAt: Date.now() }, { merge: true })
+      .catch((e) => logger.warn('re-seal transcription key', e))
+  }
+  transcribeCache = {
+    at: Date.now(),
+    key,
+    hint: typeof d?.hint === 'string' ? d.hint : key ? keyHint(key) : undefined,
+    billing: typeof d?.billing === 'string' ? d.billing : undefined,
+  }
+  return transcribeCache
+}
+
+/** Transcription counters in stats/ai_{day}: apart from `app`, which is the bill-reading key's daily budget. */
+async function recordTranscribe(
+  now: number,
+  which: 'own' | 'app',
+  extra: { err?: GeminiError; usage?: GeminiUsage; model?: string; denied?: boolean } = {},
+): Promise<void> {
+  const doc: Record<string, unknown> = { day: istDay(now) }
+  doc[extra.denied ? `denied_transcribe_${which}` : `transcribe_${which}`] = FieldValue.increment(1)
+  if (extra.err) doc.transcribe_errors = FieldValue.increment(1)
+  if (extra.usage) {
+    doc.tokensIn = FieldValue.increment(extra.usage.promptTokens)
+    doc.tokensOut = FieldValue.increment(extra.usage.outputTokens + extra.usage.thoughtTokens)
+  }
+  if (extra.model) doc.lastTranscribeModel = extra.model
+  await statsRef(istDay(now))
+    .set(doc, { merge: true })
+    .catch((e) => logger.warn('ai stats', e))
+}
 
 const base = { region: REGION, secrets: AI_SECRETS, enforceAppCheck: ENFORCE_APP_CHECK }
 
@@ -572,6 +626,67 @@ export const quickAddAi = onCall({ ...base, timeoutSeconds: 60, maxInstances: 10
 })
 
 /**
+ * Callable, signed-in users only: voice heard by AI, for people who chose AI transcription
+ * (Settings → Preferences → Transcription, or AI features → Transcribe with AI). The phone's own
+ * recognition is the default and never comes here.
+ *  { audio: base64 (≤ config/limits transcribeMaxKb), mimeType, lang? } → { text, via, model }
+ *  → { unavailable: true, reason }  when the flag (config/app aiTranscribe), the person's choice or
+ *                                   every key says no
+ * Keys (shared/transcribe.ts planTranscribe): their own Gemini key (aiOwnPerHour / aiOwnPerDay), and
+ * Split Now's transcription key when config/app aiTranscribeShared lets everyone use it, at most
+ * transcribePerDay recordings a person a day. Counted as transcribe_{own|app} in stats/ai_{day}.
+ * Nothing is stored: the recording goes to Google and the words come back to the Quick add box.
+ */
+export const transcribeAi = onCall({ ...base, timeoutSeconds: 60, memory: '512MiB', maxInstances: 10 }, async (req): Promise<TranscribeResponse> => {
+  const me = signedIn(req)
+  const now = Date.now()
+  const limits = await getLimits(now)
+  const input = cleanTranscribeRequest(req.data, limits.transcribeMaxKb * 1024)
+  if (!input) throw new HttpsError('invalid-argument', `Send a voice recording of ${limits.transcribeMaxKb} KB or less`)
+  if (!(await flagOn('aiTranscribe'))) return { unavailable: true, reason: 'off' }
+  const ctx = await loadCtx(me.uid, me.email)
+  if (!ctx.user.aiEnabled || !ctx.user.aiTranscribe) return { unavailable: true, reason: 'off' }
+  const shared = await transcribeKey()
+  const plans = planTranscribe({ user: ctx.user, hasOwnKey: !!ctx.ownKey, sharedAllowed: await flagOn('aiTranscribeShared'), sharedConfigured: !!shared.key })
+  if (!plans.length) return { unavailable: true, reason: 'not_configured' }
+  const reasons: AiUnavailableReason[] = []
+  for (const which of plans) {
+    const key = which === 'own' ? ctx.ownKey : shared.key
+    if (!key) continue
+    const gate = await allow(
+      ctx.uid,
+      which === 'own' ? 'own' : 'transcribe',
+      which === 'own' ? limitPair(limits, 'aiOwnPerHour', 'aiOwnPerDay') : { perHour: limits.transcribePerDay, perDay: limits.transcribePerDay },
+      now,
+    )
+    if (!gate.allowed) {
+      reasons.push('quota')
+      await recordTranscribe(now, which, { denied: true })
+      continue
+    }
+    try {
+      const g = await generateText(key, [{ inlineData: { mimeType: input.mimeType, data: input.audio } }], {
+        // The person's own key uses the recommended Flash-Lite; Split Now's, the admin's pick.
+        models: transcribeModels(which === 'app' ? ctx.app.transcribeModel : ''),
+        timeoutMs: 25_000,
+        maxOutputTokens: 256,
+        systemInstruction: transcribePrompt(input.lang),
+      })
+      await recordTranscribe(now, which, { usage: g.usage, model: g.modelVersion ?? g.model })
+      return { text: cleanTranscript(g.text), via: which, model: g.model }
+    } catch (e) {
+      const err = e instanceof GeminiError ? e : new GeminiError((e as Error).message)
+      logger.warn('ai transcription failed', { key: which, kind: err.kind, message: err.message.slice(0, 200) })
+      await recordTranscribe(now, which, { err })
+      // Refused for its content: nothing was heard that can be written down; the next key would refuse it too.
+      if (err.kind === 'blocked') return { text: '', via: which }
+      reasons.push(reasonOf(err.kind))
+    }
+  }
+  return { unavailable: true, reason: REASON_ORDER.find((r) => reasons.includes(r)) ?? 'server' }
+})
+
+/**
  * Callable, signed-in users only: "Suggest with AI" in the icon sheet.
  *  { title ≤ 80, kind: 'expense' | 'group', category? } → { emoji: string[] (≤3), svgs: string[] (≤3, cleaned) }
  *  → { unavailable: true, reason }   when the flag (config/app aiIcons), bill reading's switches or every key says no
@@ -749,6 +864,7 @@ export const aiKey = onCall({ ...base, timeoutSeconds: 30, maxInstances: 5 }, as
   const d = (req.data ?? {}) as { action?: unknown; key?: unknown; which?: unknown }
   const now = Date.now()
   if (d.which === 'app') return projectKey(me.uid, d, now)
+  if (d.which === 'transcribe') return transcriptionKey(me.uid, d, now)
   if (d.action === 'remove') {
     await Promise.all([secretRef(me.uid).delete(), stateRef(me.uid).delete()])
     return { hint: null, models: [] }
@@ -827,6 +943,63 @@ async function projectKey(uid: string, d: { action?: unknown; key?: unknown }, n
 }
 
 /**
+ * Admins: set / test / remove Split Now's transcription key (private/geminiTranscribeKey). A key
+ * Google says is on the free tier is refused (what is sent on it may be used by Google, and voice
+ * is personal); a billed one is kept. Test also has the chosen model hear half a second of
+ * silence, so a key that can't take audio shows up before anyone speaks.
+ */
+async function transcriptionKey(uid: string, d: { action?: unknown; key?: unknown }, now: number): Promise<TranscribeTestResult> {
+  if (!(await isAdmin(uid))) throw new HttpsError('permission-denied', 'Admins only')
+  const model = transcribeModels(resolveAppAi((await db().collection('config').doc('ai').get()).data()).transcribeModel)[0]
+  if (d.action === 'remove') {
+    await transcribeKeyRef().delete()
+    transcribeCache = null
+    return { hint: null, billing: 'unknown', model }
+  }
+  if (!(await allow(uid, 'keycheck', KEYCHECK_LIMIT, now)).allowed) throw new HttpsError('resource-exhausted', 'Too many tries, wait a bit')
+  let key: string | undefined
+  if (d.action === 'set') {
+    key = typeof d.key === 'string' ? cleanKey(d.key) : ''
+    if (!looksLikeGeminiKey(key)) throw new HttpsError('invalid-argument', 'That doesn’t look like a Gemini API key')
+  } else if (d.action === 'test') key = (await transcribeKey()).key
+  else throw new HttpsError('invalid-argument', 'Unknown action')
+  if (!key) throw new HttpsError('failed-precondition', 'No transcription key set up')
+  try {
+    await listModels(key)
+  } catch (e) {
+    throw keyError(e instanceof GeminiError ? e : new GeminiError((e as Error).message))
+  }
+  const billing = await probeBilling(key)
+  if (billing === 'free')
+    throw new HttpsError(
+      'failed-precondition',
+      'That key is on Google’s free tier (its project has no billing). Turn billing on for its Google project, or use a key from a project that has it.',
+    )
+  let ms: number | undefined
+  if (d.action === 'test') {
+    const started = Date.now()
+    try {
+      await generateText(key, [{ inlineData: { mimeType: 'audio/wav', data: silentWavBase64() } }], {
+        models: [model],
+        timeoutMs: 20_000,
+        maxOutputTokens: 64,
+        systemInstruction: transcribePrompt(),
+      })
+      ms = Date.now() - started
+    } catch (e) {
+      const err = e instanceof GeminiError ? e : new GeminiError((e as Error).message)
+      if (err.kind === 'model') throw new HttpsError('failed-precondition', `${model} isn’t available to this key`)
+      throw keyError(err)
+    }
+  }
+  const hint = keyHint(key)
+  if (d.action === 'set') await transcribeKeyRef().set({ ...storedKeyFields(key, keks()), hint, billing, savedAt: now, by: uid })
+  else await transcribeKeyRef().set({ billing, testedAt: now }, { merge: true })
+  transcribeCache = null
+  return { hint, billing, model, ...(ms !== undefined ? { ms } : {}) }
+}
+
+/**
  * Callable { which: 'own' | 'app' | 'gemma', kind?: 'pictures' } → models for the user's key, or the
  * project key's Gemini models / Gemma models, newest first (admins). With kind 'pictures', the image
  * models that key can draw with, cheapest first (shared/icon-ai.ts pictureModelsFrom).
@@ -867,10 +1040,16 @@ export const aiStatus = onCall({ ...base, timeoutSeconds: 15, maxInstances: 5 },
   const me = signedIn(req)
   const [cfg, admin] = await Promise.all([db().collection('config').doc('ai').get(), isAdmin(me.uid)])
   const app = resolveAppAi(cfg.data())
-  const k = await appKey()
+  const [k, t] = await Promise.all([appKey(), transcribeKey().catch(() => ({}) as { key?: string; hint?: string; billing?: string })])
   const configured = !!k.key
   return {
     admin,
+    // Split Now's transcription key: whether it is set up (the app offers AI transcription by it,
+    // with flags.aiTranscribeShared); admins also see its last 4 characters, billing and model.
+    transcribe: {
+      configured: !!t.key,
+      ...(admin ? { hint: t.hint ?? null, billing: t.billing ?? 'unknown', model: app.transcribeModel } : {}),
+    },
     app: {
       images: configured ? appKeyStatus(app, 'images', me.email) : 'off',
       sms: configured ? appKeyStatus(app, 'sms', me.email) : 'off',

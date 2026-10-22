@@ -50,6 +50,7 @@ export const FUNCTION_NAMES = [
   'quickAddAi',
   'refreshFx',
   'removeEmail',
+  'transcribeAi',
   'vault',
 ] as const
 

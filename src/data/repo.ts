@@ -34,6 +34,7 @@ import type { AiTextExpense } from '@/lib/nl-expense'
 import type { NudgeItem, NudgeResult } from '@/lib/nudge'
 import type { AiUnavailableReason } from '../../shared/ai-config'
 import type { QuickAiRequest, QuickAiResponse } from '../../shared/quick-ai'
+import type { TranscribeRequest, TranscribeResponse, TranscribeTestResult } from '../../shared/transcribe'
 import type { IconAiResponse, IconPickRequest, IconPickResponse, IconPictureResponse, IconRequest, PictureTestResult } from '../../shared/icon-ai'
 import type { DeletionBlocker, DeletionStep } from '../../shared/account-delete'
 import { defaultCurrency, formatDate } from '@/lib/locale'
@@ -297,6 +298,11 @@ export interface Repo {
    * user is in. A missing photoURL removes the stored photo.
    */
   saveProfile(p: UserProfile): Promise<void>
+  /**
+   * The first time this account held + to talk (users/{uid}.voiceTried = now, merged; nothing is
+   * copied into groups): the app stops teaching it on every device. Fire-and-forget.
+   */
+  markVoiceTried(uid: string): Promise<void>
   /**
    * Stores a profile photo (an already cropped square JPEG) and returns its URL: Storage
    * avatars/{uid}/{random}.jpg in Firebase (needs a connection), a data: URL in demo mode.
@@ -677,6 +683,19 @@ export interface Repo {
    */
   quickAddAi(req: QuickAiRequest): Promise<QuickAiResponse | null>
   /**
+   * Voice heard by AI (callable transcribeAi), for people who chose AI transcription: a short
+   * recording (base64) → the words. `{ unavailable, reason }`: the flag, the person's choice or every
+   * key said no; null: couldn't be called (offline, signed out, failed) and always in demo mode,
+   * which has no server (the phone's own recognition is the demo's voice).
+   */
+  transcribeAi(req: TranscribeRequest): Promise<TranscribeResponse | null>
+  /**
+   * Admins: set / test / remove Split Now's transcription key (aiKey with which 'transcribe'). A
+   * free-tier key is refused; Test has the chosen model hear a moment of silence. Throws with a
+   * readable message; demo mode throws.
+   */
+  transcribeKey(action: 'set' | 'test' | 'remove', key?: string): Promise<TranscribeTestResult>
+  /**
    * "Suggest with AI" in the icon sheet (callable iconsAi): three emoji and up to three drawn icons
    * (cleaned SVG) for a title. Never called for a private group (the app doesn't offer it there).
    * `{ unavailable, reason }`: the flag, the person's switch or every key said no; null: couldn't be
@@ -754,6 +773,12 @@ export type AppKeySource = 'admin' | 'secret'
 export type AppAiStatusValue = 'available' | 'off' | 'not_listed' | 'feature_off'
 export interface AiStatusResult {
   admin: boolean
+  /**
+   * Split Now's transcription key: set up or not (with flags.aiTranscribeShared, anyone may choose
+   * AI transcription on it). Admins also get its last 4 characters, billing and model. Missing from
+   * servers older than 9.1.
+   */
+  transcribe?: { configured: boolean; hint?: string | null; billing?: string; model?: string }
   app: {
     images: AppAiStatusValue
     sms: AppAiStatusValue

@@ -1,6 +1,21 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { BarChart3, Cpu, ImageIcon, KeyRound, Loader2, RefreshCw, RotateCcw, Save, ShieldCheck, ToggleRight, Trash2, UsersRound, Wallet } from 'lucide-react'
+import {
+  BarChart3,
+  Cpu,
+  ImageIcon,
+  KeyRound,
+  Loader2,
+  Mic,
+  RefreshCw,
+  RotateCcw,
+  Save,
+  ShieldCheck,
+  ToggleRight,
+  Trash2,
+  UsersRound,
+  Wallet,
+} from 'lucide-react'
 import { repo } from '@/data'
 import type { AiModel, AiStatusResult } from '@/data/repo'
 import { refreshAiStatus } from '@/hooks/useAiStatus'
@@ -17,6 +32,7 @@ import { SettingsSection } from '@/components/SettingsSection'
 import { Select } from '@/components/Select'
 import { Switch } from '@/components/Switch'
 import { useToast } from '@/components/Toast'
+import { TranscribeKey } from './TranscribeKey'
 
 const MODES: Array<{ value: AppAiMode; label: string; hint: string }> = [
   { value: 'off', label: 'Off', hint: 'Only people’s own keys work' },
@@ -170,7 +186,7 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
         >
           <span className="min-w-0">
             <span className="block font-semibold">AI feature switches</span>
-            <span className="text-muted block text-xs">Bills, SMS, Quick add, chat and payment screenshots, in Flags → AI</span>
+            <span className="text-muted block text-xs">Bills, SMS, Quick add, chat, payment screenshots and transcription, in Flags → AI</span>
           </span>
           <span className="shrink-0 text-xs font-semibold text-brand-600 dark:text-brand-300">{onCount(flags, AI_FLAGS)}</span>
         </Link>
@@ -248,6 +264,10 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
                 : 'Project key set up (GEMINI_API_KEY)'}
           </p>
         </div>
+      </SettingsSection>
+      {/* A third key, for voice only: separate from the project key, always billed (TranscribeKey). */}
+      <SettingsSection icon={<Mic size={16} aria-hidden />} title="Transcription key" testId="admin-ai-section-transcribe">
+        <TranscribeKey status={status} model={cfg.transcribeModel} onModel={(m) => set({ transcribeModel: m })} usedToday={usage?.transcribe_app ?? 0} />
       </SettingsSection>
       <SettingsSection icon={<Cpu size={16} aria-hidden />} title="Engine and model" testId="admin-ai-section-engine">
         <div>

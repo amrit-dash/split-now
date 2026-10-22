@@ -135,6 +135,7 @@ const UI = {
   RowSettingsIcon: '~gear',
   RowSupportIcon: 'solar:hand-heart',
   RowUpdateIcon: 'solar:refresh-circle',
+  RowVoiceIcon: 'solar:microphone',
   AddIcon: 'add',
   AdvancedModeIcon: 'options',
   /* Profile header's mode button in Advanced: one of five, picked at random on each switch (src/lib/mode-icon.ts). */
@@ -198,6 +199,8 @@ const UI = {
   MailIcon: 'mail',
   MemberAddIcon: 'person-add',
   MemberRemoveIcon: 'person-delete',
+  /* Voice: Quick add's mic, and + while it is held to talk. */
+  MicIcon: 'mic',
   MoonIcon: 'weather-moon',
   NotificationsIcon: 'alert-badge',
   PaletteIcon: 'color',
@@ -285,6 +288,7 @@ const FEATURE = {
   lockOpen: 'lock-keyhole-minimalistic-unlocked',
   magicWand: 'magic-stick-3',
   merge: 'arrow-to-down-left',
+  mic: 'microphone',
   money: 'wallet-money',
   notePencil: 'pen-new-square',
   palette: 'palette',

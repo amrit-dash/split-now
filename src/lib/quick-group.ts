@@ -197,3 +197,26 @@ export function groupInText(text: string, groups: NamedGroup[], people: string[]
   const phrase = fold(text.slice(best.start, best.end))
   return best.ids.length > 1 ? { kind: 'ambiguous', ids: best.ids, text: rest, phrase } : { kind: 'match', id: best.ids[0], text: rest, phrase }
 }
+
+/**
+ * Where a Quick add line goes, after the person's answers in the composer: the group the line
+ * names (unless they tapped it away: `undone`), whether two groups fit and it must ask which
+ * (unless they picked one: `answered`), a new group it asks for, and the words left to read.
+ * The composer and holding + to talk (no composer, so no answers) both use it.
+ */
+export function lineFor<G extends NamedGroup>(o: {
+  text: string
+  named: GroupInText
+  groups: G[]
+  /** the group the composer's picker shows (the default) */
+  picked: G | undefined
+  undone?: string | null
+  answered?: string | null
+}): { match: G | undefined; which: boolean; fresh: { name: string; text: string } | null; target: G | undefined; line: string } {
+  const { named } = o
+  const match = named.kind === 'match' && named.phrase !== o.undone ? o.groups.find((g) => g.id === named.id) : undefined
+  const which = named.kind === 'ambiguous' && named.phrase !== o.answered
+  const fresh = named.kind === 'new' ? { name: named.name, text: named.text } : null
+  const line = match || (named.kind === 'ambiguous' && !which) ? (named as { text: string }).text : o.text
+  return { match, which, fresh, target: match ?? o.picked, line }
+}

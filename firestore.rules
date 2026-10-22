@@ -93,7 +93,9 @@ service cloud.firestore {
         && request.resource.data.uid == userId
         && writesOpen()
         && validApprovalDefault(request.resource.data)
-        && validPro(request.resource.data);
+        && validPro(request.resource.data)
+        // The first time this account held + for voice (epoch ms): the app stops teaching it (src/lib/voice-teach.ts)
+        && request.resource.data.get('voiceTried', 0) is int;
       allow delete: if isUser() && uid() == userId;
 
       // Captured transactions waiting to be sorted into a group: private to the user.
@@ -151,7 +153,7 @@ service cloud.firestore {
           && writesOpen()
           && (settingId != 'notifications' || (
             request.resource.data.keys().hasOnly(['captures', 'unsorted', 'expenses', 'settlements', 'reminders', 'chat', 'openItems', 'approvals', 'mutedChats', 'outsideTrips',
-              'capturePaused', 'minAmount', 'ignoreWords', 'pausedTrips', 'aiSms', 'aiSmsMerchant', 'aiImages', 'aiQuickAdd', 'aiPayments', 'aiIcons', 'aiIconAuto', 'aiEnabled', 'aiSource', 'aiModel', 'aiPictureModel', 'aiFreeOk', 'updatedAt'])
+              'capturePaused', 'minAmount', 'ignoreWords', 'pausedTrips', 'aiSms', 'aiSmsMerchant', 'aiImages', 'aiQuickAdd', 'aiPayments', 'aiIcons', 'aiIconAuto', 'aiEnabled', 'aiSource', 'aiModel', 'aiPictureModel', 'aiFreeOk', 'aiTranscribe', 'aiTranscribeKey', 'updatedAt'])
             && request.resource.data.get('captures', true) is bool
             && request.resource.data.get('unsorted', false) is bool
             && request.resource.data.get('expenses', true) is bool
@@ -194,6 +196,9 @@ service cloud.firestore {
             && request.resource.data.get('aiPictureModel', '') is string && request.resource.data.get('aiPictureModel', '').size() <= 80
             // Agreed to Split Now's free AI (Gemma, Google's unpaid terms); off until they turn it on
             && request.resource.data.get('aiFreeOk', false) is bool
+            // Voice heard by AI instead of the phone (transcribeAi); opt-in. Which key it uses (shared/transcribe.ts planTranscribe)
+            && request.resource.data.get('aiTranscribe', false) is bool
+            && request.resource.data.get('aiTranscribeKey', 'auto') in ['auto', 'own', 'app']
             && request.resource.data.get('updatedAt', 0) is int))
           // settings/merchants: merchant → category memory (src/lib/merchants.ts). Two maps keyed by
           // the normalised merchant, at most 200 entries each; the app evicts the least recently used.
@@ -308,8 +313,9 @@ service cloud.firestore {
       function validFlags(f) {
         return f is map
           && f.keys().hasOnly(['aiImages', 'aiSms', 'liveTables', 'autoCapture', 'quickAdd', 'nudges', 'statementImport',
-              'payLinks', 'duplicates', 'merchantMemory', 'whoseTurn', 'budgetAlerts', 'aiQuickAdd', 'aiPayments', 'openItems', 'groupChat', 'chatAi', 'pushPrompt', 'moneyReceived', 'vaults', 'aiIcons', 'aiIconAuto', 'whatsNew', 'joinApproval'])
+              'payLinks', 'duplicates', 'merchantMemory', 'whoseTurn', 'budgetAlerts', 'aiQuickAdd', 'aiPayments', 'openItems', 'groupChat', 'chatAi', 'pushPrompt', 'moneyReceived', 'vaults', 'aiIcons', 'aiIconAuto', 'whatsNew', 'joinApproval', 'aiTranscribe', 'aiTranscribeShared'])
           && f.get('joinApproval', true) is bool
+          && f.get('aiTranscribe', true) is bool && f.get('aiTranscribeShared', true) is bool
           && f.get('openItems', true) is bool && f.get('groupChat', true) is bool && f.get('chatAi', true) is bool && f.get('aiIcons', true) is bool && f.get('aiIconAuto', true) is bool && f.get('whatsNew', true) is bool
           && f.get('pushPrompt', true) is bool && f.get('moneyReceived', true) is bool && f.get('vaults', true) is bool
           && f.get('aiQuickAdd', true) is bool && f.get('aiPayments', true) is bool
@@ -346,7 +352,7 @@ service cloud.firestore {
       // Ranges mirror LIMIT_META in shared/limits.ts.
       function validLimits(d) {
         return d.keys().hasOnly(['capturePerHour', 'capturePerDay', 'aiOwnPerHour', 'aiOwnPerDay', 'nudgePerDay',
-            'fxPerUserPerHour', 'fxPerUserPerDay', 'proofChecksPerHour', 'proofChecksPerDay', 'captureKeepDays', 'appErrorKeepDays', 'updatedAt', 'updatedBy'])
+            'fxPerUserPerHour', 'fxPerUserPerDay', 'proofChecksPerHour', 'proofChecksPerDay', 'captureKeepDays', 'appErrorKeepDays', 'transcribeMaxKb', 'transcribePerDay', 'updatedAt', 'updatedBy'])
           && d.get('capturePerHour', 60) is int && d.get('capturePerHour', 60) >= 1 && d.get('capturePerHour', 60) <= 1000
           && d.get('capturePerDay', 300) is int && d.get('capturePerDay', 300) >= 1 && d.get('capturePerDay', 300) <= 10000
           && d.get('aiOwnPerHour', 120) is int && d.get('aiOwnPerHour', 120) >= 1 && d.get('aiOwnPerHour', 120) <= 1000
@@ -358,11 +364,13 @@ service cloud.firestore {
           && d.get('proofChecksPerDay', 30) is int && d.get('proofChecksPerDay', 30) >= 1 && d.get('proofChecksPerDay', 30) <= 500
           && d.get('captureKeepDays', 30) is int && d.get('captureKeepDays', 30) >= 7 && d.get('captureKeepDays', 30) <= 365
           && d.get('appErrorKeepDays', 14) is int && d.get('appErrorKeepDays', 14) >= 1 && d.get('appErrorKeepDays', 14) <= 90
+          && d.get('transcribeMaxKb', 512) is int && d.get('transcribeMaxKb', 512) >= 32 && d.get('transcribeMaxKb', 512) <= 4096
+          && d.get('transcribePerDay', 40) is int && d.get('transcribePerDay', 40) >= 1 && d.get('transcribePerDay', 40) <= 1000
           && d.get('updatedAt', 0) is int
           && d.get('updatedBy', '') is string;
       }
       function validAiConfig(d) {
-        return d.keys().hasOnly(['mode', 'engine', 'gemmaModel', 'allowEmails', 'images', 'sms', 'model', 'perDay', 'perHour', 'globalPerDay', 'pictures', 'picturesPerDay', 'pictureModel', 'updatedAt', 'updatedBy'])
+        return d.keys().hasOnly(['mode', 'engine', 'gemmaModel', 'allowEmails', 'images', 'sms', 'model', 'perDay', 'perHour', 'globalPerDay', 'pictures', 'picturesPerDay', 'pictureModel', 'transcribeModel', 'updatedAt', 'updatedBy'])
           && d.mode in ['off', 'everyone', 'allowlist']
           && d.get('engine', 'gemini') in ['gemini', 'gemma']
           && d.get('gemmaModel', '') is string && d.get('gemmaModel', '').size() <= 80
@@ -376,7 +384,9 @@ service cloud.firestore {
           // "Draw a picture" on the shared key (paid per picture): off unless set
           && d.get('pictures', false) is bool
           && d.get('picturesPerDay', 5) is int && d.get('picturesPerDay', 5) >= 1 && d.get('picturesPerDay', 5) <= 100
-          && d.get('pictureModel', '') is string && d.get('pictureModel', '').size() <= 80;
+          && d.get('pictureModel', '') is string && d.get('pictureModel', '').size() <= 80
+          // the model Split Now's transcription key hears voice with (shared/transcribe.ts TRANSCRIBE_MODELS); '' = recommended
+          && d.get('transcribeModel', '') in ['', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'];
       }
       allow get: if id == 'app' || isAdmin();
       allow list: if false;

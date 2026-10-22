@@ -58,6 +58,7 @@ export const UI_ICONS = [
   'lockOpen',
   'magicWand',
   'merge',
+  'mic',
   'money',
   'notePencil',
   'palette',

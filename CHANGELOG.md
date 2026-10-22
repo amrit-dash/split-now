@@ -6,6 +6,14 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 9.1.0 — October 2026
+
+- **Talk to add.** Press and hold **+** and say what you paid ("dinner 1200 with Rahul, I paid"), then let go: + turns into a mic with a short buzz and a soft sound, your accent's bars move with your voice, and Quick add opens the form filled in (or answers, if it can't act on what you said). Inside a group a tap still adds an expense; holding is for talking, and the Create sheet is Home's +. Your phone does the listening, free, and it keeps listening through pauses until you let go. On a phone without speech recognition nothing changes. A bubble from + teaches it until you've tried it once.
+- Quick add's mic is a toggle (tap to start, tap again to stop) or hold it while you talk. Your words wait in the box until you send them. Before, it stopped at the first pause.
+- Quick add answers a line it can't act on ("Make me a sandwich") with what it can do, instead of opening an empty expense form. Quick add with AI now expects rough speech (no punctuation, misheard words, numbers said as words) and cleans it up before reading it.
+- Settings → Preferences → Voice → **Transcription**: Native (your phone, free) or AI (the recording goes to Google's Flash-Lite to be written down), when the admin offers it and a key is available to you; otherwise Native alone, with the reason. Settings → AI features → Voice has the same switch (Transcribe with AI) and which key it uses. While AI writes a recording down, a spinner sits in Quick add's box.
+- Admin → AI → **Transcription key**: a separate key for voice only, with its own model (Flash-Lite 3.5 recommended, 3.1 allowed) and a Test. A free-tier key is refused. Two new switches in Flags → AI (Transcription with AI; Everyone may use Split Now's transcription key) and two limits in Limits → Voice (the biggest recording; recordings per person per day).
+
 ## 9.0.0 — October 2026
 
 - New icons for settings: a group's settings button is a set of toggles, so it no longer looks like the app's Settings; Profile's Settings gear has a clean, even circle in the middle, and it and the mode button are bigger and sit closer together. Before, both were the same gear and its middle looked off.

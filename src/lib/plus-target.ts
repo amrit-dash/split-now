@@ -1,7 +1,8 @@
 /*
  * What the tab bar's + does on each screen. Inside a group it's for that group: a tap opens Add
- * expense for it straight away (what people do there nearly every time), and press and hold opens
- * the full Create sheet (Quick add, New group, Scan). Elsewhere a tap opens the sheet.
+ * expense for it straight away (what people do there nearly every time). Elsewhere a tap opens the
+ * Create sheet (Quick add, New group, Scan). Press and hold talks to Quick add where the phone can
+ * hear (src/components/PlusButton.tsx); without voice a hold opens the sheet, as it used to.
  */
 
 /** The group a screen belongs to: /groups/:id and everything under it (not New group or Import). */

@@ -48,39 +48,43 @@ remove an item when its release merges, and add anything left half-done.
 - [ ] The rest of the design pass (listed under 9.0.0 above): edge fades, two-line titles, Insights stubs, haptics helper, Balances rows.
 - [ ] Icons, later and the flaky receipt-photos e2e (above).
 
-## Voice and Quick add (owner's decisions, 22 Oct 2026; ships in 9.1.0, after Simple and Advanced)
+## Voice and Quick add (owner's decisions, 22 Oct 2026; ships in 9.1.0, after Simple and Advanced). Built on branch `voice`; left: a real phone and a real model
 
 Engine, free first:
-- [ ] The phone's own speech recognition always first, free. `continuous: true`; listening lasts until the person lets go of + (or taps the mic off). Silence alone never ends it.
-- [ ] No phone recognition, or microphone permission denied: no mic button in Quick add and no hold-for-voice on + (hold falls back to nothing new), unless AI transcription is on for that person (below).
-- [ ] AI transcription (Flash-Lite on audio) only where the phone can't, through a separate **transcription key** set by the admin.
+- [x] The phone's own speech recognition always first, free. `continuous: true`; listening lasts until the person lets go of + (or taps the mic off). Silence alone never ends it.
+- [x] No phone recognition, or microphone permission denied: no mic button in Quick add and no hold-for-voice on + (hold falls back to nothing new), unless AI transcription is on for that person (below).
+- [x] AI transcription (Flash-Lite on audio) only where the phone can't, through a separate **transcription key** set by the admin.
 
 Admin (Admin → AI):
-- [ ] A third global key, for transcription only: own model picker (recommended: the current Flash-Lite, e.g. gemini-3.5-flash-lite; 3.1-flash-lite allowed), a Test button, and a check that the key is billed: a free (unbilled) key is refused with an error, a paid one is accepted.
-- [ ] Flag: transcription on/off for everyone (off = no AI transcription offered anywhere).
-- [ ] Flag: everyone may use the global transcription key.
+- [x] A third global key, for transcription only: own model picker (recommended: the current Flash-Lite, e.g. gemini-3.5-flash-lite; 3.1-flash-lite allowed), a Test button, and a check that the key is billed: a free (unbilled) key is refused with an error, a paid one is accepted.
+- [x] Flag: transcription on/off for everyone (off = no AI transcription offered anywhere).
+- [x] Flag: everyone may use the global transcription key.
 
 Person (Settings → Preferences):
-- [ ] **Transcription: Native | AI**, a two-way Segmented control. Native (default) = the phone's own recognition, free. AI = the recording goes to Flash-Lite. AI is offered only when the admin flag is on and a key is available to that person (global key allowed, or their own key); otherwise the control shows Native only with the reason. If Native is picked on a phone without recognition, the mic hides (or AI is offered when available).
+- [x] **Transcription: Native | AI**, a two-way Segmented control. Native (default) = the phone's own recognition, free. AI = the recording goes to Flash-Lite. AI is offered only when the admin flag is on and a key is available to that person (global key allowed, or their own key); otherwise the control shows Native only with the reason. If Native is picked on a phone without recognition, the mic hides (or AI is offered when available).
 
 Person (Settings → AI features):
-- [ ] "Transcribe with AI" switch, shown only when the admin flag is on. With the global key allowed, anyone can turn it on; without it, only someone with their own Gemini key.
-- [ ] Which key: Automatic (own key first, then the global one; with the global one not allowed, own key only), Own key, Split Now's key.
+- [x] "Transcribe with AI" switch, shown only when the admin flag is on. With the global key allowed, anyone can turn it on; without it, only someone with their own Gemini key.
+- [x] Which key: Automatic (own key first, then the global one; with the global one not allowed, own key only), Own key, Split Now's key.
 
 Quick add screen:
-- [ ] Mic is a toggle (tap to start, tap to stop) and also press and hold (speak, let go). Transcribing shows a spinner inside the text box; the text lands in the box and waits: Enter / send runs Quick add.
-- [ ] Quick add's AI prompt: the line may be a rough speech transcript (wrong words, no punctuation, numbers as words): clean it up first, then understand it. Same prompt on every model.
+- [x] Mic is a toggle (tap to start, tap to stop) and also press and hold (speak, let go). Transcribing shows a spinner inside the text box; the text lands in the box and waits: Enter / send runs Quick add.
+- [x] Quick add's AI prompt: the line may be a rough speech transcript (wrong words, no punctuation, numbers as words): clean it up first, then understand it. Same prompt on every model.
 
 Hold + for voice (from any screen with the tab bar):
-- [ ] Single tap: as now. Press and hold: + becomes a mic with a short vibration and a soft sound; 4–5 accent bars above it react to the voice; a subtle ripple/glow from the button itself while held (must not spoil today's look). Let go: bars fade, a spinner on + (not tappable until done), then Quick add's result: the screen it opened, or a plain answer.
-- [ ] Inside a group, tap still adds an expense; hold becomes voice (the Create sheet there is reached from Home's +, or by voice).
-- [ ] Lines Quick add can't act on ("Make me a sandwich"): a clear, friendly answer and what it can do instead.
+- [x] Single tap: as now. Press and hold: + becomes a mic with a short vibration and a soft sound; 4–5 accent bars above it react to the voice; a subtle ripple/glow from the button itself while held (must not spoil today's look). Let go: bars fade, a spinner on + (not tappable until done), then Quick add's result: the screen it opened, or a plain answer.
+- [x] Inside a group, tap still adds an expense; hold becomes voice (the Create sheet there is reached from Home's +, or by voice).
+- [x] Lines Quick add can't act on ("Make me a sandwich"): a clear, friendly answer and what it can do instead.
 
 Teaching it:
-- [ ] After the update, a speech bubble rises from + once: "Press and hold + to talk". Dismiss with ✕ or a swipe.
-- [ ] Per account, across every device: a flag in the profile (`voiceTried`, rules whitelist + test + PLAN.md) set the first time someone holds + for voice (no need to finish Quick add). Until it's set, every few visits (every 3rd–5th) a "Did you know?" bubble from + with different words, urging "Try it now: press and hold +".
+- [x] After the update, a speech bubble rises from + once: "Press and hold + to talk". Dismiss with ✕ or a swipe.
+- [x] Per account, across every device: a flag in the profile (`voiceTried`, rules whitelist + test + PLAN.md) set the first time someone holds + for voice (no need to finish Quick add). Until it's set, every few visits (every 3rd–5th) a "Did you know?" bubble from + with different words, urging "Try it now: press and hold +".
 
-- [ ] Free-first voice summary for Help: a new section (voice), plus Quick add's updated.
+- [x] Free-first voice summary for Help: a new section (voice), plus Quick add's updated.
+
+Still to check by hand (no phone or Gemini key in the cloud container that built it):
+- [ ] Hold + on a real Android Chrome and iPhone Safari: recognition starting from the hold (no tap yet on iOS), the level bars while Chrome's recognizer and the meter share the mic, the blip before the first tap, the buzz.
+- [ ] `node scripts/voice-probe.mjs` with the new Quick add prompt, and a real recording through `transcribeAi`; Admin → AI → Transcription key Test with a billed and a free-tier key (the billing probe asks an image model for text).
 
 ## Ideas, not requested (build only if the owner asks)
 

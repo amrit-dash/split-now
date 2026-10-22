@@ -187,6 +187,21 @@ describe('usefulModels', () => {
   })
 })
 
+describe('transcription settings', () => {
+  it('are off and Automatic until the person changes them', () => {
+    expect(DEFAULT_USER_AI.aiTranscribe).toBe(false)
+    expect(DEFAULT_USER_AI.aiTranscribeKey).toBe('auto')
+    expect(resolveUserAi({}).aiTranscribe).toBe(false)
+    expect(resolveUserAi({ aiTranscribe: true, aiTranscribeKey: 'own' })).toMatchObject({ aiTranscribe: true, aiTranscribeKey: 'own' })
+    expect(resolveUserAi({ aiTranscribe: 'yes', aiTranscribeKey: 'other' })).toMatchObject({ aiTranscribe: false, aiTranscribeKey: 'auto' })
+  })
+  it('the transcription key’s model is one of the Flash-Lite models, else recommended', () => {
+    expect(DEFAULT_APP_AI.transcribeModel).toBe('')
+    expect(resolveAppAi({ transcribeModel: 'gemini-3.1-flash-lite' }).transcribeModel).toBe('gemini-3.1-flash-lite')
+    expect(resolveAppAi({ transcribeModel: 'gemma-4-31b-it' }).transcribeModel).toBe('')
+  })
+})
+
 describe('looksLikeGeminiKey', () => {
   it('accepts classic and newer key shapes, rejects obvious mistakes', () => {
     expect(looksLikeGeminiKey('AIzaSyD' + 'x'.repeat(32))).toBe(true)
