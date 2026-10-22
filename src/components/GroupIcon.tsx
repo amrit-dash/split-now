@@ -46,9 +46,12 @@ export function GroupIcon({
   emoji,
   size = 48,
   group,
+  overRing = false,
 }: {
   emoji: string
   size?: number
+  /** a 1:1 inside its friend's badge ring (ProTileRing): the handshake sits 2 px further out, over the ring's corner (owner); everywhere else it keeps its place */
+  overRing?: boolean
   /** with its AI-drawn icon (Group.iconSvg) when it has one */
   group?: Pick<Group, 'type' | 'peer' | 'members'> & Partial<Pick<Group, 'iconSvg' | 'iconImage' | 'vault'>>
 }) {
@@ -59,7 +62,7 @@ export function GroupIcon({
       <div aria-hidden className="relative shrink-0" style={{ width: size, height: size }}>
         <Avatar name={peer.name} color={peer.color} photoURL={peer.photoURL} size={size} shape="tile" />
         <span
-          className="absolute -bottom-1.5 -right-1.5 flex items-center justify-center rounded-full bg-white ring-2 ring-white dark:bg-ink-800 dark:ring-ink-900"
+          className={`absolute ${overRing ? '-bottom-1.5 -right-1.5' : '-bottom-1 -right-1'} flex items-center justify-center rounded-full bg-white ring-2 ring-white dark:bg-ink-800 dark:ring-ink-900`}
           style={{ width: badge, height: badge }}
           data-testid="direct-badge"
         >

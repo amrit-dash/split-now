@@ -351,7 +351,7 @@ export default function GroupDetail() {
             // A friend with a badge: its ring along their tile (rounded-2xl = 16 px corners), never in the title.
             <ProTap word={friendMark} className="flex shrink-0 rounded-2xl" testId="direct-pro-ring">
               <ProTileRing tile={56} radius={16} word={friendMark}>
-                <GroupIcon emoji={group.emoji} group={group} size={56} />
+                <GroupIcon emoji={group.emoji} group={group} size={56} overRing />
               </ProTileRing>
             </ProTap>
           ) : (
