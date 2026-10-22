@@ -391,6 +391,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'voice',
+    core: true,
     icon: 'mic',
     chapter: 'expenses',
     title: 'Talk to add',
@@ -892,6 +893,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'approvals',
+    core: true,
     advanced: true,
     icon: 'checkCircle',
     chapter: 'groups',
