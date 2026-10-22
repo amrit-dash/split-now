@@ -1873,7 +1873,8 @@ test('help: What’s new lists this version first and links each line to the gui
   // the newest release says so
   await expect(releases.first().getByTestId('release-latest')).toHaveText('Latest')
   await expect(page.getByTestId('release-latest')).toHaveCount(1)
-  expect(await releases.count()).toBeGreaterThan(5)
+  // A new major starts its own list (src/lib/whats-new.ts releasesFor): at least this version.
+  expect(await releases.count()).toBeGreaterThanOrEqual(1)
   await releases.first().getByTestId('release-item').first().click()
   await expect(page).toHaveURL(/\/help\/[a-z-]+$/)
   await expect(page.getByTestId('help-section')).toBeVisible()
