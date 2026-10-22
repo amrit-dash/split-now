@@ -213,7 +213,11 @@ function GroupItem({ r, chase }: { r: SettleRow; chase: Chase }) {
       testId="settle-row"
       avatar={<Avatar name={r.name} photoURL={r.photoURL} color={r.color} size={40} />}
       name={r.label}
-      sub={<GroupLine r={r} />}
+      sub={
+        <span className="mt-1.5 flex min-w-0">
+          <GroupLine r={r} />
+        </span>
+      }
       amount={formatMoney(r.amount, r.currency)}
       dir={r.dir}
       chase={<RowChase r={r} chase={chase} />}
@@ -257,19 +261,21 @@ function ItemRow({
 }) {
   const tone = dir === 'owe' ? 'neg' : dir === 'owed' ? 'pos' : 'text-muted'
   return (
-    <div className="flex items-center gap-3 px-4 py-3" data-testid={testId}>
-      <div className="shrink-0">{avatar}</div>
-      <div className="min-w-0 flex-1">
+    // The line under the amount (the group chip) runs the card's width under the buttons, lined up
+    // with the name, so a group's name isn't cut short beside three buttons on a small phone.
+    <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 px-4 py-3" data-testid={testId}>
+      <div className="row-span-2 self-start pt-0.5">{avatar}</div>
+      <div className="min-w-0">
         <div className="truncate font-semibold leading-tight">{name}</div>
         <div className={`mt-0.5 whitespace-nowrap font-bold leading-tight tabular-nums ${tone}`} data-testid="row-amount">
           {amount}
         </div>
-        <div className="text-muted mt-0.5 truncate text-xs">{sub}</div>
       </div>
       <div className="-mr-1 flex shrink-0 items-center gap-0.5">
         {chase}
         {action}
       </div>
+      <div className="text-muted col-span-2 col-start-2 min-w-0 text-xs">{sub}</div>
     </div>
   )
 }
@@ -280,10 +286,18 @@ function ItemRow({
  */
 const PAY = 'btn-primary !h-10 !min-h-10 !w-10 shrink-0 !rounded-full !p-0'
 
-/** The row's group: "1:1" for a 1:1 (the person is already the row), else its emoji and name, kept together on a wrap. */
+/**
+ * The row's group as a small chip (owner, 22 Oct 2026: set apart from the amounts above it): "1:1"
+ * for a 1:1 (the person is already the row), else its emoji and name, cut short when long.
+ */
 function GroupLine({ r }: { r: SettleRow }) {
   const g = groupLine(r)
-  return <span className="whitespace-nowrap">{g.emoji ? `${g.emoji} ${g.text}` : g.text}</span>
+  return (
+    <span className="inline-flex max-w-full items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium leading-4 text-slate-600 dark:bg-white/[0.06] dark:text-slate-300">
+      {g.emoji && <span aria-hidden>{g.emoji}</span>}
+      <span className="truncate">{g.text}</span>
+    </span>
+  )
 }
 
 /** "Pay" (primary) when you owe; a "record a payment" icon button when they owe you. Both open the group's settle screen. */
@@ -392,7 +406,7 @@ function PersonCard({ p, chase }: { p: PersonBalance | HomeBalance; chase: Chase
             <>
               {/* in your currency: the group's own amount on a line of its own, then the group */}
               {approx && <span className="block truncate tabular-nums">{formatMoney(r.amount, r.currency)}</span>}
-              <span className="block truncate">
+              <span className="mt-1.5 flex min-w-0">
                 <GroupLine r={r} />
               </span>
             </>
@@ -411,13 +425,14 @@ function PersonCard({ p, chase }: { p: PersonBalance | HomeBalance; chase: Chase
       <ItemRow
         avatar={avatar}
         name={p.label}
-        sub={`across ${n} groups`}
+        sub={<span className="mt-0.5 block">across {n} groups</span>}
         amount={p.net === 0 ? 'evens out' : amount}
         dir={dir}
         chase={p.net > 0 ? <PersonRemindActions p={p} feed={chase.feed} compact /> : undefined}
         action={<PersonAction p={p} n={n} />}
       />
-      <div className="mx-4 space-y-0.5 border-t border-slate-100 py-2 text-sm dark:border-white/5">
+      {/* One line per group: its chip, then what's owed there; the total above nets them. */}
+      <div className="mx-4 space-y-1 border-t border-slate-100 pb-2 pt-2.5 text-sm dark:border-white/5" data-testid="person-groups">
         {p.parts.map((r) => (
           <Link
             key={r.key}
@@ -425,7 +440,7 @@ function PersonCard({ p, chase }: { p: PersonBalance | HomeBalance; chase: Chase
             className="-mx-2 flex min-h-10 items-center gap-2 rounded-xl px-2 transition hover:bg-slate-50 active:bg-slate-50 dark:hover:bg-ink-800 dark:active:bg-ink-800"
             aria-label={`${r.dir === 'owe' ? `You owe ${r.label}` : `${r.label} owes you`} ${formatMoney(r.amount, r.currency)} in ${r.groupName}`}
           >
-            <span className="min-w-0 flex-1 truncate">
+            <span className="flex min-w-0 flex-1">
               <GroupLine r={r} />
             </span>
             <span className={`tabular-nums ${r.dir === 'owed' ? 'pos' : 'neg'}`}>

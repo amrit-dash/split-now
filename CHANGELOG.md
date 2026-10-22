@@ -6,6 +6,7 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Balances: each row's group is a small chip on its own line under the amounts, with room above it, and keeps its full name beside three buttons on a small phone (it was squeezed under the amount and cut to “Goa …”). Someone you share several groups with shows the total, then one chip and amount per group.
 - Help: a section is ticked only once you've played its steps to the end (or read to its end) and stayed on it a few seconds. Rushing through no longer fills the ring towards Pro, and **Up next** no longer ticks the next section the moment it opens. Earn Pro's stamp card shows it: a ring goes round the next slot before its stamp lands.
 - Voice in Opera, Opera GX, Brave and other browsers without Google's speech service: Split Now now switches to the browser's own on-device speech recognition (set up once) and your words show as you talk. Before, voice failed there and the mic then disappeared, as if you had refused the microphone. Where a browser has no recogniser at all, it says so and points to Transcribe with AI.
 - New group and Edit group: the types are one sideways row of chips, faded at the edge where there's more, with the chosen one in view. Before, nine tiles in a grid of three took most of the card.
