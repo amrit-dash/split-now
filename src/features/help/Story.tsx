@@ -1,33 +1,33 @@
-import { type CSSProperties, type ReactNode, useId, useLayoutEffect, useRef, useState } from 'react'
+import { type CSSProperties, type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { FeatureIcon } from '@/components/Icon'
 import { AdvancedRocketIcon, SimpleModeIcon } from '@/components/icons'
+import { ProPill, ProRing } from '@/components/ProBadge'
 import type { StoryKind } from '@/lib/help'
 import './help-motion.css'
 
 /**
- * The explainers' pictures in Help (src/lib/help-content.ts `story`): one everyday object per
- * explainer (a pot, a see-saw, a pizza, a piggy bank, a mailbox, a TV remote...), never a copy of
- * the app's screens. Each beat makes one big move (something drops, tips, flies or slides) with a
- * spring, and the last beat pays off. Drawn like the app's Solar duotone icons: thick rounded lines
- * over a soft translucent fill, all in the accent's tokens (help-motion.css `.story-art`), so it
- * follows the person's accent and dark mode; green and red only where they mean owed and owes.
- * `still` (reduced motion, or animations off) shows each beat's finished picture: every animation
- * runs FROM somewhere TO the element's own style, so with animations off the style is the end frame.
- * Keep each beat's motion inside its time in STORY_ANIM_MS (src/lib/help.ts).
+ * The explainers' pictures in Help (src/lib/help-content.ts `story`): an everyday picture of how a
+ * part of Split Now thinks, drawn on a small lit stage. `beat` is the caption being read; each beat
+ * plays its own motion (coins arc along paths, arrows draw themselves, amounts count, a beam springs
+ * and settles) and the stage breathes a little while it waits. Everything uses the accent's colours,
+ * so it follows the person's accent and dark mode. `still` (reduced motion, or animations off) shows
+ * each beat's finished picture: every keyframe ends on the element's own style (index.css, sx-*).
  * Purely a picture: hidden from screen readers, which read the captions beside it.
  */
 export function Story({ kind, beat, still }: { kind: StoryKind; beat: number; still: boolean }) {
   const View = VIEWS[kind]
   return (
     <Stage still={still} beat={beat}>
-      <View beat={beat} />
+      <View beat={beat} still={still} />
     </Stage>
   )
 }
 
-type View = (p: { beat: number }) => ReactNode
+type View = (p: { beat: number; still: boolean }) => ReactNode
 
 // The stage is drawn at a fixed size and scaled to fit, so motion paths (in px) line up at any width.
 const W = 360
+// A little more than the drawings use: the pills under the people need room above the stage's edge.
 const H = 256
 
 function Stage({ still, beat, children }: { still: boolean; beat: number; children: ReactNode }) {
@@ -51,78 +51,61 @@ function Stage({ still, beat, children }: { still: boolean; beat: number; childr
       data-testid="help-story"
       data-beat={beat}
     >
-      {/* Keyed by beat: each caption replays its own move. Still (reduced motion, animations off), a beat only crossfades in. */}
+      {/* Keyed by beat: each caption replays its own entrances. Still (reduced motion, animations off), a beat only crossfades in. */}
       <div
         key={beat}
-        className={`story-art absolute left-0 top-0 ${still ? 'sx-still animate-[fade-in_150ms_ease-out]' : ''}`}
+        className={`absolute left-0 top-0 ${still ? 'sx-still animate-[fade-in_150ms_ease-out]' : ''}`}
         style={{ width: W, height: H, transform: `scale(${k})`, transformOrigin: '0 0' }}
       >
-        {/* The light behind the picture: two soft glows in the accent's colours. They stay put: only the story moves. */}
-        <div className="absolute -left-10 -top-12 h-44 w-44 rounded-full bg-brand-400/20 blur-3xl dark:bg-brand-500/15" />
-        <div className="absolute -bottom-16 -right-8 h-48 w-48 rounded-full bg-duo-400/20 blur-3xl dark:bg-duo-500/10" />
+        {/* The light behind the picture: two slow-drifting glows in the accent's colours and a faint dot grid. */}
+        <div
+          className="absolute -left-10 -top-12 h-44 w-44 rounded-full bg-brand-400/25 blur-3xl dark:bg-brand-500/20"
+          style={ambient('sx-drift 9s ease-in-out infinite')}
+        />
+        <div
+          className="absolute -bottom-16 -right-8 h-48 w-48 rounded-full bg-duo-400/25 blur-3xl dark:bg-duo-500/15"
+          style={ambient('sx-drift 11s ease-in-out -4s infinite reverse')}
+        />
+        <svg className="absolute inset-0 text-brand-300/40 dark:text-white/[0.06]" width={W} height={H} aria-hidden>
+          <defs>
+            <pattern id="sx-dots" width="16" height="16" patternUnits="userSpaceOnUse">
+              <circle cx="2" cy="2" r="1" fill="currentColor" />
+            </pattern>
+          </defs>
+          <rect width={W} height={H} fill="url(#sx-dots)" />
+        </svg>
         {children}
       </div>
     </div>
   )
 }
 
-// ---- Motion ------------------------------------------------------------------------------------
-
-/**
- * A spring as a CSS easing: a damped wave sampled into linear(). `decay` is how fast it settles,
- * `half` how many half swings it makes; it overshoots by about e^(-decay/half).
- */
-function spring(decay: number, half: number): string {
-  const pts: string[] = []
-  for (let i = 0; i <= 48; i++) {
-    const t = i / 48
-    pts.push(i === 48 ? '1' : (1 - Math.exp(-decay * t) * Math.cos(half * Math.PI * t)).toFixed(3))
-  }
-  return `linear(${pts.join(', ')})`
-}
-/** Springy: pops and tips overshoot by about a fifth and settle. */
-const SPRING = spring(5, 3)
-/** Soft: travels overshoot a touch, so a long slide doesn't fly past. */
-const SOFT = spring(6, 2)
-const EASE_IN = 'cubic-bezier(0.5, 0, 0.75, 0)'
-
-type Vars = CSSProperties & Record<`--${string}`, string | number>
-
-/** Centre-based transforms for an SVG group (its own box), or `origin` for a pivot. */
-const box = (origin = 'center'): CSSProperties => ({ transformBox: 'fill-box', transformOrigin: origin })
-
-/** Comes FROM `t` (a transform) and fades in, springing to where its style puts it. */
-const from = (t: string, d = 0, ms = 700, ease = SPRING, o = 0): Vars => ({ '--from': t, '--from-o': o, animation: `hm-from ${ms}ms ${ease} ${d}ms both` })
-/** Pops in from nothing with a bounce. */
-const pop = (d = 0, ms = 600): Vars => from('scale(0)', d, ms)
-/** Leaves: ends hidden at `to` (its style), starting from where it is. */
-const gone = (d = 0, ms = 350, to = 'scale(0.4)'): Vars => ({
-  opacity: 0,
-  transform: to,
-  '--from': 'none',
-  '--from-o': 1,
-  animation: `hm-from ${ms}ms ${EASE_IN} ${d}ms both`,
-})
-/** Falls in from `h` px above, squashes on landing and bounces twice (origin: its feet). */
-const drop = (d = 0, ms = 850, h = -150): Vars => ({ '--h': `${h}px`, animation: `ex-drop ${ms}ms linear ${d}ms both`, transformOrigin: '50% 100%' })
-/** A thump, a shake or a press, on something that otherwise stays put. */
-const thump = (d = 0, ms = 500): CSSProperties => ({ animation: `ex-squash ${ms}ms ease-out ${d}ms both` })
-const shake = (d = 0, ms = 900): CSSProperties => ({ animation: `ex-shake ${ms}ms ease-in-out ${d}ms both` })
-const press = (d = 0, ms = 450): CSSProperties => ({ animation: `ex-press ${ms}ms ease-out ${d}ms both` })
+const ambient = (animation: string): CSSProperties => ({ animation })
 
 // ---- Shared parts ------------------------------------------------------------------------------
 
 /** Something placed by its centre, in stage px. */
-function At({ x, y, children, style }: { x: number; y: number; children: ReactNode; style?: CSSProperties }) {
+function At({ x, y, children, style, className = '' }: { x: number; y: number; children: ReactNode; style?: CSSProperties; className?: string }) {
   return (
-    <div className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left: x, top: y, ...style }}>
+    <div className={`absolute -translate-x-1/2 -translate-y-1/2 ${className}`} style={{ left: x, top: y, ...style }}>
       {children}
     </div>
   )
 }
 
-/** Something that travels along a path (stage px) and stays where it lands, or vanishes there. */
-function Fly({ path, d = 0, ms = 900, vanish, children }: { path: string; d?: number; ms?: number; vanish?: boolean; children: ReactNode }) {
+/**
+ * An entrance: pops or rises in, after `d` ms. The pop's keyframe already swells a touch (to 1.06);
+ * an ease-out curve on top keeps it quiet, with no second bounce.
+ */
+const pop = (d = 0, ms = 480): CSSProperties => ({ animation: `sx-pop ${ms}ms cubic-bezier(0.23, 1, 0.32, 1) ${d}ms both` })
+const rise = (d = 0, ms = 520): CSSProperties => ({ animation: `sx-in ${ms}ms cubic-bezier(0.23, 1, 0.32, 1) ${d}ms both` })
+const out = (d = 0, ms = 400): CSSProperties => ({ opacity: 0, animation: `sx-out ${ms}ms cubic-bezier(0.23, 1, 0.32, 1) ${d}ms both` })
+
+/**
+ * Something that travels along a path (stage px) and stays where it lands, or vanishes there.
+ * Its centre follows the path; it keeps upright.
+ */
+function Fly({ path, d = 0, ms = 1000, vanish, children }: { path: string; d?: number; ms?: number; vanish?: boolean; children: ReactNode }) {
   return (
     <div
       className="absolute left-0 top-0"
@@ -140,36 +123,6 @@ function Fly({ path, d = 0, ms = 900, vanish, children }: { path: string; d?: nu
   )
 }
 
-/** The SVG layer, with the accent's line gradient (brand → duo) under `${id('ln')}`. */
-function Art({ id, children }: { id: (n: string) => string; children: ReactNode }) {
-  return (
-    <svg className="absolute inset-0 overflow-visible" width={W} height={H}>
-      <defs>
-        <linearGradient id={id('ln')} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2={W} y2={H}>
-          <stop offset="0" style={{ stopColor: 'var(--ln)' }} />
-          <stop offset="1" style={{ stopColor: 'var(--ln2)' }} />
-        </linearGradient>
-      </defs>
-      {children}
-    </svg>
-  )
-}
-
-/** A thick rounded outline in the accent gradient over a soft fill: the duotone look. */
-const duo = (id: (n: string) => string, w = 5, fill = 'var(--soft)') => ({
-  fill,
-  stroke: `url(#${id('ln')})`,
-  strokeWidth: w,
-  strokeLinecap: 'round' as const,
-  strokeLinejoin: 'round' as const,
-})
-
-/** Gradients the drawings share; ids are made unique per picture. */
-function useIds() {
-  const raw = useId().replace(/[^a-zA-Z0-9]/g, '')
-  return (name: string) => `sx${raw}${name}`
-}
-
 const PEOPLE: Record<string, { from: string; to: string }> = {
   Asha: { from: 'var(--color-brand-400)', to: 'var(--color-brand-700)' },
   Ravi: { from: 'var(--color-duo-400)', to: 'var(--color-duo-700)' },
@@ -177,18 +130,19 @@ const PEOPLE: Record<string, { from: string; to: string }> = {
   Kabir: { from: 'var(--color-duo-300)', to: 'var(--color-brand-600)' },
 }
 
-/** A person as the app draws them: initials on their colour, with a soft ring. */
+/** A person as the app draws them: initials on their colour, with a soft ring, breathing a little. */
 function Person({ name, size = 40, label = true }: { name: string; size?: number; label?: boolean }) {
   const c = PEOPLE[name] ?? PEOPLE.Asha
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div className="flex flex-col items-center gap-1" style={ambient(`sx-breathe 3.2s ease-in-out ${(name.length % 4) * -0.7}s infinite`)}>
       <div
         className="flex items-center justify-center rounded-full font-bold text-white ring-[3px] ring-white dark:ring-ink-900"
         style={{
           width: size,
           height: size,
-          fontSize: size * 0.4,
+          fontSize: size * 0.36,
           background: `linear-gradient(140deg, ${c.from}, ${c.to})`,
+          // the accent's own shade, so the shadow never reads violet on another accent
           boxShadow: '0 6px 16px -6px color-mix(in oklab, var(--color-brand-700) 55%, transparent)',
         }}
       >
@@ -199,19 +153,18 @@ function Person({ name, size = 40, label = true }: { name: string; size?: number
   )
 }
 
-/** A coin in the accent: a thick rim and a soft face. */
-function Coin({ label = '₹', size = 32 }: { label?: string; size?: number }) {
+/** A rupee coin with a rim and a shine; `spin` turns it while it flies. */
+function Coin({ label = '₹', size = 26, spin }: { label?: string; size?: number; spin?: boolean }) {
   return (
     <div
-      className="flex items-center justify-center rounded-full font-black tabular-nums leading-none"
+      className="flex items-center justify-center rounded-full font-extrabold text-amber-900 shadow-[0_4px_10px_-3px_rgba(180,83,9,0.6)]"
       style={{
         width: size,
         height: size,
-        fontSize: label.length > 4 ? size * 0.24 : label.length > 2 ? size * 0.3 : size * 0.42,
-        background: 'var(--coin)',
-        color: 'var(--ln)',
-        border: `${Math.max(3, Math.round(size * 0.09))}px solid var(--ln)`,
-        boxShadow: 'inset 0 -3px 0 var(--soft2), 0 6px 14px -8px color-mix(in oklab, var(--color-brand-700) 70%, transparent)',
+        fontSize: label.length > 2 ? size * 0.3 : size * 0.42,
+        background: 'radial-gradient(circle at 32% 28%, #fff7d1 0%, #fcd34d 32%, #f59e0b 70%, #b45309 100%)',
+        boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.45), inset 0 -2px 0 rgba(146,64,14,0.35), 0 4px 10px -3px rgba(180,83,9,0.6)',
+        animation: spin ? 'sx-spin-y 1.1s ease-in-out infinite' : undefined,
       }}
     >
       {label}
@@ -223,657 +176,813 @@ type Tone = 'up' | 'down' | 'even' | 'accent'
 const TONES: Record<Tone, string> = {
   up: 'bg-emerald-500/15 text-emerald-700 ring-emerald-500/30 dark:text-emerald-300',
   down: 'bg-rose-500/15 text-rose-700 ring-rose-500/30 dark:text-rose-300',
-  even: 'bg-white text-slate-700 ring-slate-200 dark:bg-ink-800 dark:text-slate-100 dark:ring-white/15',
+  even: 'bg-white/80 text-slate-600 ring-slate-200 dark:bg-white/10 dark:text-slate-200 dark:ring-white/10',
   accent: 'bg-fill text-on-fill ring-transparent',
 }
 
-function Pill({ children, tone = 'even', big }: { children: ReactNode; tone?: Tone; big?: boolean }) {
+function Pill({ children, tone = 'even', style }: { children: ReactNode; tone?: Tone; style?: CSSProperties }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full font-bold tabular-nums ring-1 backdrop-blur ${big ? 'px-3.5 py-1.5 text-[15px]' : 'px-2.5 py-1 text-[12px]'} ${TONES[tone]}`}
+      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-bold tabular-nums ring-1 backdrop-blur ${TONES[tone]}`}
+      style={style}
     >
       {children}
     </span>
   )
 }
 
-/** A burst of four-pointed stars, for the moment something comes out right. */
-function Sparkles({ x, y, d = 0, spread = 46 }: { x: number; y: number; d?: number; spread?: number }) {
-  const stars = [
-    [-1, -0.6, 14],
-    [0.9, -0.8, 11],
-    [1.1, 0.4, 9],
-    [-0.8, 0.7, 10],
-    [0.1, -1.1, 8],
-    [-1.2, 0, 7],
-  ]
+/** An amount that counts from `from` to `to`, easing out, when its beat starts (each beat remounts its view). */
+function Count({
+  from,
+  to,
+  still,
+  ms = 900,
+  d = 0,
+  format = (n: number) => `₹${n.toLocaleString('en-IN')}`,
+}: {
+  from: number
+  to: number
+  still: boolean
+  ms?: number
+  d?: number
+  format?: (n: number) => string
+}) {
+  const [v, setV] = useState(still ? to : from)
+  useEffect(() => {
+    if (still) return setV(to)
+    const start = performance.now() + d
+    let raf = 0
+    const tick = (t: number) => {
+      const k = Math.min(1, Math.max(0, (t - start) / ms))
+      setV(Math.round(from + (to - from) * (1 - (1 - k) ** 3)))
+      if (k < 1) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [from, to, still, ms, d])
+  return <>{format(v)}</>
+}
+
+/** Gradients and shadows the drawings share; ids are made unique per picture. */
+function useIds() {
+  const raw = useId().replace(/[^a-zA-Z0-9]/g, '')
+  return (name: string) => `sx${raw}${name}`
+}
+
+// ---- What Split Now does: a shared jar ---------------------------------------------------------------
+
+const JAR = 'M152,34 L208,34 L208,44 C208,52 232,54 232,68 L232,122 Q232,140 214,140 L146,140 Q128,140 128,122 L128,68 C128,54 152,52 152,44 Z'
+const SEATS = { Asha: { x: 56, y: 178 }, Ravi: { x: 180, y: 178 }, Meera: { x: 304, y: 178 } } as const
+
+const Pot: View = ({ beat, still }) => {
+  const id = useIds()
+  // How full the jar is at the end of this beat (it fills on the first, drains on the last).
+  const full = beat < 3
+  const liquidStyle: CSSProperties =
+    beat === 0
+      ? { transform: 'translateY(0)', animation: 'sx-rise 1100ms cubic-bezier(0.3, 0.9, 0.3, 1) 900ms both' }
+      : beat === 3
+        ? { transform: 'translateY(84px)', animation: 'sx-drain 1200ms cubic-bezier(0.5, 0, 0.3, 1) 1100ms both' }
+        : { transform: full ? 'translateY(0)' : 'translateY(84px)' }
   return (
     <>
-      {stars.map(([dx, dy, s], i) => (
-        <At key={`${dx}${dy}`} x={x + dx * spread} y={y + dy * spread}>
-          <svg width={s * 2} height={s * 2} viewBox="-10 -10 20 20" style={{ opacity: 0, animation: `sx-sparkle 900ms ease-out ${d + i * 70}ms both` }}>
-            <path d="M0,-10 C1.5,-2 2,-1.5 10,0 C2,1.5 1.5,2 0,10 C-1.5,2 -2,1.5 -10,0 C-2,-1.5 -1.5,-2 0,-10 Z" style={{ fill: 'var(--color-duo-400)' }} />
-          </svg>
+      <svg className="absolute inset-0" width={W} height={H}>
+        <defs>
+          <linearGradient id={id('liquid')} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" style={{ stopColor: 'var(--color-brand-400)' }} />
+            <stop offset="1" style={{ stopColor: 'var(--color-duo-600)' }} />
+          </linearGradient>
+          <linearGradient id={id('glass')} x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stopColor="#fff" stopOpacity="0.55" />
+            <stop offset="0.5" stopColor="#fff" stopOpacity="0.12" />
+            <stop offset="1" stopColor="#fff" stopOpacity="0.35" />
+          </linearGradient>
+          <linearGradient id={id('lid')} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" style={{ stopColor: 'var(--color-brand-300)' }} />
+            <stop offset="1" style={{ stopColor: 'var(--color-brand-600)' }} />
+          </linearGradient>
+          <clipPath id={id('in')}>
+            <path d={JAR} />
+          </clipPath>
+        </defs>
+        {/* a soft shadow under the jar */}
+        <ellipse cx="180" cy="146" rx="62" ry="6" className="fill-brand-900/15 dark:fill-black/40" />
+        <path d={JAR} fill={`url(#${id('glass')})`} className="stroke-brand-200 dark:stroke-white/20" strokeWidth="2" />
+        <g clipPath={`url(#${id('in')})`}>
+          <g style={liquidStyle}>
+            {/* the surface rolls gently */}
+            <path
+              d="M100,66 q13,-7 26,0 t26,0 t26,0 t26,0 t26,0 t26,0 t26,0 v90 h-182 z"
+              fill={`url(#${id('liquid')})`}
+              opacity="0.92"
+              style={ambient('sx-wave 2.8s linear infinite')}
+            />
+          </g>
+          {/* three shares, marked in the liquid */}
+          {beat >= 1 && beat <= 2 && (
+            <g className="stroke-white/70" strokeWidth="1.5" strokeDasharray="4 4" style={rise(100)}>
+              <line x1="163" y1="72" x2="163" y2="140" />
+              <line x1="197" y1="72" x2="197" y2="140" />
+            </g>
+          )}
+        </g>
+        {/* the glass shine, over everything inside */}
+        <path d="M139,72 C136,90 136,108 141,126" fill="none" stroke="#fff" strokeOpacity="0.75" strokeWidth="4" strokeLinecap="round" />
+        <path d="M146,62 L146,66" fill="none" stroke="#fff" strokeOpacity="0.75" strokeWidth="4" strokeLinecap="round" />
+        <rect x="146" y="20" width="68" height="16" rx="5" fill={`url(#${id('lid')})`} />
+        <rect x="150" y="23" width="40" height="3" rx="1.5" fill="#fff" opacity="0.45" />
+      </svg>
+      {/* what's in the jar */}
+      <At x={180} y={102}>
+        {/* Draining, the amount stays white on the liquid and goes grey only once the jar is empty. */}
+        <div
+          className={`text-center text-[22px] font-black tabular-nums drop-shadow-sm ${beat === 3 ? 'text-slate-400 dark:text-slate-500' : 'text-white'}`}
+          style={beat === 3 ? { animation: 'sx-whiten 2200ms steps(1, end) both' } : undefined}
+        >
+          {beat === 0 ? (
+            <Count from={0} to={900} still={still} d={900} ms={1100} />
+          ) : beat === 3 ? (
+            <Count from={900} to={0} still={still} d={1100} ms={1200} />
+          ) : (
+            '₹900'
+          )}
+        </div>
+      </At>
+      {beat >= 1 &&
+        beat <= 2 &&
+        [146, 180, 214].map((x, i) => (
+          <At key={x} x={x} y={127} style={rise(150 + i * 90)}>
+            <span className="text-[10px] font-bold text-white/90">₹300</span>
+          </At>
+        ))}
+      {/* the people around the jar */}
+      {(Object.keys(SEATS) as Array<keyof typeof SEATS>).map((n) => (
+        <At key={n} x={SEATS[n].x} y={SEATS[n].y}>
+          <Person name={n} />
         </At>
       ))}
+      {/* beat 1: Asha's ₹900 arcs into the jar */}
+      {beat === 0 && (
+        <Fly path="M56,160 Q72,0 180,24 L180,92" ms={1100} d={150} vanish>
+          <Coin label="₹900" size={34} spin />
+        </Fly>
+      )}
+      {/* beat 2: a ₹300 share flies to each person */}
+      {beat === 1 &&
+        (Object.keys(SEATS) as Array<keyof typeof SEATS>).map((n, i) => (
+          <Fly key={n} path={`M180,110 Q${(180 + SEATS[n].x) / 2},${n === 'Ravi' ? 150 : 60} ${SEATS[n].x},222`} ms={900} d={500 + i * 160}>
+            <Pill tone="accent">₹300 share</Pill>
+          </Fly>
+        ))}
+      {/* beat 3: what each one owes, or is owed */}
+      {beat === 2 && (
+        <>
+          <At x={SEATS.Asha.x} y={222} style={pop(100)}>
+            <Pill tone="up">
+              owed <Count from={0} to={600} still={still} d={150} />
+            </Pill>
+          </At>
+          <At x={SEATS.Ravi.x} y={222} style={pop(220)}>
+            <Pill tone="down">
+              owes <Count from={0} to={300} still={still} d={260} />
+            </Pill>
+          </At>
+          <At x={SEATS.Meera.x} y={222} style={pop(340)}>
+            <Pill tone="down">
+              owes <Count from={0} to={300} still={still} d={380} />
+            </Pill>
+          </At>
+        </>
+      )}
+      {/* beat 4: they pay Asha back, the jar empties, everyone is square */}
+      {beat === 3 && (
+        <>
+          <Fly path="M180,170 Q118,96 56,160" ms={950} d={150} vanish>
+            <Coin label="₹300" size={30} spin />
+          </Fly>
+          <Fly path="M304,170 Q180,-30 56,160" ms={1150} d={420} vanish>
+            <Coin label="₹300" size={30} spin />
+          </Fly>
+          {(Object.keys(SEATS) as Array<keyof typeof SEATS>).map((n, i) => (
+            <At key={n} x={SEATS[n].x} y={222} style={pop(1500 + i * 120)}>
+              <Pill tone="up">✓ square</Pill>
+            </At>
+          ))}
+        </>
+      )}
     </>
   )
 }
 
-/** A ring that spreads from a point and fades: something just happened here. */
-function Ripple({ x, y, r = 24, d = 0 }: { x: number; y: number; r?: number; d?: number }) {
+// ---- How balances work: a balance beam ----------------------------------------------------------------
+
+const PIVOT = { x: 180, y: 150 }
+
+/** Turns with the beam (around the pivot) and plays its spring; `counter` keeps a rider upright. */
+function beamTurn(beat: number, counter = false): CSSProperties {
+  const c = counter ? '-c' : ''
+  if (beat === 1) return { transform: `rotate(${counter ? -11 : 11}deg)`, animation: `sx-tip${c} 1500ms cubic-bezier(0.3, 0.7, 0.4, 1) 700ms both` }
+  if (beat === 2) return { transform: 'rotate(0deg)', animation: `sx-level${c} 1500ms cubic-bezier(0.3, 0.7, 0.4, 1) 1300ms both` }
+  // The first beat: the beam rocks gently and settles level, so "level" is something you see happen.
+  return { transform: 'rotate(0deg)', animation: `sx-settle${c} 900ms cubic-bezier(0.3, 0.7, 0.4, 1) both` }
+}
+
+/** Someone riding the beam at `x` (stage px), kept upright while it tips. */
+function Rider({ x, beat, children }: { x: number; beat: number; children: ReactNode }) {
   return (
-    <circle
-      cx={x}
-      cy={y}
-      r={r}
-      fill="none"
-      strokeWidth="3"
-      style={{ stroke: 'var(--ln2)', opacity: 0, ...box(), animation: `sx-ring 800ms ease-out ${d}ms both`, transform: 'scale(1.8)' }}
-    />
+    <div className="absolute" style={{ left: x - 30, top: PIVOT.y - 78, width: 60, height: 78, transformOrigin: '30px 78px', ...beamTurn(beat, true) }}>
+      <div className="flex h-full flex-col items-center justify-end pb-2">{children}</div>
+    </div>
   )
 }
 
-const Check = ({ size = 22 }: { size?: number }) => (
-  <span className="flex items-center justify-center rounded-full bg-fill text-on-fill shadow-sm" style={{ width: size, height: size }}>
-    <svg
-      width={size * 0.6}
-      height={size * 0.6}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M5 12.5l4.5 4.5L19 7.5" />
-    </svg>
-  </span>
-)
-
-// ---- What Split Now does: a shared pot --------------------------------------------------------------
-// 1 Asha's coin drops in and the pot fills. 2 A slice flies out to each. 3 Each slice becomes one
-// number. 4 Ravi's and Meera's coins fly to Asha, the pot empties, everyone gets a tick.
-
-const JAR = 'M152,34 L208,34 L208,44 C208,52 232,54 232,68 L232,122 Q232,140 214,140 L146,140 Q128,140 128,122 L128,68 C128,54 152,52 152,44 Z'
-const SEATS = [
-  { name: 'Asha', x: 60 },
-  { name: 'Ravi', x: 180 },
-  { name: 'Meera', x: 300 },
-]
-const SEAT_Y = 208
-const NUM_Y = 162
-
-const Pot: View = ({ beat }) => {
+const Seesaw: View = ({ beat, still }) => {
   const id = useIds()
-  const liquid: CSSProperties =
-    beat === 0 ? from('translateY(84px)', 950, 900, SOFT, 1) : beat === 3 ? gone(1500, 900, 'translateY(84px)') : { transform: 'none' }
+  const caption = beat === 0 ? 'Level · nobody owes' : beat === 1 ? 'Asha paid ₹900 for three' : 'Paid back · level again'
   return (
     <>
-      <Art id={id}>
+      <At x={180} y={22} style={pop(0)}>
+        <Pill tone={beat === 2 ? 'up' : 'even'}>
+          {beat === 2 ? '✓ ' : ''}
+          {caption}
+        </Pill>
+      </At>
+      {/* the stand */}
+      <svg className="absolute inset-0" width={W} height={H}>
         <defs>
-          <clipPath id={id('in')}>
-            <path d={JAR} />
-          </clipPath>
-          <linearGradient id={id('liquid')} x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id={id('stand')} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" style={{ stopColor: 'var(--color-brand-300)' }} />
+            <stop offset="1" style={{ stopColor: 'var(--color-brand-700)' }} />
+          </linearGradient>
+        </defs>
+        <ellipse cx="180" cy="214" rx="70" ry="5" className="fill-brand-900/15 dark:fill-black/40" />
+        <path d="M180,150 L213,204 Q216,209 210,209 L150,209 Q144,209 147,204 Z" fill={`url(#${id('stand')})`} />
+        <path d="M180,158 L196,184" stroke="#fff" strokeOpacity="0.35" strokeWidth="3" strokeLinecap="round" />
+        {beat === 2 && (
+          <circle
+            cx="180"
+            cy="150"
+            r="16"
+            fill="none"
+            className="stroke-emerald-400"
+            strokeWidth="2"
+            style={{ opacity: 0, transformBox: 'fill-box', transformOrigin: 'center', animation: 'sx-ring 900ms ease-out 2300ms both' }}
+          />
+        )}
+      </svg>
+      {/* the beam, with a spirit level in the middle, turning on the pivot */}
+      <div className="absolute left-0 top-0" style={{ width: W, height: H, transformOrigin: `${PIVOT.x}px ${PIVOT.y}px`, ...beamTurn(beat) }}>
+        <svg className="absolute inset-0 overflow-visible" width={W} height={H}>
+          <defs>
+            <linearGradient id={id('beam')} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" style={{ stopColor: 'var(--color-brand-400)' }} />
+              <stop offset="1" style={{ stopColor: 'var(--color-duo-600)' }} />
+            </linearGradient>
+          </defs>
+          <rect x="30" y="144" width="300" height="12" rx="6" fill={`url(#${id('beam')})`} className="drop-shadow" />
+          <rect x="36" y="146" width="288" height="3" rx="1.5" fill="#fff" opacity="0.35" />
+          <rect x="160" y="133" width="40" height="11" rx="5.5" className="fill-white/85 stroke-brand-200 dark:fill-ink-800 dark:stroke-white/10" />
+          <circle
+            cx="180"
+            cy="138.5"
+            r="3.6"
+            className="fill-emerald-400"
+            style={
+              beat === 1
+                ? { transform: 'translateX(-12px)', animation: 'sx-bubble 1200ms ease-out 900ms both' }
+                : beat === 2
+                  ? { transform: 'translateX(0)', animation: 'sx-bubble 1200ms ease-out 1400ms both' }
+                  : undefined
+            }
+          />
+          {/* the ₹300 each Ravi and Meera owe, hanging off their end */}
+          {beat === 1 &&
+            [272, 314].map((x, i) => (
+              <g key={x} style={{ animation: `sx-drop 800ms cubic-bezier(0.3, 0.8, 0.4, 1) ${200 + i * 180}ms both` }}>
+                <line x1={x} y1="156" x2={x} y2="172" className="stroke-slate-400" strokeWidth="1.5" />
+                <path
+                  d={`M${x - 14},176 Q${x - 14},172 ${x - 10},172 L${x + 10},172 Q${x + 14},172 ${x + 14},176 L${x + 17},196 Q${x + 18},200 ${x + 13},200 L${x - 13},200 Q${x - 18},200 ${x - 17},196 Z`}
+                  className="fill-slate-700 dark:fill-slate-500"
+                />
+                <text x={x} y="191" textAnchor="middle" className="fill-white text-[9px] font-bold">
+                  ₹300
+                </text>
+              </g>
+            ))}
+          {beat === 2 &&
+            [272, 314].map((x, i) => (
+              <g
+                key={x}
+                style={{ opacity: 0, transform: 'translateY(-40px)', animation: `sx-lift 700ms cubic-bezier(0.5, 0, 0.75, 0) ${300 + i * 150}ms both` }}
+              >
+                <line x1={x} y1="156" x2={x} y2="172" className="stroke-slate-400" strokeWidth="1.5" />
+                <path
+                  d={`M${x - 14},176 Q${x - 14},172 ${x - 10},172 L${x + 10},172 Q${x + 14},172 ${x + 14},176 L${x + 17},196 Q${x + 18},200 ${x + 13},200 L${x - 13},200 Q${x - 18},200 ${x - 17},196 Z`}
+                  className="fill-slate-700 dark:fill-slate-500"
+                />
+              </g>
+            ))}
+        </svg>
+        <Rider x={58} beat={beat}>
+          {beat === 1 && (
+            <div className="mb-1" style={pop(1500)}>
+              <Pill tone="up">
+                owed <Count from={0} to={600} still={still} d={1550} />
+              </Pill>
+            </div>
+          )}
+          <Person name="Asha" size={36} />
+        </Rider>
+        <Rider x={262} beat={beat}>
+          <Person name="Ravi" size={34} />
+        </Rider>
+        <Rider x={310} beat={beat}>
+          <Person name="Meera" size={34} />
+        </Rider>
+      </div>
+      {beat === 1 && (
+        <At x={290} y={64} style={pop(1700)}>
+          <Pill tone="down">owe ₹300 each</Pill>
+        </At>
+      )}
+      {/* paying back: coins arc from Ravi and Meera to Asha */}
+      {beat === 2 && (
+        <>
+          <Fly path="M262,120 Q160,30 60,98" ms={1000} d={200} vanish>
+            <Coin label="₹300" size={28} spin />
+          </Fly>
+          <Fly path="M310,120 Q180,0 60,98" ms={1150} d={420} vanish>
+            <Coin label="₹300" size={28} spin />
+          </Fly>
+        </>
+      )}
+    </>
+  )
+}
+
+// ---- Fewer payments: untangling -------------------------------------------------------------------
+
+const NODES = [
+  { name: 'Asha', x: 72, y: 64, net: 500 },
+  { name: 'Ravi', x: 288, y: 64, net: -200 },
+  { name: 'Meera', x: 288, y: 182, net: -400 },
+  { name: 'Kabir', x: 72, y: 182, net: 100 },
+]
+// What was paid along the way (from → to, bend), and what Simplify debts suggests instead:
+// Meera → Asha ₹400, Ravi → Asha ₹100, Ravi → Kabir ₹100. Everyone's balance stays the same.
+const TANGLE: Array<[number, number, number]> = [
+  [1, 0, 26],
+  [2, 0, -34],
+  [2, 1, 22],
+  [3, 2, -22],
+  [1, 3, 30],
+  [0, 3, 24],
+]
+const SIMPLE: Array<[number, number, string]> = [
+  [2, 0, '₹400'],
+  [1, 0, '₹100'],
+  [1, 3, '₹100'],
+]
+
+/** A curved arrow between two people: stops short of both, bending by `bend` px. */
+function arc(f: number, t: number, bend: number) {
+  const a = NODES[f]
+  const b = NODES[t]
+  const dx = b.x - a.x
+  const dy = b.y - a.y
+  const len = Math.hypot(dx, dy)
+  const ux = dx / len
+  const uy = dy / len
+  const x1 = a.x + ux * 30
+  const y1 = a.y + uy * 30
+  const x2 = b.x - ux * 32
+  const y2 = b.y - uy * 32
+  const cx = (x1 + x2) / 2 - uy * bend
+  const cy = (y1 + y2) / 2 + ux * bend
+  const at = (k: number) => ({ x: (1 - k) ** 2 * x1 + 2 * (1 - k) * k * cx + k * k * x2, y: (1 - k) ** 2 * y1 + 2 * (1 - k) * k * cy + k * k * y2 })
+  // the direction the line arrives in, for its arrowhead
+  const angle = (Math.atan2(y2 - cy, x2 - cx) * 180) / Math.PI
+  return { d: `M${x1},${y1} Q${cx},${cy} ${x2},${y2}`, at, end: { x: x2, y: y2 }, angle }
+}
+
+/** An arrowhead at the end of a line, popping in once the line has drawn (`d` ms). */
+function Head({ x, y, angle, d, color, size = 1 }: { x: number; y: number; angle: number; d: number; color: string; size?: number }) {
+  return (
+    <g transform={`translate(${x} ${y}) rotate(${angle}) scale(${size})`}>
+      <path
+        d="M-8,-5.5 L3,0 L-8,5.5 Q-5,0 -8,-5.5 Z"
+        style={{ fill: color, transformBox: 'fill-box', transformOrigin: 'center', animation: `sx-pop 260ms ease-out ${d}ms both` }}
+      />
+    </g>
+  )
+}
+
+const Untangle: View = ({ beat, still }) => {
+  const id = useIds()
+  return (
+    <>
+      <svg className="absolute inset-0" width={W} height={H}>
+        <defs>
+          {/* measured on the stage, not each line's box: a level line has no height, and its gradient would paint nothing */}
+          <linearGradient id={id('line')} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2={W} y2={H}>
             <stop offset="0" style={{ stopColor: 'var(--color-brand-400)' }} />
             <stop offset="1" style={{ stopColor: 'var(--color-duo-500)' }} />
           </linearGradient>
         </defs>
-        <g style={{ ...box('50% 100%'), ...(beat === 0 ? thump(1000) : beat === 3 ? thump(1350) : {}) }}>
-          <path d={JAR} {...duo(id, 5)} />
-          <g clipPath={`url(#${id('in')})`}>
-            <g style={{ ...liquid, ...(beat === 3 ? { opacity: 1 } : {}) }}>
-              <path d="M120,70 q15,-8 30,0 t30,0 t30,0 t30,0 v80 h-120 z" fill={`url(#${id('liquid')})`} opacity="0.8" />
-            </g>
-          </g>
-          <path d={JAR} fill="none" stroke={`url(#${id('ln')})`} strokeWidth="5" strokeLinejoin="round" />
-          <rect x="144" y="20" width="72" height="16" rx="7" {...duo(id, 5, 'var(--soft2)')} />
-          <path d="M142,76 C139,92 139,108 143,122" fill="none" stroke="#fff" strokeOpacity="0.7" strokeWidth="5" strokeLinecap="round" />
-          {beat < 3 && (
-            <text x="180" y="110" textAnchor="middle" className="fill-white text-[24px] font-black" style={{ ...box(), ...(beat === 0 ? pop(1300) : {}) }}>
-              ₹900
-            </text>
-          )}
-          {beat === 3 && (
-            <text x="180" y="110" textAnchor="middle" className="fill-white text-[24px] font-black" style={{ ...box(), ...gone(1500, 500) }}>
-              ₹900
-            </text>
-          )}
-        </g>
-      </Art>
-      {SEATS.map((s) => (
-        <At key={s.name} x={s.x} y={SEAT_Y}>
-          <Person name={s.name} size={40} />
-        </At>
-      ))}
-      {beat === 0 && (
-        <Fly path={`M60,170 Q60,-10 180,26 L180,80`} ms={950} d={100} vanish>
-          <Coin label="₹900" size={44} />
-        </Fly>
-      )}
-      {beat === 1 &&
-        SEATS.map((s, i) => (
-          <Fly key={s.name} path={`M180,90 Q${(180 + s.x) / 2},${s.x === 180 ? 40 : -20} ${s.x},${NUM_Y}`} ms={800} d={200 + i * 150}>
-            <Pill tone="accent">₹300</Pill>
-          </Fly>
-        ))}
-      {beat === 2 &&
-        SEATS.map((s, i) => (
-          <At key={s.name} x={s.x} y={NUM_Y} style={pop(100 + i * 150)}>
-            <Pill tone={i === 0 ? 'up' : 'down'}>{i === 0 ? 'owed ₹600' : 'owes ₹300'}</Pill>
-          </At>
-        ))}
-      {beat === 3 && (
-        <>
-          {SEATS.map((s, i) => (
-            <At key={s.name} x={s.x} y={NUM_Y} style={gone(1150, 300)}>
-              <Pill tone={i === 0 ? 'up' : 'down'}>{i === 0 ? 'owed ₹600' : 'owes ₹300'}</Pill>
-            </At>
-          ))}
-          <Fly path="M180,190 Q120,100 60,180" ms={900} d={200} vanish>
-            <Coin label="₹300" size={34} />
-          </Fly>
-          <Fly path="M300,190 Q180,40 60,180" ms={1000} d={400} vanish>
-            <Coin label="₹300" size={34} />
-          </Fly>
-          {SEATS.map((s, i) => (
-            <At key={s.name} x={s.x} y={NUM_Y} style={pop(1500 + i * 120)}>
-              <Check size={26} />
-            </At>
-          ))}
-          <Sparkles x={180} y={84} d={2000} spread={62} />
-        </>
-      )}
-    </>
-  )
-}
-
-// ---- How balances work: a see-saw -----------------------------------------------------------------------
-// 1 The plank drops on and sits level. 2 Asha's ₹900 lands on her end and tips it her way.
-// 3 Ravi's and Meera's coins fly to her, the ₹900 goes, and it swings back level.
-
-const PIVOT = { x: 180, y: 186 }
-const TILT = -12
-const RIDERS = [
-  { name: 'Asha', x: 72 },
-  { name: 'Ravi', x: 258 },
-  { name: 'Meera', x: 306 },
-]
-/** Where a point on the plank is once it has tipped (stage px). */
-function tipped(x: number, y: number) {
-  const a = (TILT * Math.PI) / 180
-  const dx = x - PIVOT.x
-  const dy = y - PIVOT.y
-  return { x: PIVOT.x + dx * Math.cos(a) - dy * Math.sin(a), y: PIVOT.y + dx * Math.sin(a) + dy * Math.cos(a) }
-}
-
-function Rider({ name, x }: { name: string; x: number }) {
-  const c = PEOPLE[name]
-  return (
-    <g>
-      <circle cx={x} cy={152} r={22} style={{ fill: c.to }} className="stroke-white dark:stroke-ink-900" strokeWidth="3" />
-      <text x={x} y={159} textAnchor="middle" className="fill-white text-[19px] font-bold">
-        {name.slice(0, 1)}
-      </text>
-    </g>
-  )
-}
-
-const Seesaw: View = ({ beat }) => {
-  const id = useIds()
-  const turn: CSSProperties =
-    beat === 1
-      ? { transform: `rotate(${TILT}deg)`, ...from('rotate(0deg)', 700, 1300, SPRING, 1) }
-      : beat === 2
-        ? { transform: 'rotate(0deg)', ...from(`rotate(${TILT}deg)`, 1400, 1400, SPRING, 1) }
-        : { transform: 'rotate(0deg)' }
-  const asha = tipped(72, 152)
-  const coinAt = tipped(118, 150)
-  return (
-    <>
-      <Art id={id}>
-        <path d="M180,186 L216,228 Q219,232 213,232 L147,232 Q141,232 144,228 Z" {...duo(id, 5, 'var(--soft2)')} />
-        <g style={{ ...box('50% 100%'), ...(beat === 0 ? drop(0, 850, -120) : {}) }}>
-          <g style={{ transformBox: 'view-box', transformOrigin: `${PIVOT.x}px ${PIVOT.y}px`, ...turn }}>
-            <rect x="30" y="174" width="300" height="14" rx="7" {...duo(id, 5)} />
-            {RIDERS.map((r) => (
-              <Rider key={r.name} {...r} />
-            ))}
-            {beat === 1 && (
-              <g style={{ ...box('50% 100%'), ...drop(150, 650, -140) }}>
-                <circle cx="118" cy="150" r="22" style={{ fill: 'var(--coin)', stroke: 'var(--ln)' }} strokeWidth="4" />
-                <text x="118" y="155" textAnchor="middle" className="text-[12px] font-black" style={{ fill: 'var(--ln)' }}>
-                  ₹900
-                </text>
-              </g>
-            )}
-            {beat === 2 && (
-              <g style={{ ...box(), ...gone(1250, 300) }}>
-                <circle cx="118" cy="150" r="22" style={{ fill: 'var(--coin)', stroke: 'var(--ln)' }} strokeWidth="4" />
-                <text x="118" y="155" textAnchor="middle" className="text-[12px] font-black" style={{ fill: 'var(--ln)' }}>
-                  ₹900
-                </text>
-              </g>
-            )}
-          </g>
-        </g>
-        {beat === 2 && <Ripple x={180} y={186} r={20} d={2600} />}
-      </Art>
-      {beat === 1 && (
-        <At x={asha.x + 12} y={asha.y - 52} style={pop(1700, 500)}>
-          <Pill tone="up">owed ₹600</Pill>
-        </At>
-      )}
-      {beat === 2 && (
-        <>
-          <At x={asha.x + 12} y={asha.y - 52} style={gone(1250, 300)}>
-            <Pill tone="up">owed ₹600</Pill>
-          </At>
-          <Fly path={`M${tipped(258, 152).x},${tipped(258, 152).y} Q190,40 ${coinAt.x},${coinAt.y}`} ms={800} d={200} vanish>
-            <Coin label="₹300" size={30} />
-          </Fly>
-          <Fly path={`M${tipped(306, 152).x},${tipped(306, 152).y} Q210,10 ${coinAt.x},${coinAt.y}`} ms={900} d={400} vanish>
-            <Coin label="₹300" size={30} />
-          </Fly>
-          <At x={180} y={44} style={pop(2700, 500)}>
-            <Pill tone="up" big>
-              ✓ Level
-            </Pill>
-          </At>
-          <Sparkles x={180} y={130} d={2600} spread={64} />
-        </>
-      )}
-    </>
-  )
-}
-
-// ---- Fewer payments: tangled strings, then three straight lines ------------------------------------
-// 1 Strings draw between everyone: a tangle. 2 They fall away; each person keeps one number.
-// 3 Three straight arrows shoot across, and everyone gets a tick.
-
-const NODES = [
-  { name: 'Asha', x: 70, y: 66, net: 500 },
-  { name: 'Ravi', x: 290, y: 66, net: -200 },
-  { name: 'Meera', x: 290, y: 190, net: -400 },
-  { name: 'Kabir', x: 70, y: 190, net: 100 },
-]
-const STRINGS = [
-  'M92,80 C150,30 130,210 196,140 S250,110 270,174',
-  'M268,80 C200,130 236,30 160,104 S108,210 90,176',
-  'M94,60 C140,112 176,8 220,72 S252,36 266,60',
-  'M94,196 C140,148 172,236 212,182 S252,236 266,196',
-  'M62,92 C20,124 128,140 66,166',
-  'M298,92 C340,124 232,140 294,166',
-]
-// What Simplify debts suggests: Ravi → Asha ₹200, Meera → Asha ₹300, Meera → Kabir ₹100. No line crosses another.
-const PAYS: Array<[number, number]> = [
-  [1, 0],
-  [2, 0],
-  [2, 3],
-]
-/** The number under (or over) each person: top row above, bottom row below. */
-const netAt = (n: (typeof NODES)[number]) => ({ x: n.x, y: n.y < 128 ? n.y - 40 : n.y + 40 })
-
-function straight(f: number, t: number) {
-  const a = NODES[f]
-  const b = NODES[t]
-  const len = Math.hypot(b.x - a.x, b.y - a.y)
-  const ux = (b.x - a.x) / len
-  const uy = (b.y - a.y) / len
-  return { x1: a.x + ux * 30, y1: a.y + uy * 30, x2: b.x - ux * 34, y2: b.y - uy * 34, angle: (Math.atan2(uy, ux) * 180) / Math.PI }
-}
-
-const Untangle: View = ({ beat }) => {
-  const id = useIds()
-  return (
-    <>
-      <Art id={id}>
-        {beat === 0 && (
-          <g style={{ ...box(), ...shake(1600, 350) }}>
-            {STRINGS.map((d, i) => (
-              <path
-                key={d}
-                d={d}
-                pathLength={1}
-                fill="none"
-                strokeWidth="4"
-                strokeLinecap="round"
-                style={{ stroke: i % 2 ? 'var(--ln2)' : 'var(--ln)', strokeDasharray: 1, animation: `sx-draw 700ms ease-out ${100 + i * 150}ms both` }}
-              />
-            ))}
-          </g>
-        )}
-        {beat === 1 &&
-          STRINGS.map((d, i) => (
-            <path
-              key={d}
-              d={d}
-              fill="none"
-              strokeWidth="4"
-              strokeLinecap="round"
-              style={{ stroke: i % 2 ? 'var(--ln2)' : 'var(--ln)', ...box(), ...gone(100 + i * 60, 550, `translateY(90px) rotate(${i % 2 ? 14 : -14}deg)`) }}
-            />
-          ))}
-        {beat === 2 &&
-          PAYS.map(([f, t], i) => {
-            const s = straight(f, t)
+        {/* beat 1: everyone paid everyone along the way, a tangle of six payments */}
+        {beat === 0 &&
+          TANGLE.map(([f, t, bend], i) => {
+            const a = arc(f, t, bend)
             return (
               <g key={`${f}${t}`}>
-                <line
-                  x1={s.x1}
-                  y1={s.y1}
-                  x2={s.x2}
-                  y2={s.y2}
+                <path
+                  d={a.d}
                   pathLength={1}
-                  stroke={`url(#${id('ln')})`}
-                  strokeWidth="7"
+                  fill="none"
+                  strokeWidth="2"
                   strokeLinecap="round"
-                  style={{ strokeDasharray: 1, animation: `sx-draw 450ms cubic-bezier(0.3, 0, 0.2, 1) ${200 + i * 350}ms both` }}
+                  style={{ stroke: 'var(--color-brand-400)', strokeDasharray: 1, animation: `sx-draw 700ms ease-out ${150 + i * 170}ms both` }}
                 />
-                <g transform={`translate(${s.x2} ${s.y2}) rotate(${s.angle})`}>
-                  <path
-                    d="M-12,-10 L4,0 L-12,10"
-                    fill="none"
-                    strokeWidth="7"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    style={{ stroke: 'var(--ln2)', ...box(), ...pop(600 + i * 350, 400) }}
-                  />
-                </g>
+                <Head {...a.end} angle={a.angle} d={820 + i * 170} color="var(--color-brand-400)" />
               </g>
             )
           })}
-      </Art>
-      {NODES.map((n) => (
+        {/* beat 2: the tangle melts away into what each person comes out at */}
+        {beat === 1 &&
+          TANGLE.map(([f, t, bend]) => (
+            <path key={`${f}${t}`} d={arc(f, t, bend).d} fill="none" strokeWidth="2" style={{ stroke: 'var(--color-brand-400)', ...out(0, 500) }} />
+          ))}
+        {beat >= 1 &&
+          NODES.map((n, i) => (
+            <circle
+              key={n.name}
+              cx={n.x}
+              cy={n.y}
+              r="26"
+              fill="none"
+              pathLength={1}
+              className={n.net > 0 ? 'stroke-emerald-400' : 'stroke-rose-400'}
+              strokeWidth="4"
+              strokeLinecap="round"
+              transform={`rotate(-90 ${n.x} ${n.y})`}
+              style={{ strokeDasharray: `${Math.abs(n.net) / 500} 1`, animation: beat === 1 ? `sx-draw 900ms ease-out ${300 + i * 120}ms both` : undefined }}
+            />
+          ))}
+        {/* beat 3: three payments, biggest debt to biggest credit */}
+        {beat === 2 &&
+          SIMPLE.map(([f, t], i) => {
+            const a = arc(f, t, 0)
+            return (
+              <g key={`${f}${t}`}>
+                <path
+                  d={a.d}
+                  pathLength={1}
+                  fill="none"
+                  stroke={`url(#${id('line')})`}
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                  style={{ strokeDasharray: 1, animation: `sx-draw 750ms cubic-bezier(0.5, 0, 0.2, 1) ${300 + i * 380}ms both` }}
+                />
+                <Head {...a.end} angle={a.angle} d={1020 + i * 380} color="var(--color-duo-500)" size={1.3} />
+              </g>
+            )
+          })}
+      </svg>
+      {NODES.map((n, i) => (
         <At key={n.name} x={n.x} y={n.y}>
-          <Person name={n.name} size={42} label={false} />
+          <Person name={n.name} size={38} label={false} />
+          {beat === 0 && (
+            <div className="absolute left-1/2 top-[44px] -translate-x-1/2 text-[11px] font-semibold text-slate-600 dark:text-slate-300">{n.name}</div>
+          )}
+          {beat >= 1 && (
+            <div className="absolute left-1/2 top-[38px] -translate-x-1/2" style={beat === 1 ? pop(600 + i * 120) : undefined}>
+              <Pill tone={n.net > 0 ? 'up' : 'down'}>
+                {n.name} · {n.net > 0 ? 'owed ' : 'owes '}
+                {beat === 1 ? <Count from={0} to={Math.abs(n.net)} still={still} d={650 + i * 120} /> : `₹${Math.abs(n.net)}`}
+              </Pill>
+            </div>
+          )}
         </At>
       ))}
-      {beat >= 1 &&
-        NODES.map((n, i) => (
-          <At key={n.name} x={netAt(n).x} y={netAt(n).y} style={beat === 1 ? pop(700 + i * 120) : gone(1500 + i * 80, 300)}>
-            <Pill tone={n.net > 0 ? 'up' : 'down'}>
-              {n.net > 0 ? 'owed' : 'owes'} ₹{Math.abs(n.net)}
-            </Pill>
-          </At>
-        ))}
-      {beat === 2 && (
-        <>
-          {NODES.map((n, i) => (
-            <At key={n.name} x={netAt(n).x} y={netAt(n).y} style={pop(1850 + i * 100, 500)}>
-              <Check size={26} />
+      {beat === 2 &&
+        SIMPLE.map(([f, t, label], i) => {
+          const p = arc(f, t, 0).at(f === 1 && t === 0 ? 0.5 : f === 1 ? 0.42 : 0.3)
+          return (
+            <At key={`${f}${t}`} x={p.x} y={p.y} style={pop(700 + i * 380)}>
+              <Pill tone="accent">{label}</Pill>
             </At>
-          ))}
-          <Sparkles x={180} y={128} d={2300} spread={70} />
-        </>
-      )}
+          )
+        })}
+      <At x={180} y={beat === 2 ? 206 : 124} style={pop(beat === 0 ? 150 : beat === 1 ? 400 : 1600)}>
+        <div className="rounded-2xl bg-white/90 px-3 py-2 text-center shadow-lg ring-1 ring-brand-100 backdrop-blur dark:bg-ink-900/90 dark:ring-white/10">
+          <div className="text-[18px] font-black leading-none text-slate-800 tabular-nums dark:text-white">
+            {beat === 0 ? (
+              <Count from={1} to={6} still={still} d={300} ms={1400} format={(n) => String(n)} />
+            ) : beat === 1 ? (
+              '4'
+            ) : (
+              <Count from={6} to={3} still={still} d={1700} ms={700} format={(n) => String(n)} />
+            )}
+          </div>
+          <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">{beat === 1 ? 'balances' : 'payments'}</div>
+        </div>
+      </At>
     </>
   )
 }
 
-// ---- Splits add up: a pizza cut three ways --------------------------------------------------------------
-// 1 A ₹100 pizza lands and is cut in three: ₹33.333… each. 2 Rounded down each slice is ₹33.33 and a
-// crumb, one paisa, is left over. 3 The crumb hops onto the first person's slice: ₹33.34, ₹100 again.
+// ---- Splits add up: ₹100 three ways ------------------------------------------------------------------
 
-const PIE = { x: 180, y: 98, r: 68 }
-const deg = (a: number) => (a * Math.PI) / 180
-const onPie = (a: number, r: number) => ({ x: PIE.x + Math.cos(deg(a)) * r, y: PIE.y + Math.sin(deg(a)) * r })
-const SLICE = [0, 1, 2].map((i) => {
-  const a0 = -90 + i * 120
-  const mid = a0 + 60
-  return { a0, a1: a0 + 120, mid, name: ['Asha', 'Ravi', 'Meera'][i] }
-})
-const GAP = 9
+const SLICES = [
+  { name: 'Asha', x0: 30, dx: -8, rot: -4 },
+  { name: 'Ravi', x0: 130, dx: 0, rot: 0 },
+  { name: 'Meera', x0: 230, dx: 8, rot: 4 },
+]
 
-function Slice({ id, i }: { id: (n: string) => string; i: number }) {
-  const s = SLICE[i]
-  const p0 = onPie(s.a0, PIE.r)
-  const p1 = onPie(s.a1, PIE.r)
-  const c0 = onPie(s.a0, PIE.r - 6)
-  const c1 = onPie(s.a1, PIE.r - 6)
-  const t1 = onPie(s.mid - 40, 48)
-  const t2 = onPie(s.mid + 40, 48)
-  return (
-    <g>
-      <path d={`M${PIE.x},${PIE.y} L${p0.x},${p0.y} A${PIE.r},${PIE.r} 0 0 1 ${p1.x},${p1.y} Z`} style={{ fill: 'var(--soft2)' }} />
-      <path
-        d={`M${c0.x},${c0.y} A${PIE.r - 6},${PIE.r - 6} 0 0 1 ${c1.x},${c1.y}`}
-        fill="none"
-        stroke={`url(#${id('ln')})`}
-        strokeWidth="10"
-        strokeLinecap="round"
-      />
-      {[t1, t2].map((t) => (
-        <circle key={t.x} cx={t.x} cy={t.y} r="6" style={{ fill: 'var(--soft)', stroke: 'var(--ln)' }} strokeWidth="2.5" />
-      ))}
-    </g>
-  )
-}
-
-const Remainder: View = ({ beat }) => {
-  const id = useIds()
-  const apart = (i: number) => {
-    const m = SLICE[i].mid
-    return `translate(${Math.cos(deg(m)) * GAP}px, ${Math.sin(deg(m)) * GAP}px)`
-  }
-  const label = (i: number) => onPie(SLICE[i].mid, 34)
-  const seat = (i: number) => {
-    const p = onPie(SLICE[i].mid, PIE.r + 30)
-    return { x: p.x + Math.cos(deg(SLICE[i].mid)) * GAP, y: p.y + Math.sin(deg(SLICE[i].mid)) * GAP }
-  }
+/** The note's paper: its border, guilloche lines and watermark. `face` adds the printed ₹100. */
+function Banknote({ id, face }: { id: (n: string) => string; face?: CSSProperties }) {
   return (
     <>
-      <Art id={id}>
-        <g style={{ ...box('50% 100%'), ...(beat === 0 ? drop(0, 900, -170) : {}) }}>
-          {SLICE.map((s, i) => (
-            <g key={s.name} style={{ transform: apart(i), ...(beat === 0 ? from('none', 1500 + i * 60, 700, SPRING, 1) : {}) }}>
-              <g style={{ ...box(), ...(beat === 2 && i === 0 ? thump(850, 500) : {}) }}>
-                <Slice id={id} i={i} />
-              </g>
-            </g>
-          ))}
-        </g>
-        {beat === 0 &&
-          SLICE.map((s, i) => {
-            const p = onPie(s.a0, PIE.r + 4)
-            return (
-              <line
-                key={s.name}
-                x1={PIE.x}
-                y1={PIE.y}
-                x2={p.x}
-                y2={p.y}
-                pathLength={1}
-                strokeWidth="4"
-                strokeLinecap="round"
-                style={{
-                  stroke: 'var(--ln)',
-                  strokeDasharray: 1,
-                  opacity: 0,
-                  animation: `sx-draw 300ms ease-out ${950 + i * 140}ms both, sx-out 250ms ease-in 1500ms both`,
-                }}
-              />
-            )
-          })}
-        {beat === 0 && (
-          <text x={PIE.x} y={PIE.y + 8} textAnchor="middle" className="text-[24px] font-black" style={{ fill: 'var(--ln)', ...box(), ...gone(950, 300) }}>
+      <rect x="30" y="38" width="300" height="104" rx="14" fill={`url(#${id('note')})`} className="stroke-brand-300 dark:stroke-brand-700" strokeWidth="1.5" />
+      <rect x="40" y="48" width="280" height="84" rx="9" fill="none" className="stroke-brand-400/50" strokeDasharray="3 3" />
+      {[0, 1, 2, 3].map((i) => (
+        <path
+          key={i}
+          d={`M40,${70 + i * 12} q35,-12 70,0 t70,0 t70,0 t70,0`}
+          fill="none"
+          className="stroke-brand-300/40 dark:stroke-brand-500/25"
+          strokeWidth="1"
+        />
+      ))}
+      {face && (
+        <g style={face}>
+          <circle cx="276" cy="90" r="30" className="fill-white/50 stroke-brand-300/60 dark:fill-white/5" />
+          <text x="276" y="96" textAnchor="middle" className="fill-brand-400 text-[16px] font-black">
+            SN
+          </text>
+          <text x="56" y="104" className="fill-brand-700 text-[40px] font-black dark:fill-brand-200">
             ₹100
           </text>
-        )}
-        {beat >= 1 &&
-          SLICE.map((s, i) => {
-            const p = label(i)
-            const m = SLICE[i].mid
-            const x = p.x + Math.cos(deg(m)) * GAP
-            const y = p.y + Math.sin(deg(m)) * GAP + 5
-            const spare = beat === 2 && i === 0
+          <text x="58" y="124" className="fill-brand-500 text-[8px] font-bold tracking-[0.3em] dark:fill-brand-300">
+            ONE HUNDRED RUPEES
+          </text>
+        </g>
+      )}
+    </>
+  )
+}
+
+const Remainder: View = ({ beat, still }) => {
+  const id = useIds()
+  const labels = beat === 0 ? ['33.333…', '33.333…', '33.333…'] : beat === 1 ? ['33.33', '33.33', '33.33'] : ['33.34', '33.33', '33.33']
+  // The note tears a moment into the first beat; after that it stays in three.
+  const torn = (i: number): CSSProperties => ({
+    transformBox: 'fill-box',
+    transformOrigin: 'center',
+    transform: `translateX(${SLICES[i].dx}px) rotate(${SLICES[i].rot}deg)`,
+    animation: beat === 0 ? `sx-tear 1000ms cubic-bezier(0.34, 1.56, 0.64, 1) ${900 + i * 70}ms both` : undefined,
+  })
+  return (
+    <>
+      <svg className="absolute inset-0 overflow-visible" width={W} height={H}>
+        <defs>
+          {/* the paper: pale in light, deep in dark, so the printed amounts always read */}
+          <linearGradient id={id('note')} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" className="[stop-color:var(--color-brand-50)] dark:[stop-color:var(--color-brand-900)]" />
+            <stop offset="1" className="[stop-color:var(--color-duo-100)] dark:[stop-color:var(--color-duo-900)]" />
+          </linearGradient>
+          {SLICES.map((sl, i) => {
+            const left = i === 0 ? 'L28,150' : zig(sl.x0 + 4)
+            const right = i === 2 ? 'L332,30' : zigUp(sl.x0 + 104)
             return (
-              <g key={s.name}>
-                <text
-                  x={x}
-                  y={y}
-                  textAnchor="middle"
-                  className="text-[14px] font-black"
-                  style={{ fill: 'var(--ln)', ...box(), ...(beat === 1 ? pop(100 + i * 120, 500) : spare ? gone(850, 200) : {}) }}
-                >
-                  33.33
-                </text>
-                {spare && (
-                  <text x={x} y={y} textAnchor="middle" className="text-[14px] font-black" style={{ fill: 'var(--ln)', ...box(), ...pop(900, 500) }}>
-                    33.34
-                  </text>
-                )}
-              </g>
+              <clipPath key={sl.name} id={id(`cut${sl.name}`)}>
+                <path d={`M${i === 0 ? 28 : sl.x0 + 4},30 ${left} L${i === 2 ? 332 : sl.x0 + 104},150 ${right} Z`} />
+              </clipPath>
             )
           })}
-      </Art>
-      {SLICE.map((s, i) => (
-        <At key={s.name} x={seat(i).x} y={seat(i).y} style={beat === 0 ? pop(1600 + i * 100, 500) : undefined}>
-          <Person name={s.name} size={28} label={false} />
+        </defs>
+        <ellipse cx="180" cy="152" rx="140" ry="6" className="fill-brand-900/10 dark:fill-black/40" />
+        {SLICES.map((sl, i) => (
+          <g key={sl.name} style={torn(i)}>
+            <g clipPath={`url(#${id(`cut${sl.name}`)})`}>
+              {/* the printed ₹100 fades as the note tears */}
+              <Banknote id={id} face={beat === 0 ? { opacity: 0, animation: 'sx-out 500ms ease 850ms both' } : { opacity: 0 }} />
+            </g>
+            {/* each piece shows its own share */}
+            <text
+              x={sl.x0 + 50 + (i === 0 ? -2 : i === 2 ? 2 : 0)}
+              y="98"
+              textAnchor="middle"
+              className={`${beat === 0 ? 'text-[15px]' : 'text-[19px]'} font-black ${beat === 2 && i === 0 ? 'fill-duo-600 dark:fill-duo-300' : 'fill-brand-700 dark:fill-brand-200'}`}
+              style={
+                beat === 0
+                  ? { animation: `sx-pop 500ms cubic-bezier(0.34, 1.56, 0.64, 1) ${1500 + i * 120}ms both` }
+                  : beat === 1
+                    ? pop(150 + i * 110)
+                    : beat === 2 && i === 0
+                      ? pop(1100)
+                      : undefined
+              }
+            >
+              ₹{labels[i]}
+            </text>
+            {beat === 2 && i === 0 && (
+              <rect
+                x="30"
+                y="38"
+                width="104"
+                height="104"
+                rx="14"
+                fill="none"
+                strokeWidth="3"
+                style={{ stroke: 'var(--color-duo-400)', animation: 'sx-pop 500ms cubic-bezier(0.23, 1, 0.32, 1) 1100ms both' }}
+              />
+            )}
+          </g>
+        ))}
+      </svg>
+      {SLICES.map((sl) => (
+        <At key={sl.name} x={sl.x0 + 50 + sl.dx * 1.4} y={198}>
+          <Person name={sl.name} size={30} />
         </At>
       ))}
-      {beat === 0 && (
-        <At x={180} y={238} style={pop(1700, 500)}>
-          <Pill>₹33.333… each</Pill>
-        </At>
-      )}
+      {/* the total: rounded down it misses a paisa; given to the first person it's exact */}
+      <At x={180} y={18} style={pop(beat === 0 ? 0 : 200)}>
+        <Pill tone={beat === 1 ? 'down' : beat === 2 ? 'up' : 'even'}>
+          {beat === 0 ? '₹100 ÷ 3 people' : beat === 1 ? '3 × ₹33.33 = ₹99.99 · 1 paisa short' : '₹33.34 + ₹33.33 + ₹33.33 = ₹100.00 ✓'}
+        </Pill>
+      </At>
       {beat === 1 && (
-        <>
-          <At x={PIE.x} y={PIE.y} style={{ ...pop(700, 600) }}>
-            <Coin label="1p" size={26} />
-          </At>
-          <At x={180} y={238} style={pop(1000, 600)}>
-            <Pill tone="down">₹99.99 · a paisa short</Pill>
-          </At>
-        </>
+        <At x={180} y={154} style={{ animation: 'sx-hop 1300ms ease-out 500ms both' }}>
+          <Coin label="1p" size={24} spin={!still} />
+        </At>
       )}
       {beat === 2 && (
         <>
-          <Fly path={`M${PIE.x},${PIE.y} Q${PIE.x + 30},${PIE.y - 90} ${label(0).x + 8},${label(0).y - 18}`} ms={650} d={200} vanish>
-            <Coin label="1p" size={26} />
+          <Fly path="M180,154 Q120,170 76,96" ms={900} d={250} vanish>
+            <Coin label="1p" size={24} spin />
           </Fly>
-          <At x={180} y={238} style={pop(1300, 600)}>
-            <Pill tone="up">✓ ₹100.00</Pill>
-          </At>
-          <Sparkles x={label(0).x + 10} y={label(0).y} d={1400} spread={44} />
         </>
       )}
     </>
   )
 }
 
-// ---- What a private group hides: a locked box with a tag outside ---------------------------------------
-// 1 The words fly into the box, the lid slams and a padlock drops on. 2 The group's key flies into
-// the lock: it springs open. 3 The lid shuts again; a tag with the amount swings outside.
+/** A torn edge going down at x, and one coming back up. */
+const zig = (x: number) => Array.from({ length: 10 }, (_, i) => `L${x + (i % 2 ? 4 : -4)},${30 + (i + 1) * 12}`).join(' ')
+const zigUp = (x: number) => Array.from({ length: 10 }, (_, i) => `L${x + (i % 2 ? -4 : 4)},${150 - (i + 1) * 12}`).join(' ')
 
-const WORDS = ['Goa trip', 'Dinner', 'Rahul']
-const LOCK = { x: 180, y: 158 }
+// ---- What a private group hides: a safe -----------------------------------------------------------------
 
-function Box({ id, lid, shackle }: { id: (n: string) => string; lid: CSSProperties; shackle: CSSProperties }) {
+const WORDS = ['Goa trip', 'Rahul', 'Dinner']
+
+function Safe({ id, beat }: { id: (n: string) => string; beat: number }) {
   return (
-    <>
-      <rect x="116" y="114" width="128" height="84" rx="14" {...duo(id, 5)} />
-      <g style={{ transformBox: 'view-box', transformOrigin: '112px 116px', ...lid }}>
-        <rect x="110" y="92" width="140" height="26" rx="11" {...duo(id, 5, 'var(--soft2)')} />
+    <svg className="absolute inset-0 overflow-visible" width={W} height={H}>
+      <defs>
+        <linearGradient id={id('body')} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#64748b" />
+          <stop offset="1" stopColor="#1e293b" />
+        </linearGradient>
+        <linearGradient id={id('door')} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#94a3b8" />
+          <stop offset="1" stopColor="#334155" />
+        </linearGradient>
+        <radialGradient id={id('dial')} cx="0.35" cy="0.3">
+          <stop offset="0" stopColor="#f8fafc" />
+          <stop offset="1" stopColor="#94a3b8" />
+        </radialGradient>
+      </defs>
+      <ellipse cx="106" cy="196" rx="64" ry="5" className="fill-brand-900/15 dark:fill-black/40" />
+      <rect x="40" y="50" width="132" height="142" rx="20" fill={`url(#${id('body')})`} />
+      <rect x="52" y="62" width="108" height="118" rx="13" fill={`url(#${id('door')})`} stroke="#fff" strokeOpacity="0.15" />
+      <rect x="80" y="70" width="52" height="5" rx="2.5" fill="#0f172a" opacity="0.7" />
+      {[70, 172].map((y) => (
+        <rect key={y} x="166" y={y} width="9" height="14" rx="3" fill="#475569" />
+      ))}
+      <g
+        style={{
+          transformBox: 'fill-box',
+          transformOrigin: 'center',
+          transform: 'rotate(-180deg)',
+          animation: beat === 0 ? 'sx-dial 1300ms cubic-bezier(0.4, 0, 0.2, 1) 1400ms both' : undefined,
+        }}
+      >
+        <circle cx="106" cy="120" r="25" fill={`url(#${id('dial')})`} stroke="#334155" strokeWidth="2" />
+        {Array.from({ length: 12 }, (_, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: twelve fixed ticks
+          <line key={i} x1="106" y1="99" x2="106" y2={i % 3 ? 102 : 105} stroke="#334155" strokeWidth="1.5" transform={`rotate(${i * 30} 106 120)`} />
+        ))}
+        <circle cx="106" cy="120" r="7" fill="#475569" />
+        <path d="M106,104 L109,111 L103,111 Z" style={{ fill: 'var(--color-brand-500)' }} />
       </g>
-      <path
-        d={`M${LOCK.x - 9},${LOCK.y - 4} V${LOCK.y - 13} a9,9 0 0 1 18,0 V${LOCK.y - 4}`}
-        fill="none"
-        stroke="var(--ln)"
-        strokeWidth="5"
-        strokeLinecap="round"
-        style={shackle}
-      />
-      <rect x={LOCK.x - 16} y={LOCK.y - 6} width="32" height="26" rx="7" style={{ fill: 'var(--paper)', stroke: 'var(--ln)' }} strokeWidth="5" />
-      <circle cx={LOCK.x} cy={LOCK.y + 6} r="3.5" style={{ fill: 'var(--ln)' }} />
-    </>
+      <rect x="142" y="106" width="8" height="30" rx="4" fill="#cbd5e1" />
+      <text x="106" y="166" textAnchor="middle" className="fill-slate-200 font-mono text-[9px]" style={beat === 0 ? pop(2500) : undefined}>
+        v1:x9Fq·k2Lm…
+      </text>
+    </svg>
   )
 }
-
-const KeyArt = () => (
-  <svg width="52" height="24" viewBox="0 0 52 24" className="overflow-visible">
-    <circle cx="11" cy="12" r="8" style={{ fill: 'var(--soft2)', stroke: 'var(--ln)' }} strokeWidth="4" />
-    <path d="M19,12 H48 M40,12 V19 M33,12 V17" fill="none" style={{ stroke: 'var(--ln)' }} strokeWidth="4" strokeLinecap="round" />
-  </svg>
-)
 
 const Vault: View = ({ beat }) => {
   const id = useIds()
-  const OPEN = 'translate(-4px, -38px) rotate(-14deg)'
-  const lid: CSSProperties =
-    beat === 0
-      ? { transform: 'none', ...from(OPEN, 1550, 700, SPRING, 1) }
-      : beat === 1
-        ? { transform: OPEN, ...from('none', 1700, 800, SPRING, 1) }
-        : { transform: 'none', ...from(OPEN, 0, 600, SPRING, 1) }
-  const shackle: CSSProperties =
-    beat === 1
-      ? { transform: 'translateY(-9px)', ...from('none', 1400, 600, SPRING, 1) }
-      : beat === 2
-        ? { transform: 'none', ...from('translateY(-9px)', 350, 500, SPRING, 1) }
-        : {}
   return (
     <>
-      <Art id={id}>
-        <g style={{ ...box('50% 100%'), ...(beat === 0 ? thump(1700, 500) : {}) }}>
-          {beat === 0 ? (
-            <g>
-              <rect x="116" y="114" width="128" height="84" rx="14" {...duo(id, 5)} />
-              <g style={{ transformBox: 'view-box', transformOrigin: '112px 116px', ...lid }}>
-                <rect x="110" y="92" width="140" height="26" rx="11" {...duo(id, 5, 'var(--soft2)')} />
-              </g>
-              <g style={{ ...box('50% 100%'), ...drop(2100, 700, -110) }}>
-                <path
-                  d={`M${LOCK.x - 9},${LOCK.y - 4} V${LOCK.y - 13} a9,9 0 0 1 18,0 V${LOCK.y - 4}`}
-                  fill="none"
-                  stroke="var(--ln)"
-                  strokeWidth="5"
-                  strokeLinecap="round"
-                />
-                <rect x={LOCK.x - 16} y={LOCK.y - 6} width="32" height="26" rx="7" style={{ fill: 'var(--paper)', stroke: 'var(--ln)' }} strokeWidth="5" />
-                <circle cx={LOCK.x} cy={LOCK.y + 6} r="3.5" style={{ fill: 'var(--ln)' }} />
-              </g>
-            </g>
-          ) : (
-            <Box id={id} lid={lid} shackle={shackle} />
-          )}
-        </g>
-        {beat === 1 && <Ripple x={186} y={100} r={30} d={2100} />}
-      </Art>
+      <At x={106} y={30}>
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Split Now’s server</span>
+      </At>
+      <Safe id={id} beat={beat} />
+      {/* the lock that clicks shut */}
+      <At x={168} y={52} style={beat === 0 ? pop(2500) : undefined}>
+        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-fill text-on-fill shadow-lg ring-2 ring-white dark:ring-ink-900">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+            <rect x="5" y="11" width="14" height="10" rx="2" />
+            <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+          </svg>
+        </div>
+      </At>
+      {/* the phone of someone in the group */}
+      <At x={286} y={118}>
+        <div className="relative h-[168px] w-[86px] rounded-[18px] bg-slate-900 p-[5px] shadow-xl ring-1 ring-white/10 dark:bg-slate-950 dark:ring-white/20">
+          <div className="relative flex h-full w-full flex-col items-center justify-center gap-1.5 overflow-hidden rounded-[14px] bg-gradient-to-b from-brand-50 to-white dark:from-ink-800 dark:to-ink-900">
+            <div className="absolute top-1.5 h-1 w-8 rounded-full bg-slate-900/80" />
+            {beat === 0 && (
+              <div className="flex flex-col items-center gap-1" style={pop(1300)}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="stroke-emerald-500" strokeWidth="2.5" strokeLinecap="round">
+                  <rect x="5" y="11" width="14" height="10" rx="2" />
+                  <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+                </svg>
+                <span className="text-[9px] font-semibold text-slate-500">Sent, sealed</span>
+              </div>
+            )}
+            {beat === 1 && (
+              <>
+                <div className="grid grid-cols-3 gap-2">
+                  {[0, 4, 8, 2, 6, 1, 3, 5, 7].map((order, i) => (
+                    <span
+                      // biome-ignore lint/suspicious/noArrayIndexKey: nine fixed dots
+                      key={i}
+                      className="h-2.5 w-2.5 rounded-full bg-fill ring-2 ring-brand-200 dark:ring-brand-800"
+                      style={{ animation: `sx-pop 320ms cubic-bezier(0.23, 1, 0.32, 1) ${250 + order * 110}ms both` }}
+                    />
+                  ))}
+                </div>
+                <div className="mt-1" style={pop(2450)}>
+                  <Pill tone="up">✓ Open</Pill>
+                </div>
+              </>
+            )}
+            {beat === 2 &&
+              WORDS.map((w, i) => (
+                <span
+                  key={w}
+                  className="whitespace-nowrap rounded-full bg-white px-2 py-0.5 text-[9.5px] font-semibold text-slate-700 shadow-sm ring-1 ring-brand-100 dark:bg-ink-700 dark:text-slate-100 dark:ring-white/10"
+                  style={{ animation: `sx-reveal 600ms steps(8) ${900 + i * 260}ms both` }}
+                >
+                  {w}
+                </span>
+              ))}
+          </div>
+        </div>
+      </At>
+      {/* beat 1: the words go into the box */}
       {beat === 0 &&
         WORDS.map((w, i) => (
-          <Fly key={w} path={`M${58 + (i % 2) * 14},${44 + i * 36} Q120,${-20 + i * 10} 180,104`} ms={700} d={200 + i * 300} vanish>
-            <Pill>{w}</Pill>
+          <Fly key={w} path={`M286,${84 + i * 26} Q200,${-10 + i * 18} 106,72`} ms={1000} d={200 + i * 260} vanish>
+            <span className="whitespace-nowrap rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-700 shadow-md ring-1 ring-brand-100 dark:bg-ink-700 dark:text-slate-100">
+              {w}
+            </span>
           </Fly>
         ))}
-      {beat === 1 && (
-        <>
-          {['Asha', 'Ravi', 'Meera'].map((n, i) => (
-            <At key={n} x={34 + i * 30} y={214 - (i % 2) * 14} style={pop(i * 100, 500)}>
-              <Person name={n} size={30} label={false} />
-            </At>
-          ))}
-          <Fly path={`M64,176 Q90,40 ${LOCK.x + 24},${LOCK.y + 6}`} ms={900} d={450}>
-            <KeyArt />
-          </Fly>
-          <At x={186} y={96} style={from('translateY(26px) scale(0.5)', 2100, 700, SPRING)}>
-            <Pill>Goa trip</Pill>
-          </At>
-        </>
+      {/* beat 2: the key, sealed apart from the box, goes to the phone after the pattern */}
+      {/* where the key waits, sealed, apart from the box */}
+      {beat >= 1 && (
+        <At x={106} y={226} style={beat === 1 ? rise(0) : undefined}>
+          <Pill>
+            <Lock size={9} /> Key, sealed apart
+          </Pill>
+        </At>
       )}
-      {beat === 2 && (
-        <div className="absolute" style={{ left: 244, top: 128, transformOrigin: '0 0', animation: `hm-swing 1100ms ${SOFT} 600ms both` }}>
-          <svg width="40" height="30" className="absolute left-0 top-0 overflow-visible">
-            <path d="M0,0 Q16,10 26,26" fill="none" strokeWidth="2.5" strokeLinecap="round" style={{ stroke: 'var(--ln)' }} />
+      {beat === 1 && (
+        <Fly path="M174,226 Q240,246 286,150" ms={1000} d={1300} vanish>
+          <svg width="44" height="22" viewBox="0 0 44 22" style={{ filter: 'drop-shadow(0 3px 4px rgba(180,83,9,0.45))' }}>
+            <circle cx="11" cy="11" r="9" fill="#fbbf24" stroke="#b45309" strokeWidth="2" />
+            <circle cx="11" cy="11" r="3.5" fill="#fff7d1" />
+            <path d="M20,9 H42 V13 H38 V17 H34 V13 H30 V16 H26 V13 H20 Z" fill="#fbbf24" stroke="#b45309" strokeWidth="1.5" />
           </svg>
-          <div
-            className="absolute flex flex-col items-center rounded-xl px-3 pb-2 pt-3 text-center leading-tight"
-            style={{ left: 6, top: 24, background: 'var(--paper)', border: '3px solid var(--ln)', color: 'var(--ln)' }}
-          >
-            <span className="absolute left-1/2 top-1 h-1.5 w-1.5 -translate-x-1/2 rounded-full" style={{ background: 'var(--ln)' }} />
-            <span className="text-[17px] font-black tabular-nums">₹2,400</span>
-            <span className="text-[11px] font-bold opacity-80">12 Oct</span>
+        </Fly>
+      )}
+      {/* beat 3: the label outside the box: amounts, dates and who paid */}
+      {beat === 2 && (
+        <div
+          className="absolute"
+          style={{ left: 120, top: 136, transformOrigin: '30px 0px', animation: 'hm-swing 1100ms cubic-bezier(0.23, 1, 0.32, 1) 200ms both' }}
+        >
+          <div className="mx-auto h-8 w-px bg-slate-400 dark:bg-slate-500" style={{ marginLeft: 30 }} />
+          <div className="-mt-0.5 rounded-lg bg-duo-50 px-2.5 py-1.5 text-[10px] font-bold leading-tight text-duo-900 shadow-lg ring-1 ring-duo-300 dark:bg-duo-900 dark:text-duo-50 dark:ring-duo-500/60">
+            <div className="mx-auto mb-1 h-1.5 w-1.5 rounded-full bg-duo-300 dark:bg-duo-500" />
+            ₹2,400 · 12 Oct
+            <div className="font-semibold text-duo-800 dark:text-duo-200">paid by person 1</div>
           </div>
         </div>
       )}
@@ -881,533 +990,782 @@ const Vault: View = ({ beat }) => {
   )
 }
 
-// ---- How auto-capture picks payments: a sieve ------------------------------------------------------------
-// 1 A chat, an offer and a payment drop into the sieve. 2 It shakes: only the payment falls through,
-// into the tray below. 3 The rest stay behind; the payment waits in the tray, your Inbox.
+// ---- How auto-capture picks payments: a phone, a filter gate and the Inbox ----------------------------------
 
-const ITEMS_Y = 86
-const BOWL = 'M96,100 H264 Q262,156 180,160 Q98,156 96,100 Z'
-const ITEMS = [
-  { x: 136, kind: 'chat' },
-  { x: 180, kind: 'pay' },
-  { x: 224, kind: 'offer' },
+/*
+ * The phone on the left holds the messages; the gate in the middle is the filter; the tray on the
+ * right is the Inbox. A scan runs down the messages: the OTP, the offer and the chat are locked
+ * where they are (they never leave the phone), and only the bank alert slides out through the gate
+ * and lands in the Inbox as a captured payment, waiting for Split, Personal or Not shared.
+ */
+const PHONE = { left: 14, top: 34, w: 96, h: 172 }
+/** The phone's screen, inside its 5px bezel; the messages are placed in its coordinates. */
+const SCREEN = { left: PHONE.left + 5, top: PHONE.top + 5 }
+const MSGS = [
+  { text: 'OTP 482913', top: 18 },
+  { text: '50% off', top: 44 },
+  { text: 'On my way', top: 70 },
 ] as const
+const BANK = { top: 98, w: 76, h: 30 }
+const BANK_AT = { x: SCREEN.left + 6 + BANK.w / 2, y: SCREEN.top + BANK.top + BANK.h / 2 }
+const GATE = { x: 128, top: 64, bottom: 176 }
+const TRAY = { left: 146, top: 62, w: 200, h: 108 }
+const CARD = { left: TRAY.left + 8, top: 94, w: TRAY.w - 16, h: 42 }
+const CARD_AT = { x: CARD.left + CARD.w / 2, y: CARD.top + CARD.h / 2 }
+const ROUTE = `M${BANK_AT.x},${BANK_AT.y} C${BANK_AT.x + 34},${BANK_AT.y} ${GATE.x - 26},120 ${GATE.x},120 S${CARD_AT.x - 40},${CARD_AT.y} ${CARD_AT.x},${CARD_AT.y}`
 
-function Bubble() {
+// Beat 2's timing (ms): the scan runs down the screen and reaches each message in turn.
+const SCAN = { d: 250, ms: 1100, travel: 158 }
+const scanAt = (screenY: number) => Math.round(SCAN.d + (SCAN.ms * screenY) / SCAN.travel)
+const LEAVE = scanAt(BANK.top + BANK.h / 2) + 220
+const LEAVE_MS = 950
+const LAND = LEAVE + LEAVE_MS - 150
+
+/** A small lock: this message stays on the phone. */
+function Lock({ size = 8, style }: { size?: number; style?: CSSProperties }) {
   return (
-    <svg width="42" height="38" viewBox="0 0 42 38" className="overflow-visible">
-      <path
-        d="M8,3 H34 Q39,3 39,8 V24 Q39,29 34,29 H16 L8,36 V29 Q3,29 3,24 V8 Q3,3 8,3 Z"
-        style={{ fill: 'var(--paper)', stroke: 'var(--ln)' }}
-        strokeWidth="3.5"
-        strokeLinejoin="round"
-      />
-      {[13, 21, 29].map((x) => (
-        <circle key={x} cx={x} cy="16" r="2.6" style={{ fill: 'var(--ln)' }} />
-      ))}
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="3.5"
+      strokeLinecap="round"
+      style={style}
+      className="shrink-0"
+    >
+      <rect x="5" y="11" width="14" height="10" rx="2" />
+      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
     </svg>
   )
 }
 
-function OfferTag() {
+/** The bank alert: the one message that is about money leaving the account. */
+function BankBubble({ ok }: { ok?: CSSProperties }) {
   return (
-    <svg width="44" height="34" viewBox="0 0 44 34" className="overflow-visible">
-      <path
-        d="M14,3 H38 Q41,3 41,6 V28 Q41,31 38,31 H14 L3,17 Z"
-        style={{ fill: 'var(--paper)', stroke: 'var(--ln)' }}
-        strokeWidth="3.5"
-        strokeLinejoin="round"
-      />
-      <text x="26" y="23" textAnchor="middle" className="text-[16px] font-black" style={{ fill: 'var(--ln)' }}>
-        %
-      </text>
-    </svg>
-  )
-}
-
-const Item = ({ kind }: { kind: (typeof ITEMS)[number]['kind'] }) =>
-  kind === 'chat' ? <Bubble /> : kind === 'offer' ? <OfferTag /> : <Coin label="₹" size={36} />
-
-function Tray({ id }: { id: (n: string) => string }) {
-  return <path d="M130,196 H156 L163,207 H197 L204,196 H230 V222 Q230,232 220,232 H140 Q130,232 130,222 Z" {...duo(id, 5, 'var(--soft2)')} />
-}
-
-const Filter: View = ({ beat }) => {
-  const id = useIds()
-  const sieve = (
-    <>
-      <path d="M262,102 L326,88" fill="none" stroke={`url(#${id('ln')})`} strokeWidth="9" strokeLinecap="round" />
-      <defs>
-        <clipPath id={id('bowl')}>
-          <path d={BOWL} />
-        </clipPath>
-      </defs>
-      <path d={BOWL} style={{ fill: 'var(--soft)' }} />
-      {/* the mesh: a criss-cross of thin lines inside the bowl */}
-      <g clipPath={`url(#${id('bowl')})`} style={{ stroke: 'var(--ln)', opacity: 0.45 }} strokeWidth="2">
-        {Array.from({ length: 16 }, (_, i) => 60 + i * 13).map((x) => (
-          <path key={x} d={`M${x},96 l60,66 M${x + 60},96 l-60,66`} />
-        ))}
-      </g>
-      <path d={BOWL} fill="none" stroke={`url(#${id('ln')})`} strokeWidth="5" strokeLinejoin="round" />
-    </>
-  )
-  return (
-    <>
-      <Art id={id}>
-        {beat >= 1 && (
-          <g
-            style={{
-              ...box('50% 100%'),
-              ...(beat === 1 ? { ...pop(0, 500), animation: `hm-from 500ms ${SPRING} 0ms both, ex-squash 500ms ease-out 1500ms both` } : {}),
-            }}
-          >
-            <Tray id={id} />
-          </g>
-        )}
-      </Art>
-      {/* the sieve and what's caught in it shake together */}
-      <div className="absolute left-0 top-0" style={{ width: W, height: H, transformOrigin: '180px 120px', ...(beat === 1 ? shake(100, 900) : {}) }}>
-        <svg className="absolute inset-0 overflow-visible" width={W} height={H}>
-          <defs>
-            <linearGradient id={id('ln')} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2={W} y2={H}>
-              <stop offset="0" style={{ stopColor: 'var(--ln)' }} />
-              <stop offset="1" style={{ stopColor: 'var(--ln2)' }} />
-            </linearGradient>
-          </defs>
-          {sieve}
-        </svg>
-        {ITEMS.filter((it) => it.kind !== 'pay').map((it, i) => (
-          <At key={it.kind} x={it.x} y={ITEMS_Y} style={beat === 2 ? { opacity: 0.35, ...from('none', 200, 500, EASE_IN, 1) } : undefined}>
-            <div style={beat === 0 ? drop(100 + i * 2 * 200, 800, -110) : undefined}>
-              <Item kind={it.kind} />
-            </div>
-          </At>
-        ))}
-      </div>
-      {beat === 0 && (
-        <At x={180} y={ITEMS_Y}>
-          <div style={drop(300, 800, -110)}>
-            <Coin label="₹" size={36} />
-          </div>
-        </At>
-      )}
-      {beat === 1 && (
-        <Fly path={`M180,${ITEMS_Y} L180,206`} ms={600} d={950}>
-          <Coin label="₹" size={36} />
-        </Fly>
-      )}
-      {beat === 2 && (
-        <>
-          <At x={180} y={206}>
-            <div style={{ ...thump(300, 500), transformOrigin: '50% 100%' }}>
-              <Coin label="₹" size={36} />
-            </div>
-          </At>
-          <svg className="absolute inset-0 overflow-visible" width={W} height={H}>
-            <Ripple x={180} y={210} r={30} d={500} />
-          </svg>
-          <At x={286} y={214} style={pop(800, 500)}>
-            <Pill tone="accent">Inbox</Pill>
-          </At>
-        </>
-      )}
-    </>
-  )
-}
-
-// ---- Simple and Advanced: a TV remote ------------------------------------------------------------------
-// 1 The remote drops in with a few big buttons. 2 Advanced slides the cover off: lots of small
-// buttons. 3 The cover slides back; a big button still works and the light says all is on.
-
-const COVER_OFF = 'translate(116px, 10px) rotate(12deg)'
-const BIG = [
-  { x: 180, y: 74, r: 19 },
-  { x: 157, y: 118, r: 15 },
-  { x: 203, y: 118, r: 15 },
-]
-const SMALL = [162, 186, 210].flatMap((y) => [158, 180, 202].map((x) => ({ x, y })))
-
-const Drawers: View = ({ beat }) => {
-  const id = useIds()
-  const cover: CSSProperties =
-    beat === 1 ? { transform: COVER_OFF, ...from('none', 100, 700, SOFT, 1) } : beat === 2 ? { transform: 'none', ...from(COVER_OFF, 100, 700, SOFT, 1) } : {}
-  return (
-    <>
-      <Art id={id}>
-        <g style={{ ...box('50% 100%'), ...(beat === 0 ? drop(0, 800, -200) : {}) }}>
-          <rect x="134" y="18" width="92" height="226" rx="32" {...duo(id, 5)} />
-          <circle cx="180" cy="38" r="4.5" style={{ fill: 'var(--ln2)' }} />
-          {beat === 2 && <Ripple x={180} y={38} r={8} d={900} />}
-          {BIG.map((b, i) => (
-            <g key={b.x + b.y} style={{ ...box(), ...(beat === 0 ? pop(500 + i * 120, 500) : beat === 2 && i === 0 ? press(800) : {}) }}>
-              <circle cx={b.x} cy={b.y} r={b.r} {...duo(id, 4, 'var(--soft2)')} />
-              {i === 0 ? (
-                <path d="M175,68 A8,8 0 1 0 185,68 M180,64 V73" fill="none" style={{ stroke: 'var(--ln)' }} strokeWidth="3.5" strokeLinecap="round" />
-              ) : (
-                <path
-                  d={i === 1 ? 'M152,118 H162 M157,113 V123' : 'M198,118 H208'}
-                  fill="none"
-                  style={{ stroke: 'var(--ln)' }}
-                  strokeWidth="3.5"
-                  strokeLinecap="round"
-                />
-              )}
-            </g>
-          ))}
-          {SMALL.map((s, i) => (
-            <circle
-              key={`${s.x}${s.y}`}
-              cx={s.x}
-              cy={s.y}
-              r="7"
-              style={{ fill: 'var(--soft2)', stroke: 'var(--ln)', ...box(), ...(beat === 1 ? pop(350 + i * 60, 400) : {}) }}
-              strokeWidth="3"
-            />
-          ))}
-          <g style={{ ...box(), ...cover }}>
-            <rect x="142" y="142" width="76" height="92" rx="20" style={{ fill: 'var(--paper)' }} stroke={`url(#${id('ln')})`} strokeWidth="5" />
-            <path d="M170,154 H190 M170,162 H190" fill="none" style={{ stroke: 'var(--ln)', opacity: 0.5 }} strokeWidth="3" strokeLinecap="round" />
-          </g>
-        </g>
-      </Art>
-      <At x={66} y={128} style={pop(beat === 0 ? 600 : 250, 500)}>
-        <Pill tone={beat === 1 ? 'accent' : 'even'} big>
-          {beat === 1 ? <AdvancedRocketIcon size={16} /> : <SimpleModeIcon size={16} />}
-          {beat === 1 ? 'Advanced' : 'Simple'}
-        </Pill>
-      </At>
-    </>
-  )
-}
-
-// ---- One total from many currencies: a piggy bank ----------------------------------------------------------
-// 1 Coins from three countries drop in. 2 They hop into the piggy bank; it shakes. 3 Out comes one
-// stack of ₹, about ₹6,835.
-
-const PIG = { x: 150, y: 172 }
-const FOREIGN = [
-  { label: '$40', x: 76 },
-  { label: '€25', x: 162 },
-  { label: '₹1,200', x: 248 },
-]
-const SLOT = { x: PIG.x, y: 122 }
-
-function Piggy({ id }: { id: (n: string) => string }) {
-  const { x, y } = PIG
-  return (
-    <>
-      <rect x={x - 46} y={y + 34} width="16" height="22" rx="6" {...duo(id, 4, 'var(--soft2)')} />
-      <rect x={x + 28} y={y + 34} width="16" height="22" rx="6" {...duo(id, 4, 'var(--soft2)')} />
-      <path d={`M${x - 72},${y - 6} q-16,-4 -12,-16`} fill="none" stroke="var(--ln)" strokeWidth="5" strokeLinecap="round" />
-      <path d={`M${x + 30},${y - 42} Q${x + 36},${y - 70} ${x + 56},${y - 60} Q${x + 60},${y - 46} ${x + 54},${y - 36}`} {...duo(id, 5, 'var(--soft2)')} />
-      <ellipse cx={x} cy={y} rx="74" ry="52" {...duo(id, 5)} />
-      <rect x={x + 62} y={y - 14} width="24" height="30" rx="11" {...duo(id, 5, 'var(--soft2)')} />
-      <circle cx={x + 70} cy={y + 1} r="2.6" style={{ fill: 'var(--ln)' }} />
-      <circle cx={x + 78} cy={y + 1} r="2.6" style={{ fill: 'var(--ln)' }} />
-      <circle cx={x + 44} cy={y - 14} r="4" style={{ fill: 'var(--ln)' }} />
-      <path d={`M${SLOT.x - 20},${SLOT.y} H${SLOT.x + 20}`} fill="none" stroke="var(--ln)" strokeWidth="7" strokeLinecap="round" />
-    </>
-  )
-}
-
-function Stack() {
-  return (
-    <svg width="58" height="54" viewBox="0 0 58 54" className="overflow-visible">
-      {[40, 28, 16].map((y) => (
-        <g key={y}>
-          <rect x="4" y={y - 4} width="50" height="12" style={{ fill: 'var(--coin)' }} />
-          <ellipse cx="29" cy={y + 8} rx="25" ry="7" style={{ fill: 'var(--coin)', stroke: 'var(--ln)' }} strokeWidth="3.5" />
-          <path d={`M4,${y + 8} V${y - 4} M54,${y + 8} V${y - 4}`} style={{ stroke: 'var(--ln)' }} strokeWidth="3.5" />
-        </g>
-      ))}
-      <ellipse cx="29" cy="12" rx="25" ry="7" style={{ fill: 'var(--coin)', stroke: 'var(--ln)' }} strokeWidth="3.5" />
-      <text x="29" y="16" textAnchor="middle" className="text-[11px] font-black" style={{ fill: 'var(--ln)' }}>
-        ₹
-      </text>
-    </svg>
-  )
-}
-
-const Exchange: View = ({ beat }) => {
-  const id = useIds()
-  return (
-    <>
-      <Art id={id}>
-        <g style={{ ...box('50% 100%'), ...(beat === 1 ? shake(1300, 800) : beat === 2 ? thump(0, 500) : {}) }}>
-          <Piggy id={id} />
-          {/* the coins, seen inside: they land as each drops in, and go when the total comes out */}
-          {beat >= 1 &&
-            [0, 1, 2].map((i) => (
-              <circle
-                key={i}
-                cx={PIG.x - 24 + i * 24}
-                cy={PIG.y + 30 - (i === 1 ? 6 : 0)}
-                r="11"
-                strokeWidth="3.5"
-                style={{
-                  fill: 'var(--coin)',
-                  stroke: 'var(--ln)',
-                  ...box(),
-                  ...(beat === 1 ? pop(650 + i * 260, 450) : gone(300, 300, 'translateY(-40px) scale(0.3)')),
-                }}
-              />
-            ))}
-        </g>
-      </Art>
-      {beat === 0 &&
-        FOREIGN.map((c, i) => (
-          <At key={c.label} x={c.x} y={50}>
-            <div style={drop(100 + i * 180, 800, -90)}>
-              <Coin label={c.label} size={c.label.length > 3 ? 60 : 50} />
-            </div>
-          </At>
-        ))}
-      {beat === 1 &&
-        FOREIGN.map((c, i) => (
-          <Fly key={c.label} path={`M${c.x},50 Q${(c.x + SLOT.x) / 2},${0} ${SLOT.x},${SLOT.y - 4}`} ms={650} d={100 + i * 260} vanish>
-            <Coin label={c.label} size={c.label.length > 3 ? 60 : 50} />
-          </Fly>
-        ))}
-      {beat === 2 && (
-        <>
-          <Fly path={`M${SLOT.x},${SLOT.y} Q${SLOT.x + 60},-10 290,70`} ms={800} d={300}>
-            <Stack />
-          </Fly>
-          <At x={290} y={124} style={pop(1100, 600)}>
-            <Pill tone="accent" big>
-              ≈ ₹6,835
-            </Pill>
-          </At>
-          <Sparkles x={290} y={70} d={1300} spread={48} />
-        </>
-      )}
-    </>
-  )
-}
-
-// ---- Why a captured payment waits for you: a mailbox ---------------------------------------------------------
-// 1 A letter drops into the mailbox, the flag pops up: who's it for? 2 It comes out and gets
-// stamped with a group. 3 It flies off to that group's house.
-
-const LETTER = { x: 214, y: 118 }
-
-function Letter({ stamped }: { stamped?: CSSProperties }) {
-  return (
-    <div className="relative" style={{ width: 84, height: 56 }}>
-      <svg width="84" height="56" viewBox="0 0 84 56" className="absolute inset-0 overflow-visible">
-        <rect x="2" y="2" width="80" height="52" rx="8" style={{ fill: 'var(--paper)', stroke: 'var(--ln)' }} strokeWidth="4" />
-        <path d="M6,8 L42,32 L78,8" fill="none" style={{ stroke: 'var(--ln)' }} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-      <span className="absolute bottom-1.5 left-2.5 text-[12px] font-black tabular-nums" style={{ color: 'var(--ln)' }}>
-        ₹850
-      </span>
-      {stamped && (
+    <div
+      className="relative flex flex-col justify-center rounded-xl rounded-bl-sm bg-brand-50 px-2 text-left shadow-md ring-1 ring-brand-300 dark:bg-brand-900/60 dark:ring-brand-400/50"
+      style={{ width: BANK.w, height: BANK.h }}
+    >
+      <span className="text-[7px] font-bold uppercase leading-none tracking-wider text-brand-700 dark:text-brand-200">Bank · UPI</span>
+      <span className="mt-0.5 whitespace-nowrap text-[9.5px] font-bold leading-none text-slate-800 dark:text-white">₹450 debited</span>
+      {ok && (
         <span
-          className="absolute -right-3 -top-4 flex h-9 w-9 items-center justify-center rounded-full text-[10px] font-black leading-none"
-          style={{ border: '3px solid var(--ln2)', color: 'var(--ln2)', background: 'var(--paper)', rotate: '-14deg', ...stamped }}
+          className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-fill text-on-fill shadow ring-2 ring-white dark:ring-ink-800"
+          style={ok}
         >
-          Goa
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M5 12.5l4.5 4.5L19 7.5" />
+          </svg>
         </span>
       )}
     </div>
   )
 }
 
-function Mailbox({ id, flag }: { id: (n: string) => string; flag: CSSProperties }) {
+function Phone({ beat }: { beat: number }) {
   return (
-    <>
-      <rect x="82" y="150" width="12" height="86" rx="4" {...duo(id, 4, 'var(--soft2)')} />
-      <g style={{ transformBox: 'view-box', transformOrigin: '140px 132px', ...flag }}>
-        <path d="M140,132 V98" fill="none" stroke="var(--ln2)" strokeWidth="5" strokeLinecap="round" />
-        <rect x="140" y="96" width="22" height="14" rx="3" style={{ fill: 'var(--ln2)' }} />
-      </g>
-      <path d="M40,152 V110 Q40,82 68,82 H108 Q136,82 136,110 V152 Z" {...duo(id, 5)} />
-      <path d="M64,106 H112" fill="none" stroke="var(--ln)" strokeWidth="6" strokeLinecap="round" />
-    </>
-  )
-}
-
-const Sort: View = ({ beat }) => {
-  const id = useIds()
-  const flag: CSSProperties = beat === 0 ? { transform: 'none', ...from('rotate(90deg)', 650, 600, SPRING, 1) } : {}
-  return (
-    <>
-      <Art id={id}>
-        <g style={{ ...box('50% 100%'), ...(beat === 0 ? thump(600, 400) : {}) }}>
-          <Mailbox id={id} flag={flag} />
-        </g>
-        {beat === 2 && (
-          <g style={{ ...box('50% 100%'), ...pop(0, 600) }}>
-            <g style={{ ...box('50% 100%'), ...thump(1250, 500) }}>
-              <path d="M258,162 L298,126 L338,162 V200 Q338,208 330,208 H266 Q258,208 258,200 Z" {...duo(id, 5)} />
-              <rect x="288" y="178" width="20" height="30" rx="5" {...duo(id, 4, 'var(--soft2)')} />
-            </g>
-          </g>
-        )}
-        {beat === 2 && <Ripple x={298} y={180} r={26} d={1300} />}
-      </Art>
-      {beat === 0 && (
-        <>
-          <Fly path="M88,-30 L88,104" ms={600} d={0} vanish>
-            <Letter />
-          </Fly>
-          <At x={170} y={62} style={pop(900, 400)}>
+    <div
+      className="absolute rounded-[20px] bg-slate-900 p-[5px] shadow-xl ring-1 ring-white/10 dark:bg-slate-950 dark:ring-white/20"
+      style={{ left: PHONE.left, top: PHONE.top, width: PHONE.w, height: PHONE.h }}
+    >
+      <div className="relative h-full w-full overflow-hidden rounded-[15px] bg-gradient-to-b from-brand-50 to-white dark:from-ink-800 dark:to-ink-900">
+        <div className="absolute left-1/2 top-1.5 h-1 w-8 -translate-x-1/2 rounded-full bg-slate-900/80" />
+        {MSGS.map((m, i) => (
+          <div
+            key={m.text}
+            className="absolute left-1.5 flex items-center gap-1 whitespace-nowrap rounded-xl rounded-bl-sm bg-white px-[7px] py-[5px] text-[8.5px] font-semibold leading-none text-slate-700 shadow-sm ring-1 ring-slate-200 dark:bg-ink-700 dark:text-slate-200 dark:ring-white/10"
+            style={{ top: m.top, ...(beat === 0 ? rise(150 + i * 260, 560) : undefined) }}
+          >
+            {/* The ones that stay grey out a little, and get a lock, once the scan has passed them. */}
             <span
-              className="flex h-10 w-10 items-center justify-center rounded-full text-[22px] font-black"
-              style={{ background: 'var(--paper)', border: '3px solid var(--ln)', color: 'var(--ln)' }}
+              style={beat === 1 ? { opacity: 0.55, animation: `sx-out 400ms ease ${scanAt(m.top + 11)}ms both` } : beat === 2 ? { opacity: 0.55 } : undefined}
             >
-              ?
+              {m.text}
             </span>
-          </At>
-        </>
+            {beat > 0 && (
+              <span className="text-slate-500 dark:text-slate-300">
+                <Lock style={beat === 1 ? pop(scanAt(m.top + 11), 420) : undefined} />
+              </span>
+            )}
+          </div>
+        ))}
+        {beat === 0 && (
+          <div className="absolute left-1.5" style={{ top: BANK.top, ...rise(150 + 3 * 260, 560) }}>
+            <BankBubble />
+          </div>
+        )}
+        {/* The bank alert waits for the scan, gets its tick and leaves (the flying copy takes over). */}
+        {beat === 1 && (
+          <div className="absolute left-1.5" style={{ top: BANK.top, ...out(LEAVE, 1) }}>
+            <BankBubble ok={pop(scanAt(BANK.top + BANK.h / 2), 420)} />
+          </div>
+        )}
+        {beat > 0 && (
+          <div className="absolute inset-x-0 flex justify-center" style={{ top: BANK.top + 8, ...(beat === 1 ? rise(LEAVE + 250) : undefined) }}>
+            <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-slate-900/[0.06] px-1.5 py-[3px] text-[7.5px] font-bold leading-none text-slate-600 dark:bg-white/10 dark:text-slate-300">
+              <Lock />
+              Stays on phone
+            </span>
+          </div>
+        )}
+        {/* The scan: a soft band of light that runs down the screen once. */}
+        {beat === 1 && (
+          <div
+            className="absolute inset-x-0 top-[-8px] h-4"
+            style={{ opacity: 0, transform: `translateY(${SCAN.travel}px)`, animation: `sx-scan ${SCAN.ms}ms linear ${SCAN.d}ms both` }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-brand-400/35 to-transparent dark:via-brand-300/30" />
+            <div className="absolute inset-x-0 top-1/2 h-px bg-brand-500 dark:bg-brand-300" />
+          </div>
+        )}
+        <div className="absolute bottom-1.5 left-1/2 h-1 w-8 -translate-x-1/2 rounded-full bg-slate-900/15 dark:bg-white/15" />
+      </div>
+    </div>
+  )
+}
+
+/** The filter: a lit gate between the phone and the Inbox, with a funnel on top. */
+function Gate() {
+  const h = GATE.bottom - GATE.top
+  return (
+    <>
+      <div
+        className="absolute w-4 -translate-x-1/2 rounded-full bg-brand-400/40 blur-md dark:bg-brand-400/30"
+        style={{ left: GATE.x, top: GATE.top, height: h, ...ambient('sx-pulse 2.6s ease-in-out infinite') }}
+      />
+      <div
+        className="absolute w-2 -translate-x-1/2 rounded-full bg-gradient-to-b from-brand-400 via-duo-400 to-brand-600 shadow-[0_0_0_3px_rgba(255,255,255,0.7)] dark:shadow-[0_0_0_3px_rgba(255,255,255,0.08)]"
+        style={{ left: GATE.x, top: GATE.top, height: h }}
+      />
+      <At x={GATE.x} y={GATE.top - 12}>
+        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-fill text-on-fill shadow-lg ring-[3px] ring-white dark:ring-ink-900">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinejoin="round">
+            <path d="M3 5h18l-7 8.5V19l-4 2v-7.5Z" />
+          </svg>
+        </div>
+      </At>
+    </>
+  )
+}
+
+function Tray({ beat }: { beat: number }) {
+  return (
+    <div
+      className="absolute rounded-3xl bg-white/70 shadow-[0_10px_30px_-14px_rgba(15,23,42,0.35)] ring-1 ring-brand-100 backdrop-blur dark:bg-white/[0.04] dark:shadow-none dark:ring-white/10"
+      style={{ left: TRAY.left, top: TRAY.top, width: TRAY.w, height: TRAY.h }}
+    >
+      <div className="flex items-center gap-1.5 px-3 pt-2.5 text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M22 12h-6l-2 3h-4l-2-3H2" />
+          <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z" />
+        </svg>
+        Inbox
+      </div>
+      {/* the empty place the payment will land in */}
+      {beat === 0 && (
+        <div
+          className="absolute rounded-2xl border-[1.5px] border-dashed border-brand-200 dark:border-white/15"
+          style={{ left: CARD.left - TRAY.left, top: CARD.top - TRAY.top, width: CARD.w, height: CARD.h }}
+        />
       )}
-      {beat === 1 && (
-        <>
-          <Fly path={`M88,104 Q140,10 ${LETTER.x},${LETTER.y}`} ms={700} d={100}>
-            <Letter stamped={pop(1150, 500)} />
-          </Fly>
-          {/* the rubber stamp: thumps down on the letter and lifts away */}
-          <At x={LETTER.x + 34} y={LETTER.y - 44} style={gone(1400, 350, 'translateY(-110px)')}>
-            <div style={drop(750, 600, -140)}>
-              <svg width="44" height="54" viewBox="0 0 44 54" className="overflow-visible">
-                <circle cx="22" cy="10" r="8" style={{ fill: 'var(--soft2)', stroke: 'var(--ln)' }} strokeWidth="4" />
-                <path d="M18,18 V28 M26,18 V28" style={{ stroke: 'var(--ln)' }} strokeWidth="4" strokeLinecap="round" />
-                <rect x="4" y="28" width="36" height="16" rx="5" style={{ fill: 'var(--soft2)', stroke: 'var(--ln)' }} strokeWidth="4" />
-                <rect x="8" y="44" width="28" height="6" rx="2" style={{ fill: 'var(--ln2)' }} />
-              </svg>
-            </div>
-          </At>
-        </>
-      )}
+    </div>
+  )
+}
+
+const CHOICES = ['Split', 'Personal', 'Not shared']
+
+/** The captured payment in the Inbox; on the last beat with its three answers, lit one after another. */
+function CapturedCard({ beat }: { beat: number }) {
+  return (
+    <div
+      className="absolute rounded-2xl bg-white px-2.5 py-2 shadow-xl ring-1 ring-brand-100 dark:bg-ink-800 dark:ring-white/10"
+      style={{ left: CARD.left, top: CARD.top, width: CARD.w, ...(beat === 1 ? pop(LAND, 560) : undefined) }}
+    >
+      <div className="flex items-center gap-1.5">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700 dark:bg-brand-900/60 dark:text-brand-200">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 3v12m0 0-4.5-4.5M12 15l4.5-4.5" />
+            <path d="M5 20h14" />
+          </svg>
+        </span>
+        <div className="min-w-0 flex-1 leading-none">
+          <div className="whitespace-nowrap text-[10.5px] font-bold text-slate-800 dark:text-white">Captured payment</div>
+          <div className="mt-1 text-[8.5px] font-semibold text-slate-500 dark:text-slate-400">UPI · today</div>
+        </div>
+        <span className="text-[12px] font-extrabold tabular-nums text-slate-900 dark:text-white">₹450</span>
+      </div>
       {beat === 2 && (
+        <div className="mt-2 flex gap-1">
+          {CHOICES.map((c, i) => (
+            <span
+              key={c}
+              className="flex-auto whitespace-nowrap rounded-full bg-brand-50 px-1.5 py-[5px] text-center text-[9px] font-bold leading-none text-brand-800 ring-1 ring-brand-100 dark:bg-brand-900/40 dark:text-brand-100 dark:ring-white/10"
+              style={{ animation: `sx-pop 420ms cubic-bezier(0.34, 1.56, 0.64, 1) ${250 + i * 110}ms both, sx-lit 700ms ease-in-out ${1000 + i * 520}ms` }}
+            >
+              {c}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const Filter: View = ({ beat }) => (
+  <>
+    {/* the way a payment travels: out of the phone, through the gate, into the Inbox */}
+    <svg className="absolute inset-0" width={W} height={H}>
+      <path d={ROUTE} fill="none" className="stroke-brand-300 dark:stroke-white/20" strokeWidth="1.5" strokeDasharray="2 4" strokeLinecap="round" />
+    </svg>
+    <Tray beat={beat} />
+    <Gate />
+    <Phone beat={beat} />
+    {beat > 0 && <CapturedCard beat={beat} />}
+    {beat === 1 && (
+      <Fly path={ROUTE} d={LEAVE} ms={LEAVE_MS} vanish>
+        <BankBubble />
+      </Fly>
+    )}
+  </>
+)
+
+// ---- Glass, shared by the jars, the glasses and the jug ----------------------------------------------
+
+/** The jar's glass, lid and liquid gradients, under ids made unique per picture. */
+function GlassDefs({ id }: { id: (n: string) => string }) {
+  return (
+    <defs>
+      <linearGradient id={id('liquid')} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" style={{ stopColor: 'var(--color-brand-400)' }} />
+        <stop offset="1" style={{ stopColor: 'var(--color-duo-600)' }} />
+      </linearGradient>
+      <linearGradient id={id('liquid2')} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" style={{ stopColor: 'var(--color-duo-300)' }} />
+        <stop offset="1" style={{ stopColor: 'var(--color-duo-600)' }} />
+      </linearGradient>
+      <linearGradient id={id('liquid3')} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" style={{ stopColor: 'var(--color-brand-300)' }} />
+        <stop offset="1" style={{ stopColor: 'var(--color-brand-600)' }} />
+      </linearGradient>
+      <linearGradient id={id('glass')} x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stopColor="#fff" stopOpacity="0.55" />
+        <stop offset="0.5" stopColor="#fff" stopOpacity="0.12" />
+        <stop offset="1" stopColor="#fff" stopOpacity="0.35" />
+      </linearGradient>
+      <linearGradient id={id('lid')} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" style={{ stopColor: 'var(--color-brand-300)' }} />
+        <stop offset="1" style={{ stopColor: 'var(--color-brand-600)' }} />
+      </linearGradient>
+    </defs>
+  )
+}
+
+// ---- Why a captured payment waits: a coin on the counter, beside your jars ------------------------------
+
+/*
+ * The jar from What Split Now does, three times on a shelf: one per group, and Personal. A captured
+ * payment is a coin that lands on the counter beside them and waits; it goes into a jar only when
+ * you pick one.
+ */
+const SHELF_Y = 196
+const JARS = [
+  { label: 'Goa trip', x: 74, level: 0.45 },
+  { label: 'Flat', x: 180, level: 0.6 },
+  { label: 'Personal', x: 286, level: 0.3 },
+] as const
+/** A small jar: the big jar's outline at 60%, standing on the shelf at `x`. */
+const MINI = { k: 0.6, w: 104 * 0.6, h: 120 * 0.6 }
+const miniTop = SHELF_Y - MINI.h
+
+function MiniJar({ id, x, level, fill, at, n }: { id: (n: string) => string; x: number; level: number; fill?: number; at?: number; n: number }) {
+  // The big jar's path spans x 128–232, y 20–140; placed so its foot sits on the shelf.
+  const tx = x - 180 * MINI.k
+  const ty = SHELF_Y - 140 * MINI.k
+  const depth = 84
+  const from = depth * (1 - level)
+  const to = depth * (1 - (fill ?? level))
+  return (
+    <g transform={`translate(${tx} ${ty}) scale(${MINI.k})`}>
+      <clipPath id={id(`mini${n}`)}>
+        <path d={JAR} />
+      </clipPath>
+      <path d={JAR} fill={`url(#${id('glass')})`} className="stroke-brand-200 dark:stroke-white/20" strokeWidth="3" />
+      <g clipPath={`url(#${id(`mini${n}`)})`}>
+        <g
+          style={
+            fill === undefined
+              ? { transform: `translateY(${from}px)` }
+              : ({
+                  transform: `translateY(${to}px)`,
+                  '--from': `translateY(${from}px)`,
+                  animation: `hm-from 900ms cubic-bezier(0.3, 0.9, 0.3, 1) ${at ?? 0}ms both`,
+                } as CSSProperties)
+          }
+        >
+          <path
+            d="M100,58 q13,-7 26,0 t26,0 t26,0 t26,0 t26,0 t26,0 t26,0 v100 h-182 z"
+            fill={`url(#${id('liquid')})`}
+            opacity="0.92"
+            style={ambient(`sx-wave ${2.6 + n * 0.3}s linear infinite`)}
+          />
+        </g>
+      </g>
+      <path d="M139,72 C136,90 136,108 141,126" fill="none" stroke="#fff" strokeOpacity="0.75" strokeWidth="5" strokeLinecap="round" />
+      <rect x="146" y="20" width="68" height="16" rx="5" fill={`url(#${id('lid')})`} />
+    </g>
+  )
+}
+
+const Jars: View = ({ beat }) => {
+  const id = useIds()
+  const goa = JARS[0]
+  return (
+    <>
+      <svg className="absolute inset-0" width={W} height={H}>
+        <GlassDefs id={id} />
+        {/* the shelf */}
+        <rect x="18" y={SHELF_Y} width="324" height="8" rx="4" className="fill-brand-200 dark:fill-white/15" />
+        <ellipse cx="180" cy={SHELF_Y + 14} rx="150" ry="4" className="fill-brand-900/10 dark:fill-black/30" />
+        {JARS.map((j, i) => (
+          <MiniJar key={j.label} id={id} n={i} x={j.x} level={j.level} {...(beat === 2 && i === 0 ? { fill: j.level + 0.2, at: 950 } : {})} />
+        ))}
+      </svg>
+      {/* each jar's name, on its label */}
+      {JARS.map((j, i) => (
+        <At key={j.label} x={j.x} y={SHELF_Y - MINI.h * 0.42}>
+          <span
+            className={`whitespace-nowrap rounded-md bg-white/90 px-1.5 py-0.5 text-[10px] font-bold leading-none text-slate-700 shadow-sm dark:bg-ink-900/85 dark:text-slate-100 ${beat === 2 && i > 0 ? 'opacity-50' : ''}`}
+            style={beat === 1 ? { animation: `sx-lit 700ms ease-in-out ${250 + i * 420}ms` } : undefined}
+          >
+            {j.label}
+          </span>
+        </At>
+      ))}
+      {/* the payment: a coin that lands on the counter and waits, with where it came from */}
+      {beat < 2 ? (
         <>
-          <Fly path={`M${LETTER.x},${LETTER.y} Q260,40 298,186`} ms={1000} d={300} vanish>
-            <Letter stamped={{}} />
-          </Fly>
-          <At x={298} y={230} style={pop(200, 500)}>
-            <Pill>Goa trip</Pill>
+          <At
+            x={180}
+            y={56}
+            style={
+              beat === 0
+                ? ({ '--from': 'translateY(-40px)', '--from-o': 0, animation: 'hm-from 600ms cubic-bezier(0.23, 1, 0.32, 1) 200ms both' } as CSSProperties)
+                : ambient('sx-breathe 2.8s ease-in-out infinite')
+            }
+          >
+            <Coin label="₹450" size={46} />
           </At>
-          <Sparkles x={298} y={160} d={1400} spread={50} />
+          <At x={180} y={96} style={beat === 0 ? rise(800) : undefined}>
+            <Pill>Blue Tokai · UPI</Pill>
+          </At>
+          {beat === 1 && (
+            <At x={180} y={22} style={pop(150)}>
+              <Pill tone="accent">Which jar?</Pill>
+            </At>
+          )}
+        </>
+      ) : (
+        <>
+          {/* beat 3: you pick Goa trip, and only then does it go in */}
+          <Fly path={`M180,56 Q${goa.x + 20},4 ${goa.x},${miniTop + 18}`} d={150} ms={850} vanish>
+            <Coin label="₹450" size={40} />
+          </Fly>
+          <At x={goa.x} y={miniTop - 18} style={pop(1100)}>
+            <Pill tone="up">✓ ₹150 each</Pill>
+          </At>
+          <At x={232} y={56} style={rise(1300)}>
+            <Pill>in only when you pick</Pill>
+          </At>
         </>
       )}
     </>
   )
 }
 
-// ---- Earn Pro: the ring fills, then it rings your photo ------------------------------------------------------
-// 1 Ticks land around a ring as it fills to 75%. 2 The last tick: it closes, bursts, 100%.
-// 3 The ring settles round your photo and a PRO pill drops in.
+// ---- Simple and Advanced: a pocket knife ----------------------------------------------------------
 
-const RING = { x: 180, y: 120, r: 72 }
-const ringAt = (f: number) => ({ x: RING.x + Math.cos(deg(-90 + 360 * f)) * RING.r, y: RING.y + Math.sin(deg(-90 + 360 * f)) * RING.r })
+/*
+ * One pocket knife. Simple has the blade you use every day out; Advanced folds out every other tool;
+ * folding them back loses none of them. The tools sit behind the handle when closed and turn about
+ * the rivet at either end.
+ */
+const HANDLE = { x: 100, y: 148, w: 160, h: 44 }
+const RIVET_L = { x: HANDLE.x + 22, y: HANDLE.y + HANDLE.h / 2 }
+const RIVET_R = { x: HANDLE.x + HANDLE.w - 22, y: HANDLE.y + HANDLE.h / 2 }
+/** Tools are drawn about 150 long and shown at this size, so closed they fit behind the handle. */
+const TOOL_K = 0.68
 
-/** A few pieces of confetti from the full ring: where each lands, its turn and when it goes. */
-const CONFETTI = Array.from({ length: 14 }, (_, i) => {
-  const a = (i / 14) * Math.PI * 2 + 0.4
-  const r = 96 + (i % 3) * 18
-  return { dx: Math.round(Math.cos(a) * r), dy: Math.round(Math.sin(a) * r * 0.8), rot: (i * 47) % 180, duo: i % 2 === 1, at: (i % 4) * 40 }
-})
+/*
+ * Each tool is drawn pointing right from its rivet. Closed, a left-rivet tool points right (0°) and a
+ * right-rivet one left (180°), both hidden behind the handle; `open` is the angle it folds out to,
+ * always turning up through the top, the way a real knife opens.
+ */
+const TOOLS: Array<{ d: string; at: 'L' | 'R'; open: number; simple?: boolean }> = [
+  // the everyday blade
+  { d: 'M0,-8 H112 Q142,-8 158,8 H0 Z', at: 'R', open: 346, simple: true },
+  // a saw
+  { d: 'M0,-7 H124 L130,0 L124,7 L118,3 L112,7 L106,3 L100,7 L94,3 L88,7 L82,3 L76,7 L70,3 L64,7 L58,3 L52,7 H0 Z', at: 'L', open: -166 },
+  // a screwdriver
+  { d: 'M0,-5 H104 L116,-2 V2 L104,5 H0 Z', at: 'L', open: -134 },
+  // an awl
+  { d: 'M0,-4 H98 L122,0 L98,4 H0 Z', at: 'R', open: 316 },
+  // scissors
+  { d: 'M0,-6 H60 L118,-1 L60,4 H0 Z M0,2 H60 L110,8 L60,9 H0 Z', at: 'L', open: -104 },
+  // a bottle opener
+  { d: 'M0,-6 H84 C100,-6 104,6 92,8 L86,2 H0 Z', at: 'R', open: 284 },
+]
 
-const Pro: View = ({ beat }) => {
+const Knife: View = ({ beat }) => {
   const id = useIds()
-  const ring = (frac: number, fromFrac: number, d: number, ms: number) => (
-    <circle
-      cx={RING.x}
-      cy={RING.y}
-      r={RING.r}
-      fill="none"
-      stroke={`url(#${id('ln')})`}
-      strokeWidth="14"
-      strokeLinecap="round"
-      pathLength={1}
-      transform={`rotate(-90 ${RING.x} ${RING.y})`}
-      style={{ strokeDasharray: `${frac} 2`, '--dash-from': frac - fromFrac, animation: `hm-dash ${ms}ms cubic-bezier(0.45, 0, 0.2, 1) ${d}ms both` } as Vars}
-    />
-  )
-  const ticks = beat === 0 ? [0.25, 0.5, 0.75] : [0.25, 0.5, 0.75, 1]
+  const advanced = beat === 1
   return (
     <>
-      {beat < 2 && (
-        <>
-          <Art id={id}>
-            <g style={{ ...box(), ...(beat === 1 ? thump(950, 600) : {}) }}>
-              <circle cx={RING.x} cy={RING.y} r={RING.r} fill="none" strokeWidth="14" style={{ stroke: 'var(--soft)' }} />
-              {beat === 0 ? ring(0.75, 0, 200, 1300) : ring(1, 0.75, 200, 600)}
-              <text
-                x={RING.x}
-                y={RING.y + 10}
-                textAnchor="middle"
-                className="text-[30px] font-black"
-                style={{ fill: 'var(--ln)', ...box(), ...(beat === 0 ? pop(1400, 500) : gone(650, 150)) }}
-              >
-                75%
-              </text>
-              {beat === 1 && (
-                <text
-                  x={RING.x}
-                  y={RING.y + 10}
-                  textAnchor="middle"
-                  className="text-[30px] font-black"
-                  style={{ fill: 'var(--ln)', ...box(), ...pop(900, 600) }}
-                >
-                  100%
-                </text>
-              )}
-            </g>
-          </Art>
-          {ticks.map((f, i) => (
-            <At key={f} x={ringAt(f).x} y={ringAt(f).y} style={beat === 0 ? pop(500 + i * 400, 450) : f === 1 ? pop(750, 450) : undefined}>
-              <Check size={26} />
-            </At>
-          ))}
-          {beat === 1 &&
-            CONFETTI.map((c) => (
-              <span
-                key={`${c.dx},${c.dy}`}
-                className="absolute h-[10px] w-[6px] rounded-[2px]"
+      <At x={180} y={24} style={pop(0)}>
+        <Pill tone={advanced ? 'accent' : 'even'}>
+          {advanced ? <AdvancedRocketIcon size={12} /> : <SimpleModeIcon size={12} />}
+          {advanced ? 'Advanced' : 'Simple'}
+        </Pill>
+      </At>
+      <svg className="absolute inset-0" width={W} height={H}>
+        <defs>
+          <linearGradient id={id('steel')} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#f8fafc" />
+            <stop offset="0.55" stopColor="#cbd5e1" />
+            <stop offset="1" stopColor="#94a3b8" />
+          </linearGradient>
+          <linearGradient id={id('handle')} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" style={{ stopColor: 'var(--color-brand-400)' }} />
+            <stop offset="1" style={{ stopColor: 'var(--color-brand-700)' }} />
+          </linearGradient>
+        </defs>
+        <ellipse cx="180" cy={HANDLE.y + HANDLE.h + 16} rx="96" ry="6" className="fill-brand-900/15 dark:fill-black/40" />
+        {TOOLS.map((t, i) => {
+          const pivot = t.at === 'L' ? RIVET_L : RIVET_R
+          const closed = t.at === 'L' ? 0 : 180
+          const out = t.simple || advanced
+          // What moves this beat: the blade opens on the first; the rest open on the second and fold on the third.
+          const moves = t.simple ? beat === 0 : beat >= 1
+          const from = beat === 2 ? t.open : closed
+          const order = t.simple ? 0 : Math.floor(i / 2)
+          return (
+            <g key={t.d} transform={`translate(${pivot.x} ${pivot.y})`}>
+              <g
                 style={
                   {
-                    left: RING.x - 3,
-                    top: RING.y - 5,
-                    opacity: 0,
-                    rotate: `${c.rot}deg`,
-                    background: c.duo ? 'var(--color-duo-400)' : 'var(--color-brand-500)',
-                    '--dx': `${c.dx}px`,
-                    '--dy': `${c.dy}px`,
-                    animation: `hm-burst 1000ms cubic-bezier(0.2, 0.7, 0.3, 1) ${950 + c.at}ms both`,
-                  } as Vars
+                    rotate: `${out ? t.open : closed}deg`,
+                    transformOrigin: '0px 0px',
+                    ...(moves
+                      ? {
+                          '--turn-from': `${from}deg`,
+                          animation: `hm-turn ${beat === 2 ? 480 : 640}ms cubic-bezier(0.3, 1.15, 0.5, 1) ${(beat === 0 ? 350 : 200) + order * 150}ms both`,
+                        }
+                      : {}),
+                  } as CSSProperties
+                }
+              >
+                <path
+                  d={t.d}
+                  transform={`scale(${TOOL_K})`}
+                  fill={`url(#${id('steel')})`}
+                  className="stroke-slate-400/80 dark:stroke-slate-500"
+                  strokeWidth="1.5"
+                />
+              </g>
+            </g>
+          )
+        })}
+        {/* the handle, over the folded tools, with its shine and two rivets */}
+        <rect x={HANDLE.x} y={HANDLE.y} width={HANDLE.w} height={HANDLE.h} rx={HANDLE.h / 2} fill={`url(#${id('handle')})`} />
+        <rect x={HANDLE.x + 16} y={HANDLE.y + 7} width={HANDLE.w - 32} height="6" rx="3" fill="#fff" opacity="0.35" />
+        {[RIVET_L, RIVET_R].map((r) => (
+          <circle key={r.x} cx={r.x} cy={r.y} r="5.5" fill="#fff" opacity="0.85" />
+        ))}
+      </svg>
+      {beat === 2 && (
+        <At x={180} y={HANDLE.y + HANDLE.h + 38} style={rise(800)}>
+          <Pill tone="up">✓ every tool still inside</Pill>
+        </At>
+      )}
+    </>
+  )
+}
+
+// ---- One total from many currencies: three glasses into one jug ----------------------------------------
+
+/*
+ * Three glasses of different drinks ($, €, ₹) that don't add up as they are. Collect in my currency
+ * pours each into one measuring jug marked in ₹ (today's rate turns each into yours on the way), and
+ * the jug shows one total, marked ≈.
+ */
+const GLASSES = [
+  { from: '$40', to: '₹3,360', x: 26, liquid: 'liquid2' },
+  { from: '€25', to: '₹2,275', x: 88, liquid: 'liquid3' },
+  { from: '₹1,200', to: '₹1,200', x: 150, liquid: 'liquid' },
+] as const
+const GLASS = { top: 78, w: 46, h: 62 }
+const JUG = { x: 238, top: 92, w: 92, h: 112 }
+const POUR_MS = 650
+const pourAt = (i: number) => 300 + i * 800
+
+const Jug: View = ({ beat, still }) => {
+  const id = useIds()
+  // The jug's level at the end of each beat: empty, then full.
+  const level = beat === 0 ? 0 : 1
+  const depth = JUG.h
+  return (
+    <>
+      <svg className="absolute inset-0" width={W} height={H}>
+        <GlassDefs id={id} />
+        <clipPath id={id('jug')}>
+          <rect x={JUG.x} y={JUG.top} width={JUG.w} height={JUG.h} rx="16" />
+        </clipPath>
+        <ellipse cx="180" cy="214" rx="160" ry="5" className="fill-brand-900/10 dark:fill-black/30" />
+        {/* the three glasses: each tips toward the jug on its turn and comes back */}
+        {GLASSES.map((g, i) => (
+          <g
+            key={g.from}
+            style={
+              beat === 1
+                ? {
+                    transformOrigin: `${g.x + GLASS.w / 2}px ${GLASS.top + GLASS.h}px`,
+                    transformBox: 'view-box',
+                    animation: `hm-pour ${POUR_MS + 300}ms ease-in-out ${pourAt(i)}ms both`,
+                  }
+                : undefined
+            }
+          >
+            <clipPath id={id(`g${i}`)}>
+              <path
+                d={`M${g.x},${GLASS.top} H${g.x + GLASS.w} L${g.x + GLASS.w - 5},${GLASS.top + GLASS.h - 6} Q${g.x + GLASS.w - 6},${GLASS.top + GLASS.h} ${g.x + GLASS.w - 12},${GLASS.top + GLASS.h} H${g.x + 12} Q${g.x + 6},${GLASS.top + GLASS.h} ${g.x + 5},${GLASS.top + GLASS.h - 6} Z`}
+              />
+            </clipPath>
+            <g clipPath={`url(#${id(`g${i}`)})`}>
+              {/* full until it pours, then empty */}
+              <rect
+                x={g.x - 4}
+                y={GLASS.top + 18}
+                width={GLASS.w + 8}
+                height={GLASS.h}
+                fill={`url(#${id(g.liquid)})`}
+                opacity="0.92"
+                style={
+                  beat === 0
+                    ? undefined
+                    : ({
+                        transform: `translateY(${GLASS.h - 18}px)`,
+                        ...(beat === 1 ? { '--from': 'translateY(0)', animation: `hm-from ${POUR_MS}ms ease-in ${pourAt(i) + 250}ms both` } : {}),
+                      } as CSSProperties)
                 }
               />
-            ))}
-        </>
+            </g>
+            <path
+              d={`M${g.x},${GLASS.top} H${g.x + GLASS.w} L${g.x + GLASS.w - 5},${GLASS.top + GLASS.h - 6} Q${g.x + GLASS.w - 6},${GLASS.top + GLASS.h} ${g.x + GLASS.w - 12},${GLASS.top + GLASS.h} H${g.x + 12} Q${g.x + 6},${GLASS.top + GLASS.h} ${g.x + 5},${GLASS.top + GLASS.h - 6} Z`}
+              fill={`url(#${id('glass')})`}
+              className="stroke-brand-200 dark:stroke-white/20"
+              strokeWidth="2"
+            />
+            <path d={`M${g.x + 8},${GLASS.top + 10} L${g.x + 11},${GLASS.top + 44}`} stroke="#fff" strokeOpacity="0.75" strokeWidth="3" strokeLinecap="round" />
+          </g>
+        ))}
+        {/* beat 2: a stream from each glass's lip into the jug, in turn */}
+        {beat === 1 &&
+          GLASSES.map((g, i) => (
+            <path
+              key={g.from}
+              d={`M${g.x + GLASS.w + 6},${GLASS.top + 4} Q${JUG.x + 10},${GLASS.top - 14} ${JUG.x + JUG.w / 2},${JUG.top + 30}`}
+              fill="none"
+              stroke={`url(#${id(g.liquid)})`}
+              strokeWidth="5"
+              strokeLinecap="round"
+              pathLength={1}
+              style={{ strokeDasharray: '1 1', strokeDashoffset: 1, animation: `hm-stream ${POUR_MS}ms ease-in-out ${pourAt(i) + 250}ms both` }}
+            />
+          ))}
+        {/* the jug: glass, its liquid rising with each pour, its ₹ marks and a handle */}
+        <path
+          d={`M${JUG.x + JUG.w},${JUG.top + 24} C${JUG.x + JUG.w + 26},${JUG.top + 24} ${JUG.x + JUG.w + 26},${JUG.top + 76} ${JUG.x + JUG.w},${JUG.top + 80}`}
+          fill="none"
+          className="stroke-brand-200 dark:stroke-white/25"
+          strokeWidth="7"
+          strokeLinecap="round"
+        />
+        <rect
+          x={JUG.x}
+          y={JUG.top}
+          width={JUG.w}
+          height={JUG.h}
+          rx="16"
+          fill={`url(#${id('glass')})`}
+          className="stroke-brand-200 dark:stroke-white/20"
+          strokeWidth="2"
+        />
+        <g clipPath={`url(#${id('jug')})`}>
+          <g
+            style={
+              beat === 1
+                ? ({
+                    transform: `translateY(${depth * (1 - level)}px)`,
+                    animation: `hm-jug ${pourAt(2) + POUR_MS + 300}ms linear both`,
+                    '--jug-0': `${depth}px`,
+                    '--jug-1': `${depth * 0.52}px`,
+                    '--jug-2': `${depth * 0.18}px`,
+                  } as CSSProperties)
+                : { transform: `translateY(${depth * (1 - level)}px)` }
+            }
+          >
+            <path
+              d={`M${JUG.x - 8},${JUG.top + 18} q13,-6 26,0 t26,0 t26,0 t26,0 t26,0 t26,0 t26,0 t26,0 v${JUG.h} h-208 z`}
+              fill={`url(#${id('liquid')})`}
+              opacity="0.92"
+              style={ambient('sx-wave 2.8s linear infinite')}
+            />
+          </g>
+        </g>
+        {[0.3, 0.55, 0.8].map((k) => (
+          <line
+            key={k}
+            x1={JUG.x + JUG.w - 18}
+            x2={JUG.x + JUG.w - 8}
+            y1={JUG.top + JUG.h * k}
+            y2={JUG.top + JUG.h * k}
+            stroke="#fff"
+            strokeOpacity="0.8"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        ))}
+        <path d={`M${JUG.x + 10},${JUG.top + 16} L${JUG.x + 12},${JUG.top + 74}`} stroke="#fff" strokeOpacity="0.75" strokeWidth="4" strokeLinecap="round" />
+      </svg>
+      {/* each glass's amount; on the pour, what it is in yours */}
+      {GLASSES.map((g, i) => (
+        <At key={g.from} x={g.x + GLASS.w / 2} y={GLASS.top + GLASS.h + 22} style={beat === 0 ? rise(150 + i * 140) : undefined}>
+          <span className="whitespace-nowrap text-[12px] font-black tabular-nums text-slate-800 dark:text-white">{g.from}</span>
+        </At>
+      ))}
+      {beat === 1 &&
+        GLASSES.map((g, i) => (
+          <At key={g.to} x={g.x + GLASS.w / 2} y={GLASS.top - 18} style={pop(pourAt(i) + 150, 360)}>
+            <Pill tone="accent">{g.to}</Pill>
+          </At>
+        ))}
+      {beat === 0 && (
+        <At x={JUG.x + JUG.w / 2} y={JUG.top + JUG.h / 2} style={pop(700)}>
+          <span className="text-[26px] font-black text-slate-400 dark:text-slate-500">?</span>
+        </At>
+      )}
+      <At x={JUG.x + JUG.w / 2} y={JUG.top - 16}>
+        <Pill>in ₹</Pill>
+      </At>
+      {beat >= 1 && (
+        <At x={JUG.x + JUG.w / 2} y={JUG.top + JUG.h + 20}>
+          <Pill tone={beat === 2 ? 'accent' : 'even'}>
+            {beat === 1 ? <Count from={0} to={6835} still={still} d={pourAt(0) + 300} ms={pourAt(2) + POUR_MS - pourAt(0)} /> : 'your total ≈ ₹6,835'}
+          </Pill>
+        </At>
       )}
       {beat === 2 && (
+        <At x={GLASSES[1].x + GLASS.w / 2} y={40} style={rise(500)}>
+          <Pill>each group keeps its own</Pill>
+        </At>
+      )}
+    </>
+  )
+}
+
+// ---- Earn Pro: a stamp card ----------------------------------------------------------------------
+
+/*
+ * Help is a stamp card, like a café's: each section you finish is a stamp. A full card says
+ * Congratulations, and the reward is the real thing: the PRO ring round your photo and the pill
+ * by your name (the app's own ProRing and ProPill, so it moves and looks as it will).
+ */
+const STAMPS = 8
+const CARD_BOX = { x: 70, y: 46, w: 220, h: 138 }
+const stampAt = (i: number) => ({ x: CARD_BOX.x + 34 + (i % 4) * 51, y: CARD_BOX.y + 66 + Math.floor(i / 4) * 44 })
+
+function Stamp({ d }: { d?: number }) {
+  return (
+    <span
+      className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-brand-600 shadow-md dark:bg-white dark:text-brand-700"
+      style={d === undefined ? undefined : { animation: `hm-stamp 380ms cubic-bezier(0.23, 1, 0.32, 1) ${d}ms both` }}
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.6" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M5 12.5l4.5 4.5L19 7.5" />
+      </svg>
+    </span>
+  )
+}
+
+const Pro: View = ({ beat }) => {
+  // Stamped at the end of the beat, and when each new one lands.
+  const stamped = beat === 0 ? 6 : STAMPS
+  const landsAt = (i: number) => (beat === 0 ? (i < 6 ? 350 + i * 220 : undefined) : beat === 1 && i >= 6 ? 300 + (i - 6) * 320 : undefined)
+  return (
+    <>
+      {beat < 2 ? (
         <>
-          <Art id={id}>
-            <circle
-              cx={RING.x}
-              cy={RING.y - 6}
-              r="52"
-              fill="none"
-              stroke={`url(#${id('ln')})`}
-              strokeWidth="7"
-              style={{ ...box(), ...from('scale(1.3)', 0, 800, SPRING, 1) }}
-            />
-          </Art>
-          <At x={RING.x} y={RING.y - 6} style={pop(300, 700)}>
-            <Person name="Asha" size={84} label={false} />
-          </At>
-          <At x={RING.x} y={RING.y + 70}>
-            <div style={drop(900, 700, -60)}>
-              <span className="inline-block rounded-full bg-white px-4 py-1.5 shadow-md ring-2 ring-brand-200 dark:bg-ink-800 dark:ring-brand-400/40">
-                <span className="bg-gradient-to-r from-brand-600 to-duo-500 bg-clip-text text-[16px] font-black tracking-[0.2em] text-transparent dark:from-brand-300 dark:to-duo-300">
-                  PRO
-                </span>
-              </span>
+          <div
+            className="absolute overflow-hidden rounded-[22px] shadow-[0_18px_30px_-16px_color-mix(in_oklab,var(--color-brand-700)_70%,transparent)]"
+            style={{
+              left: CARD_BOX.x,
+              top: CARD_BOX.y,
+              width: CARD_BOX.w,
+              height: CARD_BOX.h,
+              background: 'linear-gradient(135deg, var(--color-brand-500), var(--color-duo-600))',
+              ...(beat === 0 ? rise(100) : {}),
+            }}
+          >
+            {/* the card's shine */}
+            <div className="absolute -left-10 -top-16 h-32 w-56 rotate-[-12deg] rounded-full bg-white/20 blur-md" />
+            <div className="absolute left-4 top-3.5 flex items-center gap-1.5 text-[13px] font-black text-white">
+              <FeatureIcon name="question" size={16} tone="current" />
+              Help
             </div>
+            <div className="absolute right-4 top-3.5 text-[11px] font-bold tabular-nums text-white/85">
+              {stamped} of {STAMPS}
+            </div>
+          </div>
+          {Array.from({ length: STAMPS }, (_, i) => {
+            const at = stampAt(i)
+            const on = i < stamped
+            return (
+              <At key={at.x * 100 + at.y} x={at.x} y={at.y}>
+                {on ? <Stamp d={landsAt(i)} /> : <span className="block h-8 w-8 rounded-full border-2 border-dashed border-white/60" />}
+              </At>
+            )
+          })}
+          {beat === 1 && (
+            <At x={180} y={CARD_BOX.y + CARD_BOX.h + 30} style={pop(1250)}>
+              <Pill tone="up">✓ Congratulations · 100%</Pill>
+            </At>
+          )}
+        </>
+      ) : (
+        <>
+          {/* beat 3: the reward, as the app draws it */}
+          <At x={124} y={124} style={pop(150, 560)}>
+            <ProRing photo={84}>
+              <div
+                className="flex h-[84px] w-[84px] items-center justify-center rounded-full text-[30px] font-bold text-white"
+                style={{
+                  background: `linear-gradient(140deg, ${PEOPLE.Asha.from}, ${PEOPLE.Asha.to})`,
+                  boxShadow: '0 10px 24px -10px color-mix(in oklab, var(--color-brand-700) 60%, transparent)',
+                }}
+              >
+                A
+              </div>
+            </ProRing>
           </At>
-          <Sparkles x={RING.x} y={RING.y - 6} d={1450} spread={74} />
+          <div className="absolute flex flex-col items-start gap-2" style={{ left: 196, top: 100 }}>
+            <span className="text-[20px] font-black leading-none text-slate-800 dark:text-white" style={rise(400)}>
+              Asha Rao
+            </span>
+            <span style={pop(800)}>
+              <ProPill h={12} />
+            </span>
+          </div>
         </>
       )}
     </>
@@ -1421,8 +1779,8 @@ const VIEWS: Record<StoryKind, View> = {
   remainder: Remainder,
   vault: Vault,
   filter: Filter,
-  drawers: Drawers,
-  exchange: Exchange,
-  sort: Sort,
+  knife: Knife,
+  jug: Jug,
+  jars: Jars,
   pro: Pro,
 }

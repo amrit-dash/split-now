@@ -29,7 +29,7 @@ export interface HelpStep {
  * Split Now thinks, not a list of taps. Each draws a fixed number of beats (STORY_BEATS), and
  * the section's `story.beats` are the captions, one per beat.
  */
-export type StoryKind = 'pot' | 'seesaw' | 'untangle' | 'remainder' | 'vault' | 'filter' | 'drawers' | 'exchange' | 'sort' | 'pro'
+export type StoryKind = 'pot' | 'seesaw' | 'untangle' | 'remainder' | 'vault' | 'filter' | 'knife' | 'jug' | 'jars' | 'pro'
 
 export const STORY_BEATS: Record<StoryKind, number> = {
   pot: 4,
@@ -38,9 +38,9 @@ export const STORY_BEATS: Record<StoryKind, number> = {
   remainder: 3,
   vault: 3,
   filter: 3,
-  drawers: 3,
-  exchange: 3,
-  sort: 3,
+  knife: 3,
+  jug: 3,
+  jars: 3,
   pro: 3,
 }
 
@@ -99,10 +99,10 @@ export const STORY_ANIM_MS: Record<StoryKind, number[]> = {
   remainder: [2240, 1800, 2400],
   vault: [3020, 2970, 2020],
   filter: [1490, 2620, 2740],
-  drawers: [1250, 1250, 1650],
-  exchange: [1300, 2150, 2350],
-  sort: [1300, 1900, 2400],
-  pro: [1900, 2150, 2500],
+  knife: [1000, 1150, 1350],
+  jug: [1200, 2850, 1050],
+  jars: [1350, 1800, 1850],
+  pro: [1850, 1750, 1300],
 }
 
 /** An explainer beat stays until its caption is read and its picture has finished, plus a moment to take it in. */

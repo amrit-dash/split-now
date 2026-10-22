@@ -2266,7 +2266,7 @@ test('Help: a section read to its end is ticked, and the ring moves off 0%', asy
   await expect(page.getByTestId('help-story')).toBeVisible()
   await page.getByTestId('help-beat').last().click()
   await expect(page.getByTestId('help-story')).toHaveAttribute('data-beat', '2')
-  await page.goto('/help?q=drawers')
+  await page.goto('/help?q=pocket%20knife')
   const row = page.getByTestId('help-row').filter({ hasText: 'Simple and Advanced, the same app' })
   await expect(row).toHaveAttribute('data-done', 'true')
   await expect(page.getByTestId('help-ring')).not.toHaveAttribute('aria-label', /Help 0% done/)
