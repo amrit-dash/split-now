@@ -279,7 +279,7 @@ export const SECTIONS: HelpSection[] = [
       { text: 'Pick a group: Add expense opens filled in.', mark: 'group' },
     ],
     points: [
-      'Bills are read on your phone; with Use AI on, Google’s AI reads them first and the phone is the fallback.',
+      'Bills are read on your phone. With AI on (the bot in the card’s corner, or Settings → AI features), Google’s AI reads them first and the phone is the fallback.',
       'It knows Indian bills: ₹, Rs. and lakh amounts, CGST and SGST as tax, Grand Total as the total.',
       'Nothing is added until you pick a group.',
       'In Add expense, a new scan replaces the scanned receipt; attached photos stay.',
