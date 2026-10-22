@@ -1448,24 +1448,19 @@ test('group list: sort by amount or date added, filter expenses only', async ({ 
   // no pills until something is on
   await expect(page.getByTestId('list-pills')).toHaveCount(0)
   await page.getByTestId('list-options-open').click()
-  // Sort by starts folded, its choice in the header
-  await expect(page.getByTestId('list-sort-summary')).toHaveText('Date spent, newest first')
-  await page
-    .getByTestId('list-sort')
-    .getByRole('button', { name: /Sort by/ })
-    .click()
-  await page.getByTestId('sort-amount-desc').click()
-  await expect(page.getByTestId('list-sort-summary')).toHaveText('Amount, biggest first')
+  // Sort by is a dropdown showing its choice
+  const sortBy = page.getByRole('combobox', { name: 'Sort by' })
+  await expect(sortBy).toContainText('Date spent, newest first')
+  await sortBy.click()
+  await page.getByRole('option', { name: 'Amount, biggest first' }).click()
+  await expect(sortBy).toContainText('Amount, biggest first')
   await page.getByTestId('list-done').click()
   await expect(page.getByRole('heading', { level: 2, name: 'Biggest first' })).toBeVisible()
   await expect(page.getByTestId('list-options-open')).toHaveAccessibleName(/1 on/)
   await expect(page.getByTestId('list-pill')).toHaveText(['Biggest first'])
   await page.getByTestId('list-options-open').click()
-  await page
-    .getByTestId('list-sort')
-    .getByRole('button', { name: /Sort by/ })
-    .click()
-  await page.getByTestId('sort-added-desc').click()
+  await page.getByRole('combobox', { name: 'Sort by' }).click()
+  await page.getByRole('option', { name: 'Date added, newest first' }).click()
   await page.getByTestId('list-kind').getByRole('radio', { name: 'Expenses' }).click()
   // Quick filters: one sideways row of chips
   await page.getByTestId('quick-me').click()

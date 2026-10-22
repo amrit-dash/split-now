@@ -226,7 +226,7 @@ export function PlusButton({ groupId, onSheet }: { groupId?: string; onSheet: (i
 
 /**
  * The talk pill above +: five bars, centred, that grow up and down with the voice. Words heard so far
- * widen it and run on the right; a finger slid away turns it to "Let go to cancel". Heights are
+ * widen it and run on the right, wrapping to a few lines (the bars stay centred); a finger slid away turns it to "Let go to cancel". Heights are
  * written every frame (no re-render); it fades when the hold ends.
  */
 function TalkPill({ on, level, words, cancel }: { on: boolean; level: { current: number }; words: string; cancel: boolean }) {
@@ -252,14 +252,15 @@ function TalkPill({ on, level, words, cancel }: { on: boolean; level: { current:
     return () => clearTimeout(t)
   }, [on, level])
   if (!shown && !on) return null
-  const text = cancel ? 'Let go to cancel' : liveTail(words, 26)
+  // Up to about three lines of the latest words; the pill grows to hold them, the bars stay centred.
+  const text = cancel ? 'Let go to cancel' : liveTail(words, 90)
   return (
     <span
       aria-hidden
       data-testid="voice-bars"
       data-cancel={cancel || undefined}
-      className={`voice-pill voice-surface pointer-events-none absolute bottom-[calc(100%+3.25rem)] left-1/2 flex h-12 -translate-x-1/2 items-center gap-3 overflow-hidden rounded-full px-4 transition-opacity duration-200 ${cancel ? 'voice-cancel' : ''} ${on ? 'opacity-100' : 'opacity-0'}`}
-      style={{ maxWidth: text ? 'min(20rem, calc(100vw - 2rem))' : '6rem' }}
+      className={`voice-pill voice-surface pointer-events-none absolute bottom-[calc(100%+3.25rem)] left-1/2 flex min-h-12 -translate-x-1/2 items-center gap-3 overflow-hidden px-4 py-2.5 transition-opacity duration-200 ${text ? 'rounded-3xl' : 'rounded-full'} ${cancel ? 'voice-cancel' : ''} ${on ? 'opacity-100' : 'opacity-0'}`}
+      style={text ? { width: 'min(20rem, calc(100vw - 2rem))' } : { maxWidth: '6rem' }}
     >
       <span className="relative flex h-7 shrink-0 items-center gap-[3px]">
         {[0, 1, 2, 3, 4].map((i) => (
@@ -276,7 +277,7 @@ function TalkPill({ on, level, words, cancel }: { on: boolean; level: { current:
       </span>
       {text && (
         <span
-          className={`min-w-0 truncate whitespace-nowrap text-sm font-semibold ${cancel ? 'text-rose-700 dark:text-rose-200' : 'text-slate-800 dark:text-slate-100'}`}
+          className={`line-clamp-3 min-w-0 flex-1 text-sm font-semibold leading-snug ${cancel ? 'text-rose-700 dark:text-rose-200' : 'text-slate-800 dark:text-slate-100'}`}
         >
           {text}
         </span>

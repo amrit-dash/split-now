@@ -576,9 +576,10 @@ html:has(.install-banner) .whats-new-banner { display: none; }
   box-shadow: 0 12px 32px -12px color-mix(in oklab, var(--color-brand-700) 35%, transparent);
 }
 .dark .voice-surface {
-  background: color-mix(in oklab, var(--color-brand-500) 16%, var(--color-ink-900));
-  border-color: color-mix(in oklab, var(--color-brand-400) 35%, transparent);
-  box-shadow: 0 12px 32px -12px rgb(0 0 0 / 0.6);
+  /* deep, so white words stand out; the accent lives in the edge and a faint glow */
+  background: color-mix(in oklab, var(--color-brand-500) 9%, var(--color-ink-900));
+  border-color: color-mix(in oklab, var(--color-brand-400) 45%, transparent);
+  box-shadow: 0 12px 32px -12px rgb(0 0 0 / 0.7), 0 0 24px -8px color-mix(in oklab, var(--color-brand-400) 35%, transparent);
 }
 .voice-surface.voice-cancel {
   background: color-mix(in oklab, #fecdd3 70%, white);
@@ -589,8 +590,8 @@ html:has(.install-banner) .whats-new-banner { display: none; }
   border-color: color-mix(in oklab, #fb7185 40%, transparent);
 }
 .voice-bar { transition: transform 90ms linear; }
-/* the pill grows sideways once words arrive */
-.voice-pill { transition: max-width 260ms cubic-bezier(0.2, 0.9, 0.3, 1), background-color 150ms, border-color 150ms; }
+/* the pill grows once words arrive */
+.voice-pill { transition: max-width 260ms cubic-bezier(0.2, 0.9, 0.3, 1), width 260ms cubic-bezier(0.2, 0.9, 0.3, 1), background-color 150ms, border-color 150ms; }
 @keyframes voice-bubble { from { transform: translateY(14px) scale(0.96); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
 .voice-bubble { animation: voice-bubble 0.38s cubic-bezier(0.2, 0.9, 0.3, 1.15) both; transform-origin: 50% 100%; }
 @media (prefers-reduced-motion: reduce) {
