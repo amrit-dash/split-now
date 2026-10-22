@@ -30,7 +30,7 @@ import { DuplicatePrompt, RecentScans, useScanHistory } from './ScanHistory'
 import type { ScanEntry, ScanMatch, ScanPrint } from '@/lib/scanHistory'
 import { labelOf } from '@/lib/shortNames'
 import { type Hint, HintText, InfoTip } from './Hint'
-import { FeatureIcon } from '@/components/Icon'
+import { ScanCard, ScanIntro } from './ScanCard'
 
 interface Row {
   id: string
@@ -57,7 +57,7 @@ const FLAG: Record<Flag, { text: string; cls: string }> = {
 const MAX_FILES = 6
 
 const INTRO_HINT: Hint = {
-  full: 'Screenshots of your Google Pay, PhonePe, Paytm or bank transactions. We’ll list every payment, flag the ones in your trip dates, and you pick what to add.',
+  full: 'Screenshots of your Google Pay, PhonePe, Paytm or bank transactions, or a photo of a printed statement. We’ll list every payment, flag the ones in your trip dates, and you pick what to add.',
   short: 'Payment screenshots in; you pick what to add',
   tier: 'help',
 }
@@ -319,22 +319,27 @@ export function StatementImport() {
   if (!rows) {
     return (
       <>
-        <div className="card mt-4 overflow-hidden" data-testid="statement-start">
-          <div className="flex flex-col items-center px-6 py-8 text-center">
-            <div
-              className="mb-3 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-fill-500 to-fill-to text-3xl text-on-fill shadow-lg"
-              aria-hidden
-            >
-              <FeatureIcon name="file" size={34} tone="current" />
-            </div>
-            <div className="flex items-center justify-center">
-              <h2 className="font-bold">Add expenses from a statement</h2>
-              <InfoTip hint={INTRO_HINT} label="About statements" />
-            </div>
-            <HintText hint={INTRO_HINT} className="text-muted mt-1 text-sm" />
-          </div>
-          <div className="p-3 pt-0">
-            {blocked ? (
+        <ScanCard
+          kind="statement"
+          testId="statement-start"
+          photosTestId="statement-pick"
+          multiple
+          onFiles={(f) => void onFiles(f)}
+          disabled={busy || !groups}
+          aiHidden={busy}
+          top={<ScanIntro icon="file" title="Add expenses from a statement" hint={INTRO_HINT} infoLabel="About statements" />}
+          below={
+            !blocked && !busy ? (
+              <p className="text-muted -mt-1 flex items-center justify-center gap-1.5 px-3 pb-3 text-xs">
+                <Sparkles size={12} className="text-brand-500" aria-hidden />
+                {aiScanPossible() ? <HintText hint={READER_HINT} as="span" /> : 'Demo: shows a sample statement.'}
+                {aiScanPossible() && <InfoTip hint={READER_HINT} label="About reading statements" />}
+              </p>
+            ) : undefined
+          }
+        >
+          {blocked ? (
+            <div className="p-3 pt-0">
               <div className="rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800" role="status" data-testid="statement-blocked">
                 <p>Statement import needs AI, which isn’t turned on for your account.</p>
                 <p className="text-muted mt-1 text-xs">
@@ -359,52 +364,18 @@ export function StatementImport() {
                   )}
                 </p>
               </div>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  className="btn-primary w-full"
-                  onClick={() => fileRef.current?.click()}
-                  disabled={busy || !groups}
-                  data-testid="statement-pick"
-                >
-                  {busy ? (
-                    <>
-                      <Loader2 size={18} className="animate-spin" aria-hidden /> {stage === 'prep' ? 'Preparing screenshots…' : 'Reading with AI…'}
-                    </>
-                  ) : (
-                    <>
-                      <ImageAddIcon size={18} aria-hidden /> Choose screenshots
-                    </>
-                  )}
-                </button>
-                {busy ? (
-                  <button type="button" className="btn-ghost btn-sm mt-2 w-full" onClick={cancel} data-testid="statement-cancel">
-                    <X size={16} aria-hidden /> Cancel
-                  </button>
-                ) : (
-                  <p className="text-muted mt-2 flex items-center justify-center gap-1.5 text-xs">
-                    <Sparkles size={12} className="text-brand-500" aria-hidden />
-                    {aiScanPossible() ? <HintText hint={READER_HINT} as="span" /> : 'Demo: shows a sample statement.'}
-                    {aiScanPossible() && <InfoTip hint={READER_HINT} label="About reading statements" />}
-                  </p>
-                )}
-              </>
-            )}
-          </div>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            multiple
-            hidden
-            onChange={(e) => {
-              const f = [...(e.target.files ?? [])]
-              e.target.value = ''
-              onFiles(f)
-            }}
-          />
-        </div>
+            </div>
+          ) : busy ? (
+            <div className="p-3 pt-0">
+              <p className="btn-primary pointer-events-none w-full opacity-80" role="status" aria-live="polite" data-testid="statement-reading">
+                <Loader2 size={18} className="animate-spin" aria-hidden /> {stage === 'prep' ? 'Preparing screenshots…' : 'Reading with AI…'}
+              </p>
+              <button type="button" className="btn-ghost btn-sm mt-2 w-full" onClick={cancel} data-testid="statement-cancel">
+                <X size={16} aria-hidden /> Cancel
+              </button>
+            </div>
+          ) : undefined}
+        </ScanCard>
         {dupPrompt}
         {!busy && !dup && <RecentScans entries={hist.entries} currency="INR" onOpen={openEntry} onDelete={(e) => hist.remove(e.id)} onClear={hist.clear} />}
       </>

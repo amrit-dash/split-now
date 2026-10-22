@@ -407,6 +407,28 @@ test('scan page loads', async ({ page }) => {
   await expect(page.getByRole('button', { name: /camera/i })).toBeVisible()
 })
 
+test('Scan: every kind has Camera and Photos; Read with AI is a corner button on Bill and Statement, not Payment', async ({ page }) => {
+  await page.goto('/scan')
+  const kinds = page.getByTestId('scan-mode')
+  await expect(page.getByTestId('scan-camera')).toBeVisible()
+  await expect(page.getByTestId('scan-photos')).toBeVisible()
+  // demo mode can't read with AI: the button stays, unpressed, and a tap says why
+  const ai = page.getByTestId('scan-ai')
+  await expect(ai).toHaveAttribute('aria-pressed', 'false')
+  await expect(ai).toHaveAccessibleName(/Read with AI/)
+  await ai.click()
+  await expect(page.getByText('AI reading isn’t part of the demo. Bills are read on this phone.')).toBeVisible()
+  // payment screenshots are read on the phone only
+  await kinds.getByRole('radio', { name: 'Payment' }).click()
+  await expect(page.getByTestId('scan-camera')).toBeVisible()
+  await expect(page.getByTestId('scan-ai')).toHaveCount(0)
+  await kinds.getByRole('radio', { name: 'Statement' }).click()
+  await expect(page.getByTestId('statement-start')).toBeVisible()
+  await expect(page.getByTestId('scan-camera')).toBeVisible()
+  await expect(page.getByTestId('statement-pick')).toBeVisible()
+  await expect(page.getByTestId('scan-ai')).toBeVisible()
+})
+
 test('settings page loads', async ({ page }) => {
   await page.goto('/settings')
   await expect(page.getByRole('heading', { level: 1, name: /settings/i })).toBeVisible()
@@ -2173,6 +2195,18 @@ test.describe('Simple mode', () => {
     await expect(page.getByTestId('accent-duo')).toBeVisible()
     await page.reload()
     await expect(page.getByTestId('icon-style')).toBeVisible()
+  })
+
+  test('Scan has no AI corner button on any card, and Statement still shows', async ({ page }) => {
+    await page.goto('/scan')
+    const kinds = page.getByTestId('scan-mode')
+    await expect(page.getByTestId('scan-camera')).toBeVisible()
+    await expect(page.getByTestId('scan-ai')).toHaveCount(0)
+    await kinds.getByRole('radio', { name: 'Statement' }).click()
+    await expect(page.getByTestId('statement-start')).toBeVisible()
+    await expect(page.getByTestId('scan-ai')).toHaveCount(0)
+    await kinds.getByRole('radio', { name: 'Payment' }).click()
+    await expect(page.getByTestId('scan-ai')).toHaveCount(0)
   })
 })
 

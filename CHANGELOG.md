@@ -6,6 +6,7 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Scan: Bill, Payment and Statement share one card, each with **Camera** and **Photos** (Statement can now take a photo of a printed statement too). Read with AI is a bot button in the card's top-right corner (on Bill and Statement; payment screenshots are read on the phone, so Payment has none, and Simple leaves it to Settings). Before, it was a switch row under the Bill card only, Statement had a single Choose screenshots button, and Statement was hidden in the Minimal look.
 - Settings → Encrypted groups opens straight away with what it last knew and updates a moment later. Before, it said “Checking…” for a few seconds on every visit. Its explainer moved into Help: the **?** at the top opens it, and back returns here.
 - **Simple and Advanced** (Settings → Preferences → Mode). Simple shows the everyday app with fewer settings and shorter text; Advanced shows everything, as before. New accounts start in Simple; if you already use captured payments, approvals or changed how the app looks, you start in Advanced. Switching only hides things: what you set up keeps working.
 - Collect in your currency is now on for everyone who hasn't turned it off.
