@@ -27,6 +27,9 @@ Admin (Admin → AI):
 - [ ] Flag: transcription on/off for everyone (off = no AI transcription offered anywhere).
 - [ ] Flag: everyone may use the global transcription key.
 
+Person (Settings → Preferences):
+- [ ] **Transcription: Native | AI**, a two-way Segmented control. Native (default) = the phone's own recognition, free. AI = the recording goes to Flash-Lite. AI is offered only when the admin flag is on and a key is available to that person (global key allowed, or their own key); otherwise the control shows Native only with the reason. If Native is picked on a phone without recognition, the mic hides (or AI is offered when available).
+
 Person (Settings → AI features):
 - [ ] "Transcribe with AI" switch, shown only when the admin flag is on. With the global key allowed, anyone can turn it on; without it, only someone with their own Gemini key.
 - [ ] Which key: Automatic (own key first, then the global one; with the global one not allowed, own key only), Own key, Split Now's key.

@@ -6,6 +6,7 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Sign-in screen: Install Split Now puts its button beside the words where there's room (a computer, a wide phone) and under them only on a narrow phone, with the ✕ at the top corner. Before, the button always sat under the words, which looked out of place on a computer.
 - Group balances: suggested payments that come to you are now green, and only the ones you pay are red. Before, every row was red, even money owed to you.
 - Opening a link or reloading no longer jumps the new screen to where another screen was scrolled.
 - App icon: the logo inside the icon is larger and bolder, so it reads clearly in the Dock, on the Home Screen and in the browser tab. Before, it looked small inside its tile, most of all on a Mac. Reinstall or wait for the browser to refresh an installed icon.

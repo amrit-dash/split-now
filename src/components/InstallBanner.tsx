@@ -263,19 +263,32 @@ function InstallBar({ hint, onDone, className, wrap = false }: { hint: string; o
         {/* wrap (the sign-in screen): the words get the full width and Install sits under them. */}
         <div
           {...swipe.bind}
-          className={`flex gap-2.5 rounded-3xl bg-slate-900 py-2.5 pl-3 pr-1 text-white shadow-2xl shadow-brand-900/40 dark:bg-ink-800 dark:ring-1 dark:ring-white/10 ${wrap ? 'items-start' : 'items-center'}`}
+          className="flex items-center gap-2.5 rounded-3xl bg-slate-900 py-2.5 pl-3 pr-1 text-white shadow-2xl shadow-brand-900/40 dark:bg-ink-800 dark:ring-1 dark:ring-white/10"
         >
-          <img src="/pwa-192.png" alt="" className={`h-10 w-10 shrink-0 rounded-2xl ${wrap ? 'mt-1' : ''}`} />
-          <div className={`min-w-0 flex-1 ${wrap ? 'pt-1' : ''}`}>
-            <div className={`${wrap ? '' : 'truncate '}text-sm font-semibold`}>Install Split Now</div>
-            <HintText as="div" className={`${wrap ? '' : 'truncate '}text-xs text-slate-300`} hint={{ full: hint, tier: 'help' }} />
-            {wrap && <div className="mt-2.5">{installButton}</div>}
-          </div>
-          {!wrap && installButton}
+          <img src="/pwa-192.png" alt="" className={`h-10 w-10 shrink-0 rounded-2xl ${wrap ? 'self-start sm:self-center' : ''}`} />
+          {wrap ? (
+            // The sign-in screen: words and Install on one row where they fit (a computer, a wide
+            // phone), Install dropping under the words only when the row is too narrow for both.
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2.5">
+              <div className="min-w-[11rem] flex-1">
+                <div className="text-sm font-semibold">Install Split Now</div>
+                <HintText as="div" className="text-xs text-slate-300" hint={{ full: hint, tier: 'help' }} />
+              </div>
+              {installButton}
+            </div>
+          ) : (
+            <>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-semibold">Install Split Now</div>
+                <HintText as="div" className="truncate text-xs text-slate-300" hint={{ full: hint, tier: 'help' }} />
+              </div>
+              {installButton}
+            </>
+          )}
           <button
             type="button"
             onClick={dismiss}
-            className="-ml-1.5 flex h-11 w-10 shrink-0 items-center justify-center rounded-full text-slate-300 hover:text-white"
+            className={`-ml-1.5 flex h-11 w-10 shrink-0 items-center justify-center rounded-full text-slate-300 hover:text-white ${wrap ? '-mt-1.5 self-start sm:mt-0 sm:self-center' : ''}`}
             aria-label="Don’t ask again"
           >
             <X size={18} />
