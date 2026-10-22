@@ -61,6 +61,8 @@ export interface UserProfile {
   proAt?: number
   /** Preferences → Show my Pro badge, turned off: no badge for anyone, proAt kept (src/lib/pro.ts proShown). */
   proHidden?: boolean
+  /** Preferences → Show my Dev badge (admins only), turned off (src/lib/pro.ts badgeWord). */
+  devHidden?: boolean
 }
 
 export type PhotoSource = 'upload' | 'google' | 'none'
@@ -82,6 +84,8 @@ export interface Member {
   photoURL?: string
   /** Shows their Pro badge (src/lib/pro.ts), copied from their profile by their own app like the photo. */
   pro?: boolean
+  /** Shows their Dev badge (an admin; the rules accept true only from an admin), copied like `pro`. */
+  dev?: boolean
   /**
    * When they were removed from the group or left it (epoch ms). The entry stays so old expenses
    * keep their name and stay editable; their uid is out of memberUids, so they have no access.

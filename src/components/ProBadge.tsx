@@ -3,14 +3,14 @@ import { Link } from 'react-router-dom'
 import { useMotion } from '@/hooks/useMotion'
 import { usePro } from '@/hooks/usePro'
 import { activeMotion } from '@/lib/motion'
-import { proMarkLabel, proTapTarget } from '@/lib/pro'
-import { PRO_MASK, PRO_RATIO } from '@/lib/pro-glyph'
+import { type BadgeWord, badgeLabel, badgeTapTarget } from '@/lib/pro'
+import { glyphMask, glyphRatio } from '@/lib/pro-glyph'
 import { proRing, proTileRing, type RingArt, tileRingLength } from '@/lib/pro-ring'
 import { mayRestart, PASS_MS, passTravel, type ShimmerKind, type ShimmerPass, shimmerPlan, shimmerTail } from '@/lib/pro-shimmer'
 
 /*
- * The Pro badge (docs/PENDING.md, src/lib/pro.ts): the word PRO in the accent gradient, as a pill
- * beside a name or bent into a ring around a photo or a 1:1's tile. Geometry and timing are pure
+ * The badge (docs/PENDING.md, src/lib/pro.ts): PRO, DEV or PRO DEV in the accent gradient, as a
+ * pill beside a name or bent into a ring around a photo or a 1:1's tile. Geometry and timing are pure
  * and tested (src/lib/pro-ring.ts, pro-shimmer.ts); this file only draws and runs them.
  * Settings → Animations → Pro badge, the master switch and the device's reduce-motion setting
  * still the shine and the turning; the badges stay, still.
@@ -65,10 +65,12 @@ function subscribeShimmer(fn: (kind: ShimmerKind) => void): () => void {
 /* ---------------------------------------------------------------- the word */
 
 /**
- * PRO, `h` px tall, in the accent gradient. Moving: the colours flow slowly inside the letters
- * and light passes on the shared clock. Decorative (aria-hidden): its holder names it.
+ * The word (PRO, DEV or PRO DEV), `h` px tall, in the accent gradient. Moving: the colours flow
+ * slowly inside the letters and light passes on the shared clock. Decorative (aria-hidden): its
+ * holder names it.
  */
-export function ProWord({ h, className = '' }: { h: number; className?: string }) {
+export function ProWord({ h, word = 'pro', className = '' }: { h: number; word?: BadgeWord; className?: string }) {
+  const mask = useMemo(() => glyphMask(word), [word])
   const moving = useProMoving()
   const sweep = useRef<HTMLSpanElement>(null)
   const glint = useRef<HTMLSpanElement>(null)
@@ -93,7 +95,7 @@ export function ProWord({ h, className = '' }: { h: number; className?: string }
     <span
       aria-hidden
       className={`pro-art pro-word ${moving ? '' : 'pro-still'} ${className}`}
-      style={{ height: h, width: h * PRO_RATIO, '--pro-mask': PRO_MASK } as React.CSSProperties}
+      style={{ height: h, width: h * glyphRatio(word), '--pro-mask': mask } as React.CSSProperties}
     >
       <span className="pro-flow" style={{ animationDelay: `${phase}ms` }} />
       {moving && (
@@ -106,31 +108,32 @@ export function ProWord({ h, className = '' }: { h: number; className?: string }
   )
 }
 
-/** PRO on a soft accent pill, sized to sit inline with a name (`h` = letter height: 12 Profile, 9 Members, 7 list lines). */
-export function ProPill({ h, className = '' }: { h: number; className?: string }) {
+/** The word on a soft accent pill, sized to sit inline with a name (`h` = letter height: 12 Profile, 9 Members, 7 list lines). */
+export function ProPill({ h, word = 'pro', className = '' }: { h: number; word?: BadgeWord; className?: string }) {
   return (
     <span className={`pro-pill ${className}`} style={{ padding: `${(h * 0.42).toFixed(1)}px ${(h * 0.78).toFixed(1)}px` }}>
-      <ProWord h={h} />
+      <ProWord h={h} word={word} />
     </span>
   )
 }
 
 /**
- * Someone else's mark: for a viewer who hasn't earned Pro, a link to Help → Earn Pro; for one who
- * has, just the mark (src/lib/pro.ts proTapTarget). `className` sizes the tap area.
+ * Someone else's badge. A plain PRO, for a viewer who hasn't earned Pro, is a link to Help →
+ * Earn Pro; otherwise (DEV, PRO DEV, or a Pro viewer) it's just the mark, with its name for screen
+ * readers (src/lib/pro.ts badgeTapTarget). `className` sizes the tap area.
  */
-export function ProTap({ children, className = '', testId }: { children: ReactNode; className?: string; testId?: string }) {
+export function ProTap({ word, children, className = '', testId }: { word: BadgeWord; children: ReactNode; className?: string; testId?: string }) {
   const { earned } = usePro()
-  const to = proTapTarget(earned)
+  const to = badgeTapTarget(word, earned)
   if (!to)
     return (
       <span className={className} data-testid={testId}>
         {children}
-        <span className="sr-only">{proMarkLabel(false)}</span>
+        <span className="sr-only">{badgeLabel(word, false)}</span>
       </span>
     )
   return (
-    <Link to={to} aria-label={proMarkLabel(true)} className={`transition active:scale-95 ${className}`} data-testid={testId}>
+    <Link to={to} aria-label={badgeLabel(word, true)} className={`transition active:scale-95 ${className}`} data-testid={testId}>
       {children}
     </Link>
   )
@@ -173,12 +176,12 @@ function RingSvg({ art, spin, gradientId, paths }: { art: RingArt; spin?: boolea
 const gid = (raw: string) => `pro${raw.replace(/[^a-zA-Z0-9_-]/g, '')}`
 
 /**
- * ・PRO・PRO・ bent around a round photo `photo` px across, turning once every 40 s. Wraps the
+ * ・PRO・PRO・ (or DEV, PRO DEV) bent around a round photo `photo` px across, turning once every 40 s. Wraps the
  * photo; the ring sits outside it without taking space (the holder keeps room around it).
  */
-export function ProRing({ photo, children }: { photo: number; children: ReactNode }) {
+export function ProRing({ photo, word = 'pro', children }: { photo: number; word?: BadgeWord; children: ReactNode }) {
   const moving = useProMoving()
-  const art = useMemo(() => proRing(photo), [photo])
+  const art = useMemo(() => proRing(photo, word), [photo, word])
   const id = gid(useId())
   return (
     <span className="relative inline-flex shrink-0 items-center justify-center" style={{ width: photo, height: photo }}>
@@ -196,9 +199,9 @@ const TILE_LOOP_MS = 40_000
  * rotated, so the words travel along the outline: their start moves round once every 40 s and the
  * paths are re-bent in place (a few times a second's worth of change, no React render).
  */
-export function ProTileRing({ tile, radius, children }: { tile: number; radius: number; children: ReactNode }) {
+export function ProTileRing({ tile, radius, word = 'pro', children }: { tile: number; radius: number; word?: BadgeWord; children: ReactNode }) {
   const moving = useProMoving()
-  const art = useMemo(() => proTileRing(tile, radius), [tile, radius])
+  const art = useMemo(() => proTileRing(tile, radius, 0, word), [tile, radius, word])
   const id = gid(useId())
   const group = useRef<SVGGElement | null>(null)
   useEffect(() => {
@@ -217,7 +220,7 @@ export function ProTileRing({ tile, radius, children }: { tile: number; radius: 
       // Only when it has moved enough to see (about a third of a pixel).
       if (Math.abs(offset - shown) < 0.33 && offset >= shown) return
       shown = offset
-      const moved = proTileRing(tile, radius, offset)
+      const moved = proTileRing(tile, radius, offset, word)
       moved.words.forEach((d, i) => {
         words[i]?.setAttribute('d', d)
       })
@@ -228,7 +231,7 @@ export function ProTileRing({ tile, radius, children }: { tile: number; radius: 
     }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [moving, tile, radius])
+  }, [moving, tile, radius, word])
   return (
     <span className="relative inline-flex shrink-0" style={{ width: tile, height: tile }}>
       {children}

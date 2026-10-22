@@ -51,6 +51,11 @@ const DETAIL_HINT: Hint = {
 }
 
 /** /settings/preferences: default currency (with the rates refresh), theme, accent and detail level. All autosave; the look follows the account (appearance-sync.ts). */
+const DEV_HINT: Hint = {
+  full: 'For the people who run Split Now. Off hides it on your profile and from the people in your groups.',
+  short: 'On your profile and in your groups',
+  tier: 'help',
+}
 const PRO_HINT: Hint = {
   full: 'You earned it by finishing Help. Off hides it on your profile and from the people in your groups.',
   short: 'On your profile and in your groups',
@@ -99,6 +104,14 @@ export default function Preferences() {
   // Off takes the badge away for everyone (memberProfileOf, the member sync); proAt stays, so on brings it back.
   const pro = usePro()
   const [proSaved, flashPro] = useSavedFlash()
+  const setDevShown = async (on: boolean) => {
+    try {
+      await repo.setDevHidden(profile.uid, !on)
+      flashPro()
+    } catch (e) {
+      toast(errText(e), 'err')
+    }
+  }
   const setProShown = async (on: boolean) => {
     try {
       await repo.setProHidden(profile.uid, !on)
@@ -278,19 +291,35 @@ export default function Preferences() {
         <HintText hint={SYNC_HINT} />
       </div>
 
-      {/* Only once earned (src/lib/pro.ts), in Simple and Advanced alike. */}
-      {pro.earned && (
+      {/* The badge (src/lib/pro.ts): Pro only once earned, Dev only for admins, in Simple and Advanced alike. Independent: both on reads PRO DEV. */}
+      {(pro.earned || pro.admin) && (
         <>
-          <SectionTitle saved={proSaved}>Pro</SectionTitle>
-          <div className="card flex items-center justify-between gap-3 p-4">
-            <div className="min-w-0">
-              <div className="flex items-center font-medium">
-                Show my Pro badge
-                <InfoTip hint={PRO_HINT} label="About the Pro badge" />
+          <SectionTitle saved={proSaved}>Badge</SectionTitle>
+          <div className="card space-y-4 p-4">
+            {pro.earned && (
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center font-medium">
+                    Show my Pro badge
+                    <InfoTip hint={PRO_HINT} label="About the Pro badge" />
+                  </div>
+                  <HintText hint={PRO_HINT} />
+                </div>
+                <Switch checked={pro.shown} onChange={(on) => void setProShown(on)} label="Show my Pro badge" testId="pro-shown" />
               </div>
-              <HintText hint={PRO_HINT} />
-            </div>
-            <Switch checked={pro.shown} onChange={(on) => void setProShown(on)} label="Show my Pro badge" testId="pro-shown" />
+            )}
+            {pro.admin && (
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center font-medium">
+                    Show my Dev badge
+                    <InfoTip hint={DEV_HINT} label="About the Dev badge" />
+                  </div>
+                  <HintText hint={DEV_HINT} />
+                </div>
+                <Switch checked={pro.dev} onChange={(on) => void setDevShown(on)} label="Show my Dev badge" testId="dev-shown" />
+              </div>
+            )}
           </div>
         </>
       )}

@@ -40,4 +40,10 @@ describe('memberProfileOf: the Pro mark', () => {
     // turned off in Preferences: gone for everyone (the shared doc is replaced, so absent clears it)
     expect('pro' in memberProfileOf({ ...p, proAt: 5, proHidden: true })).toBe(false)
   })
+  it('shares dev: true only for an admin who shows it', () => {
+    expect('dev' in memberProfileOf(p)).toBe(false)
+    expect(memberProfileOf(p, true).dev).toBe(true)
+    expect('dev' in memberProfileOf({ ...p, devHidden: true }, true)).toBe(false)
+    expect(memberProfileOf({ ...p, proAt: 5 }, true)).toMatchObject({ pro: true, dev: true })
+  })
 })

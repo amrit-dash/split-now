@@ -598,6 +598,11 @@ export function createLocalRepo(): Repo {
       const p = state.profiles[id]
       if (p && (p.proHidden === true) !== hidden) await repo.saveProfile({ ...p, proHidden: hidden })
     },
+    // The demo has no admins, so no Dev badge of your own; kept so the switch behaves the same.
+    async setDevHidden(id, hidden) {
+      const p = state.profiles[id]
+      if (p && (p.devHidden === true) !== hidden) await repo.saveProfile({ ...p, devHidden: hidden })
+    },
     async uploadAvatar(_uid, jpeg) {
       return blobToDataUrl(jpeg)
     },
@@ -682,12 +687,18 @@ export function createLocalRepo(): Repo {
       const g = state.groups[group.id]
       const m = g?.members[memberId]
       if (!g || !m || m.uid !== actor()) return
-      const { photoURL: _old, pro: _pro, ...rest } = m
+      const { photoURL: _old, pro: _pro, dev: _dev, ...rest } = m
       state.groups[group.id] = {
         ...g,
         members: {
           ...g.members,
-          [memberId]: { ...rest, name: patch.name, ...(patch.photoURL ? { photoURL: patch.photoURL } : {}), ...(patch.pro ? { pro: true } : {}) },
+          [memberId]: {
+            ...rest,
+            name: patch.name,
+            ...(patch.photoURL ? { photoURL: patch.photoURL } : {}),
+            ...(patch.pro ? { pro: true } : {}),
+            ...(patch.dev ? { dev: true } : {}),
+          },
         },
       }
       commit()

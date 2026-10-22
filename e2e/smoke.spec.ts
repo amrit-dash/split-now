@@ -2219,12 +2219,16 @@ async function makeMePro(page: Page) {
   await page.reload()
 }
 
-test('Pro: Rohan’s pill on Members opens Help → Earn Pro for someone without Pro; once you have it, it is just a mark', async ({ page }) => {
+test('Pro: Rohan’s pill on Members opens Help → Earn Pro for someone without Pro; once you have it, it is just a mark; Dev never links', async ({ page }) => {
   await page.goto('/groups/g_goa/members')
   const rohan = page.getByTestId('member-row').filter({ hasText: 'Rohan' })
   const pill = rohan.getByTestId('member-pro')
   await expect(pill).toBeVisible()
-  await expect(page.getByTestId('member-pro')).toHaveCount(1)
+  // Ananya is Dev (an admin's badge): a mark only, never a link, for anyone.
+  const dev = page.getByTestId('member-row').filter({ hasText: 'Ananya' }).getByTestId('member-pro')
+  await expect(dev).toBeVisible()
+  await expect(dev).toContainText('Dev')
+  await expect(page.getByTestId('member-row').filter({ hasText: 'Ananya' }).getByRole('link')).toHaveCount(0)
   await expect(pill).toHaveAttribute('aria-label', 'Pro. How to earn it')
   await pill.click()
   await expect(page).toHaveURL(/\/help\/earn-pro$/)

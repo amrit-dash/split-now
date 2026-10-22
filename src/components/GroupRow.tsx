@@ -14,7 +14,7 @@ import { currencySymbol, lockedText, scrambledAmount } from '@/lib/vault-scrambl
 import { AnimalStack, LockedTile } from '@/features/vault/Scrambled'
 import { useMe } from '@/hooks/auth'
 import { usePro } from '@/hooks/usePro'
-import { friendPro, proTapTarget } from '@/lib/pro'
+import { badgeLabel, badgeTapTarget, friendBadge } from '@/lib/pro'
 import { ProPill, ProTap } from './ProBadge'
 
 /** One group in a list: icon, name, members (spend for a personal wallet, "Friend" for a 1:1) and your balance in words and numbers. */
@@ -25,10 +25,10 @@ export function GroupRow({ d }: { d: GroupData }) {
   const personal = d.group.type === 'personal'
   const spent = spending(d.expenses).reduce((s, e) => s + e.amount, 0)
   if (d.locked) return <LockedRow d={d} count={members.length} />
-  // A 1:1 whose friend is Pro (src/lib/pro.ts): [PRO] · Friend. Their pill opens Help → Earn Pro
-  // for a viewer who hasn't earned it, so then it's a link of its own.
-  const isPro = friendPro(d.group)
-  const proLink = isPro && proTapTarget(earned) !== null
+  // A 1:1 whose friend has a badge (src/lib/pro.ts): [PRO] · Friend. A plain PRO opens Help → Earn
+  // Pro for a viewer who hasn't earned it, so then it's a link of its own.
+  const badge = friendBadge(d.group)
+  const proLink = !!badge && badgeTapTarget(badge, earned) !== null
   // An open private group has its own lock button in the row (like the Groups screen's for all of
   // them), and a Pro friend's pill its own link. A button or link can't sit inside a link, so then the
   // row's link is its background and they sit above it.
@@ -65,16 +65,16 @@ export function GroupRow({ d }: { d: GroupData }) {
           ) : d.group.type === 'direct' ? (
             // A 1:1 is just the two of you: no faces to stack (the friend is the icon).
             <span className="text-muted flex items-center gap-1 text-xs">
-              {isPro && (
+              {badge && (
                 <>
                   {proLink ? (
-                    <ProTap className="pointer-events-auto relative z-10 -my-2 -ml-1 flex min-h-7 items-center px-1" testId="group-row-pro">
-                      <ProPill h={7} />
+                    <ProTap word={badge} className="pointer-events-auto relative z-10 -my-2 -ml-1 flex min-h-7 items-center px-1" testId="group-row-pro">
+                      <ProPill h={7} word={badge} />
                     </ProTap>
                   ) : (
                     <span className="flex items-center">
-                      <ProPill h={7} />
-                      <span className="sr-only">Pro</span>
+                      <ProPill h={7} word={badge} />
+                      <span className="sr-only">{badgeLabel(badge, false)}</span>
                     </span>
                   )}
                   <span aria-hidden>·</span>

@@ -9,6 +9,7 @@ import type { Group, UserProfile } from '@/types'
 import { defaultCurrency } from '@/lib/locale'
 import { ownMemberSyncs } from '@/lib/memberSync'
 import { proShown } from '@/lib/pro'
+import { useAiStatus } from '@/hooks/useAiStatus'
 
 // Last value written to each member entry this session (group/member → name|photo), so a
 // refused write (or a snapshot that hasn't caught up yet) isn't re-sent on every snapshot.
@@ -25,6 +26,9 @@ function useOwnMemberSync(user: AuthUser | null, profile: UserProfile | null) {
   const photo = profile?.photoURL
   // Pro (src/lib/pro.ts): the mark rides along with the name and photo.
   const pro = proShown(profile)
+  // Dev: an admin (aiStatus().admin, the same check the rules make); the rules refuse `dev` from anyone else.
+  const admin = !!useAiStatus()?.admin
+  const devHidden = profile?.devHidden === true
   const ready = !!profile && profile.uid === uid
   useEffect(() => {
     if (!uid || !ready) return
@@ -37,16 +41,22 @@ function useOwnMemberSync(user: AuthUser | null, profile: UserProfile | null) {
       (groups) => {
         // A private group locked on this phone shows its names scrambled and takes no writes: it syncs once opened.
         const shown = pro ? { proAt: 1 } : {}
-        for (const s of ownMemberSyncs(withoutLocked(groups, isUnlocked), uid, { displayName: name ?? '', photoURL: photo, ...shown }, repo.mode === 'demo')) {
+        for (const s of ownMemberSyncs(
+          withoutLocked(groups, isUnlocked),
+          uid,
+          { displayName: name ?? '', photoURL: photo, devHidden, ...shown },
+          repo.mode === 'demo',
+          admin,
+        )) {
           const key = `${s.group.id}/${s.memberId}`
-          const value = `${s.patch.name}|${s.patch.photoURL ?? ''}|${s.patch.pro ? 'pro' : ''}`
+          const value = `${s.patch.name}|${s.patch.photoURL ?? ''}|${s.patch.pro ? 'pro' : ''}|${s.patch.dev ? 'dev' : ''}`
           if (synced.get(key) === value) continue
           synced.set(key, value)
           repo.updateOwnMember(s.group, s.memberId, s.patch).catch((e) => console.warn('Member sync failed', e))
         }
       },
     )
-  }, [uid, ready, name, photo, pro])
+  }, [uid, ready, name, photo, pro, admin, devHidden])
 }
 
 interface AuthState {

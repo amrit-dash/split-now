@@ -38,7 +38,7 @@ import type { DeletionBlocker, DeletionStep } from '../../shared/account-delete'
 import { defaultCurrency, formatDate } from '@/lib/locale'
 import { purgeHeld, purgeOpensAt } from '../../shared/group-trash'
 import { sharedPhotoURL, type OwnMemberPatch } from '@/lib/memberSync'
-import { proShown } from '@/lib/pro'
+import { devShown, proShown } from '@/lib/pro'
 import { labelForUid, labelOf, memberIdOfUid } from '@/lib/shortNames'
 
 export type Unsub = () => void
@@ -164,11 +164,15 @@ export interface MemberProfile {
   collect?: boolean
   /** Their Pro badge shows (src/lib/pro.ts proShown); absent otherwise. Cosmetic, set by their own app. */
   pro?: boolean
+  /** Their Dev badge shows (an admin, src/lib/pro.ts devShown); the rules accept it only from an admin. */
+  dev?: boolean
 }
 
 /** The shareable part of a private profile (data: URLs are demo-only and never shared). */
 export function memberProfileOf(
-  p: Pick<UserProfile, 'displayName' | 'payment' | 'photoURL'> & Partial<Pick<UserProfile, 'currency' | 'collectInHome' | 'proAt' | 'proHidden'>>,
+  p: Pick<UserProfile, 'displayName' | 'payment' | 'photoURL'> & Partial<Pick<UserProfile, 'currency' | 'collectInHome' | 'proAt' | 'proHidden' | 'devHidden'>>,
+  /** an admin (admins/{uid}): shares `dev` unless they hid it */
+  admin = false,
 ): MemberProfile {
   const photo = sharedPhotoURL(p.photoURL)
   return compact({
@@ -180,6 +184,7 @@ export function memberProfileOf(
     collect: p.collectInHome !== false,
     // Only while it shows: turning the badge off removes it here (the doc is replaced, not merged).
     pro: proShown(p) ? true : undefined,
+    dev: devShown(p, admin) ? true : undefined,
   })
 }
 
@@ -309,6 +314,8 @@ export interface Repo {
   markPro(uid: string): Promise<void>
   /** Preferences → Show my Pro badge: `hidden` stores proHidden on the profile and takes the badge off every group (proAt stays). */
   setProHidden(uid: string, hidden: boolean): Promise<void>
+  /** Preferences → Show my Dev badge (admins): the same for DEV, as devHidden. */
+  setDevHidden(uid: string, hidden: boolean): Promise<void>
 
   /**
    * Private groups (docs/VAULT.md): one step of the vault callable (functions/src/vault.ts) —

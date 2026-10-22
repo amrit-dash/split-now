@@ -1,7 +1,8 @@
-import { PRO_D, PRO_H, PRO_W } from './pro-glyph'
+import type { BadgeWord } from './pro'
+import { GLYPHS, PRO_D, PRO_H, PRO_W } from './pro-glyph'
 
 /*
- * The PRO ring (docs/PENDING.md, Pro badge): ・PRO・PRO・ bent around a photo or a 1:1's tile.
+ * The badge ring (docs/PENDING.md, Pro badge): ・PRO・PRO・ (or DEV, or PRO DEV) bent around a photo or a 1:1's tile.
  * Each letter is bent, not just placed: every point of the traced word moves onto a track (a
  * circle, or the tile's rounded square), x along it and y across it, so the word follows the curve
  * the way type on a coin does. Pure geometry; src/components/ProBadge.tsx draws it.
@@ -158,20 +159,26 @@ export function ringLetterHeight(size: number): number {
   return Math.max(3.8, Math.min(5.6, size * 0.08))
 }
 
-/** How many PRO + dot repeats fit a track: each word plus a small gap with a dot on either side. */
-export function ringRepeats(length: number, h: number): number {
-  const unit = h * (PRO_W / PRO_H) + 2 * h * 0.85
-  return Math.max(4, Math.round(length / unit))
+/**
+ * How many word + dot repeats fit a track, spaced evenly: each word plus a small gap with a dot on
+ * either side. `ratio` is the word's width over its height (PRO DEV is longer, so fewer fit).
+ */
+export function ringRepeats(length: number, h: number, ratio: number = PRO_W / PRO_H): number {
+  const unit = h * ratio + 2 * h * 0.85
+  return Math.max(minRepeats(ratio), Math.round(length / unit))
 }
+// At least four short words round a ring, or two long ones.
+const minRepeats = (ratio: number) => (ratio > 4 ? 2 : 4)
 
-function lay(track: Track, h: number, size: number, offset: number): RingArt {
-  const n = ringRepeats(track.length, h)
+function lay(track: Track, h: number, size: number, offset: number, word: BadgeWord): RingArt {
+  const g = GLYPHS[word]
+  const n = ringRepeats(track.length, h, g.w / g.h)
   const step = track.length / n
   const words: string[] = []
   const dots: RingDot[] = []
   for (let i = 0; i < n; i++) {
     const s = offset + i * step
-    words.push(bendWord(track, s, h))
+    words.push(bendWord(track, s, h, g.d, g.w, g.h))
     const q = track.at(s + step / 2)
     dots.push({ x: +q.x.toFixed(2), y: +q.y.toFixed(2), r: +(h * 0.17).toFixed(2) })
   }
@@ -179,10 +186,10 @@ function lay(track: Track, h: number, size: number, offset: number): RingArt {
 }
 
 /** The ring around a round photo `photo` px across, 2 px clear of it. */
-export function proRing(photo: number): RingArt {
+export function proRing(photo: number, word: BadgeWord = 'pro'): RingArt {
   const h = ringLetterHeight(photo)
   const r = photo / 2 + 2 + h / 2
-  return lay(circleTrack(r), h, Math.ceil(2 * (r + h / 2 + 1)), 0)
+  return lay(circleTrack(r), h, Math.ceil(2 * (r + h / 2 + 1)), 0, word)
 }
 
 /** The gap between a 1:1's tile and its ring (owner's board: a little more than the photo's). */
@@ -200,9 +207,9 @@ export function tileRingLength(tile: number, radius: number): number {
 }
 
 /** The ring along a rounded-square tile `tile` px across with corner radius `radius`; `offset` (px along it) turns it. */
-export function proTileRing(tile: number, radius: number, offset = 0): RingArt {
+export function proTileRing(tile: number, radius: number, offset = 0, word: BadgeWord = 'pro'): RingArt {
   const { h, out, track } = tileTrack(tile, radius)
-  return lay(track, h, Math.ceil(tile + 2 * (out + h / 2 + 1)), offset)
+  return lay(track, h, Math.ceil(tile + 2 * (out + h / 2 + 1)), offset, word)
 }
 
 /** Every x,y pair in a path made by bendWord (for tests and bounds). */

@@ -65,6 +65,20 @@ describe('bendWord', () => {
   })
 })
 
+describe('DEV and PRO DEV rings', () => {
+  it('fit fewer repeats of the longer word, evenly, on the same circle', () => {
+    const pro = proRing(58, 'pro')
+    const dev = proRing(58, 'dev')
+    const both = proRing(58, 'prodev')
+    expect(dev.words.length).toBe(pro.words.length)
+    expect(both.words.length).toBeLessThan(pro.words.length)
+    expect(both.words.length).toBeGreaterThanOrEqual(2)
+    const r = 29 + 2 + both.h / 2
+    for (const w of both.words) for (const [x, y] of pathPoints(w)) expect(Math.abs(Math.hypot(x, y) - r)).toBeLessThanOrEqual(both.h / 2 + 0.02)
+    expect(proTileRing(56, 16, 0, 'prodev').words.length).toBeLessThan(proTileRing(56, 16, 0, 'pro').words.length)
+  })
+})
+
 describe('roundedSquareTrack', () => {
   it('walks the outline: corners on the arcs, sides straight, length 4·side + 2πR', () => {
     const t = roundedSquareTrack(80, 20)

@@ -11,6 +11,7 @@ import { appLocale } from '@/lib/locale'
 import { usePro } from '@/hooks/usePro'
 import { Avatar } from './Avatar'
 import { ProPill, ProRing } from './ProBadge'
+import { badgeLabel } from '@/lib/pro'
 import { HintText, InfoTip, type Hint } from './Hint'
 import { useToast } from './Toast'
 
@@ -52,8 +53,8 @@ export function AccountCard({
   const [open, setOpen] = useState(false)
   const bodyId = useId()
   const signingIn = useFeature('signingIn')
-  // Pro (src/lib/pro.ts): the ring on the photo and the pill by the name, while the badge shows.
-  const pro = usePro().shown
+  // The badge (src/lib/pro.ts): the ring on the photo and the pill by the name, while it shows.
+  const pro = usePro().word
   const sub = email ?? (repo.mode === 'demo' ? 'Demo account (this device only)' : phone || '')
   return (
     <div className="card overflow-hidden">
@@ -66,7 +67,7 @@ export function AccountCard({
           data-testid="profile-photo"
         >
           {pro ? (
-            <ProRing photo={60}>
+            <ProRing photo={60} word={pro}>
               <Avatar name={name || '?'} photoURL={photoURL} color="accent" size={60} />
             </ProRing>
           ) : (
@@ -93,8 +94,8 @@ export function AccountCard({
               {pro && (
                 // Your own badge: just the mark, nothing to tap.
                 <span className="flex shrink-0 items-center" data-testid="profile-pro">
-                  <ProPill h={12} />
-                  <span className="sr-only">Pro</span>
+                  <ProPill h={12} word={pro} />
+                  <span className="sr-only">{badgeLabel(pro, false)}</span>
                 </span>
               )}
             </span>

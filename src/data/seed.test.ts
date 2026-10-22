@@ -15,13 +15,16 @@ describe('demo seed', () => {
     ])
   })
 
-  it('Rohan is Pro, so the badge shows in the demo; nobody else is', () => {
-    const pros = Object.values(s.groups).flatMap((g) =>
+  it('Rohan is Pro and Ananya Dev, so both badges show in the demo; nobody else has one', () => {
+    const marks = Object.values(s.groups).flatMap((g) =>
       Object.values(g.members)
-        .filter((m) => m.pro === true)
-        .map((m) => m.name),
+        .filter((m) => m.pro === true || m.dev === true)
+        .map((m) => [m.name, m.pro === true ? 'pro' : 'dev']),
     )
-    expect(pros).toEqual(['Rohan'])
+    expect(marks).toEqual([
+      ['Rohan', 'pro'],
+      ['Ananya', 'dev'],
+    ])
   })
 
   it('every expense balances to the paisa', () => {

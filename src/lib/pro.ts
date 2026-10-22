@@ -1,9 +1,16 @@
 /*
- * Pro (docs/PENDING.md, Pro badge): a mark for people who finished Help. It is cosmetic: the
- * app sets it on the person's own profile (users/{uid}.proAt, the date earned, set once) and
- * shares `pro: true` with their groups (their member entries and per-group profiles) unless they
- * turned the badge off in Preferences (proHidden). No server checks it; nothing depends on it.
+ * The badge (docs/PENDING.md, Pro badge): one word beside a person, in three versions.
+ *  - PRO: they finished Help. Cosmetic: the app sets it on their own profile (users/{uid}.proAt,
+ *    the date earned, set once) and shares `pro: true` with their groups (member entries and
+ *    per-group profiles) unless they turned it off in Preferences (proHidden). No server check.
+ *  - DEV: they are an admin (admins/{uid}, the rules' isAdmin()). Shared as `dev: true`, which the
+ *    rules accept only from an admin, so it can't be faked; off in Preferences with devHidden.
+ *  - PRO DEV: both.
+ * Only PRO is tappable (it opens Help on how to earn it); DEV and PRO DEV are just marks.
  */
+
+/** Which word a badge says. */
+export type BadgeWord = 'pro' | 'dev' | 'prodev'
 
 /** Help's section on how Pro is earned; tapping someone else's mark opens it. */
 export const EARN_PRO_PATH = '/help/earn-pro'
@@ -13,6 +20,8 @@ export interface ProFields {
   proAt?: number
   /** Preferences → Show my Pro badge, off: no badge anywhere, for anyone; proAt stays */
   proHidden?: boolean
+  /** Preferences → Show my Dev badge (admins), off */
+  devHidden?: boolean
 }
 
 /** Whether this person finished Help (whatever they chose to show). */
@@ -28,6 +37,26 @@ export function proShown(p: ProFields | null | undefined): boolean {
 /** A co-member's mark, from their member entry (or per-group profile): only `true` counts. */
 export function memberPro(m: { pro?: unknown } | null | undefined): boolean {
   return m?.pro === true
+}
+
+/** Whether their Dev badge shows: an admin who hasn't turned it off. */
+export function devShown(p: ProFields | null | undefined, isAdmin: boolean): boolean {
+  return isAdmin && p?.devHidden !== true
+}
+
+const wordOf = (pro: boolean, dev: boolean): BadgeWord | null => (pro && dev ? 'prodev' : pro ? 'pro' : dev ? 'dev' : null)
+
+/**
+ * Your own badge, if any: PRO once Help is done (unless hidden), DEV for an admin (unless hidden),
+ * PRO DEV for both. The two switches are independent.
+ */
+export function badgeWord(p: ProFields | null | undefined, isAdmin: boolean): BadgeWord | null {
+  return wordOf(proShown(p), devShown(p, isAdmin))
+}
+
+/** Someone else's badge, from their member entry or per-group profile (`pro`, `dev`: only true counts). */
+export function memberBadge(m: { pro?: unknown; dev?: unknown } | null | undefined): BadgeWord | null {
+  return wordOf(m?.pro === true, m?.dev === true)
 }
 
 /**
@@ -47,12 +76,23 @@ export function proTapTarget(viewerEarned: boolean): string | null {
   return viewerEarned ? null : EARN_PRO_PATH
 }
 
-/** The spoken name of a mark: what it is, and what tapping does when it does something. */
-export function proMarkLabel(tappable: boolean): string {
-  return tappable ? 'Pro. How to earn it' : 'Pro'
+/** Where tapping someone else's badge goes: only a plain PRO links anywhere (DEV and PRO DEV are just marks). */
+export function badgeTapTarget(word: BadgeWord, viewerEarned: boolean): string | null {
+  return word === 'pro' ? proTapTarget(viewerEarned) : null
 }
 
-/** A 1:1 whose friend shows the Pro badge (their member entry's mark). */
-export function friendPro(g: { type?: string; peer?: string; members?: Record<string, { name?: string; pro?: unknown } | undefined> }): boolean {
-  return g.type === 'direct' && !!g.peer && memberPro(g.members?.[g.peer])
+const SPOKEN: Record<BadgeWord, string> = { pro: 'Pro', dev: 'Dev', prodev: 'Pro, Dev' }
+
+/** The spoken name of a mark: what it says, and what tapping does when it does something. */
+export function badgeLabel(word: BadgeWord, tappable: boolean): string {
+  return tappable ? `${SPOKEN[word]}. How to earn it` : SPOKEN[word]
+}
+
+/** The badge of a 1:1's friend (their member entry's marks), if any. */
+export function friendBadge(g: {
+  type?: string
+  peer?: string
+  members?: Record<string, { name?: string; pro?: unknown; dev?: unknown } | undefined>
+}): BadgeWord | null {
+  return g.type === 'direct' && g.peer ? memberBadge(g.members?.[g.peer]) : null
 }
