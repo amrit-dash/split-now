@@ -1,13 +1,19 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowRight, ChevronRight, Search } from 'lucide-react'
+import { ArrowRight, Check, ChevronRight, Search } from 'lucide-react'
 import { Empty, PageHeader, Segmented } from '@/components/Misc'
 import { FeatureIcon } from '@/components/Icon'
 import { StepPlayer, StepText } from '@/features/help/StepPlayer'
 import { StoryPlayer } from '@/features/help/StoryPlayer'
 import { APP_SEMVER, useWhatsNew } from '@/hooks/useWhatsNew'
 import { usePageTitle } from '@/lib/brand'
-import { guideLayout, type HelpSection, relatedOf, searchHelp } from '@/lib/help'
+import { guideLayout, type HelpSection, relatedOf, searchHelp, sectionsFor } from '@/lib/help'
+import { helpProgress, withDone } from '@/lib/help-progress'
+import { repo } from '@/data'
+import { useMe } from '@/hooks/auth'
+import { useHelpProgressLoaded, useHelpProgressState } from '@/hooks/useHelpProgress'
+import { useMode } from '@/hooks/useMode'
+import { HelpRing } from '@/features/help/HelpRing'
 import { CHAPTERS, SECTIONS } from '@/lib/help-content'
 import { type Release, releasesFor } from '@/lib/whats-new'
 
@@ -29,9 +35,10 @@ function HelpHome() {
   const tab: Tab = params.get('tab') === 'new' ? 'new' : 'guide'
   usePageTitle(tab === 'new' ? 'What’s new' : 'Help')
   const { unseen } = useWhatsNew()
+  const { progress } = useGuide()
   return (
     <div>
-      <PageHeader title="Help" back="/profile" />
+      <PageHeader title="Help" back="/profile" right={<HelpRing pct={progress.pct} done={progress.done} total={progress.total} />} />
       <Segmented<Tab>
         value={tab}
         onChange={(t) => setParams(t === 'new' ? { tab: 'new' } : {}, { replace: true })}
@@ -83,8 +90,10 @@ function Guide() {
       },
       { replace: true },
     )
-  const found = searchHelp(q, SECTIONS)
-  const layout = guideLayout(CHAPTERS, SECTIONS)
+  // Only what this person's mode shows (Simple leaves out what it hides), with what they've finished.
+  const { shown, done } = useGuide()
+  const found = searchHelp(q, shown)
+  const layout = guideLayout(CHAPTERS, shown)
   return (
     <div className="space-y-5">
       <form role="search" className="relative" onSubmit={(e) => e.preventDefault()}>
@@ -105,7 +114,7 @@ function Guide() {
         found.length ? (
           <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5" data-testid="help-results">
             {found.map((s) => (
-              <SectionRow key={s.id} s={s} />
+              <SectionRow key={s.id} s={s} done={done.has(s.id)} />
             ))}
           </div>
         ) : (
@@ -125,10 +134,12 @@ function Guide() {
                 <Link
                   key={s.id}
                   to={`/help/${s.id}`}
-                  className={`card flex min-h-24 w-40 shrink-0 snap-start flex-col gap-1 bg-gradient-to-br from-brand-50 to-duo-50 p-3 transition active:scale-[0.98] dark:from-brand-900/30 dark:to-duo-900/20 ${popIn ? 'animate-pop' : ''}`}
+                  className={`card relative flex min-h-24 w-40 shrink-0 snap-start flex-col gap-1 bg-gradient-to-br from-brand-50 to-duo-50 p-3 transition active:scale-[0.98] dark:from-brand-900/30 dark:to-duo-900/20 ${doneRing(done.has(s.id))} ${popIn ? 'animate-pop' : ''}`}
                   style={popIn ? { animationDelay: `${i * 40}ms` } : undefined}
                   data-testid="help-story-card"
+                  data-done={done.has(s.id) || undefined}
                 >
+                  <DoneMark done={done.has(s.id)} />
                   {s.icon && <FeatureIcon name={s.icon} size={30} />}
                   <span className="text-sm font-bold leading-tight">{s.title}</span>
                   <span className="text-muted line-clamp-2 text-xs">{s.summary}</span>
@@ -145,10 +156,12 @@ function Guide() {
                 <Link
                   key={s.id}
                   to={`/help/${s.id}`}
-                  className={`card flex min-h-24 flex-col gap-1 p-3 transition active:scale-[0.98] ${popIn ? 'animate-pop' : ''}`}
+                  className={`card relative flex min-h-24 flex-col gap-1 p-3 transition active:scale-[0.98] ${doneRing(done.has(s.id))} ${popIn ? 'animate-pop' : ''}`}
                   style={popIn ? { animationDelay: `${i * 40}ms` } : undefined}
                   data-testid="help-core-card"
+                  data-done={done.has(s.id) || undefined}
                 >
+                  <DoneMark done={done.has(s.id)} />
                   {s.icon && <FeatureIcon name={s.icon} size={30} />}
                   <span className="text-sm font-bold leading-tight">{s.title}</span>
                   <span className="text-muted line-clamp-2 text-xs">{s.summary}</span>
@@ -163,7 +176,7 @@ function Guide() {
               </h2>
               <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
                 {sections.map((s) => (
-                  <SectionRow key={s.id} s={s} />
+                  <SectionRow key={s.id} s={s} done={done.has(s.id)} />
                 ))}
               </div>
             </section>
@@ -174,9 +187,48 @@ function Guide() {
   )
 }
 
-function SectionRow({ s }: { s: HelpSection }) {
+/**
+ * Done (owner, 22 Oct 2026): a thin accent outline and a tick in the corner. Not read yet: a small
+ * accent dot, no outline. The words say it too, for screen readers.
+ */
+const doneRing = (done: boolean) => (done ? 'ring-[1.5px] ring-inset ring-brand-500/70' : '')
+
+function DoneMark({ done }: { done: boolean }) {
+  return done ? (
+    <span className="absolute right-2 top-2 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-fill text-on-fill" data-testid="help-done">
+      <Check size={12} strokeWidth={3} aria-hidden />
+      <span className="sr-only">Done</span>
+    </span>
+  ) : (
+    <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-brand-500" data-testid="help-unread">
+      <span className="sr-only">Not read yet</span>
+    </span>
+  )
+}
+
+/** The sections this person's mode shows, which they've finished, and the ring's numbers. */
+function useGuide() {
+  const shown = sectionsFor(useMode(), SECTIONS)
+  const p = useHelpProgressState()
+  const done = new Set(p.done)
+  return {
+    shown,
+    done,
+    progress: helpProgress(
+      p,
+      shown.map((s) => s.id),
+    ),
+  }
+}
+
+function SectionRow({ s, done }: { s: HelpSection; done?: boolean }) {
   return (
-    <Link to={`/help/${s.id}`} className="flex min-h-11 items-center gap-3 p-3 transition active:bg-slate-50 dark:active:bg-ink-800" data-testid="help-row">
+    <Link
+      to={`/help/${s.id}`}
+      className="flex min-h-11 items-center gap-3 p-3 transition active:bg-slate-50 dark:active:bg-ink-800"
+      data-testid="help-row"
+      data-done={done || undefined}
+    >
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 dark:bg-brand-900/30" aria-hidden>
         <FeatureIcon name={s.icon ?? 'file'} size={22} />
       </span>
@@ -184,7 +236,19 @@ function SectionRow({ s }: { s: HelpSection }) {
         <span className="block text-sm font-semibold">{s.title}</span>
         <span className="text-muted block truncate text-xs">{s.summary}</span>
       </span>
-      <ChevronRight size={18} className="text-muted shrink-0" aria-hidden />
+      {done === undefined ? (
+        <ChevronRight size={18} className="text-muted shrink-0" aria-hidden />
+      ) : done ? (
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-fill text-on-fill" data-testid="help-done">
+          <Check size={12} strokeWidth={3} aria-hidden />
+          <span className="sr-only">Done</span>
+        </span>
+      ) : (
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center" data-testid="help-unread">
+          <span className="h-2 w-2 rounded-full bg-brand-500" />
+          <span className="sr-only">Not read yet</span>
+        </span>
+      )}
     </Link>
   )
 }
@@ -247,7 +311,14 @@ function ReleaseCard({ r, fresh, first }: { r: Release; fresh: boolean; first: b
 }
 
 function SectionPage({ id }: { id: string }) {
+  const { user } = useMe()
+  const shown = sectionsFor(useMode(), SECTIONS)
+  const progress = useHelpProgressLoaded()
+  const [finished, setFinished] = useState(false)
   const s = SECTIONS.find((x) => x.id === id)
+  useEffect(() => {
+    if (finished && progress && !progress.done.includes(id)) void repo.saveHelpProgress(user.uid, withDone(progress, id))
+  }, [finished, progress, id, user.uid])
   usePageTitle(s ? s.title : 'Help')
   if (!s)
     return (
@@ -260,12 +331,14 @@ function SectionPage({ id }: { id: string }) {
         </Empty>
       </div>
     )
-  const related = relatedOf(s, SECTIONS)
+  const related = relatedOf(s, shown)
+  // Finished: saved once the account's progress has loaded (never over a list not seen yet).
+  const finish = () => setFinished(true)
   return (
     <div className="space-y-4" data-testid="help-section">
       <PageHeader title={s.title} back="/help" subtitle={s.summary} />
-      {s.story ? <StoryPlayer key={s.id} kind={s.story.kind} beats={s.story.beats} /> : null}
-      {s.steps?.length ? <StepPlayer key={s.id} sectionId={s.id} steps={s.steps} /> : null}
+      {s.story ? <StoryPlayer key={s.id} kind={s.story.kind} beats={s.story.beats} onLast={finish} /> : null}
+      {s.steps?.length ? <StepPlayer key={s.id} sectionId={s.id} steps={s.steps} onLast={finish} /> : null}
       {s.open && (
         <Link to={s.open.to} className="btn-primary w-full" data-testid="help-try">
           Try it: {s.open.label} <ArrowRight size={16} aria-hidden />
@@ -289,6 +362,8 @@ function SectionPage({ id }: { id: string }) {
           </ul>
         </section>
       )}
+      {/* A section with nothing to play is done once its end has been on screen. */}
+      {!s.story && !s.steps?.length && <EndSeen onSeen={finish} />}
       {related.length > 0 && (
         <section aria-labelledby="help-related">
           <h2 id="help-related" className="label mb-2">
@@ -303,4 +378,23 @@ function SectionPage({ id }: { id: string }) {
       )}
     </div>
   )
+}
+
+/** Calls onSeen once this point of the page has scrolled into view (a section read to its end). */
+function EndSeen({ onSeen }: { onSeen: () => void }) {
+  const ref = useRef<HTMLDivElement>(null)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once per section
+  useEffect(() => {
+    const el = ref.current
+    if (!el || typeof IntersectionObserver === 'undefined') return onSeen()
+    const io = new IntersectionObserver((es) => {
+      if (es.some((e) => e.isIntersecting)) {
+        io.disconnect()
+        onSeen()
+      }
+    })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+  return <div ref={ref} aria-hidden className="h-px" />
 }

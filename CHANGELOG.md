@@ -6,6 +6,7 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Help shows how far you are: a ring with the percentage at the top, a tick and an outline on sections you've finished, a dot on the ones you haven't read. It follows you to your other devices. Steps now wait for you: each one holds until you tap **Next** (or **Play** to run through). Before, they moved on by themselves and looped.
 - Scan: Bill, Payment and Statement share one card, each with **Camera** and **Photos** (Statement can now take a photo of a printed statement too). Read with AI is a bot button in the card's top-right corner (on Bill and Statement; payment screenshots are read on the phone, so Payment has none, and Simple leaves it to Settings). Before, it was a switch row under the Bill card only, Statement had a single Choose screenshots button, and Statement was hidden in the Minimal look.
 - Help is shorter and plainer: one short line per step and tip, simple words. It shows only what your mode has, so Simple's guide leaves out features Simple hides. Before, long sections repeated themselves and talked about settings Simple doesn't show. A new last section, Earn Pro, says how to earn the Pro badge.
 - Settings → Encrypted groups opens straight away with what it last knew and updates a moment later. Before, it said “Checking…” for a few seconds on every visit. Its explainer moved into Help: the **?** at the top opens it, and back returns here.

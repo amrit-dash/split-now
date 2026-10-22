@@ -9,14 +9,18 @@ import { HelpShotView } from './HelpShot'
 import { Scene } from './Scene'
 
 /**
- * A section's steps beside its scene (src/features/help/Scene.tsx): it plays one step after
- * another, looping, ticking off each step it has shown, and a tap on a step (or Back / Next) jumps
- * there and pauses. Each step stays as long as its words take to read (stepMs). With reduced motion
- * or animations off it starts paused, and playing only crossfades; the steps read the same. A
- * screenshot of the real screen, when there is one, waits closed underneath.
+ * A section's steps beside its scene (src/features/help/Scene.tsx). Each step plays its motion
+ * and then holds, so it can be read at the reader's pace; Next moves on (owner, 22 Oct 2026), a
+ * tap on a step jumps there, and Play runs through them, each for as long as its words take to
+ * read (stepMs). Steps already shown get a tick. Reaching the last step calls `onLast` (Help's
+ * progress: the section is done). With reduced motion or animations off, pictures only crossfade.
+ * A screenshot of the real screen, when there is one, waits closed underneath.
  */
-export function StepPlayer({ sectionId, steps }: { sectionId: string; steps: HelpStep[] }) {
-  const p = usePlayer(steps.map((s) => stepMs(s.text)))
+export function StepPlayer({ sectionId, steps, onLast }: { sectionId: string; steps: HelpStep[]; onLast?: () => void }) {
+  const p = usePlayer(
+    steps.map((s) => stepMs(s.text)),
+    onLast,
+  )
   const { step, still } = p
   const scene = SCENES[sectionId]
   const shot = (SHOTS as Record<string, HelpShot>)[sectionId]
@@ -101,16 +105,17 @@ export function StepText({ text }: { text: string }) {
 }
 
 /**
- * Playing a list of steps (or an explainer's beats): one after another, looping, each for its own
- * time (`times`, ms); a jump (a tap on one, Back, Next) pauses. With reduced motion or animations
- * off it starts paused; Play still works, and the pictures only crossfade.
+ * Playing a list of steps (or an explainer's beats). It starts on the first and holds there;
+ * Next / a tap moves on, Play runs through them (looping, each for its own time `times`, ms), and
+ * a jump pauses. `onLast` fires once the last one has been shown. With reduced motion or
+ * animations off the pictures only crossfade.
  */
-export function usePlayer(times: number[]) {
+export function usePlayer(times: number[], onLast?: () => void) {
   const count = times.length
   const motion = useMotion()
   const still = motion.reduced || !motion.prefs.on
   const [i, setI] = useState(0)
-  const [playing, setPlaying] = useState(!still)
+  const [playing, setPlaying] = useState(false)
   const step = clampStep(i, count)
   const wait = times[step] ?? 4000
   // biome-ignore lint/correctness/useExhaustiveDependencies: each step waits its own time, so a jump restarts the wait
@@ -122,6 +127,10 @@ export function usePlayer(times: number[]) {
     }, wait)
     return () => clearTimeout(t)
   }, [playing, step, count, wait])
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once per arrival on the last step
+  useEffect(() => {
+    if (step === count - 1) onLast?.()
+  }, [step, count])
   const go = (n: number) => {
     setPlaying(false)
     setI(((n % count) + count) % count)
@@ -145,8 +154,15 @@ export function PlayControls({ p, count, noun }: { p: ReturnType<typeof usePlaye
       >
         {p.playing ? <Pause size={14} aria-hidden /> : <Play size={14} aria-hidden />} {p.playing ? 'Pause' : 'Play'} · {noun} {p.step + 1} of {count}
       </button>
-      <button type="button" className="chip min-h-11" onClick={() => p.go(p.step + 1)} aria-label={`Next ${noun}`} data-testid="help-next">
-        <ChevronRight size={16} aria-hidden />
+      {/* The way on: each step waits for it (owner). On the last one it starts again. */}
+      <button
+        type="button"
+        className="btn-primary btn-sm min-h-11 !px-3"
+        onClick={() => p.go(p.step + 1)}
+        aria-label={p.step === count - 1 ? `Back to the first ${noun}` : `Next ${noun}`}
+        data-testid="help-next"
+      >
+        {p.step === count - 1 ? 'Again' : 'Next'} <ChevronRight size={16} aria-hidden />
       </button>
     </div>
   )

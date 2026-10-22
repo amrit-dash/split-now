@@ -8,8 +8,11 @@ import { Story } from './Story'
  * picture only shows it, so a tap on a caption jumps the picture there. A beat stays until its
  * caption is read and its motion has played out (beatMs).
  */
-export function StoryPlayer({ kind, beats }: { kind: StoryKind; beats: string[] }) {
-  const p = usePlayer(beats.map((b, n) => beatMs(kind, n, b)))
+export function StoryPlayer({ kind, beats, onLast }: { kind: StoryKind; beats: string[]; onLast?: () => void }) {
+  const p = usePlayer(
+    beats.map((b, n) => beatMs(kind, n, b)),
+    onLast,
+  )
   return (
     <div className="card overflow-hidden p-4" data-testid="help-explainer">
       <div className="mb-4">

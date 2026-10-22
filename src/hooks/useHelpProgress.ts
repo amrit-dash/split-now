@@ -9,7 +9,8 @@ import { useMe } from './auth'
  * The Help sections the signed-in person finished (src/lib/help-progress.ts), one shared listener
  * for the session, the same on every device. Nothing done until it has loaded.
  */
-export function useHelpProgressState(): HelpProgress {
+/** null until the account's copy has loaded, so nobody saves over progress they haven't seen yet. */
+export function useHelpProgressLoaded(): HelpProgress | null {
   const { user } = useMe()
   const key = `help/${user.uid}`
   const startRef = useRef((cb: (v: HelpProgress, m?: SnapMeta) => void): Unsub => repo.watchHelpProgress(user.uid, cb))
@@ -24,5 +25,7 @@ export function useHelpProgressState(): HelpProgress {
     [key],
   )
   const read = useCallback(() => peekShared<HelpProgress>(key) ?? null, [key])
-  return useSyncExternalStore(subscribe, read, read) ?? EMPTY_HELP_PROGRESS
+  return useSyncExternalStore(subscribe, read, read) ?? null
 }
+
+export const useHelpProgressState = (): HelpProgress => useHelpProgressLoaded() ?? EMPTY_HELP_PROGRESS
