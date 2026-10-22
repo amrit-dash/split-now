@@ -100,11 +100,11 @@ export const STORY_ANIM_MS: Record<StoryKind, number[]> = {
   remainder: [2240, 1800, 2400],
   vault: [3020, 2970, 2020],
   filter: [1490, 2620, 2740],
-  knife: [1050, 1750, 1850],
+  knife: [1400, 1750, 1850],
   jug: [900, 4100, 700],
   jars: [1350, 1800, 1850],
   doors: [1700, 1500, 2300],
-  pro: [1650, 1700, 1300],
+  pro: [1900, 1950, 1400],
 }
 
 /** An explainer beat stays until its caption is read and its picture has finished, plus a moment to take it in. */

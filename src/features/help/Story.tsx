@@ -292,7 +292,8 @@ const Pot: View = ({ beat, still }) => {
         <rect x="150" y="23" width="40" height="3" rx="1.5" fill="#fff" opacity="0.45" />
       </svg>
       {/* what's in the jar */}
-      <At x={180} y={102}>
+      {/* Filling, it shows once the coin has landed and the liquid is rising under it. */}
+      <At x={180} y={102} style={beat === 0 ? rise(1150, 400) : undefined}>
         {/* Draining, the amount stays white on the liquid and goes grey only once the jar is empty. */}
         <div
           className={`text-center text-[22px] font-black tabular-nums drop-shadow-sm ${beat === 3 ? 'text-slate-400 dark:text-slate-500' : 'text-white'}`}
@@ -329,7 +330,7 @@ const Pot: View = ({ beat, still }) => {
       {/* beat 2: a ₹300 share flies to each person */}
       {beat === 1 &&
         (Object.keys(SEATS) as Array<keyof typeof SEATS>).map((n, i) => (
-          <Fly key={n} path={`M180,110 Q${(180 + SEATS[n].x) / 2},${n === 'Ravi' ? 150 : 60} ${SEATS[n].x},222`} ms={900} d={500 + i * 160}>
+          <Fly key={n} path={`M180,136 Q${(180 + SEATS[n].x) / 2},${n === 'Ravi' ? 160 : 90} ${SEATS[n].x},222`} ms={900} d={500 + i * 160}>
             <Pill tone="accent">₹300 share</Pill>
           </Fly>
         ))}
@@ -709,31 +710,65 @@ const SLICES = [
   { name: 'Meera', x0: 230, dx: 8, rot: 4 },
 ]
 
-/** The note's paper: its border, guilloche lines and watermark. `face` adds the printed ₹100. */
+/**
+ * A ₹100 note, drawn to read as cash at a glance: a printed frame with micro-print, corner numerals
+ * and rosettes, fine guilloche waves, a windowed security thread, a watermark window and a serial
+ * number, in the accent's tints. `face` is the big printed ₹100, which fades as the note tears;
+ * the rest stays on every piece, so the pieces still look like money.
+ */
 function Banknote({ id, face }: { id: (n: string) => string; face?: CSSProperties }) {
+  const print = 'stroke-brand-500/45 dark:stroke-brand-300/35'
   return (
     <>
-      <rect x="30" y="38" width="300" height="104" rx="14" fill={`url(#${id('note')})`} className="stroke-brand-300 dark:stroke-brand-700" strokeWidth="1.5" />
-      <rect x="40" y="48" width="280" height="84" rx="9" fill="none" className="stroke-brand-400/50" strokeDasharray="3 3" />
-      {[0, 1, 2, 3].map((i) => (
+      <rect x="30" y="38" width="300" height="104" rx="7" fill={`url(#${id('note')})`} className="stroke-brand-300 dark:stroke-brand-600" strokeWidth="1" />
+      {/* the printed frame, and the micro-print just inside it */}
+      <rect x="37" y="45" width="286" height="90" rx="4" fill="none" className={print} strokeWidth="1.4" />
+      <rect x="41" y="49" width="278" height="82" rx="3" fill="none" className={print} strokeWidth="0.8" strokeDasharray="1 2" />
+      {/* guilloche: fine waves across the paper, slightly out of step */}
+      {[0, 1, 2, 3, 4, 5, 6].map((i) => (
         <path
           key={i}
-          d={`M40,${70 + i * 12} q35,-12 70,0 t70,0 t70,0 t70,0`}
+          d={`M44,${62 + i * 9} q${14 + (i % 3) * 2},${i % 2 ? 7 : -7} ${28 + (i % 3) * 4},0 t${28 + (i % 3) * 4},0 t${28 + (i % 3) * 4},0 t${28 + (i % 3) * 4},0 t${28 + (i % 3) * 4},0 t${28 + (i % 3) * 4},0 t${28 + (i % 3) * 4},0 t${28 + (i % 3) * 4},0 t${28 + (i % 3) * 4},0 t${28 + (i % 3) * 4},0`}
           fill="none"
-          className="stroke-brand-300/40 dark:stroke-brand-500/25"
-          strokeWidth="1"
+          className="stroke-brand-400/30 dark:stroke-brand-300/15"
+          strokeWidth="0.7"
         />
       ))}
+      {/* rosettes in two corners, numerals in the other two */}
+      {[
+        [52, 120],
+        [308, 60],
+      ].map(([cx, cy]) => (
+        <g key={cx} className={print} fill="none" strokeWidth="0.8">
+          {[0, 30, 60, 90, 120, 150].map((r) => (
+            <ellipse key={r} cx={cx} cy={cy} rx="7" ry="2.6" transform={`rotate(${r} ${cx} ${cy})`} />
+          ))}
+        </g>
+      ))}
+      <text x="47" y="63" className="fill-brand-600 text-[12px] font-black dark:fill-brand-200">
+        100
+      </text>
+      <text x="313" y="128" textAnchor="end" className="fill-brand-600 text-[12px] font-black dark:fill-brand-200">
+        100
+      </text>
+      {/* the security thread, showing through in windows */}
+      <line x1="214" y1="38" x2="214" y2="142" className="stroke-brand-600/70 dark:stroke-brand-300/60" strokeWidth="2.5" strokeDasharray="7 5" />
+      {/* the watermark window: pale, with rings and a faint ₹ */}
+      <circle cx="268" cy="92" r="24" className="fill-white/60 dark:fill-white/10" />
+      <circle cx="268" cy="92" r="24" fill="none" className={print} strokeWidth="0.8" strokeDasharray="1.5 2" />
+      <circle cx="268" cy="92" r="18" fill="none" className={print} strokeWidth="0.6" />
+      <text x="268" y="101" textAnchor="middle" className="fill-brand-400/40 text-[24px] font-black dark:fill-brand-200/25">
+        ₹
+      </text>
+      <text x="300" y="134" textAnchor="end" className="fill-brand-700/70 font-mono text-[6.5px] font-bold tracking-[0.12em] dark:fill-brand-200/70">
+        7KD 284519
+      </text>
       {face && (
         <g style={face}>
-          <circle cx="276" cy="90" r="30" className="fill-white/50 stroke-brand-300/60 dark:fill-white/5" />
-          <text x="276" y="96" textAnchor="middle" className="fill-brand-400 text-[16px] font-black">
-            SN
-          </text>
-          <text x="56" y="104" className="fill-brand-700 text-[40px] font-black dark:fill-brand-200">
+          <text x="58" y="104" className="fill-brand-700 text-[38px] font-black dark:fill-brand-100">
             ₹100
           </text>
-          <text x="58" y="124" className="fill-brand-500 text-[8px] font-bold tracking-[0.3em] dark:fill-brand-300">
+          <text x="60" y="122" className="fill-brand-600 text-[7.5px] font-bold tracking-[0.3em] dark:fill-brand-300">
             ONE HUNDRED RUPEES
           </text>
         </g>
@@ -758,7 +793,8 @@ const Remainder: View = ({ beat, still }) => {
         <defs>
           {/* the paper: pale in light, deep in dark, so the printed amounts always read */}
           <linearGradient id={id('note')} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" className="[stop-color:var(--color-brand-50)] dark:[stop-color:var(--color-brand-900)]" />
+            <stop offset="0" className="[stop-color:var(--color-brand-100)] dark:[stop-color:var(--color-brand-900)]" />
+            <stop offset="0.55" className="[stop-color:var(--color-brand-50)] dark:[stop-color:var(--color-ink-800)]" />
             <stop offset="1" className="[stop-color:var(--color-duo-100)] dark:[stop-color:var(--color-duo-900)]" />
           </linearGradient>
           {SLICES.map((sl, i) => {
@@ -778,24 +814,34 @@ const Remainder: View = ({ beat, still }) => {
               {/* the printed ₹100 fades as the note tears */}
               <Banknote id={id} face={beat === 0 ? { opacity: 0, animation: 'sx-out 500ms ease 850ms both' } : { opacity: 0 }} />
             </g>
-            {/* each piece shows its own share */}
-            <text
-              x={sl.x0 + 50 + (i === 0 ? -2 : i === 2 ? 2 : 0)}
-              y="98"
-              textAnchor="middle"
-              className={`${beat === 0 ? 'text-[15px]' : 'text-[19px]'} font-black ${beat === 2 && i === 0 ? 'fill-duo-600 dark:fill-duo-300' : 'fill-brand-700 dark:fill-brand-200'}`}
-              style={
+            {/* each piece shows its own share, on a small white label so it reads over the print */}
+            {(beat === 2 && i === 0 ? ['33.33', labels[0]] : [labels[i]]).map((label, k, all) => {
+              const cx = sl.x0 + 50 + (i === 0 ? -2 : i === 2 ? 2 : 0)
+              const replaced = all.length > 1 && k === 0
+              const style: CSSProperties | undefined =
                 beat === 0
-                  ? { animation: `sx-pop 500ms cubic-bezier(0.34, 1.56, 0.64, 1) ${1500 + i * 120}ms both` }
+                  ? { animation: `sx-pop 500ms cubic-bezier(0.23, 1, 0.32, 1) ${1500 + i * 120}ms both` }
                   : beat === 1
                     ? pop(150 + i * 110)
-                    : beat === 2 && i === 0
-                      ? pop(1100)
-                      : undefined
-              }
-            >
-              ₹{labels[i]}
-            </text>
+                    : replaced
+                      ? out(950, 200)
+                      : beat === 2 && i === 0
+                        ? pop(1100)
+                        : undefined
+              return (
+                <g key={label} style={{ transformBox: 'fill-box', transformOrigin: 'center', ...style }}>
+                  <rect x={cx - 45} y="80" width="90" height="27" rx="7" className="fill-white/85 dark:fill-ink-900/80" />
+                  <text
+                    x={cx}
+                    y="99"
+                    textAnchor="middle"
+                    className={`${beat === 0 ? 'text-[14px]' : 'text-[18px]'} font-black ${beat === 2 && i === 0 && !replaced ? 'fill-duo-600 dark:fill-duo-300' : 'fill-brand-700 dark:fill-brand-200'}`}
+                  >
+                    ₹{label}
+                  </text>
+                </g>
+              )
+            })}
             {beat === 2 && i === 0 && (
               <rect
                 x="30"
@@ -974,7 +1020,7 @@ const Vault: View = ({ beat }) => {
         </At>
       )}
       {beat === 1 && (
-        <Fly path="M174,226 Q240,246 286,150" ms={1000} d={1300} vanish>
+        <Fly path="M194,226 Q250,244 286,150" ms={1000} d={1300} vanish>
           <svg width="44" height="22" viewBox="0 0 44 22" style={{ filter: 'drop-shadow(0 3px 4px rgba(180,83,9,0.45))' }}>
             <circle cx="11" cy="11" r="9" fill="#fbbf24" stroke="#b45309" strokeWidth="2" />
             <circle cx="11" cy="11" r="3.5" fill="#fff7d1" />
@@ -1527,22 +1573,22 @@ const Doors: View = ({ beat }) => {
  * fold in and it shrinks back to the small one; nothing is thrown away. The handle is two rounded ends
  * that slide apart over a body that stretches, each end carrying its rivet and the tools that turn on it.
  */
-const KNIFE = { x: 180, y: 154, r: 19, small: 46, big: 104 }
+const KNIFE = { x: 180, y: 154, r: 19, small: 46, big: 84 }
 
 type Tool = { d: string; at: 'L' | 'R'; open: number; line?: boolean; simple?: boolean; order: number }
 /** Each drawn pointing right from its rivet; closed, a left tool points right (0°) and a right one left (180°), behind the handle. */
 const KNIFE_TOOLS: Tool[] = [
-  // the small knife: the everyday blade, and a bottle opener that stays folded
-  { d: 'M0,-7 H66 Q88,-7 98,6 H0 Z', at: 'R', open: 348, simple: true, order: 0 },
-  { d: 'M0,-5 H56 C68,-5 72,5 62,7 L58,2 H0 Z', at: 'L', open: 0, simple: true, order: 0 },
-  // the Swiss knife adds the rest
-  { d: 'M0,-6 H112 L118,0 L112,6 L107,2 L102,6 L97,2 L92,6 L87,2 L82,6 L77,2 L72,6 L67,2 L62,6 L57,2 L52,6 H0 Z', at: 'L', open: -168, order: 0 },
-  { d: 'M0,-5 H40 L100,-1 L40,3 H0 Z M0,1 H40 L94,6 L40,7 H0 Z', at: 'L', open: -140, order: 1 },
-  { d: 'M0,0 H30 L36,-5 L44,5 L52,-5 L60,5 L68,-5 L74,0', at: 'L', open: -114, line: true, order: 2 },
-  { d: 'M0,-4 H84 L96,-2 V2 L84,4 H0 Z', at: 'L', open: -92, order: 3 },
-  { d: 'M0,-3.5 H76 L100,0 L76,3.5 H0 Z', at: 'R', open: 322, order: 1 },
-  { d: 'M0,-5 H92 Q100,0 92,5 H0 Z', at: 'R', open: 298, order: 2 },
-  { d: 'M0,-3 H64 C70,-3 74,-8 80,-8 C86,-8 86,8 80,8 C74,8 70,3 64,3 H0 Z', at: 'R', open: 272, order: 3 },
+  // the small knife (Simple): two tools out, the everyday blade and a bottle opener
+  { d: 'M0,-7 H58 Q78,-7 88,6 H0 Z', at: 'R', open: 342, simple: true, order: 0 },
+  { d: 'M0,-5 H50 C62,-5 66,5 56,7 L52,2 H0 Z', at: 'L', open: -140, simple: true, order: 1 },
+  // the Swiss knife (Advanced) adds the rest
+  { d: 'M0,-4 H30 L70,-1 L30,2 H0 Z M0,1 H30 L66,5 L30,6 H0 Z', at: 'R', open: 314, order: 0 },
+  { d: 'M0,-6 H86 L92,0 L86,6 L81,2 L76,6 L71,2 L66,6 L61,2 L56,6 L51,2 L46,6 L41,2 L36,6 H0 Z', at: 'L', open: -162, order: 0 },
+  { d: 'M0,0 H30 L36,-5 L44,5 L52,-5 L60,5 L68,-5 L74,0', at: 'L', open: -116, line: true, order: 1 },
+  { d: 'M0,-4 H84 L96,-2 V2 L84,4 H0 Z', at: 'L', open: -94, order: 2 },
+  { d: 'M0,-3.5 H76 L100,0 L76,3.5 H0 Z', at: 'R', open: 290, order: 1 },
+  { d: 'M0,-5 H92 Q100,0 92,5 H0 Z', at: 'R', open: 268, order: 2 },
+  { d: 'M0,-3 H64 C70,-3 74,-8 80,-8 C86,-8 86,8 80,8 C74,8 70,3 64,3 H0 Z', at: 'R', open: 248, order: 3 },
 ]
 
 const Knife: View = ({ beat }) => {
@@ -1584,10 +1630,13 @@ const Knife: View = ({ beat }) => {
         {KNIFE_TOOLS.filter((t) => t.at === side).map((t) => {
           const closed = side === 'L' ? 0 : 180
           const shown = t.simple || big
-          const angle = t.simple ? (t.open === 0 ? closed : t.open) : big ? t.open : closed
+          const angle = shown ? t.open : closed
           let motion: CSSProperties = {}
-          if (t.simple && t.open !== 0 && beat === 0)
-            motion = { '--turn-from': `${closed}deg`, animation: 'hm-turn 640ms cubic-bezier(0.3, 1.15, 0.5, 1) 400ms both' } as CSSProperties
+          if (t.simple && beat === 0)
+            motion = {
+              '--turn-from': `${closed}deg`,
+              animation: `hm-turn 640ms cubic-bezier(0.3, 1.15, 0.5, 1) ${400 + t.order * 180}ms both`,
+            } as CSSProperties
           if (!t.simple && beat === 1)
             motion = {
               '--turn-from': `${closed}deg`,
@@ -1882,7 +1931,8 @@ const PIECE_GAP = 0.018
 const Pro: View = ({ beat }) => {
   const id = useIds()
   const filled = beat === 0 ? 6 : RING.pieces
-  const drawAt = (i: number) => (beat === 0 ? (i < 6 ? 300 + i * 200 : undefined) : beat === 1 && i >= 6 ? 250 + (i - 6) * 260 : undefined)
+  // When each new piece arrives: six in the first beat, the last two in the second.
+  const landAt = (i: number) => (beat === 0 ? (i < 6 ? 300 + i * 200 : undefined) : beat === 1 && i >= 6 ? 250 + (i - 6) * 280 : undefined)
   const photo = (
     <div
       className="flex h-[84px] w-[84px] items-center justify-center rounded-full text-[30px] font-bold text-white"
@@ -1894,25 +1944,41 @@ const Pro: View = ({ beat }) => {
       A
     </div>
   )
+  const len = PIECE - PIECE_GAP
+  const around: CSSProperties = { transformBox: 'view-box', transformOrigin: `${RING.x}px ${RING.y}px` }
   return (
     <>
-      {beat < 2 ? (
-        <>
-          <svg className="absolute inset-0" width={W} height={H}>
-            <defs>
-              <linearGradient id={id('ring')} x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" style={{ stopColor: 'var(--color-brand-500)' }} />
-                <stop offset="1" style={{ stopColor: 'var(--color-duo-500)' }} />
-              </linearGradient>
-            </defs>
-            {Array.from({ length: RING.pieces }, (_, i) => {
-              const len = PIECE - PIECE_GAP
-              const turn = -90 + i * 360 * PIECE + (PIECE_GAP / 2) * 360
-              const on = i < filled
-              const d = drawAt(i)
-              return (
-                // biome-ignore lint/suspicious/noArrayIndexKey: the pieces are fixed positions round the ring
-                <g key={i} transform={`rotate(${turn} ${RING.x} ${RING.y})`}>
+      <svg className="absolute inset-0" width={W} height={H}>
+        <defs>
+          <linearGradient id={id('ring')} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" style={{ stopColor: 'var(--color-brand-500)' }} />
+            <stop offset="1" style={{ stopColor: 'var(--color-duo-500)' }} />
+          </linearGradient>
+        </defs>
+        {/* the closed ring of the last beat fades and shrinks into the PRO ring */}
+        <g
+          style={
+            beat === 2 ? { ...around, opacity: 0, transform: 'scale(0.86)', animation: 'hm-ring-out 500ms cubic-bezier(0.4, 0, 0.2, 1) 150ms both' } : undefined
+          }
+        >
+          {Array.from({ length: RING.pieces }, (_, i) => {
+            const turn = -90 + i * 360 * PIECE + (PIECE_GAP / 2) * 360
+            const d = landAt(i)
+            // A piece flies in from outside its slot, turning a little, and snaps in.
+            const mid = ((turn + len * 180) * Math.PI) / 180
+            const fly: CSSProperties | undefined =
+              d === undefined
+                ? undefined
+                : ({
+                    ...around,
+                    '--from': `translate(${Math.round(Math.cos(mid) * 70)}px, ${Math.round(Math.sin(mid) * 70)}px) rotate(40deg)`,
+                    '--from-o': 0,
+                    animation: `hm-from 560ms cubic-bezier(0.3, 1.25, 0.5, 1) ${d}ms both`,
+                  } as CSSProperties)
+            return (
+              // biome-ignore lint/suspicious/noArrayIndexKey: the pieces are fixed positions round the ring
+              <g key={i}>
+                <g transform={`rotate(${turn} ${RING.x} ${RING.y})`}>
                   <circle
                     cx={RING.x}
                     cy={RING.y}
@@ -1924,62 +1990,85 @@ const Pro: View = ({ beat }) => {
                     strokeWidth="12"
                     strokeLinecap="round"
                   />
-                  {on && (
-                    <circle
-                      cx={RING.x}
-                      cy={RING.y}
-                      r={RING.r}
-                      fill="none"
-                      pathLength={1}
-                      stroke={`url(#${id('ring')})`}
-                      strokeWidth="12"
-                      strokeLinecap="round"
-                      style={{
-                        strokeDasharray: `${len} 1`,
-                        ...(d === undefined
-                          ? {}
-                          : ({ '--dash-from': len, animation: `hm-dash 360ms cubic-bezier(0.4, 0, 0.2, 1) ${d}ms both` } as CSSProperties)),
-                      }}
-                    />
-                  )}
                 </g>
-              )
-            })}
-            {/* closed: the gaps fill and it becomes one ring */}
-            {beat === 1 && (
-              <circle
-                cx={RING.x}
-                cy={RING.y}
-                r={RING.r}
-                fill="none"
-                stroke={`url(#${id('ring')})`}
-                strokeWidth="12"
-                style={{ animation: 'hm-close 420ms ease-out 900ms both' }}
-              />
-            )}
-          </svg>
-          <At x={RING.x} y={RING.y}>
-            {photo}
-          </At>
-          <At x={180} y={214} style={beat === 1 ? pop(1200) : undefined}>
-            <Pill tone={beat === 1 ? 'up' : 'even'}>{beat === 1 ? '✓ All done · Congratulations' : `${filled} of ${RING.pieces} sections`}</Pill>
-          </At>
-        </>
-      ) : (
-        <>
-          {/* beat 3: the closed ring becomes the PRO ring, and the badge by the name */}
-          <At x={RING.x} y={RING.y} style={pop(150, 560)}>
-            <ProRing photo={84}>{photo}</ProRing>
-          </At>
-          <div className="absolute left-0 flex w-full items-center justify-center gap-2" style={{ top: 204 }}>
-            <span className="text-[18px] font-black leading-none text-slate-800 dark:text-white" style={rise(500)}>
-              Asha Rao
-            </span>
-            <span style={pop(800)}>
-              <ProPill h={11} />
-            </span>
+                {i < filled && (
+                  <g style={fly}>
+                    <g transform={`rotate(${turn} ${RING.x} ${RING.y})`}>
+                      <circle
+                        cx={RING.x}
+                        cy={RING.y}
+                        r={RING.r}
+                        fill="none"
+                        pathLength={1}
+                        stroke={`url(#${id('ring')})`}
+                        strokeWidth="12"
+                        strokeLinecap="round"
+                        strokeDasharray={`${len} 1`}
+                      />
+                    </g>
+                  </g>
+                )}
+              </g>
+            )
+          })}
+          {/* closed: the gaps fill and it becomes one ring */}
+          {beat >= 1 && (
+            <circle
+              cx={RING.x}
+              cy={RING.y}
+              r={RING.r}
+              fill="none"
+              stroke={`url(#${id('ring')})`}
+              strokeWidth="12"
+              style={beat === 1 ? { animation: 'hm-close 380ms ease-out 900ms both' } : undefined}
+            />
+          )}
+        </g>
+        {/* and a light runs once round it */}
+        {beat === 1 && (
+          <g style={{ ...around, opacity: 0, animation: 'hm-sweep 800ms cubic-bezier(0.4, 0, 0.2, 1) 1050ms both' }}>
+            <circle
+              cx={RING.x}
+              cy={RING.y}
+              r={RING.r}
+              fill="none"
+              stroke="#fff"
+              strokeOpacity="0.85"
+              strokeWidth="8"
+              strokeLinecap="round"
+              pathLength={1}
+              strokeDasharray="0.1 1"
+              transform={`rotate(-90 ${RING.x} ${RING.y})`}
+            />
+          </g>
+        )}
+      </svg>
+      {/* the photo stays put throughout; in the last beat the PRO ring arrives round it as the closed ring leaves */}
+      <At x={RING.x} y={RING.y}>
+        {photo}
+      </At>
+      {beat === 2 && (
+        <At x={RING.x} y={RING.y}>
+          <div style={{ animation: 'hm-ring-in 600ms cubic-bezier(0.23, 1, 0.32, 1) 300ms both' }}>
+            <ProRing photo={84}>
+              <span className="block h-[84px] w-[84px]" />
+            </ProRing>
           </div>
-        </>
+        </At>
+      )}
+      {beat < 2 ? (
+        <At key={`pill${beat}`} x={180} y={214} style={beat === 1 ? pop(1500) : rise(200)}>
+          <Pill tone={beat === 1 ? 'up' : 'even'}>{beat === 1 ? '✓ All done · Congratulations' : `${filled} of ${RING.pieces} sections`}</Pill>
+        </At>
+      ) : (
+        <div className="absolute left-0 flex w-full items-center justify-center gap-2" style={{ top: 204 }}>
+          <span className="text-[18px] font-black leading-none text-slate-800 dark:text-white" style={rise(600)}>
+            Asha Rao
+          </span>
+          <span style={pop(900)}>
+            <ProPill h={11} />
+          </span>
+        </div>
       )}
     </>
   )

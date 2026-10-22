@@ -303,3 +303,32 @@
     transform: translateX(var(--dx)) translateY(-10px) scale(0.5);
   }
 }
+
+/* Earn Pro: a light running once round the closed ring, then gone. */
+@keyframes hm-sweep {
+  0% {
+    opacity: 1;
+    transform: rotate(0deg);
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(360deg);
+  }
+}
+
+/* Earn Pro: the closed ring leaving (it ends on its own hidden style) and the PRO ring arriving. */
+@keyframes hm-ring-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes hm-ring-in {
+  from {
+    opacity: 0;
+    transform: scale(1.12) rotate(-30deg);
+  }
+}

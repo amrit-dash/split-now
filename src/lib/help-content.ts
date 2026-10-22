@@ -198,7 +198,7 @@ export const SECTIONS: HelpSection[] = [
     story: {
       kind: 'knife',
       beats: [
-        'Simple is a small pocket knife: the one blade you use every day.',
+        'Simple is a small pocket knife: the two tools you use every day.',
         'Advanced is the full Swiss knife: auto-capture, approvals, wallets and every other tool.',
         'Back in Simple it folds down small again. Nothing is thrown away.',
       ],
