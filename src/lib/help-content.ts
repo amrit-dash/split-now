@@ -1766,9 +1766,9 @@ export const SECTIONS: HelpSection[] = [
     story: {
       kind: 'pro',
       beats: [
-        'Help works like a fitness ring: each section you finish fills a piece.',
-        'Finish them all and the ring closes. Congratulations.',
-        'A closed ring earns Pro: the PRO ring round your photo and a badge by your name.',
+        'Help is a stamp card: each section you finish gets a stamp.',
+        'Fill the card and Help says Congratulations.',
+        'Turn it over: your reward is Pro, a ring round your photo and a badge by your name.',
       ],
     },
     points: ['Others see it on Members and in 1:1s.', 'It’s yours to keep.'],

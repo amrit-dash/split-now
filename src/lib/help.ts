@@ -107,7 +107,7 @@ export const STORY_ANIM_MS: Record<StoryKind, number[]> = {
   jug: [900, 4100, 700],
   jars: [1350, 1800, 1850],
   doors: [1700, 1500, 2300],
-  pro: [1900, 1950, 1400],
+  pro: [1600, 1650, 1300],
 }
 
 /** An explainer beat stays until its caption is read and its picture has finished, plus a moment to take it in. */

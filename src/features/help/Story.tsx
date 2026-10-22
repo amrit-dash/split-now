@@ -1917,158 +1917,107 @@ const Jug: View = ({ beat, still }) => {
   )
 }
 
-// ---- Earn Pro: close your ring --------------------------------------------------------------------
+// ---- Earn Pro: a café stamp card ------------------------------------------------------------------
 
 /*
- * Like a fitness ring: each Help section you finish fills a piece of a ring round your photo. Finish
- * them all and the ring closes; a closed ring becomes the real PRO ring (the app's own ProRing and
- * ProPill, so it moves and looks as it will).
+ * Help is a stamp card, like a café's: each section you finish presses a stamp in. A full card says
+ * Congratulations; turned over, its back is the reward itself: your photo with the real PRO ring and
+ * the badge by your name (the app's own ProRing and ProPill, so it moves and looks as it will).
  */
-const RING = { x: 180, y: 112, r: 60, pieces: 8 }
-const PIECE = 1 / RING.pieces
-const PIECE_GAP = 0.018
+const STAMP_CARD = { x: 70, y: 50, w: 220, h: 124 }
+const STAMP_COUNT = 5
+const stampX = (i: number) => STAMP_CARD.w / 2 + (i - (STAMP_COUNT - 1) / 2) * 40
 
 const Pro: View = ({ beat }) => {
-  const id = useIds()
-  const filled = beat === 0 ? 6 : RING.pieces
-  // When each new piece arrives: six in the first beat, the last two in the second.
-  const landAt = (i: number) => (beat === 0 ? (i < 6 ? 300 + i * 200 : undefined) : beat === 1 && i >= 6 ? 250 + (i - 6) * 280 : undefined)
-  const photo = (
-    <div
-      className="flex h-[84px] w-[84px] items-center justify-center rounded-full text-[30px] font-bold text-white"
-      style={{
-        background: `linear-gradient(140deg, ${PEOPLE.Asha.from}, ${PEOPLE.Asha.to})`,
-        boxShadow: '0 10px 24px -10px color-mix(in oklab, var(--color-brand-700) 60%, transparent)',
-      }}
-    >
-      A
-    </div>
-  )
-  const len = PIECE - PIECE_GAP
-  const around: CSSProperties = { transformBox: 'view-box', transformOrigin: `${RING.x}px ${RING.y}px` }
+  // Stamped by the end of the beat, and when each new one presses in.
+  const stamped = beat === 0 ? 3 : STAMP_COUNT
+  const pressAt = (i: number) => (beat === 0 ? (i < 3 ? 500 + i * 320 : undefined) : beat === 1 && i >= 3 ? 300 + (i - 3) * 360 : undefined)
+  const face = 'absolute inset-0 overflow-hidden rounded-[20px] [backface-visibility:hidden]'
   return (
     <>
-      <svg className="absolute inset-0" width={W} height={H}>
-        <defs>
-          <linearGradient id={id('ring')} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" style={{ stopColor: 'var(--color-brand-500)' }} />
-            <stop offset="1" style={{ stopColor: 'var(--color-duo-500)' }} />
-          </linearGradient>
-        </defs>
-        {/* the closed ring of the last beat fades and shrinks into the PRO ring */}
-        <g
-          style={
-            beat === 2 ? { ...around, opacity: 0, transform: 'scale(0.86)', animation: 'hm-ring-out 500ms cubic-bezier(0.4, 0, 0.2, 1) 150ms both' } : undefined
-          }
+      <div
+        className="absolute"
+        style={{ left: STAMP_CARD.x, top: STAMP_CARD.y, width: STAMP_CARD.w, height: STAMP_CARD.h, perspective: 700, ...(beat === 0 ? rise(100) : {}) }}
+      >
+        <div
+          className="relative h-full w-full [transform-style:preserve-3d]"
+          style={beat === 2 ? { transform: 'rotateY(180deg)', animation: 'hm-flip 1000ms cubic-bezier(0.45, 0, 0.2, 1) 250ms both' } : undefined}
         >
-          {Array.from({ length: RING.pieces }, (_, i) => {
-            const turn = -90 + i * 360 * PIECE + (PIECE_GAP / 2) * 360
-            const d = landAt(i)
-            // A piece flies in from outside its slot, turning a little, and snaps in.
-            const mid = ((turn + len * 180) * Math.PI) / 180
-            const fly: CSSProperties | undefined =
-              d === undefined
-                ? undefined
-                : ({
-                    ...around,
-                    '--from': `translate(${Math.round(Math.cos(mid) * 70)}px, ${Math.round(Math.sin(mid) * 70)}px) rotate(40deg)`,
-                    '--from-o': 0,
-                    animation: `hm-from 560ms cubic-bezier(0.3, 1.25, 0.5, 1) ${d}ms both`,
-                  } as CSSProperties)
-            return (
-              // biome-ignore lint/suspicious/noArrayIndexKey: the pieces are fixed positions round the ring
-              <g key={i}>
-                <g transform={`rotate(${turn} ${RING.x} ${RING.y})`}>
-                  <circle
-                    cx={RING.x}
-                    cy={RING.y}
-                    r={RING.r}
-                    fill="none"
-                    pathLength={1}
-                    strokeDasharray={`${len} 1`}
-                    className="stroke-slate-900/[0.07] dark:stroke-white/10"
-                    strokeWidth="12"
-                    strokeLinecap="round"
-                  />
-                </g>
-                {i < filled && (
-                  <g style={fly}>
-                    <g transform={`rotate(${turn} ${RING.x} ${RING.y})`}>
-                      <circle
-                        cx={RING.x}
-                        cy={RING.y}
-                        r={RING.r}
-                        fill="none"
-                        pathLength={1}
-                        stroke={`url(#${id('ring')})`}
-                        strokeWidth="12"
-                        strokeLinecap="round"
-                        strokeDasharray={`${len} 1`}
-                      />
-                    </g>
-                  </g>
-                )}
-              </g>
-            )
-          })}
-          {/* closed: the gaps fill and it becomes one ring */}
-          {beat >= 1 && (
-            <circle
-              cx={RING.x}
-              cy={RING.y}
-              r={RING.r}
+          {/* the front: the card in the accent, with its row of stamps */}
+          <div
+            className={`${face} shadow-[0_18px_30px_-16px_color-mix(in_oklab,var(--color-brand-700)_70%,transparent)]`}
+            style={{ background: 'linear-gradient(135deg, var(--color-brand-500), var(--color-duo-600))' }}
+          >
+            <div className="absolute -left-12 -top-20 h-36 w-64 rotate-[-12deg] rounded-full bg-white/20 blur-md" />
+            <div className="absolute inset-[7px] rounded-[15px] border border-dashed border-white/35" />
+            {/* a small cup in the corner, so it reads as a café's card */}
+            <svg
+              className="absolute left-4 top-3.5 text-white/85"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
               fill="none"
-              stroke={`url(#${id('ring')})`}
-              strokeWidth="12"
-              style={beat === 1 ? { animation: 'hm-close 380ms ease-out 900ms both' } : undefined}
-            />
-          )}
-        </g>
-        {/* and a light runs once round it */}
-        {beat === 1 && (
-          <g style={{ ...around, opacity: 0, animation: 'hm-sweep 800ms cubic-bezier(0.4, 0, 0.2, 1) 1050ms both' }}>
-            <circle
-              cx={RING.x}
-              cy={RING.y}
-              r={RING.r}
-              fill="none"
-              stroke="#fff"
-              strokeOpacity="0.85"
-              strokeWidth="8"
+              stroke="currentColor"
+              strokeWidth="2"
               strokeLinecap="round"
-              pathLength={1}
-              strokeDasharray="0.1 1"
-              transform={`rotate(-90 ${RING.x} ${RING.y})`}
-            />
-          </g>
-        )}
-      </svg>
-      {/* the photo stays put throughout; in the last beat the PRO ring arrives round it as the closed ring leaves */}
-      <At x={RING.x} y={RING.y}>
-        {photo}
-      </At>
-      {beat === 2 && (
-        <At x={RING.x} y={RING.y}>
-          <div style={{ animation: 'hm-ring-in 600ms cubic-bezier(0.23, 1, 0.32, 1) 300ms both' }}>
-            <ProRing photo={84}>
-              <span className="block h-[84px] w-[84px]" />
-            </ProRing>
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M4 9h12v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V9Z" />
+              <path d="M16 11h1.5a2.5 2.5 0 0 1 0 5H16" />
+              <path d="M8 3.5c0 1 1 1.2 1 2.2M12 3.5c0 1 1 1.2 1 2.2" />
+            </svg>
+            {Array.from({ length: STAMP_COUNT }, (_, i) => {
+              const d = pressAt(i)
+              return (
+                <div key={stampX(i)} className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left: stampX(i), top: STAMP_CARD.h / 2 }}>
+                  <span className="block h-[30px] w-[30px] rounded-full border-2 border-dashed border-white/55" />
+                  {i < stamped && (
+                    <span
+                      className="absolute inset-0 flex items-center justify-center rounded-full bg-white text-brand-600 shadow-md"
+                      style={d === undefined ? undefined : { animation: `hm-press 420ms cubic-bezier(0.3, 1.2, 0.5, 1) ${d}ms both` }}
+                    >
+                      <svg
+                        width="15"
+                        height="15"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="3.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M5 12.5l4.5 4.5L19 7.5" />
+                      </svg>
+                    </span>
+                  )}
+                </div>
+              )
+            })}
           </div>
-        </At>
-      )}
-      {beat < 2 ? (
-        <At key={`pill${beat}`} x={180} y={214} style={beat === 1 ? pop(1500) : rise(200)}>
-          <Pill tone={beat === 1 ? 'up' : 'even'}>{beat === 1 ? '✓ All done · Congratulations' : `${filled} of ${RING.pieces} sections`}</Pill>
-        </At>
-      ) : (
-        <div className="absolute left-0 flex w-full items-center justify-center gap-2" style={{ top: 204 }}>
-          <span className="text-[18px] font-black leading-none text-slate-800 dark:text-white" style={rise(600)}>
-            Asha Rao
-          </span>
-          <span style={pop(900)}>
-            <ProPill h={11} />
-          </span>
+          {/* the back: the reward */}
+          <div
+            className={`${face} flex items-center gap-4 bg-white px-5 shadow-xl ring-1 ring-brand-100 [transform:rotateY(180deg)] dark:bg-ink-800 dark:ring-white/10`}
+          >
+            <ProRing photo={60}>
+              <div
+                className="flex h-[60px] w-[60px] items-center justify-center rounded-full text-[22px] font-bold text-white"
+                style={{ background: `linear-gradient(140deg, ${PEOPLE.Asha.from}, ${PEOPLE.Asha.to})` }}
+              >
+                A
+              </div>
+            </ProRing>
+            <div className="ml-2 flex flex-col items-start gap-1.5">
+              <span className="text-[17px] font-black leading-none text-slate-800 dark:text-white">Asha Rao</span>
+              <ProPill h={10} />
+            </div>
+          </div>
         </div>
+      </div>
+      {beat === 1 && (
+        <At x={180} y={STAMP_CARD.y + STAMP_CARD.h + 30} style={pop(1150)}>
+          <Pill tone="up">✓ Card full · Congratulations</Pill>
+        </At>
       )}
     </>
   )
