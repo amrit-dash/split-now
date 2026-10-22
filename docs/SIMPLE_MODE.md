@@ -5,7 +5,7 @@ their values, background features keep running, and anything that arrives for th
 items, approvals waiting on them, captured payments) still shows and can be acted on.
 
 Logic: `src/lib/mode.ts` (tested), `useMode()` / `useSimple()` in `src/hooks/useMode.ts`. Simple's
-detail level is When needed (`lookForMode`); Simple's own hides are explicit `useSimple()` checks.
+detail level is Short tips (`needed`) (`lookForMode`); Simple's own hides are explicit `useSimple()` checks.
 
 **Every new feature:** ask the owner "Simple or Advanced?" with a recommendation, add its row here,
 and mark its Help section `advanced: true` when Simple hides it (`sectionsFor` in src/lib/help.ts).
@@ -20,7 +20,7 @@ Status: **decided** = the owner's call (22 Oct 2026). **proposed** = waiting for
 | Profile: how friends pay you | UPI ID, bank transfer, PayPal (international only) | Every other method, "Show more" |
 | Profile: header | The mode button (beside Settings): the leaf in Simple, one of five Advanced pictures in Advanced; a tap switches, with Undo | |
 | Profile: other rows | Balances, Support, Developer, Help | |
-| Settings → Preferences | Mode, default currency, theme, accent, text on accent, Badge (Show my Pro / Dev badge, only for whoever has one) | Rates refresh, Collect in (on for everyone), dual tone, icons (default), detail level (When needed) |
+| Settings → Preferences | Mode, default currency, theme, accent, text on accent, Badge (Show my Pro / Dev badge, only for whoever has one) | Rates refresh, Collect in (on for everyone), dual tone, icons (default), detail level (Short tips (`needed`)) |
 | Settings → Animations | | Whole section; defaults: burst Medium, spark Medium, glitter Medium, shape Mix, glitter at the bottom |
 | Settings → Notifications | The types that apply to what Simple shows | Capture types when capture isn't set up (dynamic) |
 | Settings → Automation | | Whole section and every entry point; automations keep running |
@@ -53,4 +53,4 @@ Simple keeps nearly every everyday feature; it differs mostly in Settings and a 
 | Settings → Data | Everything | |
 | Settings → Notifications | Group chat, open items | Capture types when capture isn't set up |
 
-Detail level: Simple uses **When needed** (one short line where it helps), not Minimal, because Minimal hides features Simple keeps (Percent / Shares / Adjust, Settle up's method and note, History, sort pickers). Simple's own hides are explicit `useSimple()` checks.
+Detail level: Simple uses **Short tips (`needed`)** (one short line where it helps), not Minimal, because Minimal hides features Simple keeps (Percent / Shares / Adjust, Settle up's method and note, History, sort pickers). Simple's own hides are explicit `useSimple()` checks.

@@ -1089,7 +1089,7 @@ Object.assign(SCENES, {
       { kind: 'chips', mark: 'theme', items: [{ label: 'Auto' }, { label: 'Light' }, { label: 'Dark', on: true }] },
       { kind: 'chips', mark: 'accent', items: [{ label: 'Violet', on: true }, { label: 'Ocean' }, { label: 'Gold' }] },
       { kind: 'chips', mark: 'icons', items: [{ label: 'Default' }, { label: 'Outline' }, { label: 'Filled', on: true }] },
-      { kind: 'chips', mark: 'detail', items: [{ label: 'Full' }, { label: 'When needed', on: true }, { label: 'Minimal' }, { label: 'Tooltip' }] },
+      { kind: 'chips', mark: 'detail', items: [{ label: 'Explain all' }, { label: 'Short tips', on: true }, { label: 'Titles' }, { label: '(i)' }] },
     ]),
   ],
   'money-preferences': [

@@ -1636,7 +1636,7 @@ export const SECTIONS: HelpSection[] = [
     ],
     points: [
       'Icons and Detail level show in Advanced.',
-      'Detail level: Full, When needed, Minimal or Tooltip.',
+      'Detail level: Explain everything, Short tips, Titles only, or Tips behind (i).',
       'Lines that stop a mistake with money always stay.',
       'Your look follows you to your other devices.',
     ],
