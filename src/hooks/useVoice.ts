@@ -50,7 +50,6 @@ export function useVoiceSetup(): { engine: VoiceEngine | null; offer: Transcribe
     status,
     hasOwnKey: !!aiState?.hint,
     aiEnabled: prefs?.aiEnabled ?? true,
-    keyChoice: prefs?.aiTranscribeKey ?? 'auto',
   })
   const aiChosen = !!prefs?.aiTranscribe && flag
   const engine = quickAdd ? voiceEngine({ native, nativeDenied: denied, micDenied: mic === 'denied', aiChosen, aiReady: offer.ai && online, recorder }) : null

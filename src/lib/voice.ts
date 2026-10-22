@@ -5,7 +5,6 @@
  * Pure, so every choice is tested; src/hooks/useVoice.ts and the components wire it up.
  * See docs/PENDING.md "Voice and Quick add" (owner's spec, 22 Oct 2026).
  */
-import type { AiSource } from './ai-config'
 
 export type Transcription = 'native' | 'ai'
 export type VoiceEngine = 'native' | 'ai'
@@ -19,8 +18,9 @@ export interface TranscribeOffer {
 
 /**
  * Can this person choose AI transcription? Only with the admin's switch on (aiTranscribe), AI on in
- * their settings, and a key for them: Split Now's transcription key when everyone may use it
- * (aiTranscribeShared) and it is set up, or their own Gemini key, as Which key allows.
+ * their settings, and a key for them: their own Gemini key, or else Split Now's transcription key
+ * when everyone may use it (aiTranscribeShared) and it is set up. Always that order, no choosing
+ * (shared/transcribe.ts planTranscribe). With neither, it asks for their own key.
  */
 export function transcribeOffer(o: {
   mode: 'firebase' | 'demo'
@@ -32,19 +32,16 @@ export function transcribeOffer(o: {
   status: { transcribe?: { configured: boolean } } | null | undefined
   hasOwnKey: boolean
   aiEnabled: boolean
-  keyChoice: AiSource
 }): TranscribeOffer {
   if (o.mode === 'demo') return { ai: false, why: 'AI transcription needs the online app. The demo uses your phone’s own speech recognition.' }
   if (!o.flag) return { ai: false, why: 'Transcription with AI is switched off for everyone right now.' }
   if (!o.aiEnabled) return { ai: false, why: 'Turn on Use AI in Settings → AI features first.' }
-  const own = o.hasOwnKey && o.keyChoice !== 'app'
-  const shared = o.sharedFlag && !!o.status?.transcribe?.configured && o.keyChoice !== 'own'
-  if (own || shared) return { ai: true, why: null }
+  const shared = o.sharedFlag && !!o.status?.transcribe?.configured
+  if (o.hasOwnKey || shared) return { ai: true, why: null }
   if (o.status === undefined && o.sharedFlag) return { ai: false, why: null }
-  if (o.keyChoice === 'own') return { ai: false, why: 'Needs your own Gemini key, added in Settings → AI features.' }
   if (!o.sharedFlag) return { ai: false, why: 'Needs your own Gemini key, added in Settings → AI features.' }
   if (o.status === null) return { ai: false, why: 'Can’t check right now. Try again when you’re online.' }
-  return { ai: false, why: 'Split Now’s transcription isn’t set up yet. Your own Gemini key works too (Settings → AI features).' }
+  return { ai: false, why: 'Add your own Gemini key in Settings → AI features to transcribe with AI. Split Now’s isn’t set up yet.' }
 }
 
 /**

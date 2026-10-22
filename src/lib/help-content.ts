@@ -413,7 +413,7 @@ export const SECTIONS: HelpSection[] = [
       'A line it can’t act on gets a short answer instead.',
       'No speech on your phone? Holding + opens the Create sheet as before.',
       'On a computer, Chrome, Edge and Safari listen. Opera and Brave use their on-device recogniser, set up the first time.',
-      'Settings → AI features → Voice: Transcribe with AI sends the recording to Google’s Flash-Lite. Off, your phone listens, free. It shows only when it’s available to you.',
+      'Settings → AI features → Voice: **Phone** listens for free and shows your words as you talk. **AI** sends the recording to Google’s Flash-Lite, on your own Gemini key first, then Split Now’s.',
     ],
     open: { label: 'Home', to: '/' },
     related: ['quick-add', 'add-expense'],

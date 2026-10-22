@@ -6,6 +6,7 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Settings → AI features → Voice is one choice, **Phone | AI**, instead of a switch plus “Which key”. AI always uses your own Gemini key first, then Split Now's transcription key; with neither, it tells you to add your own key.
 - Scan → Payment shows a screenshot with a tick (the payment confirmation you upload) instead of a phone with a rupee on it.
 - Balances: each row's group is a small chip on its own line under the amounts, with room above it, and keeps its full name beside three buttons on a small phone (it was squeezed under the amount and cut to “Goa …”). Someone you share several groups with shows the total, then one chip and amount per group.
 - Help: a section is ticked only once you've played its steps to the end (or read to its end) and stayed on it a few seconds. Rushing through no longer fills the ring towards Pro, and **Up next** no longer ticks the next section the moment it opens. Earn Pro's stamp card shows it: a ring goes round the next slot before its stamp lands.

@@ -85,8 +85,9 @@ describe('planTranscribe', () => {
     expect(planTranscribe({ user, hasOwnKey: true, sharedAllowed: false, sharedConfigured: true })).toEqual(['own'])
   })
   it('Own key and Split Now’s key mean only that one', () => {
-    expect(planTranscribe({ user: { ...user, aiTranscribeKey: 'own' }, hasOwnKey: true, sharedAllowed: true, sharedConfigured: true })).toEqual(['own'])
-    expect(planTranscribe({ user: { ...user, aiTranscribeKey: 'app' }, hasOwnKey: true, sharedAllowed: true, sharedConfigured: true })).toEqual(['app'])
+    // An old "which key" choice no longer narrows it: own first, then Split Now's, always.
+    expect(planTranscribe({ user: { ...user, aiTranscribeKey: 'own' }, hasOwnKey: true, sharedAllowed: true, sharedConfigured: true })).toEqual(['own', 'app'])
+    expect(planTranscribe({ user: { ...user, aiTranscribeKey: 'app' }, hasOwnKey: true, sharedAllowed: true, sharedConfigured: true })).toEqual(['own', 'app'])
   })
 })
 

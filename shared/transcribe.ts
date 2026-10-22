@@ -88,10 +88,11 @@ export function cleanTranscript(raw: string): string {
 }
 
 /**
- * Which keys to try for one recording, in order. Empty: transcription isn't on for this person.
- *  aiTranscribeKey 'auto'  their own key first, then Split Now's (when allowed and set up)
- *                  'own'   their own key only
- *                  'app'   Split Now's only
+ * Which keys to try for one recording, in order: their own key first, then Split Now's
+ * transcription key (when allowed and set up). Empty: transcription isn't on for this person.
+ * Always this order (owner, 22 Oct 2026: no "Which key" to choose); an old stored 'own' / 'app'
+ * choice no longer narrows it. The project key is never used for voice: it may be on Google's
+ * free tier, where what is sent may be used by Google, and voice is personal.
  */
 export function planTranscribe(o: {
   /** the person's choices */
@@ -103,8 +104,8 @@ export function planTranscribe(o: {
   sharedConfigured: boolean
 }): Array<'own' | 'app'> {
   if (!o.user.aiEnabled || !o.user.aiTranscribe) return []
-  const own = o.hasOwnKey && o.user.aiTranscribeKey !== 'app'
-  const app = o.sharedAllowed && o.sharedConfigured && o.user.aiTranscribeKey !== 'own'
+  const own = o.hasOwnKey
+  const app = o.sharedAllowed && o.sharedConfigured
   return [...(own ? (['own'] as const) : []), ...(app ? (['app'] as const) : [])]
 }
 

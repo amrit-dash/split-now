@@ -26,7 +26,6 @@ const offer = (o: Partial<Parameters<typeof transcribeOffer>[0]> = {}) =>
     status: { transcribe: { configured: true } },
     hasOwnKey: false,
     aiEnabled: true,
-    keyChoice: 'auto',
     ...o,
   })
 
@@ -37,13 +36,12 @@ describe('transcribeOffer', () => {
   it('without the shared key, only someone with their own key', () => {
     expect(offer({ sharedFlag: false })).toEqual({ ai: false, why: expect.stringMatching(/own Gemini key/) })
     expect(offer({ sharedFlag: false, hasOwnKey: true })).toEqual({ ai: true, why: null })
-    expect(offer({ status: { transcribe: { configured: false } } }).why).toMatch(/isn’t set up yet/)
+    expect(offer({ status: { transcribe: { configured: false } } }).why).toMatch(/Add your own Gemini key/)
     expect(offer({ status: { transcribe: { configured: false } }, hasOwnKey: true }).ai).toBe(true)
   })
-  it('Which key narrows it', () => {
-    expect(offer({ keyChoice: 'own' }).ai).toBe(false)
-    expect(offer({ keyChoice: 'own', hasOwnKey: true }).ai).toBe(true)
-    expect(offer({ keyChoice: 'app', hasOwnKey: true, sharedFlag: false }).ai).toBe(false)
+  it('your own key is enough, with or without Split Now’s', () => {
+    expect(offer({ hasOwnKey: true, sharedFlag: false }).ai).toBe(true)
+    expect(offer({ hasOwnKey: true, status: { transcribe: { configured: false } } }).ai).toBe(true)
   })
   it('says why: demo, the admin’s switch, AI off, offline', () => {
     expect(offer({ mode: 'demo' }).why).toMatch(/needs the online app/)
