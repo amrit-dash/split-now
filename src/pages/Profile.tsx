@@ -224,8 +224,11 @@ export default function Profile() {
       <PageHeader
         title="Profile"
         right={
-          <div className="flex items-center gap-2">
-            <SavedPill on={saved} />
+          // Two round buttons side by side, bigger icons, no gap (owner): each keeps its own 44 px target.
+          <div className="-mr-1.5 flex items-center">
+            <span className="mr-1">
+              <SavedPill on={saved} />
+            </span>
             <ModeButton />
             <Link
               to="/settings"
@@ -233,7 +236,7 @@ export default function Profile() {
               aria-label="Settings"
               data-testid="open-settings"
             >
-              <SettingsIcon size={22} />
+              <SettingsIcon size={26} />
             </Link>
           </div>
         }

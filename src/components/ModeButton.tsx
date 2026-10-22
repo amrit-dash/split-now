@@ -214,17 +214,17 @@ export function ModeButton() {
       >
         {From && (
           <span ref={exitEl} className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden>
-            <From size={22} />
+            <From size={26} />
           </span>
         )}
         <span ref={enterEl} className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden>
           {anim && (
             <span ref={solidEl} className="absolute inset-0 flex items-center justify-center">
-              <Icon size={22} solid />
+              <Icon size={26} solid />
             </span>
           )}
           <span ref={lineEl} className="absolute inset-0 flex items-center justify-center">
-            <Icon size={22} />
+            <Icon size={26} />
           </span>
         </span>
         {anim && (

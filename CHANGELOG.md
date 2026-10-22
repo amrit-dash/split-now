@@ -8,7 +8,7 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## 9.0.0 — October 2026
 
-- New icons for settings: a group's settings button is a set of toggles, so it no longer looks like the app's Settings; Profile's Settings gear has a clean, even circle in the middle. Before, both were the same gear and its middle looked off.
+- New icons for settings: a group's settings button is a set of toggles, so it no longer looks like the app's Settings; Profile's Settings gear has a clean, even circle in the middle, and it and the mode button are bigger and sit closer together. Before, both were the same gear and its middle looked off.
 - Settings → Preferences: Mode (Simple or Advanced) is now the last section, and its Advanced option shows the same picture as Profile's mode button.
 - Simple: a group chat's About sheet shows what the chat is and how to use it, without the settings underneath (the bell at the top still mutes).
 - Help and the screens you open most (a group's chat, money and members, Settle up, Scan, Inbox) now load quietly in the background after the app opens, so the first tap on them doesn't wait.
