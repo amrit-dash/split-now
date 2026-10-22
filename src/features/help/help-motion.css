@@ -272,3 +272,34 @@
     opacity: 0;
   }
 }
+
+/* A door swinging open on its hinge, held while something goes through, then shut. */
+@keyframes hm-door {
+  0% {
+    transform: rotateY(0deg);
+  }
+  20%,
+  82% {
+    transform: rotateY(-78deg);
+  }
+  100% {
+    transform: rotateY(0deg);
+  }
+}
+
+/* The parcel sliding across to the open door (--dx), then on through it, smaller, and gone. */
+@keyframes hm-parcel {
+  0% {
+    opacity: 1;
+    transform: none;
+  }
+  58% {
+    opacity: 1;
+    transform: translateX(var(--dx));
+  }
+  92%,
+  100% {
+    opacity: 0;
+    transform: translateX(var(--dx)) translateY(-10px) scale(0.5);
+  }
+}

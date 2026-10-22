@@ -174,13 +174,13 @@ export const SECTIONS: HelpSection[] = [
     icon: 'trayDown',
     chapter: 'capture',
     title: 'Why a captured payment waits for you',
-    summary: 'A coin on the counter. Only you know which jar.',
+    summary: 'A parcel with no name. Only you know whose door.',
     keywords: ['captured payment', 'sort', 'why', 'inbox', 'who for', 'personal', 'not shared'],
     story: {
-      kind: 'jars',
+      kind: 'doors',
       beats: [
-        'A captured payment is a coin on the counter. It knows how much, not who it was for.',
-        'Only you know. Drop it in a group’s jar, keep it Personal, or say Not shared.',
+        'A captured payment is a parcel with no name on it. It knows how much, not who it’s for.',
+        'Only you know. Tap a door: a group, or just you. Or say Not shared.',
         'It goes in only when you pick. Nothing is added on its own.',
       ],
     },

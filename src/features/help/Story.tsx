@@ -1394,6 +1394,131 @@ const Jars: View = ({ beat }) => {
   )
 }
 
+// ---- Why a captured payment waits: a parcel with no name on it --------------------------------------------
+
+/*
+ * A captured payment is a parcel left in the hall: the label says ₹450 from Blue Tokai, but no
+ * name. Three doors: a group, another group, and just you. It goes through a door only when you pick
+ * one: the door swings open, the parcel slides in, the door shuts. The doors can be tapped (a
+ * picture only, so no focus or screen-reader role: the captions say the same); otherwise the last
+ * beat picks Goa trip.
+ */
+const DOORS = [
+  { label: 'Goa trip', done: '✓ ₹150 each', x: 150 },
+  { label: 'Flat', done: '✓ ₹225 each', x: 226 },
+  { label: 'Just me', done: '✓ Personal', x: 302 },
+] as const
+const DOOR = { w: 56, h: 100, top: 78 }
+const FLOOR_Y = DOOR.top + DOOR.h
+const PARCEL = { x: 54, w: 64, h: 46 }
+
+function Parcel() {
+  return (
+    <div className="relative" style={{ width: PARCEL.w, height: PARCEL.h }}>
+      <div
+        className="absolute inset-0 rounded-[7px] shadow-[0_8px_14px_-8px_rgba(120,72,20,0.7)]"
+        style={{ background: 'linear-gradient(160deg, #f3d7a8 0%, #dcb07a 60%, #c99459 100%)' }}
+      />
+      {/* the tape across the top, and a fold */}
+      <div className="absolute inset-x-0 top-[38%] h-[7px] bg-[#f7e6c4]/80" />
+      <div className="absolute left-1/2 top-0 h-full w-[7px] -translate-x-1/2 bg-[#f7e6c4]/70" />
+      {/* its label: how much and where, no name */}
+      <div className="absolute -right-3 -top-3 rotate-[8deg] rounded-md bg-white px-1.5 py-1 text-center shadow-md ring-1 ring-black/5 dark:bg-ink-800 dark:ring-white/10">
+        <div className="text-[11px] font-black leading-none tabular-nums text-slate-800 dark:text-white">₹450</div>
+        <div className="mt-0.5 whitespace-nowrap text-[7px] font-semibold leading-none text-slate-500 dark:text-slate-400">Blue Tokai</div>
+      </div>
+    </div>
+  )
+}
+
+const Doors: View = ({ beat }) => {
+  // Someone tapping a door picks it; otherwise the last beat picks the first. Each pick replays.
+  const [tapped, setTapped] = useState<{ door: number; n: number } | null>(null)
+  const pick = tapped?.door ?? (beat === 2 ? 0 : null)
+  const run = tapped ? `t${tapped.n}` : `b${beat}`
+  const d = DOORS[pick ?? 0]
+  // When the door opens, the parcel slides over and in, and the door shuts behind it (ms after the pick).
+  const t = tapped ? 0 : 250
+  const dx = d.x - PARCEL.x
+  return (
+    <>
+      {/* the wall and the floor */}
+      <div
+        className="absolute inset-x-6 rounded-t-[22px] bg-white/50 ring-1 ring-brand-100 dark:bg-white/[0.03] dark:ring-white/5"
+        style={{ top: DOOR.top - 26, height: FLOOR_Y - DOOR.top + 26 }}
+      />
+      <div className="absolute inset-x-3 h-2 rounded-full bg-brand-200 dark:bg-white/15" style={{ top: FLOOR_Y }} />
+      {DOORS.map((door, i) => {
+        const opens = pick === i
+        return (
+          // biome-ignore lint/a11y/noStaticElementInteractions: the picture is aria-hidden; tapping a door is a bonus, the captions say the same
+          // biome-ignore lint/a11y/useKeyWithClickEvents: as above, nothing here takes focus
+          <div
+            key={door.label}
+            className="absolute cursor-pointer"
+            style={{ left: door.x - DOOR.w / 2, top: DOOR.top - 22, width: DOOR.w, height: DOOR.h + 22, perspective: 260 }}
+            onClick={() => setTapped((p) => ({ door: i, n: (p?.n ?? 0) + 1 }))}
+          >
+            {/* the name plate */}
+            <div
+              className={`mx-auto mb-1.5 w-fit whitespace-nowrap rounded-md px-1.5 py-0.5 text-[9.5px] font-bold leading-none ring-1 ${opens ? 'bg-fill text-on-fill ring-transparent' : 'bg-white text-slate-700 ring-slate-200 dark:bg-ink-800 dark:text-slate-100 dark:ring-white/10'}`}
+              style={beat === 1 && pick === null ? { animation: `sx-lit 700ms ease-in-out ${300 + i * 380}ms` } : undefined}
+            >
+              {door.label}
+            </div>
+            {/* the doorway, dark inside, and the door on its hinge */}
+            <div className="relative rounded-t-[14px] bg-slate-800 dark:bg-black" style={{ width: DOOR.w, height: DOOR.h }}>
+              <div
+                key={`${run}-${door.label}`}
+                className="absolute inset-0 rounded-t-[14px] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.25)]"
+                style={{
+                  background: 'linear-gradient(160deg, var(--color-brand-400), var(--color-brand-700))',
+                  transformOrigin: 'left center',
+                  ...(opens ? { animation: `hm-door 1500ms cubic-bezier(0.45, 0, 0.25, 1) ${t}ms both` } : {}),
+                }}
+              >
+                <div className="absolute inset-x-2 top-2 h-9 rounded-t-[9px] bg-white/15" />
+                <div className="absolute inset-x-2 bottom-3 h-9 rounded-[5px] bg-white/10" />
+                <div className="absolute right-2 top-1/2 h-2 w-2 rounded-full bg-amber-300 shadow" />
+              </div>
+            </div>
+          </div>
+        )
+      })}
+      {/* the parcel: it slides in on the first beat and waits; picked, it goes through the door */}
+      <div
+        key={run}
+        className="absolute"
+        style={{
+          left: PARCEL.x - PARCEL.w / 2,
+          top: FLOOR_Y - PARCEL.h,
+          ...(pick === null
+            ? beat === 0
+              ? ({ '--from': 'translateX(-120px)', '--from-o': 0, animation: 'hm-from 800ms cubic-bezier(0.23, 1, 0.32, 1) 200ms both' } as CSSProperties)
+              : ambient('sx-breathe 2.8s ease-in-out infinite')
+            : ({ '--dx': `${dx}px`, opacity: 0, animation: `hm-parcel 1100ms cubic-bezier(0.45, 0, 0.25, 1) ${t + 250}ms both` } as CSSProperties)),
+        }}
+      >
+        <Parcel />
+      </div>
+      {pick === null ? (
+        <At x={PARCEL.x} y={DOOR.top - 6} style={beat === 0 ? rise(900) : undefined}>
+          <Pill tone={beat === 1 ? 'accent' : 'even'}>{beat === 1 ? 'Which door?' : 'No name on it'}</Pill>
+        </At>
+      ) : (
+        <At key={`done-${run}`} x={d.x} y={FLOOR_Y + 24} style={pop(t + 1500)}>
+          <Pill tone="up">{d.done}</Pill>
+        </At>
+      )}
+      {pick !== null && (
+        <At key={`note-${run}`} x={180} y={24} style={rise(t + 1700)}>
+          <Pill>in only when you pick</Pill>
+        </At>
+      )}
+    </>
+  )
+}
+
 // ---- Simple and Advanced: a small pocket knife and a full Swiss knife ------------------------------------
 
 /*
@@ -1870,5 +1995,6 @@ const VIEWS: Record<StoryKind, View> = {
   knife: Knife,
   jug: Jug,
   jars: Jars,
+  doors: Doors,
   pro: Pro,
 }

@@ -39,9 +39,14 @@ remove an item when its release merges, and add anything left half-done.
 - [x] Groups and Members in Simple (approvals, Merge, Needs my OK), then the proposed rows once the owner OKs them.
 - [x] Help: progress ring and done marks (synced), steps hold until Next, Simple's sections only, shorter text without dashes; tick, Congratulations and claiming Pro at 100%. (The neon flicker idea was replaced by the shimmer.)
 
-- [ ] More group types (+5: Family, Sports, Club, Study, Party) and expense categories (+6: Fuel, Subscriptions, Education, Pets, Personal care, Fitness): waiting for the owner's OK.
 - [ ] Copy pass: tighten every screen's subtext; drop it where a retitled control reads alone; revamp the detail levels.
 - [ ] Regenerate Help and README screenshots (`npm run help:media`, `npm run readme:media`) once the UI settles.
+
+## Batch 9.1.1 (parked by the owner, 22 Oct 2026; after voice)
+
+- [ ] More group types (+5: Family, Sports, Club, Study, Party) and expense categories (+6: Fuel, Subscriptions, Education, Pets, Personal care, Fitness): owner said yes, for 9.1.1.
+- [ ] The rest of the design pass (listed under 9.0.0 above): edge fades, two-line titles, Insights stubs, haptics helper, Balances rows.
+- [ ] Icons, later and the flaky receipt-photos e2e (above).
 
 ## Voice and Quick add (owner's decisions, 22 Oct 2026; ships in 9.1.0, after Simple and Advanced)
 
