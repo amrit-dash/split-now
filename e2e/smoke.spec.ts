@@ -412,8 +412,8 @@ test('Preferences → Icons: Filled turns the tab bar icons solid, Outline bring
   const groupsIcon = nav.getByRole('link', { name: 'Groups' }).locator('svg')
   // Outline by default; the current tab (Home) is solid in either style.
   await expect(nav).toHaveAttribute('data-icon-style', 'outline')
-  await expect(groupsIcon).toHaveAttribute('data-weight', 'regular')
-  await expect(nav.getByRole('link', { name: 'Home' }).locator('svg')).toHaveAttribute('data-weight', 'fill')
+  await expect(groupsIcon).toHaveAttribute('data-variant', 'line')
+  await expect(nav.getByRole('link', { name: 'Home' }).locator('svg')).toHaveAttribute('data-variant', 'solid')
   await page.goto('/settings/preferences')
   const icons = page.getByTestId('icon-style')
   await icons.getByRole('radio', { name: 'Filled' }).click()
@@ -421,13 +421,19 @@ test('Preferences → Icons: Filled turns the tab bar icons solid, Outline bring
   await expect(page.locator('html')).toHaveAttribute('data-icon-style', 'filled')
   await page.goto('/')
   await expect(nav).toHaveAttribute('data-icon-style', 'filled')
-  await expect(groupsIcon).toHaveAttribute('data-weight', 'fill')
+  await expect(groupsIcon).toHaveAttribute('data-variant', 'solid')
   await page.reload()
-  await expect(groupsIcon).toHaveAttribute('data-weight', 'fill')
+  await expect(groupsIcon).toHaveAttribute('data-variant', 'solid')
+  await page.goto('/settings/preferences')
+  // Help's pictures follow the style too (Solar bold duotone in Filled).
+  await page.goto('/help')
+  await expect(page.getByTestId('help-core-card').first().locator('svg[data-variant="solid"] path').first()).toBeAttached()
   await page.goto('/settings/preferences')
   await page.getByTestId('icon-style').getByRole('radio', { name: 'Outline' }).click()
   await page.goto('/')
-  await expect(groupsIcon).toHaveAttribute('data-weight', 'regular')
+  await expect(groupsIcon).toHaveAttribute('data-variant', 'line')
+  await page.goto('/help')
+  await expect(page.getByTestId('help-core-card').first().locator('svg[data-variant="line"] path').first()).toBeAttached()
 })
 
 test('Animations: turning them all off stills the preview and the accent buttons, and is kept after a reload', async ({ page }) => {

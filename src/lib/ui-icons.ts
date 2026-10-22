@@ -1,8 +1,10 @@
 /*
- * The names of the icons that pure data can ask for: Help sections, Help scenes and empty
- * screens name an icon here instead of carrying an emoji, and src/components/UiIcon.tsx draws it
- * (a Phosphor icon, following the Outline / Filled style). Emoji stay for what people choose
- * (group and expense icons, categories); interface pictures are icons.
+ * The names of the pictures that pure data can ask for: Help sections and empty screens name one
+ * here instead of carrying an emoji, and FeatureIcon (src/components/Icon.tsx) draws it in Solar
+ * duotone, following the Outline / Filled style. Help scenes draw the app's own UI icons
+ * instead (SCENE_GLYPHS: a scene is a picture of a screen, so its tab bar and tiles look like
+ * the real ones). Emoji stay for what people choose (group and expense icons, categories);
+ * interface pictures are icons.
  */
 
 export const UI_ICONS = [
@@ -102,3 +104,26 @@ export const UI_ICONS = [
 export type UiIconName = (typeof UI_ICONS)[number]
 
 export const isUiIcon = (v: unknown): v is UiIconName => typeof v === 'string' && (UI_ICONS as readonly string[]).includes(v)
+
+/** The UI icons a Help scene can show (src/features/help/Scene.tsx maps each to its icon). */
+export const SCENE_GLYPHS = [
+  'camera',
+  'chat',
+  'checkCircle',
+  'copy',
+  'divide',
+  'envelope',
+  'faceId',
+  'file',
+  'house',
+  'liveTable',
+  'lock',
+  'money',
+  'receipt',
+  'user',
+  'users',
+] as const satisfies readonly UiIconName[]
+
+export type SceneGlyph = (typeof SCENE_GLYPHS)[number]
+
+export const isSceneGlyph = (v: unknown): v is SceneGlyph => typeof v === 'string' && (SCENE_GLYPHS as readonly string[]).includes(v)

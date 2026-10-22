@@ -1,7 +1,8 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { WhatsNewBanner } from '@/components/WhatsNewBanner'
 import { Link, useNavigate } from 'react-router-dom'
-import { ChevronDown, ChevronRight, FileUp, Inbox, Lock, Plus, Ticket } from 'lucide-react'
+import { ChevronDown, ChevronRight, Lock } from 'lucide-react'
+import { AddIcon, FileUploadIcon, InboxIcon, TicketIcon } from '@/components/icons'
 import { useMe } from '@/hooks/auth'
 import { useAllGroupData, type GroupData } from '@/hooks/data'
 import { useInbox } from '@/hooks/useInbox'
@@ -137,7 +138,7 @@ export default function Home() {
             ) : box.unread > 0 ? (
               <span className="absolute right-1 top-2 h-2.5 w-2.5 rounded-full bg-brand-500 ring-2 ring-slate-50 dark:ring-ink-950" aria-hidden />
             ) : null}
-            <Inbox className="h-6 w-6 min-[380px]:h-[27px] min-[380px]:w-[27px]" strokeWidth={2} aria-hidden />
+            <InboxIcon size="1em" className="text-[24px] min-[380px]:text-[27px]" aria-hidden />
           </Link>
           <Link to="/profile" aria-label="Profile" className="rounded-full p-0.5 ring-2 ring-brand-500/40 transition active:scale-95">
             <Avatar name={profile.displayName} photoURL={profile.photoURL} color="accent" size={compact ? 48 : 58} />
@@ -303,8 +304,8 @@ export function FirstRun() {
         </h2>
         <HintText hint={FIRST_RUN_HINT} className="text-muted mt-1 text-sm" />
         <div className="mt-4 divide-y divide-slate-100 dark:divide-white/5">
-          <StartRow to="/groups/new" icon={<Plus size={20} />} title="Create a group" text={START_HINTS.create} testId="first-run-create" />
-          <StartRow to="/groups/import" icon={<FileUp size={20} />} title="Import from Splitwise" text={START_HINTS.import} testId="first-run-import" />
+          <StartRow to="/groups/new" icon={<AddIcon size={20} />} title="Create a group" text={START_HINTS.create} testId="first-run-create" />
+          <StartRow to="/groups/import" icon={<FileUploadIcon size={20} />} title="Import from Splitwise" text={START_HINTS.import} testId="first-run-import" />
           <JoinRow />
         </div>
       </div>
@@ -388,7 +389,7 @@ function JoinRow() {
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300"
           aria-hidden
         >
-          <Ticket size={20} />
+          <TicketIcon size={20} />
         </span>
         <span className="min-w-0 flex-1">
           <span className="block font-semibold">Join with an invite code</span>

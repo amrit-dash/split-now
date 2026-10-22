@@ -1575,8 +1575,8 @@ export const SECTIONS: HelpSection[] = [
     points: [
       'Full shows every explanation; When needed, one short line where it helps; Minimal, titles only; Tooltip puts them behind an (i).',
       'App default follows what Split Now sets.',
-      'Icons: Outline draws light line icons, Filled draws solid ones; Default follows what Split Now sets. The tab you are on is solid either way.',
-      'Icons covers the tab bar, Profile, Settings, Help, the Create sheet and empty screens; small arrows, ticks and close buttons stay as lines.',
+      'Icons: Outline draws line icons, Filled draws solid ones; Default follows what Split Now sets. The tab you are on is solid either way.',
+      'Icons covers the tab bar, Profile, Settings, sheets, the buttons on groups and expenses, and Help’s pictures, which take your accent’s colours; small arrows, ticks and close buttons stay as lines.',
       'Lines that stop a mistake with money always stay.',
       'Theme, accent, icons and detail level follow you to your other devices.',
     ],

@@ -8,8 +8,7 @@ import { usePausedTrips } from '@/hooks/useCapturePrefs'
 import type { Capture, Group } from '@/types'
 import { formatMoney } from '@/lib/money'
 import { targetGroupFor } from '@/lib/inbox-sort'
-import { StyledIcon } from '@/components/Icon'
-import { TrayIcon } from '@/components/icons'
+import { InboxIcon } from '@/components/icons'
 
 /**
  * In-app banner for a payment captured while the app is open (a push notification isn't shown
@@ -84,7 +83,7 @@ function AlertCard({
     >
       <div className="flex items-center gap-3 rounded-3xl bg-white p-3 shadow-2xl shadow-black/20 ring-1 ring-slate-900/10 dark:bg-ink-800 dark:ring-white/10">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-xl dark:bg-brand-900/40" aria-hidden>
-          {several ? <StyledIcon icon={TrayIcon} size={22} className="text-brand-600 dark:text-brand-300" /> : (trip?.emoji ?? '💸')}
+          {several ? <InboxIcon size={22} className="text-brand-600 dark:text-brand-300" /> : (trip?.emoji ?? '💸')}
         </span>
         <div className="min-w-0 flex-1">
           {several ? (

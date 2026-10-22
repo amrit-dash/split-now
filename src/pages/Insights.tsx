@@ -48,7 +48,6 @@ import { CategoryBreakdown, GroupBars, PaceChart, PaidShare, TimeChart } from '@
 import { FiltersPanel } from '@/components/insights/Filters'
 import { Detail, type Hint, HintText, InfoTip } from '@/components/Hint'
 import { CountUp } from '@/components/insights/motion'
-import { ChartDonutIcon } from '@/components/icons'
 
 export default function Insights() {
   usePageTitle('Insights')
@@ -197,7 +196,7 @@ export default function Insights() {
       />
 
       {head.count === 0 ? (
-        <Empty icon={ChartDonutIcon} title="Nothing to chart yet">
+        <Empty icon="chart" title="Nothing to chart yet">
           No expenses match these filters. Try a longer date range or fewer filters.
         </Empty>
       ) : (

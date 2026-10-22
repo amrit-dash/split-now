@@ -176,3 +176,5 @@ The same two links are in the app under **Profile → Support the developer**. A
 ## License
 
 [MIT](LICENSE) © Amrit Dash
+
+Icons: [MingCute](https://www.mingcute.com) (Apache-2.0), [Solar](https://github.com/480-Design/Solar-Icon-Set) by 480 Design ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); recoloured to the accent), and [Lucide](https://lucide.dev) (ISC).

@@ -1,4 +1,5 @@
-import { ArrowDownUp, ChevronRight, Link2, Lock, MessagesSquare, Search, Settings2 } from 'lucide-react'
+import { ChevronRight, Search } from 'lucide-react'
+import { ChatIcon, LinkIcon, LockIcon, SettingsIcon, SortIcon } from '@/components/icons'
 import type { Expense, Group } from '@/types'
 import { useMe } from '@/hooks/auth'
 import { useExpenses } from '@/hooks/data'
@@ -47,15 +48,15 @@ export function VaultLock({ group, back = '/groups' }: { group: Group; back?: st
         right={
           <div className="flex items-center">
             <PatternLock groupId={id} label="Private group" className={`${iconButton} hover:bg-slate-200/60 dark:hover:bg-ink-800`} testId="vault-unlock-open">
-              <Lock size={20} aria-hidden />
+              <LockIcon size={20} aria-hidden />
             </PatternLock>
             {chatOn && (
               <span className={iconButton} aria-hidden>
-                <MessagesSquare size={22} />
+                <ChatIcon size={22} />
               </span>
             )}
             <span className={iconButton} aria-hidden>
-              <Settings2 size={22} />
+              <SettingsIcon size={22} />
             </span>
           </div>
         }
@@ -91,7 +92,7 @@ export function VaultLock({ group, back = '/groups' }: { group: Group; back?: st
             </span>
           </button>
           <button type="button" className="btn-secondary pointer-events-none whitespace-nowrap" aria-disabled tabIndex={-1}>
-            <Link2 size={18} /> Invite
+            <LinkIcon size={18} /> Invite
           </button>
         </div>
       </div>
@@ -117,7 +118,7 @@ export function VaultLock({ group, back = '/groups' }: { group: Group; back?: st
             <div className="input text-muted !py-2.5 pl-10">Search expenses and notes</div>
           </div>
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-600 dark:bg-ink-800 dark:text-slate-300">
-            <ArrowDownUp size={18} />
+            <SortIcon size={18} />
           </span>
         </div>
         <div className="scrollbar-none -mx-4 -mt-3 flex gap-1.5 overflow-x-auto px-4 py-1">

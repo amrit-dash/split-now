@@ -3,7 +3,7 @@ import { useVaultVersion } from '@/hooks/useVault'
 import { aiAfterPick, scanOnDeviceFirst } from '@/lib/vault-api'
 import { isUnlocked } from '@/lib/vault-keys'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Camera, ImageUp, Plus, Smartphone, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
 import { useAiStatus } from '@/hooks/useAiStatus'
 import { useFlag } from '@/hooks/useAppConfig'
@@ -30,8 +30,8 @@ import { Select, currencyOptions } from '@/components/Select'
 import { useToast } from '@/components/Toast'
 import { Detail, type Hint, HintText, InfoTip, useShows } from '@/components/Hint'
 import { activeMembers } from '@/lib/members'
-import { StyledIcon } from '@/components/Icon'
-import { DeviceMobileIcon, LiveTableIcon, ReceiptIcon } from '@/components/icons'
+import { FeatureIcon } from '@/components/Icon'
+import { AddIcon, CameraIcon, ImageAddIcon, LiveTableIcon, PhoneIcon } from '@/components/icons'
 
 type Mode = 'receipt' | 'statement' | 'payment'
 
@@ -394,12 +394,7 @@ export default function Scan() {
                   className="mb-3 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-fill-500 to-fill-to text-3xl text-on-fill shadow-lg"
                   aria-hidden
                 >
-                  <StyledIcon
-                    icon={mode === 'receipt' ? ReceiptIcon : DeviceMobileIcon}
-                    size={40}
-                    kind="feature"
-                    className="text-brand-600 dark:text-brand-300"
-                  />
+                  <FeatureIcon name={mode === 'receipt' ? 'receipt' : 'phone'} size={36} tone="current" />
                 </div>
                 <div className="flex items-center justify-center">
                   <h2 className="font-bold">{mode === 'receipt' ? 'Snap a bill' : 'Upload a payment confirmation'}</h2>
@@ -410,10 +405,10 @@ export default function Scan() {
             )}
             <div className="grid grid-cols-2 gap-2 p-3">
               <button type="button" className="btn-primary" onClick={() => camRef.current?.click()} disabled={busy}>
-                <Camera size={18} aria-hidden /> Camera
+                <CameraIcon size={18} aria-hidden /> Camera
               </button>
               <button type="button" className="btn-secondary" onClick={() => libRef.current?.click()} disabled={busy}>
-                <ImageUp size={18} aria-hidden /> Photos
+                <ImageAddIcon size={18} aria-hidden /> Photos
               </button>
             </div>
             {mode === 'receipt' && <AiScanToggle className="px-4 pb-3" />}
@@ -475,7 +470,7 @@ export default function Scan() {
               <div className="font-bold">That doesn’t look like a bill</div>
               <p className="text-muted mt-1 text-sm">Try a sharper, straighter photo, or read this one on your phone instead.</p>
               <button type="button" className="btn-secondary mt-3 w-full" onClick={readOnPhone} disabled={busy}>
-                <Smartphone size={18} aria-hidden /> Read on this phone instead
+                <PhoneIcon size={18} aria-hidden /> Read on this phone instead
               </button>
             </div>
           )}
@@ -554,7 +549,7 @@ export default function Scan() {
                 <div className="card p-4 text-center">
                   <p className="text-muted text-sm">You don’t have a group yet.</p>
                   <Link to="/groups/new?next=add" className="btn-primary mt-3 w-full">
-                    <Plus size={18} aria-hidden /> Create a group first
+                    <AddIcon size={18} aria-hidden /> Create a group first
                   </Link>
                 </div>
               ) : (

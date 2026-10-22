@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ChevronRight, HandCoins } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
+import { HandCoinsIcon } from '@/components/icons'
 import { useMe } from '@/hooks/auth'
 import { computeGroupData, memberOrder, useExpenses, useGroup, useSettlements } from '@/hooks/data'
 import { usePageTitle } from '@/lib/brand'
@@ -13,7 +14,6 @@ import { HintText } from '@/components/Hint'
 import { Empty, PageHeader } from '@/components/Misc'
 import { CardSkeleton, ListSkeleton } from '@/components/Skeleton'
 import { handlersOf } from '../../shared/received'
-import { MagnifyingGlassIcon } from '@/components/icons'
 
 /** "owes ₹300" / "gets back ₹200" / "settled", from a balance (+ is owed to them). */
 const standing = (v: number, cur: string) => (v > 0 ? `gets back ${formatMoney(v, cur)}` : v < 0 ? `owes ${formatMoney(-v, cur)}` : 'settled')
@@ -47,7 +47,7 @@ export default function GroupMoney() {
       <>
         {/* Fixed: this group is gone for you, and every screen of it behind this one would say the same, so back leaves the group. */}
         <PageHeader title="Money received" back={{ to: '/groups', mode: 'fixed' }} />
-        <Empty icon={MagnifyingGlassIcon} title="This group doesn’t exist or you’re not a member" />
+        <Empty icon="search" title="This group doesn’t exist or you’re not a member" />
       </>
     )
   if (!d || !b)
@@ -139,7 +139,7 @@ export default function GroupMoney() {
             return (
               <li key={e.id}>
                 <Link to={`/groups/${group.id}/expenses/${e.id}`} className="flex min-h-14 items-center gap-3 px-4 py-3">
-                  <HandCoins size={20} className="pos shrink-0" aria-hidden />
+                  <HandCoinsIcon size={20} className="pos shrink-0" aria-hidden />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium">{e.description}</span>
                     <span className="text-muted block truncate text-xs">

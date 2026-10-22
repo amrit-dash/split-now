@@ -7,14 +7,14 @@ import { useAppConfig } from '@/hooks/useAppConfig'
 import { CURRENCIES } from '@/lib/money'
 import { errText } from '@/lib/errors'
 import { appLocale } from '@/lib/locale'
-import { type IconStyleChoice, ICON_STYLE_CHOICES, ICON_STYLE_INFO, iconWeight } from '@/lib/icon-style'
+import { type IconStyleChoice, ICON_STYLE_CHOICES, ICON_STYLE_INFO, iconVariant } from '@/lib/icon-style'
 import { getIconStylePref, setIconStylePref, subscribeIconStylePref } from '@/lib/icon-style-pref'
 import { LOOK_CHOICES, LOOK_INFO, type LookChoice } from '@/lib/look'
 import { getLookPref, setLookPref, subscribeLookPref } from '@/lib/look-pref'
 import { getTheme, setTheme as saveTheme, type Theme } from '@/lib/theme'
 import { AccentPicker } from '@/components/AccentPicker'
 import { HintText, InfoTip, useShows, type Hint } from '@/components/Hint'
-import { CircleHalfIcon, HouseIcon, MoonIcon, SunIcon } from '@/components/icons'
+import { ContrastIcon, HomeIcon, MoonIcon, SunIcon } from '@/components/icons'
 import { Segmented } from '@/components/Misc'
 import { RatesField } from '@/components/ProfileCards'
 import { Select, currencyOptions } from '@/components/Select'
@@ -133,7 +133,7 @@ export default function Preferences() {
                 value: 'system',
                 label: (
                   <span className="inline-flex items-center gap-1">
-                    <CircleHalfIcon size={16} aria-hidden /> Auto
+                    <ContrastIcon size={16} aria-hidden /> Auto
                   </span>
                 ),
               },
@@ -176,7 +176,8 @@ export default function Preferences() {
               value: c,
               label: (
                 <span className="inline-flex items-center gap-1">
-                  <HouseIcon size={16} weight={iconWeight(c === 'app' ? adminIcons : c)} aria-hidden /> {c === 'app' ? 'Default' : ICON_STYLE_INFO[c].label}
+                  <HomeIcon size={16} solid={iconVariant(c === 'app' ? adminIcons : c) === 'solid'} aria-hidden />{' '}
+                  {c === 'app' ? 'Default' : ICON_STYLE_INFO[c].label}
                 </span>
               ),
             }))}

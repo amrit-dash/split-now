@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Check, ChevronRight, MoreVertical, PlusSquare, Share, X } from 'lucide-react'
-import { DeviceMobileIcon, DownloadSimpleIcon } from '@/components/icons'
+import { PhoneIcon, DownloadIcon } from '@/components/icons'
 import { useAllGroupData } from '@/hooks/data'
 import { countVisit, dismissInstall, installMethod, isInstallDismissed, shouldOfferInstall, type InstallMethod } from '@/lib/install'
 import { useSwipeDismiss } from '@/hooks/useSwipeDismiss'
@@ -203,7 +203,7 @@ export function InstallRow({ className = 'card', testId = 'install-row' }: { cla
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
           aria-hidden
         >
-          {phone ? <DeviceMobileIcon size={19} /> : <DownloadSimpleIcon size={19} />}
+          {phone ? <PhoneIcon size={19} /> : <DownloadIcon size={19} />}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block">Install Split Now {phone ? 'on this phone' : 'on this computer'}</span>
@@ -254,7 +254,7 @@ function InstallBar({ hint, onDone, className, wrap = false }: { hint: string; o
       data-testid="install-banner-install"
     >
       <span className="inline-flex items-center gap-1.5">
-        <DownloadSimpleIcon size={16} aria-hidden /> Install
+        <DownloadIcon size={16} aria-hidden /> Install
       </span>
     </button>
   )

@@ -5,7 +5,7 @@ import {
   ICON_STYLE_CHOICES,
   ICON_STYLE_INFO,
   ICON_STYLES,
-  iconWeight,
+  iconVariant,
   isIconStyle,
   isIconStyleChoice,
   resolveIconStyle,
@@ -44,17 +44,13 @@ describe('effectiveIconStyle', () => {
   })
 })
 
-describe('iconWeight', () => {
+describe('iconVariant', () => {
   it('Outline draws line icons, Filled draws solid ones', () => {
-    expect(iconWeight('outline')).toBe('regular')
-    expect(iconWeight('filled')).toBe('fill')
-  })
-  it('big feature pictures get a soft tint in Outline', () => {
-    expect(iconWeight('outline', 'feature')).toBe('duotone')
-    expect(iconWeight('filled', 'feature')).toBe('fill')
+    expect(iconVariant('outline')).toBe('line')
+    expect(iconVariant('filled')).toBe('solid')
   })
   it('the place you are is solid in either style', () => {
-    expect(iconWeight('outline', 'active')).toBe('fill')
-    expect(iconWeight('filled', 'active')).toBe('fill')
+    expect(iconVariant('outline', true)).toBe('solid')
+    expect(iconVariant('filled', true)).toBe('solid')
   })
 })

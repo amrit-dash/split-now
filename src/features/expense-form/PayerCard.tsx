@@ -1,4 +1,4 @@
-import { Users } from 'lucide-react'
+import { GroupsIcon } from '@/components/icons'
 import type { Group, MemberId } from '@/types'
 import { centsToInput } from '@/lib/money'
 import { describePayer, sumOf, validAmount, type Action, type Draft } from '@/lib/expense-draft'
@@ -37,7 +37,9 @@ export function PayerCard({
         </>
       }
       title={describePayer(draft, group, me, false)}
-      icon={draft.multiPay ? <Users size={20} /> : <Avatar name={payer?.name ?? '?'} color={payer?.color ?? '#999'} photoURL={payer?.photoURL} size={40} />}
+      icon={
+        draft.multiPay ? <GroupsIcon size={20} /> : <Avatar name={payer?.name ?? '?'} color={payer?.color ?? '#999'} photoURL={payer?.photoURL} size={40} />
+      }
       plainIcon={!draft.multiPay}
       onClick={onOpen}
       testId="payer-summary"

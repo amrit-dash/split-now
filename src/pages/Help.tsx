@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowRight, ChevronRight, Search } from 'lucide-react'
 import { Empty, PageHeader, Segmented } from '@/components/Misc'
-import { UiIcon } from '@/components/UiIcon'
+import { FeatureIcon } from '@/components/Icon'
 import { StepPlayer, StepText } from '@/features/help/StepPlayer'
 import { StoryPlayer } from '@/features/help/StoryPlayer'
 import { APP_SEMVER, useWhatsNew } from '@/hooks/useWhatsNew'
@@ -10,7 +10,6 @@ import { usePageTitle } from '@/lib/brand'
 import { guideLayout, type HelpSection, relatedOf, searchHelp } from '@/lib/help'
 import { CHAPTERS, SECTIONS } from '@/lib/help-content'
 import { type Release, releasesFor } from '@/lib/whats-new'
-import { CompassIcon, MagnifyingGlassIcon, PlantIcon } from '@/components/icons'
 
 type Tab = 'guide' | 'new'
 
@@ -110,7 +109,7 @@ function Guide() {
             ))}
           </div>
         ) : (
-          <Empty icon={MagnifyingGlassIcon} title="Nothing found">
+          <Empty icon="search" title="Nothing found">
             Try another word, or browse the features below.
           </Empty>
         )
@@ -130,7 +129,7 @@ function Guide() {
                   style={popIn ? { animationDelay: `${i * 40}ms` } : undefined}
                   data-testid="help-story-card"
                 >
-                  {s.icon && <UiIcon name={s.icon} size={28} kind="feature" className="text-brand-600 dark:text-brand-300" />}
+                  {s.icon && <FeatureIcon name={s.icon} size={30} />}
                   <span className="text-sm font-bold leading-tight">{s.title}</span>
                   <span className="text-muted line-clamp-2 text-xs">{s.summary}</span>
                 </Link>
@@ -150,7 +149,7 @@ function Guide() {
                   style={popIn ? { animationDelay: `${i * 40}ms` } : undefined}
                   data-testid="help-core-card"
                 >
-                  {s.icon && <UiIcon name={s.icon} size={28} kind="feature" className="text-brand-600 dark:text-brand-300" />}
+                  {s.icon && <FeatureIcon name={s.icon} size={30} />}
                   <span className="text-sm font-bold leading-tight">{s.title}</span>
                   <span className="text-muted line-clamp-2 text-xs">{s.summary}</span>
                 </Link>
@@ -178,11 +177,8 @@ function Guide() {
 function SectionRow({ s }: { s: HelpSection }) {
   return (
     <Link to={`/help/${s.id}`} className="flex min-h-11 items-center gap-3 p-3 transition active:bg-slate-50 dark:active:bg-ink-800" data-testid="help-row">
-      <span
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
-        aria-hidden
-      >
-        <UiIcon name={s.icon ?? 'file'} size={20} />
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 dark:bg-brand-900/30" aria-hidden>
+        <FeatureIcon name={s.icon ?? 'file'} size={22} />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-semibold">{s.title}</span>
@@ -202,7 +198,7 @@ function WhatsNew() {
   const releases = releasesFor(APP_SEMVER)
   if (!releases.length)
     return (
-      <Empty icon={PlantIcon} title="Nothing yet">
+      <Empty icon="plant" title="Nothing yet">
         This version has just started. Its changes will be listed here.
       </Empty>
     )
@@ -257,7 +253,7 @@ function SectionPage({ id }: { id: string }) {
     return (
       <div>
         <PageHeader title="Help" back="/help" />
-        <Empty icon={CompassIcon} title="That page isn’t here">
+        <Empty icon="compass" title="That page isn’t here">
           <Link to="/help" className="font-semibold text-brand-700 dark:text-brand-300">
             Back to Help
           </Link>

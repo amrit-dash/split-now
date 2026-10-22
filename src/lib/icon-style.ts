@@ -2,7 +2,7 @@
  * The icon style: Outline (thin lines, the default) or Filled (solid shapes). An admin picks the
  * default for everyone in Admin → App; each person may pick their own in Settings → Preferences
  * (IconStyleChoice, effectiveIconStyle), and it follows the account like the theme
- * (appearance-sync.ts). The Phosphor icons read it through src/components/Icon.tsx.
+ * (appearance-sync.ts). Every icon reads it through src/components/Icon.tsx.
  * Pure: no React, no storage.
  */
 
@@ -31,20 +31,14 @@ export const resolveIconStyleChoice = (v: unknown): IconStyleChoice => (isIconSt
 /** The style to draw: the person's own choice, else the admin's. */
 export const effectiveIconStyle = (admin: IconStyle, mine: IconStyleChoice): IconStyle => (mine === 'app' ? admin : mine)
 
-/** The Phosphor weights the app draws in. */
-export type IconWeight = 'regular' | 'duotone' | 'fill'
+/** What an icon draws: its line drawing or its solid one. */
+export type IconVariant = 'line' | 'solid'
 
 /**
- * Where an icon sits, which sets how it follows the style:
- *   ui       row, button and sheet icons: line in Outline, solid in Filled
- *   feature  the big pictures on Help cards and empty screens: line with a soft tint of its
- *            colour inside in Outline (a thin line alone looks faint that large), solid in Filled
- *   active   the place you are (the current tab): always solid, so where you are shows by shape
- *            as well as colour in Outline
+ * Outline draws line icons and Filled solid ones, everywhere: the UI icons (MingCute) and the
+ * Help and empty-screen pictures (Solar line duotone / bold duotone). The place you are (the
+ * current tab) is always solid, so it shows by shape as well as colour in Outline.
  */
-export type IconRole = 'ui' | 'feature' | 'active'
-
-export function iconWeight(style: IconStyle, role: IconRole = 'ui'): IconWeight {
-  if (role === 'active' || style === 'filled') return 'fill'
-  return role === 'feature' ? 'duotone' : 'regular'
+export function iconVariant(style: IconStyle, active = false): IconVariant {
+  return active || style === 'filled' ? 'solid' : 'line'
 }

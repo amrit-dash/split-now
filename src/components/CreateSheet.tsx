@@ -2,7 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { usePickableGroups } from '@/hooks/useVault'
 import { useNavigate } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
-import { ReceiptIcon, ScanIcon, UsersThreeIcon } from '@/components/icons'
+import { ReceiptIcon, ScanIcon, GroupsIcon } from '@/components/icons'
 
 import { useFlag } from '@/hooks/useAppConfig'
 import { liveTripFor } from '@/lib/capture'
@@ -73,7 +73,7 @@ export function CreateSheet({ open, onClose, groupId }: { open: boolean; onClose
         <ChevronRight size={20} className="shrink-0 text-on-fill/80" aria-hidden />
       </button>
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <Tile icon={<UsersThreeIcon size={22} />} title="New group" text={GROUP_HINT} onClick={() => go('/groups/new')} testId="create-group" />
+        <Tile icon={<GroupsIcon size={22} />} title="New group" text={GROUP_HINT} onClick={() => go('/groups/new')} testId="create-group" />
         <Tile icon={<ScanIcon size={22} />} title="Scan" text={SCAN_HINT} onClick={() => go('/scan')} testId="create-scan" />
       </div>
       {quickAdd && !showQuickAdd && !quickOpen && (

@@ -4,20 +4,16 @@ import { Link, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
   Apple,
-  Ban,
   BatteryCharging,
   Bell,
   Check,
   CheckCircle2,
   ChevronRight,
   Copy,
-  Download,
   Info,
-  KeyRound,
   Loader2,
   MessageSquareText,
   Send,
-  Smartphone,
   XCircle,
 } from 'lucide-react'
 import { repo } from '@/data'
@@ -66,8 +62,7 @@ import { LiveBadge, Loading, PageHeader, formatRange } from '@/components/Misc'
 import { Switch } from '@/components/Switch'
 import { useToast } from '@/components/Toast'
 import { SwipeRow } from '@/components/SwipeRow'
-import { StyledIcon } from '@/components/Icon'
-import { SuitcaseRollingIcon } from '@/components/icons'
+import { CopyIcon, DownloadIcon, KeyIcon, PhoneIcon, ProhibitIcon, SendIcon, SuitcaseIcon } from '@/components/icons'
 
 const IOS_SHORTCUT_URL = (import.meta.env.VITE_IOS_SHORTCUT_URL as string | undefined)?.trim() || undefined
 const ANDROID_MACRO_URL = (import.meta.env.VITE_ANDROID_MACRO_URL as string | undefined)?.trim() || undefined
@@ -320,7 +315,7 @@ export default function AutoCaptureSetup() {
                 ) : p === 'ios' ? (
                   <Apple size={18} aria-hidden />
                 ) : (
-                  <Smartphone size={18} aria-hidden />
+                  <PhoneIcon size={18} aria-hidden />
                 )}
                 {p === 'ios' ? 'Set up on this iPhone' : 'Set up on this Android'}
               </button>
@@ -457,7 +452,7 @@ export default function AutoCaptureSetup() {
             <ScopeOption
               selected={!scope}
               onSelect={() => update({ group: undefined }, true)}
-              icon={<StyledIcon icon={SuitcaseRollingIcon} size={22} className="text-brand-600 dark:text-brand-300" />}
+              icon={<SuitcaseIcon size={22} className="text-brand-600 dark:text-brand-300" />}
               title="All my trips"
               // The trips below always show their dates, so this row keeps a line in every look too ('key', shortest in Minimal).
               detail={{
@@ -514,11 +509,9 @@ export default function AutoCaptureSetup() {
                     key={t.token}
                     contentClassName="flex items-center gap-2"
                     menuTitle={label}
-                    actions={[
-                      { label: 'Revoke', ariaLabel: `Revoke capture key for ${label}`, icon: <Ban size={20} strokeWidth={2.25} />, onClick: () => revoke(t) },
-                    ]}
+                    actions={[{ label: 'Revoke', ariaLabel: `Revoke capture key for ${label}`, icon: <ProhibitIcon size={20} />, onClick: () => revoke(t) }]}
                   >
-                    <KeyRound size={16} className="shrink-0 text-slate-500" aria-hidden />
+                    <KeyIcon size={16} className="shrink-0 text-slate-500" aria-hidden />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium">{label}</div>
                       <div className="text-muted truncate text-xs">
@@ -537,7 +530,7 @@ export default function AutoCaptureSetup() {
                       onClick={() => copyIt(t.token, 'Capture key')}
                       aria-label={`Copy capture key for ${label}`}
                     >
-                      <Copy size={16} />
+                      <CopyIcon size={16} />
                     </button>
                   </SwipeRow>
                 )
@@ -584,7 +577,7 @@ function KeyBox({ token, busy, onCopy, onCreate }: { token?: CaptureToken; busy:
   if (!token) {
     return (
       <button type="button" className="btn-primary w-full" onClick={onCreate} disabled={busy}>
-        {busy ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <KeyRound size={18} aria-hidden />} Create your capture key
+        {busy ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <KeyIcon size={18} aria-hidden />} Create your capture key
       </button>
     )
   }
@@ -726,7 +719,7 @@ function IosScreen({ token, onDone }: { token?: string; onDone: () => void }) {
           copied.
         </p>
         <a href={IOS_SHORTCUT_URL} className="btn-primary w-full" target="_blank" rel="noreferrer" data-testid="ios-add-shortcut">
-          <Download size={18} aria-hidden /> Add Shortcut
+          <DownloadIcon size={18} aria-hidden /> Add Shortcut
         </a>
       </div>
       <div className="space-y-2 text-sm text-slate-700 dark:text-slate-200">
@@ -905,7 +898,7 @@ function AndroidScreen({ token, onDone }: { token?: string; onDone: () => void }
           <b>1.</b> Get MacroDroid (free; one macro is all this needs).
         </p>
         <a href={macrodroidPlayLink(navigator.userAgent)} className="btn-primary w-full" target="_blank" rel="noreferrer" data-testid="macrodroid-play">
-          <Download size={18} aria-hidden /> Get MacroDroid on Google Play
+          <DownloadIcon size={18} aria-hidden /> Get MacroDroid on Google Play
         </a>
         <p className="text-muted text-xs">
           On another device?{' '}
@@ -922,7 +915,7 @@ function AndroidScreen({ token, onDone }: { token?: string; onDone: () => void }
             pick the file → allow SMS.
           </p>
           <button type="button" className="btn-secondary w-full" onClick={download} disabled={!token || downloading} data-testid="android-macro-download">
-            {downloading ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <Download size={18} aria-hidden />} Download your {APP_NAME} macro
+            {downloading ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <DownloadIcon size={18} aria-hidden />} Download your {APP_NAME} macro
           </button>
         </div>
       ) : (
@@ -1137,7 +1130,7 @@ function TestSender({
         <div className="max-w-[90%] rounded-2xl rounded-tl-md bg-white px-3 py-2 text-sm dark:bg-ink-900">{text}</div>
       </div>
       <button type="button" className="btn-secondary mt-3 w-full" onClick={send} disabled={!token || sending} data-testid="capture-send-test">
-        {sending ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <Send size={18} aria-hidden />} Send test SMS
+        {sending ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <SendIcon size={18} aria-hidden />} Send test SMS
         {repo.mode === 'demo' ? ' (simulated)' : ''}
       </button>
       {!token && <p className="text-muted mt-2 text-xs">Start the setup first so you have a capture key.</p>}

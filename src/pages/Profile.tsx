@@ -3,14 +3,14 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ChevronRight, X } from 'lucide-react'
 import {
   CameraIcon,
-  ChartDonutIcon,
-  GearSixIcon,
+  InsightsIcon,
+  SettingsIcon,
   HandHeartIcon,
-  ImageSquareIcon,
-  LifebuoyIcon,
-  ScalesIcon,
-  ShieldCheckIcon,
-  SignOutIcon,
+  ImageIcon,
+  HelpIcon,
+  BalanceIcon,
+  ShieldIcon,
+  ExitIcon,
   TrashIcon,
   WalletIcon,
 } from '@/components/icons'
@@ -223,7 +223,7 @@ export default function Profile() {
               aria-label="Settings"
               data-testid="open-settings"
             >
-              <GearSixIcon size={22} />
+              <SettingsIcon size={22} />
             </Link>
           </div>
         }
@@ -324,7 +324,7 @@ export default function Profile() {
           )}
         </div>
         <p className="text-muted mt-3 flex items-start gap-1.5 text-xs">
-          <ShieldCheckIcon size={14} className="mt-0.5 shrink-0" aria-hidden />{' '}
+          <ShieldIcon size={14} className="mt-0.5 shrink-0" aria-hidden />{' '}
           <span>
             <HintText hint={PAYMENT_PRIVACY_HINT} as="span" className="" />
             <InfoTip hint={PAYMENT_PRIVACY_HINT} label="About who can see these" />
@@ -342,7 +342,7 @@ export default function Profile() {
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
             aria-hidden
           >
-            <GearSixIcon size={19} />
+            <SettingsIcon size={19} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block">Settings</span>
@@ -355,7 +355,7 @@ export default function Profile() {
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
             aria-hidden
           >
-            <LifebuoyIcon size={19} />
+            <HelpIcon size={19} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block">Help</span>
@@ -378,7 +378,7 @@ export default function Profile() {
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
             aria-hidden
           >
-            <ChartDonutIcon size={19} />
+            <InsightsIcon size={19} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block">Insights</span>
@@ -391,7 +391,7 @@ export default function Profile() {
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
             aria-hidden
           >
-            <ScalesIcon size={19} />
+            <BalanceIcon size={19} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block">Balances</span>
@@ -426,7 +426,7 @@ export default function Profile() {
       </div>
 
       <button type="button" className="btn-secondary mt-6 w-full text-rose-700 dark:text-rose-400" onClick={() => setSignOutOpen(true)} data-testid="sign-out">
-        <SignOutIcon size={18} aria-hidden /> Sign out
+        <ExitIcon size={18} aria-hidden /> Sign out
       </button>
       <Detail min={2}>
         <p className="mt-6 text-center text-xs font-semibold text-brand-600/80 dark:text-brand-300/80">Spending is wise, splitting is free. Split Now!</p>
@@ -462,7 +462,7 @@ export default function Profile() {
             }}
             data-testid="confirm-sign-out"
           >
-            <SignOutIcon size={18} aria-hidden /> Sign out
+            <ExitIcon size={18} aria-hidden /> Sign out
           </button>
         </div>
       </Sheet>
@@ -520,7 +520,7 @@ function PhotoSheet({ open, onClose, profile, googlePhotoURL }: { open: boolean;
           </button>
         )}
         <button type="button" className={row} disabled={busy} onClick={() => pick.current?.click()}>
-          <ImageSquareIcon size={20} className="text-brand-600 dark:text-brand-300" aria-hidden /> {busy ? 'Uploading…' : 'Choose photo'}
+          <ImageIcon size={20} className="text-brand-600 dark:text-brand-300" aria-hidden /> {busy ? 'Uploading…' : 'Choose photo'}
         </button>
         {googlePhotoURL && profile.photoURL !== googlePhotoURL && (
           <button

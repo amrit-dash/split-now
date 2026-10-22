@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BellIcon, DatabaseIcon, LightningIcon, LockIcon, MagicWandIcon, PaletteIcon, ShieldCheckIcon, SparkleIcon } from '@/components/icons'
+import { BellIcon, DataIcon, LightningIcon, LockIcon, MagicIcon, PaletteIcon, ShieldIcon, SparkleIcon } from '@/components/icons'
 import { repo } from '@/data'
 import { useAiState, useCaptureTokens } from '@/hooks/data'
 import { useMe } from '@/hooks/auth'
@@ -63,7 +63,7 @@ export default function SettingsHome() {
         />
         <SettingsRow
           to="/settings/animations"
-          icon={<MagicWandIcon size={19} />}
+          icon={<MagicIcon size={19} />}
           title="Animations"
           summary={motionSummary(motion.prefs, motion.reduced)}
           testId="settings-animations"
@@ -88,7 +88,7 @@ export default function SettingsHome() {
         {repo.mode === 'firebase' && <SettingsRow to="/settings/ai" icon={<SparkleIcon size={19} />} title="AI features" summary={ai} testId="settings-ai" />}
         <SettingsRow
           to="/settings/data"
-          icon={<DatabaseIcon size={19} />}
+          icon={<DataIcon size={19} />}
           title="Data"
           summary="Export, import from Splitwise, install the app"
           testId="settings-data"
@@ -96,7 +96,7 @@ export default function SettingsHome() {
         {aiStatus?.admin && (
           <SettingsRow
             to="/admin"
-            icon={<ShieldCheckIcon size={19} />}
+            icon={<ShieldIcon size={19} />}
             title="Admin"
             summary="Switches, limits, usage, AI key and accounts"
             testId="settings-admin"

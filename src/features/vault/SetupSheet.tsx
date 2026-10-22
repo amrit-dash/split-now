@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { KeyRound } from 'lucide-react'
+import { KeyIcon } from '@/components/icons'
 import { Sheet } from '@/components/Sheet'
 import { setupPrompt } from '@/lib/vault-api'
 
@@ -9,7 +9,7 @@ export function SetupSheet({ open, onClose, inGroup, privateOn = true }: { open:
     <Sheet open={open} onClose={onClose} title="Set up encrypted groups" testId="vault-setup-prompt">
       <p className="text-sm">{setupPrompt(!!inGroup, privateOn)}</p>
       <Link to="/settings/vault" className="btn-primary mt-4 w-full" onClick={onClose} data-testid="vault-setup-link">
-        <KeyRound size={18} aria-hidden /> {privateOn ? 'Set up encrypted groups' : 'Turn on private groups'}
+        <KeyIcon size={18} aria-hidden /> {privateOn ? 'Set up encrypted groups' : 'Turn on private groups'}
       </Link>
     </Sheet>
   )

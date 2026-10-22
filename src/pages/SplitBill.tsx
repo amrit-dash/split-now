@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { usePickableGroups } from '@/hooks/useVault'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Camera, ImageUp, Plus, Trash2, Users } from 'lucide-react'
+import { Users } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 
@@ -25,8 +25,8 @@ import { type Hint, HintText, InfoTip } from '@/components/Hint'
 import { usePageTitle } from '@/lib/brand'
 import { DuplicatePrompt, RecentScans, useScanHistory } from '@/components/ScanHistory'
 import { entryFile, type ScanEntry, type ScanKind, type ScanMatch, type ScanPrint } from '@/lib/scanHistory'
-import { StyledIcon } from '@/components/Icon'
-import { LiveTableIcon } from '@/components/icons'
+import { FeatureIcon } from '@/components/Icon'
+import { AddIcon, CameraIcon, ImageAddIcon, LiveTableIcon, TrashIcon } from '@/components/icons'
 
 interface Row {
   id: string
@@ -225,7 +225,7 @@ export default function SplitBill() {
         ) : (
           <div className="flex items-center gap-4 p-4">
             <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-fill-500 to-fill-to-500 text-2xl text-on-fill shadow-lg">
-              <StyledIcon icon={LiveTableIcon} size={30} kind="feature" />
+              <FeatureIcon name="receipt" size={32} tone="current" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center">
@@ -238,10 +238,10 @@ export default function SplitBill() {
         )}
         <div className="grid grid-cols-2 gap-2 p-3 pt-0">
           <button type="button" className="btn-primary" onClick={() => camRef.current?.click()} disabled={ocr.busy}>
-            <Camera size={18} aria-hidden /> {preview ? 'Rescan' : 'Camera'}
+            <CameraIcon size={18} aria-hidden /> {preview ? 'Rescan' : 'Camera'}
           </button>
           <button type="button" className="btn-secondary" onClick={() => libRef.current?.click()} disabled={ocr.busy}>
-            <ImageUp size={18} aria-hidden /> Photos
+            <ImageAddIcon size={18} aria-hidden /> Photos
           </button>
         </div>
         <AiScanToggle className="px-4 pb-3" />
@@ -370,13 +370,13 @@ export default function SplitBill() {
                 onClick={() => setRows(rows.filter((x) => x.id !== r.id))}
                 aria-label={`Remove item ${i + 1}`}
               >
-                <Trash2 size={18} />
+                <TrashIcon size={18} />
               </button>
             </div>
           ))}
         </div>
         <button type="button" className="btn-secondary mt-3 w-full !min-h-0 !py-2.5 text-sm" onClick={() => setRows([...rows, blank()])}>
-          <Plus size={16} /> Add item
+          <AddIcon size={16} /> Add item
         </button>
 
         <div className="mt-4 grid grid-cols-3 gap-2 border-t border-slate-100 pt-4 dark:border-white/5">

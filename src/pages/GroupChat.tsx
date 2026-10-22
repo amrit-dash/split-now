@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { labelOf } from '@/lib/shortNames'
 import { Navigate, useParams } from 'react-router-dom'
-import { ArrowDown, Bell, BellOff, ChevronLeft, Copy, Info, Lightbulb, MessagesSquare, Pencil, Reply, Trash2 } from 'lucide-react'
+import { ArrowDown, Bell, BellOff, ChevronLeft, Info, Reply } from 'lucide-react'
+import { ChatIcon, CopyIcon, EditIcon, LightbulbIcon, TrashIcon } from '@/components/icons'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { useBack } from '@/hooks/useBack'
@@ -42,7 +43,6 @@ import { DayHeader, type MessageCtx, MessageRow, UnreadLine, UpdatesPill } from 
 import { HintText, InfoTip, type Hint } from '@/components/Hint'
 import { Collapsible } from '@/components/Collapsible'
 import { openOnce } from '@/lib/vault-open'
-import { MagnifyingGlassIcon } from '@/components/icons'
 
 /** Kept in every look: who can read the chat (people who join later too) is a privacy point. */
 const CHAT_START_HINT: Hint = {
@@ -257,7 +257,7 @@ export default function GroupChat() {
   if (group === null)
     return (
       <div className="mx-auto max-w-lg px-4 pt-[calc(var(--safe-top)+2rem)]">
-        <Empty icon={MagnifyingGlassIcon} title="This group doesn’t exist or you’re not a member" />
+        <Empty icon="search" title="This group doesn’t exist or you’re not a member" />
       </div>
     )
   if (group && group.type === 'personal') return <Navigate to={`/groups/${groupId}`} replace />
@@ -438,7 +438,7 @@ export default function GroupChat() {
           )}
           {menuFor?.text && (
             <MenuRow
-              icon={<Copy size={20} aria-hidden />}
+              icon={<CopyIcon size={20} aria-hidden />}
               label="Copy text"
               onClick={async () => {
                 const ok = await copy(menuFor.text)
@@ -449,7 +449,7 @@ export default function GroupChat() {
           )}
           {menuFor && canEdit(menuFor, user.uid) && (
             <MenuRow
-              icon={<Pencil size={20} aria-hidden />}
+              icon={<EditIcon size={20} aria-hidden />}
               label="Edit message"
               onClick={() => {
                 setReplyTo(null)
@@ -460,7 +460,7 @@ export default function GroupChat() {
             />
           )}
           {menuFor && menuFor.authorUid === user.uid && (
-            <MenuRow icon={<Trash2 size={20} aria-hidden />} label="Delete message" danger onClick={() => removeMessage(menuFor)} testId="chat-delete" />
+            <MenuRow icon={<TrashIcon size={20} aria-hidden />} label="Delete message" danger onClick={() => removeMessage(menuFor)} testId="chat-delete" />
           )}
         </ul>
       </Sheet>
@@ -472,7 +472,7 @@ export default function GroupChat() {
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-brand-600 dark:bg-ink-800 dark:text-brand-300"
             aria-hidden
           >
-            <MessagesSquare size={18} />
+            <ChatIcon size={18} />
           </span>
           <div className="min-w-0">
             <div className="font-semibold">The group’s money chat</div>
@@ -484,7 +484,7 @@ export default function GroupChat() {
         {/* The how-tos fold away: worth reading once, not every time the sheet opens. */}
         <Collapsible
           title="How to use it"
-          icon={<Lightbulb size={20} aria-hidden />}
+          icon={<LightbulbIcon size={20} aria-hidden />}
           summary="Tools, tags, replies"
           className="!mt-3 !bg-slate-50 !shadow-none !ring-0 dark:!bg-ink-800"
           testId="chat-howto"

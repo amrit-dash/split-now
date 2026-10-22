@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { ChevronLeft, Loader2, Mail, UserPlus } from 'lucide-react'
+import { ChevronLeft, Loader2 } from 'lucide-react'
 import { repo } from '@/data'
 import { useToast } from '@/components/Toast'
 import { HintText } from '@/components/Hint'
@@ -11,7 +11,7 @@ import { emailProblem } from '@/lib/account'
 import { signupsClosedText, signupsOpen } from '@/lib/flags'
 import { applyIconTint } from '@/lib/accent'
 import { usePageTitle } from '@/lib/brand'
-import { LiveTableIcon } from '@/components/icons'
+import { LiveTableIcon, MailIcon, MemberAddIcon } from '@/components/icons'
 
 export default function Login() {
   usePageTitle('Sign in')
@@ -103,7 +103,7 @@ export default function Login() {
 
       {invite && (
         <div className="mt-6 flex gap-3 rounded-2xl bg-white/10 p-4 text-sm text-slate-200 ring-1 ring-white/15" data-testid="invite-banner">
-          <UserPlus className="mt-0.5 shrink-0 text-duo-300" size={20} aria-hidden />
+          <MemberAddIcon className="mt-0.5 shrink-0 text-duo-300" size={20} aria-hidden />
           <div>
             <b className="text-white">You’ve been invited to a group.</b>{' '}
             {demo ? 'Enter your name to continue' : 'Continue with Google or email (it takes a few seconds, no app to install)'}, then pick which person you
@@ -207,7 +207,7 @@ export default function Login() {
               onClick={() => setWithEmail(true)}
               data-testid="login-email"
             >
-              <Mail size={18} aria-hidden /> Continue with email
+              <MailIcon size={18} aria-hidden /> Continue with email
             </button>
             {!canSignUp && (
               <p className="min-h-11 py-2 text-center text-sm text-slate-300" data-testid="signups-closed">

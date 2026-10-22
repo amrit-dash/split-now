@@ -427,6 +427,21 @@ html:has(.install-banner) .whats-new-banner { display: none; }
   mask: linear-gradient(#000 0 0) exclude, var(--notch) top center / 7rem 3rem no-repeat;
 }
 
+/* Help and empty-screen pictures (FeatureIcon, src/components/Icon.tsx): Solar duotone drawn in
+   the accent's gradient, the + button's colours, deep in light and soft in dark. The drawings
+   say fill/stroke="currentColor"; here that becomes the icon's own gradient (--art). Their soft
+   layer keeps Solar's half opacity, so it reads as a tint of the same gradient. */
+.feature-art {
+  --art-from: var(--color-brand-600);
+  --art-to: var(--color-duo-500);
+}
+.dark .feature-art {
+  --art-from: var(--color-brand-300);
+  --art-to: var(--color-duo-300);
+}
+.feature-art [fill='currentColor'] { fill: var(--art); }
+.feature-art [stroke='currentColor'] { stroke: var(--art); }
+
 /* The tab bar's accent wash: the accent fading in from the left, the duo colour from the right,
    both faint, plus a slightly stronger line along the top edge. Under it the bar stays white or ink. */
 .nav-glow {

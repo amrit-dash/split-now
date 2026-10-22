@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, Check, Link2, Loader2, X } from 'lucide-react'
+import { ArrowRight, Check, Loader2, X } from 'lucide-react'
+import { LinkIcon } from '@/components/icons'
 import { repo } from '@/data'
 import type { Group, MemberId, MergeRequest } from '@/types'
 import { Avatar } from '@/components/Avatar'
@@ -141,7 +142,7 @@ export function MergeSheet({
         <div>
           <div className="flex items-center justify-center gap-3 py-2" aria-hidden>
             <Avatar name={group.members[gone!]!.name} color={group.members[gone!]!.color} photoURL={group.members[gone!]!.photoURL} size={44} />
-            <Link2 size={20} className="text-slate-400" />
+            <LinkIcon size={20} className="text-slate-400" />
             <Avatar name={group.members[kept!]!.name} color={group.members[kept!]!.color} photoURL={group.members[kept!]!.photoURL} size={44} />
           </div>
           <p className="text-sm">
@@ -217,7 +218,7 @@ function MergeOffer({ group, r, me, myUid, compact }: { group: Group; r: MergeRe
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
           aria-hidden
         >
-          <Link2 size={18} />
+          <LinkIcon size={18} />
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium">{text}</p>

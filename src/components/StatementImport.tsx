@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { usePickableGroups } from '@/hooks/useVault'
 import { Link, useNavigate } from 'react-router-dom'
-import { ChevronDown, ImageUp, Inbox, Loader2, Plus, Sparkles, X } from 'lucide-react'
+import { ChevronDown, Loader2, Sparkles, X } from 'lucide-react'
+import { AddIcon, ImageAddIcon, InboxIcon } from '@/components/icons'
 import { repo } from '@/data'
 import type { StatementTxn } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
@@ -29,8 +30,7 @@ import { DuplicatePrompt, RecentScans, useScanHistory } from './ScanHistory'
 import type { ScanEntry, ScanMatch, ScanPrint } from '@/lib/scanHistory'
 import { labelOf } from '@/lib/shortNames'
 import { type Hint, HintText, InfoTip } from './Hint'
-import { StyledIcon } from '@/components/Icon'
-import { FileTextIcon } from '@/components/icons'
+import { FeatureIcon } from '@/components/Icon'
 
 interface Row {
   id: string
@@ -325,7 +325,7 @@ export function StatementImport() {
               className="mb-3 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-fill-500 to-fill-to text-3xl text-on-fill shadow-lg"
               aria-hidden
             >
-              <StyledIcon icon={FileTextIcon} size={32} kind="feature" />
+              <FeatureIcon name="file" size={34} tone="current" />
             </div>
             <div className="flex items-center justify-center">
               <h2 className="font-bold">Add expenses from a statement</h2>
@@ -374,7 +374,7 @@ export function StatementImport() {
                     </>
                   ) : (
                     <>
-                      <ImageUp size={18} aria-hidden /> Choose screenshots
+                      <ImageAddIcon size={18} aria-hidden /> Choose screenshots
                     </>
                   )}
                 </button>
@@ -603,7 +603,7 @@ export function StatementImport() {
 
       <div className="mt-3 flex gap-2">
         <button type="button" className="btn-secondary btn-sm flex-1" onClick={() => fileRef.current?.click()} disabled={busy}>
-          {busy ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <ImageUp size={16} aria-hidden />}{' '}
+          {busy ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <ImageAddIcon size={16} aria-hidden />}{' '}
           {busy ? (stage === 'prep' ? 'Preparing…' : 'Reading with AI…') : 'Add more screenshots'}
         </button>
         {busy && (
@@ -628,7 +628,7 @@ export function StatementImport() {
             aria-label="Send to Inbox to review one by one"
             title="Send to Inbox to review one by one"
           >
-            <Inbox size={18} />
+            <InboxIcon size={18} />
           </button>
           <button
             type="button"
@@ -637,7 +637,7 @@ export function StatementImport() {
             disabled={saving || !chosen.length || !group || wrongCurrency}
             data-testid="statement-add"
           >
-            {saving ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <Plus size={18} aria-hidden />} Add {chosen.length || ''}
+            {saving ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <AddIcon size={18} aria-hidden />} Add {chosen.length || ''}
           </button>
         </div>
       </div>

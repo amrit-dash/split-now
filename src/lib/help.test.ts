@@ -4,7 +4,7 @@ import SHOTS from './help-shots.json'
 import { ACCENTS } from './accent'
 import { CHAPTERS, SECTIONS } from './help-content'
 import { baseOf, findMark, SCENE_MARKS, SCENES } from './help-scenes'
-import { isUiIcon } from './ui-icons'
+import { isSceneGlyph, isUiIcon } from './ui-icons'
 
 describe('the guide’s content', () => {
   it('every section has a unique id, a known chapter, a title, a summary and something to read', () => {
@@ -212,7 +212,7 @@ describe('icons in Help', () => {
       for (const screen of scene)
         for (const part of screen.parts)
           for (const it of part.items ?? []) {
-            if (it.glyph) expect(isUiIcon(it.glyph)).toBe(true)
+            if (it.glyph) expect(isSceneGlyph(it.glyph), it.glyph).toBe(true)
             if (part.kind === 'tabbar' && it.label !== 'Create') expect(it.glyph, it.label).toBeTruthy()
           }
   })
