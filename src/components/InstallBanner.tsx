@@ -243,7 +243,7 @@ function InstallBar({ hint, onDone, className, wrap = false }: { hint: string; o
   const installButton = (
     <button
       type="button"
-      className="min-h-11 shrink-0 rounded-2xl bg-white px-3.5 py-2 text-sm font-bold text-slate-900"
+      className="min-h-11 shrink-0 rounded-2xl bg-white px-3.5 py-2 text-sm font-bold text-slate-900 max-[389px]:px-3"
       onClick={async () => {
         if (install.canPrompt) {
           if (await install.prompt()) onDone()
@@ -252,42 +252,29 @@ function InstallBar({ hint, onDone, className, wrap = false }: { hint: string; o
       data-testid="install-banner-install"
     >
       <span className="inline-flex items-center gap-1.5">
-        <DownloadIcon size={16} aria-hidden /> Install
+        {/* the icon gives way on the narrowest phones, so the words beside it aren't cut */}
+        <DownloadIcon size={16} aria-hidden className="max-[389px]:hidden" /> Install
       </span>
     </button>
   )
   return (
     <>
       <div className={className} data-testid="install-banner">
-        {/* wrap (the sign-in screen): the words get the full width and Install sits under them. */}
+        {/* One row everywhere: the words, Install and ✕. wrap (the sign-in screen, a longer line): the line under the title may take two lines beside Install instead of being cut. */}
         <div
           {...swipe.bind}
           className="flex items-center gap-2.5 rounded-3xl bg-slate-900 py-2.5 pl-3 pr-1 text-white shadow-2xl shadow-brand-900/40 dark:bg-ink-800 dark:ring-1 dark:ring-white/10"
         >
-          <img src="/pwa-192.png" alt="" className={`h-10 w-10 shrink-0 rounded-2xl ${wrap ? 'self-start sm:self-center' : ''}`} />
-          {wrap ? (
-            // The sign-in screen: words and Install on one row where they fit (a computer, a wide
-            // phone), Install dropping under the words only when the row is too narrow for both.
-            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2.5">
-              <div className="min-w-[11rem] flex-1">
-                <div className="text-sm font-semibold">Install Split Now</div>
-                <HintText as="div" className="text-xs text-slate-300" hint={{ full: hint, tier: 'help' }} />
-              </div>
-              {installButton}
-            </div>
-          ) : (
-            <>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-semibold">Install Split Now</div>
-                <HintText as="div" className="truncate text-xs text-slate-300" hint={{ full: hint, tier: 'help' }} />
-              </div>
-              {installButton}
-            </>
-          )}
+          <img src="/pwa-192.png" alt="" className="h-10 w-10 shrink-0 rounded-2xl" />
+          <div className="min-w-0 flex-1">
+            <div className={`text-sm font-semibold ${wrap ? 'line-clamp-2 leading-tight' : 'truncate'}`}>Install Split Now</div>
+            <HintText as="div" className={`text-xs text-slate-300 ${wrap ? 'line-clamp-3 leading-snug' : 'truncate'}`} hint={{ full: hint, tier: 'help' }} />
+          </div>
+          {installButton}
           <button
             type="button"
             onClick={dismiss}
-            className={`-ml-1.5 flex h-11 w-10 shrink-0 items-center justify-center rounded-full text-slate-300 hover:text-white ${wrap ? '-mt-1.5 self-start sm:mt-0 sm:self-center' : ''}`}
+            className="-ml-1.5 flex h-11 w-10 shrink-0 items-center justify-center rounded-full text-slate-300 hover:text-white"
             aria-label="Don’t ask again"
           >
             <X size={18} />
@@ -340,11 +327,7 @@ export function LoginInstallBanner() {
   return (
     <InstallBar
       hint={
-        install.ios
-          ? 'Add it to your Home Screen, then sign in there'
-          : phone
-            ? 'Install first, then sign in once'
-            : 'Its own window, notifications, works offline'
+        install.ios ? 'Add to Home Screen, then sign in there' : phone ? 'Install first, then sign in once' : 'Its own window, notifications, works offline'
       }
       onDone={() => setHidden(true)}
       className="animate-pop mt-8"
