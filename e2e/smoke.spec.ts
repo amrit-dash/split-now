@@ -1981,7 +1981,7 @@ test('help: Profile → Help finds a feature, plays its steps and goes there', a
   await page.getByRole('navigation').getByRole('link', { name: 'Profile' }).click()
   await page.getByTestId('profile-help').click()
   await expect(page).toHaveURL(/\/help$/)
-  await expect(page.getByTestId('help-core-card')).toHaveCount(10)
+  await expect(page.getByTestId('help-core-card')).toHaveCount(12)
   // search by a word that's only in a section's keywords
   await page.getByTestId('help-search').fill('refund')
   await page.getByTestId('help-results').getByTestId('help-row').first().click()
