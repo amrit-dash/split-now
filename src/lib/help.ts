@@ -4,6 +4,8 @@
  * scenes in src/features/help/. Pure: no React, no storage.
  */
 
+import type { UiIconName } from './ui-icons'
+
 export type ChapterId = 'start' | 'groups' | 'expenses' | 'receipts' | 'settle' | 'capture' | 'private' | 'account'
 
 export interface Chapter {
@@ -40,8 +42,8 @@ export interface HelpSection {
   core?: boolean
   /** not listed on the guide's front page (it is reached from links: What's new, Related); search still finds it */
   unlisted?: boolean
-  /** the emoji on its card */
-  icon?: string
+  /** the icon on its card and row (src/lib/ui-icons.ts) */
+  icon?: UiIconName
   steps?: HelpStep[]
   /** an explainer: an animated picture and a caption per beat, in place of steps */
   story?: { kind: StoryKind; beats: string[] }

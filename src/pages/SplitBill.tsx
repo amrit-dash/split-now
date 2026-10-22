@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { usePickableGroups } from '@/hooks/useVault'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Camera, ImageUp, Plus, QrCode, Trash2, Users } from 'lucide-react'
+import { Camera, ImageUp, Plus, Trash2, Users } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 
@@ -25,6 +25,8 @@ import { type Hint, HintText, InfoTip } from '@/components/Hint'
 import { usePageTitle } from '@/lib/brand'
 import { DuplicatePrompt, RecentScans, useScanHistory } from '@/components/ScanHistory'
 import { entryFile, type ScanEntry, type ScanKind, type ScanMatch, type ScanPrint } from '@/lib/scanHistory'
+import { StyledIcon } from '@/components/Icon'
+import { LiveTableIcon } from '@/components/icons'
 
 interface Row {
   id: string
@@ -223,7 +225,7 @@ export default function SplitBill() {
         ) : (
           <div className="flex items-center gap-4 p-4">
             <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-fill-500 to-fill-to-500 text-2xl text-on-fill shadow-lg">
-              🧾
+              <StyledIcon icon={LiveTableIcon} size={30} kind="feature" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center">
@@ -453,7 +455,7 @@ export default function SplitBill() {
             <div className="text-2xl font-extrabold tabular-nums">{formatMoney(total, cur)}</div>
           </div>
           <button type="button" className="btn-primary" onClick={start} disabled={busy || ocr.busy} data-testid="start-table">
-            {busy ? <Spinner className="!h-4 !w-4" /> : <QrCode size={18} />} Start table
+            {busy ? <Spinner className="!h-4 !w-4" /> : <LiveTableIcon size={18} aria-hidden />} Start table
           </button>
         </div>
       </div>

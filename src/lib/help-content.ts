@@ -24,7 +24,7 @@ export const SECTIONS: HelpSection[] = [
   // ---- How it works: explainers, an everyday picture instead of taps ----------------------
   {
     id: 'how-it-works',
-    icon: '🫙',
+    icon: 'jar',
     chapter: 'start',
     title: 'What Split Now does',
     summary: 'A shared pot that keeps count, so nobody has to.',
@@ -48,7 +48,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'balances-explained',
-    icon: '⚖️',
+    icon: 'scales',
     chapter: 'settle',
     title: 'How balances work',
     summary: 'Paying tips the balance your way; being paid back levels it.',
@@ -71,7 +71,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'simplify-explained',
-    icon: '🧶',
+    icon: 'yarn',
     chapter: 'settle',
     title: 'Fewer payments to settle',
     summary: 'Simplify debts untangles who pays whom into as few payments as it can.',
@@ -95,7 +95,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'splits-add-up',
-    icon: '🧮',
+    icon: 'calculator',
     chapter: 'expenses',
     title: 'Why splits always add up',
     summary: 'Shares are worked out to the paisa, so they always make the whole bill.',
@@ -118,7 +118,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'private-groups-explained',
-    icon: '🗝️',
+    icon: 'key',
     chapter: 'private',
     title: 'What a private group hides',
     summary: 'Words go in a locked box only your group gets the key to; amounts stay on the label.',
@@ -142,7 +142,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'auto-capture-explained',
-    icon: '🔎',
+    icon: 'funnel',
     chapter: 'capture',
     title: 'How auto-capture picks payments',
     summary: 'A filter keeps only bank payments, and you say yes to each.',
@@ -166,7 +166,7 @@ export const SECTIONS: HelpSection[] = [
   // ---- Main features -------------------------------------------------------------------
   {
     id: 'create-group',
-    icon: '👥',
+    icon: 'users',
     chapter: 'groups',
     core: true,
     title: 'Create a group',
@@ -191,7 +191,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'add-expense',
-    icon: '🧾',
+    icon: 'receipt',
     chapter: 'expenses',
     core: true,
     title: 'Add an expense',
@@ -218,7 +218,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'split-types',
-    icon: '➗',
+    icon: 'divide',
     chapter: 'expenses',
     core: true,
     title: 'Ways to split',
@@ -242,7 +242,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'settle-up-upi',
-    icon: '💸',
+    icon: 'money',
     chapter: 'settle',
     core: true,
     title: 'Settle up and pay with UPI',
@@ -266,7 +266,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'scan-receipt',
-    icon: '📷',
+    icon: 'camera',
     chapter: 'receipts',
     core: true,
     title: 'Scan a bill',
@@ -290,7 +290,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'quick-add',
-    icon: '⚡',
+    icon: 'lightning',
     chapter: 'expenses',
     core: true,
     title: 'Quick add',
@@ -314,7 +314,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'private-groups',
-    icon: '🔒',
+    icon: 'lock',
     chapter: 'private',
     core: true,
     title: 'Private groups',
@@ -344,7 +344,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'icons-and-ai',
-    icon: '✨',
+    icon: 'sparkle',
     chapter: 'expenses',
     core: true,
     title: 'Icons, and icons with AI',
@@ -378,7 +378,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'auto-capture-setup',
-    icon: '📩',
+    icon: 'trayDown',
     chapter: 'capture',
     core: true,
     title: 'Set up auto-capture',
@@ -402,7 +402,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'insights',
-    icon: '📊',
+    icon: 'chart',
     chapter: 'account',
     core: true,
     title: 'Insights',
@@ -428,7 +428,7 @@ export const SECTIONS: HelpSection[] = [
     id: 'help-guide',
     // You're already in Help: listing it on Help's own front page says nothing new. What's new links here.
     unlisted: true,
-    icon: '🧭',
+    icon: 'compass',
     chapter: 'start',
     title: 'Help and What’s new',
     summary: 'This guide, and what changed in each release.',
@@ -449,7 +449,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'sign-in',
-    icon: '🔑',
+    icon: 'signIn',
     chapter: 'start',
     title: 'Signing in',
     summary: 'Sign in with Google or a link emailed to you; there are no passwords.',
@@ -470,7 +470,7 @@ export const SECTIONS: HelpSection[] = [
   // ---- Expenses ------------------------------------------------------------------------
   {
     id: 'money-received',
-    icon: '↩️',
+    icon: 'arrowBack',
     chapter: 'expenses',
     title: 'Money received',
     summary: 'A refund or reimbursement one person got that belongs to several.',
@@ -492,7 +492,7 @@ export const SECTIONS: HelpSection[] = [
   // ---- Receipts ------------------------------------------------------------------------
   {
     id: 'receipt-photos',
-    icon: '🖼️',
+    icon: 'images',
     chapter: 'receipts',
     title: 'Receipt photos',
     summary: 'One scanned receipt plus up to four attached photos, in one row.',
@@ -517,7 +517,7 @@ export const SECTIONS: HelpSection[] = [
   // ---- Private groups ------------------------------------------------------------------
   {
     id: 'private-groups-setup',
-    icon: '🛡️',
+    icon: 'shield',
     chapter: 'private',
     title: 'Set up encrypted groups',
     summary: 'Turn private groups on, then add a passkey and a universal pattern once, in Settings.',
@@ -543,7 +543,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'private-groups-unlock',
-    icon: '🔓',
+    icon: 'lockOpen',
     chapter: 'private',
     title: 'Open and lock private groups',
     summary: 'Tap and long-press your pattern on a lock button, then Face ID.',
@@ -563,7 +563,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'private-groups-make',
-    icon: '🔐',
+    icon: 'lockKey',
     chapter: 'private',
     title: 'Make a group private, or back',
     summary: 'New group → Private group, or Group ⋯ → Make private. Choose what opens it.',
@@ -583,7 +583,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'private-groups-own-pattern',
-    icon: '🧩',
+    icon: 'pattern',
     chapter: 'private',
     title: 'A group’s own pattern',
     summary: 'An optional pattern that opens only one group, shared in person.',
@@ -603,7 +603,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'private-groups-join',
-    icon: '🚪',
+    icon: 'door',
     chapter: 'private',
     title: 'Joining a private group',
     summary: 'The creator lets each person in from their Inbox.',
@@ -624,7 +624,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'private-groups-auto-lock',
-    icon: '⏱️',
+    icon: 'timer',
     chapter: 'private',
     title: 'How long private groups stay open',
     summary: 'Choose the idle time, and whether leaving the app locks them.',
@@ -644,7 +644,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'private-groups-stop',
-    icon: '⏹️',
+    icon: 'stop',
     chapter: 'private',
     title: 'Stop using private groups',
     summary: 'Delete your pattern and passkeys; the app stops offering private groups.',
@@ -661,7 +661,7 @@ export const SECTIONS: HelpSection[] = [
   // ---- Settings ------------------------------------------------------------------------
   {
     id: 'ai-features',
-    icon: '🤖',
+    icon: 'magicWand',
     chapter: 'account',
     title: 'AI features',
     summary: 'One switch lets Google’s AI read what the phone can’t.',
@@ -685,7 +685,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'admin-console',
-    icon: '🛠️',
+    icon: 'wrench',
     chapter: 'account',
     title: 'Admin console',
     summary: 'Switches, limits, the AI key, accounts and logs, for admins only.',
@@ -699,7 +699,7 @@ export const SECTIONS: HelpSection[] = [
   // ---- Groups and people ---------------------------------------------------------------------
   {
     id: 'invite-people',
-    icon: '📨',
+    icon: 'envelope',
     chapter: 'groups',
     title: 'Invite people to a group',
     summary: 'Share a link or a QR code; whoever opens it picks their name and joins.',
@@ -720,7 +720,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'join-group',
-    icon: '🔗',
+    icon: 'link',
     chapter: 'groups',
     title: 'Join a group with a link',
     summary: 'Open the invite, say which name is you, and you’re in.',
@@ -741,7 +741,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'people-without-account',
-    icon: '🙋',
+    icon: 'userDashed',
     chapter: 'groups',
     title: 'Add people who aren’t on Split Now',
     summary: 'Add anyone by name and split with them now; they join later if they like.',
@@ -761,7 +761,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'merge-people',
-    icon: '🪢',
+    icon: 'merge',
     chapter: 'groups',
     title: 'Merge two entries for one person',
     summary: 'Added someone twice, once by name and once by email? Make them one.',
@@ -782,7 +782,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'edit-group',
-    icon: '✏️',
+    icon: 'pencil',
     chapter: 'groups',
     title: 'Edit a group',
     summary: 'Change the name, icon, type, dates, currency, budget and Simplify debts.',
@@ -803,7 +803,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'approvals',
-    icon: '✅',
+    icon: 'checkCircle',
     chapter: 'groups',
     title: 'Ask for an OK on big expenses and payments',
     summary: 'Big expenses wait until everyone in them approves; payments until you confirm.',
@@ -825,7 +825,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'approve-new-people',
-    icon: '🛂',
+    icon: 'badge',
     chapter: 'groups',
     title: 'Let new people in yourself',
     summary: 'People ask to join from the invite; you say yes or no from the Inbox.',
@@ -848,7 +848,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'group-budget',
-    icon: '🎯',
+    icon: 'target',
     chapter: 'groups',
     title: 'Set a group budget',
     summary: 'See how much is left, and get a push at 80% and when it’s spent.',
@@ -866,7 +866,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'group-types',
-    icon: '🗂️',
+    icon: 'folders',
     chapter: 'groups',
     title: 'Trips, homes, 1:1s and Personal wallets',
     summary: 'The type sets the icon and dates; a trip’s dates make it the default while it’s on.',
@@ -887,7 +887,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'archive-leave-delete',
-    icon: '🗃️',
+    icon: 'archive',
     chapter: 'groups',
     title: 'Archive, leave or delete a group',
     summary: 'Tuck away a finished group, leave one, or delete it for everyone.',
@@ -909,7 +909,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'remove-member',
-    icon: '🚪',
+    icon: 'userMinus',
     chapter: 'groups',
     title: 'Remove someone from a group',
     summary: 'Take someone out once their balance is settled; their expenses stay.',
@@ -928,7 +928,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'group-chat',
-    icon: '💬',
+    icon: 'chat',
     chapter: 'groups',
     title: 'Group chat',
     summary: 'Ask who paid, tag people, and send a Pay me or settle up, right in the group.',
@@ -949,7 +949,7 @@ export const SECTIONS: HelpSection[] = [
   // ---- Adding expenses, and receipts ----------------------------------------------------------
   {
     id: 'open-items',
-    icon: '📌',
+    icon: 'pushPin',
     chapter: 'expenses',
     title: 'Open items',
     summary: 'Write down something the group spent that nobody has added yet; whoever paid claims it.',
@@ -970,7 +970,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'edit-delete-expense',
-    icon: '🖊️',
+    icon: 'notePencil',
     chapter: 'expenses',
     title: 'Edit, delete or add an expense again',
     summary: 'Change anything on an expense, delete it with Undo, or copy it for today.',
@@ -991,7 +991,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'recently-deleted',
-    icon: '♻️',
+    icon: 'restore',
     chapter: 'expenses',
     title: 'Get back a deleted expense or payment',
     summary: 'Deleted expenses and payments wait 30 days in Recently deleted.',
@@ -1011,7 +1011,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'repeating-expenses',
-    icon: '🔁',
+    icon: 'repeat',
     chapter: 'expenses',
     title: 'Repeating expenses',
     summary: 'Rent, subscriptions and bills that come back every week, month or year.',
@@ -1033,7 +1033,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'comments-flags',
-    icon: '🚩',
+    icon: 'flag',
     chapter: 'expenses',
     title: 'Comment on or flag an expense',
     summary: 'Ask a question under an expense, or flag it when something looks wrong.',
@@ -1053,7 +1053,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'categories-notes-dates',
-    icon: '🏷️',
+    icon: 'tag',
     chapter: 'expenses',
     title: 'Category, date and notes',
     summary: 'The category picks itself from the description; set the date and add notes.',
@@ -1074,7 +1074,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'foreign-currency',
-    icon: '💱',
+    icon: 'exchange',
     chapter: 'expenses',
     title: 'Expenses in another currency',
     summary: 'Pay in baht or euros; it converts to the group’s currency at that day’s rate.',
@@ -1095,7 +1095,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'split-by-items',
-    icon: '🧾',
+    icon: 'listChecks',
     chapter: 'expenses',
     title: 'Split by items',
     summary: 'Each person pays for what they had; tax and tip are shared in proportion.',
@@ -1116,7 +1116,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'several-payers',
-    icon: '👐',
+    icon: 'handCoins',
     chapter: 'expenses',
     title: 'When several people paid',
     summary: 'Two cards on one bill? Enter what each person put in.',
@@ -1136,7 +1136,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'approve-expense',
-    icon: '👍',
+    icon: 'thumbsUp',
     chapter: 'expenses',
     title: 'Approve an expense that needs your OK',
     summary: 'A big expense someone else added waits until everyone in it approves.',
@@ -1155,7 +1155,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'search-expenses',
-    icon: '🔍',
+    icon: 'search',
     chapter: 'expenses',
     title: 'Find an expense',
     summary: 'Search a group’s expenses and notes, sort them, and filter by who paid or when.',
@@ -1171,7 +1171,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'live-table',
-    icon: '🍽️',
+    icon: 'liveTable',
     chapter: 'receipts',
     title: 'Live table',
     summary: 'Scan the bill; friends scan a QR and tap what they had.',
@@ -1194,7 +1194,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'splitwise-import',
-    icon: '📥',
+    icon: 'download',
     chapter: 'groups',
     title: 'Move a group from Splitwise',
     summary: 'Export a group from Splitwise and import it; balances come out the same.',
@@ -1216,7 +1216,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'export-csv',
-    icon: '📤',
+    icon: 'export',
     chapter: 'account',
     title: 'Export a group as a spreadsheet',
     summary: 'Every expense and payment in a CSV file, one column per person.',
@@ -1236,7 +1236,7 @@ export const SECTIONS: HelpSection[] = [
   // ---- Balances and settling up -----------------------------------------------------------------
   {
     id: 'remind-pay-me',
-    icon: '📲',
+    icon: 'send',
     chapter: 'settle',
     title: 'Remind someone with a Pay me link',
     summary: 'Share a message, a card and a link that opens a Settle up already filled in.',
@@ -1258,7 +1258,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'nudge',
-    icon: '🔔',
+    icon: 'bellRinging',
     chapter: 'settle',
     title: 'Nudge someone who owes you',
     summary: 'Send a push that opens their Settle up, once a day.',
@@ -1278,7 +1278,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'balances-screen',
-    icon: '🧮',
+    icon: 'coins',
     chapter: 'settle',
     title: 'Settle up across all your groups',
     summary: 'See everyone you owe or who owes you, and settle several groups at once.',
@@ -1301,7 +1301,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'record-payment',
-    icon: '💵',
+    icon: 'cash',
     chapter: 'settle',
     title: 'Record cash, part payments and waivers',
     summary: 'Record any way of paying, a part of what’s owed, or let the rest go.',
@@ -1322,7 +1322,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'confirm-payment',
-    icon: '🤝',
+    icon: 'handshake',
     chapter: 'settle',
     title: 'Confirm a payment made to you',
     summary: 'In groups that ask, a payment to you counts once you confirm it.',
@@ -1342,7 +1342,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'upi-id',
-    icon: '🪪',
+    icon: 'idCard',
     chapter: 'settle',
     title: 'Add your UPI ID and how friends pay you',
     summary: 'Your UPI ID, bank or PayID, so people can pay you in one tap.',
@@ -1362,7 +1362,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'settle-reminders',
-    icon: '⏰',
+    icon: 'alarm',
     chapter: 'settle',
     title: 'Weekly settle-up reminders',
     summary: 'A gentle push when you’ve owed someone for a week.',
@@ -1382,7 +1382,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'inbox',
-    icon: '📥',
+    icon: 'tray',
     chapter: 'settle',
     title: 'Your Inbox',
     summary: 'Everything that needs you: approvals, payments to confirm, captured payments.',
@@ -1402,7 +1402,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'notifications',
-    icon: '🔕',
+    icon: 'bell',
     chapter: 'account',
     title: 'Choose your notifications',
     summary: 'Turn on pushes for this device, and pick what to be told about.',
@@ -1424,7 +1424,7 @@ export const SECTIONS: HelpSection[] = [
   // ---- Auto-capture ------------------------------------------------------------------------------
   {
     id: 'captured-payment',
-    icon: '📩',
+    icon: 'trayDown',
     chapter: 'capture',
     title: 'Sort a captured payment',
     summary: 'Split it in one tap, keep it Personal, or say Not shared.',
@@ -1447,7 +1447,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'capture-filters',
-    icon: '🧹',
+    icon: 'funnelSimple',
     chapter: 'capture',
     title: 'Choose which payments are captured',
     summary: 'Pause capture, skip small amounts and words like SIP, or pause a trip.',
@@ -1472,7 +1472,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'capture-keys',
-    icon: '🔑',
+    icon: 'password',
     chapter: 'capture',
     title: 'Capture keys',
     summary: 'The key your phone uses to send payments in; one per trip, or for all trips.',
@@ -1493,7 +1493,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'apple-pay-share',
-    icon: '📲',
+    icon: 'phone',
     chapter: 'capture',
     title: 'Apple Pay, capture links and Share to Split Now',
     summary: 'Capture Apple Pay taps, or share a receipt or bank message to the app.',
@@ -1515,7 +1515,7 @@ export const SECTIONS: HelpSection[] = [
   // ---- Getting started ---------------------------------------------------------------------------
   {
     id: 'home-tour',
-    icon: '🏠',
+    icon: 'house',
     chapter: 'start',
     title: 'Find your way around Home',
     summary: 'Your overall balance, your groups, and what happened lately.',
@@ -1538,7 +1538,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'personal-wallet',
-    icon: '👛',
+    icon: 'wallet',
     chapter: 'start',
     title: 'Track your own spending',
     summary: 'A Personal wallet is just you: track spending that isn’t shared.',
@@ -1560,29 +1560,32 @@ export const SECTIONS: HelpSection[] = [
   // ---- Settings ------------------------------------------------------------------------------------
   {
     id: 'look-and-detail',
-    icon: '🎨',
+    icon: 'palette',
     chapter: 'account',
-    title: 'Theme, accent colour and detail level',
-    summary: 'Light or dark, your colour, and how much explaining the app does.',
-    keywords: ['theme', 'dark mode', 'light', 'accent', 'colour', 'color', 'detail level', 'minimal', 'tooltip'],
+    title: 'Theme, accent colour, icons and detail level',
+    summary: 'Light or dark, your colour, line or solid icons, and how much explaining the app does.',
+    keywords: ['theme', 'dark mode', 'light', 'accent', 'colour', 'color', 'icons', 'outline', 'filled', 'solid', 'detail level', 'minimal', 'tooltip'],
     steps: [
       { text: 'Settings → **Preferences**.', mark: 'open' },
       { text: 'Pick a **Theme**: Auto, Light or Dark.', mark: 'theme' },
       { text: 'Pick an **Accent**, and white or black text on it.', mark: 'accent' },
+      { text: 'Pick **Icons**: Outline for line icons, Filled for solid ones.', mark: 'icons' },
       { text: 'Pick a **Detail level**: Full, When needed, Minimal or Tooltip.', mark: 'detail' },
     ],
     points: [
       'Full shows every explanation; When needed, one short line where it helps; Minimal, titles only; Tooltip puts them behind an (i).',
       'App default follows what Split Now sets.',
+      'Icons: Outline draws light line icons, Filled draws solid ones; Default follows what Split Now sets. The tab you are on is solid either way.',
+      'Icons covers the tab bar, Profile, Settings, Help, the Create sheet and empty screens; small arrows, ticks and close buttons stay as lines.',
       'Lines that stop a mistake with money always stay.',
-      'Theme, accent and detail level follow you to your other devices.',
+      'Theme, accent, icons and detail level follow you to your other devices.',
     ],
     open: { label: 'Preferences', to: '/settings/preferences' },
     related: ['money-preferences', 'animations'],
   },
   {
     id: 'money-preferences',
-    icon: '💱',
+    icon: 'sliders',
     chapter: 'account',
     title: 'Your currency and Collect in my currency',
     summary: 'Set the currency for new groups and totals, and get paid in it.',
@@ -1601,7 +1604,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'animations',
-    icon: '✨',
+    icon: 'confetti',
     chapter: 'account',
     title: 'Animations',
     summary: 'Turn the fireworks and moving background up, down or off.',
@@ -1620,7 +1623,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'profile-account',
-    icon: '🙂',
+    icon: 'user',
     chapter: 'account',
     title: 'Your profile, sign-in and emails',
     summary: 'Your name and photo, how you sign in, other emails, and signing out.',
@@ -1641,7 +1644,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'delete-account',
-    icon: '🗑️',
+    icon: 'trash',
     chapter: 'account',
     title: 'Delete your account',
     summary: 'Remove your account and what’s kept for it, once you’re settled up.',
@@ -1666,7 +1669,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'install-offline',
-    icon: '📶',
+    icon: 'cloudDown',
     chapter: 'account',
     title: 'Install the app, use it offline, and update',
     summary: 'Add Split Now to your Home Screen; it works offline and updates itself.',

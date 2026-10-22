@@ -7,6 +7,8 @@
  * switch turns on, a chip is picked). Pure data and lookups, so a test can check every mark.
  */
 
+import type { UiIconName } from './ui-icons'
+
 export type PartKind =
   | 'title' // a screen's heading
   | 'field' // a text field: types `value` when tapped
@@ -29,7 +31,10 @@ export type PartKind =
 
 export interface PartItem {
   label: string
+  /** an emoji the person chose (a group's or an expense's icon, an avatar) */
   icon?: string
+  /** an interface icon (src/lib/ui-icons.ts), drawn as the app draws it */
+  glyph?: UiIconName
   mark?: string
   /** shown as chosen before anything is tapped */
   on?: boolean
@@ -56,11 +61,11 @@ export type Scene = Screen[]
 const tabbar = (plus?: string, active?: string, live?: string): Part => ({
   kind: 'tabbar',
   items: [
-    { label: 'Home', icon: '🏠', on: active === 'Home' },
-    { label: 'Groups', icon: '👥', on: active === 'Groups' },
+    { label: 'Home', glyph: 'house', on: active === 'Home' },
+    { label: 'Groups', glyph: 'users', on: active === 'Groups' },
     { label: 'Create', icon: '+', mark: plus },
-    { label: 'Live table', icon: '🍽️', mark: live, on: active === 'Live table' },
-    { label: 'Profile', icon: '🙂', on: active === 'Profile' },
+    { label: 'Live table', glyph: 'liveTable', mark: live, on: active === 'Live table' },
+    { label: 'Profile', glyph: 'user', on: active === 'Profile' },
   ],
 })
 
@@ -90,8 +95,8 @@ const createSheet = (marks: { add?: string; scan?: string; group?: string; line?
     {
       kind: 'tiles',
       items: [
-        { label: 'New group', icon: '👥', mark: marks.group },
-        { label: 'Scan', icon: '📷', mark: marks.scan },
+        { label: 'New group', glyph: 'users', mark: marks.group },
+        { label: 'Scan', glyph: 'camera', mark: marks.scan },
       ],
     },
   ],
@@ -157,10 +162,10 @@ export const SCENES: Record<string, Scene> = {
         {
           kind: 'list',
           items: [
-            { label: 'You · ₹1,212.50', icon: '✅' },
-            { label: 'Rahul · ₹1,212.50', icon: '✅' },
-            { label: 'Priya · ₹1,212.50', icon: '✅' },
-            { label: 'Dev · ₹1,212.50', icon: '✅' },
+            { label: 'You · ₹1,212.50', glyph: 'checkCircle' },
+            { label: 'Rahul · ₹1,212.50', glyph: 'checkCircle' },
+            { label: 'Priya · ₹1,212.50', glyph: 'checkCircle' },
+            { label: 'Dev · ₹1,212.50', glyph: 'checkCircle' },
           ],
         },
         { kind: 'button', label: 'Done', primary: true, mark: 'done' },
@@ -330,10 +335,10 @@ Object.assign(SCENES, {
       {
         kind: 'tiles',
         items: [
-          { label: 'Add an expense', icon: '🧾' },
-          { label: 'Ways to split', icon: '➗' },
-          { label: 'Settle up', icon: '💸' },
-          { label: 'Scan a bill', icon: '📷' },
+          { label: 'Add an expense', glyph: 'receipt' },
+          { label: 'Ways to split', glyph: 'divide' },
+          { label: 'Settle up', glyph: 'money' },
+          { label: 'Scan a bill', glyph: 'camera' },
         ],
       },
     ]),
@@ -368,8 +373,8 @@ Object.assign(SCENES, {
         kind: 'list',
         label: '2 of 4 attached',
         items: [
-          { label: 'Card slip', icon: '🧾' },
-          { label: 'Second page', icon: '📄' },
+          { label: 'Card slip', glyph: 'receipt' },
+          { label: 'Second page', glyph: 'file' },
         ],
       },
       { kind: 'button', label: 'Save', primary: true, mark: 'save' },
@@ -845,9 +850,9 @@ Object.assign(SCENES, {
         {
           kind: 'tiles',
           items: [
-            { label: 'WhatsApp', icon: '💬', mark: 'app' },
-            { label: 'Messages', icon: '✉️' },
-            { label: 'Copy', icon: '📋' },
+            { label: 'WhatsApp', glyph: 'chat', mark: 'app' },
+            { label: 'Messages', glyph: 'envelope' },
+            { label: 'Copy', glyph: 'copy' },
           ],
         },
       ],
@@ -1024,6 +1029,7 @@ Object.assign(SCENES, {
     settings('Preferences', [
       { kind: 'chips', mark: 'theme', items: [{ label: 'Auto' }, { label: 'Light' }, { label: 'Dark', on: true }] },
       { kind: 'chips', mark: 'accent', items: [{ label: '🟣 Violet', on: true }, { label: '🔵 Ocean' }, { label: '🟡 Gold' }] },
+      { kind: 'chips', mark: 'icons', items: [{ label: 'Default' }, { label: 'Outline' }, { label: 'Filled', on: true }] },
       { kind: 'chips', mark: 'detail', items: [{ label: 'Full' }, { label: 'When needed', on: true }, { label: 'Minimal' }, { label: 'Tooltip' }] },
     ]),
   ],

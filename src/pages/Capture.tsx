@@ -26,6 +26,8 @@ import { Sheet } from '@/components/Sheet'
 import { useToast } from '@/components/Toast'
 import { HintText } from '@/components/Hint'
 import { activeMembers } from '@/lib/members'
+import { StyledIcon } from '@/components/Icon'
+import { CheckCircleIcon, CreditCardIcon, EyeSlashIcon, MagnifyingGlassIcon, QuestionIcon } from '@/components/icons'
 
 /** Guards against React StrictMode / reloads creating the same capture twice. */
 const inflight = new Map<string, Promise<string>>()
@@ -76,7 +78,7 @@ function CreateFromLink() {
   if (error) {
     return (
       <Shell>
-        <Empty emoji="🤔" title="Couldn’t read that payment">
+        <Empty icon={QuestionIcon} title="Couldn’t read that payment">
           {error}
           <div className="mt-4 flex justify-center gap-2">
             <Link to="/add" className="btn-primary">
@@ -101,7 +103,7 @@ function Prompt({ id }: { id: string }) {
   if (!c)
     return (
       <Shell>
-        <Empty emoji="🔍" title="Payment not found">
+        <Empty icon={MagnifyingGlassIcon} title="Payment not found">
           It may have been removed.{' '}
           <Link to="/inbox" className="font-semibold text-brand-600 dark:text-brand-300">
             Open Inbox
@@ -146,7 +148,7 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
   if (c.status !== 'pending') {
     return (
       <Shell>
-        <Empty emoji={c.status === 'assigned' ? '✅' : '🙈'} title={c.status === 'assigned' ? 'Already added' : 'Not shared'}>
+        <Empty icon={c.status === 'assigned' ? CheckCircleIcon : EyeSlashIcon} title={c.status === 'assigned' ? 'Already added' : 'Not shared'}>
           {captureHeadline(c, cur)} was {c.status === 'assigned' ? 'added to a group' : 'marked as not shared'}.
           <div className="mt-4 flex justify-center gap-2">
             {c.groupId && (
@@ -275,7 +277,7 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
           className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-3xl bg-gradient-to-br from-fill-500 to-fill-to text-2xl text-on-fill shadow-lg"
           aria-hidden
         >
-          💳
+          <StyledIcon icon={CreditCardIcon} size={28} kind="feature" />
         </div>
         <h2 className="text-lg font-bold leading-snug">
           {merchantKnown(c.merchant) ? (

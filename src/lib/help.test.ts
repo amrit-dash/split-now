@@ -4,6 +4,7 @@ import SHOTS from './help-shots.json'
 import { ACCENTS } from './accent'
 import { CHAPTERS, SECTIONS } from './help-content'
 import { baseOf, findMark, SCENE_MARKS, SCENES } from './help-scenes'
+import { isUiIcon } from './ui-icons'
 
 describe('the guide’s content', () => {
   it('every section has a unique id, a known chapter, a title, a summary and something to read', () => {
@@ -199,5 +200,20 @@ describe('the screenshots', () => {
   it('a marker’s outline is the part with room around it, inside the picture', () => {
     expect(markBox({ step: 1, x: 0.5, y: 0.5, w: 0.2, h: 0.1 })).toEqual({ left: 38.8, top: 43.2, width: 22.4, height: 13.6 })
     expect(markBox({ step: 1, x: 0.05, y: 0.02, w: 0.1, h: 0.04 })).toEqual({ left: 0, top: 0, width: 11.2, height: 5.8 })
+  })
+})
+
+describe('icons in Help', () => {
+  it('every section names an interface icon, not an emoji', () => {
+    for (const s of SECTIONS) expect(isUiIcon(s.icon), s.id).toBe(true)
+  })
+  it('the scenes draw interface parts as icons: the tab bar, the + sheet’s tiles', () => {
+    for (const scene of Object.values(SCENES))
+      for (const screen of scene)
+        for (const part of screen.parts)
+          for (const it of part.items ?? []) {
+            if (it.glyph) expect(isUiIcon(it.glyph)).toBe(true)
+            if (part.kind === 'tabbar' && it.label !== 'Create') expect(it.glyph, it.label).toBeTruthy()
+          }
   })
 })

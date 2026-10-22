@@ -1,20 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { ChevronRight, X } from 'lucide-react'
 import {
-  BarChart3,
-  Camera,
-  ChevronRight,
-  HandHeart,
-  ImagePlus,
-  LifeBuoy,
-  LogOut,
-  Settings as SettingsIcon,
-  ShieldCheck,
-  Trash2,
-  Users,
-  Wallet,
-  X,
-} from 'lucide-react'
+  CameraIcon,
+  ChartDonutIcon,
+  GearSixIcon,
+  HandHeartIcon,
+  ImageSquareIcon,
+  LifebuoyIcon,
+  ScalesIcon,
+  ShieldCheckIcon,
+  SignOutIcon,
+  TrashIcon,
+  WalletIcon,
+} from '@/components/icons'
 import { useWhatsNew } from '@/hooks/useWhatsNew'
 import { repo } from '@/data'
 import { semverOf } from '@/lib/flags'
@@ -224,7 +223,7 @@ export default function Profile() {
               aria-label="Settings"
               data-testid="open-settings"
             >
-              <SettingsIcon size={22} />
+              <GearSixIcon size={22} />
             </Link>
           </div>
         }
@@ -279,7 +278,7 @@ export default function Profile() {
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
             aria-hidden
           >
-            <Wallet size={19} />
+            <WalletIcon size={19} />
           </span>
         }
         summary={paymentSummary(payment, region)}
@@ -325,7 +324,7 @@ export default function Profile() {
           )}
         </div>
         <p className="text-muted mt-3 flex items-start gap-1.5 text-xs">
-          <ShieldCheck size={14} className="mt-0.5 shrink-0" aria-hidden />{' '}
+          <ShieldCheckIcon size={14} className="mt-0.5 shrink-0" aria-hidden />{' '}
           <span>
             <HintText hint={PAYMENT_PRIVACY_HINT} as="span" className="" />
             <InfoTip hint={PAYMENT_PRIVACY_HINT} label="About who can see these" />
@@ -343,7 +342,7 @@ export default function Profile() {
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
             aria-hidden
           >
-            <SettingsIcon size={19} />
+            <GearSixIcon size={19} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block">Settings</span>
@@ -356,7 +355,7 @@ export default function Profile() {
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
             aria-hidden
           >
-            <LifeBuoy size={19} />
+            <LifebuoyIcon size={19} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block">Help</span>
@@ -379,7 +378,7 @@ export default function Profile() {
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
             aria-hidden
           >
-            <BarChart3 size={19} />
+            <ChartDonutIcon size={19} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block">Insights</span>
@@ -392,7 +391,7 @@ export default function Profile() {
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
             aria-hidden
           >
-            <Users size={19} />
+            <ScalesIcon size={19} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block">Balances</span>
@@ -415,7 +414,7 @@ export default function Profile() {
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-pink-50 text-pink-600 dark:bg-pink-500/15 dark:text-pink-300"
               aria-hidden
             >
-              <HandHeart size={19} />
+              <HandHeartIcon size={19} />
             </span>
             <span className="min-w-0 flex-1">
               <span className="block">Support the developer</span>
@@ -427,7 +426,7 @@ export default function Profile() {
       </div>
 
       <button type="button" className="btn-secondary mt-6 w-full text-rose-700 dark:text-rose-400" onClick={() => setSignOutOpen(true)} data-testid="sign-out">
-        <LogOut size={18} aria-hidden /> Sign out
+        <SignOutIcon size={18} aria-hidden /> Sign out
       </button>
       <Detail min={2}>
         <p className="mt-6 text-center text-xs font-semibold text-brand-600/80 dark:text-brand-300/80">Spending is wise, splitting is free. Split Now!</p>
@@ -463,7 +462,7 @@ export default function Profile() {
             }}
             data-testid="confirm-sign-out"
           >
-            <LogOut size={18} aria-hidden /> Sign out
+            <SignOutIcon size={18} aria-hidden /> Sign out
           </button>
         </div>
       </Sheet>
@@ -517,11 +516,11 @@ function PhotoSheet({ open, onClose, profile, googlePhotoURL }: { open: boolean;
       <div className="space-y-1">
         {coarsePointer() && (
           <button type="button" className={row} disabled={busy} onClick={() => camera.current?.click()}>
-            <Camera size={20} className="text-brand-600 dark:text-brand-300" aria-hidden /> Take photo
+            <CameraIcon size={20} className="text-brand-600 dark:text-brand-300" aria-hidden /> Take photo
           </button>
         )}
         <button type="button" className={row} disabled={busy} onClick={() => pick.current?.click()}>
-          <ImagePlus size={20} className="text-brand-600 dark:text-brand-300" aria-hidden /> {busy ? 'Uploading…' : 'Choose photo'}
+          <ImageSquareIcon size={20} className="text-brand-600 dark:text-brand-300" aria-hidden /> {busy ? 'Uploading…' : 'Choose photo'}
         </button>
         {googlePhotoURL && profile.photoURL !== googlePhotoURL && (
           <button
@@ -540,7 +539,7 @@ function PhotoSheet({ open, onClose, profile, googlePhotoURL }: { open: boolean;
             disabled={busy}
             onClick={() => apply({ photoURL: undefined, photoSource: 'none' }, 'Photo removed')}
           >
-            <Trash2 size={20} aria-hidden /> Remove photo
+            <TrashIcon size={20} aria-hidden /> Remove photo
           </button>
         )}
       </div>

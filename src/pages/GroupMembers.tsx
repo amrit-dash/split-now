@@ -37,6 +37,7 @@ import { labelOf } from '@/lib/shortNames'
 import { Switch } from '@/components/Switch'
 import { MergeOffers, MergeSheet } from '@/features/merge/Merge'
 import { mergeCandidates } from '@/lib/merge'
+import { MagnifyingGlassIcon, WalletIcon } from '@/components/icons'
 
 /**
  * A group's people: who is in it, whether they have joined, where each stands, and adding or
@@ -67,7 +68,7 @@ export default function GroupMembers() {
       <>
         {/* Fixed: this group is gone for you, and every screen of it behind this one would say the same, so back leaves the group. */}
         <PageHeader title="Members" back={{ to: '/groups', mode: 'fixed' }} />
-        <Empty emoji="🔍" title="This group doesn’t exist or you’re not a member" />
+        <Empty icon={MagnifyingGlassIcon} title="This group doesn’t exist or you’re not a member" />
       </>
     )
   if (!d)
@@ -187,7 +188,7 @@ export default function GroupMembers() {
     <div>
       <PageHeader title="Members" subtitle={group.name} back={`/groups/${group.id}`} />
       {group.type === 'personal' ? (
-        <Empty emoji="👛" title="A personal wallet is just you" />
+        <Empty icon={WalletIcon} title="A personal wallet is just you" />
       ) : (
         <div className="space-y-4">
           <MergeOffers group={group} requests={mergeRequests} me={me} myUid={user.uid} />

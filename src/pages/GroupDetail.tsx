@@ -29,6 +29,7 @@ import {
   Trash2,
   UserMinus,
   Users,
+  UtensilsCrossed,
   X,
 } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
@@ -122,6 +123,7 @@ import { VaultLock } from '@/features/vault/VaultLock'
 import { PrivateGroupSheet } from '@/features/vault/PrivateGroupSheet'
 import { privateMenuShown } from '@/lib/vault-api'
 import { lockVault } from '@/lib/vault-keys'
+import { ClockCounterClockwiseIcon, MagnifyingGlassIcon, ReceiptIcon } from '@/components/icons'
 
 type Tab = 'expenses' | 'open' | 'balances' | 'activity'
 
@@ -190,7 +192,7 @@ export default function GroupDetail() {
       <>
         {/* Fixed: this group is gone for you, and every screen of it behind this one would say the same, so back leaves the group. */}
         <PageHeader title="Group not found" back={{ to: '/groups', mode: 'fixed' }} />
-        <Empty emoji="🔍" title="This group doesn’t exist or you’re not a member" />
+        <Empty icon={MagnifyingGlassIcon} title="This group doesn’t exist or you’re not a member" />
       </>
     )
   // In Recently deleted: read-only, with Restore (and Delete forever for the creator).
@@ -391,7 +393,7 @@ export default function GroupDetail() {
                 title="Who has fronted the least lately, only you can see this"
                 data-testid="whose-turn"
               >
-                <span aria-hidden>🍽️</span> {turnLine(turn, me)}
+                <UtensilsCrossed size={12} aria-hidden /> {turnLine(turn, me)}
               </span>
             )}
           </div>
@@ -543,7 +545,7 @@ export default function GroupDetail() {
               className="card flex min-h-12 w-full items-center gap-2 px-4 py-3 text-left text-sm"
               data-testid="balances-open-note"
             >
-              <span aria-hidden>🧾</span>
+              <ReceiptText size={18} className="text-muted shrink-0" aria-hidden />
               <span className="min-w-0 flex-1">
                 {openCount} open {openCount === 1 ? 'item isn’t' : 'items aren’t'} counted yet. Claim {openCount === 1 ? 'it' : 'them'} before settling up.
               </span>
@@ -1047,7 +1049,7 @@ function ActivityTab({ group, expenseIds }: { group: Group; expenseIds: Set<stri
       {feed === null ? (
         <Loading />
       ) : feed.length === 0 ? (
-        <Empty emoji="📜" title="No activity yet">
+        <Empty icon={ClockCounterClockwiseIcon} title="No activity yet">
           Adds, edits, deletions and flags show up here.
         </Empty>
       ) : (
@@ -1143,7 +1145,7 @@ function ActivityList({
   }
   if (all === 0)
     return (
-      <Empty emoji="🧾" title="No expenses yet">
+      <Empty icon={ReceiptIcon} title="No expenses yet">
         Tap the + button to add the first one, or scan a receipt.
       </Empty>
     )
@@ -1232,7 +1234,7 @@ function ActivityList({
     <div className="space-y-5">
       {filters}
       {rows.length === 0 && (
-        <Empty emoji="🔎" title="No matches">
+        <Empty icon={MagnifyingGlassIcon} title="No matches">
           Try a different search or clear the filters.
         </Empty>
       )}

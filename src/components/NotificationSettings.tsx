@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Bell, BellOff, Share } from 'lucide-react'
+import { BellIcon, BellSlashIcon, ExportIcon } from '@/components/icons'
 import { Link } from 'react-router-dom'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
@@ -150,7 +150,7 @@ export function NotificationSettings() {
       <div className="card p-4">
         {iosNeedsInstall ? (
           <p className="text-muted flex items-start gap-1.5 text-sm">
-            <Share size={15} className="mt-0.5 shrink-0" aria-hidden />
+            <ExportIcon size={15} className="mt-0.5 shrink-0" aria-hidden />
             {IOS_INSTALL_FOR_PUSH} and come back here.
           </p>
         ) : !supported ? (
@@ -159,7 +159,7 @@ export function NotificationSettings() {
           <div className="flex items-center justify-between gap-3">
             <p className="text-muted text-sm">On for this device.</p>
             <button type="button" className="btn-ghost btn-sm !px-2" onClick={turnOff} disabled={busy}>
-              <BellOff size={16} aria-hidden /> Turn off here
+              <BellSlashIcon size={16} aria-hidden /> Turn off here
             </button>
           </div>
         ) : perm === 'denied' ? (
@@ -168,7 +168,7 @@ export function NotificationSettings() {
           <>
             <HintText hint={TURN_ON_HINT} className="text-muted text-sm" />
             <button type="button" className="btn-primary mt-3 w-full" onClick={turnOn} disabled={busy}>
-              <Bell size={18} aria-hidden /> Turn on notifications
+              <BellIcon size={18} aria-hidden /> Turn on notifications
             </button>
           </>
         )}

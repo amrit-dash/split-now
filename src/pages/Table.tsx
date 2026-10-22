@@ -61,6 +61,8 @@ import { Sheet } from '@/components/Sheet'
 import { useToast } from '@/components/Toast'
 import { type Hint, HintText, InfoTip } from '@/components/Hint'
 import { labelOf } from '@/lib/shortNames'
+import { StyledIcon } from '@/components/Icon'
+import { HourglassIcon, LiveTableIcon, MagnifyingGlassIcon, PlugsIcon, ReceiptIcon } from '@/components/icons'
 
 const JOIN_HINT: Hint = {
   full: 'Enter the code shown on the host’s phone, or scan their QR code with your camera.',
@@ -135,7 +137,7 @@ export function TableEntry() {
           className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-100 to-duo-100 text-5xl dark:from-brand-900/50 dark:to-duo-900/30"
           aria-hidden
         >
-          🍽️
+          <StyledIcon icon={LiveTableIcon} size={40} kind="feature" className="text-brand-600 dark:text-brand-300" />
         </div>
         <div className="mt-4 flex items-center justify-center">
           <h1 className="text-2xl font-extrabold">Join a table</h1>
@@ -181,7 +183,7 @@ export default function TablePage() {
   if (viewer.error)
     return (
       <Shell>
-        <Empty emoji="🔌" title="Couldn’t open the table">
+        <Empty icon={PlugsIcon} title="Couldn’t open the table">
           {viewer.error}
         </Empty>
       </Shell>
@@ -190,7 +192,7 @@ export default function TablePage() {
   if (table === null) {
     return (
       <Shell>
-        <Empty emoji="🔍" title="Table not found">
+        <Empty icon={MagnifyingGlassIcon} title="Table not found">
           The code may be mistyped, or the bill was already closed or expired.
         </Empty>
       </Shell>
@@ -201,7 +203,7 @@ export default function TablePage() {
   if (isExpired(table) && !isHost)
     return (
       <Shell>
-        <Empty emoji="⌛" title="This table has expired">
+        <Empty icon={HourglassIcon} title="This table has expired">
           Tables stay open for 24 hours. Ask the host to finish the bill in Split Now.
         </Empty>
       </Shell>
@@ -233,7 +235,7 @@ function JoinForm({ table, viewer }: { table: LiveTable; viewer: Viewer }) {
     <div className="mx-auto min-h-dvh max-w-md px-4 pt-[calc(var(--safe-top)+4rem)]">
       <div className="text-center">
         <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-100 to-duo-100 text-5xl dark:from-brand-900/50 dark:to-duo-900/30">
-          🧾
+          <StyledIcon icon={ReceiptIcon} size={40} kind="feature" className="text-brand-600 dark:text-brand-300" />
         </div>
         <h1 className="mt-4 text-2xl font-extrabold">{table.merchant}</h1>
         <p className="mt-1 text-muted text-sm">

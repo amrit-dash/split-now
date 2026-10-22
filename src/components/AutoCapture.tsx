@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { usePickableGroups } from '@/hooks/useVault'
 import { Link } from 'react-router-dom'
-import { Activity, Ban, ChevronRight, Copy, KeyRound, MessageSquareText, Pause, Plus, Smartphone, X, Zap } from 'lucide-react'
+import { ChevronRight, X } from 'lucide-react'
+import { ChatCircleTextIcon, CopyIcon, DeviceMobileIcon, KeyIcon, LightningIcon, PauseIcon, PlusIcon, ProhibitIcon, PulseIcon } from '@/components/icons'
 import { firebaseProject, repo } from '@/data'
 import type { CaptureToken } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
@@ -201,7 +202,7 @@ export function AutoCapture() {
             className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${paused ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'}`}
             aria-hidden
           >
-            {paused ? <Pause size={18} /> : <Zap size={18} />}
+            {paused ? <PauseIcon size={18} /> : <LightningIcon size={18} />}
           </span>
           <div className="min-w-0 flex-1">
             <div id="capture-master-label" className="text-sm font-semibold">
@@ -228,7 +229,7 @@ export function AutoCapture() {
         className="card mt-3 flex items-center gap-3 p-3 ring-1 ring-brand-200 dark:ring-brand-800"
         data-testid="capture-setup-link"
       >
-        <MessageSquareText size={22} className="shrink-0 text-brand-600 dark:text-brand-300" aria-hidden />
+        <ChatCircleTextIcon size={22} className="shrink-0 text-brand-600 dark:text-brand-300" aria-hidden />
         <div className="min-w-0 flex-1">
           <div className="font-semibold">{tokens?.length ? 'Set up on a new phone' : 'Set up auto-capture'}</div>
           <HintText hint={SETUP_HINT} as="div" />
@@ -256,7 +257,7 @@ export function AutoCapture() {
       {tokens && tokens.length > 0 && (
         <Keys tokens={tokens} groups={groups ?? []} lastUsed={lastUsed} onCopy={(t) => copyIt(t.token, 'Capture key')} onRevoke={revoke} />
       )}
-      {log && view.activity && <RecentActivity rows={log} onClear={() => clearCaptureLog(user.uid, repo.mode, log).then(() => toast('Activity cleared'))} />}
+      {log && view.activity && <RecentActivity rows={log} onClear={() => clearCaptureLog(user.uid, repo.mode, log).then(() => toast('PulseIcon cleared'))} />}
 
       {view.advanced && (
         <details className="card mt-3 p-3">
@@ -264,20 +265,20 @@ export function AutoCapture() {
 
           {tokens === null ? null : !token ? (
             <button type="button" className="btn-secondary mt-3 w-full" onClick={create} disabled={busy}>
-              <KeyRound size={18} aria-hidden /> Create a capture key
+              <KeyIcon size={18} aria-hidden /> Create a capture key
             </button>
           ) : (
             <div className="mt-3 space-y-3">
               <div className="flex items-center gap-2 rounded-2xl bg-slate-50 p-2 pl-3 dark:bg-ink-800">
-                <KeyRound size={16} className="shrink-0 text-slate-500" aria-hidden />
+                <KeyIcon size={16} className="shrink-0 text-slate-500" aria-hidden />
                 <code className="min-w-0 flex-1 truncate text-xs">{token.token}</code>
                 <button
                   type="button"
                   className="flex h-11 w-11 items-center justify-center rounded-full text-slate-600 dark:text-slate-300"
                   onClick={() => copyIt(token.token, 'Capture key')}
-                  aria-label="Copy capture key"
+                  aria-label="CopyIcon capture key"
                 >
-                  <Copy size={16} />
+                  <CopyIcon size={16} />
                 </button>
               </div>
               <div className="text-muted flex items-start text-xs">
@@ -289,7 +290,7 @@ export function AutoCapture() {
 
           <details className="mt-4 rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800" open={!!token}>
             <summary className="cursor-pointer font-semibold">
-              <Smartphone size={15} className="mr-1 inline" aria-hidden /> iPhone: Apple Pay Shortcut (iOS 17+)
+              <DeviceMobileIcon size={15} className="mr-1 inline" aria-hidden /> iPhone: Apple Pay Shortcut (iOS 17+)
             </summary>
             <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-slate-600 dark:text-slate-300">
               <li>
@@ -326,7 +327,7 @@ export function AutoCapture() {
 
           <details className="mt-2 rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800">
             <summary className="cursor-pointer font-semibold">
-              <Smartphone size={15} className="mr-1 inline" aria-hidden /> Android
+              <DeviceMobileIcon size={15} className="mr-1 inline" aria-hidden /> Android
             </summary>
             <ul className="mt-2 list-disc space-y-1.5 pl-5 text-slate-600 dark:text-slate-300">
               <li>
@@ -356,7 +357,7 @@ function CopyBlock({ label, value, onCopy }: { label: string; value: string; onC
       <div className="text-muted mb-1 flex items-center justify-between text-xs font-semibold">
         {label}
         <button type="button" className="inline-flex min-h-9 items-center gap-1 px-2 text-brand-600 dark:text-brand-300" onClick={onCopy}>
-          <Copy size={13} aria-hidden /> Copy
+          <CopyIcon size={13} aria-hidden /> CopyIcon
         </button>
       </div>
       <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-xl bg-white p-2 font-mono text-xs dark:bg-ink-900">{value}</pre>
@@ -537,14 +538,14 @@ function Filters({ prefs, onChange }: { prefs: AllPrefs; onChange: (p: Partial<A
           data-testid="capture-ignore-input"
         />
         <button type="submit" className="btn-secondary !px-3" disabled={full || !word.trim()} aria-label="Add keyword">
-          <Plus size={18} />
+          <PlusIcon size={18} />
         </button>
       </form>
       {!full && suggestions.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {suggestions.map((s) => (
             <button key={s} type="button" className="chip !py-1.5 text-xs text-slate-700 dark:text-slate-300" onClick={() => add(s)}>
-              <Plus size={12} aria-hidden /> {s}
+              <PlusIcon size={12} aria-hidden /> {s}
             </button>
           ))}
         </div>
@@ -622,11 +623,9 @@ function Keys({
               key={t.token}
               contentClassName="flex items-center gap-2"
               menuTitle={label}
-              actions={[
-                { label: 'Revoke', ariaLabel: `Revoke capture key for ${label}`, icon: <Ban size={20} strokeWidth={2.25} />, onClick: () => onRevoke(t) },
-              ]}
+              actions={[{ label: 'Revoke', ariaLabel: `Revoke capture key for ${label}`, icon: <ProhibitIcon size={20} />, onClick: () => onRevoke(t) }]}
             >
-              <KeyRound size={16} className="shrink-0 text-slate-500" aria-hidden />
+              <KeyIcon size={16} className="shrink-0 text-slate-500" aria-hidden />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium">{label}</div>
                 <div className="text-muted truncate text-xs">
@@ -642,9 +641,9 @@ function Keys({
                 type="button"
                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-600 dark:text-slate-300"
                 onClick={() => onCopy(t)}
-                aria-label={`Copy capture key for ${label}`}
+                aria-label={`CopyIcon capture key for ${label}`}
               >
-                <Copy size={16} />
+                <CopyIcon size={16} />
               </button>
             </SwipeRow>
           )
@@ -668,7 +667,7 @@ function RecentActivity({ rows, onClear }: { rows: LogRow[]; onClear: () => void
     <Panel title="Recent activity" testId="capture-activity">
       {rows.length === 0 ? (
         <p className="text-muted flex items-start gap-2 text-xs">
-          <Activity size={14} className="mt-0.5 shrink-0" aria-hidden /> Nothing yet. Every message your phone forwards shows up here, captured or not, so you
+          <PulseIcon size={14} className="mt-0.5 shrink-0" aria-hidden /> Nothing yet. Every message your phone forwards shows up here, captured or not, so you
           can tell the automation is working.
         </p>
       ) : (

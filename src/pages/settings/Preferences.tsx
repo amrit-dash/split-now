@@ -1,6 +1,5 @@
 import { useState, useSyncExternalStore } from 'react'
 import { usePickableGroups } from '@/hooks/useVault'
-import { Moon, Sun, SunMoon } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 
@@ -8,11 +7,14 @@ import { useAppConfig } from '@/hooks/useAppConfig'
 import { CURRENCIES } from '@/lib/money'
 import { errText } from '@/lib/errors'
 import { appLocale } from '@/lib/locale'
+import { type IconStyleChoice, ICON_STYLE_CHOICES, ICON_STYLE_INFO, iconWeight } from '@/lib/icon-style'
+import { getIconStylePref, setIconStylePref, subscribeIconStylePref } from '@/lib/icon-style-pref'
 import { LOOK_CHOICES, LOOK_INFO, type LookChoice } from '@/lib/look'
 import { getLookPref, setLookPref, subscribeLookPref } from '@/lib/look-pref'
 import { getTheme, setTheme as saveTheme, type Theme } from '@/lib/theme'
 import { AccentPicker } from '@/components/AccentPicker'
 import { HintText, InfoTip, useShows, type Hint } from '@/components/Hint'
+import { CircleHalfIcon, HouseIcon, MoonIcon, SunIcon } from '@/components/icons'
 import { Segmented } from '@/components/Misc'
 import { RatesField } from '@/components/ProfileCards'
 import { Select, currencyOptions } from '@/components/Select'
@@ -26,12 +28,17 @@ const CURRENCY_HINT: Hint = {
   tier: 'help',
 }
 const SYNC_HINT: Hint = {
-  full: 'Theme, accent and detail level are the same on every device you sign in on.',
+  full: 'Theme, accent, icons and detail level are the same on every device you sign in on.',
   short: 'Same on every device you sign in on',
   tier: 'help',
 }
 // Every row of the Appearance card has a 'help' line (Accent's and Text on accent's are in AccentPicker), so they show together or not at all.
 const THEME_HINT: Hint = { full: 'Auto follows your device’s light or dark mode', short: 'Auto follows your device', tier: 'help' }
+const ICONS_HINT: Hint = {
+  full: 'Outline draws light line icons; Filled draws solid ones. The tab you are on is always solid.',
+  short: 'Line or solid icons',
+  tier: 'help',
+}
 const DETAIL_HINT: Hint = {
   full: 'How much the app explains under each option. Lines that stop a mistake with money always stay.',
   short: 'How much the app explains under each option',
@@ -47,6 +54,8 @@ export default function Preferences() {
   const [lookSaved, flashLook] = useSavedFlash()
   const adminLook = useAppConfig().look
   const lookChoice = useSyncExternalStore(subscribeLookPref, getLookPref, getLookPref)
+  const adminIcons = useAppConfig().icons
+  const iconChoice = useSyncExternalStore(subscribeIconStylePref, getIconStylePref, getIconStylePref)
   const groups = usePickableGroups()
   const showAll = useShows(2)
   // Minimal hides "Collect in" unless it matters: a group in another currency, or it's already on (so it can be turned off).
@@ -124,7 +133,7 @@ export default function Preferences() {
                 value: 'system',
                 label: (
                   <span className="inline-flex items-center gap-1">
-                    <SunMoon size={15} aria-hidden /> Auto
+                    <CircleHalfIcon size={16} aria-hidden /> Auto
                   </span>
                 ),
               },
@@ -132,7 +141,7 @@ export default function Preferences() {
                 value: 'light',
                 label: (
                   <span className="inline-flex items-center gap-1">
-                    <Sun size={15} aria-hidden /> Light
+                    <SunIcon size={16} aria-hidden /> Light
                   </span>
                 ),
               },
@@ -140,7 +149,7 @@ export default function Preferences() {
                 value: 'dark',
                 label: (
                   <span className="inline-flex items-center gap-1">
-                    <Moon size={15} aria-hidden /> Dark
+                    <MoonIcon size={16} aria-hidden /> Dark
                   </span>
                 ),
               },
@@ -149,6 +158,34 @@ export default function Preferences() {
           <HintText hint={THEME_HINT} className="text-muted mt-1.5 text-xs" />
         </div>
         <AccentPicker onChange={flashLook} />
+        <div>
+          <div className="label flex items-center" id="icons-label">
+            Icons
+            <InfoTip hint={ICONS_HINT} label="About icons" />
+          </div>
+          {/* Each choice shows a house in the weight it draws, so the difference is visible before picking. */}
+          <Segmented<IconStyleChoice>
+            label="Icons"
+            testId="icon-style"
+            value={iconChoice}
+            onChange={(v) => {
+              setIconStylePref(v)
+              flashLook()
+            }}
+            options={ICON_STYLE_CHOICES.map((c) => ({
+              value: c,
+              label: (
+                <span className="inline-flex items-center gap-1">
+                  <HouseIcon size={16} weight={iconWeight(c === 'app' ? adminIcons : c)} aria-hidden /> {c === 'app' ? 'Default' : ICON_STYLE_INFO[c].label}
+                </span>
+              ),
+            }))}
+          />
+          <HintText
+            hint={{ ...ICONS_HINT, full: `${ICONS_HINT.full} Default follows Split Now (${ICON_STYLE_INFO[adminIcons].label}).` }}
+            className="text-muted mt-1.5 text-xs"
+          />
+        </div>
         <div>
           <div className="flex items-center">
             <label className="label !mb-0" htmlFor="detail-level">

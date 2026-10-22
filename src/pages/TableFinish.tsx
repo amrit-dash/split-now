@@ -34,6 +34,8 @@ import { Select } from '@/components/Select'
 import { activeMembers } from '@/lib/members'
 import { labelOf } from '@/lib/shortNames'
 import { type Hint, HintText } from '@/components/Hint'
+import { StyledIcon } from '@/components/Icon'
+import { UserPlusIcon, UsersThreeIcon } from '@/components/icons'
 
 // The groups under it always show a line (people and currency), so this one stays in every look too.
 const NEW_GROUP_HINT: Hint = { full: 'With everyone at this table', tier: 'key' }
@@ -81,7 +83,9 @@ export default function TableFinish({ table, totals, onClose }: { table: LiveTab
                 className={`flex w-full items-center gap-3 rounded-2xl p-2 text-left ${target === NONE ? 'bg-brand-50 dark:bg-brand-900/30' : ''}`}
                 data-testid="finish-new-group"
               >
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-lg dark:bg-ink-800">➕</span>
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300">
+                  <StyledIcon icon={UsersThreeIcon} size={20} />
+                </span>
                 <span className="min-w-0 flex-1">
                   <span className="block font-semibold">New group</span>
                   <HintText hint={NEW_GROUP_HINT} as="span" className="block text-muted text-xs" />
@@ -232,7 +236,7 @@ function ToGroup({ table, group, ready }: { table: LiveTable; group: Group; read
                 aria-label={`Group member for ${table.participants[p].name}`}
                 options={[
                   ...members.map((m) => ({ value: m, label: labelOf(group.members, m) })),
-                  { value: NEW, label: 'Add as new member', icon: <span>➕</span> },
+                  { value: NEW, label: 'Add as new member', icon: <StyledIcon icon={UserPlusIcon} size={20} /> },
                 ]}
               />
             </div>

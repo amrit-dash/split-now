@@ -9,6 +9,7 @@ import pkg from './package.json' with { type: 'json' }
 import { tesseractAssets } from './scripts/vite-tesseract.ts'
 import { ACCENTS, DEFAULT_ACCENT, installLinks } from './src/lib/accent.ts'
 import { missingDeployEnv } from './src/lib/deploy-env.ts'
+import { dropWeights, isWeightsFile } from './src/lib/phosphor-weights.ts'
 
 /** "0.1.0+ab12cd3": package version plus the git commit, so a bug report can name the build. */
 function appVersion(): string {
@@ -48,6 +49,21 @@ function fontPreload(): Plugin {
             injectTo: 'head' as const,
           }))
       },
+    },
+  }
+}
+
+/**
+ * Phosphor ships six drawings per icon; the app draws three (src/lib/phosphor-weights.ts).
+ * Build only: the dev server pre-bundles the package and serves it as it is.
+ */
+function phosphorWeights(): Plugin {
+  return {
+    name: 'split-now:phosphor-weights',
+    apply: 'build',
+    transform(code, id) {
+      if (!isWeightsFile(id)) return null
+      return { code: dropWeights(code), map: null }
     },
   }
 }
@@ -144,6 +160,7 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
       tesseractAssets(),
       fontPreload(),
+      phosphorWeights(),
       accentManifests(),
       VitePWA({
         registerType: 'prompt',

@@ -30,6 +30,7 @@ const NOT_COUNTED_HINT: Hint = {
 }
 import { useToast } from '@/components/Toast'
 import { OpenItemSheet } from './OpenItemSheet'
+import { ReceiptIcon } from '@/components/icons'
 
 /** Delete with Undo (any member may; it's a soft delete). */
 export function useDeleteOpenItem() {
@@ -99,7 +100,7 @@ export function OpenItemsTab({ group, items, expenses }: { group: Group; items: 
       </button>
 
       {open.length === 0 ? (
-        <Empty emoji="🧾" title="Nothing open">
+        <Empty icon={ReceiptIcon} title="Nothing open">
           Lunch you can’t place, a taxi nobody added: write it down here and whoever paid can claim it.
         </Empty>
       ) : (

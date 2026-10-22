@@ -190,12 +190,14 @@ service cloud.firestore {
             && request.resource.data.categories is map && request.resource.data.categories.size() <= 200
             && request.resource.data.get('touched', {}) is map && request.resource.data.get('touched', {}).size() <= 200
             && request.resource.data.get('updatedAt', 0) is int))
-          // settings/appearance: theme, accent, animations and detail level, so they follow the account
+          // settings/appearance: theme, accent, animations, detail level and icon style, so they follow the account
           // (src/lib/appearance-sync.ts). Small maps only; values are re-checked on read.
           && (settingId != 'appearance' || (
-            request.resource.data.keys().hasOnly(['theme', 'accent', 'duo', 'inks', 'motion', 'look', 'updatedAt'])
+            request.resource.data.keys().hasOnly(['theme', 'accent', 'duo', 'inks', 'motion', 'look', 'icons', 'updatedAt'])
             // The person's own detail level; 'app' follows config/app.look (src/lib/look.ts)
             && request.resource.data.get('look', 'app') in ['app', 'full', 'needed', 'minimal', 'tooltip']
+            // The person's own icon style; 'app' follows config/app.icons (src/lib/icon-style.ts)
+            && request.resource.data.get('icons', 'app') in ['app', 'outline', 'filled']
             && request.resource.data.get('theme', 'system') in ['system', 'light', 'dark']
             && request.resource.data.get('accent', '') is string && request.resource.data.get('accent', '').size() <= 20
             && request.resource.data.get('duo', true) is bool
@@ -306,7 +308,7 @@ service cloud.firestore {
           && t.get('vaultLockMinutes', 5) is int && t.get('vaultLockMinutes', 5) >= 1 && t.get('vaultLockMinutes', 5) <= 60;
       }
       function validAppConfig(d) {
-        return d.keys().hasOnly(['maintenance', 'maintenanceMessage', 'minVersion', 'announcement', 'flags', 'signups', 'look', 'tuning', 'updatedAt', 'updatedBy'])
+        return d.keys().hasOnly(['maintenance', 'maintenanceMessage', 'minVersion', 'announcement', 'flags', 'signups', 'look', 'icons', 'tuning', 'updatedAt', 'updatedBy'])
           && validTuning(d.get('tuning', {}))
           && d.get('maintenance', false) is bool
           && (!('maintenanceMessage' in d) || (d.maintenanceMessage is string && d.maintenanceMessage.size() <= 300))
@@ -316,6 +318,8 @@ service cloud.firestore {
           && d.get('signups', 'open') in ['open', 'invite']
           // How much the app explains (src/lib/look.ts LOOKS)
           && d.get('look', 'full') in ['full', 'needed', 'minimal', 'tooltip']
+          // The default icon style (src/lib/icon-style.ts ICON_STYLES)
+          && d.get('icons', 'outline') in ['outline', 'filled']
           && d.get('updatedAt', 0) is int
           && d.get('updatedBy', '') is string;
       }

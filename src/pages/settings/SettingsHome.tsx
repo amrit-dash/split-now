@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Bell, Database, Lock, Palette, ShieldCheck, Sparkles, WandSparkles, Zap } from 'lucide-react'
+import { BellIcon, DatabaseIcon, LightningIcon, LockIcon, MagicWandIcon, PaletteIcon, ShieldCheckIcon, SparkleIcon } from '@/components/icons'
 import { repo } from '@/data'
 import { useAiState, useCaptureTokens } from '@/hooks/data'
 import { useMe } from '@/hooks/auth'
@@ -56,33 +56,39 @@ export default function SettingsHome() {
       <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5" data-testid="settings-list">
         <SettingsRow
           to="/settings/preferences"
-          icon={<Palette size={19} />}
+          icon={<PaletteIcon size={19} />}
           title="Preferences"
           testId="settings-preferences"
           summary={`${profile.currency} · ${THEME_LABEL[getTheme()]} · ${accentPreset(getAccent()).label}`}
         />
         <SettingsRow
           to="/settings/animations"
-          icon={<WandSparkles size={19} />}
+          icon={<MagicWandIcon size={19} />}
           title="Animations"
           summary={motionSummary(motion.prefs, motion.reduced)}
           testId="settings-animations"
         />
-        <SettingsRow to="/settings/notifications" icon={<Bell size={19} />} title="Notifications" summary={notifications} testId="settings-notifications" />
+        <SettingsRow to="/settings/notifications" icon={<BellIcon size={19} />} title="Notifications" summary={notifications} testId="settings-notifications" />
         <SettingsRow
           to="/settings/automation"
-          icon={<Zap size={19} />}
+          icon={<LightningIcon size={19} />}
           title="Automation"
           summary={automation || 'Auto-capture and capture keys'}
           testId="settings-automation"
         />
         {vaults.flagOn && (
-          <SettingsRow to="/settings/vault" icon={<Lock size={19} />} title="Encrypted groups" summary={privateSummary(vaults.on)} testId="settings-vault" />
+          <SettingsRow
+            to="/settings/vault"
+            icon={<LockIcon size={19} />}
+            title="Encrypted groups"
+            summary={privateSummary(vaults.on)}
+            testId="settings-vault"
+          />
         )}
-        {repo.mode === 'firebase' && <SettingsRow to="/settings/ai" icon={<Sparkles size={19} />} title="AI features" summary={ai} testId="settings-ai" />}
+        {repo.mode === 'firebase' && <SettingsRow to="/settings/ai" icon={<SparkleIcon size={19} />} title="AI features" summary={ai} testId="settings-ai" />}
         <SettingsRow
           to="/settings/data"
-          icon={<Database size={19} />}
+          icon={<DatabaseIcon size={19} />}
           title="Data"
           summary="Export, import from Splitwise, install the app"
           testId="settings-data"
@@ -90,7 +96,7 @@ export default function SettingsHome() {
         {aiStatus?.admin && (
           <SettingsRow
             to="/admin"
-            icon={<ShieldCheck size={19} />}
+            icon={<ShieldCheckIcon size={19} />}
             title="Admin"
             summary="Switches, limits, usage, AI key and accounts"
             testId="settings-admin"

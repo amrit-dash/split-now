@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { Eye, EyeOff } from 'lucide-react'
+import { EyeIcon, EyeSlashIcon } from '@/components/icons'
 import { Aurora } from '@/components/Aurora'
 import { CardFirework } from '@/components/CardFirework'
 import { Detail, HintText, InfoTip, type Hint } from '@/components/Hint'
@@ -60,7 +60,7 @@ export default function Animations() {
             className="-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-600 hover:bg-slate-200/60 dark:text-slate-300 dark:hover:bg-ink-800"
             data-testid="motion-preview-toggle"
           >
-            {preview ? <Eye size={22} aria-hidden /> : <EyeOff size={22} aria-hidden />}
+            {preview ? <EyeIcon size={22} aria-hidden /> : <EyeSlashIcon size={22} aria-hidden />}
           </button>
         </>
       }

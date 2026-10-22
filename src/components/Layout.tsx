@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { BarChart3, Home, Plus, User, Users, UtensilsCrossed } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { useFlag } from '@/hooks/useAppConfig'
 import { useLongPress } from '@/hooks/useLongPress'
 import { groupOfPath, plusTap } from '@/lib/plus-target'
@@ -14,16 +14,20 @@ import { CaptureAlert } from './CaptureAlert'
 import { CreateSheet } from './CreateSheet'
 import { SyncPill } from './OfflinePill'
 import { Loading } from './Misc'
+import { useIconStyle } from './Icon'
+import { ChartDonutIcon, HouseIcon, LiveTableIcon, UserCircleIcon, UsersThreeIcon } from './icons'
+import { iconWeight } from '@/lib/icon-style'
 
 // Live table has the slot Insights had (Insights is a row in Profile now); with live tables
 // switched off for everyone, Insights takes its place back, so the bar never has a hole.
+// Phosphor icons, solid on the current tab in either icon style (src/lib/icon-style.ts).
 const tabsFor = (liveTables: boolean) =>
   [
-    { to: '/', icon: Home, label: 'Home', end: true },
-    { to: '/groups', icon: Users, label: 'Groups' },
+    { to: '/', icon: HouseIcon, label: 'Home', end: true },
+    { to: '/groups', icon: UsersThreeIcon, label: 'Groups' },
     null,
-    liveTables ? { to: '/split', icon: UtensilsCrossed, label: 'Live table' } : { to: '/insights', icon: BarChart3, label: 'Insights' },
-    { to: '/profile', icon: User, label: 'Profile' },
+    liveTables ? { to: '/split', icon: LiveTableIcon, label: 'Live table' } : { to: '/insights', icon: ChartDonutIcon, label: 'Insights' },
+    { to: '/profile', icon: UserCircleIcon, label: 'Profile' },
   ] as const
 
 export function Layout() {
@@ -32,6 +36,7 @@ export function Layout() {
   const groupId = groupOfPath(loc.pathname)
   const [creating, setCreating] = useState(false)
   const tabs = tabsFor(useFlag('liveTables'))
+  const iconStyle = useIconStyle()
   // Inside a group a tap adds an expense to it; press and hold (or right click) opens the sheet.
   const plus = useLongPress({
     onTap: () => {
@@ -82,7 +87,7 @@ export function Layout() {
       <AppBadge />
       <InstallBanner />
       <CaptureAlert />
-      <nav className="fixed inset-x-0 bottom-0 z-40" aria-label="Main">
+      <nav className="fixed inset-x-0 bottom-0 z-40" aria-label="Main" data-icon-style={iconStyle}>
         {/* The + button's glow sits under the bar: muted where the bar covers it, bright in the
             notch, which gives the cut-out depth. A blurred copy of the button's moving gradient,
             centred on the button, faded towards the top and strongest below, filling the notch gap. */}
@@ -128,14 +133,21 @@ export function Layout() {
                 to={t.to}
                 end={'end' in t}
                 className={({ isActive }) =>
-                  `flex w-16 flex-col items-center gap-0.5 py-1 text-[11px] transition-colors ${isActive ? 'font-bold text-brand-700 dark:text-brand-200' : 'font-semibold text-slate-500 dark:text-slate-400'}`
+                  `group flex w-16 flex-col items-center gap-0.5 py-1 text-[11px] transition-colors ${isActive ? 'font-bold text-brand-700 dark:text-brand-200' : 'font-semibold text-slate-500 dark:text-slate-400'}`
                 }
               >
                 {({ isActive }) => (
                   <>
-                    {/* Active: icon and label in a deeper shade of the accent, a heavier stroke and a slight lift
-                        (no box behind the tab: owner's request 32). Inactive stays a readable grey. */}
-                    <t.icon size={23} strokeWidth={isActive ? 2.6 : 2} className={`transition-transform ${isActive ? '-translate-y-px' : ''}`} aria-hidden />
+                    {/* Active: icon and label in a deeper shade of the accent, the solid icon and a slight lift
+                        (no box behind the tab: owner's request 32); the swap is instant, a tab is tapped
+                        too often to animate it. Inactive stays a readable grey. A press dips the icon. */}
+                    <t.icon
+                      size={24}
+                      weight={iconWeight(iconStyle, isActive ? 'active' : 'ui')}
+                      className={`transition-transform duration-150 ease-out motion-safe:group-active:scale-[0.96] ${isActive ? '-translate-y-px' : ''}`}
+                      data-weight={iconWeight(iconStyle, isActive ? 'active' : 'ui')}
+                      aria-hidden
+                    />
                     {t.label}
                   </>
                 )}

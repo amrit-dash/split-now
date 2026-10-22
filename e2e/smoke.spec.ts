@@ -406,6 +406,30 @@ test('settings page loads', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1, name: /settings/i })).toBeVisible()
 })
 
+test('Preferences → Icons: Filled turns the tab bar icons solid, Outline brings the lines back, and it is kept after a reload', async ({ page }) => {
+  await page.goto('/')
+  const nav = page.getByRole('navigation', { name: 'Main' })
+  const groupsIcon = nav.getByRole('link', { name: 'Groups' }).locator('svg')
+  // Outline by default; the current tab (Home) is solid in either style.
+  await expect(nav).toHaveAttribute('data-icon-style', 'outline')
+  await expect(groupsIcon).toHaveAttribute('data-weight', 'regular')
+  await expect(nav.getByRole('link', { name: 'Home' }).locator('svg')).toHaveAttribute('data-weight', 'fill')
+  await page.goto('/settings/preferences')
+  const icons = page.getByTestId('icon-style')
+  await icons.getByRole('radio', { name: 'Filled' }).click()
+  await expect(icons.getByRole('radio', { name: 'Filled' })).toHaveAttribute('aria-checked', 'true')
+  await expect(page.locator('html')).toHaveAttribute('data-icon-style', 'filled')
+  await page.goto('/')
+  await expect(nav).toHaveAttribute('data-icon-style', 'filled')
+  await expect(groupsIcon).toHaveAttribute('data-weight', 'fill')
+  await page.reload()
+  await expect(groupsIcon).toHaveAttribute('data-weight', 'fill')
+  await page.goto('/settings/preferences')
+  await page.getByTestId('icon-style').getByRole('radio', { name: 'Outline' }).click()
+  await page.goto('/')
+  await expect(groupsIcon).toHaveAttribute('data-weight', 'regular')
+})
+
 test('Animations: turning them all off stills the preview and the accent buttons, and is kept after a reload', async ({ page }) => {
   await page.goto('/settings')
   await page.getByTestId('settings-animations').click()

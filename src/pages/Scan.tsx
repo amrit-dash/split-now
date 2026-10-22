@@ -3,7 +3,7 @@ import { useVaultVersion } from '@/hooks/useVault'
 import { aiAfterPick, scanOnDeviceFirst } from '@/lib/vault-api'
 import { isUnlocked } from '@/lib/vault-keys'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Camera, ImageUp, ListChecks, Plus, Smartphone, X } from 'lucide-react'
+import { Camera, ImageUp, Plus, Smartphone, X } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
 import { useAiStatus } from '@/hooks/useAiStatus'
 import { useFlag } from '@/hooks/useAppConfig'
@@ -30,6 +30,8 @@ import { Select, currencyOptions } from '@/components/Select'
 import { useToast } from '@/components/Toast'
 import { Detail, type Hint, HintText, InfoTip, useShows } from '@/components/Hint'
 import { activeMembers } from '@/lib/members'
+import { StyledIcon } from '@/components/Icon'
+import { DeviceMobileIcon, LiveTableIcon, ReceiptIcon } from '@/components/icons'
 
 type Mode = 'receipt' | 'statement' | 'payment'
 
@@ -392,7 +394,12 @@ export default function Scan() {
                   className="mb-3 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-fill-500 to-fill-to text-3xl text-on-fill shadow-lg"
                   aria-hidden
                 >
-                  {mode === 'receipt' ? '🧾' : '📲'}
+                  <StyledIcon
+                    icon={mode === 'receipt' ? ReceiptIcon : DeviceMobileIcon}
+                    size={40}
+                    kind="feature"
+                    className="text-brand-600 dark:text-brand-300"
+                  />
                 </div>
                 <div className="flex items-center justify-center">
                   <h2 className="font-bold">{mode === 'receipt' ? 'Snap a bill' : 'Upload a payment confirmation'}</h2>
@@ -513,7 +520,7 @@ export default function Scan() {
                   }}
                   data-testid="scan-split-items"
                 >
-                  <ListChecks size={18} aria-hidden /> Split at a live table
+                  <LiveTableIcon size={18} aria-hidden /> Split at a live table
                 </button>
               )}
             </div>
