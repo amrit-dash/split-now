@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  vaultStatusFromCache,
+  vaultStatusToCache,
   stepMark,
   stepsSpoken,
   tryStillWanted,
@@ -236,5 +238,27 @@ describe('the pad that sets a pattern', () => {
     expect(stepsSpoken(['T', 'L'])).toBe('2 steps: tap, long press')
     expect(stepsSpoken(['L'])).toBe('1 step: long press')
     expect(stepsSpoken([])).toBe('No steps yet')
+  })
+})
+
+describe('the Encrypted groups status kept on the device', () => {
+  it('round-trips the page fields and drops group details and the made count', () => {
+    const s = {
+      serverReady: true,
+      hasPasskey: true,
+      universal: true,
+      ordered: false,
+      triesLeft: 5,
+      on: true,
+      made: 2,
+      group: { keyReady: true, hasPattern: true },
+    }
+    const back = vaultStatusFromCache(vaultStatusToCache(s))
+    expect(back).toEqual({ serverReady: true, hasPasskey: true, universal: true, ordered: false, triesLeft: 5, on: true })
+  })
+  it('anything unreadable is no cache', () => {
+    expect(vaultStatusFromCache(null)).toBeNull()
+    expect(vaultStatusFromCache('nope')).toBeNull()
+    expect(vaultStatusFromCache('{"serverReady":true}')).toBeNull()
   })
 })

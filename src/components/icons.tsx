@@ -42,6 +42,23 @@ export const AdminIcon = /* @__PURE__ */ makeIcon(
   </>,
 )
 
+/** fluent options */
+export const AdvancedModeIcon = /* @__PURE__ */ makeIcon(
+  'AdvancedMode',
+  <>
+    <path
+      fill="currentColor"
+      d="M8.8 14.5a3 3 0 0 1 3.1 2.5h9.4a.8.8 0 0 1 0 1.5h-9.4a3.3 3.3 0 0 1-6.3 0H2.8a.8.8 0 0 1-.2-1.5h3a3 3 0 0 1 3.2-2.5m0 1.5a1.8 1.8 0 1 0 0 3.5 1.8 1.8 0 0 0 0-3.5m6.5-13a3 3 0 0 1 3.1 2.5h2.9a.8.8 0 0 1 0 1.5h-2.9a3.3 3.3 0 0 1-6.3 0H2.8a.8.8 0 0 1-.2-1.5h9.5A3 3 0 0 1 15.3 3m0 1.5a1.8 1.8 0 1 0 0 3.5 1.8 1.8 0 0 0 0-3.5"
+    />
+  </>,
+  <>
+    <path
+      fill="currentColor"
+      d="M8.8 14.5a3 3 0 0 1 3.1 2.5h9.4a.8.8 0 0 1 0 1.5h-9.4a3.3 3.3 0 0 1-6.3 0H2.8a.8.8 0 0 1-.2-1.5h3a3 3 0 0 1 3.2-2.5M15.3 3a3 3 0 0 1 3.1 2.5h2.9a.8.8 0 0 1 0 1.5h-2.9a3.3 3.3 0 0 1-6.3 0H2.8a.8.8 0 0 1-.2-1.5h9.5A3 3 0 0 1 15.3 3"
+    />
+  </>,
+)
+
 /** fluent brain-sparkle */
 export const AiIcon = /* @__PURE__ */ makeIcon(
   'Ai',
@@ -1822,6 +1839,23 @@ export const ShieldIcon = /* @__PURE__ */ makeIcon(
     <path
       fill="currentColor"
       d="M3 5.8a1 1 0 0 1 .8-.8q3.9 0 7.8-2.8a1 1 0 0 1 .9 0Q16.2 5 20.3 5a1 1 0 0 1 .7.8V12a6.5 6.5 0 0 0-8.4 9.8l-.3.1h-.6Q3.1 18.5 3 11zm20 11.7a5.5 5.5 0 1 0-11 0 5.5 5.5 0 0 0 11 0m-2.1-2.4a.5.5 0 0 1 0 .8l-4 4a.5.5 0 0 1-.8 0l-2-2a.5.5 0 0 1 .8-.8l1.6 1.7 3.6-3.7a.5.5 0 0 1 .8 0"
+    />
+  </>,
+)
+
+/** fluent leaf-one */
+export const SimpleModeIcon = /* @__PURE__ */ makeIcon(
+  'SimpleMode',
+  <>
+    <path
+      fill="currentColor"
+      d="M13.2 3.3a2 2 0 0 0-2.4 0L7 7a7 7 0 0 0 4.3 11.9v2.3a.8.8 0 0 0 1.4 0V19a7 7 0 0 0 4.2-12zm-.4 14v-5.6a.8.8 0 0 0-1.6 0v5.7a5.5 5.5 0 0 1-3-9.4l3.6-3.7h.4L15.9 8a5.5 5.5 0 0 1-3.2 9.4"
+    />
+  </>,
+  <>
+    <path
+      fill="currentColor"
+      d="M11 3a2 2 0 0 1 2.2.3L17 7a7 7 0 0 1-4.1 11.9v2.3a.8.8 0 1 1-1.6 0V19A7 7 0 0 1 7.2 7l3.7-3.6zm1 8a1 1 0 0 0-.7.8v5.6h1.4v-5.6a1 1 0 0 0-.7-.8"
     />
   </>,
 )

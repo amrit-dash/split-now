@@ -159,7 +159,7 @@ export interface MemberProfile {
   photoURL?: string
   /** their own currency, so a payer can offer to pay them in it (Settle up) */
   currency?: string
-  /** Collect in my currency is on: Settle up starts out paying them in `currency` */
+  /** Collect in my currency (on unless false, src/lib/collect.ts payeeCollects): Settle up starts out paying them in `currency` */
   collect?: boolean
 }
 
@@ -173,7 +173,8 @@ export function memberProfileOf(
     payment: p.payment ?? {},
     photoURL: photo,
     currency: p.currency && /^[A-Z]{3}$/.test(p.currency) ? p.currency : undefined,
-    collect: p.collectInHome ? true : undefined,
+    // On unless turned off (src/lib/collect.ts collectsInHome); always written, so payers see the choice.
+    collect: p.collectInHome !== false,
   })
 }
 

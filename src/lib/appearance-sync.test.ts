@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { decideSync, isDefaultAppearance, localAppearance, parseAppearance, startAppearanceSync, toAppearanceDoc } from './appearance-sync'
 import { getIconStylePref, resetIconStylePref } from './icon-style-pref'
 import { getLookPref, resetLookPref } from './look-pref'
+import { getModePref, resetModePref } from './mode-pref'
 import { DEFAULT_MOTION, resetMotion } from './motion'
 import { notePrefChange } from './pref-events'
 
@@ -30,6 +31,7 @@ beforeEach(() => {
   resetMotion()
   resetLookPref()
   resetIconStylePref()
+  resetModePref()
 })
 afterEach(() => {
   const g = globalThis as Record<string, unknown>
@@ -52,6 +54,7 @@ describe('parseAppearance', () => {
       motion: DEFAULT_MOTION,
       look: 'app',
       icons: 'app',
+      mode: 'auto',
       updatedAt: 5,
     })
   })
@@ -64,6 +67,7 @@ describe('parseAppearance', () => {
       motion: { ...DEFAULT_MOTION, speed: 'fast' as const },
       look: 'tooltip' as const,
       icons: 'filled' as const,
+      mode: 'simple' as const,
       updatedAt: 7,
     }
     expect(parseAppearance(toAppearanceDoc(a))).toEqual(a)
@@ -79,6 +83,7 @@ describe('decideSync', () => {
     motion: DEFAULT_MOTION,
     look: 'app' as const,
     icons: 'app' as const,
+    mode: 'auto' as const,
     updatedAt,
   })
   it('takes a newer copy from the account, sends a newer local change', () => {
@@ -108,6 +113,11 @@ describe('isDefaultAppearance', () => {
     store.set('splitnow-icons', 'filled')
     resetIconStylePref()
     expect(isDefaultAppearance(localAppearance())).toBe(false)
+    store.delete('splitnow-icons')
+    resetIconStylePref()
+    store.set('splitnow-mode', 'advanced')
+    resetModePref()
+    expect(isDefaultAppearance(localAppearance())).toBe(false)
   })
 })
 
@@ -119,7 +129,7 @@ describe('startAppearanceSync', () => {
       answer = cb
       return () => {}
     }, save)
-    answer({ theme: 'dark', accent: 'ocean', duo: false, inks: {}, motion: { on: false }, look: 'minimal', icons: 'filled', updatedAt: 50 })
+    answer({ theme: 'dark', accent: 'ocean', duo: false, inks: {}, motion: { on: false }, look: 'minimal', icons: 'filled', mode: 'advanced', updatedAt: 50 })
     expect(store.get('splitit-accent')).toBe('ocean')
     expect(store.get('splitit-theme')).toBe('dark')
     expect(store.get('splitit-duo')).toBe('off')
@@ -127,6 +137,7 @@ describe('startAppearanceSync', () => {
     expect(store.get('splitnow-appearance-at')).toBe('50')
     expect(getLookPref()).toBe('minimal')
     expect(getIconStylePref()).toBe('filled')
+    expect(getModePref()).toBe('advanced')
     expect(save).not.toHaveBeenCalled()
     stop()
   })

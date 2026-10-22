@@ -1,0 +1,72 @@
+/*
+ * Simple or Advanced (owner, 22 Oct 2026). Simple is the app for most people: splitting, settling
+ * up, private groups and Live table, with the extra controls and most explanations out of the way.
+ * Advanced is the whole app. The mode only hides things: every setting keeps its value, and what
+ * runs in the background (captured payments, approvals, automations) keeps running. Anything that
+ * arrives for the person (an Inbox item) still shows and can be acted on.
+ *
+ * The person picks it in Settings → Preferences or from Profile's header, and it follows the
+ * account like the theme (appearance-sync.ts). Until they pick, 'auto' decides: Simple, unless the
+ * account already uses something only Advanced shows (autoMode), so nobody who set those up finds
+ * them gone after the update. Pure: no React, no storage.
+ */
+
+import { isDefaultMotion, type MotionPrefs } from './motion'
+
+export const MODES = ['simple', 'advanced'] as const
+export type Mode = (typeof MODES)[number]
+
+export const MODE_INFO: Record<Mode, { label: string; hint: string }> = {
+  simple: { label: 'Simple', hint: 'Splitting and settling up, without the extras.' },
+  advanced: { label: 'Advanced', hint: 'Every feature and setting.' },
+}
+
+/** A person's choice: a mode, or 'auto' (not picked yet). */
+export type ModeChoice = Mode | 'auto'
+export const isMode = (v: unknown): v is Mode => typeof v === 'string' && (MODES as readonly string[]).includes(v)
+export const resolveModeChoice = (v: unknown): ModeChoice => (isMode(v) ? v : 'auto')
+
+/** What the account already uses that only Advanced shows. Undefined: not known yet (still loading). */
+export interface ModeSignals {
+  /** detail level, icon style, two-tone or the animations changed from their defaults */
+  customLook: boolean
+  /** a capture key exists (captured payments from SMS or a share) */
+  capture?: boolean
+  /** a group they made has an approval setting on (Needs OK, payment OK, merging or new people) */
+  approvals?: boolean
+}
+
+export function customLook(a: { look: string; icons: string; duo: boolean; motion: MotionPrefs }): boolean {
+  return a.look !== 'app' || a.icons !== 'app' || !a.duo || !isDefaultMotion(a.motion)
+}
+
+/** Any approval setting a group's creator turns on in New group or Edit group. */
+export function groupUsesApprovals(g: { requireApproval?: boolean; paymentApproval?: boolean; mergeNeedsOk?: boolean; approveJoins?: boolean }): boolean {
+  return !!(g.requireApproval || g.paymentApproval || g.mergeNeedsOk || g.approveJoins)
+}
+
+/** The mode 'auto' stands for: Advanced as soon as one signal says the account uses it. */
+export function autoMode(s: ModeSignals): Mode {
+  return s.customLook || s.capture || s.approvals ? 'advanced' : 'simple'
+}
+
+export function effectiveMode(choice: ModeChoice, s: ModeSignals): Mode {
+  return choice === 'auto' ? autoMode(s) : choice
+}
+
+/**
+ * Whether 'auto' should be settled as Advanced and kept: once the account is known to use an
+ * Advanced feature, it stays Advanced even if that use ends, so the screen never changes under
+ * them. Simple isn't stored: 'auto' already means Simple, and a later signal may still move it.
+ */
+export function settleAuto(choice: ModeChoice, s: ModeSignals): Mode | null {
+  return choice === 'auto' && autoMode(s) === 'advanced' ? 'advanced' : null
+}
+
+/**
+ * Simple has its own detail level: Minimal (titles, and only the lines a screen needs). The
+ * person's own pick (Settings → Preferences, Advanced only) is kept for when they go back.
+ */
+export function lookForMode<L extends string>(mode: Mode, look: L): L | 'minimal' {
+  return mode === 'simple' ? 'minimal' : look
+}

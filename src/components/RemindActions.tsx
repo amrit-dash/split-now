@@ -12,7 +12,7 @@ import { formatMoney } from '@/lib/money'
 import { lastNudgeAcross, lastNudgeAt, localNudgeAt, nudgeCooldownText, nudgeResultText, nudgedRecently, rememberNudge, type NudgeResult } from '@/lib/nudge'
 import { buildPayLink, MAX_LINK_PARTS, nameForPayer, newPayLinkCode, payLinkFeatures } from '@/lib/paylinks'
 import { canNudgePerson, personNudgeItems, settlePersonHref, type PersonBalance } from '@/lib/settleAll'
-import type { HomeBalance } from '@/lib/collect'
+import { collectsInHome, type HomeBalance } from '@/lib/collect'
 import { convertMinor } from '@/lib/fx'
 import { useTodayRates } from '@/hooks/useFx'
 import { andList, cardSpec, firstName, renderShareCard, shareReminder, type ReminderArgs } from '@/lib/share-card'
@@ -59,7 +59,7 @@ export function RemindActions({
   // Collect in my currency: the link asks for the amount in yours (a UPI QR when it's INR), and
   // records the group's own amount when paid. Without today's rate, it stays in the group's.
   const home = profile.currency
-  const collect = !!profile.collectInHome && home !== group.currency
+  const collect = collectsInHome(profile) && home !== group.currency
   const rate = useTodayRates(home, collect ? [group.currency] : [])?.[group.currency]
   const inHome = collect && rate ? convertMinor(amount, group.currency, home, rate.rate) : undefined
 

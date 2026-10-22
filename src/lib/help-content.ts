@@ -1563,6 +1563,23 @@ export const SECTIONS: HelpSection[] = [
   },
   // ---- Settings ------------------------------------------------------------------------------------
   {
+    id: 'simple-advanced',
+    icon: 'palette',
+    chapter: 'account',
+    title: 'Simple and Advanced',
+    summary: 'Simple shows the everyday app. Advanced shows every feature.',
+    keywords: ['simple', 'advanced', 'mode', 'more features', 'hidden', 'missing', 'power'],
+    points: [
+      'Switch in Settings → Preferences → **Mode**.',
+      'Simple: groups, expenses, settling up, Live table and private groups.',
+      'Advanced adds captured payments, automations, approvals, Insights, exports and more controls on every screen.',
+      'Switching hides things, it never turns them off. What you set up in Advanced keeps working in Simple.',
+      'Your mode follows you to your other devices.',
+    ],
+    open: { label: 'Preferences', to: '/settings/preferences' },
+    related: ['look-and-detail'],
+  },
+  {
     id: 'look-and-detail',
     icon: 'palette',
     chapter: 'account',

@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Navigate } from 'react-router-dom'
-import { LockIcon } from '@/components/icons'
+import { Link, Navigate } from 'react-router-dom'
+import { HelpIcon, LockIcon } from '@/components/icons'
 import { repo } from '@/data'
+import { useMe } from '@/hooks/auth'
 import { useFlag } from '@/hooks/useAppConfig'
 import { useGroups } from '@/hooks/data'
 import { forgetPrivateStatus } from '@/hooks/usePrivateGroups'
 import { errText } from '@/lib/errors'
-import { stopPlan, vaultView, type VaultStatus } from '@/lib/vault-api'
+import { stopPlan, vaultStatusFromCache, vaultStatusToCache, vaultView, type VaultStatus } from '@/lib/vault-api'
 import { lockVault } from '@/lib/vault-keys'
 import { useConfirm } from '@/components/ConfirmSheet'
 import { useToast } from '@/components/Toast'
@@ -14,7 +15,6 @@ import { passkeyCancelled, passkeyProof, registerPasskey } from '@/features/vaul
 import { SetPatternSheet } from '@/features/vault/SetPatternSheet'
 import { AllGroupsLockTime } from '@/features/vault/LockTime'
 import { LockSetup } from '@/features/vault/LockSetup'
-import { Detail } from '@/components/Hint'
 import { SettingsPage } from './common'
 
 /**
@@ -30,7 +30,16 @@ export default function Vault() {
   const on = useFlag('vaults')
   const toast = useToast()
   const confirm = useConfirm()
-  const [status, setStatus] = useState<VaultStatus | null>(null)
+  const { user } = useMe()
+  const cacheKey = `sn-vault-status:${user.uid}`
+  // The last answer, at once; the server's arrives a moment later and replaces it (vaultStatusFromCache).
+  const [status, setStatus] = useState<VaultStatus | null>(() => {
+    try {
+      return vaultStatusFromCache(localStorage.getItem(cacheKey))
+    } catch {
+      return null
+    }
+  })
   const [failed, setFailed] = useState<string | null>(null)
   const [setting, setSetting] = useState(false)
   // the current pattern, asked before stopping
@@ -44,13 +53,22 @@ export default function Vault() {
     if (!on) return
     let live = true
     repo
-      .vault<VaultStatus>({ op: 'status', made: true })
-      .then((s) => live && setStatus(s))
-      .catch((e) => live && setFailed(errText(e)))
+      .vault<VaultStatus>({ op: 'status' })
+      .then((s) => {
+        if (!live) return
+        setStatus(s)
+        try {
+          localStorage.setItem(cacheKey, vaultStatusToCache(s))
+        } catch {
+          /* private window: asked fresh next time */
+        }
+      })
+      // A cached answer stays on screen when the refresh fails; only with nothing to show is it an error.
+      .catch((e) => live && !status && setFailed(errText(e)))
     return () => {
       live = false
     }
-  }, [on, round])
+  }, [on, round, cacheKey])
 
   if (!on) return <Navigate to="/settings" replace />
 
@@ -67,8 +85,18 @@ export default function Vault() {
   }
   const askStop = async () => {
     if (!status) return
-    if (stopPlan(status) === 'made') {
-      const n = status.made ?? 0
+    // How many private groups they made: counted only here, where it matters (it reads every group they're in).
+    let made: VaultStatus
+    setBusy(true)
+    try {
+      made = await repo.vault<VaultStatus>({ op: 'status', made: true })
+    } catch (e) {
+      return toast(errText(e), 'err')
+    } finally {
+      setBusy(false)
+    }
+    if (stopPlan(made) === 'made') {
+      const n = made.made ?? 0
       return toast(`First turn off private, or delete, the ${n === 1 ? 'private group' : `${n} private groups`} you made.`, 'err')
     }
     const ok = await confirm({
@@ -118,7 +146,21 @@ export default function Vault() {
   }
 
   return (
-    <SettingsPage title="Encrypted groups" subtitle={{ full: 'What opens your private groups', short: 'Passkey and pattern', tier: 'help' }}>
+    <SettingsPage
+      title="Encrypted groups"
+      subtitle={{ full: 'What opens your private groups', short: 'Passkey and pattern', tier: 'help' }}
+      right={
+        // How private groups work lives in Help; its back button returns here.
+        <Link
+          to="/help/private-groups"
+          className="flex h-11 w-11 items-center justify-center rounded-full text-slate-700 hover:bg-slate-200/60 dark:text-slate-200 dark:hover:bg-ink-800"
+          aria-label="How private groups work"
+          data-testid="vault-help"
+        >
+          <HelpIcon size={22} />
+        </Link>
+      }
+    >
       {failed ? (
         <p className="card text-muted p-4 text-sm" role="status">
           {failed}
@@ -136,12 +178,8 @@ export default function Vault() {
                 You stopped using private groups, so the app doesn’t offer to make one.
               </p>
             ) : (
-              <p className="text-muted">
-                A private group keeps its name, people, expenses and chat encrypted. It opens with your passkey and a pattern of taps and long presses. Turn
-                them on to make one.
-              </p>
+              <p className="text-muted">Turn them on to make a group whose words and photos are encrypted.</p>
             )}
-            <p className="text-muted">You can still be added to a private group. It opens with its own pattern and your passkey.</p>
           </div>
           <button type="button" className="btn-primary w-full" disabled={busy || !status.serverReady} onClick={() => void turnOn()} data-testid="vault-turn-on">
             <LockIcon size={18} aria-hidden /> Turn on private groups
@@ -167,16 +205,6 @@ export default function Vault() {
               else if (row === 'universal' && status.serverReady) setSetting(true)
             }}
           />
-          {/* How the lock button works: background, so the Minimal look leaves it out. */}
-          <Detail min={2}>
-            <div className="card text-muted space-y-2 p-4 text-sm">
-              <p>
-                To open your private groups, tap and long-press your universal pattern on the lock button on the Groups screen, then pause. Face ID or your
-                passkey comes up when it’s right. On a private group’s own lock it opens only that group.
-              </p>
-              <p>Nothing on screen shows the pattern going in, or that it was wrong.</p>
-            </div>
-          </Detail>
           <AllGroupsLockTime />
           <button type="button" className="btn w-full text-rose-700 dark:text-rose-300" disabled={busy} onClick={() => void askStop()} data-testid="vault-stop">
             Stop using private groups

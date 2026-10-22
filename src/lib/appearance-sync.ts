@@ -1,6 +1,6 @@
 /*
  * Appearance settings follow the account (users/{uid}/settings/appearance): theme, accent, dual
- * tone, text on accent, the animations, the detail level and the icon style. Set the accent on the web, install the app on a phone,
+ * tone, text on accent, the animations, the detail level, the icon style and Simple or Advanced. Set the accent on the web, install the app on a phone,
  * sign in, and it looks the same. The device still keeps its own copy (localStorage) so the first
  * paint never waits for the network, and everything works signed out or offline.
  *
@@ -19,6 +19,8 @@ import { type IconStyleChoice, resolveIconStyleChoice } from './icon-style'
 import { getIconStylePref, setIconStylePref } from './icon-style-pref'
 import { type LookChoice, resolveLookChoice } from './look'
 import { getLookPref, setLookPref } from './look-pref'
+import { type ModeChoice, resolveModeChoice } from './mode'
+import { getModePref, setModePref } from './mode-pref'
 import { DEFAULT_MOTION, getMotion, isDefaultMotion, type MotionPrefs, parseMotion, setMotion } from './motion'
 import { onPrefChange, withoutPrefEvents } from './pref-events'
 import { getTheme, setTheme, type Theme } from './theme'
@@ -33,6 +35,8 @@ export interface Appearance {
   look: LookChoice
   /** Outline or Filled icons this person picked ('app': the admin's) */
   icons: IconStyleChoice
+  /** Simple or Advanced ('auto': not picked yet, src/lib/mode.ts) */
+  mode: ModeChoice
   /** epoch ms of the change this copy carries */
   updatedAt: number
 }
@@ -57,13 +61,24 @@ export function parseAppearance(raw: unknown): Appearance | null {
     motion: parseMotion(JSON.stringify(r.motion && typeof r.motion === 'object' ? r.motion : {})),
     look: resolveLookChoice(r.look),
     icons: resolveIconStyleChoice(r.icons),
+    mode: resolveModeChoice(r.mode),
     updatedAt: r.updatedAt,
   }
 }
 
 /** What goes into the document (the same shape; the rules whitelist it). */
 export function toAppearanceDoc(a: Appearance): Record<string, unknown> {
-  return { theme: a.theme, accent: a.accent, duo: a.duo, inks: { ...a.inks }, motion: { ...a.motion }, look: a.look, icons: a.icons, updatedAt: a.updatedAt }
+  return {
+    theme: a.theme,
+    accent: a.accent,
+    duo: a.duo,
+    inks: { ...a.inks },
+    motion: { ...a.motion },
+    look: a.look,
+    icons: a.icons,
+    mode: a.mode,
+    updatedAt: a.updatedAt,
+  }
 }
 
 export const isDefaultAppearance = (a: Omit<Appearance, 'updatedAt'>): boolean =>
@@ -73,7 +88,8 @@ export const isDefaultAppearance = (a: Omit<Appearance, 'updatedAt'>): boolean =
   Object.keys(a.inks).length === 0 &&
   isDefaultMotion(a.motion) &&
   a.look === 'app' &&
-  a.icons === 'app'
+  a.icons === 'app' &&
+  a.mode === 'auto'
 
 /**
  * What to do when the account's copy arrives: take it (`pull`), send ours (`push`), or nothing.
@@ -115,6 +131,7 @@ export function localAppearance(at = readAt()): Appearance {
     motion: getMotion(),
     look: getLookPref(),
     icons: getIconStylePref(),
+    mode: getModePref(),
     updatedAt: at,
   }
 }
@@ -129,6 +146,7 @@ export function applyAppearance(a: Appearance): void {
     setMotion({ ...DEFAULT_MOTION, ...a.motion })
     setLookPref(a.look)
     setIconStylePref(a.icons)
+    setModePref(a.mode)
   })
   writeAt(a.updatedAt)
 }

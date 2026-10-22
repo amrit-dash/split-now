@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clearedFor, homeKey, inHome, paidIn, PAY_TOLERANCE, payInLine, personOf, planInHome, toleranceBand } from './collect'
+import { clearedFor, collectsInHome, homeKey, inHome, payeeCollects, paidIn, PAY_TOLERANCE, payInLine, personOf, planInHome, toleranceBand } from './collect'
 import { personBalances, type SettleRow } from './settleAll'
 
 // $12.50 owed, paid in rupees at 83.6 INR per USD: 1 INR = 1/83.6 USD.
@@ -155,5 +155,17 @@ describe('payInLine', () => {
       'More than the ₹1045.00 owed. Lower it, or pay the rest separately.',
     )
     expect(payInLine(clearedFor(0, 1250, 'USD', 'INR', USD_PER_INR), 0, 1250, pay, usd)).toBe('₹1045.00 clears $12.50')
+  })
+})
+
+describe('collect in my currency is on unless turned off', () => {
+  it('an old profile with no value collects; only false turns it off', () => {
+    expect(collectsInHome({})).toBe(true)
+    expect(collectsInHome(undefined)).toBe(true)
+    expect(collectsInHome({ collectInHome: true })).toBe(true)
+    expect(collectsInHome({ collectInHome: false })).toBe(false)
+    expect(payeeCollects({})).toBe(true)
+    expect(payeeCollects(undefined)).toBe(true)
+    expect(payeeCollects({ collect: false })).toBe(false)
   })
 })

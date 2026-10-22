@@ -11,10 +11,14 @@ import { type IconStyleChoice, ICON_STYLE_CHOICES, ICON_STYLE_INFO, iconVariant 
 import { getIconStylePref, setIconStylePref, subscribeIconStylePref } from '@/lib/icon-style-pref'
 import { LOOK_CHOICES, LOOK_INFO, type LookChoice } from '@/lib/look'
 import { getLookPref, setLookPref, subscribeLookPref } from '@/lib/look-pref'
+import { collectsInHome } from '@/lib/collect'
+import { MODE_INFO, type Mode } from '@/lib/mode'
+import { setModePref } from '@/lib/mode-pref'
+import { useMode } from '@/hooks/useMode'
 import { getTheme, setTheme as saveTheme, type Theme } from '@/lib/theme'
 import { AccentPicker } from '@/components/AccentPicker'
 import { HintText, InfoTip, useShows, type Hint } from '@/components/Hint'
-import { ContrastIcon, HomeIcon, MoonIcon, SunIcon } from '@/components/icons'
+import { AdvancedModeIcon, ContrastIcon, HomeIcon, MoonIcon, SimpleModeIcon, SunIcon } from '@/components/icons'
 import { Segmented } from '@/components/Misc'
 import { RatesField } from '@/components/ProfileCards'
 import { Select, currencyOptions } from '@/components/Select'
@@ -52,6 +56,10 @@ export default function Preferences() {
   const [theme, setTheme] = useState<Theme>(getTheme())
   const [currencySaved, flashCurrency] = useSavedFlash()
   const [lookSaved, flashLook] = useSavedFlash()
+  const [modeSaved, flashMode] = useSavedFlash()
+  const mode = useMode()
+  // Simple keeps currency, theme, accent and its text; the rest keep their values, out of sight (src/lib/mode.ts).
+  const simple = mode === 'simple'
   const adminLook = useAppConfig().look
   const lookChoice = useSyncExternalStore(subscribeLookPref, getLookPref, getLookPref)
   const adminIcons = useAppConfig().icons
@@ -59,7 +67,7 @@ export default function Preferences() {
   const groups = usePickableGroups()
   const showAll = useShows(2)
   // Minimal hides "Collect in" unless it matters: a group in another currency, or it's already on (so it can be turned off).
-  const showCollect = showAll || !!profile.collectInHome || !!groups?.some((g) => g.currency !== profile.currency)
+  const showCollect = showAll || collectsInHome(profile) || !!groups?.some((g) => g.currency !== profile.currency)
   const collectHint: Hint = {
     full: (
       <>
@@ -93,12 +101,44 @@ export default function Preferences() {
 
   return (
     <SettingsPage title="Preferences">
+      <SectionTitle saved={modeSaved}>Mode</SectionTitle>
+      <div className="card p-4">
+        <Segmented<Mode>
+          label="Mode"
+          testId="mode"
+          value={mode}
+          onChange={(m) => {
+            setModePref(m)
+            flashMode()
+          }}
+          options={[
+            {
+              value: 'simple',
+              label: (
+                <span className="inline-flex items-center gap-1">
+                  <SimpleModeIcon size={16} aria-hidden /> {MODE_INFO.simple.label}
+                </span>
+              ),
+            },
+            {
+              value: 'advanced',
+              label: (
+                <span className="inline-flex items-center gap-1">
+                  <AdvancedModeIcon size={16} aria-hidden /> {MODE_INFO.advanced.label}
+                </span>
+              ),
+            },
+          ]}
+        />
+        <p className="text-muted mt-1.5 text-xs">{MODE_INFO[mode].hint}</p>
+      </div>
+
       <SectionTitle saved={currencySaved}>Money</SectionTitle>
       <div className="card p-4">
         <RatesField base={profile.currency} hint={CURRENCY_HINT}>
           <Select aria-label="Default currency" value={profile.currency} onChange={setCurrency} options={currencyOptions(CURRENCIES, appLocale())} />
         </RatesField>
-        {showCollect && (
+        {showCollect && !simple && (
           <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-4 dark:border-white/5">
             <div className="min-w-0">
               <div className="flex items-center font-medium" id="collect-home-label">
@@ -107,7 +147,7 @@ export default function Preferences() {
               </div>
               <HintText hint={collectHint} id="collect-home-hint" />
             </div>
-            <Switch checked={!!profile.collectInHome} onChange={(on) => void setCollect(on)} label={`Collect in ${profile.currency}`} testId="collect-home" />
+            <Switch checked={collectsInHome(profile)} onChange={(on) => void setCollect(on)} label={`Collect in ${profile.currency}`} testId="collect-home" />
           </div>
         )}
       </div>
@@ -157,61 +197,65 @@ export default function Preferences() {
           />
           <HintText hint={THEME_HINT} className="text-muted mt-1.5 text-xs" />
         </div>
-        <AccentPicker onChange={flashLook} />
-        <div>
-          <div className="label flex items-center" id="icons-label">
-            Icons
-            <InfoTip hint={ICONS_HINT} label="About icons" />
-          </div>
-          {/* Each choice shows a house in the weight it draws, so the difference is visible before picking. */}
-          <Segmented<IconStyleChoice>
-            label="Icons"
-            testId="icon-style"
-            value={iconChoice}
-            onChange={(v) => {
-              setIconStylePref(v)
-              flashLook()
-            }}
-            options={ICON_STYLE_CHOICES.map((c) => ({
-              value: c,
-              label: (
-                <span className="inline-flex items-center gap-1">
-                  <HomeIcon size={16} solid={iconVariant(c === 'app' ? adminIcons : c) === 'solid'} aria-hidden />{' '}
-                  {c === 'app' ? 'Default' : ICON_STYLE_INFO[c].label}
-                </span>
-              ),
-            }))}
-          />
-          <HintText
-            hint={{ ...ICONS_HINT, full: `${ICONS_HINT.full} Default follows Split Now (${ICON_STYLE_INFO[adminIcons].label}).` }}
-            className="text-muted mt-1.5 text-xs"
-          />
-        </div>
-        <div>
-          <div className="flex items-center">
-            <label className="label !mb-0" htmlFor="detail-level">
-              Detail level
-            </label>
-            <InfoTip hint={DETAIL_HINT} label="About detail level" />
-          </div>
-          <div className="mt-1.5">
-            <Select<LookChoice>
-              id="detail-level"
-              aria-label="Detail level"
-              value={lookChoice}
-              onChange={(v) => {
-                setLookPref(v)
-                flashLook()
-              }}
-              options={LOOK_CHOICES.map((c) =>
-                c === 'app'
-                  ? { value: c, label: `App default (${LOOK_INFO[adminLook].label})`, text: 'App default', hint: 'Follows what Split Now sets' }
-                  : { value: c, label: LOOK_INFO[c].label, hint: LOOK_INFO[c].hint },
-              )}
-            />
-          </div>
-          <HintText hint={DETAIL_HINT} className="text-muted mt-1.5 text-xs" />
-        </div>
+        <AccentPicker onChange={flashLook} duo={!simple} />
+        {!simple && (
+          <>
+            <div>
+              <div className="label flex items-center" id="icons-label">
+                Icons
+                <InfoTip hint={ICONS_HINT} label="About icons" />
+              </div>
+              {/* Each choice shows a house in the weight it draws, so the difference is visible before picking. */}
+              <Segmented<IconStyleChoice>
+                label="Icons"
+                testId="icon-style"
+                value={iconChoice}
+                onChange={(v) => {
+                  setIconStylePref(v)
+                  flashLook()
+                }}
+                options={ICON_STYLE_CHOICES.map((c) => ({
+                  value: c,
+                  label: (
+                    <span className="inline-flex items-center gap-1">
+                      <HomeIcon size={16} solid={iconVariant(c === 'app' ? adminIcons : c) === 'solid'} aria-hidden />{' '}
+                      {c === 'app' ? 'Default' : ICON_STYLE_INFO[c].label}
+                    </span>
+                  ),
+                }))}
+              />
+              <HintText
+                hint={{ ...ICONS_HINT, full: `${ICONS_HINT.full} Default follows Split Now (${ICON_STYLE_INFO[adminIcons].label}).` }}
+                className="text-muted mt-1.5 text-xs"
+              />
+            </div>
+            <div>
+              <div className="flex items-center">
+                <label className="label !mb-0" htmlFor="detail-level">
+                  Detail level
+                </label>
+                <InfoTip hint={DETAIL_HINT} label="About detail level" />
+              </div>
+              <div className="mt-1.5">
+                <Select<LookChoice>
+                  id="detail-level"
+                  aria-label="Detail level"
+                  value={lookChoice}
+                  onChange={(v) => {
+                    setLookPref(v)
+                    flashLook()
+                  }}
+                  options={LOOK_CHOICES.map((c) =>
+                    c === 'app'
+                      ? { value: c, label: `App default (${LOOK_INFO[adminLook].label})`, text: 'App default', hint: 'Follows what Split Now sets' }
+                      : { value: c, label: LOOK_INFO[c].label, hint: LOOK_INFO[c].hint },
+                  )}
+                />
+              </div>
+              <HintText hint={DETAIL_HINT} className="text-muted mt-1.5 text-xs" />
+            </div>
+          </>
+        )}
         <HintText hint={SYNC_HINT} />
       </div>
     </SettingsPage>

@@ -16,6 +16,16 @@ import { allocateAcrossGroups, proportional } from './settleMulti'
  *  - more: refused ("more than owed"), so a typo can't overpay
  */
 
+/**
+ * Collect in my currency is on unless the person turned it off (owner, 22 Oct 2026: on for
+ * everyone, and Simple doesn't show the switch). Profiles and member profiles saved before then
+ * have no value, which reads as on.
+ */
+export const collectsInHome = (p: { collectInHome?: boolean } | null | undefined): boolean => p?.collectInHome !== false
+
+/** A payee's shared choice (MemberProfile.collect): on unless it says false. */
+export const payeeCollects = (m: { collect?: boolean } | null | undefined): boolean => m?.collect !== false
+
 /** How far a converted payment may be from the exact conversion and still clear the debt in full. */
 export const PAY_TOLERANCE = 0.04
 

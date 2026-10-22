@@ -17,7 +17,7 @@ import { pending } from '@/lib/pending'
 import { linkToClose } from '@/lib/paylinks'
 import { nettableRows, pendingSettlements, personBalances, personKey, signedAmount, type PersonBalance } from '@/lib/settleAll'
 import { allocateAcrossGroups } from '@/lib/settleMulti'
-import { clearedFor, inHome, paidIn, payInLine, planInHome, type HomeBalance } from '@/lib/collect'
+import { clearedFor, collectsInHome, inHome, payeeCollects, paidIn, payInLine, planInHome, type HomeBalance } from '@/lib/collect'
 import { useTodayRates } from '@/hooks/useFx'
 import { formatRate, getRate, type FxRate } from '@/lib/fx'
 import { lastMethod, rememberMethod } from '@/lib/recents'
@@ -212,7 +212,7 @@ export default function SettleUp() {
   const groupCur = group?.currency
   const recipientCur = to && d && to === d.me ? profile.currency : payee?.currency
   const otherCur = recipientCur && groupCur && recipientCur !== groupCur ? recipientCur : undefined
-  const prefersOther = to && d && to === d.me ? !!profile.collectInHome : !!payee?.collect
+  const prefersOther = to && d && to === d.me ? collectsInHome(profile) : payeeCollects(payee)
   useEffect(() => {
     setRate(undefined)
     if (!otherCur || !groupCur) return

@@ -254,3 +254,7 @@ one once every private group has been opened.
 
 Wrapping the same data key for each member's device (passkey PRF) so the server can't open it on
 its own, without re-encrypting anything.
+
+## Settings → Encrypted groups on this device
+
+The page draws the last `status` answer at once from `localStorage` (`sn-vault-status:<uid>`, `vaultStatusToCache` in `src/lib/vault-api.ts`): only its yes/no fields (server ready, passkey here, universal pattern set and ordered, tries left, lock time, on, off). No group, key or pattern is kept. It then asks the server again without `made`; the count of private groups someone made (one read of every group they're in) is asked only when they tap **Stop using private groups**.

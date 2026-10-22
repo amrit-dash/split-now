@@ -18,7 +18,8 @@ const DUO_HINT: Hint = { full: 'Two-colour gradients on buttons and cards', tier
  * fills, or black on bright ones) for the selected accent. Each accent keeps its own ink, and each
  * swatch shows its accent in that ink; then a "Dual tone" switch. Applies and persists immediately.
  */
-export function AccentPicker({ onChange }: { onChange?: () => void } = {}) {
+/** `duo={false}` leaves the Dual tone row out (Simple mode); its value stays as it was. */
+export function AccentPicker({ onChange, duo: showDuo = true }: { onChange?: () => void; duo?: boolean } = {}) {
   const [accent, setAccentState] = useState<AccentId>(getAccent)
   const [duo, setDuoState] = useState<boolean>(getDuo)
   const [inks, setInks] = useState<Record<AccentId, Ink>>(allInks)
@@ -127,16 +128,18 @@ export function AccentPicker({ onChange }: { onChange?: () => void } = {}) {
         </div>
         {/* Dual tone closes the section as its own row, below the two labelled pickers, so the
             Accent → Text on accent rhythm isn't broken by a switch between them. */}
-        <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4 dark:border-white/5">
-          <div className="min-w-0">
-            <div className="flex items-center text-sm font-semibold">
-              Dual tone
-              <InfoTip hint={DUO_HINT} label="About dual tone" />
+        {showDuo && (
+          <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4 dark:border-white/5">
+            <div className="min-w-0">
+              <div className="flex items-center text-sm font-semibold">
+                Dual tone
+                <InfoTip hint={DUO_HINT} label="About dual tone" />
+              </div>
+              <HintText hint={DUO_HINT} as="div" />
             </div>
-            <HintText hint={DUO_HINT} as="div" />
+            <Switch checked={duo} onChange={toggleDuo} label="Dual tone" testId="accent-duo" />
           </div>
-          <Switch checked={duo} onChange={toggleDuo} label="Dual tone" testId="accent-duo" />
-        </div>
+        )}
       </Detail>
     </div>
   )

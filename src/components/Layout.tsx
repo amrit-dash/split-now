@@ -7,6 +7,7 @@ import { groupOfPath, plusTap } from '@/lib/plus-target'
 import { tabIconLook } from '@/lib/icon-style'
 import { useAllGroupData } from '@/hooks/data'
 import { useInbox } from '@/hooks/useInbox'
+import { ModeSettler } from '@/hooks/useMode'
 import { applyIconTint } from '@/lib/accent'
 import { setBadge } from '@/lib/push'
 import { InstallBanner } from './InstallBanner'
@@ -89,6 +90,7 @@ export function Layout() {
       <InstallBanner />
       <CaptureAlert />
       <WhatsNewBanner />
+      <ModeSettler />
       <nav className="fixed inset-x-0 bottom-0 z-40" aria-label="Main" data-icon-style={iconStyle}>
         {/* The + button's glow sits under the bar: muted where the bar covers it, bright in the
             notch, which gives the cut-out depth. A blurred copy of the button's moving gradient,

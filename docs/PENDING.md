@@ -19,7 +19,17 @@ remove an item when its release merges, and add anything left half-done.
 - [ ] Flaky e2e: "receipt photos: the scanned receipt leads the strip…" sometimes sits at the OCR spinner (Tesseract worker, after a fresh `npm ci` / cold Vite cache) and passes on rerun; it fails with or without the latest changes. Make the demo scan deterministic or wait for the worker.
 - [ ] Icons, later: lucide feature icons left on less-used screens (admin, merge, chat composer, expense form internals) could move to Fluent when those screens are next touched.
 
-## Voice and Quick add (owner's decisions, 22 Oct 2026; 9.0.0 or 9.1.0 decided after the owner's next feature)
+## Simple and Advanced (9.0.0, owner, 22 Oct 2026; table in docs/SIMPLE_MODE.md)
+
+- [x] Mode setting (Settings → Preferences → Mode), synced; auto = Simple unless the account uses Advanced-only features; Simple's detail level is Minimal; Preferences trimmed in Simple; Collect in on for everyone.
+- [ ] Board: the mode button in Profile's header, the Pro badge, Help's progress; then build them.
+- [ ] Profile and the rest of Settings in Simple (Signing in, payment methods, Animations defaults, Notifications dynamic, Automation, AI features).
+- [ ] Scan revamp: one card per kind (Bill, Payment, Statement) with Camera, Photo and an AI toggle (bot icon) in the corner; the toggle hides in Simple.
+- [ ] Encrypted groups: show the last status at once and refresh quietly; explainer into Help behind a ? button.
+- [ ] Groups and Members in Simple (approvals, Merge, Needs my OK), then the proposed rows once the owner OKs them.
+- [ ] Help: progress ring and done marks (synced), steps hold until Next, Simple's sections only, shorter text without dashes; Pro badge at 100% (either mode), shown on large photos, neon flicker only on your own Profile pill.
+
+## Voice and Quick add (owner's decisions, 22 Oct 2026; ships in 9.1.0, after Simple and Advanced)
 
 Engine, free first:
 - [ ] The phone's own speech recognition always first, free. `continuous: true`; listening lasts until the person lets go of + (or taps the mic off). Silence alone never ends it.
@@ -51,7 +61,6 @@ Teaching it:
 - [ ] After the update, a speech bubble rises from + once: "Press and hold + to talk". Dismiss with ✕ or a swipe.
 - [ ] Per account, across every device: a flag in the profile (`voiceTried`, rules whitelist + test + PLAN.md) set the first time someone holds + for voice (no need to finish Quick add). Until it's set, every few visits (every 3rd–5th) a "Did you know?" bubble from + with different words, urging "Try it now: press and hold +".
 
-- [ ] Before starting voice: ask the owner for the one more feature they wanted to describe, then decide 9.0.0 or 9.1.0.
 - [ ] Free-first voice summary for Help: a new section (voice), plus Quick add's updated.
 
 ## Ideas, not requested (build only if the owner asks)

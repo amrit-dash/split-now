@@ -4,6 +4,8 @@ import { Info } from 'lucide-react'
 import { useAppConfig } from '@/hooks/useAppConfig'
 import { effectiveLook, hintView, showsAt, type HintSpec, type Look } from '@/lib/look'
 import { getLookPref, subscribeLookPref } from '@/lib/look-pref'
+import { lookForMode } from '@/lib/mode'
+import { useMode } from '@/hooks/useMode'
 
 /**
  * Subtexts that follow the admin's detail level (Admin → App → Detail level, src/lib/look.ts).
@@ -16,11 +18,11 @@ export type Hint = HintSpec<ReactNode>
 /** A subtext prop may be plain text (always shown, as before) or a Hint. */
 export const isHint = (x: unknown): x is Hint => typeof x === 'object' && x !== null && !isValidElement(x) && !Array.isArray(x) && 'full' in x
 
-/** The look to draw: this person's own choice (Settings → Preferences), else the admin's. */
+/** The look to draw: Minimal in Simple mode; else this person's own choice (Settings → Preferences), else the admin's. */
 export function useLook(): Look {
   const admin = useAppConfig().look
   const mine = useSyncExternalStore(subscribeLookPref, getLookPref, getLookPref)
-  return effectiveLook(admin, mine)
+  return lookForMode(useMode(), effectiveLook(admin, mine))
 }
 
 /** True when the current look shows optional UI of this detail (2: hidden in Minimal; 3: Full and Tooltip only). */

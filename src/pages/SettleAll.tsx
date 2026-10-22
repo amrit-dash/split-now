@@ -9,7 +9,7 @@ import { useAllGroupData, useRecentActivity } from '@/hooks/data'
 import type { ActivityEntry, Group } from '@/types'
 import { formatMoney } from '@/lib/money'
 import { groupCount, pendingSettlements, personBalances, settlePersonHref, totalsByCurrency, type PersonBalance, type SettleRow } from '@/lib/settleAll'
-import { inHome, type HomeBalance } from '@/lib/collect'
+import { collectsInHome, inHome, type HomeBalance } from '@/lib/collect'
 import { convertMinor, type FxRate } from '@/lib/fx'
 import { useTodayRates } from '@/hooks/useFx'
 import { Avatar } from '@/components/Avatar'
@@ -60,7 +60,7 @@ export default function SettleAll() {
   const view: View = params.get('view') === 'group' ? 'group' : 'person'
   const setView = (v: View) => setParams(v === 'person' ? {} : { view: v }, { replace: true })
   // Collect in my currency: other currencies are folded into the home one at today's rate (≈).
-  const collect = !!profile.collectInHome
+  const collect = collectsInHome(profile)
   const rates = useTodayRates(home, collect && rows ? rows.map((r) => r.currency) : [])
   // A locked private group adds nothing here (hooks/data.ts); the line says so, and its lock takes the pattern.
   const locked = data?.filter((d) => d.locked && !d.group.archived).length ?? 0

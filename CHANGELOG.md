@@ -6,6 +6,9 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Settings → Encrypted groups opens straight away with what it last knew and updates a moment later. Before, it said “Checking…” for a few seconds on every visit. Its explainer moved into Help: the **?** at the top opens it, and back returns here.
+- **Simple and Advanced** (Settings → Preferences → Mode). Simple shows the everyday app with fewer settings and shorter text; Advanced shows everything, as before. New accounts start in Simple; if you already use captured payments, approvals or changed how the app looks, you start in Advanced. Switching only hides things: what you set up keeps working.
+- Collect in your currency is now on for everyone who hasn't turned it off.
 - Swiping a notice away with a mouse works every time. Before, a short drag that sprang back selected some of its words, and the next drag on them did nothing.
 - Two-tone icons where they sit on colour: the tab you're on (in the Outline style) and the icons inside accent buttons have a soft fill under their line, like the Help lifebuoy. Groups uses three people side by side (before, two overlapping people looked cut off). The tab bar is a little more solid, so a bright button scrolling under it no longer shows through.
 - Icons: Profile and Settings rows keep their two-tone drawings, now in your accent's colours on a soft tile with firmer lines; Support the developer is a hand holding a heart; Notifications is a bell with a dot; the Settings gear is strong with a light middle. Quick add is a plain bot, Scan → Payment shows a phone with a small rupee on it, and Start table has a filled fork and knife. Claim is a hand holding a note, the note strong and the hand lighter.

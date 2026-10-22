@@ -6,10 +6,16 @@
 import { expect, test as base, type Page } from '@playwright/test'
 
 /** Every test starts signed in to demo mode, and fails if the page threw an uncaught error. */
-const test = base.extend<{ page: Page; fixedRates: boolean }>({
+const test = base.extend<{ page: Page; fixedRates: boolean; mode: 'simple' | 'advanced' }>({
   // A fixed ECB rate (83.6 INR per USD) from the first request on, so no live rate gets cached first.
   fixedRates: [false, { option: true }],
-  page: async ({ page, fixedRates }, use) => {
+  // The tests below were written for the whole app, so they start in Advanced; Simple's own tests
+  // say test.use({ mode: 'simple' }). Set once: a test that switches the mode keeps its switch.
+  mode: ['advanced', { option: true }],
+  page: async ({ page, fixedRates, mode }, use) => {
+    await page.addInitScript((m) => {
+      if (localStorage.getItem('splitnow-mode') === null) localStorage.setItem('splitnow-mode', m)
+    }, mode)
     const errors: string[] = []
     page.on('pageerror', (e) => errors.push(e.message))
     if (fixedRates)
@@ -801,8 +807,8 @@ test.describe('Collect in my currency', () => {
 
   test('Collect in my currency: Balances folds dollars into ≈ rupees; Settle up converts with the 4% rule', async ({ page }) => {
     await usdTripWithRates(page)
+    // On for everyone by default (src/lib/collect.ts collectsInHome).
     await page.goto('/settings/preferences')
-    await page.getByTestId('collect-home').click()
     await expect(page.getByTestId('collect-home')).toHaveAttribute('aria-checked', 'true')
 
     // Balances: Rohan's rupees (Goa) and dollars (NYC) are one ≈ ₹ balance across 2 groups.
@@ -2151,4 +2157,30 @@ test('New people need my OK: someone else’s group asks instead of joining, and
   await expect(page.getByTestId('join-approval')).not.toContainText('Priya')
   await page.getByTestId('join-ask').click()
   await expect(page.getByTestId('toasts')).toContainText('needs the online app')
+})
+
+test.describe('Simple mode', () => {
+  test.use({ mode: 'simple' })
+  test('Preferences shows the mode and only the everyday settings; Advanced brings the rest back, values kept', async ({ page }) => {
+    await page.goto('/settings/preferences')
+    const mode = page.getByTestId('mode')
+    await expect(mode).toBeVisible()
+    await expect(page.getByRole('combobox', { name: 'Detail level' }).or(page.getByLabel('Detail level'))).toHaveCount(0)
+    await expect(page.getByTestId('icon-style')).toHaveCount(0)
+    await expect(page.getByTestId('accent-duo')).toHaveCount(0)
+    await mode.getByRole('radio', { name: /Advanced/ }).click()
+    await expect(page.getByTestId('icon-style')).toBeVisible()
+    await expect(page.getByTestId('accent-duo')).toBeVisible()
+    await page.reload()
+    await expect(page.getByTestId('icon-style')).toBeVisible()
+  })
+})
+
+test('Encrypted groups: ? opens Help on private groups, and back returns to the page', async ({ page }) => {
+  await page.goto('/settings/vault')
+  await expect(page.getByTestId('vault-turn-on')).toBeVisible()
+  await page.getByTestId('vault-help').click()
+  await expect(page).toHaveURL(/\/help\/private-groups$/)
+  await page.getByRole('button', { name: /back/i }).first().click()
+  await expect(page).toHaveURL(/\/settings\/vault$/)
 })
