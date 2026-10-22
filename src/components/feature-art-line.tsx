@@ -557,6 +557,15 @@ const art: Record<UiIconName, ReactElement> = {
       </g>
     </>
   ),
+  paymentProof: (
+    <>
+      <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5">
+        <path d="M22 12c0 4.7 0 7-1.5 8.5C19.1 22 16.7 22 12 22s-7 0-8.5-1.5C2 19.1 2 16.7 2 12s0-7 1.5-8.5C4.9 2 7.3 2 12 2" />
+        <path strokeLinejoin="round" d="m13 7 2 2 5-5" />
+        <path d="M2 12.5 3.8 11c.9-.8 2.2-.8 3 0l4.4 4.4a2 2 0 0 0 2.5.2l.3-.2a3 3 0 0 1 3.8.2l3.2 2.9" opacity=".5" />
+      </g>
+    </>
+  ),
   phone: (
     <>
       <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5">

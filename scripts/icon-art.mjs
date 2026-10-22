@@ -325,6 +325,8 @@ const FEATURE = {
   pause: 'pause-circle',
   pencil: 'pen',
   phone: '~phonePay',
+  /* Scan → Payment (owner, 22 Oct 2026; the phone with a rupee looked crude): a screenshot with a tick, the payment confirmation itself */
+  paymentProof: 'gallery-check',
   plant: 'leaf',
   plugs: 'plug-circle',
   prohibit: 'forbidden-circle',

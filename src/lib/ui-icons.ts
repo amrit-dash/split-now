@@ -66,6 +66,7 @@ export const UI_ICONS = [
   'pattern',
   'pause',
   'pencil',
+  'paymentProof',
   'phone',
   'plant',
   'plugs',
