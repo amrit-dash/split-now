@@ -162,3 +162,94 @@
 @media (prefers-reduced-motion: reduce) {
   .help-tick { animation: none; stroke-dashoffset: 0; }
 }
+
+/*
+ * The explainers' drawings (Story.tsx): Solar-duotone-like, a thick rounded line (--ln, or the
+ * brand → duo gradient) over a soft translucent fill (--soft, --soft2), all from the accent's tokens
+ * so every accent and dark mode reads. --paper is a solid face (a cover, an envelope) that hides
+ * what is under it; --coin is a coin's face.
+ */
+.story-art {
+  --ln: var(--color-brand-600);
+  --ln2: var(--color-duo-500);
+  --soft: color-mix(in oklab, var(--color-brand-400) 24%, transparent);
+  --soft2: color-mix(in oklab, var(--color-duo-400) 30%, transparent);
+  --paper: #fff;
+  --coin: color-mix(in oklab, var(--color-duo-100) 70%, #fff);
+}
+.dark .story-art {
+  --ln: var(--color-brand-300);
+  --ln2: var(--color-duo-300);
+  --soft: color-mix(in oklab, var(--color-brand-400) 22%, transparent);
+  --soft2: color-mix(in oklab, var(--color-duo-400) 26%, transparent);
+  --paper: var(--color-ink-800);
+  --coin: color-mix(in oklab, var(--color-duo-800) 55%, var(--color-ink-900));
+}
+
+/* A fall from --h above, a squash on landing and two smaller bounces (transform-origin: its feet). */
+@keyframes ex-drop {
+  0% {
+    opacity: 0;
+    transform: translateY(var(--h, -150px));
+    animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
+  }
+  8% {
+    opacity: 1;
+  }
+  48% {
+    transform: translateY(0) scale(1.14, 0.84);
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.4, 1);
+  }
+  66% {
+    transform: translateY(calc(var(--h, -150px) * 0.1)) scale(0.95, 1.06);
+    animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.6);
+  }
+  80% {
+    transform: translateY(0) scale(1.05, 0.95);
+  }
+  90% {
+    transform: translateY(calc(var(--h, -150px) * 0.02)) scale(0.99, 1.01);
+  }
+}
+
+/* A thump: squashes and springs back to its own shape. */
+@keyframes ex-squash {
+  25% {
+    transform: scale(1.12, 0.86);
+  }
+  50% {
+    transform: scale(0.94, 1.07);
+  }
+  75% {
+    transform: scale(1.03, 0.98);
+  }
+}
+
+/* A shake from side to side, settling back where it was. */
+@keyframes ex-shake {
+  12% {
+    transform: rotate(-7deg);
+  }
+  30% {
+    transform: rotate(6deg);
+  }
+  48% {
+    transform: rotate(-5deg);
+  }
+  66% {
+    transform: rotate(3deg);
+  }
+  84% {
+    transform: rotate(-1deg);
+  }
+}
+
+/* A press: down and back up with a little bounce. */
+@keyframes ex-press {
+  30% {
+    transform: scale(0.82);
+  }
+  60% {
+    transform: scale(1.08);
+  }
+}
