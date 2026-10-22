@@ -109,13 +109,7 @@ export default function SettingsHome() {
           />
         )}
         {repo.mode === 'firebase' && <SettingsRow to="/settings/ai" icon={<RowAiIcon size={22} />} title="AI features" summary={ai} testId="settings-ai" />}
-        <SettingsRow
-          to="/settings/data"
-          icon={<RowDataIcon size={22} />}
-          title="Data"
-          summary="Export, import from Splitwise, install the app"
-          testId="settings-data"
-        />
+        <SettingsRow to="/settings/data" icon={<RowDataIcon size={22} />} title="Data" summary="Export, import, install the app" testId="settings-data" />
         {aiStatus?.admin && (
           <SettingsRow
             to="/admin"

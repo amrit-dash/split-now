@@ -101,7 +101,7 @@ type Kind = 'group' | 'direct' | 'personal'
 const KINDS: Array<{ kind: Kind; emoji: string; label: string; hint: string }> = [
   { kind: 'group', emoji: '👥', label: 'Group', hint: 'Trips & more' },
   { kind: 'direct', emoji: '🤝', label: '1:1 friend', hint: 'You + 1 friend' },
-  { kind: 'personal', emoji: '👛', label: 'Personal', hint: 'Your own wallet' },
+  { kind: 'personal', emoji: '👛', label: 'Personal', hint: 'Just you' },
 ]
 
 type Field = 'name' | 'budget' | 'dates' | 'threshold' | 'editAuto'
