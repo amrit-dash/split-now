@@ -6,6 +6,7 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Help is shorter and plainer: one short line per step and tip, simple words. It shows only what your mode has, so Simple's guide leaves out features Simple hides. Before, long sections repeated themselves and talked about settings Simple doesn't show. A new last section, Earn Pro, says how to earn the Pro badge.
 - Settings → Encrypted groups opens straight away with what it last knew and updates a moment later. Before, it said “Checking…” for a few seconds on every visit. Its explainer moved into Help: the **?** at the top opens it, and back returns here.
 - **Simple and Advanced** (Settings → Preferences → Mode). Simple shows the everyday app with fewer settings and shorter text; Advanced shows everything, as before. New accounts start in Simple; if you already use captured payments, approvals or changed how the app looks, you start in Advanced. Switching only hides things: what you set up keeps working.
 - Collect in your currency is now on for everyone who hasn't turned it off.
