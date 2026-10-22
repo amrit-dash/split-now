@@ -1,3 +1,5 @@
+import { shownPaySections } from '@/lib/pay-sections'
+import { useFeature } from '@/hooks/useMode'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ChevronRight, X } from 'lucide-react'
@@ -152,6 +154,7 @@ export default function Profile() {
   const whatsNew = useWhatsNew()
   const [saved, flash] = useSavedFlash()
   const showAll = useShows(2)
+  const morePayMethods = useFeature('morePayMethods')
   const showBackend = useShows(3)
 
   // Re-sync the form when the saved fields change (not on a photo change, which would drop unsaved edits).
@@ -204,13 +207,14 @@ export default function Profile() {
   )
 
   const region = paymentRegion(profile.currency)
-  const sections = SECTIONS[region]
-  const listed = new Set(sections.flatMap((x) => x.keys))
-  // Handles from other regions: shown when filled in, or when asked for.
-  const extra = (Object.keys(H) as HandleKey[]).filter((k) => !listed.has(k) && (allHandles || payment[k]))
-  const allSections = extra.length ? [...sections, { title: 'Other', keys: extra }] : sections
-  // Minimal keeps the main way to pay for the region, plus any section already filled in.
-  const shownSections = showAll ? allSections : allSections.filter((sec, i) => i === 0 || sec.keys.some((k) => payment[k]?.trim()))
+  // The region's ways to pay; Simple keeps UPI ID, bank transfer and PayPal (src/lib/pay-sections.ts).
+  const shownSections = shownPaySections(SECTIONS[region], {
+    simple: !morePayMethods,
+    showAll,
+    allHandles,
+    allKeys: Object.keys(H) as HandleKey[],
+    filled: (k) => !!payment[k]?.trim(),
+  })
 
   return (
     <div>
@@ -245,12 +249,15 @@ export default function Profile() {
           region === 'IN' && (
             <div className="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 p-3 dark:bg-ink-800">
               <div className="min-w-0">
-                <div className="text-sm font-semibold">Friends can pay this number with UPI</div>
-                <div className="text-muted text-xs">
-                  {upiPhoneOn
-                    ? `Shown as a UPI number${payment.phone && payment.phone !== cleanPhone(phone) ? ` (${payment.phone})` : ''}`
-                    : 'Off: only your UPI ID is shared'}
-                </div>
+                {/* Simple: one line, the subtext's words as the title (owner). */}
+                <div className="text-sm font-semibold">{morePayMethods ? 'Friends can pay this number with UPI' : 'Show as UPI number'}</div>
+                {morePayMethods && (
+                  <div className="text-muted text-xs">
+                    {upiPhoneOn
+                      ? `Shown as a UPI number${payment.phone && payment.phone !== cleanPhone(phone) ? ` (${payment.phone})` : ''}`
+                      : 'Off: only your UPI ID is shared'}
+                  </div>
+                )}
               </div>
               <Switch
                 checked={upiPhoneOn}
@@ -316,7 +323,7 @@ export default function Profile() {
               })}
             </div>
           ))}
-          {!allHandles && showAll && (
+          {!allHandles && showAll && morePayMethods && (
             <button type="button" className="min-h-9 text-sm font-semibold text-brand-600 dark:text-brand-300" onClick={() => setAllHandles(true)}>
               Show all payment options
             </button>

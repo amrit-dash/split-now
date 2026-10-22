@@ -4,7 +4,7 @@ import { Info } from 'lucide-react'
 import { useAppConfig } from '@/hooks/useAppConfig'
 import { effectiveLook, hintView, showsAt, type HintSpec, type Look } from '@/lib/look'
 import { getLookPref, subscribeLookPref } from '@/lib/look-pref'
-import { lookForMode } from '@/lib/mode'
+import { hintLookForMode, lookForMode } from '@/lib/mode'
 import { useMode } from '@/hooks/useMode'
 
 /**
@@ -37,7 +37,10 @@ export function Detail({ min, children }: { min: 1 | 2 | 3; children: ReactNode 
 
 /** The resolved parts of a subtext prop: plain text is always inline; a Hint follows the look. */
 export function useHint(h: Hint | ReactNode | undefined): { text: ReactNode | null; tip: ReactNode | null } {
-  const look = useLook()
+  // Subtext in Simple is Minimal (only lines that stop a mistake); sections follow useLook.
+  const admin = useAppConfig().look
+  const mine = useSyncExternalStore(subscribeLookPref, getLookPref, getLookPref)
+  const look = hintLookForMode(useMode(), effectiveLook(admin, mine))
   if (h === undefined || h === null || h === false) return { text: null, tip: null }
   return isHint(h) ? hintView(look, h) : { text: h, tip: null }
 }

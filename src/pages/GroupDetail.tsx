@@ -1,3 +1,4 @@
+import { useFeature } from '@/hooks/useMode'
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { AlertCircle, AlertTriangle, ChevronRight, MessageSquareText, Repeat, Search, UtensilsCrossed, X } from 'lucide-react'
@@ -163,7 +164,11 @@ export default function GroupDetail() {
   const latestChat = useChat(groupId, 1, chatOn)
   const readAt = useChatReadAt(groupId)
   // Minimal look: the Whose-turn chip is optional, the group's facts (dates, Archived) stay.
-  const showTurn = useShows(2)
+  // Simple: no whose-turn chip, no Money received or Export CSV in the menu (docs/SIMPLE_MODE.md).
+  const turnShown = useFeature('whoseTurn')
+  const showTurn = useShows(2) && turnShown
+  const showMoneyReceived = useFeature('moneyReceived')
+  const showExport = useFeature('exportGroup')
   const vaultOpen = useVaultOpen(groupId)
   // Someone in it with no way in yet, however they came in (src/hooks/useVaultWaiting.ts).
   const waitingFor = useVaultWaiting({ id: groupId ?? '', vault: liveGroup?.vault, memberUids: liveGroup?.memberUids ?? [] }, !!vaultOpen)
@@ -773,7 +778,7 @@ export default function GroupDetail() {
               testId="vault-group-open"
             />
           )}
-          {receivedTotal > 0 && (
+          {receivedTotal > 0 && showMoneyReceived && (
             <MenuRow
               icon={<HandCoinsIcon size={20} />}
               label="Money received"
@@ -794,7 +799,7 @@ export default function GroupDetail() {
               nav(`/insights?group=${group.id}`)
             }}
           />
-          <MenuRow icon={<DownloadIcon size={20} />} label="Export CSV" hint={MENU_HINTS.export} onClick={exportCsv} testId="group-export" />
+          {showExport && <MenuRow icon={<DownloadIcon size={20} />} label="Export CSV" hint={MENU_HINTS.export} onClick={exportCsv} testId="group-export" />}
           <MenuRow
             icon={<ArchiveIcon size={20} />}
             label={archive.label}

@@ -1,3 +1,4 @@
+import { useFeature } from '@/hooks/useMode'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useJoinRequests } from '@/hooks/data'
 import type { JoinRequest } from '@/types'
@@ -211,6 +212,7 @@ function ToSort({
   const toast = useToast()
   const [prefs, setPrefs] = useState<AllPrefs | null>(null)
   const [bulk, setBulk] = useState<BulkCandidate<Group> | null>(null)
+  const showCapturePromo = useFeature('capturePromo')
   // The sort menu is optional: hidden in the Minimal look.
   const showSort = useShows(2)
   const deletedGroups = useDeletedGroups()
@@ -346,21 +348,23 @@ function ToSort({
           <Quiet icon="checkCircle" title="All sorted">
             Captured payments, expenses waiting for your OK and payments to confirm show up here.
           </Quiet>
-          {/* A promo, not a decision: hidden in the Minimal look. */}
+          {/* A promo, not a decision: hidden in the Minimal look, and in Simple, which has no Automation. */}
           <Detail min={2}>
-            <Link to="/settings/auto-capture" className="card mt-3 flex items-center gap-3 p-4" data-testid="inbox-setup">
-              <span
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
-                aria-hidden
-              >
-                <BookOpen size={20} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="font-semibold">Set up auto-capture</div>
-                <HintText as="div" className="text-muted text-xs" hint={{ full: 'Bank & UPI payments from your phone land here automatically' }} />
-              </div>
-              <ChevronRight size={18} className="shrink-0 text-slate-400" aria-hidden />
-            </Link>
+            {showCapturePromo && (
+              <Link to="/settings/auto-capture" className="card mt-3 flex items-center gap-3 p-4" data-testid="inbox-setup">
+                <span
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
+                  aria-hidden
+                >
+                  <BookOpen size={20} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="font-semibold">Set up auto-capture</div>
+                  <HintText as="div" className="text-muted text-xs" hint={{ full: 'Bank & UPI payments from your phone land here automatically' }} />
+                </div>
+                <ChevronRight size={18} className="shrink-0 text-slate-400" aria-hidden />
+              </Link>
+            )}
           </Detail>
         </>
       )}

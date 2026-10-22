@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { autoMode, customLook, effectiveMode, groupUsesApprovals, lookForMode, resolveModeChoice, settleAuto } from './mode'
+import {
+  autoMode,
+  customLook,
+  effectiveMode,
+  groupUsesApprovals,
+  hintLookForMode,
+  lookForMode,
+  resolveModeChoice,
+  SIMPLE_HIDES,
+  settleAuto,
+  showsFeature,
+} from './mode'
 import { DEFAULT_MOTION } from './motion'
 
 const plain = { look: 'app', icons: 'app', duo: true, motion: DEFAULT_MOTION }
@@ -54,5 +65,21 @@ describe('lookForMode', () => {
   it('Simple is always When needed; Advanced keeps the chosen detail level', () => {
     expect(lookForMode('simple', 'full')).toBe('needed')
     expect(lookForMode('advanced', 'tooltip')).toBe('tooltip')
+  })
+  it('subtext in Simple is Minimal: only the must-read lines', () => {
+    expect(hintLookForMode('simple', 'full')).toBe('minimal')
+    expect(hintLookForMode('advanced', 'needed')).toBe('needed')
+  })
+})
+
+describe('showsFeature', () => {
+  it('Advanced shows everything; Simple hides only its list', () => {
+    for (const f of SIMPLE_HIDES) {
+      expect(showsFeature('advanced', f)).toBe(true)
+      expect(showsFeature('simple', f)).toBe(false)
+    }
+  })
+  it('the list has no repeats', () => {
+    expect(new Set(SIMPLE_HIDES).size).toBe(SIMPLE_HIDES.length)
   })
 })

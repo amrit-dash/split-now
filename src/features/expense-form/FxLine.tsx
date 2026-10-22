@@ -1,3 +1,4 @@
+import { useFeature } from '@/hooks/useMode'
 import { X } from 'lucide-react'
 import { formatMoney } from '@/lib/money'
 import { rateLabel, type FxRate } from '@/lib/fx'
@@ -26,6 +27,7 @@ export function FxLine({
   /** a validation message to show under the line (after a failed save) */
   error?: string
 }) {
+  const showRate = useFeature('fxRate')
   if (rateEdit !== null) {
     return (
       <form
@@ -96,9 +98,12 @@ export function FxLine({
           )}
           {rateLabel({ currency: cur, rate: fx.rate, rateDate: fx.date, source: fx.source }, to)}
         </span>
-        <button type="button" className="min-h-11 shrink-0 font-semibold text-brand-600 dark:text-brand-300" onClick={() => setRateEdit(String(fx.rate))}>
-          Edit rate
-        </button>
+        {/* Simple shows the converted amount at the day's rate; changing the rate is Advanced (docs/SIMPLE_MODE.md). */}
+        {showRate && (
+          <button type="button" className="min-h-11 shrink-0 font-semibold text-brand-600 dark:text-brand-300" onClick={() => setRateEdit(String(fx.rate))}>
+            Edit rate
+          </button>
+        )}
       </div>
       {error && (
         <p role="alert" className="neg mt-1">

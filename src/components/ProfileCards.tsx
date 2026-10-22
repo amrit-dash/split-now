@@ -3,6 +3,7 @@ import { Check, ChevronDown, Loader2 } from 'lucide-react'
 import { RefreshIcon, CameraIcon } from '@/components/icons'
 import { repo } from '@/data'
 import { AccountEmails } from '@/components/AccountEmails'
+import { useFeature } from '@/hooks/useMode'
 import { useMe } from '@/hooks/auth'
 import { errText } from '@/lib/errors'
 import { isSynced, loadSharedRates, ratesStatus, refreshRates, type RatesStatus } from '@/lib/fx'
@@ -48,6 +49,7 @@ export function AccountCard({
 }) {
   const [open, setOpen] = useState(false)
   const bodyId = useId()
+  const signingIn = useFeature('signingIn')
   const sub = email ?? (repo.mode === 'demo' ? 'Demo account (this device only)' : phone || '')
   return (
     <div className="card overflow-hidden">
@@ -110,7 +112,8 @@ export function AccountCard({
             {phoneHint && <div className="mt-2">{phoneHint}</div>}
           </div>
           <AccountEmails email={email} />
-          {repo.mode === 'firebase' && <SignInMethods />}
+          {/* Simple leaves Signing in out (docs/SIMPLE_MODE.md); the email link always works. */}
+          {repo.mode === 'firebase' && signingIn && <SignInMethods />}
           <HintText hint={AUTOSAVE_HINT} />
         </div>
       )}

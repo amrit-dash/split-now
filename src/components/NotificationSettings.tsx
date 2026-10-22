@@ -1,3 +1,4 @@
+import { useFeature } from '@/hooks/useMode'
 import { useEffect, useState } from 'react'
 import { BellIcon, BellSlashIcon, ExportIcon } from '@/components/icons'
 import { Link } from 'react-router-dom'
@@ -117,6 +118,7 @@ export function NotificationSettings() {
   const [prefs, setPrefs] = useState<AllPrefs>(DEFAULT_ALL_PREFS)
   const tokens = useCaptureTokens()
   const showAll = useShows(2)
+  const automation = useFeature('automation')
 
   useEffect(() => (notificationsAvailable() ? watchPrefs(user.uid, setPrefs) : undefined), [user.uid])
 
@@ -178,7 +180,8 @@ export function NotificationSettings() {
       <div className="space-y-2">
         {types(profile.currency)
           // Minimal leaves out the capture rows until auto-capture is set up (a capture key exists): they'd never fire.
-          .filter((t) => showAll || !!tokens?.length || (t.key !== 'captures' && t.key !== 'unsorted'))
+          // Capture types only when capture is set up; Simple (no Automation) never offers them unprompted.
+          .filter((t) => (showAll && automation) || !!tokens?.length || (t.key !== 'captures' && t.key !== 'unsorted'))
           .map((t) => {
             const why = blocked(t.key)
             const id = `notif-${t.key}-label`

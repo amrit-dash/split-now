@@ -71,3 +71,37 @@ export function settleAuto(choice: ModeChoice, s: ModeSignals): Mode | null {
 export function lookForMode<L extends string>(mode: Mode, look: L): L | 'needed' {
   return mode === 'simple' ? 'needed' : look
 }
+
+/**
+ * Subtext follows its own level in Simple: Minimal, so only the lines that stop a mistake stay
+ * (owner: "keep subtext only where the UI needs it"). Sections still follow lookForMode.
+ */
+export function hintLookForMode<L extends string>(mode: Mode, look: L): L | 'minimal' {
+  return mode === 'simple' ? 'minimal' : look
+}
+
+/**
+ * What Simple hides (docs/SIMPLE_MODE.md, owner's table of 22 Oct 2026). One list, so the doc and
+ * the screens can't drift: every hidden control asks `showsFeature(mode, name)` (useFeature). The
+ * settings behind them keep their values, and what they run keeps running.
+ */
+export const SIMPLE_HIDES = [
+  'signingIn', // Profile → Signing in
+  'morePayMethods', // Profile → How friends can pay you: everything past UPI ID, bank transfer and PayPal (international)
+  'animations', // Settings → Animations
+  'automation', // Settings → Automation and its entry points
+  'aiFeatures', // Settings → AI features: the per-feature switches and icons (Use AI, free AI and your key stay)
+  'approvals', // New group / Edit group approvals section
+  'merge', // Members: Merge and its "Needs my OK"
+  'wallets', // Personal wallets, everywhere
+  'moneyReceived', // the expense form's Money received switch and the group menu item
+  'whoseTurn', // the whose-turn chip
+  'exportGroup', // group menu → Export CSV (Settings → Data keeps export)
+  'waive', // Settle up → Waive the rest
+  'capturePromo', // Inbox → set up auto-capture
+  'fxRate', // editing the exchange rate (the converted amount still shows)
+  'scanAiToggle', // Scan's per-card Read with AI toggle (the Settings choice applies)
+] as const
+export type SimpleHide = (typeof SIMPLE_HIDES)[number]
+
+export const showsFeature = (mode: Mode, f: SimpleHide): boolean => mode === 'advanced' || !(SIMPLE_HIDES as readonly string[]).includes(f)

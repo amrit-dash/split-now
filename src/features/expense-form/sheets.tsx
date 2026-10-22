@@ -1,3 +1,4 @@
+import { useFeature } from '@/hooks/useMode'
 import { useState, type ReactNode } from 'react'
 import { Check, Search, UserPlus, Users, Wallet, type LucideIcon } from 'lucide-react'
 import { AddIcon, GroupsIcon } from '@/components/icons'
@@ -53,7 +54,10 @@ function GroupList({
   const [q, setQ] = useState('')
   const today = todayISO()
   const t = q.trim().toLowerCase()
-  const shown = t ? groups.filter((g) => g.name.toLowerCase().includes(t)) : groups
+  // Simple has no personal wallets: neither the ones there are nor a new one (docs/SIMPLE_MODE.md).
+  const showWallets = useFeature('wallets')
+  const pickable = showWallets ? groups : groups.filter((g) => g.type !== 'personal' || g.id === current)
+  const shown = t ? pickable.filter((g) => g.name.toLowerCase().includes(t)) : pickable
   const live = shown.filter((g) => g.type !== 'personal' && isLiveTrip(g, today))
   const rest = shown.filter((g) => !live.includes(g))
   const sections: Array<[string, Group[]]> = [
@@ -67,9 +71,13 @@ function GroupList({
     { label: 'New group', hint: { full: 'Trip, flat, team…', tier: 'help' }, icon: Users },
     { type: 'direct', label: 'New 1:1 friend', hint: { full: 'Just you and one friend', tier: 'help' }, icon: UserPlus },
     // Several wallets are fine (Fuel, Groceries…), so this stays on offer once one exists.
-    groups.some((g) => g.type === 'personal')
-      ? { type: 'personal', label: 'New wallet', hint: { full: 'Fuel, groceries, shopping…', tier: 'help' }, icon: Wallet }
-      : { type: 'personal', label: 'Personal wallet', hint: { full: 'Track your own spending', tier: 'help' }, icon: Wallet },
+    ...(showWallets
+      ? [
+          groups.some((g) => g.type === 'personal')
+            ? { type: 'personal' as const, label: 'New wallet', hint: { full: 'Fuel, groceries, shopping…', tier: 'help' as const }, icon: Wallet }
+            : { type: 'personal' as const, label: 'Personal wallet', hint: { full: 'Track your own spending', tier: 'help' as const }, icon: Wallet },
+        ]
+      : []),
   ]
   const row = (g: Group, isLive = false) => (
     <button

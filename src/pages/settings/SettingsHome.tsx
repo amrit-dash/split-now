@@ -26,6 +26,7 @@ import { DEFAULT_PREFS, isIOS, isStandalone, permission, pushSupported, type All
 import { notificationsAvailable } from '@/components/NotificationSettings'
 import { HintText, type Hint } from '@/components/Hint'
 import { PushPrompt } from '@/components/PushPrompt'
+import { useFeature } from '@/hooks/useMode'
 import { SettingsPage, SettingsRow } from './common'
 
 // The Saved pill already says it; only worth reading once.
@@ -42,6 +43,9 @@ export default function SettingsHome() {
   const aiState = useAiState(repo.mode === 'firebase')
   const motion = useMotion()
   const vaults = usePrivateGroups()
+  // Simple leaves these two out (docs/SIMPLE_MODE.md); what they set keeps working.
+  const showAnimations = useFeature('animations')
+  const showAutomation = useFeature('automation')
   useEffect(() => watchCapturePrefs(user.uid, repo.mode, setPrefs), [user.uid])
 
   const notifications = !notificationsAvailable()
@@ -70,13 +74,15 @@ export default function SettingsHome() {
           testId="settings-preferences"
           summary={`${profile.currency} · ${THEME_LABEL[getTheme()]} · ${accentPreset(getAccent()).label}`}
         />
-        <SettingsRow
-          to="/settings/animations"
-          icon={<RowAnimationsIcon size={22} />}
-          title="Animations"
-          summary={motionSummary(motion.prefs, motion.reduced)}
-          testId="settings-animations"
-        />
+        {showAnimations && (
+          <SettingsRow
+            to="/settings/animations"
+            icon={<RowAnimationsIcon size={22} />}
+            title="Animations"
+            summary={motionSummary(motion.prefs, motion.reduced)}
+            testId="settings-animations"
+          />
+        )}
         <SettingsRow
           to="/settings/notifications"
           icon={<RowNotificationsIcon size={22} />}
@@ -84,13 +90,15 @@ export default function SettingsHome() {
           summary={notifications}
           testId="settings-notifications"
         />
-        <SettingsRow
-          to="/settings/automation"
-          icon={<RowAutomationIcon size={22} />}
-          title="Automation"
-          summary={automation || 'Auto-capture and capture keys'}
-          testId="settings-automation"
-        />
+        {showAutomation && (
+          <SettingsRow
+            to="/settings/automation"
+            icon={<RowAutomationIcon size={22} />}
+            title="Automation"
+            summary={automation || 'Auto-capture and capture keys'}
+            testId="settings-automation"
+          />
+        )}
         {vaults.flagOn && (
           <SettingsRow
             to="/settings/vault"

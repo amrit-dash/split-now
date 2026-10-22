@@ -28,9 +28,9 @@ remove an item when its release merges, and add anything left half-done.
   - Profile: the PRO ring on the photo + a translucent accent pill with PRO beside the name (not tappable).
   - Members: pill beside the name only, photo unchanged; tapping someone else's opens Help → Earn Pro.
   - 1:1 lists (Groups, Home): the subtext becomes [PRO pill] · Friend.
-  - Inside a 1:1: the PRO ring bent along the tile's rounded square (owner to confirm vs a top-right pill with the status text kept clear of it). Nothing in the title.
-  - Tapping another person's PRO anywhere opens Help → Earn Pro (a short section at the very bottom of Help).
-- [ ] Handshake: replace the 🤝 emoji on 1:1 tiles (every list, the 1:1 card, New group's 1:1 choice) with a duotone handshake built from Fluent handshake filled (soft layer, ~42%) + regular (line), in the accent gradient (owner to confirm). Solar's "hand-shake" is a waving hand: not that.
+  - Inside a 1:1: the PRO ring bent along the tile's rounded square (owner confirmed: "premium"). Nothing in the title.
+  - Tapping another person's PRO mark (Members pill, list pill, the 1:1 tile or its ring) opens Help → Earn Pro (a short section at the very bottom of Help), only when the viewer isn't Pro themselves; a Pro viewer's tap does nothing.
+- [ ] Handshake (decided): replace the 🤝 emoji on 1:1 tiles (every list, the 1:1 card, New group's 1:1 choice). Light mode: the duotone built from Fluent handshake regular (line) over filled (soft layer, ~42%); dark mode: Fluent handshake filled. Accent gradient. Solar's "hand-shake" is a waving hand: not that.
 - [ ] Help progress (decided): ring with the percentage inside on the right of Help's header (no label); done sections get a thin accent outline and a tick in the corner; unread ones get an accent dot and no outline. Done = played to the last step, or scrolled to the end of a text section; synced to the profile.
 - [ ] Profile and the rest of Settings in Simple (Signing in, payment methods, Animations defaults, Notifications dynamic, Automation, AI features).
 - [ ] Scan revamp: one card per kind (Bill, Payment, Statement) with Camera, Photo and an AI toggle (bot icon) in the corner; the toggle hides in Simple.

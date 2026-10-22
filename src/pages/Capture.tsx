@@ -1,3 +1,4 @@
+import { useFeature } from '@/hooks/useMode'
 import { useEffect, useMemo, useState } from 'react'
 import { usePickableGroups } from '@/hooks/useVault'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -135,6 +136,8 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
   const [picked, setSelected] = useState<string | undefined>()
   const selected = picked ?? suggested
   const [busy, setBusy] = useState<'add' | 'personal' | 'dismiss' | null>(null)
+  // Simple has no personal wallets (docs/SIMPLE_MODE.md): a captured payment goes to a group or is set aside.
+  const showWallets = useFeature('wallets')
   const [walletSheet, setWalletSheet] = useState(false)
   const chosen = ranked.find((g) => g.id === selected)
   const memory = useMerchantMemory()
@@ -371,10 +374,12 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
         </div>
       )}
 
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <button type="button" className="btn-secondary" disabled={!!busy} onClick={personal}>
-          {busy === 'personal' ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <UserIcon size={18} aria-hidden />} Personal
-        </button>
+      <div className={`mt-3 grid gap-2 ${showWallets ? 'grid-cols-2' : ''}`}>
+        {showWallets && (
+          <button type="button" className="btn-secondary" disabled={!!busy} onClick={personal}>
+            {busy === 'personal' ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <UserIcon size={18} aria-hidden />} Personal
+          </button>
+        )}
         <button type="button" className="btn-secondary" disabled={!!busy} onClick={dismiss} data-testid="capture-dismiss">
           {busy === 'dismiss' ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <X size={18} aria-hidden />} Not shared
         </button>

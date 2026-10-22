@@ -20,11 +20,13 @@ import { daysLeft } from '../../shared/group-trash'
 import { EmptyGroups, FirstRun, Section } from './Home'
 import { labelForUid, memberIdOfUid } from '@/lib/shortNames'
 import { settledAWhile, showSettledStored, storeShowSettled } from '@/lib/settled-groups'
+import { useFeature } from '@/hooks/useMode'
 
 export default function Groups() {
   usePageTitle('Groups')
   const data = useAllGroupData()
   const deleted = useDeletedGroups()
+  const showWallets = useFeature('wallets')
   const [showSettled, setShowSettledState] = useState(showSettledStored)
   const setShowSettled = (on: boolean) => {
     setShowSettledState(on)
@@ -145,20 +147,23 @@ export default function Groups() {
           <EyeSlashIcon size={16} aria-hidden /> {hidden.size} settled {hidden.size === 1 ? 'group' : 'groups'} hidden · Show
         </button>
       )}
-      <Section title="Personal">
-        {personal.length ? (
-          <>
-            {list(personal)}
-            <Link to="/groups/new?type=personal" className="text-muted mt-2 flex min-h-11 items-center gap-2 px-1 text-sm" data-testid="wallet-new">
-              <AddIcon size={18} aria-hidden /> New wallet, e.g. Fuel or Groceries
+      {/* Simple has no personal wallets (docs/SIMPLE_MODE.md); they stay, out of sight. */}
+      {showWallets && (
+        <Section title="Personal">
+          {personal.length ? (
+            <>
+              {list(personal)}
+              <Link to="/groups/new?type=personal" className="text-muted mt-2 flex min-h-11 items-center gap-2 px-1 text-sm" data-testid="wallet-new">
+                <AddIcon size={18} aria-hidden /> New wallet, e.g. Fuel or Groceries
+              </Link>
+            </>
+          ) : (
+            <Link to="/groups/new?type=personal" className="card text-muted flex min-h-14 items-center gap-2 px-4 py-3 text-sm">
+              <AddIcon size={18} aria-hidden /> Track your own spending in a personal wallet
             </Link>
-          </>
-        ) : (
-          <Link to="/groups/new?type=personal" className="card text-muted flex min-h-14 items-center gap-2 px-4 py-3 text-sm">
-            <AddIcon size={18} aria-hidden /> Track your own spending in a personal wallet
-          </Link>
-        )}
-      </Section>
+          )}
+        </Section>
+      )}
       {archived.length > 0 && (
         <Collapsible
           title="Archived"

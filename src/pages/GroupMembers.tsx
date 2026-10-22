@@ -37,6 +37,7 @@ import { labelOf } from '@/lib/shortNames'
 import { Switch } from '@/components/Switch'
 import { MergeOffers, MergeSheet } from '@/features/merge/Merge'
 import { mergeCandidates } from '@/lib/merge'
+import { useFeature } from '@/hooks/useMode'
 
 /**
  * A group's people: who is in it, whether they have joined, where each stands, and adding or
@@ -60,6 +61,7 @@ export default function GroupMembers() {
   const remove = useRemoveMember(d)
   const mergeRequests = useMergeRequests(groupId)
   const [mergeFrom, setMergeFrom] = useState<string | null>(null)
+  const showMerge = useFeature('merge')
   usePageTitle(liveGroup ? `Members · ${liveGroup.name}` : liveGroup === null ? 'Group not found' : undefined)
 
   if (liveGroup === null)
@@ -130,8 +132,9 @@ export default function GroupMembers() {
     return x ? `/groups/${group.id}/settle?from=${x.from}&to=${x.to}&amount=${x.amount}` : `/groups/${group.id}/settle`
   }
 
+  // Simple has no Merge (docs/SIMPLE_MODE.md); merges others ask for still arrive (MergeOffers).
   const mergeAction = (id: string): SwipeAction[] =>
-    group.members[id]?.removedAt === undefined && mergeCandidates(group.members, id).length
+    showMerge && group.members[id]?.removedAt === undefined && mergeCandidates(group.members, id).length
       ? [
           {
             label: 'Merge',
@@ -224,7 +227,7 @@ export default function GroupMembers() {
             })}
           </ul>
           <HintText hint={SWIPE_HINT} className="text-muted px-1 text-xs" />
-          {group.createdBy === user.uid && (
+          {group.createdBy === user.uid && showMerge && (
             // Room at the end so it clears the raised + button. Optional in the Minimal look.
             <Detail min={2}>
               <div className="card mb-[calc(var(--lane)-var(--nav-h))] flex items-center justify-between gap-3 p-4">

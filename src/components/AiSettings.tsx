@@ -31,6 +31,7 @@ import { PictureTest } from './PictureTest'
 import { HintText, InfoTip, type Hint } from './Hint'
 import { Select } from './Select'
 import { SettingsSection } from './SettingsSection'
+import { useFeature } from '@/hooks/useMode'
 import { Switch } from './Switch'
 import { useToast } from './Toast'
 
@@ -110,6 +111,7 @@ export function AiSettings() {
   const aiPayments = useFlag('aiPayments')
   // The admin's switch for icons with AI (config/app flags.aiIcons); server-enforced.
   const aiIcons = useFlag('aiIcons')
+  const aiFeatures = useFeature('aiFeatures')
   // The admin's switch for the automatic icon asking AI (config/app flags.aiIconAuto); server-enforced.
   const aiIconAuto = useFlag('aiIconAuto')
   const [models, setModels] = useState<AiModel[] | null>(null)
@@ -236,170 +238,179 @@ export function AiSettings() {
 
       {prefs.aiEnabled && (
         <>
-          <SettingsSection icon={<RowScanIcon size={18} aria-hidden />} title="Reading bills and screenshots" testId="ai-section-reading">
-            {aiImages ? (
-              <Row
-                title="Bills & statements"
-                testId="ai-images"
-                checked={prefs.aiImages}
-                onChange={(v) => set({ aiImages: v })}
-                text={
-                  prefs.aiImages
-                    ? { full: `Photos go to ${aiName} to read items, taxes and transactions.`, short: `Photos go to ${aiName}`, tier: 'help' }
-                    : { full: 'Read on this phone (less accurate). Statement import needs AI.', short: 'Read on this phone, less accurately', tier: 'help' }
-                }
-              />
-            ) : (
-              <div data-testid="ai-images-off">
-                <div className="font-semibold">Bills & statements</div>
-                <div className="text-muted text-sm">Reading bills with AI is switched off for everyone right now</div>
-              </div>
-            )}
-            {aiPayments ? (
-              <Row
-                title="Check payment screenshots"
-                testId="ai-payments"
-                checked={prefs.aiPayments}
-                onChange={(v) => set({ aiPayments: v })}
-                text={
-                  prefs.aiPayments
-                    ? {
-                        full: 'In groups where payments need your OK, a payment to you counts straight away when its screenshot matches. Uses your AI quota.',
-                        short: 'A matching screenshot counts without your OK',
-                        // 'help' like every other row here: the list shows a line under all of them or none.
-                        tier: 'help',
-                      }
-                    : { full: 'Payments to you wait for your OK, even with a screenshot attached.', short: 'Payments to you wait for your OK', tier: 'help' }
-                }
-              />
-            ) : (
-              <div data-testid="ai-payments-off">
-                <div className="font-semibold">Check payment screenshots</div>
-                <div className="text-muted text-sm">Switched off for everyone right now: payments wait for your OK</div>
-              </div>
-            )}
-          </SettingsSection>
-          <SettingsSection icon={<RowChatIcon size={18} aria-hidden />} title="Bank SMS" testId="ai-section-sms">
-            <Row
-              title="Bank SMS the app can’t read"
-              testId="ai-sms"
-              checked={prefs.aiSms}
-              onChange={(v) => set({ aiSms: v })}
-              text={
-                prefs.aiSms
-                  ? {
-                      full: `Only messages the built-in reader misses go to ${aiName}, with account numbers masked.`,
-                      short: 'Only missed messages, account numbers masked',
-                      tier: 'help',
+          {/* Simple keeps Use AI, free AI and Your key and models; the per-feature switches keep their values (docs/SIMPLE_MODE.md). */}
+          {aiFeatures && (
+            <>
+              <SettingsSection icon={<RowScanIcon size={18} aria-hidden />} title="Reading bills and screenshots" testId="ai-section-reading">
+                {aiImages ? (
+                  <Row
+                    title="Bills & statements"
+                    testId="ai-images"
+                    checked={prefs.aiImages}
+                    onChange={(v) => set({ aiImages: v })}
+                    text={
+                      prefs.aiImages
+                        ? { full: `Photos go to ${aiName} to read items, taxes and transactions.`, short: `Photos go to ${aiName}`, tier: 'help' }
+                        : { full: 'Read on this phone (less accurate). Statement import needs AI.', short: 'Read on this phone, less accurately', tier: 'help' }
                     }
-                  : { full: 'Unreadable messages are skipped.', tier: 'help' }
-              }
-            />
-            {prefs.aiSms && (
-              <Row
-                title={`Also ask ${aiName} who was paid`}
-                testId="ai-sms-merchant"
-                checked={prefs.aiSmsMerchant}
-                onChange={(v) => set({ aiSmsMerchant: v })}
-                text={{
-                  full: `When the app reads the amount but not the payee, the masked message is sent to ${aiName} for the name. Off: such payments are saved as “Payment”.`,
-                  short: 'For the payee’s name when the app can’t read it',
-                  tier: 'help',
-                }}
-              />
-            )}
-          </SettingsSection>
-          <SettingsSection icon={<RowKeyboardIcon size={18} aria-hidden />} title="Quick add" testId="ai-section-quick-add">
-            {aiQuickAdd ? (
-              <Row
-                title="Quick add with AI"
-                testId="ai-quick-add"
-                checked={prefs.aiQuickAdd}
-                onChange={(v) => set({ aiQuickAdd: v })}
-                text={{
-                  full: 'When a line is too complex to read, AI works it out. Uses your AI quota.',
-                  short: 'AI works out lines too complex to read',
-                  tier: 'help',
-                }}
-              />
-            ) : (
-              <div data-testid="ai-quick-add-off">
-                <div className="font-semibold">Quick add with AI</div>
-                <div className="text-muted text-sm">Switched off for everyone right now</div>
-              </div>
-            )}
-          </SettingsSection>
-          {!aiIcons && !aiIconAuto && (
-            <SettingsSection icon={<RowIconsIcon size={18} aria-hidden />} title="Icons" testId="ai-section-icons">
-              <div data-testid="ai-icons-off">
-                <div className="font-semibold">AI icons</div>
-                <div className="text-muted text-sm">Switched off for everyone right now</div>
-              </div>
-            </SettingsSection>
-          )}
-          {(aiIcons || aiIconAuto) && (
-            <SettingsSection icon={<RowIconsIcon size={18} aria-hidden />} title="Icons" testId="ai-section-icons">
-              {aiIcons && (
-                <Row
-                  title="AI icons"
-                  testId="ai-icons"
-                  checked={prefs.aiIcons}
-                  onChange={(v) => set({ aiIcons: v })}
-                  text={{
-                    full: `Tap an icon and search: when nothing fits, Suggest with AI offers three emoji and a few drawn icons for what you typed. With your own Gemini key, Draw a picture too (billed to your key, ${pictureCost()} a picture). Only when you ask, never in private groups. Uses your AI quota.`,
-                    short: 'Suggest icons for what you search',
-                    tier: 'help',
-                  }}
-                />
-              )}
-              {aiIconAuto && (
-                <Row
-                  title="AI picks icons"
-                  testId="ai-icon-auto"
-                  checked={prefs.aiIconAuto}
-                  onChange={(v) => set({ aiIconAuto: v })}
-                  text={{
-                    full: 'When the app can’t tell the icon from a title (“Toit”), AI picks one of its own icons, and the category or group type while you haven’t chosen one. Never in private groups. Uses your AI quota.',
-                    short: 'AI picks the icon when the app can’t tell',
-                    tier: 'help',
-                  }}
-                />
-              )}
-              {hasKey && prefs.aiIcons && (
-                <div data-testid="ai-picture-model">
-                  <div className="label">Model for pictures</div>
-                  <Select
-                    aria-label="Model for pictures"
-                    value={prefs.aiPictureModel}
-                    onChange={(v) => set({ aiPictureModel: v })}
-                    options={pictureModelOptions(pictureModels, prefs.aiPictureModel)}
                   />
-                  {pictureModels === null ? (
-                    <p className="text-muted mt-1 text-xs">Loading the image models your key can use…</p>
-                  ) : (
-                    <HintText
-                      className="text-muted mt-1 text-xs"
-                      hint={{
-                        full: 'Draw a picture in the icon sheet uses it, billed to your key (image models have no free tier). If it fails, the recommended one is tried next.',
-                        short: 'For Draw a picture, billed to your key',
+                ) : (
+                  <div data-testid="ai-images-off">
+                    <div className="font-semibold">Bills & statements</div>
+                    <div className="text-muted text-sm">Reading bills with AI is switched off for everyone right now</div>
+                  </div>
+                )}
+                {aiPayments ? (
+                  <Row
+                    title="Check payment screenshots"
+                    testId="ai-payments"
+                    checked={prefs.aiPayments}
+                    onChange={(v) => set({ aiPayments: v })}
+                    text={
+                      prefs.aiPayments
+                        ? {
+                            full: 'In groups where payments need your OK, a payment to you counts straight away when its screenshot matches. Uses your AI quota.',
+                            short: 'A matching screenshot counts without your OK',
+                            // 'help' like every other row here: the list shows a line under all of them or none.
+                            tier: 'help',
+                          }
+                        : {
+                            full: 'Payments to you wait for your OK, even with a screenshot attached.',
+                            short: 'Payments to you wait for your OK',
+                            tier: 'help',
+                          }
+                    }
+                  />
+                ) : (
+                  <div data-testid="ai-payments-off">
+                    <div className="font-semibold">Check payment screenshots</div>
+                    <div className="text-muted text-sm">Switched off for everyone right now: payments wait for your OK</div>
+                  </div>
+                )}
+              </SettingsSection>
+              <SettingsSection icon={<RowChatIcon size={18} aria-hidden />} title="Bank SMS" testId="ai-section-sms">
+                <Row
+                  title="Bank SMS the app can’t read"
+                  testId="ai-sms"
+                  checked={prefs.aiSms}
+                  onChange={(v) => set({ aiSms: v })}
+                  text={
+                    prefs.aiSms
+                      ? {
+                          full: `Only messages the built-in reader misses go to ${aiName}, with account numbers masked.`,
+                          short: 'Only missed messages, account numbers masked',
+                          tier: 'help',
+                        }
+                      : { full: 'Unreadable messages are skipped.', tier: 'help' }
+                  }
+                />
+                {prefs.aiSms && (
+                  <Row
+                    title={`Also ask ${aiName} who was paid`}
+                    testId="ai-sms-merchant"
+                    checked={prefs.aiSmsMerchant}
+                    onChange={(v) => set({ aiSmsMerchant: v })}
+                    text={{
+                      full: `When the app reads the amount but not the payee, the masked message is sent to ${aiName} for the name. Off: such payments are saved as “Payment”.`,
+                      short: 'For the payee’s name when the app can’t read it',
+                      tier: 'help',
+                    }}
+                  />
+                )}
+              </SettingsSection>
+              <SettingsSection icon={<RowKeyboardIcon size={18} aria-hidden />} title="Quick add" testId="ai-section-quick-add">
+                {aiQuickAdd ? (
+                  <Row
+                    title="Quick add with AI"
+                    testId="ai-quick-add"
+                    checked={prefs.aiQuickAdd}
+                    onChange={(v) => set({ aiQuickAdd: v })}
+                    text={{
+                      full: 'When a line is too complex to read, AI works it out. Uses your AI quota.',
+                      short: 'AI works out lines too complex to read',
+                      tier: 'help',
+                    }}
+                  />
+                ) : (
+                  <div data-testid="ai-quick-add-off">
+                    <div className="font-semibold">Quick add with AI</div>
+                    <div className="text-muted text-sm">Switched off for everyone right now</div>
+                  </div>
+                )}
+              </SettingsSection>
+              {!aiIcons && !aiIconAuto && (
+                <SettingsSection icon={<RowIconsIcon size={18} aria-hidden />} title="Icons" testId="ai-section-icons">
+                  <div data-testid="ai-icons-off">
+                    <div className="font-semibold">AI icons</div>
+                    <div className="text-muted text-sm">Switched off for everyone right now</div>
+                  </div>
+                </SettingsSection>
+              )}
+              {(aiIcons || aiIconAuto) && (
+                <SettingsSection icon={<RowIconsIcon size={18} aria-hidden />} title="Icons" testId="ai-section-icons">
+                  {aiIcons && (
+                    <Row
+                      title="AI icons"
+                      testId="ai-icons"
+                      checked={prefs.aiIcons}
+                      onChange={(v) => set({ aiIcons: v })}
+                      text={{
+                        full: `Tap an icon and search: when nothing fits, Suggest with AI offers three emoji and a few drawn icons for what you typed. With your own Gemini key, Draw a picture too (billed to your key, ${pictureCost()} a picture). Only when you ask, never in private groups. Uses your AI quota.`,
+                        short: 'Suggest icons for what you search',
                         tier: 'help',
                       }}
                     />
                   )}
-                  <PictureTest which="own" model={prefs.aiPictureModel} />
-                </div>
+                  {aiIconAuto && (
+                    <Row
+                      title="AI picks icons"
+                      testId="ai-icon-auto"
+                      checked={prefs.aiIconAuto}
+                      onChange={(v) => set({ aiIconAuto: v })}
+                      text={{
+                        full: 'When the app can’t tell the icon from a title (“Toit”), AI picks one of its own icons, and the category or group type while you haven’t chosen one. Never in private groups. Uses your AI quota.',
+                        short: 'AI picks the icon when the app can’t tell',
+                        tier: 'help',
+                      }}
+                    />
+                  )}
+                  {hasKey && prefs.aiIcons && (
+                    <div data-testid="ai-picture-model">
+                      <div className="label">Model for pictures</div>
+                      <Select
+                        aria-label="Model for pictures"
+                        value={prefs.aiPictureModel}
+                        onChange={(v) => set({ aiPictureModel: v })}
+                        options={pictureModelOptions(pictureModels, prefs.aiPictureModel)}
+                      />
+                      {pictureModels === null ? (
+                        <p className="text-muted mt-1 text-xs">Loading the image models your key can use…</p>
+                      ) : (
+                        <HintText
+                          className="text-muted mt-1 text-xs"
+                          hint={{
+                            full: 'Draw a picture in the icon sheet uses it, billed to your key (image models have no free tier). If it fails, the recommended one is tried next.',
+                            short: 'For Draw a picture, billed to your key',
+                            tier: 'help',
+                          }}
+                        />
+                      )}
+                      <PictureTest which="own" model={prefs.aiPictureModel} />
+                    </div>
+                  )}
+                  {aiIcons && prefs.aiIcons && !hasKey && (
+                    <HintText
+                      className="text-muted text-xs"
+                      hint={{
+                        full: 'Draw a picture needs your own Gemini key, added under Your key and models.',
+                        short: 'Draw a picture needs your own key',
+                        tier: 'help',
+                      }}
+                    />
+                  )}
+                </SettingsSection>
               )}
-              {aiIcons && prefs.aiIcons && !hasKey && (
-                <HintText
-                  className="text-muted text-xs"
-                  hint={{
-                    full: 'Draw a picture needs your own Gemini key, added under Your key and models.',
-                    short: 'Draw a picture needs your own key',
-                    tier: 'help',
-                  }}
-                />
-              )}
-            </SettingsSection>
+            </>
           )}
           <Collapsible
             icon={<KeyIcon size={18} aria-hidden />}

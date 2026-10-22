@@ -2174,6 +2174,30 @@ test.describe('Simple mode', () => {
     await page.reload()
     await expect(page.getByTestId('icon-style')).toBeVisible()
   })
+  test('Simple leaves out Animations, Automation and personal wallets; Advanced has them, and nothing was lost', async ({ page }) => {
+    await page.goto('/settings')
+    await expect(page.getByTestId('settings-preferences')).toBeVisible()
+    await expect(page.getByTestId('settings-animations')).toHaveCount(0)
+    await expect(page.getByTestId('settings-automation')).toHaveCount(0)
+    await page.goto('/groups')
+    await expect(
+      page
+        .getByTestId('group-create')
+        .or(page.getByRole('link', { name: /new group/i }))
+        .first(),
+    ).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Personal' })).toHaveCount(0)
+    await page.goto('/settings/preferences')
+    await page
+      .getByTestId('mode')
+      .getByRole('radio', { name: /Advanced/ })
+      .click()
+    await page.goto('/settings')
+    await expect(page.getByTestId('settings-animations')).toBeVisible()
+    await expect(page.getByTestId('settings-automation')).toBeVisible()
+    await page.goto('/groups')
+    await expect(page.getByRole('heading', { name: 'Personal' })).toBeVisible()
+  })
 })
 
 test('Encrypted groups: ? opens Help on private groups, and back returns to the page', async ({ page }) => {

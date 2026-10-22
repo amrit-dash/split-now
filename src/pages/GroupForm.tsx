@@ -52,6 +52,7 @@ import { defaultOpensWith, type OpensWith, privateBlocker } from '@/lib/vault-se
 import { LockSetup } from '@/features/vault/LockSetup'
 import { SetPatternSheet } from '@/features/vault/SetPatternSheet'
 import { Collapsible } from '@/components/Collapsible'
+import { useFeature } from '@/hooks/useMode'
 import { MoneyInput } from '@/components/MoneyInput'
 import { formatRange } from '@/components/Misc'
 import { formatMoney } from '@/lib/money'
@@ -118,6 +119,8 @@ export default function GroupForm() {
   const toast = useToast()
   // Minimal look: the optional extras (type chips, the type guess) step aside.
   const extras = useShows(2)
+  const showApprovals = useFeature('approvals')
+  const showWallets = useFeature('wallets')
   // A 'help' line is drawn only in Full and When needed; aria-describedby must not point at nothing.
   const look = useLook()
   const helpLines = look === 'full' || look === 'needed'
@@ -795,8 +798,9 @@ export default function GroupForm() {
           <span className="text-muted">· opens with your pattern and passkey</span>
         </div>
       )}
-      {shareable && (
+      {shareable && showApprovals && (
         // Everything that needs someone's OK in this group, in one place; closed, its line says what is on.
+        // Simple leaves it out (all off for a new group; a group's own settings keep their values).
         <Collapsible
           title="Approvals"
           icon={<Stamp size={20} aria-hidden />}
@@ -944,7 +948,7 @@ export default function GroupForm() {
       >
         {!existing && (
           <div className="grid grid-cols-3 gap-1 rounded-2xl bg-slate-100 p-1 dark:bg-ink-800" role="radiogroup" aria-label="What are you creating?">
-            {KINDS.map((k) => (
+            {KINDS.filter((k) => k.kind !== 'personal' || showWallets).map((k) => (
               <button
                 key={k.kind}
                 type="button"

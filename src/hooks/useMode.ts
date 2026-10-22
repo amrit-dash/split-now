@@ -4,7 +4,7 @@ import { useCaptureTokens, useGroups } from '@/hooks/data'
 import { getDuo } from '@/lib/accent'
 import { getIconStylePref } from '@/lib/icon-style-pref'
 import { getLookPref } from '@/lib/look-pref'
-import { customLook, effectiveMode, groupUsesApprovals, type Mode, type ModeChoice, settleAuto } from '@/lib/mode'
+import { customLook, effectiveMode, groupUsesApprovals, type Mode, type ModeChoice, type SimpleHide, settleAuto, showsFeature } from '@/lib/mode'
 import { getModePref, setModePref, subscribeModePref } from '@/lib/mode-pref'
 import { getMotion } from '@/lib/motion'
 
@@ -43,3 +43,6 @@ export function ModeSettler() {
   }, [choice, capture, approvals])
   return null
 }
+
+/** Whether this screen shows a control Simple hides (src/lib/mode.ts SIMPLE_HIDES). */
+export const useFeature = (f: SimpleHide): boolean => showsFeature(useMode(), f)

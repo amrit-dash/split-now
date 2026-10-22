@@ -1,3 +1,4 @@
+import { useFeature } from '@/hooks/useMode'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowDown, ChevronDown, Lightbulb, X } from 'lucide-react'
@@ -96,6 +97,8 @@ export default function SettleUp() {
   const [date, setDate] = useState(todayISO())
   /** part payment: record the rest as waived, so nothing stays owed */
   const [waive, setWaive] = useState(false)
+  // Simple doesn't offer waiving the rest (docs/SIMPLE_MODE.md): a part payment just leaves the rest owed.
+  const showWaive = useFeature('waive')
   const [payee, setPayee] = useState<MemberProfile | null>(null)
   const [busy, setBusy] = useState(false)
   const [init, setInit] = useState(false)
@@ -425,7 +428,7 @@ export default function SettleUp() {
             status={conv?.status}
           />
         )}
-        {restAfter > 0 && (
+        {restAfter > 0 && showWaive && (
           <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800" data-testid="waive-rest">
             <div className="min-w-0">
               <div className="font-semibold">Waive the rest ({formatMoney(restAfter, cur)})</div>
