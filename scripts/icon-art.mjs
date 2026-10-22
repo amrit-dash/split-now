@@ -146,7 +146,8 @@ const UI = {
   FileUploadIcon: 'document-arrow-up',
   FlagIcon: 'flag',
   GroupsIcon: 'people',
-  HandCoinsIcon: 'money-hand',
+  /* Claim: Solar's hand holding a note, two-tone like the lifebuoy (owner): the note strong, the hand lighter. */
+  HandCoinsIcon: 'solar:hand-money',
   HandHeartIcon: 'heart',
   HelpIcon: '~lifebuoy',
   HistoryIcon: 'history',
@@ -337,7 +338,7 @@ function jsx(markup) {
 }
 
 // The Profile and Settings rows draw Solar's 1.5 lines at 2, so they read as firmly as the text beside them.
-const thicker = (markup, where) => (where.startsWith('Row') ? markup.replace(/stroke-width="1\.5"/g, 'stroke-width="2"') : markup)
+const thicker = (markup, where) => (where.startsWith('Row') || where === 'HandCoinsIcon' ? markup.replace(/stroke-width="1\.5"/g, 'stroke-width="2"') : markup)
 
 const art = (ref, kind, where) => {
   // A Fluent drawing as a Help picture: its fill at half tone under its line (Outline), or its
