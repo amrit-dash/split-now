@@ -197,15 +197,23 @@ export default function Animations() {
             testId="motion-circles"
           />
         </div>
-        <SectionTitle>Pro badge</SectionTitle>
-        <div className="card p-4">
+        <SectionTitle>Badges</SectionTitle>
+        <div className="card space-y-4 p-4">
           <Row
-            title="Shine and turning ring"
-            text={{ full: 'On PRO badges. Off, they stay still.', tier: 'help' }}
-            checked={prefs.pro}
+            title="Turning ring"
+            text={{ full: 'The PRO, DEV or PRO DEV ring round a photo or a 1:1 slowly turns', short: 'The ring round a photo turns', tier: 'help' }}
+            checked={prefs.ring}
             disabled={off}
-            onChange={(pro) => set({ pro })}
-            testId="motion-pro"
+            onChange={(ring) => set({ ring })}
+            testId="motion-ring"
+          />
+          <Row
+            title="Shine"
+            text={{ full: 'Light passes over PRO, DEV and PRO DEV beside names', short: 'Light passes over the badge', tier: 'help' }}
+            checked={prefs.shine}
+            disabled={off}
+            onChange={(shine) => set({ shine })}
+            testId="motion-shine"
           />
         </div>
       </fieldset>

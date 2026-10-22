@@ -6,6 +6,7 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Settings → Animations → **Badges** has two switches: **Turning ring** (the ring round a photo or a 1:1) and **Shine** (the light over the badge beside a name), for PRO, DEV and PRO DEV alike. Before, one switch called Pro badge did both. Your old choice carries over to both.
 - Scan → Statement works without AI: with AI off or not available, your phone reads the screenshots and lists the payments for you to pick. Before, it stopped with “Statement import needs AI”. The AI switch in a Scan card’s corner is now a round brain button with “AI on” / “AI off” beside it, inside the card’s edge (it was a bot pill pushed into the corner).
 - Help: the step controls are three round buttons of one height (back, play, next, which turns into start again on the last step), steps and captions sit centred with room before their dot or number, and every section ends with **Up next**, the following section in the guide, so you can read on without going back each time.
 - Voice transcription has one home: Settings → AI features → Voice (Transcribe with AI), in Simple and Advanced. Before, the same setting was also in Preferences as Native / AI.
