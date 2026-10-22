@@ -65,6 +65,10 @@ export function useSwipeDismiss(onDismiss: () => void) {
       opacity: leaving ? 0 : dx ? swipeOpacity(dx, start.current?.width ?? 320) : undefined,
       transition: dragging ? 'none' : 'transform 180ms ease-out, opacity 180ms ease-out',
       touchAction: 'pan-y',
+      // With a mouse, a drag that ends short selects some of the words, and the next drag that starts
+      // on them drags the text instead (the browser cancels the swipe); a card you swipe isn't text to copy.
+      userSelect: 'none',
+      WebkitUserSelect: 'none',
     } satisfies CSSProperties,
   }
   return { bind, leaving: !!leaving }

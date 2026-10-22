@@ -439,7 +439,7 @@ export const SECTIONS: HelpSection[] = [
       { text: '**What’s new** lists every release of this version; tap a line to read about it.', mark: 'whatsnew' },
     ],
     points: [
-      'After an update, a banner rises above the tab bar on Home a moment after it opens, with the version and **What’s new**. Close it with ✕ or swipe it sideways.',
+      'After an update, a banner rises above the tab bar a moment after the app opens, on Home or whichever tab you’re on, with the version and **What’s new**. Close it with ✕ or swipe it sideways.',
       'Every floating notice (that banner, New version ready, Install Split Now and the small messages above the tab bar) can be swiped sideways to close it.',
       'What’s new marks the releases since you last looked on this device.',
       'The full list of changes is in CHANGELOG.md on GitHub.',

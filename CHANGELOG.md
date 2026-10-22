@@ -6,6 +6,7 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Swiping a notice away with a mouse works every time. Before, a short drag that sprang back selected some of its words, and the next drag on them did nothing.
 - Two-tone icons where they sit on colour: the tab you're on (in the Outline style) and the icons inside accent buttons have a soft fill under their line, like the Help lifebuoy. Groups uses three people side by side (before, two overlapping people looked cut off). The tab bar is a little more solid, so a bright button scrolling under it no longer shows through.
 - Icons: Profile and Settings rows keep their two-tone drawings, now in your accent's colours on a soft tile with firmer lines; Support the developer is a hand holding a heart; Notifications is a bell with a dot; the Settings gear is strong with a light middle. Quick add is a plain bot, Scan → Payment shows a phone with a small rupee on it, and Start table has a filled fork and knife. Claim is a hand holding a note, the note strong and the hand lighter.
 - Help's How it works explainers have shorter, livelier captions and tips, and smoother pictures: the balance beam settles level before it tips, the payment count climbs as the tangle draws, the rounded shares visibly round, and a private group's key reaches the phone only after the pattern. Each part now stays until its picture has finished, plus a moment. Before, some parts moved on mid-animation and the words ran long.
