@@ -63,8 +63,11 @@ export interface HelpSection {
   /** the icon on its card and row (src/lib/ui-icons.ts) */
   icon?: UiIconName
   steps?: HelpStep[]
-  /** an explainer: an animated picture and a caption per beat, in place of steps */
-  story?: { kind: StoryKind; beats: string[] }
+  /**
+   * an explainer: an animated picture and a caption per beat, in place of steps. `alt` is another
+   * picture of the same idea, shown instead now and then (`chance` of the visits) for variety.
+   */
+  story?: { kind: StoryKind; beats: string[]; alt?: { kind: StoryKind; beats: string[]; chance: number } }
   /**
    * an explainer listed in its own chapter, not under How it works on the front page: one that is
    * a quiet extra (Earn Pro), not a picture of how the app thinks
@@ -236,4 +239,14 @@ export function markBox(m: HelpShot['marks'][number], pad = 0.012): { left: numb
   const r = Math.min(1, m.x + m.w / 2 + pad)
   const b = Math.min(1, m.y + m.h / 2 + pad * 1.5)
   return { left: pct(l), top: pct(t), width: pct(r - l), height: pct(b - t) }
+}
+
+/**
+ * Which picture an explainer plays this visit: usually its own, now and then its `alt` (the owner
+ * keeps the jar for Why a captured payment waits as an occasional variant of the doors). `still`
+ * (automated runs, screenshots) always gets the main one, so they stay repeatable.
+ */
+export function pickStory(story: NonNullable<HelpSection['story']>, rand: () => number, still = false): { kind: StoryKind; beats: string[] } {
+  if (!story.alt || still || rand() >= story.alt.chance) return { kind: story.kind, beats: story.beats }
+  return { kind: story.alt.kind, beats: story.alt.beats }
 }

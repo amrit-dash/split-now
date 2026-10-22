@@ -3,6 +3,7 @@ import {
   countedSections,
   beatMs,
   boldParts,
+  pickStory,
   clampStep,
   guideLayout,
   type HelpShot,
@@ -309,5 +310,17 @@ describe('countedSections', () => {
     expect(ids).not.toContain('help-guide')
     expect(ids).toContain('add-expense')
     expect(ids.length).toBe(SECTIONS.filter((s) => !s.unlisted).length)
+  })
+})
+
+describe('pickStory', () => {
+  const story = { kind: 'doors' as const, beats: ['a'], alt: { kind: 'jars' as const, beats: ['b'], chance: 0.2 } }
+  it('plays the main picture most visits and the alternative under its chance', () => {
+    expect(pickStory(story, () => 0.5).kind).toBe('doors')
+    expect(pickStory(story, () => 0.1)).toEqual({ kind: 'jars', beats: ['b'] })
+  })
+  it('always plays the main one when there is no alternative or the run is automated', () => {
+    expect(pickStory({ kind: 'pot', beats: ['x'] }, () => 0)).toEqual({ kind: 'pot', beats: ['x'] })
+    expect(pickStory(story, () => 0, true).kind).toBe('doors')
   })
 })

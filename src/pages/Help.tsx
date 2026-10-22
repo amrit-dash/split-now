@@ -7,7 +7,7 @@ import { StepPlayer, StepText } from '@/features/help/StepPlayer'
 import { StoryPlayer } from '@/features/help/StoryPlayer'
 import { APP_SEMVER, useWhatsNew } from '@/hooks/useWhatsNew'
 import { usePageTitle } from '@/lib/brand'
-import { countedSections, guideLayout, type HelpSection, relatedOf, searchHelp, sectionsFor } from '@/lib/help'
+import { countedSections, guideLayout, type HelpSection, pickStory, relatedOf, searchHelp, sectionsFor } from '@/lib/help'
 import { EMPTY_HELP_PROGRESS, helpProgress, withDone } from '@/lib/help-progress'
 import { ProCelebration } from '@/features/help/ProCelebration'
 import { repo } from '@/data'
@@ -339,7 +339,7 @@ function SectionPage({ id }: { id: string }) {
     <div className="space-y-4" data-testid="help-section">
       <PageHeader title={s.title} back="/help" subtitle={s.summary} />
       <ProCelebration pct={helpProgress(progress ?? EMPTY_HELP_PROGRESS, countedSections(shown)).pct} />
-      {s.story ? <StoryPlayer key={s.id} kind={s.story.kind} beats={s.story.beats} onLast={finish} /> : null}
+      {s.story ? <SectionStory key={s.id} story={s.story} onLast={finish} /> : null}
       {s.steps?.length ? <StepPlayer key={s.id} sectionId={s.id} steps={s.steps} onLast={finish} /> : null}
       {s.open && (
         <Link to={s.open.to} className="btn-primary w-full" data-testid="help-try">
@@ -399,4 +399,10 @@ function EndSeen({ onSeen }: { onSeen: () => void }) {
     return () => io.disconnect()
   }, [])
   return <div ref={ref} aria-hidden className="h-px" />
+}
+
+/** An explainer, with its picture chosen once per visit (now and then its alternative). */
+function SectionStory({ story, onLast }: { story: NonNullable<HelpSection['story']>; onLast: () => void }) {
+  const [pick] = useState(() => pickStory(story, Math.random, typeof navigator !== 'undefined' && navigator.webdriver))
+  return <StoryPlayer kind={pick.kind} beats={pick.beats} onLast={onLast} />
 }

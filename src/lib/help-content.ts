@@ -183,6 +183,16 @@ export const SECTIONS: HelpSection[] = [
         'Only you know. Tap a door: a group, or just you. Or say Not shared.',
         'It goes in only when you pick. Nothing is added on its own.',
       ],
+      // now and then, the same idea as a coin waiting by the jars (owner: keep it for fun)
+      alt: {
+        kind: 'jars',
+        chance: 0.2,
+        beats: [
+          'A captured payment is a coin on the counter. It knows how much, not who it was for.',
+          'Only you know. Drop it in a group’s jar, keep it Personal, or say Not shared.',
+          'It goes in only when you pick. Nothing is added on its own.',
+        ],
+      },
     },
     points: ['It waits in your Inbox under **Captured payments**.', 'Personal goes to your own wallet, not a group.', 'Not shared just clears it.'],
     open: { label: 'Inbox', to: '/inbox' },
