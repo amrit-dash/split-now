@@ -61,8 +61,8 @@ export const SECTIONS: HelpSection[] = [
     story: {
       kind: 'seesaw',
       beats: [
-        'A new group sits level. Nobody owes anybody.',
-        'Asha pays ₹900 for dinner for three. She is owed ₹600. Ravi and Meera owe ₹300 each.',
+        'Asha pays ₹900 for dinner for three. The others’ shares tip the beam.',
+        'She is owed ₹600. Ravi and Meera owe ₹300 each.',
         'They pay her back, and it levels out.',
       ],
     },
@@ -193,14 +193,14 @@ export const SECTIONS: HelpSection[] = [
     icon: 'archive',
     chapter: 'account',
     title: 'Simple and Advanced, the same app',
-    summary: 'One pocket knife. Simple keeps one blade out.',
+    summary: 'A small pocket knife, or the full Swiss knife.',
     keywords: ['simple', 'advanced', 'mode', 'hidden', 'missing', 'where did it go', 'pocket knife'],
     story: {
       kind: 'knife',
       beats: [
-        'Simple is a pocket knife with the one blade you use every day.',
-        'Advanced folds out every tool: auto-capture, approvals, wallets and more.',
-        'Fold them back and nothing is lost. What you set up keeps working.',
+        'Simple is a small pocket knife: the one blade you use every day.',
+        'Advanced is the full Swiss knife: auto-capture, approvals, wallets and every other tool.',
+        'Back in Simple it folds down small again. Nothing is thrown away.',
       ],
     },
     points: ['Switching only shows or hides. Your groups and settings stay.', 'Something arriving for you, like a payment to confirm, shows in both.'],
@@ -218,7 +218,7 @@ export const SECTIONS: HelpSection[] = [
       kind: 'jug',
       beats: [
         'Groups in other currencies are different drinks: $40, €25 and ₹1,200 don’t add up.',
-        'Collect in my currency pours each into one jug, measured in yours at today’s rate.',
+        'Collect in my currency pours each into one jug, measured in ₹ at today’s rate.',
         'One total, marked ≈ because rates move. Each group keeps its own currency.',
       ],
     },
@@ -1756,9 +1756,9 @@ export const SECTIONS: HelpSection[] = [
     story: {
       kind: 'pro',
       beats: [
-        'Help is a stamp card: each section you finish gets a stamp.',
-        'Fill the card and Help says Congratulations.',
-        'Your reward is Pro: a ring round your photo and a badge by your name.',
+        'Help works like a fitness ring: each section you finish fills a piece.',
+        'Finish them all and the ring closes. Congratulations.',
+        'A closed ring earns Pro: the PRO ring round your photo and a badge by your name.',
       ],
     },
     points: ['Others see it on Members and in 1:1s.', 'It’s yours to keep.'],

@@ -1,5 +1,4 @@
 import { type CSSProperties, type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
-import { FeatureIcon } from '@/components/Icon'
 import { AdvancedRocketIcon, SimpleModeIcon } from '@/components/icons'
 import { ProPill, ProRing } from '@/components/ProBadge'
 import type { StoryKind } from '@/lib/help'
@@ -381,10 +380,10 @@ const PIVOT = { x: 180, y: 150 }
 /** Turns with the beam (around the pivot) and plays its spring; `counter` keeps a rider upright. */
 function beamTurn(beat: number, counter = false): CSSProperties {
   const c = counter ? '-c' : ''
-  if (beat === 1) return { transform: `rotate(${counter ? -11 : 11}deg)`, animation: `sx-tip${c} 1500ms cubic-bezier(0.3, 0.7, 0.4, 1) 700ms both` }
-  if (beat === 2) return { transform: 'rotate(0deg)', animation: `sx-level${c} 1500ms cubic-bezier(0.3, 0.7, 0.4, 1) 1300ms both` }
-  // The first beat: the beam rocks gently and settles level, so "level" is something you see happen.
-  return { transform: 'rotate(0deg)', animation: `sx-settle${c} 900ms cubic-bezier(0.3, 0.7, 0.4, 1) both` }
+  // Asha pays and the shares weigh their end down; it stays tipped while the amounts show; paid back, it springs level.
+  if (beat === 0) return { transform: `rotate(${counter ? -11 : 11}deg)`, animation: `sx-tip${c} 1500ms cubic-bezier(0.3, 0.7, 0.4, 1) 700ms both` }
+  if (beat === 1) return { transform: `rotate(${counter ? -11 : 11}deg)` }
+  return { transform: 'rotate(0deg)', animation: `sx-level${c} 1500ms cubic-bezier(0.3, 0.7, 0.4, 1) 1300ms both` }
 }
 
 /** Someone riding the beam at `x` (stage px), kept upright while it tips. */
@@ -398,7 +397,7 @@ function Rider({ x, beat, children }: { x: number; beat: number; children: React
 
 const Seesaw: View = ({ beat, still }) => {
   const id = useIds()
-  const caption = beat === 0 ? 'Level · nobody owes' : beat === 1 ? 'Asha paid ₹900 for three' : 'Paid back · level again'
+  const caption = beat === 0 ? 'Asha paid ₹900 for three' : beat === 1 ? 'The heavy end owes' : 'Paid back · level again'
   return (
     <>
       <At x={180} y={22} style={pop(0)}>
@@ -448,17 +447,28 @@ const Seesaw: View = ({ beat, still }) => {
             r="3.6"
             className="fill-emerald-400"
             style={
-              beat === 1
+              beat === 0
                 ? { transform: 'translateX(-12px)', animation: 'sx-bubble 1200ms ease-out 900ms both' }
-                : beat === 2
-                  ? { transform: 'translateX(0)', animation: 'sx-bubble 1200ms ease-out 1400ms both' }
-                  : undefined
+                : beat === 1
+                  ? { transform: 'translateX(-12px)' }
+                  : { transform: 'translateX(0)', animation: 'sx-bubble 1200ms ease-out 1400ms both' }
             }
           />
           {/* the ₹300 each Ravi and Meera owe, hanging off their end */}
-          {beat === 1 &&
+          {beat < 2 &&
             [272, 314].map((x, i) => (
-              <g key={x} style={{ animation: `sx-drop 800ms cubic-bezier(0.3, 0.8, 0.4, 1) ${200 + i * 180}ms both` }}>
+              <g
+                key={x}
+                style={
+                  beat === 0
+                    ? ({
+                        '--from': 'translateY(-36px)',
+                        '--from-o': 0,
+                        animation: `hm-from 600ms cubic-bezier(0.3, 0.8, 0.4, 1) ${200 + i * 180}ms both`,
+                      } as CSSProperties)
+                    : undefined
+                }
+              >
                 <line x1={x} y1="156" x2={x} y2="172" className="stroke-slate-400" strokeWidth="1.5" />
                 <path
                   d={`M${x - 14},176 Q${x - 14},172 ${x - 10},172 L${x + 10},172 Q${x + 14},172 ${x + 14},176 L${x + 17},196 Q${x + 18},200 ${x + 13},200 L${x - 13},200 Q${x - 18},200 ${x - 17},196 Z`}
@@ -485,9 +495,9 @@ const Seesaw: View = ({ beat, still }) => {
         </svg>
         <Rider x={58} beat={beat}>
           {beat === 1 && (
-            <div className="mb-1" style={pop(1500)}>
+            <div className="mb-1" style={pop(200)}>
               <Pill tone="up">
-                owed <Count from={0} to={600} still={still} d={1550} />
+                owed <Count from={0} to={600} still={still} d={250} />
               </Pill>
             </div>
           )}
@@ -501,7 +511,7 @@ const Seesaw: View = ({ beat, still }) => {
         </Rider>
       </div>
       {beat === 1 && (
-        <At x={290} y={64} style={pop(1700)}>
+        <At x={290} y={64} style={pop(450)}>
           <Pill tone="down">owe ₹300 each</Pill>
         </At>
       )}
@@ -1384,48 +1394,107 @@ const Jars: View = ({ beat }) => {
   )
 }
 
-// ---- Simple and Advanced: a pocket knife ----------------------------------------------------------
+// ---- Simple and Advanced: a small pocket knife and a full Swiss knife ------------------------------------
 
 /*
- * One pocket knife. Simple has the blade you use every day out; Advanced folds out every other tool;
- * folding them back loses none of them. The tools sit behind the handle when closed and turn about
- * the rivet at either end.
+ * Simple is a small pocket knife with the one blade you use every day. Advanced is the same knife
+ * grown into a full Swiss knife: the handle stretches and every tool folds out. Going back, the tools
+ * fold in and it shrinks back to the small one; nothing is thrown away. The handle is two rounded ends
+ * that slide apart over a body that stretches, each end carrying its rivet and the tools that turn on it.
  */
-const HANDLE = { x: 100, y: 148, w: 160, h: 44 }
-const RIVET_L = { x: HANDLE.x + 22, y: HANDLE.y + HANDLE.h / 2 }
-const RIVET_R = { x: HANDLE.x + HANDLE.w - 22, y: HANDLE.y + HANDLE.h / 2 }
-/** Tools are drawn about 150 long and shown at this size, so closed they fit behind the handle. */
-const TOOL_K = 0.68
+const KNIFE = { x: 180, y: 154, r: 19, small: 46, big: 104 }
 
-/*
- * Each tool is drawn pointing right from its rivet. Closed, a left-rivet tool points right (0°) and a
- * right-rivet one left (180°), both hidden behind the handle; `open` is the angle it folds out to,
- * always turning up through the top, the way a real knife opens.
- */
-const TOOLS: Array<{ d: string; at: 'L' | 'R'; open: number; simple?: boolean }> = [
-  // the everyday blade
-  { d: 'M0,-8 H112 Q142,-8 158,8 H0 Z', at: 'R', open: 346, simple: true },
-  // a saw
-  { d: 'M0,-7 H124 L130,0 L124,7 L118,3 L112,7 L106,3 L100,7 L94,3 L88,7 L82,3 L76,7 L70,3 L64,7 L58,3 L52,7 H0 Z', at: 'L', open: -166 },
-  // a screwdriver
-  { d: 'M0,-5 H104 L116,-2 V2 L104,5 H0 Z', at: 'L', open: -134 },
-  // an awl
-  { d: 'M0,-4 H98 L122,0 L98,4 H0 Z', at: 'R', open: 316 },
-  // scissors
-  { d: 'M0,-6 H60 L118,-1 L60,4 H0 Z M0,2 H60 L110,8 L60,9 H0 Z', at: 'L', open: -104 },
-  // a bottle opener
-  { d: 'M0,-6 H84 C100,-6 104,6 92,8 L86,2 H0 Z', at: 'R', open: 284 },
+type Tool = { d: string; at: 'L' | 'R'; open: number; line?: boolean; simple?: boolean; order: number }
+/** Each drawn pointing right from its rivet; closed, a left tool points right (0°) and a right one left (180°), behind the handle. */
+const KNIFE_TOOLS: Tool[] = [
+  // the small knife: the everyday blade, and a bottle opener that stays folded
+  { d: 'M0,-7 H66 Q88,-7 98,6 H0 Z', at: 'R', open: 348, simple: true, order: 0 },
+  { d: 'M0,-5 H56 C68,-5 72,5 62,7 L58,2 H0 Z', at: 'L', open: 0, simple: true, order: 0 },
+  // the Swiss knife adds the rest
+  { d: 'M0,-6 H112 L118,0 L112,6 L107,2 L102,6 L97,2 L92,6 L87,2 L82,6 L77,2 L72,6 L67,2 L62,6 L57,2 L52,6 H0 Z', at: 'L', open: -168, order: 0 },
+  { d: 'M0,-5 H40 L100,-1 L40,3 H0 Z M0,1 H40 L94,6 L40,7 H0 Z', at: 'L', open: -140, order: 1 },
+  { d: 'M0,0 H30 L36,-5 L44,5 L52,-5 L60,5 L68,-5 L74,0', at: 'L', open: -114, line: true, order: 2 },
+  { d: 'M0,-4 H84 L96,-2 V2 L84,4 H0 Z', at: 'L', open: -92, order: 3 },
+  { d: 'M0,-3.5 H76 L100,0 L76,3.5 H0 Z', at: 'R', open: 322, order: 1 },
+  { d: 'M0,-5 H92 Q100,0 92,5 H0 Z', at: 'R', open: 298, order: 2 },
+  { d: 'M0,-3 H64 C70,-3 74,-8 80,-8 C86,-8 86,8 80,8 C74,8 70,3 64,3 H0 Z', at: 'R', open: 272, order: 3 },
 ]
 
 const Knife: View = ({ beat }) => {
   const id = useIds()
-  const advanced = beat === 1
+  const big = beat === 1
+  const half = big ? KNIFE.big : KNIFE.small
+  // The ends slide apart on the second beat and back on the third.
+  const slide = (side: -1 | 1): CSSProperties =>
+    beat === 1
+      ? ({
+          transform: `translateX(${side * half}px)`,
+          '--from': `translateX(${side * KNIFE.small}px)`,
+          animation: 'hm-from 620ms cubic-bezier(0.3, 1.1, 0.5, 1) 200ms both',
+        } as CSSProperties)
+      : beat === 2
+        ? ({
+            transform: `translateX(${side * half}px)`,
+            '--from': `translateX(${side * KNIFE.big}px)`,
+            animation: 'hm-from 520ms cubic-bezier(0.4, 0, 0.2, 1) 800ms both',
+          } as CSSProperties)
+        : { transform: `translateX(${side * half}px)` }
+  const stretch: CSSProperties =
+    beat === 1
+      ? ({
+          transform: 'scaleX(1)',
+          '--from': `scaleX(${KNIFE.small / KNIFE.big})`,
+          animation: 'hm-from 620ms cubic-bezier(0.3, 1.1, 0.5, 1) 200ms both',
+        } as CSSProperties)
+      : beat === 2
+        ? ({
+            transform: `scaleX(${KNIFE.small / KNIFE.big})`,
+            '--from': 'scaleX(1)',
+            animation: 'hm-from 520ms cubic-bezier(0.4, 0, 0.2, 1) 800ms both',
+          } as CSSProperties)
+        : { transform: `scaleX(${KNIFE.small / KNIFE.big})` }
+  const end = (side: 'L' | 'R') => (
+    <g style={slide(side === 'L' ? -1 : 1)}>
+      <g transform={`translate(${KNIFE.x} ${KNIFE.y})`}>
+        {KNIFE_TOOLS.filter((t) => t.at === side).map((t) => {
+          const closed = side === 'L' ? 0 : 180
+          const shown = t.simple || big
+          const angle = t.simple ? (t.open === 0 ? closed : t.open) : big ? t.open : closed
+          let motion: CSSProperties = {}
+          if (t.simple && t.open !== 0 && beat === 0)
+            motion = { '--turn-from': `${closed}deg`, animation: 'hm-turn 640ms cubic-bezier(0.3, 1.15, 0.5, 1) 400ms both' } as CSSProperties
+          if (!t.simple && beat === 1)
+            motion = {
+              '--turn-from': `${closed}deg`,
+              animation: `hm-tool-in 760ms cubic-bezier(0.3, 1.1, 0.5, 1) ${650 + t.order * 110}ms both`,
+            } as CSSProperties
+          if (!t.simple && beat === 2)
+            motion = {
+              '--turn-from': `${t.open}deg`,
+              '--turn-to': `${closed}deg`,
+              animation: `hm-tool-out 640ms cubic-bezier(0.4, 0, 0.2, 1) ${150 + t.order * 80}ms both`,
+            } as CSSProperties
+          return (
+            <g key={t.d} style={{ rotate: `${angle}deg`, transformOrigin: '0px 0px', opacity: shown ? 1 : 0, ...motion }}>
+              {t.line ? (
+                <path d={t.d} fill="none" stroke={`url(#${id('steel')})`} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+              ) : (
+                <path d={t.d} fill={`url(#${id('steel')})`} className="stroke-slate-400/80 dark:stroke-slate-500" strokeWidth="1.2" />
+              )}
+            </g>
+          )
+        })}
+        {/* this end of the handle */}
+        <circle r={KNIFE.r} fill={`url(#${id('cap')})`} />
+      </g>
+    </g>
+  )
   return (
     <>
       <At x={180} y={24} style={pop(0)}>
-        <Pill tone={advanced ? 'accent' : 'even'}>
-          {advanced ? <AdvancedRocketIcon size={12} /> : <SimpleModeIcon size={12} />}
-          {advanced ? 'Advanced' : 'Simple'}
+        <Pill tone={big ? 'accent' : 'even'}>
+          {big ? <AdvancedRocketIcon size={12} /> : <SimpleModeIcon size={12} />}
+          {big ? 'Advanced' : 'Simple'}
         </Pill>
       </At>
       <svg className="absolute inset-0" width={W} height={H}>
@@ -1435,84 +1504,77 @@ const Knife: View = ({ beat }) => {
             <stop offset="0.55" stopColor="#cbd5e1" />
             <stop offset="1" stopColor="#94a3b8" />
           </linearGradient>
-          <linearGradient id={id('handle')} x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id={id('handle')} x1="0" y1={KNIFE.y - KNIFE.r} x2="0" y2={KNIFE.y + KNIFE.r} gradientUnits="userSpaceOnUse">
+            <stop offset="0" style={{ stopColor: 'var(--color-brand-400)' }} />
+            <stop offset="1" style={{ stopColor: 'var(--color-brand-700)' }} />
+          </linearGradient>
+          {/* the same, for the ends, which are drawn about their own rivet */}
+          <linearGradient id={id('cap')} x1="0" y1={-KNIFE.r} x2="0" y2={KNIFE.r} gradientUnits="userSpaceOnUse">
             <stop offset="0" style={{ stopColor: 'var(--color-brand-400)' }} />
             <stop offset="1" style={{ stopColor: 'var(--color-brand-700)' }} />
           </linearGradient>
         </defs>
-        <ellipse cx="180" cy={HANDLE.y + HANDLE.h + 16} rx="96" ry="6" className="fill-brand-900/15 dark:fill-black/40" />
-        {TOOLS.map((t, i) => {
-          const pivot = t.at === 'L' ? RIVET_L : RIVET_R
-          const closed = t.at === 'L' ? 0 : 180
-          const out = t.simple || advanced
-          // What moves this beat: the blade opens on the first; the rest open on the second and fold on the third.
-          const moves = t.simple ? beat === 0 : beat >= 1
-          const from = beat === 2 ? t.open : closed
-          const order = t.simple ? 0 : Math.floor(i / 2)
-          return (
-            <g key={t.d} transform={`translate(${pivot.x} ${pivot.y})`}>
-              <g
-                style={
-                  {
-                    rotate: `${out ? t.open : closed}deg`,
-                    transformOrigin: '0px 0px',
-                    ...(moves
-                      ? {
-                          '--turn-from': `${from}deg`,
-                          animation: `hm-turn ${beat === 2 ? 480 : 640}ms cubic-bezier(0.3, 1.15, 0.5, 1) ${(beat === 0 ? 350 : 200) + order * 150}ms both`,
-                        }
-                      : {}),
-                  } as CSSProperties
-                }
-              >
-                <path
-                  d={t.d}
-                  transform={`scale(${TOOL_K})`}
-                  fill={`url(#${id('steel')})`}
-                  className="stroke-slate-400/80 dark:stroke-slate-500"
-                  strokeWidth="1.5"
-                />
-              </g>
-            </g>
-          )
-        })}
-        {/* the handle, over the folded tools, with its shine and two rivets */}
-        <rect x={HANDLE.x} y={HANDLE.y} width={HANDLE.w} height={HANDLE.h} rx={HANDLE.h / 2} fill={`url(#${id('handle')})`} />
-        <rect x={HANDLE.x + 16} y={HANDLE.y + 7} width={HANDLE.w - 32} height="6" rx="3" fill="#fff" opacity="0.35" />
-        {[RIVET_L, RIVET_R].map((r) => (
-          <circle key={r.x} cx={r.x} cy={r.y} r="5.5" fill="#fff" opacity="0.85" />
+        <ellipse
+          cx={KNIFE.x}
+          cy={KNIFE.y + KNIFE.r + 18}
+          rx={KNIFE.big + 10}
+          ry="6"
+          className="fill-brand-900/15 dark:fill-black/40"
+          style={{ transformBox: 'fill-box', transformOrigin: 'center', ...stretch }}
+        />
+        {end('L')}
+        {end('R')}
+        {/* the body between the ends, and its shine */}
+        <g style={{ transformBox: 'view-box', transformOrigin: `${KNIFE.x}px ${KNIFE.y}px`, ...stretch }}>
+          <rect x={KNIFE.x - KNIFE.big} y={KNIFE.y - KNIFE.r} width={KNIFE.big * 2} height={KNIFE.r * 2} fill={`url(#${id('handle')})`} />
+          <rect x={KNIFE.x - KNIFE.big + 4} y={KNIFE.y - KNIFE.r + 7} width={KNIFE.big * 2 - 8} height="5" rx="2.5" fill="#fff" opacity="0.35" />
+        </g>
+        {/* the rivets sit over the body */}
+        {(['L', 'R'] as const).map((side) => (
+          <g key={side} style={slide(side === 'L' ? -1 : 1)}>
+            <circle cx={KNIFE.x} cy={KNIFE.y} r="5" fill="#fff" opacity="0.85" />
+          </g>
         ))}
       </svg>
       {beat === 2 && (
-        <At x={180} y={HANDLE.y + HANDLE.h + 38} style={rise(800)}>
-          <Pill tone="up">✓ every tool still inside</Pill>
+        <At x={180} y={KNIFE.y + KNIFE.r + 46} style={rise(1300)}>
+          <Pill tone="up">✓ nothing thrown away</Pill>
         </At>
       )}
     </>
   )
 }
 
-// ---- One total from many currencies: three glasses into one jug ----------------------------------------
+// ---- One total from many currencies: three glasses poured into one jug ---------------------------------
 
 /*
  * Three glasses of different drinks ($, €, ₹) that don't add up as they are. Collect in my currency
- * pours each into one measuring jug marked in ₹ (today's rate turns each into yours on the way), and
- * the jug shows one total, marked ≈.
+ * pours each, in turn, into one jug measured in ₹: a glass lifts over the jug, tips, a stream runs in,
+ * the jug rises, the glass goes back empty and its label shows what it was in yours. Then the jug
+ * shows one total, marked ≈.
  */
-const GLASSES = [
+const POUR = [
   { from: '$40', to: '₹3,360', x: 26, liquid: 'liquid2' },
-  { from: '€25', to: '₹2,275', x: 88, liquid: 'liquid3' },
-  { from: '₹1,200', to: '₹1,200', x: 150, liquid: 'liquid' },
+  { from: '€25', to: '₹2,275', x: 84, liquid: 'liquid3' },
+  { from: '₹1,200', to: '₹1,200', x: 142, liquid: 'liquid' },
 ] as const
-const GLASS = { top: 78, w: 46, h: 62 }
-const JUG = { x: 238, top: 92, w: 92, h: 112 }
-const POUR_MS = 650
-const pourAt = (i: number) => 300 + i * 800
+const CUP = { top: 122, w: 40, h: 54 }
+const JUG = { x: 226, top: 100, w: 96, h: 112 }
+/** Where a glass's centre goes to pour: its lip, tipped 115°, then sits just over the jug's middle. */
+const POUR_AT = { x: JUG.x + JUG.w / 2 - 16, y: JUG.top - 40 }
+const LIP_Y = JUG.top - 10
+const POUR_MS = 1300
+const pourStart = (i: number) => 200 + i * 1300
+/** The jug's whole timeline in the second beat, and each pour's share of it (for the level and the count). */
+const JUG_MS = pourStart(2) + POUR_MS
+
+function cupPath(x: number) {
+  const { top, w, h } = CUP
+  return `M${x},${top} H${x + w} L${x + w - 4},${top + h - 6} Q${x + w - 5},${top + h} ${x + w - 11},${top + h} H${x + 11} Q${x + 5},${top + h} ${x + 4},${top + h - 6} Z`
+}
 
 const Jug: View = ({ beat, still }) => {
   const id = useIds()
-  // The jug's level at the end of each beat: empty, then full.
-  const level = beat === 0 ? 0 : 1
   const depth = JUG.h
   return (
     <>
@@ -1521,69 +1583,52 @@ const Jug: View = ({ beat, still }) => {
         <clipPath id={id('jug')}>
           <rect x={JUG.x} y={JUG.top} width={JUG.w} height={JUG.h} rx="16" />
         </clipPath>
-        <ellipse cx="180" cy="214" rx="160" ry="5" className="fill-brand-900/10 dark:fill-black/30" />
-        {/* the three glasses: each tips toward the jug on its turn and comes back */}
-        {GLASSES.map((g, i) => (
+        <ellipse cx="174" cy="216" rx="160" ry="5" className="fill-brand-900/10 dark:fill-black/30" />
+        {/* the jug's liquid: empty, then up a step with each pour, then full */}
+        <g clipPath={`url(#${id('jug')})`}>
           <g
-            key={g.from}
             style={
-              beat === 1
-                ? {
-                    transformOrigin: `${g.x + GLASS.w / 2}px ${GLASS.top + GLASS.h}px`,
-                    transformBox: 'view-box',
-                    animation: `hm-pour ${POUR_MS + 300}ms ease-in-out ${pourAt(i)}ms both`,
-                  }
-                : undefined
+              beat === 0
+                ? { transform: `translateY(${depth}px)` }
+                : beat === 1
+                  ? ({
+                      transform: 'translateY(0)',
+                      animation: `hm-jug ${JUG_MS}ms linear both`,
+                      '--jug-0': `${depth}px`,
+                      '--jug-1': `${depth * 0.55}px`,
+                      '--jug-2': `${depth * 0.22}px`,
+                    } as CSSProperties)
+                  : undefined
             }
           >
-            <clipPath id={id(`g${i}`)}>
-              <path
-                d={`M${g.x},${GLASS.top} H${g.x + GLASS.w} L${g.x + GLASS.w - 5},${GLASS.top + GLASS.h - 6} Q${g.x + GLASS.w - 6},${GLASS.top + GLASS.h} ${g.x + GLASS.w - 12},${GLASS.top + GLASS.h} H${g.x + 12} Q${g.x + 6},${GLASS.top + GLASS.h} ${g.x + 5},${GLASS.top + GLASS.h - 6} Z`}
-              />
-            </clipPath>
-            <g clipPath={`url(#${id(`g${i}`)})`}>
-              {/* full until it pours, then empty */}
-              <rect
-                x={g.x - 4}
-                y={GLASS.top + 18}
-                width={GLASS.w + 8}
-                height={GLASS.h}
-                fill={`url(#${id(g.liquid)})`}
-                opacity="0.92"
-                style={
-                  beat === 0
-                    ? undefined
-                    : ({
-                        transform: `translateY(${GLASS.h - 18}px)`,
-                        ...(beat === 1 ? { '--from': 'translateY(0)', animation: `hm-from ${POUR_MS}ms ease-in ${pourAt(i) + 250}ms both` } : {}),
-                      } as CSSProperties)
-                }
-              />
-            </g>
             <path
-              d={`M${g.x},${GLASS.top} H${g.x + GLASS.w} L${g.x + GLASS.w - 5},${GLASS.top + GLASS.h - 6} Q${g.x + GLASS.w - 6},${GLASS.top + GLASS.h} ${g.x + GLASS.w - 12},${GLASS.top + GLASS.h} H${g.x + 12} Q${g.x + 6},${GLASS.top + GLASS.h} ${g.x + 5},${GLASS.top + GLASS.h - 6} Z`}
-              fill={`url(#${id('glass')})`}
-              className="stroke-brand-200 dark:stroke-white/20"
-              strokeWidth="2"
+              d={`M${JUG.x - 8},${JUG.top + 18} q13,-6 26,0 t26,0 t26,0 t26,0 t26,0 t26,0 t26,0 t26,0 v${JUG.h} h-208 z`}
+              fill={`url(#${id('liquid')})`}
+              opacity="0.92"
+              style={ambient('sx-wave 2.8s linear infinite')}
             />
-            <path d={`M${g.x + 8},${GLASS.top + 10} L${g.x + 11},${GLASS.top + 44}`} stroke="#fff" strokeOpacity="0.75" strokeWidth="3" strokeLinecap="round" />
           </g>
-        ))}
-        {/* beat 2: a stream from each glass's lip into the jug, in turn */}
+        </g>
+        {/* each pour's stream, from the tipped glass's lip down into the jug */}
         {beat === 1 &&
-          GLASSES.map((g, i) => (
-            <path
+          POUR.map((g, i) => (
+            <rect
               key={g.from}
-              d={`M${g.x + GLASS.w + 6},${GLASS.top + 4} Q${JUG.x + 10},${GLASS.top - 14} ${JUG.x + JUG.w / 2},${JUG.top + 30}`}
-              fill="none"
-              stroke={`url(#${id(g.liquid)})`}
-              strokeWidth="5"
-              strokeLinecap="round"
-              pathLength={1}
-              style={{ strokeDasharray: '1 1', strokeDashoffset: 1, animation: `hm-stream ${POUR_MS}ms ease-in-out ${pourAt(i) + 250}ms both` }}
+              x={POUR_AT.x + 14}
+              y={LIP_Y}
+              width="5"
+              height={JUG.top + JUG.h - 8 - LIP_Y}
+              rx="2.5"
+              fill={`url(#${id(g.liquid)})`}
+              style={{
+                transform: 'scaleY(0)',
+                transformBox: 'fill-box',
+                transformOrigin: 'top',
+                animation: `hm-stream ${POUR_MS}ms linear ${pourStart(i)}ms both`,
+              }}
             />
           ))}
-        {/* the jug: glass, its liquid rising with each pour, its ₹ marks and a handle */}
+        {/* the jug: glass, its ₹ marks and a handle */}
         <path
           d={`M${JUG.x + JUG.w},${JUG.top + 24} C${JUG.x + JUG.w + 26},${JUG.top + 24} ${JUG.x + JUG.w + 26},${JUG.top + 76} ${JUG.x + JUG.w},${JUG.top + 80}`}
           fill="none"
@@ -1601,169 +1646,212 @@ const Jug: View = ({ beat, still }) => {
           className="stroke-brand-200 dark:stroke-white/20"
           strokeWidth="2"
         />
-        <g clipPath={`url(#${id('jug')})`}>
-          <g
-            style={
-              beat === 1
-                ? ({
-                    transform: `translateY(${depth * (1 - level)}px)`,
-                    animation: `hm-jug ${pourAt(2) + POUR_MS + 300}ms linear both`,
-                    '--jug-0': `${depth}px`,
-                    '--jug-1': `${depth * 0.52}px`,
-                    '--jug-2': `${depth * 0.18}px`,
-                  } as CSSProperties)
-                : { transform: `translateY(${depth * (1 - level)}px)` }
-            }
-          >
-            <path
-              d={`M${JUG.x - 8},${JUG.top + 18} q13,-6 26,0 t26,0 t26,0 t26,0 t26,0 t26,0 t26,0 t26,0 v${JUG.h} h-208 z`}
-              fill={`url(#${id('liquid')})`}
-              opacity="0.92"
-              style={ambient('sx-wave 2.8s linear infinite')}
-            />
-          </g>
-        </g>
         {[0.3, 0.55, 0.8].map((k) => (
           <line
             key={k}
-            x1={JUG.x + JUG.w - 18}
-            x2={JUG.x + JUG.w - 8}
+            x1={JUG.x + JUG.w - 20}
+            x2={JUG.x + JUG.w - 9}
             y1={JUG.top + JUG.h * k}
             y2={JUG.top + JUG.h * k}
             stroke="#fff"
-            strokeOpacity="0.8"
+            strokeOpacity="0.85"
             strokeWidth="2"
             strokeLinecap="round"
           />
         ))}
+        <text x={JUG.x + JUG.w - 15} y={JUG.top + JUG.h * 0.3 - 6} textAnchor="middle" className="fill-white text-[10px] font-black" opacity="0.9">
+          ₹
+        </text>
         <path d={`M${JUG.x + 10},${JUG.top + 16} L${JUG.x + 12},${JUG.top + 74}`} stroke="#fff" strokeOpacity="0.75" strokeWidth="4" strokeLinecap="round" />
+        {/* the glasses: in the second beat each lifts over the jug, tips, pours and comes back empty */}
+        {POUR.map((g, i) => {
+          const cx = g.x + CUP.w / 2
+          const cy = CUP.top + CUP.h / 2
+          return (
+            <g
+              key={g.from}
+              style={
+                beat === 0
+                  ? ({
+                      '--from': 'translateY(14px)',
+                      '--from-o': 0,
+                      animation: `hm-from 520ms cubic-bezier(0.23, 1, 0.32, 1) ${150 + i * 120}ms both`,
+                    } as CSSProperties)
+                  : beat === 1
+                    ? ({
+                        transformBox: 'view-box',
+                        transformOrigin: `${cx}px ${cy}px`,
+                        '--dx': `${POUR_AT.x - cx}px`,
+                        '--dy': `${POUR_AT.y - cy}px`,
+                        animation: `hm-pour ${POUR_MS}ms ease-in-out ${pourStart(i)}ms both`,
+                      } as CSSProperties)
+                    : { opacity: 0.6 }
+              }
+            >
+              <clipPath id={id(`cup${i}`)}>
+                <path d={cupPath(g.x)} />
+              </clipPath>
+              <g clipPath={`url(#${id(`cup${i}`)})`}>
+                <rect
+                  x={g.x - 4}
+                  y={CUP.top + 14}
+                  width={CUP.w + 8}
+                  height={CUP.h}
+                  fill={`url(#${id(g.liquid)})`}
+                  style={
+                    beat === 0
+                      ? { opacity: 0.92 }
+                      : beat === 1
+                        ? { opacity: 0, animation: `hm-drain ${POUR_MS}ms linear ${pourStart(i)}ms both` }
+                        : { opacity: 0 }
+                  }
+                />
+              </g>
+              <path d={cupPath(g.x)} fill={`url(#${id('glass')})`} className="stroke-brand-200 dark:stroke-white/25" strokeWidth="2" />
+              <path d={`M${g.x + 8},${CUP.top + 9} L${g.x + 10},${CUP.top + 38}`} stroke="#fff" strokeOpacity="0.75" strokeWidth="3" strokeLinecap="round" />
+            </g>
+          )
+        })}
       </svg>
-      {/* each glass's amount; on the pour, what it is in yours */}
-      {GLASSES.map((g, i) => (
-        <At key={g.from} x={g.x + GLASS.w / 2} y={GLASS.top + GLASS.h + 22} style={beat === 0 ? rise(150 + i * 140) : undefined}>
-          <span className="whitespace-nowrap text-[12px] font-black tabular-nums text-slate-800 dark:text-white">{g.from}</span>
+      {/* under each glass: its own currency, then, once poured, what it was in yours */}
+      {POUR.map((g, i) => (
+        <At key={g.from} x={g.x + CUP.w / 2} y={CUP.top + CUP.h + 18}>
+          <span className="relative block h-5 w-[64px] text-center text-[12px] font-black tabular-nums">
+            <span
+              className="absolute inset-0 text-slate-800 dark:text-white"
+              style={beat === 0 ? rise(150 + i * 120) : beat === 1 ? out(pourStart(i) + 700, 250) : { opacity: 0 }}
+            >
+              {g.from}
+            </span>
+            <span
+              className="absolute inset-0 text-brand-700 dark:text-brand-300"
+              style={beat === 0 ? { opacity: 0 } : beat === 1 ? rise(pourStart(i) + 800, 360) : undefined}
+            >
+              {g.to}
+            </span>
+          </span>
         </At>
       ))}
-      {beat === 1 &&
-        GLASSES.map((g, i) => (
-          <At key={g.to} x={g.x + GLASS.w / 2} y={GLASS.top - 18} style={pop(pourAt(i) + 150, 360)}>
-            <Pill tone="accent">{g.to}</Pill>
-          </At>
-        ))}
-      {beat === 0 && (
-        <At x={JUG.x + JUG.w / 2} y={JUG.top + JUG.h / 2} style={pop(700)}>
-          <span className="text-[26px] font-black text-slate-400 dark:text-slate-500">?</span>
-        </At>
-      )}
-      <At x={JUG.x + JUG.w / 2} y={JUG.top - 16}>
-        <Pill>in ₹</Pill>
-      </At>
       {beat >= 1 && (
-        <At x={JUG.x + JUG.w / 2} y={JUG.top + JUG.h + 20}>
+        <At x={JUG.x + JUG.w / 2} y={JUG.top + JUG.h + 22} style={beat === 2 ? pop(200) : undefined}>
           <Pill tone={beat === 2 ? 'accent' : 'even'}>
-            {beat === 1 ? <Count from={0} to={6835} still={still} d={pourAt(0) + 300} ms={pourAt(2) + POUR_MS - pourAt(0)} /> : 'your total ≈ ₹6,835'}
+            {beat === 1 ? <Count from={0} to={6835} still={still} d={pourStart(0) + 700} ms={JUG_MS - pourStart(0) - 600} /> : '≈ ₹6,835'}
           </Pill>
-        </At>
-      )}
-      {beat === 2 && (
-        <At x={GLASSES[1].x + GLASS.w / 2} y={40} style={rise(500)}>
-          <Pill>each group keeps its own</Pill>
         </At>
       )}
     </>
   )
 }
 
-// ---- Earn Pro: a stamp card ----------------------------------------------------------------------
+// ---- Earn Pro: close your ring --------------------------------------------------------------------
 
 /*
- * Help is a stamp card, like a café's: each section you finish is a stamp. A full card says
- * Congratulations, and the reward is the real thing: the PRO ring round your photo and the pill
- * by your name (the app's own ProRing and ProPill, so it moves and looks as it will).
+ * Like a fitness ring: each Help section you finish fills a piece of a ring round your photo. Finish
+ * them all and the ring closes; a closed ring becomes the real PRO ring (the app's own ProRing and
+ * ProPill, so it moves and looks as it will).
  */
-const STAMPS = 8
-const CARD_BOX = { x: 70, y: 46, w: 220, h: 138 }
-const stampAt = (i: number) => ({ x: CARD_BOX.x + 34 + (i % 4) * 51, y: CARD_BOX.y + 66 + Math.floor(i / 4) * 44 })
-
-function Stamp({ d }: { d?: number }) {
-  return (
-    <span
-      className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-brand-600 shadow-md dark:bg-white dark:text-brand-700"
-      style={d === undefined ? undefined : { animation: `hm-stamp 380ms cubic-bezier(0.23, 1, 0.32, 1) ${d}ms both` }}
-    >
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.6" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M5 12.5l4.5 4.5L19 7.5" />
-      </svg>
-    </span>
-  )
-}
+const RING = { x: 180, y: 112, r: 60, pieces: 8 }
+const PIECE = 1 / RING.pieces
+const PIECE_GAP = 0.018
 
 const Pro: View = ({ beat }) => {
-  // Stamped at the end of the beat, and when each new one lands.
-  const stamped = beat === 0 ? 6 : STAMPS
-  const landsAt = (i: number) => (beat === 0 ? (i < 6 ? 350 + i * 220 : undefined) : beat === 1 && i >= 6 ? 300 + (i - 6) * 320 : undefined)
+  const id = useIds()
+  const filled = beat === 0 ? 6 : RING.pieces
+  const drawAt = (i: number) => (beat === 0 ? (i < 6 ? 300 + i * 200 : undefined) : beat === 1 && i >= 6 ? 250 + (i - 6) * 260 : undefined)
+  const photo = (
+    <div
+      className="flex h-[84px] w-[84px] items-center justify-center rounded-full text-[30px] font-bold text-white"
+      style={{
+        background: `linear-gradient(140deg, ${PEOPLE.Asha.from}, ${PEOPLE.Asha.to})`,
+        boxShadow: '0 10px 24px -10px color-mix(in oklab, var(--color-brand-700) 60%, transparent)',
+      }}
+    >
+      A
+    </div>
+  )
   return (
     <>
       {beat < 2 ? (
         <>
-          <div
-            className="absolute overflow-hidden rounded-[22px] shadow-[0_18px_30px_-16px_color-mix(in_oklab,var(--color-brand-700)_70%,transparent)]"
-            style={{
-              left: CARD_BOX.x,
-              top: CARD_BOX.y,
-              width: CARD_BOX.w,
-              height: CARD_BOX.h,
-              background: 'linear-gradient(135deg, var(--color-brand-500), var(--color-duo-600))',
-              ...(beat === 0 ? rise(100) : {}),
-            }}
-          >
-            {/* the card's shine */}
-            <div className="absolute -left-10 -top-16 h-32 w-56 rotate-[-12deg] rounded-full bg-white/20 blur-md" />
-            <div className="absolute left-4 top-3.5 flex items-center gap-1.5 text-[13px] font-black text-white">
-              <FeatureIcon name="question" size={16} tone="current" />
-              Help
-            </div>
-            <div className="absolute right-4 top-3.5 text-[11px] font-bold tabular-nums text-white/85">
-              {stamped} of {STAMPS}
-            </div>
-          </div>
-          {Array.from({ length: STAMPS }, (_, i) => {
-            const at = stampAt(i)
-            const on = i < stamped
-            return (
-              <At key={at.x * 100 + at.y} x={at.x} y={at.y}>
-                {on ? <Stamp d={landsAt(i)} /> : <span className="block h-8 w-8 rounded-full border-2 border-dashed border-white/60" />}
-              </At>
-            )
-          })}
-          {beat === 1 && (
-            <At x={180} y={CARD_BOX.y + CARD_BOX.h + 30} style={pop(1250)}>
-              <Pill tone="up">✓ Congratulations · 100%</Pill>
-            </At>
-          )}
+          <svg className="absolute inset-0" width={W} height={H}>
+            <defs>
+              <linearGradient id={id('ring')} x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" style={{ stopColor: 'var(--color-brand-500)' }} />
+                <stop offset="1" style={{ stopColor: 'var(--color-duo-500)' }} />
+              </linearGradient>
+            </defs>
+            {Array.from({ length: RING.pieces }, (_, i) => {
+              const len = PIECE - PIECE_GAP
+              const turn = -90 + i * 360 * PIECE + (PIECE_GAP / 2) * 360
+              const on = i < filled
+              const d = drawAt(i)
+              return (
+                // biome-ignore lint/suspicious/noArrayIndexKey: the pieces are fixed positions round the ring
+                <g key={i} transform={`rotate(${turn} ${RING.x} ${RING.y})`}>
+                  <circle
+                    cx={RING.x}
+                    cy={RING.y}
+                    r={RING.r}
+                    fill="none"
+                    pathLength={1}
+                    strokeDasharray={`${len} 1`}
+                    className="stroke-slate-900/[0.07] dark:stroke-white/10"
+                    strokeWidth="12"
+                    strokeLinecap="round"
+                  />
+                  {on && (
+                    <circle
+                      cx={RING.x}
+                      cy={RING.y}
+                      r={RING.r}
+                      fill="none"
+                      pathLength={1}
+                      stroke={`url(#${id('ring')})`}
+                      strokeWidth="12"
+                      strokeLinecap="round"
+                      style={{
+                        strokeDasharray: `${len} 1`,
+                        ...(d === undefined
+                          ? {}
+                          : ({ '--dash-from': len, animation: `hm-dash 360ms cubic-bezier(0.4, 0, 0.2, 1) ${d}ms both` } as CSSProperties)),
+                      }}
+                    />
+                  )}
+                </g>
+              )
+            })}
+            {/* closed: the gaps fill and it becomes one ring */}
+            {beat === 1 && (
+              <circle
+                cx={RING.x}
+                cy={RING.y}
+                r={RING.r}
+                fill="none"
+                stroke={`url(#${id('ring')})`}
+                strokeWidth="12"
+                style={{ animation: 'hm-close 420ms ease-out 900ms both' }}
+              />
+            )}
+          </svg>
+          <At x={RING.x} y={RING.y}>
+            {photo}
+          </At>
+          <At x={180} y={214} style={beat === 1 ? pop(1200) : undefined}>
+            <Pill tone={beat === 1 ? 'up' : 'even'}>{beat === 1 ? '✓ All done · Congratulations' : `${filled} of ${RING.pieces} sections`}</Pill>
+          </At>
         </>
       ) : (
         <>
-          {/* beat 3: the reward, as the app draws it */}
-          <At x={124} y={124} style={pop(150, 560)}>
-            <ProRing photo={84}>
-              <div
-                className="flex h-[84px] w-[84px] items-center justify-center rounded-full text-[30px] font-bold text-white"
-                style={{
-                  background: `linear-gradient(140deg, ${PEOPLE.Asha.from}, ${PEOPLE.Asha.to})`,
-                  boxShadow: '0 10px 24px -10px color-mix(in oklab, var(--color-brand-700) 60%, transparent)',
-                }}
-              >
-                A
-              </div>
-            </ProRing>
+          {/* beat 3: the closed ring becomes the PRO ring, and the badge by the name */}
+          <At x={RING.x} y={RING.y} style={pop(150, 560)}>
+            <ProRing photo={84}>{photo}</ProRing>
           </At>
-          <div className="absolute flex flex-col items-start gap-2" style={{ left: 196, top: 100 }}>
-            <span className="text-[20px] font-black leading-none text-slate-800 dark:text-white" style={rise(400)}>
+          <div className="absolute left-0 flex w-full items-center justify-center gap-2" style={{ top: 204 }}>
+            <span className="text-[18px] font-black leading-none text-slate-800 dark:text-white" style={rise(500)}>
               Asha Rao
             </span>
             <span style={pop(800)}>
-              <ProPill h={12} />
+              <ProPill h={11} />
             </span>
           </div>
         </>

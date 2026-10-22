@@ -94,15 +94,15 @@ export function stepMs(text: string): number {
  */
 export const STORY_ANIM_MS: Record<StoryKind, number[]> = {
   pot: [2000, 1720, 1280, 2950],
-  seesaw: [900, 2220, 3650],
+  seesaw: [2220, 1000, 3650],
   untangle: [1930, 1910, 3250],
   remainder: [2240, 1800, 2400],
   vault: [3020, 2970, 2020],
   filter: [1490, 2620, 2740],
-  knife: [1000, 1150, 1350],
-  jug: [1200, 2850, 1050],
+  knife: [1050, 1750, 1850],
+  jug: [900, 4100, 700],
   jars: [1350, 1800, 1850],
-  pro: [1850, 1750, 1300],
+  pro: [1650, 1700, 1300],
 }
 
 /** An explainer beat stays until its caption is read and its picture has finished, plus a moment to take it in. */

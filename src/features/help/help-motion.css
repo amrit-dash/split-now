@@ -170,47 +170,105 @@
   }
 }
 
-/* A glass tipping toward the jug to pour, and back. */
-@keyframes hm-pour {
-  35%,
-  70% {
-    transform: rotate(32deg);
+/* A pocket knife's tool appearing folded, then turning out (the Swiss knife's extras). */
+@keyframes hm-tool-in {
+  0% {
+    opacity: 0;
+    rotate: var(--turn-from, 0deg);
+  }
+  12% {
+    opacity: 1;
+    rotate: var(--turn-from, 0deg);
   }
 }
 
-/* The stream from a glass: it runs in, then runs out into the jug. */
-@keyframes hm-stream {
+/* And folding back in, then gone as the knife shrinks to the small one. */
+@keyframes hm-tool-out {
   0% {
-    stroke-dashoffset: 1;
+    opacity: 1;
+    rotate: var(--turn-from, 0deg);
   }
-  50% {
-    stroke-dashoffset: 0;
+  70% {
+    opacity: 1;
+    rotate: var(--turn-to, 0deg);
   }
   100% {
-    stroke-dashoffset: -1;
+    opacity: 0;
+    rotate: var(--turn-to, 0deg);
   }
 }
 
-/* The jug's level: still, then up a step with each of the three pours (Story.tsx POUR_MS, pourAt). */
+/* A glass lifting over the jug (--dx, --dy), tipping to pour, righting and going back (Story.tsx POUR_MS). */
+@keyframes hm-pour {
+  0% {
+    transform: none;
+  }
+  28% {
+    transform: translate(var(--dx), var(--dy)) rotate(0deg);
+  }
+  42%,
+  76% {
+    transform: translate(var(--dx), var(--dy)) rotate(115deg);
+  }
+  88% {
+    transform: translate(var(--dx), var(--dy)) rotate(0deg);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+/* The glass's drink, gone while it pours. */
+@keyframes hm-drain {
+  0%,
+  44% {
+    opacity: 0.92;
+  }
+  76%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* The stream: it runs down from the lip while the glass is tipped, then its tail falls into the jug. */
+@keyframes hm-stream {
+  0%,
+  44% {
+    transform: scaleY(0);
+  }
+  54%,
+  74% {
+    transform: translateY(0) scaleY(1);
+  }
+  84%,
+  100% {
+    transform: translateY(100%) scaleY(0);
+  }
+}
+
+/* The jug's level: still, then up a step with each of the three pours (the pour windows of Story.tsx's Jug). */
 @keyframes hm-jug {
   0%,
   19% {
     transform: translateY(var(--jug-0));
   }
-  42%,
-  47% {
+  30%,
+  51% {
     transform: translateY(var(--jug-1));
   }
-  70%,
-  75% {
+  62%,
+  82% {
     transform: translateY(var(--jug-2));
+  }
+  94%,
+  100% {
+    transform: translateY(0);
   }
 }
 
-/* A stamp pressed onto the card: in from a little bigger, landing flat. */
-@keyframes hm-stamp {
+/* The fitness ring closing: the full ring fades in over the pieces. */
+@keyframes hm-close {
   from {
     opacity: 0;
-    transform: scale(1.5);
   }
 }
