@@ -8,7 +8,7 @@ Logic: `src/lib/mode.ts` (tested), `useMode()` / `useSimple()` in `src/hooks/use
 detail level is When needed (`lookForMode`); Simple's own hides are explicit `useSimple()` checks.
 
 **Every new feature:** ask the owner "Simple or Advanced?" with a recommendation, add its row here,
-and give its Help section `simple: true` when Simple shows it.
+and mark its Help section `advanced: true` when Simple hides it (`sectionsFor` in src/lib/help.ts).
 
 Status: **decided** = the owner's call (22 Oct 2026). **proposed** = waiting for the owner's OK.
 
@@ -38,8 +38,8 @@ Simple keeps nearly every everyday feature; it differs mostly in Settings and a 
 
 | Screen | Simple shows | Simple hides |
 |---|---|---|
-| Home | Everything, including Import from Splitwise on first run | |
-| Groups | Import from Splitwise | Personal wallets (every list, picker and form; the wallets stay) |
+| Home | Everything else | Import from Splitwise on first run (Settings → Data keeps it) |
+| Groups | Recently deleted, archived | Import from Splitwise, personal wallets (every list, picker and form; the wallets stay) |
 | Create sheet | Quick add, Add expense, New group, Scan | |
 | Group | Chat, Open, Balances, Activity tabs, graph view, sort and filter, trip capture line | Whose-turn chip |
 | Group menu | Insights and the rest | Money received, Export CSV |

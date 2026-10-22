@@ -101,6 +101,7 @@ export const SIMPLE_HIDES = [
   'capturePromo', // Inbox → set up auto-capture
   'fxRate', // editing the exchange rate (the converted amount still shows)
   'scanAiToggle', // Scan's per-card Read with AI toggle (the Settings choice applies)
+  'importGroup', // Import from Splitwise on Home and Groups (Settings → Data keeps it)
 ] as const
 export type SimpleHide = (typeof SIMPLE_HIDES)[number]
 

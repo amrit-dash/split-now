@@ -27,6 +27,7 @@ export default function Groups() {
   const data = useAllGroupData()
   const deleted = useDeletedGroups()
   const showWallets = useFeature('wallets')
+  const showImport = useFeature('importGroup')
   const [showSettled, setShowSettledState] = useState(showSettledStored)
   const setShowSettled = (on: boolean) => {
     setShowSettledState(on)
@@ -85,13 +86,15 @@ export default function Groups() {
               {showSettled ? <EyeIcon size={20} aria-hidden /> : <EyeSlashIcon size={20} aria-hidden />}
             </button>
           )}
-          <Link
-            to="/groups/import"
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-200/70 dark:bg-ink-800"
-            aria-label="Import from Splitwise"
-          >
-            <FileUploadIcon size={20} aria-hidden />
-          </Link>
+          {showImport && (
+            <Link
+              to="/groups/import"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-200/70 dark:bg-ink-800"
+              aria-label="Import from Splitwise"
+            >
+              <FileUploadIcon size={20} aria-hidden />
+            </Link>
+          )}
           {/* A labelled secondary chip, not a filled round +: that read as a second copy of the tab bar's + button. */}
           <Link
             to="/groups/new"

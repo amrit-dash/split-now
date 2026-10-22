@@ -1,3 +1,4 @@
+import { useFeature } from '@/hooks/useMode'
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ChevronDown, ChevronRight, Lock } from 'lucide-react'
@@ -296,6 +297,7 @@ function RecentExpense({ e, d }: { e: GroupData['expenses'][number]; d: GroupDat
  */
 export function FirstRun() {
   const quickAdd = useFlag('quickAdd')
+  const showImport = useFeature('importGroup')
   return (
     <>
       <div className="card p-5" data-testid="first-run">
@@ -306,7 +308,16 @@ export function FirstRun() {
         <HintText hint={FIRST_RUN_HINT} className="text-muted mt-1 text-sm" />
         <div className="mt-4 divide-y divide-slate-100 dark:divide-white/5">
           <StartRow to="/groups/new" icon={<AddIcon size={20} />} title="Create a group" text={START_HINTS.create} testId="first-run-create" />
-          <StartRow to="/groups/import" icon={<FileUploadIcon size={20} />} title="Import from Splitwise" text={START_HINTS.import} testId="first-run-import" />
+          {/* Simple: Settings → Data keeps the import (docs/SIMPLE_MODE.md). */}
+          {showImport && (
+            <StartRow
+              to="/groups/import"
+              icon={<FileUploadIcon size={20} />}
+              title="Import from Splitwise"
+              text={START_HINTS.import}
+              testId="first-run-import"
+            />
+          )}
           <JoinRow />
         </div>
       </div>
