@@ -1,7 +1,8 @@
 import { useState, useSyncExternalStore } from 'react'
 import { ChevronRight, Loader2 } from 'lucide-react'
-import { SparkleIcon } from '@/components/icons'
+import { RowUpdateIcon } from '@/components/icons'
 import { applyUpdate, getUpdate, profileRowShown, subscribeUpdate } from '@/lib/app-update'
+import { RowTile } from '@/components/RowTile'
 
 /**
  * Profile's "New version ready" row: while a new version is downloaded and waiting, even after
@@ -22,9 +23,7 @@ export function UpdateRow() {
       className="flex w-full items-center gap-3 p-4 text-left font-medium transition active:bg-slate-50 dark:active:bg-ink-800"
       data-testid="profile-update"
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white" aria-hidden>
-        {updating ? <Loader2 size={19} className="animate-spin" /> : <SparkleIcon size={19} />}
-      </span>
+      <RowTile>{updating ? <Loader2 size={19} className="animate-spin" /> : <RowUpdateIcon size={22} />}</RowTile>
       <span className="min-w-0 flex-1">
         <span className="block">New version ready</span>
         <span className="text-muted block text-xs font-normal">Tap to update now. It also updates the next time the app opens.</span>

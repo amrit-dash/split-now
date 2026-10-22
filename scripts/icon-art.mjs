@@ -40,12 +40,43 @@ const CUSTOM = {
     line: ring(8.75) + ring(3.75) + S('M5.8 5.8l3.55 3.55M14.65 14.65l3.55 3.55M18.2 5.8l-3.55 3.55M9.35 14.65 5.8 18.2'),
     fill: '<path fill="currentColor" d="M19.93 5.91A10 10 0 0 1 19.93 18.09L15.90 13.69A4.25 4.25 0 0 0 15.90 10.31ZM18.09 19.93A10 10 0 0 1 5.91 19.93L10.31 15.90A4.25 4.25 0 0 0 13.69 15.90ZM4.07 18.09A10 10 0 0 1 4.07 5.91L8.10 10.31A4.25 4.25 0 0 0 8.10 13.69ZM5.91 4.07A10 10 0 0 1 18.09 4.07L13.69 8.10A4.25 4.25 0 0 0 10.31 8.10Z"/>',
   },
+  /* The lifebuoy as a Solar-style duotone, for the Profile row tiles beside Solar's pictures:
+     Outline, a line ring with its coloured sections at half tone; Filled, the classic buoy (half-tone
+     ring, solid sections). */
+  lifebuoyDuo: {
+    line: '<path fill="currentColor" opacity=".5" d="M19.14 6.52A9 9 0 0 1 19.14 17.48L16.13 13.78A4.5 4.5 0 0 0 16.13 10.22ZM17.48 19.14A9 9 0 0 1 6.52 19.14L10.22 16.13A4.5 4.5 0 0 0 13.78 16.13ZM4.86 17.48A9 9 0 0 1 4.86 6.52L7.87 10.22A4.5 4.5 0 0 0 7.87 13.78ZM6.52 4.86A9 9 0 0 1 17.48 4.86L13.78 7.87A4.5 4.5 0 0 0 10.22 7.87Z"/><circle cx="12" cy="12" r="9.25" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="4.25" fill="none" stroke="currentColor" stroke-width="1.5"/>',
+    fill: '<path fill="currentColor" opacity=".5" fill-rule="evenodd" d="M12 2a10 10 0 1 1 0 20a10 10 0 1 1 0-20ZM12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8Z"/><path fill="currentColor" d="M19.93 5.91A10 10 0 0 1 19.93 18.09L15.68 13.58A4 4 0 0 0 15.68 10.42ZM18.09 19.93A10 10 0 0 1 5.91 19.93L10.42 15.68A4 4 0 0 0 13.58 15.68ZM4.07 18.09A10 10 0 0 1 4.07 5.91L8.32 10.42A4 4 0 0 0 8.32 13.58ZM5.91 4.07A10 10 0 0 1 18.09 4.07L13.58 8.32A4 4 0 0 0 10.42 8.32Z"/>',
+  },
 }
 
 /* ---------------------------------------------------------------- UI: Fluent Regular / Filled
  * Export name → Fluent base name (24 px drawing), or ~custom. Names say what the icon is for
  * where that is clearer than what it draws. */
 const UI = {
+  /* Profile and Settings rows (RowTile): Solar line duotone (Outline) / bold duotone (Filled), the
+     family of Help's pictures, drawn white on the accent gradient so the rows read heavier. */
+  RowAdminIcon: 'solar:shield-user',
+  RowAiIcon: 'solar:stars',
+  RowAnimationsIcon: 'solar:magic-stick-3',
+  RowAutomationIcon: 'solar:routing-2',
+  RowBalancesIcon: 'solar:round-transfer-horizontal',
+  RowChatIcon: 'solar:chat-round-dots',
+  RowDataIcon: 'solar:folder-cloud',
+  RowDeleteAccountIcon: 'solar:user-block-rounded',
+  RowEncryptedIcon: 'solar:shield-keyhole',
+  RowHelpIcon: '~lifebuoyDuo',
+  RowIconsIcon: 'solar:emoji-funny-circle',
+  RowImportIcon: 'solar:move-to-folder',
+  RowInsightsIcon: 'solar:chart-2',
+  RowInstallIcon: 'solar:download-minimalistic',
+  RowKeyboardIcon: 'solar:keyboard',
+  RowNotificationsIcon: 'solar:bell-bing',
+  RowPayIcon: 'solar:wallet-money',
+  RowPreferencesIcon: 'solar:tuning-2',
+  RowScanIcon: 'solar:camera',
+  RowSettingsIcon: 'solar:settings',
+  RowSupportIcon: 'solar:cup-hot',
+  RowUpdateIcon: 'solar:refresh-circle',
   AddIcon: 'add',
   AdminIcon: 'shield-keyhole',
   AiIcon: 'brain-sparkle',
@@ -278,6 +309,10 @@ const art = (ref, kind, where) => {
     const markup = kind === 'lineDuo' ? `<g opacity=".5">${fill}</g>${body('fluent', `${n}-24-regular`)}` : fill
     return jsx(slim(markup, where))
   }
+  if (ref.startsWith('solar:')) {
+    const suffix = kind === 'line' || kind === 'lineDuo' ? '-line-duotone' : '-bold-duotone'
+    return jsx(slim(body('solar', ref.slice(6) + suffix), where))
+  }
   if (ref.startsWith('~')) {
     const c = CUSTOM[ref.slice(1)]
     if (!c) problems.push(`${where}: no custom drawing ${ref}`)
@@ -305,7 +340,7 @@ import { makeIcon } from './Icon'
 ${uiNames
   .map((n) => {
     const ref = UI[n]
-    const src = ref.startsWith('~') ? 'ours' : `fluent ${ref}`
+    const src = ref.startsWith('~') ? 'ours' : ref.startsWith('solar:') ? `${ref} duotone` : `fluent ${ref}`
     return `/** ${src} */\nexport const ${n} = /* @__PURE__ */ makeIcon(\n  '${n.replace(/Icon$/, '')}',\n  <>${art(ref, 'line', n)}</>,\n  <>${art(ref, 'fill', n)}</>,\n)`
   })
   .join('\n\n')}
