@@ -1,14 +1,23 @@
 import { useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ChevronRight, Lightbulb } from 'lucide-react'
-import { AddIcon, ChecksIcon, GroupsIcon, LockIcon } from '@/components/icons'
+import { AddIcon, ChecksIcon, GroupsIcon, LockIcon, SendIcon } from '@/components/icons'
 import { PatternLock } from '@/features/vault/PatternLock'
 import { ChequeIcon } from '@/components/ChequeIcon'
 import { useMe } from '@/hooks/auth'
 import { useAllGroupData, useRecentActivity } from '@/hooks/data'
 import type { ActivityEntry, Group } from '@/types'
 import { formatMoney } from '@/lib/money'
-import { groupCount, pendingSettlements, personBalances, settlePersonHref, totalsByCurrency, type PersonBalance, type SettleRow } from '@/lib/settleAll'
+import {
+  groupCount,
+  groupLine,
+  pendingSettlements,
+  personBalances,
+  settlePersonHref,
+  totalsByCurrency,
+  type PersonBalance,
+  type SettleRow,
+} from '@/lib/settleAll'
 import { collectsInHome, inHome, type HomeBalance } from '@/lib/collect'
 import { convertMinor, type FxRate } from '@/lib/fx'
 import { useTodayRates } from '@/hooks/useFx'
@@ -118,8 +127,8 @@ function Totals({ rows, home, rates }: { rows: SettleRow[]; home: string; rates?
       owed = sum('owed')
     return (
       <div className="card grid grid-cols-2 divide-x divide-slate-100 overflow-hidden dark:divide-white/5" data-testid="settle-totals">
-        <TotalCol label="You owe" cls="neg" values={owe ? [`≈ ${formatMoney(owe, home)}`] : []} />
-        <TotalCol label="You are owed" cls="pos" values={owed ? [`≈ ${formatMoney(owed, home)}`] : []} />
+        <TotalCol label="You owe" cls="neg" values={owe ? [`≈\u00a0${formatMoney(owe, home)}`] : []} />
+        <TotalCol label="You are owed" cls="pos" values={owed ? [`≈\u00a0${formatMoney(owed, home)}`] : []} />
       </div>
     )
   }
@@ -144,7 +153,7 @@ function TotalCol({ label, cls, values }: { label: string; cls: string; values: 
         values.map((v) => (
           <div
             key={v}
-            className={`mt-1 font-extrabold tabular-nums tracking-tight [overflow-wrap:anywhere] ${values.length > 1 ? 'text-lg' : 'text-2xl'} ${cls}`}
+            className={`mt-1 font-extrabold tabular-nums tracking-tight [overflow-wrap:anywhere] ${values.length > 1 ? 'text-lg' : 'text-xl min-[360px]:text-2xl'} ${cls}`}
           >
             {v}
           </div>
@@ -204,7 +213,7 @@ function GroupItem({ r, chase }: { r: SettleRow; chase: Chase }) {
       testId="settle-row"
       avatar={<Avatar name={r.name} photoURL={r.photoURL} color={r.color} size={40} />}
       name={r.label}
-      sub={`${r.groupEmoji} ${r.groupName}`}
+      sub={<GroupLine r={r} />}
       amount={formatMoney(r.amount, r.currency)}
       dir={r.dir}
       chase={<RowChase r={r} chase={chase} />}
@@ -265,18 +274,25 @@ function ItemRow({
   )
 }
 
+/**
+ * Pay: a round icon button like the row's others, the only filled one (the accent), so it still
+ * reads as the main action; its label says who, how much and where.
+ */
+const PAY = 'btn-primary !h-10 !min-h-10 !w-10 shrink-0 !rounded-full !p-0'
+
+/** The row's group: "1:1" for a 1:1 (the person is already the row), else its emoji and name, kept together on a wrap. */
+function GroupLine({ r }: { r: SettleRow }) {
+  const g = groupLine(r)
+  return <span className="whitespace-nowrap">{g.emoji ? `${g.emoji} ${g.text}` : g.text}</span>
+}
+
 /** "Pay" (primary) when you owe; a "record a payment" icon button when they owe you. Both open the group's settle screen. */
 function RowAction({ r }: { r: SettleRow }) {
   const amount = formatMoney(r.amount, r.currency)
   if (r.dir === 'owe') {
     return (
-      <Link
-        to={r.href}
-        data-testid="row-pay"
-        aria-label={`Pay ${r.label} ${amount} in ${r.groupName}`}
-        className="btn-primary !min-h-11 shrink-0 !rounded-full !px-3 !py-0 text-sm"
-      >
-        Pay
+      <Link to={r.href} data-testid="row-pay" aria-label={`Pay ${r.label} ${amount} in ${r.groupName}`} className={PAY}>
+        <SendIcon size={20} aria-hidden />
       </Link>
     )
   }
@@ -337,13 +353,8 @@ function PersonAction({ p, n }: { p: PersonBalance; n: number }) {
   const amount = formatMoney(Math.abs(p.net), p.currency)
   if (p.net < 0) {
     return (
-      <Link
-        to={to}
-        data-testid="person-settle-all"
-        aria-label={`Pay ${p.label} ${amount} across ${n} groups`}
-        className="btn-primary !min-h-11 shrink-0 !rounded-full !px-3 !py-0 text-sm"
-      >
-        Pay
+      <Link to={to} data-testid="person-settle-all" aria-label={`Pay ${p.label} ${amount} across ${n} groups`} className={PAY}>
+        <SendIcon size={20} aria-hidden />
       </Link>
     )
   }
@@ -382,7 +393,7 @@ function PersonCard({ p, chase }: { p: PersonBalance | HomeBalance; chase: Chase
               {/* in your currency: the group's own amount on a line of its own, then the group */}
               {approx && <span className="block truncate tabular-nums">{formatMoney(r.amount, r.currency)}</span>}
               <span className="block truncate">
-                {r.groupEmoji} {r.groupName}
+                <GroupLine r={r} />
               </span>
             </>
           }
@@ -415,7 +426,7 @@ function PersonCard({ p, chase }: { p: PersonBalance | HomeBalance; chase: Chase
             aria-label={`${r.dir === 'owe' ? `You owe ${r.label}` : `${r.label} owes you`} ${formatMoney(r.amount, r.currency)} in ${r.groupName}`}
           >
             <span className="min-w-0 flex-1 truncate">
-              {r.groupEmoji} {r.groupName}
+              <GroupLine r={r} />
             </span>
             <span className={`tabular-nums ${r.dir === 'owed' ? 'pos' : 'neg'}`}>
               {formatMoney(r.dir === 'owed' ? r.amount : -r.amount, r.currency, { sign: true })}
