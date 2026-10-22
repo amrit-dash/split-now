@@ -188,11 +188,20 @@ export function proRing(photo: number): RingArt {
 /** The gap between a 1:1's tile and its ring (owner's board: a little more than the photo's). */
 export const TILE_RING_GAP = 2.6
 
-/** The ring along a rounded-square tile `tile` px across with corner radius `radius`; `offset` (px along it) turns it. */
-export function proTileRing(tile: number, radius: number, offset = 0): RingArt {
+function tileTrack(tile: number, radius: number): { h: number; out: number; track: Track } {
   const h = ringLetterHeight(tile)
   const out = TILE_RING_GAP + h / 2
-  const track = roundedSquareTrack(tile + 2 * out, radius + out)
+  return { h, out, track: roundedSquareTrack(tile + 2 * out, radius + out) }
+}
+
+/** How far round the tile's ring is, px (its words travel this far in one turn). */
+export function tileRingLength(tile: number, radius: number): number {
+  return tileTrack(tile, radius).track.length
+}
+
+/** The ring along a rounded-square tile `tile` px across with corner radius `radius`; `offset` (px along it) turns it. */
+export function proTileRing(tile: number, radius: number, offset = 0): RingArt {
+  const { h, out, track } = tileTrack(tile, radius)
   return lay(track, h, Math.ceil(tile + 2 * (out + h / 2 + 1)), offset)
 }
 

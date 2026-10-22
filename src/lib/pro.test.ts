@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { EARN_PRO_PATH, hasEarnedPro, memberPro, proMarkLabel, proShown, proTapTarget, withProAwarded } from './pro'
+import { EARN_PRO_PATH, friendPro, hasEarnedPro, memberPro, proMarkLabel, proShown, proTapTarget, withProAwarded } from './pro'
 
 describe('hasEarnedPro / proShown', () => {
   it('earned means a real date', () => {
@@ -44,5 +44,15 @@ describe('tapping a mark', () => {
     expect(proTapTarget(true)).toBeNull()
     expect(proMarkLabel(true)).toBe('Pro. How to earn it')
     expect(proMarkLabel(false)).toBe('Pro')
+  })
+})
+
+describe('friendPro', () => {
+  it('a 1:1 whose friend is Pro', () => {
+    const members = { me: { name: 'A' }, f: { name: 'R', pro: true } }
+    expect(friendPro({ type: 'direct', peer: 'f', members })).toBe(true)
+    expect(friendPro({ type: 'direct', peer: 'me', members })).toBe(false)
+    expect(friendPro({ type: 'direct', members })).toBe(false)
+    expect(friendPro({ type: 'trip', peer: 'f', members })).toBe(false)
   })
 })

@@ -121,3 +121,11 @@ export function guessGroup(name: string): GroupGuess | null {
 }
 
 export { firstEmoji } from './emoji'
+
+/**
+ * Whether a group's face is the 1:1 handshake icon (src/components/GroupIcon.tsx HandshakeArt)
+ * rather than its emoji: a 1:1 still showing the 🤝 it was made with, with no drawn icon or picture.
+ */
+export function drawsHandshake(g: { type?: string; iconSvg?: string; iconImage?: string } | undefined, emoji: string): boolean {
+  return g?.type === 'direct' && emoji === GROUP_TYPES.direct.emoji && !g.iconSvg && !g.iconImage
+}

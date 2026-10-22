@@ -8,7 +8,9 @@ import { useMe } from '@/hooks/auth'
 import { errText } from '@/lib/errors'
 import { isSynced, loadSharedRates, ratesStatus, refreshRates, type RatesStatus } from '@/lib/fx'
 import { appLocale } from '@/lib/locale'
+import { usePro } from '@/hooks/usePro'
 import { Avatar } from './Avatar'
+import { ProPill, ProRing } from './ProBadge'
 import { HintText, InfoTip, type Hint } from './Hint'
 import { useToast } from './Toast'
 
@@ -50,6 +52,8 @@ export function AccountCard({
   const [open, setOpen] = useState(false)
   const bodyId = useId()
   const signingIn = useFeature('signingIn')
+  // Pro (src/lib/pro.ts): the ring on the photo and the pill by the name, while the badge shows.
+  const pro = usePro().shown
   const sub = email ?? (repo.mode === 'demo' ? 'Demo account (this device only)' : phone || '')
   return (
     <div className="card overflow-hidden">
@@ -61,7 +65,13 @@ export function AccountCard({
           aria-label="Change profile photo"
           data-testid="profile-photo"
         >
-          <Avatar name={name || '?'} photoURL={photoURL} color="accent" size={60} />
+          {pro ? (
+            <ProRing photo={60}>
+              <Avatar name={name || '?'} photoURL={photoURL} color="accent" size={60} />
+            </ProRing>
+          ) : (
+            <Avatar name={name || '?'} photoURL={photoURL} color="accent" size={60} />
+          )}
           <span
             className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-white text-slate-600 shadow ring-1 ring-slate-200 dark:bg-ink-800 dark:text-slate-300 dark:ring-ink-700"
             aria-hidden
@@ -78,7 +88,16 @@ export function AccountCard({
           data-testid="account-toggle"
         >
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-xl font-bold">{name || 'Your name'}</span>
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="truncate text-xl font-bold">{name || 'Your name'}</span>
+              {pro && (
+                // Your own badge: just the mark, nothing to tap.
+                <span className="flex shrink-0 items-center" data-testid="profile-pro">
+                  <ProPill h={12} />
+                  <span className="sr-only">Pro</span>
+                </span>
+              )}
+            </span>
             <span className="text-muted block truncate text-sm">{sub}</span>
           </span>
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-ink-800 dark:text-slate-400">

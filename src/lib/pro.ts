@@ -51,3 +51,8 @@ export function proTapTarget(viewerEarned: boolean): string | null {
 export function proMarkLabel(tappable: boolean): string {
   return tappable ? 'Pro. How to earn it' : 'Pro'
 }
+
+/** A 1:1 whose friend shows the Pro badge (their member entry's mark). */
+export function friendPro(g: { type?: string; peer?: string; members?: Record<string, { name?: string; pro?: unknown } | undefined> }): boolean {
+  return g.type === 'direct' && !!g.peer && memberPro(g.members?.[g.peer])
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bendWord, circleTrack, pathPoints, proRing, proTileRing, ringLetterHeight, ringRepeats, roundedSquareTrack } from './pro-ring'
+import { bendWord, circleTrack, pathPoints, proRing, proTileRing, ringLetterHeight, ringRepeats, roundedSquareTrack, tileRingLength } from './pro-ring'
 import { PRO_D } from './pro-glyph'
 
 describe('ringLetterHeight', () => {
@@ -92,6 +92,8 @@ describe('proTileRing', () => {
     const b = proTileRing(tile, 16, 7)
     expect(a.words.length).toBe(b.words.length)
     expect(a.words[0]).not.toBe(b.words[0])
+    // a whole turn brings it back
+    expect(proTileRing(tile, 16, tileRingLength(tile, 16)).words[0]).toBe(a.words[0])
     for (const w of a.words)
       for (const [x, y] of pathPoints(w)) {
         expect(Math.max(Math.abs(x), Math.abs(y))).toBeLessThanOrEqual(a.size / 2)

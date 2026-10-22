@@ -41,6 +41,8 @@ export interface MotionPrefs {
   speed: FlowSpeed
   /** The circles floating in the Home card. */
   circles: boolean
+  /** The PRO badges' shine and their rings' slow turn (src/components/ProBadge.tsx); off, they stay still. */
+  pro: boolean
 }
 
 export const DEFAULT_MOTION: MotionPrefs = {
@@ -55,6 +57,7 @@ export const DEFAULT_MOTION: MotionPrefs = {
   flow: true,
   speed: 'normal',
   circles: true,
+  pro: true,
 }
 export const MOTION_KEY = 'splitit-motion'
 
@@ -87,6 +90,7 @@ export function parseMotion(raw: string | null | undefined): MotionPrefs {
     flow: bool('flow'),
     speed: SPEEDS.includes(o.speed as FlowSpeed) ? (o.speed as FlowSpeed) : DEFAULT_MOTION.speed,
     circles: bool('circles'),
+    pro: bool('pro'),
   }
 }
 
@@ -95,9 +99,9 @@ export function isDefaultMotion(p: MotionPrefs): boolean {
 }
 
 /** What actually moves, after the master switch and the device's reduce-motion setting. */
-export function activeMotion(p: MotionPrefs, reduced: boolean): { fireworks: boolean; flow: boolean; circles: boolean } {
+export function activeMotion(p: MotionPrefs, reduced: boolean): { fireworks: boolean; flow: boolean; circles: boolean; pro: boolean } {
   const on = p.on && !reduced
-  return { fireworks: on && p.fireworks, flow: on && p.flow, circles: on && p.circles }
+  return { fireworks: on && p.fireworks, flow: on && p.flow, circles: on && p.circles, pro: on && p.pro }
 }
 
 /** Burst size multiplier: how far the sparks fly (and how many there are, so a big burst isn't sparse). */

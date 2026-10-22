@@ -76,6 +76,17 @@ const CUSTOM = {
     line: ring(8.75) + ring(3.75) + S('M5.8 5.8l3.55 3.55M14.65 14.65l3.55 3.55M18.2 5.8l-3.55 3.55M9.35 14.65 5.8 18.2'),
     fill: '<path fill="currentColor" d="M19.93 5.91A10 10 0 0 1 19.93 18.09L15.90 13.69A4.25 4.25 0 0 0 15.90 10.31ZM18.09 19.93A10 10 0 0 1 5.91 19.93L10.31 15.90A4.25 4.25 0 0 0 13.69 15.90ZM4.07 18.09A10 10 0 0 1 4.07 5.91L8.10 10.31A4.25 4.25 0 0 0 8.10 13.69ZM5.91 4.07A10 10 0 0 1 18.09 4.07L13.69 8.10A4.25 4.25 0 0 0 10.31 8.10Z"/>',
   },
+  /* The 1:1 badge (owner, 22 Oct 2026; replaces the 🤝 emoji): Fluent's handshake. Outline is its
+     line over its own fill at .42 (the duotone the light theme shows); Filled is the fill alone (the
+     dark theme's, where the soft layer muddied). src/components/GroupIcon.tsx picks per theme. */
+  handshake: {
+    get line() {
+      return `<g opacity=".42">${body('fluent', 'handshake-24-filled')}</g>${body('fluent', 'handshake-24-regular')}`
+    },
+    get fill() {
+      return body('fluent', 'handshake-24-filled')
+    },
+  },
   /* The lifebuoy as a Solar-style duotone, for the Profile row tiles beside Solar's pictures:
      Outline, a line ring with its coloured sections at half tone; Filled, the classic buoy (half-tone
      ring, solid sections). */
@@ -147,6 +158,7 @@ const UI = {
   FileUploadIcon: 'document-arrow-up',
   FlagIcon: 'flag',
   GroupsIcon: 'people-team',
+  HandshakeIcon: '~handshake',
   /* Claim: Solar's hand holding a note, two-tone like the lifebuoy (owner): the note strong, the hand lighter. */
   HandCoinsIcon: 'solar:hand-money',
   HandHeartIcon: 'heart',

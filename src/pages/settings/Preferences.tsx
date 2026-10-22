@@ -2,6 +2,7 @@ import { useState, useSyncExternalStore } from 'react'
 import { usePickableGroups } from '@/hooks/useVault'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
+import { usePro } from '@/hooks/usePro'
 
 import { useAppConfig } from '@/hooks/useAppConfig'
 import { CURRENCIES } from '@/lib/money'
@@ -50,6 +51,12 @@ const DETAIL_HINT: Hint = {
 }
 
 /** /settings/preferences: default currency (with the rates refresh), theme, accent and detail level. All autosave; the look follows the account (appearance-sync.ts). */
+const PRO_HINT: Hint = {
+  full: 'You earned it by finishing Help. Off hides it on your profile and from the people in your groups.',
+  short: 'On your profile and in your groups',
+  tier: 'help',
+}
+
 export default function Preferences() {
   const { profile } = useMe()
   const toast = useToast()
@@ -84,6 +91,18 @@ export default function Preferences() {
     try {
       await repo.saveProfile({ ...profile, currency })
       flashCurrency()
+    } catch (e) {
+      toast(errText(e), 'err')
+    }
+  }
+
+  // Off takes the badge away for everyone (memberProfileOf, the member sync); proAt stays, so on brings it back.
+  const pro = usePro()
+  const [proSaved, flashPro] = useSavedFlash()
+  const setProShown = async (on: boolean) => {
+    try {
+      await repo.setProHidden(profile.uid, !on)
+      flashPro()
     } catch (e) {
       toast(errText(e), 'err')
     }
@@ -258,6 +277,23 @@ export default function Preferences() {
         )}
         <HintText hint={SYNC_HINT} />
       </div>
+
+      {/* Only once earned (src/lib/pro.ts), in Simple and Advanced alike. */}
+      {pro.earned && (
+        <>
+          <SectionTitle saved={proSaved}>Pro</SectionTitle>
+          <div className="card flex items-center justify-between gap-3 p-4">
+            <div className="min-w-0">
+              <div className="flex items-center font-medium">
+                Show my Pro badge
+                <InfoTip hint={PRO_HINT} label="About the Pro badge" />
+              </div>
+              <HintText hint={PRO_HINT} />
+            </div>
+            <Switch checked={pro.shown} onChange={(on) => void setProShown(on)} label="Show my Pro badge" testId="pro-shown" />
+          </div>
+        </>
+      )}
     </SettingsPage>
   )
 }

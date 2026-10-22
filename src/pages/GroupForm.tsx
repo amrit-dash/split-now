@@ -37,6 +37,7 @@ import { useTodayRates } from '@/hooks/useFx'
 import { GROUP_TYPES, SHARED_TYPES, groupTypeInfo, groupTypeOf, guessGroup, iconsFor, isSharedType, parseGroupType } from '@/lib/groupTypes'
 import { useIconAi } from '@/hooks/useIconAi'
 import { Avatar } from '@/components/Avatar'
+import { HandshakeArt } from '@/components/GroupIcon'
 import { IconPickerField, SuggestionPill, SuggestionRow, TypeSuggestion } from '@/components/IconPicker'
 import { useAutoIconPick } from '@/hooks/useAutoIconPick'
 import { groupPickRequest } from '@/lib/icon-pick'
@@ -957,8 +958,9 @@ export default function GroupForm() {
                 onClick={() => chooseKind(k.kind)}
                 className={`min-w-0 rounded-xl px-2.5 py-2.5 text-left transition active:scale-[.98] ${kind === k.kind ? 'accent-live bg-gradient-to-br from-fill to-fill-to text-on-fill shadow-md shadow-fill/25' : 'text-slate-700 hover:bg-white/60 dark:text-slate-200 dark:hover:bg-ink-700'}`}
               >
-                <div className="text-xl leading-none" aria-hidden>
-                  {k.emoji}
+                <div className="flex h-5 items-center text-xl leading-none" aria-hidden>
+                  {/* The 1:1 is the handshake icon, as on its tiles (GroupIcon); the others keep their emoji. */}
+                  {k.kind === 'direct' ? <HandshakeArt size={22} onAccent={kind === k.kind} /> : k.emoji}
                 </div>
                 <div className="mt-1.5 truncate text-sm font-bold">{k.label}</div>
                 <div className={`truncate text-xs ${kind === k.kind ? 'text-on-fill/90' : 'text-muted'}`}>{k.hint}</div>

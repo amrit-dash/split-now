@@ -197,6 +197,17 @@ export default function Animations() {
             testId="motion-circles"
           />
         </div>
+        <SectionTitle>Pro badge</SectionTitle>
+        <div className="card p-4">
+          <Row
+            title="Pro badge"
+            text={{ full: 'The shine on PRO badges and their ring turning slowly. Off, they stay still.', short: 'Shine and turning ring', tier: 'help' }}
+            checked={prefs.pro}
+            disabled={off}
+            onChange={(pro) => set({ pro })}
+            testId="motion-pro"
+          />
+        </div>
       </fieldset>
 
       <div className="mt-3 flex items-center justify-between gap-3 px-1">

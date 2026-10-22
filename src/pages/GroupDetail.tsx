@@ -92,6 +92,8 @@ import { Avatar } from '@/components/Avatar'
 import { ChequeIcon } from '@/components/ChequeIcon'
 import { DebtGraph } from '@/components/DebtGraph'
 import { GroupIcon } from '@/components/GroupIcon'
+import { ProTap, ProTileRing } from '@/components/ProBadge'
+import { friendPro } from '@/lib/pro'
 import { Empty, LiveBadge, Loading, PageHeader, Segmented, formatRange } from '@/components/Misc'
 import { Celebrate } from '@/components/Celebrate'
 import { DeletedGroupCard, useDeleteGroup } from '@/components/DeleteGroup'
@@ -343,7 +345,16 @@ export default function GroupDetail() {
 
       <div className="card mb-4 p-5">
         <div className="flex items-center gap-4">
-          <GroupIcon emoji={group.emoji} group={group} size={56} />
+          {friendPro(group) ? (
+            // A Pro friend: the PRO ring along their tile (rounded-2xl = 16 px corners), never in the title.
+            <ProTap className="flex shrink-0 rounded-2xl" testId="direct-pro-ring">
+              <ProTileRing tile={56} radius={16}>
+                <GroupIcon emoji={group.emoji} group={group} size={56} />
+              </ProTileRing>
+            </ProTap>
+          ) : (
+            <GroupIcon emoji={group.emoji} group={group} size={56} />
+          )}
           <div className="min-w-0 flex-1">
             {personal ? (
               <>

@@ -13,23 +13,33 @@ import { spending } from '../../shared/received'
 import { currencySymbol, lockedText, scrambledAmount } from '@/lib/vault-scramble'
 import { AnimalStack, LockedTile } from '@/features/vault/Scrambled'
 import { useMe } from '@/hooks/auth'
+import { usePro } from '@/hooks/usePro'
+import { friendPro, proTapTarget } from '@/lib/pro'
+import { ProPill, ProTap } from './ProBadge'
 
 /** One group in a list: icon, name, members (spend for a personal wallet, "Friend" for a 1:1) and your balance in words and numbers. */
 export function GroupRow({ d }: { d: GroupData }) {
+  const { earned } = usePro()
   const bal = d.me ? (d.net[d.me] ?? 0) : 0
   const members = Object.values(activeMembers(d.group.members))
   const personal = d.group.type === 'personal'
   const spent = spending(d.expenses).reduce((s, e) => s + e.amount, 0)
   if (d.locked) return <LockedRow d={d} count={members.length} />
+  // A 1:1 whose friend is Pro (src/lib/pro.ts): [PRO] · Friend. Their pill opens Help → Earn Pro
+  // for a viewer who hasn't earned it, so then it's a link of its own.
+  const isPro = friendPro(d.group)
+  const proLink = isPro && proTapTarget(earned) !== null
   // An open private group has its own lock button in the row (like the Groups screen's for all of
-  // them). A button can't sit inside a link, so the link is the row's background and the button sits above it.
+  // them), and a Pro friend's pill its own link. A button or link can't sit inside a link, so then the
+  // row's link is its background and they sit above it.
   const open = !!d.group.vault
+  const overlay = open || proLink
   const row = 'relative flex min-h-16 items-center gap-3 px-4 py-3 transition active:bg-slate-50 dark:active:bg-ink-800'
   const body = (
     <>
-      {open && <Link to={`/groups/${d.group.id}`} className="absolute inset-0" aria-label={`${d.group.name}, private group, open`} />}
+      {overlay && <Link to={`/groups/${d.group.id}`} className="absolute inset-0" aria-label={open ? `${d.group.name}, private group, open` : d.group.name} />}
       <GroupIcon emoji={d.group.emoji} group={d.group} />
-      <div className={`min-w-0 flex-1 ${open ? 'pointer-events-none' : ''}`}>
+      <div className={`min-w-0 flex-1 ${overlay ? 'pointer-events-none' : ''}`}>
         <div className="flex items-center gap-2">
           <span className="truncate font-semibold">{d.group.name}</span>
           {open && (
@@ -54,7 +64,24 @@ export function GroupRow({ d }: { d: GroupData }) {
             <span className="text-muted text-xs">{formatMoney(spent, d.group.currency)} spent</span>
           ) : d.group.type === 'direct' ? (
             // A 1:1 is just the two of you: no faces to stack (the friend is the icon).
-            <span className="text-muted text-xs">Friend</span>
+            <span className="text-muted flex items-center gap-1 text-xs">
+              {isPro && (
+                <>
+                  {proLink ? (
+                    <ProTap className="pointer-events-auto relative z-10 -my-2 -ml-1 flex min-h-7 items-center px-1" testId="group-row-pro">
+                      <ProPill h={7} />
+                    </ProTap>
+                  ) : (
+                    <span className="flex items-center">
+                      <ProPill h={7} />
+                      <span className="sr-only">Pro</span>
+                    </span>
+                  )}
+                  <span aria-hidden>·</span>
+                </>
+              )}
+              Friend
+            </span>
           ) : (
             <>
               <AvatarStack people={members} size={20} />
@@ -78,7 +105,7 @@ export function GroupRow({ d }: { d: GroupData }) {
       <ChevronRight size={18} className="text-slate-300 dark:text-slate-600" aria-hidden />
     </>
   )
-  return open ? (
+  return overlay ? (
     <div className={`${row} has-[a:active]:bg-slate-50 dark:has-[a:active]:bg-ink-800`}>{body}</div>
   ) : (
     <Link to={`/groups/${d.group.id}`} className={row}>

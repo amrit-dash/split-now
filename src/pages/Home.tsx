@@ -19,6 +19,8 @@ import { expenseEmoji } from '@/lib/icons'
 import { IconFace } from '@/components/IconFace'
 import { GroupRow } from '@/components/GroupRow'
 import { Avatar } from '@/components/Avatar'
+import { ProRing } from '@/components/ProBadge'
+import { usePro } from '@/hooks/usePro'
 import { Aurora } from '@/components/Aurora'
 import { ChequeIcon } from '@/components/ChequeIcon'
 import { CardSkeleton, ListSkeleton, Skeleton } from '@/components/Skeleton'
@@ -39,6 +41,7 @@ const CardFirework = lazy(() => import('@/components/CardFirework').then((m) => 
 export default function Home() {
   usePageTitle(null)
   const { profile, user } = useMe()
+  const pro = usePro()
   const all = useAllGroupData()
   // Private groups never show on Home, open or locked (docs/VAULT.md): not in the totals, the
   // people, the recent list or the feed. The card says so; they're on the Groups screen.
@@ -141,9 +144,18 @@ export default function Home() {
             ) : null}
             <InboxIcon size="1em" className="text-[24px] min-[380px]:text-[27px]" aria-hidden />
           </Link>
-          <Link to="/profile" aria-label="Profile" className="rounded-full p-0.5 ring-2 ring-brand-500/40 transition active:scale-95">
-            <Avatar name={profile.displayName} photoURL={profile.photoURL} color="accent" size={compact ? 48 : 58} />
-          </Link>
+          {pro.shown ? (
+            // Pro: the PRO ring in place of the plain one, around the same photo in the same space.
+            <Link to="/profile" aria-label="Profile, Pro" className="rounded-full p-0.5 transition active:scale-95" data-testid="home-pro-ring">
+              <ProRing photo={compact ? 48 : 58}>
+                <Avatar name={profile.displayName} photoURL={profile.photoURL} color="accent" size={compact ? 48 : 58} />
+              </ProRing>
+            </Link>
+          ) : (
+            <Link to="/profile" aria-label="Profile" className="rounded-full p-0.5 ring-2 ring-brand-500/40 transition active:scale-95">
+              <Avatar name={profile.displayName} photoURL={profile.photoURL} color="accent" size={compact ? 48 : 58} />
+            </Link>
+          )}
         </div>
       </header>
 

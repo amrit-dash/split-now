@@ -60,13 +60,19 @@ describe('isDefaultMotion', () => {
 
 describe('activeMotion', () => {
   it('runs what is switched on', () => {
-    expect(activeMotion({ ...DEFAULT_MOTION, circles: false }, false)).toEqual({ fireworks: true, flow: true, circles: false })
+    expect(activeMotion({ ...DEFAULT_MOTION, circles: false }, false)).toEqual({ fireworks: true, flow: true, circles: false, pro: true })
   })
   it('stills everything when the master switch is off', () => {
-    expect(activeMotion({ ...DEFAULT_MOTION, on: false }, false)).toEqual({ fireworks: false, flow: false, circles: false })
+    expect(activeMotion({ ...DEFAULT_MOTION, on: false }, false)).toEqual({ fireworks: false, flow: false, circles: false, pro: false })
+  })
+  it('stills the Pro badges on their own switch, showing them still', () => {
+    expect(activeMotion({ ...DEFAULT_MOTION, pro: false }, false).pro).toBe(false)
+    expect(DEFAULT_MOTION.pro).toBe(true)
+    expect(parseMotion(JSON.stringify({ pro: false })).pro).toBe(false)
+    expect(parseMotion(JSON.stringify({ pro: 'no' })).pro).toBe(true)
   })
   it('lets the device reduce-motion setting win', () => {
-    expect(activeMotion(DEFAULT_MOTION, true)).toEqual({ fireworks: false, flow: false, circles: false })
+    expect(activeMotion(DEFAULT_MOTION, true)).toEqual({ fireworks: false, flow: false, circles: false, pro: false })
   })
 })
 

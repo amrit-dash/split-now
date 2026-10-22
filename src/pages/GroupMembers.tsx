@@ -27,6 +27,8 @@ import {
 } from '@/lib/members'
 import { formatMoney } from '@/lib/money'
 import { Avatar } from '@/components/Avatar'
+import { ProPill, ProTap } from '@/components/ProBadge'
+import { memberPro } from '@/lib/pro'
 import { MemberPicker } from '@/components/MemberPicker'
 import { Empty, PageHeader } from '@/components/Misc'
 import { CardSkeleton, ListSkeleton } from '@/components/Skeleton'
@@ -210,8 +212,22 @@ export default function GroupMembers() {
                 >
                   <Avatar name={m.name} color={m.color} photoURL={m.photoURL} size={40} />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium">
-                      {self ? m.name : labelOf(group.members, id, m.name, me)} {self && <span className="text-muted text-xs">(you)</span>}
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <span className="truncate font-medium">
+                        {self ? m.name : labelOf(group.members, id, m.name, me)} {self && <span className="text-muted text-xs">(you)</span>}
+                      </span>
+                      {/* Pro (src/lib/pro.ts): the pill by the name; someone else's opens Help → Earn Pro for a viewer without it. */}
+                      {memberPro(m) &&
+                        (self ? (
+                          <span className="flex shrink-0 items-center">
+                            <ProPill h={9} />
+                            <span className="sr-only">Pro</span>
+                          </span>
+                        ) : (
+                          <ProTap className="-my-2 flex min-h-8 shrink-0 items-center px-1" testId="member-pro">
+                            <ProPill h={9} />
+                          </ProTap>
+                        ))}
                     </div>
                     {/* The full name under the short one: this is where you check who someone is. */}
                     <div className="text-muted truncate text-xs">
