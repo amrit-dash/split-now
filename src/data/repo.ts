@@ -21,6 +21,7 @@ import type {
   JoinRequest,
 } from '@/types'
 import type { CaptureDraft, InboxDoc } from '@/lib/capture'
+import type { HelpProgress } from '@/lib/help-progress'
 import type { ItemId, LiveTable, NewTable, ParticipantId, TableExtras, TableItem, TableParticipant, TableStatus, TaxSplit } from '@/lib/table'
 import type { ActivityCtx } from '@/lib/activity'
 import type { NewPayLink, PayLink, PayLinkClaim } from '@/lib/paylinks'
@@ -516,6 +517,10 @@ export interface Repo {
   watchInboxState(uid: string, cb: Watch<InboxState>): Unsub
   /** Fire-and-forget, like other settings. */
   saveInboxState(uid: string, state: InboxState): Promise<void>
+  /** Which Help sections this person finished (users/{uid}/settings/help, src/lib/help-progress.ts), the same on every device. */
+  watchHelpProgress(uid: string, cb: Watch<HelpProgress>): Unsub
+  /** Fire-and-forget, like other settings. */
+  saveHelpProgress(uid: string, progress: HelpProgress): Promise<void>
   /**
    * Inbox → Show older: the newest `max` activity entries across the groups created before
    * `before`, newest first. A one-time read (older entries don't change), one small query per group.

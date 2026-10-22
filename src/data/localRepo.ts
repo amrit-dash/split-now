@@ -1,3 +1,4 @@
+import { EMPTY_HELP_PROGRESS, type HelpProgress } from '@/lib/help-progress'
 import { OPEN_ITEM_EDIT_FIELDS } from '@/lib/open-items'
 import { MAX_ATTACHED } from '@/lib/receipt-photo'
 import { blobToDataUrl } from '@/lib/image'
@@ -101,6 +102,7 @@ interface State {
   appearance?: Record<string, Record<string, unknown>>
   /** per user: what they cleared from Inbox → Updates */
   inbox?: Record<string, InboxState>
+  help?: Record<string, HelpProgress>
   /** Pay me links keyed by code */
   payLinks?: Record<string, PayLinkDoc>
   /** payment screenshots by Storage-style path (small data: URLs) */
@@ -1233,6 +1235,12 @@ export function createLocalRepo(): Repo {
     async saveInboxState(userId, s) {
       state.inbox ??= {}
       state.inbox[userId] = s
+      commit()
+    },
+    watchHelpProgress: (userId, cb) => watch(() => state.help?.[userId] ?? EMPTY_HELP_PROGRESS, cb),
+    async saveHelpProgress(userId, p) {
+      state.help ??= {}
+      state.help[userId] = p
       commit()
     },
     async fetchActivityBefore(groupIds, before, max) {

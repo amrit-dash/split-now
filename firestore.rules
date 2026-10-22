@@ -206,6 +206,12 @@ service cloud.firestore {
             && request.resource.data.get('inks', {}) is map && request.resource.data.get('inks', {}).size() <= 20
             && request.resource.data.get('motion', {}) is map && request.resource.data.get('motion', {}).size() <= 20
             && request.resource.data.updatedAt is int))
+          // settings/help: the Help sections this person finished (src/lib/help-progress.ts). Only
+          // fills their own progress ring; Pro is a separate profile field.
+          && (settingId != 'help' || (
+            request.resource.data.keys().hasOnly(['done', 'updatedAt'])
+            && request.resource.data.done is list && request.resource.data.done.size() <= 200
+            && request.resource.data.get('updatedAt', 0) is int))
           // settings/inbox: what this person cleared from Inbox → Updates (src/lib/inbox.ts). Only
           // hides entries for them; the groups' activity itself is never touched.
           && (settingId != 'inbox' || (

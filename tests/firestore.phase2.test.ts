@@ -100,6 +100,21 @@ describe('appearance (settings/appearance)', () => {
   })
 })
 
+describe('Help progress (settings/help)', () => {
+  const help = 'users/alice/settings/help'
+  it('the owner keeps the sections they finished: up to 200 ids and a time', async () => {
+    await assertSucceeds(setDoc(doc(db('alice'), help), { done: ['add-expense', 'settle-up-upi'], updatedAt: 6 }))
+    await assertSucceeds(getDoc(doc(db('alice'), help)))
+    await assertFails(setDoc(doc(db('alice'), help), { done: Array.from({ length: 201 }, (_, i) => `s${i}`), updatedAt: 6 }))
+    await assertFails(setDoc(doc(db('alice'), help), { done: 'all', updatedAt: 6 }))
+    await assertFails(setDoc(doc(db('alice'), help), { done: [], pro: true }))
+  })
+  it('nobody else reads or writes it', async () => {
+    await assertFails(setDoc(doc(db('bob'), help), { done: [], updatedAt: 6 }))
+    await assertFails(getDoc(doc(db('bob'), help)))
+  })
+})
+
 describe('cleared Updates (settings/inbox)', () => {
   const inbox = 'users/alice/settings/inbox'
   it('the owner keeps what they cleared: a time and up to 200 hidden rows', async () => {

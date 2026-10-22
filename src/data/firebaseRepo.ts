@@ -1,3 +1,4 @@
+import { EMPTY_HELP_PROGRESS, parseHelpProgress } from '@/lib/help-progress'
 import { OPEN_ITEM_EDIT_FIELDS } from '@/lib/open-items'
 import { deleteApp, initializeApp, type FirebaseOptions } from 'firebase/app'
 import {
@@ -1635,6 +1636,18 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       const batch = writeBatch(db)
       batch.set(doc(db, 'users', userId, 'settings', 'inbox'), { clearedAt: state.clearedAt, hidden: state.hidden, updatedAt: Date.now() })
       fire(batch, 'Clearing updates')
+    },
+    watchHelpProgress(userId, cb) {
+      return onSnapshot(
+        doc(db, 'users', userId, 'settings', 'help'),
+        (s) => cb(parseHelpProgress(s.data()), metaOf(s)),
+        listenError('Loading your Help progress', () => cb(EMPTY_HELP_PROGRESS, FAILED)),
+      )
+    },
+    async saveHelpProgress(userId, p) {
+      const batch = writeBatch(db)
+      batch.set(doc(db, 'users', userId, 'settings', 'help'), { done: p.done, updatedAt: Date.now() })
+      fire(batch, 'Saving your Help progress')
     },
     async fetchActivityBefore(groupIds, before, max) {
       const pages = await Promise.all(
