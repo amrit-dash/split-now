@@ -113,6 +113,8 @@ function initScript({ theme }) {
     localStorage.setItem('splitit-accent', 'violet')
     localStorage.removeItem('splitit-ink')
     localStorage.removeItem('splitit-duo')
+    // The README shows what a new person sees first: Simple (docs/SIMPLE_MODE.md).
+    localStorage.setItem('splitnow-mode', 'simple')
   } catch {
     /* storage blocked: the app falls back to its defaults */
   }
