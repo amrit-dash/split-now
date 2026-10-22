@@ -2,13 +2,15 @@
  * The detail level ("look"): how much explaining the app does under its titles and how many
  * optional sections it shows. An admin picks the default for everyone in Admin → App; each person
  * may pick their own in Settings → Preferences (LookChoice, effectiveLook).
- *   full     every subtext as written, every section
- *   needed   "When needed": the one-line version of each subtext; the ones only worth reading
- *            the first time are dropped
- *   minimal  titles only; a subtext stays (in its shortest form) only where leaving it out could
- *            lead someone into a mistake, and optional sections are hidden
- *   tooltip  every subtext as written, folded into a small (i) beside its title (a key one also
- *            keeps its short line, see hintView)
+ *   full     "Explain everything": every subtext as written, every section
+ *   needed   "Short tips": the one-line version of each subtext; the ones only worth reading
+ *            the first time ('extra') are dropped
+ *   minimal  "Titles only": a subtext stays (in its shortest form) only where leaving it out could
+ *            lead someone into a mistake ('key'), and optional sections are hidden
+ *   tooltip  "Tips behind (i)": every subtext as written, folded into a small (i) beside its title
+ *            (a key one also keeps its short line, see hintView)
+ * The ids are stored and synced (config/app.look, the person's own choice) and checked by
+ * firestore.rules, so only the labels may change.
  * Pure: the components that read it are src/components/Hint.tsx.
  */
 
@@ -18,12 +20,12 @@ export type Look = (typeof LOOKS)[number]
 /** Full keeps the app exactly as it was until an admin chooses otherwise. */
 export const DEFAULT_LOOK: Look = 'full'
 
-/** What the admin console shows for each choice. */
+/** What Settings → Preferences and the admin console show for each choice: the label says what you get. */
 export const LOOK_INFO: Record<Look, { label: string; hint: string }> = {
-  full: { label: 'Full', hint: 'Every explanation, every section.' },
-  needed: { label: 'When needed', hint: 'One short line where it helps.' },
-  minimal: { label: 'Minimal', hint: 'Titles only; a few must-read lines stay.' },
-  tooltip: { label: 'Tooltip', hint: 'Every explanation behind an (i) beside its title.' },
+  full: { label: 'Explain everything', hint: 'Every tip and every section.' },
+  needed: { label: 'Short tips', hint: 'One short line where it helps.' },
+  minimal: { label: 'Titles only', hint: 'Only warnings about money and data stay.' },
+  tooltip: { label: 'Tips behind (i)', hint: 'Tap (i) beside a title to read more.' },
 }
 
 /**
@@ -46,18 +48,19 @@ export const resolveLook = (v: unknown): Look => (isLook(v) ? v : DEFAULT_LOOK)
 /**
  * How important a subtext is:
  *   key    prevents a mistake (money moves, something is deleted or shared, a choice that is hard to
- *          undo): kept in every look, its shortest form in Minimal
- *   help   explains what a control does: short in When needed, gone in Minimal (the default)
- *   extra  background worth reading once: Full and Tooltip only
+ *          undo): kept in every look, its shortest form in Titles only
+ *   help   explains what a control does: short in Short tips, gone in Titles only (the default)
+ *   extra  background worth reading once, for a control whose title already says enough:
+ *          Explain everything and Tips behind (i) only
  */
 export type HintTier = 'key' | 'help' | 'extra'
 
 export interface HintSpec<T> {
   /** The complete text (Full, and the tooltip). */
   full: T
-  /** One phrase or one line for When needed; omitted means the full text is already short enough. */
+  /** One phrase or one line for Short tips; omitted means the full text is already short enough. */
   short?: T
-  /** The shortest form for Minimal (key hints only); omitted means `short`. */
+  /** The shortest form for Titles only (key hints only); omitted means `short`. */
   min?: T
   tier?: HintTier
 }

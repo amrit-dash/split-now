@@ -85,21 +85,23 @@ const SECTIONS: Record<'IN' | 'AU' | 'INTL', Array<{ title: string; keys: Handle
 }
 
 const PAYMENT_HINT: Hint = {
-  full: 'Shown to people in your groups when they settle up: a UPI QR for the exact amount, app buttons and copy buttons.',
-  short: 'Shown to your groups when they settle up',
+  full: 'Friends see these when they settle up: a UPI QR for the exact amount, plus app and copy buttons.',
+  short: 'Shown when friends settle up',
   tier: 'help',
 }
 // Privacy: what friends can see is never folded away.
 const PAYMENT_PRIVACY_HINT: Hint = {
-  full: 'Only members of groups you’re in can see these. Don’t add details you wouldn’t put on an invoice.',
-  short: 'Only members of groups you’re in can see these',
+  full: 'Only people in your groups see these. Add only what you’d put on an invoice.',
+  short: 'Only people in your groups see these',
   tier: 'key',
 }
 // The rows under the profile card: one line each, all 'help', so a detail level shows them all or none.
 const SETTINGS_ROW_HINT: Hint = { full: 'Currency, theme, notifications, auto-capture, AI, data', short: 'Currency, theme and more', tier: 'help' }
 const BALANCES_ROW_HINT: Hint = { full: 'Who owes whom, by person or by group', short: 'Who owes whom', tier: 'help' }
 const SUPPORT_ROW_HINT: Hint = { full: 'Buy me a coffee or sponsor on GitHub', short: 'Coffee or GitHub sponsor', tier: 'help' }
-const PHOTO_HINT: Hint = { full: 'Your photo is shown to people in your groups.', tier: 'key' }
+const HELP_ROW_HINT: Hint = { full: 'How things work, and what’s new', short: 'How things work', tier: 'help' }
+const INSIGHTS_ROW_HINT: Hint = { full: 'Where your money went, by month and category', short: 'Where your money went', tier: 'help' }
+const PHOTO_HINT: Hint = { full: 'People in your groups see your photo.', tier: 'key' }
 
 /** Old deep links into Profile sections now live under Settings. */
 const HASH_ROUTES: Record<string, string> = {
@@ -361,7 +363,7 @@ export default function Profile() {
           </RowTile>
           <span className="min-w-0 flex-1">
             <span className="block">Help</span>
-            <span className="text-muted block text-xs font-normal">How things work, and what’s new</span>
+            <HintText hint={HELP_ROW_HINT} as="span" className="text-muted block text-xs font-normal" />
           </span>
           {whatsNew.unseen.length > 0 && (
             <span className="rounded-full bg-fill px-2 py-0.5 text-[0.65rem] font-bold text-on-fill" data-testid="profile-help-new">
@@ -381,7 +383,7 @@ export default function Profile() {
           </RowTile>
           <span className="min-w-0 flex-1">
             <span className="block">Insights</span>
-            <span className="text-muted block text-xs font-normal">Where your money went, by month and category</span>
+            <HintText hint={INSIGHTS_ROW_HINT} as="span" className="text-muted block text-xs font-normal" />
           </span>
           <ChevronRight size={18} className="text-slate-400" aria-hidden />
         </Link>

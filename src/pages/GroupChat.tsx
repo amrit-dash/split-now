@@ -46,8 +46,8 @@ import { openOnce } from '@/lib/vault-open'
 
 /** Kept in every look: who can read the chat (people who join later too) is a privacy point. */
 const CHAT_START_HINT: Hint = {
-  full: 'The group’s money chat. Ask who paid, write down an open item anyone can claim, ask people to settle up or send a Pay me. Everyone in the group sees the whole chat, including people who join later.',
-  short: 'Everyone in the group sees the whole chat, including people who join later.',
+  full: 'The group’s money chat: ask who paid, add an open item, ask to settle up or send a Pay me. Everyone in the group sees all of it, even people who join later.',
+  short: 'Everyone in the group sees all of it, even people who join later.',
   min: 'Everyone in the group sees the whole chat.',
   tier: 'key',
 }
@@ -528,7 +528,7 @@ export default function GroupChat() {
                   {repo.mode !== 'demo' && <InfoTip hint={AI_SUGGEST_HINT} label="About AI suggestions" />}
                 </div>
                 {repo.mode === 'demo' ? (
-                  <div className="text-muted text-xs">Needs a Split Now account: not in the demo.</div>
+                  <div className="text-muted text-xs">Not in the demo: needs a Split Now account.</div>
                 ) : (
                   <HintText hint={AI_SUGGEST_HINT} className="text-muted text-xs" as="div" />
                 )}
@@ -563,24 +563,24 @@ export default function GroupChat() {
 }
 
 const ABOUT_HINT: Hint = {
-  full: 'Ask who paid, write down an open item anyone can claim, ask people to settle up or send a Pay me.',
+  full: 'Ask who paid, add an open item anyone can claim, ask to settle up or send a Pay me.',
   short: 'Ask who paid, settle up, send a Pay me.',
   tier: 'help',
 }
 // Who reads it is a privacy fact: it stays in every look.
 const WHO_SEES_HINT: Hint = {
-  full: 'Everyone in the group sees the whole chat, including people who join later.',
-  short: 'Everyone in the group sees it, even people who join later.',
+  full: 'Everyone in the group sees all of it, even people who join later.',
+  short: 'Everyone in the group sees it, even later joiners.',
   tier: 'key',
 }
 const SUGGEST_HINT: Hint = {
   full: '“Can everyone settle up?” offers Settle up. Read on this phone, nothing is sent until you tap. This device only.',
-  short: 'Offers a tool from what you type. This device only.',
+  short: 'Offers a tool for what you type. This device only.',
   tier: 'help',
 }
 const AI_SUGGEST_HINT: Hint = {
-  full: 'When the built-in rules find nothing, asks AI after you pause typing. A little slower, and uses your AI allowance (Settings → AI features). Recommended: off.',
-  short: 'Asks AI when the built-in rules find nothing. Uses your AI allowance.',
+  full: 'When the app finds nothing, asks AI after you pause. Slower, and uses your AI allowance. Best left off.',
+  short: 'Asks AI when the app finds nothing.',
   tier: 'help',
 }
 const MUTE_HINT: Hint = { full: 'No notifications for new messages, except when someone tags you. Only for you.', short: 'Tags still reach you.', tier: 'help' }

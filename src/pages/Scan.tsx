@@ -36,13 +36,13 @@ type Mode = 'receipt' | 'statement' | 'payment'
 
 const PAGE_HINT: Hint = { full: 'Bills, statements and payment screenshots', tier: 'extra' }
 const RECEIPT_HINT: Hint = {
-  full: 'We’ll pull out the total, merchant, date and line items for a split by items.',
-  short: 'We read the total, date and items',
+  full: 'Reads the total, merchant, date and items, ready to split by items.',
+  short: 'Reads the total, date and items',
   tier: 'help',
 }
 const PAYMENT_HINT: Hint = {
-  full: 'A GPay, PhonePe, Paytm, bank or PayPal screenshot — we’ll detect the amount and who you paid.',
-  short: 'We read the amount and who you paid',
+  full: 'From GPay, PhonePe, Paytm, a bank or PayPal. Reads the amount and who you paid.',
+  short: 'Reads the amount and who you paid',
   tier: 'help',
 }
 const FOOT_HINT: Hint = {

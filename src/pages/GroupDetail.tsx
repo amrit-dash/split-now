@@ -678,7 +678,7 @@ export default function GroupDetail() {
               ? {
                   full: (
                     <>
-                      Send this to <b>{group.name}</b> so they can join and see what you owe each other.
+                      Send this to <b>{group.name}</b> so they can see what you owe each other.
                     </>
                   ),
                   short: 'They join and see what you owe each other.',
@@ -689,7 +689,7 @@ export default function GroupDetail() {
                     // New people need the creator's OK (or it's private): the link only asks.
                     full: (
                       <>
-                        Anyone with this link can ask to join <b>{group.name}</b>. The person who made it lets them in from their Inbox.
+                        Anyone with this link can ask to join <b>{group.name}</b>. Its creator lets them in from the Inbox.
                       </>
                     ),
                     short: 'Anyone with this link can ask to join.',
@@ -698,7 +698,7 @@ export default function GroupDetail() {
                 : {
                     full: (
                       <>
-                        Anyone with this link can join <b>{group.name}</b> and claim their name in the member list.
+                        Anyone with this link can join <b>{group.name}</b> and claim their name.
                       </>
                     ),
                     short: 'Anyone with this link can join.',
@@ -866,17 +866,17 @@ function useChatReadAt(groupId: string | undefined): number | undefined {
 /** The ⋯ menu's lines: one per row, all 'help', so they show together or not at all (MenuRow). */
 const MENU_HINTS = {
   edit: { full: 'Name, dates, currency and approvals', short: 'Name, dates, currency', tier: 'help' },
-  members: { full: 'Add people, or remove someone who is settled up', short: 'Add or remove people', tier: 'help' },
-  invite: { full: 'A link or QR code friends can join with', short: 'Share a join link', tier: 'help' },
-  insights: { full: 'Where the group’s money went, in charts', short: 'Spending charts', tier: 'help' },
-  pattern: { full: 'Encryption, its key and its own pattern', short: 'Encryption and patterns', tier: 'help' },
-  received: { full: 'Refunds and reimbursements, and what they changed for each person', short: 'What came back', tier: 'help' },
-  export: { full: 'Every expense and payment as a spreadsheet', short: 'Download a spreadsheet', tier: 'help' },
-  leave: { full: 'You leave; what you added stays in the group', short: 'Leave this group', tier: 'help' },
-  delete: { full: 'For everyone; anyone in the group can restore it', short: 'For everyone, and restorable', tier: 'help' },
+  members: { full: 'Add people, or remove someone who’s settled up', short: 'Add or remove people', tier: 'help' },
+  invite: { full: 'A link or QR code to join', short: 'Share a join link', tier: 'help' },
+  insights: { full: 'Where the money went, in charts', short: 'Spending charts', tier: 'help' },
+  pattern: { full: 'Encryption, its key and its pattern', short: 'Encryption and pattern', tier: 'help' },
+  received: { full: 'Refunds and reimbursements, and who they changed', short: 'Refunds and reimbursements', tier: 'help' },
+  export: { full: 'Every expense and payment as a spreadsheet', short: 'As a spreadsheet', tier: 'help' },
+  leave: { full: 'What you added stays in the group', short: 'What you added stays', tier: 'help' },
+  delete: { full: 'For everyone. Anyone in the group can restore it.', short: 'For everyone, restorable', tier: 'help' },
 } satisfies Record<string, Hint>
 
-const SCAN_INVITE_HINT: Hint = { full: 'Friends next to you can scan this with their phone camera', short: 'Scan with a phone camera to join' }
+const SCAN_INVITE_HINT: Hint = { full: 'Friends nearby can scan this with their camera', short: 'Scan with a camera to join' }
 const SIMPLIFY_TIP: Hint = {
   full: (
     <>

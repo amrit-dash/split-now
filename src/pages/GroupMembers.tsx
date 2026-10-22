@@ -286,16 +286,16 @@ export default function GroupMembers() {
 }
 
 const SWIPE_HINT: Hint = {
-  full: 'Swipe a person left, or press and hold (right-click on a computer), to settle up, merge or remove them. Merge someone added twice (by name and by email) into one person. Only people who are settled up can be removed.',
-  short: 'Swipe a person left, or press and hold, for more.',
+  full: 'Swipe left or press and hold (right-click on a computer) to settle up, merge or remove. Merge someone added twice into one. Only settled people can be removed.',
+  short: 'Swipe left or press and hold for more.',
 }
 const MERGE_OK_HINT: Hint = {
-  full: 'When someone else merges two people here, you get a request in the chat to approve.',
-  short: 'Approve merges others make here.',
+  full: 'When someone else merges two people here, you approve it in the chat.',
+  short: 'Approve others’ merges in the chat.',
 }
 /** Must stay in every look: without it people wait for friends to join before logging anything. */
 const ADD_HINT: Hint = {
-  full: 'They can claim their spot with the invite link. You can log expenses with them straight away.',
+  full: 'They can claim their spot with the invite link. Add expenses with them now.',
   short: 'They can claim their spot with the invite link.',
   tier: 'key',
 }

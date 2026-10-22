@@ -68,14 +68,14 @@ export default function Animations() {
     >
       {reduced && (
         <p className="card mb-4 p-4 text-sm" data-testid="motion-reduced">
-          Your device is set to reduce motion, so these stay still. Turn that off in your device’s settings to use them.
+          Your device is set to reduce motion, so these stay still. Change it in your device’s settings.
         </p>
       )}
 
       <div className="card p-4">
         <Row
           title="All animations"
-          text={{ full: 'Fireworks, moving colours and floating circles on the Home card and buttons', short: 'On the Home card and buttons', tier: 'help' }}
+          text={{ full: 'Fireworks, moving colours and circles on the Home card and buttons', short: 'On the Home card and buttons', tier: 'help' }}
           checked={prefs.on && !reduced}
           disabled={reduced}
           onChange={(on) => set({ on })}
@@ -88,18 +88,18 @@ export default function Animations() {
         <div className="card space-y-4 p-4">
           <Row
             title="Fireworks"
-            text={{ full: 'On the Home card when you’re all settled up', tier: 'help' }}
+            text={{ full: 'On the Home card when you’re settled up', tier: 'help' }}
             checked={prefs.fireworks}
             disabled={off}
             onChange={(fireworks) => set({ fireworks })}
             testId="motion-fireworks"
           />
-          {/* Fine-tuning: hidden in Minimal; the main switches above and below always stay. Every row in a card has a 'help' line, so they show together or not at all. */}
+          {/* Fine-tuning: hidden in Minimal; the main switches above and below always stay. The pickers' labels say enough; their lines are for Full only. */}
           <Detail min={2}>
             <Sub off={!prefs.fireworks}>
               <SizePicker
                 label="Burst size"
-                hint={{ full: 'How far the sparks fly', tier: 'help' }}
+                hint={{ full: 'How far the sparks fly', tier: 'extra' }}
                 testId="motion-size"
                 value={prefs.size}
                 onChange={(size) => set({ size })}
@@ -108,7 +108,7 @@ export default function Animations() {
             <Sub off={!prefs.fireworks}>
               <SizePicker
                 label="Spark size"
-                hint={{ full: 'How big each spark is', tier: 'help' }}
+                hint={{ full: 'How big each spark is', tier: 'extra' }}
                 testId="motion-spark-size"
                 value={prefs.sparkSize}
                 onChange={(sparkSize) => set({ sparkSize })}
@@ -117,7 +117,7 @@ export default function Animations() {
             <Sub off={!prefs.fireworks}>
               <Row
                 title="Glitter"
-                text={{ full: 'A quick flash of small lights where a burst was, as it fades', short: 'Small lights as a burst fades', tier: 'help' }}
+                text={{ full: 'Small lights flash where a burst fades', tier: 'help' }}
                 checked={prefs.glitter}
                 disabled={off || !prefs.fireworks}
                 onChange={(glitter) => set({ glitter })}
@@ -126,7 +126,7 @@ export default function Animations() {
               <fieldset disabled={!prefs.glitter} className={`mt-4 transition-opacity ${prefs.glitter ? '' : 'opacity-50'}`}>
                 <SizePicker<GlitterSize>
                   label="Glitter size"
-                  hint={{ full: 'How big those lights are', tier: 'help' }}
+                  hint={{ full: 'How big those lights are', tier: 'extra' }}
                   testId="motion-glitter-size"
                   value={prefs.glitterSize}
                   onChange={(glitterSize) => set({ glitterSize })}
@@ -135,7 +135,7 @@ export default function Animations() {
                 <div className="mt-4">
                   <SizePicker<GlitterShape>
                     label="Glitter shape"
-                    hint={{ full: 'Mix has a bit of each', tier: 'help' }}
+                    hint={{ full: 'Mix has a bit of each', tier: 'extra' }}
                     testId="motion-glitter-shape"
                     value={prefs.glitterShape}
                     onChange={(glitterShape) => set({ glitterShape })}
@@ -147,7 +147,7 @@ export default function Animations() {
             <Sub off={!prefs.fireworks}>
               <Row
                 title="Twinkle"
-                text={{ full: 'Some sparks pulse as they fade, the brightest with a tiny star', short: 'Sparks pulse as they fade', tier: 'help' }}
+                text={{ full: 'Some sparks pulse as they fade, the brightest with a star', short: 'Sparks pulse as they fade', tier: 'help' }}
                 checked={prefs.twinkle}
                 disabled={off || !prefs.fireworks}
                 onChange={(twinkle) => set({ twinkle })}
@@ -162,8 +162,8 @@ export default function Animations() {
           <Row
             title="Colour flow"
             text={{
-              full: 'The colours drifting across the Home card, the + button and accent buttons',
-              short: 'Colours drifting on the Home card and buttons',
+              full: 'Colours drift across the Home card, the + button and accent buttons',
+              short: 'On the Home card and buttons',
               tier: 'help',
             }}
             checked={prefs.flow}
@@ -176,7 +176,7 @@ export default function Animations() {
               <SizePicker<FlowSpeed>
                 label="Speed"
                 groupLabel="Colour flow speed"
-                hint={{ full: 'How fast the colours move', tier: 'help' }}
+                hint={{ full: 'How fast the colours move', tier: 'extra' }}
                 testId="motion-speed"
                 value={prefs.speed}
                 onChange={(speed) => set({ speed })}
@@ -190,7 +190,7 @@ export default function Animations() {
           </Detail>
           <Row
             title="Floating circles"
-            text={{ full: 'The circles drifting in the Home card', tier: 'help' }}
+            text={{ full: 'On the Home card', tier: 'help' }}
             checked={prefs.circles}
             disabled={off}
             onChange={(circles) => set({ circles })}
@@ -200,8 +200,8 @@ export default function Animations() {
         <SectionTitle>Pro badge</SectionTitle>
         <div className="card p-4">
           <Row
-            title="Pro badge"
-            text={{ full: 'The shine on PRO badges and their ring turning slowly. Off, they stay still.', short: 'Shine and turning ring', tier: 'help' }}
+            title="Shine and turning ring"
+            text={{ full: 'On PRO badges. Off, they stay still.', tier: 'help' }}
             checked={prefs.pro}
             disabled={off}
             onChange={(pro) => set({ pro })}

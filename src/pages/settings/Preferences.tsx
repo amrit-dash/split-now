@@ -28,39 +28,24 @@ import { useToast } from '@/components/Toast'
 import { SectionTitle, SettingsPage, useSavedFlash } from './common'
 
 const CURRENCY_HINT: Hint = {
-  full: 'Used for new groups and for totals across groups. Each group keeps its own currency.',
-  short: 'For new groups and totals across groups',
+  full: 'For new groups and totals across groups. Each group keeps its own.',
+  short: 'For new groups and totals',
   tier: 'help',
 }
 const SYNC_HINT: Hint = {
-  full: 'Theme, accent, icons and detail level are the same on every device you sign in on.',
-  short: 'Same on every device you sign in on',
+  full: 'Theme, accent, icons and detail level follow you to every device.',
+  short: 'Same on all your devices',
   tier: 'help',
 }
-// Every row of the Appearance card has a 'help' line (Accent's and Text on accent's are in AccentPicker), so they show together or not at all.
-const THEME_HINT: Hint = { full: 'Auto follows your device’s light or dark mode', short: 'Auto follows your device', tier: 'help' }
-const ICONS_HINT: Hint = {
-  full: 'Outline draws light line icons; Filled draws solid ones. The tab you are on is always solid.',
-  short: 'Line or solid icons',
-  tier: 'help',
-}
-const DETAIL_HINT: Hint = {
-  full: 'How much the app explains under each option. Lines that stop a mistake with money always stay.',
-  short: 'How much the app explains under each option',
-  tier: 'help',
-}
+// Theme, Icons and Detail level read clearly from their choices, so their lines are background for Full only ('extra').
+const THEME_HINT: Hint = { full: 'Auto follows your device’s light or dark mode.', tier: 'extra' }
+const ICONS_HINT: Hint = { full: 'Outline is line icons, Filled is solid. The current tab is always solid.', tier: 'extra' }
+const DETAIL_HINT: Hint = { full: 'How much the app explains. Warnings about money always stay.', tier: 'extra' }
 
 /** /settings/preferences: default currency (with the rates refresh), theme, accent and detail level. All autosave; the look follows the account (appearance-sync.ts). */
-const DEV_HINT: Hint = {
-  full: 'For the people who run Split Now. Off hides it on your profile and from the people in your groups.',
-  short: 'On your profile and in your groups',
-  tier: 'help',
-}
-const PRO_HINT: Hint = {
-  full: 'You earned it by finishing Help. Off hides it on your profile and from the people in your groups.',
-  short: 'On your profile and in your groups',
-  tier: 'help',
-}
+// "Show my … badge" says it all; the lines add where it shows and why you have it (Full only).
+const DEV_HINT: Hint = { full: 'For the people who run Split Now. Shows on your profile and in your groups.', tier: 'extra' }
+const PRO_HINT: Hint = { full: 'Earned by finishing Help. Shows on your profile and in your groups.', tier: 'extra' }
 
 export default function Preferences() {
   const { profile } = useMe()
@@ -83,11 +68,11 @@ export default function Preferences() {
   const collectHint: Hint = {
     full: (
       <>
-        Balances adds up what each person owes you across currencies, in {profile.currency} at today’s rate, and friends paying you are offered{' '}
-        {profile.currency} first (a UPI QR when it’s INR). Groups keep their own currency.
+        Balances totals what you’re owed in {profile.currency} at today’s rate, and friends paying you get {profile.currency} first (a UPI QR for INR). Groups
+        keep their own currency.
       </>
     ),
-    short: `Totals and payments to you in ${profile.currency}, at today’s rate`,
+    short: `Totals and payments to you in ${profile.currency}`,
     tier: 'help',
   }
 
@@ -257,7 +242,7 @@ export default function Preferences() {
                 }))}
               />
               <HintText
-                hint={{ ...ICONS_HINT, full: `${ICONS_HINT.full} Default follows Split Now (${ICON_STYLE_INFO[adminIcons].label}).` }}
+                hint={{ ...ICONS_HINT, full: `${ICONS_HINT.full} Default is ${ICON_STYLE_INFO[adminIcons].label}.` }}
                 className="text-muted mt-1.5 text-xs"
               />
             </div>
@@ -279,7 +264,7 @@ export default function Preferences() {
                   }}
                   options={LOOK_CHOICES.map((c) =>
                     c === 'app'
-                      ? { value: c, label: `App default (${LOOK_INFO[adminLook].label})`, text: 'App default', hint: 'Follows what Split Now sets' }
+                      ? { value: c, label: `App default (${LOOK_INFO[adminLook].label})`, text: 'App default', hint: 'What Split Now sets' }
                       : { value: c, label: LOOK_INFO[c].label, hint: LOOK_INFO[c].hint },
                   )}
                 />

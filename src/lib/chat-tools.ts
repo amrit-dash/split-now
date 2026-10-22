@@ -33,14 +33,14 @@ export const CHAT_TOOLS: readonly ToolInfo[] = [
     id: 'settle',
     command: 'settle',
     label: 'Settle up',
-    hint: 'Ask everyone, or someone, to settle up with you.',
+    hint: 'Ask everyone, or one person, to settle up.',
     aliases: ['square', 'owe', 'clear', 'dues'],
   },
-  { id: 'pay', command: 'pay', label: 'Pay me', hint: 'Ask for an amount, from everyone or someone.', aliases: ['request', 'collect', 'ask'] },
-  { id: 'expense', command: 'expense', label: 'Add expense', hint: 'Add it now; its card shows up here.', aliases: ['add', 'split', 'spent', 'bill'] },
-  { id: 'open', command: 'open', label: 'Open item', hint: 'Not sure who paid or how much? Anyone can claim it.', aliases: ['who', 'claim', 'note'] },
-  { id: 'balances', command: 'balances', label: 'Balances', hint: 'Show who owes whom right now.', aliases: ['owes', 'status', 'summary', 'totals'] },
-  { id: 'share', command: 'share', label: 'Share an expense', hint: 'Point the group at one that’s already added.', aliases: ['link', 'find'] },
+  { id: 'pay', command: 'pay', label: 'Pay me', hint: 'Ask for an amount from everyone or one person.', aliases: ['request', 'collect', 'ask'] },
+  { id: 'expense', command: 'expense', label: 'Add expense', hint: 'Add it now. Its card shows up here.', aliases: ['add', 'split', 'spent', 'bill'] },
+  { id: 'open', command: 'open', label: 'Open item', hint: 'Unsure who paid or how much? Anyone can claim it.', aliases: ['who', 'claim', 'note'] },
+  { id: 'balances', command: 'balances', label: 'Balances', hint: 'Who owes whom right now.', aliases: ['owes', 'status', 'summary', 'totals'] },
+  { id: 'share', command: 'share', label: 'Share an expense', hint: 'Point to one that’s already added.', aliases: ['link', 'find'] },
 ]
 
 /** The tools this group can use (Open item has its own switch). */

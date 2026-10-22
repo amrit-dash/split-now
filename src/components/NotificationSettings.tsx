@@ -35,7 +35,7 @@ function types(currency: string): Array<{ key: TypeKey; label: string; hint: Hin
       key: 'captures',
       label: 'Payments on a trip',
       hint: {
-        full: `“You spent ${formatMoney(84000, currency)} at Swiggy — add to Goa trip?” from forwarded bank SMS.`,
+        full: `Like “You spent ${formatMoney(84000, currency)} at Swiggy. Add to Goa trip?”`,
         short: 'Captured payments that match a trip',
         tier: 'help',
       },
@@ -43,40 +43,41 @@ function types(currency: string): Array<{ key: TypeKey; label: string; hint: Hin
     {
       key: 'unsorted',
       label: 'Payments outside a trip',
-      hint: { full: 'Also tell you about captured payments that match no trip.', short: 'Captured payments that match no trip', tier: 'help' },
+      hint: { full: 'Captured payments that match no trip.', tier: 'help' },
     },
     {
       key: 'approvals',
       label: 'Needs your OK',
       hint: {
-        full: 'When an expense or a payment waits for your approval, or an edit needs your OK again. It doesn’t count in balances until you answer.',
-        short: 'An expense or payment waits for your OK',
+        full: 'An expense, payment or edit waits for you. It isn’t counted until you answer.',
+        short: 'Something waits for your OK',
         tier: 'help',
       },
     },
-    { key: 'expenses', label: 'New expenses', hint: { full: 'When someone adds an expense that includes you.', tier: 'help' } },
-    { key: 'settlements', label: 'Someone pays you back', hint: { full: 'When someone records a payment to you.', tier: 'help' } },
+    // These two titles say it all; their lines are for Full only.
+    { key: 'expenses', label: 'New expenses with you', hint: { full: 'When someone adds an expense that includes you.', tier: 'extra' } },
+    { key: 'settlements', label: 'Someone pays you back', hint: { full: 'When someone records a payment to you.', tier: 'extra' } },
     {
       key: 'reminders',
       label: 'Settle-up reminders',
-      hint: { full: 'A gentle weekly nudge when you’ve owed someone for a week.', short: 'A weekly nudge when you owe someone', tier: 'help' },
+      hint: { full: 'A weekly nudge once you’ve owed someone for a week.', short: 'Weekly, while you owe someone', tier: 'help' },
     },
     {
       key: 'chat',
-      label: 'Group chat',
-      hint: { full: 'New messages in your groups’ chats. Mute one chat from its group’s ⋯ menu.', short: 'New messages in your groups’ chats', tier: 'help' },
+      label: 'Chat messages',
+      hint: { full: 'New messages in your groups. Mute one chat from its group’s ⋯ menu.', short: 'Mute one from its group’s ⋯ menu', tier: 'help' },
     },
     {
       key: 'openItems',
       label: 'Open items',
-      hint: { full: 'When someone thinks you paid for something nobody has added yet.', short: 'When someone thinks you paid for something', tier: 'help' },
+      hint: { full: 'Someone thinks you paid for something nobody has added yet.', short: 'Someone thinks you paid for something', tier: 'help' },
     },
   ]
 }
 
 const TURN_ON_HINT: Hint = {
-  full: 'Get a ping when a trip payment is captured, someone adds an expense with you, or pays you back.',
-  short: 'A ping for new expenses and payments to you',
+  full: 'Get a ping for captured trip payments, new expenses with you, and payments to you.',
+  short: 'A ping for new expenses and payments',
   tier: 'help',
 }
 
@@ -165,7 +166,7 @@ export function NotificationSettings() {
             </button>
           </div>
         ) : perm === 'denied' ? (
-          <p className="text-muted text-sm">Notifications are blocked for this site. Allow them in your browser or system settings, then reload.</p>
+          <p className="text-muted text-sm">Notifications are blocked. Allow them in your browser or system settings, then reload.</p>
         ) : (
           <>
             <HintText hint={TURN_ON_HINT} className="text-muted text-sm" />
@@ -205,14 +206,14 @@ export function NotificationSettings() {
         hint={{
           full: (
             <>
-              These choices apply to all your devices. Capture settings live in{' '}
+              These apply to all your devices. Capture settings are in{' '}
               <Link to="/settings/automation" className="font-semibold text-brand-600 dark:text-brand-300">
                 Automation
               </Link>
               .
             </>
           ),
-          short: 'These apply to all your devices',
+          short: 'Same on all your devices',
           tier: 'help',
         }}
       />

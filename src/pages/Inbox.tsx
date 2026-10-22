@@ -346,7 +346,7 @@ function ToSort({
       {nothing && (
         <>
           <Quiet icon="checkCircle" title="All sorted">
-            Captured payments, expenses waiting for your OK and payments to confirm show up here.
+            Captured payments, approvals and payments to confirm show up here.
           </Quiet>
           {/* A promo, not a decision: hidden in the Minimal look, and in Simple, which has no Automation. */}
           <Detail min={2}>
@@ -360,7 +360,7 @@ function ToSort({
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="font-semibold">Set up auto-capture</div>
-                  <HintText as="div" className="text-muted text-xs" hint={{ full: 'Bank & UPI payments from your phone land here automatically' }} />
+                  <HintText as="div" className="text-muted text-xs" hint={{ full: 'Your bank and UPI payments land here by themselves' }} />
                 </div>
                 <ChevronRight size={18} className="shrink-0 text-slate-400" aria-hidden />
               </Link>
@@ -378,7 +378,7 @@ function ToSort({
       )}
 
       {joins.length > 0 && (
-        <Section title="Asking to join" hint={{ full: 'Only you let people into the groups you made that need your OK', tier: 'key' }}>
+        <Section title="Asking to join" hint={{ full: 'Only you can let them into groups you made', tier: 'key' }}>
           {joins.map((r) => (
             <JoinRequestRow key={`${r.groupId}/${r.uid}`} request={r} d={mine.find((d) => d.group.id === r.groupId)} />
           ))}
@@ -386,7 +386,7 @@ function ToSort({
       )}
 
       {box.merges.length > 0 && (
-        <Section title="Merges to OK" hint={{ full: 'Two people who are one person' }}>
+        <Section title="Merges to OK" hint={{ full: 'Two names for the same person' }}>
           {box.merges.map(({ r, d }) => (
             <MergeApprovalRow key={`${r.groupId}/${r.id}`} group={d.group} request={r} me={d.me} myUid={user.uid} />
           ))}
@@ -414,7 +414,7 @@ function ToSort({
       )}
 
       {box.payments.length > 0 && (
-        <Section title="Payments to confirm" hint={{ full: 'Waiting ones count once you confirm them', tier: 'key' }}>
+        <Section title="Payments to confirm" hint={{ full: 'They count once you confirm them', tier: 'key' }}>
           {payments.map(({ s, group, matched }) => (
             <PaymentConfirmRow key={s.id} s={s} group={group} matched={matched} />
           ))}
@@ -701,7 +701,7 @@ function BulkSheet({ candidate, data, onClose }: { candidate: BulkCandidate<Grou
       <HintText
         className="text-muted -mt-1 mb-3 text-sm"
         hint={{
-          full: `Each one becomes an expense you paid, split equally between everyone in ${g.name}. You can edit any of them afterwards.`,
+          full: `Each becomes an expense you paid, split equally in ${g.name}. You can edit them after.`,
           short: `Each becomes an expense you paid, split equally in ${g.name}.`,
           tier: 'key',
         }}
@@ -1025,7 +1025,7 @@ function Updates({
   if (all.length === 0 && !more)
     return (
       <Quiet icon="bell" title={cleared.clearedAt ? 'All caught up' : 'No updates yet'}>
-        Expenses, payments, imports and new members in your groups show here. New ones from friends get a dot.
+        Expenses, payments and new members in your groups show here. New ones get a dot.
       </Quiet>
     )
 
@@ -1193,7 +1193,7 @@ function JoinRequestRow({ request, d }: { request: JoinRequest; d: GroupData | u
         </button>
       </div>
       <Sheet open={picking} onClose={() => setPicking(false)} title={`Who is ${who}?`}>
-        <p className="text-muted mb-3 text-sm">If they’re already in the group under a name you added, pick it: what was theirs becomes theirs.</p>
+        <p className="text-muted mb-3 text-sm">Already in the group under a name you added? Pick it to give them what’s theirs.</p>
         <div className="space-y-2">
           {placeholders.map(([id, m]) => (
             <button key={id} type="button" className="btn w-full" onClick={() => void decide(true, id)}>

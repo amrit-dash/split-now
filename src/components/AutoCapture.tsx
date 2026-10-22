@@ -40,11 +40,11 @@ import { SwipeRow } from './SwipeRow'
 const INTRO_HINT: Hint = {
   full: (
     <>
-      Your phone forwards bank and UPI SMS to Split Now, and they wait in your{' '}
+      Your phone forwards bank and UPI SMS to your{' '}
       <Link to="/inbox" className="font-semibold text-brand-600 dark:text-brand-300">
         Inbox
-      </Link>{' '}
-      until you add them to a group. Nothing is ever added without your OK.
+      </Link>
+      . Nothing is added to a group without your OK.
     </>
   ),
   short: (
@@ -53,27 +53,27 @@ const INTRO_HINT: Hint = {
       <Link to="/inbox" className="font-semibold text-brand-600 dark:text-brand-300">
         Inbox
       </Link>
-      . Nothing is ever added without your OK.
+      . Nothing is added without your OK.
     </>
   ),
   // The trust line: never folded away.
-  min: 'Nothing is ever added without your OK.',
+  min: 'Nothing is added without your OK.',
   tier: 'key',
 }
 const SETUP_HINT: Hint = {
-  full: 'About 3 minutes on an iPhone or Android. Works with any bank that sends SMS.',
-  short: 'About 3 minutes, any bank that sends SMS',
+  full: 'About 3 minutes on iPhone or Android. Any bank that sends SMS.',
+  short: 'About 3 minutes',
   tier: 'help',
 }
 const KEY_LEAK_HINT: Hint = {
-  full: 'Anyone with this key can add items to your Inbox (never read your data). Revoke it under “Your capture keys” if it leaks.',
-  short: 'Anyone with this key can add to your Inbox. Revoke it if it leaks.',
+  full: 'Anyone with this key can add to your Inbox, never read it. Revoke it under “Your capture keys” if it leaks.',
+  short: 'Anyone with it can add to your Inbox. Revoke if leaked.',
   tier: 'key',
 }
 const OPEN_URL_HINT: Hint = {
   full: (
     <>
-      Prefer to confirm straight away? Use <b>Open URL</b> with the link below instead (it opens Safari).
+      To confirm straight away, use <b>Open URL</b> with the link below (opens Safari).
     </>
   ),
   short: (
@@ -83,7 +83,7 @@ const OPEN_URL_HINT: Hint = {
   ),
   tier: 'help',
 }
-const NO_FILTERS_HINT: Hint = { full: 'Apple Pay captures and capture links don’t go through the SMS filters above.', tier: 'help' }
+const NO_FILTERS_HINT: Hint = { full: 'Apple Pay captures and capture links skip the SMS filters above.', tier: 'help' }
 
 /** relativeTime falls back to a raw ISO day after a week; show that in the app's date format instead. */
 export const ago = (at: number, now: number) => {
@@ -95,7 +95,7 @@ export const ago = (at: number, now: number) => {
 export function AutoCaptureOff() {
   return (
     <p className="text-muted px-1 text-sm" data-testid="section-auto-capture">
-      Auto-capture is switched off for everyone right now
+      Auto-capture is off for everyone right now
     </p>
   )
 }
@@ -215,7 +215,7 @@ export function AutoCapture() {
                   ? 'Not set up yet.'
                   : lastAny
                     ? `Last message received ${ago(lastAny, Date.now())}.`
-                    : 'Waiting for the first message from your phone.'}
+                    : 'Waiting for your phone’s first message.'}
             </div>
           </div>
           <Switch checked={!paused} onChange={(v) => update({ capturePaused: !v })} label="Capture payments" testId="capture-paused-switch" />
@@ -248,7 +248,7 @@ export function AutoCapture() {
               : prefs.outsideTrips && prefs.unsorted
                 ? 'You’re notified about every captured payment.'
                 : prefs.outsideTrips
-                  ? 'You’re notified about trip payments. Turn on “Payments outside a trip” in Notifications to hear about the rest.'
+                  ? 'You’re notified about trip payments. For the rest, turn on “Payments outside a trip” in Notifications.'
                   : 'You’re notified when a trip payment is captured.'}
           </p>
         </div>
@@ -315,9 +315,7 @@ export function AutoCapture() {
               </div>
             ) : (
               <p className="text-muted mt-3 text-xs">
-                {firebase
-                  ? 'Create a capture key to get your URL and body.'
-                  : 'Background capture needs Firebase. In demo mode, use the Open URL link below instead.'}
+                {firebase ? 'Create a capture key to get your URL and body.' : 'The demo can’t capture in the background. Use the Open URL link below.'}
               </p>
             )}
             <HintText hint={OPEN_URL_HINT} className="text-muted mt-3 text-xs" />
@@ -391,8 +389,8 @@ function OutsideTripsChoice({ on, onChange }: { on: boolean; onChange: (v: boole
             v: false,
             title: 'Only payments during a trip',
             hint: {
-              full: 'Debit SMS dated inside a group’s trip dates. Everything else is ignored and never stored.',
-              short: 'Inside trip dates; the rest is never stored',
+              full: 'Debit SMS dated inside a trip. Everything else is ignored and never stored.',
+              short: 'The rest is never stored',
               tier: 'help',
             } satisfies Hint,
           },
@@ -400,7 +398,7 @@ function OutsideTripsChoice({ on, onChange }: { on: boolean; onChange: (v: boole
             v: true,
             title: 'All bank & UPI payments',
             hint: {
-              full: 'Payments outside every trip wait in the Inbox as “outside any trip”, without a notification.',
+              full: 'Payments outside every trip wait quietly in the Inbox as “outside any trip”.',
               short: 'Payments outside trips wait in the Inbox',
               tier: 'help',
             } satisfies Hint,
@@ -431,20 +429,20 @@ function OutsideTripsChoice({ on, onChange }: { on: boolean; onChange: (v: boole
   )
 }
 
-const MIN_HINT: Hint = { full: 'Rupee payments only; foreign-currency card spends are always captured.', short: 'Rupee payments only', tier: 'help' }
+const MIN_HINT: Hint = { full: 'Rupee payments only. Foreign-currency card spends are always captured.', short: 'Rupee payments only', tier: 'help' }
 const IGNORE_HINT: Hint = {
-  full: 'Skip debits whose SMS or merchant mentions one of these (any case), like SIPs, rent or card bills.',
-  short: 'Skip debits that mention one of these words',
+  full: 'Skips debits whose SMS or merchant mentions one of these, like SIPs, rent or card bills.',
+  short: 'Skips debits that mention these words',
   tier: 'help',
 }
 const TRIP_PAUSE_HINT: Hint = {
-  full: 'Pausing a trip only affects your captures. Others in the trip keep theirs.',
+  full: 'Pauses only your captures. Others in the trip keep theirs.',
   short: 'Only pauses your captures',
   tier: 'help',
 }
 const KEYS_HINT: Hint = {
-  full: 'A key lets your phone add payments to your Inbox and nothing else. Revoke one if it leaks or a phone is gone.',
-  short: 'Revoke a key if it leaks or a phone is gone',
+  full: 'A key can only add payments to your Inbox. Revoke it if it leaks or a phone is lost.',
+  short: 'Revoke a key if a phone is lost',
   tier: 'help',
 }
 
@@ -667,8 +665,7 @@ function RecentActivity({ rows, onClear }: { rows: LogRow[]; onClear: () => void
     <Panel title="Recent activity" testId="capture-activity">
       {rows.length === 0 ? (
         <p className="text-muted flex items-start gap-2 text-xs">
-          <PulseIcon size={14} className="mt-0.5 shrink-0" aria-hidden /> Nothing yet. Every message your phone forwards shows up here, captured or not, so you
-          can tell the automation is working.
+          <PulseIcon size={14} className="mt-0.5 shrink-0" aria-hidden /> Nothing yet. Every message your phone forwards shows here, captured or not.
         </p>
       ) : (
         <>

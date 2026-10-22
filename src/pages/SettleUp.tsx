@@ -42,20 +42,21 @@ import { labelOf } from '@/lib/shortNames'
 import { type Hint, HintText, InfoTip, useShows } from '@/components/Hint'
 
 /** Under "Waive the rest": the waived part is recorded, so it stops counting as owed. */
-const WAIVE_HINT: Hint = { full: 'Records that nothing more is owed for this.', tier: 'key' }
+const WAIVE_HINT: Hint = { full: 'Records that nothing more is owed.', tier: 'key' }
 
 /** The payment needs the recipient's OK, so it doesn't count yet. */
 const NEEDS_OK_HINT: Hint = {
-  full: 'In this group a payment counts once the person paid confirms it. Attach the payment screenshot and it can count straight away when it matches.',
-  short: 'Counts once they confirm it, or when a screenshot matches.',
+  full: 'Counts once the person paid confirms it. Attach a screenshot and it counts at once if it matches.',
+  short: 'Counts once they confirm, or a screenshot matches.',
   min: 'Counts once they confirm it.',
   tier: 'key',
 }
 
 /** Under the payment handles: the app never moves money, so the payment is made elsewhere first. */
 const PAY_OUTSIDE_HINT: Hint = {
-  full: 'Pay in your UPI or banking app, then record it below. Split Now never moves money itself.',
-  short: 'Pay in your UPI or bank app, then record it. Split Now never moves money.',
+  full: 'Pay in your UPI or bank app, then record it below. Split Now never moves money.',
+  short: 'Pay in your UPI or bank app, then record it here.',
+  min: 'Pay in your bank app first. Split Now never moves money.',
   tier: 'key',
 }
 
@@ -741,7 +742,7 @@ function UpiCard({
           <QrCode value={o.qr} size={196} label={`UPI QR code to pay ${o.value}${amount > 0 ? ` ${formatMoney(amount, cur)}` : ''}`} />
           <div className="flex items-center gap-1.5 text-center text-xs text-muted">
             <QrIcon size={14} className="shrink-0" aria-hidden />
-            {toMe ? `Show this to ${payer}: they scan it with any UPI app` : 'Scan with any UPI app on another phone'}
+            {toMe ? `${payer} scans this with any UPI app` : 'Scan with any UPI app on another phone'}
             {amount > 0 ? ` · ${formatMoney(amount, cur)}` : ''}
           </div>
         </div>
@@ -769,11 +770,11 @@ function UpiCard({
             hint={{
               full: (
                 <>
-                  {ios ? 'On iPhone, pick your app: “Pay with a UPI app” opens whichever UPI app iOS chooses.' : 'Android shows a list of your UPI apps.'} If an
-                  app refuses the link, scan the QR or pay to the UPI ID.
+                  {ios ? 'On iPhone, “Pay with a UPI app” opens the one iOS picks.' : 'Android lists your UPI apps.'} If an app refuses the link, scan the QR or
+                  pay to the UPI ID.
                 </>
               ),
-              short: 'If an app refuses the link, scan the QR or pay to the UPI ID.',
+              short: 'App refuses the link? Scan the QR or pay to the UPI ID.',
               tier: 'key',
             }}
           />
@@ -828,7 +829,7 @@ function PayWith({
       {shown.length === 0 && (
         <p className="text-sm text-muted">
           {toMe
-            ? 'Add your UPI ID in Profile so friends can scan a QR to pay you.'
+            ? 'Add your UPI ID in Profile so friends can pay you by QR.'
             : recipientJoined
               ? `${recipient} hasn’t added payment details yet.`
               : `${recipient} hasn’t joined Split Now yet. Ask them for their ${cur === 'INR' ? 'UPI ID' : cur === 'AUD' ? 'PayID or bank details' : 'payment details'}.`}
@@ -1139,7 +1140,7 @@ export function SettleWithPerson() {
             <HintText
               className="text-muted mt-1 text-sm"
               hint={{
-                full: `What you owe in one group cancels what ${p.label} owes in another. Clearing records it in each group.`,
+                full: `What you owe in one group cancels what ${p.label} owes in another. Clearing records it in each.`,
                 short: 'Clearing records it in each group.',
               }}
             />
@@ -1234,10 +1235,10 @@ export function SettleWithPerson() {
                   full: (
                     <>
                       <Lightbulb size={14} className="mb-0.5 mr-1 inline" aria-hidden />
-                      You owe each other in different groups. Those cancel out, so they’re cleared in full and only {fmt(plan.payment)} changes hands.
+                      Debts across groups cancel out. All are cleared and only {fmt(plan.payment)} changes hands.
                     </>
                   ),
-                  short: `Debts in other groups cancel out: only ${fmt(plan.payment)} changes hands.`,
+                  short: `Debts across groups cancel out: only ${fmt(plan.payment)} changes hands.`,
                   tier: 'key',
                 }}
               />
@@ -1246,8 +1247,8 @@ export function SettleWithPerson() {
               <HintText
                 className=""
                 hint={{
-                  full: 'Paying part of it: the amount is shared across the groups in proportion to what’s owed in each, so every group goes down by the same share. To round down or waive the rest in one group, settle it from that group.',
-                  short: 'A part payment is shared across the groups by what’s owed.',
+                  full: 'A part payment is split across groups by what’s owed in each. To waive the rest in one group, settle from that group.',
+                  short: 'Split across groups by what’s owed.',
                 }}
               />
             )}
@@ -1259,8 +1260,8 @@ export function SettleWithPerson() {
               as="span"
               className=""
               hint={{
-                full: 'Other currencies are converted at today’s ECB rate. Paying within 4% of the total clears everything; each group records its own currency.',
-                short: 'Converted at today’s ECB rate. Within 4% of the total clears it all.',
+                full: 'Converted at today’s ECB rate. Paying within 4% of the total clears it all. Each group records its own currency.',
+                short: 'At today’s ECB rate. Within 4% clears it all.',
                 tier: 'key',
               }}
             />
@@ -1268,18 +1269,17 @@ export function SettleWithPerson() {
         )}
         {waiting > 0 && (
           <p className="mt-3 text-xs text-sky-700 dark:text-sky-300" data-testid="settle-person-waiting">
-            {formatMoney(waiting, cur)} you already recorded is waiting for {p.label}’s OK, and isn’t counted above.
+            {formatMoney(waiting, cur)} you recorded waits for {p.label}’s OK and isn’t counted above.
           </p>
         )}
         {held.length > 0 && (
           <p className="text-muted mt-3 text-xs" data-testid="settle-person-held">
-            Not included: what you owe {p.label} in {held.map((r) => r.groupName).join(', ')}, where payments need their OK. Settle that in the group.
+            Not included: what you owe {p.label} in {held.map((r) => r.groupName).join(', ')}, where payments need their OK. Settle it there.
           </p>
         )}
         {otherCur.length > 0 && (
           <p className="text-muted mt-3 text-xs">
-            {p.label} also has balances in {otherCur.map((x) => x.currency).join(', ')}. Different currencies are never netted together: settle those separately
-            from Balances.
+            {p.label} also has balances in {otherCur.map((x) => x.currency).join(', ')}. Currencies never net together: settle those from Balances.
           </p>
         )}
       </div>

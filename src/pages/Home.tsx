@@ -347,12 +347,12 @@ export function FirstRun() {
 const NO_GROUPS: Group[] = []
 const FIRST_RUN_HINT: Hint = {
   full: 'A trip, your flat, a dinner: add what people pay and Split Now keeps the balances.',
-  short: 'Add what people pay; Split Now keeps the balances.',
+  short: 'Add what people pay. We keep the balances.',
 }
 const START_HINTS: Record<string, Hint> = {
   create: { full: 'Trips, flats, dinners, anything' },
   import: { full: 'Bring a group over with its balances', short: 'Bring a group over' },
-  join: { full: 'Someone already made the group? Enter their code', short: "Enter the group's code" },
+  join: { full: 'Someone already made the group? Enter its code', short: "Enter the group's code" },
 }
 const EMPTY_GROUPS_HINT: Hint = { full: 'Create one for a trip, your home, or anything you share.' }
 

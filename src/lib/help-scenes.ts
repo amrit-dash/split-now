@@ -975,7 +975,7 @@ Object.assign(SCENES, {
     settings('Notifications', [
       { kind: 'row', label: 'Settings → Notifications', value: '›', mark: 'open' },
       { kind: 'button', label: 'Turn on notifications', primary: true, mark: 'device' },
-      { kind: 'switch', label: 'New expenses', mark: 'kinds' },
+      { kind: 'switch', label: 'New expenses with you', mark: 'kinds' },
       { kind: 'switch', label: 'Someone pays you back' },
     ]),
   ],

@@ -5,13 +5,14 @@ import { HintText, InfoTip, useShows, type Hint } from './Hint'
 import { Segmented } from './Misc'
 import { Switch } from './Switch'
 
-const ACCENT_HINT: Hint = { full: 'The colour of buttons, links and the Home card', short: 'Buttons and the Home card', tier: 'help' }
+// The swatches and choices show what they do, so these lines are background for Full only.
+const ACCENT_HINT: Hint = { full: 'For buttons, links and the Home card.', tier: 'extra' }
 const INK_HINT: Hint = {
-  full: 'Kept for each accent. Black text comes with brighter colours so it stays easy to read.',
-  short: 'Black text comes with brighter colours',
+  full: 'Saved per accent. Black brings brighter colours so text stays easy to read.',
+  short: 'Black brings brighter colours',
   tier: 'help',
 }
-const DUO_HINT: Hint = { full: 'Two-colour gradients on buttons and cards', tier: 'help' }
+const DUO_HINT: Hint = { full: 'Two-colour gradients on buttons and cards.', tier: 'extra' }
 
 /**
  * Accent colour swatches, the "Text on accent" choice (white on deep

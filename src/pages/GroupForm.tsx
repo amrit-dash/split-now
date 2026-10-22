@@ -65,37 +65,35 @@ import { SwipeRow } from '@/components/SwipeRow'
 import { Detail, HintText, InfoTip, useLook, useShows, type Hint } from '@/components/Hint'
 
 const DATES_HINT: Hint = {
-  full: 'While it’s on, new expenses and captured payments default to this group.',
-  short: 'While it’s on, new expenses go to this group.',
+  full: 'During these dates, new expenses and captured payments go here first.',
+  short: 'During these dates, new expenses go here.',
 }
-const TRIP_CAPTURE_HINT: Hint = {
-  full: 'Adds your bank and UPI payments to this trip. Just for you: others keep their own.',
-  short: 'Adds your payments to this trip, just for you.',
-}
-const SIMPLIFY_HINT: Hint = { full: 'Fewer payments: if A owes B and B owes C, A pays C directly.', short: 'Fewer payments, same balances.' }
+// The title says what it does; the line only adds that it is per person.
+const TRIP_CAPTURE_HINT: Hint = { full: 'Just your bank and UPI payments. Others choose their own.', tier: 'extra' }
+const SIMPLIFY_HINT: Hint = { full: 'If A owes B and B owes C, A pays C directly. Same balances.', short: 'Fewer payments, same balances.' }
 const PRIVATE_HINT: Hint = {
-  full: 'Its name, people’s names, descriptions, notes, comments and chat are encrypted. It opens with a pattern of taps and long presses, everyone’s universal one or one just for this group, plus Face ID or a passkey. You can turn it off later from the group’s menu.',
+  full: 'Names, descriptions, notes, comments and chat are encrypted. Opens with your pattern (universal or its own) plus Face ID or a passkey. You can turn it off later.',
   short: 'Encrypted, opens with your pattern and Face ID.',
   tier: 'key',
 }
 const APPROVAL_HINT: Hint = {
-  full: 'In this group, a big expense added by someone else stays pending (not counted) until everyone charged taps Approve.',
-  short: 'Big expenses by others wait for an OK.',
+  full: 'A big expense someone else adds isn’t counted until everyone charged approves it.',
+  short: 'Others’ big expenses wait for an OK.',
 }
 const EDIT_AUTO_HINT: Hint = {
-  full: 'In this group, when someone edits an expense that needs an OK, a change of up to this amount keeps its approvals. A bigger change asks everyone again.',
+  full: 'An edit up to this amount keeps an expense’s approvals. A bigger one asks everyone again.',
   short: 'Small changes keep their approvals.',
 }
 const CONVERTS_HINT: Hint = { full: 'Changing the currency converts these amounts.' }
 const PAYMENT_OK_HINT: Hint = {
-  full: "In this group, a payment someone records as paid to you counts once you confirm it, or straight away when their screenshot matches. It applies to payments recorded while it's on: turning it off later doesn't skip the OK for those, and new payments then count at once.",
+  full: "A payment to you counts once you confirm it, or at once if its screenshot matches. Turning it off later doesn't skip the OK for payments already waiting.",
   short: 'Payments to you count once you confirm them.',
 }
 const JOINS_HINT: Hint = {
-  full: 'Nobody joins from the invite link, old links included. They ask, you get a notification, and you let them in or decline from the Inbox. Turning it off lets people join from the link again.',
-  short: 'People ask to join; you let them in from the Inbox.',
+  full: 'Invite links, old ones too, send a request instead. You let people in or decline from the Inbox.',
+  short: 'You let them in from the Inbox.',
 }
-const SWIPE_HINT: Hint = { full: 'Swipe a person left, or press and hold, to remove them.' }
+const SWIPE_HINT: Hint = { full: 'Swipe left or press and hold to remove someone.' }
 
 const maxOthersFor = (t: GroupType) => (t === 'personal' ? 0 : t === 'direct' ? 1 : Infinity)
 
@@ -686,12 +684,12 @@ export default function GroupForm() {
           <div className="mt-3 flex items-center justify-between gap-4 rounded-2xl bg-slate-50 p-3 dark:bg-ink-800" data-testid="group-trip-capture">
             <div id="trip-capture-label">
               <div className="flex items-center font-semibold">
-                SMS auto-capture
-                <InfoTip hint={TRIP_CAPTURE_HINT} label="About SMS auto-capture" />
+                Add my bank payments here
+                <InfoTip hint={TRIP_CAPTURE_HINT} label="About adding your bank payments" />
               </div>
               <HintText hint={TRIP_CAPTURE_HINT} className="text-muted text-xs" as="div" />
             </div>
-            <Switch checked={captureChecked} onChange={setCaptureOn} label="SMS auto-capture for this trip" testId="group-trip-capture-switch" />
+            <Switch checked={captureChecked} onChange={setCaptureOn} label="Add my bank payments here" testId="group-trip-capture-switch" />
           </div>
         </Detail>
       ) : captureNotice === 'off' ? (
@@ -708,7 +706,7 @@ export default function GroupForm() {
             hint={{
               full: (
                 <>
-                  Tip: each person can add their own bank and UPI payments to this trip with{' '}
+                  Each person can add their own bank and UPI payments here with{' '}
                   {existing ? (
                     <Link to={`/settings/auto-capture?group=${existing.id}`} className="font-semibold text-brand-600 dark:text-brand-300">
                       SMS auto-capture
@@ -730,7 +728,7 @@ export default function GroupForm() {
   const thresholdHint: Hint = {
     full: (
       <>
-        In this group, a new expense above {shortMoney(threshold ?? suggested, currency)} waits for an OK. At or below it counts straight away.
+        A new expense above {shortMoney(threshold ?? suggested, currency)} waits for an OK. Smaller ones count at once.
         {threshold === undefined && ` Empty means the default for ${currency}.`}
       </>
     ),
@@ -775,7 +773,7 @@ export default function GroupForm() {
       {lockCurrency && expenses && (
         <div className="-mt-2" data-testid="group-currency-locked">
           <HintText
-            hint={{ full: "The currency can't change once the group has expenses.", short: 'Currency is fixed once there are expenses.', tier: 'key' }}
+            hint={{ full: "The currency can't change once the group has expenses.", short: 'Fixed once there are expenses.', tier: 'key' }}
             className="text-muted text-xs"
           />
         </div>
