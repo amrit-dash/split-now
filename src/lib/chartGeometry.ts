@@ -139,3 +139,23 @@ export function xLabelIndices(count: number, plotW: number, labelW: number, gap 
   out.push(last)
   return out
 }
+
+/**
+ * The smallest visible bar, in px. A 1–2% share drawn true to scale is a sliver that reads as a
+ * glitch next to its rounded cap; a few pixels reads as "small". The printed value stays exact,
+ * so the floor only makes a small bar visible, it never changes what it says.
+ */
+export const MIN_BAR_PX = 8
+
+/** A horizontal bar's CSS length for a fraction of the track: nothing for 0, at least MIN_BAR_PX otherwise. */
+export function barLength(frac: number, minPx = MIN_BAR_PX): string {
+  if (!(frac > 0)) return '0%'
+  if (frac >= 1) return '100%'
+  return `max(${+(frac * 100).toFixed(3)}%, ${minPx}px)`
+}
+
+/** A vertical bar's height in drawing units: nothing for 0, at least minPx otherwise, never over the full height. */
+export function barSize(value: number, top: number, full: number, minPx = MIN_BAR_PX): number {
+  if (!(value > 0) || !(top > 0) || !(full > 0)) return 0
+  return Math.min(full, Math.max(minPx, (value / top) * full))
+}

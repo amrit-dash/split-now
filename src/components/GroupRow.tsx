@@ -40,8 +40,9 @@ export function GroupRow({ d }: { d: GroupData }) {
       {overlay && <Link to={`/groups/${d.group.id}`} className="absolute inset-0" aria-label={open ? `${d.group.name}, private group, open` : d.group.name} />}
       <GroupIcon emoji={d.group.emoji} group={d.group} />
       <div className={`min-w-0 flex-1 ${overlay ? 'pointer-events-none' : ''}`}>
+        {/* A long name takes two lines (360 px phones cut it to a few letters before). */}
         <div className="flex items-center gap-2">
-          <span className="truncate font-semibold">{d.group.name}</span>
+          <span className="line-clamp-2 min-w-0 break-words font-semibold leading-snug">{d.group.name}</span>
           {open && (
             <button
               type="button"

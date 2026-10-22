@@ -48,6 +48,7 @@ import { useToast } from '@/components/Toast'
 import { type Hint, HintText, InfoTip } from '@/components/Hint'
 import { labelOf } from '@/lib/shortNames'
 import { FeatureIcon } from '@/components/Icon'
+import { useEdgeFade } from '@/hooks/useEdgeFade'
 
 const JOIN_HINT: Hint = {
   full: 'Enter the code on the host’s phone, or scan their QR with your camera.',
@@ -247,6 +248,7 @@ function JoinForm({ table, viewer }: { table: LiveTable; viewer: Viewer }) {
 }
 
 function Live({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; isHost: boolean }) {
+  const fade = useEdgeFade()
   const toast = useToast()
   const order = useMemo(() => participantOrder(table), [table])
   const items = useMemo(() => orderedItems(table), [table])
@@ -293,7 +295,7 @@ function Live({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; isH
       {isHost && order.length > 1 && (
         <div className="mt-3">
           <div className="label">Claiming for</div>
-          <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 py-1">
+          <div ref={fade} className="-mx-1 flex gap-1.5 overflow-x-auto px-1 py-1">
             {order.map((p) => (
               <button key={p} type="button" onClick={() => setActingFor(p)} className={`chip shrink-0 !py-1 !pl-1 ${who === p ? 'chip-on' : ''}`}>
                 <Avatar name={table.participants[p].name} color={color(p)} size={22} />

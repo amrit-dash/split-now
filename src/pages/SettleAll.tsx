@@ -217,14 +217,15 @@ function GroupItem({ r, chase }: { r: SettleRow; chase: Chase }) {
 function RowChase({ r, chase }: { r: SettleRow; chase: Chase }) {
   const group = chase.groups[r.groupId]
   if (r.dir !== 'owed' || !group) return null
-  return <RemindActions group={group} debtor={r.memberId} amount={r.amount} me={r.me} feed={chase.feed} className="-mx-1" />
+  return <RemindActions group={group} debtor={r.memberId} amount={r.amount} me={r.me} feed={chase.feed} compact />
 }
 
 /**
- * Avatar · name/subtitle · amount · action, all on one vertically centred line. With `chase`
- * (Remind and Nudge, on rows where they owe you) the amount moves under the name to make room
- * for the round buttons, as on a group's Balances tab, and the group name gets a line of its
- * own below it: sharing the amount's line squeezed it to just the emoji on a 360px phone.
+ * One layout for every row: avatar · name, amount and group stacked on the left · the row's buttons
+ * on the right, all on one vertically centred line. The amount always sits under the name, so it
+ * lines up down the list whether the row has buttons or not (before, rows with Remind moved it,
+ * and the amounts zig-zagged). Buttons are icons in one cluster: Remind and Nudge (where they owe
+ * you), then the record or Pay action, so a row never breaks onto a second line on a 360 px phone.
  */
 function ItemRow({
   avatar,
@@ -246,26 +247,20 @@ function ItemRow({
   testId?: string
 }) {
   const tone = dir === 'owe' ? 'neg' : dir === 'owed' ? 'pos' : 'text-muted'
-  const stacked = !!chase && dir === 'owed'
   return (
     <div className="flex items-center gap-3 px-4 py-3" data-testid={testId}>
-      {avatar}
+      <div className="shrink-0">{avatar}</div>
       <div className="min-w-0 flex-1">
-        <div className="truncate font-semibold">{name}</div>
-        {stacked && (
-          <div className={`text-sm font-bold tabular-nums ${tone}`} data-testid="row-amount">
-            {amount}
-          </div>
-        )}
-        <div className="text-muted truncate text-xs">{sub}</div>
-      </div>
-      {!stacked && (
-        <span className={`shrink-0 font-bold tabular-nums ${tone}`} data-testid="row-amount">
+        <div className="truncate font-semibold leading-tight">{name}</div>
+        <div className={`mt-0.5 whitespace-nowrap font-bold leading-tight tabular-nums ${tone}`} data-testid="row-amount">
           {amount}
-        </span>
-      )}
-      {stacked && chase}
-      {action}
+        </div>
+        <div className="text-muted mt-0.5 truncate text-xs">{sub}</div>
+      </div>
+      <div className="-mr-1 flex shrink-0 items-center gap-0.5">
+        {chase}
+        {action}
+      </div>
     </div>
   )
 }
@@ -279,7 +274,7 @@ function RowAction({ r }: { r: SettleRow }) {
         to={r.href}
         data-testid="row-pay"
         aria-label={`Pay ${r.label} ${amount} in ${r.groupName}`}
-        className="btn-primary !min-h-10 shrink-0 !rounded-full !px-4 !py-0 text-sm"
+        className="btn-primary !min-h-11 shrink-0 !rounded-full !px-3 !py-0 text-sm"
       >
         Pay
       </Link>
@@ -291,9 +286,9 @@ function RowAction({ r }: { r: SettleRow }) {
       data-testid="row-record"
       aria-label={`Record payment from ${r.label} in ${r.groupName}`}
       title="Record payment"
-      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600 transition active:scale-95 active:bg-brand-100 dark:bg-brand-900/40 dark:text-brand-200 dark:active:bg-brand-900/70"
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600 transition active:scale-95 active:bg-brand-100 dark:bg-brand-900/40 dark:text-brand-200 dark:active:bg-brand-900/70"
     >
-      <ChequeIcon size={24} />
+      <ChequeIcon size={22} />
     </Link>
   )
 }
@@ -346,7 +341,7 @@ function PersonAction({ p, n }: { p: PersonBalance; n: number }) {
         to={to}
         data-testid="person-settle-all"
         aria-label={`Pay ${p.label} ${amount} across ${n} groups`}
-        className="btn-primary !min-h-10 shrink-0 !rounded-full !px-4 !py-0 text-sm"
+        className="btn-primary !min-h-11 shrink-0 !rounded-full !px-3 !py-0 text-sm"
       >
         Pay
       </Link>
@@ -358,9 +353,9 @@ function PersonAction({ p, n }: { p: PersonBalance; n: number }) {
       data-testid="person-settle-all"
       title={p.net > 0 ? 'Record payment' : 'Clear balances'}
       aria-label={p.net > 0 ? `Record payment from ${p.label} across ${n} groups` : `Clear balances with ${p.label} across ${n} groups`}
-      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600 transition active:scale-95 active:bg-brand-100 dark:bg-brand-900/40 dark:text-brand-200 dark:active:bg-brand-900/70"
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600 transition active:scale-95 active:bg-brand-100 dark:bg-brand-900/40 dark:text-brand-200 dark:active:bg-brand-900/70"
     >
-      {p.net > 0 ? <ChequeIcon size={24} /> : <ChecksIcon size={20} aria-hidden />}
+      {p.net > 0 ? <ChequeIcon size={22} /> : <ChecksIcon size={20} aria-hidden />}
     </Link>
   )
 }
@@ -382,7 +377,15 @@ function PersonCard({ p, chase }: { p: PersonBalance | HomeBalance; chase: Chase
         <ItemRow
           avatar={avatar}
           name={p.label}
-          sub={approx ? `${formatMoney(r.amount, r.currency)} · ${r.groupEmoji} ${r.groupName}` : `${r.groupEmoji} ${r.groupName}`}
+          sub={
+            <>
+              {/* in your currency: the group's own amount on a line of its own, then the group */}
+              {approx && <span className="block truncate tabular-nums">{formatMoney(r.amount, r.currency)}</span>}
+              <span className="block truncate">
+                {r.groupEmoji} {r.groupName}
+              </span>
+            </>
+          }
           amount={amount}
           dir={dir}
           chase={<RowChase r={r} chase={chase} />}
@@ -400,7 +403,7 @@ function PersonCard({ p, chase }: { p: PersonBalance | HomeBalance; chase: Chase
         sub={`across ${n} groups`}
         amount={p.net === 0 ? 'evens out' : amount}
         dir={dir}
-        chase={p.net > 0 ? <PersonRemindActions p={p} feed={chase.feed} className="-mx-1" /> : undefined}
+        chase={p.net > 0 ? <PersonRemindActions p={p} feed={chase.feed} compact /> : undefined}
         action={<PersonAction p={p} n={n} />}
       />
       <div className="mx-4 space-y-0.5 border-t border-slate-100 py-2 text-sm dark:border-white/5">

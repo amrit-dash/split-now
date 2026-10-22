@@ -2,6 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, ty
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { type DragSample, pushSample, releaseVelocity, sheetExit, shouldCloseSheet } from '@/lib/sheet-drag'
+import { haptic } from '@/lib/haptics'
 
 const FOCUSABLE =
   'a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
@@ -149,8 +150,10 @@ export function Sheet({
     drag.current = null
     if (!d?.active) return
     // The speed of the last few moves: a slow pull that ends in a flick closes it.
-    if (shouldCloseSheet(dy, releaseVelocity(d.samples))) onClose()
-    else setDy(0)
+    if (shouldCloseSheet(dy, releaseVelocity(d.samples))) {
+      haptic('sheetClose')
+      onClose()
+    } else setDy(0)
   }
   const dragging = !!drag.current?.active
   // Leaving: slide out from wherever it is (the drag position included), or fade with reduced motion.

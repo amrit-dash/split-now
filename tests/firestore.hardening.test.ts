@@ -113,6 +113,10 @@ describe('group shape and settings', () => {
       updateDoc(g1('bob'), { type: 'outing', currency: 'INR', budget: 500000, startDate: '2026-10-05', endDate: '2026-10-10', updatedAt: 2 }),
     )
   })
+  it('accepts the newer group types (Family, Sports)', async () => {
+    for (const type of ['family', 'sports']) await assertSucceeds(updateDoc(g1('bob'), { type, updatedAt: 3 }))
+    await assertFails(updateDoc(g1('bob'), { type: 'party' }))
+  })
   it('archiving is personal: each member adds or removes only their own uid', async () => {
     await assertSucceeds(updateDoc(g1('bob'), { archivedBy: arrayUnion('bob') }))
     // bob can't archive it for alice

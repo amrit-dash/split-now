@@ -487,7 +487,7 @@ service cloud.firestore {
           // an AI-drawn icon (shared/svg-icon.ts SVG_MAX); a private group has none (it can't be sealed)
           && (!('iconSvg' in g) || (g.iconSvg is string && g.iconSvg.size() <= 4096 && g.get('vault', false) != true))
           && (!('iconImage' in g) || (validIconImage(g.iconImage) && g.get('vault', false) != true))
-          && g.type in ['trip', 'outing', 'home', 'couple', 'event', 'office', 'other', 'direct', 'personal']
+          && g.type in ['trip', 'outing', 'home', 'couple', 'event', 'office', 'family', 'sports', 'other', 'direct', 'personal']
           && g.currency is string && g.currency.size() == 3
           && g.members is map && g.members.size() <= 60
           && g.memberUids is list && g.memberUids.size() <= 60

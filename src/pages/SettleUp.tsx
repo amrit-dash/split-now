@@ -15,6 +15,7 @@ import { isSettled } from '@/lib/members'
 import { isIOS, isUpiId, methodFor, methodLabel, payOptions, roundSuggestions, settleMethods, type PayOption } from '@/lib/payments'
 import { matchMember, parsePaymentScreenshot, type ParsedPayment } from '@/lib/ocr-parse'
 import { pending } from '@/lib/pending'
+import { haptic } from '@/lib/haptics'
 import { linkToClose } from '@/lib/paylinks'
 import { nettableRows, pendingSettlements, personBalances, personKey, signedAmount, type PersonBalance } from '@/lib/settleAll'
 import { allocateAcrossGroups } from '@/lib/settleMulti'
@@ -294,6 +295,7 @@ export default function SettleUp() {
       // The rest is let go as its own record, so the history shows what was paid and what was waived.
       if (waive && restAfter > 0) await repo.saveSettlement({ id: uid('s_'), ...base, amount: restAfter, method: 'waived', note: 'Rest waived' })
       rememberMethod(group.id, to, method)
+      haptic('save')
       toast(
         needsOk
           ? `Payment recorded. It counts once ${name(to)} confirms it${proof ? ', or when the screenshot matches' : ''}.`
@@ -1098,6 +1100,7 @@ export function SettleWithPerson() {
         if (!counter) rememberMethod(r.groupId, to, method)
         saved++
       }
+      haptic('save')
       toast(
         even
           ? `Cleared ${n} groups with ${p.label}`

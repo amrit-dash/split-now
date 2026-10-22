@@ -6,11 +6,14 @@ export const CATEGORIES: Record<Category, { label: string; emoji: string; color:
   transport: { label: 'Transport', emoji: '🚕', color: '#0ea5e9' },
   stay: { label: 'Accommodation', emoji: '🏨', color: '#8b5cf6' },
   entertainment: { label: 'Entertainment', emoji: '🎟️', color: '#ec4899' },
+  subscriptions: { label: 'Subscriptions', emoji: '📺', color: '#3b82f6' },
   shopping: { label: 'Shopping', emoji: '🛍️', color: '#f43f5e' },
   utilities: { label: 'Utilities', emoji: '💡', color: '#eab308' },
   rent: { label: 'Rent', emoji: '🏠', color: '#14b8a6' },
   health: { label: 'Health', emoji: '💊', color: '#22c55e' },
   travel: { label: 'Flights & travel', emoji: '✈️', color: '#6366f1' },
+  education: { label: 'Education', emoji: '🎓', color: '#06b6d4' },
+  pets: { label: 'Pets', emoji: '🐾', color: '#f59e0b' },
   gifts: { label: 'Gifts', emoji: '🎁', color: '#d946ef' },
   other: { label: 'Other', emoji: '🧾', color: '#64748b' },
 }
@@ -19,6 +22,11 @@ export const CATEGORIES: Record<Category, { label: string; emoji: string; color:
 // Swiggy → food; Uber Eats → food before Uber → transport; JioMart → groceries before Jio).
 // Short words get \b so they don't fire inside others ("milkshake", "candy bar", "VISA POS").
 const KEYWORDS: Array<[Category, RegExp]> = [
+  // Pets first, so "Pedigree from Blinkit" or "Vet visit" isn't groceries or health.
+  [
+    'pets',
+    /\bvets?\b|veterinar|\bpets?\b|pet (food|shop|store|grooming)|dog food|cat food|cat litter|pedigree|whiskas|drools|supertails|heads up for tails|\bkennel|dog walk|\bpuppy\b/i,
+  ],
   [
     'groceries',
     /grocer|instamart|zepto|blinkit|grofers|big ?basket|bbnow|dmart|d-mart|jiomart|reliance (fresh|smart)|more (super|retail)|spencer|nature'?s basket|kirana|sabzi|vegetables|\bfruits?\b|\bmilk\b(?!shake)|dairy|woolworths|coles|aldi|\biga\b|supermarket|hypermarket|minimart|costco|(fish|vegetable|fruit|meat) market|big bazaar|\bmandi\b/i,
@@ -44,8 +52,16 @@ const KEYWORDS: Array<[Category, RegExp]> = [
   ],
   ['stay', /hotel|\boyo\b|treebo|fabhotel|zostel|homestay|airbnb|hostel|motel|resort|booking\.com|agoda|accommodation|villa|guest ?house|lodge/i],
   [
+    'subscriptions',
+    /subscription|netflix|hotstar|jiocinema|prime video|amazon prime|spotify|youtube (premium|music)|apple (music|tv|one)|icloud|google one|disney ?(\+|plus)|sonyliv|zee5|audible|kindle unlimited|chatgpt|dropbox|\bott\b/i,
+  ],
+  [
+    'education',
+    /\bschool\b|tuition|\bcourses?\b|udemy|coursera|byju|unacademy|upgrad|skillshare|masterclass|duolingo|college|university|\bexams?\b|exam fee|coaching|textbooks?|stationery/i,
+  ],
+  [
     'entertainment',
-    /movie|cinema|bookmyshow|\bbms\b|\bpvr\b|inox|cinepolis|^district\b|district (app|by zomato)|concert|ticket|netflix|hotstar|jiocinema|prime video|spotify|game|bowling|club|museum|tour|trek|scuba|parasailing|water ?sports|amusement|wonderla/i,
+    /movie|cinema|bookmyshow|\bbms\b|\bpvr\b|inox|cinepolis|^district\b|district (app|by zomato)|concert|ticket|game|bowling|club|museum|tour|trek|scuba|parasailing|water ?sports|amusement|wonderla/i,
   ],
   ['shopping', /phone (case|cover)|mobile (case|cover)|screen guard|charger|boat (earphones|headphones|airdopes|rockerz)|flea market|night market|bazaar/i],
   [

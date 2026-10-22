@@ -31,6 +31,8 @@ export const GROUP_TYPES: Record<GroupType, GroupTypeInfo> = {
   home: { value: 'home', label: 'Home', emoji: '🏠', icons: ['🏠', '🏡', '🛋️', '🧺'], placeholder: 'e.g. Indiranagar flat', dates: null },
   couple: { value: 'couple', label: 'Couple', emoji: '💞', icons: ['💞', '❤️', '🥂'], placeholder: 'e.g. Us two', dates: null },
   office: { value: 'office', label: 'Office', emoji: '💼', icons: ['💼', '☕', '🏢'], placeholder: 'e.g. Design team', dates: null },
+  family: { value: 'family', label: 'Family', emoji: '👪', icons: ['👪', '🏡', '🍼', '🧸'], placeholder: 'e.g. Sharma family', dates: null },
+  sports: { value: 'sports', label: 'Sports', emoji: '⚽', icons: ['⚽', '🏏', '🏸', '🎾'], placeholder: 'e.g. Sunday football', dates: null },
   other: { value: 'other', label: 'Other', emoji: '📦', icons: ['📦'], placeholder: 'Group name', dates: 'Dates' },
   direct: { value: 'direct', label: 'Friend (1:1)', emoji: '🤝', icons: ['🤝'], placeholder: 'Friend’s name (optional)', dates: null },
   // Wallet icons cover the usual separate pots (fuel, groceries, shopping, food, health) when there are several.
@@ -38,7 +40,7 @@ export const GROUP_TYPES: Record<GroupType, GroupTypeInfo> = {
 }
 
 /** Types that are real groups (several people, invite link, dates); the chip row in the forms. */
-export const SHARED_TYPES: GroupType[] = ['trip', 'outing', 'event', 'home', 'couple', 'office', 'other']
+export const SHARED_TYPES: GroupType[] = ['trip', 'outing', 'event', 'home', 'family', 'couple', 'office', 'sports', 'other']
 
 export const isSharedType = (t: GroupType) => SHARED_TYPES.includes(t)
 
@@ -91,6 +93,13 @@ const RULES: Array<{ words: string[]; type: GroupType; emoji: string; generic?: 
     emoji: '🏔️',
   },
   { words: ['trip', 'vacation', 'holiday', 'travel', 'roadtrip', 'getaway', 'tour', 'weekend'], type: 'trip', emoji: '✈️', generic: true },
+  {
+    words: ['football', 'futsal', 'cricket', 'badminton', 'tennis', 'pickleball', 'squash', 'padel', 'basketball', 'volleyball', 'turf', 'sports', 'sport'],
+    type: 'sports',
+    emoji: '⚽',
+    generic: true,
+  },
+  { words: ['family', 'fam', 'parents', 'cousins', 'relatives', 'inlaws'], type: 'family', emoji: '👪', generic: true },
   { words: ['party', 'drinks', 'beer', 'beers', 'pub', 'bar', 'night'], type: 'outing', emoji: '🍻', generic: true },
   { words: ['dinner', 'lunch', 'brunch', 'breakfast', 'meal', 'food', 'pizza'], type: 'outing', emoji: '🍽️', generic: true },
   {

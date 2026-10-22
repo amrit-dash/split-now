@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { barLength } from '@/lib/chartGeometry'
 import { type Hint, HintText, InfoTip } from '@/components/Hint'
 import { useIsDark } from '@/lib/chartPalette'
 
@@ -66,14 +67,14 @@ export function StatTile({ label, value, sub }: { label: string; value: ReactNod
  * are pure transforms and the rounded end never distorts. `frac` 0 → hidden; tweens on change.
  */
 export function HBar({ frac, color, thin = false, delay = 0 }: { frac: number; color: string; thin?: boolean; delay?: number }) {
-  const f = frac > 0 ? Math.max(0.015, Math.min(1, frac)) : 0
+  // A small share keeps a few pixels (barLength), so 1–2% reads as a short bar, not a stub; the value beside it is exact.
   return (
-    <div className={`${thin ? 'h-1.5' : 'h-2'} ins-anim w-full overflow-hidden`}>
+    <div className={`${thin ? 'h-1.5' : 'h-2'} ins-anim w-full overflow-hidden rounded-l-[3px]`}>
       <div
         className="h-full w-full rounded-r-[4px] will-change-transform"
         style={{
           background: color,
-          transform: `translateX(${(f - 1) * 100}%)`,
+          transform: `translateX(calc(${barLength(frac)} - 100%))`,
           transition: `transform 750ms cubic-bezier(0.22, 0.8, 0.3, 1) ${delay}ms, background-color 300ms`,
         }}
       />

@@ -1,3 +1,5 @@
+import { barLength } from '@/lib/chartGeometry'
+
 export interface BarSeries {
   key: string
   label: string
@@ -48,11 +50,7 @@ export function Bars({
                 const v = r.values[i] ?? 0
                 return (
                   <div key={s.key} className="flex items-center gap-2">
-                    <div
-                      className="h-3.5 rounded-sm transition-[width]"
-                      style={{ width: `${Math.max(v > 0 ? 1 : 0, (v / max) * 100)}%`, background: s.color }}
-                      aria-hidden
-                    />
+                    <div className="h-3.5 rounded-sm transition-[width]" style={{ width: barLength(v / max), background: s.color }} aria-hidden />
                     <span className="text-muted shrink-0 text-xs">
                       <span className="sr-only">{s.label}: </span>
                       {format(v)}

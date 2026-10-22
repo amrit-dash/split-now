@@ -10,6 +10,7 @@ import { Avatar } from '@/components/Avatar'
 import { DateField } from '@/components/DateField'
 import { Segmented } from '@/components/Misc'
 import { Sheet } from '@/components/Sheet'
+import { useEdgeFade } from '@/hooks/useEdgeFade'
 
 /**
  * Sort and filter for a group's Expenses list: the order (date spent, date added, amount), Quick
@@ -43,6 +44,7 @@ export function ListOptionsSheet({
   /** Quick filters: Involving me (shared groups, when you're in it) and the categories in use */
   quick: { showMe: boolean; onlyMe: boolean; onOnlyMe: (on: boolean) => void; categories: Category[] }
 }) {
+  const fade = useEdgeFade()
   const reset = () => {
     onSort(DEFAULT_SORT)
     onFilter({ kind: 'all', paidBy: undefined, from: undefined, to: undefined, categories: [] })
@@ -82,7 +84,7 @@ export function ListOptionsSheet({
         <div className="mt-4">
           <div className="label">Quick filters</div>
           {/* One sideways-scrolling row, as it was on the list, edge to edge with the sheet's padding inside. */}
-          <div className="scrollbar-none -mx-5 flex gap-1.5 overflow-x-auto px-5 py-1 sm:-mx-6 sm:px-6" data-testid="list-quick">
+          <div ref={fade} className="scrollbar-none -mx-5 flex gap-1.5 overflow-x-auto px-5 py-1 sm:-mx-6 sm:px-6" data-testid="list-quick">
             {quick.showMe && (
               <button
                 type="button"

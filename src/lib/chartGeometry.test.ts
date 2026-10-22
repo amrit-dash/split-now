@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { arcPath, donutSegments, linearScale, monotonePath, nearestIndex, niceTicks, xLabelIndices } from './chartGeometry'
+import { arcPath, barLength, barSize, donutSegments, linearScale, monotonePath, nearestIndex, niceTicks, xLabelIndices } from './chartGeometry'
 
 const TAU = Math.PI * 2
 
@@ -136,5 +136,34 @@ describe('xLabelIndices', () => {
     expect(xLabelIndices(1, 300, 40)).toEqual([0])
     expect(xLabelIndices(2, 60, 40)).toEqual([1])
     expect(xLabelIndices(2, 300, 40)).toEqual([0, 1])
+  })
+})
+
+describe('barLength', () => {
+  it('draws nothing for zero, negative or missing values', () => {
+    expect(barLength(0)).toBe('0%')
+    expect(barLength(-0.2)).toBe('0%')
+    expect(barLength(Number.NaN)).toBe('0%')
+  })
+  it('keeps a small share visible with a pixel floor and leaves the rest to scale', () => {
+    expect(barLength(0.01)).toBe('max(1%, 8px)')
+    expect(barLength(0.4567)).toBe('max(45.67%, 8px)')
+    expect(barLength(0.02, 4)).toBe('max(2%, 4px)')
+  })
+  it('caps at the full track', () => {
+    expect(barLength(1)).toBe('100%')
+    expect(barLength(1.4)).toBe('100%')
+  })
+})
+
+describe('barSize', () => {
+  it('scales, with a floor for tiny values and nothing for zero', () => {
+    expect(barSize(50, 100, 120)).toBe(60)
+    expect(barSize(1, 100, 120)).toBe(8)
+    expect(barSize(0, 100, 120)).toBe(0)
+    expect(barSize(5, 0, 120)).toBe(0)
+  })
+  it('never passes the full height', () => {
+    expect(barSize(200, 100, 120)).toBe(120)
   })
 })

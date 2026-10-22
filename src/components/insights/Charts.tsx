@@ -1,4 +1,5 @@
 import { useId, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { barSize } from '@/lib/chartGeometry'
 import type { Category } from '@/types'
 import { CATEGORIES } from '@/lib/categories'
 import { categoryChartColor, OTHER, seriesColor } from '@/lib/chartPalette'
@@ -353,7 +354,7 @@ export function PaceChart({
                   { k: 'last', v: w.lastMonth, c: b, x: cx - 1 - bw },
                   { k: 'this', v: w.thisMonth, c: a, x: cx + 1 },
                 ].map((s, j) => {
-                  const h = s.v ? Math.max(2, (s.v / top) * ph) : 0
+                  const h = barSize(s.v ?? 0, top, ph)
                   return (
                     <rect
                       key={`${w.key}-${s.k}`}

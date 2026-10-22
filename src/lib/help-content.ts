@@ -955,9 +955,9 @@ export const SECTIONS: HelpSection[] = [
     chapter: 'groups',
     title: 'Trips, homes, 1:1s and Personal wallets',
     summary: 'The type sets the icon. Trip dates make it live.',
-    keywords: ['type', 'trip dates', 'live', '1:1', 'personal', 'wallet', 'couple', 'office', 'event'],
+    keywords: ['type', 'trip dates', 'live', '1:1', 'personal', 'wallet', 'couple', 'office', 'event', 'family', 'sports'],
     steps: [
-      { text: 'Pick a type: Trip, Dinner / outing, Event, Home, Couple, Office or Other.', mark: 'type' },
+      { text: 'Pick a type: Trip, Dinner / outing, Event, Home, Family, Couple, Office, Sports or Other.', mark: 'type' },
       { text: 'For a trip or an event, add the **dates**.', mark: 'dates' },
       { text: 'While today is inside them, it shows **Live**.', mark: 'live' },
     ],
@@ -1088,6 +1088,7 @@ export const SECTIONS: HelpSection[] = [
     ],
     points: [
       'Deleted items don’t count in balances.',
+      'With nothing to restore it reads “Recently deleted · empty”.',
       'Anyone in the group can restore one within 30 days.',
       'After 7 days, whoever deleted it or the creator can delete it forever.',
       'Deleting forever takes its comments too.',
@@ -1143,7 +1144,7 @@ export const SECTIONS: HelpSection[] = [
     chapter: 'expenses',
     title: 'Category, date and notes',
     summary: 'The category picks itself. Add a date and notes.',
-    keywords: ['category', 'date', 'yesterday', 'notes', 'memo', 'auto category'],
+    keywords: ['category', 'date', 'yesterday', 'notes', 'memo', 'auto category', 'subscriptions', 'education', 'pets'],
     steps: [
       { text: 'Tap the tile beside the description for a **Category**.', mark: 'category' },
       { text: 'Pick **Today**, **Yesterday** or another date.', mark: 'date' },
@@ -1151,6 +1152,7 @@ export const SECTIONS: HelpSection[] = [
     ],
     points: [
       'The category follows your words until you pick one.',
+      'Subscriptions, Education and Pets have their own categories.',
       'Your picks teach the app, outside private groups.',
       'Group search finds notes too.',
       'A likely duplicate within a day asks first.',
@@ -1321,7 +1323,7 @@ export const SECTIONS: HelpSection[] = [
     summary: 'Send a link that opens a filled-in Settle up.',
     keywords: ['remind', 'pay me link', 'share', 'ask for money', 'request', 'whatsapp', 'card'],
     steps: [
-      { text: 'Tap the share icon by someone who owes you.', mark: 'share' },
+      { text: 'Tap the share icon by someone who owes you to **Remind** them.', mark: 'share' },
       { text: 'Pick an app. The message has your Pay me link.', mark: 'app' },
       { text: 'They pay you and tap **I’ve paid**.', mark: 'paid' },
     ],

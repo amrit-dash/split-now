@@ -105,7 +105,7 @@ import { repo } from '@/data'
 import { useToast } from '@/components/Toast'
 import { ActivityFeed, RecentlyDeleted, TrustBadges, useUndoableDelete } from '@/components/Trust'
 import { PaymentPill, ProofButton, usePaymentAnswers } from '@/components/PaymentOk'
-import { paymentState } from '@/lib/trust'
+import { paymentState, trashEntry } from '@/lib/trust'
 import { RemindActions } from '@/components/RemindActions'
 import { SwipeRow } from '@/components/SwipeRow'
 import { useRemoveMember } from '@/hooks/useRemoveMember'
@@ -120,6 +120,7 @@ import { VaultLock } from '@/features/vault/VaultLock'
 import { PrivateGroupSheet } from '@/features/vault/PrivateGroupSheet'
 import { privateMenuShown } from '@/lib/vault-api'
 import { lockVault } from '@/lib/vault-keys'
+import { useEdgeFade } from '@/hooks/useEdgeFade'
 
 type Tab = 'expenses' | 'open' | 'balances' | 'activity'
 
@@ -1050,14 +1051,22 @@ function ActivityTab({ group, expenseIds }: { group: Group; expenseIds: Set<stri
   const feed = useActivity(group.id)
   const trash = useTrash(group)
   const [open, setOpen] = useState(false)
-  const n = trash ? trash.expenses.length + trash.settlements.length : 0
+  const bin = trashEntry(trash)
   return (
     <div className="space-y-3">
-      <button type="button" onClick={() => setOpen(true)} className="card flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left text-sm">
-        <TrashIcon size={18} className="text-muted" aria-hidden />
-        <span className="flex-1 font-medium">Recently deleted</span>
-        <span className="text-muted">{n || 'empty'}</span>
-      </button>
+      {bin.kind === 'items' ? (
+        <button type="button" onClick={() => setOpen(true)} className="card flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left text-sm">
+          <TrashIcon size={18} className="text-muted" aria-hidden />
+          <span className="flex-1 font-medium">Recently deleted</span>
+          <span className="text-muted tabular-nums">{bin.count}</span>
+        </button>
+      ) : (
+        // Nothing to restore: a quiet line that says so, not a button into an empty sheet.
+        <p className="text-muted flex min-h-8 items-center gap-2 px-1 text-sm" data-testid="trash-empty">
+          <TrashIcon size={16} aria-hidden />
+          {bin.kind === 'empty' ? 'Recently deleted · empty' : 'Recently deleted'}
+        </p>
+      )}
       {feed === null ? (
         <Loading />
       ) : feed.length === 0 ? (
@@ -1098,6 +1107,7 @@ function ActivityList({
   sheetOpen: boolean
   onSheet: (open: boolean) => void
 }) {
+  const fade = useEdgeFade()
   const groupId = group.id
   const undoable = useUndoableDelete()
   const answers = usePaymentAnswers()
@@ -1205,7 +1215,7 @@ function ActivityList({
         </button>
       </div>
       {pills.length > 0 && (
-        <ul className="scrollbar-none -mx-4 flex gap-1.5 overflow-x-auto px-4 py-1" aria-label="Sort and filters on" data-testid="list-pills">
+        <ul ref={fade} className="scrollbar-none -mx-4 flex gap-1.5 overflow-x-auto px-4 py-1" aria-label="Sort and filters on" data-testid="list-pills">
           {pills.map((p) => (
             <li key={p.key} className="shrink-0">
               <button
@@ -1372,7 +1382,7 @@ function ActivityList({
                 >
                   <Link to={`/groups/${groupId}/expenses/${e.id}`} className="flex items-center gap-3 px-4 py-3 active:bg-slate-50 dark:active:bg-ink-800">
                     <div
-                      className="flex h-11 w-11 items-center justify-center rounded-2xl text-xl"
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-xl"
                       style={{ background: `${CATEGORIES[e.category].color}22` }}
                       aria-hidden
                     >
@@ -1380,7 +1390,7 @@ function ActivityList({
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
-                        <span className="truncate font-medium">{e.description}</span>
+                        <span className="line-clamp-2 min-w-0 break-words font-medium leading-snug">{e.description}</span>
                         {e.recurrence && (
                           <span
                             className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-brand-50 px-1.5 py-0.5 text-[0.6875rem] font-semibold text-brand-700 dark:bg-brand-900/40 dark:text-brand-200"

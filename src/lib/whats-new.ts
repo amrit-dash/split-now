@@ -24,6 +24,16 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '9.1.1',
+    date: 'October 2026',
+    items: [
+      { text: 'New group types: Family and Sports', section: 'group-types' },
+      { text: 'New categories: Subscriptions, Education and Pets', section: 'categories-notes-dates' },
+      { text: 'Balances line up, one row per person with its buttons beside it', section: 'balances-screen' },
+      { text: 'Small touches: long names wrap, tiny bars show, a short buzz when you save', section: 'insights' },
+    ],
+  },
+  {
     version: '9.1.0',
     date: 'October 2026',
     items: [

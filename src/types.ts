@@ -3,7 +3,7 @@ import type { PaymentCheck, PaymentFlag, PaymentOk, PaymentVerdict } from '../sh
 export type Cents = number
 export type MemberId = string
 
-export type GroupType = 'trip' | 'outing' | 'home' | 'couple' | 'event' | 'office' | 'other' | 'direct' | 'personal'
+export type GroupType = 'trip' | 'outing' | 'home' | 'couple' | 'event' | 'office' | 'family' | 'sports' | 'other' | 'direct' | 'personal'
 
 export interface PaymentHandles {
   /** India: UPI ID / VPA, e.g. rohan@okaxis */
@@ -206,11 +206,14 @@ export type Category =
   | 'transport'
   | 'stay'
   | 'entertainment'
+  | 'subscriptions'
   | 'shopping'
   | 'utilities'
   | 'rent'
   | 'health'
   | 'travel'
+  | 'education'
+  | 'pets'
   | 'gifts'
   | 'other'
 

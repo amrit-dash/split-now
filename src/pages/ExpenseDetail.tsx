@@ -34,6 +34,7 @@ import { usePageTitle } from '@/lib/brand'
 import { HistoryCard, TrashedBanner, TrustBadges, TrustPanel, useUndoableDelete } from '@/components/Trust'
 import { labelOf, memberIdOfUid } from '@/lib/shortNames'
 import { handlersOf, isReceived, sharesOf } from '../../shared/received'
+import { useEdgeFade } from '@/hooks/useEdgeFade'
 
 export default function ExpenseDetail() {
   const { groupId, expenseId } = useParams()
@@ -435,6 +436,7 @@ function creatorName(group: Group, uid: string, me: string): string | undefined 
  * change the amount. A private group's photos are opened on the phone (repo.photoUrl) and never shown sealed.
  */
 function ReceiptCard({ group, expense: e, trashed }: { group: Group; expense: Expense; trashed: boolean }) {
+  const fade = useEdgeFade()
   const toast = useToast()
   const confirm = useConfirm()
   const open = useVaultOpen(group.id)
@@ -519,7 +521,7 @@ function ReceiptCard({ group, expense: e, trashed }: { group: Group; expense: Ex
       )}
       {photos.length > 0 && shown && (
         <div id={`receipt-${e.id}`} className="px-4 pb-4">
-          <ul className="scrollbar-none -mx-1 flex gap-2 overflow-x-auto px-1 pb-1" data-testid="receipt-photos">
+          <ul ref={fade} className="scrollbar-none -mx-1 flex gap-2 overflow-x-auto px-1 pb-1" data-testid="receipt-photos">
             {photos.map((p, i) => (
               <li key={p.key} className="w-28 shrink-0">
                 <button

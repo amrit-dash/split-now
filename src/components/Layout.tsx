@@ -130,12 +130,13 @@ export function Layout() {
                   <>
                     {/* Active: icon and label in a deeper shade of the accent, two-tone (Outline) or solid (Filled) and a slight lift
                         (no box behind the tab: owner's request 32); the swap is instant, a tab is tapped
-                        too often to animate it. Inactive stays a readable grey. A press dips the icon. */}
+                        too often to animate it. Inactive stays a readable grey. A press dips the icon. In dark mode
+                        the current icon also has a faint accent halo (.tab-current), still no box, so it reads on the dark bar. */}
                     <t.icon
                       size={24}
                       solid={tabIconLook(iconStyle, isActive).solid}
                       data-duo={tabIconLook(iconStyle, isActive).duo || undefined}
-                      className={`transition-transform duration-150 ease-out motion-safe:group-active:scale-[0.96] ${isActive ? '-translate-y-px' : ''}`}
+                      className={`transition-transform duration-150 ease-out motion-safe:group-active:scale-[0.96] ${isActive ? 'tab-current -translate-y-px' : ''}`}
                       aria-hidden
                     />
                     {t.label}

@@ -5,6 +5,7 @@ import { colorFor } from '@/lib/colors'
 import { isEmail, knownPeople, nameFromEmail, recentPeople, searchPeople, type KnownPerson } from '@/lib/people'
 import { Avatar } from '@/components/Avatar'
 import { HintText, type Hint } from '@/components/Hint'
+import { useEdgeFade } from '@/hooks/useEdgeFade'
 
 /** How the people you add get in: kept in every look, so nobody thinks they must wait for others to join. */
 export const MEMBER_PICKER_HINT: Hint = {
@@ -43,6 +44,7 @@ export function MemberPicker({
   onAdd: (name: string, email?: string, uid?: string, photoURL?: string) => void
   hint?: Hint | string
 }) {
+  const fade = useEdgeFade()
   const [newName, setNewName] = useState('')
   const [newEmail, setNewEmail] = useState('')
   const [query, setQuery] = useState('')
@@ -153,6 +155,7 @@ export function MemberPicker({
                     inset (half the card's padding) rather than to the card's edge; the ::after spacer
                     keeps that inset at the end too (Safari drops a scroll row's right padding). */}
                 <div
+                  ref={fade}
                   className="scrollbar-none -mx-2 flex gap-2 overflow-x-auto px-2 py-1 after:block after:w-px after:shrink-0 after:content-['']"
                   data-testid="known-people"
                 >

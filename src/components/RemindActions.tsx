@@ -33,6 +33,7 @@ export function RemindActions({
   me,
   feed,
   className = '',
+  compact = false,
 }: {
   group: Group
   debtor: MemberId
@@ -42,6 +43,8 @@ export function RemindActions({
   /** activity of this group (or several groups merged; entries carry their group), when the screen has it: nudges from other devices show up there */
   feed?: ActivityEntry[] | null
   className?: string
+  /** 40 px buttons, for a row that also holds another action (Balances) */
+  compact?: boolean
 }) {
   const { user, profile } = useMe()
   const toast = useToast()
@@ -122,7 +125,17 @@ export function RemindActions({
       share: remind,
     })
 
-  return <ChaseButtons first={first} busy={chase.busy} onRemind={remind} onNudge={canNudge ? nudge : undefined} cooling={cooling} className={className} />
+  return (
+    <ChaseButtons
+      first={first}
+      busy={chase.busy}
+      onRemind={remind}
+      onNudge={canNudge ? nudge : undefined}
+      cooling={cooling}
+      className={className}
+      compact={compact}
+    />
+  )
 }
 
 /**
@@ -131,7 +144,17 @@ export function RemindActions({
  * link is your cross-group Settle up), and one nudge, one push with the total (the callable's
  * `items`). Only when they owe you overall; Nudge only when they have an account.
  */
-export function PersonRemindActions({ p, feed, className = '' }: { p: PersonBalance; feed?: ActivityEntry[] | null; className?: string }) {
+export function PersonRemindActions({
+  p,
+  feed,
+  className = '',
+  compact = false,
+}: {
+  p: PersonBalance
+  feed?: ActivityEntry[] | null
+  className?: string
+  compact?: boolean
+}) {
   const { user, profile } = useMe()
   const toast = useToast()
   const chase = useChase()
@@ -220,7 +243,16 @@ export function PersonRemindActions({ p, feed, className = '' }: { p: PersonBala
     })
 
   return (
-    <ChaseButtons first={first} busy={chase.busy} onRemind={remind} onNudge={canNudge ? nudge : undefined} cooling={cooling} className={className} across />
+    <ChaseButtons
+      first={first}
+      busy={chase.busy}
+      onRemind={remind}
+      onNudge={canNudge ? nudge : undefined}
+      cooling={cooling}
+      className={className}
+      compact={compact}
+      across
+    />
   )
 }
 
@@ -293,6 +325,7 @@ function ChaseButtons({
   cooling,
   className,
   across = false,
+  compact = false,
 }: {
   first: string
   busy: 'remind' | 'nudge' | null
@@ -301,8 +334,9 @@ function ChaseButtons({
   cooling: boolean
   className: string
   across?: boolean
+  compact?: boolean
 }) {
-  const btn = 'text-muted flex h-11 w-11 shrink-0 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-ink-800'
+  const btn = `text-muted flex ${compact ? 'h-10 w-10' : 'h-11 w-11'} shrink-0 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-ink-800`
   return (
     <span className={`flex items-center ${className}`}>
       <button

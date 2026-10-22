@@ -7,7 +7,7 @@
 import type { AiUnavailableReason } from './ai-config'
 
 /** Group types the model may suggest for a new group (the shared kinds; never 1:1 or personal). */
-export const QUICK_GROUP_TYPES = ['trip', 'outing', 'event', 'home', 'couple', 'office', 'other'] as const
+export const QUICK_GROUP_TYPES = ['trip', 'outing', 'event', 'home', 'family', 'couple', 'office', 'sports', 'other'] as const
 export type QuickGroupType = (typeof QUICK_GROUP_TYPES)[number]
 
 /** One group the line could go into, as the app sends it: the caller is left out of `members`. */
