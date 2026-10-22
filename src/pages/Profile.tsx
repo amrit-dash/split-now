@@ -3,16 +3,17 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ChevronRight, X } from 'lucide-react'
 import {
   CameraIcon,
-  InsightsIcon,
-  SettingsIcon,
-  HandHeartIcon,
-  ImageIcon,
-  HelpIcon,
-  BalanceIcon,
-  ShieldIcon,
   ExitIcon,
+  ImageIcon,
+  RowBalancesIcon,
+  RowHelpIcon,
+  RowInsightsIcon,
+  RowPayIcon,
+  RowSettingsIcon,
+  RowSupportIcon,
+  SettingsIcon,
+  ShieldIcon,
   TrashIcon,
-  WalletIcon,
 } from '@/components/icons'
 import { useWhatsNew } from '@/hooks/useWhatsNew'
 import { repo } from '@/data'
@@ -39,6 +40,7 @@ import { InstallRow } from '@/components/InstallBanner'
 import { UpdateRow } from '@/components/UpdateRow'
 import { SupportSheet } from '@/components/SupportSheet'
 import { SavedPill, useSavedFlash } from './settings/common'
+import { RowTile } from '@/components/RowTile'
 
 type Handle = {
   key: keyof PaymentHandles
@@ -274,12 +276,9 @@ export default function Profile() {
         }
         icon={
           // The same tile as the rows below (Settings, Balances…), so the icons line up and match.
-          <span
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
-            aria-hidden
-          >
-            <WalletIcon size={19} />
-          </span>
+          <RowTile>
+            <RowPayIcon size={22} />
+          </RowTile>
         }
         summary={paymentSummary(payment, region)}
       >
@@ -338,12 +337,9 @@ export default function Profile() {
           className="flex items-center gap-3 p-4 font-medium transition active:bg-slate-50 dark:active:bg-ink-800"
           data-testid="profile-settings"
         >
-          <span
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
-            aria-hidden
-          >
-            <SettingsIcon size={19} />
-          </span>
+          <RowTile>
+            <RowSettingsIcon size={22} />
+          </RowTile>
           <span className="min-w-0 flex-1">
             <span className="block">Settings</span>
             <HintText hint={SETTINGS_ROW_HINT} as="span" className="text-muted block text-xs font-normal" />
@@ -351,12 +347,9 @@ export default function Profile() {
           <ChevronRight size={18} className="text-slate-400" aria-hidden />
         </Link>
         <Link to="/help" className="flex items-center gap-3 p-4 font-medium transition active:bg-slate-50 dark:active:bg-ink-800" data-testid="profile-help">
-          <span
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
-            aria-hidden
-          >
-            <HelpIcon size={19} />
-          </span>
+          <RowTile>
+            <RowHelpIcon size={22} />
+          </RowTile>
           <span className="min-w-0 flex-1">
             <span className="block">Help</span>
             <span className="text-muted block text-xs font-normal">How things work, and what’s new</span>
@@ -374,12 +367,9 @@ export default function Profile() {
           className="flex items-center gap-3 p-4 font-medium transition active:bg-slate-50 dark:active:bg-ink-800"
           data-testid="profile-insights"
         >
-          <span
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
-            aria-hidden
-          >
-            <InsightsIcon size={19} />
-          </span>
+          <RowTile>
+            <RowInsightsIcon size={22} />
+          </RowTile>
           <span className="min-w-0 flex-1">
             <span className="block">Insights</span>
             <span className="text-muted block text-xs font-normal">Where your money went, by month and category</span>
@@ -387,12 +377,9 @@ export default function Profile() {
           <ChevronRight size={18} className="text-slate-400" aria-hidden />
         </Link>
         <Link to="/settle" className="flex items-center gap-3 p-4 font-medium transition active:bg-slate-50 dark:active:bg-ink-800">
-          <span
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
-            aria-hidden
-          >
-            <BalanceIcon size={19} />
-          </span>
+          <RowTile>
+            <RowBalancesIcon size={22} />
+          </RowTile>
           <span className="min-w-0 flex-1">
             <span className="block">Balances</span>
             <HintText hint={BALANCES_ROW_HINT} as="span" className="text-muted block text-xs font-normal" />
@@ -410,12 +397,9 @@ export default function Profile() {
             className="flex w-full items-center gap-3 p-4 text-left font-medium transition active:bg-slate-50 dark:active:bg-ink-800"
             data-testid="profile-support"
           >
-            <span
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-pink-50 text-pink-600 dark:bg-pink-500/15 dark:text-pink-300"
-              aria-hidden
-            >
-              <HandHeartIcon size={19} />
-            </span>
+            <RowTile>
+              <RowSupportIcon size={22} />
+            </RowTile>
             <span className="min-w-0 flex-1">
               <span className="block">Support the developer</span>
               <HintText hint={SUPPORT_ROW_HINT} as="span" className="text-muted block text-xs font-normal" />

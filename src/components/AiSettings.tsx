@@ -2,7 +2,18 @@ import { pictureCost } from '../../shared/icon-ai'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Check, Loader2 } from 'lucide-react'
-import { ExternalIcon, RefreshIcon, ChatIcon, KeyIcon, KeyboardIcon, ScanIcon, ShapesIcon, ShieldIcon, SparkleIcon, TrashIcon } from '@/components/icons'
+import {
+  ExternalIcon,
+  KeyIcon,
+  RefreshIcon,
+  RowChatIcon,
+  RowIconsIcon,
+  RowKeyboardIcon,
+  RowScanIcon,
+  ShieldIcon,
+  SparkleIcon,
+  TrashIcon,
+} from '@/components/icons'
 import { repo } from '@/data'
 import { useAiState } from '@/hooks/data'
 import type { AiModel, AiState, AppAiStatusValue } from '@/data/repo'
@@ -225,7 +236,7 @@ export function AiSettings() {
 
       {prefs.aiEnabled && (
         <>
-          <SettingsSection icon={<ScanIcon size={16} aria-hidden />} title="Reading bills and screenshots" testId="ai-section-reading">
+          <SettingsSection icon={<RowScanIcon size={18} aria-hidden />} title="Reading bills and screenshots" testId="ai-section-reading">
             {aiImages ? (
               <Row
                 title="Bills & statements"
@@ -268,7 +279,7 @@ export function AiSettings() {
               </div>
             )}
           </SettingsSection>
-          <SettingsSection icon={<ChatIcon size={16} aria-hidden />} title="Bank SMS" testId="ai-section-sms">
+          <SettingsSection icon={<RowChatIcon size={18} aria-hidden />} title="Bank SMS" testId="ai-section-sms">
             <Row
               title="Bank SMS the app can’t read"
               testId="ai-sms"
@@ -298,7 +309,7 @@ export function AiSettings() {
               />
             )}
           </SettingsSection>
-          <SettingsSection icon={<KeyboardIcon size={16} aria-hidden />} title="Quick add" testId="ai-section-quick-add">
+          <SettingsSection icon={<RowKeyboardIcon size={18} aria-hidden />} title="Quick add" testId="ai-section-quick-add">
             {aiQuickAdd ? (
               <Row
                 title="Quick add with AI"
@@ -319,7 +330,7 @@ export function AiSettings() {
             )}
           </SettingsSection>
           {!aiIcons && !aiIconAuto && (
-            <SettingsSection icon={<ShapesIcon size={16} aria-hidden />} title="Icons" testId="ai-section-icons">
+            <SettingsSection icon={<RowIconsIcon size={18} aria-hidden />} title="Icons" testId="ai-section-icons">
               <div data-testid="ai-icons-off">
                 <div className="font-semibold">AI icons</div>
                 <div className="text-muted text-sm">Switched off for everyone right now</div>
@@ -327,7 +338,7 @@ export function AiSettings() {
             </SettingsSection>
           )}
           {(aiIcons || aiIconAuto) && (
-            <SettingsSection icon={<ShapesIcon size={16} aria-hidden />} title="Icons" testId="ai-section-icons">
+            <SettingsSection icon={<RowIconsIcon size={18} aria-hidden />} title="Icons" testId="ai-section-icons">
               {aiIcons && (
                 <Row
                   title="AI icons"

@@ -5,6 +5,7 @@ import { usePageTitle } from '@/lib/brand'
 import type { Hint } from '@/components/Hint'
 import { PageHeader } from '@/components/Misc'
 import type { BackConfig } from '@/lib/back'
+import { RowTile } from '@/components/RowTile'
 
 /**
  * One settings screen: sticky header with a back arrow (where you came from; /settings when opened cold), and the document title.
@@ -40,12 +41,7 @@ export function SettingsPage({
 export function SettingsRow({ to, icon, title, summary, testId }: { to: string; icon: ReactNode; title: string; summary?: ReactNode; testId?: string }) {
   return (
     <Link to={to} className="flex items-center gap-3 px-4 py-3.5 transition active:bg-slate-50 dark:active:bg-ink-800" data-testid={testId}>
-      <span
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
-        aria-hidden
-      >
-        {icon}
-      </span>
+      <RowTile>{icon}</RowTile>
       <span className="min-w-0 flex-1">
         <span className="block font-semibold">{title}</span>
         {summary && <span className="text-muted block truncate text-xs">{summary}</span>}

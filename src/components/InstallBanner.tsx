@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Check, ChevronRight, MoreVertical, PlusSquare, Share, X } from 'lucide-react'
-import { PhoneIcon, DownloadIcon } from '@/components/icons'
+import { DownloadIcon, RowInstallIcon } from '@/components/icons'
 import { useAllGroupData } from '@/hooks/data'
 import { countVisit, dismissInstall, installMethod, isInstallDismissed, shouldOfferInstall, type InstallMethod } from '@/lib/install'
 import { useSwipeDismiss } from '@/hooks/useSwipeDismiss'
 import { HintText } from './Hint'
 import { Sheet } from './Sheet'
+import { RowTile } from '@/components/RowTile'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>
@@ -199,12 +200,9 @@ export function InstallRow({ className = 'card', testId = 'install-row' }: { cla
         onClick={() => (method === 'prompt' ? void install.prompt() : setSteps(true))}
         data-testid={testId}
       >
-        <span
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
-          aria-hidden
-        >
-          {phone ? <PhoneIcon size={19} /> : <DownloadIcon size={19} />}
-        </span>
+        <RowTile>
+          <RowInstallIcon size={22} />
+        </RowTile>
         <span className="min-w-0 flex-1">
           <span className="block">Install Split Now {phone ? 'on this phone' : 'on this computer'}</span>
           {/* 'help' like the rows it sits among (Profile, Settings → Data). */}
