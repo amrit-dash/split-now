@@ -175,8 +175,14 @@ export function meterBesideSpeech(ua: string): boolean {
 }
 
 /**
- * Whether the browser's own speech recognition really works here. Opera (GX included) has the
- * object but no speech service behind it: it starts, then hears nothing or fails with "network".
- * There voice uses AI transcription when it's available, and no mic shows when it isn't.
+ * The browser has speech recognition but no service behind it (Opera, Brave and other Chromium
+ * builds without Google's speech service answer "network" while online, or "service-not-allowed"):
+ * not a refused microphone, and worth trying the on-device recogniser before giving up.
  */
-export const nativeSpeechWorks = (ua: string): boolean => !/\bOPR\/|\bOPX\/|Opera/.test(ua)
+export const speechServiceMissing = (code: string | undefined, online: boolean): boolean =>
+  code === 'service-not-allowed' || code === 'language-not-supported' || (code === 'network' && online)
+
+/** A browser found to have no working recogniser is asked again after this long (it may have gained one). */
+export const SPEECH_NONE_TTL_MS = 7 * 24 * 3600 * 1000
+
+export const speechNoneStill = (since: number | null, now: number): boolean => since !== null && now - since >= 0 && now - since < SPEECH_NONE_TTL_MS

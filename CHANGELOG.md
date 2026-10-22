@@ -6,7 +6,7 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
-- Voice in Opera and Opera GX uses AI transcription when it's available to you. Opera offers speech recognition but has nothing behind it, so voice failed or heard nothing there.
+- Voice in Opera, Opera GX, Brave and other browsers without Google's speech service: Split Now now switches to the browser's own on-device speech recognition (set up once) and your words show as you talk. Before, voice failed there and the mic then disappeared, as if you had refused the microphone. Where a browser has no recogniser at all, it says so and points to Transcribe with AI.
 - New group and Edit group: the types are one sideways row of chips, faded at the edge where there's more, with the chosen one in view. Before, nine tiles in a grid of three took most of the card.
 - Icons: Sort and filter (in a group, Insights' Filters and the private group preview) is a funnel, not the sort lines it shared with the sort pill. Help → What Split Now does shows the shared pot from its story, a bag with a rupee (it showed Support the developer's hand and heart).
 - Group → Sort and filter: **Sort by** is a dropdown that shows your choice, instead of a fold of six radio buttons that pushed the filters down and showed under the sheet's title while scrolling.

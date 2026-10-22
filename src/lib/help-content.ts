@@ -412,6 +412,7 @@ export const SECTIONS: HelpSection[] = [
       'In a group, a tap still adds an expense. Holding is for talking.',
       'A line it can’t act on gets a short answer instead.',
       'No speech on your phone? Holding + opens the Create sheet as before.',
+      'On a computer, Chrome, Edge and Safari listen. Opera and Brave use their on-device recogniser, set up the first time.',
       'Settings → AI features → Voice: Transcribe with AI sends the recording to Google’s Flash-Lite. Off, your phone listens, free. It shows only when it’s available to you.',
     ],
     open: { label: 'Home', to: '/' },

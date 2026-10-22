@@ -6,7 +6,9 @@ import {
   joinHeard,
   liveTail,
   meterBesideSpeech,
-  nativeSpeechWorks,
+  SPEECH_NONE_TTL_MS,
+  speechNoneStill,
+  speechServiceMissing,
   micRelease,
   pickRecorderMime,
   rmsToLevel,
@@ -179,11 +181,18 @@ describe('meterBesideSpeech', () => {
   })
 })
 
-describe('nativeSpeechWorks', () => {
-  it('is false on Opera and Opera GX only', () => {
-    expect(nativeSpeechWorks('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0 Safari/537.36 OPR/115.0')).toBe(false)
-    expect(nativeSpeechWorks('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0 Safari/537.36 OPR/115.0 (Edition GX)')).toBe(false)
-    expect(nativeSpeechWorks('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0 Safari/537.36')).toBe(true)
-    expect(nativeSpeechWorks('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1')).toBe(true)
+describe('speech service missing', () => {
+  it('tells a missing service from a refusal or being offline', () => {
+    expect(speechServiceMissing('network', true)).toBe(true)
+    expect(speechServiceMissing('network', false)).toBe(false)
+    expect(speechServiceMissing('service-not-allowed', true)).toBe(true)
+    expect(speechServiceMissing('language-not-supported', true)).toBe(true)
+    expect(speechServiceMissing('not-allowed', true)).toBe(false)
+    expect(speechServiceMissing('no-speech', true)).toBe(false)
+  })
+  it('remembers it for a week', () => {
+    expect(speechNoneStill(null, 5)).toBe(false)
+    expect(speechNoneStill(1000, 1000 + SPEECH_NONE_TTL_MS - 1)).toBe(true)
+    expect(speechNoneStill(1000, 1000 + SPEECH_NONE_TTL_MS)).toBe(false)
   })
 })

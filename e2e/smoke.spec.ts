@@ -511,6 +511,65 @@ test('Voice: hold + inside a group to talk; letting go runs Quick add and opens 
   await expect(page.getByRole('textbox', { name: 'Description', exact: true })).toHaveValue('Dinner')
 })
 
+test('Voice: a browser without a speech service (Opera) moves to its on-device recogniser and the words still come', async ({ page }) => {
+  await page.addInitScript(() => {
+    const w = window as unknown as Record<string, unknown>
+    w.__installed = false
+    class NoService {
+      lang = ''
+      processLocally = false
+      onresult: ((e: unknown) => void) | null = null
+      onerror: ((e: unknown) => void) | null = null
+      onend: (() => void) | null = null
+      onaudiostart: (() => void) | null = null
+      timers: ReturnType<typeof setTimeout>[] = []
+      static available = async () => (w.__installed ? 'available' : 'downloadable')
+      static install = async () => {
+        w.__installed = true
+        return true
+      }
+      start() {
+        // The cloud service isn't there: Chromium answers "network" while online.
+        if (!this.processLocally) {
+          setTimeout(() => {
+            this.onerror?.({ error: 'network' })
+            this.onend?.()
+          }, 30)
+          return
+        }
+        this.onaudiostart?.()
+        const words = 'Dinner 1200 with Rahul, I paid'.split(' ')
+        let i = 0
+        const tick = () => {
+          i += 1
+          this.onresult?.({ resultIndex: 0, results: [Object.assign([{ transcript: words.slice(0, i).join(' ') }], { isFinal: i === words.length })] })
+          if (i < words.length) this.timers.push(setTimeout(tick, 60))
+        }
+        this.timers.push(setTimeout(tick, 60))
+      }
+      stop() {
+        for (const t of this.timers) clearTimeout(t)
+        setTimeout(() => this.onend?.(), 20)
+      }
+      abort() {
+        this.stop()
+      }
+    }
+    w.SpeechRecognition = NoService
+    w.webkitSpeechRecognition = NoService
+    if (navigator.mediaDevices) navigator.mediaDevices.getUserMedia = () => Promise.reject(new DOMException('no microphone here', 'NotFoundError'))
+  })
+  await page.goto('/groups/g_goa')
+  const plus = page.getByTestId('nav-create')
+  await plus.hover()
+  await page.mouse.down()
+  await expect(page.getByTestId('voice-bars')).toContainText('Dinner 1200')
+  await page.mouse.up()
+  await expect(page).toHaveURL(/\/add\?group=g_goa&quick=1/)
+  // Remembered: the next time goes straight to the device's recogniser.
+  expect(await page.evaluate(() => localStorage.getItem('splitnow-speech-local'))).toBe('en-IN')
+})
+
 test('Voice: the pill shows the words as they come, and sliding away before letting go cancels', async ({ page }) => {
   await fakeSpeech(page)
   await page.goto('/groups/g_goa')

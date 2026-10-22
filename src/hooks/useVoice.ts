@@ -19,7 +19,7 @@ import {
   type Recording,
 } from '@/lib/mic'
 import { listen, speechDenied, speechSupported, subscribeSpeechDenied, type SpeechSession } from '@/lib/speech'
-import { meterBesideSpeech, nativeSpeechWorks, transcribeFailText, transcribeOffer, voiceEngine, type TranscribeOffer, type VoiceEngine } from '@/lib/voice'
+import { meterBesideSpeech, transcribeFailText, transcribeOffer, voiceEngine, type TranscribeOffer, type VoiceEngine } from '@/lib/voice'
 import { TRANSCRIBE_MAX_SECONDS } from '../../shared/transcribe'
 
 /** The language people speak to Quick add in: English with Indian names and places, by default. */
@@ -41,8 +41,7 @@ export function useVoiceSetup(): { engine: VoiceEngine | null; offer: Transcribe
   const online = useOnline()
   const denied = useSyncExternalStore(subscribeSpeechDenied, speechDenied, () => false)
   const mic = useSyncExternalStore(subscribeMicPermission, micPermission, () => 'unknown' as const)
-  // Opera has the API but no speech service behind it (nativeSpeechWorks).
-  const native = useMemo(() => speechSupported() && nativeSpeechWorks(navigator.userAgent), [])
+  const native = useMemo(() => speechSupported(), [])
   const recorder = useMemo(() => recorderSupported(), [])
   const offer = transcribeOffer({
     mode: firebase ? 'firebase' : 'demo',
