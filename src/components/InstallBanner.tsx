@@ -267,8 +267,12 @@ function InstallBar({ hint, onDone, className, wrap = false }: { hint: string; o
         >
           <img src="/pwa-192.png" alt="" className="h-10 w-10 shrink-0 rounded-2xl" />
           <div className="min-w-0 flex-1">
-            <div className={`text-sm font-semibold ${wrap ? 'line-clamp-2 leading-tight' : 'truncate'}`}>Install Split Now</div>
-            <HintText as="div" className={`text-xs text-slate-300 ${wrap ? 'line-clamp-3 leading-snug' : 'truncate'}`} hint={{ full: hint, tier: 'help' }} />
+            <div className={`text-sm font-semibold leading-tight ${wrap ? 'line-clamp-2' : 'truncate'}`}>Install Split Now</div>
+            <HintText
+              as="div"
+              className={`mt-0.5 text-xs leading-tight text-slate-300 ${wrap ? 'line-clamp-2' : 'truncate'}`}
+              hint={{ full: hint, tier: 'help' }}
+            />
           </div>
           {installButton}
           <button
@@ -307,7 +311,7 @@ export function InstallBanner() {
   if (hidden || !install.available || !shouldOfferInstall({ visits, hasExpense, dismissed: hidden })) return null
   return (
     <InstallBar
-      hint={install.ios ? 'Add to Home Screen for notifications and offline use' : 'Full-screen, faster, works offline'}
+      hint={install.ios ? 'For notifications and offline use' : 'Faster, full screen, offline'}
       onDone={() => setHidden(true)}
       className="install-banner animate-pop fixed inset-x-3 bottom-[var(--lane)] z-40 mx-auto max-w-md"
     />
@@ -326,9 +330,7 @@ export function LoginInstallBanner() {
   const phone = install.ios || /Android|Mobi/.test(navigator.userAgent)
   return (
     <InstallBar
-      hint={
-        install.ios ? 'Add to Home Screen, then sign in there' : phone ? 'Install first, then sign in once' : 'Its own window, notifications, works offline'
-      }
+      hint={install.ios ? 'Add to Home Screen first' : phone ? 'Install, then sign in once' : 'Own window, works offline'}
       onDone={() => setHidden(true)}
       className="animate-pop mt-8"
       wrap

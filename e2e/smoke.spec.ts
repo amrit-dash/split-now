@@ -692,8 +692,11 @@ test('Back goes where you came from: Edit group → Manage members → Back retu
   await expect(page).toHaveURL(/\/groups\/g_goa\/edit$/)
   await page.getByTestId('group-manage-members').click()
   await expect(page).toHaveURL(/\/groups\/g_goa\/members$/)
+  // The URL changes before the lazy screen draws: wait for its heading, so Back is the new screen's, not Edit group's.
+  await expect(page.getByRole('heading', { level: 1, name: 'Members' })).toBeVisible()
   await page.getByRole('button', { name: 'Back' }).click()
   await expect(page).toHaveURL(/\/groups\/g_goa\/edit$/)
+  await expect(page.getByRole('heading', { level: 1, name: 'Edit group' })).toBeVisible()
   await page.getByRole('button', { name: 'Back' }).click()
   await expect(page).toHaveURL(/\/groups\/g_goa$/)
 })
