@@ -6,6 +6,7 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Profile: your PRO or DEV badge is the ring round your photo alone; the pill beside your name is gone. It said the same thing twice and was bigger than your name. Others still see the pill next to your name in Members and lists.
 - Help: **Talk to add** is now one of the main features, and in Advanced so is asking for an OK on changes, so the main features fill even rows in both modes (10 in Simple, 12 in Advanced). Before, one card sat alone on the last row.
 - Members: a PRO, DEV or PRO DEV badge sits after the status line ("Joined · DEV"), so the name keeps its whole line; and "gets back" / "owes" sits small above the amount, so long names and statuses aren't cut short. Before, the badge sat beside the name and the wide amount squeezed both.
 
