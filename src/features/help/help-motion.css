@@ -1,0 +1,136 @@
+/*
+ * Help's own keyframes (src/features/help/Scene.tsx and Story.tsx), beside the shared sx-* and help-*
+ * ones in src/index.css. Transform and opacity only. Each keyframe animates FROM a value and ends on
+ * the element's own style, so a still picture (reduced motion, animations off: .sx-still, or no
+ * animation given) shows the finished frame. Values that differ per element come in as custom
+ * properties: --from (a transform), --dash-from (a stroke-dashoffset), --dx / --dy (a burst dot).
+ */
+
+/* Something that moves from --from (and fades in from --from-o) to where its style puts it. */
+@keyframes hm-from {
+  from {
+    transform: var(--from, none);
+    opacity: var(--from-o, 1);
+  }
+}
+
+/* A ring or line that grows from --dash-from to its own dash offset. */
+@keyframes hm-dash {
+  from {
+    stroke-dashoffset: var(--dash-from, 1);
+  }
+}
+
+/* The mode icon: the old one shrinks and fades. */
+@keyframes hm-exit {
+  to {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+
+/* The mode icon: the new one pops in, overshoots a little and settles (src/lib/mode-icon.ts MODE_SWITCH, 900 ms). */
+@keyframes hm-enter {
+  0%,
+  11% {
+    opacity: 0;
+    transform: scale(0.35);
+    animation-timing-function: cubic-bezier(0.3, 1.3, 0.5, 1);
+  }
+  37% {
+    opacity: 1;
+    transform: scale(1.22);
+    animation-timing-function: cubic-bezier(0.3, 1.3, 0.5, 1);
+  }
+  58%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Filled first, then the line look: the solid layer fades out late. */
+@keyframes hm-solid {
+  0%,
+  69% {
+    opacity: 1;
+  }
+}
+@keyframes hm-line {
+  0%,
+  69% {
+    opacity: 0;
+  }
+}
+
+/* A dot of the accent burst, flying out to --dx, --dy and fading. */
+@keyframes hm-burst {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(1);
+  }
+  5% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) scale(0.3);
+  }
+}
+
+/* The faint accent wash spreading from the mode icon. */
+@keyframes hm-wash {
+  0% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  15% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(16);
+  }
+}
+
+/* A tag hanging on its string: it swings in and settles, no more than a few degrees. */
+@keyframes hm-swing {
+  0% {
+    opacity: 0;
+    transform: rotate(-14deg);
+  }
+  25% {
+    opacity: 1;
+  }
+  55% {
+    transform: rotate(4deg);
+  }
+  80% {
+    transform: rotate(-1deg);
+  }
+}
+
+/* A choice lighting up in turn: a soft accent ring and a slight lift, then back. */
+@keyframes hm-lit {
+  45% {
+    transform: translateY(-2px) scale(1.04);
+    box-shadow: 0 0 0 2px var(--color-brand-400), 0 6px 14px -6px var(--color-brand-500);
+  }
+}
+
+/* A small breathing glow for something that keeps working in the background. */
+@keyframes hm-glow {
+  50% {
+    opacity: 0.35;
+    transform: scale(1.6);
+  }
+}
+
+/* The scene's pointer lifting after a press: it fades back so the part it pressed shows. */
+@keyframes hm-lift {
+  to {
+    opacity: 0.3;
+  }
+}

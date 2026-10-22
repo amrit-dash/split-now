@@ -29,9 +29,20 @@ export interface HelpStep {
  * Split Now thinks, not a list of taps. Each draws a fixed number of beats (STORY_BEATS), and
  * the section's `story.beats` are the captions, one per beat.
  */
-export type StoryKind = 'pot' | 'seesaw' | 'untangle' | 'remainder' | 'vault' | 'filter'
+export type StoryKind = 'pot' | 'seesaw' | 'untangle' | 'remainder' | 'vault' | 'filter' | 'drawers' | 'exchange' | 'sort' | 'pro'
 
-export const STORY_BEATS: Record<StoryKind, number> = { pot: 4, seesaw: 3, untangle: 3, remainder: 3, vault: 3, filter: 3 }
+export const STORY_BEATS: Record<StoryKind, number> = {
+  pot: 4,
+  seesaw: 3,
+  untangle: 3,
+  remainder: 3,
+  vault: 3,
+  filter: 3,
+  drawers: 3,
+  exchange: 3,
+  sort: 3,
+  pro: 3,
+}
 
 export interface HelpSection {
   id: string
@@ -53,6 +64,11 @@ export interface HelpSection {
   steps?: HelpStep[]
   /** an explainer: an animated picture and a caption per beat, in place of steps */
   story?: { kind: StoryKind; beats: string[] }
+  /**
+   * an explainer listed in its own chapter, not under How it works on the front page: one that is
+   * a quiet extra (Earn Pro), not a picture of how the app thinks
+   */
+  inChapter?: true
   /** what to know: rules, limits and edge cases, one sentence each */
   points: string[]
   /** where to try it: a button to that place in the app */
@@ -83,6 +99,10 @@ export const STORY_ANIM_MS: Record<StoryKind, number[]> = {
   remainder: [2240, 1800, 2400],
   vault: [3020, 2970, 2020],
   filter: [1490, 2620, 2740],
+  drawers: [1250, 1250, 1650],
+  exchange: [1300, 2150, 2350],
+  sort: [1300, 1900, 2400],
+  pro: [1900, 2150, 2500],
 }
 
 /** An explainer beat stays until its caption is read and its picture has finished, plus a moment to take it in. */
@@ -147,18 +167,20 @@ export function searchHelp(query: string, sections: HelpSection[]): HelpSection[
 
 /**
  * The guide's front page: the explainers first (how it works), then the main features, then each
- * chapter with the rest, in order. A section is listed once.
+ * chapter with the rest, in order. A section is listed once. An explainer marked `inChapter`
+ * stays in its chapter with the rest.
  */
 export function guideLayout(
   chapters: Chapter[],
   sections: HelpSection[],
 ): { stories: HelpSection[]; core: HelpSection[]; chapters: Array<{ chapter: Chapter; sections: HelpSection[] }> } {
   const listed = sections.filter((s) => !s.unlisted)
+  const howItWorks = (s: HelpSection) => !!s.story && !s.inChapter
   return {
-    stories: listed.filter((s) => s.story),
-    core: listed.filter((s) => s.core && !s.story),
+    stories: listed.filter(howItWorks),
+    core: listed.filter((s) => s.core && !howItWorks(s)),
     chapters: chapters
-      .map((chapter) => ({ chapter, sections: listed.filter((s) => s.chapter === chapter.id && !s.core && !s.story) }))
+      .map((chapter) => ({ chapter, sections: listed.filter((s) => s.chapter === chapter.id && !s.core && !howItWorks(s)) }))
       .filter((c) => c.sections.length),
   }
 }
