@@ -7,8 +7,9 @@ import { StepPlayer, StepText } from '@/features/help/StepPlayer'
 import { StoryPlayer } from '@/features/help/StoryPlayer'
 import { APP_SEMVER, useWhatsNew } from '@/hooks/useWhatsNew'
 import { usePageTitle } from '@/lib/brand'
-import { guideLayout, type HelpSection, relatedOf, searchHelp, sectionsFor } from '@/lib/help'
-import { helpProgress, withDone } from '@/lib/help-progress'
+import { countedSections, guideLayout, type HelpSection, relatedOf, searchHelp, sectionsFor } from '@/lib/help'
+import { EMPTY_HELP_PROGRESS, helpProgress, withDone } from '@/lib/help-progress'
+import { ProCelebration } from '@/features/help/ProCelebration'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { useHelpProgressLoaded, useHelpProgressState } from '@/hooks/useHelpProgress'
@@ -62,7 +63,10 @@ function HelpHome() {
           },
         ]}
       />
-      <div className="mt-4">{tab === 'new' ? <WhatsNew /> : <Guide />}</div>
+      <div className="mt-4 space-y-4">
+        <ProCelebration pct={progress.pct} />
+        {tab === 'new' ? <WhatsNew /> : <Guide />}
+      </div>
     </div>
   )
 }
@@ -214,10 +218,7 @@ function useGuide() {
   return {
     shown,
     done,
-    progress: helpProgress(
-      p,
-      shown.map((s) => s.id),
-    ),
+    progress: helpProgress(p, countedSections(shown)),
   }
 }
 
@@ -337,6 +338,7 @@ function SectionPage({ id }: { id: string }) {
   return (
     <div className="space-y-4" data-testid="help-section">
       <PageHeader title={s.title} back="/help" subtitle={s.summary} />
+      <ProCelebration pct={helpProgress(progress ?? EMPTY_HELP_PROGRESS, countedSections(shown)).pct} />
       {s.story ? <StoryPlayer key={s.id} kind={s.story.kind} beats={s.story.beats} onLast={finish} /> : null}
       {s.steps?.length ? <StepPlayer key={s.id} sectionId={s.id} steps={s.steps} onLast={finish} /> : null}
       {s.open && (

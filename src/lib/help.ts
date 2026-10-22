@@ -194,6 +194,9 @@ export function sectionsFor(mode: Mode, sections: HelpSection[]): HelpSection[] 
   return mode === 'advanced' ? sections : sections.filter((s) => !s.advanced)
 }
 
+/** The sections Help's progress counts: the ones the guide lists (an unlisted one can't be found from it). */
+export const countedSections = (shown: HelpSection[]): string[] => shown.filter((s) => !s.unlisted).map((s) => s.id)
+
 /** Related sections that exist, in the order given (a link to one not written yet is left out). */
 export function relatedOf(s: HelpSection, sections: HelpSection[]): HelpSection[] {
   return (s.related ?? []).map((id) => sections.find((x) => x.id === id)).filter((x): x is HelpSection => !!x)

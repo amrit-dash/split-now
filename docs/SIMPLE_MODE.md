@@ -20,7 +20,7 @@ Status: **decided** = the owner's call (22 Oct 2026). **proposed** = waiting for
 | Profile: how friends pay you | UPI ID, bank transfer, PayPal (international only) | Every other method, "Show more" |
 | Profile: header | The mode button (beside Settings): the leaf in Simple, one of five Advanced pictures in Advanced; a tap switches, with Undo | |
 | Profile: other rows | Balances, Support, Developer, Help | |
-| Settings → Preferences | Mode, default currency, theme, accent, text on accent | Rates refresh, Collect in (on for everyone), dual tone, icons (default), detail level (When needed) |
+| Settings → Preferences | Mode, default currency, theme, accent, text on accent, Badge (Show my Pro / Dev badge, only for whoever has one) | Rates refresh, Collect in (on for everyone), dual tone, icons (default), detail level (When needed) |
 | Settings → Animations | | Whole section; defaults: burst Medium, spark Medium, glitter Medium, shape Mix, glitter at the bottom |
 | Settings → Notifications | The types that apply to what Simple shows | Capture types when capture isn't set up (dynamic) |
 | Settings → Automation | | Whole section and every entry point; automations keep running |

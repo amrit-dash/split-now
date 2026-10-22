@@ -2353,3 +2353,25 @@ test('1:1 tiles carry the handshake icon, not the 🤝 emoji', async ({ page }) 
   await page.goto('/groups')
   await expect(page.getByTestId('direct-badge').first().locator('svg[data-icon="Handshake"]').first()).toBeAttached()
 })
+
+test('Help: finishing every section turns the ring into a tick and offers Pro; claiming it puts the PRO ring on Home', async ({ page }) => {
+  await page.goto('/help')
+  await expect(page.getByTestId('help-ring')).toBeVisible()
+  // Every section the guide lists, marked done the way Help saves it (settings/help in the demo store).
+  const ids = await page
+    .locator('a[href^="/help/"]')
+    .evaluateAll((as) => [...new Set(as.map((a) => (a.getAttribute('href') ?? '').split('/')[2]).filter(Boolean))])
+  await page.evaluate((done) => {
+    const s = JSON.parse(localStorage.getItem('splitit-demo-v1') ?? '{}')
+    s.help = { ...(s.help ?? {}), [s.user.uid]: { done } }
+    localStorage.setItem('splitit-demo-v1', JSON.stringify(s))
+  }, ids)
+  await page.reload()
+  await expect(page.getByTestId('help-ring')).toHaveAttribute('aria-label', 'Help complete')
+  await expect(page.getByTestId('pro-celebration')).toContainText('Congratulations')
+  await page.getByTestId('pro-claim').click()
+  await expect(page.getByTestId('pro-celebration')).toContainText('Pro is yours')
+  await page.goto('/')
+  await expect(page.getByTestId('home-greeting')).toBeVisible()
+  await expect(page.locator('[data-testid="pro-ring"]').first()).toBeVisible()
+})

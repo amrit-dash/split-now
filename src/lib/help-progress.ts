@@ -42,3 +42,13 @@ export const earnsPro = (pct: number): boolean => pct >= 100
 export function sectionFinished(s: { steps: number; step: number; scrolledToEnd: boolean }): boolean {
   return s.steps > 0 ? s.step >= s.steps - 1 : s.scrolledToEnd
 }
+
+/**
+ * The banner at 100% (owner, 22 Oct 2026): 'claim' offers the Pro badge to someone who finished
+ * the guide and hasn't got it; 'claimed' thanks them for the rest of this visit after claiming;
+ * someone already Pro gets only the ring's tick, never a second banner.
+ */
+export function celebration(pct: number, earned: boolean, claimedNow: boolean): 'claim' | 'claimed' | null {
+  if (claimedNow) return 'claimed'
+  return earnsPro(pct) && !earned ? 'claim' : null
+}

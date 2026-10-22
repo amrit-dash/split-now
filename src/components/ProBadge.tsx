@@ -184,7 +184,7 @@ export function ProRing({ photo, word = 'pro', children }: { photo: number; word
   const art = useMemo(() => proRing(photo, word), [photo, word])
   const id = gid(useId())
   return (
-    <span className="relative inline-flex shrink-0 items-center justify-center" style={{ width: photo, height: photo }}>
+    <span className="relative inline-flex shrink-0 items-center justify-center" style={{ width: photo, height: photo }} data-testid="pro-ring">
       {children}
       <RingSvg art={art} spin={moving} gradientId={id} />
     </span>

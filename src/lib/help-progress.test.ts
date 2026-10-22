@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { earnsPro, helpProgress, MAX_DONE, parseHelpProgress, sectionFinished, withDone } from './help-progress'
+import { celebration, earnsPro, helpProgress, MAX_DONE, parseHelpProgress, sectionFinished, withDone } from './help-progress'
 
 describe('parseHelpProgress', () => {
   it('keeps unique non-empty ids, drops anything else', () => {
@@ -41,5 +41,14 @@ describe('withDone and sectionFinished', () => {
     expect(sectionFinished({ steps: 3, step: 2, scrolledToEnd: false })).toBe(true)
     expect(sectionFinished({ steps: 0, step: 0, scrolledToEnd: true })).toBe(true)
     expect(sectionFinished({ steps: 0, step: 0, scrolledToEnd: false })).toBe(false)
+  })
+})
+
+describe('celebration', () => {
+  it('offers Pro at 100% once, thanks after claiming, nothing for someone already Pro', () => {
+    expect(celebration(100, false, false)).toBe('claim')
+    expect(celebration(99, false, false)).toBeNull()
+    expect(celebration(100, true, false)).toBeNull()
+    expect(celebration(100, true, true)).toBe('claimed')
   })
 })

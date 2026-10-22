@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  countedSections,
   beatMs,
   boldParts,
   clampStep,
@@ -299,5 +300,14 @@ describe('how long a step plays', () => {
         expect(beatMs(kind, beat, 'x'.repeat(200))).toBe(Math.max(6000, ms + 1200))
       })
     }
+  })
+})
+
+describe('countedSections', () => {
+  it('counts what the guide lists, not unlisted sections', () => {
+    const ids = countedSections(SECTIONS)
+    expect(ids).not.toContain('help-guide')
+    expect(ids).toContain('add-expense')
+    expect(ids.length).toBe(SECTIONS.filter((s) => !s.unlisted).length)
   })
 })
