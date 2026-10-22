@@ -22,7 +22,16 @@ remove an item when its release merges, and add anything left half-done.
 ## Simple and Advanced (9.0.0, owner, 22 Oct 2026; table in docs/SIMPLE_MODE.md)
 
 - [x] Mode setting (Settings → Preferences → Mode), synced; auto = Simple unless the account uses Advanced-only features; Simple's detail level is Minimal; Preferences trimmed in Simple; Collect in on for everyone.
-- [ ] Board: the mode button in Profile's header, the Pro badge, Help's progress; then build them.
+- [ ] Mode button in Profile's header (decided): icon only. Simple = Fluent leaf; Advanced = one of rocket, chip (developer-board), brain-circuit, wrench-screwdriver, window-dev-tools, picked at random on each switch to Advanced and kept until the next switch. Switch animation (~0.7 s, both ways): old icon shrinks out, new one pops in filled with a small overshoot then settles to its line, ~10 accent dots (brand/duo) splash out, a faint accent wash spreads from the button over the screen, one short vibration; reduced motion = plain swap. Toast with Undo; aria-label "Mode: Simple". Board: scratchpad switch.html.
+- [ ] Pro badge (decided). Earned by finishing Help to 100% (either mode; Simple's smaller Help counts, not advertised). Stored as the date earned on the profile, mirrored to group member records so others see it (rules + test, PLAN.md). Letters: Nunito Black "PRO" traced to an SVG path (no font file). Look: accent gradient (brand → duo) with a slow flow inside the letters plus light passes: an opening sweep / glint (other direction) / sweep, then gaps of 6–9 s, 10–16 s, then 20–40 s (mostly sweeps), one shared clock for every badge, transform-only; Settings → Animations "Pro badge" switch; reduced motion = still gradient. Places:
+  - Home header photo: the PRO ring (`・PRO・PRO・` bent onto a true circle, letters ~8% of the photo, tight dots, turning once per 40 s); people without Pro keep today's plain translucent ring.
+  - Profile: the PRO ring on the photo + a translucent accent pill with PRO beside the name (not tappable).
+  - Members: pill beside the name only, photo unchanged; tapping someone else's opens Help → Earn Pro.
+  - 1:1 lists (Groups, Home): the subtext becomes [PRO pill] · Friend.
+  - Inside a 1:1: the PRO ring bent along the tile's rounded square (owner to confirm vs a top-right pill with the status text kept clear of it). Nothing in the title.
+  - Tapping another person's PRO anywhere opens Help → Earn Pro (a short section at the very bottom of Help).
+- [ ] Handshake: replace the 🤝 emoji on 1:1 tiles (every list, the 1:1 card, New group's 1:1 choice) with a duotone handshake built from Fluent handshake filled (soft layer, ~42%) + regular (line), in the accent gradient (owner to confirm). Solar's "hand-shake" is a waving hand: not that.
+- [ ] Help progress (decided): ring with the percentage inside on the right of Help's header (no label); done sections get a thin accent outline and a tick in the corner; unread ones get an accent dot and no outline. Done = played to the last step, or scrolled to the end of a text section; synced to the profile.
 - [ ] Profile and the rest of Settings in Simple (Signing in, payment methods, Animations defaults, Notifications dynamic, Automation, AI features).
 - [ ] Scan revamp: one card per kind (Bill, Payment, Statement) with Camera, Photo and an AI toggle (bot icon) in the corner; the toggle hides in Simple.
 - [ ] Encrypted groups: show the last status at once and refresh quietly; explainer into Help behind a ? button.

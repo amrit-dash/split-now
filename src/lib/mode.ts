@@ -64,9 +64,10 @@ export function settleAuto(choice: ModeChoice, s: ModeSignals): Mode | null {
 }
 
 /**
- * Simple has its own detail level: Minimal (titles, and only the lines a screen needs). The
- * person's own pick (Settings → Preferences, Advanced only) is kept for when they go back.
+ * Simple has its own detail level: When needed (one short line where it helps). Not Minimal: that
+ * hides optional features Simple keeps (owner, 22 Oct 2026: Percent / Shares, Settle up's method and
+ * note, History). The person's own pick (Settings → Preferences, Advanced only) is kept for Advanced.
  */
-export function lookForMode<L extends string>(mode: Mode, look: L): L | 'minimal' {
-  return mode === 'simple' ? 'minimal' : look
+export function lookForMode<L extends string>(mode: Mode, look: L): L | 'needed' {
+  return mode === 'simple' ? 'needed' : look
 }

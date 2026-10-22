@@ -51,8 +51,8 @@ describe('auto mode', () => {
 })
 
 describe('lookForMode', () => {
-  it('Simple is always Minimal; Advanced keeps the chosen detail level', () => {
-    expect(lookForMode('simple', 'full')).toBe('minimal')
+  it('Simple is always When needed; Advanced keeps the chosen detail level', () => {
+    expect(lookForMode('simple', 'full')).toBe('needed')
     expect(lookForMode('advanced', 'tooltip')).toBe('tooltip')
   })
 })
