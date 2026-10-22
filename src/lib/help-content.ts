@@ -29,7 +29,7 @@ export const SECTIONS: HelpSection[] = [
   // ---- How it works: explainers, an everyday picture instead of taps ----------------------
   {
     id: 'how-it-works',
-    icon: 'jar',
+    icon: 'shares',
     chapter: 'start',
     title: 'What Split Now does',
     summary: 'A shared pot that keeps count for you.',

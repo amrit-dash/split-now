@@ -663,6 +663,24 @@ export const FileUploadIcon = /* @__PURE__ */ makeIcon(
   </>,
 )
 
+/** ours */
+export const FilterIcon = /* @__PURE__ */ makeIcon(
+  'Filter',
+  <>
+    <path
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.5"
+      d="M4.8 4.8h14.5a1 1 0 0 1 .5 1.2L14 13v5l-.4.7-2.6 1.2a1 1 0 0 1-1.1-.6V13L4.2 6a.8.8 0 0 1 .5-1.3"
+    />
+  </>,
+  <>
+    <path fill="currentColor" d="M4.8 4.8h14.5a1 1 0 0 1 .5 1.2L14 13v5l-.4.7-2.6 1.2a1 1 0 0 1-1.1-.6V13L4.2 6a.8.8 0 0 1 .5-1.3" />
+  </>,
+)
+
 /** fluent flag */
 export const FlagIcon = /* @__PURE__ */ makeIcon(
   'Flag',

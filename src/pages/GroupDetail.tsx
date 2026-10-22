@@ -21,6 +21,7 @@ import {
   MemberRemoveIcon,
   ReceiptIcon,
   GroupSettingsIcon,
+  FilterIcon,
   SortIcon,
   SwapIcon,
   TrashIcon,
@@ -1206,7 +1207,7 @@ function ActivityList({
           aria-haspopup="dialog"
           data-testid="list-options-open"
         >
-          <SortIcon size={18} aria-hidden />
+          <FilterIcon size={20} aria-hidden />
           {sheetCount > 0 && (
             <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-fill px-1 text-[11px] font-bold text-on-fill">
               {sheetCount}

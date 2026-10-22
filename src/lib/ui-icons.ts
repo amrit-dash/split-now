@@ -78,6 +78,7 @@ export const UI_ICONS = [
   'scales',
   'search',
   'send',
+  'shares',
   'shield',
   'signIn',
   'sliders',

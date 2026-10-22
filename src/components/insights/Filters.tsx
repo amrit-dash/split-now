@@ -1,4 +1,4 @@
-import { SlidersHorizontal } from 'lucide-react'
+import { FilterIcon } from '@/components/icons'
 import type { Category, Group } from '@/types'
 import { CATEGORIES } from '@/lib/categories'
 import { type Basis, DEFAULT_FILTERS, type InsightFilters, type RangePreset } from '@/lib/insights'
@@ -92,7 +92,7 @@ export function FiltersPanel({
       testId="insight-filters"
       open={open}
       onOpenChange={onOpenChange}
-      icon={<SlidersHorizontal size={20} />}
+      icon={<FilterIcon size={20} />}
       title={
         <span className="flex items-center gap-2">
           Filters{n > 0 && <span className="rounded-full bg-fill px-1.5 text-[11px] font-bold leading-[18px] text-on-fill">{n}</span>}

@@ -6,6 +6,7 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Icons: Sort and filter (in a group, Insights' Filters and the private group preview) is a funnel, not the sort lines it shared with the sort pill. Help → What Split Now does shows the shared pot from its story, a bag with a rupee (it showed Support the developer's hand and heart).
 - Group → Sort and filter: **Sort by** is a dropdown that shows your choice, instead of a fold of six radio buttons that pushed the filters down and showed under the sheet's title while scrolling.
 - Talk to add: while you hold +, a pill above it shows five centred bars that grow with your voice, then your words as they're heard, wrapping onto more lines as you go (the rings that spread from + are gone). Slide your finger away to cancel ("Let go to cancel"), and double tap + to stop it while it works. The tips and answers that rise from + are wider, in a soft wash of your accent, with ✕ centred and a gap above +. On iPhone, speaking no longer opens the microphone twice: that could ask for it twice and leave the phone hearing nothing ("Didn't catch that").
 - Settings → Animations → **Badges** has two switches: **Turning ring** (the ring round a photo or a 1:1) and **Shine** (the light over the badge beside a name), for PRO, DEV and PRO DEV alike. Before, one switch called Pro badge did both. Your old choice carries over to both.

@@ -37,6 +37,9 @@ const ring = (r, w = 1.5) => `<circle cx="12" cy="12" r="${r}" fill="none" strok
 const RUPEE =
   '<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1" transform="translate(2.4 -.6) scale(.8)" d="M9.25 8.25h5.5M9.25 10.75h5.5M10.25 8.25c1.9 0 2.9.9 2.9 2.25s-1 2.5-2.9 2.5h-1l4.25 4"/>'
 
+/** A rupee for the middle of Solar's money bag (centred near 12, 14). */
+const POT_RUPEE = 'M9.75 10.5h4.5M9.75 12.6h4.5M10.6 10.5c1.7 0 2.55.85 2.55 2.05s-.85 2.1-2.55 2.1h-.85l3.4 3.35'
+
 const CUSTOM = {
   /* Profile's Settings button: Fluent's gear with a clean, even ring in the middle (owner: Fluent's own
      inner circle looked off), the same weight as the gear's outline. Filled is Fluent's as it is. */
@@ -79,6 +82,24 @@ const CUSTOM = {
     },
     get boldDuo() {
       return `<g opacity=".5">${body('solar', 'smartphone-bold-duotone')}</g>${RUPEE}`
+    },
+  },
+  /* Sort and filter (owner, 22 Oct 2026): a funnel. Fluent's own "filter" is three lines that read
+     as the sort icon. On Fluent's grid and weight; Filled is the funnel solid. */
+  funnel: {
+    line: S('M4.75 4.75h14.5a.75.75 0 0 1 .58 1.22L14 13.1v4.9a.75.75 0 0 1-.41.67l-2.5 1.25a.75.75 0 0 1-1.09-.67V13.1L4.17 5.97a.75.75 0 0 1 .58-1.22Z'),
+    fill: '<path fill="currentColor" d="M4.75 4.75h14.5a.75.75 0 0 1 .58 1.22L14 13.1v4.9a.75.75 0 0 1-.41.67l-2.5 1.25a.75.75 0 0 1-1.09-.67V13.1L4.17 5.97a.75.75 0 0 1 .58-1.22Z"/>',
+  },
+  /* Help → What Split Now does (owner, 22 Oct 2026): the shared pot of its story, Solar's money bag
+     with a rupee where its dollar was. */
+  potRupee: {
+    get lineDuo() {
+      const parts = body('solar', 'money-bag-line-duotone').match(/<path [^>]*\/>/g)
+      return `<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5">${parts[0]}${parts[1]}<path d="${POT_RUPEE}" opacity=".5"/></g>`
+    },
+    get boldDuo() {
+      const bag = body('solar', 'money-bag-bold-duotone').match(/<path [^>]*\/>/g)[0]
+      return `<g fill="currentColor">${bag}</g>${S(POT_RUPEE, 1.75)}`
     },
   },
   /* Help: a lifebuoy (the "floating tube"), the owner's pick: help when you're stuck. Four bands
@@ -228,6 +249,7 @@ const UI = {
   ShareIcon: 'share',
   ShieldIcon: 'shield-checkmark',
   SortIcon: 'arrow-sort-down-lines',
+  FilterIcon: '~funnel',
   SparkleIcon: 'sparkle',
   SplitIcon: 'data-pie',
   SuitcaseIcon: 'luggage',
@@ -282,6 +304,8 @@ const FEATURE = {
   idCard: 'card-2',
   images: 'gallery',
   jar: 'hand-heart',
+  /* Help → What Split Now does (owner, 22 Oct 2026): the shared pot (a bag with a rupee); the hand and heart is Support the developer's */
+  shares: '~potRupee',
   key: 'key',
   lightning: 'bolt',
   link: 'link-round',

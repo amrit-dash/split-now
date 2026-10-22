@@ -1,5 +1,5 @@
 import { ChevronRight, Search } from 'lucide-react'
-import { ChatIcon, LinkIcon, LockIcon, SettingsIcon, SortIcon } from '@/components/icons'
+import { ChatIcon, LinkIcon, LockIcon, FilterIcon, SettingsIcon } from '@/components/icons'
 import type { Expense, Group } from '@/types'
 import { useMe } from '@/hooks/auth'
 import { useExpenses } from '@/hooks/data'
@@ -120,7 +120,7 @@ export function VaultLock({ group, back = '/groups' }: { group: Group; back?: st
             <div className="input text-muted !py-2.5 pl-10">Search expenses</div>
           </div>
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-600 dark:bg-ink-800 dark:text-slate-300">
-            <SortIcon size={18} />
+            <FilterIcon size={18} />
           </span>
         </div>
         <div ref={fade} className="scrollbar-none -mx-4 -mt-3 flex gap-1.5 overflow-x-auto px-4 py-1">

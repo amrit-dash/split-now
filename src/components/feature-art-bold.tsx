@@ -799,6 +799,23 @@ const art: Record<UiIconName, ReactElement> = {
       />
     </>
   ),
+  shares: (
+    <>
+      <path
+        fill="currentColor"
+        d="M3.2 7.2Q4.3 6 7.2 6h9.5q3 0 4.1 1.2C22 8.3 22 10.2 22 14s0 5.7-1.2 6.8C19.7 22 17.8 22 14 22h-4c-3.8 0-5.7 0-6.8-1.2C2 19.7 2 17.8 2 14s0-5.7 1.2-6.8"
+        opacity=".5"
+      />
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+        d="M9.8 10.5h4.4m-4.4 2.1h4.4m-3.6-2.1q2.6.2 2.6 2c0 1.9-.9 2.2-2.6 2.2h-.9l3.4 3.3"
+      />
+    </>
+  ),
   shield: (
     <>
       <g fill="currentColor">
