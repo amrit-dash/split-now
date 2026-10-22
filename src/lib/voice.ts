@@ -173,3 +173,10 @@ export function meterBesideSpeech(ua: string): boolean {
   if (/Macintosh/.test(ua) && /Safari\//.test(ua) && !/Chrome|Chromium|Edg\//.test(ua)) return false
   return true
 }
+
+/**
+ * Whether the browser's own speech recognition really works here. Opera (GX included) has the
+ * object but no speech service behind it: it starts, then hears nothing or fails with "network".
+ * There voice uses AI transcription when it's available, and no mic shows when it isn't.
+ */
+export const nativeSpeechWorks = (ua: string): boolean => !/\bOPR\/|\bOPX\/|Opera/.test(ua)
