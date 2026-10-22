@@ -127,3 +127,16 @@ export function prefetchAfter(pathname: string): readonly RouteKey[] {
   const key = routeKey(pathname)
   return (key && NEXT[key]) || []
 }
+
+/**
+ * Help is one of the heavier screens (its words, every scene and the explainers' pictures come in
+ * its chunk) and is opened mid-task, from Profile or a What's new link, where waiting for it felt
+ * slow. So it is fetched on idle on any other signed-in screen, once a session; the service worker
+ * keeps it for later visits. Not on Help itself (it is already loading), and not on the screens a
+ * guest lands on from a link (a live table, a Pay me link, an invite, a sign-in link).
+ */
+const NO_HELP_PREFETCH: ReadonlySet<RouteKey> = new Set(['Help', 'Join', 'Table', 'PayLink', 'EmailLink', 'CaptureGuest'])
+export function prefetchHelp(pathname: string): boolean {
+  const key = routeKey(pathname)
+  return !key || !NO_HELP_PREFETCH.has(key)
+}

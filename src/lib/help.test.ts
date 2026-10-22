@@ -1,5 +1,21 @@
 import { describe, expect, it } from 'vitest'
-import { boldParts, clampStep, guideLayout, type HelpShot, markBox, nextStep, plain, relatedOf, searchHelp, SHOT_ACCENTS, shotSrc, STORY_BEATS } from './help'
+import {
+  beatMs,
+  boldParts,
+  clampStep,
+  guideLayout,
+  type HelpShot,
+  markBox,
+  nextStep,
+  plain,
+  relatedOf,
+  searchHelp,
+  SHOT_ACCENTS,
+  shotSrc,
+  STORY_ANIM_MS,
+  STORY_BEATS,
+  stepMs,
+} from './help'
 import SHOTS from './help-shots.json'
 import { ACCENTS } from './accent'
 import { CHAPTERS, SECTIONS } from './help-content'
@@ -215,5 +231,26 @@ describe('icons in Help', () => {
             if (it.glyph) expect(isSceneGlyph(it.glyph), it.glyph).toBe(true)
             if (part.kind === 'tabbar' && it.label !== 'Create') expect(it.glyph, it.label).toBeTruthy()
           }
+  })
+})
+
+describe('how long a step plays', () => {
+  it('grows with the words, between 3.2 s and 6 s, counting what is read (not the ** marks)', () => {
+    expect(stepMs('Tap **Save**.')).toBe(3200)
+    expect(stepMs('x'.repeat(40))).toBe(2400 + 45 * 40)
+    expect(stepMs('**x**'.repeat(10))).toBe(stepMs('x'.repeat(10)))
+    expect(stepMs('x'.repeat(200))).toBe(6000)
+  })
+  it('every step in the guide gets a time in that range', () => {
+    for (const s of SECTIONS) for (const st of s.steps ?? []) expect(stepMs(st.text)).toBeGreaterThanOrEqual(3200)
+  })
+  it('an explainer beat waits for its picture to finish, plus 1.2 s, and for its caption to be read', () => {
+    for (const kind of Object.keys(STORY_BEATS) as Array<keyof typeof STORY_BEATS>) {
+      expect(STORY_ANIM_MS[kind], kind).toHaveLength(STORY_BEATS[kind])
+      STORY_ANIM_MS[kind].forEach((ms, beat) => {
+        expect(beatMs(kind, beat, 'Hi')).toBe(Math.max(3200, ms + 1200))
+        expect(beatMs(kind, beat, 'x'.repeat(200))).toBe(Math.max(6000, ms + 1200))
+      })
+    }
   })
 })

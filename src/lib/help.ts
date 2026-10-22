@@ -57,8 +57,32 @@ export interface HelpSection {
   keywords?: string[]
 }
 
-/** Each step of a played scene stays this long before the next one (a tap on a step jumps to it). */
-export const STEP_MS = 2800
+/**
+ * How long a played step stays before the next one (a tap on a step jumps to it): long enough to
+ * read its words, so a short step doesn't drag and a long one isn't cut off. 45 ms a character on
+ * top of the pointer's move and press, kept between 3.2 s and 6 s.
+ */
+export function stepMs(text: string): number {
+  return Math.min(6000, Math.max(3200, 2400 + 45 * plain(text).length))
+}
+
+/**
+ * When each explainer beat's own motion has finished (ms after the beat starts), as drawn in
+ * src/features/help/Story.tsx. Keep these in step with its delays and durations.
+ */
+export const STORY_ANIM_MS: Record<StoryKind, number[]> = {
+  pot: [2000, 1720, 1280, 2950],
+  seesaw: [900, 2220, 3650],
+  untangle: [1930, 1910, 3250],
+  remainder: [2240, 1800, 2400],
+  vault: [3020, 2970, 2020],
+  filter: [1490, 2620, 2740],
+}
+
+/** An explainer beat stays until its caption is read and its picture has finished, plus a moment to take it in. */
+export function beatMs(kind: StoryKind, beat: number, caption: string): number {
+  return Math.max(stepMs(caption), (STORY_ANIM_MS[kind][beat] ?? 0) + 1200)
+}
 
 /** The next step while playing: round to the start after the last, so the scene loops. */
 export const nextStep = (i: number, count: number): number => (count <= 0 ? 0 : (i + 1) % count)

@@ -14,8 +14,7 @@ export function Story({ kind, beat, still }: { kind: StoryKind; beat: number; st
   const View = VIEWS[kind]
   return (
     <Stage still={still} beat={beat}>
-      {/* Keyed by beat: each caption replays its own entrances. */}
-      <View key={beat} beat={beat} still={still} />
+      <View beat={beat} still={still} />
     </Stage>
   )
 }
@@ -24,7 +23,8 @@ type View = (p: { beat: number; still: boolean }) => ReactNode
 
 // The stage is drawn at a fixed size and scaled to fit, so motion paths (in px) line up at any width.
 const W = 360
-const H = 240
+// A little more than the drawings use: the pills under the people need room above the stage's edge.
+const H = 256
 
 function Stage({ still, beat, children }: { still: boolean; beat: number; children: ReactNode }) {
   const box = useRef<HTMLDivElement>(null)
@@ -47,7 +47,12 @@ function Stage({ still, beat, children }: { still: boolean; beat: number; childr
       data-testid="help-story"
       data-beat={beat}
     >
-      <div className={`absolute left-0 top-0 ${still ? 'sx-still' : ''}`} style={{ width: W, height: H, transform: `scale(${k})`, transformOrigin: '0 0' }}>
+      {/* Keyed by beat: each caption replays its own entrances. Still (reduced motion, animations off), a beat only crossfades in. */}
+      <div
+        key={beat}
+        className={`absolute left-0 top-0 ${still ? 'sx-still animate-[fade-in_150ms_ease-out]' : ''}`}
+        style={{ width: W, height: H, transform: `scale(${k})`, transformOrigin: '0 0' }}
+      >
         {/* The light behind the picture: two slow-drifting glows in the accent's colours and a faint dot grid. */}
         <div
           className="absolute -left-10 -top-12 h-44 w-44 rounded-full bg-brand-400/25 blur-3xl dark:bg-brand-500/20"
@@ -86,8 +91,8 @@ function At({ x, y, children, style, className = '' }: { x: number; y: number; c
 
 /** An entrance: pops (with a little overshoot) or rises in, after `d` ms. */
 const pop = (d = 0, ms = 520): CSSProperties => ({ animation: `sx-pop ${ms}ms cubic-bezier(0.34, 1.56, 0.64, 1) ${d}ms both` })
-const rise = (d = 0, ms = 520): CSSProperties => ({ animation: `sx-in ${ms}ms cubic-bezier(0.2, 0.9, 0.3, 1) ${d}ms both` })
-const out = (d = 0, ms = 400): CSSProperties => ({ opacity: 0, animation: `sx-out ${ms}ms ease ${d}ms both` })
+const rise = (d = 0, ms = 520): CSSProperties => ({ animation: `sx-in ${ms}ms cubic-bezier(0.23, 1, 0.32, 1) ${d}ms both` })
+const out = (d = 0, ms = 400): CSSProperties => ({ opacity: 0, animation: `sx-out ${ms}ms cubic-bezier(0.23, 1, 0.32, 1) ${d}ms both` })
 
 /**
  * Something that travels along a path (stage px) and stays where it lands, or vanishes there.
@@ -298,7 +303,11 @@ const Pot: View = ({ beat, still }) => {
       </svg>
       {/* what's in the jar */}
       <At x={180} y={102}>
-        <div className={`text-center text-[22px] font-black tabular-nums drop-shadow-sm ${beat === 3 ? 'text-slate-400 dark:text-slate-500' : 'text-white'}`}>
+        {/* Draining, the amount stays white on the liquid and goes grey only once the jar is empty. */}
+        <div
+          className={`text-center text-[22px] font-black tabular-nums drop-shadow-sm ${beat === 3 ? 'text-slate-400 dark:text-slate-500' : 'text-white'}`}
+          style={beat === 3 ? { animation: 'sx-whiten 2200ms steps(1, end) both' } : undefined}
+        >
           {beat === 0 ? (
             <Count from={0} to={900} still={still} d={900} ms={1100} />
           ) : beat === 3 ? (
@@ -384,7 +393,8 @@ function beamTurn(beat: number, counter = false): CSSProperties {
   const c = counter ? '-c' : ''
   if (beat === 1) return { transform: `rotate(${counter ? -11 : 11}deg)`, animation: `sx-tip${c} 1500ms cubic-bezier(0.3, 0.7, 0.4, 1) 700ms both` }
   if (beat === 2) return { transform: 'rotate(0deg)', animation: `sx-level${c} 1500ms cubic-bezier(0.3, 0.7, 0.4, 1) 1300ms both` }
-  return { transform: 'rotate(0deg)' }
+  // The first beat: the beam rocks gently and settles level, so "level" is something you see happen.
+  return { transform: 'rotate(0deg)', animation: `sx-settle${c} 900ms cubic-bezier(0.3, 0.7, 0.4, 1) both` }
 }
 
 /** Someone riding the beam at `x` (stage px), kept upright while it tips. */
@@ -471,7 +481,10 @@ const Seesaw: View = ({ beat, still }) => {
             ))}
           {beat === 2 &&
             [272, 314].map((x, i) => (
-              <g key={x} style={{ opacity: 0, transform: 'translateY(-40px)', animation: `sx-lift 700ms ease-in ${300 + i * 150}ms both` }}>
+              <g
+                key={x}
+                style={{ opacity: 0, transform: 'translateY(-40px)', animation: `sx-lift 700ms cubic-bezier(0.5, 0, 0.75, 0) ${300 + i * 150}ms both` }}
+              >
                 <line x1={x} y1="156" x2={x} y2="172" className="stroke-slate-400" strokeWidth="1.5" />
                 <path
                   d={`M${x - 14},176 Q${x - 14},172 ${x - 10},172 L${x + 10},172 Q${x + 14},172 ${x + 14},176 L${x + 17},196 Q${x + 18},200 ${x + 13},200 L${x - 13},200 Q${x - 18},200 ${x - 17},196 Z`}
@@ -671,12 +684,18 @@ const Untangle: View = ({ beat, still }) => {
             </At>
           )
         })}
-      <At x={180} y={beat === 2 ? 206 : 124} style={pop(beat === 0 ? 1300 : beat === 1 ? 400 : 1600)}>
+      <At x={180} y={beat === 2 ? 206 : 124} style={pop(beat === 0 ? 150 : beat === 1 ? 400 : 1600)}>
         <div className="rounded-2xl bg-white/90 px-3 py-2 text-center shadow-lg ring-1 ring-brand-100 backdrop-blur dark:bg-ink-900/90 dark:ring-white/10">
           <div className="text-[18px] font-black leading-none text-slate-800 tabular-nums dark:text-white">
-            {beat === 0 ? '6' : beat === 1 ? '=' : <Count from={6} to={3} still={still} d={1700} ms={700} format={(n) => String(n)} />}
+            {beat === 0 ? (
+              <Count from={1} to={6} still={still} d={300} ms={1400} format={(n) => String(n)} />
+            ) : beat === 1 ? (
+              '4'
+            ) : (
+              <Count from={6} to={3} still={still} d={1700} ms={700} format={(n) => String(n)} />
+            )}
           </div>
-          <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">{beat === 1 ? 'overall' : 'payments'}</div>
+          <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">{beat === 1 ? 'balances' : 'payments'}</div>
         </div>
       </At>
       {beat === 2 && <Sparkles x={180} y={206} d={2000} spread={34} />}
@@ -770,9 +789,11 @@ const Remainder: View = ({ beat, still }) => {
               style={
                 beat === 0
                   ? { animation: `sx-pop 500ms cubic-bezier(0.34, 1.56, 0.64, 1) ${1500 + i * 120}ms both` }
-                  : beat === 2 && i === 0
-                    ? pop(1500)
-                    : undefined
+                  : beat === 1
+                    ? pop(150 + i * 110)
+                    : beat === 2 && i === 0
+                      ? pop(1100)
+                      : undefined
               }
             >
               ₹{labels[i]}
@@ -786,7 +807,7 @@ const Remainder: View = ({ beat, still }) => {
                 rx="14"
                 fill="none"
                 strokeWidth="3"
-                style={{ stroke: 'var(--color-duo-400)', animation: 'sx-pop 500ms ease 1500ms both' }}
+                style={{ stroke: 'var(--color-duo-400)', animation: 'sx-pop 500ms cubic-bezier(0.23, 1, 0.32, 1) 1100ms both' }}
               />
             )}
           </g>
@@ -813,7 +834,7 @@ const Remainder: View = ({ beat, still }) => {
           <Fly path="M180,160 Q120,170 76,96" ms={900} d={250} vanish>
             <Coin label="1p" size={30} spin />
           </Fly>
-          <Sparkles x={76} y={92} d={1200} spread={44} />
+          <Sparkles x={76} y={92} d={1150} spread={44} />
         </>
       )}
     </>
@@ -915,7 +936,7 @@ const Vault: View = ({ beat }) => {
                       // biome-ignore lint/suspicious/noArrayIndexKey: nine fixed dots
                       key={i}
                       className="h-2.5 w-2.5 rounded-full bg-fill ring-2 ring-brand-200 dark:ring-brand-800"
-                      style={{ animation: `sx-pop 320ms ease-out ${1350 + order * 110}ms both` }}
+                      style={{ animation: `sx-pop 320ms cubic-bezier(0.23, 1, 0.32, 1) ${250 + order * 110}ms both` }}
                     />
                   ))}
                 </div>
@@ -947,8 +968,16 @@ const Vault: View = ({ beat }) => {
           </Fly>
         ))}
       {/* beat 2: the key, sealed apart from the box, goes to the phone after the pattern */}
+      {/* where the key waits, sealed, apart from the box */}
+      {beat >= 1 && (
+        <At x={106} y={226} style={beat === 1 ? rise(0) : undefined}>
+          <Pill>
+            <Lock size={9} /> Key, sealed apart
+          </Pill>
+        </At>
+      )}
       {beat === 1 && (
-        <Fly path="M150,214 Q230,250 286,150" ms={1100} d={150} vanish>
+        <Fly path="M174,226 Q240,246 286,150" ms={1000} d={1300} vanish>
           <svg width="44" height="22" viewBox="0 0 44 22" style={{ filter: 'drop-shadow(0 3px 4px rgba(180,83,9,0.45))' }}>
             <circle cx="11" cy="11" r="9" fill="#fbbf24" stroke="#b45309" strokeWidth="2" />
             <circle cx="11" cy="11" r="3.5" fill="#fff7d1" />

@@ -6,6 +6,11 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Help's How it works explainers have shorter, livelier captions and tips, and smoother pictures: the balance beam settles level before it tips, the payment count climbs as the tangle draws, the rounded shares visibly round, and a private group's key reaches the phone only after the pattern. Each part now stays until its picture has finished, plus a moment. Before, some parts moved on mid-animation and the words ran long.
+- Help's played steps: the pointer glides to each part and presses it (a ring spreads and the part lights up as it lands), sheets rise over a dimming screen, and a new screen pushes the old one aside. Each step stays as long as its words take to read. With reduced motion, Play now works too, as a plain crossfade. Before, the pointer jumped, and every step got the same time.
+- Help on a small phone: the picture is shorter and the step being shown is written under it, so it reads without scrolling. The pointer no longer draws over the pinned header, and the dots beside steps and tips sit level with their first line.
+- Help: Find an expense shows the sort-and-filter button (with its count) beside the search, as the app does. Before, its picture showed a labelled row.
+- Help opens faster: it is fetched in the background while you use the rest of the app, and kept for later visits.
 - Sign-in screen: Install Split Now puts its button beside the words where there's room (a computer, a wide phone) and under them only on a narrow phone, with the ✕ at the top corner. Before, the button always sat under the words, which looked out of place on a computer.
 - Group balances: suggested payments that come to you are now green, and only the ones you pay are red. Before, every row was red, even money owed to you.
 - Opening a link or reloading no longer jumps the new screen to where another screen was scrolled.
