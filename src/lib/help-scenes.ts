@@ -12,6 +12,7 @@ import type { UiIconName } from './ui-icons'
 export type PartKind =
   | 'title' // a screen's heading
   | 'field' // a text field: types `value` when tapped
+  | 'search' // a search field (types `value`) with the Sort and filter button beside it: `items[0]`, its label the count
   | 'row' // a label with a value on the right (Paid by, Split)
   | 'button' // a full-width button; `primary` for the main one
   | 'chips' // a row of choices; the tapped one is picked
@@ -776,21 +777,31 @@ Object.assign(SCENES, {
   ],
   'search-expenses': [
     settings('Goa trip', [
-      { kind: 'field', label: 'Search expenses and notes', value: 'ferry', mark: 'search' },
-      { kind: 'row', label: 'Sort and filter', value: '2', mark: 'filter' },
+      { kind: 'chips', items: [{ label: 'Expenses', on: true }, { label: 'Balances' }, { label: 'Activity' }] },
+      { kind: 'search', label: 'Search expenses and notes', value: 'ferry', mark: 'search', items: [{ label: '', mark: 'filter' }] },
+      { kind: 'row', label: 'Ferry to Havelock', value: '₹2,400' },
+      { kind: 'row', label: 'Ferry back', value: '₹2,200' },
     ]),
-    settings('Sort and filter', [
-      { kind: 'row', label: 'Sort by', value: 'Date spent, newest first ⌄' },
-      { kind: 'chips', mark: 'quick', items: [{ label: 'Involving me', on: true }, { label: '🚕 Transport', on: true }, { label: '🍔 Food & drink' }] },
-      { kind: 'chips', items: [{ label: 'Everything', on: true }, { label: 'Expenses' }, { label: 'Payments' }] },
-    ]),
+    {
+      sheet: true,
+      parts: [
+        { kind: 'title', label: 'Sort and filter' },
+        { kind: 'row', label: 'Sort by', value: 'Date spent ⌄' },
+        { kind: 'note', label: 'Quick filters' },
+        { kind: 'chips', mark: 'quick', items: [{ label: 'Involving me', on: true }, { label: '🚕 Transport', on: true }, { label: '🍔 Food' }] },
+        { kind: 'note', label: 'Show' },
+        { kind: 'chips', items: [{ label: 'Everything', on: true }, { label: 'Expenses' }, { label: 'Payments' }] },
+      ],
+    },
     settings('Goa trip', [
+      { kind: 'chips', items: [{ label: 'Expenses', on: true }, { label: 'Balances' }, { label: 'Activity' }] },
+      { kind: 'search', label: 'Search expenses and notes', value: 'ferry', items: [{ label: '2' }] },
       {
         kind: 'chips',
         mark: 'chips',
         items: [
           { label: 'Involving me ✕', on: true },
-          { label: 'Transport ✕', on: true },
+          { label: '🚕 Transport ✕', on: true },
         ],
       },
       { kind: 'row', label: 'Ferry to Havelock', value: '₹2,400' },

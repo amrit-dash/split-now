@@ -12,7 +12,8 @@ remove an item when its release merges, and add anything left half-done.
 - [x] Group expenses: the quick-filter pill row moves into Sort and filter as a collapsible "Quick filters" section (folded, its choice in the header). Below search, pills only for what is applied (sort, show, paid by, dates, quick filters), each tap-to-remove; badge count and Clear stay.
 - [x] Live table icon: two people at a table with a serving dome (custom, Phosphor grid), used on every Live table entry point.
 - [ ] Design pass with the new design skills: motion, polish and UX fixes across screens, alongside the icons.
-- [ ] Help: smoother scene motion (pointer, step transitions, sheets), every scene and line matching 9.0.0's UI, and new sections for anything new.
+- [x] Help: smoother scene motion (pointer glide and press, screen push, sheets over a dim), steps timed by their length, explainers' captions and motion revised, layout at 360 px, Find an expense matching the app, Help prefetched on idle.
+- [ ] Help, later: new sections for anything new in 9.0.0 (voice, once built); refresh the screenshots (`npm run help:media`) once the icon pass settles.
 - [x] Icons: Phosphor for the tab bar, Profile, Settings, Help, Create sheet, empty screens; UI-chrome emoji replaced; Preferences → Icons Outline / Filled with an admin default (config/app.icons).
 - [ ] Icons, later: the rest of the screens (group, expense, settle up) still use lucide line icons; move them to Phosphor screen by screen if the owner wants Filled to reach them.
 

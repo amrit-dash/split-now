@@ -45,7 +45,7 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 /** A few error reports per session at most, each message once (lib/app-errors.ts). */
 const reportGateOnce = reportGate()
 import { useViewportStats } from './hooks/useViewportStats'
-import { IDLE_PREFETCH, load, prefetch, prefetchAfter, routeChunks } from './routes'
+import { IDLE_PREFETCH, load, prefetch, prefetchAfter, prefetchHelp, type RouteKey, routeChunks } from './routes'
 import Login from './pages/Login'
 import VerifyEmail from './pages/VerifyEmail'
 import NameStep from './pages/NameStep'
@@ -622,13 +622,13 @@ function usePrefetch() {
 }
 
 /**
- * The screens only reachable from the one showing (Profile → Settings → its areas), on idle once
- * it has painted. Its own component so a route change doesn't re-render AppRoutes.
+ * The screens only reachable from the one showing (Profile → Settings → its areas), and Help from
+ * any signed-in screen (prefetchHelp), on idle once it has painted. Its own component so a route change doesn't re-render AppRoutes.
  */
 function PrefetchNext() {
   const { pathname } = useLocation()
   useEffect(() => {
-    const next = prefetchAfter(pathname)
+    const next: RouteKey[] = [...prefetchAfter(pathname), ...(prefetchHelp(pathname) ? (['Help'] as const) : [])]
     return next.length
       ? onIdle(() => {
           for (const k of next) prefetch(k)

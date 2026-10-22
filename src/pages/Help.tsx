@@ -282,8 +282,11 @@ function SectionPage({ id }: { id: string }) {
           </h2>
           <ul className="space-y-2">
             {s.points.map((p) => (
-              <li key={p} className="flex gap-2 text-sm">
-                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500" aria-hidden />
+              <li key={p} className="flex gap-2 text-sm leading-5">
+                {/* The dot in a box one line tall: level with the first line's middle, at any number of lines. */}
+                <span className="flex h-5 shrink-0 items-center" aria-hidden>
+                  <span className="h-1.5 w-1.5 rounded-full bg-brand-500" />
+                </span>
                 <StepText text={p} />
               </li>
             ))}

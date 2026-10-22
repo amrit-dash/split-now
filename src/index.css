@@ -362,8 +362,16 @@ html:has(.install-banner) .whats-new-banner { display: none; }
 
 /* Update banner: rises from behind the tab bar. */
 @keyframes rise { from { transform: translateY(110%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-/* Help's scenes (src/features/help/Scene.tsx): a screen slides in, the pointer presses, parts appear and bars grow. */
-@keyframes help-slide { from { transform: translateX(18%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+/* Help's scenes (src/features/help/Scene.tsx): screens push in, sheets rise over a dimming screen, the
+   pointer glides to a part and presses it (the dot gives, a ring spreads, the part lights), parts appear
+   and bars grow. Each ends on the element's own style. */
+@keyframes help-enter { from { transform: translateX(24%); opacity: 0; } }
+@keyframes help-leave { to { transform: translateX(-12%); opacity: 0.3; } }
+@keyframes help-sheet { from { transform: translateY(100%); } }
+@keyframes help-dim { from { opacity: 0; } }
+@keyframes help-dot { from { transform: scale(0.78); } }
+@keyframes help-tap { from { transform: scale(0.6); opacity: 0.9; } to { transform: scale(1.8); opacity: 0; } }
+@keyframes help-hit { from { box-shadow: 0 0 0 0 transparent; } }
 @keyframes help-press { 0% { transform: scale(1.6); opacity: 0; } 30% { transform: scale(0.85); opacity: 1; } 60% { transform: scale(1); } 100% { transform: scale(1.9); opacity: 0; } }
 @keyframes help-in { from { transform: translateY(4px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 @keyframes help-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
@@ -374,7 +382,7 @@ html:has(.install-banner) .whats-new-banner { display: none; }
    motion is reduced) is simply the finished picture. */
 @keyframes sx-fly { from { offset-distance: 0%; } }
 @keyframes sx-fly-vanish { 0% { offset-distance: 0%; opacity: 1; } 82% { opacity: 1; } 100% { offset-distance: 100%; opacity: 0; } }
-@keyframes sx-pop { from { opacity: 0; transform: scale(0.4); } 60% { opacity: 1; transform: scale(1.08); } }
+@keyframes sx-pop { from { opacity: 0; transform: scale(0.6); } 60% { opacity: 1; transform: scale(1.06); } }
 @keyframes sx-in { from { opacity: 0; transform: translateY(10px); } }
 @keyframes sx-out { from { opacity: 1; } }
 @keyframes sx-draw { from { stroke-dashoffset: 1; } }
@@ -393,12 +401,16 @@ html:has(.install-banner) .whats-new-banner { display: none; }
 @keyframes sx-pulse { 50% { opacity: 0.4; transform: scale(0.92); } }
 @keyframes sx-ring { from { opacity: 0.9; transform: scale(0.6); } }
 @keyframes sx-hop { 0% { opacity: 0; transform: translateY(0) scale(0.3); } 35% { opacity: 1; transform: translateY(-38px) scale(1); } 60% { transform: translateY(-2px); } 78% { transform: translateY(-12px); } }
+@keyframes sx-whiten { from { color: #fff; } }
 @keyframes sx-tear { from { transform: translate(0, 0) rotate(0deg); } }
 @keyframes sx-shake { 20%, 60% { transform: translateX(-3px); } 40%, 80% { transform: translateX(3px); } }
 /* The balance beam tips with a real spring: past the angle, back, and settles (with counter-turns so riders stay upright). */
 @keyframes sx-tip { 0% { transform: rotate(0deg); } 40% { transform: rotate(13.8deg); } 62% { transform: rotate(9.6deg); } 80% { transform: rotate(11.7deg); } 100% { transform: rotate(11deg); } }
 @keyframes sx-tip-c { 0% { transform: rotate(0deg); } 40% { transform: rotate(-13.8deg); } 62% { transform: rotate(-9.6deg); } 80% { transform: rotate(-11.7deg); } 100% { transform: rotate(-11deg); } }
 @keyframes sx-level { 0% { transform: rotate(11deg); } 40% { transform: rotate(-2.8deg); } 62% { transform: rotate(1.3deg); } 80% { transform: rotate(-0.5deg); } 100% { transform: rotate(0deg); } }
+/* The first beat: a small rock either way that comes to rest level. */
+@keyframes sx-settle { 0% { transform: rotate(-4deg); } 40% { transform: rotate(2deg); } 70% { transform: rotate(-0.8deg); } 100% { transform: rotate(0deg); } }
+@keyframes sx-settle-c { 0% { transform: rotate(4deg); } 40% { transform: rotate(-2deg); } 70% { transform: rotate(0.8deg); } 100% { transform: rotate(0deg); } }
 @keyframes sx-level-c { 0% { transform: rotate(-11deg); } 40% { transform: rotate(2.8deg); } 62% { transform: rotate(-1.3deg); } 80% { transform: rotate(0.5deg); } 100% { transform: rotate(0deg); } }
 @keyframes sx-bubble { from { transform: translateX(0); } }
 /* A band of light that runs down once and fades (it ends on the element's own, hidden, style). */

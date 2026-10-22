@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { findMark, type Part, type PartItem, type Scene as SceneData, type Screen } from '@/lib/help-scenes'
+import { ArrowDownUp, Search } from 'lucide-react'
 import { UiIcon } from '@/components/UiIcon'
 
 /**
@@ -13,73 +14,134 @@ export function Scene({ scene, mark, step, still }: { scene: SceneData; mark?: s
   const at = findMark(scene, mark)
   const screen = at?.screen ?? 0
   const base = at?.base ?? null
+  // The full screen showing: the step's own, or the one its sheet rises over.
+  const view = base ?? screen
   const box = useRef<HTMLDivElement>(null)
-  const [pointer, setPointer] = useState<{ x: number; y: number } | null>(null)
-  // The pointer goes to the marked part once the screen is laid out (and again on a resize).
+  const [pointer, setPointer] = useState<{ x: number; y: number; jump: boolean } | null>(null)
+  // A new screen pushes the old one off: it stays a moment, sliding left and fading, while the new one comes in.
+  // It goes with the sheet that was over it, if any, so nothing blinks out first.
+  const sheet = base !== null ? screen : null
+  const [leaving, setLeaving] = useState<{ view: number; sheet: number | null } | null>(null)
+  const shown = useRef({ view, sheet })
+  useLayoutEffect(() => {
+    const from = shown.current
+    shown.current = { view, sheet }
+    if (from.view === view) return
+    if (still) return setLeaving(null)
+    setLeaving(from)
+    const t = setTimeout(() => setLeaving(null), 300)
+    return () => clearTimeout(t)
+  }, [view, sheet, still])
+  // The pointer goes to the marked part. Measured by layout offsets, not on-screen boxes, so a sheet
+  // or screen still sliding in gives where the part comes to rest; again on a resize.
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new screen moves the part even when the mark stays
   useLayoutEffect(() => {
     const root = box.current
     if (!root || !mark) return setPointer(null)
     const place = () => {
-      const el = root.querySelector<HTMLElement>(`[data-mark="${CSS.escape(mark)}"]`)
+      const part = root.querySelector<HTMLElement>(`[data-scene-now] [data-mark="${CSS.escape(mark)}"]`)
+      // A row of chips is tapped on its first chip, not in the gap between two.
+      const el = part?.querySelector<HTMLElement>('[data-point]') ?? part
       if (!el) return setPointer(null)
-      const r = el.getBoundingClientRect()
-      const o = root.getBoundingClientRect()
-      setPointer({ x: r.left - o.left + r.width / 2, y: r.top - o.top + r.height / 2 })
+      const o = offsetIn(el, root)
+      // Appearing, it starts where it is; after that it glides.
+      setPointer((p) => ({ x: o.x + el.offsetWidth / 2, y: o.y + el.offsetHeight / 2, jump: !p }))
     }
-    // The sheet and the screen slide in: measure where they come to rest.
     place()
-    const t = setTimeout(place, still ? 0 : 320)
     const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(place)
     ro?.observe(root)
-    return () => {
-      clearTimeout(t)
-      ro?.disconnect()
-    }
+    return () => ro?.disconnect()
   }, [mark, screen, still])
+  const enter = still ? 'animate-[fade-in_150ms_ease-out]' : 'animate-[help-enter_300ms_cubic-bezier(0.32,0.72,0,1)_both]'
   return (
     <div
-      className="relative mx-auto aspect-[9/16] w-full max-w-[15rem] select-none overflow-hidden rounded-[2rem] border-[6px] border-slate-800 bg-slate-50 shadow-xl dark:border-ink-700 dark:bg-ink-950"
+      className="relative isolate mx-auto aspect-[9/14] select-none overflow-hidden rounded-[2rem] border-[6px] border-slate-800 bg-slate-50 shadow-xl dark:border-ink-700 dark:bg-ink-950"
+      // As wide as fits: 14rem, the card, or what keeps the phone within 46% of the screen's height.
+      style={{ width: 'min(14rem, 100%, calc(46svh * 9 / 14))' }}
       aria-hidden
       ref={box}
       data-testid="help-scene"
     >
       <div className="absolute left-1/2 top-1.5 z-20 h-1.5 w-12 -translate-x-1/2 rounded-full bg-slate-800 dark:bg-ink-700" />
-      {base !== null ? (
+      {leaving !== null && leaving.view !== view && (
+        <div key={`leave-${leaving.view}`} className="absolute inset-0 animate-[help-leave_300ms_cubic-bezier(0.32,0.72,0,1)_both]">
+          <ScreenView screen={scene[leaving.view]} />
+          {leaving.sheet !== null && (
+            <>
+              <div className="absolute inset-0 bg-slate-900/35 dark:bg-black/50" />
+              <div className="absolute inset-x-0 bottom-0 rounded-t-2xl bg-white p-3 shadow-2xl dark:bg-ink-900">
+                <div className="mx-auto mb-2 h-1 w-8 rounded-full bg-slate-300 dark:bg-ink-700" />
+                <Parts screen={scene[leaving.sheet]} step={step} still />
+              </div>
+            </>
+          )}
+        </div>
+      )}
+      <div key={`screen-${view}`} className={`absolute inset-0 ${leaving !== null || still ? enter : ''}`} {...(base === null ? { 'data-scene-now': '' } : {})}>
+        <ScreenView screen={scene[view]} mark={base === null ? mark : undefined} step={step} still={still} />
+      </div>
+      {base !== null && (
         <>
-          <ScreenView screen={scene[base]} mark={undefined} dim />
+          {/* The screen under a sheet dims (once, as the first sheet over it rises); the sheet slides up over it. */}
+          <div
+            key={`dim-${base}`}
+            className={`absolute inset-0 z-[5] bg-slate-900/35 dark:bg-black/50 ${still ? '' : 'animate-[help-dim_200ms_ease-out_both]'}`}
+          />
           <div
             key={`sheet-${screen}`}
-            className={`absolute inset-x-0 bottom-0 z-10 rounded-t-2xl bg-white p-3 shadow-2xl dark:bg-ink-900 ${still ? '' : 'animate-sheet'}`}
+            data-scene-now=""
+            className={`absolute inset-x-0 bottom-0 z-10 rounded-t-2xl bg-white p-3 shadow-2xl dark:bg-ink-900 ${still ? 'animate-[fade-in_150ms_ease-out]' : 'animate-[help-sheet_320ms_cubic-bezier(0.32,0.72,0,1)_both]'}`}
           >
             <div className="mx-auto mb-2 h-1 w-8 rounded-full bg-slate-300 dark:bg-ink-700" />
             <Parts screen={scene[screen]} mark={mark} step={step} still={still} />
           </div>
         </>
-      ) : (
-        <div key={`screen-${screen}`} className={`absolute inset-0 ${still ? '' : 'animate-[help-slide_0.35s_cubic-bezier(0.2,0.9,0.3,1)]'}`}>
-          <ScreenView screen={scene[screen]} mark={mark} step={step} still={still} />
-        </div>
       )}
       {pointer && (
         <div
-          className="pointer-events-none absolute z-30 -ml-4 -mt-4 h-8 w-8 transition-[left,top] duration-500 ease-out"
-          style={{ left: pointer.x, top: pointer.y }}
+          className={`pointer-events-none absolute left-0 top-0 z-30 -ml-4 -mt-4 h-8 w-8 ${still ? '' : 'animate-[help-dim_200ms_ease-out]'}`}
+          style={{
+            transform: `translate3d(${pointer.x}px, ${pointer.y}px, 0)`,
+            transition: still || pointer.jump ? 'none' : `transform ${GLIDE}ms cubic-bezier(0.77, 0, 0.175, 1)`,
+          }}
         >
+          {/* The press, once the pointer lands: a ring spreads and fades, and the dot gives a little. */}
           <span
-            key={step}
-            className={`absolute inset-0 rounded-full bg-brand-500/30 ring-2 ring-brand-500 ${still ? '' : 'animate-[help-press_1.4s_ease-out_0.45s_both]'}`}
+            key={`ring-${step}`}
+            className="absolute inset-0 rounded-full bg-brand-500/25 ring-2 ring-brand-500"
+            style={still ? { opacity: 0.8 } : { opacity: 0, animation: `help-tap 450ms cubic-bezier(0.23, 1, 0.32, 1) ${GLIDE}ms both` }}
           />
-          <span className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand-600 shadow" />
+          <span
+            key={`dot-${step}`}
+            className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand-600 shadow ring-2 ring-white dark:ring-ink-950"
+            style={still ? undefined : { animation: `help-dot 260ms cubic-bezier(0.23, 1, 0.32, 1) ${GLIDE}ms both` }}
+          />
         </div>
       )}
     </div>
   )
 }
 
-function ScreenView({ screen, mark, step = 0, still = true, dim }: { screen: Screen; mark?: string; step?: number; still?: boolean; dim?: boolean }) {
+/** The pointer's glide to the next part, in ms; the press (and the part lighting up) waits for it. */
+const GLIDE = 450
+/** A part's highlight comes on at the press, not before the pointer gets there. */
+const HIT = 'animate-[help-hit_200ms_ease-out_450ms_both]'
+
+/** An element's place inside the phone, from layout offsets: transforms mid-animation don't move it. */
+function offsetIn(el: HTMLElement, root: HTMLElement): { x: number; y: number } {
+  let x = 0
+  let y = 0
+  for (let n: HTMLElement | null = el; n && n !== root; n = n.offsetParent as HTMLElement | null) {
+    x += n.offsetLeft
+    y += n.offsetTop
+  }
+  return { x, y }
+}
+
+function ScreenView({ screen, mark, step = 0, still = true }: { screen: Screen; mark?: string; step?: number; still?: boolean }) {
   return (
-    <div className={`absolute inset-0 flex flex-col px-3 pb-2 pt-6 ${dim ? 'opacity-40' : ''}`}>
+    // Opaque, so a screen coming in covers the one going out.
+    <div className="absolute inset-0 flex flex-col bg-slate-50 px-3 pb-2 pt-6 dark:bg-ink-950">
       <Parts screen={screen} mark={mark} step={step} still={still} />
     </div>
   )
@@ -105,7 +167,8 @@ function ItemFace({ it, size, className = '' }: { it: PartItem; size: number; cl
 /** A part is "on" when its step is the one playing: it reacts the way the real control does. */
 function PartView({ part: p, mark, step, still }: { part: Part; mark?: string; step: number; still: boolean }) {
   const on = !!mark && p.mark === mark
-  const ring = on ? 'ring-2 ring-brand-500' : ''
+  const hit = `ring-2 ring-brand-500 ${still ? '' : HIT}`
+  const ring = on ? hit : ''
   const tag = p.mark ? { 'data-mark': p.mark } : {}
   switch (p.kind) {
     case 'title':
@@ -120,6 +183,36 @@ function PartView({ part: p, mark, step, still }: { part: Part; mark?: string; s
           </div>
         </div>
       )
+    case 'search': {
+      const btn = p.items?.[0]
+      return (
+        <div className="flex items-center gap-1.5">
+          <div {...tag} className={`flex min-w-0 flex-1 items-center gap-1 rounded-xl bg-white px-2 py-1.5 text-[0.65rem] shadow-sm dark:bg-ink-800 ${ring}`}>
+            <Search size={10} className="text-muted shrink-0" />
+            {p.value ? (
+              <span className="min-w-0 font-semibold">
+                <Typed text={p.value} active={on} still={still} step={step} />
+              </span>
+            ) : (
+              <span className="text-muted truncate">{p.label}</span>
+            )}
+          </div>
+          {btn && (
+            <span
+              {...(btn.mark ? { 'data-mark': btn.mark } : {})}
+              className={`relative flex h-7 w-7 shrink-0 items-center justify-center rounded-xl ${btn.label ? 'bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-200' : 'bg-slate-100 text-slate-600 dark:bg-ink-800 dark:text-slate-300'} ${btn.mark && btn.mark === mark ? hit : ''}`}
+            >
+              <ArrowDownUp size={12} />
+              {btn.label && (
+                <span className="absolute -right-1 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-fill px-0.5 text-[0.5rem] font-bold leading-none text-on-fill">
+                  {btn.label}
+                </span>
+              )}
+            </span>
+          )}
+        </div>
+      )
+    }
     case 'row':
       return (
         <div {...tag} className={`flex items-center justify-between gap-2 rounded-xl bg-white px-2 py-1.5 text-[0.65rem] shadow-sm dark:bg-ink-800 ${ring}`}>
@@ -131,22 +224,23 @@ function PartView({ part: p, mark, step, still }: { part: Part; mark?: string; s
       return (
         <div
           {...tag}
-          className={`rounded-xl px-2 py-2 text-center text-[0.7rem] font-bold transition ${p.primary ? 'bg-fill text-on-fill' : 'bg-white shadow-sm dark:bg-ink-800'} ${on ? `${ring} scale-[0.97]` : ''}`}
+          className={`rounded-xl px-2 py-2 text-center text-[0.7rem] font-bold transition ${p.primary ? 'bg-fill text-on-fill' : 'bg-white shadow-sm dark:bg-ink-800'} ${on ? `${ring} scale-[0.97] delay-[450ms]` : ''}`}
         >
           {p.label}
         </div>
       )
     case 'chips':
       return (
-        <div {...tag} className={`flex flex-wrap gap-1 rounded-xl ${on ? 'ring-2 ring-brand-500' : ''}`}>
-          {(p.items ?? []).map((it) => {
+        <div {...tag} className={`flex flex-wrap gap-1 rounded-xl ${ring}`}>
+          {(p.items ?? []).map((it, i) => {
             // A chip whose own step plays is picked; otherwise the part keeps its starting choice.
             const picked = (p.items ?? []).some((x) => x.mark && x.mark === mark) ? it.mark === mark : !!it.on
             return (
               <span
                 key={it.label}
                 {...(it.mark ? { 'data-mark': it.mark } : {})}
-                className={`rounded-full px-2 py-1 text-[0.6rem] font-semibold transition ${picked ? 'bg-fill text-on-fill' : 'bg-white shadow-sm dark:bg-ink-800'}`}
+                {...(i === 0 && p.mark ? { 'data-point': '' } : {})}
+                className={`rounded-full px-2 py-1 text-[0.6rem] font-semibold transition-colors duration-200 ${it.mark && it.mark === mark && !still ? 'delay-[450ms]' : ''} ${picked ? 'bg-fill text-on-fill' : 'bg-white shadow-sm dark:bg-ink-800'}`}
               >
                 {it.label}
               </span>
@@ -161,7 +255,7 @@ function PartView({ part: p, mark, step, still }: { part: Part; mark?: string; s
             <div
               key={it.label}
               {...(it.mark ? { 'data-mark': it.mark } : {})}
-              className={`flex flex-col items-center gap-0.5 rounded-xl bg-white p-1.5 text-[0.6rem] font-semibold shadow-sm dark:bg-ink-800 ${it.mark && it.mark === mark ? 'ring-2 ring-brand-500' : ''}`}
+              className={`flex flex-col items-center gap-0.5 rounded-xl bg-white p-1.5 text-[0.6rem] font-semibold shadow-sm dark:bg-ink-800 ${it.mark && it.mark === mark ? hit : ''}`}
             >
               <ItemFace it={it} size={16} className="text-base" />
               {it.label}
@@ -177,7 +271,7 @@ function PartView({ part: p, mark, step, still }: { part: Part; mark?: string; s
             <div
               key={it.label}
               {...(it.mark ? { 'data-mark': it.mark } : {})}
-              className={`flex items-center gap-1.5 rounded-lg px-0.5 py-1 text-[0.65rem] ${it.mark && it.mark === mark ? 'ring-2 ring-brand-500' : ''} ${on && !still ? 'animate-[help-in_0.4s_ease-out_both]' : ''}`}
+              className={`flex items-center gap-1.5 rounded-lg px-0.5 py-1 text-[0.65rem] ${it.mark && it.mark === mark ? hit : ''} ${on && !still ? 'animate-[help-in_0.4s_ease-out_both]' : ''}`}
               style={on && !still ? { animationDelay: `${i * 120}ms` } : undefined}
             >
               <ItemFace it={it} size={12} />
@@ -336,7 +430,7 @@ function PartView({ part: p, mark, step, still }: { part: Part; mark?: string; s
               <span
                 key={it.label}
                 {...(it.mark ? { 'data-mark': it.mark } : {})}
-                className={`-mt-4 flex h-9 w-9 items-center justify-center rounded-full bg-fill text-lg font-bold text-on-fill shadow-lg ${it.mark && it.mark === mark ? 'ring-2 ring-brand-500 ring-offset-2' : ''}`}
+                className={`-mt-4 flex h-9 w-9 items-center justify-center rounded-full bg-fill text-lg font-bold text-on-fill shadow-lg ${it.mark && it.mark === mark ? `${hit} ring-offset-2` : ''}`}
               >
                 +
               </span>

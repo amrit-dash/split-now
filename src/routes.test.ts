@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { IDLE_PREFETCH, load, prefetchAfter, routeChunks, routeKey } from './routes'
+import { IDLE_PREFETCH, load, prefetchAfter, prefetchHelp, routeChunks, routeKey } from './routes'
 
 describe('routeKey', () => {
   it('maps every lazy route in App.tsx to its chunk', () => {
@@ -99,5 +99,14 @@ describe('prefetchAfter', () => {
     expect(prefetchAfter('/')).toEqual([])
     expect(prefetchAfter('/groups/g1')).toEqual([])
     expect(prefetchAfter('/settings/auto-capture')).toEqual([])
+  })
+})
+
+describe('prefetchHelp', () => {
+  it('fetches Help on idle from the signed-in screens', () => {
+    for (const p of ['/', '/groups', '/groups/g1', '/profile', '/settings/ai', '/insights', '/inbox']) expect(prefetchHelp(p), p).toBe(true)
+  })
+  it('not on Help itself, nor where a guest lands from a link', () => {
+    for (const p of ['/help', '/help/add-expense', '/t', '/t/XYZ', '/r/abc', '/join/ABCD1234', '/email-link']) expect(prefetchHelp(p), p).toBe(false)
   })
 })
