@@ -145,7 +145,7 @@ const UI = {
   FileIcon: 'document',
   FileUploadIcon: 'document-arrow-up',
   FlagIcon: 'flag',
-  GroupsIcon: 'people',
+  GroupsIcon: 'people-team',
   /* Claim: Solar's hand holding a note, two-tone like the lifebuoy (owner): the note strong, the hand lighter. */
   HandCoinsIcon: 'solar:hand-money',
   HandHeartIcon: 'heart',
