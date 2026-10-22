@@ -1080,7 +1080,7 @@ export default function GroupForm() {
               <div className="label" id="group-type-label">
                 Type
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="grid auto-rows-fr grid-cols-3 gap-2">
                 {SHARED_TYPES.map((t) => (
                   <button
                     key={t}
@@ -1088,9 +1088,12 @@ export default function GroupForm() {
                     role="radio"
                     aria-checked={type === t}
                     onClick={() => chooseType(t)}
-                    className={`chip min-h-10 ${type === t ? 'chip-on' : ''}`}
+                    className={`chip min-h-14 w-full min-w-0 flex-col justify-center gap-0.5 rounded-2xl px-1.5 py-1.5 text-center leading-tight ${type === t ? 'chip-on' : ''}`}
                   >
-                    <span aria-hidden>{GROUP_TYPES[t].emoji}</span> {GROUP_TYPES[t].label}
+                    <span aria-hidden className="text-lg leading-none">
+                      {GROUP_TYPES[t].emoji}
+                    </span>
+                    <span className="line-clamp-2 text-[13px]">{GROUP_TYPES[t].label}</span>
                   </button>
                 ))}
               </div>

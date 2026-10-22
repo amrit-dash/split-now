@@ -331,6 +331,26 @@ html[data-banner] { --safe-top: 0px; }
   &::-webkit-scrollbar { display: none; }
 }
 
+/* Dark mode's current tab: a faint halo in the accent around the icon (no box behind the tab, owner's
+   item 32), so the selected tab stands out on the dark bar in every accent. */
+.dark .tab-current { filter: drop-shadow(0 0 3px color-mix(in oklab, var(--color-brand-400) 70%, transparent)) drop-shadow(0 0 10px color-mix(in oklab, var(--color-brand-500) 45%, transparent)); }
+
+/* Sideways chip rows (useEdgeFade): a soft fade at each end that has more to scroll to, so a cut
+   chip reads as "there's more" rather than as clipped. data-fade is only set while the row overflows. */
+[data-fade] { --edge-fade: 1.5rem; }
+[data-fade='start'] {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--edge-fade));
+  mask-image: linear-gradient(to right, transparent, #000 var(--edge-fade));
+}
+[data-fade='end'] {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--edge-fade)), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - var(--edge-fade)), transparent);
+}
+[data-fade='both'] {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--edge-fade), #000 calc(100% - var(--edge-fade)), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 var(--edge-fade), #000 calc(100% - var(--edge-fade)), transparent);
+}
+
 /* The update banner (UpdatePrompt) takes the install banner's spot while it is shown. */
 html[data-update-ready] .install-banner { display: none; }
 /* What's new waits while the New version, install or capture banner holds the same spot. */

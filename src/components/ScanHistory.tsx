@@ -24,6 +24,7 @@ import {
   type ScanPrint,
   type ScanResult,
 } from '@/lib/scanHistory'
+import { useEdgeFade } from '@/hooks/useEdgeFade'
 
 /**
  * The signed-in user's recent scans of one kind, plus the helpers a scan screen needs: fingerprint
@@ -114,6 +115,7 @@ export function RecentScans({
   onClear: () => void
   className?: string
 }) {
+  const fade = useEdgeFade()
   const [confirm, setConfirm] = useState(false)
   if (!entries.length) return null
   return (
@@ -150,7 +152,7 @@ export function RecentScans({
           </button>
         )}
       </div>
-      <div className="-mx-4 flex snap-x gap-2.5 overflow-x-auto px-4 pb-2 pt-1 [scrollbar-width:none]">
+      <div ref={fade} className="-mx-4 flex snap-x gap-2.5 overflow-x-auto px-4 pb-2 pt-1 [scrollbar-width:none]">
         {entries.map((e) => {
           const s = describeScan(e, currency)
           return (

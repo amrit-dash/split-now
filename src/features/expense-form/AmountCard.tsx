@@ -16,6 +16,7 @@ import { Spinner } from '@/components/Misc'
 import { Detail, HintText, InfoTip, type Hint } from '@/components/Hint'
 import { FxLine } from './FxLine'
 import type { useFxRate } from './useFxRate'
+import { useEdgeFade } from '@/hooks/useEdgeFade'
 
 const ITEMS_OFFER_HINT: Hint = { full: 'Split it by who had what', tier: 'help' }
 
@@ -85,6 +86,7 @@ export function AmountCard({
   onAssignItems: () => void
   onSplitAtTable: () => void
 }) {
+  const fade = useEdgeFade()
   const today = todayISO()
   const yesterday = addDaysISO(today, -1)
   const cat = CATEGORIES[draft.category]
@@ -154,7 +156,13 @@ export function AmountCard({
       {/* Past descriptions are a shortcut, not a choice: the Minimal look leaves them out. */}
       {suggestions.length > 0 && (
         <Detail min={2}>
-          <div className="-mx-1 mt-3 flex gap-1.5 overflow-x-auto px-1 py-1" data-testid="desc-suggestions" role="group" aria-label="Past descriptions">
+          <div
+            ref={fade}
+            className="-mx-1 mt-3 flex gap-1.5 overflow-x-auto px-1 py-1"
+            data-testid="desc-suggestions"
+            role="group"
+            aria-label="Past descriptions"
+          >
             {suggestions.map((sg) => (
               <button key={sg.description} type="button" onClick={() => onPickSuggestion(sg)} className="chip min-h-9 shrink-0 !py-1.5 text-sm">
                 <span aria-hidden>{expenseEmoji(sg)}</span>

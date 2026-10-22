@@ -34,6 +34,7 @@ import type { ParsedReceipt } from '@/lib/ocr-parse'
 import { pending } from '@/lib/pending'
 import { recordOutcome, type ScanKind } from '@/lib/scanHistory'
 import { errText } from '@/lib/errors'
+import { haptic } from '@/lib/haptics'
 import { duplicateLine, findDuplicate } from '@/lib/duplicates'
 import { learnFromSave, suggestCategory } from '@/lib/merchants'
 import type { QuickPrefill } from '@/lib/nl-expense'
@@ -465,6 +466,7 @@ export function ExpenseEditor({
         attached.picks.map((p) => repo.attachReceipt(group.id, e.id, p.file, { slot: 'attached' })).some((ok) => !ok)
       if (photosOffline) toast('Offline, saved without the photos')
       done.current = true
+      haptic('save')
       clearDraft(storeKey)
       forgetReceipt()
       toast(

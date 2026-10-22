@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { AlertCircle, CheckCircle2, X } from 'lucide-react'
 import { useSwipeDismiss } from '@/hooks/useSwipeDismiss'
+import { haptic } from '@/lib/haptics'
 
 export interface ToastOptions {
   /** e.g. { label: 'Undo', run: restore } — shown as a button; tapping it dismisses the toast */
@@ -51,6 +52,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const push = useCallback<Push>(
     (text, tone = 'ok', opts = {}) => {
       const ms = opts.duration ?? (opts.action ? 6000 : tone === 'err' ? 5000 : 3200)
+      if (tone === 'err') haptic('error')
       setToasts((list) => {
         const same = list.find((x) => !x.leaving && x.text === text && x.tone === tone && !x.action && !opts.action)
         if (same) {

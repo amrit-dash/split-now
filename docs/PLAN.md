@@ -51,7 +51,7 @@ Splitwise solved "who owes whom". Its weak points today are where Split Now goes
 - ⏳ Apple sign-in (needs an Apple developer account), phone OTP
 
 ### 3.2 Groups
-- ✅ Create a group with a name, emoji, type (Trip, Outing, Home, Couple, Event, Office, Other), currency and, under "More options", budget, trip dates, simplify and approval settings. The form starts with a kind selector (Group / 1:1 friend / Personal), shows recent people as pills and searches people from your other groups (`src/lib/people.ts`), with email add
+- ✅ Create a group with a name, emoji, type (Trip, Outing, Event, Home, Family, Couple, Office, Sports, Other), currency and, under "More options", budget, trip dates, simplify and approval settings. The form starts with a kind selector (Group / 1:1 friend / Personal), shows recent people as pills and searches people from your other groups (`src/lib/people.ts`), with email add
 - ✅ Add members by name/email **before they sign up** (placeholder members)
 - ✅ Invite by link or code. The person who joins **claims** a placeholder member, so past expenses stay attached
 - ✅ **New people need my OK** (`group.approveJoins`, Edit group → Approvals, the creator's switch; flag `joinApproval`): nobody joins from the invite, old links included; the invite shows the group's name and icon with **Ask to join**, the creator gets a push and lets them in (as someone new or as a placeholder) or declines under Inbox → Asking to join, the same pipeline as a private group's without sealing or a passkey (`joinApproval` callable, §4.0). While it's on only the creator adds people (rules), and the invite lists no placeholders (nobody picks a name there). It can't be turned off while requests wait (the app asks to answer them first); off, the invite takes people again. The flag decides who may turn it on, never whether a group that has it keeps working. Demo mode: Ask to join answers that it needs the online app
@@ -69,7 +69,7 @@ Splitwise solved "who owes whom". Its weak points today are where Split Now goes
 - ✅ **Several personal wallets** (e.g. Fuel, Groceries, Shopping), each with its own icon and budget: the form always offers *Personal*; the first wallet defaults to "My spending", later ones start empty with the placeholder "Fuel, Groceries, Shopping…" (`src/lib/wallets.ts`). Groups lists them under Personal with *New wallet*; the With picker offers *New wallet* once one exists; a captured payment's *Personal* opens the only wallet, creates "My spending" when there is none, or asks *Which wallet?* (with *New wallet…*) when there are several
 
 ### 3.3 Expenses
-- ✅ Description, amount, date, category (suggested from merchant memory, then this group's history for the same description, then the keyword guess), notes
+- ✅ Description, amount, date, category (15: food, groceries, transport, stay, entertainment, subscriptions, shopping, utilities, rent, health, travel, education, pets, gifts, other; `src/lib/categories.ts`; suggested from merchant memory, then this group's history for the same description, then the keyword guess), notes
 - ✅ **Multiple payers** (e.g. A paid ₹600, B paid ₹400)
 - ✅ Split types:
   - **Equally** among selected people
@@ -144,7 +144,7 @@ Splitwise solved "who owes whom". Its weak points today are where Split Now goes
 - ✅ Tolerant: BOM, quoted fields with commas/quotes/newlines, `,` `;` or tab delimiters, decimal commas, ISO / d/m/y / m/d/y (decided per column) / month-name dates, blank lines, duplicate names, names containing ";" or starting with `=+-@` (un-formula'd), translated headers (falls back to Splitwise's column order). Rows in other currencies, rows that move no balance, and unreadable rows are skipped with a note.
 - ✅ **Reconstruction.** Nets alone can't recover the original payer/share split, so each row is rebuilt to keep every net exactly: owers (net < 0) get a share of −net; creditors (net > 0) paid net + x with share x, where the x's add up to `cost − Σ positive nets`, spread in proportion to their nets (largest remainder). With one creditor that is "they paid the bill and had a share", which is how most Splitwise expenses were entered. If the cost is smaller than Σ positive nets, the amount is raised to that sum. Stored as `splitType: 'exact'`.
 - ✅ Balances after import are compared with Splitwise's `Total balance` row in the preview (✓ per person) and tested to match exactly.
-- ✅ Splitwise subcategories map to ours (Dining out → food, Taxi → transport, Hotel → stay, Plane → travel, TV/Phone/Internet → utilities…); "General"/unknown falls back to the description keyword guess, then `other`.
+- ✅ Splitwise subcategories map to ours (Dining out → food, Taxi → transport, Hotel → stay, Plane → travel, TV/Phone/Internet → utilities, Pets → pets, Education → education…); "General"/unknown falls back to the description keyword guess, then `other`.
 - ✅ Preview → map each person to *me* / an existing member / a new placeholder → new group or an existing group → `repo.bulkImport` writes ≤450-write batches in order after `createGroup`/`addMember`, with progress per batch. Imported docs carry `importedFrom: 'splitwise' | 'csv'`.
 - ⏳ Splitwise API import (OAuth) to bring comments, receipts and exact payer splits
 
@@ -346,7 +346,7 @@ users/{uid}/secrets/gemini                    ← server only: the user's own Ge
 users/{uid}/aiState/status                    ← server: hint (masked key), models, lastOkAt, lastError { kind, at }, updatedAt (owner reads)
 
 groups/{groupId}                              ← readable/writable by members (uid in memberUids)
-  name (≤ 80; ≤ 200 in a private group, a token), emoji (≤ 16; ≤ 80 in a private group), iconSvg? (≤ 4096, an AI-drawn icon cleaned by shared/svg-icon.ts), iconImage? (≤ 24000, a small image data: URL from Draw a picture) (neither in a private group; dropped when one is made private), type: trip|outing|home|couple|event|office|other|direct|personal
+  name (≤ 80; ≤ 200 in a private group, a token), emoji (≤ 16; ≤ 80 in a private group), iconSvg? (≤ 4096, an AI-drawn icon cleaned by shared/svg-icon.ts), iconImage? (≤ 24000, a small image data: URL from Draw a picture) (neither in a private group; dropped when one is made private), type: trip|outing|home|couple|event|office|family|sports|other|direct|personal
   currency (3 letters), budget? (int minor units), startDate?, endDate? (yyyy-mm-dd, inclusive trip window)
   simplify?: bool, requireApproval?: bool, approvalThreshold? (int > 0)      ← approval settings: any member; no threshold = the currency's default (approvalThresholdOf)
   paymentApproval?: bool                                                    ← Payments need the recipient's OK: any member

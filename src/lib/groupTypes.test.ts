@@ -46,6 +46,22 @@ describe('guessGroup', () => {
   })
 })
 
+describe('guessGroup: family and sports', () => {
+  it('spots each newer type, with a telling icon when the name has one', () => {
+    expect(guessGroup('Sharma family')).toEqual({ type: 'family', emoji: '👪' })
+    expect(guessGroup('Cousins')).toEqual({ type: 'family', emoji: '👪' })
+    expect(guessGroup('Sunday football')).toEqual({ type: 'sports', emoji: '⚽' })
+    expect(guessGroup('Badminton gang')).toEqual({ type: 'sports', emoji: '🏸' })
+    expect(guessGroup('Sunday cricket')).toEqual({ type: 'sports', emoji: '🏏' })
+  })
+  it('keeps the specific and the older guesses', () => {
+    expect(guessGroup('Family trip to Goa')).toEqual({ type: 'trip', emoji: '🏖️' })
+    expect(guessGroup('Pizza night')).toEqual({ type: 'outing', emoji: '🍕' })
+    expect(guessGroup('Office party')?.type).toBe('outing')
+    expect(guessGroup('Housewarming')).toEqual({ type: 'event', emoji: '🎉' })
+  })
+})
+
 describe('guessGroup with the icon catalogue', () => {
   it('a generic word settles the type, a telling one the icon', () => {
     expect(guessGroup('Ski trip')).toEqual({ type: 'trip', emoji: '🎿' })
@@ -54,7 +70,7 @@ describe('guessGroup with the icon catalogue', () => {
   })
   it('names no rule knows still find a type and icon', () => {
     expect(guessGroup('Kerala backwaters')).toEqual({ type: 'trip', emoji: '🛶' })
-    expect(guessGroup('Sunday cricket')).toEqual({ type: 'other', emoji: '🏏' })
+    expect(guessGroup('Sunday cricket')).toEqual({ type: 'sports', emoji: '🏏' })
     expect(guessGroup('Diwali 2026')).toEqual({ type: 'event', emoji: '🪔' })
   })
   it('offers far more icons than the types', () => {
@@ -70,6 +86,12 @@ describe('icon lists', () => {
     expect(new Set(trip).size).toBe(ALL_GROUP_ICONS.length)
     expect(iconsFor('outing')[0]).toBe('🍽️')
   })
+  it('offers a whole number of rows of three shared types, Other last', () => {
+    expect(SHARED_TYPES).toHaveLength(9)
+    expect(SHARED_TYPES.length % 3).toBe(0)
+    expect(SHARED_TYPES.at(-1)).toBe('other')
+    for (const t of ['family', 'sports'] as const) expect(GROUP_TYPES[t].icons).toHaveLength(4)
+  })
   it('defaults each type to its first icon', () => {
     for (const t of Object.values(GROUP_TYPES)) expect(t.icons[0]).toBe(t.emoji)
   })
@@ -81,6 +103,8 @@ describe('parseGroupType and firstEmoji', () => {
     expect(parseGroupType('nope')).toBe('trip')
     expect(parseGroupType(null)).toBe('trip')
     expect(SHARED_TYPES).not.toContain('direct')
+    for (const t of ['family', 'sports']) expect(parseGroupType(t)).toBe(t)
+    for (const t of ['party', 'club', 'study']) expect(parseGroupType(t)).toBe('trip')
   })
   it('reads a stored type safely: unknown values become Other, never a crash', () => {
     expect(groupTypeOf({ type: 'home' })).toBe('home')
@@ -111,5 +135,11 @@ describe('drawsHandshake', () => {
     expect(drawsHandshake({ type: 'direct' }, '🍕')).toBe(false)
     expect(drawsHandshake({ type: 'trip' }, '🤝')).toBe(false)
     expect(drawsHandshake(undefined, '🤝')).toBe(false)
+  })
+})
+
+describe('the New group type picker', () => {
+  it('fills even rows of three', () => {
+    expect(SHARED_TYPES.length % 3).toBe(0)
   })
 })

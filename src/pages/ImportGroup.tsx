@@ -305,7 +305,7 @@ export default function ImportGroup() {
 
         {result && (
           <>
-            <div className="grid grid-cols-3 gap-2 text-center" data-testid="import-summary">
+            <div className="grid auto-rows-fr grid-cols-3 gap-2 text-center" data-testid="import-summary">
               <Stat label="people" value={result.members.length} />
               <Stat label={result.expenses.length === 1 ? 'expense' : 'expenses'} value={result.expenses.length} />
               <Stat label={result.payments.length === 1 ? 'payment' : 'payments'} value={result.payments.length} />
@@ -461,7 +461,7 @@ export default function ImportGroup() {
                       />
                     </SuggestionRow>
                   )}
-                  <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Group type">
+                  <div className="grid auto-rows-fr grid-cols-3 gap-2" role="radiogroup" aria-label="Group type">
                     {SHARED_TYPES.map((t) => (
                       <button
                         key={t}
@@ -473,9 +473,12 @@ export default function ImportGroup() {
                           setType(t)
                           if (!iconTouched) setEmoji(GROUP_TYPES[t].emoji)
                         }}
-                        className={`chip ${type === t ? 'chip-on' : ''}`}
+                        className={`chip min-h-14 w-full min-w-0 flex-col justify-center gap-0.5 rounded-2xl px-1.5 py-1.5 text-center leading-tight ${type === t ? 'chip-on' : ''}`}
                       >
-                        <span aria-hidden>{GROUP_TYPES[t].emoji}</span> {GROUP_TYPES[t].label}
+                        <span aria-hidden className="text-lg leading-none">
+                          {GROUP_TYPES[t].emoji}
+                        </span>
+                        <span className="line-clamp-2 text-[13px]">{GROUP_TYPES[t].label}</span>
                       </button>
                     ))}
                   </div>

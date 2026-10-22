@@ -287,11 +287,11 @@ function RecentExpense({ e, d }: { e: GroupData['expenses'][number]; d: GroupDat
   const delta = paid - mine
   return (
     <Link to={`/groups/${d.group.id}/expenses/${e.id}`} className="flex items-center gap-3 px-4 py-3 active:bg-slate-50 dark:active:bg-ink-800">
-      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-xl dark:bg-ink-800" aria-hidden>
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-xl dark:bg-ink-800" aria-hidden>
         <IconFace iconSvg={e.iconSvg} iconImage={e.iconImage} emoji={expenseEmoji(e)} />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="truncate font-medium">{e.description}</div>
+        <div className="line-clamp-2 break-words font-medium leading-snug">{e.description}</div>
         <div className="text-muted truncate text-xs">
           <span aria-hidden>{d.group.emoji} </span>
           {d.group.name} · {formatDate(e.date)}

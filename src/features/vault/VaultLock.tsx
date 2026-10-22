@@ -11,6 +11,7 @@ import { ChequeIcon } from '@/components/ChequeIcon'
 import { PageHeader, Segmented } from '@/components/Misc'
 import { AnimalStack, LockedTile } from './Scrambled'
 import { PatternLock } from './PatternLock'
+import { useEdgeFade } from '@/hooks/useEdgeFade'
 
 /** How many rows the locked list shows at most. */
 const ROWS = 20
@@ -27,6 +28,7 @@ const descriptionOf = (e: Expense) => (isSealed(e.description) ? e.description :
  * takes the pattern itself (PatternLock), with nothing on screen to say so.
  */
 export function VaultLock({ group, back = '/groups' }: { group: Group; back?: string }) {
+  const fade = useEdgeFade()
   usePageTitle('Private group')
   const { profile } = useMe()
   const expenses = useExpenses(group.id)
@@ -121,7 +123,7 @@ export function VaultLock({ group, back = '/groups' }: { group: Group; back?: st
             <SortIcon size={18} />
           </span>
         </div>
-        <div className="scrollbar-none -mx-4 -mt-3 flex gap-1.5 overflow-x-auto px-4 py-1">
+        <div ref={fade} className="scrollbar-none -mx-4 -mt-3 flex gap-1.5 overflow-x-auto px-4 py-1">
           <span className="chip min-h-10 shrink-0 whitespace-nowrap">Involving me</span>
           {[0, 1].map((i) => (
             <span key={i} className="chip min-h-10 shrink-0 whitespace-nowrap">

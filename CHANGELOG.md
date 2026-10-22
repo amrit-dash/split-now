@@ -6,6 +6,20 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 9.1.1 — October 2026
+
+- Rows of chips that scroll sideways (split types, filters, suggestions, Help's explainers, photos) fade softly at the end that has more, so a cut-off chip reads as "scroll for more". Before, the last chip was simply sliced at the screen edge.
+- Long titles in Help's cards and lists wrap to a second line instead of running off or being cut to one line.
+- Insights: a category or group worth 1–2% gets a short bar you can see, with its exact amount beside it. Before, it was a tiny stub that looked like a glitch.
+- Long group names and expense descriptions take two lines in your lists on a narrow phone. Before, they were cut after a few words.
+- Dark mode: the current tab in the tab bar has a soft glow in your accent, so you can tell where you are at a glance.
+- A group's Activity says "Recently deleted · empty" in a quiet line when there's nothing to restore. Before, it was a full button that opened an empty sheet.
+- A short buzz when an expense or payment saves, when you pull a sheet down to close it, and a double buzz with an error, on phones that vibrate. Off when your phone asks for less motion.
+- Balances: every row is one line with the same layout: the name, then the amount, then the group, with Remind, Nudge and Record payment (or Pay) as icon buttons on the right. Amounts line up down the list, and a long group name or the amount in its own currency no longer gets cut off on a small phone. Before, rows with Remind moved the amount, so amounts zig-zagged.
+- New group's types are a grid of three across, each with its picture above the name, so twelve types fill four even rows. Before, they wrapped as chips and Other sat alone on the last line.
+- Two new group types: **Family** and **Sports**, each with its own icons, and the name picks them too ("Sharma family", "Sunday football"). Before, these groups had to be Other.
+- Three new expense categories: **Subscriptions**, **Education** and **Pets**. The category follows the words: Netflix and Spotify are Subscriptions, school fees and Udemy are Education, the vet and pet food are Pets. Before, streaming was filed under Entertainment and the rest under Other, Shopping or Health. A Splitwise import maps Pets and Education to the new ones.
+
 ## 9.1.0 — October 2026
 
 - **Talk to add.** Press and hold **+** and say what you paid ("dinner 1200 with Rahul, I paid"), then let go: + turns into a mic with a short buzz and a soft sound, your accent's bars move with your voice, and Quick add opens the form filled in (or answers, if it can't act on what you said). Inside a group a tap still adds an expense; holding is for talking, and the Create sheet is Home's +. Your phone does the listening, free, and it keeps listening through pauses until you let go. On a phone without speech recognition nothing changes. A bubble from + teaches it until you've tried it once.

@@ -7,6 +7,7 @@ import { Collapsible } from '@/components/Collapsible'
 import { DateField } from '@/components/DateField'
 import { type Hint, HintText, InfoTip } from '@/components/Hint'
 import { Segmented } from '@/components/Misc'
+import { useEdgeFade } from '@/hooks/useEdgeFade'
 
 export const RANGES: Array<{ value: RangePreset; label: string }> = [
   { value: 'month', label: 'This month' },
@@ -36,8 +37,9 @@ const toggle = <T,>(list: T[], v: T) => (list.includes(v) ? list.filter((x) => x
 
 /** Chip row that scrolls sideways; py-1 so the chips' focus/selection rings aren't clipped. */
 function ChipRow({ children, label, testId }: { children: React.ReactNode; label: string; testId?: string }) {
+  const fade = useEdgeFade()
   return (
-    <div role="group" aria-label={label} data-testid={testId} className="-mx-4 flex gap-2 overflow-x-auto px-4 py-1 scrollbar-none">
+    <div ref={fade} role="group" aria-label={label} data-testid={testId} className="-mx-4 flex gap-2 overflow-x-auto px-4 py-1 scrollbar-none">
       {children}
     </div>
   )

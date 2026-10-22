@@ -4,6 +4,7 @@ import { ALL_GROUP_ICONS, groupTypeInfo, type GroupGuess } from '@/lib/groupType
 import { IconSheet } from './IconSheet'
 import { IconFace } from './IconFace'
 import type { IconRequest } from '../../shared/icon-ai'
+import { useEdgeFade } from '@/hooks/useEdgeFade'
 
 /**
  * Group icon button that sits beside a labelled input (same height as `.input`): a tap opens
@@ -95,9 +96,10 @@ export function IconPickerField({
  * scrolls sideways: each pill keeps its whole text instead of cutting it short on a narrow phone.
  */
 export function SuggestionRow({ children }: { children: ReactNode }) {
+  const fade = useEdgeFade()
   // py-1 and the end spacer: overflow-x-auto clips the pills' edges otherwise.
   return (
-    <div className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 py-1 after:block after:w-px after:shrink-0 after:content-['']" data-no-drag>
+    <div ref={fade} className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 py-1 after:block after:w-px after:shrink-0 after:content-['']" data-no-drag>
       {children}
     </div>
   )

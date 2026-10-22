@@ -24,6 +24,17 @@ export const trashedItems = <T extends Trashable>(xs: T[], now = Date.now()): T[
 /** Trashed longer than the trash period (config/app `tuning.trashDays`, 30 by default): due for purging. */
 export const expiredTrash = <T extends Trashable>(xs: T[], now = Date.now()): T[] =>
   xs.filter((x) => isTrashed(x) && now - x.deletedAt! >= tuning().trashDays * DAY)
+/**
+ * What a group's Recently deleted entry shows: nothing while loading, a quiet "empty" line when there is
+ * nothing to restore (no sheet to open), or a tappable row with the count.
+ */
+export function trashEntry(
+  trash: { expenses: unknown[]; settlements: unknown[] } | null,
+): { kind: 'loading' } | { kind: 'empty' } | { kind: 'items'; count: number } {
+  if (!trash) return { kind: 'loading' }
+  const count = trash.expenses.length + trash.settlements.length
+  return count ? { kind: 'items', count } : { kind: 'empty' }
+}
 export const daysLeftInTrash = (x: Trashable, now = Date.now()) => Math.max(0, Math.ceil((x.deletedAt! + tuning().trashDays * DAY - now) / DAY))
 
 /**

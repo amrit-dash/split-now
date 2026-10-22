@@ -24,6 +24,7 @@ import {
   prepareSettlementSave,
   thresholdOf,
   trashedItems,
+  trashEntry,
   waitingSettlements,
   waitingTotal,
 } from './trust'
@@ -363,5 +364,13 @@ describe('payments that need the recipient’s OK', () => {
     expect(waitingTotal(w, 'b', 'me')).toBe(750)
     expect(waitingTotal(w, 'me', 'b')).toBe(500)
     expect(waitingTotal([], 'b', 'me')).toBe(0)
+  })
+})
+
+describe('trashEntry', () => {
+  it('waits while loading, is a quiet empty line with nothing to restore, and counts both kinds', () => {
+    expect(trashEntry(null)).toEqual({ kind: 'loading' })
+    expect(trashEntry({ expenses: [], settlements: [] })).toEqual({ kind: 'empty' })
+    expect(trashEntry({ expenses: [1, 2], settlements: [3] })).toEqual({ kind: 'items', count: 3 })
   })
 })

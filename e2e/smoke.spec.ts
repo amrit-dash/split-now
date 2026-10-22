@@ -2416,6 +2416,8 @@ test('Encrypted groups: ? opens Help on private groups, and back returns to the 
   await expect(page.getByTestId('vault-turn-on')).toBeVisible()
   await page.getByTestId('vault-help').click()
   await expect(page).toHaveURL(/\/help\/private-groups$/)
+  // The URL changes before the lazy Help screen draws: wait for it, so Back is Help's, not the vault page's.
+  await expect(page.getByTestId('help-section')).toBeVisible()
   await page.getByRole('button', { name: /back/i }).first().click()
   await expect(page).toHaveURL(/\/settings\/vault$/)
 })

@@ -17,6 +17,7 @@ import { useMode } from '@/hooks/useMode'
 import { HelpRing } from '@/features/help/HelpRing'
 import { CHAPTERS, SECTIONS } from '@/lib/help-content'
 import { type Release, releasesFor } from '@/lib/whats-new'
+import { useEdgeFade } from '@/hooks/useEdgeFade'
 
 type Tab = 'guide' | 'new'
 
@@ -76,6 +77,7 @@ function HelpHome() {
 let guideShown = false
 
 function Guide() {
+  const fade = useEdgeFade()
   const [popIn] = useState(() => !guideShown)
   useEffect(() => {
     guideShown = true
@@ -133,7 +135,12 @@ function Guide() {
               How it works
             </h2>
             {/* data-keep-scroll: back from an explainer finds the row where it was left (useScrollMemory). */}
-            <div className="-mx-4 flex snap-x scroll-px-4 gap-2 overflow-x-auto px-4 pb-1" data-testid="help-stories" data-keep-scroll="help-stories">
+            <div
+              ref={fade}
+              className="-mx-4 flex snap-x scroll-px-4 gap-2 overflow-x-auto px-4 pb-1"
+              data-testid="help-stories"
+              data-keep-scroll="help-stories"
+            >
               {layout.stories.map((s, i) => (
                 <Link
                   key={s.id}
@@ -145,7 +152,7 @@ function Guide() {
                 >
                   <DoneMark done={done.has(s.id)} />
                   {s.icon && <FeatureIcon name={s.icon} size={30} />}
-                  <span className="text-sm font-bold leading-tight">{s.title}</span>
+                  <span className="line-clamp-2 break-words text-sm font-bold leading-tight">{s.title}</span>
                   <span className="text-muted line-clamp-2 text-xs">{s.summary}</span>
                 </Link>
               ))}
@@ -167,7 +174,7 @@ function Guide() {
                 >
                   <DoneMark done={done.has(s.id)} />
                   {s.icon && <FeatureIcon name={s.icon} size={30} />}
-                  <span className="text-sm font-bold leading-tight">{s.title}</span>
+                  <span className="line-clamp-2 break-words text-sm font-bold leading-tight">{s.title}</span>
                   <span className="text-muted line-clamp-2 text-xs">{s.summary}</span>
                 </Link>
               ))}
@@ -234,7 +241,7 @@ function SectionRow({ s, done }: { s: HelpSection; done?: boolean }) {
         <FeatureIcon name={s.icon ?? 'file'} size={22} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold">{s.title}</span>
+        <span className="line-clamp-2 break-words text-sm font-semibold leading-snug">{s.title}</span>
         <span className="text-muted block truncate text-xs">{s.summary}</span>
       </span>
       {done === undefined ? (

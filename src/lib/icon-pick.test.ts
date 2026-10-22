@@ -20,7 +20,7 @@ describe('the automatic icon asks AI', () => {
     expect(expensePickRequest('Toit', { category: 'other', catTouched: true }).categories).toBeUndefined()
   })
   it('a group chooses from the group icons, and a type only while none was chosen', () => {
-    expect(groupPickRequest('Kasol', { typeTouched: false }).types).toEqual(['trip', 'outing', 'event', 'home', 'couple', 'office'])
+    expect(groupPickRequest('Kasol', { typeTouched: false }).types).toEqual(['trip', 'outing', 'event', 'home', 'family', 'couple', 'office', 'sports'])
     expect(groupPickRequest('Kasol', { typeTouched: true }).types).toBeUndefined()
   })
   it('keeps only what was offered', () => {

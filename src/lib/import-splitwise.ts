@@ -277,7 +277,7 @@ const SPLITWISE_CATEGORIES: Record<string, Category> = {
   'household supplies': 'shopping',
   maintenance: 'utilities',
   services: 'utilities',
-  pets: 'shopping',
+  pets: 'pets',
   rent: 'rent',
   mortgage: 'rent',
   // Life
@@ -285,7 +285,7 @@ const SPLITWISE_CATEGORIES: Record<string, Category> = {
   gifts: 'gifts',
   'medical expenses': 'health',
   insurance: 'health',
-  education: 'other',
+  education: 'education',
   childcare: 'other',
   taxes: 'other',
   life: 'other',

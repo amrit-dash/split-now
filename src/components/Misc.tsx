@@ -3,6 +3,7 @@ import { ChevronLeft } from 'lucide-react'
 import { FeatureIcon } from './Icon'
 import type { UiIconName } from '@/lib/ui-icons'
 import { useBack } from '@/hooks/useBack'
+import { watchEdgeFade } from '@/hooks/useEdgeFade'
 import type { BackConfig } from '@/lib/back'
 import { type Hint, HintText, InfoTip } from '@/components/Hint'
 import { formatDate } from '@/lib/locale'
@@ -125,6 +126,8 @@ export function Segmented<T extends string>({
   // No slide for the first placement: only a change of choice moves it.
   const [moving, setMoving] = useState(false)
   const keys = options.map((o) => o.value).join('|')
+  // Many options on a narrow phone scroll sideways: fade the ends that have more (useEdgeFade).
+  useEffect(() => (wrap.current ? watchEdgeFade(wrap.current) : undefined), [])
   // biome-ignore lint/correctness/useExhaustiveDependencies: re-measure when the choice or the options change
   useLayoutEffect(() => {
     const el = wrap.current

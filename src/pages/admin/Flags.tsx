@@ -4,6 +4,7 @@ import { FLAG_INFO } from '@/lib/flags'
 import { Loading } from '@/components/Misc'
 import { Switch } from '@/components/Switch'
 import { ChangedBy, DirtyBar, SettingRow, useAppConfigDraft } from './common'
+import { useEdgeFade } from '@/hooks/useEdgeFade'
 
 /**
  * /admin/flags: the feature switches (config/app `flags`), one card per part of the app, so it is
@@ -11,6 +12,7 @@ import { ChangedBy, DirtyBar, SettingRow, useAppConfigDraft } from './common'
  * switches are on. Maintenance, the announcement and the rest of config/app are /admin/app.
  */
 export default function Flags() {
+  const fade = useEdgeFade()
   const { saved, cfg, set, dirty, saving, save, discard, loading, error } = useAppConfigDraft()
   if (loading) return <Loading />
   return (
@@ -22,7 +24,7 @@ export default function Flags() {
       )}
       <h2 className="px-1 text-lg font-extrabold">Feature flags</h2>
       <p className="text-muted mb-3 px-1 text-xs">Off hides the feature in the app (and stops it on the server where noted). A missing switch means on.</p>
-      <nav aria-label="Flag sections" className="scrollbar-none -mx-4 mb-1 overflow-x-auto px-4">
+      <nav ref={fade} aria-label="Flag sections" className="scrollbar-none -mx-4 mb-1 overflow-x-auto px-4">
         <div className="flex w-max gap-2">
           {FLAG_SECTIONS.map((s) => (
             <a
