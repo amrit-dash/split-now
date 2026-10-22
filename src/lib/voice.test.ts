@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import { barHeights, joinHeard, micRelease, pickRecorderMime, rmsToLevel, smoothLevel, transcribeFailText, transcribeOffer, voiceEngine } from './voice'
+import {
+  barHeights,
+  holdDrag,
+  isDoubleTap,
+  joinHeard,
+  liveTail,
+  meterBesideSpeech,
+  micRelease,
+  pickRecorderMime,
+  rmsToLevel,
+  smoothLevel,
+  transcribeFailText,
+  transcribeOffer,
+  voiceEngine,
+} from './voice'
 
 const offer = (o: Partial<Parameters<typeof transcribeOffer>[0]> = {}) =>
   transcribeOffer({
@@ -123,5 +137,43 @@ describe('pickRecorderMime', () => {
         throw new Error('no')
       }),
     ).toBeUndefined()
+  })
+})
+
+describe('hold to talk gestures', () => {
+  it('cancels once the finger slides far enough, any way', () => {
+    expect(holdDrag(0, 0)).toBe('talk')
+    expect(holdDrag(40, -40)).toBe('talk')
+    expect(holdDrag(-80, 0)).toBe('cancel')
+    expect(holdDrag(0, -73)).toBe('cancel')
+  })
+  it('knows a double tap', () => {
+    expect(isDoubleTap(null, 1000)).toBe(false)
+    expect(isDoubleTap(1000, 1300)).toBe(true)
+    expect(isDoubleTap(1000, 1401)).toBe(false)
+    expect(isDoubleTap(1000, 900)).toBe(false)
+  })
+})
+
+describe('liveTail', () => {
+  it('shows short lines whole', () => {
+    expect(liveTail('  dinner   1200 ')).toBe('dinner 1200')
+  })
+  it('keeps the latest words of a long line, cut at a word', () => {
+    const t = liveTail('dinner at the beach shack 1200 with Rahul and Priya, I paid', 30)
+    expect(t.startsWith('…')).toBe(true)
+    expect(t.endsWith('I paid')).toBe(true)
+    expect(t.length).toBeLessThanOrEqual(31)
+    expect(t.slice(1, 2)).not.toBe(' ')
+  })
+})
+
+describe('meterBesideSpeech', () => {
+  it('skips the second microphone on Apple WebKit only', () => {
+    expect(meterBesideSpeech('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1')).toBe(false)
+    expect(meterBesideSpeech('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 CriOS/130.0 Mobile/15E148 Safari/604.1')).toBe(false)
+    expect(meterBesideSpeech('Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 Version/18.0 Safari/605.1.15')).toBe(false)
+    expect(meterBesideSpeech('Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 Chrome/130.0 Safari/537.36')).toBe(true)
+    expect(meterBesideSpeech('Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/130.0 Mobile Safari/537.36')).toBe(true)
   })
 })

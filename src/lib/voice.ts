@@ -141,3 +141,35 @@ export function pickRecorderMime(supported: (t: string) => boolean): string | un
     }
   })
 }
+
+/** While holding + to talk, a finger that slides this far from where it pressed (any way) cancels on letting go. */
+export const HOLD_CANCEL_PX = 72
+
+/** Where the held finger has slid to: still talking, or letting go now cancels. */
+export const holdDrag = (dx: number, dy: number): 'talk' | 'cancel' => (Math.hypot(dx, dy) > HOLD_CANCEL_PX ? 'cancel' : 'talk')
+
+/** Two taps on + this close together, while it works out what was said, stop it. */
+export const DOUBLE_TAP_MS = 400
+
+export const isDoubleTap = (prev: number | null, now: number): boolean => prev !== null && now - prev >= 0 && now - prev <= DOUBLE_TAP_MS
+
+/** The running words in the talk pill: the latest ones, cut at a word with a leading ellipsis when long. */
+export function liveTail(text: string, max = 40): string {
+  const t = text.replace(/\s+/g, ' ').trim()
+  if (t.length <= max) return t
+  const cut = t.slice(t.length - max)
+  const space = cut.indexOf(' ')
+  return `…${space > 0 && space < max - 8 ? cut.slice(space + 1) : cut}`
+}
+
+/**
+ * Whether the bars may open their own microphone stream next to the phone's speech recognition.
+ * Apple's WebKit (every iPhone browser, and Safari on a Mac) gives the microphone to one of them
+ * only: a second stream can leave recognition hearing nothing ("Didn't catch that") and asks for
+ * the microphone a second time. There the bars follow the words heard instead.
+ */
+export function meterBesideSpeech(ua: string): boolean {
+  if (/iPhone|iPad|iPod/.test(ua)) return false
+  if (/Macintosh/.test(ua) && /Safari\//.test(ua) && !/Chrome|Chromium|Edg\//.test(ua)) return false
+  return true
+}

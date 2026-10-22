@@ -511,6 +511,27 @@ test('Voice: hold + inside a group to talk; letting go runs Quick add and opens 
   await expect(page.getByRole('textbox', { name: 'Description', exact: true })).toHaveValue('Dinner')
 })
 
+test('Voice: the pill shows the words as they come, and sliding away before letting go cancels', async ({ page }) => {
+  await fakeSpeech(page)
+  await page.goto('/groups/g_goa')
+  const plus = page.getByTestId('nav-create')
+  const box = await plus.boundingBox()
+  if (!box) throw new Error('no +')
+  const x = box.x + box.width / 2
+  const y = box.y + box.height / 2
+  await page.mouse.move(x, y)
+  await page.mouse.down()
+  const pill = page.getByTestId('voice-bars')
+  await expect(pill).toContainText('Dinner 1200')
+  await page.mouse.move(x, y - 120, { steps: 6 })
+  await expect(pill).toHaveAttribute('data-cancel', 'true')
+  await expect(pill).toContainText('Let go to cancel')
+  await page.mouse.up()
+  await expect(page.getByTestId('toasts')).toContainText('Cancelled')
+  await expect(plus).toHaveAttribute('data-voice', 'idle')
+  await expect(page).toHaveURL(/\/groups\/g_goa$/)
+})
+
 test('Voice: a line Quick add can’t act on gets a plain answer, not an empty form', async ({ page }) => {
   await fakeSpeech(page, 'Make me a sandwich')
   await page.goto('/groups/g_goa')

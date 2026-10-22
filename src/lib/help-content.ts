@@ -400,13 +400,15 @@ export const SECTIONS: HelpSection[] = [
     keywords: ['voice', 'talk', 'speak', 'say', 'mic', 'microphone', 'hold', 'dictate', 'transcription', 'transcribe'],
     steps: [
       { text: 'Press and hold **+**. It turns into a mic.', mark: 'hold' },
-      { text: 'Say it: “dinner 1200 with Rahul, I paid”. The bars move as you talk.', mark: 'speak' },
+      { text: 'Say it: “dinner 1200 with Rahul, I paid”. Your words show above + as you talk.', mark: 'speak' },
       { text: 'Let go. Quick add works it out.', mark: 'release' },
       { text: 'Add expense opens filled in. Check it and tap **Save**.', mark: 'save' },
     ],
     points: [
       'Your phone does the listening. It’s free.',
       'It keeps listening until you let go, even when you pause.',
+      'Changed your mind? Slide your finger away from + before letting go. It says **Let go to cancel**.',
+      'While it works out what you said, double tap **+** to stop it.',
       'In a group, a tap still adds an expense. Holding is for talking.',
       'A line it can’t act on gets a short answer instead.',
       'No speech on your phone? Holding + opens the Create sheet as before.',
