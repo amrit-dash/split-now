@@ -1,4 +1,5 @@
 import { OPEN_ITEM_EDIT_FIELDS } from '@/lib/open-items'
+import { withProAwarded } from '@/lib/pro'
 import { MAX_ATTACHED } from '@/lib/receipt-photo'
 import { blobToDataUrl } from '@/lib/image'
 import { archiveWrite, balanceEditMembers, expenseMemberIds, uidsOfMembers, unarchiveInvolved } from '../../shared/archive'
@@ -588,6 +589,15 @@ export function createLocalRepo(): Repo {
       // The same shape the firebase repo shares (photo, currency and Collect in my currency included).
       return p ? { ...memberProfileOf(p), photoURL: p.photoURL } : null
     },
+    async markPro(id) {
+      const p = state.profiles[id]
+      const next = p && withProAwarded(p, Date.now())
+      if (next) await repo.saveProfile(next)
+    },
+    async setProHidden(id, hidden) {
+      const p = state.profiles[id]
+      if (p && (p.proHidden === true) !== hidden) await repo.saveProfile({ ...p, proHidden: hidden })
+    },
     async uploadAvatar(_uid, jpeg) {
       return blobToDataUrl(jpeg)
     },
@@ -672,10 +682,13 @@ export function createLocalRepo(): Repo {
       const g = state.groups[group.id]
       const m = g?.members[memberId]
       if (!g || !m || m.uid !== actor()) return
-      const { photoURL: _old, ...rest } = m
+      const { photoURL: _old, pro: _pro, ...rest } = m
       state.groups[group.id] = {
         ...g,
-        members: { ...g.members, [memberId]: { ...rest, name: patch.name, ...(patch.photoURL ? { photoURL: patch.photoURL } : {}) } },
+        members: {
+          ...g.members,
+          [memberId]: { ...rest, name: patch.name, ...(patch.photoURL ? { photoURL: patch.photoURL } : {}), ...(patch.pro ? { pro: true } : {}) },
+        },
       }
       commit()
     },

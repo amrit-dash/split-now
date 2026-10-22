@@ -1,4 +1,5 @@
 import type { Group, MemberId, UserProfile } from '@/types'
+import { proShown } from './pro'
 
 /**
  * Member photos are denormalised into each group's `members` map (like names already are), so
@@ -22,10 +23,12 @@ export function sharedPhotoURL(url: string | undefined | null, allowData = false
 
 export const MAX_MEMBER_NAME = 100
 
-/** What a linked member's entry should say: their profile name and photo (none = remove it). */
+/** What a linked member's entry should say: their profile name, photo and Pro mark (none = remove it). */
 export interface OwnMemberPatch {
   name: string
   photoURL?: string
+  /** true while their Pro badge shows (src/lib/pro.ts); absent = remove it */
+  pro?: boolean
 }
 
 export interface PendingMemberSync {
@@ -35,11 +38,17 @@ export interface PendingMemberSync {
 }
 
 /**
- * Member entries of `uid` whose name or photo differ from the profile. A blank profile name
- * keeps the entry's name.
+ * Member entries of `uid` whose name, photo or Pro mark differ from the profile. A blank profile
+ * name keeps the entry's name.
  */
-export function ownMemberSyncs(groups: Group[], uid: string, profile: Pick<UserProfile, 'displayName' | 'photoURL'>, allowData = false): PendingMemberSync[] {
+export function ownMemberSyncs(
+  groups: Group[],
+  uid: string,
+  profile: Pick<UserProfile, 'displayName' | 'photoURL'> & Partial<Pick<UserProfile, 'proAt' | 'proHidden'>>,
+  allowData = false,
+): PendingMemberSync[] {
   const photo = sharedPhotoURL(profile.photoURL, allowData)
+  const pro = proShown(profile)
   const profileName = profile.displayName?.trim().slice(0, MAX_MEMBER_NAME)
   const out: PendingMemberSync[] = []
   for (const group of groups) {
@@ -47,8 +56,8 @@ export function ownMemberSyncs(groups: Group[], uid: string, profile: Pick<UserP
       // an entry you left behind isn't yours to edit any more (and the rules refuse it)
       if (!m || m.uid !== uid || typeof m.removedAt === 'number') continue
       const name = profileName || m.name
-      if (m.name === name && (m.photoURL ?? undefined) === photo) continue
-      out.push({ group, memberId, patch: photo ? { name, photoURL: photo } : { name } })
+      if (m.name === name && (m.photoURL ?? undefined) === photo && (m.pro === true) === pro) continue
+      out.push({ group, memberId, patch: { name, ...(photo ? { photoURL: photo } : {}), ...(pro ? { pro: true } : {}) } })
     }
   }
   return out

@@ -1,4 +1,5 @@
 import { OPEN_ITEM_EDIT_FIELDS } from '@/lib/open-items'
+import { withProAwarded } from '@/lib/pro'
 import { deleteApp, initializeApp, type FirebaseOptions } from 'firebase/app'
 import {
   EmailAuthProvider,
@@ -798,6 +799,21 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       const s = await getDoc(memberProfileRef(groupId, userId))
       return s.exists() ? (s.data() as MemberProfile) : null
     },
+    async markPro(userId) {
+      // The profile as this device has it (the auth provider keeps it warm), else the server's.
+      const p = await getDocFromCache(doc(db, 'users', userId))
+        .then((s) => (s.exists() ? (s.data() as UserProfile) : null))
+        .catch(() => repo.getProfile(userId).catch(() => null))
+      const next = p && withProAwarded(p, Date.now())
+      // saveProfile shares it with every group; the member sync (hooks/auth.tsx) marks the entries.
+      if (next) await repo.saveProfile(next)
+    },
+    async setProHidden(userId, hidden) {
+      const p = await getDocFromCache(doc(db, 'users', userId))
+        .then((s) => (s.exists() ? (s.data() as UserProfile) : null))
+        .catch(() => repo.getProfile(userId).catch(() => null))
+      if (p && (p.proHidden === true) !== hidden) await repo.saveProfile({ ...p, proHidden: hidden })
+    },
 
     watchGroups(userId, cb) {
       const q = query(collection(db, 'groups'), where('memberUids', 'array-contains', userId))
@@ -955,6 +971,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       batch.update(groupRef(group.id), {
         [`members.${memberId}.name`]: patch.name,
         [`members.${memberId}.photoURL`]: patch.photoURL ?? deleteField(),
+        [`members.${memberId}.pro`]: patch.pro === true ? true : deleteField(),
         memberOpId: memberId,
       })
       // Background sync: a refusal (e.g. rules not deployed yet) is not the user's problem.

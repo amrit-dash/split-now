@@ -15,6 +15,15 @@ describe('demo seed', () => {
     ])
   })
 
+  it('Rohan is Pro, so the badge shows in the demo; nobody else is', () => {
+    const pros = Object.values(s.groups).flatMap((g) =>
+      Object.values(g.members)
+        .filter((m) => m.pro === true)
+        .map((m) => m.name),
+    )
+    expect(pros).toEqual(['Rohan'])
+  })
+
   it('every expense balances to the paisa', () => {
     for (const e of expenses) {
       expect(Object.values(e.splits).reduce((a, b) => a + b, 0)).toBe(e.amount)

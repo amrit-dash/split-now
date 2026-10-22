@@ -310,6 +310,8 @@ users/{uid}                                   ← private: only the owner reads 
   payment?: { upi?, phone?, account?, ifsc?, payid?, bsb?, paypal?, revolut? }
   privateGroupsOn?: true    ← turned private groups on (Settings → Encrypted groups → Turn on private groups); they start off, and only then does the app offer to make one. Written only by the vault callable (`start`, `setUniversal`, `create`, `convert` on, and `status`'s backfill for someone with a universal pattern or a private group they made from before; `stop` deletes it), mirroring users/{uid}/secrets/vault `on`; no rules check, like privateGroupsOff. Off, someone can still be added to a private group and open it with its own pattern
   privateGroupsOff?: true   ← stopped using private groups (Settings → Encrypted groups): the app stops offering them. Written only by the vault callable (`stop` sets it, `start` and `setUniversal` clear it), mirroring users/{uid}/secrets/vault `off`; no rules check (it's the owner's own preference, enforced on the server)
+  proAt?: int (epoch ms) ← Pro: Help reached 100% (src/lib/pro.ts, repo.markPro). Cosmetic, set by the app with no server check; the rules keep it an int > 0 and refuse changing or removing it once set
+  proHidden?: bool         ← Preferences → Show my Pro badge, off: the member entries and group profiles lose `pro`, proAt stays
   approvalDefault?, editAutoApproveDefault?: { on: bool, amount (int 1..1e11), currency (3 letters) }  ← legacy, unused: the app no longer reads or writes them (approval is a group setting); the rules still validate them so old documents stay valid
 
 users/{uid}/captures/{id}                     ← the Inbox: captured payments waiting to be sorted (owner only)
@@ -353,7 +355,7 @@ groups/{groupId}                              ← readable/writable by members (
   captureOff?: bool (legacy group-wide capture pause: ignored, still allowed so old docs stay valid), archived?: bool (legacy group-wide archive: never set again; dropped when someone unarchives), archivedBy?: [uid] ≤ 60   ← each member adds or removes only their own uid, deletedAt?: int (the time of the write, ± 5 min), deletedBy?: uid   ← Recently deleted (30 days); creator, or any member once the creator left; any member restores
   vault?: true   ← private group (docs/VAULT.md): set when the group is created, or later by its creator through the vault callable (`convert`, which seals or opens everything in it); never by a client write (rules). Its words, name, emoji and people's names are tokens ("v1:…"), its key in vaultKeys/{gid}
   memberUids: string[] (≤ 60)                 ← used by security rules & queries
-  members: { [memberId]: { name, email?, uid?, color, photoURL? (https ≤ 2048), removedAt? (int, epoch ms) } } (≤ 60)
+  members: { [memberId]: { name, email?, uid?, color, photoURL? (https ≤ 2048), pro? (bool, their own app copies it like the photo: src/lib/pro.ts), removedAt? (int, epoch ms) } } (≤ 60)
                                               ← a member with an account keeps their own name + photo in step with their profile (isOwnMemberEdit, src/lib/memberSync.ts)
                                               ← removedAt: removed / left (soft remove, validMembershipChange). The entry stays so old expenses keep the
                                                 name and stay editable; their uid leaves memberUids (no access). Placeholders: any member; accounts: themselves
@@ -365,7 +367,8 @@ groups/{groupId}                              ← readable/writable by members (
   joinCode, joinMemberId                      ← set by the last join (rules)
 
 groups/{groupId}/profiles/{uid}               ← what a member shares with ONE group; written only by the owner
-  displayName, payment, photoURL? (https), currency? (3 letters, their home currency), collect? (bool, Collect in my currency)
+  displayName, payment, photoURL? (https), currency? (3 letters, their home currency), collect? (bool, Collect in my currency),
+  pro? (bool: their Pro badge shows; absent when not earned or turned off; rules check the type only)
 
 groups/{groupId}/expenses/{expenseId}
   groupId, description (≤ 200), amount (int > 0), category, icon? (≤ 80: one emoji, sealed in a private group), iconAuto? (only `true`: `icon` is the automatic one's AI pick), iconSvg? (≤ 4096, AI-drawn), iconImage? (≤ 24000 image data: URL, Draw a picture) (neither in a private group), date (ISO), notes? (≤ 2000)

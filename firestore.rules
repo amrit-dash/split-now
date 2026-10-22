@@ -76,12 +76,22 @@ service cloud.firestore {
         return validAmountSetting(p, 'approvalDefault') && validAmountSetting(p, 'editAutoApproveDefault');
       }
 
+      // Pro (src/lib/pro.ts): proAt is when Help reached 100% (epoch ms), set by the app once and
+      // never changed or removed after; proHidden is "Show my Pro badge" turned off. Cosmetic: the
+      // app sets them itself and nothing checks Help on the server, so these only keep the shape.
+      function validPro(p) {
+        return (!('proAt' in p) || (p.proAt is int && p.proAt > 0))
+          && (!('proHidden' in p) || p.proHidden is bool)
+          && (resource == null || !('proAt' in resource.data) || p.get('proAt', null) == resource.data.proAt);
+      }
+
       allow get: if isUser() && uid() == userId;
       allow list: if false;
       allow create, update: if isUser() && uid() == userId
         && request.resource.data.uid == userId
         && writesOpen()
-        && validApprovalDefault(request.resource.data);
+        && validApprovalDefault(request.resource.data)
+        && validPro(request.resource.data);
       allow delete: if isUser() && uid() == userId;
 
       // Captured transactions waiting to be sorted into a group: private to the user.
@@ -575,8 +585,9 @@ service cloud.firestore {
           );
       }
 
-      // A member with an account may edit their own entry's name and photo (copied from their
-      // profile by their app), named in memberOpId. Nothing else about membership changes.
+      // A member with an account may edit their own entry's name, photo and Pro mark (copied from
+      // their profile by their app; `pro` is cosmetic and unchecked, src/lib/pro.ts), named in
+      // memberOpId. Nothing else about membership changes.
       function isOwnMemberEdit() {
         let before = resource.data;
         let after = request.resource.data;
@@ -587,7 +598,8 @@ service cloud.firestore {
           && mdiff.changedKeys().size() == 1 && mdiff.changedKeys().hasOnly([op])
           && after.memberUids.toSet() == before.memberUids.toSet()
           && 'uid' in before.members[op] && before.members[op].uid == uid()
-          && m.diff(before.members[op]).affectedKeys().hasOnly(['name', 'photoURL'])
+          && m.diff(before.members[op]).affectedKeys().hasOnly(['name', 'photoURL', 'pro'])
+          && (!('pro' in m) || m.pro is bool)
           && m.name is string && m.name.size() > 0 && m.name.size() <= (after.get('vault', false) == true ? 200 : 100)
           && (!('photoURL' in m)
             || (m.photoURL is string && m.photoURL.size() <= 2048
@@ -1147,14 +1159,16 @@ service cloud.firestore {
           && (resource.data.authorUid == uid() || groupDoc(groupId).data.createdBy == uid());
       }
 
-      // Name + payment handles (+ profile photo URL) a member shares with this group only. Written by the owner
-      // (also in the same batch as creating/joining the group, hence getAfter).
+      // Name + payment handles (+ profile photo URL, currency, Collect in, and `pro` while their Pro badge
+      // shows: cosmetic, set by their own app, src/lib/pro.ts) a member shares with this group only.
+      // Written by the owner (also in the same batch as creating/joining the group, hence getAfter).
       match /profiles/{userId} {
         allow read: if isGroupMember(groupId);
         allow create, update: if isUser() && uid() == userId && writesOpen() && groupLive(groupId)
           && uid() in groupAfter(groupId).data.memberUids
-          && request.resource.data.keys().hasOnly(['displayName', 'payment', 'photoURL', 'currency', 'collect'])
+          && request.resource.data.keys().hasOnly(['displayName', 'payment', 'photoURL', 'currency', 'collect', 'pro'])
           && request.resource.data.displayName is string
+          && (!('pro' in request.resource.data) || request.resource.data.pro is bool)
           && (!('currency' in request.resource.data) || (request.resource.data.currency is string && request.resource.data.currency.size() == 3))
           && (!('collect' in request.resource.data) || request.resource.data.collect is bool)
           && (!('photoURL' in request.resource.data)
