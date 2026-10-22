@@ -2,6 +2,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { findMark, type Part, type PartItem, type Scene as SceneData, type Screen } from '@/lib/help-scenes'
 import type { SceneGlyph } from '@/lib/ui-icons'
 import {
+  AdvancedRocketIcon,
+  BotIcon,
   CameraIcon,
   ChatIcon,
   CheckCircleIcon,
@@ -11,15 +13,20 @@ import {
   GroupsIcon,
   HandCoinsIcon,
   HomeIcon,
+  ImageAddIcon,
   LiveTableIcon,
   LockIcon,
   MailIcon,
   ProfileIcon,
   ReceiptIcon,
+  SettingsIcon,
+  SimpleModeIcon,
   SplitIcon,
 } from '@/components/icons'
-import type { AppIcon } from '@/components/Icon'
-import { ArrowDownUp, Search } from 'lucide-react'
+import { type AppIcon, FeatureIcon } from '@/components/Icon'
+import { burstDots, MODE_SWITCH } from '@/lib/mode-icon'
+import { ArrowDownUp, Check, Search } from 'lucide-react'
+import './help-motion.css'
 
 /**
  * One main feature's scene in Help (src/lib/help-scenes.ts): a small phone showing the screen
@@ -132,7 +139,10 @@ export function Scene({ scene, mark, step, still }: { scene: SceneData; mark?: s
           <span
             key={`dot-${step}`}
             className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand-600 shadow ring-2 ring-white dark:ring-ink-950"
-            style={still ? undefined : { animation: `help-dot 260ms cubic-bezier(0.23, 1, 0.32, 1) ${GLIDE}ms both` }}
+            // After the press the finger lifts: the dot fades back, so a small part it pressed (an icon) shows its change.
+            style={
+              still ? undefined : { animation: `help-dot 260ms cubic-bezier(0.23, 1, 0.32, 1) ${GLIDE}ms both, hm-lift 300ms ease-out ${GLIDE + 450}ms both` }
+            }
           />
         </div>
       )}
@@ -288,21 +298,39 @@ function PartView({ part: p, mark, step, still }: { part: Part; mark?: string; s
           })}
         </div>
       )
-    case 'tiles':
+    case 'tiles': {
+      // Help's own tiles: a tick on the finished ones, a dot on the rest; a step in `alsoOn` ticks the next one.
+      const next = p.done && mark && p.alsoOn?.includes(mark) ? (p.items ?? []).findIndex((x) => !x.on) : -1
       return (
         <div className="grid grid-cols-2 gap-1.5">
-          {(p.items ?? []).map((it) => (
-            <div
-              key={it.label}
-              {...(it.mark ? { 'data-mark': it.mark } : {})}
-              className={`flex flex-col items-center gap-0.5 rounded-xl bg-white p-1.5 text-[0.6rem] font-semibold shadow-sm dark:bg-ink-800 ${it.mark && it.mark === mark ? hit : ''}`}
-            >
-              <ItemFace it={it} size={16} className="text-base" />
-              {it.label}
-            </div>
-          ))}
+          {(p.items ?? []).map((it, i) => {
+            const done = !!p.done && (!!it.on || i === next)
+            return (
+              <div
+                key={it.label}
+                {...(it.mark ? { 'data-mark': it.mark } : {})}
+                className={`relative flex flex-col items-center gap-0.5 rounded-xl bg-white p-1.5 text-[0.6rem] font-semibold shadow-sm dark:bg-ink-800 ${done ? 'ring-[1.5px] ring-inset ring-brand-500/70' : ''} ${it.mark && it.mark === mark ? hit : ''}`}
+              >
+                {p.done &&
+                  (done ? (
+                    <span
+                      key={`tick-${i === next ? step : 0}`}
+                      className="absolute right-1 top-1 flex h-3 w-3 items-center justify-center rounded-full bg-fill text-on-fill"
+                      style={i === next && !still ? { animation: `sx-pop 320ms cubic-bezier(0.23, 1, 0.32, 1) ${GLIDE + 150}ms both` } : undefined}
+                    >
+                      <Check size={8} strokeWidth={3.5} />
+                    </span>
+                  ) : (
+                    <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-brand-500" />
+                  ))}
+                <ItemFace it={it} size={16} className="text-base" />
+                {it.label}
+              </div>
+            )
+          })}
         </div>
       )
+    }
     case 'list':
       return (
         <div {...tag} className={`rounded-xl bg-white p-1.5 shadow-sm dark:bg-ink-800 ${ring}`}>
@@ -412,10 +440,11 @@ function PartView({ part: p, mark, step, still }: { part: Part; mark?: string; s
           <svg viewBox="0 0 36 36" className="h-12 w-12 -rotate-90">
             {
               [
+                // The accent's own shades, like the app's Donut: every accent and dark mode keep it in their colours.
                 [40, 'var(--color-brand-500)'],
-                [25, 'var(--color-duo-500, #f59e0b)'],
-                [20, '#10b981'],
-                [15, '#94a3b8'],
+                [25, 'var(--color-duo-500)'],
+                [20, 'var(--color-brand-300)'],
+                [15, 'var(--color-duo-200)'],
               ].reduce<{ at: number; els: React.ReactNode[] }>(
                 (acc, [v, c], i) => {
                   acc.els.push(
@@ -487,6 +516,93 @@ function PartView({ part: p, mark, step, still }: { part: Part; mark?: string; s
           )}
         </div>
       )
+    case 'header': {
+      // Profile's header: the title, then the mode icon (ModeButton) and Settings as round buttons.
+      const btn = p.items?.[0]
+      const advanced = !!mark && (btn?.mark === mark || !!p.alsoOn?.includes(mark))
+      return (
+        <div className="flex items-center justify-between pb-1">
+          <span className="truncate text-[0.8rem] font-bold">{p.label}</span>
+          <span className="flex items-center gap-0.5">
+            <span
+              {...(btn?.mark ? { 'data-mark': btn.mark } : {})}
+              className={`relative flex h-7 w-7 items-center justify-center rounded-full text-brand-600 dark:text-brand-300 ${btn?.mark && btn.mark === mark ? hit : ''}`}
+            >
+              <ModeSwap key={`mode-${step}`} switching={btn?.mark === mark && !still} advanced={advanced} />
+            </span>
+            <span className="flex h-7 w-7 items-center justify-center rounded-full text-slate-700 dark:text-slate-200">
+              <SettingsIcon size={14} />
+            </span>
+          </span>
+        </div>
+      )
+    }
+    case 'toast': {
+      // The app's toast: shown on its own step, and after the press on a step that brings it (`alsoOn`).
+      const own = !!mark && p.mark === mark
+      const brought = !!mark && !!p.alsoOn?.includes(mark)
+      if (!own && !brought) return null
+      return (
+        <div
+          className="mt-auto flex items-center gap-1.5 rounded-xl bg-slate-900/95 py-1 pl-2 pr-0.5 text-[0.55rem] font-medium text-white shadow-lg ring-1 ring-white/10 dark:bg-ink-700/95"
+          style={still ? undefined : { animation: `sx-in 260ms cubic-bezier(0.23, 1, 0.32, 1) ${own ? 0 : GLIDE + 350}ms both` }}
+        >
+          <CheckCircleIcon size={11} className="shrink-0 text-emerald-400" />
+          <span className="min-w-0 flex-1 truncate">{p.label}</span>
+          <span {...tag} className={`shrink-0 rounded-lg px-1.5 py-1 font-bold text-brand-300 ${own ? hit : ''}`}>
+            {p.value}
+          </span>
+        </div>
+      )
+    }
+    case 'scancard': {
+      // Scan's card as the app draws it (ScanCard, ScanIntro, ScanAiCorner).
+      const [cam, lib, ai] = p.items ?? []
+      return (
+        <div className="relative overflow-hidden rounded-xl bg-white shadow-sm dark:bg-ink-800">
+          {ai && (
+            <span
+              {...(ai.mark ? { 'data-mark': ai.mark } : {})}
+              className={`absolute right-1 top-1 flex h-4 items-center gap-0.5 rounded-full px-1.5 text-[0.48rem] font-semibold shadow-sm ${ai.on ? 'bg-fill text-on-fill' : 'bg-white/90 text-slate-600 ring-1 ring-slate-200 dark:bg-ink-900/85 dark:text-slate-300 dark:ring-white/10'} ${ai.mark && ai.mark === mark ? hit : ''}`}
+            >
+              <BotIcon size={9} solid={ai.on} />
+              {ai.label}
+            </span>
+          )}
+          <div className="flex flex-col items-center px-3 pb-2 pt-5 text-center">
+            <span className="mb-1.5 flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-to-br from-fill-500 to-fill-to text-on-fill shadow">
+              <FeatureIcon name="receipt" size={20} tone="current" />
+            </span>
+            <span className="text-[0.7rem] font-bold">{p.label}</span>
+            <span className="text-muted text-[0.5rem]">The total, items and date</span>
+          </div>
+          <div className="grid grid-cols-2 gap-1.5 px-2 pb-2">
+            {[cam, lib].map(
+              (it, i) =>
+                it && (
+                  <span
+                    key={it.label}
+                    {...(it.mark ? { 'data-mark': it.mark } : {})}
+                    className={`flex items-center justify-center gap-1 rounded-xl py-1.5 text-[0.6rem] font-bold transition-transform duration-150 ${i === 0 ? 'bg-fill text-on-fill' : 'bg-slate-100 text-slate-700 dark:bg-ink-700 dark:text-slate-100'} ${it.mark && it.mark === mark ? `${hit} ${still ? '' : 'scale-[0.97] delay-[450ms]'}` : ''}`}
+                  >
+                    {i === 0 ? <CameraIcon size={11} /> : <ImageAddIcon size={11} />}
+                    {it.label}
+                  </span>
+                ),
+            )}
+          </div>
+        </div>
+      )
+    }
+    case 'helphead':
+      return (
+        <div className="flex items-center justify-between pb-1">
+          <span className="truncate text-[0.8rem] font-bold">{p.label}</span>
+          <span {...tag} className={`rounded-full ${ring}`}>
+            <MiniRing from={Number(p.value ?? 0)} to={on ? Number(p.value ?? 0) + 20 : Number(p.value ?? 0)} still={still} step={step} />
+          </span>
+        </div>
+      )
     case 'message':
       return (
         <div {...tag} className={`rounded-xl bg-slate-800 p-2 text-[0.6rem] text-white shadow ${ring} ${still ? '' : 'animate-[help-in_0.4s_ease-out_both]'}`}>
@@ -533,5 +649,98 @@ function QrArt() {
         <span key={i} className={c ? 'bg-slate-900' : ''} />
       ))}
     </span>
+  )
+}
+
+/**
+ * The mode icon in a scene, as ModeButton switches it: the leaf shrinks away, the Advanced picture
+ * pops in filled with a small overshoot, a burst of accent dots and a faint wash spread from it,
+ * then it settles to the line look. It starts at the press. Without `switching`, the icon at rest.
+ */
+function ModeSwap({ switching, advanced }: { switching: boolean; advanced: boolean }) {
+  if (!switching) return advanced ? <AdvancedRocketIcon size={14} /> : <SimpleModeIcon size={14} />
+  const T = MODE_SWITCH
+  const at = (ms: number) => `${GLIDE + ms}ms`
+  return (
+    <span className="absolute inset-0 flex items-center justify-center">
+      <span
+        className="pointer-events-none absolute inset-0 m-auto h-3 w-3 rounded-full"
+        style={{
+          opacity: 0,
+          background:
+            'radial-gradient(circle, color-mix(in oklab, var(--color-brand-500) 30%, transparent), color-mix(in oklab, var(--color-duo-500) 12%, transparent) 60%, transparent 72%)',
+          animation: `hm-wash ${T.washFor}ms cubic-bezier(0.2, 0.6, 0.3, 1) ${at(T.washAt)} both`,
+        }}
+      />
+      <span className="absolute inset-0 flex items-center justify-center" style={{ animation: `hm-exit ${T.exit}ms ease-in ${at(0)} both` }}>
+        <SimpleModeIcon size={14} />
+      </span>
+      <span className="absolute inset-0 flex items-center justify-center" style={{ animation: `hm-enter ${T.total}ms linear ${at(0)} both` }}>
+        <span className="absolute inset-0 flex items-center justify-center" style={{ opacity: 0, animation: `hm-solid ${T.total}ms linear ${at(0)} both` }}>
+          <AdvancedRocketIcon size={14} solid />
+        </span>
+        <span className="absolute inset-0 flex items-center justify-center" style={{ animation: `hm-line ${T.total}ms linear ${at(0)} both` }}>
+          <AdvancedRocketIcon size={14} />
+        </span>
+      </span>
+      {SCENE_DOTS.map((d) => (
+        <span
+          key={`${d.dx},${d.dy}`}
+          className="pointer-events-none absolute left-1/2 top-1/2 -ml-[1.5px] -mt-[1.5px] h-[3px] w-[3px] rounded-full"
+          style={
+            {
+              opacity: 0,
+              background: d.tone === 'brand' ? 'var(--color-brand-500)' : 'var(--color-duo-500)',
+              '--dx': `${d.dx}px`,
+              '--dy': `${d.dy}px`,
+              animation: `hm-burst ${T.dotsFor}ms cubic-bezier(0.2, 0.7, 0.3, 1) ${at(T.dotsAt)} both`,
+            } as React.CSSProperties
+          }
+        />
+      ))}
+    </span>
+  )
+}
+
+/** ModeButton's burst, scaled to the scene's smaller button. */
+const SCENE_DOTS = burstDots().map((d) => ({ ...d, dx: Math.round(d.dx * 0.6), dy: Math.round(d.dy * 0.6) }))
+
+/** Help's progress ring, small: it fills from `from` to `to` (%) at the press, and its number follows. */
+function MiniRing({ from, to, still, step }: { from: number; to: number; still: boolean; step: number }) {
+  const [shown, setShown] = useState(to)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: each play of the step fills it again
+  useEffect(() => {
+    if (still || to === from) return setShown(to)
+    setShown(from)
+    const t = setTimeout(() => setShown(to), GLIDE + 150)
+    return () => clearTimeout(t)
+  }, [from, to, still, step])
+  const r = 11
+  const c = 2 * Math.PI * r
+  return (
+    <svg width="28" height="28" viewBox="0 0 28 28" className="block">
+      <defs>
+        <linearGradient id="help-scene-ring" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" style={{ stopColor: 'var(--color-brand-600)' }} />
+          <stop offset="1" style={{ stopColor: 'var(--color-duo-500)' }} />
+        </linearGradient>
+      </defs>
+      <circle cx="14" cy="14" r={r} fill="none" stroke="currentColor" strokeOpacity=".12" strokeWidth="3" />
+      <circle
+        cx="14"
+        cy="14"
+        r={r}
+        fill="none"
+        stroke="url(#help-scene-ring)"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeDasharray={`${(c * shown) / 100} ${c}`}
+        transform="rotate(-90 14 14)"
+        style={{ transition: still ? 'none' : 'stroke-dasharray 600ms cubic-bezier(0.23, 1, 0.32, 1)' }}
+      />
+      <text x="14" y="14" textAnchor="middle" dominantBaseline="central" className="fill-current text-[7px] font-extrabold">
+        {shown}%
+      </text>
+    </svg>
   )
 }

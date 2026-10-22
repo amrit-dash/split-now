@@ -1854,7 +1854,7 @@ test('help: a section that isn’t a main feature plays its own steps too', asyn
 
 test('help: How it works opens an explainer whose picture follows the caption', async ({ page }) => {
   await page.goto('/help')
-  await expect(page.getByTestId('help-story-card')).toHaveCount(6)
+  await expect(page.getByTestId('help-story-card')).toHaveCount(9)
   await page.getByTestId('help-story-card').first().click()
   await expect(page).toHaveURL(/\/help\/how-it-works$/)
   await expect(page.getByTestId('help-story')).toBeVisible()
@@ -2260,11 +2260,13 @@ test('Help: a section read to its end is ticked, and the ring moves off 0%', asy
   await page.goto('/help')
   const ring = page.getByTestId('help-ring')
   await expect(ring).toHaveAttribute('aria-label', /Help 0% done/)
-  await page.goto('/help/simple-advanced')
-  await expect(page.getByTestId('help-section')).toBeVisible()
-  await page.mouse.wheel(0, 2000)
-  await page.goto('/help?q=simple')
-  const row = page.getByTestId('help-row').filter({ hasText: 'Simple and Advanced' })
+  // An explainer is read once its last part has been shown.
+  await page.goto('/help/modes-explained')
+  await expect(page.getByTestId('help-story')).toBeVisible()
+  await page.getByTestId('help-beat').last().click()
+  await expect(page.getByTestId('help-story')).toHaveAttribute('data-beat', '2')
+  await page.goto('/help?q=drawers')
+  const row = page.getByTestId('help-row').filter({ hasText: 'Simple and Advanced, the same app' })
   await expect(row).toHaveAttribute('data-done', 'true')
   await expect(page.getByTestId('help-ring')).not.toHaveAttribute('aria-label', /Help 0% done/)
 })

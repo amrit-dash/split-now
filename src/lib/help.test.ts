@@ -162,15 +162,25 @@ describe('the step player and the front page', () => {
       'splits-add-up',
       'private-groups-explained',
       'auto-capture-explained',
+      'captured-explained',
+      'modes-explained',
+      'collect-explained',
     ])
     expect(g.core.length).toBe(10)
     const rest = g.chapters.flatMap((c) => c.sections)
-    expect(rest.some((s) => s.core || s.story)).toBe(false)
+    expect(rest.some((s) => s.core || (s.story && !s.inChapter))).toBe(false)
     expect(g.chapters.every((c) => c.sections.length > 0)).toBe(true)
     expect(g.stories.length + g.core.length + rest.length).toBe(SECTIONS.filter((s) => !s.unlisted).length)
     // Help about Help isn't on Help's own front page, but links and search still reach it
     expect(g.chapters.flatMap((c) => c.sections).some((s) => s.id === 'help-guide')).toBe(false)
     expect(searchHelp('What’s new', SECTIONS)[0].id).toBe('help-guide')
+  })
+  it('an explainer marked inChapter stays in its chapter: Earn Pro ends Insights and settings, not How it works', () => {
+    const g = guideLayout(CHAPTERS, SECTIONS)
+    expect(g.stories.some((s) => s.id === 'earn-pro')).toBe(false)
+    const account = g.chapters.find((c) => c.chapter.id === 'account')?.sections ?? []
+    expect(account[account.length - 1].id).toBe('earn-pro')
+    expect(SECTIONS.find((s) => s.id === 'earn-pro')?.story?.kind).toBe('pro')
   })
 })
 

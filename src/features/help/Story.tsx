@@ -1,5 +1,9 @@
 import { type CSSProperties, type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { FeatureIcon } from '@/components/Icon'
+import { AdvancedRocketIcon, SimpleModeIcon } from '@/components/icons'
 import type { StoryKind } from '@/lib/help'
+import type { UiIconName } from '@/lib/ui-icons'
+import './help-motion.css'
 
 /**
  * The explainers' pictures in Help (src/lib/help-content.ts `story`): an everyday picture of how a
@@ -89,8 +93,11 @@ function At({ x, y, children, style, className = '' }: { x: number; y: number; c
   )
 }
 
-/** An entrance: pops (with a little overshoot) or rises in, after `d` ms. */
-const pop = (d = 0, ms = 520): CSSProperties => ({ animation: `sx-pop ${ms}ms cubic-bezier(0.34, 1.56, 0.64, 1) ${d}ms both` })
+/**
+ * An entrance: pops or rises in, after `d` ms. The pop's keyframe already swells a touch (to 1.06);
+ * an ease-out curve on top keeps it quiet, with no second bounce.
+ */
+const pop = (d = 0, ms = 480): CSSProperties => ({ animation: `sx-pop ${ms}ms cubic-bezier(0.23, 1, 0.32, 1) ${d}ms both` })
 const rise = (d = 0, ms = 520): CSSProperties => ({ animation: `sx-in ${ms}ms cubic-bezier(0.23, 1, 0.32, 1) ${d}ms both` })
 const out = (d = 0, ms = 400): CSSProperties => ({ opacity: 0, animation: `sx-out ${ms}ms cubic-bezier(0.23, 1, 0.32, 1) ${d}ms both` })
 
@@ -129,8 +136,15 @@ function Person({ name, size = 40, label = true }: { name: string; size?: number
   return (
     <div className="flex flex-col items-center gap-1" style={ambient(`sx-breathe 3.2s ease-in-out ${(name.length % 4) * -0.7}s infinite`)}>
       <div
-        className="flex items-center justify-center rounded-full font-bold text-white shadow-[0_6px_16px_-6px_rgba(76,29,149,0.55)] ring-[3px] ring-white dark:ring-ink-900"
-        style={{ width: size, height: size, fontSize: size * 0.36, background: `linear-gradient(140deg, ${c.from}, ${c.to})` }}
+        className="flex items-center justify-center rounded-full font-bold text-white ring-[3px] ring-white dark:ring-ink-900"
+        style={{
+          width: size,
+          height: size,
+          fontSize: size * 0.36,
+          background: `linear-gradient(140deg, ${c.from}, ${c.to})`,
+          // the accent's own shade, so the shadow never reads violet on another accent
+          boxShadow: '0 6px 16px -6px color-mix(in oklab, var(--color-brand-700) 55%, transparent)',
+        }}
       >
         {name.slice(0, 1)}
       </div>
@@ -150,7 +164,7 @@ function Coin({ label = '₹', size = 26, spin }: { label?: string; size?: numbe
         fontSize: label.length > 2 ? size * 0.3 : size * 0.42,
         background: 'radial-gradient(circle at 32% 28%, #fff7d1 0%, #fcd34d 32%, #f59e0b 70%, #b45309 100%)',
         boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.45), inset 0 -2px 0 rgba(146,64,14,0.35), 0 4px 10px -3px rgba(180,83,9,0.6)',
-        animation: spin ? 'sx-spin-y 0.55s linear infinite' : undefined,
+        animation: spin ? 'sx-spin-y 1.1s ease-in-out infinite' : undefined,
       }}
     >
       {label}
@@ -825,14 +839,14 @@ const Remainder: View = ({ beat, still }) => {
         </Pill>
       </At>
       {beat === 1 && (
-        <At x={180} y={155} style={{ animation: 'sx-hop 1300ms ease-out 500ms both' }}>
-          <Coin label="1p" size={30} spin={!still} />
+        <At x={180} y={154} style={{ animation: 'sx-hop 1300ms ease-out 500ms both' }}>
+          <Coin label="1p" size={24} spin={!still} />
         </At>
       )}
       {beat === 2 && (
         <>
-          <Fly path="M180,160 Q120,170 76,96" ms={900} d={250} vanish>
-            <Coin label="1p" size={30} spin />
+          <Fly path="M180,154 Q120,170 76,96" ms={900} d={250} vanish>
+            <Coin label="1p" size={24} spin />
           </Fly>
           <Sparkles x={76} y={92} d={1150} spread={44} />
         </>
@@ -916,7 +930,7 @@ const Vault: View = ({ beat }) => {
       </At>
       {/* the phone of someone in the group */}
       <At x={286} y={118}>
-        <div className="relative h-[168px] w-[86px] rounded-[18px] bg-slate-900 p-[5px] shadow-xl ring-1 ring-white/10">
+        <div className="relative h-[168px] w-[86px] rounded-[18px] bg-slate-900 p-[5px] shadow-xl ring-1 ring-white/10 dark:bg-slate-950 dark:ring-white/20">
           <div className="relative flex h-full w-full flex-col items-center justify-center gap-1.5 overflow-hidden rounded-[14px] bg-gradient-to-b from-brand-50 to-white dark:from-ink-800 dark:to-ink-900">
             <div className="absolute top-1.5 h-1 w-8 rounded-full bg-slate-900/80" />
             {beat === 0 && (
@@ -987,12 +1001,15 @@ const Vault: View = ({ beat }) => {
       )}
       {/* beat 3: the label outside the box: amounts, dates and who paid */}
       {beat === 2 && (
-        <div className="absolute" style={{ left: 120, top: 136, transformOrigin: '30px 0px', animation: 'sx-swing 1500ms ease-out 200ms both' }}>
-          <div className="mx-auto h-8 w-px bg-slate-400" style={{ marginLeft: 30 }} />
-          <div className="-mt-0.5 rounded-lg bg-amber-100 px-2.5 py-1.5 text-[10px] font-bold leading-tight text-amber-900 shadow-lg ring-1 ring-amber-300">
-            <div className="mx-auto mb-1 h-1.5 w-1.5 rounded-full bg-amber-300" />
+        <div
+          className="absolute"
+          style={{ left: 120, top: 136, transformOrigin: '30px 0px', animation: 'hm-swing 1100ms cubic-bezier(0.23, 1, 0.32, 1) 200ms both' }}
+        >
+          <div className="mx-auto h-8 w-px bg-slate-400 dark:bg-slate-500" style={{ marginLeft: 30 }} />
+          <div className="-mt-0.5 rounded-lg bg-duo-50 px-2.5 py-1.5 text-[10px] font-bold leading-tight text-duo-900 shadow-lg ring-1 ring-duo-300 dark:bg-duo-900 dark:text-duo-50 dark:ring-duo-500/60">
+            <div className="mx-auto mb-1 h-1.5 w-1.5 rounded-full bg-duo-300 dark:bg-duo-500" />
             ₹2,400 · 12 Oct
-            <div className="font-semibold text-amber-800">paid by person 1</div>
+            <div className="font-semibold text-duo-800 dark:text-duo-200">paid by person 1</div>
           </div>
         </div>
       )}
@@ -1241,4 +1258,521 @@ const Filter: View = ({ beat }) => (
   </>
 )
 
-const VIEWS: Record<StoryKind, View> = { pot: Pot, seesaw: Seesaw, untangle: Untangle, remainder: Remainder, vault: Vault, filter: Filter }
+// ---- Simple and Advanced: one kitchen, fewer drawers open -----------------------------------------
+
+/*
+ * A kitchen cabinet with six drawers. The left column is what Simple shows (groups, expenses,
+ * settling up), the right what Advanced adds. Simple opens the left; Advanced opens the rest;
+ * back in Simple the right ones close, and a small light on each says it is still working.
+ */
+const DRAWERS = [
+  { label: 'Groups', icon: 'users', simple: true },
+  { label: 'Auto-capture', icon: 'trayDown', simple: false },
+  { label: 'Expenses', icon: 'receipt', simple: true },
+  { label: 'Approvals', icon: 'checkCircle', simple: false },
+  { label: 'Settle up', icon: 'money', simple: true },
+  { label: 'Wallets', icon: 'wallet', simple: false },
+] as const satisfies ReadonlyArray<{ label: string; icon: UiIconName; simple: boolean }>
+const CAB = { left: 46, top: 46, w: 268, h: 176 }
+const DRAWER = { w: 116, h: 42, open: 8 }
+const drawerAt = (i: number) => ({ left: CAB.left + 12 + (i % 2) * (DRAWER.w + 12), top: CAB.top + 18 + Math.floor(i / 2) * 52 })
+
+/** Whether a drawer is open at the end of a beat: Simple's always; Advanced's only on the middle beat. */
+const drawerOpen = (beat: number, simple: boolean) => simple || beat === 1
+
+const Drawers: View = ({ beat }) => (
+  <>
+    <At x={180} y={22} style={pop(0)}>
+      <Pill tone={beat === 1 ? 'accent' : 'even'}>
+        {beat === 1 ? <AdvancedRocketIcon size={12} /> : <SimpleModeIcon size={12} />}
+        {beat === 1 ? 'Advanced' : beat === 2 ? 'Simple · all still working' : 'Simple'}
+      </Pill>
+    </At>
+    {/* the cabinet and its worktop */}
+    <div
+      className="absolute rounded-[22px] bg-white/80 shadow-[0_14px_30px_-18px_rgba(15,23,42,0.45)] ring-1 ring-brand-100 dark:bg-white/[0.04] dark:shadow-none dark:ring-white/10"
+      style={{ left: CAB.left, top: CAB.top, width: CAB.w, height: CAB.h }}
+    />
+    <div
+      className="absolute h-2 rounded-full bg-gradient-to-r from-brand-300 to-brand-600 dark:from-brand-400 dark:to-brand-700"
+      style={{ left: CAB.left - 8, top: CAB.top - 4, width: CAB.w + 16 }}
+    />
+    {DRAWERS.map((dw, i) => {
+      const at = drawerAt(i)
+      const open = drawerOpen(beat, dw.simple)
+      // What moved this beat: Simple's open on the first; Advanced's open on the second and close on the third.
+      const order = Math.floor(i / 2)
+      const opens = (beat === 0 && dw.simple) || (beat === 1 && !dw.simple)
+      const closes = beat === 2 && !dw.simple
+      const motion: CSSProperties | undefined = opens
+        ? ({ '--from': 'translateY(0)', animation: `hm-from 420ms cubic-bezier(0.23, 1, 0.32, 1) ${350 + order * 220}ms both` } as CSSProperties)
+        : closes
+          ? ({ '--from': `translateY(${DRAWER.open}px)`, animation: `hm-from 360ms cubic-bezier(0.4, 0, 0.2, 1) ${200 + order * 180}ms both` } as CSSProperties)
+          : undefined
+      return (
+        <div key={dw.label} className="absolute" style={{ left: at.left, top: at.top, width: DRAWER.w, height: DRAWER.h }}>
+          {/* the inside, seen once the front slides out: a few things in the accent's colours */}
+          <div className="absolute inset-x-1 top-0 flex h-3 items-center gap-1 rounded-t-lg bg-brand-100 px-2 dark:bg-brand-900/60">
+            <span className="h-1.5 w-4 rounded-full bg-brand-400" />
+            <span className="h-1.5 w-2.5 rounded-full bg-duo-400" />
+            <span className="h-1.5 w-3 rounded-full bg-brand-300 dark:bg-brand-500" />
+          </div>
+          <div
+            className={`absolute inset-0 flex items-center gap-1.5 rounded-xl px-2 ring-1 ${open ? 'bg-white shadow-[0_8px_16px_-8px_rgba(15,23,42,0.4)] ring-brand-200 dark:bg-ink-800 dark:ring-white/15' : 'bg-slate-50 ring-slate-200 dark:bg-ink-900 dark:ring-white/10'}`}
+            style={{ transform: `translateY(${open ? DRAWER.open : 0}px)`, ...motion }}
+          >
+            <span className={open ? '' : 'opacity-40 grayscale'}>
+              <FeatureIcon name={dw.icon} size={16} />
+            </span>
+            <span
+              className={`min-w-0 flex-1 truncate text-[10px] font-bold leading-none ${open ? 'text-slate-800 dark:text-white' : 'text-slate-400 dark:text-slate-500'}`}
+            >
+              {dw.label}
+            </span>
+            {/* closed again on the last beat: a small light says it keeps working */}
+            {beat === 2 && !dw.simple && (
+              <span className="absolute right-1.5 top-1.5 flex h-2 w-2" style={pop(900 + order * 180, 360)}>
+                <span className="absolute inset-0 rounded-full bg-brand-400" style={ambient('hm-glow 2.4s ease-in-out infinite')} />
+                <span className="relative h-2 w-2 rounded-full bg-brand-500" />
+              </span>
+            )}
+          </div>
+          {/* the handle */}
+          <div
+            className="absolute bottom-1 left-1/2 h-1 w-7 -translate-x-1/2 rounded-full bg-slate-300 dark:bg-white/20"
+            style={{ transform: `translateY(${open ? DRAWER.open : 0}px)`, ...motion }}
+          />
+        </div>
+      )
+    })}
+    <At x={CAB.left + 12 + DRAWER.w / 2} y={CAB.top + CAB.h + 12}>
+      <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Simple</span>
+    </At>
+    <At x={CAB.left + 24 + DRAWER.w * 1.5} y={CAB.top + CAB.h + 12}>
+      <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Advanced adds</span>
+    </At>
+  </>
+)
+
+// ---- One total from many currencies: through today's rate ---------------------------------------------
+
+/*
+ * Three amounts in three currencies on the left, a lit gate in the middle (today's rate), and the
+ * same amounts in your currency on the right; then they gather into one total, marked ≈.
+ */
+const CUR = [
+  { from: '$40', group: 'Bali trip', to: '₹3,360', rate: '$1 = ₹84', y: 76 },
+  { from: '€25', group: 'Paris', to: '₹2,275', rate: '€1 = ₹91', y: 130 },
+  { from: '₹1,200', group: 'Flat', to: '₹1,200', rate: 'already ₹', y: 184 },
+]
+const RATE_GATE = { x: 180, top: 58, bottom: 202 }
+
+function MoneyCard({ big, small, accent }: { big: string; small: string; accent?: boolean }) {
+  return (
+    <div
+      className={`flex w-[104px] flex-col items-center justify-center rounded-2xl px-2 py-1.5 text-center shadow-md ring-1 ${accent ? 'bg-brand-50 ring-brand-200 dark:bg-brand-900/50 dark:ring-brand-400/40' : 'bg-white ring-slate-200 dark:bg-ink-800 dark:ring-white/10'}`}
+    >
+      <span className="text-[15px] font-black leading-none tabular-nums text-slate-800 dark:text-white">{big}</span>
+      <span className="mt-1 whitespace-nowrap text-[9px] font-semibold leading-none text-slate-500 dark:text-slate-400">{small}</span>
+    </div>
+  )
+}
+
+const Exchange: View = ({ beat, still }) => (
+  <>
+    {/* the way each amount travels: through the gate to its place on the right */}
+    <svg className="absolute inset-0" width={W} height={H}>
+      {CUR.map((c) => (
+        <path
+          key={c.from}
+          d={`M126,${c.y} C152,${c.y} 160,130 ${RATE_GATE.x},130 S208,${c.y} 234,${c.y}`}
+          fill="none"
+          className="stroke-brand-300 dark:stroke-white/20"
+          strokeWidth="1.5"
+          strokeDasharray="2 4"
+          strokeLinecap="round"
+        />
+      ))}
+    </svg>
+    {/* the gate: today's rate */}
+    <div
+      className="absolute w-4 -translate-x-1/2 rounded-full bg-brand-400/40 blur-md dark:bg-brand-400/30"
+      style={{ left: RATE_GATE.x, top: RATE_GATE.top, height: RATE_GATE.bottom - RATE_GATE.top, ...ambient('sx-pulse 2.6s ease-in-out infinite') }}
+    />
+    <div
+      className="absolute w-2 -translate-x-1/2 rounded-full bg-gradient-to-b from-brand-400 via-duo-400 to-brand-600"
+      style={{ left: RATE_GATE.x, top: RATE_GATE.top, height: RATE_GATE.bottom - RATE_GATE.top }}
+    />
+    <At x={RATE_GATE.x} y={RATE_GATE.top - 14}>
+      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-fill text-on-fill shadow-lg ring-[3px] ring-white dark:ring-ink-900">
+        <FeatureIcon name="exchange" size={18} tone="current" />
+      </div>
+    </At>
+    {beat < 2 && (
+      <At x={RATE_GATE.x} y={226}>
+        <Pill>today’s rate</Pill>
+      </At>
+    )}
+    {/* where the money starts: three groups, three currencies */}
+    {CUR.map((c, i) => (
+      <At key={c.from} x={70} y={c.y} style={beat === 0 ? rise(150 + i * 160) : beat === 2 ? { opacity: 0.55 } : undefined}>
+        <MoneyCard big={c.from} small={c.group} />
+      </At>
+    ))}
+    {beat === 0 && (
+      <At x={290} y={130} style={pop(800)}>
+        <div className="flex h-[92px] w-[104px] flex-col items-center justify-center rounded-2xl border-[1.5px] border-dashed border-brand-300 text-center dark:border-white/20">
+          <span className="text-[22px] font-black leading-none text-slate-400 dark:text-slate-500">?</span>
+          <span className="mt-1 text-[9px] font-semibold text-slate-500 dark:text-slate-400">a total of what?</span>
+        </div>
+      </At>
+    )}
+    {/* beat 2: each amount goes through the rate and comes out in yours */}
+    {beat === 1 &&
+      CUR.map((c, i) => (
+        <Fly key={c.from} path={`M70,${c.y} C152,${c.y} 160,130 ${RATE_GATE.x},130 S208,${c.y} 290,${c.y}`} d={200 + i * 350} ms={900} vanish>
+          <Pill tone="accent">{c.from}</Pill>
+        </Fly>
+      ))}
+    {beat >= 1 &&
+      CUR.map((c, i) => (
+        <At
+          key={c.to + c.y}
+          x={290}
+          y={c.y}
+          style={
+            beat === 1
+              ? pop(950 + i * 350)
+              : ({
+                  opacity: 0,
+                  transform: `translateY(${130 - c.y}px) scale(0.7)`,
+                  '--from': 'none',
+                  animation: `hm-from 520ms cubic-bezier(0.4, 0, 0.2, 1) ${150 + i * 80}ms both`,
+                } as CSSProperties)
+          }
+        >
+          <MoneyCard big={c.to} small={c.rate} accent />
+        </At>
+      ))}
+    {/* beat 3: one total, about today's rate */}
+    {beat === 2 && (
+      <>
+        <At x={290} y={130} style={pop(650)}>
+          <div className="flex w-[112px] flex-col items-center rounded-2xl bg-fill px-2 py-3 text-on-fill shadow-xl">
+            <span className="text-[9px] font-bold uppercase leading-none tracking-wider opacity-80">Your total</span>
+            <span className="mt-1.5 text-[19px] font-black leading-none tabular-nums">
+              <Count from={0} to={6835} still={still} d={700} ms={800} format={(n) => `≈ ₹${n.toLocaleString('en-IN')}`} />
+            </span>
+          </div>
+        </At>
+        <At x={84} y={226} style={rise(900)}>
+          <Pill>each group keeps its own</Pill>
+        </At>
+        <Sparkles x={290} y={130} d={1100} spread={52} />
+      </>
+    )}
+  </>
+)
+
+// ---- Why a captured payment waits: only you know who it was for ------------------------------------
+
+const TRAYS: Array<{ label: string; sub: string; icon: UiIconName; x: number }> = [
+  { label: 'Goa trip', sub: 'Split', icon: 'users', x: 66 },
+  { label: 'Personal', sub: 'Just you', icon: 'wallet', x: 180 },
+  { label: 'Not shared', sub: 'Clear it', icon: 'prohibit', x: 294 },
+]
+const TRAY_Y = 186
+
+function PaymentCard() {
+  return (
+    <div className="flex w-[206px] items-center gap-2 rounded-2xl bg-white px-2.5 py-2 shadow-xl ring-1 ring-brand-100 dark:bg-ink-800 dark:ring-white/10">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-100 dark:bg-brand-900/60">
+        <FeatureIcon name="trayDown" size={16} />
+      </span>
+      <div className="min-w-0 flex-1 leading-none">
+        <div className="whitespace-nowrap text-[11px] font-bold text-slate-800 dark:text-white">Captured payment</div>
+        <div className="mt-1 whitespace-nowrap text-[9px] font-semibold text-slate-500 dark:text-slate-400">Blue Tokai · UPI today</div>
+      </div>
+      <span className="text-[14px] font-extrabold tabular-nums text-slate-900 dark:text-white">₹450</span>
+    </div>
+  )
+}
+
+const Sort: View = ({ beat }) => (
+  <>
+    {/* the payment, at the top; on the last beat a small copy of it goes to the group */}
+    <At
+      x={180}
+      y={50}
+      style={
+        beat === 0
+          ? ({ '--from': 'translateY(-24px)', '--from-o': 0, animation: 'hm-from 520ms cubic-bezier(0.23, 1, 0.32, 1) 150ms both' } as CSSProperties)
+          : beat === 2
+            ? out(150, 300)
+            : undefined
+      }
+    >
+      <PaymentCard />
+    </At>
+    {beat < 2 && (
+      <At x={180} y={102} style={beat === 0 ? pop(800) : undefined}>
+        <div className="relative rounded-2xl bg-fill px-3 py-1.5 text-[11px] font-bold text-on-fill shadow-lg">
+          Who was it for?
+          <span className="absolute -top-1 left-1/2 h-2.5 w-2.5 -translate-x-1/2 rotate-45 rounded-[2px] bg-fill" />
+        </div>
+      </At>
+    )}
+    {TRAYS.map((t, i) => (
+      <At
+        key={t.label}
+        x={t.x}
+        y={TRAY_Y}
+        style={
+          beat === 0
+            ? rise(400 + i * 120)
+            : beat === 2 && i > 0
+              ? ({ opacity: 0.45, '--from-o': 1, animation: 'hm-from 400ms ease-out 900ms both' } as CSSProperties)
+              : undefined
+        }
+      >
+        <div
+          className={`flex w-[98px] flex-col items-center gap-1 rounded-2xl px-2 py-2 text-center ring-1 ${beat === 2 && i === 0 ? 'bg-brand-50 ring-brand-300 dark:bg-brand-900/50 dark:ring-brand-400/50' : 'bg-white/90 ring-slate-200 dark:bg-ink-800 dark:ring-white/10'}`}
+          style={beat === 1 ? { animation: `hm-lit 700ms ease-in-out ${300 + i * 450}ms` } : undefined}
+        >
+          <FeatureIcon name={t.icon} size={22} />
+          <span className="whitespace-nowrap text-[11px] font-bold leading-none text-slate-800 dark:text-white">{t.label}</span>
+          <span className="whitespace-nowrap text-[9px] font-semibold leading-none text-slate-500 dark:text-slate-400">{t.sub}</span>
+        </div>
+      </At>
+    ))}
+    {beat === 2 && (
+      <>
+        <Fly path={`M180,50 Q90,60 ${TRAYS[0].x},${TRAY_Y - 10}`} d={200} ms={850} vanish>
+          <Pill tone="accent">₹450 Blue Tokai</Pill>
+        </Fly>
+        <At x={TRAYS[0].x} y={TRAY_Y - 50} style={pop(1050)}>
+          <Pill tone="up">✓ ₹150 each</Pill>
+        </At>
+        <At x={240} y={112} style={rise(1300)}>
+          <Pill>added only when you pick</Pill>
+        </At>
+        <Sparkles x={TRAYS[0].x} y={TRAY_Y} d={1150} spread={44} />
+      </>
+    )}
+  </>
+)
+
+// ---- Earn Pro: the ring fills, then a ring round your photo ------------------------------------------
+
+const HELP_ROWS: UiIconName[] = ['receipt', 'divide', 'money', 'camera']
+const PRO_RING = { x: 274, y: 132, r: 46 }
+
+/** A tick in the accent's fill, popping in after `d` ms (or already there). */
+function Tick({ d, size = 18 }: { d?: number; size?: number }) {
+  return (
+    <span
+      className="flex items-center justify-center rounded-full bg-fill text-on-fill shadow-sm"
+      style={{ width: size, height: size, ...(d === undefined ? undefined : pop(d, 360)) }}
+    >
+      <svg
+        width={size * 0.6}
+        height={size * 0.6}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M5 12.5l4.5 4.5L19 7.5" />
+      </svg>
+    </span>
+  )
+}
+
+const Pro: View = ({ beat, still }) => {
+  const id = useIds()
+  // How many of the four rows are ticked at the end of the beat, and when each new tick lands.
+  const ticks = beat === 0 ? [600, 1000, 1400] : [undefined, undefined, undefined, 400]
+  const pct = beat === 0 ? 75 : 100
+  return (
+    <>
+      <svg className="absolute inset-0" width={W} height={H}>
+        <defs>
+          <linearGradient id={id('ring')} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" style={{ stopColor: 'var(--color-brand-600)' }} />
+            <stop offset="1" style={{ stopColor: 'var(--color-duo-500)' }} />
+          </linearGradient>
+        </defs>
+        {beat < 2 && (
+          <>
+            <circle cx={PRO_RING.x} cy={PRO_RING.y} r={PRO_RING.r} fill="none" className="stroke-slate-900/10 dark:stroke-white/10" strokeWidth="10" />
+            <circle
+              cx={PRO_RING.x}
+              cy={PRO_RING.y}
+              r={PRO_RING.r}
+              fill="none"
+              stroke={`url(#${id('ring')})`}
+              strokeWidth="10"
+              strokeLinecap="round"
+              pathLength={1}
+              transform={`rotate(-90 ${PRO_RING.x} ${PRO_RING.y})`}
+              style={
+                {
+                  strokeDasharray: `${pct / 100} 2`,
+                  '--dash-from': beat === 0 ? 0.75 : 0.25,
+                  animation: beat === 0 ? 'hm-dash 1300ms cubic-bezier(0.4, 0, 0.2, 1) 600ms both' : 'hm-dash 700ms cubic-bezier(0.4, 0, 0.2, 1) 400ms both',
+                } as CSSProperties
+              }
+            />
+            {beat === 1 && (
+              <circle
+                cx={PRO_RING.x}
+                cy={PRO_RING.y}
+                r={PRO_RING.r + 8}
+                fill="none"
+                style={{
+                  stroke: 'var(--color-duo-400)',
+                  opacity: 0,
+                  transformBox: 'fill-box',
+                  transformOrigin: 'center',
+                  animation: 'sx-ring 900ms ease-out 1100ms both',
+                }}
+                strokeWidth="2"
+              />
+            )}
+          </>
+        )}
+      </svg>
+      {beat < 2 && (
+        <>
+          {/* Help's list, as the guide draws it: a tick on each finished section, a dot on the rest */}
+          <div
+            className="absolute rounded-3xl bg-white/90 p-2 shadow-[0_10px_30px_-14px_rgba(15,23,42,0.35)] ring-1 ring-brand-100 dark:bg-ink-900/80 dark:shadow-none dark:ring-white/10"
+            style={{ left: 22, top: 52, width: 164 }}
+          >
+            <div className="px-1 pb-1.5 text-[11px] font-black text-slate-800 dark:text-white">Help</div>
+            {HELP_ROWS.map((icon, i) => (
+              <div key={icon} className="flex h-8 items-center gap-2 px-1" style={beat === 0 ? rise(80 * i, 420) : undefined}>
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-brand-50 dark:bg-brand-900/40">
+                  <FeatureIcon name={icon} size={15} />
+                </span>
+                <span className="flex min-w-0 flex-1 flex-col gap-1">
+                  <span className="h-1.5 rounded-full bg-slate-300 dark:bg-white/25" style={{ width: 52 + ((i * 17) % 30) }} />
+                  <span className="h-1 w-9 rounded-full bg-slate-200 dark:bg-white/10" />
+                </span>
+                <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center">
+                  {i < ticks.length ? <Tick d={ticks[i]} /> : <span className="h-2 w-2 rounded-full bg-brand-500" />}
+                </span>
+              </div>
+            ))}
+          </div>
+          <At x={PRO_RING.x} y={PRO_RING.y}>
+            <span className="text-[22px] font-black tabular-nums text-slate-800 dark:text-white">
+              {beat === 0 ? (
+                <Count from={0} to={75} still={still} d={600} ms={1300} format={(n) => `${n}%`} />
+              ) : (
+                <Count from={75} to={100} still={still} d={400} ms={700} format={(n) => `${n}%`} />
+              )}
+            </span>
+          </At>
+        </>
+      )}
+      {/* beat 2: the note that says so */}
+      {beat === 1 && (
+        <>
+          <At
+            x={180}
+            y={24}
+            style={{ '--from': 'translateY(-28px)', '--from-o': 0, animation: 'hm-from 480ms cubic-bezier(0.23, 1, 0.32, 1) 1150ms both' } as CSSProperties}
+          >
+            <div className="flex items-center gap-2 whitespace-nowrap rounded-2xl bg-white px-3 py-1.5 shadow-xl ring-1 ring-brand-100 dark:bg-ink-800 dark:ring-white/10">
+              <FeatureIcon name="confetti" size={20} />
+              <span className="text-[12px] font-black text-slate-800 dark:text-white">Congratulations</span>
+              <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Help 100%</span>
+            </div>
+          </At>
+          {CONFETTI.map((c) => (
+            <span
+              key={`${c.dx},${c.dy}`}
+              className="absolute h-[7px] w-[4px] rounded-[1px]"
+              style={
+                {
+                  left: PRO_RING.x - 2,
+                  top: PRO_RING.y - 3,
+                  opacity: 0,
+                  rotate: `${c.rot}deg`,
+                  background: c.duo ? 'var(--color-duo-400)' : 'var(--color-brand-500)',
+                  '--dx': `${c.dx}px`,
+                  '--dy': `${c.dy}px`,
+                  animation: `hm-burst 900ms cubic-bezier(0.2, 0.7, 0.3, 1) ${1100 + c.at}ms both`,
+                } as CSSProperties
+              }
+            />
+          ))}
+        </>
+      )}
+      {/* beat 3: Pro, a ring round the photo and a pill by the name */}
+      {beat === 2 && (
+        <>
+          <svg className="absolute inset-0" width={W} height={H}>
+            <circle
+              cx="118"
+              cy="128"
+              r="44"
+              fill="none"
+              stroke={`url(#${id('ring')})`}
+              strokeWidth="5"
+              strokeLinecap="round"
+              pathLength={1}
+              transform="rotate(-90 118 128)"
+              style={{ strokeDasharray: '1 2', '--dash-from': 1, animation: 'hm-dash 900ms cubic-bezier(0.4, 0, 0.2, 1) 300ms both' } as CSSProperties}
+            />
+          </svg>
+          <At x={118} y={128}>
+            <div
+              className="flex h-[74px] w-[74px] items-center justify-center rounded-full text-[28px] font-bold text-white ring-[3px] ring-white dark:ring-ink-900"
+              style={{
+                background: `linear-gradient(140deg, ${PEOPLE.Asha.from}, ${PEOPLE.Asha.to})`,
+                boxShadow: '0 10px 24px -10px color-mix(in oklab, var(--color-brand-700) 60%, transparent)',
+              }}
+            >
+              A
+            </div>
+          </At>
+          <div className="absolute flex flex-col items-start gap-2" style={{ left: 182, top: 100 }}>
+            <span className="text-[20px] font-black leading-none text-slate-800 dark:text-white" style={rise(150)}>
+              Asha Rao
+            </span>
+            <span className="rounded-full bg-white px-2.5 py-1 shadow-sm ring-1 ring-brand-200 dark:bg-ink-800 dark:ring-brand-400/40" style={pop(1150)}>
+              <span className="bg-gradient-to-r from-brand-600 to-duo-500 bg-clip-text text-[12px] font-black tracking-[0.18em] text-transparent dark:from-brand-300 dark:to-duo-300">
+                PRO
+              </span>
+            </span>
+          </div>
+          <Sparkles x={118} y={128} d={1250} spread={56} />
+        </>
+      )}
+    </>
+  )
+}
+
+/** A few pieces of confetti from the full ring: where each lands, its turn and when it goes. */
+const CONFETTI = Array.from({ length: 12 }, (_, i) => {
+  const a = (i / 12) * Math.PI * 2 + 0.4
+  const r = 62 + (i % 3) * 12
+  return { dx: Math.round(Math.cos(a) * r), dy: Math.round(Math.sin(a) * r), rot: (i * 47) % 180, duo: i % 2 === 1, at: (i % 4) * 40 }
+})
+
+const VIEWS: Record<StoryKind, View> = {
+  pot: Pot,
+  seesaw: Seesaw,
+  untangle: Untangle,
+  remainder: Remainder,
+  vault: Vault,
+  filter: Filter,
+  drawers: Drawers,
+  exchange: Exchange,
+  sort: Sort,
+  pro: Pro,
+}
