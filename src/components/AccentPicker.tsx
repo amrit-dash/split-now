@@ -1,7 +1,7 @@
 import { useEffect, useState, type KeyboardEvent } from 'react'
 import { Check } from 'lucide-react'
 import { ACCENTS, allInks, getAccent, getDuo, setAccent, setDuo, setInk, type AccentId, type Ink } from '@/lib/accent'
-import { Detail, HintText, InfoTip, type Hint } from './Hint'
+import { HintText, InfoTip, useShows, type Hint } from './Hint'
 import { Segmented } from './Misc'
 import { Switch } from './Switch'
 
@@ -18,8 +18,10 @@ const DUO_HINT: Hint = { full: 'Two-colour gradients on buttons and cards', tier
  * fills, or black on bright ones) for the selected accent. Each accent keeps its own ink, and each
  * swatch shows its accent in that ink; then a "Dual tone" switch. Applies and persists immediately.
  */
-/** `duo={false}` leaves the Dual tone row out (Simple mode); its value stays as it was. */
-export function AccentPicker({ onChange, duo: showDuo = true }: { onChange?: () => void; duo?: boolean } = {}) {
+/** `simple`: Simple mode keeps Text on accent and leaves Dual tone out (its value stays as it was). */
+export function AccentPicker({ onChange, simple = false }: { onChange?: () => void; simple?: boolean } = {}) {
+  const fine = useShows(2)
+  const showDuo = !simple
   const [accent, setAccentState] = useState<AccentId>(getAccent)
   const [duo, setDuoState] = useState<boolean>(getDuo)
   const [inks, setInks] = useState<Record<AccentId, Ink>>(allInks)
@@ -107,40 +109,42 @@ export function AccentPicker({ onChange, duo: showDuo = true }: { onChange?: () 
         </div>
         <HintText hint={ACCENT_HINT} className="text-muted mt-1.5 text-xs" />
       </div>
-      {/* Fine-tuning: hidden in Minimal, the swatches are enough there. */}
-      <Detail min={2}>
-        <div>
-          <div className="label flex items-center" id="ink-label">
-            Text on accent
-            <InfoTip hint={INK_HINT} label="About text on accent" />
-          </div>
-          <Segmented<Ink>
-            value={ink}
-            onChange={pickInk}
-            label="Text on accent"
-            testId="accent-ink"
-            options={[
-              { value: 'light', label: 'White' },
-              { value: 'dark', label: 'Black' },
-            ]}
-          />
-          <HintText hint={INK_HINT} className="text-muted mt-1.5 text-xs" />
-        </div>
-        {/* Dual tone closes the section as its own row, below the two labelled pickers, so the
-            Accent → Text on accent rhythm isn't broken by a switch between them. */}
-        {showDuo && (
-          <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4 dark:border-white/5">
-            <div className="min-w-0">
-              <div className="flex items-center text-sm font-semibold">
-                Dual tone
-                <InfoTip hint={DUO_HINT} label="About dual tone" />
-              </div>
-              <HintText hint={DUO_HINT} as="div" />
+      {/* Fine-tuning: hidden in Minimal, the swatches are enough there; Simple keeps Text on accent (owner). */}
+      {(fine || simple) && (
+        <>
+          <div>
+            <div className="label flex items-center" id="ink-label">
+              Text on accent
+              <InfoTip hint={INK_HINT} label="About text on accent" />
             </div>
-            <Switch checked={duo} onChange={toggleDuo} label="Dual tone" testId="accent-duo" />
+            <Segmented<Ink>
+              value={ink}
+              onChange={pickInk}
+              label="Text on accent"
+              testId="accent-ink"
+              options={[
+                { value: 'light', label: 'White' },
+                { value: 'dark', label: 'Black' },
+              ]}
+            />
+            <HintText hint={INK_HINT} className="text-muted mt-1.5 text-xs" />
           </div>
-        )}
-      </Detail>
+          {/* Dual tone closes the section as its own row, below the two labelled pickers, so the
+            Accent → Text on accent rhythm isn't broken by a switch between them. */}
+          {showDuo && (
+            <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4 dark:border-white/5">
+              <div className="min-w-0">
+                <div className="flex items-center text-sm font-semibold">
+                  Dual tone
+                  <InfoTip hint={DUO_HINT} label="About dual tone" />
+                </div>
+                <HintText hint={DUO_HINT} as="div" />
+              </div>
+              <Switch checked={duo} onChange={toggleDuo} label="Dual tone" testId="accent-duo" />
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }

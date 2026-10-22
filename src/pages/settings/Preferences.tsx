@@ -135,7 +135,7 @@ export default function Preferences() {
 
       <SectionTitle saved={currencySaved}>Money</SectionTitle>
       <div className="card p-4">
-        <RatesField base={profile.currency} hint={CURRENCY_HINT}>
+        <RatesField base={profile.currency} hint={CURRENCY_HINT} refresh={!simple}>
           <Select aria-label="Default currency" value={profile.currency} onChange={setCurrency} options={currencyOptions(CURRENCIES, appLocale())} />
         </RatesField>
         {showCollect && !simple && (
@@ -197,7 +197,7 @@ export default function Preferences() {
           />
           <HintText hint={THEME_HINT} className="text-muted mt-1.5 text-xs" />
         </div>
-        <AccentPicker onChange={flashLook} duo={!simple} />
+        <AccentPicker onChange={flashLook} simple={simple} />
         {!simple && (
           <>
             <div>

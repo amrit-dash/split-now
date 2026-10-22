@@ -189,7 +189,8 @@ function linkError(e: unknown): string {
  * publication, slate = not synced). Refreshing updates the shared rates
  * for everyone (or this device's copy in demo mode).
  */
-export function RatesField({ base, hint, children }: { base: string; hint?: Hint; children: React.ReactNode }) {
+/** `refresh={false}` (Simple mode): just the picker; rates still load when a screen needs them. */
+export function RatesField({ base, hint, refresh: showRefresh = true, children }: { base: string; hint?: Hint; refresh?: boolean; children: React.ReactNode }) {
   const toast = useToast()
   const [status, setStatus] = useState<RatesStatus | null>(() => ratesStatus(base))
   const [busy, setBusy] = useState(false)
@@ -232,23 +233,27 @@ export function RatesField({ base, hint, children }: { base: string; hint?: Hint
       </div>
       <div className="flex items-center gap-2">
         <div className="min-w-0 flex-1">{children}</div>
-        <button
-          type="button"
-          onClick={refresh}
-          disabled={busy}
-          aria-label={label}
-          title={label}
-          data-testid="rates-button"
-          className="relative flex h-12 shrink-0 items-center gap-1.5 rounded-2xl bg-brand-50 px-3.5 text-sm font-semibold text-brand-700 ring-1 ring-brand-500/30 transition active:scale-95 disabled:opacity-70 dark:bg-brand-500/10 dark:text-brand-200 dark:ring-brand-400/30"
-        >
-          <RefreshIcon size={16} className={busy ? 'animate-spin' : ''} aria-hidden />
-          Refresh
-        </button>
+        {showRefresh && (
+          <button
+            type="button"
+            onClick={refresh}
+            disabled={busy}
+            aria-label={label}
+            title={label}
+            data-testid="rates-button"
+            className="relative flex h-12 shrink-0 items-center gap-1.5 rounded-2xl bg-brand-50 px-3.5 text-sm font-semibold text-brand-700 ring-1 ring-brand-500/30 transition active:scale-95 disabled:opacity-70 dark:bg-brand-500/10 dark:text-brand-200 dark:ring-brand-400/30"
+          >
+            <RefreshIcon size={16} className={busy ? 'animate-spin' : ''} aria-hidden />
+            Refresh
+          </button>
+        )}
       </div>
-      <p className="text-muted mt-1.5 flex items-center gap-1.5 text-xs" data-testid="rates-status">
-        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${synced ? 'bg-emerald-500' : 'bg-slate-400'}`} aria-hidden />
-        {status ? `${synced ? 'Rates synced' : 'Rates not synced'} · ${ratesDetails(status)}` : 'Rates not loaded yet'}
-      </p>
+      {showRefresh && (
+        <p className="text-muted mt-1.5 flex items-center gap-1.5 text-xs" data-testid="rates-status">
+          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${synced ? 'bg-emerald-500' : 'bg-slate-400'}`} aria-hidden />
+          {status ? `${synced ? 'Rates synced' : 'Rates not synced'} · ${ratesDetails(status)}` : 'Rates not loaded yet'}
+        </p>
+      )}
       {hint && <HintText hint={hint} className="text-muted mt-2 text-xs" />}
     </div>
   )
