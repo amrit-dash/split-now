@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Group } from '@/types'
-import { changedSettings, groupPurgeBlocker, type GroupSettings } from './repo'
+import { changedSettings, groupPurgeBlocker, memberProfileOf, type GroupSettings } from './repo'
 
 const base = { id: 'g', name: 'Trip', archived: true, archivedBy: ['me'] } as unknown as Group
 
@@ -29,5 +29,21 @@ describe('groupPurgeBlocker', () => {
     expect(groupPurgeBlocker({ ...g, deletedAt: now - 2 * DAY }, 'ua', now)).toMatch(/can be deleted for good from/)
     expect(groupPurgeBlocker(g, 'ua', now)).toMatch(/^Delete “Goa” first/)
     expect(groupPurgeBlocker({ ...g, memberUids: ['ub'], deletedAt: 0 }, 'ua', now)).toMatch(/no longer in/)
+  })
+})
+
+describe('memberProfileOf: the Pro mark', () => {
+  const p = { displayName: 'Asha', payment: {}, currency: 'INR' }
+  it('shares pro: true only while the badge shows', () => {
+    expect(memberProfileOf({ ...p, proAt: 5 }).pro).toBe(true)
+    expect('pro' in memberProfileOf(p)).toBe(false)
+    // turned off in Preferences: gone for everyone (the shared doc is replaced, so absent clears it)
+    expect('pro' in memberProfileOf({ ...p, proAt: 5, proHidden: true })).toBe(false)
+  })
+  it('shares dev: true only for an admin who shows it', () => {
+    expect('dev' in memberProfileOf(p)).toBe(false)
+    expect(memberProfileOf(p, true).dev).toBe(true)
+    expect('dev' in memberProfileOf({ ...p, devHidden: true }, true)).toBe(false)
+    expect(memberProfileOf({ ...p, proAt: 5 }, true)).toMatchObject({ pro: true, dev: true })
   })
 })

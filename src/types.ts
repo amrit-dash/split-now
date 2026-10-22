@@ -54,6 +54,15 @@ export interface UserProfile {
    * one. Written only by the server (vault op stop; start / setUniversal clear it), mirroring users/{uid}/secrets/vault.
    */
   privateGroupsOff?: boolean
+  /**
+   * Pro (src/lib/pro.ts): when this person finished Help (epoch ms). Set once by the app
+   * (repo.markPro); the rules refuse changing or removing it. Cosmetic: nothing checks it.
+   */
+  proAt?: number
+  /** Preferences → Show my Pro badge, turned off: no badge for anyone, proAt kept (src/lib/pro.ts proShown). */
+  proHidden?: boolean
+  /** Preferences → Show my Dev badge (admins only), turned off (src/lib/pro.ts badgeWord). */
+  devHidden?: boolean
 }
 
 export type PhotoSource = 'upload' | 'google' | 'none'
@@ -73,6 +82,10 @@ export interface Member {
    * (src/lib/memberSync.ts). https only in Firebase; demo mode may hold a data: URL.
    */
   photoURL?: string
+  /** Shows their Pro badge (src/lib/pro.ts), copied from their profile by their own app like the photo. */
+  pro?: boolean
+  /** Shows their Dev badge (an admin; the rules accept true only from an admin), copied like `pro`. */
+  dev?: boolean
   /**
    * When they were removed from the group or left it (epoch ms). The entry stays so old expenses
    * keep their name and stay editable; their uid is out of memberUids, so they have no access.

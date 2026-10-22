@@ -2,6 +2,7 @@ import { useState, useSyncExternalStore } from 'react'
 import { usePickableGroups } from '@/hooks/useVault'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
+import { usePro } from '@/hooks/usePro'
 
 import { useAppConfig } from '@/hooks/useAppConfig'
 import { CURRENCIES } from '@/lib/money'
@@ -50,6 +51,17 @@ const DETAIL_HINT: Hint = {
 }
 
 /** /settings/preferences: default currency (with the rates refresh), theme, accent and detail level. All autosave; the look follows the account (appearance-sync.ts). */
+const DEV_HINT: Hint = {
+  full: 'For the people who run Split Now. Off hides it on your profile and from the people in your groups.',
+  short: 'On your profile and in your groups',
+  tier: 'help',
+}
+const PRO_HINT: Hint = {
+  full: 'You earned it by finishing Help. Off hides it on your profile and from the people in your groups.',
+  short: 'On your profile and in your groups',
+  tier: 'help',
+}
+
 export default function Preferences() {
   const { profile } = useMe()
   const toast = useToast()
@@ -84,6 +96,26 @@ export default function Preferences() {
     try {
       await repo.saveProfile({ ...profile, currency })
       flashCurrency()
+    } catch (e) {
+      toast(errText(e), 'err')
+    }
+  }
+
+  // Off takes the badge away for everyone (memberProfileOf, the member sync); proAt stays, so on brings it back.
+  const pro = usePro()
+  const [proSaved, flashPro] = useSavedFlash()
+  const setDevShown = async (on: boolean) => {
+    try {
+      await repo.setDevHidden(profile.uid, !on)
+      flashPro()
+    } catch (e) {
+      toast(errText(e), 'err')
+    }
+  }
+  const setProShown = async (on: boolean) => {
+    try {
+      await repo.setProHidden(profile.uid, !on)
+      flashPro()
     } catch (e) {
       toast(errText(e), 'err')
     }
@@ -258,6 +290,39 @@ export default function Preferences() {
         )}
         <HintText hint={SYNC_HINT} />
       </div>
+
+      {/* The badge (src/lib/pro.ts): Pro only once earned, Dev only for admins, in Simple and Advanced alike. Independent: both on reads PRO DEV. */}
+      {(pro.earned || pro.admin) && (
+        <>
+          <SectionTitle saved={proSaved}>Badge</SectionTitle>
+          <div className="card space-y-4 p-4">
+            {pro.earned && (
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center font-medium">
+                    Show my Pro badge
+                    <InfoTip hint={PRO_HINT} label="About the Pro badge" />
+                  </div>
+                  <HintText hint={PRO_HINT} />
+                </div>
+                <Switch checked={pro.shown} onChange={(on) => void setProShown(on)} label="Show my Pro badge" testId="pro-shown" />
+              </div>
+            )}
+            {pro.admin && (
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center font-medium">
+                    Show my Dev badge
+                    <InfoTip hint={DEV_HINT} label="About the Dev badge" />
+                  </div>
+                  <HintText hint={DEV_HINT} />
+                </div>
+                <Switch checked={pro.dev} onChange={(on) => void setDevShown(on)} label="Show my Dev badge" testId="dev-shown" />
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </SettingsPage>
   )
 }

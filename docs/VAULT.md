@@ -150,8 +150,9 @@ caps are one list, `shared/vault-convert.ts`, which the phones and the server sh
 
 Readable to the server, on purpose: amounts, splits and who paid (balances, reminders, nudges,
 budget alerts and the rules' checks need them), dates, categories, people's account ids and the
-emails a placeholder was added by (linking accounts needs them). The app hides amounts while the
-group is locked. An activity line's actor is the writer's account name as the phone had it.
+emails a placeholder was added by (linking accounts needs them), and whether someone's Pro or Dev badge
+shows (`members.{id}.pro`, `dev`: yes/no about the person, not the group; src/lib/pro.ts). The app hides
+amounts while the group is locked. An activity line's actor is the writer's account name as the phone had it.
 
 Outside the group nothing names it (`shared/names.ts` PRIVATE_GROUP_NAME): pushes say only what
 kind of thing happened, with "Split Now" as the title (`privateGroupNote`: "You have a balance to

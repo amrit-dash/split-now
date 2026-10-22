@@ -92,6 +92,8 @@ import { Avatar } from '@/components/Avatar'
 import { ChequeIcon } from '@/components/ChequeIcon'
 import { DebtGraph } from '@/components/DebtGraph'
 import { GroupIcon } from '@/components/GroupIcon'
+import { ProTap, ProTileRing } from '@/components/ProBadge'
+import { friendBadge } from '@/lib/pro'
 import { Empty, LiveBadge, Loading, PageHeader, Segmented, formatRange } from '@/components/Misc'
 import { Celebrate } from '@/components/Celebrate'
 import { DeletedGroupCard, useDeleteGroup } from '@/components/DeleteGroup'
@@ -220,6 +222,8 @@ export default function GroupDetail() {
   const cur = group.currency
   const myBal = me ? (net[me] ?? 0) : 0
   const personal = group.type === 'personal'
+  // A 1:1 friend's badge (src/lib/pro.ts): a ring along their tile.
+  const friendMark = friendBadge(group)
   const direct = group.type === 'direct'
   // A 1:1 is the two of you: once the friend has joined (has an account in it), there's nobody to invite.
   const canInvite = !personal && !(direct && group.peer && group.members[group.peer]?.uid)
@@ -343,7 +347,16 @@ export default function GroupDetail() {
 
       <div className="card mb-4 p-5">
         <div className="flex items-center gap-4">
-          <GroupIcon emoji={group.emoji} group={group} size={56} />
+          {friendMark ? (
+            // A friend with a badge: its ring along their tile (rounded-2xl = 16 px corners), never in the title.
+            <ProTap word={friendMark} className="flex shrink-0 rounded-2xl" testId="direct-pro-ring">
+              <ProTileRing tile={56} radius={16} word={friendMark}>
+                <GroupIcon emoji={group.emoji} group={group} size={56} />
+              </ProTileRing>
+            </ProTap>
+          ) : (
+            <GroupIcon emoji={group.emoji} group={group} size={56} />
+          )}
           <div className="min-w-0 flex-1">
             {personal ? (
               <>

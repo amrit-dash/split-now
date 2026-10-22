@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   ALL_GROUP_ICONS,
+  drawsHandshake,
   GROUP_TYPES,
   SHARED_TYPES,
   firstEmoji,
@@ -99,5 +100,16 @@ describe('parseGroupType and firstEmoji', () => {
     expect(firstEmoji('abc 👨‍👩‍👧 x')).toBe('👨‍👩‍👧')
     expect(firstEmoji('🇮🇳')).toBe('🇮🇳')
     expect(firstEmoji('hello')).toBeNull()
+  })
+})
+
+describe('drawsHandshake', () => {
+  it('draws the icon for a 1:1 still on its 🤝, not for its own picture or other groups', () => {
+    expect(drawsHandshake({ type: 'direct' }, '🤝')).toBe(true)
+    expect(drawsHandshake({ type: 'direct', iconSvg: '<path/>' }, '🤝')).toBe(false)
+    expect(drawsHandshake({ type: 'direct', iconImage: 'data:' }, '🤝')).toBe(false)
+    expect(drawsHandshake({ type: 'direct' }, '🍕')).toBe(false)
+    expect(drawsHandshake({ type: 'trip' }, '🤝')).toBe(false)
+    expect(drawsHandshake(undefined, '🤝')).toBe(false)
   })
 })

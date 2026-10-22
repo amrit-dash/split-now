@@ -27,6 +27,8 @@ import {
 } from '@/lib/members'
 import { formatMoney } from '@/lib/money'
 import { Avatar } from '@/components/Avatar'
+import { ProPill, ProTap } from '@/components/ProBadge'
+import { badgeLabel, memberBadge } from '@/lib/pro'
 import { MemberPicker } from '@/components/MemberPicker'
 import { Empty, PageHeader } from '@/components/Misc'
 import { CardSkeleton, ListSkeleton } from '@/components/Skeleton'
@@ -198,6 +200,7 @@ export default function GroupMembers() {
             {ids.map((id) => {
               const m = group.members[id]
               const self = id === me
+              const badge = memberBadge(m)
               const v = net[id] ?? 0
               const r = memberRemoval({ memberId: id, member: m, me, myUid: user.uid, createdBy: group.createdBy, balance: v, inPending: pending, repeating })
               return (
@@ -210,8 +213,22 @@ export default function GroupMembers() {
                 >
                   <Avatar name={m.name} color={m.color} photoURL={m.photoURL} size={40} />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium">
-                      {self ? m.name : labelOf(group.members, id, m.name, me)} {self && <span className="text-muted text-xs">(you)</span>}
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <span className="truncate font-medium">
+                        {self ? m.name : labelOf(group.members, id, m.name, me)} {self && <span className="text-muted text-xs">(you)</span>}
+                      </span>
+                      {/* The badge (src/lib/pro.ts): the pill by the name; someone else's PRO opens Help → Earn Pro for a viewer without it. */}
+                      {badge &&
+                        (self ? (
+                          <span className="flex shrink-0 items-center">
+                            <ProPill h={9} word={badge} />
+                            <span className="sr-only">{badgeLabel(badge, false)}</span>
+                          </span>
+                        ) : (
+                          <ProTap word={badge} className="-my-2 flex min-h-8 shrink-0 items-center px-1" testId="member-pro">
+                            <ProPill h={9} word={badge} />
+                          </ProTap>
+                        ))}
                     </div>
                     {/* The full name under the short one: this is where you check who someone is. */}
                     <div className="text-muted truncate text-xs">
