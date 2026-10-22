@@ -59,7 +59,7 @@ export function GroupIcon({
       <div aria-hidden className="relative shrink-0" style={{ width: size, height: size }}>
         <Avatar name={peer.name} color={peer.color} photoURL={peer.photoURL} size={size} shape="tile" />
         <span
-          className="absolute -bottom-1 -right-1 flex items-center justify-center rounded-full bg-white ring-2 ring-white dark:bg-ink-800 dark:ring-ink-900"
+          className="absolute -bottom-1.5 -right-1.5 flex items-center justify-center rounded-full bg-white ring-2 ring-white dark:bg-ink-800 dark:ring-ink-900"
           style={{ width: badge, height: badge }}
           data-testid="direct-badge"
         >
