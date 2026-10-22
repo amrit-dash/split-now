@@ -54,7 +54,7 @@ export function celebration(pct: number, earned: boolean, claimedNow: boolean): 
 }
 
 /*
- * Against speed-running the guide for Pro (owner, 22 Oct 2026, not advertised): a section also
+ * Against speed-running the guide for Pro (owner, 22 Oct 2026; Help → Earn Pro says so): a section also
  * needs the person to have stayed on it a while, a random 5 to 7.5 s drawn per visit (so there's
  * no exact number to game), counting only time the page is on screen. Finishing the steps or
  * scrolling to the end before then ticks it once the time is up; leaving earlier doesn't.

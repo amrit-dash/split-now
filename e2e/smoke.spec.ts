@@ -2525,6 +2525,8 @@ test('Help: steps wait on each one; Next moves on and the last one ticks the sec
   const steps = await page.getByTestId('help-step').count()
   for (let i = 1; i < steps; i++) await page.getByTestId('help-next').click()
   await expect(page.getByTestId('help-next')).toHaveAttribute('aria-label', 'Back to the first step')
+  // A section counts after up to 7.5 s on it (src/lib/help-progress.ts): stay past that.
+  await page.waitForTimeout(1800)
   await page.goto('/help?q=add%20an%20expense')
   await expect(page.getByTestId('help-row').filter({ hasText: 'Add an expense' }).first()).toHaveAttribute('data-done', 'true')
 })

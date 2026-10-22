@@ -42,7 +42,7 @@ export const STORY_BEATS: Record<StoryKind, number> = {
   jug: 3,
   jars: 3,
   doors: 3,
-  pro: 3,
+  pro: 4,
 }
 
 export interface HelpSection {
@@ -107,7 +107,7 @@ export const STORY_ANIM_MS: Record<StoryKind, number[]> = {
   jug: [900, 4100, 700],
   jars: [1350, 1800, 1850],
   doors: [1700, 1500, 2300],
-  pro: [1600, 1650, 1300],
+  pro: [1600, 2100, 1300, 1300],
 }
 
 /** An explainer beat stays until its caption is read and its picture has finished, plus a moment to take it in. */

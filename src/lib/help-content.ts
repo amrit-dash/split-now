@@ -534,7 +534,7 @@ export const SECTIONS: HelpSection[] = [
       { text: 'Profile → **Help**.', mark: 'profile' },
       { text: 'Search, or open a section and play its steps.', mark: 'search' },
       { text: '**What’s new** lists each release. Tap a line to read more.', mark: 'whatsnew' },
-      { text: 'The ring at the top shows how much you’ve read. A tick marks each section you’ve finished.', mark: 'ring' },
+      { text: 'The ring at the top shows how much you’ve read. A tick marks each section you’ve finished and stayed on a few seconds.', mark: 'ring' },
     ],
     points: [
       'A dot marks a section you haven’t read yet.',
@@ -1806,11 +1806,17 @@ export const SECTIONS: HelpSection[] = [
       kind: 'pro',
       beats: [
         'Help is a stamp card: each section you finish gets a stamp.',
+        'A stamp waits until you’ve stayed a few seconds. Rushing through leaves its slot empty.',
         'Fill the card and Help says Congratulations.',
         'Turn it over: your reward is Pro, a ring round your photo and a badge by your name.',
       ],
     },
-    points: ['Others see it on Members and in 1:1s.', 'It’s yours to keep.'],
+    points: [
+      'A section counts when you’ve played its steps to the end, or read to its end, and stayed on it a few seconds.',
+      'Scroll past or skip ahead quickly and it isn’t ticked. Come back and read it.',
+      'Others see it on Members and in 1:1s.',
+      'It’s yours to keep.',
+    ],
     related: ['help-guide'],
   },
 ]

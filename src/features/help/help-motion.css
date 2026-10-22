@@ -319,6 +319,16 @@
   }
 }
 
+/* Earn Pro: the time on the page, a ring sweeping round the next slot before its stamp can land. */
+@keyframes hm-sweep {
+  from {
+    stroke-dashoffset: var(--len);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
 /* Earn Pro: the full card lifts and turns over to its back (it ends on its own rotateY(180deg)). */
 @keyframes hm-flip {
   0% {
