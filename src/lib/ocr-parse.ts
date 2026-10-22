@@ -73,6 +73,11 @@ function matches(line: string): Array<{ cents: Cents; marked: boolean }> {
   return [...line.matchAll(AMOUNT_RE)].map((m) => ({ cents: toCents(m[1] ?? m[2]), marked: m[1] !== undefined })).filter((x) => Number.isFinite(x.cents))
 }
 
+/** Each amount in a line, and whether it carried a currency marker (₹, Rs, $…): statements need the difference. */
+export function amountMatches(line: string): Array<{ cents: Cents; marked: boolean }> {
+  return matches(line)
+}
+
 function amountsIn(line: string): Cents[] {
   return matches(line).map((x) => x.cents)
 }

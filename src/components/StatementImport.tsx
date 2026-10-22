@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { usePickableGroups } from '@/hooks/useVault'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { ChevronDown, Loader2, Sparkles, X } from 'lucide-react'
-import { AddIcon, ImageAddIcon, InboxIcon } from '@/components/icons'
+import { AddIcon, ImageAddIcon, InboxIcon, PhoneIcon } from '@/components/icons'
 import { repo } from '@/data'
 import type { StatementTxn } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
@@ -21,7 +21,8 @@ import { todayISO, uid } from '@/lib/id'
 import { formatDate } from '@/lib/locale'
 import { formatMoney, fromHundredths } from '@/lib/money'
 import { DEFAULT_ALL_PREFS, watchPrefs, type AllPrefs } from '@/lib/push'
-import { bestGroup, buildExpense, flagsFor, preselect, tidyName, type Flag } from '@/lib/statement'
+import { bestGroup, buildExpense, flagsFor, preselect, readingLabel, tidyName, type Flag } from '@/lib/statement'
+import { parseStatementText } from '@/lib/statement-ocr'
 import { GroupIcon } from './GroupIcon'
 import { MemberChips } from './MemberChips'
 import { Select } from './Select'
@@ -67,6 +68,11 @@ const READER_HINT: Hint = {
   short: 'Read by Google Gemini',
   tier: 'key',
 }
+const PHONE_HINT: Hint = {
+  full: `Up to ${MAX_FILES} screenshots, read on this phone: nothing leaves it. Less exact than AI, so check each payment before adding.`,
+  short: 'Read on this phone, check each payment',
+  tier: 'key',
+}
 const SPLIT_ALL_HINT: Hint = { full: 'For every ticked payment. Open one to change only that one.', short: 'For every ticked payment', tier: 'help' }
 // Key: a repayment recorded as an expense would skew the balances.
 const CREDIT_HINT: Hint = {
@@ -79,8 +85,9 @@ const CREDIT_HINT: Hint = {
  * Scan → Statement: screenshots of GPay / PhonePe / a bank app become a list of payments. Each
  * is flagged against the chosen group (in trip dates, maybe already added, received, own
  * transfer); the user ticks what belongs, sets who paid and the split once, and adds them all,
- * or sends them to the Inbox to finish one by one in the full expense form. This path has no
- * on-phone fallback, so it is gated up front when AI can't read for this account.
+ * or sends them to the Inbox to finish one by one in the full expense form. With AI off or not
+ * available, the phone reads the screenshots itself (OCR + src/lib/statement-ocr.ts); when the AI
+ * call fails or is refused, the phone reads them too, so the path never dead-ends.
  */
 export function StatementImport() {
   const groups = usePickableGroups()
@@ -93,7 +100,8 @@ export function StatementImport() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [prefs, setPrefs] = useState<AllPrefs>(DEFAULT_ALL_PREFS)
   const aiState = useAiState(aiScanPossible())
-  const [stage, setStage] = useState<'prep' | 'ai' | null>(null)
+  const [stage, setStage] = useState<'prep' | 'ai' | 'phone' | null>(null)
+  const [progress, setProgress] = useState(0)
   const [saving, setSaving] = useState(false)
   const [currency, setCurrency] = useState('INR')
   const [rows, setRows] = useState<Row[] | null>(null)
@@ -128,8 +136,8 @@ export function StatementImport() {
     enabled: prefs.aiEnabled && prefs.aiImages,
     freeOk: prefs.aiFreeOk,
   })
-  const blocked = aiScanPossible() && status !== undefined && !avail.images
-  const keyWouldHelp = aiScanPossible() && !!status && status.app.images !== 'available' && !aiState?.hint
+  // AI off, or not available to this account: the phone reads the screenshots instead.
+  const onPhone = aiScanPossible() && status !== undefined && !avail.images
 
   const flags = useMemo(() => {
     const out: Record<string, Flag[]> = {}
@@ -192,31 +200,60 @@ export function StatementImport() {
     await read(files, prints)
   }
 
+  /** OCR on the phone, one screenshot after another (the worker reads one at a time anyway). */
+  const readOnPhone = async (files: File[], signal: AbortSignal): Promise<{ currency: string; transactions: StatementTxn[] }> => {
+    const { recognizeImage } = await import('@/lib/ocr')
+    const today = todayISO()
+    const transactions: StatementTxn[] = []
+    let currency: string | undefined
+    for (const [k, f] of files.entries()) {
+      const text = await recognizeImage(f, (p) => setProgress((k + p) / files.length), signal)
+      const r = parseStatementText(text, today)
+      transactions.push(...r.transactions)
+      currency ??= r.currency
+    }
+    return { currency: currency ?? 'INR', transactions }
+  }
+
   const read = async (files: File[], prints: ScanPrint[]) => {
-    if (!online && aiScanPossible()) return toast('You’re offline. Statement import needs a connection.', 'err')
+    if (!online && aiScanPossible() && !onPhone) return toast('You’re offline. Reading with AI needs a connection.', 'err')
     const id = ++run.current
     ctrl.current?.abort()
     const c = new AbortController()
     ctrl.current = c
-    setStage('prep')
+    setProgress(0)
     try {
-      const images = await Promise.all(
-        files.map(async (f) => {
-          const url = await blobToDataUrl(await downscale(f, 2000, 0.8))
-          const [head, image] = url.split(',', 2)
-          return { image, mimeType: head.match(/data:([^;]+)/)?.[1] ?? 'image/jpeg' }
-        }),
-      )
+      let st: { currency: string; transactions: StatementTxn[] } | undefined
+      if (onPhone) {
+        setStage('phone')
+        st = await readOnPhone(files, c.signal)
+      } else {
+        setStage('prep')
+        const images = await Promise.all(
+          files.map(async (f) => {
+            const url = await blobToDataUrl(await downscale(f, 2000, 0.8))
+            const [head, image] = url.split(',', 2)
+            return { image, mimeType: head.match(/data:([^;]+)/)?.[1] ?? 'image/jpeg' }
+          }),
+        )
+        if (run.current !== id) return
+        setStage('ai')
+        const r = await abortable(repo.readStatementAi(images, todayISO()), c.signal)
+        if (run.current !== id) return
+        const got = r && !r.unavailable ? r.statement : null
+        if (got?.transactions.length) st = { currency: got.currency ?? 'INR', transactions: got.transactions }
+        else if (aiScanPossible()) {
+          // AI refused or failed: the phone reads them instead, and says why once.
+          toast(r?.unavailable ? unavailableText(r.reason, { onPhone: true }) : 'AI couldn’t read them right now, so this phone is reading them')
+          setStage('phone')
+          st = await readOnPhone(files, c.signal)
+        } else return toast('Couldn’t read the screenshots right now. Try again in a little while.', 'err')
+      }
       if (run.current !== id) return
-      setStage('ai')
-      const r = await abortable(repo.readStatementAi(images, todayISO()), c.signal)
-      if (run.current !== id) return
-      // No on-phone fallback here, so the line says why and stops.
-      if (r?.unavailable) return toast(unavailableText(r.reason, { onPhone: false }), 'err')
-      if (!r) return toast(!navigator.onLine ? 'You’re offline' : 'AI couldn’t read the screenshots right now. Try again in a little while.', 'err')
-      const txns = r.statement?.transactions ?? []
-      if (!txns.length) return toast('No transactions found in those screenshots', 'err')
-      const cur = r.statement?.currency ?? 'INR'
+      const txns = st.transactions
+      if (!txns.length)
+        return toast(onPhone ? 'No payments found. Try a clearer screenshot, or turn on AI.' : 'No transactions found in those screenshots', 'err')
+      const cur = st.currency
       load(txns, cur)
       toast(`Found ${txns.length} transaction${txns.length === 1 ? '' : 's'}`)
       const saved = await hist.save(files, prints, { type: 'statement', currency: cur, transactions: txns })
@@ -329,46 +366,19 @@ export function StatementImport() {
           aiHidden={busy}
           top={<ScanIntro icon="file" title="Add expenses from a statement" hint={INTRO_HINT} infoLabel="About statements" />}
           below={
-            !blocked && !busy ? (
-              <p className="text-muted -mt-1 flex items-center justify-center gap-1.5 px-3 pb-3 text-xs">
-                <Sparkles size={12} className="text-brand-500" aria-hidden />
-                {aiScanPossible() ? <HintText hint={READER_HINT} as="span" /> : 'Demo: shows a sample statement.'}
-                {aiScanPossible() && <InfoTip hint={READER_HINT} label="About reading statements" />}
+            !busy ? (
+              <p className="text-muted -mt-1 flex items-center justify-center gap-1.5 px-3 pb-3 text-xs" data-testid="statement-reader">
+                {onPhone ? <PhoneIcon size={13} className="text-brand-500" aria-hidden /> : <Sparkles size={12} className="text-brand-500" aria-hidden />}
+                {aiScanPossible() ? <HintText hint={onPhone ? PHONE_HINT : READER_HINT} as="span" /> : 'Demo: shows a sample statement.'}
+                {aiScanPossible() && <InfoTip hint={onPhone ? PHONE_HINT : READER_HINT} label="About reading statements" />}
               </p>
             ) : undefined
           }
         >
-          {blocked ? (
-            <div className="p-3 pt-0">
-              <div className="rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800" role="status" data-testid="statement-blocked">
-                <p>Statement import needs AI, which isn’t turned on for your account.</p>
-                <p className="text-muted mt-1 text-xs">
-                  {!prefs.aiEnabled || !prefs.aiImages ? (
-                    <>
-                      Turn on AI reading in{' '}
-                      <Link to="/settings/ai" className="font-semibold text-brand-600 dark:text-brand-300">
-                        Settings → AI features
-                      </Link>
-                      .
-                    </>
-                  ) : keyWouldHelp ? (
-                    <>
-                      You can{' '}
-                      <Link to="/settings/ai" className="font-semibold text-brand-600 dark:text-brand-300">
-                        add your own Gemini key
-                      </Link>{' '}
-                      under Your key and models.
-                    </>
-                  ) : (
-                    avail.text
-                  )}
-                </p>
-              </div>
-            </div>
-          ) : busy ? (
+          {busy ? (
             <div className="p-3 pt-0">
               <p className="btn-primary pointer-events-none w-full opacity-80" role="status" aria-live="polite" data-testid="statement-reading">
-                <Loader2 size={18} className="animate-spin" aria-hidden /> {stage === 'prep' ? 'Preparing screenshots…' : 'Reading with AI…'}
+                <Loader2 size={18} className="animate-spin" aria-hidden /> {readingLabel(stage, progress)}
               </p>
               <button type="button" className="btn-ghost btn-sm mt-2 w-full" onClick={cancel} data-testid="statement-cancel">
                 <X size={16} aria-hidden /> Cancel
@@ -575,7 +585,7 @@ export function StatementImport() {
       <div className="mt-3 flex gap-2">
         <button type="button" className="btn-secondary btn-sm flex-1" onClick={() => fileRef.current?.click()} disabled={busy}>
           {busy ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <ImageAddIcon size={16} aria-hidden />}{' '}
-          {busy ? (stage === 'prep' ? 'Preparing…' : 'Reading with AI…') : 'Add more screenshots'}
+          {busy ? readingLabel(stage, progress) : 'Add more screenshots'}
         </button>
         {busy && (
           <button type="button" className="btn-ghost btn-sm" onClick={cancel}>

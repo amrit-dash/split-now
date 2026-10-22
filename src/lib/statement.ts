@@ -82,3 +82,10 @@ export function buildExpense(d: DraftExpense, group: Group, order: MemberId[], c
     updatedAt: now,
   }
 }
+
+/** The busy line while screenshots are read: preparing them for AI, AI reading, or the phone reading (with how far). */
+export function readingLabel(stage: 'prep' | 'ai' | 'phone' | null, progress: number): string {
+  if (stage === 'prep') return 'Preparing screenshots…'
+  if (stage === 'phone') return progress > 0 ? `Reading on this phone… ${Math.min(99, Math.round(progress * 100))}%` : 'Reading on this phone…'
+  return 'Reading with AI…'
+}

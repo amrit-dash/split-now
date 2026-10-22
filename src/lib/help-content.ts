@@ -354,7 +354,8 @@ export const SECTIONS: HelpSection[] = [
     ],
     points: [
       'It reads the total, merchant, date and items.',
-      'Read on your phone, or by AI first when AI is on: the bot in the card’s corner, or Settings → AI features.',
+      'Read on your phone, or by AI first when AI is on: the AI switch in the card’s corner, or Settings → AI features.',
+      '**Statement** turns payment-app screenshots into a list to pick from, read on your phone or by AI the same way.',
       'It knows Indian bills: ₹, lakh, CGST and SGST, Grand Total.',
       'Nothing is added until you pick a group.',
       'AI never reads a private group’s bills.',

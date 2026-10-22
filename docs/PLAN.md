@@ -176,7 +176,7 @@ Splitwise solved "who owes whom". Its weak points today are where Split Now goes
 - ⏳ Open banking (Basiq), email forwarding
 
 ### 3.5c Statement import
-- ✅ Screenshots of a payment app's history (up to six) → `parseReceiptAi({ kind: 'statement' })` → transactions, each flagged against the chosen group by `src/lib/statement.ts` (`in_trip`, `outside_trip`, `maybe_added`, `received`, `own_transfer`, `refund`) → tick rows, fix names and categories → expenses. Lives on the Scan screen (`src/components/StatementImport.tsx`), needs AI: when nothing can read for the account the button is replaced by the reason and the right link, so nobody picks six screenshots and then fails. Progress stages, Cancel, offline check
+- ✅ Screenshots of a payment app's history (up to six) → `parseReceiptAi({ kind: 'statement' })` → transactions, each flagged against the chosen group by `src/lib/statement.ts` (`in_trip`, `outside_trip`, `maybe_added`, `received`, `own_transfer`, `refund`) → tick rows, fix names and categories → expenses. Lives on the Scan screen (`src/components/StatementImport.tsx`). With AI off or not available (or when the AI call fails), the phone reads the screenshots itself: OCR, then `src/lib/statement-ocr.ts` (one payment per line with an amount, named by that line or the nearest line above, dated by that line, the line below or the last day header), so the path never dead-ends; Scan's AI corner switch works on Statement as on Bill. Progress stages, Cancel, offline check
 
 ### 3.6 Insights (charts)
 - ✅ Hand-rolled SVG charts (`src/components/charts`: `Donut`, `AreaChart`, `Bars`; no charting dependency) with pointer tooltips and text alternatives (`aria-label` summaries, a visually hidden table, printed values on bars)

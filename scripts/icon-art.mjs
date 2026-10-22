@@ -203,6 +203,8 @@ const UI = {
   MicIcon: 'mic',
   MoonIcon: 'weather-moon',
   NotificationsIcon: 'alert-badge',
+  /* Scan's Read with AI switch (owner, 22 Oct 2026: the bot was overused): a brain with a sparkle */
+  AiReadIcon: 'brain-sparkle',
   PaletteIcon: 'color',
   /* Balances' Pay button (owner, 22 Oct 2026): a rupee note, not the paper plane */
   PayIcon: 'money',

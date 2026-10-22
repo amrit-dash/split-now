@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Expense, Group } from '@/types'
-import { bestGroup, buildExpense, findDuplicate, flagsFor, preselect, tidyName } from './statement'
+import { bestGroup, buildExpense, findDuplicate, flagsFor, preselect, readingLabel, tidyName } from './statement'
 
 const g = (id: string, extra: Partial<Group> = {}) =>
   ({
@@ -57,5 +57,15 @@ describe('statement helpers', () => {
     expect(e.paidBy).toEqual({ a: 6001 })
     expect(e.splits.a + e.splits.b).toBe(6001)
     expect(e.splitInput).toEqual({ selected: ['a', 'b'] })
+  })
+})
+
+describe('readingLabel', () => {
+  it('names who is reading, with progress on the phone', () => {
+    expect(readingLabel('prep', 0)).toBe('Preparing screenshots…')
+    expect(readingLabel('ai', 0)).toBe('Reading with AI…')
+    expect(readingLabel('phone', 0)).toBe('Reading on this phone…')
+    expect(readingLabel('phone', 0.42)).toBe('Reading on this phone… 42%')
+    expect(readingLabel('phone', 1)).toBe('Reading on this phone… 99%')
   })
 })
