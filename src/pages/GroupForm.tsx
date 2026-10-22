@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { watchEdgeFade } from '@/hooks/useEdgeFade'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ChevronRight, Loader2, Stamp } from 'lucide-react'
 import { GroupsIcon, LockIcon, MemberRemoveIcon } from '@/components/icons'
@@ -107,6 +108,13 @@ const KINDS: Array<{ kind: Kind; emoji: string; label: string; hint: string }> =
 type Field = 'name' | 'budget' | 'dates' | 'threshold' | 'editAuto'
 
 export default function GroupForm() {
+  // The type row: faded ends while it scrolls, and the chosen type scrolled into view when it appears.
+  const typeRow = useCallback((el: HTMLElement | null) => {
+    if (!el) return
+    const on = el.querySelector<HTMLElement>('[aria-checked="true"]')
+    if (on && on.offsetLeft + on.offsetWidth > el.clientWidth) el.scrollLeft = on.offsetLeft - 16
+    return watchEdgeFade(el)
+  }, [])
   const { groupId } = useParams()
   const [params] = useSearchParams()
   const existing = useGroup(groupId)
@@ -1080,7 +1088,9 @@ export default function GroupForm() {
               <div className="label" id="group-type-label">
                 Type
               </div>
-              <div className="grid auto-rows-fr grid-cols-3 gap-2">
+              {/* One sideways row, like Quick filters (owner, 22 Oct 2026): edge to edge inside the
+                  card's padding, faded at the ends while there's more, the chosen type in view. */}
+              <div ref={typeRow} className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 py-1" data-testid="group-types">
                 {SHARED_TYPES.map((t) => (
                   <button
                     key={t}
@@ -1088,12 +1098,12 @@ export default function GroupForm() {
                     role="radio"
                     aria-checked={type === t}
                     onClick={() => chooseType(t)}
-                    className={`chip min-h-14 w-full min-w-0 flex-col justify-center gap-0.5 rounded-2xl px-1.5 py-1.5 text-center leading-tight ${type === t ? 'chip-on' : ''}`}
+                    className={`chip min-h-11 shrink-0 gap-1.5 whitespace-nowrap ${type === t ? 'chip-on' : ''}`}
                   >
-                    <span aria-hidden className="text-lg leading-none">
+                    <span aria-hidden className="text-base leading-none">
                       {GROUP_TYPES[t].emoji}
                     </span>
-                    <span className="line-clamp-2 text-[13px]">{GROUP_TYPES[t].label}</span>
+                    {GROUP_TYPES[t].label}
                   </button>
                 ))}
               </div>

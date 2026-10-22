@@ -224,6 +224,10 @@ export function PlusButton({ groupId, onSheet }: { groupId?: string; onSheet: (i
   )
 }
 
+/** A bar at rest is a dot as wide as it is tall; at full voice it fills the 28 px row. */
+const BAR_MIN = 5
+const barPx = (h: number) => Math.round(BAR_MIN + Math.max(0, (h - 0.15) / 0.85) * (28 - BAR_MIN))
+
 /**
  * The talk pill above +: five bars, centred, that grow up and down with the voice. Words heard so far
  * widen it and run on the right, wrapping to a few lines (the bars stay centred); a finger slid away turns it to "Let go to cancel". Heights are
@@ -239,7 +243,8 @@ function TalkPill({ on, level, words, cancel }: { on: boolean; level: { current:
       const tick = (t: number) => {
         const h = barHeights(level.current, t)
         bars.current.forEach((b, i) => {
-          if (b) b.style.transform = `scaleY(${h[i]})`
+          // Real heights, not scaleY: a scaled bar squashes its round ends into corners.
+          if (b) b.style.height = `${barPx(h[i])}px`
         })
         raf = requestAnimationFrame(tick)
       }
@@ -247,7 +252,7 @@ function TalkPill({ on, level, words, cancel }: { on: boolean; level: { current:
       return () => cancelAnimationFrame(raf)
     }
     // Let go: they settle to dots and fade, then leave.
-    for (const b of bars.current) if (b) b.style.transform = 'scaleY(0.15)'
+    for (const b of bars.current) if (b) b.style.height = `${BAR_MIN}px`
     const t = setTimeout(() => setShown(false), 260)
     return () => clearTimeout(t)
   }, [on, level])
@@ -262,15 +267,15 @@ function TalkPill({ on, level, words, cancel }: { on: boolean; level: { current:
       className={`voice-pill voice-surface pointer-events-none absolute bottom-[calc(100%+3.25rem)] left-1/2 flex min-h-12 -translate-x-1/2 items-center gap-3 overflow-hidden px-4 py-2.5 transition-opacity duration-200 ${text ? 'rounded-3xl' : 'rounded-full'} ${cancel ? 'voice-cancel' : ''} ${on ? 'opacity-100' : 'opacity-0'}`}
       style={text ? { width: 'min(20rem, calc(100vw - 2rem))' } : { maxWidth: '6rem' }}
     >
-      <span className="relative flex h-7 shrink-0 items-center gap-[3px]">
+      <span className="relative flex h-7 shrink-0 items-center gap-1">
         {[0, 1, 2, 3, 4].map((i) => (
           <span
             key={i}
             ref={(el) => {
               bars.current[i] = el
             }}
-            className={`voice-bar block h-full w-[4px] origin-center rounded-full bg-gradient-to-b from-fill to-fill-to-400 ${cancel ? 'opacity-0' : ''}`}
-            style={{ transform: 'scaleY(0.15)' }}
+            className={`voice-bar block w-[5px] rounded-full bg-gradient-to-b from-fill to-fill-to-400 ${cancel ? 'opacity-0' : ''}`}
+            style={{ height: BAR_MIN }}
           />
         ))}
         {cancel && <X size={20} strokeWidth={2.6} className="absolute inset-0 m-auto text-rose-600 dark:text-rose-300" />}
