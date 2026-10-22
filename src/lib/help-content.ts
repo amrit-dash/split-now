@@ -37,10 +37,10 @@ export const SECTIONS: HelpSection[] = [
     story: {
       kind: 'pot',
       beats: [
-        'Each group is a shared pot. Pay for something and it goes in.',
-        'Every cost is shared out. Everyone in it owes their slice.',
-        'Split Now keeps count. You see one number: what you owe or are owed.',
-        'Settle up over UPI when you like. The pot is square again.',
+        'Pay for something, it goes in the pot.',
+        'Everyone owes their slice of the pot.',
+        'Split Now keeps count: one number each.',
+        'Settle up over UPI. Everyone’s square.',
       ],
     },
     points: [
@@ -60,11 +60,7 @@ export const SECTIONS: HelpSection[] = [
     keywords: ['balance', 'owe', 'owed', 'net', 'total', 'credit', 'debt'],
     story: {
       kind: 'seesaw',
-      beats: [
-        'A new group sits level. Nobody owes anybody.',
-        'Asha pays ₹900 for dinner for three. She is owed ₹600. Ravi and Meera owe ₹300 each.',
-        'They pay her back, and it levels out.',
-      ],
+      beats: ['A new group sits level. Nobody owes.', 'Asha pays ₹900. It tips her way.', 'They pay her back. Level again.'],
     },
     points: [
       'Your balance is what you paid minus your share.',
@@ -83,11 +79,7 @@ export const SECTIONS: HelpSection[] = [
     keywords: ['simplify', 'simplified', 'minimum', 'fewer', 'transfers', 'untangle', 'suggested payments'],
     story: {
       kind: 'untangle',
-      beats: [
-        'In a busy group, everyone owes a bit to everyone. A tangle of payments.',
-        'Simplify debts looks only at where each person ends up.',
-        'It pairs the biggest debts with the biggest credits. Fewer payments, everyone square.',
-      ],
+      beats: ['A busy group ends up in a tangle.', 'Only where each person ends up matters.', 'Three straight payments. Everyone square.'],
     },
     points: [
       'Every balance stays the same.',
@@ -107,11 +99,7 @@ export const SECTIONS: HelpSection[] = [
     keywords: ['rounding', 'paisa', 'cents', 'remainder', 'decimal', 'odd amount', 'equal split'],
     story: {
       kind: 'remainder',
-      beats: [
-        'Split ₹100 three ways and each share is ₹33.333…, which nobody can pay.',
-        'Round each down to ₹33.33 and they make ₹99.99. A paisa is missing.',
-        'The spare paisa goes to the first person in the group’s order: ₹33.34, ₹33.33 and ₹33.33.',
-      ],
+      beats: ['Cut ₹100 three ways: ₹33.333… each.', 'Round down and a paisa goes missing.', 'The spare paisa goes to the first person.'],
     },
     points: [
       'Every split works this way, Split by items too.',
@@ -130,13 +118,12 @@ export const SECTIONS: HelpSection[] = [
     keywords: ['encrypted', 'encryption', 'what is hidden', 'server', 'privacy', 'vault', 'secret'],
     story: {
       kind: 'vault',
-      beats: [
-        'A private group locks its words in a box: names, what each expense was, notes and chat.',
-        'Only people in the group get the key, after their pattern and passkey.',
-        'Amounts, dates and who paid stay outside, so balances still work. Locked, the app hides those too.',
-      ],
+      beats: ['Your group’s words go in a locked box.', 'Only your group gets the key.', 'Amounts stay on the tag outside.'],
     },
     points: [
+      'Locked away: names, what each expense was, notes and chat.',
+      'Outside: amounts, dates and who paid, so balances still work.',
+      'You get the key after your pattern and passkey. Locked, the app hides the amounts too.',
       'Pushes, invites and Pay me links say only “A private group”.',
       'AI features don’t run in private groups.',
       'A new phone loses nothing. The key comes back when you unlock.',
@@ -155,13 +142,10 @@ export const SECTIONS: HelpSection[] = [
     keywords: ['sms', 'filter', 'otp', 'which messages', 'privacy', 'captured payment'],
     story: {
       kind: 'filter',
-      beats: [
-        'Your phone gets all sorts: OTPs, offers, chats and bank alerts.',
-        'Only bank or UPI alerts about money leaving get through. The rest stay on your phone.',
-        'It waits in your Inbox as a captured payment until you sort it.',
-      ],
+      beats: ['Your phone gets all sorts of messages.', 'Only bank payments fall through.', 'It waits in your Inbox for you.'],
     },
     points: [
+      'Only bank or UPI alerts about money leaving get through. OTPs, offers and chats stay on your phone.',
       'Add your own rules: a minimum amount, or words to skip like SIP.',
       'By default, only payments during a trip are kept.',
       'Nothing is added to a group until you say yes.',
@@ -178,13 +162,14 @@ export const SECTIONS: HelpSection[] = [
     keywords: ['captured payment', 'sort', 'why', 'inbox', 'who for', 'personal', 'not shared'],
     story: {
       kind: 'sort',
-      beats: [
-        'A captured payment knows how much and where. It doesn’t know who it was for.',
-        'Only you know. Split it with a group, keep it Personal, or say Not shared.',
-        'Pick a group and it becomes an expense there. Nothing is added until you choose.',
-      ],
+      beats: ['A payment arrives. Who’s it for?', 'Only you know. Stamp it with a group.', 'Off it goes to that group.'],
     },
-    points: ['It waits in your Inbox under **Captured payments**.', 'Personal goes to your own wallet, not a group.', 'Not shared just clears it.'],
+    points: [
+      'It knows how much and where, not who it was for.',
+      'It waits in your Inbox under **Captured payments**.',
+      'Personal goes to your own wallet, not a group.',
+      'Not shared just clears it.',
+    ],
     open: { label: 'Inbox', to: '/inbox' },
     related: ['captured-payment', 'inbox'],
   },
@@ -193,15 +178,11 @@ export const SECTIONS: HelpSection[] = [
     icon: 'archive',
     chapter: 'account',
     title: 'Simple and Advanced, the same app',
-    summary: 'One kitchen. Simple keeps fewer drawers open.',
-    keywords: ['simple', 'advanced', 'mode', 'hidden', 'missing', 'where did it go', 'drawers'],
+    summary: 'One remote. Simple keeps the cover on.',
+    keywords: ['simple', 'advanced', 'mode', 'hidden', 'missing', 'where did it go', 'drawers', 'remote'],
     story: {
       kind: 'drawers',
-      beats: [
-        'Simple and Advanced are one kitchen. Simple opens the drawers you use every day.',
-        'Advanced opens the rest: auto-capture, approvals, wallets and more settings.',
-        'Close them again and nothing is thrown away. What’s inside keeps working.',
-      ],
+      beats: ['Simple shows a few big buttons.', 'Advanced slides the cover off.', 'Cover back on. Everything still works.'],
     },
     points: ['Switching only shows or hides. Your groups and settings stay.', 'Something arriving for you, like a payment to confirm, shows in both.'],
     open: { label: 'Preferences', to: '/settings/preferences' },
@@ -216,11 +197,7 @@ export const SECTIONS: HelpSection[] = [
     keywords: ['collect in', 'currency', 'convert', 'exchange rate', 'total', 'dollars', 'euro', 'abroad'],
     story: {
       kind: 'exchange',
-      beats: [
-        'Groups in other currencies leave you with amounts that don’t add up: $40, €25 and ₹1,200.',
-        'Collect in my currency turns each into yours at today’s rate.',
-        'You see one total, marked ≈ because rates move. Each group keeps its own currency.',
-      ],
+      beats: ['Groups abroad leave you with mixed coins.', 'Collect in my currency drops them in.', 'One total in ₹ comes out, marked ≈.'],
     },
     points: ['Only totals change. What anyone owes in a group stays in its currency.', 'Turn it off in Advanced, under Preferences.'],
     open: { label: 'Preferences', to: '/settings/preferences' },
@@ -1755,13 +1732,9 @@ export const SECTIONS: HelpSection[] = [
     inChapter: true,
     story: {
       kind: 'pro',
-      beats: [
-        'Each section you finish gets a tick, and the ring at the top of Help fills.',
-        'Finish every section and the ring reaches 100%. Congratulations.',
-        'You earn Pro: a ring round your photo and a PRO pill by your name.',
-      ],
+      beats: ['Each section you finish fills the ring.', 'Finish them all and it fills up.', 'You earn Pro: a ring round your photo.'],
     },
-    points: ['Others see it on Members and in 1:1s.', 'It’s yours to keep.'],
+    points: ['A PRO pill shows by your name too.', 'Others see it on Members and in 1:1s.', 'It’s yours to keep.'],
     related: ['help-guide'],
   },
 ]
